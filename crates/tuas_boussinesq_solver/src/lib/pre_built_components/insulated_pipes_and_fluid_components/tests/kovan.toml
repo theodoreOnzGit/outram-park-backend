@@ -2,6 +2,24 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/axial_conduction_verification.rs::reduced_thickness_increased_ua_test_check_fluid_array_and_insulation_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/axial_conduction_verification.rs::reduced_thickness_increased_ua_test_interal_thermal_resistance_check_fluid_array_only",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/axial_conduction_verification.rs::static_mixer_41_label_6_1_meter_test_reduced_thickness_increased_ua",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/axial_conduction_verification.rs::static_mixer_41_label_6_1_meter_test_reduced_thickness_increased_ua_fluid_array_only",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/fluid_mechanics.rs::single_pipe_internal_pressure_change_check",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_3_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_41_label_6_1_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_5_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_7_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_9_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/length_tests.rs::static_mixer_9_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt_extra_time",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/preliminaries.rs::assert_nodalised_ua_calcs",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/preliminaries.rs::cp_for_therminol_vp_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/preliminaries.rs::static_mixer_41_label_6_1_meter_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/preliminaries.rs::static_mixer_41_label_6_1_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tests/preliminaries.rs::static_mixer_41_label_6_reduced_insulation_thickness_1_meter_test",
+]
 
 [module."axial_conduction_verification.rs"]
 path = "crate::pre_built_components::insulated_pipes_and_fluid_components::tests::axial_conduction_verification"
@@ -670,3 +688,27 @@ uses = [
     "fn:f811c4c8869b08b0",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+failed = []

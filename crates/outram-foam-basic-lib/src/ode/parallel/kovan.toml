@@ -2,6 +2,34 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-basic-lib"
 dir = "crates/outram-foam-basic-lib/src/ode/parallel"
+test_ids = [
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::a_diverging_model_is_reported",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::a_fixed_rule_has_no_error_estimate",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::adaptive_matches_closed_forms",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::adaptive_tolerance_not_met_is_reported",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::dispatch_respects_the_size_floors",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::empty_batches_are_vacuously_ok",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::ensemble_bitwise_identical_across_backends",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::ensemble_matches_analytic_decay",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::ensemble_matches_harmonic_oscillator",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::fixed_rules_match_a_transcendental_reference",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::gauss_legendre_is_exact_to_its_degree",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::gauss_nodes_match_the_in_workspace_abramowitz_stegun_values",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::invalid_lanes_are_reported",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::lane_order_is_preserved",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::lumped_body_accuracy_is_set_by_the_relative_tolerance",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::max_steps_exceeded_is_reported",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::mixed_stepper_selection_reaches_each_lane",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::partial_failure_in_a_large_ensemble_is_reported",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::public_entry_points_agree_across_requested_backends",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::quadrature_bitwise_identical_across_backends_and_threads",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::quadrature_interval_conventions",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::quadrature_invalid_interval_is_reported",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::quadrature_not_finite_is_reported",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::simpson_and_trapezoid_are_exact_to_their_degree",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::stiff_pair_completes_stiff_and_fails_visibly_explicit",
+    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::zero_length_interval_completes_as_a_no_op",
+]
 
 [module."tests.rs"]
 path = "crate::ode::parallel::tests"
@@ -1140,3 +1168,37 @@ uses = [
     "fn:b81f02feba3aa0b7",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+]
+failed = []

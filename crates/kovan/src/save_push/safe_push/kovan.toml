@@ -2,6 +2,14 @@ schema_version = 1
 kind = "code_folder"
 crate = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan"
 dir = "crates/kovan/src/save_push/safe_push"
+test_ids = [
+    "crates/kovan/src/save_push/safe_push/tests.rs::a_branch_that_is_not_checked_out_is_refused",
+    "crates/kovan/src/save_push/safe_push/tests.rs::a_conflicting_remote_is_a_typed_error_and_the_local_commit_stays",
+    "crates/kovan/src/save_push/safe_push/tests.rs::a_moved_remote_is_merged_and_pushed_keeping_the_local_commit",
+    "crates/kovan/src/save_push/safe_push/tests.rs::a_moved_remote_with_unsaved_files_is_not_merged",
+    "crates/kovan/src/save_push/safe_push/tests.rs::any_other_push_failure_is_a_git_error",
+    "crates/kovan/src/save_push/safe_push/tests.rs::never_main_refuses_main_and_pushes_develop",
+]
 
 [module."tests.rs"]
 path = "crate::save_push::safe_push::tests"
@@ -236,3 +244,17 @@ uses = [
     "fn:51d0ea19d09bc062",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+failed = []

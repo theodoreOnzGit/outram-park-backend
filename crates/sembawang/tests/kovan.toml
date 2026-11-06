@@ -2,6 +2,31 @@ schema_version = 1
 kind = "code_folder"
 crate = "sembawang"
 dir = "crates/sembawang/tests"
+test_ids = [
+    "crates/sembawang/tests/accident_release.rs::a_cooler_shorter_transient_does_not_differentiate_them_either",
+    "crates/sembawang/tests/accident_release.rs::a_heat_cool_reheat_transient_is_flagged_as_incomparable_with_upstream",
+    "crates/sembawang/tests/accident_release.rs::nuclides_sharing_a_diffusion_bucket_release_identically",
+    "crates/sembawang/tests/accident_release.rs::tellurium_is_classified_as_a_depositing_aerosol_not_a_halogen",
+    "crates/sembawang/tests/accident_release.rs::the_chain_runs_and_produces_a_well_formed_source_term",
+    "crates/sembawang/tests/accident_release.rs::the_defect_pathway_carries_the_magnitude_of_the_release",
+    "crates/sembawang/tests/accident_release.rs::the_half_life_screen_reports_what_it_drops",
+    "crates/sembawang/tests/accident_release.rs::the_release_is_linear_in_the_inventory",
+    "crates/sembawang/tests/accident_release.rs::the_released_fractions_are_physical_and_are_reported",
+    "crates/sembawang/tests/chain_handoff.rs::a_release_starting_after_zero_gets_a_leading_empty_window",
+    "crates/sembawang/tests/chain_handoff.rs::noble_gases_deposit_exactly_zero_and_the_others_do_not",
+    "crates/sembawang/tests/chain_handoff.rs::padding_adds_no_activity_and_partitions_the_run_from_zero",
+    "crates/sembawang/tests/chain_handoff.rs::the_chain_is_linear_in_the_inventory",
+    "crates/sembawang/tests/normal_operation_pools_code_to_code.rs::every_constructor_starts_from_real_pools_and_empty_is_an_explicit_ablation",
+    "crates/sembawang/tests/normal_operation_pools_code_to_code.rs::sembawang_with_real_pools_matches_upstream_accident_case_on_mhtgr_case_a",
+    "crates/sembawang/tests/nuclide_names_code_to_code.rs::nuclide_names_are_handled_as_upstream_does",
+    "crates/sembawang/tests/venting_modes.rs::a_bad_prescription_is_an_error_not_a_clamp",
+    "crates/sembawang/tests/venting_modes.rs::a_non_uniform_isothermal_field_is_an_error_not_a_silent_zero",
+    "crates/sembawang/tests/venting_modes.rs::full_flow_through_bounds_upstream_on_a_heating_transient",
+    "crates/sembawang/tests/venting_modes.rs::full_flow_through_equals_upstream_on_an_isothermal_hold",
+    "crates/sembawang/tests/venting_modes.rs::gao_shi_ventilation_is_one_air_change_per_day_cut_off_at_72_h",
+    "crates/sembawang/tests/venting_modes.rs::prescribed_ones_equal_full_flow_through_and_a_half_halves_the_release",
+    "crates/sembawang/tests/venting_modes.rs::the_isothermal_hold_vents_fully_as_upstream_does",
+]
 
 [module."accident_release.rs"]
 path = "test:accident_release"
@@ -1119,3 +1144,34 @@ uses = [
     "fn:728b7d3b05cd21fc",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+failed = []

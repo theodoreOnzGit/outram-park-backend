@@ -2,6 +2,21 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/dimension_checks.rs::check_shell_side_fluid_hydraulic_diameter",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/dimension_checks.rs::check_shell_side_heat_trf_area",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/dimension_checks.rs::check_tube_side_reynolds_number_diffusivity",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/heat_transfer_correlations_checks.rs::check_high_bound_and_low_bound_shell_heat_trf_coeff",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/heat_transfer_correlations_checks.rs::check_wall_side_htc",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/set_a.rs::du_test_shell_and_tube_heat_exchanger_set_a",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/set_b.rs::du_test_shell_and_tube_heat_exchanger_set_b",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/set_c.rs::du_test_shell_and_tube_heat_exchanger_set_c",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/thermophsyical_property_checks.rs::hitec_thermal_cond_at_200_and_240_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/thermophsyical_property_checks.rs::prandtl_number_range_check",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/thermophsyical_property_checks.rs::prandtl_number_range_from_200_to_240_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/thermophsyical_property_checks.rs::yd325_thermal_cond_at_75_and_110_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/thermophsyical_property_checks.rs::yd325_tube_reynolds_prandtl_nusselt",
+]
 
 [module."dimension_checks.rs"]
 path = "crate::pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::dimension_checks"
@@ -334,3 +349,24 @@ uses = [
     "fn:f811c4c8869b08b0",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+failed = []

@@ -105,6 +105,7 @@ test_ids = [
     "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/mod.rs::enthalpy_guard_clamps_and_counts",
     "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/mod.rs::fvm_div_matches_explicit_upwind_divergence",
     "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/mod.rs::helium_htr10_default_taper_zeroes_hybrid",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/mod.rs::helium_htr10_full_power_is_deeply_subsonic",
     "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/mod.rs::hybrid_mode_is_noop_on_subsonic_gas_and_matches_pimple",
     "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/mod.rs::one_d_array_constructs_and_steps",
     "crates/outram-park-fork-coolprop/src/openfoam_algorithms/rhoPimpleFoam/mod.rs::rho_taper_window_defaults_and_roundtrips",
@@ -198,11 +199,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."central_upwind.rs".function]]
@@ -286,11 +287,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."central_upwind.rs".function]]
@@ -374,11 +375,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."central_upwind.rs".function]]
@@ -459,11 +460,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."central_upwind.rs".function]]
@@ -553,11 +554,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."central_upwind.rs".function]]
@@ -644,11 +645,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."central_upwind.rs".function]]
@@ -736,11 +737,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."central_upwind.rs".function]]
@@ -833,11 +834,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."central_upwind.rs".function]]
@@ -924,11 +925,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."central_upwind.rs".function]]
@@ -1014,11 +1015,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."central_upwind.rs".function]]
@@ -1110,11 +1111,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."central_upwind.rs".function]]
@@ -1316,10 +1317,10 @@ reached_by = [
     "#95",
     "#96",
     "#97",
-    "#106",
     "#107",
     "#108",
     "#109",
+    "#110",
 ]
 
 [[module."lateral_coupling.rs".function]]
@@ -1391,8 +1392,8 @@ reached_by = [
     "#55",
     "#88",
     "#91",
-    "#106",
     "#107",
+    "#108",
 ]
 physical_interface = true
 
@@ -1494,11 +1495,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."lateral_coupling.rs".function]]
@@ -1647,8 +1648,8 @@ reached_by = [
     "#93",
     "#96",
     "#97",
-    "#106",
     "#107",
+    "#108",
 ]
 physical_interface = true
 
@@ -1823,8 +1824,8 @@ reached_by = [
     "#55",
     "#88",
     "#89",
-    "#106",
     "#107",
+    "#108",
 ]
 physical_interface = true
 
@@ -1919,10 +1920,10 @@ reached_by = [
     "#95",
     "#96",
     "#97",
-    "#106",
     "#107",
     "#108",
     "#109",
+    "#110",
 ]
 physical_interface = true
 
@@ -2002,11 +2003,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 physical_interface = true
 
@@ -2118,8 +2119,8 @@ reached_by = [
     "#96",
     "#97",
     "#100",
-    "#106",
     "#107",
+    "#108",
 ]
 physical_interface = true
 
@@ -2290,8 +2291,8 @@ reached_by = [
     "#94",
     "#96",
     "#97",
-    "#106",
     "#107",
+    "#108",
 ]
 physical_interface = true
 
@@ -2367,8 +2368,8 @@ reached_by = [
     "#82",
     "#92",
     "#96",
-    "#106",
     "#107",
+    "#108",
 ]
 physical_interface = true
 
@@ -2427,8 +2428,8 @@ reached_by = [
     "#51",
     "#52",
     "#55",
-    "#106",
     "#107",
+    "#108",
 ]
 physical_interface = true
 
@@ -3306,7 +3307,6 @@ reached_by = [
     "#99",
     "#100",
     "#101",
-    "#102",
     "#103",
     "#104",
     "#105",
@@ -3314,6 +3314,7 @@ reached_by = [
     "#107",
     "#108",
     "#109",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -3426,7 +3427,6 @@ reached_by = [
     "#99",
     "#100",
     "#101",
-    "#102",
     "#103",
     "#104",
     "#105",
@@ -3434,6 +3434,7 @@ reached_by = [
     "#107",
     "#108",
     "#109",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -3516,11 +3517,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -3633,7 +3634,6 @@ reached_by = [
     "#99",
     "#100",
     "#101",
-    "#102",
     "#103",
     "#104",
     "#105",
@@ -3641,6 +3641,7 @@ reached_by = [
     "#107",
     "#108",
     "#109",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -3722,11 +3723,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -3825,7 +3826,6 @@ reached_by = [
     "#99",
     "#100",
     "#101",
-    "#102",
     "#103",
     "#104",
     "#105",
@@ -3833,6 +3833,7 @@ reached_by = [
     "#107",
     "#108",
     "#109",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -3931,7 +3932,6 @@ reached_by = [
     "#99",
     "#100",
     "#101",
-    "#102",
     "#103",
     "#104",
     "#105",
@@ -3939,6 +3939,7 @@ reached_by = [
     "#107",
     "#108",
     "#109",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -4037,7 +4038,6 @@ reached_by = [
     "#99",
     "#100",
     "#101",
-    "#102",
     "#103",
     "#104",
     "#105",
@@ -4045,6 +4045,7 @@ reached_by = [
     "#107",
     "#108",
     "#109",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -4143,7 +4144,6 @@ reached_by = [
     "#99",
     "#100",
     "#101",
-    "#102",
     "#103",
     "#104",
     "#105",
@@ -4151,6 +4151,7 @@ reached_by = [
     "#107",
     "#108",
     "#109",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -4233,11 +4234,11 @@ reached_by = [
     "#97",
     "#99",
     "#100",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -4325,8 +4326,8 @@ reached_by = [
     "#94",
     "#96",
     "#97",
-    "#106",
     "#107",
+    "#108",
 ]
 
 [[module."mod.rs".function]]
@@ -4409,11 +4410,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -4497,11 +4498,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -4586,11 +4587,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -4713,7 +4714,6 @@ reached_by = [
     "#99",
     "#100",
     "#101",
-    "#102",
     "#103",
     "#104",
     "#105",
@@ -4721,6 +4721,7 @@ reached_by = [
     "#107",
     "#108",
     "#109",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -4840,7 +4841,6 @@ reached_by = [
     "#99",
     "#100",
     "#101",
-    "#102",
     "#103",
     "#104",
     "#105",
@@ -4848,6 +4848,7 @@ reached_by = [
     "#107",
     "#108",
     "#109",
+    "#110",
 ]
 physical_interface = true
 
@@ -4935,11 +4936,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -5042,11 +5043,11 @@ reached_by = [
     "#97",
     "#98",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -5112,9 +5113,9 @@ reached_by = [
     "#68",
     "#69",
     "#70",
-    "#106",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 physical_interface = true
 
@@ -5258,11 +5259,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -5354,11 +5355,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -5383,8 +5384,8 @@ reached_by = [
     "#86",
     "#93",
     "#99",
-    "#102",
     "#103",
+    "#104",
 ]
 
 [[module."mod.rs".function]]
@@ -5517,8 +5518,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
-    "#106",
     "#107",
+    "#108",
 ]
 physical_interface = true
 
@@ -5604,8 +5605,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
-    "#106",
     "#107",
+    "#108",
 ]
 physical_interface = true
 
@@ -5723,8 +5724,8 @@ reached_by = [
     "#54",
     "#55",
     "#56",
-    "#106",
     "#107",
+    "#108",
 ]
 physical_interface = true
 
@@ -5847,8 +5848,8 @@ reached_by = [
     "#78",
     "#81",
     "#83",
-    "#106",
     "#107",
+    "#108",
 ]
 
 [[module."mod.rs".function]]
@@ -5942,8 +5943,8 @@ reached_by = [
     "#81",
     "#82",
     "#83",
-    "#106",
     "#107",
+    "#108",
 ]
 
 [[module."mod.rs".function]]
@@ -5960,7 +5961,7 @@ uses = [
     "fn:5821ca3212ec4ec1",
     "fn:5f496290cf807444",
 ]
-reached_by = ["#102"]
+reached_by = ["#103"]
 
 [[module."mod.rs".function]]
 id = "fn:49fbf889ea92e4ee"
@@ -5976,7 +5977,7 @@ uses = [
     "fn:5821ca3212ec4ec1",
     "fn:5f496290cf807444",
 ]
-reached_by = ["#102"]
+reached_by = ["#103"]
 
 [[module."mod.rs".function]]
 id = "fn:68f3d191cccf1a72"
@@ -6015,7 +6016,7 @@ lines = [
 hash = "sha256:92bd32e9412b4d656e26ff295e159aa19b70ce3d0b1d44cad27b8e7bd5eb3dbc"
 doc_hash = "sha256:d2196e144c89088454abfc9d3e49d1953bd9ce7970a0d31cd99c4edbbed412fe"
 uses = ["fn:5f496290cf807444"]
-reached_by = ["#104"]
+reached_by = ["#105"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -6029,7 +6030,7 @@ lines = [
 hash = "sha256:b80600f6dd8230cd9900d8a7f479578fbd3b9360bda5793d414cc015b10d6d80"
 doc_hash = "sha256:019de0c751847a40777b2ec3875d2812d7c4c06fd303e63c9728d34206ce5d49"
 uses = ["fn:5f496290cf807444"]
-reached_by = ["#104"]
+reached_by = ["#105"]
 physical_interface = true
 
 [[module."mod.rs".function]]
@@ -6164,11 +6165,11 @@ reached_by = [
     "#96",
     "#97",
     "#99",
-    "#102",
     "#103",
-    "#106",
+    "#104",
     "#107",
-    "#109",
+    "#108",
+    "#110",
 ]
 
 [[module."mod.rs".function]]
@@ -6364,3 +6365,50 @@ doc_hash = "sha256:a9e76b05411235fa19fd425921d17f95712269ea27c93655a34360e039d7e
 callees = ["fn:a9e5181d9a48d7b4"]
 uses = ["fn:76b3c86a3f053867"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#60",
+    "#63",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#102",
+    "#104",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+]
+failed = []
