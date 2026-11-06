@@ -86,6 +86,12 @@ jobs:
         with:
           key: pages-docs
           cache-on-failure: true
+      # rust-cache restores `target/`, and with it the PREVIOUS run's
+      # `target/pages`. Every job starts from an empty output folder, or the
+      # stale site would be uploaded beside this run's (a warm run on
+      # 2026-11-06 put rustdoc under api/doc/ and lost api/<crate>/).
+      - name: Empty the output folder (rust-cache restores the last one)
+        run: rm -rf target/pages
       - uses: taiki-e/install-action@v2
         with:
           tool: mdbook
@@ -128,6 +134,12 @@ jobs:
         with:
           key: pages-callgraph
           cache-on-failure: true
+      # rust-cache restores `target/`, and with it the PREVIOUS run's
+      # `target/pages`. Every job starts from an empty output folder, or the
+      # stale site would be uploaded beside this run's (a warm run on
+      # 2026-11-06 put rustdoc under api/doc/ and lost api/<crate>/).
+      - name: Empty the output folder (rust-cache restores the last one)
+        run: rm -rf target/pages
       # web-kovan's per-crate call-graph cache: a crate is re-built only
       # when its key changes (kovan-cli call-graph-keys), and rust-analyzer
       # is not run at all when no key changed. Restored from the newest,
@@ -205,6 +217,12 @@ jobs:
         with:
           key: pages-demos
           cache-on-failure: true
+      # rust-cache restores `target/`, and with it the PREVIOUS run's
+      # `target/pages`. Every job starts from an empty output folder, or the
+      # stale site would be uploaded beside this run's (a warm run on
+      # 2026-11-06 put rustdoc under api/doc/ and lost api/<crate>/).
+      - name: Empty the output folder (rust-cache restores the last one)
+        run: rm -rf target/pages
       - name: wasm-bindgen version pinned by Cargo.lock
         id: wb
         run: |
@@ -240,6 +258,12 @@ jobs:
         with:
           key: pages-assemble
           cache-on-failure: true
+      # rust-cache restores `target/`, and with it the PREVIOUS run's
+      # `target/pages`. Every job starts from an empty output folder, or the
+      # stale site would be uploaded beside this run's (a warm run on
+      # 2026-11-06 put rustdoc under api/doc/ and lost api/<crate>/).
+      - name: Empty the output folder (rust-cache restores the last one)
+        run: rm -rf target/pages
       # The three partial sites share no file; merged into one folder.
       - uses: actions/download-artifact@v4
         with:

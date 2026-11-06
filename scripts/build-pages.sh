@@ -218,6 +218,7 @@ if [[ -z "${CI:-}" ]] && systemd-run --user --scope -q true 2>/dev/null; then
   echo "cargo doc capped at $MEM_MAX RAM, -j $JOBS"
 fi
 "${cap[@]}" cargo doc --release --no-deps --lib -j "$JOBS" --target-dir "$DOC_TARGET" "${pkgs[@]}"
+rm -rf "$OUT/api"   # cp -r into an existing folder would nest it as api/doc
 cp -r "$DOC_TARGET/doc" "$OUT/api"
 rm -rf "$OUT/api/src" "$OUT/api/.lock"
 }
