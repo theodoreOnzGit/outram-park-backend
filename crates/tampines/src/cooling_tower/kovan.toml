@@ -17,3 +17,10 @@ lines = [
 hash = "sha256:b58b1adb6455c5a035beb541325dbff57f24382426e88017345d4c8dce95cfab"
 doc_hash = "sha256:54351fb760bed297f62c4120445cb3ccc8a46a2f743d605df1c944f3dd2c5760"
 uses = ["fn:68b34d3619147766"]
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = []
+failed = []

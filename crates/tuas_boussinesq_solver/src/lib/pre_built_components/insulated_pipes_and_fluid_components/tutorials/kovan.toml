@@ -2,6 +2,14 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tutorials"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tutorials/tutorial_1.rs::fluid_mechanics_basics",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tutorials/tutorial_2.rs::fluid_mechanics_get_mass_flowrate_from_pressure_drop",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tutorials/tutorial_3.rs::fluid_mechanics_get_mass_flowrate_from_pressure_chg",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tutorials/tutorial_4.rs::heated_flow_through_a_pipe",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tutorials/tutorial_5.rs::thermal_hydraulics_flow_through_a_pipe",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_pipes_and_fluid_components/tutorials/tutorial_6.rs::gfhr_pipe_with_custom_graphite_material",
+]
 
 [module."mod.rs"]
 path = "crate::pre_built_components::insulated_pipes_and_fluid_components::tutorials"
@@ -188,3 +196,17 @@ uses = [
     "fn:de020efa1d48c9ac",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+failed = []

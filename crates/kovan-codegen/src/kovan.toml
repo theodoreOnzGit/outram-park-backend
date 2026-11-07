@@ -13,6 +13,7 @@ test_ids = [
     "crates/kovan-codegen/src/lib.rs::unimplemented_catalogue_entries_report_the_method",
     "crates/kovan-codegen/src/linear/mod.rs::generate_is_deterministic",
     "crates/kovan-codegen/src/linear/mod.rs::unimplemented_variants_error",
+    "crates/kovan-codegen/src/macros_support.rs::declarative_macro_finds_dottie_number",
     "crates/kovan-codegen/src/macros_support.rs::declarative_scaffold_contains_the_macro",
     "crates/kovan-codegen/src/macros_support.rs::scaffold_is_deterministic_and_nonempty",
     "crates/kovan-codegen/src/nonlinear/mod.rs::generate_is_deterministic",
@@ -72,7 +73,6 @@ reached_by = [
     "#4",
     "#5",
     "#6",
-    "#17",
     "#18",
     "#19",
     "#20",
@@ -98,6 +98,7 @@ reached_by = [
     "#40",
     "#41",
     "#42",
+    "#43",
 ]
 
 [[module."lib.rs".function]]
@@ -122,7 +123,6 @@ reached_by = [
     "#6",
     "#7",
     "#8",
-    "#19",
     "#20",
     "#21",
     "#22",
@@ -146,6 +146,7 @@ reached_by = [
     "#40",
     "#41",
     "#42",
+    "#43",
 ]
 
 [[module."lib.rs".function]]
@@ -168,9 +169,8 @@ reached_by = [
     "#4",
     "#5",
     "#6",
-    "#11",
     "#12",
-    "#19",
+    "#13",
     "#20",
     "#21",
     "#22",
@@ -194,6 +194,7 @@ reached_by = [
     "#40",
     "#41",
     "#42",
+    "#43",
 ]
 
 [[module."lib.rs".function]]
@@ -216,9 +217,8 @@ reached_by = [
     "#4",
     "#5",
     "#6",
-    "#13",
     "#14",
-    "#19",
+    "#15",
     "#20",
     "#21",
     "#22",
@@ -242,6 +242,7 @@ reached_by = [
     "#40",
     "#41",
     "#42",
+    "#43",
 ]
 
 [[module."lib.rs".function]]
@@ -271,7 +272,6 @@ reached_by = [
     "#4",
     "#5",
     "#6",
-    "#19",
     "#20",
     "#21",
     "#22",
@@ -295,6 +295,7 @@ reached_by = [
     "#40",
     "#41",
     "#42",
+    "#43",
 ]
 
 [[module."lib.rs".function]]
@@ -318,7 +319,6 @@ reached_by = [
     "#6",
     "#7",
     "#8",
-    "#11",
     "#12",
     "#13",
     "#14",
@@ -343,11 +343,12 @@ reached_by = [
     "#33",
     "#34",
     "#35",
-    "#37",
+    "#36",
     "#38",
     "#39",
     "#40",
-    "#42",
+    "#41",
+    "#43",
 ]
 
 [[module."lib.rs".function]]
@@ -390,7 +391,6 @@ reached_by = [
     "#3",
     "#4",
     "#6",
-    "#19",
     "#20",
     "#21",
     "#22",
@@ -407,11 +407,12 @@ reached_by = [
     "#33",
     "#34",
     "#35",
-    "#37",
+    "#36",
     "#38",
     "#39",
     "#40",
-    "#42",
+    "#41",
+    "#43",
 ]
 
 [[module."lib.rs".function]]
@@ -584,8 +585,8 @@ lines = [
 hash = "sha256:4313024f44a02263571b958a16e304ab2f89f5b1e71d1c5ffa0889a2729d5b4d"
 doc_hash = "sha256:5178db0efa50dd636aae65516e4f05e9e07a6363f8f5bff205a26a3e17aeee61"
 reached_by = [
-    "#9",
     "#10",
+    "#11",
 ]
 
 [[module."macros_support.rs".function]]
@@ -607,8 +608,8 @@ uses = [
     "fn:fe880754a5789bc9",
 ]
 reached_by = [
-    "#9",
     "#10",
+    "#11",
 ]
 
 [[module."macros_support.rs".function]]
@@ -624,8 +625,8 @@ lines = [
 hash = "sha256:b5777dd1c12e2d912c6111c09ed972322d477652bd56084d6565b9478d809bee"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
-    "#9",
     "#10",
+    "#11",
 ]
 
 [[module."macros_support.rs".function]]
@@ -641,8 +642,8 @@ lines = [
 hash = "sha256:53b57768d9ebbd380819cb189477b9d56bd8c65759bac114a444c9a42e7d226f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
-    "#9",
     "#10",
+    "#11",
 ]
 
 [[module."macros_support.rs".function]]
@@ -658,8 +659,8 @@ lines = [
 hash = "sha256:f8593d09d57195b29642b7722bf87298663146c3f2fce8e5d51dc5b7213076fd"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
-    "#9",
     "#10",
+    "#11",
 ]
 
 [[module."macros_support.rs".function]]
@@ -675,8 +676,8 @@ lines = [
 hash = "sha256:971ccfd71d06c9f70b6574e142da07365c53535ce3c72711e2d4048392060780"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
-    "#9",
     "#10",
+    "#11",
 ]
 
 [[module."macros_support.rs".function]]
@@ -692,8 +693,8 @@ lines = [
 hash = "sha256:d38f0c41f4d2990576b5db3ce53bb253adbdd597c55240eca9df2fa281caf1e6"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 reached_by = [
-    "#9",
     "#10",
+    "#11",
 ]
 
 [[module."macros_support.rs".function]]
@@ -735,3 +736,55 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = ["fn:0a3492130b65d77c"]
 uses = ["fn:fe880754a5789bc9"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+failed = []

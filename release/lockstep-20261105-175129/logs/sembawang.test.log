@@ -1,0 +1,430 @@
+    Blocking waiting for file lock on build directory
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:24:9
+   |
+24 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+25 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+26 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1132:7
+     |
+1132 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:182:19
+    |
+169 | impl Site {
+    | --------- associated function in this implementation
+...
+182 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `outram-mc-libs` (lib) generated 1 warning
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l.rs:6:5
+  |
+6 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l_high_temp.rs:79:5
+   |
+79 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/copper.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/fiberglass.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/nuclear_graphite.rs:53:5
+   |
+53 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/pyrogel_hps.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: function `relative_bracketed_root` is never used
+   --> crates/tuas_boussinesq_solver/src/lib/numerical_methods.rs:285:15
+    |
+285 | pub(crate) fn relative_bracketed_root<F: Fn(f64) -> f64>(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tuas_boussinesq_solver` (lib) generated 7 warnings (run `cargo fix --lib -p tuas_boussinesq_solver` to apply 6 suggestions)
+   Compiling teh-o-prke v0.1.8 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/teh-o-prke)
+   Compiling outram-park-fork-offbeat v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-offbeat)
+warning: unused import: `petir::mathf::RealMath`
+   --> crates/tampines/src/multiphase_1d/two_fluid.rs:316:5
+    |
+316 | use petir::mathf::RealMath;
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `petir::mathf::RealMath`
+   --> crates/tampines/src/multiphase_1d/drift_flux.rs:101:5
+    |
+101 | use petir::mathf::RealMath;
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `tampines` (lib) generated 2 warnings
+   Compiling sembawang v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/sembawang)
+warning: unused variable: `g`
+    --> crates/sembawang/src/bwr_mark1/core.rs:2306:13
+     |
+2306 |         let g = geom(&Params::default());
+     |             ^ help: if this is intentional, prefix it with an underscore: `_g`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `sembawang` (lib test) generated 1 warning (run `cargo fix --lib -p sembawang --tests` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 1m 48s
+     Running unittests src/lib.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/sembawang-0b44cea5e0d8608b)
+
+running 156 tests
+test accident::venting::tests::a_gappy_mask_makes_the_prefix_pairing_wrong_and_the_gather_right ... ok
+test accident::venting::tests::a_monotonic_heat_up_vents_contiguously_and_matches_a_prefix ... ok
+test accident::venting::tests::a_venting_time_off_the_axis_is_an_error_not_a_silent_mispairing ... ok
+test accident::venting::tests::a_single_venting_sample_counts_as_contiguous ... ok
+test accident::venting::tests::the_times_accessor_gathers_rather_than_truncating ... ok
+test accident::venting::tests::gathering_from_an_already_truncated_array_is_rejected - should panic ... ok
+test ap1000_ted::tests::digitised_peaks_match_table_3_within_one_pixel ... ok
+test ap1000_ted::tests::eight_groups_loaded_verbatim ... ok
+test bwr_mark1::aerosol::tests::the_maeros_kernels_reach_their_limits ... ok
+test bwr_mark1::aerosol::tests::fallout_and_deposition_follow_melcor ... ok
+test bwr_mark1::cavity::tests::a_hot_pool_ablates_and_reduces_the_concrete_gases ... ok
+test ap1000_ted::tests::total_interpolates_without_extrapolating ... ok
+test bwr_mark1::aerosol::tests::tracers_move_with_the_particles ... ok
+test bwr_mark1::compare::tests::the_ablation_table_on_the_network ... ignored, multiple hours: 70 network runs of 26 h each
+test bwr_mark1::aerosol::tests::the_sectional_scheme_matches_smoluchowski_and_settles_exactly ... ok
+test bwr_mark1::compare::tests::the_curve_comparisons_measure_what_they_say ... ok
+test bwr_mark1::compare::tests::the_network_baseline_is_pinned ... ignored, no regression pin until the network model is checked (maintainer 2026-11-02: unnecessary to pin a regression when not even sure of the model yet; gh:#1110)
+test bwr_mark1::compare::tests::the_ensemble_reproduces_the_default_and_reports_quartiles ... ok
+test bwr_mark1::compare::tests::verdicts_place_values_against_bands ... ok
+test bwr_mark1::containment::spray_tests::the_lumped_drywell_takes_the_spray ... ok
+test bwr_mark1::containment::spray_tests::the_spray_closes_its_energy_balance ... ok
+test bwr_mark1::containment::tests::a_leak_to_the_atmosphere_chokes ... ok
+test bwr_mark1::containment::tests::air_conductivity_matches_the_tables ... ok
+test bwr_mark1::containment::tests::an_idle_containment_holds_its_pressure ... ok
+test bwr_mark1::containment::tests::relief_steam_heats_the_pool_by_its_enthalpy ... ok
+test bwr_mark1::containment::tests::the_building_burns_by_melcors_bur_rates ... ok
+test bwr_mark1::containment::tests::the_building_ignites_by_melcors_bur_criteria ... ok
+test bwr_mark1::containment::tests::the_drywell_wall_through_tampines_reproduces_the_containment ... ok
+test bwr_mark1::containment_fp::tests::the_decay_heat_is_each_locations_share_and_transport_conserves ... ok
+test bwr_mark1::containment_network::drawing::tests::the_drawing_shows_what_the_network_holds ... ok
+test bwr_mark1::core::tests::a_covered_core_hands_its_decay_heat_to_the_water ... ok
+test bwr_mark1::core::tests::a_dry_core_conserves_enthalpy_with_temperature_dependent_properties ... ok
+test bwr_mark1::core::tests::a_dry_core_without_steam_heats_adiabatically ... ok
+test bwr_mark1::core::tests::lipinski_dryout_matches_a_hand_value ... ok
+test bwr_mark1::core::tests::radiation_follows_melcors_emissivities_and_conserves ... ok
+test bwr_mark1::core::tests::steam_brings_its_enthalpy_above_298_k_into_the_reaction ... ok
+test bwr_mark1::core::tests::the_axial_shape_is_normalised_and_peaked ... ok
+test bwr_mark1::core::tests::the_b4c_reacts_as_melcor_says ... ok
+test bwr_mark1::core::tests::the_blade_steel_reacts_as_melcor_says ... ok
+test bwr_mark1::core::tests::the_bottom_of_the_core_radiates_to_the_lower_plenum ... ok
+test bwr_mark1::core::tests::the_core_plate_yields_where_melcor_says ... ok
+test bwr_mark1::core::tests::the_diffusion_limit_follows_melcors_equation ... ok
+test bwr_mark1::core::tests::the_lower_head_wall_conserves_energy_and_creeps_by_larson_miller ... ok
+test bwr_mark1::core::tests::the_matpro_tables_are_positive_and_invert ... ok
+test bwr_mark1::core::tests::the_oxidation_rate_is_continuous_and_rising ... ok
+test bwr_mark1::core::tests::the_plenum_pool_convects_as_melcor_says ... ok
+test bwr_mark1::core::tests::uo2_is_conserved_through_its_candling ... ok
+test bwr_mark1::core::tests::uo2_release_follows_corsor_m ... ok
+test bwr_mark1::core::tests::volatile_release_follows_corsor_m ... ok
+test bwr_mark1::core::tests::zircaloy_is_conserved_through_candling ... ok
+test bwr_mark1::decay::tests::decay_heat_follows_the_ans_1979_form ... ok
+test bwr_mark1::fdi::tests::debris_falls_through_the_pedestal_water_as_melcor_says ... ok
+test bwr_mark1::fp_decay::tests::the_cesium_137_share_is_the_summations ... ok
+test bwr_mark1::fp_decay::tests::the_decay_graph_is_ordered ... ok
+test bwr_mark1::fp_decay::tests::the_element_table_is_the_summation_and_matches_ans ... ok
+test bwr_mark1::gas::tests::the_moved_fits_use_this_crates_constants ... ok
+test bwr_mark1::internals::tests::the_dome_internals_cool_the_gas_and_keep_the_heat ... ok
+test bwr_mark1::iodine::tests::hydrolysis_and_cs_oh_raise_the_partition ... ok
+test bwr_mark1::iodine::tests::the_iodine_equilibrium_closes ... ok
+test bwr_mark1::msl::tests::a_steam_line_creeps_by_melcors_functions ... ok
+test bwr_mark1::params::tests::every_input_carries_its_documented_tag ... ok
+test bwr_mark1::params::tests::the_derived_core_is_the_right_size ... ok
+test bwr_mark1::params::tests::units_2_and_3_derive_from_their_sources ... ok
+test bwr_mark1::pool_surface::tests::the_bubble_efficiency_follows_the_subcooling ... ok
+test bwr_mark1::pool_surface::tests::the_surface_evaporates_and_condenses_with_the_right_signs ... ok
+test bwr_mark1::rn_volume::tests::a_volume_conserves_cesium_and_grows_its_aerosol ... ok
+test bwr_mark1::rn_volume::tests::classes_condense_by_area_unless_lumped ... ok
+test bwr_mark1::rn_volume::tests::condensate_adds_to_the_particles ... ok
+test bwr_mark1::compare::tests::elasticities_rank_inputs_by_their_effect has been running for over 60 seconds
+test bwr_mark1::compare::tests::the_ablation_table_has_every_run_and_band has been running for over 60 seconds
+test bwr_mark1::source::tests::the_model_release_hands_off_to_changi ... ok
+test bwr_mark1::compare::tests::the_uncalibrated_baseline_is_pinned has been running for over 60 seconds
+test bwr_mark1::source::tests::the_release_carried_downwind ... ok
+test bwr_mark1::compare::tests::elasticities_rank_inputs_by_their_effect ... ok
+test bwr_mark1::sparc::tests::settling_onto_an_oblate_bubble_takes_its_projected_area ... ok
+test bwr_mark1::sparc::tests::the_sparc_pieces_match_hand_values ... ok
+test bwr_mark1::sparc::tests::the_swarm_scrubs_iodine_vapour_by_its_partition ... ok
+test bwr_mark1::sparc::tests::the_swarm_scrubs_large_particles_and_passes_small_ones ... ok
+test bwr_mark1::steam::tests::the_mixture_solve_inverts_the_table ... ok
+test bwr_mark1::steam::tests::the_table_matches_the_steam_tables_between_its_points ... ok
+test bwr_mark1::tests::a_dry_vessel_blows_down_with_its_energy ... ok
+test bwr_mark1::tests::a_dry_vessel_is_not_emptied_by_a_large_break ... ok
+test bwr_mark1::source::tests::windows_carry_each_hours_release ... ok
+test bwr_mark1::tests::cesium_is_conserved_from_fuel_to_stack ... ok
+test bwr_mark1::tests::a_dry_vessel_is_not_emptied_by_the_internals ... ok
+test bwr_mark1::tests::hydrogen_lowers_the_choked_mass_flux ... ok
+test bwr_mark1::tests::noble_gas_is_conserved_from_fuel_to_stack ... ok
+test bwr_mark1::tests::the_blades_b4c_reacts_up_to_melcors_cap ... ok
+test bwr_mark1::tests::the_containment_network_is_the_default ... ok
+test bwr_mark1::tests::changed_inputs_reach_every_part ... ok
+test bwr_mark1::tests::the_headless_run_is_deterministic ... ok
+test bwr_mark1::tests::the_headless_run_matches_the_committed_fixture ... ignored, no regression pin until the network model is checked (maintainer 2026-11-02: unnecessary to pin a regression when not even sure of the model yet; gh:#1110)
+test bwr_mark1::tests::the_level_map_inverts ... ok
+test bwr_mark1::tests::the_debris_falls_through_the_pedestal_water ... ok
+test bwr_mark1::tests::the_lumped_headless_run_matches_its_fixture ... ok
+test bwr_mark1::tests::the_network_plant_over_30_hours_pins ... ignored, no regression pin until the network model is checked (maintainer 2026-11-02: unnecessary to pin a regression when not even sure of the model yet; gh:#1110). Set after the run at d16ec33f0; gh:#1114 and #1116-#1120 have moved the network since
+test bwr_mark1::tests::the_swollen_level_follows_bubble_rise_and_its_cap ... ok
+test bwr_mark1::tests::the_vessel_conserves_mass_and_energy ... ok
+test bwr_mark1::tests::the_vessel_starts_at_its_initial_state ... ok
+test bwr_mark1::tests::the_whole_sequence_stays_in_physical_bounds ... ok
+test bwr_mark1::tests::three_workers_are_one_worker ... ok
+test bwr_mark1::tests::three_workers_are_one_worker_on_the_lumped_containment ... ok
+test bwr_mark1::turbine_pump::tests::l8_trips_an_injecting_pump_only_while_dc_lasts ... ok
+test bwr_mark1::turbine_pump::tests::the_flows_conserve_energy_and_carry_over_limits_them ... ok
+test bwr_mark1::turbine_pump::tests::the_isentropic_drop_matches_a_hand_calculation ... ok
+test bwr_mark1::unit_tests::each_unit_builds_its_own_network_and_the_unit_crosses_the_wire ... ok
+test bwr_mark1::unit_tests::three_workers_are_one_worker_for_unit2 ... ok
+test bwr_mark1::units23::tests::an_event_is_due_in_one_step_only ... ok
+test bwr_mark1::units23::tests::the_sequences_are_ordered_cited_and_consistent_with_their_clock_times ... ok
+test bwr_mark1::vapour::tests::the_trap_melt_step_conserves_and_relaxes ... ok
+test bwr_mark1::vapour::tests::vapour_diffusivity_is_chapman_enskogs ... ok
+test bwr_mark1::vapour::tests::vapour_pressures_are_melcors_continuous_curves ... ok
+test error::tests::a_default_caveats_reports_nothing ... ok
+test error::tests::every_caveat_has_a_line ... ok
+test htr10::tests::only_silver_carries_floored_negative_windows ... ok
+test htr10::tests::plant_parameters_read_the_named_pools_and_lift_off ... ok
+test htr10::tests::the_dlofc_shape_matches_the_published_rise ... ok
+test htr10::tests::the_estimated_cooldown_parameters_cannot_move_the_release ... ok
+test htr10::tests::the_geometry_is_htr10s_and_the_two_crates_agree ... ok
+test htr10::tests::the_panama_seam_changes_the_release_and_the_ablation_proves_it ... ok
+test htr10::tests::the_seam_sets_exactly_one_field ... ok
+test htr10::tests::the_time_grid_converges_at_second_order_and_the_error_is_stated ... ok
+test htr10::tests::the_transient_is_consistent_with_the_reports_own_bound ... ok
+test htr10::tests::the_unmodelled_nuclides_are_named_rather_than_dropped_silently ... ok
+test htr10::tests::thermal_decomposition_takes_over_where_the_report_says_it_does ... ok
+test inventory::tests::a_nuclide_with_the_wrong_ring_count_is_rejected ... ok
+test inventory::tests::every_triso_atops_name_round_trips_through_an_isotope ... ok
+test inventory::tests::names_come_back_in_order_for_the_selection_call ... ok
+test inventory::tests::only_ring_or_whole_core_inventories_have_a_ring_count ... ok
+test inventory::tests::restriction_to_triso_atops_reports_what_it_leaves_out ... ok
+test inventory::tests::the_axial_distribution_conserves_the_ring_total ... ok
+test inventory::tests::the_unit_inventory_is_one_curie_per_ring_per_nuclide ... ok
+test lwr_comparison::tests::a_near_isothermal_air_ingress_still_vents ... ok
+test lwr_comparison::tests::arm_columns_are_tier_ordered_and_match_the_row ... ok
+test lwr_comparison::tests::bounding_comparison_carries_the_severe_loca_arm ... ok
+test lwr_comparison::tests::dba_source_is_conserved_through_the_leak ... ok
+test lwr_comparison::tests::f_ox_kora_is_the_table_5_7_sphere_test ... ok
+test lwr_comparison::tests::htr10_dba_arm_is_table_8_and_meets_table_9_distances ... ok
+test lwr_comparison::tests::leakage_is_linear_in_small_leak_rates ... ok
+test lwr_comparison::tests::leakage_is_non_negative_and_bounded_for_the_whole_inventory ... ok
+test lwr_comparison::tests::lwr_dba_arm_removal_and_scaling ... ok
+test lwr_comparison::tests::scaling_and_fractions_are_the_tables ... ok
+test lwr_comparison::tests::severe_loca_dose_is_at_least_the_rg1183_dba_dose ... ok
+test lwr_comparison::tests::severe_loca_leakage_is_non_negative_and_bounded ... ok
+test lwr_comparison::tests::severe_loca_phases_are_table_3_13_on_table_3_6_timing ... ok
+test lwr_comparison::tests::severe_loca_source_is_conserved_through_the_leak ... ok
+test scenario::tests::a_one_sample_transient_is_rejected ... ok
+test scenario::tests::a_ramp_reaches_its_peak_and_holds ... ok
+test scenario::tests::a_ring_with_the_wrong_number_of_time_slices_is_an_error ... ok
+test scenario::tests::all_node_histories_is_ring_major_and_complete ... ok
+test scenario::tests::the_hot_node_is_upstreams_geometric_guess_not_a_search ... ok
+test tests::the_scope_is_recorded ... ok
+test units::tests::a_zero_half_life_is_rejected - should panic ... ok
+test units::tests::curies_go_through_uoms_own_unit_and_match_boon_lays_constant ... ok
+test units::tests::the_crossing_is_numerically_the_identity ... ok
+test units::tests::the_decay_constant_uses_exact_ln_two_not_flexparts_truncation ... ok
+test bwr_mark1::tests::the_network_plant_over_30_hours has been running for over 60 seconds
+test bwr_mark1::compare::tests::the_uncalibrated_baseline_is_pinned ... ok
+test bwr_mark1::compare::tests::the_ablation_table_has_every_run_and_band ... ok
+test bwr_mark1::tests::the_network_plant_over_30_hours ... ok
+
+test result: ok. 152 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 6659.19s
+
+     Running tests/accident_release.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/accident_release-0238ad5f7305d26e)
+
+running 9 tests
+test a_heat_cool_reheat_transient_is_flagged_as_incomparable_with_upstream ... ok
+test tellurium_is_classified_as_a_depositing_aerosol_not_a_halogen ... ok
+test nuclides_sharing_a_diffusion_bucket_release_identically ... ok
+test a_cooler_shorter_transient_does_not_differentiate_them_either ... ok
+test the_half_life_screen_reports_what_it_drops ... ok
+test the_chain_runs_and_produces_a_well_formed_source_term ... ok
+test the_release_is_linear_in_the_inventory ... ok
+test the_released_fractions_are_physical_and_are_reported ... ok
+test the_defect_pathway_carries_the_magnitude_of_the_release ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/bwr_mark1_vs_bsaf_figures.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/bwr_mark1_vs_bsaf_figures-47c39766f491b5b6)
+
+running 9 tests
+test cesium_against_fig_2_6_network ... ignored, no regression pin until the network model is checked (maintainer 2026-11-02: unnecessary to pin a regression when not even sure of the model yet; gh:#1110). Set after the run at d16ec33f0; gh:#1114 and #1116-#1120 have moved the network since
+test iodine_against_fig_2_6_network ... ignored, no regression pin until the network model is checked (maintainer 2026-11-02: unnecessary to pin a regression when not even sure of the model yet; gh:#1110). Set after the run at d16ec33f0; gh:#1114 and #1116-#1120 have moved the network since
+test the_model_against_the_digitised_bsaf_figures ... ok
+test the_model_against_the_digitised_bsaf_figures_network ... ignored, no regression pin until the network model is checked (maintainer 2026-11-02: unnecessary to pin a regression when not even sure of the model yet; gh:#1110). Set after the run at d16ec33f0; gh:#1114 and #1116-#1120 have moved the network since
+test cesium_against_fig_2_6 ... ok
+test the_network_to_500_hours_against_fig_2_3a_and_fig_5_1 ... ignored, multiple hours: the network plant to 500 h
+test iodine_against_fig_2_6 ... ok
+test cesium_137_release_against_fig_5_1 has been running for over 60 seconds
+test the_model_beyond_its_window_against_fig_2_3a has been running for over 60 seconds
+test the_model_beyond_its_window_against_fig_2_3a ... ok
+test cesium_137_release_against_fig_5_1 ... ok
+
+test result: ok. 5 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 208.13s
+
+     Running tests/chain_handoff.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/chain_handoff-a920c593e58730e1)
+
+running 4 tests
+test a_release_starting_after_zero_gets_a_leading_empty_window ... ok
+test padding_adds_no_activity_and_partitions_the_run_from_zero ... ok
+test noble_gases_deposit_exactly_zero_and_the_others_do_not ... ok
+test the_chain_is_linear_in_the_inventory ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/containment_network_vs_containment.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/containment_network_vs_containment-a56c24c9a9a478f4)
+
+running 8 tests
+test relief_steam_into_the_torus_against_the_old_containment ... ok
+test the_coupled_physics_is_on_by_default ... ok
+test debris_on_the_drywell_floor_against_the_old_containment has been running for over 60 seconds
+test fission_products_through_the_downcomers_against_the_old_containment has been running for over 60 seconds
+test hydrogen_burns_in_the_building_against_the_old_containment has been running for over 60 seconds
+test the_first_hours_of_unit_1_against_the_old_containment has been running for over 60 seconds
+test debris_on_the_drywell_floor_against_the_old_containment ... ok
+test the_newton_steps_count_and_fallbacks_reach_the_network_result ... ok
+test the_walls_see_each_non_condensable_with_its_own_properties ... ok
+test hydrogen_burns_in_the_building_against_the_old_containment ... ok
+test fission_products_through_the_downcomers_against_the_old_containment ... ok
+test the_first_hours_of_unit_1_against_the_old_containment ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 357.08s
+
+     Running tests/depletion_to_source_term.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/depletion_to_source_term-824c7aa673a8a1c9)
+
+running 1 test
+test a_depleted_inventory_runs_through_the_release_chain ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/inventory_handoff_fingerprints.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/inventory_handoff_fingerprints-93cb67b433f16cf0)
+
+running 1 test
+test every_inventory_handoff_case_is_bit_identical ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests/normal_operation_pools_code_to_code.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/normal_operation_pools_code_to_code-a6b91d73142e0149)
+
+running 2 tests
+test every_constructor_starts_from_real_pools_and_empty_is_an_explicit_ablation ... ok
+test sembawang_with_real_pools_matches_upstream_accident_case_on_mhtgr_case_a ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.58s
+
+     Running tests/nuclide_names_code_to_code.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/nuclide_names_code_to_code-3525826aff40ed15)
+
+running 1 test
+test nuclide_names_are_handled_as_upstream_does ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/reaction_in_a_control_volume.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/reaction_in_a_control_volume-25e17221b3bde419)
+
+running 6 tests
+test r1_heat_of_reaction_at_298_against_janaf ... ok
+test r3_limiting_reactant ... ok
+test r2_adiabatic_complete_burn_against_a_hand_calculation ... ok
+test r6_network_setter_and_totals ... ok
+test r4_elements_and_energy_close ... ok
+test r5_zero_reaction_is_the_old_code_bit_for_bit ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.48s
+
+     Running tests/swollen_level_vs_tampines.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/swollen_level_vs_tampines-0a1d9fdc0bf11568)
+
+running 1 test
+test swollen_level_is_bit_identical_to_sembawangs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/units_2_and_3_network.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/units_2_and_3_network-f55763a9e9606166)
+
+running 2 tests
+test units_2_and_3_build_the_geometry_their_sources_imply ... ok
+test a_short_relief_run_conserves_on_units_1_2_and_3 ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.54s
+
+     Running tests/units_2_and_3_sequence.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/units_2_and_3_sequence-d2cb43fc234f4362)
+
+running 5 tests
+test the_network_over_the_first_hrtd_readings ... ignored
+test unit2_rcic_trips_at_l8_then_runs_uncontrolled_after_dc_is_lost ... ok
+test unit3_throttled_rcic_holds_the_level_with_dc_kept ... ok
+test the_network_runs_unit2_for_twenty_minutes ... ok
+test both_sequences_play_out_against_the_hrtd_readings has been running for over 60 seconds
+test both_sequences_play_out_against_the_hrtd_readings ... ok
+
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 77.16s
+
+     Running tests/venting_modes.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/venting_modes-58dd99d5b3e65f04)
+
+running 7 tests
+test a_bad_prescription_is_an_error_not_a_clamp ... ok
+test gao_shi_ventilation_is_one_air_change_per_day_cut_off_at_72_h ... ok
+test full_flow_through_bounds_upstream_on_a_heating_transient ... ok
+test full_flow_through_equals_upstream_on_an_isothermal_hold ... ok
+test the_isothermal_hold_vents_fully_as_upstream_does ... ok
+test prescribed_ones_equal_full_flow_through_and_a_half_halves_the_release ... ok
+test a_non_uniform_isothermal_field_is_an_error_not_a_silent_zero ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/wall_condensation_bit_identity.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/wall_condensation_bit_identity-7ddc270165d741f9)
+
+running 1 test
+test the_moved_structure_surface_is_bit_identical_to_sembawangs_original ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/wet_well_vs_tampines.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/wet_well_vs_tampines-f847fc427e9d87d2)
+
+running 2 tests
+test the_ported_primitives_are_bit_for_bit_sembawangs ... ok
+test the_torus_tracks_sembawangs_containment ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+

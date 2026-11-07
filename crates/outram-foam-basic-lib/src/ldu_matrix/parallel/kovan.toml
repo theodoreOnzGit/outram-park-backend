@@ -2,6 +2,25 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-basic-lib"
 dir = "crates/outram-foam-basic-lib/src/ldu_matrix/parallel"
+test_ids = [
+    "crates/outram-foam-basic-lib/src/ldu_matrix/parallel/tests.rs::axpy_is_bitwise_identical_across_backends_and_to_vecops",
+    "crates/outram-foam-basic-lib/src/ldu_matrix/parallel/tests.rs::degenerate_matrices_behave",
+    "crates/outram-foam-basic-lib/src/ldu_matrix/parallel/tests.rs::diagonal_reciprocal_agrees_and_reports_singular_rows",
+    "crates/outram-foam-basic-lib/src/ldu_matrix/parallel/tests.rs::dispatch_predicates_are_honest",
+    "crates/outram-foam-basic-lib/src/ldu_matrix/parallel/tests.rs::dot_matches_flat_reference",
+    "crates/outram-foam-basic-lib/src/ldu_matrix/parallel/tests.rs::normalised_residual_matches_flat_reference",
+    "crates/outram-foam-basic-lib/src/ldu_matrix/parallel/tests.rs::norms_match_flat_references",
+    "crates/outram-foam-basic-lib/src/ldu_matrix/parallel/tests.rs::reductions_are_bitwise_identical_across_backends",
+    "crates/outram-foam-basic-lib/src/ldu_matrix/parallel/tests.rs::reductions_match_hand_computed_values",
+    "crates/outram-foam-basic-lib/src/ldu_matrix/parallel/tests.rs::residual_is_bitwise_identical_to_serial_reference",
+    "crates/outram-foam-basic-lib/src/ldu_matrix/parallel/tests.rs::spmv_is_bitwise_identical_to_serial_reference",
+    "crates/outram-foam-basic-lib/src/ldu_matrix/parallel/tests.rs::spmv_rejects_a_wrong_length_input",
+    "crates/outram-foam-basic-lib/src/ldu_matrix/parallel/tests.rs::topology_inverts_face_addressing",
+    "crates/outram-foam-basic-lib/src/ldu_matrix/parallel/tests.rs::topology_matches_detects_changed_addressing",
+    "crates/outram-foam-basic-lib/src/ldu_matrix/parallel/tests.rs::topology_rejects_mismatched_owner_neighbour_lengths",
+    "crates/outram-foam-basic-lib/src/ldu_matrix/parallel/tests.rs::topology_rejects_out_of_range_cell",
+    "crates/outram-foam-basic-lib/src/ldu_matrix/parallel/tests.rs::with_matrix_reuses_index_and_refuses_a_different_mesh",
+]
 
 [module."gpu.rs"]
 path = "crate::ldu_matrix::parallel::gpu"
@@ -870,3 +889,28 @@ uses = [
     "fn:5e4533d7de62e67f",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+]
+failed = []

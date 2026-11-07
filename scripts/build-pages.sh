@@ -7,6 +7,25 @@
 # the browser demos (gh:#519, #521, #530, #529, #540). The demos need the
 # wasm32-unknown-unknown target and the wasm-bindgen CLI at the Cargo.lock
 # version; the demo's own build script checks the latter. Run by .github/workflows/pages.yml; runnable locally:
+# Phases (gh:#1305). The Pages workflow runs them on separate runners; with no
+# phase named, the whole site is built end to end, as before:
+#   scripts/build-pages.sh <out-dir> [static] [rustdoc] [callgraph] [demos] [assemble]
+#     static     landing page, pathways, search index, lesson checks, code map,
+#                ICSBEP page, citation check, mdBook deep dives and tutorials
+#     rustdoc    API reference (-> api/)
+#     callgraph  web-kovan's data: code map + call graph (-> code-review/data/;
+#                needs rust-analyzer and the RAM for it)
+#     demos      web-kovan's wasm page (-> code-review/) and every browser demo
+#                (-> demos/); needs wasm-bindgen at the Cargo.lock version
+#     assemble   needs the output of ALL the others already in <out-dir>: the
+#                api lists of web-kovan, then the whole-site passes (@@L: code
+#                links, commit stamps, navigation, existence and rung-table
+#                checks, search text, link check, asset manifest)
+# Dependencies between phases: assemble reads everything the others wrote;
+# callgraph no longer reads rustdoc (its api/<crate>.json lists are written by
+# assemble, `data.sh --api-lists`); demos' tapes are copied by the demo scripts
+# themselves. A phased run does NOT empty <out-dir> first (start from an empty
+# one); a run with no phase does.
 #   scripts/build-pages.sh target/pages
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -15,8 +34,19 @@ COMMIT="${GITHUB_SHA:-$(git rev-parse HEAD)}"
 SHORT="${COMMIT:0:10}"
 DATE="$(date -u +%Y-%m-%d)"
 
-rm -rf "$OUT"
+ALL_PHASES=(static rustdoc callgraph demos assemble)
+FULL=0
+PHASES=("${@:2}")
+if (( ${#PHASES[@]} == 0 )); then FULL=1; PHASES=("${ALL_PHASES[@]}"); fi
+for ph in "${PHASES[@]}"; do
+  case " ${ALL_PHASES[*]} " in *" $ph "*) ;; *) echo "build-pages.sh: unknown phase '$ph' (${ALL_PHASES[*]})" >&2; exit 2 ;; esac
+done
+(( FULL )) && rm -rf "$OUT"
 mkdir -p "$OUT/deep-dives"
+
+
+# ── phase static: the pages, checks, code map, ICSBEP page, citations and mdBooks ──
+phase_static() {
 cp docs/site/index.html docs/site/style.css docs/site/site-nav.js docs/site/code-map-bar.js docs/site/search.js docs/site/sw.js "$OUT/"
 # The three pathways of the landing page (gh:#906, #909): Learn the science,
 # Learn to code (the old front page, with the code map by domain) and the demo
@@ -100,47 +130,6 @@ books_json() {
   printf ']}\n'
 } > "$OUT/code-map/site_links.json"
 
-# Rustdoc, release profile (root CLAUDE.md), no dependencies' docs. Source
-# pages are not published: lessons show anchored snippets and link to GitHub.
-pkgs=()
-while read -r c; do
-  [[ -z "$c" || "$c" == \#* ]] && continue
-  pkgs+=(-p "$c")
-done < docs/site/lesson-crates.txt
-# Own target dir, so only these crates' pages (and search index) are published,
-# never whatever else a local `target/doc` happens to hold.
-DOC_TARGET=target/site-doc
-# Memory cap: the default `-j 12` OOMs the 16 GB dev box. Jobs default to 3,
-# and where a systemd user session exists (locally, not on CI runners) cargo
-# runs in a scope that is killed past PAGES_MEM_MAX of RAM, swap disallowed,
-# so the build fails instead of the machine. Override either via env.
-JOBS="${PAGES_JOBS:-3}"
-MEM_MAX="${PAGES_MEM_MAX:-12G}"
-cap=()
-if [[ -z "${CI:-}" ]] && systemd-run --user --scope -q true 2>/dev/null; then
-  cap=(systemd-run --user --scope -q -p "MemoryMax=$MEM_MAX" -p MemorySwapMax=0)
-  echo "cargo doc capped at $MEM_MAX RAM, -j $JOBS"
-fi
-"${cap[@]}" cargo doc --release --no-deps --lib -j "$JOBS" --target-dir "$DOC_TARGET" "${pkgs[@]}"
-cp -r "$DOC_TARGET/doc" "$OUT/api"
-rm -rf "$OUT/api/src" "$OUT/api/.lock"
-
-# web-kovan (gh:#736, #745, #772): the read-only Code Review UI at
-# code-review/, egui built for wasm32. data.sh writes its data (code map; the
-# call graph of every crate from one `rust-analyzer scip` index, incremental
-# through target/kovan-index; a crate it cannot rebuild keeps its last cached
-# graph and is named in the log and on the page; and the rustdoc pages above,
-# so it only links to pages that exist). Source text is not copied: the page fetches it
-# from the repository at $COMMIT. The JS code-map/ page stays for now.
-PAGES_COMMIT="$COMMIT" bash crates/kovan-web/web/data.sh "$OUT/code-review/data" "$OUT/api"
-bash crates/kovan-web/web/build.sh "$OUT/code-review"
-# The navbar's list of deep dives: a crate on web-kovan's map offers its deep
-# dive from it (2026-10-06).
-cp "$OUT/code-map/site_links.json" "$OUT/code-review/data/site_links.json"
-for f in index.html kovan_web_bg.wasm data/build.json data/code_map.json; do
-  [[ -f "$OUT/code-review/$f" ]] || { echo "missing $OUT/code-review/$f" >&2; exit 1; }
-done
-
 # ~~Code walks (gh:#523): every `<!-- code-walk: ... -->` block regenerated
 # with rust-analyzer and its snippets checked here.~~ CHANGED 2026-10-14
 # (maintainer direction): the lessons no longer carry code walks; they link
@@ -203,6 +192,55 @@ coolant.html science/fission-products/atops-coolant.html
 handoff.html science/fission-products/atops-source-term.html
 REDIRECTS
 
+}
+
+# ── phase rustdoc: the API reference ──
+phase_rustdoc() {
+# Rustdoc, release profile (root CLAUDE.md), no dependencies' docs. Source
+# pages are not published: lessons show anchored snippets and link to GitHub.
+pkgs=()
+while read -r c; do
+  [[ -z "$c" || "$c" == \#* ]] && continue
+  pkgs+=(-p "$c")
+done < docs/site/lesson-crates.txt
+# Own target dir, so only these crates' pages (and search index) are published,
+# never whatever else a local `target/doc` happens to hold.
+DOC_TARGET=target/site-doc
+# Memory cap: the default `-j 12` OOMs the 16 GB dev box. Jobs default to 3,
+# and where a systemd user session exists (locally, not on CI runners) cargo
+# runs in a scope that is killed past PAGES_MEM_MAX of RAM, swap disallowed,
+# so the build fails instead of the machine. Override either via env.
+JOBS="${PAGES_JOBS:-3}"
+MEM_MAX="${PAGES_MEM_MAX:-12G}"
+cap=()
+if [[ -z "${CI:-}" ]] && systemd-run --user --scope -q true 2>/dev/null; then
+  cap=(systemd-run --user --scope -q -p "MemoryMax=$MEM_MAX" -p MemorySwapMax=0)
+  echo "cargo doc capped at $MEM_MAX RAM, -j $JOBS"
+fi
+"${cap[@]}" cargo doc --release --no-deps --lib -j "$JOBS" --target-dir "$DOC_TARGET" "${pkgs[@]}"
+rm -rf "$OUT/api"   # cp -r into an existing folder would nest it as api/doc
+cp -r "$DOC_TARGET/doc" "$OUT/api"
+rm -rf "$OUT/api/src" "$OUT/api/.lock"
+}
+
+# ── phase callgraph: web-kovan data: code map and call graph ──
+phase_callgraph() {
+# web-kovan (gh:#736, #745, #772): the read-only Code Review UI at
+# code-review/, egui built for wasm32. data.sh writes its data (code map; the
+# call graph of every crate from one `rust-analyzer scip` index, incremental
+# through target/kovan-index; a crate it cannot rebuild keeps its last cached
+# graph and is named in the log and on the page; and the rustdoc pages above,
+# so it only links to pages that exist). Source text is not copied: the page fetches it
+# from the repository at $COMMIT. The JS code-map/ page stays for now.
+# The rustdoc lists (api/<crate>.json) are written by the assemble phase, so this
+# phase does not wait for rustdoc (gh:#1305).
+PAGES_COMMIT="$COMMIT" bash crates/kovan-web/web/data.sh "$OUT/code-review/data"
+}
+
+# ── phase demos: web-kovan page and the browser demos ──
+phase_demos() {
+# web-kovan's page (gh:#736): the wasm32 build of the Code Review UI.
+bash crates/kovan-web/web/build.sh "$OUT/code-review"
 # Browser demos (gh:#519, #521): ONE Monte Carlo demo with a rung table
 # (crates/dhoby-ghaut/examples/monte_carlo_web/rungs.rs): wasm build, its JS
 # glue, the ENDF tapes it processes in the browser, and its geometry review
@@ -285,6 +323,18 @@ printf '%s\n' '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' \
   '<meta http-equiv="refresh" content="0; url=../../monte-carlo/geometry/"><title>Moved</title></head>' \
   '<body><p>Moved to <a href="../../monte-carlo/geometry/">the Monte Carlo demo geometry page</a>.</p></body></html>' \
   > "$OUT/demos/triso-pebble/geometry/index.html"
+}
+
+# ── phase assemble: the whole-site passes over the finished site ──
+phase_assemble() {
+# web-kovan's data (callgraph phase) and page (demos phase) are in place; now the
+# rustdoc page lists it links to, and the navbar's list of deep dives (2026-10-06).
+bash crates/kovan-web/web/data.sh --api-lists "$OUT/code-review/data" "$OUT/api"
+cp "$OUT/code-map/site_links.json" "$OUT/code-review/data/site_links.json"
+for f in index.html kovan_web_bg.wasm data/build.json data/code_map.json; do
+  [[ -f "$OUT/code-review/$f" ]] || { echo "missing $OUT/code-review/$f" >&2; exit 1; }
+done
+
 # Code links that cannot go stale (gh:#521): a page writes
 #   .../blob/@@COMMIT@@/<file>#@@L:<file>:<selector>@@
 # and the build replaces the token with the line range at THIS commit, so a
@@ -411,13 +461,15 @@ for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/cod
 done
 
 # The demo's rung table drives the links both ways (gh:#520): every rung's
-# lesson page must exist, and every page link into the demo must name a rung
-# the table has. The table is the `rung_table!` invocation in main.rs (one
-# `module: Marker,` line per rung); each rung's `name:` and `lesson:` lines are
-# in its `<module>/mod.rs`, read as written.
+# lesson page must exist, and every page link into the demo must name a rung the
+# table has. The table is `table.rs`, written out by hand since 2026-11-05
+# (gh:#1253; it was the `rung_table!` macro in main.rs, and this script kept
+# reading the macro, which found no rungs and would have failed the build): each
+# rung's `Rung::X => &<crate::MODULE::X as McRung>::INFO,` arm names its module.
+# Each rung's `name:` and `lesson:` lines are in its `<module>/mod.rs`, read as written.
 mc=crates/dhoby-ghaut/examples/monte_carlo_web
-rung_mods="$(sed -n '/^rung_table! {/,/^}/s/^ *\([a-z0-9_]*\): *[A-Z][A-Za-z0-9]*,$/\1/p' "$mc/main.rs")"
-[[ -n "$rung_mods" ]] || { echo "no rungs read from $mc/main.rs" >&2; exit 1; }
+rung_mods="$(grep -oE '&<crate::[a-z0-9_]+::[A-Za-z0-9]+ as McRung>::INFO' "$mc/table.rs" | sed -E 's/^&<crate::([a-z0-9_]+)::.*/\1/' | awk '!seen[$0]++')"
+[[ -n "$rung_mods" ]] || { echo "no rungs read from $mc/table.rs" >&2; exit 1; }
 rung_names=""
 for m in $rung_mods; do
   n="$(sed -n 's/^ *name: "\([a-z0-9_-]*\)",$/\1/p' "$mc/$m/mod.rs")"
@@ -518,3 +570,9 @@ node docs/site/check-sw.js --manifest "$OUT"
 [[ -s "$OUT/asset-manifest.json" ]] || { echo "asset-manifest.json was not written" >&2; exit 1; }
 
 echo "site built in $OUT ($(du -sh "$OUT" | cut -f1)), commit $SHORT"
+
+}
+
+for ph in "${PHASES[@]}"; do
+ echo "build-pages.sh: phase $ph"; "phase_$ph"
+done

@@ -1,6 +1,6 @@
 # kovan nightly tests: `kovan-cli test --pending-stamps` on `develop` (the
 # reaching tests of every stamp pending a workspace test), its result
-# committed into the `kovan.toml` files, then the Pages site republished. Maintainer request, 2026-10-29: "every day or so, at 12am
+# committed into the `kovan.toml` files (~~then the Pages site republished~~; since 2026-11-06 the site picks the record up when `develop` is merged into `web-deploy`, gh:#1306). Maintainer request, 2026-10-29: "every day or so, at 12am
 # Singapore time, the kovan-cli test and webpage publish should be run so
 # that stamps don't show as (awaiting workspace tests) on kovan web".
 #
@@ -39,9 +39,13 @@
 #    (since 2026-11-05; see "How the record reaches develop" below). If the
 #    rebase conflicts the job fails and nothing is pushed; the artifact keeps
 #    the record.
-# 3. `pages.yml` is dispatched on `develop`. A merge made with the workflow's
+# 3. ~~`pages.yml` is dispatched on `develop`. A merge made with the workflow's
 #    own token does not start other workflows, so step 2 would not
-#    republish the site on its own; a `workflow_dispatch` does.
+#    republish the site on its own; a `workflow_dispatch` does.~~ **CHANGED
+#    2026-11-06 (gh:#1306):** Pages deploys only from `web-deploy`, so a
+#    dispatch on `develop` would build the whole site (~30 min of runners) and
+#    deploy nothing. The step is removed; the record reaches the site with the
+#    next merge of `develop` into `web-deploy`.
 #
 # Failing tests do not stop steps 2 and 3: they are part of the record (a
 # failing reaching test blocks its stamp), and the job is marked failed at
@@ -95,7 +99,7 @@ on:
 permissions:
   contents: write # push the kovan.toml record to its own branch
   pull-requests: write # open and merge the record's pull request into develop
-  actions: write # dispatch pages.yml
+  actions: write # ~~dispatch pages.yml~~ (2026-11-06: no longer used, gh:#1306)
 
 env:
   CARGO_TERM_COLOR: always
@@ -219,11 +223,6 @@ jobs:
             exit 1
           fi
           echo "Merged the record into develop: $url" | tee -a "$GITHUB_STEP_SUMMARY"
-
-      - name: Republish Pages from develop
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run pages.yml --repo "${{ github.repository }}" --ref develop
 
       - name: Fail the job if tests failed
         if: steps.test.outputs.code != '0'

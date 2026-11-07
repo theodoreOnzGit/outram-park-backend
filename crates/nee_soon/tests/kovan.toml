@@ -2,6 +2,20 @@ schema_version = 1
 kind = "code_folder"
 crate = "nee_soon"
 dir = "crates/nee_soon/tests"
+test_ids = [
+    "crates/nee_soon/tests/coupling_api.rs::defaults_are_usable_and_failures_are_actionable",
+    "crates/nee_soon/tests/coupling_api.rs::the_documented_three_call_path_works",
+    "crates/nee_soon/tests/direct_coupling_steady_state.rs::a_non_converging_solve_reports_its_residuals",
+    "crates/nee_soon/tests/direct_coupling_steady_state.rs::monte_carlo_and_genfoam_reach_a_coupled_steady_state",
+    "crates/nee_soon/tests/htr10_correct_physics_is_default.rs::the_default_htr10_data_configuration_is_the_correct_physics",
+    "crates/nee_soon/tests/htr10_correct_physics_is_default.rs::the_default_materials_carry_c13_helium_and_nickel",
+    "crates/nee_soon/tests/htr10_geometry_integrity.rs::the_bed_reproduces_the_published_ball_inventory",
+    "crates/nee_soon/tests/htr10_geometry_integrity.rs::the_reflector_covers_every_zone_the_model_can_reference",
+    "crates/nee_soon/tests/htr10_geometry_integrity.rs::the_tile_assignment_agrees_with_the_continuum_split",
+    "crates/nee_soon/tests/htr10_geometry_integrity.rs::the_triso_array_matches_the_adjudicated_geometry",
+    "crates/nee_soon/tests/mc_to_genfoam_kinf.rs::genfoam_reproduces_the_monte_carlo_kinf_from_its_own_mgxs",
+    "crates/nee_soon/tests/mgxs_from_monte_carlo.rs::mgxs_from_a_monte_carlo_run_satisfies_neutron_balance",
+]
 
 [module."coupling_api.rs"]
 path = "test:coupling_api"
@@ -698,3 +712,23 @@ uses = [
     "fn:b714e8912ed36446",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+failed = []

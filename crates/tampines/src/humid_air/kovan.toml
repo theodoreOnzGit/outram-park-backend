@@ -124,3 +124,13 @@ reached_by = [
     "#9",
     "#10",
 ]
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#5",
+    "#8",
+]
+failed = []

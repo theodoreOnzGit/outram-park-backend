@@ -2,6 +2,25 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-offbeat"
 dir = "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic"
+test_ids = [
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic/tests.rs::an_unresolved_irradiation_law_reports_no_rate",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic/tests.rs::creep_is_volume_preserving",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic/tests.rs::irradiation_conditions_are_validated",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic/tests.rs::lemaitre_hardening_slows_the_flow",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic/tests.rs::linear_creep_relaxes_exponentially",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic/tests.rs::no_stress_no_time_and_no_deviator_all_give_no_creep",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic/tests.rs::norton_is_the_weak_hardening_limit_of_lemaitre",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic/tests.rs::pure_shear_gives_root_three_tau",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic/tests.rs::the_aster_names_are_preserved",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic/tests.rs::the_athermal_term_keeps_creep_finite_at_zero_flux",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic/tests.rs::the_integrated_step_satisfies_its_constitutive_statement",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic/tests.rs::the_irradiation_rate_follows_a_power_law_in_flux",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic/tests.rs::the_irradiation_rate_has_a_clean_arrhenius_form",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic/tests.rs::the_norton_rate_matches_the_upstream_expression",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic/tests.rs::the_relaxed_stress_follows_radial_return",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic/tests.rs::the_von_mises_norm_matches_upstream",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscoplastic/tests.rs::unphysical_inputs_are_rejected",
+]
 
 [module."tests.rs"]
 path = "crate::rheology::aster::viscoplastic::tests"
@@ -364,3 +383,28 @@ callees = [
 ]
 uses = ["fn:26c5554d5ea7a332"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+]
+failed = []

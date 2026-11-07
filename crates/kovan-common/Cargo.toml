@@ -51,12 +51,6 @@ sha2.workspace = true
 # no `rand_core` feature is needed and nothing here wants an entropy source.
 ed25519-dalek.workspace = true
 base64.workspace = true
-# Dates: the founder ballots' 30-day window (`review::signing::founders`,
-# #1248), which also runs on wasm (web-kovan, the Pages build), and the local
-# offset for `signed_at` (#783), whose `Local::now` call stays desktop-only.
-# MOVED 2026-11-05 from the native-only table: founders.rs is compiled on
-# wasm32 and the Pages build failed with "unresolved import `chrono`".
-chrono.workspace = true
 
 # Key generation and the passphrase-encrypted keystore
 # (`review::signing::keystore`, #762) are desktop-only: never on wasm.
@@ -65,6 +59,11 @@ argon2.workspace = true
 aes-gcm.workspace = true
 getrandom.workspace = true
 zeroize.workspace = true
+# The local offset for `signed_at` (#783); signing is desktop-only.
+# ~~MOVED 2026-11-05 to [dependencies] for the founder ballots~~ BACK HERE the
+# same day (maintainer): `founders::add_days` now uses the crate's own
+# calendar arithmetic, so wasm needs no chrono.
+chrono.workspace = true
 # kovan's platform config folder (the same `ProjectDirs` kovan uses).
 directories.workspace = true
 

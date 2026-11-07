@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging bishan v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/bishan)
+    Updating crates.io index
+    Packaged 14 files, 79.0KiB (27.0KiB compressed)
+   Verifying bishan v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/bishan)
+   Compiling bishan v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/bishan-0.0.3)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.33s
+   Uploading bishan v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/bishan)
+    Uploaded bishan v0.0.3 to registry `crates-io`
+note: waiting for bishan v0.0.3 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published bishan v0.0.3 at registry `crates-io`

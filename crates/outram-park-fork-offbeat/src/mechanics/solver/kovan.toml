@@ -2,6 +2,23 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-offbeat"
 dir = "crates/outram-park-fork-offbeat/src/mechanics/solver"
+test_ids = [
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::clamped_bar_relaxes_to_closed_form_exponential",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::constitutive_state_advances_once_per_step_not_once_per_corrector",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::creep_step_rejects_a_missing_law_and_a_negative_timestep",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::creep_time_step_control_bounds_the_next_step",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::free_thermal_expansion_with_creep_produces_no_creep_strain",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::spatially_varying_creep_keeps_the_axial_stress_uniform",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::displacement_profile_is_linear",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::eigenstrain_sources_superpose_and_cancel",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::fully_constrained_eigenstrain_gives_hydrostatic_compression",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::imposed_strain_solution_is_grid_independent",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::imposed_uniform_strain_gives_oedometric_stress",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::lame_parameters_match_closed_form",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::stress_is_linear_in_eigenstrain",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::the_matpro_zircaloy_poisson_crossover_refuses_the_case_rather_than_clamping",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::unphysical_elastic_constants_are_rejected",
+]
 
 [module."rheology_tests.rs"]
 path = "crate::mechanics::solver::rheology_tests"
@@ -649,3 +666,26 @@ uses = [
     "fn:fe4ab311fef60459",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+failed = []

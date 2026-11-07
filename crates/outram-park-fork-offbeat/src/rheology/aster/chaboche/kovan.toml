@@ -2,6 +2,27 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-offbeat"
 dir = "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche"
+test_ids = [
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::a_change_of_moduli_rescales_the_incoming_stress",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::a_step_below_yield_is_purely_elastic",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::delta_one_switches_the_non_radial_correction_off",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::every_plastic_step_ends_on_the_flow_surface",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::free_thermal_expansion_produces_no_stress",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::isotropic_hardening_alone_saturates_at_r_infinity",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::one_back_stress_is_two_with_the_second_modulus_zero",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::pure_shear_leaves_the_hydrostatic_stress_untouched",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::the_back_stress_saturates_at_c_over_gamma",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::the_bauschinger_effect_reverses_yield_at_the_back_stress_minus_the_radius",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::the_flow_direction_follows_the_shifted_deviator",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::the_plastic_strain_increment_is_deviatoric_with_equivalent_dp",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::the_rate_independent_law_is_the_slow_limit_of_the_viscous_law",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::the_strain_memory_surface_raises_the_isotropic_hardening",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::the_variants_agree_with_the_catalogue",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::the_viscous_overstress_follows_the_norton_relation",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::two_back_stresses_saturate_at_the_sum_of_their_ratios",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::unphysical_inputs_are_rejected",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/chaboche/tests.rs::zero_recovery_gives_exact_linear_kinematic_hardening",
+]
 
 [module."tests.rs"]
 path = "crate::rheology::aster::chaboche::tests"
@@ -656,3 +677,30 @@ uses = [
     "fn:f80e3194b1cfc976",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+failed = []

@@ -660,3 +660,22 @@ doc_hash = "sha256:d5a6ef5aafd07164789897d5fd487aacfa29168371eed5834d0151a3026ca
 callees = ["fn:b36ffaa37114b0ce"]
 uses = ["fn:fcf8e11c51e501d6"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+]
+failed = []

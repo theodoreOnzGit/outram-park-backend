@@ -2,6 +2,19 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-appbuilder-lib"
 dir = "crates/outram-foam-appbuilder-lib/tutorials"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100_fine_mesh",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_grid_convergence_re100",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_mesh_loads",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_pressure_solver_comparison_fine_mesh",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_velocity_matches_icofoam",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_central_foam_shock_tube.rs::shock_tube_mesh_loads",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_central_foam_shock_tube.rs::shock_tube_openfoam_vs_rust_csv",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_central_foam_shock_tube.rs::shock_tube_pressure_matches_openfoam",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_central_foam_shock_tube.rs::shock_tube_shock_position",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_pimple_foam_aerofoil_naca0012.rs::aerofoil_mesh_loads",
+]
 
 [module."pimple_foam_cavity.rs"]
 path = "test:tutorial_pimple_foam_cavity"
@@ -1105,3 +1118,22 @@ doc_hash = "sha256:48cbc173fff034d759a1ffce90bf383ed200c92468400f3ac0bb9ba5d04b8
 callees = ["fn:2eb94dbe3fb7fa2c"]
 uses = ["fn:cef2c1c953f8f79a"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+]
+failed = []

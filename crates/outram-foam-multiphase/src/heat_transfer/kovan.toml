@@ -2,6 +2,12 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-multiphase"
 dir = "crates/outram-foam-multiphase/src/heat_transfer"
+test_ids = [
+    "crates/outram-foam-multiphase/src/heat_transfer/tests.rs::gunn_collapses_to_the_stagnant_limit_in_the_dilute_limit",
+    "crates/outram-foam-multiphase/src/heat_transfer/tests.rs::ranz_marshall_recovers_the_stagnant_sphere_limit",
+    "crates/outram-foam-multiphase/src/heat_transfer/tests.rs::spherical_conduction_reads_only_the_dispersed_side",
+    "crates/outram-foam-multiphase/src/heat_transfer/tests.rs::unphysical_inputs_are_refused",
+]
 
 [module."tests.rs"]
 path = "crate::heat_transfer::tests"
@@ -74,3 +80,15 @@ uses = [
     "fn:c9f50c1073e9ddea",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+failed = []

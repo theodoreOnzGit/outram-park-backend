@@ -1,0 +1,22 @@
+    Updating crates.io index
+   Packaging pasir-ris v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/pasir-ris)
+    Updating crates.io index
+warning: package `tokio v1.54.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+    Packaged 13 files, 118.0KiB (36.7KiB compressed)
+   Verifying pasir-ris v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/pasir-ris)
+ Downloading crates ...
+  Downloaded redhill v0.0.3
+  Downloaded bishan v0.0.3
+  Downloaded sembawang v0.0.2
+   Compiling bishan v0.0.3
+   Compiling sembawang v0.0.2
+   Compiling redhill v0.0.3
+   Compiling pasir-ris v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/pasir-ris-0.0.2)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.50s
+   Uploading pasir-ris v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/pasir-ris)
+    Uploaded pasir-ris v0.0.2 to registry `crates-io`
+note: waiting for pasir-ris v0.0.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published pasir-ris v0.0.2 at registry `crates-io`

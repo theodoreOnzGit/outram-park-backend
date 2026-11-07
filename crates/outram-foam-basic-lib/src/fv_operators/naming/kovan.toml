@@ -2,6 +2,13 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-basic-lib"
 dir = "crates/outram-foam-basic-lib/src/fv_operators/naming"
+test_ids = [
+    "crates/outram-foam-basic-lib/src/fv_operators/naming/tests.rs::first_application_is_unchanged_from_the_openfoam_spelling",
+    "crates/outram-foam-basic-lib/src/fv_operators/naming/tests.rs::operands_are_elided_independently",
+    "crates/outram-foam-basic-lib/src/fv_operators/naming/tests.rs::plain_field_names_are_not_treated_as_derived",
+    "crates/outram-foam-basic-lib/src/fv_operators/naming/tests.rs::repeated_self_feedback_reaches_a_fixed_point",
+    "crates/outram-foam-basic-lib/src/fv_operators/naming/tests.rs::repeated_unary_application_reaches_a_fixed_point",
+]
 
 [module."tests.rs"]
 path = "crate::fv_operators::naming::tests"
@@ -73,3 +80,16 @@ hash = "sha256:02d2cb5932d4c3c86de6d00133cae5f6960801933f6e5a3ed435c1225d484f60"
 doc_hash = "sha256:61a9bb7f91b4b74149a15d01af40f27f705a2ced41ddd1ee9b6310f6926ed684"
 callees = ["fn:269193273067057f"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+failed = []
