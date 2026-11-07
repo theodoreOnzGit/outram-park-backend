@@ -14,6 +14,12 @@
 //! `KOVAN_RUSTDOC_TOOLCHAIN` selects the nightly toolchain (default: `nightly`).
 //! CI pins it alongside rustdoc-md to keep the JSON producer and reader paired.
 //!
+//! # Credit
+//!
+//! The Cargo-artifact JSON resolution, the `KOVAN_RUSTDOC_TOOLCHAIN` pin and
+//! the end-to-end pipeline tests (gh:#779) were contributed by Curtis
+//! (KnightNiwrem on GitHub) in PR #1303, 2026-11-05.
+//!
 //! # Filename: `<crate>-api.md`, not `api.md`
 //!
 //! Named after its own crate directory (2026-08-17 onward) rather than the bare
@@ -418,6 +424,19 @@ pub fn run(
 mod tests {
     use super::*;
 
+    /// Serialises the tests that run the real `cargo doc` pipeline. With
+    /// `CARGO_TARGET_DIR` set in the environment every fixture shares one
+    /// target directory, so parallel runs overwrite each other's
+    /// `doc/example_package.json` and rustdoc-md reads a half-written file
+    /// (seen 2026-11-07 when reviewing PR #1303).
+    static DOC_PIPELINE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn lock_doc_pipeline() -> std::sync::MutexGuard<'static, ()> {
+        DOC_PIPELINE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
     /// A dependency-free workspace whose directory, package and library names
     /// can differ, as they do for kovan (gh:#779).
     fn doc_workspace(lib_manifest: &str) -> tempfile::TempDir {
@@ -450,6 +469,7 @@ mod tests {
     /// old package-derived JSON path fails after rustdoc creates example_core.json.
     #[test]
     fn generates_docs_for_a_library_named_differently_from_its_package() {
+        let _pipeline = lock_doc_pipeline();
         let tmp = doc_workspace("\n[lib]\nname = \"example_core\"\n");
         let path = generate(tmp.path(), "example-directory", false).unwrap();
         assert_eq!(
@@ -473,6 +493,7 @@ mod tests {
     /// from a hyphenated package, with no explicit [lib] section.
     #[test]
     fn generates_docs_for_a_default_library_name() {
+        let _pipeline = lock_doc_pipeline();
         let tmp = doc_workspace("");
         // Exercise --all as well: Cargo selects the package from its manifest,
         // with no per-crate metadata query or hand-written TOML parser.
@@ -490,6 +511,7 @@ mod tests {
 
     #[test]
     fn generates_docs_for_quoted_and_commented_package_names() {
+        let _pipeline = lock_doc_pipeline();
         for name in [
             "name = 'example-package'",
             "name = \"example-package\" # a trailing comment",
@@ -506,6 +528,7 @@ mod tests {
 
     #[test]
     fn generates_docs_with_a_configured_build_target_and_output_directory() {
+        let _pipeline = lock_doc_pipeline();
         let tmp = doc_workspace("\n[lib]\nname = 'example_core'\n");
         let version = Command::new("rustc").arg("-vV").output().unwrap();
         assert!(version.status.success());

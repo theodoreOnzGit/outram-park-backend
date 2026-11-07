@@ -7552,6 +7552,12 @@ configured target directory and any build-target subdirectory (gh:#779).
 `KOVAN_RUSTDOC_TOOLCHAIN` selects the nightly toolchain (default: `nightly`).
 CI pins it alongside rustdoc-md to keep the JSON producer and reader paired.
 
+# Credit
+
+The Cargo-artifact JSON resolution, the `KOVAN_RUSTDOC_TOOLCHAIN` pin and
+the end-to-end pipeline tests (gh:#779) were contributed by Curtis
+(KnightNiwrem on GitHub) in PR #1303, 2026-11-05.
+
 # Filename: `<crate>-api.md`, not `api.md`
 
 Named after its own crate directory (2026-08-17 onward) rather than the bare
