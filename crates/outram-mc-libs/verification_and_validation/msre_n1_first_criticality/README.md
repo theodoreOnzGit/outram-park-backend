@@ -176,8 +176,8 @@ converge this large thermal core's source.
 **Every uncertainty quoted for this model therefore comes from the
 seed-to-seed spread.** ~~A convergence study (Shannon entropy, more inactive
 generations) has not been done.~~ **UPDATED 2026-11-09:** a first check on
-inactive generations has been done (next section); a Shannon-entropy study
-has not.
+inactive generations has been done (next section); ~~a Shannon-entropy study
+has not~~ and a Shannon-entropy study (the section after it).
 
 ### Source convergence: 300 against 100 inactive generations (2026-11-09)
 
@@ -205,6 +205,42 @@ gh:#1128 before the run: converged if |Δk| is below about 2 combined σ
   result alone.
 
 Hardware: as above (4 threads); 1269–1324 s transport per seed at 300
+inactive.
+
+### Source convergence by Shannon entropy (2026-11-09)
+
+**Method.** `--entropy-csv` routes the run through `run_keff_csg_hybrid`
+with no majorants and an 8×8×8 mesh over the source box (512 bins, 9 bits
+at most), writing k and H per generation (`data/entropy.csv`).
+`stats::convergence::SourceConvergence` runs MSER-5, Geweke and a change
+point on both traces. Arm C (natural Mo), RVS, develop `d2da89932` plus the
+flag. Prediction posted on gh:#1128 before the run: MSER truncates well
+under 100 generations.
+
+| run | k | MSER truncation (H / k) | Geweke z (H / k) |
+|---|---|---|---|
+| seed 1, 100 + 200 (identity check) | 1.009476 | 10 / 10 | — |
+| seed 1, 300 + 200 | 1.00871 ± 0.00057 | 10 / 10 | −0.58 / +0.43 |
+| seed 2, 300 + 200 | 1.00879 ± 0.00059 | 5 / 5 | +0.12 / −0.84 |
+
+- **Identity check passed:** the entropy path reproduces the plain run's
+  k = 1.009476 to every printed digit, as `run_keff_csg_hybrid`'s docs
+  state.
+- **H falls from 8.59 bits to a plateau of 8.52–8.53 within about 10
+  generations** (the uniform source box over-spreads the source), and stays
+  there: mean H over generations 11–150 and 151–300 agree to 0.001 bit on
+  both seeds. No drift (Geweke), no change point after the first batch.
+- **Inside the prediction.** 100 inactive generations are ten times what
+  either trace needs.
+- **Against the earlier +74 ± 37 pcm:** the two 300-inactive RVS seeds
+  average 1.00875, against 1.00882 ± 0.00022 for the six 100-inactive RVS
+  seeds: −7 pcm. The convergence bias that check could not exclude is not
+  seen here.
+- **Limit of the instrument:** an 8×8×8 entropy is a coarse source
+  measure. It cannot see a slow tilt within a bin, so this bounds gross
+  non-convergence, not every higher mode.
+
+Hardware: as above (4 threads); 1311–1321 s transport per seed at 300
 inactive.
 
 ### Resonance-scattering ablation (2026-11-09, gh:#1311)
