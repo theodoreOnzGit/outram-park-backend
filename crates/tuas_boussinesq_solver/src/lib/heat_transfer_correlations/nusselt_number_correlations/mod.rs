@@ -18,6 +18,10 @@ pub mod free_convection_correlations;
 /// tests to ensure correlations are working correctly
 pub mod tests;
 
+/// MSRE TH-C1 (gh:#1135): the correlations against the analytical Graetz
+/// solution and the textbook turbulent correlations (tests only).
+pub mod graetz_th_c1;
+
 pub use free_convection_correlations::{
     churchill_chu_vertical_plate_nusselt, grashof_number, rayleigh_number, ChurchillChuData,
 };
