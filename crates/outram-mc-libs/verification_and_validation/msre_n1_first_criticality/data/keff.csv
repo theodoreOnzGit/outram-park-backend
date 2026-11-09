@@ -8,3 +8,6 @@ mo-omitted@salt1181F/graphite1181F,5,1.012195,0.000601,20000,100,200,4,1282.0,17
 mo-natural@salt1181F/graphite1181F,1,1.008634,0.000604,20000,100,200,4,801.0,150.1,"llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor, 15.7 GiB RAM"
 mo-natural@salt1181F/graphite1181F,2,1.008086,0.000674,20000,100,200,4,785.8,150.1,"llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor, 15.7 GiB RAM"
 mo-natural@salt1181F/graphite1181F,3,1.008414,0.000629,20000,100,200,4,780.6,150.1,"llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor, 15.7 GiB RAM"
+mo-natural+rvs@salt1181F/graphite1181F,1,1.009476,0.000639,20000,100,200,4,802.0,149.5,"llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor, 15.7 GiB RAM"
+mo-natural+rvs@salt1181F/graphite1181F,2,1.008513,0.000604,20000,100,200,4,785.2,149.5,"llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor, 15.7 GiB RAM"
+mo-natural+rvs@salt1181F/graphite1181F,3,1.009486,0.000626,20000,100,200,4,791.3,149.5,"llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor, 15.7 GiB RAM"
