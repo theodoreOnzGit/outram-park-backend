@@ -1017,6 +1017,11 @@ pub struct CirculatingPointKinetics {
   Kinetics for `nuclide`'s six-group data (the crate's tables), with
 
 - ```rust
+  pub fn with_groups(delayed_fractions: Vec<Ratio>, decay_constants: Vec<DecayConstant>, core_transit: Time, loop_transit: Time, generation_time: Time, timestep: Time) -> Result<Self, TehOPrkeError> { /* ... */ }
+  ```
+  As [`Self::new`], with explicit group data: delayed fractions `β_i`
+
+- ```rust
   pub fn total_delayed_fraction(self: &Self) -> Ratio { /* ... */ }
   ```
   `β = Σ β_i`.

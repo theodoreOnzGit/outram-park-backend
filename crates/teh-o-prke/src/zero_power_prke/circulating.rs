@@ -118,8 +118,43 @@ impl CirculatingPointKinetics {
         generation_time: Time,
         timestep: Time,
     ) -> Result<Self, TehOPrkeError> {
-        let lambdas: Vec<f64> = nuclide.get_decay_constant_array().iter().map(|l: &DecayConstant| l.get::<hertz>()).collect();
-        let betas: Vec<f64> = nuclide.get_delayed_fraction_array().iter().map(|b| b.get::<ratio>()).collect();
+        Self::with_groups(
+            nuclide.get_delayed_fraction_array().to_vec(),
+            nuclide.get_decay_constant_array().to_vec(),
+            core_transit,
+            loop_transit,
+            generation_time,
+            timestep,
+        )
+    }
+
+    /// As [`Self::new`], with explicit group data: delayed fractions `β_i`
+    /// and decay constants `λ_i` (e.g. a report's own table). Errors as
+    /// `new`, and if the two lists differ in length or are empty, or a decay
+    /// constant is not positive or a fraction negative.
+    pub fn with_groups(
+        delayed_fractions: Vec<Ratio>,
+        decay_constants: Vec<DecayConstant>,
+        core_transit: Time,
+        loop_transit: Time,
+        generation_time: Time,
+        timestep: Time,
+    ) -> Result<Self, TehOPrkeError> {
+        if delayed_fractions.len() != decay_constants.len() || delayed_fractions.is_empty() {
+            return Err(TehOPrkeError::ShapeMismatch(format!(
+                "{} delayed fractions but {} decay constants",
+                delayed_fractions.len(),
+                decay_constants.len()
+            )));
+        }
+        let lambdas: Vec<f64> = decay_constants.iter().map(|l: &DecayConstant| l.get::<hertz>()).collect();
+        let betas: Vec<f64> = delayed_fractions.iter().map(|b| b.get::<ratio>()).collect();
+        if lambdas.iter().any(|&l| !(l > 0.0)) || betas.iter().any(|&b| !(b >= 0.0)) {
+            return Err(TehOPrkeError::GenericStringError(
+                "decay constants must be > 0 and delayed fractions >= 0".to_string(),
+            ));
+        }
+        let groups = lambdas.len();
         let tc = core_transit.get::<second>();
         let tl = loop_transit.get::<second>();
         let dt = timestep.get::<second>();
@@ -149,7 +184,7 @@ impl CirculatingPointKinetics {
             loop_steps: steps as usize,
             generation_time: lam,
             n: 1.0,
-            c: vec![0.0; 6],
+            c: vec![0.0; groups],
             history: VecDeque::new(),
         };
         pk.set_circulating_equilibrium(VolumetricNumberDensity::new::<per_cubic_meter>(1.0));
