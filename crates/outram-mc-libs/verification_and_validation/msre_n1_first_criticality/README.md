@@ -105,6 +105,12 @@ thermal-absorption stand-in therefore captured Mo's worth to within the
 statistics; the extra resonance absorption estimated at about 20 % is not
 resolved. Transport took 781–801 s per seed (machine otherwise idle).
 
+**Resonance scattering in every run on this page:** DBRC. Every N-1, N-3 and
+convergence run here was made before the default changed to OpenMC's RVS
+method (gh:#1311, 2026-11-09). DBRC itself is worth −19 ± 51 pcm on this
+model (ablation below); the RVS-vs-DBRC difference has not been measured on
+it.
+
 The remaining +757 pcm (arm C; ~~+800 pcm, arm B~~) is **not** a validated
 code bias. The source-convergence check below allows that it reads up to
 about 70 pcm low. It contains:
@@ -115,8 +121,10 @@ about 70 pcm low. It contains:
 - the model's simplifications: the heads, ~5 ft³ of end-region salt, no
   thermal shield, cold dimensions;
 - ~~the Mo stand-in itself.~~ (closed by arm C)
-- the 144–239 pcm by which route 4 sits above route 1 (OpenMC) on this
-  model, still unexplained (gh:#1310, #1311).
+- the gap by which route 4 sits above route 1 (OpenMC) on this model:
+  +80 ± 44 pcm at 1181 °F (three seeds a side, resonance-scattering ablation
+  below), up to 239 ± 21 pcm at 1231 °F; graphite law, URR and DBRC are ruled
+  out, and the maintainer chose not to pursue it further (gh:#1311).
 
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
@@ -185,3 +193,34 @@ gh:#1128 before the run: converged if |Δk| is below about 2 combined σ
 
 Hardware: as above (4 threads); 1269–1324 s transport per seed at 300
 inactive.
+
+### Resonance-scattering ablation (2026-11-09, gh:#1311)
+
+**Question.** Route 1 (OpenMC on NJOY2016 ACE) sits below route 4 (this
+crate) at 1181 °F. Does the resonance elastic scattering treatment explain
+the gap?
+
+**Method.** Both codes were run with DBRC on and off at 1181 °F, three seeds
+each, Mo omitted, 20 000 particles × [100 + 200], same seeds in both arms.
+OpenMC: `msre_n1_openmc.py --no-dbrc`. This crate:
+`examples/msre_n1_first_criticality.rs` with `--no-dbrc` (every nuclide
+through `without_dbrc()`). The DBRC-on route-1 seeds are those in
+`data/per_seed_keff_msre_route1_2026_11_09.csv`; the route-4 DBRC-on seeds
+were re-run and reproduce `data/keff.csv` seeds 1–3 to every printed digit.
+Uncertainties are the seed-to-seed standard error (see the next section).
+Data: `data/per_seed_keff_msre_dbrc_route{1,4}_2026_11_09.csv`.
+
+| | route 1 (OpenMC) | route 4 (this crate) | gap, route 4 − route 1 |
+|---|---|---|---|
+| DBRC on | 1.01232 ± 0.00026 | 1.01311 ± 0.00036 | **+80 ± 44 pcm** |
+| DBRC off | 1.01253 ± 0.00042 | 1.01330 ± 0.00037 | **+77 ± 55 pcm** |
+| worth (on − off) | −21 ± 49 pcm | −19 ± 51 pcm | |
+
+**Result.** DBRC is worth nothing resolvable in either code, and the two
+worths agree. The gap is the same with it on or off, so **resonance
+scattering is not the cause of the route 1/4 gap.** Graphite's thermal law
+and URR were ruled out the same day. The maintainer chose not to pursue the
+gap further ("leave it be").
+
+These runs predate the switch of both codes' default to RVS (gh:#1311,
+same day). They compare DBRC with nothing, so the switch does not affect them.

@@ -173,6 +173,7 @@ def main():
     ap.add_argument("--commit", default="")
     ap.add_argument("--openmc", default="openmc")
     ap.add_argument("--plot", action="store_true", help="write geometry plots and exit")
+    ap.add_argument("--no-dbrc", action="store_true", help="ablation (gh:#1311): resonance scattering off")
     a = ap.parse_args()
     mats, geo, src, ts = build(a.t_salt_f, a.t_graphite_f)
     materials = openmc.Materials(mats)
@@ -184,7 +185,7 @@ def main():
                                         constraints={"fissionable": True})
     s.temperature = {"default": ts, "method": "interpolation"}
     s.ptables = True
-    s.resonance_scattering = {"enable": True, "method": "dbrc", "energy_min": 1.0e-5, "energy_max": 1000.0}
+    s.resonance_scattering = {"enable": not a.no_dbrc, "method": "rvs", "energy_min": 0.01, "energy_max": 1000.0}
     s.output = {"tallies": False, "summary": False}
     model = openmc.Model(geometry=geo, materials=materials, settings=s)
     wd = pathlib.Path(a.workdir)
@@ -207,7 +208,7 @@ def main():
     with openmc.StatePoint(sp_path) as sp:
         k = sp.keff
         kgen = np.asarray(sp.k_generation)[a.inactive:]
-    case = f"msre_n1_salt{a.t_salt_f:g}F_graphite{a.t_graphite_f:g}F"
+    case = f"msre_n1_salt{a.t_salt_f:g}F_graphite{a.t_graphite_f:g}F" + ("_nodbrc" if a.no_dbrc else "")
     csv_path = pathlib.Path(a.csv)
     new = not csv_path.is_file()
     with csv_path.open("a", newline="") as f:

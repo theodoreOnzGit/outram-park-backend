@@ -16,11 +16,15 @@ Physics settings, each chosen to match what outram-mc carries by default:
 * temperature 293.6 K on every material (the libraries hold one temperature,
   labelled 294K by OpenMC from kT = 2.53e-8 MeV);
 * URR probability tables ON (``ptables``, OpenMC's default);
-* resonance elastic scattering ON, method ``dbrc``, 1e-5 eV <= E <= 1 keV,
-  every nuclide carrying 0 K elastic (all of them) -- outram-mc applies DBRC
-  to every nuclide below 1 keV with no lower limit (``DbrcTable::applies``).
-  OpenMC's Python API refuses energy_min <= 0, so it is set to 1e-5 eV, the
-  bottom of every ENDF evaluation's grid, rather than OpenMC's 0.01 eV default;
+* resonance elastic scattering ON, every nuclide carrying 0 K elastic (all
+  of them). ~~method ``dbrc``, 1e-5 eV <= E <= 1 keV: outram-mc applies DBRC
+  to every nuclide below 1 keV with no lower limit~~ **CHANGED 2026-11-09
+  (gh:#1311, maintainer: ports match upstream's defaults):** method ``rvs``
+  (OpenMC's default, and outram-mc's default since the same change), 0.01 eV
+  <= E <= 1 keV, OpenMC's defaults. outram-mc has applied the 0.01 eV lower
+  bound since gh:#407 (``RES_SCAT_ENERGY_MIN`` in ``physics::scatter``), so the
+  old "no lower limit" claim was already false. Runs recorded before this
+  change used ``dbrc`` from 1e-5 eV;
 * S(a,b) ``c_H_in_H2O`` on the water-bearing materials (HST-009 solution and
   reflector, LCT-008s mixture), none elsewhere;
 * source: Watt fission spectrum (OpenMC's default, the same a, b as outram-mc's
@@ -239,8 +243,8 @@ def main():
         constraints={"fissionable": True})
     s.temperature = {"default": T, "method": "nearest", "tolerance": 10.0}
     s.ptables = not a.no_ptables
-    s.resonance_scattering = {"enable": not a.no_dbrc, "method": "dbrc",
-                              "energy_min": 1.0e-5, "energy_max": 1000.0}
+    s.resonance_scattering = {"enable": not a.no_dbrc, "method": "rvs",
+                              "energy_min": 0.01, "energy_max": 1000.0}
     if a.dbrc_nuclides:
         s.resonance_scattering["nuclides"] = a.dbrc_nuclides.split(",")
     s.output = {"tallies": False, "summary": False}

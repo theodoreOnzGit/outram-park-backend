@@ -370,6 +370,33 @@ pub struct DbrcTable {
     xs: Vec<f64>,
     /// Upper energy \[eV\] above which DBRC is not applied.
     e_max: f64,
+    /// `∫ √E σ₀K(E) dE` from the first grid point, trapezoidal, negative
+    /// σ zeroed: OpenMC's `xs_cdf_` (`src/nuclide.cpp`, resonant nuclides),
+    /// what RVS samples the relative energy from.
+    cdf: Vec<f64>,
+    /// Which resonance-scattering sampler the window uses.
+    method: ResonanceScatteringMethod,
+}
+
+/// How a resonant nuclide's target velocity is sampled inside the window
+/// `E_red ± 4` (OpenMC's `ResScatMethod`, `src/physics.cpp`
+/// `sample_target_velocity`). Both sample the same 0 K-corrected
+/// distribution; they differ in the random-number path.
+///
+/// **RVS is the default**, as upstream's (`settings.cpp`:
+/// `res_scat_method {ResScatMethod::rvs}`). Maintainer decision 2026-11-09
+/// (gh:#1311): resonance scattering stays **on** by default (the root
+/// CLAUDE.md correct-physics rule) and uses upstream's default method. DBRC
+/// is the named alternative.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ResonanceScatteringMethod {
+    /// Relative velocity sampling: the relative energy from the √E σ₀K CDF,
+    /// the target energy from the Maxwellian, accepted on `|μ| < 1`.
+    #[default]
+    Rvs,
+    /// Doppler-broadening rejection correction: constant-cross-section
+    /// candidates, accepted with `σ₀K(E_rel) / σ_max`.
+    Dbrc,
 }
 
 impl DbrcTable {
@@ -390,11 +417,89 @@ impl DbrcTable {
         if energy.iter().filter(|&&e| e <= e_max_ev).count() < 2 {
             return None;
         }
+        // OpenMC `src/nuclide.cpp`: negative cross sections set to zero, then
+        // xs_cdf[i+1] = xs_cdf[i] + (√E_i σ_i + √E_{i+1} σ_{i+1}) / 2 · (E_{i+1} − E_i).
+        let pos: Vec<f64> = xs.iter().map(|&x| if x < 0.0 { 0.0 } else { x }).collect();
+        let mut cdf = vec![0.0; energy.len()];
+        let mut sum = 0.0;
+        for i in 0..energy.len().saturating_sub(1) {
+            sum += (energy[i].sqrt() * pos[i] + energy[i + 1].sqrt() * pos[i + 1]) / 2.0 * (energy[i + 1] - energy[i]);
+            cdf[i + 1] = sum;
+        }
         Some(DbrcTable {
             energy,
             xs,
             e_max: e_max_ev,
+            cdf,
+            method: ResonanceScatteringMethod::default(),
         })
+    }
+
+    /// The same table with `method` as its sampler.
+    pub fn with_method(mut self, method: ResonanceScatteringMethod) -> Self {
+        self.method = method;
+        self
+    }
+
+    /// The sampler this table uses.
+    pub fn method(&self) -> ResonanceScatteringMethod {
+        self.method
+    }
+
+    /// OpenMC's index rule for a window bound (`physics.cpp`): 0 below the
+    /// grid, `n − 2` above it, otherwise `lower_bound_index` (the last `i`
+    /// with `energy[i] <= e`).
+    fn bound_index(&self, e: f64) -> usize {
+        let n = self.energy.len();
+        if e < self.energy[0] {
+            0
+        } else if e > self.energy[n - 1] {
+            n - 2
+        } else {
+            self.energy.partition_point(|&x| x <= e).saturating_sub(1).min(n - 2)
+        }
+    }
+
+    /// RVS: one target velocity, `(E_t / A)` speed squared in √E units and
+    /// cosine with the neutron, by OpenMC's `ResScatMethod::rvs` branch
+    /// (`src/physics.cpp`), for a neutron of `e` eV, `awr`, `kt_ev`. Returns
+    /// `None` in the degenerate case (both bounds in one interval), where
+    /// upstream uses the constant-cross-section sampler.
+    fn sample_rvs(&self, e: f64, awr: f64, kt_ev: f64, seed: &mut u64) -> Option<(f64, f64)> {
+        let e_red = (awr * e / kt_ev).sqrt();
+        let e_low = (e_red - 4.0).max(0.0).r_powi(2) * kt_ev / awr;
+        let e_up = (e_red + 4.0) * (e_red + 4.0) * kt_ev / awr;
+        let i_low = self.bound_index(e_low);
+        let i_up = self.bound_index(e_up);
+        if i_up == i_low {
+            return None;
+        }
+        let en = &self.energy;
+        let cdf = &self.cdf;
+        let mut cdf_low = 0.0;
+        if e_low > en[0] {
+            let m = (cdf[i_low + 1] - cdf[i_low]) / (en[i_low + 1] - en[i_low]);
+            cdf_low = cdf[i_low] + m * (e_low - en[i_low]);
+        }
+        let m = (cdf[i_up + 1] - cdf[i_up]) / (en[i_up + 1] - en[i_up]);
+        let cdf_up = cdf[i_up] + m * (e_up - en[i_up]);
+        loop {
+            // Directly sample the Maxwellian target energy.
+            let e_t = -kt_ev * prn(seed).r_ln();
+            // A relative energy from the cross-section CDF.
+            let cdf_rel = cdf_low + prn(seed) * (cdf_up - cdf_low);
+            // lower_bound_index over cdf[i_low ..= i_up + 1].
+            let slice = &cdf[i_low..=i_up + 1];
+            let k = slice.partition_point(|&c| c <= cdf_rel).saturating_sub(1).min(slice.len() - 2);
+            let j = i_low + k;
+            let m = (cdf[j + 1] - cdf[j]) / (en[j + 1] - en[j]);
+            let e_rel = en[j] + (cdf_rel - cdf[j]) / m;
+            // Rejection on the cosine between neutron and target velocities.
+            let mu = (e_t + awr * (e - e_rel)) / (2.0 * (awr * e * e_t).sqrt());
+            if mu.abs() < 1.0 {
+                return Some((e_t / awr, mu));
+            }
+        }
     }
 
     /// Upper energy \[eV\] DBRC is applied below.
@@ -518,12 +623,26 @@ fn sample_target_velocity_dbrc(
     // it, and in the degenerate case where the window holds no grid point,
     // the constant-cross-section sampler is used, as upstream.
     const RES_SCAT_ENERGY_MIN: f64 = 0.01;
-    let window = dbrc.filter(|t| t.applies(e) && e >= RES_SCAT_ENERGY_MIN).and_then(|t| {
+    let window = dbrc.filter(|t| t.method == ResonanceScatteringMethod::Dbrc && t.applies(e) && e >= RES_SCAT_ENERGY_MIN).and_then(|t| {
         let e_low = (beta_vn - 4.0).max(0.0).r_powi(2) * kt_ev / awr;
         let e_up = (beta_vn + 4.0).r_powi(2) * kt_ev / awr;
         t.has_point_inside(e_low, e_up).then(|| (t, e_up, t.xs_max_over(e_low, e_up)))
     });
 
+    // RVS (the default method): its own window arithmetic and degenerate
+    // test, as upstream's `ResScatMethod::rvs` branch. The result is already
+    // in √E units, so it returns here.
+    if let Some(t) = dbrc.filter(|t| t.method == ResonanceScatteringMethod::Rvs && t.applies(e) && e >= RES_SCAT_ENERGY_MIN) {
+        if let Some((vt_sq, mu)) = t.sample_rvs(e, awr, kt_ev, seed) {
+            let vt = vt_sq.sqrt();
+            let u_t = rotate_direction(u, mu, seed);
+            return [vt * u_t.u, vt * u_t.v, vt * u_t.w];
+        }
+        let (beta_vt_sq, mu) = sample_cxs_target(beta_vn, alpha, seed);
+        let vt = (beta_vt_sq * kt_ev / awr).sqrt();
+        let u_t = rotate_direction(u, mu.clamp(-1.0, 1.0), seed);
+        return [vt * u_t.u, vt * u_t.v, vt * u_t.w];
+    }
     let (beta_vt_sq, mu) = match window {
         None => sample_cxs_target(beta_vn, alpha, seed),
         Some((t, e_up, s_max)) => {

@@ -689,6 +689,27 @@ nobody reaches for is, in practice, an optimisation the code does not have.
 apply:** make the cheap path the default, prove it exact with a test, and
 record the measured worth rather than asserting one.
 
+### Resonance elastic scattering: on, upstream's RVS method (2026-11-09, gh:#1311)
+
+Maintainer decision: resonance scattering stays **on** by default (the root
+`CLAUDE.md` correct-physics rule), and its **method follows upstream's
+default**, OpenMC's `rvs` (`settings.cpp`: `res_scat_method {ResScatMethod::rvs}`).
+`physics::scatter::ResonanceScatteringMethod::{Rvs, Dbrc}` lives on the 0 K
+table (`DbrcTable`); `Nuclide::with_resonance_scattering_method(Dbrc)` selects
+DBRC by name. Window, 0.01 eV / 1 keV bounds and the nuclide set (every
+nuclide with 0 K elastic) are upstream's.
+
+- **RVS is a port of upstream's `rvs` branch** and the `√E σ₀K` CDF from
+  `nuclide.cpp`. Checked against OpenMC's single-scatter spectra
+  (`tests/dbrc_single_scatter_vs_openmc.rs`, U-238 at 6.4/20.5/36.4 eV):
+  worst |z| 3.4 with RVS, against 3.6 recorded for the DBRC kernel.
+- **The change moves random-number paths**, so every bit-identity pin with a
+  resonant nuclide below 1 keV was re-pinned in the same change, each with
+  its reason. The physics is the same distribution: k moves only within
+  statistics.
+- OpenMC comparison decks in `verification_and_validation/` use `rvs` and
+  0.01 eV since the same change (they used `dbrc` from 1e-5 eV before).
+
 ### `SpeedTier`: Standard / Fast / VeryFast (2026-09-27, gh:#349)
 
 Maintainer request: one selector for a faster transport and nuclear-data

@@ -244,10 +244,25 @@ const TEMP: f64 = 293.6;
 /// re-recorded, see the module docs). Exact, not
 /// approximate. The values measured on `9b861a861` itself are kept in the
 /// module docs; see "Re-recorded 2026-09-27" there for why these differ.
-const K_MEAN_PRE_258: f64 = 9.872_893_945_032_524_82e-1;
-const K_STD_PRE_258: f64 = 4.034_210_549_813_215_67e-3;
+/// **RE-PINNED 2026-11-09 (gh:#1311; maintainer: resonance scattering on,
+/// with upstream's default method RVS).** The resonance-scattering sampler
+/// went from DBRC to RVS. Both sample the same 0 K-corrected distribution,
+/// but they draw different random numbers, so every history that scatters
+/// off a resonant nuclide below 1 keV takes another RNG path. The pin
+/// therefore moved, and nothing about the analog path did:
+/// - the first generation is still bit-identical (9.354845634945611e-1);
+/// - this test passes unchanged on develop without RVS (checked the same
+///   day, 2026-11-09, on `484b7f007`);
+/// - the new k differs from the old by +565 pcm against a combined σ of
+///   620 pcm (0.9σ), i.e. a re-draw.
+///
+/// The values before, measured with DBRC: k_mean
+/// 9.872_893_945_032_524_82e-1, k_std 4.034_210_549_813_215_67e-3, first
+/// generation 9.354_845_634_945_611_05e-1, last 9.831_945_442_690_159_80e-1.
+const K_MEAN_PRE_258: f64 = 9.929_367_335_926_888_58e-1;
+const K_STD_PRE_258: f64 = 4.691_511_358_454_659_82e-3;
 const K_GEN_FIRST_PRE_258: f64 = 9.354_845_634_945_611_05e-1;
-const K_GEN_LAST_PRE_258: f64 = 9.831_945_442_690_159_80e-1;
+const K_GEN_LAST_PRE_258: f64 = 9.796_434_138_179_326_29e-1;
 
 fn heu() -> Option<Vec<Nuclide>> {
     let base =
