@@ -5,7 +5,7 @@
 #
 #   NJOY=crates/njoy-outram-park-fork/upstream_source/NJOY2016/build/njoy \
 #   OUT=reference-data/ace/reference-njoy/endf-b-viii.0/900K \
-#     sh make_njoy_900k.sh <MAT> <ENDF tape path> <NAME>
+#     [TK=<kelvin, default 900>] sh make_njoy_900k.sh <MAT> <ENDF tape path> <NAME>
 #
 # Writes $OUT/<NAME>.njoy (the deck), $OUT/<NAME>.pendf.gz (BROADR tape22)
 # and $OUT/<NAME>.ace.gz (ACER tape24). The ACE comment field carries the
@@ -33,19 +33,19 @@ broadr
 20 21 22
 $MAT 1 0 0 0./
 .001/
-900./
+${TK:-900.}/
 0/
 purr
 20 22 23
 $MAT 1 1 20 64/
-900./
+${TK:-900.}/
 1.e10/
 0/
 acer
 20 23 0 24 25
 1 1 1 .90 0/
 '$STAMP'/
-$MAT 900./
+$MAT ${TK:-900.}/
 1 1/
 /
 stop

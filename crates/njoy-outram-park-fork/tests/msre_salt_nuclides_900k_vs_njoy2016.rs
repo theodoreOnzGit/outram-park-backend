@@ -108,14 +108,19 @@ fn tape(file: &str, home: &TapeHome) -> Option<Tape> {
 /// differences (empty when identical) and the MT=1 counts below and above
 /// `thnmax`; `None` when its data is absent here.
 fn compare_nuclide(file: &str, home: TapeHome, mat: i32, name: &str) -> Option<(Vec<String>, usize, usize, f64)> {
+    compare_nuclide_at(file, home, mat, name, DIR, T_K)
+}
+
+/// [`compare_nuclide`] against the references in `dir` at `t_k` kelvin.
+fn compare_nuclide_at(file: &str, home: TapeHome, mat: i32, name: &str, dir: &str, t_k: f64) -> Option<(Vec<String>, usize, usize, f64)> {
     let tape = tape(file, &home)?;
-    let pendf_path = ace_reference_file_or_skip(&format!("{DIR}/{name}.pendf.gz"), name)?;
-    let ace_path = ace_reference_file_or_skip(&format!("{DIR}/{name}.ace.gz"), name)?;
+    let pendf_path = ace_reference_file_or_skip(&format!("{dir}/{name}.pendf.gz"), name)?;
+    let ace_path = ace_reference_file_or_skip(&format!("{dir}/{name}.ace.gz"), name)?;
     let theirs = Tape::read_file(&pendf_path).expect("NJOY PENDF");
 
     let r0 = reconr(&tape, &ReconrConfig { mat, tolerance: 1.0e-3, temperature: 0.0 }).expect("RECONR");
     let thnmax = broadening_limit(&r0);
-    let broadened = broaden_result(&r0, T_K);
+    let broadened = broaden_result(&r0, t_k);
     let ours = broadened.clone().through_pendf_text();
 
     let mut diffs = Vec::new();
@@ -156,7 +161,7 @@ fn compare_nuclide(file: &str, home: TapeHome, mat: i32, name: &str) -> Option<(
     let bytes = std::fs::read(&ace_path).expect("read NJOY's ACE");
     let mut tables = read::read_library_from_bytes(bytes, &format!("{name}.ace.gz")).expect("NJOY ACE parses");
     let njoy = tables.pop().expect("one table");
-    let deck = AceDeck::default().without_heatr().with_purr(20, 64, 10_000).with_temperature(T_K);
+    let deck = AceDeck::default().without_heatr().with_purr(20, 64, 10_000).with_temperature(t_k);
     let ace = build_deck(&tape, mat, &broadened, njoy.header.kt_mev, 90, &deck).expect("ACER");
     let ours_ace = read::parse_type1(&ace.to_raw(AceFileType::Type1Ascii).unwrap().to_type1_string()).unwrap();
     let c = compare(&ours_ace, &njoy);
@@ -220,6 +225,44 @@ fn zirconium_isotopes_at_900k_are_njoy2016s_word_for_word() {
             if !d.is_empty() {
                 failed.push(name);
             }
+        }
+    }
+    assert!(failed.is_empty(), "differ from NJOY2016: {failed:?}");
+}
+
+/// gh:#1310 (MSRE URR parity): U-235 and U-238 at 911.483 K (1181 °F), the
+/// MSRE N-1 temperature, against NJOY2016's own PENDF and ACE, **the UNR
+/// probability-table block included**, word for word. References in
+/// `reference-njoy/endf-b-viii.0/911.483K/` (deck beside each).
+///
+/// Prediction (gh:#1310, before the run): identical, moderate confidence.
+/// **Result (2026-11-09): identical**, both nuclides, every PENDF MF=3 word
+/// and every ACE word with the UNR block. MT=1 points below / above
+/// `thnmax`: U-235 52 126 / 960 (thnmax 2.25 keV), U-238 118 666 / 512
+/// (thnmax 20 keV). So URR table generation is not the cause of the MSRE
+/// route 1 / route 4 gap (gh:#1128).
+///
+/// 303 s (U-235's RECONR + PURR, release, Intel Xeon W-2195, one thread
+/// per nuclide): over the 5-minute line, so behind `long-tests` (default
+/// on).
+#[test]
+#[cfg_attr(not(feature = "long-tests"), ignore = "long-tests: 303 s of U-235/U-238 processing")]
+fn uranium_at_911k_with_urr_tables_is_njoy2016s_word_for_word() {
+    let dir = "reference-njoy/endf-b-viii.0/911.483K";
+    let mut failed = Vec::new();
+    for (file, mat, name) in [("n-092_U_235-ENDF8.0.endf", 9228, "U235"), ("n-092_U_238.endf", 9237, "U238")] {
+        let Some((diffs, below, above, thnmax)) = compare_nuclide_at(file, TapeHome::Repo, mat, name, dir, 911.483) else {
+            continue;
+        };
+        println!(
+            "gh#1310 {name} @ 911.483 K: thnmax {thnmax:.4e} eV, MT=1 below {below}, above {above}; {}",
+            if diffs.is_empty() { "PENDF and ACE (UNR included) identical to NJOY2016".to_string() } else { format!("{} differences", diffs.len()) }
+        );
+        for d in diffs.iter().take(40) {
+            println!("gh#1310 {name}:   {d}");
+        }
+        if !diffs.is_empty() {
+            failed.push(name);
         }
     }
     assert!(failed.is_empty(), "differ from NJOY2016: {failed:?}");
