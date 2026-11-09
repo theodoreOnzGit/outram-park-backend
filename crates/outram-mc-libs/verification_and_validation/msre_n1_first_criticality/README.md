@@ -30,13 +30,17 @@ before any run. The headline simplifications:
 - `scripts/salt.py`: the salt from ORNL-4233's inventory. It reproduces ORNL's 1.408 wt % and 32.78 g/L.
 - `scripts/inor8.py`: INOR-8 from TM-0728 Table 2.2.
 
-**Molybdenum data gap:** INOR-8 is 16.5 wt % Mo, and only a beta ⁹⁵Mo tape is
-in `reference-data/endf/`. Two arms bound the effect:
+~~**Molybdenum data gap:** INOR-8 is 16.5 wt % Mo, and only a beta ⁹⁵Mo tape is
+in `reference-data/endf/`. Two arms bound the effect:~~ **CLOSED 2026-11-09:**
+the seven stable Mo tapes (ENDF/B-VIII.0 release) are in `reference-data/ace`
+(`ba58c2e`), and arm C carries INOR-8's Mo as specified. **Arm C is the model;
+A and B are kept as ablations.** INOR-8 is 16.5 wt % Mo:
 
 | arm | INOR-8 Mo |
 |---|---|
 | A, `--mo omitted` | left out |
-| B, `--mo mo95` | ⁹⁵Mo at the thermal absorption of natural Mo (σ_a 2.48 / 13.4 b, quoted from memory) |
+| B, `--mo mo95` | beta ⁹⁵Mo tape at the thermal absorption of natural Mo (σ_a 2.48 / 13.4 b, quoted from memory) |
+| **C, `--mo natural`** | natural Mo, ⁹²⁻¹⁰⁰Mo at IUPAC 2013 abundances, same element density (`scripts/inor8.py`) |
 
 **Data and code:**
 
@@ -85,20 +89,34 @@ parallel); transport takes 770-1290 s per seed.
 |---|---|---|---|
 | A, Mo omitted | 5 | **1.01278 ± 0.00028** | **+1197 ± 28 pcm** |
 | B, Mo as Mo-95 equivalent | 1 | 1.00869 ± 0.00062 (internal) | +788 pcm |
+| **C, natural Mo (the model)** | 3 | **1.00838 ± 0.00036** | **+757 ± 36 pcm** |
 
-Both arms are **inside the predictions** posted before the runs (A:
-1.02 ± 0.02; B: 200–800 pcm below A). The bounded worth of INOR-8's Mo is
-about −410 pcm.
+Both arms A and B are **inside the predictions** posted before the runs (A:
+1.02 ± 0.02; B: 200–800 pcm below A). ~~The bounded worth of INOR-8's Mo is
+about −410 pcm.~~ **Measured with natural Mo (arm C):** INOR-8's Mo is worth
+**−441 ± 45 pcm** (C − A).
 
-The remaining +800 pcm (arm B) is **not** a validated code bias. It
-contains:
+**Arm C** (seeds 1.00863, 1.00809, 1.00841; 2026-11-09): the three seeds
+spread only 28 pcm, below the ≈63 pcm internal σ, which three seeds cannot
+resolve, so the quoted ±36 pcm is the internal σ/√3, the larger of the two.
+It is **inside the prediction** posted on gh:#1128 before the run
+(+640 to +790 pcm, i.e. 0–150 pcm below B): C − B = −31 ± 72 pcm. The
+thermal-absorption stand-in therefore captured Mo's worth to within the
+statistics; the extra resonance absorption estimated at about 20 % is not
+resolved. Transport took 781–801 s per seed (machine otherwise idle).
+
+The remaining +757 pcm (arm C; ~~+800 pcm, arm B~~) is **not** a validated
+code bias. The source-convergence check below allows that it reads up to
+about 70 pcm low. It contains:
 
 - the measurement's own ±0.3 g/L, which is ±200 pcm through the measured
   concentration coefficient of 0.223;
 - the book-vs-analytical spread of 270 pcm;
 - the model's simplifications: the heads, ~5 ft³ of end-region salt, no
   thermal shield, cold dimensions;
-- the Mo stand-in itself.
+- ~~the Mo stand-in itself.~~ (closed by arm C)
+- the 144–239 pcm by which route 4 sits above route 1 (OpenMC) on this
+  model, still unexplained (gh:#1310, #1311).
 
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 

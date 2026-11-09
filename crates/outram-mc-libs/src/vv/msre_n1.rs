@@ -68,8 +68,10 @@
 //!   graphite 30P S(α,β) is applied by the caller.
 //! - **INOR-8**, TM-0728 Table 2.2: 0.317 lb/in³. The composition is Ni 71,
 //!   Mo 16.5, Cr 7 and Fe 4 wt %; the ~1.5 % of minor elements is omitted.
-//!   **Mo is a data gap** (only a beta ⁹⁵Mo tape is in `reference-data/endf/`),
-//!   handled by [`MoTreatment`]. The script is `scripts/inor8.py` beside
+//!   ~~**Mo is a data gap** (only a beta ⁹⁵Mo tape is in `reference-data/endf/`),
+//!   handled by [`MoTreatment`].~~ **CLOSED 2026-11-09:** natural Mo is read
+//!   from the seven ENDF/B-VIII.0 tapes in `reference-data/ace`
+//!   ([`MoTreatment::Natural`]); the other arms are kept as ablations. The script is `scripts/inor8.py` beside
 //!   `salt.py`.
 
 use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
@@ -139,8 +141,10 @@ pub fn upper_plenum_height() -> f64 {
     V_UPPER_HEAD / (core::f64::consts::PI * R_VESSEL_IN * R_VESSEL_IN)
 }
 
-/// How INOR-8's molybdenum is represented: the gap in `reference-data/endf/`
-/// (only `n-042_Mo_095-ENDF8.0-beta.endf`), bounded by two arms.
+/// How INOR-8's molybdenum is represented. ~~The gap in `reference-data/endf/`
+/// (only `n-042_Mo_095-ENDF8.0-beta.endf`), bounded by two arms.~~
+/// **UPDATED 2026-11-09:** [`MoTreatment::Natural`] is the model (N-1:
+/// +757 ± 36 pcm); `Omitted` and `Mo95Equivalent` are ablations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MoTreatment {
     /// Arm A: molybdenum left out of INOR-8 (its mass is removed).
