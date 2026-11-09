@@ -40,6 +40,7 @@ is NJOY2016's own double, unrounded.
 
 Nothing is tuned; every table present is converted.
 """
+import os
 import pathlib
 import struct
 import sys
@@ -92,8 +93,10 @@ def load(path):
 # 2026-10-14: LCT-008's full nuclide list (36 tapes) became the model, and a
 # second copy of the list here left OpenMC without B-11 and the clad's trace
 # elements.
+# NUCLIDES_TSV=<tsv> converts a subset (same columns); default: every nuclide.
 NUCLIDES = [line.split("\t")[0]
-            for line in (pathlib.Path(__file__).resolve().parents[1] / "nuclides.tsv").read_text().splitlines()
+            for line in pathlib.Path(os.environ.get(
+                "NUCLIDES_TSV", pathlib.Path(__file__).resolve().parents[1] / "nuclides.tsv")).read_text().splitlines()
             if line.strip() and not line.startswith("#")]
 
 
@@ -122,6 +125,15 @@ def main():
     th.export_to_hdf5(str(h5), "w")
     library.register_file(h5)
     print(f"S(a,b) -> {h5.name}  T={th.temperatures}")
+    # Reactor graphite 30P (MSRE cell, gh:#1126), when the library has it.
+    gr_p = lib / "293.6K" / "Graphite30P.ace"
+    if gr_p.exists():
+        gr = openmc.data.ThermalScattering.from_ace(str(gr_p), name="c_Graphite_30p")
+        gr.nuclides = ["C12", "C13"]
+        h5 = out / "c_Graphite_30p.h5"
+        gr.export_to_hdf5(str(h5), "w")
+        library.register_file(h5)
+        print(f"S(a,b) -> {h5.name}  T={gr.temperatures}")
     library.export_to_xml(str(out / "cross_sections.xml"))
     print("wrote", out / "cross_sections.xml")
 

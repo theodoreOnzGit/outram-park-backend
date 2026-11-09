@@ -14,6 +14,8 @@
 
 use petir::mathf::RealMath;
 pub mod njoy_golden;
+/// MSRE first criticality, U-235 (MSRE N-1, gh:#1128): the full-core model.
+pub mod msre_n1;
 /// Instruments for the temperature-interpolation error study (GitHub #947).
 pub mod temperature_interpolation_947;
 /// The uranium-graphite compositions of tutorial rungs 2 and 3 (GitHub #524,

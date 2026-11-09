@@ -118,7 +118,7 @@ release). Two results are worth recording:
 | Precursor-borne decay heat, xenon transport out of core | Medium | Current models assume in-core retention; MSRE stripped xenon with helium sparging |
 | MSRE-specific widget art (vessel, drain tanks, freeze valves, radiator) | Medium | `fhr_sim_v2`'s reactor art is FHR-specific and not reusable |
 | Wiring moltres into the engine | Small | Currently a zero-dependent island |
-| MSRE geometry and kinetics parameters | Small | Data entry, but must be sourced and cited |
+| ~~MSRE geometry and kinetics parameters~~ **PARTLY CLOSED 2026-11-09 (gh:#1128, #1132):** the full-core geometry and first-criticality salt are `outram_mc_libs::vv::msre_n1` (every dimension cited to ORNL-TM-0728 / ORNL-4233, drawn); the kinetics and loop parameters of ORNL-TM-1070 are `nee_soon::msre_frequency_response`. Still missing: INOR-8's Mo data (ENDF tapes), the heads' real shape | Small | Data entry, but must be sourced and cited |
 
 #### The real-time constraint
 

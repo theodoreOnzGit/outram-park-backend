@@ -16,7 +16,7 @@
 //!
 //! ```text
 //! cargo run --release -p outram-park-fork-liggghts --example gpu_pour_compare -- \
-//!     [--n 16890] [--seeds 1,2,3] [--threads 4] [--max-steps 80000]
+//!     [--n 16890] [--seeds 1,2,3] [--threads 4] [--max-steps 80000] [--csv FILE]
 //! ```
 //!
 //! Prints one row per pour and the verdict. Timing is wall time on this
@@ -29,7 +29,7 @@ use outram_park_fork_liggghts::rdf::{radial_distribution, RdfDomain, RdfSettings
 use uom::si::length::meter;
 
 /// What a settled pour measures.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct Measure {
     steps: usize,
     seconds: f64,
@@ -39,6 +39,8 @@ struct Measure {
     g_sqrt2: f64,
     g_sqrt3: f64,
     g_2: f64,
+    /// The whole curve: (r / d, g).
+    curve: Vec<(f64, f64)>,
 }
 
 /// g(r) of the core (`z > 0`), `bed_rdf_check`'s instrument (r_max 5 d,
@@ -61,6 +63,7 @@ fn measure(p: FillProgress, centres: &[Vec3], seconds: f64) -> Measure {
         g_sqrt2: at(2f64.sqrt()),
         g_sqrt3: at(3f64.sqrt()),
         g_2: at(2.0),
+        curve: rdf.r.iter().zip(&rdf.g).map(|(r, g)| (r / d, *g)).collect(),
     }
 }
 
@@ -87,6 +90,7 @@ fn main() -> Result<(), String> {
         }
         Ok(measure(p, &f.centres(), t0.elapsed().as_secs_f64()))
     };
+    let csv = arg("--csv");
     let mut g = Htr10GpuFill::new(settings(seeds[0]))?;
     println!("# n {n}, CPU seeds {seeds:?} (GPU seed {}), CPU threads {threads}; GPU adapter {}", seeds[0], g.adapter());
     let t0 = std::time::Instant::now();
@@ -117,6 +121,23 @@ fn main() -> Result<(), String> {
     }
     row("gpu", seeds[0], &gpu);
     println!("# GPU table overflows: cells {}, contact slots {}", e.cell_overflow, e.slot_overflow);
+    if let Some(path) = &csv {
+        // Every pour's g(r) side by side (the same bins: same instrument).
+        let mut out = String::from("r_over_d");
+        for sd in &seeds {
+            out.push_str(&format!(",g_cpu_seed{sd}"));
+        }
+        out.push_str(&format!(",g_gpu_seed{}\n", seeds[0]));
+        for (k, (r, _)) in gpu.curve.iter().enumerate() {
+            out.push_str(&format!("{r:.4}"));
+            for m in &cpus {
+                out.push_str(&format!(",{:.4}", m.curve.get(k).map_or(f64::NAN, |c| c.1)));
+            }
+            out.push_str(&format!(",{:.4}\n", gpu.curve[k].1));
+        }
+        std::fs::write(path, out).map_err(|e| e.to_string())?;
+        println!("# wrote {path}");
+    }
     let field = |m: &Measure| [m.phi, m.surface, m.peak, m.g_sqrt2, m.g_sqrt3, m.g_2];
     let names = ["phi_whole_core", "surface_m", "g_peak", "g_sqrt2d", "g_sqrt3d", "g_2d"];
     let k = cpus.len() as f64;
