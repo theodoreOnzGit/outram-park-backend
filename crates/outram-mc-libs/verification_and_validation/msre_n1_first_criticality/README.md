@@ -77,21 +77,54 @@ threads used), 15.7 GiB RAM, Linux, CPU only, in a cloud container shared
 with other jobs. Nuclear data loading takes 170 s (28 nuclides in
 parallel); transport takes 770-1290 s per seed.
 
-### N-1, arm A (Mo omitted), 2026-11-09
+### N-1 (2026-11-09)
 
-| seed | k | internal σ | vs k_ref = 1.0008 |
+**k_ref = 1/(1 − 0.0008) = 1.00080.** σ comes from the seed spread.
+
+| arm | seeds | k | vs k_ref |
 |---|---|---|---|
-| 1 | 1.01339 | 0.00067 | +1258 pcm |
+| A, Mo omitted | 5 | **1.01278 ± 0.00028** | **+1197 ± 28 pcm** |
+| B, Mo as Mo-95 equivalent | 1 | 1.00869 ± 0.00062 (internal) | +788 pcm |
 
-More seeds are queued (2-5); see gh:#1128 for the pooled value.
+Both arms are **inside the predictions** posted before the runs (A:
+1.02 ± 0.02; B: 200–800 pcm below A). The bounded worth of INOR-8's Mo is
+about −410 pcm.
 
-**Inside the prediction** posted before the run (1.02 ± 0.02, high).
-Expected contributions, none yet measured separately:
+The remaining +800 pcm (arm B) is **not** a validated code bias. It
+contains:
 
-- the omitted Mo, which raises k;
-- the omitted ~5 ft³ of end-region salt;
-- the volume-equivalent heads;
-- the missing thermal shield.
+- the measurement's own ±0.3 g/L, which is ±200 pcm through the measured
+  concentration coefficient of 0.223;
+- the book-vs-analytical spread of 270 pcm;
+- the model's simplifications: the heads, ~5 ft³ of end-region salt, no
+  thermal shield, cold dimensions;
+- the Mo stand-in itself.
+
+### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
+
+Salt density follows −1.18e-4 /°F (ORNL-4233 §4.1). Runs at 1131 °F and
+1231 °F; the split runs move one material only.
+
+| run (salt / graphite °F) | seeds | k |
+|---|---|---|
+| A 1131 / 1131 | 6 | 1.01719 ± 0.00038 |
+| B 1231 / 1231 | 6 | 1.00980 ± 0.00034 |
+| C 1231 / 1131 | 3 | 1.01325 ± 0.00024 |
+| D 1131 / 1231 | 3 | 1.01331 ± 0.00055 |
+
+| coefficient (×10⁻⁵ /°F) | this model | ORNL calc. (ORNL-4233 p. 38) | measured (p. 37) |
+|---|---|---|---|
+| **isothermal** | **−7.19 ± 0.50** | −8.1 | **−7.24** (69.9 kg), −7.3 (71.7 kg) |
+| fuel | −3.82 ± 0.44 | −4.1 | — |
+| graphite | −3.77 ± 0.65 | −4.0 | — |
+
+- **Isothermal against the measurement:** +0.05 ± 0.50, i.e. 0.1σ.
+- **Every value is inside its posted prediction**, and the posted precision
+  target σ ≤ 0.5 is met.
+- **The components add:** −7.59 against −7.19.
+- **Mo:** arm A only. Mo absorption is nearly flat in temperature, so the
+  coefficient should be insensitive to it. That expectation was not
+  measured.
 
 ### A finding about the statistics
 

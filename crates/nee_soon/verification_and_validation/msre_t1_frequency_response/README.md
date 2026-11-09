@@ -68,41 +68,35 @@ model's steady circulation loss is **0.2467 % δk/k**, against the measured
 with TM-1626's transits. The loss sets only the kinetics' operating point
 here.
 
-### T-1 proper: N-3's Monte Carlo coefficients (2026-11-09)
+### T-1 proper: N-3's Monte Carlo coefficients (2026-11-09, final)
 
-**Coefficients:** fuel **−4.10 ± 0.77** and graphite **−4.05 ± 0.91** ×
+**Coefficients:** fuel **−3.82 ± 0.44** and graphite **−3.77 ± 0.65** ×
 10⁻⁵ /°F. They are route 4 on `outram_mc_libs::vv::msre_n1`, arm A (Mo
-omitted), seeds 1–3, with σ from the seed spread; record in
+omitted), with σ from the seed spread: 6 seeds at the 1131 °F baseline and
+3 per split run. Record in
 `crates/outram-mc-libs/verification_and_validation/msre_n1_first_criticality/`.
 Run with
-`cargo run --release -p nee_soon --example msre_t1_natural_periods -- --fuel-per-f -4.10e-5 --graphite-per-f -4.05e-5`.
+`cargo run --release -p nee_soon --example msre_t1_natural_periods -- --fuel-per-f -3.82e-5 --graphite-per-f -3.77e-5`.
 
 | P [MW] | measured [min] | model [min] | model / measured |
 |---|---|---|---|
-| 0.076 | 29.91 | 25.34 | 0.847 |
-| 0.467 | 11.01 | 10.51 | 0.955 |
-| 1.004 | 7.16 | 7.15 | 0.998 |
-| 2.448 | 4.33 | 4.34 | 1.002 |
-| 4.848 | 2.41 | 2.68 | 1.112 |
-| 6.735 | 1.85 | 2.05 | 1.108 |
-| 7.306 | 1.71 | 1.92 | 1.123 |
+| 0.076 | 29.91 | 26.23 | 0.877 |
+| 0.467 | 11.01 | 10.88 | 0.989 |
+| 1.004 | 7.16 | 7.41 | 1.035 |
+| 2.448 | 4.33 | 4.53 | 1.045 |
+| 4.848 | 2.41 | 2.83 | 1.175 |
+| 6.735 | 1.85 | 2.17 | 1.173 |
+| 7.306 | 1.71 | 2.03 | 1.188 |
 
-**Within −15 % to +12 % at every power, inside the ±25 % posted before
-the coefficients existed** (gh:#1132).
+**Within −12 % to +19 % at every power, inside the ±25 % posted before
+the coefficients existed** (gh:#1132). ~~An earlier pass with seeds 1–3
+only (fuel −4.10, graphite −4.05) gave −15 % to +12 %~~: superseded by the
+6-seed baseline; it shows how much the comparison moves with the
+coefficients.
 
-**Coefficient sensitivity:** with both coefficients moved by one σ
-together:
-
-- at −3.33 / −3.14 the periods are 28.3, 8.0 and 2.28 min at 0.076, 1.0
-  and 7.3 MW;
-- at −4.87 / −4.96 they are 23.2, 6.5 and 1.68 min.
-
-The ±1σ band brackets the measurement at most powers. **The Monte Carlo
-coefficients' statistics, not the loop model, set the uncertainty of this
-comparison.**
-
-The shape of the residual is short at the lowest power and long at the
-highest. That is the trend expected if the real fuel coefficient were
-larger in magnitude than the graphite one at high power (where the fuel
-term acts faster). It is not resolved at this precision and is not
-claimed.
+**The coefficients' statistics set this comparison's uncertainty, not the
+loop model.** ORNL's own coefficients (−4.84 / −3.7) in the same model give
+1.002 at 7.3 MW, while these give 1.188. The residual's shape (short at the
+lowest power, long at the highest) is the trend a fuel coefficient larger
+in magnitude than the graphite one would correct. It is not resolved at
+this precision and is not claimed.
