@@ -110,7 +110,7 @@ release). Two results are worth recording:
 
 | Gap | Size | Notes |
 |---|---|---|
-| **Real-time circulating-fuel PRKE** | Small–Medium | The blocker. See below |
+| ~~**Real-time circulating-fuel PRKE**~~ **CLOSED 2026-11-09 (gh:#1131, `61050f3ae`):** `teh_o_prke::zero_power_prke::circulating::CirculatingPointKinetics` (core and loop transit times, implicit step, inhour relation), verified analytically (T-C1) | Small–Medium | ~~The blocker. See below~~ The section below is kept as the reasoning that motivated it |
 | Coupled flux transient in moltres | Medium | Crate is steady-eigenvalue only for the coupled system |
 | ~~MSRE fuel-salt properties (LiF-BeF2-ZrF4-UF4)~~ **PARTLY CLOSED 2026-11-09 (gh:#1133):** `tuas_boussinesq_solver::boussinesq_thermophysical_properties::liquid_database::msre_fuel_salt_tm0728::msre_fuel_salt_u235_tm0728()` gives the U-235 fuel salt as a `CustomLiquid`. It holds the ORNL-TM-0728 Table 2.1 values constant over 1175–1225 °F. **Temperature-dependent correlations are still missing** | Small | `LiquidMaterial::CustomLiquid` is a fully wired escape hatch — four functions plus bounds, no solver changes |
 | Air-cooled radiator component | Medium | Nothing named radiator exists in TUAS; build on the existing air-cooled tube-bank component |
@@ -195,6 +195,14 @@ ordering constraints, not just narrative sequence.
 1. **Drain tanks and freeze valves** — model them, or draw them as static
    annotation? Full modelling is Medium–Large and is the signature MSRE safety
    feature, but is not needed for a first twin.
+   **ANSWERED 2026-11-03 (maintainer, gh:#1136):** the generic capability goes
+   in the backend; the MSRE-specific validated model lives in the MSRE repo.
+   **Built 2026-11-09:** `tampines::components::freeze_valve::FreezePlug`
+   (1-D enthalpy-method thaw, opens when the melt front reaches the plug's
+   thickness) and `tampines::components::drain_tank::{GravityDrain,
+   DrainTank}` (Torricelli drain, lumped tank with decay heat as an input and
+   passive UA removal), verified analytically (Neumann's Stefan solution,
+   Torricelli, exponential relaxation); no MSRE data yet.
 2. **Which fuel loading** — U-235 phase, U-233 phase, or selectable? Both
    precursor constant sets already exist in `teh-o-prke`.
 3. **Does moltres need human V&V sign-off before the engine depends on it?** It

@@ -19,6 +19,8 @@
 
 pub mod condenser;
 pub mod cooling_tower;
+pub mod drain_tank;
+pub mod freeze_valve;
 pub mod heat_exchanger;
 pub mod heat_structure;
 pub mod helical_coil_otsg;
