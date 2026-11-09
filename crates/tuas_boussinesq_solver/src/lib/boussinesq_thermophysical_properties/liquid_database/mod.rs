@@ -81,6 +81,10 @@ pub mod flibe;
 /// (MSRE TH-6, gh:#1133). A `CustomLiquid`; see the module doc.
 pub mod msre_fuel_salt_tm0728;
 
+/// MSRE coolant and flush salt LiF-BeF2 66-34 ("L2B"), ORNL-TM-2316
+/// correlations, 458-800 C (MSRE TH-6, gh:#1133). A `CustomLiquid`.
+pub mod msre_coolant_salt_tm2316;
+
 /// FLiNaK
 /// 46.5-11.5-42.0 mol% of LiF, NaF and KF respectively,
 /// melting temperature is commonly in literature
