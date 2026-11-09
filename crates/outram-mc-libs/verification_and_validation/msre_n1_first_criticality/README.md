@@ -72,5 +72,35 @@ in `reference-data/endf/`. Two arms bound the effect:
 
 ## Results
 
-**Not yet measured.** Runs are in progress (route 4, arm A, 4-core cloud
-container); this section is filled when they finish.
+**Hardware for every run here:** Intel Xeon (4 logical cores, all four
+threads used), 15.7 GiB RAM, Linux, CPU only, in a cloud container shared
+with other jobs. Nuclear data loading takes 170 s (28 nuclides in
+parallel); transport takes 770-1290 s per seed.
+
+### N-1, arm A (Mo omitted), 2026-11-09
+
+| seed | k | internal σ | vs k_ref = 1.0008 |
+|---|---|---|---|
+| 1 | 1.01339 | 0.00067 | +1258 pcm |
+
+More seeds are queued (2-5); see gh:#1128 for the pooled value.
+
+**Inside the prediction** posted before the run (1.02 ± 0.02, high).
+Expected contributions, none yet measured separately:
+
+- the omitted Mo, which raises k;
+- the omitted ~5 ft³ of end-region salt;
+- the volume-equivalent heads;
+- the missing thermal shield.
+
+### A finding about the statistics
+
+At 1131 °F (N-3, gh:#1129) three seeds spread 133 pcm (sd), against an
+internal σ of about 64 pcm per run; at 1231 °F they agree within 19 pcm.
+Either the internal (batch) σ understates the error through
+inter-generation correlation, or 100 inactive generations do not fully
+converge this large thermal core's source.
+
+**Every uncertainty quoted for this model therefore comes from the
+seed-to-seed spread.** A convergence study (Shannon entropy, more inactive
+generations) has not been done.
