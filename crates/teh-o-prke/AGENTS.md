@@ -86,6 +86,10 @@ delayed-neutron precursor groups, reactivity feedback, and decay heat, using
     with any number of delayed groups, backward Euler and RKF45, in-hour
     solver. `SixGroupPRKE` delegates to it and is pinned bit-identical to its
     pre-refactor self (`six_group_bit_identity_pin.rs`).
+  - `circulating.rs` — `CirculatingPointKinetics` (gh:#1131, MSRE T-C1):
+    precursors drift out with the fuel (core transit τ_c) and return after a
+    loop transit τ_L. Verified against its analytic circulation loss and
+    circulating in-hour equation, and against `PointKinetics` as τ_c → ∞.
   - `six_group_precursor_prke/` — six delayed-neutron precursor groups.
     - `six_group_constants.rs` — the `FissioningNuclideType` enum and the
       `new_u233_/u235_/pu239_delayed_neutron_fraction_array()` constructors

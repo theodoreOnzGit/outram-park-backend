@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.1.7
+**Version:** 0.1.8
 
 **Format Version:** 61
 
@@ -12,7 +12,7 @@
 
 **Attributes:**
 
-- `Other("#[attr = LintCheck([LintCheck {lint_name: \"missing_docs\", kind: Warn}])]")`
+- `Other("#[warn(missing_docs)]")`
 
 contains structs for the zero power point reactor kinetics equations
 
@@ -103,6 +103,12 @@ pub use crate::zero_power_prke::six_group_precursor_prke::SixGroupPRKE;
 
 ```rust
 pub use crate::zero_power_prke::n_group_prke::PointKinetics;
+```
+
+#### Re-export `CirculatingPointKinetics`
+
+```rust
+pub use crate::zero_power_prke::circulating::CirculatingPointKinetics;
 ```
 
 #### Re-export `DelayedNeutronLayer`
@@ -399,7 +405,7 @@ chooses the Pu239 group of delayed constants
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FissioningNuclideType { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -601,7 +607,7 @@ pub struct SixGroupPRKE {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SixGroupPRKE { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -848,7 +854,7 @@ pub struct PointKinetics {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PointKinetics { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -876,7 +882,228 @@ pub struct PointKinetics {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &PointKinetics) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `circulating`
+
+Circulating-fuel point kinetics (MSRE T-C1, gh:#1131): precursors drift
+out of the core with the fuel and return after a loop transit.
+Circulating-fuel point kinetics: delayed-neutron precursors drift out of
+the core with the fuel and return after a loop transit (MSRE T-C1,
+gh:#1131, epic gh:#1125).
+
+New physics beside [`super::n_group_prke::PointKinetics`], which it does
+not modify. AI-drafted (Claude Opus 5.5 in Claude Code), untrusted until
+reviewed; research, education and V&V only.
+
+# Model
+
+The standard lumped circulating-fuel point kinetics: one well-mixed core
+with transit time `τ_c`, and an external loop with transit time `τ_L` in
+which precursors decay but produce no neutrons that matter.
+
+```text
+dn/dt   = (ρ − β)/Λ n + Σ λ_i C_i + S
+dC_i/dt = β_i/Λ n − λ_i C_i − C_i/τ_c + C_i(t − τ_L) e^{−λ_i τ_L} / τ_c
+```
+
+The last term is the core outlet concentration `τ_L` earlier, decayed for
+the loop transit and mixed back in. `τ_c → ∞` recovers the stationary-fuel
+equations of [`super::n_group_prke::PointKinetics`].
+
+# Analytic results the solver is checked against
+
+- **Steady-state circulation loss** ([`CirculatingPointKinetics::circulation_reactivity_loss`]):
+  the reactivity that keeps the circulating core critical,
+  `Δρ = Σ β_i [1 − λ_i / (λ_i + (1 − e^{−λ_i τ_L})/τ_c)]`.
+- **Circulating in-hour equation** ([`CirculatingPointKinetics::inhour_reactivity`]):
+  with `n, C_i ~ e^{ωt}`,
+  `ρ(ω) = ωΛ + β − Σ λ_i β_i / (ω + λ_i + (1 − e^{−(ω+λ_i) τ_L})/τ_c)`.
+
+# Time stepping
+
+Backward Euler (first order, unconditionally stable for the prompt term).
+The delayed return `C_i(t_{k+1} − τ_L)` is already in the past for any
+step `dt ≤ τ_L`, so it is a known source. Each step is then closed form:
+eliminating the `C_i` leaves one scalar equation for `n`. `τ_L` must be a
+whole number of steps; [`CirculatingPointKinetics::new`] refuses
+otherwise, rather than interpolating the history.
+
+# V&V (criteria pre-registered on gh:#1131; results 2026-11-09)
+
+**MSRE inputs**, ORNL-TM-0728 Table 5.4 (PDF pp. 137-138): core transit
+9.4 s, fuel-loop total 25.2 s (so τ_L = 15.8 s), Λ = 2.40e-4 s (35 %
+U-235 fuel). Group data: the crate's U-235 six-group set, β = 650 pcm.
+
+| Check | Criterion | Result |
+|---|---|---|
+| V1 equilibrium at ρ = Δρ, 300 s at dt = 0.01 s | \|n/n0 − 1\| ≤ 1e-9 | 2.2e-16 |
+| V2 analytic Δρ | reported | **224.3505 pcm** (β_circ = 425.6495 pcm) |
+| V3 asymptotic ω vs the circulating in-hour root, Δρ ± 50 pcm | 1 % at dt = 0.01 s, falling with dt | +50 pcm: +0.0363 / +0.0181 / +0.0091 %; −50 pcm: −0.0079 / −0.0040 / −0.0020 % at dt = 0.04 / 0.02 / 0.01 s: first order |
+| V4 τ_c = 1e12 s vs `PointKinetics::inhour_growth_rate` | 1e-9 relative | 8e-11 |
+
+**Protocol correction (not a criterion change).** V3 first measured the
+slope over the last 100 s of a 600 s run. At −50 pcm that read 0.53 % off
+and did not fall with dt: the circulating loop's delay-induced modes had
+not died away. The protocol was lengthened to 2400 s (last 400 s), and
+the criterion was not moved.
+
+**What this does not show.** It verifies the solver against its own
+equations. Whether the lumped model's 224 pcm describes the MSRE (TM-0728
+implies 310 pcm, importance-weighted, from its static and circulating
+β_eff; the measured loss is MSRE N-4) is validation, gh:#1130.
+
+```rust
+pub mod circulating { /* ... */ }
+```
+
+### Types
+
+#### Struct `CirculatingPointKinetics`
+
+Circulating-fuel point kinetics with a fixed time step.
+
+State: neutron density `n`, the core precursor densities `C_i`, and the
+history of `C_i` over the last `τ_L` (one entry per step), which is what
+returns from the loop.
+
+```rust
+pub struct CirculatingPointKinetics {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(nuclide: FissioningNuclideType, core_transit: Time, loop_transit: Time, generation_time: Time, timestep: Time) -> Result<Self, TehOPrkeError> { /* ... */ }
+  ```
+  Kinetics for `nuclide`'s six-group data (the crate's tables), with
+
+- ```rust
+  pub fn total_delayed_fraction(self: &Self) -> Ratio { /* ... */ }
+  ```
+  `β = Σ β_i`.
+
+- ```rust
+  pub fn neutron_density(self: &Self) -> VolumetricNumberDensity { /* ... */ }
+  ```
+  Neutron density `n`.
+
+- ```rust
+  pub fn precursor_densities(self: &Self) -> Vec<VolumetricNumberDensity> { /* ... */ }
+  ```
+  Core precursor densities `C_i` \[1/m³\].
+
+- ```rust
+  pub fn circulation_reactivity_loss(self: &Self) -> Ratio { /* ... */ }
+  ```
+  The analytic steady-state circulation reactivity loss,
+
+- ```rust
+  pub fn set_circulating_equilibrium(self: &mut Self, neutron_density: VolumetricNumberDensity) { /* ... */ }
+  ```
+  Set `n` and the core `C_i` to the circulating steady state at
+
+- ```rust
+  pub fn inhour_reactivity(self: &Self, omega: Frequency) -> Ratio { /* ... */ }
+  ```
+  The circulating in-hour equation, `ρ(ω) = ωΛ + β − Σ λ_i β_i / (ω +
+
+- ```rust
+  pub fn inhour_growth_rate(self: &Self, reactivity: Ratio) -> Frequency { /* ... */ }
+  ```
+  The largest real root `ω` of [`Self::inhour_reactivity`] for a step
+
+- ```rust
+  pub fn step_implicit(self: &mut Self, reactivity: Ratio, source: VolumetricNumberRate) -> Result<(), TehOPrkeError> { /* ... */ }
+  ```
+  Advance one fixed step by backward Euler at reactivity `reactivity`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CirculatingPointKinetics { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CirculatingPointKinetics) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -977,7 +1204,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MatrixError { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1011,7 +1238,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MatrixError) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1133,7 +1360,7 @@ pub struct SquareMatrix {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SquareMatrix { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1707,7 +1934,7 @@ pub struct Xenon135Poisoning {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Xenon135Poisoning { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1874,7 +2101,7 @@ pub struct ScramReactivityCurve {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ScramReactivityCurve { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1902,7 +2129,7 @@ pub struct ScramReactivityCurve {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ScramReactivityCurve) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1981,7 +2208,7 @@ pub struct DensityReactivityTable {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DensityReactivityTable { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2009,7 +2236,7 @@ pub struct DensityReactivityTable {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DensityReactivityTable) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2088,7 +2315,7 @@ pub struct FuelTemperatureReactivityTable {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FuelTemperatureReactivityTable { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2116,7 +2343,7 @@ pub struct FuelTemperatureReactivityTable {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &FuelTemperatureReactivityTable) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2188,7 +2415,7 @@ pub struct ModeratorVolume {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ModeratorVolume { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2217,7 +2444,7 @@ pub struct ModeratorVolume {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ModeratorVolume) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2289,7 +2516,7 @@ pub struct FuelHeatStructure {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FuelHeatStructure { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2318,7 +2545,7 @@ pub struct FuelHeatStructure {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &FuelHeatStructure) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2387,7 +2614,7 @@ pub struct ModeratorState {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ModeratorState { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2416,7 +2643,7 @@ pub struct ModeratorState {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ModeratorState) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2503,7 +2730,7 @@ pub struct SeparableReactivity {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SeparableReactivity { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2532,7 +2759,7 @@ pub struct SeparableReactivity {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SeparableReactivity) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2617,7 +2844,7 @@ pub struct SeparableFeedback {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SeparableFeedback { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2632,7 +2859,7 @@ pub struct SeparableFeedback {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> SeparableFeedback { /* ... */ }
     ```
 
 - **Freeze**
@@ -2650,7 +2877,7 @@ pub struct SeparableFeedback {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SeparableFeedback) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2797,7 +3024,7 @@ pub struct SixFactorFormulaFeedback {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SixFactorFormulaFeedback { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3044,7 +3271,7 @@ Thermal fission of Pu-239. Total decay energy 10.93 MeV/fission.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FissioningNuclide { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3074,7 +3301,7 @@ Thermal fission of Pu-239. Total decay energy 10.93 MeV/fission.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &FissioningNuclide) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -3191,7 +3418,7 @@ pub struct DecayHeat {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DecayHeat { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3408,7 +3635,7 @@ ANSI/ANS-5.1-2005: four isotopes (adds Pu-241), user supplied.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> AnsStandard { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3424,7 +3651,7 @@ ANSI/ANS-5.1-2005: four isotopes (adds Pu-241), user supplied.
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> AnsStandard { /* ... */ }
     ```
 
 - **Eq**
@@ -3443,7 +3670,7 @@ ANSI/ANS-5.1-2005: four isotopes (adds Pu-241), user supplied.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &AnsStandard) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -3525,7 +3752,7 @@ Pu-241 (thermal fission); only in the 1994 and 2005 standards.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DecayHeatIsotope { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3555,7 +3782,7 @@ Pu-241 (thermal fission); only in the 1994 and 2005 standards.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DecayHeatIsotope) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -3644,7 +3871,7 @@ pub struct DecayHeatGroupSet {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DecayHeatGroupSet { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3673,7 +3900,7 @@ pub struct DecayHeatGroupSet {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DecayHeatGroupSet) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -3813,7 +4040,7 @@ pub struct AnsDecayHeat {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> AnsDecayHeat { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3848,7 +4075,7 @@ pub struct AnsDecayHeat {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &AnsDecayHeat) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4021,7 +4248,7 @@ pub struct FissionPowerConversion {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FissionPowerConversion { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4050,7 +4277,7 @@ pub struct FissionPowerConversion {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &FissionPowerConversion) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4138,7 +4365,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ActinideDecayModel { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4154,7 +4381,7 @@ Fields:
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> ActinideDecayModel { /* ... */ }
     ```
 
 - **Freeze**
@@ -4172,7 +4399,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ActinideDecayModel) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4281,7 +4508,7 @@ pub struct ActinideChain {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ActinideChain { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4310,7 +4537,7 @@ pub struct ActinideChain {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ActinideChain) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4449,7 +4676,7 @@ pub struct PointReactor {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PointReactor { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4477,7 +4704,7 @@ pub struct PointReactor {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &PointReactor) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4513,7 +4740,7 @@ pub struct PointReactor {
 
 **Attributes:**
 
-- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
+- `Other("#[allow(clippy::too_many_arguments)]")`
 
 Actinide decay power, W, after irradiation at a constant fission rate for
 `operating_time_s`, at `time_after_s` after shutdown (the ANS-5.1-1979 /
@@ -4542,7 +4769,7 @@ pub mod time_stepping { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[attr = LintCheck([LintCheck {lint_name: \"non_upper_case_globals\",\nkind: Allow}])]")`
+- `Other("#[allow(non_upper_case_globals)]")`
 
 ```rust
 pub mod openfoam_rfk45 { /* ... */ }
@@ -4554,7 +4781,7 @@ pub mod openfoam_rfk45 { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[attr = LintCheck([LintCheck {lint_name: \"non_snake_case\", kind: Allow}])]")`
+- `Other("#[allow(non_snake_case)]")`
 
 note: need a verification test too
 
@@ -4602,7 +4829,7 @@ pub struct RKF45 {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> RKF45 { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4666,7 +4893,7 @@ pub mod openfoam_ode_system { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[attr = LintCheck([LintCheck {lint_name: \"non_snake_case\", kind: Allow}])]")`
+- `Other("#[allow(non_snake_case)]")`
 
 rust translation of the OpenFOAM ODE system
 
@@ -4722,7 +4949,7 @@ pub struct ODESystem {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ODESystem { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4963,7 +5190,7 @@ pub struct NordheimFuchsExactTimestepper {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> NordheimFuchsExactTimestepper { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4998,7 +5225,7 @@ pub struct NordheimFuchsExactTimestepper {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &NordheimFuchsExactTimestepper) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -5304,7 +5531,7 @@ pub struct DelayedNeutronLayer {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DelayedNeutronLayer { /* ... */ }
     ```
 
 - **CloneToUninit**
