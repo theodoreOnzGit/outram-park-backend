@@ -8,7 +8,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
-//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path]
+//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path]
 //! ```
 //!
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
@@ -40,7 +40,10 @@ use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::physics::compute::{ComputeType, ThreadCount};
 use outram_mc_libs::physics::keff::KeffSettings;
-use outram_mc_libs::physics::transport_csg::run_keff_csg;
+use outram_mc_libs::physics::keff::KeffResult;
+use outram_mc_libs::physics::transport_csg::{run_keff_csg, run_keff_csg_hybrid};
+use outram_mc_libs::stats::convergence::SourceConvergence;
+use outram_mc_libs::tally::mesh::RegularMesh;
 use outram_mc_libs::vv::msre_n1 as m;
 
 fn flag(args: &[String], name: &str) -> Option<String> {
@@ -184,6 +187,11 @@ fn main() {
     // nuclide, for the paired DBRC worth against OpenMC's `--no-dbrc`. An
     // explicit ablation; DBRC stays on by default.
     let no_dbrc = args.iter().any(|a| a == "--no-dbrc");
+    let entropy_csv: Option<std::path::PathBuf> = args
+        .iter()
+        .position(|a| a == "--entropy-csv")
+        .and_then(|i| args.get(i + 1))
+        .map(std::path::PathBuf::from);
     if no_dbrc {
         eprintln!("  ABLATION: --no-dbrc, every nuclide's target is free gas (no 0 K rejection)");
         nuclides = nuclides.into_iter().map(|n| n.without_dbrc()).collect();
@@ -221,10 +229,49 @@ fn main() {
             ..KeffSettings::default()
         };
         let t = Instant::now();
-        let r = run_keff_csg(&g, &materials, &nuclides, m::source_box(), &s, None);
+        // `--entropy-csv`: the same run through the hybrid driver with no
+        // majorants (exactly `run_keff_csg`, per its docs) plus an 8x8x8
+        // entropy mesh over the source box, writing k and H per generation.
+        let r = match &entropy_csv {
+            None => run_keff_csg(&g, &materials, &nuclides, m::source_box(), &s, None),
+            Some(_) => {
+                let b = m::source_box();
+                let mesh = RegularMesh {
+                    lower_left: [b.lower.x, b.lower.y, b.lower.z],
+                    upper_right: [b.upper.x, b.upper.y, b.upper.z],
+                    dimension: [8, 8, 8],
+                };
+                run_keff_csg_hybrid(&g, &materials, &nuclides, &[], Some(&mesh), b, &s, None)
+            }
+        };
+        if let Some(path) = &entropy_csv {
+            write_entropy_trace(path, &label, seed, ni, &r);
+        }
         let wall = t.elapsed().as_secs_f64();
         let pcm = 1e5 * (r.k_mean - m::REFERENCE_K) / m::REFERENCE_K;
         eprintln!("  {label} seed {seed}: k = {:.5} +/- {:.5} ({pcm:+.0} pcm vs {:.5}) in {wall:.0} s", r.k_mean, r.k_std, m::REFERENCE_K);
         writeln!(f, "{label},{seed},{:.6},{:.6},{np},{ni},{na},{threads},{wall:.1},{load_s:.1},\"{hw}\"", r.k_mean, r.k_std).expect("csv");
     }
+}
+
+/// Append one run's per-generation `k` and Shannon entropy (bits) to `path`,
+/// and print `stats::convergence`'s verdict on both traces. CLI glue (the
+/// workspace's exception for `main` glue); the diagnostics it calls are
+/// tested in their own modules.
+fn write_entropy_trace(path: &std::path::Path, label: &str, seed: u64, n_inactive: usize, r: &KeffResult) {
+    let new_file = !path.is_file();
+    let mut f = std::fs::OpenOptions::new().create(true).append(true).open(path).expect("entropy csv");
+    if new_file {
+        writeln!(f, "arm,seed,generation,k,entropy_bits").expect("entropy csv");
+    }
+    for (i, k) in r.k_by_generation.iter().enumerate() {
+        let h = r.entropy.get(i).copied().unwrap_or(f64::NAN);
+        writeln!(f, "{label},{seed},{},{k:.6},{h:.6}", i + 1).expect("entropy csv");
+    }
+    let c = SourceConvergence::from_result(r, n_inactive);
+    eprintln!("  {label} seed {seed}: source convergence {:?}", c.recommended_inactive);
+    if let Some(e) = &c.entropy {
+        eprintln!("    entropy: MSER {:?}; Geweke {:?}; change point {:?}", e.mser, e.geweke_after_truncation, e.change_point);
+    }
+    eprintln!("    k: MSER {:?}; Geweke {:?}; change point {:?}", c.k.mser, c.k.geweke_after_truncation, c.k.change_point);
 }
