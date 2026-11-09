@@ -89,8 +89,8 @@ parallel); transport takes 770-1290 s per seed.
 |---|---|---|---|
 | A, Mo omitted | 5 | **1.01278 ± 0.00028** | **+1197 ± 28 pcm** |
 | B, Mo as Mo-95 equivalent | 1 | 1.00869 ± 0.00062 (internal) | +788 pcm |
-| C, natural Mo, DBRC (before gh:#1311) | 3 | 1.00838 ± 0.00036 | +757 ± 36 pcm |
-| **C, natural Mo, RVS (current default)** | 3 | **1.00916 ± 0.00036** | **+835 ± 36 pcm** |
+| C, natural Mo, DBRC (before gh:#1311) | 6 | 1.00853 ± 0.00020 | +772 ± 20 pcm |
+| **C, natural Mo, RVS (current default)** | 6 | **1.00882 ± 0.00022** | **+801 ± 22 pcm** |
 
 Both arms A and B are **inside the predictions** posted before the runs (A:
 1.02 ± 0.02; B: 200–800 pcm below A). ~~The bounded worth of INOR-8's Mo is
@@ -101,20 +101,22 @@ about −410 pcm.~~ **Measured with natural Mo (arm C):** INOR-8's Mo is worth
 spread only 28 pcm, below the ≈63 pcm internal σ, which three seeds cannot
 resolve, so the quoted ±36 pcm is the internal σ/√3, the larger of the two.
 It is **inside the prediction** posted on gh:#1128 before the run
-(+640 to +790 pcm, i.e. 0–150 pcm below B): C − B = −31 ± 72 pcm. The
+(+640 to +790 pcm, i.e. 0–150 pcm below B): C − B = −31 ± 72 pcm. (Three
+seeds, DBRC; the six-seed DBRC value is +772 ± 20 pcm, still inside.) The
 thermal-absorption stand-in therefore captured Mo's worth to within the
 statistics; the extra resonance absorption estimated at about 20 % is not
 resolved. Transport took 781–801 s per seed (machine otherwise idle).
 
 **Re-measured under RVS (2026-11-09, develop `0ce531bf3`),** as the
-correct-physics rule requires after a default change: seeds 1.00948,
-1.00851, 1.00949 (rows `mo-natural+rvs` in `data/keff.csv`). RVS − DBRC =
-**+78 ± 51 pcm** (1.5σ; per seed +84, +43, +107). The prediction posted on
-gh:#1128 (|Δ| < 60 pcm) is neither confirmed nor refuted. Taken with
-DBRC's −19 ± 51 pcm worth below, RVS would sit about +59 pcm above no
-resonance treatment, the opposite sign to the usual effect; flagged on
-gh:#1311, seeds 4–6 on both arms running. **Quote +835 ± 36 pcm under the
-current default.**
+correct-physics rule requires after a default change; six seeds on each
+arm (rows `mo-natural+rvs` in `data/keff.csv`; DBRC seeds 4–6 from the
+pre-merge binary). ~~After three seeds: RVS − DBRC = +78 ± 51 pcm (1.5σ),
+flagged on gh:#1311 as a possible wrong-sign RVS worth.~~ **With six seeds:
+RVS − DBRC = +29 ± 30 pcm (1.0σ)**, per seed +84, +43, +107, −20, −67, +27.
+Consistent with zero and inside the prediction posted on gh:#1128
+(|Δ| < 60 pcm); the three-seed excess was noise, and the flag is
+withdrawn. **Quote +801 ± 22 pcm under the current default** (six seeds,
+seed-spread σ; sd 53 pcm, below the ≈63 pcm internal σ).
 
 **Resonance scattering in every other run on this page:** DBRC. Every other N-1, N-3 and
 convergence run here was made before the default changed to OpenMC's RVS
@@ -122,7 +124,7 @@ method (gh:#1311, 2026-11-09). DBRC itself is worth −19 ± 51 pcm on this
 model (ablation below); ~~the RVS-vs-DBRC difference has not been measured on
 it~~ the RVS-vs-DBRC difference has been measured on arm C only (above).
 
-The remaining +757 pcm (arm C; ~~+800 pcm, arm B~~) is **not** a validated
+The remaining +801 pcm (arm C under RVS; ~~+757 pcm, arm C with DBRC, 3 seeds~~; ~~+800 pcm, arm B~~) is **not** a validated
 code bias. The source-convergence check below allows that it reads up to
 about 70 pcm low. It contains:
 

@@ -144,8 +144,8 @@ pub fn upper_plenum_height() -> f64 {
 /// How INOR-8's molybdenum is represented. ~~The gap in `reference-data/endf/`
 /// (only `n-042_Mo_095-ENDF8.0-beta.endf`), bounded by two arms.~~
 /// **UPDATED 2026-11-09:** [`MoTreatment::Natural`] is the model (N-1:
-/// +835 ± 36 pcm under the RVS default, +757 ± 36 with DBRC; see the V&V
-/// README); `Omitted` and `Mo95Equivalent` are ablations.
+/// +801 ± 22 pcm under the RVS default, +772 ± 20 with DBRC, six seeds
+/// each; see the V&V README); `Omitted` and `Mo95Equivalent` are ablations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MoTreatment {
     /// Arm A: molybdenum left out of INOR-8 (its mass is removed).
