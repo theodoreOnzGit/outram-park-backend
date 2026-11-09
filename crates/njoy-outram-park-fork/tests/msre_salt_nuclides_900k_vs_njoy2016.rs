@@ -181,14 +181,23 @@ fn report(file: &str, home: TapeHome, mat: i32, name: &str) -> Option<Vec<String
     Some(diffs)
 }
 
-/// N-C2, light salt nuclides (no resonance parameters): Li-6, Li-7 and
-/// F-19 must be identical in PENDF and ACE.
+/// N-C2, light salt nuclides (no resonance parameters): Li-6, Li-7, Be-9
+/// and F-19 must be identical in PENDF and ACE.
+///
+/// **Be-9 joined 2026-11-09 (gh:#1309).** Its MT=16 neutrons and its
+/// charged particles are MF=6 `LAW = 7`, which `acelf6` used to refuse
+/// (TYR 0, no DLW entry) and `acelcp` skipped (no YP or production blocks).
+/// Porting `topfil`'s rewrite of `LAW = 7` into `LAW = 1`
+/// (`acefc.f90:2320-2425`: union outgoing grid, `f0` by the cosine
+/// integral, tabulated `LANG = 10 + INTMU`, through the text scratch tape)
+/// made the whole table NJOY2016's: all 202 021 XSS words, every block.
 #[test]
 fn light_salt_nuclides_at_900k_are_njoy2016s_word_for_word() {
     let mut failed = Vec::new();
     for (file, mat, name) in [
         ("n-003_Li_006-ENDF8.0.endf", 325, "Li6"),
         ("n-003_Li_007-ENDF8.0.endf", 328, "Li7"),
+        ("n-004_Be_009-ENDF8.0.endf", 425, "Be9"),
         ("n-009_F_019-ENDF8.0.endf", 925, "F19"),
     ] {
         if let Some(d) = report(file, TapeHome::Repo, mat, name) {
@@ -198,48 +207,6 @@ fn light_salt_nuclides_at_900k_are_njoy2016s_word_for_word() {
         }
     }
     assert!(failed.is_empty(), "differ from NJOY2016: {failed:?}");
-}
-
-/// N-C2, Be-9: a **known, open difference** (gh:#1127, tracked in its own
-/// issue). Its PENDF is NJOY2016's in every MF=3 word, and that is gated.
-/// Its ACE is not. `acer::acelf6` refuses MF=6 `LAW = 7` neutrons
-/// (`src/acer/acelf6.rs`, the `7 => return Ok(None)` arm), so MT=16 (n,2n)
-/// is written with TYR = 0 and no distribution. `acelcp` also writes no
-/// charged-particle production. NJOY2016 converts LAW = 7 into ACE law 61
-/// (`acefc.f90:7369` onward) and writes four particle types.
-///
-/// This test asserts the difference is **still exactly that**: every ACE
-/// difference lies in NXS/JXS, TYR, LAND, LDLW, DLW, YP or the whole XSS.
-/// Nothing in ESZ, SIG, AND or the photon blocks may differ.
-///
-/// When LAW = 7 is ported, this test fails. Move Be-9 into
-/// [`light_salt_nuclides_at_900k_are_njoy2016s_word_for_word`] then.
-#[test]
-fn be9_differs_from_njoy2016_only_by_the_unported_law7_and_particle_blocks() {
-    let Some((diffs, below, _above, _thnmax)) =
-        compare_nuclide("n-004_Be_009-ENDF8.0.endf", TapeHome::Repo, 425, "Be9")
-    else {
-        return;
-    };
-    println!("N-C2 Be9: MT=1 points below thnmax {below}; {} ACE rows differ", diffs.len());
-    assert!(below > 0, "broadening must be exercised");
-    assert!(
-        diffs.iter().all(|d| d.starts_with("ACE ")),
-        "Be-9's PENDF must be NJOY2016's word for word: {diffs:#?}"
-    );
-    let expected = ["NXS", "JXS", "TYR", "LAND", "LDLW", "DLW", "YP", "XSS, whole table", "VERDICT"];
-    let structural: Vec<&String> = diffs
-        .iter()
-        .filter(|d| d.contains("DIFFERENT") || d.contains("VERDICT"))
-        .collect();
-    assert!(!structural.is_empty(), "Be-9's ACE is now identical: promote it to the identical gate");
-    for d in &structural {
-        let block = d.trim_start_matches("ACE ").split_whitespace().next().unwrap_or("");
-        assert!(
-            expected.iter().any(|e| d.trim_start_matches("ACE ").starts_with(e)) || block == "VERDICT:",
-            "Be-9 differs in a block outside the known LAW = 7 / particle gap: {d}"
-        );
-    }
 }
 
 /// N-C2, the zirconium isotopes (MLBW resolved + LRU = 2 unresolved).

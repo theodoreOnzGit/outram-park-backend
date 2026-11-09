@@ -324,8 +324,9 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
                 });
                 continue;
             }
-            // Fallback for what `acelf6` refuses (a LAW=7 neutron subsection):
-            // the previous energy-only Law 4.
+            // Fallback when `acelf6` returns nothing: the previous
+            // energy-only Law 4. (~~a LAW=7 neutron subsection~~: read by
+            // `acelf6` since 2026-11-09, gh:#1309.)
             if let Ok(n) = super::mf6::parse_mf6_law1_neutron(sec) {
                 // A negative ACE TYR marks a centre-of-mass distribution.
                 // `>= 2` because ENDF-6's LCT = 3 (first two particles in the
