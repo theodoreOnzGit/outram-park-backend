@@ -1,0 +1,2 @@
+arm,seed,k,k_std,particles,inactive,active,threads,wall_s,load_s,hardware
+mo-omitted@1181F,1,1.013391,0.000669,20000,100,200,4,1005.7,169.6,"llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor, 15.7 GiB RAM"
