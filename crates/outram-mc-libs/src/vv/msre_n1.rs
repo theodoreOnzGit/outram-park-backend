@@ -253,19 +253,7 @@ pub fn inor8(mo: MoTreatment) -> Vec<(&'static str, f64)> {
 /// The sample-basket opening, homogenised: [`basket_fractions`] of INOR-8,
 /// graphite and salt, summed nuclide by nuclide.
 pub fn basket_mix(mo: MoTreatment) -> Vec<(&'static str, f64)> {
-    let (fi, fg, fs) = basket_fractions();
-    let mut out: Vec<(&'static str, f64)> = Vec::new();
-    let parts: [(f64, Vec<(&'static str, f64)>); 3] =
-        [(fs, SALT.to_vec()), (fg, GRAPHITE.to_vec()), (fi, inor8(mo))];
-    for (f, comps) in parts {
-        for (n, d) in comps {
-            match out.iter_mut().find(|(m, _)| *m == n) {
-                Some(e) => e.1 += f * d,
-                None => out.push((n, f * d)),
-            }
-        }
-    }
-    out
+    materials_at(mo, REFERENCE_TEMPERATURE_F).swap_remove(BASKET_IDX).1
 }
 
 /// Material indices of [`materials`].
@@ -277,13 +265,53 @@ pub const INOR8_IDX: usize = 2;
 /// The homogenised sample basket's index.
 pub const BASKET_IDX: usize = 3;
 
-/// The four materials, in index order: salt, graphite, INOR-8, basket.
+/// The four materials at the reference state, in index order: salt,
+/// graphite, INOR-8, basket.
 pub fn materials(mo: MoTreatment) -> Vec<(&'static str, Vec<(&'static str, f64)>)> {
+    materials_at(mo, REFERENCE_TEMPERATURE_F)
+}
+
+/// Fuel-salt fractional density change per °F, **−1.18 × 10⁻⁴**: the
+/// expansion coefficient ORNL-4233 §4.1 (p. 38) says its calculated
+/// coefficients were based on. The same section reports −1.09 and
+/// −1.15 × 10⁻⁴ from pump-bowl level measurements; the fuel part of the
+/// temperature coefficient scales nearly in proportion (ORNL-4233 p. 38).
+pub const SALT_EXPANSION_PER_F: f64 = -1.18e-4;
+
+/// The first-criticality temperature, 1181 °F (ORNL-4233 Table 1).
+pub const REFERENCE_TEMPERATURE_F: f64 = 1181.0;
+
+/// Kelvin from °F.
+pub fn kelvin_from_f(t_f: f64) -> f64 {
+    (t_f - 32.0) * 5.0 / 9.0 + 273.15
+}
+
+/// The materials at `t_f` °F, for the isothermal coefficient (MSRE N-3,
+/// gh:#1129). Only the salt's density moves, by [`SALT_EXPANSION_PER_F`]
+/// from the reference state, in the salt and in the basket's salt share.
+/// Graphite and INOR-8 densities and every dimension stay at their cold
+/// values (graphite expands by ~1.5e-6 /°F linear, TM-0728 §5.3.1: left
+/// out).
+pub fn materials_at(mo: MoTreatment, t_f: f64) -> Vec<(&'static str, Vec<(&'static str, f64)>)> {
+    let f = 1.0 + SALT_EXPANSION_PER_F * (t_f - REFERENCE_TEMPERATURE_F);
+    let salt: Vec<(&'static str, f64)> = SALT.iter().map(|&(n, d)| (n, d * f)).collect();
+    let (fi, fg, fs) = basket_fractions();
+    let mut basket: Vec<(&'static str, f64)> = Vec::new();
+    let parts: [(f64, Vec<(&'static str, f64)>); 3] =
+        [(fs, salt.clone()), (fg, GRAPHITE.to_vec()), (fi, inor8(mo))];
+    for (w, comps) in parts {
+        for (n, d) in comps {
+            match basket.iter_mut().find(|(m, _)| *m == n) {
+                Some(e) => e.1 += w * d,
+                None => basket.push((n, w * d)),
+            }
+        }
+    }
     vec![
-        ("MSRE fuel salt, first criticality", SALT.to_vec()),
+        ("MSRE fuel salt, first criticality", salt),
         ("MSRE CGB graphite", GRAPHITE.to_vec()),
         ("INOR-8", inor8(mo)),
-        ("Sample baskets (homogenised)", basket_mix(mo)),
+        ("Sample baskets (homogenised)", basket),
     ]
 }
 
@@ -322,7 +350,7 @@ fn zcyl(x0: f64, y0: f64, r: f64, bc: BoundaryType) -> SurfaceKind {
 /// The stringer universe's cells, appended to `surfaces` and `cells`: four
 /// half-stadium passages (salt) and the graphite around them. Returns the
 /// cell indices.
-fn stringer_cells(surfaces: &mut Vec<SurfaceKind>, cells: &mut Vec<Cell>) -> Vec<usize> {
+fn stringer_cells(surfaces: &mut Vec<SurfaceKind>, cells: &mut Vec<Cell>, t_k: f64) -> Vec<usize> {
     let t = BoundaryType::Transmissive;
     let h = PITCH / 2.0;
     let floor = h - PASSAGE_HALF_DEPTH;
@@ -358,8 +386,8 @@ fn stringer_cells(surfaces: &mut Vec<SurfaceKind>, cells: &mut Vec<Cell>) -> Vec
     let mut graphite = fuel.clone();
     graphite.push(RegionToken::Complement);
     let i0 = cells.len();
-    cells.push(Cell::material(101, fuel, SALT_IDX, TEMPERATURE_K));
-    cells.push(Cell::material(102, graphite, GRAPHITE_IDX, TEMPERATURE_K));
+    cells.push(Cell::material(101, fuel, SALT_IDX, t_k));
+    cells.push(Cell::material(102, graphite, GRAPHITE_IDX, t_k));
     vec![i0, i0 + 1]
 }
 
@@ -372,13 +400,19 @@ pub const OPENINGS: [(f64, f64); 4] = [
     (OPENING_OFFSET, -OPENING_OFFSET),
 ];
 
-/// The assembled full-core geometry. `z = 0` is the bottom of the graphite.
+/// The assembled full-core geometry at the reference temperature. `z = 0`
+/// is the bottom of the graphite.
 pub fn geometry() -> Geometry {
+    geometry_at(TEMPERATURE_K)
+}
+
+/// The same geometry with every cell at `t_k` kelvin (dimensions stay cold).
+pub fn geometry_at(t_k: f64) -> Geometry {
     let t = BoundaryType::Transmissive;
     let v = BoundaryType::Vacuum;
     let mut surfaces: Vec<SurfaceKind> = Vec::new();
     let mut cells: Vec<Cell> = Vec::new();
-    let stringer = stringer_cells(&mut surfaces, &mut cells);
+    let stringer = stringer_cells(&mut surfaces, &mut cells, t_k);
 
     let mut add = |s: SurfaceKind| {
         surfaces.push(s);
@@ -406,7 +440,7 @@ pub fn geometry() -> Geometry {
     let plenum_up_z = [hs(zt, false), hs(zu, true)];
     let thimble_z = [hs(z0, false), hs(zu, true)];
     let mut root: Vec<Cell> = Vec::new();
-    let mat = |id: i32, region: Vec<RegionToken>, m: usize| Cell::material(id, region, m, TEMPERATURE_K);
+    let mat = |id: i32, region: Vec<RegionToken>, m: usize| Cell::material(id, region, m, t_k);
 
     // The lattice-filled core, outside the four openings.
     let mut core = vec![hs(r_g, true)];
@@ -559,5 +593,12 @@ mod tests {
         assert!(fi > 0.0 && fg > 0.0 && fs > 0.0 && (fi + fg + fs - 1.0).abs() < 1e-12);
         assert_eq!(materials(MoTreatment::Omitted)[INOR8_IDX].1.len(), 13);
         assert_eq!(materials(MoTreatment::Mo95Equivalent)[INOR8_IDX].1.len(), 14);
+        // The reference state is unchanged by the temperature path, and
+        // 100 °F hotter thins the salt by 1.18 %.
+        assert_eq!(materials(MoTreatment::Omitted), materials_at(MoTreatment::Omitted, REFERENCE_TEMPERATURE_F));
+        let hot = materials_at(MoTreatment::Omitted, REFERENCE_TEMPERATURE_F + 100.0);
+        assert!((hot[SALT_IDX].1[0].1 / SALT[0].1 - (1.0 - 0.0118)).abs() < 1e-12);
+        assert!((kelvin_from_f(REFERENCE_TEMPERATURE_F) - TEMPERATURE_K).abs() < 1e-12);
+        assert_eq!(basket_mix(MoTreatment::Omitted), materials(MoTreatment::Omitted)[BASKET_IDX].1);
     }
 }

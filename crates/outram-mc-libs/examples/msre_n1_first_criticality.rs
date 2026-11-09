@@ -8,7 +8,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
-//!     --mo omitted|mo95 --seeds 1-4 [--particles N --inactive N --active N --threads N --csv path]
+//!     --mo omitted|mo95 --seeds 1-4 [--temp-f 1181] [--particles N --inactive N --active N --threads N --csv path]
 //! ```
 //!
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
@@ -110,9 +110,12 @@ fn main() {
         }
     };
     let csv = PathBuf::from(flag(&args, "--csv").unwrap_or_else(|| "target/msre_n1_keff.csv".into()));
-    let t_k = m::TEMPERATURE_K;
+    // `--temp-f`: the isothermal temperature (MSRE N-3, gh:#1129); the salt
+    // density follows `vv::msre_n1::SALT_EXPANSION_PER_F`.
+    let temp_f: f64 = flag(&args, "--temp-f").map(|v| v.parse().expect("°F")).unwrap_or(m::REFERENCE_TEMPERATURE_F);
+    let t_k = m::kelvin_from_f(temp_f);
 
-    let mats = m::materials(mo);
+    let mats = m::materials_at(mo, temp_f);
     let mut names: Vec<&str> = Vec::new();
     for (_, comps) in &mats {
         for (n, _) in comps {
@@ -123,20 +126,38 @@ fn main() {
     }
     let t0 = Instant::now();
     let speed = outram_mc_libs::vv::bench_speed();
-    let mut nuclides: Vec<Nuclide> = Vec::new();
-    for n in &names {
+    // Nuclides are processed in parallel, `threads` at a time, and kept in
+    // `names` order: each is independent, so the result does not depend on
+    // the order they finish in.
+    let load_one = |n: &str| -> Nuclide {
         let file = m::NUCLIDES
             .iter()
             .chain(std::iter::once(&m::MO95_TAPE))
-            .find(|(k, _)| k == n)
+            .find(|(k, _)| *k == n)
             .unwrap_or_else(|| panic!("no tape for {n}"))
             .1;
         let p = reference_endf(file).unwrap_or_else(|| panic!("missing reference tape {file}"));
         let t = Instant::now();
         let nuc = Nuclide::from_endf_file_with_speed(&p, n, t_k, speed).unwrap_or_else(|e| panic!("{n}: {e}"));
         eprintln!("    {n:<5} {:6.1} s  URR {} DBRC {}", t.elapsed().as_secs_f64(), nuc.has_urr_probability_tables(), nuc.has_dbrc());
-        nuclides.push(nuc);
-    }
+        nuc
+    };
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let slots: Vec<std::sync::Mutex<Option<Nuclide>>> = names.iter().map(|_| std::sync::Mutex::new(None)).collect();
+    std::thread::scope(|sc| {
+        for _ in 0..threads.min(names.len()) {
+            sc.spawn(|| loop {
+                let i = next.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                if i >= names.len() {
+                    break;
+                }
+                let nuc = load_one(names[i]);
+                *slots[i].lock().expect("slot") = Some(nuc);
+            });
+        }
+    });
+    let mut nuclides: Vec<Nuclide> =
+        slots.into_iter().map(|s| s.into_inner().expect("slot").expect("loaded")).collect();
     let sab = !args.iter().any(|a| a == "--no-sab");
     if sab {
         use njoy_outram_park_fork::leapr::decks::SabMaterial;
@@ -167,8 +188,8 @@ fn main() {
     let hw = outram_mc_libs::perf_report::HardwareInfo::detect().headline();
     eprintln!("  nuclear data ready in {load_s:.1} s ({} nuclides); hardware: {hw}; threads {threads}", names.len());
 
-    let g = m::geometry();
-    let label = format!("{}{}", if mo == m::MoTreatment::Omitted { "mo-omitted" } else { "mo95-equivalent" }, if sab { "" } else { "+no-sab" });
+    let g = m::geometry_at(t_k);
+    let label = format!("{}{}@{temp_f}F", if mo == m::MoTreatment::Omitted { "mo-omitted" } else { "mo95-equivalent" }, if sab { "" } else { "+no-sab" });
     let new_file = !csv.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&csv).expect("csv");
     if new_file {
