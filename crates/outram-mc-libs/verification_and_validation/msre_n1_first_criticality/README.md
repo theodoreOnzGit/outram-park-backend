@@ -135,5 +135,35 @@ inter-generation correlation, or 100 inactive generations do not fully
 converge this large thermal core's source.
 
 **Every uncertainty quoted for this model therefore comes from the
-seed-to-seed spread.** A convergence study (Shannon entropy, more inactive
-generations) has not been done.
+seed-to-seed spread.** ~~A convergence study (Shannon entropy, more inactive
+generations) has not been done.~~ **UPDATED 2026-11-09:** a first check on
+inactive generations has been done (next section); a Shannon-entropy study
+has not.
+
+### Source convergence: 300 against 100 inactive generations (2026-11-09)
+
+Arm A at 1181 °F, seeds 1–3, **300 inactive** + 200 active, 20 000
+histories, nothing else changed (`data/conv.csv`). Criterion posted on
+gh:#1128 before the run: converged if |Δk| is below about 2 combined σ
+(≈ 80 pcm) and the spread does not shrink.
+
+| inactive | seeds | k (mean) | seed sd | sem |
+|---|---|---|---|---|
+| 100 | 1–5 | 1.01278 | 63 pcm | ±28 pcm |
+| 300 | 1–3 | 1.01352 | 41 pcm | ±24 pcm |
+
+- **Δk = +74 ± 37 pcm (2.0σ).** Paired on seeds 1–3: −35, +135, +23 pcm,
+  mean +41 ± 50.
+- **Against the criterion:** inside the posted 80 pcm, so the pre-registered
+  verdict is "converged". It is marginal: a bias of order +70 pcm from 100
+  inactive generations is **not excluded** at this statistics.
+- **The spread:** at 1181 °F the 100-inactive seed sd (63 pcm) already equals
+  the internal σ (≈ 66 pcm); the 2× excess was seen at 1131 °F (N-3). Three
+  seeds cannot tell 41 from 63 pcm.
+- **Effect on the records above:** N-1's +1197 ± 28 pcm (arm A) may read up to
+  about 70 pcm low. The N-3 coefficients difference runs that share settings,
+  so a common bias cancels to first order. Nothing above is re-stated on this
+  result alone.
+
+Hardware: as above (4 threads); 1269–1324 s transport per seed at 300
+inactive.

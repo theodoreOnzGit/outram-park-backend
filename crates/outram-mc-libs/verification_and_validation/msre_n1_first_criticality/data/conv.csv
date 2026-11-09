@@ -1,0 +1,4 @@
+arm,seed,k,k_std,particles,inactive,active,threads,wall_s,load_s,hardware
+mo-omitted@salt1181F/graphite1181F,1,1.013044,0.000700,20000,300,200,4,1323.7,151.3,"llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor, 15.7 GiB RAM"
+mo-omitted@salt1181F/graphite1181F,2,1.013755,0.000640,20000,300,200,4,1313.1,151.3,"llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor, 15.7 GiB RAM"
+mo-omitted@salt1181F/graphite1181F,3,1.013771,0.000637,20000,300,200,4,1269.3,151.3,"llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor, 15.7 GiB RAM"
