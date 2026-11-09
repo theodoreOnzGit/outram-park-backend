@@ -152,6 +152,8 @@ pub enum MoTreatment {
 }
 
 /// `(nuclide, ENDF/B-VIII.0 tape)`, paths relative to `reference-data/endf/`.
+/// Ni and Zr live in the `reference-data/ace` submodule's `endf/` (the
+/// maintainer's rule for new nuclear data, 2026-11-09).
 pub const NUCLIDES: [(&str, &str); 28] = [
     ("Li6", "n-003_Li_006-ENDF8.0.endf"),
     ("Li7", "n-003_Li_007-ENDF8.0.endf"),
@@ -169,11 +171,11 @@ pub const NUCLIDES: [(&str, &str); 28] = [
     ("Fe56", "n-026_Fe_056-ENDF8.0.endf"),
     ("Fe57", "n-026_Fe_057-ENDF8.0.endf"),
     ("Fe58", "n-026_Fe_058-ENDF8.0.endf"),
-    ("Ni58", "n-028_Ni_058-ENDF8.0.endf"),
-    ("Ni60", "n-028_Ni_060-ENDF8.0.endf"),
-    ("Ni61", "n-028_Ni_061-ENDF8.0.endf"),
-    ("Ni62", "n-028_Ni_062-ENDF8.0.endf"),
-    ("Ni64", "n-028_Ni_064-ENDF8.0.endf"),
+    ("Ni58", "../ace/endf/endf-b-viii.0/n-028_Ni_058-ENDF8.0.endf"),
+    ("Ni60", "../ace/endf/endf-b-viii.0/n-028_Ni_060-ENDF8.0.endf"),
+    ("Ni61", "../ace/endf/endf-b-viii.0/n-028_Ni_061-ENDF8.0.endf"),
+    ("Ni62", "../ace/endf/endf-b-viii.0/n-028_Ni_062-ENDF8.0.endf"),
+    ("Ni64", "../ace/endf/endf-b-viii.0/n-028_Ni_064-ENDF8.0.endf"),
     ("Zr90", "../ace/endf/endf-b-viii.0/n-040_Zr_090-ENDF8.0.endf"),
     ("Zr91", "../ace/endf/endf-b-viii.0/n-040_Zr_091-ENDF8.0.endf"),
     ("Zr92", "../ace/endf/endf-b-viii.0/n-040_Zr_092-ENDF8.0.endf"),
@@ -255,6 +257,10 @@ pub fn inor8(mo: MoTreatment) -> Vec<(&'static str, f64)> {
 pub fn basket_mix(mo: MoTreatment) -> Vec<(&'static str, f64)> {
     materials_at(mo, REFERENCE_TEMPERATURE_F).swap_remove(BASKET_IDX).1
 }
+
+/// Nuclides that live only in graphite (and the basket's graphite share):
+/// these take the graphite temperature in a fuel/graphite split.
+pub const GRAPHITE_NUCLIDES: [&str; 4] = ["C12", "C13", "B10", "B11"];
 
 /// Material indices of [`materials`].
 pub const SALT_IDX: usize = 0;
@@ -350,7 +356,7 @@ fn zcyl(x0: f64, y0: f64, r: f64, bc: BoundaryType) -> SurfaceKind {
 /// The stringer universe's cells, appended to `surfaces` and `cells`: four
 /// half-stadium passages (salt) and the graphite around them. Returns the
 /// cell indices.
-fn stringer_cells(surfaces: &mut Vec<SurfaceKind>, cells: &mut Vec<Cell>, t_k: f64) -> Vec<usize> {
+fn stringer_cells(surfaces: &mut Vec<SurfaceKind>, cells: &mut Vec<Cell>, t_salt_k: f64, t_graphite_k: f64) -> Vec<usize> {
     let t = BoundaryType::Transmissive;
     let h = PITCH / 2.0;
     let floor = h - PASSAGE_HALF_DEPTH;
@@ -386,8 +392,8 @@ fn stringer_cells(surfaces: &mut Vec<SurfaceKind>, cells: &mut Vec<Cell>, t_k: f
     let mut graphite = fuel.clone();
     graphite.push(RegionToken::Complement);
     let i0 = cells.len();
-    cells.push(Cell::material(101, fuel, SALT_IDX, t_k));
-    cells.push(Cell::material(102, graphite, GRAPHITE_IDX, t_k));
+    cells.push(Cell::material(101, fuel, SALT_IDX, t_salt_k));
+    cells.push(Cell::material(102, graphite, GRAPHITE_IDX, t_graphite_k));
     vec![i0, i0 + 1]
 }
 
@@ -408,11 +414,19 @@ pub fn geometry() -> Geometry {
 
 /// The same geometry with every cell at `t_k` kelvin (dimensions stay cold).
 pub fn geometry_at(t_k: f64) -> Geometry {
+    geometry_at_split(t_k, t_k)
+}
+
+/// The geometry with the stringer graphite at `t_graphite_k` and every other
+/// cell (salt, INOR-8, the basket) at `t_salt_k`: the fuel/graphite split
+/// of the temperature coefficient (MSRE N-3, gh:#1129).
+pub fn geometry_at_split(t_salt_k: f64, t_graphite_k: f64) -> Geometry {
+    let t_k = t_salt_k;
     let t = BoundaryType::Transmissive;
     let v = BoundaryType::Vacuum;
     let mut surfaces: Vec<SurfaceKind> = Vec::new();
     let mut cells: Vec<Cell> = Vec::new();
-    let stringer = stringer_cells(&mut surfaces, &mut cells, t_k);
+    let stringer = stringer_cells(&mut surfaces, &mut cells, t_salt_k, t_graphite_k);
 
     let mut add = |s: SurfaceKind| {
         surfaces.push(s);
@@ -599,6 +613,16 @@ mod tests {
         let hot = materials_at(MoTreatment::Omitted, REFERENCE_TEMPERATURE_F + 100.0);
         assert!((hot[SALT_IDX].1[0].1 / SALT[0].1 - (1.0 - 0.0118)).abs() < 1e-12);
         assert!((kelvin_from_f(REFERENCE_TEMPERATURE_F) - TEMPERATURE_K).abs() < 1e-12);
+        // The split geometry puts only the stringer graphite at its own
+        // temperature.
+        let g = geometry_at_split(900.0, 950.0);
+        let hot: Vec<i32> = g.cells.iter().filter(|c| c.temperature == 950.0).map(|c| c.id).collect();
+        assert_eq!(hot, vec![102]);
         assert_eq!(basket_mix(MoTreatment::Omitted), materials(MoTreatment::Omitted)[BASKET_IDX].1);
+        // Every tape the model names exists (the first run died on a wrong
+        // Ni path, 2026-11-09).
+        for (n, file) in NUCLIDES.iter().chain(std::iter::once(&MO95_TAPE)) {
+            assert!(njoy_outram_park_fork::reference_data::reference_endf(file).is_some(), "{n}: {file}");
+        }
     }
 }

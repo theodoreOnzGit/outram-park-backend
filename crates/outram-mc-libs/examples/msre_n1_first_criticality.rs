@@ -8,7 +8,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
-//!     --mo omitted|mo95 --seeds 1-4 [--temp-f 1181] [--particles N --inactive N --active N --threads N --csv path]
+//!     --mo omitted|mo95 --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path]
 //! ```
 //!
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
@@ -112,10 +112,15 @@ fn main() {
     let csv = PathBuf::from(flag(&args, "--csv").unwrap_or_else(|| "target/msre_n1_keff.csv".into()));
     // `--temp-f`: the isothermal temperature (MSRE N-3, gh:#1129); the salt
     // density follows `vv::msre_n1::SALT_EXPANSION_PER_F`.
+    // `--salt-temp-f` / `--graphite-temp-f` split it, for the fuel and
+    // graphite components (each defaults to `--temp-f`).
     let temp_f: f64 = flag(&args, "--temp-f").map(|v| v.parse().expect("°F")).unwrap_or(m::REFERENCE_TEMPERATURE_F);
-    let t_k = m::kelvin_from_f(temp_f);
+    let salt_f: f64 = flag(&args, "--salt-temp-f").map(|v| v.parse().expect("°F")).unwrap_or(temp_f);
+    let graphite_f: f64 = flag(&args, "--graphite-temp-f").map(|v| v.parse().expect("°F")).unwrap_or(temp_f);
+    let (t_k, t_g) = (m::kelvin_from_f(salt_f), m::kelvin_from_f(graphite_f));
+    let temp_of = |n: &str| if m::GRAPHITE_NUCLIDES.contains(&n) { t_g } else { t_k };
 
-    let mats = m::materials_at(mo, temp_f);
+    let mats = m::materials_at(mo, salt_f);
     let mut names: Vec<&str> = Vec::new();
     for (_, comps) in &mats {
         for (n, _) in comps {
@@ -138,7 +143,7 @@ fn main() {
             .1;
         let p = reference_endf(file).unwrap_or_else(|| panic!("missing reference tape {file}"));
         let t = Instant::now();
-        let nuc = Nuclide::from_endf_file_with_speed(&p, n, t_k, speed).unwrap_or_else(|e| panic!("{n}: {e}"));
+        let nuc = Nuclide::from_endf_file_with_speed(&p, n, temp_of(n), speed).unwrap_or_else(|e| panic!("{n}: {e}"));
         eprintln!("    {n:<5} {:6.1} s  URR {} DBRC {}", t.elapsed().as_secs_f64(), nuc.has_urr_probability_tables(), nuc.has_dbrc());
         nuc
     };
@@ -162,9 +167,9 @@ fn main() {
     if sab {
         use njoy_outram_park_fork::leapr::decks::SabMaterial;
         let t = Instant::now();
-        let law = ThermalScattering::from_embedded_leapr_deck(SabMaterial::ReactorGraphite30P, t_k, "c_Graphite_30p")
+        let law = ThermalScattering::from_embedded_leapr_deck(SabMaterial::ReactorGraphite30P, t_g, "c_Graphite_30p")
             .expect("graphite S(a,b) from LEAPR");
-        eprintln!("    C: graphite 30P S(a,b) by LEAPR at {t_k:.2} K in {:.1} s", t.elapsed().as_secs_f64());
+        eprintln!("    C: graphite 30P S(a,b) by LEAPR at {t_g:.2} K in {:.1} s", t.elapsed().as_secs_f64());
         for c in ["C12", "C13"] {
             let i = names.iter().position(|n| *n == c).expect("carbon");
             let nuc = nuclides.remove(i);
@@ -181,15 +186,15 @@ fn main() {
         .map(|(i, (mname, comps))| Material {
             id: i as i32 + 1,
             name: (*mname).into(),
-            temperature: t_k,
+            temperature: if i == m::GRAPHITE_IDX { t_g } else { t_k },
             components: comps.iter().map(|(n, d)| NuclideComponent { nuclide_idx: idx(n), atom_density: *d }).collect(),
         })
         .collect();
     let hw = outram_mc_libs::perf_report::HardwareInfo::detect().headline();
     eprintln!("  nuclear data ready in {load_s:.1} s ({} nuclides); hardware: {hw}; threads {threads}", names.len());
 
-    let g = m::geometry_at(t_k);
-    let label = format!("{}{}@{temp_f}F", if mo == m::MoTreatment::Omitted { "mo-omitted" } else { "mo95-equivalent" }, if sab { "" } else { "+no-sab" });
+    let g = m::geometry_at_split(t_k, t_g);
+    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", if mo == m::MoTreatment::Omitted { "mo-omitted" } else { "mo95-equivalent" }, if sab { "" } else { "+no-sab" });
     let new_file = !csv.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&csv).expect("csv");
     if new_file {
