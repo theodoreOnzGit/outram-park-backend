@@ -8,7 +8,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
-//!     --mo omitted|mo95 --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path]
+//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path]
 //! ```
 //!
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
@@ -97,7 +97,8 @@ fn main() {
     let mo = match flag(&args, "--mo").as_deref().unwrap_or("omitted") {
         "omitted" => m::MoTreatment::Omitted,
         "mo95" => m::MoTreatment::Mo95Equivalent,
-        other => panic!("--mo must be omitted|mo95, got {other}"),
+        "natural" => m::MoTreatment::Natural,
+        other => panic!("--mo must be omitted|mo95|natural, got {other}"),
     };
     let num = |n: &str, d: usize| flag(&args, n).map(|v| v.parse().expect("number")).unwrap_or(d);
     let (np, ni, na) = (num("--particles", 20_000), num("--inactive", 100), num("--active", 200));
@@ -134,10 +135,11 @@ fn main() {
     // Nuclides are processed in parallel, `threads` at a time, and kept in
     // `names` order: each is independent, so the result does not depend on
     // the order they finish in.
+    let mo_list = m::mo_tapes(mo);
     let load_one = |n: &str| -> Nuclide {
         let file = m::NUCLIDES
             .iter()
-            .chain(std::iter::once(&m::MO95_TAPE))
+            .chain(mo_list.iter())
             .find(|(k, _)| *k == n)
             .unwrap_or_else(|| panic!("no tape for {n}"))
             .1;
@@ -194,7 +196,7 @@ fn main() {
     eprintln!("  nuclear data ready in {load_s:.1} s ({} nuclides); hardware: {hw}; threads {threads}", names.len());
 
     let g = m::geometry_at_split(t_k, t_g);
-    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", if mo == m::MoTreatment::Omitted { "mo-omitted" } else { "mo95-equivalent" }, if sab { "" } else { "+no-sab" });
+    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" });
     let new_file = !csv.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&csv).expect("csv");
     if new_file {

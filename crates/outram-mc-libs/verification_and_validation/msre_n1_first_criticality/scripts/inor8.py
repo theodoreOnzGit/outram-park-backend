@@ -12,3 +12,9 @@ for e,(w,A,iso) in el.items():
         for k,f in iso.items(): print(f"    (\"{k}\", {n*f:.6e}),")
     else:
         print(f"    Mo element {n:.6e}; Mo-95 at equal 2200 m/s absorption (x 2.48/13.4): {n*2.48/13.4:.6e}")
+
+# Natural Mo (arm C, `--mo natural`, 2026-11-09): IUPAC 2013 isotopic abundances,
+# atom fraction, on the ENDF/B-VIII.0 release tapes added to reference-data/ace (ba58c2e).
+MO_NAT={'Mo92':0.1453,'Mo94':0.0915,'Mo95':0.1584,'Mo96':0.1667,'Mo97':0.0960,'Mo98':0.2439,'Mo100':0.0982}
+n_mo=rho*0.165/95.95*NA
+for k,f in MO_NAT.items(): print(f"    (\"{k}\", {n_mo*f:.6e}),")

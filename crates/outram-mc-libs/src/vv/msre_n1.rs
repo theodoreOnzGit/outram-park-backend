@@ -149,6 +149,43 @@ pub enum MoTreatment {
     /// `N(⁹⁵Mo) = N(Mo) × 2.48 / 13.4` (σ_a quoted from memory, not
     /// re-checked; see gh:#1128).
     Mo95Equivalent,
+    /// Arm C (2026-11-09, once the tapes were added to `reference-data/ace`,
+    /// `ba58c2e`): natural Mo, all seven stable isotopes from the
+    /// ENDF/B-VIII.0 release tapes at IUPAC natural abundance, at the same
+    /// element density as the other arms. **This is INOR-8 as specified.**
+    Natural,
+}
+
+/// Natural Mo abundances, atom fraction (IUPAC 2013 isotopic compositions).
+pub const MO_NATURAL_ABUNDANCE: [(&str, f64); 7] = [
+    ("Mo92", 0.1453),
+    ("Mo94", 0.0915),
+    ("Mo95", 0.1584),
+    ("Mo96", 0.1667),
+    ("Mo97", 0.0960),
+    ("Mo98", 0.2439),
+    ("Mo100", 0.0982),
+];
+
+/// INOR-8's Mo element density (atoms/b-cm), `scripts/inor8.py`: 16.5 wt %
+/// of 8.775 g/cm³ at an atomic weight of 95.95.
+pub const INOR8_MO_ELEMENT: f64 = 9.086858e-03;
+
+/// The Mo tapes an arm reads, `(nuclide, path relative to reference-data/endf/)`.
+pub fn mo_tapes(mo: MoTreatment) -> Vec<(&'static str, &'static str)> {
+    match mo {
+        MoTreatment::Omitted => vec![],
+        MoTreatment::Mo95Equivalent => vec![MO95_TAPE],
+        MoTreatment::Natural => vec![
+            ("Mo92", "../ace/endf/endf-b-viii.0/n-042_Mo_092-ENDF8.0.endf"),
+            ("Mo94", "../ace/endf/endf-b-viii.0/n-042_Mo_094-ENDF8.0.endf"),
+            ("Mo95", "../ace/endf/endf-b-viii.0/n-042_Mo_095-ENDF8.0.endf"),
+            ("Mo96", "../ace/endf/endf-b-viii.0/n-042_Mo_096-ENDF8.0.endf"),
+            ("Mo97", "../ace/endf/endf-b-viii.0/n-042_Mo_097-ENDF8.0.endf"),
+            ("Mo98", "../ace/endf/endf-b-viii.0/n-042_Mo_098-ENDF8.0.endf"),
+            ("Mo100", "../ace/endf/endf-b-viii.0/n-042_Mo_100-ENDF8.0.endf"),
+        ],
+    }
 }
 
 /// `(nuclide, ENDF/B-VIII.0 tape)`, paths relative to `reference-data/endf/`.
@@ -246,8 +283,14 @@ pub fn basket_fractions() -> (f64, f64, f64) {
 /// INOR-8 under `mo`.
 pub fn inor8(mo: MoTreatment) -> Vec<(&'static str, f64)> {
     let mut v: Vec<(&'static str, f64)> = INOR8_WITHOUT_MO.to_vec();
-    if mo == MoTreatment::Mo95Equivalent {
-        v.push(("Mo95", INOR8_MO95_EQUIVALENT));
+    match mo {
+        MoTreatment::Omitted => {}
+        MoTreatment::Mo95Equivalent => v.push(("Mo95", INOR8_MO95_EQUIVALENT)),
+        MoTreatment::Natural => {
+            for (n, a) in MO_NATURAL_ABUNDANCE {
+                v.push((n, INOR8_MO_ELEMENT * a));
+            }
+        }
     }
     v
 }
@@ -621,7 +664,11 @@ mod tests {
         assert_eq!(basket_mix(MoTreatment::Omitted), materials(MoTreatment::Omitted)[BASKET_IDX].1);
         // Every tape the model names exists (the first run died on a wrong
         // Ni path, 2026-11-09).
-        for (n, file) in NUCLIDES.iter().chain(std::iter::once(&MO95_TAPE)) {
+        let natural: f64 = MO_NATURAL_ABUNDANCE.iter().map(|x| x.1).sum();
+        assert!((natural - 1.0).abs() < 1e-12, "{natural}");
+        assert_eq!(materials(MoTreatment::Natural)[INOR8_IDX].1.len(), 13 + 7);
+        let all_mo: Vec<_> = mo_tapes(MoTreatment::Natural).into_iter().chain(mo_tapes(MoTreatment::Mo95Equivalent)).collect();
+        for (n, file) in NUCLIDES.iter().chain(all_mo.iter()) {
             assert!(njoy_outram_park_fork::reference_data::reference_endf(file).is_some(), "{n}: {file}");
         }
     }
