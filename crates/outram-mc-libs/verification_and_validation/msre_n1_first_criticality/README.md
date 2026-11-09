@@ -118,7 +118,8 @@ Consistent with zero and inside the prediction posted on gh:#1128
 withdrawn. **Quote +801 ± 22 pcm under the current default** (six seeds,
 seed-spread σ; sd 53 pcm, below the ≈63 pcm internal σ).
 
-**Resonance scattering in every other run on this page:** DBRC. Every other N-1, N-3 and
+**Resonance scattering in every other run on this page:** DBRC, except the
+N-3 RVS rows and the entropy study. Every other N-1, N-3 and
 convergence run here was made before the default changed to OpenMC's RVS
 method (gh:#1311, 2026-11-09). DBRC itself is worth −19 ± 51 pcm on this
 model (ablation below); ~~the RVS-vs-DBRC difference has not been measured on
@@ -164,6 +165,15 @@ Salt density follows −1.18e-4 /°F (ORNL-4233 §4.1). Runs at 1131 °F and
 - **Mo:** arm A only. Mo absorption is nearly flat in temperature, so the
   coefficient should be insensitive to it. That expectation was not
   measured.
+
+**Re-measured under RVS (2026-11-09, gh:#1311),** isothermal only, seeds
+1–3 (rows `mo-omitted+rvs` in `data/n3.csv`): A 1131 °F 1.01690 ± 0.00067
+(1.01821, 1.01598, 1.01650), B 1231 °F 1.00966 ± 0.00026 (1.00971,
+1.00919, 1.01008). **α_iso = −7.05 ± 0.70 × 10⁻⁵ /°F** (seed-spread σ;
+±0.75 with the internal σ as a floor), against −7.19 ± 0.50 with DBRC
+(difference +0.14 ± 0.86) and the measured −7.24 (0.3σ). Inside the
+prediction posted on gh:#1129 (−7.7 to −6.7). The fuel/graphite split was
+not re-run.
 
 ### A finding about the statistics
 
