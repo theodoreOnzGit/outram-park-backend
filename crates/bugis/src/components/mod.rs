@@ -16,6 +16,18 @@
 //! overlay) reads the engine's cited `htr10::design` fuel-temperature limits,
 //! which are physics data and not GUI, so it stays in the engine and the
 //! engine's `components` adds it beside this re-export.
+//!
+//! **Split 2026-11-05** (maintainer: "widget art can live in bugis, the
+//! combination of logic and art can live inside the digital twin engine"):
+//! this module is now the **art**. Every widget here draws from plain numbers
+//! (temperatures, fractions, geometry). The widgets that hold a physics
+//! component (`PipeVisual`, `ValveVisual`, `ReactorVesselVisual`,
+//! `CondenserVisual`, `CoolingTowerVisual`, `HeatExchangerVisual`,
+//! `PumpVisual`, `SteamGeneratorVisual`, `TurbineVisual`) and `PipeComponent`
+//! moved to `outram_park_digital_twin_engine::components`, where each reads
+//! its `tampines` / `tampines-steam-tables` / DWSIM / `nee_soon` state and
+//! draws through the art type of the same stem here (`PipeArt`, `ValveArt`,
+//! ...). bugis depends on no physics crate.
 
 pub mod bend;
 pub mod condenser;
@@ -35,7 +47,6 @@ pub(crate) mod pebble_bed_texture;
 pub mod pebble_packing;
 pub mod pipe;
 pub mod pipe_route;
-mod pipe_component;
 pub mod pump;
 pub mod reactor_archetype;
 pub mod reactor_vessel;
@@ -46,15 +57,15 @@ pub mod valve;
 
 pub use bend::PipeBendVisual;
 pub use condenser::{
-    CondenserDisplayRange, CondenserKind, CondenserScalars, CondenserVisual, CondenserVisualState,
+    CondenserDisplayRange, CondenserKind, CondenserScalars, CondenserArt, CondenserArtState,
 };
 pub use control_rod_drive::slewed_control_rod_insertion;
-pub use cooling_tower::CoolingTowerVisual;
+pub use cooling_tower::{AirReadout, CoolingTowerArt, CoolingTowerArtScalars, CoolingTowerInlet};
 pub use distillation_column::DistillationColumnVisual;
 pub use fhr_reactor_vessel::FhrReactorVesselVisual;
 pub use heat_exchanger::{
     ApproachVerdict, HeatExchangerConstruction, HeatExchangerDisplayRange, HeatExchangerKind,
-    HeatExchangerScalars, HeatExchangerVisual, HeatExchangerVisualState,
+    HeatExchangerScalars, HeatExchangerArt, HeatExchangerArtState,
 };
 pub use htr10_reactor_schematic::Htr10ReactorSchematic;
 pub use htr10_reactor_vessel::{Htr10FlowAnchors, Htr10ReactorVesselVisual};
@@ -62,16 +73,15 @@ pub use htr10_steam_generator::Htr10SteamGeneratorVisual;
 pub use instrumentation::InstrumentationVisual;
 pub use legend::{LegendUnit, TemperatureLegend};
 pub use pipe::{
-    CoaxialDuctGeometry, CoaxialDuctVisual, PipePhaseShade, PipeScalars, PipeScale, PipeVisual,
-    PipeVisualState,
+    CoaxialDuctGeometry, CoaxialDuctVisual, PipePhaseShade, PipeScalars, PipeScale, PipeArt,
+    PipeArtState, PipeCells,
 };
-pub use pipe_component::PipeComponent;
-pub use pump::PumpVisual;
+pub use pump::PumpArt;
 pub use reactor_archetype::{ReactorArchetype, ReactorArchetypeVisual};
-pub use reactor_vessel::ReactorVesselVisual;
-pub use steam_generator::SteamGeneratorVisual;
-pub use turbine::{StageAngles, TurbineFlowPath, TurbineVisual, TurbineVisualState};
-pub use valve::ValveVisual;
+pub use reactor_vessel::ReactorVesselArt;
+pub use steam_generator::{SteamGeneratorArt, SteamGeneratorScalars};
+pub use turbine::{StageAngles, TurbineFlowPath, TurbineArt};
+pub use valve::ValveArt;
 
 use crate::colour_maps::color32::crameri;
 use egui::Color32;
@@ -95,7 +105,7 @@ use uom::si::thermodynamic_temperature::kelvin;
 /// It is also perceptually uniform, so equal temperature steps look like equal
 /// colour steps. The older [`crate::colour_maps::color32::hot_to_cold_colour_mark_1`] is
 /// not, and put a muddy purple where the neutral point should be.
-pub(crate) fn temperature_colour(
+pub fn temperature_colour(
     t: ThermodynamicTemperature,
     min: ThermodynamicTemperature,
     max: ThermodynamicTemperature,
@@ -106,7 +116,7 @@ pub(crate) fn temperature_colour(
 /// Normalise `t` to a \[0, 1\] "hotness" for colour mapping (see
 /// [`crate::colour_maps::color32`]), clamped to the `[min, max]` range -- shared by
 /// every visual component that colours itself by temperature.
-pub(crate) fn hotness_from_temperature(
+pub fn hotness_from_temperature(
     t: ThermodynamicTemperature,
     min: ThermodynamicTemperature,
     max: ThermodynamicTemperature,
@@ -115,6 +125,33 @@ pub(crate) fn hotness_from_temperature(
     let min = min.get::<kelvin>();
     let max = max.get::<kelvin>();
     (((t - min) / (max - min)) as f32).clamp(0.0, 1.0)
+}
+
+/// Draw `widget` once in a headless `egui` context and return how many shapes
+/// it painted.
+///
+/// A check that a widget draws at all, for tests here and in the crates that
+/// wrap this art (the digital-twin engine's physics-backed widgets, which
+/// delegate their drawing to the art types in this module). Not a picture
+/// test: it counts shapes, it does not compare pixels.
+pub fn shapes_drawn_by(widget: impl egui::Widget) -> usize {
+    let ctx = egui::Context::default();
+    let input = egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::Vec2::new(1280.0, 1200.0),
+        )),
+        ..Default::default()
+    };
+    // One warm-up frame so fonts exist before anything is laid out.
+    let _ = ctx.run_ui(input.clone(), |_| {});
+    let mut widget = Some(widget);
+    let output = ctx.run_ui(input, |ui| {
+        if let Some(w) = widget.take() {
+            ui.add(w);
+        }
+    });
+    output.shapes.len()
 }
 
 #[cfg(test)]

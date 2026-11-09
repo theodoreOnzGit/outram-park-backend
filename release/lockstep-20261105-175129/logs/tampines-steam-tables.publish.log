@@ -1,0 +1,41 @@
+    Updating crates.io index
+   Packaging tampines-steam-tables v0.3.1 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/tampines-steam-tables)
+    Updating crates.io index
+warning: package `async-executor v1.14.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+warning: package `clipboard-win v5.4.1` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+warning: package `tokio v1.54.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+    Packaged 714 files, 13.3MiB (2.6MiB compressed)
+   Verifying tampines-steam-tables v0.3.1 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/tampines-steam-tables)
+   Compiling tampines-steam-tables v0.3.1 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/tampines-steam-tables-0.3.1)
+warning: ambiguous glob re-exports
+  --> src/prelude.rs:24:9
+   |
+24 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+25 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+26 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1132:7
+     |
+1132 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 20.51s
+   Uploading tampines-steam-tables v0.3.1 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/tampines-steam-tables)
+    Uploaded tampines-steam-tables v0.3.1 to registry `crates-io`
+note: waiting for tampines-steam-tables v0.3.1 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published tampines-steam-tables v0.3.1 at registry `crates-io`

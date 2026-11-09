@@ -1,0 +1,14 @@
+    Updating crates.io index
+   Packaging outram-park-fork-coolprop v0.1.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-coolprop)
+    Blocking waiting for file lock on package cache
+    Updating crates.io index
+    Blocking waiting for file lock on package cache
+    Packaged 483 files, 5.2MiB (944.2KiB compressed)
+   Verifying outram-park-fork-coolprop v0.1.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-coolprop)
+   Compiling outram-park-fork-coolprop v0.1.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/outram-park-fork-coolprop-0.1.4)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.94s
+   Uploading outram-park-fork-coolprop v0.1.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-coolprop)
+    Uploaded outram-park-fork-coolprop v0.1.4 to registry `crates-io`
+note: waiting for outram-park-fork-coolprop v0.1.4 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-park-fork-coolprop v0.1.4 at registry `crates-io`

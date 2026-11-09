@@ -1,0 +1,12 @@
+    Blocking waiting for file lock on build directory
+   Compiling bishan v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/bishan)
+    Finished `release` profile [optimized] target(s) in 4m 35s
+     Running unittests src/lib.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/bishan-c034e7875e0fd5da)
+
+running 3 tests
+test building::tests::the_steady_building_passes_inflow_less_decay ... ok
+test tests::the_scope_is_recorded ... ok
+test building::tests::atoms_are_conserved_and_small_steps_equal_one_big_step ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

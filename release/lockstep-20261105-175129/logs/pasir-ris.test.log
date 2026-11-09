@@ -1,0 +1,105 @@
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:24:9
+   |
+24 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+25 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+26 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1132:7
+     |
+1132 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:182:19
+    |
+169 | impl Site {
+    | --------- associated function in this implementation
+...
+182 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `outram-mc-libs` (lib) generated 1 warning
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l.rs:6:5
+  |
+6 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l_high_temp.rs:79:5
+   |
+79 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/copper.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/fiberglass.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/nuclear_graphite.rs:53:5
+   |
+53 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/pyrogel_hps.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: function `relative_bracketed_root` is never used
+   --> crates/tuas_boussinesq_solver/src/lib/numerical_methods.rs:285:15
+    |
+285 | pub(crate) fn relative_bracketed_root<F: Fn(f64) -> f64>(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tuas_boussinesq_solver` (lib) generated 7 warnings (run `cargo fix --lib -p tuas_boussinesq_solver` to apply 6 suggestions)
+warning: unused import: `petir::mathf::RealMath`
+   --> crates/tampines/src/multiphase_1d/two_fluid.rs:316:5
+    |
+316 | use petir::mathf::RealMath;
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `petir::mathf::RealMath`
+   --> crates/tampines/src/multiphase_1d/drift_flux.rs:101:5
+    |
+101 | use petir::mathf::RealMath;
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `tampines` (lib) generated 2 warnings
+   Compiling bishan v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/bishan)
+   Compiling redhill v0.0.3 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/redhill)
+   Compiling pasir-ris v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/pasir-ris)
+    Finished `release` profile [optimized] target(s) in 1.40s
+     Running unittests src/lib.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/pasir_ris-c4c3757da5dda67d)
+
+running 1 test
+test tests::the_scope_is_recorded ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

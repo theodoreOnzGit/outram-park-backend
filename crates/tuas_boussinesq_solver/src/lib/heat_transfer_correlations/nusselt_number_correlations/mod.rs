@@ -18,6 +18,14 @@ pub mod free_convection_correlations;
 /// tests to ensure correlations are working correctly
 pub mod tests;
 
+/// MSRE TH-C1 (gh:#1135): the correlations against the analytical Graetz
+/// solution and the textbook turbulent correlations (tests only).
+pub mod graetz_th_c1;
+
+/// MSRE TH-1 (gh:#1134): the default pipe correlation against ORNL-TM-4079
+/// fluoride-salt forced-convection data (tests only).
+pub mod msre_th1_tm4079;
+
 pub use free_convection_correlations::{
     churchill_chu_vertical_plate_nusselt, grashof_number, rayleigh_number, ChurchillChuData,
 };

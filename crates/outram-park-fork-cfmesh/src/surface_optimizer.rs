@@ -61,6 +61,7 @@
 use crate::math::Vec3;
 use crate::surface_engine::{ring_area_vector, SurfaceEngine, SurfacePartitioner, VSMALL};
 use std::collections::{BTreeMap, BTreeSet};
+use petir::mathf::RealMath;
 
 const ROOTVSMALL: f64 = 1.0e-150;
 const SMALL: f64 = 1.0e-15;
@@ -398,7 +399,7 @@ fn evaluate_gradients(pts: &[Vec3], trias: &[[usize; 3]], k: f64) -> ([f64; 2], 
         let mut hgas: T2 = [[0.0; 2]; 2];
         for i in 0..2 {
             for j in 0..2 {
-                hgas[i][j] = 0.5 * ((ga[i] * ga[j]) / stab - a * a * (ga[i] * ga[j]) / stab.powi(3));
+                hgas[i][j] = 0.5 * ((ga[i] * ga[j]) / stab - a * a * (ga[i] * ga[j]) / stab.r_powi(3));
             }
         }
         let gl = [4.0 * p0.x - 2.0 * p1.x - 2.0 * p2.x, 4.0 * p0.y - 2.0 * p1.y - 2.0 * p2.y];
@@ -1763,7 +1764,7 @@ pub(crate) mod render_gh1259 {
     }
 
     /// An 8-bit RGB PNG with stored (uncompressed) deflate blocks.
-    fn write_png(path: &std::path::Path, w: usize, h: usize, rgb: &[u8]) {
+    pub(crate) fn write_png(path: &std::path::Path, w: usize, h: usize, rgb: &[u8]) {
         let mut raw = Vec::with_capacity(h * (3 * w + 1));
         for y in 0..h {
             raw.push(0u8);

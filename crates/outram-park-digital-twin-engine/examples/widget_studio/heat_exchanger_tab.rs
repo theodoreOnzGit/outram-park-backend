@@ -50,7 +50,8 @@
 use egui::{Color32, RichText, Vec2};
 use outram_park_digital_twin_engine::components::heat_exchanger::{
     approach_verdict, terminal_approaches, ApproachVerdict, HeatExchangerConstruction,
-    HeatExchangerDisplayRange, HeatExchangerKind, HeatExchangerScalars, HeatExchangerVisual,
+    HeatExchangerDisplayRange, HeatExchangerKind, HeatExchangerKindArrangement,
+    HeatExchangerScalars, HeatExchangerVisual,
 };
 use outram_park_fork_dwsim_libs::heat_exchanger::lmtd::lmtd;
 use tampines::components::HeatExchanger;

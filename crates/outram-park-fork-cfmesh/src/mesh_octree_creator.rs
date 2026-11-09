@@ -159,8 +159,12 @@ pub struct MeshDict {
     /// leaves are dropped (when DATA boxes are used).
     pub remove_cells_intersecting_patches: Vec<String>,
     /// `anisotropicSources` ([`crate::anisotropic::CoordinateModifier`],
-    /// gh:#1279). Read here only by the refinement sources, which upstream
-    /// maps into the modified space; the generators do not read it.
+    /// gh:#1279). Read here by the refinement sources, which upstream maps
+    /// into the modified space. ~~The generators do not read it.~~
+    /// **UPDATED 2026-11-05 (gh:#1279 remainder):** the four generators
+    /// (`pipeline::{cartesian_mesh, tet_mesh, p_mesh, cartesian_2d_mesh}`)
+    /// read it as upstream: the octree on the modified surface, then the
+    /// revert (and, in 3D, `projectSurfaceAfterBackScaling`).
     pub anisotropic_sources: Option<crate::anisotropic::CoordinateModifier>,
 }
 

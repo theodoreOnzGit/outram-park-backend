@@ -135,14 +135,14 @@ impl FoamApp {
             app.mode = Mode::Transient;
         }
         // `?mesh=unstructured` (gh:#1202): the cylinder on the cfMesh mesh, for
-        // links and browser checks; `&h=` cell size and `&layers=` in mm / count.
+        // links and browser checks; `&h=` cell size and `&layers=` in mm / count
+        // (the default h 5 mm, 3 layers since gh:#1298; `h=4&layers=0` the
+        // bare case that was the default before).
         if bugis::web_demo::platform::query_value(&q, "mesh") == Some("unstructured") {
-            if let Some(h) = bugis::web_demo::platform::query_value(&q, "h").and_then(|v| v.parse::<f64>().ok()) {
-                app.unstructured.cell_size = h * 1e-3;
-            }
-            if let Some(n) = bugis::web_demo::platform::query_value(&q, "layers").and_then(|v| v.parse::<usize>().ok()) {
-                app.unstructured.n_layers = n.min(MAX_LAYERS);
-            }
+            app.unstructured = app.unstructured.with_size_query(
+                bugis::web_demo::platform::query_value(&q, "h"),
+                bugis::web_demo::platform::query_value(&q, "layers"),
+            );
             // `&dual=point|centre`, `&fp=corners`, `&layerq=cfmesh|snappy`
             // (gh:#1240 browser controls).
             app.unstructured = app.unstructured.with_query(
@@ -150,6 +150,9 @@ impl FoamApp {
                 bugis::web_demo::platform::query_value(&q, "fp"),
                 bugis::web_demo::platform::query_value(&q, "layerq"),
             );
+            // `&route=legacy|upstream` (gh:#1298): the pre-gh:#1298 cfMesh
+            // route (the ablation) or upstream's sequence (the default).
+            app.unstructured = app.unstructured.with_route_query(bugis::web_demo::platform::query_value(&q, "route"));
             if matches!(app.design.shape, Shape::Cylinder { .. }) {
                 app.design.mesh = PipeMesh::Unstructured(app.unstructured);
             }
@@ -487,10 +490,17 @@ impl FoamApp {
                     }
                     ui.label(RichText::new("bad layer cells").small());
                     ui.horizontal_wrapped(|ui| {
-                        for (k, label) in [(L::BackOffOnly, "back off"), (L::CfMeshOptimise, "cfMesh optimise (slow)"), (L::SnappyCollapse, "snappy collapse")] {
+                        for (k, label) in [(L::BackOffOnly, "back off"), (L::CfMeshOptimise, "cfMesh optimise"), (L::SnappyCollapse, "snappy collapse")] {
                             touched |= ui.selectable_value(&mut s.layer_quality, k, label).changed();
                         }
                     });
+                    // gh:#1298: upstream's sequence around the dual (the
+                    // default) or the route before it (the ablation).
+                    let mut upstream = s.route == crate::engine::CfMeshRoute::UpstreamNoLaplace;
+                    if ui.checkbox(&mut upstream, "cfMesh surface + final optimisation (upstream sequence)").changed() {
+                        s.route = if upstream { crate::engine::CfMeshRoute::UpstreamNoLaplace } else { crate::engine::CfMeshRoute::PreGh1298 };
+                        touched = true;
+                    }
                 }
                 let c = s.clamped(radius, length);
                 if touched {
@@ -528,6 +538,7 @@ impl FoamApp {
             RichText::new(match self.design.shape {
                 Shape::Cylinder { .. } if unstructured => {
                     "cfMesh port: a Cartesian carve snapped to the cylinder, cut into tetrahedra, turned into polyhedra (one cell per tet vertex), \
+                     its boundary mapped and untangled onto the surface and the mesh optimised as cfMesh's tetMesh does, \
                      then prism layers grown on the wall only (the inlet and outlet stay layer-free). Meshing runs in the worker; it takes seconds."
                 }
                 Shape::Cylinder { .. } => "O-grid: a square core and a ring of radial cells; the wall is a polygon on the circle.",
@@ -1051,8 +1062,12 @@ fn layer_warning(c: &TetDualSpec) -> Option<&'static str> {
     use outram_blender::foam_mesh::LayerQualityStrategy as L;
     use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
     let polydual_corners = c.dual != D::MedianPerCorner && c.feature_points == F::Corners;
+    let upstream = c.route == crate::engine::CfMeshRoute::UpstreamNoLaplace;
     match (c.n_layers, c.layer_quality) {
         (0, _) => None,
+        (_, L::CfMeshOptimise) if upstream => Some(
+            "cfMesh's layer optimiser with upstream's sequence (the default): about 6 s natively at 5 mm with 3 layers, about 22 s in a browser (gh:#1298). On the cell-centre dual, corners only, it ran at u_c/2U 0.939, dp/dz 1.006 x Hagen-Poiseuille, with 0 bad faces; the layers come out about 0.9 mm for 0.98 mm asked.",
+        ),
         (_, L::CfMeshOptimise) => Some(
             "cfMesh's layer optimiser takes minutes (140-370 s natively at 5 mm, 3 layers; slower in a browser) and makes the layers thicker than asked (its thickness control is not ported). With the cell-centre dual, corners only, 3 layers ran at 5 mm: u_c/2U 0.931, dp/dz 1.005 x Hagen-Poiseuille (gh:#1240).",
         ),
@@ -1076,12 +1091,26 @@ mod tests {
     use crate::engine::TetDualSpec;
 
     /// The mesh panel warns according to the recorded results (gh:#1202,
-    /// #1215, #1240): nothing for a bare mesh, the minutes for cfMesh, the
-    /// zero-thickness cap for a polyDualMesh dual with every edge point kept,
-    /// and the 3-layer back-off divergence.
+    /// #1215, #1240, #1283): nothing for a bare mesh, the minutes for cfMesh
+    /// on the pre-gh:#1298 route and its seconds on upstream's sequence,
+    /// the zero-thickness cap for a polyDualMesh dual with every edge point
+    /// kept, and the 3-layer back-off divergence. The cases name every
+    /// choice (gh:#1298 changed the defaults); `None` in the URL helpers
+    /// below means the pre-gh:#1298 choice.
     #[test]
     fn layer_warning_matches_the_record() {
-        let spec = |n: usize, dual: Option<&str>, fp: Option<&str>, lq: Option<&str>| TetDualSpec { n_layers: n, ..TetDualSpec::default_for(0.01) }.with_query(dual, fp, lq);
+        let spec = |n: usize, dual: Option<&str>, fp: Option<&str>, lq: Option<&str>| {
+            TetDualSpec { n_layers: n, ..TetDualSpec::default_for(0.01) }
+                .with_query(Some(dual.unwrap_or("corner")), Some(fp.unwrap_or("edges")), Some(lq.unwrap_or("backoff")))
+                .with_route_query(Some("legacy"))
+        };
+        let default_with = |n: usize| TetDualSpec { n_layers: n, ..TetDualSpec::default_for(0.01) };
+        assert!(layer_warning(&default_with(0)).is_none());
+        // gh:#1298: the default itself (h 5 mm, 3 layers) shows the
+        // upstream-sequence note, with the gh:#1298 record's numbers.
+        let note = layer_warning(&TetDualSpec::default_for(0.01).clamped(0.01, 0.2)).unwrap();
+        assert!(note.contains("upstream's sequence (the default)") && note.contains("about 6 s") && note.contains("0.939") && note.contains("1.006"), "{note}");
+        assert_eq!(layer_warning(&default_with(3)), Some(note));
         assert!(layer_warning(&spec(0, None, None, Some("cfmesh"))).is_none());
         assert!(layer_warning(&spec(1, None, None, None)).is_none());
         assert!(layer_warning(&spec(2, None, None, None)).unwrap().contains("2 layers run"));

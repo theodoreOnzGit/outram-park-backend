@@ -540,3 +540,36 @@ fn a_vote_is_refused_while_a_founder_key_is_active() {
     );
     let _ = (f, rt);
 }
+
+/// `add_days` without `chrono` (2026-11-05: chrono stays desktop-only, so
+/// the founder ballots compile for wasm), checked against `chrono` itself.
+///
+/// Methodology: for every day from 1999-01-01 to 2101-12-31 (leap years,
+/// the 2000 and 2100 century rules, every month end), `add_days(d, n)` for
+/// n in {0, 1, 14, 30, 365, 366, 10_000} must equal chrono's
+/// `NaiveDate::checked_add_days`. Then the inputs that must be refused: a
+/// date that does not exist, malformed text, and a result past year 9999.
+///
+/// Result (2026-11-05): passes, 37 620 days x 7 offsets, all equal.
+#[test]
+fn add_days_matches_chrono_and_refuses_bad_dates() {
+    use chrono::{Days, NaiveDate};
+    let mut d = NaiveDate::from_ymd_opt(1999, 1, 1).unwrap();
+    let end = NaiveDate::from_ymd_opt(2101, 12, 31).unwrap();
+    let mut checked = 0;
+    while d <= end {
+        let text = d.format("%Y-%m-%d").to_string();
+        for n in [0u64, 1, 14, 30, 365, 366, 10_000] {
+            let expected = d.checked_add_days(Days::new(n)).unwrap().format("%Y-%m-%d").to_string();
+            assert_eq!(add_days(&text, n).as_deref(), Some(expected.as_str()), "{text} + {n}");
+        }
+        checked += 1;
+        d = d.succ_opt().unwrap();
+    }
+    assert_eq!(checked, 37_620); // 103 years x 365 + 25 leap days
+    for bad in ["2026-02-30", "2027-02-29", "2026-04-31", "2026-13-01", "2026-00-10", "26-01-01", "2026/01/01", ""] {
+        assert_eq!(add_days(bad, 1), None, "{bad}");
+    }
+    assert_eq!(add_days("2028-02-28", 1).as_deref(), Some("2028-02-29"));
+    assert_eq!(add_days("9999-12-31", 1), None);
+}

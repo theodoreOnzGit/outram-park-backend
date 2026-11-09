@@ -112,7 +112,7 @@ release). Two results are worth recording:
 |---|---|---|
 | **Real-time circulating-fuel PRKE** | Small–Medium | The blocker. See below |
 | Coupled flux transient in moltres | Medium | Crate is steady-eigenvalue only for the coupled system |
-| MSRE fuel-salt properties (LiF-BeF2-ZrF4-UF4) | Small | `LiquidMaterial::CustomLiquid` is a fully wired escape hatch — four functions plus bounds, no solver changes |
+| ~~MSRE fuel-salt properties (LiF-BeF2-ZrF4-UF4)~~ **PARTLY CLOSED 2026-11-09 (gh:#1133):** `tuas_boussinesq_solver::boussinesq_thermophysical_properties::liquid_database::msre_fuel_salt_tm0728::msre_fuel_salt_u235_tm0728()` gives the U-235 fuel salt as a `CustomLiquid`. It holds the ORNL-TM-0728 Table 2.1 values constant over 1175–1225 °F. **Temperature-dependent correlations are still missing** | Small | `LiquidMaterial::CustomLiquid` is a fully wired escape hatch — four functions plus bounds, no solver changes |
 | Air-cooled radiator component | Medium | Nothing named radiator exists in TUAS; build on the existing air-cooled tube-bank component |
 | Coupled secondary salt loop | Medium | Replaces moltres's prescribed constant-temperature HX sink, and replaces the `fhr_sim_v2` steam cycle |
 | Precursor-borne decay heat, xenon transport out of core | Medium | Current models assume in-core retention; MSRE stripped xenon with helium sparging |

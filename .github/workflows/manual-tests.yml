@@ -87,6 +87,8 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_NET_RETRY: 2
   RUST_BACKTRACE: short
+  # Keep the rustdoc JSON producer paired with the verified rustdoc-md version.
+  KOVAN_RUSTDOC_TOOLCHAIN: nightly-2026-11-05
 
 concurrency:
   # Keyed on the ref so two people can run different branches at once, but a
@@ -121,6 +123,13 @@ jobs:
           # sharing one key would thrash the cache between runs.
           key: manual-${{ inputs.scope || 'full' }}-ubuntu-latest
           cache-on-failure: true
+
+      # The api-docs regression tests run the real documentation pipeline.
+      - name: Install API-doc test prerequisites
+        shell: bash
+        run: |
+          rustup toolchain install "$KOVAN_RUSTDOC_TOOLCHAIN" --profile minimal
+          cargo install rustdoc-md --version 0.2.0 --locked
 
       - name: Show what will run
         run: |

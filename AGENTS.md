@@ -39,6 +39,45 @@ gh issue comment <number> --body "..."           # progress
   crates.io's rate limits are spread over the run instead of hitting at the
   end. Ideally a script drives this (`scripts/release-lockstep.sh`); the agent
   manages it.
+- **No dependency cycles between workspace crates, ever: check before merging
+  to `develop`** (maintainer, 2026-11-05). `cargo publish` resolves normal,
+  dev and optional dependencies that carry a version against crates.io, so
+  every internal edge of any kind must form a DAG. A cycle blocks the lockstep
+  release, and it was found only at release time for v0.0.4.
+  - **Check before every merge to `develop`:**
+    `bash scripts/release-lockstep.sh --dry-run`. It reads `cargo metadata`
+    and stops at "dry run: stopping before tests". If it says "dependency
+    cycle", fix the cycle before merging, and delete the `release/` output it
+    writes.
+  - **The directions are fixed:**
+    - `bugis` (GUI art and theme) is standalone: no workspace crate except
+      `petir`.
+    - `nee_soon` depends on `tampines`, never the reverse.
+    - `outram-park-digital-twin-engine` depends on `dhoby-ghaut`, never the
+      reverse.
+  - **Fix a cycle by moving the code, not by hiding the edge.** An example or
+    a test that needs a higher-level crate moves to that crate. For example, a
+    web demo that uses the engine deploys from the engine, and widget logic
+    that calls physics crates lives in the engine while its art stays in
+    `bugis`.
+- **HARD RULE: a merge to `develop` must compile natively AND for wasm**
+  (maintainer, 2026-11-05). Before merging or pushing to `develop`, run both
+  gates in release mode and merge only when both are clean:
+  - **Native:** `cargo check --release --workspace --lib --tests`.
+  - **Wasm:** `bash scripts/check-wasm.sh`, the `wasm32-unknown-unknown`
+    gate over the in-scope crates.
+  - **Pages demos (since 2026-11-06, gh:#1304):** `bash scripts/check-wasm-demos.sh`,
+    a `wasm32-unknown-unknown` check of every Pages demo example, which
+    `check-wasm.sh` (`--lib` only) cannot see. CI runs it as
+    `.github/workflows/wasm-demos.yml` on push to `develop` and on pull requests.
+
+  **Why:** develop 16240d670 compiled natively but broke the Pages site
+  build. `kovan-common`'s founder ballots (`review/signing/founders.rs`,
+  #1248) used `chrono`, which `Cargo.toml` listed only for native targets,
+  so the wasm build stopped at "unresolved import `chrono`". A native check
+  cannot see a target-gated dependency. Compiling is the bar here, not
+  running: a wasm compile does not make a crate wasm-ready (root
+  `CLAUDE.md`, Portability).
 - **Kovan-reviewed functions are closed to modification (HARD RULE,**
   maintainer 2026-11-05): extend with new code instead; never edit a
   function carrying a kovan review stamp (body, signature, docs, refactor,
@@ -48,6 +87,21 @@ gh issue comment <number> --body "..."           # progress
   or proc macros; write functions, generics and enums, so the code is
   readable in review and visible to kovan. Using std and dependency macros
   is fine. Full rule: `CLAUDE.md`, "Avoid writing macros".
+- **Transcendental maths goes through PETIR, everywhere (HARD RULE,**
+  maintainer 2026-11-05). In every crate's non-test code, call `exp`, `ln`,
+  `log10`, `log2`, `powi`, `powf`, and transcendentals such as
+  `sin`, `cos`, `tan`, `acos`, `atan2`, `sinh`, `tanh`, `hypot`, `cbrt`
+  and the rest through `petir::mathf::RealMath` (`x.r_exp()`,
+  `x.r_acos()`, `x.r_powi(n)`, ...), never the inherent `f64`/`f32`
+  methods (`x.exp()`). The inherent methods take their last bit from the
+  platform's C library (glibc, MSVC, Apple, wasm), so a run gives different
+  bits on different machines; PETIR's are one implementation everywhere
+  (gh:#985). A raw call compiles and runs silently, so the gate
+  `crates/petir/tests/no_platform_libm.rs` (`cargo test --release -p petir
+  --test no_platform_libm`) must stay green: run it after adding maths, and
+  fix any line it lists in code you add. It went red twice on 2026-11-05
+  (#1290: 41 calls, then 4 more from new cfMesh code). Full rationale:
+  `crates/petir/AGENTS.md` and `crates/petir/src/mathf.rs`.
 - **Never declare modules through a macro (HARD RULE,** maintainer
   2026-11-04): every `mod` is a plain line in source, never `mod $m;` in a
   `macro_rules!`. kovan reads `mod` lines without expanding macros, so a

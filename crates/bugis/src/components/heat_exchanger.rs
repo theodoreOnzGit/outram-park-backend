@@ -1,5 +1,17 @@
 //! Schematic two-stream recuperator art.
 //!
+//! **Split 2026-11-05** (maintainer: "widget art can live in bugis, the
+//! combination of logic and art can live inside the digital twin engine"):
+//! this file is the art, [`HeatExchangerArt`], drawn from plain numbers. The widget that
+//! wraps the physics component, `HeatExchangerVisual`, lives in
+//! `outram_park_digital_twin_engine::components::heat_exchanger` and draws through
+//! [`HeatExchangerArt`]. Below, "the physics-backed path" is that widget's; here it is
+//! [`HeatExchangerArt::unpainted`].
+//!
+//! The mapping between [`HeatExchangerKind`] and DWSIM's `FlowArrangement`
+//! (`from_arrangement`, `arrangement`) moved with it, as the engine's
+//! `HeatExchangerKindArrangement` extension trait.
+//!
 //! A heat exchanger is the most general piece of equipment on a plant
 //! schematic: two single-phase streams, separated by a wall, one giving heat to
 //! the other. Unlike a condenser — where the interesting thing is the phase
@@ -54,7 +66,7 @@
 //! # Dispatch
 //!
 //! [`HeatExchangerKind`], [`HeatExchangerConstruction`] and
-//! [`HeatExchangerVisualState`] are enums, not trait objects, per the
+//! [`HeatExchangerArtState`] are enums, not trait objects, per the
 //! workspace's mandatory "no trait objects" Rust design rule: all three sets are
 //! closed and known at compile time, so adding a member is a variant and the
 //! compiler then points at every match that needs handling.
@@ -82,7 +94,7 @@
 //!
 //! and nothing else. Its `calculate` returns
 //! `TampinesError::NotYetImplemented`, so there are **no temperatures behind
-//! it**. The physics-backed path ([`HeatExchangerVisual::new`], whose signature
+//! it**. The physics-backed path ([`HeatExchangerArt::new`], whose signature
 //! is preserved) therefore draws the complete machine with its real flow
 //! directions, real arrows, real nozzle positions and its area and `U`
 //! labelled — and paints **no temperature colour anywhere**, draws no approach
@@ -92,12 +104,12 @@
 //! defaults to [`HeatExchangerConstruction::ShellAndTube`]: the component does
 //! not say whether it is a shell-and-tube or a plate unit, and something has to
 //! be drawn. That is a drawing convention, stated here and changeable with
-//! [`HeatExchangerVisual::with_construction`] — the same status as
-//! [`crate::components::CondenserVisual::new`] defaulting to a two-pass
+//! [`HeatExchangerArt::with_construction`] — the same status as
+//! [`crate::components::CondenserArt::new`] defaulting to a two-pass
 //! waterbox. It is not a claim about the caller's equipment.
 //!
-//! The state-driven path is [`HeatExchangerVisual::from_scalars`], the same
-//! contract as [`crate::components::PipeVisual::from_scalars`]: the caller
+//! The state-driven path is [`HeatExchangerArt::from_scalars`], the same
+//! contract as [`crate::components::PipeArt::from_scalars`]: the caller
 //! passes **real state from its own model** — both streams' inlet and outlet
 //! temperatures, and optionally the duty. That is a narrower interface, not a
 //! fabricated one, and it is not a stub. The duty in particular is an
@@ -133,8 +145,6 @@
 use crate::components::temperature_colour;
 use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Response, Sense};
 use egui::{Stroke, StrokeKind, Ui, Vec2, Widget};
-use outram_park_fork_dwsim_libs::heat_exchanger::lmtd::FlowArrangement;
-use tampines::components::HeatExchanger;
 use uom::si::area::square_meter;
 use uom::si::f64::{Area, HeatTransfer, Power, TemperatureInterval, ThermodynamicTemperature};
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
@@ -177,8 +187,9 @@ const PLATE_CHANNELS: usize = 8;
 ///
 /// This is the thermodynamically significant axis and the reason this widget
 /// exists in more than one form. It maps one-to-one onto
-/// [`FlowArrangement`], the enum
-/// [`tampines::components::HeatExchanger`] actually stores, so the
+/// `FlowArrangement`, the enum
+/// `tampines::components::HeatExchanger` actually stores (the mapping is the
+/// engine's `HeatExchangerKindArrangement`), so the
 /// physics-backed path draws the arrangement the component really holds rather
 /// than a default.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -207,24 +218,6 @@ pub enum HeatExchangerKind {
 impl HeatExchangerKind {
     /// Every arrangement, in the order a gallery should show them.
     pub const ALL: &'static [Self] = &[Self::CounterFlow, Self::ParallelFlow];
-
-    /// The arrangement [`tampines::components::HeatExchanger`] stores, drawn as
-    /// this kind.
-    pub fn from_arrangement(arrangement: FlowArrangement) -> Self {
-        match arrangement {
-            FlowArrangement::CounterCurrent => Self::CounterFlow,
-            FlowArrangement::CoCurrent => Self::ParallelFlow,
-        }
-    }
-
-    /// This kind as the [`FlowArrangement`] the physics libraries take, so a
-    /// caller can hand the studio's selection straight to a rating routine.
-    pub fn arrangement(self) -> FlowArrangement {
-        match self {
-            Self::CounterFlow => FlowArrangement::CounterCurrent,
-            Self::ParallelFlow => FlowArrangement::CoCurrent,
-        }
-    }
 
     /// Short display name, for a picker or a card caption.
     pub fn label(self) -> &'static str {
@@ -403,7 +396,7 @@ pub fn path_fractions(kind: HeatExchangerKind, s: f32) -> (f32, f32) {
 /// from the cold stream to the hot one at that end, which cannot happen.
 ///
 /// The pair returned is exactly the `(dt1, dt2)` that
-/// [`outram_park_fork_dwsim_libs::heat_exchanger::lmtd::lmtd`] forms for the
+/// `outram_park_fork_dwsim_libs::heat_exchanger::lmtd::lmtd` forms for the
 /// same arrangement, which is why the drawing's end-brackets can be read as the
 /// two ends of the log-mean:
 ///
@@ -641,7 +634,7 @@ pub struct HeatExchangerDisplayRange {
 ///
 /// Every field is **real state the caller already has**, not a placeholder — see
 /// the module documentation and
-/// [`crate::components::PipeVisual::from_scalars`] for why this narrower
+/// [`crate::components::PipeArt::from_scalars`] for why this narrower
 /// interface exists. Nothing here is invented by the widget.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct HeatExchangerScalars {
@@ -676,20 +669,21 @@ pub struct HeatExchangerScalars {
     pub duty: Option<Power>,
 }
 
-/// Where a [`HeatExchangerVisual`] gets the state it renders.
+/// Where a [`HeatExchangerArt`] gets the state it renders.
 ///
 /// Enum dispatch, not a trait object, per the workspace's mandatory "no trait
 /// objects" Rust design rule.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum HeatExchangerVisualState {
-    /// Backed by a [`tampines::components::HeatExchanger`] alone.
+pub enum HeatExchangerArtState {
+    /// No fluid state: what the engine's physics-backed `HeatExchangerVisual`
+    /// draws for a `tampines::components::HeatExchanger`.
     ///
     /// That component holds a flow arrangement, a heat-transfer area and an
     /// overall coefficient — all of which **are** drawn or labelled — and no
     /// fluid state at all. Its `calculate` returns
     /// `TampinesError::NotYetImplemented`, so this path paints no temperature
     /// colour, no approaches and no profile. See the module documentation.
-    Physics(HeatExchanger),
+    Unpainted,
     /// Backed by caller-supplied scalars from the caller's own plant model,
     /// graded against the accompanying [`HeatExchangerDisplayRange`].
     Scalars(HeatExchangerScalars, HeatExchangerDisplayRange),
@@ -699,7 +693,7 @@ pub enum HeatExchangerVisualState {
 /// wherever no honest source exists.
 ///
 /// Resolved once per repaint so that every "we do not know this" decision is
-/// taken in one place ([`HeatExchangerVisualState::resolve`]) rather than
+/// taken in one place ([`HeatExchangerArtState::resolve`]) rather than
 /// scattered through the drawing code.
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct DrawnHeatExchanger {
@@ -740,15 +734,15 @@ impl DrawnHeatExchanger {
     }
 }
 
-impl HeatExchangerVisualState {
+impl HeatExchangerArtState {
     /// The colours and values the artwork is drawn from.
     ///
-    /// [`Self::Physics`] resolves to [`DrawnHeatExchanger::UNKNOWN`] — that is
+    /// [`Self::Unpainted`] resolves to [`DrawnHeatExchanger::UNKNOWN`] — that is
     /// the whole point of the variant, and it is why the physics path carries
     /// its real flow directions but no colour.
     fn resolve(&self) -> DrawnHeatExchanger {
         match self {
-            Self::Physics(_) => DrawnHeatExchanger::UNKNOWN,
+            Self::Unpainted => DrawnHeatExchanger::UNKNOWN,
             Self::Scalars(s, range) => DrawnHeatExchanger {
                 scalars: Some(*s),
                 range: Some(*range),
@@ -762,7 +756,8 @@ impl HeatExchangerVisualState {
 /// Visual representation of a two-stream recuperator, in one of two flow
 /// arrangements and one of two constructions.
 ///
-/// Built either from a [`tampines::components::HeatExchanger`] ([`Self::new`],
+/// Built either unpainted ([`Self::unpainted`], what the engine draws for a
+/// `tampines::components::HeatExchanger`,
 /// which draws the machine's real flow directions and labels its area and `U`
 /// but paints no temperature, because that component holds no fluid state) or
 /// from the caller's own scalar plant state ([`Self::from_scalars`]). See the
@@ -771,10 +766,10 @@ impl HeatExchangerVisualState {
 /// The artwork letterboxes to
 /// [`HeatExchangerConstruction::native_aspect_ratio`] inside the box it is
 /// given, so it never stretches.
-pub struct HeatExchangerVisual {
+pub struct HeatExchangerArt {
     kind: HeatExchangerKind,
     construction: HeatExchangerConstruction,
-    state: HeatExchangerVisualState,
+    state: HeatExchangerArtState,
     screen_position: Pos2,
     screen_vector: Vec2,
     show_labels: bool,
@@ -782,13 +777,13 @@ pub struct HeatExchangerVisual {
     overall_coefficient: Option<HeatTransfer>,
 }
 
-impl HeatExchangerVisual {
-    /// Wrap a [`HeatExchanger`] with the given screen geometry.
+impl HeatExchangerArt {
+    /// The machine in arrangement `kind` with no fluid state, at the given
+    /// screen geometry. The area and `U`, when known, are attached with
+    /// [`Self::with_surface`].
     ///
-    /// **Signature preserved** from the original placeholder widget, so every
-    /// existing call site keeps working unchanged.
-    ///
-    /// This is the physics-backed path, and it is **not** fully neutral, because
+    /// This is what the engine's physics-backed `HeatExchangerVisual::new`
+    /// draws, and it is **not** fully neutral, because
     /// the component is not stateless: its `arrangement` picks the
     /// [`HeatExchangerKind`], so the drawn flow directions, arrows and nozzle
     /// positions are real, and its `area` and `overall_coefficient` are
@@ -803,13 +798,13 @@ impl HeatExchangerVisual {
     ///
     /// Defaults to [`HeatExchangerConstruction::ShellAndTube`], which the
     /// component says nothing about; change it with [`Self::with_construction`].
-    pub fn new(physics: HeatExchanger, screen_position: Pos2, screen_vector: Vec2) -> Self {
+    pub fn unpainted(kind: HeatExchangerKind, screen_position: Pos2, screen_vector: Vec2) -> Self {
         Self {
-            kind: HeatExchangerKind::from_arrangement(physics.arrangement),
+            kind,
             construction: HeatExchangerConstruction::ShellAndTube,
-            area: Some(physics.area),
-            overall_coefficient: Some(physics.overall_coefficient),
-            state: HeatExchangerVisualState::Physics(physics),
+            area: None,
+            overall_coefficient: None,
+            state: HeatExchangerArtState::Unpainted,
             screen_position,
             screen_vector,
             show_labels: true,
@@ -839,7 +834,7 @@ impl HeatExchangerVisual {
         Self {
             kind,
             construction: HeatExchangerConstruction::ShellAndTube,
-            state: HeatExchangerVisualState::Scalars(scalars, range),
+            state: HeatExchangerArtState::Scalars(scalars, range),
             screen_position,
             screen_vector,
             show_labels: true,
@@ -895,7 +890,7 @@ impl HeatExchangerVisual {
     }
 
     /// Where this visual gets its state.
-    pub fn state(&self) -> &HeatExchangerVisualState {
+    pub fn state(&self) -> &HeatExchangerArtState {
         &self.state
     }
 
@@ -904,8 +899,8 @@ impl HeatExchangerVisual {
     /// synthesising one.
     pub fn scalars(&self) -> Option<HeatExchangerScalars> {
         match self.state {
-            HeatExchangerVisualState::Physics(_) => None,
-            HeatExchangerVisualState::Scalars(s, _) => Some(s),
+            HeatExchangerArtState::Unpainted => None,
+            HeatExchangerArtState::Scalars(s, _) => Some(s),
         }
     }
 
@@ -981,9 +976,9 @@ impl HeatExchangerVisual {
     }
 }
 
-impl Widget for HeatExchangerVisual {
-    /// Draws the exchanger for [`HeatExchangerVisual::construction`], plumbed
-    /// for [`HeatExchangerVisual::kind`]: body, both streams graded along their
+impl Widget for HeatExchangerArt {
+    /// Draws the exchanger for [`HeatExchangerArt::construction`], plumbed
+    /// for [`HeatExchangerArt::kind`]: body, both streams graded along their
     /// own paths, flow arrows, nozzles at the ends the streams really use,
     /// terminal-approach brackets, and the temperature-profile strip.
     ///
@@ -1003,7 +998,7 @@ impl Widget for HeatExchangerVisual {
     }
 }
 
-impl HeatExchangerVisual {
+impl HeatExchangerArt {
     /// Draws the whole machine into `rect`.
     ///
     /// Layout, as fractions of `rect` (chosen for legibility, dimensioned from
@@ -1748,9 +1743,7 @@ impl HeatExchangerVisual {
 
 #[cfg(test)]
 mod tests {
-    use petir::mathf::RealMath;
     use super::*;
-    use outram_park_fork_dwsim_libs::heat_exchanger::lmtd::lmtd;
     use uom::si::power::kilowatt as kilowatt_unit;
     use uom::si::thermodynamic_temperature::degree_celsius;
 
@@ -1780,8 +1773,8 @@ mod tests {
         }
     }
 
-    fn visual(kind: HeatExchangerKind) -> HeatExchangerVisual {
-        HeatExchangerVisual::from_scalars(
+    fn visual(kind: HeatExchangerKind) -> HeatExchangerArt {
+        HeatExchangerArt::from_scalars(
             kind,
             Pos2::new(100.0, 200.0),
             Vec2::new(360.0, 200.0),
@@ -1948,84 +1941,10 @@ mod tests {
         assert_eq!(HeatExchangerKind::ParallelFlow.cold_stream_direction(), 1.0);
     }
 
-    /// The end brackets must be labelled with the same two temperature
-    /// differences the log-mean is formed from, or the drawing and the rating
-    /// would be describing different machines.
-    ///
-    /// **Methodology.** [`terminal_approaches`] is the widget's own convention;
-    /// [`outram_park_fork_dwsim_libs::heat_exchanger::lmtd::lmtd`] is the
-    /// workspace's ported DWSIM rating formula. Take the illustrative operating
-    /// point (hot 180 -> 95 degC, cold 40 -> 110 degC), form `(dt1, dt2)` from
-    /// the widget's brackets for each arrangement, and require
-    /// `(dt1 - dt2)/ln(dt1/dt2)` to reproduce `lmtd(...)` for that arrangement
-    /// to within 1e-6 K. Then require the counter-flow brackets to be the
-    /// specific pairing `(T_hot_in - T_cold_out, T_hot_out - T_cold_in)` and the
-    /// parallel-flow brackets `(T_hot_in - T_cold_in, T_hot_out - T_cold_out)`.
-    ///
-    /// **Result (2026-08-12):** counter-flow brackets 70.0000 K (left) and
-    /// 55.0000 K (right), reconstructing an LMTD of 62.1988 K against
-    /// `lmtd()`'s 62.1988 K, agreeing to better than 1e-6 K; parallel-flow
-    /// brackets 140.0000 K and -15.0000 K, whose ratio is negative — so no real
-    /// log-mean exists, which is itself the correct answer for an operating
-    /// point parallel flow cannot reach, and the pairing was checked term by
-    /// term instead. Interpretation: the bracket labels are the log-mean's own
-    /// two ends, so a reader can take the numbers off the picture and reproduce
-    /// the rating.
-    #[test]
-    fn the_end_brackets_are_the_two_ends_of_the_log_mean() {
-        let s = scalars();
-        for kind in HeatExchangerKind::ALL {
-            let (left, right) = terminal_approaches(
-                *kind,
-                s.hot_inlet_temp,
-                s.hot_outlet_temp,
-                s.cold_inlet_temp,
-                s.cold_outlet_temp,
-            );
-            let (dt1, dt2) = (
-                left.get::<kelvin_interval>(),
-                right.get::<kelvin_interval>(),
-            );
-            println!("{kind:?}: dt1 = {dt1:.4} K, dt2 = {dt2:.4} K");
-            if dt1 > 0.0 && dt2 > 0.0 && (dt1 - dt2).abs() > 1e-9 {
-                let ours = (dt1 - dt2) / (dt1 / dt2).r_ln();
-                let theirs = lmtd(
-                    kind.arrangement(),
-                    s.hot_inlet_temp,
-                    s.hot_outlet_temp,
-                    s.cold_inlet_temp,
-                    s.cold_outlet_temp,
-                )
-                .get::<kelvin_interval>();
-                println!("  reconstructed LMTD {ours:.4} K vs lmtd() {theirs:.4} K");
-                assert!(
-                    (ours - theirs).abs() < 1e-6,
-                    "{kind:?} brackets do not reproduce the log-mean"
-                );
-            }
-        }
-
-        // Term-by-term pairing, which holds whether or not the log-mean is real.
-        let (cl, cr) = terminal_approaches(
-            HeatExchangerKind::CounterFlow,
-            s.hot_inlet_temp,
-            s.hot_outlet_temp,
-            s.cold_inlet_temp,
-            s.cold_outlet_temp,
-        );
-        assert!((cl.get::<kelvin_interval>() - 70.0).abs() < 1e-9);
-        assert!((cr.get::<kelvin_interval>() - 55.0).abs() < 1e-9);
-
-        let (pl, pr) = terminal_approaches(
-            HeatExchangerKind::ParallelFlow,
-            s.hot_inlet_temp,
-            s.hot_outlet_temp,
-            s.cold_inlet_temp,
-            s.cold_outlet_temp,
-        );
-        assert!((pl.get::<kelvin_interval>() - 140.0).abs() < 1e-9);
-        assert!((pr.get::<kelvin_interval>() + 15.0).abs() < 1e-9);
-    }
+    // `the_end_brackets_are_the_two_ends_of_the_log_mean` MOVED 2026-11-05 to
+    // `outram_park_digital_twin_engine::components::heat_exchanger`: it checks
+    // the brackets against DWSIM's `lmtd`, and bugis depends on no physics
+    // crate.
 
     /// **Parallel flow must never be able to put the cold outlet above the hot
     /// outlet, and counter-flow must be able to.** This is the one physical
@@ -2227,7 +2146,8 @@ mod tests {
     /// **Methodology.** `tampines::components::HeatExchanger` stores a flow
     /// arrangement, a heat-transfer area and an overall coefficient, and its
     /// `calculate` returns `NotYetImplemented`. Wrap one with
-    /// [`HeatExchangerVisual::new`] — the preserved three-argument signature —
+    /// the engine's `HeatExchangerVisual::new`, which draws
+    /// [`HeatExchangerArt::unpainted`] with that arrangement and surface,
     /// and require: the resolved drawing state to carry no scalars and no
     /// display range; every resolved stream colour to be [`UNKNOWN_FLUID`]
     /// rather than a point on the temperature scale; the approaches, the verdict
@@ -2248,12 +2168,15 @@ mod tests {
     /// starts fabricating a temperature fails here, and so does one that stops
     /// honouring the arrangement the component really stores.
     #[test]
-    fn the_physics_path_draws_its_arrangement_but_paints_no_temperature() {
+    fn the_unpainted_path_draws_its_arrangement_but_paints_no_temperature() {
         let area = Area::new::<square_meter>(240.0);
         let u = HeatTransfer::new::<watt_per_square_meter_kelvin>(850.0);
-        let physics = HeatExchanger::new(FlowArrangement::CounterCurrent, area, u);
-        let visual =
-            HeatExchangerVisual::new(physics, Pos2::new(0.0, 0.0), Vec2::new(360.0, 200.0));
+        let visual = HeatExchangerArt::unpainted(
+            HeatExchangerKind::CounterFlow,
+            Pos2::new(200.0, 200.0),
+            Vec2::new(360.0, 200.0),
+        )
+        .with_surface(area, u);
 
         let drawn = visual.state.resolve();
         assert_eq!(drawn, DrawnHeatExchanger::UNKNOWN);
@@ -2283,33 +2206,13 @@ mod tests {
         assert_eq!(visual.overall_coefficient(), Some(u));
         assert_eq!(visual.size(), Vec2::new(360.0, 200.0));
 
-        let co_current = HeatExchangerVisual::new(
-            HeatExchanger::new(FlowArrangement::CoCurrent, area, u),
-            Pos2::ZERO,
-            Vec2::new(360.0, 200.0),
-        );
-        assert_eq!(co_current.kind(), HeatExchangerKind::ParallelFlow);
+        assert!(crate::components::shapes_drawn_by(visual) > 0);
     }
 
-    /// The arrangement must survive a round trip through the physics enum, so
-    /// the studio's selection and a rating call cannot disagree.
-    #[test]
-    fn the_arrangement_round_trips_through_the_physics_enum() {
-        for kind in HeatExchangerKind::ALL {
-            assert_eq!(
-                HeatExchangerKind::from_arrangement(kind.arrangement()),
-                *kind
-            );
-        }
-        assert_eq!(
-            HeatExchangerKind::CounterFlow.arrangement(),
-            FlowArrangement::CounterCurrent
-        );
-        assert_eq!(
-            HeatExchangerKind::ParallelFlow.arrangement(),
-            FlowArrangement::CoCurrent
-        );
-    }
+    // The physics half of the test above (the drawn kind follows the
+    // component's own `arrangement`) and
+    // `the_arrangement_round_trips_through_the_physics_enum` MOVED 2026-11-05
+    // to `outram_park_digital_twin_engine::components::heat_exchanger`.
 
     /// The scalar path must pass the caller's state through untouched — this is
     /// real model state, not a placeholder, so nothing may be substituted.
@@ -2352,7 +2255,7 @@ mod tests {
     fn a_missing_duty_stays_missing() {
         let mut s = scalars();
         s.duty = None;
-        let v = HeatExchangerVisual::from_scalars(
+        let v = HeatExchangerArt::from_scalars(
             HeatExchangerKind::CounterFlow,
             Pos2::ZERO,
             Vec2::new(360.0, 200.0),

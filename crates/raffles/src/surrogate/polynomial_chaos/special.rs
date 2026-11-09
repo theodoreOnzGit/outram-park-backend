@@ -239,7 +239,7 @@ pub(crate) fn pairwise_sum(a: &[f64]) -> f64 {
 /// even, divide.
 #[must_use]
 pub fn numpy_around(x: f64, decimals: i32) -> f64 {
-    let f = 10.0_f64.powi(decimals);
+    let f = 10.0_f64.r_powi(decimals);
     (x * f).round_ties_even() / f
 }
 

@@ -2,6 +2,7 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/solid_array_lateral_coupling/tests"
+test_ids = ["crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/solid_array_lateral_coupling/tests/mod.rs::arraycv_transient_conduction_copper_medium_with_assert_only"]
 
 [module."mod.rs"]
 path = "crate::array_fluid_collections::solid_array_lateral_coupling::tests"
@@ -39,3 +40,10 @@ uses = [
     "fn:a6efe5f766b47fef",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = ["#0"]
+failed = []

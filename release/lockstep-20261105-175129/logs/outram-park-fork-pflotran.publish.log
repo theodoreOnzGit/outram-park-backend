@@ -1,0 +1,29 @@
+    Updating crates.io index
+   Packaging outram-park-fork-pflotran v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-pflotran)
+    Updating crates.io index
+warning: package `tokio v1.54.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+    Packaged 132 files, 2.2MiB (612.4KiB compressed)
+   Verifying outram-park-fork-pflotran v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-pflotran)
+ Downloading crates ...
+  Downloaded outram-park-mpi v0.0.2
+  Downloaded tampines-steam-tables v0.3.1
+   Compiling half v2.7.1
+   Compiling outram-foam-basic-lib v0.1.8
+   Compiling approx v0.5.1
+   Compiling outram-park-mpi v0.0.2
+   Compiling naga v30.0.1
+   Compiling tampines-steam-tables v0.3.1
+   Compiling wgpu-naga-bridge v30.0.1
+   Compiling wgpu-hal v30.0.1
+   Compiling wgpu-core-deps-windows-linux-android v30.0.1
+   Compiling wgpu-core v30.0.1
+   Compiling wgpu v30.0.1
+   Compiling outram-park-fork-pflotran v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/outram-park-fork-pflotran-0.0.2)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 56.92s
+   Uploading outram-park-fork-pflotran v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-pflotran)
+    Uploaded outram-park-fork-pflotran v0.0.2 to registry `crates-io`
+note: waiting for outram-park-fork-pflotran v0.0.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-park-fork-pflotran v0.0.2 at registry `crates-io`

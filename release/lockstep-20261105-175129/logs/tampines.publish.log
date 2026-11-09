@@ -1,0 +1,77 @@
+    Updating crates.io index
+   Packaging tampines v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/tampines)
+    Updating crates.io index
+warning: package `tokio v1.54.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+    Packaged 170 files, 3.7MiB (1.1MiB compressed)
+   Verifying tampines v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/tampines)
+ Downloading crates ...
+  Downloaded farrer-park v0.0.4
+  Downloaded tuas_boussinesq_solver v0.1.9
+  Downloaded boon-lay v0.2.2
+  Downloaded outram-park-fork-coolprop v0.1.4
+   Compiling indexmap v2.14.2
+   Compiling gpu-allocator v0.28.0
+   Compiling wayland-sys v0.31.11
+   Compiling serde v1.0.229
+   Compiling mio v1.2.4
+   Compiling aho-corasick v1.1.5
+   Compiling naga-types v30.0.1
+   Compiling wgpu-types v30.0.1
+   Compiling naga v30.0.1
+   Compiling signal-hook-mio v0.2.5
+   Compiling serde-xml-rs v0.8.2
+   Compiling regex-automata v0.4.18
+   Compiling crossterm v0.28.1
+   Compiling hdf5-pure v0.20.1
+   Compiling ratatui v0.29.0
+   Compiling regex v1.13.1
+   Compiling openmc-endf-8-depletion-lib-a v1.0.1
+   Compiling csv-core v0.1.13
+   Compiling zopfli v0.8.4
+   Compiling csv v1.4.0
+   Compiling openmc-endf-8-depletion-lib-b v1.0.0
+   Compiling wgpu-naga-bridge v30.0.1
+   Compiling wgpu-hal v30.0.1
+   Compiling env_filter v2.0.0
+   Compiling env_logger v0.11.11
+   Compiling serde_json v1.0.154
+   Compiling zip v2.6.1
+   Compiling outram-foam-turbulence-lib v0.1.5
+   Compiling outram-foam-multiphase v0.0.5
+   Compiling outram-park-fork-dwsim-libs v0.0.5
+   Compiling wgpu-core-deps-windows-linux-android v30.0.1
+   Compiling wgpu-core v30.0.1
+   Compiling outram-foam-appbuilder-lib v0.1.7
+   Compiling tuas_boussinesq_solver v0.1.9
+   Compiling wgpu v30.0.1
+   Compiling njoy-outram-park-fork v0.0.7
+   Compiling outram-park-fork-liggghts v0.0.3
+   Compiling chem-eng-real-time-process-control-simulator v0.2.5
+   Compiling farrer-park v0.0.4
+   Compiling outram-park-fork-coolprop v0.1.4
+   Compiling outram-mc-libs v0.0.7
+   Compiling boon-lay v0.2.2
+   Compiling tampines v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/tampines-0.0.4)
+warning: unused import: `petir::mathf::RealMath`
+   --> src/multiphase_1d/two_fluid.rs:316:5
+    |
+316 | use petir::mathf::RealMath;
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `petir::mathf::RealMath`
+   --> src/multiphase_1d/drift_flux.rs:101:5
+    |
+101 | use petir::mathf::RealMath;
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `tampines` (lib) generated 2 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 44.92s
+   Uploading tampines v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/tampines)
+    Uploaded tampines v0.0.4 to registry `crates-io`
+note: waiting for tampines v0.0.4 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published tampines v0.0.4 at registry `crates-io`

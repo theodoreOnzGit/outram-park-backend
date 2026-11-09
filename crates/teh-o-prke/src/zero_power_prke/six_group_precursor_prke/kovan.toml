@@ -3,10 +3,10 @@ kind = "code_folder"
 crate = "teh-o-prke"
 dir = "crates/teh-o-prke/src/zero_power_prke/six_group_precursor_prke"
 test_ids = [
+    "crates/nee_soon/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
+    "crates/nee_soon/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
     "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
     "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
-    "crates/tampines/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
-    "crates/tampines/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
     "crates/teh-o-prke/src/zero_power_prke/tests.rs::prke_test_zero_reactivity",
     "crates/teh-o-prke/src/zero_power_prke/tests.rs::test_pu239_total_delayed_frac",
     "crates/teh-o-prke/src/zero_power_prke/tests.rs::test_u233_total_delayed_frac",
@@ -335,3 +335,15 @@ reached_by = [
     "#5",
 ]
 physical_interface = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+failed = []

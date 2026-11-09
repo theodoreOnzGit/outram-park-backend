@@ -52,6 +52,8 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 
 **Updated 2026-11-05 after the octree remainders (gh:#1278 second half, gh:#1264–#1266 remainders):** group B's `meshOctreeCreator` (2,118) and `meshOctreeAddressing` (3,118) partial → ported, `meshOctreeAutomaticRefinement` (976) not ported → ported. Group B is now wholly ported apart from its MPI rows. Only those 3 rows moved.
 
+**Checked 2026-11-05 after gh:#1279's remainder (`anisotropicSources` in the four generators): no row moved, so the totals stand.** The generator rows and group K were already counted as ported. Only the notes of `tetMeshGenerator`, `cartesianMeshGenerator` and `coordinateModification` changed; §5 has the details.
+
 | Group | ported | partial | not ported | not applicable |
 |---|---:|---:|---:|---:|
 | A. Workflows | ~~0~~ ~~5,333~~ ~~5,975~~ 6,577 | ~~1,423~~ 0 | ~~5,154~~ ~~1,244~~ ~~602~~ 0 | 1,438 |
@@ -75,11 +77,11 @@ Paths are under `meshLibrary/utilities/` unless they start with `meshLibrary/` o
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
 | `executables/tetMesh` | 65 | ~~partial~~ **ported (2026-11-05, gh:#1272)** | `pipeline::tet_mesh::{tet_mesh, tet_mesh_restart}`; `pipeline::surface_to_tet_dual_mesh(_multipatch)` kept | Thin `main` over `tetMeshGenerator`. Settings are typed (`TetMeshOptions`); no `meshDict` reader. |
-| `meshLibrary/tetMesh/tetMeshGenerator` | 558 | ~~partial~~ **ported (2026-11-05, gh:#1272)** | `pipeline::tet_mesh` (the generator and `generateMesh`); `boundary_layer_optimisation`, `surface_mapper`, `pipeline` kept | Every member is in Rust. ~~Steps whose callees are other rows' gaps run through what exists and say so in `TetMeshReport::notes`: `surfacePreparation` (topology track) and `optimiseMeshSurface` (surface track) are skipped, `untangleSurface` is replaced by reverting tangled moves, `extractPatches` uses the nearest triangle.~~ **CORRECTED 2026-11-05:** `surfacePreparation`, `untangleSurface`, `optimiseMeshSurface` and `optimizeSurface` call the gh:#1267 / gh:#1259 ports; ~~only `extractPatches` (`edgeExtractor`, nearest triangle instead) is a gap, noted in `TetMeshReport::notes`~~ **UPDATED 2026-11-05 (gh:#1269):** `extractPatches` calls `edge_extractor::extract_patches` (the nearest triangle is the ablation `PatchAssignment::NearestTriangle`). ~~No `boundaryLayers` dict~~ **A `boundaryLayers` dict since gh:#1270's remainder (`TetMeshOptions::boundary_layers`)**, and no `anisotropicSources`. Results: `verification_and_validation/tet_mesh_gh1272/`. |
+| `meshLibrary/tetMesh/tetMeshGenerator` | 558 | ~~partial~~ **ported (2026-11-05, gh:#1272)** | `pipeline::tet_mesh` (the generator and `generateMesh`); `boundary_layer_optimisation`, `surface_mapper`, `pipeline` kept | Every member is in Rust. ~~Steps whose callees are other rows' gaps run through what exists and say so in `TetMeshReport::notes`: `surfacePreparation` (topology track) and `optimiseMeshSurface` (surface track) are skipped, `untangleSurface` is replaced by reverting tangled moves, `extractPatches` uses the nearest triangle.~~ **CORRECTED 2026-11-05:** `surfacePreparation`, `untangleSurface`, `optimiseMeshSurface` and `optimizeSurface` call the gh:#1267 / gh:#1259 ports; ~~only `extractPatches` (`edgeExtractor`, nearest triangle instead) is a gap, noted in `TetMeshReport::notes`~~ **UPDATED 2026-11-05 (gh:#1269):** `extractPatches` calls `edge_extractor::extract_patches` (the nearest triangle is the ablation `PatchAssignment::NearestTriangle`). ~~No `boundaryLayers` dict~~ **A `boundaryLayers` dict since gh:#1270's remainder (`TetMeshOptions::boundary_layers`)**, ~~and no `anisotropicSources`~~ **and `anisotropicSources` with `projectSurfaceAfterBackScaling` since gh:#1279's remainder**. Results: `verification_and_validation/tet_mesh_gh1272/`. |
 | `meshLibrary/tetMesh/tetMeshExtractorOctree` | 386 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `tet_mesh_extractor_octree` (with the shared `polyMeshGen` assembly `poly_mesh_from_cells`) | Beside `tet::tetrahedralize` + `delaunay::flip_to_delaunay` (§3); compared on the sphere and the pipe. |
 | `meshLibrary/utilities/tetrahedra/tetCreatorOctree` | 1678 | ~~not ported~~ **ported (2026-11-05, gh:#1272)** | `tet_creator_octree` | All five tet routines. Upstream's unguarded reads are counted (`TetCreatorDefects`), zero on every run. |
 | `executables/cartesianMesh` | 62 | ~~not ported~~ **ported (2026-11-05, gh:#1274)** | `pipeline::cartesian_mesh::{cartesian_mesh, cartesian_mesh_restart}` | Thin `main` over `cartesianMeshGenerator`. Settings typed (`CartesianMeshGeneratorOptions`). |
-| `meshLibrary/cartesianMesh/cartesianMeshGenerator` | 580 | ~~not ported~~ **ported (2026-11-05, gh:#1274)** | `pipeline::cartesian_mesh`; `carve`, `snap`, `octree` kept | ~~No `cartesianMesh` workflow.~~ Every member in Rust. Gaps it calls through: ~~`boundaryLayers` is the one-group route (patch-wise groups not ported)~~ (**patch-wise since gh:#1270's remainder**); `refineBoundaryLayers` refuses two-direction cells; no `anisotropicSources` / `triSurfacePatchManipulator`. Results: `verification_and_validation/cartesian_mesh_gh1274/`. |
+| `meshLibrary/cartesianMesh/cartesianMeshGenerator` | 580 | ~~not ported~~ **ported (2026-11-05, gh:#1274)** | `pipeline::cartesian_mesh`; `carve`, `snap`, `octree` kept | ~~No `cartesianMesh` workflow.~~ Every member in Rust. Gaps it calls through: ~~`boundaryLayers` is the one-group route (patch-wise groups not ported)~~ (**patch-wise since gh:#1270's remainder**); `refineBoundaryLayers` refuses two-direction cells; no ~~`anisotropicSources` /~~ `triSurfacePatchManipulator` (**`anisotropicSources` and `projectSurfaceAfterBackScaling` since gh:#1279's remainder**). Results: `verification_and_validation/cartesian_mesh_gh1274/`. |
 | `meshLibrary/cartesianMesh/cartesianMeshExtractor` | 800 | ported (2026-11-05, gh:#1266) | `cartesian_mesh::cartesian_mesh_extractor`; `octree::build_mesh` kept | ~~partial: re-implemented only; missing `decomposeSplitHexesIntoTetsAndPyramids`, `createPointsAndAddressing`, cell-type bookkeeping~~ **CORRECTED 2026-11-05:** transcribed beside `octree::build_mesh`. On the same leaves the two build the same faces ring for ring (sphere and pipe, `verification_and_validation/cartesian_octree_gh1262/README.md`). ~~Quadtree empty patches not ported.~~ **2026-11-05 (gh:#1275):** the quadtree's empty patches are `cartesian_mesh::create_empty_patches`, called by the 2D generator right after the extractor. |
 | `executables/pMesh` | 65 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `pipeline::p_mesh::{p_mesh, p_mesh_restart}` | Thin `main` over `voronoiMeshGenerator`. |
 | `meshLibrary/voronoiMesh/voronoiMeshGenerator` | 630 | ~~not ported~~ **ported (2026-11-05, gh:#1273)** | `pipeline::p_mesh` (shares `pipeline::tet_mesh`'s generator body) | Workflow as `tetMesh`, plus `preMapVertices` (~~not ported, surface track; noted~~ **called since gh:#1274's remainder**) and a second `untangleSurface` (~~not ported~~ **CORRECTED 2026-11-05, gh:#1269:** called, `tet_mesh::untangle_again`, since gh:#1259 merged). `edgeExtraction` is `meshSurfaceEdgeExtractorFUN` ~~without its fundamental sheets (gh:#1269)~~, with them since gh:#1281. Results: `verification_and_validation/p_mesh_gh1273/`. |
@@ -252,7 +254,7 @@ _Subtotal: 7872 lines._
 
 | Upstream | Lines | Status | Rust | Notes |
 |---|---:|---|---|---|
-| `anisotropicMeshing/coordinateModification` | 1686 | ~~not ported~~ **ported (2026-11-05, gh:#1279)** | `anisotropic` (`Modification`, `BoxScaling`, `PlaneScaling`, `CoordinateModifier`) | `anisotropicSources` (box/plane scaling). The dictionary reader is not ported (structs). No generator calls it. |
+| `anisotropicMeshing/coordinateModification` | 1686 | ~~not ported~~ **ported (2026-11-05, gh:#1279)** | `anisotropic` (`Modification`, `BoxScaling`, `PlaneScaling`, `CoordinateModifier`) | `anisotropicSources` (box/plane scaling). The dictionary reader is not ported (structs). ~~No generator calls it.~~ **The four generators call it since gh:#1279's remainder** (`MeshDict::anisotropic_sources`). |
 | `anisotropicMeshing/edgeMeshGeometryModification` | 255 | ~~not ported~~ **ported (2026-11-05, gh:#1279)** | `anisotropic::{modify_points, revert_points}` | An edge mesh's points through the modifier. |
 | `anisotropicMeshing/polyMeshGenGeometryModification` | 241 | ~~not ported~~ **ported (2026-11-05, gh:#1279)** | `anisotropic::{modify_points, revert_points}` |  |
 | `anisotropicMeshing/surfaceMeshGeometryModification` | 377 | ~~not ported~~ **ported (2026-11-05, gh:#1279)** | `anisotropic::modify_surface` | A cloned `TriSurf` with moved points (its addressing is topological). |
@@ -1145,3 +1147,30 @@ does; `tetMesh` is unchanged (upstream does not call it there). The
 gh:#1273 record is re-measured: sphere −1.537 % → −1.484 %, the pipe
 unchanged to 0.001 points; all five predictions held. Record:
 `verification_and_validation/p_mesh_gh1273/README.md` (last section).
+
+### gh:#1279 remainder: `anisotropicSources` in the four generators, 2026-11-05
+
+The four generators apply `anisotropicSources` where upstream's do. Each
+constructor builds its octree on the modified surface
+(`anisotropic::modified_surface_points`, `surfaceMeshGeometryModification`),
+and every step up to the revert works against that surface.
+
+- `cartesianMesh`, `tetMesh` and `pMesh` revert at the end of the first
+  `optimiseFinalMesh`. They then run `projectSurfaceAfterBackScaling`:
+  `anisotropic::revert_and_project` (`mapVerticesOntoSurface` on the
+  original surface), then `optimiseFinalMesh` again.
+  `projectSurfaceAfterBackScaling` is a method of the generators, not of
+  `meshOptimizer` / `meshSurfaceOptimizer`.
+- `cartesian2DMesh` reverts at the end of `generateBoundaryLayers`. It
+  then builds a new quadtree on the original surface
+  (`cartesian_2d_mesh::refined_quadtree`) and runs `remapBoundaryPoints`
+  and `optimiseMeshSurface` on it.
+
+Without sources, the output of all four generators keeps the fingerprints
+recorded before the wiring
+(`anisotropic::tests::generators_without_anisotropic_sources_are_pinned_bit_for_bit`).
+
+**No row moved:** the generators and the `anisotropicMeshing` rows were
+already counted as ported. The row notes that said "no
+`anisotropicSources`" or "no generator calls it" are corrected. Record
+and images: `verification_and_validation/anisotropic_gh1279/README.md`.

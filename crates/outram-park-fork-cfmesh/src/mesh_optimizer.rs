@@ -500,19 +500,33 @@ impl PartTetMesh {
     }
 
     /// `tetMeshOptimisation::optimiseUsingKnuppMetric(nIterations)`: move the
-    /// points of inverted tetrahedra until none is left or the count stops
-    /// falling.
+    /// points of inverted tetrahedra with Knupp's metric.
     ///
-    /// **Port defect found 2026-11-05 (gh:#1260), not fixed:** fixing it
-    /// would change the default `CfMeshOptimise` output, which needs the
-    /// maintainer. Upstream's `while ((nNegative < nNegativeBefore) ||
-    /// (++nIter < nIterations))` increments `nIter` only when the count did
-    /// not fall; this loop increments it on every pass, so after passes that
-    /// did reduce the count it can stop sooner than upstream.
+    /// **gh:#1284 (2026-11-05): transcribed as upstream counts, which is
+    /// one pass.** In DAFoam/cfmesh `e944f6ba695f` (and in wyldckat/cfMesh
+    /// v1.0 and the full v1.1 tree) the loop that checks which tetrahedra
+    /// were repaired sets `nNegative = 0` and never increments it: it marks
+    /// `helper[tetI]` but has no `++nNegative`, unlike the same loop in
+    /// `optimiseUsingMeshUntangler`. So `if (nNegative == 0) return;` after
+    /// it always returns, and the `while ((nNegative < nNegativeBefore) ||
+    /// (++nIter < nIterations))` condition is never reached: upstream runs
+    /// **exactly one** Knupp pass whenever an inverted tetrahedron exists,
+    /// whatever `nIterations` is. This looks like an upstream defect, but
+    /// upstream is the specification, so the port keeps it (the count the
+    /// loop would have needed is left in, named, and unused for control).
+    ///
+    /// ~~Port defect found 2026-11-05 (gh:#1260), not fixed: upstream's
+    /// short-circuit `||` increments `nIter` only when the count did not
+    /// fall; this loop increments it on every pass.~~ **CORRECTED
+    /// 2026-11-05 (gh:#1284):** that reading missed the uncounted repair
+    /// loop. Before gh:#1284 the port counted the repaired tetrahedra and
+    /// ran up to `n_iterations` passes (more while the count fell);
+    /// upstream runs one.
     pub fn optimise_using_knupp_metric(&mut self, n_iterations: usize) {
         let mut inverted: Vec<bool> = self.tets.iter().map(|t| self.tet_vol(t) < VSMALL).collect();
         let mut n_iter = 0usize;
         loop {
+            // find the number of inverted tets
             let mut negative_node = vec![false; self.points.len()];
             let mut n_negative = 0usize;
             for (t, &inv) in inverted.iter().enumerate() {
@@ -526,25 +540,32 @@ impl PartTetMesh {
             if n_negative == 0 {
                 return;
             }
+            // smooth the mesh
             let nodes: Vec<usize> =
                 (0..self.points.len()).filter(|&n| negative_node[n] && self.kind[n] & LOCKED == 0 && self.kind[n] & SMOOTH != 0).collect();
             let moved = self.smooth_nodes(&nodes, knupp_metric);
             self.update_vertices(&moved);
-            let before = n_negative;
-            n_negative = 0;
+            // check which tets have been repaired
+            let n_negative_before = n_negative;
+            // upstream: `nNegative = 0;` and the loop below never adds to it
+            let n_negative = 0usize;
             let mut helper = vec![false; self.tets.len()];
             for t in 0..self.tets.len() {
                 if inverted[t] && self.tet_vol(&self.tets[t]) < VSMALL {
                     helper[t] = true;
-                    n_negative += 1;
                 }
             }
             inverted = helper;
             if n_negative == 0 {
                 return;
             }
+            // `while ((nNegative < nNegativeBefore) || (++nIter < nIterations))`,
+            // unreachable as upstream has it
+            if n_negative < n_negative_before {
+                continue;
+            }
             n_iter += 1;
-            if !(n_negative < before || n_iter < n_iterations) {
+            if n_iter >= n_iterations {
                 return;
             }
         }
@@ -2630,6 +2651,41 @@ mod tests {
     /// smoothers cannot); the runs differ in point positions (the LP pass
     /// moves the nodes of inverted tetrahedra first); each is
     /// deterministic.
+    /// gh:#1284: `optimiseUsingKnuppMetric` makes **one pass**, whatever
+    /// `nIterations` is (upstream's repair loop never counts, so its
+    /// `if (nNegative == 0) return;` is always taken). Methodology: a
+    /// 4 × 4 × 4 box with three interior points pushed through their
+    /// neighbours (inverted tetrahedra), the tet mesh around every face;
+    /// `optimise_using_knupp_metric` with 1, 5 and 50 iterations from the
+    /// same start. Predictions (written 2026-11-05, before the run): the
+    /// three give the same points to the bit; inverted tetrahedra are left
+    /// after the pass (so the case is one where the pre-gh:#1284 counting
+    /// loop would have gone on to a second pass); the pass moved points.
+    #[test]
+    fn knupp_metric_makes_one_pass_as_upstream() {
+        let mut m = cartesian_box(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0), [4, 4, 4]);
+        for (from, to) in [((0.5, 0.5, 0.5), (0.5, 0.5, 0.95)), ((0.25, 0.25, 0.25), (0.7, 0.25, 0.25)), ((0.75, 0.75, 0.25), (0.75, 0.2, 0.25))] {
+            let p = m.points.iter().position(|q| q.sub(Vec3::new(from.0, from.1, from.2)).length() < 1e-12).unwrap();
+            m.points[p] = Vec3::new(to.0, to.1, to.2);
+        }
+        let locked = vec![false; m.points.len()];
+        let all = vec![true; m.face_count()];
+        let start = PartTetMesh::around_faces(&m, &locked, &all, 0);
+        let before = start.n_inverted_tets();
+        let mut runs = Vec::new();
+        for n in [1usize, 5, 50] {
+            let mut tm = start.clone();
+            tm.optimise_using_knupp_metric(n);
+            runs.push((n, tm.n_inverted_tets(), tm.points.clone()));
+        }
+        println!("inverted tets: {before} before, after one call with n = 1 / 5 / 50: {:?}", runs.iter().map(|r| r.1).collect::<Vec<_>>());
+        assert!(before > 0, "the case has inverted tetrahedra");
+        assert!(runs[0].2 != start.points, "the pass moved points");
+        assert!(runs[0].1 > 0, "inverted tetrahedra left after the pass: a counting loop would go on");
+        assert_eq!(runs[0].2, runs[1].2, "n = 5 is one pass");
+        assert_eq!(runs[0].2, runs[2].2, "n = 50 is one pass");
+    }
+
     #[test]
     fn untangle_with_and_without_the_lp_untangler() {
         let (m0, _) = dented_box();

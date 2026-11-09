@@ -28,6 +28,7 @@
 //! are mixtures over posterior samples of SEPIA's conditional Gaussians, with
 //! δ's part reported beside the total.
 
+use petir::mathf::RealMath;
 use super::dataset::{Dataset, Split};
 use super::models::{ParametricModel, ThetaEstimate};
 use super::quantities::Quantities;
@@ -51,7 +52,7 @@ impl Scale {
     pub fn to_coord(self, si: f64) -> f64 {
         match self {
             Self::Linear => si,
-            Self::Log => si.ln(),
+            Self::Log => si.r_ln(),
         }
     }
 
@@ -60,7 +61,7 @@ impl Scale {
     pub fn to_si(self, c: f64) -> f64 {
         match self {
             Self::Linear => c,
-            Self::Log => c.exp(),
+            Self::Log => c.r_exp(),
         }
     }
 }
@@ -248,7 +249,7 @@ impl<L: ParametricModel> KohCalibration<L> {
         }
         priors.theta = ParamPrior { dist: PriorDist::Normal { mean, sd }, lower: 0.0, upper: 1.0 };
         if let Some(e) = spec.observation_error {
-            let lam_mean = (full.y_sd / e.sd).powi(2);
+            let lam_mean = (full.y_sd / e.sd).r_powi(2);
             priors.lam_os = ParamPrior { dist: PriorDist::Gamma { a: e.shape, b: e.shape / lam_mean }, lower: 0.0, upper: f64::INFINITY };
         }
         let p = full.p;

@@ -49,7 +49,7 @@ each built on `web_demo` (Monte Carlo, dispersion, nuclear data, TRISO-ATOPS):
 | `dispersion_web` | **The dispersion track's demo** (gh:#530): seven rungs, buangkok's Gaussian plume and changi's puff train computed in a Web Worker; the capstone recorded. Published at `demos/dispersion/` |
 | `nuclear_data_web` | **The nuclear data track's demo** (gh:#529): real ENDF/B-VIII.0 processed by `njoy-outram-park-fork` in the browser, one NJOY module per rung. Published at `demos/nuclear-data/` |
 | `triso_atops_web` | **The TRISO-ATOPS and fuel failure track's demo** (gh:#540): eight rungs, every number a call into `boon-lay` (the slice from region lookups, decay chains, the CRP-6 Case 1 walk against Crank, D(T) per layer, PANAMA-I fuel failure, chemistry, release into the coolant pools); the source term recorded. Published at `demos/triso-atops/` |
-| `fukushima_web` | **Fukushima Daiichi Unit 1 station blackout** (GE BWR/3, Mark I; gh:#986; moved from the `outram-park` repository 2026-10-27): the recorded sequence or the reader's own actions, on three Web Workers (plant, core, containment), with a `--headless` CSV mode ~~and a committed fixture~~. The plant physics is `sembawang::bwr_mark1` since 2026-10-29 (gh:#1033), which holds the fixture and the model's tests; this example is the UI and the workers. AI draft, not validated. Published, password-gated, at `demos/fukushima/` (listed under Plant simulators on the demos page) |
+| ~~`fukushima_web`~~ | **MOVED 2026-11-05 to `outram-park-digital-twin-engine`**, with `double_pipe_twin_web` and both `web/` pages (maintainer, 2026-11-05: "if web examples live in dhoby ghaut, and this causes the dependency cycle, let the web examples deploy from digital twin engine instead"); same URLs. Was: **Fukushima Daiichi Unit 1 station blackout** (GE BWR/3, Mark I; gh:#986; moved from the `outram-park` repository 2026-10-27): the recorded sequence or the reader's own actions, on three Web Workers (plant, core, containment), with a `--headless` CSV mode ~~and a committed fixture~~. The plant physics is `sembawang::bwr_mark1` since 2026-10-29 (gh:#1033), which holds the fixture and the model's tests; this example is the UI and the workers. AI draft, not validated. Published, password-gated, at `demos/fukushima/` (listed under Plant simulators on the demos page) |
 
 ```bash
 cargo run -p dhoby-ghaut --example mc_studio --release
@@ -289,7 +289,7 @@ Limits, each with an issue:
 ## The Monte Carlo demo, in the browser
 
 **Live:** <https://theodoreonzgit.github.io/outram-park-backend/demos/monte-carlo/>
-(published by the backend Pages site on every push to `develop`; geometry
+(published by the backend Pages site when `develop` is merged into `web-deploy`, ~~on every push to `develop`~~ **CHANGED 2026-11-06**, gh:#1306; geometry
 images at `demos/monte-carlo/geometry/`). `?rung=godiva&mode=run` opens the
 Godiva Run k_eff (likewise `jemima`, `hst009` and `lct008`, gh:#859); `?rung=triso` the pebble. The old
 `demos/triso-pebble/` URL redirects to `?rung=triso`. The rung table, and the

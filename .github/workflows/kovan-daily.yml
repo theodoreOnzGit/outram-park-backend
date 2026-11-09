@@ -74,6 +74,8 @@ env:
   # on a fresh runner, and every rust-analyzer test failed on all three OSes
   # (run 39684921124, 2026-10-21).
   RUSTUP_TOOLCHAIN: stable
+  # The documentation test pair is pinned separately from stable/rust-analyzer.
+  KOVAN_RUSTDOC_TOOLCHAIN: nightly-2026-11-05
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -116,6 +118,13 @@ jobs:
         with:
           key: kovan-daily-${{ matrix.os }}
           cache-on-failure: true
+
+      # The api-docs regression tests run the real documentation pipeline.
+      - name: Install API-doc test prerequisites
+        shell: bash
+        run: |
+          rustup toolchain install "$KOVAN_RUSTDOC_TOOLCHAIN" --profile minimal
+          cargo install rustdoc-md --version 0.2.0 --locked
 
       - name: Build the desktop app, the CLI and the TUI
         shell: bash

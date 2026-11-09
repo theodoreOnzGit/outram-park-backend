@@ -76,9 +76,18 @@
 //! port of CORE-MATH's correctly rounded `cr_hypot` / `cr_hypotf`, because
 //! the `libm` crate's `hypot` misrounds by one ulp on some inputs.
 //!
-//! Everything else here stays on `libm`: ARM publishes no scalar double
+//! Everything else here stays on `libm`: ~~ARM publishes no scalar double
 //! `log10`, `cbrt`, `cos`, `sin`, `tanh` or `atan2`, and the special functions
-//! (`erf`, `erfc`, `tgamma`, `lgamma`) are not in its scope at all.
+//! (`erf`, `erfc`, `tgamma`, `lgamma`) are not in its scope at all.~~
+//! **CORRECTED 2026-11-05:** ARM optimized-routines (commit `20859d3`) does
+//! publish scalar-double `log10`, `cbrt`, `tanh`, `atan2` (experimental) and
+//! `erf`/`erfc`, though still no `sin`, `cos` or `tan`. They were
+//! measured on gh:#1292 (2026-11-05): on PETIR's default x86-64 build (no
+//! FMA) those are slower than the `libm` crate for `cbrt`, `atan2`, `atan`, `asin`,
+//! `acos`, `tanh`, `sinh`, `expm1` and `log1p` (1.8-5.8x) and less accurate
+//! (1.0-2.5 ulp against 0.5-2.1), and transcendentals other than `exp`/`ln`
+//! were under 1 % of a Godiva transport run, so they stay on `libm`.
+//! See [`crate::mathf`] for the per-function table.
 
 /// `sqrt(x^2 + y^2)`, **correctly rounded**, without spurious overflow or
 /// underflow: CORE-MATH's `cr_hypot`, ported in [`crate::hypot`] (gh:#997,

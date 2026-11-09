@@ -1,0 +1,24 @@
+    Updating crates.io index
+   Packaging teh-o-prke v0.1.8 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/teh-o-prke)
+    Updating crates.io index
+warning: package `async-executor v1.14.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+warning: package `tokio v1.54.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+warning: package `clipboard-win v5.4.1` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+    Packaged 108 files, 1.1MiB (282.6KiB compressed)
+   Verifying teh-o-prke v0.1.8 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/teh-o-prke)
+ Downloading crates ...
+  Downloaded chem-eng-real-time-process-control-simulator v0.2.5
+   Compiling chem-eng-real-time-process-control-simulator v0.2.5
+   Compiling teh-o-prke v0.1.8 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/teh-o-prke-0.1.8)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 10.66s
+   Uploading teh-o-prke v0.1.8 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/teh-o-prke)
+    Uploaded teh-o-prke v0.1.8 to registry `crates-io`
+note: waiting for teh-o-prke v0.1.8 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published teh-o-prke v0.1.8 at registry `crates-io`

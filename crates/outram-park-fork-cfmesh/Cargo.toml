@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-fork-cfmesh"
-version = "0.0.3"
+version = "0.0.4"
 edition.workspace = true
 # GPL-3.0-only: this crate is a Rust port/fork of cfMesh (GPL-3.0-only). The
 # voro++-derived portions (BSD, LBNL) retain their permissive provenance
@@ -28,7 +28,9 @@ exclude = ["docs", "upstream_source/cfMesh", "upstream_source/voro"]
 # 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
 # crate's LOWEST part, with higher-rated modules listed below it.
 [package.metadata.kovan]
-row = 0
+# ~~row = 0~~ row 1 since 2026-11-05: `outram-foam-basic-lib` (row 1) became a
+# regular dependency (gh:#1255), and a crate sits no lower than what it uses.
+row = 1
 topic = "utility"
 maturity = 2
 

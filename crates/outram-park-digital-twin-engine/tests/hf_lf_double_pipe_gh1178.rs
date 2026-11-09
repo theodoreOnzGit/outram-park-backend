@@ -46,20 +46,37 @@ fn coarse_grid_plumbing() {
 
 /// The committed dataset is reproducible: T33 (Re_hot 90, Re_cold 45,
 /// k_wall 1, L 0.1 m; the cheapest point, ≈ 2 s) re-run on the dataset's
-/// mesh gives the committed row **character for character** (shortest
-/// round-trip floats), apart from the wall time.
+/// mesh gives the committed row to **1e-3 relative in every number** (text
+/// fields exactly), apart from the wall time.
 ///
-/// Result (2026-11-03): identical.
+/// ~~Result (2026-11-03): identical, character for character.~~ **CHANGED
+/// 2026-11-06 (maintainer: "no bit identity required"):** the gh:#1202
+/// PimpleFoam fixes (upstream interpolation weights, warm-started momentum
+/// predictor) moved the CFD in the 4th-5th figure (Nu 0.6805446 ->
+/// 0.6805771, 4.8e-5 relative), so the row no longer regenerates character
+/// for character (gh:#1300). 1e-3 is about ten times below the smallest
+/// effect this study resolves (the CFD's own 0.8 % discretisation error,
+/// P7) and far below its 1-70 % comparisons, so a row inside it still
+/// supports the recorded conclusions.
 #[test]
-fn the_committed_dataset_regenerates_bit_for_bit() {
-    let rows = dataset::load_committed();
+fn the_committed_dataset_regenerates_within_1e_3() {
     let p = design_grid().into_iter().find(|p| p.id == "T33").unwrap();
     let rec = cfd::run(&p.input, CfdMesh::default_grid()).unwrap();
     let fresh = record_row(&p.id, p.split, &rec);
     let committed = dataset::COMMITTED_CSV.lines().find(|l| l.starts_with("T33,")).unwrap();
-    let strip = |l: &str| l.rsplit_once(',').unwrap().0.to_string();
-    assert_eq!(strip(&fresh), strip(committed));
-    assert_eq!(rows.iter().find(|r| r.id == "T33").unwrap().output, rec.output);
+    // Every field but the last (the wall time).
+    let fields = |l: &str| l.rsplit_once(',').unwrap().0.split(',').map(str::to_string).collect::<Vec<_>>();
+    let (a, b) = (fields(&fresh), fields(committed));
+    assert_eq!(a.len(), b.len(), "{fresh}\n{committed}");
+    for (i, (x, y)) in a.iter().zip(&b).enumerate() {
+        match (x.parse::<f64>(), y.parse::<f64>()) {
+            (Ok(u), Ok(v)) => {
+                let scale = u.abs().max(v.abs());
+                assert!(scale == 0.0 || (u - v).abs() <= 1e-3 * scale, "field {i}: {u} vs committed {v}");
+            }
+            _ => assert_eq!(x, y, "field {i}"),
+        }
+    }
 }
 
 /// Columns of `one_d_results.csv` by header name.

@@ -1259,3 +1259,22 @@ hash = "sha256:5f6fd478c9e6822f6ecd75c614096d9c3acfbfbcfc5b05e3961376b9949adc67"
 doc_hash = "sha256:e8058ded9fe42407f55fd21af32fe2c93057a1afefc5bf9545c12ebdb70d1ef8"
 uses = ["fn:9a0b30f0526bac18"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#73",
+    "#74",
+    "#75",
+]
+failed = []

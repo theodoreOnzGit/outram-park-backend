@@ -2,6 +2,21 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-offbeat"
 dir = "crates/outram-park-fork-offbeat/src/rheology/aster/integration"
+test_ids = [
+    "crates/outram-park-fork-offbeat/src/rheology/aster/integration/tests.rs::a_correct_jacobian_triggers_no_fallback",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/integration/tests.rs::an_exact_endpoint_root_is_returned_immediately",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/integration/tests.rs::an_invalid_bracket_is_rejected",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/integration/tests.rs::analytic_is_declared_but_not_iterative",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/integration/tests.rs::brent_converges_on_a_residual_hostile_to_interpolation",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/integration/tests.rs::every_solver_finds_the_published_root",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/integration/tests.rs::exhausting_the_budget_reports_non_convergence",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/integration/tests.rs::newton_reproduces_its_published_error_recurrence",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/integration/tests.rs::secant_is_slower_than_newton",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/integration/tests.rs::secant_reproduces_its_published_error_recurrence",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/integration/tests.rs::the_perturbed_derivative_matches_the_analytic_one",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/integration/tests.rs::the_safeguard_rescues_a_wrong_jacobian",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/integration/tests.rs::the_secant_observed_order_oscillates_around_phi",
+]
 
 [module."tests.rs"]
 path = "crate::rheology::aster::integration::tests"
@@ -341,3 +356,24 @@ callees = [
 ]
 uses = ["fn:c2d2dfdbfa50e29f"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+failed = []

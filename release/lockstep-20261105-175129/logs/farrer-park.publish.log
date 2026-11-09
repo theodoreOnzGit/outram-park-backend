@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging farrer-park v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/farrer-park)
+    Updating crates.io index
+    Packaged 48 files, 1.2MiB (349.6KiB compressed)
+   Verifying farrer-park v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/farrer-park)
+   Compiling farrer-park v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/farrer-park-0.0.4)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.87s
+   Uploading farrer-park v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/farrer-park)
+    Uploaded farrer-park v0.0.4 to registry `crates-io`
+note: waiting for farrer-park v0.0.4 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published farrer-park v0.0.4 at registry `crates-io`
