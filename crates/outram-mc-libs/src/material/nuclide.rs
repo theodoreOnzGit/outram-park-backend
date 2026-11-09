@@ -1376,6 +1376,14 @@ impl Nuclide {
         self
     }
 
+    /// Select the resonance-scattering sampler: [`ResonanceScatteringMethod::Rvs`]
+    /// (the default, upstream's) or [`ResonanceScatteringMethod::Dbrc`]
+    /// (gh:#1311). Does nothing on a nuclide without 0 K data.
+    pub fn with_resonance_scattering_method(mut self, method: crate::physics::scatter::ResonanceScatteringMethod) -> Self {
+        self.dbrc = self.dbrc.map(|t| t.with_method(method));
+        self
+    }
+
     /// **Ablation control for V&V: remove the DBRC correction**, returning the
     /// nuclide to the constant-cross-section free-gas kernel.
     ///

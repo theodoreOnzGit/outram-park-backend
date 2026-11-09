@@ -137,3 +137,34 @@ converge this large thermal core's source.
 **Every uncertainty quoted for this model therefore comes from the
 seed-to-seed spread.** A convergence study (Shannon entropy, more inactive
 generations) has not been done.
+
+### Resonance-scattering ablation (2026-11-09, gh:#1311)
+
+**Question.** Route 1 (OpenMC on NJOY2016 ACE) sits below route 4 (this
+crate) at 1181 °F. Does the resonance elastic scattering treatment explain
+the gap?
+
+**Method.** Both codes were run with DBRC on and off at 1181 °F, three seeds
+each, Mo omitted, 20 000 particles × [100 + 200], same seeds in both arms.
+OpenMC: `msre_n1_openmc.py --no-dbrc`. This crate:
+`examples/msre_n1_first_criticality.rs` with `--no-dbrc` (every nuclide
+through `without_dbrc()`). The DBRC-on route-1 seeds are those in
+`data/per_seed_keff_msre_route1_2026_11_09.csv`; the route-4 DBRC-on seeds
+were re-run and reproduce `data/keff.csv` seeds 1–3 to every printed digit.
+Uncertainties are the seed-to-seed standard error (see the next section).
+Data: `data/per_seed_keff_msre_dbrc_route{1,4}_2026_11_09.csv`.
+
+| | route 1 (OpenMC) | route 4 (this crate) | gap, route 4 − route 1 |
+|---|---|---|---|
+| DBRC on | 1.01232 ± 0.00026 | 1.01311 ± 0.00036 | **+80 ± 44 pcm** |
+| DBRC off | 1.01253 ± 0.00042 | 1.01330 ± 0.00037 | **+77 ± 55 pcm** |
+| worth (on − off) | −21 ± 49 pcm | −19 ± 51 pcm | |
+
+**Result.** DBRC is worth nothing resolvable in either code, and the two
+worths agree. The gap is the same with it on or off, so **resonance
+scattering is not the cause of the route 1/4 gap.** Graphite's thermal law
+and URR were ruled out the same day. The maintainer chose not to pursue the
+gap further ("leave it be").
+
+These runs predate the switch of both codes' default to RVS (gh:#1311,
+same day). They compare DBRC with nothing, so the switch does not affect them.

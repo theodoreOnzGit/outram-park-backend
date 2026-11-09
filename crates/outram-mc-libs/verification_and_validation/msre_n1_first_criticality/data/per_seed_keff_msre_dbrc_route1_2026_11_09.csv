@@ -1,0 +1,4 @@
+case,route,code,seed,k,k_std_internal,particles,inactive,active,threads,wall_s,commit,k_alt
+msre_n1_salt1181F_graphite1181F_nodbrc,route1,openmc,1,1.013300,0.000548,20000,100,200,32,199.8,,1.013068
+msre_n1_salt1181F_graphite1181F_nodbrc,route1,openmc,2,1.011872,0.000516,20000,100,200,32,227.5,,1.011243
+msre_n1_salt1181F_graphite1181F_nodbrc,route1,openmc,3,1.012418,0.000523,20000,100,200,32,230.7,,1.012698

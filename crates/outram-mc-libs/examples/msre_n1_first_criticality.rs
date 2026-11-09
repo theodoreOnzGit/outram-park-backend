@@ -178,6 +178,14 @@ fn main() {
     } else {
         eprintln!("  ABLATION: --no-sab, carbon is free gas");
     }
+    // `--no-dbrc` (gh:#1311): resonance elastic scattering off on every
+    // nuclide, for the paired DBRC worth against OpenMC's `--no-dbrc`. An
+    // explicit ablation; DBRC stays on by default.
+    let no_dbrc = args.iter().any(|a| a == "--no-dbrc");
+    if no_dbrc {
+        eprintln!("  ABLATION: --no-dbrc, every nuclide's target is free gas (no 0 K rejection)");
+        nuclides = nuclides.into_iter().map(|n| n.without_dbrc()).collect();
+    }
     let load_s = t0.elapsed().as_secs_f64();
     let idx = |n: &str| names.iter().position(|k| *k == n).expect("nuclide");
     let materials: Vec<Material> = mats
@@ -194,7 +202,7 @@ fn main() {
     eprintln!("  nuclear data ready in {load_s:.1} s ({} nuclides); hardware: {hw}; threads {threads}", names.len());
 
     let g = m::geometry_at_split(t_k, t_g);
-    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", if mo == m::MoTreatment::Omitted { "mo-omitted" } else { "mo95-equivalent" }, if sab { "" } else { "+no-sab" });
+    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", if mo == m::MoTreatment::Omitted { "mo-omitted" } else { "mo95-equivalent" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" };
     let new_file = !csv.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&csv).expect("csv");
     if new_file {
