@@ -8,7 +8,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
-//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path]
+//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims]
 //! ```
 //!
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
@@ -50,9 +50,10 @@ fn flag(args: &[String], name: &str) -> Option<String> {
     args.iter().position(|a| a == name).and_then(|i| args.get(i + 1).cloned())
 }
 
-fn draw(dir: &PathBuf) {
+fn draw(dir: &PathBuf, dims: m::Dims) {
     std::fs::create_dir_all(dir).expect("plot dir");
-    let g = m::geometry();
+    let g = m::geometry_with_dims(m::TEMPERATURE_K, m::TEMPERATURE_K, dims);
+    let hot = dims != m::Dims::COLD;
     let mats = m::materials(m::MoTreatment::Omitted);
     let colours = [Rgb::new(220, 60, 40), Rgb::new(70, 70, 70), Rgb::new(160, 160, 200), Rgb::new(240, 170, 40)];
     let labels: Vec<String> = mats.iter().map(|(n, _)| n.to_ascii_uppercase()).collect();
@@ -84,8 +85,9 @@ fn draw(dir: &PathBuf) {
             show_overlaps: true,
             meshlines: None,
         };
-        let (_raw, img) = render_material_slice(&g, &plot, &palette, title);
-        let path = dir.join(format!("{stem}.png"));
+        let title = if hot { format!("{title} [HOT DIMENSIONS, 1181 F]") } else { title.to_string() };
+        let (_raw, img) = render_material_slice(&g, &plot, &palette, &title);
+        let path = dir.join(format!("{stem}{}.png", if hot { "_hot" } else { "" }));
         img.write_png(&path).expect("write png");
         eprintln!("  drew {}", path.display());
     }
@@ -93,8 +95,16 @@ fn draw(dir: &PathBuf) {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    // `--hot-dims`: graphite and INOR-8 expanded from 70 F to the run
+    // temperature (TM-0728 §5.3 coefficients; N-1 residual, gh:#1128).
+    let hot_dims = args.iter().any(|a| a == "--hot-dims");
     if let Some(d) = flag(&args, "--draw") {
-        draw(&PathBuf::from(d));
+        let dims = if hot_dims {
+            m::Dims::hot(m::REFERENCE_TEMPERATURE_F, m::GRAPHITE_EXPANSION_PER_F, m::INOR8_EXPANSION_PER_F)
+        } else {
+            m::Dims::COLD
+        };
+        draw(&PathBuf::from(d), dims);
         return;
     }
     let mo = match flag(&args, "--mo").as_deref().unwrap_or("omitted") {
@@ -124,7 +134,12 @@ fn main() {
     let (t_k, t_g) = (m::kelvin_from_f(salt_f), m::kelvin_from_f(graphite_f));
     let temp_of = |n: &str| if m::GRAPHITE_NUCLIDES.contains(&n) { t_g } else { t_k };
 
-    let mats = m::materials_at(mo, salt_f);
+    let dims = if hot_dims {
+        m::Dims::hot(salt_f, m::GRAPHITE_EXPANSION_PER_F, m::INOR8_EXPANSION_PER_F)
+    } else {
+        m::Dims::COLD
+    };
+    let mats = m::materials_with_dims(mo, salt_f, dims);
     let mut names: Vec<&str> = Vec::new();
     for (_, comps) in &mats {
         for (n, _) in comps {
@@ -211,8 +226,8 @@ fn main() {
     let hw = outram_mc_libs::perf_report::HardwareInfo::detect().headline();
     eprintln!("  nuclear data ready in {load_s:.1} s ({} nuclides); hardware: {hw}; threads {threads}", names.len());
 
-    let g = m::geometry_at_split(t_k, t_g);
-    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" };
+    let g = m::geometry_with_dims(t_k, t_g, dims);
+    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" };
     let new_file = !csv.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&csv).expect("csv");
     if new_file {
