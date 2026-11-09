@@ -29,11 +29,16 @@
 //! - LAW=6 (law 66, phase space) with its own grid;
 //! - several neutron subsections, chained through `LNW`.
 //!
-//! **Refused, by name:** LAW=7. For `newfor = 1`, `topfil` rewrites a LAW=7
+//! ~~**Refused, by name:** LAW=7. For `newfor = 1`, `topfil` rewrites a LAW=7
 //! subsection into a special TAB1 before `acelf6` reads it
-//! (`acefc.f90:2485-2530`), and that rewrite is not ported. No evaluation in
-//! `reference-data/endf/` that reaches this path uses it on a neutron
-//! subsection except Be-9 MT=16, which keeps the older route.
+//! (`acefc.f90:2485-2530`), and that rewrite is not ported.~~ **CORRECTED
+//! 2026-11-09 (gh:#1309):** that reading was of the wrong branch. With
+//! `newfor = 1` and `no7 = 1` (upstream's default) `topfil` rewrites LAW=7
+//! into **LAW=1** (`acefc.f90:2320-2425`; the TAB1 at `:2485-2530` is the
+//! `no7 = 0` route), and `acelf6` writes it as law 61. That rewrite is
+//! ported as [`law7_rewrite`]; Be-9's MT=16 and charged particles now make a
+//! table identical to NJOY2016's in every word
+//! (`tests/msre_salt_nuclides_900k_vs_njoy2016.rs`).
 //!
 //! **Unexercised, stated rather than claimed:** LANG=11-13 (no held evaluation
 //! uses it on neutrons), discrete lines (`ND > 0`), and multiple neutron
@@ -123,8 +128,9 @@ enum Body {
     Law6 { apsx: f64, npsx: i32 },
 }
 
-/// `acelf6` for reaction `mt`: returns `Ok(None)` when the section carries a
-/// LAW=7 neutron subsection (refused, see the module doc).
+/// `acelf6` for reaction `mt`. A LAW=7 neutron subsection is read as
+/// `topfil`'s LAW=1 rewrite ([`law7_rewrite`], gh:#1309); `Ok(None)` is no
+/// longer returned for it.
 ///
 /// `q_mev` is the reaction's stored `LQR` value; `iza` the material ZA (for
 /// `bachaa`); `ismooth` ACER card 2's flag (default on).
@@ -155,7 +161,11 @@ pub fn acelf6(
     for ikk in 1..=nk {
         let yt = cur.read_tab1()?;
         let zap = yt.head.c1;
-        let law = yt.head.l2;
+        // `topfil` (`acefc.f90:2320`) rewrites a LAW=7 neutron's law field
+        // to 1 on its scratch tape (`newfor = 1`, `no7 = 1`), so every later
+        // reader (`acelod`'s LAND rule, this routine's TYR sign) sees LAW=1.
+        let is_law7_neutron = yt.head.l2 == 7 && (zap - izai).abs() <= test;
+        let law = if is_law7_neutron { 1 } else { yt.head.l2 };
         last_law_read = law;
         if first_law.is_none() {
             first_law = Some(law);
@@ -167,7 +177,7 @@ pub fn acelf6(
             super::energy::mf6::skip_mf6_subsection(&mut cur, law)?;
             continue;
         }
-        let body = match law {
+        let body = match if is_law7_neutron { 7 } else { law } {
             1 => {
                 let t2 = cur.read_tab2()?;
                 let mut incident = Vec::with_capacity(t2.head.n2 as usize);
@@ -180,7 +190,7 @@ pub fn acelf6(
                 let c = cur.read_cont()?;
                 Body::Law6 { apsx: c.c1, npsx: c.n2 }
             }
-            7 => return Ok(None),
+            7 => law7_as_law1(&mut cur)?,
             _ => {
                 return Err(NjoyError::EndfParse(format!(
                     "acelf6: illegal law {law} for endf6 file6 neutrons (mt {mt})"
@@ -432,6 +442,107 @@ pub fn acelf6(
         },
         correlated: matches!(first_law, Some(1) | Some(6)),
     }))
+}
+
+/// `topfil`'s rewrite of an MF=6 LAW=7 neutron subsection into LAW=1
+/// (`acefc.f90:2330-2425`, taken when `newfor = 1` and `no7 = 1`, upstream's
+/// default), read back as `acelf6` reads it.
+///
+/// Per incident energy: the union of every cosine's outgoing-energy grid
+/// (`ordr`: sorted, near-duplicates within `1e-10` relative dropped), each
+/// cosine's density evaluated on it (`terpa`), the cosine integral `ss`
+/// (trapezoid, or histogram for `INTMU = 1`) stored as `f0`, and each
+/// `f(mu)` divided by it (`1/2` where `ss = 0`). The TAB2 gets `LANG =
+/// 10 + INTMU` and `LEP` = the last cosine's `INTEP` at the first incident
+/// energy. Everything goes to the scratch tape, which is text for a
+/// positive PENDF unit (`acefc.f90:177-179`), so every value here carries
+/// `a11`'s rounding, as `acelf6` reads it.
+fn law7_as_law1(cur: &mut SectionCursor) -> Result<Body, NjoyError> {
+    let (interp, incident, lang, lep) = law7_rewrite(cur)?;
+    Ok(Body::Law1 { lang, lep, interp, incident })
+}
+
+/// [`law7_as_law1`]'s rewrite as parts: the incident-energy interpolation,
+/// the LAW=1 LISTs, `LANG` and `LEP`. `acelcp` reads charged-particle
+/// LAW=7 products through it, as upstream's `acelcp` reads `topfil`'s
+/// rewritten tape.
+#[allow(clippy::type_complexity)]
+pub(crate) fn law7_rewrite(
+    cur: &mut SectionCursor,
+) -> Result<(Vec<(u32, u32)>, Vec<crate::endf::records::List>, i32, i32), NjoyError> {
+    use crate::endf::parse::{format_endf_float, parse_endf_float};
+    use crate::endf::records::{Cont, List};
+    let rt = |x: f64| parse_endf_float(&format_endf_float(x)).unwrap_or(x);
+    let outer = cur.read_tab2()?;
+    let ne = outer.head.n2.max(0) as usize;
+    let mut incident = Vec::with_capacity(ne);
+    let (mut lang, mut lep) = (12, 2);
+    for ie in 0..ne {
+        let t2 = cur.read_tab2()?;
+        let ei = t2.head.c2;
+        let intmu = t2.interp.first().map_or(2, |&(_, i)| i as i32);
+        let nmu = t2.head.n2.max(0) as usize;
+        let mut mus: Vec<Tab1> = Vec::with_capacity(nmu);
+        let mut intep = 2;
+        for _ in 0..nmu {
+            let t = cur.read_tab1()?;
+            intep = t.interp.first().map_or(2, |&(_, i)| i as i32);
+            mus.push(t);
+        }
+        if ie == 0 {
+            lang = 10 + intmu;
+            lep = intep;
+        }
+        let mut grid: Vec<f64> = mus.iter().flat_map(|t| t.pairs.iter().map(|p| p.0)).collect();
+        ordr(&mut grid);
+        let mut data = Vec::with_capacity(grid.len() * (2 + 2 * nmu));
+        for &ep in &grid {
+            let ff: Vec<f64> = mus.iter().map(|t| terpa(&t.interp, &t.pairs, ep).0).collect();
+            let mut ss = 0.0;
+            for imu in 1..nmu {
+                let dmu = mus[imu].head.c2 - mus[imu - 1].head.c2;
+                if intmu == 1 {
+                    ss += dmu * ff[imu - 1];
+                } else {
+                    ss += dmu * (ff[imu] + ff[imu - 1]) / 2.0;
+                }
+            }
+            data.push(rt(ep));
+            data.push(rt(ss));
+            for imu in 0..nmu {
+                data.push(rt(mus[imu].head.c2));
+                data.push(rt(if ss != 0.0 { ff[imu] / ss } else { 0.5 }));
+            }
+        }
+        let head = Cont {
+            c1: 0.0,
+            c2: rt(ei),
+            l1: 0,
+            l2: (2 * nmu) as i32,
+            n1: data.len() as i32,
+            n2: grid.len() as i32,
+        };
+        incident.push(List { head, data });
+    }
+    Ok((outer.interp, incident, lang, lep))
+}
+
+/// `ordr` (`acefc.f90:2550-2591`): sort ascending, then drop each value
+/// within `1e-10` (relative to itself) of the one before. Upstream returns
+/// unsorted for `n <= 2`.
+fn ordr(x: &mut Vec<f64>) {
+    if x.len() <= 2 {
+        return;
+    }
+    x.sort_by(|a, b| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal));
+    let mut i = 1;
+    while i < x.len() {
+        if (x[i] - x[i - 1]).abs() <= 1.0e-10 * x[i] {
+            x.remove(i);
+        } else {
+            i += 1;
+        }
+    }
 }
 
 /// The LAW=6 phase-space shape `acelf6` writes (`acefc.f90:7443-7488`), with

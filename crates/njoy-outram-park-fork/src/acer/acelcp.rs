@@ -39,7 +39,8 @@
 //! ~~That covers every entry in ENDF/B-VIII.0 U-235 and U-238~~ (extended
 //! 2026-10-14, GitHub #872): with the branches above, H-1, F-19, Al-27,
 //! Si-28/29/30 and Mn-55 are NJOY2016's tables in every word. **Not ported:**
-//! - MF=6 `LAW = 5/6/7`;
+//! - MF=6 `LAW = 5/6` (~~`/7`~~: **LAW = 7 is read since 2026-11-09**,
+//!   gh:#1309, as `topfil`'s LAW = 1 rewrite, `acelf6::law7_rewrite`);
 //! - the elastic recoil (MT=2);
 //! - incident charged particles.
 //!
@@ -1070,7 +1071,8 @@ fn nth_product(sec: &crate::endf::tape::Section, l: i32) -> Option<(Tab1, i32)> 
         let y = cur.read_tab1().ok()?;
         let law = y.head.l2;
         if ik == l {
-            return Some((y, law));
+            // LAW=7 reads as LAW=1 after `topfil`'s rewrite (`:2320`).
+            return Some((y, if law == 7 { 1 } else { law }));
         }
         super::energy::mf6::skip_mf6_subsection(&mut cur, law).ok()?;
     }
@@ -1086,6 +1088,13 @@ fn nth_product_law1(sec: &crate::endf::tape::Section, l: i32) -> Option<(Tab1, f
         let y = cur.read_tab1().ok()?;
         let law = y.head.l2;
         if ik == l {
+            // `topfil` rewrites every LAW=7 subsection to LAW=1 on the
+            // scratch tape `acelcp` reads (`acefc.f90:2320-2425`).
+            if law == 7 {
+                let (_, lists, lang, lep) = super::acelf6::law7_rewrite(&mut cur).ok()?;
+                let awp = y.head.c2;
+                return Some((y, awp, lists, lang, lep));
+            }
             if law != 1 {
                 return None;
             }
