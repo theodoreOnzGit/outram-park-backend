@@ -76,6 +76,11 @@ pub mod yd_325_heat_transfer_oil;
 
 pub mod flibe;
 
+/// MSRE U-235 fuel salt (LiF-BeF2-ZrF4-UF4 65-29.1-5-0.9), ORNL-TM-0728
+/// Table 2.1 design values, constant over the 1175-1225 F fuel band
+/// (MSRE TH-6, gh:#1133). A `CustomLiquid`; see the module doc.
+pub mod msre_fuel_salt_tm0728;
+
 /// FLiNaK
 /// 46.5-11.5-42.0 mol% of LiF, NaF and KF respectively,
 /// melting temperature is commonly in literature
