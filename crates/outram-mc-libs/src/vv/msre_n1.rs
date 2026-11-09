@@ -1,0 +1,563 @@
+//! **MSRE first criticality, U-235 (MSRE N-1, gh:#1128): the full-core
+//! model.**
+//!
+//! > Research, education and V&V only. AI draft (Claude Opus 5.5 in Claude
+//! > Code), unreviewed.
+//!
+//! The model, its sources and its simplifications were posted on gh:#1128
+//! before any run. Page numbers below are report pages of the scans in the
+//! MSRE repository's `literature/`.
+//!
+//! # Reference: ORNL-4233 (Prince et al. 1968), §2, Table 1, p. 11
+//!
+//! The state is 1181 °F, pump off, with rod poisoning of 0.08 % δk/k. The
+//! critical ²³⁵U concentration was **32.8 ± 0.3 g/L** (book mass fraction
+//! corrected for flush-salt dilution) or 32.4 ± 0.3 g/L (analytical). This
+//! model is built at 32.78 g/L, and its rods-out k is compared against
+//! `1/(1 − 0.0008)`: [`REFERENCE_K`].
+//!
+//! # Geometry (ORNL-TM-0728)
+//!
+//! - **Core**, Table 5.4: a lattice of 2 in graphite stringers, clipped to a
+//!   cylinder 55¼ in in diameter and 64 in high, with a stringer on the axis
+//!   (Fig. 5.7).
+//!   - Each stringer face carries half of a **stadium** fuel passage,
+//!     1.2 × 0.4 in with 0.2 in rounded ends (Fig. 5.7). That gives a fuel
+//!     fraction of 0.2228, against Table 5.4's 0.224.
+//!   - [`STRINGER_FUEL_FRACTION`] is the analytic value;
+//!     `tests::the_stringer_holds_the_tabulated_fuel_fraction` measures it
+//!     on the assembled geometry.
+//! - **Centre**, Fig. 5.7 and §5.3.5.2: three control-rod thimbles at
+//!   (±2, ±2) in.
+//!   - Each thimble is a 2 in OD × 0.065 in INOR-8 tube, empty with the rods
+//!     withdrawn.
+//!   - Each sits in a graphite opening 2.5 in across. **That diameter was
+//!     read from Fig. 5.7 by scale (±0.1 in); the text does not give it.**
+//!   - The fourth position holds the sample baskets (§5.3.6), homogenised
+//!     over the same opening ([`basket_mix`]).
+//! - **Radially, outward** (Table 5.2): the salt gap to the core can (55½ in
+//!   ID, ¼ in INOR-8), the downcomer (56 to 58 in), and the vessel (58 in ID,
+//!   59⅛ in OD).
+//! - **Axially:** the heads are not dimensioned in the report. Each is a salt
+//!   plenum of the vessel's inner radius holding Table 5.4's volume (upper
+//!   10.5 ft³, lower 10.0 ft³), closed by a 1 in INOR-8 plate (Table 5.2's
+//!   head thickness).
+//!   - Vacuum lies outside the vessel; the thermal shield is not modelled.
+//!   - Also not modelled: the ~5 ft³ of salt in the graphite's end regions
+//!     (Table 5.4's 25 ft³ "between the extreme top and bottom of graphite"
+//!     against 20 ft³ in the lattice), and the distributor and volute.
+//! - **Cold dimensions throughout.**
+//!
+//! # Materials ([`materials`])
+//!
+//! Everything is at [`TEMPERATURE_K`] (1181 °F).
+//!
+//! - **Fuel salt**, built from ORNL-4233's inventory (p. 3–4, 9–10):
+//!   - the carrier 65LiF-30BeF₂-5ZrF₄;
+//!   - a 73LiF-27UF₄ eutectic with 150 kg of depleted U;
+//!   - 93 % enriched U, 69.6 kg of ²³⁵U at criticality;
+//!   - 20 kg of 66LiF-34BeF₂ flush salt;
+//!   - density 145.3 lb/ft³.
+//!
+//!   This gives 1.4083 wt % ²³⁵U (ORNL: 1.408) and 32.78 g/L, at
+//!   65.24-29.14-4.83-0.79 mol %. The depleted-U assay is not given: 0.2 % is
+//!   assumed, and 0.7 % would move ²³⁸U by 0.5 %. The enriched lot's
+//!   ²³⁴U/²³⁶U are counted as ²³⁸U, and Li is 99.99 % ⁷Li. The script is
+//!   `verification_and_validation/msre_n1_first_criticality/scripts/salt.py`.
+//! - **Graphite:** CGB as in N-C1 (gh:#1126). The ENDF/B-VIII.0 reactor
+//!   graphite 30P S(α,β) is applied by the caller.
+//! - **INOR-8**, TM-0728 Table 2.2: 0.317 lb/in³. The composition is Ni 71,
+//!   Mo 16.5, Cr 7 and Fe 4 wt %; the ~1.5 % of minor elements is omitted.
+//!   **Mo is a data gap** (only a beta ⁹⁵Mo tape is in `reference-data/endf/`),
+//!   handled by [`MoTreatment`]. The script is `scripts/inor8.py` beside
+//!   `salt.py`.
+
+use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
+use crate::geometry::geometry::Geometry;
+use crate::geometry::lattice::{Lattice, RectLattice};
+use crate::geometry::position::Position;
+use crate::geometry::surface::{BoundaryType, SurfaceKind, XPlane, YPlane, ZCylinder, ZPlane};
+use crate::geometry::universe::Universe;
+use crate::physics::transport_csg::SourceBox;
+
+/// One inch \[cm\].
+pub const INCH: f64 = 2.54;
+/// 1181 °F, the state of ORNL-4233 Table 1 \[K\].
+pub const TEMPERATURE_K: f64 = (1181.0 - 32.0) * 5.0 / 9.0 + 273.15;
+/// The k this rods-out model should give: the real state carried 0.08 %
+/// δk/k of rod poisoning (ORNL-4233 Table 1).
+pub const REFERENCE_K: f64 = 1.0 / (1.0 - 0.0008);
+/// Stringer pitch, 2 in \[cm\].
+pub const PITCH: f64 = 2.0 * INCH;
+/// Graphite core radius, 55¼ in / 2 (TM-0728 Table 5.4) \[cm\].
+pub const R_GRAPHITE: f64 = 55.25 / 2.0 * INCH;
+/// Core height, 64 in (Table 5.4) \[cm\].
+pub const H_CORE: f64 = 64.0 * INCH;
+/// Core can inner radius, 55½ in / 2 (§5.3.1) \[cm\].
+pub const R_CAN_IN: f64 = 55.5 / 2.0 * INCH;
+/// Core can outer radius, 56 in / 2 (Table 5.2) \[cm\].
+pub const R_CAN_OUT: f64 = 56.0 / 2.0 * INCH;
+/// Vessel inner radius, 58 in / 2 (Table 5.2) \[cm\].
+pub const R_VESSEL_IN: f64 = 58.0 / 2.0 * INCH;
+/// Vessel outer radius, 59⅛ in / 2 (Table 5.2) \[cm\].
+pub const R_VESSEL_OUT: f64 = 59.125 / 2.0 * INCH;
+/// Head thickness, 1 in (Table 5.2) \[cm\].
+pub const T_HEAD: f64 = INCH;
+/// One cubic foot \[cm³\].
+pub const FT3: f64 = 12.0 * 12.0 * 12.0 * INCH * INCH * INCH;
+/// Upper-head salt volume, 10.5 ft³ (Table 5.4) \[cm³\].
+pub const V_UPPER_HEAD: f64 = 10.5 * FT3;
+/// Lower-head salt volume, 10.0 ft³ (Table 5.4) \[cm³\].
+pub const V_LOWER_HEAD: f64 = 10.0 * FT3;
+/// Half-depth of a fuel passage in one stringer face, 0.2 in \[cm\].
+pub const PASSAGE_HALF_DEPTH: f64 = 0.2 * INCH;
+/// Half the straight length of a passage, (1.2 − 0.4)/2 in \[cm\].
+pub const PASSAGE_HALF_FLAT: f64 = 0.4 * INCH;
+/// Radius of a passage's rounded ends, 0.2 in \[cm\].
+pub const PASSAGE_END_RADIUS: f64 = 0.2 * INCH;
+/// Distance of each centre opening from either axis, 2 in (Fig. 5.7) \[cm\].
+pub const OPENING_OFFSET: f64 = 2.0 * INCH;
+/// Radius of each centre opening, 2.5 in / 2, read from Fig. 5.7 \[cm\].
+pub const R_OPENING: f64 = 1.25 * INCH;
+/// Thimble outer radius, 2 in OD / 2 (§5.3.5.2) \[cm\].
+pub const R_THIMBLE_OUT: f64 = INCH;
+/// Thimble inner radius, outer less the 0.065 in wall \[cm\].
+pub const R_THIMBLE_IN: f64 = INCH - 0.065 * INCH;
+
+/// Fuel fraction of one stringer cell, analytic: four half-stadia of
+/// `0.4 × 0.2 in² + 2 × π (0.2 in)²/4` each, over `(2 in)²`.
+pub const STRINGER_FUEL_FRACTION: f64 =
+    4.0 * (2.0 * 0.4 * 0.2 + 2.0 * core::f64::consts::PI * 0.2 * 0.2 / 4.0) / 4.0;
+
+/// Height of the lower salt plenum, holding [`V_LOWER_HEAD`] \[cm\].
+pub fn lower_plenum_height() -> f64 {
+    V_LOWER_HEAD / (core::f64::consts::PI * R_VESSEL_IN * R_VESSEL_IN)
+}
+
+/// Height of the upper salt plenum, holding [`V_UPPER_HEAD`] \[cm\].
+pub fn upper_plenum_height() -> f64 {
+    V_UPPER_HEAD / (core::f64::consts::PI * R_VESSEL_IN * R_VESSEL_IN)
+}
+
+/// How INOR-8's molybdenum is represented: the gap in `reference-data/endf/`
+/// (only `n-042_Mo_095-ENDF8.0-beta.endf`), bounded by two arms.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MoTreatment {
+    /// Arm A: molybdenum left out of INOR-8 (its mass is removed).
+    Omitted,
+    /// Arm B: natural Mo replaced by ⁹⁵Mo at equal 2200 m/s absorption,
+    /// `N(⁹⁵Mo) = N(Mo) × 2.48 / 13.4` (σ_a quoted from memory, not
+    /// re-checked; see gh:#1128).
+    Mo95Equivalent,
+}
+
+/// `(nuclide, ENDF/B-VIII.0 tape)`, paths relative to `reference-data/endf/`.
+pub const NUCLIDES: [(&str, &str); 28] = [
+    ("Li6", "n-003_Li_006-ENDF8.0.endf"),
+    ("Li7", "n-003_Li_007-ENDF8.0.endf"),
+    ("Be9", "n-004_Be_009-ENDF8.0.endf"),
+    ("B10", "n-005_B_010-ENDF8.0.endf"),
+    ("B11", "n-005_B_011-ENDF8.0.endf"),
+    ("C12", "n-006_C_012-ENDF8.0.endf"),
+    ("C13", "n-006_C_013-ENDF8.0.endf"),
+    ("F19", "n-009_F_019-ENDF8.0.endf"),
+    ("Cr50", "n-024_Cr_050-ENDF8.0.endf"),
+    ("Cr52", "n-024_Cr_052-ENDF8.0.endf"),
+    ("Cr53", "n-024_Cr_053-ENDF8.0.endf"),
+    ("Cr54", "n-024_Cr_054-ENDF8.0.endf"),
+    ("Fe54", "n-026_Fe_054-ENDF8.0.endf"),
+    ("Fe56", "n-026_Fe_056-ENDF8.0.endf"),
+    ("Fe57", "n-026_Fe_057-ENDF8.0.endf"),
+    ("Fe58", "n-026_Fe_058-ENDF8.0.endf"),
+    ("Ni58", "n-028_Ni_058-ENDF8.0.endf"),
+    ("Ni60", "n-028_Ni_060-ENDF8.0.endf"),
+    ("Ni61", "n-028_Ni_061-ENDF8.0.endf"),
+    ("Ni62", "n-028_Ni_062-ENDF8.0.endf"),
+    ("Ni64", "n-028_Ni_064-ENDF8.0.endf"),
+    ("Zr90", "../ace/endf/endf-b-viii.0/n-040_Zr_090-ENDF8.0.endf"),
+    ("Zr91", "../ace/endf/endf-b-viii.0/n-040_Zr_091-ENDF8.0.endf"),
+    ("Zr92", "../ace/endf/endf-b-viii.0/n-040_Zr_092-ENDF8.0.endf"),
+    ("Zr94", "../ace/endf/endf-b-viii.0/n-040_Zr_094-ENDF8.0.endf"),
+    ("Zr96", "../ace/endf/endf-b-viii.0/n-040_Zr_096-ENDF8.0.endf"),
+    ("U235", "n-092_U_235-ENDF8.0.endf"),
+    ("U238", "n-092_U_238.endf"),
+];
+
+/// The beta ⁹⁵Mo tape, used only by [`MoTreatment::Mo95Equivalent`].
+pub const MO95_TAPE: (&str, &str) = ("Mo95", "n-042_Mo_095-ENDF8.0-beta.endf");
+
+/// Fuel salt at first criticality (atoms/b-cm), from `scripts/salt.py`.
+pub const SALT: [(&str, f64); 11] = [
+    ("Li7", 2.218270e-02),
+    ("Li6", 2.218492e-06),
+    ("Be9", 9.910143e-03),
+    ("U235", 8.398016e-05),
+    ("U238", 1.845625e-04),
+    ("F19", 4.964736e-02),
+    ("Zr90", 8.448066e-04),
+    ("Zr91", 1.842319e-04),
+    ("Zr92", 2.816022e-04),
+    ("Zr94", 2.853788e-04),
+    ("Zr96", 4.597587e-05),
+];
+
+/// CGB graphite, 1.87 g/cm³ with 0.8 wt ppm natural boron (TM-0728 §5.3.2,
+/// Table 5.3), the N-C1 numbers.
+pub const GRAPHITE: [(&str, f64); 4] = [
+    ("C12", 9.271946e-02),
+    ("C13", 1.038652e-03),
+    ("B10", 1.651533e-08),
+    ("B11", 6.681124e-08),
+];
+
+/// INOR-8 without molybdenum (atoms/b-cm), from `scripts/inor8.py`.
+pub const INOR8_WITHOUT_MO: [(&str, f64); 13] = [
+    ("Ni58", 4.351546e-02),
+    ("Ni60", 1.676208e-02),
+    ("Ni61", 7.286360e-04),
+    ("Ni62", 2.323210e-03),
+    ("Ni64", 5.916532e-04),
+    ("Cr50", 3.090949e-04),
+    ("Cr52", 5.960587e-03),
+    ("Cr53", 6.758827e-04),
+    ("Cr54", 1.682415e-04),
+    ("Fe54", 2.212254e-04),
+    ("Fe56", 3.472766e-03),
+    ("Fe57", 8.020130e-05),
+    ("Fe58", 1.067332e-05),
+];
+
+/// ⁹⁵Mo standing in for INOR-8's natural Mo at equal thermal absorption
+/// (atoms/b-cm): `9.086858e-03 × 2.48 / 13.4`.
+pub const INOR8_MO95_EQUIVALENT: f64 = 1.681747e-03;
+
+/// Volume fractions in the homogenised sample-basket opening: 12 INOR-8 rods
+/// of 0.25 in diameter and 15 graphite bars of 0.25 × 0.47 in (§5.3.6), over a
+/// 2.5 in circle; the rest is salt. Returns `(INOR-8, graphite, salt)`.
+pub fn basket_fractions() -> (f64, f64, f64) {
+    let opening = core::f64::consts::PI * 1.25 * 1.25;
+    let inor = 12.0 * core::f64::consts::PI * 0.125 * 0.125 / opening;
+    let graphite = 15.0 * 0.25 * 0.47 / opening;
+    (inor, graphite, 1.0 - inor - graphite)
+}
+
+/// INOR-8 under `mo`.
+pub fn inor8(mo: MoTreatment) -> Vec<(&'static str, f64)> {
+    let mut v: Vec<(&'static str, f64)> = INOR8_WITHOUT_MO.to_vec();
+    if mo == MoTreatment::Mo95Equivalent {
+        v.push(("Mo95", INOR8_MO95_EQUIVALENT));
+    }
+    v
+}
+
+/// The sample-basket opening, homogenised: [`basket_fractions`] of INOR-8,
+/// graphite and salt, summed nuclide by nuclide.
+pub fn basket_mix(mo: MoTreatment) -> Vec<(&'static str, f64)> {
+    let (fi, fg, fs) = basket_fractions();
+    let mut out: Vec<(&'static str, f64)> = Vec::new();
+    let parts: [(f64, Vec<(&'static str, f64)>); 3] =
+        [(fs, SALT.to_vec()), (fg, GRAPHITE.to_vec()), (fi, inor8(mo))];
+    for (f, comps) in parts {
+        for (n, d) in comps {
+            match out.iter_mut().find(|(m, _)| *m == n) {
+                Some(e) => e.1 += f * d,
+                None => out.push((n, f * d)),
+            }
+        }
+    }
+    out
+}
+
+/// Material indices of [`materials`].
+pub const SALT_IDX: usize = 0;
+/// Graphite's index.
+pub const GRAPHITE_IDX: usize = 1;
+/// INOR-8's index.
+pub const INOR8_IDX: usize = 2;
+/// The homogenised sample basket's index.
+pub const BASKET_IDX: usize = 3;
+
+/// The four materials, in index order: salt, graphite, INOR-8, basket.
+pub fn materials(mo: MoTreatment) -> Vec<(&'static str, Vec<(&'static str, f64)>)> {
+    vec![
+        ("MSRE fuel salt, first criticality", SALT.to_vec()),
+        ("MSRE CGB graphite", GRAPHITE.to_vec()),
+        ("INOR-8", inor8(mo)),
+        ("Sample baskets (homogenised)", basket_mix(mo)),
+    ]
+}
+
+fn hs(surface_idx: usize, inside: bool) -> RegionToken {
+    RegionToken::HalfSpace {
+        surface_idx,
+        sense: if inside { HalfSpaceSense::Inside } else { HalfSpaceSense::Outside },
+    }
+}
+
+/// Intersection of the given half-spaces, in RPN.
+fn all_of(tokens: &[RegionToken]) -> Vec<RegionToken> {
+    let mut v = vec![tokens[0].clone()];
+    for t in &tokens[1..] {
+        v.push(t.clone());
+        v.push(RegionToken::Intersection);
+    }
+    v
+}
+
+/// Union of RPN regions.
+fn any_of(regions: Vec<Vec<RegionToken>>) -> Vec<RegionToken> {
+    let mut it = regions.into_iter();
+    let mut v = it.next().expect("at least one region");
+    for r in it {
+        v.extend(r);
+        v.push(RegionToken::Union);
+    }
+    v
+}
+
+fn zcyl(x0: f64, y0: f64, r: f64, bc: BoundaryType) -> SurfaceKind {
+    SurfaceKind::ZCylinder(ZCylinder { x0, y0, r, bc })
+}
+
+/// The stringer universe's cells, appended to `surfaces` and `cells`: four
+/// half-stadium passages (salt) and the graphite around them. Returns the
+/// cell indices.
+fn stringer_cells(surfaces: &mut Vec<SurfaceKind>, cells: &mut Vec<Cell>) -> Vec<usize> {
+    let t = BoundaryType::Transmissive;
+    let h = PITCH / 2.0;
+    let floor = h - PASSAGE_HALF_DEPTH;
+    let a = PASSAGE_HALF_FLAT;
+    let r = PASSAGE_END_RADIUS;
+    let mut add = |s: SurfaceKind| {
+        surfaces.push(s);
+        surfaces.len() - 1
+    };
+    let xf_p = add(SurfaceKind::XPlane(XPlane { x0: floor, bc: t }));
+    let xf_m = add(SurfaceKind::XPlane(XPlane { x0: -floor, bc: t }));
+    let yf_p = add(SurfaceKind::YPlane(YPlane { y0: floor, bc: t }));
+    let yf_m = add(SurfaceKind::YPlane(YPlane { y0: -floor, bc: t }));
+    let ya_p = add(SurfaceKind::YPlane(YPlane { y0: a, bc: t }));
+    let ya_m = add(SurfaceKind::YPlane(YPlane { y0: -a, bc: t }));
+    let xa_p = add(SurfaceKind::XPlane(XPlane { x0: a, bc: t }));
+    let xa_m = add(SurfaceKind::XPlane(XPlane { x0: -a, bc: t }));
+    let mut passages = Vec::new();
+    // ±x faces: a slab beyond the floor, |y| < a, and two end circles on the face.
+    for (floor_idx, beyond, sx) in [(xf_p, false, 1.0), (xf_m, true, -1.0)] {
+        let slab = all_of(&[hs(floor_idx, beyond), hs(ya_m, false), hs(ya_p, true)]);
+        let c1 = add(zcyl(sx * h, a, r, t));
+        let c2 = add(zcyl(sx * h, -a, r, t));
+        passages.push(any_of(vec![slab, vec![hs(c1, true)], vec![hs(c2, true)]]));
+    }
+    for (floor_idx, beyond, sy) in [(yf_p, false, 1.0), (yf_m, true, -1.0)] {
+        let slab = all_of(&[hs(floor_idx, beyond), hs(xa_m, false), hs(xa_p, true)]);
+        let c1 = add(zcyl(a, sy * h, r, t));
+        let c2 = add(zcyl(-a, sy * h, r, t));
+        passages.push(any_of(vec![slab, vec![hs(c1, true)], vec![hs(c2, true)]]));
+    }
+    let fuel = any_of(passages);
+    let mut graphite = fuel.clone();
+    graphite.push(RegionToken::Complement);
+    let i0 = cells.len();
+    cells.push(Cell::material(101, fuel, SALT_IDX, TEMPERATURE_K));
+    cells.push(Cell::material(102, graphite, GRAPHITE_IDX, TEMPERATURE_K));
+    vec![i0, i0 + 1]
+}
+
+/// Centres of the four openings: three thimbles, then the sample baskets
+/// (Fig. 5.7: thimbles upper-left, upper-right, lower-left).
+pub const OPENINGS: [(f64, f64); 4] = [
+    (-OPENING_OFFSET, OPENING_OFFSET),
+    (OPENING_OFFSET, OPENING_OFFSET),
+    (-OPENING_OFFSET, -OPENING_OFFSET),
+    (OPENING_OFFSET, -OPENING_OFFSET),
+];
+
+/// The assembled full-core geometry. `z = 0` is the bottom of the graphite.
+pub fn geometry() -> Geometry {
+    let t = BoundaryType::Transmissive;
+    let v = BoundaryType::Vacuum;
+    let mut surfaces: Vec<SurfaceKind> = Vec::new();
+    let mut cells: Vec<Cell> = Vec::new();
+    let stringer = stringer_cells(&mut surfaces, &mut cells);
+
+    let mut add = |s: SurfaceKind| {
+        surfaces.push(s);
+        surfaces.len() - 1
+    };
+    let (z_lp, z_up) = (-lower_plenum_height(), H_CORE + upper_plenum_height());
+    let r_g = add(zcyl(0.0, 0.0, R_GRAPHITE, t));
+    let r_ci = add(zcyl(0.0, 0.0, R_CAN_IN, t));
+    let r_co = add(zcyl(0.0, 0.0, R_CAN_OUT, t));
+    let r_vi = add(zcyl(0.0, 0.0, R_VESSEL_IN, t));
+    let r_vo = add(zcyl(0.0, 0.0, R_VESSEL_OUT, v));
+    let z0 = add(SurfaceKind::ZPlane(ZPlane { z0: 0.0, bc: t }));
+    let zt = add(SurfaceKind::ZPlane(ZPlane { z0: H_CORE, bc: t }));
+    let zl = add(SurfaceKind::ZPlane(ZPlane { z0: z_lp, bc: t }));
+    let zu = add(SurfaceKind::ZPlane(ZPlane { z0: z_up, bc: t }));
+    let zlb = add(SurfaceKind::ZPlane(ZPlane { z0: z_lp - T_HEAD, bc: v }));
+    let zut = add(SurfaceKind::ZPlane(ZPlane { z0: z_up + T_HEAD, bc: v }));
+    let openings: Vec<usize> = OPENINGS.iter().map(|&(x, y)| add(zcyl(x, y, R_OPENING, t))).collect();
+    let thimbles_out: Vec<usize> =
+        OPENINGS[..3].iter().map(|&(x, y)| add(zcyl(x, y, R_THIMBLE_OUT, t))).collect();
+    let thimbles_in: Vec<usize> =
+        OPENINGS[..3].iter().map(|&(x, y)| add(zcyl(x, y, R_THIMBLE_IN, t))).collect();
+
+    let core_z = [hs(z0, false), hs(zt, true)];
+    let plenum_up_z = [hs(zt, false), hs(zu, true)];
+    let thimble_z = [hs(z0, false), hs(zu, true)];
+    let mut root: Vec<Cell> = Vec::new();
+    let mat = |id: i32, region: Vec<RegionToken>, m: usize| Cell::material(id, region, m, TEMPERATURE_K);
+
+    // The lattice-filled core, outside the four openings.
+    let mut core = vec![hs(r_g, true)];
+    core.extend(core_z.iter().cloned());
+    core.extend(openings.iter().map(|&o| hs(o, false)));
+    root.push(Cell::fill(1, all_of(&core), CellFill::Lattice(0), Position::ZERO));
+    // Thimbles: wall and void through the core and the upper plenum; salt
+    // between the wall and the opening, in the core.
+    for i in 0..3 {
+        let mut wall = vec![hs(thimbles_out[i], true), hs(thimbles_in[i], false)];
+        wall.extend(thimble_z.iter().cloned());
+        root.push(mat(10 + i as i32, all_of(&wall), INOR8_IDX));
+        let mut inside = vec![hs(thimbles_in[i], true)];
+        inside.extend(thimble_z.iter().cloned());
+        root.push(Cell::fill(20 + i as i32, all_of(&inside), CellFill::Void, Position::ZERO));
+        let mut annulus = vec![hs(openings[i], true), hs(thimbles_out[i], false)];
+        annulus.extend(core_z.iter().cloned());
+        root.push(mat(30 + i as i32, all_of(&annulus), SALT_IDX));
+    }
+    let mut basket = vec![hs(openings[3], true)];
+    basket.extend(core_z.iter().cloned());
+    root.push(mat(40, all_of(&basket), BASKET_IDX));
+    // Radial layers beside the core.
+    for (id, inner, outer, m) in [(50, r_g, r_ci, SALT_IDX), (51, r_ci, r_co, INOR8_IDX), (52, r_co, r_vi, SALT_IDX)] {
+        let mut c = vec![hs(inner, false), hs(outer, true)];
+        c.extend(core_z.iter().cloned());
+        root.push(mat(id, all_of(&c), m));
+    }
+    // Plenums.
+    root.push(mat(60, all_of(&[hs(r_vi, true), hs(zl, false), hs(z0, true)]), SALT_IDX));
+    let mut upper = vec![hs(r_vi, true)];
+    upper.extend(plenum_up_z.iter().cloned());
+    upper.extend(thimbles_out.iter().map(|&o| hs(o, false)));
+    root.push(mat(61, all_of(&upper), SALT_IDX));
+    // Vessel wall and heads.
+    root.push(mat(70, all_of(&[hs(r_vi, false), hs(r_vo, true), hs(zl, false), hs(zu, true)]), INOR8_IDX));
+    root.push(mat(71, all_of(&[hs(r_vo, true), hs(zlb, false), hs(zl, true)]), INOR8_IDX));
+    root.push(mat(72, all_of(&[hs(r_vo, true), hs(zu, false), hs(zut, true)]), INOR8_IDX));
+
+    let root_start = cells.len();
+    let root_count = root.len();
+    cells.extend(root);
+    let n = (2.0 * R_VESSEL_IN / PITCH).ceil() as usize | 1; // odd: a stringer on the axis
+    let half = n as f64 * PITCH / 2.0;
+    let lattice = RectLattice {
+        id: 1,
+        n: [n, n, 1],
+        lower_left: Position::new(-half, -half, 0.0),
+        pitch: [PITCH, PITCH, 1.0],
+        universes: vec![1; n * n],
+        outer: None,
+    };
+    Geometry {
+        surfaces,
+        cells,
+        universes: vec![
+            Universe { id: 0, cell_indices: (root_start..root_start + root_count).collect() },
+            Universe { id: 1, cell_indices: stringer },
+        ],
+        lattices: vec![Lattice::Rect(lattice)],
+        root_universe: 0,
+    }
+}
+
+/// Fission source box: the graphite core.
+pub fn source_box() -> SourceBox {
+    SourceBox {
+        lower: Position::new(-R_GRAPHITE, -R_GRAPHITE, 0.0),
+        upper: Position::new(R_GRAPHITE, R_GRAPHITE, H_CORE),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::geometry::plot::{PlotBasis, SlicePlot, SliceHit};
+
+    fn census(g: &Geometry, origin: Position, basis: PlotBasis, width: [f64; 2], px: usize) -> (Vec<usize>, usize, usize) {
+        let plot = SlicePlot {
+            origin,
+            basis,
+            width,
+            pixels: [px, px],
+            level: None,
+            show_overlaps: true,
+            meshlines: None,
+        };
+        let ids = plot.id_map(g);
+        let mut by_mat = vec![0usize; 4];
+        let (mut void, mut overlap, mut outside) = (0, 0, 0);
+        for h in &ids.hits {
+            match *h {
+                SliceHit::Found { material: Some(m), .. } => by_mat[m] += 1,
+                SliceHit::Found { material: None, .. } => void += 1,
+                SliceHit::Overlap => overlap += 1,
+                SliceHit::NotFound => outside += 1,
+            }
+        }
+        assert_eq!(overlap, 0, "overlapping cells");
+        (by_mat, void, outside)
+    }
+
+    /// One stringer, sampled on the assembled geometry (an 800 × 800 pixel
+    /// slice of the cell at (−10.16, −10.16) cm, clear of the openings), holds
+    /// the analytic fraction 0.2228 to the sampling's resolution, and
+    /// Table 5.4's 0.224 to 0.6 %.
+    #[test]
+    fn the_stringer_holds_the_tabulated_fuel_fraction() {
+        let g = geometry();
+        let (m, void, other) = census(&g, Position::new(-4.0 * INCH, -4.0 * INCH, 80.0), PlotBasis::Xy, [PITCH, PITCH], 800);
+        assert_eq!((void, other), (0, 0));
+        let total: usize = m.iter().sum();
+        let f = m[SALT_IDX] as f64 / total as f64;
+        println!("stringer fuel fraction {f:.5} (analytic {STRINGER_FUEL_FRACTION:.5}, TM-0728 Table 5.4: 0.224)");
+        assert!((f - STRINGER_FUEL_FRACTION).abs() < 2e-3, "{f}");
+        assert!((STRINGER_FUEL_FRACTION / 0.224 - 1.0).abs() < 0.006);
+    }
+
+    /// The whole core section at mid-height: the salt and graphite areas in
+    /// the graphite cylinder give Table 5.4's fuel and graphite volumes
+    /// (20 and 69 ft³) within 2 %, and no pixel is lost or overlapped.
+    #[test]
+    fn the_core_holds_the_tabulated_salt_and_graphite_volumes() {
+        let g = geometry();
+        let w = 2.0 * R_GRAPHITE;
+        let px = 1400;
+        let (m, void, outside) = census(&g, Position::new(0.0, 0.0, H_CORE / 2.0), PlotBasis::Xy, [w, w], px);
+        // The window's corners lie beyond the vessel: outside the model.
+        println!("pixels outside the model (window corners): {outside}");
+        let a_px = (w / px as f64).powi(2);
+        // The square window clips the gap/can/downcomer rings; inside the
+        // graphite radius only the lattice, openings and thimble voids lie.
+        let graphite = m[GRAPHITE_IDX] as f64 * a_px * H_CORE / FT3;
+        let salt_all = m[SALT_IDX] as f64 * a_px * H_CORE / FT3;
+        println!("mid-plane census: graphite {graphite:.2} ft3, salt (window incl. gap) {salt_all:.2} ft3, void px {void}");
+        assert!((graphite / 69.0 - 1.0).abs() < 0.02, "graphite {graphite}");
+    }
+
+    /// The plenums hold Table 5.4's head volumes, and the openings sit where
+    /// Fig. 5.7 puts them (2.828 in from the axis, text: 2-53/64 in).
+    #[test]
+    fn plenums_and_openings_match_their_sources() {
+        let pi = core::f64::consts::PI;
+        let v_lp = pi * R_VESSEL_IN * R_VESSEL_IN * lower_plenum_height();
+        let v_up = pi * R_VESSEL_IN * R_VESSEL_IN * upper_plenum_height();
+        assert!((v_lp / FT3 - 10.0).abs() < 1e-9 && (v_up / FT3 - 10.5).abs() < 1e-9);
+        let d = (OPENINGS[0].0.powi(2) + OPENINGS[0].1.powi(2)).sqrt() / INCH;
+        assert!((d - (2.0 + 53.0 / 64.0)).abs() < 0.01, "{d}");
+        let (fi, fg, fs) = basket_fractions();
+        assert!(fi > 0.0 && fg > 0.0 && fs > 0.0 && (fi + fg + fs - 1.0).abs() < 1e-12);
+        assert_eq!(materials(MoTreatment::Omitted)[INOR8_IDX].1.len(), 13);
+        assert_eq!(materials(MoTreatment::Mo95Equivalent)[INOR8_IDX].1.len(), 14);
+    }
+}
