@@ -17,9 +17,10 @@
 //! `(p,h)` region, as this crate's own `cp_ph_eqm`, `cv_ph_eqm` and
 //! `kappa_t_ph_eqm` already do (Region 1 evaluates the Region 1 basic
 //! equation at the backward `T`). The checks: no panic at both points; the
-//! result is finite and within 0.1 % of `lambda_ph_eqm` a few J/kg higher,
-//! where `T >= 273.15 K` and the old route worked (the property is smooth
-//! here; 0.1 % is far above the ~1e-5 change of lambda over 21 mK); and the
+//! result is finite and within 0.1 % of `lambda_ph_eqm` at the nearest
+//! Region 1 point at 1000 Pa where `T >= 273.15 K` and the old route worked
+//! (the property is smooth here; 0.1 % is far above the ~1e-5 change of
+//! lambda over 21 mK or over 400 Pa); and the
 //! value at a Region 1 point well inside the range is unchanged.
 //!
 //! **Results (2026-11-10, x86_64-linux, release):** pass. Before the fix
@@ -42,8 +43,27 @@ fn ph(p_pa: f64, h_jkg: f64) -> (Pressure, AvailableEnergy) {
     )
 }
 
+/// The anchor: the nearest Region 1 point at 1000 Pa whose backward T is at
+/// or above 273.15 K, where the old (T, p) route works. At 611.657 Pa there
+/// is no such point: Region 1 there spans only h ~ -0.04 to ~0.6 J/kg, all
+/// with T < 273.15 K, and h = 10 J/kg is already in the two-phase dome. Liquid
+/// conductivity changes by far less than 0.1 % between 611 and 1000 Pa.
+fn anchor_lambda() -> f64 {
+    let p = Pressure::new::<pascal>(1000.0);
+    let mut h_n = 0.0;
+    loop {
+        let h = AvailableEnergy::new::<joule_per_kilogram>(h_n);
+        assert_eq!(ph_flash_region(p, h), FwdEqnRegion::Region1);
+        if t_ph_eqm(p, h).get::<kelvin>() >= 273.15 {
+            return lambda_ph_eqm(p, h).get::<watt_per_meter_kelvin>();
+        }
+        h_n += 10.0;
+    }
+}
+
 #[test]
 fn lambda_ph_does_not_panic_where_backward_t_is_below_273_15_k() {
+    let lambda_n = anchor_lambda();
     for p_pa in [611.657, 1000.0] {
         let (p, h) = ph(p_pa, 0.0);
         assert_eq!(ph_flash_region(p, h), FwdEqnRegion::Region1);
@@ -52,17 +72,7 @@ fn lambda_ph_does_not_panic_where_backward_t_is_below_273_15_k() {
 
         let lambda = lambda_ph_eqm(p, h).get::<watt_per_meter_kelvin>();
         assert!(lambda.is_finite());
-
-        // Neighbour where the backward T is at or above 273.15 K: the old
-        // (T, p) route works there, so it anchors the edge value.
-        let mut h_n = 0.0;
-        while t_ph_eqm(p, AvailableEnergy::new::<joule_per_kilogram>(h_n)).get::<kelvin>() < 273.15
-        {
-            h_n += 10.0;
-        }
-        let (p, hn) = ph(p_pa, h_n);
-        let lambda_n = lambda_ph_eqm(p, hn).get::<watt_per_meter_kelvin>();
-        println!("p = {p_pa} Pa: T = {t:.4} K, lambda = {lambda:.6}; at h = {h_n} J/kg lambda = {lambda_n:.6}");
+        println!("p = {p_pa} Pa: T = {t:.4} K, lambda = {lambda:.6}; anchor {lambda_n:.6}");
         assert!((lambda / lambda_n - 1.0).abs() < 1e-3);
     }
 }
