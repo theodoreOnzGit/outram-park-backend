@@ -54,7 +54,12 @@ maturity gate in that file for what this means and how the bar is revised.
 
   Additional evidence: re-running the suite regenerates
   `verification_and_validation/generated/*.md` with every number byte-identical
-  and only the timestamp line changed — the V&V results reproduce exactly.
+  ~~and only the timestamp line changed~~ — the V&V results reproduce exactly.
+  **CORRECTED 2026-11-10 (gh:#305):** a report whose only change would be its
+  generation stamp is no longer rewritten (`vv_report.rs`,
+  `write_unless_only_the_stamp_moved`), so a reproducing run leaves the six
+  receipts untouched and the stamp now dates the last run in which a result
+  changed.
 
   IF97 is a released international standard with its own verification tables,
   which makes path 1 the best-anchored bar of the declared crates. Path 2 and
