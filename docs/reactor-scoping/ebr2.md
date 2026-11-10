@@ -45,8 +45,12 @@ The pool is the defining feature. Its thermal inertia and stratification set the
 timescale of every loss-of-flow and loss-of-heat-sink transient, and it couples
 the core outlet, the IHX inlet and the shutdown coolers.
 
-Core is a **wire-wrapped hexagonal bundle** of **metallic** fuel (U-Zr and
-U-Pu-Zr), with a **sodium-bonded** fuel-cladding gap. All three of those
+Core is a **wire-wrapped hexagonal bundle** of **metallic** fuel ~~(U-Zr and
+U-Pu-Zr)~~ **CORRECTED 2026-11-10:** the MARK-II driver fuel of the SHRT-17 and
+SHRT-45R cores is **U-5Fs** (uranium with 5 wt % fissium), 67 wt % U-235
+(ANL-ARC-228 Table 3.1.1 p.17 and Table 3.2.2 p.21, transcribed in
+`reference-data/ebr2/`). The 1963 wet-critical core was also U-5Fs, at 48.4 %
+enrichment (ANL-6864 p.11). The gap is **sodium-bonded**. All three of those
 properties matter and none is currently modelled.
 
 ## 3. Capability audit

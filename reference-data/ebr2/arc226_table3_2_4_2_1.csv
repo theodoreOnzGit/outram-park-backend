@@ -1,0 +1,37 @@
+# Document: Sumner, Wei (2012), ANL-ARC-226 Rev. 1, Benchmark Specifications and Data Requirements for EBR-II Shutdown Heat Removal Tests SHRT-17 and SHRT-45R (Argonne National Laboratory). PDF page = printed page + 16.
+# Table 3.2.4.2.1 "Intermediate IHX Inlet Sodium Flow Rate For SHRT-45R", printed p.36 (PDF p.52). Boundary condition.
+# Units: s; the flow column header is printed "Flow (gpm at XX F)" (calibration temperature not given; elsewhere intermediate flows are gpm at 582 F).
+# The t=0 value, 5079.5, disagrees with the 5474.5 gpm initial intermediate flow of Table 3.2.1.1 (p.24).
+# AI transcription 2026-11-10, not yet reviewed by a human. Numbers exactly as printed.
+time_s,flow_gpm
+0,5079.5
+0.5,4756.0
+1,3772.6
+1.5,3118.3
+3,2382.0
+5,1632.5
+7.5,1297.4
+12,886.9
+16,709.6
+22.5,562.4
+32,456.2
+46,398.3
+62.5,361.0
+80,371.7
+98.5,360.1
+120,382.9
+150,411.4
+180,422.0
+210,430.8
+240,433.5
+300,457.8
+360,455.5
+420,450.8
+480,463.3
+540,482.1
+600,472.8
+660,455.4
+720,449.5
+780,442.7
+840,418.2
+900,429.9

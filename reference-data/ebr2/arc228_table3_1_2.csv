@@ -1,0 +1,16 @@
+# Document: Fei, Mohamed, Kim (2013), ANL-ARC-228 Rev. 1, Neutronics Benchmark Specifications for EBR-II SHRT-45R (Argonne National Laboratory)
+# Table 3.1.2 "Design Parameters (at 20 C) of EBR-II Subassembly Structure", printed p.18 (PDF p.18)
+# Units: mm for dimensions. The source labels the second block "Outer Hex Tube" again; it is the inner hex tube (48.4/46.4 mm, as ARC-226 Table 4.1.2 labels it).
+# AI transcription 2026-11-10, not yet reviewed by a human. Numbers exactly as printed.
+item,unit,mark_ii_mark_iia,xx09_xx10,safety_hwcr,reflector_uranium_blanket
+pitch,mm,58.929,58.929,58.929,58.929
+outer_hex_flat_to_flat_outside,mm,58.166,58.166,58.166,58.166
+outer_hex_flat_to_flat_inside,mm,56.134,56.134,56.134,56.134
+outer_hex_material,-,316SS,304SS,316SS,304SS
+inner_hex_flat_to_flat_outside,mm,,48.4,48.4,
+inner_hex_flat_to_flat_inside,mm,,46.4,46.4,
+inner_hex_material,-,,304SS,304SS,
+upper_adapter_fixture,-,304SS,,304SS,304SS
+upper_axial_shield,-,304SS,,304SS,
+lower_axial_shield,-,304SS,,304SS,
+lower_adapter,-,304SS,,304SS,304SS
