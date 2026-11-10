@@ -1075,9 +1075,23 @@ constructor (`from_rows_top_down` vs `from_natural_order`).
 - **Count from the assembled geometry**: `AssembledModel::census()` walks the
   universe/lattice graph (`DistribcellOffsets`, plus each lattice's `outer`
   once per placement). Never report a particle count from a constant (gh:#316).
-- **Not yet**: a lattice in a sphere (whole-particle rejection), random
-  packing and `DhRegion` (tutorial 5), hex lattices, per-lattice delta
-  tracking (the beginner run carries no majorants).
+- **Not yet**: ~~a lattice in a sphere (whole-particle rejection), random
+  packing and `DhRegion` (tutorial 5), hex lattices,~~ **CORRECTED
+  2026-11-10**: those three landed 2026-10-18 (`Lattice::covering`,
+  `Packing`/`DhRegion`, `HexPrism` + `Lattice::hex`; see `model/mod.rs`
+  "Not yet here"); still not here: per-lattice delta tracking (the
+  beginner run carries no majorants).
+- **Hexagonal subassembly** (2026-11-10, gh #1327):
+  `model::HexSubassembly` builds a hex duct holding a triangular-pitch pin
+  bundle of `r` rings (`3r(r-1)+1` pins; centres from the `HexLattice`
+  port), each pin fuel / bond / clad as coaxial finite cylinders, with an
+  optional helical wire wrap smeared into the coolant. Plain shapes, so
+  `Model::assemble` checks it exactly. A `HexPrism`'s two z-planes are now
+  shared through `Lowering::zplane` (as a finite cylinder's were), so the
+  duct, the coolant prism and full-height pins end on one pair of planes
+  instead of three coincident pairs (`tests/model_hex_subassembly.rs`:
+  2 z-planes, 6 before). Pictures:
+  `verification_and_validation/hex_subassembly/`.
 
 ### DEM pebble beds: `pebble_beds::dem_bed` (2026-10-02)
 
