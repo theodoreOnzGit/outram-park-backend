@@ -180,6 +180,55 @@ const MC_AXIAL: [(f64, f64, f64); 40] = [
     (177.8226, 0.04539, 0.12876),
 ];
 
+/// [`MC_AXIAL`]'s fission source with the **fast flux** (above 0.625 eV,
+/// the conventional two-group thermal cutoff; TM-1626 gives no boundary) as
+/// the importance, a closer stand-in for Prince's fast-group adjoint. From
+/// one seed with the energy-split tally
+/// (`data/n1_axial_tally_energy_split.csv`, `scripts/axial_shape.py ... fast`).
+/// importance flux_fast_inner; z_bottom -16.6124, z_core_top 162.5600, z_top 180.0030; seeds ['1']
+const MC_AXIAL_FAST: [(f64, f64, f64); 40] = [
+    (-14.5358, 0.04474, 0.16667),
+    (-10.3828, 0.07185, 0.24068),
+    (-6.2297, 0.10767, 0.29996),
+    (-2.0766, 0.16039, 0.33605),
+    (2.5400, 0.24141, 0.38469),
+    (7.6200, 0.35822, 0.43951),
+    (12.7000, 0.45484, 0.49702),
+    (17.7800, 0.53950, 0.55757),
+    (22.8600, 0.61342, 0.61875),
+    (27.9400, 0.67720, 0.67759),
+    (33.0200, 0.73720, 0.73439),
+    (38.1000, 0.79128, 0.78558),
+    (43.1800, 0.83701, 0.83230),
+    (48.2600, 0.87899, 0.87345),
+    (53.3400, 0.91320, 0.90895),
+    (58.4200, 0.94076, 0.93686),
+    (63.5000, 0.96181, 0.96100),
+    (68.5800, 0.97983, 0.98032),
+    (73.6600, 0.99252, 0.99412),
+    (78.7400, 0.99932, 1.00000),
+    (83.8200, 1.00000, 0.99918),
+    (88.9000, 0.99490, 0.99274),
+    (93.9800, 0.98171, 0.98052),
+    (99.0600, 0.96013, 0.96217),
+    (104.1400, 0.93882, 0.93885),
+    (109.2200, 0.90948, 0.90662),
+    (114.3000, 0.87550, 0.87080),
+    (119.3800, 0.83224, 0.82953),
+    (124.4600, 0.78521, 0.78008),
+    (129.5400, 0.73393, 0.72864),
+    (134.6200, 0.67504, 0.67506),
+    (139.7000, 0.61156, 0.61794),
+    (144.7800, 0.53861, 0.55865),
+    (149.8600, 0.45642, 0.50050),
+    (154.9400, 0.36038, 0.44278),
+    (160.0200, 0.24420, 0.39015),
+    (164.7404, 0.16453, 0.34275),
+    (169.1011, 0.10852, 0.30346),
+    (173.4618, 0.07244, 0.24185),
+    (177.8226, 0.04521, 0.16683),
+];
+
 fn families() -> Vec<DelayedFamily> {
     TABLE1.iter().map(|&(beta, lambda)| DelayedFamily { beta, lambda }).collect()
 }
@@ -418,9 +467,14 @@ fn n4_on_the_n1_monte_carlo_shape() {
         }
     }
     let ablated = exact_loss(&no_plenum, 252_000, LowerPlenum::PlugFlow);
+    let fast = Shape { table: MC_AXIAL_FAST.to_vec(), ..sh.clone() };
+    let exact_fast = exact_loss(&fast, 252_000, LowerPlenum::PlugFlow);
+    let (m_fast, _) = moltres_loss(&fast, 10080, 1.0);
     println!("N-4 on the N-1 Monte Carlo shape, loss in % dk/k");
     println!("  exact, plug flow / well-stirred   {:.4} / {:.4}", exact * 100.0, stirred * 100.0);
     println!("  moltres N = 10080                 {:.4} (error {:+.2e})", m2 * 100.0, m2 - exact);
     println!("  plenum importance zeroed          {:.4}", ablated * 100.0);
+    println!("  fast-flux importance (> 0.625 eV)  {:.4} (moltres {:.4})", exact_fast * 100.0, m_fast * 100.0);
     assert!((m2 - exact).abs() < 1e-5, "moltres error {:e}", m2 - exact);
+    assert!((m_fast - exact_fast).abs() < 1e-5, "moltres error {:e}", m_fast - exact_fast);
 }

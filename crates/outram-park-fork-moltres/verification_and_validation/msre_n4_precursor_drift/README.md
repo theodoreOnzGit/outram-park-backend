@@ -134,10 +134,33 @@ precursor drift → loss. It still depends on unreviewed moltres.
   Prince's own calculation (+0.010) and than this line model on his shapes
   (+0.017).
 - **What it rests on:** the importance proxy (scalar flux, not the fast
-  adjoint), plug flow, and TM-1626's residence times. The proxy is the
-  largest untested assumption. The difference from Prince's shapes
-  (−0.010 %) is the combined effect of our flux shape and the proxy, not
-  separated here.
+  adjoint), plug flow, and TM-1626's residence times. ~~The proxy is the
+  largest untested assumption.~~ **Tested 2026-11-10 (below).**
+
+**The importance proxy, tested.** The tally was rerun with an energy split
+at 0.625 eV, the conventional two-group thermal cutoff (TM-1626 gives no
+boundary), one seed (`data/n1_axial_tally_energy_split.csv`; seed 1
+reproduces k = 1.009476 and its total-flux loss 0.2196 % exactly). The
+same fission source with the **fast flux** (above 0.625 eV) as the
+importance (`MC_AXIAL_FAST`):
+
+| importance | loss (% δk/k) |
+|---|---|
+| total scalar flux (seeds 1–2) | 0.2191 |
+| **fast flux > 0.625 eV** (seed 1) | **0.2101** (moltres agrees to < 1e-5) |
+| measured | 0.212 ± 0.004 |
+
+- **The proxy carries −0.009 %:** the fast flux falls off more slowly into
+  the plenums, which raises their delayed neutrons' worth.
+- **Prediction** (posted on gh:#1130 before the run): 0 to −0.007 %, i.e.
+  0.212–0.219 %. The sign held; the magnitude is 0.002 beyond the band,
+  so the result is **just outside** it.
+- **Against the measurement: −0.002 ± 0.004 % (0.5σ).**
+- **Against Prince's Fig. 4:** his fast adjoint in the plenums (0.045–0.26)
+  sits well below this fast flux (0.17–0.34). That is why his shapes gave
+  0.2293 here. The comparison is between a fast *flux* and a fast
+  *adjoint*: they are not the same quantity, and neither is the true
+  importance.
 - **Plenums:** zeroing their importance gives 0.2530, so their delayed
   neutrons are worth 0.034 %, against 0.036 % on Prince's shapes.
 - An independent Python integrator (midpoint, `n4loss`-style) reproduces
