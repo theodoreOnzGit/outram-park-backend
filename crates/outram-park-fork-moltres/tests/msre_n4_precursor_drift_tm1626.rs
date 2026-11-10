@@ -129,6 +129,57 @@ const FIG4: [(f64, f64, f64); 26] = [
     (190.0, 0.008, 0.070),
 ];
 
+/// **Our own shape** (gh:#1130, 2026-11-10): the N-1 model's R-Z tally
+/// (`msre_n1_first_criticality --mo natural --seeds 1-2 --axial-csv`, arm C,
+/// RVS, 30P; `verification_and_validation/msre_n4_precursor_drift/data/n1_axial_tally.csv`)
+/// through `scripts/axial_shape.py`: fission per unit transit time (inner
+/// ring in the graphite, both rings in the plenums) and, as a one-group
+/// importance proxy, the scalar flux per unit volume inside the graphite
+/// radius. `(z cm, S_f, φ)` at bin centres, each normalised to 1.
+/// z_bottom -16.6124, z_core_top 162.5600, z_top 180.0030; seeds ['1', '2']
+const MC_AXIAL: [(f64, f64, f64); 40] = [
+    (-14.5358, 0.04484, 0.12797),
+    (-10.3828, 0.07199, 0.18728),
+    (-6.2297, 0.10749, 0.23832),
+    (-2.0766, 0.16044, 0.27702),
+    (2.5400, 0.24172, 0.34140),
+    (7.6200, 0.35668, 0.41386),
+    (12.7000, 0.45328, 0.48339),
+    (17.7800, 0.53702, 0.55118),
+    (22.8600, 0.60990, 0.61565),
+    (27.9400, 0.67454, 0.67575),
+    (33.0200, 0.73143, 0.73193),
+    (38.1000, 0.78604, 0.78378),
+    (43.1800, 0.83356, 0.83136),
+    (48.2600, 0.87516, 0.87357),
+    (53.3400, 0.91002, 0.90934),
+    (58.4200, 0.93871, 0.93794),
+    (63.5000, 0.96249, 0.96186),
+    (68.5800, 0.97940, 0.98108),
+    (73.6600, 0.99120, 0.99393),
+    (78.7400, 0.99781, 0.99996),
+    (83.8200, 1.00000, 1.00000),
+    (88.9000, 0.99359, 0.99402),
+    (93.9800, 0.98062, 0.98198),
+    (99.0600, 0.96187, 0.96352),
+    (104.1400, 0.94041, 0.94162),
+    (109.2200, 0.91152, 0.91173),
+    (114.3000, 0.87739, 0.87677),
+    (119.3800, 0.83406, 0.83530),
+    (124.4600, 0.78778, 0.78766),
+    (129.5400, 0.73636, 0.73644),
+    (134.6200, 0.67784, 0.68047),
+    (139.7000, 0.61494, 0.62131),
+    (144.7800, 0.54249, 0.55728),
+    (149.8600, 0.45972, 0.49144),
+    (154.9400, 0.36265, 0.42134),
+    (160.0200, 0.24569, 0.34887),
+    (164.7404, 0.16579, 0.28413),
+    (169.1011, 0.10934, 0.24210),
+    (173.4618, 0.07324, 0.18893),
+    (177.8226, 0.04539, 0.12876),
+];
+
 fn families() -> Vec<DelayedFamily> {
     TABLE1.iter().map(|&(beta, lambda)| DelayedFamily { beta, lambda }).collect()
 }
@@ -153,6 +204,13 @@ impl Shape {
     /// TM-1626 Fig. 4 and its region extents.
     fn prince() -> Shape {
         Shape { table: FIG4.to_vec(), z_bottom: Z_BOTTOM, z_core_top: Z_CORE_TOP, z_top: Z_TOP }
+    }
+
+    /// The N-1 Monte Carlo shape, [`MC_AXIAL`], with the model's own region
+    /// extents (cold dimensions: plenums of 10.0 and 10.5 ft³ in a 58 in
+    /// vessel, 64 in of graphite).
+    fn n1_monte_carlo() -> Shape {
+        Shape { table: MC_AXIAL.to_vec(), z_bottom: -16.6124, z_core_top: 162.56, z_top: 180.003 }
     }
 
     /// Linear interpolation in the table: `(S_f, φ†)` at `z` (cm).
@@ -337,4 +395,32 @@ fn n4_moltres_drift_against_exact_and_tm1626() {
     assert!(e2.abs() < 1e-5, "moltres error at N=10080: {e2:e}");
     let ratio = e1 / e2;
     assert!((3.0..5.0).contains(&ratio), "convergence ratio {ratio}");
+}
+
+/// **N-4 on our own shapes:** the same line model and moltres drift, driven
+/// by the N-1 Monte Carlo model's axial fission and flux ([`MC_AXIAL`])
+/// instead of TM-1626 Fig. 4. Verification gate as above (moltres within
+/// 1e-5 of the exact loss); the loss itself is reported, not gated.
+///
+/// **Result (2026-11-10, release build):** see the V&V README
+/// (`verification_and_validation/msre_n4_precursor_drift/README.md`) and
+/// gh:#1130.
+#[test]
+fn n4_on_the_n1_monte_carlo_shape() {
+    let sh = Shape::n1_monte_carlo();
+    let exact = exact_loss(&sh, 252_000, LowerPlenum::PlugFlow);
+    let stirred = exact_loss(&sh, 252_000, LowerPlenum::WellStirred);
+    let (m2, _) = moltres_loss(&sh, 10080, 1.0);
+    let mut no_plenum = sh.clone();
+    for row in no_plenum.table.iter_mut() {
+        if row.0 < 0.0 || row.0 > sh.z_core_top {
+            row.2 = 0.0;
+        }
+    }
+    let ablated = exact_loss(&no_plenum, 252_000, LowerPlenum::PlugFlow);
+    println!("N-4 on the N-1 Monte Carlo shape, loss in % dk/k");
+    println!("  exact, plug flow / well-stirred   {:.4} / {:.4}", exact * 100.0, stirred * 100.0);
+    println!("  moltres N = 10080                 {:.4} (error {:+.2e})", m2 * 100.0, m2 - exact);
+    println!("  plenum importance zeroed          {:.4}", ablated * 100.0);
+    assert!((m2 - exact).abs() < 1e-5, "moltres error {:e}", m2 - exact);
 }

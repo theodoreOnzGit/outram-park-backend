@@ -91,9 +91,65 @@ in 0.214–0.230 %.
   axial skew of the precursors toward the low-importance core top takes
   away.
 
+## On our own shapes (2026-11-10)
+
+The same line model and moltres drift, driven by the **N-1 Monte Carlo
+model's** axial shapes instead of TM-1626 Fig. 4
+(`n4_on_the_n1_monte_carlo_shape`). The chain is now: our MC model → our
+precursor drift → loss. It still depends on unreviewed moltres.
+
+**Method.**
+- `msre_n1_first_criticality --mo natural --seeds 1-2 --axial-csv`: arm C,
+  RVS, 30P, cold. Fission and flux on an R-Z mesh: r ∈ [0, R_graphite] and
+  [R_graphite, R_vessel], z in 4 + 32 + 4 bins through the plenums and the
+  graphite (`data/n1_axial_tally.csv`).
+- **Identity check:** scoring draws no random number, and both seeds
+  reproduce their recorded k (1.009476, 1.008513) exactly.
+- `scripts/axial_shape.py`:
+  - **source:** fission per unit transit time; inner ring only in the
+    graphite region (the outer ring there is gap, can and downcomer), both
+    rings in the plenums;
+  - **importance:** a one-group proxy, the scalar flux per unit volume
+    inside the graphite radius. Prince used the fast adjoint, so this is an
+    approximation.
+- **Region extents:** the model's own (cold): −16.61, 0, 162.56,
+  180.00 cm.
+- **Prediction** (posted on gh:#1130 before the run): 0.214–0.244 %,
+  probably toward the high end.
+
+| quantity | loss (% δk/k) |
+|---|---|
+| exact, lower plenum plug flow | **0.2191** |
+| exact, well-stirred lower plenum | 0.2209 |
+| moltres, N = 10080 | 0.2191 (error −4.8e-8) |
+| seed 1 / seed 2 shapes alone | 0.2196 / 0.2187 (statistical ±0.0005) |
+| plenum importance zeroed | 0.2530 |
+| *on Prince's shapes (above)* | *0.2293* |
+| *Prince, TM-1626 Eq. 14* | *0.222* |
+| **measured** | **0.212 ± 0.004** |
+
+- **Inside the prediction**, but at the low end, not the high end I
+  guessed: the thermal-flux proxy did not lower the plenums' worth.
+- **Against the measurement: +0.007 ± 0.004 % (+3 %, 1.8σ)**, closer than
+  Prince's own calculation (+0.010) and than this line model on his shapes
+  (+0.017).
+- **What it rests on:** the importance proxy (scalar flux, not the fast
+  adjoint), plug flow, and TM-1626's residence times. The proxy is the
+  largest untested assumption. The difference from Prince's shapes
+  (−0.010 %) is the combined effect of our flux shape and the proxy, not
+  separated here.
+- **Plenums:** zeroing their importance gives 0.2530, so their delayed
+  neutrons are worth 0.034 %, against 0.036 % on Prince's shapes.
+- An independent Python integrator (midpoint, `n4loss`-style) reproduces
+  0.2191 %.
+
+Runtime: the tally doubles transport time, 1722–1726 s per seed against
+about 790 s without it (4-core Intel Xeon, 4 threads, 15.7 GiB RAM, Linux,
+CPU only).
+
 **What is not covered:** moltres's own diffusion (no sourced MSRE
-constants), the U-233 loading (unsourced), and the flux shape itself, which
-is TM-1626's calculation, not ours.
+constants), the U-233 loading (unsourced), and ~~the flux shape itself, which
+is TM-1626's calculation, not ours~~ (the section above uses our own).
 
 Runtime: under 0.1 s for the whole test (4-core Intel Xeon, 15.7 GiB RAM,
 Linux, CPU only, single thread).
