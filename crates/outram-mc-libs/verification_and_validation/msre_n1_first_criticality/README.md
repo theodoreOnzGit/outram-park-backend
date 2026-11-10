@@ -386,6 +386,49 @@ Linux, CPU only).
   shield is the maintainer's call. A real reactor had it, so the model
   without it is missing a positive term of this size.
 
+### N-1 residual: the shield's steel against its water (2026-11-10, gh:#1128)
+
+**Ablation:** `--shield tm0728-drained` (`shield_materials_drained`).
+- The same cylinder and the same 304 plates.
+- The ball annulus keeps its iron at 6/14 volume, but its water is removed
+  (void). This splits the shield's +779 pcm between its steel and its water.
+- **This is a decomposition, not a candidate model.** The real shield is
+  water-filled.
+
+**Prediction** (posted on gh:#1128 before the run): the drained shield's shift
+against no shield is **+150 to +450 pcm**, so the water carries 330–630 pcm.
+The post said a drained shift at or above the full +779 pcm would mean the
+water is net-absorbing, and that I would record it as a miss.
+
+**Run:** arm C, RVS, 30P, cold, seeds 1–3: 1.02103, 1.02311, 1.02057 (each
+± 0.0006–0.0007). About 790 s per seed (4-core Intel Xeon, 4 threads,
+15.7 GiB RAM, Linux, CPU only).
+
+| model | k | vs k_ref | shift vs no shield |
+|---|---|---|---|
+| no shield (default, 6 seeds) | 1.00882 ± 0.00022 | +801 pcm | — |
+| shield, water-filled (3 seeds) | 1.01661 ± 0.00037 | +1581 pcm | +779 ± 43 pcm |
+| **shield, drained (3 seeds)** | **1.02157 ± 0.00078** | **+2075 pcm** | **+1275 ± 81 pcm** |
+
+- **A miss, on the side the post named.** The drained shield is worth more
+  than the full one. **The water is worth −496 ± 82 pcm (6σ)**, net
+  absorbing, against a predicted +330 to +630.
+- **What that says:** the shield's worth comes from its iron. Iron reflects
+  fast and epithermal neutrons back into the core. The water moderates some
+  of them and, I infer, captures more than it returns: H capture, and iron
+  capture of what thermalises there. That mechanism has not been checked with
+  a tally, and the measured fact is only the sign and size.
+- **What I got wrong:** I treated the water as a thermalising reflector in
+  front of the core. It is not in front of the core. It sits behind a 1 in
+  304 plate and amid 6/14 iron, both strong thermal absorbers, with a void
+  furnace annulus between it and the vessel.
+- **Consequence for the untested inputs above:** the steel fraction is now
+  the sensitive one. About 2/3 steel (from the 70 tons of balls) instead of
+  1/2 would likely raise the shield's worth further.
+- **Statistics:** the three seeds spread 0.00135 (sd), about twice their
+  internal σ. The quoted σ is the seed sem, as everywhere in this README.
+- **The default is not changed.**
+
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
 Salt density follows −1.18e-4 /°F (ORNL-4233 §4.1). Runs at 1131 °F and
