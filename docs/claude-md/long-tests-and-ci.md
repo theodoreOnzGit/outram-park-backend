@@ -113,12 +113,12 @@ maintainer disabled it on 2026-09-29 and chose this design (#414–#417):
 |---|---|---|---|
 | `develop` (push, PR) | `.github/workflows/fast-tests.yml` | **compile gate**: one `cargo test --release --no-run --lib --tests` over the TOP crates from `kovan-cli ci top-crates`, which builds every library once; then the **smoke set** in `ci/smoke-tests.toml` via `kovan-cli ci smoke --run`; on ubuntu, windows and macos | on (default features) |
 | `develop` | same file, `known-failures` job | `[[known_failure]]` entries by exact name, **allowed to fail** | — |
-| `main` | `.github/workflows/full-tests.yml` | `cargo test --workspace --lib --tests --release`, ~~**never registered, never run**~~ **CORRECTED 2026-10-29**: registered 2026-10-21, when the squash merge put `.github/workflows/` on `main` (GitHub's workflow list); its runs not re-checked | on |
+| `main` | `.github/workflows/full-tests.yml` | ~~`cargo test --workspace --lib --tests --release`~~ **CHANGED 2026-11-10 (gh:#1337)**: one job per crate, `cargo test -p <crate> --lib --tests --release --no-fail-fast`, via `per-crate-tests.yml` (see "One runner per crate" below), ~~**never registered, never run**~~ **CORRECTED 2026-10-29**: registered 2026-10-21, when the squash merge put `.github/workflows/` on `main` (GitHub's workflow list); ~~its runs not re-checked~~ **CORRECTED 2026-11-10**: its two runs failed (39549698983, 2026-10-21) and were cancelled at the 6-hour job limit (42136324698, 2026-11-06, still inside `outram-mc-libs`) | on |
 | `develop` (push, PR) | `.github/workflows/wasm-demos.yml` (added 2026-11-06, gh:#1304) | `scripts/check-wasm-demos.sh`: `cargo check --release --target wasm32-unknown-unknown` of every Pages demo example, the list read from the demos' own `crates/*/web/*/build.sh`; ~2 min warm on a 36-thread machine | — |
 | `web-deploy` (push), or `workflow_dispatch` | `.github/workflows/pages.yml` (deploy trigger moved from `develop` 2026-11-06, gh:#1306) | the Pages site in parallel jobs (docs, call graph, demos, assemble; gh:#1305) and, from `web-deploy` only, the deploy. **To deploy: merge or fast-forward `develop` into `web-deploy` and push it** (`git push origin develop:web-deploy`) | — |
-| *on request, any branch* | `.github/workflows/manual-tests.yml` | either, chosen by input | selectable |
+| *on request, any branch* | `.github/workflows/manual-tests.yml` | either, chosen by input; one job per crate since 2026-11-10 (gh:#1337), the `crate` input collapsing the matrix to one package | selectable |
 | daily, or a push to `ci-kovan/**` | `.github/workflows/kovan-daily.yml` (added 2026-10-11, #834) | kovan's three binaries built and the `--lib --tests` of `kovan`, `kovan-common` and `kovan-web`, on ubuntu, windows and macos; `kovan-web` built for wasm32. ~~**The daily schedule does not start until the file is on `main`.**~~ **CORRECTED 2026-10-29**: the file is on `main` and the schedule runs (scheduled runs 9–11, 2026-10-26 to 28, all failed; not investigated here) | on (default features) |
-| daily 00:00 Singapore, or a push to `ci-kovan-nightly/**` | `.github/workflows/kovan-nightly-tests.yml` (added 2026-10-29) | ~~`kovan-cli test` (the full workspace suite)~~ `kovan-cli test --pending-stamps` (only the reaching tests of the stamps pending a workspace test; maintainer, 2026-10-29, #1052) on `develop`, its `[targeted_run]` record committed to `develop` by github-actions[bot], ~~then `pages.yml` dispatched~~ (**CHANGED 2026-11-06**, gh:#1306: no dispatch; the record reaches the site with the next merge of `develop` into `web-deploy`), so stamps stop showing "pending workspace test". **Starts on schedule only once the file is on `main`; the push to `develop` needs GitHub Actions on the `develop` ruleset's bypass list.** Runtime on a GitHub runner not yet measured (6 h job cap) | on |
+| daily 00:00 Singapore, or a push to `ci-kovan-nightly/**` | `.github/workflows/kovan-nightly-tests.yml` (added 2026-10-29) | ~~`kovan-cli test` (the full workspace suite)~~ `kovan-cli test --pending-stamps` (only the reaching tests of the stamps pending a workspace test; maintainer, 2026-10-29, #1052) on `develop` (**CHANGED 2026-11-10, gh:#1337**: first `kovan-cli test -p <crate>` for every crate in its own job, each crate's `[test_run]` merged, then the targeted run for what is still pending), its `[targeted_run]` record committed to `develop` by github-actions[bot], ~~then `pages.yml` dispatched~~ (**CHANGED 2026-11-06**, gh:#1306: no dispatch; the record reaches the site with the next merge of `develop` into `web-deploy`), so stamps stop showing "pending workspace test". ~~**Starts on schedule only once the file is on `main`; the push to `develop` needs GitHub Actions on the `develop` ruleset's bypass list.** Runtime on a GitHub runner not yet measured (6 h job cap)~~ **CORRECTED 2026-11-10**: the file is on `main` and the schedule runs (2026-11-06 to 11-10, all green); since 2026-11-05 the record reaches `develop` by a pull request the job merges itself (the workflow header); each targeted run took 5 min and ran no test ("no stamp is pending"). The per-crate jobs are not yet measured | on |
 
 **Checked 2026-10-11:** `gh workflow list --all` reports `fast tests` as
 `disabled_manually`, so the two `develop` rows above describe a workflow that
@@ -157,6 +157,37 @@ git push -f origin develop:ci-run/develop     # full suite, develop's exact tree
 Force-push is expected — `ci-run/**` branches are disposable triggers, never
 merged from, safe to delete. The pattern excludes `develop` and `main` so it
 cannot fire on ordinary work.
+
+### One runner per crate for the long tier (gh:#1337, 2026-11-10)
+
+**Maintainer, 2026-11-10: "each crate should have its own runner, it's
+running out on 6 hrs".** A GitHub-hosted job is killed at 6 hours, and the
+whole-workspace long tier in one job no longer fits (run 42136324698:
+compiled 32 min, tested 5 h 28 min, cancelled inside `outram-mc-libs`).
+`full-tests.yml`, `manual-tests.yml` and `kovan-nightly-tests.yml` now all
+call one reusable workflow, `.github/workflows/per-crate-tests.yml`:
+
+| job | what it does |
+|---|---|
+| `setup` | `scripts/ci-crate-matrix.sh` turns `cargo metadata`'s workspace members into a JSON matrix; fixes the commit every job tests; in kovan-record mode builds `kovan-cli` once |
+| `test` (one per entry) | `cargo test -p <crate> --lib --tests --release --no-fail-fast`, long tests on, `fail-fast: false`, `max-parallel: 16`, 6 h each, cache keyed per crate, a `result-<id>` artifact (status, pass/fail/ignore counts, failing test names, minutes) |
+| `summary` | `if: always()`: one table of every entry in the job summary; red if any entry failed, timed out or never reported |
+
+- **The crate list is not written anywhere.** It is the workspace members, so
+  a new crate is tested the moment it joins. Nothing is excluded (the
+  workflows it replaces ran `--workspace`).
+- **A crate that alone is too close to 6 h is split by test target**: one job
+  for `--lib` plus one per other target `--tests` would run, generated from
+  `cargo metadata`. The opt-in list, with the evidence for each entry, is
+  `ci/split-by-target.txt` (2026-11-10: `outram-mc-libs`,
+  `outram-park-fork-liggghts`; 198 jobs in all). Splitting is by test
+  binary, so it cannot help a crate whose slow tests all sit in `--lib`
+  (`tuas_boussinesq_solver`).
+- **Feature resolution is per crate.** `cargo test -p X` resolves features for
+  X alone, where `--workspace` unified them. A crate that fails only here does
+  not build on its own: a defect of the crate, not of CI.
+- **Locally:** `scripts/ci-crate-matrix.sh --summary` prints the matrix;
+  `--package <crate>` and `--scope fast` narrow it as the workflow does.
 
 **Not yet enabled, deliberately:** `OUTRAM_PARK_REQUIRE_REFERENCE_DATA=1` on
 the full job, which turns a data-skip into a hard failure. Whether the whole
