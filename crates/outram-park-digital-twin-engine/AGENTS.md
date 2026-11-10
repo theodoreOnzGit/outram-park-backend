@@ -94,10 +94,21 @@ and the app scaffold.~~ **CORRECTED 2026-09-29** — checked against `src/`:
   with a test that reproduces its published value (bead `op-jyyp`). It is the
   sanctioned exception, and its rule is its own module doc's: nothing uncited
   goes in, and no solver loop or transient model goes in.
+- **`ebr2/`** (since 2026-11-10, gh:#1331) holds cited EBR-II SHRT-17 /
+  SHRT-45R benchmark data **and a lumped stepping model** (`ebr2::model::
+  Ebr2Model`). It is a second maintainer-directed exception, with a wider
+  scope than `htr10`'s: the maintainer asked for EBR-II "in library so I can
+  build web simulations from the outram-park metacrate" (2026-11-10). Its
+  rules are in its module doc:
+  - every number is cited, derived and labelled, or a required caller input;
+  - the coupling is derived and run uncalibrated;
+  - status NOT VALIDATED;
+  - V&V record in `docs/ebr2_library.md`.
 - `headless/`, `ascii/` (since 2026-11-02 in `bugis`, re-exported here) and the OPC-UA layers (`opcua_core`, `ciet_opcua`,
   `htgr_opcua`) are infrastructure, not physics.
 
-The rule itself stands: no *model* physics in `src/`.
+The rule itself stands: no *model* physics in `src/`, except where the
+maintainer has directed it for a named module (`ebr2/`, 2026-11-10).
 
 The examples are the exception — `examples/htgr_sim_v1/physics/` is that
 simulator's *own* lumped plant model, which is allowed to own its correlations.
@@ -384,6 +395,7 @@ fall under it too.
 | `components/` | One file per visual process object, each composing its physics counterpart plus visual-only fields and an `egui::Widget` impl. ~~**MOVED 2026-11-02 (gh:#1112)** to `bugis::components` (feature `widgets`), re-exported here by `src/components/mod.rs`. Only `excursion.rs` stays here, because it reads `htr10::design`'s cited fuel-temperature limits (physics data).~~ **CORRECTED 2026-11-05** (maintainers: "bugis should be standalone"; "widget art can live in bugis, the combination of logic and art can live inside the digital twin engine"): the widget library is split. The art stays in `bugis::components` and is re-exported here; the widgets that hold a physics component (`PipeVisual`, `PipeComponent`, `ValveVisual`, `ReactorVesselVisual`, `CondenserVisual`, `CoolingTowerVisual`, `HeatExchangerVisual`, `PumpVisual`, `SteamGeneratorVisual`, `TurbineVisual`) and `ReactorArchetypeKinetics` / `HeatExchangerKindArrangement` live here, beside `excursion.rs`, and draw through bugis's `*Art` types. bugis depends on no physics crate. |
 | `app_scaffold/` | `SharedState`, monitored physics threads, panel dispatch, crash modal. **MOVED 2026-11-02 (gh:#1112)** to `bugis::app_scaffold` (feature `app_scaffold`), re-exported here as `app_scaffold` (ungated, as before); `src/app_scaffold/` keeps only the kovan review records. |
 | `htr10/` | Cited HTR-10 design constants and packed-bed correlations (`design`, `kta`, `zbs`, `neutronics`), each with a test against its published value. GUI-free and not target-gated. Not validated. |
+| `ebr2/` | Cited EBR-II SHRT-17 / SHRT-45R data (`design`, `shrt`, `kinetics`, `pump`) and `model::Ebr2Model`: point kinetics and fast-reactor feedback (`teh-o-prke`, a normal dependency since 2026-11-10), a lumped fuel / core / IHX / pool model with TUAS sodium, stepped by `step(dt)` for web simulations (gh:#1331). GUI-free, not target-gated, builds for wasm32. `csv_equality` pins the data to `reference-data/ebr2/`. Not validated; V&V in `docs/ebr2_library.md`. |
 | `headless/` | Drives a simulator with no GUI, window or thread (the headless rule below, gh #150). |
 | `multifidelity/` | HF → LF model mapping (epic gh:#1177). `double_pipe` (gh:#1178): the double-pipe CFD (`outram-foam-appbuilder-lib`, a normal dependency since 2026-11-03) and the TUAS 1-D exchanger at the same design points, closures read off the CFD, the committed dataset, the rung-3 `evaluate(&x, &θ)`. Since 2026-11-04 (gh:#1194) `double_pipe::fidelity` adapts it to `raffles::fidelity` (`TuasOneD: ParametricModel`, `committed_dataset()` as a `Dataset` with its stored split); `raffles` is a normal dependency for it. Since 2026-11-04 (gh:#1190) `double_pipe::lf_grid` runs the 1-D model at nominal θ on a 375-point grid (committed `lf_grid.csv`) and `double_pipe::cokriging` pairs it with the CFD as a `MultiFidelityDataset` for SMT's MFK. Since 2026-11-04 (gh:#1181) `cokriging::SweepAxes::full_factorial` and `cokriging::sweep` are the design-sweep API (uom-typed axes in, `Prediction`s in order out); the gh:#1182 demo's grid and its MFK artefact go through them. Since 2026-11-04 (gh:#1180) `double_pipe::koh` calibrates θ by Kennedy–O'Hagan (`raffles::fidelity::koh`) on the CFD's training UA, through `one_d::ua` (TUAS's UA without the march, bit-identical to the marched UA). Since 2026-11-04 (gh:#1191) `double_pipe::filtering` tracks a synthetic drifting wall resistance from noisy outlet temperatures with `raffles::filtering`'s FilterPy ports, through `raffles::fidelity::StateSpaceModel` (truth: the CFD's own Nusselt numbers, TUAS conductances via `one_d::ua_with_nusselt`, ε-NTU; synthetic data only). Since 2026-11-04 (gh:#1192) `double_pipe::openda` runs `raffles::openda`'s OpenDA EnKF on the same twin experiment (`FilterKind::OpenDaEnsemble`) and OpenDA's DUD on the CFD training UA beside gh:#1180's KOH posterior (record `verification_and_validation/double_pipe_openda_gh1192.md`). **Infrastructure under the "no new physics" rule:** it builds and runs other crates' models and tabulates their outputs; every correlation and equation it evaluates is TUAS's, the foam crates' or dwsim-libs'. A new closure *model* (a correlation) belongs in the model's crate, not here. |
 | `ascii/` | Renders 2-D schematic geometry to a character grid, so a diagram can be checked by a test or an agent. **MOVED 2026-11-02 (gh:#1112)** to `bugis::ascii` (feature `ascii`), re-exported here as `ascii`. |
