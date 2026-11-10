@@ -8,7 +8,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
-//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X]
+//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730]
 //! ```
 //!
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
@@ -52,18 +52,34 @@ fn flag(args: &[String], name: &str) -> Option<String> {
     args.iter().position(|a| a == name).and_then(|i| args.get(i + 1).cloned())
 }
 
-fn draw(dir: &PathBuf, dims: m::Dims) {
+fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends) {
     std::fs::create_dir_all(dir).expect("plot dir");
-    let g = m::geometry_with_dims(m::TEMPERATURE_K, m::TEMPERATURE_K, dims);
+    let g = m::geometry_with_ends(m::TEMPERATURE_K, m::TEMPERATURE_K, dims, ends);
     let hot = dims != m::Dims::COLD;
-    let mats = m::materials(m::MoTreatment::Omitted);
-    let colours = [Rgb::new(220, 60, 40), Rgb::new(70, 70, 70), Rgb::new(160, 160, 200), Rgb::new(240, 170, 40)];
+    let tm0730 = ends == m::Ends::Tm0730;
+    let mats = m::materials_with_ends(m::MoTreatment::Omitted, m::REFERENCE_TEMPERATURE_F, dims);
+    let colours = [
+        Rgb::new(220, 60, 40),
+        Rgb::new(70, 70, 70),
+        Rgb::new(160, 160, 200),
+        Rgb::new(240, 170, 40),
+        Rgb::new(150, 90, 60),
+        Rgb::new(240, 120, 90),
+        Rgb::new(200, 100, 160),
+        Rgb::new(90, 140, 90),
+        Rgb::new(120, 60, 140),
+    ];
     let labels: Vec<String> = mats.iter().map(|(n, _)| n.to_ascii_uppercase()).collect();
     let palette: Vec<(Rgb, &str)> = colours.iter().zip(&labels).map(|(c, l)| (*c, l.as_str())).collect();
     let mid = m::H_CORE / 2.0;
     let o = m::OPENING_OFFSET;
-    let z_top = m::H_CORE + m::upper_plenum_height() + m::T_HEAD;
-    let z_bot = -m::lower_plenum_height() - m::T_HEAD;
+    let (up, lo) = if tm0730 {
+        (m::TM0730_TOP_HEIGHT_IN * m::INCH, m::TM0730_BOTTOM.iter().map(|x| x.1).sum::<f64>() * m::INCH)
+    } else {
+        (m::upper_plenum_height(), m::lower_plenum_height())
+    };
+    let z_top = m::H_CORE + up + m::T_HEAD;
+    let z_bot = -lo - m::T_HEAD;
     let slices: [(&str, Position, PlotBasis, [f64; 2], &str); 5] = [
         ("msre_n1_xy_core", Position::new(0.0, 0.0, mid), PlotBasis::Xy, [160.0, 160.0],
          "MSRE N-1 FULL CORE, X-Y AT MID-HEIGHT Z = 81.28 CM: 55.25 IN GRAPHITE, CAN, DOWNCOMER, VESSEL"),
@@ -88,8 +104,9 @@ fn draw(dir: &PathBuf, dims: m::Dims) {
             meshlines: None,
         };
         let title = if hot { format!("{title} [HOT DIMENSIONS, 1181 F]") } else { title.to_string() };
+        let title = if tm0730 { format!("{title} [TM-0730 END REGIONS]") } else { title };
         let (_raw, img) = render_material_slice(&g, &plot, &palette, &title);
-        let path = dir.join(format!("{stem}{}.png", if hot { "_hot" } else { "" }));
+        let path = dir.join(format!("{stem}{}{}.png", if hot { "_hot" } else { "" }, if tm0730 { "_tm0730" } else { "" }));
         img.write_png(&path).expect("write png");
         eprintln!("  drew {}", path.display());
     }
@@ -100,6 +117,13 @@ fn main() {
     // `--hot-dims`: graphite and INOR-8 expanded from 70 F to the run
     // temperature (TM-0728 §5.3 coefficients; N-1 residual, gh:#1128).
     let hot_dims = args.iter().any(|a| a == "--hot-dims");
+    // `--ends tm0730`: ORNL-TM-0730 Table 3.1's homogenised end regions in
+    // place of the volume-equivalent salt plenums (N-1 residual, gh:#1128).
+    let ends = match flag(&args, "--ends").as_deref().unwrap_or("volume") {
+        "volume" => m::Ends::VolumeEquivalent,
+        "tm0730" => m::Ends::Tm0730,
+        other => panic!("--ends must be volume|tm0730, got {other}"),
+    };
     let graphite_law = flag(&args, "--graphite-law").unwrap_or_else(|| "30p".to_string());
     let axial_csv: Option<PathBuf> = flag(&args, "--axial-csv").map(PathBuf::from);
     if let Some(d) = flag(&args, "--draw") {
@@ -108,7 +132,7 @@ fn main() {
         } else {
             m::Dims::COLD
         };
-        draw(&PathBuf::from(d), dims);
+        draw(&PathBuf::from(d), dims, ends);
         return;
     }
     let mo = match flag(&args, "--mo").as_deref().unwrap_or("omitted") {
@@ -143,7 +167,10 @@ fn main() {
     } else {
         m::Dims::COLD
     };
-    let mut mats = m::materials_with_dims(mo, salt_f, dims);
+    let mut mats = match ends {
+        m::Ends::VolumeEquivalent => m::materials_with_dims(mo, salt_f, dims),
+        m::Ends::Tm0730 => m::materials_with_ends(mo, salt_f, dims),
+    };
     // `--li7-atom-percent X`: re-split the salt's lithium (total unchanged)
     // to X % Li-7. The default keeps TM-0728's 99.99 %; TM-0730 quotes
     // 99.9926 % (Table 3.2 footnote) and 99.997 % (survey), gh:#1128. The
@@ -254,8 +281,8 @@ fn main() {
     let hw = outram_mc_libs::perf_report::HardwareInfo::detect().headline();
     eprintln!("  nuclear data ready in {load_s:.1} s ({} nuclides); hardware: {hw}; threads {threads}", names.len());
 
-    let g = m::geometry_with_dims(t_k, t_g, dims);
-    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str();
+    let g = m::geometry_with_ends(t_k, t_g, dims, ends);
+    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" };
     let new_file = !csv.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&csv).expect("csv");
     if new_file {

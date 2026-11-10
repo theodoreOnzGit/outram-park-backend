@@ -451,6 +451,68 @@ pub fn materials_with_dims(mo: MoTreatment, t_f: f64, d: Dims) -> Vec<(&'static 
     m
 }
 
+/// How the regions above and below the graphite are represented.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ends {
+    /// Every record so far: each head is a pure-salt plenum of the vessel's
+    /// inner radius holding TM-0728 Table 5.4's volume.
+    VolumeEquivalent,
+    /// ORNL's own axial end regions, ORNL-TM-0730 Table 3.1 (the 20-region
+    /// R-Z model, PDF p. 26): homogenised layers above the graphite (H, G, E,
+    /// then the salt head D, 10.33 in in all) and below it (O, the support
+    /// grid, then the bottom head P, 9.14 in in all), with Table 3.1's fuel /
+    /// graphite / INOR-8 volume fractions and thicknesses, anchored at this
+    /// model's graphite faces. Radially each layer fills the vessel; Table
+    /// 3.1's r < 3 in sub-regions are not represented.
+    Tm0730,
+}
+
+/// TM-0730 Table 3.1's axial end layers: `(name, thickness in., fuel,
+/// graphite, INOR-8)` volume fractions. Above the graphite, upward: H, G, E;
+/// the head D (pure salt) fills the rest to 10.33 in. Below it, downward:
+/// O, then the bottom head P.
+pub const TM0730_TOP: [(&str, f64, f64, f64, f64); 3] = [
+    ("H", 0.94, 0.633, 0.365, 0.002),
+    ("G", 0.69, 0.946, 0.054, 0.0),
+    ("E", 1.25, 0.937, 0.035, 0.028),
+];
+/// Height of TM-0730's salt above the graphite top, 74.92 - 64.59 in.
+pub const TM0730_TOP_HEIGHT_IN: f64 = 74.92 - 64.59;
+/// TM-0730's layers below the graphite, downward: O (support grid), P (bottom head).
+pub const TM0730_BOTTOM: [(&str, f64, f64, f64, f64); 2] = [
+    ("O", 1.41, 0.669, 0.153, 0.178),
+    ("P", 7.73, 0.908, 0.0, 0.092),
+];
+/// Material indices of the TM-0730 end mixes in [`materials_with_ends`]:
+/// H, G, E, O, P, after the four standard materials.
+pub const END_MIX_IDX: [usize; 5] = [4, 5, 6, 7, 8];
+
+/// [`materials_with_dims`] plus the five TM-0730 end mixes (H, G, E, O, P),
+/// each a volume-fraction blend of the salt, graphite and INOR-8 above.
+pub fn materials_with_ends(mo: MoTreatment, t_f: f64, d: Dims) -> Vec<(&'static str, Vec<(&'static str, f64)>)> {
+    let mut m = materials_with_dims(mo, t_f, d);
+    let (salt, graphite, inor) = (m[SALT_IDX].1.clone(), m[GRAPHITE_IDX].1.clone(), m[INOR8_IDX].1.clone());
+    let names = ["TM-0730 end H", "TM-0730 end G", "TM-0730 end E", "TM-0730 end O", "TM-0730 end P"];
+    let fracs: Vec<(f64, f64, f64)> =
+        TM0730_TOP.iter().chain(TM0730_BOTTOM.iter()).map(|&(_, _, f, g, i)| (f, g, i)).collect();
+    for (name, (ff, fg, fi)) in names.into_iter().zip(fracs) {
+        let mut mix: Vec<(&'static str, f64)> = Vec::new();
+        for (w, comps) in [(ff, &salt), (fg, &graphite), (fi, &inor)] {
+            for &(n, dens) in comps.iter() {
+                if w == 0.0 {
+                    continue;
+                }
+                match mix.iter_mut().find(|(k, _)| *k == n) {
+                    Some(e) => e.1 += w * dens,
+                    None => mix.push((n, w * dens)),
+                }
+            }
+        }
+        m.push((name, mix));
+    }
+    m
+}
+
 /// The stringer universe's cells, appended to `surfaces` and `cells`: four
 /// half-stadium passages (salt) and the graphite around them. Returns the
 /// cell indices.
@@ -527,6 +589,13 @@ pub fn geometry_at_split(t_salt_k: f64, t_graphite_k: f64) -> Geometry {
 /// hot dimensions, gh:#1128). `Dims::COLD` builds the cold geometry
 /// unchanged, which `tests::cold_dims_build_the_recorded_geometry` pins.
 pub fn geometry_with_dims(t_salt_k: f64, t_graphite_k: f64, d: Dims) -> Geometry {
+    geometry_with_ends(t_salt_k, t_graphite_k, d, Ends::VolumeEquivalent)
+}
+
+/// [`geometry_with_dims`] with a choice of end regions ([`Ends`]).
+/// `Ends::Tm0730` needs [`materials_with_ends`] (its mixes are materials
+/// 4-8). `Ends::VolumeEquivalent` builds exactly [`geometry_with_dims`].
+pub fn geometry_with_ends(t_salt_k: f64, t_graphite_k: f64, d: Dims, ends: Ends) -> Geometry {
     let t_k = t_salt_k;
     let (g, i8) = (d.graphite, d.inor8);
     let t = BoundaryType::Transmissive;
@@ -542,7 +611,13 @@ pub fn geometry_with_dims(t_salt_k: f64, t_graphite_k: f64, d: Dims) -> Geometry
     let r_vessel_in = R_VESSEL_IN * i8;
     let plenum = |v_head: f64| (v_head * i8 * i8 * i8) / (core::f64::consts::PI * r_vessel_in * r_vessel_in);
     let h_core = H_CORE * g;
-    let (z_lp, z_up) = (-plenum(V_LOWER_HEAD), h_core + plenum(V_UPPER_HEAD));
+    let (z_lp, z_up) = match ends {
+        Ends::VolumeEquivalent => (-plenum(V_LOWER_HEAD), h_core + plenum(V_UPPER_HEAD)),
+        Ends::Tm0730 => {
+            let bottom: f64 = TM0730_BOTTOM.iter().map(|x| x.1).sum();
+            (-bottom * INCH * i8, h_core + TM0730_TOP_HEIGHT_IN * INCH * i8)
+        }
+    };
     let r_g = add(zcyl(0.0, 0.0, R_GRAPHITE * g, t));
     let r_ci = add(zcyl(0.0, 0.0, R_CAN_IN * i8, t));
     let r_co = add(zcyl(0.0, 0.0, R_CAN_OUT * i8, t));
@@ -594,11 +669,36 @@ pub fn geometry_with_dims(t_salt_k: f64, t_graphite_k: f64, d: Dims) -> Geometry
         root.push(mat(id, all_of(&c), m));
     }
     // Plenums.
-    root.push(mat(60, all_of(&[hs(r_vi, true), hs(zl, false), hs(z0, true)]), SALT_IDX));
-    let mut upper = vec![hs(r_vi, true)];
-    upper.extend(plenum_up_z.iter().cloned());
-    upper.extend(thimbles_out.iter().map(|&o| hs(o, false)));
-    root.push(mat(61, all_of(&upper), SALT_IDX));
+    match ends {
+        Ends::VolumeEquivalent => {
+            root.push(mat(60, all_of(&[hs(r_vi, true), hs(zl, false), hs(z0, true)]), SALT_IDX));
+            let mut upper = vec![hs(r_vi, true)];
+            upper.extend(plenum_up_z.iter().cloned());
+            upper.extend(thimbles_out.iter().map(|&o| hs(o, false)));
+            root.push(mat(61, all_of(&upper), SALT_IDX));
+        }
+        Ends::Tm0730 => {
+            // Below: P from the head plate up to O, O up to the graphite.
+            let z_o = -TM0730_BOTTOM[0].1 * INCH * i8;
+            let zo = add(SurfaceKind::ZPlane(ZPlane { z0: z_o, bc: t }));
+            root.push(mat(60, all_of(&[hs(r_vi, true), hs(zl, false), hs(zo, true)]), END_MIX_IDX[4]));
+            root.push(mat(62, all_of(&[hs(r_vi, true), hs(zo, false), hs(z0, true)]), END_MIX_IDX[3]));
+            // Above: H, G, E, then the salt head D, each around the thimbles.
+            let mut lo = zt;
+            let mut z = h_core;
+            for (k, layer) in TM0730_TOP.iter().enumerate() {
+                z += layer.1 * INCH * i8;
+                let hi = add(SurfaceKind::ZPlane(ZPlane { z0: z, bc: t }));
+                let mut c = vec![hs(r_vi, true), hs(lo, false), hs(hi, true)];
+                c.extend(thimbles_out.iter().map(|&o| hs(o, false)));
+                root.push(mat(63 + k as i32, all_of(&c), END_MIX_IDX[k]));
+                lo = hi;
+            }
+            let mut c = vec![hs(r_vi, true), hs(lo, false), hs(zu, true)];
+            c.extend(thimbles_out.iter().map(|&o| hs(o, false)));
+            root.push(mat(61, all_of(&c), SALT_IDX));
+        }
+    }
     // Vessel wall and heads.
     root.push(mat(70, all_of(&[hs(r_vi, false), hs(r_vo, true), hs(zl, false), hs(zu, true)]), INOR8_IDX));
     root.push(mat(71, all_of(&[hs(r_vo, true), hs(zlb, false), hs(zl, true)]), INOR8_IDX));
@@ -735,6 +835,24 @@ mod tests {
         let g3 = d.graphite * d.graphite * d.graphite;
         assert!((hot[GRAPHITE_IDX].1[0].1 * g3 / GRAPHITE[0].1 - 1.0).abs() < 1e-12);
         assert_eq!(materials_with_dims(MoTreatment::Omitted, 1181.0, Dims::COLD), materials_at(MoTreatment::Omitted, 1181.0));
+    }
+
+    /// The TM-0730 ends: the default build is untouched, the variant adds
+    /// the five mixes, and its salt height above the graphite is Table 3.1's.
+    #[test]
+    fn tm0730_ends_build_beside_the_default() {
+        assert_eq!(
+            format!("{:?}", geometry_with_ends(911.0, 950.0, Dims::COLD, Ends::VolumeEquivalent)),
+            format!("{:?}", geometry_at_split(911.0, 950.0))
+        );
+        let m = materials_with_ends(MoTreatment::Natural, 1181.0, Dims::COLD);
+        assert_eq!(m.len(), 9);
+        // H is 63.3 % salt: its Li-7 is 0.633 of the salt's.
+        let li7 = |v: &Vec<(&str, f64)>| v.iter().find(|e| e.0 == "Li7").map(|e| e.1).unwrap_or(0.0);
+        assert!((li7(&m[END_MIX_IDX[0]].1) / li7(&m[SALT_IDX].1) - 0.633).abs() < 1e-12);
+        let g = geometry_with_ends(TEMPERATURE_K, TEMPERATURE_K, Dims::COLD, Ends::Tm0730);
+        let n_mix = g.cells.iter().filter(|c| matches!(c.fill, CellFill::Material(i) if i >= 4)).count();
+        assert_eq!(n_mix, 5);
     }
 
     #[test]
