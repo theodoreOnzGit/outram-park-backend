@@ -401,15 +401,66 @@ fn zcyl(x0: f64, y0: f64, r: f64, bc: BoundaryType) -> SurfaceKind {
     SurfaceKind::ZCylinder(ZCylinder { x0, y0, r, bc })
 }
 
+/// Linear scale factors applied to the cold (as-drawn) dimensions: one for
+/// everything graphite, one for everything INOR-8. Both 1.0 is the cold
+/// geometry every N-1 and N-3 record used.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Dims {
+    /// Graphite: stringer pitch and passages, core radius and height, the
+    /// openings' offsets and radius.
+    pub graphite: f64,
+    /// INOR-8: core can, vessel, heads, thimbles; the head volumes scale with
+    /// its cube.
+    pub inor8: f64,
+}
+
+/// Graphite's mean expansion coefficient, the middle of TM-0728 §5.3's
+/// "1.3 to 1.7 × 10⁻⁶ in./in.-°F" \[1/°F\].
+pub const GRAPHITE_EXPANSION_PER_F: f64 = 1.5e-6;
+/// INOR-8's, "7.8 × 10⁻⁶ in./in.-°F (in the 70-1200°F range)", the same
+/// passage of TM-0728 §5.3 (Table 2.2 gives 8.0 × 10⁻⁶ over 70-1300 °F)
+/// \[1/°F\].
+pub const INOR8_EXPANSION_PER_F: f64 = 7.8e-6;
+/// The temperature the drawings' dimensions hold at \[°F\].
+pub const COLD_TEMPERATURE_F: f64 = 70.0;
+
+impl Dims {
+    /// The cold, as-drawn dimensions.
+    pub const COLD: Dims = Dims { graphite: 1.0, inor8: 1.0 };
+
+    /// Dimensions at `t_f` (°F) with the given expansion coefficients
+    /// (1/°F), from [`COLD_TEMPERATURE_F`].
+    pub fn hot(t_f: f64, graphite_per_f: f64, inor8_per_f: f64) -> Dims {
+        let dt = t_f - COLD_TEMPERATURE_F;
+        Dims { graphite: 1.0 + graphite_per_f * dt, inor8: 1.0 + inor8_per_f * dt }
+    }
+}
+
+/// [`materials_at`] with the solid densities thinned to match `d`:
+/// graphite by `1/d.graphite³`, INOR-8 by `1/d.inor8³` (mass conserved as the
+/// parts expand). The homogenised sample basket is left as it is (its volume
+/// is a few hundred cm³).
+pub fn materials_with_dims(mo: MoTreatment, t_f: f64, d: Dims) -> Vec<(&'static str, Vec<(&'static str, f64)>)> {
+    let mut m = materials_at(mo, t_f);
+    for (idx, scale) in [(GRAPHITE_IDX, d.graphite), (INOR8_IDX, d.inor8)] {
+        let f = 1.0 / (scale * scale * scale);
+        for e in m[idx].1.iter_mut() {
+            e.1 *= f;
+        }
+    }
+    m
+}
+
 /// The stringer universe's cells, appended to `surfaces` and `cells`: four
 /// half-stadium passages (salt) and the graphite around them. Returns the
 /// cell indices.
-fn stringer_cells(surfaces: &mut Vec<SurfaceKind>, cells: &mut Vec<Cell>, t_salt_k: f64, t_graphite_k: f64) -> Vec<usize> {
+fn stringer_cells(surfaces: &mut Vec<SurfaceKind>, cells: &mut Vec<Cell>, t_salt_k: f64, t_graphite_k: f64, d: Dims) -> Vec<usize> {
     let t = BoundaryType::Transmissive;
-    let h = PITCH / 2.0;
-    let floor = h - PASSAGE_HALF_DEPTH;
-    let a = PASSAGE_HALF_FLAT;
-    let r = PASSAGE_END_RADIUS;
+    let g = d.graphite;
+    let h = PITCH * g / 2.0;
+    let floor = h - PASSAGE_HALF_DEPTH * g;
+    let a = PASSAGE_HALF_FLAT * g;
+    let r = PASSAGE_END_RADIUS * g;
     let mut add = |s: SurfaceKind| {
         surfaces.push(s);
         surfaces.len() - 1
@@ -469,34 +520,45 @@ pub fn geometry_at(t_k: f64) -> Geometry {
 /// cell (salt, INOR-8, the basket) at `t_salt_k`: the fuel/graphite split
 /// of the temperature coefficient (MSRE N-3, gh:#1129).
 pub fn geometry_at_split(t_salt_k: f64, t_graphite_k: f64) -> Geometry {
+    geometry_with_dims(t_salt_k, t_graphite_k, Dims::COLD)
+}
+
+/// [`geometry_at_split`] with the dimensions scaled by `d` (N-1 residual,
+/// hot dimensions, gh:#1128). `Dims::COLD` builds the cold geometry
+/// unchanged, which `tests::cold_dims_build_the_recorded_geometry` pins.
+pub fn geometry_with_dims(t_salt_k: f64, t_graphite_k: f64, d: Dims) -> Geometry {
     let t_k = t_salt_k;
+    let (g, i8) = (d.graphite, d.inor8);
     let t = BoundaryType::Transmissive;
     let v = BoundaryType::Vacuum;
     let mut surfaces: Vec<SurfaceKind> = Vec::new();
     let mut cells: Vec<Cell> = Vec::new();
-    let stringer = stringer_cells(&mut surfaces, &mut cells, t_salt_k, t_graphite_k);
+    let stringer = stringer_cells(&mut surfaces, &mut cells, t_salt_k, t_graphite_k, d);
 
     let mut add = |s: SurfaceKind| {
         surfaces.push(s);
         surfaces.len() - 1
     };
-    let (z_lp, z_up) = (-lower_plenum_height(), H_CORE + upper_plenum_height());
-    let r_g = add(zcyl(0.0, 0.0, R_GRAPHITE, t));
-    let r_ci = add(zcyl(0.0, 0.0, R_CAN_IN, t));
-    let r_co = add(zcyl(0.0, 0.0, R_CAN_OUT, t));
-    let r_vi = add(zcyl(0.0, 0.0, R_VESSEL_IN, t));
-    let r_vo = add(zcyl(0.0, 0.0, R_VESSEL_OUT, v));
+    let r_vessel_in = R_VESSEL_IN * i8;
+    let plenum = |v_head: f64| (v_head * i8 * i8 * i8) / (core::f64::consts::PI * r_vessel_in * r_vessel_in);
+    let h_core = H_CORE * g;
+    let (z_lp, z_up) = (-plenum(V_LOWER_HEAD), h_core + plenum(V_UPPER_HEAD));
+    let r_g = add(zcyl(0.0, 0.0, R_GRAPHITE * g, t));
+    let r_ci = add(zcyl(0.0, 0.0, R_CAN_IN * i8, t));
+    let r_co = add(zcyl(0.0, 0.0, R_CAN_OUT * i8, t));
+    let r_vi = add(zcyl(0.0, 0.0, r_vessel_in, t));
+    let r_vo = add(zcyl(0.0, 0.0, R_VESSEL_OUT * i8, v));
     let z0 = add(SurfaceKind::ZPlane(ZPlane { z0: 0.0, bc: t }));
-    let zt = add(SurfaceKind::ZPlane(ZPlane { z0: H_CORE, bc: t }));
+    let zt = add(SurfaceKind::ZPlane(ZPlane { z0: h_core, bc: t }));
     let zl = add(SurfaceKind::ZPlane(ZPlane { z0: z_lp, bc: t }));
     let zu = add(SurfaceKind::ZPlane(ZPlane { z0: z_up, bc: t }));
-    let zlb = add(SurfaceKind::ZPlane(ZPlane { z0: z_lp - T_HEAD, bc: v }));
-    let zut = add(SurfaceKind::ZPlane(ZPlane { z0: z_up + T_HEAD, bc: v }));
-    let openings: Vec<usize> = OPENINGS.iter().map(|&(x, y)| add(zcyl(x, y, R_OPENING, t))).collect();
+    let zlb = add(SurfaceKind::ZPlane(ZPlane { z0: z_lp - T_HEAD * i8, bc: v }));
+    let zut = add(SurfaceKind::ZPlane(ZPlane { z0: z_up + T_HEAD * i8, bc: v }));
+    let openings: Vec<usize> = OPENINGS.iter().map(|&(x, y)| add(zcyl(x * g, y * g, R_OPENING * g, t))).collect();
     let thimbles_out: Vec<usize> =
-        OPENINGS[..3].iter().map(|&(x, y)| add(zcyl(x, y, R_THIMBLE_OUT, t))).collect();
+        OPENINGS[..3].iter().map(|&(x, y)| add(zcyl(x * g, y * g, R_THIMBLE_OUT * i8, t))).collect();
     let thimbles_in: Vec<usize> =
-        OPENINGS[..3].iter().map(|&(x, y)| add(zcyl(x, y, R_THIMBLE_IN, t))).collect();
+        OPENINGS[..3].iter().map(|&(x, y)| add(zcyl(x * g, y * g, R_THIMBLE_IN * i8, t))).collect();
 
     let core_z = [hs(z0, false), hs(zt, true)];
     let plenum_up_z = [hs(zt, false), hs(zu, true)];
@@ -545,13 +607,14 @@ pub fn geometry_at_split(t_salt_k: f64, t_graphite_k: f64) -> Geometry {
     let root_start = cells.len();
     let root_count = root.len();
     cells.extend(root);
-    let n = (2.0 * R_VESSEL_IN / PITCH).ceil() as usize | 1; // odd: a stringer on the axis
-    let half = n as f64 * PITCH / 2.0;
+    let pitch = PITCH * g;
+    let n = (2.0 * r_vessel_in / pitch).ceil() as usize | 1; // odd: a stringer on the axis
+    let half = n as f64 * pitch / 2.0;
     let lattice = RectLattice {
         id: 1,
         n: [n, n, 1],
         lower_left: Position::new(-half, -half, 0.0),
-        pitch: [PITCH, PITCH, 1.0],
+        pitch: [pitch, pitch, 1.0],
         universes: vec![1; n * n],
         outer: None,
     };
@@ -643,6 +706,37 @@ mod tests {
 
     /// The plenums hold Table 5.4's head volumes, and the openings sit where
     /// Fig. 5.7 puts them (2.828 in from the axis, text: 2-53/64 in).
+    /// The refactor onto [`Dims`] builds the cold geometry unchanged: the
+    /// FNV-1a hash of its `Debug` text was printed from the code before
+    /// [`geometry_with_dims`] existed (2026-11-09).
+    #[test]
+    fn cold_dims_build_the_recorded_geometry() {
+        let s = format!("{:?}", geometry_at_split(911.0, 950.0));
+        let mut h: u64 = 0xcbf29ce484222325;
+        for b in s.bytes() {
+            h ^= b as u64;
+            h = h.wrapping_mul(0x100000001b3);
+        }
+        assert_eq!((h, s.len()), (0x364611a9909b0605, 14517));
+        assert_eq!(format!("{:?}", geometry_with_dims(911.0, 950.0, Dims::COLD)), s);
+    }
+
+    /// Hot dimensions reproduce TM-0728 §5.3's statement that heatup moves
+    /// the core can 3/16 in radially away from the graphite.
+    #[test]
+    fn hot_dims_open_the_can_gap_by_three_sixteenths() {
+        let d = Dims::hot(1200.0, GRAPHITE_EXPANSION_PER_F, INOR8_EXPANSION_PER_F);
+        let growth = (R_CAN_IN * d.inor8 - R_GRAPHITE * d.graphite) - (R_CAN_IN - R_GRAPHITE);
+        assert!((growth / INCH - 3.0 / 16.0).abs() < 0.02, "{}", growth / INCH);
+        let gh = geometry_with_dims(TEMPERATURE_K, TEMPERATURE_K, Dims::hot(1181.0, GRAPHITE_EXPANSION_PER_F, INOR8_EXPANSION_PER_F));
+        assert_ne!(format!("{gh:?}"), format!("{:?}", geometry()));
+        // Densities thin by the cube of each scale; cold leaves them alone.
+        let hot = materials_with_dims(MoTreatment::Omitted, 1181.0, d);
+        let g3 = d.graphite * d.graphite * d.graphite;
+        assert!((hot[GRAPHITE_IDX].1[0].1 * g3 / GRAPHITE[0].1 - 1.0).abs() < 1e-12);
+        assert_eq!(materials_with_dims(MoTreatment::Omitted, 1181.0, Dims::COLD), materials_at(MoTreatment::Omitted, 1181.0));
+    }
+
     #[test]
     fn plenums_and_openings_match_their_sources() {
         let pi = core::f64::consts::PI;
@@ -678,3 +772,4 @@ mod tests {
         }
     }
 }
+
