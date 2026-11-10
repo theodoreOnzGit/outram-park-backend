@@ -236,8 +236,11 @@ jobs:
           start=$(date +%s)
           "${cmd[@]}" 2>&1 | tee "$RUNNER_TEMP/test.log"
           code=${PIPESTATUS[0]}
-          echo "code=$code" >> "$GITHUB_OUTPUT"
-          echo "seconds=$(( $(date +%s) - start ))" >> "$GITHUB_OUTPUT"
+          # To files, not step outputs: a failed step's outputs never reach
+          # later steps (run 42917563946: kovan-literature's failure read as a
+          # timeout). No file at all means the step was killed (timeout).
+          echo "$code" > "$RUNNER_TEMP/test.code"
+          echo "$(( $(date +%s) - start ))" > "$RUNNER_TEMP/test.seconds"
           exit "$code"
 
       - name: Result
@@ -248,10 +251,10 @@ jobs:
           SHARD: ${{ matrix.shard }}
           SELECT: ${{ matrix.select }}
           OUTCOME: ${{ steps.test.outcome }}
-          CODE: ${{ steps.test.outputs.code }}
-          SECONDS_RUN: ${{ steps.test.outputs.seconds }}
         run: |
           set -euo pipefail
+          CODE=$(cat "$RUNNER_TEMP/test.code" 2>/dev/null || true)
+          SECONDS_RUN=$(cat "$RUNNER_TEMP/test.seconds" 2>/dev/null || true)
           log="$RUNNER_TEMP/test.log"
           touch "$log"
           sed 's/\x1b\[[0-9;]*m//g' "$log" > "$RUNNER_TEMP/test.clean"
