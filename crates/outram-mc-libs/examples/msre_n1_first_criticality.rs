@@ -8,7 +8,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
-//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path]
+//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X]
 //! ```
 //!
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
@@ -143,7 +143,23 @@ fn main() {
     } else {
         m::Dims::COLD
     };
-    let mats = m::materials_with_dims(mo, salt_f, dims);
+    let mut mats = m::materials_with_dims(mo, salt_f, dims);
+    // `--li7-atom-percent X`: re-split the salt's lithium (total unchanged)
+    // to X % Li-7. The default keeps TM-0728's 99.99 %; TM-0730 quotes
+    // 99.9926 % (Table 3.2 footnote) and 99.997 % (survey), gh:#1128. The
+    // homogenised sample basket keeps the default split.
+    let li7_pct: Option<f64> = flag(&args, "--li7-atom-percent").map(|v| v.parse().expect("percent"));
+    if let Some(pct) = li7_pct {
+        let salt = &mut mats[m::SALT_IDX].1;
+        let li_total: f64 = salt.iter().filter(|(n, _)| *n == "Li6" || *n == "Li7").map(|e| e.1).sum();
+        for e in salt.iter_mut() {
+            match e.0 {
+                "Li7" => e.1 = li_total * pct / 100.0,
+                "Li6" => e.1 = li_total * (1.0 - pct / 100.0),
+                _ => {}
+            }
+        }
+    }
     let mut names: Vec<&str> = Vec::new();
     for (_, comps) in &mats {
         for (n, _) in comps {
@@ -239,7 +255,7 @@ fn main() {
     eprintln!("  nuclear data ready in {load_s:.1} s ({} nuclides); hardware: {hw}; threads {threads}", names.len());
 
     let g = m::geometry_with_dims(t_k, t_g, dims);
-    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str();
+    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str();
     let new_file = !csv.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&csv).expect("csv");
     if new_file {

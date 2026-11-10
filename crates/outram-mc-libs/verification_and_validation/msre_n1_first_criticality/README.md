@@ -210,6 +210,54 @@ internal σ/√3.)
 - **The default is not changed:** no tabulated law is CGB's, and choosing
   one is the maintainer's call.
 
+### N-1 residual: lithium-6 content (2026-11-10, gh:#1128)
+
+**The sources disagree on the enrichment:**
+
+| source | Li-7 | Li-6 |
+|---|---|---|
+| ORNL-TM-0728, text ("99.99% Li7 in both fuel and coolant salts") | 99.99 % | 100 ppm (**the model**, `scripts/salt.py`) |
+| ORNL-TM-0730 Table 3.2 footnote (its calculation salts) | 99.9926 % | 74 ppm |
+| ORNL-TM-0730, survey section | 99.997 % | 30 ppm |
+
+None states the as-loaded value at first criticality.
+
+**Run:** `--li7-atom-percent 99.9926`, which re-splits the salt's lithium
+with the total unchanged (the sample basket keeps the default split). Arm
+C, RVS, 30P, cold, seeds 1–3 (1.01618, 1.01705, 1.01512).
+
+| Li-7 | k | vs k_ref | vs default |
+|---|---|---|---|
+| 99.99 % (default) | 1.00882 ± 0.00022 | +801 pcm | — |
+| 99.9926 % | 1.01612 ± 0.00056 | +1530 pcm | **+730 ± 60 pcm (12σ)** |
+
+- **Inside the prediction** posted on gh:#1128 (+200 to +800 pcm).
+- **About 28 pcm per ppm of Li-6.** Across the sources' 30–100 ppm, the
+  enrichment alone moves N-1 by up to about 2000 pcm. **This is the
+  largest lever found on the residual, larger than every geometric
+  simplification.** ORNL-4233's ±200 pcm budget on the measurement does
+  not include it, because it is a model input.
+- ~~**Read backwards** (the slope only, not a claim about the salt): the
+  +801 pcm residual would close at about 129 ppm Li-6 (99.987 % Li-7).
+  Whether the as-loaded salt's Li-6 was higher or lower than 100 ppm is
+  the question this result raises. It needs the salt's isotopic assay,
+  which none of the reports read so far gives.~~ **Settled the same day
+  by the production report.** ORNL-4616 (J.H. Shaffer, *Preparation and
+  Handling of Salt Mixtures for the MSRE*, 1971, PDF p. 6): "all lithium
+  fluoride used in the MSRE production operation ... Its analyzed
+  isotopic assay was at least 99.99% ⁷Li." So **Li-6 was at most
+  100 ppm**. The model's 100 ppm is the upper bound, and any lower value
+  raises k. **Lithium cannot close the residual; if anything, the
+  residual is larger than +801 pcm.**
+- **Hafnium, checked the same way:** ORNL-4616 (same page) names hafnium
+  in zirconium and ⁶Li as the only major poison impurities. The ZrF₄ was
+  "essentially 'hafnium free'" (the OCR of the limit is garbled; it reads
+  as about 50 ppm Hf in Zr). At that level hafnium's thermal absorption
+  is about 0.4 % of the model's Li-6 absorption, of order 1 pcm. It is
+  not modelled and is not a candidate.
+- **The default is not changed.** Choosing an enrichment is the
+  maintainer's call, and the most-cited text value (99.99 %) stays.
+
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
 Salt density follows −1.18e-4 /°F (ORNL-4233 §4.1). Runs at 1131 °F and
@@ -269,6 +317,22 @@ at both temperatures (RVS, Mo omitted; σ from the seed spread, which at
 |Δα| ≲ 1 band posted before the run. ~~The three-seed −8.10 ± 0.53 (10P)
 and −7.05 ± 0.70 (30P)~~ are superseded by these. At this precision the
 graphite law matters for N-1's k (about −105 pcm), not for α_iso.
+
+**Fuel/graphite split under RVS (2026-11-10, gh:#1129),** C (salt 1231 /
+graphite 1131 °F) and D (1131 / 1231 °F), seeds 1–6 each, against A under
+RVS (six seeds); rows `mo-omitted+rvs@salt1231F/graphite1131F` and
+`...salt1131F/graphite1231F` in `data/n3.csv`:
+
+| coefficient (×10⁻⁵ /°F) | RVS | DBRC | change |
+|---|---|---|---|
+| fuel | **−4.48 ± 0.54** | −3.82 ± 0.44 | −0.66 ± 0.70 |
+| graphite | **−3.33 ± 0.40** | −3.77 ± 0.65 | +0.44 ± 0.76 |
+| isothermal | −7.12 ± 0.39 | −7.19 ± 0.50 | +0.07 ± 0.63 |
+
+Both components lie inside the band posted on gh:#1129 before the run
+(−4.6 to −3.0). The components add to −7.81 against −7.12 for the
+isothermal run. T-1 re-run with these: −14 % to +6 % of the measured
+periods (nee_soon T-1 README).
 
 ### A finding about the statistics
 
