@@ -137,42 +137,62 @@ fn loop_time() -> f64 {
     TAU.iter().sum()
 }
 
-/// Linear interpolation in [`FIG4`]: `(P°φs, φ1†)` at `z` (cm).
-fn fig4_at(z: f64) -> (f64, f64) {
-    if z <= FIG4[0].0 {
-        return (FIG4[0].1, FIG4[0].2);
+/// An axial shape for the line model: `(z cm, fission density in salt,
+/// importance)` points, linear in between, and the region extents (cm):
+/// the lower plenum's bottom, the top of the graphite, the upper plenum's
+/// top. The graphite starts at z = 0.
+#[derive(Clone, Debug)]
+struct Shape {
+    table: Vec<(f64, f64, f64)>,
+    z_bottom: f64,
+    z_core_top: f64,
+    z_top: f64,
+}
+
+impl Shape {
+    /// TM-1626 Fig. 4 and its region extents.
+    fn prince() -> Shape {
+        Shape { table: FIG4.to_vec(), z_bottom: Z_BOTTOM, z_core_top: Z_CORE_TOP, z_top: Z_TOP }
     }
-    for w in FIG4.windows(2) {
-        let (z0, p0, a0) = w[0];
-        let (z1, p1, a1) = w[1];
-        if z <= z1 {
-            let f = (z - z0) / (z1 - z0);
-            return (p0 + f * (p1 - p0), a0 + f * (a1 - a0));
+
+    /// Linear interpolation in the table: `(S_f, φ†)` at `z` (cm).
+    fn at(&self, z: f64) -> (f64, f64) {
+        let t = &self.table;
+        if z <= t[0].0 {
+            return (t[0].1, t[0].2);
+        }
+        for w in t.windows(2) {
+            let (z0, p0, a0) = w[0];
+            let (z1, p1, a1) = w[1];
+            if z <= z1 {
+                let f = (z - z0) / (z1 - z0);
+                return (p0 + f * (p1 - p0), a0 + f * (a1 - a0));
+            }
+        }
+        let last = t[t.len() - 1];
+        (last.1, last.2)
+    }
+
+    /// Position `z` (cm) at transit time `t` (s, from the bottom-plenum
+    /// inlet), or `None` in the external loop. Plug flow in each region.
+    fn z_at(&self, t: f64) -> Option<f64> {
+        let t = t.rem_euclid(loop_time());
+        let (t1, t2, t3) = (TAU[0], TAU[0] + TAU[1], TAU[0] + TAU[1] + TAU[2]);
+        if t < t1 {
+            Some(self.z_bottom + (0.0 - self.z_bottom) * t / TAU[0])
+        } else if t < t2 {
+            Some(self.z_core_top * (t - t1) / TAU[1])
+        } else if t < t3 {
+            Some(self.z_core_top + (self.z_top - self.z_core_top) * (t - t2) / TAU[2])
+        } else {
+            None
         }
     }
-    let last = FIG4[FIG4.len() - 1];
-    (last.1, last.2)
-}
 
-/// Position `z` (cm) at transit time `t` (s, from the bottom-plenum inlet),
-/// or `None` in the external loop. Plug flow in each region.
-fn z_at(t: f64) -> Option<f64> {
-    let t = t.rem_euclid(loop_time());
-    let (t1, t2, t3) = (TAU[0], TAU[0] + TAU[1], TAU[0] + TAU[1] + TAU[2]);
-    if t < t1 {
-        Some(Z_BOTTOM + (0.0 - Z_BOTTOM) * t / TAU[0])
-    } else if t < t2 {
-        Some(Z_CORE_TOP * (t - t1) / TAU[1])
-    } else if t < t3 {
-        Some(Z_CORE_TOP + (Z_TOP - Z_CORE_TOP) * (t - t2) / TAU[2])
-    } else {
-        None
+    /// `(S_f, φ†)` at transit time `t`; zero in the external loop.
+    fn source_and_importance(&self, t: f64) -> (f64, f64) {
+        self.z_at(t).map_or((0.0, 0.0), |z| self.at(z))
     }
-}
-
-/// `(S_f, φ†)` at transit time `t`; zero in the external loop.
-fn source_and_importance(t: f64) -> (f64, f64) {
-    z_at(t).map_or((0.0, 0.0), fig4_at)
 }
 
 /// How the lower plenum is mixed in [`exact_loss`].
@@ -186,11 +206,11 @@ enum LowerPlenum {
 }
 
 /// Exact loss (δk/k) of the line model, integrated on `m` equal time steps.
-fn exact_loss(m: usize, lp: LowerPlenum) -> f64 {
+fn exact_loss(sh: &Shape, m: usize, lp: LowerPlenum) -> f64 {
     let t_loop = loop_time();
     let dt = t_loop / m as f64;
     let n_lp = (TAU[0] / dt).round() as usize;
-    let samples: Vec<(f64, f64)> = (0..=m).map(|j| source_and_importance(j as f64 * dt)).collect();
+    let samples: Vec<(f64, f64)> = (0..=m).map(|j| sh.source_and_importance(j as f64 * dt)).collect();
     // Denominator: <φ†, S_f> by the trapezoid rule over the loop.
     let denom: f64 = (0..m).map(|j| 0.5 * (samples[j].0 * samples[j].1 + samples[j + 1].0 * samples[j + 1].1) * dt).sum();
     let p_lp_mean: f64 = (0..n_lp).map(|j| 0.5 * (samples[j].0 + samples[j + 1].0)).sum::<f64>() / n_lp as f64;
@@ -240,7 +260,7 @@ fn exact_loss(m: usize, lp: LowerPlenum) -> f64 {
 
 /// Moltres's loss on an `n`-cell ring at loop speed `speed` (1.0 = the
 /// TM-1626 residence times; 0.0 = fuel stationary).
-fn moltres_loss(n: usize, speed: f64) -> (f64, Vec<f64>) {
+fn moltres_loss(sh: &Shape, n: usize, speed: f64) -> (f64, Vec<f64>) {
     let t_loop = loop_time();
     let ring = RingMesh::new(t_loop, 1.0, n).expect("ring");
     let fams = families();
@@ -255,7 +275,7 @@ fn moltres_loss(n: usize, speed: f64) -> (f64, Vec<f64>) {
         },
     )
     .expect("drift");
-    let (s, imp): (Vec<f64>, Vec<f64>) = (0..n).map(|i| source_and_importance(ring.arc_centre(i))).unzip();
+    let (s, imp): (Vec<f64>, Vec<f64>) = (0..n).map(|i| sh.source_and_importance(ring.arc_centre(i))).unzip();
     let s_f = VolScalarField::new("Sf", ring.mesh.clone(), Field::new(s.clone()), vec![]);
     let c = drift.solve_steady(&s_f, 1.0).expect("solve");
     let emission = drift.delayed_source(&c);
@@ -274,18 +294,19 @@ fn moltres_loss(n: usize, speed: f64) -> (f64, Vec<f64>) {
 /// gh:#1130.
 #[test]
 fn n4_moltres_drift_against_exact_and_tm1626() {
+    let sh = Shape::prince();
     // Static fuel: no loss, exactly.
-    let (static_loss, _) = moltres_loss(2520, 0.0);
+    let (static_loss, _) = moltres_loss(&sh, 2520, 0.0);
     assert!(static_loss.abs() < 1e-12, "static loss {static_loss:e}");
 
-    let exact = exact_loss(252_000, LowerPlenum::PlugFlow);
-    let exact_stirred = exact_loss(252_000, LowerPlenum::WellStirred);
+    let exact = exact_loss(&sh, 252_000, LowerPlenum::PlugFlow);
+    let exact_stirred = exact_loss(&sh, 252_000, LowerPlenum::WellStirred);
     // The exact integrator converges: a 4x coarser grid agrees closely.
-    let exact_coarse = exact_loss(63_000, LowerPlenum::PlugFlow);
+    let exact_coarse = exact_loss(&sh, 63_000, LowerPlenum::PlugFlow);
     assert!((exact - exact_coarse).abs() < 1e-7, "{exact} {exact_coarse}");
 
-    let (m1, _) = moltres_loss(2520, 1.0);
-    let (m2, em) = moltres_loss(10080, 1.0);
+    let (m1, _) = moltres_loss(&sh, 2520, 1.0);
+    let (m2, em) = moltres_loss(&sh, 10080, 1.0);
     let (e1, e2) = (m1 - exact, m2 - exact);
     println!("N-4 (TM-1626), loss in % dk/k");
     println!("  exact, lower plenum plug flow      {:.4}", exact * 100.0);
