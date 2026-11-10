@@ -87,7 +87,6 @@ on:
   push:
     branches:
       - "ci-run/**"
-      - "ci/1337-per-crate-runners" # TEMPORARY (gh:#1337 test run); removed before merge
 
 # ~~env: CARGO_TERM_COLOR, CARGO_NET_RETRY, RUST_BACKTRACE,
 # KOVAN_RUSTDOC_TOOLCHAIN~~ MOVED 2026-11-10 (gh:#1337) to per-crate-tests.yml:
