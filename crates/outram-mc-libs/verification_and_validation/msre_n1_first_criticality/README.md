@@ -210,6 +210,41 @@ internal σ/√3.)
 - **The default is not changed:** no tabulated law is CGB's, and choosing
   one is the maintainer's call.
 
+### N-1 residual: lithium-6 content (2026-11-10, gh:#1128)
+
+**The sources disagree on the enrichment:**
+
+| source | Li-7 | Li-6 |
+|---|---|---|
+| ORNL-TM-0728, text ("99.99% Li7 in both fuel and coolant salts") | 99.99 % | 100 ppm (**the model**, `scripts/salt.py`) |
+| ORNL-TM-0730 Table 3.2 footnote (its calculation salts) | 99.9926 % | 74 ppm |
+| ORNL-TM-0730, survey section | 99.997 % | 30 ppm |
+
+None states the as-loaded value at first criticality.
+
+**Run:** `--li7-atom-percent 99.9926`, which re-splits the salt's lithium
+with the total unchanged (the sample basket keeps the default split). Arm
+C, RVS, 30P, cold, seeds 1–3 (1.01618, 1.01705, 1.01512).
+
+| Li-7 | k | vs k_ref | vs default |
+|---|---|---|---|
+| 99.99 % (default) | 1.00882 ± 0.00022 | +801 pcm | — |
+| 99.9926 % | 1.01612 ± 0.00056 | +1530 pcm | **+730 ± 60 pcm (12σ)** |
+
+- **Inside the prediction** posted on gh:#1128 (+200 to +800 pcm).
+- **About 28 pcm per ppm of Li-6.** Across the sources' 30–100 ppm, the
+  enrichment alone moves N-1 by up to about 2000 pcm. **This is the
+  largest lever found on the residual, larger than every geometric
+  simplification.** ORNL-4233's ±200 pcm budget on the measurement does
+  not include it, because it is a model input.
+- **Read backwards** (the slope only, not a claim about the salt): the
+  +801 pcm residual would close at about 129 ppm Li-6 (99.987 % Li-7).
+  Whether the as-loaded salt's Li-6 was higher or lower than 100 ppm is
+  the question this result raises. It needs the salt's isotopic assay,
+  which none of the reports read so far gives.
+- **The default is not changed.** Choosing an enrichment is the
+  maintainer's call, and the most-cited text value (99.99 %) stays.
+
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
 Salt density follows −1.18e-4 /°F (ORNL-4233 §4.1). Runs at 1131 °F and
