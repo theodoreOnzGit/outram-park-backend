@@ -69,6 +69,29 @@ fn keeps_raw(key: EndfKey) -> bool {
     key.mf == 32 || (key.mf == 1 && key.mt == 451)
 }
 
+/// Decode one ENDF record read as bytes (`\n` already removed) into a
+/// string with one `char` per card column (gh:#660).
+///
+/// NJOY2016 reads each record with a fixed-width format,
+/// `(6e11.0,i4,i2,i3,i5)` (`endf.f90:55`), so a column is a byte and the text
+/// has no encoding. This reproduces that exactly for single-byte encodings:
+/// bytes that are not valid UTF-8 (a Latin-1 tape) are mapped one byte to one
+/// `char`. Valid UTF-8 is decoded to characters, so a multibyte character in
+/// MF=1/MT=451 text counts as **one** column and MAT/MF/MT stay in columns
+/// 67-75. NJOY would read that line's MAT/MF/MT from shifted bytes; here the
+/// line is keyed as its author laid it out (the issue's guidance, gh:#660,
+/// rather than mis-keying it). A trailing `\r` is dropped, as
+/// `BufRead::lines` did before.
+pub fn decode_endf_line(mut bytes: Vec<u8>) -> String {
+    if bytes.last() == Some(&b'\r') {
+        bytes.pop();
+    }
+    match String::from_utf8(bytes) {
+        Ok(s) => s,
+        Err(e) => e.into_bytes().iter().map(|&b| char::from(b)).collect(),
+    }
+}
+
 impl Tape {
     /// Parse an ENDF ASCII tape from a file on disk.
     ///
@@ -113,8 +136,15 @@ impl Tape {
     /// Binary (blocked-binary) tapes are not supported in this version.
     /// (CORRECTED 2026-10-04: these three lines used to sit above
     /// [`Tape::read_file`], so rustdoc showed them on the wrong function.)
+    ///
+    /// Lines are read as bytes and decoded per line by [`decode_endf_line`]
+    /// (since 2026-11-10, gh:#660): UTF-8 where valid, otherwise one byte per
+    /// column (Latin-1), so a non-ASCII character in MF=1/MT=451 text neither
+    /// fails the read nor panics the column slicing.
     pub fn read<R: Read>(reader: R) -> Result<Self, NjoyError> {
-        let mut lines = BufReader::new(reader).lines();
+        let mut lines = BufReader::new(reader)
+            .split(b'\n')
+            .map(|r| r.map(decode_endf_line));
         let mut tpid = String::new();
         let mut sections: Vec<Section> = Vec::new();
         let mut index: HashMap<EndfKey, usize> = HashMap::new();
@@ -184,8 +214,8 @@ impl Tape {
 
             current_rows.push(rl.fields);
             if keeps_raw(key) {
-                let n = line.len().min(66);
-                current_raw.push(line[..n].to_string());
+                // First 66 columns (characters, gh:#660), not bytes.
+                current_raw.push(line.chars().take(66).collect());
             }
         }
 
