@@ -165,8 +165,10 @@ Prediction posted on gh:#1128 before the run: k up by +50 to +300 pcm.
 - **Not adopted as the default.** Hot dimensions are the more physical
   state, but making them the default re-states every N-1 and N-3 number
   on this page; that is the maintainer's call. The N-3 coefficients
-  ignore expansion over their ±50 °F swing (a few pcm by this result's
-  scale, ~1e-7 /°F, not measured).
+  ignore expansion over their ±50 °F swing. If the +158 pcm over 1111 °F
+  is linear, expansion adds about **+0.14 × 10⁻⁵ /°F** (14 pcm over the
+  100 °F swing): about 2 % of α_iso, positive, and inside N-3's ±0.5–0.7
+  σ. Not measured at N-3's temperatures.
 
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
