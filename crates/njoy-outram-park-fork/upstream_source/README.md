@@ -50,3 +50,12 @@ clone it fresh if not already present:
 ```bash
 git clone https://github.com/njoy/NJOY2016.git upstream_source/NJOY2016
 ```
+
+## Differential-test clones (2026-11-10, gh:#1366)
+
+- `upstream_source/NJOY2016/` -- sparse blobless clone (`src/` only) checked out at **2016.80**
+  `ab27c6414a0f25b173f2b637e6dc7e428fdaff00` (2026-10-08), accessed 2026-11-10; modified BSD-3 (LANL),
+  see `LICENSE.njoy`.
+- `upstream_source/NJOY2016-2016.79/src/` -- `git archive` of 2016.79 `ac5adf5f33d893e42f2eed7fb286b0d51c7580da`
+  (the port's previous baseline), for before/after comparisons.
+- Both gitignored. Used by `verification_and_validation/upstream_units/*/run.sh`.

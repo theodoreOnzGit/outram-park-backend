@@ -1,7 +1,8 @@
 //! Large-`eta` Bessel-function case and top-level evaluation-strategy
 //! dispatcher — `bigeta`, `getps`, `coulx`, ported from
 //! `samm.f90:4340-4399` (`coulx`) and `samm.f90:4852-4996`
-//! (`bigeta`/`getps`).
+//! (`bigeta`/`getps`). The K0/K1 harmonic sums follow NJOY2016 2016.80 (single-precision
+//! `1./(k+1)`, see `harmonic_step`).
 
 use petir::mathf::RealMath;
 use super::asymptotic::{asymp1, asymp2, end1, getfg, taylor, xsigll};
@@ -23,6 +24,19 @@ pub struct CoulombPsp {
     /// or not applicable (matching upstream, which leaves `dshiftcoul=0`
     /// at `pspcou`'s top).
     pub dshift: f64,
+}
+
+/// `1./(k+1)` exactly as NJOY2016 2016.80 `samm.f90` `bigeta` evaluates it in the K0 and K1
+/// harmonic sums (`b=b+1./(k+1)`, fix #415): `1.` is a default-kind (single-precision) real, so
+/// the quotient is formed in `f32` and then widened to `f64` when added to the double-precision
+/// `b`. (2016.79 wrote `1/(k+1)`, integer division, which is 0 for `k >= 1`.) The `f32`
+/// rounding is deliberate: it is what makes the port bit-identical to 2016.80
+/// (`tests/samm_bigeta_vs_njoy2016_units.rs`, gh:#1366, #1368). The sums are
+/// ill-conditioned at large `2*rho*eta` (K0 is a difference of terms ~ `exp(2z)` larger), so
+/// the f32 rounding changes K0 and K1 by up to O(1) there, not by ~1e-8.
+#[inline]
+fn harmonic_step(k: i32) -> f64 {
+    f64::from(1.0_f32 / (k + 1) as f32)
 }
 
 /// `F,G` at `L=0` (and, if `lll>0`, all `L=0..=llmax` via [`getfg`]) plus
@@ -70,7 +84,7 @@ pub fn bigeta(
             break;
         }
         sum += a * b;
-        b += 1.0 / (k + 1) as f64;
+        b += harmonic_step(k);
         a = a * q / ((k + 1) as f64).r_powi(2);
     }
     if !converged {
@@ -110,7 +124,7 @@ pub fn bigeta(
         }
         sum -= a * (b + c);
         c = 0.5 / (k + 2) as f64;
-        b += 1.0 / (k + 1) as f64;
+        b += harmonic_step(k);
         a = a * q / (((k + 1) * (k + 2)) as f64);
     }
     if !converged {
@@ -133,7 +147,11 @@ pub fn bigeta(
     let g0pr = gpr[0];
 
     if lll > 0 {
-        let (_llmax_out, f2, fpr2, g2, gpr2) = getfg(eta, rho, 0, lll, g0, g0pr);
+        // Upstream's `bigeta` passes its `llmax` argument, which `pspcou` sets to `lll+2`
+        // (`samm.f90:3935`, `api.rs`); `getfg` takes `limit = max(3, llmax+1)` from it, so
+        // passing 0 here (as this port did until 2026-11-10, gh:#1366) started the
+        // recursions from a different `limit` and changed F, G in the last bits for `lll >= 1`.
+        let (_llmax_out, f2, fpr2, g2, gpr2) = getfg(eta, rho, lll + 2, lll, g0, g0pr);
         f = f2;
         fpr = fpr2;
         g = g2;
