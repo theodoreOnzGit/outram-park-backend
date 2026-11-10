@@ -133,7 +133,9 @@ An honest list, from the crate's own limitations page and CLAUDE.md:
 - **A full multilayer CRP-6 release record.** The benchmark is single-layer.
 - **Graphite and buffer-krypton diffusion coefficients.** The graphite
   lookups are `todo!()`, and so is Kr in the buffer (`get_d1_for_kr`; the
-  crate's `CLAUDE.md` was corrected on 2026-10-18 to say so). Elements other
+  crate's `CLAUDE.md` was corrected on 2026-10-18 to say so). Since
+  2026-11-10 (gh:#638) a Kr walker reaching the buffer stops with a typed
+  error rather than panicking; the coefficient itself is still missing. Elements other
   than Ag, Cs, Sr and Kr fall back to silver (gh:#541).
 - **A first-principles stress model.** There is no finite-element particle
   model in `farrer-park` today ([Step 6](./08-pressure-stress.md)). The PyC

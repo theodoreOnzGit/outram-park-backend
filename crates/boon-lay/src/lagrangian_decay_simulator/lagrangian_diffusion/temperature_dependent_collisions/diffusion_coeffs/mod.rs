@@ -250,6 +250,11 @@ pub fn get_q2_for_sr(triso_layer: TrisoPebbleLayerMaterial) -> MolarEnergy {
 // Idaho Falls, ID (United States).
 //
 // table on page 13 of 105
+//
+// # Panics
+// For the buffer and both graphite variants (`todo!()`, no cited value).
+// [`super::get_diffusion_coeff_jiang`] does not call it there; it returns
+// `MissingDiffusionData` instead (gh:#638).
 #[inline]
 pub fn get_d1_for_kr(
     triso_layer: TrisoPebbleLayerMaterial,
@@ -360,6 +365,11 @@ pub fn get_q1_for_kr(
 // Idaho Falls, ID (United States).
 //
 // table on page 13 of 105
+//
+// # Panics
+// For the buffer and both graphite variants (`todo!()`, no cited value).
+// [`super::get_diffusion_coeff_jiang`] does not call it there; it returns
+// `MissingDiffusionData` instead (gh:#638).
 #[inline]
 pub fn get_d2_for_kr(
     triso_layer: TrisoPebbleLayerMaterial,
@@ -401,6 +411,11 @@ pub fn get_d2_for_kr(
 // Idaho Falls, ID (United States).
 //
 // table on page 13 of 105
+//
+// # Panics
+// For the buffer and both graphite variants (`todo!()`, no cited value).
+// [`super::get_diffusion_coeff_jiang`] does not call it there; it returns
+// `MissingDiffusionData` instead (gh:#638).
 #[inline]
 pub fn get_q2_for_kr(
     triso_layer: TrisoPebbleLayerMaterial,

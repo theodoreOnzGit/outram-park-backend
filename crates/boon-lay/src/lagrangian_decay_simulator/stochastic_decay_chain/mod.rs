@@ -19,6 +19,11 @@ pub mod iterator_for_decay_chain;
 impl StochasticDecayChain {
     /// this function returns a single decay chain
     /// randomly picked from the various branching ratios inside
+    ///
+    /// The chain ends at a stable nuclide or (since 2026-11-10, gh:#538) at a
+    /// decay with no tracked daughter: spontaneous fission, or a branch with
+    /// no target such as He-5's alpha. Before, spontaneous fission continued
+    /// the chain with the parent as its own daughter.
     pub fn new_single_stochastic_chain_from_nuclide(
         starting_nuclide: Nuclide,
         decay_library: &mut DecayLibrary,
@@ -48,10 +53,16 @@ impl StochasticDecayChain {
 
                 let (random_num_between_0_and_1, _rng) = decay_library.get_random_number_and_rng();
 
-                // then get next target nuclide with float
-                let (next_nuclide, _decay_type) = starting_nuclide_data
+                // then get next target nuclide with float; `None` here is a
+                // decay with no tracked daughter (spontaneous fission, or a
+                // branch without a target), which ends the chain (gh:#538).
+                let Some((next_nuclide, _decay_type)) = starting_nuclide_data
                     .get_next_target_nuclide_with_float(random_num_between_0_and_1)
-                    .unwrap();
+                else {
+                    return StochasticDecayChain {
+                        nuclides_and_decay_data_vec: nuclides_and_decay_data,
+                    };
+                };
 
                 let next_nuclide_data: NuclideReactionAndDecayData = decay_library
                     .try_match_nuclides_to_decay_data(next_nuclide)
@@ -94,10 +105,15 @@ impl StochasticDecayChain {
                     let (random_num_between_0_and_1, _rng) =
                         decay_library.get_random_number_and_rng();
 
-                    // then get next target nuclide with float
-                    let (next_nuclide, _decay_type) = subsequent_nuclide_data
+                    // then get next target nuclide with float; `None` ends
+                    // the chain (no tracked daughter, gh:#538)
+                    let Some((next_nuclide, _decay_type)) = subsequent_nuclide_data
                         .get_next_target_nuclide_with_float(random_num_between_0_and_1)
-                        .unwrap();
+                    else {
+                        return StochasticDecayChain {
+                            nuclides_and_decay_data_vec: nuclides_and_decay_data,
+                        };
+                    };
 
                     let next_nuclide_data: NuclideReactionAndDecayData = decay_library
                         .try_match_nuclides_to_decay_data(next_nuclide)

@@ -37,6 +37,7 @@ use crate::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::inte
 use crate::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::sphere_fpt::{
     sample_first_passage_time, sample_uniform_direction,
 };
+use crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::MissingDiffusionData;
 use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::{
     TrisoCell, TrisoRegion,
 };
@@ -59,6 +60,11 @@ pub enum HopOutcome {
     /// step (it transmitted into the neighbour or reflected back). The walk
     /// continues from the reinserted position on the next step.
     ReachedInterface,
+    /// The walker needed a diffusion coefficient that has no cited source
+    /// (gh:#638: krypton in the buffer) and has stopped, rather than panic
+    /// or use an invented value. The walker does not move again; the reason
+    /// is in [`WoSWalker::missing_diffusion_data`].
+    NoDiffusionData,
 }
 
 /// Tunables for a multilayer Walk-on-Spheres walk.
@@ -116,6 +122,10 @@ pub struct WoSWalker {
     pub time: Time,
     /// Private random-number stream for this walker.
     pub rng: OoRng64,
+    /// Set when the walker stopped because a layer it reached has no cited
+    /// diffusion coefficient for its nuclide (gh:#638). `None` while the walk
+    /// is well defined.
+    pub missing_diffusion_data: Option<MissingDiffusionData>,
 }
 
 impl WoSWalker {
@@ -127,6 +137,7 @@ impl WoSWalker {
             nuclide,
             time: Time::ZERO,
             rng,
+            missing_diffusion_data: None,
         }
     }
 
@@ -162,6 +173,9 @@ impl WoSWalker {
     /// removes the buffer-teleport failure of the single-Gaussian scheme (see
     /// `docs/buffer_clt_failure_analysis.md`).
     pub fn hop(&mut self, triso_cell: &TrisoCell, capture_eps: Length) -> HopOutcome {
+        if self.missing_diffusion_data.is_some() {
+            return HopOutcome::NoDiffusionData;
+        }
         let Some(hop_radius) = nearest_interface_distance(triso_cell, self.position) else {
             // No containing shell: the walker is already outside the particle.
             return HopOutcome::Released;
@@ -177,11 +191,10 @@ impl WoSWalker {
             return HopOutcome::ReachedInterface;
         }
 
-        let diffusion_coefficient = triso_cell
-            .try_get_diffusion_coefficient(self.position, self.nuclide)
-            .unwrap_or_else(|| {
-                DiffusionCoefficient::new::<square_meter_per_second>(FALLBACK_DIFFUSION_M2_PER_S)
-            });
+        let diffusion_coefficient = match self.diffusion_at(triso_cell, self.position) {
+            Ok(d) => d,
+            Err(e) => return self.halt(e),
+        };
 
         let tau = sample_first_passage_time(&mut self.rng.0, hop_radius, diffusion_coefficient);
         self.time += tau;
@@ -249,6 +262,9 @@ impl WoSWalker {
     /// the neighbour or reflects, and the walker is reinserted
     /// `reinsert_factor * capture_eps` from the interface on the chosen side.
     pub fn step_multilayer(&mut self, triso_cell: &TrisoCell, params: &WalkParams) -> HopOutcome {
+        if self.missing_diffusion_data.is_some() {
+            return HopOutcome::NoDiffusionData;
+        }
         let Some((inner, outer)) = shell_bounds(triso_cell, self.position) else {
             return HopOutcome::Released;
         };
@@ -261,7 +277,10 @@ impl WoSWalker {
             _ => dist_out,
         };
 
-        let d_current = self.diffusion_at(triso_cell, self.position);
+        let d_current = match self.diffusion_at(triso_cell, self.position) {
+            Ok(d) => d,
+            Err(e) => return self.halt(e),
+        };
 
         if hop_radius > params.capture_eps {
             // Genuine Walk-on-Spheres hop, entirely within this shell.
@@ -290,7 +309,10 @@ impl WoSWalker {
             if outer == triso_cell.get_opyc_radius() {
                 return HopOutcome::Released;
             }
-            let d_next = self.diffusion_at(triso_cell, self.point_at_radius(outer + reinsert));
+            let d_next = match self.diffusion_at(triso_cell, self.point_at_radius(outer + reinsert)) {
+                Ok(d) => d,
+                Err(e) => return self.halt(e),
+            };
             if does_transmit(&mut self.rng.0, d_current, d_next, params.partition_k) {
                 self.set_radius_to(outer + reinsert);
             } else {
@@ -299,7 +321,10 @@ impl WoSWalker {
         } else {
             let inner_radius = inner.expect("inner interface implies an inner radius");
             let d_next =
-                self.diffusion_at(triso_cell, self.point_at_radius(inner_radius - reinsert));
+                match self.diffusion_at(triso_cell, self.point_at_radius(inner_radius - reinsert)) {
+                    Ok(d) => d,
+                    Err(e) => return self.halt(e),
+                };
             if does_transmit(&mut self.rng.0, d_current, d_next, params.partition_k) {
                 self.set_radius_to(inner_radius - reinsert);
             } else {
@@ -328,8 +353,12 @@ impl WoSWalker {
             if self.time >= until {
                 return true;
             }
-            if self.step_multilayer(triso_cell, params) == HopOutcome::Released {
-                return false;
+            match self.step_multilayer(triso_cell, params) {
+                HopOutcome::Released => return false,
+                // Stopped for want of a cited coefficient (gh:#638): still
+                // inside; the reason is in `missing_diffusion_data`.
+                HopOutcome::NoDiffusionData => return true,
+                HopOutcome::Stepped | HopOutcome::ReachedInterface => {}
             }
         }
         true
@@ -342,28 +371,65 @@ impl WoSWalker {
     /// This ignores decay — it is the pure-diffusion release-time driver used
     /// by the multilayer verification; decay and transmutation clocks are layered
     /// on in the depletion phase.
+    ///
+    /// Also `None` when the walker stops for want of a cited diffusion
+    /// coefficient (gh:#638); [`WoSWalker::try_walk_until_released`] returns
+    /// that case as an error.
     pub fn walk_until_released(
         &mut self,
         triso_cell: &TrisoCell,
         params: &WalkParams,
     ) -> Option<Time> {
+        self.try_walk_until_released(triso_cell, params).ok().flatten()
+    }
+
+    /// [`WoSWalker::walk_until_released`] with the missing-coefficient stop
+    /// (gh:#638) returned as `Err` instead of folded into `None`.
+    ///
+    /// `Ok(Some(t))`: released at `t`. `Ok(None)`: the step cap was hit.
+    /// `Err(e)`: the walker reached a layer with no cited coefficient for its
+    /// nuclide, e.g. Kr-85 at the kernel/buffer interface.
+    pub fn try_walk_until_released(
+        &mut self,
+        triso_cell: &TrisoCell,
+        params: &WalkParams,
+    ) -> Result<Option<Time>, MissingDiffusionData> {
         for _ in 0..params.max_steps {
-            if self.step_multilayer(triso_cell, params) == HopOutcome::Released {
-                return Some(self.time);
+            match self.step_multilayer(triso_cell, params) {
+                HopOutcome::Released => return Ok(Some(self.time)),
+                HopOutcome::NoDiffusionData => {
+                    if let Some(e) = self.missing_diffusion_data {
+                        return Err(e);
+                    }
+                    return Ok(None);
+                }
+                HopOutcome::Stepped | HopOutcome::ReachedInterface => {}
             }
         }
-        None
+        Ok(None)
+    }
+
+    /// Record why the walk stopped and report it (gh:#638).
+    #[inline]
+    fn halt(&mut self, error: MissingDiffusionData) -> HopOutcome {
+        self.missing_diffusion_data = Some(error);
+        HopOutcome::NoDiffusionData
     }
 
     /// Diffusion coefficient of the walker's current nuclide at `position`,
-    /// falling back to the cracked-layer default outside every known region.
+    /// falling back to the cracked-layer default outside every known region,
+    /// and `Err` where the layer has no cited coefficient for the nuclide
+    /// (gh:#638), which no fallback stands in for.
     #[inline]
-    fn diffusion_at(&self, triso_cell: &TrisoCell, position: [Length; 3]) -> DiffusionCoefficient {
-        triso_cell
-            .try_get_diffusion_coefficient(position, self.nuclide)
-            .unwrap_or_else(|| {
-                DiffusionCoefficient::new::<square_meter_per_second>(FALLBACK_DIFFUSION_M2_PER_S)
-            })
+    fn diffusion_at(
+        &self,
+        triso_cell: &TrisoCell,
+        position: [Length; 3],
+    ) -> Result<DiffusionCoefficient, MissingDiffusionData> {
+        let d = triso_cell.get_diffusion_coefficient(position, self.nuclide)?;
+        Ok(d.unwrap_or_else(|| {
+            DiffusionCoefficient::new::<square_meter_per_second>(FALLBACK_DIFFUSION_M2_PER_S)
+        }))
     }
 
     /// The point at radial distance `target` from the centre, along the walker's
@@ -697,6 +763,7 @@ mod tests {
             match walker.step_multilayer(&cell, &params) {
                 HopOutcome::ReachedInterface => saw_interface = true,
                 HopOutcome::Released => break,
+                HopOutcome::NoDiffusionData => panic!("Cs-137 has cited data in every layer"),
                 HopOutcome::Stepped => {}
             }
             if walker.radius() > fuel_radius {
