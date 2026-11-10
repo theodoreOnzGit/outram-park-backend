@@ -10166,6 +10166,7 @@ dependencies = [
  "image",
  "log",
  "ndarray",
+ "outram-park-fork-coolprop",
  "petir",
  "serde",
  "thiserror 2.0.21",

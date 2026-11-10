@@ -45,6 +45,11 @@ long-tests = []
 # Every transcendental routes through PETIR for cross-platform bit identity
 # (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
 petir = { workspace = true }
+# Liquid sodium (gh:#1320, EBR-II groundwork #1312): TUAS reuses CoolProp's
+# `LiqNa` incompressible fit from the CoolProp port rather than carrying a
+# second sodium correlation. No cycle: the coolprop port depends only on
+# petir, uom and outram-foam-basic-lib, none of which depends on TUAS.
+outram-park-fork-coolprop.workspace = true
 approx.workspace = true
 csv.workspace = true
 ndarray.workspace = true

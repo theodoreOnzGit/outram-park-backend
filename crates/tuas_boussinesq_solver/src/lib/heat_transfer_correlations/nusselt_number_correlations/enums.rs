@@ -3,6 +3,7 @@ use uom::si::{f64::*, ratio::ratio};
 use crate::tuas_lib_error::TuasLibError;
 
 use super::free_convection_correlations::ChurchillChuData;
+use super::liquid_metal::LiquidMetalNusseltData;
 use super::input_structs::{DittusBoelterData, NusseltPrandtlReynoldsData, WakaoData, GnielinskiData};
 
 /// Contains a collection of nusselt number correlations for use
@@ -250,6 +251,17 @@ pub enum NusseltCorrelation {
     /// which free convection does not depend on, and the wall Prandtl
     /// number.
     ChurchillChuVerticalPlate(ChurchillChuData),
+
+    /// A named liquid-metal correlation in the Péclet number `Pe = Re·Pr`
+    /// (Lyon-Martinelli, Seban-Shimazaki, Kazimi-Carelli, Schad-modified,
+    /// Mikityuk); see [`super::liquid_metal`] for the formulas, sources and
+    /// validity ranges (documented, not enforced, as in the MOOSE upstream).
+    /// Added 2026-11-10 (GitHub #1321); no existing variant changed.
+    ///
+    /// The `estimate_*` methods replace the Reynolds and bulk Prandtl
+    /// numbers; the wall Prandtl number and the Darcy friction factor are not
+    /// used (none of these correlations carries a wall correction).
+    LiquidMetal(LiquidMetalNusseltData),
 }
 
 impl NusseltCorrelation {
@@ -295,6 +307,9 @@ impl NusseltCorrelation {
                 return data.try_get_nusselt();
             }
             NusseltCorrelation::ChurchillChuVerticalPlate(data) => {
+                return data.try_get_nusselt();
+            }
+            NusseltCorrelation::LiquidMetal(data) => {
                 return data.try_get_nusselt();
             }
             NusseltCorrelation::PipeGnielinskiGenericPrandtlFilm(data) => {
@@ -459,6 +474,12 @@ impl NusseltCorrelation {
                 modified_data.prandtl = bulk_prandtl_number_input;
                 return modified_data.try_get_nusselt();
             }
+            NusseltCorrelation::LiquidMetal(data) => {
+                let mut modified_data = *data;
+                modified_data.prandtl_bulk = bulk_prandtl_number_input;
+                modified_data.reynolds = reynolds_number_input;
+                return modified_data.try_get_nusselt();
+            }
             NusseltCorrelation::PipeGnielinskiGenericPrandtlFilm(data) => {
                 let mut modified_data = data.clone();
                 modified_data.prandtl_wall = bulk_prandtl_number_input;
@@ -566,6 +587,12 @@ impl NusseltCorrelation {
             NusseltCorrelation::ChurchillChuVerticalPlate(data) => {
                 let mut modified_data = *data;
                 modified_data.prandtl = bulk_prandtl_number_input;
+                return modified_data.try_get_nusselt();
+            }
+            NusseltCorrelation::LiquidMetal(data) => {
+                let mut modified_data = *data;
+                modified_data.prandtl_bulk = bulk_prandtl_number_input;
+                modified_data.reynolds = reynolds_number_input;
                 return modified_data.try_get_nusselt();
             }
             NusseltCorrelation::PipeGnielinskiGenericPrandtlFilm(data) => {
