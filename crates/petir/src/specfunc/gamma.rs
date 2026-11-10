@@ -184,8 +184,11 @@ pub fn ln_gamma(x: f64) -> f64 {
     // further, using a dedicated series for |x| < 0.02 and extracting the
     // fractional part of x before taking sin(pi x) for large negative x, since
     // pi * x loses its low bits once x is large. PETIR has not ported those two
-    // refinements, so accuracy here degrades for x below about -50. Filed as a
-    // bead; the tests pin the range that is actually checked.
+    // refinements, so accuracy here degrades for x below about -50.
+    // ~~"degrades only below about -50"~~ **CORRECTED 2026-11-10 (gh:#1419)**:
+    // measured against compiled GSL 2.8, it degrades within 0.02 of EVERY
+    // negative integer (ln|Gamma| error ~1e-16/|eps|, 0.04-0.15 at one ulp
+    // from a pole). The tests pin the range that is actually checked.
     let sin_term = Real::sin(PI * x).abs();
     LN_PI - Real::ln(sin_term) - ln_gamma(1.0 - x)
 }
