@@ -64,14 +64,65 @@ cannot be an artefact of both converging on the requested number.
 | head-on, Hooke | `normal_model_hooke.h` | 251 | `0` | `0` | `0` | `liggghts_cross_code.rs` |
 | wall bounce + gravity, 400 000 steps | `fix_wall_gran.cpp`, `fix_wall_gran_base.h` | 2001 | `0` | `0` | — | `liggghts_cross_code.rs` |
 | rolling, counter-spinning pair | `rolling_model_cdt.h` | 201 | `0` | `0` | `0` | `liggghts_cross_code.rs` |
-| oblique + friction | `tangential_model_history.h`, `surface_model_default.h` | 251 | `0` | `1.11e-16` | `5.68e-14` | `liggghts_cross_code.rs` |
-| oblique, no-history (stateless path) | `tangential_model_no_history.h` | 251 | `0` | `1.11e-16` | `1.42e-14` | `legacy_path_cross_code.rs` |
+| oblique + friction | `tangential_model_history.h`, `surface_model_default.h` | 251 | `0` | ~~`1.11e-16`~~ **`0`** | ~~`5.68e-14`~~ **`0`** | `liggghts_cross_code.rs` |
+| oblique, no-history (stateless path) | `tangential_model_no_history.h` | 251 | `0` | ~~`1.11e-16`~~ **`0`** | ~~`1.42e-14`~~ **`0`** | `legacy_path_cross_code.rs` |
+| oblique **Hooke** + history + CDT rolling (new 2026-11-10) | `normal_model_hooke.h`, `tangential_model_history.h`, `rolling_model_cdt.h` | 251 | `0` | `0` | `0` | `liggghts_cross_code.rs` |
+| **two atom types**, head-on (new 2026-11-10): `E` 1e7/3e7, `ν` 0.3/0.2, `e` and `µ` matrices, `d` 10/12 mm, `ρ` 2500/4000 | `global_properties.cpp` `createYeff`/`createBetaEff`, `normal_model_hertz.h` | 251 | `0` | `0` | `0` | `liggghts_cross_code.rs` |
+| **two atom types**, oblique (new 2026-11-10) | adds `createGeff`, `createCoeffFrict`, unequal-radius torque | 251 | `0` | `0` | `0` | `liggghts_cross_code.rs` |
 
-**Four of the six are bit-identical over the whole trajectory.** The two
+~~**Four of the six are bit-identical over the whole trajectory.** The two
 oblique cases agree to round-off: `1.11e-16 m/s` is one ulp at `|v| ~ 1 m/s`,
 and `5.68e-14 rad/s` is about 3 ulp at the final `omega_z = -83.1815 rad/s`.
 That residual is the expected consequence of summing identical terms in a
-different association order, not a modelling difference.
+different association order, not a modelling difference.~~
+
+**CORRECTED 2026-11-10 (gh:#1406): all nine deterministic rows are
+bit-identical, every `f64` of every frame** (x, v and ω: 251 frames x 2 atoms
+x 9 values = 4518 per case). The "association order" explanation was right in
+kind and is now removed at its source. Matching the port to upstream operation
+by operation found these lines (the old port differed from upstream at each):
+
+| Port (before) | Upstream (after) | Upstream source |
+|---|---|---|
+| `omega += t * (half * (1/(0.4 m r²)))` | `dtirotate = (dtf/INERTIA)/(r*r*m); omega += dtirotate*torque` | `fix_nve_sphere.cpp`, `initial_integrate`/`final_integrate` |
+| slip rescale of stored shear `ft * (-1/kt)` | `shear = -Ft/kt` | `tangential_model_history.h`, slip branch |
+| no-history: rescale `Ft` by `µ|Fn|/|Ft|` when over the cap | cap the dashpot coefficient: `gamma = (Ft_friction < gammat*vrel) ? Ft_friction/vrel : gammat; Ft = -gamma*vtr` | `tangential_model_no_history.h` |
+| `Y_eff = E/(2(1-ν²))`, `G_eff = E/(4(2-ν)(1+ν))` | `1/((1-νi²)/Ei + (1-νj²)/Ej)`, `1/(2(2-νi)(1+νi)/Ei + 2(2-νj)(1+νj)/Ej)` | `global_properties.cpp` `createYeff`, `createGeff` |
+| wall branch `wr = ω * (cr * rinv)` | `wr = cr*ω*rinv`, i.e. `(cr*ω)*rinv` | `surface_model_default.h` (not exercised by a deterministic deck here) |
+
+The stateless `contact` + `simulation` Hertz path no longer keeps its own copy
+of the arithmetic: `HertzContact::contact_force` delegates to the engine path's
+translation (`ContactKinematics::pair` + `GranularNormalModel::Hertz` +
+`TangentialModel::NoHistory`), so the two engines cannot drift.
+
+**Prediction written before the new runs (2026-11-10):** Hooke + history + CDT
+rolling and the two-type cases bit-identical, because each piece
+(head-on Hooke, history, CDT, per-pair `Y_eff`/`G_eff`/`β_eff`) is a
+line-for-line translation. **Result: confirmed, 4518/4518 values bit-identical
+in each of the three new cases** (`liggghts_cross_code.rs`,
+`oblique_hooke_history_rolling_matches_liggghts`,
+`two_type_headon_matches_liggghts`, `two_type_oblique_matches_liggghts`).
+Reference decks: `reference-data/liggghts/in.oblique_hooke_rolling`,
+`in.twotype_headon`, `in.twotype_oblique`, built with the recipe in
+`crates/outram-park-fork-liggghts/upstream_source/README.md`. Toolchain:
+Rust 1.99.1, g++ 15.2.1 for upstream.
+
+**Rotating mesh wall (gh:#1406 prio 2, 2026-11-10; NOT bit-identical).**
+`rotating_mesh_cross_code.rs`, deck `in.rotating_plate`: a sphere bouncing on a
+square mesh plate rotating at `4π rad/s`. Prediction (bit-identical early,
+ulp-level drift later) **not met**: with upstream's setup convention applied
+(mesh velocity zero in the setup force evaluation; without it the first
+half-kick is ~2x off) the 251 frames agree to `max|Δx| = 5.6e-15 m`,
+`max|Δv| = 8.1e-12 m/s`, `max|Δω| = 1.1e-9 rad/s`, 1915 of 2259 values differing
+in the last bits. Cause: the mesh contact path (`TriMesh::resolveTriSphereContactBary`
++ `surface_model_default.h` wall branch) is not translated operation by
+operation. Bit-identity criterion is `#[ignore]`d pending gh:#1416.
+
+The two-type cases use `MaterialTable` (new, `granular.rs`): per-type `E`, `ν`
+and symmetric per-pair `e` and `µ` matrices, with upstream's `createYeff` /
+`createGeff` / `createBetaEff` mixing rules, selected per contact by
+`GranularSystem::with_particle_types`. At most 4 types; wall contacts use the
+particle's own type (no separate wall material).
 
 The last row verifies a **second engine**: the crate's stateless
 `contact` + `simulation` path, against the upstream model it actually
@@ -134,8 +185,9 @@ different contact model does.
 
 **It is still not bit-identical, and the residual is expected.** A granular bed
 is a chaotic system with tens of thousands of contacts making and breaking;
-round-off differences of the kind the oblique cases show (1-3 ulp) are
-amplified by contact-order sensitivity. The 0.49-diameter outlier is one pebble
+round-off differences (the oblique cases showed 1-3 ulp until 2026-11-10 and
+are now bit-identical; a bed still sums contacts in a different neighbour order
+from LIGGGHTS) are amplified by contact-order sensitivity. The 0.49-diameter outlier is one pebble
 that resolved a contact differently and settled into a neighbouring void — the
 kind of event a bulk measure is deliberately insensitive to, and the reason the
 asserted gate is the bulk number rather than a per-particle tolerance.

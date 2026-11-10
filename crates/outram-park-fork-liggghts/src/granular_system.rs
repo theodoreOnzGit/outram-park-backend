@@ -116,6 +116,10 @@ pub struct GranularSystem {
     /// the array index, so removing or inserting a particle cannot silently
     /// re-attach a stored tangential spring to a different pair.
     tags: Vec<u64>,
+    /// Atom type of each particle (0-based), parallel to `particles`. All zero
+    /// unless set by [`GranularSystem::with_particle_types`]; indexes the
+    /// model's [`MaterialTable`](crate::granular::MaterialTable).
+    types: Vec<usize>,
     /// Next tag to hand out. Monotonic; a tag is never reused.
     next_tag: u64,
     /// Which compute backend the timestep uses. See [`ComputeType`]; the
@@ -217,6 +221,7 @@ impl GranularSystem {
             forces: vec![Vec3::zero(); n],
             torques: vec![Vec3::zero(); n],
             tags: (0..n as u64).collect(),
+            types: vec![0; n],
             next_tag: n as u64,
             compute: ComputeType::default(),
             pairs: Vec::new(),
@@ -314,6 +319,34 @@ impl GranularSystem {
         &self.particles
     }
 
+    /// Assign an atom type (0-based) to every particle, for a model carrying a
+    /// [`MaterialTable`](crate::granular::MaterialTable)
+    /// ([`GranularContactModel::with_materials`]). Particles inserted later get
+    /// type 0.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if `types.len()` differs from the particle
+    /// count, or a type is `>=` the table's type count (or non-zero with no
+    /// table).
+    pub fn with_particle_types(mut self, types: Vec<usize>) -> Result<Self, DemError> {
+        if types.len() != self.particles.len() {
+            return Err(DemError::InvalidInput(format!(
+                "{} types for {} particles",
+                types.len(),
+                self.particles.len()
+            )));
+        }
+        let n_types = self.model.materials.map_or(1, |t| t.n_types());
+        if let Some(bad) = types.iter().find(|&&t| t >= n_types) {
+            return Err(DemError::InvalidInput(format!(
+                "atom type {bad} out of range: the material table has {n_types} type(s)"
+            )));
+        }
+        self.types = types;
+        Ok(self)
+    }
+
     /// The stable tag of each particle, parallel to [`GranularSystem::particles`].
     ///
     /// Tags are assigned `0..n` at construction and monotonically thereafter;
@@ -340,6 +373,7 @@ impl GranularSystem {
         self.next_tag += 1;
         self.particles.push(p);
         self.tags.push(tag);
+        self.types.push(0);
         self.forces.push(Vec3::zero());
         self.torques.push(Vec3::zero());
         self.compute_forces();
@@ -413,6 +447,7 @@ impl GranularSystem {
             self.next_tag += 1;
             self.particles.push(p);
             self.tags.push(tag);
+            self.types.push(0);
             self.forces.push(Vec3::zero());
             self.torques.push(Vec3::zero());
             tags.push(tag);
@@ -454,6 +489,7 @@ impl GranularSystem {
         for &i in doomed.iter().rev() {
             removed.push(self.particles.swap_remove(i));
             self.tags.swap_remove(i);
+            self.types.swap_remove(i);
             self.forces.swap_remove(i);
             self.torques.swap_remove(i);
         }
@@ -598,6 +634,7 @@ impl GranularSystem {
                     // `Contact::normal` is the inward normal (wall -> particle),
                     // which is exactly upstream's `en` for a wall contact.
                     if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, Vec3::zero())
+                        .map(|k| k.with_types(self.types[i], self.types[i]))
                     {
                         let gf = self.model.resolve(
                             ContactKey::wall(self.tags[i] as usize, w),
@@ -618,7 +655,9 @@ impl GranularSystem {
             for (w, wall) in self.moving_walls.iter().enumerate() {
                 if let Some(c) = wall.particle_overlap(&p) {
                     let v_wall = wall.surface_velocity(c.point);
-                    if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, v_wall) {
+                    if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, v_wall)
+                        .map(|k| k.with_types(self.types[i], self.types[i]))
+                    {
                         let gf = self.model.resolve(
                             // Wall ids are offset past the static boundaries so
                             // the two families cannot collide in the history map.
@@ -651,7 +690,9 @@ impl GranularSystem {
             let (i, j) = (i as usize, j as usize);
             let a = self.particles[i];
             let b = self.particles[j];
-            if let Some(k) = ContactKinematics::pair(&a, &b) {
+            if let Some(k) =
+                ContactKinematics::pair(&a, &b).map(|k| k.with_types(self.types[i], self.types[j]))
+            {
                 let gf = self.model.resolve(
                     ContactKey::pair(self.tags[i] as usize, self.tags[j] as usize),
                     &k,
@@ -718,6 +759,7 @@ impl GranularSystem {
         {
             let particles: &[Particle] = &self.particles;
             let tags: &[u64] = &self.tags;
+            let types: &[usize] = &self.types;
             let model = &self.model;
             let history = &self.history;
             let dt = self.dt;
@@ -736,7 +778,9 @@ impl GranularSystem {
                             let (i, j) = (i as usize, j as usize);
                             let a = particles[i];
                             let b = particles[j];
-                            let Some(k) = ContactKinematics::pair(&a, &b) else {
+                            let Some(k) = ContactKinematics::pair(&a, &b)
+                                .map(|k| k.with_types(types[i], types[j]))
+                            else {
                                 continue;
                             };
                             let key = ContactKey::pair(tags[i] as usize, tags[j] as usize);
@@ -1740,5 +1784,36 @@ mod tests {
             !sys.tags().contains(&1),
             "the removed particle's tag must not come back"
         );
+    }
+
+    #[test]
+    fn particle_types_are_validated_against_the_material_table() {
+        use crate::granular::MaterialTable;
+        let m = GranularMaterial::new(1.0e7, 0.3, 0.9, 0.5).unwrap();
+        let table = MaterialTable::new(
+            &[(1.0e7, 0.3), (2.0e7, 0.3)],
+            &[&[0.9, 0.8], &[0.8, 0.9]],
+            &[&[0.5, 0.4], &[0.4, 0.5]],
+        )
+        .unwrap();
+        let model = GranularContactModel::hertz_history(m).with_materials(table);
+        let mk = |model| {
+            GranularSystem::new(
+                vec![
+                    sphere(Vec3::new(0.0, 0.0, 0.0), Vec3::zero()),
+                    sphere(Vec3::new(0.02, 0.0, 0.0), Vec3::zero()),
+                ],
+                vec![],
+                model,
+                Vec3::zero(),
+                1.0e-6,
+            )
+            .unwrap()
+        };
+        assert!(mk(model).with_particle_types(vec![0, 1]).is_ok());
+        assert!(mk(model).with_particle_types(vec![0]).is_err(), "wrong length");
+        assert!(mk(model).with_particle_types(vec![0, 2]).is_err(), "type out of range");
+        let single = GranularContactModel::hertz_history(m);
+        assert!(mk(single).with_particle_types(vec![0, 1]).is_err(), "no table: only type 0");
     }
 }

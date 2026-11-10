@@ -204,8 +204,13 @@ impl GranularMaterial {
     /// shared material reduces to `E / (2(1 − ν²))`.
     #[must_use]
     pub fn y_eff(&self) -> f64 {
+        // Upstream `createYeff` with i = j:
+        //   1./((1.-pow(vi,2.))/Yi + (1.-pow(vj,2.))/Yj)
+        // (g++ folds `pow(x, 2.)` to `x*x`). Not `E / (2(1-nu^2))`, which
+        // rounds differently.
         let nu = self.poisson_ratio;
-        self.youngs_modulus / (2.0 * (1.0 - nu * nu))
+        let e = self.youngs_modulus;
+        1.0 / ((1.0 - nu * nu) / e + (1.0 - nu * nu) / e)
     }
 
     /// Effective shear modulus `G_eff` `[Pa]`.
@@ -214,8 +219,11 @@ impl GranularMaterial {
     /// reducing for one shared material to `E / (4(2 − ν)(1 + ν))`.
     #[must_use]
     pub fn g_eff(&self) -> f64 {
+        // Upstream `createGeff` with i = j:
+        //   1./(2.*(2.-vi)*(1.+vi)/Yi + 2.*(2.-vj)*(1.+vj)/Yj)
         let nu = self.poisson_ratio;
-        self.youngs_modulus / (4.0 * (2.0 - nu) * (1.0 + nu))
+        let e = self.youngs_modulus;
+        1.0 / (2.0 * (2.0 - nu) * (1.0 + nu) / e + 2.0 * (2.0 - nu) * (1.0 + nu) / e)
     }
 
     /// Damping ratio `β_eff` `[-]`, upstream `createBetaEff`.
@@ -225,6 +233,159 @@ impl GranularMaterial {
     pub fn beta_eff(&self) -> f64 {
         let ln_e = self.restitution.r_ln();
         ln_e / (ln_e * ln_e + std::f64::consts::PI * std::f64::consts::PI).sqrt()
+    }
+}
+
+/// Largest number of atom types a [`MaterialTable`] holds (fixed-size arrays
+/// keep [`GranularContactModel`] `Copy`).
+pub const MAX_TYPES: usize = 4;
+
+/// The per-type-pair coefficients a contact needs: upstream's `Yeff`, `Geff`,
+/// `coeffRestLog`, `betaeff` and `coeffFrict` matrices evaluated at one
+/// `(itype, jtype)`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PairProps {
+    /// Effective Young's modulus `Y_eff` `[Pa]`.
+    pub y_eff: f64,
+    /// Effective shear modulus `G_eff` `[Pa]`.
+    pub g_eff: f64,
+    /// `ln(e)`, upstream `coeffRestLog` `[-]`.
+    pub ln_e: f64,
+    /// Damping ratio `beta_eff` `[-]`.
+    pub beta_eff: f64,
+    /// Coulomb friction coefficient `mu` `[-]`.
+    pub friction: f64,
+}
+
+impl PairProps {
+    /// Coefficients of one material against itself (the single-material case).
+    #[must_use]
+    pub fn from_material(m: &GranularMaterial) -> Self {
+        let ln_e = m.restitution.r_ln();
+        Self {
+            y_eff: m.y_eff(),
+            g_eff: m.g_eff(),
+            ln_e,
+            beta_eff: ln_e / (ln_e * ln_e + std::f64::consts::PI * std::f64::consts::PI).sqrt(),
+            friction: m.friction,
+        }
+    }
+}
+
+/// Per-atom-type material data and per-type-pair matrices: the port of
+/// LIGGGHTS' `fix property/global youngsModulus|poissonsRatio peratomtype`
+/// and `coefficientRestitution|coefficientFriction peratomtypepair`, and of
+/// the `global_properties.cpp` mixing rules built from them:
+///
+/// - `Y_eff[i][j] = 1/((1-nu_i^2)/E_i + (1-nu_j^2)/E_j)` (`createYeff`);
+/// - `G_eff[i][j] = 1/(2(2-nu_i)(1+nu_i)/E_i + 2(2-nu_j)(1+nu_j)/E_j)`
+///   (`createGeff`);
+/// - `ln e[i][j] = log(e_ij)`, `beta_eff = ln e / sqrt(ln^2 e + pi^2)`
+///   (`createCoeffRestLog`, `createBetaEff`);
+/// - `e_ij` and `mu_ij` are **user-supplied matrices**, not mixed from per-type
+///   values (upstream requires them symmetric; so does [`MaterialTable::new`]).
+///
+/// At most [`MAX_TYPES`] types. Particle-wall contacts use the particle's own
+/// type for both partners (the wall material is not modelled separately).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MaterialTable {
+    n_types: usize,
+    youngs: [f64; MAX_TYPES],
+    poisson: [f64; MAX_TYPES],
+    restitution: [[f64; MAX_TYPES]; MAX_TYPES],
+    friction: [[f64; MAX_TYPES]; MAX_TYPES],
+}
+
+impl MaterialTable {
+    /// Build a table for `types.len()` atom types (index 0 is atom type 1).
+    ///
+    /// `types[t] = (E, nu)`; `restitution` and `friction` are square,
+    /// symmetric `n x n` matrices.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] for 0 or more than [`MAX_TYPES`] types, a
+    /// matrix of the wrong shape or not symmetric, or a value outside the
+    /// ranges of [`GranularMaterial::new`].
+    pub fn new(
+        types: &[(f64, f64)],
+        restitution: &[&[f64]],
+        friction: &[&[f64]],
+    ) -> Result<Self, DemError> {
+        let n = types.len();
+        if n == 0 || n > MAX_TYPES {
+            return Err(DemError::InvalidInput(format!(
+                "a material table needs 1..={MAX_TYPES} types, got {n}"
+            )));
+        }
+        let mut t = Self {
+            n_types: n,
+            youngs: [1.0; MAX_TYPES],
+            poisson: [0.0; MAX_TYPES],
+            restitution: [[1.0; MAX_TYPES]; MAX_TYPES],
+            friction: [[0.0; MAX_TYPES]; MAX_TYPES],
+        };
+        for (i, &(e, nu)) in types.iter().enumerate() {
+            // Validate through the single-material constructor.
+            GranularMaterial::new(e, nu, 1.0, 0.0)?;
+            t.youngs[i] = e;
+            t.poisson[i] = nu;
+        }
+        for (name, src, dst) in [
+            ("restitution", restitution, &mut t.restitution),
+            ("friction", friction, &mut t.friction),
+        ] {
+            if src.len() != n || src.iter().any(|row| row.len() != n) {
+                return Err(DemError::InvalidInput(format!(
+                    "{name} matrix must be {n} x {n}"
+                )));
+            }
+            for i in 0..n {
+                for j in 0..n {
+                    if src[i][j] != src[j][i] {
+                        return Err(DemError::InvalidInput(format!(
+                            "{name} matrix must be symmetric (LIGGGHTS fix property/global \
+                             peratomtypepair requires it); [{i}][{j}] != [{j}][{i}]"
+                        )));
+                    }
+                    dst[i][j] = src[i][j];
+                }
+            }
+        }
+        for i in 0..n {
+            for j in 0..n {
+                GranularMaterial::new(1.0, 0.0, t.restitution[i][j], t.friction[i][j])?;
+            }
+        }
+        Ok(t)
+    }
+
+    /// Number of atom types.
+    #[must_use]
+    pub fn n_types(&self) -> usize {
+        self.n_types
+    }
+
+    /// The coefficients for a contact between types `i` and `j` (0-based).
+    ///
+    /// # Panics
+    ///
+    /// If `i` or `j` is `>= n_types()` (a particle type outside the table is a
+    /// caller bug; `GranularSystem::with_particle_types` checks it up front).
+    #[must_use]
+    pub fn pair_props(&self, i: usize, j: usize) -> PairProps {
+        assert!(i < self.n_types && j < self.n_types, "atom type out of range");
+        let (yi, yj) = (self.youngs[i], self.youngs[j]);
+        let (vi, vj) = (self.poisson[i], self.poisson[j]);
+        let ln_e = self.restitution[i][j].r_ln();
+        PairProps {
+            y_eff: 1.0 / ((1.0 - vi * vi) / yi + (1.0 - vj * vj) / yj),
+            g_eff: 1.0
+                / (2.0 * (2.0 - vi) * (1.0 + vi) / yi + 2.0 * (2.0 - vj) * (1.0 + vj) / yj),
+            ln_e,
+            beta_eff: ln_e / (ln_e * ln_e + std::f64::consts::PI * std::f64::consts::PI).sqrt(),
+            friction: self.friction[i][j],
+        }
     }
 }
 
@@ -271,6 +432,11 @@ pub struct ContactKinematics {
     /// Whether this is a particle–wall contact (upstream's `is_wall`), which
     /// changes `R*`, `m*` and the rolling model's rolling-velocity branch.
     pub is_wall: bool,
+    /// Atom type of `i` (0-based), upstream `sidata.itype`. Zero unless set by
+    /// [`ContactKinematics::with_types`].
+    pub itype: usize,
+    /// Atom type of `j` (0-based), upstream `sidata.jtype`.
+    pub jtype: usize,
 }
 
 impl ContactKinematics {
@@ -318,7 +484,16 @@ impl ContactKinematics {
             omega_i: i.angular_velocity,
             omega_j: j.angular_velocity,
             is_wall: false,
+            itype: 0,
+            jtype: 0,
         })
+    }
+
+    /// The same contact with atom types `itype` / `jtype` (0-based) attached,
+    /// for a [`MaterialTable`] lookup.
+    #[must_use]
+    pub fn with_types(self, itype: usize, jtype: usize) -> Self {
+        Self { itype, jtype, ..self }
     }
 
     /// Resolve the kinematics of a particle–**wall** contact.
@@ -353,7 +528,8 @@ impl ContactKinematics {
         let vr = i.velocity.sub(wall_velocity);
         let vn = vr.dot(en);
         let vt = vr.sub(en.scale(vn));
-        let wr = i.angular_velocity.scale(cr * rinv);
+        // Upstream: wr = cr * omega * rinv, i.e. (cr * omega) * rinv.
+        let wr = i.angular_velocity.scale(cr).scale(rinv);
         let vtr = vt.add(delta.cross(wr));
 
         Some(Self {
@@ -368,6 +544,8 @@ impl ContactKinematics {
             omega_i: i.angular_velocity,
             omega_j: Vec3::zero(),
             is_wall: true,
+            itype: 0,
+            jtype: 0,
         })
     }
 }
@@ -479,15 +657,22 @@ impl GranularNormalModel {
     /// module "Honest scope"); this reproduces upstream's default settings.
     #[must_use]
     pub fn evaluate(&self, k: &ContactKinematics) -> NormalOutcome {
+        self.evaluate_with(k, &PairProps::from_material(&self.material()))
+    }
+
+    /// As [`GranularNormalModel::evaluate`], with the type-pair coefficients
+    /// `props` supplied by the caller (from a [`MaterialTable`]) instead of
+    /// the model's own single material.
+    #[must_use]
+    pub fn evaluate_with(&self, k: &ContactKinematics, props: &PairProps) -> NormalOutcome {
         match *self {
             Self::Hertz {
-                material,
-                tangential_damping,
+                tangential_damping, ..
             } => {
                 let sqrtval = (k.r_eff * k.delta_n).sqrt();
-                let y_eff = material.y_eff();
-                let g_eff = material.g_eff();
-                let beta = material.beta_eff();
+                let y_eff = props.y_eff;
+                let g_eff = props.g_eff;
+                let beta = props.beta_eff;
 
                 let sn = 2.0 * y_eff * sqrtval;
                 let st = 8.0 * g_eff * sqrtval;
@@ -509,13 +694,13 @@ impl GranularNormalModel {
                 }
             }
             Self::Hooke {
-                material,
                 characteristic_velocity,
                 tangential_damping,
                 kt_to_kn,
+                ..
             } => {
                 let sqrtval = k.r_eff.sqrt();
-                let y_eff = material.y_eff();
+                let y_eff = props.y_eff;
                 let char_vel = characteristic_velocity;
 
                 let kn = 16.0 / 15.0
@@ -524,7 +709,7 @@ impl GranularNormalModel {
                     * (15.0 * k.m_eff * char_vel * char_vel / (16.0 * sqrtval * y_eff)).r_powf(0.2);
                 let kt = if kt_to_kn { kn * 0.285_714_286 } else { kn };
 
-                let ln_e = material.restitution.r_ln();
+                let ln_e = props.ln_e;
                 let ln_e_sq = ln_e * ln_e;
                 let gamman = (4.0 * k.m_eff * kn * ln_e_sq
                     / (ln_e_sq + std::f64::consts::PI * std::f64::consts::PI))
@@ -967,6 +1152,10 @@ pub struct GranularContactModel {
     /// [`GranularContactModel::new`]; set it with
     /// [`GranularContactModel::with_rolling`].
     pub rolling: RollingModel,
+    /// Per-atom-type material table (`None` = the single material inside
+    /// [`GranularContactModel::normal`]). Set with
+    /// [`GranularContactModel::with_materials`].
+    pub materials: Option<MaterialTable>,
 }
 
 impl GranularContactModel {
@@ -991,6 +1180,21 @@ impl GranularContactModel {
             normal,
             tangential,
             rolling: RollingModel::Off,
+            materials: None,
+        }
+    }
+
+    /// Return a copy of this model with a per-atom-type [`MaterialTable`]
+    /// (upstream's `peratomtype` / `peratomtypepair` properties). The normal
+    /// model's own `material` is then ignored for `Y_eff`, `G_eff`, `e` and
+    /// `mu`; its `tangential_damping` / `characteristic_velocity` settings
+    /// still apply. Atom types are given to the system with
+    /// `GranularSystem::with_particle_types`.
+    #[must_use]
+    pub fn with_materials(self, materials: MaterialTable) -> Self {
+        Self {
+            materials: Some(materials),
+            ..self
         }
     }
 
@@ -1087,8 +1291,12 @@ impl GranularContactModel {
         k: &ContactKinematics,
         dt: f64,
     ) -> (GranularForce, Option<Vec3>) {
-        let normal = self.normal.evaluate(k);
-        let mu = self.normal.material().friction;
+        let props = match self.materials {
+            Some(table) => table.pair_props(k.itype, k.jtype),
+            None => PairProps::from_material(&self.normal.material()),
+        };
+        let normal = self.normal.evaluate_with(k, &props);
+        let mu = props.friction;
         let mut updated: Option<Vec3> = None;
 
         let ft = match self.tangential {
@@ -1111,7 +1319,9 @@ impl GranularContactModel {
                     if shrmag != 0.0 {
                         let ratio = ft_friction / ft_shear;
                         ft = ft.scale(ratio);
-                        updated = Some(ft.scale(-1.0 / kt));
+                        // Upstream: shear[i] = -Ft_i / kt (negate, then divide).
+                        // `ft * (-1/kt)` rounds differently.
+                        updated = Some(Vec3::new(-ft.x / kt, -ft.y / kt, -ft.z / kt));
                     } else {
                         ft = Vec3::zero();
                         updated = Some(shear);
@@ -1124,14 +1334,19 @@ impl GranularContactModel {
                 ft
             }
             TangentialModel::NoHistory => {
-                // Upstream TANGENTIAL_NO_HISTORY: pure Coulomb-capped dashpot.
-                let mut ft = k.vtr.scale(-normal.gammat);
-                let ft_mag = ft.norm();
+                // Upstream `tangential_model_no_history.h`: a dashpot whose
+                // coefficient is capped, not a force that is rescaled:
+                //   vrel = |vtr|; Ft_friction = mu*|Fn|
+                //   gamma = (Ft_friction < gammat*vrel) ? Ft_friction/vrel : gammat
+                //   Ft = -gamma * vtr
+                let vrel = k.vtr.norm();
                 let ft_friction = mu * normal.fn_scalar.abs();
-                if ft_mag > ft_friction && ft_mag > 0.0 {
-                    ft = ft.scale(ft_friction / ft_mag);
-                }
-                ft
+                let gamma = if ft_friction < normal.gammat * vrel {
+                    ft_friction / vrel
+                } else {
+                    normal.gammat
+                };
+                k.vtr.scale(-gamma)
             }
         };
 
@@ -1629,5 +1844,53 @@ mod tests {
         assert_abs_diff_eq!(k.m_eff, p.mass, epsilon = 1e-18);
         assert_abs_diff_eq!(k.crj, 0.0, epsilon = 1e-18);
         assert!(ContactKinematics::wall(&p, Vec3::new(0.0, 0.0, 1.0), 0.0, Vec3::zero()).is_none());
+    }
+
+    #[test]
+    fn material_table_mixes_by_the_global_properties_formulas() {
+        let t = MaterialTable::new(
+            &[(1.0e7, 0.3), (3.0e7, 0.2)],
+            &[&[0.9, 0.7], &[0.7, 0.5]],
+            &[&[0.5, 0.3], &[0.3, 0.2]],
+        )
+        .unwrap();
+        assert_eq!(t.n_types(), 2);
+        let p = t.pair_props(0, 1);
+        // createYeff / createGeff, evaluated by hand.
+        let y = 1.0 / ((1.0 - 0.09) / 1.0e7 + (1.0 - 0.04) / 3.0e7);
+        let g = 1.0 / (2.0 * 1.7 * 1.3 / 1.0e7 + 2.0 * 1.8 * 1.2 / 3.0e7);
+        assert_abs_diff_eq!(p.y_eff, y, epsilon = 1e-6);
+        assert_abs_diff_eq!(p.g_eff, g, epsilon = 1e-6);
+        assert_eq!(p.friction, 0.3);
+        assert_eq!(t.pair_props(1, 0), p, "the table is symmetric");
+        // Same type twice reduces to the single-material formulas.
+        let same = t.pair_props(0, 0);
+        let m = GranularMaterial::new(1.0e7, 0.3, 0.9, 0.5).unwrap();
+        assert_eq!(same, PairProps::from_material(&m));
+    }
+
+    #[test]
+    fn material_table_rejects_bad_shapes_and_values() {
+        let ok = [&[0.9][..]];
+        let mu = [&[0.5][..]];
+        assert!(MaterialTable::new(&[], &[], &[]).is_err());
+        assert!(MaterialTable::new(&[(1.0e7, 0.3); MAX_TYPES + 1], &[], &[]).is_err());
+        assert!(MaterialTable::new(&[(1.0e7, 0.3), (1.0e7, 0.3)], &ok, &mu).is_err());
+        let asym = [&[0.9, 0.7][..], &[0.6, 0.9][..]];
+        let sym = [&[0.5, 0.3][..], &[0.3, 0.2][..]];
+        assert!(MaterialTable::new(&[(1.0e7, 0.3), (1.0e7, 0.3)], &asym, &sym).is_err());
+        assert!(MaterialTable::new(&[(-1.0, 0.3)], &ok, &mu).is_err());
+        let bad_e = [&[0.01][..]];
+        assert!(MaterialTable::new(&[(1.0e7, 0.3)], &bad_e, &mu).is_err());
+    }
+
+    #[test]
+    fn contact_types_select_the_table_entry() {
+        let a = sphere(0.0, 0.0);
+        let b = sphere(0.0099, 0.0);
+        let k = ContactKinematics::pair(&a, &b).unwrap();
+        assert_eq!((k.itype, k.jtype), (0, 0));
+        let k = k.with_types(1, 0);
+        assert_eq!((k.itype, k.jtype), (1, 0));
     }
 }

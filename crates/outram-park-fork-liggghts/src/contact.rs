@@ -127,6 +127,10 @@ use petir::mathf::RealMath;
 use uom::si::f64::Pressure;
 use uom::si::pressure::pascal;
 
+use crate::granular::{
+    ContactKinematics, GranularContactModel, GranularMaterial, GranularNormalModel, TangentialModel,
+    SQRT_FIVE_OVER_SIX,
+};
 use crate::particle::{Particle, Vec3};
 use crate::DemError;
 
@@ -500,20 +504,30 @@ impl HertzContact {
     }
 
     /// Effective (reduced) Young's modulus `E*` `[Pa]` for the equal-material
-    /// pair: `E* = E / (2(1 − ν²))`.
+    /// pair: `E* = E / (2(1 − ν²))`, evaluated in upstream's operation order
+    /// (`createYeff`: `1/((1−ν²)/E + (1−ν²)/E)`) so it is bit-identical to it.
     #[must_use]
     pub fn effective_modulus(&self) -> f64 {
-        let nu = self.poisson_ratio;
-        self.youngs_modulus / (2.0 * (1.0 - nu * nu))
+        self.as_material().y_eff()
+    }
+
+    /// The same parameters as the engine-path [`GranularMaterial`] (struct
+    /// literal: the legacy validation bounds are wider than upstream's).
+    fn as_material(&self) -> GranularMaterial {
+        GranularMaterial {
+            youngs_modulus: self.youngs_modulus,
+            poisson_ratio: self.poisson_ratio,
+            restitution: self.restitution,
+            friction: self.friction,
+        }
     }
 
     /// Effective (reduced) shear modulus `G*` `[Pa]` for the equal-material
     /// pair: `G* = G / (2(2 − ν))` with `G = E / (2(1 + ν))`.
     #[must_use]
     pub fn effective_shear_modulus(&self) -> f64 {
-        let nu = self.poisson_ratio;
-        let g = self.youngs_modulus / (2.0 * (1.0 + nu));
-        g / (2.0 * (2.0 - nu))
+        // Upstream `createGeff`, operation order preserved.
+        self.as_material().g_eff()
     }
 
     /// Damping factor `β = ln(e) / √(ln²(e) + π²)` `[-]` (Tsuji 1992 /
@@ -528,21 +542,49 @@ impl HertzContact {
 }
 
 impl ContactLaw for HertzContact {
+    /// Stateless Hertz–Mindlin contact, **bit-identical to upstream
+    /// `pair_style gran model hertz tangential no_history`**.
+    ///
+    /// Delegates to the engine path's translation of upstream
+    /// (`ContactKinematics::pair` = `surface_model_default.h`,
+    /// `GranularNormalModel::Hertz` = `normal_model_hertz.h`,
+    /// `TangentialModel::NoHistory` = `tangential_model_no_history.h`) rather
+    /// than keeping a second implementation whose operation order differs
+    /// (gh:#1406: that second implementation was 1 ulp off upstream). The
+    /// engine's `i` is `a`, so its `ê_n` (`j → i`) is `−n̂` here.
+    fn contact_force(&self, a: &Particle, b: &Particle) -> Option<ContactForce> {
+        let k = ContactKinematics::pair(a, b)?;
+        let model = GranularContactModel::new(
+            GranularNormalModel::hertz(self.as_material()),
+            TangentialModel::NoHistory,
+        );
+        let (gf, _) = model.resolve_pure(Vec3::zero(), &k, 0.0);
+        Some(ContactForce {
+            force_on_a: gf.force_i,
+            force_on_b: gf.force_j,
+            torque_on_a: gf.torque_i,
+            torque_on_b: gf.torque_j,
+            overlap: k.delta_n,
+            normal: k.en.scale(-1.0),
+        })
+    }
+
     fn normal_force_scalar(&self, delta_n: f64, v_n: f64, r_eff: f64, m_eff: f64) -> f64 {
         let e_star = self.effective_modulus();
         // Elastic Hertzian spring: (4/3) E* √R* δ^{3/2}.
-        let elastic = (4.0 / 3.0) * e_star * r_eff.sqrt() * delta_n.r_powf(1.5);
+        // Upstream order: `4./3.*Yeff*sqrt(reff*deltan)` times `deltan`.
+        let elastic = 4.0 / 3.0 * e_star * (r_eff * delta_n).sqrt() * delta_n;
         // Viscoelastic damping: c_n·v_n with c_n = 2√(5/6)|β|√(S_n m*),
         // S_n = 2 E* √(R* δ) the normal contact stiffness.
         let s_n = 2.0 * e_star * (r_eff * delta_n).sqrt();
-        let c_n = 2.0 * (5.0 / 6.0f64).sqrt() * self.damping_beta().abs() * (s_n * m_eff).sqrt();
+        let c_n = 2.0 * SQRT_FIVE_OVER_SIX * self.damping_beta().abs() * (s_n * m_eff).sqrt();
         elastic + c_n * v_n
     }
 
     fn tangential_damping_coeff(&self, delta_n: f64, r_eff: f64, m_eff: f64) -> f64 {
         // γ_t = 2√(5/6)|β|√(S_t m*), S_t = 8 G* √(R* δ) the tangential stiffness.
         let s_t = self.tangential_spring_coeff(delta_n, r_eff);
-        2.0 * (5.0 / 6.0f64).sqrt() * self.damping_beta().abs() * (s_t * m_eff).sqrt()
+        2.0 * SQRT_FIVE_OVER_SIX * self.damping_beta().abs() * (s_t * m_eff).sqrt()
     }
 
     fn tangential_spring_coeff(&self, delta_n: f64, r_eff: f64) -> f64 {
