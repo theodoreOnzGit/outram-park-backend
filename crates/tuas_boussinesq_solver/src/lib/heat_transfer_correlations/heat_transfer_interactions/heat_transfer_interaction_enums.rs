@@ -94,7 +94,7 @@ pub enum HeatTransferInteractionType {
     ///
     /// one also needs to determine the
     /// inner diameter, outer diameter and length of the tube
-    ///  
+    ///
     /// the first material and thickness argument represents
     /// cv_1 to cv_2 (the inner shell)
     ///
@@ -120,7 +120,7 @@ pub enum HeatTransferInteractionType {
     ///
     /// -------------------------------------------------------> r
     /// // ----------------------------
-    /// // |                          |                          
+    /// // |                          |
     /// // * solid_cv_1               *                          *
     /// // |                          |                         (T_f)
     /// // ----------------------------
@@ -183,9 +183,9 @@ pub enum HeatTransferInteractionType {
     ///
     /// -------------------------------------------------------> r
     /// //                           ----------------------------
-    /// //                           |                          |                          
-    /// // *                         *         solid_cv_1       *                  
-    /// //                           |                          |                   
+    /// //                           |                          |
+    /// // *                         *         solid_cv_1       *
+    /// //                           |                          |
     /// // fluid node                ----------------------------
     /// // (T_f)                solid_surface
     ///
@@ -329,7 +329,7 @@ pub enum HeatTransferInteractionType {
     /// H = sigma * coefficient * (T_hot^2 + T_cold^2)*(T_hot + T_cold)
     ///
     /// the coefficient is in units of area, so provide it yourself
-    ///  
+    ///
     SimpleRadiation(Area),
 }
 
@@ -442,30 +442,30 @@ impl HeatTransferInteractionType {
     ) -> Result<ThermalConductance, TuasLibError> {
         let interaction = *self;
 
-        let conductance: ThermalConductance = match 
+        let conductance: ThermalConductance = match
             interaction {
                 HeatTransferInteractionType::UserSpecifiedThermalConductance(
-                    user_specified_conductance) => 
+                    user_specified_conductance) =>
                 {
                     user_specified_conductance
                 }
                 ,
                 HeatTransferInteractionType::SingleCartesianThermalConductanceOneDimension(
-                    material,thickness) => 
+                    material,thickness) =>
                 {
                     get_conductance_single_cartesian_one_dimension(
                         material,
-                        temperature_1, 
-                        temperature_2, 
-                        pressure_1, 
-                        pressure_2, 
+                        temperature_1,
+                        temperature_2,
+                        pressure_1,
+                        pressure_2,
                         thickness)?
                 }
                 ,
                 HeatTransferInteractionType::CylindricalConductionConvectionLiquidInside(
                     (solid_material, shell_thickness,
-                     solid_temperature, solid_pressure), 
-                    (h, inner_diameter, cylinder_length)) => 
+                     solid_temperature, solid_pressure),
+                    (h, inner_diameter, cylinder_length)) =>
                 {
 
                     let id: Length = inner_diameter.clone().into();
@@ -473,10 +473,10 @@ impl HeatTransferInteractionType {
 
                     let od: Length = id+thicnkess;
 
-                    let outer_diameter: OuterDiameterThermalConduction = 
+                    let outer_diameter: OuterDiameterThermalConduction =
                         OuterDiameterThermalConduction::from(od);
 
-                    // after all the typing conversion, we can 
+                    // after all the typing conversion, we can
                     // get our conductance
                     get_conductance_single_cylindrical_radial_solid_liquid(
                         solid_material,
@@ -495,7 +495,7 @@ impl HeatTransferInteractionType {
                 HeatTransferInteractionType::
                     CylindricalConductionConvectionLiquidOutside(
                         (solid_material, shell_thickness,
-                         solid_temperature, solid_pressure), 
+                         solid_temperature, solid_pressure),
                         (h, outer_diameter, cylinder_length)) => {
 
                         let od: Length = outer_diameter.clone().into();
@@ -503,10 +503,10 @@ impl HeatTransferInteractionType {
 
                         let id: Length = od - thicnkess;
 
-                        let inner_diameter: InnerDiameterThermalConduction = 
+                        let inner_diameter: InnerDiameterThermalConduction =
                             InnerDiameterThermalConduction::from(id);
 
-                        // after all the typing conversion, we can 
+                        // after all the typing conversion, we can
                         // get our conductance
                         get_conductance_single_cylindrical_radial_solid_liquid(
                             solid_material,
@@ -521,9 +521,9 @@ impl HeatTransferInteractionType {
                         )?
                     }
                 ,
-                // note: actually function signatures are a little more 
-                // friendly to use than packing enums with lots of stuff 
-                // so may change stuffing enums with tuples to stuffing 
+                // note: actually function signatures are a little more
+                // friendly to use than packing enums with lots of stuff
+                // so may change stuffing enums with tuples to stuffing
                 // enums with a single struct
                 HeatTransferInteractionType::DualCylindricalThermalConductance(
                     (inner_material,inner_shell_thickness),
@@ -532,20 +532,20 @@ impl HeatTransferInteractionType {
                      outer_diameter,
                      cylinder_length)
                 ) => {
-                    // first, want to check if inner_diameter + 
-                    // shell thicknesses is outer diameter 
+                    // first, want to check if inner_diameter +
+                    // shell thicknesses is outer diameter
 
                     let expected_outer_diameter: Length;
                     let id: Length = inner_diameter.into();
                     let inner_thickness: Length =  inner_shell_thickness.into();
                     let outer_thickness: Length =  outer_shell_thickness.into();
 
-                    expected_outer_diameter = 
+                    expected_outer_diameter =
                         id + inner_thickness + outer_thickness;
 
                     let od: Length = outer_diameter.into();
 
-                    // inner diameter and outer diameter values must be 
+                    // inner diameter and outer diameter values must be
                     // equal to within 1 nanometer 1e-9 m
                     if (od.value - expected_outer_diameter.value).abs() > 1e-9
                     {
@@ -577,7 +577,7 @@ impl HeatTransferInteractionType {
                         cylinder_length,
                     )?
                 },
-                HeatTransferInteractionType::UserSpecifiedHeatAddition  
+                HeatTransferInteractionType::UserSpecifiedHeatAddition
                     => {
                         return Err(TuasLibError::
                             GenericStringError("interaction type needs to be \n 
@@ -615,28 +615,28 @@ impl HeatTransferInteractionType {
                 HeatTransferInteractionType::
                     DualCartesianThermalConductance(
                         (material_1, thickness_1),
-                        (material_2,thickness_2)) => { 
+                        (material_2,thickness_2)) => {
 
-                        let conductnace_layer_1: ThermalConductance 
+                        let conductnace_layer_1: ThermalConductance
                             = get_conductance_single_cartesian_one_dimension(
                                 material_1,
-                                temperature_1, 
-                                temperature_1, 
-                                pressure_1, 
-                                pressure_1, 
+                                temperature_1,
+                                temperature_1,
+                                pressure_1,
+                                pressure_1,
                                 thickness_1)?;
 
-                        let conductnace_layer_2: ThermalConductance 
+                        let conductnace_layer_2: ThermalConductance
                             = get_conductance_single_cartesian_one_dimension(
                                 material_2,
-                                temperature_2, 
-                                temperature_2, 
-                                pressure_2, 
-                                pressure_2, 
+                                temperature_2,
+                                temperature_2,
+                                pressure_2,
+                                pressure_2,
                                 thickness_2)?;
 
-                        let overall_resistance = 
-                            1.0/conductnace_layer_2 
+                        let overall_resistance =
+                            1.0/conductnace_layer_2
                             + 1.0/conductnace_layer_1;
 
                         // return the conductance or resistnace inverse
@@ -646,32 +646,32 @@ impl HeatTransferInteractionType {
                 ,
                 HeatTransferInteractionType::
                     DualCartesianThermalConductanceThreeDimension(
-                        data_dual_cartesian_conduction) 
+                        data_dual_cartesian_conduction)
                     => {
 
-                        let material_1 = 
+                        let material_1 =
                             data_dual_cartesian_conduction .material_1;
 
-                        let material_2 = 
+                        let material_2 =
                             data_dual_cartesian_conduction .material_2;
 
-                        let thickness_1 = 
+                        let thickness_1 =
                             data_dual_cartesian_conduction .thickness_1;
 
-                        let thickness_2 = 
+                        let thickness_2 =
                             data_dual_cartesian_conduction .thickness_2;
 
-                        let xs_area = 
+                        let xs_area =
                             data_dual_cartesian_conduction .xs_area;
 
                         get_conductance_dual_cartesian_three_dimensions(
-                            material_1, 
-                            material_2, 
-                            temperature_1, 
-                            temperature_2, 
-                            pressure_1, 
-                            pressure_2, 
-                            xs_area, 
+                            material_1,
+                            material_2,
+                            temperature_1,
+                            temperature_2,
+                            pressure_1,
+                            pressure_2,
+                            xs_area,
                             thickness_1,
                             thickness_2)?
                     }
@@ -679,12 +679,12 @@ impl HeatTransferInteractionType {
 
                 HeatTransferInteractionType::
                     UserSpecifiedConvectionResistance(
-                        data_convection_resistance) 
+                        data_convection_resistance)
                     => {
 
-                        let heat_transfer_coeff: HeatTransfer = 
+                        let heat_transfer_coeff: HeatTransfer =
                             data_convection_resistance.heat_transfer_coeff;
-                        let surf_area: Area = 
+                        let surf_area: Area =
                             data_convection_resistance.surf_area.into();
 
                         heat_transfer_coeff * surf_area
@@ -700,11 +700,11 @@ impl HeatTransferInteractionType {
 
                 HeatTransferInteractionType::
                     SimpleRadiation
-                    (area_coeff) => 
+                    (area_coeff) =>
                     {
                         simple_radiation_conductance(
-                            area_coeff, 
-                            temperature_1, 
+                            area_coeff,
+                            temperature_1,
                             temperature_2)
                     }
                 ,

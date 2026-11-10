@@ -505,6 +505,9 @@ impl KernelWalk {
                     HopOutcome::ReachedInterface | HopOutcome::Released => {
                         *a = Some(w.time.get::<second>());
                     }
+                    // Kernel-only walk: every element here has a kernel `D`,
+                    // so this cannot fire; stop rather than count it (gh:#638).
+                    HopOutcome::NoDiffusionData => break,
                 }
             }
         }
@@ -1669,7 +1672,8 @@ mod tests {
 
     /// Rung 4 reproduces the lesson's recorded table row (Cs-137, 1600 C:
     /// D_PyC 4.062e-14, D_SiC 9.228e-17, p 2.266e-3) and never asks for the
-    /// Kr-in-buffer coefficient, which panics (gh:#541).
+    /// Kr-in-buffer coefficient, which ~~panics (gh:#541)~~ has no cited
+    /// value (since 2026-11-10 the lookup returns a typed error, gh:#638).
     #[test]
     fn layers_match_the_recorded_table_and_skip_the_todo() {
         let mut e = Engine::default();

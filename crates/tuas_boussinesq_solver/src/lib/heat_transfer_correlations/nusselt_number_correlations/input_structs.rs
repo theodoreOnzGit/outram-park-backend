@@ -323,7 +323,7 @@ impl GnielinskiData {
         let darcy_friction_factor = self.darcy_friction_factor;
         let length_to_diameter = self.length_to_diameter;
 
-        let nusselt_value = 
+        let nusselt_value =
         gnielinski_correlation_interpolated_uniform_heat_flux_liquids_developing_bulk_fluid_prandtl(
             reynolds.get::<ratio>(),
             prandtl_bulk.get::<ratio>(),

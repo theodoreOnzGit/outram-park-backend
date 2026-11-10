@@ -15,6 +15,10 @@
 //!
 //! Reports are written one file per diagnostic, so tests running in parallel
 //! never contend for the same file.
+//!
+//! A report is rewritten only when something other than its generation stamp
+//! changed (GitHub #305), so re-running the suite leaves an unchanged receipt,
+//! and its stamp, exactly as they were.
 
 use std::fs;
 use std::io::Write;
@@ -100,10 +104,22 @@ impl VvReport {
         fs::create_dir_all(&dir).expect("could not create the V&V report directory");
 
         let path = dir.join(format!("{}.md", self.slug));
-        let mut file = fs::File::create(&path).expect("could not create the V&V report");
+        let rendered = self.render(regenerate_with, &utc_date_string());
 
-        write!(
-            file,
+        if write_unless_only_the_stamp_moved(&path, &rendered) {
+            eprintln!("wrote V&V report: {}", path.display());
+        } else {
+            eprintln!(
+                "V&V report unchanged apart from its generation stamp, left as it was: {}",
+                path.display()
+            );
+        }
+        path
+    }
+
+    /// Renders the whole report, with `date` as its generation stamp.
+    fn render(&self, regenerate_with: &str, date: &str) -> String {
+        format!(
             "# {title}\n\n\
              > **Generated file — do not hand-edit.** Regenerate with:\n\
              >\n\
@@ -111,20 +127,49 @@ impl VvReport {
              > {regenerate_with}\n\
              > ```\n\
              >\n\
-             > Generated {date} (UTC).\n\n\
+             > {GENERATED_PREFIX}{date} (UTC).\n\n\
              ## Status\n\n{status}\n\
              {body}",
             title = self.title,
             regenerate_with = regenerate_with,
-            date = utc_date_string(),
+            date = date,
             body = self.body,
             status = self.status.clone().unwrap_or_else(default_status),
         )
-        .expect("could not write the V&V report");
-
-        eprintln!("wrote V&V report: {}", path.display());
-        path
     }
+}
+
+/// The text that opens a report's generation-stamp line, after the `> `.
+const GENERATED_PREFIX: &str = "Generated ";
+
+/// Writes `rendered` to `path` unless the file already there differs from it
+/// only in its generation-stamp line. Returns whether it wrote.
+///
+/// GitHub #305: the stamp used to be rewritten on every run, so running the
+/// suite dirtied six tracked receipts whose numbers were byte-identical. Now
+/// the stamp marks the last run in which something other than the stamp
+/// changed, which is the date a reader wants: when a result last moved.
+fn write_unless_only_the_stamp_moved(path: &std::path::Path, rendered: &str) -> bool {
+    if let Ok(existing) = fs::read_to_string(path) {
+        if without_generation_stamp(&existing) == without_generation_stamp(rendered) {
+            return false;
+        }
+    }
+    let mut file = fs::File::create(path).expect("could not create the V&V report");
+    file.write_all(rendered.as_bytes())
+        .expect("could not write the V&V report");
+    true
+}
+
+/// The report with its `> Generated <date> (UTC).` line removed, for comparing
+/// two renderings of the same report made at different times.
+fn without_generation_stamp(report: &str) -> String {
+    let stamp_line_start = format!("> {GENERATED_PREFIX}");
+    report
+        .lines()
+        .filter(|line| !(line.starts_with(&stamp_line_start) && line.ends_with("(UTC).")))
+        .collect::<Vec<&str>>()
+        .join("\n")
 }
 
 /// Formats the current time as `YYYY-MM-DD hh:mm`, in UTC.
@@ -211,4 +256,36 @@ fn default_status() -> String {
      AI-assisted draft material: the numbers below are measurements, \
      **not a validation sign-off**. No human has reviewed them."
         .to_string()
+}
+
+#[cfg(test)]
+mod generation_stamp_tests {
+    use super::*;
+
+    /// GitHub #305: a re-run whose only difference is the clock must not
+    /// rewrite the receipt, and a re-run whose numbers moved must.
+    #[test]
+    fn a_receipt_is_rewritten_only_when_more_than_its_stamp_changed() {
+        let mut report = VvReport::new("stamp-test", "Stamp test");
+        report.paragraph("residual 1.0e-9");
+        let path = std::env::temp_dir().join(format!(
+            "tampines-steam-tables-vv-stamp-test-{}.md",
+            std::process::id()
+        ));
+        let _ = fs::remove_file(&path);
+
+        let first = report.render("cargo test --release", "2026-09-17 23:15");
+        assert!(write_unless_only_the_stamp_moved(&path, &first));
+
+        let same_numbers_later = report.render("cargo test --release", "2026-09-24 15:14");
+        assert!(!write_unless_only_the_stamp_moved(&path, &same_numbers_later));
+        assert_eq!(fs::read_to_string(&path).unwrap(), first);
+
+        report.paragraph("residual 2.0e-9");
+        let moved = report.render("cargo test --release", "2026-09-24 15:14");
+        assert!(write_unless_only_the_stamp_moved(&path, &moved));
+        assert_eq!(fs::read_to_string(&path).unwrap(), moved);
+
+        let _ = fs::remove_file(&path);
+    }
 }

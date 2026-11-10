@@ -18,6 +18,12 @@
 #    `wasm32-unknown-unknown`, the command `crates/kovan-web/web/build.sh`
 #    uses.
 #
+# The desktop job also installs `KOVAN_RUSTDOC_TOOLCHAIN` (a pinned nightly)
+# and rustdoc-md, because kovan's api_docs tests run the real nightly rustdoc
+# JSON pipeline. A SCHEDULED run uses `main`'s copy of this file against the
+# `develop` tree, so until `main` carries that install step those four tests
+# fail on every OS (gh:#1318).
+#
 # WHAT A GREEN RUN DOES NOT SHOW.
 # - That the desktop app OPENS. No job starts the window: the runners have no
 #   display and kovan has no headless start. Green means "it builds and its
@@ -85,8 +91,10 @@ jobs:
   desktop:
     name: desktop / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    # A ceiling, not a measurement: this job has never run. Replace it with a
-    # measured figure after the first runs.
+    # A ceiling, not a measurement. ~~This job has never run.~~ CORRECTED
+    # 2026-11-10: measured on run 42743415300 (ci-kovan/fix-1317-ci, develop
+    # a836e2f07), whole job: ubuntu 13.6 min, macos 22.4 min, windows
+    # 30.5 min. The ceiling is left at 120 min.
     timeout-minutes: 120
     strategy:
       fail-fast: false # one platform's failure must not hide the others'

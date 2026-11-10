@@ -21,6 +21,12 @@ maturity gate in that file for what this means and how the bar is revised.
   pivoting and singular detection. Evidence class: **unit tests and internal
   consistency**, with literature constants as the reference. **29 tests pass**.
 
+  **Note 2026-11-10 (gh:#1319):** "U-233 and Pu-239 group sets likewise"
+  holds for the delayed fractions `beta_i` only. The decay constants
+  `lambda_i` are one shared U-235 set for all three nuclides
+  (`six_group_constants.rs`), and the source of that set and of the
+  `beta_i` is not identified. Open, awaiting a source decision on the issue.
+
   **This is the thinnest declaration in the workspace, and is deliberately
   recorded as such.** ~~There is no analytical transient validation yet — no
   step-reactivity insertion checked against the exact in-hour solution, and no

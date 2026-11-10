@@ -10,17 +10,32 @@ use crate::zero_power_prke::six_group_precursor_prke::DecayConstant;
 /// different nuclides or fuels have different delayed groups
 #[derive(Debug, Clone, Copy)]
 pub enum FissioningNuclideType {
-    /// chooses the U233 group of delayed constants
+    /// ~~chooses the U233 group of delayed constants~~ **CORRECTED
+    /// 2026-11-10 (gh:#1319):** chooses U-233's delayed fractions `beta_i`
+    /// but U-235's decay constants `lambda_i` (see
+    /// [`FissioningNuclideType::get_decay_constant_array`]).
     U233,
     /// chooses the U235 group of delayed constants
     U235,
-    /// chooses the Pu239 group of delayed constants
+    /// ~~chooses the Pu239 group of delayed constants~~ **CORRECTED
+    /// 2026-11-10 (gh:#1319):** chooses Pu-239's delayed fractions `beta_i`
+    /// but U-235's decay constants `lambda_i` (see
+    /// [`FissioningNuclideType::get_decay_constant_array`]).
     Pu239,
 }
 
 impl FissioningNuclideType {
     /// returns a new decay constant array based on nuclide
     /// (for this version, all decay constant arrays are the same)
+    ///
+    /// **Known defect, gh:#1319 (open, 2026-11-10).** All three nuclides
+    /// return [`new_decay_constant_array`], which is U-235 thermal data, so a
+    /// U-233 or Pu-239 PRKE pairs its own `beta_i` with U-235's `lambda_i`.
+    /// Not yet fixed because no per-nuclide six-group source for U-233 is in
+    /// the workspace (`reference-data/endf/` has no U-233 tape; the only
+    /// independent six-group Pu-239 set is JENDL-3.3, MAT 9437 MF=1 MT=455,
+    /// whose `lambda_i` differ from these by -10.5 % to +10.7 %). The source
+    /// choice is asked on the issue.
     pub fn get_decay_constant_array(&self) -> [DecayConstant; 6] {
         match self {
             FissioningNuclideType::U233 => {
@@ -55,6 +70,14 @@ impl FissioningNuclideType {
 pub fn new_decay_constant_array() -> [DecayConstant; 6] {
     // from table 5.1 (not sure where from, duderstadt?)
     // need to double check
+    //
+    // Checked 2026-11-10 (gh:#1319), source still NOT identified. These are
+    // Keepin's U-235 thermal half-lives rounded to two significant figures
+    // (Keepin 1965, *Physics of Nuclear Kinetics*, Table 4-7: 55.72, 22.72,
+    // 6.22, 2.30, 0.610, 0.230 s, as cited in
+    // `nee_soon/src/htr10_th_transient/kinetics.rs`; not re-checked against
+    // Keepin directly). DOE-HDBK-1019/1-93 Table 3 lists 55.7, 22.7, 6.2,
+    // 2.3, 0.61, 0.23 s, so it is not the source of the 56 and 23 s values.
     let mut decay_constant_array: [DecayConstant; 6] = [
         Frequency::ZERO,
         Frequency::ZERO,

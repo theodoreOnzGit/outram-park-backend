@@ -4,6 +4,28 @@
 on x86_64-unknown-linux-gnu (release). Its rule is that a golden may move
 **only with a named cause**. This file is where each move is recorded.
 
+## 2026-11-10: Part A `lambda_ph` (gh:#904, the 273.15 K edge of Region 1)
+
+- **What moved:** `lambda_ph` only, `0xf2fb2a32e2b829c9` →
+  `0xc1c6c09c20975332`. Every other golden is unchanged.
+- **Cause:** `lambda_ph_eqm` panicked at 17 grid points (the `h = 0` column
+  of the 17 lowest isobars, 611.657 Pa upward), where the Region 1 backward
+  equation gives `T` about 21 mK below 273.15 K (inside IAPWS-IF97's 25 mK
+  backward/forward consistency) and the critical-enhancement term re-derived
+  the region from `(T, p)`. The harness hashed those points as NaN. The fix
+  evaluates that term with the Region 1 equation wherever the `(p,h)` flash
+  says Region 1, as `cp_ph_eqm`, `cv_ph_eqm` and `kappa_t_ph_eqm` already do,
+  and the NaN guard is removed.
+- **Prediction, written before the run:** with the guard still in place the
+  hash would not move (every non-edge Region 1 point already routed to
+  Region 1 through `(T, p)`); removing the guard would change exactly the 17
+  guarded values, to about 0.5555 W/(m K), liquid water near 0 °C.
+- **Measured** (x86_64-unknown-linux-gnu, release, `DETERMINISM_DUMP=lambda_ph`):
+  guard on, the hash stayed `0xf2fb2a32e2b829c9`, so 2147 of 2164 values are
+  bit-identical; guard off, exactly 17 values changed, NaN →
+  0.5555450 to 0.5555501 W/(m K).
+- **Not re-checked:** native vs wasm32 for the new value.
+
 ## 2026-11-02: Part B `edw_pimple_*` at steps 10, 50 and 200 (gh:#1111, subcooled critical-flow solver)
 
 - **What moved:** the 12 goldens `edw_pimple_{p,he,rho,U}_{10,50,200}`. The

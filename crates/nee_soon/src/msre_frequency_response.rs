@@ -309,7 +309,7 @@ impl MsreLoopModel {
     /// `|δP/P₀ / δρ|` and phase \[deg\] at `omega`.
     pub fn amplitude_phase(&self, omega: AngularVelocity) -> (f64, f64) {
         let r = self.response(omega.get::<radian_per_second>());
-        (r.norm_sqr().sqrt(), r.im.atan2(r.re).to_degrees())
+        (r.norm_sqr().sqrt(), r.im.r_atan2(r.re).to_degrees())
     }
 }
 

@@ -320,13 +320,21 @@ pub struct RawLine {
 /// Columns 71–72 are `MF`.
 /// Columns 73–75 are `MT`.
 /// Columns 76–80 are the sequence number (ignored).
+///
+/// Columns are **characters**, not bytes (since 2026-11-10, gh:#660): a
+/// non-ASCII character (an accented author name in MF=1/MT=451 text) fills
+/// one column and is read as `?`, which no numeric field accepts, so a text
+/// field still reads as `0.0` exactly as it does for ASCII text. Before, the
+/// 80-byte copy and byte slicing panicked when a multibyte character
+/// straddled a field boundary. ASCII lines parse exactly as before.
 pub fn parse_line(line: &str) -> Result<RawLine, NjoyError> {
-    // Pad to 80 chars so slicing is always in-bounds
+    // Pad to 80 columns so slicing is always in-bounds; one byte per column,
+    // all ASCII, so the byte slices below are always on char boundaries.
     let mut buf = [b' '; 80];
-    let bytes = line.as_bytes();
-    let copy_len = bytes.len().min(80);
-    buf[..copy_len].copy_from_slice(&bytes[..copy_len]);
-    let s = std::str::from_utf8(&buf).unwrap();
+    for (slot, c) in buf.iter_mut().zip(line.chars()) {
+        *slot = if c.is_ascii() { c as u8 } else { b'?' };
+    }
+    let s = std::str::from_utf8(&buf).map_err(|e| NjoyError::EndfParse(e.to_string()))?;
 
     let mut fields = [0.0f64; 6];
     for i in 0..6 {

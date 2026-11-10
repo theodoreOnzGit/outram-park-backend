@@ -77,7 +77,9 @@ independent measurements.
    comparable.
 3. **The SiC is slowest of the three solids for Cs, Sr and Ag.** Step 4 quantifies it.
 4. **Krypton in the buffer has no coefficient**: the lookup is a `todo!()`
-   (gh:#541), so a Kr-85 walker that reaches the buffer panics. Elements other
+   (gh:#541), so ~~a Kr-85 walker that reaches the buffer panics~~
+   **CORRECTED 2026-11-10 (gh:#638):** a Kr-85 walker that reaches the buffer
+   stops with a typed "no cited coefficient" instead of panicking. Elements other
    than Ag, Cs, Sr and Kr silently diffuse as silver, which is a placeholder
    and not a model.
 
