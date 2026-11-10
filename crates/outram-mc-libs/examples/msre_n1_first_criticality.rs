@@ -43,7 +43,7 @@ use outram_mc_libs::physics::keff::KeffSettings;
 use outram_mc_libs::physics::keff::KeffResult;
 use outram_mc_libs::physics::transport_csg::{run_keff_csg, run_keff_csg_hybrid};
 use outram_mc_libs::stats::convergence::SourceConvergence;
-use outram_mc_libs::tally::filter::{FilterKind, MeshFilter};
+use outram_mc_libs::tally::filter::{EnergyFilter, FilterKind, MeshFilter};
 use outram_mc_libs::tally::mesh::{CylindricalMesh, MeshKind, MeshKindExt, RegularMesh};
 use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
 use outram_mc_libs::vv::msre_n1 as m;
@@ -322,7 +322,8 @@ fn axial_edges() -> Vec<f64> {
 }
 
 /// Fission and flux on an R-Z mesh: r in [0, graphite radius] and
-/// [graphite radius, vessel inner radius], one azimuthal bin, [`axial_edges`].
+/// [graphite radius, vessel inner radius], one azimuthal bin, [`axial_edges`],
+/// split at 0.625 eV.
 fn axial_tally() -> Tally {
     let mesh = MeshKind::Cylindrical(CylindricalMesh {
         r_grid: vec![0.0, m::R_GRAPHITE, m::R_VESSEL_IN],
@@ -334,9 +335,11 @@ fn axial_tally() -> Tally {
     Tally {
         id: 1,
         name: "N-4 axial fission and flux".into(),
-        filters: vec![FilterKind::Mesh(MeshFilter { mesh })],
+        // Energy: below / above the conventional two-group thermal cutoff,
+        // 0.625 eV, so the flux above it can stand in for a fast importance.
+        filters: vec![FilterKind::Mesh(MeshFilter { mesh }), FilterKind::Energy(EnergyFilter { bins: vec![1e-11, 0.625, 2e7] })],
         scores: vec![ScoreType::Fission, ScoreType::Flux],
-        bins: vec![TallyBin::default(); n * 2],
+        bins: vec![TallyBin::default(); n * 2 * 2],
     }
 }
 
@@ -350,16 +353,19 @@ fn write_axial(path: &std::path::Path, label: &str, seed: u64, t: &Tally) {
     let new_file = !path.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(path).expect("axial csv");
     if new_file {
-        writeln!(f, "arm,seed,z_lo_cm,z_hi_cm,fission_inner,fission_outer,flux_inner,flux_outer").expect("axial csv");
+        writeln!(f, "arm,seed,z_lo_cm,z_hi_cm,fission_inner,fission_outer,flux_inner,flux_outer,flux_fast_inner").expect("axial csv");
     }
     for w in z.windows(2) {
         let zc = 0.5 * (w[0] + w[1]);
         let bin = |r: f64| mesh.bin(Position::new(r, 0.0, zc)).expect("inside the axial mesh");
         let (bi, bo) = (bin(0.5 * m::R_GRAPHITE), bin(0.5 * (m::R_GRAPHITE + m::R_VESSEL_IN)));
+        // Layout: [(mesh bin * 2 + energy bin) * 2 + score]; energy 0 thermal, 1 fast.
+        let get = |mb: usize, e: usize, sc: usize| t.bins[(mb * 2 + e) * 2 + sc].sum;
+        let both = |mb: usize, sc: usize| get(mb, 0, sc) + get(mb, 1, sc);
         writeln!(
             f,
-            "{label},{seed},{:.4},{:.4},{:.6e},{:.6e},{:.6e},{:.6e}",
-            w[0], w[1], t.bins[2 * bi].sum, t.bins[2 * bo].sum, t.bins[2 * bi + 1].sum, t.bins[2 * bo + 1].sum
+            "{label},{seed},{:.4},{:.4},{:.6e},{:.6e},{:.6e},{:.6e},{:.6e}",
+            w[0], w[1], both(bi, 0), both(bo, 0), both(bi, 1), both(bo, 1), get(bi, 1, 1)
         )
         .expect("axial csv");
     }
