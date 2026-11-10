@@ -107,6 +107,9 @@ delayed-neutron precursor groups, reactivity feedback, and decay heat, using
     Doppler `-K_D ln(T/T_ref)`, axial fuel, clad, coolant T and density,
     radial structures, driveline expansion via a rod-worth map. Port of
     GeN-Foam's point-kinetics feedback sum; every coefficient a caller input.
+    The rod-worth map errors outside its closed range by default
+    (`RodWorthOutOfRange::Error`, both ends in range); GeN-Foam's zero is
+    `RodWorthOutOfRange::UpstreamZero` (maintainer decision 2026-11-10).
 - `fuel_temperature_feedback`, `control_rod_feedback`, `decay_heat`.
 - `ans_decay_heat` — ANS standards enum, isotope mix incl. Pu-241, `F_gamma`,
   user-supplied coefficients, `G(t)` (gh:#1080). Only the 1978 draft set is
