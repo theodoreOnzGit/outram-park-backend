@@ -8,7 +8,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
-//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730]
+//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730] [--shield none|tm0728]
 //! ```
 //!
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
@@ -52,12 +52,19 @@ fn flag(args: &[String], name: &str) -> Option<String> {
     args.iter().position(|a| a == name).and_then(|i| args.get(i + 1).cloned())
 }
 
-fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends) {
+fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends, shield: m::Shield) {
     std::fs::create_dir_all(dir).expect("plot dir");
-    let g = m::geometry_with_ends(m::TEMPERATURE_K, m::TEMPERATURE_K, dims, ends);
+    let mut mats = m::materials_with_ends(m::MoTreatment::Omitted, m::REFERENCE_TEMPERATURE_F, dims);
+    let shielded = shield == m::Shield::Tm0728Cylinder;
+    let g = if shielded {
+        let g = m::geometry_with_shield(m::TEMPERATURE_K, m::TEMPERATURE_K, dims, ends, mats.len());
+        mats.extend(m::shield_materials());
+        g
+    } else {
+        m::geometry_with_ends(m::TEMPERATURE_K, m::TEMPERATURE_K, dims, ends)
+    };
     let hot = dims != m::Dims::COLD;
     let tm0730 = ends == m::Ends::Tm0730;
-    let mats = m::materials_with_ends(m::MoTreatment::Omitted, m::REFERENCE_TEMPERATURE_F, dims);
     let colours = [
         Rgb::new(220, 60, 40),
         Rgb::new(70, 70, 70),
@@ -68,6 +75,8 @@ fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends) {
         Rgb::new(200, 100, 160),
         Rgb::new(90, 140, 90),
         Rgb::new(120, 60, 140),
+        Rgb::new(110, 110, 120),
+        Rgb::new(60, 130, 200),
     ];
     let labels: Vec<String> = mats.iter().map(|(n, _)| n.to_ascii_uppercase()).collect();
     let palette: Vec<(Rgb, &str)> = colours.iter().zip(&labels).map(|(c, l)| (*c, l.as_str())).collect();
@@ -80,7 +89,7 @@ fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends) {
     };
     let z_top = m::H_CORE + up + m::T_HEAD;
     let z_bot = -lo - m::T_HEAD;
-    let slices: [(&str, Position, PlotBasis, [f64; 2], &str); 5] = [
+    let mut slices: Vec<(&str, Position, PlotBasis, [f64; 2], &str)> = vec![
         ("msre_n1_xy_core", Position::new(0.0, 0.0, mid), PlotBasis::Xy, [160.0, 160.0],
          "MSRE N-1 FULL CORE, X-Y AT MID-HEIGHT Z = 81.28 CM: 55.25 IN GRAPHITE, CAN, DOWNCOMER, VESSEL"),
         ("msre_n1_xy_centre", Position::new(0.0, 0.0, mid), PlotBasis::Xy, [24.0, 24.0],
@@ -92,6 +101,19 @@ fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends) {
         ("msre_n1_xz_top", Position::new(20.0, o, m::H_CORE), PlotBasis::Xz, [70.0, 50.0],
          "MSRE N-1 X-Z AT Y = +2 IN, TOP OF CORE: THIMBLES INTO THE UPPER PLENUM, CAN, DOWNCOMER, VESSEL"),
     ];
+    if shielded {
+        // Inside the vessel the shielded build is the default cell for cell
+        // (`tm0728_shield_wraps_the_default_vessel`): draw only the shield.
+        slices.clear();
+        let w = 2.0 * m::SHIELD_R_OUT + 10.0;
+        let zc = (z_top + z_bot) / 2.0;
+        slices.push(("msre_n1_shield_xz", Position::new(0.0, o, zc), PlotBasis::Xz, [w, m::SHIELD_HEIGHT + 10.0],
+            "MSRE N-1 X-Z IN THE THERMAL SHIELD (TM-0728 5.3.10.1): 151 IN HIGH, 93 / 125 IN ID / OD, CENTRED ON THE VESSEL"));
+        slices.push(("msre_n1_shield_xy", Position::new(0.0, 0.0, mid), PlotBasis::Xy, [w, w],
+            "MSRE N-1 X-Y AT MID-HEIGHT IN THE SHIELD: VOID, 1 IN 304 PLATE, 14 IN BALLS + WATER, 1 IN 304 PLATE"));
+        slices.push(("msre_n1_shield_wall", Position::new(m::SHIELD_R_IN + 8.0 * m::INCH, 0.0, mid), PlotBasis::Xy, [60.0, 60.0],
+            "MSRE N-1 SHIELD WALL, X-Y: INNER PLATE, BALL ANNULUS, OUTER PLATE"));
+    }
     for (stem, origin, basis, width, title) in slices {
         let px = if width[0] > 100.0 { 1600 } else { 1000 };
         let plot = SlicePlot {
@@ -105,8 +127,9 @@ fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends) {
         };
         let title = if hot { format!("{title} [HOT DIMENSIONS, 1181 F]") } else { title.to_string() };
         let title = if tm0730 { format!("{title} [TM-0730 END REGIONS]") } else { title };
+        let title = if shielded { format!("{title} [TM-0728 SHIELD]") } else { title };
         let (_raw, img) = render_material_slice(&g, &plot, &palette, &title);
-        let path = dir.join(format!("{stem}{}{}.png", if hot { "_hot" } else { "" }, if tm0730 { "_tm0730" } else { "" }));
+        let path = dir.join(format!("{stem}{}{}{}.png", if hot { "_hot" } else { "" }, if tm0730 { "_tm0730" } else { "" }, if shielded && !stem.contains("shield") { "_shield" } else { "" }));
         img.write_png(&path).expect("write png");
         eprintln!("  drew {}", path.display());
     }
@@ -124,6 +147,13 @@ fn main() {
         "tm0730" => m::Ends::Tm0730,
         other => panic!("--ends must be volume|tm0730, got {other}"),
     };
+    // `--shield tm0728`: the thermal shield's cylinder around the vessel
+    // (TM-0728 §5.3.10.1; N-1 residual, gh:#1128). Default: vacuum.
+    let shield = match flag(&args, "--shield").as_deref().unwrap_or("none") {
+        "none" => m::Shield::Omitted,
+        "tm0728" => m::Shield::Tm0728Cylinder,
+        other => panic!("--shield must be none|tm0728, got {other}"),
+    };
     let graphite_law = flag(&args, "--graphite-law").unwrap_or_else(|| "30p".to_string());
     let axial_csv: Option<PathBuf> = flag(&args, "--axial-csv").map(PathBuf::from);
     if let Some(d) = flag(&args, "--draw") {
@@ -132,7 +162,7 @@ fn main() {
         } else {
             m::Dims::COLD
         };
-        draw(&PathBuf::from(d), dims, ends);
+        draw(&PathBuf::from(d), dims, ends, shield);
         return;
     }
     let mo = match flag(&args, "--mo").as_deref().unwrap_or("omitted") {
@@ -160,7 +190,15 @@ fn main() {
     let salt_f: f64 = flag(&args, "--salt-temp-f").map(|v| v.parse().expect("°F")).unwrap_or(temp_f);
     let graphite_f: f64 = flag(&args, "--graphite-temp-f").map(|v| v.parse().expect("°F")).unwrap_or(temp_f);
     let (t_k, t_g) = (m::kelvin_from_f(salt_f), m::kelvin_from_f(graphite_f));
-    let temp_of = |n: &str| if m::GRAPHITE_NUCLIDES.contains(&n) { t_g } else { t_k };
+    let temp_of = |n: &str| {
+        if m::GRAPHITE_NUCLIDES.contains(&n) {
+            t_g
+        } else if m::SHIELD_NUCLIDES.iter().any(|(k, _)| *k == n) {
+            m::SHIELD_TEMPERATURE_K
+        } else {
+            t_k
+        }
+    };
 
     let dims = if hot_dims {
         m::Dims::hot(salt_f, m::GRAPHITE_EXPANSION_PER_F, m::INOR8_EXPANSION_PER_F)
@@ -171,6 +209,10 @@ fn main() {
         m::Ends::VolumeEquivalent => m::materials_with_dims(mo, salt_f, dims),
         m::Ends::Tm0730 => m::materials_with_ends(mo, salt_f, dims),
     };
+    let base_materials = mats.len();
+    if shield == m::Shield::Tm0728Cylinder {
+        mats.extend(m::shield_materials());
+    }
     // `--li7-atom-percent X`: re-split the salt's lithium (total unchanged)
     // to X % Li-7. The default keeps TM-0728's 99.99 %; TM-0730 quotes
     // 99.9926 % (Table 3.2 footnote) and 99.997 % (survey), gh:#1128. The
@@ -205,6 +247,7 @@ fn main() {
         let file = m::NUCLIDES
             .iter()
             .chain(mo_list.iter())
+            .chain(m::SHIELD_NUCLIDES.iter())
             .find(|(k, _)| *k == n)
             .unwrap_or_else(|| panic!("no tape for {n}"))
             .1;
@@ -253,6 +296,15 @@ fn main() {
     } else {
         eprintln!("  ABLATION: --no-sab, carbon is free gas");
     }
+    // The shield's water: H-1 bound in H2O at the shield temperature.
+    if let Some(i) = names.iter().position(|n| *n == "H1") {
+        let tape = reference_endf("tsl-HinH2O.endf").expect("tsl-HinH2O tape");
+        let law = ThermalScattering::from_endf_file(tape.to_str().expect("utf-8 path"), 1, m::SHIELD_TEMPERATURE_K, "c_H_in_H2O")
+            .expect("H in H2O S(a,b)");
+        let nuc = nuclides.remove(i);
+        nuclides.insert(i, nuc.with_thermal_scattering(law));
+        eprintln!("    H1: bound in H2O at {:.1} K", m::SHIELD_TEMPERATURE_K);
+    }
     // `--no-dbrc` (gh:#1311): resonance elastic scattering off on every
     // nuclide, for the paired DBRC worth against OpenMC's `--no-dbrc`. An
     // explicit ablation; DBRC stays on by default.
@@ -274,15 +326,18 @@ fn main() {
         .map(|(i, (mname, comps))| Material {
             id: i as i32 + 1,
             name: (*mname).into(),
-            temperature: if i == m::GRAPHITE_IDX { t_g } else { t_k },
+            temperature: if i == m::GRAPHITE_IDX { t_g } else if i >= base_materials { m::SHIELD_TEMPERATURE_K } else { t_k },
             components: comps.iter().map(|(n, d)| NuclideComponent { nuclide_idx: idx(n), atom_density: *d }).collect(),
         })
         .collect();
     let hw = outram_mc_libs::perf_report::HardwareInfo::detect().headline();
     eprintln!("  nuclear data ready in {load_s:.1} s ({} nuclides); hardware: {hw}; threads {threads}", names.len());
 
-    let g = m::geometry_with_ends(t_k, t_g, dims, ends);
-    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" };
+    let g = match shield {
+        m::Shield::Omitted => m::geometry_with_ends(t_k, t_g, dims, ends),
+        m::Shield::Tm0728Cylinder => m::geometry_with_shield(t_k, t_g, dims, ends, base_materials),
+    };
+    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" } + if shield == m::Shield::Tm0728Cylinder { "+shield-tm0728" } else { "" };
     let new_file = !csv.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&csv).expect("csv");
     if new_file {

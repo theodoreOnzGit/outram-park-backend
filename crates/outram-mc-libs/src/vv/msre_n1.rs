@@ -730,6 +730,177 @@ pub fn geometry_with_ends(t_salt_k: f64, t_graphite_k: f64, d: Dims, ends: Ends)
     }
 }
 
+/// Whether the thermal shield is modelled (N-1 residual ablation, gh:#1128).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Shield {
+    /// Vacuum outside the vessel: every recorded N-1 and N-3 result.
+    #[default]
+    Omitted,
+    /// The shield's cylindrical section, ORNL-TM-0728 §5.3.10.1 (report
+    /// p. 128): 151 in high, 125 in OD and 93 in ID, two 1 in Type 304 walls
+    /// around a 14 in annulus of 1 in carbon-steel balls in cooling water.
+    ///
+    /// - The 6 in lining of insulation (§5.3.1) and the furnace annulus
+    ///   (§5.3.11) between the vessel and the shield are void.
+    /// - The base (an 18 in tank), the 16 in top cover and the three plugs are
+    ///   **not modelled**. Their placement against the vessel is not given in
+    ///   the text, and the cover has a 22⅝ in central hole. The model is the
+    ///   cylinder alone, open above and below.
+    /// - **The cylinder's height relative to the vessel is not given either.**
+    ///   It is centred on the vessel's mid-height here; at 151 in it overlaps
+    ///   the whole vessel (about 80 in) either way.
+    Tm0728Cylinder,
+}
+
+/// The shield cylinder's inner radius (93 in ID), TM-0728 p. 128.
+pub const SHIELD_R_IN: f64 = 93.0 / 2.0 * INCH;
+/// The shield cylinder's outer radius (125 in OD), TM-0728 p. 128.
+pub const SHIELD_R_OUT: f64 = 125.0 / 2.0 * INCH;
+/// The shield cylinder's height, TM-0728 p. 128.
+pub const SHIELD_HEIGHT: f64 = 151.0 * INCH;
+/// The shield's 304 stainless wall plates, TM-0728 p. 128.
+pub const SHIELD_PLATE: f64 = INCH;
+/// The shield's iron fraction, homogenised over its 16 in, as TM-0728 states
+/// it twice (p. 68 and §5.3.10.4): "50% of which is Fe and 50% is H2O".
+/// With two solid 1 in plates that fixes the ball annulus at 6/14 steel.
+/// TM-0728 also gives 70 tons of balls in the annulus (p. 128), which would
+/// imply about 2/3 steel. The text's own 50 % is used here, and the
+/// difference is left as an input uncertainty.
+pub const SHIELD_IRON_FRACTION: f64 = 0.5;
+/// The shield's temperature. The cooling water is not given a temperature
+/// in TM-0728; 293.6 K is the nearest tabulated temperature of
+/// `tsl-HinH2O` to room temperature.
+pub const SHIELD_TEMPERATURE_K: f64 = 293.6;
+
+/// The shield's nuclides at [`SHIELD_TEMPERATURE_K`], under their own names
+/// (suffix `s`) so they are processed apart from the hot INOR-8's.
+/// `(name, ENDF/B-VIII.0 tape)`; H1 takes `tsl-HinH2O` as its bound law.
+pub const SHIELD_NUCLIDES: [(&str, &str); 15] = [
+    ("Fe54s", "n-026_Fe_054-ENDF8.0.endf"),
+    ("Fe56s", "n-026_Fe_056-ENDF8.0.endf"),
+    ("Fe57s", "n-026_Fe_057-ENDF8.0.endf"),
+    ("Fe58s", "n-026_Fe_058-ENDF8.0.endf"),
+    ("Cr50s", "n-024_Cr_050-ENDF8.0.endf"),
+    ("Cr52s", "n-024_Cr_052-ENDF8.0.endf"),
+    ("Cr53s", "n-024_Cr_053-ENDF8.0.endf"),
+    ("Cr54s", "n-024_Cr_054-ENDF8.0.endf"),
+    ("Ni58s", "../ace/endf/endf-b-viii.0/n-028_Ni_058-ENDF8.0.endf"),
+    ("Ni60s", "../ace/endf/endf-b-viii.0/n-028_Ni_060-ENDF8.0.endf"),
+    ("Ni61s", "../ace/endf/endf-b-viii.0/n-028_Ni_061-ENDF8.0.endf"),
+    ("Ni62s", "../ace/endf/endf-b-viii.0/n-028_Ni_062-ENDF8.0.endf"),
+    ("Ni64s", "../ace/endf/endf-b-viii.0/n-028_Ni_064-ENDF8.0.endf"),
+    ("H1", "n-001_H_001-ENDF8.0-Beta6.endf"),
+    ("O16", "n-008_O_016-ENDF8.0.endf"),
+];
+
+/// Atom densities (atoms/b-cm) of an element of mass density `rho` (g/cm³),
+/// weight fraction `w` and atomic weight `a`, split by atom abundances.
+fn element(rho: f64, w: f64, a: f64, isotopes: &[(&'static str, f64)]) -> Vec<(&'static str, f64)> {
+    let n = rho * w * 0.602214076 / a;
+    isotopes.iter().map(|&(k, f)| (k, n * f)).collect()
+}
+
+/// Type 304 stainless steel, nominal: 8.00 g/cm³, 19 wt % Cr, 9.5 wt % Ni,
+/// the balance (Mn and Si folded in) Fe. TM-0728 names the grade only; the
+/// composition is the grade's nominal, not a value from the report.
+/// Natural abundances (IUPAC 2013).
+pub fn ss304() -> Vec<(&'static str, f64)> {
+    let mut v = element(8.00, 0.715, 55.845, &FE_NATURAL_SHIELD);
+    v.extend(element(8.00, 0.19, 51.996, &[("Cr50s", 0.04345), ("Cr52s", 0.83789), ("Cr53s", 0.09501), ("Cr54s", 0.02365)]));
+    v.extend(element(8.00, 0.095, 58.693, &[("Ni58s", 0.68077), ("Ni60s", 0.26223), ("Ni61s", 0.011399), ("Ni62s", 0.036346), ("Ni64s", 0.009255)]));
+    v
+}
+
+const FE_NATURAL_SHIELD: [(&str, f64); 4] = [("Fe54s", 0.05845), ("Fe56s", 0.91754), ("Fe57s", 0.02119), ("Fe58s", 0.00282)];
+
+/// The ball annulus homogenised: carbon-steel balls (as iron, 7.87 g/cm³)
+/// at the steel fraction that makes the whole 16 in [`SHIELD_IRON_FRACTION`]
+/// iron, in water at 0.9982 g/cm³ (293.6 K).
+pub fn shield_ball_zone() -> Vec<(&'static str, f64)> {
+    let total = SHIELD_R_OUT - SHIELD_R_IN;
+    let annulus = total - 2.0 * SHIELD_PLATE;
+    let f = (SHIELD_IRON_FRACTION * total - 2.0 * SHIELD_PLATE) / annulus;
+    let mut v = element(7.87 * f, 1.0, 55.845, &FE_NATURAL_SHIELD);
+    let molecules = 0.9982 * (1.0 - f) * 0.602214076 / 18.0153;
+    v.push(("H1", 2.0 * molecules));
+    v.push(("O16", molecules));
+    v
+}
+
+/// The two shield materials, to append after the model's own; the first of
+/// them is the index [`geometry_with_shield`] takes.
+pub fn shield_materials() -> Vec<(&'static str, Vec<(&'static str, f64)>)> {
+    vec![("Thermal shield 304 plate", ss304()), ("Thermal shield ball annulus", shield_ball_zone())]
+}
+
+/// [`geometry_with_ends`] inside the thermal shield's cylinder
+/// ([`Shield::Tm0728Cylinder`]). `first_shield_material` is the index of
+/// [`shield_materials`]'s first entry in the run's material list.
+///
+/// Built from `geometry_with_ends` unchanged, then extended: the three
+/// vacuum surfaces that closed the vessel become transmissive, and the void
+/// around the vessel, the two plates and the ball annulus are added to the
+/// root universe, closed by vacuum at the shield's outer radius and ends.
+/// With [`Shield::Omitted`] the caller uses `geometry_with_ends` itself.
+pub fn geometry_with_shield(t_salt_k: f64, t_graphite_k: f64, d: Dims, ends: Ends, first_shield_material: usize) -> Geometry {
+    let mut g = geometry_with_ends(t_salt_k, t_graphite_k, d, ends);
+    let t = BoundaryType::Transmissive;
+    let v = BoundaryType::Vacuum;
+    let mut vac: Vec<usize> = Vec::new();
+    for (i, s) in g.surfaces.iter_mut().enumerate() {
+        match s {
+            SurfaceKind::ZCylinder(c) if c.bc == v => {
+                c.bc = t;
+                vac.push(i);
+            }
+            SurfaceKind::ZPlane(p) if p.bc == v => {
+                p.bc = t;
+                vac.push(i);
+            }
+            _ => {}
+        }
+    }
+    assert_eq!(vac.len(), 3, "the vessel is closed by one cylinder and two planes");
+    let r_vo = vac[0];
+    let (zlb, zut) = match (&g.surfaces[vac[1]], &g.surfaces[vac[2]]) {
+        (SurfaceKind::ZPlane(a), SurfaceKind::ZPlane(b)) if a.z0 < b.z0 => (vac[1], vac[2]),
+        _ => (vac[2], vac[1]),
+    };
+    let z_mid = match (&g.surfaces[zlb], &g.surfaces[zut]) {
+        (SurfaceKind::ZPlane(a), SurfaceKind::ZPlane(b)) => (a.z0 + b.z0) / 2.0,
+        _ => unreachable!("planes"),
+    };
+    let mut add = |s: SurfaceKind| {
+        g.surfaces.push(s);
+        g.surfaces.len() - 1
+    };
+    let r1 = add(zcyl(0.0, 0.0, SHIELD_R_IN, t));
+    let r2 = add(zcyl(0.0, 0.0, SHIELD_R_IN + SHIELD_PLATE, t));
+    let r3 = add(zcyl(0.0, 0.0, SHIELD_R_OUT - SHIELD_PLATE, t));
+    let r4 = add(zcyl(0.0, 0.0, SHIELD_R_OUT, v));
+    let zs_lo = add(SurfaceKind::ZPlane(ZPlane { z0: z_mid - SHIELD_HEIGHT / 2.0, bc: v }));
+    let zs_hi = add(SurfaceKind::ZPlane(ZPlane { z0: z_mid + SHIELD_HEIGHT / 2.0, bc: v }));
+    let (lo, hi) = (hs(zs_lo, false), hs(zs_hi, true));
+    let tk = SHIELD_TEMPERATURE_K;
+    let (plate, balls) = (first_shield_material, first_shield_material + 1);
+    let new_cells = vec![
+        // Void beside, below and above the vessel, inside the shield.
+        Cell::fill(80, all_of(&[hs(r_vo, false), hs(r1, true), hs(zlb, false), hs(zut, true)]), CellFill::Void, Position::ZERO),
+        Cell::fill(81, all_of(&[hs(r1, true), lo.clone(), hs(zlb, true)]), CellFill::Void, Position::ZERO),
+        Cell::fill(82, all_of(&[hs(r1, true), hs(zut, false), hi.clone()]), CellFill::Void, Position::ZERO),
+        Cell::material(83, all_of(&[hs(r1, false), hs(r2, true), lo.clone(), hi.clone()]), plate, tk),
+        Cell::material(84, all_of(&[hs(r2, false), hs(r3, true), lo.clone(), hi.clone()]), balls, tk),
+        Cell::material(85, all_of(&[hs(r3, false), hs(r4, true), lo, hi]), plate, tk),
+    ];
+    let root = g.root_universe;
+    for c in new_cells {
+        g.cells.push(c);
+        let idx = g.cells.len() - 1;
+        g.universes[root].cell_indices.push(idx);
+    }
+    g
+}
+
 /// Fission source box: the graphite core.
 pub fn source_box() -> SourceBox {
     SourceBox {
@@ -855,6 +1026,54 @@ mod tests {
         assert_eq!(n_mix, 5);
     }
 
+    /// The thermal shield: the vessel inside is the default build cell for
+    /// cell, an x-z slice through the whole shield has no overlap and no
+    /// pixel outside the model inside the shield's box, and the 16 in is half
+    /// iron by volume as TM-0728 states.
+    #[test]
+    fn tm0728_shield_wraps_the_default_vessel() {
+        let base = geometry_with_ends(TEMPERATURE_K, TEMPERATURE_K, Dims::COLD, Ends::VolumeEquivalent);
+        let mats = materials_with_ends(MoTreatment::Natural, 1181.0, Dims::COLD);
+        let g = geometry_with_shield(TEMPERATURE_K, TEMPERATURE_K, Dims::COLD, Ends::VolumeEquivalent, mats.len());
+        assert_eq!(format!("{:?}", &g.cells[..base.cells.len()]), format!("{:?}", base.cells));
+        assert_eq!(g.cells.len(), base.cells.len() + 6);
+        assert_eq!(g.surfaces.len(), base.surfaces.len() + 6);
+        let plot = SlicePlot {
+            origin: Position::new(0.0, OPENING_OFFSET, H_CORE / 2.0),
+            basis: PlotBasis::Xz,
+            width: [2.0 * SHIELD_R_OUT - 1.0, SHIELD_HEIGHT - 1.0],
+            pixels: [600, 600],
+            level: None,
+            show_overlaps: true,
+            meshlines: None,
+        };
+        let ids = plot.id_map(&g);
+        let (mut shield, mut overlap, mut outside) = (0usize, 0usize, 0usize);
+        for h in &ids.hits {
+            match *h {
+                SliceHit::Found { material: Some(m), .. } if m >= mats.len() => shield += 1,
+                SliceHit::Overlap => overlap += 1,
+                SliceHit::NotFound => outside += 1,
+                _ => {}
+            }
+        }
+        assert_eq!((overlap, outside), (0, 0));
+        assert!(shield > 0);
+        // Iron over the 16 in: two plates at 71.5 wt % Fe of 8.00 g/cm³, and
+        // the annulus's balls; as volume of iron-bearing steel, 0.5.
+        let fe = |v: &Vec<(&str, f64)>| v.iter().filter(|e| e.0.starts_with("Fe")).map(|e| e.1).sum::<f64>();
+        let n_fe_ball = 7.87 * 0.602214076 / 55.845;
+        let f_ball = fe(&shield_ball_zone()) / n_fe_ball;
+        let total = SHIELD_R_OUT - SHIELD_R_IN;
+        let steel = (2.0 * SHIELD_PLATE + f_ball * (total - 2.0 * SHIELD_PLATE)) / total;
+        assert!((steel - 0.5).abs() < 1e-12, "{steel}");
+        assert!((f_ball - 6.0 / 14.0).abs() < 1e-12);
+        let names: Vec<&str> = shield_materials().iter().flat_map(|m| m.1.iter().map(|e| e.0)).collect();
+        for n in names {
+            assert!(SHIELD_NUCLIDES.iter().any(|(k, _)| *k == n), "{n} has no tape");
+        }
+    }
+
     #[test]
     fn plenums_and_openings_match_their_sources() {
         let pi = core::f64::consts::PI;
@@ -885,7 +1104,7 @@ mod tests {
         assert!((natural - 1.0).abs() < 1e-12, "{natural}");
         assert_eq!(materials(MoTreatment::Natural)[INOR8_IDX].1.len(), 13 + 7);
         let all_mo: Vec<_> = mo_tapes(MoTreatment::Natural).into_iter().chain(mo_tapes(MoTreatment::Mo95Equivalent)).collect();
-        for (n, file) in NUCLIDES.iter().chain(all_mo.iter()) {
+        for (n, file) in NUCLIDES.iter().chain(all_mo.iter()).chain(SHIELD_NUCLIDES.iter()) {
             assert!(njoy_outram_park_fork::reference_data::reference_endf(file).is_some(), "{n}: {file}");
         }
     }
