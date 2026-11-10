@@ -730,11 +730,11 @@ pub trait FluidCustomComponentCalcPressureChange:
 
         let pressure_loss = <Self as FluidCustomComponentCalcPressureLoss>::
             fluid_custom_component_calc_pressure_loss(
-                fluid_mass_flowrate, 
-                cross_sectional_area, 
-                hydraulic_diameter, 
-                fluid_viscosity, 
-                fluid_density, 
+                fluid_mass_flowrate,
+                cross_sectional_area,
+                hydraulic_diameter,
+                fluid_viscosity,
+                fluid_density,
                 loss_correlation)?;
 
         let hydrostatic_pressure =
@@ -785,14 +785,14 @@ pub trait FluidCustomComponentCalcPressureChange:
         // once we have pressure loss
         // we can get mass flowrate
 
-        let mass_flowrate: MassRate 
+        let mass_flowrate: MassRate
             = <Self as FluidCustomComponentCalcPressureLoss>::
             fluid_custom_component_calc_mass_flowrate_from_pressure_loss(
-                pressure_loss, 
-                cross_sectional_area, 
-                hydraulic_diameter, 
-                fluid_viscosity, 
-                fluid_density, 
+                pressure_loss,
+                cross_sectional_area,
+                hydraulic_diameter,
+                fluid_viscosity,
+                fluid_density,
                 loss_correlation)?;
 
         return Ok(mass_flowrate);
