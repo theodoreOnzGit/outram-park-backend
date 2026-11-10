@@ -1,0 +1,77 @@
+# Document: Fei, Mohamed, Kim (2013), ANL-ARC-228 Rev. 1, Neutronics Benchmark Specifications for EBR-II SHRT-45R (Argonne National Laboratory)
+# Table 3.3 "Design and Operating Data for EBR-II Run 138B", printed pp.22-24 (PDF pp.22-24)
+# Units as given per row (the source gives cm for the driver, control/safety and blanket blocks; the pitch block has no unit printed and is cm by context).
+# Check: the counts above the total sum to 633, not 637. The 87 drivers include 4 fuelled experiments (X402A, X412, C2776A, XX09), 3 of which are also in the 5 experimental SAs, and the 6 SST dummies and XX10 are not listed; with those corrections the sum is 637 (see README).
+# AI transcription 2026-11-10, not yet reviewed by a human. Numbers exactly as printed.
+section,item,unit,value
+general,heat_output_design/operating,MW,62.5/60.0
+general,gross_electrical_output,MW,20.0
+general,primary_sodium_temperature_to_reactor,C,343
+general,primary_sodium_temperature_from_reactor,C,443
+general,average_coolant_temperature_in_core,C,393
+general,primary_sodium_flow_rate,L/s,566
+general,primary_system_sodium_capacity,L,340 000
+general,secondary_sodium_temperature_to_heat_exchanger,C,289
+general,secondary_sodium_flow_rate,L/s,345
+general,average_core_temperature_fuel,C,487
+general,average_core_temperature_steel,C,412
+general,average_core_temperature_coolant,C,393
+core,equivalent_diameter,cm,35.10
+core,core_height_0_at%_burnup,cm,34.29
+core,core_height_4.5_at%_burnup,cm,36.65
+axial_reflector,equivalent_outer_diameter,cm,69.72
+axial_reflector,axial_height_upper_reflector,cm,38.9
+axial_reflector,axial_height_lower_reflector,cm,57.2
+radial_reflector,equivalent_outer_diameter,cm,101.9
+radial_reflector,radial_thickness,cm,16.1
+radial_reflector,axial_length,cm,139.7
+radial_blanket,equivalent_outer_diameter,cm,156.2
+radial_blanket,radial_thickness,cm,27.15
+radial_blanket,axial_length,cm,139.7
+driver_20C,fuel_element_type,-,MARKIIA and MARKII AI
+driver_20C,element_length_MARK-II_AI/MARK-II_A,cm,61.08/63.62
+driver_20C,restrainer_height_above_fuel,cm,1.27
+driver_20C,sodium_level_above_fuel,cm,3.175
+driver_20C,plenum_volume,cm3,2.41
+driver_20C,plenum_gas,-,Helium
+driver_20C,cladding_material,-,SS316
+driver_20C,space_wire_material,-,SS316
+driver_20C,number_of_pins_per_assembly,-,91
+driver_20C,outer_cladding_diameter,cm,0.4420
+driver_20C,inner_cladding_diameter,cm,0.3810
+driver_20C,outer_fuel_diameter,cm,0.3366
+driver_20C,wire_wrap_diameter,cm,0.1245
+driver_20C,fuel_pin_length_0_at%_burnup,cm,34.29
+driver_20C,fuel_pin_length_4.5_at%_burnup,cm,36.65
+driver_20C,bond,-,Sodium
+driver_20C,volume_fraction_fuel_alloy,%,26.92
+driver_20C,volume_fraction_stainless_steel_type_316,%,22.29
+driver_20C,volume_fraction_sodium,%,50.79
+control_safety_20C,fuel_element_type,-,MARKII AI
+control_safety_20C,number_of_pins_per_assembly,-,61
+control_safety_20C,outer_cladding_diameter,cm,0.4420
+control_safety_20C,inner_cladding_diameter,cm,0.3810
+control_safety_20C,outer_fuel_diameter,cm,0.3366
+control_safety_20C,wire_wrap_diameter,cm,0.1245
+control_safety_20C,volume_fraction_fuel_alloy,%,18.04
+control_safety_20C,volume_fraction_stainless_steel,%,22.69
+control_safety_20C,volume_fraction_sodium,%,59.27
+blanket_20C,number_of_pins_per_assembly,-,19
+blanket_20C,outer_cladding_diameter,cm,1.2522
+blanket_20C,inner_cladding_diameter,cm,1.1608
+blanket_20C,outer_fuel_diameter,cm,1.1100
+blanket_20C,pin_length,cm,139.0
+blanket_20C,volume_fraction_depleted_uranium,%,61.13
+blanket_20C,volume_fraction_stainless_steel_type_304,%,17.64
+blanket_20C,volume_fraction_sodium,%,21.23
+summary,no_core_driver_subassemblies,-,87
+summary,no_control_rods,-,8
+summary,no_safety_rods,-,2
+summary,no_experimental_subassemblies,-,5
+summary,no_reflector_subassemblies,-,201
+summary,no_blanket_subassemblies,-,330
+summary,total_no_subassemblies,-,637
+summary,configuration,-,Hexagonal
+summary,assembly_pitch,cm,5.8929
+summary,outer_flat_flat_distance,cm,5.8166
+summary,inner_flat_flat_distance,cm,5.6134
