@@ -239,6 +239,17 @@ Salt density follows −1.18e-4 /°F (ORNL-4233 §4.1). Runs at 1131 °F and
 prediction posted on gh:#1129 (−7.7 to −6.7). The fuel/graphite split was
 not re-run.
 
+**With the 10P graphite law (2026-11-10, gh:#1129),** isothermal, RVS, Mo
+omitted, seeds 1–3 (rows `+graphite-10p` in `data/n3.csv`): A 1131 °F
+1.01667 (1.01713, 1.01631, 1.01657), B 1231 °F 1.00837 (1.00858, 1.00834,
+1.00819). **α_iso(10P) = −8.10 ± 0.53 × 10⁻⁵ /°F** (σ: the larger of seed
+spread and internal σ/√3). Against 30P under RVS (−7.05 ± 0.70):
+−1.05 ± 0.92 (1.1σ); against the measured −7.24: −0.86 ± 0.53 (1.6σ).
+**Prediction** posted before the run, −8.0 to −6.0: the central value falls
+0.1 outside, within its σ. So 10P lowers N-1's k toward the measurement
+(N-1 section) but moves α_iso slightly away from it; neither shift is
+resolved at three seeds.
+
 ### A finding about the statistics
 
 At 1131 °F (N-3, gh:#1129) three seeds spread 133 pcm (sd), against an
