@@ -22,12 +22,14 @@
 //! Concrete `EquationOfState` closures, mirroring OpenFOAM's
 //! `src/thermophysicalModels/specie/equationOfState/` layer: [`perfect_gas`]
 //! (ideal gas law), [`rho_const`] (constant density), [`ico_polynomial`]
-//! (incompressible, specific volume as a polynomial in T), and
+//! (incompressible, ~~specific volume~~ density as a polynomial in T,
+//! corrected 2026-11-10, gh:#1238), and
 //! [`peng_robinson`] (cubic real-gas EOS). See `EquationOfState` (defined in
 //! the crate-private `traits` submodule) for the shared interface.
 
-/// Incompressible EOS with specific volume given by a polynomial in
-/// temperature. See [`ico_polynomial::IcoPolynomial`].
+/// Incompressible EOS with ~~specific volume~~ density given by a polynomial
+/// in temperature (corrected 2026-11-10, gh:#1238). See
+/// [`ico_polynomial::IcoPolynomial`].
 pub mod ico_polynomial;
 /// Peng-Robinson (1976) cubic real-gas EOS. See
 /// [`peng_robinson::PengRobinsonGas`].

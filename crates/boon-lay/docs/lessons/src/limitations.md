@@ -74,10 +74,18 @@ number most likely to be misused
   inventory at water-ingress pressures (gh:#418).
 - **The random walk's `D(T)` covers Ag, Cs, Sr and Kr**; every other element
   diffuses as silver, and the graphite materials are `todo!()` (gh:#541).
-  **Added 2026-10-18:** so is Kr in the buffer (`get_d1_for_kr`), so a Kr
-  walker that reaches the buffer panics.
-- **The decay sampler can panic** on a branch with no daughter
-  (spontaneous fission) or on branching ratios summing below 1 (gh:#538).
+  **Added 2026-10-18:** so is Kr in the buffer (`get_d1_for_kr`), so ~~a Kr
+  walker that reaches the buffer panics~~ **CORRECTED 2026-11-10 (gh:#638):**
+  a Kr walker that reaches the buffer stops with a typed "no cited
+  coefficient" (`HopOutcome::NoDiffusionData`) instead of panicking; it is
+  not given an invented buffer value.
+- ~~**The decay sampler can panic** on a branch with no daughter
+  (spontaneous fission) or on branching ratios summing below 1 (gh:#538).~~
+  **CORRECTED 2026-11-10 (gh:#538):** neither panics now. A decay with no
+  tracked daughter (spontaneous fission, He-5's alpha) ends the chain, and a
+  draw past the ratios' sum takes the largest branch, both as OpenMC's
+  depletion chain reads the data. Fission products from spontaneous fission
+  are still not produced.
 - **The decay data and TRISO-ATOPS's half-lives come from different
   sources** (ENDF/B-VIII.0 via OpenMC's chain, and the IAEA Live Chart).
 - **Accident release is venting-only**: an isothermal hold releases exactly

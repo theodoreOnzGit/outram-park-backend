@@ -172,3 +172,202 @@ fn test_decay_chain() {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// gh:#538: the decay sampler's reachable panics and the spontaneous-fission
+// self-target. Methodology: each case is built from the bundled OpenMC chain
+// data (or, for the rounding gap, a hand-made two-branch record), and the
+// result is compared with how OpenMC's own depletion chain reads the same
+// data (`openmc/deplete/chain.py`, `from_endf` and `form_matrix`). Results
+// (2026-11-10, release): all pass. Before the fix (develop `a836e2f07`),
+// `he5_alpha_without_target_does_not_panic` and
+// `rounding_gap_selects_largest_branch_not_todo` panicked, and
+// `u238_spontaneous_fission_has_no_tracked_daughter` failed because the SF
+// branch returned U-238 as its own daughter.
+// ---------------------------------------------------------------------------
+
+use super::DecaySample;
+use crate::nuclide_reaction_and_decay_data::DecayData;
+use crate::prelude::{HalfLifeAndDecayEnergyInfo, NuclideReactionAndDecayData};
+
+/// A deviate in the middle of the branch at `index`, from the cumulative
+/// ratios in evaluation order.
+fn u_inside_branch(data: &NuclideReactionAndDecayData, index: usize) -> f64 {
+    let branches = data.get_decay_branch_info();
+    let before: f64 = branches[..index]
+        .iter()
+        .map(|(br, _, _)| br.get::<ratio>())
+        .sum();
+    before + 0.5 * branches[index].0.get::<ratio>()
+}
+
+#[test]
+fn u238_spontaneous_fission_has_no_tracked_daughter() {
+    let lib = DecayLibrary::new();
+    let u238 = lib.try_match_nuclides_to_decay_data(Nuclide::U238).unwrap();
+    let branches = u238.get_decay_branch_info();
+    let sf_index = branches
+        .iter()
+        .position(|(_, _, t)| *t == DecayType::SpontaneousFission)
+        .expect("the chain carries a U-238 sf branch");
+    // The chain file names the parent itself as the sf "target".
+    assert_eq!(branches[sf_index].1, Some(Nuclide::U238));
+
+    let u = u_inside_branch(&u238, sf_index);
+    assert_eq!(
+        u238.sample_decay_with_float(u),
+        DecaySample::NoTrackedDaughter {
+            decay_type: DecayType::SpontaneousFission
+        }
+    );
+    // The old accessor no longer hands back the parent as a daughter.
+    assert_eq!(u238.get_next_target_nuclide_with_float(u), None);
+
+    // The alpha branch is unchanged.
+    let alpha_index = branches
+        .iter()
+        .position(|(_, _, t)| *t == DecayType::Alpha)
+        .unwrap();
+    let ua = u_inside_branch(&u238, alpha_index);
+    assert_eq!(
+        u238.get_next_target_nuclide_with_float(ua),
+        Some((Nuclide::Th234, DecayType::Alpha))
+    );
+}
+
+#[test]
+fn he5_alpha_without_target_does_not_panic() {
+    let lib = DecayLibrary::new();
+    let he5 = lib.try_match_nuclides_to_decay_data(Nuclide::He5).unwrap();
+    assert_eq!(he5.get_decay_branch_info().len(), 1);
+    assert_eq!(he5.get_decay_branch_info()[0].1, None);
+    assert_eq!(
+        he5.sample_decay_with_float(0.5),
+        DecaySample::NoTrackedDaughter {
+            decay_type: DecayType::Alpha
+        }
+    );
+    assert_eq!(he5.get_next_target_nuclide_with_float(0.5), None);
+}
+
+#[test]
+fn rounding_gap_selects_largest_branch_not_todo() {
+    // Two branches summing to 0.8: a draw at 0.9 is past the running sum.
+    // OpenMC's `from_endf` gives the residual to the largest branch.
+    let data = NuclideReactionAndDecayData {
+        nuclide: Nuclide::Au172,
+        half_life_information: HalfLifeAndDecayEnergyInfo::Unstable(
+            Time::new::<second>(1.0),
+            Energy::new::<uom::si::energy::electronvolt>(1.0),
+        ),
+        decay_information: vec![
+            DecayData {
+                decay_type: DecayType::Proton,
+                target: Some(Nuclide::Pt171),
+                branching_ratio: Ratio::new::<ratio>(0.3),
+            },
+            DecayData {
+                decay_type: DecayType::Alpha,
+                target: Some(Nuclide::Ir168),
+                branching_ratio: Ratio::new::<ratio>(0.5),
+            },
+        ],
+    };
+    assert_eq!(
+        data.get_next_target_nuclide_with_float(0.9),
+        Some((Nuclide::Ir168, DecayType::Alpha))
+    );
+    // Inside the sum, the sequential subtraction is unchanged.
+    assert_eq!(
+        data.get_next_target_nuclide_with_float(0.1),
+        Some((Nuclide::Pt171, DecayType::Proton))
+    );
+    assert_eq!(
+        data.get_next_target_nuclide_with_float(0.79),
+        Some((Nuclide::Ir168, DecayType::Alpha))
+    );
+}
+
+/// Pins the assumption the rounding-gap rule rests on: in the bundled
+/// libraries every multi-branch nuclide's ratios sum to 1 within 1e-9
+/// (OpenMC's `math.isclose` default), so the gap is rounding, never a missing
+/// branch. Counts every nuclide reachable by ZAID and the tally of target-less
+/// non-sf branches (He-5's is expected to be the only one).
+#[test]
+fn branching_ratios_sum_to_one_within_1e_9() {
+    let lib = DecayLibrary::new();
+    let mut multi_branch = 0usize;
+    let mut seen: Vec<Nuclide> = vec![];
+    let mut worst = 0.0_f64;
+    let mut targetless = vec![];
+    // Z >= 112 has no bundled data and its lookup is still `todo!()`.
+    for z in 1u32..=111 {
+        for a in 1u32..=300 {
+            for offset in [0u32, 400, 800, 1200] {
+                let Some(n) = Nuclide::try_get_nuclide_from_zaid(1000 * z + a + offset) else {
+                    continue;
+                };
+                let (zz, _) = n.get_z_a();
+                if zz == 0 || zz > 111 || seen.contains(&n) {
+                    continue;
+                }
+                seen.push(n);
+                let Some(d) = lib.try_match_nuclides_to_decay_data(n) else {
+                    continue;
+                };
+                let b = d.get_decay_branch_info();
+                for (_, t, dt) in b.iter() {
+                    if t.is_none() && !dt.has_no_tracked_daughter() {
+                        targetless.push(n);
+                    }
+                }
+                if b.len() > 1 {
+                    multi_branch += 1;
+                    let sum: f64 = b.iter().map(|(br, _, _)| br.get::<ratio>()).sum();
+                    worst = worst.max((sum - 1.0).abs());
+                }
+            }
+        }
+    }
+    println!("multi-branch nuclides {multi_branch}, worst |sum - 1| {worst:e}, target-less {targetless:?}");
+    assert!(multi_branch > 100);
+    assert!(worst <= 1e-9, "worst |sum - 1| = {worst:e}");
+    assert_eq!(targetless, vec![Nuclide::He5]);
+}
+
+#[test]
+fn stochastic_chain_from_u238_does_not_panic() {
+    let mut lib = DecayLibrary::new();
+    for _ in 0..200 {
+        let chain = StochasticDecayChain::new_single_stochastic_chain_from_nuclide(
+            Nuclide::U238,
+            &mut lib,
+        );
+        // Either the alpha path to stable Pb-206, or an sf ending (empty
+        // chain): never U-238 as its own daughter.
+        if let Some((first, _)) = chain.nuclides_and_decay_data_vec.first() {
+            assert_ne!(*first, Nuclide::U238);
+        }
+    }
+}
+
+/// gh:#538 (found while sweeping): the lookup for Z = 0 and Z >= 112 was
+/// `todo!()`; it returns `None`, as `decay-data.md` says. Every nuclide the
+/// ZAID table knows, at any Z, must look up without panicking.
+#[test]
+fn lookup_never_panics_for_any_known_nuclide() {
+    let lib = DecayLibrary::new();
+    let mut heavy = 0usize;
+    for zaid in 0u32..=120_000 + 1_300 {
+        let Some(n) = Nuclide::try_get_nuclide_from_zaid(zaid) else {
+            continue;
+        };
+        let r = lib.try_match_nuclides_to_decay_data(n);
+        let (z, _) = n.get_z_a();
+        if z == 0 || z >= 112 {
+            heavy += 1;
+            assert!(r.is_none(), "{n:?} has no bundled data");
+        }
+    }
+    println!("nuclides with Z = 0 or Z >= 112 in the ZAID table: {heavy}");
+}
