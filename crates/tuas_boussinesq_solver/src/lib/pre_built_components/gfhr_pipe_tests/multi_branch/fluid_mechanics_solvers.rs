@@ -1359,10 +1359,10 @@ pub fn calculate_iterative_mass_flowrate_across_branches_for_fhr_sim_v1(
         // between each branch if it has zero flow rate
         // we can get the max pressure difference between each branch
         //
-        let max_pressure_change_between_branches: Pressure = 
-                <FluidComponentSuperCollection as FluidComponentSuperCollectionParallelAssociatedFunctions>:: 
+        let max_pressure_change_between_branches: Pressure =
+                <FluidComponentSuperCollection as FluidComponentSuperCollectionParallelAssociatedFunctions>::
                 calculate_maximum_pressure_difference_between_branches(
-                    zero_mass_flowrate, 
+                    zero_mass_flowrate,
                     &fluid_component_collection_vector
                 );
 
@@ -1376,10 +1376,10 @@ pub fn calculate_iterative_mass_flowrate_across_branches_for_fhr_sim_v1(
         let mut max_mass_flowrate_across_each_branch = MassRate::new::<kilogram_per_second>(5000.0);
         // TODO: this is the buggy spot
         if !debugging {
-            max_mass_flowrate_across_each_branch = 
-                    <FluidComponentSuperCollection as FluidComponentSuperCollectionParallelAssociatedFunctions>:: 
+            max_mass_flowrate_across_each_branch =
+                    <FluidComponentSuperCollection as FluidComponentSuperCollectionParallelAssociatedFunctions>::
                     calculate_maximum_mass_flowrate_given_pressure_drop_across_each_branch(
-                        max_pressure_change_between_branches, 
+                        max_pressure_change_between_branches,
                         &fluid_component_collection_vector);
         }
         // the above is an algorithm which allows us to calculate an

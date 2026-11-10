@@ -362,7 +362,10 @@ pub enum FissioningNuclideType {
 
 ###### `U233`
 
-chooses the U233 group of delayed constants
+~~chooses the U233 group of delayed constants~~ **CORRECTED
+2026-11-10 (gh:#1319):** chooses U-233's delayed fractions `beta_i`
+but U-235's decay constants `lambda_i` (see
+[`FissioningNuclideType::get_decay_constant_array`]).
 
 ###### `U235`
 
@@ -370,7 +373,10 @@ chooses the U235 group of delayed constants
 
 ###### `Pu239`
 
-chooses the Pu239 group of delayed constants
+~~chooses the Pu239 group of delayed constants~~ **CORRECTED
+2026-11-10 (gh:#1319):** chooses Pu-239's delayed fractions `beta_i`
+but U-235's decay constants `lambda_i` (see
+[`FissioningNuclideType::get_decay_constant_array`]).
 
 ##### Implementations
 

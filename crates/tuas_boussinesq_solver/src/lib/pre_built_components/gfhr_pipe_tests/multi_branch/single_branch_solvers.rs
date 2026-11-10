@@ -74,10 +74,10 @@ pub fn calculate_mass_flowrate_from_pressure_change_for_single_branch_fhr_sim_cu
 
     let zero_mass_flow: MassRate = MassRate::new::<kilogram_per_second>(0.0);
 
-    let pressure_change_0kg_per_second: Pressure 
+    let pressure_change_0kg_per_second: Pressure
         = <FluidComponentCollection as FluidComponentCollectionSeriesAssociatedFunctions>
         ::calculate_pressure_change_from_mass_flowrate(
-            zero_mass_flow, 
+            zero_mass_flow,
             fluid_component_vector);
 
     // now we will check if the difference is about 9 Pa
@@ -148,10 +148,10 @@ pub fn calculate_mass_flowrate_from_pressure_change_for_single_branch_fhr_sim_cu
 
         let mass_rate = MassRate::new::<kilogram_per_second>(mass_flow_kg_per_s_double);
 
-        let pressure_change_tested = 
+        let pressure_change_tested =
                 <FluidComponentCollection as FluidComponentCollectionSeriesAssociatedFunctions>
                 ::calculate_pressure_change_from_mass_flowrate(
-                    mass_rate, 
+                    mass_rate,
                     fluid_component_vector);
         // now i've obtained the pressure change, i convert it to f64
 
