@@ -617,6 +617,7 @@ mod tests {
             sections,
             resonance_upper_limit: None,
             unresolved_table: None,
+            temperature_k: 0.0,
         }
     }
 

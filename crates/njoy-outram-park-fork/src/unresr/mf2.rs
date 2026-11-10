@@ -399,7 +399,7 @@ pub fn parse_lru2_ranges(section_rows: &[[f64; 6]]) -> Result<Vec<UnresolvedRang
         let naps = range_head.n2;
 
         if lru != 2 {
-            skip_resolved_range(&mut cur, lrf)?;
+            skip_resolved_range(&mut cur, lrf, nro)?;
             continue;
         }
         // rdunf2:515-528 — the energy-dependent scattering-radius TAB1 sits
@@ -434,6 +434,35 @@ pub fn parse_lru2_ranges(section_rows: &[[f64; 6]]) -> Result<Vec<UnresolvedRang
     Ok(ranges)
 }
 
+/// How many ENDF rows the body of one `LRU=2` range occupies, from its
+/// SPI/AP header record to its last parameter record, **excluding** the range
+/// CONT and any `NRO=1` scattering-radius `TAB1` before it. `rows` starts at
+/// that header record.
+///
+/// RECONR's own MF=2 reader ([`crate::reconr::mf2::parse_resonance_info`])
+/// keeps only the range bounds and the SPI/AP header of an unresolved range,
+/// and needs to step past the rest so that a following range or isotope is
+/// read from the right record (GitHub #663). It walks the same records
+/// [`parse_lru2_ranges`] does, with the same case selection as `rdfil2`'s
+/// dispatch (`reconr.f90:824-829`: `rdf2u0` for `LRF=1, LFW=0`, `rdf2u1` for
+/// `LRF=1, LFW=1`, `rdf2u2` for `LRF=2`), so the two readers cannot disagree
+/// about where a range ends.
+///
+/// # Errors
+///
+/// [`NjoyError::EndfParse`] if the records run out.
+pub(crate) fn lru2_body_rows(rows: &[[f64; 6]], lrf: i32, lfw: i32) -> Result<usize, NjoyError> {
+    let mut cur = Cursor::new(rows);
+    if lrf == 2 {
+        parse_case_c(&mut cur)?;
+    } else if lfw == 1 {
+        parse_case_b(&mut cur)?;
+    } else {
+        parse_case_a(&mut cur)?;
+    }
+    Ok(cur.pos)
+}
+
 /// `sigfig(x, 7, 0)` — NJOY rounds range boundary energies to 7 significant
 /// figures before using them as grid nodes (`unresr.f90:449-450`), so
 /// boundary comparisons match exactly across ranges read from independently
@@ -453,7 +482,18 @@ fn sigfig7(x: f64) -> f64 {
 /// to advance the cursor past it — mirrors `rdunf2:459-491`. RECONR already
 /// owns resolved-parameter parsing ([`crate::reconr::mf2`]); UNRESR only
 /// needs the cursor correctly positioned at the next range.
-fn skip_resolved_range(cur: &mut Cursor<'_>, lrf: i32) -> Result<(), NjoyError> {
+///
+/// A resolved range with `NRO ≠ 0` (MLBW with an energy-dependent scattering
+/// radius) carries an `AP(E)` `TAB1` before its SPI/AP record, which is read
+/// and dropped first, as RECONR's `rdf2bw` reads it (`reconr.f90:906-914`).
+/// **This departs from `rdunf2`**, which goes straight to the CONT
+/// (`unresr.f90:458-459`) and so would take the table's header for it; RECONR
+/// walks MF=2 through this function too, and its own reader `rdfil2` does
+/// skip the table (GitHub #663).
+fn skip_resolved_range(cur: &mut Cursor<'_>, lrf: i32, nro: i32) -> Result<(), NjoyError> {
+    if nro != 0 {
+        cur.tab1()?;
+    }
     let head = cur.cont()?;
     let nls = head.n1;
     if lrf == 4 || lrf == 7 {

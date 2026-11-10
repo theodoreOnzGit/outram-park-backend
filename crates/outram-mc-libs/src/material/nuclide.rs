@@ -2033,6 +2033,8 @@ impl Nuclide {
             // (GitHub #307) and attached below; only this MF=2-shaped field is
             // empty.
             unresolved_table: None,
+            // The ACE table's own temperature (its `TEMP` word, kT in eV here).
+            temperature_k: ace.kt_ev / crate::physics::scatter::K_BOLTZMANN_EV_PER_K,
         };
         let inel = build_inelastic_levels(&recon);
 
@@ -5600,6 +5602,7 @@ mod tests {
             sections: vec![flat(1, 10.0), flat(2, 3.0), flat(102, 1.0), flat(155, 2.0), flat(197, 4.0)],
             resonance_upper_limit: None,
             unresolved_table: None,
+            temperature_k: 0.0,
         };
         let e = 1.0e6;
         assert_eq!(absorption_mt27(&recon, 0.0, e), 7.0);

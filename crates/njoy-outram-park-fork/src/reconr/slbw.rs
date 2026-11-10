@@ -324,6 +324,33 @@ pub fn eval_mlbw_lstate(
     awri: f64,
     ra: f64,
 ) -> SlbwSigmas {
+    eval_mlbw_lstate_radii(e, resonances, l, spi, ap, awri, ra, ra)
+}
+
+/// [`eval_mlbw_lstate`] with the two channel radii upstream keeps apart.
+///
+/// `csmlbw` takes the penetrability and shift **at each resonance**,
+/// `ser`/`per`, from the table `rdf2bw` built once at read time with its own
+/// radius `ral` (`reconr.f90:999-1002`: the ENDF formula, or the range's
+/// constant `AP` when `NAPS = 1`). The penetrability and shift **at the
+/// energy**, `se`/`pe`, use the radius `csmlbw` picks per energy, `ra_e`
+/// (`reconr.f90:2906-2919`). The two agree unless the range carries an
+/// energy-dependent radius (`NRO ≠ 0`, GitHub #663): then `NAPS = 1` gives
+/// `ra_e = AP(E)` against `ra_res = AP`, and `NAPS = 2` gives `ra_e = AP`
+/// against `ra_res` from the formula. `ap` is the scattering radius used for
+/// the phase shift, `AP(E)` when `NRO ≠ 0`.
+#[allow(clippy::too_many_arguments)]
+pub fn eval_mlbw_lstate_radii(
+    e: f64,
+    resonances: &[(f64, f64, f64, f64, f64, f64)],
+    l: u32,
+    spi: f64,
+    ap: f64,
+    awri: f64,
+    ra_e: f64,
+    ra_res: f64,
+) -> SlbwSigmas {
+    let ra = ra_e;
     if e <= 0.0 {
         return SlbwSigmas::default();
     }
@@ -359,7 +386,7 @@ pub fn eval_mlbw_lstate(
     for &(er, aj, _gt, gn, gg, gf) in resonances {
         let j = ((aj - ajmin + 1.0).round() as usize).clamp(1, nj) - 1;
         let k_r = WAVE_K * arat * er.abs().sqrt();
-        let (ser, per) = shift_and_penetrability(l, k_r * ra);
+        let (ser, per) = shift_and_penetrability(l, k_r * ra_res);
         let rper = if per.abs() > 1e-30 { 1.0 / per } else { 0.0 };
         let erp = er + gn * (ser - se) * rper / 2.0;
         let edelt = e - erp;

@@ -204,6 +204,8 @@ impl ProcessedEvaluation {
                 sections,
                 resonance_upper_limit,
                 unresolved_table,
+                // The sections were broadened to `temp_k` (GitHub #617).
+                temperature_k: temp_k,
             },
             elastic_0k,
             urr,
@@ -262,6 +264,7 @@ mod tests {
                 ],
                 resonance_upper_limit: None,
                 unresolved_table: Some(vec![[2.0e4, 1.0, 2.0, 3.0, 4.0, 5.0]]),
+                temperature_k: 300.15,
             },
             elastic_0k: vec![(1.0e-5, 9.0), (2.0e4, 8.0)],
             urr: Some(UrrProbabilityTables::from_f64s(&urr).expect("tables")),

@@ -64,6 +64,7 @@
 use crate::endf::interp::{terp1, IntLaw};
 use crate::endf::{records::SectionCursor, tape::Tape};
 use crate::NjoyError;
+use petir::mathf::RealMath;
 
 /// Coherent-elastic (Bragg) scattering: the cumulative structure factor
 /// `S(E, T)` at **every tabulated temperature**.
@@ -129,7 +130,7 @@ pub struct IncoherentInelastic {
     pub lasym: i32,
     /// `LLN`: `0` if `S` is stored directly, `1` if it is stored as `ln S`.
     ///
-    /// **Recorded, never acted on.** [`s_tables`] always holds the numbers
+    /// ~~**Recorded, never acted on.** [`s_tables`] always holds the numbers
     /// exactly as the file stores them, so when `lln == 1` they are logarithms
     /// and every consumer in this crate would be reading them wrongly. That is
     /// deliberate fidelity, not an oversight: NJOY does not undo `LLN` either —
@@ -137,7 +138,19 @@ pub struct IncoherentInelastic {
     /// the thermal path — and LEAPR warns when it writes such a tape that it
     /// "CANNOT be processed" downstream (`leapr.f90:262-265`). Teaching this
     /// parser to exponentiate would be an improvement beyond upstream, which
-    /// the crate's translation policy defers until the translation is done.
+    /// the crate's translation policy defers until the translation is done.~~
+    /// **CORRECTED 2026-11-10 (GitHub #629).** NJOY *does* honour the flag;
+    /// THERMR calls it `ilog`, which is why a grep for `lln` missed it.
+    /// `calcem` reads `ilog=l1h` from the B-constant LIST (`thermr.f90:1671`)
+    /// and, since its internal `sab` holds `ln S`, takes `log(scr(l))` when
+    /// `ilog = 0` but stores the value as it is when `ilog = 1`
+    /// (`thermr.f90:1747-1755`). The LEAPR warning (`leapr.f90:262-265`) is
+    /// about `isabt = 1` (`LASYM ≥ 2`), not `ilog`. So [`s_tables`] now always
+    /// holds `S`: when `lln == 1` the parser stores `exp(value)`, and every
+    /// consumer's `ln` gives the stored logarithm back (to rounding; a stored
+    /// value at or below `SABFLG = −225` maps to `SABFLG`, which `sig` treats
+    /// exactly like any other value `≤ sabflg`, `thermr.f90:2543-2550`). This
+    /// field records which form the *file* used.
     ///
     /// ~~All eight~~ **All NINE** `tsl-*` evaluations in `reference-data/endf/`
     /// carry `LLN = 0`, so nothing we hold is affected. **CORRECTED
@@ -145,8 +158,7 @@ pub struct IncoherentInelastic {
     /// holds nine `tsl-*.endf` tapes (Al-27, C-in-SiC, H-in-H2O, H-in-ZrH,
     /// Si-in-SiC, crystalline graphite, ENDF/B-VII.0 graphite, and reactor
     /// graphite at 10 % and 30 % porosity). Verified by parsing all nine and
-    /// printing `LLN`, not by counting files. Check this field before
-    /// trusting [`s_tables`] from an unfamiliar evaluation.
+    /// printing `LLN`, not by counting files.
     ///
     /// [`s_tables`]: IncoherentInelastic::s_tables
     pub lln: i32,
@@ -584,11 +596,30 @@ fn parse_inelastic(
     let head = cur.read_cont()?; // ZA, AWR, 0, LAT, LASYM, 0
     let lat = head.l2;
     let lasym = head.n1;
+    // `thermr.f90:1662-1667` (`calcem`): LASYM = 2 or 3 is LEAPR's `isabt = 1`
+    // output (the asymmetric law written without the detailed-balance factor).
+    // It is not an ENDF-6 value and THERMR stops on it. GitHub #629.
+    if lasym > 1 {
+        return Err(NjoyError::InvalidInput(format!(
+            "MF=7 MT=4 has LASYM = {lasym}: an isabt=1 pendf tape (LEAPR's \
+             asymmetric output); thermr cannot process this format \
+             (thermr.f90 calcem)"
+        )));
+    }
 
     // B-constants LIST: B(1..NI); NS = number of non-principal atom types.
     let bl = cur.read_list()?;
-    // `LLN` is L1 of the B-constant LIST record. Recorded only — see the field.
+    // `LLN` is L1 of the B-constant LIST record (`ilog=l1h`, `thermr.f90:1671`).
     let lln = bl.head.l1;
+    // `thermr.f90:1747-1755`: for `ilog = 1` the stored numbers are `ln S`.
+    // Every table here holds `S`, so undo the logarithm on read (GitHub #629).
+    let undo_ln = |v: Vec<f64>| -> Vec<f64> {
+        if lln == 1 {
+            v.into_iter().map(|x| x.r_exp()).collect()
+        } else {
+            v
+        }
+    };
     let b = bl.data.clone();
     if b.first().copied().unwrap_or(0.0) == 0.0 {
         // B(1)=0 ⇒ principal scatterer has no tabulated S (pure analytic /
@@ -624,6 +655,7 @@ fn parse_inelastic(
         let bval = tab1.head.c2;
         let lt = tab1.head.l1;
         let (alpha, base_s): (Vec<f64>, Vec<f64>) = tab1.pairs.iter().copied().unzip();
+        let base_s = undo_ln(base_s);
 
         // Candidate S(α) vectors for this β: base T₀ first, then the LT extras
         // ([T, β, LI, 0, NP, 0 / S(α_i, T)] — S only, on the shared α grid).
@@ -643,7 +675,7 @@ fn parse_inelastic(
             }
             cand_temps.push(list.head.c1);
             interval_li.push(list.head.l1.max(0) as u32); // LI
-            cand_s.push(list.data.clone());
+            cand_s.push(undo_ln(list.data.clone()));
         }
 
         if j == 0 {

@@ -28,6 +28,7 @@ fn recon(awr: f64, sections: Vec<ReconrSection>) -> ReconrResult {
         sections,
         resonance_upper_limit: None,
         unresolved_table: None,
+        temperature_k: 0.0,
     }
 }
 
