@@ -36,7 +36,7 @@ maturity gate in that file for what this means and how the bar is revised.
   recording.
 
 
-License: ~~GPL-3.0~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`). Requires OpenBLAS on Linux/macOS, Intel MKL on Windows.
+License: ~~GPL-3.0~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`). ~~Requires OpenBLAS on Linux/macOS, Intel MKL on Windows.~~ **CORRECTED 2026-11-10:** no system BLAS is needed; `Cargo.toml` has no `ndarray-linalg`, BLAS or MKL dependency (checked), and the matrix solves are pure Rust (see the 2026-11-01 correction under "Array CVs"). The Prerequisites section below is historical.
 
 ---
 
@@ -146,6 +146,8 @@ pub enum SolidMaterial { SteelSS304L, Copper, Fiberglass, PyrogelHPS,
     NuclearGraphiteMatrixA3, NuclearGraphiteIG110, CustomSolid(...) }
 pub enum LiquidMaterial { TherminolVP1, DowthermA, HITEC, YD325, FLiBe, FLiNaK, CustomLiquid(...) }
 ```
+
+Liquid sodium (400-1000 K, CoolProp `LiqNa`) and the MSRE salts are `CustomLiquid` constructors in `liquid_database` (e.g. `liquid_database::liquid_sodium_coolprop::liquid_sodium()`), not enum variants.
 
 All thermophysical property functions (`try_get_rho`, `try_get_h`, `try_get_temperature_from_h`, …) take a `Material` + temperature (+ pressure). Custom materials accept function pointers for arbitrary correlations. `range_check()` enforces valid temperature ranges; out-of-range calls return `TuasLibError::ThermophysicalPropertyTemperatureRangeError`.
 
@@ -266,7 +268,8 @@ use tuas_boussinesq_solver::prelude::beta_testing::*;
 ## Key Dependencies
 
 - `uom` — all physical quantities are unit-safe (`Length`, `ThermodynamicTemperature`, `MassRate`, etc.); import units via `uom::si::<quantity>::<unit>`.
-- `ndarray` + `ndarray-linalg` — matrix solvers for array CV energy equations (OpenBLAS on Linux/macOS, Intel MKL on Windows).
+- ~~`ndarray` + `ndarray-linalg` — matrix solvers for array CV energy equations (OpenBLAS on Linux/macOS, Intel MKL on Windows).~~ **CORRECTED 2026-11-10:** `ndarray` only; `ndarray-linalg` is not a dependency (checked in `Cargo.toml`), the solves use `crate::matrix::SquareMatrix`.
+- `outram-park-fork-coolprop` — CoolProp's `LiqNa` fit for liquid sodium (`liquid_database::liquid_sodium_coolprop`, gh:#1320, added 2026-11-10).
 - ~~`peroxide` — numerical methods (used via `#[macro_use] extern crate peroxide` at crate root).~~
 - ~~`roots` — root-finding (Brent-Dekker / regula falsi for flowrate solver).~~
   **CORRECTED 2026-10-20 (gh:#989, #991):** both removed. Root finding, quadrature,

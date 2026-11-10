@@ -11,6 +11,11 @@
 //! Fluids covered: Dowtherm A / Therminol VP-1 (`dowtherm_a`), HITEC nitrate
 //! salt (`hitec_nitrate_salt`), YD-325 heat-transfer oil
 //! (`yd_325_heat_transfer_oil`), FLiBe (`flibe`), and FLiNaK (`flinak`).
+//! **CORRECTED 2026-11-10:** that list is incomplete; the database also
+//! holds `CustomLiquid` constructors it omitted: the MSRE fuel
+//! salt (`msre_fuel_salt_tm0728`), the MSRE coolant salt
+//! (`msre_coolant_salt_tm2316`), and, new on that date, liquid sodium
+//! (`liquid_sodium_coolprop`, gh:#1320).
 //! `custom_liquid_material` provides generic, user-supplied-correlation
 //! helpers for a liquid not otherwise in the database.
 
@@ -102,6 +107,11 @@ pub mod msre_coolant_salt_tm2316;
 ///
 ///
 pub mod flinak;
+
+/// Liquid sodium, 400-1000 K, from CoolProp's `LiqNa` fit through the
+/// CoolProp port (gh:#1320, EBR-II groundwork #1312). A `CustomLiquid`:
+/// use `Material::Liquid(liquid_sodium_coolprop::liquid_sodium())`.
+pub mod liquid_sodium_coolprop;
 
 /// properties for a custom liquid material
 /// not covered in the database
