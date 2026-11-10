@@ -22,10 +22,8 @@
 //! Prints one row per pour and the verdict. Timing is wall time on this
 //! machine; state the hardware with any number quoted.
 
-use outram_park_fork_liggghts::compute::{ComputeType, ThreadCount};
-use outram_park_fork_liggghts::htr10_fill::{FillProgress, Htr10Fill, Htr10FillSettings, Htr10GpuFill};
-use outram_park_fork_liggghts::particle::Vec3;
-use outram_park_fork_liggghts::rdf::{radial_distribution, RdfDomain, RdfSettings};
+use outram_park_fork_liggghts::prelude::*;
+use outram_park_fork_liggghts::htr10_fill::Htr10GpuFill;
 use uom::si::length::meter;
 
 /// What a settled pour measures.

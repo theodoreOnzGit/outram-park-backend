@@ -209,6 +209,21 @@ are different claims and this entry keeps them apart.
   across the seven crates dogfooded in gh #58 — the two worst failures there
   were both prelude failures — so this crate starts from behind.
 
+  **UPDATED 2026-11-10 (gh #64, #1317).**
+  - **The prelude now exists:** `src/prelude.rs`, imported with
+    `use outram_park_fork_liggghts::prelude::*;`. It covers particles, walls
+    (including mesh and moving walls), both contact-model families, both
+    engines, the compute backend, bonds, thermal and radiative models, the
+    coupling seam, the RDF and the HTR-10 fill driver.
+  - **It is executable.** Its doctest runs a `GranularSystem` settle with
+    nothing else imported from the crate, and all 11 examples now import from
+    it. The only explicit imports left are `gnn_bridge` and `Htr10GpuFill`,
+    which are kept out of the prelude because they are feature- and
+    target-gated.
+  - **Version:** the crate is at `0.0.3`, not `0.0.0`.
+  - **Not done:** the Haiku dogfood run that the maturity gate asks of a
+    mature crate has not been done against this prelude.
+
 - **2026-09-17 — mesh-wall cross-code leg extended to the HTR-10 DISCHARGE
   geometry, plus a reproducibility defect found and fixed. The bar itself is
   UNCHANGED; revising it is a maintainer decision.** The 2026-09-15 entry above

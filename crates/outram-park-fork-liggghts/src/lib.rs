@@ -115,6 +115,7 @@ pub mod htr10_fill;
 pub mod integrator;
 pub mod mesh_wall;
 pub mod particle;
+pub mod prelude;
 pub mod rdf;
 pub mod rolling;
 pub mod simulation;

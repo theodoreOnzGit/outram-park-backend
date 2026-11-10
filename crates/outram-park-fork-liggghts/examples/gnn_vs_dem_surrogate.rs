@@ -115,11 +115,8 @@ fn main() {
 #[cfg(feature = "gnn-burn")]
 mod run {
     use petir::mathf::RealMath;
-    use outram_park_fork_liggghts::boundary::Boundary;
+    use outram_park_fork_liggghts::prelude::*;
     use outram_park_fork_liggghts::gnn_bridge;
-    use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial, RollingModel};
-    use outram_park_fork_liggghts::granular_system::GranularSystem;
-    use outram_park_fork_liggghts::particle::{Particle, Vec3};
     use raffles::gnn::mpnn::MessagePassingNet;
     use raffles::gnn::training::{self, MpnnTrainingConfig};
     use uom::si::f64::{Length, Mass, ThermodynamicTemperature};

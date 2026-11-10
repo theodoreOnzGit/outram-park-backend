@@ -51,7 +51,7 @@
 
 use petir::mathf::RealMath;
 use outram_park_fork_liggghts::gnn_bridge;
-use outram_park_fork_liggghts::particle::{Particle, Vec3};
+use outram_park_fork_liggghts::prelude::*;
 use uom::si::f64::{Length, Mass, ThermodynamicTemperature};
 use uom::si::{length::meter, mass::kilogram, thermodynamic_temperature::kelvin};
 const R_P: f64 = 0.03;
@@ -108,9 +108,6 @@ fn main() {
     );
 
     // The DEM's own contact detection, for comparison: cell lists, O(N).
-    use outram_park_fork_liggghts::boundary::Boundary;
-    use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial};
-    use outram_park_fork_liggghts::granular_system::GranularSystem;
     let m = GranularMaterial::new(1.0e8, 0.2, 0.5, 0.4).unwrap();
     let sys = GranularSystem::new(
         ps.clone(),

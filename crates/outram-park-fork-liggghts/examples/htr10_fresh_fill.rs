@@ -10,8 +10,7 @@
 //! Defaults are `Htr10FillSettings::default()` (µ = 0.1, µ_r = 0, E = 5e8 Pa,
 //! V&V § 4.9). The printed φ is a result of the run, not a target.
 
-use outram_park_fork_liggghts::compute::ThreadCount;
-use outram_park_fork_liggghts::htr10_fill::{Htr10Fill, Htr10FillSettings};
+use outram_park_fork_liggghts::prelude::*;
 use uom::si::length::centimeter;
 use uom::si::time::second;
 
