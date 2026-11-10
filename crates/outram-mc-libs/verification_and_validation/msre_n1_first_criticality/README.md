@@ -140,6 +140,34 @@ about 70 pcm low. It contains:
   below), up to 239 ± 21 pcm at 1231 °F; graphite law, URR and DBRC are ruled
   out, and the maintainer chose not to pursue it further (gh:#1311).
 
+### N-1 residual: hot dimensions (2026-11-10, gh:#1128)
+
+**Method.** `--hot-dims` (`vv::msre_n1::Dims`): every graphite length scales
+by 1 + 1.5e-6 × (1181 − 70) and every INOR-8 length by 1 + 7.8e-6 × 1111
+(TM-0728 §5.3: graphite "1.3 to 1.7 × 10⁻⁶", INOR-8 "7.8 × 10⁻⁶ in./in.-°F
+(in the 70-1200°F range)"); head volumes scale with the INOR-8 cube, solid
+densities thin by the cube of their scale, salt density is already at
+temperature, the sample basket is unchanged. Drawn
+(`images/*_hot.png`, sent in-session before the run). Pinned: the cold
+build is byte-identical to the recorded geometry, and the can gap grows
+0.49 cm against TM-0728's "3/16 in." Arm C (natural Mo), RVS, seeds 1–3.
+Prediction posted on gh:#1128 before the run: k up by +50 to +300 pcm.
+
+| geometry | seeds | k | vs k_ref |
+|---|---|---|---|
+| cold (as drawn) | 6 | 1.00882 ± 0.00022 | +801 ± 22 pcm |
+| **hot (1181 °F)** | 3 (1.01103, 1.01062, 1.00954) | **1.01040 ± 0.00045** | **+959 ± 45 pcm** |
+
+- **Hot − cold = +158 ± 50 pcm (3.2σ)**, inside the prediction.
+- **The residual grows**, as the screen on gh:#1128 expected: the core
+  grows 0.17 % each way (less leakage) and the can gap, downcomer and
+  plenums gain salt.
+- **Not adopted as the default.** Hot dimensions are the more physical
+  state, but making them the default re-states every N-1 and N-3 number
+  on this page; that is the maintainer's call. The N-3 coefficients
+  ignore expansion over their ±50 °F swing (a few pcm by this result's
+  scale, ~1e-7 /°F, not measured).
+
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
 Salt density follows −1.18e-4 /°F (ORNL-4233 §4.1). Runs at 1131 °F and
