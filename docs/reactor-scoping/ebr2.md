@@ -94,7 +94,10 @@ round-trip.
   fraction is trusted.
 - **Fuel temperature feedback is explicitly thermal-spectrum.** Functions at
   `crates/teh-o-prke/src/fuel_temperature_feedback.rs:213,243` are named for
-  thermal spectrum and have no fast-spectrum sibling.
+  thermal spectrum ~~and have no fast-spectrum sibling~~. **CORRECTED
+  2026-11-10 (gh:#1326):** a fast-spectrum sibling now exists,
+  `teh_o_prke::feedback_mechanisms::fast_reactor::FastDopplerTerm`
+  (`-K_D ln(T/T_ref)`, GeN-Foam's `fastNeutrons` branch).
 - **The steam side is unwired.** `crates/tampines/src/components/turbine.rs:39`,
   `condenser.rs:37` and `heat_exchanger.rs:40` all return a not-yet-implemented
   error. Their own doc comments note the underlying algebra already exists in
@@ -114,12 +117,18 @@ round-trip.
 EBR-II's famous behaviour *is* the expansion feedbacks. `teh-o-prke` currently
 offers a six-factor-formula feedback set, which is a thermal-reactor
 parameterisation and the wrong shape for a fast core. Four feedbacks dominate and
-none is available as a reactivity coefficient a point-kinetics model can sum:
+~~none is available as a reactivity coefficient a point-kinetics model can sum~~
+**CORRECTED 2026-11-10 (gh:#1326): all four are now available as coefficient
+terms a point-kinetics model can sum**, in
+`crates/teh-o-prke/src/feedback_mechanisms/fast_reactor.rs` (a port of GeN-Foam's
+point-kinetics feedback sum, beside the separable model). What remains open is
+the coefficients themselves (caller inputs, none built in) and the
+thermal-hydraulic side that supplies the temperatures:
 
-- axial fuel expansion — portable from the orphaned genfoam code
-- radial / grid-plate expansion — new
-- control-rod-drive-line expansion — new
-- sodium density and void worth — new
+- axial fuel expansion — portable from the orphaned genfoam code **(done: `axial_fuel_expansion`)**
+- radial / grid-plate expansion — ~~new~~ **done: `radial_expansion`, one term per structure**
+- control-rod-drive-line expansion — ~~new~~ **done: `driveline` (expansion x rod-worth map, as GeN-Foam; no thermal lag, as GeN-Foam)**
+- sodium density and void worth — ~~new~~ **done: `coolant_density`**
 
 Without these the simulator will not reproduce the self-shutdown at all. It will
 behave like a generic reactor with a fuel-temperature coefficient.
@@ -227,7 +236,7 @@ the protected case is validated is the honest ordering.
 | Wire-wrapped bundle sodium Nusselt | New correlation variant | Sodium reachable |
 | Low-Peclet axial conduction fix | Bound or repair the flagged-buggy correction | — |
 | Stratified pool control volume | Multi-node, free surface, buoyancy exchange | — |
-| SFR feedback module in `teh-o-prke` | Axial (port from genfoam), radial/grid-plate, CRDL, sodium density | — |
+| SFR feedback module in `teh-o-prke` | Axial (port from genfoam), radial/grid-plate, CRDL, sodium density. **Built 2026-11-10 (gh:#1326), coefficients are caller inputs** | — |
 | Fast-spectrum kinetics constants | Data entry, sourced and cited | Fix the identical-decay-constant defect first |
 | Fix identical precursor decay constants | Correctness defect, affects all reactors | — |
 | Intermediate loop plus IHX | Sodium-to-sodium | Sodium reachable, pool CV |
