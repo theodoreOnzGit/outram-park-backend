@@ -940,7 +940,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
     // BC
     let heat_transfer_area: Area = match interaction{
         HeatTransferInteractionType::
-            UserSpecifiedThermalConductance(_) => 
+            UserSpecifiedThermalConductance(_) =>
             {
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
@@ -949,7 +949,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         ,
 
         HeatTransferInteractionType::
-            SingleCartesianThermalConductanceOneDimension(_, _) => 
+            SingleCartesianThermalConductanceOneDimension(_, _) =>
             {
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
@@ -958,7 +958,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         ,
 
         HeatTransferInteractionType::
-            DualCartesianThermalConductance(_, _) => 
+            DualCartesianThermalConductance(_, _) =>
             {
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
@@ -967,7 +967,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         ,
 
         HeatTransferInteractionType::
-            DualCylindricalThermalConductance(_, _, _) => 
+            DualCylindricalThermalConductance(_, _, _) =>
             {
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
@@ -976,7 +976,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         ,
 
         HeatTransferInteractionType::
-            CylindricalConductionConvectionLiquidOutside(_, _) => 
+            CylindricalConductionConvectionLiquidOutside(_, _) =>
             {
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
@@ -985,7 +985,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         ,
 
         HeatTransferInteractionType::
-            CylindricalConductionConvectionLiquidInside(_, _) => 
+            CylindricalConductionConvectionLiquidInside(_, _) =>
             {
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
@@ -994,7 +994,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         ,
 
         HeatTransferInteractionType::
-            UserSpecifiedHeatAddition => 
+            UserSpecifiedHeatAddition =>
             {
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
@@ -1003,7 +1003,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         ,
 
         HeatTransferInteractionType::
-            DualCartesianThermalConductanceThreeDimension(_) => 
+            DualCartesianThermalConductanceThreeDimension(_) =>
             {
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
@@ -1038,7 +1038,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
         ,
 
         HeatTransferInteractionType::
-            UserSpecifiedConvectionResistance(_) => 
+            UserSpecifiedConvectionResistance(_) =>
             {
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
@@ -1056,7 +1056,7 @@ pub fn calculate_constant_heat_flux_front_single_cv_back(
             }
         ,
         HeatTransferInteractionType::SimpleRadiation
-            (_area_coeff) => 
+            (_area_coeff) =>
             {
                 println!("please specify interaction type as \n 
                 UserSpecifiedHeatFluxCustomArea or Similar");
