@@ -270,6 +270,22 @@ at both temperatures (RVS, Mo omitted; σ from the seed spread, which at
 and −7.05 ± 0.70 (30P)~~ are superseded by these. At this precision the
 graphite law matters for N-1's k (about −105 pcm), not for α_iso.
 
+**Fuel/graphite split under RVS (2026-11-10, gh:#1129),** C (salt 1231 /
+graphite 1131 °F) and D (1131 / 1231 °F), seeds 1–6 each, against A under
+RVS (six seeds); rows `mo-omitted+rvs@salt1231F/graphite1131F` and
+`...salt1131F/graphite1231F` in `data/n3.csv`:
+
+| coefficient (×10⁻⁵ /°F) | RVS | DBRC | change |
+|---|---|---|---|
+| fuel | **−4.48 ± 0.54** | −3.82 ± 0.44 | −0.66 ± 0.70 |
+| graphite | **−3.33 ± 0.40** | −3.77 ± 0.65 | +0.44 ± 0.76 |
+| isothermal | −7.12 ± 0.39 | −7.19 ± 0.50 | +0.07 ± 0.63 |
+
+Both components lie inside the band posted on gh:#1129 before the run
+(−4.6 to −3.0). The components add to −7.81 against −7.12 for the
+isothermal run. T-1 re-run with these: −14 % to +6 % of the measured
+periods (nee_soon T-1 README).
+
 ### A finding about the statistics
 
 At 1131 °F (N-3, gh:#1129) three seeds spread 133 pcm (sd), against an

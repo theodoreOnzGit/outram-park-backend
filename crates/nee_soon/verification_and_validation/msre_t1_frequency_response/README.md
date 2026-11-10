@@ -60,6 +60,32 @@ The model runs short at every power except the highest, by 1–8 % above
 0.4 MW and by 18 % at 76 kW. The low-power end is where the long thermal
 time constants dominate.
 
+### T-1 under the RVS default (2026-11-10, gh:#1129, #1311)
+
+N-3's split was re-measured after the resonance-scattering default moved
+from DBRC to RVS: **fuel −4.48 ± 0.54, graphite −3.33 ± 0.40 × 10⁻⁵ /°F**
+(six seeds per run, Mo omitted; record in the outram-mc-libs V&V README).
+Both lie inside the band posted before the run, so by the pre-registered
+rule the DBRC-based table below stands. It was re-run anyway, because it
+is cheap:
+`--fuel-per-f -4.48e-5 --graphite-per-f -3.33e-5`.
+
+| P [MW] | measured [min] | model [min] | model / measured |
+|---|---|---|---|
+| 0.076 | 29.91 | 25.72 | 0.860 |
+| 0.467 | 11.01 | 10.52 | 0.955 |
+| 1.004 | 7.16 | 7.08 | 0.989 |
+| 2.448 | 4.33 | 4.22 | 0.974 |
+| 4.848 | 2.41 | 2.55 | 1.056 |
+| 6.735 | 1.85 | 1.94 | 1.047 |
+| 7.306 | 1.71 | 1.82 | 1.063 |
+
+**−14 % to +6 %**, against −12 % to +19 % with the DBRC coefficients. The
+high-power residual shrinks because the fuel coefficient grew. The two
+coefficient sets differ by about 1σ each, so the improvement is not a
+resolved physics result; it shows again that the coefficients' statistics
+set this comparison. **Quote this table under the current default.**
+
 ### A finding on the way: the circulation loss
 
 With TM-1070 Table 1's transits (core 8.46 s, external loop 16.73 s), the
