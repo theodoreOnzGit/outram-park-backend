@@ -170,6 +170,40 @@ Prediction posted on gh:#1128 before the run: k up by +50 to +300 pcm.
   100 °F swing): about 2 % of α_iso, positive, and inside N-3's ±0.5–0.7
   σ. Not measured at N-3's temperatures.
 
+### N-1 residual: graphite thermal-scattering law (2026-11-10, gh:#1128)
+
+**Why.** Every record above uses ENDF/B-VIII.0's reactor graphite **30P**
+law (30 % porosity). CGB is 1.87 g/cm³ with **17.7 %** total porosity
+(TM-0728 Table 5.3: 7.9 % accessible, 9.8 % inaccessible), between the
+tabulated laws. `--graphite-law 30p|10p|crystalline` regenerates the
+chosen law by LEAPR at 911.5 K from the embedded ENDF/B-VIII.0 deck (the
+default stays 30P). Arm C (natural Mo), RVS, cold, seeds 1–3; rows
+`+graphite-*` in `data/keff.csv`.
+
+| law | seeds | k | vs k_ref | vs 30P |
+|---|---|---|---|---|
+| 30P (default) | 6 | 1.00882 ± 0.00022 | +801 ± 22 pcm | — |
+| 10P | 1.00761, 1.00754, 1.00796 | 1.00770 ± 0.00037 | +689 ± 37 pcm | **−112 ± 43** |
+| crystalline | 1.00829, 1.00840, 1.00675 | 1.00781 ± 0.00053 | +701 ± 53 pcm | **−101 ± 58** |
+
+(σ for the three-seed arms is the larger of the seed spread and the
+internal σ/√3.)
+
+- **Predictions, posted on gh:#1128 before each run:**
+  - 10P: predicted 0 to +400 pcm against 30P. **Refuted: the sign was
+    wrong.**
+  - Crystalline, re-predicted after the 10P result: −100 to −400 pcm
+    against 30P, and below 10P. The first part is met only at the edge;
+    "below 10P" is **not** supported (crystalline − 10P = +11 ± 65).
+- **Reading:** 30P is the outlier. The two less porous laws agree with
+  each other and sit about 105 pcm below it. A CGB law (17.7 %) would sit
+  between 10P and 30P; interpolating linearly in porosity, an assumption,
+  gives roughly −70 pcm from the default. This is the **first lever found
+  that moves the residual toward zero**, and it covers only a small part
+  of the +801 pcm.
+- **The default is not changed:** no tabulated law is CGB's, and choosing
+  one is the maintainer's call.
+
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
 Salt density follows −1.18e-4 /°F (ORNL-4233 §4.1). Runs at 1131 °F and
