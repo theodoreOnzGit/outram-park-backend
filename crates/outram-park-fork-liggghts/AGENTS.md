@@ -111,8 +111,10 @@ are different claims and this entry keeps them apart.
   | head-on, Hooke | 251 | **bit-identical** |
   | wall bounce + gravity (400 000 steps) | 2001 | **bit-identical** |
   | rolling resistance, CDT (`µ_r = 0.1`) | 201 | **bit-identical** |
-  | oblique + friction (shear history, slip, torque) | 251 | `max|Δv| = 1.11e-16 m/s`, `max|Δω| = 5.68e-14 rad/s` (≈1–3 ulp) |
-  | oblique, **no-history** — the stateless `contact`+`simulation` path | 251 | `max|Δv| = 1.11e-16 m/s`, `max|Δω| = 1.42e-14 rad/s` |
+  | oblique + friction (shear history, slip, torque) | 251 | ~~`max|Δv| = 1.11e-16 m/s`, `max|Δω| = 5.68e-14 rad/s` (≈1–3 ulp)~~ **bit-identical (CORRECTED 2026-11-10, gh:#1406)** |
+  | oblique, **no-history** — the stateless `contact`+`simulation` path | 251 | ~~`max|Δv| = 1.11e-16 m/s`, `max|Δω| = 1.42e-14 rad/s`~~ **bit-identical (CORRECTED 2026-11-10, gh:#1406)** |
+  | oblique **Hooke** + history + CDT rolling (new 2026-11-10) | 251 | **bit-identical** |
+  | two atom types (different `E`, `ν`, `e`, `µ`), head-on and oblique (new 2026-11-10) | 251 each | **bit-identical** |
   | bulk bed, 354 pebbles, `D/d = 6` | settled state | `φ = 0.5571` vs `0.5582` — **0.20 %** |
   | angle of repose, 656 pebbles, lifting cylinder (mesh + `move/mesh`) | settled heap | ~~`12.78°` vs `15.43°` — 2.65°~~ **`14.09°` vs `15.43°` — 1.34°** (**CORRECTED 2026-09-18**: 12.78 came from the pre-`op-t3l.9` nondeterministic build and is not reproducible; the gap HALVES. The mesh-contact attribution is now UNSUPPORTED — a resolution sweep is flat within a measured 0.266° realisation scatter. See the V&V doc.) |
   | **HTR-10 full core**, 27 554 pebbles, `D/d = 30`, `E = 5e8` | settled state | `φ = 0.5732` vs `0.5732` — **4 decimals**; median pebble **61 µm** apart, 99.93 % within 1 mm |

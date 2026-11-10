@@ -6,8 +6,10 @@ workspace `CLAUDE.md` rule that a V&V document must state both.
 Summary of what changed on this date: the crate gained a **cross-code
 verification leg against upstream LIGGGHTS-PUBLIC**, which its 2026-09-06
 maturity declaration explicitly recorded as missing. **Four of six**
-deterministic cases are **bit-identical** to upstream; the two oblique cases
-agree to floating-point round-off (1-3 ulp). A bulk pebble-bed settling case
+deterministic cases are **bit-identical** to upstream; ~~the two oblique cases
+agree to floating-point round-off (1-3 ulp)~~ **CORRECTED 2026-11-10 (gh:#1406):
+the two oblique cases are now bit-identical too, as are three new cases (see
+`cross-code-summary.md`)**. A bulk pebble-bed settling case
 agrees on packing fraction to **0.2 %**. **Three** defects in the pre-existing
 code were found and are documented below.
 
@@ -67,11 +69,16 @@ Every **sampled frame** is compared, not just the endpoint.
 | head-on, Hooke | linearised normal model, `v_char = 2 m/s` | 251 | `0` | `0` | `0` |
 | wall bounce + gravity | primitive wall branch (`R* = r`, `m* = m`), contact make/break over 400 000 steps | 2001 | `0` | `0` | — |
 | rolling, counter-spinning pair | **CDT rolling resistance** (`µ_r = 0.1`) | 201 | `0` | `0` | `0` |
-| oblique + friction | **tangential shear-history spring**, Coulomb slip, contact torque / spin-up | 251 | `0` | `1.11e-16` | `5.68e-14` |
-| oblique, **no-history** (stateless path) | `contact` + `simulation` vs `tangential no_history` | 251 | `0` | `1.11e-16` | `1.42e-14` |
+| oblique + friction | **tangential shear-history spring**, Coulomb slip, contact torque / spin-up | 251 | `0` | ~~`1.11e-16`~~ **`0`** | ~~`5.68e-14`~~ **`0`** |
+| oblique, **no-history** (stateless path) | `contact` + `simulation` vs `tangential no_history` | 251 | `0` | ~~`1.11e-16`~~ **`0`** | ~~`1.42e-14`~~ **`0`** |
+| oblique Hooke + history + CDT rolling (2026-11-10) | Hooke normal, shear history, CDT rolling together | 251 | `0` | `0` | `0` |
+| two atom types, head-on (2026-11-10) | `createYeff`, `createBetaEff` mixing, unequal `R*`, `m*` | 251 | `0` | `0` | `0` |
+| two atom types, oblique (2026-11-10) | adds `createGeff`, 1-2 friction entry | 251 | `0` | `0` | `0` |
 
-**Four of the six are bit-identical to upstream over the whole trajectory**;
-the two oblique cases agree to round-off (1–3 ulp). The last row verifies the
+~~**Four of the six are bit-identical to upstream over the whole trajectory**;
+the two oblique cases agree to round-off (1–3 ulp).~~ **CORRECTED 2026-11-10
+(gh:#1406): all nine rows are bit-identical (4518 of 4518 `f64` per case);
+the operation-order fixes are tabulated in `cross-code-summary.md`.** The last row verifies the
 *other* engine — the stateless `contact` + `simulation` path — against the
 upstream model it actually implements; see § 4.2.
 
