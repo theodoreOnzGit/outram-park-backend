@@ -73,3 +73,7 @@ pub use speed_of_sound_eqm::*;
 // tests
 #[cfg(test)]
 mod tests;
+
+/// Kieffer (1977) Fig. 9b verification of the HEM speed of sound (gh #29).
+#[cfg(test)]
+mod tests_kieffer_fig9b;
