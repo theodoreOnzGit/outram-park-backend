@@ -8,7 +8,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
-//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline]
+//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path]
 //! ```
 //!
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
@@ -43,7 +43,9 @@ use outram_mc_libs::physics::keff::KeffSettings;
 use outram_mc_libs::physics::keff::KeffResult;
 use outram_mc_libs::physics::transport_csg::{run_keff_csg, run_keff_csg_hybrid};
 use outram_mc_libs::stats::convergence::SourceConvergence;
-use outram_mc_libs::tally::mesh::RegularMesh;
+use outram_mc_libs::tally::filter::{FilterKind, MeshFilter};
+use outram_mc_libs::tally::mesh::{CylindricalMesh, MeshKind, MeshKindExt, RegularMesh};
+use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
 use outram_mc_libs::vv::msre_n1 as m;
 
 fn flag(args: &[String], name: &str) -> Option<String> {
@@ -99,6 +101,7 @@ fn main() {
     // temperature (TM-0728 §5.3 coefficients; N-1 residual, gh:#1128).
     let hot_dims = args.iter().any(|a| a == "--hot-dims");
     let graphite_law = flag(&args, "--graphite-law").unwrap_or_else(|| "30p".to_string());
+    let axial_csv: Option<PathBuf> = flag(&args, "--axial-csv").map(PathBuf::from);
     if let Some(d) = flag(&args, "--draw") {
         let dims = if hot_dims {
             m::Dims::hot(m::REFERENCE_TEMPERATURE_F, m::GRAPHITE_EXPANSION_PER_F, m::INOR8_EXPANSION_PER_F)
@@ -256,8 +259,13 @@ fn main() {
         // `--entropy-csv`: the same run through the hybrid driver with no
         // majorants (exactly `run_keff_csg`, per its docs) plus an 8x8x8
         // entropy mesh over the source box, writing k and H per generation.
+        // `--axial-csv`: tally fission and flux on an R-Z mesh (inside the
+        // graphite radius, and the ring out to the vessel) through the
+        // lower plenum, core and upper plenum, for the N-4 line model
+        // (gh:#1130). Scoring draws no random number, so k is unchanged.
+        let mut axial = axial_csv.as_ref().map(|_| axial_tally());
         let r = match &entropy_csv {
-            None => run_keff_csg(&g, &materials, &nuclides, m::source_box(), &s, None),
+            None => run_keff_csg(&g, &materials, &nuclides, m::source_box(), &s, axial.as_mut()),
             Some(_) => {
                 let b = m::source_box();
                 let mesh = RegularMesh {
@@ -265,11 +273,14 @@ fn main() {
                     upper_right: [b.upper.x, b.upper.y, b.upper.z],
                     dimension: [8, 8, 8],
                 };
-                run_keff_csg_hybrid(&g, &materials, &nuclides, &[], Some(&mesh), b, &s, None)
+                run_keff_csg_hybrid(&g, &materials, &nuclides, &[], Some(&mesh), b, &s, axial.as_mut())
             }
         };
         if let Some(path) = &entropy_csv {
             write_entropy_trace(path, &label, seed, ni, &r);
+        }
+        if let (Some(path), Some(t)) = (&axial_csv, &axial) {
+            write_axial(path, &label, seed, t);
         }
         let wall = t.elapsed().as_secs_f64();
         let pcm = 1e5 * (r.k_mean - m::REFERENCE_K) / m::REFERENCE_K;
@@ -298,4 +309,58 @@ fn write_entropy_trace(path: &std::path::Path, label: &str, seed: u64, n_inactiv
         eprintln!("    entropy: MSER {:?}; Geweke {:?}; change point {:?}", e.mser, e.geweke_after_truncation, e.change_point);
     }
     eprintln!("    k: MSER {:?}; Geweke {:?}; change point {:?}", c.k.mser, c.k.geweke_after_truncation, c.k.change_point);
+}
+
+/// Axial z edges for the N-4 tally: 4 bins through the lower plenum, 32
+/// through the graphite, 4 through the upper plenum (cold dimensions).
+fn axial_edges() -> Vec<f64> {
+    let (lp, up, h) = (m::lower_plenum_height(), m::upper_plenum_height(), m::H_CORE);
+    let mut z: Vec<f64> = (0..4).map(|i| -lp + lp * i as f64 / 4.0).collect();
+    z.extend((0..32).map(|i| h * i as f64 / 32.0));
+    z.extend((0..=4).map(|i| h + up * i as f64 / 4.0));
+    z
+}
+
+/// Fission and flux on an R-Z mesh: r in [0, graphite radius] and
+/// [graphite radius, vessel inner radius], one azimuthal bin, [`axial_edges`].
+fn axial_tally() -> Tally {
+    let mesh = MeshKind::Cylindrical(CylindricalMesh {
+        r_grid: vec![0.0, m::R_GRAPHITE, m::R_VESSEL_IN],
+        phi_grid: vec![0.0, 2.0 * std::f64::consts::PI],
+        z_grid: axial_edges(),
+        origin: Position::ZERO,
+    });
+    let n = mesh.n_bins();
+    Tally {
+        id: 1,
+        name: "N-4 axial fission and flux".into(),
+        filters: vec![FilterKind::Mesh(MeshFilter { mesh })],
+        scores: vec![ScoreType::Fission, ScoreType::Flux],
+        bins: vec![TallyBin::default(); n * 2],
+    }
+}
+
+/// Append one run's axial tally to `path`: per z bin, the fission and flux
+/// sums inside the graphite radius and in the ring outside it. CLI glue (the
+/// workspace's exception for `main` glue); the tally machinery is tested in
+/// its own modules.
+fn write_axial(path: &std::path::Path, label: &str, seed: u64, t: &Tally) {
+    let FilterKind::Mesh(MeshFilter { mesh }) = &t.filters[0] else { unreachable!("mesh filter") };
+    let z = axial_edges();
+    let new_file = !path.is_file();
+    let mut f = std::fs::OpenOptions::new().create(true).append(true).open(path).expect("axial csv");
+    if new_file {
+        writeln!(f, "arm,seed,z_lo_cm,z_hi_cm,fission_inner,fission_outer,flux_inner,flux_outer").expect("axial csv");
+    }
+    for w in z.windows(2) {
+        let zc = 0.5 * (w[0] + w[1]);
+        let bin = |r: f64| mesh.bin(Position::new(r, 0.0, zc)).expect("inside the axial mesh");
+        let (bi, bo) = (bin(0.5 * m::R_GRAPHITE), bin(0.5 * (m::R_GRAPHITE + m::R_VESSEL_IN)));
+        writeln!(
+            f,
+            "{label},{seed},{:.4},{:.4},{:.6e},{:.6e},{:.6e},{:.6e}",
+            w[0], w[1], t.bins[2 * bi].sum, t.bins[2 * bo].sum, t.bins[2 * bi + 1].sum, t.bins[2 * bo + 1].sum
+        )
+        .expect("axial csv");
+    }
 }
