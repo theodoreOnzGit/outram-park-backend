@@ -11,7 +11,20 @@
 - **State:** 1181 °F, pump off, rod poisoning 0.08 % δk/k.
 - **Critical ²³⁵U concentration:** 32.8 ± 0.3 g/L (book, corrected for flush-salt dilution) or 32.4 ± 0.3 g/L (analytical).
 - **Concentration coefficient:** (δk/k)/(δC/C) = 0.223, measured, p. 19. So ±0.3 g/L is worth ±200 pcm.
-- **Pass criterion:** none is set. This is a validation, and the finding is the disagreement.
+- **Pass criterion:** ~~none is set. This is a validation, and the finding is the disagreement.~~ **SET 2026-11-10 by the maintainer (gh:#1128): |Δρ| ≤ 1000 pcm is the acceptable band for a full-core model.** The maintainer set it after the results below were known. So it judges these numbers and does not pre-register them, and it was not chosen by fitting any input. Against it:
+  - the default model (arm C, RVS, +801 ± 22 pcm) **passes**;
+  - these pass:
+    - hot dimensions, +959 ± 45 pcm, with 41 pcm of margin;
+    - the 10P and crystalline graphite laws, +689 and +701 pcm;
+    - TM-0730's end regions, about +821 pcm.
+  - these **fail**:
+    - the TM-0728 thermal shield, about +1581 pcm;
+    - TM-0730's 99.9926 % Li-7, +1530 pcm;
+    - arm A, which omits the Mo, +1197 pcm.
+  
+  The ablations that make the model more like the real reactor raise k, and two of them take it out of the band.
+  
+  The disagreement is still the finding. The band does not make +801 pcm an agreement: it is about 3–4× the measurement's ±200–270 pcm.
 - **Quantity reported:** `Δρ = (k − k_ref)/k_ref` in pcm, with `k_ref = 1/(1 − 0.0008)`. The model is rods-out at 32.78 g/L.
 
 **Model:** `outram_mc_libs::vv::msre_n1`. Every dimension and every

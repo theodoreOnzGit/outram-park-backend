@@ -834,6 +834,21 @@ pub fn shield_materials() -> Vec<(&'static str, Vec<(&'static str, f64)>)> {
     vec![("Thermal shield 304 plate", ss304()), ("Thermal shield ball annulus", shield_ball_zone())]
 }
 
+/// [`shield_ball_zone`] with its water removed: the same balls, the space
+/// between them void. An ablation for splitting the shield's worth between
+/// its steel and its water (gh:#1128); the real shield is water-filled
+/// (TM-0728 §5.3.10.1).
+pub fn shield_ball_zone_drained() -> Vec<(&'static str, f64)> {
+    shield_ball_zone().into_iter().filter(|e| e.0.starts_with("Fe")).collect()
+}
+
+/// [`shield_materials`] with the ball annulus drained
+/// ([`shield_ball_zone_drained`]); the plates are unchanged. Same order and
+/// count, so [`geometry_with_shield`] takes it unchanged.
+pub fn shield_materials_drained() -> Vec<(&'static str, Vec<(&'static str, f64)>)> {
+    vec![("Thermal shield 304 plate", ss304()), ("Thermal shield ball annulus, drained", shield_ball_zone_drained())]
+}
+
 /// [`geometry_with_ends`] inside the thermal shield's cylinder
 /// ([`Shield::Tm0728Cylinder`]). `first_shield_material` is the index of
 /// [`shield_materials`]'s first entry in the run's material list.
@@ -1069,6 +1084,12 @@ mod tests {
         let steel = (2.0 * SHIELD_PLATE + f_ball * (total - 2.0 * SHIELD_PLATE)) / total;
         assert!((steel - 0.5).abs() < 1e-12, "{steel}");
         assert!((f_ball - 6.0 / 14.0).abs() < 1e-12);
+        // The drained ablation keeps the plates and the balls, and only them.
+        let drained = shield_materials_drained();
+        assert_eq!(drained.len(), shield_materials().len());
+        assert_eq!(drained[0].1, ss304());
+        assert_eq!(fe(&drained[1].1), fe(&shield_ball_zone()));
+        assert!(drained[1].1.iter().all(|e| e.0.starts_with("Fe")));
         let names: Vec<&str> = shield_materials().iter().flat_map(|m| m.1.iter().map(|e| e.0)).collect();
         for n in names {
             assert!(SHIELD_NUCLIDES.iter().any(|(k, _)| *k == n), "{n} has no tape");
