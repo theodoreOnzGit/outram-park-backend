@@ -125,9 +125,29 @@ pub fn prke_test_zero_reactivity() {
     );
 
     // now the neutron population after 50 ms * 10000 timesteps is:
+    //
+    // the critical equilibrium of the conserved total 1 /m3:
+    // n = Lambda / (Lambda + sum_i beta_i / lambda_i).
+    // ~~1.17917639e-7~~ with the textbook U-235 set (sum beta_i/lambda_i =
+    // 0.084806 s). **CHANGED 2026-11-10 (gh:#1319):** U-235's default is now
+    // ENDF/B-VIII.0, sum beta_i/lambda_i = 0.0721424 s, so
+    // n = 1e-8 / (1e-8 + 0.0721424) = 1.38615e-7 (+17.6 %); measured
+    // 1.386146911686191e-7.
+    let expected_n = 1.38614691e-7;
     assert_abs_diff_eq!(
         prke_test.get_current_neutron_population_density().value,
-        1.17917639e-7,
+        expected_n,
+        epsilon = 1e-11
+    );
+    let lambda_s = neutron_generation_time.get::<uom::si::time::second>();
+    let mean_life_sum: f64 = decay_constant_array
+        .iter()
+        .zip(delayed_fraction_array.iter())
+        .map(|(l, b)| b.get::<uom::si::ratio::ratio>() / l.get::<uom::si::frequency::hertz>())
+        .sum();
+    assert_abs_diff_eq!(
+        prke_test.get_current_neutron_population_density().value,
+        lambda_s / (lambda_s + mean_life_sum),
         epsilon = 1e-11
     );
 
@@ -148,7 +168,7 @@ pub fn prke_test_zero_reactivity() {
     // or else 500s should be the same
     assert_abs_diff_eq!(
         prke_test.get_current_neutron_population_density().value,
-        1.17917639e-7,
+        expected_n,
         epsilon = 1e-11
     );
 }

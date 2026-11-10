@@ -154,7 +154,7 @@ circulation and the top/bottom reflectors (part B, after gh:#1150).
 | BASE | 257 s | -547 pcm @ 942 s | none | none | none | 32 kW |
 | BASE-6H (21600 s) | 257 s | -547 pcm @ 942 s | 10962 s | 15038 s | 80.8 % @ 15129 s | 26 kW |
 | KIN-LAMBDA-H06 (1.68e-4 s) | 257 s | -544 pcm @ 943 s | none | none | none | 32 kW |
-| KIN-DN-TEHO (teh-o-prke U-235 set) | 258 s | -547 pcm @ 942 s | none | none | none | 32 kW |
+| KIN-DN-TEHO (teh-o-prke U-235 set; ENDF/B-VIII.0 since gh:#1319) | ~~258 s~~ **242 s** | ~~-547 pcm @ 942 s~~ **-518 pcm @ 954 s** | ~~none~~ **10674 s** | none | none | 32 kW |
 | KIN-DN-1G (one group) | 195 s | -555 pcm @ 933 s | none | none | none | 32 kW |
 | KIN-ALPHA-G02-IC | 295 s | -430 pcm @ 1075 s | none | none | none | 32 kW |
 | KIN-ALPHA-G02-EQ | 352 s | -284 pcm @ 1254 s | none | none | none | 32 kW |
@@ -199,7 +199,14 @@ Reading it:
 - **The group set matters through `sum beta_i / lambda_i`**: teh-o-prke's
   set (0.09473 s against Keepin's 0.09449 s) moves nothing; one group with
   the same sum moves the 1 % time by -62 s (the short groups carry the
-  early decay).
+  early decay). **CHANGED 2026-11-10 (gh:#1319):** teh-o-prke's U-235 set
+  is now ENDF/B-VIII.0, 0.08030 s (15 % below Keepin), and KIN-DN-TEHO
+  moves: the 1 % time 258 -> 242 s, the minimum 29 pcm shallower, and
+  reactivity now returns to zero at 10674 s (power does not return in
+  3 h). Re-measured with `cargo test --release -p nee_soon --lib
+  lofc_atws_sensitivity_cases -- --nocapture`; BASE (Keepin) unchanged.
+  Predicted on gh:#1319: 1 % time 10-40 s earlier (met, -16 s), minimum
+  within +-10 pcm (missed, +29 pcm).
 - **The coefficients matter most** in the short term (257 -> 352 s with
   G02's equilibrium core); none returns to power in 3 h.
 - **Decay heat is the strongest long-term lever** among the cases, as in

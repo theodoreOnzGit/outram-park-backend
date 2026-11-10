@@ -66,8 +66,8 @@ The full derivations are in the `model` module doc.
 - **Power.** SHRT-17 follows the A226 Table 3.1.4.2.1 fission and decay-heat
   table. SHRT-45R uses six-group point kinetics:
   - beta-eff 705 pcm and Lambda 3.58238e-7 s, from TECDOC-1819;
-  - the group shape is `teh-o-prke`'s U-235 one, because Argonne's six-group
-    set is not printed;
+  - the group shape is `teh-o-prke`'s U-235 one (ENDF/B-VIII.0 since
+    2026-11-10, gh:#1319), because Argonne's six-group set is not printed;
   - Argonne's VARIANT feedback coefficients;
   - decay heat from the 1978 ANS draft U-235 set, driven through A226's
     assumed pre-test history.
@@ -223,39 +223,50 @@ gh:#1316):
 - natural-circulation flow above SHRT-17's;
 - the flow rise across the current step under 20 %.
 
-**Results:**
+**Results.** ~~Struck~~ values are the first record (2026-11-10, with
+`teh-o-prke`'s textbook U-235 group shape); **bold** values were
+re-measured the same day after gh:#1319 switched that shape to
+ENDF/B-VIII.0 U-235 (`cargo test --release -p
+outram-park-digital-twin-engine --lib ebr2 -- --nocapture`). Beta-eff is
+still rescaled to 705 pcm; only the group shares and decay constants moved
+(mean precursor life 13.05 s to 11.06 s).
 
 | case | peak P/F (time) | peak outlet K | P at 300 s, MW | net rho range, pcm | min fission share |
 |---|---|---|---|---|---|
-| **base** (VARIANT, radial on inlet, dz 2 m) | **3.18 (74.0 s)** | 956.1 | 5.76 (9.6 %) | −217.0 to +15.3 | 0.745 |
-| radial on mean coolant | 2.56 (76.0 s) | 890.6 | 4.68 | −279.2 to +23.0 | 0.708 |
-| radial on outlet | 2.26 (76.5 s) | 857.7 | 4.24 | −323.3 to +28.3 | 0.687 |
-| DIF3D coefficients | 3.15 (74.0 s) | 953.2 | 5.34 | −219.9 to +13.9 | 0.719 |
-| auxiliary EM pump off | 3.52 (81.5 s) | 990.5 | 3.99 | −250.8 to +1.3 | 0.593 |
-| dz 1 m | 3.38 (78.5 s) | 975.1 | 5.13 | −235.6 to +19.6 | 0.720 |
-| dz 4 m | 2.98 (67.0 s) | 935.8 | 6.62 | −197.6 to +8.6 | 0.774 |
+| **base** (VARIANT, radial on inlet, dz 2 m) | ~~3.18 (74.0 s)~~ **3.00 (74.5 s)** | ~~956.1~~ **936.8** | ~~5.76 (9.6 %)~~ **5.50 (9.2 %)** | ~~−217.0 to +15.3~~ **−195.5 to +15.5** | ~~0.745~~ **0.741** |
+| radial on mean coolant | ~~2.56~~ **2.42** (76.0 s) | ~~890.6~~ **875.2** | ~~4.68~~ **4.54** | ~~−279.2 to +23.0~~ **−249.1 to +22.3** | ~~0.708~~ **0.703** |
+| radial on outlet | ~~2.26 (76.5 s)~~ **2.14 (77.0 s)** | ~~857.7~~ **844.6** | ~~4.24~~ **4.14** | ~~−323.3 to +28.3~~ **−286.8 to +27.0** | ~~0.687~~ **0.682** |
+| DIF3D coefficients | ~~3.15 (74.0 s)~~ **2.96 (74.5 s)** | ~~953.2~~ **933.2** | ~~5.34~~ **5.06** | ~~−219.9 to +13.9~~ **−198.7 to +14.5** | ~~0.719~~ **0.714** |
+| auxiliary EM pump off | ~~3.52 (81.5 s)~~ **3.35 (82.0 s)** | ~~990.5~~ **970.9** | ~~3.99~~ **3.72** | ~~−250.8 to +1.3~~ **−229.0 to +1.9** | ~~0.593~~ **0.583** |
+| dz 1 m | ~~3.38 (78.5 s)~~ **3.17 (79.0 s)** | ~~975.1~~ **953.4** | ~~5.13~~ **4.90** | ~~−235.6~~ **−211.7** to +19.6 | ~~0.720~~ **0.714** |
+| dz 4 m | ~~2.98 (67.0 s)~~ **2.82 (68.0 s)** | ~~935.8~~ **919.0** | ~~6.62~~ **6.35** | ~~−197.6 to +8.6~~ **−178.6 to +9.0** | ~~0.774~~ **0.771** |
 
 Further base-case numbers:
 
-- natural-circulation flow at 300 s is 6.05 % of initial, against SHRT-17's
-  2.05 % (2.95 times);
-- flow rises 19.5 % from 620 s to 900 s, across the current step;
+- natural-circulation flow at 300 s is ~~6.05 %~~ **5.99 %** of initial,
+  against SHRT-17's 2.05 % (~~2.95~~ **2.92** times);
+- flow rises ~~19.5 %~~ **19.7 %** from 620 s to 900 s, across the current step;
 - the initial decay heat from the history is 3.491 MW (5.8 %).
 
 **Interpretation.**
 
 - The model shuts itself down on its feedback, as EBR-II did.
-  - The base peak P/F, 3.18, is 14 % above the measured 2.8 and about 14 s
-    late. Across the ablations it spans 2.26-3.52.
+  - The base peak P/F, ~~3.18, is 14 %~~ **3.00, is 7 %** above the measured
+    2.8 and about 14 s late. Across the ablations it spans ~~2.26-3.52~~
+    **2.14-3.35**. **The move toward the measurement came from the gh:#1319
+    data change (ENDF/B-VIII.0 U-235 group shape), chosen on the data's own
+    merits before the run, not to fit 2.8.** gh:#1319 had predicted at most
+    a few % in power and +-2 K in peak temperature; the peak outlet fell
+    19.3 K, a miss in size.
   - Fission stays above half of the total power in every case, as measured.
   - The natural-circulation flow is more than double SHRT-17's, as measured.
 - One prediction missed. **Net reactivity turns positive**, to at most
-  +15.3 pcm (0.022 beta), at about 655 s. The auxiliary pump's current step
+  ~~+15.3~~ **+15.5** pcm (0.022 beta), at about 655 s. The auxiliary pump's current step
   cools the core below the temperature of the feedback references.
 - **The radial-expansion temperature is the largest uncited choice.** It
-  moves the peak outlet by 98 K. The auxiliary-pump scaling is the second
+  moves the peak outlet by ~~98~~ **92** K. The auxiliary-pump scaling is the second
   largest: switching the pump off moves the peak outlet by +34 K.
-- The flow's +19.5 % across the current step matches T1819's "about 20 %".
+- The flow's ~~+19.5 %~~ **+19.7 %** across the current step matches T1819's "about 20 %".
   **This is not an independent check:** that number was known when the
   linear current scaling was chosen (`model` module doc).
 

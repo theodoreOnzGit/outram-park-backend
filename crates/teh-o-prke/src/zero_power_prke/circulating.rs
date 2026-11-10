@@ -43,14 +43,25 @@
 //!
 //! **MSRE inputs**, ORNL-TM-0728 Table 5.4 (PDF pp. 137-138): core transit
 //! 9.4 s, fuel-loop total 25.2 s (so τ_L = 15.8 s), Λ = 2.40e-4 s (35 %
-//! U-235 fuel). Group data: the crate's U-235 six-group set, β = 650 pcm.
+//! U-235 fuel). Group data: the crate's U-235 six-group set, ~~β = 650 pcm~~
+//! **since 2026-11-10 (gh:#1319) the ENDF/B-VIII.0 U-235 default, β =
+//! 652.30 pcm**. Struck values are the 2026-11-09 results with the textbook
+//! set; the bold ones were re-measured 2026-11-10 with
+//! `cargo test --release -p teh-o-prke --lib circulating -- --nocapture`.
 //!
 //! | Check | Criterion | Result |
 //! |---|---|---|
-//! | V1 equilibrium at ρ = Δρ, 300 s at dt = 0.01 s | \|n/n0 − 1\| ≤ 1e-9 | 2.2e-16 |
-//! | V2 analytic Δρ | reported | **224.3505 pcm** (β_circ = 425.6495 pcm) |
-//! | V3 asymptotic ω vs the circulating in-hour root, Δρ ± 50 pcm | 1 % at dt = 0.01 s, falling with dt | +50 pcm: +0.0363 / +0.0181 / +0.0091 %; −50 pcm: −0.0079 / −0.0040 / −0.0020 % at dt = 0.04 / 0.02 / 0.01 s: first order |
-//! | V4 τ_c = 1e12 s vs `PointKinetics::inhour_growth_rate` | 1e-9 relative | 8e-11 |
+//! | V1 equilibrium at ρ = Δρ, 300 s at dt = 0.01 s | \|n/n0 − 1\| ≤ 1e-9 | ~~2.2e-16~~ **0** |
+//! | V2 analytic Δρ | reported | ~~224.3505 pcm (β_circ = 425.6495 pcm)~~ **207.1463 pcm (β_circ = 445.1573 pcm)** |
+//! | V3 asymptotic ω vs the circulating in-hour root, Δρ ± 50 pcm | 1 % at dt = 0.01 s, falling with dt | ~~+50 pcm: +0.0363 / +0.0181 / +0.0091 %; −50 pcm: −0.0079 / −0.0040 / −0.0020 %~~ **+50 pcm: +0.0447 / +0.0223 / +0.0112 %; −50 pcm: −0.0086 / −0.0043 / −0.0022 %** at dt = 0.04 / 0.02 / 0.01 s: first order |
+//! | V4 τ_c = 1e12 s vs `PointKinetics::inhour_growth_rate` | 1e-9 relative | ~~8e-11~~ **7e-11** |
+//!
+//! **The V2 move was predicted with the wrong sign.** gh:#1319 predicted
+//! the loss would grow 5-15 %; it fell 7.7 % (224.35 to 207.15 pcm). The
+//! loss is carried by the long-lived groups, which decay mostly out of the
+//! core; ENDF/B-VIII.0 moves abundance from group 2 (p = 0.181 against
+//! the textbook 0.218) into the short-lived groups 5 and 6 (0.159 and 0.066
+//! against 0.115 and 0.042), which barely leave the core before decaying.
 //!
 //! **Protocol correction (not a criterion change).** V3 first measured the
 //! slope over the last 100 s of a 600 s run. At −50 pcm that read 0.53 % off
@@ -59,7 +70,7 @@
 //! the criterion was not moved.
 //!
 //! **What this does not show.** It verifies the solver against its own
-//! equations. Whether the lumped model's 224 pcm describes the MSRE (TM-0728
+//! equations. Whether the lumped model's ~~224~~ **207** pcm describes the MSRE (TM-0728
 //! implies 310 pcm, importance-weighted, from its static and circulating
 //! β_eff; the measured loss is MSRE N-4) is validation, gh:#1130.
 
@@ -343,7 +354,9 @@ mod tests {
             1e5 * loss.get::<ratio>(),
             1e5 * (pk.total_delayed_fraction() - loss).get::<ratio>()
         );
-        approx::assert_relative_eq!(loss.get::<ratio>(), 2.2435045e-3, max_relative = 1e-6);
+        // ~~2.2435045e-3~~ with the textbook U-235 set; CHANGED 2026-11-10
+        // (gh:#1319) to the ENDF/B-VIII.0 U-235 default: 207.1463 pcm.
+        approx::assert_relative_eq!(loss.get::<ratio>(), 2.071463e-3, max_relative = 1e-6);
         let zero = VolumetricNumberRate::new::<per_cubic_meter_second>(0.0);
         let mut worst: f64 = 0.0;
         for _ in 0..30_000 {

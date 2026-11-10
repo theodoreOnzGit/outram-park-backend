@@ -29,7 +29,9 @@
 //! is 17 % enriched UO2 in a thermal spectrum, so almost every fission is
 //! U-235 thermal fission; only the relative abundances are used, rescaled to
 //! the benchmark's `beta_eff`. Sensitivities: `teh-o-prke`'s own tabulated
-//! U-235 set (rounded half-lives and fractions, also rescaled), and the
+//! U-235 set (~~rounded half-lives and fractions~~ **since 2026-11-10,
+//! gh:#1319: ENDF/B-VIII.0 U-235 thermal, MAT 9228 MT=455; mean precursor
+//! life 11.06 s against Keepin's 13.02 s**, also rescaled), and the
 //! one-group equivalent (same `sum beta_i / lambda_i`).
 //!
 //! # Feedback
@@ -101,8 +103,10 @@ pub enum DelayedNeutronSet {
     /// Keepin (1957) U-235 thermal, six groups. The named base assumption.
     #[default]
     KeepinU235Thermal,
-    /// `teh-o-prke`'s tabulated U-235 set (rounded Keepin-like half-lives
-    /// and fractions). Sensitivity `KIN-DN-TEHO`.
+    /// `teh-o-prke`'s tabulated U-235 set (~~rounded Keepin-like
+    /// half-lives and fractions~~ **ENDF/B-VIII.0 U-235 thermal since
+    /// 2026-11-10, gh:#1319**), group shares rescaled to `beta_eff`.
+    /// Sensitivity `KIN-DN-TEHO`.
     TehOPrkeU235,
     /// One group with the Keepin set's `sum a_i / lambda_i`. Sensitivity
     /// `KIN-DN-1G`.
