@@ -157,16 +157,26 @@ pub struct MsreLoopModel {
     pub loops: bool,
 }
 
-/// Single-region core coefficients, App. B pp. 67-68 ("1965 extrema").
-const TAU_F: f64 = 4.23;
-const K_F: f64 = 0.47;
-const K_G: f64 = 0.03;
-const MC_F: f64 = 0.750;
-const MC_G: f64 = 3.58;
-const HA: f64 = 0.020;
-/// Delayed-gamma power share and lag (Table 1).
-const GAMMA_SHARE: f64 = 0.0564;
-const GAMMA_LAG: f64 = 188.0;
+// Single-region core coefficients, App. B pp. 67-68 ("1965 extrema").
+// Made `pub` 2026-11-10 (gh:#1330) so the engine's time-domain MSRE model
+// (`outram_park_digital_twin_engine::msre`) reads these values, not a copy.
+/// Fuel-lump residence time τ_F \[s\] (each of the two lumps), App. B pp. 67-68.
+pub const TAU_F: f64 = 4.23;
+/// Fraction of the fission power deposited in each fuel lump, K_F.
+pub const K_F: f64 = 0.47;
+/// Fraction of the fission power deposited in each graphite half, K_G
+/// (the graphite lump takes 2 K_G).
+pub const K_G: f64 = 0.03;
+/// Heat capacity of each fuel lump, MC_F \[MW·s/°F\].
+pub const MC_F: f64 = 0.750;
+/// Heat capacity of the graphite lump, MC_G \[MW·s/°F\].
+pub const MC_G: f64 = 3.58;
+/// Graphite-to-fuel conductance, hA \[MW/°F\].
+pub const HA: f64 = 0.020;
+/// Delayed-gamma share of the power (Table 1).
+pub const GAMMA_SHARE: f64 = 0.0564;
+/// Delayed-gamma first-order lag \[s\] (Table 1).
+pub const GAMMA_LAG: f64 = 188.0;
 
 impl MsreLoopModel {
     /// TM-1070's 1965 parameters at `power`, with the given coefficients.
