@@ -107,6 +107,17 @@ Reference decks: `reference-data/liggghts/in.oblique_hooke_rolling`,
 `crates/outram-park-fork-liggghts/upstream_source/README.md`. Toolchain:
 Rust 1.99.1, g++ 15.2.1 for upstream.
 
+**Rotating mesh wall (gh:#1406 prio 2, 2026-11-10; NOT bit-identical).**
+`rotating_mesh_cross_code.rs`, deck `in.rotating_plate`: a sphere bouncing on a
+square mesh plate rotating at `4π rad/s`. Prediction (bit-identical early,
+ulp-level drift later) **not met**: with upstream's setup convention applied
+(mesh velocity zero in the setup force evaluation; without it the first
+half-kick is ~2x off) the 251 frames agree to `max|Δx| = 5.6e-15 m`,
+`max|Δv| = 8.1e-12 m/s`, `max|Δω| = 1.1e-9 rad/s`, 1915 of 2259 values differing
+in the last bits. Cause: the mesh contact path (`TriMesh::resolveTriSphereContactBary`
++ `surface_model_default.h` wall branch) is not translated operation by
+operation. Bit-identity criterion is `#[ignore]`d pending gh:#1416.
+
 The two-type cases use `MaterialTable` (new, `granular.rs`): per-type `E`, `ν`
 and symmetric per-pair `e` and `µ` matrices, with upstream's `createYeff` /
 `createGeff` / `createBetaEff` mixing rules, selected per contact by
