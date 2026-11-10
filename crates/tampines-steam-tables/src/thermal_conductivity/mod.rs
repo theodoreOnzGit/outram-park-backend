@@ -205,6 +205,58 @@ fn on_saturation_line_below_623_k(t: ThermodynamicTemperature, p: Pressure) -> b
     (pp - ps).abs() <= 1e-6 * pp
 }
 
+/// The critical-enhancement term `lambda_2` for a state the `(p,h)` flash
+/// placed in IF97 **Region 1**, evaluated with the Region 1 basic equation at
+/// `(t, p)` (gh:#904).
+///
+/// [`lambda_2_crit_enhancement_term_tp_two_phase_estimate`] re-derives the
+/// region from `(t, p)`. At the low-enthalpy edge of low isobars the Region 1
+/// backward equation `T(p,h)` returns `t` about 21 mK below 273.15 K (inside
+/// the 25 mK backward/forward consistency IAPWS-IF97 permits), the `(t, p)`
+/// router has no region for it, and it panicked. Routing by the `(p,h)`
+/// region is what this crate's `cp_ph_eqm`, `cv_ph_eqm` and `kappa_t_ph_eqm`
+/// already do. The arithmetic after the property evaluation is the same
+/// expression as the two-phase estimate's, in the same order.
+pub(crate) fn lambda_2_crit_enhancement_term_region_1(
+    t: ThermodynamicTemperature,
+    p: Pressure,
+) -> f64 {
+    use crate::region_1_subcooled_liquid::v_tp_1;
+    let rho = v_tp_1(t, p).recip();
+    let t_c = t_crit_water();
+    let theta_f64: f64 = (t / t_c).get::<ratio>();
+    let rho_c = rho_crit_water();
+    let delta_f64: f64 = (rho / rho_c).get::<ratio>();
+
+    // this is dimensionless viscosity
+    let psi = psi_0_viscosity(t) * psi_1_viscosity(t, rho);
+
+    let n1 = 0.177_851_4e3;
+    let n2 = 0.636_619_772_367_581;
+    let n3 = 0.135_882_142_589_674e1;
+    let n4 = 0.508_474_576_271;
+    let n5 = 1.5;
+
+    let mut cp = cp_tp_1(t, p);
+    let cv = cv_tp_1(t, p);
+    let kappa_t = kappa_t_tp_1(t, p);
+
+    if cp.get::<kilojoule_per_kilogram_kelvin>() < 0.0 {
+        cp = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(1.0e13);
+    } else if cp.get::<kilojoule_per_kilogram_kelvin>() > 1.0e13 {
+        cp = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(1.0e13);
+    };
+
+    let b: f64 = (cp / cv).get::<ratio>();
+    let captial_a: f64 = captial_a(n2, n3, delta_f64, theta_f64, kappa_t, n4, n5, b);
+
+    let gas_constant_r = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(0.461_518_05);
+
+    let lambda_2 = n1 * delta_f64 * theta_f64 / psi * cp / gas_constant_r * captial_a;
+
+    return lambda_2.get::<ratio>();
+}
+
 pub(crate) fn lambda_2_crit_enhancement_term_tp_two_phase_estimate(
     t: ThermodynamicTemperature,
     p: Pressure,
