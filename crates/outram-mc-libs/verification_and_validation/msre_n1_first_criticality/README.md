@@ -250,6 +250,20 @@ spread and internal σ/√3). Against 30P under RVS (−7.05 ± 0.70):
 (N-1 section) but moves α_iso slightly away from it; neither shift is
 resolved at three seeds.
 
+**Six seeds per law (2026-11-10, gh:#1129),** seeds 4–6 added to both laws
+at both temperatures (RVS, Mo omitted; σ from the seed spread, which at
+86–103 pcm exceeds the ≈66 pcm internal σ at 1131 °F):
+
+| law | A 1131 °F | B 1231 °F | α_iso (×10⁻⁵ /°F) | vs measured −7.24 |
+|---|---|---|---|---|
+| 30P | 1.01701 | 1.00970 | **−7.12 ± 0.39** | 0.3σ |
+| 10P | 1.01623 | 1.00821 | **−7.82 ± 0.53** | 1.1σ |
+
+**10P − 30P = −0.70 ± 0.66 (1.1σ):** not resolved, and inside the
+|Δα| ≲ 1 band posted before the run. ~~The three-seed −8.10 ± 0.53 (10P)
+and −7.05 ± 0.70 (30P)~~ are superseded by these. At this precision the
+graphite law matters for N-1's k (about −105 pcm), not for α_iso.
+
 ### A finding about the statistics
 
 At 1131 °F (N-3, gh:#1129) three seeds spread 133 pcm (sd), against an
