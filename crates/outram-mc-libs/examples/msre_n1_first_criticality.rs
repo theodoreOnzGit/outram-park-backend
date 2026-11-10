@@ -8,7 +8,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
-//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims]
+//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline]
 //! ```
 //!
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
@@ -98,6 +98,7 @@ fn main() {
     // `--hot-dims`: graphite and INOR-8 expanded from 70 F to the run
     // temperature (TM-0728 §5.3 coefficients; N-1 residual, gh:#1128).
     let hot_dims = args.iter().any(|a| a == "--hot-dims");
+    let graphite_law = flag(&args, "--graphite-law").unwrap_or_else(|| "30p".to_string());
     if let Some(d) = flag(&args, "--draw") {
         let dims = if hot_dims {
             m::Dims::hot(m::REFERENCE_TEMPERATURE_F, m::GRAPHITE_EXPANSION_PER_F, m::INOR8_EXPANSION_PER_F)
@@ -187,9 +188,17 @@ fn main() {
     if sab {
         use njoy_outram_park_fork::leapr::decks::SabMaterial;
         let t = Instant::now();
-        let law = ThermalScattering::from_embedded_leapr_deck(SabMaterial::ReactorGraphite30P, t_g, "c_Graphite_30p")
-            .expect("graphite S(a,b) from LEAPR");
-        eprintln!("    C: graphite 30P S(a,b) by LEAPR at {t_g:.2} K in {:.1} s", t.elapsed().as_secs_f64());
+        // `--graphite-law 30p|10p|crystalline`: 30P (the default, every
+        // recorded run) or the other ENDF/B-VIII.0 graphite laws, to test
+        // the porosity assumption (CGB: 17.7 % total, TM-0728 Table 5.3).
+        let (material, tag) = match graphite_law.as_str() {
+            "30p" => (SabMaterial::ReactorGraphite30P, "c_Graphite_30p"),
+            "10p" => (SabMaterial::ReactorGraphite10P, "c_Graphite_10p"),
+            "crystalline" => (SabMaterial::CrystallineGraphite, "c_Graphite"),
+            other => panic!("--graphite-law must be 30p|10p|crystalline, got {other}"),
+        };
+        let law = ThermalScattering::from_embedded_leapr_deck(material, t_g, tag).expect("graphite S(a,b) from LEAPR");
+        eprintln!("    C: graphite {graphite_law} S(a,b) by LEAPR at {t_g:.2} K in {:.1} s", t.elapsed().as_secs_f64());
         for c in ["C12", "C13"] {
             let i = names.iter().position(|n| *n == c).expect("carbon");
             let nuc = nuclides.remove(i);
@@ -227,7 +236,7 @@ fn main() {
     eprintln!("  nuclear data ready in {load_s:.1} s ({} nuclides); hardware: {hw}; threads {threads}", names.len());
 
     let g = m::geometry_with_dims(t_k, t_g, dims);
-    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" };
+    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str();
     let new_file = !csv.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&csv).expect("csv");
     if new_file {
