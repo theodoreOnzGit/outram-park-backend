@@ -70,10 +70,23 @@ tampines-steam-tables.workspace = true
 # (approx/csv/ndarray/peroxide/roots/thiserror/uom -- no BLAS, no ndarray-linalg),
 # so promoting it here does not endanger the Android build.
 #
-# NOTE: the crate LIBRARY does not use TUAS at all -- per this crate's CLAUDE.md
+# ~~NOTE: the crate LIBRARY does not use TUAS at all -- per this crate's CLAUDE.md
 # ("no new physics in this crate's library"), all CIET physics lives in the
-# binary's own module tree under src/bin/ciet_educational_simulator_v2/.
+# binary's own module tree under src/bin/ciet_educational_simulator_v2/.~~
+# CORRECTED 2026-11-10 (gh:#1331): the library does use TUAS. `multifidelity::
+# double_pipe` runs the TUAS 1-D exchanger (gh:#1178), and `ebr2::model` takes
+# its sodium properties and liquid-metal Nusselt correlations from TUAS. The
+# CIET physics itself still lives under src/bin/ciet_educational_simulator_v2/.
 tuas_boussinesq_solver.workspace = true
+
+# REAL (non-dev) dependency since 2026-11-10 (gh:#1331): `ebr2::model` runs
+# six-group point kinetics, the fast-reactor feedback set
+# (`feedback_mechanisms::fast_reactor`) and fission-product decay heat from
+# this crate. No cycle: teh-o-prke depends on petir, approx, ndarray,
+# thiserror, uom and chem-eng-real-time-process-control-simulator only
+# (checked in its Cargo.toml, 2026-11-10), and builds for wasm32. Was a
+# dev-dependency (htgr_sim_v1's kinetics); the entry below is removed.
+teh-o-prke.workspace = true
 
 # Public API primitives -- dimensioned quantities.
 uom.workspace = true
@@ -199,7 +212,6 @@ egui_extras.workspace = true
 # `tests/ci_smoke/edwards.rs` (GitHub #415) names `SlipModel`. The crate is
 # already compiled beneath `tampines`, so this adds no build work.
 outram-foam-multiphase.workspace = true
-teh-o-prke.workspace = true
 # tampines-steam-tables is now a REAL dependency above (TurbineVisual renders
 # its generator model from the library, and libraries cannot see dev-deps); it
 # stays usable from examples/tests either way.
