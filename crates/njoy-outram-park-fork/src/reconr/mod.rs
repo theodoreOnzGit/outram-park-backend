@@ -55,7 +55,7 @@ use crate::{
     NjoyError,
 };
 use rm::RmSigmas;
-use slbw::{channel_radius, eval_mlbw_lstate, eval_slbw_lstate};
+use slbw::{channel_radius, eval_mlbw_lstate, eval_mlbw_lstate_radii, eval_slbw_lstate};
 
 // ── Public configuration and result types ─────────────────────────────────────
 
@@ -70,6 +70,17 @@ pub struct ReconrConfig {
     /// below this fraction of the local value. NJOY default: `0.001` (0.1%).
     pub tolerance: f64,
     /// Reconstruction temperature \[K\]. `0.0` = 0 K (no Doppler shift).
+    ///
+    /// ~~(Read nowhere: any value returned 0 K data.)~~ **CHANGED 2026-11-10
+    /// (GitHub #662):** only `0.0` is accepted; [`reconr`] refuses anything
+    /// else. Upstream RECONR's `tempr > 0` Doppler-broadens SLBW and
+    /// Adler-Adler through the ψ/χ line shapes and switches MLBW to
+    /// `csmlbw2` (`reconr.f90:2613-2618, 2775, 3167, 4352`), none of which is
+    /// ported; for Reich-Moore and R-Matrix Limited it reaches `cssammy`,
+    /// which never reads `tempr`, so NJOY2016 itself returns 0 K resonances
+    /// under a `tempr` label there (`csrmat`'s refusal, `:3232`, is reached
+    /// only when the SAMMY method is off). Reconstruct at 0 K and broaden
+    /// with [`crate::broadr`], as every caller in this workspace does.
     pub temperature: f64,
 }
 
@@ -164,6 +175,17 @@ pub struct ReconrResult {
     /// result therefore still carries the 0 K table, which is what upstream
     /// produces — not an oversight.
     pub unresolved_table: Option<Vec<[f64; 6]>>,
+    /// The temperature \[K\] these cross sections represent: `0.0` from
+    /// RECONR, the broadening temperature after [`crate::broadr`].
+    ///
+    /// It is the PENDF's own temperature (MF=1/MT=451's `TEMP`, which BROADR
+    /// reads as `temp`, `broadr.f90:381`), and BROADR broadens by the
+    /// difference `T − tempin` from it (`tempef=tempk-tempin`,
+    /// `broadr.f90:605-610`). Before 2026-11-10 (GitHub #617) the port had no
+    /// such field and always broadened by the full `T`, which over-broadens an
+    /// already-broadened input (293.6 K data taken "to" 900 K came out at
+    /// about 1194 K).
+    pub temperature_k: f64,
 }
 
 impl ReconrResult {
@@ -308,10 +330,34 @@ pub fn eval_lin_lin(pairs: &[(f64, f64)], x: f64) -> f64 {
 /// # Errors
 ///
 /// - [`NjoyError::SectionNotFound`] — MF=1/MT=451 or MF=3 sections absent.
-/// - [`NjoyError::NotPorted`] — MF=2 contains LRF=4 (Adler-Adler).
+/// - ~~[`NjoyError::NotPorted`] — MF=2 contains LRF=4 (Adler-Adler).~~
+///   **CORRECTED 2026-11-10:** Adler-Adler is reconstructed
+///   ([`aa`]). [`NjoyError::NotPorted`] is returned for
+///   `config.temperature > 0` (GitHub #662, see
+///   [`ReconrConfig::temperature`]) and for a multi-isotope (`NIS > 1`)
+///   MF=2: the resolved ranges are rebuilt one at a time on the tape's own
+///   background, so overlapping isotopes would replace rather than add to
+///   each other, and the unresolved walk reads the first isotope only.
+/// - [`NjoyError::InvalidInput`] — a negative or non-finite temperature, or
+///   an MF=2 `NRO ≠ 0` range upstream refuses
+///   ([`mf2::parse_resonance_info`]).
 pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyError> {
     let mat = config.mat;
     let eps = config.tolerance;
+    // GitHub #662: the temperature was read nowhere, so T > 0 silently gave
+    // 0 K data.
+    if config.temperature != 0.0 {
+        if config.temperature > 0.0 && config.temperature.is_finite() {
+            return Err(NjoyError::NotPorted(
+                "RECONR at temperature > 0 (the psi/chi line shapes of csslbw/csaa and \
+                 csmlbw2); reconstruct at 0 K and broaden with BROADR",
+            ));
+        }
+        return Err(NjoyError::InvalidInput(format!(
+            "RECONR temperature must be 0 K, got {} K",
+            config.temperature
+        )));
+    }
 
     // MF=1/MT=451 — material header
     let mf1_sec = tape
@@ -329,6 +375,12 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
     } else {
         ResonanceInfo::default()
     };
+    if res_info.ranges.iter().any(|r| r.isotope > 0) {
+        return Err(NjoyError::NotPorted(
+            "RECONR on a multi-isotope (NIS > 1) MF=2: upstream sigma sums every \
+             isotope's sections at each energy; the port rebuilds ranges one at a time",
+        ));
+    }
 
     // AWI, the incident particle's mass ratio (MF=1/MT=451, third record);
     // `lunion`'s `awin`. 1 for a neutron sublibrary.
@@ -520,6 +572,7 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
             Some(20.0e6)
         },
         unresolved_table,
+        temperature_k: 0.0,
     })
 }
 
@@ -1114,6 +1167,7 @@ pub fn reconr_background(tape: &Tape, mat: i32, tolerance: f64) -> Result<Reconr
         // Background-only: no resonance reconstruction ran, so there is no
         // unresolved table to store either.
         unresolved_table: None,
+        temperature_k: 0.0,
     })
 }
 
@@ -1166,7 +1220,7 @@ fn add_aa_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64
     let mut halo = Vec::new();
     add_aa_halo_energies(&mut halo, &aa.l_states, range.el, range.eh);
 
-    rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, |e| {
+    rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, range.abn, |e| {
         let s = aa::eval_aa_range(e, aa, range.ap);
         RangeDelta {
             total: s.total,
@@ -1237,6 +1291,18 @@ impl RangeDelta {
         self
     }
 // ANCHOR_END: lesson_clamp
+
+    /// Every slot multiplied by the isotope abundance `abn`, the `*abn` of
+    /// `sig(j)=sig(j)+sigp(j)*abn` (`reconr.f90:2645`), applied after
+    /// [`Self::clamp_negative_to_zero`] as upstream orders it. GitHub #664.
+    pub(crate) fn times_abundance(mut self, abn: f64) -> Self {
+        self.total *= abn;
+        self.elastic *= abn;
+        self.fission *= abn;
+        self.capture *= abn;
+        self.other.iter_mut().for_each(|v| *v *= abn);
+        self
+    }
 }
 
 fn add_slbw_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64, raw: &RawMf3) {
@@ -1261,10 +1327,23 @@ fn add_slbw_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f
 
     // LRF=1 -> csslbw, LRF=2 -> csmlbw (upstream `sigma`, reconr.f90:2610-2616)
     let mlbw = matches!(range.formalism, Some(ResonanceFormalism::Mlbw));
-    rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, |e| {
+    rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, range.abn, |e| {
         let mut d = RangeDelta::default();
         for (l, awri, ra, tuples) in &prepared {
-            let s = if mlbw {
+            let s = if let (true, Some(table)) = (mlbw, &range.ap_table) {
+                // NRO != 0 (GitHub #663), `csmlbw` at `reconr.f90:2893-2916`:
+                // the phase shift takes AP(E); the radius at the energy is
+                // the formula (NAPS=0), AP(E) (NAPS=1) or the constant AP
+                // (NAPS=2). `ra` stays `rdf2bw`'s radius for the resonance
+                // energies. `read_ap_table` guarantees `at` cannot fail here.
+                let ape = table.at(e).unwrap_or(range.ap);
+                let ra_e = match range.naps {
+                    0 => channel_radius(*awri, 0, 0.0),
+                    1 => ape,
+                    _ => range.ap,
+                };
+                eval_mlbw_lstate_radii(e, tuples, *l, range.spi, ape, *awri, ra_e, *ra)
+            } else if mlbw {
                 eval_mlbw_lstate(e, tuples, *l, range.spi, range.ap, *awri, *ra)
             } else {
                 eval_slbw_lstate(e, tuples, *l, range.spi, range.ap, *awri, *ra)
@@ -1286,7 +1365,7 @@ fn add_rm_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64
     let mut halo = Vec::new();
     add_rm_halo_energies(&mut halo, &range.rm_l_states, range.el, range.eh);
 
-    rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, |e| {
+    rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, range.abn, |e| {
         // One call over the whole range: `csrmat` sums every l before
         // applying `pifac`, and its `gf` flag spans the l-states.
         let s: RmSigmas = rm::eval_rm_range(e, &range.rm_l_states, range.ap, range.spi, range.naps);
@@ -1326,6 +1405,13 @@ fn add_rm_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64
 /// upstream `sigma` clamps every resolved section's `sigp`
 /// (`reconr.f90:2641-2645`). The unresolved range calls
 /// [`rebuild_range_with`] directly and is not clamped, as upstream.
+///
+/// `abn` is the isotope's abundance ([`EnergyRange::abn`]): the clamped
+/// contribution is multiplied by it, `sig(j)=sig(j)+sigp(j)*abn`
+/// (`reconr.f90:2641-2645`). It was dropped until 2026-11-10 (GitHub #664).
+/// With `abn = 1.0`, the value on every evaluation held here, the product is
+/// exact, so no reconstructed number moves.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn rebuild_range(
     sections: &mut Vec<ReconrSection>,
     el: f64,
@@ -1334,10 +1420,11 @@ pub(crate) fn rebuild_range(
     eps: f64,
     other_mts: &[i32],
     raw: &RawMf3,
+    abn: f64,
     delta_at: impl Fn(f64) -> RangeDelta + Sync,
 ) {
     rebuild_range_with(sections, el, eh, halo, eps, other_mts, raw, RebuildOpts::default(), |e| {
-        delta_at(e).clamp_negative_to_zero()
+        delta_at(e).clamp_negative_to_zero().times_abundance(abn)
     });
 }
 

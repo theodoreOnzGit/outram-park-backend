@@ -67,6 +67,10 @@
 //! [`Hopper`] (a cylinder, a cone and a tube) with **whole-ball rejection**,
 //! and [`AssembledModel::bed_census`] counts the balls kept and rejected
 //! (tutorial 8).
+//! A [`HexSubassembly`] (gh #1327) is a fast-reactor-style hexagonal
+//! subassembly made of the same plain shapes: a hex duct, a coolant prism
+//! and a triangular-pitch bundle of fuel / bond / clad pins, with an
+//! optional wire wrap smeared into the coolant.
 //!
 //! ## Not yet here
 //!
@@ -102,6 +106,7 @@ pub mod diagnostics;
 pub mod dh_region;
 pub mod bed;
 pub mod hex;
+pub mod hex_subassembly;
 pub mod hopper;
 pub mod isotope;
 pub mod lattice;
@@ -147,6 +152,10 @@ pub use run::{
 pub use census::{Arrangement, Census, CensusRow, PackingRow, RowKind};
 pub use dh_region::{DhRegion, Packing};
 pub use hex::{HexFaces, HexPrism};
+pub use hex_subassembly::{
+    pins_in_rings, HexSubassembly, PinDesign, SubassemblyMaterials, SubassemblyVolumeFractions,
+    WireWrap,
+};
 pub use hopper::{Hopper, Wall};
 pub use bed::{BedCensus, KeptBall, RejectedBall};
 pub use lattice::Lattice;

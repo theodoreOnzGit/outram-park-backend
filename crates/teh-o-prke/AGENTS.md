@@ -103,6 +103,10 @@ delayed-neutron precursor groups, reactivity feedback, and decay heat, using
       not at the `six_group_precursor_prke` level (see migration note below).
 - `feedback_mechanisms/` — incl. `fission_product_poisons/` (Xe/Sm).
   - `separable.rs` — RELAP5 separable feedback (RELAP-7 Eq 443, gh:#1083).
+  - `fast_reactor.rs` — fast-reactor feedback beside it (gh:#1326): fast
+    Doppler `-K_D ln(T/T_ref)`, axial fuel, clad, coolant T and density,
+    radial structures, driveline expansion via a rod-worth map. Port of
+    GeN-Foam's point-kinetics feedback sum; every coefficient a caller input.
 - `fuel_temperature_feedback`, `control_rod_feedback`, `decay_heat`.
 - `ans_decay_heat` — ANS standards enum, isotope mix incl. Pu-241, `F_gamma`,
   user-supplied coefficients, `G(t)` (gh:#1080). Only the 1978 draft set is

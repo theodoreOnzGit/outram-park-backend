@@ -8,6 +8,7 @@
 //!   CONT  ZAI  ABN  0  LFW  NER  0      ← NER energy ranges
 //!   per range:
 //!     CONT  EL  EH  LRU  LRF  NRO  NAPS
+//!     NRO≠0: TAB1 AP(E)                  ← energy-dependent scattering radius
 //!     LRU=0: CONT SPI AP 0 0 NLS 0; NLS CONT l-state records
 //!     LRU=1, LRF=1/2 (SLBW/MLBW):
 //!       CONT SPI AP 0 0 NLS 0;
@@ -15,12 +16,13 @@
 //!     LRU=1, LRF=3 (Reich-Moore):
 //!       CONT SPI AP 0 LAD NLS 0;
 //!       NLS LIST records (AWRI APL L 0 6*NRS NRS; then NRS×6: ER AJ GN GG GFA GFB)
-//!     LRU=2: partial parse (SPI/AP header only)
+//!     LRU=2: SPI/AP header kept, the rest of the body stepped over
 //! ```
 
 use crate::{
     endf::{records::SectionCursor, tape::Section},
     samm::mf2::RmlSection,
+    unresr::mf2::ScatteringRadiusTable,
     NjoyError,
 };
 
@@ -252,6 +254,24 @@ pub struct EnergyRange {
     pub rml: Option<RmlRange>,
     /// Adler-Adler (LRF=4) data. `None` for every other formalism.
     pub aa: Option<AaRange>,
+    /// `ABN`, the abundance of the isotope this range belongs to (C2 of the
+    /// isotope CONT). Upstream `sigma` weights every resolved section's
+    /// contribution by it, `sig(j)=sig(j)+sigp(j)*abn`
+    /// (`reconr.f90:2599-2601, 2641-2645`); RECONR does the same since
+    /// GitHub #664. `1.0` on every single-isotope evaluation held here.
+    pub abn: f64,
+    /// Which isotope of the material (0-based position in the `NIS` loop)
+    /// this range belongs to.
+    pub isotope: usize,
+    /// `NRO`: `0` for an energy-independent scattering radius, non-zero when
+    /// an `AP(E)` `TAB1` precedes the range's SPI/AP record.
+    pub nro: i32,
+    /// The `NRO ≠ 0` scattering radius `AP(E)` \[10⁻¹² cm\], read where
+    /// `rdf2bw` reads it (`reconr.f90:906-914`). Upstream accepts it on a
+    /// resolved range only for MLBW, and `csmlbw` interpolates it at every
+    /// energy (`reconr.f90:2893-2916`); see [`parse_resonance_info`] for the
+    /// formalisms that refuse it. `None` when `NRO = 0`.
+    pub ap_table: Option<ScatteringRadiusTable>,
 }
 
 /// An LRF=7 (R-Matrix Limited) resonance range, paired with the material
@@ -377,7 +397,24 @@ impl ResonanceInfo {
 ///   matching what `samm.f90` itself supports).
 /// - **LRU=1, LRF=4 (Adler-Adler)** — resolved resonances; full parse, zero-
 ///   temperature only (see `crate::reconr::aa`).
-/// - **LRU=2** — unresolved region; header only (parameters skipped).
+/// - ~~**LRU=2** — unresolved region; header only (parameters skipped).~~
+///   **CORRECTED 2026-11-10 (GitHub #663):** the parameters were *not*
+///   skipped: one CONT was read and the cursor left inside the body. Now
+///   **LRU=2** keeps its bounds and SPI/AP header and steps over the rest of
+///   the body ([`crate::unresr::mf2`] owns the unresolved parameters).
+///
+/// Since GitHub #663/#664 it also honours, as `rdfil2` does:
+///
+/// - **`NIS > 1`**: every isotope is read, each range tagged with its
+///   [`EnergyRange::isotope`] and [`EnergyRange::abn`].
+/// - **`NRO ≠ 0`**: the `AP(E)` `TAB1` before the SPI/AP record is read into
+///   [`EnergyRange::ap_table`]. On a resolved or `LRU=0` range upstream
+///   accepts it for MLBW only: `rdf2bw` stops with "energy-dep scattering
+///   length only works for mlbw" (`reconr.f90:906-914`), `s2sammy` and
+///   `rdsammy` likewise (`samm.f90`), and those are refused here with
+///   [`NjoyError::InvalidInput`]. Adler-Adler is refused too, although
+///   upstream's `rdf2aa` does not check: it never reads the `TAB1`, so it
+///   would take the table's header as the SPI/AP record.
 pub fn parse_resonance_info(sec: &Section) -> Result<ResonanceInfo, NjoyError> {
     let mut cur = SectionCursor::new(&sec.rows);
 
@@ -388,9 +425,11 @@ pub fn parse_resonance_info(sec: &Section) -> Result<ResonanceInfo, NjoyError> {
 
     let mut ranges = Vec::new();
 
-    for _ in 0..nis {
+    for isotope in 0..nis {
         // CONT: ZAI, ABN, 0, LFW, NER, 0
         let iso = cur.read_cont()?;
+        let abn = iso.c2;
+        let lfw = iso.l2;
         let ner = iso.n1 as usize;
 
         for _ in 0..ner {
@@ -400,22 +439,70 @@ pub fn parse_resonance_info(sec: &Section) -> Result<ResonanceInfo, NjoyError> {
             let eh = rh.c2;
             let lru = rh.l1;
             let lrf = rh.l2;
+            let nro = rh.n1;
             let naps = rh.n2;
 
-            let range = match lru {
+            // The energy-dependent scattering radius sits between the range
+            // CONT and the SPI/AP record (`rdf2bw`, `reconr.f90:906-914`;
+            // `rdf2u0/u1/u2`, `:1254`, `:1342`, `:1457`).
+            let ap_table = if lru == 2 {
+                if nro == 1 {
+                    Some(read_ap_table(&mut cur)?)
+                } else {
+                    None
+                }
+            } else if nro != 0 {
+                if !(lru == 1 && lrf == 2) {
+                    return Err(NjoyError::InvalidInput(format!(
+                        "MF=2 range [{el:e}, {eh:e}] eV has NRO = {nro} with LRU = {lru}, \
+                         LRF = {lrf}: an energy-dependent scattering radius only works \
+                         for MLBW (NJOY2016 rdf2bw, reconr.f90:906-914)"
+                    )));
+                }
+                Some(read_ap_table(&mut cur)?)
+            } else {
+                None
+            };
+
+            let mut range = match lru {
                 0 => parse_lru0(&mut cur, el, eh, naps)?,
                 1 => parse_lru1(&mut cur, el, eh, lrf, naps, awr)?,
-                2 => parse_lru2_header(&mut cur, el, eh, naps)?,
+                2 => parse_lru2_header(&mut cur, &sec.rows, el, eh, lrf, lfw, naps)?,
                 other => {
                     return Err(NjoyError::EndfParse(format!("unknown LRU={other}")));
                 }
             };
+            range.abn = abn;
+            range.isotope = isotope;
+            range.nro = nro;
+            range.ap_table = ap_table;
 
             ranges.push(range);
         }
     }
 
     Ok(ResonanceInfo { ranges })
+}
+
+/// Read an `NRO ≠ 0` range's `AP(E)` `TAB1`.
+///
+/// A table of fewer than two points, or with a non-positive energy or
+/// radius, is refused: a scattering radius is a positive length, and these
+/// guarantees are what make [`ScatteringRadiusTable::at`] infallible for the
+/// energies RECONR evaluates it at (no log of a non-positive value).
+fn read_ap_table(cur: &mut SectionCursor<'_>) -> Result<ScatteringRadiusTable, NjoyError> {
+    let t = cur.read_tab1()?;
+    if t.pairs.len() < 2 || t.pairs.iter().any(|&(x, y)| !(x > 0.0) || !(y > 0.0)) {
+        return Err(NjoyError::EndfParse(format!(
+            "MF=2 NRO AP(E) table needs at least two points with positive energy and \
+             radius, got {:?}",
+            t.pairs
+        )));
+    }
+    Ok(ScatteringRadiusTable {
+        interp: t.interp,
+        xy: t.pairs,
+    })
 }
 
 // ── Per-LRU parsers ────────────────────────────────────────────────────────────
@@ -445,6 +532,10 @@ fn parse_lru0(
         rm_l_states: Vec::new(),
         rml: None,
         aa: None,
+        abn: 1.0,
+        isotope: 0,
+        nro: 0,
+        ap_table: None,
     })
 }
 
@@ -571,6 +662,10 @@ fn parse_adler_adler(
             },
             l_states,
         }),
+        abn: 1.0,
+        isotope: 0,
+        nro: 0,
+        ap_table: None,
     })
 }
 
@@ -602,6 +697,10 @@ fn parse_rml(
         rm_l_states: Vec::new(),
         rml: Some(RmlRange { section, awr }),
         aa: None,
+        abn: 1.0,
+        isotope: 0,
+        nro: 0,
+        ap_table: None,
     })
 }
 
@@ -668,6 +767,10 @@ fn parse_slbw_mlbw(
         rm_l_states: Vec::new(),
         rml: None,
         aa: None,
+        abn: 1.0,
+        isotope: 0,
+        nro: 0,
+        ap_table: None,
     })
 }
 
@@ -731,13 +834,22 @@ fn parse_reich_moore(
         rm_l_states,
         rml: None,
         aa: None,
+        abn: 1.0,
+        isotope: 0,
+        nro: 0,
+        ap_table: None,
     })
 }
 
-/// LRU=2: unresolved resonance region — header parse only.
+/// LRU=2: unresolved resonance region — header kept, body stepped over.
 ///
-/// We read the SPI/AP header CONT so the cursor advances past the range
-/// header, then return a placeholder.
+/// ~~We read the SPI/AP header CONT so the cursor advances past the range
+/// header, then return a placeholder.~~ **CORRECTED 2026-11-10 (GitHub
+/// #663):** reading one CONT did *not* advance past the range: the cursor
+/// stayed inside the unresolved parameters, so a range or isotope after it
+/// was read from them. The SPI/AP values are now taken from the body's first
+/// record and the whole body is stepped over
+/// ([`crate::unresr::mf2::lru2_body_rows`]). `rows` is the whole section.
 ///
 /// # ~~This is a KNOWN GAP, not a design decision~~
 ///
@@ -788,22 +900,39 @@ fn parse_reich_moore(
 /// Tracked as `bn:op-12lu` (historical id).
 fn parse_lru2_header(
     cur: &mut SectionCursor<'_>,
+    rows: &[[f64; 6]],
     el: f64,
     eh: f64,
+    lrf: i32,
+    lfw: i32,
     naps: i32,
 ) -> Result<EnergyRange, NjoyError> {
-    let c = cur.read_cont()?;
+    // The first body record carries SPI and AP as C1/C2 in every case
+    // (CONT for LFW=0/LRF=1 and LRF=2, LIST head for LFW=1).
+    let start = cur.position();
+    let first = rows.get(start).ok_or_else(|| {
+        NjoyError::EndfParse("MF=2 LRU=2 range ends before its SPI/AP record".to_string())
+    })?;
+    let (spi, ap) = (first[0], first[1]);
+    // Step over the whole body (GitHub #663): it used to read one CONT and
+    // leave the cursor inside the parameters.
+    let n = crate::unresr::mf2::lru2_body_rows(&rows[start..], lrf, lfw)?;
+    cur.skip_rows(n)?;
     Ok(EnergyRange {
         el,
         eh,
         lru: 2,
         formalism: None,
-        spi: c.c1,
-        ap: c.c2,
+        spi,
+        ap,
         naps,
         l_states: Vec::new(),
         rm_l_states: Vec::new(),
         rml: None,
         aa: None,
+        abn: 1.0,
+        isotope: 0,
+        nro: 0,
+        ap_table: None,
     })
 }

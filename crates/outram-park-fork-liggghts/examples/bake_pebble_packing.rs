@@ -154,10 +154,7 @@ use petir::mathf::RealMath;
 use std::f64::consts::PI;
 use std::time::Instant;
 
-use outram_park_fork_liggghts::boundary::Boundary;
-use outram_park_fork_liggghts::contact::{ContactModel, HookeContact};
-use outram_park_fork_liggghts::particle::{Particle, Vec3};
-use outram_park_fork_liggghts::simulation::DemSimulation;
+use outram_park_fork_liggghts::prelude::*;
 
 use uom::si::f64::{Length, Mass, ThermodynamicTemperature};
 use uom::si::length::meter;

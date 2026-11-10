@@ -286,3 +286,9 @@ pub mod fission_product_poisons;
 /// scram curves, tabulated moderator-density and fuel-temperature
 /// reactivity with weights, and linear temperature terms.
 pub mod separable;
+
+/// Fast-reactor reactivity feedback beside the separable model (gh:#1326):
+/// fast-spectrum Doppler, axial fuel, cladding, coolant temperature and
+/// density (sodium void), radial core expansion and control-rod driveline
+/// expansion, ported from GeN-Foam's point-kinetics feedback sum.
+pub mod fast_reactor;

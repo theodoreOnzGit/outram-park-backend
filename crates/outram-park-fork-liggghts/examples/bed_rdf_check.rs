@@ -4,9 +4,7 @@
 //! only, as the publications package's g(r) figures use.
 //!
 //! cargo run --release -p outram-park-fork-liggghts --example bed_rdf_check -- FILE.csv [FILE2.csv ...]
-use outram_park_fork_liggghts::compute::{ComputeType, ThreadCount};
-use outram_park_fork_liggghts::particle::Vec3;
-use outram_park_fork_liggghts::rdf::{radial_distribution, RdfDomain, RdfSettings};
+use outram_park_fork_liggghts::prelude::*;
 
 fn main() {
     for f in std::env::args().skip(1) {

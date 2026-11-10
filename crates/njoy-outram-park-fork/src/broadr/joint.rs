@@ -1069,7 +1069,11 @@ pub fn broadr_joint(
     const FACT: f64 = 0.99999;
     let secs = &result.sections;
     let mt1 = secs.iter().find(|s| s.mt.number() == 1)?;
-    if mt1.pairs.len() < 2 || temp_k <= 0.0 {
+    // `tempef=tempk-tempin` (`broadr.f90:605-610`): broaden from the input's
+    // own temperature, not from 0 K (GitHub #617). At `tempef <= 0` upstream
+    // only thins (`thinb`, `:1218-1222`), which is not ported (#619).
+    let tempef = temp_k - result.temperature_k;
+    if mt1.pairs.len() < 2 || tempef <= 0.0 {
         return None;
     }
     let lrp = result.material.lrp;
@@ -1133,7 +1137,11 @@ pub fn broadr_joint(
     }
     let nreac = mtr.len();
     if nreac == 0 {
-        return Some(result.clone());
+        // Copied through (`broadr.f90:568-576`), and labelled with the new
+        // temperature as upstream's output MAT is.
+        let mut copy = result.clone();
+        copy.temperature_k = temp_k;
+        return Some(copy);
     }
 
     // Table of the broadened reactions on the grid (broadr.f90:540-562).
@@ -1157,7 +1165,6 @@ pub fn broadr_joint(
         })
         .collect();
 
-    let tempef = temp_k;
     let alpha = awr / (BK_EV_PER_K * tempef);
     let mut walk = Walk {
         nreac,
@@ -1270,6 +1277,7 @@ pub fn broadr_joint(
         sections: out_secs,
         resonance_upper_limit: result.resonance_upper_limit,
         unresolved_table: result.unresolved_table.clone(),
+        temperature_k: temp_k,
     })
 }
 
@@ -1311,6 +1319,7 @@ mod tests {
             sections: vec![sec(1), sec(2)],
             resonance_upper_limit: None,
             unresolved_table: None,
+            temperature_k: 0.0,
         }
     }
 
