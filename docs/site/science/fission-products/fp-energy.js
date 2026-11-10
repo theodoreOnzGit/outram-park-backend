@@ -50,5 +50,20 @@
     return [i, i + 1, (e - grid[i]) / (grid[i + 1] - grid[i])];
   }
 
-  W.FPEnergy = { STEPS: STEPS, toEnergy: toEnergy, toPos: toPos, clamp: clamp, initial: initial, remember: remember, label: label, bracket: bracket };
+  // The lowest incident energy at which a lesson may show a parent
+  // FISSIONING (gh:#1307). U-235, U-233 and Pu-239 are fissile: a thermal
+  // neutron splits them, so they start at the slider's bottom. U-238 is
+  // fissionable but not fissile: a slow neutron is captured (U-238 + n ->
+  // U-239), and it splits only on a fast neutron. Its fission cross section in
+  // ENDF/B-VIII.0 (MF=3/MT=18, read from reference-data/endf/n-092_U_238.endf,
+  // 2026-11-06, lin-lin) is 0 b at 0.0253 eV in MF=3, 2.8e-4 b at 500 keV,
+  // 0.015 b at 1 MeV, 0.36 b at 1.5 MeV and 0.54 b at 2 MeV: the threshold
+  // lies between 1 and 1.5 MeV. U-238 starts at 500 keV, the lowest energy
+  // its evaluated yields cover, as in lessons 1 and 2. The evaluation still
+  // tabulates U-238's MF=5 spectrum down to 1e-5 eV; that table is
+  // formal, and the lessons do not show it.
+  var LOWEST = { "U-238": 5e5 };
+  function lowest(name) { return LOWEST[name] || 0; }
+
+  W.FPEnergy = { STEPS: STEPS, toEnergy: toEnergy, toPos: toPos, clamp: clamp, initial: initial, remember: remember, label: label, bracket: bracket, lowest: lowest };
 })();
