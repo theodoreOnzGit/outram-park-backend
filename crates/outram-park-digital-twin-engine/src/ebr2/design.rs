@@ -23,7 +23,7 @@ use uom::si::mass_rate::kilogram_per_second;
 use uom::si::moment_of_inertia::kilogram_square_meter;
 use uom::si::power::megawatt;
 use uom::si::pressure::pascal;
-use uom::si::ratio::percent;
+use uom::si::ratio::{percent, ratio};
 use uom::si::thermodynamic_temperature::degree_celsius;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::torque::newton_meter;
@@ -233,19 +233,72 @@ pub const U5FS_DENSITY_KG_PER_M3: f64 = 18.2e3;
 /// U-5Fs heat capacity `c(T) = a + b T + c T^2` kJ/(kg K), T in K,
 /// A226 Eq 4.2 p.101 **(gh:#1313)**, rows `[T_lo K, T_hi K, a, b, c]`.
 ///
-/// **Flagged in the source transcription:** the text layer is garbled here
-/// and gh:#1313 asks for the form to be checked on the rendered page. Two
-/// further observations, made while writing this module and **not
-/// resolved**: the first branch gives 0.342 kJ/(kg K) at 833 K while the
-/// second gives 0.246 at the same temperature (not continuous), and the
-/// first branch's 0.307 at 760 K is about twice the heat capacity of
-/// alpha-uranium. Used as transcribed; the fuel node's heat capacity and so
+/// ~~**Flagged in the source transcription:** the text layer is garbled here
+/// and gh:#1313 asks for the form to be checked on the rendered page.~~
+/// **CHECKED 2026-11-10 (gh:#1331):** the rendered pages, A226 Eq 4.2
+/// p.101 and IAEA-TECDOC-1819 Eq 2 p.35, both print `a + bT + cT^2` with
+/// these nine coefficients and branch limits, so the transcription matches
+/// both sources. Two further observations, **not resolved** and not
+/// changed here: the correlation is **discontinuous at 833 K** as printed
+/// (the first branch gives 0.342 kJ/(kg K) at 833 K, the second 0.246),
+/// and also at 913 K (0.225 from the second branch, 0.362 from the third);
+/// both temperatures are the solid-solid transitions of A226 Eqs 4.3-4.4,
+/// whose latent heats this function does not carry. And the first
+/// branch's 0.307 at 760 K is about twice the heat capacity of
+/// alpha-uranium. Used as printed; the fuel node's heat capacity and so
 /// its time constant inherit this doubt.
 pub const U5FS_HEAT_CAPACITY: [[f64; 5]; 3] = [
     [273.0, 833.0, 0.13964, -1.9785e-5, 3.1566e-7],
     [833.0, 913.0, 0.46364, -2.615e-4, 0.0],
     [913.0, 1283.0, 2.40126, -3.5126e-3, 1.4012e-6],
 ];
+
+/// U-5Fs linear thermal expansion from 273 K, `dL/L_2 = a + b (T - T_0)`
+/// (`L_2` the length at 273 K), A226 Eq 4.1 p.100, rows
+/// `[T_lo K, T_hi K, a, b /K, T_0 K]`; also IAEA-TECDOC-1819 Eq 1 p.35.
+/// Read on the rendered pages 2026-11-10 (gh:#1331).
+///
+/// **The third branch, `T > 913 K`: A226's `(T - 913)`, chosen for
+/// continuity.** The two reports print the same correlation except there:
+/// A226 prints `0.014 + 2.1e-5 (T - 913)`, TECDOC-1819
+/// `0.014 + 2.1e-5 (T - 273)`. At the 913 K boundary the second branch
+/// gives `0.0089 + 5.7e-5 x 90 = 0.01403`; A226's third branch gives
+/// `0.014` (a step of -3.0e-5, -0.21 %, the rounding of the printed
+/// 0.014), and TECDOC-1819's `0.014 + 2.1e-5 x 640 = 0.02744` (a step of
+/// +0.01341, +96 %, larger than the whole 0.0089 strain the first branch
+/// accumulates from 273 to 823 K, at a point where neither report
+/// describes a step). A226's form is continuous to the printed precision
+/// and TECDOC-1819's is not, so TECDOC-1819's `273` is read as a
+/// typesetting error (TECDOC-1819 restates A226's specification). It stays callable
+/// ([`U5fsExpansionThirdBranch::Tecdoc1819`]) so the comparison can be
+/// re-run. The 823 K boundary is continuous in both: `1.62e-5 x 550 =
+/// 0.00891` against `0.0089`.
+///
+/// Not used by [`super::model`]: the model's axial-expansion feedback is
+/// Argonne's coefficient ([`super::kinetics`]), not a strain computed from
+/// this correlation.
+pub const U5FS_THERMAL_EXPANSION: [[f64; 5]; 3] = [
+    [273.0, 823.0, 0.0, 1.62e-5, 273.0],
+    [823.0, 913.0, 0.0089, 5.7e-5, 823.0],
+    [913.0, f64::INFINITY, 0.014, 2.1e-5, 913.0],
+];
+
+/// The third-branch origin `T_0` IAEA-TECDOC-1819 Eq 1 p.35 prints, 273 K,
+/// in place of A226's 913 K (see [`U5FS_THERMAL_EXPANSION`]).
+pub const U5FS_THERMAL_EXPANSION_TECDOC1819_THIRD_ORIGIN_K: f64 = 273.0;
+
+/// Which printed form of the U-5Fs expansion correlation's third branch
+/// (`T > 913 K`) to use (gh:#1331; see [`U5FS_THERMAL_EXPANSION`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum U5fsExpansionThirdBranch {
+    /// A226 Eq 4.1 p.100, `0.014 + 2.1e-5 (T - 913)`: continuous at 913 K.
+    /// The default.
+    #[default]
+    Arc226,
+    /// IAEA-TECDOC-1819 Eq 1 p.35, `0.014 + 2.1e-5 (T - 273)`: a step of
+    /// +0.01341 at 913 K. Kept only so the comparison can be re-run.
+    Tecdoc1819,
+}
 
 /// Fully dense U-5Fs thermal conductivity below the solidus,
 /// `k = 14.1 + 2.98e-2 T + 3.01e-6 T^2` W/(m C), T in C. A226 Eq 4.5 p.101
@@ -402,6 +455,33 @@ pub fn u5fs_conductivity(temperature: ThermodynamicTemperature) -> ThermalConduc
     )
 }
 
+/// U-5Fs linear thermal strain from 273 K, `dL/L_2`, from
+/// [`U5FS_THERMAL_EXPANSION`] with A226's third branch (the default
+/// [`U5fsExpansionThirdBranch::Arc226`]). Each branch is used from its
+/// lower limit up to (excluding) its upper one; below 273 K the first
+/// branch is extrapolated.
+pub fn u5fs_linear_thermal_strain(temperature: ThermodynamicTemperature) -> Ratio {
+    u5fs_linear_thermal_strain_with(temperature, U5fsExpansionThirdBranch::default())
+}
+
+/// [`u5fs_linear_thermal_strain`] with the third branch's printed form
+/// chosen explicitly.
+pub fn u5fs_linear_thermal_strain_with(
+    temperature: ThermodynamicTemperature,
+    third_branch: U5fsExpansionThirdBranch,
+) -> Ratio {
+    let t = temperature.get::<kelvin>();
+    let i = U5FS_THERMAL_EXPANSION
+        .iter()
+        .position(|r| t < r[1])
+        .unwrap_or(2);
+    let [_, _, a, b, mut t0] = U5FS_THERMAL_EXPANSION[i];
+    if i == 2 && third_branch == U5fsExpansionThirdBranch::Tecdoc1819 {
+        t0 = U5FS_THERMAL_EXPANSION_TECDOC1819_THIRD_ORIGIN_K;
+    }
+    Ratio::new::<ratio>(a + b * (t - t0))
+}
+
 /// [`U5FS_DENSITY_KG_PER_M3`] as a [`MassDensity`].
 pub fn u5fs_density() -> MassDensity {
     MassDensity::new::<kilogram_per_cubic_meter>(U5FS_DENSITY_KG_PER_M3)
@@ -506,5 +586,74 @@ mod tests {
         assert!((hot - 289.86).abs() < 1e-6, "{hot}");
         let k = u5fs_conductivity(ThermodynamicTemperature::new::<degree_celsius>(487.0)).value;
         assert!((k - (14.1 + 2.98e-2 * 487.0 + 3.01e-6 * 487.0 * 487.0)).abs() < 1e-9);
+        // and at 913 K, also discontinuous as printed (documented, unchanged)
+        let below913 = u5fs_heat_capacity(ThermodynamicTemperature::new::<kelvin>(912.999)).value;
+        let above913 = u5fs_heat_capacity(ThermodynamicTemperature::new::<kelvin>(913.0)).value;
+        println!("U-5Fs cp at 913 K: second branch {below913:.1}, third branch {above913:.1} J/(kg K)");
+        assert!(above913 > below913);
+    }
+
+    /// **V&V: continuity of the U-5Fs expansion correlation at its branch
+    /// boundaries, and the choice of the third branch's printed form
+    /// (gh:#1331).**
+    ///
+    /// *Methodology.* Evaluate each branch's printed form at both
+    /// boundaries, 823 K and 913 K, and take the step (upper branch minus
+    /// lower branch). Both forms of the third branch are evaluated: A226's
+    /// `(T - 913)` and TECDOC-1819's `(T - 273)`.
+    ///
+    /// *Tolerance, stated before running.* The printed offsets are rounded
+    /// to two significant figures (`0.0089`, `0.014`), so continuity can
+    /// only be expected to half a unit in their last printed digit:
+    /// 5e-5 at 823 K and 5e-4 at 913 K.
+    ///
+    /// *Prediction (by hand, before running).* 823 K: `0.00891` vs
+    /// `0.0089`, a step of -1.0e-5 (inside 5e-5). 913 K: second branch
+    /// `0.01403`; A226's third `0.014`, step -3.0e-5 (inside 5e-4);
+    /// TECDOC-1819's `0.02744`, step +1.341e-2 (27x the tolerance). Strain
+    /// at 1000 K with the default: `0.014 + 2.1e-5 x 87 = 0.015827`.
+    ///
+    /// *Result (2026-11-10):* as predicted: steps -1.0e-5 at 823 K,
+    /// -3.0e-5 (A226) and +1.341e-2 (TECDOC-1819) at 913 K. A226's form is
+    /// the default.
+    #[test]
+    fn u5fs_expansion_is_continuous_with_the_arc226_third_branch() {
+        let s = |t: f64, form| {
+            u5fs_linear_thermal_strain_with(ThermodynamicTemperature::new::<kelvin>(t), form)
+                .get::<ratio>()
+        };
+        let (a226, t1819) = (
+            U5fsExpansionThirdBranch::Arc226,
+            U5fsExpansionThirdBranch::Tecdoc1819,
+        );
+        // each branch's printed form at the boundary, by hand
+        let first_823 = 1.62e-5 * (823.0 - 273.0);
+        let second_823 = 0.0089;
+        let second_913 = 0.0089 + 5.7e-5 * (913.0 - 823.0);
+        // the functions pick the upper branch at a boundary
+        assert_eq!(s(823.0, a226), second_823);
+        assert!((s(822.999_999, a226) - first_823).abs() < 1e-10);
+        assert!((s(912.999_999, a226) - second_913).abs() < 1e-10);
+        let step_823 = s(823.0, a226) - first_823;
+        let step_913_a226 = s(913.0, a226) - second_913;
+        let step_913_t1819 = s(913.0, t1819) - second_913;
+        println!(
+            "U-5Fs expansion steps: 823 K {step_823:.3e}; 913 K A226 {step_913_a226:.3e}, \
+             TECDOC-1819 {step_913_t1819:.3e}"
+        );
+        assert!(step_823.abs() <= 5e-5, "{step_823}");
+        assert!(step_913_a226.abs() <= 5e-4, "{step_913_a226}");
+        assert!(step_913_t1819.abs() > 5e-4, "{step_913_t1819}");
+        assert!((step_823 + 1.0e-5).abs() < 1e-12);
+        assert!((step_913_a226 + 3.0e-5).abs() < 1e-12);
+        assert!((step_913_t1819 - 1.341e-2).abs() < 1e-12);
+        // the default is A226's
+        let t1000 = ThermodynamicTemperature::new::<kelvin>(1000.0);
+        assert_eq!(u5fs_linear_thermal_strain(t1000), Ratio::new::<ratio>(s(1000.0, a226)));
+        assert!((s(1000.0, a226) - 0.015827).abs() < 1e-12);
+        // the branches agree below 913 K
+        for t in [300.0, 700.0, 850.0] {
+            assert_eq!(s(t, a226), s(t, t1819));
+        }
     }
 }

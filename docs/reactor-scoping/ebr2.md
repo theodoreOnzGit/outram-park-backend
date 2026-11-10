@@ -135,7 +135,7 @@ thermal-hydraulic side that supplies the temperatures:
 
 - axial fuel expansion — portable from the orphaned genfoam code **(done: `axial_fuel_expansion`)**
 - radial / grid-plate expansion — ~~new~~ **done: `radial_expansion`, one term per structure**
-- control-rod-drive-line expansion — ~~new~~ **done: `driveline` (expansion x rod-worth map, as GeN-Foam; no thermal lag, as GeN-Foam)**
+- control-rod-drive-line expansion — ~~new~~ **done: `driveline` (expansion x rod-worth map, as GeN-Foam; no thermal lag, as GeN-Foam; an expansion outside the map is an error by default, GeN-Foam's zero on request, gh:#1326)**
 - sodium density and void worth — ~~new~~ **done: `coolant_density`**
 
 Without these the simulator will not reproduce the self-shutdown at all. It will
