@@ -70,12 +70,12 @@ entirely on `yerr`, and `yerr` is what a step controller acts on.
 | `poly::DividedDifference::eval` (`gsl_poly_dd_eval`) | 23 | 23 (100.0%) | 0 | `gsl_poly_code_to_code.rs` |
 | `poly::DividedDifference::to_taylor` (`gsl_poly_dd_taylor`; a different algorithm in PETIR, bit-identical on these inputs) | 56 | 56 (100.0%) | 0 | `gsl_poly_code_to_code.rs` |
 | `poly::eval_derivs` (`gsl_poly_eval_derivs`; `lenres` below, equal and above `lenc`) | 70 | 56 (80.0%) | 3 ulp, 5.8e-16 relative (round-off from GSL's scale-after-Horner order versus PETIR's scale-the-coefficients order) | `gsl_poly_code_to_code.rs` |
-| `multiroots::fdjacobian` (added 2026-11-10, gh:#1338; GSL `gsl_multiroot_fdjacobian` on `multiroots/test_funcs.c`: Rosenbrock, Roth, Powell badly scaled, Brown, Powell singular, Wood, Helical, 56 Jacobians at 4 scales x 2 `epsrel`, plus 2 `GSL_ESING` cases; `x`, `f`, `J` and status) | 623 | 623 (100.0%) | 0 | `gsl_multiroots_code_to_code.rs` |
+| `multiroots::fdjacobian` (added 2026-11-10, gh:#1338; GSL `gsl_multiroot_fdjacobian` on `multiroots/test_funcs.c`: Rosenbrock, Roth, Powell badly scaled, Brown, Powell singular, Wood, Helical, 56 Jacobians at 4 scales x 2 `epsrel`, plus 2 `GSL_ESING` cases; `x`, `f`, `J` and status) | 678 | 678 (100.0%) | 0 | `gsl_multiroots_code_to_code.rs` |
 | `multiroots`, a whole `dnewton` solve re-composed from petir's `fdjacobian` + LU vs GSL's `gsl_multiroot_fsolver_dnewton` (6 problems x 15 iterations; `x`, `f`, `dx`; the 12-line step is test-local) | 765 | 765 (100.0%) | 0 | `gsl_multiroots_code_to_code.rs` |
 | `multiroots` solvers `dnewton`, `hybrid(s)`, `hybridj(s)`, `newton`, `gnewton`, `broyden` | -- | not ported | -- | -- |
 | `ode::implicit::backward_euler_step` vs `rk1imp_apply`'s single step (file-static `y_onestep`; stiff linear, Van der Pol, Robertson; fixed steps, 3 tolerance sets; 3 GSL Newton failures reproduced at the same step) (added 2026-11-10, gh:#1338) | 514 | 514 (100.0%) | 0 | `gsl_ode_implicit_code_to_code.rs` |
 | `ode::implicit::bdf2_step` vs GSL `modnewton1` + `rksubs` with `A = 1/coefft` (no GSL BDF2; checks the Newton composition, not the coefficients; 4 failures matched) | 404 | 404 (100.0%) | 0 | `gsl_ode_implicit_code_to_code.rs` |
-| `ode::implicit::solve_*` whole stiff solves vs GSL trajectory | 160 | 80 (h = 0.5 grid exact: 80/80; h = 0.01: 16/80) | 1.4e-14 at h = 0.01 (grid rounding of `t_{k+1} - t_k`, not the algorithm) | `gsl_ode_implicit_code_to_code.rs` |
+| `ode::implicit::solve_*` whole stiff solves vs GSL trajectory | 160 | 96 (h = 0.5, exact grid: 80/80; h = 0.01: 16/80) | 1.4e-14 at h = 0.01 (grid rounding of `t_{k+1} - t_k`, not the algorithm) | `gsl_ode_implicit_code_to_code.rs` |
 | `ode::implicit`: step doubling, error estimate `yerr`, `rk2imp`/`rk4imp`/`bsimp`/`msbdf` | -- | not ported (by design for the first two; `implicit.rs` docs) | -- | -- |
 | complex poly eval, `gsl_poly_dd_hermite_init` | — | not ported | — | — |
 
