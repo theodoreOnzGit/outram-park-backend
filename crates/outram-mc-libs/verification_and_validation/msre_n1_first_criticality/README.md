@@ -19,7 +19,8 @@ simplification is cited in that module's doc and was posted on gh:#1128
 before any run. The headline simplifications:
 
 - the heads are volume-equivalent salt plenums (TM-0728 Table 5.4 volumes);
-- the ~5 ft³ of end-region salt is omitted;
+- the ~5 ft³ of end-region salt is omitted (tested 2026-11-10: ORNL's own
+  end layers, `--ends tm0730`, move k by +20 ± 45 pcm; see below);
 - there is no thermal shield;
 - cold dimensions;
 - the opening diameter is read from Fig. 5.7 by scale;
@@ -257,6 +258,64 @@ C, RVS, 30P, cold, seeds 1–3 (1.01618, 1.01705, 1.01512).
   not modelled and is not a candidate.
 - **The default is not changed.** Choosing an enrichment is the
   maintainer's call, and the most-cited text value (99.99 %) stays.
+
+### N-1 residual: ORNL's end regions (2026-11-10, gh:#1128)
+
+**Model:** `Ends::Tm0730` (`--ends tm0730`). It replaces the
+volume-equivalent salt plenums with the homogenised axial layers of
+ORNL-TM-0730 Table 3.1, ORNL's 20-region R-Z model. Each layer spans the
+vessel, and the thimbles pass through.
+
+Layers above the graphite:
+
+| layer | thickness | fuel / graphite / INOR-8 (vol %) |
+|---|---|---|
+| H | 0.94 in | 63.3 / 36.5 / 0.2 |
+| G | 0.69 in | 94.6 / 5.4 / 0 |
+| E | 1.25 in | 93.7 / 3.5 / 2.8 |
+
+Above E, salt (D) fills to 10.33 in above the graphite.
+
+Layers below the graphite:
+
+| layer | thickness | fuel / graphite / INOR-8 (vol %) |
+|---|---|---|
+| O (support grid) | 1.41 in | 66.9 / 15.3 / 17.8 |
+| P | 7.73 in | 90.8 / 0 / 9.2 |
+
+- **Not represented:** Table 3.1's sub-regions at r < 3 in.
+- **Anchoring:** the layers sit at this model's graphite faces. ORNL's
+  graphite top is at 64.59 in; this model's is at 64 in.
+- **Default unchanged:** the default build is pinned unchanged by
+  `tm0730_ends_build_beside_the_default`.
+- **Drawn from the assembled CSG:** `images/msre_n1_*_tm0730.png`.
+
+**Prediction** (posted on gh:#1128 before the run): **−50 to −500 pcm**.
+The reasoning was that INOR-8 at the core bottom, in high flux, would
+outweigh the extra salt.
+
+**Run:** arm C, RVS, 30P, cold, seeds 1–3: 1.008591, 1.008648 and
+1.009806 (each ± 0.00064–0.00066). About 750 s per seed (4-core Intel
+Xeon, 4 threads, 15.7 GiB RAM, Linux, CPU only). Seed 3 was killed by a
+container restart and rerun alone; its random stream does not depend on
+the other seeds.
+
+| ends | k | vs k_ref |
+|---|---|---|
+| volume-equivalent (default, 6 seeds) | 1.00882 ± 0.00022 | +801 pcm |
+| TM-0730 Table 3.1 (3 seeds) | 1.00902 ± 0.00040 | +821 pcm |
+| **shift** | **+20 ± 45 pcm** | not resolved |
+
+- **Outside the prediction, with the wrong sign.** The central value is
+  +20, and the whole band (−50 to −500) lies more than 1.5σ below it. The
+  INOR-8 at the core bottom does not dominate. The salt the end layers
+  add (about 14 ft³ below and 15.8 ft³ above, against 10.0 and 10.5 in the
+  default) offsets it to within the statistics.
+- **The end regions are not where the residual sits.** Their effect is at
+  most about ±100 pcm (2σ) against a +801 pcm residual.
+- ~~An interim post on gh:#1128 from seeds 1–2 gave −20 ± 50 pcm~~:
+  superseded by seed 3, the same comment thread.
+- **The default is not changed.**
 
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
