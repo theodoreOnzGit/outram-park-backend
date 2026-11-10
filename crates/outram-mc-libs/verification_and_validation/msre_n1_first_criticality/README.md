@@ -118,7 +118,8 @@ Consistent with zero and inside the prediction posted on gh:#1128
 withdrawn. **Quote +801 ± 22 pcm under the current default** (six seeds,
 seed-spread σ; sd 53 pcm, below the ≈63 pcm internal σ).
 
-**Resonance scattering in every other run on this page:** DBRC. Every other N-1, N-3 and
+**Resonance scattering in every other run on this page:** DBRC, except the
+N-3 RVS rows and the entropy study. Every other N-1, N-3 and
 convergence run here was made before the default changed to OpenMC's RVS
 method (gh:#1311, 2026-11-09). DBRC itself is worth −19 ± 51 pcm on this
 model (ablation below); ~~the RVS-vs-DBRC difference has not been measured on
@@ -138,6 +139,36 @@ about 70 pcm low. It contains:
   +80 ± 44 pcm at 1181 °F (three seeds a side, resonance-scattering ablation
   below), up to 239 ± 21 pcm at 1231 °F; graphite law, URR and DBRC are ruled
   out, and the maintainer chose not to pursue it further (gh:#1311).
+
+### N-1 residual: hot dimensions (2026-11-10, gh:#1128)
+
+**Method.** `--hot-dims` (`vv::msre_n1::Dims`): every graphite length scales
+by 1 + 1.5e-6 × (1181 − 70) and every INOR-8 length by 1 + 7.8e-6 × 1111
+(TM-0728 §5.3: graphite "1.3 to 1.7 × 10⁻⁶", INOR-8 "7.8 × 10⁻⁶ in./in.-°F
+(in the 70-1200°F range)"); head volumes scale with the INOR-8 cube, solid
+densities thin by the cube of their scale, salt density is already at
+temperature, the sample basket is unchanged. Drawn
+(`images/*_hot.png`, sent in-session before the run). Pinned: the cold
+build is byte-identical to the recorded geometry, and the can gap grows
+0.49 cm against TM-0728's "3/16 in." Arm C (natural Mo), RVS, seeds 1–3.
+Prediction posted on gh:#1128 before the run: k up by +50 to +300 pcm.
+
+| geometry | seeds | k | vs k_ref |
+|---|---|---|---|
+| cold (as drawn) | 6 | 1.00882 ± 0.00022 | +801 ± 22 pcm |
+| **hot (1181 °F)** | 3 (1.01103, 1.01062, 1.00954) | **1.01040 ± 0.00045** | **+959 ± 45 pcm** |
+
+- **Hot − cold = +158 ± 50 pcm (3.2σ)**, inside the prediction.
+- **The residual grows**, as the screen on gh:#1128 expected: the core
+  grows 0.17 % each way (less leakage) and the can gap, downcomer and
+  plenums gain salt.
+- **Not adopted as the default.** Hot dimensions are the more physical
+  state, but making them the default re-states every N-1 and N-3 number
+  on this page; that is the maintainer's call. The N-3 coefficients
+  ignore expansion over their ±50 °F swing. If the +158 pcm over 1111 °F
+  is linear, expansion adds about **+0.14 × 10⁻⁵ /°F** (14 pcm over the
+  100 °F swing): about 2 % of α_iso, positive, and inside N-3's ±0.5–0.7
+  σ. Not measured at N-3's temperatures.
 
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
@@ -164,6 +195,15 @@ Salt density follows −1.18e-4 /°F (ORNL-4233 §4.1). Runs at 1131 °F and
 - **Mo:** arm A only. Mo absorption is nearly flat in temperature, so the
   coefficient should be insensitive to it. That expectation was not
   measured.
+
+**Re-measured under RVS (2026-11-09, gh:#1311),** isothermal only, seeds
+1–3 (rows `mo-omitted+rvs` in `data/n3.csv`): A 1131 °F 1.01690 ± 0.00067
+(1.01821, 1.01598, 1.01650), B 1231 °F 1.00966 ± 0.00026 (1.00971,
+1.00919, 1.01008). **α_iso = −7.05 ± 0.70 × 10⁻⁵ /°F** (seed-spread σ;
+±0.75 with the internal σ as a floor), against −7.19 ± 0.50 with DBRC
+(difference +0.14 ± 0.86) and the measured −7.24 (0.3σ). Inside the
+prediction posted on gh:#1129 (−7.7 to −6.7). The fuel/graphite split was
+not re-run.
 
 ### A finding about the statistics
 
