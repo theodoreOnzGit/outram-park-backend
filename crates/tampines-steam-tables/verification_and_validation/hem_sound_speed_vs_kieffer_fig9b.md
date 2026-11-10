@@ -75,7 +75,7 @@ gives 188.06 m/s against the figure's 146.36 m/s; the eq. 28 route gives
   -0.0003.
 - **The same artefact at 100 bar** gives +0.0894 at `x = 1.2e-5`, inside the
   criterion.
-- **Status.** This is a defect of the route near `x = 0`, not of the figure,
+- **Status.** This is a defect of the route near `x = 0` (filed as gh:#1325), not of the figure,
   and the criterion stays at 0.1. The miss is pinned by
   `finite_diff_route_misses_fig9b_200_bar_only_at_lowest_quality`. That test
   passes only while every other 200-bar point passes and this one point still

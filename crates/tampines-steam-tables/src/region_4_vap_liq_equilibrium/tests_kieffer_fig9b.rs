@@ -296,7 +296,7 @@ fn hem_sound_speed_vs_kieffer_fig9b_200_bar() {
 /// and `x = 1.6e-4` gives `-0.0003`. At 100 bar the same artefact gives
 /// `+0.0894` at `x = 1.2e-5`, inside the criterion.
 ///
-/// This is a defect of `w_ps_eqm_region4_finite_diff_vol` near `x = 0`,
+/// This is a defect of `w_ps_eqm_region4_finite_diff_vol` near `x = 0` (gh #1325),
 /// not of the figure. The criterion is not widened. This test asserts that
 /// every other 200-bar point passes and that the one miss is still the
 /// recorded one, so a fix to the stencil makes this test fail and prompts
