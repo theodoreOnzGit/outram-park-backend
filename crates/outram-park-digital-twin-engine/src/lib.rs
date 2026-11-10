@@ -31,11 +31,16 @@
 //!   reusable across digital-twin GUI applications.
 //! - **Does NOT belong here:** any new physics -- if a visualization needs a
 //!   physical quantity `tampines`/`nee_soon` don't yet expose, add it there,
-//!   not here. The one maintainer-directed exception is [`htr10`] (bead
+//!   not here. ~~The one maintainer-directed exception is~~ The
+//!   maintainer-directed exceptions are [`htr10`] (bead
 //!   `op-jyyp`, 2026-08-11): the HTR-10 simulator rewrite's *cited* design
 //!   constants and packed-bed reference correlations, kept here with their
 //!   V&V unit tests so the example rewrite and its tests share one
-//!   provenance-checked source.
+//!   provenance-checked source; and, **added 2026-11-10** (gh:#1317,
+//!   gh:#1330), [`msre`]: cited MSRE data and a stepping model for web
+//!   simulations built from the `outram-park` metacrate; and, also
+//!   2026-11-10 (gh:#1331), [`ebr2`]: cited EBR-II SHRT-17 / SHRT-45R data
+//!   and a lumped stepping model, for the same purpose.
 //!
 //! ## Android / portability
 //!
@@ -112,6 +117,11 @@ pub mod htr10;
 // a lumped stepping model for web simulations, by maintainer direction
 // (gh:#1331). Not target-gated; builds for wasm32. NOT VALIDATED.
 pub mod ebr2;
+// `msre` is the MSRE in one place: cited plant data, a GUI-free stepping
+// model a web demo runs in a worker, and re-exports of the workspace's MSRE
+// V&V pieces (gh:#1330). A maintainer-directed exception to the "no new
+// physics" rule (gh:#1317), like `htr10`. NOT VALIDATED.
+pub mod msre;
 /// High-fidelity → low-fidelity model mapping (epic gh:#1177): closure
 /// extraction from CFD into 1-D models. Infrastructure; the physics is
 /// the models' own crates'.

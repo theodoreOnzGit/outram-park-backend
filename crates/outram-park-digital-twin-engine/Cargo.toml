@@ -39,6 +39,9 @@ petir = { workspace = true }
 # Android-portability claim and GUI deps are not confined to examples/.
 tampines.workspace = true
 nee_soon.workspace = true
+# teh-o-prke: see the single entry below (shared by `msre::model`, gh:#1330,
+# which steps `zero_power_prke::circulating::CirculatingPointKinetics`, and
+# `ebr2::model`, gh:#1331).
 
 # REAL (non-dev) dependencies on the Monte Carlo stack, by maintainer direction
 # (2026-09-29: "digital twin engine can use outram-mc-libs/nee-soon as a
@@ -212,6 +215,9 @@ egui_extras.workspace = true
 # `tests/ci_smoke/edwards.rs` (GitHub #415) names `SlipModel`. The crate is
 # already compiled beneath `tampines`, so this adds no build work.
 outram-foam-multiphase.workspace = true
+# teh-o-prke is a REAL dependency above since 2026-11-10: `ebr2::model`
+# (gh:#1331) and `msre::model` (gh:#1330) both step kinetics from the
+# library; it stays usable from the examples either way.
 # tampines-steam-tables is now a REAL dependency above (TurbineVisual renders
 # its generator model from the library, and libraries cannot see dev-deps); it
 # stays usable from examples/tests either way.
