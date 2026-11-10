@@ -11,6 +11,10 @@
 //! axis-aligned `rect_filled` squares of a regular grid through a private
 //! ramp; that does not take polygons of an unstructured section, so it is
 //! not reused, and it could move onto this module later.
+//!
+//! For the fixed/autoscale toggle and the tap probe that gh:#892 asks for:
+//! [`ScaleMode`] (with [`scale_mode_checkbox`] for the panel) and [`pick`].
+
 use egui::{Color32, Pos2, Rect, Stroke};
 
 use crate::colour_maps::color32::crameri;
@@ -113,6 +117,62 @@ pub fn contains(poly: &[Pos2], p: Pos2) -> bool {
     inside
 }
 
+/// The index of the first polygon under `p`, for a tap probe (gh:#892).
+/// Built on [`contains`]; `None` when `p` is over no cell.
+pub fn pick(polygons: &[Vec<Pos2>], p: Pos2) -> Option<usize> {
+    polygons.iter().position(|poly| poly.len() >= 3 && contains(poly, p))
+}
+
+/// Whether the colour range follows the field or is held fixed (gh:#892).
+///
+/// A fixed range keeps colours comparable between frames of a transient. An
+/// automatic range shows the most contrast in each frame.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ScaleMode {
+    /// Rescale to each field's own range ([`Scale::from_values`]).
+    Auto,
+    /// Hold `min..max`, whatever the field does.
+    Fixed {
+        /// Value painted with the bottom of the map, in the field's units.
+        min: f64,
+        /// Value painted with the top of the map, in the field's units.
+        max: f64,
+    },
+}
+
+impl ScaleMode {
+    /// The [`Scale`] for `values` under this mode. A fixed range with
+    /// `min >= max`, or with a bound that is not finite, falls back to the
+    /// automatic one, so a bad lock never paints a blank field.
+    pub fn scale(&self, values: &[f64], map: ColourMap) -> Scale {
+        match *self {
+            ScaleMode::Fixed { min, max } if min < max && min.is_finite() && max.is_finite() => {
+                Scale { min, max, map }
+            }
+            _ => Scale::from_values(values, map),
+        }
+    }
+
+    /// Switch modes. Locking holds the range `current` was drawn with, so the
+    /// colours do not jump at the moment of locking. Unlocking returns to
+    /// [`ScaleMode::Auto`].
+    pub fn toggled(&self, current: &Scale) -> Self {
+        match self {
+            ScaleMode::Auto => ScaleMode::Fixed { min: current.min, max: current.max },
+            ScaleMode::Fixed { .. } => ScaleMode::Auto,
+        }
+    }
+}
+
+/// A "Lock colour scale" checkbox for the side panel. Drawing code: the state
+/// change it makes is the tested [`ScaleMode::toggled`].
+pub fn scale_mode_checkbox(ui: &mut egui::Ui, mode: &mut ScaleMode, current: &Scale) {
+    let mut locked = matches!(mode, ScaleMode::Fixed { .. });
+    if ui.checkbox(&mut locked, "Lock colour scale").changed() {
+        *mode = mode.toggled(current);
+    }
+}
+
 /// A horizontal colour bar in `rect` with the range and `label` under it.
 /// Drawing code (its colours come from the tested [`Scale::colour`]).
 pub fn colour_bar(painter: &egui::Painter, rect: Rect, scale: &Scale, label: &str, text_px: f32) {
@@ -175,5 +235,29 @@ mod tests {
         assert_eq!(m.vertices[4].color, crameri::batlow(1.0));
         assert!(contains(&sq, Pos2::new(0.5, 0.5)));
         assert!(!contains(&sq, Pos2::new(1.5, 0.5)));
+    }
+    #[test]
+    fn fixed_or_auto_scale_and_tap_pick() {
+        let vals = [2.0, 6.0];
+        let auto = ScaleMode::Auto.scale(&vals, ColourMap::Batlow);
+        assert_eq!((auto.min, auto.max), (2.0, 6.0));
+        // Locking holds the range that was on screen, whatever comes next.
+        let locked = ScaleMode::Auto.toggled(&auto);
+        assert_eq!(locked, ScaleMode::Fixed { min: 2.0, max: 6.0 });
+        let later = locked.scale(&[100.0, 200.0], ColourMap::Batlow);
+        assert_eq!((later.min, later.max), (2.0, 6.0));
+        assert_eq!(locked.toggled(&later), ScaleMode::Auto);
+        // A degenerate lock falls back to the field's own range.
+        let bad = ScaleMode::Fixed { min: 1.0, max: 1.0 }.scale(&vals, ColourMap::Batlow);
+        assert_eq!((bad.min, bad.max), (2.0, 6.0));
+        let nan = ScaleMode::Fixed { min: f64::NAN, max: 1.0 }.scale(&vals, ColourMap::Batlow);
+        assert_eq!((nan.min, nan.max), (2.0, 6.0));
+
+        let sq = vec![Pos2::new(0.0, 0.0), Pos2::new(1.0, 0.0), Pos2::new(1.0, 1.0), Pos2::new(0.0, 1.0)];
+        let tri = vec![Pos2::new(2.0, 0.0), Pos2::new(3.0, 0.0), Pos2::new(2.0, 1.0)];
+        let polys = [vec![Pos2::ZERO], sq, tri];
+        assert_eq!(pick(&polys, Pos2::new(0.5, 0.5)), Some(1));
+        assert_eq!(pick(&polys, Pos2::new(2.2, 0.2)), Some(2));
+        assert_eq!(pick(&polys, Pos2::new(5.0, 5.0)), None);
     }
 }
