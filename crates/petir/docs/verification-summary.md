@@ -64,6 +64,13 @@ entirely on `yerr`, and `yerr` is what a step controller acts on.
 | `cheb::eval_mode`, reduced order | 369 | 357 (96.7%) | — | `gsl_cheb_mode_code_to_code.rs` |
 | `cheb::eval_mode`, default order | 615 | 461 (75.0%) | 1.06e-15 results | `gsl_cheb_mode_code_to_code.rs` |
 | `cheb` pipeline (`init`/`eval`/`deriv`/`integ`) | 6114 | 4707 (77.0%) | — | `gsl_code_to_code.rs` |
+| `linalg::solve_symm_tridiag` (added 2026-11-10, gh:#1338; GSL `gsl_linalg_solve_symm_tridiag`, n = 3, 5, 10, 50, 200, a near-singular n = 10 and a zero pivot; nonsymmetric and cyclic GSL routines are not ported) | 278 | 278 (100.0%) | 0; zero-pivot case agrees on the error | `gsl_tridiag_code_to_code.rs` |
+| `poly::eval` (`gsl_poly_eval`; degrees 0, 4, 19) | 18 | 18 (100.0%) | 0 | `gsl_poly_code_to_code.rs` |
+| `poly::DividedDifference::new` (`gsl_poly_dd_init`; 2 to 11 nodes, one shuffled) | 30 | 30 (100.0%) | 0 | `gsl_poly_code_to_code.rs` |
+| `poly::DividedDifference::eval` (`gsl_poly_dd_eval`) | 23 | 23 (100.0%) | 0 | `gsl_poly_code_to_code.rs` |
+| `poly::DividedDifference::to_taylor` (`gsl_poly_dd_taylor`; a different algorithm in PETIR, bit-identical on these inputs) | 56 | 56 (100.0%) | 0 | `gsl_poly_code_to_code.rs` |
+| `poly::eval_derivs` (`gsl_poly_eval_derivs`; `lenres` below, equal and above `lenc`) | 70 | 56 (80.0%) | 3 ulp, 5.8e-16 relative (round-off from GSL's scale-after-Horner order versus PETIR's scale-the-coefficients order) | `gsl_poly_code_to_code.rs` |
+| complex poly eval, `gsl_poly_dd_hermite_init` | — | not ported | — | — |
 
 ### Not GSL: `ssprk` against PyClaw (added 2026-10-16)
 
