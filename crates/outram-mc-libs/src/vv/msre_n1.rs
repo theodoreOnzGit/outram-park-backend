@@ -42,7 +42,8 @@
 //!   plenum of the vessel's inner radius holding Table 5.4's volume (upper
 //!   10.5 ft³, lower 10.0 ft³), closed by a 1 in INOR-8 plate (Table 5.2's
 //!   head thickness).
-//!   - Vacuum lies outside the vessel; the thermal shield is not modelled.
+//!   - Vacuum lies outside the vessel; the thermal shield is not modelled by
+//!     default ([`Shield::Tm0728Cylinder`] adds its cylinder, an ablation).
 //!   - Also not modelled: the ~5 ft³ of salt in the graphite's end regions
 //!     (Table 5.4's 25 ft³ "between the extreme top and bottom of graphite"
 //!     against 20 ft³ in the lattice), and the distributor and volute.

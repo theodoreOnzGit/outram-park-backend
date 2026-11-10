@@ -21,7 +21,8 @@ before any run. The headline simplifications:
 - the heads are volume-equivalent salt plenums (TM-0728 Table 5.4 volumes);
 - the ~5 ft³ of end-region salt is omitted (tested 2026-11-10: ORNL's own
   end layers, `--ends tm0730`, move k by +20 ± 45 pcm; see below);
-- there is no thermal shield;
+- there is no thermal shield (tested 2026-11-10: its cylinder, `--shield
+  tm0728`, moves k by +779 ± 43 pcm; see below);
 - cold dimensions;
 - the opening diameter is read from Fig. 5.7 by scale;
 - the sample baskets are homogenised.
@@ -316,6 +317,61 @@ the other seeds.
 - ~~An interim post on gh:#1128 from seeds 1–2 gave −20 ± 50 pcm~~:
   superseded by seed 3, the same comment thread.
 - **The default is not changed.**
+
+### N-1 residual: the thermal shield (2026-11-10, gh:#1128)
+
+**Source:** ORNL-TM-0728 §5.3.10.1 (report p. 128). ~~I had recorded the
+shield's dimensions as unsourced~~: they are in the report.
+
+**What TM-0728 gives:**
+- **Cylinder:** 151 in high, 125 in OD, 93 in ID. It is 1 in Type 304 plate
+  around a 14 in annulus of 1 in carbon-steel balls in cooling water.
+- **Overall:** 16 in thick, "50% of which is Fe and 50% is H2O" (p. 68 and
+  §5.3.10.4).
+- **Also present:** a 16 in top cover with a 22⅝ in hole, an 18 in base
+  tank, and a 6 in insulation lining. Between the lining and the vessel is
+  the 11 in furnace annulus.
+
+**Model:** `Shield::Tm0728Cylinder` (`--shield tm0728`).
+- The cylinder only: two 304 plates at nominal composition, and the ball
+  annulus at 6/14 iron so the 16 in is half iron, in water.
+- The shield is at 293.6 K, with H in H₂O S(α,β) from `tsl-HinH2O`.
+- **Not modelled:** the base, the cover and the plugs. The insulation and the
+  furnace annulus are void.
+- **Assumed:** the cylinder is centred on the vessel, because its elevation is
+  not given.
+- Drawn in `images/msre_n1_shield_*.png`. The vessel inside is pinned as the
+  default build cell for cell by `tm0728_shield_wraps_the_default_vessel`.
+
+**Prediction** (posted on gh:#1128 before the run): **+100 to +600 pcm**.
+
+**Run:** arm C, RVS, 30P, cold, seeds 1–3: 1.01683, 1.01613, 1.01689 (each
+± 0.00063). About 750 s per seed (4-core Intel Xeon, 4 threads, 15.7 GiB RAM,
+Linux, CPU only).
+
+| model | k | vs k_ref |
+|---|---|---|
+| vacuum outside the vessel (default, 6 seeds) | 1.00882 ± 0.00022 | +801 pcm |
+| thermal-shield cylinder (3 seeds) | 1.01661 ± 0.00037 | +1581 pcm |
+| **shift** | **+779 ± 43 pcm (18σ)** | |
+
+- **Outside the prediction, above it.** The per-seed shifts (+735, +761,
+  +740 pcm) agree with each other.
+- **This is the largest geometric lever on N-1 found so far, and it moves
+  the residual away from zero.** With the shield, the model sits about
+  +1580 pcm above the measurement.
+- **ORNL's own design model did not have it either.** TM-0730 Table 3.1's
+  twenty-region R-Z model ends at the vessel side (region B, r = 29.56 in).
+  So the vacuum boundary is not a simplification peculiar to this model.
+- **What the number rests on, untested:**
+  - the water and steel fractions (TM-0728's 50/50, against about 2/3 steel
+    implied by its 70 tons of balls);
+  - the insulation, modelled as void;
+  - the cylinder's elevation;
+  - the missing base and cover, which would add to the worth, not subtract.
+- **The default is not changed.** Whether the comparison should carry the
+  shield is the maintainer's call. A real reactor had it, so the model
+  without it is missing a positive term of this size.
 
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
