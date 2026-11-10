@@ -7,7 +7,9 @@
 //! | Path | What | Origin |
 //! |---|---|---|
 //! | [`design`] | Cited plant constants (TM-0728 design point, TM-1070 kinetics and lumps, TM-1626 measured circulation loss) | here, re-exporting `nee_soon`'s where they exist |
-//! | [`model::MsreModel`] | A stepping simulator: circulating-fuel kinetics with fuel and graphite feedback, heat exchanger, coolant loop, radiator, piping lags | here; composes `teh_o_prke` and TM-1070's equations |
+//! | [`model::MsreModel`] | A stepping simulator: circulating-fuel kinetics with fuel and graphite feedback, heat exchanger, coolant loop, radiator, piping lags, and (since gh:#1332) fuel- and coolant-pump trips and start-ups | here; TM-1070's equations, ~~composes `teh_o_prke`~~ kinetics from [`circulation`] (equal to `teh_o_prke`'s at full flow) |
+//! | [`circulation`] | Circulating-fuel kinetics at variable flow: TM-1070's well-stirred core (default) or TM-1626's importance-weighted line model (gh:#1330, gh:#1332) | here |
+//! | [`pumps`] | Pump flow schedules: ORNL-4233 Fig. 23's measured coast-downs, TM-0728's start-up, caller tables, `tampines`' inertial coast-down | here |
 //! | [`frequency_response`] | The linear frequency-domain model and TM-1647's measured natural periods (MSRE T-1, gh:#1132) | `nee_soon::msre_frequency_response` |
 //! | [`first_criticality`] | The full-core Monte Carlo geometry and materials of first criticality (MSRE N-1, gh:#1128) | `outram_mc_libs::vv::msre_n1` |
 //! | [`salts`] | The fuel and coolant salts as TUAS liquids (MSRE TH-6, gh:#1133) | `tuas_boussinesq_solver` |
@@ -45,8 +47,10 @@
 //!
 //! GUI-free and not target-gated: it builds for `wasm32-unknown-unknown`.
 
+pub mod circulation;
 pub mod design;
 pub mod model;
+pub mod pumps;
 
 /// MSRE T-1's linear frequency-domain model and TM-1647's measured natural
 /// periods: `nee_soon::msre_frequency_response`, re-exported.
