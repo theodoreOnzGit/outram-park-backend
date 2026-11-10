@@ -108,6 +108,10 @@ pub mod opcua_core;
 // on Android with no target gate. NOT VALIDATED -- its tests reproduce
 // published numbers; they do not validate a simulator.
 pub mod htr10;
+// `ebr2` is GUI-free cited EBR-II benchmark data (SHRT-17 / SHRT-45R) plus
+// a lumped stepping model for web simulations, by maintainer direction
+// (gh:#1331). Not target-gated; builds for wasm32. NOT VALIDATED.
+pub mod ebr2;
 /// High-fidelity → low-fidelity model mapping (epic gh:#1177): closure
 /// extraction from CFD into 1-D models. Infrastructure; the physics is
 /// the models' own crates'.

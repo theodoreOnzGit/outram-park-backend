@@ -79,7 +79,11 @@ round-trip.
 
 ### SCAFFOLD — do not count as working
 
-- **Sodium is unreachable from the thermal-hydraulics stack.** `LiquidMaterial`
+- ~~**Sodium is unreachable from the thermal-hydraulics stack.**~~ **CORRECTED
+  2026-11-10 (checked in code, gh:#1331):** TUAS now has
+  `liquid_database::liquid_sodium_coolprop::liquid_sodium()` (CoolProp `LiqNa`,
+  400-1000 K, gh:#1320), used by `outram_park_digital_twin_engine::ebr2::model`.
+  The original finding follows. `LiquidMaterial`
   (`crates/tuas_boussinesq_solver/.../boussinesq_thermophysical_properties/mod.rs:126`)
   has no sodium arm, and `TampinesFluid`
   (`crates/tampines/src/fluids/mod.rs:23`) wraps only the equation-of-state
@@ -146,8 +150,12 @@ circulation closure once the primary pumps coast down.
 
 #### 3. Sodium properties and low-Prandtl heat transfer reaching TUAS — Small–Medium, but gates everything
 
-Ordinary Dittus-Boelter is invalid for liquid metals and no low-Prandtl
-correlation exists in the workspace. Path:
+Ordinary Dittus-Boelter is invalid for liquid metals ~~and no low-Prandtl
+correlation exists in the workspace~~. **CORRECTED 2026-11-10 (checked in code,
+gh:#1331):** TUAS has named liquid-metal correlations (Lyon-Martinelli,
+Seban-Shimazaki, Kazimi-Carelli, Schad-modified, Mikityuk) in
+`heat_transfer_correlations::nusselt_number_correlations::liquid_metal`
+(gh:#1321). Path, as originally written:
 
 1. Add a first-class sodium arm to `LiquidMaterial` delegating to the CoolProp
    incompressible, or use the `CustomLiquid` escape hatch for a same-day
@@ -218,6 +226,19 @@ and U-Pu-Zr correlations, and is the source for gap 4.
 criticality safety benchmark handbook. Medium-low confidence. If present, treat
 any such entry as a **criticality** benchmark only — useful for validating cross
 sections, useless for transient thermal-hydraulics.
+
+**Added 2026-11-10 (gh:#1331):** a lumped, uncalibrated SHRT-17 / SHRT-45R
+model is now in the engine library as `outram_park_digital_twin_engine::ebr2`.
+It has:
+
+- cited data;
+- Argonne's kinetics and feedback coefficients;
+- a four-node fuel / core / IHX / pool model;
+- the NATDEMO pump curve.
+
+It is NOT VALIDATED: see
+`crates/outram-park-digital-twin-engine/docs/ebr2_library.md`. It does not
+close gap 2 (a stratified pool control volume in TUAS) or gap 4.
 
 ## 5. Recommended scope for a first twin
 
