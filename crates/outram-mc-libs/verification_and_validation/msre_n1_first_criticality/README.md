@@ -195,10 +195,16 @@ internal σ/√3.)
   - Crystalline, re-predicted after the 10P result: −100 to −400 pcm
     against 30P, and below 10P. The first part is met only at the edge;
     "below 10P" is **not** supported (crystalline − 10P = +11 ± 65).
+- **Six seeds per law (2026-11-10),** seeds 4–6 added to 10P and
+  crystalline: 10P 1.00811 ± 0.00023 (+730 pcm), crystalline
+  1.00812 ± 0.00028 (+731 pcm). **10P − 30P = −71 ± 32 pcm (2.2σ),
+  crystalline − 30P = −70 ± 35 (2.0σ), crystalline − 10P = +1 ± 36.**
+  ~~The three-seed −112 ± 43 and −101 ± 58~~ are superseded: the shift is
+  smaller, about −70 pcm, and still resolved at 2σ.
 - **Reading:** 30P is the outlier. The two less porous laws agree with
-  each other and sit about 105 pcm below it. A CGB law (17.7 %) would sit
+  each other and sit ~~about 105~~ **about 70** pcm below it. A CGB law (17.7 %) would sit
   between 10P and 30P; interpolating linearly in porosity, an assumption,
-  gives roughly −70 pcm from the default. This is the **first lever found
+  gives roughly ~~−70~~ **−45 pcm** from the default (six-seed values). This is the **first lever found
   that moves the residual toward zero**, and it covers only a small part
   of the +801 pcm.
 - **The default is not changed:** no tabulated law is CGB's, and choosing
