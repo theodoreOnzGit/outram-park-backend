@@ -61,3 +61,48 @@ fn deck14_table_blocks() {
     println!("DLW theirs {:?}", &theirs.xss[d0 + 215..d0 + 245]);
     assert_eq!(worst, vec![0, 0, 0, 0, 0], "ESZ columns 1-4 and MTR..DLW must match NJOY2016 word for word");
 }
+
+/// `unionx`'s union grid (`acefc.f90:1550-1727`, with its stale-record and
+/// repeated-energy quirks) and `acelod`'s read-back of it, for the seven
+/// incident-charged-particle test decks, against the ESZ energy column of
+/// NJOY2016's own ACE at the 12 figures the file prints
+/// (`verification_and_validation/acer_charged/esz_energies.txt`, taken from
+/// `tape31` of each deck run on 2026-11-11: decks 50 (alpha + He-4), 51 (p +
+/// H-2), 52 (p + H-1), 53 (d + H-2), 54 (p + H-3), 62 (d + He-3), 71 (d +
+/// Pt-184)). The table is built as the decks do, with binary ENDF and PENDF
+/// units (`build_charged(.., false, false)`). Pass criterion: same length,
+/// every energy equal within 1e-11 relative. Deck 14 has its own test above.
+#[test]
+fn union_grid_matches_esz_of_every_charged_deck() {
+    let r = root();
+    let text = include_str!("../verification_and_validation/acer_charged/esz_energies.txt");
+    let parse = |t: &str| -> f64 {
+        t.parse().unwrap_or_else(|_| {
+            // Fortran prints a three-digit exponent without its `E`.
+            let i = t.rfind(['+', '-']).unwrap();
+            format!("{}e{}", &t[..i], &t[i..]).parse().unwrap()
+        })
+    };
+    let mut lines = text.lines();
+    let (mut decks, mut energies) = (0, 0);
+    while let Some(h) = lines.next() {
+        let f: Vec<&str> = h.split_whitespace().collect();
+        let refe: Vec<f64> = lines.next().unwrap().split_whitespace().map(parse).collect();
+        let Ok(tape) = Tape::read_file(&r.join("tests/resources").join(f[1])) else {
+            eprintln!("skip {}: upstream not present", f[0]);
+            continue;
+        };
+        let mat: i32 = f[2].parse().unwrap();
+        let table = charged::build_charged(&tape, mat, 0.0, 0, false, false).unwrap();
+        let ours: Vec<f64> = table.xss[..table.nxs[2] as usize].to_vec();
+        let nes: usize = f[3].parse().unwrap();
+        assert_eq!(refe.len(), nes);
+        assert_eq!(ours.len(), nes, "{}: union grid length", f[0]);
+        let bad = ours.iter().zip(&refe).filter(|(a, b)| ((*a - *b) / *b).abs() > 1e-11).count();
+        println!("{}: {} energies, {} differing", f[0], nes, bad);
+        assert_eq!(bad, 0, "{}", f[0]);
+        decks += 1;
+        energies += nes;
+    }
+    println!("{decks} decks, {energies} energies identical");
+}

@@ -39,10 +39,17 @@
 //! ~~That covers every entry in ENDF/B-VIII.0 U-235 and U-238~~ (extended
 //! 2026-10-14, GitHub #872): with the branches above, H-1, F-19, Al-27,
 //! Si-28/29/30 and Mn-55 are NJOY2016's tables in every word. **Not ported:**
-//! - MF=6 `LAW = 5/6` (~~`/7`~~: **LAW = 7 is read since 2026-11-09**,
-//!   gh:#1309, as `topfil`'s LAW = 1 rewrite, `acelf6::law7_rewrite`);
-//! - the elastic recoil (MT=2);
-//! - incident charged particles.
+//! - MF=6 `LAW = 5` (~~`/6`~~ **CORRECTED 2026-11-11: LAW = 6 is ported**,
+//!   gh:#1485, in `acelcp_ext::law6_grid`/`law6_h`; ~~`/7`~~: **LAW = 7 is
+//!   read since 2026-11-09**, gh:#1309, as `topfil`'s LAW = 1 rewrite,
+//!   `acelf6::law7_rewrite`);
+//! - ~~the elastic recoil (MT=2)~~ **CORRECTED 2026-11-11: ported** (gh:#1485,
+//!   `acelcp_ext::elastic_recoil_angular`; ESZ's elastic column, no DLWH entry);
+//! - ~~incident charged particles~~ **CORRECTED 2026-11-11: `izai` branches
+//!   ported** (gh:#1485): test decks 14, 50-54, 62 and 71 give NJOY2016's ACE
+//!   in every word (`tests/deck_driver_tapes_vs_njoy2016.rs`). Still refused:
+//!   a LAW = 5 product other than the projectile's own, and a LAW = 4 recoil
+//!   heating of an incident charged particle (`recoil_heating_supported`).
 //!
 //! [`append`] returns without writing anything, rather than a partial block,
 //! when a production item needs one of these.

@@ -253,3 +253,58 @@ pub(super) fn law6_h(e: f64, awi: f64, awr: f64, awp: f64, apsx: f64, q: f64, xs
     }
     h
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `law6_h` against NJOY2016's own value of `h` at each of the 119
+    /// incident energies of test 51's MT=28 neutron (LAW = 6, `npsx = 3`).
+    ///
+    /// **Methodology.** `verification_and_validation/acer_charged/
+    /// law6_h_instrument.diff` adds one `write` after `h=h/chek`
+    /// (`acefc.f90:10736`); NJOY2016.80 built from that source (gfortran 13.3,
+    /// `-O0`) was run on deck 51 and printed `ie, e, q, awr, awi, awp, apsx,
+    /// npsx, h` at 17 figures (`law6_h_reference.txt`). The grid the heating
+    /// reads is [`law6_grid`], whose words the deck-51 ACE comparison already
+    /// holds identical.
+    ///
+    /// **Pass criterion.** Bit-identical `h`; a difference is reported with its
+    /// relative size. The heating itself never reaches the ACE file for this
+    /// reaction (`ip = 1` zeroes the neutron production heating,
+    /// `acefc.f90:10918`), which is why it needs this gate and not the deck's.
+    #[test]
+    fn law6_heating_matches_njoy2016() {
+        const REF: &str = include_str!("../../verification_and_validation/acer_charged/law6_h_reference.txt");
+        let (mut n, mut same, mut worst) = (0, 0, 0.0f64);
+        for l in REF.lines() {
+            let f: Vec<f64> = l.split_whitespace().map(|v| v.parse().unwrap()).collect();
+            let (e, q, awr, awi, awp, apsx, npsx, h) = (f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8]);
+            let (xs, ps, _) = law6_grid(npsx as i32);
+            let ours = law6_h(e, awi, awr, awp, apsx, q, &xs, &ps);
+            n += 1;
+            if ours.to_bits() == h.to_bits() {
+                same += 1;
+            } else {
+                worst = worst.max(((ours - h) / h).abs());
+            }
+        }
+        println!("law6_h: {same}/{n} bit-identical, worst relative difference {worst:e}");
+        assert_eq!(n, 119);
+        assert_eq!(same, n, "worst relative difference {worst:e}");
+    }
+
+    /// `law6_grid`: 3 * nn points, strictly increasing abscissae from 0 to 1,
+    /// the cdf ending at 1 (to the 9 figures it is stored in) and the pdf non-negative (the shape
+    /// `sqrt(x)(1-x)^(3 npsx/2-4)`); its words are gated by test 51's ACE.
+    #[test]
+    fn law6_grid_is_a_normalised_phase_space_distribution() {
+        let (xs, ps, cs) = law6_grid(3);
+        assert_eq!(xs.len(), ps.len());
+        assert_eq!(xs[0], 0.0);
+        assert_eq!(*xs.last().unwrap(), 1.0);
+        assert!(xs.windows(2).all(|w| w[1] > w[0]));
+        assert!(ps.iter().all(|&p| p >= 0.0));
+        assert!((cs.last().unwrap() - 1.0).abs() < 1.0e-8, "cdf ends at {}", cs.last().unwrap());
+    }
+}
