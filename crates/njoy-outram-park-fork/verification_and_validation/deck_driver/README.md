@@ -171,3 +171,29 @@ graphite `matde = 1065`, `icoh = 1`: `gateff`, ENDF-5 MF=7 reader, `coh` with
 `lat = 1` internal form factors written to the tape, `tpend` MF=3 for `mtref+1`);
 `iform = 1`; several temperatures; `iinc = 2`/`icoh` from ENDF-6 tapes
 (`rdelas`, `iel`) as tape writers (the physics exists in `thermr::on_pendf`).
+
+## 6. THERMR tape driver, ENDF-5 graphite (2026-11-11, gh:#1369)
+
+Test 01's second THERMR (`26 -24 -23 / 1065 1306 8 1 2 1 0 1 229 2`, ENDF/B-V
+`t322` as unit 26): `iinc = 2`, `icoh = 1` (graphite), MT 229 and 230.
+
+**Translated** (`thermr.f90`, NJOY2016.80): `gateff`/`gatef2`
+(`thermr/effective_temperature.rs`, tables read from the Fortran source by a
+script), `sigcoh` for `lat = 1..3` with `form` (`Sigcoh::builtin` in
+`thermr/mf3_grid.rs`), `coh` generalised to any `Sigcoh` and to return the
+coherent column (`coh_with`), `tpend` MF=3 for `mtref+1`, MF=6 `mtref+1`
+(`LIP = -nbragg`, `LAW = 0`, `ncdse = 3` in the dictionary). The MF=7 reader
+needed no change: ENDF-4/5 uses the same LIST/TAB2/TAB1 layout as ENDF-6 and
+only lacks the trailing `T_eff` TAB1, which the driver replaces by `gateff`'s
+value (`thermr.f90:145-157`).
+
+**Prediction (written before the run):** bit-identical text, because the
+inelastic kernel (`compute_iform0`) is already gated word for word against
+NJOY and the new code is arithmetic translated in Fortran operation order; the
+only risk was PETIR libm vs glibc on `sin`/`cos`/`exp` in the lattice sums
+(accepted as last-ulp by gh:#1455).
+
+**Result:** unit 31 (MODER of the binary output): **0 differing lines of
+32 962** (194 in MF=3/MT=229). Test
+`deck_driver_tapes_vs_njoy2016::test_01_second_thermr_graphite_tape_is_identical_line_for_line`;
+all 9 tests of that file pass.
