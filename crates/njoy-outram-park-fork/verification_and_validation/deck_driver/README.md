@@ -166,11 +166,8 @@ vs glibc, so a last-digit difference in a 7-figure rounded value was possible).
 test 01 up to its first THERMR (carbon free gas, `mtref = 221`, `0 -22 -24`) then
 MODER to text: **0 differing lines of 13 056** (9 642 in MF=6), MF=1 dictionary,
 MF=3/MT=221 and MF=6/MT=221 included.
-**Not ported (`NotPorted`):** `iinc = 2` from ENDF-4/5 tapes (test 01's second THERMR:
-graphite `matde = 1065`, `icoh = 1`: `gateff`, ENDF-5 MF=7 reader, `coh` with
-`lat = 1` internal form factors written to the tape, `tpend` MF=3 for `mtref+1`);
-`iform = 1`; several temperatures; `iinc = 2`/`icoh` from ENDF-6 tapes
-(`rdelas`, `iel`) as tape writers (the physics exists in `thermr::on_pendf`).
+~~**Not ported (`NotPorted`):** `iinc = 2` from ENDF-4/5 tapes, `iform = 1`, several temperatures, `iinc = 2`/`icoh` from ENDF-6 tapes (`rdelas`, `iel`).~~
+**CORRECTED 2026-11-12 (gh:#1369):** all of these are ported now (sections 6 and 7); what is still refused is listed in the module doc of `src/deck/thermr.rs`.
 
 ## 6. THERMR tape driver, ENDF-5 graphite (2026-11-11, gh:#1369)
 
@@ -197,3 +194,43 @@ only risk was PETIR libm vs glibc on `sin`/`cos`/`exp` in the lattice sums
 32 962** (194 in MF=3/MT=229). Test
 `deck_driver_tapes_vs_njoy2016::test_01_second_thermr_graphite_tape_is_identical_line_for_line`;
 all 9 tests of that file pass.
+
+## 7. THERMR tape driver: several temperatures, ENDF-6 elastic, `iform = 1` (2026-11-12, gh:#1369)
+
+Decks 11, 25, 32, 49, 67, 68, 69, 70 and 74 were blocked in THERMR. What each
+deck needs, from reading its cards and the MF=7/MT=2 `LTHR` of its tape:
+
+| blocker | decks |
+|---|---|
+| several temperatures (`ntemp = 3`; one `tpend` per block of the multi-temperature PENDF) | 11 (free gas, ENDF-IV), 25 (H in H2O) |
+| ENDF-6 `nendf`: `T_eff` TAB1 (read by the MF=7 parser, `ii.teff_request_k`) | 25, 32, 49, 67-70, 74 |
+| `LTHR = 2`: `rdelas` + `iel` (incoherent elastic MF=3 and MF=6 `LIP = -2`) | 32, 49, 69 (ZrH), 74 (H in ZrH) |
+| `LTHR = 1`: `rdelas` + `coh` lat = 10 | 70 (Al) |
+| `LTHR = 3`: `coh` at `mtref+1` and `iel` at `mtref+2`, `ncdse` of the last call in both dictionary entries | 67 (D in 7LiD) |
+| no MT=2 on the tape: the card `icoh = 1` stands, `coh` runs the built-in graphite lattice | 25 (a deck quirk upstream reproduces; so do we) |
+| `iform = 1` (`LAW = 7` MF=6, `ncds`'s `j*(nep+1)` arithmetic) | 32 (second THERMR) |
+| `icoh` of the card replaced by `10*LTHR` (deck 69 card says 1) | 69 |
+
+**Translated:** `thermr` main flow's temperature loop (`:253-330`), `rdelas`'s
+`LTHR` (`:337-348`; the `S(E)` temperature rule already existed as
+`CoherentElastic::s_of_e_rdelas`), `iel`'s MF=6 (`:1334-1424`, `iel_mf6`),
+`tpend`'s `ltt = 4/6` branches (`law7_mf6`), the dictionary's `ncdse`. Reused:
+`compute_iform0/1`, `Sigcoh`, `coh_with`, `IncoherentElastic::iel_*`,
+`thermr_terp`. Function-level tests (`src/deck/thermr.rs`): `plan_elastic`,
+`law7_ncds_increment`, `iel_mf6`; the per-routine differential tests are the
+per-section differences each deck test reports by `MAT MF MT`.
+
+**Prediction (before the runs):** bit-identical text for every section, since
+every kernel was already word-for-word against NJOY2016 and the new code is
+bookkeeping; risk: the `ncds`/`ncdse` dictionary counts, which are not line counts.
+
+**Result:** 0 differing lines. Decks 25, 67, 68, 70, 74: whole MODER'd output
+tape (995 320, 463 392, 324 387, 213 800, 470 251 lines). Decks 11, 32 (both
+THERMRs, iform 0 and 1), 49, 69: THERMR's own sections (MF=3/6 `mtref..` and
+their dictionary rows). Gate: `tests/deck_driver_tapes_vs_njoy2016.rs`,
+`test_{11,25,32,49,67,68,69,70,74}_thermr_*`.
+
+**Findings outside THERMR:** on the Zr-90 decks (32, 49, 69) the whole tape
+differs in 4025's MF=3 MT=52/53/58 (one line each) and MF=10 MT=16/28/112 (29
+lines): RECONR/BROADR output, same in all three, not investigated here. Deck 11's
+tape lacks UNRESR's MF=2/MT=152 (UNRESR passes the tape through).
