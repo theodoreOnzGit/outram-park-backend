@@ -136,7 +136,7 @@ and `RanPark` are translated (`src/insert.rs`). Five pour decks into the `D/d = 
 cylinder, 9 frames each to step 30 000 (contacts after ~20 000, up to 12
 insertions per step into a falling pile): **every field of every particle
 bit-identical in 45 / 45 frames** (`insertion_cross_code.rs`;
-`verification_and_validation/insertion/README.md`). Not translated: `insert/stream`.
+`verification_and_validation/insertion/README.md`). `fix insert/stream` (`src/insert_stream.rs`, `insert_stream_cross_code.rs`): 21 / 21 frames bit-identical (overlapcheck yes and no, `vel uniform`/`constant`). Not translated: `insert/stream/predefined`.
 
 **Per-contact dump and `fix check/timestep/gran` (gh:#1406 prio 2, gh:#1418),
 2026-11-11.** `compute pair/gran/local` is translated as
@@ -423,9 +423,10 @@ test's `///` doc):
 | same, contact deck `in.avetime_contact` (settled bed, tilted gravity, `erotate/sphere != 0` on 20 rows) | `src/diagnostics.rs`, `GranularSystem::particles_in_local_order` | `ave_time_cross_code.rs` | **105 / 105** bit-identical (33 / 105 before summing in upstream's local atom order) |
 | `fix ave/atom` (`x z vx vy vz`), deck `in.aveatom` | `AveAtom` in `src/diagnostics.rs` | `ave_time_cross_code.rs` | **7080 / 7080** bit-identical |
 | `fix insert/pack`, `insert/rate/region`, templates | `src/insert.rs` | `insertion_cross_code.rs` | 45 / 45 frames bit-identical |
+| `fix insert/stream` | `src/insert_stream.rs` | `insert_stream_cross_code.rs` | 21 / 21 frames bit-identical |
 | `compute pair/gran/local` | `granular_system.rs` | `pair_gran_local_cross_code.rs` | bit-identical at steps 0, 1, 10, 100 |
 
 Still **not translated** (gh:#1418, #1414): `compute wall/gran/local` (mesh
 walls only upstream), the tracer fixes (`property/atom/tracer`,
-`nparticles/tracer/region`), `fix insert/stream` and `/predefined`, `ave/spatial`,
+`nparticles/tracer/region`), `fix insert/stream/predefined`, `ave/spatial`,
 `ave/euler`, the remaining computes and force fixes.

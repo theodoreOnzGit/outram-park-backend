@@ -226,6 +226,9 @@ pub struct GranularSystem {
     rebuild_now: bool,
     /// `fix insert/*` fixes, run at `pre_exchange` (gh:#1414).
     inserters: Vec<crate::insert::InsertFix>,
+    /// `fix insert/stream` fixes and the shared release data (by tag).
+    stream_inserters: Vec<crate::insert_stream::InsertStreamFix>,
+    stream_release: std::collections::BTreeMap<u64, crate::insert_stream::Release>,
     /// `fix heat/gran/conduction`, if attached ([`GranularSystem::with_heat_conduction`]).
     heat: Option<HeatGranConduction>,
     /// Heat flux into each particle `[W]` from the last step's contact
@@ -348,6 +351,8 @@ impl GranularSystem {
             next_sort: 0,
             rebuild_now: false,
             inserters: Vec::new(),
+            stream_inserters: Vec::new(),
+            stream_release: std::collections::BTreeMap::new(),
             heat: None,
             heat_flux: Vec::new(),
             massflow: Vec::new(),
@@ -566,6 +571,10 @@ impl GranularSystem {
         // can still add (`PairGran::init_style`: `max_rad(type)` of fixes)
         let max_radius = self
             .inserters
+            .iter()
+            .fold(max_radius, |m, f| m.max(f.max_rad()));
+        let max_radius = self
+            .stream_inserters
             .iter()
             .fold(max_radius, |m, f| m.max(f.max_rad()));
         let cut = cfg.cutneighmax(max_radius);
@@ -909,6 +918,21 @@ impl GranularSystem {
         Ok(self.inserters.len() - 1)
     }
 
+    /// Attach a `fix insert/stream` (gh:#1414). Acts at `pre_exchange` like
+    /// [`GranularSystem::add_insertion`]; its particles ride the rail to the
+    /// insertion face in `end_of_step` (see [`crate::insert_stream`]).
+    /// Returns the fix's index.
+    pub fn add_stream_insertion(&mut self, fix: crate::insert_stream::InsertStreamFix) -> usize {
+        self.stream_inserters.push(fix);
+        self.stream_inserters.len() - 1
+    }
+
+    /// The `i`-th `insert/stream` fix.
+    #[must_use]
+    pub fn stream_insertion(&self, i: usize) -> &crate::insert_stream::InsertStreamFix {
+        &self.stream_inserters[i]
+    }
+
     /// The `i`-th insertion fix.
     #[must_use]
     pub fn insertion(&self, i: usize) -> &crate::insert::InsertFix {
@@ -920,10 +944,27 @@ impl GranularSystem {
     /// Insertion errors upstream would abort the run on; here they panic with
     /// the same message, since `step` has no error channel.
     fn run_insertions(&mut self) {
+        let step = self.step_count as u64;
+        for k in 0..self.stream_inserters.len() {
+            let ins = match self.stream_inserters[k].pre_exchange(step, &self.particles) {
+                Ok(v) => v,
+                Err(e) => panic!("fix insert/stream: {e}"),
+            };
+            for (ip, rel) in ins.particles.into_iter().zip(ins.release) {
+                let tag = self.next_tag;
+                self.next_tag += 1;
+                self.note_inserted();
+                self.particles.push(ip.particle);
+                self.tags.push(tag);
+                self.types.push(ip.atom_type - 1);
+                self.forces.push(Vec3::zero());
+                self.torques.push(Vec3::zero());
+                self.stream_release.insert(tag, rel);
+            }
+        }
         if self.inserters.is_empty() {
             return;
         }
-        let step = self.step_count as u64;
         for k in 0..self.inserters.len() {
             let new = match self.inserters[k].pre_exchange(step, &self.particles) {
                 Ok(v) => v,
@@ -1178,7 +1219,37 @@ impl GranularSystem {
             // final_integrate of the scalar transport equation
             heat.advance(&mut self.particles, &self.types, &self.heat_flux, self.dt);
         }
+        self.stream_end_of_step();
         self.time += self.dt;
+    }
+
+    /// `FixInsertStream::end_of_step` (the integrating fix): put every
+    /// not-yet-released streamed particle on its rail, release it on its step.
+    fn stream_end_of_step(&mut self) {
+        if self.stream_release.is_empty() {
+            return;
+        }
+        let step = self.step_count as u64;
+        let mut finished: Vec<u64> = Vec::new();
+        for i in 0..self.particles.len() {
+            let tag = self.tags[i];
+            let Some(rel) = self.stream_release.get(&tag) else {
+                continue;
+            };
+            match crate::insert_stream::end_of_step_state(rel, step, self.dt) {
+                None => finished.push(tag),
+                Some((x, v, w, _released)) => {
+                    self.particles[i].position = x;
+                    self.particles[i].velocity = v;
+                    self.particles[i].angular_velocity = w;
+                    self.forces[i] = Vec3::zero();
+                    self.torques[i] = Vec3::zero();
+                }
+            }
+        }
+        for t in finished {
+            self.stream_release.remove(&t);
+        }
     }
 
     /// Advance `n_steps` steps.

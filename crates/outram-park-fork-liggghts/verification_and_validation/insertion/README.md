@@ -63,7 +63,7 @@ insertions (up to 12 per step) into a pile already falling. The prediction is me
   lost ignore`) and not by this crate; the decks keep every inserted particle
   inside the cylinder (a first `pour_block` with a region corner outside the
   R = 30 mm wall lost one atom upstream and was redesigned, not worked around).
-* **Not translated**: `fix insert/stream` (and `/predefined`), multi-sphere and
+* **Not translated**: ~~`fix insert/stream`~~ **CORRECTED 2026-11-11: translated, see below** (`/predefined` is not), multi-sphere and
   superquadric templates, `orientation random` (rejected: it would need
   `random_unit_quat`), `set_property`, `side out`/dynamic regions, radius/density
   distributions other than `constant` (upstream's `particletemplate/sphere`
@@ -74,3 +74,28 @@ insertions (up to 12 per step) into a pile already falling. The prediction is me
   identical numbers. At HTR-10 scale (`htr10_fill`, 27 000 pebbles) the same
   fix works but has not been run against LIGGGHTS' 60 000-step `in.htr10` pour
   (maintainer: do not rerun the long tests).
+
+## `fix insert/stream` (gh:#1414, 2026-11-11)
+
+`src/insert_stream.rs`, `tests/insert_stream_cross_code.rs`, decks
+`in.stream_ol` / `in.stream_noch` (`make_stream_decks.sh`, face
+`stream_face.stl`: 0.04 m square at z = 0.15, two triangles; `r = 3 mm`,
+`extrude_length 0.05`, `vel` 1 m/s into the face; insertions at steps 1, 10001,
+20001, 30001). `stream_ol`: `overlapcheck yes`, `vel uniform`, 200 particles;
+`stream_noch`: `overlapcheck no`, `vel constant 0.05 0 -1`, 100 particles.
+Translated: the mesh's own `RanPark(179424799)` area-weighted facet choice and
+barycentric draw, `calc_ins_fraction` (the `ntry_mc` draws that advance both
+streams), `generate_random`, `is_nearby` (face projection test), both
+`x_v_omega` branches, `finalize_insertion` (release step, per-particle velocity
+draws) and `end_of_step` (rail motion, release, force/torque zeroing).
+
+**Prediction (before the run):** bit-identical in every frame.
+**Result (Rust 1.99.1, LIGGGHTS 3d5c00f2): 21 of 21 frames bit-identical on
+every field of every particle** (11 frames `stream_ol`, 11 `stream_noch`; counts
+50..200 and 25..100 per frame; the sums are in the test output), including
+frames while particles ride the rail, at the release step, and in free fall.
+Not translated: `all_in yes` (needs `TriMeshPlanar::generateRandomOwnedGhostWithin`),
+`parallel yes`, `duration_time`, tracers, multi-sphere, a moving face (upstream
+rejects it too), `insert/stream/predefined`. Particles do not reach the floor
+by step 40 000 in these decks, so the stream-then-contact path is only covered
+through the already verified pair/wall translation.

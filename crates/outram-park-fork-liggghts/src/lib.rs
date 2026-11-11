@@ -116,6 +116,7 @@ pub mod heat_gran;
 // A fresh HTR-10 pour from empty, steppable by a UI (gh:#561, dhoby-ghaut Step 1).
 pub mod htr10_fill;
 pub mod insert;
+pub mod insert_stream;
 pub mod integrator;
 pub mod massflow;
 pub mod mesh_stress;

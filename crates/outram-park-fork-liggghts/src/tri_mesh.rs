@@ -454,6 +454,12 @@ impl TriMeshState {
         }
     }
 
+    /// Facets sharing at least one node with facet `i`.
+    #[must_use]
+    pub fn node_neighbours(&self, i: usize) -> &[u32] {
+        &self.node_neighs[i]
+    }
+
     // -------- coplanarity ---------------------------------------------------
 
     /// `areCoplanarNodeNeighs(a, b)`: the facets share a node (or an edge) and

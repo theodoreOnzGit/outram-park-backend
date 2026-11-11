@@ -110,7 +110,7 @@ const IR: i32 = 2836;
 /// `seed + 12`.
 const SEED_OFFSET: i32 = 12;
 /// `SMALL` of `region.cpp` / `SMALL_DMBRDR` of `domain.h`.
-const SMALL: f64 = 1.0e-8;
+pub(crate) const SMALL: f64 = 1.0e-8;
 
 /// LAMMPS' `RanPark`: the Park–Miller "minimal standard" generator
 /// (`IA = 16807`, `IM = 2^31 - 1`, Schrage's method), with the polar Box–Muller
@@ -1444,13 +1444,13 @@ impl InsertFix {
 
 /// Uniform grid answering "does a sphere overlap any inserted one"
 /// (`RegionNeighborList::hasOverlap`: `rsq <= (r + r_j)^2`).
-struct OverlapGrid {
+pub(crate) struct OverlapGrid {
     cell: f64,
     cells: BTreeMap<(i64, i64, i64), Vec<(Vec3, f64)>>,
 }
 
 impl OverlapGrid {
-    fn new(cell: f64) -> Self {
+    pub(crate) fn new(cell: f64) -> Self {
         Self {
             cell: if cell > 0.0 { cell } else { 1.0 },
             cells: BTreeMap::new(),
@@ -1465,12 +1465,12 @@ impl OverlapGrid {
         )
     }
 
-    fn insert(&mut self, p: Vec3, r: f64) {
+    pub(crate) fn insert(&mut self, p: Vec3, r: f64) {
         let k = self.key(p);
         self.cells.entry(k).or_default().push((p, r));
     }
 
-    fn has_overlap(&self, p: Vec3, r: f64) -> bool {
+    pub(crate) fn has_overlap(&self, p: Vec3, r: f64) -> bool {
         let (cx, cy, cz) = self.key(p);
         for dx in -1..=1 {
             for dy in -1..=1 {
