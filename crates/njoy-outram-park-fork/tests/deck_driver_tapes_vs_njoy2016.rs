@@ -342,7 +342,18 @@ fn test_08_acer_old_format_ace() {
 
 /// **Test 08 (Ni-61 ENDF/B-VI.1) PENDF stages: RECONR (unit 41), BROADR (42),
 /// HEATR (43)**, line by line against NJOY2016.80 (gh:#1449 diagnosis of the
-/// ACE energy grid). Recorded result: see the doc of `test_08_acer_old_format_ace`.
+/// ACE energy grid).
+///
+/// **Result (2026-11-11, after the fix): 0 differing lines on units 41, 42 and
+/// 43.** Before: 6 336 / 13 879 / 23 696. Two causes, both in RECONR:
+/// (1) `rebuild_range` seeded `resxs` with the `rdfil2` halo as well as the
+/// `lunion` grid; upstream's `resxs` walks the `lunion` grid only, and
+/// `lunion` had replaced the 0.0253 eV node by the histogram pair
+/// 2.529999e-2/2.530001e-2 (MT=102), so ours kept 2.53e-2 and its bisections;
+/// (2) `emerge`'s `sn = small` floor (1e-8) on MT=2 applies at every written
+/// point, including the background-only point above the resonance range.
+/// The earlier ACE comparison note in `test_08_acer_old_format_ace` about the
+/// grid is superseded by this.
 #[test]
 fn test_08_pendf_stages_diagnosis() {
     let root = njoy_root();

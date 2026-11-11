@@ -1570,7 +1570,14 @@ pub(crate) fn rebuild_range_with(
     if shade_el {
         egrid.push(el_hi);
     }
-    egrid.extend(halo.into_iter().filter(|&e| e > el && e < eh && e > 0.0));
+    // ~~`egrid.extend(halo ∩ (el, eh))`~~ **REMOVED 2026-11-11 (gh:#1449)**:
+    // `resxs` walks `lunion`'s grid and nothing else (`reconr.f90:2240-2569`);
+    // `rdfil2`'s nodes (including 0.0253 eV) reach it only through `lunion`,
+    // which may replace a node (Ni-61 ENDF/B-VI.1: the MT=102 histogram point
+    // at 0.0253 eV becomes the pair 2.529999e-2/2.530001e-2). Adding the nodes
+    // again put 2.53e-2 and 2.530004e-2 into the table (4 827 points against
+    // NJOY's 4 825). `union_grid` already folds the nodes in as upstream does.
+    let _ = halo;
     egrid.sort_by(|a, b| a.partial_cmp(b).unwrap());
     egrid.dedup_by(|a, b| (*a - *b).abs() < 1e-10 * b.abs().max(1.0));
     if egrid.is_empty() {
@@ -1675,6 +1682,18 @@ pub(crate) fn rebuild_range_with(
                 sn = 1.0e-8;
             }
             new_pairs.push((e, sigfig(sn, 7, 0)));
+        }
+
+        // The same lower limit applies at EVERY point `emerge` writes for
+        // MT=2, not only inside the range: the background-only point above
+        // `eh` (Ni-61 ENDF/B-VI.1: 7.43547e5 eV, 0 from the tape, NJOY
+        // 1.000000-8; gh:#1449).
+        if mt == MtReaction::Mt2Elastic {
+            for p in &mut new_pairs {
+                if p.1 <= 1.0e-8 {
+                    p.1 = 1.0e-8;
+                }
+            }
         }
 
         new_pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
