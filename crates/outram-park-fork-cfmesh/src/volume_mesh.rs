@@ -40,7 +40,10 @@
 //! face, the **owner** cell and an optional **neighbour** cell. A face with a
 //! neighbour is *internal* (it separates two cells); a face without one is a
 //! *boundary* face belonging to a [`BoundaryPatch`]. Cells are implicit — the
-//! set of faces that reference a given cell index.
+//! set of faces that reference a given cell index — ~~and nothing more~~
+//! **UPDATED 2026-11-11 (gh:#1385):** the mesh may also carry cfMesh's own cell
+//! face lists ([`VolumeMesh::cells`], in the order upstream's history gives
+//! them; the order changes the last bit of a cell centre sum).
 //!
 //! This is exactly the connectivity OpenFOAM's `constant/polyMesh` stores
 //! (`points` / `faces` / `owner` / `neighbour` / `boundary`), and exactly what

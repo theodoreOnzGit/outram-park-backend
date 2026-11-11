@@ -42,10 +42,11 @@
 //!    result is upper-triangular.
 //!
 //! **Where the port differs.** Upstream reads each cell's faces in the order
-//! `polyMeshGen` stores them. [`renumber_mesh`] takes them from the caller;
-//! [`cells_from_mesh`] gives each cell its faces in ascending face order,
-//! for a mesh that no longer carries the cell lists (every stage of this
-//! crate rebuilds the mesh from face lists).
+//! `polyMeshGen` stores them. [`renumber_mesh`] takes them from the caller
+//! (the four workflows pass `VolumeMesh::cell_face_lists`, the carried lists
+//! ~~(gh:#1385: every stage rebuilt the mesh from face lists, so none were
+//! carried)~~); [`cells_from_mesh`] gives each cell its faces in ascending
+//! face order, for a mesh that does not carry them.
 
 use crate::volume_mesh::VolumeMesh;
 

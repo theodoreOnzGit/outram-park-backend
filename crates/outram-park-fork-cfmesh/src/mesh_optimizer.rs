@@ -1973,6 +1973,7 @@ impl MeshOptimizer {
     /// then [`Self::untangle_mesh_fv`].
     pub fn optimize_mesh_fv(&self, mesh: &mut VolumeMesh, num_laplace_iterations: usize, controls: &UntangleControls) -> Result<OptimiserReport, ConstraintViolation> {
         self.optimize_laplacian(mesh, LaplaceKind::PointCells, num_laplace_iterations);
+        crate::pipeline::cartesian_mesh::trace_points("fv_lap", mesh);
         self.untangle_mesh_fv(mesh, controls)
     }
 
