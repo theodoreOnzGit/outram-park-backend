@@ -88,6 +88,7 @@ pub mod overlap;
 pub mod panel;
 pub mod njoy_panel;
 pub mod pendf_feed;
+pub mod photon_prod;
 pub mod photon_groups;
 pub mod self_shielded;
 pub mod slowing_down;

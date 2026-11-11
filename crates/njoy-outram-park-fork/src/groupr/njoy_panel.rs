@@ -108,9 +108,19 @@ pub enum PanelFeed {
     Continuum(crate::groupr::continuum::ContinuumFeed),
     /// `getff` label 700: `getaed` thermal angle-energy (`MT = 221-250`).
     Thermal(crate::groupr::thermal::ThermalFeed),
+    /// `getff` label 300: photon production (`mfd = 16/17`).
+    Photon(crate::groupr::photon_prod::PhotonFeed),
 }
 
 impl PanelFeed {
+    /// Number of final gamma groups the feed spans (0 for neutron feeds).
+    fn ngg(&self) -> usize {
+        match self {
+            PanelFeed::Photon(f) => f.ngg(),
+            _ => 0,
+        }
+    }
+
     /// `getff(e)`.
     ///
     /// # Errors
@@ -126,6 +136,7 @@ impl PanelFeed {
             }
             PanelFeed::Continuum(f) => f.at(e),
             PanelFeed::Thermal(f) => f.at(e),
+            PanelFeed::Photon(f) => f.at(e),
             PanelFeed::TwoBodyNl(f, nl) => {
                 let a = f.feed(e, *nl)?;
                 let ff: Vec<Vec<f64>> = a.ff.iter().take(*nl).map(|r| r[..a.ng].to_vec()).collect();
@@ -522,7 +533,7 @@ pub fn group_general(
         if elo >= emaxx && ig != ngn {
             continue;
         }
-        let mut ans = vec![0.0f64; (ngn + 3) * nl.max(1)];
+        let mut ans = vec![0.0f64; (ngn.max(feed.ngg()) + 3) * nl.max(1)];
         let (mut ng, mut iglo) = (2usize, 0i32);
         let mut enext = ehi;
         loop {
@@ -533,7 +544,7 @@ pub fn group_general(
             elo = enext;
             enext = ehi;
         }
-        let matrix = matches!(feed, PanelFeed::TwoBodyNl(..) | PanelFeed::Continuum(..) | PanelFeed::Thermal(..));
+        let matrix = matches!(feed, PanelFeed::TwoBodyNl(..) | PanelFeed::Continuum(..) | PanelFeed::Thermal(..) | PanelFeed::Photon(..));
         let (ng2, ig2lo, igzero, data) = if nl > 1 {
             displa_matrix(ans, ng, iglo, nl)
         } else if matrix {

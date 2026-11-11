@@ -526,3 +526,28 @@ fn test_01_groupr_gendf_mf3() {
     assert!(diffs.is_empty());
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
 }
+
+/// **Test 01 GROUPR: MF=16 photon production MT 51 (`mfd = 17`, `getff` label 300), line for line.**
+///
+/// Deck as `test_01_groupr_gendf_head`. One discrete photon (4.439 MeV, MF=13 cross
+/// section, MF=14 `LTT = 1` Legendre) binned into the 12 gamma groups with `nl = 4`.
+/// MT 102 (MF=12 multiplicities, `econst` constant-spectrum branch) is not yet ported.
+/// Pass criterion: zero differing lines of the 22 MF=16/MT=51 lines. Prediction: identical.
+#[test]
+fn test_01_groupr_gendf_mf16_mt51() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "01", None, "moder\n -24 27/\n") else { return };
+    let Some((ours, njoy)) = run_pair_decks_extra(&root, "t01g16", "t511", &[("t322", 26)], &deck, &deck) else { return };
+    let want = |l: &str| l.len() >= 75 && &l[70..72] == "16" && l[72..75].trim() == "51";
+    let a = std::fs::read_to_string(ours.join("tape27")).unwrap();
+    let b = std::fs::read_to_string(njoy.join("tape27")).unwrap();
+    let al: Vec<&str> = a.lines().filter(|l| want(l)).collect();
+    let bl: Vec<&str> = b.lines().filter(|l| want(l)).collect();
+    let diffs: Vec<usize> = (0..al.len().max(bl.len())).filter(|&i| al.get(i) != bl.get(i)).collect();
+    println!("test 01 GENDF MF=16 MT 51: {} differing lines of {} (ours {})", diffs.len(), bl.len(), al.len());
+    for &i in diffs.iter().take(6) {
+        println!("  ours: {:?}\n  njoy: {:?}", al.get(i), bl.get(i));
+    }
+    assert!(bl.len() >= 22 && diffs.is_empty());
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
