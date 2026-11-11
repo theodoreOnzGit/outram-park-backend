@@ -223,6 +223,24 @@ fn oblique_pair(file: &str, model: GranularContactModel) -> Diff {
     )
 }
 
+/// The head-on twin of [`oblique_pair`]: the same spheres, spins and deck
+/// (`in.headon_<model>`, which is `in.<model>_pair` with only the initial
+/// `vy` set to 0), so `v = +-(1, 0) m/s`. The spins are kept, so a rolling
+/// model still sees a relative spin.
+fn headon_pair(file: &str, model: GranularContactModel) -> Diff {
+    let rows = load(file).unwrap_or_else(|| panic!("{file} missing"));
+    assert_eq!(rows.len(), 251, "unexpected reference frame count");
+    replay_pair_at(
+        &rows,
+        model,
+        0.0060,
+        Vec3::new(1.0, 0.0, 0.0),
+        Vec3::new(-1.0, 0.0, 0.0),
+        Vec3::new(0.0, 0.0, 40.0),
+        Vec3::new(0.0, 0.0, -20.0),
+    )
+}
+
 /// `rolling_friction epsd` (Ai et al. 2011 elastic-plastic spring-dashpot),
 /// `rolling_model_epsd.h`.
 ///
@@ -264,6 +282,31 @@ fn epsd3_rolling_matches_liggghts() {
     let model = GranularContactModel::new(hooke_history(), TangentialModel::History)
         .with_rolling(RollingModel::epsd3(0.1, 0.3, 5.0).expect("valid"));
     assert_bit_identical(&oblique_pair("epsd3_pair.csv", model));
+}
+
+/// Head-on twin of [`epsd_rolling_matches_liggghts`] (`in.headon_epsd`,
+/// `v = +-1 m/s` along x, spins kept), bit for bit over 251 frames.
+#[test]
+fn headon_epsd_rolling_matches_liggghts() {
+    let model = GranularContactModel::new(hooke_history(), TangentialModel::History)
+        .with_rolling(RollingModel::epsd(0.1, 0.3).expect("valid"));
+    assert_bit_identical(&headon_pair("headon_epsd.csv", model));
+}
+
+/// Head-on twin of [`epsd2_rolling_matches_liggghts`] (`in.headon_epsd2`).
+#[test]
+fn headon_epsd2_rolling_matches_liggghts() {
+    let model = GranularContactModel::new(hooke_history(), TangentialModel::History)
+        .with_rolling(RollingModel::epsd2(0.1).expect("valid"));
+    assert_bit_identical(&headon_pair("headon_epsd2.csv", model));
+}
+
+/// Head-on twin of [`epsd3_rolling_matches_liggghts`] (`in.headon_epsd3`).
+#[test]
+fn headon_epsd3_rolling_matches_liggghts() {
+    let model = GranularContactModel::new(hooke_history(), TangentialModel::History)
+        .with_rolling(RollingModel::epsd3(0.1, 0.3, 5.0).expect("valid"));
+    assert_bit_identical(&headon_pair("headon_epsd3.csv", model));
 }
 
 /// One spinning sphere hitting a z-plane wall (no gravity): 251 frames of x,
