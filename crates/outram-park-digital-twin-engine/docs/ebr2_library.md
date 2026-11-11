@@ -73,7 +73,8 @@ The full derivations are in the `model` module doc.
     assumed pre-test history.
 - **Thermal nodes.**
   - Fuel: 439.6 kg of U-5Fs. The heat capacity is A226 Eq 4.2, which is
-    flagged as doubtful (see `design::U5FS_HEAT_CAPACITY`).
+    flagged as doubtful (see `design::U5FS_HEAT_CAPACITY`): discontinuous
+    at 833 K and 913 K as printed (section 6).
   - Core coolant: 39 kg sodium plus the in-core steel. The node holds the
     mean temperature, with outlet = 2 T_mean - T_in.
   - IHX primary side: 1407 kg.
@@ -277,6 +278,53 @@ Further base-case numbers:
 - **IHX side assignment** (not in the data): UA changes by +0.03 % and the
   core inlet by under 0.01 K. It does not matter.
 
+### 6. U-5Fs property correlations: branch continuity (gh:#1331, 2026-11-10)
+
+Both correlations were read on the rendered pages of A226 (Eq 4.1 p.100,
+Eq 4.2 p.101) and IAEA-TECDOC-1819 (Eqs 1-2 p.35), not from the text layer.
+
+**Thermal expansion (`design::U5FS_THERMAL_EXPANSION`,
+`u5fs_linear_thermal_strain`).** The two reports print the same correlation
+except in the third branch (`T > 913 K`): A226 `0.014 + 2.1e-5 (T - 913)`,
+TECDOC-1819 `0.014 + 2.1e-5 (T - 273)`. The question is which is continuous
+with the second branch at 913 K.
+
+- *Method.* Evaluate each branch's printed form at the boundaries, 823 K
+  and 913 K, and take the step (upper minus lower branch).
+- *Tolerance, stated before running.* The printed offsets have two
+  significant figures (`0.0089`, `0.014`), so continuity is expected to half
+  a unit in the last printed digit: 5e-5 at 823 K, 5e-4 at 913 K.
+- *Result* (`design::tests::u5fs_expansion_is_continuous_with_the_arc226_third_branch`,
+  as predicted by hand before the run):
+
+  | boundary | lower branch | upper branch | step | within tolerance |
+  |---|---|---|---|---|
+  | 823 K | `1.62e-5 x 550 = 0.00891` | `0.0089` | -1.0e-5 | yes |
+  | 913 K, A226 `(T - 913)` | `0.0089 + 5.7e-5 x 90 = 0.01403` | `0.014` | -3.0e-5 (-0.21 %) | yes |
+  | 913 K, TECDOC-1819 `(T - 273)` | `0.01403` | `0.014 + 2.1e-5 x 640 = 0.02744` | +1.341e-2 (+96 %) | no (27x) |
+
+- *Choice.* **A226's `(T - 913)` is the default**: it is continuous to the
+  printed precision; TECDOC-1819's form puts a step larger than the whole
+  strain accumulated from 273 to 823 K at a point where neither report
+  describes one, so its `273` is read as a typesetting error. TECDOC-1819's
+  form stays callable (`U5fsExpansionThirdBranch::Tecdoc1819`) so the
+  comparison can be re-run.
+- *Effect on the model: none.* The correlation is new in this change, and
+  `Ebr2Model` does not use it (its axial-expansion feedback is Argonne's
+  coefficient), so no V&V number above moves.
+
+**Heat capacity (`design::U5FS_HEAT_CAPACITY`): discontinuous as printed,
+known and unchanged.** Both reports print the same nine coefficients and the
+form `a + bT + cT^2`. The branches do not meet: at **833 K** the first
+branch gives 342.2 J/(kg K) and the second 245.8; at 913 K the second gives
+224.9 and the third 362.3 (printed by
+`design::tests::u5fs_properties_evaluate_as_transcribed`). Both are the
+solid-solid transition temperatures, whose latent heats (A226 Eqs 4.3-4.4,
+11.715 and 8.368 kJ/kg) the function does not carry. The fuel node starts at
+about 760 K (487 C); a fuel node that crosses 833 K sees the step in its heat
+capacity. Whether the SHRT runs cross it was not checked in this change. Not
+changed here; a maintainer question.
+
 ## What is not done, and what would improve it
 
 - **Validation.** The measured traces are plots only, and the acceptance
@@ -294,7 +342,10 @@ Further base-case numbers:
   - The cladding uses 304L properties for 316.
 - **Kinetics data.** Argonne's six-group set and the axial-mesh worths are
   not printed (gh:#1314, GAP).
-- **Doubtful transcriptions.** The U-5Fs heat-capacity transcription is
-  doubtful (`design::U5FS_HEAT_CAPACITY`). The SHRT-45R intermediate-flow
+- **Doubtful transcriptions.** ~~The U-5Fs heat-capacity transcription is
+  doubtful (`design::U5FS_HEAT_CAPACITY`).~~ **CORRECTED 2026-11-10
+  (gh:#1331):** the transcription matches the rendered A226 p.101 and
+  TECDOC-1819 p.35; what stays doubtful is the source correlation itself,
+  discontinuous at 833 K and 913 K (section 6). The SHRT-45R intermediate-flow
   boundary condition is 7.2 % below its own test description (`shrt`
   module doc).

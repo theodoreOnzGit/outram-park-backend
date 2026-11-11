@@ -7,9 +7,11 @@
 //!
 //! > **⚠️ SCAFFOLD / VERIFICATION-ONLY — no human V&V yet.** This is the first
 //! > milestone: the shared-memory transport, datatypes, communicators (world),
-//! > and point-to-point communication. Collectives, communicator
+//! > and point-to-point communication. ~~Collectives,~~ Communicator
 //! > duplication/splitting, groups, and a TCP (multi-node) transport are
-//! > bead-tracked follow-ups (epic op-erl). No comparison against MPICH's own
+//! > bead-tracked follow-ups (epic op-erl). **CORRECTED 2026-11-10 (gh:#1435):**
+//! > collectives exist in [`collective`] (barrier, broadcast, reduce, allreduce,
+//! > scatter, gather, allgather). No comparison against MPICH's own
 //! > test suite has been made. Untrusted AI-generated draft until a human reviews
 //! > it, per the workspace `RESPONSIBLE_USE.md`.
 //! >
