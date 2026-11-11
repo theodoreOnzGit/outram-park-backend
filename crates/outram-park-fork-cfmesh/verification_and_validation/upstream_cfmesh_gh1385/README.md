@@ -17,7 +17,7 @@ written here).
 
 ## Status and how to resume
 
-STATUS: in progress. Done: OpenFOAM-v2506 partial build. Next: cfMesh build, then the runs.
+STATUS: in progress. Done: OpenFOAM-v2506 partial build; cfMesh build. Next: the runs.
 
 Everything is built **outside the repository**, under
 `/home/user/upstream-build/`, and is lost with the container. To rebuild:
@@ -28,7 +28,9 @@ Everything is built **outside the repository**, under
    `/home/user/upstream-build/scripts/` and run `build-of.sh` (partial build,
    below).
 4. Clone cfMesh into the crate's gitignored `upstream_source/cfmesh_dafoam`
-   (`upstream_source/README.md`) and run `scripts/build-cfmesh.sh`.
+   (`upstream_source/README.md`), apply
+   `git -C upstream_source/cfmesh_dafoam apply <this folder>/patches/cfmesh-e944f6ba695f-openfoam-v2506.patch`
+   and run `scripts/build-cfmesh.sh`.
 5. `scripts/run-case.sh <name> <tutorial dir> <app> [setup]` per case
    (commands in the results table).
 
@@ -100,6 +102,31 @@ Wall time: 476 s (attempt 1, to the link error) + 2 843 s (attempt 2) =
 **3 319 s (55 min)**, 1 607 compiler invocations. Disk: 864 MB in all
 (297 MB source, 472 MB objects under `build/`, 90 MB libraries and binary
 under `platforms/`). Log: `logs/build-openfoam-v2506.log.gz` (both attempts).
+
+### cfMesh e944f6ba695f against it (2026-11-11)
+
+`scripts/build-cfmesh.sh`: `wmake libso meshLibrary`, then `wmake` on the
+four executables `cartesianMesh`, `cartesian2DMesh`, `tetMesh`, `pMesh`.
+`meshLibrary` compiles with `-fopenmp` (`COMP_OPENMP`); every run below sets
+`OMP_NUM_THREADS=1`. The utilities are not built (none is needed;
+`preparePar` would need `libdecompose`).
+
+**It does not build against v2506 unpatched.** DAFoam's line targets
+OpenFOAM v1812-era APIs. Three changes, all in
+`patches/cfmesh-e944f6ba695f-openfoam-v2506.patch` (24 files, +33 −59),
+none touching a meshing algorithm:
+
+| change | files | why |
+|---|---|---|
+| `contiguous<T>()` → `is_contiguous<T>::value`; the 14 `template<> inline bool contiguous<Module::X>() { return true; }` specialisations → `template<> struct is_contiguous<Module::X> : std::true_type {};` | 16 | OpenFOAM v1906 replaced the `contiguous` function template with the `is_contiguous` trait (`src/OpenFOAM/primitives/traits/contiguous.H`). Used only for binary I/O of `LongList` and parallel transfers; neither runs here (ASCII, serial). |
+| `polyMeshGenModifier::zipUpCells`: `edgesToInsert[n] = pointChain` (a `List<label>` from an `SLList<label>`) → an explicit element copy | 1 | v2506's `List` has no assignment from `SLList`. Same values, same order. |
+| `#include "demandDrivenData.H"` added where `deleteDemandDrivenData` is used and the header is no longer reached transitively | 7 | v2506 headers stopped including it. |
+
+Wall time: 1 019 s from the first attempt to the finished build
+(09:18:56–09:31:55), of which the clean final pass took 475 s; 254 compiler
+invocations over the four attempts. Disk: the clone with objects is 125 MB;
+`libmeshLibrary.so` is 5.6 MB. Log: `logs/build-cfmesh.log.gz` (all
+attempts).
 
 ## Results
 
