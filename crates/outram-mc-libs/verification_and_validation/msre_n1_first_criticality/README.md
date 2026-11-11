@@ -632,13 +632,36 @@ Xeon, 4 threads, 15.7 GiB RAM, Linux, CPU only).
   and α_iso(C) in −7.6 to −6.6. It lands near the band's negative edge.
   The predicted sign (C slightly less negative) is not what the central
   value shows, but the difference is not resolved.
-- **The Mo does not change N-3** at this precision, so T-1's periods (which
-  use the fuel/graphite split) are not re-run. The split itself was not
-  re-measured on arm C.
+- **The Mo does not change N-3** at this precision. ~~The split itself was
+  not re-measured on arm C.~~ **The split was re-measured on arm C the same
+  day (below), and T-1 re-run with it.**
 - **Consistency with N-1:** the mean of the two temperatures, 1.00862, sits
   20 ± 40 pcm from arm C's 1181 °F value of 1.00882.
 - **Quote −7.54 ± 0.40 for the default model.** Arm A's −7.12 stays as the
   Mo-omitted ablation.
+
+**Fuel/graphite split on arm C (2026-11-11, gh:#1129).** Runs C (salt
+1231 / graphite 1131 °F) and D (1131 / 1231 °F), arm C, RVS, 30P, cold,
+seeds 1–6 each, against the arm-C 1131 °F run above; rows
+`mo-natural@salt1231F/graphite1131F` and `…salt1131F/graphite1231F` in
+`data/n3.csv`. About 720 s per seed, same hardware.
+
+| run | k (6 seeds, sem) |
+|---|---|
+| 1131 / 1131 (reference) | 1.01245 ± 0.00032 |
+| C 1231 / 1131 | 1.00792 ± 0.00026 |
+| D 1131 / 1231 | 1.00957 ± 0.00031 |
+
+| coefficient (×10⁻⁵ /°F) | arm C (default) | arm A, RVS | posted band |
+|---|---|---|---|
+| fuel | **−4.44 ± 0.40** | −4.48 ± 0.54 | −5.3 to −3.7 |
+| graphite | **−2.82 ± 0.43** | −3.33 ± 0.40 | −4.1 to −2.5 |
+| sum | −7.26 | −7.81 | within ~1 of −7.54 |
+
+- **Both components are inside the prediction** posted on gh:#1129 before the
+  run, and they add to within 0.3 of the arm-C isothermal value.
+- **T-1 re-run with them** (nee_soon T-1 README): **−11 % to +8 %** of
+  TM-1647's measured periods. **Quote these for the default model.**
 
 ### A finding about the statistics
 
