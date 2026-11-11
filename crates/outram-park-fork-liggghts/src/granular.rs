@@ -437,6 +437,10 @@ pub struct ContactKinematics {
     pub itype: usize,
     /// Atom type of `j` (0-based), upstream `sidata.jtype`.
     pub jtype: usize,
+    /// Contact-point rolling velocity `w_r` (upstream `sidata.wr1..3`):
+    /// `(c_ri omega_i + c_rj omega_j) rinv` for a pair, `(c_r omega_i) rinv`
+    /// for a wall. The wall branch of the rolling models reads it.
+    pub wr: Vec3,
 }
 
 impl ContactKinematics {
@@ -486,6 +490,7 @@ impl ContactKinematics {
             is_wall: false,
             itype: 0,
             jtype: 0,
+            wr,
         })
     }
 
@@ -546,6 +551,7 @@ impl ContactKinematics {
             is_wall: true,
             itype: 0,
             jtype: 0,
+            wr,
         })
     }
 }
@@ -605,6 +611,7 @@ impl ContactKinematics {
             is_wall: true,
             itype: 0,
             jtype: 0,
+            wr: Vec3::new(wr1, wr2, wr3),
         }
     }
 }
@@ -660,6 +667,70 @@ pub enum GranularNormalModel {
         /// Upstream `ktToKn`: when true, `k_t = (2/7)·k_n` instead of `k_t = k_n`.
         kt_to_kn: bool,
     },
+    /// Upstream `NormalModel<HOOKE_HYSTERESIS>` (`hooke/hysteresis`,
+    /// `normal_model_hooke_hysteresis.h`): the Hooke stiffness with a
+    /// piecewise-linear **plastic** loading/unloading law (Walton-Braun) that
+    /// remembers each contact's maximal overlap `deltaMax`. The per-contact
+    /// `deltaMax` lives in the [`ShearHistory`] store under the contact's
+    /// [`ContactKey::aux`] key, so it follows the contact's life cycle (reset
+    /// to 0 when the contact is lost, upstream `surfacesClose`). Contacts are
+    /// resolved serially (the parallel staging path carries no per-contact
+    /// scalar). gh:#1410.
+    HookeHysteresis {
+        /// `E`, `nu`, `e`, `mu` of the single material.
+        material: GranularMaterial,
+        /// Characteristic impact velocity `v_char` `[m/s]` (as `hooke`).
+        characteristic_velocity: f64,
+        /// Upstream `tangential_damping` (default on).
+        tangential_damping: bool,
+        /// `coefficientMaxElasticStiffness`: `k2Max / kn` `[-]` (> 1).
+        kn2k2_max: f64,
+        /// `coefficientAdhesionStiffness`: `kc / kn` `[-]` (cohesion stiffness).
+        kn2kc: f64,
+        /// `coefficientPlasticityDepth`: `phi_f` `[-]`, the overlap fraction
+        /// (of the diameter) at which loading reaches `k2Max`.
+        phi_f: f64,
+    },
+    /// Upstream `NormalModel<HERTZ_STIFFNESS>` (`hertz/stiffness`): stiffness
+    /// and damping given directly, scaled by `sqrt(r_eff δ_n)`
+    /// (`normal_model_hertz_stiffness.h`). The `kn`, `kt`, `gamman`, `gammat`
+    /// of the single type pair; `material` supplies only the friction
+    /// coefficient (and keeps the enum uniform). gh:#1410.
+    HertzStiffness {
+        /// Supplies `mu` (the stiffness model has no `E`, `nu`, `e` of its own).
+        material: GranularMaterial,
+        /// `kn` `[N/m^{3/2}]` (property `kn`).
+        k_n: f64,
+        /// `kt` `[N/m^{3/2}]` (property `kt`).
+        k_t: f64,
+        /// `gamman` `[1/(m^{1/2} s)]` (property `gamman`): `gamma_n sqrt(r δ) m_eff`.
+        gamma_n: f64,
+        /// `gammat` (property `gammat`).
+        gamma_t: f64,
+        /// Upstream `tangential_damping` (default on).
+        tangential_damping: bool,
+    },
+    /// Upstream `NormalModel<HOOKE_STIFFNESS>` (`hooke/stiffness`): a linear
+    /// spring and dashpot with coefficients given directly
+    /// (`normal_model_hooke_stiffness.h`). gh:#1410.
+    HookeStiffness {
+        /// Supplies `mu` only.
+        material: GranularMaterial,
+        /// `kn` `[N/m]`.
+        k_n: f64,
+        /// `kt` `[N/m]`.
+        k_t: f64,
+        /// `gamman` `[1/s]` (relative: multiplied by `m_eff`) or, with
+        /// `absolute_damping`, `gamman_abs` `[kg/s]`.
+        gamma_n: f64,
+        /// `gammat` / `gammat_abs`, as `gamma_n`.
+        gamma_t: f64,
+        /// Upstream `absolute_damping` (default off): use the damping
+        /// coefficients as they are instead of multiplying by `m_eff`.
+        absolute_damping: bool,
+        /// Upstream `tangential_damping` (default on).
+        tangential_damping: bool,
+    },
 }
 
 impl GranularNormalModel {
@@ -699,11 +770,130 @@ impl GranularNormalModel {
         })
     }
 
+    /// Build a `hooke/hysteresis` model with upstream's default settings
+    /// (`tangential_damping on`, not viscous).
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if `characteristic_velocity <= 0`,
+    /// `kn2k2_max <= 1` (upstream divides by `k2Max - kn`), `kn2kc < 0` or
+    /// `phi_f <= 0`.
+    pub fn hooke_hysteresis(
+        material: GranularMaterial,
+        characteristic_velocity: f64,
+        kn2k2_max: f64,
+        kn2kc: f64,
+        phi_f: f64,
+    ) -> Result<Self, DemError> {
+        if !(characteristic_velocity > 0.0 && characteristic_velocity.is_finite())
+            || !(kn2k2_max > 1.0 && kn2k2_max.is_finite())
+            || !(kn2kc >= 0.0 && kn2kc.is_finite())
+            || !(phi_f > 0.0 && phi_f.is_finite())
+        {
+            return Err(DemError::InvalidInput(format!(
+                "hooke/hysteresis needs v_char > 0, kn2k2Max > 1, kn2kc >= 0, phiF > 0; got \
+                 {characteristic_velocity}, {kn2k2_max}, {kn2kc}, {phi_f}"
+            )));
+        }
+        Ok(Self::HookeHysteresis {
+            material,
+            characteristic_velocity,
+            tangential_damping: true,
+            kn2k2_max,
+            kn2kc,
+            phi_f,
+        })
+    }
+
+    /// Whether this model keeps a per-contact scalar (`deltaMax`) besides the
+    /// shear spring; such a model is resolved serially.
+    #[must_use]
+    pub fn has_contact_state(&self) -> bool {
+        matches!(self, Self::HookeHysteresis { .. })
+    }
+
+    /// Build a `hertz/stiffness` model with upstream's default settings
+    /// (`tangential_damping on`).
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if a coefficient is not finite and `>= 0`, or
+    /// `k_n` is not `> 0`.
+    pub fn hertz_stiffness(
+        material: GranularMaterial,
+        k_n: f64,
+        k_t: f64,
+        gamma_n: f64,
+        gamma_t: f64,
+    ) -> Result<Self, DemError> {
+        check_stiffness(k_n, k_t, gamma_n, gamma_t)?;
+        Ok(Self::HertzStiffness {
+            material,
+            k_n,
+            k_t,
+            gamma_n,
+            gamma_t,
+            tangential_damping: true,
+        })
+    }
+
+    /// Build a `hooke/stiffness` model with upstream's default settings
+    /// (`absolute_damping off`, `tangential_damping on`).
+    ///
+    /// # Errors
+    ///
+    /// As [`GranularNormalModel::hertz_stiffness`].
+    pub fn hooke_stiffness(
+        material: GranularMaterial,
+        k_n: f64,
+        k_t: f64,
+        gamma_n: f64,
+        gamma_t: f64,
+    ) -> Result<Self, DemError> {
+        check_stiffness(k_n, k_t, gamma_n, gamma_t)?;
+        Ok(Self::HookeStiffness {
+            material,
+            k_n,
+            k_t,
+            gamma_n,
+            gamma_t,
+            absolute_damping: false,
+            tangential_damping: true,
+        })
+    }
+
+    /// Set upstream's `tangential_damping` switch (default on) on any variant.
+    #[must_use]
+    pub fn with_tangential_damping(mut self, on: bool) -> Self {
+        match &mut self {
+            Self::Hertz { tangential_damping, .. }
+            | Self::Hooke { tangential_damping, .. }
+            | Self::HertzStiffness { tangential_damping, .. }
+            | Self::HookeStiffness { tangential_damping, .. }
+            | Self::HookeHysteresis { tangential_damping, .. } => *tangential_damping = on,
+        }
+        self
+    }
+
+    /// Set `absolute_damping` of a [`GranularNormalModel::HookeStiffness`]
+    /// (the other variants have no such switch and are returned unchanged).
+    #[must_use]
+    pub fn with_absolute_damping(mut self, on: bool) -> Self {
+        if let Self::HookeStiffness { absolute_damping, .. } = &mut self {
+            *absolute_damping = on;
+        }
+        self
+    }
+
     /// The material this model carries.
     #[must_use]
     pub fn material(&self) -> GranularMaterial {
         match self {
-            Self::Hertz { material, .. } | Self::Hooke { material, .. } => *material,
+            Self::Hertz { material, .. }
+            | Self::Hooke { material, .. }
+            | Self::HertzStiffness { material, .. }
+            | Self::HookeStiffness { material, .. }
+            | Self::HookeHysteresis { material, .. } => *material,
         }
     }
 
@@ -783,8 +973,179 @@ impl GranularNormalModel {
                     gammat,
                 }
             }
+            Self::HookeHysteresis { .. } => self.evaluate_hysteretic(k, props, 0.0, false).0,
+            Self::HertzStiffness {
+                k_n,
+                k_t,
+                gamma_n,
+                gamma_t,
+                tangential_damping,
+                ..
+            } => {
+                // normal_model_hertz_stiffness.h, surfacesIntersect
+                let polyhertz = (k.r_eff * k.delta_n).sqrt();
+                let kn = polyhertz * k_n;
+                let kt = polyhertz * k_t;
+                let gamman = polyhertz * k.m_eff * gamma_n;
+                let gammat = if tangential_damping {
+                    polyhertz * k.m_eff * gamma_t
+                } else {
+                    0.0
+                };
+                NormalOutcome {
+                    fn_scalar: -gamman * k.vn + kn * k.delta_n,
+                    kn,
+                    kt,
+                    gamman,
+                    gammat,
+                }
+            }
+            Self::HookeStiffness {
+                k_n,
+                k_t,
+                gamma_n,
+                gamma_t,
+                absolute_damping,
+                tangential_damping,
+                ..
+            } => {
+                // normal_model_hooke_stiffness.h, surfacesIntersect
+                let (gamman, mut gammat) = if absolute_damping {
+                    (gamma_n, gamma_t)
+                } else {
+                    (k.m_eff * gamma_n, k.m_eff * gamma_t)
+                };
+                if !tangential_damping {
+                    gammat = 0.0;
+                }
+                NormalOutcome {
+                    fn_scalar: -gamman * k.vn + k_n * k.delta_n,
+                    kn: k_n,
+                    kt: k_t,
+                    gamman,
+                    gammat,
+                }
+            }
         }
     }
+}
+
+impl GranularNormalModel {
+    /// `NormalModel<HOOKE_HYSTERESIS>::surfacesIntersect`: the outcome and the
+    /// contact's new `deltaMax`. `delta_max` is the stored value (0 for a new
+    /// contact); `update_history` is upstream's `computeflag && shearupdate`
+    /// (gates only the cohesion-branch rewrite of `deltaMax`; the plain
+    /// `deltan > deltaMax` update is unconditional upstream). Other variants
+    /// return their outcome and the stored value unchanged.
+    #[must_use]
+    pub fn evaluate_hysteretic(
+        &self,
+        k: &ContactKinematics,
+        props: &PairProps,
+        delta_max: f64,
+        update_history: bool,
+    ) -> (NormalOutcome, f64) {
+        let Self::HookeHysteresis {
+            characteristic_velocity,
+            tangential_damping,
+            kn2k2_max,
+            kn2kc,
+            phi_f,
+            ..
+        } = *self
+        else {
+            return (self.evaluate_with(k, props), delta_max);
+        };
+        let reff = k.r_eff;
+        let meff = k.m_eff;
+        let y_eff = props.y_eff;
+        let char_vel = characteristic_velocity;
+        let ln_e = props.ln_e;
+        let deltan = k.delta_n;
+
+        let sqrtval = reff.sqrt();
+        let kn = 16.0 / 15.0
+            * sqrtval
+            * y_eff
+            * (15.0 * meff * char_vel * char_vel / (16.0 * sqrtval * y_eff)).r_powf(0.2);
+        let kt = kn;
+        let gamman = (4.0 * meff * kn
+            / (1.0 + (std::f64::consts::PI / ln_e) * (std::f64::consts::PI / ln_e)))
+            .sqrt();
+        let gammat = if tangential_damping { gamman } else { 0.0 };
+
+        let k2_max = kn * kn2k2_max;
+        let kc = kn * kn2kc;
+
+        let mut history = delta_max;
+        if deltan > history {
+            history = deltan;
+        }
+        let delta_max = history;
+
+        let delta_max_lim = (k2_max / (k2_max - kn)) * phi_f * 2.0 * reff;
+        let f_hys;
+        if delta_max >= delta_max_lim {
+            // big overlap ... no kn at all
+            let f_tmp = k2_max * (deltan - delta_max_lim) + kn * delta_max_lim;
+            if f_tmp >= -kc * deltan {
+                f_hys = f_tmp;
+            } else {
+                f_hys = -kc * deltan;
+                let new_delta_max = 0.5
+                    * (deltan
+                        + (deltan * deltan
+                            + 4.0 * ((kn + kc) * deltan * delta_max_lim / (k2_max - kn)))
+                            .sqrt());
+                if update_history {
+                    history = new_delta_max;
+                }
+            }
+        } else {
+            let k2 = kn + (k2_max - kn) * delta_max / delta_max_lim;
+            let f_tmp = k2 * (deltan - delta_max) + kn * delta_max;
+            if f_tmp >= kn * deltan {
+                f_hys = kn * deltan; // loading part (kn)
+            } else if f_tmp > -kc * deltan {
+                f_hys = f_tmp; // un-/reloading part (k2)
+            } else {
+                f_hys = -kc * deltan; // cohesion part
+                let new_delta_max = 0.5
+                    * (deltan
+                        + (deltan * deltan
+                            + 4.0 * ((kn + kc) * deltan * delta_max_lim / (k2_max - kn)))
+                            .sqrt());
+                if update_history {
+                    history = new_delta_max;
+                }
+            }
+        }
+
+        let fn_damping = -gamman * k.vn;
+        let fn_total = f_hys + fn_damping;
+        (
+            NormalOutcome {
+                fn_scalar: fn_total,
+                kn,
+                kt,
+                gamman,
+                gammat,
+            },
+            history,
+        )
+    }
+}
+
+/// Validate the four coefficients of a stiffness model.
+fn check_stiffness(k_n: f64, k_t: f64, gamma_n: f64, gamma_t: f64) -> Result<(), DemError> {
+    let ok = |v: f64| v.is_finite() && v >= 0.0;
+    if !(k_n > 0.0 && k_n.is_finite() && ok(k_t) && ok(gamma_n) && ok(gamma_t)) {
+        return Err(DemError::InvalidInput(format!(
+            "stiffness model needs finite k_n > 0 and k_t, gamma_n, gamma_t >= 0, \
+             got {k_n}, {k_t}, {gamma_n}, {gamma_t}"
+        )));
+    }
+    Ok(())
 }
 
 /// Closed set of tangential contact models.
@@ -839,6 +1200,19 @@ pub enum ContactKey {
         /// Caller-assigned wall identifier.
         wall: usize,
     },
+    /// A second per-contact scalar of another contact (the plastic model's
+    /// `deltaMax`), held in the store under a key derived from the contact's
+    /// own by [`ContactKey::aux`], so it shares the contact's life cycle.
+    Aux {
+        /// Which kind of contact it belongs to (0 pair, 1 wall, 2 facet).
+        kind: u8,
+        /// First identifier of the owning contact.
+        a: usize,
+        /// Second identifier.
+        b: usize,
+        /// Third identifier.
+        c: usize,
+    },
     /// Contact between a particle and one facet of a mesh wall (upstream's
     /// per-triangle mesh contact history, `FixContactHistoryMesh`).
     Tri {
@@ -862,6 +1236,17 @@ impl ContactKey {
         Self::Pair {
             lo: i.min(j),
             hi: i.max(j),
+        }
+    }
+
+    /// The key of this contact's auxiliary scalar (see [`ContactKey::Aux`]).
+    #[must_use]
+    pub fn aux(self) -> Self {
+        match self {
+            Self::Pair { lo, hi } => Self::Aux { kind: 0, a: lo, b: hi, c: 0 },
+            Self::Wall { particle, wall } => Self::Aux { kind: 1, a: particle, b: wall, c: 0 },
+            Self::Tri { particle, wall, tri } => Self::Aux { kind: 2, a: particle, b: wall, c: tri },
+            Self::Aux { .. } => self,
         }
     }
 
@@ -1047,6 +1432,34 @@ impl ShearHistory {
         }
     }
 
+    /// [`ShearHistory::end_step`] for LIGGGHTS' list-life history: contacts
+    /// **between particles** (and their auxiliary scalars) are kept even when
+    /// not refreshed this step, because upstream never clears a pair's shear
+    /// history when it separates inside a neighbour list's life
+    /// (`surfacesClose` runs only for `rsq < contactDistanceFactor^2 radsum^2`,
+    /// which for the default factor 1 is the same test as touching, so it never
+    /// runs); history is dropped only at a list rebuild, by
+    /// [`ShearHistory::retain_pairs`]. Wall and facet contacts keep the
+    /// ordinary rule.
+    pub fn end_step_keep_pairs(&mut self) {
+        self.contacts.retain(|k, e| {
+            e.live || matches!(k, ContactKey::Pair { .. } | ContactKey::Aux { kind: 0, .. })
+        });
+    }
+
+    /// Keep a particle-pair entry (and its auxiliary scalar) only if
+    /// `keep(lo_tag, hi_tag)`: the carry-over test of upstream's list build
+    /// (`granular_bin_no_newton`: history is copied only when the pair
+    /// overlaps at the rebuild, `rsq < radsum*radsum`). Other contacts are kept.
+    pub fn retain_pairs(&mut self, mut keep: impl FnMut(usize, usize) -> bool) {
+        self.contacts.retain(|k, _| match *k {
+            ContactKey::Pair { lo, hi } | ContactKey::Aux { kind: 0, a: lo, b: hi, .. } => {
+                keep(lo, hi)
+            }
+            _ => true,
+        });
+    }
+
     /// Drop the history of every contact not refreshed since
     /// [`ShearHistory::begin_step`] — i.e. every contact that has separated.
     pub fn end_step(&mut self) {
@@ -1180,23 +1593,28 @@ impl RollingModel {
             return Vec3::zero();
         };
 
-        // Upstream uses the ELASTIC normal force here, not sidata.Fn.
-        let fn_elastic = normal.kn * k.delta_n;
-
         // Rolling velocity: omega_i - omega_j for a pair; the contact-point
-        // rolling velocity w_r for a wall.
-        let wr = if is_wall {
-            // w_r = c_r * omega_i / r, with r = radius for the wall branch.
-            omega_i.scale(k.cri / k.r_eff)
-        } else {
-            omega_i.sub(omega_j)
-        };
+        // rolling velocity w_r (`sidata.wr1..3`) for a wall.
+        let wr = if is_wall { k.wr } else { omega_i.sub(omega_j) };
         let wr_mag = wr.norm();
         if wr_mag <= 0.0 {
             return Vec3::zero();
         }
 
-        let mut r_torque = wr.scale(mu_r * fn_elastic * k.r_eff / wr_mag);
+        // Upstream uses the ELASTIC normal force, not sidata.Fn, with these
+        // operation orders (`rolling_model_cdt.h`):
+        //   wall: r_torque = rmu*Fn*wr/wrmag*reff, Fn = deltan*kn
+        //   pair: r_torque = wr * (rmu*kn*deltan*reff/wrmag)
+        let mut r_torque = if is_wall {
+            let fn_elastic = k.delta_n * normal.kn;
+            Vec3::new(
+                mu_r * fn_elastic * wr.x / wr_mag * k.r_eff,
+                mu_r * fn_elastic * wr.y / wr_mag * k.r_eff,
+                mu_r * fn_elastic * wr.z / wr_mag * k.r_eff,
+            )
+        } else {
+            wr.scale(mu_r * normal.kn * k.delta_n * k.r_eff / wr_mag)
+        };
         if !torsion_torque {
             // Remove the component along the contact normal (torsion).
             let along = r_torque.dot(k.en);
@@ -1349,9 +1767,14 @@ impl GranularContactModel {
             TangentialModel::History => history.touch(key),
             TangentialModel::NoHistory => Vec3::zero(),
         };
-        let (force, updated) = self.resolve_pure(prior, k, dt);
+        let stateful = self.normal.has_contact_state();
+        let prior_extra = if stateful { history.touch(key.aux()).x } else { 0.0 };
+        let (force, updated, extra) = self.resolve_impl_x::<true>(prior, prior_extra, k, dt);
         if let Some(shear) = updated {
             history.set(key, shear);
+        }
+        if stateful {
+            history.set(key.aux(), Vec3::new(extra, 0.0, 0.0));
         }
         force
     }
@@ -1415,7 +1838,15 @@ impl GranularContactModel {
             TangentialModel::History => history.touch(key),
             TangentialModel::NoHistory => Vec3::zero(),
         };
-        self.resolve_impl::<false>(prior, k, 0.0).0
+        let stateful = self.normal.has_contact_state();
+        let prior_extra = if stateful { history.touch(key.aux()).x } else { 0.0 };
+        let (force, _, extra) = self.resolve_impl_x::<false>(prior, prior_extra, k, 0.0);
+        if stateful {
+            // upstream: `if (deltan > history[0]) history[0] = deltan;` runs
+            // at set-up too (only the cohesion rewrite is gated)
+            history.set(key.aux(), Vec3::new(extra, 0.0, 0.0));
+        }
+        force
     }
 
     fn resolve_impl<const UPDATE: bool>(
@@ -1424,11 +1855,24 @@ impl GranularContactModel {
         k: &ContactKinematics,
         dt: f64,
     ) -> (GranularForce, Option<Vec3>) {
+        let (f, u, _) = self.resolve_impl_x::<UPDATE>(prior_shear, 0.0, k, dt);
+        (f, u)
+    }
+
+    /// [`GranularContactModel::resolve_impl`] with the per-contact scalar of a
+    /// stateful normal model (`deltaMax`) passed in and out.
+    fn resolve_impl_x<const UPDATE: bool>(
+        &self,
+        prior_shear: Vec3,
+        prior_extra: f64,
+        k: &ContactKinematics,
+        dt: f64,
+    ) -> (GranularForce, Option<Vec3>, f64) {
         let props = match self.materials {
             Some(table) => table.pair_props(k.itype, k.jtype),
             None => PairProps::from_material(&self.normal.material()),
         };
-        let normal = self.normal.evaluate_with(k, &props);
+        let (normal, new_extra) = self.normal.evaluate_hysteretic(k, &props, prior_extra, UPDATE);
         let mu = props.friction;
         let mut updated: Option<Vec3> = None;
 
@@ -1512,6 +1956,7 @@ impl GranularContactModel {
                 ft,
             },
             updated,
+            new_extra,
         )
     }
 }

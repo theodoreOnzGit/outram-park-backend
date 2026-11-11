@@ -1348,6 +1348,83 @@ the neighbour-grid fix — the committed reference beds can now be regenerated
 exactly. The regression test independently reproduced `φ 0.5766 → 0.5732` to
 four decimals on two separate runs.
 
+## 4.10 Pair-order translation, friction cells in both codes, heat conduction, stiffness and hysteresis models (2026-11-11, gh:#1406, #1410, #1412, #1418)
+
+**Per-contact forces beyond step 0 (gh:#1418).** `neighbor_list.rs` translates
+LIGGGHTS' atom sort and `bin` half neighbour list; with
+`GranularSystem::with_liggghts_neighbor_order` the per-contact dump of the
+settled `D/d = 6` bed is **bit-identical at steps 0, 1, 10 and 100** (793 / 793 /
+793 / 792 contacts, all 23 fields). Ablations: default cell grid 3440 / 3799 /
+6266 values differ at steps 1 / 10 / 100; LIGGGHTS list without the atom sort
+4442 / 4923 / 6831. Prediction (written first): bit-identical. Met. Test
+`pair_gran_local_cross_code.rs`. The option is named, not the default: the order
+needs the deck's box and skin.
+
+**Friction cells run in BOTH codes (gh:#1406 prio 2).** Cell-by-cell check of
+`reference-data/liggghts/htr10_*_mu*_mur*.csv`: all are **port output**
+(`reference-data/liggghts/README.md`); the HTR-10 cells `mu10_mur00`,
+`mu10_mur10`, `mu40_mur00` and the `mu125`..`mu200` sweep were **never run in
+LIGGGHTS**; only `mu40_mur10` has a LIGGGHTS run (`in.htr10_conus`). An HTR-10
+cell costs ~10 min of port time and more in LIGGGHTS on one core, so the
+ablation was run on the **`D/d = 6` bed instead**, from the same inserted state
+(`pebble_bed_init.csv`), 400 000 steps (2 s), `mu in {0.1, 0.4}` x
+`mu_r in {0, 0.1}` (CDT), decks `in.ablate`, `in.ablate_cdt`, `run_ablate.sh`,
+output `ablate_<cell>.csv` (9 frames, every 50 000 steps, x, v, omega of every
+pebble). Prediction: bit-identical, because the mechanical path and the sum order
+are. **Result (`friction_ablation_cross_code.rs`, Rust 1.99.1):**
+
+| cell | values bit-identical / total (9 frames) | final `phi` ours / LIGGGHTS |
+|---|---|---|
+| `mu = 0.1`, `mu_r = 0` | **28 674 / 28 674** | 0.584154 / 0.584154 |
+| `mu = 0.1`, `mu_r = 0.1` | **28 674 / 28 674** | 0.568520 / 0.568520 |
+| `mu = 0.4`, `mu_r = 0` | **28 674 / 28 674** | 0.545985 / 0.545985 |
+| `mu = 0.4`, `mu_r = 0.1` | **28 674 / 28 674** | 0.526996 / 0.526996 |
+
+So `mu` moves `phi` by `-0.038` (`mu_r = 0`) and `-0.042` (`mu_r = 0.1`), and
+`mu_r` by `-0.016` / `-0.019` at this `D/d`, identically in both codes. (Absolute
+`phi` here is a `D/d = 6` slab number and is not comparable to the whole-core
+HTR-10 `phi`.) **The HTR-10 conus cells `mu10_mur00`, `mu10_mur10` and
+`mu40_mur00` remain port-only**; the V&V 4.9 numbers carry no LIGGGHTS
+counterpart except `mu40_mur10`.
+
+**The run found two defects the shorter tests could not** (first first-written
+version of the test diverged at step 19 117 and at step 18 433):
+1. gh:#1451, pair shear history life cycle: upstream keeps a pair's shear
+   history through separation for the whole neighbour-list life (`surfacesClose`
+   never runs at contact distance factor 1) and drops it at a rebuild only if the
+   pair does not overlap then; the port dropped it on separation. Fixed in the
+   LIGGGHTS-order mode.
+2. gh:#1452, CDT rolling torque operation order and the wall-branch `w_r`.
+   Fixed.
+
+**`fix heat/gran/conduction` (gh:#1412).** `heat_gran.rs`; two spheres at
+`DeltaT`: 1004 / 1004 values bit-identical over 251 frames; the 354-pebble bed
+(initial `T = 300 + 200 z/0.35`): 0 of 708 values differ at steps 0, 1, 10, 100
+with the LIGGGHTS order (default cell-grid order: 63 / 61 / 63 differ, worst
+relative `1.1e-13`). Clean-room `thermal.rs` against the translation: flux ratio
+2.4813 at `delta = 0.4 mm`, `r = 5 mm`; closed form
+`sqrt(2 pi (1 - delta/(4 r))) = 2.4815`. The first-written prediction
+(`sqrt(2 pi) = 2.507` within 1 %) was wrong by 1.01 % (omitted the
+`delta/(4r)` term of the chord radius) and is corrected in the test header.
+`test: heat_conduction_cross_code.rs`.
+
+**Contact sub-models (gh:#1410), oblique pair, 251 frames, bit patterns.**
+
+| model | deck | result |
+|---|---|---|
+| `hertz/stiffness` | `in.stiff_hertz` | **4518 / 4518** (bit-identical) |
+| `hooke/stiffness` (relative damping) | `in.stiff_hooke` | bit-identical |
+| `hooke/stiffness absolute_damping on tangential_damping off` | `in.stiff_hooke_abs` | bit-identical |
+| `hooke/hysteresis`, fast impact (plastic loading past `deltaMaxLim`, cohesion on unloading) | `in.hyst_fast` | bit-identical |
+| `hooke/hysteresis`, slow impact (interpolated `k2`, no adhesion) | `in.hyst_slow` | bit-identical |
+
+(`liggghts_cross_code.rs`; every prediction written first was bit-identical.)
+Not translated yet: `epsd`, `epsd2`, `epsd3` rolling, Luding (normal, tangential,
+rolling), Thornton-Ning, Edinburgh (+ stiffness), multicontact. The hysteresis
+model resolves contacts serially (no rayon staging; its per-contact `deltaMax` is
+held in the shear store under `ContactKey::Aux`) and is wall-capable only through
+the same store; wall and mesh hysteresis contacts have no cross-code deck.
+
 ## 5. What is still NOT validated
 
 Unchanged from the 2026-09-06 declaration, and not weakened by anything above.

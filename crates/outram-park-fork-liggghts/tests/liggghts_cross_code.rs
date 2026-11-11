@@ -542,3 +542,93 @@ fn two_type_headon_matches_liggghts() {
 fn two_type_oblique_matches_liggghts() {
     assert_bit_identical(&twotype_case("twotype_oblique.csv", true));
 }
+
+// ---------------------------------------------------------------------------
+// gh:#1410 (2026-11-11): the `hertz/stiffness` and `hooke/stiffness` normal
+// models. Decks `in.stiff_hertz`, `in.stiff_hooke`, `in.stiff_hooke_abs`.
+// ---------------------------------------------------------------------------
+
+/// Oblique collision of the standard pair (`d = 10 mm`, `rho = 2500`, `x =
+/// -+6 mm`, `v = +-(1, 0.5) m/s`, `mu = 0.5`, `dt = 1 us`, 2500 steps, tangential
+/// history) with the stiffness and damping given directly, 251 frames of x, v,
+/// omega compared bit for bit.
+///
+/// **Prediction (written before the first run, 2026-11-11).** Bit-identical:
+/// both models are a handful of products with no `pow`/`exp`, translated
+/// operation by operation from `normal_model_hertz_stiffness.h` /
+/// `normal_model_hooke_stiffness.h`.
+fn stiffness_case(file: &str, normal: GranularNormalModel) -> Diff {
+    let rows = load(file).unwrap_or_else(|| panic!("{file} missing"));
+    assert_eq!(rows.len(), 251, "unexpected reference frame count");
+    let model = GranularContactModel::new(normal, TangentialModel::History);
+    replay_pair(&rows, model, Vec3::new(1.0, 0.5, 0.0), Vec3::new(-1.0, -0.5, 0.0))
+}
+
+/// `hertz/stiffness`: `kn = 1.2e8`, `kt = 4e7`, `gamman = 4.8e5`, `gammat =
+/// 2.4e5`. **Result:** see `docs/cross-code-summary.md`.
+#[test]
+fn hertz_stiffness_matches_liggghts() {
+    let normal = GranularNormalModel::hertz_stiffness(material(), 1.2e8, 4.0e7, 4.8e5, 2.4e5)
+        .expect("valid hertz/stiffness");
+    assert_bit_identical(&stiffness_case("stiff_hertz.csv", normal));
+}
+
+/// `hooke/stiffness` with relative damping: `kn = 2e5`, `kt = 6e4`, `gamman =
+/// 800`, `gammat = 400` (times `m_eff`).
+#[test]
+fn hooke_stiffness_matches_liggghts() {
+    let normal = GranularNormalModel::hooke_stiffness(material(), 2.0e5, 6.0e4, 800.0, 400.0)
+        .expect("valid hooke/stiffness");
+    assert_bit_identical(&stiffness_case("stiff_hooke.csv", normal));
+}
+
+/// `hooke/stiffness absolute_damping on tangential_damping off`: `gamman_abs =
+/// 0.52`, `gammat_abs = 0.26` kg/s, no damping on the shear force.
+#[test]
+fn hooke_stiffness_absolute_damping_matches_liggghts() {
+    let normal = GranularNormalModel::hooke_stiffness(material(), 2.0e5, 6.0e4, 0.52, 0.26)
+        .expect("valid hooke/stiffness")
+        .with_absolute_damping(true)
+        .with_tangential_damping(false);
+    assert_bit_identical(&stiffness_case("stiff_hooke_abs.csv", normal));
+}
+
+// ---------------------------------------------------------------------------
+// gh:#1410 (2026-11-11): `hooke/hysteresis` (`normal_model_hooke_hysteresis.h`).
+// ---------------------------------------------------------------------------
+
+/// Plastic Hooke (`hooke/hysteresis`), oblique collision of the standard pair,
+/// 251 frames of x, v, omega bit for bit.
+///
+/// **Methodology.** `in.hyst_fast`: `v = +-(1, 0.5) m/s`, `v_char = 2 m/s`,
+/// `k2Max/kn = 3`, `kc/kn = 0.5`, `phi_f = 0.05` (so `deltaMaxLim = 0.375 mm`
+/// is passed during loading and unloading reaches the cohesion branch, which
+/// rewrites `deltaMax`), 2500 steps. `in.hyst_slow`: `v = +-(0.25, 0.125)`,
+/// `k2Max/kn = 4`, `kc = 0`, `phi_f = 0.2` (`deltaMax < deltaMaxLim`: the
+/// interpolated `k2` branch), 5000 steps sampled every 20.
+///
+/// **Prediction (written before the first run, 2026-11-11).** Bit-identical in
+/// both: a line-for-line translation, with `deltaMax` carried per contact.
+fn hysteresis_case(file: &str, normal: GranularNormalModel) -> Diff {
+    let rows = load(file).unwrap_or_else(|| panic!("{file} missing"));
+    assert_eq!(rows.len(), 251, "unexpected reference frame count");
+    let model = GranularContactModel::new(normal, TangentialModel::History);
+    let (vx, vy) = if file.contains("fast") { (1.0, 0.5) } else { (0.25, 0.125) };
+    replay_pair(&rows, model, Vec3::new(vx, vy, 0.0), Vec3::new(-vx, -vy, 0.0))
+}
+
+/// Fast impact: plastic loading past `deltaMaxLim`, cohesion on unloading.
+#[test]
+fn hooke_hysteresis_fast_matches_liggghts() {
+    let normal =
+        GranularNormalModel::hooke_hysteresis(material(), 2.0, 3.0, 0.5, 0.05).expect("valid");
+    assert_bit_identical(&hysteresis_case("hyst_fast.csv", normal));
+}
+
+/// Slow impact: the interpolated-`k2` branch, no adhesion.
+#[test]
+fn hooke_hysteresis_slow_matches_liggghts() {
+    let normal =
+        GranularNormalModel::hooke_hysteresis(material(), 2.0, 4.0, 0.0, 0.2).expect("valid");
+    assert_bit_identical(&hysteresis_case("hyst_slow.csv", normal));
+}

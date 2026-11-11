@@ -495,6 +495,29 @@ impl GranularSystem {
             self.perm = order.iter().map(|&o| self.perm[o]).collect();
             self.next_sort = (self.step_count / cfg.sort_every) * cfg.sort_every + cfg.sort_every;
         }
+        // The list build carries a pair's history over only if the pair
+        // overlaps at the rebuild (`rsq < radsum*radsum`); until then it
+        // persists through separations (see `ShearHistory::end_step_keep_pairs`).
+        {
+            let by_tag: HashMap<u64, usize> =
+                self.tags.iter().enumerate().map(|(i, &t)| (t, i)).collect();
+            let particles = &self.particles;
+            self.history.retain_pairs(|lo, hi| {
+                let (Some(&i), Some(&j)) = (by_tag.get(&(lo as u64)), by_tag.get(&(hi as u64)))
+                else {
+                    return false;
+                };
+                let (a, b) = (&particles[i], &particles[j]);
+                let (dx, dy, dz) = (
+                    a.position.x - b.position.x,
+                    a.position.y - b.position.y,
+                    a.position.z - b.position.z,
+                );
+                let rsq = dx * dx + dy * dy + dz * dz;
+                let radsum = a.radius + b.radius;
+                rsq < radsum * radsum
+            });
+        }
         let x: Vec<Vec3> = self.perm.iter().map(|&p| self.particles[p].position).collect();
         let r: Vec<f64> = self.perm.iter().map(|&p| self.particles[p].radius).collect();
         let mut local = Vec::new();
@@ -979,7 +1002,7 @@ impl GranularSystem {
         // --- particle-particle ---
         // Both paths accumulate in the SAME order (ascending candidate-pair
         // index), which is what makes them bit-identical. See `compute`.
-        if self.compute.is_parallel_step() && !setup {
+        if self.compute.is_parallel_step() && !setup && !self.model.normal.has_contact_state() {
             self.resolve_pairs_parallel();
         } else {
             self.resolve_pairs_serial();
@@ -1056,7 +1079,11 @@ impl GranularSystem {
             }
         }
 
-        self.history.end_step();
+        if matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
+            self.history.end_step_keep_pairs();
+        } else {
+            self.history.end_step();
+        }
 
         // --- gravity ---
         for i in 0..n {
