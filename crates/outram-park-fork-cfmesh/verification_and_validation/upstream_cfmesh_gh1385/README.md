@@ -1020,3 +1020,31 @@ Prediction 3: with two iterations the hat's `surfaceProjection` is
 29498/29498 bit-identical and faces identical; later stages then show what is
 left (`edgeExtraction` and on: the 2D edge extractor, `optimizeSurface2D`,
 `untangleSurface2D`, the pow ulp).
+
+### Result of prediction 3, and prediction 4 (hat, written before the fix)
+
+**Prediction 3 held, and more:** with `preMapVertices` at 2 iterations the
+hat's points are **bit-identical at every step through
+`boundaryLayerRefinement`** (29498, 29498, 29498, 29498, 29498, 30890, 30890,
+38090 of the same counts, no pow ulp on this case), faces index-identical
+through `meshOptimisation`. The final mesh has 38090/38090 points identical but
+faces 1091/75072 index-identical, same cells as face sets (18676), different
+cell labels: the `renumberMesh` walk starts from different cell lists.
+
+Traces of both codes (upstream's instrumented `cartesian2DMeshGenerator::
+refBoundaryLayers` prints `PFC` before and `RFF`/`RFC` after `refineLayers`;
+`patches/gh1385-trace-instrumentation-4.patch`): the mesh after
+`refineLayers` has **all 75072 faces identical at their index** (so round 4's
+assembly is right in 2D too) and 18560 of 18676 cell face lists identical; the
+116 that differ are original cells whose list **before** the refinement
+differs (same faces, other order; e.g. cell 0: upstream `1 3 29055 28464`, port
+`1 3 28464 29055`). The port's `distribute_boundary_faces`
+(`meshSurfaceEdgeExtractor2D::distributeBoundaryFaces`) clones the mesh, so its
+carried cell lists no longer match the truncated faces and fall back to the
+ascending derived lists; upstream's `replaceBoundary` keeps the internal faces
+in each list and **appends the new boundary labels in the order of the boundary
+list** (the old boundary faces' order), the labels running patch by patch.
+Prediction 4: carrying the lists through that replacement makes the pre-refine
+lists equal upstream's (116 -> 0), the cell lists after `refineLayers`
+identical, and the final hat mesh index-identical (75072/75072 faces, 38090
+points as now).
