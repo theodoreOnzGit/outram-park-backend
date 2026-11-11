@@ -412,8 +412,9 @@ pub fn build_charged(tape: &Tape, mat: i32, kt_mev: f64, suffix: u32, text_pendf
             tot[j] += s;
         }
     }
+    let mut disap = vec![0.0f64; nes];
     let mut sig: Vec<(usize, Vec<f64>)> = Vec::new();
-    for r in &order {
+    for (ir, r) in order.iter().enumerate() {
         let mut g = Gety1::new(&r.tab);
         let enext = g.get(0.0).xnext;
         let mut j = nes;
@@ -434,7 +435,14 @@ pub fn build_charged(tape: &Tape, mat: i32, kt_mev: f64, suffix: u32, text_pendf
             if (6..=9).contains(&r.mt) || (46..=49).contains(&r.mt) {
                 s = sigfig(s / 2.0, 7, 0);
             }
-            if r.mt <= 200 || r.mt >= 600 {
+            if ir < nr {
+                // pass 1: reactions producing the projectile kind
+                if r.mt >= 5 {
+                    tot[jj - 1] += s;
+                }
+            } else if r.mt <= 200 || r.mt >= 600 {
+                // pass 2: also the disappearance column (`:5663-5674`)
+                disap[jj - 1] += s;
                 tot[jj - 1] += s;
             }
             vals.push(s);
@@ -483,8 +491,8 @@ pub fn build_charged(tape: &Tape, mat: i32, kt_mev: f64, suffix: u32, text_pendf
     for &v in &tot {
         b.real(sigfig(v, 9, 0));
     }
-    for _ in 0..nes {
-        b.real(0.0);
+    for &v in &disap {
+        b.real(sigfig(v, 9, 0));
     }
     for &v in &elas {
         b.real(v);
