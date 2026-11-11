@@ -1,0 +1,1 @@
+case elbow_90degree: app=cartesianMesh OMP_NUM_THREADS=1 2026-11-11T09:33:41+00:00

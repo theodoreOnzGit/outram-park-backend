@@ -8,6 +8,6 @@ CF=${CF:-/home/user/outram-park-backend/crates/outram-park-fork-cfmesh/upstream_
 cd "$CF"
 start=$(date +%s)
 echo "START $(date -Is)"
-wmake libso meshLibrary
+wmake -k libso meshLibrary
 for e in cartesianMesh cartesian2DMesh tetMesh pMesh; do wmake executables/$e; done
 echo "END $(date -Is) elapsed $(( $(date +%s) - start )) s"

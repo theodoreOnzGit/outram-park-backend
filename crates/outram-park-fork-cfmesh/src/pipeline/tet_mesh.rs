@@ -104,6 +104,10 @@ pub struct TetMeshOptions {
     /// `meshDict`'s `boundaryLayers` dictionary (`None`: absent, no layer
     /// and no refinement, upstream's default).
     pub boundary_layers: Option<BoundaryLayersDict>,
+    /// `boundaryLayers/optimiseLayer` with its `optimisationParameters`
+    /// (gh:#1476): `Some` runs `optimizeBoundaryLayer(false)` in
+    /// `optimiseFinalMesh`; `None` (upstream's default) does not.
+    pub optimise_layer: Option<crate::boundary_layer_optimisation::BoundaryLayerOptimisationControls>,
 }
 
 /// The `patchAssignment` step's rule (gh:#1269).
@@ -130,6 +134,7 @@ impl Default for TetMeshOptions {
             patch_assignment: PatchAssignment::EdgeExtractor,
             fun_sheets: crate::mesh_surface_edge_extractor_fun::FunSheets::Jfs,
             boundary_layers: None,
+            optimise_layer: None,
         }
     }
 }
@@ -147,24 +152,34 @@ pub struct BoundaryLayersDict {
     pub settings: crate::layers::refine_boundary_layers::RefineBoundaryLayersSettings,
     /// `boundaryLayerHeightFactor`, `boundaryLayerMinHeight`.
     pub heights: crate::layers::boundary_layers::BoundaryLayersControls,
+    /// `patchBoundaryLayers.toc()` as written, the names
+    /// `generateBoundaryLayers` passes to `addLayerForPatch(word)`, which
+    /// compares them **exactly** with the mesh's patch names (gh:#1476: the
+    /// `meshDict` reader keeps them, while [`Self::settings`]' patches are
+    /// the regular-expression matches `refineBoundaryLayers` makes). `None`
+    /// (the dicts built in code before gh:#1476): the keys of
+    /// `settings.patches` are used instead.
+    pub patch_layer_names: Option<Vec<String>>,
 }
 
 impl BoundaryLayersDict {
     /// A dict with the global `nLayers` entry `n`.
     pub fn with_n_layers(n: usize) -> Self {
         let settings = crate::layers::refine_boundary_layers::RefineBoundaryLayersSettings { n_layers: n, ..Default::default() };
-        BoundaryLayersDict { n_layers: Some(n), settings, heights: Default::default() }
+        BoundaryLayersDict { n_layers: Some(n), settings, heights: Default::default(), patch_layer_names: None }
     }
 
     /// The generators' `generateBoundaryLayers`: `nLayers` present and
     /// above 0, every patch; present and 0, none; absent, each
-    /// `patchBoundaryLayers` patch (name order: the typed map does not keep
-    /// the dictionary's order, which upstream's `toc()` walks).
+    /// `patchBoundaryLayers` patch: [`Self::patch_layer_names`] in
+    /// dictionary order when given (gh:#1476), else the keys of
+    /// `settings.patches` (name order).
     pub fn request(&self) -> Option<crate::layers::boundary_layers::LayerRequest> {
         use crate::layers::boundary_layers::LayerRequest;
-        match self.n_layers {
-            Some(n) => (n > 0).then_some(LayerRequest::AllPatches),
-            None => (!self.settings.patches.is_empty()).then(|| LayerRequest::Patches(self.settings.patches.keys().cloned().collect())),
+        match (self.n_layers, &self.patch_layer_names) {
+            (Some(n), _) => (n > 0).then_some(LayerRequest::AllPatches),
+            (None, Some(names)) => (!names.is_empty()).then(|| LayerRequest::Patches(names.clone())),
+            (None, None) => (!self.settings.patches.is_empty()).then(|| LayerRequest::Patches(self.settings.patches.keys().cloned().collect())),
         }
     }
 }
@@ -292,9 +307,10 @@ pub fn create_octree(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&Surf
 /// remainder), against the surface `(points, tris)`: `pMesh` runs
 /// `meshSurfaceOptimizer::optimizeSurface` first, `tetMesh`
 /// `meshOptimizer::optimizeSurface(octree)`; then `optimizeMeshFV`,
-/// `optimizeLowQualityFaces`, `untangleMeshFV` (`optimizeBoundaryLayer(false)`
-/// acts only with `optimiseLayer`, off). Returns the report line.
-fn generator_optimise_final_mesh(kind: Template, m: &mut VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], reg: &SurfaceRegions, enforce_geometry_constraints: bool) -> Result<String, String> {
+/// `optimizeLowQualityFaces`, `optimizeBoundaryLayer(false)` (acts only
+/// with `optimiseLayer`, off by default; gh:#1476), `untangleMeshFV`.
+/// Returns the report line.
+fn generator_optimise_final_mesh(kind: Template, m: &mut VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], reg: &SurfaceRegions, enforce_geometry_constraints: bool, optimise_layer: Option<&crate::boundary_layer_optimisation::BoundaryLayerOptimisationControls>) -> Result<String, String> {
     let given = face_regions(m, reg);
     if kind == Template::Voronoi {
         // meshSurfaceOptimizer::optimizeSurface on its own
@@ -311,9 +327,10 @@ fn generator_optimise_final_mesh(kind: Template, m: &mut VolumeMesh, points: &[V
     let controls = UntangleControls { boundary_moves: true, mesh_untangler: true, ..UntangleControls::default() };
     let r1 = opt.optimize_mesh_fv(m, 5, &controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
     let r2 = opt.optimize_low_quality_faces(m, 10);
+    let bl = crate::pipeline::cartesian_mesh::optimize_boundary_layer_step(m, optimise_layer, false, &controls, "optimizeBoundaryLayer(false): acts only with optimiseLayer (off, upstream default)");
     let r3 = opt.untangle_mesh_fv(m, &controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
     Ok(format!(
-        "optimizeSurface, then optimizeMeshFV bad faces {} -> {}, optimizeLowQualityFaces {} -> {}, untangleMeshFV {} -> {}; optimizeBoundaryLayer(false): acts only with optimiseLayer (off, upstream default)",
+        "optimizeSurface, then optimizeMeshFV bad faces {} -> {}, optimizeLowQualityFaces {} -> {}, untangleMeshFV {} -> {}; {bl}",
         r1.flagged_before, r1.flagged_after, r2.flagged_before, r2.flagged_after, r3.flagged_before, r3.flagged_after
     ))
 }
@@ -547,14 +564,14 @@ pub(crate) fn run_generator(
             WorkflowStep::MeshOptimisation => {
                 // optimiseFinalMesh on the octree's surface (the modified
                 // one with anisotropicSources)
-                let line = generator_optimise_final_mesh(kind, m, spts, tris, reg, opts.enforce_geometry_constraints)?;
+                let line = generator_optimise_final_mesh(kind, m, spts, tris, reg, opts.enforce_geometry_constraints, opts.optimise_layer.as_ref())?;
                 rep.notes.push(format!("meshOptimisation: {line}"));
                 // its end: revertGeometryModification while modSurfacePtr_
                 // is set, then projectSurfaceAfterBackScaling
                 if let (true, Some(cm)) = (mod_active, opts.dict.anisotropic_sources.as_ref()) {
                     mod_active = false;
                     let b = crate::anisotropic::revert_and_project(m, cm, points, tris);
-                    let line2 = generator_optimise_final_mesh(kind, m, points, tris, reg, opts.enforce_geometry_constraints)?;
+                    let line2 = generator_optimise_final_mesh(kind, m, points, tris, reg, opts.enforce_geometry_constraints, opts.optimise_layer.as_ref())?;
                     rep.back_scaling = Some(b);
                     rep.notes.push(format!(
                         "meshOptimisation: revertGeometryModification ({} points); projectSurfaceAfterBackScaling: mapVerticesOntoSurface on the original surface (largest move {:.3e}), optimiseFinalMesh again: {line2}",

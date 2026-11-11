@@ -561,3 +561,313 @@ pub fn read_stl_binary(bytes: &[u8]) -> Result<TriangleSoup, MeshError> {
         name: String::new(),
     })
 }
+
+// ── OpenFOAM's STLReader: zones, single precision, merged points ───────────
+//
+// Ported from OpenFOAM-v2506 (www.openfoam.com), GPL-3.0-or-later:
+//   src/fileFormats/stl/STLReader.C (readBINARY, readFile, mergePointsMap),
+//   src/fileFormats/stl/STLCore.C (detectBinaryHeader, startsWithSolid,
+//     checkBinaryFileSize),
+//   src/fileFormats/stl/STLAsciiParseI.H, STLAsciiParseFlex.L (beginSolid,
+//     addVertexComponent, endFacet),
+//   src/surfMesh/surfaceFormats/stl/triSurfaceSTLformat.C (triSurface::readSTL),
+//   src/OpenFOAM/meshes/meshTools/mergePoints.C (Detail::mergePoints).
+// Copyright (C) 2011-2016 OpenFOAM Foundation; Copyright (C) 2016-2025
+// OpenCFD Ltd. Added for gh:#1476 (cfMesh's `surfaceFile`): cfMesh's
+// `triSurf(fileName)` reads an STL through `triSurface`, so this is the reader
+// upstream cfMesh runs. The functions above ([`read_stl`] and friends) are the
+// snappyHexMesh driver's reader and are unchanged.
+
+/// An STL as OpenFOAM's `triSurface::readSTL` returns it: points merged,
+/// one zone (patch) per `solid` name (ASCII) or per attribute value (binary).
+///
+/// Differences from [`read_stl_bytes`] that matter for parity with upstream:
+/// coordinates are rounded to **single precision** (`STLpoint` is `float`),
+/// every `solid` of a multi-solid ASCII file is read (not only the first),
+/// and coincident corners are merged into shared points.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StlZoned {
+    /// The merged points `[m]`, in order of first appearance.
+    pub points: Vec<Vector3>,
+    /// Triangles (indices into [`Self::points`]), file order.
+    pub triangles: Vec<[usize; 3]>,
+    /// Zone of each triangle (index into [`Self::names`] for ASCII).
+    pub zones: Vec<usize>,
+    /// Zone names, ASCII only (`solid <name>`; a nameless solid is
+    /// `"solid"`). Empty for a binary file, as upstream: `triSurface::readSTL`
+    /// sets patch names only for ASCII.
+    pub names: Vec<String>,
+    /// Number of zones (for binary: distinct attribute values).
+    pub n_zones: usize,
+    /// `true` if the file was read as binary.
+    pub binary: bool,
+}
+
+/// `STLCore::startsWithSolid`: the 80-byte header, leading white space
+/// skipped, begins with `solid` (any case).
+fn starts_with_solid(header: &[u8]) -> bool {
+    let n = header.len().min(80);
+    let mut pos = 0;
+    while pos < n && header[pos].is_ascii_whitespace() {
+        pos += 1;
+    }
+    pos < 75 && header[pos..pos + 5].eq_ignore_ascii_case(b"solid")
+}
+
+/// `STLCore::detectBinaryHeader` on an uncompressed buffer: binary when the
+/// header does not start with `solid` and the triangle count fits the size
+/// (`checkBinaryFileSize`, which allows 25 to 50 bytes per triangle).
+fn detect_binary(bytes: &[u8]) -> bool {
+    if bytes.len() < 84 || starts_with_solid(&bytes[..80]) {
+        return false;
+    }
+    let n = i32::from_le_bytes([bytes[80], bytes[81], bytes[82], bytes[83]]) as i64;
+    let content = bytes.len() as i64 - 80;
+    n >= 0 && n >= content / 50 && n <= content / 25
+}
+
+/// `word::validate`: drop the characters a `word` may not hold.
+fn validate_word(s: &str) -> String {
+    s.chars().filter(|&c| !c.is_whitespace() && !matches!(c, '"' | '\'' | '/' | ';' | '{' | '}')).collect()
+}
+
+/// Read an STL buffer as OpenFOAM's `triSurface::readSTL` does (see
+/// [`StlZoned`]): format by `detectBinaryHeader`, then the ASCII or binary
+/// reader, then `mergePointsMap` with OpenFOAM's tolerance (`100 *
+/// doubleScalarSMALL` for ASCII, `10 *` for binary, absolute).
+///
+/// # Errors
+/// [`MeshError::DictParse`] on a truncated binary file or a facet with a
+/// vertex component that is not a number.
+pub fn read_stl_zoned_bytes(bytes: &[u8]) -> Result<StlZoned, MeshError> {
+    let binary = detect_binary(bytes);
+    let raw = if binary { read_binary_zoned(bytes)? } else { read_ascii_zoned(&String::from_utf8_lossy(bytes))? };
+    let tol = if binary { 10.0 } else { 100.0 } * 1.0e-15;
+    let (point_map, n_unique) = merge_points(&raw.points, tol);
+    let mut points = vec![Vector3::ZERO; n_unique];
+    for (i, p) in raw.points.iter().enumerate() {
+        points[point_map[i]] = *p;
+    }
+    let triangles = (0..raw.zones.len()).map(|f| [point_map[3 * f], point_map[3 * f + 1], point_map[3 * f + 2]]).collect();
+    Ok(StlZoned { points, triangles, zones: raw.zones, names: raw.names, n_zones: raw.n_zones, binary })
+}
+
+/// Read an STL file with [`read_stl_zoned_bytes`].
+///
+/// # Errors
+/// As [`read_stl_zoned_bytes`], plus [`MeshError::DictParse`] wrapping an
+/// I/O error.
+pub fn read_stl_zoned(path: impl AsRef<std::path::Path>) -> Result<StlZoned, MeshError> {
+    let bytes = std::fs::read(path.as_ref()).map_err(|e| MeshError::DictParse(format!("cannot read STL file {}: {e}", path.as_ref().display())))?;
+    read_stl_zoned_bytes(&bytes)
+}
+
+/// The reader's output before `mergePoints`: three corners per facet.
+struct RawStl {
+    points: Vec<Vector3>,
+    zones: Vec<usize>,
+    names: Vec<String>,
+    n_zones: usize,
+}
+
+/// `STLReader::readBINARY`: corners as `f32`, the attribute word as the zone,
+/// zones numbered in order of first appearance.
+fn read_binary_zoned(bytes: &[u8]) -> Result<RawStl, MeshError> {
+    let count = i32::from_le_bytes([bytes[80], bytes[81], bytes[82], bytes[83]]).max(0) as usize;
+    if bytes.len() < 84 + 50 * count {
+        return Err(MeshError::DictParse(format!("binary STL truncated: {count} facets need {} bytes, have {}", 84 + 50 * count, bytes.len())));
+    }
+    let rf = |off: usize| f32::from_le_bytes([bytes[off], bytes[off + 1], bytes[off + 2], bytes[off + 3]]) as f64;
+    let mut points = Vec::with_capacity(3 * count);
+    let mut zones = Vec::with_capacity(count);
+    let mut lookup: std::collections::BTreeMap<u16, usize> = std::collections::BTreeMap::new();
+    for i in 0..count {
+        let base = 84 + 50 * i + 12;
+        for v in 0..3 {
+            let o = base + 12 * v;
+            points.push(Vector3::new(rf(o), rf(o + 4), rf(o + 8)));
+        }
+        let attrib = u16::from_le_bytes([bytes[base + 36], bytes[base + 37]]);
+        let next = lookup.len();
+        zones.push(*lookup.entry(attrib).or_insert(next));
+    }
+    let n_zones = lookup.len();
+    Ok(RawStl { points, zones, names: Vec::new(), n_zones })
+}
+
+/// The ASCII parser's actions (`beginSolid`, `beginFacet`,
+/// `addVertexComponent`, `endFacet`) driven by each line's leading keyword.
+/// A component goes through `double` and then `float`, as
+/// `addVertexComponent(::atof(..))` does.
+fn read_ascii_zoned(text: &str) -> Result<RawStl, MeshError> {
+    let mut points: Vec<Vector3> = Vec::new();
+    let mut zones: Vec<usize> = Vec::new();
+    let mut names: Vec<String> = Vec::new();
+    let mut group = 0usize;
+    let mut n_facet_points = 0usize;
+    for line in text.lines() {
+        let mut tok = line.split_whitespace();
+        let Some(cmd) = tok.next() else { continue };
+        if cmd.eq_ignore_ascii_case("solid") {
+            let name = tok.next().map(validate_word).filter(|s| !s.is_empty()).unwrap_or_else(|| "solid".to_string());
+            group = match names.iter().position(|n| *n == name) {
+                Some(g) => g,
+                None => {
+                    names.push(name);
+                    names.len() - 1
+                }
+            };
+        } else if cmd.eq_ignore_ascii_case("facet") {
+            n_facet_points = 0;
+        } else if cmd.eq_ignore_ascii_case("vertex") {
+            let mut c = [0.0f64; 3];
+            for (k, slot) in c.iter_mut().enumerate() {
+                let s = tok.next().ok_or_else(|| MeshError::DictParse(format!("vertex with {k} components: {line:?}")))?;
+                let v: f64 = s.parse().map_err(|_| MeshError::DictParse(format!("bad float in STL: {s:?}")))?;
+                *slot = v as f32 as f64;
+            }
+            points.push(Vector3::new(c[0], c[1], c[2]));
+            n_facet_points += 1;
+        } else if cmd.eq_ignore_ascii_case("endfacet") {
+            if n_facet_points == 3 {
+                if names.is_empty() {
+                    names.push("solid".to_string());
+                }
+                zones.push(group);
+            } else {
+                let extra = if n_facet_points > 3 { n_facet_points - 3 } else { n_facet_points };
+                points.truncate(points.len() - extra);
+            }
+            n_facet_points = 0;
+        }
+    }
+    let n_zones = names.len();
+    Ok(RawStl { points, zones, names, n_zones })
+}
+
+/// OpenFOAM's `mergePoints(points, mergeTol, verbose, pointToUnique)`
+/// (`Detail::mergePoints`): a point within `merge_tol` (absolute) of an
+/// earlier point in distance-from-the-minimum order merges with it. Returns
+/// the map to the unique points and their number; unique points are numbered
+/// in order of their lowest-index member, as upstream's renumbering does.
+pub fn merge_points(points: &[Vector3], merge_tol: f64) -> (Vec<usize>, usize) {
+    let n = points.len();
+    if n == 0 {
+        return (Vec::new(), 0);
+    }
+    let mut cmp = points[0];
+    for p in &points[1..] {
+        cmp = Vector3::new(cmp.x.min(p.x), cmp.y.min(p.y), cmp.z.min(p.z));
+    }
+    let sq = |a: f64| a * a;
+    let tol_sqr = sq(merge_tol);
+    let sqr_dist: Vec<f64> = points.iter().map(|p| sq(p.x - cmp.x) + sq(p.y - cmp.y) + sq(p.z - cmp.z)).collect();
+    let mut order: Vec<usize> = (0..n).collect();
+    // `sortedOrder` is a stable sort
+    order.sort_by(|&a, &b| sqr_dist[a].total_cmp(&sqr_dist[b]));
+    let sorted_tol: Vec<f64> = order
+        .iter()
+        .map(|&i| {
+            let p = points[i];
+            2.0 * merge_tol * ((p.x - cmp.x).abs() + (p.y - cmp.y).abs() + (p.z - cmp.z).abs())
+        })
+        .collect();
+    let mut cluster = vec![0usize; n];
+    let mut n_new = 0usize;
+    for sorti in 0..n {
+        let pi = order[sorti];
+        let cur = sqr_dist[pi];
+        let cp = points[pi];
+        let mut matched = None;
+        let mut prev = sorti;
+        while prev > 0 {
+            prev -= 1;
+            if (sqr_dist[order[prev]] - cur).abs() > sorted_tol[sorti] {
+                break;
+            }
+            let q = points[order[prev]];
+            if sq(cp.x - q.x) + sq(cp.y - q.y) + sq(cp.z - q.z) <= tol_sqr {
+                matched = Some(cluster[order[prev]]);
+                break;
+            }
+        }
+        cluster[pi] = match matched {
+            Some(c) => c,
+            None => {
+                n_new += 1;
+                n_new - 1
+            }
+        };
+    }
+    let mut id_of_cluster = vec![usize::MAX; n_new];
+    let mut map = vec![0usize; n];
+    let mut next = 0usize;
+    for i in 0..n {
+        let c = cluster[i];
+        if id_of_cluster[c] == usize::MAX {
+            id_of_cluster[c] = next;
+            next += 1;
+        }
+        map[i] = id_of_cluster[c];
+    }
+    (map, next)
+}
+
+#[cfg(test)]
+mod zoned_tests {
+    use super::*;
+
+    const TWO_SOLIDS: &str = "solid inlet_S1\n facet normal 0 0 1\n  outer loop\n   vertex 0 0 0\n   vertex 1 0 0\n   vertex 0 1 0\n  endloop\n endfacet\nendsolid inlet_S1\nsolid walls\n facet normal 0 0 1\n  outer loop\n   vertex 1 0 0\n   vertex 1 1 0\n   vertex 0 1 0\n  endloop\n endfacet\nendsolid walls\nsolid inlet_S1\n facet normal 0 0 1\n  outer loop\n   vertex 0.1 0 0\n   vertex 1 0 0\n   vertex 0 1 0\n  endloop\n endfacet\nendsolid\n";
+
+    /// Multi-solid ASCII: every solid is read, a repeated name reuses its
+    /// zone (`nameLookup_`), corners are merged in first-appearance order,
+    /// and 0.1 is stored as the nearest `f32`.
+    #[test]
+    fn ascii_multi_solid_zones_and_merged_points() {
+        let s = read_stl_zoned_bytes(TWO_SOLIDS.as_bytes()).unwrap();
+        assert!(!s.binary);
+        assert_eq!(s.names, vec!["inlet_S1".to_string(), "walls".to_string()]);
+        assert_eq!(s.zones, vec![0, 1, 0]);
+        assert_eq!(s.points.len(), 5);
+        assert_eq!(s.triangles, vec![[0, 1, 2], [1, 3, 2], [4, 1, 2]]);
+        assert_eq!(s.points[4].x, 0.1f32 as f64);
+        assert_ne!(s.points[4].x, 0.1);
+    }
+
+    /// Binary: zones from the attribute word, numbered by first appearance;
+    /// no names.
+    #[test]
+    fn binary_attribute_zones() {
+        let mut b = vec![0u8; 80];
+        b.extend_from_slice(&3i32.to_le_bytes());
+        let tri = |b: &mut Vec<u8>, o: f32, attr: u16| {
+            b.extend_from_slice(&[0u8; 12]);
+            for v in [[o, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]] {
+                for c in v {
+                    b.extend_from_slice(&c.to_le_bytes());
+                }
+            }
+            b.extend_from_slice(&attr.to_le_bytes());
+        };
+        tri(&mut b, 0.0, 7);
+        tri(&mut b, 0.5, 2);
+        tri(&mut b, 0.0, 7);
+        let s = read_stl_zoned_bytes(&b).unwrap();
+        assert!(s.binary);
+        assert_eq!(s.zones, vec![0, 1, 0]);
+        assert_eq!(s.n_zones, 2);
+        assert!(s.names.is_empty());
+        assert_eq!(s.points.len(), 4);
+        assert_eq!(s.triangles[2], s.triangles[0]);
+    }
+
+    /// `mergePoints`: points within the tolerance merge onto the lowest
+    /// index; points farther apart do not.
+    #[test]
+    fn merge_points_tolerance() {
+        let p = vec![Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, 0.0), Vector3::new(1.0 + 1e-16, 0.0, 0.0), Vector3::new(1.0 + 1e-6, 0.0, 0.0)];
+        let (m, n) = merge_points(&p, 1e-13);
+        assert_eq!(n, 3);
+        assert_eq!(m, vec![0, 1, 0, 2]);
+    }
+}
