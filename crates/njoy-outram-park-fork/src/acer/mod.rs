@@ -422,7 +422,7 @@ pub fn build_full(
 /// leaves the ESZ heating column at zero (`acefc.f90:5641-5645`). The
 /// reference tables in `reference-data/ace/reference-njoy/` were made that
 /// way, which is the reason this exists.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AceDeck {
     heatr: bool,
     purr: Option<(usize, usize, usize)>,
