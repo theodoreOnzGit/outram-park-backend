@@ -80,6 +80,7 @@ use crate::integrator::VelocityVerlet;
 use crate::mesh_wall::{MovingBoundary, WallGeometry};
 use crate::neighbor_list::{self, LiggghtsNeighbor, NeighborOrder};
 use crate::particle::{Particle, Vec3};
+use crate::tri_mesh::arr;
 use crate::DemError;
 
 /// Resolve one contact: the ordinary history-advancing law, or at set-up the
@@ -345,6 +346,23 @@ impl GranularSystem {
         self.xhold = self.particles.iter().map(|p| p.position).collect();
         self.compute_forces_setup();
         self
+    }
+
+    /// `f_<mesh>[n+1]` of the `fix mesh/surface/stress` on moving wall `wall`:
+    /// `0..3` force on the mesh, `3..6` torque about the reference point,
+    /// `6..9` the reference point (see [`crate::mesh_stress::MeshStress`]).
+    /// `None` when that wall tracks no stress.
+    #[must_use]
+    pub fn mesh_stress_vector(&self, wall: usize, n: usize) -> Option<f64> {
+        self.moving_walls[wall].stress.as_ref().map(|s| s.compute_vector(n))
+    }
+
+    /// `(sigma_n, sigma_t)` `[Pa]` of facet `tri` of moving wall `wall`
+    /// (`None` when that wall tracks no stress); see
+    /// [`crate::mesh_stress::MeshStress::sigma_n`].
+    #[must_use]
+    pub fn facet_stress(&self, wall: usize, tri: usize) -> Option<(f64, f64)> {
+        self.moving_walls[wall].stress.as_ref().map(|s| (s.sigma_n(tri), s.sigma_t(tri)))
     }
 
     /// Attach a `fix massflow/mesh` counter (gh:#1416); it is invoked after
@@ -993,6 +1011,12 @@ impl GranularSystem {
                 m.rebuild_lists(&self.particles);
             }
         }
+        // `MeshModuleStress::pre_force`
+        for w in &mut self.moving_walls {
+            if let Some(st) = &mut w.stress {
+                st.pre_force();
+            }
+        }
         self.compute_forces();
         if let Some(heat) = &self.heat {
             // post_force of `fix heat/gran/conduction`: the flux of this step
@@ -1004,6 +1028,13 @@ impl GranularSystem {
         let (f2, t2) = (self.forces.clone(), self.torques.clone());
         self.integrator
             .final_integrate(&mut self.particles, &f2, &t2);
+        // `MeshModuleStress::final_integrate` (calc_total_force)
+        for w in &mut self.moving_walls {
+            if let (Some(st), WallGeometry::Mesh(m)) = (&mut w.stress, &w.geometry) {
+                let norms: Vec<[f64; 3]> = (0..m.triangles.len()).map(|i| m.state.surface_norm(i)).collect();
+                st.final_integrate(&norms);
+            }
+        }
         if let Some(heat) = &self.heat {
             // final_integrate of the scalar transport equation
             heat.advance(&mut self.particles, &self.types, &self.heat_flux, self.dt);
@@ -1143,6 +1174,8 @@ impl GranularSystem {
             let WallGeometry::Mesh(mesh) = &self.moving_walls[w].geometry else {
                 continue;
             };
+            let has_stress = self.moving_walls[w].stress.is_some();
+            let mut contributions: Vec<(usize, [f64; 3], [f64; 3], [f64; 3])> = Vec::new();
             // markAllContacts
             for (key, slots) in self.mesh_partners.iter_mut() {
                 if key.1 == w {
@@ -1218,8 +1251,20 @@ impl GranularSystem {
                         &mut self.history,
                         self.dt,
                     );
+                    // f_pw = f - force_old (fix_wall_gran_base.h), delta passed on is
+                    // -sidata.delta
+                    let before = self.forces[i];
                     self.forces[i] = self.forces[i].add(gf.force_i);
                     self.torques[i] = self.torques[i].add(gf.torque_i);
+                    if has_stress {
+                        let f_pw = self.forces[i].sub(before);
+                        contributions.push((c.tri, arr(f_pw), arr(p.position), c.delta));
+                    }
+                }
+            }
+            if let Some(st) = &mut self.moving_walls[w].stress {
+                for (tri, f_pw, x, d) in contributions {
+                    st.add_particle_contribution(f_pw, x, d, tri);
                 }
             }
             // cleanUpContacts

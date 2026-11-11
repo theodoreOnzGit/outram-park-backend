@@ -399,6 +399,14 @@ impl TriMeshState {
         true
     }
 
+    /// `TriMesh::calcArea(i)` from the current cached edge vectors.
+    #[must_use]
+    pub fn area(&self, i: usize) -> f64 {
+        let g = &self.geo[i];
+        let c = v_cross(&g.edge_vec[0], &g.edge_vec[1]);
+        0.5 * v_mag(&c) * g.edge_len[0] * g.edge_len[1]
+    }
+
     /// Current unit surface normal of facet `i`.
     #[must_use]
     pub fn surface_norm(&self, i: usize) -> V3 {

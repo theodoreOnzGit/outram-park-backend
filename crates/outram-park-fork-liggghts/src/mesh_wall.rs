@@ -139,6 +139,7 @@ use petir::mathf::RealMath;
 use crate::boundary::{Boundary, Contact};
 use crate::particle::{Particle, Vec3};
 use crate::tri_mesh::{arr, vec3, Nodes, TriMeshState, V3};
+use crate::mesh_stress::MeshStress;
 use crate::variable::{Expr, VarContext, VariableTable};
 use crate::DemError;
 
@@ -358,11 +359,6 @@ impl MeshWall {
             .iter()
             .map(|t| [arr(t.a), arr(t.b), arr(t.c)])
             .collect()
-    }
-
-    /// Bounding sphere `(centre, radius)` of facet `i`.
-    pub(crate) fn facet_bound(&self, i: usize) -> (Vec3, f64) {
-        self.bounds[i]
     }
 
     /// Write nodes back into `triangles`.
@@ -843,6 +839,9 @@ pub struct MovingBoundary {
     pub step: i64,
     /// `update->endstep` of the run, for `ramp()` in a variable (0 = unset).
     pub end_step: i64,
+    /// `fix mesh/surface/stress` module (force, torque and stress on the
+    /// mesh), if requested with [`MovingBoundary::with_stress`]. gh:#1416.
+    pub stress: Option<MeshStress>,
 }
 
 /// Upper bound of the `order` of a vibration mover (upstream `ampl[30]`).
@@ -1004,7 +1003,19 @@ impl MovingBoundary {
             time: 0.0,
             step: 0,
             end_step: 0,
+            stress: None,
         }
+    }
+
+    /// Track the force and torque on this mesh (`fix mesh/surface/stress ...
+    /// reference_point <p>`). No-op for a non-mesh wall.
+    #[must_use]
+    pub fn with_stress(mut self, p_ref: Vec3) -> Self {
+        if let WallGeometry::Mesh(m) = &self.geometry {
+            let area = (0..m.triangles.len()).map(|i| m.state.area(i)).collect();
+            self.stress = Some(MeshStress::new(p_ref, area));
+        }
+        self
     }
 
     fn with_motion(geometry: WallGeometry, pivot: Vec3, motion: MeshMotion) -> Self {
@@ -1271,6 +1282,25 @@ impl MovingBoundary {
         let rotating = omega != 0.0;
         if rotating {
             m.state.rotate_incremental(&mut nodes, omega * dt, &axis, &pivot);
+            if let Some(st) = &mut self.stress {
+                // TrackingMesh::rotate: customValues_.move(-origin), rotate by dQ, move(origin)
+                let an = {
+                    let mag = (axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]).sqrt();
+                    [axis[0] / mag, axis[1] / mag, axis[2] / mag]
+                };
+                let h = omega * dt * 0.5;
+                let dq = [h.cos(), an[0] * h.sin(), an[1] * h.sin(), an[2] * h.sin()];
+                let trans = pivot[0] * pivot[0] + pivot[1] * pivot[1] + pivot[2] * pivot[2] > 0.;
+                let mut p = arr(st.p_ref);
+                if trans {
+                    p = [p[0] + -pivot[0], p[1] + -pivot[1], p[2] + -pivot[2]];
+                }
+                p = crate::tri_mesh::vec_quat_rotate(&p, &dq);
+                if trans {
+                    p = [p[0] + pivot[0], p[1] + pivot[1], p[2] + pivot[2]];
+                }
+                st.p_ref = vec3(p);
+            }
             let omega_vec = [omega * axis[0], omega * axis[1], omega * axis[2]];
             for (nd, vn) in nodes.iter().zip(m.state.node_velocity.iter_mut()) {
                 for j in 0..3 {
@@ -1297,6 +1327,9 @@ impl MovingBoundary {
         }
         m.set_nodes(&nodes);
         m.rebuild_bounds();
+        if let Some(st) = &mut self.stress {
+            st.p_ref = st.p_ref.add(disp);
+        }
         self.pivot = self.pivot.add(disp);
     }
 }

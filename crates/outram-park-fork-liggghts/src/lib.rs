@@ -115,6 +115,7 @@ pub mod heat_gran;
 pub mod htr10_fill;
 pub mod integrator;
 pub mod massflow;
+pub mod mesh_stress;
 pub mod mesh_wall;
 pub mod neighbor_list;
 pub mod particle;
