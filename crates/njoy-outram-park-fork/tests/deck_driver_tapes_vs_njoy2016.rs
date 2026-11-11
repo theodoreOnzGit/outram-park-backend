@@ -288,8 +288,7 @@ fn without_groupr(deck: &str) -> String {
 /// angular format)**: `moder; reconr; broadr; heatr; moder; groupr; acer`, ACE
 /// unit 26 against NJOY2016.80 (gh:#1449).
 ///
-/// NJOY runs the upstream deck whole; this crate runs it without the GROUPR
-/// block (it has no GENDF driver).
+/// Both run the upstream deck whole, GROUPR included (gh:#1481).
 ///
 /// **Result (2026-11-11):** with `newfor = 0` ported (every angular distribution
 /// converted to 32 equally probable bins by `ptleg`/`pttab` and stored by
@@ -306,19 +305,22 @@ fn without_groupr(deck: &str) -> String {
 /// blocked binary (negative): NJOY's grid keeps 81.99999000000082 eV, and the
 /// heating there changes by 1e3 eV-b over the 8e-13 eV that text rounding moves.
 /// NXS(1) and JXS(12-22) differ because GPD is missing. Before this port the
-/// deck was refused (`newfor = 0`). Pass criterion: exactly GPD differs.
+/// deck was refused (`newfor = 0`). ~~Pass criterion: exactly GPD differs.~~
+/// **CORRECTED 2026-11-11 (gh:#1481): GROUPR and `gamout` ported; pass criterion:
+/// no block differs** (the GENDF of card 9 `16 /` is identical line for line,
+/// `test_07_groupr_gendf_whole_tape`, and `acer::gamout` appends the 30 x 20
+/// equally probable photon matrix to GPD).
 #[test]
 fn test_07_acer_old_format_ace() {
     let root = njoy_root();
     let Some(full) = deck_text(&root, "07", None, "") else { return };
-    let ours_deck = without_groupr(&full);
-    let Some((ours, njoy)) = run_pair_decks(&root, "t07a", "t511", &full, &ours_deck) else { return };
+    let Some((ours, njoy)) = run_pair_decks(&root, "t07a", "t511", &full, &full) else { return };
     let c = ace_pair(&ours, &njoy, 26);
     for l in c.report_lines() {
         println!("{l}");
     }
     let differing: Vec<&str> = c.blocks.iter().filter(|b| !b.verdict.agrees()).map(|b| b.name).collect();
-    assert_eq!(differing, vec!["GPD"], "recorded: only GPD (GROUPR gamout) differs");
+    assert!(differing.is_empty(), "recorded: every block identical: {differing:?}");
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
 }
 
@@ -604,4 +606,29 @@ fn test_01_groupr_gendf_whole_tape() {
     }
     assert!(bl.len() > 1000 && diffs.is_empty());
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
+
+/// **Test 07 (U-235 ENDF/B-V) GROUPR GENDF, whole tape** (gh:#1481, automatic
+/// reaction lists): the deck up to GROUPR (card 9 `16 /`, no `mtd`) plus a MODER
+/// text copy of the GENDF unit, line by line against NJOY2016.80.
+///
+/// Pass criterion: identical line count and zero differing lines. Prediction:
+/// not yet (`getsed` continuum photons for MT 18 and 102, MF=14 anisotropy of
+/// MT 4); the result is recorded in the gh:#1481 comment.
+#[test]
+fn test_07_groupr_gendf_whole_tape() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "07", Some("acer"), "moder\n -25 29/\n") else { return };
+    let deck = deck.replace("stop\n", "stop\n");
+    let Some((ours, njoy)) = run_pair_decks(&root, "t07g", "t511", &deck, &deck) else { return };
+    let a = std::fs::read_to_string(ours.join("tape29")).unwrap_or_default();
+    let b = std::fs::read_to_string(njoy.join("tape29")).unwrap();
+    let (al, bl): (Vec<&str>, Vec<&str>) = (a.lines().collect(), b.lines().collect());
+    let diffs: Vec<usize> = (0..al.len().max(bl.len())).filter(|&i| al.get(i) != bl.get(i)).collect();
+    println!("test 07 GENDF whole tape: {} differing lines of {} (ours {})", diffs.len(), bl.len(), al.len());
+    for &i in diffs.iter().take(6) {
+        println!("  line {}\n  ours: {:?}\n  njoy: {:?}", i + 1, al.get(i), bl.get(i));
+    }
+    if std::env::var_os("KEEP_DECK_DIRS").is_none() { let _ = std::fs::remove_dir_all(ours.parent().unwrap()); }
+    assert!(bl.len() > 300 && diffs.is_empty());
 }

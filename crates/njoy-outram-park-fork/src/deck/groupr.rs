@@ -16,9 +16,13 @@
 //! lines, 2026-11-11, `test_01_groupr_gendf_whole_tape`; gh:#1369).
 //! ~~Not yet: thermal MF=6, MF=16 photon production and the FEND/SEND/MEND layout, so
 //! the whole tape is not yet compared.~~ **CORRECTED 2026-11-11** - all three are done
-//! (verified by the whole-tape test). Still `NotPorted` here: several temperatures,
-//! sigma-zeros or materials, an input GENDF (`ngout1`), MF=3 `MT = 257-259, 452-456`,
-//! `getsed` continuum photons, and the automatic reaction lists (`mtd = 0`, `nextr`).
+//! (verified by the whole-tape test). **Test 07 (U-235, card 9 `16 /` automatic
+//! lists, `iwt = 9`, MF=15 continuum photons) is also identical, 467 of 467 lines
+//! (2026-11-11, `test_07_groupr_gendf_whole_tape`; gh:#1481).** Still `NotPorted` here:
+//! several temperatures, sigma-zeros or materials, an input GENDF (`ngout1`), MF=3
+//! `MT = 257-259, 452-456`, analytic `LF > 1` photon spectra, and the automatic lists
+//! for `mfd` other than 3 and 16/17 (and MF=18).
+//! ~~the automatic reaction lists (`mtd = 0`, `nextr`)~~ **CORRECTED 2026-11-11**: `auto_reactions`.
 //!
 //! Ported so far: the tape label, the MF=1/MT=451 head record of a material
 //! (`ZA, AWR, 0, nz, -1, ntw`; LIST `temp, 0, ngn, ngg, np, 0` with the title
@@ -178,10 +182,19 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         }
     };
     let mut mtd_prev = 0;
-    for req in &inp.reactions {
-        let mts: Vec<i32> = if req.mtd < 0 { (mtd_prev + 1..=-req.mtd).collect() } else { vec![req.mtd] };
-        mtd_prev = req.mtd.abs();
-        for mtd in mts {
+    let nend_tape = units.get(u.nendf)?.tape.clone();
+    for req0 in &inp.reactions {
+        // `mtd = -1000` (no `mtd` on card 9): `iauto = 1`, the lists of `nextr`.
+        let items: Vec<(i32, i32)> = if req0.mtd == crate::groupr::input::MTD_AUTO {
+            auto_reactions(req0.mfd, &nend_tape, &pend, inp.matb)?
+        } else if req0.mtd < 0 {
+            (mtd_prev + 1..=-req0.mtd).map(|m| (req0.mfd, m)).collect()
+        } else {
+            vec![(req0.mfd, req0.mtd)]
+        };
+        mtd_prev = req0.mtd.abs();
+        for (mfd_i, mtd) in items {
+            let req = &crate::groupr::input::ReactionRequest { mfd: mfd_i, mtd, name: String::new() };
             if req.mfd == 6 && (mtd == 2 || (51..=90).contains(&mtd)) {
                 write_mf6_two_body(&mut g, inp, units, &pend, za, &egn, emaxx, mtd)?;
                 continue;
@@ -239,6 +252,41 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     g.end_tape();
     units.put_text(u.ngout2, g.text());
     Ok(())
+}
+
+/// `nextr` (`groupr.f90:1132-1317`) for an automatic card 9 (`mtd` absent): the
+/// `(mfd, mtd)` it returns in turn.
+///
+/// `mfd <= 3`: the PENDF's own MF=3 sections, skipping `MT = 201-202, 208-300`
+/// (`:1155-1161`). `mfd = 16`: the `conver` list of MF=12 sections (written as MF=16,
+/// `mfd = 16`), then MF=13 (`mfd = 17`), then MF=18; consecutive MTs are stored as a
+/// negative range end in upstream and visited ascending, which is the same order as
+/// listing every MT. `conver` drops MF=12 `MT = 460` (`:11010`).
+fn auto_reactions(mfd: i32, nend: &crate::endf::tape::Tape, pend: &crate::endf::tape::Tape, mat: i32) -> Result<Vec<(i32, i32)>, NjoyError> {
+    let mts = |t: &crate::endf::tape::Tape, mf: i32| -> Vec<i32> {
+        t.sections().iter().filter(|s| s.key.mat == mat && s.key.mf == mf).map(|s| s.key.mt).collect()
+    };
+    match mfd {
+        ..=3 => Ok(mts(pend, 3)
+            .into_iter()
+            .filter(|&m| m <= 200 || (203..=207).contains(&m) || m > 300)
+            .map(|m| (3, m))
+            .collect()),
+        16 | 17 | 18 => {
+            if !mts(nend, 18).is_empty() && mfd != 17 {
+                return Err(NjoyError::NotPorted("groupr auto mode: MF=18 fission photon lists"));
+            }
+            let mut out = Vec::new();
+            if mfd == 16 {
+                out.extend(mts(nend, 12).into_iter().filter(|&m| m != 460).map(|m| (16, m)));
+            }
+            if mfd <= 17 {
+                out.extend(mts(nend, 13).into_iter().map(|m| (17, m)));
+            }
+            Ok(out)
+        }
+        _ => Err(NjoyError::NotPorted("groupr auto mode for this mfd")),
+    }
 }
 
 /// `mfd = 6` for `MT = 2` and `51-90` (`getff` label 400 = `getdis`, `nl = lord + 1`):

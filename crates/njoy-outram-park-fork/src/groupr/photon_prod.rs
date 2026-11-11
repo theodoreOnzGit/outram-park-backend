@@ -19,8 +19,11 @@
 //! including the `econst` constant-spectrum branch (below `econst` the feed is
 //! the yield alone, `iglo = -1`, and the spectrum is written once as the
 //! `ig = 0` record). Not ported ([`NjoyError::NotPorted`]): MF=12 `LO = 2`,
-//! several photons with anisotropy (`getgfl`'s sort), `LTT = 2`, and `getsed`
-//! continuum photons.
+//! several photons with anisotropy (`getgfl`'s sort), `LTT = 2`, and analytic
+//! `LF > 1` `getsed` spectra. ~~`getsed` continuum photons~~ **CORRECTED 2026-11-11
+//! (gh:#1481)**: tabulated `LF = 1` File-15 photons (`EY = 0`, MT 3, 18, 102 of
+//! U-235) are ported, `continuum::PhotonSed`; `econst` starts at `ebig` only for
+//! `MT = 18, 19, 102, 452, 455, 456` (`:5831-5836`), as upstream.
 
 use crate::endf::interp::{terp1, terpa, IntLaw};
 use crate::endf::records::SectionCursor;
@@ -80,6 +83,8 @@ pub struct PhotonFeed {
     ifirst: usize,
     /// `en` returned by the initialisation call (the first call's energy).
     en0: f64,
+    /// `getsed` File-15 continuum spectrum when the last photon has `EY = 0`.
+    sed: Option<crate::groupr::continuum::PhotonSed>,
 }
 
 /// `getco`, the coefficient branch: `fl(1) = 1`, `fl(il) = c(il + 5)` up to `NPL + 1`.
@@ -120,11 +125,14 @@ impl PhotonFeed {
         let eyl = tab.head.c1;
         let (nl, ang) = Self::init_getgfl(tape, mat, mtd, nl_req, 1)?;
         // `igmin`: the group containing the lowest photon energy.
+        // `econ = 0` (a continuum photon): `getsed` on MF=15 (`getff` label 300, `:7243-7250`).
+        // `econst = 0` for `mfd = 17` (`getgyl`'s `else econst = zero`).
+        let sed = if eyl == 0.0 { Some(crate::groupr::continuum::PhotonSed::from_tape(tape, mat, mtd, egg, 0.0)?.0) } else { None };
         let mut igmin = 1usize;
         while eyl >= egg[igmin] {
             igmin += 1;
         }
-        Ok(Self { egg: egg.to_vec(), nl, eyl, ang, igmin, mf12: None, econst: 0.0, jconst: 0, ifirst: 0, en0: EMAX })
+        Ok(Self { egg: egg.to_vec(), nl, eyl, ang, igmin, mf12: None, econst: 0.0, jconst: 0, ifirst: 0, en0: EMAX, sed })
     }
 
     /// `getgfl(e = 0)`: returns `(nl, angular data)`; only `LI = 1` (any `nyl`)
@@ -180,7 +188,8 @@ impl PhotonFeed {
             }
         }
         // `getgyl` constant range at low energies (`:10791-10808`).
-        let mut econst = EBIG;
+        // `econst = ebig` only for `mtd = 18, 19, 452, 455, 456, 102` (`groupr.f90:5831-5836`).
+        let mut econst = if matches!(mtd, 18 | 19 | 102 | 452 | 455 | 456) { EBIG } else { 0.0 };
         let mut i = 0usize;
         let mut idone = false;
         while i < nyl && !idone {
@@ -210,8 +219,15 @@ impl PhotonFeed {
         let (nl, ang) = Self::init_getgfl(tape, mat, mtd, nl_req, nyl)?;
         // `econ = eccn(1)`: the LAST photon's `EY` for `nyl > 1`, the only photon's otherwise.
         let econ = photons[nyl - 1].ey;
+        // `econ = 0`: `getsed(e = 0)` on MF=15 lowers `econst` further and `enext` (`:7243-7250`).
+        let mut sed = None;
         if econ == 0.0 {
-            return Err(NjoyError::NotPorted("groupr getff label 300: getsed continuum photons (econ = 0) are not translated"));
+            let (ps, en, ec) = crate::groupr::continuum::PhotonSed::from_tape(tape, mat, mtd, egg, econst)?;
+            econst = ec;
+            if en < en0 * (1.0 - SMALL) {
+                en0 = en;
+            }
+            sed = Some(ps);
         }
         let mut igmin = 1usize;
         while econ >= egg[igmin] {
@@ -229,7 +245,7 @@ impl PhotonFeed {
                 econst = 0.0;
             }
         }
-        Ok(Self { egg: egg.to_vec(), nl, eyl: econ, ang, igmin, mf12: Some(Mf12 { awr, photons }), econst, jconst, ifirst: 0, en0 })
+        Ok(Self { egg: egg.to_vec(), nl, eyl: econ, ang, igmin, mf12: Some(Mf12 { awr, photons }), econst, jconst, ifirst: 0, en0, sed })
     }
 
     /// `jconst` when the constant-spectrum branch is active (`econst != 0`), else 0.
@@ -364,6 +380,20 @@ impl PhotonFeed {
             idisc = idis;
             enext = en;
         }
+        // `eyle(nyl) /= 0` skips `getsed` (`:7292`).
+        let sede = if eyl[eyl.len() - 1] == 0.0 {
+            let (sd, en, idis) = self.sed.as_ref().ok_or(NjoyError::NotPorted("groupr getff label 300: continuum photon without File 15"))?.get(e)?;
+            if (en - enext).abs() < enext * SMALL && idis > idisc {
+                idisc = idis;
+            }
+            if en < enext * (1.0 - SMALL) {
+                idisc = idis;
+                enext = en;
+            }
+            Some(sd)
+        } else {
+            None
+        };
         let ngg = self.egg.len() - 1;
         let iglo = self.igmin;
         let mut ighi = 1usize;
@@ -377,8 +407,12 @@ impl PhotonFeed {
                 if eyl[ik] != 0.0 && (eyl[ik] < epl * (1.0 - SMALL) || eyl[ik] >= eph * (1.0 - SMALL)) {
                     continue;
                 }
+                let mut tempo = gyl[ik];
+                if eyl[ik] == 0.0 {
+                    tempo *= sede.as_ref().map_or(1.0, |sd| sd[ig - 1]);
+                }
                 for il in 0..self.nl {
-                    ff[il][ig - 1] += gyl[ik] * gfl[il];
+                    ff[il][ig - 1] += tempo * gfl[il];
                     if ig > ighi {
                         ighi = ig;
                     }

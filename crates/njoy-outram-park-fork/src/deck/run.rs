@@ -432,6 +432,11 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
         }
         deck = deck.with_purr(*nbin, *nladr, 10_000).with_temperature(c.tempd);
     }
+    // `ngend`: the GROUPR photon-production GENDF, `gamout` (gh:#1481).
+    if c.ngend != 0 {
+        let text = units.text(c.ngend).ok_or_else(|| NjoyError::InvalidInput(format!("acer: ngend unit {} holds no GENDF", c.ngend)))?;
+        deck = deck.with_photon_matrix(Some(crate::acer::gamout::photon_spectra(text, c.matd)?));
+    }
     let kt_mev = 8.617_333_262e-11 * c.tempd;
     let suffix = (c.suff * 100.0).round() as u32;
     let mut table = build_deck(&endf, c.matd, res, kt_mev, suffix, &deck)?;

@@ -21,6 +21,7 @@
 use crate::endf::gety1::Gety1;
 use crate::mixr::mix::sigfig;
 use crate::NjoyError;
+use petir::mathf::RealMath;
 
 const RNDOFF: f64 = 1.000002;
 const DELTA: f64 = 0.999995;
@@ -40,20 +41,74 @@ const QW10: [f64; 10] = [
     0.1333059908, 0.0222222222,
 ];
 
-/// `getwtf` for `iwt = 2` (constant) and `iwt = 3` (`1/E`): `(wtf, enext)`.
+/// The `save`d state of `getwtf`'s tabulated branch (`save ip,ir,ipl,step`, `:5173`).
+#[derive(Debug, Clone)]
+struct WtfState {
+    ip: usize,
+    ir: usize,
+    ipl: usize,
+    step: f64,
+}
+
+thread_local! {
+    static WTF: std::cell::RefCell<WtfState> = const { std::cell::RefCell::new(WtfState { ip: 2, ir: 1, ipl: 0, step: 1.10 }) };
+}
+
+/// `getwtf(e = 0)`: reset the saved tabulated-weight state (`:5177-5184`).
+pub fn getwtf_init() {
+    WTF.with(|w| *w.borrow_mut() = WtfState { ip: 2, ir: 1, ipl: 0, step: 1.10 });
+}
+
+/// `getwtf` for `iwt = 2` (constant), `iwt = 3` (`1/E`) and the built-in tabulated
+/// weights `iwt = 5, 8, 9` (`terpa` over `wght`, `:5186-5196`): `(wtf, enext, idis)`.
 ///
 /// # Errors
 /// [`NjoyError::NotPorted`] for the other `iwt`.
-pub fn getwtf(iwt: i32, e: f64) -> Result<(f64, f64), NjoyError> {
+pub fn getwtf(iwt: i32, e: f64) -> Result<(f64, f64, i32), NjoyError> {
     if e == 0.0 {
-        return Ok((0.0, EMAX));
+        getwtf_init();
+        return Ok((0.0, EMAX, 0));
     }
-    let wtf = match iwt.abs() {
-        2 => 1.0,
-        3 => 1.0 / e,
-        _ => return Err(NjoyError::NotPorted("groupr getwtf for iwt other than 2 and 3 in the tape driver")),
+    let mut idis = 0;
+    let (wtf, mut enext) = match iwt.abs() {
+        2 => (1.0, EMAX),
+        3 => (1.0 / e, EMAX),
+        n @ (5 | 8 | 9) => {
+            let tab = match n {
+                5 => crate::groupr::weights::epri_cell_lwr_tab1(),
+                8 => crate::groupr::weights::fast_reactor_tab1(),
+                _ => crate::groupr::weights::claw_tab1(),
+            };
+            WTF.with(|w| -> Result<(f64, f64), NjoyError> {
+                let mut st = w.borrow_mut();
+                let (mut ip, mut ir) = (st.ip, st.ir);
+                let (wtf, mut enext, id) = crate::errorr::weight::terpa(&tab, e, &mut ip, &mut ir)?;
+                st.ip = ip;
+                st.ir = ir;
+                idis = id;
+                if wtf != 0.0 {
+                    if st.ip != st.ipl {
+                        st.step = 1.0001 * (enext / e).r_powf(0.1);
+                        st.ipl = st.ip;
+                    }
+                    let mut enxt = st.step * e;
+                    if enxt > 1.01 * e {
+                        enxt = 1.01 * e;
+                    }
+                    if enext > enxt {
+                        idis = 0;
+                        enext = enxt;
+                    }
+                }
+                Ok((wtf, enext))
+            })?
+        }
+        _ => return Err(NjoyError::NotPorted("groupr getwtf for iwt other than 2, 3, 5, 8 and 9 in the tape driver")),
     };
-    Ok((wtf, sigfig(1.01 * e, 6, 1)))
+    if matches!(iwt.abs(), 2 | 3) {
+        enext = 1.01 * e;
+    }
+    Ok((wtf, sigfig(enext, 6, 1), idis))
 }
 
 /// The cross-section feeder, `getsig` on a PENDF MF=3 TAB1 (`gety1`).
@@ -166,8 +221,7 @@ pub struct PanelState {
 
 /// `getflx` at `e`: `(flux, enext, idis)` for `nsigz = 1`.
 fn getflx(iwt: i32, e: f64) -> Result<(f64, f64, i32), NjoyError> {
-    let (w, en) = getwtf(iwt, e)?;
-    Ok((w, en, 0))
+    getwtf(iwt, e)
 }
 
 fn load_ff(st: &mut PanelState, f: &FeedOut) {
@@ -523,6 +577,8 @@ pub fn group_general(
     nl: usize,
 ) -> Result<Vec<GroupRow>, NjoyError> {
     let ngn = egn.len() - 1;
+    // `getflx(ee = 0)` at the start of each reaction re-initialises `getwtf` (`:6457`).
+    getwtf_init();
     let mut st = PanelState { nl, ..PanelState::default() };
     let mut out = Vec::new();
     // `econst` constant-spectrum range (`groupr.f90:757-785`, `getff` label 300 with

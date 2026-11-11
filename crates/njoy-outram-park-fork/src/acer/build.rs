@@ -1697,6 +1697,20 @@ fn yield_nr(interp: &[(u32, u32)]) -> usize {
     }
 }
 
+/// The ACE energy grid [eV] when the PENDF has an MT=1: its energies, with the
+/// photon-production discontinuities put in by `unionx` (`acefc.f90:1236-1300`).
+/// `gamsum` evaluates GPD on this grid, so `photon_blocks::gpd` must use it and not
+/// the PENDF's own MT=1 energies (test 07: PENDF 1.090001e6 is replaced by 1.1e6 here
+/// because the discontinuity pair straddles it; gh:#1481).
+pub(crate) fn esz_grid(result: &crate::reconr::ReconrResult, gamma_disc: &[f64]) -> Option<Vec<f64>> {
+    let total = result.sections.iter().find(|s| i32::from(s.mt) == 1)?;
+    let mut egrid: Vec<f64> = total.pairs.iter().map(|&(x, _)| x).collect();
+    egrid.retain(|&x| x > 0.0);
+    egrid.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    egrid.dedup_by(|a, b| (*a - *b).abs() <= 1e-10 * b.abs().max(1.0));
+    Some(unionx_discontinuities(&egrid, gamma_disc))
+}
+
 /// `unionx`'s treatment of the photon-production discontinuities on the
 /// energy grid (`acefc.f90:1180-1250`, `iskp = 0`, no thinning). For each
 /// discontinuity `d` (ascending), `egl = sigfig(d, 7, -1)` replaces the first

@@ -102,6 +102,7 @@ pub mod nu;
 pub mod photoatomic;
 pub mod photon_angular;
 pub mod photon_blocks;
+pub mod gamout;
 pub mod photonuclear;
 
 /// True when the evaluation supplies **MF=4/5/6 secondary distributions for
@@ -441,6 +442,9 @@ pub struct AceDeck {
     /// ACER's `newfor`: `1` (default) the new angular format, `0` the old
     /// equally probable bins (gh:#1449).
     newfor: i32,
+    /// The old-style 30 x 20 equally probable photon matrix `gamout` makes from
+    /// ACER's `ngend` GENDF; stored after GPD (gh:#1481).
+    photon_matrix: Option<Vec<f64>>,
     /// MT=301 as HEATR's tape carries it, `(E, H)` pairs; when set, ESZ's
     /// heating column reads these (ACER reads the tape, not HEATR's memory).
     esz_kerma: Option<Vec<(f64, f64)>>,
@@ -463,6 +467,7 @@ impl Default for AceDeck {
             heatr_binary: false,
             pendf_binary: false,
             newfor: 1,
+            photon_matrix: None,
             esz_kerma: None,
             mt444: None,
             displacement_energy: None,
@@ -491,6 +496,13 @@ impl AceDeck {
     /// The result is [`DeckModules`]' `damage_energy`; MT=301 is unchanged.
     pub fn with_displacement_energy(mut self, ed: Option<f64>) -> Self {
         self.displacement_energy = ed;
+        self
+    }
+
+    /// The `30 x 20` photon matrix of `gamout` ([`gamout::photon_spectra`]), from
+    /// ACER's `ngend` GENDF; it follows GPD (`acelod`, `acefc.f90:6276-6300`).
+    pub fn with_photon_matrix(mut self, m: Option<Vec<f64>>) -> Self {
+        self.photon_matrix = m;
         self
     }
 
@@ -587,6 +599,8 @@ pub(crate) struct DeckModules {
     pub(crate) damage_energy: Option<crate::heatr::Kerma>,
     /// ACER's `newfor` (gh:#1449).
     pub newfor: i32,
+    /// The `gamout` photon matrix after GPD (gh:#1481).
+    pub(crate) photon_matrix: Option<Vec<f64>>,
     /// HEATR's MT=444 `(E, sigma)` pairs, when the deck's HEATR wrote it.
     pub(crate) mt444: Option<Vec<(f64, f64)>>,
 }
@@ -684,7 +698,7 @@ pub(crate) fn deck_modules(
         }),
         _ => kerma,
     };
-    Ok(DeckModules { urr, kerma, damage_energy, newfor: deck.newfor, mt444: deck.mt444.clone() })
+    Ok(DeckModules { urr, kerma, damage_energy, newfor: deck.newfor, photon_matrix: deck.photon_matrix.clone(), mt444: deck.mt444.clone() })
 }
 
 /// ACER proper: the continuous-energy table from the PENDF and what
@@ -747,7 +761,11 @@ pub(crate) fn assemble(
         delayed.as_ref(),
         &crate::acer::photon_blocks::gamma_discontinuities(tape, mat),
     );
-    if let Some(g) = crate::acer::photon_blocks::gpd(tape, mat, recon) {
+    if let Some(mut g) = crate::acer::photon_blocks::gpd(tape, mat, recon) {
+        // `acelod`: the 30 x 20 photon matrix follows GPD when ACER had an `ngend` GENDF.
+        if let Some(m) = &modules.photon_matrix {
+            g.extend_from_slice(m);
+        }
         table.insert_gpd(&g);
     }
     // NJOY's `hm`: the ENDF MAT, `'   mat',i4` (`acefc.f90:4949`). Found
@@ -770,9 +788,11 @@ impl AceTable {
     pub fn insert_gpd(&mut self, gpd: &[f64]) {
         let nes = self.nxs[nxs::NES] as usize;
         let at = self.jxs[jxs::MTRP];
-        if at <= 0 || gpd.len() != nes || self.jxs[11] != 0 {
+        // GPD is `nes` words, plus the `30 x 20` photon matrix when there is one.
+        if at <= 0 || (gpd.len() != nes && gpd.len() != nes + 600) || self.jxs[11] != 0 {
             return;
         }
+        let nes = gpd.len();
         let pos = (at - 1) as usize;
         self.xss.splice(pos..pos, gpd.iter().copied());
         self.xss_is_int.splice(pos..pos, std::iter::repeat_n(false, nes));
