@@ -1028,6 +1028,18 @@ impl ShearHistory {
         self.contacts.insert(key, ContactHistoryEntry { shear, live: false });
     }
 
+    /// Re-orient a stored pair displacement: replace it by `0 - shear`
+    /// (exact negation, `+0` stays `+0`). The store holds a pair in the
+    /// (lower tag, higher tag) orientation; a caller that evaluates the pair
+    /// the other way round flips before and after (upstream stores the
+    /// partner's copy as `-hist`, `FixContactHistory::pre_exchange`). A no-op
+    /// when the contact has no entry.
+    pub fn flip(&mut self, key: ContactKey) {
+        if let Some(e) = self.contacts.get_mut(&key) {
+            e.shear = Vec3::zero().sub(e.shear);
+        }
+    }
+
     /// Mark every stored contact stale, at the top of a force evaluation.
     pub fn begin_step(&mut self) {
         for e in self.contacts.values_mut() {

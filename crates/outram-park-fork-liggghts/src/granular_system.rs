@@ -75,8 +75,10 @@ use crate::compute::ComputeType;
 use crate::granular::{
     ContactKey, ContactKinematics, GranularContactModel, ShearHistory,
 };
+use crate::heat_gran::HeatGranConduction;
 use crate::integrator::VelocityVerlet;
 use crate::mesh_wall::{MovingBoundary, WallGeometry};
+use crate::neighbor_list::{self, LiggghtsNeighbor, NeighborOrder};
 use crate::particle::{Particle, Vec3};
 use crate::DemError;
 
@@ -204,6 +206,23 @@ pub struct GranularSystem {
     /// Reused cell-membership array: particle indices, grouped by cell,
     /// ascending within each cell.
     cell_items: Vec<u32>,
+    /// How candidate pairs are ordered. See [`NeighborOrder`].
+    neighbor_order: NeighborOrder,
+    /// `NeighborOrder::Liggghts` only: `perm[l]` is the particle index sitting
+    /// in upstream's local atom slot `l` (the `Atom::sort` order).
+    perm: Vec<usize>,
+    /// Upstream's `update->ntimestep` (steps taken by this system).
+    step_count: u64,
+    /// `atom->nextsort`.
+    next_sort: u64,
+    /// The neighbour list must be rebuilt in the next force evaluation
+    /// (`Neighbor::decide` returned 1, or the particle set changed).
+    rebuild_now: bool,
+    /// `fix heat/gran/conduction`, if attached ([`GranularSystem::with_heat_conduction`]).
+    heat: Option<HeatGranConduction>,
+    /// Heat flux into each particle `[W]` from the last step's contact
+    /// conduction (upstream's `heatFlux` per-atom property).
+    heat_flux: Vec<f64>,
 }
 
 /// One candidate pair's resolved contact, staged by the parallel force loop so
@@ -295,6 +314,13 @@ impl GranularSystem {
             chunk_counts: Vec::new(),
             cell_offsets: Vec::new(),
             cell_items: Vec::new(),
+            neighbor_order: NeighborOrder::CellGrid,
+            perm: Vec::new(),
+            step_count: 0,
+            next_sort: 0,
+            rebuild_now: false,
+            heat: None,
+            heat_flux: Vec::new(),
         };
         s.compute_forces_setup();
         Ok(s)
@@ -373,6 +399,7 @@ impl GranularSystem {
                 }
             }
         }
+        self.rebuild_now = rebuild;
         if rebuild {
             for w in &mut self.moving_walls {
                 if let WallGeometry::Mesh(m) = &mut w.geometry {
@@ -392,6 +419,90 @@ impl GranularSystem {
             }
             self.mesh_rebuild_pending = any;
         }
+    }
+
+    /// Order the pair list the way LIGGGHTS does (`newton off`, `neighbor
+    /// <skin> bin`, `atom_modify sort`): a spatial atom sort at set-up and every
+    /// `sort_every` steps, a bin half-list built in upstream's order, stale
+    /// between rebuilds. With it, a particle's contact forces are summed in
+    /// upstream's order, so per-contact forces stay **bit-identical** to
+    /// upstream beyond step 0 (`tests/pair_gran_local_cross_code.rs`).
+    ///
+    /// **This re-does set-up**, as a new `run` would: the atoms are sorted and
+    /// the list rebuilt at the current positions, and the forces recomputed
+    /// (without advancing shear history). The default is
+    /// [`NeighborOrder::CellGrid`]; see [`crate::neighbor_list`] for why this is
+    /// a named option (it needs the deck's box and skin). Call after
+    /// [`GranularSystem::with_moving_walls`].
+    #[must_use]
+    pub fn with_liggghts_neighbor_order(mut self, cfg: LiggghtsNeighbor) -> Self {
+        self.neighbor_order = NeighborOrder::Liggghts(cfg);
+        self.neigh_skin = cfg.skin;
+        self.perm = (0..self.particles.len()).collect();
+        self.next_sort = 0;
+        self.xhold = self.particles.iter().map(|p| p.position).collect();
+        self.mesh_rebuild_pending = false;
+        self.compute_forces_setup();
+        self
+    }
+
+    /// Attach upstream's contact conduction (`fix heat/gran/conduction`,
+    /// [`crate::heat_gran`]). Temperatures are the particles' own
+    /// [`Particle::temperature`] (upstream's `initial_temperature`, or a later
+    /// `set ... property/atom Temp`); they are advanced every step. The
+    /// clean-room [`crate::thermal`] stays callable on its own.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if a particle's atom type has no entry in
+    /// the fix's per-type properties.
+    pub fn with_heat_conduction(mut self, heat: HeatGranConduction) -> Result<Self, DemError> {
+        if let Some(bad) = self.types.iter().find(|&&t| t >= heat.n_types()) {
+            return Err(DemError::InvalidInput(format!(
+                "atom type {bad} has no thermal properties ({} given)",
+                heat.n_types()
+            )));
+        }
+        self.heat = Some(heat);
+        self.heat_flux = vec![0.0; self.particles.len()];
+        Ok(self)
+    }
+
+    /// Heat flux into each particle `[W]` from the last step (`heatFlux`).
+    #[must_use]
+    pub fn heat_flux(&self) -> &[f64] {
+        &self.heat_flux
+    }
+
+    /// The pair-ordering mode in use.
+    #[must_use]
+    pub fn neighbor_order(&self) -> NeighborOrder {
+        self.neighbor_order
+    }
+
+    /// Sort (if due) and rebuild the LIGGGHTS-order half list from the current
+    /// positions: `Atom::sort` then `Neighbor::build`.
+    fn rebuild_liggghts_list(&mut self, cfg: LiggghtsNeighbor) {
+        let n = self.particles.len();
+        if self.perm.len() != n {
+            self.perm = (0..n).collect();
+        }
+        let max_radius = self.particles.iter().fold(0.0_f64, |m, p| m.max(p.radius));
+        let cut = cfg.cutneighmax(max_radius);
+        if cfg.sort_every > 0 && (self.setup_phase || self.step_count >= self.next_sort) {
+            let x: Vec<Vec3> = self.perm.iter().map(|&p| self.particles[p].position).collect();
+            let order = neighbor_list::atom_sort_permutation(&x, &cfg, cut);
+            self.perm = order.iter().map(|&o| self.perm[o]).collect();
+            self.next_sort = (self.step_count / cfg.sort_every) * cfg.sort_every + cfg.sort_every;
+        }
+        let x: Vec<Vec3> = self.perm.iter().map(|&p| self.particles[p].position).collect();
+        let r: Vec<f64> = self.perm.iter().map(|&p| self.particles[p].radius).collect();
+        let mut local = Vec::new();
+        neighbor_list::half_bin_no_newton(&x, &r, &cfg, cut, &mut local);
+        self.pairs.clear();
+        self.pairs
+            .extend(local.iter().map(|&(a, b)| (self.perm[a as usize] as u32, self.perm[b as usize] as u32)));
+        self.xhold = self.particles.iter().map(|p| p.position).collect();
     }
 
     /// Select the compute backend for the timestep, returning the updated
@@ -514,6 +625,7 @@ impl GranularSystem {
     pub fn insert_particle(&mut self, p: Particle) -> u64 {
         let tag = self.next_tag;
         self.next_tag += 1;
+        self.note_inserted();
         self.particles.push(p);
         self.tags.push(tag);
         self.types.push(0);
@@ -588,6 +700,7 @@ impl GranularSystem {
         for p in particles {
             let tag = self.next_tag;
             self.next_tag += 1;
+            self.note_inserted();
             self.particles.push(p);
             self.tags.push(tag);
             self.types.push(0);
@@ -630,6 +743,7 @@ impl GranularSystem {
 
         let mut removed = Vec::with_capacity(doomed.len());
         for &i in doomed.iter().rev() {
+            self.note_removed(i);
             removed.push(self.particles.swap_remove(i));
             self.tags.swap_remove(i);
             self.types.swap_remove(i);
@@ -640,6 +754,36 @@ impl GranularSystem {
             self.compute_forces();
         }
         removed
+    }
+
+    /// Keep the LIGGGHTS local order in step with an insertion: the new atom
+    /// takes the last local slot (`nlocal++`) and the list is rebuilt.
+    fn note_inserted(&mut self) {
+        if matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
+            self.perm.push(self.particles.len());
+            self.rebuild_now = true;
+        }
+    }
+
+    /// Keep the LIGGGHTS local order in step with removing particle `i`
+    /// (called before the `swap_remove`): the last local atom is copied into
+    /// the hole (`AtomVec::copy(nlocal-1, i)`), and the particle array's own
+    /// `swap_remove` moves its last particle into slot `i`.
+    fn note_removed(&mut self, i: usize) {
+        if matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
+            let last = self.particles.len() - 1;
+            if let Some(l) = self.perm.iter().position(|&p| p == i) {
+                self.perm.swap_remove(l);
+            }
+            if i != last {
+                for e in &mut self.perm {
+                    if *e == last {
+                        *e = i;
+                    }
+                }
+            }
+            self.rebuild_now = true;
+        }
     }
 
     /// Elapsed simulated time `[s]`.
@@ -708,7 +852,7 @@ impl GranularSystem {
         // The store holds the displacement in the (lower index, higher index)
         // orientation the timestep evaluates pairs in; flip it for `i > j`.
         let stored = self.history.get(key).unwrap_or_else(Vec3::zero);
-        let hist = if i < j { stored } else { Vec3::zero().sub(stored) };
+        let hist = if tag_i < tag_j { stored } else { Vec3::zero().sub(stored) };
         let gf = self.model.resolve_frozen(hist, &k);
         let (radi, radj) = (a.radius, b.radius);
         let del = a.position.sub(b.position);
@@ -780,6 +924,7 @@ impl GranularSystem {
 
     /// Advance one velocity-Verlet step, in LIGGGHTS' order.
     pub fn step(&mut self) {
+        self.step_count += 1;
         let (f, t) = (self.forces.clone(), self.torques.clone());
         self.integrator
             .initial_integrate(&mut self.particles, &f, &t);
@@ -790,9 +935,20 @@ impl GranularSystem {
         }
         self.refresh_moving_meshes();
         self.compute_forces();
+        if let Some(heat) = &self.heat {
+            // post_force of `fix heat/gran/conduction`: the flux of this step
+            // (reset at initial_integrate), summed in pair-list order.
+            self.heat_flux.clear();
+            self.heat_flux.resize(self.particles.len(), 0.0);
+            heat.accumulate(&self.pairs, &self.particles, &self.types, &mut self.heat_flux);
+        }
         let (f2, t2) = (self.forces.clone(), self.torques.clone());
         self.integrator
             .final_integrate(&mut self.particles, &f2, &t2);
+        if let Some(heat) = &self.heat {
+            // final_integrate of the scalar transport equation
+            heat.advance(&mut self.particles, &self.types, &self.heat_flux, self.dt);
+        }
         self.time += self.dt;
     }
 
@@ -1029,12 +1185,18 @@ impl GranularSystem {
             if let Some(k) =
                 ContactKinematics::pair(&a, &b).map(|k| k.with_types(self.types[i], self.types[j]))
             {
-                let gf = resolve_c(&self.model, setup, 
-                    ContactKey::pair(self.tags[i] as usize, self.tags[j] as usize),
-                    &k,
-                    &mut self.history,
-                    self.dt,
-                );
+                let key = ContactKey::pair(self.tags[i] as usize, self.tags[j] as usize);
+                // The store holds the displacement in (lower tag, higher tag)
+                // orientation; a list that visits the pair the other way
+                // round (LIGGGHTS' sorted local order) flips it around the call.
+                let flip = self.tags[i] > self.tags[j];
+                if flip {
+                    self.history.flip(key);
+                }
+                let gf = resolve_c(&self.model, setup, key, &k, &mut self.history, self.dt);
+                if flip {
+                    self.history.flip(key);
+                }
                 self.forces[i] = self.forces[i].add(gf.force_i);
                 self.forces[j] = self.forces[j].add(gf.force_j);
                 self.torques[i] = self.torques[i].add(gf.torque_i);
@@ -1120,8 +1282,19 @@ impl GranularSystem {
                                 continue;
                             };
                             let key = ContactKey::pair(tags[i] as usize, tags[j] as usize);
-                            let prior = history.get(key).unwrap_or_else(Vec3::zero);
+                            let flip = tags[i] > tags[j];
+                            let stored = history.get(key);
+                            let prior = match (stored, flip) {
+                                (Some(h), true) => Vec3::zero().sub(h),
+                                (Some(h), false) => h,
+                                (None, _) => Vec3::zero(),
+                            };
                             let (gf, shear) = model.resolve_pure(prior, &k, dt);
+                            let shear = if flip {
+                                shear.map(|s| Vec3::zero().sub(s))
+                            } else {
+                                shear
+                            };
                             out_chunk[written] = PairOutcome {
                                 i: i as u32,
                                 j: j as u32,
@@ -1182,6 +1355,13 @@ impl GranularSystem {
     /// Refill `self.pairs` with the candidate near pairs, reusing the grid
     /// buffers across steps.
     fn rebuild_candidate_pairs(&mut self) {
+        if let NeighborOrder::Liggghts(cfg) = self.neighbor_order {
+            if self.setup_phase || self.rebuild_now || self.perm.len() != self.particles.len() {
+                self.rebuild_liggghts_list(cfg);
+                self.rebuild_now = false;
+            }
+            return;
+        }
         let mut pairs = std::mem::take(&mut self.pairs);
         let mut offsets = std::mem::take(&mut self.cell_offsets);
         let mut items = std::mem::take(&mut self.cell_items);
