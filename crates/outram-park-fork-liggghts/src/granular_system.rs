@@ -100,6 +100,37 @@ fn resolve_c(
     }
 }
 
+/// One row of upstream's `compute wall/gran/local` (default column set `pos
+/// vel id force torque history contactArea delta`): see
+/// [`GranularSystem::wall_gran_local`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct WallLocalRecord {
+    /// Contact point on the mesh `x - delta` `[m]` (`add_wall_1`'s `pos`).
+    pub contact_point: Vec3,
+    /// Position of the particle `[m]`.
+    pub pos_i: Vec3,
+    /// Wall velocity at the contact point `[m/s]`.
+    pub wall_vel: Vec3,
+    /// Particle velocity `[m/s]`.
+    pub vel_i: Vec3,
+    /// Index of the mesh among the mesh walls (`iFMG`).
+    pub mesh: usize,
+    /// Triangle (element) id.
+    pub tri: usize,
+    /// Tag of the particle (0-based; upstream's id is this plus one).
+    pub tag: u64,
+    /// Contact force on the particle `[N]`.
+    pub force: Vec3,
+    /// Contact torque on the particle `[N m]`.
+    pub torque: Vec3,
+    /// Stored tangential displacement of the contact `[m]`.
+    pub history: Vec3,
+    /// `(r_i^2 - r^2) pi` with `r = r_i - overlap` `[m^2]`.
+    pub contact_area: f64,
+    /// `r_i - r` `[m]`.
+    pub delta: f64,
+}
+
 /// One row of upstream's `compute pair/gran/local`: see
 /// [`GranularSystem::pair_gran_local_for`].
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -715,6 +746,19 @@ impl GranularSystem {
         }
     }
 
+    /// The index into [`GranularSystem::particles`] of each atom in the order
+    /// [`GranularSystem::particles_in_local_order`] returns them (identity when
+    /// the system is not under the LIGGGHTS neighbour order). Lets a per-atom
+    /// property stored by tag (e.g. a tracer marker) be summed in local order.
+    #[must_use]
+    pub fn local_order_indices(&self) -> Vec<usize> {
+        if self.perm.len() == self.particles.len() && matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
+            self.perm.clone()
+        } else {
+            (0..self.particles.len()).collect()
+        }
+    }
+
     /// Assign an atom type (0-based) to every particle, for a model carrying a
     /// [`MaterialTable`](crate::granular::MaterialTable)
     /// ([`GranularContactModel::with_materials`]). Particles inserted later get
@@ -1111,6 +1155,81 @@ impl GranularSystem {
             contact_area,
             delta: radi + radj - r,
         })
+    }
+
+    /// `compute wall/gran/local` (`pos vel id force torque history
+    /// contactArea delta`): one record per particle-mesh contact, particles in
+    /// tag order, facets ascending, mesh walls in order. Force and torque are
+    /// evaluated at the current state from the stored history without
+    /// advancing it (`FixWallGran::post_force_pgl`: `computeflag = 0`,
+    /// `shearupdate = 0`, `addflag = 1`). Primitive walls are not reported,
+    /// as upstream warns. Translated from `ComputePairGranLocal::
+    /// {add_wall_1, add_wall_2}` and `FixWallGranBase::compute_force`
+    /// (LIGGGHTS-PUBLIC `3d5c00f2`); gh:#1418.
+    ///
+    /// A contact that is not yet in the per-particle contact list is reported
+    /// only if no coplanar neighbour facet is (the `coplanarContactAlready`
+    /// drop), with zero history; this does not mutate the list.
+    #[must_use]
+    pub fn wall_gran_local(&self) -> Vec<WallLocalRecord> {
+        let nb = self.boundaries.len();
+        let mut out = Vec::new();
+        let mut mesh_ordinal = 0usize;
+        for (w, wall) in self.moving_walls.iter().enumerate() {
+            let WallGeometry::Mesh(mesh) = &wall.geometry else {
+                continue;
+            };
+            for (i, p) in self.particles.iter().enumerate() {
+                let tag = self.tags[i] as usize;
+                for c in mesh.sphere_contacts(p.position, p.radius) {
+                    let id = c.tri as u32;
+                    let slots = self.mesh_partners.get(&(tag, w));
+                    let known = slots.is_some_and(|sl| sl.iter().flatten().any(|s| s.0 == id));
+                    if !known && c.barysign == 7 {
+                        let dup = slots.is_some_and(|sl| {
+                            sl.iter().flatten().any(|s| {
+                                s.0 != id && mesh.coplanar_node_neighs(s.0 as usize, c.tri)
+                            })
+                        });
+                        if dup {
+                            continue;
+                        }
+                    }
+                    let v_wall = mesh.wall_velocity(c.tri, &c.bary);
+                    let delta = Vec3::new(-c.delta[0], -c.delta[1], -c.delta[2]);
+                    let overlap = -c.deltan;
+                    let k = ContactKinematics::mesh_wall(p, delta, overlap, v_wall)
+                        .with_types(self.types[i], self.types[i]);
+                    let hist = self
+                        .history
+                        .get(ContactKey::tri(tag, nb + w, c.tri))
+                        .unwrap_or_else(Vec3::zero);
+                    let gf = self.model.resolve_frozen(hist, &k, self.dt);
+                    let r = p.radius - overlap;
+                    let rsq = r * r;
+                    out.push(WallLocalRecord {
+                        contact_point: Vec3::new(
+                            p.position.x - delta.x,
+                            p.position.y - delta.y,
+                            p.position.z - delta.z,
+                        ),
+                        pos_i: p.position,
+                        wall_vel: v_wall,
+                        vel_i: p.velocity,
+                        mesh: mesh_ordinal,
+                        tri: c.tri,
+                        tag: tag as u64,
+                        force: gf.force_i,
+                        torque: gf.torque_i,
+                        history: hist,
+                        contact_area: (p.radius * p.radius - rsq) * std::f64::consts::PI,
+                        delta: p.radius - rsq.sqrt(),
+                    });
+                }
+            }
+            mesh_ordinal += 1;
+        }
+        out
     }
 
     /// [`GranularSystem::pair_gran_local_for`] for every overlapping pair, `i`
