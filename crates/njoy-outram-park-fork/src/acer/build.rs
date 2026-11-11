@@ -1028,31 +1028,31 @@ impl XssBuilder {
     }
 
     /// Append a real-valued word (written `1pE20.11`).
-    fn real(&mut self, v: f64) {
+    pub(super) fn real(&mut self, v: f64) {
         self.xss.push(v);
         self.is_int.push(false);
     }
 
     /// Append an integer-valued word (written `i20`).
-    fn int(&mut self, v: i32) {
+    pub(super) fn int(&mut self, v: i32) {
         self.xss.push(v as f64);
         self.is_int.push(true);
     }
 
     /// Append a pre-serialised `(value, is_integer)` word.
-    fn word(&mut self, v: f64, is_int: bool) {
+    pub(super) fn word(&mut self, v: f64, is_int: bool) {
         self.xss.push(v);
         self.is_int.push(is_int);
     }
 
     /// The 1-based XSS index the *next* appended word will occupy — i.e. the JXS
     /// locator for a block about to be written.
-    fn next_locator(&self) -> i32 {
+    pub(super) fn next_locator(&self) -> i32 {
         self.xss.len() as i32 + 1
     }
 
     /// Consume the builder, returning the data block and its type mask.
-    fn finish(self) -> (Vec<f64>, Vec<bool>) {
+    pub(super) fn finish(self) -> (Vec<f64>, Vec<bool>) {
         (self.xss, self.is_int)
     }
 }

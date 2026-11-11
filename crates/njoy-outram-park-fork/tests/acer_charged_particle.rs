@@ -31,3 +31,33 @@ fn deck14_union_grid_matches_reference_esz() {
     assert_eq!(ours.len(), nes);
     assert_eq!(bad, 0);
 }
+
+/// Whole table (deck 14) against the reference, block by block (prints the
+/// comparison report; work in progress).
+#[test]
+fn deck14_table_blocks() {
+    let r = root();
+    let (Ok(tape), Ok(ace)) = (Tape::read_file(&r.join("tests/resources/epn14")), std::fs::read_to_string(r.join("tests/14/referenceTape31"))) else {
+        return;
+    };
+    let t = charged::build_charged(&tape, 725, 0.0, 0, true).unwrap();
+    let ours = parse_type1(&t.to_type1_text().unwrap()).unwrap();
+    let theirs = parse_type1(&ace).unwrap();
+    let c = njoy_outram_park_fork::acer::compare::compare(&ours, &theirs);
+    for l in c.report_lines() {
+        println!("{l}");
+    }
+    // Blocks built so far: ESZ (energy, total, disappearance, elastic), MTR..DLW.
+    let dlw_end = theirs.jxs[11] as usize - 1; // GPD starts after DLW
+    let nes = theirs.nxs[2] as usize;
+    let mut worst = Vec::new();
+    for (name, lo, hi) in [("ESZ cols 1-4", 0, 4 * nes), ("MTR..DLW", 5 * nes, dlw_end)] {
+        let diffs: Vec<usize> = (lo..hi).filter(|&i| ours.xss[i] != theirs.xss[i]).collect();
+        println!("{name}: {} of {} words differ; first {:?}", diffs.len(), hi - lo, diffs.first().map(|&i| (i + 1, ours.xss[i], theirs.xss[i])));
+        worst.push(diffs.len());
+    }
+    let d0 = theirs.jxs[10] as usize - 1;
+    println!("DLW ours   {:?}", &ours.xss[d0 + 215..d0 + 245]);
+    println!("DLW theirs {:?}", &theirs.xss[d0 + 215..d0 + 245]);
+    assert_eq!(worst, vec![0, 0], "ESZ columns 1-4 and MTR..DLW must match NJOY2016 word for word");
+}

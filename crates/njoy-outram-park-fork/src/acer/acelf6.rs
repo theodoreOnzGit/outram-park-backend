@@ -228,7 +228,7 @@ pub fn acelf6_incident(
         )));
     }
 
-    emit_dlw(&subs, mt, q_mev, iza, ismooth, lct, last_law_read, first_law)
+    emit_dlw(&subs, mt, q_mev, iza, ismooth && (izai - 1.0).abs() < 0.5, lct, last_law_read, first_law)
 }
 
 /// The second half of `acelf6`: the yield words and one law per neutron
@@ -1321,4 +1321,11 @@ pub fn acelf6_old_format(
     let entry = emit_dlw(&subs, mt, q_mev, iza, ismooth, 1, 7, Some(7))?
         .ok_or_else(|| NjoyError::EndfParse("acelf6 old format: no entry".into()))?;
     Ok(Some(OldFormat6 { entry, angular: super::angular::ElasticAngular { energies: angular, lct: 1 } }))
+}
+
+/// The `LAW` of the first subsection of an MF=6 section (`acefc.f90:5780`).
+pub fn first_law_of_mf6(section: &Section) -> Result<i32, NjoyError> {
+    let mut cur = SectionCursor::new(&section.rows);
+    cur.read_cont()?;
+    Ok(cur.read_tab1()?.head.l2)
 }

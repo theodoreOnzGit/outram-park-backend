@@ -334,7 +334,369 @@ pub fn build_charged(tape: &Tape, mat: i32, kt_mev: f64, suffix: u32, text_pendf
         2003 => !mt5[4],
         _ => !mt5[5],
     };
-    let _ = (awi, mt5_here, kt_mev, suffix, letter, za, awr, nes, reactions.len(), jxs::ESZ, nxs::ZA);
-    let _ = XssBuilder::new();
-    Err(NjoyError::NotPorted("ACER of an incident charged particle: table assembly in progress (gh:#1485)"))
+    let kt = kt_mev;
+    let es: Vec<f64> = grid.iter().map(|&e| if text_pendf { rt_text(e) } else { e }).collect();
+
+    // ---- which reactions are stored, in `acelod`'s order -------------------
+    let mut ntr = 0usize;
+    let mut nr = 0usize;
+    let mut mtnr = 0;
+    let mut mtntr = 0;
+    for r in &reactions {
+        if r.mt == 1 {
+            mtntr = r.mt;
+            continue;
+        }
+        if r.mt != 2 && (r.mt != 5 || mt5_here) {
+            ntr += 1;
+            if lists::in_nr(izai, r.mt, mt5_here) {
+                nr += 1;
+                mtnr = r.mt;
+            }
+        }
+        mtntr = r.mt;
+    }
+    if reactions.iter().any(|r| r.mt == 301) {
+        return Err(NjoyError::NotPorted("ACER of an incident charged particle with HEATR's MT=301"));
+    }
+    let mut order: Vec<&Reaction> = Vec::new();
+    let mut elastic: Option<&Reaction> = None;
+    // pass 1: reactions that produce the projectile kind
+    for r in &reactions {
+        if r.mt == 2 {
+            elastic = Some(r);
+        }
+    }
+    for r in &reactions {
+        if r.mt == 1 || r.mt == 2 {
+            continue;
+        }
+        if r.mt <= mtnr && lists::in_nr(izai, r.mt, mt5_here) {
+            order.push(r);
+        }
+    }
+    // pass 2: the rest, from MT=2 up to the last MF=3 section
+    for r in &reactions {
+        if r.mt == 1 || r.mt == 2 || r.mt > mtntr {
+            continue;
+        }
+        if !lists::in_nr(izai, r.mt, true) {
+            order.push(r);
+        }
+    }
+    if order.len() != ntr {
+        return Err(NjoyError::NotPorted("ACER of an incident charged particle: reaction bookkeeping differs from acelod (MT=5 without production?)"));
+    }
+
+    // ---- ESZ and SIG --------------------------------------------------------
+    let mut tot = vec![0.0f64; nes];
+    let mut elas = vec![0.0f64; nes];
+    if let Some(r) = elastic {
+        let mut g = Gety1::new(&r.tab);
+        g.get(0.0);
+        for j in 0..nes {
+            let s = sigfig(g.get(es[j]).y, 7, 0);
+            elas[j] = s;
+            tot[j] += s;
+        }
+    }
+    let mut sig: Vec<(usize, Vec<f64>)> = Vec::new();
+    for r in &order {
+        let mut g = Gety1::new(&r.tab);
+        let enext = g.get(0.0).xnext;
+        let mut j = nes;
+        while j >= 1 && enext <= (1.0 + EPS) * es[j - 1] {
+            j -= 1;
+        }
+        let ie = j + 1;
+        let mut vals = Vec::new();
+        let mut n = 0;
+        let mut jj = ie;
+        while jj <= nes {
+            let v = g.get(es[jj - 1]);
+            let mut s = v.y;
+            if jj > 1 && n == 0 && v.xnext > 100.0 {
+                s = 0.0;
+            }
+            s = sigfig(s, 7, 0);
+            if (6..=9).contains(&r.mt) || (46..=49).contains(&r.mt) {
+                s = sigfig(s / 2.0, 7, 0);
+            }
+            if r.mt <= 200 || r.mt >= 600 {
+                tot[jj - 1] += s;
+            }
+            vals.push(s);
+            n += 1;
+            jj += 1;
+        }
+        sig.push((ie, vals));
+    }
+
+    // ---- elastic angular distribution (MF=6/MT=2, LAW=5) ----------------------
+    let s62 = tape.section(mat, 6, 2).ok_or_else(|| NjoyError::EndfParse("acer: no MF=6/MT=2".into()))?;
+    let (and_words, tot_new, elas_new) = acecpe(s62, izai, awi, za, &es, &tot, &elas)?;
+    let tot = tot_new;
+    let elas = elas_new;
+
+    // ---- DLW entries (TYR needs them) ---------------------------------------
+    let mut dlws = Vec::new();
+    let mut off = 1i32;
+    let mut tyrs = vec![0i32; ntr];
+    for (i, r) in order.iter().take(nr).enumerate() {
+        let sec = tape
+            .section(mat, 6, r.mt)
+            .ok_or(NjoyError::NotPorted("ACER of an incident charged particle: reaction without MF=6 (MF=4/MF=5 route)"))?;
+        let law = super::acelf6::first_law_of_mf6(sec)?;
+        if law != 1 && law != 6 {
+            return Err(NjoyError::NotPorted("ACER of an incident charged particle: MF=6 LAW 2/3 reactions"));
+        }
+        let q = sigfig(r.qi / EMEV, 7, 0);
+        let entry = super::acelf6::acelf6_incident(sec, r.mt, q, za, izai, true)?
+            .ok_or(NjoyError::NotPorted("acelf6 returned nothing"))?;
+        tyrs[i] = match entry.tyr {
+            super::acelf6::Acelf6Tyr::Fixed(t) => t,
+            super::acelf6::Acelf6Tyr::Generalized { sign } => sign * (100 + off),
+        };
+        let l = off + entry.yield_len as i32;
+        let n = entry.words.len() as i32;
+        dlws.push((off, l, entry));
+        off += n;
+    }
+
+    // ---- assemble XSS -----------------------------------------------------------
+    let mut b = XssBuilder::new();
+    for &e in &es {
+        b.real(sigfig(e / EMEV, 9, 0));
+    }
+    for &v in &tot {
+        b.real(sigfig(v, 9, 0));
+    }
+    for _ in 0..nes {
+        b.real(0.0);
+    }
+    for &v in &elas {
+        b.real(v);
+    }
+    for _ in 0..nes {
+        b.real(0.0);
+    }
+    let mut jx = [0i32; 32];
+    jx[jxs::ESZ] = 1;
+    jx[jxs::MTR] = b.next_locator();
+    for r in &order {
+        b.int(r.mt);
+    }
+    jx[jxs::LQR] = b.next_locator();
+    for r in &order {
+        b.real(sigfig(r.qi / EMEV, 7, 0));
+    }
+    jx[jxs::TYR] = b.next_locator();
+    for &t in &tyrs {
+        b.int(t);
+    }
+    jx[jxs::LSIG] = b.next_locator();
+    let mut loc = 1usize;
+    for (_, v) in &sig {
+        b.int(loc as i32);
+        loc += 2 + v.len();
+    }
+    jx[jxs::SIG] = b.next_locator();
+    for (ie, v) in &sig {
+        b.int(*ie as i32);
+        b.int(v.len() as i32);
+        v.iter().for_each(|&x| b.real(x));
+    }
+    jx[jxs::LAND] = b.next_locator();
+    b.int(1);
+    for _ in 0..nr {
+        b.int(-1);
+    }
+    jx[jxs::AND] = b.next_locator();
+    for (v, is_int) in &and_words {
+        b.word(*v, *is_int);
+    }
+    jx[jxs::LDLW] = b.next_locator();
+    for (_, l, _) in &dlws {
+        b.int(*l);
+    }
+    jx[jxs::DLW] = b.next_locator();
+    for (start, _, e) in &dlws {
+        for (v, is_int) in e.resolve(*start) {
+            b.word(v, is_int);
+        }
+    }
+    let (xss, is_int) = b.finish();
+    jx[jxs::END] = xss.len() as i32;
+    let mut nx = [0i32; 16];
+    nx[nxs::LEN_XSS] = xss.len() as i32;
+    nx[nxs::ZA] = za;
+    nx[nxs::NES] = nes as i32;
+    nx[nxs::NTR] = ntr as i32;
+    nx[nxs::NR] = nr as i32;
+    let zaid_num = za as f64 + suffix as f64 / 100.0;
+    Ok(AceTable {
+        zaid: format!("{:9.2}{}", zaid_num, letter),
+        awr,
+        kt_mev: kt,
+        iz: [0; 16],
+        date: "  njoy-rust".to_string(),
+        comment: String::new(),
+        mat_id: format!("   mat{mat:4}"),
+        nxs: nx,
+        jxs: jx,
+        xss,
+        xss_is_int: is_int,
+    })
+}
+
+fn rt_text(x: f64) -> f64 {
+    use crate::endf::parse::{format_endf_float, parse_endf_float};
+    parse_endf_float(&format_endf_float(x)).unwrap_or(x)
+}
+
+/// `acecpe` (`acefc.f90:6523-6670`) for MF=6/MT=2 with `LAW = 5`. Returns the
+/// AND words of the elastic reaction and the new total and elastic columns.
+/// Only `LTP >= 12` (nuclear amplitude ratio given directly) is ported;
+/// `LTP < 12` needs `ptlegc`/`coul` and is refused by name.
+fn acecpe(
+    sec: &Section,
+    izai: i32,
+    awi: f64,
+    za: i32,
+    es: &[f64],
+    tot_in: &[f64],
+    elas_in: &[f64],
+) -> Result<(Vec<(f64, bool)>, Vec<f64>, Vec<f64>), NjoyError> {
+    use crate::common::phys::{AMASSN_AMU as AMASSN, AMU_G as AMU, CLIGHT_CM_S as CLIGHT, EV_ERG as EV, HBAR_ERG_S as HBAR, PI};
+    use crate::endf::interp::{terp1, IntLaw};
+    use petir::mathf::RealMath;
+    let fm = 1.0e-12;
+    let nes = es.len();
+    let mut cur = SectionCursor::new(&sec.rows);
+    let head = cur.read_cont()?;
+    let awr = head.c2;
+    cur.read_tab1()?;
+    let t2 = cur.read_tab2()?;
+    let ne = t2.head.n2 as usize;
+    let spi = t2.head.c1;
+    let lidp = t2.head.l1;
+    let mut ie_words: Vec<f64> = Vec::new();
+    let mut blocks: Vec<Vec<(f64, bool)>> = Vec::new();
+    let mut xxs = Vec::new();
+    let mut yys = Vec::new();
+    for _ in 0..ne {
+        let l = cur.read_list()?;
+        let e = l.head.c2;
+        let ltp = l.head.l1;
+        if ltp < 12 {
+            return Err(NjoyError::NotPorted("acecpe LTP < 12 (ptlegc/coul Coulomb-nuclear interference expansion)"));
+        }
+        let nl = l.head.n2 as usize;
+        let mut ien = 1usize;
+        while ien < nes && es[ien] < e {
+            ien += 1;
+        }
+        let ien = ien.min(nes - 1).max(1);
+        let f = (es[ien] - e) / (es[ien] - es[ien - 1]);
+        let xelas = elas_in[ien - 1] * f + elas_in[ien] * (1.0 - f);
+        let (mut cumm, mut amul, mut smul, mut sigcl, mut ratr, mut ratrl) = (0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
+        let mut iterp = 0;
+        let mut trip: Vec<(f64, f64, f64)> = Vec::new();
+        for jl in 1..=nl {
+            let mut ione = 0;
+            while ione == 0 {
+                let mut amuu = l.data[2 * (jl - 1)];
+                let pmu = l.data[2 * (jl - 1) + 1];
+                let mut signi;
+                let mut sigc;
+                loop {
+                    let i2s = (2.0 * spi).round() as i32;
+                    let ai = awi * AMASSN;
+                    let at = awr * AMASSN;
+                    let zt = (za / 1000) as f64;
+                    let zi = (izai / 1000) as f64;
+                    let cc1 = 2.0 * AMU * EV * fm * fm / (HBAR * HBAR);
+                    let ee = (EV / 1.0e7) * (CLIGHT / 10.0);
+                    let cc2 = ee.r_powi(4) * AMU / (2.0 * HBAR * HBAR * EV);
+                    let wn = at * (cc1 * e * ai).sqrt() / (ai + at);
+                    let eta = zt * zi * (cc2 * ai / e).sqrt();
+                    sigc = 0.0;
+                    if lidp == 0 {
+                        sigc = (eta * eta / (wn * wn)) / ((1.0 - amuu) * (1.0 - amuu));
+                    }
+                    if lidp == 1 {
+                        let sgn = if i2s % 2 == 0 { 1.0 } else { -1.0 };
+                        sigc = ((2.0 * eta * eta / (wn * wn)) / (1.0 - amuu * amuu))
+                            * ((1.0 + amuu * amuu) / (1.0 - amuu * amuu)
+                                + sgn * (eta * ((1.0 + amuu) / (1.0 - amuu)).r_ln()).r_cos() / (2.0 * spi + 1.0));
+                    }
+                    if iterp == 1 {
+                        signi = (ratr - 1.0) * sigc;
+                    } else {
+                        signi = pmu * xelas;
+                        if signi < -sigc {
+                            signi = -sigc;
+                        }
+                    }
+                    ratr = (sigc + signi) / sigc;
+                    if jl > 1 && iterp == 0 && sigc > signi.abs() && sigc > 2.0 * sigcl {
+                        iterp = 1;
+                        amuu = (amul + amuu) / 2.0;
+                        ratr = (ratrl + ratr) / 2.0;
+                        continue;
+                    }
+                    break;
+                }
+                if jl > 1 {
+                    cumm += (amuu - amul) * (signi + sigc + smul) / 2.0;
+                }
+                trip.push((amuu, signi + sigc, cumm));
+                amul = amuu;
+                sigcl = sigc;
+                smul = signi + sigc;
+                ratrl = ratr;
+                ione = 1;
+                if iterp == 1 {
+                    iterp = 0;
+                    ione = 0;
+                }
+            }
+        }
+        xxs.push(e);
+        yys.push(cumm * 2.0 * PI);
+        ie_words.push(sigfig(e / EMEV, 7, 0));
+        let kk = trip.len();
+        let mut blk: Vec<(f64, bool)> = vec![(2.0, true), (kk as f64, true)];
+        blk.extend(trip.iter().map(|t| (sigfig(t.0, 7, 0), false)));
+        blk.extend(trip.iter().map(|t| (sigfig(t.1 / cumm, 7, 0), false)));
+        blk.extend(trip.iter().map(|t| (sigfig(t.2 / cumm, 9, 0), false)));
+        blocks.push(blk);
+    }
+    let mut words: Vec<(f64, bool)> = vec![(ne as f64, true)];
+    words.extend(ie_words.iter().map(|&e| (e, false)));
+    let mut pos = 1 + 2 * ne + 1;
+    for blk in &blocks {
+        words.push((-(pos as f64), true));
+        pos += blk.len();
+    }
+    for blk in &blocks {
+        words.extend(blk.iter().copied());
+    }
+    let mut tot = vec![0.0; nes];
+    let mut el = vec![0.0; nes];
+    for j in 0..nes {
+        let e = es[j];
+        let signi = elas_in[j];
+        let t0 = tot_in[j] - signi;
+        let mut jj = 1usize;
+        while jj < ne && xxs[jj] < e {
+            jj += 1;
+        }
+        let jj = jj.min(ne - 1).max(1);
+        let signow = terp1(xxs[jj - 1], yys[jj - 1], xxs[jj], yys[jj], e, IntLaw::LogLog)?;
+        let signow = sigfig(signow, 7, 0);
+        tot[j] = sigfig(t0 + signow, 9, 0);
+        el[j] = signow;
+    }
+    Ok((words, tot, el))
 }
