@@ -26,9 +26,10 @@
 //!
 //! A `blockMeshDict` `edges` entry replaces the straight line between two block
 //! vertices by a curve. Upstream registers `line`, `arc`, `polyLine`, `spline`
-//! (Catmull-Rom) and `BSpline` in dev `852527377c7e`; `project` and
-//! `projectCurve` need `geometry` and are reported as not implemented
-//! (gh:#1462), never skipped.
+//! (Catmull-Rom) and `BSpline` in dev `852527377c7e`. ~~`project` and
+//! `projectCurve` need `geometry` and are reported as not implemented~~
+//! **CORRECTED 2026-11-11 (gh:#1462)**: they are ported, resolved against the
+//! `geometry` by [`BlockEdge::resolve_with`] ([`crate::block_projection`]).
 //!
 //! Every curve answers one question, [`EdgeCurve::position`]: the point at the
 //! edge parameter `lambda` in `[0, 1]`. The caller places the `n + 1`
@@ -55,10 +56,13 @@
 //! - Optional trailing start/end tangents of `spline` / `BSpline` are read and
 //!   discarded by the parser, as upstream does.
 
+use std::sync::Arc;
+
 use petir::mathf::RealMath;
 
 use outram_foam_basic_lib::primitives::Vector3;
 
+use crate::block_projection::{Geometry, ProjectEdge};
 use crate::MeshError;
 
 /// OpenFOAM `vSmall` for `double` (`numeric_limits<double>::min()`).
@@ -91,6 +95,12 @@ pub enum BlockEdgeKind {
     Spline(Vec<Vector3>),
     /// `BSpline v0 v1 ((x y z) ...)`: uniform cubic B-spline.
     BSpline(Vec<Vector3>),
+    /// `project v0 v1 (surface ...)`: the straight edge projected onto the
+    /// named `geometry` surfaces (gh:#1462).
+    Project(Vec<String>),
+    /// `projectCurve v0 v1 (surface ...)` (same algorithm as `project` unless
+    /// an `extrudedCircle` is listed, which is not ported; gh:#1462).
+    ProjectCurve(Vec<String>),
 }
 
 /// One parsed `edges` entry: the two block-vertex labels and the curve kind.
@@ -124,6 +134,20 @@ impl BlockEdge {
     /// on the line of the edge (`arcEdge::calc`), or an arc angle outside
     /// `(0, 360)` (see the module docs on the radian quirk).
     pub fn resolve(&self, vertices: &[Vector3]) -> Result<EdgeCurve, MeshError> {
+        self.resolve_with(vertices, &Arc::new(Geometry::default()))
+    }
+
+    /// As [`resolve`](Self::resolve), with the `geometry` that `project` /
+    /// `projectCurve` edges name their surfaces in (gh:#1462).
+    ///
+    /// # Errors
+    /// As [`resolve`](Self::resolve), plus [`MeshError::DictParse`] for a
+    /// surface name not in `geometry`.
+    pub fn resolve_with(
+        &self,
+        vertices: &[Vector3],
+        geometry: &Arc<Geometry>,
+    ) -> Result<EdgeCurve, MeshError> {
         let get = |i: usize| -> Result<Vector3, MeshError> {
             vertices.get(i).copied().ok_or_else(|| {
                 MeshError::Construction(format!(
@@ -157,6 +181,10 @@ impl BlockEdge {
             BlockEdgeKind::PolyLine(inner) => EdgeCurve::PolyLine(PolyLine::new(with_ends(inner))),
             BlockEdgeKind::Spline(inner) => EdgeCurve::CatmullRom(with_ends(inner)),
             BlockEdgeKind::BSpline(inner) => EdgeCurve::BSpline(with_ends(inner)),
+            BlockEdgeKind::Project(names) | BlockEdgeKind::ProjectCurve(names) => {
+                let ids = geometry.surface_ids(names)?;
+                EdgeCurve::Project(ProjectEdge::new(geometry.clone(), ids, p0, p1))
+            }
         })
     }
 }
@@ -194,6 +222,8 @@ pub enum EdgeCurve {
     CatmullRom(Vec<Vector3>),
     /// `BSplineEdge`; all knots including both end points.
     BSpline(Vec<Vector3>),
+    /// `projectEdge` / `projectCurveEdge`.
+    Project(ProjectEdge),
 }
 
 impl EdgeCurve {
@@ -205,12 +235,17 @@ impl EdgeCurve {
             EdgeCurve::PolyLine(p) => p.position(lambda),
             EdgeCurve::CatmullRom(k) => spline_position(k, SplineKind::CatmullRom, lambda),
             EdgeCurve::BSpline(k) => spline_position(k, SplineKind::BSpline, lambda),
+            EdgeCurve::Project(p) => p.position(lambda),
         }
     }
 
     /// `blockEdge::position(const scalarList&)`: the points at each parameter.
+    /// A projected edge iterates over the whole list (`projectEdge`).
     pub fn positions(&self, lambdas: &[f64]) -> Vec<Vector3> {
-        lambdas.iter().map(|&l| self.position(l)).collect()
+        match self {
+            EdgeCurve::Project(p) => p.positions(lambdas),
+            _ => lambdas.iter().map(|&l| self.position(l)).collect(),
+        }
     }
 }
 

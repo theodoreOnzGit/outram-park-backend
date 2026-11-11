@@ -97,9 +97,33 @@ pub struct SurfaceRegions {
     pub names: Vec<String>,
     /// `region_of_tri[i]` = index into [`Self::names`] for input triangle `i`.
     pub region_of_tri: Vec<usize>,
+    /// The geometric type of each region (`geometricSurfacePatch::
+    /// geometricType()`, gh:#1483), parallel to [`Self::names`]: `patch`
+    /// from the constructors here, `wall` / `symmetryPlane` / ... from a
+    /// `.fms` / `.ftr`, `empty` from an STL (which
+    /// `renameBoundaryPatches` turns into `wall`). The generators carry it
+    /// to the output mesh's patch types.
+    pub types: Vec<String>,
 }
 
 impl SurfaceRegions {
+    /// These regions with the geometric `types` given (one per name).
+    ///
+    /// # Panics
+    /// If `types.len()` differs from the number of names.
+    pub fn with_types(mut self, types: Vec<String>) -> Self {
+        assert_eq!(types.len(), self.names.len(), "one geometric type per region name");
+        self.types = types;
+        self
+    }
+
+    /// The patch types of a mesh with `n` patches whose first patches are
+    /// these regions in order: the region's type, `patch` beyond them (the
+    /// type `replaceBoundary` gives a patch it creates).
+    pub fn types_for(&self, n: usize) -> Vec<String> {
+        (0..n).map(|i| self.types.get(i).cloned().unwrap_or_else(|| "patch".to_string())).collect()
+    }
+
     /// Every triangle in one region — the single-patch behaviour the crate had
     /// before this module existed. `n_tris` is the surface's triangle count.
     ///
@@ -116,6 +140,7 @@ impl SurfaceRegions {
         SurfaceRegions {
             names: vec![name.to_string()],
             region_of_tri: vec![0; n_tris],
+            types: vec!["patch".to_string()],
         }
     }
 
@@ -149,9 +174,11 @@ impl SurfaceRegions {
             };
             region_of_tri.push(idx);
         }
+        let types = vec!["patch".to_string(); names.len()];
         SurfaceRegions {
             names,
             region_of_tri,
+            types,
         }
     }
 
@@ -166,6 +193,13 @@ impl SurfaceRegions {
     pub fn validate(&self, n_tris: usize) -> Result<(), String> {
         if self.names.is_empty() {
             return Err("SurfaceRegions has no names — at least one patch name is required".into());
+        }
+        if self.types.len() != self.names.len() {
+            return Err(format!(
+                "SurfaceRegions has {} geometric types for {} names",
+                self.types.len(),
+                self.names.len()
+            ));
         }
         if self.region_of_tri.len() != n_tris {
             return Err(format!(
@@ -324,6 +358,7 @@ pub fn assign_patches_by_region_with(
         neighbour: order.iter().map(|&f| mesh.neighbour[f]).collect(),
         n_cells: mesh.n_cells,
         patches,
+        cells: None,
     })
 }
 
@@ -459,6 +494,7 @@ mod tests {
         let bad = SurfaceRegions {
             names: vec!["a".into()],
             region_of_tri: vec![0, 3],
+            types: vec!["patch".into()],
         };
         assert!(
             bad.validate(2).is_err(),
@@ -467,6 +503,7 @@ mod tests {
         let dup = SurfaceRegions {
             names: vec!["a".into(), "a".into()],
             region_of_tri: vec![0, 1],
+            types: vec!["patch".into(); 2],
         };
         assert!(dup.validate(2).is_err(), "duplicate patch name rejected");
     }

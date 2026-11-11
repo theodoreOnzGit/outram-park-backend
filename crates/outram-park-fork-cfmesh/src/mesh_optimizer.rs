@@ -1574,6 +1574,22 @@ pub fn optimize_surface(
     rep
 }
 
+/// [`optimize_surface`] with the searches through the octree, as upstream's
+/// `meshOptimizer::optimizeSurface(octree)` (gh:#1385): the surface optimiser
+/// and the mapper both take it.
+pub fn optimize_surface_octree(
+    mesh: &mut VolumeMesh,
+    o: &crate::mesh_octree::MeshOctree,
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: &crate::patches::SurfaceRegions,
+    face_region: &[Option<usize>],
+) -> crate::surface_optimizer::UntangleReport {
+    let rep = crate::surface_optimizer::optimise_mesh_surface_octree(mesh, o, points, tris, regions, face_region);
+    *mesh = crate::surface_mapper::map_vertices_onto_surface_patches_given_octree(mesh, o, points, tris, regions, face_region);
+    rep
+}
+
 /// `polyMeshGenChecks::checkFaceDotProduct(mesh, values, changedFacePtr)`:
 /// `d · S / (|d| |S| + VSMALL)` on the active internal faces, 1 elsewhere.
 pub fn face_dot_products(mesh: &VolumeMesh, active: &[bool]) -> Vec<f64> {
@@ -1957,6 +1973,7 @@ impl MeshOptimizer {
     /// then [`Self::untangle_mesh_fv`].
     pub fn optimize_mesh_fv(&self, mesh: &mut VolumeMesh, num_laplace_iterations: usize, controls: &UntangleControls) -> Result<OptimiserReport, ConstraintViolation> {
         self.optimize_laplacian(mesh, LaplaceKind::PointCells, num_laplace_iterations);
+        crate::pipeline::cartesian_mesh::trace_points("fv_lap", mesh);
         self.untangle_mesh_fv(mesh, controls)
     }
 

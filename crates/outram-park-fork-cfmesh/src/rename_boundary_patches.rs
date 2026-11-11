@@ -192,7 +192,7 @@ fn calculate_new_boundary(mesh: &VolumeMesh, types: &[String], dict: &RenameBoun
             neighbour.push(None);
         }
     }
-    let m = VolumeMesh { points: mesh.points.clone(), faces, owner, neighbour, n_cells: mesh.n_cells, patches };
+    let m = VolumeMesh { points: mesh.points.clone(), faces, owner, neighbour, n_cells: mesh.n_cells, patches , cells: None };
     Some((m, new_types, unmatched))
 }
 

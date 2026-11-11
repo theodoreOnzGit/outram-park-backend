@@ -258,8 +258,11 @@ pub fn map_edges_onto_surface_patches_2d(mesh: &mut VolumeMesh, o: &MeshOctree, 
 /// `meshSurfaceEdgeExtractor2D::distributeBoundaryFaces`: the surface's
 /// regions (`names`) become the mesh's first patches, then
 /// `bottomEmptyFaces` and `topEmptyFaces`. Every patch is kept, empty or
-/// not, so patch `i` is region `i`. Returns the mesh and the patch types.
-pub fn distribute_boundary_faces(mesh: &VolumeMesh, o: &MeshOctree, names: &[String]) -> Result<(VolumeMesh, Vec<String>), String> {
+/// not, so patch `i` is region `i`. Returns the mesh and the patch types:
+/// each surface patch's `geometricType()` (`surface_types`, gh:#1483;
+/// upstream's `patchTypes[ptchI] = surfPatches[ptchI].geometricType()`, a
+/// type missing from the slice reads `patch`), then `empty` twice.
+pub fn distribute_boundary_faces(mesh: &VolumeMesh, o: &MeshOctree, names: &[String], surface_types: &[String]) -> Result<(VolumeMesh, Vec<String>), String> {
     let e2d = PolyMeshGen2DEngine::new(mesh)?;
     let n_int = mesh.n_internal_faces();
     let n_reg = names.len();
@@ -299,7 +302,7 @@ pub fn distribute_boundary_faces(mesh: &VolumeMesh, o: &MeshOctree, names: &[Str
         }
         out.patches.push(BoundaryPatch { name: name.clone(), start_face: start, n_faces: g.len() });
     }
-    let mut types = vec!["patch".to_string(); n_reg];
+    let mut types: Vec<String> = (0..n_reg).map(|i| surface_types.get(i).cloned().unwrap_or_else(|| "patch".to_string())).collect();
     types.push("empty".into());
     types.push("empty".into());
     Ok((out, types))

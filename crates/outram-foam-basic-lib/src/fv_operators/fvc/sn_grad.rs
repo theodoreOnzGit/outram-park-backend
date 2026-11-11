@@ -23,13 +23,17 @@ use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
 use crate::fields::surface_field::SurfaceScalarField;
 use crate::fields::vol_field::VolScalarField;
+use crate::fv_operators::fvm::DeltaCoeff;
 use crate::mesh::fv_mesh::PatchKind;
 
 /// Surface-normal gradient: `∂φ/∂n|_f = (φ_N − φ_O) / |C_N − C_O|`.
 ///
 /// Boundary face contributions:
 /// - `ZeroGradient` / `Symmetry`: zero normal gradient.
-/// - `FixedValue(v)`: `(v − φ_owner) / |C_f − C_owner|`.
+/// - `FixedValue(v)`: `(v − φ_owner) / |n·(C_f − C_owner)|`. ~~`/ |C_f − C_owner|`~~
+///   **CORRECTED 2026-11-11 (gh:#1488)**: upstream's boundary `deltaCoeffs` is
+///   `1/|fvPatch::delta()|` with the patch-normal `delta()` (ESI v2506
+///   `fvPatch.C:156`); the two agree only on an orthogonal boundary face.
 pub fn sn_grad(vol: &VolScalarField) -> SurfaceScalarField {
     let mesh = &vol.mesh;
 
@@ -66,6 +70,10 @@ pub fn sn_grad(vol: &VolScalarField) -> SurfaceScalarField {
                         };
                     }
                 }
+                // Non-coupled patch: upstream's boundary `deltaCoeffs` is
+                // `1/|fvPatch::delta()|`, the patch-NORMAL distance `|n . d|`,
+                // not `|Cf - C|` (gh:#1488). Shadows the seam distance above.
+                let d = DeltaCoeff::Orthogonal.boundary_delta(mesh, gf);
                 match &bc_patch.bc {
                     BoundaryCondition::ZeroGradient | BoundaryCondition::Symmetry => 0.0,
                     BoundaryCondition::FixedValue(v) => {
