@@ -395,12 +395,14 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     if !pend.meta.heatr {
         deck = deck.without_heatr();
     }
-    deck = deck.with_heatr_partials(pend.meta.heatr_partials).with_purr_binary(pend.meta.purr_binary).with_heatr_binary(pend.meta.heatr_binary).with_newfor(c.newfor);
+    deck = deck.with_heatr_partials(pend.meta.heatr_partials).with_purr_binary(pend.meta.purr_binary).with_heatr_binary(pend.meta.heatr_binary).with_newfor(c.newfor).with_pendf_binary(c.npend < 0);
     if pend.meta.heatr {
         if let Some(sec) = pend.tape.section(c.matd, 3, 301) {
-            let nr = sec.rows.first().map_or(0, |r| r[4] as usize);
-            let np = sec.rows.first().map_or(0, |r| r[5] as usize);
-            let start = 1 + nr.div_ceil(3);
+            // rows[0] is the HEAD, rows[1] the TAB1 record (NR, NP), then the
+            // interpolation table (three pairs a row), then the points.
+            let nr = sec.rows.get(1).map_or(0, |r| r[4] as usize);
+            let np = sec.rows.get(1).map_or(0, |r| r[5] as usize);
+            let start = 2 + nr.div_ceil(3);
             let mut pairs = Vec::with_capacity(np);
             'rows: for r in sec.rows.iter().skip(start) {
                 for k in 0..3 {

@@ -434,6 +434,10 @@ pub struct AceDeck {
     purr_binary: bool,
     /// HEATR's output unit was blocked binary (`nout < 0`).
     heatr_binary: bool,
+    /// ACER's PENDF unit is blocked binary (negative `npend`): its energies and
+    /// cross sections stay at full double precision instead of going through
+    /// ENDF text (gh:#1449).
+    pendf_binary: bool,
     /// ACER's `newfor`: `1` (default) the new angular format, `0` the old
     /// equally probable bins (gh:#1449).
     newfor: i32,
@@ -451,6 +455,7 @@ impl Default for AceDeck {
             heatr_partials: [false; 3],
             purr_binary: false,
             heatr_binary: false,
+            pendf_binary: false,
             newfor: 1,
             esz_kerma: None,
         }
@@ -480,6 +485,12 @@ impl AceDeck {
 
     /// HEATR's output unit was blocked binary (`nout < 0`): the modules after
     /// it read its MT=301 (and partials) as doubles, not as printed text.
+    pub fn with_pendf_binary(mut self, binary: bool) -> Self {
+        self.pendf_binary = binary;
+        self
+    }
+
+    /// See the `heatr_binary` field.
     pub fn with_heatr_binary(mut self, binary: bool) -> Self {
         self.heatr_binary = binary;
         self
@@ -531,7 +542,7 @@ pub fn build_deck(
     deck: &AceDeck,
 ) -> Result<AceTable, crate::NjoyError> {
     // ACER reads its cross sections from a PENDF tape, not from memory.
-    let pendf = recon.through_pendf_text();
+    let pendf = if deck.pendf_binary { recon.clone() } else { recon.through_pendf_text() };
     let modules = deck_modules(tape, mat, &pendf, kt_mev, deck)?;
     assemble(tape, mat, &pendf, kt_mev, suffix, &modules)
 }
