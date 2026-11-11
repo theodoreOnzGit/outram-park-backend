@@ -208,6 +208,187 @@ impl AveTime {
     }
 }
 
+/// `fix ave/euler nevery N cell_size_relative C parallel no` on a serial,
+/// fixed orthogonal box: Eulerian cell averages of volume fraction, mass-
+/// averaged velocity and number-averaged radius.
+///
+/// Translated from `FixAveEuler::{setup_bins, bin_atoms, coord2bin,
+/// calculate_eu}` (LIGGGHTS-PUBLIC `3d5c00f2`, `fix_ave_euler.cpp`; gh:#1418).
+///
+/// **Not ported (stated):** the per-cell stress columns (they need
+/// `compute stress/atom pair`, the per-atom pair virial, which
+/// [`crate::granular_system::GranularSystem`] does not expose),
+/// `basevolume_region` (Monte-Carlo weights; every cell has weight 1 here),
+/// `parallel yes`, triclinic boxes and the multisphere/superquadric branches.
+/// Reproduced: centre (cols 1-3), volume fraction (4), mass-averaged velocity
+/// (5-7) and the number-averaged radius.
+///
+/// Upstream defect, recorded: `FixAveEuler` never sets `global_freq` (left at 0
+/// by `Fix`), so reading `f_ID[i][j]` from `thermo` divides by zero
+/// (`Thermo::init`: `thermo_every % global_freq`) and `lmp_serial` dies with a
+/// floating-point exception. The reference binary used for the comparison is
+/// relinked with the one-line `global_freq = nevery;` (see
+/// `reference-data/liggghts/make_aveeuler_deck.sh`); the averaging is untouched.
+/// The port does not copy the crash.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AveEuler {
+    nevery: i64,
+    lo: [f64; 3],
+    hi: [f64; 3],
+    ncells_dim: [usize; 3],
+    cell_size_inv: [f64; 3],
+    cell_volume: f64,
+    center: Vec<[f64; 3]>,
+    v_av: Vec<[f64; 3]>,
+    vol_fr: Vec<f64>,
+    radius: Vec<f64>,
+    ncount: Vec<i64>,
+    mass: Vec<f64>,
+}
+
+impl AveEuler {
+    /// `setup_bins`. `cut_minus_skin` is `neighbor->cutneighmax - neighbor->skin`
+    /// (for the granular pair style the largest contact distance, `2 r_max`).
+    ///
+    /// # Errors
+    /// `nevery < 1` or `cell_size_relative < 1` (upstream's checks).
+    pub fn new(nevery: i64, cell_size_relative: f64, cut_minus_skin: f64, lo: [f64; 3], hi: [f64; 3]) -> Result<Self, String> {
+        if nevery < 1 {
+            return Err("'nevery' > 0 required".into());
+        }
+        if cell_size_relative < 1.0 {
+            return Err("'cell_size_relative' > 1 required".into());
+        }
+        let ideal = cell_size_relative * cut_minus_skin;
+        let mut dim = [1usize; 3];
+        let mut cell_size = [0.0; 3];
+        let mut inv = [0.0; 3];
+        for d in 0..3 {
+            let n = ((hi[d] - lo[d]) / ideal) as i64;
+            dim[d] = if n < 1 { 1 } else { n as usize };
+            cell_size[d] = (hi[d] - lo[d]) / dim[d] as f64;
+            inv[d] = 1. / cell_size[d];
+        }
+        let ncells = dim[0] * dim[1] * dim[2];
+        let mut center = vec![[0.0; 3]; ncells];
+        for ix in 0..dim[0] {
+            for iy in 0..dim[1] {
+                for iz in 0..dim[2] {
+                    let b = iz * dim[1] * dim[0] + iy * dim[0] + ix;
+                    center[b] = [
+                        lo[0] + (ix as f64 + 0.5) * cell_size[0],
+                        lo[1] + (iy as f64 + 0.5) * cell_size[1],
+                        lo[2] + (iz as f64 + 0.5) * cell_size[2],
+                    ];
+                }
+            }
+        }
+        Ok(Self {
+            nevery,
+            lo,
+            hi,
+            ncells_dim: dim,
+            cell_size_inv: inv,
+            cell_volume: cell_size[0] * cell_size[1] * cell_size[2],
+            center,
+            v_av: vec![[0.0; 3]; ncells],
+            vol_fr: vec![0.0; ncells],
+            radius: vec![0.0; ncells],
+            ncount: vec![0; ncells],
+            mass: vec![0.0; ncells],
+        })
+    }
+
+    /// Number of cells.
+    #[must_use]
+    pub fn ncells(&self) -> usize {
+        self.center.len()
+    }
+
+    /// `coord2bin` (serial): `None` for a particle on or outside the box.
+    fn coord2bin(&self, x: [f64; 3]) -> Option<usize> {
+        let mut c = [0usize; 3];
+        for d in 0..3 {
+            if x[d] <= self.lo[d] || x[d] >= self.hi[d] {
+                return None;
+            }
+            c[d] = ((x[d] - self.lo[d]) * self.cell_size_inv[d]) as usize;
+        }
+        Some(c[2] * self.ncells_dim[1] * self.ncells_dim[0] + c[1] * self.ncells_dim[0] + c[0])
+    }
+
+    /// `end_of_step`: bin and average. Does nothing unless `step % nevery == 0`.
+    /// `particles` must be in LIGGGHTS' local atom order
+    /// ([`crate::granular_system::GranularSystem::particles_in_local_order`]),
+    /// the order upstream's cell linked lists are walked in.
+    pub fn end_of_step(&mut self, step: i64, particles: &[Particle]) {
+        if step % self.nevery != 0 {
+            return;
+        }
+        let prefactor_vol_fr = 4. / 3. * std::f64::consts::PI / self.cell_volume;
+        for c in 0..self.ncells() {
+            self.ncount[c] = 0;
+            self.v_av[c] = [0.0; 3];
+            self.vol_fr[c] = 0.0;
+            self.radius[c] = 0.0;
+            self.mass[c] = 0.0;
+        }
+        for p in particles {
+            let x = [p.position.x, p.position.y, p.position.z];
+            let Some(c) = self.coord2bin(x) else { continue };
+            let v = [p.velocity.x, p.velocity.y, p.velocity.z];
+            for d in 0..3 {
+                self.v_av[c][d] += v[d] * p.mass;
+            }
+            let r = p.radius;
+            self.vol_fr[c] += r * r * r;
+            self.radius[c] += r;
+            self.mass[c] += p.mass;
+            self.ncount[c] += 1;
+        }
+        for c in 0..self.ncells() {
+            if self.ncount[c] != 0 {
+                let sinv = 1. / self.mass[c];
+                for d in 0..3 {
+                    self.v_av[c][d] *= sinv;
+                }
+                self.radius[c] /= self.ncount[c] as f64;
+            }
+            // weight_ == 1 everywhere (no basevolume_region); eps_ntry = 1/50.
+            let weight = 1.0;
+            let eps_ntry = 1. / 50.;
+            if weight < eps_ntry {
+                self.vol_fr[c] = 0.0;
+            } else {
+                self.vol_fr[c] *= prefactor_vol_fr / weight;
+            }
+        }
+    }
+
+    /// `compute_array(i, j)` for `j` in `0..7`: centre, volume fraction,
+    /// mass-averaged velocity. Rows past the grid return `0`, like upstream.
+    #[must_use]
+    pub fn array(&self, i: usize, j: usize) -> f64 {
+        if i >= self.ncells() {
+            0.0
+        } else if j < 3 {
+            self.center[i][j]
+        } else if j == 3 {
+            self.vol_fr[i]
+        } else if j < 7 {
+            self.v_av[i][j - 4]
+        } else {
+            0.0
+        }
+    }
+
+    /// Number-averaged radius of cell `i` (upstream column 15).
+    #[must_use]
+    pub fn radius(&self, i: usize) -> f64 {
+        self.radius[i]
+    }
+}
+
 /// `fix ave/atom Nevery Nrepeat Nfreq <columns>`: the per-atom time average of
 /// per-atom columns (atom attributes `x y z vx vy vz fx fy fz`, or the
 /// `vector_atom`/`array_atom` of a compute/fix/atom-style variable, which the
