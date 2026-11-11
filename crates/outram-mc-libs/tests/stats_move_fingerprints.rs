@@ -364,7 +364,8 @@ fn godiva_run_keff_is_bit_identical() {
         // Re-pinned again 2026-11-11 (gh:#1386, OpenMC reaction order, sphere driver):
         // was 0x60ece10b8fc3777e (k 1.01140 +/- 0.00568), now k 1.01485 +/- 0.00533, 0.44 sigma.
         // Re-pinned 2026-11-11 (gh:#1386, #1444 d, fission-neutron order): was 0x37740397665ba80b (k 1.01485 +/- 0.00533), now k 1.01955 +/- 0.00565, 0.61 sigma. Legacy switch reproduces the old pin.
-        0xf3e61ecd4157f9b6,
+                // Re-pinned 2026-11-11 (gh:#1386, #1444 c): was 0xf3e61ecd4157f9b6 (k 1.01955 +/- 0.00565), now k 1.00581 +/- 0.00373, -2.03 sigma (< 3, not resolved; banking at every collision changes the stream). Legacy switch reproduces the old pin (to verify).
+        0xa321f4c29fbe1d08,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),
@@ -417,7 +418,8 @@ fn godiva_csg_with_entropy_and_trigger_is_bit_identical() {
         // Re-pinned 2026-11-11 (gh:#1386, OpenMC reaction order): was 0xbe7e011c738c0da1
         // (k 0.97710 +/- 0.00960, 13 generations), now k 0.99831 +/- 0.00966 (39 generations), 1.56 sigma.
         // Re-pinned 2026-11-11 (gh:#1386, #1444 d, fission-neutron order): was 0xf767ab315e51ecef (k 0.99831 +/- 0.00966, 39 gen), now k 0.98928 +/- 0.00668, 12 gen, 0.77 sigma. OUTRAM_MC_LEGACY_FISSION_NEUTRON_ORDER=1 reproduces the old pin.
-        0xae082ec044405b9b,
+                // Re-pinned 2026-11-11 (gh:#1386, #1444 c, per-collision fission banking): was 0xae082ec044405b9b (k 0.98928 +/- 0.00668, 12 gen), now k 1.00635 +/- 0.00963, 32 gen, +1.46 sigma. OUTRAM_MC_LEGACY_FISSION_BANKING=1 reproduces the old pin (to verify).
+        0xf991663cc22824ef,
         &format!(
             "k = {:#018x} +/- {:#018x}, {} generations, {} entropy values",
             r.k_mean.to_bits(),
@@ -573,7 +575,8 @@ fn fhr_explicit_triso_delta_is_bit_identical() {
         // Re-pinned again 2026-11-11 (gh:#1386, OpenMC reaction order, sphere driver):
         // was 0x173834441cc42ed4 (k 1.52732 +/- 0.00833), now k 1.53753 +/- 0.00859, 0.85 sigma.
         // Re-pinned 2026-11-11 (gh:#1386, #1444 d, fission-neutron order): was 0x127cc36551eda56c (k 1.53753 +/- 0.00859), now k 1.53072 +/- 0.00739, 0.60 sigma. Legacy switch reproduces the old pin.
-        0x929a8bdd1db4f844,
+                // Re-pinned 2026-11-11 (gh:#1386, #1444 c): was 0x929a8bdd1db4f844 (k 1.53072 +/- 0.00739), now k 1.54155 +/- 0.00604, +1.13 sigma. Legacy switch reproduces the old pin (to verify).
+        0x6280ad5b7b0d0c9f,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),
@@ -1021,7 +1024,8 @@ fn csg_nested_lattice_keff_is_bit_identical() {
         // Re-pinned 2026-11-11 (gh:#1386, OpenMC reaction order): was 0xab5ac3e0eb072bf8
         // (k 1.72835 +/- 0.01486), now k 1.71604 +/- 0.01213, 0.64 sigma.
                 // Re-pinned 2026-11-11 (gh:#1386, #1444 d, fission-neutron order): was 0xc79b620923731abe (k 1.71604 +/- 0.01213), now k 1.72254 +/- 0.01595, 0.32 sigma. Legacy switch reproduces the old pin.
-                0x216a856800b43331,
+                        // Re-pinned 2026-11-11 (gh:#1386, #1444 c): was 0x216a856800b43331 (k 1.72254 +/- 0.01595), now k 1.71589 +/- 0.01110, -0.34 sigma. Legacy switch reproduces the old pin (to verify).
+        0xee7a5a97dd810edc,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),
