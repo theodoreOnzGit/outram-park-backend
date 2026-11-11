@@ -681,3 +681,31 @@ all three generators stay bit-identical (their untangle never reaches a Newton
 step with a tolerance-sensitive decision). If a residual remains, the next
 suspects are `meshUntangler` (LP cut region), `optimizeLowQualityFaces` and the
 `findBadFaces` checks.
+
+### Prediction for elbow_90degree, written before the fix (committed first)
+
+Traces of both codes (`OCT`, `AUTOREF`, `ECURV`, `MCURV` lines under
+`GH1385_TRACE`; upstream's from `patches/gh1385-trace-instrumentation-3.patch`)
+localise the template difference: the octree is identical after
+`refineBoundary` (17872 leaves, every level) and differs after the automatic
+refinement (upstream 39950 leaves, port 39747). Upstream's curvature criterion
+marks 131, 112, 0 leaves in its three passes; the port's marks 112, 108, 0
+(corner 0 / partition 27 vs 35 / proximity 13 both). The per-triangle mean
+curvature of the two `triSurfaceCurvatureEstimator`s differs by more than 1e-9
+relative in 927 of 5150 triangles (worst -0.215 upstream against -4.54 here)
+and in the last bit in most of the rest. Reading upstream: the quadric fit is
+over `otherLabels`, a `labelHashSet`, **iterated in OpenFOAM's hash order**
+(`Hash<label>` is the label itself, capacity 128, insertion at the head of a
+bucket chain, rehash at load 0.8), and the port's `BTreeSet` iterates in
+ascending order. With 5 to 7 neighbour points the 5x5 normal equations are
+nearly singular, so the order of the sums is amplified from round-off to O(1)
+in the curvature. Divisions (`e /= d`, `vecX_ /= mag`, `normal_/d`) are also
+`scale(1.0 / x)` in the port.
+Prediction: with the hash order emulated (`OpenFOAM` `HashTable::setEntry` /
+`setCapacity` chaining) and the divisions fixed, the mean curvature agrees
+with upstream's to the bit on all triangles (or, if some fit remains
+order-sensitive through the LU solve, the first differing triangle names it),
+curvature marks become 131, 112, 0, the automatic refinement 39950 leaves, and
+the elbow template 21977 cells, bit-identical points and faces. If curvature
+agrees but the template still differs, the next suspect is the partition
+criterion (27 vs 35: `findEdgesInBox` / `edgeGroups`).
