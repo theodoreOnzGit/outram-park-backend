@@ -78,6 +78,18 @@ fn run_pair(root: &Path, tag: &str, resource: &str, deck: &str) -> Option<(PathB
 /// upstream deck, this crate the same minus the modules it has no tape driver
 /// for (GROUPR, whose GENDF no run here reads).
 fn run_pair_decks(root: &Path, tag: &str, resource: &str, deck_njoy: &str, deck_ours: &str) -> Option<(PathBuf, PathBuf)> {
+    run_pair_decks_extra(root, tag, resource, &[], deck_njoy, deck_ours)
+}
+
+/// [`run_pair_decks`] with further resources mounted as units: `(resource, unit)`.
+fn run_pair_decks_extra(
+    root: &Path,
+    tag: &str,
+    resource: &str,
+    extra: &[(&str, u32)],
+    deck_njoy: &str,
+    deck_ours: &str,
+) -> Option<(PathBuf, PathBuf)> {
     let bin = root.join("build/njoy");
     let res = root.join("tests/resources").join(resource);
     for p in [&bin, &res] {
@@ -92,6 +104,14 @@ fn run_pair_decks(root: &Path, tag: &str, resource: &str, deck_njoy: &str, deck_
     std::fs::create_dir_all(&theirs).unwrap();
     for d in [&ours, &theirs] {
         std::fs::copy(&res, d.join("tape20")).unwrap();
+        for (r, u) in extra {
+            let src = root.join("tests/resources").join(r);
+            if !src.exists() {
+                eprintln!("skip: {} not present", src.display());
+                return None;
+            }
+            std::fs::copy(&src, d.join(format!("tape{u}"))).unwrap();
+        }
     }
     std::fs::write(theirs.join("deck"), deck_njoy).unwrap();
     let st = Command::new("sh")
@@ -395,6 +415,30 @@ fn test_01_first_thermr_free_gas_tape_is_identical_line_for_line() {
     let (n, n6) = (text.lines().count(), text.lines().filter(|l| l.len() >= 75 && &l[70..72] == " 6").count());
     assert!(n6 > 100, "the tape must carry MF=6 lines ({n6} of {n})");
     println!("test 01 THERMR unit 31: {} differing lines of {n} ({n6} in MF=6)", d.len());
+    assert!(d.is_empty(), "first differences {:?}", &d[..d.len().min(8)]);
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
+
+/// **Test 01 through the second THERMR (graphite, ENDF/B-V `iinc = 2`, `icoh = 1`), line for line.**
+///
+/// Deck: upstream `tests/01/input` up to GROUPR (moder reconr broadr heatr, the
+/// free-gas thermr, then `thermr 26 -24 -23 / 1065 1306 8 1 2 1 0 1 229 2`),
+/// and a MODER converting the binary output (-23) to text unit 31. The
+/// ENDF-5 tape `t322` is mounted as unit 26. Exercises `gateff` (`T_eff`
+/// 713.39 K), `calcem` on the ENDF-5 `S(alpha,beta)`, `coh` with the built-in
+/// graphite lattice (`sigcoh lat = 1`, `form`), `tpend` MF=3 for MT 229/230
+/// and MF=6 for MT 230. Pass criterion: **zero** differing lines of unit 31.
+#[test]
+fn test_01_second_thermr_graphite_tape_is_identical_line_for_line() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "01", Some("groupr"), "moder\n -23 31/\n") else { return };
+    let Some((ours, njoy)) = run_pair_decks_extra(&root, "t01gr", "t511", &[("t322", 26)], &deck, &deck) else { return };
+    let d = differing_lines(&ours.join("tape31"), &njoy.join("tape31"));
+    let text = std::fs::read_to_string(njoy.join("tape31")).unwrap();
+    let n = text.lines().count();
+    let n229 = text.lines().filter(|l| l.len() >= 75 && &l[66..75] == "1306 3229").count();
+    println!("test 01 second THERMR unit 31: {} differing lines of {n} (MF=3/MT=229 lines {n229})", d.len());
+    assert!(n229 > 100, "the tape must carry MF=3/MT=229 ({n229})");
     assert!(d.is_empty(), "first differences {:?}", &d[..d.len().min(8)]);
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
 }
