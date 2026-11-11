@@ -223,8 +223,14 @@ fn carry_reactions(tape: &Tape, mat: i32, grid: &[f64], text: bool) -> Result<Ve
         if !include_in_union(mt) {
             continue;
         }
-        if mt == 3 || mt == 4 {
-            return Err(NjoyError::NotPorted("ACER of an incident charged particle with MF=3 MT=3/4 (redundancy checks, acefc.f90:1713)"));
+        // Redundancy check (`acefc.f90:1713-1734`): `mth.eq.3.or.(mth.eq.4.and.
+        // izai.eq.1)`. MT=4 is checked for an incident neutron only, so here it
+        // is an ordinary reaction. MT=3 is kept only when it is in `mf12s`
+        // (an MF=12 section with MT < 5 or > 600) or `mf16s` (a photon-
+        // producing MF=6 section of MT >= 600, which MT=3 is not): the
+        // non-elastic sum is otherwise redundant, and the section is skipped.
+        if mt == 3 && tape.section(mat, 12, 3).is_none() {
+            continue;
         }
         let t = tab1_of(sec)?;
         let mut g = Gety1::new(&t);
