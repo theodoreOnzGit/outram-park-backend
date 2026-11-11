@@ -195,19 +195,18 @@ fn vibrot_matches_liggghts() {
     );
 }
 
-/// The mover constructors reject an empty or over-long harmonic list.
+/// The vibration mover constructors reject an empty harmonic list and
+/// mismatched list lengths.
 #[test]
 fn vibration_movers_validate_their_order() {
-    let g = || WallGeometry::Mesh(MeshWall::from_ascii_stl("solid x\nendsolid x\n").unwrap_or_else(|_| {
-        panic!("empty stl must parse for this check")
-    }));
-    let _ = g;
-    assert!(MovingBoundary::viblin(
-        WallGeometry::Mesh(MeshWall::from_ascii_stl(&read("plate_square.stl").unwrap_or_default()).expect("stl")),
-        Vec3::new(0.0, 0.0, 1.0),
-        &[],
-        &[],
-        &[],
-    )
-    .is_none());
+    let Some(stl) = read("plate_square.stl") else {
+        eprintln!("skipping: reference-data/liggghts/ not present");
+        return;
+    };
+    let plate = || WallGeometry::Mesh(MeshWall::from_ascii_stl(&stl).expect("valid plate stl"));
+    let axis = Vec3::new(0.0, 0.0, 1.0);
+    assert!(MovingBoundary::viblin(plate(), axis, &[], &[], &[]).is_none());
+    assert!(MovingBoundary::viblin(plate(), axis, &[1.0], &[0.0, 0.0], &[1.0]).is_none());
+    assert!(MovingBoundary::vibrot(plate(), Vec3::zero(), axis, &[], &[], &[]).is_none());
+    assert!(MovingBoundary::viblin(plate(), axis, &[1.0], &[0.0], &[1.0]).is_some());
 }

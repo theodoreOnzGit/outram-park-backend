@@ -1447,9 +1447,9 @@ so every rolling model sees `w_r != 0`; wall decks: one spinning sphere
 | `hooke/hysteresis` against a wall | `wall_hyst` | **bit-identical** |
 | `model luding` + `tangential tan_luding` + `rolling_friction luding` (`normal_model_luding.h`, `tangential_model_luding_tn.h`, `rolling_model_luding.h`) | `luding_full`, `luding_plastic` (cohesion branch), `luding_nocoh` (`limitForce`), `luding_wall` | **bit-identical** |
 | `model thornton_ning` (`normal_model_thornton_ning.h`) | `tn_plastic`, `tn_elastic`, `tn_nocoh`, `tn_wall` | **bit-identical** |
-| `model edinburgh`, `edinburgh/stiffness`, `fixKc` (`normal_model_edinburgh*.h`) | `edi_stiff_lin`, `edi_nonlin`, `edi_fixkc` | **bit-identical** (3/3). `edi_long_stiff_lin`, `edi_long_nonlin` (20 000 steps, exercise the `goto temp_calc` re-entry): reference generated, test written, **NOT YET RUN to a verdict** (the first run failed on a test-side error, wrong initial velocities, since fixed) |
+| `model edinburgh`, `edinburgh/stiffness`, `fixKc` (`normal_model_edinburgh*.h`) | `edi_stiff_lin`, `edi_nonlin`, `edi_fixkc` | **bit-identical** (3/3). `edi_long_stiff_lin`, `edi_long_nonlin` (20 000 steps, exercise the `goto temp_calc` re-entry): **bit-identical** (2/2; the first run failed on a test-side error, wrong initial velocities, fixed; the re-entry ablation fails these decks) |
 | `cohesion sjkr`, `sjkr2`, `tangential_reduce` (`cohesion_model_sjkr*.h`) | `sjkr_pair`, `sjkr2_pair`, `sjkr_reduce`, `sjkr_wall`, `sjkr2_wall` | **bit-identical** (5/5) |
-| `fix move/mesh` wiggle, viblin, riggle, vibrot | `mover_wiggle`, `mover_viblin`, `mover_riggle`, `mover_vibrot` | references generated, `tests/mesh_movers_cross_code.rs` written, **NOT YET RUN** (cargo build lock held by a 20-minute test during this session) |
+| `fix move/mesh` wiggle, viblin, riggle, vibrot | `mover_wiggle`, `mover_viblin`, `mover_riggle`, `mover_vibrot` | **bit-identical** (4/4, 2259 f64 each; `tests/mesh_movers_cross_code.rs`) |
 
 **Sensitivity controls (the decks can fail).** Each family has a control test:
 with rolling off, with the Luding tangential or rolling model replaced by the
@@ -1480,6 +1480,8 @@ control differs.
   corrupt (`virgin_loading_flag = -1`) if a pair were stored in the opposite
   orientation; the port does not flip them (the decks never flip). Only the
   EPSD rolling torque is flipped.
+
+**Regression runs (2026-11-11).** `htr10_conus_cross_code` passed (1244 s): step 2000 phi 0.5646 vs 0.5646, median 11.05 um, 27 554/27 554 within 1 mm; step 20000 phi 0.5767 vs 0.5769 (-0.04 %), surface +1.2 mm, median 3.2 mm, 1456/27 554 within 1 mm (chaotic divergence). `angle_of_repose`: 15.66 deg vs 15.43 deg.
 
 **Not translated.** `surface_model multicontact` (needs `fix
 multicontact/halfspace`, a separate module), the liquid-bridge cohesion models
