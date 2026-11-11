@@ -100,8 +100,8 @@
 //! See [`KeywordStatus::Reported`] in a reading's table; at the time of
 //! writing: `meshQualitySettings` (the `findBadFaces` thresholds are not
 //! wired), `edgeMeshRefinement` (no `edgeFile` reader), `boundaryLayers/
-//! optimiseLayer` and `optimisationParameters` (the generators do not call
-//! `optimizeBoundaryLayer`), `untangleLayers false`, `subsetCellSize` and
+//! optimiseLayer` and `optimisationParameters` for `cartesianMesh` only
+//! (`optimizeBoundaryLayer` runs, without its buffer layer), `untangleLayers false`, `subsetCellSize` and
 //! subset `localRefinement` (the generators take no facet subsets), and for
 //! `tetMesh`/`pMesh` the octree-addressing keys (`nonManifoldMeshing`,
 //! `checkForGluedMesh`, `keep`/`removeCellsIntersectingPatches`: their
@@ -239,6 +239,10 @@ pub struct BoundaryLayersEntry {
     pub heights: BoundaryLayersControls,
     /// `optimiseLayer`.
     pub optimise_layer: Option<bool>,
+    /// `boundaryLayerOptimisation::readSettings`: `optimisationParameters`
+    /// over the defaults of `boundaryLayerOptimisation(mesh, mse)` (the
+    /// constructor `optimizeBoundaryLayer` uses).
+    pub optimisation: crate::boundary_layer_optimisation::BoundaryLayerOptimisationControls,
     /// `untangleLayers` (upstream default `true`).
     pub untangle_layers: Option<bool>,
 }
@@ -387,6 +391,7 @@ impl MeshDictReading {
             notes.push("subsetCellSize / subset localRefinement: the generators build their surface from points, triangles and patches only, so facet subsets do not reach the octree".into());
         }
         let refine = self.boundary_layers.as_ref().map(|b| refine_settings(b, &names));
+        let optimise_layer = self.boundary_layers.as_ref().filter(|b| b.optimise_layer == Some(true)).map(|b| b.optimisation.clone());
         let heights = self.boundary_layers.as_ref().map(|b| b.heights).unwrap_or_default();
         let opts = match self.generator {
             Generator::CartesianMesh => GeneratorOptions::CartesianMesh(CartesianMeshGeneratorOptions {
@@ -397,6 +402,7 @@ impl MeshDictReading {
                 decompose_polyhedra_into_tets_and_pyrs: self.decompose_polyhedra_into_tets_and_pyrs,
                 boundary_layers: refine,
                 layer_heights: heights,
+                optimise_layer,
                 ..CartesianMeshGeneratorOptions::default()
             }),
             Generator::Cartesian2DMesh => GeneratorOptions::Cartesian2DMesh(Cartesian2DMeshOptions {
@@ -424,6 +430,7 @@ impl MeshDictReading {
                     rename_boundary: self.rename_boundary.clone(),
                     enforce_geometry_constraints: self.enforce_geometry_constraints,
                     boundary_layers: layers,
+                    optimise_layer,
                     ..TetMeshOptions::default()
                 };
                 if self.generator == Generator::TetMesh {
@@ -1071,30 +1078,44 @@ fn read_boundary_layers(b: &FoamDict, g: Generator, t: &mut Table, warnings: &mu
         }
         t.add("boundaryLayers/patchBoundaryLayers", KeywordStatus::Honoured);
     }
-    let no_optimiser = |what: &str| -> KeywordStatus {
+    // optimizeBoundaryLayer: tetMesh and pMesh call it with
+    // addBufferLayer false; cartesianMesh with true unless anisotropic
+    // sources are set, and the buffer layer
+    // (refineBoundaryLayers::activateSpecialMode) is not ported.
+    let optimiser = |what: &str| -> KeywordStatus {
         match g {
             Generator::Cartesian2DMesh => not_applicable("cartesian2DMeshGenerator does not call meshOptimizer::optimizeBoundaryLayer"),
-            _ => KeywordStatus::Reported(format!("{what}: the generators do not call meshOptimizer::optimizeBoundaryLayer (boundary_layer_optimisation::optimize_boundary_layer exists, unwired)")),
+            Generator::CartesianMesh => KeywordStatus::Reported(format!("{what}: optimizeBoundaryLayer runs, but without its buffer layer (addBufferLayer: refineBoundaryLayers::activateSpecialMode is not ported)")),
+            Generator::TetMesh | Generator::PMesh => KeywordStatus::Honoured,
         }
     };
     if let Some(o) = boolean(b, "optimiseLayer", at)? {
         e.optimise_layer = Some(o);
-        t.add("boundaryLayers/optimiseLayer", if o { no_optimiser("optimiseLayer on") } else { KeywordStatus::Honoured });
+        t.add("boundaryLayers/optimiseLayer", if o { optimiser("optimiseLayer on") } else { KeywordStatus::Honoured });
     }
     if let Some(op) = b.get("optimisationParameters") {
         let FoamEntry::SubDict(od) = op else { return Err(format!("{at}optimisationParameters is not a dictionary")) };
         let pat = "boundaryLayers/optimisationParameters/";
-        boolean(od, "recalculateNormals", pat)?;
+        let c = &mut e.optimisation;
+        if let Some(r) = boolean(od, "recalculateNormals", pat)? {
+            c.recalculate_normals = r;
+        }
         boolean(od, "reCalculateNormals", pat)?;
         if let Some(n) = label(od, "nSmoothNormals", pat)? {
             if n < 0 {
                 return Err("nSmoothNormals must not be negative!".into());
             }
+            c.n_smooth_normals = n as usize;
         }
         for k in ["featureSizeFactor", "relThicknessTol"] {
             if let Some(x) = scalar(od, k, pat)? {
                 if !(0.0..1.0).contains(&x) {
                     return Err(format!("{k} {x} is out of a valid range 0 to 1"));
+                }
+                if k == "featureSizeFactor" {
+                    c.feature_size_factor = x;
+                } else {
+                    c.rel_thickness_tol = x;
                 }
             }
         }
@@ -1102,13 +1123,14 @@ fn read_boundary_layers(b: &FoamDict, g: Generator, t: &mut Table, warnings: &mu
             if n < 0 {
                 return Err("maxNumIterations must not be negative!".into());
             }
+            c.max_num_iterations = n as usize;
         }
         if od.get("reCalculateNormals").is_some() {
             t.add("boundaryLayers/optimisationParameters/reCalculateNormals", not_applicable("checkMeshDict's spelling; boundaryLayerOptimisation::readSettings reads recalculateNormals, so upstream ignores it"));
         }
         t.unknown_keys(od, pat, &["recalculateNormals", "reCalculateNormals", "nSmoothNormals", "featureSizeFactor", "relThicknessTol", "maxNumIterations", "relFlatnessTol"]);
         let active = e.optimise_layer == Some(true);
-        t.add("boundaryLayers/optimisationParameters", if active { no_optimiser("optimisationParameters") } else { not_applicable("read only when optimiseLayer is on") });
+        t.add("boundaryLayers/optimisationParameters", if active { optimiser("optimisationParameters") } else { not_applicable("read only when optimiseLayer is on") });
     }
     if let Some(u) = boolean(b, "untangleLayers", at)? {
         e.untangle_layers = Some(u);
@@ -1389,12 +1411,32 @@ mod tests {
         assert_eq!(status(&r, "boundaryLayers/foo"), &KeywordStatus::Unknown);
         assert!(matches!(status(&r, "decomposePolyhedraIntoTetsAndPyrs"), KeywordStatus::NotApplicable(_)));
         assert!(matches!(status(&r, "meshQualitySettings"), KeywordStatus::Reported(_)));
-        assert!(matches!(status(&r, "boundaryLayers/optimiseLayer"), KeywordStatus::Reported(_)));
+        assert_eq!(status(&r, "boundaryLayers/optimiseLayer"), &KeywordStatus::Honoured);
         assert!(matches!(status(&r, "boundaryLayers/untangleLayers"), KeywordStatus::Reported(_)));
         assert_eq!(r.unknown().len(), 2);
         let c = read_mesh_dict(&d, Generator::CartesianMesh).unwrap();
         assert_eq!(status(&c, "decomposePolyhedraIntoTetsAndPyrs"), &KeywordStatus::Honoured);
+        assert!(matches!(status(&c, "boundaryLayers/optimiseLayer"), KeywordStatus::Reported(_)), "cartesianMesh: no buffer layer");
         assert!(c.decompose_polyhedra_into_tets_and_pyrs);
+    }
+
+    /// `optimiseLayer on` with `optimisationParameters` reaches the
+    /// generators' `optimise_layer` (`boundaryLayerOptimisation::readSettings`
+    /// over the `(mesh, mse)` defaults); the misspelt `reCalculateNormals`
+    /// sets nothing, as upstream.
+    #[test]
+    fn optimise_layer_reaches_the_options() {
+        let d = parse(
+            "surfaceFile s.stl; maxCellSize 1; boundaryLayers { nLayers 2; optimiseLayer 1; \
+             optimisationParameters { nSmoothNormals 3; maxNumIterations 2; featureSizeFactor 0.4; reCalculateNormals 0; relThicknessTol 0.1; } }",
+        );
+        let s = surface(&["walls"]);
+        let (GeneratorOptions::PMesh(o), _) = read_mesh_dict(&d, Generator::PMesh).unwrap().resolve(&s, |_| Err(String::new())).unwrap() else { panic!() };
+        let c = o.optimise_layer.unwrap();
+        assert_eq!((c.n_smooth_normals, c.max_num_iterations, c.feature_size_factor, c.rel_thickness_tol, c.recalculate_normals), (3, 2, 0.4, 0.1, true));
+        let off = parse("surfaceFile s.stl; maxCellSize 1; boundaryLayers { optimiseLayer 0; }");
+        let (GeneratorOptions::CartesianMesh(o), _) = read_mesh_dict(&off, Generator::CartesianMesh).unwrap().resolve(&s, |_| Err(String::new())).unwrap() else { panic!() };
+        assert!(o.optimise_layer.is_none());
     }
 
     fn surface(names: &[&str]) -> TriSurf {
