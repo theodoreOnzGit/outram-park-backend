@@ -39,7 +39,8 @@
 use outram_mc_libs::geometry::position::Direction;
 use outram_mc_libs::physics::scatter::{
     cm_to_lab, elastic_scatter_openmc, free_gas_elastic_scatter_dbrc, inelastic_cm_to_lab_openmc,
-    level_inelastic_scatter_openmc, rotate_angle_openmc, rotate_direction,
+    level_inelastic_scatter_openmc, renormalise_if_drifted, rotate_angle_openmc,
+    rotate_angle_openmc_unguarded, rotate_direction, rotate_direction_unguarded,
     two_body_scatter_with_mu, DbrcTable, ResonanceScatteringMethod,
 };
 use outram_mc_libs::rng::lcg::prn;
@@ -90,30 +91,58 @@ fn uniform_pm1(seed: &mut u64) -> f64 {
 /// `rotate_angle`, OpenMC-faithful port: 6 directions (generic, both poles, an
 /// axis, near-pole) x 5 cosines x 4 seeds. Bit identity of the vector and of the
 /// end state.
+///
+/// - `rotate_angle_openmc_unguarded` (the translation): **120/120** outputs and
+///   end states bit-identical to upstream's.
+/// - `rotate_angle_openmc` (what transport calls, with the gh:#1497 norm guard):
+///   bit-identical to `renormalise_if_drifted(upstream output)` on 120/120, which
+///   is upstream's output itself on 108/120. The other 12 are the near-pole
+///   direction `unit(1e-6, 2e-6, 1)` (2.2e-6 rad from +z) with `mu` = -0.2, 0
+///   and 0.41: upstream's own output there is 6.9e-8 to 8.3e-8 off unit length
+///   (`1 - w^2` loses about 11 digits to cancellation before
+///   `b = sqrt(1 - w^2)` divides by it), past `DIRECTION_NORM_DRIFT_TOL`
+///   (1.49e-8), so the guard returns it divided by its norm. Measured
+///   2026-11-11; before the guard `rotate_angle_openmc` was 120/120.
 #[test]
 fn rotate_angle_openmc_is_bit_identical() {
-    let (mut n, mut ok, mut end_ok) = (0, 0, 0);
+    let (mut n, mut raw_ok, mut ok, mut ok_norm, mut end_ok) = (0, 0, 0, 0, 0);
     for l in kl("rot") {
+        let r = vec3(l, "out");
+        let r_norm = renormalise_if_drifted(Direction::new(r[0], r[1], r[2]));
+        let mut s_raw = seed_of(l);
+        let raw = rotate_angle_openmc_unguarded(dir(l, "u"), num(l, "mu"), None, &mut s_raw);
         let mut seed = seed_of(l);
         let out = rotate_angle_openmc(dir(l, "u"), num(l, "mu"), None, &mut seed);
         n += 1;
-        ok += same3(out, vec3(l, "out")) as usize;
+        raw_ok += (same3(raw, r) && s_raw == bits(field(l, "end"))) as usize;
+        ok += same3(out, r) as usize;
+        ok_norm += same3(out, [r_norm.u, r_norm.v, r_norm.w]) as usize;
         end_ok += (seed == bits(field(l, "end"))) as usize;
     }
-    println!("rotate_angle_openmc: {ok}/{n} bit-identical, end state {end_ok}/{n}");
-    assert_eq!((ok, end_ok), (n, n));
+    println!(
+        "rotate_angle_openmc_unguarded: {raw_ok}/{n} bit-identical; rotate_angle_openmc: {ok}/{n} \
+         bit-identical to upstream, {ok_norm}/{n} to renormalise_if_drifted(upstream); end state {end_ok}/{n}"
+    );
+    assert_eq!((raw_ok, ok_norm, end_ok), (n, n, n));
+    assert_eq!(ok, 108, "the guard fires on exactly the 12 near-pole cases");
 }
 
 /// The older `rotate_direction`: identical off the poles, a different (equally
 /// valid) azimuth parametrisation at the poles (`1 - w^2 <= 1e-20`). Reports both.
+/// Off the poles it goes through the gh:#1497 norm guard as `rotate_angle_openmc`
+/// does (see that test): `rotate_direction_unguarded` must equal upstream's
+/// output, and `rotate_direction` must equal `renormalise_if_drifted` of it.
 #[test]
 fn rotate_direction_differs_only_at_the_poles() {
     let (mut n, mut ok, mut pole_n, mut pole_ok, mut end_ok) = (0, 0, 0, 0, 0);
     for l in kl("rot") {
         let u = dir(l, "u");
+        let r = vec3(l, "out");
+        let r_norm = renormalise_if_drifted(Direction::new(r[0], r[1], r[2]));
         let mut seed = seed_of(l);
         let out = rotate_direction(u, num(l, "mu"), &mut seed);
-        let same = same3(out, vec3(l, "out"));
+        let raw = rotate_direction_unguarded(u, num(l, "mu"), &mut seed_of(l));
+        let same = same3(out, r);
         let pole = (1.0 - u.w * u.w).sqrt() <= 1.0e-10;
         n += 1;
         ok += same as usize;
@@ -122,7 +151,11 @@ fn rotate_direction_differs_only_at_the_poles() {
             pole_n += 1;
             pole_ok += same as usize;
         } else {
-            assert!(same, "off the poles rotate_direction must match: {l}");
+            assert!(same3(raw, r), "off the poles rotate_direction_unguarded must match: {l}");
+            assert!(
+                same3(out, [r_norm.u, r_norm.v, r_norm.w]),
+                "off the poles rotate_direction must match through the guard: {l}"
+            );
         }
     }
     println!(

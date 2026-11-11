@@ -74,10 +74,15 @@ use crate::mathf::RealMath;
 /// of the norm has been lost. Fixed from that definition, not from any run
 /// (gh:#1497).
 ///
-/// Round-off alone keeps a direction far inside it: 2e5 successive rotations
+/// Round-off keeps a typical direction far inside it: 2e5 successive rotations
 /// of a unit vector by isotropic cosines drift `|u|^2 - 1` to about 1e-12 to
-/// 1e-11. So on a healthy history [`renormalise_if_drifted`] never fires and the
-/// kernels below stay bit-identical to their upstream.
+/// 1e-11, and on such directions [`renormalise_if_drifted`] never fires, so the
+/// kernels below are bit-identical to their upstream. It does fire within a few
+/// microradians of the `w` pole, where `1 - w^2` loses most of its digits to
+/// cancellation and upstream's `rotate_angle` itself returns a vector 7e-8 to
+/// 8e-8 off unit length from a unit input (12 of the 120 reference rotations of
+/// `tests/collision_kinematics_vs_openmc_code_to_code.rs`); there the guarded
+/// kernel returns upstream's output divided by its norm.
 pub const DIRECTION_NORM_DRIFT_TOL: f64 = 1.4901161193847656e-8;
 
 /// `u` unchanged (bit for bit) when `| |u|^2 - 1 | <= DIRECTION_NORM_DRIFT_TOL`,

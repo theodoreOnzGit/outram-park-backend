@@ -1153,7 +1153,14 @@ bit for bit (`tests/collision_kinematics_vs_openmc_code_to_code.rs`,
 transport**~~ **CORRECTED 2026-11-11 (maintainer decision): they ARE the transport
 default now** (`ScatterKernels::OpenMc`; legacy kernels via
 `Nuclide::with_legacy_scatter_kernels` or `OUTRAM_MC_LEGACY_SCATTER_KERNELS=1`);
-the pins that moved are re-pinned with old/new/sigma in their test docs. **The default stays `SeedingMode::Outram`**: the decision above
+the pins that moved are re-pinned with old/new/sigma in their test docs. **Direction-norm guard
+(2026-11-11, gh:#1497):** `rotate_angle_openmc` and `rotate_direction` renormalise
+a direction whose `|u|^2 - 1` exceeds `sqrt(f64::EPSILON)`
+(`physics::scatter::renormalise_if_drifted`, new work: OpenMC never renormalises,
+and a chain of S(alpha,beta) rotations grew the error to a NaN direction, then a
+NaN energy, on the HTR-10 DH pebble); the plain translations are
+`rotate_angle_openmc_unguarded` / `rotate_direction_unguarded`, still bit-identical
+to upstream (`tests/direction_norm_drift_guard.rs`). **The default stays `SeedingMode::Outram`**: the decision above
 stands and every recorded k-eff and bit-identity pin was measured with it. The
 option exists so one history can be compared with OpenMC's track file, not
 because parity became a goal.
