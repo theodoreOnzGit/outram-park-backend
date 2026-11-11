@@ -307,15 +307,23 @@ fn test_07_acer_old_format_ace() {
 /// it without GROUPR (gh:#1449).
 ///
 /// **Result (2026-11-11): the AND block (angular distributions, the `newfor = 0`
-/// equally probable bins) is identical in all 2 943 words**, as are MTRP, LSIGP,
-/// SIGP, LANDP, ANDP, LDLWP and DLWP (photon production). **Still different,
-/// not ported:** the ACE of this deck is made from a PENDF to which HEATR added
-/// MT=443/444 (`302 303 304 402 443 444`), which NJOY's ACER puts in the reaction
-/// list and the union grid (4 460 against 4 447 energies, reaction MT=444 missing
-/// here, so ESZ, MTR, LQR, TYR, LSIG, SIG, GPD, YP follow); LAND/LDLW/DLW differ for
-/// the MF=6 reactions, whose old-format laws (`acelf6` `newfor = 0` branches,
-/// `acefc.f90:7495`, `:7722`, `:7765`) and `topfil`'s MF=6 conversion
-/// (`:2233-2350`) are not translated. Pass criterion: the deck runs and AND agrees.
+/// equally probable bins) is identical in all 2 943 words**, as are MTR, LQR, TYR
+/// (MT=444 is now a stored reaction, thresh = `elow`, `sigfig(s/emev,7,0)`,
+/// 443 skipped, `acefc.f90:1743-1782, :5664`), MTRP, LSIGP, SIGP, LANDP, ANDP,
+/// LDLWP and DLWP (photon production).
+///
+/// ~~**CORRECTED 2026-11-11:** the earlier note here and on gh:#1449 said NJOY's
+/// ACER has 4 460 energies against this crate's 4 447.~~ **It is the other way
+/// round:** NJOY2016.80's table has NES = 4 447 (`unionx` takes the grid of the
+/// PENDF's MT=1, `acefc.f90:1236-1300`, not a union with MT=301/444 energies),
+/// this crate's 4 460. The cause is upstream of ACER: **RECONR's MT=1 grid
+/// already differs** (`test_08_pendf_stages_diagnosis`: 4 827 against 4 825
+/// points, extra energies 2.53e-2 and 2.530004e-2 eV beside the 0.0253 eV
+/// thermal node, `reconr.f90` `rdfil2`/`lunion`), so BROADR and HEATR follow
+/// and ESZ, LSIG, SIG, GPD, YP differ. **Still different, not ported:**
+/// LAND/LDLW/DLW for the MF=6 reactions (old-format laws, `acelf6` `newfor = 0`
+/// branches `:7495`, `:7722`, `:7765`, and `topfil`'s MF=6 conversion
+/// `:2233-2350`, `fix6` `:3351-3570`). Pass criterion: the deck runs and AND agrees.
 #[test]
 fn test_08_acer_old_format_ace() {
     let root = njoy_root();
@@ -329,5 +337,21 @@ fn test_08_acer_old_format_ace() {
     let differing: Vec<&str> = c.blocks.iter().filter(|b| !b.verdict.agrees()).map(|b| b.name).collect();
     println!("test 08 differing blocks: {differing:?}");
     assert!(!differing.contains(&"AND"), "the old-format angular block must agree: {differing:?}");
-    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    if std::env::var_os("KEEP_DECK_DIRS").is_none() { let _ = std::fs::remove_dir_all(ours.parent().unwrap()); }
+}
+
+/// **Test 08 (Ni-61 ENDF/B-VI.1) PENDF stages: RECONR (unit 41), BROADR (42),
+/// HEATR (43)**, line by line against NJOY2016.80 (gh:#1449 diagnosis of the
+/// ACE energy grid). Recorded result: see the doc of `test_08_acer_old_format_ace`.
+#[test]
+fn test_08_pendf_stages_diagnosis() {
+    let root = njoy_root();
+    let Some(base) = deck_text(&root, "08", Some("groupr"), "moder\n -24 43/\n") else { return };
+    let deck = base.replacen("broadr\n", "moder\n -22 41/\nbroadr\n", 1).replacen("heatr\n", "moder\n -23 42/\nheatr\n", 1);
+    let Some((ours, njoy)) = run_pair(&root, "t08p", "eni61", &deck) else { return };
+    for u in [41, 42, 43] {
+        let d = differing_lines(&ours.join(format!("tape{u}")), &njoy.join(format!("tape{u}")));
+        println!("test 08 unit {u}: {} differing lines, first {:?}", d.len(), &d[..d.len().min(5)]);
+    }
+    if std::env::var_os("KEEP_DECK_DIRS").is_none() { let _ = std::fs::remove_dir_all(ours.parent().unwrap()); }
 }
