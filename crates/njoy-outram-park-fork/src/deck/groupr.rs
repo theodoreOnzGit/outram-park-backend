@@ -7,6 +7,12 @@
 
 //! **GROUPR as a tape driver** (gh:#1369): the GENDF text NJOY writes.
 //!
+//! MF=3 vector sections and MF=6 `MT = 2, 51-90` two-body matrices (`nl = lord + 1`,
+//! `getdis`) are written identical to NJOY2016 for test 01 (gh:#1369). Not yet: MF=6
+//! `MT = 91` (`getfle` x `getsed` continuum, label 200), thermal MF=6 `MT = 221-250`
+//! (`getaed`, label 700), MF=16 photon production (`getgyl`/`getgfl`/`getsed`/`gamout`),
+//! and the FEND/SEND/MEND layout between files, so the whole tape is not yet compared.
+//!
 //! Ported so far: the tape label, the MF=1/MT=451 head record of a material
 //! (`ZA, AWR, 0, nz, -1, ntw`; LIST `temp, 0, ngn, ngg, np, 0` with the title
 //! word, `sigz`, `egn`, `egg`), and the line writers. The GENDF is kept as
