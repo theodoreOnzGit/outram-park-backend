@@ -58,4 +58,41 @@ P4. Callers that build `SurfaceRegions` without types (`single`,
 
 ## Results
 
-Filled in below after the run.
+Run 2026-11-11, release, shared target dir. Names and types (in order) of
+the written `boundary` against the committed upstream `boundary.gz`
+(`outram-foam-cli/tests/cfmesh_patch_types.rs`,
+`tests/cfmesh_patch_types_sphere.rs`):
+
+| case | generator | port after | upstream | equal |
+|---|---|---|---|---|
+| asmoOctree | cartesianMesh | 10 x `wall` (same names) | 10 x `wall` | yes |
+| cutCubeOctree | tetMesh | 9 x `wall` | 9 x `wall` | yes |
+| hatOctree | cartesian2DMesh | 5 x `wall`, 2 x `empty` | same | yes |
+| sphere | cartesianMesh, tetMesh, pMesh | `sphere` `wall` | `sphere` `wall` | yes |
+| elbow_90degree | cartesianMesh | `patch`, `patch`, `wall` | same | yes (unchanged) |
+
+- P1 held on every row. The "port before" column was not re-run on the old
+  code: it is read from the old source (`vec!["patch"; n]` at the edge
+  extractor and after `edgeExtraction`), not measured.
+- Incidental, printed by the CLI test and not asserted: face counts equal
+  upstream's on asmoOctree (all 10 patches), cutCubeOctree (all 9) and
+  hatOctree (all 7); the elbow's `fixedWalls` is 18384 against upstream's
+  18477 (inlet and outlet equal). Not a #1483 finding; #1385's remit.
+- P2 held: no pin moved. Run with `--features cell-centre-dual`:
+  `back_off_only_layers_are_pinned_bit_for_bit`,
+  `dual_kinds_are_pinned_bit_for_bit`, `octree_path_is_pinned_bit_for_bit`,
+  `layer_strategies_are_deterministic` (`tet_dual_stages_are_deterministic`),
+  `correct_edges_is_pinned_bit_for_bit`,
+  `foam_studio_default_mesh_keeps_its_fingerprint`,
+  `prism_refinement_is_pinned_bit_for_bit`,
+  `generators_without_anisotropic_sources_are_pinned_bit_for_bit`, the three
+  `*_stop_and_restart_reproduce_the_full_run` pins; and
+  `cfmesh_vs_upstream_sphere` (4), `cfmesh_vs_upstream_cell_order` (1),
+  `outram-foam-cli` `cfmesh_tools` (2). None hashes patch types.
+- P3 held: Foam Studio's pin passes; the tet-dual pipeline does not call the
+  four generators.
+- P4 held: `a_surface_without_types_keeps_patch`.
+- Gate `cargo test --release -p petir --test no_platform_libm`: 4 passed
+  (no transcendental added).
+- Not run: the full `--lib --tests` workspace suite (quick targeted runs
+  only, disk and CPU).
