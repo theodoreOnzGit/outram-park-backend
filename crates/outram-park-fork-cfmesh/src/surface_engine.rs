@@ -140,21 +140,32 @@ pub struct SurfaceEngine {
     pub point_normals: Vec<Vec3>,
 }
 
-/// Newell's area vector of `ring` (OpenFOAM `face::normal`, see the module
-/// documentation).
-pub(crate) fn ring_area_vector(points: &[Vec3], ring: &[usize]) -> Vec3 {
+/// OpenFOAM `face::areaNormal` (OpenFOAM-v2506 `face.C`; cfMesh's
+/// `face::normal`), operation for operation: a triangle is
+/// `0.5*((p1 - p0)^(p2 - p0))`; any other face the sum of the triangle area
+/// normals `(p_i, p_{i+1}, centre)` about the vertex average
+/// (`centrePoint /= nPoints`, the centre last). gh:#1385: the earlier
+/// `0.5 * sum(p_i x p_{i+1})` is the same vector up to round-off, and not
+/// bit for bit.
+pub fn ring_area_vector(points: &[Vec3], ring: &[usize]) -> Vec3 {
     let k = ring.len();
-    let mut a = Vec3::ZERO;
-    for i in 0..k {
-        a = a.add(points[ring[i]].cross(points[ring[(i + 1) % k]]));
+    let tri_area_normal = |p0: Vec3, p1: Vec3, p2: Vec3| p1.sub(p0).cross(p2.sub(p0)).scale(0.5);
+    if k == 3 {
+        return tri_area_normal(points[ring[0]], points[ring[1]], points[ring[2]]);
     }
-    a.scale(0.5)
+    let centre = ring.iter().fold(Vec3::ZERO, |a, &v| a.add(points[v])).div(k as f64);
+    let mut n = Vec3::ZERO;
+    for i in 0..k {
+        let next = points[ring[(i + 1) % k]];
+        n = n.add(tri_area_normal(points[ring[i]], next, centre));
+    }
+    n
 }
 
 fn unit_or_zero(n: Vec3) -> Vec3 {
     let d = n.length();
     if d > VSMALL {
-        n.scale(1.0 / d)
+        n.div(d)
     } else {
         Vec3::ZERO
     }

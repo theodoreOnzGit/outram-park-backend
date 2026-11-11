@@ -76,8 +76,8 @@ use crate::pipeline::tet_mesh::{create_octree, face_regions, PatchAssignment, Sa
 use crate::premap_vertices::pre_map_vertices;
 use crate::rename_boundary_patches::{rename_boundary_patches, RenameBoundary};
 use crate::renumber_mesh::{cells_from_mesh, renumber_mesh};
-use crate::surface_mapper::map_vertices_onto_surface_patches_given;
-use crate::surface_optimizer::{map_mesh_to_surface, optimise_mesh_surface};
+use crate::surface_mapper::map_vertices_onto_surface_patches_given_octree;
+use crate::surface_optimizer::{map_mesh_to_surface_octree, optimise_mesh_surface_octree, optimise_mesh_surface};
 use crate::topology::{check_and_fix_irregular_connections, check_cell_connections_over_faces, remove_non_mappable_cells, BoundaryFacesSharingTwoEdges, TopoMesh};
 use crate::volume_mesh::VolumeMesh;
 use crate::workflow_controls::{MeshMetaData, StepDecision, WorkflowControls, WorkflowSettings, WorkflowStep};
@@ -345,9 +345,13 @@ pub(crate) fn cartesian_optimise_final_mesh(
     controls: &UntangleControls,
     optimise_layer: Option<&crate::boundary_layer_optimisation::BoundaryLayerOptimisationControls>,
     add_buffer_layer: bool,
+    octree: Option<&MeshOctree>,
 ) -> Result<((usize, usize), String), String> {
     let given = face_regions(m, reg);
-    optimise_mesh_surface(m, points, tris, reg, &given);
+    match octree {
+        Some(o) => optimise_mesh_surface_octree(m, o, points, tris, reg, &given),
+        None => optimise_mesh_surface(m, points, tris, reg, &given),
+    };
     let mut opt = MeshOptimizer::new(m);
     if enforce_geometry_constraints {
         opt.set_enforce_constraints("badPoints");
@@ -467,7 +471,7 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
             WorkflowStep::SurfaceProjection => {
                 let pr = pre_map_vertices(m, &o, spts, tris, reg, 3);
                 rep.premap_mean_distance = pr.mean_distance;
-                let (mm, u) = map_mesh_to_surface(m, spts, tris, reg);
+                let (mm, u) = map_mesh_to_surface_octree(m, &o, spts, tris, reg);
                 *m = mm;
                 rep.n_inverted_after_projection = u.n_inverted_last;
                 rep.notes.push(format!(
@@ -482,19 +486,22 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
             }
             WorkflowStep::EdgeExtraction => {
                 let mut given = face_regions(m, reg);
-                if let Some(r) = regions {
+                {
                     // meshSurfaceEdgeExtractorNonTopo: decomposeBoundaryFaces
-                    // (correctEdgesBetweenPatches), then remapBoundaryPoints
+                    // (correctEdgesBetweenPatches), then remapBoundaryPoints.
+                    // gh:#1385: upstream runs both always, also on a surface
+                    // of one region (the port skipped them without `regions`).
+                    let r = regions.unwrap_or(reg);
                     let (corrected, g, cr) = correct_edges_between_patches(m, &given, &r.names);
                     given = g;
-                    *m = map_vertices_onto_surface_patches_given(&corrected, spts, tris, r, &given);
+                    *m = map_vertices_onto_surface_patches_given_octree(&corrected, &o, spts, tris, r, &given);
                     types = vec!["patch".to_string(); m.patches.len()];
                     rep.notes.push(format!(
                         "edgeExtraction: meshSurfaceEdgeExtractorNonTopo (correct_edges + surface_mapper): {} boundary faces split, {} faces fanned, {} cells into pyramids",
                         cr.n_patch_corrected_faces, cr.n_connection_faces, cr.n_decomposed_cells
                     ));
                 }
-                let u = optimise_mesh_surface(m, spts, tris, reg, &given);
+                let u = optimise_mesh_surface_octree(m, &o, spts, tris, reg, &given);
                 rep.n_inverted_after_edge_extraction = u.n_inverted_last;
                 rep.notes.push(format!("edgeExtraction: optimiseMeshSurface: inverted points {} -> {}", u.n_inverted_first, u.n_inverted_last));
             }
@@ -517,7 +524,7 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
             WorkflowStep::MeshOptimisation => {
                 // optimiseFinalMesh on the octree's surface (the modified
                 // one with anisotropicSources)
-                let (bad, line) = cartesian_optimise_final_mesh(m, spts, tris, reg, opts.enforce_geometry_constraints, &controls, opts.optimise_layer.as_ref(), !mod_active)?;
+                let (bad, line) = cartesian_optimise_final_mesh(m, spts, tris, reg, opts.enforce_geometry_constraints, &controls, opts.optimise_layer.as_ref(), !mod_active, Some(&o))?;
                 rep.bad_faces_mesh_optimisation = bad;
                 rep.notes.push(format!("meshOptimisation: {line}"));
                 // its end: revertGeometryModification while modSurfacePtr_
@@ -526,7 +533,7 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
                 if let (true, Some(cm)) = (mod_active, opts.dict.anisotropic_sources.as_ref()) {
                     mod_active = false;
                     let b = crate::anisotropic::revert_and_project(m, cm, points, tris);
-                    let (bad2, line2) = cartesian_optimise_final_mesh(m, points, tris, reg, opts.enforce_geometry_constraints, &controls, opts.optimise_layer.as_ref(), true)?;
+                    let (bad2, line2) = cartesian_optimise_final_mesh(m, points, tris, reg, opts.enforce_geometry_constraints, &controls, opts.optimise_layer.as_ref(), true, None)?;
                     rep.back_scaling = Some(b);
                     rep.bad_faces_after_back_scaling = Some(bad2);
                     rep.notes.push(format!(

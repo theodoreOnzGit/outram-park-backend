@@ -1010,6 +1010,23 @@ pub fn cartesian_mesh_extractor_from_dict(o: &MeshOctree, opts: &CartesianMeshOp
     extract_from_addressing(o, opts, MeshOctreeAddressing::from_dict(o, dict, opts.use_data_boxes))
 }
 
+/// `polyMeshGenModifier::reorderBoundaryFaces` (serial): the boundary faces
+/// among the first `nInternalFaces` faces are swapped, in order, with the
+/// internal faces among the last ones. Faces and their owner / neighbour move
+/// together; nothing else is reordered (gh:#1385: the template's face order
+/// is upstream's, not a stable internal-then-boundary sort).
+pub fn reorder_boundary_faces(faces: &mut [Vec<usize>], owner: &mut [usize], neighbour: &mut [Option<usize>]) {
+    let n_int = neighbour.iter().filter(|x| x.is_some()).count();
+    let to_boundary: Vec<usize> = (0..n_int).filter(|&f| neighbour[f].is_none()).collect();
+    let to_internal: Vec<usize> = (n_int..faces.len()).filter(|&f| neighbour[f].is_some()).collect();
+    assert_eq!(to_boundary.len(), to_internal.len());
+    for (&a, &b) in to_boundary.iter().zip(&to_internal) {
+        faces.swap(a, b);
+        owner.swap(a, b);
+        neighbour.swap(a, b);
+    }
+}
+
 fn extract_from_addressing(o: &MeshOctree, opts: &CartesianMeshOptions, a: MeshOctreeAddressing) -> CartesianMesh {
     let n = o.number_of_leaves();
     let mut leaf_cell = vec![None; n];
@@ -1020,37 +1037,34 @@ fn extract_from_addressing(o: &MeshOctree, opts: &CartesianMeshOptions, a: MeshO
             n_cells += 1;
         }
     }
-    let (mut int_f, mut int_o, mut int_n) = (Vec::new(), Vec::new(), Vec::new());
-    let (mut bnd_f, mut bnd_o) = (Vec::new(), Vec::new());
+    // `createPolyMesh`: the faces in octree-face order, internal and boundary
+    // faces mixed; `reorderBoundaryFaces` then swaps them into place.
+    let (mut faces, mut owner, mut neighbour) = (Vec::new(), Vec::new(), Vec::new());
     for f in 0..a.octree_faces.len() {
         let own = leaf_cell[a.octree_face_owner[f]];
         let nei = a.octree_face_neighbour[f].and_then(|l| leaf_cell[l]);
         match (own, nei) {
             (Some(oc), Some(nc)) => {
-                int_f.push(a.octree_faces[f].clone());
-                int_o.push(oc);
-                int_n.push(Some(nc));
+                faces.push(a.octree_faces[f].clone());
+                owner.push(oc);
+                neighbour.push(Some(nc));
             }
             (Some(oc), None) => {
-                bnd_f.push(a.octree_faces[f].clone());
-                bnd_o.push(oc);
+                faces.push(a.octree_faces[f].clone());
+                owner.push(oc);
+                neighbour.push(None);
             }
             (None, Some(nc)) => {
                 let mut r = a.octree_faces[f].clone();
                 r[1..].reverse();
-                bnd_f.push(r);
-                bnd_o.push(nc);
+                faces.push(r);
+                owner.push(nc);
+                neighbour.push(None);
             }
             (None, None) => {}
         }
     }
-    let n_int = int_f.len();
-    let mut faces = int_f;
-    faces.extend(bnd_f);
-    let mut owner = int_o;
-    owner.extend(bnd_o);
-    let mut neighbour = int_n;
-    neighbour.extend(std::iter::repeat(None).take(faces.len() - n_int));
+    reorder_boundary_faces(&mut faces, &mut owner, &mut neighbour);
     let mut points = a.octree_points.clone();
     let mut n_decomposed = 0;
     if opts.decompose_split_hexes {
