@@ -150,7 +150,7 @@ pub enum DepletionOutcome {
         decay_type: DecayType,
     },
     /// The walk stopped because a layer the atom reached has no cited
-    /// diffusion coefficient for it (gh:#638: krypton in the buffer).
+    /// diffusion coefficient for it (gh:#638: ~~krypton in the buffer~~ **CORRECTED 2026-11-10:** no layer of a `TrisoCell` today; Kr in the buffer now has a cited value, and only graphite, which a `TrisoCell` has none of, still lacks one).
     NoDiffusionData {
         /// Nuclide identity when the walk stopped.
         nuclide: Nuclide,

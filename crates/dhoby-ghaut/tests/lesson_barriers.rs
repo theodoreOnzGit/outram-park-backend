@@ -8,6 +8,7 @@
 //! The generated page data are checked by
 //! `docs/site/science/fission-products/check-fission.js` (checks 36-44).
 //!
+//! Results 2026-11-10 (gh:#638, Kr in the buffer now cited): all 6 pass.
 //! Results 2026-10-22: all 6 pass (`cargo test --release -p dhoby-ghaut
 //! --test lesson_barriers`).
 #![cfg(not(any(target_arch = "wasm32", target_os = "android")))]
@@ -35,7 +36,10 @@ fn every_filled_coefficient_can_be_called_and_the_gaps_are_refused() {
         assert!(layers::has_walker_coefficient(M::MatrixGraphite, n).is_err());
         assert!(layers::walker_d(M::StructuralGraphite, n, 1200.0).is_none());
     }
-    assert!(layers::has_walker_coefficient(M::Buffer, Nuclide::Kr85).is_err());
+    // gh:#638 (2026-11-10): Kr in the buffer is no longer a gap; it is the
+    // cited German value, 1e-8 m^2/s with no temperature dependence.
+    assert!(layers::has_walker_coefficient(M::Buffer, Nuclide::Kr85).is_ok());
+    assert_eq!(layers::walker_d(M::Buffer, Nuclide::Kr85, 1200.0), Some(1e-8));
     let th = layers::htr10_thicknesses();
     let r = layers::htr10_radii();
     assert!((th[3].1 - 35e-6).abs() < 1e-12 && (r[4] - 455e-6).abs() < 1e-12);
@@ -52,7 +56,18 @@ fn exact_mean_exit_time() {
     let d = layers::walker_d(M::KernelUO2, Nuclide::Cs137, 1600.0).unwrap();
     assert!((t[0] - a * a / (15.0 * d)).abs() <= 1e-12 * t[0]);
     assert!(t[3] > 0.5 * m, "SiC dominates Cs at 1600 °C");
-    assert!(walk::exact_mean_exit(Nuclide::Kr85, 1600.0).is_none(), "Kr: buffer gap");
+    // ~~Kr: buffer gap (None)~~ gh:#638, 2026-11-10: Kr has every layer now.
+    // Prediction written before the first run: at 1600 °C the SiC term
+    // carries 70-95 % of a total between 1e8 and 1e9 s, and the buffer term
+    // is below 1e-6 of the total (D_buf = 1e-8 against ~1e-17 in SiC).
+    // Result 2026-11-10: HIT. 3.1007e8 s; terms kernel 1.667e5, buffer 0.885,
+    // IPyC 2.155e7, SiC 2.623e8, OPyC 2.604e7 s; SiC share 0.846, buffer
+    // share 2.85e-9.
+    let (kr, kt) = walk::exact_mean_exit(Nuclide::Kr85, 1600.0).expect("Kr: every layer cited");
+    println!("Kr-85 1600 C exact mean exit {kr:.4e} s, terms {kt:?}, SiC share {:.4}, buffer share {:.3e}", kt[3] / kr, kt[1] / kr);
+    assert!(kr > 1e8 && kr < 1e9, "Kr mean exit {kr:e} s");
+    assert!(kt[3] / kr > 0.7 && kt[3] / kr < 0.95, "Kr SiC share {}", kt[3] / kr);
+    assert!(kt[1] / kr < 1e-6, "Kr buffer share {}", kt[1] / kr);
     let cell = walk::htr10_cell(1400.0);
     assert!((cell.get_opyc_radius().get::<uom::si::length::meter>() - 455e-6).abs() < 1e-12);
     assert!(walk::params(10).max_steps == 10 && walk::capture_eps_nm() > 0.0);

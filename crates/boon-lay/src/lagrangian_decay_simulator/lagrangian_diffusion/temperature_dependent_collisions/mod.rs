@@ -62,8 +62,10 @@ pub fn expected_collisions_atomic_jumps(
 /// but if there is no neutron fluence, just give the None enum
 ///
 /// Returns `None` where [`get_diffusion_coeff_jiang`] returns
-/// [`MissingDiffusionData`] (since 2026-11-10, gh:#638: krypton in the
-/// buffer). A caller that must tell "no cited coefficient" apart from a
+/// [`MissingDiffusionData`] (since 2026-11-10, gh:#638: krypton in
+/// ~~the buffer~~ the two graphite variants; **CORRECTED 2026-11-10**, the
+/// buffer now has a cited value, [`diffusion_coeffs::KR_BUFFER_D_M2_PER_S`]).
+/// A caller that must tell "no cited coefficient" apart from a
 /// value should call [`get_diffusion_coeff_jiang`] instead.
 pub fn try_get_diffusion_coeff_jiang(
     triso_layer: TrisoPebbleLayerMaterial,
@@ -77,13 +79,23 @@ pub fn try_get_diffusion_coeff_jiang(
 /// The (element, layer) pair has no cited diffusion coefficient, so no `D`
 /// is returned rather than an invented one (gh:#638).
 ///
-/// The one case today is **krypton (Z = 36) in the buffer** and in the two
-/// graphite variants. Jiang et al. (2023) tabulate Kr for the kernel, PyC
-/// and SiC only (as does Hales et al. (2022) Table I, reproduced in Toptan
-/// et al., INL/RPT-22-69706, p. 20). The `1e-8 m^2/s`, `Q = 0` buffer value
-/// carried by Ag, Cs and Sr is the CRP-6 "buffer is fast" convention, not a
-/// measured Kr value, so it is not applied to Kr without a source that says
-/// it applies (a maintainer decision, asked on gh:#638).
+/// The one case today is **krypton (Z = 36)** ~~in the buffer and~~ in the
+/// two graphite variants. Jiang et al. (2023) tabulate Kr for the kernel,
+/// PyC and SiC only (as does Hales et al. (2022) Table I, reproduced in
+/// Toptan et al., INL/RPT-22-69706, p. 20). ~~The `1e-8 m^2/s`, `Q = 0`
+/// buffer value carried by Ag, Cs and Sr is the CRP-6 "buffer is fast"
+/// convention, not a measured Kr value, so it is not applied to Kr without a
+/// source that says it applies (a maintainer decision, asked on gh:#638).~~
+/// **CORRECTED 2026-11-10 (gh:#638, maintainer: "Find a cited value"):** a
+/// source was found. IAEA-TECDOC-978 (1997) App. A, p. 440 gives the FRG
+/// buffer value `1e-8 m^2/s`, `Q = 0` for fission products in the diffusion
+/// model whose tables include Kr, and IAEA-TECDOC-1674 (2012) section
+/// 10.2.2, p. 538 says CRP-6 applies that German set to fission gases; see
+/// [`diffusion_coeffs::KR_BUFFER_D_M2_PER_S`]. Kr in the buffer is now a
+/// value. Graphite stays an error: the German set has no Kr number for
+/// matrix or structural graphite (TECDOC-978 Tables A-4, A-5, pp. 450, 452;
+/// the only Kr row is a Russian matrix-graphite fit, a different data set,
+/// left to the maintainer on gh:#638).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MissingDiffusionData {
     /// Atomic number of the diffusing element.
@@ -106,19 +118,21 @@ impl std::error::Error for MissingDiffusionData {}
 
 /// Whether Jiang et al. (2023) give krypton coefficients for `layer`.
 ///
-/// `true` for the kernel, PyC, SiC and the cracked-material convention
-/// (`1e-6 m^2/s`, Hales et al. 2021, CRP-6 cases 3d/3e); `false` for the
-/// buffer and both graphite variants, whose lookups in
-/// [`diffusion_coeffs`] are not defined.
+/// `true` for the kernel, PyC, SiC, the cracked-material convention
+/// (`1e-6 m^2/s`, Hales et al. 2021, CRP-6 cases 3d/3e) and, since
+/// 2026-11-10 (gh:#638), the buffer (the German `1e-8 m^2/s`, `Q = 0`
+/// convention, cited in [`diffusion_coeffs::KR_BUFFER_D_M2_PER_S`]; not
+/// from Jiang et al.); `false` for ~~the buffer and~~ both graphite
+/// variants, whose lookups in [`diffusion_coeffs`] are not defined.
 #[inline]
 pub fn krypton_has_cited_coefficients(layer: TrisoPebbleLayerMaterial) -> bool {
     match layer {
         TrisoPebbleLayerMaterial::KernelUO2
         | TrisoPebbleLayerMaterial::PyC
         | TrisoPebbleLayerMaterial::SiC
-        | TrisoPebbleLayerMaterial::CrackedMaterial => true,
-        TrisoPebbleLayerMaterial::Buffer
-        | TrisoPebbleLayerMaterial::MatrixGraphite
+        | TrisoPebbleLayerMaterial::CrackedMaterial
+        | TrisoPebbleLayerMaterial::Buffer => true,
+        TrisoPebbleLayerMaterial::MatrixGraphite
         | TrisoPebbleLayerMaterial::StructuralGraphite => false,
     }
 }
@@ -127,7 +141,9 @@ pub fn krypton_has_cited_coefficients(layer: TrisoPebbleLayerMaterial) -> bool {
 /// where no cited coefficient exists (gh:#638).
 ///
 /// Same correlation and sources: `D = D1 exp(-Q1/RT) + D2 exp(-Q2/RT)`
-/// from Jiang et al. (2023). Elements other than Ag, Cs, Sr and Kr still
+/// from Jiang et al. (2023), except Kr in the buffer, whose value is the
+/// German convention from IAEA-TECDOC-978 (see
+/// [`diffusion_coeffs::KR_BUFFER_D_M2_PER_S`], gh:#638). Elements other than Ag, Cs, Sr and Kr still
 /// fall back to silver (gh:#541), and the graphite variants of Ag, Cs and Sr
 /// are still undefined (gh:#541, out of scope here).
 pub fn get_diffusion_coeff_jiang(

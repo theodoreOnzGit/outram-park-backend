@@ -61,7 +61,7 @@ pub enum HopOutcome {
     /// continues from the reinserted position on the next step.
     ReachedInterface,
     /// The walker needed a diffusion coefficient that has no cited source
-    /// (gh:#638: krypton in the buffer) and has stopped, rather than panic
+    /// (gh:#638: ~~krypton in the buffer~~ **CORRECTED 2026-11-10:** no layer of a `TrisoCell` today; Kr in the buffer now has a cited value, and only graphite, which a `TrisoCell` has none of, still lacks one) and has stopped, rather than panic
     /// or use an invented value. The walker does not move again; the reason
     /// is in [`WoSWalker::missing_diffusion_data`].
     NoDiffusionData,
@@ -388,7 +388,9 @@ impl WoSWalker {
     ///
     /// `Ok(Some(t))`: released at `t`. `Ok(None)`: the step cap was hit.
     /// `Err(e)`: the walker reached a layer with no cited coefficient for its
-    /// nuclide, e.g. Kr-85 at the kernel/buffer interface.
+    /// nuclide, ~~e.g. Kr-85 at the kernel/buffer interface~~ (**CORRECTED
+    /// 2026-11-10, gh:#638:** Kr-85 now has a cited buffer value, so no
+    /// nuclide reaches this in a `TrisoCell`; the stop is kept as a guard).
     pub fn try_walk_until_released(
         &mut self,
         triso_cell: &TrisoCell,
