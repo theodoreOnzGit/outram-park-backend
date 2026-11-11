@@ -1,0 +1,18 @@
+--- /home/user/upstream-build/OpenFOAM-v2506/applications/utilities/mesh/manipulation/polyDualMesh/polyDualMeshApp.C	2026-11-11 08:21:33.690339146 +0000
++++ polyDualMeshApp.C	2026-11-11 11:41:45.333147370 +0000
+@@ -77,7 +77,6 @@
+ #include "volFields.H"
+ #include "surfaceFields.H"
+ #include "topoSet.H"
+-#include "processorMeshes.H"
+ 
+ using namespace Foam;
+ 
+@@ -558,7 +557,6 @@
+ 
+     mesh.write();
+     topoSet::removeFiles(mesh);
+-    processorMeshes::removeFiles(mesh);
+ 
+     Info<< "End\n" << endl;
+ 
