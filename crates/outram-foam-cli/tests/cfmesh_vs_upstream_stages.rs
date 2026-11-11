@@ -376,16 +376,22 @@ fn cut_cube_and_hat_octree_final_meshes_status() {
 /// differences of `edgeExtraction` onward are the `pow(stab, 3)` of
 /// `surfaceOptimizer::evaluateGradients`: glibc's FMA `pow` against PETIR's
 /// non-FMA ARM `pow` (proof in `asmo_octree_mesh_optimisation_is_within_one_pow_ulp`
-/// and the README). (2) The final mesh's face order differs because
+/// and the README). ~~(2) The final mesh's face order differs because
 /// `refineBoundaryLayers` returns the refined mesh through
-/// `from_cell_faces_wound`, not in upstream's assembly order (original
-/// internal faces in order with their pieces, new internal faces in creation
-/// order, boundary faces per patch; the first child of a cell keeps its
-/// label, the others are appended), so the in-flight mesh differs from
-/// upstream's before `renumberMesh`. Not ported yet.
+/// `from_cell_faces_wound`, not in upstream's assembly order.~~ **FIXED
+/// 2026-11-11 (gh:#1385 round 4):** `refineBoundaryLayers` assembles the mesh
+/// as upstream does (original internal pieces, new internal faces in creation
+/// order, boundary faces per patch; the first child keeps the label, the others
+/// are appended; prism children from the far side; `refineEdgeHexCell`'s order),
+/// and the final mesh's **339 265 faces are index-identical** (ring, owner,
+/// neighbour; the in-flight mesh before the untangler too, checked against the
+/// `RFF` trace). With this machine's glibc `pow` swapped in (experiment, not
+/// committed) every stage and the final mesh are bit-identical: 121 398/121 398
+/// points, so the 2.7e-15 m of round 3 was the `pow` ulp as well.
 ///
-/// Asserted: bit-identical through `patchAssignment`, and equal counts at
-/// every step.
+/// Asserted: bit-identical through `patchAssignment`, equal counts at every
+/// step, and (`elbow_90degree_refined_faces_are_index_identical`) the final
+/// mesh's faces index-identical.
 #[test]
 fn elbow_90degree_cartesian_mesh_stages() {
     let r = staged("cartesianMesh/elbow_90degree", Generator::CartesianMesh, "elbow_cartesianMesh", "stage_elbow_cartesianMesh");
@@ -398,4 +404,49 @@ fn elbow_90degree_cartesian_mesh_stages() {
     for (step, _, counts) in &r {
         assert!(*counts, "elbow after {step}: counts must equal upstream's");
     }
+}
+
+/// The elbow's final mesh (after `refineBoundaryLayers`, `renumberMesh`):
+/// every face index-identical to upstream's (ring, owner, neighbour) and the
+/// patch sizes equal; the points differ only by the `pow` ulp (see
+/// `elbow_90degree_cartesian_mesh_stages`). The upstream faces, owner,
+/// neighbour and boundary are committed (gzipped).
+#[test]
+fn elbow_90degree_refined_faces_are_index_identical() {
+    // The committed upstream files are faces, owner, neighbour and boundary
+    // (3.0 MB gzipped; the points would add 3.3 MB). The reader wants points:
+    // the port's own are put beside them, and only faces are compared.
+    let committed = committed_stage("elbow_cartesianMesh", "boundaryLayerRefinement").join("constant/polyMesh");
+    let port = port_stage("cartesianMesh/elbow_90degree", Generator::CartesianMesh, "boundaryLayerRefinement");
+    let dst = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("up_elbow_refined_faces");
+    std::fs::create_dir_all(&dst).unwrap();
+    for f in ["faces", "owner", "neighbour", "boundary"] {
+        let text = String::from_utf8(gunzip(&std::fs::read(committed.join(format!("{f}.gz"))).expect("committed upstream stage file"))).unwrap();
+        std::fs::write(dst.join(f), if f == "neighbour" { internal_neighbours_only(&text) } else { text }).unwrap();
+    }
+    let port_points = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("stage_cartesianMesh_elbow_90degree_boundaryLayerRefinement/constant/polyMesh/points");
+    std::fs::copy(&port_points, dst.join("points")).expect("the port's points file");
+    let up = PolyMesh::read(&dst).expect("read upstream faces");
+    assert_eq!((port.points.len(), port.faces.len(), port.n_cells, port.n_internal_faces), (up.points.len(), up.faces.len(), up.n_cells, up.n_internal_faces));
+    let bad = (0..up.faces.len()).filter(|&i| port.faces[i].verts != up.faces[i].verts || port.faces[i].owner != up.faces[i].owner || port.faces[i].neighbour != up.faces[i].neighbour).count();
+    assert_eq!(bad, 0, "{bad} faces differ");
+    let sizes = |m: &PolyMesh| m.patches.iter().map(|p| p.size).collect::<Vec<_>>();
+    assert_eq!(sizes(&port), sizes(&up));
+}
+
+/// `cutCube` through `pMesh`, the port against cfMesh stopped after each step
+/// (`GH1385_UPSTREAM_RUNS/stage_cutCube_pMesh_<step>`, gh:#1385 round 4):
+/// prints the stage table; the asserts are in the round-4 README.
+#[test]
+fn cut_cube_p_mesh_stages() {
+    let r = staged("tetMesh/cutCubeOctree", Generator::PMesh, "cutCube_pMesh", "stage_cutCube_pMesh");
+    println!("{r:?}");
+}
+
+/// `hatOctree` through `cartesian2DMesh`, the port against cfMesh stopped after
+/// each step (`GH1385_UPSTREAM_RUNS/stage_hatOctree_cartesian2DMesh_<step>`).
+#[test]
+fn hat_octree_cartesian_2d_mesh_stages() {
+    let r = staged("cartesian2DMesh/hatOctree", Generator::Cartesian2DMesh, "hatOctree_cartesian2DMesh", "stage_hatOctree_cartesian2DMesh");
+    println!("{r:?}");
 }
