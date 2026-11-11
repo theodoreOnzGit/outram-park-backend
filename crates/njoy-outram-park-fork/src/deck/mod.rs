@@ -27,6 +27,7 @@
 //! stops with [`DeckRun::blocked`] set. The other modules' cards are not yet read.
 
 pub mod cards;
+pub mod groupr;
 pub mod modules;
 pub mod pendf;
 pub mod run;

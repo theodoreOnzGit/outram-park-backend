@@ -98,10 +98,8 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
                 if opts.parse_only { Ok(()) } else { crate::deck::thermr::run_thermr(&c, &mut units) }
             }
             "groupr" => {
-                read_groupr(&mut r)?;
-                Err(NjoyError::NotPorted(
-                    "groupr tape driver (groupr.f90 `groupr`: end-to-end GENDF from a PENDF tape)",
-                ))
+                let job = read_groupr(&mut r)?;
+                if opts.parse_only { Ok(()) } else { crate::deck::groupr::run_groupr(&job, &mut units) }
             }
             "gaspr" => {
                 read_gaspr(&mut r)?;
@@ -149,6 +147,11 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
 fn run_moder(c: &ModerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
     match c {
         ModerCards::Convert { nin, nout } => {
+            // A GENDF unit is kept as text (`deck::groupr`); converting it is a copy.
+            if let Some(t) = units.text(*nin).map(str::to_string) {
+                units.put_text(*nout, t);
+                return Ok(());
+            }
             units.openz(*nout, 1)?;
             if nin.abs() >= 20 {
                 units.openz(*nin, 0)?;

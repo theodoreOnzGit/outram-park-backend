@@ -442,3 +442,22 @@ fn test_01_second_thermr_graphite_tape_is_identical_line_for_line() {
     assert!(d.is_empty(), "first differences {:?}", &d[..d.len().min(8)]);
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
 }
+
+/// **Test 01 GROUPR: the GENDF tape label and MF=1/MT=451 head (`groupr.f90:540-604`), line for line.**
+///
+/// Deck: upstream `tests/01/input` whole, plus `moder -24 27` (the deck's own last
+/// MODER converts the PENDF, unit -23, not the GENDF, unit -24). Compares the
+/// first 11 lines of unit 27 (label, HEAD, LIST of `ngn = 30`, `ngg = 12`,
+/// `nw = 46`, FEND). Pass criterion: zero differing lines. Prediction: identical.
+#[test]
+fn test_01_groupr_gendf_head() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "01", None, "moder\n -24 27/\n") else { return };
+    let Some((ours, njoy)) = run_pair_decks_extra(&root, "t01g", "t511", &[("t322", 26)], &deck, &deck) else { return };
+    let a = std::fs::read_to_string(ours.join("tape27")).unwrap();
+    let b = std::fs::read_to_string(njoy.join("tape27")).unwrap();
+    let (al, bl): (Vec<&str>, Vec<&str>) = (a.lines().take(11).collect(), b.lines().take(11).collect());
+    assert_eq!(bl.len(), 11);
+    assert_eq!(al, bl);
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
