@@ -147,7 +147,7 @@ pub struct SurfaceEngine {
 /// (`centrePoint /= nPoints`, the centre last). gh:#1385: the earlier
 /// `0.5 * sum(p_i x p_{i+1})` is the same vector up to round-off, and not
 /// bit for bit.
-pub(crate) fn ring_area_vector(points: &[Vec3], ring: &[usize]) -> Vec3 {
+pub fn ring_area_vector(points: &[Vec3], ring: &[usize]) -> Vec3 {
     let k = ring.len();
     let tri_area_normal = |p0: Vec3, p1: Vec3, p2: Vec3| p1.sub(p0).cross(p2.sub(p0)).scale(0.5);
     if k == 3 {

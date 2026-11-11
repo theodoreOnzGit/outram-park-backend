@@ -31,7 +31,7 @@
 //! | patchAssignment | 895/895 | 2064/2064 | 9744/9744 | 11494/11494 |
 //! | edgeExtraction | 895/895 | 2064/2064 | 9744/9744 | 11494/11494 |
 //! | boundaryLayerGeneration | 1425/1425 | 3648/3648 | 9744/9744 | 11494/11494 |
-//! | meshOptimisation | **562/1425, max 1.332e-15** | 3648/3648 | **1527/9744, max 1.776e-15** | 11494/11494 |
+//! | meshOptimisation | **623/1425, max 1.332e-15** | 3648/3648 | **3435/9744, max 1.332e-15** | 11494/11494 |
 //!
 //! (points bit-identical / total; faces index-identical with owner and
 //! neighbour / total.) Faces are index-identical at every stage of both
@@ -102,20 +102,22 @@ fn cartesian_mesh_matches_upstream_through_boundary_layer_generation() {
     }
 }
 
-/// `cartesianMesh` meshOptimisation: counts and faces are identical, 562 of
-/// 1425 points are bit-identical (the 530 layer-outer points, the optimiser
-/// leaves them where `optimizeSurface` put them, and 32 more) and the worst
-/// difference is 1.332e-15 m (last bit of a coordinate near 2-3 m, 6e-16
-/// relative). Cause under test: `optimizeMeshFV`'s Laplacian sums over the
-/// faces of a cell in upstream's cell face order, which `VolumeMesh` (faces
-/// with owner/neighbour, no cell lists) does not carry; the port sums in
-/// ascending face order. Pinned from above, not matched.
+/// `cartesianMesh` meshOptimisation: counts and faces are identical, 623 of
+/// 1425 points are bit-identical (the 530 layer-outer points, which the
+/// optimiser leaves where `optimizeSurface` put them, and 93 more) and the
+/// worst difference is 1.332e-15 m (the last bit of a coordinate of 2-3 m,
+/// 6e-16 relative). **Cause, proven** in `cfmesh_vs_upstream_cell_order.rs`:
+/// `optimizeMeshFV`'s Laplacian sums over the faces of a cell in the order of
+/// upstream's cell list, which `VolumeMesh` (faces with owner/neighbour, no
+/// cell lists) does not carry; the port sums in ascending face order. Fed
+/// upstream's own cell lists the same Laplacian is bit-identical on all 1425
+/// points. Pinned from above, not matched.
 #[test]
 fn cartesian_mesh_mesh_optimisation_is_within_the_last_bit() {
     let d = cartesian_stage(WorkflowStep::MeshOptimisation);
     assert_same_topology(&d, "cartesianMesh after meshOptimisation");
     let (same, worst) = d.index_points.unwrap();
-    assert!(same >= 562, "bit-identical points fell from 562 to {same}");
+    assert!(same >= 623, "bit-identical points fell from 623 to {same}");
     assert!(worst < 2e-15, "worst difference {worst:e}");
 }
 
@@ -131,15 +133,16 @@ fn p_mesh_matches_upstream_through_boundary_layer_generation() {
     }
 }
 
-/// `pMesh` meshOptimisation: counts and faces are identical, 1527 of 9744
-/// points are bit-identical and the worst difference is 1.776e-15 m; the
+/// `pMesh` meshOptimisation: counts and faces are identical, 3435 of 9744
+/// points are bit-identical and the worst difference is 1.332e-15 m; the
 /// cause is the one of the `cartesianMesh` test above (cell face order in
-/// the Laplacian sums). Pinned from above, not matched.
+/// the Laplacian sums; proven there for `cartesianMesh` only, not
+/// separately for `pMesh`). Pinned from above, not matched.
 #[test]
 fn p_mesh_mesh_optimisation_is_within_the_last_bit() {
     let d = p_mesh_stage(WorkflowStep::MeshOptimisation);
     assert_same_topology(&d, "pMesh after meshOptimisation");
     let (same, worst) = d.index_points.unwrap();
-    assert!(same >= 1527, "bit-identical points fell from 1527 to {same}");
-    assert!(worst < 2.5e-15, "worst difference {worst:e}");
+    assert!(same >= 3435, "bit-identical points fell from 3435 to {same}");
+    assert!(worst < 2e-15, "worst difference {worst:e}");
 }

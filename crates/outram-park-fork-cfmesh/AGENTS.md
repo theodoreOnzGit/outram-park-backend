@@ -306,7 +306,7 @@ A run stopped before the revert returns the mesh in the modified space,
 as upstream does. Without sources, all four outputs are pinned to their
 pre-wiring fingerprints
 (`anisotropic::tests::generators_without_anisotropic_sources_are_pinned_bit_for_bit`):
-**do not move that pin.**
+~~**do not move that pin.**~~ **MOVED 2026-11-11 (gh:#1385, flagged for the maintainer):** all four fingerprints moved (cell counts did not) when the generators were made to follow upstream bit for bit on the sphere; causes in the "Rust-side differential" section of `verification_and_validation/upstream_cfmesh_gh1385/README.md`. The pin guards the anisotropic wiring against *wiring* changes; re-pin again only for a fix that follows upstream.
 
 Record and images: `verification_and_validation/anisotropic_gh1279/`.
 
@@ -375,3 +375,31 @@ write new `macro_rules!` or proc macros in this crate; use functions,
 generics, enums and plain `match` arms. Using std and dependency macros
 (`vec!`, `format!`, derives) is fine. Full rule: root `CLAUDE.md`, "Avoid
 writing macros".
+
+## Differential against real upstream output (gh:#1385, 2026-11-11)
+
+`tests/cfmesh_vs_upstream_sphere.rs` pins `cartesianMesh` and `pMesh` stage by
+stage against cfMesh's own output
+(`verification_and_validation/upstream_cfmesh_gh1385/`): bit-identical points
+and faces through `boundaryLayerGeneration`; `meshOptimisation` within the
+last bit, the cause proven in `tests/cfmesh_vs_upstream_cell_order.rs` (cell
+face order, which `VolumeMesh` does not carry). Rules this taught:
+
+- **OpenFOAM divides.** `v /= s` and `v/s` divide each component;
+  `v.scale(1.0 / s)` differs in the last bit. Use `Vec3::div`. About 140
+  `scale(1.0 / x)` remain in the crate; fix the ones on a path you compare.
+- **The mapper, the untangler, the edge extractor and `optimiseMeshSurface`
+  take the octree** (`SurfaceQueries::with_octree`,
+  `optimise_mesh_surface_octree`,
+  `map_vertices_onto_surface_patches_given_octree`): upstream's
+  `findNearestSurfacePoint` is not an exact nearest point, and a brute-force
+  one differs in the last bit and near shared edges by more.
+- **`meshSurfaceEdgeExtractorNonTopo` / `...FUN` run on every surface**, also
+  one of a single region; `regions == None` is not a reason to skip them.
+- **Face order is part of the answer.** Template: octree-face order plus
+  `reorder_boundary_faces`; layers: `add_cells_upstream`. A stage built from
+  cell lists (`from_cell_faces`) does not come out in upstream's order.
+- **Two face-geometry formulas.** `foam_face_centre` / `ring_area_vector` are
+  `face::centre` / `face::areaNormal` (the surface engine, the optimisers);
+  `checks::pmg_face_centre_and_area` is the polyMeshGen addressing's own
+  (`makeFaceCentresAndAreas`), used for cell centres. Do not swap them.

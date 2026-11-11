@@ -356,7 +356,17 @@ mod tests {
     /// gh:#1285: its input is the pipeline's output, now in the
     /// upper-triangular face order; the counts did not move, the hash did
     /// (~~714198749002929189~~).
-    const CORRECT_EDGES_PIN: (usize, usize, usize, usize, usize, u64) = (1727, 8, 16, 112, 14, 7179125119703641544);
+    ///
+    /// **Re-pinned 2026-11-11 (gh:#1385):** ~~7179125119703641544~~
+    /// 15811906865840324897. The counts did not move; the hash did because
+    /// the pipeline that makes its input now follows upstream bit for bit
+    /// where it was compared: `foam_face_centre` and `ring_area_vector` as
+    /// `face::centre` / `face::areaNormal`, divisions where OpenFOAM divides,
+    /// the octree's nearest-point search in the mapper, the layer's faces in
+    /// `addCells` / `reorderBoundaryFaces` order, `meshSurfaceEdgeExtractor
+    /// NonTopo` also on a one-region surface. Geometry moved in the last bit;
+    /// face order moved.
+    const CORRECT_EDGES_PIN: (usize, usize, usize, usize, usize, u64) = (1727, 8, 16, 112, 14, 15811906865840324897);
 
     /// V&V (gh:#1241) — `patchCorrection` by hand. One unit cube, its top
     /// face in patch 1 and the rest in patch 0: the top's four edges are

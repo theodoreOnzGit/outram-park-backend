@@ -2449,13 +2449,16 @@ mod tests {
         let mut m = m0.clone();
         let c = m.points.iter().position(|p| p.sub(Vec3::new(0.5, 0.5, 0.5)).length() < 1e-12).unwrap();
         m.points[c] = m.points[c].add(Vec3::new(0.075, 0.0, 0.0));
-        let (_, centres) = cell_geometry(&m);
+        // gh:#1385: the centres are cfMesh's `makeCellCentresAndVols` (the
+        // earlier expectation used `cell_geometry`, a different pyramid
+        // decomposition whose centre differs by 1.3e-5 on this mesh).
+        let (_, centres) = crate::checks::foam_cell_centres_and_vols(&m);
         let pc = point_cells(&m);
         let mut expect = Vec3::ZERO;
         for &cl in &pc[c] {
             expect = expect.add(centres[cl]);
         }
-        let expect = expect.scale(1.0 / pc[c].len() as f64);
+        let expect = expect.div(pc[c].len() as f64);
         let before = m.clone();
         opt.optimize_laplacian(&mut m, LaplaceKind::PointCells, 1);
         println!("one pass: x {} -> {} (expected {})", before.points[c].x, m.points[c].x, expect.x);

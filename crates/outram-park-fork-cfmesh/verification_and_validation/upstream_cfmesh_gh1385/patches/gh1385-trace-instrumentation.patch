@@ -1,0 +1,177 @@
+--- a/meshLibrary/utilities/surfaceTools/meshSurfaceMapper/meshSurfaceMapperPremapVertices.C
++++ b/meshLibrary/utilities/surfaceTools/meshSurfaceMapper/meshSurfaceMapperPremapVertices.C
+@@ -37,6 +37,15 @@
+ #include <omp.h>
+ # endif
+ 
++#include <cstdio>
++#include <cstdlib>
++static void gh1385Dump(const char* tag, int iter, const Foam::labelList& bpts, const Foam::Module::pointFieldPMG& pts)
++{
++    if (!getenv("GH1385_TRACE")) return;
++    for (Foam::label i = 0; i < bpts.size(); ++i)
++        fprintf(stderr, "TRACE %s %d %d %.17g %.17g %.17g\n", tag, iter, int(i), pts[bpts[i]].x(), pts[bpts[i]].y(), pts[bpts[i]].z());
++}
++
+ // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+ 
+ void Foam::Module::meshSurfaceMapper::preMapVertices(const label nIterations)
+@@ -289,10 +298,12 @@
+ 
+         // update the surface geometry of the
+         surfaceModifier.updateGeometry();
++        gh1385Dump("premap_moved", iterI, boundaryPoints, points);
+ 
+         meshSurfaceOptimizer(surfaceEngine_, meshOctree_).untangleSurface();
+ 
+         surfaceModifier.updateGeometry();
++        gh1385Dump("premap_untangled", iterI, boundaryPoints, points);
+     }
+ 
+     Info<< "Finished smoothing mesh surface before mapping." << endl;
+--- a/meshLibrary/utilities/surfaceTools/meshSurfaceMapper/meshSurfaceMapperMapVertices.C
++++ b/meshLibrary/utilities/surfaceTools/meshSurfaceMapper/meshSurfaceMapperMapVertices.C
+@@ -38,6 +38,15 @@
+ #include <omp.h>
+ # endif
+ 
++#include <cstdio>
++#include <cstdlib>
++static void gh1385Dump(const char* tag, int iter, const Foam::labelList& bpts, const Foam::Module::pointFieldPMG& pts)
++{
++    if (!getenv("GH1385_TRACE")) return;
++    for (Foam::label i = 0; i < bpts.size(); ++i)
++        fprintf(stderr, "TRACE %s %d %d %.17g %.17g %.17g\n", tag, iter, int(i), pts[bpts[i]].x(), pts[bpts[i]].y(), pts[bpts[i]].z());
++}
++
+ //#define DEBUGMapping
+ 
+ // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+@@ -290,6 +299,7 @@
+ 
+     // re-calculate face normals, point normals, etc.
+     surfaceModifier.updateGeometry(nodesToMap);
++    gh1385Dump("mapped", 0, boundaryPoints, points);
+ }
+ 
+ 
+--- a/meshLibrary/utilities/smoothers/geometry/meshSurfaceOptimizer/meshSurfaceOptimizerOptimizeSurface.C
++++ b/meshLibrary/utilities/smoothers/geometry/meshSurfaceOptimizer/meshSurfaceOptimizerOptimizeSurface.C
+@@ -32,6 +32,15 @@
+ #include "helperFunctionsPar.H"
+ #include "meshSurfaceMapper.H"
+ #include "meshSurfaceMapper2D.H"
++
++#include <cstdio>
++#include <cstdlib>
++static void gh1385Dump(const char* tag, int iter, const Foam::labelList& bpts, const Foam::Module::pointFieldPMG& pts)
++{
++    if (!getenv("GH1385_TRACE")) return;
++    for (Foam::label i = 0; i < bpts.size(); ++i)
++        fprintf(stderr, "TRACE %s %d %d %.17g %.17g %.17g\n", tag, iter, int(i), pts[bpts[i]].x(), pts[bpts[i]].y(), pts[bpts[i]].z());
++}
+ #include "polyMeshGen2DEngine.H"
+ #include "polyMeshGenAddressing.H"
+ #include "polyMeshGenChecks.H"
+@@ -359,6 +368,7 @@
+ 
+     meshSurfaceEngineModifier surfaceModifier(surfaceEngine_);
+ 
++    gh1385Dump("opt_start", 0, bPoints, surfaceEngine_.points());
+     meshSurfaceMapper* mapperPtr = nullptr;
+     if (octreePtr_)
+         mapperPtr = new meshSurfaceMapper(*partitionerPtr_, *octreePtr_);
+@@ -648,8 +658,10 @@
+     for (label i = 0; i < nIterations; ++i)
+     {
+         smoothLaplacianFC(partitionPoints, procPoints, true);
++        gh1385Dump("opt_lapfc", i, bPoints, surfaceEngine_.points());
+ 
+         smoothSurfaceOptimizer(partitionPoints, procPoints);
++        gh1385Dump("opt_so", i, bPoints, surfaceEngine_.points());
+ 
+         Info<< "." << flush;
+     }
+@@ -657,6 +669,7 @@
+     Info<< endl;
+ 
+     untangleSurface(0);
++    gh1385Dump("opt_end", 0, bPoints, surfaceEngine_.points());
+ }
+ 
+ 
+--- a/meshLibrary/cartesianMesh/cartesianMeshGenerator/cartesianMeshGenerator.C
++++ b/meshLibrary/cartesianMesh/cartesianMeshGenerator/cartesianMeshGenerator.C
+@@ -48,6 +48,34 @@
+ #include "polyMeshGenGeometryModification.H"
+ #include "surfaceMeshGeometryModification.H"
+ 
++#include <cstdio>
++#include <cstdlib>
++static void gh1385Dump(const char* tag, int iter, const Foam::labelList& bpts, const Foam::Module::pointFieldPMG& pts)
++{
++    if (!getenv("GH1385_TRACE")) return;
++    for (Foam::label i = 0; i < bpts.size(); ++i)
++        fprintf(stderr, "TRACE %s %d %d %.17g %.17g %.17g\n", tag, iter, int(i), pts[bpts[i]].x(), pts[bpts[i]].y(), pts[bpts[i]].z());
++}
++
++static void gh1385DumpAll(const char* tag, const Foam::Module::pointFieldPMG& pts)
++{
++    if (!getenv("GH1385_TRACE")) return;
++    for (Foam::label i = 0; i < pts.size(); ++i)
++        fprintf(stderr, "TRACE %s 0 %d %.17g %.17g %.17g\n", tag, int(i), pts[i].x(), pts[i].y(), pts[i].z());
++}
++
++static void gh1385DumpCells(const Foam::Module::cellListPMG& cells)
++{
++    if (!getenv("GH1385_TRACE")) return;
++    for (Foam::label c = 0; c < cells.size(); ++c)
++    {
++        fprintf(stderr, "CELL %d", int(c));
++        for (Foam::label i = 0; i < cells[c].size(); ++i) fprintf(stderr, " %d", int(cells[c][i]));
++        fprintf(stderr, "\n");
++    }
++}
++
++
+ //#define DEBUG
+ 
+ // * * * * * * * * * * * * Private member functions  * * * * * * * * * * * * //
+@@ -136,6 +164,7 @@
+ void Foam::Module::cartesianMeshGenerator::optimiseMeshSurface()
+ {
+     meshSurfaceEngine mse(mesh_);
++    gh1385Dump("opt_pre", 0, mse.boundaryPoints(), mse.points());
+     meshSurfaceOptimizer(mse, *octreePtr_).optimizeSurface();
+ }
+ 
+@@ -190,6 +219,8 @@
+ 
+         surfOpt.optimizeSurface();
+     }
++    gh1385DumpAll("fm_surface", mesh_.points());
++    gh1385DumpCells(mesh_.cells());
+ 
+     deleteDemandDrivenData(octreePtr_);
+ 
+@@ -201,9 +232,12 @@
+     }
+ 
+     optimizer.optimizeMeshFV();
++    gh1385DumpAll("fm_fv", mesh_.points());
+     optimizer.optimizeLowQualityFaces();
++    gh1385DumpAll("fm_lowq", mesh_.points());
+     optimizer.optimizeBoundaryLayer(modSurfacePtr_ == nullptr);
+     optimizer.untangleMeshFV();
++    gh1385DumpAll("fm_untangle", mesh_.points());
+ 
+     mesh_.clearAddressingData();
+ 
+@@ -313,6 +347,7 @@
+ }
+ 
+ 
++
+ // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
+ 
+ Foam::Module::cartesianMeshGenerator::cartesianMeshGenerator(const Time& time)
