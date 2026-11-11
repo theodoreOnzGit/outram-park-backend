@@ -67,8 +67,8 @@ issue is the maintainer's, this is its `bigeta` part):
    where upstream passes `llmax`, which `pspcou` sets to `lll+2`; `getfg` derives `limit = max(3, llmax+1)` from it,
    so the recursions started from a different limit. Now `lll + 2`. All `lll = 0` cases were already identical.
 
-Not changed, reported: `coulx`'s finite-eta branch (`dispatch.rs`, `getfg(eta, rho, lll, lll, ..)`) has the same
-`llmax` pattern (upstream: `llmax`, i.e. `lll+2`); it is outside `bigeta` and has no comparison here yet.
+~~Not changed, reported: `coulx`'s finite-eta branch (`getfg(eta, rho, lll, lll, ..)`) has the same `llmax` pattern;
+no comparison yet.~~ **CORRECTED 2026-11-10 (gh:#1368): fixed and compared, see "`coulx` finite-eta branches" below.**
 
 `cosphi` when `jdopha = 0`: upstream's `getps` leaves it untouched (the caller's `pspcou` initial value 1); the port
 returns 0. It is not a requested output; the test compares `cosphi` only when `jdopha = 1`.
@@ -77,3 +77,37 @@ Reference elementary functions: `exp(-pi*eta)` through petir `r_exp` is 56/56 bi
 
 Reproduce: `./run.sh` (regenerates `upstream_output_v79.txt`, `upstream_output_v80.txt`), then
 `cargo test --release -p njoy-outram-park-fork --test samm_bigeta_vs_njoy2016_units`.
+
+## `coulx` finite-eta branches (gh:#1368, 2026-11-10)
+
+`extract.sh` also extracts `coulx`, `asymp1`, `asymp2`, `taylor`, `xsigll`, `end1` verbatim (set
+`NJOY_UPSTREAM_SOURCE` to the folder holding the clones). `driver_coulx.f90` calls `coulx(eta, rho, lll, llmax = lll+2, ..)`
+as `pspcou` does, on eta in {0.1, 0.5, 1, 2, 3, 4.9, 5.5, 6, 8, 12, 20} x rho in {0.01 .. 100} (10 values), skipping the
+pairs `bigeta` takes: 88 (eta, rho) pairs x lll {0,1,3} x 2 flag sets = **528 calls** (`upstream_output_coulx_v80.txt`,
+2016.80 only; the extracted `coulx` routines are unchanged between 2016.79 and 2016.80, since the `diff` of the two
+`samm.f90` is the two `bigeta` lines). Test: `tests/samm_coulx_vs_njoy2016_units.rs`.
+
+**Prediction (before the change):** `getfg` is called with `llmax = lll+2` upstream and `lll` in the port, so `limit =
+max(3, llmax+1)` differs for `lll >= 1`, giving last-bit differences on the `getfg` path (not on `end1`, not at `lll = 0`).
+**Measured before the change** (port with `getfg(eta, rho, lll, lll, ..)`), bit-identical of 528: p 444, s 486, dp 486,
+sinphi 419, dphi 425, cosphi 222 of 264; worst relative difference s 6.8e-4 (more than "last bits": the shift factor
+subtracts nearly equal terms), p 1.5e-8. **After** (`getfg(eta, rho, lll + 2, lll, ..)`): **528/528**
+bit-identical in p, s, dp, sinphi, dphi; cosphi 264/264 where requested.
+
+## Test 88 (Ca-40 RECONR) against NJOY2016.80 (gh:#1368)
+
+Upstream `tests/88`: `moder 20 -21; reconr -21 -22 / 2025 0 / .001 / 0 /; moder -22 50`, tape `n-020_Ca_040-ENDF8.0.endf`
+(upstream `tests/resources`, committed here as `reference-data/endf/n-020_Ca_040-ENDF8.0.endf`; the deck comment says
+"CWF correction"). NJOY2016.80 (`ab27c64`, `cmake` Release, gfortran 13.3.0, `make -j1`, sparse clone with the `tests`
+subdirectory switched off in `CMakeLists.txt`) reproduces upstream's `referenceTape50` byte for byte (`cmp`, 7 930 305 B), so
+the committed reference `reference-data/reconr/ca40-ENDF8.0-0K-err0.001-njoy2016.80.pendf` is both. Test:
+`reconr_ca40_test88_charged_particle_lrf7_njoy2016_80` in `tests/pendf_stages_vs_njoy2016.rs`, criterion: every MF=3 word.
+
+| port state | result |
+|---|---|
+| before the `bigeta` sync (`1cafbcbdc^`, f64 harmonic step, `getfg` llmax 0) | **9 sections differ** (MT=1, 2, 102, 103, 107, 600, 800, 801, 802): ours 31 184 points against NJOY's 31 188 (MT=103, 600: 15 119 against 15 123); first differing pair index 16 065 (0 for MT=103, 600) |
+| after the `bigeta` sync only | every MF=3 word identical |
+| after `bigeta` + `coulx` (`llmax = lll+2`) | every MF=3 word identical |
+
+The prediction held (identical after the sync, different before). The `coulx` change does not move Ca-40 (its charged-particle
+channels reach `bigeta`, where the sync already applied); it is pinned by the unit test above, not by test 88.

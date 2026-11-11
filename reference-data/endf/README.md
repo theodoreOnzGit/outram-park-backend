@@ -499,3 +499,9 @@ archived in the `reference-data/ace` submodule under
 `{reference,outram-park}-njoy/synthetic/0K/Z6-photonuclear.ace.gz`, where the
 two differ in exactly one line — the 70-character `hk` comment each generator
 stamps itself into — and agree on the other 556 781 bytes.
+
+## Ca-40 (added 2026-11-10, gh:#1368)
+
+| File | Nuclide | Library | MAT | Size | Source | Why |
+|---|---|---|---|---|---|---|
+| `n-020_Ca_040-ENDF8.0.endf` | Ca-40 | ENDF/B-VIII.0 (neutron) | 2025 | 2.0 MB | NJOY2016 `tests/resources/n-020_Ca_040-ENDF8.0.endf` at commit `ab27c6414a0f25b173f2b637e6dc7e428fdaff00` (<https://github.com/njoy/NJOY2016>, modified BSD-3 repository; ENDF/B-VIII.0 evaluation, public), SHA-256 `048ad8b7c73b0aa9e5f25eb1cb17e0ff69c6fd2c688858eaf8d2a1c67ff344b8`, accessed 2026-11-10 | `LRF=7` with charged-particle (proton, alpha) channels, the case NJOY2016.80's `bigeta` fix (#415) was made for; upstream regression test 88 (the deck comment calls it the "CWF correction" tape). Byte-identical to upstream's copy. Gated by `reconr_ca40_test88_charged_particle_lrf7_njoy2016_80`. |

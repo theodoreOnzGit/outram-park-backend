@@ -24,7 +24,9 @@
 //!   (law 44, `bachaa` when `NA = 1`) and LANG=11-13 (law 61, tabulated);
 //! - the `ismooth` low-energy extensions for LANG=2, both the `LEP = 1`
 //!   histogram branch (with `fx = .8409` read as the **single-precision**
-//!   literal it is) and the `LEP = 2` lin-lin branch;
+//!   literal it is) and the `LEP = 2` lin-lin branch, both only when the first
+//!   outgoing energy is zero (NJOY2016 2016.80 `7d317f8`, gh:#1368; see
+//!   [`ismooth_extend_low_energy`]);
 //! - the `ep > e` patches for negative-Q reactions;
 //! - LAW=6 (law 66, phase space) with its own grid;
 //! - several neutron subsections, chained through `LNW`.
@@ -599,30 +601,29 @@ fn law66_words(npsx: i32, words: &mut Vec<DlwWord>) {
     words.extend(c.iter().map(|&v| DlwWord::Real(sigfig(v / sum, 9, 0))));
 }
 
-/// One incident energy of a LAW=1 subsection: `[INTT, N, E', pdf, cdf, R|LC,
-/// A]` for law 44, `[INTT, N, E', pdf, cdf, LC]` plus the angular tables for
-/// law 61 (`acefc.f90:7529-7892`).
-#[allow(clippy::too_many_arguments)]
-fn incident_block(
-    list: &crate::endf::records::List,
+/// The `ismooth` low-energy sqrt(E) extensions of one LAW=1 incident-energy record, ported from
+/// `acelf6` (`acefc.f90:7547-7657`, NJOY2016 2016.80 `ab27c64`): `d` is the record's
+/// `(E', pdf, A..)` rows, `ncyc = NA + 2` words each, `n` the number of rows, `nd` the number of
+/// discrete lines. Returns the new row count; `d` is edited in place. Only for LANG=2 neutron
+/// spectra with no discrete lines (`zap = 1` is the caller's).
+///
+/// **2016.80 guard (gh:#1368, upstream commit `7d317f8`, "Fix bug in smoothing distributions
+/// when outgoing energy grid does not start at 0").** Both branches run only when
+/// `eout1 = scr(7)/emev` is zero, i.e. the first tabulated outgoing energy is exactly 0. This
+/// port ran them unconditionally until 2026-11-10; without the guard the inserted rows precede a
+/// first energy above them and the outgoing energies come out of order. Differential:
+/// `tests/acelf6_ismooth_vs_njoy2016_units.rs`.
+pub fn ismooth_extend_low_energy(
+    d: &mut Vec<f64>,
+    mut n: usize,
+    ncyc: usize,
+    nd: usize,
     lang: i32,
     lep: i32,
-    law61: bool,
-    mt: i32,
-    q_mev: f64,
-    iza: i32,
-    ismooth: bool,
-    words: &mut Vec<DlwWord>,
-) -> Result<(), NjoyError> {
-    let ee = list.head.c2 / EMEV;
-    let nd = list.head.l1 as usize;
-    let na = list.head.l2 as usize;
-    let ncyc = na + 2;
-    let mut d: Vec<f64> = list.data.clone();
-    let mut n = list.head.n2 as usize;
-
-    // `ismooth` low-energy extensions, LANG=2 only, no discrete lines.
-    if ismooth && lang == 2 && lep == 1 && nd == 0 {
+) -> usize {
+    // `eout1=scr(7)/emev` (MeV): zero exactly when the first E' is zero.
+    let eout1 = d[0] / EMEV;
+    if lang == 2 && lep == 1 && nd == 0 && eout1 == 0.0 {
         // `fx=.8409` has no kind suffix: a default-real (single-precision)
         // literal promoted to double, exactly as in `acelf5`.
         let fx = 0.8409_f32 as f64;
@@ -649,7 +650,7 @@ fn incident_block(
             d[ncyc + 1] = sigfig((1.0 - fx * fx.sqrt()) * val / (1.0 - fx), 6, 0);
             n += 1;
         }
-    } else if ismooth && lang == 2 && lep == 2 && n > 3 && nd == 0 {
+    } else if lang == 2 && lep == 2 && n > 3 && nd == 0 && eout1 == 0.0 {
         let ex = 40.0;
         let fx = 0.50;
         let mut nn = 0;
@@ -683,6 +684,35 @@ fn incident_block(
                 }
             }
         }
+    }
+    n
+}
+
+/// One incident energy of a LAW=1 subsection: `[INTT, N, E', pdf, cdf, R|LC,
+/// A]` for law 44, `[INTT, N, E', pdf, cdf, LC]` plus the angular tables for
+/// law 61 (`acefc.f90:7529-7892`).
+#[allow(clippy::too_many_arguments)]
+fn incident_block(
+    list: &crate::endf::records::List,
+    lang: i32,
+    lep: i32,
+    law61: bool,
+    mt: i32,
+    q_mev: f64,
+    iza: i32,
+    ismooth: bool,
+    words: &mut Vec<DlwWord>,
+) -> Result<(), NjoyError> {
+    let ee = list.head.c2 / EMEV;
+    let nd = list.head.l1 as usize;
+    let na = list.head.l2 as usize;
+    let ncyc = na + 2;
+    let mut d: Vec<f64> = list.data.clone();
+    let mut n = list.head.n2 as usize;
+
+    // `ismooth` low-energy extensions, LANG=2 only, no discrete lines, first E' = 0.
+    if ismooth {
+        n = ismooth_extend_low_energy(&mut d, n, ncyc, nd, lang, lep);
     }
 
     let e = ee * EMEV;
