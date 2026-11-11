@@ -93,7 +93,7 @@ fn resolve_c(
     dt: f64,
 ) -> crate::granular::GranularForce {
     if setup {
-        model.resolve_setup(key, k, history)
+        model.resolve_setup(key, k, history, dt)
     } else {
         model.resolve(key, k, history, dt)
     }
@@ -876,7 +876,7 @@ impl GranularSystem {
         // orientation the timestep evaluates pairs in; flip it for `i > j`.
         let stored = self.history.get(key).unwrap_or_else(Vec3::zero);
         let hist = if tag_i < tag_j { stored } else { Vec3::zero().sub(stored) };
-        let gf = self.model.resolve_frozen(hist, &k);
+        let gf = self.model.resolve_frozen(hist, &k, self.dt);
         let (radi, radj) = (a.radius, b.radius);
         let del = a.position.sub(b.position);
         let rsq = del.x * del.x + del.y * del.y + del.z * del.z;
@@ -1002,7 +1002,7 @@ impl GranularSystem {
         // --- particle-particle ---
         // Both paths accumulate in the SAME order (ascending candidate-pair
         // index), which is what makes them bit-identical. See `compute`.
-        if self.compute.is_parallel_step() && !setup && !self.model.normal.has_contact_state() {
+        if self.compute.is_parallel_step() && !setup && !self.model.has_contact_state() {
             self.resolve_pairs_parallel();
         } else {
             self.resolve_pairs_serial();
@@ -1219,10 +1219,12 @@ impl GranularSystem {
                 let flip = self.tags[i] > self.tags[j];
                 if flip {
                     self.history.flip(key);
+                    self.model.flip_aux(key, &mut self.history);
                 }
                 let gf = resolve_c(&self.model, setup, key, &k, &mut self.history, self.dt);
                 if flip {
                     self.history.flip(key);
+                    self.model.flip_aux(key, &mut self.history);
                 }
                 self.forces[i] = self.forces[i].add(gf.force_i);
                 self.forces[j] = self.forces[j].add(gf.force_j);

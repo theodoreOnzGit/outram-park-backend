@@ -441,6 +441,14 @@ pub struct ContactKinematics {
     /// `(c_ri omega_i + c_rj omega_j) rinv` for a pair, `(c_r omega_i) rinv`
     /// for a wall. The wall branch of the rolling models reads it.
     pub wr: Vec3,
+    /// Radius of `i` (upstream `sidata.radi`) `[m]`.
+    pub rad_i: f64,
+    /// Radius of `j` (`sidata.radj`) `[m]`; zero for a wall contact.
+    pub rad_j: f64,
+    /// Mass of `i` (`sidata.mi`) `[kg]`.
+    pub mass_i: f64,
+    /// Mass of `j` (`sidata.mj`) `[kg]`; zero for a wall contact.
+    pub mass_j: f64,
 }
 
 impl ContactKinematics {
@@ -491,6 +499,10 @@ impl ContactKinematics {
             itype: 0,
             jtype: 0,
             wr,
+            rad_i: i.radius,
+            rad_j: j.radius,
+            mass_i: i.mass,
+            mass_j: j.mass,
         })
     }
 
@@ -552,6 +564,10 @@ impl ContactKinematics {
             itype: 0,
             jtype: 0,
             wr,
+            rad_i: i.radius,
+            rad_j: 0.0,
+            mass_i: i.mass,
+            mass_j: 0.0,
         })
     }
 }
@@ -612,6 +628,10 @@ impl ContactKinematics {
             itype: 0,
             jtype: 0,
             wr: Vec3::new(wr1, wr2, wr3),
+            rad_i: i.radius,
+            rad_j: 0.0,
+            mass_i: i.mass,
+            mass_j: 0.0,
         }
     }
 }
@@ -639,6 +659,33 @@ pub struct NormalOutcome {
     pub gamman: f64,
     /// Tangential damping coefficient `[kg/s]`.
     pub gammat: f64,
+}
+
+/// `f64` slots of normal-model per-contact state a contact can carry.
+pub const NORMAL_STATE: usize = 12;
+
+/// The slot of a contact's auxiliary records holding the rolling spring.
+const ROLL_SLOT: u8 = 4;
+
+/// Per-contact state beyond the shear spring: the normal model's history
+/// values (`deltaMax`, ...) and the rolling model's spring torque. Each is
+/// kept in the [`ShearHistory`] store under an [`ContactKey::Aux`] key so it
+/// shares the contact's life cycle.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ContactAux {
+    /// Normal-model history values.
+    pub normal: [f64; NORMAL_STATE],
+    /// Rolling-model history, `r_torque_old` `[N m]`.
+    pub roll: Vec3,
+}
+
+impl Default for ContactAux {
+    fn default() -> Self {
+        Self {
+            normal: [0.0; NORMAL_STATE],
+            roll: Vec3::zero(),
+        }
+    }
 }
 
 /// Closed set of normal contact models (enum dispatch, no `dyn`).
@@ -809,7 +856,38 @@ impl GranularNormalModel {
     /// shear spring; such a model is resolved serially.
     #[must_use]
     pub fn has_contact_state(&self) -> bool {
-        matches!(self, Self::HookeHysteresis { .. })
+        self.state_len() > 0
+    }
+
+    /// Number of `f64` of per-contact state this model keeps (upstream's
+    /// `add_history_value` count): 1 for hysteresis (`deltaMax`), else 0.
+    #[must_use]
+    pub fn state_len(&self) -> usize {
+        match self {
+            Self::HookeHysteresis { .. } => 1,
+            _ => 0,
+        }
+    }
+
+    /// Evaluate with the per-contact state `state` (read and updated in place;
+    /// `update` is upstream's `computeflag && shearupdate`). Models without
+    /// state ignore it.
+    #[must_use]
+    pub fn evaluate_stateful(
+        &self,
+        k: &ContactKinematics,
+        props: &PairProps,
+        state: &mut [f64; NORMAL_STATE],
+        update: bool,
+    ) -> NormalOutcome {
+        match self {
+            Self::HookeHysteresis { .. } => {
+                let (out, dmax) = self.evaluate_hysteretic(k, props, state[0], update);
+                state[0] = dmax;
+                out
+            }
+            _ => self.evaluate_with(k, props),
+        }
     }
 
     /// Build a `hertz/stiffness` model with upstream's default settings
@@ -1206,6 +1284,9 @@ pub enum ContactKey {
     Aux {
         /// Which kind of contact it belongs to (0 pair, 1 wall, 2 facet).
         kind: u8,
+        /// Which three-value slot of the contact's extra state this is
+        /// (see [`ContactAux`]).
+        slot: u8,
         /// First identifier of the owning contact.
         a: usize,
         /// Second identifier.
@@ -1242,10 +1323,18 @@ impl ContactKey {
     /// The key of this contact's auxiliary scalar (see [`ContactKey::Aux`]).
     #[must_use]
     pub fn aux(self) -> Self {
+        self.aux_slot(0)
+    }
+
+    /// The key of this contact's `slot`-th auxiliary three-value record.
+    #[must_use]
+    pub fn aux_slot(self, slot: u8) -> Self {
         match self {
-            Self::Pair { lo, hi } => Self::Aux { kind: 0, a: lo, b: hi, c: 0 },
-            Self::Wall { particle, wall } => Self::Aux { kind: 1, a: particle, b: wall, c: 0 },
-            Self::Tri { particle, wall, tri } => Self::Aux { kind: 2, a: particle, b: wall, c: tri },
+            Self::Pair { lo, hi } => Self::Aux { kind: 0, slot, a: lo, b: hi, c: 0 },
+            Self::Wall { particle, wall } => Self::Aux { kind: 1, slot, a: particle, b: wall, c: 0 },
+            Self::Tri { particle, wall, tri } => {
+                Self::Aux { kind: 2, slot, a: particle, b: wall, c: tri }
+            }
             Self::Aux { .. } => self,
         }
     }
@@ -1425,6 +1514,12 @@ impl ShearHistory {
         }
     }
 
+    /// [`ShearHistory::flip`] for an auxiliary record (the rolling-torque
+    /// history of the EPSD models is declared `"1"` = sign-flipping upstream).
+    pub fn flip_aux(&mut self, key: ContactKey, slot: u8) {
+        self.flip(key.aux_slot(slot));
+    }
+
     /// Mark every stored contact stale, at the top of a force evaluation.
     pub fn begin_step(&mut self) {
         for e in self.contacts.values_mut() {
@@ -1468,7 +1563,7 @@ impl ShearHistory {
 
     /// Read the current displacement and mark the contact live, inserting a
     /// zero entry for a contact seen for the first time.
-    fn touch(&mut self, key: ContactKey) -> Vec3 {
+    pub(crate) fn touch(&mut self, key: ContactKey) -> Vec3 {
         let entry = self.contacts.entry(key).or_insert(ContactHistoryEntry {
             shear: Vec3::zero(),
             live: true,
@@ -1478,7 +1573,7 @@ impl ShearHistory {
     }
 
     /// Overwrite the stored displacement for a contact.
-    fn set(&mut self, key: ContactKey, value: Vec3) {
+    pub(crate) fn set(&mut self, key: ContactKey, value: Vec3) {
         // The contact was made live by `touch` immediately before this in
         // `resolve`; an `entry` here keeps that invariant if it ever is not.
         self.contacts
@@ -1548,6 +1643,187 @@ pub enum RollingModel {
         /// the torque component along the contact normal.
         torsion_torque: bool,
     },
+    /// Upstream `RollingModel<ROLLING_EPSD>` / `EPSD2` / `EPSD3`
+    /// (`rolling_model_epsd*.h`): the **elastic-plastic spring-dashpot**
+    /// rolling resistance of Ai et al. (2011). A rolling spring accumulates
+    /// the torque `M += dt k_r w_r` in a per-contact history (three values,
+    /// sign-flipping), which is capped at the Coulomb-like limit
+    /// `|F_n| R* mu_r`; EPSD and EPSD3 add a rolling dashpot while below the
+    /// cap. gh:#1410.
+    Epsd {
+        /// Which of the three upstream variants.
+        kind: EpsdKind,
+        /// `coeffRollFrict` `[-]`.
+        mu_r: f64,
+        /// `coeffRollVisc` `[-]` (EPSD, EPSD3; unused by EPSD2).
+        mu_visc: f64,
+        /// `coeffRollStiffness` `[-]` (EPSD3 only).
+        stiffness: f64,
+        /// Upstream `torsionTorque` (default off: remove the normal part of
+        /// the relative rotation).
+        torsion_torque: bool,
+    },
+}
+
+/// The three EPSD rolling models of upstream.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EpsdKind {
+    /// `epsd`: `k_r = 2.25 k_n mu_r^2 R*^2`, spring and dashpot.
+    One,
+    /// `epsd2`: `k_r = k_t R*^2`, spring only.
+    Two,
+    /// `epsd3`: `k_r = c_s k_n mu_r^2 R*^2` with a user stiffness factor
+    /// `c_s` (`coeffRollStiffness`), spring and dashpot.
+    Three,
+}
+
+impl RollingModel {
+    /// Whether the model stores a per-contact rolling torque.
+    #[must_use]
+    pub fn has_state(&self) -> bool {
+        matches!(self, Self::Epsd { .. })
+    }
+
+    /// `rolling_model epsd` with upstream's defaults (`torsionTorque off`).
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if a coefficient is negative or not finite.
+    pub fn epsd(mu_r: f64, mu_visc: f64) -> Result<Self, DemError> {
+        Self::epsd_variant(EpsdKind::One, mu_r, mu_visc, 2.25)
+    }
+
+    /// `rolling_model epsd2` (spring only, `k_r = k_t R*^2`).
+    ///
+    /// # Errors
+    ///
+    /// As [`RollingModel::epsd`].
+    pub fn epsd2(mu_r: f64) -> Result<Self, DemError> {
+        Self::epsd_variant(EpsdKind::Two, mu_r, 0.0, 0.0)
+    }
+
+    /// `rolling_model epsd3` (user stiffness factor).
+    ///
+    /// # Errors
+    ///
+    /// As [`RollingModel::epsd`].
+    pub fn epsd3(mu_r: f64, mu_visc: f64, stiffness: f64) -> Result<Self, DemError> {
+        Self::epsd_variant(EpsdKind::Three, mu_r, mu_visc, stiffness)
+    }
+
+    fn epsd_variant(kind: EpsdKind, mu_r: f64, mu_visc: f64, stiffness: f64) -> Result<Self, DemError> {
+        for (name, v) in [("mu_r", mu_r), ("mu_visc", mu_visc), ("stiffness", stiffness)] {
+            if !(v >= 0.0) || !v.is_finite() {
+                return Err(DemError::InvalidInput(format!(
+                    "EPSD rolling coefficient {name} must be finite and >= 0, got {v}"
+                )));
+            }
+        }
+        Ok(Self::Epsd {
+            kind,
+            mu_r,
+            mu_visc,
+            stiffness,
+            torsion_torque: false,
+        })
+    }
+
+    /// The EPSD rolling torque `M_r` and the rolling-spring history to store,
+    /// for one contact: translation of `calcRollTorque` in
+    /// `rolling_model_epsd.h`, `_epsd2.h` and `_epsd3.h` (LIGGGHTS-PUBLIC
+    /// `3d5c00f2`), with the three-dimensional rotational inertia factor 1.4.
+    /// `prior` is the stored `r_torque_old`; `update` is upstream's
+    /// `computeflag && shearupdate` (whether the history is written).
+    /// Returns `(torque, history)`; [`RollingModel::Off`] and CDT return a zero
+    /// torque and the prior history (CDT has its own [`RollingModel::rolling_torque`]).
+    #[must_use]
+    pub fn epsd_torque(
+        &self,
+        k: &ContactKinematics,
+        normal: &NormalOutcome,
+        prior: Vec3,
+        dt: f64,
+        update: bool,
+    ) -> (Vec3, Vec3) {
+        let Self::Epsd {
+            kind,
+            mu_r: rmu,
+            mu_visc,
+            stiffness,
+            torsion_torque,
+        } = *self
+        else {
+            return (Vec3::zero(), prior);
+        };
+        let radi = k.rad_i;
+        let radj = k.rad_j;
+        let reff = if k.is_wall { radi } else { radi * radj / (radi + radj) };
+        // relative rotational velocity and the inertia the dashpot scales with
+        let (wr1, wr2, wr3, r_inertia);
+        if k.is_wall {
+            wr1 = k.wr.x;
+            wr2 = k.wr.y;
+            wr3 = k.wr.z;
+            r_inertia = 1.4 * k.mass_i * reff * reff;
+        } else {
+            wr1 = k.omega_i.x - k.omega_j.x;
+            wr2 = k.omega_i.y - k.omega_j.y;
+            wr3 = k.omega_i.z - k.omega_j.z;
+            let red_i = k.mass_i * radi * radi;
+            let red_j = k.mass_j * radj * radj;
+            r_inertia = 1.4 * red_i * red_j / (red_i + red_j);
+        }
+        let (enx, eny, enz) = (k.en.x, k.en.y, k.en.z);
+        let wr_tot = if torsion_torque {
+            Vec3::new(wr1, wr2, wr3)
+        } else {
+            let wr_dot_delta = wr1 * enx + wr2 * eny + wr3 * enz;
+            let wr_n = Vec3::new(enx * wr_dot_delta, eny * wr_dot_delta, enz * wr_dot_delta);
+            Vec3::new(wr1 - wr_n.x, wr2 - wr_n.y, wr3 - wr_n.z)
+        };
+        // spring
+        let kr = match kind {
+            EpsdKind::One => 2.25 * normal_kn(normal) * rmu * rmu * reff * reff,
+            EpsdKind::Two => normal.kt * reff * reff,
+            EpsdKind::Three => stiffness * normal_kn(normal) * rmu * rmu * reff * reff,
+        };
+        let dt_kr = dt * kr;
+        let mut r_torque = Vec3::new(
+            prior.x + wr_tot.x * dt_kr,
+            prior.y + wr_tot.y * dt_kr,
+            prior.z + wr_tot.z * dt_kr,
+        );
+        // limit max. torque
+        let r_torque_mag = r_torque.norm();
+        let r_torque_max = normal.fn_scalar.abs() * reff * rmu;
+        let mut hist = prior;
+        if r_torque_mag > r_torque_max {
+            let factor = r_torque_max / r_torque_mag;
+            r_torque = Vec3::new(r_torque.x * factor, r_torque.y * factor, r_torque.z * factor);
+            if update {
+                hist = r_torque;
+            }
+            // no dashpot at full mobilisation
+        } else {
+            if update {
+                hist = r_torque; // spring part, before the dashpot is added
+            }
+            if kind != EpsdKind::Two {
+                let r_coef = mu_visc * 2.0 * (r_inertia * kr).sqrt();
+                r_torque = Vec3::new(
+                    r_torque.x + r_coef * wr_tot.x,
+                    r_torque.y + r_coef * wr_tot.y,
+                    r_torque.z + r_coef * wr_tot.z,
+                );
+            }
+        }
+        (r_torque, hist)
+    }
+}
+
+/// `sidata.kn` as the rolling models read it.
+fn normal_kn(n: &NormalOutcome) -> f64 {
+    n.kn
 }
 
 impl RollingModel {
@@ -1767,16 +2043,64 @@ impl GranularContactModel {
             TangentialModel::History => history.touch(key),
             TangentialModel::NoHistory => Vec3::zero(),
         };
-        let stateful = self.normal.has_contact_state();
-        let prior_extra = if stateful { history.touch(key.aux()).x } else { 0.0 };
-        let (force, updated, extra) = self.resolve_impl_x::<true>(prior, prior_extra, k, dt);
+        let prior_aux = self.load_aux(key, history);
+        let (force, updated, aux) = self.resolve_impl_x::<true>(prior, prior_aux, k, dt);
         if let Some(shear) = updated {
             history.set(key, shear);
         }
-        if stateful {
-            history.set(key.aux(), Vec3::new(extra, 0.0, 0.0));
-        }
+        self.store_aux(key, history, &aux);
         force
+    }
+
+    /// Whether any part of this contact law keeps per-contact state besides
+    /// the shear spring (a stateful normal or rolling model); such a model is
+    /// resolved serially.
+    #[must_use]
+    pub fn has_contact_state(&self) -> bool {
+        self.normal.has_contact_state() || self.rolling.has_state()
+    }
+
+    /// Number of three-value slots of normal-model state.
+    fn normal_slots(&self) -> u8 {
+        (self.normal.state_len().div_ceil(3)) as u8
+    }
+
+    /// Read (and mark live) the auxiliary state of a contact.
+    fn load_aux(&self, key: ContactKey, history: &mut ShearHistory) -> ContactAux {
+        let mut aux = ContactAux::default();
+        for slot in 0..self.normal_slots() {
+            let v = history.touch(key.aux_slot(slot));
+            let b = 3 * slot as usize;
+            aux.normal[b] = v.x;
+            aux.normal[b + 1] = v.y;
+            aux.normal[b + 2] = v.z;
+        }
+        if self.rolling.has_state() {
+            aux.roll = history.touch(key.aux_slot(ROLL_SLOT));
+        }
+        aux
+    }
+
+    /// Write the auxiliary state of a contact back.
+    fn store_aux(&self, key: ContactKey, history: &mut ShearHistory, aux: &ContactAux) {
+        for slot in 0..self.normal_slots() {
+            let b = 3 * slot as usize;
+            history.set(
+                key.aux_slot(slot),
+                Vec3::new(aux.normal[b], aux.normal[b + 1], aux.normal[b + 2]),
+            );
+        }
+        if self.rolling.has_state() {
+            history.set(key.aux_slot(ROLL_SLOT), aux.roll);
+        }
+    }
+
+    /// Flip the sign-flipping auxiliary records of a pair contact visited the
+    /// other way round (the rolling spring torque; see [`ShearHistory::flip`]).
+    pub fn flip_aux(&self, key: ContactKey, history: &mut ShearHistory) {
+        if self.rolling.has_state() {
+            history.flip_aux(key, ROLL_SLOT);
+        }
     }
 
     /// The **pure** core of [`GranularContactModel::resolve`]: the same contact
@@ -1804,7 +2128,8 @@ impl GranularContactModel {
     ///
     /// `prior_shear` is the stored `ξ_t` for this contact, or [`Vec3::zero`]
     /// for a contact seen for the first time — which is exactly what
-    /// [`ShearHistory::get`] returning `None` means.
+    /// [`ShearHistory::get`] returning `None` means. Only for a model without
+    /// [`GranularContactModel::has_contact_state`].
     #[must_use]
     pub fn resolve_pure(
         &self,
@@ -1819,10 +2144,11 @@ impl GranularContactModel {
     /// upstream's `computeflag = 0, shearupdate = 0` re-evaluation, which
     /// `compute pair/gran/local` performs (`PairGran::compute_pgl(0, 0)`). The
     /// stored displacement is used as it stands (no `v_tr*dt` increment, no
-    /// projection, nothing written back).
+    /// projection, nothing written back). `dt` still enters the rolling
+    /// spring increment (upstream reads `update->dt` there).
     #[must_use]
-    pub fn resolve_frozen(&self, stored_shear: Vec3, k: &ContactKinematics) -> GranularForce {
-        self.resolve_impl::<false>(stored_shear, k, 0.0).0
+    pub fn resolve_frozen(&self, stored_shear: Vec3, k: &ContactKinematics, dt: f64) -> GranularForce {
+        self.resolve_impl::<false>(stored_shear, k, dt).0
     }
 
     /// The set-up evaluation (`shearupdate = 0`): registers the contact in
@@ -1833,19 +2159,18 @@ impl GranularContactModel {
         key: ContactKey,
         k: &ContactKinematics,
         history: &mut ShearHistory,
+        dt: f64,
     ) -> GranularForce {
         let prior = match self.tangential {
             TangentialModel::History => history.touch(key),
             TangentialModel::NoHistory => Vec3::zero(),
         };
-        let stateful = self.normal.has_contact_state();
-        let prior_extra = if stateful { history.touch(key.aux()).x } else { 0.0 };
-        let (force, _, extra) = self.resolve_impl_x::<false>(prior, prior_extra, k, 0.0);
-        if stateful {
-            // upstream: `if (deltan > history[0]) history[0] = deltan;` runs
-            // at set-up too (only the cohesion rewrite is gated)
-            history.set(key.aux(), Vec3::new(extra, 0.0, 0.0));
-        }
+        let prior_aux = self.load_aux(key, history);
+        let (force, _, aux) = self.resolve_impl_x::<false>(prior, prior_aux, k, dt);
+        // upstream: the normal model's unconditional history writes
+        // (`if (deltan > history[0]) history[0] = deltan;`) run at set-up too;
+        // the rolling spring is gated on `shearupdate` and comes back unchanged
+        self.store_aux(key, history, &aux);
         force
     }
 
@@ -1855,7 +2180,7 @@ impl GranularContactModel {
         k: &ContactKinematics,
         dt: f64,
     ) -> (GranularForce, Option<Vec3>) {
-        let (f, u, _) = self.resolve_impl_x::<UPDATE>(prior_shear, 0.0, k, dt);
+        let (f, u, _) = self.resolve_impl_x::<UPDATE>(prior_shear, ContactAux::default(), k, dt);
         (f, u)
     }
 
@@ -1864,15 +2189,16 @@ impl GranularContactModel {
     fn resolve_impl_x<const UPDATE: bool>(
         &self,
         prior_shear: Vec3,
-        prior_extra: f64,
+        prior_aux: ContactAux,
         k: &ContactKinematics,
         dt: f64,
-    ) -> (GranularForce, Option<Vec3>, f64) {
+    ) -> (GranularForce, Option<Vec3>, ContactAux) {
         let props = match self.materials {
             Some(table) => table.pair_props(k.itype, k.jtype),
             None => PairProps::from_material(&self.normal.material()),
         };
-        let (normal, new_extra) = self.normal.evaluate_hysteretic(k, &props, prior_extra, UPDATE);
+        let mut aux = prior_aux;
+        let normal = self.normal.evaluate_stateful(k, &props, &mut aux.normal, UPDATE);
         let mu = props.friction;
         let mut updated: Option<Vec3> = None;
 
@@ -1940,9 +2266,14 @@ impl GranularContactModel {
         let mut torque_j = tor.scale(-k.crj);
 
         // Rolling resistance: upstream applies -M_r to i and +M_r to j.
-        let m_r = self
-            .rolling
-            .rolling_torque(k, &normal, k.omega_i, k.omega_j, k.is_wall);
+        let m_r = if self.rolling.has_state() {
+            let (m, hist) = self.rolling.epsd_torque(k, &normal, aux.roll, dt, UPDATE);
+            aux.roll = hist;
+            m
+        } else {
+            self.rolling
+                .rolling_torque(k, &normal, k.omega_i, k.omega_j, k.is_wall)
+        };
         torque_i = torque_i.sub(m_r);
         torque_j = torque_j.add(m_r);
 
@@ -1956,7 +2287,7 @@ impl GranularContactModel {
                 ft,
             },
             updated,
-            new_extra,
+            aux,
         )
     }
 }
