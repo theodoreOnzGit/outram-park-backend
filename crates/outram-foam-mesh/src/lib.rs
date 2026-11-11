@@ -79,6 +79,7 @@
 pub mod block_edges;
 pub mod block_mesh;
 pub mod block_primitives;
+pub mod block_projection;
 mod block_topology;
 pub mod section;
 pub mod driver;

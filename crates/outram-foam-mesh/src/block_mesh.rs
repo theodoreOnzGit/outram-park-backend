@@ -111,12 +111,17 @@
 
 use petir::mathf::RealMath;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::path::Path;
 
 use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
 use outram_foam_basic_lib::primitives::Vector3;
 
 use crate::block_edges::{BlockEdge, BlockEdgeKind, EdgeCurve};
+use crate::block_projection::{
+    apply_curved_faces, find_curved_faces, read_dict_body, BlockFace, BlockFaceKind, Geometry,
+    ProjectionFlavour,
+};
 use crate::block_topology::{
     calc_merge_info, create_cells, create_patch_faces, create_points, faces_equal, mesh_from_shapes,
     BlockGrid, CellModel, CellShape, Face, ShapeMesh,
@@ -359,6 +364,11 @@ pub struct BlockMeshDict {
     /// `checkBlockFaceOrientation` (default `yes`): every block's faces must
     /// point away from its centre (`blockDescriptor::check`).
     pub check_block_face_orientation: bool,
+    /// The `geometry` dictionary: searchable surfaces that `project` vertices,
+    /// edges and faces refer to (gh:#1462). Empty when absent.
+    pub geometry: Arc<Geometry>,
+    /// The `faces` list: `project` and `sweep` block faces (gh:#1462).
+    pub faces: Vec<BlockFace>,
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -1035,7 +1045,7 @@ impl BlockMeshDict {
         let curves: Vec<EdgeCurve> = self
             .edges
             .iter()
-            .map(|e| e.resolve(&self.vertices))
+            .map(|e| e.resolve_with(&self.vertices, &self.geometry))
             .collect::<Result<_, _>>()?;
 
         let mut grids: Vec<BlockGrid> = Vec::with_capacity(self.blocks.len());
@@ -1193,6 +1203,18 @@ impl BlockMeshDict {
                     points.push(p);
                 }
             }
+        }
+        let curved = find_curved_faces(&block.vertices, &self.faces);
+        if curved.iter().any(Option::is_some) {
+            apply_curved_faces(
+                &self.geometry,
+                &self.faces,
+                &curved,
+                &block.vertices,
+                block.cells,
+                &el,
+                &mut points,
+            )?;
         }
         Ok(BlockGrid {
             n: block.cells,
@@ -1449,6 +1471,16 @@ impl BlockMeshDict {
     /// `mergePatchPairs`, ...). All grading forms —
     /// `simpleGrading`, multi-grading, and full per-edge `edgeGrading` — parse.
     pub fn parse(text: &str) -> Result<Self, MeshError> {
+        Self::parse_with_flavour(text, ProjectionFlavour::Dev)
+    }
+
+    /// As [`parse`](Self::parse), following v2506 instead of dev where the two
+    /// differ in projection (`ProjectionFlavour`, gh:#1462): used only to compare
+    /// with a v2506 `blockMesh` run.
+    ///
+    /// # Errors
+    /// As [`parse`](Self::parse).
+    pub fn parse_with_flavour(text: &str, flavour: ProjectionFlavour) -> Result<Self, MeshError> {
         let tokens = expand_variables(tokenize(text))?;
         let mut cur = Cursor::new(&tokens);
 
@@ -1474,6 +1506,9 @@ impl BlockMeshDict {
         let mut fast_merge = false;
         let mut check_face_correspondence = true;
         let mut check_block_face_orientation = true;
+        let mut geometry = Arc::new(Geometry::default());
+        let mut faces: Vec<BlockFace> = Vec::new();
+        let mut vertex_projections: Vec<Option<Vec<String>>> = Vec::new();
 
         while let Some(tok) = cur.peek() {
             match tok {
@@ -1500,7 +1535,7 @@ impl BlockMeshDict {
                 }
                 "vertices" => {
                     cur.next();
-                    vertices = parse_vertices(&mut cur)?;
+                    (vertices, vertex_projections) = parse_vertices(&mut cur)?;
                     cur.expect(";")?;
                 }
                 "blocks" => {
@@ -1539,11 +1574,15 @@ impl BlockMeshDict {
                         }
                     }
                 }
-                "geometry" | "faces" => {
-                    return Err(MeshError::NotImplemented(format!(
-                        "blockMeshDict entry `{tok}` (projection geometry and block faces; \
-                         gh:#1462)"
-                    )));
+                "geometry" => {
+                    cur.next();
+                    let entries = read_dict_body(cur.tokens, &mut cur.pos)?;
+                    geometry = Arc::new(Geometry::from_entries(&entries, flavour)?);
+                }
+                "faces" => {
+                    cur.next();
+                    faces = parse_block_faces(&mut cur)?;
+                    cur.expect(";")?;
                 }
                 "boundary" | "patches" => {
                     cur.next();
@@ -1612,6 +1651,20 @@ impl BlockMeshDict {
             return Err(MeshError::DictParse("no blocks found".into()));
         }
 
+        // `project` vertices (blockVertices::projectVertex): the surfaces may be
+        // declared after the vertices, so project once everything is read.
+        for (v, proj) in vertices.iter_mut().zip(&vertex_projections) {
+            if let Some(names) = proj {
+                let ids = geometry.surface_ids(names)?;
+                *v = geometry.project_vertex(&ids, *v);
+            }
+        }
+        for f in &faces {
+            if let BlockFaceKind::Project(name) = &f.kind {
+                geometry.surface_ids(std::slice::from_ref(name))?;
+            }
+        }
+
         let patches = resolve_patch_faces(raw_patches, &blocks, vertices.len())?;
 
         if n_scale_keywords > 1 {
@@ -1631,6 +1684,8 @@ impl BlockMeshDict {
             fast_merge,
             check_face_correspondence,
             check_block_face_orientation,
+            geometry,
+            faces,
         })
     }
 }
@@ -1997,11 +2052,8 @@ fn parse_edges(cur: &mut Cursor) -> Result<Vec<BlockEdge>, MeshError> {
                     BlockEdgeKind::BSpline(pts)
                 }
             }
-            "project" | "projectCurve" => {
-                return Err(MeshError::NotImplemented(format!(
-                    "block edge type `{ty}` needs `geometry` (gh:#1462)"
-                )));
-            }
+            "project" => BlockEdgeKind::Project(parse_word_list(cur)?),
+            "projectCurve" => BlockEdgeKind::ProjectCurve(parse_word_list(cur)?),
             other => {
                 return Err(MeshError::DictParse(format!("unknown blockEdge type `{other}`")));
             }
@@ -2011,10 +2063,15 @@ fn parse_edges(cur: &mut Cursor) -> Result<Vec<BlockEdge>, MeshError> {
     Ok(out)
 }
 
-/// Parse `( (x y z) (x y z) ... )` into raw (unscaled) points.
-fn parse_vertices(cur: &mut Cursor) -> Result<Vec<Vector3>, MeshError> {
+/// Parse `( (x y z) | project (x y z) (surface ...) ... )` into raw (unscaled)
+/// points, plus each vertex's projection surface names (`blockVertex::New`).
+#[allow(clippy::type_complexity)]
+fn parse_vertices(
+    cur: &mut Cursor,
+) -> Result<(Vec<Vector3>, Vec<Option<Vec<String>>>), MeshError> {
     cur.expect("(")?;
     let mut out = Vec::new();
+    let mut proj: Vec<Option<Vec<String>>> = Vec::new();
     while !cur.accept(")") {
         if cur.peek() == Some("name") {
             cur.next();
@@ -2024,17 +2081,80 @@ fn parse_vertices(cur: &mut Cursor) -> Result<Vec<Vector3>, MeshError> {
                 .to_string();
             cur.vertex_names.insert(name, out.len());
         }
-        if cur.peek() == Some("project") {
-            return Err(MeshError::NotImplemented(
-                "`project` vertex (needs `geometry`; gh:#1462)".into(),
-            ));
+        let mut surfaces = None;
+        let projected = cur.peek() == Some("project");
+        if projected {
+            cur.next();
         }
         cur.expect("(")?;
         let x = cur.parse_f64()?;
         let y = cur.parse_f64()?;
         let z = cur.parse_f64()?;
         cur.expect(")")?;
+        if projected {
+            surfaces = Some(parse_word_list(cur)?);
+        }
         out.push(Vector3::new(x, y, z));
+        proj.push(surfaces);
+    }
+    Ok((out, proj))
+}
+
+/// Parse `(word word ...)`.
+fn parse_word_list(cur: &mut Cursor) -> Result<Vec<String>, MeshError> {
+    cur.expect("(")?;
+    let mut names = Vec::new();
+    while !cur.accept(")") {
+        names.push(
+            cur.next()
+                .ok_or_else(|| MeshError::DictParse("unterminated word list".into()))?
+                .to_string(),
+        );
+    }
+    Ok(names)
+}
+
+/// Parse the `faces ( project (v0 v1 v2 v3) surface  sweep (v0 v1 v2 v3) f ... )`
+/// list (`blockFace::New`).
+///
+/// # Errors
+/// [`MeshError::DictParse`] for an unknown face type, a face that is not four
+/// vertices, or a sweep fraction outside `[0, 1]`.
+fn parse_block_faces(cur: &mut Cursor) -> Result<Vec<BlockFace>, MeshError> {
+    cur.expect("(")?;
+    let mut out = Vec::new();
+    while !cur.accept(")") {
+        let ty = cur
+            .next()
+            .ok_or_else(|| MeshError::DictParse("expected a face type, found end".into()))?;
+        cur.expect("(")?;
+        let mut labels = Vec::new();
+        while !cur.accept(")") {
+            labels.push(cur.parse_label(false)?);
+        }
+        let vertices: [usize; 4] = labels.try_into().map_err(|_| {
+            MeshError::DictParse(format!("block face of type `{ty}` needs four vertices"))
+        })?;
+        let kind = match ty {
+            "project" => BlockFaceKind::Project(
+                cur.next()
+                    .ok_or_else(|| MeshError::DictParse("expected a surface name".into()))?
+                    .to_string(),
+            ),
+            "sweep" => {
+                let f = cur.parse_f64()?;
+                if !(0.0..=1.0).contains(&f) {
+                    return Err(MeshError::DictParse(format!(
+                        "Rotation fraction for face {vertices:?} must be between 0 and 1"
+                    )));
+                }
+                BlockFaceKind::Sweep(f)
+            }
+            other => {
+                return Err(MeshError::DictParse(format!("Unknown blockFace type {other}")))
+            }
+        };
+        out.push(BlockFace { vertices, kind });
     }
     Ok(out)
 }

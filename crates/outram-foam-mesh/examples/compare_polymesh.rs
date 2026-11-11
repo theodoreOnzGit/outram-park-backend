@@ -19,7 +19,8 @@
 //! The upstream directory is `constant/polyMesh` of a case written with
 //! `writePrecision 17`. Example binary: reporting glue, exempt from the
 //! reached-by-a-test rule (it calls only the tested `block_mesh` API).
-use outram_foam_mesh::block_mesh::block_mesh_from_file;
+use outram_foam_mesh::block_mesh::BlockMeshDict;
+use outram_foam_mesh::block_projection::ProjectionFlavour;
 
 /// The body of an OpenFOAM list file: everything between the first
 /// `N` + `(` after the header and the matching `)`, as whitespace tokens with
@@ -87,7 +88,18 @@ fn main() {
     let m = if std::path::Path::new(dict).is_dir() {
         dual_of(dict, &a[3..])
     } else {
-        block_mesh_from_file(dict).expect("our blockMesh").to_foam_poly_mesh()
+        // `PROJECT_FACE_FLAVOUR=esi` selects the v2506 projectFace loop (gh:#1462).
+        let flavour = if std::env::var("PROJECT_FACE_FLAVOUR").as_deref() == Ok("esi") {
+            ProjectionFlavour::Esi
+        } else {
+            ProjectionFlavour::Dev
+        };
+        let d = BlockMeshDict::parse_with_flavour(
+            &std::fs::read_to_string(dict).expect("read dict"),
+            flavour,
+        )
+        .expect("our blockMesh parse");
+        d.build().expect("our blockMesh").to_foam_poly_mesh()
     };
 
     // points
