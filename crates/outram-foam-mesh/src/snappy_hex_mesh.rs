@@ -92,14 +92,18 @@
 pub mod background;
 pub mod castellation;
 pub mod cyclic;
+pub mod dict;
 pub mod layers;
 pub mod poly_topology;
+pub mod refinement;
 pub mod snapping;
 pub mod stl;
 
 // Re-export the primary entry points at the module root for discoverability.
 pub use background::{BackgroundMesh, Bounds};
-pub use castellation::{castellate, CastellatedMesh, CastellationControls, SurfaceFace};
+pub use castellation::{
+    castellate, CastellatedMesh, CastellationControls, RefinementSelection, SurfaceFace,
+};
 pub use cyclic::{
     check_conformity, resolve_pairs, CyclicError, CyclicPair, CyclicPointConstraints,
     DEFAULT_CYCLIC_TOL,

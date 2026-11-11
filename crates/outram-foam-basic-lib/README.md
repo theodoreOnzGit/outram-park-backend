@@ -245,6 +245,12 @@ dominance exactly where the coefficient is largest; two tests in
 | `steady_conduction::mesh` | `radial_mesh`, `voxel_mesh` | new | Nested slab/cylinder/sphere shells with true areas and volumes; cubic voxels of any body given a `zone_at(point)` function. |
 | `steady_conduction::closed_form` | `RadialClosedForm` | new | Exact solution for uniform `q'''` in nested shells, the verification reference. Measured 2026-10-17: single-layer error is the predicted uniform `q dr^2/(8(m+1)k)` offset to 1e-9 K; nested shells converge at order 2.000; a voxel sphere converges only with the film-area fraction. |
 
+### Case I/O — `polyMesh/cellZones` writer (gh:#1463)
+
+| Module | Rust type / fn | C++ source | Notes |
+|---|---|---|---|
+| `io::poly_mesh` | `PolyMesh::write_cell_zones` | `cellZoneMesh::write`, `blockMesh.C` ("Adding cell zones") | Writes `cellZones` (`N ( name { type cellZone; cellLabels List<label> n (...) ; } )`); empty list writes nothing. Used by the `blockMesh` CLI for zoned blocks. |
+
 ## Limitations
 
 Read this before depending on the crate. Every item below is grounded in the

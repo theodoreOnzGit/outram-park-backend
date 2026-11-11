@@ -63,6 +63,10 @@ name = "ideasUnvToFoam"
 path = "src/bin/ideas_unv_to_foam.rs"
 
 [[bin]]
+name = "snappyHexMesh"
+path = "src/bin/snappy_hex_mesh.rs"
+
+[[bin]]
 name = "polyDualMesh"
 path = "src/bin/poly_dual_mesh.rs"
 

@@ -861,6 +861,50 @@ pub fn shield_materials_packed() -> Vec<(&'static str, Vec<(&'static str, f64)>)
     ]
 }
 
+/// Weight fraction of ²³⁵U in the uranium of the enriching salt: "highly
+/// enriched uranium (93% ²³⁵U)", ORNL-4233 p. 3. The other 7 % is taken as
+/// ²³⁸U; the report does not split it, and ²³⁴U is not in the model.
+pub const ENRICHING_U235_WT: f64 = 0.93;
+
+/// LiF per UF₄ in the enriching salt, the "73LiF-27UF4 eutectic" of
+/// ORNL-4233 p. 3–4.
+pub const ENRICHING_LIF_PER_UF4: f64 = 73.0 / 27.0;
+
+/// `salt` after adding (or, below 1, removing) enriching salt until its
+/// ²³⁵U density is `u235_scale` times what it was. This is the perturbation
+/// ORNL-4233 §3.4 (p. 19) measured the ²³⁵U concentration coefficient with,
+/// where capsules of enriching salt were added to the loop (gh:#1128).
+///
+/// Per ²³⁵U atom added it also adds ²³⁸U at [`ENRICHING_U235_WT`] (mass
+/// ratio 7/93), Li at [`ENRICHING_LIF_PER_UF4`] per U, split in the salt's
+/// own Li-7/Li-6 ratio, and F to balance (4 per U, 1 per Li). The salt's
+/// volume is held fixed: ±5 % of the ²³⁵U is about ±0.1 wt % of the salt, so
+/// the density change is neglected. Nuclides other than U, Li and F are
+/// unchanged.
+pub fn salt_with_enriching_salt(salt: &[(&'static str, f64)], u235_scale: f64) -> Vec<(&'static str, f64)> {
+    let get = |n: &str| salt.iter().find(|e| e.0 == n).map_or(0.0, |e| e.1);
+    let d235 = (u235_scale - 1.0) * get("U235");
+    let d238 = d235 * ((1.0 - ENRICHING_U235_WT) / 238.050_788) / (ENRICHING_U235_WT / 235.043_930);
+    let du = d235 + d238;
+    let dli = du * ENRICHING_LIF_PER_UF4;
+    let (li7, li6) = (get("Li7"), get("Li6"));
+    let li7_frac = li7 / (li7 + li6);
+    let df = 4.0 * du + dli;
+    salt.iter()
+        .map(|&(n, v)| {
+            let d = match n {
+                "U235" => d235,
+                "U238" => d238,
+                "Li7" => dli * li7_frac,
+                "Li6" => dli * (1.0 - li7_frac),
+                "F19" => df,
+                _ => 0.0,
+            };
+            (n, v + d)
+        })
+        .collect()
+}
+
 /// [`shield_ball_zone`] with its water removed: the same balls, the space
 /// between them void. An ablation for splitting the shield's worth between
 /// its steel and its water (gh:#1128); the real shield is water-filled
@@ -1073,6 +1117,33 @@ mod tests {
     /// cell, an x-z slice through the whole shield has no overlap and no
     /// pixel outside the model inside the shield's box, and the 16 in is half
     /// iron by volume as TM-0728 states.
+    #[test]
+    fn enriching_salt_scales_u235_and_balances_the_rest() {
+        let base = SALT.to_vec();
+        assert_eq!(salt_with_enriching_salt(&base, 1.0), base);
+        let get = |s: &[(&str, f64)], n: &str| s.iter().find(|e| e.0 == n).unwrap().1;
+        let up = salt_with_enriching_salt(&base, 1.05);
+        let d = |n: &str| get(&up, n) - get(&base, n);
+        assert!((get(&up, "U235") / get(&base, "U235") - 1.05).abs() < 1e-12);
+        // ²³⁸U rides along at 7/93 by mass.
+        let mass_ratio = d("U238") * 238.050_788 / (d("U235") * 235.043_930);
+        assert!((mass_ratio - 7.0 / 93.0).abs() < 1e-12);
+        // 73LiF-27UF4: Li per U, and fluorine balances U as UF4 and Li as LiF.
+        let (du, dli) = (d("U235") + d("U238"), d("Li7") + d("Li6"));
+        assert!((dli / du - 73.0 / 27.0).abs() < 1e-9);
+        // Differences of ~5e-2 densities carry ~1e-17 round-off: judge relative to the change.
+        assert!((d("F19") / (4.0 * du + dli) - 1.0).abs() < 1e-9);
+        // Li isotopic split is the salt's own; Be and Zr untouched.
+        assert!((d("Li6") / dli - get(&base, "Li6") / (get(&base, "Li6") + get(&base, "Li7"))).abs() < 1e-12);
+        assert_eq!(d("Be9"), 0.0);
+        assert_eq!(d("Zr90"), 0.0);
+        // Removal is the exact inverse of addition in every nuclide.
+        let down = salt_with_enriching_salt(&base, 0.95);
+        for ((n, b), ((_, u), (_, w))) in base.iter().zip(up.iter().zip(&down)) {
+            assert!(((u - b) + (w - b)).abs() <= 1e-9 * (u - b).abs() + 1e-17, "{n}");
+        }
+    }
+
     #[test]
     fn tm0728_shield_wraps_the_default_vessel() {
         let base = geometry_with_ends(TEMPERATURE_K, TEMPERATURE_K, Dims::COLD, Ends::VolumeEquivalent);
