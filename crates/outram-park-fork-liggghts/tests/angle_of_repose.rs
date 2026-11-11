@@ -68,6 +68,17 @@
 //! height profile over the sloping flank, excluding the crown and the
 //! single-layer toe.
 //!
+//! **CORRECTED 2026-11-11 (gh:#1416).** The mesh contact path is now
+//! upstream's (`TriMesh::resolveTriSphereContactBary` per facet, inactive
+//! edges/corners skipped, per-facet shear history; `src/tri_mesh.rs`) and the
+//! set-up shear update matches upstream (gh:#1445). Re-run once: **16.28 deg**
+//! (apex 0.0389 m vs 0.0370 m, `KE = 7.2e-11 J`, 1427 s); the gap to LIGGGHTS is
+//! 0.85 deg (was 1.34 deg), now on the other side of the reference (the port is
+//! 0.85 deg steeper, before it was 1.34 deg shallower). One realisation: the
+//! measured scatter is 0.266 deg (see below), so only the gap shrinking
+//! below ~1 deg is supported, not its sign. The "single nearest facet" caveat
+//! below describes the code BEFORE this date.
+//!
 //! ## A caveat that bounds how exact the agreement can be
 //!
 //! LIGGGHTS' `TriMesh` resolves a particle touching several facets at a shared
@@ -82,7 +93,7 @@
 //!
 //! | Quantity | this crate | LIGGGHTS | difference |
 //! |---|---|---|---|
-//! | angle of repose | ~~12.78 deg~~ **14.09 deg** | **15.43 deg** | ~~2.65~~ **1.34 deg** |
+//! | angle of repose | ~~12.78 deg~~ ~~14.09 deg~~ **16.28 deg** | **15.43 deg** | ~~2.65~~ ~~1.34~~ **0.85 deg** |
 //!
 //! **CORRECTED 2026-09-18.** `12.78` was produced by the pre-`op-t3l.9`
 //! nondeterministic build (randomly-seeded `HashMap` neighbour grid ->
