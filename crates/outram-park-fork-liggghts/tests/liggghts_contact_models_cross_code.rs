@@ -585,6 +585,66 @@ fn thornton_ning_without_cohesion_matches_liggghts() {
     assert_bit_identical(&tn_case("tn_nocoh.csv", 0.0, 0.05));
 }
 
+/// Head-on twin of [`tn_case`]: `in.headon_tn_*`, `v = +-1 m/s` along x.
+fn headon_tn_case(file: &str, gamma_surf: f64, yield_ratio: f64) -> Diff {
+    assert_collided(file);
+    let normal =
+        GranularNormalModel::thornton_ning(material(), gamma_surf, yield_ratio).expect("valid");
+    headon_pair(file, GranularContactModel::new(normal, TangentialModel::History))
+}
+
+/// Head-on twin of [`thornton_ning_plastic_matches_liggghts`]
+/// (`in.headon_tn_plastic`).
+///
+/// **Upstream defect (found 2026-11-11).** LIGGGHTS itself turns non-finite
+/// in this case: at step 2300 the pair is separating with overlap
+/// (`x = -+0.00467 m`, `v_x = -+0.537 m/s`, `|x_1 - x_2| = 9.34 mm < d`), and
+/// the step-2310 dump is `nan` in every position and velocity. The first 231
+/// frames (steps 0 to 2300) are finite. This test therefore compares only
+/// those frames, bit for bit, and asserts the NaN onset so that a change to
+/// the reference is visible. The port is not made to reproduce the NaN: the
+/// onset is an upstream oddity, not a physics result (cause not yet
+/// identified: the separating-with-overlap state of the plastic
+/// Thornton-Ning branch is the first thing to read in
+/// `tangential_model_history.h` / `normal_model_thornton_ning.h`). Not yet
+/// read against upstream and not yet filed as an issue.
+#[test]
+fn headon_thornton_ning_plastic_matches_liggghts() {
+    let rows = load("headon_tn_plastic.csv").expect("reference present");
+    assert_eq!(rows.len(), 251, "unexpected reference frame count");
+    let finite = rows
+        .iter()
+        .take_while(|r| r.iter().all(|v| v.is_finite()))
+        .count();
+    assert_eq!(finite, 231, "upstream NaN onset moved (expected step 2310)");
+    let normal = GranularNormalModel::thornton_ning(material(), 0.05, 0.05).expect("valid");
+    let model = GranularContactModel::new(normal, TangentialModel::History);
+    let diff = replay_pair_at(
+        &rows[..finite],
+        model,
+        0.0060,
+        Vec3::new(1.0, 0.0, 0.0),
+        Vec3::new(-1.0, 0.0, 0.0),
+        Vec3::new(0.0, 0.0, 40.0),
+        Vec3::new(0.0, 0.0, -20.0),
+    );
+    assert_bit_identical(&diff);
+}
+
+/// Head-on twin of [`thornton_ning_elastic_matches_liggghts`]
+/// (`in.headon_tn_elastic`).
+#[test]
+fn headon_thornton_ning_elastic_matches_liggghts() {
+    assert_bit_identical(&headon_tn_case("headon_tn_elastic.csv", 0.05, 0.2));
+}
+
+/// Head-on twin of [`thornton_ning_without_cohesion_matches_liggghts`]
+/// (`in.headon_tn_nocoh`).
+#[test]
+fn headon_thornton_ning_without_cohesion_matches_liggghts() {
+    assert_bit_identical(&headon_tn_case("headon_tn_nocoh.csv", 0.0, 0.05));
+}
+
 /// `thornton_ning` against a wall (`in.tn_wall`).
 #[test]
 fn thornton_ning_wall_matches_liggghts() {
