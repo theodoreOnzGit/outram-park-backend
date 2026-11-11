@@ -97,6 +97,7 @@ pub fn mesh_surface_edge_extractor_fun(
     sheets: FunSheets,
     create_wrapper_sheet: bool,
 ) -> (FunReport, Vec<Option<usize>>) {
+    trace_dump("F0", mesh);
     let mut given = face_region.to_vec();
     let sheets_result = match sheets {
         FunSheets::Without => None,
@@ -115,13 +116,36 @@ pub fn mesh_surface_edge_extractor_fun(
             })
         }
     };
+    trace_dump("FA", mesh);
     let smoothing = match octree {
         Some(o) => crate::surface_optimizer::optimise_mesh_surface_octree(mesh, o, points, tris, regions, &given),
         None => optimise_mesh_surface(mesh, points, tris, regions, &given),
     };
+    trace_dump("FB", mesh);
     *mesh = match octree {
         Some(o) => crate::surface_mapper::map_vertices_onto_surface_patches_given_octree(mesh, o, points, tris, regions, &given),
         None => map_vertices_onto_surface_patches_given(mesh, points, tris, regions, &given),
     };
+    trace_dump("FC", mesh);
     (FunReport { sheets: sheets_result, smoothing }, given)
+}
+
+/// gh:#1385: with `GH1385_TRACE` set, print the mesh the way the instrumented
+/// upstream `meshSurfaceEdgeExtractorFUN` does after each of its three steps
+/// (`<tag>P` points, `<tag>F` faces with owner and neighbour, `<tag>C` cell lists).
+fn trace_dump(tag: &str, mesh: &VolumeMesh) {
+    if std::env::var("GH1385_TRACE").is_err() {
+        return;
+    }
+    for (i, p) in mesh.points.iter().enumerate() {
+        eprintln!("{tag}P {i} {:?} {:?} {:?}", p.x, p.y, p.z);
+    }
+    for (i, f) in mesh.faces.iter().enumerate() {
+        let verts: Vec<String> = f.iter().map(|v| v.to_string()).collect();
+        eprintln!("{tag}F {i} {} {} {}", mesh.owner[i], mesh.neighbour[i].map_or(-1, |n| n as i64), verts.join(" "));
+    }
+    for (i, c) in mesh.cell_face_lists().iter().enumerate() {
+        let fs: Vec<String> = c.iter().map(|v| v.to_string()).collect();
+        eprintln!("{tag}C {i} {}", fs.join(" "));
+    }
 }

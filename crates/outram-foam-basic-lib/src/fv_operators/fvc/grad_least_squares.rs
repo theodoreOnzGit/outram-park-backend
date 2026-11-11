@@ -33,8 +33,12 @@
 //!     sum_N  w_N^2 ( phi_N - phi_P - g . d_N )^2 ,      d_N = C_N - C_P
 //! ```
 //!
-//! with the inverse-distance weighting `w_N = 1 / |d_N|` that OpenFOAM uses. The
-//! normal equations are the 3x3 symmetric system
+//! ~~with the inverse-distance weighting `w_N = 1 / |d_N|` that OpenFOAM uses~~
+//! **CORRECTED 2026-11-11 (gh:#1362)**: upstream's `leastSquaresVectors` weights
+//! each face by `magSf/|d|^2` (split `(1-w)` / `w` between its two cells), not
+//! `1/|d|^2`; the formula below is the unweighted-by-area sketch, the exact
+//! arithmetic is on [`grad_least_squares`]. The normal equations are the 3x3
+//! symmetric system
 //!
 //! ```text
 //!     M g = r ,   M = sum_N w_N^2 d_N (x) d_N ,   r = sum_N w_N^2 (phi_N - phi_P) d_N
@@ -73,7 +77,9 @@
 use crate::fields::boundary::bc::PatchField;
 use crate::fields::field::Field;
 use crate::fields::vol_field::{VolScalarField, VolVectorField};
+use super::linear_weight;
 use crate::matrix::SquareMatrix;
+use crate::fv_operators::fvm::patch_delta;
 use crate::primitives::Vector3;
 
 /// A direction is treated as unresolved when its diagonal entry of the
@@ -107,6 +113,256 @@ fn boundary_face_value(phi: &VolScalarField, pi: usize, fi: usize, owner: usize)
     }
 }
 
+/// A symmetric tensor `[xx, xy, xz, yy, yz, zz]` (upstream `symmTensor`).
+type Sym = [f64; 6];
+
+/// `sqr(d)` of a vector, upstream `symmTensor`.
+fn sym_sqr(d: Vector3) -> Sym {
+    [d.x * d.x, d.x * d.y, d.x * d.z, d.y * d.y, d.y * d.z, d.z * d.z]
+}
+
+/// `s*t` of a scalar and a symmetric tensor.
+fn sym_scale(s: f64, t: &Sym) -> Sym {
+    [s * t[0], s * t[1], s * t[2], s * t[3], s * t[4], s * t[5]]
+}
+
+/// `a += b`.
+fn sym_add_assign(a: &mut Sym, b: &Sym) {
+    for i in 0..6 {
+        a[i] += b[i];
+    }
+}
+
+/// Upstream `SymmTensor::det()`, term order preserved.
+fn sym_det(a: &Sym) -> f64 {
+    let (xx, xy, xz, yy, yz, zz) = (a[0], a[1], a[2], a[3], a[4], a[5]);
+    xx * yy * zz + xy * yz * xz + xz * xy * yz - xx * yz * yz - xy * xy * zz - xz * yy * xz
+}
+
+/// Upstream `SymmTensor::adjunct()` divided by `detval` component-wise.
+fn sym_adjunct_over(a: &Sym, detval: f64) -> Sym {
+    let (xx, xy, xz, yy, yz, zz) = (a[0], a[1], a[2], a[3], a[4], a[5]);
+    [
+        (yy * zz - yz * yz) / detval,
+        (xz * yz - xy * zz) / detval,
+        (xy * yz - xz * yy) / detval,
+        (xx * zz - xz * xz) / detval,
+        (xy * xz - xx * yz) / detval,
+        (xx * yy - xy * xy) / detval,
+    ]
+}
+
+/// Upstream `SymmTensor::safeInv()` (ESI v2506 `SymmTensorI.H`): detects an
+/// unresolved (2-D / 1-D) direction by `magSqr(diag) < SMALL * sum`, adds 1 to
+/// that diagonal, inverts, and subtracts 1 again; a determinant below
+/// `ROOTVSMALL` returns the zero tensor.
+fn sym_safe_inv(a: &Sym) -> Sym {
+    const SMALL: f64 = 1.0e-15;
+    const ROOTVSMALL: f64 = 1.0e-150;
+    let m_xx = a[0] * a[0];
+    let m_yy = a[3] * a[3];
+    let m_zz = a[5] * a[5];
+    let threshold = SMALL * (m_xx + m_yy + m_zz);
+    let small_xx = m_xx < threshold;
+    let small_yy = m_yy < threshold;
+    let small_zz = m_zz < threshold;
+    if small_xx || small_yy || small_zz {
+        let mut work = *a;
+        if small_xx {
+            work[0] += 1.0;
+        }
+        if small_yy {
+            work[3] += 1.0;
+        }
+        if small_zz {
+            work[5] += 1.0;
+        }
+        let detval = sym_det(&work);
+        if detval.abs() < ROOTVSMALL {
+            return [0.0; 6];
+        }
+        let mut inv = sym_adjunct_over(&work, detval);
+        if small_xx {
+            inv[0] -= 1.0;
+        }
+        if small_yy {
+            inv[3] -= 1.0;
+        }
+        if small_zz {
+            inv[5] -= 1.0;
+        }
+        return inv;
+    }
+    let detval = sym_det(a);
+    if detval.abs() < ROOTVSMALL {
+        return [0.0; 6];
+    }
+    sym_adjunct_over(a, detval)
+}
+
+/// `st & v` (symmetric tensor dotted into a vector), upstream term order.
+fn sym_dot(st: &Sym, v: Vector3) -> Vector3 {
+    Vector3::new(
+        st[0] * v.x + st[1] * v.y + st[2] * v.z,
+        st[1] * v.x + st[3] * v.y + st[4] * v.z,
+        st[2] * v.x + st[4] * v.y + st[5] * v.z,
+    )
+}
+
+/// `|d|^2` as upstream `magSqr(vector)`.
+fn mag_sqr(d: Vector3) -> f64 {
+    d.x * d.x + d.y * d.y + d.z * d.z
+}
+
+/// `s*v` of a scalar and a vector, component-wise.
+fn vscale(s: f64, v: Vector3) -> Vector3 {
+    Vector3::new(s * v.x, s * v.y, s * v.z)
+}
+
+/// Least-squares gradient of a cell-centred scalar field — `Foam::fv::leastSquaresGrad`.
+///
+/// Returns `grad(phi)` at every cell centre, in units of `[phi]/m`. The returned
+/// field's boundary patches are zero-gradient placeholders (the same convention
+/// [`grad`](super::grad) uses); only the internal values are meaningful.
+///
+/// # Algorithm (ESI v2506 `leastSquaresVectors.C` + `leastSquaresGrad.C`)
+///
+/// ~~Per-cell normal equations with weight `1/|d|^2`, solved by Gaussian
+/// elimination, boundary distance `|Cf - C_P|`, unresolved directions pinned.~~
+/// **CHANGED 2026-11-11 (gh:#1362, upstream is the specification)**: the port now
+/// follows upstream operation for operation (differential row `grad leastSquares`).
+///
+/// 1. `dd = sum_faces (magSf/|d|^2) sqr(d)`, split between the two cells as
+///    `(1-w) wdd` (owner) and `w wdd` (neighbour), `w` the linear face weight;
+///    a non-coupled boundary face adds `(magSf/|d|^2) sqr(d)` with `d` the
+///    PATCH-NORMAL `fvPatch::delta()`.
+/// 2. `invDd = safeInv(dd)` per cell (adjunct over determinant; a direction the
+///    stencil does not resolve gets `+1` on its diagonal before the inversion and
+///    `-1` after, so a 2-D or 1-D mesh gives a zero component there, and a
+///    determinant under `ROOTVSMALL` gives the zero tensor).
+/// 3. Per-face vectors `p = (1-w) (magSf/|d|^2) (invDd_P & d)` and
+///    `n = -w (magSf/|d|^2) (invDd_N & d)`; boundary `p = magSf (1/|d|^2) (invDd_P & d)`.
+/// 4. `grad_P += p (phi_N - phi_P)`, `grad_N -= n (phi_N - phi_P)`, and for each
+///    boundary face `grad_P += p (phi_b - phi_P)`.
+///
+/// The boundary face value `phi_b` is derived from the **boundary-condition
+/// kind** (not blindly from `PatchField::values`, which are zero for
+/// `ZeroGradient` / `Symmetry` / `Empty` until an operator writes them): the
+/// prescribed value for `FixedValue` / `FixedField` / `NoSlip`, the owner cell's
+/// own value for `ZeroGradient` / `Symmetry` / `Empty`, and the stored
+/// `PatchField::values` entry for every other kind. Upstream reads the patch
+/// field itself, which is the same number once the patch has been evaluated.
+/// Cyclic and cyclicAMI seams are treated as ordinary boundary faces here
+/// (upstream adds the neighbour-side value for coupled patches; not ported).
+///
+/// # Accuracy
+///
+/// **Exact (to rounding) for any linear field on any mesh**, provided the
+/// boundary face values are themselves the exact field values there — this is
+/// the property the non-orthogonal Laplacian correction depends on. Measured on
+/// a wavy mesh of 17.50 degrees max non-orthogonality
+/// (`tests/non_orthogonal_laplacian.rs`, 2026-08-07): max error **1.823e-14**
+/// against the analytic gradient, versus **1.845e-02** for
+/// [`grad`](super::grad) on the identical field and mesh. (That figure is for the
+/// pre-gh:#1362 arithmetic; the re-measured value is in the test's doc comment.)
+///
+/// # Example
+///
+/// ```rust
+/// use std::sync::Arc;
+/// use outram_foam_basic_lib::fields::vol_field::VolScalarField;
+/// use outram_foam_basic_lib::fv_operators::fvc::grad_least_squares;
+/// use outram_foam_basic_lib::mesh::fv_mesh::FvMesh;
+///
+/// // A 1-D periodic ring is uniform, so any field constant on it has zero
+/// // gradient — the least-squares fit must return exactly that.
+/// let mesh = Arc::new(FvMesh::periodic_1d(8, 1.0, 1.0));
+/// let p = VolScalarField::uniform("p", mesh, 2.5);
+/// let g = grad_least_squares(&p);
+/// assert!(g.internal[0].mag() < 1e-12);
+/// ```
+pub fn grad_least_squares(phi: &VolScalarField) -> VolVectorField {
+    let mesh = phi.mesh.clone();
+    let n = mesh.n_cells;
+
+    // dd tensor accumulation (upstream `calcLeastSquaresVectors`)
+    let mut dd: Vec<Sym> = vec![[0.0; 6]; n];
+    for f in 0..mesh.n_internal_faces {
+        let own = mesh.owner[f];
+        let nei = mesh.neighbour[f];
+        let d = mesh.cell_centres[nei] - mesh.cell_centres[own];
+        let w = linear_weight(&mesh, f);
+        let wdd = sym_scale(mesh.face_areas[f] / mag_sqr(d), &sym_sqr(d));
+        sym_add_assign(&mut dd[own], &sym_scale(1.0 - w, &wdd));
+        sym_add_assign(&mut dd[nei], &sym_scale(w, &wdd));
+    }
+    for patch in &mesh.patches {
+        for fi in 0..patch.size {
+            let gf = patch.start + fi;
+            let d = patch_delta(&mesh, gf);
+            let t = sym_scale(mesh.face_areas[gf] / mag_sqr(d), &sym_sqr(d));
+            sym_add_assign(&mut dd[mesh.owner[gf]], &t);
+        }
+    }
+    let inv_dd: Vec<Sym> = dd.iter().map(sym_safe_inv).collect();
+
+    // gradient accumulation (upstream `leastSquaresGrad::calcGrad`), the per-face
+    // vectors formed on the fly with upstream's arithmetic
+    let mut g = vec![Vector3::ZERO; n];
+    for f in 0..mesh.n_internal_faces {
+        let own = mesh.owner[f];
+        let nei = mesh.neighbour[f];
+        let d = mesh.cell_centres[nei] - mesh.cell_centres[own];
+        let w = linear_weight(&mesh, f);
+        let mag_sf_by_mag_sqrd = mesh.face_areas[f] / mag_sqr(d);
+        let own_ls = vscale((1.0 - w) * mag_sf_by_mag_sqrd, sym_dot(&inv_dd[own], d));
+        let nei_ls = vscale(-w * mag_sf_by_mag_sqrd, sym_dot(&inv_dd[nei], d));
+        let delta_vsf = phi.internal[nei] - phi.internal[own];
+        g[own] = g[own] + vscale(delta_vsf, own_ls);
+        g[nei] = g[nei] - vscale(delta_vsf, nei_ls);
+    }
+    for (pi, patch) in mesh.patches.iter().enumerate() {
+        for fi in 0..patch.size {
+            let gf = patch.start + fi;
+            let owner = mesh.owner[gf];
+            let d = patch_delta(&mesh, gf);
+            let own_ls = vscale(
+                mesh.face_areas[gf] * (1.0 / mag_sqr(d)),
+                sym_dot(&inv_dd[owner], d),
+            );
+            let face_value = boundary_face_value(phi, pi, fi, owner);
+            g[owner] = g[owner] + vscale(face_value - phi.internal[owner], own_ls);
+        }
+    }
+
+    let boundary = mesh
+        .patches
+        .iter()
+        .map(|p| PatchField::zero_gradient_vec(p.size))
+        .collect();
+    VolVectorField::new(
+        crate::fv_operators::naming::derived_name("grad", &phi.name),
+        mesh,
+        Field::new(g),
+        boundary,
+    )
+}
+
+/// **Port-original** face-centre least-squares gradient (NOT upstream's
+/// `leastSquaresGrad`; see [`grad_least_squares`] for that), kept because it is
+/// exact for a linear field on any mesh, boundary cells included, which
+/// `tests/non_orthogonal_laplacian.rs` and
+/// [`solve_laplacian_non_orthogonal`](crate::fv_operators::fvm::solve_laplacian_non_orthogonal)
+/// rely on (gh:#1362).
+///
+/// Differences from upstream: weight `1/|d|^2` (upstream `magSf/|d|^2` split by the
+/// face weight), the boundary stencil at the true face centre `Cf - C_P`
+/// (upstream: the patch-NORMAL `fvPatch::delta()`, which makes upstream inexact
+/// for a linear field at non-orthogonal boundary cells), a Gaussian-elimination
+/// solve, and unresolved directions pinned to zero.
+///
+/// Original description follows.
+///
 /// Least-squares gradient of a cell-centred scalar field — `Foam::leastSquaresGrad`.
 ///
 /// Returns `grad(phi)` at every cell centre, in units of `[phi]/m`. The returned
@@ -150,17 +406,17 @@ fn boundary_face_value(phi: &VolScalarField, pi: usize, fi: usize, owner: usize)
 /// ```rust
 /// use std::sync::Arc;
 /// use outram_foam_basic_lib::fields::vol_field::VolScalarField;
-/// use outram_foam_basic_lib::fv_operators::fvc::grad_least_squares;
+/// use outram_foam_basic_lib::fv_operators::fvc::grad_least_squares_face_centre;
 /// use outram_foam_basic_lib::mesh::fv_mesh::FvMesh;
 ///
 /// // A 1-D periodic ring is uniform, so any field constant on it has zero
 /// // gradient — the least-squares fit must return exactly that.
 /// let mesh = Arc::new(FvMesh::periodic_1d(8, 1.0, 1.0));
 /// let p = VolScalarField::uniform("p", mesh, 2.5);
-/// let g = grad_least_squares(&p);
+/// let g = grad_least_squares_face_centre(&p);
 /// assert!(g.internal[0].mag() < 1e-12);
 /// ```
-pub fn grad_least_squares(phi: &VolScalarField) -> VolVectorField {
+pub fn grad_least_squares_face_centre(phi: &VolScalarField) -> VolVectorField {
     let mesh = phi.mesh.clone();
     let n = mesh.n_cells;
 

@@ -108,9 +108,12 @@ pub use crate::fv_operators::{adjust_phi, fvc, fvm};
 pub use crate::fv_operators::fvc::central_upwind::{KnpFaceFlux, KnpFaceState, KnpWaveSpeeds};
 
 // --- Non-orthogonal (mesh-quality) correction for the Laplacian ---
-pub use crate::fv_operators::fvc::grad_least_squares;
+pub use crate::fv_operators::fvc::{
+    grad_least_squares, grad_least_squares_face_centre, linear_upwind, linear_upwind_with_grad,
+    non_orth_correction_vectors, sn_grad_corrected, sn_grad_correction_with_grad,
+};
 pub use crate::fv_operators::fvm::{
-    laplacian_corrected, max_non_orthogonality_deg, non_ortho_geometry,
+    laplacian_corrected, laplacian_corrected_face_centre, max_non_orthogonality_deg, non_ortho_geometry,
     solve_laplacian_non_orthogonal, NonOrthoGeometry, NonOrthoScheme,
 };
 

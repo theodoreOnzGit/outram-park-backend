@@ -197,6 +197,30 @@ pub fn pmg_face_centre_and_area(points: &[Vec3], ring: &[usize]) -> (Vec3, Vec3)
 /// mesh carries consistent ones, else in ascending face order (where the two
 /// differ the last bit of a sum can).
 pub fn foam_cell_centres_and_vols(mesh: &VolumeMesh) -> (Vec<f64>, Vec<Vec3>) {
+    let g = pmg_geometry(mesh);
+    (g.cell_volumes, g.cell_centres)
+}
+
+/// The polyMeshGen addressing's geometry (`faceCentres`, `faceAreas`,
+/// `cellCentres`, `cellVolumes`), as `makeCellCentresAndVols` computes it;
+/// what every `polyMeshGenChecks` check and `partTetMesh` read (gh:#1385
+/// round 3). A fresh full computation: upstream's cache is updated only for
+/// the changed faces, which is the same while every move is followed by
+/// `updateGeometry`.
+#[derive(Debug, Clone)]
+pub struct PmgGeometry {
+    /// `faceCentres`.
+    pub face_centres: Vec<Vec3>,
+    /// `faceAreas`.
+    pub face_areas: Vec<Vec3>,
+    /// `cellCentres`.
+    pub cell_centres: Vec<Vec3>,
+    /// `cellVolumes`.
+    pub cell_volumes: Vec<f64>,
+}
+
+/// [`PmgGeometry`] of `mesh` (see [`foam_cell_centres_and_vols`]).
+pub fn pmg_geometry(mesh: &VolumeMesh) -> PmgGeometry {
     let (centres_f, areas_f): (Vec<Vec3>, Vec<Vec3>) = mesh.faces.iter().map(|r| pmg_face_centre_and_area(&mesh.points, r)).unzip();
     let cell_faces = mesh.cell_face_lists();
     let mut vols = vec![0.0; mesh.n_cells];
@@ -222,7 +246,7 @@ pub fn foam_cell_centres_and_vols(mesh: &VolumeMesh) -> (Vec<f64>, Vec<Vec3>) {
         centres[c] = cell_centre.div(cell_vol);
         vols[c] = cell_vol / 3.0;
     }
-    (vols, centres)
+    PmgGeometry { face_centres: centres_f, face_areas: areas_f, cell_centres: centres, cell_volumes: vols }
 }
 
 #[cfg(test)]

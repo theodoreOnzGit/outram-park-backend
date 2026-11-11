@@ -609,7 +609,21 @@ mod tests {
         // `replaceBoundary` appends them, the octree-backed `pMesh`
         // `optimiseFinalMesh`, the corner / edge mapper as upstream writes it.
         // See the gh:#1385 section of the cfMesh crate's V&V README.
-        assert_eq!(got, [13144889121674496086, 5974506692092754484, 11509605158896565506, 871841484633274847]);
+        // **Fourth move, 2026-11-11 (gh:#1385 round 4, FLAGGED for the maintainer):
+        // only the 2D fingerprint, ~~871841484633274847~~ 4370305401663068383
+        // (cells 120 unchanged; cartesian, tet and p did not move).** Causes:
+        // `meshSurfaceMapper2D::preMapVertices` runs 2 iterations as upstream
+        // (the port ran the 3D routine's 3), and the 2D template's
+        // `createEmptyPatches` / `distributeBoundaryFaces` carry the cell lists
+        // through `replaceBoundary` (the lists decide the final `renumberMesh`).
+        // **Fifth move, 2026-11-11 (gh:#1385 round 4, FLAGGED for the maintainer):
+        // only the `pMesh` fingerprint, ~~11509605158896565506~~ 9105338267624933032
+        // (cells 1529 unchanged).** Causes: `createFundamentalSheetsJFS` /
+        // `extrudeLayer` follow upstream's face and cell-list order, `surfaceMorpherCells`
+        // keeps the cell lists (`removeFaces`), `optimiseMeshSurface` untangles on the
+        // same optimiser as `optimizeSurface`, and the volume optimiser's zero-volume
+        // branch rounds as upstream.
+        assert_eq!(got, [13144889121674496086, 5974506692092754484, 9105338267624933032, 4370305401663068383]);
         assert_eq!((mc.n_cells, mt.n_cells, mp.n_cells, m2.n_cells), (560, 4576, 1529, 120));
     }
 

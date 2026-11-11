@@ -35,12 +35,20 @@ use crate::mesh::fv_mesh::PatchKind;
 ///   `1/|fvPatch::delta()|` with the patch-normal `delta()` (ESI v2506
 ///   `fvPatch.C:156`); the two agree only on an orthogonal boundary face.
 pub fn sn_grad(vol: &VolScalarField) -> SurfaceScalarField {
+    sn_grad_with_delta(vol, DeltaCoeff::Orthogonal)
+}
+
+/// [`sn_grad`] with the internal-face coefficient chosen by `mode`
+/// (`Orthogonal` = `deltaCoeffs`, the `orthogonal` scheme; `NonOrthogonal` =
+/// `nonOrthDeltaCoeffs`, the `uncorrected` scheme). Boundary faces are the
+/// patch's own `snGrad()` in either mode, as upstream (gh:#1489).
+pub fn sn_grad_with_delta(vol: &VolScalarField, mode: DeltaCoeff) -> SurfaceScalarField {
     let mesh = &vol.mesh;
 
     let internal = Field::from_fn(mesh.n_internal_faces, |f| {
         let o = mesh.owner[f];
         let n = mesh.neighbour[f];
-        let delta = (mesh.cell_centres[n] - mesh.cell_centres[o]).mag();
+        let delta = mode.interior_delta(mesh, f);
         if delta < 1e-300 {
             return 0.0;
         }

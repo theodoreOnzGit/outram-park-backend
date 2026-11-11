@@ -73,15 +73,15 @@ stated cause.
 | reconstruct linear / vanLeer / Minmod | ~~1199, 813, 1010 of 1578; 16, 192, 32 ulp~~ **1578 of 1578, 0 ulp, all three** (gh:#1489, FIXED) | ~~1858, 1322, 1537 of 2472; 16, 1024, 80 ulp~~ **2472 of 2472, 0 ulp, all three** (gh:#1489, FIXED) | different structure from upstream's `limitedScheme` (`P + lambda*(lin-P)` against `w*(P-N)+N` with `w = lambda*cdWeight + (1-lambda)*upwind`), and `r` amplifies gradient ulps; ~~not replayed~~ the port now follows `LimitedScheme`/`NVDTVD::r`/`limitedSurfaceInterpolationScheme::weights` operation for operation (incl. the `1000` clamp), which made them identical |
 | laplacian upper / diag / source (uncorrected) | ~~466/789, 224/316, 197/316; 3 ulp~~ **789/789, 316/316, 316/316; 0 ulp** (gh:#1489, FIXED) | ~~740/1236, 312/470, 311/470; 8 ulp~~ **1236/1236, 470/470, 470/470; 0 ulp** (gh:#1489, FIXED) | `gamma*magSf/delta` against `dC*(gamma*magSf)` (proof for upper); a fixedValue source is `gm*(dC*v)`; the non-coupled boundary uses the patch `deltaCoeffs`, not the scheme's (`fvmLaplacianUncorrected`) |
 | limiters vanLeer, Minmod, SuperBee, MUSCL, UMIST, limitedLinear(1, 0.5) | all identical (314) | same | |
-| limiter vanAlbada | r>=0 232/232; **r<0 1/82** | same | **D3**: upstream has no `max(0,r)` clamp (proof) |
-| limiter OSPRE | r>=0 ~~151/232, 2 ulp~~ **232/232, 0 ulp** (gh:#1489, `rrp1 = r(r+1)`); **r<0 1/82** | same | operation order, and the same clamp (proof) |
+| limiter vanAlbada | r>=0 232/232; ~~**r<0 1/82**~~ **r<0 82/82, 0 ulp** (gh:#1362, FIXED) | same | **D3**: upstream has no `max(0,r)` clamp (proof); clamp removed |
+| limiter OSPRE | r>=0 ~~151/232, 2 ulp~~ **232/232, 0 ulp** (gh:#1489, `rrp1 = r(r+1)`); ~~**r<0 1/82**~~ **r<0 82/82, 0 ulp** (gh:#1362, FIXED) | same | operation order, and the same clamp (proof); clamp removed |
 
 ## Findings
 Nothing below was changed in solver code: each fix would move solver results,
 so each is a maintainer decision.
 - **D1. Boundary `deltaCoeffs` in `DeltaCoeff::Orthogonal` mode (the default of `fvm::laplacian` and `fvc::sn_grad`).** Upstream `fvPatch::delta()` returns the patch-NORMAL component `n (n . d)` (ESI v2506 `fvPatch.C:156`), so `deltaCoeffs = 1/|n . d|` on boundary faces. The port uses `1/|Cf - C|`, so on a non-orthogonal boundary face the coefficient is too small by `cos(theta)`; here by up to 66 % (blockMesh) and 88 % (polyDual). The `NonOrthogonal` mode already does it. Predicted movement of the fix: every non-orthogonal boundary face of every case that uses the default mode; zero on orthogonal meshes. ~~Not fixed: the pinned appbuilder results would need re-measuring.~~ **FIXED 2026-11-11 (gh:#1488)**: `fvm::DeltaCoeff::Orthogonal.boundary_delta` now computes `|nHat (nHat . d)|` with upstream's operation order (`patch_normal_delta` in `src/fv_operators/fvm/laplacian.rs`); the boundary `fixedGradient` / `mixed` face reconstruction (`fvc::interpolate`), `fvc::sn_grad`, `fvm::laplacian_vec` and the boundary part of `laplacian_corrected` use it too. Boundary `deltaCoeffs` is 1083/1083 and 1788/1788 bit-identical, `snGrad (orthogonal)` is within 1 ulp (2.2e-16 relative). Not touched: coupled (cyclic / AMI) seams, which have their own `delta()` upstream.
 - **D2. Arithmetic order (ulp level), all proven above:** cell volume and centre and face centre order, `*(1/x)` in place of `/x` (grad, `nonOrthDeltaCoeffs`), linear interpolation form, upwind. Bit-identity needs each changed to upstream's form; each change moves every downstream result by ulps, so none was made. Predicted movement: relative 1e-15 on fields, up to 1e-13 where a limiter ratio `r` amplifies it. ~~Bit-identity needs each changed to upstream's form; each change moves every downstream result by ulps, so none was made.~~ **FIXED 2026-11-11 (gh:#1489)**: every ordering above was changed to upstream's form; see the gh:#1489 results section below.
-- **D3. vanAlbada and OSPRE clamp `r` at 0; upstream does not.** Their doc comments claimed the clamp was upstream's; corrected in `src/limiters.rs` (documentation only).
+- **D3. vanAlbada and OSPRE clamp `r` at 0; upstream does not.** Their doc comments claimed the clamp was upstream's; corrected in `src/limiters.rs` (documentation only). ~~Not fixed~~ **FIXED 2026-11-11 (gh:#1362)**: both clamps and the trailing `max(0)` of `FluxLimiter::psi` removed; 82/82 identical for r<0 on both meshes, as predicted (section "Task 1"). No workspace consumer selects these two variants, so no solver number moved.
 - **Which line.** The source read and run is ESI v2506. The Foundation (dev) text of `makeFaceCentresAndAreas`, `fvPatch::delta` and `surfaceInterpolationScheme::interpolate` was not run or read here, so D2's orderings are stated for ESI only and may differ in dev.
 
 ## Not covered (open items on gh:#1362)
@@ -169,3 +169,134 @@ the pinned tolerances to be crossed.
   (cyclic / AMI) seams; the `fvc::interpolate` boundary `Mixed` / `FixedGradient`
   reconstructions. `outram-foam-mesh`'s own geometry code (blockMesh / dual) was not touched.
   Foundation (dev) arithmetic not re-read.
+
+## Task 1 (gh:#1362 D3): vanAlbada / OSPRE for r < 0, prediction written 2026-11-11 BEFORE the code change
+Upstream read (v2506): `vanAlbada.H` returns `r*(r + 1)/(sqr(r) + 1)`, `OSPRE.H` returns
+`rrp1 = r*(r + 1); 1.5*rrp1/(rrp1 + 1)`; neither clamps `r`, and `LimitedScheme::calcLimiter` /
+`NVDTVD.H` apply no clip afterwards. The port's `FluxLimiter::psi` clamps `r` at 0 inside these two
+arms and ends with `val.max(0.0)`. Plan: delete both clamps (the final `max` is redundant for the other
+limiters, whose formulas are already `>= 0`). **Predicted:** `limiter vanAlbada [r<0]` and
+`limiter OSPRE [r<0]` go from 1/82 to 82/82, 0 ulp, on both meshes; every other row unchanged. Only
+consumers of `FluxLimiter::{VanAlbada, Ospre}` move; a grep of the workspace finds none outside
+`limiters.rs` and this test (pflotran and tampines use other variants), so no solver number should move.
+
+## Task 2/3 (gh:#1362 / gh:#1489 follow-up): new rows, prediction written 2026-11-11 BEFORE the Rust side was run
+**Harness added** (`driver/opsDump.C`, `inputs/fvSchemes`; the old dump keys are byte-identical after
+the rebuild, 0 lines removed from either reference file): `linearUpwind grad(T)`,
+`limitedLinear 1` and `0.5` through `surfaceInterpolationScheme::New` (flux +1 / -1); `limitedLinear`
+with k = 1e-16 on a grid of tiny r; `fvc::grad(T, "grad(Tls)")` with `leastSquares`; `mesh.nonOrthCorrectionVectors()`;
+`snGradScheme` `corrected`, `limited corrected 0.33`, `limited corrected 0.5` (full `snGrad` and
+`correction`); `fvm::laplacian` with `Gauss linear corrected` and `Gauss linear limited corrected 0.33`
+(diag, upper, source, patch coefficients, `faceFluxCorrection`); `fvc::div(phi, U)` (vector) and `fvc::div(S)`
+(tensor, `Sf & S_f`) with polynomial fixedValue inputs; a second scalar field `Tm` with an inlet
+`fixedGradient` (uniform 0.7), an outlet `mixed` (per-face refValue/refGrad/valueFraction) and walls `mixed`
+(uniform), dumping its boundary values, Gauss gradient, linear face values, uncorrected `snGrad` and the
+uncorrected Laplacian matrix. Read upstream (ESI v2506): `leastSquaresVectors.C`, `leastSquaresGrad.C`,
+`SymmTensorI.H` (`safeInv`), `correctedSnGrad.C`, `limitedSnGrad.C`, `basicFvGeometryScheme.C`
+(`nonOrthCorrectionVectors`), `linearUpwind.C`, `limitedLinear.H`, `mixedFvPatchField.C`,
+`gaussLaplacianScheme.C`, `gaussDivScheme.C`, `surfaceIntegrate.C`.
+
+**Predicted agreement, hex and polyDual alike, port as it stands:**
+- `linearUpwind`: the port has no such scheme (it is a new function), nothing to compare. With the
+  function written in upstream order (`(1*(P-N)+N) + (Cf - C_upwind) & grad[C_upwind]`, gradient the
+  Gauss-linear `fvc::grad`) I predict **bit-identical**, every face, both signs.
+- `limitedLinear 1`, `0.5` reconstruction: absent as `Limiter` variants. With a `LimitedLinear(k)` variant
+  evaluating `max(min(twoByk*r, 1), 0)`, `twoByk = 2/max(k, small)`, through the existing `NVDTVD::r`
+  path: **bit-identical**. `limiter limitedLinear k=1e-16`: the port floors `k` at `1e-30`, upstream at
+  `small` = 1e-15 (v2506 `doubleScalarSmall`); on the tiny-r grid I predict **5/7 identical, 2 differ**
+  (r = 2.2e-16, 4.4e-16: upstream 0.44 and 0.89, port saturates at 1), then 7/7 after the floor is `1e-15`.
+- `leastSquares` gradient: the port solves the per-cell normal equations by Gaussian elimination with weight
+  `1/|d|^2` and `|Cf - C|` at boundaries; upstream uses `magSf/magSqr(d)` weights split `(1-w)`, `w`, the
+  patch-normal `delta` at boundaries, `safeInv` (adjunct/det) and per-face vectors. Same linear-exact
+  answer, different arithmetic: I predict **most cells differ, relative 1e-16..1e-13** (not bit-identical);
+  after translating upstream exactly, **bit-identical**.
+- `nonOrthCorrectionVectors`: the port's `non_ortho_geometry` forms `n = sf*(1/magSf)`, upstream `Sf/magSf`:
+  **differ on a fraction of internal faces by an ulp or two**; boundary vectors are zero upstream and
+  not computed by the port's `fvc` (it applies a boundary correction instead, below).
+- `snGrad corrected`: no `fvc` function in the port (a new function). Written in upstream order:
+  `nonOrthDeltaCoeffs*(N-P)` + `nonOrthCorrectionVectors & (w*(g_P-g_N)+g_N)`, boundary = patch
+  `snGrad` and zero correction: **bit-identical**. `limited corrected 0.33/0.5`: the port's
+  `NonOrthoScheme::Limited(w)` multiplies the correction by `w`; upstream's factor is
+  `min(w*|snGrad|/((1-w)*|corr| + SMALL), 1)`. These are different schemes: predicted **all faces with a
+  non-zero correction differ at O(1) relative** (not an ulp), until the upstream limiter is implemented.
+- Laplacian `corrected` / `limited`: the port's `laplacian_corrected` (a) takes the face gradient as the
+  arithmetic mean of the two cell gradients (upstream: `w*(P-N)+N`, weights not 0.5), (b) adds the
+  explicit term to `source` per face, not as `V*div(faceFluxCorrection)`, (c) switches the implicit
+  coefficient to `gamma*magSf*deltaCoeff` as `delta = coeff_corr - coeff_orth` increments, (d) corrects
+  non-coupled Dirichlet boundary faces, where upstream's boundary correction vector is zero. Predicted:
+  **upper differs on every non-orthogonal face (ulps), diag and source on nearly every cell; the explicit
+  part differs at O(1e-2..1e-1) relative where the gradient varies across a face (the 0.5 mean against the
+  true weight), and the boundary cells differ by (d)**.
+- `fvc::div(phi, U)` (vector) and `fvc::div(S)` (tensor): the port multiplies by `1/V`, upstream divides:
+  **about a quarter to a third of the components differ by 1 ulp**; scalar `div` rows (already `/V`) stay
+  identical. Face interpolation of vectors/tensors uses the generic `w*(P-N)+N` and should add nothing.
+- `Tm` boundary values: fixedGradient `P + g*delta` (port) against `P + g/deltaCoeffs` (upstream): **ulp
+  differences on a fraction of faces**; mixed `ref*w + (P + g*delta)*(1-w)` against
+  `w*ref + (1-w)*(P + g/deltaCoeffs)`: **ulp differences on a fraction**. `snGrad` mixed: port
+  `w*(dc*(ref-P)) + (1-w)*g` against upstream `((w*(ref-P))*dC) + (1-w)*g`: **ulp differences**. Laplacian
+  mixed: port `w*coeff`, `w*coeff*ref + (1-w)*coeff*d*g` against upstream `gm*((-w)*dC)` and
+  `-(gm*(((w*dC)*ref) + (1-w)*g))`: **ulp differences**. fixedGradient Laplacian `gm*g`: **identical**.
+
+### Task 1-3 results (2026-11-11, release) against the predictions above
+Counts are bit-identical / total, worst ulp, hex then polyDual; "before" is the port as it stood
+(measured by the new rows before any fix), "after" is pinned in `PINS`. 58 new pinned rows, every
+one n/n bit-identical, 0 ulp, on both meshes; nothing existing moved.
+
+| row | before | predicted | after |
+|---|---|---|---|
+| limiter vanAlbada / OSPRE r<0 | 1/82 | 82/82 | 82/82 |
+| `limitedLinear` 1, 0.5 reconstruction (+/- flux) | absent | identical | 1578/1578, 2472/2472 |
+| limiter limitedLinear k=1e-16, tiny r | 5/7 | 5/7 | 7/7 (floor `1e-30` -> `small` = 1e-15) |
+| `linearUpwind` +/- flux | absent | identical | 789/789, 1236/1236 |
+| `grad leastSquares` | 0/948, 0/1410 (rel up to 15) | most differ | 948/948, 1410/1410 |
+| `nonOrthCorrVec` (internal) | 1699/2367, 2639/3708 | fraction differ | 2367/2367, 3708/3708 |
+| `snGrad corrected`, `limited 0.33`, `limited 0.5` (+ correction) | absent | identical | all n/n |
+| `laplacian corrected` / `limited 0.33`: upper, diag, source | 462/789, 148/316, 0/316 (source rel up to 10) | differ | all n/n; `faceFluxCorrection` n/n |
+| `fvc::div(phi, U)` vector | 737/948, 1076/1410 | 1/4-1/3 differ | all n/n |
+| `fvc::div(S)` tensor | 730/948, 1055/1410 | same | all n/n |
+| `Tm` interpolate (fixedGradient + mixed) | 1079/1083, 1782/1788 | differ | all n/n |
+| `Tm` Gauss gradient | 942/948, 1405/1410 (14 ulp) | follows interpolate | all n/n |
+| `Tm` laplacian mixed diag / source | 309/316, 208/316; 440/470, 329/470 | differ | all n/n; upper unchanged |
+| `Tm` snGrad (boundary faces) | 294/294, 552/552 | **I predicted a difference** | unchanged: the port already had v2506's `lerp` form |
+
+**What the prediction got wrong.** (1) `snGrad (mixed)`: predicted to differ, was already identical
+(the port's `w*(dC*(ref-P))` equals v2506's `lerp(g, (ref-P)*dC, w)` term). (2) The leastSquares
+gradient is **not exact for a linear field at non-orthogonal boundary cells in upstream**: its
+boundary stencil uses the patch-normal `fvPatch::delta()`, not `Cf - C`. On the `amp = 0.5` wavy mesh
+the max error is **3.067e-1** (~~1.823e-14~~ for the previous port-original operator, which is kept as
+`grad_least_squares_face_centre`). Likewise upstream's corrected Laplacian does not correct
+non-coupled boundary faces; at `amp = 0.3` (10.5 deg) it reaches 1.264e-3 where the port-original
+operator, which does, reaches ~7e-12 (`tests/non_orthogonal_laplacian.rs`, still green, driven by the
+`_face_centre` pair).
+
+**Source forms (ESI v2506, differ from Foundation dev).** `mixedFvPatchField` in v2506 writes
+`snGrad` and `gradientBoundaryCoeffs` with `lerp(a, b, t) = (1-t)*a + t*b`; Foundation dev writes
+`w*(ref-P)*dC + (1-w)*g` and `w*dC*ref + (1-w)*g`, a different rounding. The port now follows v2506
+(Laplacian mixed arms); dev was read for these functions only.
+
+**Changes:** `fvc/div.rs`, `fvc/div_tensor.rs` (`/V`), `fvc/interpolate.rs` (fixedGradient/mixed `g/dC`;
+generic bound gained `Div<f64>`), `fvm/laplacian.rs` (mixed arms; `laplacian_with_delta_and_source`,
+`patch_delta`), `fvc/grad_least_squares.rs` (upstream translation; old operator renamed
+`..._face_centre`), `fvm/laplacian_corrected.rs` (upstream translation; old renamed `..._face_centre`;
+`non_ortho_geometry` is UNCHANGED, see below), `fvc/sn_grad.rs` (`sn_grad_with_delta`), new
+`fvc/sn_grad_corrected.rs`, `fvc/linear_upwind.rs`, `limiters.rs` (`small`), `fvc/muscl.rs`
+(`Limiter::LimitedLinear`; `Eq` derive dropped).
+
+**Not covered, stated:** `limitedLinearV` (no vector reconstruction in the port); AMI and cyclic
+(coupled) seams for every row; Mixed arms of `laplacian_vec` and `snGrad` for
+`FixedFluxPressure`/`TotalPressure`; `cellLimited` gradients; `skewCorrected` snGrad;
+turbulence, thermo and linear-solver rows (separate work).
+
+**A change that was made and reverted (gh:#1362).** `fvm::non_ortho_geometry` (used by
+`outram-foam-appbuilder-lib`'s own non-orthogonal solver and by `laplacian_corrected_face_centre`)
+first took upstream's `Sf/magSf` unit normal. Re-running the downstream suites, Foam Studio's
+`headless_coil_shows_dean_flow` then failed: the steady coil's out/in flux ratio moved from
+~~0.999999996~~ to **0.999999967** (iteration 81 both times, residual 4.1e-10 -> 4.7e-10), past that
+test's 1e-8 gate. Cause: an ulp-level change in the correction vector, amplified by a stopping rule
+that is residual-based; confirmed by reverting only that line (0.999999996 again). The gate was not
+relaxed and nothing was retuned: `non_ortho_geometry` keeps `Sf*(1/magSf)` (documented in its source),
+the differential row `nonOrthCorrVec (port-original non_ortho_geometry)` pins the 668 / 1069 faces
+(hex / polyDual) that differ from upstream by an ulp or two, and the upstream-form vectors are
+`fvc::non_orth_correction_vectors` (2367/2367, 3708/3708 identical). Left for the maintainer: whether
+appbuilder's non-orthogonal solver should move to the upstream form and the Foam Studio coil gate be
+re-baselined.
