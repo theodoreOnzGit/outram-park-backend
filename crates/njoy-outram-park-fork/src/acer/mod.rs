@@ -81,6 +81,7 @@
 //! ```
 
 pub mod acefix;
+pub mod aplots;
 pub mod acefix_change;
 pub mod acelcp;
 mod acelcp_ext;

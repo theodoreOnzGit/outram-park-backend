@@ -835,9 +835,8 @@ fn test_72_gaspr_chain_ace() {
 
 /// ACER `iopt = 7` (gh:#1492): run upstream deck `case` cut before its first
 /// `viewr`, and compare, line by line against NJOY2016.80, the listed units:
-/// the ACE file the check run writes and the directory lines. The
-/// plot file on `ngend` (`aplots`) is not written by this crate, so it is not
-/// compared; the survey lists it as a tape not written.
+/// the ACE file the check run writes, the directory lines and, where the deck
+/// has `ngend`, the plot file (`aplots`, unit 33: viewr input text, gh:#1369).
 fn acer_check_deck(case: &str, resource: &str, extra: &[(&str, u32)], units: &[u32]) -> Option<()> {
     let root = njoy_root();
     let full = deck_text(&root, case, Some("viewr"), "")?;
@@ -914,32 +913,32 @@ fn test_42_acer_check_unit_and_directory() {
 
 #[test]
 fn test_50_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("50", "a-002_He_004-ENDF8.0.endf", &[], &[32, 34, 35]);
+    let _ = acer_check_deck("50", "a-002_He_004-ENDF8.0.endf", &[], &[32, 33, 34, 35]);
 }
 
 #[test]
 fn test_51_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("51", "p-001_H_002-ENDF8.0.endf", &[], &[32, 34, 35]);
+    let _ = acer_check_deck("51", "p-001_H_002-ENDF8.0.endf", &[], &[32, 33, 34, 35]);
 }
 
 #[test]
 fn test_52_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("52", "p-001_H_001-ENDF8.0.endf", &[], &[32, 34, 35]);
+    let _ = acer_check_deck("52", "p-001_H_001-ENDF8.0.endf", &[], &[32, 33, 34, 35]);
 }
 
 #[test]
 fn test_53_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("53", "d-001_H_002-ENDF8.0.endf", &[], &[32, 34, 35]);
+    let _ = acer_check_deck("53", "d-001_H_002-ENDF8.0.endf", &[], &[32, 33, 34, 35]);
 }
 
 #[test]
 fn test_54_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("54", "p-001_H_003-ENDF8.0.endf", &[], &[32, 34, 35]);
+    let _ = acer_check_deck("54", "p-001_H_003-ENDF8.0.endf", &[], &[32, 33, 34, 35]);
 }
 
 #[test]
 fn test_62_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("62", "d-002_He_003.endf", &[], &[32, 34, 35]);
+    let _ = acer_check_deck("62", "d-002_He_003.endf", &[], &[32, 33, 34, 35]);
 }
 
 #[test]
@@ -951,7 +950,7 @@ fn test_63_acer_check_unit_and_directory() {
 #[test]
 #[ignore = "the preceding iopt = 1 ACE differs from NJOY's (a TENDL-2021 d + Pt-184 charged-particle table), which the check file repeats; not the iopt = 7 writer (gh:#1492)"]
 fn test_71_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("71", "d-078_Pt_184-TENDL2021.endf", &[], &[32, 34, 35]);
+    let _ = acer_check_deck("71", "d-078_Pt_184-TENDL2021.endf", &[], &[32, 33, 34, 35]);
 }
 
 /// Run upstream deck `case` (`moder; moder; acer iopt = 1`, the raw

@@ -396,9 +396,8 @@ fn dater() -> String {
 /// ACER `iopt = 7` (`acer.f90:485-536`, `acefix`): the ACE file on `npend` is
 /// read, its ZAID, comment and `(iz, aw)` list edited by cards 2-4, and written
 /// to `nace` with the directory line on `ndir` ([`crate::acer::acefix`]).
-/// `ngend != 0` asks for the plot file (`aplots`), which is not written
-/// (a note is recorded).
-fn run_acer_fix(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Result<(), NjoyError> {
+/// `ngend != 0` asks for the plot file (`aplots`), written to that unit.
+fn run_acer_fix(c: &AcerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
     if c.mcnpx || c.itype != 1 {
         return Err(NjoyError::NotPorted("ACER iopt = 7 with itype != 1 or mcnpx formats"));
     }
@@ -406,7 +405,7 @@ fn run_acer_fix(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -
         .text(c.npend)
         .ok_or_else(|| NjoyError::InvalidInput(format!("acer: unit {} holds no ACE file", c.npend)))?
         .to_string();
-    let req = crate::acer::acefix::AcefixRequest { suff: c.suff, hk: c.hk.clone(), nxtra: c.nxtra };
+    let req = crate::acer::acefix::AcefixRequest { suff: c.suff, hk: c.hk.clone(), nxtra: c.nxtra, plot: c.ngend != 0 };
     let out = crate::acer::acefix::acefix_type1(&text, &req)?;
     if c.nace > 0 {
         units.put_text(c.nace, out.ace);
@@ -415,7 +414,9 @@ fn run_acer_fix(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -
         }
     }
     if c.ngend != 0 {
-        notes.push("acer: plot file (aplots) not written".into());
+        if let Some(p) = out.plot {
+            units.put_text(c.ngend, p);
+        }
     }
     Ok(())
 }
@@ -429,7 +430,7 @@ fn run_acer_fix(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -
 /// written.
 fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Result<(), NjoyError> {
     if c.iopt == 7 {
-        return run_acer_fix(c, units, notes);
+        return run_acer_fix(c, units);
     }
     if c.iopt != 1 {
         return Err(NjoyError::NotPorted("ACER iopt other than 1 and 7 from a deck (typed APIs exist: acer::thermal, dosimetry, photoatomic, photonuclear)"));
@@ -538,7 +539,7 @@ fn write_directory(c: &AcerCards, ace: &str, units: &mut TapeUnits, notes: &mut 
     if c.ndir == 0 {
         return;
     }
-    let keep = crate::acer::acefix::AcefixRequest { suff: -1.0, hk: String::new(), nxtra: 0 };
+    let keep = crate::acer::acefix::AcefixRequest { suff: -1.0, hk: String::new(), nxtra: 0, plot: false };
     match crate::acer::acefix::acefix_type1(ace, &keep) {
         Ok(out) if c.itype == 1 && !c.mcnpx => units.put_text(c.ndir, out.xsdir),
         _ => notes.push("acer: directory unit not written".into()),

@@ -26,8 +26,8 @@
 //!   not a copy of its input.
 //! - **Not ported**: `consis` (the consistency checks, `acefc.f90:14218-15180`,
 //!   which only raise errors and print), `aceprt` (the listing), the Type 2
-//!   (binary) container, MCNPX formats, and `aplots` (the plot file; see
-//!   [`crate::acer`]'s notes). A deck asking for them gets `NotPorted`.
+//!   (binary) container and MCNPX formats. A deck asking for them gets
+//!   `NotPorted`. The plot file `aplots` is ported ([`super::aplots`]).
 
 use super::fortran_fmt::{fixed, fortran_e, fortran_f, fortran_f0};
 use crate::NjoyError;
@@ -42,15 +42,19 @@ pub struct AcefixRequest {
     /// `nxtra`: the number of leading `(iz, aw)` pairs taken from the file; 0
     /// writes a zero list, as `acefix` does.
     pub nxtra: i32,
+    /// `ngend != 0`: also write the plot file (`aplots`, [`super::aplots`]).
+    pub plot: bool,
 }
 
-/// The two files `aceout` writes.
+/// The files `aceout` writes.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AcefixOutput {
     /// The ACE file, Type 1.
     pub ace: String,
     /// The directory (`ndir`) line.
     pub xsdir: String,
+    /// The viewr input text of `aplots`, when asked for.
+    pub plot: Option<String>,
 }
 
 fn fmt_err(what: &str) -> NjoyError {
@@ -219,7 +223,24 @@ pub fn acefix_type1(text: &str, req: &AcefixRequest) -> Result<AcefixOutput, Njo
         xsdir.push_str(" ptable");
     }
     xsdir.push('\n');
-    Ok(AcefixOutput { ace: out, xsdir })
+    let plot = if req.plot {
+        // `izai`/`awi` from the class letter (`acefix`, `awit`); `iverf` is the
+        // `endf` module's, 6 after an ENDF-6 `iopt = 1` run in the same job and
+        // -1 otherwise: `mtname` treats both alike.
+        let (izai, awi) = match ht {
+            'c' => (1, 1.0),
+            'h' => (1001, 0.99862),
+            'o' => (1002, 1.99626),
+            'r' => (1003, 2.98960),
+            's' => (2003, 2.98903),
+            _ => (2004, 3.96713),
+        };
+        let table = super::aplots::AceTable::new(&nxs, &jxs, xss.clone(), aw0, izai, awi, -1);
+        Some(super::aplots::aplots(&table, hk.trim_end())?)
+    } else {
+        None
+    };
+    Ok(AcefixOutput { ace: out, xsdir, plot })
 }
 
 #[cfg(test)]
@@ -256,7 +277,7 @@ mod tests {
 
     #[test]
     fn comment_replaced_everything_else_kept() {
-        let req = AcefixRequest { suff: -1.0, hk: "new comment".into(), nxtra: 0 };
+        let req = AcefixRequest { suff: -1.0, hk: "new comment".into(), nxtra: 0, plot: false };
         let out = acefix_type1(&tiny(), &req).unwrap();
         let t = tiny();
         let (a, b): (Vec<&str>, Vec<&str>) = (out.ace.lines().collect(), t.lines().collect());
@@ -269,7 +290,7 @@ mod tests {
 
     #[test]
     fn blank_comment_keeps_and_suffix_applies() {
-        let req = AcefixRequest { suff: 0.2, hk: "  ".into(), nxtra: 0 };
+        let req = AcefixRequest { suff: 0.2, hk: "  ".into(), nxtra: 0, plot: false };
         let out = acefix_type1(&tiny(), &req).unwrap();
         assert!(out.ace.starts_with("  1001.20c"));
         assert!(out.ace.lines().nth(1).unwrap().starts_with("old comment"));
