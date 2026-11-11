@@ -422,6 +422,13 @@ impl GranularSystem {
             .map(|s| s.compute_vector(n))
     }
 
+    /// `f_<mesh>[10..12]` of a servo mesh: the centre `xcm_` (`n` in `0..3`);
+    /// `None` when that wall has no servo.
+    #[must_use]
+    pub fn mesh_servo_xcm(&self, wall: usize, n: usize) -> Option<f64> {
+        self.moving_walls[wall].servo.as_ref().map(|s| s.0.xcm()[n])
+    }
+
     /// `(sigma_n, sigma_t)` `[Pa]` of facet `tri` of moving wall `wall`
     /// (`None` when that wall tracks no stress); see
     /// [`crate::mesh_stress::MeshStress::sigma_n`].
@@ -1333,6 +1340,10 @@ impl GranularSystem {
                     .collect();
                 st.final_integrate(&norms);
             }
+        }
+        // `MeshModuleStressServo::final_integrate`
+        for w in &mut self.moving_walls {
+            w.servo_final_integrate();
         }
         if let Some(heat) = &self.heat {
             // final_integrate of the scalar transport equation

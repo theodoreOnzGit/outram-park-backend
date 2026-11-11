@@ -139,7 +139,7 @@ use petir::mathf::RealMath;
 use crate::boundary::{Boundary, Contact};
 use crate::particle::{Particle, Vec3};
 use crate::tri_mesh::{arr, vec3, Nodes, TriMeshState, V3};
-use crate::mesh_stress::MeshStress;
+use crate::mesh_stress::{MeshServo, MeshStress};
 use crate::variable::{Expr, VarContext, VariableTable};
 use crate::DemError;
 
@@ -841,6 +841,9 @@ pub struct MovingBoundary {
     /// `fix mesh/surface/stress` module (force, torque and stress on the
     /// mesh), if requested with [`MovingBoundary::with_stress`]. gh:#1416.
     pub stress: Option<MeshStress>,
+    /// `mesh_module_stress_servo` (force PID) with the original nodes
+    /// `mesh->move` starts from. gh:#1416.
+    pub servo: Option<(MeshServo, Vec<Nodes>)>,
 }
 
 /// Upper bound of the `order` of a vibration mover (upstream `ampl[30]`).
@@ -1011,6 +1014,7 @@ impl MovingBoundary {
             step: 0,
             end_step: 0,
             stress: None,
+            servo: None,
         }
     }
 
@@ -1021,6 +1025,21 @@ impl MovingBoundary {
         if let WallGeometry::Mesh(m) = &self.geometry {
             let area = (0..m.triangles.len()).map(|i| m.state.area(i)).collect();
             self.stress = Some(MeshStress::new(p_ref, area));
+        }
+        self
+    }
+
+    /// Attach `mesh_module_stress_servo` (`ctrlPV force`, PID): the mesh
+    /// also tracks stress, `p_ref` at the servo centre. The mesh's current
+    /// nodes are the original nodes `mesh->move` starts from. No-op for a
+    /// non-mesh wall.
+    #[must_use]
+    pub fn with_servo(mut self, servo: MeshServo) -> Self {
+        if let WallGeometry::Mesh(m) = &self.geometry {
+            let orig = m.nodes();
+            let xcm = servo.xcm();
+            self = self.with_stress(vec3(xcm));
+            self.servo = Some((servo, orig));
         }
         self
     }
@@ -1297,6 +1316,10 @@ impl MovingBoundary {
         if matches!(self.geometry, WallGeometry::Mesh(_)) {
             self.time += dt;
             self.step += 1;
+            if self.servo.is_some() {
+                self.advance_servo();
+                return;
+            }
             self.apply_motion(dt);
             self.advance_mesh(dt);
             return;
@@ -1315,6 +1338,50 @@ impl MovingBoundary {
 }
 
 impl MovingBoundary {
+    /// `MeshModuleStressServo::initial_integrate`: `mesh->move(dX, dx)` puts
+    /// every node at its original position plus `dX`; `p_ref` follows the
+    /// centre. Node velocities keep what the last `final_integrate` set.
+    fn advance_servo(&mut self) {
+        let Some((servo, orig)) = &mut self.servo else {
+            return;
+        };
+        let d = servo.initial_integrate();
+        let WallGeometry::Mesh(m) = &mut self.geometry else {
+            return;
+        };
+        let nodes: Vec<Nodes> = orig
+            .iter()
+            .map(|nd| {
+                let mut o = *nd;
+                for node in &mut o {
+                    for k in 0..3 {
+                        node[k] += d[k];
+                    }
+                }
+                o
+            })
+            .collect();
+        m.set_nodes(&nodes);
+        m.rebuild_bounds();
+        if let Some(st) = &mut self.stress {
+            st.p_ref = vec3(servo.xcm());
+        }
+    }
+
+    /// `MeshModuleStressServo::final_integrate`: new servo velocity from this
+    /// step's total force, written to every node's velocity.
+    pub fn servo_final_integrate(&mut self) {
+        let (Some((servo, _)), Some(st)) = (&mut self.servo, &self.stress) else {
+            return;
+        };
+        let v = servo.final_integrate(st.f_total());
+        if let WallGeometry::Mesh(m) = &mut self.geometry {
+            for nv in &mut m.state.node_velocity {
+                *nv = [v; 3];
+            }
+        }
+    }
+
     /// Mesh branch of [`MovingBoundary::advance`]: upstream `FixMoveMesh::
     /// initial_integrate` with a rotate mover then a linear mover. Node
     /// velocities are zeroed, the nodes rotate by the step quaternion about
