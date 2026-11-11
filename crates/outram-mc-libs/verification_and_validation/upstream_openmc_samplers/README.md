@@ -214,3 +214,57 @@ Box-Muller).
   6.5e-16 rel), direction 2034/2160 (worst 3.3e-16 abs). No port defect found; the
   port's draw order, group selection (`nu_d*p_k` vs tabulated yields) and resampling
   match. Direction last-bit cause is inferred, not A/B-tested.
+
+
+## Source distributions (gh:#1388, added 2026-11-11)
+
+> Research, education and V&V only (`RESPONSIBLE_USE.md`). AI draft, unreviewed.
+
+**Port:** `src/source/distribution.rs` (`Distribution` enum: Discrete with Vose alias,
+Uniform, PowerLaw, Maxwell, Watt, Normal incl. truncation, Tabular x4 interpolations,
+Mixture, bias weights; `SpatialDistribution` enum: Cartesian, Cylindrical, Spherical,
+PointCloud, Box, Point; `Legendre` evaluation only, because upstream has no sampler).
+
+**Methodology:** `extract_distributions.sh` (SHA-256 of every file, verbatim line ranges
+of `distribution.cpp` 26-772, `distribution_spatial.cpp` 43-257 and 376-492,
+`math_functions.cpp` 100-105) and `run_distributions.sh` compile OpenMC's real code with
+g++ 13.3 `-O2 -ffp-contract=off` against `stubs_dist/` (an in-memory XML tree,
+`xml_interface.h` with the same semantics, `mesh.h` declarations). Upstream's own XML
+constructors and `distribution_from_xml` run. `distributions_driver.cpp` prints value,
+weight and end RNG state of 40 seeds per case as hex (`reference_distributions.txt`,
+1611 lines), plus `evaluate` and `integral()`. `DecaySpectrum` is stubbed (needs the
+depletion chain, gh:#975). Test: `tests/source_distributions_vs_openmc_code_to_code.rs`.
+
+**Prediction (before the run):** libm-free families bit-identical; `PowerLaw`, `Normal`,
+`Maxwell`/`Watt`, log Tabular, sin/cos spatial and truncated-normal `erfc` possibly 1 ulp
+in a few percent; every end state identical.
+
+**Results (2026-11-11, rustc 1.99.1, g++ 13.3; Intel Xeon @ 2.80 GHz cloud container,
+4 vCPUs shared, CPU only; no timings):** 8 tests pass.
+
+| family | cases x seeds | value bit-identical | weight | end state |
+|---|---|---|---|---|
+| 16 univariate (uniform, powerlaw x2, maxwell, watt, normal x3, discrete x3, tabular x5) | 16 x 40 | **640 / 640** | all 1 | **640 / 640** |
+| `evaluate` (PDF), 13 distributions, 6-12 points | 150 | **150 / 150** | - | - |
+| `integral()` (incl. tabular, discrete, nested mixture) | 18 | **18 / 18** | - | - |
+| Mixture flat / nested / biased, biased Discrete / Uniform / Maxwell | 6 x 40 | 240 / 240 (worst < 1e-14 where libm) | within 1e-12 | 240 / 240 |
+| Cartesian x3, Box, Point, PointCloud x3, spherical default | 40 each | all coordinates | all | all |
+| Cylindrical default / tilted / diagonal / biased | 120 coords each | **116 / 119 / 117 / 119** | all | all |
+| Spherical independent | 120 coords | **118** | all | all |
+
+All libm-dependent families (pow, ln, exp, expm1, log1p, erfc) came out bit-identical
+on these 40 seeds (a coincidence of the draws, not a guarantee; the first run could have
+differed). The 11 spatial coordinates that differ do so by <= 4.31e-16 relative (1 ulp)
+and come only from `sin`/`cos`: `spatial_differences_are_libm_roundoff` recomputes the
+cylindrical default and the spherical case with `std` (glibc) and reproduces **all 240
+coordinates** of upstream. Accepted under gh:#1455 (PETIR libm), flagged for the maintainer.
+`powerlaw_differences_are_libm_roundoff` does the same A/B for `pow`.
+
+**Findings (upstream, not copied):**
+- `PointCloud` XML bias reads the *unbiased* `strengths` as the bias
+  (`distribution_spatial.cpp:420`, same in `MeshSpatial` :326): every weight is 1. The port
+  takes the bias literally (`point_cloud_biased`); pinned by
+  `pointcloud_xml_bias_defect_is_upstream_not_port`.
+- `Equiprobable::sample_unbiased` reads `x_[i + i]` (`distribution.cpp`): not ported.
+- `PowerLaw::evaluate` truncates `n+1` to `int`: ported as upstream (wrong for non-integer n).
+- `Legendre` has no sampler upstream.
