@@ -344,6 +344,30 @@ geometry is unchanged by it (`upper_triangular_order_moves_no_geometry`);
 fingerprints that hash face order moved once. Record:
 `verification_and_validation/upper_triangular_gh1285/`.
 
+## The `meshDict` reader: every entry gets a row (gh:#1476, 2026-11-11)
+
+`mesh_dict::read_mesh_dict` reads an upstream `meshDict` (parsed by
+`outram_foam_basic_lib::io::dict`, the one dictionary parser) into the
+typed `MeshDict` and generator options; `MeshDictReading::resolve` matches
+patch names as upstream's `findPatches` does (full regular-expression match,
+`rename_boundary_patches::regex_full_match`). Rules that follow:
+
+- **No entry is skipped silently.** Each gets a `KeywordStatus`: honoured,
+  reported (read, not acted on, with the reason), not applicable (upstream's
+  generator does not read it) or unknown. When a generator starts honouring a
+  reported entry (for example `optimiseLayer`, once `optimizeBoundaryLayer` is
+  wired), change its row in the same change and update the pin
+  `mesh_dict::tests::tutorials_read_with_no_unhandled_keyword`.
+- **The typed structs stay the interface**; the reader only fills them.
+- Surfaces: `tri_surf_io` (FMS, FTR; STL through `outram-foam-mesh`'s port of
+  OpenFOAM's `STLReader`, feature `surface-file`). Never a second STL reader.
+- **Known gap:** the generators take patch *names* only
+  (`patches::SurfaceRegions`), so a surface's geometric types (`wall` in an
+  FMS, `empty` from an STL, which upstream's `renameBoundaryPatches` turns into
+  `wall`) do not reach the output; unrenamed patches come out as `patch`.
+- Tutorial inputs live in `test_data/cfmesh_tutorials/` (provenance in its
+  `References.md`, excluded from the package).
+
 ## Avoid writing macros (workspace rule, 2026-11-05)
 
 Maintainer direction: macros make code harder to read and review. Do not

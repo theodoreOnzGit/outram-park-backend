@@ -14,7 +14,7 @@ categories.workspace = true
 # The vendored upstream clones are dev-only reference material (gitignored) and
 # must never be packaged; `upstream_source/README.md` (the small provenance
 # record) stays in the package.
-exclude = ["docs", "upstream_source/cfMesh", "upstream_source/voro"]
+exclude = ["docs", "upstream_source/cfMesh", "upstream_source/voro", "test_data"]
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and
@@ -49,6 +49,12 @@ foam-export = []
 # `polyDualMesh` as ported in `outram-foam-mesh` (pure Rust, Android- and
 # wasm-safe). outram-foam-mesh does not depend on this crate: no cycle.
 cell-centre-dual = ["dep:outram-foam-mesh"]
+# gh:#1476: `surfaceFile` STL reading through outram-foam-mesh's port of
+# OpenFOAM's STLReader (`tri_surf_io::read_surface_bytes`). FMS/FTR need no
+# feature. Off by default so the base crate does not pull outram-foam-mesh;
+# the outram-foam-cli meshers (cartesianMesh, tetMesh, pMesh, cartesian2DMesh)
+# turn it on.
+surface-file = ["dep:outram-foam-mesh"]
 
 [dependencies]
 # Every transcendental routes through PETIR for cross-platform bit identity

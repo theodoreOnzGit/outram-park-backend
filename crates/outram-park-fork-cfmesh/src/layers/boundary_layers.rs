@@ -968,7 +968,14 @@ pub fn generate_layer(mesh: &VolumeMesh, request: &LayerRequest, c: &BoundaryLay
         LayerRequest::AllPatches => out.all = Some(bl.add_layer_for_all_patches().map_err(|e| format!("boundaryLayers: {e:?}"))?),
         LayerRequest::Patches(names) => {
             for n in names {
-                let o = bl.add_layer_for_patch(n).map_err(|e| format!("boundaryLayers: {e:?}"))?;
+                // upstream's addLayerForPatch(word) walks the patches and
+                // does nothing for a name no patch has (gh:#1476: a
+                // `patchBoundaryLayers` regex such as "orifice.*" reaches
+                // here verbatim)
+                let o = match bl.add_layer_for_patch(n) {
+                    Err(BoundaryLayersError::UnknownPatch(_)) => None,
+                    r => r.map_err(|e| format!("boundaryLayers: {e:?}"))?,
+                };
                 out.per_patch.push((n.clone(), o));
             }
         }
@@ -1682,6 +1689,19 @@ pub(crate) mod tests {
         bl.mesh.validate().unwrap();
         assert!((bl.mesh.total_volume() - 1.0).abs() < 1e-12);
         assert_eq!(bl.add_layer_for_patch("nowhere"), Err(BoundaryLayersError::UnknownPatch("nowhere".into())));
+    }
+
+    /// gh:#1476: `generateBoundaryLayers` passes `patchBoundaryLayers`
+    /// names verbatim; a name no patch has (a regex such as `"x.*"`) adds
+    /// nothing, as upstream's `addLayerForPatch(word)`, instead of failing.
+    #[test]
+    fn generate_layer_skips_a_name_no_patch_has() {
+        let m = six_patch_box(0.25);
+        let req = LayerRequest::Patches(vec!["x.*".into(), "x0".into()]);
+        let (out, g) = generate_layer(&m, &req, &BoundaryLayersControls::default(), false).unwrap();
+        assert_eq!(g.per_patch.len(), 2);
+        assert!(g.per_patch[0].1.is_none());
+        assert_eq!(out.n_cells, 80);
     }
 
     /// V&V (gh:#1270 remainder), prediction P5: `addWrapperLayer`.
