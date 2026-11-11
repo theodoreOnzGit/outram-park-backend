@@ -102,7 +102,9 @@ impl FluxLimiter {
             }
             // limitedLinear(k): max(min((2/k) r, 1), 0), twoByk = 2/max(k, small)
             FluxLimiter::LimitedLinear(k) => {
-                let two_by_k = 2.0 / k.max(1e-30);
+                // upstream `twoByk_ = 2.0/max(k_, small)`, `small` = 1e-15 (ESI v2506
+                // `doubleScalarSMALL`); ~~1e-30~~ **CORRECTED 2026-11-11 (gh:#1362)**
+                let two_by_k = 2.0 / k.max(1e-15);
                 (two_by_k * r).min(1.0).max(0.0)
             }
         };

@@ -178,6 +178,18 @@ fn patch_normal_delta(sf: Vector3, d: Vector3, area: f64) -> Vector3 {
     Vector3::new(n_hat.x * s, n_hat.y * s, n_hat.z * s)
 }
 
+/// `fvPatch::delta()` of global boundary face `face` (see [`patch_normal_delta`]),
+/// for operators outside this module that need upstream's patch-normal vector
+/// (the least-squares gradient, gh:#1362).
+pub(crate) fn patch_delta(mesh: &crate::mesh::fv_mesh::FvMesh, face: usize) -> Vector3 {
+    let d = mesh.face_centres[face] - mesh.cell_centres[mesh.owner[face]];
+    let area = mesh.face_areas[face];
+    if area < 1.0e-300 {
+        return d;
+    }
+    patch_normal_delta(mesh.face_area_vectors[face], d, area)
+}
+
 /// The boundary-face distance the Laplacian divides by, per `mode`.
 ///
 /// `d` is the owner-cell-centre-to-face-centre vector `[m]`. For
@@ -276,8 +288,27 @@ pub fn laplacian_with_delta(
     phi: &VolScalarField,
     mode: DeltaCoeff,
 ) -> FvMatrix {
+    laplacian_with_delta_and_source(gamma, phi, mode, None)
+}
+
+/// [`laplacian_with_delta`] whose `source` starts from `source0` instead of zero,
+/// so the boundary contributions are added to it in patch order exactly as
+/// upstream's `fvMatrix::solve` adds `boundaryCoeffs` to `source_` (the
+/// non-orthogonal correction `-V div(faceFluxCorrection)` is `source_` there,
+/// gh:#1362). `source0` is in this matrix's sign convention, one entry per cell.
+pub fn laplacian_with_delta_and_source(
+    gamma: &SurfaceScalarField,
+    phi: &VolScalarField,
+    mode: DeltaCoeff,
+    source0: Option<&[f64]>,
+) -> FvMatrix {
     let mesh = phi.mesh.clone();
     let mut mat = FvMatrix::new(mesh.clone());
+    if let Some(s0) = source0 {
+        for (c, v) in s0.iter().enumerate() {
+            mat.source[c] = *v;
+        }
+    }
 
     // Internal faces: Gauss, with the delta coefficient `mode` selects.
     for f in 0..mesh.n_internal_faces {
@@ -360,9 +391,13 @@ pub fn laplacian_with_delta(
                     ref_value,
                     ref_grad,
                 } => {
+                    // upstream v2506 `mixedFvPatchField`: internalCoeffs `gm*(-w*dC)`,
+                    // boundaryCoeffs `-gm*lerp(refGrad, dC*refValue, w)`, with
+                    // `lerp(a, b, t) = (1-t)*a + t*b` (gh:#1362). Foundation (dev) writes
+                    // `w*dC*ref + (1-w)*g`, a different rounding.
                     let w = *value_fraction;
-                    mat.ldu.diag[owner] += w * coeff;
-                    mat.source[owner] += w * coeff * ref_value + (1.0 - w) * coeff * d * ref_grad;
+                    mat.ldu.diag[owner] += gm * (w * dc);
+                    mat.source[owner] += gm * ((1.0 - w) * ref_grad + w * (dc * ref_value));
                 }
                 // Per-face Robin: identical algebra, coefficients read per face.
                 BoundaryCondition::MixedField {
@@ -371,9 +406,8 @@ pub fn laplacian_with_delta(
                     ref_grad,
                 } => {
                     let w = value_fraction[fi];
-                    mat.ldu.diag[owner] += w * coeff;
-                    mat.source[owner] +=
-                        w * coeff * ref_value[fi] + (1.0 - w) * coeff * d * ref_grad[fi];
+                    mat.ldu.diag[owner] += gm * (w * dc);
+                    mat.source[owner] += gm * ((1.0 - w) * ref_grad[fi] + w * (dc * ref_value[fi]));
                 }
                 // fixedFluxPressure: a fixedGradient whose gradient the solver
                 // set (snGrad(p)); same explicit boundary flux as FixedGradient.

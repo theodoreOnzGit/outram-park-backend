@@ -19,7 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Div, Mul, Sub};
 
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
@@ -110,7 +110,12 @@ pub fn linear_weight(mesh: &FvMesh, f: usize) -> f64 {
 /// ```
 pub fn interpolate<T>(vol: &VolField<T>) -> SurfaceField<T>
 where
-    T: Clone + Default + Add<Output = T> + Sub<Output = T> + Mul<f64, Output = T>,
+    T: Clone
+        + Default
+        + Add<Output = T>
+        + Sub<Output = T>
+        + Mul<f64, Output = T>
+        + Div<f64, Output = T>,
 {
     let mesh = &vol.mesh;
 
@@ -181,8 +186,10 @@ where
                     // solver set (`snGrad(p)`), so it reconstructs the same way.
                     BoundaryCondition::FixedGradient(g)
                     | BoundaryCondition::FixedFluxPressure { gradient: g } => {
-                        let delta = DeltaCoeff::Orthogonal.boundary_delta(mesh, gf); // gh:#1488: 1/deltaCoeffs, patch-normal
-                        vol.internal[owner].clone() + g.clone() * delta
+                        // upstream `fixedGradientFvPatchField::evaluate`: `P + gradient/deltaCoeffs`
+                        // (gh:#1362: divide by the stored coefficient, ~~`g*delta`~~)
+                        let dc = DeltaCoeff::Orthogonal.boundary_delta_coeff(mesh, gf);
+                        vol.internal[owner].clone() + g.clone() / dc
                     }
                     // Robin/mixed blend of the fixedValue and fixedGradient parts.
                     BoundaryCondition::Mixed {
@@ -190,10 +197,14 @@ where
                         ref_value,
                         ref_grad,
                     } => {
-                        let delta = DeltaCoeff::Orthogonal.boundary_delta(mesh, gf); // gh:#1488: 1/deltaCoeffs, patch-normal
+                        // upstream v2506 `mixedFvPatchField::evaluate`:
+                        // `lerp(P + refGrad/deltaCoeffs, refValue, w)` = `(1-w)*(P + g/dC) + w*ref`
+                        // (gh:#1362: `g/dC`, ~~`g*delta`~~). Foundation (dev) writes
+                        // `w*ref + (1-w)*(...)`, the same sum.
+                        let dc = DeltaCoeff::Orthogonal.boundary_delta_coeff(mesh, gf);
                         let w = *value_fraction;
-                        ref_value.clone() * w
-                            + (vol.internal[owner].clone() + ref_grad.clone() * delta) * (1.0 - w)
+                        (vol.internal[owner].clone() + ref_grad.clone() / dc) * (1.0 - w)
+                            + ref_value.clone() * w
                     }
                     // Per-face Robin blend; same algebra, coefficients per face.
                     BoundaryCondition::MixedField {
@@ -201,11 +212,10 @@ where
                         ref_value,
                         ref_grad,
                     } => {
-                        let delta = DeltaCoeff::Orthogonal.boundary_delta(mesh, gf); // gh:#1488: 1/deltaCoeffs, patch-normal
+                        let dc = DeltaCoeff::Orthogonal.boundary_delta_coeff(mesh, gf);
                         let w = value_fraction[fi];
-                        ref_value[fi].clone() * w
-                            + (vol.internal[owner].clone() + ref_grad[fi].clone() * delta)
-                                * (1.0 - w)
+                        (vol.internal[owner].clone() + ref_grad[fi].clone() / dc) * (1.0 - w)
+                            + ref_value[fi].clone() * w
                     }
                     BoundaryCondition::Empty => T::default(),
                 }

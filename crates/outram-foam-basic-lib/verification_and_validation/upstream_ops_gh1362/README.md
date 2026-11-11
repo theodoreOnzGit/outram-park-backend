@@ -236,3 +236,53 @@ uncorrected Laplacian matrix. Read upstream (ESI v2506): `leastSquaresVectors.C`
   `w*(dc*(ref-P)) + (1-w)*g` against upstream `((w*(ref-P))*dC) + (1-w)*g`: **ulp differences**. Laplacian
   mixed: port `w*coeff`, `w*coeff*ref + (1-w)*coeff*d*g` against upstream `gm*((-w)*dC)` and
   `-(gm*(((w*dC)*ref) + (1-w)*g))`: **ulp differences**. fixedGradient Laplacian `gm*g`: **identical**.
+
+### Task 1-3 results (2026-11-11, release) against the predictions above
+Counts are bit-identical / total, worst ulp, hex then polyDual; "before" is the port as it stood
+(measured by the new rows before any fix), "after" is pinned in `PINS`. 58 new pinned rows, every
+one n/n bit-identical, 0 ulp, on both meshes; nothing existing moved.
+
+| row | before | predicted | after |
+|---|---|---|---|
+| limiter vanAlbada / OSPRE r<0 | 1/82 | 82/82 | 82/82 |
+| `limitedLinear` 1, 0.5 reconstruction (+/- flux) | absent | identical | 1578/1578, 2472/2472 |
+| limiter limitedLinear k=1e-16, tiny r | 5/7 | 5/7 | 7/7 (floor `1e-30` -> `small` = 1e-15) |
+| `linearUpwind` +/- flux | absent | identical | 789/789, 1236/1236 |
+| `grad leastSquares` | 0/948, 0/1410 (rel up to 15) | most differ | 948/948, 1410/1410 |
+| `nonOrthCorrVec` (internal) | 1699/2367, 2639/3708 | fraction differ | 2367/2367, 3708/3708 |
+| `snGrad corrected`, `limited 0.33`, `limited 0.5` (+ correction) | absent | identical | all n/n |
+| `laplacian corrected` / `limited 0.33`: upper, diag, source | 462/789, 148/316, 0/316 (source rel up to 10) | differ | all n/n; `faceFluxCorrection` n/n |
+| `fvc::div(phi, U)` vector | 737/948, 1076/1410 | 1/4-1/3 differ | all n/n |
+| `fvc::div(S)` tensor | 730/948, 1055/1410 | same | all n/n |
+| `Tm` interpolate (fixedGradient + mixed) | 1079/1083, 1782/1788 | differ | all n/n |
+| `Tm` Gauss gradient | 942/948, 1405/1410 (14 ulp) | follows interpolate | all n/n |
+| `Tm` laplacian mixed diag / source | 309/316, 208/316; 440/470, 329/470 | differ | all n/n; upper unchanged |
+| `Tm` snGrad (boundary faces) | 294/294, 552/552 | **I predicted a difference** | unchanged: the port already had v2506's `lerp` form |
+
+**What the prediction got wrong.** (1) `snGrad (mixed)`: predicted to differ, was already identical
+(the port's `w*(dC*(ref-P))` equals v2506's `lerp(g, (ref-P)*dC, w)` term). (2) The leastSquares
+gradient is **not exact for a linear field at non-orthogonal boundary cells in upstream**: its
+boundary stencil uses the patch-normal `fvPatch::delta()`, not `Cf - C`. On the `amp = 0.5` wavy mesh
+the max error is **3.067e-1** (~~1.823e-14~~ for the previous port-original operator, which is kept as
+`grad_least_squares_face_centre`). Likewise upstream's corrected Laplacian does not correct
+non-coupled boundary faces; at `amp = 0.3` (10.5 deg) it reaches 1.264e-3 where the port-original
+operator, which does, reaches ~7e-12 (`tests/non_orthogonal_laplacian.rs`, still green, driven by the
+`_face_centre` pair).
+
+**Source forms (ESI v2506, differ from Foundation dev).** `mixedFvPatchField` in v2506 writes
+`snGrad` and `gradientBoundaryCoeffs` with `lerp(a, b, t) = (1-t)*a + t*b`; Foundation dev writes
+`w*(ref-P)*dC + (1-w)*g` and `w*dC*ref + (1-w)*g`, a different rounding. The port now follows v2506
+(Laplacian mixed arms); dev was read for these functions only.
+
+**Changes:** `fvc/div.rs`, `fvc/div_tensor.rs` (`/V`), `fvc/interpolate.rs` (fixedGradient/mixed `g/dC`;
+generic bound gained `Div<f64>`), `fvm/laplacian.rs` (mixed arms; `laplacian_with_delta_and_source`,
+`patch_delta`), `fvc/grad_least_squares.rs` (upstream translation; old operator renamed
+`..._face_centre`), `fvm/laplacian_corrected.rs` (upstream translation; old renamed `..._face_centre`;
+`non_ortho_geometry` uses `Sf/magSf`), `fvc/sn_grad.rs` (`sn_grad_with_delta`), new
+`fvc/sn_grad_corrected.rs`, `fvc/linear_upwind.rs`, `limiters.rs` (`small`), `fvc/muscl.rs`
+(`Limiter::LimitedLinear`; `Eq` derive dropped).
+
+**Not covered, stated:** `limitedLinearV` (no vector reconstruction in the port); AMI and cyclic
+(coupled) seams for every row; Mixed arms of `laplacian_vec` and `snGrad` for
+`FixedFluxPressure`/`TotalPressure`; `cellLimited` gradients; `skewCorrected` snGrad;
+turbulence, thermo and linear-solver rows (separate work).
