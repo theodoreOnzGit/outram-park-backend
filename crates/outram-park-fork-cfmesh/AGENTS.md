@@ -306,7 +306,7 @@ A run stopped before the revert returns the mesh in the modified space,
 as upstream does. Without sources, all four outputs are pinned to their
 pre-wiring fingerprints
 (`anisotropic::tests::generators_without_anisotropic_sources_are_pinned_bit_for_bit`):
-~~**do not move that pin.**~~ **MOVED 2026-11-11 (gh:#1385, flagged for the maintainer):** all four fingerprints moved (cell counts did not) when the generators were made to follow upstream bit for bit on the sphere; causes in the "Rust-side differential" section of `verification_and_validation/upstream_cfmesh_gh1385/README.md`. The pin guards the anisotropic wiring against *wiring* changes; re-pin again only for a fix that follows upstream.
+~~**do not move that pin.**~~ **MOVED 2026-11-11 (gh:#1385, flagged for the maintainer):** all four fingerprints moved (cell counts did not) when the generators were made to follow upstream bit for bit on the sphere; causes in the "Rust-side differential" section of `verification_and_validation/upstream_cfmesh_gh1385/README.md`. The pin guards the anisotropic wiring against *wiring* changes; re-pin again only for a fix that follows upstream. **Moved again 2026-11-11 (gh:#1385 round 4, flagged): the 2D fingerprint only** (`preMapVertices` 2 iterations; the 2D template and `distributeBoundaryFaces` carry the cell lists through `replaceBoundary`); cartesian, tet and p did not move.
 
 Record and images: `verification_and_validation/anisotropic_gh1279/`.
 

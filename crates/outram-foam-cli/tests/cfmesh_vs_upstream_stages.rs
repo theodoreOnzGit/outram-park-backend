@@ -444,9 +444,31 @@ fn cut_cube_p_mesh_stages() {
 }
 
 /// `hatOctree` through `cartesian2DMesh`, the port against cfMesh stopped after
-/// each step (`GH1385_UPSTREAM_RUNS/stage_hatOctree_cartesian2DMesh_<step>`).
+/// each step (`GH1385_UPSTREAM_RUNS/stage_hatOctree_cartesian2DMesh_<step>`;
+/// not committed, skipped when absent).
+///
+/// # Results (2026-11-11, release; V&V README, "round 4")
+///
+/// | step | before | after |
+/// |---|---|---|
+/// | templateGeneration, surfaceTopology | identical | identical |
+/// | surfaceProjection | 29008/29498 points, worst 7.8e-4 m | identical |
+/// | patchAssignment ... meshOptimisation | 25460/29498 ... 22662/30890 | identical |
+/// | boundaryLayerRefinement (final) | 25342/38090 points, faces 1091/75072 | **38090/38090 points, 75072/75072 faces bit-identical** |
+///
+/// Causes: (1) `meshSurfaceMapper2D::preMapVertices` defaults to **2**
+/// iterations (the port ran 3, the 3D routine's default); (2) the template's
+/// `createEmptyPatches` and `distributeBoundaryFaces` are `replaceBoundary`
+/// calls: the internal faces stay in each cell's list and the new boundary
+/// labels are appended in the old boundary order, so the carried cell lists
+/// (which the final `renumberMesh` walk reads) were dropped and rebuilt
+/// ascending. No pow ulp on this case.
 #[test]
 fn hat_octree_cartesian_2d_mesh_stages() {
     let r = staged("cartesian2DMesh/hatOctree", Generator::Cartesian2DMesh, "hatOctree_cartesian2DMesh", "stage_hatOctree_cartesian2DMesh");
     println!("{r:?}");
+    for (step, same, counts) in &r {
+        assert!(*counts, "hat after {step}: counts must equal upstream's");
+        assert!(*same, "hat after {step} must be bit-identical (points and faces)");
+    }
 }
