@@ -422,7 +422,7 @@ pub fn build_full(
 /// leaves the ESZ heating column at zero (`acefc.f90:5641-5645`). The
 /// reference tables in `reference-data/ace/reference-njoy/` were made that
 /// way, which is the reason this exists.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AceDeck {
     heatr: bool,
     purr: Option<(usize, usize, usize)>,
@@ -434,9 +434,16 @@ pub struct AceDeck {
     purr_binary: bool,
     /// HEATR's output unit was blocked binary (`nout < 0`).
     heatr_binary: bool,
+    /// ACER's PENDF unit is blocked binary (negative `npend`): its energies and
+    /// cross sections stay at full double precision instead of going through
+    /// ENDF text (gh:#1449).
+    pendf_binary: bool,
     /// ACER's `newfor`: `1` (default) the new angular format, `0` the old
     /// equally probable bins (gh:#1449).
     newfor: i32,
+    /// MT=301 as HEATR's tape carries it, `(E, H)` pairs; when set, ESZ's
+    /// heating column reads these (ACER reads the tape, not HEATR's memory).
+    esz_kerma: Option<Vec<(f64, f64)>>,
 }
 
 impl Default for AceDeck {
@@ -448,7 +455,9 @@ impl Default for AceDeck {
             heatr_partials: [false; 3],
             purr_binary: false,
             heatr_binary: false,
+            pendf_binary: false,
             newfor: 1,
+            esz_kerma: None,
         }
     }
 }
@@ -476,8 +485,23 @@ impl AceDeck {
 
     /// HEATR's output unit was blocked binary (`nout < 0`): the modules after
     /// it read its MT=301 (and partials) as doubles, not as printed text.
+    pub fn with_pendf_binary(mut self, binary: bool) -> Self {
+        self.pendf_binary = binary;
+        self
+    }
+
+    /// See the `heatr_binary` field.
     pub fn with_heatr_binary(mut self, binary: bool) -> Self {
         self.heatr_binary = binary;
+        self
+    }
+
+    /// MT=301 as the HEATR tape holds it: ESZ's heating column is built from
+    /// these `(E, H)` pairs, as upstream's ACER reads the tape (gh:#1449: the
+    /// in-memory kerma differs from the printed value by up to half a unit in
+    /// the 7th figure, which moved one ESZ word of test 07).
+    pub fn with_esz_kerma_pairs(mut self, pairs: Vec<(f64, f64)>) -> Self {
+        self.esz_kerma = Some(pairs);
         self
     }
 
@@ -518,7 +542,7 @@ pub fn build_deck(
     deck: &AceDeck,
 ) -> Result<AceTable, crate::NjoyError> {
     // ACER reads its cross sections from a PENDF tape, not from memory.
-    let pendf = recon.through_pendf_text();
+    let pendf = if deck.pendf_binary { recon.clone() } else { recon.through_pendf_text() };
     let modules = deck_modules(tape, mat, &pendf, kt_mev, deck)?;
     assemble(tape, mat, &pendf, kt_mev, suffix, &modules)
 }
@@ -587,16 +611,31 @@ pub(crate) fn deck_modules(
         )?,
         None => None,
     };
-    // EXPERIMENT (gh:#1450/#1449): ACER's ESZ keeps reading MT=301 as printed
-    // (the five-route decks, test 19), PURR's rdheat gets the doubles.
+    // ACER's ESZ reads MT=301 from the PENDF as HEATR left it: every value
+    // went through `hout`'s `sigfig(v, 7, 0)` (6 figures above `big = 1e10`,
+    // `heatr.f90` hout) and then, on the scratch tape `unionx` writes, through
+    // `a11` text. `format_endf_float` alone rounds half-up on the binary
+    // double, which differs from `sigfig` on a value like 3204091.4999...:
+    // test 07's ESZ heating at 81.99999 eV (gh:#1449, 75.45917 against NJOY's
+    // 75.45914) was that one word. PURR's `rdheat` was given the unrounded
+    // doubles above.
     let kerma = if deck.heatr_binary {
         kerma.map(|k| {
             use crate::endf::parse::{format_endf_float, parse_endf_float};
+            use crate::mixr::mix::sigfig;
             let rt = |x: f64| parse_endf_float(&format_endf_float(x)).unwrap_or(x);
-            crate::heatr::Kerma { energy: k.energy.iter().map(|&x| rt(x)).collect(), h: k.h.iter().map(|&x| rt(x)).collect() }
+            let rth = |x: f64| rt(sigfig(x, if x > 1.0e10 { 6 } else { 7 }, 0));
+            crate::heatr::Kerma { energy: k.energy.iter().map(|&x| rt(x)).collect(), h: k.h.iter().map(|&x| rth(x)).collect() }
         })
     } else {
         kerma
+    };
+    let kerma = match &deck.esz_kerma {
+        Some(p) if !p.is_empty() => Some(crate::heatr::Kerma {
+            energy: p.iter().map(|x| x.0).collect(),
+            h: p.iter().map(|x| x.1).collect(),
+        }),
+        _ => kerma,
     };
     Ok(DeckModules { urr, kerma, newfor: deck.newfor })
 }

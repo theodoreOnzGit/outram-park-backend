@@ -274,15 +274,19 @@ fn without_groupr(deck: &str) -> String {
 /// **Result (2026-11-11):** with `newfor = 0` ported (every angular distribution
 /// converted to 32 equally probable bins by `ptleg`/`pttab` and stored by
 /// `acensd`'s old branch, `acer::acensd::parse_mf4_for_acer_newfor`), **every
-/// block is identical in every word except two**: **GPD** (gamma-production data)
+/// block is identical in every word except one**: **GPD** (gamma-production data)
 /// is absent here, because NJOY's `gamout` builds it from the GROUPR GENDF
 /// (`ngend = -25`, GROUPR card `16/`: photon-production matrices), which this crate
-/// cannot make (GROUPR tape driver not ported); and **ESZ: 1 word of 25 205**,
-/// the heating column at 81.99999 eV, 75.45917 against 75.45914 (4e-7, one
-/// 7th-figure step; the HEATR PENDF itself is identical line for line, test 07
-/// above, and the second shaded node 82.00001 eV agrees; cause not found).
+/// cannot make (GROUPR tape driver not ported). ~~**ESZ: 1 word of 25 205**, the
+/// heating column at 81.99999 eV, 75.45917 against 75.45914; cause not found.~~
+/// **CORRECTED 2026-11-11 (gh:#1449): ESZ is now identical in all 25 205 words.**
+/// Two causes: `run_acer` read MT=301's TAB1 from the wrong record (`rows[0]` is
+/// the HEAD, so NP was 0 and the HEATR tape's own MT=301 was never used), and
+/// `build_deck` rounded the PENDF through ENDF text although the deck's units are
+/// blocked binary (negative): NJOY's grid keeps 81.99999000000082 eV, and the
+/// heating there changes by 1e3 eV-b over the 8e-13 eV that text rounding moves.
 /// NXS(1) and JXS(12-22) differ because GPD is missing. Before this port the
-/// deck was refused (`newfor = 0`). Pass criterion: exactly those two blocks differ.
+/// deck was refused (`newfor = 0`). Pass criterion: exactly GPD differs.
 #[test]
 fn test_07_acer_old_format_ace() {
     let root = njoy_root();
@@ -294,7 +298,7 @@ fn test_07_acer_old_format_ace() {
         println!("{l}");
     }
     let differing: Vec<&str> = c.blocks.iter().filter(|b| !b.verdict.agrees()).map(|b| b.name).collect();
-    assert_eq!(differing, vec!["ESZ", "GPD"], "recorded: only ESZ (1 word) and GPD (GROUPR gamout) differ");
+    assert_eq!(differing, vec!["GPD"], "recorded: only GPD (GROUPR gamout) differs");
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
 }
 
