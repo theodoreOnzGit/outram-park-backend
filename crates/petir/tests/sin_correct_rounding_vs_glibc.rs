@@ -84,4 +84,4 @@ fn r_sin_vs_correct_rounding_and_glibc() {
 
 /// Recorded: (glibc wrong, r_sin wrong, r_sin != glibc, r_sin wrong where glibc
 /// right, r_sin right where glibc wrong). Filled from the first run, 2026-11-11.
-const EXPECTED: (i32, i32, i32, i32, i32) = (0, 0, 0, 0, 0);
+const EXPECTED: (i32, i32, i32, i32, i32) = (8, 199, 201, 196, 5);
