@@ -115,9 +115,9 @@ precision; keep CPU for the reference/validated result. (Beads `op-0m5`,
 
 ## License and provenance — please read
 
-This crate is a **derivative work** (a translation) of NJOY2016 v2016.79
+This crate is a **derivative work** (a translation) of NJOY2016 v~~2016.79~~ **2016.80** (synced 2026-11-10, gh:#1368)
 ([`njoy/NJOY2016`](https://github.com/njoy/NJOY2016), commit
-`ac5adf5f33d893e42f2eed7fb286b0d51c7580da` — see `upstream_source/README.md`
+~~`ac5adf5f33d893e42f2eed7fb286b0d51c7580da`~~ `ab27c6414a0f25b173f2b637e6dc7e428fdaff00` — see `upstream_source/README.md`
 for the full provenance record).
 
 - **Upstream license:** NJOY2016 is under a *modified BSD 3-Clause* license (the

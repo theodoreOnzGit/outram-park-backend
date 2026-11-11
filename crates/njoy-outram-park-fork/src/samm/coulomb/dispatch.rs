@@ -265,7 +265,10 @@ pub fn coulx(
         let (_llmax, f, fpr, g, gpr) = end1(g0, g0pr);
         (f, fpr, g, gpr)
     } else {
-        let (_llmax, f, fpr, g, gpr) = getfg(eta, rho, lll, lll, g0, g0pr);
+        // Upstream calls `getfg(eta,rho,llmax,lll,..)` with `llmax = lll+2` (`pspcou`,
+        // `samm.f90:3935`); this port passed `lll` until 2026-11-10 (gh:#1368), which moved the
+        // start of `getfg`'s backward recursion (`limit = max(3, llmax+1)`) for `lll >= 1`.
+        let (_llmax, f, fpr, g, gpr) = getfg(eta, rho, lll + 2, lll, g0, g0pr);
         (f, fpr, g, gpr)
     };
 
