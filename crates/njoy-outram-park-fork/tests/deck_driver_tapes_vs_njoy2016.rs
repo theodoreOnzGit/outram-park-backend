@@ -841,7 +841,7 @@ fn test_72_gaspr_chain_ace() {
 fn acer_check_deck(case: &str, resource: &str, extra: &[(&str, u32)], units: &[u32]) -> Option<()> {
     let root = njoy_root();
     let full = deck_text(&root, case, Some("viewr"), "")?;
-    let (ours, njoy) = run_pair_decks_extra(&root, &format!("t{case}"), resource, extra, &full, &full)?;
+    let (ours, njoy) = run_pair_decks_extra(&root, &format!("chk{case}"), resource, extra, &full, &full)?;
     for &unit in units {
         let name = format!("tape{unit}");
         let d = differing_lines(&ours.join(&name), &njoy.join(&name));
