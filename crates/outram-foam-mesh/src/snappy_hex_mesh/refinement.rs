@@ -219,7 +219,7 @@ pub(crate) fn surface_only_refine(
 
 /// `hexRef8::consistentRefinement(cells, maxSet = true)`: raise `refine` until
 /// no face joins cells whose post-refinement levels differ by more than one.
-pub(crate) fn consistent_refinement(leaves: &[Leaf], pairs: &[FacePair], refine: &mut [bool]) {
+fn consistent_refinement(leaves: &[Leaf], pairs: &[FacePair], refine: &mut [bool]) {
     loop {
         let mut changed = 0usize;
         for p in pairs {
@@ -264,6 +264,7 @@ fn split(leaves: &[Leaf], refine: &[bool]) -> Vec<Leaf> {
     next
 }
 
+#[cfg(test)]
 /// Test-support: check the two invariants `surfaceOnlyRefine` leaves behind.
 /// Returns `(n_unrefined_intersections, n_2to1_violations)`.
 pub(crate) fn invariants(
@@ -354,5 +355,22 @@ mod tests {
         let n = 3;
         let p = face_pairs(&background(n), [n; 3], Vector3::new(0.0, 0.0, 0.0), [1.0; 3]);
         assert_eq!(p.len(), 3 * n * n * (n - 1) + 6 * n * n);
+    }
+
+    /// End to end through `castellate`: the sphere case of the V&V record
+    /// (`verification_and_validation/snappy_hex_mesh_1465/README.md`) gives
+    /// the recorded counts, and the legacy rule's counts are unchanged.
+    #[test]
+    fn castellate_modes_recorded_counts() {
+        use crate::snappy_hex_mesh::{castellate, BackgroundMesh, Bounds, CastellationControls};
+        let surface = TriangleSoup::uv_sphere(Vector3::new(0.5, 0.5, 0.5), 0.3, 32, 32);
+        let domain = Bounds::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(1.0, 1.0, 1.0));
+        let keep = Vector3::new(0.02, 0.02, 0.02);
+        let band = CastellationControls::new(BackgroundMesh::uniform(domain, 8, 8, 8), 2, keep);
+        let m = castellate(&surface, &band).unwrap();
+        assert_eq!(m.cells_by_level, vec![376, 368, 2112]);
+        let up = band.with_surface_intersection_refinement();
+        let m = castellate(&surface, &up).unwrap();
+        assert_eq!(m.cells_by_level, vec![328, 728, 2304]);
     }
 }
