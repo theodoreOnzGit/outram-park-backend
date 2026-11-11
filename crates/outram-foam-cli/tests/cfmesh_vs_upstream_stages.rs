@@ -156,7 +156,9 @@ fn port_stage(tutorial: &str, generator: Generator, step: &str) -> PolyMesh {
         }
     }
     let mut dict = std::fs::read_to_string(src.join("system/meshDict")).unwrap();
-    dict += &format!("\nworkflowControls\n{{\n    stopAfter {step};\n}}\n");
+    if !step.is_empty() {
+        dict += &format!("\nworkflowControls\n{{\n    stopAfter {step};\n}}\n");
+    }
     std::fs::write(dir.join("system/meshDict"), dict).unwrap();
     let run = run_cfmesh(&dir, generator).unwrap();
     for n in run.notes.iter().filter(|n| n.starts_with(step)) {
@@ -227,6 +229,90 @@ fn asmo_octree_cartesian_mesh_stages() {
         }
     }
     assert!(matched(&r, "edgeExtraction").is_some() && matched(&r, "boundaryLayerGeneration").is_some(), "the committed stage meshes must be found");
+}
+
+/// The points of `port` that differ from `up`'s in any bit, with the worst
+/// absolute difference (counts must agree).
+fn differing_points(port: &PolyMesh, up: &PolyMesh) -> (Vec<usize>, f64) {
+    let bad: Vec<usize> = (0..up.points.len())
+        .filter(|&i| port.points[i].x.to_bits() != up.points[i].x.to_bits() || port.points[i].y.to_bits() != up.points[i].y.to_bits() || port.points[i].z.to_bits() != up.points[i].z.to_bits())
+        .collect();
+    let worst = bad.iter().map(|&i| (port.points[i].x - up.points[i].x).abs().max((port.points[i].y - up.points[i].y).abs()).max((port.points[i].z - up.points[i].z).abs())).fold(0.0f64, f64::max);
+    (bad, worst)
+}
+
+/// The upstream mesh of the whole run (no `stopAfter`), read from
+/// `GH1385_UPSTREAM_RUNS/<run>/constant/polyMesh`; `None` when absent.
+fn upstream_final(run: &str) -> Option<PolyMesh> {
+    let loose = runs_dir().join(run).join("constant/polyMesh");
+    let dst = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(format!("up_final_{run}"));
+    std::fs::create_dir_all(&dst).unwrap();
+    for f in ["points", "faces", "owner", "neighbour", "boundary"] {
+        if !loose.join(f).is_file() {
+            return None;
+        }
+        let text = std::fs::read_to_string(loose.join(f)).unwrap();
+        std::fs::write(dst.join(f), if f == "neighbour" { internal_neighbours_only(&text) } else { text }).unwrap();
+    }
+    Some(PolyMesh::read(&dst).expect("read upstream polyMesh"))
+}
+
+/// `asmoOctree`, `meshOptimisation` (gh:#1385 round 3): counts, faces and
+/// owners/neighbours identical, and **all but one point bit-identical**.
+///
+/// # Result (2026-11-11, release)
+///
+/// 71649/71650 points bit-identical (was 71542/71650, worst 4.944e-4 m); the
+/// one difference is point 51898, `y = 2.3293821067756857e-9` against
+/// upstream's `2.3293821067756861e-9` (4.1e-25 m, 1 ulp of that coordinate).
+/// **Cause, proven** (traces of both codes, `GH1385_BP=2069`): the difference
+/// first appears in the last `smoothSurfaceOptimizer` pass of
+/// `optimiseFinalMesh`'s `optimizeSurface`, where the Hessian diagonal of
+/// `surfaceOptimizer::evaluateGradients` differs by 1 ulp, because
+/// `pow(stab, 3)` differs by 1 ulp for `stab = 0.03166163363177029`: this
+/// machine's glibc 2.39 `pow` is its FMA build (ifunc), PETIR's `powf` is the
+/// non-FMA ARM routine by design (`petir::fast_exp` module docs: it tracks
+/// the no-FMA row on purpose, glibc's FMA variant differs on ~0.05 % of
+/// inputs by 1 ulp). Reproduced outside both codes: Python's `math.pow`
+/// (glibc) in upstream's operation order gives upstream's Hessian
+/// (886.6570495551824, 1224.6298733174792); `x*x*x` gives the port's
+/// (...823, ...479). Below 1e-8 relative with a known round-off cause, so
+/// pinned from above rather than closed: the count may not fall and the
+/// difference may not grow. **Flagged for the maintainer.**
+#[test]
+fn asmo_octree_mesh_optimisation_is_within_one_pow_ulp() {
+    let Some(up) = upstream_stage("asmoOctree_cartesianMesh", "stage_asmo_cartesianMesh", "meshOptimisation") else {
+        println!("no upstream meshOptimisation stage mesh (set GH1385_UPSTREAM_RUNS); skipped");
+        return;
+    };
+    let port = port_stage("cartesianMesh/asmoOctree", Generator::CartesianMesh, "meshOptimisation");
+    let (line, _) = compare(&port, &up);
+    println!("{line}");
+    assert_eq!((port.points.len(), port.faces.len(), port.n_cells), (up.points.len(), up.faces.len(), up.n_cells));
+    let (bad, worst) = differing_points(&port, &up);
+    assert!(bad.len() <= 1, "at most the one pow-ulp point may differ, got {} ({line})", bad.len());
+    assert!(worst <= 4.2e-25, "worst difference {worst:e}");
+    let faces_same = (0..up.faces.len()).all(|i| port.faces[i].verts == up.faces[i].verts && port.faces[i].owner == up.faces[i].owner && port.faces[i].neighbour == up.faces[i].neighbour);
+    assert!(faces_same, "faces must be index-identical");
+}
+
+/// `asmoOctree`, the whole run (after `renumberMesh` and
+/// `renameBoundaryPatches`) against `GH1385_UPSTREAM_RUNS/asmoOctree`
+/// (53 003 cells; not committed, about 12 MB uncompressed).
+#[test]
+fn asmo_octree_final_mesh() {
+    let Some(up) = upstream_final("asmoOctree") else {
+        println!("no upstream final mesh (set GH1385_UPSTREAM_RUNS); skipped");
+        return;
+    };
+    let port = port_stage("cartesianMesh/asmoOctree", Generator::CartesianMesh, "");
+    let (line, same) = compare(&port, &up);
+    println!("asmoOctree final: {line} (identical: {same})");
+    assert_eq!((port.points.len(), port.faces.len(), port.n_cells), (up.points.len(), up.faces.len(), up.n_cells));
+    let (bad, worst) = differing_points(&port, &up);
+    assert!(bad.len() <= 1 && worst <= 4.2e-25, "{} points differ, worst {worst:e}", bad.len());
+    let faces_same = (0..up.faces.len()).all(|i| port.faces[i].verts == up.faces[i].verts && port.faces[i].owner == up.faces[i].owner && port.faces[i].neighbour == up.faces[i].neighbour);
+    assert!(faces_same, "faces must be index-identical");
 }
 
 /// `elbow_90degree` (cartesianMesh, `minCellSize`, `boundaryLayers`): **not

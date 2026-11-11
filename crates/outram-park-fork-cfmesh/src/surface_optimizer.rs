@@ -424,6 +424,15 @@ fn evaluate_gradients(pts: &[Vec3], trias: &[[usize; 3]], k: f64) -> ([f64; 2], 
     (g, h)
 }
 
+/// Set by `new_position_surface_optimizer` while it runs the boundary point
+/// named by `GH1385_BP`, so [`divide_and_conquer`] / [`steepest_descent`]
+/// print what upstream's instrumented `surfaceOptimizer.C` prints (gh:#1385).
+static SO_TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn so_trace_on() -> bool {
+    SO_TRACE.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 /// `surfaceOptimizer::dirVecs`.
 const DIR_VECS: [[f64; 2]; 4] = [[-1.0, -1.0], [1.0, -1.0], [-1.0, 1.0], [1.0, 1.0]];
 
@@ -435,7 +444,7 @@ fn divide_and_conquer(pts: &mut [Vec3], trias: &[[usize; 3]], p_min: Vec3, p_max
     let (mut dx, mut dy) = ((p_max.x - p_min.x) / 2.0, (p_max.y - p_min.y) / 2.0);
     let mut k = stabilisation_factor(pts, trias);
     let mut func_after = evaluate_func(pts, trias, k);
-    for _ in 0..100 {
+    for it in 0..100 {
         let func_before = func_after;
         func_after = VGREAT;
         let mut min_centre = Vec3::ZERO;
@@ -453,6 +462,9 @@ fn divide_and_conquer(pts: &mut [Vec3], trias: &[[usize; 3]], p_min: Vec3, p_max
         pts[c] = min_centre;
         dx *= 0.5;
         dy *= 0.5;
+        if so_trace_on() {
+            eprintln!("DC {it} p {:.17e} {:.17e} f {:.17e}", pts[c].x, pts[c].y, func_after);
+        }
         if (func_after - func_before).abs() / func_after < tol {
             break;
         }
@@ -468,7 +480,7 @@ fn steepest_descent(pts: &mut [Vec3], trias: &[[usize; 3]], p_min: Vec3, p_max: 
     let avg_edge = p_max.sub(p_min).length();
     let mut k = stabilisation_factor(pts, trias);
     let mut func_after = evaluate_func(pts, trias, k);
-    for _ in 0..100u8 {
+    for it in 0..100u8 {
         let func_before = func_after;
         let (g, h) = evaluate_gradients(pts, trias, k);
         let det = h[0][0] * h[1][1] - h[0][1] * h[1][0];
@@ -486,6 +498,9 @@ fn steepest_descent(pts: &mut [Vec3], trias: &[[usize; 3]], p_min: Vec3, p_max: 
         pts[c] = pts[c].sub(disp);
         k = stabilisation_factor(pts, trias);
         func_after = evaluate_func(pts, trias, k);
+        if so_trace_on() {
+            eprintln!("SD {it} g {:.17e} {:.17e} H {:.17e} {:.17e} {:.17e} {:.17e} disp {:.17e} {:.17e} p {:.17e} {:.17e} f {:.17e}", g[0], g[1], h[0][0], h[0][1], h[1][0], h[1][1], disp.x, disp.y, pts[c].x, pts[c].y, func_after);
+        }
         if (func_after - func_before).abs() / func_before < tol {
             break;
         }
@@ -851,7 +866,21 @@ impl MeshSurfaceOptimizer {
         let Some((x, y, mut pts, trias)) = self.transform_into_plane(b, points[v], n) else {
             return points[v];
         };
+        let pts_in = pts.clone();
+        let tracing = std::env::var("GH1385_TRACE").is_ok() && std::env::var("GH1385_BP").ok().and_then(|v| v.parse::<usize>().ok()) == Some(b);
+        SO_TRACE.store(tracing, std::sync::atomic::Ordering::Relaxed);
         let q = optimize_point(&mut pts, &trias, 0.001);
+        SO_TRACE.store(false, std::sync::atomic::Ordering::Relaxed);
+        if std::env::var("GH1385_TRACE").is_ok() && std::env::var("GH1385_BP").ok().and_then(|v| v.parse::<usize>().ok()) == Some(b) {
+            // gh:#1385: the instrumented upstream prints the same (`SO ...`)
+            eprintln!("SO pn {:.17e} {:.17e} {:.17e}", self.engine.point_normals[b].x, self.engine.point_normals[b].y, self.engine.point_normals[b].z);
+            eprintln!("SO vx {:.17e} {:.17e} {:.17e}", x.x, x.y, x.z);
+            eprintln!("SO vy {:.17e} {:.17e} {:.17e}", y.x, y.y, y.z);
+            eprintln!("SO new {:.17e} {:.17e} {:.17e}", q.x, q.y, q.z);
+            for (i, p) in pts_in.iter().enumerate() {
+                eprintln!("SO pt {i} {:.17e} {:.17e}", p.x, p.y);
+            }
+        }
         let new_p = points[v].add(x.scale(q.x)).add(y.scale(q.y));
         if new_p.x.is_finite() && new_p.y.is_finite() && new_p.z.is_finite() {
             new_p
@@ -1045,6 +1074,19 @@ impl MeshSurfaceOptimizer {
         self.untangle_surface_selected(points, &all, n_additional_layers)
     }
 
+    /// With `GH1385_TRACE` and `GH1385_BP=<boundary point>` set, print that
+    /// boundary point as upstream's instrumented `meshSurfaceOptimizer` dumps
+    /// it (`TRACE <tag> <iteration> <bp> <x> <y> <z>`, gh:#1385).
+    fn trace_bp(&self, tag: &str, iter: usize, points: &[Vec3]) {
+        if std::env::var("GH1385_TRACE").is_err() {
+            return;
+        }
+        if let Some(bp) = std::env::var("GH1385_BP").ok().and_then(|v| v.parse::<usize>().ok()) {
+            let p = points[self.engine.boundary_points[bp]];
+            eprintln!("TRACE {tag} {iter} {bp} {:.17e} {:.17e} {:.17e}", p.x, p.y, p.z);
+        }
+    }
+
     /// `optimizeSurface(nIterations)`: `n_iterations` passes of edge-point
     /// smoothing (mapped back onto the feature edges when there is a
     /// mapper), then of Laplace (face centres, in plane) and
@@ -1067,9 +1109,11 @@ impl MeshSurfaceOptimizer {
             self.map_edge_nodes(points, &edge);
             self.engine.update_geometry(points, &edge);
         }
-        for _ in 0..n_iterations {
+        for i in 0..n_iterations {
             self.smooth_laplacian_fc(points, &partition, true);
+            self.trace_bp("opt_lapfc", i, points);
             self.smooth_surface_optimizer(points, &partition);
+            self.trace_bp("opt_so", i, points);
         }
         self.untangle_surface(points, 0)
     }

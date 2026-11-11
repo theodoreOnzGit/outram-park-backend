@@ -399,7 +399,17 @@ impl TriSurfaceCurvatureEstimator {
                 mean[p][i] = 0.5 * (min[p][i] + max[p][i]);
             }
         }
-        TriSurfaceCurvatureEstimator { edge_point_curvature, point_patches, patch_positions, gaussian, mean, max, min, max_vector, min_vector }
+        let est = TriSurfaceCurvatureEstimator { edge_point_curvature, point_patches, patch_positions, gaussian, mean, max, min, max_vector, min_vector };
+        if std::env::var("GH1385_TRACE").is_ok() {
+            // gh:#1385: the instrumented upstream prints the same (`ECURV`, `MCURV`)
+            for (p, k) in est.edge_point_curvature.iter().enumerate() {
+                eprintln!("ECURV {p} {k:.17e}");
+            }
+            for t in 0..surf.size() {
+                eprintln!("MCURV {t} {:.17e}", est.mean_curvature_at_triangle(surf, t));
+            }
+        }
+        est
     }
 
     /// `curvatureAtEdge`: the mean of its two points' edge curvature.
