@@ -75,7 +75,7 @@ pub fn run() -> Result<(), NjoyError> {
 mod tests {
     use super::*;
 
-    const SMALL: &str = "1 2 .30  2/\n1  3/\n'<t>est plot'/\n'<s>ub title'/\n1 0 2 0  0 0/\n   1.0   100.0   1.0/\n'<e>nergy'/\n   1.0   100.0   1.0/\n'<c>ross section'/\n/\n/\n'curve'\n0/\n  1.0 2.0\n  50.0 40.0\n/\n99/\n";
+    const SMALL: &str = "1 2 .30  2/\n1  3/\n'<t>est plot'/\n'<s>ub title'/\n1 0 2 0  0 0/\n   1.0   100.0   1.0/\n'<e>nergy'/\n   1.0   100.0   1.0/\n'<c>ross section'/\n/\n/\n0/\n  1.0 2.0/\n  50.0 40.0/\n/\n99/\n";
 
     #[test]
     fn a_small_plot_makes_a_complete_postscript_file() {

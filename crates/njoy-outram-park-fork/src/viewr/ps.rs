@@ -318,9 +318,9 @@ mod tests {
         g.ifg = 1;
         g.moveh(0.0, 0.0);
         g.drawh(0.0, 7.5, 0.005, 0);
-        assert!(g.out.ends_with("stroke\nnewpath\n 0.000 0.000 0.000 setrgbcolor\n   576.00    36.00 moveto\n   0.360 setlinewidth\n[] 0 setdash\n   576.00   576.00 lineto\n") || g.out.contains("lineto"));
-        // y = 0 maps to u = uwidth + ushift = 540 + 36.
-        assert!(g.out.contains("   576.00    36.00 moveto"));
+        // y = 0 maps to u = uwidth + ushift = 540 + 36; x = 0 to v = vshift = 36; y = 7.5 to u = 36.
+        let want = "stroke\nnewpath\n 0.000 0.000 0.000 setrgbcolor\n   576.00    36.00 moveto\n   0.360 setlinewidth\n[] 0 setdash\n    36.00    36.00 lineto\n";
+        assert!(g.out.ends_with(want), "{}", g.out);
     }
 
     #[test]
