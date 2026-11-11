@@ -465,10 +465,11 @@ fn test_01_groupr_gendf_head() {
 /// **Test 01 GROUPR: MF=6 transfer matrices (elastic and discrete inelastic, `nl = 4`).**
 ///
 /// Deck as `test_01_groupr_gendf_head`. Compares every line of unit 27 with
-/// MF=6 and MT in {2, 51-64, 91}: faithful `panel` with `nl = lord + 1 = 4`, the
+/// MF=6 and MT in {2, 51-64, 91, 221, 229, 230}: faithful `panel` with `nl = lord + 1 = 4`, the
 /// `getdis` two-body feed, and `displa`'s infinite-dilution matrix branch.
 /// MT 91 is the `getff` label-200 continuum (`getfle` x `getsed` law 9, 25 lines, `nl = 1`).
-/// Pass criterion: zero differing lines. Measured 2026-11-11: 0 of 466 (441 + 25).
+/// MT 221/229/230 are the thermal `getaed` feed (`groupr/thermal.rs`: inelastic `aedi`, coherent Bragg edges).
+/// Pass criterion: zero differing lines. Measured 2026-11-11: 0 of 513 (441 + 25 + 47).
 #[test]
 fn test_01_groupr_gendf_mf6_two_body() {
     let root = njoy_root();
@@ -479,7 +480,7 @@ fn test_01_groupr_gendf_mf6_two_body() {
             return false;
         }
         let mt: i32 = l[72..75].trim().parse().unwrap_or(0);
-        matches!(mt, 2 | 51..=64 | 91)
+        matches!(mt, 2 | 51..=64 | 91 | 221 | 229 | 230)
     };
     let a = std::fs::read_to_string(ours.join("tape27")).unwrap();
     let b = std::fs::read_to_string(njoy.join("tape27")).unwrap();

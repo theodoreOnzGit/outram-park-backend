@@ -91,6 +91,7 @@ pub mod pendf_feed;
 pub mod photon_groups;
 pub mod self_shielded;
 pub mod slowing_down;
+pub mod thermal;
 pub mod two_body;
 pub mod unresolved;
 pub mod urr_pendf;

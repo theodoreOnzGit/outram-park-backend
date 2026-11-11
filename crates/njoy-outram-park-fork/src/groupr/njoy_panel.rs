@@ -106,6 +106,8 @@ pub enum PanelFeed {
     TwoBodyNl(crate::groupr::two_body::TwoBodyFeed, usize),
     /// `getff` label 200: `getfle` x `getsed` continuum (`MT = 91` etc.).
     Continuum(crate::groupr::continuum::ContinuumFeed),
+    /// `getff` label 700: `getaed` thermal angle-energy (`MT = 221-250`).
+    Thermal(crate::groupr::thermal::ThermalFeed),
 }
 
 impl PanelFeed {
@@ -123,6 +125,7 @@ impl PanelFeed {
                 Ok(FeedOut { en: a.enext, idisc: i32::from(a.idisc), nq: a.nq, ff: vec![ff], iglo: a.iglo })
             }
             PanelFeed::Continuum(f) => f.at(e),
+            PanelFeed::Thermal(f) => f.at(e),
             PanelFeed::TwoBodyNl(f, nl) => {
                 let a = f.feed(e, *nl)?;
                 let ff: Vec<Vec<f64>> = a.ff.iter().take(*nl).map(|r| r[..a.ng].to_vec()).collect();
@@ -530,7 +533,7 @@ pub fn group_general(
             elo = enext;
             enext = ehi;
         }
-        let matrix = matches!(feed, PanelFeed::TwoBodyNl(..) | PanelFeed::Continuum(..));
+        let matrix = matches!(feed, PanelFeed::TwoBodyNl(..) | PanelFeed::Continuum(..) | PanelFeed::Thermal(..));
         let (ng2, ig2lo, igzero, data) = if nl > 1 {
             displa_matrix(ans, ng, iglo, nl)
         } else if matrix {

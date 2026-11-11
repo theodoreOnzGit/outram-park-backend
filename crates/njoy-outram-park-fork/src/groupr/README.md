@@ -83,7 +83,7 @@ The numeric engine and its dependencies return `NjoyError::NotPorted`:
   `pendf_feed.rs`), `getdis` (ported for neutron File-4 two-body channels
   in `two_body.rs` with `getfle`/`getco` in `file4.rs`; charged-particle
   Coulomb term, `MT=251-253` and File-6 two-body data remain), `getgfl`,
-  `getgyl`, `getsed`, `anased`;
+  `getgyl`, ~~`getsed`, `anased`~~ **CORRECTED 2026-11-11** — `getsed` (analytic law 9 only) and `anased` law 9 are ported in `continuum.rs` (tape driver, NJOY2016 test 01 MT 91 identical); `getsed` law 1 and `anased` laws 5/7/11/12 remain;
 - quadrature / accumulation: `epanel`, `gengr`, `glmol` (the vector
   `panel`/`displa` reduction is ported — see `panel.rs`; the full matrix
   `panel`/`displa` with Lobatto re-evaluation of the feed function, the
@@ -94,7 +94,7 @@ The numeric engine and its dependencies return `NjoyError::NotPorted`:
   `genflx` (`nflmax > 0`) — the Bondarenko branch and `getunr`/`stounr` are
   ported, see `unresolved.rs`/`urr_pendf.rs`;
 - kinematics / matrix machinery: `cm2lab`, `f6cm`, `f6lab`, `ll2lab`, `getaed`,
-  `aedi`, `getco`, `gam102`, `conver`, `hnab`;
+  `aedi`, ~~`getaed`~~, ~~`aedi`~~ (ported 2026-11-11 in `thermal.rs`: inelastic, incoherent and coherent elastic; test 01 MT 221/229/230 identical), `getco`, `gam102`, `conver`, `hnab`;
 - the GENDF matrix-record writer is ported (see `matrix.rs`/`gendf.rs`); the
   vector-record writer was already ported before this note.
 

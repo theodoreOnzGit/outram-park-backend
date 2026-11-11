@@ -9,7 +9,7 @@
 //!
 //! MF=3 vector sections and MF=6 `MT = 2, 51-90` two-body matrices (`nl = lord + 1`,
 //! `getdis`) are written identical to NJOY2016 for test 01 (gh:#1369). Not yet: MF=6
-//! (MT 91 continuum, `getfle` x `getsed` law 9, label 200, is done: `groupr/continuum.rs`.) Thermal MF=6 `MT = 221-250`
+//! (MT 91 continuum, label 200, is done: `groupr/continuum.rs`; thermal MT 221/229/230 `getaed`, label 700, is done: `groupr/thermal.rs`.) Not yet: Thermal MF=6 `MT = 221-250`
 //! (`getaed`, label 700), MF=16 photon production (`getgyl`/`getgfl`/`getsed`/`gamout`),
 //! and the FEND/SEND/MEND layout between files, so the whole tape is not yet compared.
 //!
@@ -183,6 +183,10 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
                 write_mf6_continuum(&mut g, inp, units, &pend, za, &egn, emaxx, mtd)?;
                 continue;
             }
+            if req.mfd == 6 && (221..=250).contains(&mtd) {
+                write_mf6_thermal(&mut g, inp, &pend, za, &egn, emaxx, mtd)?;
+                continue;
+            }
             if req.mfd != 3 {
                 notes.push(format!("groupr: mf {} mt {} not written (matrix and photon-production sections are not ported)", req.mfd, mtd));
                 continue;
@@ -276,6 +280,35 @@ fn write_mf6_continuum(
     let cf = crate::groupr::continuum::ContinuumFeed::new(&units.get(inp.units.nendf)?.tape, inp.matb, mtd, egn, inp.lord.max(0) as usize + 1)?;
     let nl = cf.nl;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::Continuum(cf);
+    let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
+    g.begin(inp.matb, 6, mtd);
+    g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
+    for (ig, ng2, ig2lo, data) in rows {
+        g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
+    }
+    g.send();
+    Ok(())
+}
+
+/// `mfd = 6` thermal (`getff` label 700 = `getaed`, `MT = 221-250`).
+fn write_mf6_thermal(
+    g: &mut GendfText,
+    inp: &crate::groupr::input::GrouprInput,
+    pend: &crate::endf::tape::Tape,
+    za: f64,
+    egn: &[f64],
+    emaxx: f64,
+    mtd: i32,
+) -> Result<(), NjoyError> {
+    let Some(sec) = pend.section(inp.matb, 3, mtd) else { return Ok(()) };
+    let mut cur = crate::endf::records::SectionCursor::new(&sec.rows);
+    let _head = cur.read_cont()?;
+    let tab = cur.read_tab1()?;
+    let lrflag = tab.head.l2;
+    let nl = inp.lord.max(0) as usize + 1;
+    let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
+    let tf = crate::groupr::thermal::ThermalFeed::new(pend, inp.matb, mtd, egn, nl)?;
+    let mut pf = crate::groupr::njoy_panel::PanelFeed::Thermal(tf);
     let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
     g.begin(inp.matb, 6, mtd);
     g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
