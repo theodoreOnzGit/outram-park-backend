@@ -114,6 +114,8 @@ pub mod heat_gran;
 // A fresh HTR-10 pour from empty, steppable by a UI (gh:#561, dhoby-ghaut Step 1).
 pub mod htr10_fill;
 pub mod integrator;
+pub mod massflow;
+pub mod mesh_stress;
 pub mod mesh_wall;
 pub mod neighbor_list;
 pub mod particle;
@@ -125,6 +127,7 @@ pub mod thermal;
 pub mod thermal_radiation;
 pub mod timestep;
 pub mod tri_mesh;
+pub mod variable;
 /// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where
 /// `rayon` does not build. Numerically exact here — see the module docs.
 #[cfg(target_arch = "wasm32")]

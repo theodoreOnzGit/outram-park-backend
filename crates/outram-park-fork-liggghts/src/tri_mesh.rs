@@ -364,6 +364,49 @@ impl TriMeshState {
         false
     }
 
+    /// `TriMesh::resolveTriSphereNeighbuild(nTri, rSphere, cSphere,
+    /// treshold)`: whether a sphere at `c` is a neighbour of facet `i` (within
+    /// `r_sphere + threshold` of the facet's plane and not farther outside any
+    /// edge plane). Used by the mesh neighbour list of `fix massflow/mesh`.
+    #[must_use]
+    pub fn neighbuild(&self, nd: &Nodes, i: usize, r_sphere: f64, c: &V3, threshold: f64) -> bool {
+        let max_dist = r_sphere + threshold;
+        let mut avg = [0.; 3];
+        for node in nd {
+            avg = v_add(node, &avg);
+        }
+        let center = v_div(&avg, 3.0);
+        let g = &self.geo[i];
+        let d_norm = v_dot(&g.surf_norm, &v_sub(c, &center)).abs();
+        if d_norm > max_dist {
+            return false;
+        }
+        let para_max = max_dist * max_dist;
+        for k in 0..3 {
+            // calcEdgeNormals
+            let mut en = v_cross(&g.edge_vec[k], &g.surf_norm);
+            let m = v_mag(&en);
+            if m < 1e-15 {
+                en = g.edge_vec[(k + 1) % 3];
+            } else {
+                en = v_div(&en, m);
+            }
+            let d = v_dot(&en, &v_sub(c, &nd[k]));
+            if d > 0. && d * d > para_max {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// `TriMesh::calcArea(i)` from the current cached edge vectors.
+    #[must_use]
+    pub fn area(&self, i: usize) -> f64 {
+        let g = &self.geo[i];
+        let c = v_cross(&g.edge_vec[0], &g.edge_vec[1]);
+        0.5 * v_mag(&c) * g.edge_len[0] * g.edge_len[1]
+    }
+
     /// Current unit surface normal of facet `i`.
     #[must_use]
     pub fn surface_norm(&self, i: usize) -> V3 {
