@@ -1931,6 +1931,22 @@ fn collide_batched(
         nuc.xs_at_energy(e, temp)
     };
 
+    // gh:#1386/#1444 (c) (this path, 2026-11-11): OpenMC `create_fission_sites` at
+    // EVERY collision, before the reaction draw, as the CPU drivers do
+    // (`transport_history` and the event-path CPU mirror). `per_collision_fission_count`
+    // returns (0, 0) under the legacy switch `OUTRAM_MC_LEGACY_FISSION_BANKING=1`
+    // (or the master `OUTRAM_MC_LEGACY_REACTION_ORDER=1`), which restores banking
+    // only at fission events below.
+    let (pc_production, pc_n) =
+        crate::physics::scatter::per_collision_fission_count(&x, k_running, seed);
+    let mut pc_bank_production = pc_production;
+    for _ in 0..pc_n {
+        let (e_born, u_born) = crate::physics::scatter::sample_fission_neutron_for_driver(
+            nuc, e, e_cap_fission, u, seed,
+        );
+        next_bank.push(Site { r, u: u_born, e: e_born });
+    }
+
     let xi = crate::physics::scatter::scatter_ladder_xi(
                 nuc.scatter_kernels(),
                 prn(seed) * x.total,
@@ -1949,7 +1965,14 @@ fn collide_batched(
         } else {
             0.0
         };
-        let n = sample_num_neutrons(nu_bar, k_running, seed);
+        let per_collision = crate::physics::scatter::fission_banking_from_env()
+            == crate::physics::scatter::FissionBanking::PerCollision;
+        let n = if per_collision {
+            0 // banked before the reaction draw, as OpenMC
+        } else {
+            pc_bank_production += nu_bar;
+            sample_num_neutrons(nu_bar, k_running, seed)
+        };
         for _ in 0..n {
             let (e_born, u_born) = crate::physics::scatter::sample_fission_neutron_for_driver(
             nuc, e, e_cap_fission, u, seed,
@@ -1960,9 +1983,9 @@ fn collide_batched(
                 e: e_born,
             });
         }
-        (nu_bar, CollisionResult::Dead)
+        (pc_bank_production, CollisionResult::Dead)
     } else if group == crate::physics::scatter::ReactionGroup::Capture {
-        (0.0, CollisionResult::Dead) // radiative capture
+        (pc_bank_production, CollisionResult::Dead) // radiative capture
     } else if let crate::physics::scatter::ReactionGroup::Inelastic(level_cutoff) = group {
         let (e2, u2) = match nuc.sample_inelastic_at(e, level_cutoff, seed) {
             // Discrete level: the CM angular law is the level's own ENDF
@@ -1973,7 +1996,7 @@ fn collide_batched(
             Inelastic::Level { q, mt } => nuc.sample_level_inelastic_scatter(mt, q, e, u, seed),
             Inelastic::Continuum { q } => nuc.sample_inelastic_emission(91, e, u, q, seed),
         };
-        (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+        (pc_bank_production, CollisionResult::Scatter { e: e2, u: u2 })
     } else if group == crate::physics::scatter::ReactionGroup::N2n {
         // (n,2n): the primary down-scatters and one extra neutron is emitted
         // sharing the sampled outgoing state (Weisskopf stand-in for the emission
@@ -2001,7 +2024,7 @@ fn collide_batched(
         // in exact lockstep.
         if nuc.emits_n2n_secondary() {
             (
-                0.0,
+                pc_bank_production,
                 CollisionResult::ScatterWithSecondaries {
                     e: e2,
                     u: u2,
@@ -2010,7 +2033,7 @@ fn collide_batched(
                 },
             )
         } else {
-            (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+            (pc_bank_production, CollisionResult::Scatter { e: e2, u: u2 })
         }
     } else if group == crate::physics::scatter::ReactionGroup::N3n {
         // (n,3n): yield 3. Kept in lockstep with `transport_history`'s arm --
@@ -2030,7 +2053,7 @@ fn collide_batched(
         }
         if nuc.emits_n2n_secondary() {
             (
-                0.0,
+                pc_bank_production,
                 CollisionResult::ScatterWithSecondaries {
                     e: e2,
                     u: u2,
@@ -2039,7 +2062,7 @@ fn collide_batched(
                 },
             )
         } else {
-            (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+            (pc_bank_production, CollisionResult::Scatter { e: e2, u: u2 })
         }
     } else if group == crate::physics::scatter::ReactionGroup::Mt5 {
         // MT=5, "(n,anything)": the lumped high-energy channels. Unlike (n,2n)
@@ -2070,12 +2093,12 @@ fn collide_batched(
         // it instead -- which the first version of this arm did -- would create
         // neutrons the evaluation says do not exist.
         if n_emit == 0 {
-            return (0.0, CollisionResult::Dead);
+            return (pc_bank_production, CollisionResult::Dead);
         }
         let n_sec = n_emit.saturating_sub(1).min(2);
         if n_sec > 0 {
             (
-                0.0,
+                pc_bank_production,
                 CollisionResult::ScatterWithSecondaries {
                     e: e2,
                     u: u2,
@@ -2084,7 +2107,7 @@ fn collide_batched(
                 },
             )
         } else {
-            (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+            (pc_bank_production, CollisionResult::Scatter { e: e2, u: u2 })
         }
     } else if group == crate::physics::scatter::ReactionGroup::Other {
         // The other neutron-emitting reactions -- (n,n alpha), (n,np), (n,4n),
@@ -2094,12 +2117,12 @@ fn collide_batched(
         // nuclide), so the partition is unchanged for a fission spectrum below.
         let o = nuc.sample_other_emission(e, u, seed);
         if o.n_emit == 0 {
-            return (0.0, CollisionResult::Dead);
+            return (pc_bank_production, CollisionResult::Dead);
         }
         let n_sec = o.n_emit.saturating_sub(1).min(3);
         if n_sec > 0 {
             (
-                0.0,
+                pc_bank_production,
                 CollisionResult::ScatterWithSecondaries {
                     e: o.e,
                     u: o.u,
@@ -2108,13 +2131,13 @@ fn collide_batched(
                 },
             )
         } else {
-            (0.0, CollisionResult::Scatter { e: o.e, u: o.u })
+            (pc_bank_production, CollisionResult::Scatter { e: o.e, u: o.u })
         }
     } else {
         // Bound-atom S(alpha, beta) below the table cutoff, else free-gas —
         // see the equivalent branch in [`transport_history`].
         let (e2, u2) = nuc.sample_elastic_collision(e, u, temp, seed);
-        (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+        (pc_bank_production, CollisionResult::Scatter { e: e2, u: u2 })
     }
 }
 
@@ -2756,6 +2779,62 @@ mod tests {
             ],
         };
         (material, nuclides)
+    }
+
+    /// gh:#1444 (c), 2026-11-11: the GPU-flight driver's host-side collision
+    /// ([`collide_batched`]) banks fission sites at EVERY collision with a
+    /// fissionable nuclide (OpenMC `create_fission_sites`), as the CPU drivers do,
+    /// not only at fission events. No GPU adapter is needed: `collide_batched` is
+    /// the host half and takes the already-flown collision site.
+    ///
+    /// Methodology: 4000 collisions at 1 MeV in LOW-tier Godiva, k_running = 1, the
+    /// default banking mode (per-collision; the legacy switch is global state and is
+    /// pinned by `scatter::per_collision_fission_count` returning `(0, 0)`).
+    /// Pass: (1) some collision that is NOT a fission event banked sites (under the
+    /// old at-fission banking this count is 0); (2) the number of sites banked
+    /// matches the summed expected production `nu_sigma_f/sigma_t` within 5 sigma of
+    /// the Bernoulli rounding.
+    #[cfg(not(target_os = "android"))]
+    #[test]
+    fn collide_batched_banks_fission_sites_at_every_collision() {
+        if crate::physics::scatter::fission_banking_from_env()
+            != crate::physics::scatter::FissionBanking::PerCollision
+        {
+            return; // legacy switch set in the environment: nothing to pin
+        }
+        let (material, nuclides) = godiva();
+        let mut bank: Vec<Site> = Vec::new();
+        let mut production = 0.0;
+        let mut nonfission_with_sites = 0usize;
+        for s in 1..=4000u64 {
+            let before = bank.len();
+            let mut seed = s.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1;
+            let (prod, result) = collide_batched(
+                Position::new(0.0, 0.0, 0.0),
+                Direction::new(0.0, 0.0, 1.0),
+                1.0e6,
+                &material,
+                &nuclides,
+                293.6,
+                1.0,
+                &mut bank,
+                &mut seed,
+            );
+            production += prod;
+            if bank.len() > before && !matches!(result, CollisionResult::Dead) {
+                nonfission_with_sites += 1;
+            }
+        }
+        let sites = bank.len() as f64;
+        println!(
+            "collide_batched: {sites} sites vs expected {production:.1}; \
+             {nonfission_with_sites} scatter collisions banked sites"
+        );
+        assert!(nonfission_with_sites > 0, "sites banked only at fission events");
+        assert!(
+            (sites - production).abs() < 5.0 * (production + 1.0).sqrt(),
+            "{sites} sites vs expected production {production}"
+        );
     }
 
     /// `PowerIteration` stepped by hand is `run_keff_cpu_single`, bit for bit,
