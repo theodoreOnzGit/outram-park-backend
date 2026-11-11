@@ -12,6 +12,11 @@
 //!
 //! `--ignore-edges` removes the `edges` list first, which reproduces the mesh
 //! this crate built before curved edges were ported (every edge straight).
+//! `--cut Z` draws the section of the mesh by the plane z = Z instead of the
+//! lowest-z plane: every face is intersected with the plane and the cut
+//! segment drawn (boundary faces coloured by patch). Needed for projected
+//! spheres, whose lowest-z plane is a point (gh:#1462).
+//! `--esi` follows OpenFOAM.com v2506 where it differs from dev (projection).
 //! Example binary: drawing code, exempt from the reached-by-a-test rule (it
 //! calls only the tested `block_mesh` library API).
 
@@ -34,7 +39,20 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let (dict_path, out) = (&args[0], &args[1]);
     let ignore_edges = args.iter().any(|a| a == "--ignore-edges");
-    let mut dict = BlockMeshDict::parse(&std::fs::read_to_string(dict_path).unwrap()).unwrap();
+    let flavour = if args.iter().any(|a| a == "--esi") {
+        outram_foam_mesh::block_projection::ProjectionFlavour::Esi
+    } else {
+        outram_foam_mesh::block_projection::ProjectionFlavour::Dev
+    };
+    let mut dict = BlockMeshDict::parse_with_flavour(
+        &std::fs::read_to_string(dict_path).unwrap(),
+        flavour,
+    )
+    .unwrap();
+    let cut: Option<f64> = args
+        .iter()
+        .position(|a| a == "--cut")
+        .map(|i| args[i + 1].parse().unwrap());
     if ignore_edges {
         dict.edges.clear();
     }
@@ -64,6 +82,38 @@ fn main() {
     let px = |p: outram_foam_basic_lib::primitives::Vector3| {
         (10.0 + (p.x - x0) * sx, h as f64 - 10.0 - (p.y - y0) * sy)
     };
+    if let Some(zc) = cut {
+        let seg = |f: &outram_foam_mesh::block_mesh::MeshFace| {
+            let mut pts = Vec::new();
+            for k in 0..f.verts.len() {
+                let a = m.points[f.verts[k]];
+                let b = m.points[f.verts[(k + 1) % f.verts.len()]];
+                if (a.z - zc) * (b.z - zc) < 0.0 {
+                    let t = (zc - a.z) / (b.z - a.z);
+                    pts.push(a + (b - a) * t);
+                }
+            }
+            pts
+        };
+        for f in &m.faces {
+            let p = seg(f);
+            if p.len() == 2 {
+                line(&mut img, px(p[0]), px(p[1]), Rgb([150, 150, 150]));
+            }
+        }
+        let palette = [[200, 30, 30], [30, 30, 200], [20, 140, 20]];
+        for (pi, patch) in m.patches.iter().enumerate() {
+            for f in &m.faces[patch.start..patch.start + patch.size] {
+                let p = seg(f);
+                if p.len() == 2 {
+                    line(&mut img, px(p[0]), px(p[1]), Rgb(palette[pi % 3]));
+                }
+            }
+        }
+        img.save(out).unwrap();
+        println!("section z={zc}: {} points, {} cells", m.points.len(), m.n_cells);
+        return;
+    }
     // All cell edges of the z-min plane, in grey.
     for f in m.faces.iter().filter(|f| on_plane(f)) {
         for k in 0..f.verts.len() {

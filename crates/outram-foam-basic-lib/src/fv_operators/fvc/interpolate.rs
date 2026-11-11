@@ -25,6 +25,7 @@ use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
 use crate::fields::surface_field::SurfaceField;
 use crate::fields::vol_field::VolField;
+use crate::fv_operators::fvm::DeltaCoeff;
 use crate::mesh::fv_mesh::{FvMesh, PatchKind};
 
 /// Linear interpolation weight for the **owner** cell at internal face `f`:
@@ -176,7 +177,7 @@ where
                     // solver set (`snGrad(p)`), so it reconstructs the same way.
                     BoundaryCondition::FixedGradient(g)
                     | BoundaryCondition::FixedFluxPressure { gradient: g } => {
-                        let delta = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+                        let delta = DeltaCoeff::Orthogonal.boundary_delta(mesh, gf); // gh:#1488: 1/deltaCoeffs, patch-normal
                         vol.internal[owner].clone() + g.clone() * delta
                     }
                     // Robin/mixed blend of the fixedValue and fixedGradient parts.
@@ -185,7 +186,7 @@ where
                         ref_value,
                         ref_grad,
                     } => {
-                        let delta = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+                        let delta = DeltaCoeff::Orthogonal.boundary_delta(mesh, gf); // gh:#1488: 1/deltaCoeffs, patch-normal
                         let w = *value_fraction;
                         ref_value.clone() * w
                             + (vol.internal[owner].clone() + ref_grad.clone() * delta) * (1.0 - w)
@@ -196,7 +197,7 @@ where
                         ref_value,
                         ref_grad,
                     } => {
-                        let delta = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+                        let delta = DeltaCoeff::Orthogonal.boundary_delta(mesh, gf); // gh:#1488: 1/deltaCoeffs, patch-normal
                         let w = value_fraction[fi];
                         ref_value[fi].clone() * w
                             + (vol.internal[owner].clone() + ref_grad[fi].clone() * delta)
