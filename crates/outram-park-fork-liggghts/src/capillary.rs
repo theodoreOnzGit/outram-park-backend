@@ -129,7 +129,7 @@ pub struct CapillaryParams {
     pub surface_tension: f64,
     /// `fluidViscosity` `[Pa s]`.
     pub fluid_viscosity: f64,
-    /// `contactAngle`, per atom type `[rad]` (a bridge uses the mean of its two
+    /// `contactAngle`, per atom type `[rad]` (a LIGGGHTS deck gives degrees and upstream stores `deg * PI / 180`; a bridge uses the mean of its two
     /// particles').
     pub contact_angle: [f64; MAX_TYPES],
     /// `minSeparationDistanceRatio` `[-]` (lubrication cut-off, `> 0`).

@@ -52,6 +52,15 @@ const EASO_BED: &str = include_str!("../../../reference-data/liggghts/cap_easo_b
 const WASH_BED: &str = include_str!("../../../reference-data/liggghts/cap_washino_bed.csv");
 const BED_INIT: &str = include_str!("../../../reference-data/liggghts/cap_bed_init.csv");
 
+/// Upstream's `createContactAngle` reads `contactAngle` in DEGREES and stores
+/// `v * M_PI / 180.` (`global_properties.cpp`); the port's API takes radians.
+/// (First run missed by 0.24 % in the force at the first contact because the
+/// deck's 0.3 was fed as radians; found by printing the contact angle from an
+/// instrumented copy of the upstream header.)
+fn deg(v: f64) -> f64 {
+    v * std::f64::consts::PI / 180.
+}
+
 #[derive(Clone, Copy, PartialEq)]
 enum Case {
     EasoPair,
@@ -109,8 +118,8 @@ fn system(case: Case) -> (GranularSystem, &'static str) {
                 (0.0051, 0.6, 0.1, 1.2, 1.0e-3, vec![0.2, 0.06])
             };
             particles = two(-x, x, (v, 0.05), 0.01, 2500.0);
-            angles[0] = 0.3;
-            params = mk(0.072, vis, 0.3, 0.01, maxr, init).with_contact_angles(angles);
+            angles[0] = deg(0.3);
+            params = mk(0.072, vis, deg(0.3), 0.01, maxr, init).with_contact_angles(angles);
             model = GranularContactModel::hertz_history(GranularMaterial::new(1.0e7, 0.3, 0.9, 0.5).unwrap());
             contents = cont;
             rows = if washino { WASH_PAIR } else { EASO_PAIR };
@@ -121,9 +130,9 @@ fn system(case: Case) -> (GranularSystem, &'static str) {
             lo = Vec3::new(-0.2, -0.2, -0.2);
             hi = Vec3::new(0.2, 0.2, 0.2);
             particles = two(-0.0055, 0.0061, (0.6, 0.05), 0.012, 4000.0);
-            angles[0] = 0.2;
-            angles[1] = 0.5;
-            params = mk(0.072, 5.0e-3, 0.2, 0.01, 1.1, 0.15)
+            angles[0] = deg(0.2);
+            angles[1] = deg(0.5);
+            params = mk(0.072, 5.0e-3, deg(0.2), 0.01, 1.1, 0.15)
                 .with_contact_angles(angles)
                 .with_tangential_reduce(true);
             model = GranularContactModel::hertz_history(GranularMaterial::new(1.0e7, 0.3, 0.9, 0.5).unwrap());
@@ -136,12 +145,12 @@ fn system(case: Case) -> (GranularSystem, &'static str) {
             lo = Vec3::new(-0.2, -0.2, -0.2);
             hi = Vec3::new(0.2, 0.2, 0.2);
             particles = two(-0.0064, 0.0070, (0.5, 0.05), 0.012, 4000.0);
-            angles[0] = 0.2;
-            angles[1] = 0.5;
+            angles[0] = deg(0.2);
+            angles[1] = deg(0.5);
             let mut maxc = [0.0; outram_park_fork_liggghts::granular::MAX_TYPES];
             maxc[0] = 0.1;
             maxc[1] = 0.2;
-            params = mk(0.072, 2.0e-3, 0.2, 0.01, 1.3, 0.4)
+            params = mk(0.072, 2.0e-3, deg(0.2), 0.01, 1.3, 0.4)
                 .with_contact_angles(angles)
                 .with_liquid_content_limit(maxc)
                 .unwrap()
@@ -168,8 +177,8 @@ fn system(case: Case) -> (GranularSystem, &'static str) {
                 .collect();
             contents = (0..ps.len()).map(|i| 0.05 + 0.1 * ((i + 1) % 4) as f64).collect();
             particles = ps;
-            angles[0] = 0.3;
-            params = mk(0.072, 1.0e-3, 0.3, 0.01, 1.2, if washino { 0.3 } else { 0.1 }).with_contact_angles(angles);
+            angles[0] = deg(0.3);
+            params = mk(0.072, 1.0e-3, deg(0.3), 0.01, 1.2, if washino { 0.3 } else { 0.1 }).with_contact_angles(angles);
             model = GranularContactModel::hertz_history(GranularMaterial::new(5.0e6, 0.3, 0.5, 0.3).unwrap());
             rows = if washino { WASH_BED } else { EASO_BED };
         }
@@ -219,7 +228,11 @@ fn ulp(a: f64, b: f64) -> u64 {
 fn compare(case: Case) -> Outcome {
     let (mut sys, rows) = system(case);
     let nvar = 14;
-    let frames: Vec<(usize, Vec<f64>)> = rows
+    // `CAP_REF=<csv>` swaps in a finer-sampled upstream run (debugging only).
+    let ovr = std::env::var("CAP_REF").ok().map(|f| std::fs::read_to_string(f).unwrap());
+    let frames: Vec<(usize, Vec<f64>)> = ovr
+        .as_deref()
+        .unwrap_or(rows)
         .lines()
         .skip(1)
         .filter(|l| !l.trim().is_empty())
