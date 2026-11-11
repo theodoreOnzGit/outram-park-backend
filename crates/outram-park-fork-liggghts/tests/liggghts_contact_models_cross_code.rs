@@ -30,7 +30,7 @@
 
 use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::granular::{
-    GranularContactModel, GranularMaterial, GranularNormalModel, MaterialTable, RollingModel,
+    GranularCohesion, GranularContactModel, GranularMaterial, GranularNormalModel, RollingModel,
     TangentialModel,
 };
 use outram_park_fork_liggghts::granular_system::GranularSystem;
@@ -447,4 +447,265 @@ fn luding_decks_are_sensitive_to_each_sub_model() {
         ..full
     };
     assert!(oblique_pair("luding_full.csv", no_adhesion).mismatched > 100);
+}
+
+// ---------------------------------------------------------------------------
+// Thornton-Ning (gh:#1410): normal_model_thornton_ning.h.
+// ---------------------------------------------------------------------------
+
+fn tn_case(file: &str, gamma_surf: f64, yield_ratio: f64) -> Diff {
+    assert_collided(file);
+    let normal =
+        GranularNormalModel::thornton_ning(material(), gamma_surf, yield_ratio).expect("valid");
+    oblique_pair(file, GranularContactModel::new(normal, TangentialModel::History))
+}
+
+/// `thornton_ning`, adhesive and yielding (`a_Y = 0.05 r_i`): virgin loading,
+/// plastic branch, elastic unloading with the modified radius, detachment.
+///
+/// **Methodology.** Deck `in.tn_plastic`: `E = 1e7`, `nu = 0.3`, `e = 0.9`,
+/// `gamma_s = 0.05 J/m^2`, yield ratio 0.05, oblique pair with relative
+/// spins, history tangential model, 2500 steps, 251 frames bit for bit.
+///
+/// **Prediction (written before the first run, 2026-11-11).** Bit-identical
+/// in all four decks (sums, products, `sqrt` and `pow(x, 1/3)` through the
+/// same libm as upstream; the `goto` translated as a flag). The pair is
+/// visited in one fixed order so the sign-flipping history never flips.
+#[test]
+fn thornton_ning_plastic_matches_liggghts() {
+    assert_bit_identical(&tn_case("tn_plastic.csv", 0.05, 0.05));
+}
+
+/// `thornton_ning`, adhesive, never yields (`a_Y = 0.2 r_i`): the elastic JKR branches and the
+/// `-(5/9) fc` detachment.
+#[test]
+fn thornton_ning_elastic_matches_liggghts() {
+    assert_bit_identical(&tn_case("tn_elastic.csv", 0.05, 0.2));
+}
+
+/// `thornton_ning` with `gamma_s = 0`: no cohesion, `f` clipped at zero and
+/// the detaching branch.
+#[test]
+fn thornton_ning_without_cohesion_matches_liggghts() {
+    assert_bit_identical(&tn_case("tn_nocoh.csv", 0.0, 0.05));
+}
+
+/// `thornton_ning` against a wall (`in.tn_wall`).
+#[test]
+fn thornton_ning_wall_matches_liggghts() {
+    let rows = load("tn_wall.csv").expect("reference present");
+    assert!(rows.last().expect("frames")[6] > 0.0, "the sphere must bounce");
+    let normal = GranularNormalModel::thornton_ning(material(), 0.05, 0.05).expect("valid");
+    assert_bit_identical(&wall_case(
+        "tn_wall.csv",
+        GranularContactModel::new(normal, TangentialModel::History),
+    ));
+}
+
+/// The three TN decks are told apart: a model with a different yield ratio or
+/// surface energy does not reproduce them (so they exercise the yield and
+/// adhesion branches), and the plastic and elastic decks differ from each other.
+#[test]
+fn thornton_ning_decks_are_sensitive() {
+    assert!(tn_case("tn_plastic.csv", 0.05, 0.2).mismatched > 100, "yield branch not exercised");
+    assert!(tn_case("tn_plastic.csv", 0.02, 0.05).mismatched > 100, "adhesion not exercised");
+    assert!(tn_case("tn_nocoh.csv", 0.05, 0.05).mismatched > 100, "gamma_s = 0 not distinct");
+}
+
+// ---------------------------------------------------------------------------
+// Edinburgh elasto-plastic adhesive (gh:#1410): normal_model_edinburgh.h and
+// normal_model_edinburgh_stiffness.h.
+// ---------------------------------------------------------------------------
+
+#[allow(clippy::too_many_arguments)]
+fn edinburgh_case(
+    file: &str,
+    stiffness: Option<f64>,
+    kn2kc: f64,
+    exponent: f64,
+    f_adh: f64,
+    fix_kc: bool,
+) -> Diff {
+    assert_collided(file);
+    let normal = GranularNormalModel::edinburgh(
+        material(),
+        stiffness,
+        3.0,
+        kn2kc,
+        exponent,
+        exponent,
+        f_adh,
+        0.05,
+    )
+    .expect("valid edinburgh")
+    .with_fix_kc(fix_kc);
+    oblique_pair(file, GranularContactModel::new(normal, TangentialModel::History))
+}
+
+/// `edinburgh/stiffness`, linear (`dex = cex = 1`), `fixKc off`: the
+/// surface-energy-driven adhesive stiffness (`calculate_k_adh`, the
+/// `goto temp_calc` re-evaluation) with a pull-off force.
+///
+/// **Methodology.** Deck `in.edi_stiff_lin`: `K = 1e4 N/m`, `k2/k1 = 3`,
+/// `gamma_s = 0.05 J/m^2`, `f_adh = 5e-4 N`, oblique pair with relative
+/// spins, history tangential, 2500 steps, 251 frames bit for bit.
+///
+/// **Prediction (written before the first run, 2026-11-11).** Bit-identical
+/// in all three decks: sums, products, `sqrt` and `pow` through the same libm
+/// as upstream, the `goto` as a loop. The sticky nonlinear deck (the pair
+/// ends bound together, `v_x = +7e-4 m/s`) is the one most likely to expose
+/// a branch error.
+#[test]
+fn edinburgh_stiffness_linear_matches_liggghts() {
+    assert_bit_identical(&edinburgh_case("edi_stiff_lin.csv", Some(1.0e4), 0.3, 1.0, 0.0005, false));
+}
+
+/// `edinburgh` (Hertzian `k_n = 4/3 Y_eff sqrt(R*)`, `dex = cex = 1.5`),
+/// `fixKc off`.
+#[test]
+fn edinburgh_nonlinear_matches_liggghts() {
+    assert_bit_identical(&edinburgh_case("edi_nonlin.csv", None, 0.3, 1.5, 0.0, false));
+}
+
+/// `edinburgh/stiffness fixKc on`: `k_c = kn2kc k_n`, with upstream's
+/// shadowed `k_adh` (the `limitForce` test sees zero).
+#[test]
+fn edinburgh_fix_kc_matches_liggghts() {
+    assert_bit_identical(&edinburgh_case("edi_fixkc.csv", Some(1.0e4), 0.3, 1.0, 0.0, true));
+}
+
+/// Controls: the Edinburgh decks are sensitive to the surface energy
+/// (`fixKc off`) and to the exponent.
+#[test]
+fn edinburgh_decks_are_sensitive() {
+    let alt = GranularNormalModel::edinburgh(
+        material(),
+        Some(1.0e4),
+        3.0,
+        0.3,
+        1.0,
+        1.0,
+        0.0005,
+        0.02,
+    )
+    .expect("valid");
+    let d = oblique_pair(
+        "edi_stiff_lin.csv",
+        GranularContactModel::new(alt, TangentialModel::History),
+    );
+    assert!(d.mismatched > 100, "surface energy not exercised");
+    let d = edinburgh_case("edi_fixkc.csv", Some(1.0e4), 0.3, 1.0, 0.0, false);
+    assert!(d.mismatched > 100, "fixKc on/off not distinct");
+}
+
+// ---------------------------------------------------------------------------
+// Cohesion (gh:#1411): cohesion_model_sjkr.h, cohesion_model_sjkr2.h.
+// ---------------------------------------------------------------------------
+
+fn hertz_with(cohesion: GranularCohesion) -> GranularContactModel {
+    GranularContactModel::hertz_history(material()).with_cohesion(cohesion)
+}
+
+/// `cohesion sjkr` (simplified JKR): `F_coh = -k_A A_contact` with the exact
+/// two-sphere contact area `-(pi/4) (r-ri-rj)(r+ri-rj)(r-ri+rj)(r+ri+rj)/r^2`.
+///
+/// **Methodology.** Deck `in.sjkr_pair`: Hertz + history, `E = 1e7`,
+/// `k_A = 2e5 J/m^3`, oblique pair with relative spins, 2500 steps, 251
+/// frames of x, v, omega bit for bit. The cohesion force acts along `e_n`
+/// between the normal and tangential model (`i_forces.delta_F +=`), so the
+/// force sum is `(Fn en + Fcoh en) + Ft`.
+///
+/// **Prediction (written before the first run, 2026-11-11).** Bit-identical
+/// in all five decks: the area is a product/quotient chain translated in
+/// upstream's operator order, and the three force terms are summed in
+/// upstream's order.
+#[test]
+fn sjkr_pair_matches_liggghts() {
+    let model = hertz_with(GranularCohesion::sjkr(2.0e5).expect("valid"));
+    assert_bit_identical(&oblique_pair("sjkr_pair.csv", model));
+}
+
+/// `cohesion sjkr2` (spherical-cap area `2 pi R* delta`).
+#[test]
+fn sjkr2_pair_matches_liggghts() {
+    let model = hertz_with(GranularCohesion::sjkr2(2.0e5).expect("valid"));
+    assert_bit_identical(&oblique_pair("sjkr2_pair.csv", model));
+}
+
+/// `cohesion sjkr tangential_reduce on`: the cohesion force is added to
+/// `sidata.Fn`, so the tangential Coulomb limit sees it.
+#[test]
+fn sjkr_tangential_reduce_matches_liggghts() {
+    let model = hertz_with(
+        GranularCohesion::sjkr(2.0e5)
+            .expect("valid")
+            .with_tangential_reduce(true),
+    );
+    assert_bit_identical(&oblique_pair("sjkr_reduce.csv", model));
+}
+
+/// SJKR and SJKR2 against a wall: the sphere-wall contact areas
+/// `(ri^2 - r^2) pi` and `2 pi ri (ri - r)` with `r = ri - delta`.
+#[test]
+fn sjkr_and_sjkr2_wall_match_liggghts() {
+    for (file, cohesion) in [
+        ("sjkr_wall.csv", GranularCohesion::sjkr(2.0e5).expect("valid")),
+        ("sjkr2_wall.csv", GranularCohesion::sjkr2(2.0e5).expect("valid")),
+    ] {
+        let rows = load(file).expect("reference present");
+        assert!(rows.last().expect("frames")[6] > 0.0, "{file}: the sphere must bounce");
+        assert_bit_identical(&wall_case(file, hertz_with(cohesion)));
+    }
+}
+
+/// Controls: cohesion off, SJKR vs SJKR2 and `tangential_reduce` are told
+/// apart by the decks.
+#[test]
+fn cohesion_decks_are_sensitive() {
+    let off = GranularContactModel::hertz_history(material());
+    assert!(oblique_pair("sjkr_pair.csv", off).mismatched > 100);
+    let swapped = hertz_with(GranularCohesion::sjkr2(2.0e5).expect("valid"));
+    assert!(oblique_pair("sjkr_pair.csv", swapped).mismatched > 100);
+    let plain = hertz_with(GranularCohesion::sjkr(2.0e5).expect("valid"));
+    assert!(oblique_pair("sjkr_reduce.csv", plain).mismatched > 0);
+}
+
+/// Long Edinburgh runs (20 000 steps, 251 frames at spacing 80): a slow
+/// approach (`v = +-(0.3, 0.1) m/s`) that leaves the pair bound and
+/// oscillating, so the contact is reloaded many times — the
+/// `deltan > old_delta` re-evaluation (`goto temp_calc`, `count_flag = 1`)
+/// of `fixKc off`. **Ablation (2026-11-11):** with that re-evaluation
+/// disabled in the port the four short decks above still pass, so they never
+/// reach it; these two decks do not (see the V&V section).
+#[test]
+fn edinburgh_long_oscillation_matches_liggghts() {
+    for (file, stiffness, exponent, f_adh) in [
+        ("edi_long_stiff_lin.csv", Some(1.0e4), 1.0, 0.0005),
+        ("edi_long_nonlin.csv", None, 1.5, 0.0),
+    ] {
+        assert_collided_below(file, 0.3);
+        let rows = load(file).expect("reference present");
+        assert_eq!(rows.len(), 251);
+        let normal =
+            GranularNormalModel::edinburgh(material(), stiffness, 3.0, 0.3, exponent, exponent, f_adh, 0.05)
+                .expect("valid edinburgh");
+        let model = GranularContactModel::new(normal, TangentialModel::History);
+        let diff = replay_pair_at(
+            &rows,
+            model,
+            0.0060,
+            Vec3::new(0.3, 0.1, 0.0),
+            Vec3::new(-0.3, -0.1, 0.0),
+            Vec3::new(0.0, 0.0, 40.0),
+            Vec3::new(0.0, 0.0, -20.0),
+        );
+        assert_bit_identical(&diff);
+    }
+}
+
+/// The long reference left its initial `+0.3 m/s`.
+fn assert_collided_below(file: &str, v0: f64) {
+    let rows = load(file).expect("reference present");
+    let vx_end = rows.last().expect("frames")[4];
+    assert!(vx_end < 0.9 * v0, "{file}: no collision in the reference (vx = {vx_end})");
 }

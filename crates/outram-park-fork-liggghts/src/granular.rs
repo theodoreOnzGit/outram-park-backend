@@ -441,6 +441,9 @@ pub struct ContactKinematics {
     /// `(c_ri omega_i + c_rj omega_j) rinv` for a pair, `(c_r omega_i) rinv`
     /// for a wall. The wall branch of the rolling models reads it.
     pub wr: Vec3,
+    /// Centre-to-centre distance for a pair, centre-to-surface distance for a
+    /// wall (upstream `sidata.r`) `[m]`.
+    pub r: f64,
     /// Radius of `i` (upstream `sidata.radi`) `[m]`.
     pub rad_i: f64,
     /// Radius of `j` (`sidata.radj`) `[m]`; zero for a wall contact.
@@ -499,6 +502,7 @@ impl ContactKinematics {
             itype: 0,
             jtype: 0,
             wr,
+            r,
             rad_i: i.radius,
             rad_j: j.radius,
             mass_i: i.mass,
@@ -564,6 +568,7 @@ impl ContactKinematics {
             itype: 0,
             jtype: 0,
             wr,
+            r: i.radius - delta_n,
             rad_i: i.radius,
             rad_j: 0.0,
             mass_i: i.mass,
@@ -628,6 +633,7 @@ impl ContactKinematics {
             itype: 0,
             jtype: 0,
             wr: Vec3::new(wr1, wr2, wr3),
+            r,
             rad_i: i.radius,
             rad_j: 0.0,
             mass_i: i.mass,
@@ -764,6 +770,60 @@ pub enum GranularNormalModel {
         /// Upstream `limitForce` (**default on** for Luding): clamp a
         /// negative `F_n` to zero when `kc = 0` and `f_0 = 0`.
         limit_force: bool,
+    },
+    /// Upstream `NormalModel<THORNTON_NING>` (`thornton_ning`,
+    /// `normal_model_thornton_ning.h`): the elastic-perfectly-plastic adhesive
+    /// Hertzian contact of Thornton and Ning (1998). Loading follows the JKR
+    /// elastic branch until the contact radius reaches the yield radius
+    /// `a_Y = r_i * yield_ratio`, then the plastic branch; unloading and
+    /// reloading follow elastic JKR curves of a modified radius; a contact
+    /// detaches at `f = -(5/9) f_c`. Eleven history values per contact
+    /// (virgin flag, `delta_old`, `delta_max`, `force_old`, `force_max`,
+    /// adhesion flag, detaching delta/flag/force, yielding flag, and the
+    /// `f_c` read by the Luding tangential/rolling models). No normal
+    /// dashpot. **Upstream oddities kept for parity:** `gammat` has no
+    /// leading minus sign (it is negative, so the tangential dashpot adds
+    /// force) and `sidata.kn` is not set (`kn` is zero here). gh:#1410.
+    ThorntonNing {
+        /// `Y_eff`, `G_eff`, `beta_eff` come from this material.
+        material: GranularMaterial,
+        /// Surface energy `gamma_s` `[J/m^2]` (property `surfaceEnergy`).
+        gamma_surf: f64,
+        /// Yield ratio `a_Y / r_i` `[-]` (property `coefficientYieldRatio`).
+        yield_ratio: f64,
+    },
+    /// Upstream `NormalModel<EDINBURGH>` (`edinburgh`,
+    /// `normal_model_edinburgh.h`) and, with `stiffness = Some(K)`,
+    /// `NormalModel<EDINBURGH_STIFFNESS>` (`edinburgh/stiffness`): the
+    /// Edinburgh elasto-plastic adhesive (EEPA) contact model of Thakur et
+    /// al. With `fix_kc = false` the adhesive stiffness `k_c` is recomputed
+    /// every step from the surface energy and the plastic overlap
+    /// (`calculate_k_adh`, with upstream's `goto temp_calc` iteration); with
+    /// `fix_kc = true` it is `kn2kc * k_n`. State: `deltaMax`, `old_delta`,
+    /// `kc`, `f_0`. gh:#1410.
+    Edinburgh {
+        /// `Y_eff`, `G_eff` (Edinburgh) and `e` (both) come from this material.
+        material: GranularMaterial,
+        /// `Some(K_elastic)` selects `edinburgh/stiffness` (`k_n = k_t = K`).
+        stiffness: Option<f64>,
+        /// `k2 / k1` (property `UnloadingStiffness`, `> 1`).
+        kn2k1: f64,
+        /// `kc / kn` for `fixKc` (property `coefficientAdhesionStiffness`).
+        kn2kc: f64,
+        /// Adhesion exponent `cex` (property `adhesionExponent`).
+        cex: f64,
+        /// Overlap exponent `dex` (property `overlapExponent`); 1 is linear.
+        dex: f64,
+        /// Pull-off force `f_0` `[N]` (property `pullOffForce`).
+        f_adh: f64,
+        /// Surface energy `gamma_s` `[J/m^2]` (property `surfaceEnergy`).
+        gamma_surf: f64,
+        /// Upstream `tangential_damping` (default on).
+        tangential_damping: bool,
+        /// Upstream `limitForce` (**default on**).
+        limit_force: bool,
+        /// Upstream `fixKc` (default off).
+        fix_kc: bool,
     },
     /// Upstream `NormalModel<HERTZ_STIFFNESS>` (`hertz/stiffness`): stiffness
     /// and damping given directly, scaled by `sqrt(r_eff δ_n)`
@@ -919,6 +979,104 @@ impl GranularNormalModel {
         })
     }
 
+    /// Build a `thornton_ning` model (see [`GranularNormalModel::ThorntonNing`]).
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] unless `gamma_surf >= 0` and
+    /// `yield_ratio > 0` are finite.
+    pub fn thornton_ning(
+        material: GranularMaterial,
+        gamma_surf: f64,
+        yield_ratio: f64,
+    ) -> Result<Self, DemError> {
+        if !(gamma_surf >= 0.0 && yield_ratio > 0.0)
+            || !gamma_surf.is_finite()
+            || !yield_ratio.is_finite()
+        {
+            return Err(DemError::InvalidInput(format!(
+                "thornton_ning needs gamma_surf >= 0 and yield_ratio > 0, got {gamma_surf}, {yield_ratio}"
+            )));
+        }
+        Ok(Self::ThorntonNing {
+            material,
+            gamma_surf,
+            yield_ratio,
+        })
+    }
+
+    /// Build an `edinburgh` (`stiffness = None`) or `edinburgh/stiffness`
+    /// model with upstream's defaults (`tangential_damping on`, `limitForce on`,
+    /// `fixKc off`).
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] unless `kn2k1 > 1`, `cex > 0`, `dex > 0`,
+    /// `gamma_surf >= 0`, `f_adh >= 0`, `kn2kc >= 0` (and `K > 0`) are finite.
+    #[allow(clippy::too_many_arguments)]
+    pub fn edinburgh(
+        material: GranularMaterial,
+        stiffness: Option<f64>,
+        kn2k1: f64,
+        kn2kc: f64,
+        cex: f64,
+        dex: f64,
+        f_adh: f64,
+        gamma_surf: f64,
+    ) -> Result<Self, DemError> {
+        let ok = kn2k1 > 1.0
+            && cex > 0.0
+            && dex > 0.0
+            && gamma_surf >= 0.0
+            && f_adh >= 0.0
+            && kn2kc >= 0.0
+            && stiffness.is_none_or(|k| k > 0.0)
+            && [kn2k1, kn2kc, cex, dex, f_adh, gamma_surf]
+                .iter()
+                .all(|v| v.is_finite());
+        if !ok {
+            return Err(DemError::InvalidInput(format!(
+                "edinburgh needs kn2k1 > 1, cex > 0, dex > 0 and finite non-negative \
+                 adhesion data; got {kn2k1}, {kn2kc}, {cex}, {dex}, {f_adh}, {gamma_surf}"
+            )));
+        }
+        Ok(Self::Edinburgh {
+            material,
+            stiffness,
+            kn2k1,
+            kn2kc,
+            cex,
+            dex,
+            f_adh,
+            gamma_surf,
+            tangential_damping: true,
+            limit_force: true,
+            fix_kc: false,
+        })
+    }
+
+    /// Set `fixKc` of an [`GranularNormalModel::Edinburgh`] model (other
+    /// variants are returned unchanged).
+    #[must_use]
+    pub fn with_fix_kc(mut self, on: bool) -> Self {
+        if let Self::Edinburgh { fix_kc, .. } = &mut self {
+            *fix_kc = on;
+        }
+        self
+    }
+
+    /// The adhesive stiffness `kc` and pull-off force `f_0` this model stored
+    /// for the Luding tangential and rolling models (upstream's `kc_offset`
+    /// and `fo_offset` history values).
+    #[must_use]
+    pub fn kc_fo(&self, state: &[f64; NORMAL_STATE]) -> (f64, f64) {
+        match self {
+            Self::ThorntonNing { .. } => (state[10], state[11]),
+            Self::Edinburgh { .. } => (state[2], state[3]),
+            _ => (state[1], state[2]),
+        }
+    }
+
     /// Whether this model keeps a per-contact scalar (`deltaMax`) besides the
     /// shear spring; such a model is resolved serially.
     #[must_use]
@@ -933,6 +1091,8 @@ impl GranularNormalModel {
         match self {
             Self::HookeHysteresis { .. } => 1,
             Self::Luding { .. } => 3,
+            Self::ThorntonNing { .. } => 12,
+            Self::Edinburgh { .. } => 4,
             _ => 0,
         }
     }
@@ -959,6 +1119,8 @@ impl GranularNormalModel {
                 state[..3].copy_from_slice(&st);
                 out
             }
+            Self::ThorntonNing { .. } => self.evaluate_thornton_ning(k, props, state),
+            Self::Edinburgh { .. } => self.evaluate_edinburgh(k, props, state),
             _ => self.evaluate_with(k, props),
         }
     }
@@ -1022,7 +1184,9 @@ impl GranularNormalModel {
             | Self::HertzStiffness { tangential_damping, .. }
             | Self::HookeStiffness { tangential_damping, .. }
             | Self::HookeHysteresis { tangential_damping, .. }
-            | Self::Luding { tangential_damping, .. } => *tangential_damping = on,
+            | Self::Luding { tangential_damping, .. }
+            | Self::Edinburgh { tangential_damping, .. } => *tangential_damping = on,
+            Self::ThorntonNing { .. } => {}
         }
         self
     }
@@ -1046,7 +1210,9 @@ impl GranularNormalModel {
             | Self::HertzStiffness { material, .. }
             | Self::HookeStiffness { material, .. }
             | Self::HookeHysteresis { material, .. }
-            | Self::Luding { material, .. } => *material,
+            | Self::Luding { material, .. }
+            | Self::ThorntonNing { material, .. }
+            | Self::Edinburgh { material, .. } => *material,
         }
     }
 
@@ -1128,6 +1294,10 @@ impl GranularNormalModel {
             }
             Self::HookeHysteresis { .. } => self.evaluate_hysteretic(k, props, 0.0, false).0,
             Self::Luding { .. } => self.evaluate_luding(k, props, [0.0; 3]).0,
+            Self::ThorntonNing { .. } => {
+                self.evaluate_thornton_ning(k, props, &mut [0.0; NORMAL_STATE])
+            }
+            Self::Edinburgh { .. } => self.evaluate_edinburgh(k, props, &mut [0.0; NORMAL_STATE]),
             Self::HertzStiffness {
                 k_n,
                 k_t,
@@ -1184,7 +1354,397 @@ impl GranularNormalModel {
     }
 }
 
+/// `calculate_fl` of `normal_model_thornton_ning.h`.
+fn tn_fl(force_old: f64, fc: f64, adhesion_flag: i32) -> f64 {
+    if adhesion_flag == 1 {
+        force_old + 2.0 * (fc - (fc * (force_old + fc)).sqrt())
+    } else {
+        force_old + 2.0 * (fc + (fc * (force_old + fc)).sqrt())
+    }
+}
+
+/// `calculate_elastic_force_differential`.
+fn tn_elastic_df(a: f64, e: f64, fl: f64, fc: f64) -> f64 {
+    if fc != 0.0 {
+        let up = 3.0 * fl.sqrt() - 3.0 * fc.sqrt();
+        let down = 3.0 * fl.sqrt() - fc.sqrt();
+        2.0 * e * a * up / down
+    } else {
+        2.0 * e * a
+    }
+}
+
+/// `calculate_plastic_force_differential`.
+fn tn_plastic_df(a_yield: f64, e: f64, fl: f64, fc: f64, yield_stress: f64, r: f64) -> f64 {
+    if fc != 0.0 {
+        let up = 3.0 * std::f64::consts::PI * r * yield_stress * fl.sqrt()
+            - 2.0 * a_yield * e * fc.sqrt();
+        let down = 3.0 * fl.sqrt() - fc.sqrt();
+        up / down
+    } else {
+        2.0 * e * a_yield
+    }
+}
+
+/// `calculate_a`.
+fn tn_a(fl: f64, e: f64, r: f64, delta: f64, gamma_s: f64) -> f64 {
+    if gamma_s == 0.0 {
+        (r * delta).sqrt()
+    } else {
+        ((3.0 * r * fl) / (4.0 * e)).r_powf(1.0 / 3.0)
+    }
+}
+
+/// `branch_2_force_calc`: `(force_old + df, df)`.
+#[allow(clippy::too_many_arguments)]
+fn tn_branch_2(
+    force_old: f64,
+    fc: f64,
+    adhesion_flag: i32,
+    e: f64,
+    rp: f64,
+    delta: f64,
+    dn: f64,
+    gamma_s: f64,
+) -> (f64, f64) {
+    let fl_r = tn_fl(force_old, fc, adhesion_flag);
+    let a = tn_a(fl_r, e, rp, delta, gamma_s);
+    let df = tn_elastic_df(a, e, fl_r, fc) * dn;
+    (force_old + df, df)
+}
+
+/// `calculate_k_adh` of `normal_model_edinburgh.h`.
+#[allow(clippy::too_many_arguments)]
+fn edi_k_adh(
+    d: f64,
+    risq: f64,
+    rjsq: f64,
+    g_surf: f64,
+    f_min_lim: f64,
+    deltan_pe_max: f64,
+    deltan_p_max: f64,
+    k2: f64,
+    dex_i: f64,
+    cex: f64,
+) -> f64 {
+    let dsq = d * d;
+    let a = (1.0 / (2.0 * d))
+        * (4.0 * dsq * risq - ((dsq - rjsq + risq) * (dsq - rjsq + risq))).sqrt();
+    let mut f_min = 1.5 * std::f64::consts::PI * g_surf * a;
+    let delta_min;
+    if f_min > f_min_lim {
+        f_min = f_min_lim;
+        delta_min = 0.5 * deltan_p_max;
+    } else {
+        delta_min = ((-f_min + k2 * deltan_pe_max) / k2).r_powf(dex_i);
+    }
+    f_min / delta_min.r_powf(cex)
+}
+
 impl GranularNormalModel {
+    /// `NormalModel<EDINBURGH>` / `NormalModel<EDINBURGH_STIFFNESS>`
+    /// `::surfacesIntersect` (LIGGGHTS-PUBLIC `3d5c00f2`), including the
+    /// `goto temp_calc` loop (here capped at 10 000 passes, where upstream
+    /// has no cap) and the upstream shadowing of `k_adh` under `fixKc` (the
+    /// `limitForce` test then sees `k_adh == 0`). `state = [deltaMax,
+    /// old_delta, kc, f_0]`.
+    #[must_use]
+    fn evaluate_edinburgh(
+        &self,
+        k: &ContactKinematics,
+        props: &PairProps,
+        state: &mut [f64; NORMAL_STATE],
+    ) -> NormalOutcome {
+        let Self::Edinburgh {
+            stiffness,
+            kn2k1,
+            kn2kc,
+            cex,
+            dex,
+            f_adh,
+            gamma_surf,
+            tangential_damping,
+            limit_force,
+            fix_kc,
+            ..
+        } = *self
+        else {
+            return self.evaluate_with(k, props);
+        };
+        use std::f64::consts::PI;
+        let deltan = k.delta_n;
+        let ri = k.rad_i;
+        let rj = k.rad_j;
+        let reff = k.r_eff;
+        let meff = k.m_eff;
+        let f_0 = f_adh;
+        let (kn, kt) = if let Some(k_el) = stiffness {
+            (k_el, k_el)
+        } else {
+            let sqrtval = (reff * k.delta_n).sqrt();
+            let sn = 2.0 * props.y_eff * sqrtval;
+            let st = 8.0 * props.g_eff * sqrtval;
+            if dex == 1.0 {
+                (2.0 * props.y_eff * reff, sn)
+            } else {
+                ((4.0 / 3.0) * props.y_eff * reff.sqrt(), st)
+            }
+        };
+        let dex_i = 1.0 / dex;
+        let k1 = kn;
+        let k2 = kn * kn2k1;
+        let ln_e = props.ln_e;
+        let gamman = (4.0 * meff * kn / (1.0 + (PI / ln_e) * (PI / ln_e))).sqrt();
+        let mut gammat = (4.0 * meff * kn / (1.0 + (PI / ln_e) * (PI / ln_e))).sqrt();
+        if !tangential_damping {
+            gammat = 0.0;
+        }
+        let mut k_adh_outer = 0.0;
+        let fn_contact;
+        if !fix_kc {
+            let lambda = (1.0 - k1 / k2).r_powf(dex_i);
+            let deltan_p = lambda * deltan;
+            let deltan_e = deltan.r_powf(dex);
+            let deltan_ce = deltan.r_powf(cex);
+            // calculate_deltan_p_max, count_flag = 0
+            if deltan_p > state[0] {
+                state[0] = deltan_p;
+            }
+            let mut deltan_p_max = state[0];
+            let g_surf = gamma_surf;
+            let r_sum = ri + rj;
+            let d1 = if k.is_wall { ri } else { r_sum - deltan };
+            let d2 = if k.is_wall { ri } else { r_sum - deltan_p_max };
+            let risq = ri * ri;
+            let rjsq = rj * rj;
+            let mut passes = 0;
+            loop {
+                let deltan_pe_max = deltan_p_max.r_powf(dex);
+                let f_min_lim = (k2 * deltan_pe_max) * 0.5;
+                let f_tmp = k2 * (deltan_e - deltan_pe_max);
+                if f_tmp >= k1 * deltan_e {
+                    fn_contact = k1 * deltan_e;
+                    break;
+                }
+                // whichd: the loading test failed, so `d2`
+                let d = d2;
+                let _ = d1;
+                k_adh_outer = edi_k_adh(
+                    d, risq, rjsq, g_surf, f_min_lim, deltan_pe_max, deltan_p_max, k2, dex_i, cex,
+                );
+                state[2] = k_adh_outer;
+                if f_tmp > (-k_adh_outer * deltan_ce) {
+                    fn_contact = f_tmp;
+                    break;
+                }
+                passes += 1;
+                if deltan > state[1] && passes < 10_000 {
+                    // calculate_deltan_p_max, count_flag = 1
+                    deltan_p_max = (state[1].r_powf(dex)
+                        + ((k_adh_outer / k2) * state[1].r_powf(cex)))
+                    .r_powf(dex_i);
+                    state[0] = deltan_p_max;
+                    continue;
+                }
+                fn_contact = -k_adh_outer * deltan_ce;
+                break;
+            }
+            state[1] = deltan;
+        } else {
+            let k_adh = kn2kc * kn;
+            state[2] = k_adh;
+            let delta_max;
+            if deltan > state[0] {
+                state[0] = deltan;
+                delta_max = deltan;
+            } else {
+                delta_max = state[0];
+            }
+            let deltan_e = deltan.r_powf(dex);
+            let deltan_ce = deltan.r_powf(cex);
+            let delta_max_e = delta_max.r_powf(dex);
+            let f_tmp = k2 * (deltan_e - delta_max_e) + k1 * delta_max_e;
+            if f_tmp >= k1 * deltan_e {
+                fn_contact = k1 * deltan_e;
+            } else if f_tmp > (-k_adh * deltan_ce) {
+                fn_contact = f_tmp;
+            } else {
+                fn_contact = -k_adh * deltan_ce;
+                state[0] = ((k2 + k_adh) / (k2 - k1)) * deltan;
+            }
+        }
+        let fn_damping = -gamman * k.vn;
+        let mut fn_total = fn_damping + fn_contact + f_0;
+        state[3] = f_0;
+        if limit_force && fn_total < 0.0 && k_adh_outer == 0.0 && f_0 == 0.0 {
+            fn_total = 0.0;
+        }
+        NormalOutcome {
+            fn_scalar: fn_total,
+            kn,
+            kt,
+            gamman,
+            gammat,
+        }
+    }
+
+    /// `NormalModel<THORNTON_NING>::surfacesIntersect`
+    /// (`normal_model_thornton_ning.h`, LIGGGHTS-PUBLIC `3d5c00f2`), the
+    /// `goto UNLOADING_RELOADING` included. `state` holds upstream's eleven
+    /// history values (`[0..10)`), `kc` (`[10]`) and `fo` (`[11]`). Like
+    /// upstream it writes the state on every call (also at set-up).
+    ///
+    /// # Panics
+    ///
+    /// If the yield stress is not positive, where upstream aborts with
+    /// `error->all("Invalid yield stress, please check surface energy and
+    /// yield ratio!")`.
+    #[must_use]
+    fn evaluate_thornton_ning(
+        &self,
+        k: &ContactKinematics,
+        props: &PairProps,
+        state: &mut [f64; NORMAL_STATE],
+    ) -> NormalOutcome {
+        let Self::ThorntonNing {
+            gamma_surf,
+            yield_ratio,
+            ..
+        } = *self
+        else {
+            return self.evaluate_with(k, props);
+        };
+        use std::f64::consts::PI;
+        let ri = k.rad_i;
+        let mut reff = k.r_eff;
+        let meff = k.m_eff;
+        let e_eff = props.y_eff;
+        let gamma_s = gamma_surf;
+
+        let mut virgin_loading_flag = state[0] as i32;
+        let mut delta_old = state[1];
+        let mut delta_max = state[2];
+        let mut force_old = state[3];
+        let mut force_max = state[4];
+        let mut adhesion_flag = state[5] as i32;
+        let mut detaching_delta = state[6];
+        let mut detaching_flag = state[7] as i32;
+        let mut detaching_force = state[8];
+        let mut yielding_flag = state[9] as i32;
+
+        let mut fc = gamma_s * reff * PI * (3.0 / 2.0);
+        let mut fo = fc;
+        let delta = k.delta_n;
+        let a_yield = ri * yield_ratio;
+        let yield_stress = ((2.0 * e_eff * a_yield) / (PI * reff))
+            - (2.0 * gamma_s * e_eff / (PI * a_yield)).sqrt();
+        let limit_yield_stress =
+            (2.0 * e_eff * e_eff * gamma_s / (PI * PI * reff)).r_powf(1.0 / 3.0);
+        let plastic_from_start = yield_stress < limit_yield_stress;
+        assert!(
+            yield_stress > 0.0,
+            "thornton_ning: invalid yield stress, please check surface energy and yield ratio!"
+        );
+
+        let sqrtval = (reff * k.delta_n).sqrt();
+        let k_t = 8.0 * props.g_eff * sqrtval;
+        let gammat = 2.0 * SQRT_FIVE_OVER_SIX * props.beta_eff * (k_t * meff).sqrt();
+
+        if virgin_loading_flag != 1 {
+            force_old = -(8.0 / 9.0) * fc;
+            delta_old = 0.0;
+            virgin_loading_flag = 1;
+            force_max = force_old;
+            delta_max = 0.0;
+            adhesion_flag = 0;
+            detaching_delta = 0.0;
+            detaching_flag = 0;
+            detaching_force = -(5.0 / 9.0) * fc;
+            yielding_flag = 0;
+        }
+
+        let f;
+        let mut run_unloading_reloading = true;
+        let mut f_local = 0.0;
+        if detaching_flag == 1 {
+            if delta >= detaching_delta {
+                detaching_flag = 0;
+                delta_old = detaching_delta;
+                force_old = detaching_force;
+            } else {
+                f_local = 0.0;
+                run_unloading_reloading = false;
+            }
+        }
+        if run_unloading_reloading {
+            let dn = delta - delta_old;
+            let mut df;
+            let mut fv;
+            if delta >= delta_max {
+                delta_max = delta;
+                let fl = tn_fl(force_old, fc, 0);
+                let a = tn_a(fl, e_eff, reff, delta, gamma_s);
+                if yielding_flag == 0 && a >= a_yield {
+                    yielding_flag = 1;
+                }
+                if plastic_from_start || yielding_flag == 1 {
+                    df = tn_plastic_df(a_yield, e_eff, fl, fc, yield_stress, reff) * dn;
+                    fv = force_old + df;
+                } else {
+                    (fv, df) =
+                        tn_branch_2(force_old, fc, adhesion_flag, e_eff, reff, delta, dn, gamma_s);
+                }
+            } else if yielding_flag == 0 {
+                (fv, df) = tn_branch_2(force_old, fc, adhesion_flag, e_eff, reff, delta, dn, gamma_s);
+            } else {
+                let fl_max = tn_fl(force_max, fc, 0);
+                reff = reff * fl_max / (force_max + (4.0 * fc * fl_max).sqrt());
+                fc = (3.0 / 2.0) * PI * gamma_s * reff;
+                fo = -fc;
+                (fv, df) = tn_branch_2(force_old, fc, adhesion_flag, e_eff, reff, delta, dn, gamma_s);
+            }
+            if gamma_s == 0.0 && fv < 0.0 {
+                fv = 0.0;
+                detaching_flag = 1;
+                detaching_delta = delta;
+                detaching_force = 0.0;
+            }
+            if fv < -fc {
+                adhesion_flag = 1 - adhesion_flag;
+                (fv, df) = tn_branch_2(force_old, fc, adhesion_flag, e_eff, reff, delta, dn, gamma_s);
+            }
+            if adhesion_flag == 1 && fv + 3.0 * df >= -(5.0 / 9.0) * fc {
+                fv = 0.0;
+                detaching_flag = 1;
+                detaching_delta = delta_old;
+                detaching_force = force_old;
+            }
+            f_local = fv;
+        }
+        f = f_local;
+
+        let force_max_new = if f > force_max { f } else { force_max };
+        state[0] = virgin_loading_flag as f64;
+        state[1] = delta;
+        state[2] = delta_max;
+        state[3] = f;
+        state[4] = force_max_new;
+        state[5] = adhesion_flag as f64;
+        state[6] = detaching_delta;
+        state[7] = detaching_flag as f64;
+        state[8] = detaching_force;
+        state[9] = yielding_flag as f64;
+        state[10] = 0.0; // kc
+        state[11] = fo;
+        NormalOutcome {
+            fn_scalar: f,
+            kn: 0.0,
+            kt: k_t,
+            gamman: 0.0,
+            gammat,
+        }
+    }
+
     /// `NormalModel<LUDING>::surfacesIntersect` (`normal_model_luding.h`,
     /// LIGGGHTS-PUBLIC `3d5c00f2`). `state = [deltaMax, kc, f_adh]` in and out
     /// (`deltaMax` is updated unconditionally, as upstream does).
@@ -1813,6 +2373,118 @@ impl ShearHistory {
     }
 }
 
+/// Closed set of cohesion models (upstream `cohesion_model_*.h`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum GranularCohesion {
+    /// No cohesion (upstream `cohesion off`, the default).
+    Off,
+    /// Upstream `CohesionModel<COHESION_SJKR>` (`sjkr`,
+    /// `cohesion_model_sjkr.h`): the **simplified JKR** model, a normal force
+    /// `-k_A A_contact` proportional to the exact two-sphere (or sphere-wall)
+    /// contact area, with `k_A` the cohesion energy density `[J/m^3]`.
+    Sjkr {
+        /// `cohesionEnergyDensity` `[J/m^3]`.
+        energy_density: f64,
+        /// Upstream `tangential_reduce` (default off): also add the
+        /// cohesion force to `F_n`, which the tangential and rolling models
+        /// read.
+        tangential_reduce: bool,
+    },
+    /// Upstream `CohesionModel<COHESION_SJKR2>` (`sjkr2`): as `sjkr` with the
+    /// spherical-cap area `2 pi R* delta` (`R* = 2 r_i r_j/(r_i + r_j)`).
+    Sjkr2 {
+        /// `cohesionEnergyDensity` `[J/m^3]`.
+        energy_density: f64,
+        /// Upstream `tangential_reduce` (default off).
+        tangential_reduce: bool,
+    },
+}
+
+impl GranularCohesion {
+    /// `cohesion sjkr` with upstream's defaults.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if the energy density is negative or not finite.
+    pub fn sjkr(energy_density: f64) -> Result<Self, DemError> {
+        Self::check(energy_density)?;
+        Ok(Self::Sjkr {
+            energy_density,
+            tangential_reduce: false,
+        })
+    }
+
+    /// `cohesion sjkr2` with upstream's defaults.
+    ///
+    /// # Errors
+    ///
+    /// As [`GranularCohesion::sjkr`].
+    pub fn sjkr2(energy_density: f64) -> Result<Self, DemError> {
+        Self::check(energy_density)?;
+        Ok(Self::Sjkr2 {
+            energy_density,
+            tangential_reduce: false,
+        })
+    }
+
+    fn check(energy_density: f64) -> Result<(), DemError> {
+        if !(energy_density >= 0.0) || !energy_density.is_finite() {
+            return Err(DemError::InvalidInput(format!(
+                "cohesion energy density must be finite and >= 0, got {energy_density}"
+            )));
+        }
+        Ok(())
+    }
+
+    /// Upstream's `tangential_reduce` switch (SJKR and SJKR2).
+    #[must_use]
+    pub fn with_tangential_reduce(mut self, on: bool) -> Self {
+        match &mut self {
+            Self::Sjkr { tangential_reduce, .. } | Self::Sjkr2 { tangential_reduce, .. } => {
+                *tangential_reduce = on;
+            }
+            Self::Off => {}
+        }
+        self
+    }
+
+    /// The cohesion normal force `F_coh` `[N]` of one contact (negative =
+    /// attractive), along `+e_n` on `i`, and whether it is also added to
+    /// `F_n` (`tangential_reduce`). Translation of the two
+    /// `surfacesIntersect` bodies (`3d5c00f2`).
+    #[must_use]
+    pub fn normal_force(&self, k: &ContactKinematics) -> (f64, bool) {
+        use std::f64::consts::PI;
+        let (energy_density, reduce, second) = match *self {
+            Self::Off => return (0.0, false),
+            Self::Sjkr {
+                energy_density,
+                tangential_reduce,
+            } => (energy_density, tangential_reduce, false),
+            Self::Sjkr2 {
+                energy_density,
+                tangential_reduce,
+            } => (energy_density, tangential_reduce, true),
+        };
+        let r = k.r;
+        let ri = k.rad_i;
+        let rj = k.rad_j;
+        // `area_ratio` is 1 here and multiplying by it is exact
+        let acont = if second {
+            if k.is_wall {
+                PI * 2.0 * ri * (ri - r)
+            } else {
+                PI * 2.0 * (2.0 * ri * rj / (ri + rj)) * (ri + rj - r)
+            }
+        } else if k.is_wall {
+            (ri * ri - r * r) * PI
+        } else {
+            -PI / 4.0 * ((r - ri - rj) * (r + ri - rj) * (r - ri + rj) * (r + ri + rj)) / (r * r)
+        };
+        (-energy_density * acont, reduce)
+    }
+}
+
 /// Closed set of rolling-resistance models.
 ///
 /// Rolling resistance is what gives a granular heap a finite **angle of
@@ -1932,20 +2604,19 @@ impl RollingModel {
     }
 
     /// Torque and new history of any stateful rolling model (EPSD or Luding).
-    /// `nstate` is the normal model's state (`[deltaMax, kc, f_adh]` for
-    /// Luding).
+    /// `kc_fo` is the normal model's stored `(kc, f_adh)`.
     #[must_use]
     pub fn stateful_torque(
         &self,
         k: &ContactKinematics,
         normal: &NormalOutcome,
-        nstate: &[f64; NORMAL_STATE],
+        kc_fo: (f64, f64),
         prior: Vec3,
         dt: f64,
         update: bool,
     ) -> (Vec3, Vec3) {
         match self {
-            Self::Luding { .. } => self.luding_torque(k, normal, nstate, prior, dt),
+            Self::Luding { .. } => self.luding_torque(k, normal, kc_fo, prior, dt),
             _ => self.epsd_torque(k, normal, prior, dt, update),
         }
     }
@@ -1956,7 +2627,7 @@ impl RollingModel {
         &self,
         k: &ContactKinematics,
         normal: &NormalOutcome,
-        nstate: &[f64; NORMAL_STATE],
+        kc_fo: (f64, f64),
         prior: Vec3,
         dt: f64,
     ) -> (Vec3, Vec3) {
@@ -1991,8 +2662,7 @@ impl RollingModel {
         let wr_t = Vec3::new(wr1 - wr_n.x, wr2 - wr_n.y, wr3 - wr_n.z);
         let k_r = normal.kt;
         let kr = k_r * kr_ratio * reff * reff;
-        let kc = nstate[1];
-        let f_adh = nstate[2];
+        let (kc, f_adh) = kc_fo;
         let dt_kr = dt * kr;
         let mut r_torque = Vec3::new(
             prior.x + wr_t.x * dt_kr,
@@ -2282,9 +2952,18 @@ pub struct GranularContactModel {
     /// [`GranularContactModel::normal`]). Set with
     /// [`GranularContactModel::with_materials`].
     pub materials: Option<MaterialTable>,
+    /// The cohesion model ([`GranularCohesion::Off`] by default); set it
+    /// with [`GranularContactModel::with_cohesion`]. gh:#1411.
+    pub cohesion: GranularCohesion,
 }
 
 impl GranularContactModel {
+    /// Return a copy of this model with the given cohesion model.
+    #[must_use]
+    pub fn with_cohesion(self, cohesion: GranularCohesion) -> Self {
+        Self { cohesion, ..self }
+    }
+
     /// Whether this model stores a persistent tangential spring per contact.
     ///
     /// `true` for [`TangentialModel::History`], `false` for
@@ -2307,6 +2986,7 @@ impl GranularContactModel {
             tangential,
             rolling: RollingModel::Off,
             materials: None,
+            cohesion: GranularCohesion::Off,
         }
     }
 
@@ -2532,7 +3212,13 @@ impl GranularContactModel {
             None => PairProps::from_material(&self.normal.material()),
         };
         let mut aux = prior_aux;
-        let normal = self.normal.evaluate_stateful(k, &props, &mut aux.normal, UPDATE);
+        let mut normal = self.normal.evaluate_stateful(k, &props, &mut aux.normal, UPDATE);
+        // cohesion (between the normal and the tangential model upstream)
+        let fn_own = normal.fn_scalar;
+        let (f_coh, coh_reduce) = self.cohesion.normal_force(k);
+        if coh_reduce {
+            normal.fn_scalar += f_coh;
+        }
         let mu = props.friction;
         let mut updated: Option<Vec3> = None;
 
@@ -2590,8 +3276,7 @@ impl GranularContactModel {
                 let xmu_s = mu;
                 let xmu_d = xmu_s * mu_dynamic_ratio;
                 let gammat = normal.gammat * fric_visc;
-                let kc = aux.normal[1];
-                let f_adh = aux.normal[2];
+                let (kc, f_adh) = self.normal.kc_fo(&aux.normal);
                 let mut ft = shear.scale(-kt);
                 let ft_shear = kt * shrmag;
                 let cone = (normal.fn_scalar + kc * k.delta_n - f_adh).abs();
@@ -2634,7 +3319,13 @@ impl GranularContactModel {
         };
 
         // Normal force acts on i along +en; tangential force is Ft on i.
-        let force_i = k.en.scale(normal.fn_scalar).add(ft);
+        // upstream: `delta_F = Fn*en`, then `+= Fn_coh*en` (cohesion), then
+        // `+= Ft`; the Fn used for the force is the normal model's own
+        let mut force_i = k.en.scale(fn_own);
+        if !matches!(self.cohesion, GranularCohesion::Off) {
+            force_i = force_i.add(k.en.scale(f_coh));
+        }
+        let force_i = force_i.add(ft);
         let force_j = force_i.scale(-1.0);
 
         // Upstream: tor = en x Ft ; torque_i = -cri*tor ; torque_j = -crj*tor.
@@ -2645,8 +3336,14 @@ impl GranularContactModel {
         // Rolling resistance: upstream applies -M_r to i and +M_r to j.
         let m_r = if self.rolling.has_state() {
             let (m, hist) =
-                self.rolling
-                    .stateful_torque(k, &normal, &aux.normal, aux.roll, dt, UPDATE);
+                self.rolling.stateful_torque(
+                    k,
+                    &normal,
+                    self.normal.kc_fo(&aux.normal),
+                    aux.roll,
+                    dt,
+                    UPDATE,
+                );
             aux.roll = hist;
             m
         } else {
@@ -2662,7 +3359,7 @@ impl GranularContactModel {
                 force_j,
                 torque_i,
                 torque_j,
-                fn_scalar: normal.fn_scalar,
+                fn_scalar: fn_own,
                 ft,
             },
             updated,

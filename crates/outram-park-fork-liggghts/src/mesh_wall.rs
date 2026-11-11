@@ -825,6 +825,100 @@ pub struct MovingBoundary {
     /// when set by [`MovingBoundary::rotating`]. A mesh without it derives the
     /// axis as `ω/|ω|`, which is exact only for an axis-aligned rotation.
     pub rotation: Option<MeshRotation>,
+    /// The time-dependent mover (`fix move/mesh` wiggle, viblin, riggle,
+    /// vibrot), if any. gh:#1416.
+    pub motion: MeshMotion,
+    /// Time since the mover started `[s]`, accumulated by `+= dt` per step as
+    /// `FixMoveMesh::time_` is.
+    pub time: f64,
+}
+
+/// Upper bound of the `order` of a vibration mover (upstream `ampl[30]`).
+pub const MAX_VIBRATION_ORDER: usize = 30;
+
+/// The time-dependent `fix move/mesh` movers of `mesh_mover_linear.cpp` and
+/// `mesh_mover_rotation.cpp` (LIGGGHTS-PUBLIC `3d5c00f2`). The constant-rate
+/// `linear` and `rotate` movers are the plain `velocity` and `rotation` of
+/// [`MovingBoundary`]; `linear/variable` and `rotate/variable` read LIGGGHTS
+/// equal-style variables and are not ported.
+#[derive(Debug, Clone, PartialEq)]
+pub enum MeshMotion {
+    /// No time-dependent mover (use `velocity` / `rotation`).
+    None,
+    /// `wiggle amplitude ax ay az period T`: translation with velocity
+    /// `A omega cos(omega t)`.
+    Wiggle {
+        /// Amplitude vector `[m]`.
+        amplitude: Vec3,
+        /// `2 pi / T` `[rad/s]`.
+        omega: f64,
+    },
+    /// `viblin axis a order n amplitude .. phase .. period ..`: translation
+    /// along `axis` with velocity `-sum A_j omega_j sin(omega_j t + phi_j)`.
+    VibLin {
+        /// Unit axis.
+        axis: Vec3,
+        /// Number of harmonics (1..=30).
+        order: usize,
+        /// Amplitudes `[m]`.
+        ampl: [f64; MAX_VIBRATION_ORDER],
+        /// Phases `[rad]`.
+        phi: [f64; MAX_VIBRATION_ORDER],
+        /// `2 pi / T_j` `[rad/s]`.
+        omega: [f64; MAX_VIBRATION_ORDER],
+    },
+    /// `riggle origin o axis a period T amplitude deg`: rotation about the
+    /// fixed point `o` with angular velocity `A omega cos(omega t)`.
+    Riggle {
+        /// Amplitude `pi deg / 180` `[rad]`.
+        amplitude: f64,
+        /// `2 pi / T` `[rad/s]`.
+        omega: f64,
+        /// Unit axis.
+        axis: Vec3,
+    },
+    /// `vibrot origin o axis a order n amplitude .. phase .. period ..`:
+    /// rotation about the fixed point with angular velocity
+    /// `-sum A_j omega_j sin(omega_j t + phi_j)`.
+    VibRot {
+        /// Unit axis.
+        axis: Vec3,
+        /// Number of harmonics (1..=30).
+        order: usize,
+        /// Amplitudes `[rad]`.
+        ampl: [f64; MAX_VIBRATION_ORDER],
+        /// Phases `[rad]`.
+        phi: [f64; MAX_VIBRATION_ORDER],
+        /// `2 pi / T_j` `[rad/s]`.
+        omega: [f64; MAX_VIBRATION_ORDER],
+    },
+}
+
+/// `vectorNormalize3D` as the rotate mover uses it (zero stays zero).
+fn unit_vector(axis: Vec3) -> Vec3 {
+    let a = arr(axis);
+    let norm = (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).sqrt();
+    let inv = if norm == 0. { 0. } else { 1. / norm };
+    Vec3::new(a[0] * inv, a[1] * inv, a[2] * inv)
+}
+
+fn harmonics(
+    amplitude: &[f64],
+    phase: &[f64],
+    period: &[f64],
+) -> Option<(usize, [f64; MAX_VIBRATION_ORDER], [f64; MAX_VIBRATION_ORDER], [f64; MAX_VIBRATION_ORDER])>
+{
+    let n = amplitude.len();
+    if n == 0 || n > MAX_VIBRATION_ORDER || phase.len() != n || period.len() != n {
+        return None;
+    }
+    let (mut a, mut ph, mut om) = ([0.0; MAX_VIBRATION_ORDER], [0.0; MAX_VIBRATION_ORDER], [0.0; MAX_VIBRATION_ORDER]);
+    for j in 0..n {
+        a[j] = amplitude[j];
+        ph[j] = phase[j];
+        om[j] = 2. * std::f64::consts::PI / period[j];
+    }
+    Some((n, a, ph, om))
 }
 
 /// Parameters of upstream's `MeshMoverRotate`: `omega_ = 2π/period`,
@@ -878,6 +972,117 @@ impl MovingBoundary {
             angular_velocity,
             pivot,
             rotation: None,
+            motion: MeshMotion::None,
+            time: 0.0,
+        }
+    }
+
+    fn with_motion(geometry: WallGeometry, pivot: Vec3, motion: MeshMotion) -> Self {
+        let mut m = Self::new(geometry, Vec3::zero(), Vec3::zero(), pivot);
+        m.motion = motion;
+        m
+    }
+
+    /// `fix move/mesh ... wiggle amplitude <a> period <T>`.
+    #[must_use]
+    pub fn wiggle(geometry: WallGeometry, amplitude: Vec3, period: f64) -> Self {
+        let omega = 2. * std::f64::consts::PI / period;
+        Self::with_motion(geometry, Vec3::zero(), MeshMotion::Wiggle { amplitude, omega })
+    }
+
+    /// `fix move/mesh ... viblin axis <a> order <n> amplitude .. phase ..
+    /// period ..`. `None` if `n` is not in `1..=30` or the lists differ in length.
+    #[must_use]
+    pub fn viblin(
+        geometry: WallGeometry,
+        axis: Vec3,
+        amplitude: &[f64],
+        phase: &[f64],
+        period: &[f64],
+    ) -> Option<Self> {
+        let (order, ampl, phi, omega) = harmonics(amplitude, phase, period)?;
+        Some(Self::with_motion(
+            geometry,
+            Vec3::zero(),
+            MeshMotion::VibLin {
+                axis: unit_vector(axis),
+                order,
+                ampl,
+                phi,
+                omega,
+            },
+        ))
+    }
+
+    /// `fix move/mesh ... riggle origin <o> axis <a> period <T> amplitude
+    /// <deg>`.
+    #[must_use]
+    pub fn riggle(geometry: WallGeometry, origin: Vec3, axis: Vec3, period: f64, amplitude_deg: f64) -> Self {
+        Self::with_motion(
+            geometry,
+            origin,
+            MeshMotion::Riggle {
+                amplitude: std::f64::consts::PI * amplitude_deg / 180.,
+                omega: 2. * std::f64::consts::PI / period,
+                axis: unit_vector(axis),
+            },
+        )
+    }
+
+    /// `fix move/mesh ... vibrot origin <o> axis <a> order <n> amplitude ..
+    /// phase .. period ..` (amplitudes in rad). `None` as
+    /// [`MovingBoundary::viblin`].
+    #[must_use]
+    pub fn vibrot(
+        geometry: WallGeometry,
+        origin: Vec3,
+        axis: Vec3,
+        amplitude: &[f64],
+        phase: &[f64],
+        period: &[f64],
+    ) -> Option<Self> {
+        let (order, ampl, phi, omega) = harmonics(amplitude, phase, period)?;
+        Some(Self::with_motion(
+            geometry,
+            origin,
+            MeshMotion::VibRot {
+                axis: unit_vector(axis),
+                order,
+                ampl,
+                phi,
+                omega,
+            },
+        ))
+    }
+
+    /// Set `velocity` / `rotation` for this step from the time-dependent
+    /// mover (`MeshMover*::initial_integrate` of upstream), after `time +=
+    /// dt`.
+    fn apply_motion(&mut self) {
+        let t = self.time;
+        match &self.motion {
+            MeshMotion::None => {}
+            MeshMotion::Wiggle { amplitude, omega } => {
+                self.velocity = amplitude.scale(omega * (omega * t).cos());
+            }
+            MeshMotion::VibLin { axis, order, ampl, phi, omega } => {
+                let mut v_a = 0.0;
+                for j in 0..*order {
+                    v_a -= ampl[j] * omega[j] * (omega[j] * t + phi[j]).sin();
+                }
+                self.velocity = axis.scale(v_a);
+            }
+            MeshMotion::Riggle { amplitude, omega, axis } => {
+                let pre = omega * amplitude * (omega * t).cos();
+                self.rotation = Some(MeshRotation { axis: *axis, omega: pre });
+            }
+            MeshMotion::VibRot { axis, order, ampl, phi, omega } => {
+                let mut v_r = 0.0;
+                for j in 0..*order {
+                    v_r -= ampl[j] * omega[j] * (omega[j] * t + phi[j]).sin();
+                }
+                self.rotation = Some(MeshRotation { axis: *axis, omega: v_r });
+            }
         }
     }
 
@@ -938,6 +1143,8 @@ impl MovingBoundary {
     /// wall is kinematically prescribed here, not force-driven).
     pub fn advance(&mut self, dt: f64) {
         if matches!(self.geometry, WallGeometry::Mesh(_)) {
+            self.time += dt;
+            self.apply_motion();
             self.advance_mesh(dt);
             return;
         }

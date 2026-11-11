@@ -1419,11 +1419,74 @@ relative `1.1e-13`). Clean-room `thermal.rs` against the translation: flux ratio
 | `hooke/hysteresis`, slow impact (interpolated `k2`, no adhesion) | `in.hyst_slow` | bit-identical |
 
 (`liggghts_cross_code.rs`; every prediction written first was bit-identical.)
-Not translated yet: `epsd`, `epsd2`, `epsd3` rolling, Luding (normal, tangential,
-rolling), Thornton-Ning, Edinburgh (+ stiffness), multicontact. The hysteresis
+~~Not translated yet: `epsd`, `epsd2`, `epsd3` rolling, Luding (normal, tangential,
+rolling), Thornton-Ning, Edinburgh (+ stiffness), multicontact.~~ **CORRECTED
+2026-11-11 (gh:#1410): all but multicontact are translated and bit-identical,
+see section 4.11.** The hysteresis
 model resolves contacts serially (no rayon staging; its per-contact `deltaMax` is
 held in the shear store under `ContactKey::Aux`) and is wall-capable only through
 the same store; wall and mesh hysteresis contacts have no cross-code deck.
+
+## 4.11 EPSD rolling, Luding, Thornton-Ning, Edinburgh, SJKR cohesion, time-dependent mesh movers (2026-11-11, gh:#1410, #1411, #1416)
+
+**Method (all rows).** Each model was translated from the upstream header
+(LIGGGHTS-PUBLIC `3d5c00f2`, recipe in `upstream_source/README.md`), a deck was
+run through the compiled upstream (`reference-data/liggghts/in.<name>`,
+generated CSV beside it, converted by `dump2traj.sh`), and the port replays the
+same deck. Every x, v and omega of every frame is compared on its IEEE-754 bit
+pattern. Pair decks: the standard oblique pair (`v = +-(1, 0.5)`, 2500 steps,
+251 frames, 4518 `f64`) with initial relative spins `omega_z = +40 / -20 rad/s`
+so every rolling model sees `w_r != 0`; wall decks: one spinning sphere
+(`v = (0.6, 0.2, -0.8)`, `omega_y = 30`) on a z-plane. Tests:
+`tests/liggghts_contact_models_cross_code.rs`, `tests/mesh_movers_cross_code.rs`.
+**Predictions (written before the first run of each):** bit-identical for all.
+
+| model (upstream file) | decks | result |
+|---|---|---|
+| `rolling_friction epsd`, `epsd2`, `epsd3` (`rolling_model_epsd*.h`) | `epsd_pair`, `epsd2_pair`, `epsd3_pair`, `wall_epsd` | **bit-identical** (4518/4518 each; wall 2259/2259) |
+| `hooke/hysteresis` against a wall | `wall_hyst` | **bit-identical** |
+| `model luding` + `tangential tan_luding` + `rolling_friction luding` (`normal_model_luding.h`, `tangential_model_luding_tn.h`, `rolling_model_luding.h`) | `luding_full`, `luding_plastic` (cohesion branch), `luding_nocoh` (`limitForce`), `luding_wall` | **bit-identical** |
+| `model thornton_ning` (`normal_model_thornton_ning.h`) | `tn_plastic`, `tn_elastic`, `tn_nocoh`, `tn_wall` | **bit-identical** |
+| `model edinburgh`, `edinburgh/stiffness`, `fixKc` (`normal_model_edinburgh*.h`) | `edi_stiff_lin`, `edi_nonlin`, `edi_fixkc`, `edi_long_stiff_lin`, `edi_long_nonlin` | see below |
+| `cohesion sjkr`, `sjkr2`, `tangential_reduce` (`cohesion_model_sjkr*.h`) | `sjkr_pair`, `sjkr2_pair`, `sjkr_reduce`, `sjkr_wall`, `sjkr2_wall` | see issue comment / table below |
+| `fix move/mesh` wiggle, viblin, riggle, vibrot | `mover_*` | see below |
+
+**Sensitivity controls (the decks can fail).** Each family has a control test:
+with rolling off, with the Luding tangential or rolling model replaced by the
+ordinary one, with a different yield ratio or surface energy, with cohesion
+off, the same reference is NOT reproduced (more than 100 of 4518 values
+differ). An ablation of the Edinburgh `goto temp_calc` re-entry (disabled in
+the port) showed that the four short Edinburgh decks do **not** reach it (all
+still passed) and that the two 20 000-step `edi_long_*` decks do (they fail
+without it), which is why those were added.
+
+**Finding about an existing test.** `in.oblique_hooke_rolling` is symmetric
+(both spheres spin up identically), so `w_r = omega_i - omega_j = 0` and the CDT
+torque was never applied: its bit-identity said nothing about CDT. `in.cdt_pair`
+adds the relative spin; CDT is bit-identical there too, and its model-off
+control differs.
+
+**Upstream oddities kept for parity (not fixed).**
+- `thornton_ning`: `gammat = 2 sqrt(5/6) beta_eff sqrt(k_t m_eff)` has no
+  leading minus sign (the Hertz model has `-2 sqrt(5/6) ...`), and `beta_eff` is
+  negative, so the tangential dashpot adds force; `sidata.kn` is never set
+  (the port returns 0).
+- `edinburgh` with `fixKc on`: the inner `const double k_adh` shadows the outer
+  one, so the `limitForce` test `k_adh == 0` is always true.
+- `luding` rolling: `torsion on` aliases the torsion history onto the rolling
+  one in upstream; not ported (default is off). The Luding rolling spring is
+  written unconditionally, also at set-up.
+- History values declared `"1"` (sign-flipping) in TN and Edinburgh would
+  corrupt (`virgin_loading_flag = -1`) if a pair were stored in the opposite
+  orientation; the port does not flip them (the decks never flip). Only the
+  EPSD rolling torque is flipped.
+
+**Not translated.** `surface_model multicontact` (needs `fix
+multicontact/halfspace`, a separate module), the liquid-bridge cohesion models
+`easo/capillary/viscous` and `washino/capillary/viscous` (need `fix
+transportequation/scalar liquidtransfer` and bridges beyond touching, i.e.
+`neighbor->register_contact_dist_factor`), multi-type material tables for the
+new models (single type pair only), the Luding `torsion` option.
 
 ## 5. What is still NOT validated
 
