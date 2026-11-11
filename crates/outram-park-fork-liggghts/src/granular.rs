@@ -3485,8 +3485,10 @@ impl GranularContactModel {
 
         // Upstream: tor = en x Ft ; torque_i = -cri*tor ; torque_j = -crj*tor.
         let tor = k.en.cross(ft);
-        let mut torque_i = tor.scale(-k.cri);
-        let mut torque_j = tor.scale(-k.crj);
+        // `delta_torque` starts at +0 (`memset`) and the tangential model adds to it, so a
+        // zero tangential force gives +0, never -0 (gh:#1418, wall/gran/local dump).
+        let mut torque_i = Vec3::zero().add(tor.scale(-k.cri));
+        let mut torque_j = Vec3::zero().add(tor.scale(-k.crj));
 
         // Rolling resistance: upstream applies -M_r to i and +M_r to j.
         let m_r = if self.rolling.has_state() {

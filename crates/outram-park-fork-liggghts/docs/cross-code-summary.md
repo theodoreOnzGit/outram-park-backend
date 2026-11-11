@@ -426,7 +426,11 @@ test's `///` doc):
 | `fix insert/stream` | `src/insert_stream.rs` | `insert_stream_cross_code.rs` | 21 / 21 frames bit-identical |
 | `compute pair/gran/local` | `granular_system.rs` | `pair_gran_local_cross_code.rs` | bit-identical at steps 0, 1, 10, 100 |
 
-Still **not translated** (gh:#1418, #1414): `compute wall/gran/local` (mesh
+| `fix property/atom/tracer`, `compute nparticles/tracer/region` | `src/tracer.rs` | `tracer_cross_code.rs` | **2440 / 2440** bit-identical (`verification_and_validation/tracer/README.md`) |
+| `compute wall/gran/local` (mesh floor, 2 triangles) | `granular_system.rs` `wall_gran_local` | `wall_gran_local_cross_code.rs` | **1449 / 1449** values bit-identical at steps 1, 10, 100 (21 contacts each); the first run found 45 sign-of-zero differences (torque z, `-0` vs `+0`), fixed in `granular.rs` (upstream's `delta_torque` starts at +0) |
+
+~~Still **not translated** (gh:#1418, #1414): `compute wall/gran/local` (mesh
 walls only upstream), the tracer fixes (`property/atom/tracer`,
-`nparticles/tracer/region`), `fix insert/stream/predefined`, `ave/spatial`,
+`nparticles/tracer/region`), `fix insert/stream/predefined`, `ave/spatial`,~~
+**CORRECTED 2026-11-11** (wall/gran/local and the tracers are translated, rows above). Still **not translated** (gh:#1418, #1414): `fix insert/stream/predefined`, `ave/spatial`,
 `ave/euler`, the remaining computes and force fixes.
