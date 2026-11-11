@@ -1655,6 +1655,49 @@ fn bank_event_fission(
     (production, next_bank)
 }
 
+/// Bank the next generation's sites from the per-collision records of the fused
+/// event path (gh:#1444 e), and return `(production, next_bank)`.
+///
+/// `production` is `sum nu_sigma_f / sigma_t` over every collision (the kernel's
+/// per-neutron accumulator `batch.production`, summed in f64), exactly as the CPU
+/// default's `collide_batched` / `transport_history` count it. Each record banks
+/// `n_sites` neutrons at its collision position; their `(E', direction)` come from
+/// [`crate::physics::scatter::sample_fission_neutron_for_driver`] (the CPU default's
+/// order) on a stream decorrelated from the record's LCG state with a SplitMix64
+/// finaliser, so the daughters never reuse the draws the history continues on.
+/// `records` must already be in [`crate::gpu::batched_event::sort_site_records`]
+/// order, which makes the bank deterministic.
+fn bank_event_site_records(
+    batch: &EventBatch,
+    records: &[crate::gpu::batched_event::EventSiteRecord],
+    material: &Material,
+    nuclides: &[Nuclide],
+) -> (f64, Vec<Site>) {
+    let e_cap_fission = library_energy_max_ev(nuclides);
+    let production: f64 = batch.production.iter().map(|&p| p as f64).sum();
+    let mut next_bank: Vec<Site> = Vec::new();
+    for rec in records {
+        let nuc = &nuclides[material.components[rec.nuclide as usize].nuclide_idx];
+        let mut z = rec.seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        let mut seed = (z ^ (z >> 31)) | 1;
+        let r = Position::new(rec.pos[0] as f64, rec.pos[1] as f64, rec.pos[2] as f64);
+        let u = Direction::new(rec.dir[0] as f64, rec.dir[1] as f64, rec.dir[2] as f64);
+        for _ in 0..rec.n_sites {
+            let (e_born, u_born) = crate::physics::scatter::sample_fission_neutron_for_driver(
+                nuc,
+                rec.e_in as f64,
+                e_cap_fission,
+                u,
+                &mut seed,
+            );
+            next_bank.push(Site { r, u: u_born, e: e_born });
+        }
+    }
+    (production, next_bank)
+}
+
 /// **CPU-mirror event-based power iteration** — the non-GPU reference for the
 /// fused collision-on-GPU path ([`run_keff_gpu_event`]).
 ///
@@ -1683,8 +1726,59 @@ pub fn run_keff_event_cpu_mirror(
         r: radius_cm as f32,
     };
     run_event_power_iteration(
-        radius_cm, material, nuclides, settings, &tables, &sphere, None,
+        radius_cm, material, nuclides, settings, &tables, &sphere, None, None,
     )
+}
+
+/// What one generation of the fused event path banked (gh:#1444 e): the data a
+/// bank-size comparison against the CPU default's [`GenerationReport`] needs.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EventGenerationReport {
+    /// `sum nu_sigma_f / sigma_t` (per-collision mode) or `sum nu_bar` over
+    /// fission events (legacy at-fission mode), as in [`GenerationReport::production`].
+    pub production: f64,
+    /// Fission sites banked this generation, before resampling.
+    pub bank_size: usize,
+}
+
+/// [`run_keff_event_cpu_mirror`] that also returns each generation's
+/// [`EventGenerationReport`].
+pub fn run_keff_event_cpu_mirror_reports(
+    radius_cm: f64,
+    material: &Material,
+    nuclides: &[Nuclide],
+    settings: &KeffSettings,
+) -> (KeffResult, Vec<EventGenerationReport>) {
+    let tables = EventTablesF32::from_collision_tables(&CollisionTables::build(
+        material, nuclides, 1e-3, 2e7, 16384,
+    ));
+    let sphere = EventSphere { x0: 0.0, y0: 0.0, z0: 0.0, r: radius_cm as f32 };
+    let mut reports = Vec::new();
+    let result = run_event_power_iteration(
+        radius_cm, material, nuclides, settings, &tables, &sphere, None, Some(&mut reports),
+    );
+    (result, reports)
+}
+
+/// [`run_keff_gpu_event`] that also returns each generation's
+/// [`EventGenerationReport`].
+#[cfg(not(target_os = "android"))]
+pub fn run_keff_gpu_event_reports(
+    ctx: &crate::gpu::GpuContext,
+    radius_cm: f64,
+    material: &Material,
+    nuclides: &[Nuclide],
+    settings: &KeffSettings,
+) -> (KeffResult, Vec<EventGenerationReport>) {
+    let tables = EventTablesF32::from_collision_tables(&CollisionTables::build(
+        material, nuclides, 1e-3, 2e7, 16384,
+    ));
+    let sphere = EventSphere { x0: 0.0, y0: 0.0, z0: 0.0, r: radius_cm as f32 };
+    let mut reports = Vec::new();
+    let result = run_event_power_iteration(
+        radius_cm, material, nuclides, settings, &tables, &sphere, Some(ctx), Some(&mut reports),
+    );
+    (result, reports)
 }
 
 /// **Event-based COLLISION-on-GPU power iteration** ([`ComputeType::Gpu`]) — the
@@ -1735,6 +1829,7 @@ pub fn run_keff_gpu_event(
         &tables,
         &sphere,
         Some(ctx),
+        None,
     )
 }
 
@@ -1756,6 +1851,7 @@ fn run_event_power_iteration(
     #[cfg_attr(target_os = "android", allow(unused_variables))] ctx: Option<
         &crate::gpu::GpuContext,
     >,
+    mut reports: Option<&mut Vec<EventGenerationReport>>,
 ) -> KeffResult {
     // Source sampling / resampling on their own sequential seed stream, kept off
     // the per-history transport streams (as in run_keff_cpu_multi).
@@ -1789,38 +1885,59 @@ fn run_event_power_iteration(
         // Advance the whole generation to extinction — resident on the GPU when a
         // context is present, else on the CPU mirror (both Android-buildable at the
         // call site because the GPU arm is cfg-gated below).
+        // gh:#1444 (e): the CPU default's fission banking (OpenMC per-collision
+        // `create_fission_sites`, legacy switch OUTRAM_MC_LEGACY_FISSION_BANKING)
+        // is carried into the kernel, which appends site records.
+        let banking = crate::gpu::batched_event::EventFissionBanking::from_env(k_running);
+        let mut site_records: Vec<crate::gpu::batched_event::EventSiteRecord> = Vec::new();
         #[cfg(not(target_os = "android"))]
         {
             if let Some(ctx) = ctx {
-                crate::gpu::batched_event::advance_generation_gpu(
+                crate::gpu::batched_event::advance_generation_gpu_banking(
                     ctx,
                     tables,
                     &mut batch,
                     *sphere,
                     EVENT_MAX_EVENTS,
+                    banking,
+                    &mut site_records,
                 );
             } else {
-                crate::gpu::batched_event::advance_generation_cpu_mirror(
+                crate::gpu::batched_event::advance_generation_cpu_mirror_banking(
                     tables,
                     &mut batch,
                     *sphere,
                     EVENT_MAX_EVENTS,
+                    banking,
+                    &mut site_records,
                 );
             }
         }
         #[cfg(target_os = "android")]
         {
-            crate::gpu::batched_event::advance_generation_cpu_mirror(
+            crate::gpu::batched_event::advance_generation_cpu_mirror_banking(
                 tables,
                 &mut batch,
                 *sphere,
                 EVENT_MAX_EVENTS,
+                banking,
+                &mut site_records,
             );
         }
 
-        let (production, next_bank) = bank_event_fission(&batch, material, nuclides, k_running);
+        let (production, next_bank) = match banking {
+            crate::gpu::batched_event::EventFissionBanking::AtFission => {
+                bank_event_fission(&batch, material, nuclides, k_running)
+            }
+            crate::gpu::batched_event::EventFissionBanking::PerCollision { .. } => {
+                bank_event_site_records(&batch, &site_records, material, nuclides)
+            }
+        };
 
         let k_gen = production / settings.n_particles as f64;
+        if let Some(r) = reports.as_deref_mut() {
+            r.push(EventGenerationReport { production, bank_size: next_bank.len() });
+        }
         k_by_generation.push(k_gen);
         k_running = k_gen;
         if gen >= settings.n_inactive {

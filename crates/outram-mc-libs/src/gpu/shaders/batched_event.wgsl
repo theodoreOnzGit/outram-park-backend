@@ -68,8 +68,25 @@
 //   @binding(0) xs    : array<f32> read       — packed tables, see accessors below
 //   @binding(1) istate: array<u32> read_write — seed_lo ++ seed_hi ++ alive ++ fiss_nuc
 //   @binding(2) fstate: array<f32> read_write — pos(3N) ++ dir(3N) ++ energy(N) ++ production(N)
-//   @binding(3) ctrl  : atomic<u32> read_write — live-neutron count for this event
+//   @binding(3) ctrl  : array<atomic<u32>> read_write — see CTRL LAYOUT below
 //   @binding(4) params: uniform Params
+//
+// CTRL LAYOUT (gh:#1444 e, 2026-11-11: per-collision fission banking)
+//   ctrl[0] = live-neutron count for this event (host resets it each event)
+//   ctrl[1] = number of fission-site RECORDS written so far this generation
+//   ctrl[2] = record capacity (host-set); records past it are counted, not written
+//   ctrl[3] = unused
+//   ctrl[4 + 12*r .. 4 + 12*r + 12] = record r, as u32 words (floats bit-cast):
+//       pos.xyz, dir.xyz, e_in, n_sites, nuclide, seed_lo, seed_hi, 0
+// PER-COLLISION BANKING (params.keff_bits != 0): OpenMC `create_fission_sites`
+// (src/physics.cpp:181-189), as the CPU default `per_collision_fission_count`
+// (src/physics/scatter.rs): at EVERY collision with a nuclide that has
+// nu_sigma_f > 0, ONE uniform is drawn AFTER the nuclide pick and BEFORE the
+// reaction draw; nu_t = nu_sigma_f / (keff * sigma_t) (micro, of the sampled
+// nuclide); n = floor(nu_t) + (xi <= nu_t - floor(nu_t)). The expected production
+// nu_sigma_f / sigma_t is accumulated in fstate production[i]. n > 0 -> a record
+// is appended; the CPU samples the daughters' (E', direction) per generation.
+// keff_bits == 0 is the legacy bank-at-fission mode (OUTRAM_MC_LEGACY_FISSION_BANKING).
 //
 // xs packing (G = n_grid, NN = n_nuclide), all f32:
 //   grid[0..G] ++ macro_total[0..G]
@@ -84,14 +101,14 @@ struct Params {
     n_grid: u32,       // G
     n_particle: u32,   // N
     n_nuclide: u32,    // NN
-    pad0: u32,
+    keff_bits: u32,    // bit pattern of f32 keff for per-collision banking; 0 = legacy at-fission banking
     sphere: vec4<f32>, // (center_x, center_y, center_z, radius) cm
 };
 
 @group(0) @binding(0) var<storage, read>        xs:     array<f32>;
 @group(0) @binding(1) var<storage, read_write>  istate: array<u32>;
 @group(0) @binding(2) var<storage, read_write>  fstate: array<f32>;
-@group(0) @binding(3) var<storage, read_write>  ctrl:   atomic<u32>;
+@group(0) @binding(3) var<storage, read_write>  ctrl:   array<atomic<u32>>;
 @group(0) @binding(4) var<uniform>              params: Params;
 
 const BIG: f32 = 1e30;
@@ -371,12 +388,45 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     // (c) reaction partition on the microscopic total (fission|capture|inelastic|
     //     elastic — (n,2n)=0 for the LOW tier, so it collapses out).
+    //     (c0) per-collision fission banking, BEFORE the reaction draw (OpenMC order).
+    if (params.keff_bits != 0u && x_nufis > 0.0 && x_tot > 0.0) {
+        let keff = bitcast<f32>(params.keff_bits);
+        let nu_t = x_nufis / (keff * x_tot);
+        var n_sites: u32 = u32(nu_t);
+        var rc = petir_lcg_next(seed); seed = rc.xy;
+        if (bitcast<f32>(rc.z) <= nu_t - f32(n_sites)) { n_sites = n_sites + 1u; }
+        fstate[7u * nn + i] = fstate[7u * nn + i] + x_nufis / x_tot;
+        if (n_sites > 0u) {
+            let r_idx = atomicAdd(&ctrl[1], 1u);
+            if (r_idx < atomicLoad(&ctrl[2])) {
+                let o = 4u + 12u * r_idx;
+                atomicStore(&ctrl[o + 0u], bitcast<u32>(px));
+                atomicStore(&ctrl[o + 1u], bitcast<u32>(py));
+                atomicStore(&ctrl[o + 2u], bitcast<u32>(pz));
+                atomicStore(&ctrl[o + 3u], bitcast<u32>(ux));
+                atomicStore(&ctrl[o + 4u], bitcast<u32>(uy));
+                atomicStore(&ctrl[o + 5u], bitcast<u32>(uz));
+                atomicStore(&ctrl[o + 6u], bitcast<u32>(e));
+                atomicStore(&ctrl[o + 7u], n_sites);
+                atomicStore(&ctrl[o + 8u], jsel);
+                atomicStore(&ctrl[o + 9u], seed.x);
+                atomicStore(&ctrl[o + 10u], seed.y);
+            }
+        }
+    }
+
     var rr = petir_lcg_next(seed); seed = rr.xy;
     let xi_r = bitcast<f32>(rr.z) * x_tot;
 
     let u_in = vec3<f32>(ux, uy, uz);
 
-    if (xi_r < x_fis) {
+    if (xi_r < x_fis && params.keff_bits != 0u) {
+        // Per-collision mode: the sites were banked above; the fission event only
+        // ends the history (production already accumulated).
+        istate[2u * nn + i] = 0u;
+        istate[i] = seed.x; istate[nn + i] = seed.y;
+        return;
+    } else if (xi_r < x_fis) {
         // Fission: record nu_bar and the nuclide; the neutron dies here. Its
         // daughters (count + birth energy/angle) are sampled on the CPU per
         // generation from the handed-back seed, so the stream stays coherent.
@@ -422,5 +472,5 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     // Survived (scattered): still alive for the next event.
     istate[i] = seed.x; istate[nn + i] = seed.y;
-    atomicAdd(&ctrl, 1u);
+    atomicAdd(&ctrl[0], 1u);
 }
