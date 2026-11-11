@@ -73,7 +73,7 @@ use crate::renumber_mesh::{cells_from_mesh, renumber_mesh};
 use crate::correct_edges::correct_edges_between_patches;
 use crate::surface_engine::{SurfaceEngine, SurfacePartitioner};
 use crate::surface_mapper::{map_vertices_onto_surface_patches_given, SurfaceQueries};
-use crate::surface_optimizer::{map_mesh_to_surface_octree, optimise_mesh_surface, MeshSurfaceOptimizer, UntangleReport};
+use crate::surface_optimizer::{map_mesh_to_surface_octree, optimise_mesh_surface_octree, optimise_mesh_surface, MeshSurfaceOptimizer, UntangleReport};
 use crate::topology::{surface_morpher_cells, topological_cleaner, TopoMesh};
 use crate::tet_creator_octree::{tet_creator_octree, TetCreatorDefects};
 use crate::tet_mesh_extractor_octree::tet_mesh_extractor_octree;
@@ -540,7 +540,7 @@ pub(crate) fn run_generator(
                     ));
                 }
                 // optimiseMeshSurface (pMesh untangles once more after it)
-                let u = optimise_mesh_surface(m, spts, tris, reg, &given);
+                let u = optimise_mesh_surface_octree(m, &o, spts, tris, reg, &given);
                 let mut last = u.n_inverted_last;
                 if kind == Template::Voronoi {
                     let (mm, u2) = untangle_again(m, spts, tris, reg, &given);

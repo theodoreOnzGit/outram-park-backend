@@ -91,6 +91,86 @@ fn debug_premap_trace() {
     println!("mapped lines {}", up.len());
 }
 
+fn read_trace(path: &str, tag: &str, iter: usize) -> Vec<[f64; 3]> {
+    let Ok(tr) = std::fs::read_to_string(path) else { return Vec::new() };
+    tr.lines()
+        .filter(|l| l.starts_with("TRACE"))
+        .map(|l| l.split_whitespace().collect::<Vec<_>>())
+        .filter(|l| l[1] == tag && l[2] == iter.to_string())
+        .map(|l| [l[4].parse().unwrap(), l[5].parse().unwrap(), l[6].parse().unwrap()])
+        .collect()
+}
+
+#[test]
+fn debug_optimizer_trace() {
+    use outram_park_fork_cfmesh::mesh_octree::BoundBox as _BB;
+    let _ = std::marker::PhantomData::<_BB>;
+    use outram_park_fork_cfmesh::patches::SurfaceRegions;
+    use outram_park_fork_cfmesh::pipeline::tet_mesh::create_octree;
+    use outram_park_fork_cfmesh::surface_engine::{SurfaceEngine, SurfacePartitioner};
+    use outram_park_fork_cfmesh::surface_mapper::SurfaceQueries;
+    use outram_park_fork_cfmesh::surface_optimizer::MeshSurfaceOptimizer;
+    let path = "/home/user/upstream-build/trace/ee/trace.txt";
+    if read_trace(path, "opt_end", 0).is_empty() {
+        return;
+    }
+    let (p, t) = read_sphere();
+    let opts = CartesianMeshGeneratorOptions {
+        dict: MeshDict::with_max_cell_size(0.5),
+        workflow: WorkflowSettings { stop_after: Some(WorkflowStep::PatchAssignment), restart_from_latest_step: false },
+        ..Default::default()
+    };
+    let (m0, _) = cartesian_mesh(&p, &t, None, &opts).unwrap();
+    let o = create_octree(&p, &t, None, &opts.dict);
+    let reg = SurfaceRegions::single("defaultFaces", t.len());
+    let one = vec![0usize; m0.faces.len()];
+    // meshSurfaceEdgeExtractorNonTopo: decomposeBoundaryFaces + remapBoundaryPoints
+    let given: Vec<Option<usize>> = (0..m0.faces.len()).map(|f| m0.neighbour[f].is_none().then_some(0)).collect();
+    let (corrected, given, _) = outram_park_fork_cfmesh::correct_edges::correct_edges_between_patches(&m0, &given, &reg.names);
+    let m0 = outram_park_fork_cfmesh::surface_mapper::map_vertices_onto_surface_patches_given_octree(&corrected, &o, &p, &t, &reg, &given);
+    let _ = &given;
+    let one = vec![0usize; m0.faces.len()].into_iter().chain(std::iter::empty()).collect::<Vec<_>>();
+    let start: Vec<[f64; 3]> = read_trace(path, "opt_pre", 0);
+    let eng0 = SurfaceEngine::from_parts(&m0.points, &m0.faces, &m0.owner, &m0.neighbour, &one);
+    let same_start = start.iter().enumerate().filter(|(i, u)| { let q = m0.points[eng0.boundary_points[*i]]; q.x == u[0] && q.y == u[1] && q.z == u[2] }).count();
+    println!("opt_start order check: {same_start}/{}", start.len());
+    {
+        let mut m = m0.clone();
+        let eng = SurfaceEngine::from_parts(&m.points, &m.faces, &m.owner, &m.neighbour, &one);
+        let part = SurfacePartitioner::new(&eng);
+        let q = SurfaceQueries::new(&p, &t, &reg).with_octree(std::sync::Arc::new(o.clone()));
+        let bp = eng.boundary_points.clone();
+        let all: Vec<usize> = (0..bp.len()).collect();
+        let mut opt = MeshSurfaceOptimizer::new(eng, part, Some(q));
+        let cmp = |tag: &str, m: &outram_park_fork_cfmesh::volume_mesh::VolumeMesh, up: &[[f64; 3]]| {
+            let same = up.iter().enumerate().filter(|(i, u)| { let q = m.points[bp[*i]]; q.x == u[0] && q.y == u[1] && q.z == u[2] }).count();
+            let worst = up.iter().enumerate().map(|(i, u)| { let q = m.points[bp[i]]; (q.x - u[0]).abs().max((q.y - u[1]).abs()).max((q.z - u[2]).abs()) }).fold(0.0f64, f64::max);
+            println!("{tag}: {same}/{} bit-identical, worst {worst:.3e}", up.len());
+        };
+        opt.smooth_laplacian_fc(&mut m.points, &all, true);
+        cmp("smoothLaplacianFC iter 0", &m, &read_trace(path, "opt_lapfc", 0));
+        opt.smooth_surface_optimizer(&mut m.points, &all);
+        cmp("smoothSurfaceOptimizer iter 0", &m, &read_trace(path, "opt_so", 0));
+    }
+    for n in 1..=5usize {
+        let mut m = m0.clone();
+        let eng = SurfaceEngine::from_parts(&m.points, &m.faces, &m.owner, &m.neighbour, &one);
+        let part = SurfacePartitioner::new(&eng);
+        let q = SurfaceQueries::new(&p, &t, &reg).with_octree(std::sync::Arc::new(o.clone()));
+        let bp = eng.boundary_points.clone();
+        let mut opt = MeshSurfaceOptimizer::new(eng, part, Some(q));
+        opt.optimize_surface(&mut m.points, n);
+        let tag_it = if n == 5 { ("opt_end", 0) } else { ("opt_so", n - 1) };
+        let up = read_trace(path, tag_it.0, tag_it.1);
+        let dists: Vec<f64> = up.iter().map(|u| bp.iter().map(|&v| { let q = m.points[v]; (q.x - u[0]).abs().max((q.y - u[1]).abs()).max((q.z - u[2]).abs()) }).fold(f64::INFINITY, f64::min)).collect();
+        let same = dists.iter().filter(|&&d| d == 0.0).count();
+        let worst = dists.iter().cloned().fold(0.0f64, f64::max);
+        let idx_same = up.iter().enumerate().filter(|(i, u)| { let q = m.points[bp[*i]]; q.x == u[0] && q.y == u[1] && q.z == u[2] }).count();
+        println!("  (same-index bit-identical: {idx_same})");
+        println!("optimizeSurface({n}) vs upstream {:?}: {same}/{} bit-identical, worst {worst:.3e}", tag_it, up.len());
+    }
+}
+
 #[test]
 fn debug_detail() {
     let (p, t) = read_sphere();

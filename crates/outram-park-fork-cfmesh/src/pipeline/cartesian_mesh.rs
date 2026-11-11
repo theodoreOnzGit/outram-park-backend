@@ -76,8 +76,8 @@ use crate::pipeline::tet_mesh::{create_octree, face_regions, PatchAssignment, Sa
 use crate::premap_vertices::pre_map_vertices;
 use crate::rename_boundary_patches::{rename_boundary_patches, RenameBoundary};
 use crate::renumber_mesh::{cells_from_mesh, renumber_mesh};
-use crate::surface_mapper::map_vertices_onto_surface_patches_given;
-use crate::surface_optimizer::{map_mesh_to_surface_octree, optimise_mesh_surface};
+use crate::surface_mapper::map_vertices_onto_surface_patches_given_octree;
+use crate::surface_optimizer::{map_mesh_to_surface_octree, optimise_mesh_surface_octree, optimise_mesh_surface};
 use crate::topology::{check_and_fix_irregular_connections, check_cell_connections_over_faces, remove_non_mappable_cells, BoundaryFacesSharingTwoEdges, TopoMesh};
 use crate::volume_mesh::VolumeMesh;
 use crate::workflow_controls::{MeshMetaData, StepDecision, WorkflowControls, WorkflowSettings, WorkflowStep};
@@ -482,19 +482,22 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
             }
             WorkflowStep::EdgeExtraction => {
                 let mut given = face_regions(m, reg);
-                if let Some(r) = regions {
+                {
                     // meshSurfaceEdgeExtractorNonTopo: decomposeBoundaryFaces
-                    // (correctEdgesBetweenPatches), then remapBoundaryPoints
+                    // (correctEdgesBetweenPatches), then remapBoundaryPoints.
+                    // gh:#1385: upstream runs both always, also on a surface
+                    // of one region (the port skipped them without `regions`).
+                    let r = regions.unwrap_or(reg);
                     let (corrected, g, cr) = correct_edges_between_patches(m, &given, &r.names);
                     given = g;
-                    *m = map_vertices_onto_surface_patches_given(&corrected, spts, tris, r, &given);
+                    *m = map_vertices_onto_surface_patches_given_octree(&corrected, &o, spts, tris, r, &given);
                     types = vec!["patch".to_string(); m.patches.len()];
                     rep.notes.push(format!(
                         "edgeExtraction: meshSurfaceEdgeExtractorNonTopo (correct_edges + surface_mapper): {} boundary faces split, {} faces fanned, {} cells into pyramids",
                         cr.n_patch_corrected_faces, cr.n_connection_faces, cr.n_decomposed_cells
                     ));
                 }
-                let u = optimise_mesh_surface(m, spts, tris, reg, &given);
+                let u = optimise_mesh_surface_octree(m, &o, spts, tris, reg, &given);
                 rep.n_inverted_after_edge_extraction = u.n_inverted_last;
                 rep.notes.push(format!("edgeExtraction: optimiseMeshSurface: inverted points {} -> {}", u.n_inverted_first, u.n_inverted_last));
             }
