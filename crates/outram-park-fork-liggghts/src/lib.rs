@@ -120,6 +120,7 @@ pub mod insert;
 pub mod insert_stream;
 pub mod integrator;
 pub mod massflow;
+pub mod mesh_dump;
 pub mod multicontact;
 pub mod mesh_stress;
 pub mod mesh_wall;
