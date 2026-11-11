@@ -166,7 +166,7 @@ impl NuclearCrossSections {
     /// Those of ACER's block builders (a malformed MF=4/5/6 section).
     pub fn to_ace(&self) -> Result<AceTable, NjoyError> {
         let t_k = self.temperature.get::<kelvin>();
-        let modules = crate::acer::DeckModules { urr: self.urr.clone(), kerma: self.heating.clone(), newfor: 1 };
+        let modules = crate::acer::DeckModules { urr: self.urr.clone(), kerma: self.heating.clone(), newfor: 1, mt444: None };
         crate::acer::assemble(&self.tape, self.mat, &self.pendf, K_B_MEV * t_k, self.settings.ace_suffix, &modules)
     }
 

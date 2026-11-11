@@ -236,6 +236,8 @@ fn contributes_to_total(mt: i32, present: &[i32]) -> bool {
 fn role_of(mt: i32, mt4_has_mf12: bool, mt19: bool, has_partial_fission: bool) -> Role {
     match mt {
         2 => Role::Elastic,
+        // `unionx` includes MT=444 (`acefc.f90:1743-1782`), skips 443.
+        444 => Role::Partial,
         1 | 3 | 27 | 101 => Role::Redundant,
         4 if !mt4_has_mf12 => Role::Redundant,
         18 if mt19 && has_partial_fission => Role::Redundant,
@@ -575,7 +577,14 @@ impl AceTable {
             .map(|sec| {
                 egrid
                     .iter()
-                    .map(|&e| sigfig(eval_partial(sec, e), 7))
+                    .map(|&e| {
+                        // MT=444 is stored as `sigfig(s/emev,7,0)` (`acefc.f90:5664`).
+                        if i32::from(sec.mt) == 444 {
+                            sigfig(eval_partial(sec, e) / EMEV, 7)
+                        } else {
+                            sigfig(eval_partial(sec, e), 7)
+                        }
+                    })
                     .collect()
             })
             .collect();
@@ -637,7 +646,9 @@ impl AceTable {
                 total_at_301 = Some(total.clone());
             }
             let disap = is_disappearance(mt, &present);
-            let in_total = contributes_to_total(mt, &present);
+            // `acelod` adds to the total only `mth <= 200` or `>= 600`
+            // (`acefc.f90:5655-5663`), so 444 does not.
+            let in_total = mt != 444 && contributes_to_total(mt, &present);
             for j in 0..nes {
                 if in_total {
                     total[j] += partial_xs[k][j];

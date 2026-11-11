@@ -444,6 +444,8 @@ pub struct AceDeck {
     /// MT=301 as HEATR's tape carries it, `(E, H)` pairs; when set, ESZ's
     /// heating column reads these (ACER reads the tape, not HEATR's memory).
     esz_kerma: Option<Vec<(f64, f64)>>,
+    /// MT=444 (damage energy) as HEATR's tape carries it, `(E [eV], sigma [eV-b])`.
+    mt444: Option<Vec<(f64, f64)>>,
 }
 
 impl Default for AceDeck {
@@ -458,6 +460,7 @@ impl Default for AceDeck {
             pendf_binary: false,
             newfor: 1,
             esz_kerma: None,
+            mt444: None,
         }
     }
 }
@@ -502,6 +505,14 @@ impl AceDeck {
     /// the 7th figure, which moved one ESZ word of test 07).
     pub fn with_esz_kerma_pairs(mut self, pairs: Vec<(f64, f64)>) -> Self {
         self.esz_kerma = Some(pairs);
+        self
+    }
+
+    /// MT=444 from HEATR's tape: stored by ACER as a reaction (`unionx` sets
+    /// its threshold to `elow`; `acelod` stores `sigfig(s/emev,7,0)`,
+    /// `acefc.f90:1767, 5664`) and its energies join the union grid.
+    pub fn with_mt444_pairs(mut self, pairs: Vec<(f64, f64)>) -> Self {
+        self.mt444 = Some(pairs);
         self
     }
 
@@ -559,6 +570,8 @@ pub(crate) struct DeckModules {
     pub(crate) kerma: Option<crate::heatr::Kerma>,
     /// ACER's `newfor` (gh:#1449).
     pub newfor: i32,
+    /// HEATR's MT=444 `(E, sigma)` pairs, when the deck's HEATR wrote it.
+    pub(crate) mt444: Option<Vec<(f64, f64)>>,
 }
 
 /// Run the deck's PURR and HEATR on `pendf` (a result already through
@@ -637,7 +650,7 @@ pub(crate) fn deck_modules(
         }),
         _ => kerma,
     };
-    Ok(DeckModules { urr, kerma, newfor: deck.newfor })
+    Ok(DeckModules { urr, kerma, newfor: deck.newfor, mt444: deck.mt444.clone() })
 }
 
 /// ACER proper: the continuous-energy table from the PENDF and what
@@ -651,7 +664,24 @@ pub(crate) fn assemble(
     suffix: u32,
     modules: &DeckModules,
 ) -> Result<AceTable, crate::NjoyError> {
-    let recon = pendf;
+    // MT=444 joins the reactions as `unionx` includes it (`acefc.f90:1743-1782`).
+    let with444;
+    let recon = match &modules.mt444 {
+        Some(pairs) if !pairs.is_empty() => {
+            let mut r = pendf.clone();
+            let sec = crate::reconr::ReconrSection {
+                lr: 0,
+                mt: crate::endf::mt::MtReaction::from_any(444),
+                qi: 0.0,
+                pairs: pairs.clone(),
+            };
+            let at = r.sections.iter().position(|s| i32::from(s.mt) > 444).unwrap_or(r.sections.len());
+            r.sections.insert(at, sec);
+            with444 = r;
+            &with444
+        }
+        _ => pendf,
+    };
     let urr = modules.urr.as_ref();
     let kerma = modules.kerma.as_ref();
     let angular = match tape.section(mat, 4, 2) {

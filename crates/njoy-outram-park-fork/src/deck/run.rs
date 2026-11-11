@@ -397,9 +397,10 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     }
     deck = deck.with_heatr_partials(pend.meta.heatr_partials).with_purr_binary(pend.meta.purr_binary).with_heatr_binary(pend.meta.heatr_binary).with_newfor(c.newfor).with_pendf_binary(c.npend < 0);
     if pend.meta.heatr {
-        if let Some(sec) = pend.tape.section(c.matd, 3, 301) {
-            // rows[0] is the HEAD, rows[1] the TAB1 record (NR, NP), then the
-            // interpolation table (three pairs a row), then the points.
+        // rows[0] is the HEAD, rows[1] the TAB1 record (NR, NP), then the
+        // interpolation table (three pairs a row), then the points.
+        let tab1_pairs = |mt: i32| -> Option<Vec<(f64, f64)>> {
+            let sec = pend.tape.section(c.matd, 3, mt)?;
             let nr = sec.rows.get(1).map_or(0, |r| r[4] as usize);
             let np = sec.rows.get(1).map_or(0, |r| r[5] as usize);
             let start = 2 + nr.div_ceil(3);
@@ -412,9 +413,15 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
                     pairs.push((r[2 * k], r[2 * k + 1]));
                 }
             }
-            if pairs.len() == np {
-                deck = deck.with_esz_kerma_pairs(pairs);
-            }
+            (pairs.len() == np).then_some(pairs)
+        };
+        if let Some(pairs) = tab1_pairs(301) {
+            deck = deck.with_esz_kerma_pairs(pairs);
+        }
+        // MT=444 (damage energy) is a stored reaction in ACER (`unionx`,
+        // `acefc.f90:1767`); 443 is skipped.
+        if let Some(pairs) = tab1_pairs(444) {
+            deck = deck.with_mt444_pairs(pairs);
         }
     }
     if let Some((nbin, nladr, temps)) = &pend.meta.purr {
