@@ -2310,7 +2310,7 @@ impl GranularSystem {
                 return;
             };
             let has_stress = self.moving_walls[w].stress.is_some();
-            let mut contributions: Vec<(usize, [f64; 3], [f64; 3], [f64; 3])> = Vec::new();
+            let mut contributions: Vec<(usize, usize, [f64; 3], [f64; 3], [f64; 3])> = Vec::new();
             // markAllContacts
             for (key, slots) in self.mesh_partners.iter_mut() {
                 if key.1 == w {
@@ -2452,12 +2452,25 @@ impl GranularSystem {
                     self.torques[i] = self.torques[i].add(gf.torque_i);
                     if has_stress {
                         let f_pw = self.forces[i].sub(before);
-                        contributions.push((c.tri, arr(f_pw), arr(p.position), c.delta));
+                        contributions.push((i, c.tri, arr(f_pw), arr(p.position), c.delta));
                     }
                 }
             }
             if let Some(st) = &mut self.moving_walls[w].stress {
-                for (tri, f_pw, x, d) in contributions {
+                // Upstream's `post_force_mesh` loops facets outermost and, within a
+                // facet, the particles of that facet's mesh neighbour list, which
+                // is in ascending local (atom-sort) slot order. The totals of
+                // `fix mesh/surface/stress` are floating-point sums, so they are
+                // accumulated in that order (the per-contact forces do not depend
+                // on it). gh:#1416, `tests/htr10_conus_massflow_stress_cross_code.rs`.
+                if self.perm.len() == n && matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
+                    let mut local_of = vec![0usize; n];
+                    for (l, &pi) in self.perm.iter().enumerate() {
+                        local_of[pi] = l;
+                    }
+                    contributions.sort_by_key(|c| (c.1, local_of[c.0]));
+                }
+                for (_, tri, f_pw, x, d) in contributions {
                     st.add_particle_contribution(f_pw, x, d, tri);
                 }
             }

@@ -109,7 +109,12 @@ const THERMO_EVERY: usize = 500;
 /// The last sampled step at which all 21 thermo values are bit-identical to
 /// LIGGGHTS. A measurement (see the results in the test's doc comment), not a
 /// tolerance.
-const BIT_IDENTICAL_UNTIL: usize = 0;
+const BIT_IDENTICAL_UNTIL: usize = 2500;
+
+/// Round-off bound on the total force and torque after `BIT_IDENTICAL_UNTIL`,
+/// relative to the norm of the 3-vector: the workspace's code-to-code
+/// allowance (CLAUDE.md, 2026-10-20), `1e-8`. The measured worst is far below.
+const ROUND_OFF_BOUND: f64 = 1.0e-8;
 
 fn data_path(name: &str) -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -176,8 +181,17 @@ fn compare_state(sys: &GranularSystem, reference: &[[f64; 6]]) -> (usize, usize,
 /// Force/torque on the conus and the mass flow through three planes, against
 /// LIGGGHTS, on the 27 554-pebble HTR-10 discharge.
 ///
-/// Results are written into the V&V document after the first run; see
-/// `docs/verification-and-validation.md` section 4.12.
+/// **Result (2026-11-11, Rust 1.99.1, LIGGGHTS 3d5c00f2, 1 154 s):** all
+/// 27 554 pebbles bit-identical (x y z vx vy vz) at steps 2 000 **and 20 000**
+/// (the beds do not diverge under upstream's neighbour order); the 15 mass-flow
+/// values and the 3 reference-point values bit-identical at all 41 samples
+/// (final counts a 2001, b 1239, c 103 pebbles); force and torque on the conus
+/// bit-identical through step 2 500 (6 of 41 rows), then differing in the last
+/// few ulp: worst `|dF|/|F|` or `|dT|/|T|` over the run **8.46e-16**. Cause:
+/// summation order of the per-contact terms (section 4.12 of
+/// `docs/verification-and-validation.md`); before the facet-major reordering
+/// in `compute_mesh_wall_forces` the worst was 1.1e-13 of a component.
+/// Prediction partly missed: the totals are not bit-identical beyond 2 500.
 #[test]
 #[cfg_attr(
     not(feature = "long-tests"),
@@ -256,6 +270,7 @@ fn conus_massflow_and_stress_match_liggghts() {
     let mut last = 0_usize;
     let mut first_mismatch: Option<usize> = None;
     let mut bit_identical_rows = 0;
+    let mut worst_overall = 0.0_f64;
     for th in &thermo {
         let step = th[0] as usize;
         sys.run(step - last);
@@ -279,12 +294,28 @@ fn conus_massflow_and_stress_match_liggghts() {
         }
         // worst relative difference of the force and torque (6 values), and the
         // counts of the three planes
-        let worst_ft = (0..6)
-            .map(|k| (got[k] - th[1 + k]).abs() / th[1 + k].abs().max(f64::MIN_POSITIVE))
+        // difference of each 3-vector over the vector's norm (a component can be
+        // ~0 by cancellation, so a per-component ratio would be meaningless)
+        let norm = |v: &[f64]| (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+        let worst_ft = [0_usize, 3]
+            .iter()
+            .map(|&o| {
+                let d = [got[o] - th[1 + o], got[o + 1] - th[2 + o], got[o + 2] - th[3 + o]];
+                norm(&d) / norm(&th[1 + o..4 + o])
+            })
             .fold(0.0_f64, f64::max);
+        worst_overall = worst_overall.max(worst_ft);
+        // the counters and the reference point are integers / exact: never differ
+        let non_ft_differ = (6..21).any(|k| got[k].to_bits() != th[1 + k].to_bits());
+        assert!(!non_ft_differ, "step {step}: a mass-flow value or the reference point differs");
+        if step <= BIT_IDENTICAL_UNTIL {
+            assert!(differing.is_empty(), "step {step}: values {differing:?} differ in the bit-identical window");
+        } else {
+            assert!(worst_ft < ROUND_OFF_BOUND, "step {step}: force/torque differ by {worst_ft:.2e} of the norm");
+        }
         eprintln!(
             "step {step:6}: F=({:.6e},{:.6e},{:.6e}) N  T=({:.5e},{:.5e},{:.5e}) Nm  counts \
-             ours/LIGGGHTS a {}/{} b {}/{} c {}/{}  | {} of 21 differ, worst F/T rel {:.2e}",
+             ours/LIGGGHTS a {}/{} b {}/{} c {}/{}  | {} of 21 differ, worst F/T diff/norm {:.2e}",
             got[0],
             got[1],
             got[2],
@@ -304,6 +335,7 @@ fn conus_massflow_and_stress_match_liggghts() {
             let reference = if step == 2000 { &frame_2000 } else { &frame_20000 };
             if let Some(reference) = reference {
                 let (same, n, worst) = compare_state(&sys, reference);
+                assert_eq!(same, n, "particle state at step {step} differs from LIGGGHTS");
                 eprintln!(
                     "    particles at step {step}: {same}/{n} bit-identical (x y z vx vy vz), \
                      worst position difference {worst:.3e} m"
@@ -316,6 +348,6 @@ fn conus_massflow_and_stress_match_liggghts() {
         thermo.len(),
         first_mismatch
     );
-    let _ = THERMO_EVERY;
-    let _ = BIT_IDENTICAL_UNTIL;
+    eprintln!("worst force/torque difference over the run: {worst_overall:.2e} of the vector norm");
+    assert_eq!(first_mismatch, Some(BIT_IDENTICAL_UNTIL + THERMO_EVERY));
 }
