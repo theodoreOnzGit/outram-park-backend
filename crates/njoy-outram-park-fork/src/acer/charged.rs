@@ -643,10 +643,17 @@ fn acecpe(
         let l = cur.read_list()?;
         let e = l.head.c2;
         let ltp = l.head.l1;
+        let mut nl = l.head.n2 as usize;
+        let mut data = l.data.clone();
         if ltp < 12 {
-            return Err(NjoyError::NotPorted("acecpe LTP < 12 (ptlegc/coul Coulomb-nuclear interference expansion)"));
+            // `ptlegc` rebuilds the distribution as the actual elastic cross
+            // section; its LIST gets `LIDP` in the L2 slot first (`:6556`).
+            let mut c: Vec<f64> = vec![l.head.c1, l.head.c2, f64::from(l.head.l1), f64::from(lidp), f64::from(l.head.n1), f64::from(l.head.n2)];
+            c.extend_from_slice(&l.data);
+            let pairs = super::charged_coulomb::ptlegc(&c, awi, izai, awr, za, spi)?;
+            nl = pairs.len();
+            data = pairs.iter().flat_map(|&(a, b)| [a, b]).collect();
         }
-        let nl = l.head.n2 as usize;
         let mut ien = 1usize;
         while ien < nes && es[ien] < e {
             ien += 1;
@@ -660,8 +667,8 @@ fn acecpe(
         for jl in 1..=nl {
             let mut ione = 0;
             while ione == 0 {
-                let mut amuu = l.data[2 * (jl - 1)];
-                let pmu = l.data[2 * (jl - 1) + 1];
+                let mut amuu = data[2 * (jl - 1)];
+                let mut pmu = data[2 * (jl - 1) + 1];
                 let mut signi;
                 let mut sigc;
                 loop {
@@ -684,6 +691,9 @@ fn acecpe(
                         sigc = ((2.0 * eta * eta / (wn * wn)) / (1.0 - amuu * amuu))
                             * ((1.0 + amuu * amuu) / (1.0 - amuu * amuu)
                                 + sgn * (eta * ((1.0 + amuu) / (1.0 - amuu)).r_ln()).r_cos() / (2.0 * spi + 1.0));
+                    }
+                    if ltp < 12 {
+                        pmu -= sigc;
                     }
                     if iterp == 1 {
                         signi = (ratr - 1.0) * sigc;
