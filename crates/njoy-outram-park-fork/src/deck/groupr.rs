@@ -137,6 +137,7 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         return Err(NjoyError::NotPorted("groupr input GENDF, several materials, temperatures or sigma-zeros"));
     }
     units.openz(u.npend, 0)?;
+    units.openz(u.nendf, 0)?;
     units.openz(u.ngout2, 1)?;
     let pend = units.get(u.npend)?.tape.clone();
     let mf1 = pend
@@ -172,22 +173,32 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
                 notes.push(format!("groupr: mf {} mt {} not written (matrix and photon-production sections are not ported)", req.mfd, mtd));
                 continue;
             }
-            if matches!(mtd, 221..=250 | 251..=253 | 257..=259 | 452 | 455 | 456) {
+            if matches!(mtd, 257..=259 | 452 | 455 | 456) {
                 notes.push(format!("groupr: mf 3 mt {mtd} not written (thermal, mubar/xi/gamma and nu sections are not ported)"));
                 continue;
             }
-            let Some(sec) = pend.section(inp.matb, 3, mtd) else { continue };
+            // `getsig` reads MT 2 for the ratio reactions (`:6705`).
+            let ratio = (251..=253).contains(&mtd);
+            let mt_read = if ratio { 2 } else { mtd };
+            let Some(sec) = pend.section(inp.matb, 3, mt_read) else { continue };
             let mut cur = crate::endf::records::SectionCursor::new(&sec.rows);
-            cur.read_cont()?;
+            let head = cur.read_cont()?;
             let tab = cur.read_tab1()?;
             let lrflag = tab.head.l2;
             let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
             let iwt = inp.weight.iwt();
-            let rows = crate::groupr::njoy_panel::group_vector(&mut feed, iwt, &egn, first, emaxx)?;
+            let mut pf = if ratio {
+                let ang = crate::groupr::file4::File4Angular::from_tape(&units.get(u.nendf)?.tape, inp.matb, 2, crate::groupr::file4::NLD)?;
+                let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, &egn, head.c2, tab.head.c2, lrflag)?;
+                crate::groupr::njoy_panel::PanelFeed::TwoBody(tb.for_mf3_ratio(mtd, inp.lord.max(0) as usize))
+            } else {
+                crate::groupr::njoy_panel::PanelFeed::Vector
+            };
+            let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, iwt, &egn, first, emaxx, ratio)?;
             g.begin(inp.matb, 3, mtd);
             g.cont([za, 0.0], [1, 1, lrflag, (egn.len() - 1) as i32]);
-            for (ig, flux, sigma, iglo) in rows {
-                g.list([inp.temperatures[0], 0.0], 2, iglo, ig as i32, &[flux, sigma]);
+            for (ig, ng2, ig2lo, data) in rows {
+                g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
             }
             g.send();
         }

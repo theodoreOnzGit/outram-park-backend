@@ -479,7 +479,7 @@ fn test_01_groupr_gendf_mf3() {
             return false;
         }
         let mt: i32 = l[72..75].trim().parse().unwrap_or(0);
-        matches!(mt, 1 | 2 | 4 | 51..=64 | 91 | 102 | 103 | 104 | 107 | 301 | 444)
+        matches!(mt, 1 | 2 | 4 | 51..=64 | 91 | 102 | 103 | 104 | 107 | 221 | 229 | 230 | 251..=253 | 301 | 444)
     };
     let a = std::fs::read_to_string(ours.join("tape27")).unwrap();
     let b = std::fs::read_to_string(njoy.join("tape27")).unwrap();
