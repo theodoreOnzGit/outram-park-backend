@@ -715,6 +715,19 @@ impl GranularSystem {
         }
     }
 
+    /// The index into [`GranularSystem::particles`] of each atom in the order
+    /// [`GranularSystem::particles_in_local_order`] returns them (identity when
+    /// the system is not under the LIGGGHTS neighbour order). Lets a per-atom
+    /// property stored by tag (e.g. a tracer marker) be summed in local order.
+    #[must_use]
+    pub fn local_order_indices(&self) -> Vec<usize> {
+        if self.perm.len() == self.particles.len() && matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
+            self.perm.clone()
+        } else {
+            (0..self.particles.len()).collect()
+        }
+    }
+
     /// Assign an atom type (0-based) to every particle, for a model carrying a
     /// [`MaterialTable`](crate::granular::MaterialTable)
     /// ([`GranularContactModel::with_materials`]). Particles inserted later get

@@ -130,6 +130,7 @@ pub mod simulation;
 pub mod thermal;
 pub mod thermal_radiation;
 pub mod timestep;
+pub mod tracer;
 pub mod tri_mesh;
 pub mod variable;
 /// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where
