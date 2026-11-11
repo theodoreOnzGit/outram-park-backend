@@ -88,7 +88,7 @@
 //! upstream's `addLayerForPatch` when they are (one patch, or patches
 //! meeting at convex edges under 135°).
 
-use super::{build_layered_variable_with_columns, distance_to_segment, layer_setup};
+use super::{build_layered_variable_with_columns, layer_setup};
 use crate::math::Vec3;
 use crate::surface_engine::{SurfaceEngine, SurfacePartitioner, VSMALL};
 use crate::surface_optimizer::check_inverted_vertices;
@@ -331,9 +331,10 @@ pub fn create_new_vertex(
                     v = v.add(engine.face_normals[bf]);
                 }
             }
-            let v = v.scale(1.0 / (v.length() + VSMALL));
+            // `v /= magV` and `normal /= magN` divide (gh:#1385)
+            let v = v.div(v.length() + VSMALL);
             let n = n.sub(v.scale(n.dot(v)));
-            let n = n.scale(1.0 / (n.length() + VSMALL));
+            let n = n.div(n.length() + VSMALL);
             let mut dist = f64::MAX;
             for &q in &engine.point_points[b] {
                 if patch_vertex[q] != 0 {
@@ -347,7 +348,7 @@ pub fn create_new_vertex(
             let q = *engine.point_points[b].iter().find(|&&q| others.iter().all(|o| part.point_patches[q].contains(o))).ok_or(BoundaryLayersError::CannotFindMovingVertex { point: wp })?;
             let d = p.sub(points[engine.boundary_points[q]]);
             let dist = c.height_factor * d.length() + VSMALL;
-            (d.scale(1.0 / (2.0 * dist)), dist)
+            (d.div(2.0 * dist), dist)
         }
         _ => return Err(BoundaryLayersError::MoreThanThreePatches { point: wp }),
     };
@@ -361,7 +362,7 @@ pub fn create_new_vertex(
             let k = ring.len();
             let pos = ring.iter().position(|&x| x == wp).ok_or(BoundaryLayersError::CannotFindMovingVertex { point: wp })?;
             let (e1, e2) = (points[ring[(pos + k - 1) % k]], points[ring[(pos + 1) % k]]);
-            let dst = distance_to_segment(p, e1, e2);
+            let dst = crate::mesh_octree::help::distance_of_point_from_the_edge(e1, e2, p);
             if dst < dist {
                 dist = 0.9 * dst;
             }
@@ -1002,7 +1003,7 @@ pub fn generate_layer(mesh: &VolumeMesh, request: &LayerRequest, c: &BoundaryLay
 /// `cells` holds the old cells first (`first_layer_cell` of them). Returns
 /// the mesh and the number of boundary faces that do not match `bnd` (a face
 /// on one side only, or listed and not a boundary face).
-fn add_cells_upstream(mesh: &VolumeMesh, points: Vec<Vec3>, cells: &[Vec<Vec<usize>>], first_layer_cell: usize, bnd: &[(Vec<usize>, usize)], names: &[String]) -> (VolumeMesh, usize) {
+pub(crate) fn add_cells_upstream(mesh: &VolumeMesh, points: Vec<Vec3>, cells: &[Vec<Vec<usize>>], first_layer_cell: usize, bnd: &[(Vec<usize>, usize)], names: &[String]) -> (VolumeMesh, usize) {
     use std::collections::HashMap;
     let key = |ring: &[usize]| -> Vec<usize> {
         let mut k = ring.to_vec();
@@ -1054,12 +1055,15 @@ fn add_cells_upstream(mesh: &VolumeMesh, points: Vec<Vec3>, cells: &[Vec<Vec<usi
     owner.truncate(n_int);
     neighbour.truncate(n_int);
     let mut n_unmatched = 0;
-    let mut new_boundary_owners: Vec<usize> = Vec::new();
+    // (owner, label) of every `bnd` entry, in the order `bnd` lists them: upstream's
+    // `replaceBoundary` appends each new boundary face to its owner's list in
+    // that order, while the labels run patch by patch (gh:#1385)
+    let mut assigned: Vec<Option<(usize, usize)>> = vec![None; bnd.len()];
     let mut patches = Vec::with_capacity(names.len());
     let mut listed: BTreeSet<Vec<usize>> = BTreeSet::new();
     for (pi, name) in names.iter().enumerate() {
         let start = faces.len();
-        for (ring, patch) in bnd {
+        for (bi, (ring, patch)) in bnd.iter().enumerate() {
             if *patch != pi {
                 continue;
             }
@@ -1069,7 +1073,7 @@ fn add_cells_upstream(mesh: &VolumeMesh, points: Vec<Vec3>, cells: &[Vec<Vec<usi
                     faces.push(ring.clone());
                     owner.push(o);
                     neighbour.push(None);
-                    new_boundary_owners.push(o);
+                    assigned[bi] = Some((o, faces.len() - 1));
                     listed.insert(k);
                 }
                 _ => n_unmatched += 1,
@@ -1078,7 +1082,13 @@ fn add_cells_upstream(mesh: &VolumeMesh, points: Vec<Vec3>, cells: &[Vec<Vec<usi
         patches.push(crate::volume_mesh::BoundaryPatch { name: name.clone(), start_face: start, n_faces: faces.len() - start });
     }
     n_unmatched += owner_of.iter().filter(|(k, &(_, internal))| !internal && !listed.contains(*k)).count();
-    let cell_lists = crate::cartesian_mesh::replace_boundary_cell_lists(&cell_lists, n_int, &new_boundary_owners);
+    let mut cell_lists = cell_lists;
+    for l in cell_lists.iter_mut() {
+        l.retain(|&f| f < n_int);
+    }
+    for (o, label) in assigned.into_iter().flatten() {
+        cell_lists[o].push(label);
+    }
     (VolumeMesh { points, faces, owner, neighbour, n_cells: cells.len(), patches, cells: Some(cell_lists) }, n_unmatched)
 }
 

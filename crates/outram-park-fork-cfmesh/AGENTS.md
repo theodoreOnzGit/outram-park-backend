@@ -388,12 +388,17 @@ writing macros".
 
 ## Differential against real upstream output (gh:#1385, 2026-11-11)
 
-`tests/cfmesh_vs_upstream_sphere.rs` pins `cartesianMesh` and `pMesh` stage by
-stage against cfMesh's own output
-(`verification_and_validation/upstream_cfmesh_gh1385/`): bit-identical points
+`tests/cfmesh_vs_upstream_sphere.rs` pins `cartesianMesh`, `tetMesh` and `pMesh`
+stage by stage against cfMesh's own output
+(`verification_and_validation/upstream_cfmesh_gh1385/`): ~~bit-identical points
 and faces through `boundaryLayerGeneration`; `meshOptimisation` within the
 last bit, the cause proven in `tests/cfmesh_vs_upstream_cell_order.rs` (cell
-face order, which `VolumeMesh` does not carry). Rules this taught:
+face order, which `VolumeMesh` does not carry)~~ **UPDATED 2026-11-11
+(gh:#1385, round 2):** all seven steps and the final meshes of the three
+generators are bit-identical on the sphere (`VolumeMesh::cells` carries cfMesh's
+cell face lists, see the V&V README), and asmoOctree is bit-identical through
+`boundaryLayerGeneration` (`outram-foam-cli/tests/cfmesh_vs_upstream_stages.rs`).
+Rules this taught:
 
 - **OpenFOAM divides.** `v /= s` and `v/s` divide each component;
   `v.scale(1.0 / s)` differs in the last bit. Use `Vec3::div`. About 140
@@ -409,6 +414,18 @@ face order, which `VolumeMesh` does not carry). Rules this taught:
 - **Face order is part of the answer.** Template: octree-face order plus
   `reorder_boundary_faces`; layers: `add_cells_upstream`. A stage built from
   cell lists (`from_cell_faces`) does not come out in upstream's order.
+- **Cell face lists are part of the answer too** (`VolumeMesh::cells`, gh:#1385
+  round 2): the centre of a cell sums its faces in list order. A stage that
+  rebuilds a mesh must carry the lists the way upstream's modifier does
+  (`reorderBoundaryFaces` relabels in place; `replaceBoundary` keeps the internal
+  faces and appends the new boundary faces in the order of the boundary list,
+  labels by patch; `removeCells` / `addCells` / `decomposeFaces` as written) or
+  drop them (`None`): a carried list is used only while consistent with owner /
+  neighbour. Set `cells: None` in a new `VolumeMesh` literal unless you carry them.
+- **Multi-patch routines were checked on asmoOctree, not only the sphere:**
+  `mapEdgeNodes` / `mapCorners`, `decomposeCells` and `createNewVertex` now follow
+  upstream line by line (the approximation loop breaks before replacing the
+  estimate; `distanceOfPointFromTheEdge` is the distance to the infinite line).
 - **Two face-geometry formulas.** `foam_face_centre` / `ring_area_vector` are
   `face::centre` / `face::areaNormal` (the surface engine, the optimisers);
   `checks::pmg_face_centre_and_area` is the polyMeshGen addressing's own

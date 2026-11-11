@@ -522,7 +522,15 @@ pub mod help {
         if d < ROOTVSMALL {
             return e0;
         }
-        e0.add(e.scale(1.0 / (d * d)).scale(e.dot(k)))
+        // `edgePoint0 + ((e /(d*d))*(e & k))`: divides, as OpenFOAM does
+        e0.add(e.div(d * d).scale(e.dot(k)))
+    }
+
+    /// `help::distanceOfPointFromTheEdge`: `mag(nearestPointOnTheEdge(..) - p)`,
+    /// which is the distance to the infinite **line** through the edge, as
+    /// upstream's (gh:#1385).
+    pub fn distance_of_point_from_the_edge(e0: Vec3, e1: Vec3, p: Vec3) -> f64 {
+        nearest_point_on_the_edge(e0, e1, p).sub(p).length()
     }
 
     /// `help::nearestPointOnTheEdgeExact`: the nearest point of the closed

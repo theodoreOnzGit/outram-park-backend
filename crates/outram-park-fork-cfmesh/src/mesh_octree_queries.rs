@@ -742,7 +742,7 @@ impl MeshOctree {
                     .map_or(nearest, |h| h.point);
                 np = np.add(q);
             }
-            np = np.scale(1.0 / patches.len() as f64);
+            np = np.div(patches.len() as f64);
             dist_sq = mag_sqr(np.sub(p));
             if mag_sqr(np.sub(nearest)) < tol * dist_sq {
                 break;

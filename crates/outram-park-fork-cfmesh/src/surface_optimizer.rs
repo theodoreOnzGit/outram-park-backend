@@ -906,6 +906,22 @@ impl MeshSurfaceOptimizer {
     fn map_edge_nodes(&mut self, points: &mut [Vec3], nodes: &[usize]) {
         let Some(q) = self.mapper.as_ref() else { return };
         let dist: Vec<f64> = nodes.iter().map(|&b| self.mapping_distance(points, b)).collect();
+        if let Some(o) = q.octree() {
+            // gh:#1385: upstream's routine, patches unsorted
+            let moved: Vec<(usize, Vec3)> = nodes
+                .iter()
+                .zip(&dist)
+                .map(|(&b, &max_dist)| {
+                    let v = self.engine.boundary_points[b];
+                    (v, crate::surface_mapper::map_edge_node_upstream(q, o, points[v], &self.part.point_patches[b], max_dist))
+                })
+                .collect();
+            for (v, p) in moved {
+                points[v] = p;
+            }
+            self.engine.update_geometry(points, nodes);
+            return;
+        }
         for (&b, &max2) in nodes.iter().zip(&dist) {
             let mut ps = self.part.point_patches[b].clone();
             ps.sort_unstable();

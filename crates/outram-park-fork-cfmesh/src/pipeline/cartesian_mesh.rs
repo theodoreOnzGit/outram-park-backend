@@ -356,10 +356,14 @@ pub(crate) fn cartesian_optimise_final_mesh(
     if enforce_geometry_constraints {
         opt.set_enforce_constraints("badPoints");
     }
+    trace_points("fm_surface", m);
     let r1 = opt.optimize_mesh_fv(m, 5, controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
+    trace_points("fm_fv", m);
     let r2 = opt.optimize_low_quality_faces(m, 10);
+    trace_points("fm_lowq", m);
     let bl = optimize_boundary_layer_step(m, optimise_layer, add_buffer_layer, controls, "optimizeBoundaryLayer: optimiseLayer off (upstream default), nothing to do");
     let r3 = opt.untangle_mesh_fv(m, controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
+    trace_points("fm_untangle", m);
     Ok((
         (r1.flagged_before, r3.flagged_after),
         format!(
@@ -367,6 +371,19 @@ pub(crate) fn cartesian_optimise_final_mesh(
             r1.flagged_before, r1.flagged_after, r2.flagged_before, r2.flagged_after, r3.flagged_before, r3.flagged_after
         ),
     ))
+}
+
+/// With `GH1385_TRACE` set, print every point as upstream's instrumented
+/// run does (`TRACE <tag> 0 <i> x y z`), for the sub-step differential of
+/// gh:#1385 (`verification_and_validation/upstream_cfmesh_gh1385`). Off
+/// unless the variable is set.
+pub(crate) fn trace_points(tag: &str, m: &VolumeMesh) {
+    if std::env::var("GH1385_TRACE").is_err() {
+        return;
+    }
+    for (i, p) in m.points.iter().enumerate() {
+        eprintln!("TRACE {tag} 0 {i} {:?} {:?} {:?}", p.x, p.y, p.z);
+    }
 }
 
 /// `meshOptimizer::optimizeBoundaryLayer(addBufferLayer)` inside
@@ -499,8 +516,8 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
                     // each patch's type (gh:#1483)
                     types.resize(m.patches.len(), "patch".to_string());
                     rep.notes.push(format!(
-                        "edgeExtraction: meshSurfaceEdgeExtractorNonTopo (correct_edges + surface_mapper): {} boundary faces split, {} faces fanned, {} cells into pyramids",
-                        cr.n_patch_corrected_faces, cr.n_connection_faces, cr.n_decomposed_cells
+                        "edgeExtraction: meshSurfaceEdgeExtractorNonTopo (correct_edges + surface_mapper): {} concave internal faces fanned, {} boundary faces split, {} faces fanned, {} cells into pyramids",
+                        cr.n_concave_faces, cr.n_patch_corrected_faces, cr.n_connection_faces, cr.n_decomposed_cells
                     ));
                 }
                 let u = optimise_mesh_surface_octree(m, &o, spts, tris, reg, &given);
