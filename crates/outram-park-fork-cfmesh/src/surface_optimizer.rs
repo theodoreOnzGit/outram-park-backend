@@ -991,6 +991,10 @@ impl MeshSurfaceOptimizer {
             let (mut n_iter, mut n_after_refresh) = (0usize, 0usize);
             loop {
                 n_inverted = self.find_inverted_vertices(points, &mut smooth, n_additional_layers);
+                if std::env::var("GH1385_TRACE").is_ok() {
+                    // gh:#1385: as the instrumented upstream prints it (`UNT globalIter iter nInverted nSmooth`)
+                    eprintln!("UNT {} {} {} {}", rep.global_iterations, n_iter, n_inverted, smooth.iter().filter(|&&s| s).count());
+                }
                 if first {
                     rep.n_inverted_first = n_inverted;
                     first = false;
@@ -1026,18 +1030,32 @@ impl MeshSurfaceOptimizer {
                         moved_edge.push(b);
                     }
                 }
+                // gh:#1385: `TRACE S1..S5 0 i x y z`, every boundary point, as the instrumented upstream prints it (only for the 24-point untangle)
+                let trace24 = std::env::var("GH1385_TRACE").is_ok() && smooth.iter().filter(|&&s| s).count() == 24;
+                let dump = |tag: &str, engine: &SurfaceEngine, points: &[Vec3]| {
+                    if trace24 {
+                        for (b, &p) in engine.boundary_points.iter().enumerate() {
+                            eprintln!("TRACE {tag} 0 {b} {:?} {:?} {:?}", points[p].x, points[p].y, points[p].z);
+                        }
+                    }
+                };
                 self.smooth_edge_points(points, &moved_edge);
+                dump("S1", &self.engine, points);
                 if remap {
                     self.map_edge_nodes(points, &moved_edge);
                 }
                 self.engine.update_geometry(points, &moved_edge);
+                dump("S2", &self.engine, points);
                 self.smooth_laplacian_fc(points, &moved, true);
                 self.engine.update_geometry(points, &moved);
+                dump("S3", &self.engine, points);
                 self.smooth_surface_optimizer(points, &moved);
+                dump("S4", &self.engine, points);
                 if remap {
                     self.map_vertices_onto_surface(points, &moved);
                 }
                 self.engine.update_geometry(points, &moved);
+                dump("S5", &self.engine, points);
                 n_iter += 1;
                 if !(n_inverted > 0 && n_iter < 20) {
                     break;
@@ -1173,6 +1191,24 @@ pub fn optimise_mesh_surface(mesh: &mut crate::volume_mesh::VolumeMesh, points: 
 pub fn optimise_mesh_surface_octree(mesh: &mut crate::volume_mesh::VolumeMesh, o: &crate::mesh_octree::MeshOctree, points: &[Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions, face_region: &[Option<usize>]) -> UntangleReport {
     let q = crate::surface_mapper::SurfaceQueries::new(points, tris, regions).with_octree(std::sync::Arc::new(o.clone()));
     optimise_mesh_surface_with(mesh, q, regions, face_region)
+}
+
+/// `voronoiMeshGenerator::optimiseMeshSurface`: `optimizeSurface()` and then
+/// `untangleSurface()` on **one** `meshSurfaceOptimizer` (gh:#1385 round 4):
+/// its `partTriMesh` is created at the first `smoothSurfaceOptimizer` and
+/// afterwards only the selected points' coordinates are refreshed, so the
+/// untangle sees the triangulation's stale coordinates of every other point,
+/// as upstream does. Returns the two reports.
+pub fn optimise_mesh_surface_then_untangle_octree(mesh: &mut crate::volume_mesh::VolumeMesh, o: &crate::mesh_octree::MeshOctree, points: &[Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions, face_region: &[Option<usize>]) -> (UntangleReport, UntangleReport) {
+    let q = crate::surface_mapper::SurfaceQueries::new(points, tris, regions).with_octree(std::sync::Arc::new(o.clone()));
+    let unassigned = regions.names.len();
+    let patch_of: Vec<usize> = face_region.iter().map(|r| r.unwrap_or(unassigned)).collect();
+    let engine = SurfaceEngine::from_parts(&mesh.points, &mesh.faces, &mesh.owner, &mesh.neighbour, &patch_of);
+    let part = SurfacePartitioner::new(&engine);
+    let mut opt = MeshSurfaceOptimizer::new(engine, part, Some(q));
+    let a = opt.optimize_surface(&mut mesh.points, 5);
+    let b = opt.untangle_surface(&mut mesh.points, 2);
+    (a, b)
 }
 
 fn optimise_mesh_surface_with(mesh: &mut crate::volume_mesh::VolumeMesh, q: crate::surface_mapper::SurfaceQueries, regions: &crate::patches::SurfaceRegions, face_region: &[Option<usize>]) -> UntangleReport {

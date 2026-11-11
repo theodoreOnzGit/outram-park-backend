@@ -490,10 +490,16 @@ impl PartTetMesh {
 
     /// `tetMeshOptimisation::optimiseUsingVolumeOptimizer(nIterations)`.
     pub fn optimise_using_volume_optimizer(&mut self, n_iterations: usize) {
-        for _ in 0..n_iterations {
+        for it in 0..n_iterations {
             let nodes: Vec<usize> = (0..self.points.len()).filter(|&n| self.kind[n] & LOCKED == 0 && self.kind[n] & SMOOTH != 0).collect();
             let moved = self.smooth_nodes(&nodes, |pts, tets, c| volume_optimizer(pts, tets, c, 1e-5));
             self.update_vertices(&moved);
+            if self.points.len() == 21340 && std::env::var("GH1385_TRACE").is_ok() {
+                // gh:#1385: `VI iteration node x y z`, as the instrumented upstream prints it
+                for (q, p) in self.points.iter().enumerate() {
+                    eprintln!("VI {it} {q} {:?} {:?} {:?}", p.x, p.y, p.z);
+                }
+            }
         }
     }
 
@@ -994,10 +1000,12 @@ pub(crate) fn volume_optimizer(pts: &mut [Vec3], tets: &[[usize; 4]], free: usiz
             for t in tets {
                 let [a, b, c, d] = t.map(|v| pts[v]);
                 if tet_volume(a, b, c, d) < SMALL {
-                    let n = b.sub(a).cross(c.sub(a));
+                    // `triangle(a, b, c).normal()` is the area vector `0.5*((b - a)^(c - a))`;
+                    // `disp += 0.01*(n/d)` (gh:#1385 round 4: the port scaled the doubled vector by 0.01/m)
+                    let n = b.sub(a).cross(c.sub(a)).scale(0.5);
                     let m = n.length();
                     if m > VSMALL {
-                        disp = disp.add(n.scale(0.01 / m));
+                        disp = disp.add(n.div(m).scale(0.01));
                     }
                 }
             }

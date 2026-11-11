@@ -419,6 +419,17 @@ impl TopoMesh {
     /// `polyMeshGenModifier::removeFaces`: drop the marked faces.
     pub fn remove_faces(&mut self, remove: &[bool]) {
         let keep: Vec<usize> = (0..self.faces.len()).filter(|&f| !remove[f]).collect();
+        // `removeFaces` renumbers the cells' lists in place and drops the
+        // removed faces from them (gh:#1385 round 4)
+        let carried = match &self.cells {
+            Some(c) if crate::volume_mesh::cell_lists_are_consistent(c, self.n_cells, &self.owner, &self.neighbour) => Some(c.clone()),
+            _ => None,
+        };
+        let mut new_label = vec![usize::MAX; self.faces.len()];
+        for (n, &f) in keep.iter().enumerate() {
+            new_label[f] = n;
+        }
+        self.cells = carried.map(|c| c.into_iter().map(|l| l.into_iter().filter(|&f| new_label[f] != usize::MAX).map(|f| new_label[f]).collect()).collect());
         self.faces = keep.iter().map(|&f| self.faces[f].clone()).collect();
         self.owner = keep.iter().map(|&f| self.owner[f]).collect();
         self.neighbour = keep.iter().map(|&f| self.neighbour[f]).collect();
