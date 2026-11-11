@@ -25,7 +25,7 @@
 //! The module is pure data: positions, tags and the per-contact history in,
 //! the per-contact radius expansions out. [`MulticontactState`] holds the
 //! per-contact history between steps; `GranularSystem::with_multicontact`
-//! hooks it into the pair and primitive-wall loops (mesh walls are not hooked).
+//! hooks it into the pair and primitive-wall loops (and, since gh:#1410, the mesh-wall loop).
 //!
 //! Research, education and V&V only (`RESPONSIBLE_USE.md`).
 
@@ -375,6 +375,9 @@ pub struct MulticontactState {
     pub pair_hist: std::collections::HashMap<(usize, usize), [f64; 3]>,
     /// Primitive-wall history keyed by `(tag, wall)`.
     pub wall_hist: std::collections::HashMap<(usize, usize), [f64; 4]>,
+    /// Mesh-wall history keyed by `(tag, wall index nb + w, triangle id)`
+    /// (upstream's per-facet contact history, gh:#1410).
+    pub mesh_hist: std::collections::HashMap<(usize, usize, u32), [f64; 4]>,
     /// Local index of each particle (inverse of the atom-sort permutation).
     pub local_of: Vec<usize>,
 }
@@ -388,6 +391,7 @@ impl MulticontactState {
             data: McData::default(),
             pair_hist: std::collections::HashMap::new(),
             wall_hist: std::collections::HashMap::new(),
+            mesh_hist: std::collections::HashMap::new(),
             local_of: Vec::new(),
         }
     }

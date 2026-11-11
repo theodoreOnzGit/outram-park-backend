@@ -474,11 +474,34 @@ impl MeshWall {
     /// accepts with the default contact-distance factor. gh:#1416.
     #[must_use]
     pub fn sphere_contacts(&self, c: Vec3, radius: f64) -> Vec<MeshContact> {
+        self.sphere_contacts_within(c, radius, 0.0)
+    }
+
+    /// One facet resolved for the sphere `(c, radius)` whatever its gap
+    /// (`resolveTriSphereContactBary`); the caller applies the acceptance
+    /// test. Used where the radius differs per facet (multicontact). gh:#1410.
+    #[must_use]
+    pub fn resolve_facet(&self, tri: usize, c: Vec3, radius: f64) -> MeshContact {
+        let t = &self.triangles[tri];
+        let nd: Nodes = [arr(t.a), arr(t.b), arr(t.c)];
+        let cs: V3 = arr(c);
+        let (deltan, delta, bary, barysign) =
+            self.state.resolve_tri_sphere_contact_bary(&nd, tri, radius, &cs, true);
+        MeshContact { tri, deltan, delta, bary, barysign }
+    }
+
+    /// [`MeshWall::sphere_contacts`] extended to the facets whose gap is
+    /// `deltan < margin` (`FixWallGran::post_force_mesh`:
+    /// `deltan < (contactDistanceFactor - 1) * radius`, the non-overlapping
+    /// "close" contacts). `margin = 0` is exactly `sphere_contacts`. gh:#1410.
+    #[must_use]
+    pub fn sphere_contacts_within(&self, c: Vec3, radius: f64, margin: f64) -> Vec<MeshContact> {
+        let reach = radius + margin.max(0.0);
         let mut out = Vec::new();
         let use_bounds = self.bounds.len() == self.triangles.len();
         if use_bounds {
             let (hc, hr) = self.hull;
-            if c.sub(hc).norm() - hr > radius {
+            if c.sub(hc).norm() - hr > reach {
                 return out;
             }
         }
@@ -486,7 +509,7 @@ impl MeshWall {
         for (index, tri) in self.triangles.iter().enumerate() {
             if use_bounds {
                 let (centroid, rad) = self.bounds[index];
-                if c.sub(centroid).norm() - rad > radius {
+                if c.sub(centroid).norm() - rad > reach {
                     continue;
                 }
             }
@@ -494,7 +517,7 @@ impl MeshWall {
             let (deltan, delta, bary, barysign) = self
                 .state
                 .resolve_tri_sphere_contact_bary(&nd, index, radius, &cs, true);
-            if deltan <= 0.0 {
+            if deltan <= 0.0 || deltan < margin {
                 out.push(MeshContact {
                     tri: index,
                     deltan,

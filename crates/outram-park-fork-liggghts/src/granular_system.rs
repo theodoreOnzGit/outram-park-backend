@@ -638,15 +638,29 @@ impl GranularSystem {
             pairs[local_of[i]].push(PairContact { j: local_of[j], history: h });
         }
         let nb = self.boundaries.len();
-        let mut walls: Vec<Vec<Vec<WallContact>>> = vec![vec![Vec::new(); n]; nb];
-        for (w, wl) in walls.iter_mut().enumerate() {
+        let nm = self.moving_walls.len();
+        let mut walls: Vec<Vec<Vec<WallContact>>> = vec![vec![Vec::new(); n]; nb + nm];
+        for (w, wl) in walls.iter_mut().enumerate().take(nb) {
             for l in 0..n {
                 if let Some(h) = mc.wall_hist.get(&(tag[l], w)) {
                     wl[l].push(WallContact { id: 1, history: *h });
                 }
             }
         }
-        let is_mesh = vec![false; nb];
+        // mesh walls: one contact per facet, in `mesh_partners` slot order
+        // (`FixMultiContactHalfSpace::pre_force` iterates `npartners`)
+        let mut is_mesh = vec![false; nb + nm];
+        for w in 0..nm {
+            is_mesh[nb + w] = true;
+            for l in 0..n {
+                if let Some(slots) = self.mesh_partners.get(&(tag[l], w)) {
+                    for &(id, _) in slots.iter().flatten() {
+                        let h = mc.mesh_hist.get(&(tag[l], nb + w, id)).copied().unwrap_or([0.0; 4]);
+                        walls[nb + w][l].push(WallContact { id: id as usize, history: h });
+                    }
+                }
+            }
+        }
         mc.data = mc.fix.pre_force(
             ParticleView { x: &x, tag: &tag, typ: &typ, radius: &rad, in_group: &grp },
             &pairs,
@@ -1885,7 +1899,31 @@ impl GranularSystem {
             for i in 0..n {
                 let p = self.particles[i];
                 let tag = self.tags[i] as usize;
-                let contacts = mesh.sphere_contacts(p.position, p.radius);
+                // multicontact: `radi += deltaData[3]` of a facet already in
+                // the history (`fix_wall_gran.cpp:933-947`); the search also
+                // reaches the "close" facets `deltan < (factor-1)*radius`
+                let contacts = if let Some(mc) = &self.mc {
+                    let loc = mc.local_of[i];
+                    let nbw = nb;
+                    let exp_of = |t: u32| mc.data.wall_expansion(nbw + w, loc, t as usize);
+                    let maxexp = self
+                        .mesh_partners
+                        .get(&(tag, w))
+                        .map_or(0.0, |sl| sl.iter().flatten().map(|s| exp_of(s.0).abs()).fold(0.0, f64::max));
+                    let margin = (crate::multicontact::CONTACT_DISTANCE_FACTOR - 1.0) * p.radius;
+                    let cand = mesh.sphere_contacts_within(p.position, p.radius + maxexp, margin + 2.0 * maxexp);
+                    let slots = self.mesh_partners.get(&(tag, w));
+                    cand.into_iter()
+                        .filter_map(|c0| {
+                            let has = slots.is_some_and(|sl| sl.iter().flatten().any(|s| s.0 == c0.tri as u32));
+                            let re = if has { exp_of(c0.tri as u32) } else { 0.0 };
+                            let c1 = if re != 0.0 { mesh.resolve_facet(c0.tri, p.position, p.radius + re) } else { mesh.resolve_facet(c0.tri, p.position, p.radius) };
+                            (c1.deltan <= 0.0 || c1.deltan < margin).then_some(c1)
+                        })
+                        .collect::<Vec<_>>()
+                } else {
+                    mesh.sphere_contacts(p.position, p.radius)
+                };
                 for c in contacts {
                     let slots = self.mesh_partners.entry((tag, w)).or_default();
                     let id = c.tri as u32;
@@ -1936,7 +1974,34 @@ impl GranularSystem {
                             if let Some(h) = inherit {
                                 self.history.seed(ContactKey::tri(tag, nb + w, c.tri), h);
                             }
+                            // the multicontact history lives in the same
+                            // contact history, so it is inherited too
+                            if let Some(mc) = self.mc.as_mut() {
+                                let mut src = None;
+                                for s in slots.iter().flatten() {
+                                    if s.0 != id && mesh.coplanar_node_neighs(s.0 as usize, c.tri) {
+                                        src = Some(mc.mesh_hist.get(&(tag, nb + w, s.0)).copied().unwrap_or([0.0; 4]));
+                                    }
+                                }
+                                if let Some(h) = src {
+                                    mc.mesh_hist.insert((tag, nb + w, id), h);
+                                }
+                            }
                         }
+                    }
+                    // expanded radius of this facet (`sidata.radi`)
+                    let mut p = p;
+                    if let Some(mc) = &self.mc {
+                        p.radius += mc.data.wall_expansion(nb + w, mc.local_of[i], c.tri);
+                    }
+                    if c.deltan > 0.0 {
+                        // `surfacesClose`: history only, no force
+                        if let Some(mc) = self.mc.as_mut().filter(|_| !setup) {
+                            let d = [-c.delta[0], -c.delta[1], -c.delta[2]];
+                            let h = crate::multicontact::surfaces_close_history(true, d, p.radius, 0.0);
+                            mc.mesh_hist.insert((tag, nb + w, id), [h[0], h[1], h[2], h[3]]);
+                        }
+                        continue;
                     }
                     let v_wall = mesh.wall_velocity(c.tri, &c.bary);
                     let delta = Vec3::new(-c.delta[0], -c.delta[1], -c.delta[2]);
@@ -1951,6 +2016,12 @@ impl GranularSystem {
                         &mut self.history,
                         self.dt,
                     );
+                    if let Some(mc) = self.mc.as_mut().filter(|_| !setup) {
+                        let d = [-c.delta[0], -c.delta[1], -c.delta[2]];
+                        let h = crate::multicontact::surfaces_intersect_history(true, d, p.radius, 0.0);
+                        let fnorm = crate::multicontact::end_surfaces_intersect_history(arr(gf.force_i), arr(k.en));
+                        mc.mesh_hist.insert((tag, nb + w, id), [h[0], h[1], h[2], fnorm]);
+                    }
                     // f_pw = f - force_old (fix_wall_gran_base.h), delta passed on is
                     // -sidata.delta
                     let before = self.forces[i];
@@ -1979,6 +2050,13 @@ impl GranularSystem {
             }
             self.mesh_partners
                 .retain(|_, v| v.iter().any(Option::is_some));
+            if let Some(mc) = self.mc.as_mut() {
+                let mp = &self.mesh_partners;
+                mc.mesh_hist.retain(|&(t, ww, id), _| {
+                    ww != nb + w
+                        || mp.get(&(t, w)).is_some_and(|sl| sl.iter().flatten().any(|s| s.0 == id))
+                });
+            }
         }
     }
 
