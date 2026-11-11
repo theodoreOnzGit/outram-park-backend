@@ -1541,6 +1541,50 @@ multicontact/halfspace`~~ done, gh:#1410), multi-type material tables for the
 new models (~~single type pair only~~ **CORRECTED 2026-11-11**: done, see
 above), ~~the Luding `torsion` option~~ (done 2026-11-11).
 
+## 4.12 `massflow/mesh` and `mesh/surface/stress` on the HTR-10 conus (2026-11-11, gh:#1416)
+
+**Method.** `reference-data/liggghts/in.htr10_conus_massflow` is `in.htr10_conus`
+(27 554 pebbles from `htr10_settled.csv` with velocities, `htr10_discharge.stl`,
+`E = 5e8`, `mu = 0.4`, CDT `0.1`, `dt = 3.5e-5`, 20 000 steps) with the conus as
+`mesh/surface/stress ... reference_point 0.1 -0.05 -0.2` and three
+`massflow/mesh` planes (`vec_side 0 0 -1`, `count once`) at `z = -0.02`, `-0.10`
+(over the conus) and `-0.50` (in the tube), `thermo 500` of the 21 values,
+`%.17g`. Run with `lmp_serial` (3d5c00f2, 257 s). The upstream positions at
+2 000 and 20 000 are bit-identical to the plain conus deck's frames
+(27 554 / 27 554 twice): the fixes do not touch the dynamics. The port runs
+under `with_liggghts_neighbor_order` (box of the data file, skin 18 mm) so
+contact forces are summed in upstream's order. Test:
+`tests/htr10_conus_massflow_stress_cross_code.rs` (19 min; `long-tests`).
+
+**Prediction (before the first run).** Counts identical; force and torque
+bit-identical while the configurations are; divergence at the chaos horizon
+(1.1 mm median at step 6 000 in section 4.8).
+
+**Result.**
+
+| quantity | result |
+|---|---|
+| pebbles at 2 000 and 20 000 (x y z vx vy vz) | **27 554 / 27 554** bit-identical at both |
+| mass-flow count/mass/rates, 3 planes x 4 x 41 samples; reference point 3 x 41 | **all bit-identical** (final a 2001, b 1239, c 103 pebbles; c first crossed near step 7 000) |
+| force and torque on the conus, 6 x 41 | bit-identical through step 2 500 (6 of 41 rows); after that 1-5 values per row differ by at most **8.46e-16** of the vector norm |
+
+**Two predictions missed, both explained.** (1) The beds did **not** diverge:
+with upstream's neighbour order the port tracks LIGGGHTS bit for bit through the
+whole slump, so section 4.8's divergence (11 µm at 2 000, 1.10 mm at 6 000) comes
+from the port's default linked-cell summation order (and that test starting
+from zero velocities), not from chaos intrinsic to two correct codes.
+(2) The totals are not bit-identical after step 2 500. The total is a sum over
+every particle-facet contact. Upstream accumulates facet-major, particles in the
+facet's mesh neighbour list, whose order is bin-by-bin of the positions at the
+last rebuild. The port first summed particle-major: worst difference 1.06e-13
+of a component. Re-ordering the accumulation facet-major by upstream's local
+atom slot (the change to `compute_mesh_wall_forces` made with this test) took
+the worst to 8.46e-16 and kept bit-identity to step 2 500; the remaining few
+ulp are the within-facet bin order, **not reproduced** (it needs the mesh
+neighbour list's bin geometry). That cause is inferred from the 100-fold drop
+under the reordering, not proved by a run that closes the gap. It is within the
+1e-8 round-off allowance; flagged for the maintainer.
+
 ## 5. What is still NOT validated
 
 Unchanged from the 2026-09-06 declaration, and not weakened by anything above.
