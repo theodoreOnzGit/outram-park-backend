@@ -259,10 +259,15 @@ const TEMP: f64 = 293.6;
 /// The values before, measured with DBRC: k_mean
 /// 9.872_893_945_032_524_82e-1, k_std 4.034_210_549_813_215_67e-3, first
 /// generation 9.354_845_634_945_611_05e-1, last 9.831_945_442_690_159_80e-1.
-const K_MEAN_PRE_258: f64 = 9.929_367_335_926_888_58e-1;
-const K_STD_PRE_258: f64 = 4.691_511_358_454_659_82e-3;
-const K_GEN_FIRST_PRE_258: f64 = 9.354_845_634_945_611_05e-1;
-const K_GEN_LAST_PRE_258: f64 = 9.796_434_138_179_326_29e-1;
+// Re-pinned 2026-11-11 (gh:#1386): the OpenMC-faithful collision kernels are the
+// transport default. Before: k_mean 0.992937 (k_std 4.69e-3), first generation
+// 0.935485, last 0.979643. After: k_mean 0.999782 (k_std 4.41e-3), first 0.911470,
+// last 1.061531: +685 pcm, 1.07 sigma (quadrature of the two k_std), so
+// re-pinned. The old values were not re-measured under the legacy switch here.
+const K_MEAN_PRE_258: f64 = 9.997_817_252_659_183_53e-1;
+const K_STD_PRE_258: f64 = 4.411_017_979_954_415_94e-3;
+const K_GEN_FIRST_PRE_258: f64 = 9.114_703_457_598_035_69e-1;
+const K_GEN_LAST_PRE_258: f64 = 1.061_530_662_392_313_97e0;
 
 fn heu() -> Option<Vec<Nuclide>> {
     let base =
