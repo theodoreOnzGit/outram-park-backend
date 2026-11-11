@@ -612,6 +612,13 @@ fn rows(text: &str) -> Vec<(String, Stat)> {
 }
 
 /// Measured 2026-11-11 (release): (mesh, row, n, bit-identical, worst ulp).
+/// **gh:#1488 (same day):** `deltaCoeffs` and `snGrad (orthogonal)` re-pinned
+/// after the boundary-`deltaCoeffs` fix (patch-normal `fvPatch::delta()`):
+/// `deltaCoeffs` hex ~~789/1083, 6.8e15 ulp (rel 0.66)~~ **1083/1083, 0**,
+/// poly ~~1236/1788, 1.4e16 ulp (rel 0.88)~~ **1788/1788, 0**; `snGrad
+/// (orthogonal)` hex ~~533/1083~~ **737/1083, 1 ulp**, poly ~~890/1788~~
+/// **1285/1788, 1 ulp**. The remaining 1-ulp snGrad differences are `/d`
+/// against upstream's `deltaCoeffs*` (proof row `proof snGrad`), gh:#1489.
 /// Pinned in BOTH directions: a change that improves a row fails this test too,
 /// so the README table is updated with it. Rows named `proof ...` must be
 /// 100 % bit-identical: they replay the upstream arithmetic and explain the
