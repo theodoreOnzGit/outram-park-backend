@@ -27,6 +27,8 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
+pub mod cfmesh;
+
 use clap::Parser;
 
 /// Common OpenFOAM-style command-line options shared by every tool binary.

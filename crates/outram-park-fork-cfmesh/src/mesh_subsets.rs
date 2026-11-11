@@ -37,8 +37,10 @@
 //! is built by struct literal in 31 places across the workspace and a new
 //! field would touch all of them. The operations, the id rule (one more than
 //! the largest id in use) and the ordering (`std::map` by id, `std::set`
-//! elements, both ascending) are upstream's. The `meshDict`/file reading and
-//! writing of subsets (`polyMeshGen::read`/`write`) are not ported.
+//! elements, both ascending) are upstream's. ~~The `meshDict`/file reading and
+//! writing of subsets (`polyMeshGen::read`/`write`) are not ported.~~
+//! **UPDATED 2026-11-11 (gh:#1476):** `polyMeshGen::write`/`read` with the
+//! subsets as set files are `crate::poly_mesh_gen_io` (feature `foam-export`).
 
 use std::collections::{BTreeMap, BTreeSet};
 

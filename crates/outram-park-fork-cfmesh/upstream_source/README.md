@@ -34,6 +34,25 @@ git clone --depth 1 https://github.com/chr1shr/voro.git upstream_source/voro
 | cfMesh (`DAFoam/cfmesh`), cloned 2026-11-11 | `e944f6ba695fcefce73ad306074f6b3c0ea432ae` | 2026-02-17 | GPL-3.0-or-later (file headers) |
 | voro++ (`chr1shr/voro`) | `b0dac575a47af0f90b5b100e6dc199a493c7cb83` | 2026-03-04 | modified-BSD (LBNL) |
 
+## Building and running upstream cfMesh (gh:#1385, 2026-11-11)
+
+`cfmesh_dafoam` at `e944f6ba695f` was built against a partial
+OpenFOAM-v2506 (ESI, GitHub mirror `ZhangYanTJU/OpenFOAM-ESI`, tag
+`OpenFOAM-v2506`, dummy Pstream, no MPI, no ThirdParty) outside the
+repository, after a three-part API patch. The recipe, scripts, patch, logs
+and every run's output are in
+`../verification_and_validation/upstream_cfmesh_gh1385/` (`README.md` there,
+section "Status and how to resume"). In short:
+
+```bash
+# OpenFOAM: OpenFOAM, fileFormats, surfMesh, meshTools, finiteVolume,
+# blockMesh, extrudeModel, dynamicMesh, checkMesh (55 min on 3 cores)
+scripts/build-of.sh
+git -C upstream_source/cfmesh_dafoam apply \
+  ../verification_and_validation/upstream_cfmesh_gh1385/patches/cfmesh-e944f6ba695f-openfoam-v2506.patch
+scripts/build-cfmesh.sh   # meshLibrary + cartesianMesh, cartesian2DMesh, tetMesh, pMesh
+```
+
 See the crate `NOTICE` for the full provenance and licensing statement. Any file
 ported into `src/` carries an upstream provenance header block per the workspace
 provenance rule.

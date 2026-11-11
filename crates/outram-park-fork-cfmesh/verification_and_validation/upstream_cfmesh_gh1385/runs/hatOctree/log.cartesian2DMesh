@@ -1,0 +1,137 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2506                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : 615aae61-20250627 OPENFOAM=2506 version=v2506
+Arch   : "LSB;label=32;scalar=64"
+Exec   : cartesian2DMesh
+Date   : Nov 11 2026
+Time   : 09:34:26
+Host   : vm
+PID    : 31771
+I/O    : uncollated
+Case   : /home/user/upstream-build/runs/hatOctree
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Detected a 2D surface in the x - y plane
+Setting root cube size and refinement parameters
+Root box (-2.5600000000000001 -2.0600000000000001 -2.5099999999999998) (2.5600000000000001 3.0600000000000001 2.6100000000000003)
+Requested cell size corresponds to octree level 9
+Refining boundary
+Refining boundary boxes to the given size
+Finished refining boundary boxes
+Performing automatic refinement
+Performing automatic refinement
+Marking inside/outside.
+Number of internal boxes is 1974
+Number of outside boxes is 1854
+Number of data boxes is 610
+Number of unknown boxes is 0
+Refining boxes near DATA boxes
+Marking inside/outside.
+Number of internal boxes is 14994
+Number of outside boxes is 1854
+Number of data boxes is 610
+Number of unknown boxes is 0
+Finished refining boxes near DATA boxes
+Extracting polyMesh
+Creating octree vertices
+Octree nodes 30686
+Resizing points!
+Finished creating octree vertices
+Creating polyMesh from octree
+Reordering boundary faces 
+Finished reordering boundary faces
+Found 29496 boundary faces 
+Finished creating polyMesh
+Mesh has :
+29498 vertices 
+57960 faces
+14404 cells
+Finished extracting polyMesh
+Checking for irregular surface connections
+Checking cells connected to surface vertices
+Found 29496 boundary faces 
+Found 0 problematic vertices
+Finished checking cells connected to surface vertices
+Checking for non - manifold surface edges
+Found 0 non - manifold edges
+Finished checking for non - manifold surface edges
+Checking faces connections to surface vertices
+Found 0 invalid connections
+Finished checking faces connections to surface vertices
+Finished checking for irregular surface connections
+Found 29496 boundary faces 
+Found 0 non - mappable cells
+Checking cell connections
+Finished checking cell connections
+Found 29496 boundary faces 
+Marked 0 faces for decomposition
+Found 29496 boundary faces 
+Found 0 corners at the surface of the volume mesh
+Found 1376 edge points at the surface of the volume mesh
+Smoothing mesh surface before mapping. Iteration:..
+Found 29496 boundary faces 
+Found 10 corners at the surface of the volume mesh
+Found 1366 edge points at the surface of the volume mesh
+Found 29496 boundary faces 
+Found 10 corners at the surface of the volume mesh
+Found 1366 edge points at the surface of the volume mesh
+Found 10 corners at the surface of the volume mesh
+Found 1366 edge points at the surface of the volume mesh
+Optimizing edges. Iteration:.....
+Optimizing surface vertices. Iteration:.....
+Iteration 0. Number of bad faces 0
+Boundary layer height factor: 0.5
+Boundary layer min height: 0
+Found 29496 boundary faces 
+Found 10 corners at the surface of the volume mesh
+Found 1366 edge points at the surface of the volume mesh
+Found 10 corners at the surface of the volume mesh
+Found 1366 edge points at the surface of the volume mesh
+Resizing points!
+Starting creating layer cells
+Adding 692 cells to the mesh
+Finished adding cells to the mesh
+Reordering boundary faces 
+Finished reordering boundary faces
+Finished creating layer cells
+Found 30888 boundary faces 
+Found 10 corners at the surface of the volume mesh
+Found 1382 edge points at the surface of the volume mesh
+Found 10 corners at the surface of the volume mesh
+Found 1382 edge points at the surface of the volume mesh
+Optimizing edges. Iteration:.....
+Optimizing surface vertices. Iteration:.....
+Iteration 0. Number of bad faces 0
+Starting refining boundary layers
+Found 30888 boundary faces 
+Found 10 corners at the surface of the volume mesh
+Found 1382 edge points at the surface of the volume mesh
+Detecting layers
+Analysing mesh for bnd layer existence
+Generating hair edges
+Finished with bnd layer detection
+Finished refining boundary - layer faces 
+Number of newly generated cells 3580
+Finished generating new cells 
+Finished refining boundary layers
+Found 38088 boundary faces 
+Found 10 corners at the surface of the volume mesh
+Found 1462 edge points at the surface of the volume mesh
+Iteration 0. Number of bad faces 0
+Renumbering the mesh
+Finished renumbering the mesh
+ExecutionTime = 1.3200000000000001 s
+ClockTime = 1 s
+End
+
