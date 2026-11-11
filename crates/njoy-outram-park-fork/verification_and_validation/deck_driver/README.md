@@ -274,3 +274,16 @@ and 74: ACE 70, directory 75, and for the second ACER the check file 71, its dir
 the plot file 55 (`viewr` input text). Deck 74 covers the continuous-form 3-D and
 angle-energy pages, deck 70 the coherent pages, deck 67 the mixed-elastic pages. `viewr`
 itself (unit 56) is not ported. Survey rows: `survey.md`.
+
+## 9. VIEWR (2026-11-12, gh:#1369)
+
+`src/viewr/` translates `viewr.f90` and `graph.f90`; the deck driver reads VIEWR's card
+(`infile nps`) and runs it on the plot file the previous module left (`aplots`, `tplots`),
+writing the PostScript to `nps`. **Prediction (before the runs):** identical PostScript wherever
+the plot file is identical. **Result:** unit 54/56 identical, line by line, on decks 72, 36, 38-42,
+67-70 and 74 whole-deck (1 230 516 lines), and on NJOY's own plot file for decks 13, 14, 35, 37
+and 63 (679 533 lines). Deck 35 whole-deck is identical too although its plot file differs in 5
+PURR-word lines; decks 37 and 63 differ upstream of VIEWR (ACE words); decks 13 and 14 stop at an
+ACER `iopt = 7` variant. Function level (against unmodified `graph.f90`), hand-written plot files
+(legend, tags, error bars, hatching, alternate axis, portrait, 3-d) and the upstream quirks found:
+`../viewr/README.md`. **The survey rows were not regenerated** (see `survey.md`).

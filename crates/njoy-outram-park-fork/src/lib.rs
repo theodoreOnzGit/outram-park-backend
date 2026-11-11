@@ -120,8 +120,10 @@ pub mod wmp;
 // declared above next to their long-form docs; unresr, purr, samm, groupr,
 // gaminr, errorr, covr, leapr, dtfr, resxsr, mixr and wimsr (below) are also
 // ported (translation-level — V&V is the trust gate). The genuine `NotPorted`
-// stubs are only ccccr, matxsr, powr, plotr and viewr (output formats OUTRAM
-// PARK does not target). ~~…and wimsr~~ CORRECTED 2026-10-04: wimsr was ported
+// stubs are only ccccr, matxsr, powr and plotr (output formats OUTRAM
+// PARK does not target). ~~…and viewr~~ **CORRECTED 2026-11-12 (gh:#1369):** viewr and
+// graph.f90 are ported (`src/viewr/`, PostScript identical to NJOY2016.80 on 17 upstream decks);
+// only its bare `run()` stays `NotPorted` (it needs the deck's tape units). ~~…and wimsr~~ CORRECTED 2026-10-04: wimsr was ported
 // 2026-09-11 (`src/wimsr/`, `wimsr::run_gendf`, byte-identical library vs
 // NJOY2016 in `tests/wimsr_u238_njoy_golden.rs`); only its card-deck `run()`
 // stays `NotPorted`. Dispatch is via the `NjoyModule` enum in `modules.rs`.

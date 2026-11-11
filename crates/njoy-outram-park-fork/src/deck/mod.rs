@@ -27,7 +27,9 @@
 //! (`iinc = 1`, [`thermr`]; **CORRECTED 2026-11-11**, was "no tape driver"),
 //! GROUPR and GASPR read their cards but have no tape driver, so a deck
 //! reaching them (or THERMR with `iinc = 2`, an elastic option or `iform = 1`)
-//! stops with [`DeckRun::blocked`] set. The other modules' cards are not yet read.
+//! stops with [`DeckRun::blocked`] set. VIEWR runs from its card on the plot
+//! file the previous module left ([`crate::viewr`], gh:#1369). The other
+//! modules' cards are not yet read.
 
 pub mod acer_thermal;
 pub mod cards;
