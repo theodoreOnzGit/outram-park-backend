@@ -101,6 +101,7 @@
 
 pub mod bonded;
 pub mod boundary;
+pub mod capillary;
 pub mod compute;
 pub mod contact;
 pub mod coupling;

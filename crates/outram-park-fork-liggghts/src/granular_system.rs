@@ -74,7 +74,9 @@ use crate::wasm_par::prelude::*;
 
 use crate::boundary::Boundary;
 use crate::compute::ComputeType;
-use crate::granular::{ContactKey, ContactKinematics, GranularContactModel, ShearHistory};
+use crate::granular::{
+    ContactKey, ContactKinematics, GranularCohesion, GranularContactModel, ShearHistory, MAX_TYPES,
+};
 use crate::heat_gran::HeatGranConduction;
 use crate::integrator::VelocityVerlet;
 use crate::mesh_wall::{MovingBoundary, WallGeometry};
@@ -290,6 +292,9 @@ pub struct GranularSystem {
     heat_flux: Vec<f64>,
     /// `fix massflow/mesh` counters, called after the particles move each step.
     massflow: Vec<crate::massflow::MassFlowMesh>,
+    /// The `liquidtransfer` state of a capillary cohesion model, if attached
+    /// ([`GranularSystem::with_capillary`], gh:#1411).
+    capillary: Option<crate::capillary::CapillaryState>,
 }
 
 /// One candidate pair's resolved contact, staged by the parallel force loop so
@@ -413,6 +418,7 @@ impl GranularSystem {
             heat: None,
             heat_flux: Vec::new(),
             massflow: Vec::new(),
+            capillary: None,
         };
         s.compute_forces_setup();
         Ok(s)
@@ -764,6 +770,252 @@ impl GranularSystem {
         &self.heat_flux
     }
 
+    /// Attach the `liquidtransfer` state of a capillary cohesion model
+    /// ([`GranularCohesion::Capillary`], [`crate::capillary`], gh:#1411): every
+    /// particle starts with `surfaceLiquidContentInitial`, the neighbour list
+    /// looks out to `1.1 * maxSeparationDistanceRatio` contact distances (both
+    /// upstream models call `register_contact_dist_factor(1.1 * max_ratio)`),
+    /// and bridges form, stretch and rupture out of contact as upstream's
+    /// `surfacesClose` does. Washino's `limitLiquidContent` overwrites the
+    /// maximum separation ratio from the current radii and the atom types
+    /// present, as upstream's `connectToProperties` does.
+    ///
+    /// Physics is on as soon as the model is selected: nothing else has to be
+    /// switched on. The set-up evaluation is re-done.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] unless the model's cohesion is
+    /// `Capillary`, the system uses [`NeighborOrder::Liggghts`] (bridges live
+    /// on upstream's list), has no walls (particle-wall bridges are not
+    /// ported) and no per-pair coefficient table.
+    pub fn with_capillary(mut self) -> Result<Self, DemError> {
+        let GranularCohesion::Capillary(mut p) = self.model.cohesion else {
+            return Err(DemError::InvalidInput(
+                "with_capillary needs a model whose cohesion is GranularCohesion::Capillary".into(),
+            ));
+        };
+        let NeighborOrder::Liggghts(mut cfg) = self.neighbor_order else {
+            return Err(DemError::InvalidInput(
+                "capillary bridges need the LIGGGHTS neighbour order (with_liggghts_neighbor_order)".into(),
+            ));
+        };
+        if !self.boundaries.is_empty() || !self.moving_walls.is_empty() {
+            return Err(DemError::InvalidInput(
+                "capillary bridges to walls are not ported (upstream: Easo dry walls, Washino mesh \
+                 liquid content); use a system without walls"
+                    .into(),
+            ));
+        }
+        if self.model.pair_models.is_some() {
+            return Err(DemError::InvalidInput(
+                "capillary cohesion with a per-pair coefficient table is not supported".into(),
+            ));
+        }
+        if let Some(bad) = self.types.iter().find(|&&t| t >= MAX_TYPES) {
+            return Err(DemError::InvalidInput(format!(
+                "atom type {bad} is outside the {MAX_TYPES} types a capillary model holds"
+            )));
+        }
+        let n_types = self.types.iter().copied().max().map_or(1, |t| t + 1);
+        let max_rad = self.particles.iter().fold(-1.0_f64, |m, q| m.max(q.radius));
+        let min_rad = self.particles.iter().fold(f64::MAX, |m, q| m.min(q.radius));
+        p.max_separation_ratio = p.limited_max_separation_ratio(n_types, max_rad, min_rad);
+        self.model.cohesion = GranularCohesion::Capillary(p);
+        cfg.contact_distance_factor = cfg
+            .contact_distance_factor
+            .max(crate::capillary::CapillaryParams::contact_distance_factor(p.max_separation_ratio));
+        self.neighbor_order = NeighborOrder::Liggghts(cfg);
+        self.capillary = Some(crate::capillary::CapillaryState::new(
+            self.particles.len(),
+            p.initial_liquid_content,
+        ));
+        self.compute_forces_setup();
+        Ok(self)
+    }
+
+    /// `surfaceLiquidContent` of each particle (empty without a capillary model).
+    #[must_use]
+    pub fn liquid_content(&self) -> &[f64] {
+        self.capillary.as_ref().map_or(&[], |c| &c.content)
+    }
+
+    /// `liquidFlux` of each particle `[1/s]` from the last force evaluation.
+    #[must_use]
+    pub fn liquid_flux(&self) -> &[f64] {
+        self.capillary.as_ref().map_or(&[], |c| &c.flux)
+    }
+
+    /// Number of pairs with a liquid bridge (`contflag == 1`).
+    #[must_use]
+    pub fn bridge_count(&self) -> usize {
+        self.capillary.as_ref().map_or(0, |c| c.bridges.len())
+    }
+
+    /// Whether the pair of particles with these tags has a liquid bridge.
+    #[must_use]
+    pub fn has_bridge(&self, tag_a: u64, tag_b: u64) -> bool {
+        self.capillary
+            .as_ref()
+            .is_some_and(|c| c.bridges.contains(&crate::capillary::CapillaryState::key(tag_a, tag_b)))
+    }
+
+    /// Set every particle's `surfaceLiquidContent` (upstream `set ... property/atom
+    /// surfaceLiquidContent`, in particle order) and redo the set-up force
+    /// evaluation, as the `run` that follows such a `set` does.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] without a capillary model attached
+    /// ([`GranularSystem::with_capillary`]) or with a list of the wrong length
+    /// or a content outside `[0, 1]`.
+    pub fn with_liquid_contents(mut self, content: Vec<f64>) -> Result<Self, DemError> {
+        let n = self.particles.len();
+        let Some(c) = self.capillary.as_mut() else {
+            return Err(DemError::InvalidInput(
+                "with_liquid_contents needs with_capillary first".into(),
+            ));
+        };
+        if content.len() != n || content.iter().any(|q| !(0.0..=1.0).contains(q)) {
+            return Err(DemError::InvalidInput(format!(
+                "need {n} liquid contents in [0, 1]"
+            )));
+        }
+        c.content = content;
+        self.compute_forces_setup();
+        Ok(self)
+    }
+
+    /// The force on each particle `[N]` from the last force evaluation (what
+    /// upstream dumps as `fx fy fz` after a step).
+    #[must_use]
+    pub fn forces(&self) -> &[Vec3] {
+        &self.forces
+    }
+
+    /// Keep the per-particle liquid arrays the length of the particle set
+    /// (a new particle gets `surfaceLiquidContentInitial`).
+    fn sync_capillary(&mut self) {
+        let n = self.particles.len();
+        let GranularCohesion::Capillary(p) = self.model.cohesion else {
+            return;
+        };
+        if let Some(c) = self.capillary.as_mut() {
+            c.content.resize(n, p.initial_liquid_content);
+            c.flux.resize(n, 0.0);
+        }
+    }
+
+    /// Particle-particle loop of a capillary model: the ordinary contact law
+    /// for overlapping pairs (with the bridge's contact force folded in at
+    /// upstream's place in the force sum) and `surfacesClose` for the pairs
+    /// that do not overlap but lie inside the contact distance factor
+    /// (`pair_gran_base.h`, `compute_force`), in pair-list order.
+    fn resolve_pairs_capillary(&mut self) {
+        use crate::capillary::{CapillaryState, CloseInput, CloseOutcome};
+        let setup = self.setup_phase;
+        let GranularCohesion::Capillary(p) = self.model.cohesion else {
+            return;
+        };
+        let factor = match self.neighbor_order {
+            NeighborOrder::Liggghts(cfg) => cfg.contact_distance_factor,
+            NeighborOrder::CellGrid => 1.0,
+        };
+        let contact_distance_multiplier = factor * factor;
+        let mut cap = self.capillary.take().expect("capillary state");
+        cap.content.resize(self.particles.len(), p.initial_liquid_content);
+        cap.flux.resize(self.particles.len(), 0.0);
+        let pairs = std::mem::take(&mut self.pairs);
+        for &(i, j) in &pairs {
+            let (i, j) = (i as usize, j as usize);
+            let a = self.particles[i];
+            let b = self.particles[j];
+            let (ti, tj) = (self.tags[i], self.tags[j]);
+            let pair_key = CapillaryState::key(ti, tj);
+            let kin = ContactKinematics::pair_frozen(
+                &a,
+                &b,
+                self.frozen.get(i).copied().unwrap_or(false),
+                self.frozen.get(j).copied().unwrap_or(false),
+            )
+            .map(|k| k.with_types(self.types[i], self.types[j]));
+            if let Some(k) = kin {
+                // surfacesIntersect: contflag = 1, limit the liquid, bridge force
+                cap.bridges.insert(pair_key);
+                cap.content[i] = p.limit_content(cap.content[i], self.types[i]);
+                cap.content[j] = p.limit_content(cap.content[j], self.types[j]);
+                let k = k.with_liquid(cap.content[i], cap.content[j]);
+                let key = ContactKey::pair(ti as usize, tj as usize);
+                let flip = ti > tj;
+                if flip {
+                    self.history.flip(key);
+                    self.model.flip_aux(key, &mut self.history);
+                }
+                let gf = resolve_c(&self.model, setup, key, &k, &mut self.history, self.dt);
+                if flip {
+                    self.history.flip(key);
+                    self.model.flip_aux(key, &mut self.history);
+                }
+                self.forces[i] = self.forces[i].add(gf.force_i);
+                self.forces[j] = self.forces[j].add(gf.force_j);
+                self.torques[i] = self.torques[i].add(gf.torque_i);
+                self.torques[j] = self.torques[j].add(gf.torque_j);
+                continue;
+            }
+            let d = a.position.sub(b.position);
+            let rsq = d.x * d.x + d.y * d.y + d.z * d.z;
+            let radsum = a.radius + b.radius;
+            if rsq < contact_distance_multiplier * radsum * radsum {
+                // surfacesClose: the tangential model forgets the shear
+                self.history.forget_shear(ContactKey::pair(ti as usize, tj as usize));
+                cap.content[i] = p.limit_content(cap.content[i], self.types[i]);
+                cap.content[j] = p.limit_content(cap.content[j], self.types[j]);
+                let outcome = p.close(&CloseInput {
+                    delta: d,
+                    rsq,
+                    rad_i: a.radius,
+                    rad_j: b.radius,
+                    radsum,
+                    itype: self.types[i],
+                    jtype: self.types[j],
+                    v_i: a.velocity,
+                    v_j: b.velocity,
+                    omega_i: a.angular_velocity,
+                    omega_j: b.angular_velocity,
+                    liquid_i: cap.content[i],
+                    liquid_j: cap.content[j],
+                    bridge: cap.bridges.contains(&pair_key),
+                    dt: self.dt,
+                });
+                match outcome {
+                    CloseOutcome::NoBridge => {}
+                    CloseOutcome::ActiveNoForce => {
+                        cap.bridges.insert(pair_key);
+                    }
+                    CloseOutcome::Force {
+                        force_i,
+                        torque_i,
+                        force_j,
+                        torque_j,
+                    } => {
+                        cap.bridges.insert(pair_key);
+                        self.forces[i] = self.forces[i].add(force_i);
+                        self.torques[i] = self.torques[i].add(torque_i);
+                        self.forces[j] = self.forces[j].add(force_j);
+                        self.torques[j] = self.torques[j].add(torque_j);
+                    }
+                    CloseOutcome::Breaks { flux_i, flux_j } => {
+                        cap.bridges.remove(&pair_key);
+                        cap.flux[i] += flux_i;
+                        cap.flux[j] += flux_j;
+                    }
+                }
+            }
+        }
+        self.pairs = pairs;
+        self.capillary = Some(cap);
+    }
+
     /// The pair-ordering mode in use.
     #[must_use]
     pub fn neighbor_order(&self) -> NeighborOrder {
@@ -820,6 +1072,23 @@ impl GranularSystem {
                 let rsq = dx * dx + dy * dy + dz * dz;
                 let radsum = a.radius + b.radius;
                 rsq < radsum * radsum
+            });
+        }
+        if let Some(c) = self.capillary.as_mut() {
+            // the bridge flag is carried over a rebuild only for a pair inside
+            // `(radsum * contactDistanceFactor)` (`granular_bin_no_newton`:
+            // `radsum = (radi + radj) * contactDistanceFactor`)
+            let by_tag: HashMap<u64, usize> =
+                self.tags.iter().enumerate().map(|(i, &t)| (t, i)).collect();
+            let particles = &self.particles;
+            let factor = cfg.contact_distance_factor;
+            c.bridges.retain(|&(lo, hi)| {
+                let (Some(&i), Some(&j)) = (by_tag.get(&lo), by_tag.get(&hi)) else {
+                    return false;
+                };
+                let d = particles[i].position.sub(particles[j].position);
+                let radsum = (particles[i].radius + particles[j].radius) * factor;
+                d.x * d.x + d.y * d.y + d.z * d.z < radsum * radsum
             });
         }
         if let Some(mc) = self.mc.as_mut() {
@@ -1247,6 +1516,16 @@ impl GranularSystem {
     /// the hole (`AtomVec::copy(nlocal-1, i)`), and the particle array's own
     /// `swap_remove` moves its last particle into slot `i`.
     fn note_removed(&mut self, i: usize) {
+        if let Some(c) = self.capillary.as_mut() {
+            // the removed atom's liquid and bridges leave with it; the last
+            // atom takes its slot (`swap_remove`, as the particle array does)
+            if i < c.content.len() {
+                c.content.swap_remove(i);
+                c.flux.swap_remove(i);
+            }
+            let tag = self.tags[i];
+            c.bridges.retain(|&(a, b)| a != tag && b != tag);
+        }
         if matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
             let last = self.particles.len() - 1;
             if let Some(l) = self.perm.iter().position(|&p| p == i) {
@@ -1487,6 +1766,10 @@ impl GranularSystem {
     /// Advance one velocity-Verlet step, in LIGGGHTS' order.
     pub fn step(&mut self) {
         self.step_count += 1;
+        // `FixScalarTransportEquation::initial_integrate`: reset the flux
+        if let Some(c) = self.capillary.as_mut() {
+            c.reset_flux();
+        }
         let (f, t) = (self.forces.clone(), self.torques.clone());
         self.integrator
             .initial_integrate(&mut self.particles, &f, &t);
@@ -1548,6 +1831,10 @@ impl GranularSystem {
             // final_integrate of the scalar transport equation
             heat.advance(&mut self.particles, &self.types, &self.heat_flux, self.dt);
         }
+        if let Some(c) = self.capillary.as_mut() {
+            // final_integrate of `liquidtransfer`: L += flux * dt
+            c.advance(self.dt);
+        }
         self.stream_end_of_step();
         self.time += self.dt;
     }
@@ -1607,10 +1894,14 @@ impl GranularSystem {
         // `FixMultiContactHalfSpace::pre_force`
         self.mc_pre_force();
 
+        self.sync_capillary();
+
         // --- particle-particle ---
         // Both paths accumulate in the SAME order (ascending candidate-pair
         // index), which is what makes them bit-identical. See `compute`.
-        if self.mc.is_some() {
+        if self.capillary.is_some() {
+            self.resolve_pairs_capillary();
+        } else if self.mc.is_some() {
             self.resolve_pairs_mc();
         } else if self.compute.is_parallel_step() && !setup && !self.model.has_contact_state() {
             self.resolve_pairs_parallel();

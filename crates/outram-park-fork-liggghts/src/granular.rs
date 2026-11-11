@@ -454,6 +454,11 @@ pub struct ContactKinematics {
     pub mass_i: f64,
     /// Mass of `j` (`sidata.mj`) `[kg]`; zero for a wall contact.
     pub mass_j: f64,
+    /// `surfaceLiquidContent` of `i` (the capillary cohesion models' per-atom
+    /// liquid volume fraction); zero unless set by [`ContactKinematics::with_liquid`].
+    pub liquid_i: f64,
+    /// `surfaceLiquidContent` of `j`.
+    pub liquid_j: f64,
 }
 
 impl ContactKinematics {
@@ -546,6 +551,8 @@ impl ContactKinematics {
             rad_j: radj,
             mass_i: i.mass,
             mass_j: j.mass,
+            liquid_i: 0.0,
+            liquid_j: 0.0,
         })
     }
 
@@ -556,6 +563,17 @@ impl ContactKinematics {
         Self {
             itype,
             jtype,
+            ..self
+        }
+    }
+
+    /// The same contact with the two particles' `surfaceLiquidContent`
+    /// attached, for the capillary cohesion models ([`crate::capillary`]).
+    #[must_use]
+    pub fn with_liquid(self, liquid_i: f64, liquid_j: f64) -> Self {
+        Self {
+            liquid_i,
+            liquid_j,
             ..self
         }
     }
@@ -616,6 +634,8 @@ impl ContactKinematics {
             rad_j: 0.0,
             mass_i: i.mass,
             mass_j: 0.0,
+            liquid_i: 0.0,
+            liquid_j: 0.0,
         })
     }
 }
@@ -681,6 +701,8 @@ impl ContactKinematics {
             rad_j: 0.0,
             mass_i: i.mass,
             mass_j: 0.0,
+            liquid_i: 0.0,
+            liquid_j: 0.0,
         }
     }
 }
@@ -2461,6 +2483,15 @@ impl ShearHistory {
         self.contacts.retain(|_, e| e.live);
     }
 
+    /// Forget a contact's tangential displacement: upstream's
+    /// `TangentialModel::surfacesClose` (`shear[0..3] = 0`, tangential flag
+    /// cleared) for a pair that is inside the neighbour list's contact
+    /// distance factor but no longer touching. A zero entry and no entry are
+    /// the same history. gh:#1411.
+    pub fn forget_shear(&mut self, key: ContactKey) {
+        self.contacts.remove(&key);
+    }
+
     /// Read the current displacement and mark the contact live, inserting a
     /// zero entry for a contact seen for the first time.
     pub(crate) fn touch(&mut self, key: ContactKey) -> Vec3 {
@@ -2531,6 +2562,15 @@ pub enum GranularCohesion {
         /// Upstream `tangential_reduce` (default off).
         tangential_reduce: bool,
     },
+    /// Upstream `CohesionModel<COHESION_EASO_CAPILLARY_VISCOUS>` or
+    /// `CohesionModel<COHESION_WASHINO_CAPILLARY_VISCOUS>`: a **liquid bridge**
+    /// with capillary and viscous forces ([`crate::capillary`], gh:#1411).
+    /// Stateful: it needs the per-particle liquid content and per-pair bridge
+    /// flag of [`crate::granular_system::GranularSystem::with_capillary`], and
+    /// it acts out of contact too, so it is resolved by that system, not by a
+    /// bare contact law (a bare law with no liquid supplied sees dry
+    /// particles and adds nothing).
+    Capillary(crate::capillary::CapillaryParams),
 }
 
 impl GranularCohesion {
@@ -2581,6 +2621,7 @@ impl GranularCohesion {
             } => {
                 *tangential_reduce = on;
             }
+            Self::Capillary(p) => p.tangential_reduce = on,
             Self::Off => {}
         }
         self
@@ -2594,6 +2635,8 @@ impl GranularCohesion {
     pub fn normal_force(&self, k: &ContactKinematics) -> (f64, bool) {
         use std::f64::consts::PI;
         let (energy_density, reduce, second) = match *self {
+            // the bridge force needs the liquid state: `CapillaryParams::intersect`
+            Self::Capillary(_) => return (0.0, false),
             Self::Off => return (0.0, false),
             Self::Sjkr {
                 energy_density,
@@ -3571,7 +3614,16 @@ impl GranularContactModel {
             .evaluate_stateful(k, &props, &mut aux.normal, UPDATE);
         // cohesion (between the normal and the tangential model upstream)
         let fn_own = normal.fn_scalar;
-        let (f_coh, coh_reduce) = self.cohesion.normal_force(k);
+        // liquid-bridge models: `surfacesIntersect` of the capillary models
+        // (`None`: dry, or bond volume below 1e-14 -> upstream returns early)
+        let cap = match self.cohesion {
+            GranularCohesion::Capillary(p) => p.intersect(k),
+            _ => None,
+        };
+        let (f_coh, coh_reduce) = match (&cap, self.cohesion) {
+            (Some(c), GranularCohesion::Capillary(p)) => (c.f_n, p.tangential_reduce),
+            _ => self.cohesion.normal_force(k),
+        };
         if coh_reduce {
             normal.fn_scalar += f_coh;
         }
@@ -3678,7 +3730,13 @@ impl GranularContactModel {
         // upstream: `delta_F = Fn*en`, then `+= Fn_coh*en` (cohesion), then
         // `+= Ft`; the Fn used for the force is the normal model's own
         let mut force_i = k.en.scale(fn_own);
-        if !matches!(self.cohesion, GranularCohesion::Off) {
+        if let Some(c) = &cap {
+            // capillary: `fx = (Fcap + Fvisc) * en + Ft_visc`, added as one term
+            force_i = force_i.add(k.en.scale(f_coh).add(c.ft));
+        } else if !matches!(
+            self.cohesion,
+            GranularCohesion::Off | GranularCohesion::Capillary(_)
+        ) {
             force_i = force_i.add(k.en.scale(f_coh));
         }
         let force_i = force_i.add(ft);
@@ -3688,8 +3746,17 @@ impl GranularContactModel {
         let tor = k.en.cross(ft);
         // `delta_torque` starts at +0 (`memset`) and the tangential model adds to it, so a
         // zero tangential force gives +0, never -0 (gh:#1418, wall/gran/local dump).
-        let mut torque_i = Vec3::zero().add(tor.scale(-k.cri));
-        let mut torque_j = Vec3::zero().add(tor.scale(-k.crj));
+        // (the capillary models' viscous torque is added first: the cohesion
+        // model runs between the normal and the tangential model)
+        let (base_i, base_j) = match &cap {
+            Some(c) => (
+                Vec3::zero().add(c.tor.scale(-k.cri)),
+                Vec3::zero().add(c.tor.scale(-k.crj)),
+            ),
+            None => (Vec3::zero(), Vec3::zero()),
+        };
+        let mut torque_i = base_i.add(tor.scale(-k.cri));
+        let mut torque_j = base_j.add(tor.scale(-k.crj));
 
         // Rolling resistance: upstream applies -M_r to i and +M_r to j.
         let mut m_tor_out: Option<Vec3> = None;
