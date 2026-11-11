@@ -274,3 +274,35 @@ fn the_same_backend_twice_gives_the_same_answer() {
         assert_eq!(checksum(&a), checksum(&b), "{compute:?} is not deterministic");
     }
 }
+
+/// The rayon backend stays bit-identical to the scalar one under LIGGGHTS'
+/// neighbour order (gh:#1406): orientation flips (the pair list is in sorted
+/// local order, the history store in tag order) must be applied identically in
+/// both paths, across rebuilds and the set-up sort.
+///
+/// **Methodology.** The 512-sphere cylinder of the tests above with
+/// `with_liggghts_neighbor_order` (box `[-0.2,0.2]^2 x [-0.005,0.4]`, skin
+/// 3 mm), 400 steps, threads 2 and 7 against the scalar path, XOR-folded
+/// checksum. **Prediction:** identical. **Result (2026-11-11):** identical
+/// (asserted).
+#[test]
+fn parallel_is_bit_identical_to_serial_with_liggghts_neighbor_order() {
+    use outram_park_fork_liggghts::neighbor_list::LiggghtsNeighbor;
+    let cfg =
+        LiggghtsNeighbor::new(Vec3::new(-0.2, -0.2, -0.005), Vec3::new(0.2, 0.2, 0.4), 0.003)
+            .unwrap();
+    let mut reference = build(8, TangentialModel::History, ComputeType::CpuSingleThread)
+        .with_liggghts_neighbor_order(cfg);
+    reference.run(400);
+    let want = checksum(&reference);
+    for threads in [2usize, 7] {
+        let mut sys = build(
+            8,
+            TangentialModel::History,
+            ComputeType::CpuMultiThread(ThreadCount::Fixed(threads)),
+        )
+        .with_liggghts_neighbor_order(cfg);
+        sys.run(400);
+        assert_eq!(checksum(&sys), want, "threads {threads}");
+    }
+}

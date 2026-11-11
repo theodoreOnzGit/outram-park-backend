@@ -135,6 +135,9 @@ Both predictions (bit-identical) were written before the run and are met.
 `in.pgl_pebble`, the settled `D/d = 6` bed (354 pebbles) under the cylinder,
 floor and gravity, dumped with `%.17g`:
 
+Measured **with the default cell-grid pair order** (before the neighbour-order
+translation below; superseded, kept as the ablation record):
+
 | Step | contacts | values bit-identical / total (23 per contact) | worst `|d|/max|field|` | `pair_gran_local_cross_code.rs` |
 |---|---|---|---|---|
 | 0 (set-up) | 793 | **18239 / 18239** (793/793 contacts) | 0 | every field of every contact |
@@ -142,14 +145,67 @@ floor and gravity, dumped with `%.17g`:
 | 10 | 793 | 14440 / 18239 (147 contacts fully) | `2.6e-16` | ulp-level |
 | 100 | 792 | 11950 / 18216 (6 contacts fully) | `9.0e-16` | ulp-level |
 
-The step-1 "bit-identical" prediction was **not met** beyond step 0: the
+~~The step-1 "bit-identical" prediction was **not met** beyond step 0: the
 remaining differences are 1-3 ulp and occur only on particles with three or
-more pair contacts (no mismatch involves a particle with at most two pair
-contacts at steps 0 and 1), which is the signature of the per-particle force
-sum being accumulated in a different order: upstream adds pair forces in its
-bin-stencil neighbour-list order, the port in its cell-grid order. Making the
-sums bit-identical needs the LIGGGHTS bin-stencil order translated (open,
-filed on gh:#1418).
+more pair contacts, the signature of the per-particle force sum being
+accumulated in a different order (upstream: bin-stencil neighbour-list order;
+port: cell-grid order). Making the sums bit-identical needs the LIGGGHTS
+bin-stencil order translated (open, filed on gh:#1418).~~
+
+**CORRECTED 2026-11-11 (gh:#1406, #1418): translated, and now bit-identical at
+every step.** `src/neighbor_list.rs` translates `Atom::setup_sort_bins` /
+`Atom::sort` (the spatial atom sort at set-up and every 1000 steps),
+`Neighbor::setup_bins`, `bin_atoms`, `coord2bin`, `stencil_half_bin_3d_no_newton`
+and `granular_bin_no_newton` (the half list: `i` ascending, stencil bins in
+`k, j, i` order, each bin ascending), with the stale-between-rebuilds list life
+(`check_distance`, `neigh_modify delay 0 every 1 check yes`);
+`GranularSystem::with_liggghts_neighbor_order(LiggghtsNeighbor)` selects it
+(pairs are then visited in sorted-local orientation, the shear store flipping
+the pair around each evaluation, as `FixContactHistory` does with `-hist`).
+**Prediction** (written before the run): every field of every contact
+bit-identical at steps 0, 1, 10, 100. **Result:**
+
+| Step | contacts | values bit-identical / total | ablation: default cell grid | ablation: LIGGGHTS list, no atom sort |
+|---|---|---|---|---|
+| 0 | 793 | **18239 / 18239** | 0 differ | 0 differ |
+| 1 | 793 | **18239 / 18239** | 3440 differ | 4442 differ |
+| 10 | 793 | **18239 / 18239** | 3799 differ | 4923 differ |
+| 100 | 792 | **18216 / 18216** | 6266 differ | 6831 differ |
+
+(`pair_gran_local_cross_code.rs`, Rust 1.99.1.) The ablations show that both
+ingredients matter: the list order and the set-up atom sort. The option is
+**named, not the default**, because the order depends on the deck's box and
+skin, which the library cannot know; the rayon backend stays bit-identical to
+the scalar one under it (`compute_backend_equivalence.rs`,
+`parallel_is_bit_identical_to_serial_with_liggghts_neighbor_order`). Not
+translated: `newton on`, periodic/shrink-wrapped boxes (ghost atoms), triclinic
+boxes, `neighbor multi`, `neigh_modify exclude`; see `neighbor_list.rs`.
+
+**Heat conduction (gh:#1412, 2026-11-11).** `heat_gran.rs` translates
+`fix heat/gran/conduction` (contact area `overlap`/`constant`/`projection`,
+the conductance `4 k_i k_j/(k_i+k_j) sqrt(A)`, the explicit
+`advanceQtyExplicit` update); the clean-room `thermal.rs` stays callable.
+`heat_conduction_cross_code.rs`, decks `in.heat_pair`, `in.heat_bed`,
+`dump2heat.sh`:
+
+| Case | quantity | values bit-identical / total |
+|---|---|---|
+| two spheres at `T = 400/300 K`, 251 frames | `T`, heat flux of both atoms | **1004 / 1004** |
+| settled `D/d = 6` bed, 354 pebbles, `T = 300 + 200 z/0.35`, steps 0, 1, 10, 100, LIGGGHTS order | `T`, heat flux | **0 of 708 differ at each step** |
+| same bed, default cell-grid order (ablation) | `T`, heat flux | 63 / 61 / 63 of 708 differ at steps 1/10/100, worst relative `1.1e-13` (sum order) |
+
+Clean-room against translated: upstream `hc = 2 sqrt(pi) k_s a` with the
+geometric chord radius, clean-room `2 k_s a_c` with `a_c = sqrt(R* delta)`:
+measured flux ratio **2.4813** at `delta = 0.4 mm`, `r = 5 mm`, against the
+closed form `sqrt(2 pi (1 - delta/(4 r))) = 2.4815`. The test's first-written
+prediction (`sqrt(2 pi) = 2.507` within "< 1 %") was **wrong** (the measured
+value is 1.01 % low; the exact chord radius carries the `delta/(4r)` term) and
+the test header says so.
+
+**Stiffness and hysteresis contact models (gh:#1410, 2026-11-11).**
+`GranularNormalModel::{HertzStiffness, HookeStiffness, HookeHysteresis}`,
+oblique collisions, 251 frames of x, v, omega each: see the table in
+`verification-and-validation.md` section 4.10 for the measured counts.
 
 `fix check/timestep/gran` (`in.timestep_pebble`, `in.timestep_htr10`,
 `timestep_check.txt`): Rayleigh, Hertz and skin fractions at step 1,

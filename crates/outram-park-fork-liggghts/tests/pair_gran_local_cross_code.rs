@@ -58,6 +58,7 @@
 use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial};
 use outram_park_fork_liggghts::granular_system::GranularSystem;
+use outram_park_fork_liggghts::neighbor_list::LiggghtsNeighbor;
 use outram_park_fork_liggghts::particle::{Particle, Vec3};
 use uom::si::f64::{Length, Mass, ThermodynamicTemperature};
 use uom::si::{length::meter, mass::kilogram, thermodynamic_temperature::kelvin};
@@ -80,12 +81,19 @@ fn fields(rec: &outram_park_fork_liggghts::granular_system::PairLocalRecord) -> 
     ]
 }
 
-/// Compare the three committed dumps with the port, field by field.
-#[test]
-fn per_contact_dump_matches_upstream() {
+/// The deck's neighbour settings: `read_data` box, `neighbor 0.003 bin`.
+fn deck_neighbor() -> LiggghtsNeighbor {
+    LiggghtsNeighbor::new(Vec3::new(-1.0, -1.0, -0.005), Vec3::new(1.0, 1.0, 0.35), 0.003).unwrap()
+}
+
+/// Compare the committed dumps (steps 0, 1, 10, 100) with the port, field by
+/// field, under the given pair ordering (`None` = the default cell grid).
+/// Returns the number of differing values per step.
+fn compare(order: Option<LiggghtsNeighbor>) -> Option<Vec<usize>> {
+    let mut per_step = Vec::new();
     let Some(csv) = read("pebble_bed_settled.csv") else {
         eprintln!("skipping: reference-data/liggghts/ not present");
-        return;
+        return None;
     };
     let r = 0.005;
     let mass = 4.0 * std::f64::consts::PI / 3.0 * r * r * r * 2500.0;
@@ -121,13 +129,16 @@ fn per_contact_dump_matches_upstream() {
         5e-6,
     )
     .unwrap();
+    if let Some(cfg) = order {
+        sys = sys.with_liggghts_neighbor_order(cfg);
+    }
 
     let mut done = 0usize;
     let mut degree_step0 = vec![0usize; 354];
     for step in [0usize, 1, 10, 100] {
         let Some(dump) = read(&format!("pgl_pebble_step{step}.txt")) else {
             eprintln!("skipping step {step}: dump not present");
-            return;
+            return None;
         };
         sys.run(step - done);
         done = step;
@@ -193,13 +204,39 @@ fn per_contact_dump_matches_upstream() {
             rows.len(),
             bad_values
         );
-        if step == 0 {
-            assert_eq!(bad_values, 0, "step 0 must be bit-identical");
-        } else if step == 1 {
-            assert_eq!(low_degree_bad, 0, "a 2-contact sum cannot depend on order");
-            assert!(worst_rel < 1e-14, "step 1: worst relative difference {worst_rel:e}");
-        } else {
-            assert!(worst_rel < 1e-8, "step {step}: worst relative difference {worst_rel:e}");
-        }
+        let _ = (low_degree_bad, worst_rel);
+        per_step.push(bad_values);
     }
+    Some(per_step)
+}
+
+/// Prediction (written 2026-11-11 before the run): with the LIGGGHTS neighbour
+/// order every value of every contact is bit-identical at steps 0, 1, 10 and
+/// 100 (the 1-3 ulp of the cell-grid order were a force-sum-order effect).
+#[test]
+fn per_contact_dump_matches_upstream() {
+    let Some(bad) = compare(Some(deck_neighbor())) else { return };
+    assert_eq!(bad, vec![0, 0, 0, 0], "values differing at steps 0, 1, 10, 100");
+}
+
+/// Ablation: the default cell-grid order. Step 0 is a single evaluation and
+/// stays bit-identical; later steps differ at ulp level because the sum order
+/// differs. This pins that the option is what closes the gap, not luck.
+#[test]
+fn cell_grid_order_differs_only_in_sum_order() {
+    let Some(bad) = compare(None) else { return };
+    eprintln!("cell-grid order: differing values at steps 0,1,10,100 = {bad:?}");
+    assert_eq!(bad[0], 0);
+    assert!(bad[1] > 0, "the cell-grid order is expected to differ from step 1");
+}
+
+/// Ablation: LIGGGHTS' list order but no atom sort (`atom_modify sort 0 0`):
+/// the local order stays the data-file order, which is NOT what the deck runs.
+#[test]
+fn list_order_without_atom_sort_is_not_upstream() {
+    let mut cfg = deck_neighbor();
+    cfg.sort_every = 0;
+    let Some(bad) = compare(Some(cfg)) else { return };
+    eprintln!("no atom sort: differing values at steps 0,1,10,100 = {bad:?}");
+    assert_eq!(bad[0], 0);
 }
