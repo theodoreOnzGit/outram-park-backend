@@ -49,6 +49,47 @@ fn stage_table_p_mesh() {
 }
 
 #[test]
+fn debug_premap_trace() {
+    use outram_park_fork_cfmesh::patches::SurfaceRegions;
+    use outram_park_fork_cfmesh::pipeline::tet_mesh::create_octree;
+    use outram_park_fork_cfmesh::premap_vertices::pre_map_vertices;
+    let Ok(tr) = std::fs::read_to_string("/home/user/upstream-build/trace/sp/trace.txt") else { return };
+    let (p, t) = read_sphere();
+    let opts = CartesianMeshGeneratorOptions {
+        dict: MeshDict::with_max_cell_size(0.5),
+        workflow: WorkflowSettings { stop_after: Some(WorkflowStep::SurfaceTopology), restart_from_latest_step: false },
+        ..Default::default()
+    };
+    let (m0, _) = cartesian_mesh(&p, &t, None, &opts).unwrap();
+    let o = create_octree(&p, &t, None, &opts.dict);
+    let reg = SurfaceRegions::single("defaultFaces", t.len());
+    let lines: Vec<Vec<&str>> = tr.lines().filter(|l| l.starts_with("TRACE")).map(|l| l.split_whitespace().collect()).collect();
+    for (tag, iter, n) in [("premap_untangled", 0usize, 1usize), ("premap_untangled", 1, 2), ("premap_untangled", 2, 3)] {
+        let mut m = m0.clone();
+        pre_map_vertices(&mut m, &o, &p, &t, &reg, n);
+        let up: Vec<[f64; 3]> = lines.iter().filter(|l| l[1] == tag && l[2] == iter.to_string()).map(|l| [l[4].parse().unwrap(), l[5].parse().unwrap(), l[6].parse().unwrap()]).collect();
+        // boundary points of the port mesh
+        let mut bp = vec![false; m.points.len()];
+        for f in m.n_internal_faces()..m.faces.len() { for &q in &m.faces[f] { bp[q] = true; } }
+        let pts: Vec<_> = m.points.iter().enumerate().filter(|(i, _)| bp[*i]).map(|(_, q)| *q).collect();
+        let (mut same, mut worst, mut idx_same) = (0, 0.0f64, 0);
+        for u in &up {
+            let best = pts.iter().map(|q| ((q.x - u[0]).abs().max((q.y - u[1]).abs()).max((q.z - u[2]).abs()), q)).fold((f64::INFINITY, None), |a, b| if b.0 < a.0 { (b.0, Some(b.1)) } else { a });
+            if best.0 == 0.0 { same += 1; } else if n == 1 {
+                let b = best.1.unwrap();
+                let mv: Vec<&Vec<&str>> = lines.iter().filter(|l| l[1] == "premap_moved" && l[2] == "0" && l[6].parse::<f64>().unwrap() > -1e9 && (l[4].parse::<f64>().unwrap() - u[0]).abs() < 0.01 && (l[5].parse::<f64>().unwrap() - u[1]).abs() < 0.01 && (l[6].parse::<f64>().unwrap() - u[2]).abs() < 0.01).collect();
+                println!("DIFF up {:?} port ({:.17},{:.17},{:.17}) moved-candidates {:?}", u, b.x, b.y, b.z, mv.iter().map(|l| &l[3..]).collect::<Vec<_>>());
+            }
+            worst = worst.max(best.0);
+        }
+        let _ = &mut idx_same;
+        println!("premap after iteration {n}: {} upstream boundary points, {} bit-identical (nearest match), worst {:.3e}", up.len(), same, worst);
+    }
+    let up: Vec<[f64; 3]> = lines.iter().filter(|l| l[1] == "mapped").map(|l| [l[4].parse().unwrap(), l[5].parse().unwrap(), l[6].parse().unwrap()]).collect();
+    println!("mapped lines {}", up.len());
+}
+
+#[test]
 fn debug_detail() {
     let (p, t) = read_sphere();
     let stage = std::env::var("GH1385_STAGE").unwrap_or("surfaceProjection".into());

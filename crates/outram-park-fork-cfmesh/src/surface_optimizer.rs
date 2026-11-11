@@ -1062,8 +1062,20 @@ impl MeshSurfaceOptimizer {
 /// layers, mapping back onto the surface). The whole boundary is one patch
 /// here, as upstream's at that stage (before `extractPatches`).
 pub fn map_mesh_to_surface(mesh: &crate::volume_mesh::VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions) -> (crate::volume_mesh::VolumeMesh, UntangleReport) {
-    let mut m = mesh.clone();
     let q = crate::surface_mapper::SurfaceQueries::new(points, tris, regions);
+    map_mesh_to_surface_with(mesh, q)
+}
+
+/// [`map_mesh_to_surface`] with the nearest-point searches of upstream's
+/// octree (`meshOctree::findNearestSurfacePoint`), as the generators call it
+/// (gh:#1385).
+pub fn map_mesh_to_surface_octree(mesh: &crate::volume_mesh::VolumeMesh, o: &crate::mesh_octree::MeshOctree, points: &[Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions) -> (crate::volume_mesh::VolumeMesh, UntangleReport) {
+    let q = crate::surface_mapper::SurfaceQueries::new(points, tris, regions).with_octree(std::sync::Arc::new(o.clone()));
+    map_mesh_to_surface_with(mesh, q)
+}
+
+fn map_mesh_to_surface_with(mesh: &crate::volume_mesh::VolumeMesh, q: crate::surface_mapper::SurfaceQueries) -> (crate::volume_mesh::VolumeMesh, UntangleReport) {
+    let mut m = mesh.clone();
     let one = vec![0usize; m.face_count()];
     let mut engine = SurfaceEngine::from_parts(&m.points, &m.faces, &m.owner, &m.neighbour, &one);
     for b in 0..engine.n_boundary_points() {

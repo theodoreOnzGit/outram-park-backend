@@ -73,7 +73,7 @@ use crate::renumber_mesh::{cells_from_mesh, renumber_mesh};
 use crate::correct_edges::correct_edges_between_patches;
 use crate::surface_engine::{SurfaceEngine, SurfacePartitioner};
 use crate::surface_mapper::{map_vertices_onto_surface_patches_given, SurfaceQueries};
-use crate::surface_optimizer::{map_mesh_to_surface, optimise_mesh_surface, MeshSurfaceOptimizer, UntangleReport};
+use crate::surface_optimizer::{map_mesh_to_surface_octree, optimise_mesh_surface, MeshSurfaceOptimizer, UntangleReport};
 use crate::topology::{surface_morpher_cells, topological_cleaner, TopoMesh};
 use crate::tet_creator_octree::{tet_creator_octree, TetCreatorDefects};
 use crate::tet_mesh_extractor_octree::tet_mesh_extractor_octree;
@@ -468,7 +468,7 @@ pub(crate) fn run_generator(
                     rep.notes.push(format!("surfaceProjection: preMapVertices (mean distance {:.3e} -> {:.3e})", pr.mean_distance.0, pr.mean_distance.1));
                 }
                 // mapVerticesOntoSurface, then untangleSurface
-                let (mm, u) = map_mesh_to_surface(m, spts, tris, reg);
+                let (mm, u) = map_mesh_to_surface_octree(m, &o, spts, tris, reg);
                 *m = mm;
                 rep.n_inverted_after_projection = u.n_inverted_last;
                 rep.notes.push(format!("surfaceProjection: mapVerticesOntoSurface + untangleSurface: inverted points {} -> {}", u.n_inverted_first, u.n_inverted_last));

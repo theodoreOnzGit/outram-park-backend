@@ -77,7 +77,7 @@ use crate::premap_vertices::pre_map_vertices;
 use crate::rename_boundary_patches::{rename_boundary_patches, RenameBoundary};
 use crate::renumber_mesh::{cells_from_mesh, renumber_mesh};
 use crate::surface_mapper::map_vertices_onto_surface_patches_given;
-use crate::surface_optimizer::{map_mesh_to_surface, optimise_mesh_surface};
+use crate::surface_optimizer::{map_mesh_to_surface_octree, optimise_mesh_surface};
 use crate::topology::{check_and_fix_irregular_connections, check_cell_connections_over_faces, remove_non_mappable_cells, BoundaryFacesSharingTwoEdges, TopoMesh};
 use crate::volume_mesh::VolumeMesh;
 use crate::workflow_controls::{MeshMetaData, StepDecision, WorkflowControls, WorkflowSettings, WorkflowStep};
@@ -467,7 +467,7 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
             WorkflowStep::SurfaceProjection => {
                 let pr = pre_map_vertices(m, &o, spts, tris, reg, 3);
                 rep.premap_mean_distance = pr.mean_distance;
-                let (mm, u) = map_mesh_to_surface(m, spts, tris, reg);
+                let (mm, u) = map_mesh_to_surface_octree(m, &o, spts, tris, reg);
                 *m = mm;
                 rep.n_inverted_after_projection = u.n_inverted_last;
                 rep.notes.push(format!(

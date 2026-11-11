@@ -91,24 +91,29 @@ pub struct CorrectEdgesReport {
     pub n_decomposed_cells: usize,
 }
 
-/// OpenFOAM `face::centre`: the area-weighted centroid of the triangle fan
-/// about the vertex average (the vertex average for a triangle).
+/// OpenFOAM `face::centre` (OpenFOAM-v2506 `face.C`), operation for
+/// operation: a triangle is `(1.0/3.0)*(p0 + p1 + p2)`; any other face the
+/// area-weighted centroid of the fan about the vertex average (`centrePoint
+/// /= nPoints`), with `2*area = |(p - c) x (next - c)|` and the result
+/// `sumAc/(3.0*sumA)` (each component divided). gh:#1385: the earlier port
+/// used `(q - p) x (avg - p)` and multiplied by reciprocals, which differ
+/// from upstream in the last bit.
 pub fn foam_face_centre(points: &[Vec3], ring: &[usize]) -> Vec3 {
     let k = ring.len();
-    let avg = ring.iter().fold(Vec3::ZERO, |a, &v| a.add(points[v])).scale(1.0 / k as f64);
     if k == 3 {
-        return avg;
+        return points[ring[0]].add(points[ring[1]]).add(points[ring[2]]).scale(1.0 / 3.0);
     }
+    let avg = ring.iter().fold(Vec3::ZERO, |a, &v| a.add(points[v])).div(k as f64);
     let (mut sum_ac, mut sum_a) = (Vec3::ZERO, 0.0);
     for i in 0..k {
         let (p, q) = (points[ring[i]], points[ring[(i + 1) % k]]);
-        let c = p.add(q).add(avg);
-        let a = q.sub(p).cross(avg.sub(p)).length();
-        sum_ac = sum_ac.add(c.scale(a));
-        sum_a += a;
+        let ttc = p.add(q).add(avg);
+        let ta = p.sub(avg).cross(q.sub(avg)).length();
+        sum_a += ta;
+        sum_ac = sum_ac.add(ttc.scale(ta));
     }
     if sum_a > 1e-300 {
-        sum_ac.scale(1.0 / (3.0 * sum_a))
+        sum_ac.div(3.0 * sum_a)
     } else {
         avg
     }

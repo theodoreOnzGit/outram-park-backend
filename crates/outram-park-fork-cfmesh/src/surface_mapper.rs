@@ -146,9 +146,19 @@ pub struct SurfaceQueries {
     region_tris: Vec<Vec<usize>>,
     feature_edges: BTreeMap<(usize, usize), Vec<(usize, usize)>>,
     vertex_regions: BTreeMap<usize, BTreeSet<usize>>,
+    /// gh:#1385: with an octree, `nearest` and `nearest_in_region` are
+    /// `meshOctree::findNearestSurfacePoint[InRegion]` (upstream's search and
+    /// `nearestPointOnTheTriangle`), not the brute-force stand-ins.
+    octree: Option<std::sync::Arc<crate::mesh_octree::MeshOctree>>,
 }
 
 impl SurfaceQueries {
+    /// These queries answered by upstream's octree search (see the field).
+    pub fn with_octree(mut self, o: std::sync::Arc<crate::mesh_octree::MeshOctree>) -> Self {
+        self.octree = Some(o);
+        self
+    }
+
     pub fn new(points: &[Vec3], tris: &[[usize; 3]], regions: &SurfaceRegions) -> Self {
         let n_regions = regions.names.len();
         let mut region_tris: Vec<Vec<usize>> = vec![Vec::new(); n_regions];
@@ -171,12 +181,18 @@ impl SurfaceQueries {
                 feature_edges.entry((v[0], v[1])).or_default().push(e);
             }
         }
-        SurfaceQueries { points: points.to_vec(), tris: tris.to_vec(), region_tris, feature_edges, vertex_regions }
+        SurfaceQueries { points: points.to_vec(), tris: tris.to_vec(), region_tris, feature_edges, vertex_regions, octree: None }
     }
 
     /// `findNearestSurfacePointInRegion`: the nearest point of region `r`
     /// (`p` itself when the region has no triangle).
     pub(crate) fn nearest_in_region(&self, p: Vec3, r: usize) -> Vec3 {
+        if let Some(o) = &self.octree {
+            use crate::mesh_octree_queries::{NearestSearch, TriangleProjection};
+            if let Some(h) = o.find_nearest_surface_point_with(p, NearestSearch::Upstream, TriangleProjection::Upstream, Some(r)) {
+                return h.point;
+            }
+        }
         let mut best = p;
         let mut best_d2 = f64::MAX;
         for &i in &self.region_tris[r] {
@@ -193,6 +209,9 @@ impl SurfaceQueries {
 
     /// `findNearestSurfacePoint`: the nearest point of the whole surface.
     pub(crate) fn nearest(&self, p: Vec3) -> Vec3 {
+        if let Some(h) = self.octree.as_ref().and_then(|o| o.find_nearest_surface_point(p)) {
+            return h.point;
+        }
         crate::snap::closest_point_on_surface(p, &self.points, &self.tris)
     }
 
