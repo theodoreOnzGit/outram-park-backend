@@ -187,8 +187,8 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
                 write_mf6_thermal(&mut g, inp, &pend, za, &egn, emaxx, mtd)?;
                 continue;
             }
-            if req.mfd == 17 {
-                write_mf16_photon(&mut g, inp, units, &pend, za, &egn, &egg, emaxx, mtd)?;
+            if req.mfd == 17 || req.mfd == 16 {
+                write_mf16_photon(&mut g, inp, units, &pend, za, &egn, &egg, emaxx, mtd, req.mfd)?;
                 continue;
             }
             if req.mfd != 3 {
@@ -335,19 +335,23 @@ fn write_mf16_photon(
     egg: &[f64],
     emaxx: f64,
     mtd: i32,
+    mfd: i32,
 ) -> Result<(), NjoyError> {
-    // `getsig` with `mfd = 17` reads MF=13 of the PENDF (`:6681`); `lrflag = 0` for `mf /= 3`.
-    let Some(sec) = pend.section(inp.matb, 13, mtd) else { return Ok(()) };
+    // `getsig` with `mfd = 17` reads MF=13 of the PENDF, `mfd = 16` reads MF=3 (`:6681`);
+    // `lrflag = 0` for `mf /= 3`.
+    let mf_sig = if mfd == 17 { 13 } else { 3 };
+    let Some(sec) = pend.section(inp.matb, mf_sig, mtd) else { return Ok(()) };
     let mut cur = crate::endf::records::SectionCursor::new(&sec.rows);
     let _head = cur.read_cont()?;
     let tab = cur.read_tab1()?;
+    let lrflag = if mfd == 16 { tab.head.l2 } else { 0 };
     let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
-    let pf = crate::groupr::photon_prod::PhotonFeed::new(&units.get(inp.units.nendf)?.tape, inp.matb, mtd, 17, egg, inp.lord.max(0) as usize + 1)?;
+    let pf = crate::groupr::photon_prod::PhotonFeed::new(&units.get(inp.units.nendf)?.tape, inp.matb, mtd, mfd, egn, egg, inp.lord.max(0) as usize + 1)?;
     let nl = pf.nl;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::Photon(pf);
     let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
     g.begin(inp.matb, 16, mtd);
-    g.cont([za, 0.0], [nl as i32, 1, 0, (egn.len() - 1) as i32]);
+    g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
         g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
     }

@@ -89,8 +89,8 @@ pub struct FeedOut {
     pub nq: usize,
     /// `ff(il, 1..ng)` as `ff[il][ig]`.
     pub ff: Vec<Vec<f64>>,
-    /// `iglo`: first final group of `ff`.
-    pub iglo: usize,
+    /// `iglo`: first final group of `ff` (`-1` marks the yield-only feed below `econst`).
+    pub iglo: i32,
 }
 
 /// `getff` for the reactions this driver writes: the vector case (label 100:
@@ -132,7 +132,7 @@ impl PanelFeed {
                 let a = f.feed(e, 1)?;
                 let mut ff: Vec<f64> = a.ff[0].clone();
                 ff.truncate(a.ng);
-                Ok(FeedOut { en: a.enext, idisc: i32::from(a.idisc), nq: a.nq, ff: vec![ff], iglo: a.iglo })
+                Ok(FeedOut { en: a.enext, idisc: i32::from(a.idisc), nq: a.nq, ff: vec![ff], iglo: a.iglo as i32 })
             }
             PanelFeed::Continuum(f) => f.at(e),
             PanelFeed::Thermal(f) => f.at(e),
@@ -140,7 +140,7 @@ impl PanelFeed {
             PanelFeed::TwoBodyNl(f, nl) => {
                 let a = f.feed(e, *nl)?;
                 let ff: Vec<Vec<f64>> = a.ff.iter().take(*nl).map(|r| r[..a.ng].to_vec()).collect();
-                Ok(FeedOut { en: a.enext, idisc: i32::from(a.idisc), nq: a.nq, ff, iglo: a.iglo })
+                Ok(FeedOut { en: a.enext, idisc: i32::from(a.idisc), nq: a.nq, ff, iglo: a.iglo as i32 })
             }
         }
     }
@@ -160,7 +160,7 @@ pub struct PanelState {
     ff: Vec<Vec<f64>>,
     nl: usize,
     ng1: usize,
-    ig1: usize,
+    ig1: i32,
     nq: usize,
 }
 
@@ -309,7 +309,7 @@ pub fn panel(
                     load_ff(st, &fo);
                 }
                 if *iglo == 0 {
-                    *iglo = st.ig1 as i32;
+                    *iglo = st.ig1;
                 }
                 let a = st.stmp * st.ftmp;
                 let b = st.slst * st.flst;
@@ -317,7 +317,7 @@ pub fn panel(
                 for ig in 1..=st.ng1 {
                     for il in 0..nl {
                         if st.ff[il][ig - 1] != 0.0 {
-                            let igt = st.ig1 as i32 + ig as i32 - *iglo + 1;
+                            let igt = st.ig1 + ig as i32 - *iglo + 1;
                             if igt > 1 {
                                 let igt = igt as usize;
                                 if (igt + 1) * nl > ans.len() {
@@ -525,6 +525,23 @@ pub fn group_general(
     let ngn = egn.len() - 1;
     let mut st = PanelState { nl, ..PanelState::default() };
     let mut out = Vec::new();
+    // `econst` constant-spectrum range (`groupr.f90:757-785`, `getff` label 300 with
+    // `mfd = 16`): the spectrum is written first as the `ig = 0` record (`displa`
+    // label 460), then groups `1..=jconst` carry only flux and yield (label 470).
+    let jconst = match &*feed {
+        PanelFeed::Photon(f) => f.jconst(),
+        _ => 0,
+    };
+    if jconst > 0 {
+        if nl != 1 {
+            return Err(NjoyError::NotPorted("groupr: constant-spectrum range with nl > 1"));
+        }
+        let PanelFeed::Photon(f) = &*feed else { unreachable!() };
+        let en0 = f.initial_energy();
+        let fo = feed.at(en0)?;
+        let data: Vec<f64> = fo.ff[0].iter().map(|&v| sigfig(v, 7, 0)).collect();
+        out.push((0, data.len(), fo.iglo, data));
+    }
     for ig in 1..=ngn {
         let (mut elo, ehi) = (egn[ig - 1], egn[ig]);
         if ehi <= first {
@@ -543,6 +560,12 @@ pub fn group_general(
             }
             elo = enext;
             enext = ehi;
+        }
+        if jconst > 0 && ig <= jconst {
+            // `:815-826`: rate / flux, `ig2lo = 0`; `displa` label 470 only rounds `prod`.
+            ans[2 * nl] /= ans[nl];
+            out.push((ig, ng, 0, ans[nl..(1 + ng) * nl].to_vec()));
+            continue;
         }
         let matrix = matches!(feed, PanelFeed::TwoBodyNl(..) | PanelFeed::Continuum(..) | PanelFeed::Thermal(..) | PanelFeed::Photon(..));
         let (ng2, ig2lo, igzero, data) = if nl > 1 {
