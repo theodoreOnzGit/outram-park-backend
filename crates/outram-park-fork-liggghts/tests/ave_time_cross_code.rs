@@ -160,3 +160,75 @@ fn ave_time_nonzero_erotate_with_contacts_matches_liggghts() {
     assert!(rotating >= 20, "deck must exercise non-zero rotation");
     assert_eq!(same, total);
 }
+
+const REF_ATOM: &str = include_str!("../../../reference-data/liggghts/aveatom_dump.txt");
+
+/// `fix ave/atom 10 5 100 x z vx vy vz` (deck `in.aveatom`: the contact deck's
+/// bed and tilted gravity, 2000 steps), dumped per atom with `%.17g` at steps
+/// 500, 1000, 1500, 2000 (`aveatom_dump.txt`: `step id c1..c5`).
+///
+/// Prediction (before the run): bit-identical, 4 x 354 x 5 = 7080 values, since
+/// the average is a per-atom add and one divide, independent of atom order.
+///
+/// Result (2026-11-11, rustc 1.99.1, release): **7080/7080** bit-identical.
+#[test]
+fn ave_atom_matches_liggghts() {
+    use outram_park_fork_liggghts::diagnostics::AveAtom;
+    let Ok(init) = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/liggghts/pebble_bed_settled.csv"),
+    ) else {
+        eprintln!("skipping: reference data not present");
+        return;
+    };
+    let material = GranularMaterial::new(5.0e6, 0.3, 0.5, 0.3).unwrap();
+    let mut sys = GranularSystem::new(
+        particles(&init),
+        vec![
+            Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), 0.030).unwrap(),
+            Boundary::wall(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0)).unwrap(),
+        ],
+        GranularContactModel::hertz_history(material),
+        tilted_gravity(),
+        5e-6,
+    )
+    .unwrap()
+    .with_liggghts_neighbor_order(
+        LiggghtsNeighbor::new(Vec3::new(-1.0, -1.0, -0.005), Vec3::new(1.0, 1.0, 0.35), 0.003).unwrap(),
+    );
+    let n = sys.particles().len();
+    let mut aa = AveAtom::new(10, 5, 100, n, 5, 0).unwrap();
+    let (mut done, mut total, mut same) = (0i64, 0usize, 0usize);
+    let mut cur_step = -1i64;
+    for row in REF_ATOM.lines() {
+        let c: Vec<&str> = row.split_whitespace().collect();
+        let step: i64 = c[0].parse().unwrap();
+        let id: usize = c[1].parse().unwrap();
+        if step != cur_step {
+            while done < step {
+                sys.run(1);
+                done += 1;
+                let p = sys.particles();
+                let cols: Vec<Vec<f64>> = vec![
+                    p.iter().map(|q| q.position.x).collect(),
+                    p.iter().map(|q| q.position.z).collect(),
+                    p.iter().map(|q| q.velocity.x).collect(),
+                    p.iter().map(|q| q.velocity.y).collect(),
+                    p.iter().map(|q| q.velocity.z).collect(),
+                ];
+                let refs: Vec<&[f64]> = cols.iter().map(|v| v.as_slice()).collect();
+                aa.end_of_step(done, &refs);
+            }
+            cur_step = step;
+        }
+        // upstream atom id = tag + 1; the CSV is in id order, so index = id - 1
+        for m in 0..5 {
+            total += 1;
+            let t: f64 = c[2 + m].parse().unwrap();
+            if aa.value(id - 1, m).to_bits() == t.to_bits() {
+                same += 1;
+            }
+        }
+    }
+    eprintln!("ave/atom: {same}/{total} values bit-identical");
+    assert_eq!(same, total);
+}

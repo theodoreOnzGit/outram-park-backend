@@ -208,6 +208,102 @@ impl AveTime {
     }
 }
 
+/// `fix ave/atom Nevery Nrepeat Nfreq <columns>`: the per-atom time average of
+/// per-atom columns (atom attributes `x y z vx vy vz fx fy fz`, or the
+/// `vector_atom`/`array_atom` of a compute/fix/atom-style variable, which the
+/// caller supplies as a column slice each step).
+///
+/// Translated from `FixAveAtom::end_of_step` and `nextvalid` (LIGGGHTS-PUBLIC
+/// `3d5c00f2`, `fix_ave_atom.cpp`; gh:#1418): zero at `irepeat == 0`, add the
+/// columns on each valid step, divide by `Nrepeat` on the last. As upstream's
+/// `array`, it is only rewritten on a valid step, so between outputs it holds
+/// mid-accumulation state; read it on an output step.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AveAtom {
+    nevery: i64,
+    nrepeat: i64,
+    nfreq: i64,
+    nvalid: i64,
+    irepeat: i64,
+    nvalues: usize,
+    array: Vec<Vec<f64>>,
+}
+
+impl AveAtom {
+    /// Create the fix at timestep `step` for `natoms` atoms and `nvalues` columns.
+    ///
+    /// # Errors
+    /// The upstream argument checks (`nevery`, `nrepeat`, `nfreq` positive,
+    /// `nfreq % nevery == 0`, `(nrepeat-1)*nevery < nfreq`).
+    pub fn new(nevery: i64, nrepeat: i64, nfreq: i64, natoms: usize, nvalues: usize, step: i64) -> Result<Self, String> {
+        if nevery <= 0 || nrepeat <= 0 || nfreq <= 0 || nfreq % nevery != 0 || (nrepeat - 1) * nevery >= nfreq {
+            return Err("Illegal fix ave/atom command".into());
+        }
+        let mut s = Self {
+            nevery,
+            nrepeat,
+            nfreq,
+            nvalid: 0,
+            irepeat: 0,
+            nvalues,
+            array: vec![vec![0.0; nvalues]; natoms],
+        };
+        s.nvalid = s.nextvalid(step);
+        Ok(s)
+    }
+
+    /// `FixAveAtom::nextvalid`.
+    fn nextvalid(&self, step: i64) -> i64 {
+        let mut nvalid = (step / self.nfreq) * self.nfreq + self.nfreq;
+        if nvalid - self.nfreq == step && self.nrepeat == 1 {
+            nvalid = step;
+        } else {
+            nvalid -= (self.nrepeat - 1) * self.nevery;
+        }
+        if nvalid < step {
+            nvalid += self.nfreq;
+        }
+        nvalid
+    }
+
+    /// Call at the end of every step. `columns[m][i]` is column `m` of atom `i`.
+    /// Does nothing unless `step` is the next valid step.
+    pub fn end_of_step(&mut self, step: i64, columns: &[&[f64]]) {
+        if step != self.nvalid {
+            return;
+        }
+        if self.irepeat == 0 {
+            for row in &mut self.array {
+                row.iter_mut().for_each(|v| *v = 0.0);
+            }
+        }
+        for (m, col) in columns.iter().enumerate().take(self.nvalues) {
+            for (row, x) in self.array.iter_mut().zip(col.iter()) {
+                row[m] += *x;
+            }
+        }
+        self.irepeat += 1;
+        if self.irepeat < self.nrepeat {
+            self.nvalid += self.nevery;
+            return;
+        }
+        self.irepeat = 0;
+        self.nvalid = step + self.nfreq - (self.nrepeat - 1) * self.nevery;
+        let repeat = self.nrepeat as f64;
+        for row in &mut self.array {
+            for v in row.iter_mut() {
+                *v /= repeat;
+            }
+        }
+    }
+
+    /// Column `m` of atom `i` (`array_atom[i][m]`).
+    #[must_use]
+    pub fn value(&self, i: usize, m: usize) -> f64 {
+        self.array[i][m]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -232,5 +328,15 @@ mod tests {
         assert_eq!(w.scalar(), 4.0); // (3 + 5) / 2
         assert_eq!(r.scalar(), 3.0); // (1 + 3 + 5) / 3
         assert_eq!(AveTime::new(1, 1, 1, 1, AveMode::One, 0).unwrap().scalar(), 0.0);
+    }
+
+    #[test]
+    fn ave_atom_averages_and_rejects() {
+        assert!(AveAtom::new(7, 3, 50, 1, 1, 0).is_err());
+        let mut a = AveAtom::new(1, 2, 2, 2, 1, 0).unwrap();
+        a.end_of_step(1, &[&[1.0, 10.0]]);
+        a.end_of_step(2, &[&[3.0, 20.0]]);
+        assert_eq!(a.value(0, 0), 2.0);
+        assert_eq!(a.value(1, 0), 15.0);
     }
 }
