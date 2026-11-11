@@ -40,10 +40,16 @@
 //! translated too, because it advances both streams before the first
 //! insertion position is drawn.
 //!
-//! Single process, orthogonal fixed box. Not translated: `all_in yes` (needs
-//! `TriMeshPlanar::generateRandomOwnedGhostWithin`), `parallel yes`,
-//! `duration_time`, multi-sphere templates, tracers, restart,
-//! `fix insert/stream/predefined`, a moving or scaling face (upstream rejects
+//! `all_in yes` is translated (`with_all_in`, from `TriMeshPlanar::
+//! generateRandomOwnedGhostWithin` and `buildEdgeLists`, 2026-11-11).
+//! `fix insert/stream/predefined` does not exist in LIGGGHTS-PUBLIC 3d5c00f2
+//! (only a 2-line stub header `fix_insert_stream_predefined.h` that
+//! `pair_gran_base.h` references; no `.cpp`, no registration in `style_fix.h`),
+//! so there is nothing to translate or compare.
+//!
+//! Single process, orthogonal fixed box. Not translated: `parallel yes`,
+//! `duration_time`, multi-sphere templates, restart,
+//! a moving or scaling face (upstream rejects
 //! those too). `is_nearby`'s second filter (`isInBoundingBox`) is implied for a
 //! planar face by its first two tests and is not repeated.
 
@@ -53,10 +59,12 @@ use crate::insert::{
 };
 use crate::mesh_wall::MeshWall;
 use crate::particle::{Particle, Vec3};
-use crate::tri_mesh::{arr, vec3, Nodes, TriMeshState};
+use crate::tri_mesh::{arr, vec3, Nodes, PlanarEdgeLists, TriMeshState};
 use crate::DemError;
 
 const TINY: f64 = 1e-14;
+/// `MAXTRY_WITHIN` (`tri_mesh_planar.h`).
+const MAXTRY_WITHIN: usize = 500;
 const SMALL_TRIMESH: f64 = 1.0e-10;
 /// `RanPark(lmp,"179424799")` in `MultiNodeMesh`'s constructor.
 const MESH_SEED: i32 = 179_424_799;
@@ -124,6 +132,8 @@ pub struct StreamInsertion {
 #[derive(Debug, Clone, PartialEq)]
 pub struct InsertStreamFix {
     nodes: Vec<Nodes>,
+    state: TriMeshState,
+    all_in: Option<PlanarEdgeLists>,
     mesh_random: RanPark,
     area_acc: Vec<f64>,
     area_total: f64,
@@ -217,6 +227,8 @@ impl InsertStreamFix {
         let normal0 = state.surface_norm(0);
         let mut fix = Self {
             nodes,
+            state: state.clone(),
+            all_in: None,
             mesh_random: RanPark::new(MESH_SEED)?,
             area_acc,
             area_total,
@@ -436,7 +448,7 @@ impl InsertStreamFix {
     }
 
     /// `TriMesh::generateRandomOwnedGhost`.
-    fn generate_random_on_face(&mut self) -> Result<V3, DemError> {
+    fn generate_random_on_face(&mut self) -> Result<(V3, usize), DemError> {
         let r = self.mesh_random.uniform() * self.area_total;
         let chosen = self.search_area_acc(r, 0, self.nodes.len() - 1);
         if chosen >= self.nodes.len() {
@@ -452,16 +464,75 @@ impl InsertStreamFix {
         }
         let (b0, b1, b2) = (1.0 - u - v, v, u);
         let n = &self.nodes[chosen];
-        Ok([
-            b0 * n[0][0] + b1 * n[1][0] + b2 * n[2][0],
-            b0 * n[0][1] + b1 * n[1][1] + b2 * n[2][1],
-            b0 * n[0][2] + b1 * n[1][2] + b2 * n[2][2],
-        ])
+        Ok((
+            [
+                b0 * n[0][0] + b1 * n[1][0] + b2 * n[2][0],
+                b0 * n[0][1] + b1 * n[1][1] + b2 * n[2][1],
+                b0 * n[0][2] + b1 * n[1][2] + b2 * n[2][2],
+            ],
+            chosen,
+        ))
+    }
+
+    /// `TriMeshPlanar::generateRandomOwnedGhostWithin(pos, delta)`: redraw
+    /// (at most `MAXTRY_WITHIN` = 500 times) until the point is at least
+    /// `delta` from every stored nearest active edge of its facet. Like
+    /// upstream, after 500 tries the last point is used (upstream warns).
+    fn generate_random_within(&mut self, delta: f64) -> Result<V3, DemError> {
+        let mut ntry = 0;
+        loop {
+            ntry += 1;
+            let (pos, i_srf) = self.generate_random_on_face()?;
+            let mut far_enough = true;
+            let lists = self.all_in.as_ref().expect("all_in lists");
+            if lists.min_dist[i_srf] < delta {
+                let mut i = 0;
+                while i < 6 && lists.edge_facet[i_srf][i] >= 0 && far_enough {
+                    let mut min_dist = 2.0 * delta;
+                    let j = lists.edge_facet[i_srf][i] as usize;
+                    let edge = lists.edge_index[i_srf][i] as usize;
+                    let dist = self.state.edge_point_dist(&self.nodes, j, edge, &pos);
+                    if dist < min_dist {
+                        min_dist = dist;
+                    }
+                    if min_dist < delta {
+                        far_enough = false;
+                    }
+                    i += 1;
+                }
+            }
+            if far_enough || ntry >= MAXTRY_WITHIN {
+                return Ok(pos);
+            }
+        }
+    }
+
+    /// `all_in yes|no` (default no): insert only particles lying wholly inside
+    /// the insertion face. Needs a planar face (always true here) and, as
+    /// upstream, `extrude_length >= 3 * max_r_bound`.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if `extrude_length` is too small.
+    pub fn with_all_in(mut self, on: bool) -> Result<Self, DemError> {
+        if on {
+            if self.extrude_length < 3.0 * self.distribution.max_r_bound() {
+                return Err(DemError::InvalidInput("'extrude_length' is too small".into()));
+            }
+            self.all_in = Some(self.state.build_planar_edge_lists(&self.nodes));
+        } else {
+            self.all_in = None;
+        }
+        Ok(self)
     }
 
     /// `generate_random(pos, rad)`.
     fn generate_random(&mut self, rad: f64) -> Result<V3, DemError> {
-        let pos = self.generate_random_on_face()?;
+        let pos = if self.all_in.is_some() {
+            self.generate_random_within(rad)?
+        } else {
+            self.generate_random_on_face()?.0
+        };
         let r = if self.overlap_check {
             -1.0 * (self.random.uniform() * self.extrude_length_max + rad + self.extrude_length_min)
         } else {
@@ -474,7 +545,7 @@ impl InsertStreamFix {
 
     /// `generate_random_global`.
     fn generate_random_global(&mut self) -> Result<V3, DemError> {
-        let pos = self.generate_random_on_face()?;
+        let pos = self.generate_random_on_face()?.0;
         let r = -1.0 * (self.random.uniform() * self.extrude_length);
         Ok(add(&pos, &scale(&self.normalvec, r)))
     }

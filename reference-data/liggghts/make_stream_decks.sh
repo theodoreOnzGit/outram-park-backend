@@ -1,6 +1,6 @@
 #!/bin/sh
 # Generate the gh:#1414 fix insert/stream decks in.stream_ol, in.stream_noch,
-# in.stream_pred beside this script. Same D/d = 6 container as in.pebble_bed;
+# in.stream_allin beside this script. Same D/d = 6 container as in.pebble_bed;
 # insertion face stream_face.stl (0.04 m square, z = 0.15, two triangles).
 # Frames are written with `run N pre no`, one continuous run.
 set -eu
@@ -30,7 +30,7 @@ pair_coeff	* *
 timestep	5e-6
 fix		cyl all wall/gran model hertz tangential history primitive type 1 zcylinder 0.030 0. 0.
 fix		zwall all wall/gran model hertz tangential history primitive type 1 zplane 0.0
-fix		face all mesh/surface file stream_face.stl type 1
+fix		face all ${FACESTYLE:-mesh/surface} file stream_face.stl type 1
 fix		pts all particletemplate/sphere 15485863 atom_type 1 density constant 2500 radius constant 0.003
 fix		pdd all particledistribution/discrete 15485867 1 pts 1.0
 EOF
@@ -55,4 +55,7 @@ fix		ins all insert/stream seed 32452843 distributiontemplate pdd nparticles 200
 EOF
 gen stream_noch <<'EOF'
 fix		ins all insert/stream seed 32452843 distributiontemplate pdd nparticles 100 particlerate 500 overlapcheck no vel constant 0.05 0. -1. insertion_face face extrude_length 0.05
+EOF
+FACESTYLE=mesh/surface/planar gen stream_allin <<'EOF'
+fix		ins all insert/stream seed 32452843 distributiontemplate pdd nparticles 200 particlerate 1000 overlapcheck yes all_in yes vel uniform 0. 0. -1. 0.05 0.05 0.05 insertion_face face extrude_length 0.05
 EOF

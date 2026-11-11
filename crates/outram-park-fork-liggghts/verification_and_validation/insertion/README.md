@@ -94,8 +94,35 @@ draws) and `end_of_step` (rail motion, release, force/torque zeroing).
 every field of every particle** (11 frames `stream_ol`, 11 `stream_noch`; counts
 50..200 and 25..100 per frame; the sums are in the test output), including
 frames while particles ride the rail, at the release step, and in free fall.
-Not translated: `all_in yes` (needs `TriMeshPlanar::generateRandomOwnedGhostWithin`),
-`parallel yes`, `duration_time`, tracers, multi-sphere, a moving face (upstream
-rejects it too), `insert/stream/predefined`. Particles do not reach the floor
+~~Not translated: `all_in yes`~~ **CORRECTED 2026-11-11:** `all_in yes` is translated
+(below). Not translated: `parallel yes`, `duration_time`, multi-sphere, a moving
+face (upstream rejects it too). Particles do not reach the floor
 by step 40 000 in these decks, so the stream-then-contact path is only covered
 through the already verified pair/wall translation.
+
+## `all_in yes` and `insert/stream/predefined` (gh:#1414, 2026-11-11)
+
+`InsertStreamFix::with_all_in`, from `TriMeshPlanar::generateRandomOwnedGhostWithin`
+(`tri_mesh_planar_I.h`, redraw up to `MAXTRY_WITHIN` = 500 times until the point
+is at least the particle radius from the stored nearest active edges) and
+`TriMeshPlanar::buildEdgeLists` (`tri_mesh_planar.cpp`: six nearest active edges
+per facet by `edgeNodeDist`, replace-the-first-maximum, `minActiveEdgeDist`),
+in `tri_mesh.rs` (`build_planar_edge_lists`, `edge_point_dist` =
+`SurfaceMesh::edgePointDist`). Deck `in.stream_allin` (= `stream_ol` with
+`fix face all mesh/surface/planar` and `all_in yes`; `make_stream_decks.sh`).
+
+**Prediction (before the run):** bit-identical in all 11 frames, and the pour
+differs from `stream_ol` (edge-margin rejection changes the RNG sequence).
+**Result (Rust 1.99.1, LIGGGHTS 3d5c00f2, 2026-11-11): 11 of 11 frames
+bit-identical on every field of every particle** (50..200 per frame, worst
+difference 0); the pour differs from `stream_ol`, and every particle of the
+first release frame lies within the face minus the 3 mm margin
+(`insert_stream_all_in_matches_liggghts`).
+
+**`fix insert/stream/predefined` does not exist upstream at this commit.**
+`src/fix_insert_stream_predefined.h` is a two-line stub (`class
+FixInsertStreamPredefined : public FixInsertStream` with an empty
+`copy_history`) that `pair_gran_base.h` looks up; there is no `.cpp`, no
+`style_fix.h` registration, and `lmp_serial` has no such style. The fix is not
+part of LIGGGHTS-PUBLIC, so there is no behaviour to translate or to compare
+against. Recorded as an upstream absence, not a port gap.

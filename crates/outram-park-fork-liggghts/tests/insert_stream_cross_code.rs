@@ -64,7 +64,7 @@ fn fix_for(deck: &str, face: &MeshWall) -> InsertStreamFix {
     )
     .unwrap();
     let dist = ParticleDistributionDiscrete::new(15485867, true, vec![(t, 1.0)]).unwrap();
-    let (total, rate, vel, ol) = if deck == "stream_ol" {
+    let (total, rate, vel, ol) = if deck == "stream_ol" || deck == "stream_allin" {
         (
             RateTotal::Particles(200),
             Rate::Particles(1000.0),
@@ -96,6 +96,8 @@ fn fix_for(deck: &str, face: &MeshWall) -> InsertStreamFix {
     )
     .unwrap()
     .with_overlap_check(ol)
+    .with_all_in(deck == "stream_allin")
+    .unwrap()
 }
 
 fn system(deck: &str) -> GranularSystem {
@@ -179,6 +181,29 @@ fn insert_stream_overlapcheck_matches_liggghts() {
 #[test]
 fn insert_stream_nocheck_matches_liggghts() {
     report("stream_noch");
+}
+
+/// `all_in yes` (gh:#1414): `overlapcheck yes`, `vel uniform`, 200 particles,
+/// face as a `mesh/surface/planar`. Methodology: same as above; upstream draws
+/// via `TriMeshPlanar::generateRandomOwnedGhostWithin` (redraw until >= radius
+/// from the nearest active edges, `buildEdgeLists`). Prediction (written before
+/// the run): bit-identical in all 11 frames; the sequence differs from
+/// `stream_ol` (checked below), proving the option is exercised. Result
+/// (Rust 1.99.1, LIGGGHTS 3d5c00f2, 2026-11-11): 11 of 11 frames bit-identical
+/// on every field of every particle (50..200 particles per frame, worst
+/// difference 0), and the pour differs from `stream_ol`.
+#[test]
+fn insert_stream_all_in_matches_liggghts() {
+    report("stream_allin");
+    let (Some(a), Some(b)) = (read("stream_allin.csv"), read("stream_ol.csv")) else {
+        return;
+    };
+    assert_ne!(a, b, "all_in yes must change the pour");
+    // every particle of the first frame sits >= r = 3 mm from the face edges
+    // (x, y at the release frame are within the 0.04 m square).
+    for r in frame_rows(&a, 1) {
+        assert!(r[1].abs() <= 0.02 - 0.003 + 1e-12 && r[2].abs() <= 0.02 - 0.003 + 1e-12);
+    }
 }
 
 /// Constructor checks upstream makes.
