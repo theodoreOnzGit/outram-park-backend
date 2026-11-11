@@ -169,3 +169,13 @@ the pinned tolerances to be crossed.
   (cyclic / AMI) seams; the `fvc::interpolate` boundary `Mixed` / `FixedGradient`
   reconstructions. `outram-foam-mesh`'s own geometry code (blockMesh / dual) was not touched.
   Foundation (dev) arithmetic not re-read.
+
+## Task 1 (gh:#1362 D3): vanAlbada / OSPRE for r < 0, prediction written 2026-11-11 BEFORE the code change
+Upstream read (v2506): `vanAlbada.H` returns `r*(r + 1)/(sqr(r) + 1)`, `OSPRE.H` returns
+`rrp1 = r*(r + 1); 1.5*rrp1/(rrp1 + 1)`; neither clamps `r`, and `LimitedScheme::calcLimiter` /
+`NVDTVD.H` apply no clip afterwards. The port's `FluxLimiter::psi` clamps `r` at 0 inside these two
+arms and ends with `val.max(0.0)`. Plan: delete both clamps (the final `max` is redundant for the other
+limiters, whose formulas are already `>= 0`). **Predicted:** `limiter vanAlbada [r<0]` and
+`limiter OSPRE [r<0]` go from 1/82 to 82/82, 0 ulp, on both meshes; every other row unchanged. Only
+consumers of `FluxLimiter::{VanAlbada, Ospre}` move; a grep of the workspace finds none outside
+`limiters.rs` and this test (pflotran and tampines use other variants), so no solver number should move.
