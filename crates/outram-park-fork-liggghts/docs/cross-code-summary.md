@@ -409,3 +409,23 @@ machine-dependent -- re-measure rather than trusting them.
 Regenerating the upstream side from source — the clone, the precision patch,
 the build, and the two dump-to-CSV converters — is described in
 [`reference-data/liggghts/README.md`](../../../reference-data/liggghts/README.md).
+
+## Force fixes, diagnostics and variables translated (gh:#1418, #1416), 2026-11-11
+
+Translated this session, each with a cross-code deck against LIGGGHTS-PUBLIC
+`3d5c00f2` (`reference-data/liggghts/in.*`; methodology and results in each
+test's `///` doc):
+
+| Item | Source | Test | Result |
+|---|---|---|---|
+| force fixes `addforce`, `viscous`, `freeze` (+ `v_` variables) | `src/force_fixes.rs`, `src/variable.rs` | `force_fixes_cross_code.rs` | bit-identical (see `verification_and_validation/force_fixes.md`) |
+| `compute ke`, `compute erotate/sphere`, `fix ave/time` (one/running), free-fall deck `in.avetime` | `src/diagnostics.rs` | `ave_time_cross_code.rs` | **55 / 55** bit-identical |
+| same, contact deck `in.avetime_contact` (settled bed, tilted gravity, `erotate/sphere != 0` on 20 rows) | `src/diagnostics.rs`, `GranularSystem::particles_in_local_order` | `ave_time_cross_code.rs` | **105 / 105** bit-identical (33 / 105 before summing in upstream's local atom order) |
+| `fix ave/atom` (`x z vx vy vz`), deck `in.aveatom` | `AveAtom` in `src/diagnostics.rs` | `ave_time_cross_code.rs` | **7080 / 7080** bit-identical |
+| `fix insert/pack`, `insert/rate/region`, templates | `src/insert.rs` | `insertion_cross_code.rs` | 45 / 45 frames bit-identical |
+| `compute pair/gran/local` | `granular_system.rs` | `pair_gran_local_cross_code.rs` | bit-identical at steps 0, 1, 10, 100 |
+
+Still **not translated** (gh:#1418, #1414): `compute wall/gran/local` (mesh
+walls only upstream), the tracer fixes (`property/atom/tracer`,
+`nparticles/tracer/region`), `fix insert/stream` and `/predefined`, `ave/spatial`,
+`ave/euler`, the remaining computes and force fixes.
