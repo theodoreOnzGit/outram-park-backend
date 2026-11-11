@@ -8,6 +8,14 @@
 //! cargo run --release -p outram-foam-mesh --example compare_polymesh -- \
 //!     DICT UPSTREAM_POLYMESH_DIR
 //! ```
+//! **Dual mode (gh:#1472):** when `DICT` is a directory holding a primal
+//! `polyMesh`, the port's upstream-mode `polyDualMesh` is run on it and its
+//! dual is compared instead:
+//!
+//! ```text
+//! compare_polymesh PRIMAL_POLYMESH_DIR UPSTREAM_DUAL_POLYMESH_DIR \
+//!     FEATURE_ANGLE [dev|esi] [splitAllFaces] [concaveMultiCells]
+//! ```
 //! The upstream directory is `constant/polyMesh` of a case written with
 //! `writePrecision 17`. Example binary: reporting glue, exempt from the
 //! reached-by-a-test rule (it calls only the tested `block_mesh` API).
@@ -36,14 +44,51 @@ fn body_tokens(path: &std::path::Path) -> Vec<String> {
     spaced.split_whitespace().map(str::to_string).collect()
 }
 
+/// The port's upstream-mode dual of the primal `polyMesh` in `dir`
+/// (gh:#1472); `rest` = `[FEATURE_ANGLE, dev|esi, flags...]`.
+fn dual_of(dir: &str, rest: &[String]) -> outram_foam_basic_lib::io::PolyMesh {
+    use outram_foam_mesh::poly_dual_mesh::PolyMesh as Primal;
+    use outram_foam_mesh::poly_dual_mesh_upstream::{poly_dual_mesh_upstream, UpstreamOptions};
+    let io = outram_foam_basic_lib::io::PolyMesh::read(dir).expect("read primal polyMesh");
+    let primal = Primal {
+        points: io.points.clone(),
+        faces: io.faces.iter().map(|f| f.verts.clone()).collect(),
+        owner: io.faces.iter().map(|f| f.owner).collect(),
+        neighbour: io.faces.iter().take(io.n_internal_faces).map(|f| f.neighbour.unwrap()).collect(),
+        n_internal_faces: io.n_internal_faces,
+        patches: io.patches.clone(),
+        n_cells: io.n_cells,
+    };
+    let angle: f64 = rest.first().expect("FEATURE_ANGLE").parse().unwrap();
+    let mut o = UpstreamOptions::new(angle);
+    if rest.get(1).map(String::as_str) == Some("esi") {
+        o = o.with_esi2506_flavour();
+    }
+    for flag in rest.iter().skip(2) {
+        o = match flag.as_str() {
+            "splitAllFaces" => o.with_split_all_faces(),
+            "concaveMultiCells" => o.with_concave_multi_cells(),
+            "doNotPreserveFaceZones" => o.without_face_zone_preservation(),
+            other => panic!("unknown flag {other}"),
+        };
+    }
+    let dual = poly_dual_mesh_upstream(&primal, &o).expect("upstream-mode dual");
+    let names: Vec<String> = io.patches.iter().map(|p| p.name.clone()).collect();
+    dual.to_foam_poly_mesh(&names).expect("to polyMesh")
+}
+
 fn main() {
     let a: Vec<String> = std::env::args().collect();
-    let [_, dict, dir] = a.as_slice() else {
+    let [_, dict, dir, ..] = a.as_slice() else {
         eprintln!("usage: compare_polymesh DICT UPSTREAM_POLYMESH_DIR");
         std::process::exit(2);
     };
     let dir = std::path::Path::new(dir);
-    let m = block_mesh_from_file(dict).expect("our blockMesh");
+    let m = if std::path::Path::new(dict).is_dir() {
+        dual_of(dict, &a[3..])
+    } else {
+        block_mesh_from_file(dict).expect("our blockMesh").to_foam_poly_mesh()
+    };
 
     // points
     let t = body_tokens(&dir.join("points"));
