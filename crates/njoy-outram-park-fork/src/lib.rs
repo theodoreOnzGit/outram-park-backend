@@ -56,6 +56,8 @@ pub mod acquire;
 /// See [`archive`].
 pub mod archive;
 pub mod broadr;
+/// NJOY input-deck driver (gh:#1369): card reader, tape units, `run_deck`. See [`deck`].
+pub mod deck;
 pub mod common;
 pub mod endf;
 /// A folder of ENDF tapes, flat or an extracted library with sub-library

@@ -384,7 +384,19 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
 
     // AWI, the incident particle's mass ratio (MF=1/MT=451, third record);
     // `lunion`'s `awin`. 1 for a neutron sublibrary.
-    let awin = mf1_sec.rows.get(2).map_or(1.0, |r| r[0]);
+    //
+    // ~~`rows.get(2)` for every format version~~ **CORRECTED 2026-11-11
+    // (gh:#1369)**: upstream reads AWI only `if (iverf.ge.6)`
+    // (`reconr.f90:247-256`) and keeps `awin = 1` below that. For ENDF/B-V
+    // (`iverf = 5`) the third record is `hdatio`'s `(TEMP, 0, ...)`, so this
+    // took the temperature (0) for AWI, which switched off `lunion`'s
+    // kinematic threshold raise: C-nat (tape 511) lost 4 points in MT=1/2/102
+    // and every inelastic threshold (4 812 000 eV against NJOY's 4 812 123).
+    let awin = if crate::moder::layout::iverf_from_mf1(&mf1_sec.rows) >= 6 {
+        mf1_sec.rows.get(2).map_or(1.0, |r| r[0])
+    } else {
+        1.0
+    };
 
     // MF=3 — background cross sections, as tabulated (after `lunion`'s
     // threshold raise). Every section is evaluated on RECONR's union grid
@@ -435,8 +447,10 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
     let res_mts = if material.lrp == 1 { resonance_mts(&res_info) } else { Vec::new() };
     let first_res = rdfil2_nodes(&res_info, &urr_ranges).first().copied();
     let first_res_for = |mt: i32| first_res.filter(|_| res_mts.contains(&mt));
+    let iverf_out = tape.section(mat, 1, 451).map_or(6, |s| crate::moder::layout::iverf_from_mf1(&s.rows));
     let mut sections: Vec<ReconrSection> = raw_mf3
         .iter()
+        .filter(|(mt, _)| !not_on_pendf(*mt, iverf_out))
         .map(|(mt, t)| ReconrSection {
             lr: t.head.l2,
             mt: MtReaction::from_any(*mt),
@@ -688,6 +702,7 @@ fn union_grid(
     let nodes = rdfil2_nodes(res_info, urr_ranges);
     let mts: Vec<i32> = raw_mf3.iter().map(|(mt, _)| *mt).collect();
     let has = |lo: i32, hi: i32| mts.iter().any(|&m| (lo..=hi).contains(&m));
+    let iverf = tape.section(mat, 1, 451).map_or(6, |s| crate::moder::layout::iverf_from_mf1(&s.rows));
     let skip = |mt: i32| -> bool {
         matches!(mt, 1 | 3 | 101 | 120 | 151)
             || (mt == 4 && has(51, 91))
@@ -696,11 +711,8 @@ fn union_grid(
             || (mt == 105 && has(700, 749))
             || (mt == 106 && has(750, 799))
             || (mt == 107 && has(800, 849))
-            || ((251..=300).contains(&mt) && mt != 261)
             || (mt == 18 && mts.contains(&19))
-            || (451..600).contains(&mt)
-            || (851..=870).contains(&mt)
-            || mt > 891
+            || not_on_pendf(mt, iverf)
     };
     let mut inputs: Vec<lunion::UnionInput> = raw_mf3
         .iter()
@@ -858,6 +870,26 @@ fn trim_leading_zeros_to_ith(pairs: &mut Vec<(f64, f64)>) {
         if first_pos > 1 {
             pairs.drain(..first_pos - 1);
         }
+    }
+}
+
+/// MF=3 sections `lunion` leaves off the PENDF altogether (`reconr.f90:1875-1900`,
+/// the `go to 150` skips that do not depend on other sections): MT=101, 120,
+/// 151, 460, 501, MT=251-300 except 261 (`mubar`, `xi`, `gamma` ... that ENDF/B-V and
+/// older tapes carry in MF=3), and the non-cross-section ranges: for `iverf < 6`
+/// MT=451-699 and MT>=800, else 451-599, 851-870 and above 891.
+///
+/// ~~Only the union grid honoured these skips; the sections list was built from
+/// every MF=3 section on the tape~~ **CORRECTED 2026-11-11 (gh:#1369)**: C-nat
+/// (ENDF/B-V tape 511) carried MT=251-253 onto the PENDF, which NJOY's does not.
+fn not_on_pendf(mt: i32, iverf: i32) -> bool {
+    if matches!(mt, 101 | 120 | 151 | 460 | 501) || ((251..=300).contains(&mt) && mt != 261) {
+        return true;
+    }
+    if iverf < 6 {
+        (451..700).contains(&mt) || mt >= 800
+    } else {
+        (451..600).contains(&mt) || (mt > 850 && mt <= 870) || mt > 891
     }
 }
 
