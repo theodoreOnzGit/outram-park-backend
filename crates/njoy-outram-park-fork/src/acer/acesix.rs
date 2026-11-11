@@ -325,8 +325,10 @@ pub fn with_binary_units<R>(binary: bool, f: impl FnOnce() -> R) -> R {
 /// rows to the scratch tape `nscr` (text when THERMR's output tape is,
 /// `thermr.f90:297-298`), and `tpend` reads them back before scaling. This
 /// reproduces a deck with **text (positive) units**, as OpenMC's
-/// `make_ace_thermal` writes; a deck with binary units skips both round trips
-/// and differs in the 7th figure.
+/// `make_ace_thermal` writes. ~~A deck with binary units skips both round trips
+/// and differs in the 7th figure.~~ **CORRECTED 2026-11-12 (gh:#1369):** a deck
+/// with binary units skips both round trips and [`with_binary_units`] reproduces
+/// that (NJOY2016 tests 49, 67-70 and 74, word for word).
 ///
 /// [`normalized_rows`] divides by a recomputed trapezoid instead and keeps full
 /// precision; it agrees with this to about 1e-5 in `E'`, which is why the

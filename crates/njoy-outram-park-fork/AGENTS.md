@@ -688,7 +688,13 @@ Three things worth carrying forward:
   `xie`, rounded by `tpend`), not from `iel`'s own value. That alone was
   2.2e-3 at 3.75 eV. Record:
   [`verification_and_validation/acer_thermal_incoherent_elastic_2026_10_14.md`](verification_and_validation/acer_thermal_incoherent_elastic_2026_10_14.md).
-  Mixed elastic (`IDPNC = 5`) is not gated: no `LTHR = 3` tape is held.
+  ~~Mixed elastic (`IDPNC = 5`) is not gated: no `LTHR = 3` tape is held.~~
+  **CORRECTED 2026-11-12 (gh:#1369):** NJOY2016's test 67 (D in 7LiD,
+  ENDF/B-VIII.1-beta, `LTHR = 3`, `natom = 2`) is gated word for word, through the
+  deck driver (`tests/deck_driver_tapes_vs_njoy2016.rs::test_67_thermal_ace_and_directory`).
+  It exposed one defect in the builder: the Bragg block (ITCX) was divided by
+  `natom`, where `thrlod` divides by `nmix` (`aceth.f90:735`); every earlier
+  case had `natom = 1`.
 
 **Away from the base temperature too (GitHub #866).** Graphite at 600 K and
 600.5 K and H in H₂O at 293.6 K and 293.9 K are word for word NJOY2016's

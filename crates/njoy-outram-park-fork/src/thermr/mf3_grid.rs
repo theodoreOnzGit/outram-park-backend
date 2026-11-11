@@ -501,3 +501,17 @@ pub fn itix_at(mf3: &[(f64, f64)], e: f64) -> f64 {
     let (x2, y2) = mf3[k];
     terp1(x1, y1, x2, y2, e, IntLaw::LinLin).unwrap_or(y1)
 }
+
+#[cfg(test)]
+mod itix_shading_tests {
+    use super::itix_at;
+
+    /// `gety1` shades a non-zero first abscissa down to `0.999999*x0`.
+    #[test]
+    fn first_point_is_shaded_down() {
+        let mf3 = [(1.0e-5, 2.5), (2.0e-5, 3.0)];
+        assert_eq!(itix_at(&mf3, 1.0e-5 * (1.0 - 1.0e-9)), 2.5);
+        assert_eq!(itix_at(&mf3, 0.99e-5), 0.0);
+        assert_eq!(itix_at(&mf3, 1.5e-5), 2.75);
+    }
+}

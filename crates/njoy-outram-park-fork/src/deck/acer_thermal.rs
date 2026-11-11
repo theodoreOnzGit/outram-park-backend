@@ -195,3 +195,23 @@ pub fn run_acer_thermal(c: &AcerCards, units: &mut TapeUnits, date: String) -> R
     units.put_text(c.nace, ace);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn iwt_maps_to_the_three_forms() {
+        assert_eq!(form_of_iwt(0).unwrap(), InelasticForm::Skewed);
+        assert_eq!(form_of_iwt(1).unwrap(), InelasticForm::Equiprobable);
+        assert_eq!(form_of_iwt(2).unwrap(), InelasticForm::Continuous);
+        assert!(form_of_iwt(3).is_err());
+    }
+
+    /// `throut`'s `'(a10,f12.6,'' filename route'',i2,'' 1 '',i9,2i6,1p,e10.3)'`.
+    #[test]
+    fn directory_line_has_throuts_layout() {
+        let l = thermal_directory_line(" zrzrh.80t", 89.1324, 1090181, 2.551e-8);
+        assert_eq!(l, " zrzrh.80t   89.132400 filename route 1 1   1090181     0     0 2.551E-08\n");
+    }
+}

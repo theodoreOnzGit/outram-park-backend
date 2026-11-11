@@ -7,6 +7,8 @@
 //!   `read(nsysi,*)`: `/` terminators, `n*v` repeats, quoted strings, `--`
 //!   comment cards, defaults kept across nulls. Checked against gfortran
 //!   (`verification_and_validation/deck_driver/`).
+//! - [`acer_thermal`] — ACER `iopt = 2`: the thermal ACE file and its directory
+//!   line, from THERMR's PENDF and the run recorded on it (gh:#1369).
 //! - [`tapes`] — `openz`/`repoz`/`closz`: unit numbers, ASCII (positive) and
 //!   blocked-binary (negative) mode, units up to 999.
 //! - [`modules`] — each module's card reader, translated from that module's
@@ -18,7 +20,8 @@
 //!
 //! **Status (part 2):** MODER, RECONR, BROADR (several temperatures,
 //! bootstrap), HEATR and ACER `iopt = 1` (`newfor = 1` and, for MF=4 angular
-//! distributions, `newfor = 0`) run from cards; UNRESR
+//! distributions, `newfor = 0`), `iopt = 2` ([`acer_thermal`]) and `iopt = 7` run
+//! from cards; UNRESR
 //! and PURR read their cards and pass the tape through (their MT=152/153 are
 //! not written; see [`DeckRun::notes`]); THERMR runs the free-gas case
 //! (`iinc = 1`, [`thermr`]; **CORRECTED 2026-11-11**, was "no tape driver"),
