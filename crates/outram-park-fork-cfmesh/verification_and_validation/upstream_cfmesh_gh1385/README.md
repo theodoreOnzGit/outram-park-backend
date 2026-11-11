@@ -920,3 +920,46 @@ Studio's `headless_unstructured_default_is_pinned` (the `dhoby-ghaut` example
 3. **The pow ulp** (above): a decision for the maintainer.
 4. Brute-force searches in `snap` and `SurfaceQueries::nearest_edge_point`,
    and about 140 `scale(1.0 / x)` sites, remain as in round 2.
+
+## Rust-side differential, round 4 (gh:#1385, 2026-11-11)
+
+**Research, education and V&V only.** AI-run; not reviewed by a human yet.
+
+Round 4 starts from the round-3 state (merge 61398efc6). Foam Studio's
+headless test, which round 3 did not run, is recorded under "Foam Studio
+headless" below.
+
+### Prediction 1, written before the fix (committed first): `refineBoundaryLayers` in upstream's assembly order
+
+Reading upstream `refineBoundaryLayers::generateNewFaces` / `generateNewCells` /
+`generateNewCellsPrism` (`refineBoundaryLayersFaces.C`, `...Cells.C`) against
+the port's `refine_boundary_layers_mode`, which builds the cells as vertex
+rings and assembles them through `from_cell_faces_wound`:
+
+* `newFaces_` is the pieces of every original face in label order (internal,
+  then boundary), then the faces the refined cells create in creation order;
+  a cell face is looked up among the existing ones by `areFacesEqual`
+  (cyclic, either orientation) and appended when absent.
+* A prism's children are ordered **from the far side to the wall**: child 0
+  (which keeps the label) holds the far base face, the child `nLayers-1` the
+  wall face; piece `k` of a side face goes to child `max(nLayers-1-k, 0)`; the
+  cap face of layer `l` is appended in the order it is first met, oriented as
+  the wall face (outward of the child above it). The port numbers its columns
+  from the wall: child order, face order inside a child and the creation order
+  of the caps all differ.
+* Faces that were internal and have several pieces are reversed when
+  `newOwner > newNeighbour`; the mesh is then written as: original internal
+  pieces, new internal faces, boundary pieces per patch; owner = lower cell,
+  neighbour = higher, cells' face lists carried in upstream's order.
+* The port's `refine_hex_cell` is a lattice construction, not a translation of
+  `refineEdgeHexCell` / `refineCornerHexCell`; cells it makes are not in
+  upstream's order.
+
+Prediction: after porting the assembly and `generateNewCellsPrism`, elbow's
+`boundaryLayerRefinement` stage has equal counts and **faces index-identical on
+every face of the layer prisms and of the unrefined cells**; the remaining
+differences, if any, are the faces of edge/corner hexahedra (the first
+differing face names such a cell) and, through the optimiser, points of the
+pow ulp (107600/121398 with PETIR `powf`, round 3). With the glibc-pow
+experiment the mesh before `renumberMesh` should agree in every face, and the
+final points 121333/121398 stay as in round 3 (2.7e-15 m).
