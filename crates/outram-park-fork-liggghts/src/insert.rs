@@ -83,7 +83,7 @@
 //! multi-sphere/superquadric templates, `orientation random` (it draws a
 //! quaternion per trial, so it would need `random_unit_quat`; rejected with an
 //! error rather than silently skipping the draw), `set_property`, dynamic
-//! regions, `side out`, `insert/stream` (gh:#1414 remainder).
+//! regions, `side out`, `insert/stream/predefined` (`insert/stream` is [`crate::insert_stream`]).
 //!
 //! ## The overlap test
 //!
