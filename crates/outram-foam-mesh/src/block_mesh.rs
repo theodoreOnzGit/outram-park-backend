@@ -57,9 +57,20 @@
 //!
 //! ## Deferred dict features
 //!
-//! - `edges` blocks (arc / spline / polyLine) are parsed and **skipped**: all
-//!   block edges are treated as straight lines (bilinear/trilinear block map).
-//!   Curved-edge point projection is a later phase.
+//! - ~~`edges` blocks (arc / spline / polyLine) are parsed and **skipped**: all
+//!   block edges are treated as straight lines~~ **CORRECTED 2026-11-11
+//!   (gh:#1461)**: `edges` (`line`, `arc` in both forms, `polyLine`, `spline`,
+//!   `BSpline`) are parsed and applied, see [`crate::block_edges`]; a block
+//!   with a listed edge takes the full 12-edge blend plus upstream's
+//!   curved-edge correction. `project` / `projectCurve` edges, `geometry`,
+//!   `faces`, `namedVertices` / `namedBlocks` and `#calc` / `#include`
+//!   return [`MeshError::NotImplemented`]; they are never skipped.
+//! - `units [mm]` (a single length unit), `convertToMeters` and `scale` are
+//!   read, at most one of the three (gh:#1463). `defaultPatch { name; type; }`
+//!   is read; without it the unassigned faces form `defaultFaces` of type
+//!   `empty`, as upstream (it was `patch` before 2026-11-11). `$name` of an
+//!   earlier top-level entry is expanded. Block zone names are kept in
+//!   [`PolyMesh::cell_zones`] (not yet written to disk).
 //! - `simpleGrading (gx gy gz)` is fully supported, where each of the three
 //!   directions is **either** a single scalar expansion ratio **or** a
 //!   multi-grading list of `( fractionLength fractionCells expansionRatio )`
@@ -72,17 +83,17 @@
 //!   collapses to the equivalent `simpleGrading` fast path (bit-identical to a
 //!   single per-direction distribution); when they disagree, the genuine
 //!   per-edge 12-edge blend is used. See `edge_blended_node`.
-//! - `mergePatchPairs` (face-merging of separately-meshed patch pairs) is
-//!   parsed and ignored; coincident-point merging across blocks is always done.
+//! - ~~`mergePatchPairs` is parsed and ignored~~ **CORRECTED 2026-11-11**: a
+//!   non-empty `mergePatchPairs` returns [`MeshError::NotImplemented`]
+//!   (gh:#1464); coincident-point merging across blocks is always done.
 //!
 //! ## Honest scope — what the per-edge blend does NOT model
 //!
-//! Only the **straight-edge** branch of OpenFOAM `block::createPoints`
-//! (`blockCreate.C:45-183`, `nCurvedEdges == 0`) is ported. The curved-edge
-//! correction (`blockCreate.C:155-180`) and the curved-**face** projection
-//! passes (`blockCreate.C:185-345`) are **not** implemented — consistent with
-//! the deferred `arc`/`spline`/`polyLine` edge and `projectFace` support above.
-//! For blocks with planar faces (all edges straight — the current scope) the
+//! The straight-edge branch and, since 2026-11-11 (gh:#1461), the curved-edge
+//! correction of OpenFOAM `block::createPoints` (`blockCreate.C:45-183`) are
+//! ported. The curved-**face** projection passes (`blockCreate.C:185-345`) are
+//! **not** implemented (gh:#1462), consistent with `projectFace` above.
+//! For blocks with planar faces (straight or curved edges only) the
 //! blend is exact and volume-preserving; a warped internal face between cells of
 //! a per-edge-graded block is expected and handled by the divergence-theorem
 //! cell geometry. For multi-block meshes, matching gradings on any **shared**
@@ -293,6 +304,9 @@ pub struct Block {
     /// `edgeGrading` (edges 0–3 = x, 4–7 = y, 8–11 = z; see
     /// `edge_blended_node`). `None` selects the trilinear fast path.
     pub edge_grading: Option<[Grading; 12]>,
+    /// The block's zone name (`hex (...) zoneName (nx ny nz) ...`), which
+    /// upstream turns into a `cellZone`; `None` when the block is unzoned.
+    pub zone: Option<String>,
 }
 
 /// One named boundary patch from the `boundary` list.
@@ -377,6 +391,11 @@ pub struct PolyMesh {
     pub n_cells: usize,
     /// Boundary patches, covering `[n_internal_faces, faces.len())` contiguously.
     pub patches: Vec<BoundaryPatch>,
+    /// Cell zones, one per distinct block zone name in dictionary order:
+    /// `(name, cell indices)`. Upstream writes these as `cellZones`; the
+    /// `outram-foam-basic-lib` `io::PolyMesh` has no zone output yet, so
+    /// [`PolyMesh::to_foam_poly_mesh`] drops them (gh:#1463 remaining item).
+    pub cell_zones: Vec<(String, Vec<usize>)>,
 }
 
 impl PolyMesh {
@@ -412,7 +431,7 @@ impl PolyMesh {
             patches.push(BoundaryPatch::new(name, faces.len(), fs.len(), kind));
             faces.extend(fs);
         }
-        PolyMesh { points, faces, n_internal_faces, n_cells: c0, patches }
+        PolyMesh { points, faces, n_internal_faces, n_cells: c0, patches, cell_zones: Vec::new() }
     }
 
     /// Number of points.
@@ -545,6 +564,7 @@ impl PolyMesh {
             n_internal_faces: m.n_internal_faces,
             n_cells: m.n_cells,
             patches: m.patches.clone(),
+            cell_zones: Vec::new(),
         }
     }
 
@@ -976,7 +996,8 @@ impl BlockMeshDict {
     /// # Errors
     /// [`MeshError::Construction`] on a non-manifold face (a face shared by more
     /// than two cells) or a failed validate; boundary faces that match no patch
-    /// are collected into a trailing `defaultFaces` patch rather than erroring.
+    /// are collected into a trailing default patch (`defaultPatch`, default
+    /// `defaultFaces` of type `empty`) rather than erroring.
     pub fn build(&self) -> Result<PolyMesh, MeshError> {
         let scale = self.convert_to_meters;
 
@@ -1005,6 +1026,7 @@ impl BlockMeshDict {
         }
         let mut cands: Vec<FaceCand> = Vec::new();
         let mut cell_count = 0usize;
+        let mut cell_zones: Vec<(String, Vec<usize>)> = Vec::new();
 
         // Resolve the `edges` list against the raw vertices (upstream builds
         // edges from the unscaled vertices and scales the finished points).
@@ -1125,6 +1147,13 @@ impl BlockMeshDict {
             }
             }
             let node_at = |i: usize, j: usize, k: usize| grid[i + j * nnx + k * nnx * nny];
+            if let Some(zone) = &block.zone {
+                let cells = cell_count..cell_count + nx * ny * nz;
+                match cell_zones.iter_mut().find(|(n, _)| n == zone) {
+                    Some((_, v)) => v.extend(cells),
+                    None => cell_zones.push((zone.clone(), cells.collect())),
+                }
+            }
 
             // Coarse block-face corner sets (block-corner vertex indices),
             // indexed by HEX_FACE order.
@@ -1307,6 +1336,7 @@ impl BlockMeshDict {
             n_internal_faces,
             n_cells: cell_count,
             patches,
+            cell_zones,
         })
     }
 
@@ -1454,13 +1484,18 @@ impl BlockMeshDict {
     /// Parse `blockMeshDict` text into a [`BlockMeshDict`].
     ///
     /// Handles `//` and `/* */` comments, the `FoamFile` header, and the
-    /// `convertToMeters`/`scale`, `vertices`, `blocks`, `edges` (skipped),
-    /// `boundary`/`patches`, and `mergePatchPairs` (skipped) entries. See the
-    /// module docs for deferred features.
+    /// `convertToMeters`/`scale`/`units`, `vertices`, `blocks`, `edges`,
+    /// `defaultPatch`, `boundary`/`patches` and an empty `mergePatchPairs`
+    /// entries, after expanding `$name` variables. See the module docs for
+    /// deferred features.
     ///
     /// # Errors
-    /// [`MeshError::DictParse`] on malformed syntax; [`MeshError::NotImplemented`]
-    /// for an unsupported block shape (only `hex`). All grading forms —
+    /// [`MeshError::DictParse`] on malformed syntax (or more than one of
+    /// `convertToMeters`/`scale`/`units`, or a `defaultPatch` without `type`);
+    /// [`MeshError::NotImplemented`] for an unsupported block shape (only
+    /// `hex`), a macro that is not expanded, or a keyword listed in the module
+    /// docs (`geometry`, `faces`, `project` edges, non-empty
+    /// `mergePatchPairs`, ...). All grading forms —
     /// `simpleGrading`, multi-grading, and full per-edge `edgeGrading` — parse.
     pub fn parse(text: &str) -> Result<Self, MeshError> {
         let tokens = expand_variables(tokenize(text))?;
@@ -1985,9 +2020,11 @@ fn parse_blocks(cur: &mut Cursor) -> Result<Vec<Block>, MeshError> {
         cur.expect(")")?;
 
         // Optional zone name between the vertex list and the cell counts.
-        if cur.peek() != Some("(") {
-            cur.next();
-        }
+        let zone = if cur.peek() != Some("(") {
+            cur.next().map(|z| z.to_string())
+        } else {
+            None
+        };
 
         // Cell counts (nx ny nz).
         cur.expect("(")?;
@@ -2027,6 +2064,7 @@ fn parse_blocks(cur: &mut Cursor) -> Result<Vec<Block>, MeshError> {
             cells: [nx, ny, nz],
             grading,
             edge_grading,
+            zone,
         });
     }
     Ok(out)

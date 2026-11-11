@@ -331,6 +331,20 @@ fn t3a_tutorial_builds_with_its_arcs() {
     assert!(on_arc >= 8, "only {on_arc} nodes on the arc");
 }
 
+/// Block zone names are kept as `cell_zones` (gh:#1463), not discarded.
+#[test]
+fn block_zone_names_become_cell_zones() {
+    let dict = "vertices ((0 0 0) (1 0 0) (1 1 0) (0 1 0) (0 0 1) (1 0 1) (1 1 1) (0 1 1)
+        (2 0 0) (2 1 0) (2 0 1) (2 1 1));
+blocks ( hex (0 1 2 3 4 5 6 7) left (2 1 1) simpleGrading (1 1 1)
+         hex (1 8 9 2 5 10 11 6) right (3 1 1) simpleGrading (1 1 1) );
+boundary ( a { type patch; faces ((0 4 7 3)); } );";
+    let m = block_mesh(dict).unwrap();
+    assert_eq!(m.cell_zones.len(), 2);
+    assert_eq!(m.cell_zones[0], ("left".to_string(), vec![0, 1]));
+    assert_eq!(m.cell_zones[1], ("right".to_string(), vec![2, 3, 4]));
+}
+
 /// `pitzDailySteady`: `units [mm]` and `$posY`/`$negY` variables.
 #[test]
 fn pitz_daily_steady_units_and_variables() {
