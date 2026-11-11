@@ -380,6 +380,7 @@ pub fn append_incident(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &Reco
             _ => false,
         };
         if !ok {
+            eprintln!("acelcp refuses {:?}", (p.mt, p.ip, p.mf, p.l));
             return;
         }
     }
