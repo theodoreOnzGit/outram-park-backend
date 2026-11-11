@@ -242,3 +242,221 @@ impl ContinuumFeed {
         Ok(crate::groupr::njoy_panel::FeedOut { en: enext, idisc, nq: 0, ff, iglo: 1 })
     }
 }
+
+// ---------------------------------------------------------------------------
+// Tabulated (LF = 1) File-15 photon spectra: `getsed` for `mfd = 15`.
+// ---------------------------------------------------------------------------
+
+/// One incident energy of a tabulated subsection: the TAB1 itself (for the unit-base
+/// `intega`) and the `ng` group integrals `getsed` stores beside it.
+#[derive(Debug, Clone)]
+struct TabEnergy {
+    /// The TAB1's `E` (`C2`).
+    e: f64,
+    interp: Vec<(u32, u32)>,
+    pairs: Vec<(f64, f64)>,
+    /// `intega` of the TAB1 over each gamma group (`:11984-11992`).
+    raw: Vec<f64>,
+}
+
+/// A tabulated `LF = 1` subsection of `getsed`: probability TAB1, TAB2 of incident
+/// energies and the spectra.
+#[derive(Debug, Clone)]
+struct TabSub {
+    prob_interp: Vec<(u32, u32)>,
+    prob: Vec<(f64, f64)>,
+    e_interp: Vec<(u32, u32)>,
+    energies: Vec<TabEnergy>,
+}
+
+/// `getsed` for tabulated File-15 (`LF = 1`) subsections, summed (`nk = 1`), with the
+/// gamma group boundaries `eg` of the initialisation call.
+///
+/// Translated from NJOY2016.80 `groupr.f90` `getsed` (:11829-12279): the `lf <= 1`
+/// initialisation branch (`tab2io`, `intega` per group, `econst` determination) and the
+/// normal-entry tabulated branch (Cartesian, and unit-base for `INT >= 21`;
+/// "corresponding points" `INT 11-15` return zeros as upstream). Not translated: analytic
+/// `LF > 1` subsections here (the neutron `LF = 9` path is [`SedFeed`]), the `mt = 455`
+/// `sqrt(E)` extension of the lowest delayed bin, and an incident energy above the last
+/// table energy, where upstream reads past its stored table.
+#[derive(Debug, Clone)]
+pub struct PhotonSed {
+    subs: Vec<TabSub>,
+    eg: Vec<f64>,
+}
+
+impl PhotonSed {
+    /// `getsed(e = 0)` on `MF=15`, `mt`: returns the feed, `enext` (lowest first
+    /// energy) and the lowered `econst` (`econst` in, as `getsed` shares it with
+    /// `getgyl` through the module variable).
+    ///
+    /// # Errors
+    /// [`NjoyError::SectionNotFound`], [`NjoyError::NotPorted`] for `LF > 1`.
+    pub fn from_tape(tape: &Tape, mat: i32, mt: i32, eg: &[f64], mut econst: f64) -> Result<(Self, f64, f64), NjoyError> {
+        const EPS: f64 = 1.0e-3;
+        let sec = tape.section(mat, 15, mt).ok_or(NjoyError::SectionNotFound { mat, mf: 15, mt })?;
+        let mut cur = SectionCursor::new(&sec.rows);
+        let head = cur.read_cont()?;
+        let nk = head.n1 as usize;
+        if nk > 20 {
+            return Err(NjoyError::InvalidInput("getsed: too many subsections.".into()));
+        }
+        let ng = eg.len() - 1;
+        let mut enext = EMAX;
+        let mut subs = Vec::new();
+        for _ in 0..nk {
+            let p = cur.read_tab1()?;
+            if p.head.l2 != 1 {
+                return Err(NjoyError::NotPorted("groupr getsed: only tabulated LF = 1 photon spectra are translated"));
+            }
+            if p.pairs[0].0 < enext {
+                enext = p.pairs[0].0;
+            }
+            let t2 = cur.read_tab2()?;
+            let ne = t2.head.n2 as usize;
+            let mut energies = Vec::with_capacity(ne);
+            for _ in 0..ne {
+                let t = cur.read_tab1()?;
+                let mut raw = Vec::with_capacity(ng);
+                for ig in 0..ng {
+                    let e1 = if ig == 0 { 0.0 } else { eg[ig] };
+                    let e2 = if ig == ng - 1 { EBIG } else { eg[ig + 1] };
+                    raw.push(crate::endf::interp::intega(&t.interp, &t.pairs, e1, e2)?);
+                }
+                energies.push(TabEnergy { e: t.head.c2, interp: t.interp, pairs: t.pairs, raw });
+            }
+            // determine econst (`:12088-12130`)
+            let mut ir = 0usize;
+            let mut nbt = t2.interp[ir].0 as usize;
+            let mut int = t2.interp[ir].1;
+            if int == 2 {
+                int = 22;
+            }
+            for i in 2..=ne {
+                if i > nbt {
+                    ir += 1;
+                    nbt = t2.interp[ir].0 as usize;
+                    int = t2.interp[ir].1;
+                    if int == 2 {
+                        int = 22;
+                    }
+                }
+                let (lo, hi) = (&energies[i - 2], &energies[i - 1]);
+                let (elo, ehi) = (lo.e, hi.e);
+                for ig in 0..ng {
+                    let delta = (hi.raw[ig] - lo.raw[ig]).abs();
+                    if delta > EPS * lo.raw[ig] {
+                        if int == 1 && ehi < econst {
+                            econst = ehi;
+                        }
+                        if int != 1 {
+                            let ee = elo + EPS * lo.raw[ig] * (ehi - elo) / delta;
+                            if ee < econst {
+                                econst = ee;
+                            }
+                        }
+                    }
+                }
+            }
+            subs.push(TabSub { prob_interp: p.interp, prob: p.pairs, e_interp: t2.interp, energies });
+        }
+        Ok((Self { subs, eg: eg.to_vec() }, enext, econst))
+    }
+
+    /// `getsed(e > 0)` with `nk = 1`: `(sed(1..ng), enext, idis)`.
+    ///
+    /// # Errors
+    /// From `terp1`, or an energy above the last table energy.
+    pub fn get(&self, ed: f64) -> Result<(Vec<f64>, f64, i32), NjoyError> {
+        use crate::endf::interp::{terp1, terpa as terpa_st, IntLaw};
+        let eg = &self.eg;
+        let ng = eg.len() - 1;
+        let mut sed = vec![0.0f64; ng];
+        let (mut enext, mut idis) = (EMAX, 0i32);
+        for sub in &self.subs {
+            let (pe, eihi, d) = terpa_st(&sub.prob_interp, &sub.prob, ed);
+            let idisc = i32::from(d);
+            if (eihi - enext).abs() < enext * SMALL && idisc > idis {
+                idis = idisc;
+            }
+            if eihi < enext * (1.0 - SMALL) {
+                idis = idisc;
+                enext = eihi;
+            }
+            if pe <= 0.0 {
+                continue;
+            }
+            let ne = sub.energies.len();
+            let mut nne = 0usize;
+            let mut nnt = 0usize;
+            let mut nbt = sub.e_interp[0].0 as usize;
+            let mut int = sub.e_interp[0].1;
+            if int == 2 {
+                int = 22;
+            }
+            let (mut elo, mut ehi) = (0.0f64, 0.0f64);
+            while nne < ne && ed > ehi * (1.0 + SMALL) {
+                nne += 1;
+                if nne > nbt {
+                    nnt += 1;
+                    nbt = sub.e_interp[nnt].0 as usize;
+                    int = sub.e_interp[nnt].1;
+                    if int == 2 {
+                        int = 22;
+                    }
+                }
+                if nne >= ne {
+                    return Err(NjoyError::InvalidInput("getsed: incident energy above the last tabulated energy".into()));
+                }
+                elo = sub.energies[nne - 1].e;
+                ehi = sub.energies[nne].e;
+            }
+            let (mut klo, mut khi) = (nne.saturating_sub(1), nne);
+            let (mut xlo, mut xhi) = (0.0f64, 0.0f64);
+            if int > 5 {
+                klo = 0;
+                khi = 1;
+                elo = sub.energies[klo].e;
+                ehi = sub.energies[khi].e;
+                let last = |k: usize| sub.energies[k].pairs.last().map_or(0.0, |p| p.0);
+                xlo = last(klo);
+                xhi = last(khi);
+                while nne < ne && ed > ehi * (1.0 + SMALL) {
+                    klo = khi;
+                    elo = ehi;
+                    xlo = xhi;
+                    khi = klo + 1;
+                    if khi >= ne {
+                        return Err(NjoyError::InvalidInput("getsed: incident energy above the last tabulated energy".into()));
+                    }
+                    ehi = sub.energies[khi].e;
+                    xhi = last(khi);
+                }
+            }
+            if int >= 21 {
+                let jnt = IntLaw::from_code(int - 20);
+                let xend = terp1(elo, xlo, ehi, xhi, ed, jnt)?;
+                for ig in 0..ng {
+                    let e1 = if ig == 0 { 0.0 } else { eg[ig] };
+                    let e2 = if ig == ng - 1 { EBIG } else { eg[ig + 1] };
+                    let (e1lo, e1hi) = (e1 * xlo / xend, e1 * xhi / xend);
+                    let (e2lo, e2hi) = (e2 * xlo / xend, e2 * xhi / xend);
+                    let (a, b) = (&sub.energies[klo], &sub.energies[khi]);
+                    let flo = crate::endf::interp::intega(&a.interp, &a.pairs, e1lo, e2lo)?;
+                    let fhi = crate::endf::interp::intega(&b.interp, &b.pairs, e1hi, e2hi)?;
+                    let fe = terp1(elo, flo, ehi, fhi, ed, jnt)?;
+                    sed[ig] += pe * fe;
+                }
+            } else if int < 11 {
+                for ig in 0..ng {
+                    let s = terp1(elo, sub.energies[klo].raw[ig], ehi, sub.energies[khi].raw[ig], ed, IntLaw::from_code(int))?;
+                    sed[ig] += s * pe;
+                }
+            }
+            if ehi < enext * (1.0 - SMALL) {
+                enext = ehi;
+            }
+        }
+        Ok((sed, enext, idis))
+    }
+}

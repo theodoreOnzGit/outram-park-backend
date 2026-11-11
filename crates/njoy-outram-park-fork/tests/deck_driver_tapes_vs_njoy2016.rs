@@ -605,3 +605,28 @@ fn test_01_groupr_gendf_whole_tape() {
     assert!(bl.len() > 1000 && diffs.is_empty());
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
 }
+
+/// **Test 07 (U-235 ENDF/B-V) GROUPR GENDF, whole tape** (gh:#1481, automatic
+/// reaction lists): the deck up to GROUPR (card 9 `16 /`, no `mtd`) plus a MODER
+/// text copy of the GENDF unit, line by line against NJOY2016.80.
+///
+/// Pass criterion: identical line count and zero differing lines. Prediction:
+/// not yet (`getsed` continuum photons for MT 18 and 102, MF=14 anisotropy of
+/// MT 4); the result is recorded in the gh:#1481 comment.
+#[test]
+fn test_07_groupr_gendf_whole_tape() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "07", Some("acer"), "moder\n -25 29/\n") else { return };
+    let deck = deck.replace("stop\n", "stop\n");
+    let Some((ours, njoy)) = run_pair_decks(&root, "t07g", "t511", &deck, &deck) else { return };
+    let a = std::fs::read_to_string(ours.join("tape29")).unwrap_or_default();
+    let b = std::fs::read_to_string(njoy.join("tape29")).unwrap();
+    let (al, bl): (Vec<&str>, Vec<&str>) = (a.lines().collect(), b.lines().collect());
+    let diffs: Vec<usize> = (0..al.len().max(bl.len())).filter(|&i| al.get(i) != bl.get(i)).collect();
+    println!("test 07 GENDF whole tape: {} differing lines of {} (ours {})", diffs.len(), bl.len(), al.len());
+    for &i in diffs.iter().take(6) {
+        println!("  line {}\n  ours: {:?}\n  njoy: {:?}", i + 1, al.get(i), bl.get(i));
+    }
+    if std::env::var_os("KEEP_DECK_DIRS").is_none() { let _ = std::fs::remove_dir_all(ours.parent().unwrap()); }
+    assert!(bl.len() > 300 && diffs.is_empty());
+}
