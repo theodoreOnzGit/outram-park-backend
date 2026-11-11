@@ -1,3 +1,119 @@
+diff --git a/meshLibrary/cartesianMesh/cartesianMeshGenerator/cartesianMeshGenerator.C b/meshLibrary/cartesianMesh/cartesianMeshGenerator/cartesianMeshGenerator.C
+index 3e54651..3581cab 100644
+--- a/meshLibrary/cartesianMesh/cartesianMeshGenerator/cartesianMeshGenerator.C
++++ b/meshLibrary/cartesianMesh/cartesianMeshGenerator/cartesianMeshGenerator.C
+@@ -48,6 +48,34 @@ License
+ #include "polyMeshGenGeometryModification.H"
+ #include "surfaceMeshGeometryModification.H"
+ 
++#include <cstdio>
++#include <cstdlib>
++static void gh1385Dump(const char* tag, int iter, const Foam::labelList& bpts, const Foam::Module::pointFieldPMG& pts)
++{
++    if (!getenv("GH1385_TRACE")) return;
++    for (Foam::label i = 0; i < bpts.size(); ++i)
++        fprintf(stderr, "TRACE %s %d %d %.17g %.17g %.17g\n", tag, iter, int(i), pts[bpts[i]].x(), pts[bpts[i]].y(), pts[bpts[i]].z());
++}
++
++static void gh1385DumpAll(const char* tag, const Foam::Module::pointFieldPMG& pts)
++{
++    if (!getenv("GH1385_TRACE")) return;
++    for (Foam::label i = 0; i < pts.size(); ++i)
++        fprintf(stderr, "TRACE %s 0 %d %.17g %.17g %.17g\n", tag, int(i), pts[i].x(), pts[i].y(), pts[i].z());
++}
++
++static void gh1385DumpCells(const Foam::Module::cellListPMG& cells)
++{
++    if (!getenv("GH1385_TRACE")) return;
++    for (Foam::label c = 0; c < cells.size(); ++c)
++    {
++        fprintf(stderr, "CELL %d", int(c));
++        for (Foam::label i = 0; i < cells[c].size(); ++i) fprintf(stderr, " %d", int(cells[c][i]));
++        fprintf(stderr, "\n");
++    }
++}
++
++
+ //#define DEBUG
+ 
+ // * * * * * * * * * * * * Private member functions  * * * * * * * * * * * * //
+@@ -136,6 +164,7 @@ void Foam::Module::cartesianMeshGenerator::mapEdgesAndCorners()
+ void Foam::Module::cartesianMeshGenerator::optimiseMeshSurface()
+ {
+     meshSurfaceEngine mse(mesh_);
++    gh1385Dump("opt_pre", 0, mse.boundaryPoints(), mse.points());
+     meshSurfaceOptimizer(mse, *octreePtr_).optimizeSurface();
+ }
+ 
+@@ -155,8 +184,38 @@ void Foam::Module::cartesianMeshGenerator::refBoundaryLayers()
+         refineBoundaryLayers refLayers(mesh_);
+ 
+         refineBoundaryLayers::readSettings(meshDict_, refLayers);
++        if (getenv("GH1385_TRACE"))
++        {
++            const pointFieldPMG& pts = mesh_.points();
++            for (Foam::label i = 0; i < pts.size(); ++i)
++                fprintf(stderr, "PFP %d %.17g %.17g %.17g\n", int(i), pts[i].x(), pts[i].y(), pts[i].z());
++            const faceListPMG& fcs = mesh_.faces();
++            const labelList& own = mesh_.owner();
++            const labelList& nei = mesh_.neighbour();
++            for (Foam::label i = 0; i < fcs.size(); ++i)
++            {
++                fprintf(stderr, "PFF %d %d %d", int(i), int(own[i]), int(nei[i]));
++                for (Foam::label j = 0; j < fcs[i].size(); ++j) fprintf(stderr, " %d", int(fcs[i][j]));
++                fprintf(stderr, "\n");
++            }
++        }
+ 
+         refLayers.refineLayers();
++        if (getenv("GH1385_TRACE"))
++        {
++            const pointFieldPMG& pts = mesh_.points();
++            for (Foam::label i = 0; i < pts.size(); ++i)
++                fprintf(stderr, "RFP %d %.17g %.17g %.17g\n", int(i), pts[i].x(), pts[i].y(), pts[i].z());
++            const faceListPMG& fcs = mesh_.faces();
++            const labelList& own = mesh_.owner();
++            const labelList& nei = mesh_.neighbour();
++            for (Foam::label i = 0; i < fcs.size(); ++i)
++            {
++                fprintf(stderr, "RFF %d %d %d", int(i), int(own[i]), int(nei[i]));
++                for (Foam::label j = 0; j < fcs[i].size(); ++j) fprintf(stderr, " %d", int(fcs[i][j]));
++                fprintf(stderr, "\n");
++            }
++        }
+ 
+         labelLongList pointsInLayer;
+         refLayers.pointsInBndLayer(pointsInLayer);
+@@ -190,6 +249,8 @@ void Foam::Module::cartesianMeshGenerator::optimiseFinalMesh()
+ 
+         surfOpt.optimizeSurface();
+     }
++    gh1385DumpAll("fm_surface", mesh_.points());
++    gh1385DumpCells(mesh_.cells());
+ 
+     deleteDemandDrivenData(octreePtr_);
+ 
+@@ -201,9 +262,12 @@ void Foam::Module::cartesianMeshGenerator::optimiseFinalMesh()
+     }
+ 
+     optimizer.optimizeMeshFV();
++    gh1385DumpAll("fm_fv", mesh_.points());
+     optimizer.optimizeLowQualityFaces();
++    gh1385DumpAll("fm_lowq", mesh_.points());
+     optimizer.optimizeBoundaryLayer(modSurfacePtr_ == nullptr);
+     optimizer.untangleMeshFV();
++    gh1385DumpAll("fm_untangle", mesh_.points());
+ 
+     mesh_.clearAddressingData();
+ 
+@@ -313,6 +377,7 @@ void Foam::Module::cartesianMeshGenerator::generateMesh()
+ }
+ 
+ 
++
+ // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
+ 
+ Foam::Module::cartesianMeshGenerator::cartesianMeshGenerator(const Time& time)
 diff --git a/meshLibrary/utilities/octrees/meshOctree/meshOctreeCreator/meshOctreeCreatorCreateOctreeBoxes.C b/meshLibrary/utilities/octrees/meshOctree/meshOctreeCreator/meshOctreeCreatorCreateOctreeBoxes.C
 index 89e994b..16e190f 100644
 --- a/meshLibrary/utilities/octrees/meshOctree/meshOctreeCreator/meshOctreeCreatorCreateOctreeBoxes.C
@@ -63,7 +179,7 @@ index 89e994b..16e190f 100644
      // distribute octree such that each processor has the same number
      // of leaf boxes which will be used as mesh cells
 diff --git a/meshLibrary/utilities/smoothers/geometry/meshOptimizer/optimizeMeshFV.C b/meshLibrary/utilities/smoothers/geometry/meshOptimizer/optimizeMeshFV.C
-index c007ae1..28ae1f1 100644
+index c007ae1..94c050a 100644
 --- a/meshLibrary/utilities/smoothers/geometry/meshOptimizer/optimizeMeshFV.C
 +++ b/meshLibrary/utilities/smoothers/geometry/meshOptimizer/optimizeMeshFV.C
 @@ -36,9 +36,28 @@ License
@@ -119,7 +235,15 @@ index c007ae1..28ae1f1 100644
  
              // update points in the mesh from the coordinates in the tet mesh
              tetMesh.updateOrigMesh(&changedFace);
-@@ -510,6 +534,7 @@ void Foam::Module::meshOptimizer::optimizeLowQualityFaces
+@@ -490,6 +514,7 @@ void Foam::Module::meshOptimizer::optimizeLowQualityFaces
+             lockedPoints.append(pointI);
+     }
+ 
++    if (getenv("GH1385_TRACE")) fprintf(stderr, "LOCKEDPOINTS lowq %d\n", int(lockedPoints.size()));
+     do
+     {
+         labelHashSet lowQualityFaces;
+@@ -510,6 +535,7 @@ void Foam::Module::meshOptimizer::optimizeLowQualityFaces
  
          Info<< "Iteration " << nIter
              << ". Number of bad faces is " << nBadFaces << endl;
@@ -127,7 +251,7 @@ index c007ae1..28ae1f1 100644
  
          // perform optimisation
          if (nBadFaces == 0)
-@@ -521,7 +546,9 @@ void Foam::Module::meshOptimizer::optimizeLowQualityFaces
+@@ -521,7 +547,9 @@ void Foam::Module::meshOptimizer::optimizeLowQualityFaces
          // of points in the tet mesh
          tetMeshOptimisation tmo(tetMesh);
  
@@ -137,7 +261,7 @@ index c007ae1..28ae1f1 100644
  
          // update points in the mesh from the new coordinates in the tet mesh
          tetMesh.updateOrigMesh(&changedFace);
-@@ -578,6 +605,12 @@ void Foam::Module::meshOptimizer::optimizeMeshFV
+@@ -578,6 +606,12 @@ void Foam::Module::meshOptimizer::optimizeMeshFV
  
      laplaceSmoother lps(mesh_, vertexLocation_);
      lps.optimizeLaplacianPC(numLaplaceIterations);

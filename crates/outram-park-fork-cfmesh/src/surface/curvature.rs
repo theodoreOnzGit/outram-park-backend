@@ -62,7 +62,7 @@
 use crate::math::Vec3;
 use crate::mesh_octree::{TriSurf, SMALL, VSMALL};
 use petir::mathf::RealMath;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 /// `simpleMatrix<scalar>::LUsolve` for a small dense system: Crout LU with
 /// implicit (row-scaled) partial pivoting, then back substitution. A

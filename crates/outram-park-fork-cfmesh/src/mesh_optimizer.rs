@@ -85,18 +85,23 @@
 //! loop (`optimiseBoundaryVolumeOptimizer`, `optimiseBoundarySurfaceLaplace`:
 //! boundary points never move here),~~ **CHANGED 2026-11-05:** both are
 //! ported (gh:#1260, gh:#1255) and off by default, so the recorded results
-//! stand. **Not ported:** `tetMatcher` (a tetrahedral cell is
-//! decomposed like any other; this crate's tet-dual meshes have none), and
-//! the parallel buffer layers. Centres are this crate's: the face centre is
-//! the vertex average and the cell centre the pyramid-decomposition centroid
-//! ([`crate::checks`]), where cfMesh uses OpenFOAM's area-weighted face
-//! centre.
+//! stand. **Not ported:** the parallel buffer layers. ~~`tetMatcher` (a
+//! tetrahedral cell is decomposed like any other; this crate's tet-dual meshes
+//! have none)~~ **CORRECTED 2026-11-11 (gh:#1385 round 3):** a cell of four
+//! triangles is one tet with no centre node (`match_tet`; asmoOctree has 324).
+//! ~~Centres are this crate's: the face centre is the vertex average and the
+//! cell centre the pyramid-decomposition centroid ([`crate::checks`]), where
+//! cfMesh uses OpenFOAM's area-weighted face centre.~~ **CORRECTED 2026-11-11
+//! (gh:#1385 round 3):** the part tet mesh, the Laplacian smoother and the
+//! quality checks (`flag_faces`) read cfMesh's polyMeshGen addressing geometry
+//! ([`crate::checks::pmg_geometry`]); this module no longer uses
+//! [`crate::checks::cell_geometry`] (a test still does).
 //!
 //! Deterministic: every loop runs in index order and positions are updated
 //! Jacobi-style (all new positions from the old ones), as upstream's
 //! `updateVerticesSMP`.
 
-use crate::checks::{cell_geometry, foam_cell_centres_and_vols, pmg_face_centre_and_area};
+use crate::checks::{foam_cell_centres_and_vols, pmg_face_centre_and_area};
 use crate::math::Vec3;
 use crate::mesh_subsets::MeshSubsets;
 use crate::volume_mesh::VolumeMesh;
@@ -462,9 +467,11 @@ impl PartTetMesh {
         let mut changed_point = vec![false; mesh.points.len()];
         for (node, &p) in self.node_in_orig.iter().enumerate() {
             if p != usize::MAX {
-                if mesh.points[p] != self.points[node] {
-                    changed_point[p] = true;
-                }
+                // upstream marks every node of the tet mesh as changed, moved
+                // or not (`changedNode[nodeLabelInOrigMesh_[pI]] = true`), so
+                // the next `changedFace` covers every cell around the region
+                // (gh:#1385 round 3; a locked node's cells were left out)
+                changed_point[p] = true;
                 mesh.points[p] = self.points[node];
             }
         }
@@ -1177,89 +1184,33 @@ fn boundary_surface_laplace(pts: &mut [Vec3], tets: &[[usize; 4]], c: usize) -> 
 /// `findBadFaces` (pyramids, flatness 0.8, cell-part tetrahedra, areas) or,
 /// with `relaxed`, `findBadFacesRelaxed` (pyramids and areas only).
 fn flag_faces(mesh: &VolumeMesh, active: &[bool], mode: CheckMode) -> Vec<bool> {
-    let (_, centres) = cell_geometry(mesh);
+    use crate::poly_mesh_gen_checks as c;
+    // gh:#1385 round 3: cfMesh's own checks on the polyMeshGen addressing's
+    // face centres, face areas and cell centres (`pmg_geometry`), not this
+    // module's vertex-average approximations
+    let g = crate::checks::pmg_geometry(mesh);
+    let a = Some(active);
     let mut bad = vec![false; mesh.face_count()];
-    let cos65 = 65.0f64.to_radians().r_cos();
-    for f in 0..mesh.face_count() {
-        if !active[f] {
-            continue;
+    let mut or = |flags: Vec<bool>| {
+        for (b, f) in bad.iter_mut().zip(flags) {
+            *b |= f;
         }
-        let s = mesh.face_area_vector(f);
-        let fc = mesh.face_centroid(f);
-        let co = centres[mesh.owner[f]];
-        let ring = &mesh.faces[f];
-        let k = ring.len();
-        let mut b = false;
-        if mode == CheckMode::LowQuality {
-            if let Some(n) = mesh.neighbour[f] {
-                // checkFaceDotProduct: internal faces.
-                let d = centres[n].sub(co);
-                let dots = d.dot(s) / (d.length() * s.length() + VSMALL);
-                if dots < cos65 {
-                    b = true;
-                }
-                // checkFaceSkewness (cfMesh's): internal.
-                let cn = centres[n];
-                let d_own = fc.sub(co).length();
-                let d_nei = fc.sub(cn).length();
-                let x = co.scale(d_nei / (d_own + d_nei)).add(cn.scale(d_own / (d_own + d_nei)));
-                if fc.sub(x).length() / (cn.sub(co).length() + VSMALL) > 2.0 {
-                    b = true;
-                }
-            } else {
-                let d = fc.sub(co);
-                let m = s.length();
-                if m > VSMALL {
-                    let n = s.scale(1.0 / m);
-                    let dn = n.scale(n.dot(d));
-                    if d.sub(dn).length() / (d.length() + VSMALL) > 2.0 {
-                        b = true;
-                    }
-                }
-            }
-        } else {
-            // checkFacePyramids(VSMALL)
-            if fc.sub(co).dot(s) / 3.0 < VSMALL {
-                b = true;
-            }
-            if let Some(n) = mesh.neighbour[f] {
-                if centres[n].sub(fc).dot(s) / 3.0 < VSMALL {
-                    b = true;
-                }
-            }
-            // checkFaceAreas(VSMALL)
-            if s.length() < VSMALL {
-                b = true;
-            }
-            if mode == CheckMode::Bad {
-                // checkFaceFlatness(0.8)
-                if k > 3 && s.length() > VSMALL {
-                    let mut sum_a = 0.0;
-                    for i in 0..k {
-                        let p = mesh.points[ring[i]];
-                        let q = mesh.points[ring[(i + 1) % k]];
-                        sum_a += q.sub(p).cross(fc.sub(p)).length() * 0.5;
-                    }
-                    if s.length() / (sum_a + VSMALL) < 0.8 {
-                        b = true;
-                    }
-                }
-                // checkCellPartTetrahedra(VSMALL)
-                for i in 0..k {
-                    let p = mesh.points[ring[i]];
-                    let q = mesh.points[ring[(i + 1) % k]];
-                    if tet_volume(fc, q, p, co) < VSMALL {
-                        b = true;
-                    }
-                    if let Some(n) = mesh.neighbour[f] {
-                        if tet_volume(fc, p, q, centres[n]) < VSMALL {
-                            b = true;
-                        }
-                    }
-                }
-            }
+    };
+    match mode {
+        CheckMode::Bad => {
+            or(c::check_face_pyramids_g(mesh, &g, VSMALL, a).1);
+            or(c::check_face_flatness_g(mesh, &g, 0.8, a).1);
+            or(c::check_cell_part_tetrahedra_g(mesh, &g, VSMALL, a).1);
+            or(c::check_face_areas_g(mesh, &g, VSMALL, a).1);
         }
-        bad[f] = b;
+        CheckMode::Relaxed => {
+            or(c::check_face_pyramids_g(mesh, &g, VSMALL, a).1);
+            or(c::check_face_areas_g(mesh, &g, VSMALL, a).1);
+        }
+        CheckMode::LowQuality => {
+            or(c::check_face_dot_product_g(mesh, &g, 65.0, a).1);
+            or(c::check_face_skewness_g(mesh, &g, 2.0, a).1);
+        }
     }
     bad
 }
@@ -1703,12 +1654,18 @@ pub fn optimize_surface_octree(
 /// `polyMeshGenChecks::checkFaceDotProduct(mesh, values, changedFacePtr)`:
 /// `d · S / (|d| |S| + VSMALL)` on the active internal faces, 1 elsewhere.
 pub fn face_dot_products(mesh: &VolumeMesh, active: &[bool]) -> Vec<f64> {
-    let (_, centres) = cell_geometry(mesh);
+    face_dot_products_g(mesh, &crate::checks::pmg_geometry(mesh), active)
+}
+
+/// [`face_dot_products`] on a precomputed [`crate::checks::PmgGeometry`]:
+/// `(d & s)/(mag(d)*mag(s) + VSMALL)` with the addressing's cell centres and
+/// face areas.
+pub(crate) fn face_dot_products_g(mesh: &VolumeMesh, g: &crate::checks::PmgGeometry, active: &[bool]) -> Vec<f64> {
     (0..mesh.face_count())
         .map(|f| match mesh.neighbour[f] {
             Some(n) if active[f] => {
-                let d = centres[n].sub(centres[mesh.owner[f]]);
-                let s = mesh.face_area_vector(f);
+                let d = g.cell_centres[n].sub(g.cell_centres[mesh.owner[f]]);
+                let s = g.face_areas[f];
                 d.dot(s) / (d.length() * s.length() + VSMALL)
             }
             _ => 1.0,
@@ -1723,30 +1680,37 @@ pub fn face_dot_products(mesh: &VolumeMesh, active: &[bool]) -> Vec<f64> {
 /// test `changedFacePtr` there), the tangential part of centre-to-face over
 /// its length; 0 elsewhere.
 pub fn face_skewness(mesh: &VolumeMesh, active: &[bool]) -> Vec<f64> {
-    let (_, centres) = cell_geometry(mesh);
+    face_skewness_g(mesh, &crate::checks::pmg_geometry(mesh), active)
+}
+
+/// [`face_skewness`] on a precomputed [`crate::checks::PmgGeometry`], in
+/// upstream's operation order: `centres[own]*dNei/(dOwn + dNei) +
+/// centres[nei]*dOwn/(dOwn + dNei)` is `((c*d)/s) + ((c*d)/s)`; the boundary
+/// normal is `face::normal` (`areaNormal`), divided by its magnitude.
+pub(crate) fn face_skewness_g(mesh: &VolumeMesh, g: &crate::checks::PmgGeometry, active: &[bool]) -> Vec<f64> {
     (0..mesh.face_count())
         .map(|f| {
-            let fc = mesh.face_centroid(f);
-            let co = centres[mesh.owner[f]];
+            let fc = g.face_centres[f];
+            let co = g.cell_centres[mesh.owner[f]];
             match mesh.neighbour[f] {
                 Some(n) => {
                     if !active[f] {
                         return 0.0;
                     }
-                    let cn = centres[n];
+                    let cn = g.cell_centres[n];
                     let d_own = fc.sub(co).length();
                     let d_nei = fc.sub(cn).length();
-                    let x = co.scale(d_nei / (d_own + d_nei)).add(cn.scale(d_own / (d_own + d_nei)));
+                    let x = co.scale(d_nei).div(d_own + d_nei).add(cn.scale(d_own).div(d_own + d_nei));
                     fc.sub(x).length() / (cn.sub(co).length() + VSMALL)
                 }
                 None => {
                     let d = fc.sub(co);
-                    let s = mesh.face_area_vector(f);
+                    let s = crate::surface_engine::ring_area_vector(&mesh.points, &mesh.faces[f]);
                     let m = s.length();
                     if m <= VSMALL {
                         return 0.0;
                     }
-                    let nrm = s.scale(1.0 / m);
+                    let nrm = s.div(m);
                     let dn = nrm.scale(nrm.dot(d));
                     d.sub(dn).length() / (d.length() + VSMALL)
                 }
@@ -1884,8 +1848,10 @@ fn point_points(mesh: &VolumeMesh) -> Vec<Vec<usize>> {
 ///   volumes) of the start of each iteration (`updateMeshGeometry` runs
 ///   after it), so the points of one iteration do not see each other.
 ///
-/// Centres are this crate's ([`crate::checks::cell_geometry`]), not
-/// OpenFOAM's area-weighted ones (module docs). Not
+/// ~~Centres are this crate's ([`crate::checks::cell_geometry`]), not
+/// OpenFOAM's area-weighted ones (module docs).~~ **CORRECTED 2026-11-11
+/// (gh:#1385):** cell centres are cfMesh's (`foam_cell_centres_and_vols`).
+/// Not
 /// [`crate::smooth::laplacian_smooth`] (Freitag's smart Laplacian): this is
 /// cfMesh's plain one, which may invert a cell; `optimizeMeshFV` untangles
 /// after it.
@@ -2203,6 +2169,7 @@ pub struct ConstraintViolation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::checks::cell_geometry;
     use crate::cartesian::cartesian_box;
     use crate::checks::check_quality;
 

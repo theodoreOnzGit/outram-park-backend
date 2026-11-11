@@ -179,7 +179,7 @@ fn port_stage(tutorial: &str, generator: Generator, step: &str) -> PolyMesh {
 }
 
 /// `(step, bit-identical, port mesh vs upstream line)` for every stage that has an upstream mesh.
-fn staged(tutorial: &str, generator: Generator, short: &str, run_prefix: &str) -> Vec<(String, bool)> {
+fn staged(tutorial: &str, generator: Generator, short: &str, run_prefix: &str) -> Vec<(String, bool, bool)> {
     let mut out = Vec::new();
     for step in STEPS {
         // GH1385_ONLY=<step> runs one stage (for traces)
@@ -190,15 +190,17 @@ fn staged(tutorial: &str, generator: Generator, short: &str, run_prefix: &str) -
             println!("{run_prefix} after {step}: no upstream stage mesh (not committed; set GH1385_UPSTREAM_RUNS); skipped");
             continue;
         };
-        let (line, same) = compare(&port_stage(tutorial, generator, step), &up);
+        let port = port_stage(tutorial, generator, step);
+        let (line, same) = compare(&port, &up);
         println!("{run_prefix} after {step}: {line}");
-        out.push((step.to_string(), same));
+        let counts = (port.points.len(), port.faces.len(), port.n_cells, port.n_internal_faces) == (up.points.len(), up.faces.len(), up.n_cells, up.n_internal_faces);
+        out.push((step.to_string(), same, counts));
     }
     out
 }
 
-fn matched(r: &[(String, bool)], step: &str) -> Option<bool> {
-    r.iter().find(|(s, _)| s == step).map(|(_, same)| *same)
+fn matched(r: &[(String, bool, bool)], step: &str) -> Option<bool> {
+    r.iter().find(|(s, _, _)| s == step).map(|(_, same, _)| *same)
 }
 
 /// `asmoOctree` (cartesianMesh, 10 patches, local refinement): the port
@@ -213,7 +215,7 @@ fn matched(r: &[(String, bool)], step: &str) -> Option<bool> {
 /// | patchAssignment | 49541/49690, worst 6.3e-6 m | identical |
 /// | edgeExtraction | 32413 cells vs 32419, 114400 faces vs 114411 | identical (points, faces) |
 /// | boundaryLayerGeneration | 52997 cells vs 53003 | identical (points, faces, the 53003 cell lists) |
-/// | meshOptimisation | 52997 cells vs 53003 | counts equal, faces identical, 71542/71650 points bit-identical, worst 4.9e-4 m |
+/// | meshOptimisation | 52997 cells vs 53003 | counts equal, faces identical, 71542/71650 points bit-identical, worst 4.9e-4 m; **round 3: 71649/71650, worst 4.1e-25 m** (the pow ulp, see `asmo_octree_mesh_optimisation_is_within_one_pow_ulp`) |
 ///
 /// The committed upstream stage meshes are `edgeExtraction` and
 /// `boundaryLayerGeneration` (1.8 and 3.0 MB gzipped); the others are read from
@@ -315,14 +317,85 @@ fn asmo_octree_final_mesh() {
     assert!(faces_same, "faces must be index-identical");
 }
 
-/// `elbow_90degree` (cartesianMesh, `minCellSize`, `boundaryLayers`): **not
-/// matched.** The first difference is `templateGeneration` (21830 cells vs
-/// 21977): upstream's `minCellSize` runs the octree's automatic refinement
-/// (`meshOctreeAutomaticRefinement`), which the port's octree refines
-/// differently on this surface; everything after inherits it (final 108383
-/// cells vs 108995). Printed only; no upstream stage mesh is committed.
+/// The whole run of `tutorial` through `generator` against
+/// `GH1385_UPSTREAM_RUNS/<run>` (final meshes, after `renumberMesh`): prints
+/// the comparison line, returns `(counts equal, bit-identical)`; `None` when
+/// the upstream run is absent. **A status record, not a gate** (gh:#1385,
+/// round 3: no staged upstream runs exist for these cases yet).
+fn final_status(tutorial: &str, generator: Generator, run: &str) -> Option<(bool, bool)> {
+    let up = upstream_final(run)?;
+    let port = port_stage(tutorial, generator, "");
+    let (line, same) = compare(&port, &up);
+    println!("{run} final: {line} (identical: {same})");
+    Some(((port.points.len(), port.faces.len(), port.n_cells) == (up.points.len(), up.faces.len(), up.n_cells), same))
+}
+
+/// `cutCube` (tetMesh `cutCubeOctree`'s surface) through the three generators,
+/// and `hatOctree` through `cartesian2DMesh`, final meshes against upstream
+/// (`runs/cutCube_{tetMesh,pMesh,cartesianMesh}`, `runs/hatOctree`).
+///
+/// # Status (2026-11-11, release, V&V README round 3)
+///
+/// Printed by this test; see the README for the numbers. These runs are not
+/// staged yet (`workflowControls stopAfter` runs of upstream for each step,
+/// as for the sphere and asmoOctree), so a difference cannot be localised
+/// from this test alone: the generator-level traces (`GH1385_TRACE`) are the
+/// way.
+#[test]
+fn cut_cube_and_hat_octree_final_meshes_status() {
+    for (tutorial, generator, run) in [
+        ("tetMesh/cutCubeOctree", Generator::TetMesh, "cutCube_tetMesh"),
+        ("tetMesh/cutCubeOctree", Generator::PMesh, "cutCube_pMesh"),
+        ("tetMesh/cutCubeOctree", Generator::CartesianMesh, "cutCube_cartesianMesh"),
+        ("cartesian2DMesh/hatOctree", Generator::Cartesian2DMesh, "hatOctree"),
+    ] {
+        match final_status(tutorial, generator, run) {
+            Some((counts, same)) => println!("{run}: counts equal {counts}, bit-identical {same}"),
+            None => println!("{run}: no upstream run (set GH1385_UPSTREAM_RUNS); skipped"),
+        }
+    }
+}
+
+/// `elbow_90degree` (cartesianMesh, `minCellSize`, `boundaryLayers`,
+/// `renameBoundary`), the port against cfMesh `e944f6ba695f` stopped after
+/// each of the eight steps (`GH1385_UPSTREAM_RUNS/stage_elbow_cartesianMesh_<step>`;
+/// not committed, about 3.5 MB each; skipped when absent).
+///
+/// # Results (2026-11-11, release; V&V README, "round 3")
+///
+/// | step | round 2 | now (PETIR `powf`) | now, with this machine's glibc `pow` (experiment, not committed) |
+/// |---|---|---|---|
+/// | templateGeneration | 21830 cells vs 21977 | identical | identical |
+/// | surfaceTopology, surfaceProjection, patchAssignment | not reached | identical | identical |
+/// | edgeExtraction | | counts equal, 34255/34508 points, worst 1.4e-14 m | identical |
+/// | boundaryLayerGeneration | | counts equal, 48845/49382 points | identical |
+/// | meshOptimisation | 43606/49382 points, worst 0.21 m (3 bad faces vs 2) | counts equal, 43613/49382 points, worst 6.6e-5 m | identical |
+/// | boundaryLayerRefinement | | counts equal (108 995 cells); 107 600/121 398 points, worst 6.6e-5 m; faces not index-identical | 121 333/121 398 points, worst 2.7e-15 m; faces not index-identical |
+///
+/// **The remaining differences have two causes.** (1) The last-bit
+/// differences of `edgeExtraction` onward are the `pow(stab, 3)` of
+/// `surfaceOptimizer::evaluateGradients`: glibc's FMA `pow` against PETIR's
+/// non-FMA ARM `pow` (proof in `asmo_octree_mesh_optimisation_is_within_one_pow_ulp`
+/// and the README). (2) The final mesh's face order differs because
+/// `refineBoundaryLayers` returns the refined mesh through
+/// `from_cell_faces_wound`, not in upstream's assembly order (original
+/// internal faces in order with their pieces, new internal faces in creation
+/// order, boundary faces per patch; the first child of a cell keeps its
+/// label, the others are appended), so the in-flight mesh differs from
+/// upstream's before `renumberMesh`. Not ported yet.
+///
+/// Asserted: bit-identical through `patchAssignment`, and equal counts at
+/// every step.
 #[test]
 fn elbow_90degree_cartesian_mesh_stages() {
     let r = staged("cartesianMesh/elbow_90degree", Generator::CartesianMesh, "elbow_cartesianMesh", "stage_elbow_cartesianMesh");
     println!("{r:?}");
+    for step in ["templateGeneration", "surfaceTopology", "surfaceProjection", "patchAssignment"] {
+        if let Some(same) = matched(&r, step) {
+            assert!(same, "elbow after {step} must be bit-identical");
+        }
+    }
+    for (step, _, counts) in &r {
+        assert!(*counts, "elbow after {step}: counts must equal upstream's");
+    }
 }

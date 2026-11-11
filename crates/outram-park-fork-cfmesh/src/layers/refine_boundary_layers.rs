@@ -462,16 +462,16 @@ fn refine_boundary_layers_mode(mesh: &VolumeMesh, s: &RefineBoundaryLayersSettin
         let magv = v.length();
         let mut first = magv / n_layers as f64;
         if ratio > 1.0 + SMALL {
-            first = magv / ((1.0 - ratio.r_powi(n_layers as i32)) / (1.0 - ratio));
+            first = magv / ((1.0 - ratio.r_powf(n_layers as f64)) / (1.0 - ratio));
         }
         let first = thickness.max(SMALL).min(first);
-        let dir = v.scale(1.0 / (magv + VSMALL));
+        let dir = v.div(magv + VSMALL);
         let mut labels = vec![h[0]];
         let mut param = first;
         for j in 1..n_layers {
             labels.push(points.len());
             points.push(start.add(dir.scale(param)));
-            param += first * ratio.r_powi(j as i32);
+            param += first * ratio.r_powf(j as f64);
         }
         labels.push(h[1]);
         hair_labels.push(labels);
@@ -1250,7 +1250,11 @@ mod tests {
         // a neighbouring patch is to the infinite line, `help::
         // distanceOfPointFromTheEdge`; `v /= magV`, `normal /= magN`, `normal /=
         // 2.0*dist` divide), and the layer's cell lists follow `replaceBoundary`.
-        assert_eq!((mesh_fingerprint(&r), mesh_fingerprint(&br)), (0x591e062dc441a92f, 0xb10f852a9b013e88));
+        // Moved a third time 2026-11-11 (gh:#1385 round 3): ~~0x591e062dc441a92f~~
+        // 0xeaba2317968a1edb and ~~0xb10f852a9b013e88~~ 0xe9d49663cdf3d5e8; `generateNewVertices` follows
+        // upstream (`vec = v/(magv + VSMALL)` divides, `pow(ratio, n)` is
+        // `pow(double, double)`), which moves the split points in the last bit.
+        assert_eq!((mesh_fingerprint(&r), mesh_fingerprint(&br)), (0xeaba2317968a1edb, 0xe9d49663cdf3d5e8));
     }
 
     fn global(n: usize, r: f64) -> RefineBoundaryLayersSettings {

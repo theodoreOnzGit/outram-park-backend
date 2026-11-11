@@ -750,3 +750,173 @@ Prediction: with `checkFacePyramids`, `checkFaceFlatness`,
 and 95202 only, the part tet mesh has 1366 nodes, and (with the glibc-pow
 experiment) elbow `meshOptimisation` and the final mesh are bit-identical. If a
 difference remains, the first `BADF`/`TN` line that differs names it.
+
+### Round 3 results (2026-11-11, release)
+
+The predictions above, checked:
+
+* **asmoOctree `meshOptimisation`: prediction 71650/71650, got 71649/71650,
+  worst 4.1e-25 m**, and the same for the final mesh (`renumberMesh`,
+  `renameBoundaryPatches`). Before: 71542/71650, worst 4.9e-4 m. The miss is
+  explained, not a defect to fix here: see "The pow ulp" below.
+* **elbow_90degree template: predicted and got 21977 cells, bit-identical**
+  (before 21830). The prediction named the cause (hash order of
+  `otherLabels` in `triSurfaceCurvatureEstimator`); the curvature marks went
+  from 112/108/0 to upstream's 131/112/0, partitions 35 -> 27.
+* **elbow `meshOptimisation`: predicted bit-identical with the glibc `pow`
+  experiment, got it** (49382/49382 points, 128265/128265 faces), after the
+  `findBadFaces` port (2 bad faces as upstream, part tet mesh of 1366 nodes
+  as upstream) and the LP untangler's two divisions.
+
+#### Stage tables
+
+asmoOctree (`cartesianMesh`), points bit-identical / faces index-identical:
+
+| step | round 2 | round 3, PETIR `powf` | round 3, glibc `pow` (experiment) |
+|---|---|---|---|
+| templateGeneration ... boundaryLayerGeneration | identical | identical | identical |
+| meshOptimisation | 71542/71650, worst 4.9e-4 m, faces identical | **71649/71650, worst 4.1e-25 m**, faces identical | **71650/71650** |
+| final mesh | not compared | 71649/71650, faces identical | 71650/71650, faces identical |
+
+elbow_90degree (`cartesianMesh`, 8 steps, `GH1385_UPSTREAM_RUNS/stage_elbow_cartesianMesh_<step>`):
+
+| step | round 2 | round 3, PETIR `powf` | round 3, glibc `pow` (experiment) |
+|---|---|---|---|
+| templateGeneration | 21830 cells vs 21977 | identical (34125 points, 77492 faces) | identical |
+| surfaceTopology, surfaceProjection, patchAssignment | inherited | identical | identical |
+| edgeExtraction | | counts equal; 34255/34508 points, worst 1.4e-14 m | identical |
+| boundaryLayerGeneration | | counts equal; 48845/49382 points | identical |
+| meshOptimisation | 43606/49382 points, worst 0.21 m; 3 bad faces vs 2 | counts equal; 43613/49382 points, worst 6.6e-5 m (the pow ulp, grown through the optimiser) | identical |
+| boundaryLayerRefinement (final) | 106825/121398 points, worst 0.23 m; cells 108383 vs 108995 | counts equal (108 995 cells); 107600/121398 points, worst 6.6e-5 m; **faces not index-identical** | 121333/121398 points, worst 2.7e-15 m; faces not index-identical |
+
+Status records, not staged yet (`cut_cube_and_hat_octree_final_meshes_status`;
+final meshes only; counts equal in all four):
+
+| case (generator) | PETIR `powf` | glibc `pow` (experiment) |
+|---|---|---|
+| cutCube (cartesianMesh) | **13470/13470 points, 32329/32329 faces bit-identical** | same |
+| cutCube (tetMesh) | 39496/40498 points, worst 2.2e-10 m | 39924/40498, worst 3.3e-13 m |
+| cutCube (pMesh) | 18160/222560 points, worst 6.9e-3 m | 19206/222560, worst 6.9e-3 m |
+| hatOctree (cartesian2DMesh) | 25342/38090 points, worst 7.3e-5 m | same |
+
+The tetMesh last-bit rest after the pow experiment (3.3e-13) has another
+source not found; the pMesh (6.9e-3) and hatOctree (7.3e-5) differences are
+**real** (not round-off), not localised: there is no staged upstream run of
+them, which is the first thing to make.
+
+#### The fixes (before -> after, each with its cause)
+
+1. **`volumeOptimizer::evaluateGradientsExact` and the Knupp metric,
+   operation for operation** (`mesh_optimizer.rs`): the port divided or
+   multiplied by a reciprocal where upstream's expression divides or
+   associates otherwise (`Vtri*gradV/stab`, `C*(2.*gradVs)/Vs13`,
+   `gradF += a - b`, the Hessian `((A - B) - C) + D`, `pow(stab, 3)` /
+   `pow(Vs13, 4)` as `pow(double, double)`), `Tensor::det` (cofactor
+   expansion against `xx*yy*zz + ...`), `tetrahedron::mag` (`(1.0/6.0)*x`),
+   `points_ /= scale`, `normal = n/d`. Alone these did **not** move asmoOctree
+   `meshOptimisation` (71542/71650 both before and after): the first prediction
+   above (71650/71650 from these) was **wrong about the cause**, and the first
+   differing point was not a volume-optimiser move.
+2. **`partTetMesh::createPointsAndTets`**: face and cell centres are the
+   polyMeshGen addressing's (`pmg_face_centre_and_area`,
+   `foam_cell_centres_and_vols`, new `checks::pmg_geometry`), not the vertex
+   average and the pyramid centroid; a cell's faces run in cfMesh's cell-list
+   order; a cell of four triangles is one tet (`tetMatcher::matchShape`,
+   `match_tet`), with no cell-centre node; `updateVerticesSMP`'s centres divide
+   (`c /= 3` then `c*area`, `centre/cellVol`). asmoOctree `meshOptimisation`
+   71542 -> 71649.
+3. **`updateOrigMesh` marks every tet-mesh node as changed**, moved or not
+   (`changedNode[...] = true`), so the next `changedFace` covers every cell
+   around the region; the port marked only moved nodes, so the faces around a
+   locked node were not re-checked and the 9 low-quality faces left after
+   `refineBoundaryLayers` (all points of the layer locked) were reported as
+   repaired (9 -> 0) where upstream keeps 9 for ten iterations.
+4. **`findBadFaces`, `findBadFacesRelaxed`, `findLowQualityFaces` are cfMesh's
+   checks on the addressing's geometry** (`mesh_optimizer::flag_faces` now
+   calls `poly_mesh_gen_checks::check_face_pyramids_g` (OpenFOAM's
+   `pyramidPointFaceRef::mag`: `(1.0/3.0)*(areaNormal & (apex - centre))` with
+   `face::areaNormal` and `face::centre`), `check_face_flatness_g`,
+   `check_cell_part_tetrahedra_g`, `check_face_areas_g`,
+   `check_face_dot_product_g`, `check_face_skewness_g`); `tet_volume` is
+   `(1/6)*x` there too; `face_skewness`'s weighting is `((c*d)/s) + ((c*d)/s)`
+   and its boundary normal is `areaNormal / mag`; the dot product threshold
+   is `cos(65/180*pi)`. The elbow flagged 3 faces where upstream flags 2.
+5. **`meshUntangler`**: `plane`'s normal is `n/mag(n)` and the feasible
+   region's mean `p/size` divides (both were `scale(1/x)`). Elbow
+   `untangler` stage: 52 nodes differing by 4e-4 m -> identical.
+6. **`triSurfaceCurvatureEstimator`**: the quadric fit is over `otherLabels`,
+   a `labelHashSet`, iterated in OpenFOAM's hash order (new private
+   `FoamLabelHashSet`: `Hash<label>` is the label, capacity 128 on first
+   insert, head insertion into a bucket chain, rehash at 0.8 load with each
+   node moved to the head of its new bucket); the second ring is collected
+   through a second hash set the same way; `e /= d`, `vecX /= mag`,
+   `normal/d - c3*vecX/d - c4*vecY/d`, `plane`'s unit normal divide. The fit
+   is near-singular with five to seven points, so the order is not a round-off
+   matter: 927 of 5150 triangles' mean curvature differed by more than 1e-9
+   relative (worst -0.215 vs -4.54).
+7. **`refineBoundaryLayers::generateNewVertices`**: `vec = v/(magv + VSMALL)`,
+   `pow(ratio, n)` as `pow(double, double)`. Points after the split: 942
+   differing -> 0.
+
+#### The pow ulp (the residual of asmoOctree and of the elbow's `edgeExtraction` onward)
+
+`surfaceOptimizer::evaluateGradients` has `pow(stab, 3)`. This machine's
+glibc 2.39 `pow` is its FMA ifunc build; PETIR's `powf` is the non-FMA ARM
+`pow` **by design** (`petir::fast_exp` module docs: glibc's FMA build differs
+on a small fraction of inputs by one ulp; PETIR tracks the no-FMA row on
+purpose so that its bits do not depend on the CPU). For `stab =
+0.03166163363177029`, glibc gives 3.173949098934236e-5 and PETIR
+3.1739490989342366e-5. Chain of evidence, asmoOctree point 51898 (bp 2069)
+and elbow bp 12597: traces of both codes with identical inputs (point
+normal, `vecX`, `vecY`, the simplex points, every divide-and-conquer step) and
+a Hessian diagonal that differs by one ulp with an identical gradient; Python's
+`math.pow` (glibc) in upstream's operation order reproduces upstream's Hessian
+and `x*x*x` reproduces ours; and replacing the pows of `surface_optimizer.rs`
+and `mesh_optimizer.rs` by the platform `powf` (an experiment, **not
+committed**: the platform libm is what PETIR's gate forbids) makes asmoOctree
+71650/71650 and the elbow bit-identical through `meshOptimisation`. The
+difference is below 1e-8 relative with a proven round-off cause: accepted and
+**flagged for the maintainer**, who may want a `pow` that matches the FMA
+build (PETIR change; not made here). `asmo_octree_mesh_optimisation_is_within_one_pow_ulp`
+pins it from above (at most that one point, worst 4.2e-25 m).
+
+#### Moved pins (old values struck through in the source)
+
+| pin | moved | cause |
+|---|---|---|
+| `pipeline::tests::layer_strategies_are_deterministic` (CfMeshOptimise) | 18177691582502802893 -> 14814967247723517733 (fixes 1, 2) -> 6667351423853767910 (fixes 3-5, 7); cell count 7725 unchanged; SnappyCollapse unchanged | the optimiser, its checks and the tet-mesh geometry follow upstream |
+| `layers::refine_boundary_layers::tests::prism_refinement_is_pinned_bit_for_bit` | pipe 0x591e062dc441a92f -> 0xeaba2317968a1edb, box 0xb10f852a9b013e88 -> 0xe9d49663cdf3d5e8 | fix 7 |
+| `mesh_optimizer::tests::knupp_metric_makes_one_pass_as_upstream` | the case (three pushed points) is now repaired in one pass, so the test picks the first of up to seven pushed points that leaves inverted tetrahedra | fixes 2, 4; the one-pass rule is unchanged |
+| `final_mesh::tests::projected_untangle_keeps_the_inlet_planar` | the "gh1285 order" case: `AfterUntangle` ~~1.78e-4 m off the inlet plane~~ 0e0 (assertion `> 1e-5` -> `< 1e-9`) | fixes 2-5 |
+
+**`anisotropic::...generators_without_anisotropic_sources_are_pinned_bit_for_bit`
+did not move this round** (all four fingerprints identical after all fixes;
+its maintainer flag from round 2 stands). Did not move: the sphere tests
+(`cfmesh_vs_upstream_sphere`: all seven steps and the final meshes of the
+three generators stay bit-identical), `cfmesh_vs_upstream_cell_order`,
+`cfmesh_patch_types*`, `octree_path`, `back_off_only`. **Not run:** Foam
+Studio's `headless_unstructured_default_is_pinned` (the `dhoby-ghaut` example
+`foam_studio_web` was not built on this machine); it shares
+`surface_optimizer` and the part tet mesh, so check it before merging.
+
+#### What remains
+
+1. **`refineBoundaryLayers` assembly order** (elbow `boundaryLayerRefinement`,
+   final mesh): upstream returns the refined mesh with the original internal
+   faces in order (each with its pieces), then the newly generated internal
+   faces in creation order, then the boundary faces per patch, and the first
+   child of a cell keeps the cell's label while the others are appended;
+   `refine_boundary_layers_mode` assembles through `from_cell_faces_wound`
+   (RFF dump of both: 339 258 of 339 265 faces differ in position; the mesh
+   before the split is index-identical). The in-flight mesh then differs from
+   upstream's before `renumberMesh`, so the final faces are not
+   index-identical although the topology and (after fix 3) the points agree to
+   2.7e-15 m. The new-face order depends on the order of each cell's faces in
+   `generateNewCellsPrism` / `generateNewCellsHex...`, which the port builds in
+   its own order.
+2. **pMesh (cutCube, 6.9e-3 m) and cartesian2DMesh (hatOctree, 7.3e-5 m)**:
+   real differences, no staged upstream runs yet; tetMesh's 3.3e-13 m rest
+   after the pow experiment has an unfound source.
+3. **The pow ulp** (above): a decision for the maintainer.
+4. Brute-force searches in `snap` and `SurfaceQueries::nearest_edge_point`,
+   and about 140 `scale(1.0 / x)` sites, remain as in round 2.
