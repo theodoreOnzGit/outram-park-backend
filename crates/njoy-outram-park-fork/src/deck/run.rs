@@ -406,7 +406,9 @@ fn run_acer_fix(c: &AcerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         .ok_or_else(|| NjoyError::InvalidInput(format!("acer: unit {} holds no ACE file", c.npend)))?
         .to_string();
     let req = crate::acer::acefix::AcefixRequest { suff: c.suff, hk: c.hk.clone(), nxtra: c.nxtra, plot: c.ngend != 0 };
-    let out = crate::acer::acefix::acefix_type1(&text, &req)?;
+    // `acer.f90:508-535`: the class letter of the ZAID picks the fix routine.
+    let thermal = text.lines().next().and_then(|l| l.chars().nth(9)) == Some('t');
+    let out = if thermal { crate::acer::thrfix::thrfix_type1(&text, &req)? } else { crate::acer::acefix::acefix_type1(&text, &req)? };
     if c.nace > 0 {
         units.put_text(c.nace, out.ace);
         if c.ndir != 0 {

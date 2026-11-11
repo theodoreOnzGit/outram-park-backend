@@ -29,7 +29,7 @@
 
 mod angular_pages;
 mod emission_pages;
-mod fmt;
+pub(crate) mod fmt;
 mod lin_pages;
 mod log_pages;
 mod mtname_table;

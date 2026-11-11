@@ -825,7 +825,11 @@ impl AceTable {
             }
             itcx = xss.len() as i32 + 1;
             for &(_, s) in &edges {
-                real(s / EMEV / natom, &mut xss, &mut is_int); // cumulative S·E [MeV·b]
+                // ~~`s / EMEV / natom`~~ **CORRECTED 2026-11-12 (gh:#1369):** `thrlod`
+                // divides by `nmix` (= 1 here), never by `natom` (`aceth.f90:735`);
+                // deck 67 (`natom = 2`, mixed elastic) was 2x off. Every earlier
+                // gate had `natom = 1`, where the two agree.
+                real(s / EMEV, &mut xss, &mut is_int); // cumulative S·E [MeV·b]
             }
             idpnc = 4; // coherent elastic
             ncl = -1;

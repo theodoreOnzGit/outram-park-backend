@@ -1275,3 +1275,33 @@ fn test_25_thermal_ace_and_directory() {
 fn test_49_thermal_ace_and_directory() {
     thermal_acer_deck("49", 1, &[("n-040_Zr_090-ENDF8.0.endf", 20), ("tsl-ZrinZrH-ENDF8.0.endf", 30)], &[61, 71]);
 }
+
+/// Deck 67 (D in 7LiD, `LTHR = 3` mixed elastic, `natom = 2`): the first ACER's ACE unit 70 and directory unit 75.
+#[test]
+fn test_67_thermal_ace_and_directory() {
+    thermal_acer_deck("67", 2, &[("n-001_H_002-ENDF8.0.endf", 20), ("tsl-DinLiD-ENDF8.1-beta.endf", 21)], &[70, 75, 71, 76, 55]);
+}
+
+/// Deck 68 (H in H2O, inelastic only): ACE unit 70 and directory unit 75.
+#[test]
+fn test_68_thermal_ace_and_directory() {
+    thermal_acer_deck("68", 2, &[("n-001_H_001-ENDF8.0-Beta6.endf", 20), ("tsl-HinH2O-ENDF8.0-Beta6.endf", 21)], &[70, 75, 71, 76, 55]);
+}
+
+/// Deck 69 (Zr in ZrH, `LTHR = 2`, `ielas = 1`): ACE unit 70 and directory unit 75.
+#[test]
+fn test_69_thermal_ace_and_directory() {
+    thermal_acer_deck("69", 2, &[("n-040_Zr_090-ENDF8.0.endf", 20), ("tsl-ZrinZrH-ENDF8.0.endf", 21)], &[70, 75, 71, 76, 55]);
+}
+
+/// Deck 70 (Al-27, `LTHR = 1`, coherent): ACE unit 70 and directory unit 75.
+#[test]
+fn test_70_thermal_ace_and_directory() {
+    thermal_acer_deck("70", 2, &[("n-013_Al_027-ENDF8.0.endf", 20), ("tsl-013_Al_027-ENDF8.0.endf", 21)], &[70, 75, 71, 76, 55]);
+}
+
+/// Deck 74 (H in ZrH, `LTHR = 2`, `iwt = 2`): ACE unit 70 and directory unit 75.
+#[test]
+fn test_74_thermal_ace_and_directory() {
+    thermal_acer_deck("74", 2, &[("n-001_H_001-ENDF8.0-Beta6.endf", 20), ("tsl-HinZrH-ENDF8.0.endf", 21)], &[70, 75, 71, 76, 55]);
+}

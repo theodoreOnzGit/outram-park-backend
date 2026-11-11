@@ -81,6 +81,8 @@
 //! ```
 
 pub mod acefix;
+pub mod thrfix;
+pub mod tplots;
 pub mod aplots;
 pub mod consis;
 pub mod acefix_change;
