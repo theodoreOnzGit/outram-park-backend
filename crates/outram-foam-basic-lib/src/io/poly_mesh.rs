@@ -277,6 +277,41 @@ impl PolyMesh {
         Ok(())
     }
 
+    /// Write `dir/cellZones` (OpenFOAM `cellZoneMesh`, gh:#1463): for each
+    /// `(name, cells)` a `cellZone` dictionary with its `cellLabels`. An empty
+    /// `zones` list writes nothing, as `blockMesh` only adds zones when a
+    /// block names one. A separate call so the `polyMesh` files themselves
+    /// are untouched.
+    ///
+    /// Format (what `blockMesh` writes):
+    /// `N ( name { type cellZone; cellLabels List<label> n ( ... ) ; } ... )`.
+    pub fn write_cell_zones(
+        dir: impl AsRef<Path>,
+        zones: &[(String, Vec<usize>)],
+    ) -> Result<(), IoError> {
+        if zones.is_empty() {
+            return Ok(());
+        }
+        let dir = dir.as_ref();
+        std::fs::create_dir_all(dir).map_err(|e| IoError::io(dir.display().to_string(), e))?;
+        let mut s = header_str("regIOobject", "cellZones");
+        s.push_str(&format!("{}\n(\n", zones.len()));
+        for (name, cells) in zones {
+            s.push_str(&format!(
+                "{name}\n{{\n    type cellZone;\n    cellLabels      List<label> \n{}\n(\n",
+                cells.len()
+            ));
+            for c in cells {
+                s.push_str(&c.to_string());
+                s.push('\n');
+            }
+            s.push_str(")\n;\n}\n");
+        }
+        s.push_str(")\n\n");
+        s.push_str(FOOTER);
+        write_file(&dir.join("cellZones"), &s)
+    }
+
     fn points_string(&self) -> String {
         let mut s = header_str("vectorField", "points");
         s.push_str(&format!("{}\n(\n", self.points.len()));

@@ -377,6 +377,55 @@ impl TriangleSoup {
         }
         crossings % 2 == 1
     }
+
+    /// True if the closed segment `a`–`b` crosses any facet (any-hit, the
+    /// analogue of `searchableSurface::findLineAny`, which
+    /// `refinementSurfaces::findHigherIntersection` calls in OpenFOAM-dev
+    /// `852527377c7e`, `refinementSurfaces.C:410`).
+    ///
+    /// Möller–Trumbore with the direction `b - a`, so the hit parameter is
+    /// accepted on `[0, 1]`. Brute force over the facets with a per-facet
+    /// bounding-box cull; an accelerated search is tracked in gh:#1470.
+    pub fn segment_hits(&self, a: Vector3, b: Vector3) -> bool {
+        let dir = b - a;
+        let lo = Vector3::new(a.x.min(b.x), a.y.min(b.y), a.z.min(b.z));
+        let hi = Vector3::new(a.x.max(b.x), a.y.max(b.y), a.z.max(b.z));
+        for t in &self.triangles {
+            if t.a.x.max(t.b.x).max(t.c.x) < lo.x
+                || t.a.x.min(t.b.x).min(t.c.x) > hi.x
+                || t.a.y.max(t.b.y).max(t.c.y) < lo.y
+                || t.a.y.min(t.b.y).min(t.c.y) > hi.y
+                || t.a.z.max(t.b.z).max(t.c.z) < lo.z
+                || t.a.z.min(t.b.z).min(t.c.z) > hi.z
+            {
+                continue;
+            }
+            let e1 = t.b - t.a;
+            let e2 = t.c - t.a;
+            let pvec = dir.cross(e2);
+            let det = e1.dot(pvec);
+            let scale = e1.mag() * e2.mag() * dir.mag();
+            if det.abs() <= 1e-14 * scale {
+                continue; // segment parallel to the facet plane
+            }
+            let inv = 1.0 / det;
+            let tvec = a - t.a;
+            let u = tvec.dot(pvec) * inv;
+            if !(0.0..=1.0).contains(&u) {
+                continue;
+            }
+            let qvec = tvec.cross(e1);
+            let v = dir.dot(qvec) * inv;
+            if v < 0.0 || u + v > 1.0 {
+                continue;
+            }
+            let s = e2.dot(qvec) * inv;
+            if (0.0..=1.0).contains(&s) {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 // ── Readers ─────────────────────────────────────────────────────────────────

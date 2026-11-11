@@ -108,12 +108,12 @@ fn centre_of(points: &[Vec3], triangles: &[([usize; 3], usize)], tri_ids: &[usiz
     let (mut centre, mut area_sum) = (Vec3::ZERO, 0.0);
     for &t in tri_ids {
         let tri = triangles[t].0;
-        let c = points[tri[0]].add(points[tri[1]]).add(points[tri[2]]).scale(1.0 / 3.0);
+        let c = points[tri[0]].add(points[tri[1]]).add(points[tri[2]]).div(3.0);
         let area = 0.5 * points[tri[1]].sub(points[tri[0]]).cross(points[tri[2]].sub(points[tri[0]])).length() + VSMALL;
         centre = centre.add(c.scale(area));
         area_sum += area;
     }
-    centre.scale(1.0 / area_sum)
+    centre.div(area_sum)
 }
 
 impl PartTriMesh {
@@ -399,7 +399,7 @@ fn evaluate_gradients(pts: &[Vec3], trias: &[[usize; 3]], k: f64) -> ([f64; 2], 
         let mut hgas: T2 = [[0.0; 2]; 2];
         for i in 0..2 {
             for j in 0..2 {
-                hgas[i][j] = 0.5 * ((ga[i] * ga[j]) / stab - a * a * (ga[i] * ga[j]) / stab.r_powi(3));
+                hgas[i][j] = 0.5 * ((ga[i] * ga[j]) / stab - a * a * (ga[i] * ga[j]) / stab.r_powf(3.0));
             }
         }
         let gl = [4.0 * p0.x - 2.0 * p1.x - 2.0 * p2.x, 4.0 * p0.y - 2.0 * p1.y - 2.0 * p2.y];
@@ -478,7 +478,9 @@ fn steepest_descent(pts: &mut [Vec3], trias: &[[usize; 3]], p_min: Vec3, p_max: 
             disp.y = (-h[1][0] * g[0] + h[0][0] * g[1]) / det;
             let m = disp.length();
             if m > 0.2 * avg_edge {
-                disp = disp.scale(0.2 * avg_edge / m);
+                // `dir = disp/mag(disp); disp = dir*0.2*avgEdge`
+                let dir = disp.div(m);
+                disp = dir.scale(0.2).scale(avg_edge);
             }
         }
         pts[c] = pts[c].sub(disp);
@@ -507,10 +509,11 @@ pub fn optimize_point(pts: &mut [Vec3], trias: &[[usize; 3]], tol: f64) -> Vec3 
         }
     }
     let scale = p_max.sub(p_min).length();
+    // `pts_[i] /= scale`, `pMin_ /= scale`: each component divided
     for p in pts.iter_mut() {
-        *p = p.scale(1.0 / scale);
+        *p = p.div(scale);
     }
-    let (p_min, p_max) = (p_min.scale(1.0 / scale), p_max.scale(1.0 / scale));
+    let (p_min, p_max) = (p_min.div(scale), p_max.div(scale));
     let c = trias[0][0];
     let func_divide = divide_and_conquer(pts, trias, p_min, p_max, tol);
     let new_point = pts[c];
@@ -795,7 +798,7 @@ impl MeshSurfaceOptimizer {
             if mag_sqr(n) < VSMALL {
                 return points[v];
             }
-            let n = n.scale(1.0 / n.length());
+            let n = n.div(n.length());
             for &bf in pf {
                 sum = sum.add(plane_nearest(points[v], n, self.engine.face_centres[bf]));
             }
@@ -804,7 +807,7 @@ impl MeshSurfaceOptimizer {
                 sum = sum.add(self.engine.face_centres[bf]);
             }
         }
-        sum.scale(1.0 / pf.len() as f64)
+        sum.div(pf.len() as f64)
     }
 
     /// `transformIntoPlane`: the point's simplex in the tangent plane
@@ -823,9 +826,9 @@ impl MeshSurfaceOptimizer {
             let q = plane_nearest(base, n, sp);
             let d = q.sub(p).length();
             if d > VSMALL {
-                let x = q.sub(p).scale(1.0 / d);
+                let x = q.sub(p).div(d);
                 let y = n.cross(x);
-                axes = Some((x, y.scale(1.0 / y.length())));
+                axes = Some((x, y.div(y.length())));
                 break;
             }
         }
@@ -844,7 +847,7 @@ impl MeshSurfaceOptimizer {
         if mag_sqr(n) < VSMALL {
             return points[v];
         }
-        let n = n.scale(1.0 / n.length());
+        let n = n.div(n.length());
         let Some((x, y, mut pts, trias)) = self.transform_into_plane(b, points[v], n) else {
             return points[v];
         };
@@ -868,7 +871,7 @@ impl MeshSurfaceOptimizer {
     }
 
     /// `smoothLaplacianFC`.
-    fn smooth_laplacian_fc(&mut self, points: &mut [Vec3], selected: &[usize], transform: bool) {
+    pub fn smooth_laplacian_fc(&mut self, points: &mut [Vec3], selected: &[usize], transform: bool) {
         let new: Vec<(usize, Vec3)> =
             selected.iter().filter(|&&b| !self.locked(b)).map(|&b| (b, self.new_position_laplacian_fc(points, b, transform))).collect();
         for (b, p) in new {
@@ -879,7 +882,7 @@ impl MeshSurfaceOptimizer {
 
     /// `smoothSurfaceOptimizer`. The triangulation is built on first use
     /// and afterwards updated only at `selected`, as upstream's.
-    fn smooth_surface_optimizer(&mut self, points: &mut [Vec3], selected: &[usize]) {
+    pub fn smooth_surface_optimizer(&mut self, points: &mut [Vec3], selected: &[usize]) {
         if self.tri_mesh.is_none() {
             self.tri_mesh = Some(PartTriMesh::new(&self.engine, &self.part, points));
         }
@@ -1062,8 +1065,20 @@ impl MeshSurfaceOptimizer {
 /// layers, mapping back onto the surface). The whole boundary is one patch
 /// here, as upstream's at that stage (before `extractPatches`).
 pub fn map_mesh_to_surface(mesh: &crate::volume_mesh::VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions) -> (crate::volume_mesh::VolumeMesh, UntangleReport) {
-    let mut m = mesh.clone();
     let q = crate::surface_mapper::SurfaceQueries::new(points, tris, regions);
+    map_mesh_to_surface_with(mesh, q)
+}
+
+/// [`map_mesh_to_surface`] with the nearest-point searches of upstream's
+/// octree (`meshOctree::findNearestSurfacePoint`), as the generators call it
+/// (gh:#1385).
+pub fn map_mesh_to_surface_octree(mesh: &crate::volume_mesh::VolumeMesh, o: &crate::mesh_octree::MeshOctree, points: &[Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions) -> (crate::volume_mesh::VolumeMesh, UntangleReport) {
+    let q = crate::surface_mapper::SurfaceQueries::new(points, tris, regions).with_octree(std::sync::Arc::new(o.clone()));
+    map_mesh_to_surface_with(mesh, q)
+}
+
+fn map_mesh_to_surface_with(mesh: &crate::volume_mesh::VolumeMesh, q: crate::surface_mapper::SurfaceQueries) -> (crate::volume_mesh::VolumeMesh, UntangleReport) {
+    let mut m = mesh.clone();
     let one = vec![0usize; m.face_count()];
     let mut engine = SurfaceEngine::from_parts(&m.points, &m.faces, &m.owner, &m.neighbour, &one);
     for b in 0..engine.n_boundary_points() {
@@ -1082,6 +1097,17 @@ pub fn map_mesh_to_surface(mesh: &crate::volume_mesh::VolumeMesh, points: &[Vec3
 /// `mesh`, whose boundary face `f` is in surface region `face_region[f]`.
 pub fn optimise_mesh_surface(mesh: &mut crate::volume_mesh::VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions, face_region: &[Option<usize>]) -> UntangleReport {
     let q = crate::surface_mapper::SurfaceQueries::new(points, tris, regions);
+    optimise_mesh_surface_with(mesh, q, regions, face_region)
+}
+
+/// [`optimise_mesh_surface`] with upstream's octree for the nearest-point
+/// searches of `mapEdgeNodes` (gh:#1385), as the generators call it.
+pub fn optimise_mesh_surface_octree(mesh: &mut crate::volume_mesh::VolumeMesh, o: &crate::mesh_octree::MeshOctree, points: &[Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions, face_region: &[Option<usize>]) -> UntangleReport {
+    let q = crate::surface_mapper::SurfaceQueries::new(points, tris, regions).with_octree(std::sync::Arc::new(o.clone()));
+    optimise_mesh_surface_with(mesh, q, regions, face_region)
+}
+
+fn optimise_mesh_surface_with(mesh: &mut crate::volume_mesh::VolumeMesh, q: crate::surface_mapper::SurfaceQueries, regions: &crate::patches::SurfaceRegions, face_region: &[Option<usize>]) -> UntangleReport {
     let unassigned = regions.names.len();
     let patch_of: Vec<usize> = face_region.iter().map(|r| r.unwrap_or(unassigned)).collect();
     let engine = SurfaceEngine::from_parts(&mesh.points, &mesh.faces, &mesh.owner, &mesh.neighbour, &patch_of);

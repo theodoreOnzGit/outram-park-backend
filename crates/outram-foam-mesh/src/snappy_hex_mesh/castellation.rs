@@ -97,6 +97,28 @@ pub struct CastellationControls {
     /// along it; the halves must end up conformal, which
     /// [`check_conformity`](crate::snappy_hex_mesh::check_conformity) verifies.
     pub cyclic_axes: [bool; 3],
+    /// How cells are selected for refinement; see [`RefinementSelection`].
+    /// Defaults to [`RefinementSelection::DistanceBand`] so existing callers'
+    /// meshes (and their pins) are unchanged.
+    pub selection: RefinementSelection,
+    /// `minRefinementCells` (upstream default in the tutorials: 0). Only read
+    /// by [`RefinementSelection::SurfaceIntersection`].
+    pub min_refine_cells: usize,
+}
+
+/// How [`castellate`] chooses the cells to split.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RefinementSelection {
+    /// Historical rule of this port: a cell is split while its centre lies
+    /// within a distance band of the surface. NOT what OpenFOAM does.
+    #[default]
+    DistanceBand,
+    /// OpenFOAM's `snappyRefineDriver::surfaceOnlyRefine`: a cell is split when
+    /// a cell-centre to cell-centre segment through one of its faces
+    /// intersects the surface and the surface's level exceeds the cell's,
+    /// followed by `hexRef8::consistentRefinement` (face 2:1). See
+    /// [`crate::snappy_hex_mesh::refinement`].
+    SurfaceIntersection,
 }
 
 impl CastellationControls {
@@ -110,7 +132,17 @@ impl CastellationControls {
             keep_point,
             surface_patch_name: "surface".to_string(),
             cyclic_axes: [false; 3],
+            selection: RefinementSelection::DistanceBand,
+            min_refine_cells: 0,
         }
+    }
+
+    /// Select cells the way OpenFOAM's `surfaceOnlyRefine` does
+    /// ([`RefinementSelection::SurfaceIntersection`]).
+    #[must_use]
+    pub fn with_surface_intersection_refinement(mut self) -> Self {
+        self.selection = RefinementSelection::SurfaceIntersection;
+        self
     }
 
     /// Mark background-box axis `axis` (`0 = x`, `1 = y`, `2 = z`) periodic, so
@@ -131,11 +163,11 @@ impl CastellationControls {
 /// A leaf at `level` occupies `S = 2^(max_level - level)` finest-grid voxels per
 /// axis, with lower voxel corner `(i, j, k) · S`.
 #[derive(Debug, Clone, Copy)]
-struct Leaf {
-    level: usize,
-    i: usize,
-    j: usize,
-    k: usize,
+pub(crate) struct Leaf {
+    pub(crate) level: usize,
+    pub(crate) i: usize,
+    pub(crate) j: usize,
+    pub(crate) k: usize,
 }
 
 /// A boundary face lying on the carved surface, retained (with its corner
@@ -220,31 +252,49 @@ pub fn castellate(
         }
     }
 
-    for _ in 0..max_level {
-        let mut next: Vec<Leaf> = Vec::with_capacity(leaves.len());
-        for leaf in &leaves {
-            if leaf.level < max_level
-                && should_refine(leaf, origin, h, max_level, surface, controls)
-            {
-                // Split into 8 children at level+1.
-                let (l, i, j, k) = (leaf.level + 1, leaf.i * 2, leaf.j * 2, leaf.k * 2);
-                for di in 0..2 {
-                    for dj in 0..2 {
-                        for dk in 0..2 {
-                            next.push(Leaf {
-                                level: l,
-                                i: i + di,
-                                j: j + dj,
-                                k: k + dk,
-                            });
+    if controls.selection == RefinementSelection::SurfaceIntersection {
+        let size0 = [
+            span.x / bg.nx as f64,
+            span.y / bg.ny as f64,
+            span.z / bg.nz as f64,
+        ];
+        leaves = crate::snappy_hex_mesh::refinement::surface_only_refine(
+            leaves,
+            [bg.nx, bg.ny, bg.nz],
+            origin,
+            size0,
+            max_level,
+            surface,
+            controls.min_refine_cells,
+        );
+    } else {
+        for _ in 0..max_level {
+            let mut next: Vec<Leaf> = Vec::with_capacity(leaves.len());
+            for leaf in &leaves {
+                if leaf.level < max_level
+                    && should_refine(leaf, origin, h, max_level, surface, controls)
+                {
+                    // Split into 8 children at level+1.
+                    let (l, i, j, k) = (leaf.level + 1, leaf.i * 2, leaf.j * 2, leaf.k * 2);
+                    for di in 0..2 {
+                        for dj in 0..2 {
+                            for dk in 0..2 {
+                                next.push(Leaf {
+                                    level: l,
+                                    i: i + di,
+                                    j: j + dj,
+                                    k: k + dk,
+                                });
+                            }
                         }
                     }
+                } else {
+                    next.push(*leaf);
                 }
-            } else {
-                next.push(*leaf);
             }
+            leaves = next;
         }
-        leaves = next;
+
     }
 
     // ── Voxel ownership grid (all leaves, kept or not) ────────────────────────
