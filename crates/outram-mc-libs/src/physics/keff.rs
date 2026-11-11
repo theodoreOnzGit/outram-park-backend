@@ -2644,7 +2644,16 @@ fn sphere_source_openmc(radius_cm: f64, settings: &KeffSettings) -> Vec<Site> {
 /// The next generation's source from generation `gen`'s bank: the run's comb
 /// ([`resample`]) or, under `SeedingMode::OpenMc`, `synchronize_bank`'s comb.
 fn resample_gen(settings: &KeffSettings, gen: usize, bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site> {
-    crate::physics::transport_csg::resample_for_generation(settings, gen, bank, n, seed)
+    use crate::rng::openmc_seeding::{comb_resample_openmc, OpenMcRunLayout, SeedingMode};
+    match settings.seeding {
+        SeedingMode::Outram => resample(bank, n, seed),
+        SeedingMode::OpenMc { total_gen } => {
+            let mut layout = OpenMcRunLayout::single_rank(settings.seed as i64, settings.n_particles as i64, 1);
+            layout.total_gen = total_gen;
+            let mut s = layout.bank_comb_seed(gen as i64 + 1, 1);
+            comb_resample_openmc(bank, n, &mut s)
+        }
+    }
 }
 
 fn resample(bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site> {
