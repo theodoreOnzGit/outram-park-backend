@@ -39,9 +39,14 @@
 //! 1. [`BlockMeshDict::parse`] tokenises and parses the dict text into a
 //!    [`BlockMeshDict`] (`convertToMeters`, [`vertices`](BlockMeshDict::vertices),
 //!    [`blocks`](BlockMeshDict::blocks), boundary [`patches`](BlockMeshDict::patches)).
-//! 2. [`BlockMeshDict::build`] subdivides every block, merges globally coincident
-//!    points, deduplicates faces (a face shared by two cells becomes internal),
-//!    assigns the remaining boundary faces to patches, and returns a [`PolyMesh`].
+//! 2. [`BlockMeshDict::build`] generates every block's points (12-edge blend),
+//!    merges points **topologically** across the block faces the block topology
+//!    shares, numbers points, faces and cells as `blockMesh` does (gh:#1464),
+//!    checks the topology, and returns a [`PolyMesh`]. ~~merges globally
+//!    coincident points by quantised coordinates~~ **CORRECTED 2026-11-11
+//!    (gh:#1464)**: coordinates play no part in the merge except to pair
+//!    points on a shared block face, exactly as upstream's `calcMergeInfo`;
+//!    blocks that only touch geometrically are not merged.
 //! 3. [`PolyMesh::to_fv_mesh`] computes the finite-volume geometry (cell volumes
 //!    and centres, face-area vectors and centres) and emits the
 //!    `outram-foam-basic-lib` [`FvMesh`].
@@ -79,13 +84,16 @@
 //!   edges carries its own [`Grading`] (single ratio or multi-segment), and
 //!   interior nodes are blended from all 12 edge distributions exactly as
 //!   OpenFOAM's `block::createPoints` does (the straight-edge, no-curvature
-//!   case). When the four edges of a direction happen to agree, the block
+//!   case). ~~When the four edges of a direction happen to agree, the block
 //!   collapses to the equivalent `simpleGrading` fast path (bit-identical to a
-//!   single per-direction distribution); when they disagree, the genuine
-//!   per-edge 12-edge blend is used. See `edge_blended_node`.
+//!   single per-direction distribution)~~ **CORRECTED 2026-11-11 (gh:#1464):**
+//!   every block, `simpleGrading` or not, takes the 12-edge blend, as upstream
+//!   (`blockCreate.C` has no trilinear path); the trilinear map differed from
+//!   it by round-off. See `edge_blended_node_with`.
 //! - ~~`mergePatchPairs` is parsed and ignored~~ **CORRECTED 2026-11-11**: a
 //!   non-empty `mergePatchPairs` returns [`MeshError::NotImplemented`]
-//!   (gh:#1464); coincident-point merging across blocks is always done.
+//!   (gh:#1464). `fastMerge yes` also returns `NotImplemented`
+//!   (`blockMeshMergeFast.C`).
 //!
 //! ## Honest scope — what the per-edge blend does NOT model
 //!
@@ -279,9 +287,10 @@ const HEX_EDGE_ENDS: [(usize, usize); 12] = [
 /// (OpenFOAM `block::createPoints`) rather than one distribution per direction.
 /// When it is `Some`, the block-build path uses `edge_blended_node` and
 /// `grading` merely holds a representative (the first edge of each direction)
-/// for inspection. When it is `None`, `grading` is authoritative and the fast
-/// trilinear per-direction map is used (this covers `simpleGrading` and every
-/// `edgeGrading` whose four edges per direction agree).
+/// for inspection. When it is `None`, `grading` is authoritative and each of a
+/// direction's four edges takes it (`simpleGrading`, and every `edgeGrading`
+/// whose four edges per direction agree). ~~`None` took a trilinear fast
+/// path~~ **CORRECTED 2026-11-11 (gh:#1464):** both cases take the 12-edge blend.
 #[derive(Debug, Clone)]
 pub struct Block {
     /// The 8 block-corner vertex indices, in OpenFOAM hex order.
@@ -293,7 +302,7 @@ pub struct Block {
     pub grading: [Grading; 3],
     /// The 12 per-edge gradings, present only for a genuinely per-edge
     /// `edgeGrading` (edges 0–3 = x, 4–7 = y, 8–11 = z; see
-    /// `edge_blended_node`). `None` selects the trilinear fast path.
+    /// `edge_blended_node`). `None`: each direction's four edges share `grading`.
     pub edge_grading: Option<[Grading; 12]>,
     /// The block's zone name (`hex (...) zoneName (nx ny nz) ...`), which
     /// upstream turns into a `cellZone`; `None` when the block is unzoned.
@@ -1455,7 +1464,7 @@ impl BlockMeshDict {
         let mut n_scale_keywords = 0usize;
         let mut vertices = Vec::new();
         let mut blocks = Vec::new();
-        let mut patches = Vec::new();
+        let mut raw_patches: Vec<RawPatch> = Vec::new();
         let mut edges = Vec::new();
         let mut default_patch_name = "defaultFaces".to_string();
         let mut default_patch_kind = PatchKind::Empty;
@@ -1509,15 +1518,33 @@ impl BlockMeshDict {
                     }
                     default_patch_kind = kind;
                 }
-                "geometry" | "faces" | "namedVertices" | "namedBlocks" => {
+                "namedVertices" | "namedBlocks" => {
+                    // `namedVertices { a 0; b 1; }`: explicit name table.
+                    cur.next();
+                    cur.expect("{")?;
+                    while !cur.accept("}") {
+                        let name = cur
+                            .next()
+                            .ok_or_else(|| MeshError::DictParse(format!("unterminated `{tok}`")))?
+                            .to_string();
+                        let idx = cur.parse_usize()?;
+                        cur.expect(";")?;
+                        if tok == "namedVertices" {
+                            cur.vertex_names.insert(name, idx);
+                        } else {
+                            cur.block_names.insert(name, idx);
+                        }
+                    }
+                }
+                "geometry" | "faces" => {
                     return Err(MeshError::NotImplemented(format!(
-                        "blockMeshDict entry `{tok}` (projection geometry, block faces and named \
-                         vertices/blocks; gh:#1462, gh:#1463)"
+                        "blockMeshDict entry `{tok}` (projection geometry and block faces; \
+                         gh:#1462)"
                     )));
                 }
                 "boundary" | "patches" => {
                     cur.next();
-                    patches = parse_boundary(&mut cur)?;
+                    raw_patches = parse_boundary(&mut cur)?;
                     cur.expect(";")?;
                 }
                 "mergePatchPairs" => {
@@ -1581,6 +1608,8 @@ impl BlockMeshDict {
         if blocks.is_empty() {
             return Err(MeshError::DictParse("no blocks found".into()));
         }
+
+        let patches = resolve_patch_faces(raw_patches, &blocks, vertices.len())?;
 
         if n_scale_keywords > 1 {
             return Err(MeshError::DictParse(
@@ -1722,11 +1751,43 @@ fn expand_variables(tokens: Vec<String>) -> Result<Vec<String>, MeshError> {
 struct Cursor<'a> {
     tokens: &'a [String],
     pos: usize,
+    /// `namedVertices`: name to vertex index (`name v0 (x y z)`).
+    vertex_names: HashMap<String, usize>,
+    /// `namedBlocks`: name to block index (`name b0 hex (...)`).
+    block_names: HashMap<String, usize>,
 }
 
 impl<'a> Cursor<'a> {
     fn new(tokens: &'a [String]) -> Self {
-        Self { tokens, pos: 0 }
+        Self {
+            tokens,
+            pos: 0,
+            vertex_names: HashMap::new(),
+            block_names: HashMap::new(),
+        }
+    }
+    /// A label: an integer, or a name from `namedVertices`
+    /// (`blockMeshTools::read<label>`). With `blocks_too`, `namedBlocks` names
+    /// resolve as well (the `varDict` of the patch lists).
+    fn parse_label(&mut self, blocks_too: bool) -> Result<usize, MeshError> {
+        let t = self
+            .next()
+            .ok_or_else(|| MeshError::DictParse("expected a label, found end".into()))?;
+        if let Ok(v) = t.parse::<usize>() {
+            return Ok(v);
+        }
+        if let Some(&v) = self.vertex_names.get(t) {
+            return Ok(v);
+        }
+        if blocks_too {
+            if let Some(&v) = self.block_names.get(t) {
+                return Ok(v);
+            }
+        }
+        Err(MeshError::DictParse(format!(
+            "undefined variable `{t}` (valid names: {:?})",
+            self.vertex_names.keys().collect::<Vec<_>>()
+        )))
     }
     fn peek(&self) -> Option<&'a str> {
         self.tokens.get(self.pos).map(|s| s.as_str())
@@ -1906,8 +1967,8 @@ fn parse_edges(cur: &mut Cursor) -> Result<Vec<BlockEdge>, MeshError> {
         let ty = cur
             .next()
             .ok_or_else(|| MeshError::DictParse("expected an edge type, found end".into()))?;
-        let start = cur.parse_usize()?;
-        let end = cur.parse_usize()?;
+        let start = cur.parse_label(false)?;
+        let end = cur.parse_label(false)?;
         let kind = match ty {
             "line" => BlockEdgeKind::Line,
             "arc" => {
@@ -1952,6 +2013,19 @@ fn parse_vertices(cur: &mut Cursor) -> Result<Vec<Vector3>, MeshError> {
     cur.expect("(")?;
     let mut out = Vec::new();
     while !cur.accept(")") {
+        if cur.peek() == Some("name") {
+            cur.next();
+            let name = cur
+                .next()
+                .ok_or_else(|| MeshError::DictParse("expected a vertex name".into()))?
+                .to_string();
+            cur.vertex_names.insert(name, out.len());
+        }
+        if cur.peek() == Some("project") {
+            return Err(MeshError::NotImplemented(
+                "`project` vertex (needs `geometry`; gh:#1462)".into(),
+            ));
+        }
         cur.expect("(")?;
         let x = cur.parse_f64()?;
         let y = cur.parse_f64()?;
@@ -1967,7 +2041,16 @@ fn parse_blocks(cur: &mut Cursor) -> Result<Vec<Block>, MeshError> {
     cur.expect("(")?;
     let mut out = Vec::new();
     while !cur.accept(")") {
-        // Block shape keyword — only `hex` is supported.
+        // Optional `name <blockName>` (namedBlock), then the shape keyword;
+        // only `hex` is supported.
+        if cur.peek() == Some("name") {
+            cur.next();
+            let name = cur
+                .next()
+                .ok_or_else(|| MeshError::DictParse("expected a block name".into()))?
+                .to_string();
+            cur.block_names.insert(name, out.len());
+        }
         let shape = cur
             .next()
             .ok_or_else(|| MeshError::DictParse("expected `hex`, found end".into()))?;
@@ -1980,7 +2063,7 @@ fn parse_blocks(cur: &mut Cursor) -> Result<Vec<Block>, MeshError> {
         cur.expect("(")?;
         let mut verts = [0usize; 8];
         for v in verts.iter_mut() {
-            *v = cur.parse_usize()?;
+            *v = cur.parse_label(false)?;
         }
         cur.expect(")")?;
 
@@ -2146,7 +2229,7 @@ fn collapse_edge_grading(edges: [Grading; 12]) -> ([Grading; 3], Option<[Grading
 }
 
 /// Parse the `boundary ( name { type t; faces ( ... ); } ... )` list.
-fn parse_boundary(cur: &mut Cursor) -> Result<Vec<PatchDef>, MeshError> {
+fn parse_boundary(cur: &mut Cursor) -> Result<Vec<RawPatch>, MeshError> {
     cur.expect("(")?;
     let mut out = Vec::new();
     while !cur.accept(")") {
@@ -2197,23 +2280,100 @@ fn parse_boundary(cur: &mut Cursor) -> Result<Vec<PatchDef>, MeshError> {
                 None => return Err(MeshError::DictParse("unterminated patch block".into())),
             }
         }
-        out.push(PatchDef { name, kind, faces });
+        out.push(RawPatch { name, kind, faces });
     }
     Ok(out)
 }
 
-/// Parse `( (i j k l) (i j k l) ... )` face quads.
-fn parse_face_list(cur: &mut Cursor) -> Result<Vec<[usize; 4]>, MeshError> {
+/// One entry of a patch's `faces` list: four vertex labels, or
+/// `(block face)` naming a face of a block (`blockMesh::checkPatchLabels`).
+#[derive(Debug, Clone, Copy)]
+enum RawFace {
+    Quad([usize; 4]),
+    BlockFace { block: usize, face: usize },
+}
+
+/// A parsed patch before `(block face)` entries are resolved.
+struct RawPatch {
+    name: String,
+    kind: PatchKind,
+    faces: Vec<RawFace>,
+}
+
+/// Parse `( (i j k l) (block face) ... )`; vertex and block names resolve.
+fn parse_face_list(cur: &mut Cursor) -> Result<Vec<RawFace>, MeshError> {
     cur.expect("(")?;
     let mut out = Vec::new();
     while !cur.accept(")") {
         cur.expect("(")?;
-        let mut quad = [0usize; 4];
-        for q in quad.iter_mut() {
-            *q = cur.parse_usize()?;
+        let mut labels = Vec::new();
+        while !cur.accept(")") {
+            labels.push(cur.parse_label(true)?);
         }
-        cur.expect(")")?;
-        out.push(quad);
+        match labels.as_slice() {
+            [a, b, c, d] => out.push(RawFace::Quad([*a, *b, *c, *d])),
+            [block, face] => out.push(RawFace::BlockFace {
+                block: *block,
+                face: *face,
+            }),
+            other => {
+                return Err(MeshError::DictParse(format!(
+                    "a patch face has 4 vertices or is (block face); found {other:?}"
+                )))
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Replace `(block face)` entries by the block's face
+/// (`block.blockShape().faces()[face]`), range-checked as upstream.
+fn resolve_patch_faces(
+    raw: Vec<RawPatch>,
+    blocks: &[Block],
+    n_vertices: usize,
+) -> Result<Vec<PatchDef>, MeshError> {
+    let hex = CellModel::Hex.faces();
+    let mut out = Vec::with_capacity(raw.len());
+    for p in raw {
+        let mut faces = Vec::with_capacity(p.faces.len());
+        for (fi, f) in p.faces.iter().enumerate() {
+            match *f {
+                RawFace::Quad(q) => {
+                    if let Some(&bad) = q.iter().find(|&&v| v >= n_vertices) {
+                        return Err(MeshError::DictParse(format!(
+                            "point label {bad} out of range 0..{} on patch {}, face {fi}",
+                            n_vertices.saturating_sub(1),
+                            p.name
+                        )));
+                    }
+                    faces.push(q);
+                }
+                RawFace::BlockFace { block, face } => {
+                    let Some(b) = blocks.get(block) else {
+                        return Err(MeshError::DictParse(format!(
+                            "block index {block} out of range for patch face on patch {}, face {fi} \
+                             (number of blocks = {})",
+                            p.name,
+                            blocks.len()
+                        )));
+                    };
+                    if face >= hex.len() {
+                        return Err(MeshError::DictParse(format!(
+                            "block face index {face} out of range (6 block faces) on patch {}, \
+                             face {fi}",
+                            p.name
+                        )));
+                    }
+                    faces.push(std::array::from_fn(|k| b.vertices[hex[face][k]]));
+                }
+            }
+        }
+        out.push(PatchDef {
+            name: p.name,
+            kind: p.kind,
+            faces,
+        });
     }
     Ok(out)
 }

@@ -207,3 +207,43 @@ blocks (hex (0 1 2 3 4 5 6 7) (2 2 2) simpleGrading (1 1 1));
 boundary (a { type patch; faces ((0 1 6 7)); });";
     assert!(block_mesh(dict).is_err());
 }
+
+/// gh:#1463: named vertices, named blocks and `(block face)` patch entries
+/// give the same mesh as the numeric form.
+#[test]
+fn named_vertices_blocks_and_block_face_entries() {
+    let named = "convertToMeters 1;
+vertices (name a (0 0 0) name b (1 0 0) name c (1 1 0) name d (0 1 0)
+          name e (0 0 1) name f (1 0 1) name g (1 1 1) name h (0 1 1));
+blocks (name blk hex (a b c d e f g h) (2 2 2) simpleGrading (1 1 1));
+edges (arc a b (0.5 -0.05 0));
+boundary (
+  xmin { type patch; faces ((blk 0)); }
+  rest { type wall; faces ((blk 1) (blk 3) (a d c b) (e f g h)); }
+);";
+    let numeric = "convertToMeters 1;
+vertices ((0 0 0) (1 0 0) (1 1 0) (0 1 0) (0 0 1) (1 0 1) (1 1 1) (0 1 1));
+blocks (hex (0 1 2 3 4 5 6 7) (2 2 2) simpleGrading (1 1 1));
+edges (arc 0 1 (0.5 -0.05 0));
+boundary (
+  xmin { type patch; faces ((0 4 7 3)); }
+  rest { type wall; faces ((1 2 6 5) (3 7 6 2) (0 3 2 1) (4 5 6 7)); }
+);";
+    let a = block_mesh(named).unwrap();
+    let b = block_mesh(numeric).unwrap();
+    assert_eq!(a.points.len(), b.points.len());
+    assert_eq!(a.faces.len(), b.faces.len());
+    let names = |m: &PolyMesh| -> Vec<(String, usize)> {
+        m.patches.iter().map(|p| (p.name.clone(), p.size)).collect()
+    };
+    assert_eq!(names(&a), names(&b));
+    assert_eq!(names(&a)[0], ("xmin".to_string(), 4));
+    for (fa, fb) in a.faces.iter().zip(&b.faces) {
+        assert_eq!(fa.verts, fb.verts);
+    }
+    // Out-of-range block and block-face indices are refused.
+    assert!(block_mesh(&named.replace("(blk 1)", "(7 1)")).is_err());
+    assert!(block_mesh(&named.replace("(blk 1)", "(blk 9)")).is_err());
+    // An undefined name is refused.
+    assert!(block_mesh(&named.replace("(a d c b)", "(a d c zz)")).is_err());
+}
