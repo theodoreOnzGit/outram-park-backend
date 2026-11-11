@@ -149,7 +149,26 @@ pub fn acelf6(
     iza: i32,
     ismooth: bool,
 ) -> Result<Option<DlwEntry>, NjoyError> {
-    let izai = 1.0_f64;
+    acelf6_incident(section, mt, q_mev, iza, 1, ismooth)
+}
+
+/// [`acelf6`] for an incident particle `izai` (`acefc.f90:7139`'s argument of
+/// that name, ZA of the projectile: 1 neutron, 1001 proton, 1002 deuteron,
+/// 1003 triton, 2003 He-3, 2004 alpha; gh:#1485). Upstream selects the MF=6
+/// subsections whose `ZAP` equals `izai` -- the DLW block describes the
+/// outgoing particle of the **same kind as the projectile** -- so for a proton
+/// table the proton subsection is written here, and the neutron, deuteron and
+/// alpha ones go to `acelcp`. `bachaa` is still called with `(1, 1)`
+/// (`acefc.f90:7717`), whatever the projectile.
+pub fn acelf6_incident(
+    section: &Section,
+    mt: i32,
+    q_mev: f64,
+    iza: i32,
+    izai: i32,
+    ismooth: bool,
+) -> Result<Option<DlwEntry>, NjoyError> {
+    let izai = f64::from(izai);
     let mut cur = SectionCursor::new(&section.rows);
     let head = cur.read_cont()?;
     let jp = head.l1;
@@ -209,7 +228,7 @@ pub fn acelf6(
         )));
     }
 
-    emit_dlw(&subs, mt, q_mev, iza, ismooth, lct, last_law_read, first_law)
+    emit_dlw(&subs, mt, q_mev, iza, ismooth && (izai - 1.0).abs() < 0.5, lct, last_law_read, first_law)
 }
 
 /// The second half of `acelf6`: the yield words and one law per neutron
@@ -1302,4 +1321,11 @@ pub fn acelf6_old_format(
     let entry = emit_dlw(&subs, mt, q_mev, iza, ismooth, 1, 7, Some(7))?
         .ok_or_else(|| NjoyError::EndfParse("acelf6 old format: no entry".into()))?;
     Ok(Some(OldFormat6 { entry, angular: super::angular::ElasticAngular { energies: angular, lct: 1 } }))
+}
+
+/// The `LAW` of the first subsection of an MF=6 section (`acefc.f90:5780`).
+pub fn first_law_of_mf6(section: &Section) -> Result<i32, NjoyError> {
+    let mut cur = SectionCursor::new(&section.rows);
+    cur.read_cont()?;
+    Ok(cur.read_tab1()?.head.l2)
 }

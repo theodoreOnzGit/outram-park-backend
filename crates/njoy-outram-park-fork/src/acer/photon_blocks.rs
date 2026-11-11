@@ -171,7 +171,7 @@ pub struct PhotonApplicability {
 /// Returns `Some(vec![])` for a material with no photon data at all — also a
 /// legal table, and not an error.
 pub fn build(tape: &Tape, mat: i32) -> Option<Vec<PhotonEntry>> {
-    build_impl(tape, mat, None)
+    build_impl(tape, mat, None, true)
 }
 
 /// [`build`] with the PENDF the ACE table is made from, which is what
@@ -191,10 +191,19 @@ pub fn build(tape: &Tape, mat: i32) -> Option<Vec<PhotonEntry>> {
 /// the PENDF, and BROADR moves a broadened level's threshold: NJOY's U-235
 /// yields differ between its 0 K and 293.6 K tables for that reason.
 pub fn build_with_pendf(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option<Vec<PhotonEntry>> {
-    build_impl(tape, mat, Some(pendf))
+    build_impl(tape, mat, Some(pendf), true)
 }
 
-fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>) -> Option<Vec<PhotonEntry>> {
+/// [`build_with_pendf`] for an ENDF unit in the given mode. `convr` opens its
+/// scratch tape in the mode of its input (`if (nin.lt.0) nout=-nout`,
+/// `acefc.f90:3908-3909`): with a binary ENDF unit (`moder` output, a negative
+/// unit in the ACER card) a LAW = 2 photon's `egamma + awr*E/(awr+1)` reaches
+/// `acelpp` as the double it is, not as `a11`'s seven-figure text
+/// (gh:#1485, deck 51).
+pub fn build_with_pendf_mode(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult, text_endf: bool) -> Option<Vec<PhotonEntry>> {
+    build_impl(tape, mat, Some(pendf), text_endf)
+}
+fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>, text_endf: bool) -> Option<Vec<PhotonEntry>> {
     // ~~Anisotropic photons are not written: MF=14 with LI = 0 refused the
     // whole photon build.~~ CORRECTED 2026-10-14 (GitHub #872): O-16 lost all
     // 131 photons to that rule. The anisotropic tables are written now, by
@@ -424,7 +433,7 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
             }
             // `acelpp`'s MF=16 law-4 data. A law it cannot write refuses the
             // whole photon build (NXS(6) = 0), never a table missing one photon.
-            let law4 = acelpp_mf16_law4(sec, k, lib)?;
+            let law4 = acelpp_mf16_law4(sec, k, lib, text_endf)?;
             // The law's applicability range: `sigfig(E/emev,7,0)` on the
             // yield's raw first and last energies (`acefc.f90:8805-8806`).
             // Rounding in eV first and then dividing left `bias/1e6` in the
@@ -841,6 +850,23 @@ pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option
 
     // `gamsum` runs on the ACE grid (`unionx`), not on the PENDF's MT=1 energies.
     let grid: Vec<f64> = crate::acer::build::esz_grid(pendf, &gamma_discontinuities(tape, mat))?;
+    gpd_on_grid(tape, mat, pendf, &grid, true)
+}
+
+/// [`gpd`] on a caller-supplied ACE grid (eV): the incident-charged-particle
+/// table's `unionx` grid is not the neutron one (`acer::charged`, gh:#1485).
+///
+/// `text` is whether the scratch tape `gamsum` writes is coded: `mscr` takes
+/// the sign of the PENDF unit (`if (npend.lt.0) mscr=-mscr`,
+/// `acefc.f90:176-178`), so with a binary PENDF `acelod` reads back the
+/// `sigfig(c,7,0)` word and not `a11`'s text of it (gh:#1485, deck 71, whose
+/// 18 smallest words read 2.379134e-29 against the text form's 2.37913e-29).
+pub fn gpd_on_grid(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult, grid: &[f64], text: bool) -> Option<Vec<f64>> {
+    use crate::endf::gety1::Gety1;
+    use crate::endf::parse::{format_endf_float, parse_endf_float};
+    use crate::endf::records::{Cont, Tab1};
+    use crate::mixr::mix::sigfig;
+    const EPS: f64 = 1.0e-10;
     let nen = grid.len();
     let mut c = vec![0.0f64; nen];
     let as_tab = |pairs: &[(f64, f64)]| Tab1 {
@@ -985,7 +1011,7 @@ pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option
     // (`:6259-6270`), so the stored word carries `a11`'s rounding and not
     // `sigfig`'s `bias`. Without the round trip every GPD word sat 1e-13
     // high (B-10: 941 of 941), invisible at Type-1 print precision.
-    Some(c.into_iter().map(|v| parse_endf_float(&format_endf_float(sigfig(v, 7, 0))).unwrap_or(v)).collect())
+    Some(c.into_iter().map(|v| if text { parse_endf_float(&format_endf_float(sigfig(v, 7, 0))).unwrap_or(v) } else { sigfig(v, 7, 0) }).collect())
 }
 
 /// `convr`'s corrected total of an MF=12 (`LO = 1`) or MF=13 section with
@@ -1302,6 +1328,7 @@ fn acelpp_mf16_law4(
     sec: &crate::endf::tape::Section,
     photon: usize,
     lib: (i32, i32, i32),
+    text_endf: bool,
 ) -> Option<super::energy::Law4> {
     use crate::mixr::mix::sigfig;
     const EPS: f64 = 4.0e-6;
@@ -1349,7 +1376,7 @@ fn acelpp_mf16_law4(
                 // Through `convr`'s formatted scratch tape: the value
                 // `acelpp` reads back is `a11`'s text of it.
                 let ep = egamma + awr * e / (awr + 1.0);
-                let ep = crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(ep)).ok()?;
+                let ep = if text_endf { crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(ep)).ok()? } else { ep };
                 l.data = vec![ep, 1.0];
             }
             lists.push(l);

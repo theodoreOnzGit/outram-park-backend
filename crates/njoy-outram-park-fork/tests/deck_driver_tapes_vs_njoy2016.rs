@@ -697,3 +697,98 @@ fn test_27_and_46_broadr_card3_pendf() {
         let _ = std::fs::remove_dir_all(ours.parent().unwrap());
     }
 }
+
+/// **Test 14 (p + N-14, LA150, `NSUB = 10010`): `acer` of a raw
+/// incident-proton ENDF tape** (`izai = 1001`, the tape handed to ACER as both
+/// ENDF and PENDF, units 20 and 21), ACE unit 31 against NJOY2016.80
+/// (gh:#1485, parent #1369). The deck is cut before `viewr`.
+///
+/// Ported: `first`/`unionx`/`acelod`/`acecpe`/`acelf6`/`acelcp` `izai`
+/// branches, `acer::charged`. **Result (2026-11-11): the table is identical
+/// in every word** (NXS, JXS and all 71 369 XSS words, at Type-1 print
+/// precision): ESZ with the LTP=12 elastic, the proton DLW, photons, and the
+/// neutron/deuteron/alpha production blocks with the recoil heating.
+/// Pass criterion: no differing word.
+#[test]
+fn test_14_charged_particle_ace_is_identical() {
+    let root = njoy_root();
+    // The deck's second ACER (`iopt = 7`, the plot file) and `viewr` are cut.
+    let Some(full) = deck_text(&root, "14", Some("viewr"), "") else { return };
+    let deck = format!("{}stop\n", full.split("acer\n 0 31").next().unwrap());
+    let Some((ours, njoy)) = run_pair_decks_extra(&root, "t14", "epn14", &[("epn14", 21)], &deck, &deck) else { return };
+    let c = ace_pair(&ours, &njoy, 31);
+    for l in c.report_lines() {
+        println!("{l}");
+    }
+    assert!(c.identical(), "test 14 ACE differs from NJOY2016");
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
+
+/// Run upstream deck `case` (`moder; moder; acer iopt = 1`, the raw
+/// incident-charged-particle evaluation `resource` on unit 20) cut before its
+/// second ACER (the `iopt = 7` plot), and return the ACE comparison of unit 31.
+fn charged_deck_ace(case: &str, resource: &str) -> Option<njoy_outram_park_fork::acer::compare::AceComparison> {
+    let root = njoy_root();
+    let full = deck_text(&root, case, Some("viewr"), "")?;
+    let deck = format!("{}stop\n", full.split("acer\n 0 31").next().unwrap());
+    let (ours, njoy) = run_pair_decks_extra(&root, &format!("t{case}"), resource, &[], &deck, &deck)?;
+    let c = ace_pair(&ours, &njoy, 31);
+    for l in c.report_lines() {
+        println!("{l}");
+    }
+    if std::env::var("KEEP_DECK_DIRS").is_err() {
+        let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    } else {
+        println!("kept {}", ours.parent().unwrap().display());
+    }
+    Some(c)
+}
+
+#[test]
+fn test_50_charged_particle_ace() {
+    if let Some(c) = charged_deck_ace("50", "a-002_He_004-ENDF8.0.endf") {
+        assert!(c.identical(), "test 50 ACE differs from NJOY2016");
+    }
+}
+
+#[test]
+fn test_51_charged_particle_ace() {
+    if let Some(c) = charged_deck_ace("51", "p-001_H_002-ENDF8.0.endf") {
+        assert!(c.identical(), "test 51 ACE differs from NJOY2016");
+    }
+}
+
+#[test]
+fn test_52_charged_particle_ace() {
+    if let Some(c) = charged_deck_ace("52", "p-001_H_001-ENDF8.0.endf") {
+        assert!(c.identical(), "test 52 ACE differs from NJOY2016");
+    }
+}
+
+#[test]
+fn test_53_charged_particle_ace() {
+    if let Some(c) = charged_deck_ace("53", "d-001_H_002-ENDF8.0.endf") {
+        assert!(c.identical(), "test 53 ACE differs from NJOY2016");
+    }
+}
+
+#[test]
+fn test_54_charged_particle_ace() {
+    if let Some(c) = charged_deck_ace("54", "p-001_H_003-ENDF8.0.endf") {
+        assert!(c.identical(), "test 54 ACE differs from NJOY2016");
+    }
+}
+
+#[test]
+fn test_62_charged_particle_ace() {
+    if let Some(c) = charged_deck_ace("62", "d-002_He_003.endf") {
+        assert!(c.identical(), "test 62 ACE differs from NJOY2016");
+    }
+}
+
+#[test]
+fn test_71_charged_particle_ace() {
+    if let Some(c) = charged_deck_ace("71", "d-078_Pt_184-TENDL2021.endf") {
+        assert!(c.identical(), "test 71 ACE differs from NJOY2016");
+    }
+}

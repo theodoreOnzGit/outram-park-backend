@@ -30,6 +30,11 @@ pub enum IntLaw {
     LogLin = 4,
     /// Log–log: both x and y treated logarithmically.
     LogLog = 5,
+    /// Coulomb penetrability (ENDF INT=6, charged particles only): `ln(x y)` is
+    /// linear in `1/sqrt(x - thr6)`; `terp1` of `endf.f90:1636-1645`, with the
+    /// threshold `thr6 = 0` that `endf`'s module variable holds in ACER
+    /// (gh:#1485: the d + H-2 MF=3/MT=50 section uses it below 100 keV).
+    Coulomb = 6,
 }
 
 impl IntLaw {
@@ -42,6 +47,7 @@ impl IntLaw {
             3 => IntLaw::LinLog,
             4 => IntLaw::LogLin,
             5 => IntLaw::LogLog,
+            6 => IntLaw::Coulomb,
             _ => IntLaw::LinLin,
         }
     }
@@ -109,6 +115,17 @@ pub fn terp1(x1: f64, y1: f64, x2: f64, y2: f64, x: f64, law: IntLaw) -> Result<
                 ));
             }
             Ok(y1 * ((x - x1) * (y2 / y1).r_ln() / (x2 - x1)).r_exp())
+        }
+        IntLaw::Coulomb => {
+            // `:1636-1645` with `thr6 = 0`.
+            if y1 == 0.0 {
+                return Ok(y1);
+            }
+            let t = x1.sqrt();
+            let b = ((x2 * y2) / (x1 * y1)).r_ln();
+            let b = b / (1.0 / t - 1.0 / x2.sqrt());
+            let a = (b / t).r_exp() * x1 * y1;
+            Ok((a / x) * (-b / x.sqrt()).r_exp())
         }
         IntLaw::LogLog => {
             // `:1443-1448`. Upstream returns `y1` outright when `y1 = 0`

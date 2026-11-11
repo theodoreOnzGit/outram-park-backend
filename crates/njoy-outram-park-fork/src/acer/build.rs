@@ -1014,13 +1014,13 @@ impl AceTable {
 /// Accumulates the ACE [`xss`](super::AceTable::xss) data block together with the
 /// parallel integer/real type mask, so blocks can be appended in order while the
 /// 1-based locators that JXS needs are read off with [`next_locator`][Self::next_locator].
-struct XssBuilder {
+pub(super) struct XssBuilder {
     xss: Vec<f64>,
     is_int: Vec<bool>,
 }
 
 impl XssBuilder {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         XssBuilder {
             xss: Vec::new(),
             is_int: Vec::new(),
@@ -1028,31 +1028,31 @@ impl XssBuilder {
     }
 
     /// Append a real-valued word (written `1pE20.11`).
-    fn real(&mut self, v: f64) {
+    pub(super) fn real(&mut self, v: f64) {
         self.xss.push(v);
         self.is_int.push(false);
     }
 
     /// Append an integer-valued word (written `i20`).
-    fn int(&mut self, v: i32) {
+    pub(super) fn int(&mut self, v: i32) {
         self.xss.push(v as f64);
         self.is_int.push(true);
     }
 
     /// Append a pre-serialised `(value, is_integer)` word.
-    fn word(&mut self, v: f64, is_int: bool) {
+    pub(super) fn word(&mut self, v: f64, is_int: bool) {
         self.xss.push(v);
         self.is_int.push(is_int);
     }
 
     /// The 1-based XSS index the *next* appended word will occupy — i.e. the JXS
     /// locator for a block about to be written.
-    fn next_locator(&self) -> i32 {
+    pub(super) fn next_locator(&self) -> i32 {
         self.xss.len() as i32 + 1
     }
 
     /// Consume the builder, returning the data block and its type mask.
-    fn finish(self) -> (Vec<f64>, Vec<bool>) {
+    pub(super) fn finish(self) -> (Vec<f64>, Vec<bool>) {
         (self.xss, self.is_int)
     }
 }
@@ -1244,7 +1244,7 @@ fn append_dlw(b: &mut XssBuilder, producers: &[&Emission], law3_lo: &[f64], e_hi
 /// 8214-9014). `ANDP` is returned equal to `LDLWP` when every photon is
 /// isotropic — which is what NJOY writes, and what makes an all-zero `LANDP`
 /// unambiguous.
-fn append_photon_blocks(
+pub(super) fn append_photon_blocks(
     b: &mut XssBuilder,
     entries: &[super::photon_blocks::PhotonEntry],
     egrid: &[f64],
