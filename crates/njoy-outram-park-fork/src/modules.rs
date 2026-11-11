@@ -11,6 +11,10 @@
 //! through an enum, not a trait object — the set of modules is closed and known
 //! at compile time, so a missing `match` arm is a compile error.
 //!
+//! **Deck driver (gh:#1369):** [`crate::deck::run_deck`] runs an NJOY input deck
+//! (MODER, RECONR, BROADR, HEATR so far); the no-argument `run()` below remain
+//! stubs.
+//!
 //! **Status:** every module's card-input `run()` driver currently returns
 //! [`crate::NjoyError::NotPorted`]; ported *physics* is reached directly through
 //! the module's typed API (e.g. [`crate::reconr`], [`crate::broadr`],
