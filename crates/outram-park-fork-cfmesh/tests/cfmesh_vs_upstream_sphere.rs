@@ -29,7 +29,8 @@ fn stage_table_cartesian_mesh() {
         };
         let (m, rep) = cartesian_mesh(&p, &t, None, &opts).unwrap();
         let u = read_upstream(&format!("stages/cartesianMesh_{}", s.name()));
-        println!("cartesianMesh after {:24} stopped={:?} {:?}", s.name(), rep.stopped_after, compare(&m, &u));
+        println!("cartesianMesh after {:24} {}", s.name(), compare(&m, &u).summary());
+        let _ = rep;
     }
 }
 
@@ -44,7 +45,8 @@ fn stage_table_p_mesh() {
         };
         let (m, rep) = p_mesh(&p, &t, None, &opts).unwrap();
         let u = read_upstream(&format!("stages/pMesh_{}", s.name()));
-        println!("pMesh after {:24} stopped={:?} {:?}", s.name(), rep.stopped_after, compare(&m, &u));
+        println!("pMesh after {:24} {}", s.name(), compare(&m, &u).summary());
+        let _ = rep;
     }
 }
 

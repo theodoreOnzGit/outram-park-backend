@@ -170,3 +170,19 @@ pub fn compare(m: &VolumeMesh, u: &PolyMesh) -> Diff {
     }
     d
 }
+
+impl Diff {
+    /// One line: counts, points (bit-identical / total, max abs), faces.
+    pub fn summary(&self) -> String {
+        let pts = match self.index_points {
+            Some((same, worst)) => format!("points {same}/{} bit-identical, max |d| {worst:.3e}", (self.counts.1).0),
+            None => format!("points {} vs {}", (self.counts.0).0, (self.counts.1).0),
+        };
+        let faces = match (self.faces_matched, self.index_faces_identical) {
+            (Some((m, n)), Some(i)) => format!("faces {m}/{n} as vertex sets, {i}/{n} index-identical with owner/neighbour"),
+            (Some((m, n)), None) => format!("faces {m}/{n} as vertex sets"),
+            _ => "faces not matched".to_string(),
+        };
+        format!("counts port {:?} upstream {:?}; {pts}; {faces}", self.counts.0, self.counts.1)
+    }
+}
