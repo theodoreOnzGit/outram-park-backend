@@ -1058,7 +1058,7 @@ fn append_angular_blocks(
                     .energies
                     .iter()
                     .filter(|e| !e.is_isotropic())
-                    .map(|e| 2 + 3 * e.cosines.len() as i32)
+                    .map(|e| if e.is_equiprobable() { e.cosines.len() as i32 } else { 2 + 3 * e.cosines.len() as i32 })
                     .sum();
                 1 + ne + ne + dists // NE + E(NE) + L(NE) + dists
             }
@@ -1106,6 +1106,10 @@ fn write_angular_segment(b: &mut XssBuilder, a: &ElasticAngular, s: i32) {
     for e in energies {
         if e.is_isotropic() {
             locs.push(0);
+        } else if e.is_equiprobable() {
+            // old format (`newfor = 0`): positive locator, the bin edges only
+            locs.push(dist_base);
+            dist_base += e.cosines.len() as i32;
         } else {
             locs.push(-dist_base);
             dist_base += 2 + 3 * e.cosines.len() as i32;
@@ -1121,6 +1125,10 @@ fn write_angular_segment(b: &mut XssBuilder, a: &ElasticAngular, s: i32) {
     }
     for e in energies {
         if e.is_isotropic() {
+            continue;
+        }
+        if e.is_equiprobable() {
+            e.cosines.iter().for_each(|&m| b.real(m));
             continue;
         }
         b.int(2); // JJ = 2 (lin-lin)

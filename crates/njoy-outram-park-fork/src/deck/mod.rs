@@ -17,7 +17,8 @@
 //!   MF=2, MF=3 heads, MF=10/12/13/23), so tapes compare line for line.
 //!
 //! **Status (part 2):** MODER, RECONR, BROADR (several temperatures,
-//! bootstrap), HEATR and ACER `iopt = 1` (`newfor = 1`) run from cards; UNRESR
+//! bootstrap), HEATR and ACER `iopt = 1` (`newfor = 1` and, for MF=4 angular
+//! distributions, `newfor = 0`) run from cards; UNRESR
 //! and PURR read their cards and pass the tape through (their MT=152/153 are
 //! not written; see [`DeckRun::notes`]); THERMR, GROUPR and GASPR read their
 //! cards but have no tape driver, so a deck reaching them stops with

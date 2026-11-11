@@ -118,6 +118,20 @@ pub struct UrrProbabilityTables {
     points: Vec<UrrPoint>,
 }
 
+/// What HEATR left on the PENDF that PURR's `rdheat` reads, and how MT=153
+/// reaches ACER (gh:#1450).
+#[derive(Debug, Clone, Default)]
+pub struct PurrHeating {
+    /// MT=301, `None` for a deck without HEATR (`ihave = 0`).
+    pub total: Option<crate::heatr::Kerma>,
+    /// MT=302 (elastic), 318 (fission), 402 (capture) as HEATR wrote them;
+    /// any present makes `ihave = 2`.
+    pub partial: [Option<crate::heatr::Kerma>; 3],
+    /// PURR's output unit is blocked binary (`nout < 0`): MT=153 is not
+    /// rounded through text on its way to ACER.
+    pub binary: bool,
+}
+
 impl UrrProbabilityTables {
     /// Number of tabulated energy points.
     pub fn len(&self) -> usize {
@@ -319,6 +333,27 @@ impl UrrProbabilityTables {
         nsamp: usize,
         mt301: Option<&crate::heatr::Kerma>,
     ) -> Result<Option<Self>, NjoyError> {
+        let heating = PurrHeating { total: mt301.cloned(), ..PurrHeating::default() };
+        Self::from_endf_with_heating(tape, mat, temperature_k, nbin, nladr, nsamp, &heating)
+    }
+
+    /// [`Self::from_endf_with_mt301`] with HEATR's partial kermas MT=302
+    /// (elastic), 318 (fission) and 402 (capture) as `partial` in that order,
+    /// `None` where HEATR wrote none. If any is present PURR's `rdheat` sets
+    /// `ihave = 2` and the heating column is the band-wise self-shielded sum
+    /// of the partials (`purr.f90:533-558`); gh:#1450 (upstream test 19, where
+    /// this was the whole of the 760 differing LUNR words).
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_endf_with_heating(
+        tape: &Tape,
+        mat: i32,
+        temperature_k: f64,
+        nbin: usize,
+        nladr: usize,
+        nsamp: usize,
+        heating_in: &PurrHeating,
+    ) -> Result<Option<Self>, NjoyError> {
+        let (mt301, partial) = (heating_in.total.as_ref(), &heating_in.partial);
         let Some(sec) = tape.section(mat, 2, 151) else {
             return Ok(None);
         };
@@ -442,21 +477,77 @@ impl UrrProbabilityTables {
             // `ihave = 0`~~ (CORRECTED 2026-10-15: `AceDeck`'s default runs
             // HEATR first, as the deck order does; NJOY2016 with HEATR wrote
             // Zn-70's column as 1 where ours wrote 0).
+            let gety = |k: &crate::heatr::Kerma, e: f64| -> f64 {
+                use crate::endf::gety1::Gety1;
+                let tab = crate::endf::records::Tab1 {
+                    head: crate::endf::records::Cont { c1: 0.0, c2: 0.0, l1: 0, l2: 0, n1: 1, n2: k.energy.len() as i32 },
+                    interp: vec![(k.energy.len() as u32, 2)],
+                    pairs: k.energy.iter().copied().zip(k.h.iter().copied()).collect(),
+                };
+                let mut g = Gety1::new(&tab);
+                let _ = g.get(0.0);
+                g.get(e.abs()).y
+            };
+            // MT=153 goes to ACER through PURR's output unit: text (`a11`,
+            // 7-9 figures) for a positive unit, the bare double for a negative
+            // (blocked-binary) one. Upstream test 19 reads it through binary.
+            let roundtrip = |h: f64| {
+                use crate::endf::parse::{format_endf_float, parse_endf_float};
+                if heating_in.binary {
+                    h
+                } else {
+                    parse_endf_float(&format_endf_float(h)).unwrap_or(h)
+                }
+            };
             let heating = match mt301 {
                 None => vec![0.0; value.len()],
-                Some(_) if range.lssf == 1 => vec![1.0; value.len()],
+                Some(_) if range.lssf == 1 && partial.iter().all(Option::is_none) => vec![1.0; value.len()],
+                Some(k) if partial.iter().all(Option::is_none) => {
+                    let h = gety(k, e) / t.bondarenko[0][0];
+                    vec![roundtrip(h); value.len()]
+                }
                 Some(k) => {
-                    use crate::endf::gety1::Gety1;
-                    use crate::endf::parse::{format_endf_float, parse_endf_float};
-                    let tab = crate::endf::records::Tab1 {
-                        head: crate::endf::records::Cont { c1: 0.0, c2: 0.0, l1: 0, l2: 0, n1: 1, n2: k.energy.len() as i32 },
-                        interp: vec![(k.energy.len() as u32, 2)],
-                        pairs: k.energy.iter().copied().zip(k.h.iter().copied()).collect(),
-                    };
-                    let mut g = Gety1::new(&tab);
-                    let _ = g.get(0.0);
-                    let h = g.get(e.abs()).y / t.bondarenko[0][0];
-                    vec![parse_endf_float(&format_endf_float(h)).unwrap_or(h); value.len()]
+                    // `ihave = 2` (`purr.f90:533-558`): `heat(1..4)` are MT=301,
+                    // 302, 318, 402 by `gety1` at |eunr| (zero for a partial
+                    // HEATR did not write); the bands' own columns are the
+                    // `sigfig(.,7,0)` of the (LSSF=1: reduced) cross sections.
+                    let h1 = gety(k, e);
+                    let hp: Vec<f64> = partial.iter().map(|p| p.as_ref().map_or(0.0, |k| gety(k, e))).collect();
+                    let sigu = &t.bondarenko[0];
+                    (0..value.len())
+                        .map(|j| {
+                            let col: Vec<f64> = (0..4)
+                                .map(|i| {
+                                    let x = crate::acer::build::sigfig(t.bin_xs[j][i], 7);
+                                    if range.lssf == 1 {
+                                        crate::acer::build::sigfig(if sigu[i] != 0.0 { x / sigu[i] } else { 1.0 }, 7)
+                                    } else {
+                                        crate::acer::build::sigfig(x, 7)
+                                    }
+                                })
+                                .collect();
+                            // a(l)=a(l)+(heat(1)-heat(2)-heat(3)-heat(4)), a(l)=0
+                            let mut a = 0.0 + (h1 - hp[0] - hp[1] - hp[2]);
+                            for (q, h) in hp.iter().enumerate() {
+                                // column i = q + 1 (elastic, fission, capture)
+                                let c = col[q + 1];
+                                let mut h = *h;
+                                if range.lssf == 1 {
+                                    h *= c;
+                                } else if sigu[q + 1] != 0.0 {
+                                    h = h * c / sigu[q + 1];
+                                }
+                                a += h;
+                            }
+                            if col[0] != 0.0 {
+                                a /= col[0];
+                            }
+                            if range.lssf == 1 {
+                                a /= h1;
+                            }
+                            roundtrip(a)
+                        })
+                        .collect()
                 }
             };
             points.push(UrrPoint { cum, value, heating });

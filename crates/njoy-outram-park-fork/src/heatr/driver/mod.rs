@@ -428,11 +428,32 @@ pub fn pendf_for_heatr(endf: &Tape, mat: i32, recon: &crate::reconr::ReconrResul
 /// Whatever [`heatr`] returns, or [`NjoyError::SectionNotFound`] if its tape
 /// has no MT=301 (it always writes one).
 pub fn heatr_kerma(endf: &Tape, mat: i32, recon: &crate::reconr::ReconrResult) -> Result<crate::heatr::Kerma, NjoyError> {
+    Ok(heatr_kerma_with_partials(endf, mat, recon, &[], true)?.0)
+}
+
+/// [`heatr_kerma`] with HEATR's card 3 asking for the partial kermas `partials`
+/// (e.g. `302 318 402`, upstream test 19): one HEATR run, MT=301 and then
+/// each requested partial's TAB1 as HEATR wrote it, `None` where HEATR wrote no
+/// such section (gh:#1450: PURR's `rdheat` then sets `ihave = 2`). `text`
+/// is whether HEATR's output unit is a text unit (positive): the next module
+/// then reads the sections back as printed (`a11`); on a negative (blocked
+/// binary) unit it reads the doubles HEATR wrote, which is what upstream test
+/// 19's PURR sees.
+///
+/// # Errors
+/// As [`heatr_kerma`].
+pub fn heatr_kerma_with_partials(
+    endf: &Tape,
+    mat: i32,
+    recon: &crate::reconr::ReconrResult,
+    partials: &[i32],
+    text: bool,
+) -> Result<(crate::heatr::Kerma, Vec<Option<crate::heatr::Kerma>>), NjoyError> {
     let pendf = pendf_for_heatr(endf, mat, recon);
     // The deck an ACE build mirrors runs on text tapes (positive units, as
     // the five-route NJOY2016 decks), so HEATR's scratch copies are text.
     let units = HeatrUnits { nendf: 20, nin: 21, nout: 22, nplot: 0 };
-    let input = HeatrInput { matd: mat, units, ..HeatrInput::default() };
+    let input = HeatrInput { matd: mat, units, partial_kermas: partials.to_vec(), ..HeatrInput::default() };
     let out = heatr(endf, &pendf, &input)?;
     // The next module reads HEATR's output tape as ENDF text, so its MT=301
     // is what `Tape::write` prints (`a11`), energies included. Read in memory
@@ -440,14 +461,28 @@ pub fn heatr_kerma(endf: &Tape, mat: i32, recon: &crate::reconr::ReconrResult) -
     // interpolate from the neighbouring node: on Ti-48's dense 155.38 keV
     // grid that moved the heating number by up to 25 % at alternate points
     // (0 K, against NJOY2016 with HEATR, 2026-10-15).
-    let mut text = Vec::new();
-    out.tape.write(&mut text)?;
-    let written = Tape::read(&text[..])?;
-    let s301 = written.section(mat, 3, 301).ok_or(NjoyError::SectionNotFound { mat, mf: 3, mt: 301 })?;
-    let mut cur = crate::endf::records::SectionCursor::new(&s301.rows);
-    cur.read_cont()?;
-    let t = cur.read_tab1()?;
-    Ok(crate::heatr::Kerma { energy: t.pairs.iter().map(|p| p.0).collect(), h: t.pairs.iter().map(|p| p.1).collect() })
+    let written = if text {
+        let mut buf = Vec::new();
+        out.tape.write(&mut buf)?;
+        Tape::read(&buf[..])?
+    } else {
+        out.tape.clone()
+    };
+    let read_kerma = |mt: i32| -> Result<Option<crate::heatr::Kerma>, NjoyError> {
+        let Some(sec) = written.section(mat, 3, mt) else {
+            return Ok(None);
+        };
+        let mut cur = crate::endf::records::SectionCursor::new(&sec.rows);
+        cur.read_cont()?;
+        let t = cur.read_tab1()?;
+        Ok(Some(crate::heatr::Kerma { energy: t.pairs.iter().map(|p| p.0).collect(), h: t.pairs.iter().map(|p| p.1).collect() }))
+    };
+    let total = read_kerma(301)?.ok_or(NjoyError::SectionNotFound { mat, mf: 3, mt: 301 })?;
+    let mut parts = Vec::with_capacity(partials.len());
+    for &mt in partials {
+        parts.push(read_kerma(mt)?);
+    }
+    Ok((total, parts))
 }
 
 #[cfg(test)]

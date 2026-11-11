@@ -108,3 +108,49 @@ modules is not compared; ACER `newfor = 0` (tests 07, 08; gh:#1449); test 21
 needs RECONR `errmax`/`errint`/`enode` and BROADR `thnmx`/`errmax` (refused with
 `NotPorted`); test 13 needs GASPR's tape driver and ACER `iopt = 7`; the ACER
 directory unit is not written.
+
+## 4. Part 3 (2026-11-11): `csunr`, PURR heating, ACER `newfor = 0` (gh:#1448, #1450, #1449)
+
+Gate: `tests/deck_driver_tapes_vs_njoy2016.rs` (6 tests, ~21 s); function level for
+`csunr1`/`csunr2`/`unfac`/`gnrl`: `upstream_units/reconr_csunr/README.md`.
+
+| deck | what is compared | before | after |
+|---|---|---|---|
+| 07 (U-235 ENDF/B-V) | PENDF after HEATR, 17 897 lines | 56 lines differ | **0** |
+| 10 (Pu-238 ENDF/B-IV) | PENDF after BROADR (3 T), 3 lines per T | 6 lines differ (MT=152) | **0**; ACE unchanged (identical) |
+| 19 (Pu-241 ENDF/B-VI.3) | PENDF after BROADR, 3 T | 6 lines (MT=152, MT=1 at 2.5e4 eV) | **0** |
+| 19 | ACE, 67 740 words | LUNR 760 words differ | **identical in every word** |
+| 07 | ACE, `newfor = 0` | refused | all blocks identical except GPD (GROUPR `gamout`, not available) and 1 ESZ word |
+| 08 | ACE, `newfor = 0` | refused | AND identical (2 943 words); ESZ/SIG/MTR... differ (see below) |
+
+Causes found, each by reading upstream:
+
+- **`csunr1`/`csunr2` not ported (#1448).** `reconr::csunr` is the literal
+  translation, panel state (`ilast`, `enxt`, `elst`, `slst`, `snxt`) kept, with the
+  `unfac` `l >= 3` fall-through and `csunr1`'s dead `ie.eq.ne` test (`ne` is 0 at that
+  point). Fe-58's MT=152 now reproduces NJOY's physically absurd values on purpose
+  (decision recorded in `reconr/urr.rs`).
+- **MT=1 at 2.5e4 eV (test 19).** `rebuild_total_as_sum_of_parts` summed Pu-241's
+  MT=51 below its threshold: `eval_lin_lin` returns the section's first value (2.08e-7 b)
+  for a lower energy, where `emerge` skips a non-resonance section below its
+  threshold (`thresh-eg.gt.test*thresh`, `test = 1e-10`).
+- **PURR heating (#1450), not the probability bands.** Test 19's HEATR card asks for
+  `302 318 402`, so PURR's `rdheat` finds partial kermas (`ihave = 2`) and
+  self-shields the heating per band (`purr.f90:533-558`); the port divided MT=301 by
+  the total for every band (96.03388 against NJOY's 38.636...). With the cards' units
+  blocked binary, MT=301 and MT=153 are read as doubles, not through `a11` text.
+  `AceDeck::with_heatr_partials`, `with_purr_binary`, `with_heatr_binary`;
+  `PurrHeating`; `heatr_kerma_with_partials`. ESZ keeps reading MT=301 as printed
+  (that is what test 07 needs).
+- **ACER `newfor = 0` (#1449).** `topfil` turns every MF=4 incident-energy
+  distribution into 32 equally probable bins (`ptleg` for Legendre, `pttab` for
+  tabulated), `acensd` stores the 33 edges `sigfig(.,6)` at a positive locator and
+  locator 0 when the law is isotropic (`n <= 2`). Both converters already existed for
+  photons (`acer::photon_angular`); `acer::acensd::parse_mf4_for_acer_newfor` and
+  `EnergyAngular::is_equiprobable` carry it to the AND writer.
+
+Open after this part: test 07's GPD (needs GROUPR's photon-production GENDF, `gamout`)
+and one ESZ heating word at 81.99999 eV (75.45917 against 75.45914; HEATR's own PENDF
+is identical, cause not found); test 08 needs ACER to read the deck's HEATR-extended
+PENDF (MT=443/444 in the reaction list and union grid) and the old-format MF=6 laws
+(`acelf6` `newfor = 0`, `topfil` MF=6 conversion); tests 21 and 13 not started.

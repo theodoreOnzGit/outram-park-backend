@@ -69,6 +69,14 @@ impl EnergyAngular {
         self.cosines.is_empty()
     }
 
+    /// Whether this energy is the **old format's** 32 equally probable bins
+    /// (`newfor = 0`, `ptleg`/`pttab`): `cosines` holds the 33 bin edges and
+    /// `pdf`, `cdf` are empty. The AND block then stores just the 33 edges at a
+    /// positive locator (`acensd`, `acefc.f90:6408-6421`).
+    pub fn is_equiprobable(&self) -> bool {
+        !self.cosines.is_empty() && self.pdf.is_empty()
+    }
+
     /// Mean scattering cosine μ̄ = ∫₋₁¹ μ f(μ) dμ at this incident energy, in the
     /// frame the distribution is tabulated in (CM for elastic, ENDF LCT=2).
     ///
@@ -234,6 +242,12 @@ impl ElasticAngular {
 /// Returns [`NjoyError::EndfParse`] if the record structure is malformed.
 pub fn parse_elastic_angular(section: &Section) -> Result<ElasticAngular, NjoyError> {
     super::acensd::parse_mf4_for_acer(section)
+}
+
+/// [`parse_elastic_angular`] for ACER's `newfor` (gh:#1449): `0` is the old
+/// equally-probable-bin format.
+pub fn parse_elastic_angular_newfor(section: &Section, newfor: i32) -> Result<ElasticAngular, NjoyError> {
+    super::acensd::parse_mf4_for_acer_newfor(section, newfor)
 }
 
 /// Parse an MF=4 section — **any MT** — into ACE tabulated-cosine angular
