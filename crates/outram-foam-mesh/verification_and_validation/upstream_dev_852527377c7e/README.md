@@ -19,6 +19,9 @@ No OpenFOAM source is committed here; the clone lives in
   default `UpstreamOptions` (dev flavour). The v2506 flavour is *not* identical on
   the same data (annulus, warped, L-shape differ, worst 2.0 index-level and 1.1e-6
   on the warped hex), so the comparison discriminates.
+- **UPDATE 2026-11-11: after the two port fixes, points are bit-identical on 9 of 12
+  dicts and the other three differ by petir trig only (see "Results after the
+  fixes"); the figures in the next bullet and the first table are the BEFORE state.**
 - **blockMesh: topology (faces, owner, neighbour, patches) identical on all 12
   dicts; points bit-identical on 7 of 12** (cavity, `proj_cyl`, `proj_edges`,
   `proj_faces`, `proj_two`, `sweep_torus_major`, `sweep_torus_minor_wrong`); the
@@ -149,6 +152,44 @@ Each was added in turn and the counts re-measured:
 | (c) `block_edges.rs` and `block_projection.rs`: platform `cos`, `sin`, `tan`, `acos`, `asin` instead of `petir`'s | T3A 54416 -> **54496 / 54496**, `sweep_torus_minor` 633 -> **637 / 637**, `sweep_sphere` 1289 -> **1331 / 1331** |
 | (d) platform `pow` for the real exponent `1/(n-1)` instead of `petir`'s | no change (the two agree on these dicts) |
 
+## Results after the fixes (2026-11-11, same day, dev binary re-run)
+
+The dev `blockMesh` was re-run on the 12 dicts (`scripts/run-blockmesh.sh`; the
+T3A `points` SHA-256 equals the committed `SHA256SUMS-uncompressed.txt` entry,
+so the references are unchanged) and compared with
+`compare_polymesh`; raw output `results/blockMesh_compare_dev_flavour_after_fixes.txt`.
+The fixes: `line_divide_weights` takes the flavour (`geometry.flavour`, the existing
+`ProjectionFlavour`): dev uses `integer_pow_dev` (translation of `IntegerPow`), v2506
+the real `pow` and `equal(expRatio, 1)`; `graded_positions_multi` no longer clamps
+`s[n]` (neither dev nor v2506 does).
+
+| dict | predicted | measured points bit-identical / total | worst abs diff (before -> after) | prediction |
+|---|---|---|---|---|
+| pitzDailySteady | 25012 / 25012 | **25012 / 25012** | 2.64e-16 -> 0 | hit |
+| proj_vertex | 210 / 210 | **210 / 210** | 2.22e-16 -> 0 | hit |
+| T3A | 54416 / 54496 | 54416 / 54496 (80 differ) | 1.78e-15 -> 5.55e-17 | counts hit; worst-diff prediction (unchanged) MISSED: the worst was a pow effect, only 5.55e-17 is petir trig |
+| sweep_sphere | 1289 / 1331 | 1289 / 1331 (42 differ) | 4.44e-16 -> 4.44e-16 | hit |
+| sweep_torus_minor | 633 / 637 | 633 / 637 (4 differ) | 1.11e-16 -> 1.11e-16 | hit |
+| the other 7 | unchanged | unchanged (all bit-identical) | 0 | hit |
+| topology, 12 of 12 | unchanged | unchanged (faces, owner, neighbour, patches equal) | | hit |
+
+So 9 of 12 dicts are now bit-identical to the dev binary; the other 3 differ at
+the petir-trig level only (126 of 57464 points; worst 5.55e-17 absolute, T3A /
+4.44e-16 `sweep_sphere` / 1.11e-16 `sweep_torus_minor`, relative < 1e-8 by 7
+orders), **accepted under the 1e-8 round-off allowance and flagged for the
+maintainer**. The cause is understood: attribution (c) above, petir `sin`, `cos`,
+`tan`, `acos`, `asin` against glibc, 1 ulp. Pinned by
+`dev_block_mesh_petir_trig_differences_are_pinned` (the dev bit patterns of the
+126 points are in `tests/fixtures/dev_trig_ulp_points.txt`; the port's points with
+those replaced hash to the binary's hash).
+
+v2506 flavour: its `lineDivide.C` has the same loop as dev's (no clamp; `equal()`
+for the unit ratio; real `pow`), so it follows its source. No v2506 pin moved
+(`block_mesh_projection*`, `block_mesh_upstream_numbering*`, all 73 lib tests).
+Not re-run against a v2506 binary here (no graded multi-section dict was in
+the v2506 references: the unclamped last division is therefore verified against
+v2506 by source reading only).
+
 ## Results: polyDualMesh (feature angle 60), default (dev) flavour
 
 `results/polyDualMesh_compare_dev_flavour.txt` is the raw output.
@@ -178,7 +219,32 @@ worst 8.9e-16), warped (242 / 480, worst 1.1e-6) and L-shape base / concave
 flavour-blind. Not compared here: the `.obj` feature sets (`cmpfeat.py` of
 `../poly_dual_mesh_upstream_gh1460/` was not re-run against the dev dumps).
 
-## Port defects found (listed, NOT fixed, nothing filed, by instruction)
+## Prediction for the fixes of defects 1 and 2 (written 2026-11-11, BEFORE any code change)
+
+Basis: the attribution table above (changes (a), (b), (c) measured in sequence
+by the throwaway experiment). Fix (a) = dev integer `pow` in `line_divide_weights`,
+fix (b) = no `s[n] = 1.0` clamp in `graded_positions_multi`; petir trig stays.
+Reading of the sources before the change: v2506 `lineDivide.C` is the same loop as
+dev's (it too overwrites `divisions_[nDiv]` with the computed value, so it has no
+clamp either; it differs only in `equal(expRatio, 1)` against `expRatio == 1.0`),
+and v2506 `pow(Scalar, label)` is the real `pow`. So the v2506 flavour keeps real
+`pow` and (per source) loses the clamp too; the v2506 pins are expected NOT to move.
+
+| dict | predicted points after fixes 1+2 | reason |
+|---|---|---|
+| pitzDailySteady | **25012 / 25012 bit-identical** | (a)+(b) took it there before (c) was needed |
+| proj_vertex | **210 / 210 bit-identical** | (a) alone did it |
+| T3A | 54416 / 54496 (80 differ, petir trig) | (c) is what closes the last 80 |
+| sweep_sphere | 1289 / 1331 (42 differ, petir trig) | (c) |
+| sweep_torus_minor | 633 / 637 (4 differ, petir trig) | (c) |
+| the 7 already bit-identical dicts | unchanged (bit-identical) | no graded multi-section edge |
+| topology on all 12 | unchanged | |
+| polyDualMesh 12 of 12 | unchanged | primals are unaffected |
+
+Predicted worst absolute differences of the three trig dicts: unchanged
+(T3A 1.78e-15, sweep_sphere 4.44e-16, sweep_torus_minor 1.11e-16).
+
+## Port defects found (listed here as found; defects 1 and 2 FIXED 2026-11-11, see "Results after the fixes")
 
 1. **`line_divide_weights`: integer `pow` (dev) vs real `pow`.** The port comment
    says "`pow(expFact, int)` in C++ is `pow(double, double)`, not repeated
@@ -204,9 +270,9 @@ Doc claims corrected in the same change (struck through, dated 2026-11-11):
 "not verified against any dev binary", "cannot be confirmed without a dev
 `blockMesh`", "does not check the dev-only differences"),
 `poly_dual_mesh_gh1460.md` ("dev flavour was not run against a dev binary"),
-`block_mesh_topology_numbering.md` ("cause is not isolated"). The `src/` doc
+`block_mesh_topology_numbering.md` ("cause is not isolated"). ~~The `src/` doc
 comment of `line_divide_weights` (defect 1) is left as it is: this change must not touch port code (kovan review stamps on
-that function were not checked).
+that function were not checked).~~ **CORRECTED 2026-11-11:** corrected in `block_mesh.rs` (struck through, dated); `src/review.md` has no `kind = "review"` block (checked).
 
 ## Pin tests
 
@@ -215,9 +281,9 @@ as `tests/block_mesh_projection.rs`): points hash where bit-identical (7 blockMe
 dicts, all 12 duals), topology hash on all 12 + 12 cases, the torus / sphere
 residuals of the binary, and one test that the v2506 flavour is *not* equal to the
 dev output. The dicts of the three non-cavity duals are in
-`tests/fixtures/dual_*.dict`. The five non-bit-identical blockMesh cases (T3A, pitzDailySteady, `proj_vertex`,
-`sweep_sphere`, `sweep_torus_minor`) carry the topology pin only (the points differences are the defects above; when they are
-fixed, add the points hash from `dev_hashes.py`).
+`tests/fixtures/dual_*.dict`. ~~The five non-bit-identical blockMesh cases carry the topology pin only.~~ **CORRECTED 2026-11-11:**
+pitzDailySteady and `proj_vertex` now carry the points hash; T3A, `sweep_sphere`
+and `sweep_torus_minor` are pinned by `dev_block_mesh_petir_trig_differences_are_pinned`.
 
 ## Reference outputs
 
@@ -233,8 +299,10 @@ Total about 1.6 MB.
 
 - `snappyHexMesh` (gh:#1465, #1470) is not built here; its dev paths are still
   checked only against v2506.
-- Defects 1 and 2 above are for the maintainer to decide (a flavour switch for
-  the two `block_mesh.rs` lines); once fixed, add the points hashes.
+- ~~Defects 1 and 2 above are for the maintainer to decide; once fixed, add the points hashes.~~
+  **DONE 2026-11-11:** fixed, hashes added for pitzDailySteady and `proj_vertex`;
+  the 3 petir-trig dicts are pinned by count and worst difference. Left: the
+  1-ulp petir trig against glibc (maintainer's call: accepted below 1e-8).
 - The polyDualMesh feature-set `.obj` comparison and `checkMesh` (built, not run
   on the duals) were not repeated against the dev build.
 - `blockMesh` `fastMerge`, `mergePatchPairs` and `#calc` dicts are not covered by

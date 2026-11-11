@@ -58,9 +58,10 @@ pub enum FluxLimiter {
     Umist,
     /// `OSPRE`: upstream `1.5 r (r + 1)/(r (r + 1) + 1)`, ~~with `r = max(0, r)`~~ **CORRECTED
     /// 2026-11-11 (gh:#1362):** upstream (`OSPRE.H`) has no `max(0, r)`, and evaluates
-    /// `rrp1 = r*(r + 1); 1.5*rrp1/(rrp1 + 1)`; this port clamps `r` at 0 and evaluates
-    /// `1.5*r*(r + 1)/(r*(r + 1) + 1)`, so it differs by up to 2 ulp for `r >= 0` and
-    /// entirely for `r < 0`. Not changed here (solver results). Symmetric.
+    /// `rrp1 = r*(r + 1); 1.5*rrp1/(rrp1 + 1)`, which this port now evaluates too
+    /// (~~`1.5*r*(r + 1)/(r*(r + 1) + 1)`, up to 2 ulp off for `r >= 0`~~ **CORRECTED
+    /// 2026-11-11 gh:#1489**); it still clamps `r` at 0, so it differs entirely for
+    /// `r < 0` (not changed here: solver results). Symmetric.
     Ospre,
     /// `limitedLinear(k)`: upstream `max(min((2/k) r, 1), 0)`, coefficient
     /// `k` in `[0, 1]` (`k -> 0` approaches unlimited linear, `k = 1` most
@@ -102,7 +103,8 @@ impl FluxLimiter {
             // OSPRE: 1.5 r (r+1)/(r(r+1)+1), r = max(0,r)
             FluxLimiter::Ospre => {
                 let r = r.max(0.0);
-                1.5 * r * (r + 1.0) / (r * (r + 1.0) + 1.0)
+                let rrp1 = r * (r + 1.0);
+                1.5 * rrp1 / (rrp1 + 1.0)
             }
             // limitedLinear(k): max(min((2/k) r, 1), 0), twoByk = 2/max(k, small)
             FluxLimiter::LimitedLinear(k) => {
