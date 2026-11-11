@@ -343,3 +343,108 @@ fn cdt_rolling_with_relative_spin_matches_liggghts() {
     let off = GranularContactModel::new(hooke_history(), TangentialModel::History);
     assert!(oblique_pair("cdt_pair.csv", off).mismatched > 100);
 }
+
+/// The reference collided: atom 1's x-velocity left its initial `+1 m/s`.
+fn assert_collided(file: &str) {
+    let rows = load(file).expect("reference present");
+    let vx_end = rows.last().expect("frames")[4];
+    assert!(vx_end < 0.9, "{file}: no collision in the reference (vx = {vx_end})");
+}
+
+// ---------------------------------------------------------------------------
+// Luding family (gh:#1410): normal_model_luding.h, tangential_model_luding_tn.h,
+// rolling_model_luding.h.
+// ---------------------------------------------------------------------------
+
+/// `model luding tangential tan_luding rolling_friction luding`, deltaMax
+/// below `deltaMaxLim` (interpolated `k2`).
+///
+/// **Methodology.** Deck `in.luding_full`: `K = 1e4 N/m`, `k2Max/k1 = 3`,
+/// `kc/k1 = 0.4`, `phi_f = 0.05`, `f_adh = 1e-3 N`, `e = 0.9`, `mu_s = 0.5`,
+/// `mu_d/mu_s = 0.8`, `FrictionViscosity = 0.6`, `kT2kcMax = 0.5`;
+/// rolling `mu_r = 0.1`, visc 0.3, `kR2kcMax = 0.5`; oblique pair with
+/// relative spins; 2500 steps; every x, v, omega of 251 frames bit for bit.
+///
+/// **Prediction (written before the first run, 2026-11-11).** Bit-identical:
+/// a line-for-line translation of the three headers, with `kc` and `f_adh`
+/// passed from the normal to the tangential and rolling model as upstream
+/// does (history values), and the Luding rolling spring written
+/// unconditionally (also at set-up).
+#[test]
+fn luding_full_matches_liggghts() {
+    let normal = GranularNormalModel::luding(material(), 1.0e4, 3.0, 0.4, 0.05, 0.001)
+        .expect("valid luding");
+    let model = GranularContactModel::new(
+        normal,
+        TangentialModel::luding_tn(0.8, 0.6, 0.5).expect("valid tan_luding"),
+    )
+    .with_rolling(RollingModel::luding(0.1, 0.3, 0.5).expect("valid rolling"));
+    assert_collided("luding_full.csv");
+    assert_bit_identical(&oblique_pair("luding_full.csv", model));
+}
+
+/// As above with `phi_f = 0.02`, `kc/k1 = 0.2`, `f_adh = 0`: `deltaMax` passes
+/// `deltaMaxLim` (`k2 = k2Max`) and unloading reaches the cohesion branch,
+/// which rewrites `deltaMax = (k2 + kc)/(k2 - k1) delta_n` (a different
+/// formula from `hooke/hysteresis`).
+#[test]
+fn luding_plastic_cohesion_branch_matches_liggghts() {
+    let normal = GranularNormalModel::luding(material(), 1.0e4, 3.0, 0.2, 0.02, 0.0)
+        .expect("valid luding");
+    let model = GranularContactModel::new(
+        normal,
+        TangentialModel::luding_tn(0.8, 0.6, 0.5).expect("valid tan_luding"),
+    )
+    .with_rolling(RollingModel::luding(0.1, 0.3, 0.5).expect("valid rolling"));
+    assert_collided("luding_plastic.csv");
+    assert_bit_identical(&oblique_pair("luding_plastic.csv", model));
+}
+
+/// `kc = 0`, `f_adh = 0`, with the ordinary history tangential model: the
+/// `limitForce` clamp (on by default for Luding) removes the negative normal
+/// force.
+#[test]
+fn luding_limit_force_matches_liggghts() {
+    let normal = GranularNormalModel::luding(material(), 1.0e4, 3.0, 0.0, 0.05, 0.0)
+        .expect("valid luding");
+    let model = GranularContactModel::new(normal, TangentialModel::History);
+    assert_collided("luding_nocoh.csv");
+    assert_bit_identical(&oblique_pair("luding_nocoh.csv", model));
+}
+
+fn luding_full_model() -> GranularContactModel {
+    let normal = GranularNormalModel::luding(material(), 1.0e4, 3.0, 0.4, 0.05, 0.001)
+        .expect("valid luding");
+    GranularContactModel::new(
+        normal,
+        TangentialModel::luding_tn(0.8, 0.6, 0.5).expect("valid tan_luding"),
+    )
+    .with_rolling(RollingModel::luding(0.1, 0.3, 0.5).expect("valid rolling"))
+}
+
+/// Luding against a wall (`in.luding_wall`): the wall branches of all three
+/// models (`R* = r`, `m* = m`, `w_r` from the contact point).
+#[test]
+fn luding_wall_matches_liggghts() {
+    let rows = load("luding_wall.csv").expect("reference present");
+    assert!(rows.last().expect("frames")[6] > 0.0, "the sphere must bounce");
+    assert_bit_identical(&wall_case("luding_wall.csv", luding_full_model()));
+}
+
+/// Ablation controls for the Luding decks: replacing the Luding tangential
+/// or rolling model by the ordinary ones, or switching rolling off, must NOT
+/// reproduce the reference (the decks exercise those models).
+#[test]
+fn luding_decks_are_sensitive_to_each_sub_model() {
+    let full = luding_full_model();
+    let plain_tangential = GranularContactModel { tangential: TangentialModel::History, ..full };
+    assert!(oblique_pair("luding_full.csv", plain_tangential).mismatched > 100);
+    let no_rolling = GranularContactModel { rolling: RollingModel::Off, ..full };
+    assert!(oblique_pair("luding_full.csv", no_rolling).mismatched > 100);
+    let no_adhesion = GranularContactModel {
+        normal: GranularNormalModel::luding(material(), 1.0e4, 3.0, 0.4, 0.05, 0.0)
+            .expect("valid luding"),
+        ..full
+    };
+    assert!(oblique_pair("luding_full.csv", no_adhesion).mismatched > 100);
+}

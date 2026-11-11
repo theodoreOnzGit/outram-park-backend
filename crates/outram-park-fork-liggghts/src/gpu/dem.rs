@@ -160,12 +160,7 @@ impl GpuSetup {
         let model = sys.model();
         let (material, tangential_damping) = match model.normal {
             GranularNormalModel::Hertz { material, tangential_damping } => (material, tangential_damping),
-            GranularNormalModel::Hooke { .. }
-            | GranularNormalModel::HertzStiffness { .. }
-            | GranularNormalModel::HookeStiffness { .. }
-            | GranularNormalModel::HookeHysteresis { .. } => {
-                return Err("the GPU path has the Hertz normal model only".into())
-            }
+            _ => return Err("the GPU path has the Hertz normal model only".into()),
         };
         if !matches!(model.tangential, TangentialModel::History) {
             return Err("the GPU path has the history tangential model only".into());

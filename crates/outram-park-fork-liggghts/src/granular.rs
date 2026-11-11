@@ -738,6 +738,33 @@ pub enum GranularNormalModel {
         /// (of the diameter) at which loading reaches `k2Max`.
         phi_f: f64,
     },
+    /// Upstream `NormalModel<LUDING>` (`luding`, `normal_model_luding.h`):
+    /// Luding's piecewise-linear elasto-plastic adhesive spring with load- and
+    /// history-dependent unloading stiffness `k2`, a cohesion branch that
+    /// rewrites `deltaMax` and a constant pull-off force `f_adh`. The state is
+    /// `deltaMax`, plus the `kc` and `f_adh` values the Luding tangential and
+    /// rolling models read back. Properties are single-type-pair values.
+    /// gh:#1410.
+    Luding {
+        /// `e` for the damping (property `coefficientRestitution`) and the
+        /// friction `mu` of the material.
+        material: GranularMaterial,
+        /// Loading stiffness `k1` `[N/m]` (property `LoadingStiffness`).
+        k_elastic: f64,
+        /// `k2Max / k1` (property `UnloadingStiffness`, ratio `> 1`).
+        kn2k1: f64,
+        /// `kc / k1` (property `coefficientAdhesionStiffness`).
+        kn2kc: f64,
+        /// `phi_f` (property `coefficientPlasticityDepth`).
+        phi_f: f64,
+        /// Pull-off force `f_0` `[N]` (property `pullOffForce`).
+        f_adh: f64,
+        /// Upstream `tangential_damping` (default on).
+        tangential_damping: bool,
+        /// Upstream `limitForce` (**default on** for Luding): clamp a
+        /// negative `F_n` to zero when `kc = 0` and `f_0 = 0`.
+        limit_force: bool,
+    },
     /// Upstream `NormalModel<HERTZ_STIFFNESS>` (`hertz/stiffness`): stiffness
     /// and damping given directly, scaled by `sqrt(r_eff δ_n)`
     /// (`normal_model_hertz_stiffness.h`). The `kn`, `kt`, `gamman`, `gammat`
@@ -852,6 +879,46 @@ impl GranularNormalModel {
         })
     }
 
+    /// Build a `luding` model (see [`GranularNormalModel::Luding`]) with
+    /// upstream's defaults (`tangential_damping on`, `limitForce on`).
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] unless `k_elastic > 0`, `kn2k1 > 1`,
+    /// `kn2kc >= 0`, `phi_f > 0`, `f_adh >= 0` and the material's
+    /// restitution is below 1 (so `ln e` is finite and nonzero).
+    pub fn luding(
+        material: GranularMaterial,
+        k_elastic: f64,
+        kn2k1: f64,
+        kn2kc: f64,
+        phi_f: f64,
+        f_adh: f64,
+    ) -> Result<Self, DemError> {
+        if !(k_elastic > 0.0 && kn2k1 > 1.0 && kn2kc >= 0.0 && phi_f > 0.0 && f_adh >= 0.0)
+            || !k_elastic.is_finite()
+            || !kn2k1.is_finite()
+            || !kn2kc.is_finite()
+            || !phi_f.is_finite()
+            || !f_adh.is_finite()
+        {
+            return Err(DemError::InvalidInput(format!(
+                "luding needs K > 0, kn2k1 > 1, kn2kc >= 0, phiF > 0, f_adh >= 0; got \
+                 {k_elastic}, {kn2k1}, {kn2kc}, {phi_f}, {f_adh}"
+            )));
+        }
+        Ok(Self::Luding {
+            material,
+            k_elastic,
+            kn2k1,
+            kn2kc,
+            phi_f,
+            f_adh,
+            tangential_damping: true,
+            limit_force: true,
+        })
+    }
+
     /// Whether this model keeps a per-contact scalar (`deltaMax`) besides the
     /// shear spring; such a model is resolved serially.
     #[must_use]
@@ -865,6 +932,7 @@ impl GranularNormalModel {
     pub fn state_len(&self) -> usize {
         match self {
             Self::HookeHysteresis { .. } => 1,
+            Self::Luding { .. } => 3,
             _ => 0,
         }
     }
@@ -884,6 +952,11 @@ impl GranularNormalModel {
             Self::HookeHysteresis { .. } => {
                 let (out, dmax) = self.evaluate_hysteretic(k, props, state[0], update);
                 state[0] = dmax;
+                out
+            }
+            Self::Luding { .. } => {
+                let (out, st) = self.evaluate_luding(k, props, [state[0], state[1], state[2]]);
+                state[..3].copy_from_slice(&st);
                 out
             }
             _ => self.evaluate_with(k, props),
@@ -948,7 +1021,8 @@ impl GranularNormalModel {
             | Self::Hooke { tangential_damping, .. }
             | Self::HertzStiffness { tangential_damping, .. }
             | Self::HookeStiffness { tangential_damping, .. }
-            | Self::HookeHysteresis { tangential_damping, .. } => *tangential_damping = on,
+            | Self::HookeHysteresis { tangential_damping, .. }
+            | Self::Luding { tangential_damping, .. } => *tangential_damping = on,
         }
         self
     }
@@ -971,7 +1045,8 @@ impl GranularNormalModel {
             | Self::Hooke { material, .. }
             | Self::HertzStiffness { material, .. }
             | Self::HookeStiffness { material, .. }
-            | Self::HookeHysteresis { material, .. } => *material,
+            | Self::HookeHysteresis { material, .. }
+            | Self::Luding { material, .. } => *material,
         }
     }
 
@@ -1052,6 +1127,7 @@ impl GranularNormalModel {
                 }
             }
             Self::HookeHysteresis { .. } => self.evaluate_hysteretic(k, props, 0.0, false).0,
+            Self::Luding { .. } => self.evaluate_luding(k, props, [0.0; 3]).0,
             Self::HertzStiffness {
                 k_n,
                 k_t,
@@ -1109,6 +1185,97 @@ impl GranularNormalModel {
 }
 
 impl GranularNormalModel {
+    /// `NormalModel<LUDING>::surfacesIntersect` (`normal_model_luding.h`,
+    /// LIGGGHTS-PUBLIC `3d5c00f2`). `state = [deltaMax, kc, f_adh]` in and out
+    /// (`deltaMax` is updated unconditionally, as upstream does).
+    #[must_use]
+    fn evaluate_luding(
+        &self,
+        k: &ContactKinematics,
+        props: &PairProps,
+        state: [f64; 3],
+    ) -> (NormalOutcome, [f64; 3]) {
+        let Self::Luding {
+            k_elastic,
+            kn2k1,
+            kn2kc,
+            phi_f,
+            f_adh,
+            tangential_damping,
+            limit_force,
+            ..
+        } = *self
+        else {
+            return (self.evaluate_with(k, props), state);
+        };
+        let deltan = k.delta_n;
+        let reff = k.r_eff;
+        let meff = k.m_eff;
+        let ln_e = props.ln_e;
+        // `kn /= force->nktv2p` with nktv2p = 1 in SI
+        let kn = k_elastic;
+        let kt = kn;
+        let k1 = kn;
+        let k2_max = kn * kn2k1;
+        let kc = kn2kc * kn;
+        let f_0 = f_adh;
+        let gamman = (4.0 * meff * kn
+            / (1.0 + (std::f64::consts::PI / ln_e) * (std::f64::consts::PI / ln_e)))
+            .sqrt();
+        let mut gammat = (4.0 * meff * kn
+            / (1.0 + (std::f64::consts::PI / ln_e) * (std::f64::consts::PI / ln_e)))
+            .sqrt();
+        if !tangential_damping {
+            gammat = 0.0;
+        }
+        let mut history = state[0];
+        let delta_max;
+        if deltan > history {
+            history = deltan;
+            delta_max = deltan;
+        } else {
+            delta_max = history;
+        }
+        let delta_max_lim = (k2_max / (k2_max - k1)) * phi_f * 2.0 * reff;
+        let f_hys;
+        if delta_max >= delta_max_lim {
+            let k2 = k2_max;
+            let f_tmp = k2 * (deltan - delta_max_lim) + k1 * delta_max_lim;
+            if f_tmp >= -kc * deltan {
+                f_hys = f_tmp;
+            } else {
+                f_hys = -kc * deltan;
+                history = ((k2 + kc) / (k2 - k1)) * deltan;
+            }
+        } else {
+            let k2 = k1 + (k2_max - k1) * delta_max / delta_max_lim;
+            let f_tmp = k2 * (deltan - delta_max) + k1 * delta_max;
+            if f_tmp >= k1 * deltan {
+                f_hys = k1 * deltan;
+            } else if f_tmp > -kc * deltan {
+                f_hys = f_tmp;
+            } else {
+                f_hys = -kc * deltan;
+                history = ((k2 + kc) / (k2 - k1)) * deltan;
+            }
+        }
+        let fn_damping = -gamman * k.vn;
+        let mut fn_total = f_hys + fn_damping + f_0;
+        if limit_force && fn_total < 0.0 && kc == 0.0 && f_0 == 0.0 {
+            fn_total = 0.0;
+        }
+        (
+            NormalOutcome {
+                fn_scalar: fn_total,
+                kn,
+                kt,
+                gamman,
+                gammat,
+            },
+            [history, kc, f_0],
+        )
+    }
+
     /// `NormalModel<HOOKE_HYSTERESIS>::surfacesIntersect`: the outcome and the
     /// contact's new `deltaMax`. `delta_max` is the stored value (0 for a new
     /// contact); `update_history` is upstream's `computeflag && shearupdate`
@@ -1227,7 +1394,7 @@ fn check_stiffness(k_n: f64, k_t: f64, gamma_n: f64, gamma_t: f64) -> Result<(),
 }
 
 /// Closed set of tangential contact models.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TangentialModel {
     /// Upstream `TangentialModel<TANGENTIAL_HISTORY>` — a Mindlin shear spring
     /// with an accumulated tangential displacement, Coulomb-rescaled on slip.
@@ -1236,6 +1403,46 @@ pub enum TangentialModel {
     /// Upstream `TangentialModel<TANGENTIAL_NO_HISTORY>` — Coulomb-capped
     /// dashpot only, no spring. Equivalent to what [`crate::contact`] does.
     NoHistory,
+    /// Upstream `TangentialModel<TANGENTIAL_LUDING>` (`tan_luding`,
+    /// `tangential_model_luding_tn.h`): Luding's tangential model, used with
+    /// `model luding`. A history spring of stiffness `k_t * kT2kcMax`, with a
+    /// static friction limit and a lower dynamic one,
+    /// `mu_s |F_n + k_c delta_n - f_adh|` and `mu_d |...|`, so the adhesive
+    /// contact stiffness `k_c` and pull-off force `f_adh` (stored by the normal
+    /// model) widen the friction cone. gh:#1410.
+    LudingTn {
+        /// `coeffMu` (property `FluidViscosity`): `mu_d / mu_s` `[-]`.
+        mu_dynamic_ratio: f64,
+        /// `coeffFricVisc` (property `FrictionViscosity`): multiplies the
+        /// normal model's `gamma_t` `[-]`.
+        fric_visc: f64,
+        /// `kT2kcMax` (property `coeffFrictionStiffness`): `k_t` multiplier.
+        kt_ratio: f64,
+    },
+}
+
+impl TangentialModel {
+    /// `tangential_model tan_luding` (see [`TangentialModel::LudingTn`]).
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] unless all three coefficients are finite
+    /// and `> 0` (upstream: `coeffMu > 0`, `coeffFricVisc > 0`).
+    pub fn luding_tn(mu_dynamic_ratio: f64, fric_visc: f64, kt_ratio: f64) -> Result<Self, DemError> {
+        for v in [mu_dynamic_ratio, fric_visc, kt_ratio] {
+            if !(v > 0.0) || !v.is_finite() {
+                return Err(DemError::InvalidInput(format!(
+                    "tan_luding coefficients must be finite and > 0, got {mu_dynamic_ratio}, \
+                     {fric_visc}, {kt_ratio}"
+                )));
+            }
+        }
+        Ok(Self::LudingTn {
+            mu_dynamic_ratio,
+            fric_visc,
+            kt_ratio,
+        })
+    }
 }
 
 /// Key identifying one persistent contact in the [`ShearHistory`] store.
@@ -1663,7 +1870,27 @@ pub enum RollingModel {
         /// the relative rotation).
         torsion_torque: bool,
     },
+    /// Upstream `RollingModel<ROLLING_LUDING>` (`rolling_model_luding.h`):
+    /// Luding's rolling spring-dashpot with the friction limit
+    /// `mu_r |F_n + k_c delta_n - f_adh| R*` (`kc`, `f_adh` stored by
+    /// `model luding`). Unlike EPSD the spring history is written
+    /// **unconditionally** (also at set-up). `torsion off` only.
+    /// gh:#1410.
+    Luding {
+        /// `coeffRollFrict` `[-]`.
+        mu_r: f64,
+        /// `coeffRollVisc` `[-]`.
+        mu_visc: f64,
+        /// `kR2kcMax` (property `coeffRollingStiffness`): `k_r = k_t kR2kcMax R*^2`.
+        kr_ratio: f64,
+    },
 }
+
+/// Fields of [`RollingModel::Luding`] documented here to keep the enum short.
+/// Upstream `torsion` (a second, torsion spring) is **not** ported: its
+/// history aliases the rolling one in upstream and is off by default.
+#[allow(dead_code)]
+const _LUDING_ROLLING_NOTE: () = ();
 
 /// The three EPSD rolling models of upstream.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1681,7 +1908,114 @@ impl RollingModel {
     /// Whether the model stores a per-contact rolling torque.
     #[must_use]
     pub fn has_state(&self) -> bool {
-        matches!(self, Self::Epsd { .. })
+        matches!(self, Self::Epsd { .. } | Self::Luding { .. })
+    }
+
+    /// `rolling_model luding` (see [`RollingModel::Luding`]).
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if a coefficient is negative or not finite.
+    pub fn luding(mu_r: f64, mu_visc: f64, kr_ratio: f64) -> Result<Self, DemError> {
+        for (name, v) in [("mu_r", mu_r), ("mu_visc", mu_visc), ("kR2kcMax", kr_ratio)] {
+            if !(v >= 0.0) || !v.is_finite() {
+                return Err(DemError::InvalidInput(format!(
+                    "luding rolling coefficient {name} must be finite and >= 0, got {v}"
+                )));
+            }
+        }
+        Ok(Self::Luding {
+            mu_r,
+            mu_visc,
+            kr_ratio,
+        })
+    }
+
+    /// Torque and new history of any stateful rolling model (EPSD or Luding).
+    /// `nstate` is the normal model's state (`[deltaMax, kc, f_adh]` for
+    /// Luding).
+    #[must_use]
+    pub fn stateful_torque(
+        &self,
+        k: &ContactKinematics,
+        normal: &NormalOutcome,
+        nstate: &[f64; NORMAL_STATE],
+        prior: Vec3,
+        dt: f64,
+        update: bool,
+    ) -> (Vec3, Vec3) {
+        match self {
+            Self::Luding { .. } => self.luding_torque(k, normal, nstate, prior, dt),
+            _ => self.epsd_torque(k, normal, prior, dt, update),
+        }
+    }
+
+    /// `RollingModel<ROLLING_LUDING>::calcRollTorque` (`torsion off`).
+    #[must_use]
+    fn luding_torque(
+        &self,
+        k: &ContactKinematics,
+        normal: &NormalOutcome,
+        nstate: &[f64; NORMAL_STATE],
+        prior: Vec3,
+        dt: f64,
+    ) -> (Vec3, Vec3) {
+        let Self::Luding {
+            mu_r: rmu,
+            mu_visc,
+            kr_ratio,
+        } = *self
+        else {
+            return (Vec3::zero(), prior);
+        };
+        let radi = k.rad_i;
+        let radj = k.rad_j;
+        let reff = if k.is_wall { radi } else { radi * radj / (radi + radj) };
+        let (wr1, wr2, wr3, r_inertia);
+        if k.is_wall {
+            wr1 = k.wr.x;
+            wr2 = k.wr.y;
+            wr3 = k.wr.z;
+            r_inertia = 1.4 * k.mass_i * reff * reff;
+        } else {
+            wr1 = k.omega_i.x - k.omega_j.x;
+            wr2 = k.omega_i.y - k.omega_j.y;
+            wr3 = k.omega_i.z - k.omega_j.z;
+            let red_i = k.mass_i * radi * radi;
+            let red_j = k.mass_j * radj * radj;
+            r_inertia = 1.4 * red_i * red_j / (red_i + red_j);
+        }
+        let (enx, eny, enz) = (k.en.x, k.en.y, k.en.z);
+        let wr_dot_delta = wr1 * enx + wr2 * eny + wr3 * enz;
+        let wr_n = Vec3::new(enx * wr_dot_delta, eny * wr_dot_delta, enz * wr_dot_delta);
+        let wr_t = Vec3::new(wr1 - wr_n.x, wr2 - wr_n.y, wr3 - wr_n.z);
+        let k_r = normal.kt;
+        let kr = k_r * kr_ratio * reff * reff;
+        let kc = nstate[1];
+        let f_adh = nstate[2];
+        let dt_kr = dt * kr;
+        let mut r_torque = Vec3::new(
+            prior.x + wr_t.x * dt_kr,
+            prior.y + wr_t.y * dt_kr,
+            prior.z + wr_t.z * dt_kr,
+        );
+        let r_torque_mag = r_torque.norm();
+        let r_torque_max = rmu * (normal.fn_scalar + kc * k.delta_n - f_adh).abs() * reff;
+        let hist;
+        if r_torque_mag > r_torque_max {
+            let factor = r_torque_max / r_torque_mag;
+            r_torque = Vec3::new(r_torque.x * factor, r_torque.y * factor, r_torque.z * factor);
+            hist = r_torque;
+        } else {
+            hist = r_torque;
+            let r_coef = normal.gammat * mu_visc * 2.0 * (r_inertia * kr).sqrt();
+            r_torque = Vec3::new(
+                r_torque.x + r_coef * wr_t.x,
+                r_torque.y + r_coef * wr_t.y,
+                r_torque.z + r_coef * wr_t.z,
+            );
+        }
+        (r_torque, hist)
     }
 
     /// `rolling_model epsd` with upstream's defaults (`torsionTorque off`).
@@ -1960,7 +2294,7 @@ impl GranularContactModel {
     /// the model, not of any individual contact.
     #[must_use]
     pub fn has_tangential_history(&self) -> bool {
-        matches!(self.tangential, TangentialModel::History)
+        matches!(self.tangential, TangentialModel::History | TangentialModel::LudingTn { .. })
     }
 
     /// Assemble a contact model from its normal and tangential halves, with
@@ -2040,7 +2374,7 @@ impl GranularContactModel {
         // would insert a live entry for a stateless contact and change what
         // `end_step` retains.
         let prior = match self.tangential {
-            TangentialModel::History => history.touch(key),
+            TangentialModel::History | TangentialModel::LudingTn { .. } => history.touch(key),
             TangentialModel::NoHistory => Vec3::zero(),
         };
         let prior_aux = self.load_aux(key, history);
@@ -2162,7 +2496,7 @@ impl GranularContactModel {
         dt: f64,
     ) -> GranularForce {
         let prior = match self.tangential {
-            TangentialModel::History => history.touch(key),
+            TangentialModel::History | TangentialModel::LudingTn { .. } => history.touch(key),
             TangentialModel::NoHistory => Vec3::zero(),
         };
         let prior_aux = self.load_aux(key, history);
@@ -2239,6 +2573,49 @@ impl GranularContactModel {
                 }
                 ft
             }
+            TangentialModel::LudingTn {
+                mu_dynamic_ratio,
+                fric_visc,
+                kt_ratio,
+            } => {
+                // tangential_model_luding_tn.h, surfacesIntersect
+                let kt = normal.kt * kt_ratio;
+                let mut shear = prior_shear;
+                if UPDATE {
+                    shear = prior_shear.add(k.vtr.scale(dt));
+                    let rsht = shear.dot(k.en);
+                    shear = shear.sub(k.en.scale(rsht));
+                }
+                let shrmag = shear.norm();
+                let xmu_s = mu;
+                let xmu_d = xmu_s * mu_dynamic_ratio;
+                let gammat = normal.gammat * fric_visc;
+                let kc = aux.normal[1];
+                let f_adh = aux.normal[2];
+                let mut ft = shear.scale(-kt);
+                let ft_shear = kt * shrmag;
+                let cone = (normal.fn_scalar + kc * k.delta_n - f_adh).abs();
+                let ft_friction_s = xmu_s * cone;
+                if ft_shear > ft_friction_s {
+                    if shrmag != 0.0 {
+                        let ft_friction_d = xmu_d * cone;
+                        let ratio = ft_friction_d / ft_shear;
+                        ft = ft.scale(ratio);
+                        updated = Some(Vec3::new(-ft.x / kt, -ft.y / kt, -ft.z / kt));
+                    } else {
+                        ft = Vec3::zero();
+                        updated = Some(shear);
+                    }
+                } else {
+                    updated = Some(shear);
+                    ft = Vec3::new(
+                        ft.x - gammat * k.vtr.x,
+                        ft.y - gammat * k.vtr.y,
+                        ft.z - gammat * k.vtr.z,
+                    );
+                }
+                ft
+            }
             TangentialModel::NoHistory => {
                 // Upstream `tangential_model_no_history.h`: a dashpot whose
                 // coefficient is capped, not a force that is rescaled:
@@ -2267,7 +2644,9 @@ impl GranularContactModel {
 
         // Rolling resistance: upstream applies -M_r to i and +M_r to j.
         let m_r = if self.rolling.has_state() {
-            let (m, hist) = self.rolling.epsd_torque(k, &normal, aux.roll, dt, UPDATE);
+            let (m, hist) =
+                self.rolling
+                    .stateful_torque(k, &normal, &aux.normal, aux.roll, dt, UPDATE);
             aux.roll = hist;
             m
         } else {
