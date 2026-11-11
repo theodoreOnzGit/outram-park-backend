@@ -130,6 +130,17 @@ in the demo.
   multi-hour.)
 - **Clean room:** public manuals and literature only, never MELCOR, MAAP,
   ASTEC, RELAP5, SCDAP or FRAPCON source.
+- **Equations go to offbeat, the plant stays here (2026-11-11, gh:#1335;
+  maintainer 2026-11-10: "the MELCOR equations clean room should live as an
+  offbeat module rather than in sembawang").** `aerosol`, `vapour`,
+  `rn_volume`, `iodine`, `wire` and the constant `params::R_GAS` moved
+  unchanged to `outram_park_fork_offbeat::melcor`;
+  `sembawang::bwr_mark1::{aerosol, iodine, rn_volume, vapour, wire}` are
+  deprecated `pub use` aliases for one release. New generic MELCOR-manual
+  equations go to `offbeat::melcor` when they need nothing beyond `petir`,
+  `tampines-steam-tables` and `changi`; anything needing `tampines`,
+  `teh-o-prke`, the ENDF libraries or `tuas_boussinesq_solver`, and all
+  plant data, stays here. Why each remaining file stayed: gh:#1335.
 - **Transcendentals through PETIR** (`.r_exp()` etc., gh:#985), never the
   platform's `.exp()`; converted 2026-10-29 with the effect measured in
   `verification_and_validation/bwr_mark1/petir-conversion.md`.

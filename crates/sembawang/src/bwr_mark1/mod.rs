@@ -45,7 +45,6 @@
 //! Research, education and V&V only: never for operation, licensing, safety
 //! decisions or emergency response.
 
-pub mod aerosol;
 pub mod cavity;
 pub mod compare;
 pub mod containment;
@@ -57,19 +56,32 @@ pub mod fdi;
 pub mod fp_decay;
 pub mod gas;
 pub mod internals;
-pub mod iodine;
 pub mod msl;
 pub mod params;
 pub mod pool_surface;
 pub mod reaction;
-pub mod rn_volume;
 pub mod source;
 pub mod sparc;
 pub mod steam;
 pub mod turbine_pump;
 pub mod units23;
-pub mod vapour;
-pub mod wire;
+
+// Deprecated aliases (gh:#1335, 2026-11-11): these five modules are the
+// MELCOR clean-room equations, moved unchanged to
+// `outram_park_fork_offbeat::melcor`. The old paths
+// (`sembawang::bwr_mark1::aerosol::Medium` and the rest) keep working for
+// one release through these plain re-exports; new code should name the
+// offbeat paths. The plant assembly that calls them stays here.
+/// Deprecated alias of [`outram_park_fork_offbeat::melcor::aerosol`] (gh:#1335).
+pub use outram_park_fork_offbeat::melcor::aerosol;
+/// Deprecated alias of [`outram_park_fork_offbeat::melcor::iodine`] (gh:#1335).
+pub use outram_park_fork_offbeat::melcor::iodine;
+/// Deprecated alias of [`outram_park_fork_offbeat::melcor::rn_volume`] (gh:#1335).
+pub use outram_park_fork_offbeat::melcor::rn_volume;
+/// Deprecated alias of [`outram_park_fork_offbeat::melcor::vapour`] (gh:#1335).
+pub use outram_park_fork_offbeat::melcor::vapour;
+/// Deprecated alias of [`outram_park_fork_offbeat::melcor::wire`] (gh:#1335).
+pub use outram_park_fork_offbeat::melcor::wire;
 
 pub use units23::Unit;
 

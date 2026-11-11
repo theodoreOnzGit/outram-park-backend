@@ -67,7 +67,9 @@
 //! [`MeshDict`] holds the `meshDict` entries this module reads, as typed
 //! fields; it is not a dictionary reader. Patches are named by **region
 //! index** of the [`crate::mesh_octree::TriSurf`] (upstream matches patch
-//! names, with regular expressions).
+//! names, with regular expressions). **Since gh:#1476**,
+//! [`crate::mesh_dict`] reads a `meshDict` file into it, matching the names
+//! as upstream's `findPatches` does (full regular-expression match).
 //!
 //! ~~Not ported: `subsetCellSize` (no facet subsets on `TriSurf`; corrected
 //! by gh:#1276: the subsets exist, the refinement did not),
