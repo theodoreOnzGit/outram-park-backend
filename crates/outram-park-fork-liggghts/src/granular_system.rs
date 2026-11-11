@@ -274,6 +274,10 @@ pub struct GranularSystem {
     /// The neighbour list must be rebuilt in the next force evaluation
     /// (`Neighbor::decide` returned 1, or the particle set changed).
     rebuild_now: bool,
+    /// Primitive-wall neighbour lists of the last rebuild, `[wall][particle]`
+    /// (`PrimitiveWall::buildNeighList`). Empty until a LIGGGHTS-order rebuild;
+    /// only the multicontact `surfacesClose` history reads it (gh:#1410).
+    wall_near: Vec<Vec<bool>>,
     /// `fix insert/*` fixes, run at `pre_exchange` (gh:#1414).
     inserters: Vec<crate::insert::InsertFix>,
     /// `fix insert/stream` fixes and the shared release data (by tag).
@@ -402,6 +406,7 @@ impl GranularSystem {
             step_count: 0,
             next_sort: 0,
             rebuild_now: false,
+            wall_near: Vec::new(),
             inserters: Vec::new(),
             stream_inserters: Vec::new(),
             stream_release: std::collections::BTreeMap::new(),
@@ -835,6 +840,19 @@ impl GranularSystem {
                 .map(|&(a, b)| (self.perm[a as usize] as u32, self.perm[b as usize] as u32)),
         );
         self.xhold = self.particles.iter().map(|p| p.position).collect();
+        // `FixWallGran::pre_neighbor`: rebuild each primitive wall's list with
+        // threshold = skin and the atom radius
+        let skin = cfg.skin;
+        self.wall_near = self
+            .boundaries
+            .iter()
+            .map(|b| {
+                self.particles
+                    .iter()
+                    .map(|p| b.upstream_neighlist(p, skin).unwrap_or(true))
+                    .collect()
+            })
+            .collect();
     }
 
     /// Select the compute backend for the timestep, returning the updated
@@ -1727,10 +1745,23 @@ impl GranularSystem {
                             [h[0], h[1], h[2], fnorm],
                         );
                     }
-                } else if self.mc.is_some() && !setup {
+                } else if self.mc.is_some()
+                    && !setup
+                    && self.wall_near.get(w).is_none_or(|v| v[i])
+                {
                     // `surfacesClose` of an axis-aligned plane within one
                     // (unexpanded) radius: delta*radi*rinv with rinv = -1/|delta|
-                    if let Some((a, param)) = boundary.plane_axis_and_param() {
+                    if let Some((deltan, dv)) = boundary.cylinder_resolve(&p) {
+                        // Cylinder<dim>::resolveContact: `delta` is defined
+                        // for deltan > 0 too; `deltan < (factor-1)*radius[i]`.
+                        if deltan < radius0 {
+                            let h = crate::multicontact::surfaces_close_history(true, [dv.x, dv.y, dv.z], p.radius, 0.0);
+                            self.mc.as_mut().expect("multicontact").wall_hist.insert(
+                                (self.tags[i] as usize, w),
+                                [h[0], h[1], h[2], h[3]],
+                            );
+                        }
+                    } else if let Some((a, param)) = boundary.plane_axis_and_param() {
                         let pos = [p.position.x, p.position.y, p.position.z];
                         let dist = pos[a] - param;
                         let deltan = dist.abs() - p.radius;

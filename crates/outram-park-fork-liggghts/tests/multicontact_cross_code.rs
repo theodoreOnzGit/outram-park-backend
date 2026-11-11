@@ -55,11 +55,24 @@ use uom::si::{length::meter, mass::kilogram, thermodynamic_temperature::kelvin};
 
 const INIT: &str = include_str!("../../../reference-data/liggghts/multicontact_init.csv");
 const REF: &str = include_str!("../../../reference-data/liggghts/multicontact.csv");
+const INIT_CYL: &str = include_str!("../../../reference-data/liggghts/multicontact_cyl_init.csv");
+const REF_CYL: &str = include_str!("../../../reference-data/liggghts/multicontact_cyl.csv");
 
-fn system(multicontact: bool) -> GranularSystem {
+/// Which deck: two z planes, or two planes plus a `zcylinder 0.0125 0 0` wall.
+#[derive(Clone, Copy)]
+enum Deck {
+    Planes,
+    Cylinder,
+}
+
+fn system(deck: Deck, multicontact: bool) -> GranularSystem {
     let r = 0.005;
     let mass = 4.0 * std::f64::consts::PI / 3.0 * r * r * r * 2500.0;
-    let particles: Vec<Particle> = INIT
+    let init = match deck {
+        Deck::Planes => INIT,
+        Deck::Cylinder => INIT_CYL,
+    };
+    let particles: Vec<Particle> = init
         .lines()
         .skip(1)
         .filter(|l| !l.trim().is_empty())
@@ -77,10 +90,13 @@ fn system(multicontact: bool) -> GranularSystem {
         })
         .collect();
     let material = GranularMaterial::new(1.0e5, 0.3, 0.5, 0.3).unwrap();
-    let boundaries = vec![
+    let mut boundaries = vec![
         Boundary::plane(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0)).unwrap(),
         Boundary::plane(Vec3::new(0.0, 0.0, 0.0195), Vec3::new(0.0, 0.0, 1.0)).unwrap(),
     ];
+    if matches!(deck, Deck::Cylinder) {
+        boundaries.push(Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), 0.0125).unwrap());
+    }
     let sys = GranularSystem::new(
         particles,
         boundaries,
@@ -99,9 +115,14 @@ fn system(multicontact: bool) -> GranularSystem {
 }
 
 /// Run and return `(bit-identical values, total values, worst |diff| / column scale)`.
-fn compare(multicontact: bool) -> (usize, usize, f64) {
-    let mut sys = system(multicontact);
-    let mut rows = REF.lines();
+fn compare(deck: Deck, multicontact: bool) -> (usize, usize, f64) {
+    let mut sys = system(deck, multicontact);
+    let rows = match deck {
+        Deck::Planes => REF,
+        Deck::Cylinder => REF_CYL,
+    };
+    let ovr = std::env::var("MC_REF").ok().map(|f| std::fs::read_to_string(f).unwrap());
+    let mut rows = ovr.as_deref().unwrap_or(rows).lines();
     let _ = rows.next();
     let (mut same, mut total, mut worst) = (0usize, 0usize, 0.0_f64);
     let mut done = 0usize;
@@ -127,6 +148,8 @@ fn compare(multicontact: bool) -> (usize, usize, f64) {
                 total += 1;
                 if ours[c].to_bits() == theirs.to_bits() {
                     same += 1;
+                } else if std::env::var("MC_DEBUG").is_ok() {
+                    println!("step {step} particle {} col {c}: {:e} vs {:e}", n + 1, ours[c], theirs);
                 }
                 if scale[c] > 0.0 {
                     worst = worst.max((ours[c] - theirs).abs() / scale[c]);
@@ -142,16 +165,48 @@ fn compare(multicontact: bool) -> (usize, usize, f64) {
 #[test]
 
 fn multicontact_trajectory_matches_upstream() {
-    let (same, total, worst) = compare(true);
+    let (same, total, worst) = compare(Deck::Planes, true);
     println!("multicontact: {same}/{total} values bit-identical, worst |diff|/scale = {worst:e}");
+    assert!(worst <= 1e-8, "worst {worst:e}");
+}
+
+/// Cylinder wall (gh:#1410): `in.multicontact_cyl`, six spheres between two z
+/// planes and a `zcylinder` of radius 12.5 mm; some overlap the cylinder, some
+/// sit within one radius of it (so the cylinder's `surfacesClose` history,
+/// `delta*radi*rinv` with the cylinder's `delta`, drives the half-space fix).
+/// Prediction (written before the run): bit-identical, as the plane deck;
+/// without the cylinder `surfacesClose` hook the expansions at gap contacts
+/// would be missed.
+///
+/// Result (2026-11-11, release, rustc 1.99.1): 1674/1674 values bit-identical,
+/// worst difference 0; control without the model misses by 3.3e-1; ablating the
+/// cylinder `surfacesClose` hook drops it to 972/1674 (worst 1.7e-1), so the
+/// hook carries the agreement. Two causes were found by instrumenting a copy of
+/// upstream (prints of the contact-property-atom data per step): (1) the port
+/// wrote the close history for every particle with `deltan < radius`, upstream
+/// only for those in the wall's neighbour list (`Cylinder::resolveNeighlist`,
+/// rebuilt with the skin) - now `Boundary::upstream_neighlist`, kept per
+/// rebuild; (2) the cylinder `delta` is defined for `deltan > 0` too
+/// (`Boundary::cylinder_resolve`). Upstream oddity, NOT copied: a particle
+/// that gets a close history but is farther than half a skin from the wall
+/// reads another particle's surface position (zero-size page allocation in
+/// `FixContactPropertyAtomWall::clear`), so the deck keeps every close
+/// particle within 1 mm of the cylinder or beyond one radius.
+#[test]
+fn multicontact_cylinder_matches_upstream() {
+    let (same, total, worst) = compare(Deck::Cylinder, true);
+    println!("multicontact cylinder: {same}/{total} values bit-identical, worst = {worst:e}");
+    let (_, _, without) = compare(Deck::Cylinder, false);
+    println!("cylinder control without the model: {without:e}");
+    assert!(without > 10.0 * worst.max(1e-12), "model not exercised: with {worst:e} without {without:e}");
     assert!(worst <= 1e-8, "worst {worst:e}");
 }
 
 /// The model is exercised: a run without it misses upstream by far more.
 #[test]
 fn control_without_multicontact_differs() {
-    let (_, _, with) = compare(true);
-    let (_, _, without) = compare(false);
+    let (_, _, with) = compare(Deck::Planes, true);
+    let (_, _, without) = compare(Deck::Planes, false);
     println!("control: with {with:e}, without {without:e}");
     // measured 0 vs 1.07e-1
     assert!(without > 10.0 * with, "with {with:e} without {without:e}");

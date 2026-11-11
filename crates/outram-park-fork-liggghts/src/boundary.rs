@@ -412,6 +412,84 @@ impl Boundary {
             .map(|a| (a, p[a]))
     }
 
+    /// `Plane<dim>::resolveNeighlist` / `Cylinder<dim>::resolveNeighlist`
+    /// (`primitive_wall_definitions.h`): whether the sphere is in the wall's
+    /// neighbour list built with `threshold` (the skin) and radius `p.radius`.
+    /// `None` when this is not an axis-aligned plane or cylinder (upstream's
+    /// default is "every particle is listed"). gh:#1410.
+    #[must_use]
+    pub fn upstream_neighlist(&self, p: &Particle, threshold: f64) -> Option<bool> {
+        let pos = [p.position.x, p.position.y, p.position.z];
+        let d_max = p.radius + threshold;
+        match *self {
+            Self::Plane { .. } | Self::Wall { .. } => {
+                let (a, param) = self.plane_axis_and_param()?;
+                let dist = pos[a] - param;
+                let absdist = if dist > 0.0 { dist } else { -dist };
+                Some(absdist <= d_max)
+            }
+            Self::Cylinder {
+                axis_point,
+                axis_dir,
+                radius,
+            } => {
+                let c = [axis_dir.x, axis_dir.y, axis_dir.z];
+                let a = (0..3).find(|&a| c[(a + 1) % 3] == 0.0 && c[(a + 2) % 3] == 0.0 && c[a].abs() == 1.0)?;
+                let (iy, iz) = ((a + 1) % 3, (a + 2) % 3);
+                let ap = [axis_point.x, axis_point.y, axis_point.z];
+                let dy = pos[iy] - ap[iy];
+                let dz = pos[iz] - ap[iz];
+                let dist = (dy * dy + dz * dz).sqrt() - radius;
+                Some(d_max < dist || -d_max < dist)
+            }
+            Self::Box { .. } => None,
+        }
+    }
+
+    /// `Cylinder<dim>::resolveContact` for an axis-aligned cylinder
+    /// (`primitive_wall_definitions.h`, LIGGGHTS-PUBLIC `3d5c00f2`), returned
+    /// whether or not the sphere touches: `(deltan, delta)` with `deltan` the
+    /// signed gap (negative = overlap) and `delta = -delta_upstream`, exactly
+    /// the pair `FixWallGran::post_force_primitive` passes to the contact law
+    /// (`sidata.deltan = -deltan`, `sidata.delta = -delta`). The multicontact
+    /// `surfacesClose` history of a cylinder wall reads `delta` while the
+    /// sphere is still inside the neighbour skin (`deltan > 0`). `None` for a
+    /// non-cylinder or non-axis-aligned boundary, or on the zero-distance
+    /// guard. gh:#1410.
+    #[must_use]
+    pub fn cylinder_resolve(&self, p: &Particle) -> Option<(f64, Vec3)> {
+        let Self::Cylinder {
+            axis_point,
+            axis_dir,
+            radius,
+        } = *self
+        else {
+            return None;
+        };
+        let c = [axis_dir.x, axis_dir.y, axis_dir.z];
+        let a = (0..3).find(|&a| c[(a + 1) % 3] == 0.0 && c[(a + 2) % 3] == 0.0 && c[a].abs() == 1.0)?;
+        let pos = [p.position.x, p.position.y, p.position.z];
+        let (iy, iz) = ((a + 1) % 3, (a + 2) % 3);
+        let ap = [axis_point.x, axis_point.y, axis_point.z];
+        let dy = pos[iy] - ap[iy];
+        let dz = pos[iz] - ap[iz];
+        let dist = (dy * dy + dz * dz).sqrt();
+        if dist < 1e-13 && dist > -1e-13 {
+            return None; // upstream: zero distance, no direction
+        }
+        let r = p.radius;
+        let (deltan, fact, sgn) = if dist > radius {
+            (dist - radius - r, (dist - radius) / dist, -1.0)
+        } else {
+            (radius - dist - r, (radius - dist) / dist, 1.0)
+        };
+        let mut delta = [0.0; 3];
+        // upstream delta[y] = +-dy*fact; sidata.delta = -delta
+        delta[iy] = -(sgn * dy * fact);
+        delta[iz] = -(sgn * dz * fact);
+        Some((deltan, Vec3::new(delta[0], delta[1], delta[2])))
+    }
+
     /// Upstream's primitive-wall resolution (`PrimitiveWall::resolveContact`,
     /// LIGGGHTS-PUBLIC `3d5c00f2`, `primitive_wall_definitions.h`:
     /// `Plane<dim>` and `Cylinder<dim>`) for the axis-aligned cases, as the
@@ -458,33 +536,12 @@ impl Boundary {
                 delta[a] = dist; // -(param - pos)
                 Some(Some((-deltan, Vec3::new(delta[0], delta[1], delta[2]))))
             }
-            Self::Cylinder {
-                axis_point,
-                axis_dir,
-                radius,
-            } => {
-                let (a, _) = axis_of(axis_dir)?;
-                let (iy, iz) = ((a + 1) % 3, (a + 2) % 3);
-                let ap = [axis_point.x, axis_point.y, axis_point.z];
-                let dy = pos[iy] - ap[iy];
-                let dz = pos[iz] - ap[iz];
-                let dist = (dy * dy + dz * dz).sqrt();
-                if dist < 1e-13 && dist > -1e-13 {
-                    return Some(None); // upstream: zero distance, no direction
-                }
-                let (deltan, fact, sgn) = if dist > radius {
-                    (dist - radius - r, (dist - radius) / dist, -1.0)
-                } else {
-                    (radius - dist - r, (radius - dist) / dist, 1.0)
-                };
+            Self::Cylinder { .. } => {
+                let (deltan, delta) = self.cylinder_resolve(p)?;
                 if deltan > 0.0 {
                     return Some(None);
                 }
-                let mut delta = [0.0; 3];
-                // upstream delta[y] = +-dy*fact; sidata.delta = -delta
-                delta[iy] = -(sgn * dy * fact);
-                delta[iz] = -(sgn * dz * fact);
-                Some(Some((-deltan, Vec3::new(delta[0], delta[1], delta[2]))))
+                Some(Some((-deltan, delta)))
             }
             Self::Box { .. } => None,
         }
