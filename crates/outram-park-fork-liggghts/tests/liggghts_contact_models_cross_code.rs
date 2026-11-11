@@ -1268,3 +1268,222 @@ fn luding_torsion_wall_matches_liggghts() {
     .expect("valid system");
     assert_bit_identical(&replay_system(&mut sys, &rows));
 }
+
+// ---------------------------------------------------------------------------
+// Head-on twins and oblique tests for the remaining normal models (gh:#1410):
+// edinburgh, sjkr/sjkr2, hooke/hysteresis, hertz/stiffness, hooke/stiffness.
+// ---------------------------------------------------------------------------
+
+/// The Edinburgh model of `in.edi_stiff_lin` / `in.edi_fixkc` (`stiffness`
+/// `Some(1e4)`) or `in.edi_nonlin` (`None`), `kn2kc = 0.3`, `gamma_s = 0.05`.
+fn edinburgh_model(
+    stiffness: Option<f64>,
+    exponent: f64,
+    f_adh: f64,
+    fix_kc: bool,
+) -> GranularContactModel {
+    let normal = GranularNormalModel::edinburgh(
+        material(),
+        stiffness,
+        3.0,
+        0.3,
+        exponent,
+        exponent,
+        f_adh,
+        0.05,
+    )
+    .expect("valid edinburgh")
+    .with_fix_kc(fix_kc);
+    GranularContactModel::new(normal, TangentialModel::History)
+}
+
+/// A pair with zero initial spin (the hysteresis and stiffness decks set
+/// none): `v_a = (vx, vy)`, `v_b = -v_a`, 251 frames bit for bit.
+fn nospin_pair(file: &str, model: GranularContactModel, vx: f64, vy: f64) -> Diff {
+    let rows = load(file).unwrap_or_else(|| panic!("{file} missing"));
+    assert_eq!(rows.len(), 251, "unexpected reference frame count");
+    replay_pair_at(
+        &rows,
+        model,
+        0.0060,
+        Vec3::new(vx, vy, 0.0),
+        // `0.0 - v` rather than `-v`: negating a zero gives -0.0, which the
+        // bit comparison sees as a difference from upstream's +0.0 (the deck
+        // sets `vy 0.0`, so atom 2 starts at +0.0, not -0.0).
+        Vec3::new(0.0 - vx, 0.0 - vy, 0.0),
+        Vec3::zero(),
+        Vec3::zero(),
+    )
+}
+
+/// Head-on Edinburgh, linear stiffness (`in.headon_edi_stiff_lin`).
+///
+/// **Methodology.** The oblique deck `in.edi_stiff_lin` with only the initial
+/// `vy` set to 0 (`v = +-(1, 0) m/s`), spins kept; 2500 steps, 251 frames of
+/// x, v, omega compared bit for bit with LIGGGHTS-PUBLIC 3d5c00f2.
+///
+/// **Prediction (written after the upstream run, before the Rust run,
+/// 2026-11-11).** Bit-identical: same operations as the oblique case, which
+/// is itself predicted bit-identical in [`edinburgh_stiffness_linear_matches_liggghts`].
+#[test]
+fn headon_edinburgh_stiffness_linear_matches_liggghts() {
+    assert_collided("headon_edi_stiff_lin.csv");
+    let model = edinburgh_model(Some(1.0e4), 1.0, 0.0005, false);
+    assert_bit_identical(&headon_pair("headon_edi_stiff_lin.csv", model));
+}
+
+/// Head-on Edinburgh, Hertzian nonlinear (`in.headon_edi_nonlin`).
+///
+/// **Prediction (2026-11-11, as the oblique case).** Bit-identical.
+#[test]
+fn headon_edinburgh_nonlinear_matches_liggghts() {
+    assert_collided("headon_edi_nonlin.csv");
+    let model = edinburgh_model(None, 1.5, 0.0, false);
+    assert_bit_identical(&headon_pair("headon_edi_nonlin.csv", model));
+}
+
+/// Head-on Edinburgh with `fixKc on` (`in.headon_edi_fixkc`).
+///
+/// **Prediction (2026-11-11, as the oblique case).** Bit-identical.
+#[test]
+fn headon_edinburgh_fix_kc_matches_liggghts() {
+    assert_collided("headon_edi_fixkc.csv");
+    let model = edinburgh_model(Some(1.0e4), 1.0, 0.0, true);
+    assert_bit_identical(&headon_pair("headon_edi_fixkc.csv", model));
+}
+
+/// Head-on SJKR (`in.headon_sjkr_pair`), `k_A = 2e5 J/m^3`, Hertz + history.
+///
+/// **Prediction (2026-11-11, as the oblique case).** Bit-identical.
+#[test]
+fn headon_sjkr_pair_matches_liggghts() {
+    let model = hertz_with(GranularCohesion::sjkr(2.0e5).expect("valid"));
+    assert_bit_identical(&headon_pair("headon_sjkr_pair.csv", model));
+}
+
+/// Head-on SJKR2 (`in.headon_sjkr2_pair`), spherical-cap area.
+///
+/// **Prediction (2026-11-11, as the oblique case).** Bit-identical.
+#[test]
+fn headon_sjkr2_pair_matches_liggghts() {
+    let model = hertz_with(GranularCohesion::sjkr2(2.0e5).expect("valid"));
+    assert_bit_identical(&headon_pair("headon_sjkr2_pair.csv", model));
+}
+
+/// Head-on SJKR with `tangential_reduce on` (`in.headon_sjkr_reduce`).
+///
+/// **Prediction (2026-11-11, as the oblique case).** Bit-identical.
+#[test]
+fn headon_sjkr_tangential_reduce_matches_liggghts() {
+    let model = hertz_with(
+        GranularCohesion::sjkr(2.0e5)
+            .expect("valid")
+            .with_tangential_reduce(true),
+    );
+    assert_bit_identical(&headon_pair("headon_sjkr_reduce.csv", model));
+}
+
+/// `hooke/hysteresis`, fast oblique impact (`in.hyst_fast`): `deltaMax`
+/// passes `deltaMaxLim` and unloading reaches the cohesion branch
+/// (`kn2kc = 0.5`, `k2/kn = 3`, plasticity depth `0.05`). No initial spin.
+///
+/// **Methodology.** `v = +-(1, 0.5) m/s`, 2500 steps, 251 frames bit for bit.
+///
+/// **Prediction (2026-11-11).** Bit-identical: the pair hysteresis arithmetic
+/// is the one already bit-identical on the wall (`wall_hyst`) and pair decks.
+#[test]
+fn hooke_hysteresis_fast_pair_matches_liggghts() {
+    let normal =
+        GranularNormalModel::hooke_hysteresis(material(), 2.0, 3.0, 0.5, 0.05).expect("valid");
+    let model = GranularContactModel::new(normal, TangentialModel::History);
+    assert_collided("hyst_fast.csv");
+    assert_bit_identical(&nospin_pair("hyst_fast.csv", model, 1.0, 0.5));
+}
+
+/// Head-on `hooke/hysteresis`, fast impact (`in.headon_hyst_fast`).
+///
+/// **Prediction (2026-11-11).** Bit-identical.
+#[test]
+fn headon_hooke_hysteresis_fast_matches_liggghts() {
+    let normal =
+        GranularNormalModel::hooke_hysteresis(material(), 2.0, 3.0, 0.5, 0.05).expect("valid");
+    let model = GranularContactModel::new(normal, TangentialModel::History);
+    assert_collided("headon_hyst_fast.csv");
+    assert_bit_identical(&nospin_pair("headon_hyst_fast.csv", model, 1.0, 0.0));
+}
+
+/// `hooke/hysteresis`, slow oblique impact (`in.hyst_slow`): `deltaMax`
+/// stays below `deltaMaxLim`, so `k2` is interpolated between `kn` and
+/// `k2Max` (`k2/kn = 4`), no adhesion (`kn2kc = 0`), plasticity depth `0.2`.
+/// `v = +-(0.25, 0.125) m/s`, 5000 steps, dumped every 20 (251 frames).
+///
+/// **Prediction (2026-11-11).** Bit-identical.
+#[test]
+fn hooke_hysteresis_slow_pair_matches_liggghts() {
+    let normal =
+        GranularNormalModel::hooke_hysteresis(material(), 2.0, 4.0, 0.0, 0.2).expect("valid");
+    let model = GranularContactModel::new(normal, TangentialModel::History);
+    assert_bit_identical(&nospin_pair("hyst_slow.csv", model, 0.25, 0.125));
+}
+
+/// Head-on `hooke/hysteresis`, slow impact (`in.headon_hyst_slow`, `v = +-0.25`).
+///
+/// **Prediction (2026-11-11).** Bit-identical.
+#[test]
+fn headon_hooke_hysteresis_slow_matches_liggghts() {
+    let normal =
+        GranularNormalModel::hooke_hysteresis(material(), 2.0, 4.0, 0.0, 0.2).expect("valid");
+    let model = GranularContactModel::new(normal, TangentialModel::History);
+    assert_bit_identical(&nospin_pair("headon_hyst_slow.csv", model, 0.25, 0.0));
+}
+
+/// `hertz/stiffness`: `k_n = 1.2e8`, `k_t = 4e7`, `gamma_n = 4.8e5`,
+/// `gamma_t = 2.4e5` (`in.stiff_hertz`), oblique, no initial spin.
+///
+/// **Prediction (2026-11-11).** Bit-identical: `sqrt(r_eff delta)` scaling of
+/// the given stiffnesses and dampings, same operation order as upstream.
+#[test]
+fn stiff_hertz_pair_matches_liggghts() {
+    let normal =
+        GranularNormalModel::hertz_stiffness(material(), 1.2e8, 4.0e7, 4.8e5, 2.4e5).expect("valid");
+    let model = GranularContactModel::new(normal, TangentialModel::History);
+    assert_collided("stiff_hertz.csv");
+    assert_bit_identical(&nospin_pair("stiff_hertz.csv", model, 1.0, 0.5));
+}
+
+/// Head-on `hertz/stiffness` (`in.headon_stiff_hertz`).
+///
+/// **Prediction (2026-11-11).** Bit-identical.
+#[test]
+fn headon_stiff_hertz_matches_liggghts() {
+    let normal =
+        GranularNormalModel::hertz_stiffness(material(), 1.2e8, 4.0e7, 4.8e5, 2.4e5).expect("valid");
+    let model = GranularContactModel::new(normal, TangentialModel::History);
+    assert_collided("headon_stiff_hertz.csv");
+    assert_bit_identical(&nospin_pair("headon_stiff_hertz.csv", model, 1.0, 0.0));
+}
+
+/// `hooke/stiffness`: `k_n = 2e5`, `k_t = 6e4`, relative damping
+/// `gamma = m_eff * (800, 400)` (`in.stiff_hooke`), oblique, no initial spin.
+///
+/// **Prediction (2026-11-11).** Bit-identical.
+#[test]
+fn stiff_hooke_pair_matches_liggghts() {
+    let normal = GranularNormalModel::hooke_stiffness(material(), 2.0e5, 6.0e4, 800.0, 400.0)
+        .expect("valid");
+    let model = GranularContactModel::new(normal, TangentialModel::History);
+    assert_collided("stiff_hooke.csv");
+    assert_bit_identical(&nospin_pair("stiff_hooke.csv", model, 1.0, 0.5));
+}
+
+/// Head-on `hooke/stiffness` (`in.headon_stiff_hooke`).
+///
+/// **Prediction (2026-11-11).** Bit-identical.
+#[test]
+fn headon_stiff_hooke_matches_liggghts() {
+    let normal = GranularNormalModel::hooke_stiffness(material(), 2.0e5, 6.0e4, 800.0, 400.0)
+        .expect("valid");
+    let model = GranularContactModel::new(normal, TangentialModel::History);
+    assert_collided("headon_stiff_hooke.csv");
+    assert_bit_identical(&nospin_pair("headon_stiff_hooke.csv", model, 1.0, 0.0));
+}
