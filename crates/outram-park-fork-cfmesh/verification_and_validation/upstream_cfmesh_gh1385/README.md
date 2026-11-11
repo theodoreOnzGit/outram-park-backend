@@ -963,3 +963,42 @@ differing face names such a cell) and, through the optimiser, points of the
 pow ulp (107600/121398 with PETIR `powf`, round 3). With the glibc-pow
 experiment the mesh before `renumberMesh` should agree in every face, and the
 final points 121333/121398 stay as in round 3 (2.7e-15 m).
+
+### Result of item 1 (committed with the fix): elbow, `refineBoundaryLayers`
+
+See "Round 4 results" below.
+
+### Staged runs of cutCube `pMesh` and hatOctree `cartesian2DMesh` (first table of round 4, before any fix)
+
+Upstream stopped after each step (`stage_cutCube_pMesh_<step>`,
+`stage_hatOctree_cartesian2DMesh_<step>`, `scripts/run-stages.sh`), the port
+through `outram-foam-cli/tests/cfmesh_vs_upstream_stages.rs`
+(`cut_cube_p_mesh_stages`, `hat_octree_cartesian_2d_mesh_stages`), PETIR `powf`:
+
+| step | cutCube pMesh points / faces | hatOctree 2D points / faces |
+|---|---|---|
+| templateGeneration | 205182/205182, 224843/224843 | 29498/29498, 57960/57960 |
+| surfaceTopology | 172560/172560, 202629/202629 | 29498/29498, 57960/57960 |
+| surfaceProjection | identical | **29008/29498, worst 7.8e-4 m** |
+| patchAssignment | identical | same |
+| edgeExtraction | **211975/222560, worst 7.07e-3 m**, faces 204753/313010 | 25460/29498, worst 1.2e-4 m |
+| boundaryLayerGeneration | same count and worst | 26076/30890 |
+| meshOptimisation | 18160/222560, worst 6.9e-3 m | 22662/30890, worst 7.3e-5 m |
+| boundaryLayerRefinement (final) | 18160/222560, faces 3/313010 | 25342/38090, faces 1091/75072 |
+
+First divergences: **hat at `surfaceProjection`** (`adjustZCoordinates`,
+`preMapVertices(2)`, `mapVerticesOntoSurface`), **pMesh at `edgeExtraction`**
+(`meshSurfaceEdgeExtractorFUN`, then `optimizeSurface` + `untangleSurface`).
+Counts are equal at every step of both cases.
+
+### Prediction 2, written before the fix: hat `surfaceProjection`
+
+Reading upstream `meshSurfaceMapper2DPremapVertices.C` against
+`surface_mapper_2d.rs`: `lp.coordinates() /= lp.pointLabel()` divides, the port
+multiplies by `1.0 / n` (a last-bit difference of the search point);
+`mapCorners` likewise (`newP /= ePatches.size()`). Prediction: with both
+divisions the hat's `surfaceProjection` points move from 29008/29498 toward
+29498/29498. If points still differ, the next suspects are the nearest-point
+query used by the 2D mapper (`findNearestSurfacePoint` on the quadtree; the
+3D mapper needed `NearestSearch::Upstream` and the octree), and the order in
+which `mapVerticesOntoSurface` reads the live points.
