@@ -462,6 +462,37 @@ fn test_01_groupr_gendf_head() {
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
 }
 
+/// **Test 01 GROUPR: MF=6 transfer matrices (elastic and discrete inelastic, `nl = 4`).**
+///
+/// Deck as `test_01_groupr_gendf_head`. Compares every line of unit 27 with
+/// MF=6 and MT in {2, 51-64}: faithful `panel` with `nl = lord + 1 = 4`, the
+/// `getdis` two-body feed, and `displa`'s infinite-dilution matrix branch.
+/// Pass criterion: zero differing lines (MT 91 and 221/229/230 are separate).
+#[test]
+fn test_01_groupr_gendf_mf6_two_body() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "01", None, "moder\n -24 27/\n") else { return };
+    let Some((ours, njoy)) = run_pair_decks_extra(&root, "t01g6", "t511", &[("t322", 26)], &deck, &deck) else { return };
+    let want = |l: &str| -> bool {
+        if l.len() < 75 || &l[70..72] != " 6" {
+            return false;
+        }
+        let mt: i32 = l[72..75].trim().parse().unwrap_or(0);
+        matches!(mt, 2 | 51..=64)
+    };
+    let a = std::fs::read_to_string(ours.join("tape27")).unwrap();
+    let b = std::fs::read_to_string(njoy.join("tape27")).unwrap();
+    let al: Vec<&str> = a.lines().filter(|l| want(l)).collect();
+    let bl: Vec<&str> = b.lines().filter(|l| want(l)).collect();
+    let diffs: Vec<usize> = (0..al.len().max(bl.len())).filter(|&i| al.get(i) != bl.get(i)).collect();
+    println!("test 01 GENDF MF=6 two-body: {} differing lines of {} (ours {})", diffs.len(), bl.len(), al.len());
+    for &i in diffs.iter().take(6) {
+        println!("  ours: {:?}\n  njoy: {:?}", al.get(i), bl.get(i));
+    }
+    assert!(diffs.is_empty());
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
+
 /// **Test 01 GROUPR: MF=3 vector sections of the GENDF, line for line.**
 ///
 /// Deck as `test_01_groupr_gendf_head`. Compares every line of unit 27 with

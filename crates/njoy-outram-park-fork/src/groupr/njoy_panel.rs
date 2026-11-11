@@ -87,8 +87,8 @@ pub struct FeedOut {
     pub idisc: i32,
     /// `nq`: quadrature hint.
     pub nq: usize,
-    /// `ff(1, 1..ng)`.
-    pub ff: Vec<f64>,
+    /// `ff(il, 1..ng)` as `ff[il][ig]`.
+    pub ff: Vec<Vec<f64>>,
     /// `iglo`: first final group of `ff`.
     pub iglo: usize,
 }
@@ -102,6 +102,8 @@ pub enum PanelFeed {
     Vector,
     /// `getdis`.
     TwoBody(crate::groupr::two_body::TwoBodyFeed),
+    /// `getdis` for `nl` Legendre orders (`mfd = 6`, label 400).
+    TwoBodyNl(crate::groupr::two_body::TwoBodyFeed, usize),
 }
 
 impl PanelFeed {
@@ -111,11 +113,16 @@ impl PanelFeed {
     /// From `getdis`.
     pub fn at(&mut self, e: f64) -> Result<FeedOut, NjoyError> {
         match self {
-            PanelFeed::Vector => Ok(FeedOut { en: EMAX, idisc: 0, nq: 0, ff: vec![1.0], iglo: 1 }),
+            PanelFeed::Vector => Ok(FeedOut { en: EMAX, idisc: 0, nq: 0, ff: vec![vec![1.0]], iglo: 1 }),
             PanelFeed::TwoBody(f) => {
                 let a = f.feed(e, 1)?;
                 let mut ff: Vec<f64> = a.ff[0].clone();
                 ff.truncate(a.ng);
+                Ok(FeedOut { en: a.enext, idisc: i32::from(a.idisc), nq: a.nq, ff: vec![ff], iglo: a.iglo })
+            }
+            PanelFeed::TwoBodyNl(f, nl) => {
+                let a = f.feed(e, *nl)?;
+                let ff: Vec<Vec<f64>> = a.ff.iter().take(*nl).map(|r| r[..a.ng].to_vec()).collect();
                 Ok(FeedOut { en: a.enext, idisc: i32::from(a.idisc), nq: a.nq, ff, iglo: a.iglo })
             }
         }
@@ -133,7 +140,8 @@ pub struct PanelState {
     slst: f64,
     ftmp: f64,
     flst: f64,
-    ff: Vec<f64>,
+    ff: Vec<Vec<f64>>,
+    nl: usize,
     ng1: usize,
     ig1: usize,
     nq: usize,
@@ -146,7 +154,7 @@ fn getflx(iwt: i32, e: f64) -> Result<(f64, f64, i32), NjoyError> {
 }
 
 fn load_ff(st: &mut PanelState, f: &FeedOut) {
-    st.ng1 = f.ff.len();
+    st.ng1 = f.ff[0].len();
     st.ig1 = f.iglo;
     st.ff = f.ff.clone();
 }
@@ -169,6 +177,7 @@ pub fn panel(
     iglo: &mut i32,
 ) -> Result<(), NjoyError> {
     let elow = *elo;
+    let nl = st.nl.max(1);
     if *elo > *ehi * (1.0 + SMALL) {
         return Err(NjoyError::InvalidInput("panel: elo.gt.ehi.".into()));
     }
@@ -259,7 +268,9 @@ pub fn panel(
         } else {
             let aq = (*ehi + elow) / 2.0;
             let bq = (*ehi - elow) / 2.0;
-            ans[1] += (st.ftmp + st.flst) * bq;
+            for il in 0..nl {
+                ans[nl + il] += (st.ftmp + st.flst) * bq;
+            }
             let nq = st.nq;
             for iq in 1..=nq {
                 let (eqq, wq) = match nq {
@@ -287,16 +298,18 @@ pub fn panel(
                 let b = st.slst * st.flst;
                 let rr = (b + (a - b) * t1) * wq;
                 for ig in 1..=st.ng1 {
-                    if st.ff[ig - 1] != 0.0 {
-                        let igt = st.ig1 as i32 + ig as i32 - *iglo + 1;
-                        if igt > 1 {
-                            let igt = igt as usize;
-                            if igt >= ans.len() {
-                                return Err(NjoyError::InvalidInput("panel: ans too short".into()));
-                            }
-                            ans[igt] += rr * st.ff[ig - 1];
-                            if igt > *ng {
-                                *ng = igt;
+                    for il in 0..nl {
+                        if st.ff[il][ig - 1] != 0.0 {
+                            let igt = st.ig1 as i32 + ig as i32 - *iglo + 1;
+                            if igt > 1 {
+                                let igt = igt as usize;
+                                if (igt + 1) * nl > ans.len() {
+                                    return Err(NjoyError::InvalidInput("panel: ans too short".into()));
+                                }
+                                ans[igt * nl + il] += rr * st.ff[il][ig - 1];
+                                if igt > *ng {
+                                    *ng = igt;
+                                }
                             }
                         }
                     }
@@ -304,15 +317,19 @@ pub fn panel(
             }
             // thermal-group removal
             if (221..=250).contains(&sig.mtd) && *elo >= TTEST && st.stmp.abs() <= SMIN {
-                ans[2] = 0.0;
+                for il in 0..nl {
+                    ans[2 * nl + il] = 0.0;
+                }
                 *ng = 2;
             }
         }
     }
     if skip_to_220 {
         // label 115
-        ans[1] = 1.0;
-        ans[2] = 0.0;
+        for il in 0..nl {
+            ans[nl + il] = 1.0;
+            ans[2 * nl + il] = 0.0;
+        }
         *ng = 2;
         *iglo = 1;
         en = EMAX;
@@ -388,6 +405,49 @@ fn displa310(mut ans: Vec<f64>, mut ng2: usize, mut ig2lo: i32, irat: bool) -> (
     (ng2, ig2lo, igzero, data)
 }
 
+/// `displa`, the infinite-dilution transfer matrix branch (`:6205-6245`,
+/// `itr = 1`, `nz = 1`, `nl > 1`): `ans(il, 1, ig2)` is `ans[ig2 * nl + il]`.
+/// Returns `(ng2, ig2lo, igzero, data)` with `data` the `nl * ng2` words.
+fn displa_matrix(mut ans: Vec<f64>, mut ng2: usize, mut ig2lo: i32, nl: usize) -> (usize, i32, bool, Vec<f64>) {
+    let (smin, big) = (1.0e-9, 1.0e10);
+    let mut ilo = 0usize;
+    let mut ihi = ng2;
+    let mut igzero = false;
+    for ig2 in 2..=ng2 {
+        let mut izero = 0;
+        let mut result = vec![0.0f64; nl];
+        for il in 0..nl {
+            if ans[ig2 * nl + il] != 0.0 {
+                if ans[nl + il] == 0.0 {
+                    ans[nl + il] = big;
+                }
+                ans[nl + il] = sigfig(ans[nl + il], 7, 0);
+                result[il] = sigfig(ans[ig2 * nl + il] / ans[nl + il], 7, 0);
+                if result[il].abs() >= smin {
+                    izero = 1;
+                }
+            }
+        }
+        if ilo == 0 && (izero > 0 || ig2 == ng2) {
+            ilo = ig2;
+        }
+        if ilo != 0 {
+            let d = (ig2 - ilo + 2) * nl;
+            ans[d..d + nl].copy_from_slice(&result);
+            if izero > 0 {
+                ihi = ig2;
+            }
+            if izero == 1 {
+                igzero = true;
+            }
+        }
+    }
+    ig2lo += ilo as i32 - 2;
+    ng2 = ihi - ilo + 2;
+    let data = ans[nl..(1 + ng2) * nl].to_vec();
+    (ng2, ig2lo, igzero, data)
+}
+
 /// The group loop of `groupr` (`:766-830`) with `displa`'s `mfd = 3` rounding
 /// for one reaction. Returns the records to write (`igzero || ig == ngn`).
 ///
@@ -405,9 +465,10 @@ pub fn group_general(
     first: f64,
     emaxx: f64,
     irat: bool,
+    nl: usize,
 ) -> Result<Vec<GroupRow>, NjoyError> {
     let ngn = egn.len() - 1;
-    let mut st = PanelState::default();
+    let mut st = PanelState { nl, ..PanelState::default() };
     let mut out = Vec::new();
     for ig in 1..=ngn {
         let (mut elo, ehi) = (egn[ig - 1], egn[ig]);
@@ -417,7 +478,7 @@ pub fn group_general(
         if elo >= emaxx && ig != ngn {
             continue;
         }
-        let mut ans = vec![0.0f64; 4];
+        let mut ans = vec![0.0f64; (ngn + 3) * nl.max(1)];
         let (mut ng, mut iglo) = (2usize, 0i32);
         let mut enext = ehi;
         loop {
@@ -428,7 +489,8 @@ pub fn group_general(
             elo = enext;
             enext = ehi;
         }
-        let (ng2, ig2lo, igzero, data) = displa310(ans, ng, iglo, irat);
+        let (ng2, ig2lo, igzero, data) =
+            if nl > 1 { displa_matrix(ans, ng, iglo, nl) } else { displa310(ans, ng, iglo, irat) };
         if igzero || ig == ngn {
             out.push((ig, ng2, ig2lo, data));
         }
@@ -447,6 +509,6 @@ pub fn group_vector(
     first: f64,
     emaxx: f64,
 ) -> Result<Vec<(usize, f64, f64, i32)>, NjoyError> {
-    let rows = group_general(sig, &mut PanelFeed::Vector, iwt, egn, first, emaxx, false)?;
+    let rows = group_general(sig, &mut PanelFeed::Vector, iwt, egn, first, emaxx, false, 1)?;
     Ok(rows.into_iter().map(|(ig, _, lo, d)| (ig, d[0], d[1], lo)).collect())
 }

@@ -169,6 +169,10 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         let mts: Vec<i32> = if req.mtd < 0 { (mtd_prev + 1..=-req.mtd).collect() } else { vec![req.mtd] };
         mtd_prev = req.mtd.abs();
         for mtd in mts {
+            if req.mfd == 6 && (mtd == 2 || (51..=90).contains(&mtd)) {
+                write_mf6_two_body(&mut g, inp, units, &pend, za, &egn, emaxx, mtd)?;
+                continue;
+            }
             if req.mfd != 3 {
                 notes.push(format!("groupr: mf {} mt {} not written (matrix and photon-production sections are not ported)", req.mfd, mtd));
                 continue;
@@ -194,7 +198,7 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             } else {
                 crate::groupr::njoy_panel::PanelFeed::Vector
             };
-            let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, iwt, &egn, first, emaxx, ratio)?;
+            let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, iwt, &egn, first, emaxx, ratio, 1)?;
             g.begin(inp.matb, 3, mtd);
             g.cont([za, 0.0], [1, 1, lrflag, (egn.len() - 1) as i32]);
             for (ig, ng2, ig2lo, data) in rows {
@@ -205,6 +209,39 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     }
     g.end_tape();
     units.put_text(u.ngout2, g.text());
+    Ok(())
+}
+
+/// `mfd = 6` for `MT = 2` and `51-90` (`getff` label 400 = `getdis`, `nl = lord + 1`):
+/// the infinite-dilution transfer matrix section (`groupr.f90:766-830`, `displa`).
+#[allow(clippy::too_many_arguments)]
+fn write_mf6_two_body(
+    g: &mut GendfText,
+    inp: &crate::groupr::input::GrouprInput,
+    units: &mut TapeUnits,
+    pend: &crate::endf::tape::Tape,
+    za: f64,
+    egn: &[f64],
+    emaxx: f64,
+    mtd: i32,
+) -> Result<(), NjoyError> {
+    let Some(sec) = pend.section(inp.matb, 3, mtd) else { return Ok(()) };
+    let mut cur = crate::endf::records::SectionCursor::new(&sec.rows);
+    let head = cur.read_cont()?;
+    let tab = cur.read_tab1()?;
+    let lrflag = tab.head.l2;
+    let nl = inp.lord.max(0) as usize + 1;
+    let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
+    let ang = crate::groupr::file4::File4Angular::from_tape(&units.get(inp.units.nendf)?.tape, inp.matb, mtd, crate::groupr::file4::NLD)?;
+    let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, egn, head.c2, tab.head.c2, lrflag)?;
+    let mut pf = crate::groupr::njoy_panel::PanelFeed::TwoBodyNl(tb, nl);
+    let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
+    g.begin(inp.matb, 6, mtd);
+    g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
+    for (ig, ng2, ig2lo, data) in rows {
+        g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
+    }
+    g.send();
     Ok(())
 }
 
