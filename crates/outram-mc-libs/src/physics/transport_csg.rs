@@ -80,9 +80,6 @@ use crate::material::nuclide::{Inelastic, Nuclide};
 use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
-use crate::physics::scatter::{
-    free_gas_elastic_scatter_dbrc, rotate_direction, two_body_scatter, two_body_scatter_with_mu,
-};
 use crate::geometry::distribcell::DistribcellOffsets;
 use crate::geometry::surface::BoundaryType;
 use crate::physics::track_output::{TrackEvent, TrackRecorder, TrackState};
@@ -2201,7 +2198,15 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     }
                     x.absorption + prn(seed) * scatter_xs
                 } else {
-                    prn(seed) * x.total
+                    // OpenMC's two-draw order: absorption check, then
+                    // `scatter()`'s own `prn * (total - absorption)`.
+                    crate::physics::scatter::scatter_ladder_xi(
+                        nuc.scatter_kernels(),
+                        prn(seed) * x.total,
+                        x.absorption,
+                        x.total,
+                        seed,
+                    )
                 };
 
                 if xi < x.fission {
@@ -2278,12 +2283,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                         // collision isotropically understates <mu>, inflating
                         // Sigma_tr, suppressing leakage and raising k.
                         Inelastic::Level { q, mt } => {
-                            match nuc.sample_inelastic_mu_cm(mt, e, seed) {
-                                Some(mu_cm) => {
-                                    two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, seed)
-                                }
-                                None => two_body_scatter(e, u, nuc.awr, q, seed),
-                            }
+                            nuc.sample_level_inelastic_scatter(mt, q, e, u, seed)
                         }
                         Inelastic::Continuum { q } => {
                             nuc.sample_inelastic_emission(91, e, u, q, seed)
@@ -2591,33 +2591,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     // outgoing energy + cosine, up-scatter allowed); otherwise the
                     // free-gas / anisotropic-elastic kernel applies as before.
                     // ANCHOR: scatter_fork (mdBook include, Monte Carlo tutorial rung 2, gh:#524)
-                    let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
-                        (e_out, rotate_direction(u, mu_lab, seed))
-                    } else {
-                        {
-                            // Free-gas: below 400 kT the target's own thermal
-                            // motion is sampled, so the neutron can gain energy
-                            // and the population has a Maxwellian fixed point
-                            // (bead op-50vu). Above it, target-at-rest as before.
-                            // kT as OpenMC: the pointwise data's own
-                            // temperature, or the collision material's for a
-                            // multipole nuclide (GitHub #313). ~~The run-wide
-                            // `settings.temperature_k`~~ until 2026-09-30.
-                            let kt = nuc.free_gas_kt(mat_temp);
-                            let mu_cm = nuc
-                                .sample_elastic_mu_cm(e, seed)
-                                .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                            free_gas_elastic_scatter_dbrc(
-                                e,
-                                u,
-                                nuc.awr,
-                                kt,
-                                mu_cm,
-                                seed,
-                                nuc.dbrc_table(),
-                            )
-                        }
-                    };
+                    let (e2, u2) = nuc.sample_elastic_collision(e, u, mat_temp, seed);
                     // ANCHOR_END: scatter_fork
                     // Scattering-matrix estimator: score the (E_in, E_out) pair
                     // BEFORE `e` is overwritten, so a tally carrying both an
@@ -2852,7 +2826,7 @@ fn initial_source(
 /// (0-based): [`resample`] on the run's stream, or under
 /// [`SeedingMode::OpenMc`] `synchronize_bank`'s comb on
 /// `init_seed(total_gen + gen + 1, STREAM_TRACKING)` ([`comb_resample_openmc`]).
-fn resample_for_generation(
+pub(crate) fn resample_for_generation(
     settings: &KeffSettings,
     gen: usize,
     bank: &[Site],

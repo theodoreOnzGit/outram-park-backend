@@ -449,11 +449,28 @@ pub fn heatr_kerma_with_partials(
     partials: &[i32],
     text: bool,
 ) -> Result<(crate::heatr::Kerma, Vec<Option<crate::heatr::Kerma>>), NjoyError> {
+    heatr_kerma_with_partials_ed(endf, mat, recon, partials, text, 0.0)
+}
+
+/// [`heatr_kerma_with_partials`] with HEATR's card-2 displacement energy `ed`
+/// \[eV\] (the seventh field): `0` keeps NJOY's built-in table
+/// ([`crate::heatr::default_displacement_energy`]), a positive value overrides it
+/// for the damage-energy production (MT=444..447 and the partial `444`). This is
+/// what OpenMC `openmc.data.njoy.make_ace(displacement_energy=...)` writes
+/// (`{mat} 4 0 0 0 0 {ed}/`, OpenMC #4022, `8f79d9d0`).
+pub fn heatr_kerma_with_partials_ed(
+    endf: &Tape,
+    mat: i32,
+    recon: &crate::reconr::ReconrResult,
+    partials: &[i32],
+    text: bool,
+    ed: f64,
+) -> Result<(crate::heatr::Kerma, Vec<Option<crate::heatr::Kerma>>), NjoyError> {
     let pendf = pendf_for_heatr(endf, mat, recon);
     // The deck an ACE build mirrors runs on text tapes (positive units, as
     // the five-route NJOY2016 decks), so HEATR's scratch copies are text.
     let units = HeatrUnits { nendf: 20, nin: 21, nout: 22, nplot: 0 };
-    let input = HeatrInput { matd: mat, units, partial_kermas: partials.to_vec(), ..HeatrInput::default() };
+    let input = HeatrInput { matd: mat, units, partial_kermas: partials.to_vec(), ed, ..HeatrInput::default() };
     let out = heatr(endf, &pendf, &input)?;
     // The next module reads HEATR's output tape as ENDF text, so its MT=301
     // is what `Tape::write` prints (`a11`), energies included. Read in memory

@@ -783,6 +783,19 @@ pub fn continuum_inelastic_scatter(
     q: f64,
     seed: &mut u64,
 ) -> (f64, Direction) {
+    continuum_inelastic_scatter_kernels(e, u, awr, q, scatter_kernels_from_env(), seed)
+}
+
+/// [`continuum_inelastic_scatter`] with the CM-to-lab kernel chosen explicitly
+/// ([`ScatterKernels`]).
+pub fn continuum_inelastic_scatter_kernels(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    q: f64,
+    kernels: ScatterKernels,
+    seed: &mut u64,
+) -> (f64, Direction) {
     let a = awr;
     let ap1 = a + 1.0;
     // Max neutron CM energy allowed by two-body energy balance for this channel.
@@ -805,8 +818,7 @@ pub fn continuum_inelastic_scatter(
     }
 
     let mu_cm = 2.0 * prn(seed) - 1.0; // isotropic in CM
-    let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu_cm, a);
-    (e_out, rotate_direction(u, mu_lab, seed))
+    cm_lab_rotate(kernels, u, e, e_cm_out, mu_cm, a, seed)
 }
 
 /// Continuum inelastic (MT=91) or (n,2n) (MT=16) scatter using the
@@ -894,6 +906,21 @@ pub fn continuum_inelastic_scatter_evaluated(
     )
 }
 
+/// [`continuum_inelastic_scatter_evaluated`] with the CM-to-lab and rotation
+/// kernels chosen explicitly ([`ScatterKernels`]); this is what a nuclide that
+/// carries `Nuclide::with_legacy_scatter_kernels` calls.
+pub fn continuum_inelastic_scatter_evaluated_kernels(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    q: f64,
+    law: Option<&ContinuumEmission>,
+    kernels: ScatterKernels,
+    seed: &mut u64,
+) -> (f64, Direction) {
+    continuum_evaluated_impl(e, u, awr, q, law, continuum_angular_mode_from_env(), kernels, seed)
+}
+
 /// Whether the evaluated continuum angular law is sampled, or ablated away.
 ///
 /// The ablation arm of a paired worth measurement. Separating it from the
@@ -930,8 +957,22 @@ pub fn continuum_inelastic_scatter_evaluated_with(
     mode: ContinuumAngularMode,
     seed: &mut u64,
 ) -> (f64, Direction) {
+    continuum_evaluated_impl(e, u, awr, q, law, mode, scatter_kernels_from_env(), seed)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn continuum_evaluated_impl(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    q: f64,
+    law: Option<&ContinuumEmission>,
+    mode: ContinuumAngularMode,
+    kernels: ScatterKernels,
+    seed: &mut u64,
+) -> (f64, Direction) {
     let Some(law) = law else {
-        return continuum_inelastic_scatter(e, u, awr, q, seed);
+        return continuum_inelastic_scatter_kernels(e, u, awr, q, kernels, seed);
     };
 
     let branch = law.branch_for(e, prn(seed));
@@ -947,12 +988,11 @@ pub fn continuum_inelastic_scatter_evaluated_with(
         let e_cm_out = sampled.min(cap);
         // `mu` is a CM cosine here (ENDF LCT=2), so it goes through the same
         // frame transform as the energy.
-        let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu, awr);
-        (e_out, rotate_direction(u, mu_lab, seed))
+        cm_lab_rotate(kernels, u, e, e_cm_out, mu, awr, seed)
     } else {
         // Laboratory-frame law (LCT=1): the sampled energy is already the
         // outgoing lab energy and `mu` is already a lab cosine.
-        (sampled, rotate_direction(u, mu, seed))
+        (sampled, rotate_kernel(kernels, u, mu, seed))
     }
 }
 
@@ -1111,6 +1151,111 @@ pub fn continuum_angular_mode_from_env() -> ContinuumAngularMode {
 // below follow upstream line by line so a track differential can be bit-identical
 // (`tests/collision_kinematics_vs_openmc_code_to_code.rs`).
 // ---------------------------------------------------------------------------
+
+/// Which collision kernels transport uses (maintainer decision, 2026-11-11, gh:#1386).
+///
+/// [`ScatterKernels::OpenMc`] is the **default**: the translations of OpenMC's
+/// `rotate_angle`, the CM-to-lab block of `inelastic_scatter`, `LevelInelastic`,
+/// `elastic_scatter` and `sample_target_velocity` (free gas CXS, RVS, DBRC),
+/// bit-identical to OpenMC given the same xi
+/// (`tests/collision_kinematics_vs_openmc_code_to_code.rs`), and OpenMC's
+/// two-variate reaction ladder (`sample_reaction` then `scatter`).
+/// [`ScatterKernels::Legacy`] is the named alternative: the earlier kernels
+/// ([`two_body_scatter_with_mu`], [`free_gas_elastic_scatter_dbrc`],
+/// [`rotate_direction`], [`cm_to_lab`]) and the single-variate ladder, kept so a
+/// result recorded before the switch can be reproduced. Select it per nuclide
+/// with `Nuclide::with_legacy_scatter_kernels` or process-wide with
+/// `OUTRAM_MC_LEGACY_SCATTER_KERNELS=1`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ScatterKernels {
+    /// OpenMC-faithful kernels and draw order (default).
+    #[default]
+    OpenMc,
+    /// The earlier kernels, before 2026-11-11.
+    Legacy,
+}
+
+/// `OUTRAM_MC_LEGACY_SCATTER_KERNELS` (cached on first read): [`ScatterKernels::Legacy`]
+/// when set to anything but `""`/`"0"`, else [`ScatterKernels::OpenMc`].
+pub fn scatter_kernels_from_env() -> ScatterKernels {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
+    let cached = FLAG.load(Ordering::Relaxed);
+    let legacy = if cached != u8::MAX {
+        cached == 1
+    } else {
+        let on = match std::env::var("OUTRAM_MC_LEGACY_SCATTER_KERNELS") {
+            Ok(v) => !v.is_empty() && v != "0",
+            Err(_) => false,
+        };
+        FLAG.store(on as u8, Ordering::Relaxed);
+        on
+    };
+    if legacy {
+        ScatterKernels::Legacy
+    } else {
+        ScatterKernels::OpenMc
+    }
+}
+
+/// `uniform_distribution(-1, 1, seed)` (`random_dist.h`): `-1 + 2 * prn`.
+pub fn uniform_pm1(seed: &mut u64) -> f64 {
+    -1.0 + (1.0 - (-1.0)) * prn(seed)
+}
+
+/// The reaction variate of an analog collision, in OpenMC's two-draw order.
+///
+/// `xi0 = prn * sigma_t` decides absorption (OpenMC `absorption()`: `prn >
+/// sigma_a / sigma_t` survives). A survivor then draws a SECOND variate in
+/// `scatter()` (`cutoff = prn * (sigma_t - sigma_a)`), which selects the
+/// scattering reaction; this returns `sigma_a + prn * (sigma_t - sigma_a)` for it
+/// so the ladder `xi < sigma_a + sigma_inelastic + ...` is reused unchanged.
+/// An absorbed collision, a pure absorber or the [`ScatterKernels::Legacy`]
+/// kernels return `xi0` and consume no further draw (the single-variate ladder).
+pub fn scatter_ladder_xi(
+    kernels: ScatterKernels,
+    xi0: f64,
+    absorption: f64,
+    total: f64,
+    seed: &mut u64,
+) -> f64 {
+    if kernels == ScatterKernels::OpenMc && xi0 >= absorption && total > absorption {
+        absorption + prn(seed) * (total - absorption)
+    } else {
+        xi0
+    }
+}
+
+/// Rotate `u` by the lab cosine `mu` with the kernel `kernels` selects.
+pub fn rotate_kernel(kernels: ScatterKernels, u: Direction, mu: f64, seed: &mut u64) -> Direction {
+    match kernels {
+        ScatterKernels::OpenMc => rotate_angle_openmc(u, mu, None, seed),
+        ScatterKernels::Legacy => rotate_direction(u, mu, seed),
+    }
+}
+
+/// CM -> lab transform followed by the rotation, with the kernel `kernels` selects:
+/// `(E_lab, u_out)` from the incident `e`, outgoing CM energy `e_cm`, CM cosine `mu`.
+pub fn cm_lab_rotate(
+    kernels: ScatterKernels,
+    u: Direction,
+    e: f64,
+    e_cm: f64,
+    mu: f64,
+    awr: f64,
+    seed: &mut u64,
+) -> (f64, Direction) {
+    match kernels {
+        ScatterKernels::OpenMc => {
+            let (e_lab, mu_lab) = inelastic_cm_to_lab_openmc(e, e_cm, mu, awr);
+            (e_lab, rotate_angle_openmc(u, mu_lab, None, seed))
+        }
+        ScatterKernels::Legacy => {
+            let (e_lab, mu_lab) = cm_to_lab(e, e_cm, mu, awr);
+            (e_lab, rotate_direction(u, mu_lab, seed))
+        }
+    }
+}
 
 /// `rotate_angle(u, mu, nullptr, seed)` (`src/math_functions.cpp:772`): rotate the
 /// unit direction `u` by `mu` with an azimuth sampled uniformly (one draw, or

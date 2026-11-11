@@ -37,18 +37,40 @@
 //! All three CSG k-eigenvalue drivers (`run_keff_csg_seq`,
 //! `run_keff_csg_par*`, `CsgPowerIteration::new/step/step_par`) read the mode
 //! (the sequential driver and the iteration object since 2026-11-11; before
-//! that only the parallel drivers did). Not covered: the GPU batched drivers
-//! (`run_keff_batched*`, WGSL) and the non-CSG sphere drivers
-//! (`physics::keff`), which keep their own layout, and a fixed-source
-//! (`FixedSource`) run.
+//! that only the parallel drivers did). **Extended 2026-11-11 (gh:#1386, #1456
+//! task 4):** the sphere drivers of `physics::keff` (`PowerIteration`,
+//! `run_keff_cpu_multi`, `run_keff_gpu_inner`, the batched and event GPU
+//! drivers) and `FixedSource` read the mode too. In the sphere drivers a history
+//! starts from OpenMC's tracking seed and URR seed, the first-generation source
+//! particle `i` is sampled by the port's sphere sampler on OpenMC's
+//! `STREAM_SOURCE` seed of `i` (the stream is OpenMC's, the sampler is not: a
+//! volume sphere source is not the box source), and the bank is combed with
+//! `synchronize_bank`'s comb. In `FixedSource`, particle `p` of batch `b` has its
+//! source sampled from `STREAM_SOURCE`, its transport and fission progeny from
+//! `STREAM_TRACKING`, its URR bands from `STREAM_URR_PTABLE`. **The GPU batched
+//! drivers take the seed LAYOUT only**: the WGSL flight kernel advances the raw
+//! LCG state and reads the top 24 bits, with no PCG output permutation, so its
+//! variates are not OpenMC's values (`batched_flight.wgsl`, "DOCUMENTED
+//! DIVERGENCE"); a draw-for-draw comparison is a CPU matter.
 //!
-//! It still does **not** make every history consume random numbers in OpenMC's
-//! ORDER: the port draws a fission neutron's direction before its energy and
-//! isotropically (OpenMC: delayed/prompt, then the energy law, then a cosine and
-//! `rotate_angle`), uses the older `two_body_scatter_with_mu` and
-//! `free_gas_elastic_scatter_dbrc` kernels (see `physics::scatter` for the
-//! OpenMC-faithful `*_openmc` versions), and so on. The streams are OpenMC's; the
-//! consumption order is the port's. That is where a track differential diverges.
+//! **Collision kernels (2026-11-11):** transport now uses the OpenMC-faithful
+//! kernels by DEFAULT (`physics::scatter::ScatterKernels::OpenMc`): `rotate_angle`,
+//! the CM-to-lab block, `LevelInelastic`, `elastic_scatter` with
+//! `sample_target_velocity` (CXS, RVS, DBRC; target velocity drawn before the CM
+//! cosine) and OpenMC's two-draw reaction ladder (absorption check, then
+//! `scatter()`'s `prn * (total - absorption)`). What still differs from OpenMC's
+//! consumption order: the port picks the reaction GROUP with its ladder (absorb,
+//! inelastic levels + MT91, (n,2n), (n,3n), MT5, other, elastic last) where OpenMC
+//! walks elastic then the inelastic reactions in MT order; a discrete level is
+//! then chosen with one more draw (`Nuclide::sample_inelastic`) where OpenMC
+//! reuses the `scatter()` cutoff; a fissionable nuclide banks fission sites only
+//! at a fission event where OpenMC's `create_fission_sites` runs at EVERY
+//! collision (weight `nu_t = wgt/k * nu * sigma_f/sigma_t`); fission neutrons
+//! draw direction before energy and isotropically with no `rotate_angle`. The
+//! first track divergence on a one-nuclide non-fissile sphere is therefore the
+//! level pick and the ladder order; on a fissionable one, the per-collision
+//! fission banking. The streams are OpenMC's; the consumption order is closer,
+//! not identical.
 //!
 //! Indexing: OpenMC's `current_batch` and `current_gen` start at 1 and
 //! `index_source` at 1. With `gen_per_batch = 1` (this crate's generation

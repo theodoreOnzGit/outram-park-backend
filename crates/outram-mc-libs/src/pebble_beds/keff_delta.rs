@@ -73,10 +73,7 @@ use crate::physics::delta_tracking::Majorant;
 use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
-use crate::physics::scatter::{
-    free_gas_elastic_scatter_dbrc, continuum_inelastic_scatter_evaluated, rotate_direction,
-    two_body_scatter, two_body_scatter_with_mu,
-};
+use crate::physics::scatter::continuum_inelastic_scatter_evaluated;
 use crate::rng::distributions::{isotropic_direction, watt};
 use crate::rng::lcg::{future_seed, prn};
 
@@ -1206,7 +1203,13 @@ where
 
             // Reaction partition on the total: fission | capture | inelastic |
             // (n,2n) | elastic — identical to keff.rs / transport_csg.rs.
-            let xi = prn(seed) * x.total;
+            let xi = crate::physics::scatter::scatter_ladder_xi(
+                nuc.scatter_kernels(),
+                prn(seed) * x.total,
+                x.absorption,
+                x.total,
+                seed,
+            );
             if xi < x.fission {
                 let nu_bar = if x.fission > 0.0 {
                     x.nu_fission / x.fission
@@ -1235,10 +1238,7 @@ where
                     // carries none for this level -- sampling every inelastic
                     // collision isotropically understates <mu>, inflating
                     // Sigma_tr, suppressing leakage and raising k.
-                    Inelastic::Level { q, mt } => match nuc.sample_inelastic_mu_cm(mt, e, seed) {
-                        Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, seed),
-                        None => two_body_scatter(e, u, nuc.awr, q, seed),
-                    },
+                    Inelastic::Level { q, mt } => nuc.sample_level_inelastic_scatter(mt, q, e, u, seed),
                     Inelastic::Continuum { q } => continuum_inelastic_scatter_evaluated(
                         e,
                         u,
@@ -1354,29 +1354,7 @@ where
                 // secondary energy is still drawn free-gas — internally
                 // inconsistent, and it suppresses the up-scatter that lets a
                 // graphite-moderated spectrum equilibrate.
-                let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
-                    (e_out, rotate_direction(u, mu_lab, seed))
-                } else {
-                    {
-                        // Free-gas: below 400 kT the target's own thermal motion
-                        // is sampled, so the neutron can gain energy and the
-                        // population has a Maxwellian fixed point (bead op-50vu).
-                        // Above it this is the old target-at-rest kinematics.
-                        let kt = nuc.free_gas_kt(temp);
-                        let mu_cm = nuc
-                            .sample_elastic_mu_cm(e, seed)
-                            .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                        free_gas_elastic_scatter_dbrc(
-                            e,
-                            u,
-                            nuc.awr,
-                            kt,
-                            mu_cm,
-                            seed,
-                            nuc.dbrc_table(),
-                        )
-                    }
-                };
+                let (e2, u2) = nuc.sample_elastic_collision(e, u, temp, seed);
                 e = e2;
                 u = u2;
             }
