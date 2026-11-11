@@ -786,7 +786,7 @@ pub(crate) fn assemble(
         .iter()
         .map(|s| (i32::from(s.mt), s.qi))
         .collect();
-    let emissions = crate::acer::energy::build_emissions_newfor(tape, mat, recon.material.awr, &partials, modules.newfor);
+    let emissions = crate::acer::energy::build_emissions_mode(tape, mat, recon.material.awr, &partials, modules.newfor, !modules.pendf_binary);
     let nu_block = crate::acer::nu::build(tape, mat)?;
     // Delayed-neutron blocks whenever the evaluation has them, as NJOY writes
     // them regardless of the rest of the deck (`acefc.f90:6003`). ismooth = 1
@@ -818,7 +818,7 @@ pub(crate) fn assemble(
     // byte matched NJOY2016's: it read `mat92234` (the ZA) for `mat9225`.
     table.mat_id = format!("   mat{mat:4}");
     // Charged-particle production, after END (`acelcp`, `acefc.f90:6323`).
-    crate::acer::acelcp::append(&mut table, tape, mat, recon, modules.newfor);
+    crate::acer::acelcp::append_mode(&mut table, tape, mat, recon, modules.newfor, !modules.pendf_binary);
     Ok(table)
 }
 

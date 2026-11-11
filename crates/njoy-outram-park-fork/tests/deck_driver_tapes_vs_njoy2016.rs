@@ -772,12 +772,17 @@ fn test_12_gaspr_coded_pendf_is_identical() {
 /// the `viewr`s: PENDF unit 38 (after GASPR) line by line, ACE unit 31 word for
 /// word (gh:#1369).
 ///
-/// **Result (2026-11-11): the PENDF after GASPR is identical (0 lines); the ACE
-/// is identical in every block but SIGP: 280 of 1 037 922 words differ, e.g.
-/// 1.504386e-3 here against NJOY's unrounded 1.504385995e-3 (relative 3e-9).**
-/// A photon-production rounding difference (the `a11` text round trip of binary
-/// units, as for `convr`/`gamsum` in the charged-particle work), not GASPR: open,
-/// so the test is ignored until it is traced.
+/// **Result (2026-11-12, gh:#1492): the PENDF after GASPR is identical (0 lines)
+/// and the ACE is identical in every word (1 037 922 XSS words).** ~~First
+/// run: 280 SIGP words differ, 1.504386e-3 here against NJOY's 1.504385995e-3
+/// (3e-9 relative).~~ **CORRECTED**: the cause was not GASPR and not `sigfig`
+/// but the ENDF unit's sign. The deck's ACER card is `-21 -28`, both binary,
+/// so `convr`'s scratch tape is binary (`if (nin.lt.0) nout=-nout`,
+/// `acefc.f90:3908`) and the MF=12 yields of a LO=2 cascade reach `acelpp`
+/// as doubles; this crate applied `a11`'s seven-figure text round trip
+/// unconditionally on the neutron path (`photon_blocks::build_with_pendf`).
+/// Fix: `AceDeck::with_endf_binary` and `photon_blocks::build_with_pendf_units`
+/// / `gpd_with_units`, plus the MF=13 `gamsum` scratch tape (PENDF sign).
 #[test]
 fn test_24_gaspr_chain_ace() {
     let root = njoy_root();
@@ -792,6 +797,40 @@ fn test_24_gaspr_chain_ace() {
     }
     assert!(d.is_empty() && c.identical(), "test 24 differs from NJOY2016");
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
+
+/// **Test 72 (Be-9 ENDF/B-VIII.0): `moder; reconr; broadr; heatr; heatr;
+/// thermr; gaspr; moder; acer`**, cut before the plot-file ACER (`iopt = 7`)
+/// and `viewr`: PENDF unit 38 (after GASPR) line by line, ACE unit 41 word for
+/// word (gh:#1492, parent #1369). The same chain as test 24 on a light
+/// nuclide with MF=6 (n,2n) products and LAW = 2 photons.
+///
+/// **Result (2026-11-12): unit 38 identical (0 lines), ACE unit 41 identical
+/// in every word (202 943 XSS words).** Before: 4 304 words differ (2 596 of
+/// 50 748 lines), all in the MF=6 LAW = 7 products (Be-9 MT=16 neutron and the
+/// charged-particle blocks): `topfil` rewrites LAW = 7 to LAW = 1 on its
+/// scratch tape, which is binary when the PENDF unit is negative
+/// (`mscr = -mscr`, `acefc.f90:177-179`), and `acelf6::law7_rewrite` applied
+/// `a11` regardless (7th-figure differences, largest 1.8e-6 relative). Now
+/// `law7_rewrite(cur, text)`; `AceDeck::with_pendf_binary` selects it.
+#[test]
+fn test_72_gaspr_chain_ace() {
+    let root = njoy_root();
+    let Some(full) = deck_text(&root, "72", Some("viewr"), "") else { return };
+    let deck = format!("{}stop\n", full.split("acer\n 0 41").next().unwrap());
+    let Some((ours, njoy)) = run_pair_decks_extra(&root, "t72", "n-004_Be_009-ENDF8.0.endf", &[], &deck, &deck) else { return };
+    let d = differing_lines(&ours.join("tape38"), &njoy.join("tape38"));
+    println!("test 72 unit 38: {} differing lines; first {:?}", d.len(), &d[..d.len().min(5)]);
+    let c = ace_pair(&ours, &njoy, 41);
+    for l in c.report_lines() {
+        println!("{l}");
+    }
+    assert!(d.is_empty() && c.identical(), "test 72 differs from NJOY2016");
+    if std::env::var("KEEP_DECK_DIRS").is_err() {
+        let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    } else {
+        println!("kept {}", ours.parent().unwrap().display());
+    }
 }
 
 /// Run upstream deck `case` (`moder; moder; acer iopt = 1`, the raw
