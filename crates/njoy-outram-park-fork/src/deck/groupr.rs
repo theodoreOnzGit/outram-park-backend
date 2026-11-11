@@ -7,11 +7,18 @@
 
 //! **GROUPR as a tape driver** (gh:#1369): the GENDF text NJOY writes.
 //!
-//! MF=3 vector sections and MF=6 `MT = 2, 51-90` two-body matrices (`nl = lord + 1`,
-//! `getdis`) are written identical to NJOY2016 for test 01 (gh:#1369). Not yet: MF=6
-//! (MT 91 continuum, label 200, is done: `groupr/continuum.rs`; thermal MT 221/229/230 `getaed`, label 700, is done: `groupr/thermal.rs`.) Not yet: Thermal MF=6 `MT = 221-250`
-//! (`getaed`, label 700), MF=16 photon production (`getgyl`/`getgfl`/`getsed`/`gamout`),
-//! and the FEND/SEND/MEND layout between files, so the whole tape is not yet compared.
+//! MF=3 vector sections, MF=6 `MT = 2, 51-90` two-body matrices (`nl = lord + 1`,
+//! `getdis`), MF=6 `MT = 91` continuum (`getff` label 200, `groupr/continuum.rs`),
+//! MF=6 thermal `MT = 221-250` (`getaed`, label 700, `groupr/thermal.rs`) and MF=16
+//! photon production (`mfd = 17` MF=13/14, and `mfd = 16` MF=12 multiplicities with
+//! the `econst` constant-spectrum branch, `groupr/photon_prod.rs`) are written, and
+//! the **whole GENDF tape of NJOY2016 test 01 is identical** line for line (1330
+//! lines, 2026-11-11, `test_01_groupr_gendf_whole_tape`; gh:#1369).
+//! ~~Not yet: thermal MF=6, MF=16 photon production and the FEND/SEND/MEND layout, so
+//! the whole tape is not yet compared.~~ **CORRECTED 2026-11-11** - all three are done
+//! (verified by the whole-tape test). Still `NotPorted` here: several temperatures,
+//! sigma-zeros or materials, an input GENDF (`ngout1`), MF=3 `MT = 257-259, 452-456`,
+//! `getsed` continuum photons, and the automatic reaction lists (`mtd = 0`, `nextr`).
 //!
 //! Ported so far: the tape label, the MF=1/MT=451 head record of a material
 //! (`ZA, AWR, 0, nz, -1, ntw`; LIST `temp, 0, ngn, ngg, np, 0` with the title
