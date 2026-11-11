@@ -307,6 +307,37 @@ fn shrt17_run_stays_bounded_and_follows_the_table() {
 ///
 /// The temperature that drives radial expansion is the largest uncited
 /// modelling choice: it moves the peak outlet by 98 K.
+///
+/// **Re-measured 2026-11-10 (gh:#1319): the six-group shape changed.**
+/// `teh-o-prke`'s U-235 default moved from its textbook set to
+/// ENDF/B-VIII.0 (mean precursor life 13.05 s to 11.06 s; beta still
+/// rescaled to 705 pcm). Same command, same inputs otherwise. Predicted on
+/// gh:#1319 before the run: fission-power changes of at most a few %, peak
+/// temperatures within +-2 K. **The temperature prediction missed**: the
+/// shorter-lived groups let the fission power fall faster after the flow
+/// coastdown, so the peak outlet fell 19.3 K. The peak P/F moved toward the
+/// measured 2.8; that is a consequence of the data choice, not a fit.
+/// Base case, before -> after:
+/// - peak P/F ~~3.18 at 74.0 s~~ **3.00 at 74.5 s** (measured 2.8 at about 1 min);
+/// - peak core outlet ~~956.1 K at 76.5 s~~ **936.8 K at 77.0 s**;
+/// - power ~~18.96~~ **17.79** MW at 60 s and ~~5.76~~ **5.50** MW (9.2 %) at 300 s;
+/// - net reactivity from ~~-217.0~~ **-195.5** pcm to ~~+15.3 pcm at 655.5 s~~
+///   **+15.5 pcm at 655.0 s**;
+/// - smallest fission share of total power ~~0.745~~ **0.741**;
+/// - flow at 300 s ~~6.05 %~~ **5.99 %** of initial (~~2.95x~~ **2.92x** SHRT-17's 2.05 %);
+/// - flow from 620 s to 900 s ~~+19.5 %~~ **+19.7 %**.
+///
+/// Ablations after the change (peak P/F, peak outlet K, power at 300 s in
+/// MW; before in the list above):
+/// - radial expansion on mean coolant: 2.42, 875.2, 4.54;
+/// - radial expansion on outlet: 2.14, 844.6, 4.14;
+/// - DIF3D coefficients: 2.96, 933.2, 5.06;
+/// - aux EM pump off: 3.35, 970.9, 3.72;
+/// - dz 1 m: 3.17, 953.4, 4.90;
+/// - dz 4 m: 2.82, 919.0, 6.35.
+///
+/// The radial-expansion temperature choice still dominates (92 K between
+/// inlet and outlet), larger than the delayed-data change (19 K).
 #[test]
 fn shrt45r_run_stays_bounded_and_self_limits() {
     let start = std::time::Instant::now();
@@ -574,6 +605,11 @@ fn shrt45r_initial_decay_heat_from_the_history() {
 /// 335 K rise); power at 100 s 12.0226 vs 12.0219 MW (+0.006 %). The
 /// default sub-step is converged far below every modelling uncertainty
 /// recorded in the other tests.
+///
+/// Re-measured 2026-11-10 after gh:#1319 (ENDF/B-VIII.0 U-235 group
+/// shape): peak outlet ~~956.126 vs 956.099~~ **936.838 vs 936.811 K**
+/// (+0.008 %); power at 100 s ~~12.0226 vs 12.0219~~ **11.1281 vs 11.1274
+/// MW** (+0.006 %). The refinement differences are unchanged.
 #[test]
 fn timestep_refinement_shrt45r() {
     let peak = |dt: f64| {

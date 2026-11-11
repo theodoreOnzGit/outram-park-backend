@@ -6,6 +6,11 @@
 //! piping. It is GUI-free, deterministic (no clock, no RNG, no I/O), cheap
 //! (about a microsecond per 0.01 s step), and compiles for `wasm32`. A web
 //! demo drives it from a Web Worker and reads its getters to draw.
+//! ~~(about a microsecond per 0.01 s step)~~ **CORRECTED 2026-11-11
+//! (gh:#1330):** with the line-model default, 40-60 µs per 0.01 s step
+//! (38 µs on a quiet core, 2026-11-10; 58-61 µs under load, 2026-11-11),
+//! 165-260× real time natively; the well-stirred ablation stays at about
+//! a microsecond (see "Cost" below and `docs/msre_library.md`).
 //!
 //! ## What it is built from (reused, not re-derived)
 //!
@@ -14,11 +19,16 @@
 //!   [`super::circulation::CirculatingKinetics`], which carries a flow
 //!   change, with TM-1070 App. B's six groups ([`super::design::LAMBDA`],
 //!   [`super::design::BETA`]) and TM-1070 Table 1's Λ, core transit 8.46 s
-//!   and loop transit 16.73 s by default ([`CirculationModel::WellStirredTm1070`]).
-//!   At full flow it is `teh_o_prke`'s `CirculatingPointKinetics` step for
-//!   step (pinned by a differential test to 1e-12). ORNL-TM-1626's
-//!   importance-weighted line model is the named option
-//!   [`CirculationModel::LineTm1626`] (gh:#1330).
+//!   and loop transit 16.73 s ~~by default~~ in the ablation
+//!   [`CirculationModel::WellStirredTm1070`]. At full flow that is
+//!   `teh_o_prke`'s `CirculatingPointKinetics` step for step (pinned by a
+//!   differential test to 1e-12). ~~ORNL-TM-1626's importance-weighted line
+//!   model is the named option [`CirculationModel::LineTm1626`] (gh:#1330).~~
+//!   **CHANGED 2026-11-11 (gh:#1330, maintainer: "Let's use ORNL more
+//!   correct physics"):** ORNL-TM-1626's importance-weighted line model,
+//!   [`CirculationModel::LineTm1626`], is the **default**, with TM-1626
+//!   Table 1's groups and residence times and TM-1070's Λ. The well-stirred
+//!   model is the explicit ablation [`MsreConfig::without_line_model`].
 //! - **Thermal network:** ORNL-TM-1070's (Ball and Kerlin, 1965) lumped
 //!   equations, with the coefficients `nee_soon::msre_frequency_response`
 //!   (MSRE T-1, gh:#1132) uses, read from there:
@@ -35,8 +45,11 @@
 //! `nee_soon` solves these equations linearised, in the frequency domain.
 //! Here the same equations are integrated in time with backward Euler, and
 //! the kinetics keep their nonlinear `ρ·n` term. The frequency response is
-//! the check: driven by a small sinusoidal reactivity, this model's
-//! amplitude and phase reproduce `nee_soon`'s (see the tests).
+//! the check: driven by a small sinusoidal reactivity, ~~this model's~~ the
+//! well-stirred ablation's amplitude and phase reproduce `nee_soon`'s (see
+//! the tests). **2026-11-11:** `nee_soon` solves the well-stirred kinetics,
+//! so the default (line model) no longer is that code-to-code check; it is
+//! compared with TM-1647's measured natural period instead.
 //!
 //! ## What is new here, and so new physics run uncalibrated
 //!
@@ -106,7 +119,10 @@
 //! held critical by the rod servo): see `docs/msre_library.md` and the
 //! tests in `model/pump_tests.rs`. Cost: about 0.7 µs per step at constant
 //! flow, 5 µs while a flow changes (the network is refactored), 38 µs with
-//! [`CirculationModel::LineTm1626`] (2026-11-10, one shared core).
+//! [`CirculationModel::LineTm1626`] (2026-11-10, one shared core), ~~for
+//! the well-stirred default~~ **CORRECTED 2026-11-11:** the first two are
+//! the well-stirred ablation's; the line-model default costs the third,
+//! re-measured in `docs/msre_library.md`.
 //!
 //! ## What it does not model (stated so it is not mistaken for a gap filled)
 //!
@@ -201,8 +217,10 @@ pub struct MsreConfig {
     pub fuel_temperature_coefficient: TemperatureCoefficient,
     /// Graphite temperature coefficient of reactivity.
     pub graphite_temperature_coefficient: TemperatureCoefficient,
-    /// Which ORNL circulating-fuel model the kinetics use (default
-    /// [`CirculationModel::WellStirredTm1070`]; gh:#1330).
+    /// Which ORNL circulating-fuel model the kinetics use: by default
+    /// ~~[`CirculationModel::WellStirredTm1070`]~~ **(CHANGED 2026-11-11,
+    /// gh:#1330)** [`CirculationModel::LineTm1626`]; the well-stirred model
+    /// is the ablation [`MsreConfig::without_line_model`].
     pub circulation_model: CirculationModel,
 }
 
@@ -213,6 +231,11 @@ impl MsreConfig {
     /// Table 8.2. For the workspace's own Monte Carlo coefficients (MSRE N-3,
     /// gh:#1129: fuel −3.82 ± 0.44, graphite −3.77 ± 0.65 × 10⁻⁵ /°F), set the
     /// two coefficient fields with [`super::design::per_f`].
+    ///
+    /// The circulating-fuel kinetics are ORNL-TM-1626's importance-weighted
+    /// line model, [`CirculationModel::LineTm1626`] (the default since
+    /// 2026-11-11, gh:#1330, maintainer: "Let's use ORNL more correct
+    /// physics"); [`Self::without_line_model`] ablates it.
     pub fn tm1070(initial_power: Power) -> Self {
         Self {
             initial_power,
@@ -222,8 +245,22 @@ impl MsreConfig {
             radiator_air_inlet: ThermodynamicTemperature::new::<degree_fahrenheit>(100.0),
             fuel_temperature_coefficient: per_f(ORNL_1965_FUEL_PER_F),
             graphite_temperature_coefficient: per_f(ORNL_1965_GRAPHITE_PER_F),
-            circulation_model: CirculationModel::WellStirredTm1070,
+            circulation_model: CirculationModel::LineTm1626,
         }
+    }
+
+    /// **Ablation:** the same configuration with TM-1070's well-stirred
+    /// circulating-fuel model, [`CirculationModel::WellStirredTm1070`],
+    /// instead of the default TM-1626 line model. It is ORNL's 1965
+    /// design-stage kinetics (TM-1070 (A.29)): a well-stirred core, a
+    /// delayed loop and a flat, core-only importance, whose circulation loss
+    /// reads +16 % against TM-1626's measurement (the line model +8 %), and
+    /// which returns the precursors 3-4 s late after a pump start-up
+    /// (ORNL-4233 Fig. 24, gh:#1332). Use it for the code-to-code check
+    /// against `nee_soon`'s frequency response, which solves this model, or
+    /// where the cost matters: about 0.7 µs per step against about 40 µs.
+    pub fn without_line_model(self) -> Self {
+        Self { circulation_model: CirculationModel::WellStirredTm1070, ..self }
     }
 }
 
@@ -786,7 +823,9 @@ impl MsreModel {
 
     /// The reactivity the circulating core needs to stay critical, against
     /// the stationary core: the steady full-flow circulation loss of the
-    /// kinetics' model, with TM-1070's transits by default (compare
+    /// kinetics' model, ~~with TM-1070's transits by default~~ by default
+    /// TM-1626's line model, 0.229140 % (2026-11-11; the well-stirred
+    /// ablation with TM-1070's transits gives 0.2467041 %) (compare
     /// [`super::design::measured_circulation_loss_tm1626`]). It is the
     /// reference the feedback is measured from, fixed at construction; after
     /// a pump trip the kinetics regain it, which [`Self::critical_rod_reactivity`]

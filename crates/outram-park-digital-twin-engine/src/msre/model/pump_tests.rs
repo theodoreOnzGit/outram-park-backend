@@ -2,7 +2,7 @@
 //! Predictions were posted on gh:#1332 before any of these ran; results are
 //! in each test's doc and in `docs/msre_library.md`.
 
-use super::tests::{f, model_at, temperatures};
+use super::tests::{f, model_at, temperatures, well_stirred_at};
 use super::*;
 
 /// ORNL-4233 Fig. 24 (report p. 53, ORNL-DWG 67-12323), "Control-Rod
@@ -319,14 +319,17 @@ fn the_core_rise_scales_with_one_over_the_fuel_flow() {
 /// Prediction (gh:#1332): power falls after either trip. No measurement
 /// exists to compare with; this is not V&V.
 ///
-/// Results (2026-11-10), 300 s after the trip at 8 MW, no rod motion:
+/// Results, 300 s after the trip at 8 MW, no rod motion. 2026-11-10 with the
+/// then-default well-stirred model; **re-measured 2026-11-11 with the
+/// line-model default** (gh:#1330; predicted: peak 8.1-8.3 MW, P(300 s)
+/// within ×2, invalidity times identical; all met):
 ///
-/// | trip | P at 300 s | peak P | lumping invalid from |
+/// | trip | P at 300 s, ~~well-stirred~~ → line | peak P, ~~well-stirred~~ → line | lumping invalid from |
 /// |---|---|---|---|
-/// | fuel pump, Fig. 23 speed | 0.025 MW | 8.17 MW at 3 s | 4 s |
-/// | fuel pump, inertial (round numbers) | 0.035 MW | 8.18 MW at 3 s | 2 s |
-/// | coolant pump, Fig. 23 measured flow | 0.014 MW | 8.00 MW at 0 s | 12 s |
-/// | coolant pump, Fig. 23 speed | 0.016 MW | 8.00 MW at 0 s | 15 s |
+/// | fuel pump, Fig. 23 speed | ~~0.025~~ → 0.024 MW | ~~8.17 MW at 3 s~~ → 8.137 MW at 3 s | 4 s |
+/// | fuel pump, inertial (round numbers) | ~~0.035~~ → 0.035 MW | ~~8.18 MW at 3 s~~ → 8.114 MW at 2 s | 2 s |
+/// | coolant pump, Fig. 23 measured flow | ~~0.014~~ → 0.018 MW | 8.00 MW at 0 s | 12 s |
+/// | coolant pump, Fig. 23 speed | ~~0.016~~ → 0.020 MW | 8.00 MW at 0 s | 15 s |
 ///
 /// Prediction (power falls) met. After a fuel-pump trip the power first
 /// rises 2 % (the precursors kept in the core), then the stagnant, uncooled
@@ -404,6 +407,10 @@ fn pump_trips_at_power_stay_finite() {
 /// Result (2026-11-10, shared development container): line model 38 µs
 /// per step (about 260 × real time); well-stirred during a coast-down
 /// 4.8 µs per step (about 2100 ×), against 0.70 µs at constant flow.
+/// Re-run 2026-11-11 (container loaded: the ablation took 0.99 µs against
+/// 0.68 µs the day before): line model (now the default) 58 µs (172 ×),
+/// line during a coast-down 44 µs (226 ×), well-stirred ablation during a
+/// coast-down 4.35 µs (2300 ×).
 #[test]
 fn cost_of_the_line_model_and_of_a_coastdown_is_printed() {
     let mut c = MsreConfig::tm1070(Power::new::<megawatt>(8.0));
@@ -412,15 +419,22 @@ fn cost_of_the_line_model_and_of_a_coastdown_is_printed() {
     let t = std::time::Instant::now();
     m.step(Time::new::<second>(100.0)).expect("step");
     let line_us = t.elapsed().as_secs_f64() * 1e6 / 10_000.0;
-    let mut w = model_at(8.0);
+    let mut w = well_stirred_at(8.0);
     w.trip_fuel_pump(FlowSchedule::ornl4233_fuel_pump_speed_coastdown());
     let t = std::time::Instant::now();
     w.step(Time::new::<second>(12.0)).expect("step");
     let trip_us = t.elapsed().as_secs_f64() * 1e6 / 1_200.0;
+    let mut l = model_at(8.0);
+    l.trip_fuel_pump(FlowSchedule::ornl4233_fuel_pump_speed_coastdown());
+    let t = std::time::Instant::now();
+    l.step(Time::new::<second>(12.0)).expect("step");
+    let line_trip_us = t.elapsed().as_secs_f64() * 1e6 / 1_200.0;
     println!(
-        "cost: line model {line_us:.2} us per step ({:.0}x real time); well-stirred during a coast-down {trip_us:.2} us per step ({:.0}x)",
+        "cost: line model {line_us:.2} us per step ({:.0}x real time); well-stirred during a coast-down {trip_us:.2} us per step ({:.0}x); line (default) during a coast-down {line_trip_us:.2} us per step ({:.0}x)",
         INTERNAL_TIMESTEP_S * 1e6 / line_us,
-        INTERNAL_TIMESTEP_S * 1e6 / trip_us
+        INTERNAL_TIMESTEP_S * 1e6 / trip_us,
+        INTERNAL_TIMESTEP_S * 1e6 / line_trip_us
     );
     assert!(m.power().get::<megawatt>().is_finite() && w.power().get::<megawatt>().is_finite());
+    assert!(l.power().get::<megawatt>().is_finite());
 }

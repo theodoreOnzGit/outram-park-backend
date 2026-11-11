@@ -25,7 +25,16 @@ maturity gate in that file for what this means and how the bar is revised.
   holds for the delayed fractions `beta_i` only. The decay constants
   `lambda_i` are one shared U-235 set for all three nuclides
   (`six_group_constants.rs`), and the source of that set and of the
-  `beta_i` is not identified. Open, awaiting a source decision on the issue.
+  `beta_i` is not identified. ~~Open, awaiting a source decision on the issue.~~
+  **Update 2026-11-10 (gh:#1319, maintainer decision: ENDF/B-VIII.0):**
+  `FissioningNuclideType::U235` now returns the ENDF/B-VIII.0 U-235 thermal
+  set (`ENDF_B_VIII0_U235`, `lambda_i` and `beta_i` from MAT 9228 MT=455,
+  total beta 0.0065230), and `ENDF_B_VIII0_U238` (2 MeV) is available as
+  data. Both are pinned bit for bit to the tapes by
+  `njoy-outram-park-fork`'s `tests/teh_o_prke_delayed_data_vs_endf8.rs`.
+  The old textbook arrays remain (`textbook_*` methods, `new_*` functions).
+  **Still open:** U-233 and Pu-239 keep the shared textbook `lambda_i`
+  (no ENDF/B-VIII.0 Pu-239 or U-233 tape in `reference-data/endf/`).
 
   **This is the thinnest declaration in the workspace, and is deliberately
   recorded as such.** ~~There is no analytical transient validation yet — no
@@ -99,7 +108,10 @@ delayed-neutron precursor groups, reactivity feedback, and decay heat, using
   - `six_group_precursor_prke/` — six delayed-neutron precursor groups.
     - `six_group_constants.rs` — the `FissioningNuclideType` enum and the
       `new_u233_/u235_/pu239_delayed_neutron_fraction_array()` constructors
-      (per-nuclide delayed fractions). **These items live in this submodule**,
+      (per-nuclide delayed fractions, the textbook set), and since
+      2026-11-10 (gh:#1319) `SixGroupDelayedNeutronData` with the
+      ENDF/B-VIII.0 `ENDF_B_VIII0_U235` (the `U235` default) and
+      `ENDF_B_VIII0_U238` sets. **These items live in this submodule**,
       not at the `six_group_precursor_prke` level (see migration note below).
 - `feedback_mechanisms/` — incl. `fission_product_poisons/` (Xe/Sm).
   - `separable.rs` — RELAP5 separable feedback (RELAP-7 Eq 443, gh:#1083).

@@ -28,10 +28,15 @@
 //!
 //! - **Six-group delayed-neutron data** were "provided to participants" but
 //!   are not printed in T1819 (gh:#1314, GAP). [`argonne_point_kinetics`]
-//!   therefore uses the U-235 six-group shape `teh-o-prke` tabulates (U-235
-//!   *thermal* decay constants, Keepin-derived, source still under gh:#1319),
-//!   rescaled to Argonne's beta-eff of 705 pcm. This is an approximation,
-//!   labelled as such: fast-fission U-235 group data differ slightly.
+//!   therefore uses the U-235 six-group shape `teh-o-prke` tabulates
+//!   ~~(U-235 *thermal* decay constants, Keepin-derived, source still under
+//!   gh:#1319)~~ **(since 2026-11-10, gh:#1319: ENDF/B-VIII.0 U-235, MAT
+//!   9228 MT=455, `lambda_i` and the abundances `p_i`; the abundances are
+//!   energy-independent on that tape, so the shape is the same for thermal
+//!   and fast fission)**, rescaled to Argonne's beta-eff of 705 pcm. This is
+//!   an approximation, labelled as such: EBR-II's fissions are not all
+//!   U-235 (U-238 fast fission has its own set, `teh_o_prke`'s
+//!   `ENDF_B_VIII0_U238`), and Argonne's own group data are not printed.
 //! - **Control-rod driveline expansion** is not in Argonne's TABLE 37. The
 //!   default model has no driveline term; a caller may add one
 //!   (`teh_o_prke::feedback_mechanisms::fast_reactor::DrivelineExpansionTerm`).
