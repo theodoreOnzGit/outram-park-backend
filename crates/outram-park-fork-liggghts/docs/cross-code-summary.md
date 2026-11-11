@@ -69,6 +69,8 @@ cannot be an artefact of both converging on the requested number.
 | oblique **Hooke** + history + CDT rolling (new 2026-11-10) | `normal_model_hooke.h`, `tangential_model_history.h`, `rolling_model_cdt.h` | 251 | `0` | `0` | `0` | `liggghts_cross_code.rs` |
 | **two atom types**, head-on (new 2026-11-10): `E` 1e7/3e7, `ν` 0.3/0.2, `e` and `µ` matrices, `d` 10/12 mm, `ρ` 2500/4000 | `global_properties.cpp` `createYeff`/`createBetaEff`, `normal_model_hertz.h` | 251 | `0` | `0` | `0` | `liggghts_cross_code.rs` |
 | **two atom types**, oblique (new 2026-11-10) | adds `createGeff`, `createCoeffFrict`, unequal-radius torque | 251 | `0` | `0` | `0` | `liggghts_cross_code.rs` |
+| **rotating mesh plate** (new 2026-11-11) | `tri_mesh_I.h` `resolveTriSphereContactBary`, `mesh_mover_rotation.cpp`, `fix_wall_gran.cpp` `post_force_mesh` | 251 | `0` | `0` | `0` | `rotating_mesh_cross_code.rs` |
+| **rotating drum**, 64 facets, two spheres (new 2026-11-11) | + edge/corner activity (`surface_mesh_I.h`) | 251 | `0` | `0` | `0` | `rotating_drum_cross_code.rs` |
 
 ~~**Four of the six are bit-identical over the whole trajectory.** The two
 oblique cases agree to round-off: `1.11e-16 m/s` is one ulp at `|v| ~ 1 m/s`,
@@ -107,16 +109,53 @@ Reference decks: `reference-data/liggghts/in.oblique_hooke_rolling`,
 `crates/outram-park-fork-liggghts/upstream_source/README.md`. Toolchain:
 Rust 1.99.1, g++ 15.2.1 for upstream.
 
-**Rotating mesh wall (gh:#1406 prio 2, 2026-11-10; NOT bit-identical).**
-`rotating_mesh_cross_code.rs`, deck `in.rotating_plate`: a sphere bouncing on a
-square mesh plate rotating at `4π rad/s`. Prediction (bit-identical early,
-ulp-level drift later) **not met**: with upstream's setup convention applied
-(mesh velocity zero in the setup force evaluation; without it the first
-half-kick is ~2x off) the 251 frames agree to `max|Δx| = 5.6e-15 m`,
-`max|Δv| = 8.1e-12 m/s`, `max|Δω| = 1.1e-9 rad/s`, 1915 of 2259 values differing
-in the last bits. Cause: the mesh contact path (`TriMesh::resolveTriSphereContactBary`
-+ `surface_model_default.h` wall branch) is not translated operation by
-operation. Bit-identity criterion is `#[ignore]`d pending gh:#1416.
+**Rotating mesh wall (gh:#1406 prio 2, gh:#1416): CORRECTED 2026-11-11, now
+bit-identical.** ~~NOT bit-identical: 1915 of 2259 values differed
+(`max|Δx| = 5.6e-15 m`, `max|Δv| = 8.1e-12 m/s`, `max|Δω| = 1.1e-9 rad/s`);
+the mesh contact path was not translated.~~ The mesh contact path is now a
+translation of `TriMesh::resolveTriSphereContactBary` (face, edge and corner
+regions, inactive edges and corners skipped, barycentric node velocity), the
+surface-model wall branch (`r = radi - deltan`, `en = delta*rinv`,
+`cr = radi - 0.5*deltan`), `fix move/mesh rotate` (incremental quaternion
+rotation of the nodes **and of the cached edge vectors and normals**, node
+velocities zero until the first `initial_integrate`) and the neighbour-rebuild
+schedule that decides when upstream recomputes those cached vectors from the
+nodes (`GranularSystem::with_neighbor_skin`). Measured 2026-11-11, Rust 1.99.1:
+
+| Case | Frames | values bit-identical / total | Test |
+|---|---|---|---|
+| rotating square plate, one sphere (`in.rotating_plate`) | 251 | **2259 / 2259** | `rotating_mesh_cross_code.rs` |
+| rotating drum, 64-facet closed cylinder (side quads, centre-fan end caps), two spheres that touch the drum and each other (`in.rotating_drum`, `make_drum_stl.py`; upstream made 83 neighbour builds) | 251 | **4518 / 4518** | `rotating_drum_cross_code.rs` |
+
+Both predictions (bit-identical) were written before the run and are met.
+
+**Per-contact dump and `fix check/timestep/gran` (gh:#1406 prio 2, gh:#1418),
+2026-11-11.** `compute pair/gran/local` is translated as
+`GranularSystem::pair_gran_local_for` / `pair_gran_local`. Deck
+`in.pgl_pebble`, the settled `D/d = 6` bed (354 pebbles) under the cylinder,
+floor and gravity, dumped with `%.17g`:
+
+| Step | contacts | values bit-identical / total (23 per contact) | worst `|d|/max|field|` | `pair_gran_local_cross_code.rs` |
+|---|---|---|---|---|
+| 0 (set-up) | 793 | **18239 / 18239** (793/793 contacts) | 0 | every field of every contact |
+| 1 | 793 | 14799 / 18239 (232 contacts fully) | `3.1e-16` | ulp-level |
+| 10 | 793 | 14440 / 18239 (147 contacts fully) | `2.6e-16` | ulp-level |
+| 100 | 792 | 11950 / 18216 (6 contacts fully) | `9.0e-16` | ulp-level |
+
+The step-1 "bit-identical" prediction was **not met** beyond step 0: the
+remaining differences are 1-3 ulp and occur only on particles with three or
+more pair contacts (no mismatch involves a particle with at most two pair
+contacts at steps 0 and 1), which is the signature of the per-particle force
+sum being accumulated in a different order: upstream adds pair forces in its
+bin-stencil neighbour-list order, the port in its cell-grid order. Making the
+sums bit-identical needs the LIGGGHTS bin-stencil order translated (open,
+filed on gh:#1418).
+
+`fix check/timestep/gran` (`in.timestep_pebble`, `in.timestep_htr10`,
+`timestep_check.txt`): Rayleigh, Hertz and skin fractions at step 1,
+**6 / 6 bit-identical** (`timestep_cross_code.rs`; `timestep.rs` gained
+`skin_fraction` and `estimate_with_walls`, upstream's mesh-speed and `vmax`
+inputs).
 
 The two-type cases use `MaterialTable` (new, `granular.rs`): per-type `E`, `ν`
 and symmetric per-pair `e` and `µ` matrices, with upstream's `createYeff` /
@@ -248,6 +287,8 @@ upstream.
 | `Particle::integrate` was not symplectic, though its docs said it was | `E/E0 = 2.13e43` at `dt = 0.1/omega`; restitution 1.0031 on a nominally elastic collision at `dt = 1 us` | `src/integrator.rs` (velocity-Verlet), call site removed |
 | `contact.rs` used lever arm `r` where upstream uses the contact radius `r - delta/2` | wrong contact torque, so wrong spin-up | `src/contact.rs` |
 | `rolling.rs` CDT diverged three ways, chiefly damped `abs(F_n)` where upstream uses the elastic `k_n * delta_n` | 21 % apart on rolling torque | `src/rolling.rs` |
+| Set-up force evaluation advanced the shear history (`update->setupflag` makes upstream skip it, `shearupdate = 0`) | a bed with non-zero velocities got one extra `v_tr*dt` of shear at step 0: one-step velocity off by `4e-7` (relative) on the worst particle, `fix check/timestep/gran` Hertz fraction `5.3e-10` and skin fraction `2.65e-9` off | `src/granular_system.rs` `compute_forces_setup` (2026-11-11, gh:#1418) |
+| Cylinder (and plane) walls used `en = normal`, `r = radius` where upstream uses `r = radi - deltan`, `en = delta*rinv` with `PrimitiveWall::resolveContact`'s delta | 1-3 ulp on contacts of particles touching the cylinder (found by the per-contact dump) | `Boundary::upstream_contact`, `ContactKinematics::mesh_wall` (2026-11-11); the 400 000-step wall bounce stays bit-identical |
 
 **One claim of mine was wrong and is retracted, not quietly dropped.** I
 reported a tangential-damping defect in `contact.rs`; it came from comparing

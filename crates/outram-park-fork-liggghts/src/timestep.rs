@@ -64,9 +64,9 @@
 //!
 //! ## Honest scope
 //!
-//! Single material, monodisperse or polydisperse spheres, no moving meshes
-//! (upstream folds mesh node speeds into `v_rel,max`; here `v_rel,max = 2·v_max`
-//! over the particles, upstream's particle–particle branch). The estimates are
+//! Single material, monodisperse or polydisperse spheres. Moving-mesh node
+//! speeds enter through [`estimate_with_walls`] (~~not at all~~ **CORRECTED
+//! 2026-11-11**, gh:#1406); multi-type materials are not supported. The estimates are
 //! upstream's *heuristics*, not theorems — they are reproduced faithfully,
 //! including their approximations.
 
@@ -127,6 +127,13 @@ impl TimestepEstimate {
         } else {
             0.0
         }
+    }
+
+    /// Upstream's `fraction_skin = v_rel,max*dt / skin` `[-]` (above 1, particles
+    /// can move further than the neighbour skin in one step).
+    #[must_use]
+    pub fn skin_fraction(&self, dt: f64, skin: f64) -> f64 {
+        (self.v_rel_max * dt) / skin
     }
 
     /// Whether `dt` `[s]` satisfies **both** of upstream's warning thresholds.
@@ -237,6 +244,26 @@ pub fn estimate(
     density: f64,
     material: &GranularMaterial,
 ) -> Result<TimestepEstimate, DemError> {
+    estimate_with_walls(particles, density, material, 0.0, 0.0)
+}
+
+/// As [`estimate`], with upstream's two extra velocity inputs:
+/// `mesh_node_speed_max` `[m/s]` (largest node speed of a moving mesh wall,
+/// upstream `vmax_sqr_mesh`) and `v_user` (the `vmax` keyword). Upstream:
+/// `vmax^2 = max(vmax_particles^2, v_user^2)`, `v_rel,max = max(2 vmax,
+/// vmax + v_mesh)`. Translated from `FixCheckTimestepGran::
+/// calc_rayleigh_hertz_estims` (LIGGGHTS-PUBLIC `3d5c00f2`).
+///
+/// # Errors
+///
+/// As [`estimate`].
+pub fn estimate_with_walls(
+    particles: &[Particle],
+    density: f64,
+    material: &GranularMaterial,
+    mesh_node_speed_max: f64,
+    v_user: f64,
+) -> Result<TimestepEstimate, DemError> {
     if particles.is_empty() {
         return Err(DemError::InvalidInput(
             "cannot estimate a time step for an empty ensemble".to_string(),
@@ -250,7 +277,10 @@ pub fn estimate(
         r_min = r_min.min(p.radius);
         v_max_sq = v_max_sq.max(p.velocity.norm_squared());
     }
-    let v_rel_max = 2.0 * v_max_sq.sqrt();
+    if v_user * v_user > v_max_sq {
+        v_max_sq = v_user * v_user;
+    }
+    let v_rel_max = (2.0 * v_max_sq.sqrt()).max(v_max_sq.sqrt() + mesh_node_speed_max);
 
     let mut t_h = f64::INFINITY;
     for p in particles {

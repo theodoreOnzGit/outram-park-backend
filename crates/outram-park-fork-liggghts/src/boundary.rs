@@ -396,6 +396,84 @@ impl Boundary {
         }
     }
 
+    /// Upstream's primitive-wall resolution (`PrimitiveWall::resolveContact`,
+    /// LIGGGHTS-PUBLIC `3d5c00f2`, `primitive_wall_definitions.h`:
+    /// `Plane<dim>` and `Cylinder<dim>`) for the axis-aligned cases, as the
+    /// pair `(overlap, delta)` that `FixWallGran::post_force_primitive` hands to
+    /// the contact law: `overlap = -deltan > 0` and `delta = -delta_upstream`
+    /// (centre minus wall point, whose length is the centre-to-wall distance).
+    /// Feed them to [`crate::granular::ContactKinematics::mesh_wall`], which
+    /// then does `r = radi - deltan`, `en = delta*rinv` as upstream.
+    ///
+    /// Returns `None` when this boundary is not an axis-aligned plane or
+    /// cylinder (the generic [`Boundary::particle_overlap`] path applies),
+    /// `Some(None)` for no contact, `Some(Some(..))` for a contact. A one-sided
+    /// [`Boundary::Wall`] is resolved here only for a centre on its open side.
+    /// gh:#1418.
+    #[must_use]
+    pub fn upstream_contact(&self, p: &Particle) -> Option<Option<(f64, Vec3)>> {
+        let pos = [p.position.x, p.position.y, p.position.z];
+        let r = p.radius;
+        let axis_of = |v: Vec3| -> Option<(usize, f64)> {
+            let c = [v.x, v.y, v.z];
+            (0..3).find_map(|a| {
+                let others = c[(a + 1) % 3] == 0.0 && c[(a + 2) % 3] == 0.0;
+                (others && c[a].abs() == 1.0).then_some((a, c[a]))
+            })
+        };
+        match *self {
+            Self::Plane { point, normal } | Self::Wall { point, normal } => {
+                let (a, sign) = axis_of(normal)?;
+                let param = [point.x, point.y, point.z][a];
+                // one-sided wall: only the open side is upstream-resolved
+                if matches!(self, Self::Wall { .. }) && (pos[a] - param) * sign <= 0.0 {
+                    return None;
+                }
+                let dist = pos[a] - param;
+                let deltan = if pos[a] > param {
+                    pos[a] - param - r
+                } else {
+                    param - pos[a] - r
+                };
+                if deltan > 0.0 {
+                    return Some(None);
+                }
+                let mut delta = [0.0; 3];
+                delta[a] = dist; // -(param - pos)
+                Some(Some((-deltan, Vec3::new(delta[0], delta[1], delta[2]))))
+            }
+            Self::Cylinder {
+                axis_point,
+                axis_dir,
+                radius,
+            } => {
+                let (a, _) = axis_of(axis_dir)?;
+                let (iy, iz) = ((a + 1) % 3, (a + 2) % 3);
+                let ap = [axis_point.x, axis_point.y, axis_point.z];
+                let dy = pos[iy] - ap[iy];
+                let dz = pos[iz] - ap[iz];
+                let dist = (dy * dy + dz * dz).sqrt();
+                if dist < 1e-13 && dist > -1e-13 {
+                    return Some(None); // upstream: zero distance, no direction
+                }
+                let (deltan, fact, sgn) = if dist > radius {
+                    (dist - radius - r, (dist - radius) / dist, -1.0)
+                } else {
+                    (radius - dist - r, (radius - dist) / dist, 1.0)
+                };
+                if deltan > 0.0 {
+                    return Some(None);
+                }
+                let mut delta = [0.0; 3];
+                // upstream delta[y] = +-dy*fact; sidata.delta = -delta
+                delta[iy] = -(sgn * dy * fact);
+                delta[iz] = -(sgn * dz * fact);
+                Some(Some((-deltan, Vec3::new(delta[0], delta[1], delta[2]))))
+            }
+            Self::Box { .. } => None,
+        }
+    }
+
     /// Geometric overlap of particle `p` (a sphere of radius `r = p.radius`
     /// centred at `c = p.position`) with this boundary.
     ///
