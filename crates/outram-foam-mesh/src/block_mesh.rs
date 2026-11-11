@@ -1463,7 +1463,7 @@ impl BlockMeshDict {
     /// for an unsupported block shape (only `hex`). All grading forms —
     /// `simpleGrading`, multi-grading, and full per-edge `edgeGrading` — parse.
     pub fn parse(text: &str) -> Result<Self, MeshError> {
-        let tokens = tokenize(text);
+        let tokens = expand_variables(tokenize(text))?;
         let mut cur = Cursor::new(&tokens);
 
         // Dictionary macros are not expanded (gh:#1463): refuse rather than
@@ -1646,6 +1646,76 @@ fn tokenize(text: &str) -> Vec<String> {
     }
     flush(&mut word, &mut tokens);
     tokens
+}
+
+/// Expand `$name` references to earlier top-level `name value;` entries
+/// (the dictionary-macro subset the OpenFOAM blockMesh tutorials use, e.g.
+/// `pitzDailySteady`'s `$posY`; gh:#1463).
+///
+/// A top-level entry is `key tokens... ;` (parentheses balanced) or
+/// `key { ... }`. Its value tokens, themselves expanded, are recorded under
+/// `key`; a later `$key` token, anywhere, is replaced by them. Upstream looks
+/// the name up in the enclosing dictionary the same way, so a use before the
+/// definition is not expanded. Anything left starting with `$` or `#`
+/// (`${x}`, `$:a.b`, `#calc`, `#include`) is reported by [`BlockMeshDict::parse`].
+fn expand_variables(tokens: Vec<String>) -> Result<Vec<String>, MeshError> {
+    let mut vars: HashMap<String, Vec<String>> = HashMap::new();
+    let mut out: Vec<String> = Vec::with_capacity(tokens.len());
+    let sub = |t: &String, vars: &HashMap<String, Vec<String>>, out: &mut Vec<String>| {
+        match t.strip_prefix('$').and_then(|n| vars.get(n)) {
+            Some(v) => out.extend(v.iter().cloned()),
+            None => out.push(t.clone()),
+        }
+    };
+    let mut i = 0usize;
+    while i < tokens.len() {
+        let key = tokens[i].clone();
+        if key.starts_with('$') || key.starts_with('#') || key == ";" {
+            out.push(key);
+            i += 1;
+            continue;
+        }
+        out.push(key.clone());
+        i += 1;
+        let mut value: Vec<String> = Vec::new();
+        if tokens.get(i).map(|t| t.as_str()) == Some("{") {
+            let mut depth = 0i32;
+            while i < tokens.len() {
+                let t = &tokens[i];
+                if t == "{" {
+                    depth += 1;
+                } else if t == "}" {
+                    depth -= 1;
+                }
+                sub(t, &vars, &mut out);
+                i += 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            continue;
+        }
+        let mut depth = 0i32;
+        while i < tokens.len() {
+            let t = &tokens[i];
+            if t == "(" {
+                depth += 1;
+            } else if t == ")" {
+                depth -= 1;
+            } else if t == ";" && depth <= 0 {
+                break;
+            }
+            sub(t, &vars, &mut value);
+            i += 1;
+        }
+        out.extend(value.iter().cloned());
+        if i < tokens.len() {
+            out.push(";".into());
+            i += 1;
+        }
+        vars.insert(key, value);
+    }
+    Ok(out)
 }
 
 /// A forward-only token cursor with small parsing helpers.
