@@ -7427,6 +7427,7 @@ name = "outram-foam-mesh"
 version = "0.1.3"
 dependencies = [
  "approx",
+ "image",
  "ndarray",
  "outram-foam-basic-lib",
  "petir",
