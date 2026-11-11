@@ -1193,8 +1193,6 @@ where
                 e,
             });
             let nuc = &nuclides[nuc_idx];
-
-            let (dbg_e, dbg_u) = (e, u);
             let x = if nuc.needs_urr_draw(e) {
                 // The same band the flight and the nuclide choice used
                 // (GitHub #407; OpenMC `calculate_urr_xs`).
@@ -1383,7 +1381,6 @@ where
                 e = e2;
                 u = u2;
             }
-            { let eo = (u.u*u.u+u.v*u.v+u.w*u.w)-1.0; if !(eo.abs() < 1e-9) || !e.is_finite() { use std::sync::atomic::{AtomicUsize, Ordering}; static NB: AtomicUsize = AtomicUsize::new(0); let k = NB.fetch_add(1, Ordering::Relaxed); if k < 5 || k % 1000 == 0 { eprintln!("DBG1497 #{k} |u|^2-1 {eo:e} e {e:e} nuc {} group {:?}", nuc.name, group); } } }
             // Every branch that does not end the history scatters: the
             // outgoing state is the one the next flight starts from.
             record_outcome(observe, r, u, e, TrackEvent::Scatter, Some(m));

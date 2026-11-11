@@ -966,17 +966,7 @@ impl Nuclide {
         };
         let kernels = self.scatter_kernels();
         if let Some((e_out, mu_lab)) = self.sample_thermal(e, seed) {
-            let uo = rotate_kernel(kernels, u, mu_lab, seed);
-            let ei = u.u*u.u+u.v*u.v+u.w*u.w-1.0;
-            let eo = uo.u*uo.u+uo.v*uo.v+uo.w*uo.w-1.0;
-            if mu_lab.abs() > 1.0 {
-                use std::sync::atomic::{AtomicUsize, Ordering};
-                static N: AtomicUsize = AtomicUsize::new(0);
-                if N.fetch_add(1, Ordering::Relaxed) < 40 {
-                    eprintln!("DBG1497T {} e {e:e} -> {e_out:e} mu_lab {mu_lab:.17e} (mu-1 {:e}) eps_in {ei:e} eps_out {eo:e} u_in {:?}", self.name, mu_lab-1.0, u);
-                }
-            }
-            return (e_out, uo);
+            return (e_out, rotate_kernel(kernels, u, mu_lab, seed));
         }
         let kt = self.free_gas_kt(mat_temp_k);
         match kernels {
