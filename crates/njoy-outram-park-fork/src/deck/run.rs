@@ -9,13 +9,14 @@
 use std::path::PathBuf;
 
 use crate::broadr::broadn::BroadnTolerances;
-use crate::broadr::joint::broadr_joint;
+use crate::broadr::joint::{broadr_joint, broadr_joint_rounding};
 use crate::deck::cards::CardReader;
+use crate::acer::{build_deck, AceDeck};
 use crate::deck::modules::{
-    read_broadr, read_gaspr, read_groupr, read_heatr, read_moder, read_reconr, read_thermr, BroadrCards, ModerCards,
-    ReconrCards,
+    read_acer, read_broadr, read_gaspr, read_groupr, read_heatr, read_moder, read_purr, read_reconr, read_thermr,
+    read_unresr, AcerCards, BroadrCards, ModerCards, PurrCards, ReconrCards, UnresrCards,
 };
-use crate::deck::tapes::TapeUnits;
+use crate::deck::tapes::{PendfMeta, TapeUnits};
 use crate::endf::tape::{Section, Tape};
 use crate::heatr::{heatr, pendf_for_heatr, HeatrInput};
 use crate::moder::{select_materials, MaterialSelection};
@@ -44,6 +45,9 @@ pub struct DeckRun {
     pub blocked: Option<(String, String)>,
     /// HEATR listings, in the order run.
     pub listing: String,
+    /// What a module did not do that its NJOY counterpart does (a tape section
+    /// not written, a file not produced), in the order met.
+    pub notes: Vec<String>,
 }
 
 /// Run an NJOY input deck: `program njoy` (`main.f90`).
@@ -62,6 +66,7 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
     let mut units = TapeUnits::new(opts.workdir.clone());
     let mut modules = Vec::new();
     let mut listing = String::new();
+    let mut notes: Vec<String> = Vec::new();
     let mut blocked = None;
     loop {
         let name = r.read_string(6)?;
@@ -105,7 +110,19 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
                 read_gaspr(&mut r)?;
                 Err(NjoyError::NotPorted("gaspr tape driver (typed API: gaspr::GasProduction)"))
             }
-            "unresr" | "purr" | "acer" | "gaminr" | "errorr" | "covr" | "dtfr" | "ccccr" | "matxsr" | "resxsr"
+            "unresr" => {
+                let c = read_unresr(&mut r)?;
+                if opts.parse_only { Ok(()) } else { run_unresr(&c, &mut units, &mut notes) }
+            }
+            "purr" => {
+                let c = read_purr(&mut r)?;
+                if opts.parse_only { Ok(()) } else { run_purr(&c, &mut units, &mut notes) }
+            }
+            "acer" => {
+                let c = read_acer(&mut r)?;
+                if opts.parse_only { Ok(()) } else { run_acer(&c, &mut units, &mut notes) }
+            }
+            "gaminr" | "errorr" | "covr" | "dtfr" | "ccccr" | "matxsr" | "resxsr"
             | "powr" | "wimsr" | "plotr" | "viewr" | "mixr" | "leapr" => {
                 // The card readers of these modules are a later part of gh:#1369.
                 blocked = Some((name.clone(), "card reader not yet translated".to_string()));
@@ -128,7 +145,7 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
     if opts.workdir.is_some() && !opts.parse_only {
         units.write_coded_files()?;
     }
-    Ok(DeckRun { units, modules, blocked, listing })
+    Ok(DeckRun { units, modules, blocked, listing, notes })
 }
 
 /// MODER (`moder.f90`): mode change or material selection.
@@ -140,7 +157,9 @@ fn run_moder(c: &ModerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
                 units.openz(*nin, 0)?;
             }
             let u = units.get(*nin)?.clone();
-            units.store(*nout, u.tape, u.pointwise)
+            units.store(*nout, u.tape, u.pointwise)?;
+            units.set_meta(*nout, u.meta);
+            Ok(())
         }
         ModerCards::Select { nout, tpid, picks, .. } => {
             units.openz(*nout, 1)?;
@@ -183,32 +202,19 @@ fn run_reconr(c: &ReconrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
             return Err(NjoyError::NotPorted("RECONR user grid energies enode (card 6)"));
         }
         let res = reconr(&endf, &ReconrConfig { mat: m.mat, tolerance: m.err, temperature: m.tempr })?;
+        if c.materials.len() == 1 {
+            let tape = crate::deck::pendf::reconr_tape(&endf, m.mat, &res, &c.label, &m.cards, m.err, m.tempr)?;
+            let meta = PendfMeta { blocks: vec![(res.temperature_k, res.clone())], ..PendfMeta::default() };
+            units.store(c.npend, tape, Some((m.mat, res)))?;
+            units.set_meta(c.npend, meta);
+            return Ok(());
+        }
         let tape = pendf_for_heatr(&endf, m.mat, &res);
         sections.extend(tape.sections().iter().cloned());
         last = Some((m.mat, res));
     }
     let pointwise = if c.materials.len() == 1 { last } else { None };
     units.store(c.npend, Tape::from_sections(c.label.clone(), sections), pointwise)
-}
-
-/// A PENDF tape for `res` at `temp_k`: [`pendf_for_heatr`] with MF=1/MT=451's
-/// `TEMP` (the `hdatio` record the downstream modules read) set.
-fn pendf_at(endf: &Tape, mat: i32, res: &ReconrResult, temp_k: f64) -> Tape {
-    let t = pendf_for_heatr(endf, mat, res);
-    let secs: Vec<Section> = t
-        .sections()
-        .iter()
-        .map(|s| {
-            let mut s = s.clone();
-            if s.key.mf == 1 && s.key.mt == 451 {
-                if let Some(row) = s.rows.last_mut() {
-                    row[0] = temp_k;
-                }
-            }
-            s
-        })
-        .collect();
-    Tape::from_sections(String::new(), secs)
 }
 
 /// BROADR (`broadr.f90`), single final temperature from a RECONR pointwise tape.
@@ -223,16 +229,13 @@ fn run_broadr(c: &BroadrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
     units.openz(c.nin, 0)?;
     units.openz(c.nendf, 0)?;
     units.openz(c.nout, 1)?;
-    let endf = units.get(c.nendf)?.tape.clone();
     let input = units.get(c.nin)?.clone();
-    let mut sections: Vec<Section> = Vec::new();
-    let mut last = None;
+    if c.materials.len() != 1 {
+        return Err(NjoyError::NotPorted("BROADR with more than one material in one run"));
+    }
     for m in &c.materials {
-        if m.istart != 0 || m.istrap != 0 || m.temp1 != 0.0 {
-            return Err(NjoyError::NotPorted("BROADR restart/bootstrap/starting temperature (cards 2)"));
-        }
-        if m.temps.len() != 1 {
-            return Err(NjoyError::NotPorted("BROADR with more than one final temperature"));
+        if m.istart != 0 || m.temp1 != 0.0 {
+            return Err(NjoyError::NotPorted("BROADR restart / starting temperature (cards 2)"));
         }
         if m.thnmx != 6.5e6 || m.errmax != 0.0 || m.errint != 0.0 {
             return Err(NjoyError::NotPorted("BROADR non-default thnmx/errmax/errint (card 3)"));
@@ -245,19 +248,36 @@ fn run_broadr(c: &BroadrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         if *mat != m.mat {
             return Err(NjoyError::InvalidInput(format!("broadr: material {} not on the input tape (has {mat})", m.mat)));
         }
-        let temp = m.temps[0];
         let text_mode = c.nin > 0;
-        let src = if text_mode { res.through_pendf_text() } else { res.clone() };
-        let out = match broadr_joint(&src, temp, &BroadnTolerances::with_errthn(m.errthn), m.thnmx) {
-            Some(b) if text_mode => b.through_pendf_text(),
-            Some(b) => b,
-            None => src,
-        };
-        sections.extend(pendf_at(&endf, m.mat, &out, temp).sections().iter().cloned());
-        last = Some((m.mat, out));
+        let mut src = if text_mode { res.through_pendf_text() } else { res.clone() };
+        let mut all: Vec<Section> = Vec::new();
+        let mut final_out = None;
+        let mut meta = input.meta.clone();
+        meta.blocks.clear();
+        for &temp in &m.temps {
+            let tol = BroadnTolerances::with_errthn(m.errthn);
+            let out = match broadr_joint(&src, temp, &tol, m.thnmx) {
+                Some(b) if text_mode => b.through_pendf_text(),
+                Some(b) => b,
+                None => src.clone(),
+            };
+            let t = crate::deck::pendf::broadr_tape(&input.tape, m.mat, &out, temp)?;
+            all.extend(t.sections().iter().cloned());
+            // `istrap`: the next temperature broadens from this one
+            // (`broadr.f90:1004-1011`); otherwise from the input's.
+            if m.istrap != 0 {
+                src = broadr_joint_rounding(&src, temp, &tol, m.thnmx, false).unwrap_or_else(|| out.clone());
+            }
+            meta.blocks.push((temp, out.clone()));
+            final_out = Some(out);
+        }
+        let mut tape = Tape::from_sections(input.tape.tpid.clone(), all);
+        tape.copy_raw_mf32_from(&input.tape);
+        units.store(c.nout, tape, final_out.map(|o| (m.mat, o)))?;
+        units.set_meta(c.nout, meta);
+        return Ok(());
     }
-    let pointwise = if c.materials.len() == 1 { last } else { None };
-    units.store(c.nout, Tape::from_sections(String::new(), sections), pointwise)
+    Err(NjoyError::InvalidInput("broadr: no material card".into()))
 }
 
 /// HEATR (`heatr.f90`): kerma and damage onto the PENDF.
@@ -275,5 +295,118 @@ fn run_heatr(input: &HeatrInput, units: &mut TapeUnits, listing: &mut String) ->
     listing.push_str(&out.listing);
     // HEATR leaves the pointwise cross sections as they were; MF=3 additions
     // ride on the tape only.
-    units.store(u.nout, out.tape, pendf.pointwise)
+    units.store(u.nout, out.tape, pendf.pointwise)?;
+    let mut meta = pendf.meta;
+    meta.heatr = true;
+    units.set_meta(u.nout, meta);
+    Ok(())
+}
+
+/// Copy a PENDF unit to the output unit of a module whose tape writer is not
+/// ported, recording what the module did in its [`PendfMeta`].
+fn pass_through(nin: i32, nout: i32, units: &mut TapeUnits, edit: impl FnOnce(&mut PendfMeta)) -> Result<(), NjoyError> {
+    if (nin < 0 && nout > 0) || (nin > 0 && nout < 0) {
+        return Err(NjoyError::InvalidInput("mode conversion between nin and nout not allowed.".into()));
+    }
+    let u = units.get(nin)?.clone();
+    units.store(nout, u.tape, u.pointwise)?;
+    let mut meta = u.meta;
+    edit(&mut meta);
+    units.set_meta(nout, meta);
+    Ok(())
+}
+
+/// UNRESR (`unresr.f90`): **cards read, tape passed through.** UNRESR's
+/// self-shielded MF=2/MT=152 (`unresr.f90`'s `unresr`, `unresl`, the table
+/// writer) is not written onto the PENDF; ACER does not read it.
+fn run_unresr(c: &UnresrCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Result<(), NjoyError> {
+    units.openz(c.nendf, 0)?;
+    units.openz(c.nin, 0)?;
+    units.openz(c.nout, 1)?;
+    notes.push("unresr: MF=2/MT=152 (self-shielded unresolved table) not written (tape writer not ported)".into());
+    pass_through(c.nin, c.nout, units, |m| m.unresr = true)
+}
+
+/// PURR (`purr.f90`): **cards read, tape passed through.** The probability
+/// tables are made where ACER needs them ([`build_deck`]), from the
+/// evaluation, with PURR's random sequence from its start; PURR's own MT=153
+/// writer is not ported, so the tape carries no MT=153.
+fn run_purr(c: &PurrCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Result<(), NjoyError> {
+    units.openz(c.nendf, 0)?;
+    units.openz(c.nin, 0)?;
+    units.openz(c.nout, 1)?;
+    if c.materials.len() != 1 {
+        return Err(NjoyError::NotPorted("PURR with more than one material in one run"));
+    }
+    let m = &c.materials[0];
+    notes.push("purr: MF=2/MT=153 (probability tables) not written (tape writer not ported)".into());
+    pass_through(c.nin, c.nout, units, |meta| {
+        meta.purr = Some((m.nbin as usize, m.nladr as usize, m.temps.clone()));
+    })
+}
+
+/// `dater` (`util.f90:72-94`): `' mm/dd/yy'` of today (UTC).
+fn dater() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs() as i64);
+    let z = secs.div_euclid(86_400) + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe + era * 400 + i64::from(m <= 2);
+    format!("  {m:02}/{d:02}/{:02}", y % 100)
+}
+
+/// ACER (`acer.f90`, `acefc.f90`), `iopt = 1` (fast data) with the options this
+/// crate has: `newfor = 1`, `iopp = 1`, `ismooth = 1`, no thinning, ZAID rule 0,
+/// Type 1 output. The table is [`build_deck`] on the PENDF's pointwise block
+/// for `tempd` (`first`: the block within 1 K), HEATR and PURR as the chain ran
+/// them. The ACE text goes to unit `nace`; the directory unit `ndir` is not
+/// written.
+fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Result<(), NjoyError> {
+    if c.iopt != 1 {
+        return Err(NjoyError::NotPorted("ACER iopt other than 1 from a deck (typed APIs exist: acer::thermal, dosimetry, photoatomic, photonuclear)"));
+    }
+    if c.newfor != 1 {
+        return Err(NjoyError::NotPorted("ACER newfor = 0 (the old angular format: acefc.f90 :6356, :7495, :7722; no port)"));
+    }
+    if c.iopp != 1 || c.ismooth != 1 || c.thin != [0.0; 3] || c.izaopt != 0 || c.mcnpx || c.itype != 1 || c.nxtra != 0 {
+        return Err(NjoyError::NotPorted("ACER iopp/ismooth/thin/izaopt/mcnpx/itype/nxtra other than the defaults"));
+    }
+    units.openz(c.nendf, 0)?;
+    units.openz(c.npend, 0)?;
+    units.openz(c.nace, 1)?;
+    let endf = units.get(c.nendf)?.tape.clone();
+    let pend = units.get(c.npend)?.clone();
+    // `first`: the temperature block within `ttol = 1` K of `tempd`.
+    let Some((_, res)) = pend.meta.blocks.iter().find(|(t, _)| (t - c.tempd).abs() < 1.0) else {
+        return Err(NjoyError::InvalidInput("acer: desired temperature not found.".into()));
+    };
+    let mut deck = AceDeck::default();
+    if !pend.meta.heatr {
+        deck = deck.without_heatr();
+    }
+    if let Some((nbin, nladr, temps)) = &pend.meta.purr {
+        // PURR draws one random sequence over all its temperatures in order;
+        // the table for the first is what a run at that temperature alone gives.
+        if temps.first().is_none_or(|t| (t - c.tempd).abs() >= 1.0) {
+            return Err(NjoyError::NotPorted("ACER at a PURR temperature other than PURR's first"));
+        }
+        deck = deck.with_purr(*nbin, *nladr, 10_000).with_temperature(c.tempd);
+    }
+    let kt_mev = 8.617_333_262e-11 * c.tempd;
+    let suffix = (c.suff * 100.0).round() as u32;
+    let mut table = build_deck(&endf, c.matd, res, kt_mev, suffix, &deck)?;
+    table.comment = c.hk.clone();
+    table.date = dater();
+    units.put_text(c.nace, table.to_type1_text()?);
+    if c.ndir != 0 {
+        notes.push("acer: directory unit not written".into());
+    }
+    Ok(())
 }

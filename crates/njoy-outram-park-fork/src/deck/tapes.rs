@@ -33,9 +33,31 @@ use crate::endf::tape::Tape;
 use crate::reconr::ReconrResult;
 use crate::NjoyError;
 
+/// What the modules run so far have done to a PENDF unit, beyond its MF=3
+/// content: what ACER needs to know to build the table NJOY's chain would.
+///
+/// UNRESR's MF=2/MT=152 and PURR's MF=2/MT=153 are **not** written onto the
+/// tape here (their tape writers are not ported); PURR's probability tables
+/// are computed by ACER from the evaluation, as [`crate::acer::build_deck`]
+/// does, and these flags say that the deck asked for them.
+#[derive(Debug, Clone, Default)]
+pub struct PendfMeta {
+    /// HEATR ran on this PENDF (MT=301 is present).
+    pub heatr: bool,
+    /// UNRESR ran (its MT=152 is not on the tape, see above).
+    pub unresr: bool,
+    /// PURR ran: `(nbin, nladr, temperatures)` of its cards.
+    pub purr: Option<(usize, usize, Vec<f64>)>,
+    /// The pointwise result of every temperature block on the tape, in tape
+    /// order: `(temperature [K], result)`.
+    pub blocks: Vec<(f64, ReconrResult)>,
+}
+
 /// What a unit holds besides its tape.
 #[derive(Debug, Clone)]
 pub struct Unit {
+    /// What the modules run so far have done to it.
+    pub meta: PendfMeta,
     /// The tape's sections.
     pub tape: Tape,
     /// `true` if written through a negative unit number (blocked binary).
@@ -49,6 +71,7 @@ pub struct Unit {
 #[derive(Debug, Clone, Default)]
 pub struct TapeUnits {
     units: BTreeMap<i32, Unit>,
+    texts: BTreeMap<i32, String>,
     workdir: Option<PathBuf>,
 }
 
@@ -59,7 +82,7 @@ fn unit_err(msg: String) -> NjoyError {
 impl TapeUnits {
     /// Units backed by files `tape<n>` in `workdir` (`None`: memory only).
     pub fn new(workdir: Option<PathBuf>) -> Self {
-        Self { units: BTreeMap::new(), workdir }
+        Self { units: BTreeMap::new(), texts: BTreeMap::new(), workdir }
     }
 
     /// `openz(lun, new)`: open unit `lun`; with `new == 1` destroy any previous
@@ -83,7 +106,7 @@ impl TapeUnits {
         if new == 1 {
             self.units.insert(
                 nun,
-                Unit { tape: Tape::from_sections(String::new(), Vec::new()), binary: lun < 0, pointwise: None },
+                Unit { meta: PendfMeta::default(), tape: Tape::from_sections(String::new(), Vec::new()), binary: lun < 0, pointwise: None },
             );
             return Ok(());
         }
@@ -103,7 +126,7 @@ impl TapeUnits {
             return Err(NjoyError::NotPorted("blocked-binary tape file on disk (MODER glstio reader)"));
         }
         let tape = Tape::read_file(&path)?;
-        self.units.insert(nun, Unit { tape, binary: false, pointwise: None });
+        self.units.insert(nun, Unit { meta: PendfMeta::default(), tape, binary: false, pointwise: None });
         Ok(())
     }
 
@@ -176,8 +199,25 @@ impl TapeUnits {
         } else {
             (tape, pointwise)
         };
-        self.units.insert(nun, Unit { tape, binary: lun < 0, pointwise });
+        self.units.insert(nun, Unit { meta: PendfMeta::default(), tape, binary: lun < 0, pointwise });
         Ok(())
+    }
+
+    /// Replace unit `lun`'s [`PendfMeta`] (after a [`TapeUnits::store`]).
+    pub fn set_meta(&mut self, lun: i32, meta: PendfMeta) {
+        if let Some(u) = self.units.get_mut(&lun.abs()) {
+            u.meta = meta;
+        }
+    }
+
+    /// Put a non-ENDF text file on unit `lun` (an ACE file, a directory line).
+    pub fn put_text(&mut self, lun: i32, text: String) {
+        self.texts.insert(lun.abs(), text);
+    }
+
+    /// The text file on unit `lun`, if one was put there.
+    pub fn text(&self, lun: i32) -> Option<&str> {
+        self.texts.get(&lun.abs()).map(String::as_str)
     }
 
     /// Unit numbers currently holding a tape, ascending.
@@ -199,6 +239,10 @@ impl TapeUnits {
             u.tape.write(&mut text)?;
             std::fs::write(dir.join(format!("tape{n}")), text).map_err(NjoyError::Io)?;
             done.push(n);
+        }
+        for (n, t) in &self.texts {
+            std::fs::write(dir.join(format!("tape{n}")), t).map_err(NjoyError::Io)?;
+            done.push(*n);
         }
         Ok(done)
     }

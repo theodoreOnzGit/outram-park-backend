@@ -13,18 +13,22 @@
 //!   own input block; they build the crate's existing typed inputs.
 //! - [`run`] — `program njoy`'s loop: [`run_deck`].
 //!
-//! **Status (part 1):** MODER, RECONR, BROADR and HEATR run from cards; the
-//! cards of THERMR, GROUPR and GASPR are read, but those modules have no
-//! tape-level driver here yet, so a deck reaching them stops with
-//! [`DeckRun::blocked`] set. UNRESR, PURR, ACER and the rest are not yet read.
-//! The PENDF a deck passes between modules is the pointwise content
-//! ([`crate::heatr::pendf_for_heatr`]), not a byte copy of NJOY's tape.
+//! - [`pendf`] — the PENDF tape as NJOY writes it (MF=1 text and dictionary,
+//!   MF=2, MF=3 heads, MF=10/12/13/23), so tapes compare line for line.
+//!
+//! **Status (part 2):** MODER, RECONR, BROADR (several temperatures,
+//! bootstrap), HEATR and ACER `iopt = 1` (`newfor = 1`) run from cards; UNRESR
+//! and PURR read their cards and pass the tape through (their MT=152/153 are
+//! not written; see [`DeckRun::notes`]); THERMR, GROUPR and GASPR read their
+//! cards but have no tape driver, so a deck reaching them stops with
+//! [`DeckRun::blocked`] set. The other modules' cards are not yet read.
 
 pub mod cards;
 pub mod modules;
+pub mod pendf;
 pub mod run;
 pub mod tapes;
 
 pub use cards::{CardReader, Slot};
 pub use run::{run_deck, DeckOptions, DeckRun};
-pub use tapes::{TapeUnits, Unit};
+pub use tapes::{PendfMeta, TapeUnits, Unit};

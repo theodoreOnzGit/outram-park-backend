@@ -303,6 +303,18 @@ impl Tape {
         }
     }
 
+    /// Set the raw text (columns 1-66, one entry per row) of a section whose
+    /// lines the six-float rows cannot carry: MF=1/MT=451's description, for a
+    /// PENDF a deck driver builds (gh:#1369, `deck::pendf`).
+    pub fn set_raw_text(&mut self, key: EndfKey, lines: Vec<String>) {
+        self.raw_mf32.insert(key, lines);
+    }
+
+    /// The raw text rows of `key` (see [`Tape::set_raw_text`]).
+    pub fn raw_text(&self, key: EndfKey) -> Option<&[String]> {
+        self.raw_mf32.get(&key).map(|v| v.as_slice())
+    }
+
     /// The raw text (columns 1-66) of an MF=32 section's data rows, one
     /// string per row of [`Section::rows`] — `None` for a tape not read
     /// from text, or a section that is not MF=32.

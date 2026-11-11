@@ -268,11 +268,23 @@ pub fn parse_elastic_angular(section: &Section) -> Result<ElasticAngular, NjoyEr
 /// Returns [`NjoyError::EndfParse`] if the record structure is malformed.
 pub fn parse_mf4_angular(section: &Section) -> Result<ElasticAngular, NjoyError> {
     let mut cur = SectionCursor::new(&section.rows);
-    let head = cur.read_cont()?; // ZA, AWR, 0, LTT, 0, 0
+    let head = cur.read_cont()?; // ZA, AWR, LVT, LTT, 0, 0
     let ltt = head.l2;
-    let trans = cur.read_cont()?; // 0, AWR, LI, LCT, 0, 0
-    let li = trans.l1;
-    let lct = trans.l2;
+    // ENDF-4/5 `LVT /= 0`: a transformation-matrix LIST stands where the
+    // `(0, AWR, LI, LCT)` CONT is, and carries `LI`, `LCT` in its own head.
+    // `topfil` reads it with `listio` and skips the body (`acefc.f90:2054-2058`,
+    // "skip transformation matrix in mf4"); `acelod` takes `iso` from the LIST's
+    // own head (`:5811-5819`, `iso=nint(scr(3))`).
+    // Before 2026-11-11 the LIST head was read as the CONT and its body as the
+    // TAB2, so the elastic angle of Pu-238 ENDF/B-IV (deck test 10) came out
+    // as an isotropic fallback (gh:#1369).
+    let (li, lct) = if head.l1 != 0 {
+        let l = cur.read_list()?;
+        (l.head.l1, l.head.l2)
+    } else {
+        let trans = cur.read_cont()?; // 0, AWR, LI, LCT, 0, 0
+        (trans.l1, trans.l2)
+    };
 
     // Fully isotropic: no angular data follows. The frame flag is still carried
     // -- it is a property of the section, not of whether it happens to be flat.

@@ -185,6 +185,18 @@ pub fn law3_discrete_level(qi_ev: f64, awr: f64) -> EnergyLaw {
     }
 }
 
+/// The angular distribution of a fission reaction when the evaluation gives one
+/// in MF=4 (`acelod`'s angular loop reads MF=4 for MT=18 as for any other
+/// reaction, `acefc.f90:5782-5791`; an all-isotropic one writes LAND `0`).
+/// ENDF/B-VIII evaluations carry none, so nothing changes for them; Pu-238
+/// ENDF/B-IV (deck test 10) gives MT=18 a two-energy table that NJOY stores as
+/// a 21-word AND segment (gh:#1369).
+fn fission_angular(tape: &Tape, mat: i32, mt: i32) -> Option<ElasticAngular> {
+    tape.section(mat, 4, mt)
+        .and_then(|s| parse_elastic_angular(s).ok())
+        .filter(|a| !a.is_all_isotropic())
+}
+
 /// The base neutron multiplicity of a producing reaction, or `None` if the
 /// reaction emits no neutron (capture, charged-particle absorption, …).
 ///
@@ -267,7 +279,7 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
                         mt,
                         tyr: TYR_FISSION,
                         law: EnergyLaw::Acelf6(entry),
-                        angular: None,
+                        angular: fission_angular(tape, mat, mt),
                     });
                     continue;
                 }
@@ -276,7 +288,7 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
                         mt,
                         tyr: TYR_FISSION,
                         law: EnergyLaw::Law4(law4),
-                        angular: None,
+                        angular: fission_angular(tape, mat, mt),
                     });
                 }
             }
