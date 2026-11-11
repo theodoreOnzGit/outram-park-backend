@@ -548,7 +548,7 @@ Salt density follows −1.18e-4 /°F (ORNL-4233 §4.1). Runs at 1131 °F and
 | coefficient (×10⁻⁵ /°F) | this model | ORNL calc. (ORNL-4233 p. 38) | measured (p. 37) |
 |---|---|---|---|
 | **isothermal** | **−7.19 ± 0.50** | −8.1 | **−7.24** (69.9 kg), −7.3 (71.7 kg) |
-| fuel | −3.82 ± 0.44 | −4.1 | — |
+| fuel | −3.82 ± 0.44 | −4.1 | ~~—~~ **−4.7 ± 0.7** (p. 42; see below) |
 | graphite | −3.77 ± 0.65 | −4.0 | — |
 
 - **Isothermal against the measurement:** +0.05 ± 0.50, i.e. 0.1σ.
@@ -662,6 +662,16 @@ seeds 1–6 each, against the arm-C 1131 °F run above; rows
   run, and they add to within 0.3 of the arm-C isothermal value.
 - **T-1 re-run with them** (nee_soon T-1 README): **−11 % to +8 %** of
   TM-1647's measured periods. **Quote these for the default model.**
+- **Against ORNL's measured fuel coefficient (added 2026-11-11).** ~~This
+  page listed no measured fuel coefficient.~~ **CORRECTED:** ORNL-4233 §4.2
+  (pp. 41–42) reports two transient tests in which a hot slug of salt
+  entered the core before the graphite could follow: **−(4.9 ± 2.3)** and,
+  repeated with less noise, **−(4.7 ± 0.7) × 10⁻⁵ /°F**. ORNL notes that
+  measurement-lag effects keep the uncertainty of the second from being well
+  assessed. Arm C's −4.44 ± 0.40 is **+0.26 ± 0.81 (0.3σ)** from −4.7 and
+  inside −4.9 ± 2.3. **This comparison was not predicted before the runs:**
+  the reference was found after them, so it carries no pre-registered band.
+  The graphite coefficient was not measured separately.
 
 ### A finding about the statistics
 
