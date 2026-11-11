@@ -4275,6 +4275,74 @@ impl Nuclide {
         self.resample_below_data_max(&self.chi, e_chi, e_cap, seed)
     }
 
+    /// OpenMC's `sample_fission_neutron` (`src/physics.cpp:1081`, commit `8f79d9d0`),
+    /// draw for draw: returns `(delayed group, E', direction)` for a fission
+    /// neutron born from incident energy `e_in` and incident direction `u`.
+    ///
+    /// Order of draws (gh:#1386, #1444 d): (1) `prn < beta = nu_d/nu_t` (drawn
+    /// even when `beta = 0`); (2) if delayed, `xi = prn * nu_d` picks the group by
+    /// the cumulative group yields (the last group takes the remainder, as the
+    /// upstream loop `for group = 1; group < n_precursor_`), then ONE draw for the
+    /// emission time (`-log(prn)/lambda`; the value is not stored here, the draw
+    /// is what keeps the stream aligned); (3) the angle-energy law of the chosen
+    /// group: `mu = -1 + 2 prn` THEN the energy (`UncorrelatedAngleEnergy::sample`),
+    /// resampled together while `E' >= min(e_cap, data top)`; (4)
+    /// `rotate_angle(u, mu)` (one azimuth draw). The legacy order (direction
+    /// first, then energy, delayed group from a separate draw) is
+    /// [`Self::sample_fission_energy_below`] plus `isotropic_direction`.
+    pub fn sample_fission_neutron_openmc(
+        &self,
+        e_in: f64,
+        e_cap: f64,
+        u: crate::geometry::position::Direction,
+        seed: &mut u64,
+    ) -> (Option<usize>, f64, crate::geometry::position::Direction) {
+        const MAX_SAMPLE: usize = 100_000;
+        let e_chi = self.chi_incident_energy(e_in);
+        let delayed = self
+            .delayed
+            .as_ref()
+            .filter(|d| !d.spectra.is_empty() && !self.delayed_spectra_ablated && !self.prompt_only);
+        let nu_t = self.nu.at(e_chi);
+        let nu_d = delayed.map_or(0.0, |d| d.nu_delayed_at(e_chi));
+        let beta = if nu_t > 0.0 { nu_d / nu_t } else { 0.0 };
+        let mut group: Option<usize> = None;
+        if prn(seed) < beta {
+            let d = delayed.expect("beta > 0 implies delayed data");
+            let n = d.spectra.len();
+            let xi = prn(seed) * nu_d;
+            let mut prob = 0.0;
+            let mut g = n - 1;
+            for k in 0..n.saturating_sub(1) {
+                prob += nu_d * d.group_fraction(k, e_chi);
+                if xi < prob {
+                    g = k;
+                    break;
+                }
+            }
+            group = Some(g);
+            let _emission_time = prn(seed); // site->time -= log(prn)/decay_rate
+        }
+        let spectrum = match (group, delayed) {
+            (Some(g), Some(d)) => &d.spectra[g],
+            _ => &self.chi,
+        };
+        let e_top = self.pointwise_energy_max_ev().unwrap_or(f64::INFINITY).min(e_cap);
+        for _ in 0..MAX_SAMPLE {
+            let mu = -1.0 + 2.0 * prn(seed);
+            let e = sample_chi(spectrum, e_chi, seed);
+            if e < e_top {
+                let dir = crate::physics::scatter::rotate_angle_openmc(u, mu, None, seed);
+                return (group, e, dir);
+            }
+        }
+        panic!(
+            "{}: fission energy resampled {MAX_SAMPLE} times without falling below the \
+             data maximum {e_top:.4e} eV (OpenMC stops with the same error)",
+            self.name
+        );
+    }
+
     /// Draw from `spectrum` at `e_chi` until the birth energy is below
     /// `min(e_cap, this nuclide's pointwise data top)`, as OpenMC's
     /// `sample_fission_neutron` does (`src/physics.cpp:1091-1109`: `if

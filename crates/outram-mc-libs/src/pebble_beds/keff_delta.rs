@@ -1224,11 +1224,13 @@ where
                 production += nu_bar;
                 let n = sample_num_neutrons(nu_bar, k_running, seed);
                 for _ in 0..n {
-                    let (dx, dy, dz) = isotropic_direction(seed);
+                    let (e_born, u_born) = crate::physics::scatter::sample_fission_neutron_for_driver(
+                    nuc, e, e_cap_fission, u, seed,
+                );
                     next_bank.push(Site {
                         r,
-                        u: Direction::new(dx, dy, dz),
-                        e: nuc.sample_fission_energy_below(e, e_cap_fission, seed),
+                        u: u_born,
+                        e: e_born,
                     });
                 }
                 record_outcome(observe, r, u, e, TrackEvent::Fission, Some(m));

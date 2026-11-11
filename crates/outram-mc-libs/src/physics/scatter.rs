@@ -1244,6 +1244,72 @@ pub fn reaction_order_from_env() -> ReactionOrder {
     }
 }
 
+/// Order in which a fission neutron's quantities are drawn (gh:#1386, #1444 d).
+///
+/// [`FissionNeutronOrder::OpenMc`] is the **default**: OpenMC's
+/// `sample_fission_neutron` (`src/physics.cpp:1081`): delayed-group choice, then
+/// `mu` and `E'` from the fission distribution, then `rotate_angle(u, mu)`
+/// ([`crate::material::nuclide::Nuclide::sample_fission_neutron_openmc`]).
+/// [`FissionNeutronOrder::Legacy`] draws an isotropic direction first, then the
+/// energy, and the delayed-group tag from a separate draw. Legacy is selected by
+/// `OUTRAM_MC_LEGACY_FISSION_NEUTRON_ORDER=1` or by the master
+/// `OUTRAM_MC_LEGACY_REACTION_ORDER=1`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FissionNeutronOrder {
+    /// OpenMC `sample_fission_neutron` order (default).
+    #[default]
+    OpenMc,
+    /// The earlier order.
+    Legacy,
+}
+
+/// Read `OUTRAM_MC_LEGACY_FISSION_NEUTRON_ORDER` / the master legacy switch
+/// (cached on first read).
+pub fn fission_neutron_order_from_env() -> FissionNeutronOrder {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
+    let cached = FLAG.load(Ordering::Relaxed);
+    let legacy = if cached != u8::MAX {
+        cached == 1
+    } else {
+        let set = |k: &str| match std::env::var(k) {
+            Ok(v) => !v.is_empty() && v != "0",
+            Err(_) => false,
+        };
+        let on = set("OUTRAM_MC_LEGACY_FISSION_NEUTRON_ORDER") || set("OUTRAM_MC_LEGACY_REACTION_ORDER");
+        FLAG.store(on as u8, Ordering::Relaxed);
+        on
+    };
+    if legacy {
+        FissionNeutronOrder::Legacy
+    } else {
+        FissionNeutronOrder::OpenMc
+    }
+}
+
+/// One fission neutron `(E', direction)` for the sphere drivers, in the order
+/// [`fission_neutron_order_from_env`] selects. Legacy: isotropic direction, then
+/// energy ([`crate::material::nuclide::Nuclide::sample_fission_energy_below`]).
+pub fn sample_fission_neutron_for_driver(
+    nuc: &crate::material::nuclide::Nuclide,
+    e: f64,
+    e_cap: f64,
+    u: Direction,
+    seed: &mut u64,
+) -> (f64, Direction) {
+    match fission_neutron_order_from_env() {
+        FissionNeutronOrder::OpenMc => {
+            let (_g, e_born, dir) = nuc.sample_fission_neutron_openmc(e, e_cap, u, seed);
+            (e_born, dir)
+        }
+        FissionNeutronOrder::Legacy => {
+            let (dx, dy, dz) = crate::rng::distributions::isotropic_direction(seed);
+            let e_born = nuc.sample_fission_energy_below(e, e_cap, seed);
+            (e_born, Direction::new(dx, dy, dz))
+        }
+    }
+}
+
 /// The reaction group one collision resolved to.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ReactionGroup {
