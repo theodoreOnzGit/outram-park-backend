@@ -197,6 +197,7 @@ pub fn read_poly_mesh_gen(dir: &Path) -> Result<ReadPolyMeshGen, String> {
         neighbour: pm.faces.iter().map(|f| f.neighbour).collect(),
         n_cells: pm.n_cells,
         patches: pm.patches.iter().map(|p| BoundaryPatch { name: p.name.clone(), start_face: p.start, n_faces: p.size }).collect(),
+        cells: None,
     };
     let b = dir.join("boundary");
     let text = std::fs::read_to_string(&b).map_err(|e| io_err(&b, e))?;

@@ -41,7 +41,11 @@ pub enum FluxLimiter {
     Linear,
     /// `vanLeer`: upstream `(r + mag(r))/(1 + mag(r))`. Smooth, symmetric.
     VanLeer,
-    /// `vanAlbada`: upstream `r*(r + 1)/(sqr(r) + 1)` with `r = max(0, r)`. Symmetric.
+    /// `vanAlbada`: upstream `r*(r + 1)/(sqr(r) + 1)`, ~~with `r = max(0, r)`~~ **CORRECTED
+    /// 2026-11-11 (gh:#1362):** upstream (OpenFOAM-v2506 `vanAlbada.H`) has NO `max(0, r)`; it is
+    /// negative for `-1 < r < 0`. This port clamps `r` at 0 (bit-identical to upstream for
+    /// `r >= 0`, 232 of 232 values; differs for every `r < 0`). Kept: moving it changes solver
+    /// results, a maintainer decision. Symmetric.
     VanAlbada,
     /// `Minmod`: upstream `max(min(r, 1), 0)`. Most diffusive TVD limiter. Symmetric.
     Minmod,
@@ -52,7 +56,12 @@ pub enum FluxLimiter {
     /// `UMIST`: upstream `max(min(min(min(2r, 0.75r + 0.25), 0.25r + 0.75), 2), 0)`.
     /// Third-order biased (not symmetric).
     Umist,
-    /// `OSPRE`: upstream `1.5 r (r + 1)/(r (r + 1) + 1)` with `r = max(0, r)`. Symmetric.
+    /// `OSPRE`: upstream `1.5 r (r + 1)/(r (r + 1) + 1)`, ~~with `r = max(0, r)`~~ **CORRECTED
+    /// 2026-11-11 (gh:#1362):** upstream (`OSPRE.H`) has no `max(0, r)`, and evaluates
+    /// `rrp1 = r*(r + 1); 1.5*rrp1/(rrp1 + 1)`, which this port now evaluates too
+    /// (~~`1.5*r*(r + 1)/(r*(r + 1) + 1)`, up to 2 ulp off for `r >= 0`~~ **CORRECTED
+    /// 2026-11-11 gh:#1489**); it still clamps `r` at 0, so it differs entirely for
+    /// `r < 0` (not changed here: solver results). Symmetric.
     Ospre,
     /// `limitedLinear(k)`: upstream `max(min((2/k) r, 1), 0)`, coefficient
     /// `k` in `[0, 1]` (`k -> 0` approaches unlimited linear, `k = 1` most
@@ -94,7 +103,8 @@ impl FluxLimiter {
             // OSPRE: 1.5 r (r+1)/(r(r+1)+1), r = max(0,r)
             FluxLimiter::Ospre => {
                 let r = r.max(0.0);
-                1.5 * r * (r + 1.0) / (r * (r + 1.0) + 1.0)
+                let rrp1 = r * (r + 1.0);
+                1.5 * rrp1 / (rrp1 + 1.0)
             }
             // limitedLinear(k): max(min((2/k) r, 1), 0), twoByk = 2/max(k, small)
             FluxLimiter::LimitedLinear(k) => {

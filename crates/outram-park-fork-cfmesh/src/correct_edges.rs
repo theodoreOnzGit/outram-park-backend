@@ -139,6 +139,7 @@ pub fn correct_edges_between_patches(
         region: face_region.to_vec(),
         n_cells: mesh.n_cells,
         patch_names: names.to_vec(),
+        cells: if mesh.carried_cells_are_consistent() { mesh.cells.clone() } else { None },
     };
     let mut rep = CorrectEdgesReport::default();
     let mut decompose_cell = vec![false; mesh.n_cells];
@@ -147,6 +148,10 @@ pub fn correct_edges_between_patches(
     {
         let (engine, part) = w.surface();
         let mut concave: BTreeSet<usize> = BTreeSet::new();
+        // meshSurfaceCheckEdgeTypes::classifyEdges marks every feature edge at
+        // an inverted point UNDETERMINED, and `problematicTypes` holds
+        // UNDETERMINED as well as CONCAVEEDGE (gh:#1385)
+        let inverted = crate::surface_optimizer::check_inverted_vertices(&engine, &part, &w.points, None);
         // edgeInPatch: the patch of a non-feature two-face edge, -1 otherwise.
         let mut edge_in_patch: Vec<i64> = vec![-1; engine.edges.len()];
         for (e, fs) in engine.edge_faces.iter().enumerate() {
@@ -161,10 +166,16 @@ pub fn correct_edges_between_patches(
             // start -> end (the engine's edgeFaces order); concave when
             // tet(s, e, c0, c1) or tet(e, s, c1, c0) is not negative.
             let [s, t] = engine.edges[e];
+            if inverted.contains(&s) || inverted.contains(&t) {
+                concave.insert(s);
+                concave.insert(t);
+                continue;
+            }
             let (c0, c1) = (engine.face_centres[fs[0]], engine.face_centres[fs[1]]);
             let (ps, pt) = (w.points[s], w.points[t]);
-            let vol0 = pt.sub(ps).cross(c0.sub(ps)).dot(c1.sub(ps)) / 6.0;
-            let vol1 = ps.sub(pt).cross(c1.sub(pt)).dot(c0.sub(pt)) / 6.0;
+            // `tetrahedron::mag()` = (1.0/6.0) * ((b - a) ^ (c - a)) & (d - a)
+            let vol0 = (1.0 / 6.0) * pt.sub(ps).cross(c0.sub(ps)).dot(c1.sub(ps));
+            let vol1 = (1.0 / 6.0) * ps.sub(pt).cross(c1.sub(pt)).dot(c0.sub(pt));
             if vol0 > -VSMALL || vol1 > -VSMALL {
                 concave.insert(s);
                 concave.insert(t);
@@ -256,6 +267,18 @@ pub fn correct_edges_between_patches(
     if order.len() > start {
         patches.push(BoundaryPatch { name: "unassigned".into(), start_face: start, n_faces: order.len() - start });
     }
+    // the cell lists survive only while nothing changed the cells or their
+    // faces (gh:#1385); the faces' new labels follow `order`
+    let cells = match &w.cells {
+        Some(c) if crate::volume_mesh::cell_lists_are_consistent(c, w.n_cells, &w.owner, &w.neighbour) => {
+            let mut new_label = vec![usize::MAX; w.faces.len()];
+            for (n, &o) in order.iter().enumerate() {
+                new_label[o] = n;
+            }
+            Some(c.iter().map(|l| l.iter().map(|&f| new_label[f]).collect()).collect())
+        }
+        _ => None,
+    };
     let out = VolumeMesh {
         points: w.points,
         faces: order.iter().map(|&f| w.faces[f].clone()).collect(),
@@ -263,6 +286,7 @@ pub fn correct_edges_between_patches(
         neighbour: order.iter().map(|&f| w.neighbour[f]).collect(),
         n_cells: w.n_cells,
         patches,
+        cells,
     };
     let regions = order.iter().map(|&f| w.region[f]).collect();
     (out, regions, rep)
@@ -314,9 +338,9 @@ mod tests {
         assert_eq!(out.cell_count(), 8);
         assert!((out.total_volume() - 1.0).abs() < 1e-12);
 
-        let mut w = TopoMesh { points: m.points.clone(), faces: m.faces.clone(), owner: m.owner.clone(), neighbour: m.neighbour.clone(), region, n_cells: 8, patch_names: Vec::new() };
+        let mut w = TopoMesh { points: m.points.clone(), faces: m.faces.clone(), owner: m.owner.clone(), neighbour: m.neighbour.clone(), region, n_cells: 8, patch_names: Vec::new(), cells: None };
         decompose_cells_into_pyramids(&mut w, &[true; 8]);
-        let v = VolumeMesh { points: w.points, faces: w.faces, owner: w.owner, neighbour: w.neighbour, n_cells: w.n_cells, patches: vec![] };
+        let v = VolumeMesh { points: w.points, faces: w.faces, owner: w.owner, neighbour: w.neighbour, n_cells: w.n_cells, patches: vec![] , cells: None };
         assert_eq!(v.cell_count(), 48);
         v.validate().unwrap();
         assert!((v.total_volume() - 1.0).abs() < 1e-12);
@@ -366,7 +390,13 @@ mod tests {
     /// `addCells` / `reorderBoundaryFaces` order, `meshSurfaceEdgeExtractor
     /// NonTopo` also on a one-region surface. Geometry moved in the last bit;
     /// face order moved.
-    const CORRECT_EDGES_PIN: (usize, usize, usize, usize, usize, u64) = (1727, 8, 16, 112, 14, 15811906865840324897);
+    // MOVED AGAIN 2026-11-11 (gh:#1385), counts unchanged: ~~15811906865840324897~~
+    // 2364802067049664889. `decomposeCells` now runs upstream's sequence
+    // (`removeCells`, `addCells`, `reorderBoundaryFaces`, `replaceBoundary`; the
+    // apex is the mean of the cell's points in face-list order, divided; fan
+    // points are numbered in face order), and `decomposeConcaveFaces` counts a
+    // feature edge at an inverted point as concave (`UNDETERMINED`).
+    const CORRECT_EDGES_PIN: (usize, usize, usize, usize, usize, u64) = (1727, 8, 16, 112, 14, 2364802067049664889);
 
     /// V&V (gh:#1241) — `patchCorrection` by hand. One unit cube, its top
     /// face in patch 1 and the rest in patch 0: the top's four edges are

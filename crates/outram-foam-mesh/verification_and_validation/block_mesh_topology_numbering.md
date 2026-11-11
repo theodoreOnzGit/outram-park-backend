@@ -61,7 +61,7 @@ compares it with our in-memory mesh:
 So **point, face, owner, neighbour and patch numbering match upstream exactly
 on all three**, and every point agrees to about 1 ulp or better. The
 non-bit-identical points (T3A 8.3 %, pitz 0.9 %) are all within that; the
-cause is not isolated here. Candidates: the platform `pow` upstream calls in
+~~cause is not isolated here~~ **CORRECTED 2026-11-11 (gh:#1364): isolated, against an OpenFOAM-dev `blockMesh` (852527377c7e)**: the port's dev-flavour mismatches come from (i) `pow(expFact, int)` in dev's `lineDivide` being integer exponentiation by squaring (`IntegerPow`, `Scalar.H`), not `std::pow` as the port assumes (the ESI behaviour), (ii) the port clamping the last multi-section grading node to exactly 1 where dev keeps the computed value, and (iii) `petir`'s trig against glibc's. With all three swapped in a throwaway experiment every one of the 12 fixture dicts is bit-identical (`upstream_dev_852527377c7e/README.md`); the experiment was reverted. ~~nothing is fixed~~ **UPDATED 2026-11-11 (gh:#1364): (i) and (ii) are now fixed in `block_mesh.rs` (per-flavour), 9 of 12 dicts are bit-identical, the rest differ by (iii) only.** The earlier candidate list:  the platform `pow` upstream calls in
 `lineDivide` against `petir`'s (this crate must not call the platform libm),
 and operation order inside the blend. Both are round-off, neither is a
 numbering matter. Under the 1e-8 allowance with this cause stated, flagged for

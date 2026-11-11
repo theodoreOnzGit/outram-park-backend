@@ -69,7 +69,7 @@ use crate::mesh_octree_creator::{MeshDict, MeshOctreeCreator};
 use crate::mesh_optimizer::{MeshOptimizer, UntangleControls};
 use crate::patches::{assign_patches_by_region, SurfaceRegions};
 use crate::rename_boundary_patches::{rename_boundary_patches, RenameBoundary};
-use crate::renumber_mesh::{cells_from_mesh, renumber_mesh};
+use crate::renumber_mesh::renumber_mesh;
 use crate::correct_edges::correct_edges_between_patches;
 use crate::surface_engine::{SurfaceEngine, SurfacePartitioner};
 use crate::surface_mapper::{map_vertices_onto_surface_patches_given_octree, SurfaceQueries};
@@ -310,11 +310,15 @@ pub fn create_octree(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&Surf
 /// `optimizeLowQualityFaces`, `optimizeBoundaryLayer(false)` (acts only
 /// with `optimiseLayer`, off by default; gh:#1476), `untangleMeshFV`.
 /// Returns the report line.
-fn generator_optimise_final_mesh(kind: Template, m: &mut VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], reg: &SurfaceRegions, enforce_geometry_constraints: bool, optimise_layer: Option<&crate::boundary_layer_optimisation::BoundaryLayerOptimisationControls>) -> Result<String, String> {
+fn generator_optimise_final_mesh(kind: Template, m: &mut VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], reg: &SurfaceRegions, enforce_geometry_constraints: bool, optimise_layer: Option<&crate::boundary_layer_optimisation::BoundaryLayerOptimisationControls>, octree: Option<&MeshOctree>) -> Result<String, String> {
     let given = face_regions(m, reg);
     if kind == Template::Voronoi {
-        // meshSurfaceOptimizer::optimizeSurface on its own
-        optimise_mesh_surface(m, points, tris, reg, &given);
+        // meshSurfaceOptimizer(mse, octree)::optimizeSurface on its own
+        // (gh:#1385: the searches go through the octree, as upstream's)
+        match octree {
+            Some(o) => crate::surface_optimizer::optimise_mesh_surface_octree(m, o, points, tris, reg, &given),
+            None => optimise_mesh_surface(m, points, tris, reg, &given),
+        };
     }
     let mut opt = MeshOptimizer::new(m);
     if enforce_geometry_constraints {
@@ -322,7 +326,10 @@ fn generator_optimise_final_mesh(kind: Template, m: &mut VolumeMesh, points: &[V
     }
     if kind == Template::Tet {
         // meshOptimizer::optimizeSurface(octree)
-        crate::mesh_optimizer::optimize_surface(m, points, tris, reg, &given);
+        match octree {
+            Some(o) => crate::mesh_optimizer::optimize_surface_octree(m, o, points, tris, reg, &given),
+            None => crate::mesh_optimizer::optimize_surface(m, points, tris, reg, &given),
+        };
     }
     let controls = UntangleControls { boundary_moves: true, mesh_untangler: true, ..UntangleControls::default() };
     let r1 = opt.optimize_mesh_fv(m, 5, &controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
@@ -494,7 +501,7 @@ pub(crate) fn run_generator(
             WorkflowStep::PatchAssignment => match regions {
                 Some(r) => {
                     *m = assign_patches_by_region(m, spts, tris, r)?;
-                    types = vec!["patch".to_string(); m.patches.len()];
+                    types = r.types_for(m.patches.len());
                     rep.notes.push("patchAssignment: PatchAssignment::NearestTriangle (ablation of edgeExtractor): nearest-triangle patches (patches::assign_patches_by_region)".into());
                 }
                 None => rep.notes.push("patchAssignment: no regions given; one patch".into()),
@@ -510,7 +517,9 @@ pub(crate) fn run_generator(
                     let (corrected, g, cr) = correct_edges_between_patches(m, &given, &r.names);
                     given = g;
                     *m = map_vertices_onto_surface_patches_given_octree(&corrected, &o, spts, tris, r, &given);
-                    types = vec!["patch".to_string(); m.patches.len()];
+                    // `replaceBoundary` with as many patches as before keeps
+                    // each patch's type (gh:#1483)
+                    types.resize(m.patches.len(), "patch".to_string());
                     rep.notes.push(format!(
                         "edgeExtraction: meshSurfaceEdgeExtractorNonTopo (correct_edges + surface_mapper): {} boundary faces split, {} faces fanned, {} cells into pyramids",
                         cr.n_patch_corrected_faces, cr.n_connection_faces, cr.n_decomposed_cells
@@ -567,14 +576,14 @@ pub(crate) fn run_generator(
             WorkflowStep::MeshOptimisation => {
                 // optimiseFinalMesh on the octree's surface (the modified
                 // one with anisotropicSources)
-                let line = generator_optimise_final_mesh(kind, m, spts, tris, reg, opts.enforce_geometry_constraints, opts.optimise_layer.as_ref())?;
+                let line = generator_optimise_final_mesh(kind, m, spts, tris, reg, opts.enforce_geometry_constraints, opts.optimise_layer.as_ref(), Some(&o))?;
                 rep.notes.push(format!("meshOptimisation: {line}"));
                 // its end: revertGeometryModification while modSurfacePtr_
                 // is set, then projectSurfaceAfterBackScaling
                 if let (true, Some(cm)) = (mod_active, opts.dict.anisotropic_sources.as_ref()) {
                     mod_active = false;
                     let b = crate::anisotropic::revert_and_project(m, cm, points, tris);
-                    let line2 = generator_optimise_final_mesh(kind, m, points, tris, reg, opts.enforce_geometry_constraints, opts.optimise_layer.as_ref())?;
+                    let line2 = generator_optimise_final_mesh(kind, m, points, tris, reg, opts.enforce_geometry_constraints, opts.optimise_layer.as_ref(), None)?;
                     rep.back_scaling = Some(b);
                     rep.notes.push(format!(
                         "meshOptimisation: revertGeometryModification ({} points); projectSurfaceAfterBackScaling: mapVerticesOntoSurface on the original surface (largest move {:.3e}), optimiseFinalMesh again: {line2}",
@@ -596,7 +605,7 @@ pub(crate) fn run_generator(
         }
     }
     let m = mesh.ok_or("the workflow produced no mesh")?;
-    let r = renumber_mesh(&m, &cells_from_mesh(&m));
+    let r = renumber_mesh(&m, &m.cell_face_lists());
     let renamed = rename_boundary_patches(&r.mesh, &types, opts.rename_boundary.as_ref(), false);
     if !renamed.symmetry.planes.is_empty() {
         let sy = &renamed.symmetry;

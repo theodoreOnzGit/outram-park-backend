@@ -591,12 +591,25 @@ mod tests {
         println!("fingerprints cartesian {} tet {} p {} 2D {}; cells {} {} {} {}", got[0], got[1], got[2], got[3], mc.n_cells, mt.n_cells, mp.n_cells, m2.n_cells);
         // Re-pinned 2026-11-11 (gh:#1385), by decision of the task that made
         // the generators follow upstream bit for bit (the cell counts did not
-        // move): cartesian ~~17611812511072804258~~ 7180829290865451833,
-        // tet ~~6523714470801621594~~ 17254294393733896570, p
-        // ~~3039883993825308236~~ 3134079275981119636, 2D
-        // ~~4427172929438988611~~ 11695678344881703815. Causes: see the
-        // gh:#1385 section of the cfMesh crate's V&V README.
-        assert_eq!(got, [7180829290865451833, 17254294393733896570, 3134079275981119636, 11695678344881703815]);
+        // move): cartesian ~~17611812511072804258~~ ~~7180829290865451833~~ 13254281021629600304
+        // (moved again 2026-11-11, gh:#1385: the mesh carries cfMesh's cell face
+        // lists, so `meshOptimisation`'s sums run in upstream's order and the
+        // sphere is bit-identical to upstream; the pipe moves with it),
+        // tet ~~6523714470801621594~~ ~~17254294393733896570~~ 13218850471215003652
+        // (moved again 2026-11-11, gh:#1385: `TopoMesh::remove_cells` follows
+        // `reorderBoundaryFaces`' pairwise swap and `face::reverseFace`, and
+        // `tetMesh`'s `optimizeSurface` goes through the octree), p
+        // ~~3039883993825308236~~ ~~3134079275981119636~~ 11509605158896565506, 2D
+        // ~~4427172929438988611~~ ~~11695678344881703815~~ 871841484633274847.
+        // Third move, 2026-11-11 (gh:#1385), all four again (cells unchanged):
+        // cartesian ~~13254281021629600304~~ 13144889121674496086, tet
+        // ~~13218850471215003652~~ 5974506692092754484. Causes: `decomposeCells`
+        // in upstream's sequence, `createNewVertex` as upstream
+        // (infinite-line edge distance, divisions), the layer's cell lists as
+        // `replaceBoundary` appends them, the octree-backed `pMesh`
+        // `optimiseFinalMesh`, the corner / edge mapper as upstream writes it.
+        // See the gh:#1385 section of the cfMesh crate's V&V README.
+        assert_eq!(got, [13144889121674496086, 5974506692092754484, 11509605158896565506, 871841484633274847]);
         assert_eq!((mc.n_cells, mt.n_cells, mp.n_cells, m2.n_cells), (560, 4576, 1529, 120));
     }
 

@@ -1244,8 +1244,13 @@ mod tests {
         // Re-pinned 2026-11-11 (gh:#1385): the pipe's layer now comes out in
         // upstream's face order (`addCells`, `reorderBoundaryFaces`,
         // `replaceBoundary`); ~~0x677a875f14ca046b~~ 0x018284a992e4c789. The box
-        // did not move.
-        assert_eq!((mesh_fingerprint(&r), mesh_fingerprint(&br)), (0x018284a992e4c789, 0x687256342d92ed50));
+        // did not move. Moved again 2026-11-11 (gh:#1385): ~~0x018284a992e4c789~~
+        // 0x591e062dc441a92f and ~~0x687256342d92ed50~~ 0xb10f852a9b013e88;
+        // `createNewVertex` follows upstream (the point's distance to the edge of
+        // a neighbouring patch is to the infinite line, `help::
+        // distanceOfPointFromTheEdge`; `v /= magV`, `normal /= magN`, `normal /=
+        // 2.0*dist` divide), and the layer's cell lists follow `replaceBoundary`.
+        assert_eq!((mesh_fingerprint(&r), mesh_fingerprint(&br)), (0x591e062dc441a92f, 0xb10f852a9b013e88));
     }
 
     fn global(n: usize, r: f64) -> RefineBoundaryLayersSettings {

@@ -398,6 +398,7 @@ fn empty() -> VolumeMesh {
         neighbour: vec![],
         n_cells: 0,
         patches: vec![],
+        cells: None,
     }
 }
 
@@ -583,6 +584,7 @@ pub(crate) fn build_mesh(leaves: &BTreeSet<Cell>, origin: Vec3, base_cs: f64, ma
         neighbour,
         n_cells: leaves.len(),
         patches,
+        cells: None,
     }
 }
 

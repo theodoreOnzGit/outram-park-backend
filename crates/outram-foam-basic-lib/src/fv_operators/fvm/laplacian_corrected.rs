@@ -337,7 +337,7 @@ pub fn laplacian_corrected(
                     continue;
                 };
                 let gamma_a = gamma.boundary[pi].values[fi] * mesh.face_areas[gf];
-                let coeff_orth = gamma_a / d_b.mag();
+                let coeff_orth = gamma_a / super::DeltaCoeff::Orthogonal.boundary_delta(&mesh, gf); // gh:#1488: the distance the uncorrected Laplacian used
                 let coeff_corr = gamma_a * g.delta_coeff;
                 let delta = coeff_corr - coeff_orth;
 

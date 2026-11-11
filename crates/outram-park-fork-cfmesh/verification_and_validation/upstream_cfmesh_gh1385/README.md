@@ -500,3 +500,159 @@ move; check before merging.
    `surface_mapper::nearest_edge_point`), and other `scale(1.0 / x)` where
    upstream divides (about 140 sites remain; the ones on the paths above are
    fixed).
+
+## Rust-side differential, round 2 (gh:#1385, 2026-11-11)
+
+**Research, education and V&V only.** AI-run; not reviewed by a human yet.
+
+**UPDATES to the section above.** The "Result: stage table", "The difference
+left, and its proven cause" and "What remains" subsections are ~~as written~~
+**superseded by this section** (the old values stay struck through in the
+tests' doc comments): the cell lists are carried now, the sphere is
+bit-identical for all three generators, and asmoOctree is bit-identical
+through `boundaryLayerGeneration`.
+
+### Stage table, sphere (points bit-identical / total, faces index-identical / total)
+
+All seven steps, and the **final** mesh (after `renumberMesh` and
+`renameBoundaryPatches`), are bit-identical for the three generators:
+`tests/cfmesh_vs_upstream_sphere.rs`
+(`cartesian_mesh_matches_upstream_through_mesh_optimisation`,
+`p_mesh_matches_upstream_through_mesh_optimisation`,
+`tet_mesh_matches_upstream_through_mesh_optimisation`,
+`final_meshes_match_upstream`).
+
+| | before this round | now |
+|---|---|---|
+| `cartesianMesh` meshOptimisation | 623/1425 points, worst 1.332e-15 m | 1425/1425, faces 3648/3648 |
+| `cartesianMesh` final | 623/1425 points, 2/3648 faces | 1425/1425, 3648/3648 |
+| `tetMesh` surfaceTopology | points 2651/2651, faces 819/26580 | 2651/2651, 26580/26580 |
+| `tetMesh` meshOptimisation / final | final 2/2651 points (worst 0.19 m), faces not matched | 2651/2651, 26580/26580 |
+| `pMesh` meshOptimisation | 3435/9744, worst 1.332e-15 m | 9744/9744, 11494/11494 |
+| `pMesh` final | not compared | 9744/9744, 11494/11494 |
+
+`tetMesh` stage references are new: `runs/stages/tetMesh_<step>` (sphere, the
+same `workflowControls stopAfter` method; 1.7 MB in all).
+
+### The fixes (before -> after, each with its cause)
+
+Predictions were committed in the messages of the first two commits (the
+cell-list prediction: the carried lists equal upstream's 1128 dumped lists and
+the Laplacian then matches on all 1425 points; the tetMesh prediction: the
+`surfaceTopology` faces differ only in order). The asmoOctree fixes were found
+by trace comparison against the instrumented upstream
+(`patches/gh1385-trace-instrumentation-2.patch`), so no sign was predicted
+before them; each cause below was confirmed by the number it moved.
+
+1. **Cell face lists carried** (`VolumeMesh::cells`, optional; a carried list
+   is used only while consistent with owner / neighbour, else the ascending
+   derived one). Built as upstream builds them at: template (`createPolyMesh`
+   discovery order, `reorderBoundaryFaces` relabelling), `addCells` +
+   `reorderBoundaryFaces` + `replaceBoundary` (layers, `decomposeCells`),
+   `replaceBoundary` (`edgeExtractor::updateMeshPatches`, `surfaceMorpherCells`),
+   `removeCells`, `decomposeFaces`, `renumberMesh`. Proof:
+   `tests/cfmesh_vs_upstream_cell_order.rs`: the port's lists equal upstream's
+   dump for all 1128 cells (cartesian sphere), 12840 (tet sphere,
+   `traces/sphere_tetMesh_before_optimizeMeshFV_cells.txt.gz`, new) and 53003
+   (asmoOctree, `traces/asmoOctree_cartesianMesh_before_optimizeMeshFV_cells.txt.gz`,
+   new). `foam_cell_centres_and_vols` and `renumberMesh` read them.
+2. **`TopoMesh::remove_cells`** follows `removeCells`: reverse, renumber,
+   `reorderBoundaryFaces` over all faces (a face of removed cells only has no
+   neighbour and is swapped like a boundary face), then `removeFaces`; and
+   `face::reverseFace` keeps the first point (a plain reversal is the same ring
+   rotated). tetMesh `surfaceTopology` faces 819 -> 26580 of 26580.
+3. **`optimizeSurface` of `tetMesh` and of `pMesh`'s `optimiseFinalMesh` take
+   the octree** (`optimize_surface_octree`; the generators passed none).
+4. **`findNearestPointToPatches`: `newP /= patches.size()`** (division).
+   asmoOctree surfaceProjection 49577/49690 -> 49690/49690.
+5. **`mapEdgeNodes` / `mapCorners` as upstream writes them** (with the octree;
+   `map_points_onto_patches_upstream`): nodes classified by the partitioner's
+   `corners` / `edgePoints`; patches in `pointFaces` order, unsorted; the
+   approximation loop stops **before** replacing the estimate; `findNearestEdgePoint`
+   through the octree, the 1.2 rule, the `maxDist` cut `f*(p' - p) + p`;
+   corners map to the nearest surface corner (`triSurfacePartitioner`) whose
+   patches include the point's, no cut; `findMappingDistance` with
+   `face::centre`. The untangler's `mapEdgeNodes` uses the same routine.
+   asmoOctree patchAssignment 49541/49690 (worst 6.3e-6 m) -> identical.
+6. **`decomposeConcaveFaces`**: a feature edge at an inverted point
+   (`meshSurfaceCheckInvertedVertices`) is `UNDETERMINED`, and
+   `problematicTypes` holds it (the port ignored it): 12 -> 13 internal faces
+   (upstream's log says 13), cells 32413 -> 32419.
+7. **`decomposeCells` in upstream's sequence**: `checkFaceConnections` then
+   `decomposeMeshFaces` (fan points numbered in face order), then per marked
+   cell the pyramids (apex = mean of the cell's distinct points in face-list
+   order, divided), `removeCells`, `addCells`, `reorderBoundaryFaces`,
+   `replaceBoundary`, `removeUnusedVertices`. asmoOctree edgeExtraction points
+   49734/49829 and faces 111784/114411 -> identical.
+8. **`createNewVertex`**: `help::distanceOfPointFromTheEdge` is the distance to
+   the **infinite line** (it calls `nearestPointOnTheEdge`, not the segment
+   variant; the port used the segment), `nearestPointOnTheEdge` divides
+   (`e /(d*d)`), and `v /= magV`, `normal /= magN`, `normal /= 2.0*dist` divide.
+   asmoOctree boundaryLayerGeneration points 70827/71650 (worst 1.6e-4 m) ->
+   identical.
+9. **`replaceBoundary` appends each new boundary face to its owner's cell list
+   in the order of the boundary list**, while the labels run patch by patch
+   (the port appended in label order): asmoOctree cell lists 52538 -> 53003 of
+   53003 identical.
+
+### asmoOctree (`tests/cfmesh_vs_upstream_stages.rs` in `outram-foam-cli`, through `run_cfmesh`)
+
+| step | port vs upstream |
+|---|---|
+| templateGeneration, surfaceTopology, surfaceProjection, patchAssignment | points and faces identical |
+| edgeExtraction | identical (points 49829, faces 114411, cells 32419; was 32413) |
+| boundaryLayerGeneration | identical (points 71650, faces 177398, cells 53003; was 52997) |
+| meshOptimisation | counts equal, faces index-identical, **71542/71650 points** bit-identical, worst 4.944e-4 m |
+
+Committed upstream references: `runs/stages/asmoOctree_cartesianMesh_edgeExtraction`
+and `..._boundaryLayerGeneration` (4.8 MB); the other stages are read from
+`GH1385_UPSTREAM_RUNS` (default `/home/user/upstream-build/runs`,
+`stage_asmo_cartesianMesh_<step>`) when present, else skipped. The test asserts
+the first six steps identical.
+
+**meshOptimisation, localised with sub-step traces** (instrumented upstream,
+`GH1385_TRACE`; the port's `trace_points`, an env-gated print): `fm_surface`
+(after `optimizeSurface`) 71649/71650 identical (one point differs by 4.1e-25),
+the 5 Laplacian iterations `fv_lap` 71649/71650, **`optimizeMeshFV`'s untangle
+`fm_fv` 71616/71650**, `optimizeLowQualityFaces` `fm_lowq` 71542/71650, worst
+4.944e-4 m; `untangleMeshFV` adds none. So the remaining difference is in the
+volume optimiser (`untangleMeshFV`'s smoothers) and `optimizeLowQualityFaces`,
+first at point 38527. Cause not found; the traces are regenerable (the 10 MB
+point dump is not committed).
+
+### elbow_90degree: not matched, first difference at the template
+
+Cells 21830 vs 21977 at `templateGeneration` (patch sizes 13141 vs 13234), and
+so on (final 108383 vs 108995, `fixedWalls` 18384 vs 18477). The tutorial sets
+`minCellSize 1.0`, so upstream runs `meshOctreeAutomaticRefinement` (curvature,
+corners, proximity); asmoOctree sets none and matches. The port's octree
+refines this surface differently; not investigated further. Upstream stage
+meshes for the elbow exist locally (`stage_elbow_cartesianMesh_<step>`, eight
+steps) but are not committed.
+
+### Moved pins (old value struck through in the source)
+
+| pin | moved | cause |
+|---|---|---|
+| `anisotropic::...generators_without_anisotropic_sources_are_pinned_bit_for_bit` | cartesian, tet (this round); p, 2D (second move) | fixes 1-9; **`AGENTS.md` says "do not move that pin"**, moved again under the task's rule that a fix following upstream may move pins; flagged for the maintainer |
+| `correct_edges::tests::correct_edges_is_pinned_bit_for_bit` | hash 15811906865840324897 -> 2364802067049664889 (counts unchanged) | fixes 6, 7 |
+| `layers::refine_boundary_layers::tests::prism_refinement_is_pinned_bit_for_bit` | pipe 0x018284a992e4c789 -> 0x591e062dc441a92f, box 0x687256342d92ed50 -> 0xb10f852a9b013e88 | fix 8, 9 |
+
+Did not move: `back_off_only_layers_are_pinned_bit_for_bit`,
+`dual_kinds_are_pinned_bit_for_bit` (feature `cell-centre-dual`: not run in this
+round), `octree_path_is_pinned_bit_for_bit`, `layer_strategies_are_deterministic`,
+`foam_studio_default_mesh_keeps_its_fingerprint`, the restart pins, and the
+`cfmesh_vs_upstream_*` and `cfmesh_patch_types*` tests (full `--lib --tests` run
+of the crate: all pass after the three re-pins). Foam Studio's
+`headless_unstructured_default_is_pinned` was **not run** (see the report).
+
+### What remains
+
+1. asmoOctree `meshOptimisation`: the volume optimiser (above).
+2. asmoOctree final mesh (after `renumberMesh`): not compared (follows 1).
+3. elbow_90degree: the template (`minCellSize` automatic refinement).
+4. `cutCube` (tetMesh, pMesh, cartesianMesh) and `hatOctree` (2D): no staged
+   upstream runs yet.
+5. Brute-force searches still used where upstream uses the octree (`snap`,
+   `SurfaceQueries::nearest_edge_point`), and other `scale(1.0 / x)` where
+   upstream divides.

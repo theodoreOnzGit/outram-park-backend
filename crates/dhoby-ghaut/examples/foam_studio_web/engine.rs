@@ -3190,6 +3190,7 @@ mod tests {
         let joined = lines.join("\n");
         assert!(joined.contains("1920 cells"), "{joined}");
         let pipe = lines.iter().find(|l| l.starts_with("# pipe")).expect("pipe line");
+        println!("{pipe}"); // gh:#1488: print the measured numbers so a record can quote them
         let val = |k: &str| -> f64 {
             pipe.split_whitespace().find_map(|t| t.strip_prefix(k)).and_then(|v| v.parse().ok()).expect(k)
         };
@@ -3232,6 +3233,7 @@ mod tests {
         let joined = lines.join("\n");
         assert!(joined.contains("6353 cells"), "{joined}");
         let pipe = lines.iter().find(|l| l.starts_with("# pipe (")).expect("pipe line");
+        println!("{pipe}"); // gh:#1488: print the measured numbers so a record can quote them
         let val = |k: &str| -> f64 { pipe.split_whitespace().find_map(|t| t.strip_prefix(k)).and_then(|v| v.parse().ok()).expect(k) };
         assert!((val("uc=") - 0.8925).abs() < 2e-3, "{pipe}");
         assert!((val("dpdz=") - 1.0326).abs() < 2e-3, "{pipe}");
@@ -3262,6 +3264,7 @@ mod tests {
         let joined = lines.join("\n");
         assert!(joined.contains("7049 cells"), "{joined}");
         let pipe = lines.iter().find(|l| l.starts_with("# pipe (")).expect("pipe line");
+        println!("{pipe}"); // gh:#1488: print the measured numbers so a record can quote them
         let val = |k: &str| -> f64 { pipe.split_whitespace().find_map(|t| t.strip_prefix(k)).and_then(|v| v.parse().ok()).expect(k) };
         assert!((val("uc=") - 0.9394).abs() < 2e-3, "{pipe}");
         assert!((val("dpdz=") - 1.0062).abs() < 2e-3, "{pipe}");

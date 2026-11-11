@@ -19,12 +19,13 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::ops::{Add, Mul};
+use std::ops::{Add, Mul, Sub};
 
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
 use crate::fields::surface_field::SurfaceField;
 use crate::fields::vol_field::VolField;
+use crate::fv_operators::fvm::DeltaCoeff;
 use crate::mesh::fv_mesh::{FvMesh, PatchKind};
 
 /// Linear interpolation weight for the **owner** cell at internal face `f`:
@@ -68,7 +69,8 @@ pub fn linear_weight(mesh: &FvMesh, f: usize) -> f64 {
 
 /// Linear interpolation of a `VolField` to face centres → `SurfaceField`.
 ///
-/// Internal faces: `φ_f = w·φ_O + (1−w)·φ_N` (geometric weighting).
+/// Internal faces: `φ_f = w·(φ_O − φ_N) + φ_N` (geometric weighting; upstream's form,
+/// gh:#1489, equal to `w·φ_O + (1−w)·φ_N` up to an ulp).
 /// Boundary faces: evaluated from the patch BC (zero-gradient → cell value,
 /// fixed-value → the fixed value, etc.).
 ///
@@ -108,14 +110,17 @@ pub fn linear_weight(mesh: &FvMesh, f: usize) -> f64 {
 /// ```
 pub fn interpolate<T>(vol: &VolField<T>) -> SurfaceField<T>
 where
-    T: Clone + Default + Add<Output = T> + Mul<f64, Output = T>,
+    T: Clone + Default + Add<Output = T> + Sub<Output = T> + Mul<f64, Output = T>,
 {
     let mesh = &vol.mesh;
 
     let internal = Field::from_fn(mesh.n_internal_faces, |f| {
         let w = linear_weight(mesh, f);
-        vol.internal[mesh.owner[f]].clone() * w
-            + vol.internal[mesh.neighbour[f]].clone() * (1.0 - w)
+        // gh:#1489: upstream `surfaceInterpolationScheme::interpolate`:
+        // `w*(P - N) + N`, not `w*P + (1 - w)*N` (differs by an ulp).
+        let p = vol.internal[mesh.owner[f]].clone();
+        let n = vol.internal[mesh.neighbour[f]].clone();
+        (p - n.clone()) * w + n
     });
 
     let boundary = mesh
@@ -176,7 +181,7 @@ where
                     // solver set (`snGrad(p)`), so it reconstructs the same way.
                     BoundaryCondition::FixedGradient(g)
                     | BoundaryCondition::FixedFluxPressure { gradient: g } => {
-                        let delta = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+                        let delta = DeltaCoeff::Orthogonal.boundary_delta(mesh, gf); // gh:#1488: 1/deltaCoeffs, patch-normal
                         vol.internal[owner].clone() + g.clone() * delta
                     }
                     // Robin/mixed blend of the fixedValue and fixedGradient parts.
@@ -185,7 +190,7 @@ where
                         ref_value,
                         ref_grad,
                     } => {
-                        let delta = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+                        let delta = DeltaCoeff::Orthogonal.boundary_delta(mesh, gf); // gh:#1488: 1/deltaCoeffs, patch-normal
                         let w = *value_fraction;
                         ref_value.clone() * w
                             + (vol.internal[owner].clone() + ref_grad.clone() * delta) * (1.0 - w)
@@ -196,7 +201,7 @@ where
                         ref_value,
                         ref_grad,
                     } => {
-                        let delta = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+                        let delta = DeltaCoeff::Orthogonal.boundary_delta(mesh, gf); // gh:#1488: 1/deltaCoeffs, patch-normal
                         let w = value_fraction[fi];
                         ref_value[fi].clone() * w
                             + (vol.internal[owner].clone() + ref_grad[fi].clone() * delta)

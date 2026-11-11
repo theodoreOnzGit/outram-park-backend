@@ -104,6 +104,7 @@ pub fn snap_to_surface(mesh: &VolumeMesh, points: &[Vec3], tris: &[[usize; 3]]) 
         neighbour: mesh.neighbour.clone(),
         n_cells: mesh.n_cells,
         patches: mesh.patches.clone(),
+        cells: None,
     }
 }
 
