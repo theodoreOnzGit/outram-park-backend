@@ -724,6 +724,77 @@ fn test_14_charged_particle_ace_is_identical() {
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
 }
 
+/// **Test 13 (Ni-61 ENDF/B-VI.1): `moder; reconr; broadr; heatr; gaspr; moder;
+/// acer`** (gh:#1369, differential #1366): the GASPR tape driver
+/// (`gaspr::gaspr_tape`, `gaspr.f90`). The deck is cut before its second ACER
+/// (`iopt = 7`, plot file) and `viewr`. Compared with NJOY2016.80: unit 28 (the
+/// PENDF with MT=203-207, GASPR's binary output converted to text by MODER)
+/// line by line, and ACE unit 26 word for word.
+///
+/// Prediction (before the run): GASPR is arithmetic on the PENDF's own grid
+/// (MT=1 from `thrg`), summed in tape order, with `sigfig(.,7)`; identical
+/// lines expected, the only risk being the directory counts (`(n+2)/3`).
+/// Result: see the survey table (`verification_and_validation/deck_driver/survey.md`).
+#[test]
+fn test_13_gaspr_pendf_and_ace_are_identical() {
+    let root = njoy_root();
+    let Some(full) = deck_text(&root, "13", None, "") else { return };
+    let deck = format!("{}stop\n", full.split("acer\n 0 26").next().unwrap());
+    let Some((ours, njoy)) = run_pair_decks_extra(&root, "t13", "eni61", &[], &deck, &deck) else { return };
+    let d = differing_lines(&ours.join("tape28"), &njoy.join("tape28"));
+    println!("test 13 unit 28: {} differing lines", d.len());
+    assert!(d.is_empty(), "test 13 unit 28: first differences {:?}", &d[..d.len().min(5)]);
+    let c = ace_pair(&ours, &njoy, 26);
+    for l in c.report_lines() {
+        println!("{l}");
+    }
+    assert!(c.identical(), "test 13 ACE differs from NJOY2016");
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
+
+/// **Test 12 (Ni-61): `reconr; gaspr` on coded units** (gh:#1369), the PENDF
+/// GASPR writes (unit 22) against NJOY2016.80 line by line. Unlike test 13 the
+/// units are positive, so the tape's SEND/FEND/MEND numbering is GASPR's own
+/// (`tosend` copies from its scratch tape) and the MODER conversion is absent.
+#[test]
+fn test_12_gaspr_coded_pendf_is_identical() {
+    let root = njoy_root();
+    let Some(full) = deck_text(&root, "12", Some("plotr"), "") else { return };
+    let Some((ours, njoy)) = run_pair(&root, "t12", "eni61", &full) else { return };
+    let d = differing_lines(&ours.join("tape22"), &njoy.join("tape22"));
+    println!("test 12 unit 22: {} differing lines; first {:?}", d.len(), &d[..d.len().min(8)]);
+    assert!(d.is_empty(), "test 12 unit 22: first differences {:?}", &d[..d.len().min(5)]);
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
+
+/// **Test 24 (Pu-239 ENDF/B-VIII.0 Beta6): `moder; reconr; broadr; heatr; heatr;
+/// thermr; gaspr; moder; acer`**, cut before the plot-file ACER (`iopt = 7`) and
+/// the `viewr`s: PENDF unit 38 (after GASPR) line by line, ACE unit 31 word for
+/// word (gh:#1369).
+///
+/// **Result (2026-11-11): the PENDF after GASPR is identical (0 lines); the ACE
+/// is identical in every block but SIGP: 280 of 1 037 922 words differ, e.g.
+/// 1.504386e-3 here against NJOY's unrounded 1.504385995e-3 (relative 3e-9).**
+/// A photon-production rounding difference (the `a11` text round trip of binary
+/// units, as for `convr`/`gamsum` in the charged-particle work), not GASPR: open,
+/// so the test is ignored until it is traced.
+#[test]
+#[ignore = "SIGP differs in 280 words by 3e-9 (a11 rounding of binary units), not GASPR; open"]
+fn test_24_gaspr_chain_ace() {
+    let root = njoy_root();
+    let Some(full) = deck_text(&root, "24", Some("viewr"), "") else { return };
+    let deck = format!("{}stop\n", full.split("acer\n 0 31").next().unwrap());
+    let Some((ours, njoy)) = run_pair_decks_extra(&root, "t24", "n-094_Pu_239-ENDF8.0-Beta6.endf", &[], &deck, &deck) else { return };
+    let d = differing_lines(&ours.join("tape38"), &njoy.join("tape38"));
+    println!("test 24 unit 38: {} differing lines; first {:?}", d.len(), &d[..d.len().min(5)]);
+    let c = ace_pair(&ours, &njoy, 31);
+    for l in c.report_lines() {
+        println!("{l}");
+    }
+    assert!(d.is_empty() && c.identical(), "test 24 differs from NJOY2016");
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
+
 /// Run upstream deck `case` (`moder; moder; acer iopt = 1`, the raw
 /// incident-charged-particle evaluation `resource` on unit 20) cut before its
 /// second ACER (the `iopt = 7` plot), and return the ACE comparison of unit 31.

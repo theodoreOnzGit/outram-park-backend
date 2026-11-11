@@ -453,6 +453,8 @@ pub struct AceDeck {
     esz_kerma: Option<Vec<(f64, f64)>>,
     /// MT=444 (damage energy) as HEATR's tape carries it, `(E [eV], sigma [eV-b])`.
     mt444: Option<Vec<(f64, f64)>>,
+    /// GASPR's MT=203-207 as the PENDF tape carries them: `(MT, (E, sigma) pairs)`.
+    gas: Vec<(i32, Vec<(f64, f64)>)>,
     /// HEATR's card-2 `ed` (OpenMC #4022): `Some(0.0)` asks for the damage
     /// energy (partial `444`) with NJOY's default displacement table,
     /// `Some(ed)` overrides it with `ed` eV, `None` (default) asks for neither.
@@ -473,6 +475,7 @@ impl Default for AceDeck {
             photon_matrix: None,
             esz_kerma: None,
             mt444: None,
+            gas: Vec::new(),
             displacement_energy: None,
         }
     }
@@ -545,6 +548,14 @@ impl AceDeck {
         self
     }
 
+    /// GASPR's MT=203-207 from the PENDF tape: ACER stores them as reactions
+    /// (`unionx` skips only MT > 207 up to 221, `acefc.f90:1735-1745`), so a deck
+    /// that ran GASPR gets them in MTR/LSIG/SIG (gh:#1369, test 13).
+    pub fn with_gas_pairs(mut self, gas: Vec<(i32, Vec<(f64, f64)>)>) -> Self {
+        self.gas = gas;
+        self
+    }
+
     /// PURR's output unit was blocked binary (`nout < 0`): its MT=153 reaches
     /// ACER without a text round trip.
     pub fn with_purr_binary(mut self, binary: bool) -> Self {
@@ -606,6 +617,8 @@ pub(crate) struct DeckModules {
     pub(crate) photon_matrix: Option<Vec<f64>>,
     /// HEATR's MT=444 `(E, sigma)` pairs, when the deck's HEATR wrote it.
     pub(crate) mt444: Option<Vec<(f64, f64)>>,
+    /// GASPR's MT=203-207 pairs from the PENDF tape.
+    pub(crate) gas: Vec<(i32, Vec<(f64, f64)>)>,
 }
 
 /// Run the deck's PURR and HEATR on `pendf` (a result already through
@@ -701,7 +714,7 @@ pub(crate) fn deck_modules(
         }),
         _ => kerma,
     };
-    Ok(DeckModules { urr, kerma, damage_energy, newfor: deck.newfor, photon_matrix: deck.photon_matrix.clone(), mt444: deck.mt444.clone() })
+    Ok(DeckModules { urr, kerma, damage_energy, newfor: deck.newfor, photon_matrix: deck.photon_matrix.clone(), mt444: deck.mt444.clone(), gas: deck.gas.clone() })
 }
 
 /// ACER proper: the continuous-energy table from the PENDF and what
@@ -716,6 +729,19 @@ pub(crate) fn assemble(
     modules: &DeckModules,
 ) -> Result<AceTable, crate::NjoyError> {
     // MT=444 joins the reactions as `unionx` includes it (`acefc.f90:1743-1782`).
+    let with_gas;
+    let pendf = if modules.gas.is_empty() {
+        pendf
+    } else {
+        let mut r = pendf.clone();
+        for (mt, pairs) in &modules.gas {
+            let sec = crate::reconr::ReconrSection { lr: 0, mt: crate::endf::mt::MtReaction::from_any(*mt), qi: 0.0, pairs: pairs.clone() };
+            let at = r.sections.iter().position(|s| i32::from(s.mt) > *mt).unwrap_or(r.sections.len());
+            r.sections.insert(at, sec);
+        }
+        with_gas = r;
+        &with_gas
+    };
     let with444;
     let recon = match &modules.mt444 {
         Some(pairs) if !pairs.is_empty() => {

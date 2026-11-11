@@ -9,7 +9,7 @@
 //! unmodified deck is run by `build/njoy` (300 s limit) and by `run_deck` in a
 //! second directory. Each tape file NJOY left is compared with ours: text tapes
 //! line by line, anything NJOY wrote in blocked-binary form by bytes (this crate
-//! writes no blocked-binary file). An input tape NJOY left byte-identical to the staged original is not compared (this crate rewrites it through its tape parser, which is not an output). `SURVEY_CASES=01,13` limits the decks. Status per deck: `identical` (every NJOY tape
+//! writes no blocked-binary file). An input tape NJOY left byte-identical to the staged original is not compared (this crate rewrites it through its tape parser, which is not an output). `SURVEY_CASES=01,13` limits the decks (and then the table goes to `SURVEY_OUT` or the temp directory, never over `survey.md`). Status per deck: `identical` (every NJOY tape
 //! present and equal, deck ran to its end), `differs` (tape, differing-line
 //! count), or `NotPorted` (module or card named by `DeckRun::blocked`; tapes ours
 //! did produce are still compared and listed). A panic in the port is reported
@@ -161,6 +161,7 @@ fn survey_every_upstream_deck() {
         .map(|e| e.file_name().to_string_lossy().to_string())
         .collect();
     cases.sort();
+    let partial = only.is_some();
     if let Some(o) = only {
         cases.retain(|c| o.split(',').any(|x| x == c));
     }
@@ -173,6 +174,15 @@ fn survey_every_upstream_deck() {
         eprintln!("{c}: {r}");
         let _ = writeln!(md, "| {c} | {} |", r.replace('\n', " "));
     }
-    let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/deck_driver/survey.md");
+    // A partial survey (`SURVEY_CASES`) must never overwrite the committed
+    // whole-table file (it did, once, on 2026-11-11, dropping most rows): it
+    // goes to `SURVEY_OUT`, or to the temp directory, instead.
+    let full = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/deck_driver/survey.md");
+    let out = match (std::env::var("SURVEY_OUT"), partial) {
+        (Ok(p), _) => PathBuf::from(p),
+        (Err(_), true) => std::env::temp_dir().join("survey_partial.md"),
+        (Err(_), false) => full,
+    };
+    eprintln!("writing {}", out.display());
     std::fs::write(out, md).unwrap();
 }

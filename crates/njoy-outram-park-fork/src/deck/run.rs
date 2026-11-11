@@ -102,8 +102,8 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
                 if opts.parse_only { Ok(()) } else { crate::deck::groupr::run_groupr(&job, &mut units, &mut notes) }
             }
             "gaspr" => {
-                read_gaspr(&mut r)?;
-                Err(NjoyError::NotPorted("gaspr tape driver (typed API: gaspr::GasProduction)"))
+                let c = read_gaspr(&mut r)?;
+                if opts.parse_only { Ok(()) } else { run_gaspr(c, &mut units) }
             }
             "unresr" => {
                 let c = read_unresr(&mut r)?;
@@ -308,6 +308,30 @@ fn run_heatr(input: &HeatrInput, units: &mut TapeUnits, listing: &mut String) ->
     Ok(())
 }
 
+/// GASPR (`gaspr.f90`): MT=203-207 onto the PENDF ([`crate::gaspr::gaspr_tape`]).
+fn run_gaspr(c: [i32; 3], units: &mut TapeUnits) -> Result<(), NjoyError> {
+    let [nendf, npend, noutp] = c;
+    if npend * noutp < 0 {
+        return Err(NjoyError::InvalidInput("gaspr: npend and noutp must both be binary or both be coded".into()));
+    }
+    units.openz(nendf, 0)?;
+    units.openz(npend, 0)?;
+    units.openz(noutp, 1)?;
+    let endf = units.get(nendf)?.tape.clone();
+    let pend = units.get(npend)?.clone();
+    let mut tape = crate::gaspr::gaspr_tape(&endf, &pend.tape)?;
+    // A coded GASPR output carries sequence number 1 on its TPID line (measured
+    // on test 12 against NJOY2016.80: RECONR and BROADR write 0 there; a MODER
+    // conversion rewrites it as 0 again, so a binary unit is unaffected).
+    if noutp > 0 && tape.tpid.len() >= 75 && tape.tpid.is_char_boundary(tape.tpid.len() - 5) {
+        let n = tape.tpid.len();
+        tape.tpid.replace_range(n - 5..n, "    1");
+    }
+    units.store(noutp, tape, pend.pointwise)?;
+    units.set_meta(noutp, pend.meta);
+    Ok(())
+}
+
 /// Copy a PENDF unit to the output unit of a module whose tape writer is not
 /// ported, recording what the module did in its [`PendfMeta`].
 fn pass_through(nin: i32, nout: i32, units: &mut TapeUnits, edit: impl FnOnce(&mut PendfMeta)) -> Result<(), NjoyError> {
@@ -421,25 +445,30 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
         deck = deck.without_heatr();
     }
     deck = deck.with_heatr_partials(pend.meta.heatr_partials).with_purr_binary(pend.meta.purr_binary).with_heatr_binary(pend.meta.heatr_binary).with_newfor(c.newfor).with_pendf_binary(c.npend < 0);
-    if pend.meta.heatr {
-        // rows[0] is the HEAD, rows[1] the TAB1 record (NR, NP), then the
-        // interpolation table (three pairs a row), then the points.
-        let tab1_pairs = |mt: i32| -> Option<Vec<(f64, f64)>> {
-            let sec = pend.tape.section(c.matd, 3, mt)?;
-            let nr = sec.rows.get(1).map_or(0, |r| r[4] as usize);
-            let np = sec.rows.get(1).map_or(0, |r| r[5] as usize);
-            let start = 2 + nr.div_ceil(3);
-            let mut pairs = Vec::with_capacity(np);
-            'rows: for r in sec.rows.iter().skip(start) {
-                for k in 0..3 {
-                    if pairs.len() == np {
-                        break 'rows;
-                    }
-                    pairs.push((r[2 * k], r[2 * k + 1]));
+    // rows[0] is the HEAD, rows[1] the TAB1 record (NR, NP), then the
+    // interpolation table (three pairs a row), then the points.
+    let tab1_pairs = |mt: i32| -> Option<Vec<(f64, f64)>> {
+        let sec = pend.tape.section(c.matd, 3, mt)?;
+        let nr = sec.rows.get(1).map_or(0, |r| r[4] as usize);
+        let np = sec.rows.get(1).map_or(0, |r| r[5] as usize);
+        let start = 2 + nr.div_ceil(3);
+        let mut pairs = Vec::with_capacity(np);
+        'rows: for r in sec.rows.iter().skip(start) {
+            for k in 0..3 {
+                if pairs.len() == np {
+                    break 'rows;
                 }
+                pairs.push((r[2 * k], r[2 * k + 1]));
             }
-            (pairs.len() == np).then_some(pairs)
-        };
+        }
+        (pairs.len() == np).then_some(pairs)
+    };
+    // GASPR's MT=203-207 are reactions of the table (`unionx`).
+    let gas: Vec<(i32, Vec<(f64, f64)>)> = (203..=207).filter_map(|mt| tab1_pairs(mt).map(|p| (mt, p))).collect();
+    if !gas.is_empty() {
+        deck = deck.with_gas_pairs(gas);
+    }
+    if pend.meta.heatr {
         if let Some(pairs) = tab1_pairs(301) {
             deck = deck.with_esz_kerma_pairs(pairs);
         }
