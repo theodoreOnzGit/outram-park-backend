@@ -154,6 +154,19 @@
 //! the point of the change; if one does not, the cause is a remaining
 //! platform call, to be found and routed, not a host line to add.
 
+//! # Re-pinned 2026-11-11 (latest): OpenMC `scatter()` reaction order and single-cutoff level pick (gh:#1386, #1444 a, b)
+//!
+//! Cause: `physics::scatter::ReactionOrder::OpenMc` is the CSG collision default.
+//! Control: `OUTRAM_MC_LEGACY_REACTION_ORDER=1` reproduces both previous pins
+//! (2 passed, 2026-11-11). sigma = quadrature of the two standard errors.
+//!
+//! | case | old pin -> new pin | old k | new k | sigma |
+//! |---|---|---|---|---|
+//! | `godiva_csg_entropy_trigger` | `0xbe7e011c738c0da1` -> `0xf767ab315e51ecef` | 0.97710 +/- 0.00960 (13 gens) | 0.99831 +/- 0.00966 (39 gens) | 1.56 |
+//! | `csg_nested_lattice_keff` | `0xab5ac3e0eb072bf8` -> `0xc79b620923731abe` | 1.72835 +/- 0.01486 | 1.71604 +/- 0.01213 | 0.64 |
+//!
+//! None exceeds 3 sigma: re-pinned, not a finding.
+//!
 //! # Re-pinned 2026-11-11 (later): OpenMC-faithful collision kernels are the transport default (gh:#1386, #1444, #1456)
 //!
 //! `physics::scatter::ScatterKernels::OpenMc` (level inelastic, CM-to-lab,
@@ -394,7 +407,9 @@ fn godiva_csg_with_entropy_and_trigger_is_bit_identical() {
     check(
         "godiva_csg_entropy_trigger",
         fp.0,
-        0xbe7e011c738c0da1,
+        // Re-pinned 2026-11-11 (gh:#1386, OpenMC reaction order): was 0xbe7e011c738c0da1
+        // (k 0.97710 +/- 0.00960, 13 generations), now k 0.99831 +/- 0.00966 (39 generations), 1.56 sigma.
+        0xf767ab315e51ecef,
         &format!(
             "k = {:#018x} +/- {:#018x}, {} generations, {} entropy values",
             r.k_mean.to_bits(),
@@ -992,7 +1007,9 @@ fn csg_nested_lattice_keff_is_bit_identical() {
         // 0x509ddd7ff08feef7, host B 0xa9f3504144099ed2 (#578). Re-pinned
         // again 2026-11-11 (gh:#1387, OpenMC #3934): was 0x8931164ebf355c38
         // (k 1.72559 +/- 0.01517), now k 1.72835 +/- 0.01486.
-        0xab5ac3e0eb072bf8,
+        // Re-pinned 2026-11-11 (gh:#1386, OpenMC reaction order): was 0xab5ac3e0eb072bf8
+        // (k 1.72835 +/- 0.01486), now k 1.71604 +/- 0.01213, 0.64 sigma.
+        0xc79b620923731abe,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),

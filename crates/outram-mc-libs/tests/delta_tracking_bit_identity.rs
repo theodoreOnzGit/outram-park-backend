@@ -41,6 +41,24 @@
 //! **SUPERSEDED 2026-10-20 (gh:#985):** the platform libm is no longer
 //! called, so one pin holds for every host; see below.
 //!
+//! # Re-pinned 2026-11-11 (latest): OpenMC `scatter()` reaction order and single-cutoff level pick (gh:#1386, #1444 items a, b)
+//!
+//! `physics::scatter::ReactionOrder::OpenMc` is the CSG collision default: the
+//! scattering reactions are walked elastic, MT5, (n,2n), (n,3n), other, levels
+//! against one cutoff, and the discrete level reuses that cutoff (no extra
+//! draw). Control: `OUTRAM_MC_LEGACY_REACTION_ORDER=1` reproduces every previous
+//! pin (3 passed, 2026-11-11). The sphere drivers (`keff_delta_*`) are not wired
+//! yet and are unchanged. Cause of the move: OpenMC reaction order (#1386);
+//! sigma = old-new over the quadrature of the two standard errors.
+//!
+//! | case | old k | new k | sigma | old -> new fingerprint |
+//! |---|---|---|---|---|
+//! | `surface_seq` | 1.29102 +/- 0.04422 | 1.31480 +/- 0.02377 | 0.47 | `0x421af953c2c86352` -> `0x70a3fc7b0653f8ad` |
+//! | `hybrid_seq_*` (4 pins, one k) | 1.28224 +/- 0.02684 | 1.22848 +/- 0.02420 | 1.49 | `0x612a86565c772cf0` -> `0x9d6a14eceb527ae2`; `0x98379999342903ee` -> `0x75c6be0e87920854`; `0x8522bc2194983adc` -> `0xd8a66a7d2479eeb4`; `0x59f808f27651cb38` -> `0xb3e8f993cc67b42c` |
+//! | `hybrid_par2_tentative` | 1.26183 +/- 0.01395 | 1.27927 +/- 0.01850 | 0.75 | `0x43e85d46f7bdb5d1` -> `0x086fd9d726390639` |
+//!
+//! None exceeds 3 sigma: re-pinned, not a finding.
+//!
 //! # Re-pinned 2026-11-11 (later): the OpenMC-faithful collision kernels are the transport default (gh:#1386, #1444, #1456)
 //!
 //! Maintainer decision 2026-11-11: `physics::scatter::ScatterKernels::OpenMc`
@@ -416,7 +434,7 @@ fn hybrid_csg_paths_are_bit_identical() {
     );
     let mut fp = Fp::new();
     fp.keff(&surf);
-    check("surface_seq", fp.0, 0x421af953c2c86352, &describe(&surf));
+    check("surface_seq", fp.0, 0x70a3fc7b0653f8ad, &describe(&surf));
 
     let a = run_keff_csg_hybrid(
         &geom,
@@ -430,18 +448,18 @@ fn hybrid_csg_paths_are_bit_identical() {
     );
     let mut fp = Fp::new();
     fp.keff(&a);
-    check("hybrid_seq_no_tally", fp.0, 0x612a86565c772cf0, &describe(&a));
+    check("hybrid_seq_no_tally", fp.0, 0x9d6a14eceb527ae2, &describe(&a));
 
     for (name, est, pin) in [
         (
             "hybrid_seq_tentative",
             DeltaTallyEstimator::TentativeCollision,
-            0x98379999342903ee_u64,
+            0x75c6be0e87920854_u64,
         ),
         (
             "hybrid_seq_real",
             DeltaTallyEstimator::RealCollision,
-            0x8522bc2194983adc,
+            0xd8a66a7d2479eeb4,
         ),
     ] {
         let mut t = tally();
@@ -476,7 +494,7 @@ fn hybrid_csg_paths_are_bit_identical() {
     let mut fp = Fp::new();
     fp.keff(&r);
     fp.fs(&ks);
-    check("hybrid_seq_progress", fp.0, 0x59f808f27651cb38, &describe(&r));
+    check("hybrid_seq_progress", fp.0, 0xb3e8f993cc67b42c, &describe(&r));
 
     let mut t = tally();
     let r = run_keff_csg_hybrid(
@@ -492,7 +510,7 @@ fn hybrid_csg_paths_are_bit_identical() {
     let mut fp = Fp::new();
     fp.keff(&r);
     fp.tally(&t, n_active);
-    check("hybrid_par2_tentative", fp.0, 0x43e85d46f7bdb5d1, &describe(&r));
+    check("hybrid_par2_tentative", fp.0, 0x086fd9d726390639, &describe(&r));
 }
 
 #[test]
