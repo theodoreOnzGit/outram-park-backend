@@ -340,13 +340,17 @@ pub fn run_fixed_source_traced(
             };
             let mut src_stream = openmc.map(|s| s[crate::rng::openmc_seeding::STREAM_SOURCE]);
             // The default keeps the one sequential stream, copied in and out.
-            let mut hseed = openmc.map_or(seed, |s| s[crate::rng::openmc_seeding::STREAM_TRACKING]);
             let urr_start = openmc.map(|s| s[crate::rng::openmc_seeding::STREAM_URR_PTABLE]);
             // One source particle and its fission progeny (a private bank).
             let (birth_site, birth_weight) = match src_stream.as_mut() {
                 Some(ss) => source.sample(ss),
                 None => source.sample(&mut seed),
             };
+            // gh:#1493: the copy is taken AFTER the source draws, so the default
+            // mode keeps develop's one sequential stream. Copying before them
+            // (3134e3134) made `seed = hseed` below discard the source's advance:
+            // every history reused the same source variates.
+            let mut hseed = openmc.map_or(seed, |s| s[crate::rng::openmc_seeding::STREAM_TRACKING]);
             let mut bank = vec![birth_site];
             // Only the SOURCE particle carries the replayed weight; its
             // fission progeny are born at 1 like any other secondary.
