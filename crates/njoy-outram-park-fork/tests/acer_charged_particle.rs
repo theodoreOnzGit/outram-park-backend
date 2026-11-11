@@ -51,7 +51,7 @@ fn deck14_table_blocks() {
     let dlw_end = theirs.jxs[11] as usize - 1; // GPD starts after DLW
     let nes = theirs.nxs[2] as usize;
     let mut worst = Vec::new();
-    for (name, lo, hi) in [("ESZ cols 1-4", 0, 4 * nes), ("MTR..DLW", 5 * nes, dlw_end)] {
+    for (name, lo, hi) in [("ESZ cols 1-4", 0, 4 * nes), ("MTR..DLW", 5 * nes, dlw_end), ("GPD..YP", dlw_end, theirs.jxs[21] as usize)] {
         let diffs: Vec<usize> = (lo..hi).filter(|&i| ours.xss[i] != theirs.xss[i]).collect();
         println!("{name}: {} of {} words differ; first {:?}", diffs.len(), hi - lo, diffs.first().map(|&i| (i + 1, ours.xss[i], theirs.xss[i])));
         worst.push(diffs.len());
@@ -59,5 +59,5 @@ fn deck14_table_blocks() {
     let d0 = theirs.jxs[10] as usize - 1;
     println!("DLW ours   {:?}", &ours.xss[d0 + 215..d0 + 245]);
     println!("DLW theirs {:?}", &theirs.xss[d0 + 215..d0 + 245]);
-    assert_eq!(worst, vec![0, 0], "ESZ columns 1-4 and MTR..DLW must match NJOY2016 word for word");
+    assert_eq!(worst, vec![0, 0, 0], "ESZ columns 1-4 and MTR..DLW must match NJOY2016 word for word");
 }

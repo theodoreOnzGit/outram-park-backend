@@ -525,6 +525,41 @@ pub fn build_charged(tape: &Tape, mat: i32, kt_mev: f64, suffix: u32, text_pendf
             b.word(v, is_int);
         }
     }
+    // ---- photon production: GPD, MTRP..DLWP, YP ----------------------------
+    let pendf = raw_pendf(tape, mat, za, awr)?;
+    let mut ntrp = 0i32;
+    if let Some(entries) = super::photon_blocks::build_with_pendf(tape, mat, &pendf) {
+        if !entries.is_empty() {
+            if let Some(g) = super::photon_blocks::gpd_on_grid(tape, mat, &pendf, &es) {
+                jx[11] = b.next_locator();
+                g.iter().for_each(|&v| b.real(v));
+            }
+            let (mtrp, lsigp, sigp, landp, andp, ldlwp, dlwp) = super::build::append_photon_blocks(&mut b, &entries, &es);
+            jx[jxs::MTRP] = mtrp;
+            jx[jxs::LSIGP] = lsigp;
+            jx[jxs::SIGP] = sigp;
+            jx[jxs::LANDP] = landp;
+            jx[jxs::ANDP] = andp;
+            jx[jxs::LDLWP] = ldlwp;
+            jx[jxs::DLWP] = dlwp;
+            ntrp = entries.len() as i32;
+            jx[jxs::YP] = b.next_locator();
+            let mut yp: Vec<i32> = Vec::new();
+            let mut mtl = 0;
+            for e in entries.iter() {
+                let mtd = e.mtrp / 1000;
+                let mf13 = !matches!(e.sigp, super::photon_blocks::SigP::Yield { .. });
+                if !mf13 && mtd != mtl {
+                    mtl = mtd;
+                    yp.push(mtd);
+                }
+            }
+            b.int(yp.len() as i32);
+            for mt in yp {
+                b.int(mt);
+            }
+        }
+    }
     let (xss, is_int) = b.finish();
     jx[jxs::END] = xss.len() as i32;
     let mut nx = [0i32; 16];
@@ -533,6 +568,9 @@ pub fn build_charged(tape: &Tape, mat: i32, kt_mev: f64, suffix: u32, text_pendf
     nx[nxs::NES] = nes as i32;
     nx[nxs::NTR] = ntr as i32;
     nx[nxs::NR] = nr as i32;
+    nx[nxs::NTRP] = ntrp;
+    nx[nxs::Z] = za / 1000;
+    nx[nxs::A] = za % 1000;
     let zaid_num = za as f64 + suffix as f64 / 100.0;
     Ok(AceTable {
         zaid: format!("{:9.2}{}", zaid_num, letter),
@@ -699,4 +737,26 @@ fn acecpe(
         el[j] = signow;
     }
     Ok((words, tot, el))
+}
+
+/// The raw evaluation as the PENDF ACER is handed (decks 14, 50-54, 62, 71
+/// pass the ENDF tape as `npend`): MF=3 sections on their own grids.
+fn raw_pendf(tape: &Tape, mat: i32, za: i32, awr: f64) -> Result<crate::reconr::ReconrResult, NjoyError> {
+    let mut sections = Vec::new();
+    for sec in tape.sections().iter().filter(|s| s.key.mat == mat && s.key.mf == 3) {
+        let t = tab1_of(sec)?;
+        sections.push(crate::reconr::ReconrSection {
+            lr: t.head.l2,
+            mt: crate::endf::mt::MtReaction::from_any(sec.key.mt),
+            qi: t.head.c2,
+            pairs: t.pairs,
+        });
+    }
+    Ok(crate::reconr::ReconrResult {
+        material: crate::reconr::mf1::MaterialInfo { za: f64::from(za), awr, lrp: 0, lfi: 0, nlib: 0, elis: 0.0, nfor: 6, emax: 0.0 },
+        sections,
+        resonance_upper_limit: None,
+        unresolved_table: None,
+        temperature_k: 0.0,
+    })
 }

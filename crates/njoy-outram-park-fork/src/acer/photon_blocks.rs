@@ -841,6 +841,17 @@ pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option
 
     // `gamsum` runs on the ACE grid (`unionx`), not on the PENDF's MT=1 energies.
     let grid: Vec<f64> = crate::acer::build::esz_grid(pendf, &gamma_discontinuities(tape, mat))?;
+    gpd_on_grid(tape, mat, pendf, &grid)
+}
+
+/// [`gpd`] on a caller-supplied ACE grid (eV): the incident-charged-particle
+/// table's `unionx` grid is not the neutron one (`acer::charged`, gh:#1485).
+pub fn gpd_on_grid(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult, grid: &[f64]) -> Option<Vec<f64>> {
+    use crate::endf::gety1::Gety1;
+    use crate::endf::parse::{format_endf_float, parse_endf_float};
+    use crate::endf::records::{Cont, Tab1};
+    use crate::mixr::mix::sigfig;
+    const EPS: f64 = 1.0e-10;
     let nen = grid.len();
     let mut c = vec![0.0f64; nen];
     let as_tab = |pairs: &[(f64, f64)]| Tab1 {

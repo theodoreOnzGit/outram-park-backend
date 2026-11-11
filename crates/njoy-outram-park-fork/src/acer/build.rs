@@ -1244,7 +1244,7 @@ fn append_dlw(b: &mut XssBuilder, producers: &[&Emission], law3_lo: &[f64], e_hi
 /// 8214-9014). `ANDP` is returned equal to `LDLWP` when every photon is
 /// isotropic — which is what NJOY writes, and what makes an all-zero `LANDP`
 /// unambiguous.
-fn append_photon_blocks(
+pub(super) fn append_photon_blocks(
     b: &mut XssBuilder,
     entries: &[super::photon_blocks::PhotonEntry],
     egrid: &[f64],
