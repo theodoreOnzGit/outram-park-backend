@@ -854,7 +854,7 @@ mod tests {
         assert_relative_eq!(out.f_n, f_c + f_v, max_relative = 1e-12);
     }
 
-    /// A dry pair (`L = 0`) has bond volume 0 < 1e-14: upstream returns early
+    /// A dry pair (`L = 0`) has bond volume 0: d_max = 0, so an existing bridge "breaks" with zero flux (nothing to transfer); contact returns early
     /// and adds nothing (both models, both contact and close).
     #[test]
     fn dry_particles_exert_no_bridge_force() {
@@ -862,7 +862,8 @@ mod tests {
             assert!(p.intersect(&overlap_kin(0.0)).is_none());
             let c = p.close(&close_input(0.0005, true, 0.0));
             assert!(
-                matches!(c, CloseOutcome::ActiveNoForce | CloseOutcome::NoBridge),
+                matches!(c, CloseOutcome::ActiveNoForce | CloseOutcome::NoBridge)
+                    || c == CloseOutcome::Breaks { flux_i: 0.0, flux_j: 0.0 },
                 "{c:?}"
             );
         }
