@@ -147,24 +147,34 @@ pub struct BoundaryLayersDict {
     pub settings: crate::layers::refine_boundary_layers::RefineBoundaryLayersSettings,
     /// `boundaryLayerHeightFactor`, `boundaryLayerMinHeight`.
     pub heights: crate::layers::boundary_layers::BoundaryLayersControls,
+    /// `patchBoundaryLayers.toc()` as written, the names
+    /// `generateBoundaryLayers` passes to `addLayerForPatch(word)`, which
+    /// compares them **exactly** with the mesh's patch names (gh:#1476: the
+    /// `meshDict` reader keeps them, while [`Self::settings`]' patches are
+    /// the regular-expression matches `refineBoundaryLayers` makes). `None`
+    /// (the dicts built in code before gh:#1476): the keys of
+    /// `settings.patches` are used instead.
+    pub patch_layer_names: Option<Vec<String>>,
 }
 
 impl BoundaryLayersDict {
     /// A dict with the global `nLayers` entry `n`.
     pub fn with_n_layers(n: usize) -> Self {
         let settings = crate::layers::refine_boundary_layers::RefineBoundaryLayersSettings { n_layers: n, ..Default::default() };
-        BoundaryLayersDict { n_layers: Some(n), settings, heights: Default::default() }
+        BoundaryLayersDict { n_layers: Some(n), settings, heights: Default::default(), patch_layer_names: None }
     }
 
     /// The generators' `generateBoundaryLayers`: `nLayers` present and
     /// above 0, every patch; present and 0, none; absent, each
-    /// `patchBoundaryLayers` patch (name order: the typed map does not keep
-    /// the dictionary's order, which upstream's `toc()` walks).
+    /// `patchBoundaryLayers` patch: [`Self::patch_layer_names`] in
+    /// dictionary order when given (gh:#1476), else the keys of
+    /// `settings.patches` (name order).
     pub fn request(&self) -> Option<crate::layers::boundary_layers::LayerRequest> {
         use crate::layers::boundary_layers::LayerRequest;
-        match self.n_layers {
-            Some(n) => (n > 0).then_some(LayerRequest::AllPatches),
-            None => (!self.settings.patches.is_empty()).then(|| LayerRequest::Patches(self.settings.patches.keys().cloned().collect())),
+        match (self.n_layers, &self.patch_layer_names) {
+            (Some(n), _) => (n > 0).then_some(LayerRequest::AllPatches),
+            (None, Some(names)) => (!names.is_empty()).then(|| LayerRequest::Patches(names.clone())),
+            (None, None) => (!self.settings.patches.is_empty()).then(|| LayerRequest::Patches(self.settings.patches.keys().cloned().collect())),
         }
     }
 }
