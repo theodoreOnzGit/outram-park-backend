@@ -31,7 +31,7 @@
 //! | patchAssignment | 895/895 | 2064/2064 | 9744/9744 | 11494/11494 |
 //! | edgeExtraction | 895/895 | 2064/2064 | 9744/9744 | 11494/11494 |
 //! | boundaryLayerGeneration | 1425/1425 | 3648/3648 | 9744/9744 | 11494/11494 |
-//! | meshOptimisation | **623/1425, max 1.332e-15** | 3648/3648 | **3435/9744, max 1.332e-15** | 11494/11494 |
+//! | meshOptimisation | ~~623/1425, max 1.332e-15~~ **1425/1425** | 3648/3648 | **3435/9744, max 1.332e-15** | 11494/11494 |
 //!
 //! (points bit-identical / total; faces index-identical with owner and
 //! neighbour / total.) Faces are index-identical at every stage of both
@@ -92,33 +92,17 @@ fn assert_same_topology(d: &Diff, what: &str) {
     assert_eq!(d.index_faces_identical, Some((d.counts.1).1), "{what}: faces");
 }
 
-/// `cartesianMesh`: the first six stages are bit-identical (points, faces,
-/// owner, neighbour). Fixes that made them so, with the number each moved:
-/// the V&V README, "Rust-side differential".
+/// `cartesianMesh`: all seven stages are bit-identical (points, faces, owner,
+/// neighbour). Fixes that made them so, with the number each moved: the V&V
+/// README, "Rust-side differential". The last one (gh:#1385, 2026-11-11):
+/// `VolumeMesh` carries cfMesh's cell face lists (`VolumeMesh::cells`), so
+/// `meshOptimisation`'s Laplacian sums run in upstream's order: points
+/// ~~623/1425, worst 1.332e-15 m~~ 1425/1425.
 #[test]
-fn cartesian_mesh_matches_upstream_through_boundary_layer_generation() {
-    for s in &STEPS[..6] {
+fn cartesian_mesh_matches_upstream_through_mesh_optimisation() {
+    for s in &STEPS {
         assert_matches(&cartesian_stage(*s), &format!("cartesianMesh after {}", s.name()));
     }
-}
-
-/// `cartesianMesh` meshOptimisation: counts and faces are identical, 623 of
-/// 1425 points are bit-identical (the 530 layer-outer points, which the
-/// optimiser leaves where `optimizeSurface` put them, and 93 more) and the
-/// worst difference is 1.332e-15 m (the last bit of a coordinate of 2-3 m,
-/// 6e-16 relative). **Cause, proven** in `cfmesh_vs_upstream_cell_order.rs`:
-/// `optimizeMeshFV`'s Laplacian sums over the faces of a cell in the order of
-/// upstream's cell list, which `VolumeMesh` (faces with owner/neighbour, no
-/// cell lists) does not carry; the port sums in ascending face order. Fed
-/// upstream's own cell lists the same Laplacian is bit-identical on all 1425
-/// points. Pinned from above, not matched.
-#[test]
-fn cartesian_mesh_mesh_optimisation_is_within_the_last_bit() {
-    let d = cartesian_stage(WorkflowStep::MeshOptimisation);
-    assert_same_topology(&d, "cartesianMesh after meshOptimisation");
-    let (same, worst) = d.index_points.unwrap();
-    assert!(same >= 623, "bit-identical points fell from 623 to {same}");
-    assert!(worst < 2e-15, "worst difference {worst:e}");
 }
 
 /// `pMesh`: the first six stages are bit-identical (points, faces, owner,

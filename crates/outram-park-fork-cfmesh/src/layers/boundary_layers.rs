@@ -1016,6 +1016,10 @@ fn add_cells_upstream(mesh: &VolumeMesh, points: Vec<Vec3>, cells: &[Vec<Vec<usi
     for (f, ring) in faces.iter().enumerate() {
         index.insert(key(ring), f);
     }
+    // the cell lists as `addCells` builds them: the old cells' lists stay, a
+    // layer cell lists the labels of its faces in its own order (gh:#1385)
+    let mut cell_lists: Vec<Vec<usize>> = mesh.cell_face_lists();
+    cell_lists.resize(cells.len(), Vec::new());
     for (c, cell) in cells.iter().enumerate().skip(first_layer_cell) {
         for ring in cell {
             let k = key(ring);
@@ -1029,6 +1033,7 @@ fn add_cells_upstream(mesh: &VolumeMesh, points: Vec<Vec3>, cells: &[Vec<Vec<usi
                     faces.len() - 1
                 }
             };
+            cell_lists[c].push(f);
             if owner[f].is_none() {
                 owner[f] = Some(c);
             } else if neighbour[f].is_none() {
@@ -1042,12 +1047,14 @@ fn add_cells_upstream(mesh: &VolumeMesh, points: Vec<Vec3>, cells: &[Vec<Vec<usi
         owner_of.insert(key(ring), (owner[f], neighbour[f].is_some()));
     }
     let (mut faces, mut owner, mut neighbour) = (faces, owner, neighbour);
-    crate::cartesian_mesh::reorder_boundary_faces(&mut faces, &mut owner, &mut neighbour);
+    let new_label = crate::cartesian_mesh::reorder_boundary_faces(&mut faces, &mut owner, &mut neighbour);
+    crate::cartesian_mesh::relabel_cell_lists(&mut cell_lists, &new_label);
     let n_int = neighbour.iter().filter(|x| x.is_some()).count();
     faces.truncate(n_int);
     owner.truncate(n_int);
     neighbour.truncate(n_int);
     let mut n_unmatched = 0;
+    let mut new_boundary_owners: Vec<usize> = Vec::new();
     let mut patches = Vec::with_capacity(names.len());
     let mut listed: BTreeSet<Vec<usize>> = BTreeSet::new();
     for (pi, name) in names.iter().enumerate() {
@@ -1062,6 +1069,7 @@ fn add_cells_upstream(mesh: &VolumeMesh, points: Vec<Vec3>, cells: &[Vec<Vec<usi
                     faces.push(ring.clone());
                     owner.push(o);
                     neighbour.push(None);
+                    new_boundary_owners.push(o);
                     listed.insert(k);
                 }
                 _ => n_unmatched += 1,
@@ -1070,7 +1078,8 @@ fn add_cells_upstream(mesh: &VolumeMesh, points: Vec<Vec3>, cells: &[Vec<Vec<usi
         patches.push(crate::volume_mesh::BoundaryPatch { name: name.clone(), start_face: start, n_faces: faces.len() - start });
     }
     n_unmatched += owner_of.iter().filter(|(k, &(_, internal))| !internal && !listed.contains(*k)).count();
-    (VolumeMesh { points, faces, owner, neighbour, n_cells: cells.len(), patches }, n_unmatched)
+    let cell_lists = crate::cartesian_mesh::replace_boundary_cell_lists(&cell_lists, n_int, &new_boundary_owners);
+    (VolumeMesh { points, faces, owner, neighbour, n_cells: cells.len(), patches, cells: Some(cell_lists) }, n_unmatched)
 }
 
 /// cfMesh `createNewVertices(labelList)` and `createLayerCells` on `mesh`

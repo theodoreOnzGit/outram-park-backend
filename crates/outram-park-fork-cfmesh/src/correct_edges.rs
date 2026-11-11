@@ -139,6 +139,7 @@ pub fn correct_edges_between_patches(
         region: face_region.to_vec(),
         n_cells: mesh.n_cells,
         patch_names: names.to_vec(),
+        cells: if mesh.carried_cells_are_consistent() { mesh.cells.clone() } else { None },
     };
     let mut rep = CorrectEdgesReport::default();
     let mut decompose_cell = vec![false; mesh.n_cells];
@@ -256,6 +257,18 @@ pub fn correct_edges_between_patches(
     if order.len() > start {
         patches.push(BoundaryPatch { name: "unassigned".into(), start_face: start, n_faces: order.len() - start });
     }
+    // the cell lists survive only while nothing changed the cells or their
+    // faces (gh:#1385); the faces' new labels follow `order`
+    let cells = match &w.cells {
+        Some(c) if crate::volume_mesh::cell_lists_are_consistent(c, w.n_cells, &w.owner, &w.neighbour) => {
+            let mut new_label = vec![usize::MAX; w.faces.len()];
+            for (n, &o) in order.iter().enumerate() {
+                new_label[o] = n;
+            }
+            Some(c.iter().map(|l| l.iter().map(|&f| new_label[f]).collect()).collect())
+        }
+        _ => None,
+    };
     let out = VolumeMesh {
         points: w.points,
         faces: order.iter().map(|&f| w.faces[f].clone()).collect(),
@@ -263,6 +276,7 @@ pub fn correct_edges_between_patches(
         neighbour: order.iter().map(|&f| w.neighbour[f]).collect(),
         n_cells: w.n_cells,
         patches,
+        cells,
     };
     let regions = order.iter().map(|&f| w.region[f]).collect();
     (out, regions, rep)
@@ -314,9 +328,9 @@ mod tests {
         assert_eq!(out.cell_count(), 8);
         assert!((out.total_volume() - 1.0).abs() < 1e-12);
 
-        let mut w = TopoMesh { points: m.points.clone(), faces: m.faces.clone(), owner: m.owner.clone(), neighbour: m.neighbour.clone(), region, n_cells: 8, patch_names: Vec::new() };
+        let mut w = TopoMesh { points: m.points.clone(), faces: m.faces.clone(), owner: m.owner.clone(), neighbour: m.neighbour.clone(), region, n_cells: 8, patch_names: Vec::new(), cells: None };
         decompose_cells_into_pyramids(&mut w, &[true; 8]);
-        let v = VolumeMesh { points: w.points, faces: w.faces, owner: w.owner, neighbour: w.neighbour, n_cells: w.n_cells, patches: vec![] };
+        let v = VolumeMesh { points: w.points, faces: w.faces, owner: w.owner, neighbour: w.neighbour, n_cells: w.n_cells, patches: vec![] , cells: None };
         assert_eq!(v.cell_count(), 48);
         v.validate().unwrap();
         assert!((v.total_volume() - 1.0).abs() < 1e-12);

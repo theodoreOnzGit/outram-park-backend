@@ -69,7 +69,7 @@ use crate::mesh_octree_creator::{MeshDict, MeshOctreeCreator};
 use crate::mesh_optimizer::{MeshOptimizer, UntangleControls};
 use crate::patches::{assign_patches_by_region, SurfaceRegions};
 use crate::rename_boundary_patches::{rename_boundary_patches, RenameBoundary};
-use crate::renumber_mesh::{cells_from_mesh, renumber_mesh};
+use crate::renumber_mesh::renumber_mesh;
 use crate::correct_edges::correct_edges_between_patches;
 use crate::surface_engine::{SurfaceEngine, SurfacePartitioner};
 use crate::surface_mapper::{map_vertices_onto_surface_patches_given_octree, SurfaceQueries};
@@ -598,7 +598,7 @@ pub(crate) fn run_generator(
         }
     }
     let m = mesh.ok_or("the workflow produced no mesh")?;
-    let r = renumber_mesh(&m, &cells_from_mesh(&m));
+    let r = renumber_mesh(&m, &m.cell_face_lists());
     let renamed = rename_boundary_patches(&r.mesh, &types, opts.rename_boundary.as_ref(), false);
     if !renamed.symmetry.planes.is_empty() {
         let sy = &renamed.symmetry;

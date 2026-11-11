@@ -358,6 +358,7 @@ pub fn assign_patches_by_region_with(
         neighbour: order.iter().map(|&f| mesh.neighbour[f]).collect(),
         n_cells: mesh.n_cells,
         patches,
+        cells: None,
     })
 }
 

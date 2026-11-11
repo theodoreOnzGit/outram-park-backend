@@ -238,7 +238,7 @@ pub fn reorder_faces(mesh: &VolumeMesh, cells: &[Vec<usize>], new_order: Vec<usi
             q
         })
         .collect();
-    let out = VolumeMesh { points: mesh.points.clone(), faces, owner, neighbour, n_cells: nc, patches };
+    let out = VolumeMesh { points: mesh.points.clone(), faces, owner, neighbour, n_cells: nc, patches, cells: Some(cells_out.clone()) };
     Renumbered { mesh: out, cells: cells_out, new_order }
 }
 

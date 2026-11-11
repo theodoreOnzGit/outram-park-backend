@@ -591,12 +591,15 @@ mod tests {
         println!("fingerprints cartesian {} tet {} p {} 2D {}; cells {} {} {} {}", got[0], got[1], got[2], got[3], mc.n_cells, mt.n_cells, mp.n_cells, m2.n_cells);
         // Re-pinned 2026-11-11 (gh:#1385), by decision of the task that made
         // the generators follow upstream bit for bit (the cell counts did not
-        // move): cartesian ~~17611812511072804258~~ 7180829290865451833,
+        // move): cartesian ~~17611812511072804258~~ ~~7180829290865451833~~ 13254281021629600304
+        // (moved again 2026-11-11, gh:#1385: the mesh carries cfMesh's cell face
+        // lists, so `meshOptimisation`'s sums run in upstream's order and the
+        // sphere is bit-identical to upstream; the pipe moves with it),
         // tet ~~6523714470801621594~~ 17254294393733896570, p
         // ~~3039883993825308236~~ 3134079275981119636, 2D
         // ~~4427172929438988611~~ 11695678344881703815. Causes: see the
         // gh:#1385 section of the cfMesh crate's V&V README.
-        assert_eq!(got, [7180829290865451833, 17254294393733896570, 3134079275981119636, 11695678344881703815]);
+        assert_eq!(got, [13254281021629600304, 17254294393733896570, 3134079275981119636, 11695678344881703815]);
         assert_eq!((mc.n_cells, mt.n_cells, mp.n_cells, m2.n_cells), (560, 4576, 1529, 120));
     }
 

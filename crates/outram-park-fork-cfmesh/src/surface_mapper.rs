@@ -337,6 +337,7 @@ fn map_impl(
         neighbour: mesh.neighbour.clone(),
         n_cells: mesh.n_cells,
         patches: mesh.patches.clone(),
+        cells: mesh.cells.clone(),
     }
 }
 

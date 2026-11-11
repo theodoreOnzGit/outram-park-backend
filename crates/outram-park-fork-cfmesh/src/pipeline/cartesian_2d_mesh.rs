@@ -75,7 +75,7 @@ use crate::patches::SurfaceRegions;
 use crate::pipeline::cartesian_mesh::{cartesian_surface_preparation, n_nonpositive_cells};
 use crate::pipeline::tet_mesh::SavedMesh;
 use crate::rename_boundary_patches::{rename_boundary_patches, RenameBoundary};
-use crate::renumber_mesh::{cells_from_mesh, renumber_mesh};
+use crate::renumber_mesh::renumber_mesh;
 use crate::surface_mapper_2d::{adjust_z_coordinates, distribute_boundary_faces, map_vertices_onto_surface_2d, pre_map_vertices_2d, remap_boundary_points};
 use crate::volume_mesh::VolumeMesh;
 use crate::workflow_controls::{MeshMetaData, StepDecision, WorkflowControls, WorkflowSettings, WorkflowStep};
@@ -350,7 +350,7 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
         }
     }
     let m = mesh.ok_or("the workflow produced no mesh")?;
-    let r = renumber_mesh(&m, &cells_from_mesh(&m));
+    let r = renumber_mesh(&m, &m.cell_face_lists());
     let renamed = rename_boundary_patches(&r.mesh, &types, opts.rename_boundary.as_ref(), true);
     w.workflow_completed();
     rep.meta = w.meta;

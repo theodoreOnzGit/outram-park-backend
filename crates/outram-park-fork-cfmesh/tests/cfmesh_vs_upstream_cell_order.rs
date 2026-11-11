@@ -170,3 +170,48 @@ fn laplacian_over_upstream_cell_lists_is_bit_identical() {
     assert_eq!(a, fv.len());
     assert_eq!(b, 623);
 }
+
+#[test]
+fn carried_state_per_stage() {
+    let (p, t) = read_sphere();
+    for s in [WorkflowStep::TemplateGeneration, WorkflowStep::SurfaceTopology, WorkflowStep::SurfaceProjection, WorkflowStep::PatchAssignment, WorkflowStep::EdgeExtraction, WorkflowStep::BoundaryLayerGeneration, WorkflowStep::MeshOptimisation] {
+        let opts = CartesianMeshGeneratorOptions {
+            dict: MeshDict::with_max_cell_size(0.5),
+            workflow: WorkflowSettings { stop_after: Some(s), restart_from_latest_step: false },
+            ..Default::default()
+        };
+        let (m, _) = cartesian_mesh(&p, &t, None, &opts).unwrap();
+        println!("after {}: carried {} consistent {}", s.name(), m.cells.is_some(), m.carried_cells_are_consistent());
+        let popts = outram_park_fork_cfmesh::pipeline::tet_mesh::TetMeshOptions {
+            dict: MeshDict::with_max_cell_size(0.5),
+            workflow: WorkflowSettings { stop_after: Some(s), restart_from_latest_step: false },
+            ..Default::default()
+        };
+        let (m, _) = outram_park_fork_cfmesh::pipeline::p_mesh::p_mesh(&p, &t, None, &popts).unwrap();
+        println!("pMesh after {}: carried {} consistent {}", s.name(), m.cells.is_some(), m.carried_cells_are_consistent());
+    }
+}
+
+/// gh:#1385: the cell lists the port now carries after
+/// `boundaryLayerGeneration` are upstream's, label for label and in order:
+/// all 1128 cells of the dumped trace.
+#[test]
+fn carried_cell_lists_equal_upstream_after_layers() {
+    let (p, t) = read_sphere();
+    let opts = CartesianMeshGeneratorOptions {
+        dict: MeshDict::with_max_cell_size(0.5),
+        workflow: WorkflowSettings { stop_after: Some(WorkflowStep::BoundaryLayerGeneration), restart_from_latest_step: false },
+        ..Default::default()
+    };
+    let (m, _) = cartesian_mesh(&p, &t, None, &opts).unwrap();
+    let (cells, _, _) = load_trace();
+    assert!(m.carried_cells_are_consistent(), "the carried lists must be consistent with owner/neighbour");
+    let mine = m.cells.as_ref().unwrap();
+    let n_same = mine.iter().zip(&cells).filter(|(a, b)| a == b).count();
+    println!("cell lists identical to upstream's: {n_same} of {}", cells.len());
+    for (c, (a, b)) in mine.iter().zip(&cells).enumerate().filter(|(_, (a, b))| a != b).take(6) {
+        println!("cell {c}: port {a:?} upstream {b:?}");
+    }
+    assert_eq!(mine.len(), cells.len());
+    assert_eq!(n_same, cells.len());
+}

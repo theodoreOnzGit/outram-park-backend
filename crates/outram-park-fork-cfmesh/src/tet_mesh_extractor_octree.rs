@@ -200,6 +200,7 @@ pub fn poly_mesh_from_cells(points: Vec<Vec3>, mut faces: Vec<Vec<usize>>, mut c
         owner: own.into_iter().map(|o| o.expect("owned")).collect(),
         neighbour: nei,
         n_cells,
+        cells: Some(cells.clone()),
     };
     Ok(AssembledMesh { mesh, cells, point_map })
 }

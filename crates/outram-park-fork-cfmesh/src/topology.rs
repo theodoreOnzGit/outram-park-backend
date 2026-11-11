@@ -132,6 +132,12 @@ pub struct TopoMesh {
     pub n_cells: usize,
     /// Patch names, indexed by [`TopoMesh::region`].
     pub patch_names: Vec<String>,
+    /// The cells' face lists of the [`VolumeMesh`] this came from (gh:#1385),
+    /// in this mesh's face labels. Carried back out by
+    /// [`TopoMesh::into_volume_mesh`] only while they are still consistent
+    /// with `owner` / `neighbour` / `n_cells`, so an operation that changes
+    /// the cells or their faces drops them without being told to.
+    pub cells: Option<Vec<Vec<usize>>>,
 }
 
 /// An undirected edge equal to `(a, b)` (OpenFOAM `edge::operator==`).
@@ -163,6 +169,7 @@ impl TopoMesh {
             region,
             n_cells: mesh.n_cells,
             patch_names: mesh.patches.iter().map(|p| p.name.clone()).collect(),
+            cells: if mesh.carried_cells_are_consistent() { mesh.cells.clone() } else { None },
         }
     }
 
@@ -186,6 +193,16 @@ impl TopoMesh {
         if order.len() > start {
             patches.push(BoundaryPatch { name: "unassigned".into(), start_face: start, n_faces: order.len() - start });
         }
+        let cells = match &w.cells {
+            Some(c) if crate::volume_mesh::cell_lists_are_consistent(c, w.n_cells, &w.owner, &w.neighbour) => {
+                let mut new_label = vec![usize::MAX; w.faces.len()];
+                for (n, &o) in order.iter().enumerate() {
+                    new_label[o] = n;
+                }
+                Some(c.iter().map(|l| l.iter().map(|&f| new_label[f]).collect()).collect())
+            }
+            _ => None,
+        };
         let out = VolumeMesh {
             faces: order.iter().map(|&f| w.faces[f].clone()).collect(),
             owner: order.iter().map(|&f| w.owner[f]).collect(),
@@ -193,6 +210,7 @@ impl TopoMesh {
             n_cells: w.n_cells,
             patches,
             points: w.points,
+            cells,
         };
         let regions = order.iter().map(|&f| w.region[f]).collect();
         (out, regions)
@@ -550,7 +568,7 @@ pub(crate) fn decompose_faces_and_cells(
     decompose_cell: &[bool],
 ) -> (Vec<Vec3>, Vec<Vec<usize>>, Vec<usize>, Vec<Option<usize>>, usize) {
     let region = vec![None; faces.len()];
-    let mut w = TopoMesh { points, faces, owner, neighbour, region, n_cells, patch_names: Vec::new() };
+    let mut w = TopoMesh { points, faces, owner, neighbour, region, n_cells, patch_names: Vec::new(), cells: None };
     let mut split = BTreeMap::new();
     for (f, &d) in fan_faces.iter().enumerate() {
         if d {

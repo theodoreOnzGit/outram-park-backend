@@ -242,6 +242,7 @@ fn empty_mesh() -> VolumeMesh {
         neighbour: vec![],
         n_cells: 0,
         patches: vec![],
+        cells: None,
     }
 }
 
@@ -484,6 +485,7 @@ fn assemble_kept(
         neighbour,
         n_cells: n_kept,
         patches,
+        cells: None,
     }
 }
 

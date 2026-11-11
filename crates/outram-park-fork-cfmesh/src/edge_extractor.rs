@@ -993,6 +993,7 @@ impl EdgeExtractor {
         let mut owner: Vec<usize> = internal.iter().map(|&f| m.owner[f]).collect();
         let mut neighbour: Vec<Option<usize>> = internal.iter().map(|&f| m.neighbour[f]).collect();
         let mut patches = Vec::with_capacity(self.n_patches());
+        let n_internal = internal.len();
         for (pi, name) in self.names.iter().enumerate() {
             let start = faces.len();
             for bf in 0..e.n_boundary_faces() {
@@ -1004,7 +1005,13 @@ impl EdgeExtractor {
             }
             patches.push(BoundaryPatch { name: name.clone(), start_face: start, n_faces: faces.len() - start });
         }
-        let out = VolumeMesh { points: m.points.clone(), faces, owner, neighbour, n_cells: m.n_cells, patches };
+        // `replaceBoundary` also rewrites the cell lists (gh:#1385)
+        let cells = if m.carried_cells_are_consistent() && internal.iter().enumerate().all(|(i, &f)| i == f) {
+            Some(crate::cartesian_mesh::replace_boundary_cell_lists(m.cells.as_ref().unwrap_or(&Vec::new()), n_internal, &owner[n_internal..]))
+        } else {
+            None
+        };
+        let out = VolumeMesh { points: m.points.clone(), faces, owner, neighbour, n_cells: m.n_cells, patches, cells };
         (out, self.types.clone())
     }
 
