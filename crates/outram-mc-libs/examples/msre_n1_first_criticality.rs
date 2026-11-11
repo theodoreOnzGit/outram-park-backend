@@ -8,7 +8,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
-//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730] [--shield none|tm0728|tm0728-drained]
+//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730] [--shield none|tm0728|tm0728-drained|tm0728-packed]
 //! ```
 //!
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
@@ -151,12 +151,15 @@ fn main() {
     // (TM-0728 §5.3.10.1; N-1 residual, gh:#1128). Default: vacuum.
     let shield = match flag(&args, "--shield").as_deref().unwrap_or("none") {
         "none" => m::Shield::Omitted,
-        "tm0728" | "tm0728-drained" => m::Shield::Tm0728Cylinder,
-        other => panic!("--shield must be none|tm0728|tm0728-drained, got {other}"),
+        "tm0728" | "tm0728-drained" | "tm0728-packed" => m::Shield::Tm0728Cylinder,
+        other => panic!("--shield must be none|tm0728|tm0728-drained|tm0728-packed, got {other}"),
     };
     // `--shield tm0728-drained`: the same cylinder with the ball annulus's
     // water removed, an ablation splitting the shield's worth (gh:#1128).
     let drained = flag(&args, "--shield").as_deref() == Some("tm0728-drained");
+    // `--shield tm0728-packed`: the ball annulus at random close packing,
+    // the steel TM-0728's 70 tons imply (an input sensitivity, gh:#1128).
+    let packed = flag(&args, "--shield").as_deref() == Some("tm0728-packed");
     let graphite_law = flag(&args, "--graphite-law").unwrap_or_else(|| "30p".to_string());
     let axial_csv: Option<PathBuf> = flag(&args, "--axial-csv").map(PathBuf::from);
     if let Some(d) = flag(&args, "--draw") {
@@ -214,7 +217,7 @@ fn main() {
     };
     let base_materials = mats.len();
     if shield == m::Shield::Tm0728Cylinder {
-        mats.extend(if drained { m::shield_materials_drained() } else { m::shield_materials() });
+        mats.extend(if drained { m::shield_materials_drained() } else if packed { m::shield_materials_packed() } else { m::shield_materials() });
     }
     // `--li7-atom-percent X`: re-split the salt's lithium (total unchanged)
     // to X % Li-7. The default keeps TM-0728's 99.99 %; TM-0730 quotes
@@ -340,7 +343,7 @@ fn main() {
         m::Shield::Omitted => m::geometry_with_ends(t_k, t_g, dims, ends),
         m::Shield::Tm0728Cylinder => m::geometry_with_shield(t_k, t_g, dims, ends, base_materials),
     };
-    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" } + if shield == m::Shield::Tm0728Cylinder { "+shield-tm0728" } else { "" } + if drained { "-drained" } else { "" };
+    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" } + if shield == m::Shield::Tm0728Cylinder { "+shield-tm0728" } else { "" } + if drained { "-drained" } else { "" } + if packed { "-packed" } else { "" };
     let new_file = !csv.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&csv).expect("csv");
     if new_file {

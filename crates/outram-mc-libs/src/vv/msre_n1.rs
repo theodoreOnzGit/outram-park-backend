@@ -834,6 +834,33 @@ pub fn shield_materials() -> Vec<(&'static str, Vec<(&'static str, f64)>)> {
     vec![("Thermal shield 304 plate", ss304()), ("Thermal shield ball annulus", shield_ball_zone())]
 }
 
+/// The ball annulus's steel volume fraction at random close packing of
+/// equal spheres, 0.64 (Scott & Kilgour 1969, J. Phys. D 2, 863). TM-0728's
+/// 70 tons of balls (p. 128) in the 14 in annulus give about 0.68 for short
+/// tons (11.9 m³ of annulus, 7870 kg/m³), which equal balls cannot reach; so
+/// the packing limit bounds the steel the text's tonnage implies. An input
+/// sensitivity against [`SHIELD_IRON_FRACTION`]'s 6/14 (gh:#1128).
+pub const SHIELD_BALL_FRACTION_PACKED: f64 = 0.64;
+
+/// [`shield_ball_zone`] with the balls at volume fraction `f_ball` of the
+/// annulus and water in the rest. `shield_ball_zone()` is this at 6/14.
+pub fn shield_ball_zone_with_fraction(f_ball: f64) -> Vec<(&'static str, f64)> {
+    let mut v = element(7.87 * f_ball, 1.0, 55.845, &FE_NATURAL_SHIELD);
+    let molecules = 0.9982 * (1.0 - f_ball) * 0.602214076 / 18.0153;
+    v.push(("H1", 2.0 * molecules));
+    v.push(("O16", molecules));
+    v
+}
+
+/// [`shield_materials`] with the ball annulus at random close packing
+/// ([`SHIELD_BALL_FRACTION_PACKED`]); the plates are unchanged.
+pub fn shield_materials_packed() -> Vec<(&'static str, Vec<(&'static str, f64)>)> {
+    vec![
+        ("Thermal shield 304 plate", ss304()),
+        ("Thermal shield ball annulus, close-packed", shield_ball_zone_with_fraction(SHIELD_BALL_FRACTION_PACKED)),
+    ]
+}
+
 /// [`shield_ball_zone`] with its water removed: the same balls, the space
 /// between them void. An ablation for splitting the shield's worth between
 /// its steel and its water (gh:#1128); the real shield is water-filled
@@ -1084,6 +1111,16 @@ mod tests {
         let steel = (2.0 * SHIELD_PLATE + f_ball * (total - 2.0 * SHIELD_PLATE)) / total;
         assert!((steel - 0.5).abs() < 1e-12, "{steel}");
         assert!((f_ball - 6.0 / 14.0).abs() < 1e-12);
+        // The fraction-parameterised zone reproduces the stated one at 6/14,
+        // and the packed build changes only the annulus's fraction.
+        let at = shield_ball_zone_with_fraction(f_ball);
+        for (a, b) in at.iter().zip(shield_ball_zone().iter()) {
+            assert_eq!(a.0, b.0);
+            assert!((a.1 - b.1).abs() <= 1e-12 * b.1, "{} {} {}", a.0, a.1, b.1);
+        }
+        let packed = shield_materials_packed();
+        assert_eq!(packed[0].1, ss304());
+        assert!((fe(&packed[1].1) / n_fe_ball - SHIELD_BALL_FRACTION_PACKED).abs() < 1e-12);
         // The drained ablation keeps the plates and the balls, and only them.
         let drained = shield_materials_drained();
         assert_eq!(drained.len(), shield_materials().len());
