@@ -76,9 +76,54 @@ use crate::granular::{
     ContactKey, ContactKinematics, GranularContactModel, ShearHistory,
 };
 use crate::integrator::VelocityVerlet;
-use crate::mesh_wall::MovingBoundary;
+use crate::mesh_wall::{MovingBoundary, WallGeometry};
 use crate::particle::{Particle, Vec3};
 use crate::DemError;
+
+/// Resolve one contact: the ordinary history-advancing law, or at set-up the
+/// frozen law that only registers the contact (`shearupdate = 0`).
+fn resolve_c(
+    model: &GranularContactModel,
+    setup: bool,
+    key: ContactKey,
+    k: &ContactKinematics,
+    history: &mut ShearHistory,
+    dt: f64,
+) -> crate::granular::GranularForce {
+    if setup {
+        model.resolve_setup(key, k, history)
+    } else {
+        model.resolve(key, k, history, dt)
+    }
+}
+
+/// One row of upstream's `compute pair/gran/local`: see
+/// [`GranularSystem::pair_gran_local_for`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PairLocalRecord {
+    /// Tag of particle `i` (0-based; upstream's atom id is this plus one).
+    pub tag_i: u64,
+    /// Tag of particle `j`.
+    pub tag_j: u64,
+    /// Position of `i` `[m]`.
+    pub pos_i: Vec3,
+    /// Position of `j` `[m]`.
+    pub pos_j: Vec3,
+    /// Velocity of `i` `[m/s]`.
+    pub vel_i: Vec3,
+    /// Velocity of `j` `[m/s]`.
+    pub vel_j: Vec3,
+    /// Contact force on `i` `[N]`.
+    pub force: Vec3,
+    /// Contact torque on `i` `[N m]`.
+    pub torque: Vec3,
+    /// Stored tangential shear displacement `[m]` (upstream `history`).
+    pub history: Vec3,
+    /// Contact area `[m^2]`.
+    pub contact_area: f64,
+    /// Overlap `r_i + r_j - |x_i - x_j|` `[m]`.
+    pub delta: f64,
+}
 
 /// A runnable DEM simulation with **persistent tangential shear history**.
 ///
@@ -101,6 +146,22 @@ pub struct GranularSystem {
     /// wrapping an analytic primitive or a triangulated mesh. Advanced once per
     /// step, in the drift half of the velocity-Verlet cycle.
     moving_walls: Vec<MovingBoundary>,
+    /// Neighbour skin `[m]` whose rebuild schedule decides when a rotating
+    /// mesh's cached edge vectors and normals are recomputed from its nodes
+    /// (upstream refreshes them only on a neighbour-list rebuild and rotates
+    /// them incrementally in between). `0` (default) recomputes after every
+    /// rotation. See [`GranularSystem::with_neighbor_skin`].
+    neigh_skin: f64,
+    /// True during the set-up force evaluation, where upstream does not
+    /// advance the shear history (`update->setupflag` -> `shearupdate = 0`).
+    setup_phase: bool,
+    /// Particle positions at the last emulated neighbour rebuild (`xhold`).
+    xhold: Vec<Vec3>,
+    /// A mesh asked for a rebuild on the next step (`next_reneighbor`).
+    mesh_rebuild_pending: bool,
+    /// Per `(particle tag, wall)` mesh-facet contact partners with their
+    /// keep flags, in upstream's slot order (`FixContactHistoryMesh`).
+    mesh_partners: HashMap<(usize, usize), Vec<Option<(u32, bool)>>>,
     model: GranularContactModel,
     history: ShearHistory,
     integrator: VelocityVerlet,
@@ -212,6 +273,11 @@ impl GranularSystem {
             particles,
             boundaries,
             moving_walls: Vec::new(),
+            neigh_skin: 0.0,
+            setup_phase: false,
+            xhold: Vec::new(),
+            mesh_rebuild_pending: false,
+            mesh_partners: HashMap::new(),
             model,
             history: ShearHistory::new(),
             integrator,
@@ -230,7 +296,7 @@ impl GranularSystem {
             cell_offsets: Vec::new(),
             cell_items: Vec::new(),
         };
-        s.compute_forces();
+        s.compute_forces_setup();
         Ok(s)
     }
 
@@ -247,8 +313,85 @@ impl GranularSystem {
     #[must_use]
     pub fn with_moving_walls(mut self, walls: Vec<MovingBoundary>) -> Self {
         self.moving_walls = walls;
-        self.compute_forces();
+        self.xhold = self.particles.iter().map(|p| p.position).collect();
+        self.compute_forces_setup();
         self
+    }
+
+    /// Emulate upstream's neighbour-list rebuild schedule (`neighbor <skin>`,
+    /// `neigh_modify delay 0 every 1 check yes`) for the one thing it changes
+    /// numerically here: when a **rotating mesh wall** recomputes its cached
+    /// edge vectors, normals and edge lengths from its nodes. Upstream rotates
+    /// those incrementally by the step quaternion and refreshes them only on a
+    /// rebuild step (a particle moved more than `skin/2` since the last build,
+    /// or a mesh node did, one step earlier); this reproduces that schedule so
+    /// the round-off matches (gh:#1416). The physics does not depend on it.
+    ///
+    /// With the default `skin = 0` the geometry is recomputed after every
+    /// rotation. Call after [`GranularSystem::with_moving_walls`].
+    #[must_use]
+    pub fn with_neighbor_skin(mut self, skin: f64) -> Self {
+        self.neigh_skin = skin;
+        self.xhold = self.particles.iter().map(|p| p.position).collect();
+        self
+    }
+
+    /// The set-up force evaluation: like [`GranularSystem::compute_forces`] but
+    /// without advancing the shear history, as upstream's `setup()` does
+    /// (`PairGran::compute`: `if (update->setupflag) shearupdate_ = 0;`, same in
+    /// `FixWallGran::post_force_wall`). ~~The port advanced the history here
+    /// too~~ **CORRECTED 2026-11-11** (gh:#1418): it gave a bed with non-zero
+    /// velocities one extra `v_tr*dt` of shear at step 0.
+    fn compute_forces_setup(&mut self) {
+        self.setup_phase = true;
+        self.compute_forces();
+        self.setup_phase = false;
+    }
+
+    /// The neighbour-rebuild decision and mesh refresh that follow the walls'
+    /// move in a step (`Neighbor::decide`, `FixMesh::pre_force`).
+    fn refresh_moving_meshes(&mut self) {
+        let skin = self.neigh_skin;
+        if skin <= 0.0 {
+            for w in &mut self.moving_walls {
+                if w.is_rotating() {
+                    if let WallGeometry::Mesh(m) = &mut w.geometry {
+                        m.refresh_geometry();
+                    }
+                }
+            }
+            return;
+        }
+        let triggersq = 0.25 * skin * skin;
+        let mut rebuild = self.mesh_rebuild_pending;
+        if !rebuild {
+            for (p, h) in self.particles.iter().zip(&self.xhold) {
+                let d = p.position.sub(*h);
+                let rsq = d.x * d.x + d.y * d.y + d.z * d.z;
+                if rsq > triggersq {
+                    rebuild = true;
+                }
+            }
+        }
+        if rebuild {
+            for w in &mut self.moving_walls {
+                if let WallGeometry::Mesh(m) = &mut w.geometry {
+                    m.refresh_geometry();
+                }
+            }
+            self.xhold = self.particles.iter().map(|p| p.position).collect();
+            self.mesh_rebuild_pending = false;
+        } else {
+            let mut any = false;
+            for w in &self.moving_walls {
+                if let WallGeometry::Mesh(m) = &w.geometry {
+                    if m.decide_rebuild(skin) {
+                        any = true;
+                    }
+                }
+            }
+            self.mesh_rebuild_pending = any;
+        }
     }
 
     /// Select the compute backend for the timestep, returning the updated
@@ -544,6 +687,64 @@ impl GranularSystem {
         out
     }
 
+    /// One per-contact record in the manner of upstream's `compute
+    /// pair/gran/local` (`pos vel id force torque history contactArea
+    /// delta`), for the ordered pair of particles with tags `(tag_i, tag_j)`,
+    /// or `None` if they do not overlap. `force` and `torque` are the contact's
+    /// force and torque **on `i`** (`i_forces.delta_F`, `delta_torque`),
+    /// evaluated at the current state from the stored shear history *without*
+    /// advancing it (`PairGran::compute_pgl(0, 0)`, see
+    /// [`GranularContactModel::resolve_frozen`]).
+    ///
+    /// Translated from `ComputePairGranLocal::add_pair` (LIGGGHTS-PUBLIC
+    /// `3d5c00f2`, `compute_pair_gran_local.cpp`); gh:#1418.
+    #[must_use]
+    pub fn pair_gran_local_for(&self, tag_i: u64, tag_j: u64) -> Option<PairLocalRecord> {
+        let i = self.tags.iter().position(|&t| t == tag_i)?;
+        let j = self.tags.iter().position(|&t| t == tag_j)?;
+        let (a, b) = (self.particles[i], self.particles[j]);
+        let k = ContactKinematics::pair(&a, &b).map(|k| k.with_types(self.types[i], self.types[j]))?;
+        let key = ContactKey::pair(tag_i as usize, tag_j as usize);
+        // The store holds the displacement in the (lower index, higher index)
+        // orientation the timestep evaluates pairs in; flip it for `i > j`.
+        let stored = self.history.get(key).unwrap_or_else(Vec3::zero);
+        let hist = if i < j { stored } else { Vec3::zero().sub(stored) };
+        let gf = self.model.resolve_frozen(hist, &k);
+        let (radi, radj) = (a.radius, b.radius);
+        let del = a.position.sub(b.position);
+        let rsq = del.x * del.x + del.y * del.y + del.z * del.z;
+        let r = rsq.sqrt();
+        let contact_area = -std::f64::consts::PI / 4.0
+            * ((r - radi - radj) * (r + radi - radj) * (r - radi + radj) * (r + radi + radj))
+            / rsq;
+        Some(PairLocalRecord {
+            tag_i,
+            tag_j,
+            pos_i: a.position,
+            pos_j: b.position,
+            vel_i: a.velocity,
+            vel_j: b.velocity,
+            force: gf.force_i,
+            torque: gf.torque_i,
+            history: hist,
+            contact_area,
+            delta: radi + radj - r,
+        })
+    }
+
+    /// [`GranularSystem::pair_gran_local_for`] for every overlapping pair, `i`
+    /// the lower-tag particle, in candidate-pair order.
+    #[must_use]
+    pub fn pair_gran_local(&self) -> Vec<PairLocalRecord> {
+        self.candidate_pairs()
+            .into_iter()
+            .filter_map(|(i, j)| {
+                let (ti, tj) = (self.tags[i], self.tags[j]);
+                self.pair_gran_local_for(ti.min(tj), ti.max(tj))
+            })
+            .collect()
+    }
+
     /// Mean coordination number `[-]`: contacts per particle, counting both
     /// ends of each contact.
     ///
@@ -587,6 +788,7 @@ impl GranularSystem {
         for w in &mut self.moving_walls {
             w.advance(self.dt);
         }
+        self.refresh_moving_meshes();
         self.compute_forces();
         let (f2, t2) = (self.forces.clone(), self.torques.clone());
         self.integrator
@@ -608,6 +810,7 @@ impl GranularSystem {
     /// gravity body force. The [`ShearHistory`] bracket is applied here, so a
     /// contact that separated between steps loses its stored displacement.
     fn compute_forces(&mut self) {
+        let setup = self.setup_phase;
         let n = self.particles.len();
         self.forces.clear();
         self.forces.resize(n, Vec3::zero());
@@ -620,7 +823,7 @@ impl GranularSystem {
         // --- particle-particle ---
         // Both paths accumulate in the SAME order (ascending candidate-pair
         // index), which is what makes them bit-identical. See `compute`.
-        if self.compute.is_parallel_step() {
+        if self.compute.is_parallel_step() && !setup {
             self.resolve_pairs_parallel();
         } else {
             self.resolve_pairs_serial();
@@ -630,13 +833,33 @@ impl GranularSystem {
         for i in 0..n {
             let p = self.particles[i];
             for (w, boundary) in self.boundaries.iter().enumerate() {
+                // Axis-aligned planes and cylinders go through upstream's
+                // own resolution and kinematics (`PrimitiveWall::
+                // resolveContact`, `r = radi - deltan`, `en = delta*rinv`).
+                if let Some(res) = boundary.upstream_contact(&p) {
+                    if let Some((overlap, delta)) = res {
+                        let k = ContactKinematics::mesh_wall(&p, delta, overlap, Vec3::zero())
+                            .with_types(self.types[i], self.types[i]);
+                        let gf = resolve_c(
+                            &self.model,
+                            setup,
+                            ContactKey::wall(self.tags[i] as usize, w),
+                            &k,
+                            &mut self.history,
+                            self.dt,
+                        );
+                        self.forces[i] = self.forces[i].add(gf.force_i);
+                        self.torques[i] = self.torques[i].add(gf.torque_i);
+                    }
+                    continue;
+                }
                 if let Some(c) = boundary.particle_overlap(&p) {
                     // `Contact::normal` is the inward normal (wall -> particle),
                     // which is exactly upstream's `en` for a wall contact.
                     if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, Vec3::zero())
                         .map(|k| k.with_types(self.types[i], self.types[i]))
                     {
-                        let gf = self.model.resolve(
+                        let gf = resolve_c(&self.model, setup, 
                             ContactKey::wall(self.tags[i] as usize, w),
                             &k,
                             &mut self.history,
@@ -650,15 +873,19 @@ impl GranularSystem {
         }
 
         // --- particle-moving-wall ---
+        self.compute_mesh_wall_forces();
         for i in 0..n {
             let p = self.particles[i];
             for (w, wall) in self.moving_walls.iter().enumerate() {
+                if matches!(wall.geometry, WallGeometry::Mesh(_)) {
+                    continue;
+                }
                 if let Some(c) = wall.particle_overlap(&p) {
                     let v_wall = wall.surface_velocity(c.point);
                     if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, v_wall)
                         .map(|k| k.with_types(self.types[i], self.types[i]))
                     {
-                        let gf = self.model.resolve(
+                        let gf = resolve_c(&self.model, setup, 
                             // Wall ids are offset past the static boundaries so
                             // the two families cannot collide in the history map.
                             ContactKey::wall(self.tags[i] as usize, self.boundaries.len() + w),
@@ -682,9 +909,118 @@ impl GranularSystem {
         }
     }
 
+    /// Particle–mesh-wall forces, translated from `FixWallGran::
+    /// post_force_mesh`: every facet the sphere overlaps contributes its own
+    /// contact (history keyed per facet), in ascending facet order; edge and
+    /// corner contacts of inactive features are skipped; a new face contact
+    /// is dropped when a coplanar neighbour facet is already handled this step
+    /// and inherits that neighbour's history otherwise
+    /// (`FixContactHistoryMesh::handleContact`). gh:#1416.
+    fn compute_mesh_wall_forces(&mut self) {
+        let setup = self.setup_phase;
+        let n = self.particles.len();
+        let nb = self.boundaries.len();
+        for w in 0..self.moving_walls.len() {
+            let WallGeometry::Mesh(mesh) = &self.moving_walls[w].geometry else {
+                continue;
+            };
+            // markAllContacts
+            for (key, slots) in self.mesh_partners.iter_mut() {
+                if key.1 == w {
+                    for s in slots.iter_mut().flatten() {
+                        s.1 = false;
+                    }
+                }
+            }
+            for i in 0..n {
+                let p = self.particles[i];
+                let tag = self.tags[i] as usize;
+                let contacts = mesh.sphere_contacts(p.position, p.radius);
+                for c in contacts {
+                    let slots = self.mesh_partners.entry((tag, w)).or_default();
+                    let id = c.tri as u32;
+                    let face = c.barysign == 7;
+                    // haveContact
+                    let mut handled = false;
+                    for s in slots.iter_mut().flatten() {
+                        if s.0 == id {
+                            s.1 = true;
+                            handled = true;
+                            break;
+                        }
+                    }
+                    if !handled {
+                        // coplanarContactAlready
+                        if face {
+                            let mut already = false;
+                            for s in slots.iter().flatten() {
+                                if s.0 != id
+                                    && mesh.coplanar_node_neighs(s.0 as usize, c.tri)
+                                    && s.1
+                                {
+                                    already = true;
+                                }
+                            }
+                            if already {
+                                continue;
+                            }
+                        }
+                        // addNewTriContactToExistingParticle
+                        let new = Some((id, true));
+                        if let Some(slot) = slots.iter_mut().find(|s| s.is_none()) {
+                            *slot = new;
+                        } else {
+                            slots.push(new);
+                        }
+                        // checkCoplanarContactHistory
+                        if face {
+                            let mut inherit = None;
+                            for s in slots.iter().flatten() {
+                                if s.0 != id && mesh.coplanar_node_neighs(s.0 as usize, c.tri) {
+                                    inherit = self
+                                        .history
+                                        .get(ContactKey::tri(tag, nb + w, s.0 as usize))
+                                        .or(Some(Vec3::zero()));
+                                }
+                            }
+                            if let Some(h) = inherit {
+                                self.history.seed(ContactKey::tri(tag, nb + w, c.tri), h);
+                            }
+                        }
+                    }
+                    let v_wall = mesh.wall_velocity(c.tri, &c.bary);
+                    let delta = Vec3::new(-c.delta[0], -c.delta[1], -c.delta[2]);
+                    let overlap = -c.deltan;
+                    let k = ContactKinematics::mesh_wall(&p, delta, overlap, v_wall)
+                        .with_types(self.types[i], self.types[i]);
+                    let gf = resolve_c(&self.model, setup, 
+                        ContactKey::tri(tag, nb + w, c.tri),
+                        &k,
+                        &mut self.history,
+                        self.dt,
+                    );
+                    self.forces[i] = self.forces[i].add(gf.force_i);
+                    self.torques[i] = self.torques[i].add(gf.torque_i);
+                }
+            }
+            // cleanUpContacts
+            for (key, slots) in self.mesh_partners.iter_mut() {
+                if key.1 == w {
+                    for s in slots.iter_mut() {
+                        if matches!(s, Some((_, false))) {
+                            *s = None;
+                        }
+                    }
+                }
+            }
+            self.mesh_partners.retain(|_, v| v.iter().any(Option::is_some));
+        }
+    }
+
     /// Scalar particle-particle force accumulation — the trusted reference
     /// path, used by [`ComputeType::CpuSingleThread`] and [`ComputeType::Gpu`].
     fn resolve_pairs_serial(&mut self) {
+        let setup = self.setup_phase;
         let pairs = std::mem::take(&mut self.pairs);
         for &(i, j) in &pairs {
             let (i, j) = (i as usize, j as usize);
@@ -693,7 +1029,7 @@ impl GranularSystem {
             if let Some(k) =
                 ContactKinematics::pair(&a, &b).map(|k| k.with_types(self.types[i], self.types[j]))
             {
-                let gf = self.model.resolve(
+                let gf = resolve_c(&self.model, setup, 
                     ContactKey::pair(self.tags[i] as usize, self.tags[j] as usize),
                     &k,
                     &mut self.history,

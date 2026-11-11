@@ -93,14 +93,23 @@
 //!   outward normal; correct behaviour assumes the particle is on the outward
 //!   side. A particle that has tunnelled fully behind a thin single-triangle
 //!   sheet is not specially handled.
-//! - **When the closest point lies on a shared edge or vertex** of the mesh, the
+//! - **CORRECTED 2026-11-11 (gh:#1416):** the two bullets below describe the
+//!   geometry-only query [`MeshWall::particle_overlap`]. The force path
+//!   ([`crate::granular_system::GranularSystem`]) no longer uses it: it uses
+//!   [`MeshWall::sphere_contacts`], a translation of LIGGGHTS' `TriMesh`
+//!   (every overlapped facet in its own barycentric region, inactive edges and
+//!   corners skipped, per-facet shear history, coplanar-neighbour handling), and
+//!   was cross-coded bit-identically on a rotating plate and a rotating drum
+//!   (see [`crate::tri_mesh`]). Node velocities are upstream's per-node
+//!   velocities, not a rigid `ω × r` evaluated at the contact point.
+//! - ~~**When the closest point lies on a shared edge or vertex** of the mesh, the
 //!   contact normal is taken from whichever incident triangle is found nearest
 //!   (ties broken by iteration order); the penetration `δ = r − d` uses the true
 //!   Euclidean distance `d` to that closest point. A blended/averaged edge
-//!   normal is not computed.
+//!   normal is not computed.~~
 //! - **Rigid-body wall motion only** ([`MovingBoundary`]): pure translation plus
-//!   rotation about a single moving pivot. No wall deformation, no per-vertex
-//!   velocity fields. Rotation is applied to [`Boundary::Plane`],
+//!   rotation about a single moving pivot. No wall deformation, ~~no per-vertex velocity fields~~ **CORRECTED 2026-11-11**: a mesh carries per-node velocities (set by the mover, used by the force path).
+//!   Rotation is applied to [`Boundary::Plane`],
 //!   [`Boundary::Wall`], [`Boundary::Cylinder`], and [`MeshWall`] geometry; an
 //!   **axis-aligned [`Boundary::Box`] is translated but not rotated** (a rotated
 //!   AABB is no longer axis-aligned — wrap a [`MeshWall`] to rotate a
@@ -129,6 +138,7 @@
 use petir::mathf::RealMath;
 use crate::boundary::{Boundary, Contact};
 use crate::particle::{Particle, Vec3};
+use crate::tri_mesh::{arr, vec3, Nodes, TriMeshState, V3};
 use crate::DemError;
 
 /// Normalise a vector to unit length: `v / ‖v‖`.
@@ -335,9 +345,29 @@ pub struct MeshWall {
     /// early-out when a particle is nowhere near the wall — the dominant case
     /// once a moving wall has travelled away from the material.
     hull: (Vec3, f64),
+    /// Upstream `TriMesh` state: derived geometry, topology (edge/corner
+    /// activity), node velocities (gh:#1416). See [`crate::tri_mesh`].
+    pub(crate) state: TriMeshState,
 }
 
 impl MeshWall {
+    /// The facets' nodes in upstream's array layout.
+    pub(crate) fn nodes(&self) -> Vec<Nodes> {
+        self.triangles
+            .iter()
+            .map(|t| [arr(t.a), arr(t.b), arr(t.c)])
+            .collect()
+    }
+
+    /// Write nodes back into `triangles`.
+    pub(crate) fn set_nodes(&mut self, nodes: &[Nodes]) {
+        for (t, n) in self.triangles.iter_mut().zip(nodes) {
+            t.a = vec3(n[0]);
+            t.b = vec3(n[1]);
+            t.c = vec3(n[2]);
+        }
+    }
+
     /// Construct a mesh wall from a non-empty list of facets.
     ///
     /// # Errors
@@ -354,10 +384,16 @@ impl MeshWall {
         }
         let bounds = Self::compute_bounds(&triangles);
         let hull = Self::compute_hull(&bounds);
+        let nodes: Vec<Nodes> = triangles
+            .iter()
+            .map(|t| [arr(t.a), arr(t.b), arr(t.c)])
+            .collect();
+        let state = TriMeshState::new(&nodes);
         Ok(Self {
             triangles,
             bounds,
             hull,
+            state,
         })
     }
 
@@ -427,6 +463,75 @@ impl MeshWall {
             ));
         }
         Self::new(triangles)
+    }
+
+
+    /// Every facet the sphere `(c, radius)` overlaps, in ascending facet order,
+    /// resolved by upstream's `TriMesh::resolveTriSphereContactBary` (face,
+    /// edge or corner region, inactive edges and corners skipped). Only
+    /// `deltan <= 0` contacts are returned, as `FixWallGran::post_force_mesh`
+    /// accepts with the default contact-distance factor. gh:#1416.
+    #[must_use]
+    pub fn sphere_contacts(&self, c: Vec3, radius: f64) -> Vec<MeshContact> {
+        let mut out = Vec::new();
+        let use_bounds = self.bounds.len() == self.triangles.len();
+        if use_bounds {
+            let (hc, hr) = self.hull;
+            if c.sub(hc).norm() - hr > radius {
+                return out;
+            }
+        }
+        let cs: V3 = arr(c);
+        for (index, tri) in self.triangles.iter().enumerate() {
+            if use_bounds {
+                let (centroid, rad) = self.bounds[index];
+                if c.sub(centroid).norm() - rad > radius {
+                    continue;
+                }
+            }
+            let nd: Nodes = [arr(tri.a), arr(tri.b), arr(tri.c)];
+            let (deltan, delta, bary, barysign) = self
+                .state
+                .resolve_tri_sphere_contact_bary(&nd, index, radius, &cs, true);
+            if deltan <= 0.0 {
+                out.push(MeshContact {
+                    tri: index,
+                    deltan,
+                    delta,
+                    bary,
+                    barysign,
+                });
+            }
+        }
+        out
+    }
+
+    /// Wall velocity at barycentric coordinates `bary` of facet `tri`
+    /// (interpolated node velocities, as upstream).
+    #[must_use]
+    pub fn wall_velocity(&self, tri: usize, bary: &V3) -> Vec3 {
+        vec3(self.state.wall_velocity(tri, bary))
+    }
+
+    /// Whether facets `a` and `b` are coplanar node-neighbours (upstream
+    /// `areCoplanarNodeNeighs`).
+    #[must_use]
+    pub fn coplanar_node_neighs(&self, a: usize, b: usize) -> bool {
+        self.state.are_coplanar_node_neighs(a, b)
+    }
+
+    /// Recompute the derived facet geometry from the nodes (a neighbour-list
+    /// rebuild step upstream).
+    pub fn refresh_geometry(&mut self) {
+        let nodes = self.nodes();
+        self.state.refresh_from_nodes(&nodes);
+    }
+
+    /// Upstream `decideRebuild`: any node moved more than `skin/2` since the
+    /// last refresh.
+    #[must_use]
+    pub fn decide_rebuild(&self, skin: f64) -> bool {
+        self.state.decide_rebuild(&self.nodes(), skin)
     }
 
     /// Recompute the pruning caches from the current `triangles`.
@@ -557,6 +662,21 @@ impl MeshWall {
             None
         }
     }
+}
+
+/// One facet contact from [`MeshWall::sphere_contacts`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MeshContact {
+    /// Facet index (upstream element id).
+    pub tri: usize,
+    /// Signed gap `d - r` `[m]`, `<= 0` for a contact (upstream `deltan`).
+    pub deltan: f64,
+    /// `closest point - sphere centre` `[m]` (upstream `delta`).
+    pub delta: V3,
+    /// Barycentric coordinates of the contact point.
+    pub bary: V3,
+    /// Region code, `7` = face.
+    pub barysign: u8,
 }
 
 /// The wall geometry a [`MovingBoundary`] carries: either an analytic
@@ -701,9 +821,44 @@ pub struct MovingBoundary {
     /// The pivot point rotation is taken about `[m]`. Translates with the body
     /// under [`MovingBoundary::advance`].
     pub pivot: Vec3,
+    /// Exact `fix move/mesh rotate` parameters for a mesh (unit axis and rate),
+    /// when set by [`MovingBoundary::rotating`]. A mesh without it derives the
+    /// axis as `ω/|ω|`, which is exact only for an axis-aligned rotation.
+    pub rotation: Option<MeshRotation>,
+}
+
+/// Parameters of upstream's `MeshMoverRotate`: `omega_ = 2π/period`,
+/// `axis_` normalised by `vectorNormalize3D`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MeshRotation {
+    /// Unit rotation axis.
+    pub axis: Vec3,
+    /// Rotation rate `[rad/s]`.
+    pub omega: f64,
 }
 
 impl MovingBoundary {
+    /// A mesh rotating like `fix move/mesh ... rotate origin <o> axis <a>
+    /// period <T>`: `ω = 2π/T`, axis normalised as upstream does. The mesh's
+    /// node velocities stay zero until the first [`MovingBoundary::advance`].
+    #[must_use]
+    pub fn rotating(geometry: WallGeometry, origin: Vec3, axis: Vec3, period: f64) -> Self {
+        let a = arr(axis);
+        let norm = (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).sqrt();
+        let inv = if norm == 0. { 0. } else { 1. / norm };
+        let u = Vec3::new(a[0] * inv, a[1] * inv, a[2] * inv);
+        let omega = 2. * std::f64::consts::PI / period;
+        let mut m = Self::new(geometry, Vec3::zero(), u.scale(omega), origin);
+        m.rotation = Some(MeshRotation { axis: u, omega });
+        m
+    }
+
+    /// Whether this wall rotates.
+    #[must_use]
+    pub fn is_rotating(&self) -> bool {
+        self.rotation.is_some_and(|r| r.omega != 0.0) || self.angular_velocity.norm() > 0.0
+    }
+
     /// Wrap `geometry` as a rigid wall with translational `velocity` `[m/s]`,
     /// `angular_velocity` `[rad/s]` about `pivot` `[m]`.
     ///
@@ -722,6 +877,7 @@ impl MovingBoundary {
             velocity,
             angular_velocity,
             pivot,
+            rotation: None,
         }
     }
 
@@ -781,6 +937,10 @@ impl MovingBoundary {
     /// only — the wall's `velocity`/`angular_velocity` are unchanged (a rigid
     /// wall is kinematically prescribed here, not force-driven).
     pub fn advance(&mut self, dt: f64) {
+        if matches!(self.geometry, WallGeometry::Mesh(_)) {
+            self.advance_mesh(dt);
+            return;
+        }
         let omega = self.angular_velocity;
         let rate = omega.norm();
         if rate > 0.0 {
@@ -790,6 +950,69 @@ impl MovingBoundary {
         }
         let disp = self.velocity.scale(dt);
         self.geometry.translate(disp);
+        self.pivot = self.pivot.add(disp);
+    }
+}
+
+impl MovingBoundary {
+    /// Mesh branch of [`MovingBoundary::advance`]: upstream `FixMoveMesh::
+    /// initial_integrate` with a rotate mover then a linear mover. Node
+    /// velocities are zeroed, the nodes rotate by the step quaternion about
+    /// the pivot (`MeshMoverRotate::initial_integrate`; cached edge vectors and
+    /// normals rotate with them), `v += ω × (node − pivot)`, then the nodes
+    /// translate by `velocity·dt` and `v += velocity` (`MeshMoverLinear`).
+    fn advance_mesh(&mut self, dt: f64) {
+        let (axis, omega) = match self.rotation {
+            Some(r) => (arr(r.axis), r.omega),
+            None => {
+                let w = self.angular_velocity;
+                let rate = w.norm();
+                if rate > 0.0 {
+                    ([w.x / rate, w.y / rate, w.z / rate], rate)
+                } else {
+                    ([0.0; 3], 0.0)
+                }
+            }
+        };
+        let pivot = arr(self.pivot);
+        let disp = self.velocity.scale(dt);
+        let vel = arr(self.velocity);
+        let WallGeometry::Mesh(m) = &mut self.geometry else {
+            return;
+        };
+        let mut nodes = m.nodes();
+        for v in &mut m.state.node_velocity {
+            *v = [[0.0; 3]; 3];
+        }
+        let rotating = omega != 0.0;
+        if rotating {
+            m.state.rotate_incremental(&mut nodes, omega * dt, &axis, &pivot);
+            let omega_vec = [omega * axis[0], omega * axis[1], omega * axis[2]];
+            for (nd, vn) in nodes.iter().zip(m.state.node_velocity.iter_mut()) {
+                for j in 0..3 {
+                    let r = [nd[j][0] - pivot[0], nd[j][1] - pivot[1], nd[j][2] - pivot[2]];
+                    let v_rot = [
+                        omega_vec[1] * r[2] - omega_vec[2] * r[1],
+                        omega_vec[2] * r[0] - omega_vec[0] * r[2],
+                        omega_vec[0] * r[1] - omega_vec[1] * r[0],
+                    ];
+                    for k in 0..3 {
+                        vn[j][k] += v_rot[k];
+                    }
+                }
+            }
+        }
+        let d = arr(disp);
+        for (nd, vn) in nodes.iter_mut().zip(m.state.node_velocity.iter_mut()) {
+            for j in 0..3 {
+                for k in 0..3 {
+                    nd[j][k] += d[k];
+                    vn[j][k] += vel[k];
+                }
+            }
+        }
+        m.set_nodes(&nodes);
+        m.rebuild_bounds();
         self.pivot = self.pivot.add(disp);
     }
 }

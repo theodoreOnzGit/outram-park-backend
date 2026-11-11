@@ -550,6 +550,65 @@ impl ContactKinematics {
     }
 }
 
+impl ContactKinematics {
+    /// Kinematics of a particle–mesh-facet contact, translated from
+    /// `FixWallGran::post_force_mesh` + `FixWallGranBase::compute_force` +
+    /// the wall branch of `SurfaceModel<SURFACE_DEFAULT>::surfacesIntersect`.
+    ///
+    /// `delta` is upstream's `sidata.delta` (`centre − closest point`, so its
+    /// length is the centre-to-surface distance), `overlap` is `sidata.deltan`
+    /// (`radius − distance > 0`). Operation order follows upstream:
+    /// `r = radi − deltan`, `rinv = 1/r`, `en = delta·rinv`, `cr = radi −
+    /// ½·deltan` from the original overlap, and the overlap handed to the force
+    /// models is re-derived as `radsum − r` (`deltan = radsum − r`).
+    /// gh:#1416.
+    #[must_use]
+    pub fn mesh_wall(i: &Particle, delta: Vec3, overlap: f64, wall_velocity: Vec3) -> Self {
+        let radi = i.radius;
+        let r = radi - overlap;
+        let rinv = 1.0 / r;
+        let en = Vec3::new(delta.x * rinv, delta.y * rinv, delta.z * rinv);
+
+        let vr = Vec3::new(
+            i.velocity.x - wall_velocity.x,
+            i.velocity.y - wall_velocity.y,
+            i.velocity.z - wall_velocity.z,
+        );
+        let vn = vr.x * en.x + vr.y * en.y + vr.z * en.z;
+        let vn1 = vn * en.x;
+        let vn2 = vn * en.y;
+        let vn3 = vn * en.z;
+        let vt = Vec3::new(vr.x - vn1, vr.y - vn2, vr.z - vn3);
+
+        let delta_n = radi - r; // `sidata.radsum - sidata.r`
+        let cr = radi - 0.5 * overlap;
+        let wr1 = cr * i.angular_velocity.x * rinv;
+        let wr2 = cr * i.angular_velocity.y * rinv;
+        let wr3 = cr * i.angular_velocity.z * rinv;
+        let vtr = Vec3::new(
+            vt.x - (delta.z * wr2 - delta.y * wr3),
+            vt.y - (delta.x * wr3 - delta.z * wr1),
+            vt.z - (delta.y * wr1 - delta.x * wr2),
+        );
+
+        Self {
+            en,
+            delta_n,
+            vn,
+            vtr,
+            cri: cr,
+            crj: 0.0,
+            r_eff: i.radius,
+            m_eff: i.mass,
+            omega_i: i.angular_velocity,
+            omega_j: Vec3::zero(),
+            is_wall: true,
+            itype: 0,
+            jtype: 0,
+        }
+    }
+}
+
 /// Scalar coefficients produced by a normal model for one contact.
 ///
 /// # Fields and units
@@ -780,6 +839,16 @@ pub enum ContactKey {
         /// Caller-assigned wall identifier.
         wall: usize,
     },
+    /// Contact between a particle and one facet of a mesh wall (upstream's
+    /// per-triangle mesh contact history, `FixContactHistoryMesh`).
+    Tri {
+        /// Particle tag.
+        particle: usize,
+        /// Caller-assigned wall identifier.
+        wall: usize,
+        /// Facet index.
+        tri: usize,
+    },
 }
 
 impl ContactKey {
@@ -793,6 +862,16 @@ impl ContactKey {
         Self::Pair {
             lo: i.min(j),
             hi: i.max(j),
+        }
+    }
+
+    /// Key for a particle–mesh-facet contact.
+    #[must_use]
+    pub fn tri(particle: usize, wall: usize, tri: usize) -> Self {
+        Self::Tri {
+            particle,
+            wall,
+            tri,
         }
     }
 
@@ -940,6 +1019,13 @@ impl ShearHistory {
     #[must_use]
     pub fn get(&self, key: ContactKey) -> Option<Vec3> {
         self.contacts.get(&key).map(|e| e.shear)
+    }
+
+    /// Insert a stored displacement for a contact that has none yet, without
+    /// marking it live. Used to hand a new mesh-facet contact the history of a
+    /// coplanar neighbour facet (upstream `checkCoplanarContactHistory`).
+    pub fn seed(&mut self, key: ContactKey, shear: Vec3) {
+        self.contacts.insert(key, ContactHistoryEntry { shear, live: false });
     }
 
     /// Mark every stored contact stale, at the top of a force evaluation.
@@ -1291,6 +1377,41 @@ impl GranularContactModel {
         k: &ContactKinematics,
         dt: f64,
     ) -> (GranularForce, Option<Vec3>) {
+        self.resolve_impl::<true>(prior_shear, k, dt)
+    }
+
+    /// The contact law evaluated **without advancing the shear history**:
+    /// upstream's `computeflag = 0, shearupdate = 0` re-evaluation, which
+    /// `compute pair/gran/local` performs (`PairGran::compute_pgl(0, 0)`). The
+    /// stored displacement is used as it stands (no `v_tr*dt` increment, no
+    /// projection, nothing written back).
+    #[must_use]
+    pub fn resolve_frozen(&self, stored_shear: Vec3, k: &ContactKinematics) -> GranularForce {
+        self.resolve_impl::<false>(stored_shear, k, 0.0).0
+    }
+
+    /// The set-up evaluation (`shearupdate = 0`): registers the contact in
+    /// `history` (live, zero if new) and returns the force from the stored
+    /// displacement without advancing it.
+    pub fn resolve_setup(
+        &self,
+        key: ContactKey,
+        k: &ContactKinematics,
+        history: &mut ShearHistory,
+    ) -> GranularForce {
+        let prior = match self.tangential {
+            TangentialModel::History => history.touch(key),
+            TangentialModel::NoHistory => Vec3::zero(),
+        };
+        self.resolve_impl::<false>(prior, k, 0.0).0
+    }
+
+    fn resolve_impl<const UPDATE: bool>(
+        &self,
+        prior_shear: Vec3,
+        k: &ContactKinematics,
+        dt: f64,
+    ) -> (GranularForce, Option<Vec3>) {
         let props = match self.materials {
             Some(table) => table.pair_props(k.itype, k.jtype),
             None => PairProps::from_material(&self.normal.material()),
@@ -1302,9 +1423,12 @@ impl GranularContactModel {
         let ft = match self.tangential {
             TangentialModel::History => {
                 // 1. accumulate and re-project onto the tangent plane
-                let mut shear = prior_shear.add(k.vtr.scale(dt));
-                let rsht = shear.dot(k.en);
-                shear = shear.sub(k.en.scale(rsht));
+                let mut shear = prior_shear;
+                if UPDATE {
+                    shear = prior_shear.add(k.vtr.scale(dt));
+                    let rsht = shear.dot(k.en);
+                    shear = shear.sub(k.en.scale(rsht));
+                }
 
                 let shrmag = shear.norm();
                 let kt = normal.kt;
