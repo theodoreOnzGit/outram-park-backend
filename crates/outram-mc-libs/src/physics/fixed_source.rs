@@ -100,6 +100,12 @@ pub enum FixedSource {
     /// [`SurfaceSource::dropped`](crate::source::extra::SurfaceSource::dropped)
     /// before building this if a soft failure is wanted.
     Surface(std::sync::Arc<crate::source::extra::SurfaceSource>),
+    /// **A general [`IndependentSource`](crate::source::source::IndependentSource)**
+    /// (gh:#1388): any spatial, energy and angular distribution, including
+    /// OpenMC's `Mixture`, `CylindricalIndependent`, ... (via the
+    /// `Distribution` variants of `SpatialKind` / `EnergyKind`). The birth
+    /// weight is the source's `strength` times the importance weights.
+    Independent(std::sync::Arc<crate::source::source::IndependentSource>),
 }
 
 impl FixedSource {
@@ -130,6 +136,10 @@ impl FixedSource {
                     lower.z + prn(seed) * (upper.z - lower.z),
                 );
                 (Site::new(r, u, *energy_ev), 1.0)
+            }
+            FixedSource::Independent(src) => {
+                let site = src.sample(seed);
+                (Site::new(site.r, site.u, site.e), site.wgt)
             }
             FixedSource::Surface(ss) => {
                 // A replay draws no direction or energy of its own: both were

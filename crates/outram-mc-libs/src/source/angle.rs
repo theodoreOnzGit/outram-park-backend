@@ -13,6 +13,7 @@ pub trait AngleDist: Send + Sync {
 
 /// Isotropic — uniform on the unit sphere.
 /// TODO: port from `distribution_angle.cpp`.
+#[derive(Debug, Clone)]
 pub struct IsotropicAngle;
 impl AngleDist for IsotropicAngle {
     fn sample(&self, seed: &mut u64, _e: f64) -> Direction {
@@ -22,6 +23,7 @@ impl AngleDist for IsotropicAngle {
 }
 
 /// Monodirectional — all particles in the same direction.
+#[derive(Debug, Clone)]
 pub struct MonodirectionalAngle {
     pub d: Direction,
 }
@@ -34,6 +36,7 @@ impl AngleDist for MonodirectionalAngle {
 /// Every source angular distribution, as a closed enum. See
 /// [`super::spatial::SpatialKind`] for why this is an enum and not a trait
 /// object.
+#[derive(Debug, Clone)]
 pub enum AngleKind {
     /// [`IsotropicAngle`].
     Isotropic(IsotropicAngle),
