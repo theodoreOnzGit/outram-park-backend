@@ -704,10 +704,13 @@ pub fn append_incident(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &Reco
             next += 3;
             let Some((k, iaa, q)) = find_sig(&x, p.mt) else { return };
             let amass = awr / awi;
-            if p.mt == 102 && izai == 1 {
+            if p.mt == 102 && (izai == 1 || p.mf == 6) {
                 // Neutron capture recoil, law 33 (`:10153-10175`). `aprime`
                 // is upstream's `awp`, which this branch never sets: it holds
-                // whatever the previous item left (`stale_awp`).
+                // whatever the previous item left (`stale_awp`). For an
+                // incident charged particle the MF=6 `mt102` subsection branch
+                // (`:10287-10316`) is the same block with the subsection's own
+                // AWP.
                 x.n(last + 1, 33.0);
                 x.n(next, 0.0);
                 x.n(next + 1, 2.0);
@@ -718,7 +721,13 @@ pub fn append_incident(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &Reco
                 x.r(next + 5, 1.0);
                 next += 2 + 2 * 2;
                 x.n(last + 2, (next - dlwh + 1) as f64);
-                let aprime = stale_awp / awi;
+                let awp_now = if izai == 1 {
+                    stale_awp
+                } else {
+                    let sec = tape.section(mat, 6, p.mt).expect("checked");
+                    nth_product(sec, p.l).expect("checked").0.head.c2
+                };
+                let aprime = awp_now / awi;
                 x.r(next, sigfig((1.0 + amass) * (-q) / amass, 7, 0));
                 x.r(next + 1, sigfig(amass * (amass + 1.0 - aprime) / (1.0 + amass).r_powi(2), 7, 0));
                 next += 2;
