@@ -8,7 +8,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
-//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730] [--shield none|tm0728|tm0728-drained|tm0728-packed] [--u235-scale X]
+//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730] [--shield none|tm0728|tm0728-drained|tm0728-packed] [--u235-scale X] [--rods none|1|2|3|1-2-3]
 //! ```
 //!
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
@@ -52,7 +52,7 @@ fn flag(args: &[String], name: &str) -> Option<String> {
     args.iter().position(|a| a == name).and_then(|i| args.get(i + 1).cloned())
 }
 
-fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends, shield: m::Shield) {
+fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends, shield: m::Shield, rods: [bool; 3]) {
     std::fs::create_dir_all(dir).expect("plot dir");
     let mut mats = m::materials_with_ends(m::MoTreatment::Omitted, m::REFERENCE_TEMPERATURE_F, dims);
     let shielded = shield == m::Shield::Tm0728Cylinder;
@@ -62,6 +62,14 @@ fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends, shield: m::Shield) {
         g
     } else {
         m::geometry_with_ends(m::TEMPERATURE_K, m::TEMPERATURE_K, dims, ends)
+    };
+    let rodded = rods.iter().any(|&r| r);
+    let g = if rodded {
+        let g = m::geometry_with_rods(g, dims, rods, mats.len(), m::TEMPERATURE_K);
+        mats.extend(m::rod_materials());
+        g
+    } else {
+        g
     };
     let hot = dims != m::Dims::COLD;
     let tm0730 = ends == m::Ends::Tm0730;
@@ -77,6 +85,8 @@ fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends, shield: m::Shield) {
         Rgb::new(120, 60, 140),
         Rgb::new(110, 110, 120),
         Rgb::new(60, 130, 200),
+        Rgb::new(30, 30, 30),
+        Rgb::new(255, 255, 0),
     ];
     let labels: Vec<String> = mats.iter().map(|(n, _)| n.to_ascii_uppercase()).collect();
     let palette: Vec<(Rgb, &str)> = colours.iter().zip(&labels).map(|(c, l)| (*c, l.as_str())).collect();
@@ -114,8 +124,21 @@ fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends, shield: m::Shield) {
         slices.push(("msre_n1_shield_wall", Position::new(m::SHIELD_R_IN + 8.0 * m::INCH, 0.0, mid), PlotBasis::Xy, [60.0, 60.0],
             "MSRE N-1 SHIELD WALL, X-Y: INNER PLATE, BALL ANNULUS, OUTER PLATE"));
     }
+    if rodded {
+        // Outside the thimbles the rodded build is the default cell for cell
+        // (`control_rods_fill_their_thimbles_with_tm0728_poison`): draw the rods.
+        slices.clear();
+        let (x2, y2) = m::OPENINGS[0];
+        slices.push(("msre_n1_rods_centre", Position::new(0.0, 0.0, mid), PlotBasis::Xy, [24.0, 24.0],
+            "MSRE N-1 CENTRE, X-Y, RODS IN: GD2O3-AL2O3 POISON IN INCONEL ELEMENTS (TM-0728 TABLE 5.4) IN THE THREE THIMBLES"));
+        slices.push(("msre_n1_rods_one", Position::new(x2, y2, mid), PlotBasis::Xy, [6.0, 6.0],
+            "MSRE N-1 ROD 2, X-Y: SHELL 0.790/1.140 IN, 0.020 IN INCONEL, CERAMIC 0.84/1.08 IN, THIMBLE 2 IN OD"));
+        slices.push(("msre_n1_rods_xz", Position::new(0.0, o, (z_top + z_bot) / 2.0), PlotBasis::Xz, [24.0, z_top - z_bot + 4.0],
+            "MSRE N-1 X-Z AT Y = +2 IN, RODS IN ALL THE WAY: POISON THROUGH THE CORE AND UPPER PLENUM (ORNL-4233 TABLE 4 CASE)"));
+    }
     for (stem, origin, basis, width, title) in slices {
         let px = if width[0] > 100.0 { 1600 } else { 1000 };
+        let px = if width[1] > 4.0 * width[0] { 600 } else { px };
         let plot = SlicePlot {
             origin,
             basis,
@@ -128,6 +151,7 @@ fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends, shield: m::Shield) {
         let title = if hot { format!("{title} [HOT DIMENSIONS, 1181 F]") } else { title.to_string() };
         let title = if tm0730 { format!("{title} [TM-0730 END REGIONS]") } else { title };
         let title = if shielded { format!("{title} [TM-0728 SHIELD]") } else { title };
+        let title = if rodded { format!("{title} [RODS {rods:?}]") } else { title };
         let (_raw, img) = render_material_slice(&g, &plot, &palette, &title);
         let path = dir.join(format!("{stem}{}{}{}.png", if hot { "_hot" } else { "" }, if tm0730 { "_tm0730" } else { "" }, if shielded && !stem.contains("shield") { "_shield" } else { "" }));
         img.write_png(&path).expect("write png");
@@ -162,13 +186,19 @@ fn main() {
     let packed = flag(&args, "--shield").as_deref() == Some("tm0728-packed");
     let graphite_law = flag(&args, "--graphite-law").unwrap_or_else(|| "30p".to_string());
     let axial_csv: Option<PathBuf> = flag(&args, "--axial-csv").map(PathBuf::from);
+    // `--rods none|1|2|3|1-2-3`: control rods inserted all the way through
+    // the core (TM-0728 Table 5.4 elements; ORNL-4233 Table 4's calculated
+    // case), for the rod worth (gh:#1128). Default: none, every recorded run.
+    let rods_spec = flag(&args, "--rods").unwrap_or_else(|| "none".to_string());
+    let rods = m::rods_inserted(&rods_spec);
+    let rodded = rods.iter().any(|&r| r);
     if let Some(d) = flag(&args, "--draw") {
         let dims = if hot_dims {
             m::Dims::hot(m::REFERENCE_TEMPERATURE_F, m::GRAPHITE_EXPANSION_PER_F, m::INOR8_EXPANSION_PER_F)
         } else {
             m::Dims::COLD
         };
-        draw(&PathBuf::from(d), dims, ends, shield);
+        draw(&PathBuf::from(d), dims, ends, shield, rods);
         return;
     }
     let mo = match flag(&args, "--mo").as_deref().unwrap_or("omitted") {
@@ -219,6 +249,10 @@ fn main() {
     if shield == m::Shield::Tm0728Cylinder {
         mats.extend(if drained { m::shield_materials_drained() } else if packed { m::shield_materials_packed() } else { m::shield_materials() });
     }
+    let first_rod_material = mats.len();
+    if rodded {
+        mats.extend(m::rod_materials());
+    }
     // `--li7-atom-percent X`: re-split the salt's lithium (total unchanged)
     // to X % Li-7. The default keeps TM-0728's 99.99 %; TM-0730 quotes
     // 99.9926 % (Table 3.2 footnote) and 99.997 % (survey), gh:#1128. The
@@ -262,6 +296,7 @@ fn main() {
             .iter()
             .chain(mo_list.iter())
             .chain(m::SHIELD_NUCLIDES.iter())
+            .chain(m::ROD_NUCLIDES.iter())
             .find(|(k, _)| *k == n)
             .unwrap_or_else(|| panic!("no tape for {n}"))
             .1;
@@ -340,7 +375,7 @@ fn main() {
         .map(|(i, (mname, comps))| Material {
             id: i as i32 + 1,
             name: (*mname).into(),
-            temperature: if i == m::GRAPHITE_IDX { t_g } else if i >= base_materials { m::SHIELD_TEMPERATURE_K } else { t_k },
+            temperature: if i == m::GRAPHITE_IDX { t_g } else if i >= base_materials && i < first_rod_material { m::SHIELD_TEMPERATURE_K } else { t_k },
             components: comps.iter().map(|(n, d)| NuclideComponent { nuclide_idx: idx(n), atom_density: *d }).collect(),
         })
         .collect();
@@ -351,7 +386,8 @@ fn main() {
         m::Shield::Omitted => m::geometry_with_ends(t_k, t_g, dims, ends),
         m::Shield::Tm0728Cylinder => m::geometry_with_shield(t_k, t_g, dims, ends, base_materials),
     };
-    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + u235_scale.map_or(String::new(), |x| format!("+u235x{x}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" } + if shield == m::Shield::Tm0728Cylinder { "+shield-tm0728" } else { "" } + if drained { "-drained" } else { "" } + if packed { "-packed" } else { "" };
+    let g = if rodded { m::geometry_with_rods(g, dims, rods, first_rod_material, t_k) } else { g };
+    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + u235_scale.map_or(String::new(), |x| format!("+u235x{x}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" } + if shield == m::Shield::Tm0728Cylinder { "+shield-tm0728" } else { "" } + if drained { "-drained" } else { "" } + if packed { "-packed" } else { "" } + if rodded { format!("+rods-{rods_spec}") } else { String::new() }.as_str();
     let new_file = !csv.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&csv).expect("csv");
     if new_file {
