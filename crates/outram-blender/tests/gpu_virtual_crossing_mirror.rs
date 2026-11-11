@@ -54,6 +54,28 @@
 //! off); it was added after seeing them; its form follows from
 //! the cause measured, not from the size of the miss). Worst relative distance
 //! error elsewhere 7.9e-5.
+//!
+//! # Grazing bound re-derived independently (2026-11-11, gh:#1457), without the three misses
+//!
+//! f32 unit roundoff `u = eps32/2`. Casting the start `r` to f32 moves it by at most
+//! `u |r|_2 <= u sqrt3 rmax ~ 0.87 eps32 rmax`; casting `u` rotates it by at most
+//! `~0.87 eps32`, a lateral shift of `0.87 eps32 d` after a flight `d`. The distance
+//! to a surface moves by (displacement along its normal) / `|u.n|`, the condition
+//! number of a ray-surface intersection `1/c`, `c = |u.n|`. So
+//! `delta d <~ 0.87 eps32 (rmax + d) / c` at the surface hit, and the same for a
+//! start on a surface (whose root is then `~ delta/c` instead of 0). Evaluation
+//! roundoff of the root is a few ulp of `d` (inside the 2e-4 relative bound), plus
+//! discriminant cancellation `~ eps32 R / c` (same form). The implemented slack
+//! `4 eps32 rmax / c` therefore covers the derived bound when `d <~ 3.6 rmax`; for a
+//! long flight (`d` up to the ~24 cm box diagonal, `rmax` ~ 7 cm) the coefficient 4
+//! is only marginal, and it ignores the `d` and `R` terms. **Does it cover the 3
+//! observed misses?** Yes, with margin even at the smallest `rmax = 1`: `c = 0.0066`
+//! gives a slack of 7.2e-5 cm against misses of 2.4e-5 and 4.8e-5 cm; `c = 0.0119`
+//! gives 4.0e-5 cm against 4e-6 cm. Their sizes also match the derived position term
+//! (`0.87 eps32 rmax / c`, ~1e-5 * rmax cm). So the misses are not a finding: none
+//! exceeds a bound derived from f32 conditioning. The weakness above (coefficient
+//! not derived for large `d`) is flagged, not changed: no ray fails today (0
+//! mismatches on all three cells, re-run 2026-11-11).
 
 #![cfg(all(feature = "gpu", not(target_os = "android"), not(target_arch = "wasm32")))]
 
