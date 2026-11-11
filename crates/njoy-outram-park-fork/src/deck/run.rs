@@ -395,11 +395,22 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     // 71 hand ACER the raw evaluation `epn14`/..., an incident-charged-particle
     // ENDF tape with MF=6 charged-particle data, as both ENDF and PENDF) has no
     // pointwise block. Upstream's `first` reads on (`acefc.f90:288-299`) and
-    // builds the charged-particle table (`izai != 1`); that path is not ported
-    // (`acelcp` module doc: "incident charged particles"), so say so rather
-    // than report a temperature that was never the problem (gh:#1369).
+    // builds the charged-particle table (`izai != 1`): `acer::charged`
+    // (gh:#1485, parent #1369).
     if pend.meta.blocks.is_empty() && pend.pointwise.is_none() {
-        return Err(NjoyError::NotPorted("ACER of an incident charged particle (acefc izai != 1) from a raw evaluation used as PENDF"));
+        if crate::acer::charged::incident_particle(&endf, c.matd) == 1 {
+            return Err(NjoyError::NotPorted("ACER from a PENDF unit no module in this run wrote (incident neutron)"));
+        }
+        let kt_mev = 8.617_333_262e-11 * c.tempd;
+        let suffix = (c.suff * 100.0).round() as u32;
+        let mut table = crate::acer::charged::build_charged(&endf, c.matd, kt_mev, suffix, c.npend > 0)?;
+        table.comment = c.hk.clone();
+        table.date = dater();
+        units.put_text(c.nace, table.to_type1_text()?);
+        if c.ndir != 0 {
+            notes.push("acer: directory unit not written".into());
+        }
+        return Ok(());
     }
     // `first`: the temperature block within `ttol = 1` K of `tempd`.
     let Some((_, res)) = pend.meta.blocks.iter().find(|(t, _)| (t - c.tempd).abs() < 1.0) else {

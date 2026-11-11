@@ -697,3 +697,29 @@ fn test_27_and_46_broadr_card3_pendf() {
         let _ = std::fs::remove_dir_all(ours.parent().unwrap());
     }
 }
+
+/// **Test 14 (p + N-14, LA150, `NSUB = 10010`): `acer` of a raw
+/// incident-proton ENDF tape** (`izai = 1001`, the tape handed to ACER as both
+/// ENDF and PENDF, units 20 and 21), ACE unit 31 against NJOY2016.80
+/// (gh:#1485, parent #1369). The deck is cut before `viewr`.
+///
+/// Ported: `first`/`unionx`/`acelod`/`acecpe`/`acelf6`/`acelcp` `izai`
+/// branches, `acer::charged`. **Result (2026-11-11): the table is identical
+/// in every word** (NXS, JXS and all 71 369 XSS words, at Type-1 print
+/// precision): ESZ with the LTP=12 elastic, the proton DLW, photons, and the
+/// neutron/deuteron/alpha production blocks with the recoil heating.
+/// Pass criterion: no differing word.
+#[test]
+fn test_14_charged_particle_ace_is_identical() {
+    let root = njoy_root();
+    // The deck's second ACER (`iopt = 7`, the plot file) and `viewr` are cut.
+    let Some(full) = deck_text(&root, "14", Some("viewr"), "") else { return };
+    let deck = format!("{}stop\n", full.split("acer\n 0 31").next().unwrap());
+    let Some((ours, njoy)) = run_pair_decks_extra(&root, "t14", "epn14", &[("epn14", 21)], &deck, &deck) else { return };
+    let c = ace_pair(&ours, &njoy, 31);
+    for l in c.report_lines() {
+        println!("{l}");
+    }
+    assert!(c.identical(), "test 14 ACE differs from NJOY2016");
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
