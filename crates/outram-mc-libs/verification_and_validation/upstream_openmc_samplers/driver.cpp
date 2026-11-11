@@ -11,6 +11,7 @@
 // A "fixed xi sequence" is a fixed seed: both codes draw the same xi from
 // random_lcg's prn, so a sampled value is a deterministic function of
 // (table, E_in, seed) and any difference in draw ORDER or COUNT shows up.
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -26,6 +27,7 @@
 #include "openmc/secondary_correlated.h"
 #include "openmc/secondary_kalbach.h"
 #include "openmc/secondary_nbody.h"
+#include "openmc/secondary_thermal.h"
 #include "openmc/secondary_uncorrelated.h"
 
 #include <algorithm>
@@ -37,6 +39,8 @@
 #include "math_extract.inc"
 #include "distribution_extract.inc"
 #include "endf_extract.inc"
+#include "kin_stubs.h"
+#include "physics_extract.inc"
 
 using namespace openmc;
 using mem::Node;
@@ -74,10 +78,10 @@ struct Table {
 
 // Build a small table: n_in incident energies, 6 outgoing points each.
 // kind: 1 histogram (interp code 1), 2 lin-lin; ndisc discrete lines in front.
-static Table make_table(const char* name, int interp, int ndisc, bool km, bool corr)
+static Table make_table(const char* name, int interp, int ndisc, bool km, bool corr, double escale = 1.0)
 {
   Table t;
-  t.egrid = {1.0e5, 1.0e6, 4.0e6, 2.0e7};
+  t.egrid = {1.0e5 * escale, 1.0e6 * escale, 4.0e6 * escale, 2.0e7 * escale};
   int jglob = 0;
   for (size_t i = 0; i < t.egrid.size(); i++) {
     double E = t.egrid[i];
@@ -326,6 +330,26 @@ int main()
     CorrelatedAngleEnergy ca {mem::handle(root)};
     emit_ae(nm, ca, EIN, 6);
   }
+  // Kalbach-Mann and Correlated with two DISCRETE lines (OpenMC #4069: a discrete line
+  // returns its energy exactly, with no incident-energy interpolation of E', and
+  // Kalbach r/a taken as stored).
+  for (int ip = 1; ip <= 2; ip++) {
+    char nm[24];
+    std::snprintf(nm, sizeof nm, "kmd_%s", ip == 1 ? "hist" : "linlin");
+    Table t = make_table(nm, ip, 2, true, false);
+    Node root;
+    fill_energy_ds(root, t);
+    fill_out_ds(root, "distribution", t, 5, true, false);
+    KalbachMann km {mem::handle(root)};
+    emit_ae(nm, km, EIN, 6);
+    std::snprintf(nm, sizeof nm, "corrd_%s", ip == 1 ? "hist" : "linlin");
+    Table tc = make_table(nm, ip, 2, false, true);
+    Node rootc;
+    fill_energy_ds(rootc, tc);
+    fill_out_ds(rootc, "energy_out", tc, 5, false, true);
+    CorrelatedAngleEnergy ca {mem::handle(rootc)};
+    emit_ae(nm, ca, EIN, 6);
+  }
   // Uncorrelated: tabulated angle + Maxwell energy; and isotropic (no angle group)
   {
     Node root;
@@ -388,6 +412,202 @@ int main()
     UncorrelatedAngleEnergy uwt {mem::handle(wt)};
     const double ew2[3] = {1.0e6, 2.7e6, 9.0e6};
     emit_ae("uncorr_iso_watt", uwt, ew2, 3);
+  }
+
+  // ---- collision kinematics (physics_extract.inc: verbatim OpenMC routines) ----
+  {
+    auto unit = [](double x, double y, double z) {
+      double n = std::sqrt(x * x + y * y + z * z);
+      return Direction {x / n, y / n, z / n};
+    };
+    const Direction dirs[6] = {unit(0.3, -0.5, 0.8), unit(-0.9, 0.2, -0.1), Direction {0.0, 0.0, 1.0},
+      Direction {0.0, 0.0, -1.0}, Direction {1.0, 0.0, 0.0}, unit(1.0e-6, 2.0e-6, 1.0)};
+    auto pd = [](const char* k, const Direction& d) {
+      std::printf(" %s=%016llx,%016llx,%016llx", k, (ull)bits(d.x), (ull)bits(d.y), (ull)bits(d.z));
+    };
+    // rotate_angle: 6 directions x 5 cosines x 4 seeds
+    const double mus[5] = {-0.93, -0.2, 0.0, 0.41, 0.97};
+    for (int id = 0; id < 6; id++)
+      for (int im = 0; im < 5; im++)
+        for (int s = 1; s <= 4; s++) {
+          uint64_t seed = (uint64_t)s * 7919u + 11;
+          Direction o = rotate_angle(dirs[id], mus[im], nullptr, &seed);
+          std::printf("K rot");
+          pd("u", dirs[id]);
+          std::printf(" mu=%016llx seed=%d", (ull)bits(mus[im]), s);
+          pd("out", o);
+          std::printf(" end=%016llx\n", (ull)seed);
+        }
+    // CM -> lab block of inelastic_scatter
+    const double As[3] = {235.0, 16.0, 0.99917};
+    const double Ein[4] = {1.0e5, 2.5e6, 6.0e6, 1.4e7};
+    const double fr[3] = {0.05, 0.4, 0.95};
+    const double mu2[5] = {-1.0, -0.6, 0.1, 0.7, 1.0};
+    for (double A : As)
+      for (double e : Ein)
+        for (double f : fr)
+          for (double m : mu2) {
+            Nuclide nuc;
+            nuc.awr_ = A;
+            Reaction rx;
+            double E = f * e, mu = m;
+            inelastic_cm_to_lab(nuc, rx, e, E, mu);
+            std::printf("K inelcm A=%016llx Ein=%016llx Ecm=%016llx mu=%016llx E=%016llx mulab=%016llx\n",
+              (ull)bits(A), (ull)bits(e), (ull)bits(f * e), (ull)bits(m), (ull)bits(E), (ull)bits(mu));
+          }
+    // discrete level: LevelInelastic::sample then the CM -> lab block then rotate_angle
+    // (parameters exactly as openmc.data derives them: reaction.py:1274-1275)
+    const double Qs[3] = {-4.5e4, -1.0e6, -3.2e6};
+    for (double A : As)
+      for (double Q : Qs)
+        for (double e : Ein) {
+          double threshold = (A + 1.) / A * std::abs(Q);
+          double mass_ratio = std::pow(A / (A + 1.), 2);
+          if (e <= threshold) continue;
+          Node l;
+          set_attr(l, "threshold", {threshold});
+          set_attr(l, "mass_ratio", {mass_ratio});
+          LevelInelastic li {mem::handle(l)};
+          for (int s = 1; s <= 6; s++) {
+            uint64_t seed = (uint64_t)s * 7919u + 11;
+            double Ecm = li.sample(e, &seed);
+            double mu = uniform_distribution(-1., 1., &seed);
+            Nuclide nuc;
+            nuc.awr_ = A;
+            Reaction rx;
+            double E = Ecm;
+            inelastic_cm_to_lab(nuc, rx, e, E, mu);
+            Direction u = rotate_angle(dirs[0], mu, nullptr, &seed);
+            std::printf("K level A=%016llx Q=%016llx Ein=%016llx seed=%d E=%016llx mu=%016llx", (ull)bits(A),
+              (ull)bits(Q), (ull)bits(e), s, (ull)bits(E), (ull)bits(mu));
+            pd("out", u);
+            std::printf(" end=%016llx\n", (ull)seed);
+          }
+        }
+    // Elastic scattering: target at rest above 400 kT / the resonance window, free gas
+    // (CXS) below it, RVS and DBRC in the resonance window of a resonant nuclide.
+    const double kT = 0.0517; // 600 K
+    std::vector<double> eg, xs;
+    for (int i = 0; i < 260; i++) {
+      double E = std::pow(10.0, -5.0 + 9.0 * i / 259.0); // 1e-5 .. 1e4 eV
+      double s = 9.5 + 1.0 / (1.0 + E);
+      const double res[3][2] = {{6.67, 0.03}, {20.87, 0.08}, {36.68, 0.12}};
+      for (auto& r : res) s += 2500.0 * std::exp(-std::pow((E - r[0]) / r[1], 2));
+      eg.push_back(E);
+      xs.push_back(s);
+    }
+    std::printf("kin table0k"); print_list("egrid", eg); print_list("xs", xs); std::printf("\n");
+    const double Es[10] = {0.003, 0.0253, 0.2, 3.0, 6.4, 20.5, 36.4, 120.0, 900.0, 2.0e5};
+    struct Nuc { const char* name; double awr; bool res; };
+    const Nuc nucs[3] = {{"U", 235.0, true}, {"H", 0.99917, false}, {"C", 11.898, false}};
+    for (const auto& nu : nucs) {
+      for (int meth = 0; meth < (nu.res ? 2 : 1); meth++) {
+        data::nuclides.clear();
+        auto n = std::make_unique<Nuclide>();
+        n->awr_ = nu.awr;
+        n->resonant_ = nu.res;
+        if (nu.res) { n->energy_0K_ = eg; n->elastic_0K_ = xs; n->build_xs_cdf(); }
+        data::nuclides.push_back(std::move(n));
+        settings::res_scat_method = meth == 0 ? ResScatMethod::rvs : ResScatMethod::dbrc;
+        Node iso;
+        Node& en = iso.kids["energy"];
+        set_str(en, "type", "maxwell");
+        set_attr(en, "u", {1.0e4});
+        fill_tab1(en, "theta", {1.0e-5, 1.0e6, 2.0e7}, {1.0e5, 2.0e5, 4.0e5});
+        Reaction rx;
+        rx.products_.emplace_back();
+        rx.products_[0].distribution_.push_back(std::make_unique<UncorrelatedAngleEnergy>(mem::handle(iso)));
+        for (double E : Es)
+          for (int id = 0; id < 4; id++)
+            for (int s = 1; s <= 8; s++) {
+              Particle p;
+              p.E() = E;
+              p.u() = dirs[id];
+              p.seed_ = (uint64_t)s * 7919u + 11;
+              elastic_scatter(0, rx, kT, p);
+              std::printf("K elastic nuc=%s meth=%s E=%016llx", nu.name, meth == 0 ? "rvs" : "dbrc", (ull)bits(E));
+              pd("u", dirs[id]);
+              std::printf(" seed=%d Eo=%016llx mu=%016llx", s, (ull)bits(p.E()), (ull)bits(p.mu()));
+              pd("out", p.u());
+              std::printf(" end=%016llx\n", (ull)p.seed_);
+            }
+      }
+    }
+    // sample_cxs_target_velocity alone
+    for (double A : {0.99917, 11.898, 235.0})
+      for (double E : {0.003, 0.0253, 0.2, 6.4})
+        for (int s = 1; s <= 6; s++) {
+          uint64_t seed = (uint64_t)s * 7919u + 11;
+          Direction v = sample_cxs_target_velocity(A, E, dirs[0], kT, &seed);
+          std::printf("K cxs A=%016llx E=%016llx seed=%d", (ull)bits(A), (ull)bits(E), s);
+          pd("vt", v);
+          std::printf(" end=%016llx\n", (ull)seed);
+        }
+  }
+
+  // ---- thermal scattering laws (secondary_thermal.cpp, real constructors) ----
+  // Coherent elastic: Bragg edges + cumulative structure factors (dataset 2 x n).
+  {
+    std::vector<double> edges = {0.0018, 0.0035, 0.0071, 0.012, 0.020, 0.031, 0.050, 0.080, 0.130, 0.200};
+    std::vector<double> fac(edges.size());
+    double run = 0.0;
+    for (size_t i = 0; i < edges.size(); i++) { run += 0.8 + 0.37 * ((i * 7) % 5); fac[i] = run; }
+    std::printf("tdata coh"); print_list("edges", edges); print_list("factors", fac); std::printf("\n");
+    Node ds;
+    std::vector<double> v = edges;
+    v.insert(v.end(), fac.begin(), fac.end());
+    set_data(ds, v, {2, edges.size()});
+    CoherentElasticXS xs {mem::handle(ds)};
+    CoherentElasticAE ae {xs};
+    const double es[6] = {0.0019, 0.0040, 0.0075, 0.045, 0.15, 0.30};
+    emit_ae("tcoh", ae, es, 6);
+  }
+  // Incoherent elastic, discrete cosines (ACE IDPNC=3): energy grid + mu_out (nE x nmu).
+  {
+    std::vector<double> eg = {1.0e-5, 0.01, 0.05, 0.2, 0.6, 1.2, 2.5, 4.0};
+    const int nmu = 8;
+    std::vector<double> mu(eg.size() * nmu);
+    for (size_t i = 0; i < eg.size(); i++)
+      for (int k = 0; k < nmu; k++)
+        mu[i * nmu + k] = -0.95 + 1.9 * (k + 0.5) / nmu + 0.04 * std::sin(1.3 * i + 0.7 * k) * (1.0 - (double)i / 12.0);
+    std::printf("tdata incoh egrid="); print_list("g", eg); print_list("mu", mu); std::printf(" nmu=%d\n", nmu);
+    Node g;
+    set_data(g.kids["mu_out"], mu, {eg.size(), (size_t)nmu});
+    IncoherentElasticAEDiscrete ae {mem::handle(g), eg};
+    const double es[6] = {2.0e-3, 0.03, 0.11, 0.45, 1.7, 3.3};
+    emit_ae("tincoh", ae, es, 6);
+  }
+  // Incoherent inelastic, discrete: equiprobable and skewed bins.
+  for (int skew = 0; skew <= 1; skew++) {
+    std::vector<double> eg = {1.0e-5, 0.01, 0.05, 0.2, 0.6, 1.2, 2.5, 4.0};
+    const int nout = 8, nmu = 4;
+    std::vector<double> eo(eg.size() * nout), mu(eg.size() * nout * nmu);
+    for (size_t i = 0; i < eg.size(); i++)
+      for (int j = 0; j < nout; j++) {
+        eo[i * nout + j] = eg[i] * (0.15 + 0.23 * j + 0.02 * std::cos(0.9 * i + j)) + 1.0e-4 * j;
+        for (int k = 0; k < nmu; k++)
+          mu[(i * nout + j) * nmu + k] = -0.9 + 1.8 * (k + 0.5) / nmu + 0.05 * std::sin(0.8 * i + 1.1 * j + 0.3 * k);
+      }
+    const char* nm = skew ? "tinel_skew" : "tinel_disc";
+    std::printf("tdata %s", nm); print_list("g", eg); print_list("eo", eo); print_list("mu", mu);
+    std::printf(" nout=%d nmu=%d skewed=%d\n", nout, nmu, skew);
+    Node g;
+    set_data(g.kids["energy_out"], eo, {eg.size(), (size_t)nout});
+    set_data(g.kids["mu_out"], mu, {eg.size(), (size_t)nout, (size_t)nmu});
+    set_data(g.kids["skewed"], {(double)skew}, {1});
+    IncoherentInelasticAEDiscrete ae {mem::handle(g), eg};
+    const double es[7] = {2.0e-3, 0.03, 0.11, 0.45, 1.7, 3.3, 3.9};
+    emit_ae(nm, ae, es, 7);
+  }
+  // Incoherent inelastic, continuous (ACE IFENG=2): a correlated table at thermal scale.
+  {
+    Table t = make_table("thcont", 2, 0, false, true, 1.0e-6);
+    Node root;
+    fill_energy_ds(root, t);
+    fill_out_ds(root, "energy_out", t, 5, false, true);
+    IncoherentInelasticAE ae {mem::handle(root)};
+    const double es[7] = {0.05, 0.09, 0.3, 0.9, 2.0, 5.0, 15.0};
+    emit_ae("tinel_cont", ae, es, 7);
   }
   return 0;
 }

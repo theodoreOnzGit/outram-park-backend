@@ -170,6 +170,27 @@
 //! | `csg_nested_lattice_keff` | `0x9a0a134b77cc8def` | `0x8931164ebf355c38` | k 1.73360 +/- 0.01313 -> **1.72559 +/- 0.01517** (-801 pcm, 0.4 combined sigma) |
 //! | `godiva_run_keff`, `godiva_csg_entropy_trigger`, `mg_sphere`, `shannon_entropy`, `tally_meshes`, `pure_statistics`, `fhr_explicit_triso_delta` | unchanged | unchanged | spheres and planes only: already bit-identical |
 //!
+//! # Re-pinned again, 2026-11-11: virtual crossings of a union (gh:#1387, OpenMC #3934)
+//!
+//! `Cell::distance_to_boundary` now follows `Region::distance` of OpenMC
+//! `8f79d9d0`: a complex region (union or complement) skips a surface whose
+//! crossing does not change membership (`03b036aa6`, "Fix virtual surface
+//! crossing", #3934), and the nearest-surface search keeps the first of two
+//! surfaces within `FP_PRECISION` of each other. The nested-lattice model's
+//! coolant-only universe is the cell `-5 | +5` ("everywhere"), whose pebble
+//! sphere (5) is a virtual crossing in exactly upstream's sense: the old rule
+//! stopped the flight there, the faithful one does not. A re-measurement, not a
+//! tuning; the old values are the pre-#3934 behaviour. The counts are unchanged
+//! (3104 of 4000 located, 17220 events) because they do not see the distance.
+//! **Attribution is by construction, not by an A/B run**: the coolant cell is the
+//! only union in this model, and two surfaces within 1e-14 of each other along a
+//! random ray have probability ~0, so the `FP_PRECISION` rule cannot be what moved it.
+//!
+//! | case | old pin | new pin | detail |
+//! |---|---|---|---|
+//! | `csg_nested_lattice_navigation` | `0x8c30242091a4ade8` | `0x652daec672ff2e60` | counts unchanged; the hash includes `hit.distance` of every located point and flight event |
+//! | `csg_nested_lattice_keff` | `0x8931164ebf355c38` | `0x20e5b4eeeede18f1` | k 1.72559 +/- 0.01517 -> **1.72835 +/- 0.01486** (+276 pcm, 0.1 combined sigma) |
+//!
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -875,7 +896,9 @@ fn csg_nested_lattice_navigation_is_bit_identical() {
         // Re-pinned 2026-11-11 (gh:#1442, #1443, #701): surface `distance` and
         // `RectLattice::distance` follow OpenMC 8f79d9d0 bit for bit. Was
         // 0x713ceb92878a0977 (2026-10-20, gh:#985), 0xa10fb6daad87f539 before.
-        0x8c30242091a4ade8,
+        // Re-pinned again 2026-11-11 (gh:#1387, OpenMC #3934, virtual
+        // crossings of the `-5 | +5` coolant cell): was 0x8c30242091a4ade8.
+        0x652daec672ff2e60,
         &format!("{n_located} of 4000 points located, {n_events} flight events"),
     );
 }
@@ -936,8 +959,10 @@ fn csg_nested_lattice_keff_is_bit_identical() {
         // Re-pinned 2026-11-11 (gh:#1442, #1443, #701): surface and lattice
         // distances follow OpenMC 8f79d9d0 bit for bit. Was 0x9a0a134b77cc8def
         // (2026-10-20, gh:#985; k 1.73360 +/- 0.01313), before that host A
-        // 0x509ddd7ff08feef7, host B 0xa9f3504144099ed2 (#578).
-        0x8931164ebf355c38,
+        // 0x509ddd7ff08feef7, host B 0xa9f3504144099ed2 (#578). Re-pinned
+        // again 2026-11-11 (gh:#1387, OpenMC #3934): was 0x8931164ebf355c38
+        // (k 1.72559 +/- 0.01517), now k 1.72835 +/- 0.01486.
+        0x20e5b4eeeede18f1,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),

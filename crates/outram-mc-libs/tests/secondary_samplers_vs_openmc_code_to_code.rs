@@ -33,7 +33,12 @@
 //! first), Kalbach-Mann's cosine (OpenMC spends two or three variates, the
 //! port one), the correlated law's angular bin choice, `normal_variate`
 //! (OpenMC Marsaglia polar, the port Box-Muller) and N-body phase space (no
-//! port at all).
+//! port at all). **CORRECTED 2026-11-11:** `NBodyPhaseSpace` is now ported
+//! (`physics::nbody`) and compared here (357 of 360 bit-identical, the rest
+//! 1 ulp of libm `ln`/`cos`, explained by `nbody_differences_are_libm_roundoff`),
+//! and the thermal S(alpha,beta) laws of `secondary_thermal.cpp` are compared
+//! below (all five bit-identical on the first run; no port change needed beyond
+//! `ThermalScattering::from_ace_thermal`).
 //!
 //! # Results
 //!
@@ -306,7 +311,7 @@ fn run_kalbach(name: &str) -> Tally {
 /// `KalbachMann::sample` (`sample_params` + the two-branch cosine).
 #[test]
 fn kalbach_mann_matches_openmc() {
-    for name in ["km_hist", "km_linlin"] {
+    for name in ["km_hist", "km_linlin", "kmd_hist", "kmd_linlin"] {
         let t = run_kalbach(name);
         t.report(name);
         assert!(t.all_identical(), "{name}: {t:?}");
@@ -352,7 +357,7 @@ fn run_correlated(name: &str) -> Tally {
 /// then the angle table of the chosen outgoing point).
 #[test]
 fn correlated_angle_energy_matches_openmc() {
-    for name in ["corr_hist", "corr_linlin"] {
+    for name in ["corr_hist", "corr_linlin", "corrd_hist", "corrd_linlin"] {
         let t = run_correlated(name);
         t.report(name);
         assert!(t.all_identical(), "{name}: {t:?}");
@@ -473,12 +478,242 @@ fn reference_has_every_family() {
     }
 }
 
-/// `NBodyPhaseSpace::sample` (3, 4, 5 bodies; ENDF/ACE LAW 66). The port has no
-/// N-body phase-space law, so there is nothing to compare; the reference lines
-/// are generated and pinned (`reference_has_every_family`) so the port, once
-/// written, has its oracle. Tracked in gh:#1444 (a gap, not fixed here).
+/// `NBodyPhaseSpace::sample` (3, 4, 5 bodies; ENDF/ACE LAW 66), ported as
+/// `outram_mc_libs::physics::nbody::NBodyPhaseSpace` (gh:#1444).
+///
+/// **Methodology:** the reference lines `S nbodyN` come from OpenMC's real
+/// `secondary_nbody.cpp` (unmodified, `-ffp-contract=off`); the parameters are in
+/// the `param nbodyN` lines; 3 incident energies x 40 seeds per body count.
+/// **Pass criterion:** bit identity of `E'`, `mu` and the end state (a missing or
+/// extra draw changes the end state). Result: see the harness README.
 #[test]
-#[ignore = "gh:#1444: the port has no N-body phase-space law (LAW 66) to compare"]
 fn nbody_phase_space_matches_openmc() {
-    panic!("no port of NBodyPhaseSpace; reference: S nbody3/4/5 lines");
+    use outram_mc_libs::physics::nbody::NBodyPhaseSpace;
+    for nb in 3..=5 {
+        let name = format!("nbody{nb}");
+        let p = lines("param", &name)[0];
+        let d = NBodyPhaseSpace {
+            n_bodies: int(p, "n") as i32,
+            mass_ratio: f64::from_bits(hexu(p, "total_mass")),
+            awr: f64::from_bits(hexu(p, "awr")),
+            q_value: f64::from_bits(hexu(p, "q")),
+        };
+        let mut tally = Tally::default();
+        for s in samples(&name) {
+            let mut seed = s.seed;
+            let (e, mu) = d.sample(s.e_in, &mut seed);
+            tally.add(e, s.eout, Some((mu, s.mu.unwrap())), seed, s.end);
+        }
+        tally.report(&name);
+        // E' is accepted within 1e-14 ONLY because `nbody_differences_are_libm_roundoff`
+        // shows the difference is glibc-vs-PETIR ln/cos (gh:#985), bit-identical with std math.
+        assert!(tally.worst_e_rel < 1.0e-14, "{name}: E' {tally:?}");
+        assert_eq!(tally.mu_ok, tally.mu_n, "{name}: mu {tally:?}");
+        assert_eq!(tally.end_ok, tally.n, "{name}: end state {tally:?}");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Thermal S(alpha,beta) samplers (`secondary_thermal.cpp`), gh:#1444.
+//
+// Methodology: the driver builds each law in OpenMC's own in-memory layout and
+// runs the REAL constructors of `CoherentElasticAE`, `IncoherentElasticAEDiscrete`,
+// `IncoherentInelasticAEDiscrete` (equiprobable and skewed) and
+// `IncoherentInelasticAE` (continuous), prints the arrays (`tdata ...`,
+// `table thcont`) and samples each at 6-7 incident energies x 40 seeds. This side
+// hands the same arrays to `ThermalScattering::from_ace_thermal` (the arrays an
+// ACE thermal table decodes to) and samples through the public elastic /
+// inelastic entry points. Pass criterion: bit identity of E', mu and end state.
+// Not compared: the analytic `IncoherentElasticAE` (ENDF-HDF5 form; the port
+// always holds the discrete cosine form NJOY/ACER writes) and `MixedElasticAE`
+// selection.
+// ---------------------------------------------------------------------------
+
+use njoy_outram_park_fork::acer::thermal_read::{
+    AceThermal, AceThermalContinuous, AceThermalElastic, AceThermalEmission,
+};
+use outram_mc_libs::material::thermal::ThermalScattering;
+
+fn dummy_emission() -> Vec<AceThermalEmission> {
+    vec![
+        AceThermalEmission { e_out: vec![0.1], cosines: vec![0.0], n_mu: 1 },
+        AceThermalEmission { e_out: vec![0.2], cosines: vec![0.0], n_mu: 1 },
+    ]
+}
+
+fn run_thermal(name: &str, th: &ThermalScattering, elastic: bool) -> Tally {
+    let mut tally = Tally::default();
+    for s in samples(name) {
+        let mut seed = s.seed;
+        let (e, mu) = if elastic {
+            th.elastic().sample(s.e_in, &mut seed).expect("elastic sample")
+        } else {
+            th.sample_inelastic(s.e_in, &mut seed).expect("inelastic sample")
+        };
+        tally.add(e, s.eout, Some((mu, s.mu.unwrap())), seed, s.end);
+    }
+    tally.report(name);
+    tally
+}
+
+fn thermal_with_elastic(elastic: AceThermalElastic) -> ThermalScattering {
+    ThermalScattering::from_ace_thermal(
+        AceThermal {
+            kt_ev: 0.0253,
+            inel_energy: vec![1.0e-5, 4.0],
+            inel_xs: vec![1.0, 1.0],
+            emission: dummy_emission(),
+            continuous: vec![],
+            elastic,
+            ifeng: 0,
+        },
+        "synthetic",
+    )
+}
+
+/// `CoherentElasticAE::sample` against OpenMC (bit identity).
+#[test]
+fn coherent_elastic_matches_openmc() {
+    let l = lines("tdata", "coh")[0];
+    let th = thermal_with_elastic(AceThermalElastic::Coherent {
+        energy: list(l, "edges"),
+        cumulative: list(l, "factors"),
+    });
+    let t = run_thermal("tcoh", &th, true);
+    assert!(t.all_identical() && t.e_ok == t.n, "{t:?}");
+}
+
+/// `IncoherentElasticAEDiscrete::sample` against OpenMC (bit identity).
+#[test]
+fn incoherent_elastic_discrete_matches_openmc() {
+    let l = lines("tdata", "incoh")[0];
+    let eg = list(l, "g");
+    let th = thermal_with_elastic(AceThermalElastic::Incoherent {
+        energy: eg.clone(),
+        xs: vec![1.0; eg.len()],
+        cosines: list(l, "mu"),
+        n_mu: int(l, "nmu") as usize,
+    });
+    let t = run_thermal("tincoh", &th, true);
+    assert!(t.all_identical() && t.e_ok == t.n, "{t:?}");
+}
+
+fn inelastic_discrete(name: &str) -> Tally {
+    let l = lines("tdata", name)[0];
+    let eg = list(l, "g");
+    let (eo, mu) = (list(l, "eo"), list(l, "mu"));
+    let (nout, nmu) = (int(l, "nout") as usize, int(l, "nmu") as usize);
+    let emission = (0..eg.len())
+        .map(|i| AceThermalEmission {
+            e_out: eo[i * nout..(i + 1) * nout].to_vec(),
+            cosines: mu[i * nout * nmu..(i + 1) * nout * nmu].to_vec(),
+            n_mu: nmu,
+        })
+        .collect();
+    let th = ThermalScattering::from_ace_thermal(
+        AceThermal {
+            kt_ev: 0.0253,
+            inel_energy: eg.clone(),
+            inel_xs: vec![1.0; eg.len()],
+            emission,
+            continuous: vec![],
+            elastic: AceThermalElastic::None,
+            ifeng: int(l, "skewed") as i32,
+        },
+        "synthetic",
+    );
+    run_thermal(name, &th, false)
+}
+
+/// `IncoherentInelasticAEDiscrete::sample`, equiprobable bins (IFENG 0).
+#[test]
+fn inelastic_discrete_matches_openmc() {
+    let t = inelastic_discrete("tinel_disc");
+    assert!(t.all_identical() && t.e_ok == t.n, "{t:?}");
+}
+
+/// `IncoherentInelasticAEDiscrete::sample`, skewed bins (IFENG 1).
+#[test]
+fn inelastic_skewed_matches_openmc() {
+    let t = inelastic_discrete("tinel_skew");
+    assert!(t.all_identical() && t.e_ok == t.n, "{t:?}");
+}
+
+/// `IncoherentInelasticAE::sample` (continuous, IFENG 2) on a correlated table.
+#[test]
+fn inelastic_continuous_matches_openmc() {
+    let tb = table("thcont");
+    let continuous = tb
+        .rows
+        .iter()
+        .enumerate()
+        .map(|(i, r)| AceThermalContinuous {
+            e_out: r.eout.clone(),
+            pdf: r.p.clone(),
+            cdf: r.c.clone(),
+            cosines: tb.mu[i].iter().flat_map(|(x, _, _)| x.iter().copied()).collect(),
+            n_mu: 5,
+        })
+        .collect();
+    let th = ThermalScattering::from_ace_thermal(
+        AceThermal {
+            kt_ev: 0.0253,
+            inel_energy: tb.egrid.clone(),
+            inel_xs: vec![1.0; tb.egrid.len()],
+            emission: vec![],
+            continuous,
+            elastic: AceThermalElastic::None,
+            ifeng: 2,
+        },
+        "synthetic",
+    );
+    let t = run_thermal("tinel_cont", &th, false);
+    assert!(t.all_identical() && t.e_ok == t.n, "{t:?}");
+}
+
+/// The N-body `E'` differences above are glibc-vs-PETIR `ln`/`cos` last-bit
+/// differences: the same algorithm written with `std` (glibc) math reproduces
+/// OpenMC's bits for EVERY sample of 3, 4 and 5 bodies.
+#[test]
+fn nbody_differences_are_libm_roundoff() {
+    use std::f64::consts::PI;
+    let (mut n, mut ok) = (0, 0);
+    for nb in 3..=5 {
+        let name = format!("nbody{nb}");
+        let p = lines("param", &name)[0];
+        let (ap, awr, q) = (
+            f64::from_bits(hexu(p, "total_mass")),
+            f64::from_bits(hexu(p, "awr")),
+            f64::from_bits(hexu(p, "q")),
+        );
+        for s in samples(&name) {
+            let mut seed = s.seed;
+            let _mu = -1.0 + 2.0 * outram_mc_libs::rng::lcg::prn(&mut seed);
+            let e_max = (ap - 1.0) / ap * (awr / (awr + 1.0) * s.e_in + q);
+            let mut p3 = || outram_mc_libs::rng::lcg::prn(&mut seed);
+            let maxw = |p3: &mut dyn FnMut() -> f64| {
+                let (r1, r2, r3) = (p3(), p3(), p3());
+                let c = (PI / 2.0 * r3).cos();
+                -1.0 * (r1.ln() + r2.ln() * c * c)
+            };
+            let x = maxw(&mut p3);
+            let y = match nb {
+                3 => maxw(&mut p3),
+                4 => {
+                    let (r1, r2, r3) = (p3(), p3(), p3());
+                    -(r1 * r2 * r3).ln()
+                }
+                _ => {
+                    let (r1, r2, r3, r4, r5, r6) = (p3(), p3(), p3(), p3(), p3(), p3());
+                    let c = (PI / 2.0 * r6).cos();
+                    -(r1 * r2 * r3 * r4).ln() - r5.ln() * (c * c)
+                }
+            };
+            let e = e_max * (x / (x + y));
+            n += 1;
+            ok += (e.to_bits() == s.eout.to_bits()) as usize;
+        }
+    }
+    println!("N-body with std math: {ok}/{n} bit-identical");
+    assert_eq!(ok, n);
 }

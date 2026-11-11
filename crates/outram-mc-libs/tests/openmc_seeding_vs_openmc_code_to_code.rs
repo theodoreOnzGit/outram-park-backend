@@ -265,3 +265,130 @@ fn openmc_seeding_mode_is_named_pinned_and_not_the_default() {
     let z = (a.k_mean - default.k_mean) / (default.k_std.r_powi(2) + a.k_std.r_powi(2)).sqrt();
     assert!(z.abs() < 4.0, "same physics, different streams: {z:.2} sigma");
 }
+
+// ---------------------------------------------------------------------------
+// Completeness (2026-11-11, gh:#1386 task 3): the streams beyond tracking/URR.
+// ---------------------------------------------------------------------------
+
+/// `synchronize_bank`'s uniform comb, verbatim from `src/eigenvalue.cpp:150-175`
+/// on a stub bank `bank[i] = i`, 48 cases (6 bank sizes x total_gen 0/30 x batch
+/// 1/2/7/50, n = 1000): the sites chosen by `comb_resample_openmc` on the seed
+/// `OpenMcRunLayout::bank_comb_seed` (= `init_seed(total_gen + overall_generation,
+/// STREAM_TRACKING)`) must equal upstream's index list, element for element.
+/// The older `physics::fission::comb_resample` (offset + i * teeth) is reported
+/// beside it.
+#[test]
+fn bank_comb_matches_openmc_synchronize_bank() {
+    use outram_mc_libs::physics::fission::comb_resample;
+    use outram_mc_libs::rng::openmc_seeding::comb_resample_openmc;
+    let lines = lines_with("comb");
+    assert_eq!(lines.len(), 48);
+    let (mut same_sites, mut legacy_same) = (0usize, 0usize);
+    for l in &lines {
+        let total = dec(l, "total") as usize;
+        let n = dec(l, "n") as usize;
+        let mut layout = OpenMcRunLayout::single_rank(1, n as i64, 1);
+        layout.total_gen = dec(l, "total_gen");
+        let want: Vec<usize> = field(l, "idx").split(',').map(|x| x.parse().unwrap()).collect();
+        assert_eq!(want.len(), dec(l, "count") as usize);
+        let bank: Vec<usize> = (0..total).collect();
+        let mut seed = layout.bank_comb_seed(dec(l, "batch"), 1);
+        let got = comb_resample_openmc(&bank, n, &mut seed);
+        assert_eq!(got, want, "{}", &l[..l.find("idx=").unwrap()]);
+        same_sites += 1;
+        // the older comb on the same seed
+        let mut seed = layout.bank_comb_seed(dec(l, "batch"), 1);
+        legacy_same += (comb_resample(&bank, n, &mut seed) == want) as usize;
+    }
+    println!(
+        "comb: comb_resample_openmc {same_sites}/48 identical to upstream; comb_resample (offset + i*teeth) {legacy_same}/48"
+    );
+}
+
+/// OpenMC's `isotropic_direction` (azimuth drawn first), 24 seeds, verbatim
+/// extract. `x` (the cosine) uses no libm and must be bit-identical; `y`, `z` use
+/// `cos`/`sin` through PETIR (gh:#985) and are reported, accepted below 1e-15
+/// absolute, with the end state identical.
+#[test]
+fn isotropic_direction_matches_openmc() {
+    use outram_mc_libs::rng::distributions::{isotropic_direction, isotropic_direction_openmc};
+    let (mut n, mut x_ok, mut all_ok, mut old_x_ok) = (0, 0, 0, 0);
+    let mut worst = 0.0_f64;
+    for l in lines_with("isodir") {
+        let s = dec(l, "seed") as u64 * 7919 + 11;
+        let mut seed = s;
+        let d = isotropic_direction_openmc(&mut seed);
+        assert_eq!(seed, hex(l, "end"), "{l}");
+        let r = [hex(l, "x"), hex(l, "y"), hex(l, "z")].map(f64::from_bits);
+        n += 1;
+        x_ok += (d.0.to_bits() == r[0].to_bits()) as usize;
+        all_ok += (d.0.to_bits() == r[0].to_bits()
+            && d.1.to_bits() == r[1].to_bits()
+            && d.2.to_bits() == r[2].to_bits()) as usize;
+        worst = worst.max((d.1 - r[1]).abs()).max((d.2 - r[2]).abs());
+        let mut seed = s;
+        old_x_ok += (isotropic_direction(&mut seed).0.to_bits() == r[0].to_bits()) as usize;
+    }
+    println!(
+        "isotropic_direction_openmc: cosine {x_ok}/{n}, all three {all_ok}/{n}, worst abs {worst:.2e}; \
+         older isotropic_direction cosine {old_x_ok}/{n} (draws the cosine first)"
+    );
+    assert_eq!(x_ok, n);
+    assert!(worst < 1.0e-15);
+}
+
+/// The source stream: particle `i` of generation 1 is seeded
+/// `init_seed(total_gen * n_particles + i + 1, STREAM_SOURCE)`
+/// (`initialize_source`), which is stream 1 of `init_particle_seeds` at that id.
+/// Checked against the identity the driver verified for the layout
+/// (`init_particle_seeds == init_seed`) for several `total_gen` and `i`.
+#[test]
+fn source_stream_seed_is_init_seed_of_the_source_id() {
+    use outram_mc_libs::rng::openmc_seeding::STREAM_SOURCE;
+    for total_gen in [0_i64, 30] {
+        for i in [0_i64, 1, 499, 999] {
+            let mut layout = OpenMcRunLayout::single_rank(7, 1000, 1);
+            layout.total_gen = total_gen;
+            let id = total_gen * 1000 + i + 1;
+            assert_eq!(layout.source_seed(i), init_seed(id, STREAM_SOURCE as i64, 7));
+        }
+    }
+}
+
+/// **Sequential driver and power iteration under `SeedingMode::OpenMc`**
+/// (extended 2026-11-11, gh:#1386 task 3). Under OpenMC's layout every history
+/// has its own tracking and URR seeds, the first-generation source comes from
+/// per-particle `STREAM_SOURCE` seeds and the next source from
+/// `synchronize_bank`'s comb on its own seed, so nothing depends on how the
+/// histories are scheduled: the SCALAR driver (`CpuSingleThread`) and the
+/// parallel driver must give the same `k` in every generation, bit for bit
+/// (the default mode cannot: its sequential driver shares one stream across a
+/// generation). The default sequential run must stay bit-identical to
+/// itself with the mode named.
+#[test]
+fn openmc_seeding_makes_sequential_and_parallel_drivers_agree() {
+    let mode = SeedingMode::OpenMc { total_gen: 0 };
+    let par = run(&base(2, Some(mode)));
+    let mut seq_settings = base(1, Some(mode));
+    seq_settings.compute = ComputeType::CpuSingleThread;
+    let seq = run(&seq_settings);
+    println!(
+        "OpenMc seeding: parallel k = {:.5} +/- {:.5}, sequential k = {:.5} +/- {:.5}; \
+         per-generation k bit-identical: {}",
+        par.k_mean,
+        par.k_std,
+        seq.k_mean,
+        seq.k_std,
+        bits(&par) == bits(&seq)
+    );
+    assert_eq!(bits(&par), bits(&seq), "sequential and parallel drivers differ under OpenMc seeding");
+
+    // The default sequential driver is untouched by naming the default.
+    let mut a = base(1, None);
+    a.compute = ComputeType::CpuSingleThread;
+    let mut b = base(1, Some(SeedingMode::Outram));
+    b.compute = ComputeType::CpuSingleThread;
+    assert_eq!(bits(&run(&a)), bits(&run(&b)));
+    // and OpenMc seeding really reached it
+    assert_ne!(bits(&run(&a)), bits(&seq));
+}

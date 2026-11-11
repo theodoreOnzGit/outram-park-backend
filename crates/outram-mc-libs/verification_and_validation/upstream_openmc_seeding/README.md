@@ -54,14 +54,54 @@ Command: `CARGO_BUILD_JOBS=1 CARGO_TARGET_DIR=/home/user/outram-park-backend/tar
 
 No difference was observed, so no cause needs explaining.
 
+## Completeness extension (2026-11-11, gh:#1386 task 3)
+
+`extract.sh` now also extracts, verbatim and SHA-checked, `synchronize_bank`'s
+uniform comb (`src/eigenvalue.cpp:150-175`, wrapped over a stub bank
+`bank[i] = i`) and `isotropic_direction` (`src/distribution_multi.cpp:160-166`);
+`run.sh` also links `src/random_dist.cpp` unmodified.
+
+| quantity | values | bit-identical |
+|---|---|---|
+| `synchronize_bank` comb, bank sizes 937/999/1000/1203/2999/5000, n = 1000, `total_gen` 0/30, batches 1/2/7/50 | 48 index lists (~1000 sites each) | **48 of 48**: `comb_resample_openmc` on `OpenMcRunLayout::bank_comb_seed` equals upstream element for element |
+| the older `physics::fission::comb_resample` (offset + i x teeth) on the same seed | 48 | 48 of 48 (the accumulated tooth position and `offset + i x teeth` agree on these cases; they can differ where a rounding error crosses an integer, which is why the faithful version exists) |
+| `isotropic_direction` (azimuth drawn first, then the cosine), 24 seeds | 24 | **24 of 24** (all three components and the end state) |
+| older `rng::distributions::isotropic_direction` (cosine first) | 24 | cosine **0 of 24** (a different draw order) |
+
+`SeedingMode::OpenMc` now gives every random stream of OpenMC's run its OpenMC
+seed (table in `rng/openmc_seeding.rs`): tracking (and the **delayed-group draw,
+now on the tracking stream**, where `Outram` mode uses a jump-ahead sub-stream),
+`STREAM_SOURCE` for the first-generation source (`sample_box_source_openmc`: one
+seed per source particle, x/y/z of `SpatialBox::sample`, the fissionable
+rejection, OpenMC's isotropic direction), URR, the comb of `synchronize_bank`
+(`bank_comb_seed`, `comb_resample_openmc`), and volume (`geometry::volume_calc` has
+always used `init_seed(i, STREAM_VOLUME, seed)`). It is read by **all three CSG
+k-eigenvalue drivers**: `run_keff_csg_par*` and `CsgPowerIteration::step_par` as
+before, and now also `run_keff_csg_seq` and `CsgPowerIteration::step`.
+
+Integration (`openmc_seeding_makes_sequential_and_parallel_drivers_agree`): bare
+HEU sphere, 400 histories x (3 + 6): under `SeedingMode::OpenMc` the scalar
+driver (`CpuSingleThread`) and the parallel driver give **bit-identical k in every
+generation** (k = 1.01384 +/- 0.01638 both), which the default mode cannot (its
+sequential driver shares one stream across a generation); the default sequential
+driver is bit-identical to itself with the mode named, and differs from the
+OpenMc run.
+
+Not covered: the GPU batched drivers (`run_keff_batched*`, WGSL) and the sphere
+drivers of `physics::keff` (their own layout; the mode is a field of
+`KeffSettings` they do not read), a `FixedSource` run (its source stream is not
+OpenMC's), and the ORDER of draws inside a history (see below).
+
 ## What the option does and does not do
 
-`SeedingMode::OpenMc` sets stream 0 (tracking) and the URR stream of each history
-of the CSG parallel drivers to OpenMC's `seeds[STREAM_TRACKING]` and
-`seeds[STREAM_URR_PTABLE]`. It does **not** yet make a history consume random
-numbers in OpenMC's order: the port samples the delayed group on its own
-jump-ahead stream where OpenMC uses the tracking stream, and the sequential and
-GPU drivers ignore the mode. Those are the first places a one-history track
-differential (#1386 prio 2) will diverge. **Default stays `Outram`** (maintainer
-decision 2026-08-06: statistical correctness, not particle parity; every pinned k
-was measured with it).
+It gives each stream OpenMC's seed. It does **not** make a history consume random
+numbers in OpenMC's order: the port draws a fission neutron's direction before its
+energy and independently of the incident direction (OpenMC: delayed/prompt, then
+the energy law, then a cosine and `rotate_angle`), the transport loops call the
+older scatter kernels (`two_body_scatter_with_mu`, `free_gas_elastic_scatter_dbrc`;
+the OpenMC-faithful `elastic_scatter_openmc` and friends exist in
+`physics::scatter` but are not wired in, see `upstream_openmc_samplers/README.md`),
+and so on. Those are the first places a one-history track differential
+(#1386 prio 2) will diverge. **Default stays `Outram`** (maintainer decision
+2026-08-06: statistical correctness, not particle parity; every pinned k was
+measured with it).

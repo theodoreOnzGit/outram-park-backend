@@ -94,6 +94,7 @@ use crate::physics::variance_reduction::{
 };
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::{future_seed, prn};
+use crate::rng::openmc_seeding::{comb_resample_openmc, OpenMcRunLayout, SeedingMode};
 use crate::tally::scoring::{
     flush_batch, flush_bins, score_fission_birth, score_scatter_matrix, ScatterEmission,
     score_track_length,
@@ -681,13 +682,8 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
 ) -> KeffResult {
     let mut seed = settings.seed;
 
-    let mut source = sample_box_source(
-        geom,
-        materials,
-        nuclides,
-        source_box,
-        settings.n_particles,
-        &mut seed,
+    let mut source = initial_source(
+        geom, materials, nuclides, source_box, settings, &mut seed,
     );
 
     let n_gen = settings.n_inactive + settings.n_active;
@@ -732,8 +728,22 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
             } else {
                 &[]
             };
-            for site in &source {
-                let outcome = transport_history_vr(
+            for (hist_idx, site) in source.iter().enumerate() {
+                // SeedingMode::OpenMc: each history on OpenMC's own tracking and
+                // URR seeds (gh:#1386); the default keeps one stream for the
+                // whole generation, copied in and out so it is bit-identical.
+                let openmc = settings.seeding.openmc_history_seeds(
+                    settings.seed,
+                    source.len(),
+                    gen,
+                    hist_idx,
+                );
+                let mut hseed = match openmc {
+                    Some((trk, _)) => trk,
+                    None => seed,
+                };
+                let urr_start = openmc.map(|(_, urr)| urr);
+                let outcome = transport_history_vr_urr(
                     *site,
                     geom,
                     materials,
@@ -741,7 +751,7 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
                     majorants,
                     k_running,
                     &mut next_bank,
-                    &mut seed,
+                    &mut hseed,
                     tally_def,
                     &mut batch,
                     leak_edges_gen,
@@ -755,8 +765,12 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
                     // Eigenvalue path: a fission source particle is born at
                     // weight 1 by definition of the normalisation.
                     1.0,
-                   &mut no_trace,
+                    urr_start,
+                    &mut no_trace,
                 );
+                if openmc.is_none() {
+                    seed = hseed;
+                }
                 production += outcome.production;
                 totals.absorb(&outcome);
             }
@@ -800,7 +814,7 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
             break;
         }
 
-        source = resample(&next_bank, settings.n_particles, &mut seed);
+        source = resample_for_generation(settings, gen, &next_bank, settings.n_particles, &mut seed);
     }
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
@@ -869,13 +883,8 @@ impl CsgPowerIteration {
         settings: &KeffSettings,
     ) -> Self {
         let mut seed = settings.seed;
-        let source = sample_box_source(
-            geom,
-            materials,
-            nuclides,
-            source_box,
-            settings.n_particles,
-            &mut seed,
+        let source = initial_source(
+            geom, materials, nuclides, source_box, settings, &mut seed,
         );
         let n_gen = settings.n_inactive + settings.n_active;
         Self {
@@ -1016,13 +1025,8 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
     let mut src_seed = settings.seed;
 
     // Initial source, as the single-thread path, on the sequential src stream.
-    let mut source = sample_box_source(
-        geom,
-        materials,
-        nuclides,
-        source_box,
-        settings.n_particles,
-        &mut src_seed,
+    let mut source = initial_source(
+        geom, materials, nuclides, source_box, settings, &mut src_seed,
     );
 
     let n_gen = settings.n_inactive + settings.n_active;
@@ -1143,7 +1147,7 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
             if keff_trigger_met(settings, active, &active_k) {
                 break;
             }
-            source = resample(&next_bank, settings.n_particles, &mut src_seed);
+            source = resample_for_generation(settings, gen, &next_bank, settings.n_particles, &mut src_seed);
         }
     });
 
@@ -2153,8 +2157,13 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                                 r,
                                 u: Direction::new(dx, dy, dz),
                                 e: e_born,
-                                delayed_group: nuc
-                                    .sample_delayed_group(e, &mut delayed_seed),
+                                delayed_group: if urr_start.is_some() {
+                                    // SeedingMode::OpenMc: STREAM_TRACKING, as OpenMC's
+                                    // `sample_fission_neutron` (`seed = p.current_seed()`)
+                                    nuc.sample_delayed_group(e, seed)
+                                } else {
+                                    nuc.sample_delayed_group(e, &mut delayed_seed)
+                                },
                                 parent_lifetime_s: time_s,
                             });
                         }
@@ -2246,8 +2255,11 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                             r,
                             u: Direction::new(dx, dy, dz),
                             e: e_born,
-                            delayed_group: nuc
-                                .sample_delayed_group(e, &mut delayed_seed),
+                            delayed_group: if urr_start.is_some() {
+                                nuc.sample_delayed_group(e, seed)
+                            } else {
+                                nuc.sample_delayed_group(e, &mut delayed_seed)
+                            },
                             parent_lifetime_s: time_s,
                         });
                     }
@@ -2808,6 +2820,109 @@ fn resample(bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site> {
     crate::physics::fission::comb_resample(bank, n, seed)
 }
 
+/// The initial source of a CSG k-eigenvalue run: the synthetic box source on the
+/// run's sequential stream (default), or, under
+/// [`SeedingMode::OpenMc`], [`sample_box_source_openmc`] on OpenMC's per-particle
+/// `STREAM_SOURCE` seeds (gh:#1386).
+fn initial_source(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    seed: &mut u64,
+) -> Vec<Site> {
+    match settings.seeding {
+        SeedingMode::Outram => {
+            sample_box_source(geom, materials, nuclides, source_box, settings.n_particles, seed)
+        }
+        SeedingMode::OpenMc { total_gen } => {
+            let mut layout = OpenMcRunLayout::single_rank(
+                settings.seed as i64,
+                settings.n_particles as i64,
+                1,
+            );
+            layout.total_gen = total_gen;
+            sample_box_source_openmc(geom, materials, nuclides, source_box, &layout)
+        }
+    }
+}
+
+/// The next generation's source from the fission bank of generation `gen`
+/// (0-based): [`resample`] on the run's stream, or under
+/// [`SeedingMode::OpenMc`] `synchronize_bank`'s comb on
+/// `init_seed(total_gen + gen + 1, STREAM_TRACKING)` ([`comb_resample_openmc`]).
+fn resample_for_generation(
+    settings: &KeffSettings,
+    gen: usize,
+    bank: &[Site],
+    n: usize,
+    seed: &mut u64,
+) -> Vec<Site> {
+    match settings.seeding {
+        SeedingMode::Outram => resample(bank, n, seed),
+        SeedingMode::OpenMc { total_gen } => {
+            let mut layout = OpenMcRunLayout::single_rank(
+                settings.seed as i64,
+                settings.n_particles as i64,
+                1,
+            );
+            layout.total_gen = total_gen;
+            let mut s = layout.bank_comb_seed(gen as i64 + 1, 1);
+            comb_resample_openmc(bank, n, &mut s)
+        }
+    }
+}
+
+/// [`sample_box_source`] with OpenMC's streams: source particle `i` (0-based) is
+/// sampled on its own `seeds[STREAM_SOURCE]` ([`OpenMcRunLayout::source_seed`]),
+/// as `initialize_source` does (`src/eigenvalue.cpp`), `SpatialBox::sample`
+/// (x, y, z in that order), the rejection on a fissionable material
+/// (`IndependentSource::sample`, `only_fissionable`), then OpenMC's isotropic
+/// direction ([`isotropic_direction_openmc`], azimuth first). The energy is the
+/// fixed 2 MeV of the synthetic source (an OpenMC `discrete` energy draws
+/// nothing). Gives up on a site after `10 000` rejections, as
+/// [`sample_box_source`]'s whole-run guard does.
+fn sample_box_source_openmc(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    source_box: SourceBox,
+    layout: &OpenMcRunLayout,
+) -> Vec<Site> {
+    use crate::rng::distributions::isotropic_direction_openmc;
+    let n = layout.n_particles as usize;
+    let mut source: Vec<Site> = Vec::with_capacity(n);
+    for i in 0..n {
+        let mut seed = layout.source_seed(i as i64);
+        for _ in 0..10_000 {
+            let r = Position::new(
+                source_box.lower.x + prn(&mut seed) * (source_box.upper.x - source_box.lower.x),
+                source_box.lower.y + prn(&mut seed) * (source_box.upper.y - source_box.lower.y),
+                source_box.lower.z + prn(&mut seed) * (source_box.upper.z - source_box.lower.z),
+            );
+            let fissile = geom
+                .locate(r, Direction::new(0.0, 0.0, 1.0), SurfaceToken::NONE)
+                .and_then(|p| p.material)
+                .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
+                .unwrap_or(false);
+            if !fissile {
+                continue;
+            }
+            let (dx, dy, dz) = isotropic_direction_openmc(&mut seed);
+            source.push(Site {
+                r,
+                u: Direction::new(dx, dy, dz),
+                e: 2.0e6,
+                delayed_group: None,
+                parent_lifetime_s: 0.0,
+            });
+            break;
+        }
+    }
+    source
+}
+
 /// Rejection-sample the synthetic first-generation source: points uniform in
 /// `source_box` with an isotropic direction, kept where the located cell's
 /// material can fission (`νΣ_f(1 MeV) > 0`), born prompt at 2 MeV. Gives up
@@ -3288,7 +3403,7 @@ impl CsgPowerIteration {
         if n == 0 || self.source.is_empty() || n == self.settings.n_particles {
             return;
         }
-        self.comb_source(n);
+        self.comb_source(n, None);
         self.settings.n_particles = n;
     }
 
@@ -3576,7 +3691,21 @@ impl CsgPowerIteration {
         let mut ifp_scores = IfpTallies::default();
         for (i, site) in self.source.iter().enumerate() {
             let before = next_bank.len();
-            let outcome = transport_history_vr(
+            // SeedingMode::OpenMc: OpenMC's tracking and URR seeds for this
+            // history (gh:#1386); the default continues the iteration's stream,
+            // copied in and out so it is bit-identical.
+            let openmc = self.settings.seeding.openmc_history_seeds(
+                self.settings.seed,
+                self.source.len(),
+                self.generation,
+                i,
+            );
+            let mut hseed = match openmc {
+                Some((trk, _)) => trk,
+                None => self.seed,
+            };
+            let urr_start = openmc.map(|(_, urr)| urr);
+            let outcome = transport_history_vr_urr(
                 *site,
                 geom,
                 materials,
@@ -3584,7 +3713,7 @@ impl CsgPowerIteration {
                 &self.majorants,
                 self.k_running,
                 &mut next_bank,
-                &mut self.seed,
+                &mut hseed,
                 None,
                 &mut batch,
                 &[],
@@ -3596,8 +3725,12 @@ impl CsgPowerIteration {
                 None,
                 None,
                 1.0,
+                urr_start,
                 observe,
             );
+            if openmc.is_none() {
+                self.seed = hseed;
+            }
             production += outcome.production;
             account_history(
                 &self.ifp,
@@ -3727,7 +3860,7 @@ impl CsgPowerIteration {
             if let Some((_, l)) = self.ifp.as_mut() {
                 *l = next_lineage;
             }
-            self.comb_source(n);
+            self.comb_source(n, Some(gen));
         }
         (
             CsgGenerationReport {
@@ -3745,12 +3878,36 @@ impl CsgPowerIteration {
     /// comb draws one variate whatever it combs
     /// ([`crate::physics::fission::comb_resample`]), so combing indices and
     /// gathering is the same draw as combing the sites.
-    fn comb_source(&mut self, n: usize) {
+    ///
+    /// `completed_gen` is the 0-based generation whose bank is being combed
+    /// (`Some` from [`Self::close_generation`], `None` from
+    /// [`Self::set_population`]). Under [`SeedingMode::OpenMc`] and `Some`, the
+    /// comb uses OpenMC's own seed and tooth arithmetic
+    /// ([`comb_resample_openmc`]); otherwise this iteration's stream.
+    fn comb_source(&mut self, n: usize, completed_gen: Option<usize>) {
+        let openmc_seed = match (self.settings.seeding, completed_gen) {
+            (SeedingMode::OpenMc { total_gen }, Some(g)) => {
+                let mut layout = OpenMcRunLayout::single_rank(
+                    self.settings.seed as i64,
+                    self.settings.n_particles as i64,
+                    1,
+                );
+                layout.total_gen = total_gen;
+                Some(layout.bank_comb_seed(g as i64 + 1, 1))
+            }
+            _ => None,
+        };
         match self.ifp.as_mut() {
-            None => self.source = resample(&self.source, n, &mut self.seed),
+            None => match openmc_seed {
+                Some(mut s) => self.source = comb_resample_openmc(&self.source, n, &mut s),
+                None => self.source = resample(&self.source, n, &mut self.seed),
+            },
             Some((_, lineage)) => {
                 let idx: Vec<usize> = (0..self.source.len()).collect();
-                let picked = crate::physics::fission::comb_resample(&idx, n, &mut self.seed);
+                let picked = match openmc_seed {
+                    Some(mut s) => comb_resample_openmc(&idx, n, &mut s),
+                    None => crate::physics::fission::comb_resample(&idx, n, &mut self.seed),
+                };
                 self.source = picked.iter().map(|&i| self.source[i]).collect();
                 *lineage = picked.iter().map(|&i| lineage[i].clone()).collect();
             }

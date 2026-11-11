@@ -82,5 +82,21 @@ pub fn isotropic_direction(seed: &mut u64) -> (f64, f64, f64) {
     (mu, a * phi.r_cos(), a * phi.r_sin())
 }
 
+/// OpenMC's `isotropic_direction` (`src/distribution_multi.cpp:160`, commit
+/// `8f79d9d0`): the azimuth is drawn **first**, then the cosine
+/// (`phi = uniform(0, 2 pi)`, `mu = uniform(-1, 1)`), and `sqrt(1 - mu^2)` is
+/// not floored at zero. [`isotropic_direction`] draws the cosine first, so for
+/// one seed it returns a different direction. Used by
+/// `SeedingMode::OpenMc` (external source sampling).
+pub fn isotropic_direction_openmc(seed: &mut u64) -> (f64, f64, f64) {
+    let phi = 0.0 + (2.0 * PI - 0.0) * prn(seed);
+    let mu = -1.0 + (1.0 - (-1.0)) * prn(seed);
+    (
+        mu,
+        (1.0 - mu * mu).sqrt() * phi.r_cos(),
+        (1.0 - mu * mu).sqrt() * phi.r_sin(),
+    )
+}
+
 // The statistical tests of `uniform`, `sample_normal` and `sample_exp` moved
 // with them to `raffles::distributions::seeded` (2026-10-02).

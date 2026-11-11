@@ -81,6 +81,8 @@ inline void read_dataset(hid_t h, vector<double>& x) { fill_vec(mem::node(h).dat
 inline void read_dataset(hid_t h, vector<int>& x) { fill_vec(mem::node(h).data, x); }
 inline void read_dataset(hid_t h, tensor::Tensor<double>& x) { fill_tensor(mem::node(h).data, x); }
 inline void read_dataset(hid_t h, tensor::Tensor<int>& x) { fill_tensor(mem::node(h).data, x); }
+inline void read_dataset(hid_t g, const char* n, bool& x) { x = mem::node(open_dataset(g, n)).data.v.at(0) != 0.0; }
+inline void read_dataset(hid_t g, const char* n, double& x) { x = mem::node(open_dataset(g, n)).data.v.at(0); }
 inline void read_dataset(hid_t g, const char* n, vector<double>& x) { read_dataset(open_dataset(g, n), x); }
 inline void read_dataset(hid_t g, const char* n, tensor::Tensor<double>& x) { read_dataset(open_dataset(g, n), x); }
 } // namespace openmc

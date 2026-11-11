@@ -789,9 +789,20 @@ impl ThermalScattering {
         table: &njoy_outram_park_fork::acer::read::RawAceTable,
         name: &str,
     ) -> Result<Self, NjoyError> {
-        use njoy_outram_park_fork::acer::thermal_read::{decode_thermal, AceThermalElastic};
+        let t = njoy_outram_park_fork::acer::thermal_read::decode_thermal(table)?;
+        Ok(Self::from_ace_thermal(t, name))
+    }
 
-        let t = decode_thermal(table)?;
+    /// Build from an already-decoded ACE thermal table
+    /// ([`AceThermal`](njoy_outram_park_fork::acer::thermal_read::AceThermal)):
+    /// the second half of [`Self::from_ace`]. Public so a differential test can
+    /// hand the sampler the same arrays an OpenMC `ThermalData` is built from
+    /// (`tests/thermal_samplers_vs_openmc_code_to_code.rs`, gh:#1444).
+    pub fn from_ace_thermal(
+        t: njoy_outram_park_fork::acer::thermal_read::AceThermal,
+        name: &str,
+    ) -> Self {
+        use njoy_outram_park_fork::acer::thermal_read::AceThermalElastic;
         // IFENG = 1 (skewed bins): ~~refused~~ since the second #365 audit
         // chunk, sampled by `sample_discrete` (OpenMC's discrete scheme with the
         // skewed bin weights). It was once accepted and sampled as if its bins
@@ -836,7 +847,7 @@ impl ThermalScattering {
                 },
             ),
         };
-        Ok(Self {
+        Self {
             name: name.to_string(),
             cutoff_ev,
             // The table IS its temperature -- there is no request to match
@@ -870,7 +881,7 @@ impl ThermalScattering {
             skewed: t.ifeng == 1,
             legacy_equiprobable: false,
             elastic,
-        })
+        }
     }
 
     pub fn from_tape(

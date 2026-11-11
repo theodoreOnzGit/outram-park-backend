@@ -45,8 +45,10 @@ pub struct Trigger {
 ///
 /// **Moved 2026-10-02** to [`raffles::estimators`] (GitHub #500), byte for
 /// byte, and re-exported here. What stays in this module is the trigger
-/// POLICY: the metrics, thresholds, `ignore_zeros`, the deliberate
-/// variance-branch divergence from upstream, and when to stop. See
+/// POLICY: the metrics, thresholds, `ignore_zeros`, the variance branch
+/// (~~a deliberate divergence from upstream~~ **CORRECTED 2026-11-11**: upstream
+/// `7cb87e78e`, #4175, now reads `sqrt(this_ratio)` too, so it is parity), and
+/// when to stop. See
 /// [`raffles::estimators::bin_uncertainty`] for the formula (the uncertainty is
 /// on the mean, `(n - 1)` outside the parenthesis).
 pub use raffles::estimators::{bin_uncertainty, BinStats};
@@ -56,9 +58,21 @@ pub use raffles::estimators::{bin_uncertainty, BinStats};
 ///
 /// A ratio at or below 1 means that bin is satisfied.
 ///
-/// # A deliberate divergence from upstream, and why
+/// # ~~A deliberate divergence from upstream~~ Parity since upstream #4175, and why
 ///
-/// `src/tallies/trigger.cpp:108` reads:
+/// **CORRECTED 2026-11-11 (gh:#1387).** Upstream fixed this in OpenMC
+/// `7cb87e78e` ("Fix variance tally trigger to use its own uncertainty ratio",
+/// #4175): `src/tallies/trigger.cpp` now reads
+/// `this_ratio = std::sqrt(this_ratio)` for the variance metric, with the comment
+/// that batch prediction squares the limiting ratio, so
+/// `sqrt(variance / threshold)` keeps the predicted multiplier at
+/// `variance / threshold`. The same commit makes an ignored zero score `continue`
+/// rather than fall through; this port returns `0.0` for it, which cannot raise
+/// the running maximum, so the two agree. The text below describes the code at
+/// the older audit commit `608a1c3` and is kept because it is why this port
+/// already had the right branch.
+///
+/// At `608a1c3`, `src/tallies/trigger.cpp:108` read:
 ///
 /// ```text
 /// double this_ratio = uncertainty / trigger.threshold;
@@ -74,17 +88,14 @@ pub use raffles::estimators::{bin_uncertainty, BinStats};
 /// not consulted at all, and the trigger reports satisfied on a bin it never
 /// examined.
 ///
-/// **That reads as an upstream bug rather than a convention**, and this port
-/// does NOT reproduce it. The variance branch here is
+/// **That was an upstream bug rather than a convention**, and this port did
+/// NOT reproduce it. The variance branch here is
 /// `sqrt(this_ratio)` — the evident intent, which makes the variance metric
 /// behave like the others: it puts the ratio on a standard-deviation footing so
 /// a threshold on variance converges at the same rate as one on `std_dev`.
 ///
-/// The workspace rule is that upstream is the specification, and it is being
-/// knowingly departed from here. Recorded rather than silently "fixed", because
-/// a reader comparing the two files will find the difference and needs to know
-/// it was deliberate. `tests::the_variance_metric_does_not_reproduce_upstreams_bug`
-/// pins the divergence so it cannot be quietly reverted either way.
+/// `tests::the_variance_metric_does_not_reproduce_upstreams_bug` pins this
+/// branch (its name predates upstream's fix) so it cannot be quietly reverted.
 pub fn bin_ratio(stats: BinStats, n: usize, trigger: &Trigger) -> f64 {
     let Some((_, std_dev, rel_err)) = bin_uncertainty(stats, n) else {
         return if trigger.ignore_zeros {

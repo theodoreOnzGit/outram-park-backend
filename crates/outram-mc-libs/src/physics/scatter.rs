@@ -1091,6 +1091,391 @@ pub fn continuum_angular_mode_from_env() -> ContinuumAngularMode {
     }
 }
 
+// ---------------------------------------------------------------------------
+// OpenMC-faithful collision kinematics (gh:#1444, #1386 prio-1 row 4).
+//
+// Translation of routines from OpenMC `8f79d9d02483c90e4134f03a9df4b75ce6b062bf`
+// (MIT; Copyright 2011-2025 Massachusetts Institute of Technology, UChicago
+// Argonne LLC and OpenMC contributors):
+//   src/math_functions.cpp  rotate_angle
+//   src/physics.cpp         elastic_scatter, sample_target_velocity,
+//                           sample_cxs_target_velocity, inelastic_scatter (CM -> lab block)
+//   src/nuclide.cpp         Nuclide::elastic_xs_0K, the 0 K CDF build
+//   openmc/data/reaction.py LevelInelastic parameters (threshold, mass ratio)
+//
+// These sit BESIDE the older kernels above (`two_body_scatter_with_mu`,
+// `free_gas_elastic_scatter_dbrc`, `rotate_direction`), which stay callable and
+// keep every recorded pin: they are the same physics with different operation
+// order, a different order of the CM-cosine draw against the target-velocity
+// draws, and (for `rotate_direction`) a different pole branch. The functions
+// below follow upstream line by line so a track differential can be bit-identical
+// (`tests/collision_kinematics_vs_openmc_code_to_code.rs`).
+// ---------------------------------------------------------------------------
+
+/// `rotate_angle(u, mu, nullptr, seed)` (`src/math_functions.cpp:772`): rotate the
+/// unit direction `u` by `mu` with an azimuth sampled uniformly (one draw, or
+/// `phi` when given). Differs from [`rotate_direction`] only in the near-pole
+/// branch (`1 - w^2 <= 1e-20`), where upstream expands about the `v` component
+/// with `sin`/`cos` swapped, and in using `fmax` for the `a`, `b` radicands.
+pub fn rotate_angle_openmc(u: Direction, mu: f64, phi: Option<f64>, seed: &mut u64) -> Direction {
+    // Sample azimuthal angle in [0,2pi) if none provided
+    let phi_ = match phi {
+        Some(p) => p,
+        None => 2.0 * PI * prn(seed),
+    };
+    let (sinphi, cosphi) = phi_.r_sin_cos();
+    let a = (1.0 - mu * mu).max(0.0).sqrt();
+    let mut b = (1.0 - u.w * u.w).max(0.0).sqrt();
+    if b > 1e-10 {
+        Direction::new(
+            mu * u.u + a * (u.u * u.w * cosphi - u.v * sinphi) / b,
+            mu * u.v + a * (u.v * u.w * cosphi + u.u * sinphi) / b,
+            mu * u.w - a * b * cosphi,
+        )
+    } else {
+        b = (1.0 - u.v * u.v).sqrt();
+        Direction::new(
+            mu * u.u + a * (-u.u * u.v * sinphi + u.w * cosphi) / b,
+            mu * u.v + a * b * sinphi,
+            mu * u.w - a * (u.v * u.w * sinphi + u.u * cosphi) / b,
+        )
+    }
+}
+
+/// The CM -> lab block of `inelastic_scatter` (`src/physics.cpp:1169-1179`) plus
+/// its clamp of `|mu| > 1` to `+-1`: `(E_lab, mu_lab)` from the incident lab energy
+/// `e_in`, the outgoing CM energy `e_cm`, the CM cosine `mu` and the target mass
+/// ratio `awr`. [`cm_to_lab`] is the same transform in another operation order.
+pub fn inelastic_cm_to_lab_openmc(e_in: f64, e_cm: f64, mu: f64, awr: f64) -> (f64, f64) {
+    let a = awr;
+    let e = e_cm + (e_in + 2.0 * mu * (a + 1.0) * (e_in * e_cm).sqrt()) / ((a + 1.0) * (a + 1.0));
+    let mu_lab = mu * (e_cm / e).sqrt() + 1.0 / (a + 1.0) * (e_in / e).sqrt();
+    let mu_lab = if mu_lab.abs() > 1.0 { 1.0_f64.copysign(mu_lab) } else { mu_lab };
+    (e, mu_lab)
+}
+
+/// `LevelInelastic::sample` with the parameters `openmc.data` derives
+/// (`reaction.py:1274-1275`): `threshold = (A + 1)/A * |Q|`, `mass_ratio =
+/// (A/(A + 1))^2`, `E_cm = mass_ratio * (E - threshold)`.
+pub fn level_inelastic_e_cm_openmc(e: f64, awr: f64, q: f64) -> f64 {
+    let threshold = (awr + 1.0) / awr * q.abs();
+    let mass_ratio = (awr / (awr + 1.0)) * (awr / (awr + 1.0));
+    mass_ratio * (e - threshold)
+}
+
+/// A discrete-level inelastic scatter as OpenMC does it: [`level_inelastic_e_cm_openmc`],
+/// [`inelastic_cm_to_lab_openmc`], then [`rotate_angle_openmc`] by the lab cosine
+/// (`inelastic_scatter`, `src/physics.cpp:1157`). `mu_cm` is drawn by the caller
+/// BEFORE this is called, as upstream draws the cosine inside `sample` before
+/// `rotate_angle` draws the azimuth. Returns `(E_lab, u_out)`.
+pub fn level_inelastic_scatter_openmc(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    q: f64,
+    mu_cm: f64,
+    seed: &mut u64,
+) -> (f64, Direction) {
+    let e_cm = level_inelastic_e_cm_openmc(e, awr, q);
+    let (e_lab, mu_lab) = inelastic_cm_to_lab_openmc(e, e_cm, mu_cm, awr);
+    (e_lab, rotate_angle_openmc(u, mu_lab, None, seed))
+}
+
+/// Which target-velocity sampler `sample_target_velocity` ends up using
+/// (OpenMC `ResScatMethod`, `constants.h:274`).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TargetMethod {
+    Cxs,
+    Rvs,
+    Dbrc,
+}
+
+fn dot3(a: [f64; 3], b: [f64; 3]) -> f64 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+/// `lower_bound_index` (`include/openmc/search.h`): `0` when the first element
+/// equals `value`, else `lower_bound(value) - first - 1` (so a value equal to a
+/// grid point `k > 0` gives `k - 1`, unlike an upper-bound search). Signed, as upstream's
+/// `difference_type` (`-1` when `value` is below the first element).
+fn lower_bound_index_openmc(slice: &[f64], value: f64) -> isize {
+    if slice[0] == value {
+        return 0;
+    }
+    slice.partition_point(|&x| x < value) as isize - 1
+}
+
+impl DbrcTable {
+    /// The 0 K cross section as OpenMC holds it: negative values zeroed in place
+    /// for every point but the last (`nuclide.cpp:489-491` loops `i < size - 1`).
+    fn xs0(&self, i: usize) -> f64 {
+        let v = self.xs[i];
+        if i + 1 < self.xs.len() && v < 0.0 {
+            0.0
+        } else {
+            v
+        }
+    }
+
+    /// `Nuclide::elastic_xs_0K` (`src/nuclide.cpp:589`).
+    fn elastic_xs_0k_openmc(&self, e: f64) -> f64 {
+        let n = self.energy.len();
+        let mut i_grid = if e < self.energy[0] {
+            0
+        } else if e > self.energy[n - 1] {
+            n - 2
+        } else {
+            lower_bound_index_openmc(&self.energy, e) as usize
+        };
+        // check for rare case where two energy points are the same
+        if self.energy[i_grid] == self.energy[i_grid + 1] {
+            i_grid += 1;
+        }
+        let f = (e - self.energy[i_grid]) / (self.energy[i_grid + 1] - self.energy[i_grid]);
+        (1.0 - f) * self.xs0(i_grid) + f * self.xs0(i_grid + 1)
+    }
+
+    /// Window index of `sample_target_velocity` (`physics.cpp:900-925`).
+    fn window_index_openmc(&self, e: f64) -> usize {
+        let n = self.energy.len();
+        if e < self.energy[0] {
+            0
+        } else if e > self.energy[n - 1] {
+            n - 2
+        } else {
+            lower_bound_index_openmc(&self.energy, e) as usize
+        }
+    }
+}
+
+/// `sample_cxs_target_velocity` (`src/physics.cpp:1028`): the target velocity in
+/// the constant-cross-section approximation, in `|v| = sqrt(E)` units.
+fn sample_cxs_target_velocity_openmc(awr: f64, e: f64, u: Direction, kt: f64, seed: &mut u64) -> [f64; 3] {
+    let beta_vn = (awr * e / kt).sqrt();
+    let alpha = 1.0 / (1.0 + PI.sqrt() * beta_vn / 2.0);
+    let (mut beta_vt_sq, mut mu);
+    loop {
+        // Sample two random numbers
+        let r1 = prn(seed);
+        let r2 = prn(seed);
+        if prn(seed) < alpha {
+            // sampling scheme C45 from the Monte Carlo sampler
+            beta_vt_sq = -(r1 * r2).r_ln();
+        } else {
+            // sampling scheme C61
+            let c = (PI / 2.0 * prn(seed)).r_cos();
+            beta_vt_sq = -r1.r_ln() - r2.r_ln() * c * c;
+        }
+        // Determine beta * vt
+        let beta_vt = beta_vt_sq.sqrt();
+        // Sample cosine of angle between neutron and target velocity
+        mu = -1.0 + (1.0 - (-1.0)) * prn(seed);
+        // Determine rejection probability
+        let accept_prob = (beta_vn * beta_vn + beta_vt_sq - 2.0 * beta_vn * beta_vt * mu).sqrt()
+            / (beta_vn + beta_vt);
+        // Perform rejection sampling on vt and mu
+        if prn(seed) < accept_prob {
+            break;
+        }
+    }
+    // Determine speed of target nucleus
+    let vt = (beta_vt_sq * kt / awr).sqrt();
+    // Determine velocity vector of target nucleus based on neutron's velocity
+    // and the sampled angle between them
+    let d = rotate_angle_openmc(u, mu, None, seed);
+    [vt * d.u, vt * d.v, vt * d.w]
+}
+
+/// `sample_target_velocity` (`src/physics.cpp:874`): the target nucleus velocity
+/// for a collision of a neutron of lab energy `e` and velocity `v_neut`.
+/// `resonant` is the nuclide's 0 K table (`nuc.resonant_` is `resonant.is_some()`;
+/// its `e_max_ev` is `res_scat_energy_max`, `res_scat_energy_min` is upstream's
+/// 0.01 eV, and the method is the table's).
+fn sample_target_velocity_openmc(
+    awr: f64,
+    resonant: Option<&DbrcTable>,
+    e: f64,
+    u: Direction,
+    v_neut: [f64; 3],
+    kt: f64,
+    seed: &mut u64,
+) -> [f64; 3] {
+    const RES_SCAT_ENERGY_MIN: f64 = 0.01;
+    let mut method;
+    match resonant {
+        Some(t) => {
+            method = match t.method {
+                ResonanceScatteringMethod::Rvs => TargetMethod::Rvs,
+                ResonanceScatteringMethod::Dbrc => TargetMethod::Dbrc,
+            };
+            // upper resonance scattering energy bound (target is at rest above this E)
+            if e > t.e_max {
+                return [0.0; 3];
+                // lower resonance scattering energy bound (should be no resonances below)
+            } else if e < RES_SCAT_ENERGY_MIN {
+                method = TargetMethod::Cxs;
+            }
+        }
+        // otherwise, use free gas model
+        None => {
+            if e >= FREE_GAS_THRESHOLD * kt && awr > 1.0 {
+                return [0.0; 3];
+            }
+            method = TargetMethod::Cxs;
+        }
+    }
+
+    match (method, resonant) {
+        (TargetMethod::Rvs | TargetMethod::Dbrc, Some(t)) => {
+            let e_red = (awr * e / kt).sqrt();
+            let e_low = (e_red - 4.0).max(0.0).powi(2) * kt / awr;
+            let e_up = (e_red + 4.0) * (e_red + 4.0) * kt / awr;
+            let i_e_low = t.window_index_openmc(e_low);
+            let i_e_up = t.window_index_openmc(e_up);
+            if i_e_up == i_e_low {
+                // Handle degenerate case -- the bounds fall in one interval
+                return sample_cxs_target_velocity_openmc(awr, e, u, kt, seed);
+            }
+            let en = &t.energy;
+            if method == TargetMethod::Dbrc {
+                // interpolate xs since we're not exactly at the energy indices
+                let mut xs_low = t.xs0(i_e_low);
+                let mut m = (t.xs0(i_e_low + 1) - xs_low) / (en[i_e_low + 1] - en[i_e_low]);
+                xs_low += m * (e_low - en[i_e_low]);
+                let mut xs_up = t.xs0(i_e_up);
+                m = (t.xs0(i_e_up + 1) - xs_up) / (en[i_e_up + 1] - en[i_e_up]);
+                xs_up += m * (e_up - en[i_e_up]);
+                // get max 0K xs value over range of practical relative energies
+                // (`std::max_element` over [i_E_low + 1, i_E_up + 1))
+                let mut xs_max = t.xs0(i_e_low + 1);
+                for k in (i_e_low + 2)..(i_e_up + 1) {
+                    if t.xs0(k) > xs_max {
+                        xs_max = t.xs0(k);
+                    }
+                }
+                xs_max = xs_low.max(xs_max).max(xs_up);
+                loop {
+                    let (mut e_rel, mut v_target);
+                    loop {
+                        // sample target velocity with the cxs approximation
+                        v_target = sample_cxs_target_velocity_openmc(awr, e, u, kt, seed);
+                        let v_rel = [v_neut[0] - v_target[0], v_neut[1] - v_target[1], v_neut[2] - v_target[2]];
+                        e_rel = dot3(v_rel, v_rel);
+                        if e_rel < e_up {
+                            break;
+                        }
+                    }
+                    // perform Doppler broadening rejection correction (dbrc)
+                    let xs_0k = t.elastic_xs_0k_openmc(e_rel);
+                    let r = xs_0k / xs_max;
+                    if prn(seed) < r {
+                        return v_target;
+                    }
+                }
+            } else {
+                // rvs: interpolate xs CDF since we're not exactly at the energy indices
+                let cdf = &t.cdf;
+                let mut cdf_low = 0.0;
+                if e_low > en[0] {
+                    let m = (cdf[i_e_low + 1] - cdf[i_e_low]) / (en[i_e_low + 1] - en[i_e_low]);
+                    cdf_low = cdf[i_e_low] + m * (e_low - en[i_e_low]);
+                }
+                let m = (cdf[i_e_up + 1] - cdf[i_e_up]) / (en[i_e_up + 1] - en[i_e_up]);
+                let cdf_up = cdf[i_e_up] + m * (e_up - en[i_e_up]);
+                loop {
+                    // directly sample Maxwellian
+                    let mut e_t = -kt * prn(seed).r_ln();
+                    // sample a relative energy using the xs cdf
+                    let cdf_rel = cdf_low + prn(seed) * (cdf_up - cdf_low);
+                    let i_e_rel = lower_bound_index_openmc(&cdf[i_e_low..i_e_up + 2], cdf_rel) as usize;
+                    let mut e_rel = en[i_e_low + i_e_rel];
+                    let m = (cdf[i_e_low + i_e_rel + 1] - cdf[i_e_low + i_e_rel])
+                        / (en[i_e_low + i_e_rel + 1] - en[i_e_low + i_e_rel]);
+                    e_rel += (cdf_rel - cdf[i_e_low + i_e_rel]) / m;
+                    // rejection sampling on cosine between neutron and target velocities
+                    let mu = (e_t + awr * (e - e_rel)) / (2.0 * (awr * e * e_t).sqrt());
+                    if mu.abs() < 1.0 {
+                        // set and accept target velocity
+                        e_t /= awr;
+                        let d = rotate_angle_openmc(u, mu, None, seed);
+                        let s = e_t.sqrt();
+                        return [s * d.u, s * d.v, s * d.w];
+                    }
+                }
+            }
+        }
+        _ => sample_cxs_target_velocity_openmc(awr, e, u, kt, seed),
+    }
+}
+
+/// `elastic_scatter` (`src/physics.cpp:792`): an elastic collision of a neutron
+/// of lab energy `e` and direction `u` with a target of mass ratio `awr` at
+/// `kt` \[eV\], with the target velocity from `sample_target_velocity` (target at
+/// rest above `400 kT`, or above the resonance window of a resonant nuclide).
+///
+/// `use_ptable` is `p.neutron_xs(i).use_ptable` (target at rest when the URR
+/// probability table is in use). **`sample_mu_cm` is called AFTER the target
+/// velocity has been sampled**, as upstream draws the CM cosine there: with
+/// `Some` angular law it is `angle().sample(E, seed)`, with none
+/// `uniform_distribution(-1, 1, seed)`. (The older
+/// [`free_gas_elastic_scatter_dbrc`] takes the cosine drawn BEFORE the target
+/// velocity, so for a free-gas collision the two consume the stream in a
+/// different order: the same distribution, a different path.)
+///
+/// Returns `(E_out, u_out, mu_lab)`.
+#[allow(clippy::too_many_arguments)]
+pub fn elastic_scatter_openmc<F: FnOnce(&mut u64) -> f64>(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    kt: f64,
+    resonant: Option<&DbrcTable>,
+    use_ptable: bool,
+    sample_mu_cm: F,
+    seed: &mut u64,
+) -> (f64, Direction, f64) {
+    let mut vel = e.sqrt();
+    // Neutron velocity in LAB
+    let mut v_n = [vel * u.u, vel * u.v, vel * u.w];
+    // Sample velocity of target nucleus
+    let v_t = if !use_ptable {
+        sample_target_velocity_openmc(awr, resonant, e, u, v_n, kt, seed)
+    } else {
+        [0.0; 3]
+    };
+    // Velocity of center-of-mass
+    let v_cm = [
+        (v_n[0] + awr * v_t[0]) / (awr + 1.0),
+        (v_n[1] + awr * v_t[1]) / (awr + 1.0),
+        (v_n[2] + awr * v_t[2]) / (awr + 1.0),
+    ];
+    // Transform to CM frame
+    v_n = [v_n[0] - v_cm[0], v_n[1] - v_cm[1], v_n[2] - v_cm[2]];
+    // Find speed of neutron in CM
+    vel = dot3(v_n, v_n).sqrt();
+    // Sample scattering angle
+    let mu_cm = sample_mu_cm(seed);
+    // Determine direction cosines in CM
+    let u_cm = Direction::new(v_n[0] / vel, v_n[1] / vel, v_n[2] / vel);
+    // Rotate neutron velocity vector to new angle
+    let d = rotate_angle_openmc(u_cm, mu_cm, None, seed);
+    v_n = [vel * d.u, vel * d.v, vel * d.w];
+    // Transform back to LAB frame
+    v_n = [v_n[0] + v_cm[0], v_n[1] + v_cm[1], v_n[2] + v_cm[2]];
+    let e_out = dot3(v_n, v_n);
+    vel = e_out.sqrt();
+    // cosine of scattering angle in LAB frame by the dot product of the
+    // pre- and post-collision directions
+    let mut mu = (u.u * v_n[0] + u.v * v_n[1] + u.w * v_n[2]) / vel;
+    let u_out = Direction::new(v_n[0] / vel, v_n[1] / vel, v_n[2] / vel);
+    // Because of floating-point roundoff, mu_lab may leave [-1,1)
+    if mu.abs() > 1.0 {
+        mu = 1.0_f64.copysign(mu);
+    }
+    (e_out, u_out, mu)
+}
+
+
 #[cfg(test)]
 mod tests {
 
