@@ -279,7 +279,7 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
                 rep.notes.push(format!("surfaceProjection: adjustZCoordinates, preMapVertices (3 iterations, {missed} searches found nothing), mapVerticesOntoSurface"));
             }
             WorkflowStep::PatchAssignment => {
-                let (mm, ty) = distribute_boundary_faces(m, &o, &reg.names)?;
+                let (mm, ty) = distribute_boundary_faces(m, &o, &reg.names, &reg.types)?;
                 *m = mm;
                 types = ty;
                 rep.notes.push(format!("patchAssignment: distributeBoundaryFaces: {:?}", m.patches.iter().map(|p| (p.name.clone(), p.n_faces)).collect::<Vec<_>>()));

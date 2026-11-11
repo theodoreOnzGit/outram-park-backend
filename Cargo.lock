@@ -7413,6 +7413,7 @@ name = "outram-foam-cli"
 version = "0.0.2"
 dependencies = [
  "clap",
+ "miniz_oxide 0.8.9",
  "outram-foam-appbuilder-lib",
  "outram-foam-basic-lib",
  "outram-foam-mesh",

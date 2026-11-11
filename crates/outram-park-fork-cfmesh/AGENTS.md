@@ -361,10 +361,20 @@ patch names as upstream's `findPatches` does (full regular-expression match,
 - **The typed structs stay the interface**; the reader only fills them.
 - Surfaces: `tri_surf_io` (FMS, FTR; STL through `outram-foam-mesh`'s port of
   OpenFOAM's `STLReader`, feature `surface-file`). Never a second STL reader.
-- **Known gap:** the generators take patch *names* only
+- ~~**Known gap:** the generators take patch *names* only
   (`patches::SurfaceRegions`), so a surface's geometric types (`wall` in an
   FMS, `empty` from an STL, which upstream's `renameBoundaryPatches` turns into
-  `wall`) do not reach the output; unrenamed patches come out as `patch`.
+  `wall`) do not reach the output; unrenamed patches come out as `patch`.~~
+  **CORRECTED 2026-11-11 (gh:#1483):** `SurfaceRegions::types` carries each
+  surface patch's geometric type (`TriSurf::surface_regions()` fills it from
+  the file); `edgeExtractor::updateMeshPatches` and the 2D
+  `distributeBoundaryFaces` put it on the mesh, and later steps keep it as
+  upstream's `replaceBoundary` does. A surface built without types
+  (`SurfaceRegions::single`, `from_labels`) keeps `patch`. Pinned against the
+  committed upstream `boundary` files by
+  `crates/outram-foam-cli/tests/cfmesh_patch_types.rs` and
+  `tests/cfmesh_patch_types_sphere.rs`; record
+  `verification_and_validation/patch_types_gh1483.md`.
 - Tutorial inputs live in `test_data/cfmesh_tutorials/` (provenance in its
   `References.md`, excluded from the package).
 

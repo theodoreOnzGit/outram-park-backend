@@ -494,7 +494,7 @@ pub(crate) fn run_generator(
             WorkflowStep::PatchAssignment => match regions {
                 Some(r) => {
                     *m = assign_patches_by_region(m, spts, tris, r)?;
-                    types = vec!["patch".to_string(); m.patches.len()];
+                    types = r.types_for(m.patches.len());
                     rep.notes.push("patchAssignment: PatchAssignment::NearestTriangle (ablation of edgeExtractor): nearest-triangle patches (patches::assign_patches_by_region)".into());
                 }
                 None => rep.notes.push("patchAssignment: no regions given; one patch".into()),
@@ -510,7 +510,9 @@ pub(crate) fn run_generator(
                     let (corrected, g, cr) = correct_edges_between_patches(m, &given, &r.names);
                     given = g;
                     *m = map_vertices_onto_surface_patches_given_octree(&corrected, &o, spts, tris, r, &given);
-                    types = vec!["patch".to_string(); m.patches.len()];
+                    // `replaceBoundary` with as many patches as before keeps
+                    // each patch's type (gh:#1483)
+                    types.resize(m.patches.len(), "patch".to_string());
                     rep.notes.push(format!(
                         "edgeExtraction: meshSurfaceEdgeExtractorNonTopo (correct_edges + surface_mapper): {} boundary faces split, {} faces fanned, {} cells into pyramids",
                         cr.n_patch_corrected_faces, cr.n_connection_faces, cr.n_decomposed_cells

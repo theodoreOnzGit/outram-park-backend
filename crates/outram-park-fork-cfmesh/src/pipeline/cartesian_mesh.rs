@@ -481,7 +481,7 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
             }
             WorkflowStep::PatchAssignment => {
                 let (ty, note) = extract_patches(m, &o, spts, tris, regions, reg, opts.patch_assignment)?;
-                types = ty.unwrap_or_else(|| vec!["patch".to_string(); m.patches.len()]);
+                types = ty.unwrap_or_else(|| reg.types_for(m.patches.len()));
                 rep.notes.push(note);
             }
             WorkflowStep::EdgeExtraction => {
@@ -495,7 +495,9 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
                     let (corrected, g, cr) = correct_edges_between_patches(m, &given, &r.names);
                     given = g;
                     *m = map_vertices_onto_surface_patches_given_octree(&corrected, &o, spts, tris, r, &given);
-                    types = vec!["patch".to_string(); m.patches.len()];
+                    // `replaceBoundary` with as many patches as before keeps
+                    // each patch's type (gh:#1483)
+                    types.resize(m.patches.len(), "patch".to_string());
                     rep.notes.push(format!(
                         "edgeExtraction: meshSurfaceEdgeExtractorNonTopo (correct_edges + surface_mapper): {} boundary faces split, {} faces fanned, {} cells into pyramids",
                         cr.n_patch_corrected_faces, cr.n_connection_faces, cr.n_decomposed_cells
