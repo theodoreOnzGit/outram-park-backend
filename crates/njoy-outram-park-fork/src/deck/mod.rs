@@ -29,6 +29,7 @@ pub mod modules;
 pub mod pendf;
 pub mod run;
 pub mod tapes;
+pub mod thermr;
 
 pub use cards::{CardReader, Slot};
 pub use run::{run_deck, DeckOptions, DeckRun};

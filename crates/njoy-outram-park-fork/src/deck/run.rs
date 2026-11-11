@@ -94,11 +94,8 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
                 if opts.parse_only { Ok(()) } else { run_heatr(&c, &mut units, &mut listing) }
             }
             "thermr" => {
-                read_thermr(&mut r)?;
-                Err(NjoyError::NotPorted(
-                    "thermr tape driver (thermr.f90 `thermr`: calcem/coh/iel written to a PENDF tape; \
-                     only the ACER-facing tables exist, thermr::on_pendf)",
-                ))
+                let c = read_thermr(&mut r)?;
+                if opts.parse_only { Ok(()) } else { crate::deck::thermr::run_thermr(&c, &mut units) }
             }
             "groupr" => {
                 read_groupr(&mut r)?;

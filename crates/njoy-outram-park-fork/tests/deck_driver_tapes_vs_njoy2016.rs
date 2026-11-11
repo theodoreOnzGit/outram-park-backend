@@ -376,3 +376,25 @@ fn test_08_pendf_stages_diagnosis() {
     }
     if std::env::var_os("KEEP_DECK_DIRS").is_none() { let _ = std::fs::remove_dir_all(ours.parent().unwrap()); }
 }
+
+/// **Test 01 through the first THERMR (free gas, `iinc = 1`), line for line.**
+///
+/// Deck: upstream `tests/01/input` up to its first `thermr` (moder reconr
+/// broadr heatr), then that THERMR (`0 -22 -24`, carbon free gas, `mtref = 221`)
+/// and a MODER converting its binary output to text (unit 31). Pass criterion:
+/// **zero** differing lines on unit 31 (MF=1 dictionary, MF=3/MT=221, MF=6/MT=221).
+/// The second THERMR (ENDF-5 graphite S(alpha,beta), `iinc = 2`) is not ported.
+#[test]
+fn test_01_first_thermr_free_gas_tape_is_identical_line_for_line() {
+    let root = njoy_root();
+    let tail = "thermr\n 0 -22 -24/\n 0 1306 8 1 1 0 0 1 221 2/\n 296./\n .05 1.2/\nmoder\n -24 31/\n";
+    let Some(deck) = deck_text(&root, "01", Some("thermr"), tail) else { return };
+    let Some((ours, njoy)) = run_pair(&root, "t01th", "t511", &deck) else { return };
+    let d = differing_lines(&ours.join("tape31"), &njoy.join("tape31"));
+    let text = std::fs::read_to_string(njoy.join("tape31")).unwrap();
+    let (n, n6) = (text.lines().count(), text.lines().filter(|l| l.len() >= 75 && &l[70..72] == " 6").count());
+    assert!(n6 > 100, "the tape must carry MF=6 lines ({n6} of {n})");
+    println!("test 01 THERMR unit 31: {} differing lines of {n} ({n6} in MF=6)", d.len());
+    assert!(d.is_empty(), "first differences {:?}", &d[..d.len().min(8)]);
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
