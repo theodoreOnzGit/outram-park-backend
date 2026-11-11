@@ -8,7 +8,10 @@
 //
 // Methodology:
 //   * Boundary points = every point used by a face of any boundary patch
-//     (patch type "empty" skipped).  Also reported per patch.
+//     (patch type "empty" skipped, unless the environment sets
+//     BSD_INCLUDE_EMPTY=1: cfMesh writes its intermediate meshes, saved by
+//     workflowControls' stopAfter, with every patch typed "empty").
+//     Also reported per patch.
 //   * The STL is read the way OpenFOAM's STL reader reads it: coordinates
 //     rounded to float (single precision), then widened to double.
 //     ASCII and binary STL are both accepted.
@@ -25,6 +28,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -207,8 +211,10 @@ int main(int argc, char** argv) {
 
     std::vector<double> dist(pts.size(), -1.0);
     std::vector<double> all;
+    const char* inc = std::getenv("BSD_INCLUDE_EMPTY");
+    const bool includeEmpty = inc && std::string(inc) == "1";
     for (auto& p : patches) {
-        if (p.type == "empty") continue;
+        if (p.type == "empty" && !includeEmpty) continue;
         std::vector<double> pd; std::vector<char> mark(pts.size(), 0);
         for (long f = p.start; f < p.start + p.n; ++f)
             for (long v : faces[f]) {
