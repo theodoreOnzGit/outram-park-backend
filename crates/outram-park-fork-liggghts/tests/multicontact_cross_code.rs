@@ -41,8 +41,8 @@
 //! `granular.rs` (identical for every other model, where radsum = radi+radj).
 //! Also copied: upstream sets `sidata.radi` once per particle UNEXPANDED while
 //! `sidata.radj` and `radsum` are expanded (`pair_gran_base.h` l. 271-311).
-//! Not covered by this deck: mesh walls (not hooked), cylinder-wall close
-//! history.
+//! Mesh walls and the cylinder close history are covered by the two later tests
+//! (~~mesh walls not hooked~~ **CORRECTED 2026-11-11**, gh:#1410).
 
 use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial};
@@ -57,19 +57,23 @@ const INIT: &str = include_str!("../../../reference-data/liggghts/multicontact_i
 const REF: &str = include_str!("../../../reference-data/liggghts/multicontact.csv");
 const INIT_CYL: &str = include_str!("../../../reference-data/liggghts/multicontact_cyl_init.csv");
 const REF_CYL: &str = include_str!("../../../reference-data/liggghts/multicontact_cyl.csv");
+const REF_MESH: &str = include_str!("../../../reference-data/liggghts/multicontact_mesh.csv");
+const STL_FLOOR: &str = include_str!("../../../reference-data/liggghts/plate_square.stl");
 
 /// Which deck: two z planes, or two planes plus a `zcylinder 0.0125 0 0` wall.
 #[derive(Clone, Copy)]
 enum Deck {
     Planes,
     Cylinder,
+    /// The `Planes` bed with the lower plane replaced by a 2-triangle STL floor.
+    Mesh,
 }
 
 fn system(deck: Deck, multicontact: bool) -> GranularSystem {
     let r = 0.005;
     let mass = 4.0 * std::f64::consts::PI / 3.0 * r * r * r * 2500.0;
     let init = match deck {
-        Deck::Planes => INIT,
+        Deck::Planes | Deck::Mesh => INIT,
         Deck::Cylinder => INIT_CYL,
     };
     let particles: Vec<Particle> = init
@@ -94,6 +98,9 @@ fn system(deck: Deck, multicontact: bool) -> GranularSystem {
         Boundary::plane(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0)).unwrap(),
         Boundary::plane(Vec3::new(0.0, 0.0, 0.0195), Vec3::new(0.0, 0.0, 1.0)).unwrap(),
     ];
+    if matches!(deck, Deck::Mesh) {
+        boundaries.remove(0);
+    }
     if matches!(deck, Deck::Cylinder) {
         boundaries.push(Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), 0.0125).unwrap());
     }
@@ -106,7 +113,16 @@ fn system(deck: Deck, multicontact: bool) -> GranularSystem {
     )
     .unwrap();
     let cfg = LiggghtsNeighbor::new(Vec3::new(-1.0, -1.0, -0.005), Vec3::new(1.0, 1.0, 0.03), 0.002).unwrap();
-    let sys = sys.with_liggghts_neighbor_order(cfg);
+    let mut sys = sys.with_liggghts_neighbor_order(cfg);
+    if matches!(deck, Deck::Mesh) {
+        let mesh = outram_park_fork_liggghts::mesh_wall::MeshWall::from_ascii_stl(STL_FLOOR).unwrap();
+        sys = sys.with_moving_walls(vec![outram_park_fork_liggghts::mesh_wall::MovingBoundary::new(
+            outram_park_fork_liggghts::mesh_wall::WallGeometry::Mesh(mesh),
+            Vec3::zero(),
+            Vec3::zero(),
+            Vec3::zero(),
+        )]);
+    }
     if multicontact {
         sys.with_multicontact(HalfSpaceFix::new(vec![1.0e5], vec![0.3])).unwrap()
     } else {
@@ -120,6 +136,7 @@ fn compare(deck: Deck, multicontact: bool) -> (usize, usize, f64) {
     let rows = match deck {
         Deck::Planes => REF,
         Deck::Cylinder => REF_CYL,
+        Deck::Mesh => REF_MESH,
     };
     let ovr = std::env::var("MC_REF").ok().map(|f| std::fs::read_to_string(f).unwrap());
     let mut rows = ovr.as_deref().unwrap_or(rows).lines();
@@ -198,6 +215,28 @@ fn multicontact_cylinder_matches_upstream() {
     println!("multicontact cylinder: {same}/{total} values bit-identical, worst = {worst:e}");
     let (_, _, without) = compare(Deck::Cylinder, false);
     println!("cylinder control without the model: {without:e}");
+    assert!(without > 10.0 * worst.max(1e-12), "model not exercised: with {worst:e} without {without:e}");
+    assert!(worst <= 1e-8, "worst {worst:e}");
+}
+
+/// Mesh-wall multicontact (gh:#1410): `in.multicontact_mesh`, the plane deck
+/// with its lower plane replaced by `plate_square.stl` (2 facets, diagonal
+/// through the origin). Exercises the per-facet history (key tag, wall, tri,
+/// slot order = `mesh_partners`), the `deltaData[3]` radius expansion before
+/// `resolveTriSphereContactBary`, `is_mesh` in `pre_force`, and the mesh
+/// `surfacesClose` history. Prediction (written before the run): bit-identical
+/// as the plane deck.
+///
+/// Result (2026-11-11, release, rustc 1.99.1): 1674/1674 values bit-identical,
+/// worst difference 0; control without the model misses by 1.07e-1. Ablation
+/// (mesh `deltaData[3]` radius expansion removed): 54/1674 bit-identical, worst
+/// 1.5e-3, so the mesh hook carries the agreement.
+#[test]
+fn multicontact_mesh_matches_upstream() {
+    let (same, total, worst) = compare(Deck::Mesh, true);
+    println!("multicontact mesh: {same}/{total} values bit-identical, worst = {worst:e}");
+    let (_, _, without) = compare(Deck::Mesh, false);
+    println!("mesh control without the model: {without:e}");
     assert!(without > 10.0 * worst.max(1e-12), "model not exercised: with {worst:e} without {without:e}");
     assert!(worst <= 1e-8, "worst {worst:e}");
 }
