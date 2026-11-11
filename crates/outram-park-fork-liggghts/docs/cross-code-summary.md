@@ -70,6 +70,7 @@ cannot be an artefact of both converging on the requested number.
 | **two atom types**, head-on (new 2026-11-10): `E` 1e7/3e7, `ν` 0.3/0.2, `e` and `µ` matrices, `d` 10/12 mm, `ρ` 2500/4000 | `global_properties.cpp` `createYeff`/`createBetaEff`, `normal_model_hertz.h` | 251 | `0` | `0` | `0` | `liggghts_cross_code.rs` |
 | **two atom types**, oblique (new 2026-11-10) | adds `createGeff`, `createCoeffFrict`, unequal-radius torque | 251 | `0` | `0` | `0` | `liggghts_cross_code.rs` |
 | **rotating mesh plate** (new 2026-11-11) | `tri_mesh_I.h` `resolveTriSphereContactBary`, `mesh_mover_rotation.cpp`, `fix_wall_gran.cpp` `post_force_mesh` | 251 | `0` | `0` | `0` | `rotating_mesh_cross_code.rs` |
+| EPSD, EPSD2, EPSD3 rolling; Luding normal+tangential+rolling; Thornton-Ning; Edinburgh (+stiffness, fixKc); SJKR, SJKR2 cohesion; hooke/hysteresis wall (new 2026-11-11, gh:#1410 #1411; V&V section 4.11) | `rolling_model_epsd*.h`, `*luding*.h`, `normal_model_thornton_ning.h`, `normal_model_edinburgh*.h`, `cohesion_model_sjkr*.h` | 251 | `0` | `0` | `0` | `liggghts_contact_models_cross_code.rs` |
 | **rotating drum**, 64 facets, two spheres (new 2026-11-11) | + edge/corner activity (`surface_mesh_I.h`) | 251 | `0` | `0` | `0` | `rotating_drum_cross_code.rs` |
 
 ~~**Four of the six are bit-identical over the whole trajectory.** The two
@@ -242,7 +243,7 @@ undersold what the codes actually agree on.
 | Case | Geometry | N | Quantity | Ours | LIGGGHTS | Agreement | Test |
 |---|---|---|---|---|---|---|---|
 | bulk bed settling | cylinder, `D/d = 6` | 354 | solid fraction | 0.5571 | 0.5582 | 0.20 % | `pebble_bed_bulk.rs` |
-| angle of repose, lifting cylinder | STL mesh wall, `R = 0.050 m` | 656 | repose angle | 12.78 deg | 15.43 deg | ~~2.65~~ **1.34** deg (corrected 2026-09-18) | `angle_of_repose.rs` |
+| angle of repose, lifting cylinder (re-run 2026-11-11 after the #1451 shear-history change: **15.66 deg**, gap 0.23 deg; previously 16.28 deg, gap 0.85 deg) | STL mesh wall, `R = 0.050 m` | 656 | repose angle | 12.78 deg | 15.43 deg | ~~2.65~~ **1.34** deg (corrected 2026-09-18) | `angle_of_repose.rs` |
 | HTR-10 full core, `E = 1e8` | cylinder, `D/d = 30` | 27 558 | solid fraction | 0.5811 | 0.5810 | 0.02 % | `htr10_pebble_bed.rs` |
 | HTR-10 full core, `E = 3e8` | cylinder, `D/d = 30` | 27 558 | solid fraction | 0.5754 | 0.5754 | 4 decimals | `htr10_pebble_bed.rs` |
 | **HTR-10 conus slump**, `E = 5e8` | **STL mesh** conus + tube + valve, `D/d = 30` | 27 554 | solid fraction | 0.5769 | 0.5769 | **0.01 %** | `htr10_conus_cross_code.rs` |
