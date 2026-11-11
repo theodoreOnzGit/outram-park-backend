@@ -752,6 +752,41 @@ fn test_13_gaspr_pendf_and_ace_are_identical() {
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
 }
 
+/// **Test 12 (Ni-61): `reconr; gaspr` on coded units** (gh:#1369), the PENDF
+/// GASPR writes (unit 22) against NJOY2016.80 line by line. Unlike test 13 the
+/// units are positive, so the tape's SEND/FEND/MEND numbering is GASPR's own
+/// (`tosend` copies from its scratch tape) and the MODER conversion is absent.
+#[test]
+fn test_12_gaspr_coded_pendf_is_identical() {
+    let root = njoy_root();
+    let Some(full) = deck_text(&root, "12", Some("plotr"), "") else { return };
+    let Some((ours, njoy)) = run_pair(&root, "t12", "eni61", &full) else { return };
+    let d = differing_lines(&ours.join("tape22"), &njoy.join("tape22"));
+    println!("test 12 unit 22: {} differing lines; first {:?}", d.len(), &d[..d.len().min(8)]);
+    assert!(d.is_empty(), "test 12 unit 22: first differences {:?}", &d[..d.len().min(5)]);
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
+
+/// **Test 24 (Pu-239 ENDF/B-VIII.0 Beta6): `moder; reconr; broadr; heatr; heatr;
+/// thermr; gaspr; moder; acer`**, cut before the plot-file ACER (`iopt = 7`) and
+/// the `viewr`s: PENDF unit 38 (after GASPR) line by line, ACE unit 31 word for
+/// word (gh:#1369).
+#[test]
+fn test_24_gaspr_chain_ace() {
+    let root = njoy_root();
+    let Some(full) = deck_text(&root, "24", Some("viewr"), "") else { return };
+    let deck = format!("{}stop\n", full.split("acer\n 0 31").next().unwrap());
+    let Some((ours, njoy)) = run_pair_decks_extra(&root, "t24", "n-094_Pu_239-ENDF8.0-Beta6.endf", &[], &deck, &deck) else { return };
+    let d = differing_lines(&ours.join("tape38"), &njoy.join("tape38"));
+    println!("test 24 unit 38: {} differing lines; first {:?}", d.len(), &d[..d.len().min(5)]);
+    let c = ace_pair(&ours, &njoy, 31);
+    for l in c.report_lines() {
+        println!("{l}");
+    }
+    assert!(d.is_empty() && c.identical(), "test 24 differs from NJOY2016");
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
+
 /// Run upstream deck `case` (`moder; moder; acer iopt = 1`, the raw
 /// incident-charged-particle evaluation `resource` on unit 20) cut before its
 /// second ACER (the `iopt = 7` plot), and return the ACE comparison of unit 31.

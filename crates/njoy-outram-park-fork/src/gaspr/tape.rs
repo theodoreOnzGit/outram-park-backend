@@ -508,7 +508,24 @@ pub fn gaspr_tape(endf: &Tape, pendf: &Tape) -> Result<Tape, NjoyError> {
             write_gas(&mut out, matd, za, awr, &egas, &sgas);
         }
     }
-    let mut tape = Tape::from_sections(pendf.tpid.clone(), out);
+    // Closing records GASPR copies (`tofend`/`tosend`/`tomend`, running count)
+    // rather than writes (`asend`, `contio` of a FEND): the SEND of every
+    // section but the new gas ones, the FEND of MF=1, 2 and every file after
+    // MF=3, and the MEND (`gaspr.f90:889-1006`, `endf.f90:1064-1230`).
+    let mut copied: Vec<EndfKey> = Vec::new();
+    for s in &out {
+        let k = s.key;
+        if !(k.mf == 3 && (203..=207).contains(&k.mt) && !pendf.sections().iter().any(|o| o.key == k)) {
+            copied.push(k);
+        }
+        if k.mf != 3 {
+            copied.push(EndfKey { mat: k.mat, mf: k.mf, mt: 0 });
+        }
+    }
+    copied.push(EndfKey { mat: matd, mf: 0, mt: 0 });
+    let tpid = pendf.tpid.clone();
+    let mut tape = Tape::from_sections(tpid, out);
+    tape.set_copied_closers(copied);
     tape.copy_raw_mf32_from(pendf);
     if let Some(r) = raw_mf1 {
         tape.set_raw_text(EndfKey { mat: matd, mf: 1, mt: 451 }, r);

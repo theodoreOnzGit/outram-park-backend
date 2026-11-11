@@ -319,7 +319,14 @@ fn run_gaspr(c: [i32; 3], units: &mut TapeUnits) -> Result<(), NjoyError> {
     units.openz(noutp, 1)?;
     let endf = units.get(nendf)?.tape.clone();
     let pend = units.get(npend)?.clone();
-    let tape = crate::gaspr::gaspr_tape(&endf, &pend.tape)?;
+    let mut tape = crate::gaspr::gaspr_tape(&endf, &pend.tape)?;
+    // A coded GASPR output carries sequence number 1 on its TPID line (measured
+    // on test 12 against NJOY2016.80: RECONR and BROADR write 0 there; a MODER
+    // conversion rewrites it as 0 again, so a binary unit is unaffected).
+    if noutp > 0 && tape.tpid.len() >= 75 && tape.tpid.is_char_boundary(tape.tpid.len() - 5) {
+        let n = tape.tpid.len();
+        tape.tpid.replace_range(n - 5..n, "    1");
+    }
     units.store(noutp, tape, pend.pointwise)?;
     units.set_meta(noutp, pend.meta);
     Ok(())
