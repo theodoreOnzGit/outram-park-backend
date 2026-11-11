@@ -74,6 +74,7 @@
 //! [`crate::NjoyError::NotPorted`] rather than fabricating a GENDF result. See
 //! `README.md` in this directory for the full theory summary and gap list.
 
+pub mod continuum;
 pub mod file4;
 pub mod fission_matrix;
 pub mod gaminr_matrix;

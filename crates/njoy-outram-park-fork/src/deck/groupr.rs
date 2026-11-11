@@ -9,7 +9,7 @@
 //!
 //! MF=3 vector sections and MF=6 `MT = 2, 51-90` two-body matrices (`nl = lord + 1`,
 //! `getdis`) are written identical to NJOY2016 for test 01 (gh:#1369). Not yet: MF=6
-//! `MT = 91` (`getfle` x `getsed` continuum, label 200), thermal MF=6 `MT = 221-250`
+//! (MT 91 continuum, `getfle` x `getsed` law 9, label 200, is done: `groupr/continuum.rs`.) Thermal MF=6 `MT = 221-250`
 //! (`getaed`, label 700), MF=16 photon production (`getgyl`/`getgfl`/`getsed`/`gamout`),
 //! and the FEND/SEND/MEND layout between files, so the whole tape is not yet compared.
 //!
@@ -179,6 +179,10 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
                 write_mf6_two_body(&mut g, inp, units, &pend, za, &egn, emaxx, mtd)?;
                 continue;
             }
+            if req.mfd == 6 && mtd == 91 {
+                write_mf6_continuum(&mut g, inp, units, &pend, za, &egn, emaxx, mtd)?;
+                continue;
+            }
             if req.mfd != 3 {
                 notes.push(format!("groupr: mf {} mt {} not written (matrix and photon-production sections are not ported)", req.mfd, mtd));
                 continue;
@@ -241,6 +245,37 @@ fn write_mf6_two_body(
     let ang = crate::groupr::file4::File4Angular::from_tape(&units.get(inp.units.nendf)?.tape, inp.matb, mtd, crate::groupr::file4::NLD)?;
     let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, egn, head.c2, tab.head.c2, lrflag)?;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::TwoBodyNl(tb, nl);
+    let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
+    g.begin(inp.matb, 6, mtd);
+    g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
+    for (ig, ng2, ig2lo, data) in rows {
+        g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
+    }
+    g.send();
+    Ok(())
+}
+
+/// `mfd = 6` continuum (`getff` label 200, `MT = 91`): `getfle` x `getsed`.
+#[allow(clippy::too_many_arguments)]
+fn write_mf6_continuum(
+    g: &mut GendfText,
+    inp: &crate::groupr::input::GrouprInput,
+    units: &mut TapeUnits,
+    pend: &crate::endf::tape::Tape,
+    za: f64,
+    egn: &[f64],
+    emaxx: f64,
+    mtd: i32,
+) -> Result<(), NjoyError> {
+    let Some(sec) = pend.section(inp.matb, 3, mtd) else { return Ok(()) };
+    let mut cur = crate::endf::records::SectionCursor::new(&sec.rows);
+    let _head = cur.read_cont()?;
+    let tab = cur.read_tab1()?;
+    let lrflag = tab.head.l2;
+    let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
+    let cf = crate::groupr::continuum::ContinuumFeed::new(&units.get(inp.units.nendf)?.tape, inp.matb, mtd, egn, inp.lord.max(0) as usize + 1)?;
+    let nl = cf.nl;
+    let mut pf = crate::groupr::njoy_panel::PanelFeed::Continuum(cf);
     let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
     g.begin(inp.matb, 6, mtd);
     g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);

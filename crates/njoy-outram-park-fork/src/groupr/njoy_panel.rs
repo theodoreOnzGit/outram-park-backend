@@ -104,6 +104,8 @@ pub enum PanelFeed {
     TwoBody(crate::groupr::two_body::TwoBodyFeed),
     /// `getdis` for `nl` Legendre orders (`mfd = 6`, label 400).
     TwoBodyNl(crate::groupr::two_body::TwoBodyFeed, usize),
+    /// `getff` label 200: `getfle` x `getsed` continuum (`MT = 91` etc.).
+    Continuum(crate::groupr::continuum::ContinuumFeed),
 }
 
 impl PanelFeed {
@@ -120,6 +122,7 @@ impl PanelFeed {
                 ff.truncate(a.ng);
                 Ok(FeedOut { en: a.enext, idisc: i32::from(a.idisc), nq: a.nq, ff: vec![ff], iglo: a.iglo })
             }
+            PanelFeed::Continuum(f) => f.at(e),
             PanelFeed::TwoBodyNl(f, nl) => {
                 let a = f.feed(e, *nl)?;
                 let ff: Vec<Vec<f64>> = a.ff.iter().take(*nl).map(|r| r[..a.ng].to_vec()).collect();
@@ -448,6 +451,44 @@ fn displa_matrix(mut ans: Vec<f64>, mut ng2: usize, mut ig2lo: i32, nl: usize) -
     (ng2, ig2lo, igzero, data)
 }
 
+/// `displa`, label 250 (`:6247-6290`): the isotropic infinite-dilution transfer
+/// matrix (`itr = 1`, `nl = nz = 1`). `ans[1]` is the flux, `ans[2..]` the rates.
+fn displa_isotropic(mut ans: Vec<f64>, mut ng2: usize, mut ig2lo: i32) -> (usize, i32, bool, Vec<f64>) {
+    let (smin, big) = (1.0e-9, 1.0e10);
+    let mut ilo = 0usize;
+    let mut ihi = ng2;
+    let mut igzero = false;
+    let mut j = 2usize;
+    for ig2 in 2..=ng2 {
+        if ilo > 0 {
+            j += 1;
+        }
+        if ans[1] == 0.0 {
+            ans[1] = big;
+        }
+        ans[1] = sigfig(ans[1], 7, 0);
+        ans[j] = ans[ig2] / ans[1];
+        ans[j] = sigfig(ans[j], 7, 0);
+        if ans[j].abs() < smin / 1000.0 {
+            ans[j] = 0.0;
+        }
+        if ans[j] != 0.0 {
+            if ilo == 0 {
+                ilo = ig2;
+            }
+            ihi = ig2;
+            igzero = true;
+        }
+    }
+    if !igzero {
+        ilo = ng2;
+    }
+    ig2lo += ilo as i32 - 2;
+    ng2 = ihi - ilo + 2;
+    let data = ans[1..1 + ng2].to_vec();
+    (ng2, ig2lo, igzero, data)
+}
+
 /// The group loop of `groupr` (`:766-830`) with `displa`'s `mfd = 3` rounding
 /// for one reaction. Returns the records to write (`igzero || ig == ngn`).
 ///
@@ -489,8 +530,14 @@ pub fn group_general(
             elo = enext;
             enext = ehi;
         }
-        let (ng2, ig2lo, igzero, data) =
-            if nl > 1 { displa_matrix(ans, ng, iglo, nl) } else { displa310(ans, ng, iglo, irat) };
+        let matrix = matches!(feed, PanelFeed::TwoBodyNl(..) | PanelFeed::Continuum(..));
+        let (ng2, ig2lo, igzero, data) = if nl > 1 {
+            displa_matrix(ans, ng, iglo, nl)
+        } else if matrix {
+            displa_isotropic(ans, ng, iglo)
+        } else {
+            displa310(ans, ng, iglo, irat)
+        };
         if igzero || ig == ngn {
             out.push((ig, ng2, ig2lo, data));
         }
