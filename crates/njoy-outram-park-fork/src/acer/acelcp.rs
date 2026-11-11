@@ -311,6 +311,43 @@ fn production(tape: &Tape, mat: i32, pendf: &ReconrResult, za: f64, izai: i32) -
     (prods, t)
 }
 
+/// The `awr` `acelcp` is handed. `acelod` overwrites its module variable with
+/// the AWR field (`c2h`) of the MF=4 or MF=6 section of every reaction it
+/// writes angles for (`awr=c2h`, `acefc.f90:5805`), MT=2 first and then the MTR
+/// list in order, and nothing resets it: `acelcp` and the DLW pass see the
+/// *last* such section's AWR, which in an incident-charged-particle
+/// evaluation differs from MF=1's in the sixth figure (2.989596 against
+/// 2.9896 for p + H-3). `awr0` is kept when no reaction has an MF=4/6 section.
+fn acelod_awr(tape: &Tape, mat: i32, mtr: &[i32], awr0: f64) -> f64 {
+    let mut keys: Vec<(i32, i32)> = tape.sections().iter().filter(|s| s.key.mat == mat && s.key.mt > 0).map(|s| (s.key.mf, s.key.mt)).collect();
+    keys.sort_unstable();
+    keys.dedup();
+    let mut awr = awr0;
+    let mut mt418 = false;
+    for ij in 1..=mtr.len() + 1 {
+        let mt = if ij == 1 { 2 } else { mtr[ij - 2] };
+        let mut mf = 0;
+        for &(kmf, kmt) in keys.iter().filter(|&&(_, kmt)| kmt == mt) {
+            if mt != 18 && (kmf == 4 || kmf == 6) {
+                mf = kmf;
+            } else if mt == 18 && kmf == 4 && !mt418 {
+                mt418 = true;
+                mf = kmf;
+                break;
+            } else if mt == 18 && kmf == 6 {
+                mf = kmf;
+                break;
+            }
+        }
+        if mf == 4 || mf == 6 {
+            if let Some(sec) = tape.section(mat, mf, mt) {
+                awr = sec.rows[0][1];
+            }
+        }
+    }
+    awr
+}
+
 /// A growable view of XSS with upstream's 1-based indexing.
 pub(super) struct Xss<'a> {
     t: &'a mut AceTable,
@@ -363,7 +400,10 @@ pub fn append_incident(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &Reco
         return;
     }
     let za = f64::from(table.nxs[nxs::ZA]);
-    let awr = table.awr;
+    let ntr_all = table.nxs[nxs::NTR] as usize;
+    let mtr_all = table.jxs[jxs::MTR] as usize;
+    let mts_all: Vec<i32> = (0..ntr_all).map(|i| table.xss.get(mtr_all + i - 1).copied().unwrap_or(0.0).round() as i32).collect();
+    let awr = acelod_awr(tape, mat, &mts_all, table.awr);
     let (prods, t) = production(tape, mat, pendf, za, izai);
     // Types present (`:9258-9282`), in upstream's order.
     let kinds: [(i32, f64, usize); 6] = [(1, 1.0, 0), (1001, 9.0, 2), (1002, 31.0, 3), (1003, 32.0, 4), (2003, 33.0, 5), (2004, 34.0, 6)];
