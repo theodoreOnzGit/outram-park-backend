@@ -6,13 +6,13 @@
 //! sphere, R = 8.7407 cm, vacuum, 4x4x4 entropy mesh, source box +-3 cm) run with
 //! `run_keff_csg_hybrid`, 1000 particles, 20 inactive, 100 ACTIVE generations fixed.
 //! Arms switch `physics::scatter::set_fission_banking_override` (PerCollision vs
-//! AtFission). Seeds 1, 2, 3. Statistic `d = k_percoll - k_atfission` over
+//! AtFission). Seeds 1 to 12 (the first three tabulated below first). Statistic `d = k_percoll - k_atfission` over
 //! `sqrt(se_a^2 + se_b^2)`.
 //!
 //! **Prediction written before running (2026-11-11):** both estimators bank the same
 //! expected number of sites per collision with fissionable material, so the
 //! eigenvalue is unchanged in expectation: |d| < 3 sigma for the seed mean (and per
-//! seed, ~0.3 % chance of one exceedance). Not a gate on physics: PRINTS the table
+//! seed, ~3 % chance of one exceedance over 12 seeds). Not a gate on physics: PRINTS the table
 //! (`--nocapture`); asserts only that both arms ran 120 generations.
 //!
 //! # Result
@@ -25,10 +25,14 @@
 //! | 3 | 1.01344 +/- 0.00293 | 1.00304 +/- 0.00408 | +1041 pcm | +2.07 |
 //! | mean | 1.01511 | 1.00911 | +600 pcm | +1.99 |
 //!
-//! Prediction met (every |d| < 3 sigma), but all three differences are positive and
-//! the mean is +1.99 sigma: not resolved, not dismissed. The two modes consume the
-//! stream differently, so the arms are independent; a systematic shift below ~1000
-//! pcm is not excluded at this statistics. A longer run would settle it.
+//! Extended to 12 seeds (seeds 4-12: +740, +582, -956, +1003, -1262, +91, -528, -585,
+//! +474 pcm; per-seed |d| max 2.30 sigma at seed 8). **12-seed mean: per-collision
+//! 1.01122, at-fission 1.01009, d = +113 pcm = +0.75 sigma.** Prediction met: no
+//! per-seed |d| >= 3 sigma and the mean is unresolved. The first three seeds alone
+//! gave +600 pcm / +1.99 sigma, a fluctuation: with 12 seeds the signs are mixed
+//! (8 positive, 4 negative). The two modes consume the stream differently, so the
+//! arms are independent. A shift below ~1/3 of the 12-seed 3-sigma (~450 pcm) is
+//! excluded; smaller ones are not.
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -106,7 +110,7 @@ fn godiva_csg_per_collision_vs_at_fission_banking_paired() {
     use outram_mc_libs::physics::scatter::{set_fission_banking_override, FissionBanking};
     let mut ds = Vec::new();
     let (mut sa, mut sb) = (0.0, 0.0);
-    for seed in [1u64, 2, 3] {
+    for seed in 1u64..=12 {
         set_fission_banking_override(Some(FissionBanking::PerCollision));
         let (ka, ea, na) = run(false, seed);
         set_fission_banking_override(Some(FissionBanking::AtFission));
@@ -120,12 +124,12 @@ fn godiva_csg_per_collision_vs_at_fission_banking_paired() {
             (ka - kb) / sig
         );
         ds.push((ka - kb, sig));
-        sa += ka / 3.0;
-        sb += kb / 3.0;
+        sa += ka / 12.0;
+        sb += kb / 12.0;
     }
-    let sm = (ds.iter().map(|(_, s)| s * s).sum::<f64>()).sqrt() / 3.0;
+    let sm = (ds.iter().map(|(_, s)| s * s).sum::<f64>()).sqrt() / 12.0;
     eprintln!(
-        "PAIRED mean of 3 seeds: per-collision {sa:.5} at-fission {sb:.5} d = {:+.0} pcm = {:+.2} sigma",
+        "PAIRED mean of 12 seeds: per-collision {sa:.5} at-fission {sb:.5} d = {:+.0} pcm = {:+.2} sigma",
         (sa - sb) * 1e5,
         (sa - sb) / sm
     );
