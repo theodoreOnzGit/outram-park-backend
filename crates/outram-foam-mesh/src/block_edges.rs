@@ -26,9 +26,10 @@
 //!
 //! A `blockMeshDict` `edges` entry replaces the straight line between two block
 //! vertices by a curve. Upstream registers `line`, `arc`, `polyLine`, `spline`
-//! (Catmull-Rom) and `BSpline` in dev `852527377c7e`; `project` and
-//! `projectCurve` need `geometry` and are reported as not implemented
-//! (gh:#1462), never skipped.
+//! (Catmull-Rom) and `BSpline` in dev `852527377c7e`. ~~`project` and
+//! `projectCurve` need `geometry` and are reported as not implemented~~
+//! **CORRECTED 2026-11-11 (gh:#1462)**: they are ported, resolved against the
+//! `geometry` by [`BlockEdge::resolve_with`] ([`crate::block_projection`]).
 //!
 //! Every curve answers one question, [`EdgeCurve::position`]: the point at the
 //! edge parameter `lambda` in `[0, 1]`. The caller places the `n + 1`

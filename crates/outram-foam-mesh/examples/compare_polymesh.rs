@@ -123,6 +123,14 @@ fn main() {
             worst_i = i;
         }
     }
+    // FNV-1a over the bit patterns: a compact frozen reference for tests
+    // (tests/block_mesh_projection.rs pins the v2506 hashes, gh:#1462).
+    let fnv = |it: &mut dyn Iterator<Item = u64>| it.fold(0xcbf29ce484222325u64, |h, b| (h ^ b).wrapping_mul(0x100000001b3));
+    println!(
+        "points fnv1a: ours {:016x} upstream {:016x}",
+        fnv(&mut m.points.iter().flat_map(|p| [p.x.to_bits(), p.y.to_bits(), p.z.to_bits()])),
+        fnv(&mut nums.iter().map(|x| x.to_bits()))
+    );
     println!("points: ours {} upstream {n}; bit-identical {identical}; worst |diff| {worst:e} at {worst_i}", m.points.len());
 
     // faces

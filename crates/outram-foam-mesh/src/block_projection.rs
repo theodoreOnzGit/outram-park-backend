@@ -1484,3 +1484,107 @@ impl Geometry {
         Ok(Geometry { surfaces, flavour })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn apply(m: &Mat, v: Vector3) -> Vector3 {
+        mat_vec(m, v)
+    }
+
+    /// `rotationTensor(n1, n2)` maps n1 to n2 in the three branches
+    /// (general, contradirectional, codirectional) and is a proper rotation.
+    #[test]
+    fn rotation_tensor_branches() {
+        let x = Vector3::new(1.0, 0.0, 0.0);
+        let y = Vector3::new(0.0, 1.0, 0.0);
+        for (a, b) in [(x, y), (x, -x), (x, x), (y, -y)] {
+            let r = rotation_tensor(a, b);
+            let m = apply(&r, a);
+            assert!((m - b).mag() < 1e-15, "{a:?} -> {b:?}: {m:?}");
+            // orthonormal: R R^T = I
+            let rt: Mat = std::array::from_fn(|i| std::array::from_fn(|j| r[j][i]));
+            let id = mat_mul(&r, &rt);
+            for i in 0..3 {
+                for j in 0..3 {
+                    let want = if i == j { 1.0 } else { 0.0 };
+                    assert!((id[i][j] - want).abs() < 1e-15);
+                }
+            }
+        }
+    }
+
+    /// `Ra(a, omega)` is the right-handed rotation about `a`, and scaling a
+    /// matrix scales its action.
+    #[test]
+    fn rotation_about_axis_and_scale() {
+        let z = Vector3::new(0.0, 0.0, 1.0);
+        let r = rotation_about(z, std::f64::consts::FRAC_PI_2);
+        let v = apply(&r, Vector3::new(1.0, 0.0, 0.0));
+        assert!((v - Vector3::new(0.0, 1.0, 0.0)).mag() < 1e-15);
+        let v = apply(&mat_scale(&r, 2.0), Vector3::new(1.0, 0.0, 0.0));
+        assert!((v - Vector3::new(0.0, 2.0, 0.0)).mag() < 1e-15);
+    }
+
+    /// `plane::planeIntersect`: the line of two perpendicular planes, with the
+    /// zeroed component chosen from the largest component of the direction.
+    #[test]
+    fn plane_intersection_line() {
+        let z = Vector3::new(0.0, 0.0, 1.0);
+        let x = Vector3::new(1.0, 0.0, 0.0);
+        let y = Vector3::new(0.0, 1.0, 0.0);
+        let r = plane_intersect(Vector3::new(0.0, 0.0, 2.0), z, Vector3::new(3.0, 0.0, 0.0), x);
+        assert!((r.dir - Vector3::new(0.0, 1.0, 0.0)).mag() < 1e-15);
+        assert!((r.ref_point - Vector3::new(3.0, 0.0, 2.0)).mag() < 1e-15);
+        let r = plane_intersect(Vector3::new(0.0, 5.0, 0.0), y, Vector3::new(1.0, 0.0, 0.0), x);
+        assert!((r.ref_point - Vector3::new(1.0, 5.0, 0.0)).mag() < 1e-15);
+        // both line-projection flavours land on the line from an off-line point
+        let near = Vector3::new(3.5, 0.5, 2.5);
+        let line = plane_intersect(Vector3::new(0.0, 0.0, 2.0), z, Vector3::new(3.0, 0.0, 0.0), x);
+        for d in [onto_line(&line, near), onto_line_esi(&line, near)] {
+            let p = near + d;
+            assert!((p.x - 3.0).abs() < 1e-15 && (p.z - 2.0).abs() < 1e-15);
+        }
+    }
+
+    /// `linearInterpolationWeights`: end clamps and the interior weights, both
+    /// flavours.
+    #[test]
+    fn linear_weights_both_flavours() {
+        let s = [0.0, 0.25, 1.0];
+        for fl in [ProjectionFlavour::Dev, ProjectionFlavour::Esi] {
+            let mut w = LinearWeights::new(&s, fl);
+            let (iw, n) = w.value_weights(-1.0);
+            assert_eq!((iw[0].0, n), (0, 1));
+            let (iw, n) = w.value_weights(0.625);
+            assert_eq!(n, 2);
+            assert_eq!((iw[0].0, iw[1].0), (1, 2));
+            assert!((iw[0].1 - 0.5).abs() < 1e-15 && (iw[1].1 - 0.5).abs() < 1e-15);
+            let (iw, n) = w.value_weights(2.0);
+            assert_eq!((iw[0].0, n), (2, 1));
+            // cached slot reused
+            let (iw, _) = w.value_weights(0.5);
+            assert_eq!(iw[0].0, 1);
+        }
+    }
+
+    /// An empty surface list is an error; a list of known names resolves;
+    /// `sweep_transpose` follows the first anchor edge found in the loop.
+    #[test]
+    fn surface_ids_errors_and_sweep_transpose() {
+        let g = Geometry {
+            surfaces: vec![(
+                "a".into(),
+                SearchableSurface::plane(Vector3::ZERO, Vector3::new(0.0, 0.0, 2.0)),
+            )],
+            flavour: ProjectionFlavour::Dev,
+        };
+        assert!(g.surface_ids(&[]).is_err());
+        assert!(g.surface_ids(&["b".to_string()]).is_err());
+        assert_eq!(g.surface_ids(&["a".to_string()]).unwrap(), vec![0]);
+        assert!(!sweep_transpose(&[0, 1, 2, 3, 4, 5, 6, 7], 2, &[0, 1, 5, 4]));
+        assert!(sweep_transpose(&[0, 1, 2, 3, 4, 5, 6, 7], 2, &[1, 5, 4, 0]));
+        assert!(!sweep_transpose(&[0, 1, 2, 3, 4, 5, 6, 7], 2, &[9, 8, 7, 6]));
+    }
+}

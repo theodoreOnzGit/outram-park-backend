@@ -67,8 +67,13 @@
 //!   (gh:#1461)**: `edges` (`line`, `arc` in both forms, `polyLine`, `spline`,
 //!   `BSpline`) are parsed and applied, see [`crate::block_edges`]; a block
 //!   with a listed edge takes the full 12-edge blend plus upstream's
-//!   curved-edge correction. `project` / `projectCurve` edges, `geometry`,
-//!   `faces`, `namedVertices` / `namedBlocks` and `#calc` / `#include`
+//!   curved-edge correction. ~~`project` / `projectCurve` edges, `geometry`,
+//!   `faces`~~ **CORRECTED 2026-11-11 (gh:#1462)**: `geometry` (sphere,
+//!   cylinder, plane), `project` vertices, `project` / `projectCurve` edges and
+//!   `project` / `sweep` block faces are ported, see
+//!   [`crate::block_projection`]; a surface type that is not ported (including
+//!   `triSurface`, `extrudedCircle`, `plate`) returns
+//!   [`MeshError::NotImplemented`]. `#calc` / `#include` and `namedBlocks`
 //!   return [`MeshError::NotImplemented`]; they are never skipped.
 //! - `units [mm]` (a single length unit), `convertToMeters` and `scale` are
 //!   read, at most one of the three (gh:#1463). `defaultPatch { name; type; }`
@@ -100,9 +105,11 @@
 //!
 //! The straight-edge branch and, since 2026-11-11 (gh:#1461), the curved-edge
 //! correction of OpenFOAM `block::createPoints` (`blockCreate.C:45-183`) are
-//! ported. The curved-**face** projection passes (`blockCreate.C:185-345`) are
-//! **not** implemented (gh:#1462), consistent with `projectFace` above.
-//! For blocks with planar faces (straight or curved edges only) the
+//! ported. ~~The curved-**face** projection passes (`blockCreate.C:185-345`)
+//! are **not** implemented (gh:#1462)~~ **CORRECTED 2026-11-11 (gh:#1462)**:
+//! they are, in [`crate::block_projection::apply_curved_faces`]; a block with no
+//! `faces` entry never enters them. For blocks with planar faces (straight or
+//! curved edges only) the
 //! blend is exact and volume-preserving; a warped internal face between cells of
 //! a per-edge-graded block is expected and handled by the divergence-theorem
 //! cell geometry. For multi-block meshes, matching gradings on any **shared**
@@ -1457,9 +1464,10 @@ impl BlockMeshDict {
     /// Parse `blockMeshDict` text into a [`BlockMeshDict`].
     ///
     /// Handles `//` and `/* */` comments, the `FoamFile` header, and the
-    /// `convertToMeters`/`scale`/`units`, `vertices`, `blocks`, `edges`,
-    /// `defaultPatch`, `boundary`/`patches` and an empty `mergePatchPairs`
-    /// entries, after expanding `$name` variables. See the module docs for
+    /// `convertToMeters`/`scale`/`units`, `geometry`, `vertices` (including
+    /// `project`), `blocks`, `edges` (including `project`/`projectCurve`),
+    /// `faces`, `defaultPatch`, `boundary`/`patches` and an empty
+    /// `mergePatchPairs` entries, after expanding `$name` variables. See the module docs for
     /// deferred features.
     ///
     /// # Errors
@@ -1467,7 +1475,7 @@ impl BlockMeshDict {
     /// `convertToMeters`/`scale`/`units`, or a `defaultPatch` without `type`);
     /// [`MeshError::NotImplemented`] for an unsupported block shape (only
     /// `hex`), a macro that is not expanded, or a keyword listed in the module
-    /// docs (`geometry`, `faces`, `project` edges, non-empty
+    /// docs (a surface type that is not ported, non-empty
     /// `mergePatchPairs`, ...). All grading forms —
     /// `simpleGrading`, multi-grading, and full per-edge `edgeGrading` — parse.
     pub fn parse(text: &str) -> Result<Self, MeshError> {
@@ -2016,8 +2024,9 @@ fn parse_vector(cur: &mut Cursor) -> Result<Vector3, MeshError> {
 /// (through a point, or angle and axis), `polyLine`, `spline` and `BSpline`.
 ///
 /// # Errors
-/// [`MeshError::NotImplemented`] for `project` / `projectCurve` (they need
-/// `geometry`, gh:#1462); [`MeshError::DictParse`] for an unknown type.
+/// ~~[`MeshError::NotImplemented`] for `project` / `projectCurve`~~ **CORRECTED
+/// 2026-11-11 (gh:#1462)**: they parse to [`BlockEdgeKind::Project`] /
+/// [`BlockEdgeKind::ProjectCurve`]; [`MeshError::DictParse`] for an unknown type.
 fn parse_edges(cur: &mut Cursor) -> Result<Vec<BlockEdge>, MeshError> {
     cur.expect("(")?;
     let mut out = Vec::new();

@@ -83,4 +83,127 @@ P9. **Nothing is silently skipped.** `extrudedCircle`, `plate`, `box`, `disk`,
 
 ## Results
 
-(filled in below after the runs)
+Measured 2026-11-11. `cargo test --release -p outram-foam-mesh --test
+block_mesh_projection`: 13 pass (the three misses below are pinned as
+observations, with the prediction quoted in each test). Differential: v2506
+`blockMesh` run on the five `tests/fixtures/proj_*.dict` with
+`writePrecision 17` and `convertToMeters 1`; compared with
+`examples/compare_polymesh` (`PROJECT_FACE_FLAVOUR=esi` for the v2506 flavour).
+The topology (faces, owner, neighbour, patches) was identical on every case in
+both flavours.
+
+### Differential against OpenFOAM.com v2506 (`points`, bit-identical count)
+
+| case | points | dev flavour (default) | v2506 flavour |
+|---|---|---|---|
+| `proj_vertex` (8 projected vertices, sphere) | 210 | 210 / 210, worst 0 | 210 / 210, worst 0 |
+| `proj_edges` (sphere7ProjectedEdges, no faces) | 7351 | 3169 / 7351, worst 1.1e-16 | **7351 / 7351** |
+| `proj_faces` (sphere7ProjectedEdges, with faces) | 7351 | 1221 / 7351, worst **5.8e-4** | **7351 / 7351** |
+| `proj_cyl` (cylinder edges and faces) | 567 | 126 / 567, worst 4.4e-16 | **567 / 567** |
+| `proj_two` (edges on cylinder and plane) | 567 | 125 / 567, worst 6.7e-16 | **567 / 567** |
+| T3A (8 arcs, gh:#1461 item, dev flavour irrelevant) | 54496 | 49965 / 54496, worst 1.1e-16 | not run |
+
+The v2506 flavour reproduces the binary on every point of the five projection
+cases (FNV-1a of the bit patterns is frozen in the test). T3A is the pending
+upstream differential of the curved-edge work (`block_mesh_curved_edges.md`):
+topology identical, 91.7 % of points bit-identical, worst difference one ulp
+(1.1e-16), the PETIR `cos`/`sin`/`tan`/`acos` against glibc as predicted there.
+
+### Predictions against results
+
+| P | result | verdict |
+|---|---|---|
+| P1 | sphere radial error < 4e-16 R, centre case `(R,0,0)`, cylinder wall and cap, plane exact | held |
+| P2 | `proj_vertex`: 210 / 210 bit-identical in both flavours | held |
+| P3 | v2506 flavour: 7351 / 7351. Edge nodes on the sphere to < 1e-14, at most 4 passes on a 10-division edge (test). **The dev flavour is NOT bit-identical** (3169 / 7351, worst one ulp). | held for v2506 flavour, MISS for the dev default |
+| P4a | v2506 flavour 7351 / 7351 | held |
+| P4b | wall nodes: v2506 1.1e-16 R (held); dev **2.1e-4 R**, predicted 1e-9 to 1e-4 | MISS (upper bound by a factor 2) |
+| P4c | dev vs v2506 worst point difference 7.9e-4 R, predicted <= 1e-3 | held |
+| P5 | v2506 flavour 567 / 567; dev wall radial error 2.2e-16 (the first projection converges at once on a cylinder) | held |
+| P6 | both flavours: projected vertices within 1e-8 of the circle; dev vs v2506 7.1e-16; v2506 flavour 567 / 567 | held |
+| P7 torus, factor 0 on the major edges | exact: worst 2.0e-15; the 50 other nodes are the two flat end discs | held |
+| P7 torus, factor 1 on the minor edges | **NOT exact: worst 1.2e-4** (predicted 1e-12) | MISS |
+| P7 torus, factor 0 on the minor edges (wrong orientation) | off the torus (270 nodes, 220 beyond the discs) | held |
+| P7 sphere block | **0.139** from the sphere (8 % of the radius), predicted 1e-4 to 1e-1 | MISS (upper bound) |
+| P8 | `block_mesh`, `block_mesh_curved_edges`, `block_mesh_upstream_numbering` (cavity, T3A, pitz pinned against the v2506 run) and the 72 lib tests pass; `outram-blender --features block-mesh` compiles and its box test passes | held |
+| P9 | every unported surface type, undefined surface, bad face refused | held |
+
+### What the misses and the late findings are
+
+1. **The dev flavour is not bit-identical to v2506, by two arithmetic
+   differences the pre-run diff did not list.** v2506's sphere is
+   `radius*n/magN` (dev `n/magN*radius`), and v2506's
+   `linearInterpolationWeights` are `(t1-t)/dT, 1-w0` (dev `1-f, f`); both
+   one-ulp effects. v2506's multi-surface loop also uses `SMALL = 1e-15` where
+   dev's `small` is epsilon (found when `proj_two` stalled at 152 / 567 with
+   the epsilon, then reached 567 / 567). All three are now in the table in
+   `block_projection.rs` (`ProjectionFlavour`), and the v2506 flavour is what
+   the frozen hashes pin. The dev code stays the default because it is the
+   specification; **it is not verified against any dev binary** (none exists
+   here).
+2. **P4b**: with the dev loop the converged face points are left off the
+   surface by the last i residual, 2.1e-4 R on the 10-division sphere face,
+   twice my upper bound; the v2506 loop leaves them on it. This is upstream's
+   behaviour difference, not a port defect, but it is a real accuracy
+   difference between the two OpenFOAM lines (`projectFace` in dev ends a
+   converged iteration before the j residual and before the next projection).
+3. **P7, the torus.** The tutorial calls the minor-sweep factor-1 case
+   "exact"; this port gives 1.2e-4 on a 6 x 6 x 12 block and 3.3e-3 against the
+   equal-angle points in a direct test, **independent of the number of rows**
+   (`p7b_sweep_twist_error_does_not_shrink_with_rows`: 12 rows 3.25e-3, 96 rows
+   3.34e-3). The cause: each row adds the same dihedral increment (measured
+   `-0.0926` for 12 rows, `-0.01157` for 96, both `phi * (y . chord)`), so the
+   twist is linear in the row angle while the twist of a finite rotation about
+   the major axis is not. The sign was tested (flipping it is far worse:
+   0.1 to 0.5). The transcription was re-read line by line against
+   `sweepFace.C`, the factor-0 major case is exact to 2e-15, and the
+   transposed branch is exercised; so I judge this upstream behaviour, but it
+   **cannot be confirmed without a dev `blockMesh`**, and the tutorial's word
+   "exact" is not reproduced. **Flagged for the maintainer.**
+4. **P7, the sphere block** falls short of the sphere by 0.139, consistent with
+   the tutorial's "not exact ... falls short", at a larger size than I
+   predicted.
+
+## What this does and does not show
+
+- v2506 is matched bit for bit on `project` vertices, edges and faces for the
+  sphere and the cylinder, and on two-surface edges; that checks the port of
+  the *algorithms* (the loops, the weights, the three correction passes). It
+  does not check the dev-only differences (the dev face loop, the dev
+  multi-surface step) against any binary.
+- `sweep` has no binary differential at all (v2506 has no `sweepFace`); it is
+  checked only analytically, with the miss above.
+- Not ported, refused with `NotImplemented`: `triSurface` / `triSurfaceMesh`,
+  `extrudedCircle` (and `projectCurve`'s special handling of it), `plate`,
+  `box`, `disk`, planes given by equation or three points. The dev `pipe`,
+  `sphere` and `sweep` (cone) tutorials need one of these or `#eval`/`#calc`/
+  named vertices with projection, so they were not run.
+- Dicts use the `searchableSphere` / `searchableCylinder` / `searchablePlane`
+  names and `centre`; the port also reads the dev names (`sphere`,
+  `cylinder`, `plane`) and `origin`.
+
+## Drawings (`images/`)
+
+Drawn from the built `PolyMesh` by `examples/draw_block_mesh.rs`
+(`--cut Z` draws the section of the mesh by the plane `z = Z`, boundary faces
+red; `--esi` selects the v2506 flavour).
+
+- `proj_sphere7_edges_only_section.png`: sphere7ProjectedEdges, edges projected
+  but no `faces`, section z = 0.0123: the outer boundary is a rounded square
+  (the six outer block faces are flat between projected edges).
+- `proj_sphere7_faces_dev_section.png`, `proj_sphere7_faces_v2506_section.png`:
+  the same with the six `project` faces: the section is a circle of radius 1.
+- `proj_cylinder_block_zmin.png`: one block with four cylinder-projected side
+  faces, plane z = 0.2: a square block mapped to a disc.
+- `sweep_sphere_block_section.png`, `sweep_torus_minor1_section.png`,
+  `sweep_torus_major0_section.png`: swept blocks, sections z = 1.013 / 1.513.
+
+Checked in the images: the section outlines are the expected curves (circle
+for the faces-projected sphere, rounded square without faces, disc for the
+cylinder block); the cells are all visible and none folds or crosses at this
+resolution; the sphere7 inner block stays a rounded cube around the centre.
+Not checked: cell quality below a pixel (only that `to_fv_mesh` accepts the
+mesh in the dome test), the torus sections are oblique cuts through curved
+cells so they show diagonal crossings and say nothing about the 1.2e-4 miss,
+and the dev and v2506 sphere sections differ by 8e-4 R at most, which is
+invisible at this size.
