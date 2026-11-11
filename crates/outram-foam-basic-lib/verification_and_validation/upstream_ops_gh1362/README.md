@@ -179,3 +179,60 @@ limiters, whose formulas are already `>= 0`). **Predicted:** `limiter vanAlbada 
 `limiter OSPRE [r<0]` go from 1/82 to 82/82, 0 ulp, on both meshes; every other row unchanged. Only
 consumers of `FluxLimiter::{VanAlbada, Ospre}` move; a grep of the workspace finds none outside
 `limiters.rs` and this test (pflotran and tampines use other variants), so no solver number should move.
+
+## Task 2/3 (gh:#1362 / gh:#1489 follow-up): new rows, prediction written 2026-11-11 BEFORE the Rust side was run
+**Harness added** (`driver/opsDump.C`, `inputs/fvSchemes`; the old dump keys are byte-identical after
+the rebuild, 0 lines removed from either reference file): `linearUpwind grad(T)`,
+`limitedLinear 1` and `0.5` through `surfaceInterpolationScheme::New` (flux +1 / -1); `limitedLinear`
+with k = 1e-16 on a grid of tiny r; `fvc::grad(T, "grad(Tls)")` with `leastSquares`; `mesh.nonOrthCorrectionVectors()`;
+`snGradScheme` `corrected`, `limited corrected 0.33`, `limited corrected 0.5` (full `snGrad` and
+`correction`); `fvm::laplacian` with `Gauss linear corrected` and `Gauss linear limited corrected 0.33`
+(diag, upper, source, patch coefficients, `faceFluxCorrection`); `fvc::div(phi, U)` (vector) and `fvc::div(S)`
+(tensor, `Sf & S_f`) with polynomial fixedValue inputs; a second scalar field `Tm` with an inlet
+`fixedGradient` (uniform 0.7), an outlet `mixed` (per-face refValue/refGrad/valueFraction) and walls `mixed`
+(uniform), dumping its boundary values, Gauss gradient, linear face values, uncorrected `snGrad` and the
+uncorrected Laplacian matrix. Read upstream (ESI v2506): `leastSquaresVectors.C`, `leastSquaresGrad.C`,
+`SymmTensorI.H` (`safeInv`), `correctedSnGrad.C`, `limitedSnGrad.C`, `basicFvGeometryScheme.C`
+(`nonOrthCorrectionVectors`), `linearUpwind.C`, `limitedLinear.H`, `mixedFvPatchField.C`,
+`gaussLaplacianScheme.C`, `gaussDivScheme.C`, `surfaceIntegrate.C`.
+
+**Predicted agreement, hex and polyDual alike, port as it stands:**
+- `linearUpwind`: the port has no such scheme (it is a new function), nothing to compare. With the
+  function written in upstream order (`(1*(P-N)+N) + (Cf - C_upwind) & grad[C_upwind]`, gradient the
+  Gauss-linear `fvc::grad`) I predict **bit-identical**, every face, both signs.
+- `limitedLinear 1`, `0.5` reconstruction: absent as `Limiter` variants. With a `LimitedLinear(k)` variant
+  evaluating `max(min(twoByk*r, 1), 0)`, `twoByk = 2/max(k, small)`, through the existing `NVDTVD::r`
+  path: **bit-identical**. `limiter limitedLinear k=1e-16`: the port floors `k` at `1e-30`, upstream at
+  `small` = 1e-15 (v2506 `doubleScalarSmall`); on the tiny-r grid I predict **5/7 identical, 2 differ**
+  (r = 2.2e-16, 4.4e-16: upstream 0.44 and 0.89, port saturates at 1), then 7/7 after the floor is `1e-15`.
+- `leastSquares` gradient: the port solves the per-cell normal equations by Gaussian elimination with weight
+  `1/|d|^2` and `|Cf - C|` at boundaries; upstream uses `magSf/magSqr(d)` weights split `(1-w)`, `w`, the
+  patch-normal `delta` at boundaries, `safeInv` (adjunct/det) and per-face vectors. Same linear-exact
+  answer, different arithmetic: I predict **most cells differ, relative 1e-16..1e-13** (not bit-identical);
+  after translating upstream exactly, **bit-identical**.
+- `nonOrthCorrectionVectors`: the port's `non_ortho_geometry` forms `n = sf*(1/magSf)`, upstream `Sf/magSf`:
+  **differ on a fraction of internal faces by an ulp or two**; boundary vectors are zero upstream and
+  not computed by the port's `fvc` (it applies a boundary correction instead, below).
+- `snGrad corrected`: no `fvc` function in the port (a new function). Written in upstream order:
+  `nonOrthDeltaCoeffs*(N-P)` + `nonOrthCorrectionVectors & (w*(g_P-g_N)+g_N)`, boundary = patch
+  `snGrad` and zero correction: **bit-identical**. `limited corrected 0.33/0.5`: the port's
+  `NonOrthoScheme::Limited(w)` multiplies the correction by `w`; upstream's factor is
+  `min(w*|snGrad|/((1-w)*|corr| + SMALL), 1)`. These are different schemes: predicted **all faces with a
+  non-zero correction differ at O(1) relative** (not an ulp), until the upstream limiter is implemented.
+- Laplacian `corrected` / `limited`: the port's `laplacian_corrected` (a) takes the face gradient as the
+  arithmetic mean of the two cell gradients (upstream: `w*(P-N)+N`, weights not 0.5), (b) adds the
+  explicit term to `source` per face, not as `V*div(faceFluxCorrection)`, (c) switches the implicit
+  coefficient to `gamma*magSf*deltaCoeff` as `delta = coeff_corr - coeff_orth` increments, (d) corrects
+  non-coupled Dirichlet boundary faces, where upstream's boundary correction vector is zero. Predicted:
+  **upper differs on every non-orthogonal face (ulps), diag and source on nearly every cell; the explicit
+  part differs at O(1e-2..1e-1) relative where the gradient varies across a face (the 0.5 mean against the
+  true weight), and the boundary cells differ by (d)**.
+- `fvc::div(phi, U)` (vector) and `fvc::div(S)` (tensor): the port multiplies by `1/V`, upstream divides:
+  **about a quarter to a third of the components differ by 1 ulp**; scalar `div` rows (already `/V`) stay
+  identical. Face interpolation of vectors/tensors uses the generic `w*(P-N)+N` and should add nothing.
+- `Tm` boundary values: fixedGradient `P + g*delta` (port) against `P + g/deltaCoeffs` (upstream): **ulp
+  differences on a fraction of faces**; mixed `ref*w + (P + g*delta)*(1-w)` against
+  `w*ref + (1-w)*(P + g/deltaCoeffs)`: **ulp differences on a fraction**. `snGrad` mixed: port
+  `w*(dc*(ref-P)) + (1-w)*g` against upstream `((w*(ref-P))*dC) + (1-w)*g`: **ulp differences**. Laplacian
+  mixed: port `w*coeff`, `w*coeff*ref + (1-w)*coeff*d*g` against upstream `gm*((-w)*dC)` and
+  `-(gm*(((w*dC)*ref) + (1-w)*g))`: **ulp differences**. fixedGradient Laplacian `gm*g`: **identical**.

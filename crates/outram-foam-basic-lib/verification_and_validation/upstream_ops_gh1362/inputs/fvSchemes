@@ -1,7 +1,7 @@
 FoamFile { version 2.0; format ascii; class dictionary; object fvSchemes; }
 ddtSchemes{default Euler;}
-gradSchemes{default Gauss linear;}
+gradSchemes{default Gauss linear; grad(Tls) leastSquares;}
 divSchemes{default Gauss linear;}
-laplacianSchemes{default Gauss linear uncorrected;}
+laplacianSchemes{default Gauss linear uncorrected; laplacian(gam,Tc) Gauss linear corrected; laplacian(gam,Tl) Gauss linear limited corrected 0.33;}
 interpolationSchemes{default linear;}
 snGradSchemes{default uncorrected;}
