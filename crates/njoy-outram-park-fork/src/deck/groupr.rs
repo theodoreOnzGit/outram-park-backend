@@ -217,6 +217,10 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
                 crate::groupr::njoy_panel::PanelFeed::Vector
             };
             let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, iwt, &egn, first, emaxx, ratio, 1)?;
+            if rows.is_empty() {
+                // threshold above the top group: `ig1 = 0`, nothing written (`:566-578`, `asend` needs `ig1 /= 0`).
+                continue;
+            }
             g.begin(inp.matb, 3, mtd);
             g.cont([za, 0.0], [1, 1, lrflag, (egn.len() - 1) as i32]);
             for (ig, ng2, ig2lo, data) in rows {
@@ -254,6 +258,9 @@ fn write_mf6_two_body(
     let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, egn, head.c2, tab.head.c2, lrflag)?;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::TwoBodyNl(tb, nl);
     let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
+    if rows.is_empty() {
+        return Ok(());
+    }
     g.begin(inp.matb, 6, mtd);
     g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
@@ -285,6 +292,9 @@ fn write_mf6_continuum(
     let nl = cf.nl;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::Continuum(cf);
     let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
+    if rows.is_empty() {
+        return Ok(());
+    }
     g.begin(inp.matb, 6, mtd);
     g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
@@ -314,6 +324,9 @@ fn write_mf6_thermal(
     let tf = crate::groupr::thermal::ThermalFeed::new(pend, inp.matb, mtd, egn, nl)?;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::Thermal(tf);
     let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
+    if rows.is_empty() {
+        return Ok(());
+    }
     g.begin(inp.matb, 6, mtd);
     g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
@@ -350,6 +363,9 @@ fn write_mf16_photon(
     let nl = pf.nl;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::Photon(pf);
     let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
+    if rows.is_empty() {
+        return Ok(());
+    }
     g.begin(inp.matb, 16, mtd);
     g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {

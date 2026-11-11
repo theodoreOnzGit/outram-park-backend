@@ -579,3 +579,29 @@ fn test_01_groupr_gendf_mf16_mt102() {
     assert!(bl.len() >= 72 && diffs.is_empty());
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
 }
+
+/// **Test 01 GROUPR: the WHOLE GENDF tape (unit 27), every line, against NJOY2016.80.**
+///
+/// Deck as `test_01_groupr_gendf_head`. Methodology: run the upstream deck (plus
+/// `moder -24 27`) through this crate's deck driver and through the compiled
+/// NJOY2016 and compare `tape27` line for line, MF=1 head, MF=3, MF=6 and MF=16
+/// together with every FEND/SEND/MEND/TEND card and sequence number (`E: tape27`
+/// is the GENDF; the sections are the union of the per-section tests above).
+/// Pass criterion: identical line count and zero differing lines. Prediction:
+/// identical (every section already matches individually).
+#[test]
+fn test_01_groupr_gendf_whole_tape() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "01", None, "moder\n -24 27/\n") else { return };
+    let Some((ours, njoy)) = run_pair_decks_extra(&root, "t01gw", "t511", &[("t322", 26)], &deck, &deck) else { return };
+    let a = std::fs::read_to_string(ours.join("tape27")).unwrap();
+    let b = std::fs::read_to_string(njoy.join("tape27")).unwrap();
+    let (al, bl): (Vec<&str>, Vec<&str>) = (a.lines().collect(), b.lines().collect());
+    let diffs: Vec<usize> = (0..al.len().max(bl.len())).filter(|&i| al.get(i) != bl.get(i)).collect();
+    println!("test 01 GENDF whole tape: {} differing lines of {} (ours {})", diffs.len(), bl.len(), al.len());
+    for &i in diffs.iter().take(6) {
+        println!("  line {}\n  ours: {:?}\n  njoy: {:?}", i + 1, al.get(i), bl.get(i));
+    }
+    assert!(bl.len() > 1000 && diffs.is_empty());
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
