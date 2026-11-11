@@ -69,13 +69,60 @@ use njoy_outram_park_fork::nuclear_data::secondary::ContinuumEmission;
 use std::f64::consts::PI;
 use crate::mathf::RealMath;
 
+/// How far `|u|^2` may drift from 1 before a direction is renormalised:
+/// `sqrt(f64::EPSILON)` (about 1.5e-8), the point at which half the mantissa
+/// of the norm has been lost. Fixed from that definition, not from any run
+/// (gh:#1497).
+///
+/// Round-off alone keeps a direction far inside it: 2e5 successive rotations
+/// of a unit vector by isotropic cosines drift `|u|^2 - 1` to about 1e-12 to
+/// 1e-11. So on a healthy history [`renormalise_if_drifted`] never fires and the
+/// kernels below stay bit-identical to their upstream.
+pub const DIRECTION_NORM_DRIFT_TOL: f64 = 1.4901161193847656e-8;
+
+/// `u` unchanged (bit for bit) when `| |u|^2 - 1 | <= DIRECTION_NORM_DRIFT_TOL`,
+/// otherwise `u / |u|`. A NaN norm is returned unchanged.
+///
+/// **New work, not a port (gh:#1497).** OpenMC's `rotate_angle`
+/// (`src/math_functions.cpp:772`) and `sab_scatter` (`src/physics.cpp:871`)
+/// never renormalise the particle direction. `rotate_angle` multiplies a
+/// norm error `eps = |u|^2 - 1` of its input by about `1 + a^2/b^2`
+/// (`a = sqrt(1 - mu^2)`, `b = sqrt(1 - w^2)`), which is unbounded as `|w| -> 1`.
+/// Through a run of S(alpha,beta) collisions, where no free-gas elastic
+/// collision rebuilds `u` from a velocity, the error is never reset: on the
+/// HTR-10 DH pebble (graphite, 4000 x 60 histories) it grew from round-off to
+/// `|u| = 2.9` within one history, after which the near-pole branch took
+/// `sqrt(1 - v^2)` of a negative number, the direction became NaN, the next
+/// free-gas elastic collision turned it into a NaN energy, and `NuBar::at`
+/// panicked. Upstream has the same exposure; it is guarded here instead of
+/// copied.
+#[inline]
+pub fn renormalise_if_drifted(u: Direction) -> Direction {
+    let n2 = u.u * u.u + u.v * u.v + u.w * u.w;
+    if (n2 - 1.0).abs() > DIRECTION_NORM_DRIFT_TOL {
+        let n = n2.sqrt();
+        Direction::new(u.u / n, u.v / n, u.w / n)
+    } else {
+        u
+    }
+}
+
 /// Rotate the unit direction `u` by scattering cosine `mu` and a uniformly
 /// sampled azimuth φ ∈ [0, 2π), returning the new unit direction.
+///
+/// [`rotate_direction_unguarded`] with its input and its output passed through
+/// [`renormalise_if_drifted`] (gh:#1497): bit-identical to it whenever the
+/// direction's norm is within [`DIRECTION_NORM_DRIFT_TOL`] of 1.
+pub fn rotate_direction(u: Direction, mu: f64, seed: &mut u64) -> Direction {
+    renormalise_if_drifted(rotate_direction_unguarded(renormalise_if_drifted(u), mu, seed))
+}
+
+/// The rotation of [`rotate_direction`] without the norm guard.
 ///
 /// This is the standard OpenMC `rotate_angle`: it builds an orthonormal frame
 /// around `u` and tilts by `(mu, φ)`. The near-pole branch (`|w| ≈ 1`) rotates
 /// about the x-axis instead to avoid dividing by √(1−w²) ≈ 0.
-pub fn rotate_direction(u: Direction, mu: f64, seed: &mut u64) -> Direction {
+pub fn rotate_direction_unguarded(u: Direction, mu: f64, seed: &mut u64) -> Direction {
     let phi = 2.0 * PI * prn(seed);
     let (sinphi, cosphi) = phi.r_sin_cos();
     let a = (1.0 - mu * mu).max(0.0).sqrt();
@@ -1531,12 +1578,29 @@ pub fn cm_lab_rotate(
     }
 }
 
+/// [`rotate_angle_openmc_unguarded`] (upstream's `rotate_angle`) with its input
+/// and its output passed through [`renormalise_if_drifted`] (gh:#1497). On any
+/// direction whose `|u|^2` is within [`DIRECTION_NORM_DRIFT_TOL`] of 1 (every
+/// direction of a healthy history) it is bit-identical to upstream; it differs
+/// only where upstream's own direction has drifted far enough to head for NaN.
+/// This is what transport calls.
+pub fn rotate_angle_openmc(u: Direction, mu: f64, phi: Option<f64>, seed: &mut u64) -> Direction {
+    renormalise_if_drifted(rotate_angle_openmc_unguarded(renormalise_if_drifted(u), mu, phi, seed))
+}
+
 /// `rotate_angle(u, mu, nullptr, seed)` (`src/math_functions.cpp:772`): rotate the
 /// unit direction `u` by `mu` with an azimuth sampled uniformly (one draw, or
 /// `phi` when given). Differs from [`rotate_direction`] only in the near-pole
 /// branch (`1 - w^2 <= 1e-20`), where upstream expands about the `v` component
 /// with `sin`/`cos` swapped, and in using `fmax` for the `a`, `b` radicands.
-pub fn rotate_angle_openmc(u: Direction, mu: f64, phi: Option<f64>, seed: &mut u64) -> Direction {
+/// The translation as upstream has it, with no norm guard: the oracle for
+/// [`rotate_angle_openmc`].
+pub fn rotate_angle_openmc_unguarded(
+    u: Direction,
+    mu: f64,
+    phi: Option<f64>,
+    seed: &mut u64,
+) -> Direction {
     // Sample azimuthal angle in [0,2pi) if none provided
     let phi_ = match phi {
         Some(p) => p,
