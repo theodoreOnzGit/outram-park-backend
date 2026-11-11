@@ -1445,3 +1445,19 @@ means the NJOY2016 port (`reconr`, `broadr`, `purr`/`unrest`, `thermr`,
 - Fixing a genuine defect in the port is a separate matter: it follows the
   root `CLAUDE.md` rules ("read upstream first", and the closed-to-modification
   rule for kovan-reviewed functions), not this one.
+
+## ACER of an incident charged particle is NJOY2016's in every word (2026-11-11, GitHub #1485)
+
+`acefc.f90`'s `izai != 1` branches are ported (`acer::charged`, `charged_coulomb`,
+`acelcp`, `acelcp_ext`). Test decks 14, 50, 51, 52, 53, 54, 62 and 71 give unit
+31's ACE identical to NJOY2016's in every word
+(`tests/deck_driver_tapes_vs_njoy2016.rs`); `coul`, `ptlegc` and `terp1`
+`INT = 6` are bit-identical to NJOY2016's own routines apart from two
+last-ulp values that are PETIR `cos` against glibc. Three things worth
+carrying forward, each found by reading upstream and each invisible until a
+deck was compared: `acelod` leaves the module `awr` at the AWR of the last
+MF=4/6 section it read; `convr` and `gamsum` open their scratch tapes in the
+mode of the ENDF and PENDF units, so a binary deck skips `a11`'s text
+rounding; an evaluation with an empty MF=1/MT=451 dictionary has no
+production at all. Record: `verification_and_validation/acer_charged/README.md`.
+
