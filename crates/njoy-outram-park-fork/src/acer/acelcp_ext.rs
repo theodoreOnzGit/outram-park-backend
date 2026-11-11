@@ -302,7 +302,8 @@ mod tests {
         let (xs, ps, cs) = law6_grid(3);
         assert_eq!(xs.len(), ps.len());
         assert_eq!(xs[0], 0.0);
-        assert_eq!(*xs.last().unwrap(), 1.0);
+        // `sigfig(1, 7, 0)` is 1 + 1e-13 (its bias), as in NJOY's own words
+        assert!((xs.last().unwrap() - 1.0).abs() < 1.0e-12);
         assert!(xs.windows(2).all(|w| w[1] > w[0]));
         assert!(ps.iter().all(|&p| p >= 0.0));
         assert!((cs.last().unwrap() - 1.0).abs() < 1.0e-8, "cdf ends at {}", cs.last().unwrap());
