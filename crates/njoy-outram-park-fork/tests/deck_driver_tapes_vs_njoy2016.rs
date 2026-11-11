@@ -288,8 +288,7 @@ fn without_groupr(deck: &str) -> String {
 /// angular format)**: `moder; reconr; broadr; heatr; moder; groupr; acer`, ACE
 /// unit 26 against NJOY2016.80 (gh:#1449).
 ///
-/// NJOY runs the upstream deck whole; this crate runs it without the GROUPR
-/// block (it has no GENDF driver).
+/// Both run the upstream deck whole, GROUPR included (gh:#1481).
 ///
 /// **Result (2026-11-11):** with `newfor = 0` ported (every angular distribution
 /// converted to 32 equally probable bins by `ptleg`/`pttab` and stored by
@@ -306,19 +305,22 @@ fn without_groupr(deck: &str) -> String {
 /// blocked binary (negative): NJOY's grid keeps 81.99999000000082 eV, and the
 /// heating there changes by 1e3 eV-b over the 8e-13 eV that text rounding moves.
 /// NXS(1) and JXS(12-22) differ because GPD is missing. Before this port the
-/// deck was refused (`newfor = 0`). Pass criterion: exactly GPD differs.
+/// deck was refused (`newfor = 0`). ~~Pass criterion: exactly GPD differs.~~
+/// **CORRECTED 2026-11-11 (gh:#1481): GROUPR and `gamout` ported; pass criterion:
+/// no block differs** (the GENDF of card 9 `16 /` is identical line for line,
+/// `test_07_groupr_gendf_whole_tape`, and `acer::gamout` appends the 30 x 20
+/// equally probable photon matrix to GPD).
 #[test]
 fn test_07_acer_old_format_ace() {
     let root = njoy_root();
     let Some(full) = deck_text(&root, "07", None, "") else { return };
-    let ours_deck = without_groupr(&full);
-    let Some((ours, njoy)) = run_pair_decks(&root, "t07a", "t511", &full, &ours_deck) else { return };
+    let Some((ours, njoy)) = run_pair_decks(&root, "t07a", "t511", &full, &full) else { return };
     let c = ace_pair(&ours, &njoy, 26);
     for l in c.report_lines() {
         println!("{l}");
     }
     let differing: Vec<&str> = c.blocks.iter().filter(|b| !b.verdict.agrees()).map(|b| b.name).collect();
-    assert_eq!(differing, vec!["GPD"], "recorded: only GPD (GROUPR gamout) differs");
+    assert!(differing.is_empty(), "recorded: every block identical: {differing:?}");
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
 }
 

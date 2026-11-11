@@ -176,6 +176,7 @@ impl NuclearCrossSections {
             kerma: self.heating.clone(),
             damage_energy: self.damage_energy.clone(),
             newfor: 1,
+            photon_matrix: None,
             mt444: None,
         };
         crate::acer::assemble(&self.tape, self.mat, &self.pendf, K_B_MEV * t_k, self.settings.ace_suffix, &modules)

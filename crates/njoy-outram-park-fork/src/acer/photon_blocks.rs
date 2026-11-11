@@ -839,8 +839,8 @@ pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option
     use crate::mixr::mix::sigfig;
     const EPS: f64 = 1.0e-10;
 
-    let mt1 = pendf.sections.iter().find(|s| s.mt.number() == 1)?;
-    let grid: Vec<f64> = mt1.pairs.iter().map(|p| p.0).collect();
+    // `gamsum` runs on the ACE grid (`unionx`), not on the PENDF's MT=1 energies.
+    let grid: Vec<f64> = crate::acer::build::esz_grid(pendf, &gamma_discontinuities(tape, mat))?;
     let nen = grid.len();
     let mut c = vec![0.0f64; nen];
     let as_tab = |pairs: &[(f64, f64)]| Tab1 {
