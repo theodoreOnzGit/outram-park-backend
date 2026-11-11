@@ -659,20 +659,25 @@ impl GranularSystem {
         for &(i, j) in &pairs {
             let (i, j) = (i as usize, j as usize);
             let (ti, tj) = (self.tags[i] as usize, self.tags[j] as usize);
-            let (mut a, mut b) = (self.particles[i], self.particles[j]);
-            {
+            let (a, b) = (self.particles[i], self.particles[j]);
+            // `pair_gran_base.h`: `sidata.radi` is the UNEXPANDED radius of i
+            // (set once per i), `sidata.radj` and `radsum` are expanded.
+            let (radj, radsum) = {
                 let mc = self.mc.as_ref().expect("multicontact");
-                a.radius += mc.data.pair_expansion(mc.local_of[i], tj);
-                b.radius += mc.data.pair_expansion(mc.local_of[j], ti);
-            }
-            let radsum = a.radius + b.radius;
+                let radi_e = a.radius + mc.data.pair_expansion(mc.local_of[i], tj);
+                let radj_e = b.radius + mc.data.pair_expansion(mc.local_of[j], ti);
+                (radj_e, radi_e + radj_e)
+            };
             let d = a.position.sub(b.position);
             let rsq = d.x * d.x + d.y * d.y + d.z * d.z;
-            let kin = ContactKinematics::pair_frozen(
+            let kin = ContactKinematics::pair_radii(
                 &a,
                 &b,
                 self.frozen.get(i).copied().unwrap_or(false),
                 self.frozen.get(j).copied().unwrap_or(false),
+                a.radius,
+                radj,
+                radsum,
             )
             .map(|k| k.with_types(self.types[i], self.types[j]));
             if let Some(k) = kin {
@@ -696,7 +701,7 @@ impl GranularSystem {
                         [gf.force_i.x, gf.force_i.y, gf.force_i.z],
                         [k.en.x, k.en.y, k.en.z],
                     );
-                    let h = crate::multicontact::surfaces_intersect_history(false, [0.0; 3], a.radius, b.radius);
+                    let h = crate::multicontact::surfaces_intersect_history(false, [0.0; 3], a.radius, radj);
                     self.mc.as_mut().expect("multicontact").set_pair_history(ti, tj, [h[0], h[1], fnorm]);
                 }
             } else if !setup
@@ -705,7 +710,7 @@ impl GranularSystem {
                     * radsum
                     * radsum
             {
-                let h = crate::multicontact::surfaces_close_history(false, [0.0; 3], a.radius, b.radius);
+                let h = crate::multicontact::surfaces_close_history(false, [0.0; 3], a.radius, radj);
                 self.mc.as_mut().expect("multicontact").set_pair_history(ti, tj, [h[0], h[1], h[2]]);
             }
         }
