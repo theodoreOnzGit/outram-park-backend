@@ -421,6 +421,7 @@ test's `///` doc):
 | force fixes `addforce`, `viscous`, `freeze` (+ `v_` variables) | `src/force_fixes.rs`, `src/variable.rs` | `force_fixes_cross_code.rs` | bit-identical (see `verification_and_validation/force_fixes.md`) |
 | `compute ke`, `compute erotate/sphere`, `fix ave/time` (one/running), free-fall deck `in.avetime` | `src/diagnostics.rs` | `ave_time_cross_code.rs` | **55 / 55** bit-identical |
 | same, contact deck `in.avetime_contact` (settled bed, tilted gravity, `erotate/sphere != 0` on 20 rows) | `src/diagnostics.rs`, `GranularSystem::particles_in_local_order` | `ave_time_cross_code.rs` | **105 / 105** bit-identical (33 / 105 before summing in upstream's local atom order) |
+| `fix ave/euler` (centre, vol. fraction, mass-averaged velocity; 44 cells), deck `in.aveeuler` (new 2026-11-11; stress and radius columns, `basevolume_region` not ported; stock upstream FPEs under thermo, global_freq=0, reference relinked with a one-line fix) | `AveEuler` in `src/diagnostics.rs` | `ave_euler_cross_code.rs` | **1540 / 1540** bit-identical |
 | `fix ave/atom` (`x z vx vy vz`), deck `in.aveatom` | `AveAtom` in `src/diagnostics.rs` | `ave_time_cross_code.rs` | **7080 / 7080** bit-identical |
 | `fix insert/pack`, `insert/rate/region`, templates | `src/insert.rs` | `insertion_cross_code.rs` | 45 / 45 frames bit-identical |
 | `fix insert/stream` | `src/insert_stream.rs` | `insert_stream_cross_code.rs` | 21 / 21 frames bit-identical |
