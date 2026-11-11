@@ -772,14 +772,18 @@ fn test_12_gaspr_coded_pendf_is_identical() {
 /// the `viewr`s: PENDF unit 38 (after GASPR) line by line, ACE unit 31 word for
 /// word (gh:#1369).
 ///
-/// **Result (2026-11-11): the PENDF after GASPR is identical (0 lines); the ACE
-/// is identical in every block but SIGP: 280 of 1 037 922 words differ, e.g.
-/// 1.504386e-3 here against NJOY's unrounded 1.504385995e-3 (relative 3e-9).**
-/// A photon-production rounding difference (the `a11` text round trip of binary
-/// units, as for `convr`/`gamsum` in the charged-particle work), not GASPR: open,
-/// so the test is ignored until it is traced.
+/// **Result (2026-11-12, gh:#1492): the PENDF after GASPR is identical (0 lines)
+/// and the ACE is identical in every word (1 037 922 XSS words).** ~~First
+/// run: 280 SIGP words differ, 1.504386e-3 here against NJOY's 1.504385995e-3
+/// (3e-9 relative).~~ **CORRECTED**: the cause was not GASPR and not `sigfig`
+/// but the ENDF unit's sign. The deck's ACER card is `-21 -28`, both binary,
+/// so `convr`'s scratch tape is binary (`if (nin.lt.0) nout=-nout`,
+/// `acefc.f90:3908`) and the MF=12 yields of a LO=2 cascade reach `acelpp`
+/// as doubles; this crate applied `a11`'s seven-figure text round trip
+/// unconditionally on the neutron path (`photon_blocks::build_with_pendf`).
+/// Fix: `AceDeck::with_endf_binary` and `photon_blocks::build_with_pendf_units`
+/// / `gpd_with_units`, plus the MF=13 `gamsum` scratch tape (PENDF sign).
 #[test]
-#[ignore = "SIGP differs in 280 words by 3e-9 (a11 rounding of binary units), not GASPR; open"]
 fn test_24_gaspr_chain_ace() {
     let root = njoy_root();
     let Some(full) = deck_text(&root, "24", Some("viewr"), "") else { return };
@@ -793,6 +797,161 @@ fn test_24_gaspr_chain_ace() {
     }
     assert!(d.is_empty() && c.identical(), "test 24 differs from NJOY2016");
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
+
+/// **Test 72 (Be-9 ENDF/B-VIII.0): `moder; reconr; broadr; heatr; heatr;
+/// thermr; gaspr; moder; acer`**, cut before the plot-file ACER (`iopt = 7`)
+/// and `viewr`: PENDF unit 38 (after GASPR) line by line, ACE unit 41 word for
+/// word (gh:#1492, parent #1369). The same chain as test 24 on a light
+/// nuclide with MF=6 (n,2n) products and LAW = 2 photons.
+///
+/// **Result (2026-11-12): unit 38 identical (0 lines), ACE unit 41 identical
+/// in every word (202 943 XSS words).** Before: 4 304 words differ (2 596 of
+/// 50 748 lines), all in the MF=6 LAW = 7 products (Be-9 MT=16 neutron and the
+/// charged-particle blocks): `topfil` rewrites LAW = 7 to LAW = 1 on its
+/// scratch tape, which is binary when the PENDF unit is negative
+/// (`mscr = -mscr`, `acefc.f90:177-179`), and `acelf6::law7_rewrite` applied
+/// `a11` regardless (7th-figure differences, largest 1.8e-6 relative). Now
+/// `law7_rewrite(cur, text)`; `AceDeck::with_pendf_binary` selects it.
+#[test]
+fn test_72_gaspr_chain_ace() {
+    let root = njoy_root();
+    let Some(full) = deck_text(&root, "72", Some("viewr"), "") else { return };
+    let deck = format!("{}stop\n", full.split("acer\n 0 41").next().unwrap());
+    let Some((ours, njoy)) = run_pair_decks_extra(&root, "t72", "n-004_Be_009-ENDF8.0.endf", &[], &deck, &deck) else { return };
+    let d = differing_lines(&ours.join("tape38"), &njoy.join("tape38"));
+    println!("test 72 unit 38: {} differing lines; first {:?}", d.len(), &d[..d.len().min(5)]);
+    let c = ace_pair(&ours, &njoy, 41);
+    for l in c.report_lines() {
+        println!("{l}");
+    }
+    assert!(d.is_empty() && c.identical(), "test 72 differs from NJOY2016");
+    if std::env::var("KEEP_DECK_DIRS").is_err() {
+        let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    } else {
+        println!("kept {}", ours.parent().unwrap().display());
+    }
+}
+
+/// ACER `iopt = 7` (gh:#1492): run upstream deck `case` cut before its first
+/// `viewr`, and compare, line by line against NJOY2016.80, the listed units:
+/// the ACE file the check run writes and the directory lines. The
+/// plot file on `ngend` (`aplots`) is not written by this crate, so it is not
+/// compared; the survey lists it as a tape not written.
+fn acer_check_deck(case: &str, resource: &str, extra: &[(&str, u32)], units: &[u32]) -> Option<()> {
+    let root = njoy_root();
+    let full = deck_text(&root, case, Some("viewr"), "")?;
+    let (ours, njoy) = run_pair_decks_extra(&root, &format!("chk{case}"), resource, extra, &full, &full)?;
+    for &unit in units {
+        let name = format!("tape{unit}");
+        let d = differing_lines(&ours.join(&name), &njoy.join(&name));
+        println!("deck {case} unit {unit}: {} differing lines; first {:?}", d.len(), &d[..d.len().min(5)]);
+        // The date field of the ACE header is the run's own date on both sides.
+        assert!(d.is_empty(), "deck {case} unit {unit}: {} lines differ from NJOY2016", d.len());
+    }
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    Some(())
+}
+
+/// **Test 72 (Be-9), ACER `iopt = 7`**: the check run's ACE unit 44 and its
+/// directory unit 45 against NJOY2016.80, line by line (gh:#1492).
+///
+/// Prediction (before the run): `acefix` re-writes the file it reads, so unit 44
+/// is unit 41 with the comment replaced by the card-3 text (`suff = -1` keeps
+/// the ZAID); unit 45 is one `xsdir` line. Both identical. Result: see the
+/// survey table.
+#[test]
+fn test_72_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("72", "n-004_Be_009-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_24_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("24", "n-094_Pu_239-ENDF8.0-Beta6.endf", &[], &[32, 34, 35]);
+}
+
+#[test]
+#[ignore = "the preceding iopt = 1 ACE differs in 5 unresolved-range (PURR) words, which the check file repeats; not the iopt = 7 writer (gh:#1492)"]
+fn test_35_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("35", "n-047_Ag_109-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_36_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("36", "n-050_Sn_119-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+#[ignore = "the preceding iopt = 1 ACE is 21 words longer than NJOY's (PURR unresolved block), so its directory line differs; not the iopt = 7 writer (gh:#1492)"]
+fn test_37_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("37", "n-027_Co_058-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_38_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("38", "n-036_Kr_083-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_39_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("39", "n-028_Ni_063-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_40_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("40", "n-025_Mn_055-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_41_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("41", "n-032_Ge_071-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_42_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("42", "n-030_Zn_067-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_50_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("50", "a-002_He_004-ENDF8.0.endf", &[], &[32, 34, 35]);
+}
+
+#[test]
+fn test_51_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("51", "p-001_H_002-ENDF8.0.endf", &[], &[32, 34, 35]);
+}
+
+#[test]
+fn test_52_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("52", "p-001_H_001-ENDF8.0.endf", &[], &[32, 34, 35]);
+}
+
+#[test]
+fn test_53_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("53", "d-001_H_002-ENDF8.0.endf", &[], &[32, 34, 35]);
+}
+
+#[test]
+fn test_54_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("54", "p-001_H_003-ENDF8.0.endf", &[], &[32, 34, 35]);
+}
+
+#[test]
+fn test_62_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("62", "d-002_He_003.endf", &[], &[32, 34, 35]);
+}
+
+#[test]
+#[ignore = "the preceding iopt = 1 ACE is 2 178 words longer than NJOY's (PURR unresolved block); not the iopt = 7 writer (gh:#1492)"]
+fn test_63_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("63", "n-047_Ag_109-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+#[ignore = "the preceding iopt = 1 ACE differs from NJOY's (a TENDL-2021 d + Pt-184 charged-particle table), which the check file repeats; not the iopt = 7 writer (gh:#1492)"]
+fn test_71_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("71", "d-078_Pt_184-TENDL2021.endf", &[], &[32, 34, 35]);
 }
 
 /// Run upstream deck `case` (`moder; moder; acer iopt = 1`, the raw

@@ -261,6 +261,12 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
 /// [`build_emissions`] for ACER's `newfor`: `0` stores every angular
 /// distribution as the old format's 32 equally probable bins (gh:#1449).
 pub fn build_emissions_newfor(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)], newfor: i32) -> Vec<Emission> {
+    build_emissions_mode(tape, mat, awr, partials, newfor, true)
+}
+
+/// [`build_emissions_newfor`] with `topfil`'s scratch tape coded (`text`) or
+/// binary, as the sign of ACER's PENDF unit sets it (gh:#1492).
+pub fn build_emissions_mode(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)], newfor: i32, text: bool) -> Vec<Emission> {
     let mut out = Vec::new();
     for &(mt, qi) in partials {
         // FISSION FIRST, and deliberately from MF=5 rather than MF=6.
@@ -338,7 +344,7 @@ pub fn build_emissions_newfor(tape: &Tape, mat: i32, awr: f64, partials: &[(i32,
                     continue;
                 }
             }
-            if let Ok(Some(entry)) = crate::acer::acelf6::acelf6(sec, mt, q_mev, iza, true) {
+            if let Ok(Some(entry)) = crate::acer::acelf6::acelf6_mode(sec, mt, q_mev, iza, true, text) {
                 let tyr = match entry.tyr {
                     crate::acer::acelf6::Acelf6Tyr::Fixed(t) => t,
                     // Placeholder sign; the builder fills in `100 + L` once

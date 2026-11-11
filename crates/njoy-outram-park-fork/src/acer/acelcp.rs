@@ -396,6 +396,12 @@ pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult,
     append_incident(table, tape, mat, pendf, newfor, 1, 1.0);
 }
 
+/// [`append`] with `topfil`'s scratch tape binary (`text = false`, a negative
+/// ACER PENDF unit): the LAW = 7 rewrite keeps full doubles (gh:#1492).
+pub fn append_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult, newfor: i32, text: bool) {
+    append_incident_mode(table, tape, mat, pendf, newfor, 1, 1.0, text);
+}
+
 /// [`append`] for an incident particle `izai` of mass ratio `awi` (`acelcp`'s
 /// `izai` branches, gh:#1485): the projectile's own kind is left out of the
 /// type list (it is the table's DLW), the neutron joins it, `ip = 1`
@@ -403,6 +409,12 @@ pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult,
 /// is added to ESZ's heating column and the heavy recoils' heating follows
 /// (`acefc.f90:10907-11126`).
 pub fn append_incident(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult, newfor: i32, izai: i32, awi: f64) {
+    append_incident_mode(table, tape, mat, pendf, newfor, izai, awi, true);
+}
+
+/// [`append_incident`] with the scratch-tape mode of [`append_mode`].
+#[allow(clippy::too_many_arguments)]
+pub fn append_incident_mode(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult, newfor: i32, izai: i32, awi: f64, text: bool) {
     if newfor == 0 {
         return;
     }
@@ -881,7 +893,7 @@ pub fn append_incident(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &Reco
                     }
                     continue;
                 }
-                let (yt, awp, lists, lang, lep) = nth_product_law1(sec, p.l).expect("checked");
+                let (yt, awp, lists, lang, lep) = nth_product_law1(sec, p.l, text).expect("checked");
                 let isocp = !lists.iter().any(|l| l.head.l2 > 0);
                 let lawnow = if lang == 2 {
                     44
@@ -1238,7 +1250,7 @@ fn nth_product(sec: &crate::endf::tape::Section, l: i32) -> Option<(Tab1, i32)> 
 
 /// Subsection `l` of an MF=6 section, `LAW = 1`: yield, AWP, the LISTs,
 /// LANG and LEP.
-fn nth_product_law1(sec: &crate::endf::tape::Section, l: i32) -> Option<(Tab1, f64, Vec<List>, i32, i32)> {
+fn nth_product_law1(sec: &crate::endf::tape::Section, l: i32, text: bool) -> Option<(Tab1, f64, Vec<List>, i32, i32)> {
     let mut cur = SectionCursor::new(&sec.rows);
     let head = cur.read_cont().ok()?;
     for ik in 1..=head.n1 {
@@ -1248,7 +1260,7 @@ fn nth_product_law1(sec: &crate::endf::tape::Section, l: i32) -> Option<(Tab1, f
             // `topfil` rewrites every LAW=7 subsection to LAW=1 on the
             // scratch tape `acelcp` reads (`acefc.f90:2320-2425`).
             if law == 7 {
-                let (_, lists, lang, lep) = super::acelf6::law7_rewrite(&mut cur).ok()?;
+                let (_, lists, lang, lep) = super::acelf6::law7_rewrite(&mut cur, text).ok()?;
                 let awp = y.head.c2;
                 return Some((y, awp, lists, lang, lep));
             }
@@ -1274,7 +1286,7 @@ fn nth_product_law1(sec: &crate::endf::tape::Section, l: i32) -> Option<(Tab1, f
 fn mf6_supported(tape: &Tape, mat: i32, p: &Prod) -> bool {
     let Some(sec) = tape.section(mat, 6, p.mt) else { return false };
     match nth_product(sec, p.l).map(|x| x.1) {
-        Some(1) => matches!(nth_product_law1(sec, p.l), Some((_, _, _, lang, _)) if lang == 1 || lang == 2 || lang >= 11),
+        Some(1) => matches!(nth_product_law1(sec, p.l, true), Some((_, _, _, lang, _)) if lang == 1 || lang == 2 || lang >= 11),
         // LAW = 2 two-body with Legendre or lin-lin tabulated angles; LAW = 3
         // isotropic two-body; LAW = 4 recoil; LAW = 0 (unknown: upstream
         // writes an empty law-0 entry, `:10289-10565`).

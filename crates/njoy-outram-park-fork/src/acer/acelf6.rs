@@ -152,6 +152,20 @@ pub fn acelf6(
     acelf6_incident(section, mt, q_mev, iza, 1, ismooth)
 }
 
+/// [`acelf6`] with `topfil`'s scratch tape coded (`text`, a positive PENDF
+/// unit: the LAW=7 rewrite goes through `a11`) or binary (a negative one:
+/// full doubles) (gh:#1492, deck 72).
+pub fn acelf6_mode(
+    section: &Section,
+    mt: i32,
+    q_mev: f64,
+    iza: i32,
+    ismooth: bool,
+    text: bool,
+) -> Result<Option<DlwEntry>, NjoyError> {
+    acelf6_incident_mode(section, mt, q_mev, iza, 1, ismooth, text)
+}
+
 /// [`acelf6`] for an incident particle `izai` (`acefc.f90:7139`'s argument of
 /// that name, ZA of the projectile: 1 neutron, 1001 proton, 1002 deuteron,
 /// 1003 triton, 2003 He-3, 2004 alpha; gh:#1485). Upstream selects the MF=6
@@ -167,6 +181,19 @@ pub fn acelf6_incident(
     iza: i32,
     izai: i32,
     ismooth: bool,
+) -> Result<Option<DlwEntry>, NjoyError> {
+    acelf6_incident_mode(section, mt, q_mev, iza, izai, ismooth, true)
+}
+
+/// [`acelf6_incident`] with the scratch-tape mode of [`acelf6_mode`].
+pub fn acelf6_incident_mode(
+    section: &Section,
+    mt: i32,
+    q_mev: f64,
+    iza: i32,
+    izai: i32,
+    ismooth: bool,
+    text: bool,
 ) -> Result<Option<DlwEntry>, NjoyError> {
     let izai = f64::from(izai);
     let mut cur = SectionCursor::new(&section.rows);
@@ -213,7 +240,7 @@ pub fn acelf6_incident(
                 let c = cur.read_cont()?;
                 Body::Law6 { apsx: c.c1, npsx: c.n2 }
             }
-            7 => law7_as_law1(&mut cur)?,
+            7 => law7_as_law1(&mut cur, text)?,
             _ => {
                 return Err(NjoyError::EndfParse(format!(
                     "acelf6: illegal law {law} for endf6 file6 neutrons (mt {mt})"
@@ -515,9 +542,10 @@ fn emit_dlw(
 /// 10 + INTMU` and `LEP` = the last cosine's `INTEP` at the first incident
 /// energy. Everything goes to the scratch tape, which is text for a
 /// positive PENDF unit (`acefc.f90:177-179`), so every value here carries
-/// `a11`'s rounding, as `acelf6` reads it.
-fn law7_as_law1(cur: &mut SectionCursor) -> Result<Body, NjoyError> {
-    let (interp, incident, lang, lep) = law7_rewrite(cur)?;
+/// `a11`'s rounding, as `acelf6` reads it; with a negative one (`text =
+/// false`) it stays at full precision.
+fn law7_as_law1(cur: &mut SectionCursor, text: bool) -> Result<Body, NjoyError> {
+    let (interp, incident, lang, lep) = law7_rewrite(cur, text)?;
     Ok(Body::Law1 { lang, lep, interp, incident })
 }
 
@@ -528,10 +556,13 @@ fn law7_as_law1(cur: &mut SectionCursor) -> Result<Body, NjoyError> {
 #[allow(clippy::type_complexity)]
 pub(crate) fn law7_rewrite(
     cur: &mut SectionCursor,
+    text: bool,
 ) -> Result<(Vec<(u32, u32)>, Vec<crate::endf::records::List>, i32, i32), NjoyError> {
     use crate::endf::parse::{format_endf_float, parse_endf_float};
     use crate::endf::records::{Cont, List};
-    let rt = |x: f64| parse_endf_float(&format_endf_float(x)).unwrap_or(x);
+    // `a11` only when the scratch tape is coded (`mscr` takes the sign of the
+    // PENDF unit, `acefc.f90:177-179`; gh:#1492).
+    let rt = |x: f64| if text { parse_endf_float(&format_endf_float(x)).unwrap_or(x) } else { x };
     let outer = cur.read_tab2()?;
     let ne = outer.head.n2.max(0) as usize;
     let mut incident = Vec::with_capacity(ne);
