@@ -884,7 +884,33 @@ pub fn advance_generation_gpu_banking(
     banking: EventFissionBanking,
     records: &mut Vec<EventSiteRecord>,
 ) -> usize {
-    let mut cap = 2 * batch.len() + 1024;
+    advance_generation_gpu_banking_with_capacity(
+        ctx,
+        tables,
+        batch,
+        sphere,
+        max_events,
+        banking,
+        records,
+        2 * batch.len() + 1024,
+    )
+}
+
+/// [`advance_generation_gpu_banking`] with an explicit initial record capacity
+/// (tests pass a tiny one to exercise the grow-and-rerun path).
+#[cfg(not(target_os = "android"))]
+#[allow(clippy::too_many_arguments)]
+pub fn advance_generation_gpu_banking_with_capacity(
+    ctx: &crate::gpu::GpuContext,
+    tables: &EventTablesF32,
+    batch: &mut EventBatch,
+    sphere: EventSphere,
+    max_events: usize,
+    banking: EventFissionBanking,
+    records: &mut Vec<EventSiteRecord>,
+    initial_capacity: usize,
+) -> usize {
+    let mut cap = initial_capacity.max(1);
     loop {
         match advance_generation_gpu_inner(ctx, tables, batch, sphere, max_events, banking, cap) {
             Ok((events, recs)) => {
