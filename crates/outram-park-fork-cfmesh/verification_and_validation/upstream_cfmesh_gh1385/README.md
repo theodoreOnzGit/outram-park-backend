@@ -1048,3 +1048,35 @@ Prediction 4: carrying the lists through that replacement makes the pre-refine
 lists equal upstream's (116 -> 0), the cell lists after `refineLayers`
 identical, and the final hat mesh index-identical (75072/75072 faces, 38090
 points as now).
+
+### pMesh `edgeExtraction` localised, and prediction 5 (written before the fix)
+
+Traces of both codes inside `meshSurfaceEdgeExtractorFUN` (upstream's
+instrumented constructor prints the mesh after `createBasicFundamentalSheets`
+= `FA`, after `smoothMeshSurface` = `FB`, after `remapBoundaryPoints` = `FC`:
+points, faces with owner and neighbour, cell lists; the port's
+`trace_dump`; `patches/gh1385-trace-instrumentation-5.patch`). cutCube
+`pMesh`, PETIR `powf`:
+
+| after | points identical | faces identical at index | cell lists identical |
+|---|---|---|---|
+| `FA` (createFundamentalSheetsJFS) | 221489/222560, worst 2.2e-16 m | 204753/313010 | 20320/60263 |
+| `FB` (smoothMeshSurface) | 216032/222560, worst 2.7e-4 m | 204753/313010 | same |
+| `FC` (remapBoundaryPoints) | 218269/222560, worst 1.1e-4 m | 204753/313010 | same |
+
+So the first divergence is **inside `createFundamentalSheetsJFS`**, before the
+surface smoothing: 1071 new points off by one ulp, and the topology's
+numbering. Reading `extrudeLayer.C` against `layers/extrude_layer.rs`
+(an operation-for-operation translation on a `TopoMesh`):
+(a) `movePoints` divides (`normal /= d`), the port multiplies by `1/m`: the 1071
+points; (b) `createDuplicateFrontFaces` renumbers the cells' lists **in place**
+(`c[fI] = nOrigFaces_ + lp.first()`), starting from the mesh's own cell lists,
+while the port starts from ascending derived lists (`w.cell_faces()`);
+(c) `updateBoundary` is `reorderBoundaryFaces()` then `replaceBoundary()` with the
+old boundary faces first (their order in the old range) and the new boundary
+quads after them, the labels running patch by patch and the lists appended in
+that order, while the port keeps the faces in label order and drops none.
+Prediction 5: with (a), (b) and (c) the `FA` points are identical (222560), the
+faces index-identical (313010) and the cell lists identical (60263); `FB` /
+`FC` then show what `smoothMeshSurface` and `remapBoundaryPoints` add (the
+first differing point names the next step).
