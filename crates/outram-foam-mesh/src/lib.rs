@@ -85,6 +85,7 @@ pub mod driver;
 pub mod ideas_unv_to_foam;
 pub mod mesh_quality;
 pub mod poly_dual_mesh;
+pub mod poly_dual_mesh_upstream;
 pub mod snappy_hex_mesh;
 
 // The high-level entry points, re-exported at the crate root so they are the
