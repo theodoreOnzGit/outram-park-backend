@@ -710,6 +710,30 @@ N-1 hot-dims section). Arm C, RVS, 30P, seeds 1–6 at each temperature; rows
   question, which is the maintainer's call.
 - **The default is not changed.**
 
+**Follow-up: six more seeds at 1131 °F (2026-11-11, gh:#1129).** To test
+whether the +279 pcm pair was a fluctuation, seeds 7–12 were run at 1131 °F,
+cold and hot. The prediction posted before the run: seeds 7–12 alone give
++150 to +250 pcm, and the 12-seed pool lands at about +200–260.
+
+| 1131 °F | cold k | hot-dims k | hot − cold |
+|---|---|---|---|
+| seeds 1–6 | 1.01245 ± 0.00032 | 1.01532 ± 0.00027 | +279 ± 41 pcm |
+| seeds 7–12 | 1.01240 ± 0.00026 | 1.01492 ± 0.00032 | **+245 ± 41 pcm** |
+| seeds 1–12 | 1.01243 ± 0.00018 | 1.01512 ± 0.00021 | **+262 ± 28 pcm** |
+
+- **Seeds 7–12 are inside their predicted band; the pool is 2 pcm above
+  its own.** The new seeds reproduce the excess, so the +279 pcm was not
+  a fluctuation of seeds 1–6.
+- **What stays unresolved** is the trend with temperature. 1231 °F gives
+  +210 ± 37, so the difference between the two pairs is 52 ± 47 pcm.
+  Against the linear estimate of about +150 from N-1's three-seed 1181 °F
+  pair (+158 ± 50), 1131 °F is 111 ± 57 pcm high (1.9σ). The likelier reading
+  is that the three-seed N-1 hot-dims value is low, not that expansion is
+  non-linear. Neither is tested.
+- **α_iso with twelve seeds at 1131 °F** (six at 1231 °F): cold **−7.52 ±
+  0.32**, hot **−8.04 ± 0.33**, shift **−0.52 ± 0.46 (1.1σ)**. The cold value
+  agrees with the six-seed −7.54 ± 0.40, which stays the quoted number.
+
 ### A finding about the statistics
 
 At 1131 °F (N-3, gh:#1129) three seeds spread 133 pcm (sd), against an
