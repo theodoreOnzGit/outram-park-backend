@@ -484,12 +484,16 @@ for (const f of ["barrier-data.js", "failure-data.js", "barrier-recorded.js", "b
 const BD = window.BARRIER_DATA, FD = window.FAILURE_DATA, BR = window.BARRIER_RECORDED, BP = window.BarrierPhysics;
 const wrow = (el, ly) => BD.walker.find((w) => w.el === el && w.layer === ly);
 const wD = (el, ly, t) => BP.dAt(t, BD.tC, wrow(el, ly).d);
-// 36. The gaps are where the code has todo!(): Kr in the buffer only, and
-//     every other (element, layer) pair has a full curve.
+// 36. The gaps are where the code has todo!(): ~~Kr in the buffer only~~
+//     none among the four layers since 2026-11-10 (gh:#638: Kr in the
+//     buffer is the cited 1e-8 m^2/s of IAEA-TECDOC-978), and every
+//     (element, layer) pair has a full curve.
 {
   let bad = 0;
-  BD.walker.forEach((w) => { const gap = w.el === "Kr" && w.layer === "buffer"; if (gap !== (w.d === null)) bad++; if (w.d && w.d.some((x) => !(x > 0))) bad++; });
-  check("36: walker gaps exactly at Kr/buffer, every other curve positive", bad, 0);
+  BD.walker.forEach((w) => { if (w.d === null) bad++; if (w.d && w.d.some((x) => !(x > 0))) bad++; });
+  const kb = wrow("Kr", "buffer");
+  if (!kb || !kb.d || kb.d.some((x) => x !== 1e-8)) bad++;
+  check("36: no walker gaps, every curve positive, Kr/buffer flat at 1e-8", bad, 0);
 }
 // 37. P1, P2. 2026-10-22: SiC/IPyC crossing-time ratio >= 16.7 (Cs, 800 °C)
 //     for Ag, Cs, Sr over 800-1600 °C; Kr IPyC at 1000 °C 4.79e10 s.

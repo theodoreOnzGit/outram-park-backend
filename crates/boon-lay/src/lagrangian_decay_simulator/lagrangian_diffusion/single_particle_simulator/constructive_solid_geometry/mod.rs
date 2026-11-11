@@ -227,7 +227,7 @@ impl TrisoCell {
 
     /// The diffusion coefficient at `coordinates`, telling "outside every
     /// region" (`Ok(None)`) apart from "no cited coefficient for this element
-    /// in this layer" (`Err`, gh:#638: krypton in the buffer).
+    /// in this layer" (`Err`, gh:#638: ~~krypton in the buffer~~ **CORRECTED 2026-11-10:** no layer of a `TrisoCell` today; Kr in the buffer now has a cited value, and only graphite, which a `TrisoCell` has none of, still lacks one).
     ///
     /// [`TrisoCell::try_get_diffusion_coefficient`] is this with both cases
     /// folded into `None`.

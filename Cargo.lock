@@ -6681,6 +6681,7 @@ dependencies = [
  "ratatui",
  "rayon",
  "sha2",
+ "teh-o-prke",
  "thiserror 2.0.21",
  "uom",
  "ureq 2.12.1",

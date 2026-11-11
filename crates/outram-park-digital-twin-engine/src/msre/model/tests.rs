@@ -3,21 +3,37 @@
 //! `crates/outram-park-digital-twin-engine/docs/msre_library.md`.
 
 use super::*;
-use crate::msre::design::{measured_circulation_loss_tm1626, MsreDesignPoint, MEASURED_PERIODS_TM1647};
+use crate::msre::design::{measured_circulation_loss_tm1626, MsreDesignPoint, BETA, MEASURED_PERIODS_TM1647};
 use petir::mathf::RealMath;
 use uom::si::angular_velocity::radian_per_second;
 use uom::si::f64::AngularVelocity;
 
-fn model_at(p_mw: f64) -> MsreModel {
+/// The default model at `p_mw`: since 2026-11-11 (gh:#1330) the TM-1626
+/// line model.
+pub(super) fn model_at(p_mw: f64) -> MsreModel {
     MsreModel::new(MsreConfig::tm1070(Power::new::<megawatt>(p_mw))).expect("MSRE model")
 }
 
-fn f(t: ThermodynamicTemperature) -> f64 {
+/// The well-stirred ablation at `p_mw` ([`MsreConfig::without_line_model`]),
+/// the model `nee_soon`'s frequency response solves.
+pub(super) fn well_stirred_at(p_mw: f64) -> MsreModel {
+    MsreModel::new(MsreConfig::tm1070(Power::new::<megawatt>(p_mw)).without_line_model()).expect("MSRE model")
+}
+
+/// The model at `p_mw` with circulation model `model`.
+fn model_with(p_mw: f64, model: CirculationModel) -> MsreModel {
+    match model {
+        CirculationModel::LineTm1626 => model_at(p_mw),
+        CirculationModel::WellStirredTm1070 => well_stirred_at(p_mw),
+    }
+}
+
+pub(super) fn f(t: ThermodynamicTemperature) -> f64 {
     t.get::<degree_fahrenheit>()
 }
 
 /// Every lump, in °F, for comparisons.
-fn temperatures(m: &MsreModel) -> [f64; 9] {
+pub(super) fn temperatures(m: &MsreModel) -> [f64; 9] {
     [
         f(m.core_inlet_temperature()),
         f(m.core_outlet_temperature()),
@@ -72,31 +88,78 @@ fn the_core_rise_is_the_power_over_the_fuel_heat_capacity_rate() {
     }
 }
 
-/// **MSRE N-4 number, end to end, uncalibrated.** The steady circulation
-/// loss of the model is the analytic one with TM-1070's transits (τ_c
-/// 8.46 s, τ_L 16.73 s) and App. B's groups.
+/// **MSRE N-4 number, end to end, uncalibrated: the default (TM-1626 line
+/// model).** The steady circulation loss of the default model is that of
+/// ORNL-TM-1626's importance-weighted line model on TM-1626 Fig. 4's shapes,
+/// Table 1's groups and residence times.
+///
+/// Prediction (gh:#1330, 2026-11-11, before the run): the option's recorded
+/// 0.229140 % δk/k, +8.1 % against the measured 0.212 ± 0.004 %
+/// (ORNL-TM-1626).
+///
+/// Result (2026-11-11): **0.2291400 % δk/k**, **+0.0171 % δk/k (+8.1 %,
+/// +4.3σ)** against the measurement. As predicted. ~~Default 0.2467041 %
+/// (+16.4 %, +8.7σ), the well-stirred model~~: that is now the ablation's
+/// number ([`the_well_stirred_ablation_loss_is_tm1070s_and_nee_soons`]). The
+/// line model is ORNL's own (Prince's 0.222 % differs by his stirred lower
+/// plenum and digitisation); the remaining +8 % lies in the flux and
+/// importance shapes (gh:#1130), not tuned.
+///
+/// Also checked: the delayed-neutron sources sum to `β − Δρ_circ` (β of
+/// TM-1626 Table 1, 0.006661) to 1e-12.
+#[test]
+fn the_default_circulation_loss_is_tm1626s_line_model() {
+    let m = model_at(8.0);
+    assert_eq!(m.circulation_model(), CirculationModel::LineTm1626);
+    let loss = m.circulation_loss().get::<ratio>();
+    let measured = measured_circulation_loss_tm1626().get::<ratio>();
+    let sigma = 0.004e-2;
+    println!(
+        "default (line) circulation loss {:.7} %, measured {:.3} %: {:+.4} % dk/k ({:+.1} %, {:+.1} sigma)",
+        100.0 * loss,
+        100.0 * measured,
+        100.0 * (loss - measured),
+        100.0 * (loss / measured - 1.0),
+        (loss - measured) / sigma
+    );
+    // Regression pin of the recorded value (not a criterion against the
+    // measurement).
+    assert!((100.0 * loss - 0.2291400).abs() < 1e-7, "{}", 100.0 * loss);
+    let beta: f64 = crate::msre::circulation::TM1626_TABLE1.iter().map(|g| g.0).sum();
+    let sources: f64 = m.delayed_neutron_sources().iter().map(|r| r.get::<ratio>()).sum();
+    println!("sum of delayed sources {sources:.9}, beta - loss {:.9}", beta - loss);
+    assert!((sources - (beta - loss)).abs() < 1e-12);
+}
+
+/// **Ablation (well-stirred, TM-1070), code-to-code with `nee_soon`.** The
+/// steady circulation loss of [`MsreConfig::without_line_model`] is the
+/// analytic one with TM-1070's transits (τ_c 8.46 s, τ_L 16.73 s) and
+/// App. B's groups.
 ///
 /// Prediction (gh:#1330): 0.2467 % δk/k, the same equation as `nee_soon`'s
 /// `circulation_loss`, to round-off; +16 % against the measured
 /// 0.212 ± 0.004 % (ORNL-TM-1626).
 ///
-/// Result (2026-11-10): **0.2467041 % δk/k**, equal to `nee_soon`'s
-/// within the 1e-12 criterion; **+0.0347 % δk/k (+16.4 %, +8.7σ)** against the
-/// measurement. As predicted. Not tuned: the lumped, flat-importance core
-/// counts the plenum-born delayed neutrons as worthless and so reads high;
-/// N-4 (gh:#1130) records 0.2301 % for the same model with TM-1626's
-/// transits, and closing it needs spatial importance.
+/// Result (2026-11-10, re-run 2026-11-11 as the ablation with the same
+/// digits): **0.2467041 % δk/k**, equal to `nee_soon`'s within the 1e-12
+/// criterion; **+0.0347 % δk/k (+16.4 %, +8.7σ)** against the measurement.
+/// Not tuned: the lumped, flat-importance core counts the plenum-born
+/// delayed neutrons as worthless and so reads high; N-4 (gh:#1130) records
+/// 0.2301 % for the same model with TM-1626's transits. ~~closing it needs
+/// spatial importance~~ Importance weighting, the TM-1626 line model, is
+/// the default since 2026-11-11.
 ///
 /// Also checked: in the circulating steady state the delayed-neutron
 /// sources sum to `β − Δρ_circ`, to 1e-12.
 #[test]
-fn the_circulation_loss_is_tm1070s_and_reads_high_against_tm1626() {
-    let m = model_at(8.0);
+fn the_well_stirred_ablation_loss_is_tm1070s_and_nee_soons() {
+    let m = well_stirred_at(8.0);
+    assert_eq!(m.circulation_model(), CirculationModel::WellStirredTm1070);
     let loss = m.circulation_loss().get::<ratio>();
     let nee = m.loop_parameters().circulation_loss();
     let measured = measured_circulation_loss_tm1626().get::<ratio>();
     println!(
-        "circulation loss: model {:.7} %, nee_soon {:.7} %, measured {:.3} %: {:+.4} % dk/k ({:+.1} %)",
+        "ablation (well-stirred) circulation loss: model {:.7} %, nee_soon {:.7} %, measured {:.3} %: {:+.4} % dk/k ({:+.1} %)",
         100.0 * loss,
         100.0 * nee,
         100.0 * measured,
@@ -178,12 +241,12 @@ const PINNED_10MW_STEADY_STATE_F: [f64; 9] =
 /// `(|δP/P₀|/A, phase [deg])` from a projection over whole periods after
 /// `settle` seconds. `ω` is moved to the nearest period that is a whole
 /// number of steps; the `ω` used is returned too.
-fn driven_response(p_mw: f64, omega: f64, settle: f64, periods: usize) -> (f64, f64, f64) {
+fn driven_response(p_mw: f64, model: CirculationModel, omega: f64, settle: f64, periods: usize) -> (f64, f64, f64) {
     let amp_rho = 1.0e-5;
     let steps_per_period = (2.0 * core::f64::consts::PI / omega / INTERNAL_TIMESTEP_S).round() as usize;
     let omega = 2.0 * core::f64::consts::PI / (steps_per_period as f64 * INTERNAL_TIMESTEP_S);
     let settle_steps = ((settle / INTERNAL_TIMESTEP_S).round() as usize / steps_per_period + 1) * steps_per_period;
-    let mut m = model_at(p_mw);
+    let mut m = model_with(p_mw, model);
     let dt = Time::new::<second>(INTERNAL_TIMESTEP_S);
     let (mut a, mut b) = (0.0, 0.0);
     let total = settle_steps + periods * steps_per_period;
@@ -202,7 +265,41 @@ fn driven_response(p_mw: f64, omega: f64, settle: f64, periods: usize) -> (f64, 
     ((a * a + b * b).sqrt() / amp_rho, b.r_atan2(a).to_degrees(), omega)
 }
 
-/// **Code-to-code: time domain against `nee_soon`'s frequency domain.**
+/// `nee_soon`'s linear model at `p` MW with TM-1070's 1965 coefficients.
+fn linear_model(p: f64) -> MsreLoopModel {
+    MsreLoopModel::tm1070(
+        Power::new::<megawatt>(p),
+        per_f(crate::msre::design::ORNL_1965_FUEL_PER_F),
+        per_f(crate::msre::design::ORNL_1965_GRAPHITE_PER_F),
+    )
+}
+
+/// The time-domain response of `model` at 7.306 MW and 1.004 MW, at
+/// `nee_soon`'s resonance frequency, against `nee_soon`'s: per power
+/// `(P, ω, |H|, phase, |H| nee_soon, phase nee_soon)`, printed.
+fn response_against_nee_soon(model: CirculationModel) -> Vec<(f64, f64, f64, f64, f64, f64)> {
+    let mut out = Vec::new();
+    for (p, settle) in [(7.306, 3000.0), (1.004, 5000.0)] {
+        let lin = linear_model(p);
+        let t_peak = lin.natural_period(400).expect("resonance").get::<second>();
+        let (amp, phase, omega) = driven_response(p, model, 2.0 * core::f64::consts::PI / t_peak, settle, 4);
+        let (amp_lin, phase_lin) = lin.amplitude_phase(AngularVelocity::new::<radian_per_second>(omega));
+        println!(
+            "{model:?} {p} MW, omega {omega:.6} rad/s (period {:.2} s): time domain |H| {amp:.4}, phase {phase:+.3} deg; nee_soon |H| {amp_lin:.4}, phase {phase_lin:+.3} deg; ratio {:.5}, dphase {:+.3} deg",
+            2.0 * core::f64::consts::PI / omega,
+            amp / amp_lin,
+            phase - phase_lin
+        );
+        out.push((p, omega, amp, phase, amp_lin, phase_lin));
+    }
+    out
+}
+
+/// **Ablation (well-stirred), code-to-code: time domain against
+/// `nee_soon`'s frequency domain.** Since 2026-11-11 (gh:#1330) this runs
+/// on [`MsreConfig::without_line_model`]: `nee_soon` solves TM-1070's
+/// well-stirred kinetics, so this is the check of the port, not of the
+/// default.
 ///
 /// Methodology: at 7.306 MW and 1.004 MW (two of TM-1647's measured
 /// powers), drive the rod reactivity sinusoidally (1e-5 δk/k) at the
@@ -216,7 +313,8 @@ fn driven_response(p_mw: f64, omega: f64, settle: f64, periods: usize) -> (f64, 
 ///
 /// Prediction (gh:#1330, before running): within 2 % and 2°.
 ///
-/// Result (2026-11-10), well inside the prediction:
+/// Result (2026-11-10; re-run 2026-11-11 as the ablation, same digits),
+/// well inside the prediction:
 ///
 /// | P [MW] | ω [rad/s] | time domain \|H\|, phase | `nee_soon` \|H\|, phase | ratio, Δphase |
 /// |---|---|---|---|---|
@@ -227,66 +325,56 @@ fn driven_response(p_mw: f64, omega: f64, settle: f64, periods: usize) -> (f64, 
 /// and splitting at `ωΔt` ≈ 6e-4 plus the 1e-5 drive's nonlinearity; it was
 /// not driven down further. The 2 % / 2° criterion stays as posted.
 #[test]
-fn the_time_domain_response_reproduces_the_frequency_response() {
-    for (p, settle) in [(7.306, 3000.0), (1.004, 5000.0)] {
-        let lin = MsreLoopModel::tm1070(
-            Power::new::<megawatt>(p),
-            per_f(crate::msre::design::ORNL_1965_FUEL_PER_F),
-            per_f(crate::msre::design::ORNL_1965_GRAPHITE_PER_F),
-        );
-        let t_peak = lin.natural_period(400).expect("resonance").get::<second>();
-        let (amp, phase, omega) = driven_response(p, 2.0 * core::f64::consts::PI / t_peak, settle, 4);
-        let (amp_lin, phase_lin) = lin.amplitude_phase(AngularVelocity::new::<radian_per_second>(omega));
-        println!(
-            "{p} MW, omega {omega:.6} rad/s (period {:.2} s): time domain |H| {amp:.4}, phase {phase:+.3} deg; nee_soon |H| {amp_lin:.4}, phase {phase_lin:+.3} deg; ratio {:.5}, dphase {:+.3} deg",
-            2.0 * core::f64::consts::PI / omega,
-            amp / amp_lin,
-            phase - phase_lin
-        );
+fn the_well_stirred_ablation_reproduces_the_frequency_response() {
+    for (_, _, amp, phase, amp_lin, phase_lin) in response_against_nee_soon(CirculationModel::WellStirredTm1070) {
         assert!((amp / amp_lin - 1.0).abs() < 0.02);
         assert!((phase - phase_lin).abs() < 2.0);
     }
 }
 
-/// **MSRE T-1's number, end to end, with the right instrument.** TM-1647's
-/// natural period is `2π/ω` at the peak of the measured frequency response,
-/// so it is measured here the same way: the time-domain amplitude at five
-/// frequencies around `nee_soon`'s peak (periods 0.85 to 1.15 of it), a
-/// parabola in `ln ω` through the three highest, and its vertex.
+/// **The default (TM-1626 line model) against `nee_soon`'s well-stirred
+/// frequency response: a model difference, recorded, not a criterion.**
+/// Same instrument as [`the_well_stirred_ablation_reproduces_the_frequency_response`].
 ///
-/// Prediction (gh:#1330): within 2 % of `nee_soon`'s 1.71 min, hence within
-/// a few percent of TM-1647's measured 1.71 min at 7.306 MW. (The free
-/// oscillation after a step, the other instrument posted on gh:#1330, is
-/// printed for the record; it is the damped period, not the resonance,
-/// and is not the quantity TM-1647 measured.)
+/// Prediction (gh:#1330, 2026-11-11, before the run): the line model's
+/// effective delayed fraction at full flow is 4.2 % larger (β − loss
+/// 0.004370 against 0.004194), so the zero-power gain at the resonance is
+/// a few percent lower. Amplitude ratio 0.92-1.00 and |Δphase| < 5° at
+/// 7.306 MW; 0.90-1.00 and < 6° at 1.004 MW.
 ///
-/// Result (2026-11-10): time domain **1.713 min**, `nee_soon` 1.714 min,
-/// TM-1647 measured 1.71 min: **+0.2 %** against the measurement (the
-/// digitised value is good to about ±2 %). With TM-1070's 1965 predicted
-/// coefficients; with N-3's Monte Carlo coefficients `nee_soon` records
-/// 2.03 min (+18.8 %) at this power (gh:#1132), which this model would
-/// reproduce in the same way. One power only; the other six are
-/// `nee_soon`'s record.
+/// Result (2026-11-11), amplitude **missed** (larger drop than predicted),
+/// phase met at 7.306 MW and **missed** at 1.004 MW:
 ///
-/// **A prediction missed, on the other instrument.** The free-oscillation
-/// peak spacing after a +1e-5 step was predicted within ±15 % of 1.71 min;
-/// it is **2.346 min (+37 %)**. The prediction was wrong, not the model:
-/// the oscillation is heavily damped, so the spacing of the first two maxima
-/// of a step response is neither the resonance period nor even a clean
-/// damped period. It is kept as a printed record, not a criterion.
+/// | P [MW] | ω [rad/s] | line \|H\|, phase | `nee_soon` \|H\|, phase | ratio, Δphase |
+/// |---|---|---|---|---|
+/// | 7.306 | 0.061109 | 1061.55, +9.748° | 1219.45, +10.687° | 0.8705, −0.94° |
+/// | 1.004 | 0.015466 | 4406.34, +4.711° | 5012.74, +19.374° | 0.8790, −14.66° |
+///
+/// The effective-β argument behind the prediction was too crude: the line
+/// model also changes when each group's neutrons count (the plenums'
+/// importance), which matters most for the long-lived groups at low ω. No
+/// independent reference exists for the line model's frequency response;
+/// this is a model difference, recorded. Only finiteness
+/// is asserted: the measured quantity for the default is TM-1647's natural
+/// period ([`the_natural_period_at_7_3_mw_against_tm1647`]).
 #[test]
-fn the_natural_period_at_7_3_mw_against_tm1647() {
-    let (p, measured_min) = MEASURED_PERIODS_TM1647[6];
-    let lin = MsreLoopModel::tm1070(
-        Power::new::<megawatt>(p),
-        per_f(crate::msre::design::ORNL_1965_FUEL_PER_F),
-        per_f(crate::msre::design::ORNL_1965_GRAPHITE_PER_F),
-    );
-    let t_lin = lin.natural_period(400).expect("resonance").get::<second>();
+fn the_default_response_against_nee_soons_well_stirred_model_is_recorded() {
+    for (p, _, amp, phase, amp_lin, phase_lin) in response_against_nee_soon(CirculationModel::LineTm1626) {
+        println!("default at {p} MW: ratio {:.5}, dphase {:+.3} deg", amp / amp_lin, phase - phase_lin);
+        assert!(amp.is_finite() && phase.is_finite());
+    }
+}
+
+/// TM-1647's instrument for the natural period, in the time domain:
+/// `model`'s amplitude at five frequencies around `nee_soon`'s peak at `p`
+/// MW (periods 0.85 to 1.15 of it), a parabola in `ln ω` through the three
+/// highest, and its vertex. Returns `(time domain, nee_soon)` in minutes.
+fn natural_period_minutes(p: f64, model: CirculationModel, settle: f64) -> (f64, f64) {
+    let t_lin = linear_model(p).natural_period(400).expect("resonance").get::<second>();
     let mut pts: Vec<(f64, f64)> = [0.85, 0.92, 1.0, 1.08, 1.15]
         .iter()
         .map(|s| {
-            let (amp, _, omega) = driven_response(p, 2.0 * core::f64::consts::PI / (t_lin * s), 3000.0, 4);
+            let (amp, _, omega) = driven_response(p, model, 2.0 * core::f64::consts::PI / (t_lin * s), settle, 4);
             (omega.r_ln(), amp)
         })
         .collect();
@@ -300,9 +388,13 @@ fn the_natural_period_at_7_3_mw_against_tm1647() {
     let a = (x3 * (y2 - y1) + x2 * (y1 - y3) + x1 * (y3 - y2)) / den;
     let b = (x3 * x3 * (y1 - y2) + x2 * x2 * (y3 - y1) + x1 * x1 * (y2 - y3)) / den;
     let w_peak = (-b / (2.0 * a)).r_exp();
-    let t_td = 2.0 * core::f64::consts::PI / w_peak / 60.0;
-    // The other instrument, for the record: free oscillation after a step.
-    let mut m = model_at(p);
+    (2.0 * core::f64::consts::PI / w_peak / 60.0, t_lin / 60.0)
+}
+
+/// The free-oscillation peak spacing \[min\] after a +1e-5 rod step at `p`
+/// MW: the other instrument, printed for the record only.
+fn free_oscillation_minutes(p: f64, model: CirculationModel) -> Option<f64> {
+    let mut m = model_with(p, model);
     m.set_rod_reactivity(Ratio::new::<ratio>(1.0e-5));
     let mut trace = Vec::new();
     for _ in 0..60_000 {
@@ -313,13 +405,114 @@ fn the_natural_period_at_7_3_mw_against_tm1647() {
     let maxima: Vec<usize> = (w..trace.len() - w)
         .filter(|&k| trace[k - w..=k + w].iter().all(|&v| v <= trace[k]) && k > 500)
         .collect();
-    let free = if maxima.len() >= 2 { Some((maxima[1] - maxima[0]) as f64 * INTERNAL_TIMESTEP_S / 60.0) } else { None };
+    if maxima.len() >= 2 {
+        Some((maxima[1] - maxima[0]) as f64 * INTERNAL_TIMESTEP_S / 60.0)
+    } else {
+        None
+    }
+}
+
+/// **MSRE T-1's number, end to end, with the right instrument: the default
+/// (TM-1626 line model) against TM-1647's measurement.** TM-1647's natural
+/// period is `2π/ω` at the peak of the measured frequency response, so it is
+/// measured here the same way ([`natural_period_minutes`]).
+///
+/// ~~Prediction (gh:#1330): within 2 % of `nee_soon`'s 1.71 min, hence within
+/// a few percent of TM-1647's measured 1.71 min at 7.306 MW.~~ ~~Result
+/// (2026-11-10): time domain **1.713 min**, `nee_soon` 1.714 min, TM-1647
+/// measured 1.71 min: **+0.2 %**~~ **CHANGED 2026-11-11 (gh:#1330):** those
+/// were the well-stirred model's, then the default; they are now the
+/// ablation's ([`the_well_stirred_ablation_natural_period_is_nee_soons`]).
+///
+/// Prediction for the line-model default (gh:#1330, 2026-11-11, before the
+/// run): 1.72-1.80 min (+0.5 % to +5 % against the measured 1.71 min); the
+/// lower zero-power gain acts like a slightly lower power, and near 7 MW
+/// the measured period goes roughly as P⁻¹. **Band asserted against the
+/// measurement, posted before the run: 1.71 min ± 5 %** (the ±2 %
+/// digitisation plus the predicted change).
+///
+/// Result (2026-11-11): **1.7956 min, +5.01 %** against TM-1647's 1.71 min
+/// (`nee_soon`'s well-stirred 1.714 min; the well-stirred ablation in the
+/// time domain 1.713 min, +0.2 %). The predicted range 1.72-1.80 min is met
+/// at its edge; **the ±5 % band is missed by 0.01 %.** The band is not
+/// moved: the test pins the miss ([`TM1647_BAND_MET_2026_11_11`]) and the
+/// value. The more correct kinetics move the period away from the
+/// measurement with TM-1070's 1965 predicted coefficients; that is the
+/// finding, posted on gh:#1330 (and relevant to gh:#1132), not something to
+/// tune away. With TM-1070's 1965 predicted coefficients.
+///
+/// Also recorded at 1.004 MW, not predicted beforehand and so not a
+/// criterion: **7.3018 min, +1.98 %** against TM-1647's 7.16 min, where
+/// `nee_soon`'s well-stirred model gives 6.7712 min (−5.4 %). The line
+/// model moves the low-power period *toward* the measurement and the
+/// high-power one away. Free-oscillation spacing at 7.306 MW: 3.349 min
+/// (well-stirred 2.346; predicted 2.35-2.50: missed; printed only).
+///
+/// The free-oscillation peak spacing after a +1e-5 step (the other
+/// instrument, 2.346 min for the well-stirred model, +37 %: heavily damped,
+/// not the quantity TM-1647 measured) is printed, not asserted.
+#[test]
+fn the_natural_period_at_7_3_mw_against_tm1647() {
+    let (p, measured_min) = MEASURED_PERIODS_TM1647[6];
+    let (t_td, t_lin) = natural_period_minutes(p, CirculationModel::LineTm1626, 3000.0);
+    let free = free_oscillation_minutes(p, CirculationModel::LineTm1626);
+    let within_band = (t_td / measured_min - 1.0).abs() < TM1647_BAND;
     println!(
-        "7.306 MW natural period: time domain {t_td:.3} min, nee_soon {:.3} min, TM-1647 measured {measured_min:.2} min ({:+.1} %); free-oscillation peak spacing {free:?} min",
-        t_lin / 60.0,
+        "7.306 MW natural period, default (line): time domain {t_td:.4} min, nee_soon (well-stirred) {t_lin:.4} min, TM-1647 measured {measured_min:.2} min ({:+.2} %); band +/-{:.0} %: {}; free-oscillation peak spacing {free:?} min",
+        100.0 * (t_td / measured_min - 1.0),
+        100.0 * TM1647_BAND,
+        if within_band { "met" } else { "MISSED" }
+    );
+    // Not a criterion moved: the band stays as posted, and the miss is
+    // pinned. If a change brings the default inside the band (or moves the
+    // period), this fails and the record must be re-measured and rewritten.
+    assert_eq!(within_band, TM1647_BAND_MET_2026_11_11, "the band verdict changed: re-record");
+    assert!((t_td - 1.7956).abs() < 0.0005, "natural period moved from the recorded 1.7956 min: {t_td}");
+    // A record at a second measured power, not predicted beforehand, so not
+    // a criterion (printed only).
+    let (p1, measured1) = MEASURED_PERIODS_TM1647[2];
+    let (t1, t1_lin) = natural_period_minutes(p1, CirculationModel::LineTm1626, 5000.0);
+    println!(
+        "1.004 MW natural period, default (line): time domain {t1:.4} min, nee_soon (well-stirred) {t1_lin:.4} min, TM-1647 measured {measured1:.2} min ({:+.2} %)",
+        100.0 * (t1 / measured1 - 1.0)
+    );
+    assert!(t1.is_finite());
+}
+
+/// The band posted on gh:#1330 before the run (2026-11-11) for the
+/// default's natural period at 7.306 MW against TM-1647: ±5 %.
+const TM1647_BAND: f64 = 0.05;
+
+/// Whether the default met [`TM1647_BAND`] when recorded (2026-11-11): it
+/// did not, by 0.01 % (+5.01 %). Kept as recorded, not loosened.
+const TM1647_BAND_MET_2026_11_11: bool = false;
+
+/// **Ablation (well-stirred), code-to-code: the natural period at 7.306 MW
+/// against `nee_soon`'s.** Same instrument.
+///
+/// Prediction (gh:#1330): within 2 % of `nee_soon`'s.
+///
+/// Result (2026-11-10, then the default; re-run 2026-11-11 as the ablation):
+/// time domain **1.713 min**, `nee_soon` 1.714 min, TM-1647 measured
+/// 1.71 min (+0.2 %). With N-3's Monte Carlo coefficients `nee_soon`
+/// records 2.03 min (+18.8 %) at this power (gh:#1132).
+///
+/// **A prediction missed, on the other instrument.** The free-oscillation
+/// peak spacing after a +1e-5 step was predicted within ±15 % of 1.71 min;
+/// it is **2.346 min (+37 %)**. The prediction was wrong, not the model:
+/// the oscillation is heavily damped, so the spacing of the first two maxima
+/// of a step response is neither the resonance period nor even a clean
+/// damped period. It is kept as a printed record, not a criterion.
+#[test]
+fn the_well_stirred_ablation_natural_period_is_nee_soons() {
+    let (p, measured_min) = MEASURED_PERIODS_TM1647[6];
+    let (t_td, t_lin) = natural_period_minutes(p, CirculationModel::WellStirredTm1070, 3000.0);
+    let free = free_oscillation_minutes(p, CirculationModel::WellStirredTm1070);
+    println!(
+        "7.306 MW natural period, ablation (well-stirred): time domain {t_td:.3} min, nee_soon {t_lin:.3} min, TM-1647 measured {measured_min:.2} min ({:+.1} %); free-oscillation peak spacing {free:?} min",
         100.0 * (t_td / measured_min - 1.0)
     );
-    assert!((t_td / (t_lin / 60.0) - 1.0).abs() < 0.02);
+    assert!((t_td / t_lin - 1.0).abs() < 0.02);
 }
 
 /// **Physical invariants in a load transient (harness check, not V&V).** At
@@ -438,11 +631,19 @@ fn out_of_range_inputs_are_refused() {
 
 /// **Cost per step (measured, recorded; no criterion: timing is
 /// machine-dependent).** 1000 s of plant time at 8 MW.
+///
+/// Results: 2026-11-10, the then-default well-stirred model, 0.68 µs.
+/// 2026-11-11 (container loaded): **default (line) 60.5 µs per step, 165 ×
+/// real time**; ablation (well-stirred) 0.99 µs, 10 000 ×. Prediction for
+/// the line default (gh:#1330): about 38 µs, 260 ×; slower here by the load
+/// (×1.46 on the ablation).
 #[test]
 fn cost_per_step_is_printed() {
-    let mut m = model_at(8.0);
-    let t = std::time::Instant::now();
-    m.step(Time::new::<second>(1000.0)).unwrap();
-    let us = t.elapsed().as_secs_f64() * 1e6 / 100_000.0;
-    println!("cost: {us:.3} us per 0.01 s step ({:.0}x real time)", INTERNAL_TIMESTEP_S * 1e6 / us);
+    for (name, mut m) in [("default (line)", model_at(8.0)), ("ablation (well-stirred)", well_stirred_at(8.0))] {
+        let t = std::time::Instant::now();
+        m.step(Time::new::<second>(1000.0)).unwrap();
+        let us = t.elapsed().as_secs_f64() * 1e6 / 100_000.0;
+        println!("cost, {name}: {us:.3} us per 0.01 s step ({:.0}x real time)", INTERNAL_TIMESTEP_S * 1e6 / us);
+        assert!(m.power().get::<megawatt>().is_finite());
+    }
 }

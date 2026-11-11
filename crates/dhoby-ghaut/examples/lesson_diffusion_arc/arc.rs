@@ -17,7 +17,9 @@
 //!   it never diffuses Cs or Sr through a coating. No fluence.
 //!
 //! Krypton is not compared: TRISO-ATOPS's noble-gas R/B is an empirical fit,
-//! not a diffusion solution, and boon-lay has no Kr D in the buffer (gh:#541).
+//! not a diffusion solution~~, and boon-lay has no Kr D in the buffer
+//! (gh:#541)~~ (**CORRECTED 2026-11-10, gh:#638:** boon-lay now has one, the
+//! German `1e-8 m^2/s` of IAEA-TECDOC-978; the empirical fit is the reason).
 #![allow(dead_code)]
 
 use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_crp_6_case_1a_1b::simulation_code::kernel_diffusion_coefficient;

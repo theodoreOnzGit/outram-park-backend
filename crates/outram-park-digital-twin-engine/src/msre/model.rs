@@ -6,13 +6,29 @@
 //! piping. It is GUI-free, deterministic (no clock, no RNG, no I/O), cheap
 //! (about a microsecond per 0.01 s step), and compiles for `wasm32`. A web
 //! demo drives it from a Web Worker and reads its getters to draw.
+//! ~~(about a microsecond per 0.01 s step)~~ **CORRECTED 2026-11-11
+//! (gh:#1330):** with the line-model default, 40-60 µs per 0.01 s step
+//! (38 µs on a quiet core, 2026-11-10; 58-61 µs under load, 2026-11-11),
+//! 165-260× real time natively; the well-stirred ablation stays at about
+//! a microsecond (see "Cost" below and `docs/msre_library.md`).
 //!
 //! ## What it is built from (reused, not re-derived)
 //!
-//! - **Kinetics:** `teh_o_prke`'s [`CirculatingPointKinetics`] (MSRE T-C1,
-//!   gh:#1131), unchanged, with TM-1070 App. B's six groups
-//!   ([`super::design::LAMBDA`], [`super::design::BETA`]) and TM-1070
-//!   Table 1's Λ, core transit 8.46 s and loop transit 16.73 s.
+//! - **Kinetics:** ~~`teh_o_prke`'s `CirculatingPointKinetics` (MSRE T-C1,
+//!   gh:#1131), unchanged~~ **CHANGED 2026-11-10 (gh:#1332):**
+//!   [`super::circulation::CirculatingKinetics`], which carries a flow
+//!   change, with TM-1070 App. B's six groups ([`super::design::LAMBDA`],
+//!   [`super::design::BETA`]) and TM-1070 Table 1's Λ, core transit 8.46 s
+//!   and loop transit 16.73 s ~~by default~~ in the ablation
+//!   [`CirculationModel::WellStirredTm1070`]. At full flow that is
+//!   `teh_o_prke`'s `CirculatingPointKinetics` step for step (pinned by a
+//!   differential test to 1e-12). ~~ORNL-TM-1626's importance-weighted line
+//!   model is the named option [`CirculationModel::LineTm1626`] (gh:#1330).~~
+//!   **CHANGED 2026-11-11 (gh:#1330, maintainer: "Let's use ORNL more
+//!   correct physics"):** ORNL-TM-1626's importance-weighted line model,
+//!   [`CirculationModel::LineTm1626`], is the **default**, with TM-1626
+//!   Table 1's groups and residence times and TM-1070's Λ. The well-stirred
+//!   model is the explicit ablation [`MsreConfig::without_line_model`].
 //! - **Thermal network:** ORNL-TM-1070's (Ball and Kerlin, 1965) lumped
 //!   equations, with the coefficients `nee_soon::msre_frequency_response`
 //!   (MSRE T-1, gh:#1132) uses, read from there:
@@ -29,8 +45,11 @@
 //! `nee_soon` solves these equations linearised, in the frequency domain.
 //! Here the same equations are integrated in time with backward Euler, and
 //! the kinetics keep their nonlinear `ρ·n` term. The frequency response is
-//! the check: driven by a small sinusoidal reactivity, this model's
-//! amplitude and phase reproduce `nee_soon`'s (see the tests).
+//! the check: driven by a small sinusoidal reactivity, ~~this model's~~ the
+//! well-stirred ablation's amplitude and phase reproduce `nee_soon`'s (see
+//! the tests). **2026-11-11:** `nee_soon` solves the well-stirred kinetics,
+//! so the default (line model) no longer is that code-to-code check; it is
+//! compared with TM-1647's measured natural period instead.
 //!
 //! ## What is new here, and so new physics run uncalibrated
 //!
@@ -49,12 +68,64 @@
 //!    `ρ = Δρ_circ + ρ_rod + α_F (F₁ − F₁⁰) + α_G (G − G⁰)`, where `Δρ_circ`
 //!    is the circulation loss that holds the circulating core critical.
 //!
+//! ## Pump trips and flow changes (gh:#1332, 2026-11-10)
+//!
+//! ~~**Pump trips or any change of fuel or coolant flow** are not modelled;
+//! the transits are fixed.~~ **CORRECTED 2026-11-10:** the fuel and coolant
+//! flows follow a [`super::pumps::FlowSchedule`] after
+//! [`MsreModel::trip_fuel_pump`], [`MsreModel::trip_coolant_pump`],
+//! [`MsreModel::start_fuel_pump`] or [`MsreModel::start_coolant_pump`], or
+//! are set directly. A flow fraction `f` enters as follows, every term
+//! derived, none fitted:
+//!
+//! - **Circulating precursors:** the kinetics' loop is indexed by fluid
+//!   displacement ([`super::circulation`]).
+//! - **Transits** scale as `1/f`: the core lumps' `τ_F`, the heat-exchanger
+//!   and radiator salt lumps' `t`, and the four piping lags (plug flow,
+//!   advanced by displacement).
+//! - **Salt-side heat transfer** in the heat exchanger and the radiator
+//!   scales as `h ∝ f^0.8` (Dittus-Boelter, `Nu ∝ Re^0.8`; the salt flows
+//!   are turbulent, Re ≈ 240 000 primary and 120 000 secondary, TM-1070
+//!   p. 16; MSRE TH-1, gh:#1134, found Dittus-Boelter within +10 % of
+//!   ORNL-TM-4079's turbulent salt data). That is the same scaling
+//!   TM-1070 p. 60 applies to the air side with exponent 0.6. Hence
+//!   `n = hA/(W c_p) ∝ f^-0.2` and the tube time constants `∝ f^-0.8`.
+//! - **Core fuel-to-graphite `hA`** does not change: the core flow is
+//!   laminar (Re ≈ 1000, TM-1070 p. 14), where the fully developed Nusselt
+//!   number does not depend on the flow.
+//!
+//! **Limits, stated rather than hidden:**
+//!
+//! - **No natural circulation.** No MSRE natural-circulation flow was found
+//!   in TM-0728, TM-1070, ORNL-4233 or TM-2987, so the flow goes where the
+//!   schedule takes it, to zero, and the forced-convection terms with it.
+//! - **The two-lump sections are Mann's lumping, valid for `n < 2` per
+//!   lump** (TM-1070 ref. 18). With `n ∝ f^-0.2` the heat exchanger's fuel
+//!   side passes `n = 2` below about 24 % fuel flow, its coolant side and
+//!   the radiator's below about 5 % and 2 % coolant flow. Below that the
+//!   heat-exchanger temperatures are outside the lumping's validity;
+//!   [`MsreModel::thermal_lumping_within_validity`] reports it. A
+//!   multi-section exchanger (TM-1070's complete model used ten) would
+//!   remove the limit; it is not built.
+//! - The core flux shape is held: no spatial kinetics after a trip.
+//! - **Salt freezing and the radiator doors.** Nothing stops a salt
+//!   cooling below its 840 °F liquidus (TM-0728 Table 2.1). After a
+//!   fuel-pump trip at power with the air flow left on, the coolant reaches
+//!   471 °F in 300 s (test `pump_trips_at_power_stay_finite`); the plant
+//!   would have closed the radiator doors. A caller should cut the air flow
+//!   ([`MsreModel::set_radiator_air_flow_fraction`]).
+//!
+//! Measured against ORNL-4233 Fig. 24 (zero-power coast-down and start-up
+//! held critical by the rod servo): see `docs/msre_library.md` and the
+//! tests in `model/pump_tests.rs`. Cost: about 0.7 µs per step at constant
+//! flow, 5 µs while a flow changes (the network is refactored), 38 µs with
+//! [`CirculationModel::LineTm1626`] (2026-11-10, one shared core), ~~for
+//! the well-stirred default~~ **CORRECTED 2026-11-11:** the first two are
+//! the well-stirred ablation's; the line-model default costs the third,
+//! re-measured in `docs/msre_library.md`.
+//!
 //! ## What it does not model (stated so it is not mistaken for a gap filled)
 //!
-//! - **Pump trips or any change of fuel or coolant flow.** The transits are
-//!   fixed. Variable flow needs variable-transit circulating kinetics in
-//!   `teh-o-prke` and flow-dependent lumps; that is gh:#1332, not a
-//!   setter that silently does nothing.
 //! - Xenon, the drain tank and freeze valve (`tampines`' generic components
 //!   exist; the MSRE-specific model is the MSRE repository's, gh:#1136),
 //!   spatial effects, decay heat after shutdown beyond the 188 s
@@ -75,24 +146,21 @@
 use std::collections::VecDeque;
 
 use petir::linalg::{lu_decomp, lu_svx, LuPermutation, Matrix};
-use teh_o_prke::zero_power_prke::circulating::CirculatingPointKinetics;
-use uom::si::f64::{
-    Frequency, Power, Ratio, TemperatureCoefficient, ThermodynamicTemperature, Time,
-    VolumetricNumberDensity, VolumetricNumberRate,
-};
-use uom::si::frequency::hertz;
+use petir::mathf::RealMath;
+use uom::si::f64::{Power, Ratio, TemperatureCoefficient, ThermodynamicTemperature, Time};
 use uom::si::power::megawatt;
 use uom::si::ratio::ratio;
 use uom::si::temperature_coefficient::per_kelvin;
 use uom::si::thermodynamic_temperature::degree_fahrenheit;
 use uom::si::time::second;
-use uom::si::volumetric_number_density::per_cubic_meter;
-use uom::si::volumetric_number_rate::per_cubic_meter_second;
 
+pub use super::circulation::CirculationModel;
+use super::circulation::CirculatingKinetics;
 use super::design::{
-    per_f, HxSection, MsreLoopModel, BETA, GAMMA_LAG, GAMMA_SHARE, HA, K_F, K_G, LAMBDA, MC_F,
-    MC_G, ORNL_1965_FUEL_PER_F, ORNL_1965_GRAPHITE_PER_F, TAU_F,
+    per_f, HxSection, MsreLoopModel, GAMMA_LAG, GAMMA_SHARE, HA, K_F, K_G, MC_F, MC_G,
+    ORNL_1965_FUEL_PER_F, ORNL_1965_GRAPHITE_PER_F, TAU_F,
 };
+use super::pumps::FlowSchedule;
 
 /// The fixed internal step, 0.01 s. TM-1070's piping lags and transits are
 /// given to 0.01 s, so every delay is a whole number of steps and nothing is
@@ -149,6 +217,11 @@ pub struct MsreConfig {
     pub fuel_temperature_coefficient: TemperatureCoefficient,
     /// Graphite temperature coefficient of reactivity.
     pub graphite_temperature_coefficient: TemperatureCoefficient,
+    /// Which ORNL circulating-fuel model the kinetics use: by default
+    /// ~~[`CirculationModel::WellStirredTm1070`]~~ **(CHANGED 2026-11-11,
+    /// gh:#1330)** [`CirculationModel::LineTm1626`]; the well-stirred model
+    /// is the ablation [`MsreConfig::without_line_model`].
+    pub circulation_model: CirculationModel,
 }
 
 impl MsreConfig {
@@ -158,6 +231,11 @@ impl MsreConfig {
     /// Table 8.2. For the workspace's own Monte Carlo coefficients (MSRE N-3,
     /// gh:#1129: fuel −3.82 ± 0.44, graphite −3.77 ± 0.65 × 10⁻⁵ /°F), set the
     /// two coefficient fields with [`super::design::per_f`].
+    ///
+    /// The circulating-fuel kinetics are ORNL-TM-1626's importance-weighted
+    /// line model, [`CirculationModel::LineTm1626`] (the default since
+    /// 2026-11-11, gh:#1330, maintainer: "Let's use ORNL more correct
+    /// physics"); [`Self::without_line_model`] ablates it.
     pub fn tm1070(initial_power: Power) -> Self {
         Self {
             initial_power,
@@ -167,7 +245,22 @@ impl MsreConfig {
             radiator_air_inlet: ThermodynamicTemperature::new::<degree_fahrenheit>(100.0),
             fuel_temperature_coefficient: per_f(ORNL_1965_FUEL_PER_F),
             graphite_temperature_coefficient: per_f(ORNL_1965_GRAPHITE_PER_F),
+            circulation_model: CirculationModel::LineTm1626,
         }
+    }
+
+    /// **Ablation:** the same configuration with TM-1070's well-stirred
+    /// circulating-fuel model, [`CirculationModel::WellStirredTm1070`],
+    /// instead of the default TM-1626 line model. It is ORNL's 1965
+    /// design-stage kinetics (TM-1070 (A.29)): a well-stirred core, a
+    /// delayed loop and a flat, core-only importance, whose circulation loss
+    /// reads +16 % against TM-1626's measurement (the line model +8 %), and
+    /// which returns the precursors 3-4 s late after a pump start-up
+    /// (ORNL-4233 Fig. 24, gh:#1332). Use it for the code-to-code check
+    /// against `nee_soon`'s frequency response, which solves this model, or
+    /// where the cost matters: about 0.7 µs per step against about 40 µs.
+    pub fn without_line_model(self) -> Self {
+        Self { circulation_model: CirculationModel::WellStirredTm1070, ..self }
     }
 }
 
@@ -181,9 +274,39 @@ struct Network {
     h: [f64; N],
 }
 
+/// The salt-side heat-transfer coefficient at flow fraction `f`, relative
+/// to full flow: `f^0.8` (Dittus-Boelter; see the module docs), zero at
+/// zero flow.
+fn salt_h_ratio(f: f64) -> f64 {
+    if f > 0.0 {
+        f.r_powf(0.8)
+    } else {
+        0.0
+    }
+}
+
+/// The fuel and coolant flow fractions a [`Network`] is built at.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Flows {
+    fuel: f64,
+    coolant: f64,
+}
+
+impl Flows {
+    const FULL: Flows = Flows { fuel: 1.0, coolant: 1.0 };
+}
+
 impl Network {
-    /// The network with heat exchanger `hx` and radiator `rad`.
+    /// The network with heat exchanger `hx` and radiator `rad` at full flow.
     fn new(hx: &HxSection, rad: &HxSection) -> Self {
+        Self::at_flows(hx, rad, Flows::FULL)
+    }
+
+    /// The network at the flow fractions `flows`: transits `∝ 1/f`, salt
+    /// heat transfer `∝ f^0.8`, core `hA` fixed (module docs). At full flow
+    /// every coefficient is bit-identical to the fixed-flow network.
+    fn at_flows(hx: &HxSection, rad: &HxSection, flows: Flows) -> Self {
+        let ff = flows.fuel;
         let mut a = [[0.0; N]; N];
         let mut b = [[0.0; NU]; N];
         let mut h = [0.0; N];
@@ -191,64 +314,100 @@ impl Network {
         // two fuel lumps and driven by F1, as in nee_soon's rows.
         let share = 0.5;
         let x = share * HA / MC_F;
-        a[F1][F1] = -1.0 / TAU_F - x;
+        a[F1][F1] = -ff / TAU_F - x;
         a[F1][G] = x;
-        b[F1][U_CORE_IN] = 1.0 / TAU_F;
+        b[F1][U_CORE_IN] = ff / TAU_F;
         h[F1] = K_F / MC_F;
-        a[F2][F2] = -1.0 / TAU_F;
-        a[F2][F1] = 1.0 / TAU_F - x;
+        a[F2][F2] = -ff / TAU_F;
+        a[F2][F1] = ff / TAU_F - x;
         a[F2][G] = x;
         h[F2] = K_F / MC_F;
         a[G][G] = -HA / MC_G;
         a[G][F1] = HA / MC_G;
         h[G] = 2.0 * K_G / MC_G;
-        section(&mut a, &mut b, HX, hx, U_HX_COOLANT_IN, U_HX_FUEL_IN, true);
-        section(&mut a, &mut b, RAD, rad, U_RAD_COOLANT_IN, U_AIR_IN, false);
+        let coolant = SideFlow { f: flows.coolant, h: salt_h_ratio(flows.coolant) };
+        let fuel = SideFlow { f: ff, h: salt_h_ratio(ff) };
+        let air = SideFlow { f: 1.0, h: 1.0 };
+        section(&mut a, &mut b, HX, hx, U_HX_COOLANT_IN, U_HX_FUEL_IN, true, coolant, fuel);
+        section(&mut a, &mut b, RAD, rad, U_RAD_COOLANT_IN, U_AIR_IN, false, coolant, air);
         Self { a, b, h }
     }
+}
+
+/// One fluid's flow fraction `f` and heat-transfer ratio `h` in a section.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct SideFlow {
+    f: f64,
+    h: f64,
 }
 
 /// Rows `base..` of one heat-exchange section, TM-1070 (A.32)-(A.37): fluid 1
 /// (in the tube) lumps T1, T1out; the tube; fluid 2 lumps T2, T2out; and,
 /// with `shell`, the shell. Fluid 1 enters from input `in1`, fluid 2 from
-/// `in2`. The same coefficients as `nee_soon`'s `hx_rows`.
-fn section(a: &mut [[f64; N]; N], b: &mut [[f64; NU]; N], base: usize, s: &HxSection, in1: usize, in2: usize, shell: bool) {
+/// `in2`. The same coefficients as `nee_soon`'s `hx_rows` at full flow
+/// (`f = h = 1`). Below full flow the flow terms `2/t` scale with `f` and
+/// the heat-transfer terms `n/t` and `1/τ` with `h` (module docs); the shell
+/// is on fluid 2's side.
+#[allow(clippy::too_many_arguments)]
+fn section(
+    a: &mut [[f64; N]; N],
+    b: &mut [[f64; NU]; N],
+    base: usize,
+    s: &HxSection,
+    in1: usize,
+    in2: usize,
+    shell: bool,
+    side1: SideFlow,
+    side2: SideFlow,
+) {
     let (t1, t1o, tt, t2, t2o, ts) = (base, base + 1, base + 2, base + 3, base + 4, base + 5);
     let ns = if shell { s.ns } else { 0.0 };
-    a[t1][t1] = -(2.0 + s.n1) / s.t1;
-    b[t1][in1] = 2.0 / s.t1;
-    a[t1][tt] = s.n1 / s.t1;
-    a[t1o][t1o] = -2.0 / s.t1;
-    a[t1o][t1] = 2.0 / s.t1 - s.n1 / s.t1;
-    a[t1o][tt] = s.n1 / s.t1;
-    a[tt][tt] = -(1.0 / s.tau_t1 + 1.0 / s.tau_t2);
-    a[tt][t1] = 1.0 / s.tau_t1;
-    a[tt][t2] = 1.0 / s.tau_t2;
-    a[t2][t2] = -(2.0 + s.n2 + ns) / s.t2;
-    b[t2][in2] = 2.0 / s.t2;
-    a[t2][tt] = s.n2 / s.t2;
-    a[t2o][t2o] = -2.0 / s.t2;
-    a[t2o][t2] = 2.0 / s.t2 - (s.n2 + ns) / s.t2;
-    a[t2o][tt] = s.n2 / s.t2;
+    let (f1, h1, f2, h2) = (side1.f, side1.h, side2.f, side2.h);
+    a[t1][t1] = -(2.0 * f1 + s.n1 * h1) / s.t1;
+    b[t1][in1] = 2.0 * f1 / s.t1;
+    a[t1][tt] = s.n1 * h1 / s.t1;
+    a[t1o][t1o] = -2.0 * f1 / s.t1;
+    a[t1o][t1] = 2.0 * f1 / s.t1 - s.n1 * h1 / s.t1;
+    a[t1o][tt] = s.n1 * h1 / s.t1;
+    a[tt][tt] = -(h1 / s.tau_t1 + h2 / s.tau_t2);
+    a[tt][t1] = h1 / s.tau_t1;
+    a[tt][t2] = h2 / s.tau_t2;
+    a[t2][t2] = -(2.0 * f2 + (s.n2 + ns) * h2) / s.t2;
+    b[t2][in2] = 2.0 * f2 / s.t2;
+    a[t2][tt] = s.n2 * h2 / s.t2;
+    a[t2o][t2o] = -2.0 * f2 / s.t2;
+    a[t2o][t2] = 2.0 * f2 / s.t2 - (s.n2 + ns) * h2 / s.t2;
+    a[t2o][tt] = s.n2 * h2 / s.t2;
     if shell {
-        a[t2][ts] = ns / s.t2;
-        a[t2o][ts] = ns / s.t2;
-        a[ts][ts] = -1.0 / s.tau_s;
-        a[ts][t2] = 1.0 / s.tau_s;
+        a[t2][ts] = ns * h2 / s.t2;
+        a[t2o][ts] = ns * h2 / s.t2;
+        a[ts][ts] = -h2 / s.tau_s;
+        a[ts][t2] = h2 / s.tau_s;
     }
 }
 
-/// One plug-flow pipe: the outlet is the inlet `steps` steps ago.
+/// Mann's two-lump section is valid while `n < 2` per lump (TM-1070 ref.
+/// 18); `n_eff = n h / f` at reduced flow. False at zero flow.
+fn lump_valid(n: f64, side: SideFlow) -> bool {
+    side.f > 0.0 && n * side.h / side.f < 2.0
+}
+
+/// One plug-flow pipe of `steps` cells, each the salt that passes in one
+/// step at full flow. The salt moves one cell whenever the accumulated
+/// displacement passes one cell: at full flow every step, the outlet then
+/// being the inlet `steps` steps ago.
 #[derive(Debug, Clone, PartialEq)]
 struct Pipe {
     /// Inlet temperatures, oldest first; the front is the current outlet.
     history: VecDeque<f64>,
+    /// Displacement not yet moved, in cells.
+    displacement: f64,
 }
 
 impl Pipe {
     /// A pipe of `steps` steps, full of salt at `t`.
     fn full_at(steps: usize, t: f64) -> Self {
-        Self { history: std::iter::repeat(t).take(steps).collect() }
+        Self { history: std::iter::repeat(t).take(steps).collect(), displacement: 0.0 }
     }
 
     /// The temperature leaving now.
@@ -256,10 +415,15 @@ impl Pipe {
         self.history.front().copied().unwrap_or(f64::NAN)
     }
 
-    /// Push this step's inlet and drop the oldest.
-    fn advance(&mut self, inlet: f64) {
-        self.history.push_back(inlet);
-        self.history.pop_front();
+    /// Move the salt by this step's displacement `flow` (cells): push the
+    /// inlet and drop the oldest once per whole cell.
+    fn advance(&mut self, inlet: f64, flow: f64) {
+        self.displacement += flow;
+        while self.displacement >= 1.0 - 1e-9 {
+            self.history.push_back(inlet);
+            self.history.pop_front();
+            self.displacement = (self.displacement - 1.0).max(0.0);
+        }
     }
 }
 
@@ -308,8 +472,14 @@ fn factor(m: Vec<f64>, n: usize, what: &str) -> Result<(Matrix, LuPermutation), 
 #[derive(Debug, Clone)]
 pub struct MsreModel {
     params: MsreLoopModel,
-    kinetics: CirculatingPointKinetics,
+    kinetics: CirculatingKinetics,
     circulation_loss: f64,
+    /// Fuel and coolant flow fractions of the last step.
+    flows: Flows,
+    /// The flows the `network` was built at.
+    network_flows: Flows,
+    fuel_pump: PumpDrive,
+    coolant_pump: PumpDrive,
     p0_mw: f64,
     /// Fission power \[MW\].
     power_mw: f64,
@@ -327,6 +497,38 @@ pub struct MsreModel {
     g_ref: f64,
     steps: u64,
     remainder_s: f64,
+}
+
+/// What sets one loop's flow: a fixed fraction, or a schedule and the time
+/// since its event.
+#[derive(Debug, Clone, PartialEq)]
+enum PumpDrive {
+    Fixed(f64),
+    Scheduled { schedule: FlowSchedule, since_s: f64 },
+}
+
+impl PumpDrive {
+    /// The flow fraction the next step of `dt` will use, without advancing.
+    fn peek(&self, dt: f64) -> f64 {
+        match self {
+            PumpDrive::Fixed(f) => *f,
+            PumpDrive::Scheduled { schedule, since_s } => {
+                schedule.flow_fraction(Time::new::<second>(*since_s + dt)).get::<ratio>()
+            }
+        }
+    }
+
+    /// The flow fraction for a step ending `dt` from now, advancing the
+    /// schedule clock.
+    fn next(&mut self, dt: f64) -> f64 {
+        match self {
+            PumpDrive::Fixed(f) => *f,
+            PumpDrive::Scheduled { schedule, since_s } => {
+                *since_s += dt;
+                schedule.flow_fraction(Time::new::<second>(*since_s)).get::<ratio>()
+            }
+        }
+    }
 }
 
 // Pipe order in `MsreModel::pipes`: core→HX (fuel), HX→core (fuel),
@@ -353,17 +555,9 @@ impl MsreModel {
             config.fuel_temperature_coefficient,
             config.graphite_temperature_coefficient,
         );
-        let time = Time::new::<second>;
-        let kinetics = CirculatingPointKinetics::with_groups(
-            BETA.iter().map(|&b| Ratio::new::<ratio>(b)).collect(),
-            LAMBDA.iter().map(|&l| Frequency::new::<hertz>(l)).collect(),
-            time(params.core_transit),
-            time(params.loop_transit),
-            time(params.generation_time),
-            time(INTERNAL_TIMESTEP_S),
-        )
-        .map_err(|e| MsreModelError::Kinetics(format!("{e:?}")))?;
-        let circulation_loss = kinetics.circulation_reactivity_loss().get::<ratio>();
+        let kinetics = CirculatingKinetics::new(config.circulation_model, params.generation_time, INTERNAL_TIMESTEP_S)
+            .map_err(|e| MsreModelError::Kinetics(format!("{e:?}")))?;
+        let circulation_loss = kinetics.circulation_loss();
         let air_in_f = config.radiator_air_inlet.get::<degree_fahrenheit>();
         let network = Network::new(&params.hx, &HxSection::radiator_at(RADIATOR_REFERENCE_MW * f));
         let x = steady_state(&network, p0, air_in_f)?;
@@ -383,6 +577,10 @@ impl MsreModel {
             params,
             kinetics,
             circulation_loss,
+            flows: Flows::FULL,
+            network_flows: Flows::FULL,
+            fuel_pump: PumpDrive::Fixed(1.0),
+            coolant_pump: PumpDrive::Fixed(1.0),
             p0_mw: p0,
             power_mw: p0,
             gamma_mw: p0,
@@ -423,11 +621,15 @@ impl MsreModel {
     /// with the piping outlets as known inlets.
     fn step_once(&mut self) -> Result<(), MsreModelError> {
         let dt = INTERNAL_TIMESTEP_S;
+        self.flows = Flows { fuel: self.fuel_pump.next(dt), coolant: self.coolant_pump.next(dt) };
+        if self.flows != self.network_flows {
+            self.rebuild_network()?;
+        }
         let rho = self.circulation_loss + self.net_reactivity_value();
         self.kinetics
-            .step_implicit(Ratio::new::<ratio>(rho), VolumetricNumberRate::new::<per_cubic_meter_second>(0.0))
+            .step(rho, self.flows.fuel, 0.0)
             .map_err(|e| MsreModelError::Kinetics(format!("{e:?}")))?;
-        self.power_mw = self.p0_mw * self.kinetics.neutron_density().get::<per_cubic_meter>();
+        self.power_mw = self.p0_mw * self.kinetics.neutron_density();
         self.gamma_mw = (self.gamma_mw + dt / GAMMA_LAG * self.power_mw) / (1.0 + dt / GAMMA_LAG);
         let q = (1.0 - GAMMA_SHARE) * self.power_mw + GAMMA_SHARE * self.gamma_mw;
         let mut u = [0.0; NU];
@@ -446,10 +648,11 @@ impl MsreModel {
         let mut xn = rhs.to_vec();
         lu_svx(&self.lu, &self.perm, &mut xn).map_err(|e| MsreModelError::Singular(format!("step: {e:?}")))?;
         self.x.copy_from_slice(&xn);
-        self.pipes[P_CORE_HX].advance(self.x[F2]);
-        self.pipes[P_HX_CORE].advance(self.x[HX + 4]);
-        self.pipes[P_HX_RAD].advance(self.x[HX + 1]);
-        self.pipes[P_RAD_HX].advance(self.x[RAD + 1]);
+        let (ff, fc) = (self.flows.fuel, self.flows.coolant);
+        self.pipes[P_CORE_HX].advance(self.x[F2], ff);
+        self.pipes[P_HX_CORE].advance(self.x[HX + 4], ff);
+        self.pipes[P_HX_RAD].advance(self.x[HX + 1], fc);
+        self.pipes[P_RAD_HX].advance(self.x[RAD + 1], fc);
         self.steps += 1;
         Ok(())
     }
@@ -481,13 +684,102 @@ impl MsreModel {
         if !(f > 0.0 && f.is_finite()) {
             return Err(MsreModelError::InvalidInput(format!("radiator air flow fraction must be > 0, got {f}")));
         }
-        let network = Network::new(&self.params.hx, &HxSection::radiator_at(RADIATOR_REFERENCE_MW * f));
+        let previous = self.air_fraction;
+        self.air_fraction = f;
+        if let Err(e) = self.rebuild_network() {
+            self.air_fraction = previous;
+            return Err(e);
+        }
+        Ok(())
+    }
+
+    /// Rebuild the network and its factorisation at the present air flow and
+    /// salt flows.
+    fn rebuild_network(&mut self) -> Result<(), MsreModelError> {
+        let rad = HxSection::radiator_at(RADIATOR_REFERENCE_MW * self.air_fraction);
+        let network = Network::at_flows(&self.params.hx, &rad, self.flows);
         let (lu, perm) = factor(implicit_matrix(&network), N, "backward-Euler matrix")?;
         self.network = network;
         self.lu = lu;
         self.perm = perm;
-        self.air_fraction = f;
+        self.network_flows = self.flows;
         Ok(())
+    }
+
+    /// Trip the fuel pump: from the next step the fuel flow follows
+    /// `coastdown` from its time zero (e.g.
+    /// [`FlowSchedule::ornl4233_fuel_pump_speed_coastdown`]).
+    pub fn trip_fuel_pump(&mut self, coastdown: FlowSchedule) {
+        self.fuel_pump = PumpDrive::Scheduled { schedule: coastdown, since_s: 0.0 };
+    }
+
+    /// Trip the coolant pump: the coolant flow follows `coastdown` (e.g.
+    /// [`FlowSchedule::ornl4233_coolant_salt_flow_coastdown`], measured).
+    pub fn trip_coolant_pump(&mut self, coastdown: FlowSchedule) {
+        self.coolant_pump = PumpDrive::Scheduled { schedule: coastdown, since_s: 0.0 };
+    }
+
+    /// Start the fuel pump: the fuel flow follows `startup` (e.g.
+    /// [`FlowSchedule::tm0728_fuel_flow_startup`]).
+    pub fn start_fuel_pump(&mut self, startup: FlowSchedule) {
+        self.fuel_pump = PumpDrive::Scheduled { schedule: startup, since_s: 0.0 };
+    }
+
+    /// Start the coolant pump: the coolant flow follows `startup`.
+    pub fn start_coolant_pump(&mut self, startup: FlowSchedule) {
+        self.coolant_pump = PumpDrive::Scheduled { schedule: startup, since_s: 0.0 };
+    }
+
+    /// Hold the fuel flow at `fraction` of full flow from the next step.
+    /// Errors for a fraction that is negative or not finite.
+    pub fn set_fuel_flow_fraction(&mut self, fraction: Ratio) -> Result<(), MsreModelError> {
+        self.fuel_pump = PumpDrive::Fixed(flow_value("fuel", fraction)?);
+        Ok(())
+    }
+
+    /// Hold the coolant flow at `fraction` of full flow from the next step.
+    pub fn set_coolant_flow_fraction(&mut self, fraction: Ratio) -> Result<(), MsreModelError> {
+        self.coolant_pump = PumpDrive::Fixed(flow_value("coolant", fraction)?);
+        Ok(())
+    }
+
+    /// The fuel flow fraction of the last step.
+    pub fn fuel_flow_fraction(&self) -> Ratio {
+        Ratio::new::<ratio>(self.flows.fuel)
+    }
+
+    /// The coolant flow fraction of the last step.
+    pub fn coolant_flow_fraction(&self) -> Ratio {
+        Ratio::new::<ratio>(self.flows.coolant)
+    }
+
+    /// The circulating-fuel model in use.
+    pub fn circulation_model(&self) -> CirculationModel {
+        self.kinetics.model()
+    }
+
+    /// The rod reactivity that holds the reactor at its present power over
+    /// the next step, at the flow that step will have and the present
+    /// temperature feedback: what an ideal flux servo would set, as ORNL's
+    /// did in ORNL-4233 Fig. 24 ("the reactivity added by the rod is then
+    /// equal (and opposite) to the reactivity change due to the flow
+    /// perturbations"). Exact for the kinetics; the feedback is the
+    /// present step's (operator splitting), so at zero power it is exact.
+    pub fn critical_rod_reactivity(&self) -> Ratio {
+        let feedback = self.net_reactivity_value() - self.rho_rod;
+        let flow = self.fuel_pump.peek(INTERNAL_TIMESTEP_S);
+        let n = self.kinetics.neutron_density();
+        Ratio::new::<ratio>(self.kinetics.holding_reactivity(flow, n) - self.circulation_loss - feedback)
+    }
+
+    /// Whether every heat-exchanger and radiator lump is inside Mann's
+    /// lumping validity, `n_eff < 2`, at the present flows (module docs).
+    pub fn thermal_lumping_within_validity(&self) -> bool {
+        let hx = &self.params.hx;
+        let rad = HxSection::radiator_at(RADIATOR_REFERENCE_MW * self.air_fraction);
+        let coolant = SideFlow { f: self.flows.coolant, h: salt_h_ratio(self.flows.coolant) };
+        let fuel = SideFlow { f: self.flows.fuel, h: salt_h_ratio(self.flows.fuel) };
+        lump_valid(hx.n1, coolant) && lump_valid(hx.n2 + hx.ns, fuel) && lump_valid(rad.n1, coolant)
     }
 
     /// Set the radiator air inlet temperature.
@@ -530,24 +822,27 @@ impl MsreModel {
     }
 
     /// The reactivity the circulating core needs to stay critical, against
-    /// the stationary core: the steady circulation loss of the kinetics with
-    /// TM-1070's transits (compare [`super::design::measured_circulation_loss_tm1626`]).
+    /// the stationary core: the steady full-flow circulation loss of the
+    /// kinetics' model, ~~with TM-1070's transits by default~~ by default
+    /// TM-1626's line model, 0.229140 % (2026-11-11; the well-stirred
+    /// ablation with TM-1070's transits gives 0.2467041 %) (compare
+    /// [`super::design::measured_circulation_loss_tm1626`]). It is the
+    /// reference the feedback is measured from, fixed at construction; after
+    /// a pump trip the kinetics regain it, which [`Self::critical_rod_reactivity`]
+    /// shows.
     pub fn circulation_loss(&self) -> Ratio {
         Ratio::new::<ratio>(self.circulation_loss)
     }
 
     /// Each group's delayed-neutron source in the core, `Λ λ_i C_i / n₀`, in
-    /// units of the initial prompt production `n₀/Λ`. In a stationary
-    /// critical core these equal β_i; with circulation they are smaller, by
-    /// the precursors decaying outside the core.
+    /// units of the initial prompt production `n₀/Λ` (for
+    /// [`CirculationModel::LineTm1626`], importance-weighted over the flow
+    /// path). In a stationary critical core these equal β_i; with
+    /// circulation they are smaller, by the precursors decaying where their
+    /// neutrons count for less or nothing.
     pub fn delayed_neutron_sources(&self) -> Vec<Ratio> {
         let lam = self.params.generation_time;
-        self.kinetics
-            .precursor_densities()
-            .iter()
-            .zip(LAMBDA.iter())
-            .map(|(c, l): (&VolumetricNumberDensity, &f64)| Ratio::new::<ratio>(lam * l * c.get::<per_cubic_meter>()))
-            .collect()
+        self.kinetics.delayed_sources().iter().map(|d| Ratio::new::<ratio>(lam * d)).collect()
     }
 
     /// Fuel entering the core (leaving the HX-to-core pipe).
@@ -622,6 +917,15 @@ impl MsreModel {
     }
 }
 
+/// A flow fraction checked to be finite and `≥ 0`.
+fn flow_value(name: &str, fraction: Ratio) -> Result<f64, MsreModelError> {
+    let f = fraction.get::<ratio>();
+    if !(f >= 0.0 && f.is_finite()) {
+        return Err(MsreModelError::InvalidInput(format!("{name} flow fraction must be >= 0, got {f}")));
+    }
+    Ok(f)
+}
+
 /// A °F value as a temperature.
 fn fahrenheit(t: f64) -> ThermodynamicTemperature {
     ThermodynamicTemperature::new::<degree_fahrenheit>(t)
@@ -664,3 +968,5 @@ fn steady_state(net: &Network, q: f64, air_in: f64) -> Result<[f64; N], MsreMode
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod pump_tests;

@@ -66,14 +66,15 @@ The full derivations are in the `model` module doc.
 - **Power.** SHRT-17 follows the A226 Table 3.1.4.2.1 fission and decay-heat
   table. SHRT-45R uses six-group point kinetics:
   - beta-eff 705 pcm and Lambda 3.58238e-7 s, from TECDOC-1819;
-  - the group shape is `teh-o-prke`'s U-235 one, because Argonne's six-group
-    set is not printed;
+  - the group shape is `teh-o-prke`'s U-235 one (ENDF/B-VIII.0 since
+    2026-11-10, gh:#1319), because Argonne's six-group set is not printed;
   - Argonne's VARIANT feedback coefficients;
   - decay heat from the 1978 ANS draft U-235 set, driven through A226's
     assumed pre-test history.
 - **Thermal nodes.**
   - Fuel: 439.6 kg of U-5Fs. The heat capacity is A226 Eq 4.2, which is
-    flagged as doubtful (see `design::U5FS_HEAT_CAPACITY`).
+    flagged as doubtful (see `design::U5FS_HEAT_CAPACITY`): discontinuous
+    at 833 K and 913 K as printed (section 6).
   - Core coolant: 39 kg sodium plus the in-core steel. The node holds the
     mean temperature, with outlet = 2 T_mean - T_in.
   - IHX primary side: 1407 kg.
@@ -223,39 +224,50 @@ gh:#1316):
 - natural-circulation flow above SHRT-17's;
 - the flow rise across the current step under 20 %.
 
-**Results:**
+**Results.** ~~Struck~~ values are the first record (2026-11-10, with
+`teh-o-prke`'s textbook U-235 group shape); **bold** values were
+re-measured the same day after gh:#1319 switched that shape to
+ENDF/B-VIII.0 U-235 (`cargo test --release -p
+outram-park-digital-twin-engine --lib ebr2 -- --nocapture`). Beta-eff is
+still rescaled to 705 pcm; only the group shares and decay constants moved
+(mean precursor life 13.05 s to 11.06 s).
 
 | case | peak P/F (time) | peak outlet K | P at 300 s, MW | net rho range, pcm | min fission share |
 |---|---|---|---|---|---|
-| **base** (VARIANT, radial on inlet, dz 2 m) | **3.18 (74.0 s)** | 956.1 | 5.76 (9.6 %) | −217.0 to +15.3 | 0.745 |
-| radial on mean coolant | 2.56 (76.0 s) | 890.6 | 4.68 | −279.2 to +23.0 | 0.708 |
-| radial on outlet | 2.26 (76.5 s) | 857.7 | 4.24 | −323.3 to +28.3 | 0.687 |
-| DIF3D coefficients | 3.15 (74.0 s) | 953.2 | 5.34 | −219.9 to +13.9 | 0.719 |
-| auxiliary EM pump off | 3.52 (81.5 s) | 990.5 | 3.99 | −250.8 to +1.3 | 0.593 |
-| dz 1 m | 3.38 (78.5 s) | 975.1 | 5.13 | −235.6 to +19.6 | 0.720 |
-| dz 4 m | 2.98 (67.0 s) | 935.8 | 6.62 | −197.6 to +8.6 | 0.774 |
+| **base** (VARIANT, radial on inlet, dz 2 m) | ~~3.18 (74.0 s)~~ **3.00 (74.5 s)** | ~~956.1~~ **936.8** | ~~5.76 (9.6 %)~~ **5.50 (9.2 %)** | ~~−217.0 to +15.3~~ **−195.5 to +15.5** | ~~0.745~~ **0.741** |
+| radial on mean coolant | ~~2.56~~ **2.42** (76.0 s) | ~~890.6~~ **875.2** | ~~4.68~~ **4.54** | ~~−279.2 to +23.0~~ **−249.1 to +22.3** | ~~0.708~~ **0.703** |
+| radial on outlet | ~~2.26 (76.5 s)~~ **2.14 (77.0 s)** | ~~857.7~~ **844.6** | ~~4.24~~ **4.14** | ~~−323.3 to +28.3~~ **−286.8 to +27.0** | ~~0.687~~ **0.682** |
+| DIF3D coefficients | ~~3.15 (74.0 s)~~ **2.96 (74.5 s)** | ~~953.2~~ **933.2** | ~~5.34~~ **5.06** | ~~−219.9 to +13.9~~ **−198.7 to +14.5** | ~~0.719~~ **0.714** |
+| auxiliary EM pump off | ~~3.52 (81.5 s)~~ **3.35 (82.0 s)** | ~~990.5~~ **970.9** | ~~3.99~~ **3.72** | ~~−250.8 to +1.3~~ **−229.0 to +1.9** | ~~0.593~~ **0.583** |
+| dz 1 m | ~~3.38 (78.5 s)~~ **3.17 (79.0 s)** | ~~975.1~~ **953.4** | ~~5.13~~ **4.90** | ~~−235.6~~ **−211.7** to +19.6 | ~~0.720~~ **0.714** |
+| dz 4 m | ~~2.98 (67.0 s)~~ **2.82 (68.0 s)** | ~~935.8~~ **919.0** | ~~6.62~~ **6.35** | ~~−197.6 to +8.6~~ **−178.6 to +9.0** | ~~0.774~~ **0.771** |
 
 Further base-case numbers:
 
-- natural-circulation flow at 300 s is 6.05 % of initial, against SHRT-17's
-  2.05 % (2.95 times);
-- flow rises 19.5 % from 620 s to 900 s, across the current step;
+- natural-circulation flow at 300 s is ~~6.05 %~~ **5.99 %** of initial,
+  against SHRT-17's 2.05 % (~~2.95~~ **2.92** times);
+- flow rises ~~19.5 %~~ **19.7 %** from 620 s to 900 s, across the current step;
 - the initial decay heat from the history is 3.491 MW (5.8 %).
 
 **Interpretation.**
 
 - The model shuts itself down on its feedback, as EBR-II did.
-  - The base peak P/F, 3.18, is 14 % above the measured 2.8 and about 14 s
-    late. Across the ablations it spans 2.26-3.52.
+  - The base peak P/F, ~~3.18, is 14 %~~ **3.00, is 7 %** above the measured
+    2.8 and about 14 s late. Across the ablations it spans ~~2.26-3.52~~
+    **2.14-3.35**. **The move toward the measurement came from the gh:#1319
+    data change (ENDF/B-VIII.0 U-235 group shape), chosen on the data's own
+    merits before the run, not to fit 2.8.** gh:#1319 had predicted at most
+    a few % in power and +-2 K in peak temperature; the peak outlet fell
+    19.3 K, a miss in size.
   - Fission stays above half of the total power in every case, as measured.
   - The natural-circulation flow is more than double SHRT-17's, as measured.
 - One prediction missed. **Net reactivity turns positive**, to at most
-  +15.3 pcm (0.022 beta), at about 655 s. The auxiliary pump's current step
+  ~~+15.3~~ **+15.5** pcm (0.022 beta), at about 655 s. The auxiliary pump's current step
   cools the core below the temperature of the feedback references.
 - **The radial-expansion temperature is the largest uncited choice.** It
-  moves the peak outlet by 98 K. The auxiliary-pump scaling is the second
+  moves the peak outlet by ~~98~~ **92** K. The auxiliary-pump scaling is the second
   largest: switching the pump off moves the peak outlet by +34 K.
-- The flow's +19.5 % across the current step matches T1819's "about 20 %".
+- The flow's ~~+19.5 %~~ **+19.7 %** across the current step matches T1819's "about 20 %".
   **This is not an independent check:** that number was known when the
   linear current scaling was chosen (`model` module doc).
 
@@ -277,6 +289,53 @@ Further base-case numbers:
 - **IHX side assignment** (not in the data): UA changes by +0.03 % and the
   core inlet by under 0.01 K. It does not matter.
 
+### 6. U-5Fs property correlations: branch continuity (gh:#1331, 2026-11-10)
+
+Both correlations were read on the rendered pages of A226 (Eq 4.1 p.100,
+Eq 4.2 p.101) and IAEA-TECDOC-1819 (Eqs 1-2 p.35), not from the text layer.
+
+**Thermal expansion (`design::U5FS_THERMAL_EXPANSION`,
+`u5fs_linear_thermal_strain`).** The two reports print the same correlation
+except in the third branch (`T > 913 K`): A226 `0.014 + 2.1e-5 (T - 913)`,
+TECDOC-1819 `0.014 + 2.1e-5 (T - 273)`. The question is which is continuous
+with the second branch at 913 K.
+
+- *Method.* Evaluate each branch's printed form at the boundaries, 823 K
+  and 913 K, and take the step (upper minus lower branch).
+- *Tolerance, stated before running.* The printed offsets have two
+  significant figures (`0.0089`, `0.014`), so continuity is expected to half
+  a unit in the last printed digit: 5e-5 at 823 K, 5e-4 at 913 K.
+- *Result* (`design::tests::u5fs_expansion_is_continuous_with_the_arc226_third_branch`,
+  as predicted by hand before the run):
+
+  | boundary | lower branch | upper branch | step | within tolerance |
+  |---|---|---|---|---|
+  | 823 K | `1.62e-5 x 550 = 0.00891` | `0.0089` | -1.0e-5 | yes |
+  | 913 K, A226 `(T - 913)` | `0.0089 + 5.7e-5 x 90 = 0.01403` | `0.014` | -3.0e-5 (-0.21 %) | yes |
+  | 913 K, TECDOC-1819 `(T - 273)` | `0.01403` | `0.014 + 2.1e-5 x 640 = 0.02744` | +1.341e-2 (+96 %) | no (27x) |
+
+- *Choice.* **A226's `(T - 913)` is the default**: it is continuous to the
+  printed precision; TECDOC-1819's form puts a step larger than the whole
+  strain accumulated from 273 to 823 K at a point where neither report
+  describes one, so its `273` is read as a typesetting error. TECDOC-1819's
+  form stays callable (`U5fsExpansionThirdBranch::Tecdoc1819`) so the
+  comparison can be re-run.
+- *Effect on the model: none.* The correlation is new in this change, and
+  `Ebr2Model` does not use it (its axial-expansion feedback is Argonne's
+  coefficient), so no V&V number above moves.
+
+**Heat capacity (`design::U5FS_HEAT_CAPACITY`): discontinuous as printed,
+known and unchanged.** Both reports print the same nine coefficients and the
+form `a + bT + cT^2`. The branches do not meet: at **833 K** the first
+branch gives 342.2 J/(kg K) and the second 245.8; at 913 K the second gives
+224.9 and the third 362.3 (printed by
+`design::tests::u5fs_properties_evaluate_as_transcribed`). Both are the
+solid-solid transition temperatures, whose latent heats (A226 Eqs 4.3-4.4,
+11.715 and 8.368 kJ/kg) the function does not carry. The fuel node starts at
+about 760 K (487 C); a fuel node that crosses 833 K sees the step in its heat
+capacity. Whether the SHRT runs cross it was not checked in this change. Not
+changed here; a maintainer question.
+
 ## What is not done, and what would improve it
 
 - **Validation.** The measured traces are plots only, and the acceptance
@@ -294,7 +353,10 @@ Further base-case numbers:
   - The cladding uses 304L properties for 316.
 - **Kinetics data.** Argonne's six-group set and the axial-mesh worths are
   not printed (gh:#1314, GAP).
-- **Doubtful transcriptions.** The U-5Fs heat-capacity transcription is
-  doubtful (`design::U5FS_HEAT_CAPACITY`). The SHRT-45R intermediate-flow
+- **Doubtful transcriptions.** ~~The U-5Fs heat-capacity transcription is
+  doubtful (`design::U5FS_HEAT_CAPACITY`).~~ **CORRECTED 2026-11-10
+  (gh:#1331):** the transcription matches the rendered A226 p.101 and
+  TECDOC-1819 p.35; what stays doubtful is the source correlation itself,
+  discontinuous at 833 K and 913 K (section 6). The SHRT-45R intermediate-flow
   boundary condition is 7.2 % below its own test description (`shrt`
   module doc).

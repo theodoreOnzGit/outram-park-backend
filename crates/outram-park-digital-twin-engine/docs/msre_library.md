@@ -9,6 +9,17 @@ Module: `outram_park_digital_twin_engine::msre` (`src/msre/`). Through the
 `outram-park` metacrate it is
 `outram_park::backend::outram_park_digital_twin_engine::msre`.
 
+> **2026-11-11 (gh:#1330): the default circulating-fuel model changed.**
+> Maintainer decision: "Let's use ORNL more correct physics". The default is
+> now ORNL-TM-1626's importance-weighted line model
+> (`CirculationModel::LineTm1626`). TM-1070's well-stirred model is the
+> explicit ablation `MsreConfig::without_line_model()`. Every number below
+> that depended on the default was re-measured. The before/after table, with
+> the predictions posted first, is the section
+> [Default changed to the TM-1626 line model](#2026-11-11-default-changed-to-the-tm-1626-line-model-gh1330).
+> The 2026-11-10 sections are kept as they were run, with the numbers that
+> are now the ablation's marked as such.
+
 Why it is in this crate's library: maintainer direction 2026-11-10 (gh:#1317,
 "I would like to have MSRE and EBR-II in library so I can build web
 simulations from the outram-park metacrate"), a sanctioned exception to the
@@ -19,7 +30,7 @@ crate's "no new physics in the library" rule, on the `htr10` pattern.
 | Path | Content | Origin |
 |---|---|---|
 | `msre::design` | Cited plant constants: the ORNL-TM-0728 design point, TM-1070 kinetics and lump coefficients, the TM-1626 measured circulation loss | Here; TM-1070 values re-exported from `nee_soon` |
-| `msre::model::MsreModel` | Stepping simulator | Here, composing `teh-o-prke` and TM-1070's equations |
+| `msre::model::MsreModel` | Stepping simulator | Here: TM-1070's thermal equations; ~~composing `teh-o-prke`~~ kinetics from `msre::circulation` (TM-1626 line model by default since 2026-11-11) |
 | `msre::frequency_response` | MSRE T-1 linear model, TM-1647 measured periods | `nee_soon` re-export |
 | `msre::first_criticality` | MSRE N-1 full-core Monte Carlo model | `outram-mc-libs` re-export |
 | `msre::circulating_kinetics` | MSRE T-C1 circulating point kinetics | `teh-o-prke` re-export |
@@ -33,7 +44,14 @@ crate's "no new physics in the library" rule, on the `htr10` pattern.
 solves in the frequency domain (ORNL-TM-1070, Ball and Kerlin, 1965), with
 the same coefficients, read from `nee_soon`, not copied:
 
-- **Kinetics:** `teh_o_prke`'s `CirculatingPointKinetics` (T-C1), unchanged:
+- **Kinetics (CHANGED AGAIN 2026-11-11, gh:#1330):** by default ORNL-TM-1626's
+  importance-weighted line model, with TM-1626 Table 1's groups and residence
+  times and TM-1070's Λ. What follows describes the well-stirred model, now
+  the ablation `MsreConfig::without_line_model()`.
+  ~~`teh_o_prke`'s `CirculatingPointKinetics` (T-C1), unchanged~~
+  **CHANGED 2026-11-10 (gh:#1332):** `msre::circulation::CirculatingKinetics`,
+  which carries a flow change and is bit-identical to `CirculatingPointKinetics`
+  at full flow (30 000 steps, differential test):
   six groups from TM-1070 App. B p. 69, `Lambda = 2.4e-4 s`, core transit
   8.46 s, loop transit 16.73 s (Table 1). Nonlinear (`rho * n`), backward
   Euler.
@@ -62,8 +80,11 @@ No coefficient was adjusted against any comparison below.
 
 ### Not modelled
 
-Pump trips or any flow change (the transits are fixed; variable-transit
-circulating kinetics would belong in `teh-o-prke`, follow-up gh:#1332), xenon, drain tank and freeze valve, spatial effects, decay heat
+~~Pump trips or any flow change (the transits are fixed; variable-transit
+circulating kinetics would belong in `teh-o-prke`, follow-up gh:#1332)~~
+(**CORRECTED 2026-11-10:** modelled since gh:#1332, below; the kinetics live
+in the engine's `msre::circulation` because the line model carries
+TM-1626's MSRE-specific shapes), natural circulation, salt freezing, xenon, drain tank and freeze valve, spatial effects, decay heat
 beyond the delayed-gamma lag. A lumped core gives averages, not peaks.
 
 ## Predictions (posted on gh:#1330 before any run)
@@ -80,6 +101,12 @@ beyond the delayed-gamma lag. A lumped core gives averages, not peaks.
    `MC_F / tau_F`.
 
 ## Results (2026-11-10, branch `feat/engine-msre-lib` from develop fef1ebdea)
+
+> **2026-11-11:** results 1-3 below were measured with the then-default
+> well-stirred model. They are now the **ablation's** numbers, re-run on
+> 2026-11-11 with the same digits. The default's numbers are in the
+> 2026-11-11 section at the end. Results 4-5 do not depend on the kinetics
+> and did not change.
 
 Run with
 `cargo test --release -p outram-park-digital-twin-engine --lib msre -- --nocapture`.
@@ -181,6 +208,8 @@ For the record: TUAS's coolant salt (ORNL-TM-2316) at 850 gpm gives
 - Bit-identical reruns; the step remainder is carried.
 - **Cost: 0.68 µs per 0.01 s step** (about 15 000 × real time), one core of
   the development container, 2026-11-10. Machine-dependent; not asserted.
+  **2026-11-11:** that is the well-stirred ablation's cost. The line-model
+  default costs about 60 µs (below).
 
 ## Interpretation
 
@@ -191,3 +220,274 @@ lumped kinetics' known +16 % circulation-loss excess (result 1). The new
 part, the absolute temperature level, is 26-53 °F above TM-0728's design
 heat balance, uncalibrated (result 4). It is a reduced-order teaching and
 demonstration model, not a validated simulator.
+
+
+## gh:#1330: why the circulation loss reads +16 % (investigated 2026-11-10)
+
+Branch `feat/1332-msre-pumptrip-circloss`. Predictions posted on gh:#1330
+before the runs. Sources read from the scans in the public MSRE repository
+(`molten-salt-reactor-lit-and-sims`, `literature/moltensalt-org/`):
+
+- **ORNL-TM-1070** App. A (A.29), p. 57: the core is "a well-stirred tank"
+  and the loop "a pure delay". That is the model's structure, exactly.
+  App. B p. 69 also gives ORNL's own circulating "effective delayed-neutron
+  fraction" per group (0.000277, 0.000718, 0.001698, 0.000499, 0.000373,
+  0.000052; sum 0.003617, Table 1's "0.0036"). It implies a loss of
+  **0.304 %**: ORNL's 1965 design figure, close to TM-0728 Table 2.3's
+  "−0.3" and ORNL-4233 §3.6's "predicted to be −0.30 %".
+- **ORNL-TM-1626** p. 26: measured 0.212 ± 0.004 %; ORNL's line model
+  0.222 % (Eq. 14, w = 0). p. 29: the earlier, larger prediction
+  (Haubenreich, TM-730) "accounted for ... only those delayed neutrons
+  emitted in the channelled region". p. 10: β = 0.00666 includes the
+  delayed neutrons' energy effectiveness ("from 0.0064 to 0.00666").
+- **ORNL-4233** §3.6, p. 23: the entrained-gas effect "was practically
+  nil"; the measurement is the static-reactivity difference (stationary
+  rod calibration) between the stationary- and circulating-critical states.
+
+### Results (tests `msre::circulation::tests::*`)
+
+| cause | predicted | measured (% δk/k) | verdict |
+|---|---|---|---|
+| (1a) TM-1070 vs TM-1626 group data (λ to 3 vs 4 figures) | \|Δ\| < 0.001 % | −0.000128 (−0.05 %) | not a cause |
+| (1b) ENDF/B-VIII.0 U-235 group shape, β held at 0.006661 | −3 to −8 % | −0.0197 (−8.0 %) | moves it, at the edge of the prediction; not adopted (below) |
+| (1b') ENDF/B-VIII.0 with its own β = ν_d/ν = 0.006523 | a further ≈ −2.5 % | a further −1.9 % (−9.9 % in all) | as above |
+| (2) TM-1626 transits 9.4 / 15.8 s instead of TM-1070's 8.46 / 16.73 s | (measured on #1130) | −0.0165 (−6.7 %) | moves it; neither set is importance-weighted |
+| (3) importance weighting: TM-1626 line model, plug flow, Fig. 4 fission density and fast adjoint (new option `CirculationModel::LineTm1626`) | equals the exact line model, 0.2293 %, within 0.0005 % | **0.229140** (exact 0.229308; −1.7e-6 δk/k) | ORNL's own model: **+0.0171 %, +8.1 %** against the measurement |
+| (4) same quantity? | yes, no correction | yes (static reactivity both sides; same β scale; gas nil) | not a cause |
+| for scale: plug-flow core, flat core-only importance (computed while reading) | | 0.2903 | |
+| for scale: TM-1070 App. B's own effective β | | 0.3044 | |
+
+### Interpretation
+
+- **The residual is structural.** The default is ORNL's 1965 design-stage
+  approximation, TM-1070 (A.29), run with TM-1070's data. Two of its
+  simplifications pull in opposite directions:
+  - a **well-stirred core** sends precursors out at their mean
+    concentration, which lowers the loss (plug flow with the same flat
+    importance gives 0.290 %);
+  - a **flat, core-only importance** counts the plenums' delayed neutrons
+    as worthless, which raises it.
+  The +16 % is what is left after the two partly cancel. No input of the
+  lumped model is wrong against its source.
+- **Importance weighting is the physics that moves it.** ORNL's own line
+  model is now an option, and it reproduces the exact line model to
+  1.7e-6. It brings the loss to +8 %, the same place Prince's 0.222 % (his
+  well-stirred lower plenum) and the moltres result (#1130) sit. The rest is
+  in the shapes:
+  - on this workspace's N-1 Monte Carlo shapes, the line model gives 0.210
+    to 0.219 %, depending on the importance proxy (#1130);
+  - settling it needs an adjoint.
+- **Not adopted:**
+  - the ENDF/B-VIII.0 group shape. TM-1626's reactivity scale (its rod
+    calibration converts periods with TM-1070/TM-1626's groups and
+    β = 0.00666) is built on the present set, so swapping it changes the
+    instrument as well as the model;
+  - TM-1626's transits in the lumped model. They are no more
+    importance-weighted than TM-1070's.
+- ~~**The default is unchanged.**~~ **CHANGED 2026-11-11** (maintainer: "Let's
+  use ORNL more correct physics"): the line model is now the default; see
+  the last section. The 2026-11-10 reasoning, kept for the record: the physics does not single out one lumped
+  variant, and the T-1 frequency-response record was measured with the
+  default. Every default number in this record is unchanged. The full-flow
+  kinetics are bit-identical, and the 0.2467041 %, the frequency-response
+  amplitudes and phases, and the 1.713 min natural period were re-run on
+  2026-11-10 with the same digits.
+
+## gh:#1332: fuel- and coolant-pump trips (2026-11-10)
+
+### Methodology
+
+- **Flow schedules** (`msre::pumps::FlowSchedule`):
+  - ORNL-4233 Fig. 23 (p. 53), measured, digitised from a 300 dpi render:
+    - fuel-pump speed, used as the fuel flow fraction. That is an
+      assumption: ORNL "abandoned" inferring the fuel flow (p. 52), and the
+      coolant curves show flow and speed differ by up to 34 points;
+    - coolant-pump speed;
+    - coolant-salt flow (oscillograph to 8 s, then logger);
+  - TM-0728 §5.4.2's calculated fuel-flow start-up;
+  - a caller's table;
+  - `tampines::components::pump_coastdown::InertialPumpCoastdown`, reused.
+    The caller supplies the inertia: no MSRE value is published in
+    TM-0728, ORNL-4233, TM-2987 or TM-1070.
+- **API:** `MsreModel::{trip_fuel_pump, trip_coolant_pump, start_fuel_pump,
+  start_coolant_pump, set_fuel_flow_fraction, set_coolant_flow_fraction,
+  fuel_flow_fraction, coolant_flow_fraction, critical_rod_reactivity,
+  thermal_lumping_within_validity}`, and `MsreConfig::circulation_model`.
+- **Flow dependence,** derived, none fitted:
+  - precursor loop indexed by fluid displacement;
+  - transits ∝ 1/f;
+  - salt-side h ∝ f^0.8 (Dittus-Boelter, turbulent; TH-1);
+  - core fuel-to-graphite hA constant (laminar, Re ≈ 1000, TM-1070 p. 14);
+  - piping lags advanced by displacement.
+- **At full flow every coefficient is bit-identical to before.**
+- **Limits:**
+  - no natural circulation (none citable);
+  - Mann's lumping is invalid when n_eff = n h/f ≥ 2: below about 24 % fuel
+    flow on the HX fuel side, which the model reports;
+  - no salt freezing (840 °F liquidus, TM-0728 Table 2.1).
+
+### Results against ORNL-4233 Fig. 24 (zero power, servo-held critical)
+
+| quantity | predicted (posted first) | well-stirred (~~default~~ ablation since 2026-11-11) | line (TM-1626; default since 2026-11-11) | measured |
+|---|---|---|---|---|
+| coast-down total Δρ, % δk/k | 0.2467 / 0.2293 | 0.2467 | 0.2291 | ≈ 0.206 (scale bar ±10 %) |
+| coast-down fraction at 9 s | 0.50 ± 0.10 / 0.50 ± 0.12 | **0.443** (met) | **0.475** (met) | 0.505 |
+| coast-down fraction at 40 s | 0.85 ± 0.05 / 0.85 ± 0.06 | **0.842** (met) | **0.845** (met) | 0.883 |
+| coast-down rms over 30 points | — | 0.053 | 0.047 | |
+| start-up: largest withdrawal at | 17 ± 2 s / 14 ± 2 s | **17 s** (met) | **14 s** (met) | 13-15 s |
+| start-up overshoot, % δk/k | 0.03-0.10 | **0.024** (**missed**, low) | **0.059** (met) | ≈ 0.068 |
+
+### Interpretation
+
+- **Coast-down:** both models follow the measured shape to an rms of
+  about 0.05 in fraction.
+  - Both lag slightly after 15 s, partly because the measured trace stops
+    at 70 s, before the longest group has finished. Normalised at 65 s like
+    the measurement (a secondary instrument, chosen after the result and
+    reported only as an explanation), the model reads 0.92 at 40 s.
+  - The 2 s dead time at the start of the measured trace (servo lag, or
+    fuel flow lagging pump speed) is the largest single difference.
+- **Start-up separates the models:**
+  - The line model reproduces "the positive reactivity effect of the
+    recirculated precursors entering the core 13 sec after pump startup"
+    (ORNL-4233 p. 54): extremum at 14 s, overshoot 0.059 against about
+    0.068 % δk/k.
+  - The well-stirred default returns them 3-4 s late, with a third of the
+    overshoot.
+  - **For flow transients, the line model is the better physics.** It
+    costs about 50× more per step (38 µs against 0.7 µs). ~~The default stays
+    the well-stirred model, for the T-1 record, and the choice is left to
+    the maintainer.~~ **CHANGED 2026-11-11:** the maintainer chose the line
+    model as the default (gh:#1330). The Fig. 24 tests name their model
+    explicitly, so the numbers in the table above did not move. Only the
+    "(default)" label moves from the well-stirred column to the line column.
+- **At power** (8 MW, no scram, harness only; no measurement found;
+  well-stirred, 2026-11-10; the line-model default's numbers are in the
+  2026-11-11 section):
+  - after a fuel-pump trip the power rises 2 % in 3 s (the precursors
+    kept in the core), then falls to 25 kW in 300 s as the stagnant fuel
+    heats;
+  - after a coolant-pump trip it falls to 14 kW;
+  - the lumping leaves its validity 2-15 s after either trip;
+  - the coolant reaches 471 °F, below its liquidus, after a fuel-pump trip
+    with the air left on.
+
+Cost: 0.70 µs per step at constant flow, 4.8 µs while a flow changes, 38 µs
+with the line model (shared container, 2026-11-10).
+
+Status: NOT VALIDATED. Fig. 24 is one test of each kind. The fuel-flow
+schedule rests on the speed-as-flow assumption. The total Δρ carries the
+circulation-loss residual above.
+
+Figures digitised (crops of the public ORNL-4233 scan, p. 53, 300 dpi, for
+the reviewer to check the digitisation against):
+`docs/msre_pump_trip/ornl4233_fig23_coastdown.png` (Fig. 23) and
+`docs/msre_pump_trip/ornl4233_fig24_rod_response.png` (Fig. 24). The
+tables are `msre::pumps::ORNL4233_FIG23_*` and `FIG24_*` in
+`src/msre/model/pump_tests.rs`.
+
+## 2026-11-11: Default changed to the TM-1626 line model (gh:#1330)
+
+Maintainer decision (gh:#1330, 2026-11-11): "Let's use ORNL more correct
+physics".
+
+### What changed
+
+- **Default:** `MsreConfig::tm1070(..)` and `CirculationModel::default()`
+  now give `CirculationModel::LineTm1626`, ORNL-TM-1626's importance-weighted
+  line model.
+- **Ablation:** TM-1070's well-stirred model is
+  `MsreConfig::tm1070(..).without_line_model()`, or the field set to
+  `WellStirredTm1070`.
+- **Pin:** `tests/msre_correct_physics_is_default.rs` builds the model
+  through the ordinary constructor at three powers. It asserts the line
+  model and its 0.229140 % loss, and that the ablation changes nothing else.
+- **Code-to-code checks against `nee_soon`** (the frequency response and the
+  natural period) now run on the ablation. `nee_soon`'s T-1 model is
+  TM-1070's well-stirred kinetics, so these check the port. Their bands are
+  unchanged and they still pass with the same digits.
+- **The thermal network, the coefficients and the flow scalings are
+  unchanged.**
+- **Callers:** none outside the engine's own tests, at the time of
+  searching the workspace (2026-11-11). No web demo or example constructs
+  `MsreModel`.
+
+### Before and after
+
+Predictions were posted on gh:#1330 before the run. Run with
+`cargo test --release -p outram-park-digital-twin-engine --lib msre -- --nocapture`
+on branch `feat/1330-msre-line-default` (from develop e6371ecff).
+
+| quantity | before (well-stirred default) | predicted | after (line default) | prediction |
+|---|---|---|---|---|
+| circulation loss, % δk/k, vs TM-1626's 0.212 ± 0.004 | 0.2467041 (+16.4 %, +8.7σ) | 0.229140 (+8.1 %) | **0.2291400 (+0.0171 % δk/k, +8.1 %, +4.3σ)** | met |
+| delayed sources sum to β − loss | 1e-12 | 1e-12 | 1e-12 (β = TM-1626's 0.006661) | met |
+| steady 300 s at 8 MW: worst \|P/P₀ − 1\|, worst \|ΔT\| | 3.3e-16, 1.4e-12 °F | within 1e-9, 1e-8 °F | 3.9e-13, 1.4e-12 °F | met |
+| 10 MW steady state vs TM-0728 (core out, air out) | 1257.73 °F (+32.7), 309.75 °F (+9.8) | unchanged | **unchanged, every digit** | met |
+| ρ c_p Q, TUAS vs TM-1070 | +0.20 % | unchanged | +0.197 % | met |
+| time domain vs `nee_soon`, 7.306 MW, ω 0.061109: ratio, Δphase | 1.00027, +0.016° | 0.92-1.00, \|Δφ\| < 5° | **0.8705, −0.94°** | amplitude **missed** (13 % lower, not 0-8 %); phase met |
+| same, 1.004 MW, ω 0.015466 | 0.99969, −0.013° | 0.90-1.00, \|Δφ\| < 6° | **0.8790, −14.66°** | **missed** on both |
+| natural period at 7.306 MW (resonance peak), vs TM-1647's 1.71 min | 1.713 min (+0.2 %) | 1.72-1.80 min; **band ±5 % of 1.71** | **1.7956 min (+5.01 %)** | range met at its edge; **band missed by 0.01 %**, not loosened |
+| natural period at 1.004 MW, vs TM-1647's 7.16 min (not predicted; record only) | (`nee_soon` well-stirred: 6.7712 min, −5.4 %) | — | **7.3018 min (+1.98 %)** | — |
+| free-oscillation peak spacing, 7.306 MW (printed only) | 2.346 min | 2.35-2.50 min | **3.349 min** | **missed** |
+| half air flow at 10 MW, 3000 s (harness) | 6.8625 MW | ±0.01 MW | 6.8625 MW | met |
+| rod +20 pcm at 5 MW (harness): 1 s / peak / 601 s | 5.355 / 6.035 / 5.015 MW | 5.28-5.35 / 5.85-6.03 | 5.341 / 5.956 / 5.015 MW | met |
+| Fig. 24 coast-down and start-up | both models, explicit | unchanged | unchanged digits | met |
+| fuel-pump trip at 8 MW (Fig. 23 speed): peak, P(300 s) | 8.17 MW at 3 s, 25 kW | 8.1-8.3 MW, within ×2 | 8.137 MW at 3 s, 24 kW | met |
+| coolant-pump trip at 8 MW (Fig. 23 flow / speed): P(300 s) | 14 / 16 kW | within ×2 | 18 / 20 kW | met |
+| fuel-pump trip, inertial (round numbers) | 8.18 MW at 3 s, 35 kW | — | 8.114 MW at 2 s, 35 kW | — |
+| lumping-invalid times after the trips | 4, 12, 15, 2 s | identical | 4, 12, 15, 2 s | met |
+| core rise at fuel flow 0.5 after 4000 s | −7.7e-4, graphite 954.8 °F | — | −7.66e-4, 954.83 °F | unchanged |
+| cost per 0.01 s step at constant flow, 8 MW | 0.68 µs | ~38 µs (~260× real time) | **58-61 µs (165-172×)**; the ablation 0.99 µs in the same run | slower than predicted; the machine was loaded (ablation 0.99 against 0.68 µs on 2026-11-10, ×1.46) |
+| cost during a fuel-pump coast-down | 4.8 µs (well-stirred) | — | line 44 µs (226×); well-stirred 4.35 µs | — |
+
+### Interpretation
+
+- **Circulation loss.** The default now reads +8.1 % against TM-1626's
+  measurement, down from +16.4 %. That is ORNL's own line model. The rest
+  lies in the flux and importance shapes (gh:#1130).
+- **The frequency response moved further than predicted.** At the
+  resonance the line model's gain is 13 % below the well-stirred model's at
+  both powers, where 0-8 % was predicted from the effective delayed
+  fraction alone (+4.2 %). At 1 MW the phase moves −14.7°. The
+  effective-β argument was too crude: the line model also changes *when*
+  each group's neutrons count, through the plenums' importance, and at
+  ω ≈ 0.015 rad/s the long-lived groups' timing matters.
+  - **No independent reference exists for the line model's frequency
+    response.** `nee_soon` solves only the well-stirred kinetics. This
+    difference is a model difference, recorded, not a verified number.
+- **The natural period moved away from the measurement:** 1.713 min
+  (+0.2 %) → 1.7956 min (+5.01 %) at 7.306 MW. **This is unflattering, and it
+  is kept.**
+  - The +0.2 % agreement was obtained with TM-1070's 1965 *predicted*
+    feedback coefficients and TM-1070's own kinetics. Those are the
+    coefficients ORNL fitted its design model with.
+  - With the more correct kinetics, the same coefficients put the period
+    5 % long. The band posted before the run (±5 %) is missed by 0.01 %.
+    The test pins the miss (`TM1647_BAND_MET_2026_11_11 = false`) and does
+    not move the band.
+  - **At 1.004 MW the move goes the other way:** 7.3018 min, +1.98 %
+    against TM-1647's 7.16 min, where the well-stirred model (`nee_soon`)
+    gives 6.7712 min, −5.4 %. This was not predicted and is a record, not a
+    criterion. Over the two powers the line model is no worse on balance
+    (|+5.0| and |+2.0| % against |+0.2| and |−5.4| %), and it shifts the
+    power dependence of the period.
+  - Whether the coefficients or the lumped thermal model should now take
+    up the difference is a question for gh:#1132 (N-3's Monte Carlo
+    coefficients gave 2.03 min, +18.8 %, with the well-stirred model). It
+    is **not** to be closed by tuning.
+- **Pump transients:** the line model is the one that reproduces ORNL-4233
+  Fig. 24's start-up timing (gh:#1332). The at-power harness numbers move
+  by a few percent to a few tens of percent and stay finite.
+- **Performance for a web demo.** About 60 µs per 0.01 s step natively under
+  load (about 40 µs on a quiet core, the 38 µs of 2026-11-10), which is
+  165-260× real time.
+  - A browser's wasm is typically 1.5-3× slower than native, so a Web
+    Worker still runs it at 50× real time or better.
+  - Real time at 60 frames per second needs about 1.7 steps per frame:
+    about 0.1 ms of a 16.7 ms frame natively, under 0.3 ms in wasm.
+  - No web demo in the workspace steps `MsreModel` at a fixed budget today.
+  - The physics was not changed to make it faster. A caller that needs
+    the 1 µs cost can take the ablation, and the docs say what it gives up.
+
+Status: NOT VALIDATED.

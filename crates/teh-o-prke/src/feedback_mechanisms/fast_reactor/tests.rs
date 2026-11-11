@@ -146,8 +146,8 @@ fn sign_conventions() {
 
     let dl = tutorial_driveline();
     assert!(dl.expansion(k(750.0)).get::<meter>() > 0.0);
-    assert!(dl.reactivity(k(750.0)).get::<ratio>() < 0.0);
-    assert!(dl.reactivity(k(650.0)).get::<ratio>() > 0.0);
+    assert!(dl.reactivity(k(750.0)).unwrap().get::<ratio>() < 0.0);
+    assert!(dl.reactivity(k(650.0)).unwrap().get::<ratio>() > 0.0);
 }
 
 /// **V&V: fast Doppler against its closed form.**
@@ -188,7 +188,7 @@ fn fast_doppler_closed_form() {
 }
 
 /// **V&V (differential, against upstream's algorithm and inputs): the
-/// driveline term.**
+/// driveline term under [`RodWorthOutOfRange::UpstreamZero`].**
 ///
 /// *Methodology.* No GeN-Foam build exists in this workspace (it needs
 /// OpenFOAM), so the reference is `calcDrivelineReactivity`
@@ -209,39 +209,191 @@ fn fast_doppler_closed_form() {
 ///
 /// *Prediction.* Inside the map, equal to the hand value to 1e-18; the
 /// edge and outside values exactly zero, as upstream.
-/// *Result (2026-11-10):* passes. The zeros at and beyond the map's ends
-/// are upstream's behaviour and are kept (see the module docs).
+/// *Result (2026-11-10):* passes. ~~The zeros at and beyond the map's ends
+/// are upstream's behaviour and are kept (see the module docs).~~
+/// **CHANGED 2026-11-10 (gh:#1326):** they are kept only under the
+/// `UpstreamZero` variant this test selects; the default errors instead
+/// ([`driveline_map_default_errors_out_of_range`]). Re-run after the
+/// change: passes, unchanged.
 #[test]
 fn driveline_matches_upstream_algorithm_on_tutorial_inputs() {
-    let dl = tutorial_driveline();
+    let mut dl = tutorial_driveline();
+    dl.worth = dl.worth.with_out_of_range(RodWorthOutOfRange::UpstreamZero);
     assert!((dl.expansion(k(800.0)).get::<meter>() - 8e-3).abs() < 1e-18);
-    assert!((dl.reactivity(k(800.0)).get::<ratio>() + 8e-4).abs() < 1e-18);
-    assert!((dl.reactivity(k(450.0)).get::<ratio>() - 2e-3).abs() < 1e-18);
+    assert!((dl.reactivity(k(800.0)).unwrap().get::<ratio>() + 8e-4).abs() < 1e-18);
+    assert!((dl.reactivity(k(450.0)).unwrap().get::<ratio>() - 2e-3).abs() < 1e-18);
     let map = &dl.worth;
-    assert!((map.reactivity(m(0.1)).get::<ratio>() + 0.01).abs() < 1e-18);
-    assert_eq!(map.reactivity(m(-0.1)).get::<ratio>(), 0.0);
+    let at = |map: &RodWorthMap, x: f64| map.reactivity(m(x)).unwrap().get::<ratio>();
+    assert!((at(map, 0.1) + 0.01).abs() < 1e-18);
+    assert_eq!(at(map, -0.1), 0.0);
     assert!(!map.covers(m(-0.1)));
     for out in [0.15, -0.15] {
-        assert_eq!(map.reactivity(m(out)).get::<ratio>(), 0.0, "{out}");
+        assert_eq!(at(map, out), 0.0, "{out}");
         assert!(!map.covers(m(out)));
     }
     let ascending = RodWorthMap::new(
         vec![m(-0.1), m(0.0), m(0.1)],
         vec![r(0.01), r(0.0), r(-0.01)],
     )
-    .unwrap();
+    .unwrap()
+    .with_out_of_range(RodWorthOutOfRange::UpstreamZero);
     for x in [-0.07, -0.02, 0.0, 0.008, 0.09] {
-        let (a, b) = (
-            ascending.reactivity(m(x)).get::<ratio>(),
-            map.reactivity(m(x)).get::<ratio>(),
-        );
+        let (a, b) = (at(&ascending, x), at(map, x));
         assert!(
             (a - b).abs() < 1e-18 && (a + 0.1 * x).abs() < 1e-18,
             "{x}: {a} {b}"
         );
     }
-    assert_eq!(ascending.reactivity(m(-0.1)).get::<ratio>(), 0.0);
-    assert!((ascending.reactivity(m(0.1)).get::<ratio>() + 0.01).abs() < 1e-18);
+    assert_eq!(at(&ascending, -0.1), 0.0);
+    assert!((at(&ascending, 0.1) + 0.01).abs() < 1e-18);
+}
+
+/// The pre-#1326-change `RodWorthMap::reactivity` (commit b1a7f2861),
+/// copied verbatim as plain arithmetic: upstream's half-open loop, zero
+/// when no interval holds `x`. The reference for the bit-identity check.
+fn pre_change_reactivity(xs: &[f64], ys: &[f64], x: f64) -> f64 {
+    let n = xs.len();
+    let descending = xs[0] > xs[n - 1];
+    let interval = (0..n - 1).find(|&i| {
+        let (x0, x1) = (xs[i], xs[i + 1]);
+        if descending {
+            x <= x0 && x > x1
+        } else {
+            x > x0 && x <= x1
+        }
+    });
+    match interval {
+        Some(i) => {
+            let (x0, x1) = (xs[i], xs[i + 1]);
+            let (y0, y1) = (ys[i], ys[i + 1]);
+            let m = (y1 - y0) / (x1 - x0);
+            m * (x - x0) + y0
+        }
+        None => 0.0,
+    }
+}
+
+/// **V&V: the default out-of-range policy (gh:#1326, maintainer decision
+/// 2026-11-10, "Error out of range").**
+///
+/// *Methodology.* The tutorial map, descending `(0.1, 0, -0.1)` -> `(-0.01,
+/// 0, 0.01)`, and the same map ascending, plus a non-uniform four-point
+/// map `(-0.03, 0.0, 0.02, 0.07)` -> `(4e-3, 1.5e-3, -2e-4, -3.1e-3)` in
+/// both orders. On each, with the default policy:
+/// 1. **in range, unchanged:** 4001 evenly spaced expansions across the
+///    closed range, and every interior knot, against the pre-change
+///    routine ([`pre_change_reactivity`]) and against the `UpstreamZero`
+///    variant, by `to_bits`, everywhere except the one end upstream
+///    excludes;
+/// 2. **both ends:** the end upstream excludes returns its tabulated value
+///    exactly (bitwise); the other end returns it exactly when it is the
+///    interval's `x0` (descending map, first point) and to round-off when
+///    it is `x1` (ascending map, last point);
+/// 3. **beyond each end** (by 1e-12 m and by 0.05 m) and NaN: an
+///    `ExpansionOutsideRodWorthMap` error carrying the expansion and the
+///    map's range; `covers` false; `UpstreamZero` gives 0 there;
+/// 4. **through the feedback set:** `FastReactorFeedback::evaluate` with a
+///    driveline driven past the map errors by default and gives a zero
+///    driveline term under `UpstreamZero`.
+///
+/// *Prediction (written before the run).* 1: bit-identical (same interval,
+/// same formula). 2: excluded end bitwise equal to the table; included end
+/// `x0` bitwise, included end `x1` within 1e-17 absolute (two ulps of
+/// 0.01 is 3.5e-18; the slope `m` is rounded once and multiplied once).
+/// 3 and 4: errors and zeros exactly as stated.
+/// *Result (2026-11-10):* passes, as predicted.
+#[test]
+fn driveline_map_default_errors_out_of_range() {
+    let maps: [(Vec<f64>, Vec<f64>); 4] = [
+        (vec![0.1, 0.0, -0.1], vec![-0.01, 0.0, 0.01]),
+        (vec![-0.1, 0.0, 0.1], vec![0.01, 0.0, -0.01]),
+        (
+            vec![-0.03, 0.0, 0.02, 0.07],
+            vec![4e-3, 1.5e-3, -2e-4, -3.1e-3],
+        ),
+        (
+            vec![0.07, 0.02, 0.0, -0.03],
+            vec![-3.1e-3, -2e-4, 1.5e-3, 4e-3],
+        ),
+    ];
+    for (xs, ys) in maps {
+        let n = xs.len();
+        let map = RodWorthMap::new(
+            xs.iter().map(|x| m(*x)).collect(),
+            ys.iter().map(|y| r(*y)).collect(),
+        )
+        .unwrap();
+        assert_eq!(map.out_of_range(), RodWorthOutOfRange::Error);
+        let upstream = map.clone().with_out_of_range(RodWorthOutOfRange::UpstreamZero);
+        let descending = xs[0] > xs[n - 1];
+        // the end upstream's half-open loop excludes, and the other one
+        let (excluded, included) = if descending { (n - 1, 0) } else { (0, n - 1) };
+        let (lo, hi) = (xs[0].min(xs[n - 1]), xs[0].max(xs[n - 1]));
+        let (rlo, rhi) = map.range();
+        assert_eq!((rlo.get::<meter>(), rhi.get::<meter>()), (lo, hi));
+
+        // 1. in range, bit-identical to before and to upstream
+        // clamped: lo + (hi - lo) can round one ulp past hi
+        let sweep = (0..=4000).map(|j| (lo + (hi - lo) * j as f64 / 4000.0).clamp(lo, hi));
+        for x in sweep.chain(xs[1..n - 1].iter().copied()) {
+            if x == xs[excluded] {
+                continue;
+            }
+            let got = map.reactivity(m(x)).unwrap().get::<ratio>();
+            assert!(map.covers(m(x)), "{x}");
+            assert_eq!(got.to_bits(), pre_change_reactivity(&xs, &ys, x).to_bits(), "{x}");
+            assert_eq!(
+                got.to_bits(),
+                upstream.reactivity(m(x)).unwrap().get::<ratio>().to_bits(),
+                "{x}"
+            );
+        }
+
+        // 2. both ends are in range and give the tabulated end values
+        let at_excluded = map.reactivity(m(xs[excluded])).unwrap().get::<ratio>();
+        assert_eq!(at_excluded.to_bits(), ys[excluded].to_bits());
+        assert!(map.covers(m(xs[excluded])));
+        assert_eq!(upstream.reactivity(m(xs[excluded])).unwrap().get::<ratio>(), 0.0);
+        let at_included = map.reactivity(m(xs[included])).unwrap().get::<ratio>();
+        if descending {
+            assert_eq!(at_included.to_bits(), ys[included].to_bits());
+        } else {
+            assert!((at_included - ys[included]).abs() < 1e-17, "{at_included}");
+        }
+
+        // 3. beyond each end, and NaN: an error by default, zero upstream
+        for x in [lo - 1e-12, lo - 0.05, hi + 1e-12, hi + 0.05] {
+            match map.reactivity(m(x)) {
+                Err(TehOPrkeError::ExpansionOutsideRodWorthMap {
+                    expansion_m,
+                    min_m,
+                    max_m,
+                }) => assert_eq!((expansion_m, min_m, max_m), (x, lo, hi)),
+                other => panic!("{x}: expected an out-of-range error, got {other:?}"),
+            }
+            assert!(!map.covers(m(x)));
+            assert_eq!(upstream.reactivity(m(x)).unwrap().get::<ratio>(), 0.0);
+        }
+        assert!(map.reactivity(m(f64::NAN)).is_err());
+        assert!(!map.covers(m(f64::NAN)));
+    }
+
+    // 4. through the feedback set: dT = +1500 K drives dL = 0.12 m, past
+    //    the tutorial map's 0.1 m end
+    let fb = FastReactorFeedback {
+        driveline: Some(tutorial_driveline()),
+        ..Default::default()
+    };
+    let hot = state(900.0, 800.0, 700.0, 800.0, &[], 2200.0);
+    assert!(matches!(
+        fb.evaluate(&hot),
+        Err(TehOPrkeError::ExpansionOutsideRodWorthMap { .. })
+    ));
+    let mut upstream_fb = fb.clone();
+    if let Some(dl) = upstream_fb.driveline.as_mut() {
+        dl.worth = dl.worth.clone().with_out_of_range(RodWorthOutOfRange::UpstreamZero);
+    }
+    assert_eq!(upstream_fb.evaluate(&hot).unwrap().driveline, Ratio::ZERO);
 }
 
 /// **V&V: the linear fast terms are the separable model's linear terms,

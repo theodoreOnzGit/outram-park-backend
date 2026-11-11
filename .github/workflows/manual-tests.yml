@@ -40,8 +40,13 @@
 # `full` runs the workspace HARD RULE command:
 #     cargo test --workspace --lib --tests --release
 # which includes every test gated behind the default-on `long-tests` feature.
+# CHANGED 2026-11-10 (gh:#1337): it runs as one job per crate,
+# `cargo test -p <crate> --lib --tests --release --no-fail-fast`, so that each
+# crate has its own 6-hour limit (see `jobs:` below).
 #
-# `fast` runs the repo's own alias, the same one `fast-tests.yml` uses:
+# `fast` runs the repo's own alias, ~~the same one `fast-tests.yml` uses~~
+# (CORRECTED 2026-11-10: fast-tests.yml has run a compile gate plus a smoke
+# set since 2026-09-29, not quick-test), per crate since gh:#1337:
 #     cargo quick-test   ==   cargo test --release --lib --tests --no-default-features
 # `--no-default-features` is Cargo's only lever for switching off a single
 # default feature, so it also drops `kovan`'s `gui` and `petir`'s `transfer-fn`.
@@ -83,12 +88,9 @@ on:
     branches:
       - "ci-run/**"
 
-env:
-  CARGO_TERM_COLOR: always
-  CARGO_NET_RETRY: 2
-  RUST_BACKTRACE: short
-  # Keep the rustdoc JSON producer paired with the verified rustdoc-md version.
-  KOVAN_RUSTDOC_TOOLCHAIN: nightly-2026-11-05
+# ~~env: CARGO_TERM_COLOR, CARGO_NET_RETRY, RUST_BACKTRACE,
+# KOVAN_RUSTDOC_TOOLCHAIN~~ MOVED 2026-11-10 (gh:#1337) to per-crate-tests.yml:
+# a called workflow does not see its caller's `env`.
 
 concurrency:
   # Keyed on the ref so two people can run different branches at once, but a
@@ -98,80 +100,24 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  manual:
-    # `inputs.*` is empty on a push event, so every use below falls back to
-    # the full scope over the whole workspace -- see the push trigger note.
-    name: ${{ inputs.scope || 'full' }} suite on ${{ github.ref_name }}
-    runs-on: ubuntu-latest
-    # The long tier is minutes-per-test by construction; 90 minutes is the fast
-    # job's budget and is not enough. Matches full-tests.yml.
-    timeout-minutes: 360
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          # `reference-data/ace` is 102 MB of gzipped NJOY2016 tables. As of
-          # 2026-09-20 no test reads it at runtime, but the full tier's
-          # reference-data tests are the ones most likely to start, so check it
-          # out here rather than discover the gap mid-run.
-          submodules: recursive
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          # Separate cache key per scope: the two builds differ in features, so
-          # sharing one key would thrash the cache between runs.
-          key: manual-${{ inputs.scope || 'full' }}-ubuntu-latest
-          cache-on-failure: true
-
-      # The api-docs regression tests run the real documentation pipeline.
-      - name: Install API-doc test prerequisites
-        shell: bash
-        run: |
-          rustup toolchain install "$KOVAN_RUSTDOC_TOOLCHAIN" --profile minimal
-          cargo install rustdoc-md --version 0.2.0 --locked
-
-      - name: Show what will run
-        run: |
-          echo "event  : ${{ github.event_name }}"
-          echo "ref    : ${{ github.ref_name }} ($(git rev-parse --short HEAD))"
-          echo "scope  : ${{ inputs.scope || 'full' }}"
-          echo "crate  : ${CRATE:-<whole workspace>}"
-          echo "filter : ${FILTER:-<none>}"
-        env:
-          CRATE: ${{ inputs.crate }}
-          FILTER: ${{ inputs.filter }}
-
-      # DO NOT add `--test-threads=1`. The TUAS natural-circulation cases are a
-      # workspace HARD RULE: they must run in parallel, and serialising them
-      # turns a long job into an impossible one.
-      - name: Run tests
-        env:
-          SCOPE: ${{ inputs.scope || 'full' }}
-          CRATE: ${{ inputs.crate }}
-          FILTER: ${{ inputs.filter }}
-        run: |
-          set -euo pipefail
-
-          # Package selector: one crate, or the whole workspace.
-          if [ -n "$CRATE" ]; then
-            PKG=(-p "$CRATE")
-          else
-            PKG=(--workspace)
-          fi
-
-          # `quick-test` is an alias that already carries its own flags, so the
-          # two scopes cannot share one command line.
-          if [ "$SCOPE" = "fast" ]; then
-            CMD=(cargo test --release --lib --tests --no-default-features "${PKG[@]}")
-          else
-            CMD=(cargo test "${PKG[@]}" --lib --tests --release)
-          fi
-
-          # A trailing bare filter is a test-NAME substring, not a cargo flag.
-          if [ -n "$FILTER" ]; then
-            CMD+=("$FILTER")
-          fi
-
-          printf 'running:'; printf ' %q' "${CMD[@]}"; printf '\n'
-          "${CMD[@]}"
+  # ~~One job running `cargo test --workspace` (or `-p <crate>`) with
+  # `timeout-minutes: 360`.~~ CHANGED 2026-11-10 (gh:#1337): one job PER CRATE,
+  # from per-crate-tests.yml, because the whole workspace no longer fits in
+  # GitHub's 6-hour job limit. The inputs work as before:
+  #   scope   full: `cargo test -p <crate> --lib --tests --release --no-fail-fast`
+  #           fast: the same plus `--no-default-features` (what `cargo
+  #                 quick-test -p <crate>` runs, with --no-fail-fast added)
+  #   crate   collapses the matrix to that one package (still split by test
+  #           target if it is in ci/split-by-target.txt); blank = every member
+  #   filter  passed to every test binary as a test-name substring, as before
+  # `inputs.*` is empty on a push event, so a `ci-run/**` push runs the full
+  # scope over every crate -- see the push trigger note.
+  # ~~--no-fail-fast was not passed here~~ it is now, so one failing binary no
+  # longer hides the rest of its crate (full-tests.yml, run 39549698983).
+  tests:
+    uses: ./.github/workflows/per-crate-tests.yml
+    with:
+      scope: ${{ inputs.scope || 'full' }}
+      package: ${{ inputs.crate }}
+      filter: ${{ inputs.filter }}
+      cache-prefix: manual
