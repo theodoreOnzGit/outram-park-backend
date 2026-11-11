@@ -81,6 +81,7 @@
 //! ```
 
 pub mod acelcp;
+mod acelcp_ext;
 pub mod charged;
 pub mod charged_coulomb;
 /// **A set of ACE files indexed by header** (ZAID, class, kT), for the ACE
