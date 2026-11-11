@@ -437,6 +437,9 @@ pub struct AceDeck {
     /// ACER's `newfor`: `1` (default) the new angular format, `0` the old
     /// equally probable bins (gh:#1449).
     newfor: i32,
+    /// MT=301 as HEATR's tape carries it, `(E, H)` pairs; when set, ESZ's
+    /// heating column reads these (ACER reads the tape, not HEATR's memory).
+    esz_kerma: Option<Vec<(f64, f64)>>,
 }
 
 impl Default for AceDeck {
@@ -449,6 +452,7 @@ impl Default for AceDeck {
             purr_binary: false,
             heatr_binary: false,
             newfor: 1,
+            esz_kerma: None,
         }
     }
 }
@@ -478,6 +482,15 @@ impl AceDeck {
     /// it read its MT=301 (and partials) as doubles, not as printed text.
     pub fn with_heatr_binary(mut self, binary: bool) -> Self {
         self.heatr_binary = binary;
+        self
+    }
+
+    /// MT=301 as the HEATR tape holds it: ESZ's heating column is built from
+    /// these `(E, H)` pairs, as upstream's ACER reads the tape (gh:#1449: the
+    /// in-memory kerma differs from the printed value by up to half a unit in
+    /// the 7th figure, which moved one ESZ word of test 07).
+    pub fn with_esz_kerma_pairs(mut self, pairs: Vec<(f64, f64)>) -> Self {
+        self.esz_kerma = Some(pairs);
         self
     }
 
@@ -605,6 +618,13 @@ pub(crate) fn deck_modules(
         })
     } else {
         kerma
+    };
+    let kerma = match &deck.esz_kerma {
+        Some(p) if !p.is_empty() => Some(crate::heatr::Kerma {
+            energy: p.iter().map(|x| x.0).collect(),
+            h: p.iter().map(|x| x.1).collect(),
+        }),
+        _ => kerma,
     };
     Ok(DeckModules { urr, kerma, newfor: deck.newfor })
 }
