@@ -72,7 +72,7 @@ use crate::rename_boundary_patches::{rename_boundary_patches, RenameBoundary};
 use crate::renumber_mesh::{cells_from_mesh, renumber_mesh};
 use crate::correct_edges::correct_edges_between_patches;
 use crate::surface_engine::{SurfaceEngine, SurfacePartitioner};
-use crate::surface_mapper::{map_vertices_onto_surface_patches_given, SurfaceQueries};
+use crate::surface_mapper::{map_vertices_onto_surface_patches_given_octree, SurfaceQueries};
 use crate::surface_optimizer::{map_mesh_to_surface_octree, optimise_mesh_surface_octree, optimise_mesh_surface, MeshSurfaceOptimizer, UntangleReport};
 use crate::topology::{surface_morpher_cells, topological_cleaner, TopoMesh};
 use crate::tet_creator_octree::{tet_creator_octree, TetCreatorDefects};
@@ -259,9 +259,9 @@ pub(crate) fn face_regions(m: &VolumeMesh, reg: &SurfaceRegions) -> Vec<Option<u
 /// `meshSurfaceOptimizer(mse, octree).untangleSurface()` (2 additional
 /// layers) on `m`'s boundary, the second untangle of `pMesh`'s
 /// `optimiseMeshSurface`.
-fn untangle_again(m: &VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], reg: &SurfaceRegions, given: &[Option<usize>]) -> (VolumeMesh, UntangleReport) {
+fn untangle_again(m: &VolumeMesh, o: &MeshOctree, points: &[Vec3], tris: &[[usize; 3]], reg: &SurfaceRegions, given: &[Option<usize>]) -> (VolumeMesh, UntangleReport) {
     let mut out = m.clone();
-    let q = SurfaceQueries::new(points, tris, reg);
+    let q = SurfaceQueries::new(points, tris, reg).with_octree(std::sync::Arc::new(o.clone()));
     let unassigned = reg.names.len();
     let patch_of: Vec<usize> = given.iter().map(|r| r.unwrap_or(unassigned)).collect();
     let engine = SurfaceEngine::from_parts(&out.points, &out.faces, &out.owner, &out.neighbour, &patch_of);
@@ -501,23 +501,26 @@ pub(crate) fn run_generator(
             },
             WorkflowStep::EdgeExtraction => {
                 let mut given = face_regions(m, reg);
-                if let (Some(r), Template::Tet) = (regions, kind) {
+                // gh:#1385: upstream runs these on a surface of one region too
+                // (the port skipped them without `regions`).
+                let r = regions.unwrap_or(reg);
+                if kind == Template::Tet {
                     // meshSurfaceEdgeExtractorNonTopo: decomposeBoundaryFaces
                     // (correctEdgesBetweenPatches), then remapBoundaryPoints
                     let (corrected, g, cr) = correct_edges_between_patches(m, &given, &r.names);
                     given = g;
-                    *m = map_vertices_onto_surface_patches_given(&corrected, spts, tris, r, &given);
+                    *m = map_vertices_onto_surface_patches_given_octree(&corrected, &o, spts, tris, r, &given);
                     types = vec!["patch".to_string(); m.patches.len()];
                     rep.notes.push(format!(
                         "edgeExtraction: meshSurfaceEdgeExtractorNonTopo (correct_edges + surface_mapper): {} boundary faces split, {} faces fanned, {} cells into pyramids",
                         cr.n_patch_corrected_faces, cr.n_connection_faces, cr.n_decomposed_cells
                     ));
-                } else if let Some(r) = regions {
+                } else {
                     // meshSurfaceEdgeExtractorFUN(mesh, octree, false):
                     // createFundamentalSheetsJFS, smoothMeshSurface,
                     // remapBoundaryPoints (gh:#1281)
                     let old_types: Vec<(String, String)> = m.patches.iter().map(|p| p.name.clone()).zip(types.iter().cloned()).collect();
-                    let (fr, g) = crate::mesh_surface_edge_extractor_fun::mesh_surface_edge_extractor_fun(m, spts, tris, r, &given, opts.fun_sheets, false);
+                    let (fr, g) = crate::mesh_surface_edge_extractor_fun::mesh_surface_edge_extractor_fun(m, Some(&o), spts, tris, r, &given, opts.fun_sheets, false);
                     given = g;
                     // The sheets rebuild the patches; each keeps its type by name.
                     types = m.patches.iter().map(|p| old_types.iter().find(|(n, _)| *n == p.name).map_or("patch".to_string(), |(_, t)| t.clone())).collect();
@@ -543,7 +546,7 @@ pub(crate) fn run_generator(
                 let u = optimise_mesh_surface_octree(m, &o, spts, tris, reg, &given);
                 let mut last = u.n_inverted_last;
                 if kind == Template::Voronoi {
-                    let (mm, u2) = untangle_again(m, spts, tris, reg, &given);
+                    let (mm, u2) = untangle_again(m, &o, spts, tris, reg, &given);
                     *m = mm;
                     last = u2.n_inverted_last;
                 }

@@ -29,15 +29,14 @@
 //! | surfaceTopology | 895/895 | 2064/2064 | 9744/9744 | 11494/11494 |
 //! | surfaceProjection | 895/895 | 2064/2064 | 9744/9744 | 11494/11494 |
 //! | patchAssignment | 895/895 | 2064/2064 | 9744/9744 | 11494/11494 |
-//! | edgeExtraction | 895/895 | 2064/2064 | **8352/9744, max 1.091e-2** | 11494/11494 |
-//! | boundaryLayerGeneration | 1425/1425 | 3648/3648 | 8352/9744, max 1.091e-2 | 11494/11494 |
-//! | meshOptimisation | **562/1425, max 1.332e-15** | 3648/3648 | **0/9744, max 6.549e-3** | 11494/11494 |
+//! | edgeExtraction | 895/895 | 2064/2064 | 9744/9744 | 11494/11494 |
+//! | boundaryLayerGeneration | 1425/1425 | 3648/3648 | 9744/9744 | 11494/11494 |
+//! | meshOptimisation | **562/1425, max 1.332e-15** | 3648/3648 | **1527/9744, max 1.776e-15** | 11494/11494 |
 //!
 //! (points bit-identical / total; faces index-identical with owner and
 //! neighbour / total.) Faces are index-identical at every stage of both
-//! generators. First difference: `cartesianMesh` at meshOptimisation, in the
-//! last bit (see the V&V README, "Rust-side differential"); `pMesh` at
-//! edgeExtraction.
+//! generators. First difference, for both: meshOptimisation, in the last bit
+//! (see the V&V README, "Rust-side differential").
 use common::*;
 use outram_park_fork_cfmesh::mesh_octree_creator::MeshDict;
 use outram_park_fork_cfmesh::pipeline::cartesian_mesh::{cartesian_mesh, CartesianMeshGeneratorOptions};
@@ -120,29 +119,27 @@ fn cartesian_mesh_mesh_optimisation_is_within_the_last_bit() {
     assert!(worst < 2e-15, "worst difference {worst:e}");
 }
 
-/// `pMesh`: template, surfaceTopology, surfaceProjection and patchAssignment
-/// are bit-identical.
+/// `pMesh`: the first six stages are bit-identical (points, faces, owner,
+/// neighbour). The edgeExtraction stage needed `meshSurfaceEdgeExtractorFUN`
+/// to run on a surface of one region (the port skipped it without
+/// `regions`): before that fix 8352 of 9744 points were bit-identical,
+/// worst 1.091e-2 m.
 #[test]
-fn p_mesh_matches_upstream_through_patch_assignment() {
-    for s in &STEPS[..4] {
+fn p_mesh_matches_upstream_through_boundary_layer_generation() {
+    for s in &STEPS[..6] {
         assert_matches(&p_mesh_stage(*s), &format!("pMesh after {}", s.name()));
     }
 }
 
-/// `pMesh` edgeExtraction, boundaryLayerGeneration and meshOptimisation: the
-/// topology is identical, the points are not (8352/9744 bit-identical, worst
-/// 1.091e-2 m after edgeExtraction; 0/9744, worst 6.549e-3 m after
-/// meshOptimisation). This is a **known difference**, pinned from above so it
-/// cannot get worse; `meshSurfaceEdgeExtractorFUN` is the first suspect (see
-/// the README).
+/// `pMesh` meshOptimisation: counts and faces are identical, 1527 of 9744
+/// points are bit-identical and the worst difference is 1.776e-15 m; the
+/// cause is the one of the `cartesianMesh` test above (cell face order in
+/// the Laplacian sums). Pinned from above, not matched.
 #[test]
-fn p_mesh_after_edge_extraction_differs_in_points_only() {
-    let d = p_mesh_stage(WorkflowStep::EdgeExtraction);
-    assert_same_topology(&d, "pMesh after edgeExtraction");
-    let (same, worst) = d.index_points.unwrap();
-    assert!(same >= 8352, "bit-identical points fell from 8352 to {same}");
-    assert!(worst < 1.2e-2, "worst difference {worst:e}");
+fn p_mesh_mesh_optimisation_is_within_the_last_bit() {
     let d = p_mesh_stage(WorkflowStep::MeshOptimisation);
     assert_same_topology(&d, "pMesh after meshOptimisation");
-    assert!(d.index_points.unwrap().1 < 7e-3);
+    let (same, worst) = d.index_points.unwrap();
+    assert!(same >= 1527, "bit-identical points fell from 1527 to {same}");
+    assert!(worst < 2.5e-15, "worst difference {worst:e}");
 }
