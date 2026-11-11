@@ -723,3 +723,72 @@ fn test_14_charged_particle_ace_is_identical() {
     assert!(c.identical(), "test 14 ACE differs from NJOY2016");
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
 }
+
+/// Run upstream deck `case` (`moder; moder; acer iopt = 1`, the raw
+/// incident-charged-particle evaluation `resource` on unit 20) cut before its
+/// second ACER (the `iopt = 7` plot), and return the ACE comparison of unit 31.
+fn charged_deck_ace(case: &str, resource: &str) -> Option<njoy_outram_park_fork::acer::compare::AceComparison> {
+    let root = njoy_root();
+    let full = deck_text(&root, case, Some("viewr"), "")?;
+    let deck = format!("{}stop\n", full.split("acer\n 0 31").next().unwrap());
+    let (ours, njoy) = run_pair_decks_extra(&root, &format!("t{case}"), resource, &[], &deck, &deck)?;
+    let c = ace_pair(&ours, &njoy, 31);
+    for l in c.report_lines() {
+        println!("{l}");
+    }
+    if std::env::var("KEEP_DECK_DIRS").is_err() {
+        let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    } else {
+        println!("kept {}", ours.parent().unwrap().display());
+    }
+    Some(c)
+}
+
+#[test]
+fn test_50_charged_particle_ace() {
+    if let Some(c) = charged_deck_ace("50", "a-002_He_004-ENDF8.0.endf") {
+        assert!(c.identical(), "test 50 ACE differs from NJOY2016");
+    }
+}
+
+#[test]
+fn test_51_charged_particle_ace() {
+    if let Some(c) = charged_deck_ace("51", "p-001_H_002-ENDF8.0.endf") {
+        assert!(c.identical(), "test 51 ACE differs from NJOY2016");
+    }
+}
+
+#[test]
+fn test_52_charged_particle_ace() {
+    if let Some(c) = charged_deck_ace("52", "p-001_H_001-ENDF8.0.endf") {
+        assert!(c.identical(), "test 52 ACE differs from NJOY2016");
+    }
+}
+
+#[test]
+fn test_53_charged_particle_ace() {
+    if let Some(c) = charged_deck_ace("53", "d-001_H_002-ENDF8.0.endf") {
+        assert!(c.identical(), "test 53 ACE differs from NJOY2016");
+    }
+}
+
+#[test]
+fn test_54_charged_particle_ace() {
+    if let Some(c) = charged_deck_ace("54", "p-001_H_003-ENDF8.0.endf") {
+        assert!(c.identical(), "test 54 ACE differs from NJOY2016");
+    }
+}
+
+#[test]
+fn test_62_charged_particle_ace() {
+    if let Some(c) = charged_deck_ace("62", "d-002_He_003.endf") {
+        assert!(c.identical(), "test 62 ACE differs from NJOY2016");
+    }
+}
+
+#[test]
+fn test_71_charged_particle_ace() {
+    if let Some(c) = charged_deck_ace("71", "d-078_Pt_184-TENDL2021.endf") {
+        assert!(c.identical(), "test 71 ACE differs from NJOY2016");
+    }
+}

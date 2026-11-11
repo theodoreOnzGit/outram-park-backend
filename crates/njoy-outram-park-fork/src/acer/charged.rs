@@ -140,18 +140,27 @@ pub fn union_grid(tape: &Tape, mat: i32) -> Result<Vec<f64>, NjoyError> {
     let nold = old.len();
     let mut k = 1usize;
     let mut eg = old[0];
+    // Upstream's `c` is the last record `finda` fetched or `loada` wrote, and
+    // the `eg < ee` loop writes `c`, not `eg`: after an `ee` that is not a grid
+    // point `c` still holds `ee`, so the next pass repeats it and the grid
+    // point that followed is lost (deck 50: 4.4416 MeV; `acefc.f90:1637-1662`).
+    let mut c1 = old[0];
+    let fetch = |k: usize| if k <= nold { old[k - 1] } else { ETOP };
     for iee in 1..=nee {
         let l = cur.read_list()?;
         let ee = l.head.c2;
         while eg < ee {
-            new.push(eg);
+            new.push(c1);
             k += 1;
-            eg = if k <= nold { old[k - 1] } else { ETOP };
+            c1 = fetch(k);
+            eg = c1;
         }
         new.push(ee);
+        c1 = ee;
         if eg == ee && iee != nee {
             k += 1;
-            eg = if k <= nold { old[k - 1] } else { ETOP };
+            c1 = fetch(k);
+            eg = c1;
         }
     }
     let old = new;
@@ -306,7 +315,10 @@ pub fn build_charged(tape: &Tape, mat: i32, kt_mev: f64, suffix: u32, text_pendf
     let awr = head.rows[0][1];
     let awi = head.rows[2][0];
 
-    let grid = union_grid(tape, mat)?;
+    let mut grid = union_grid(tape, mat)?;
+    // `acelod` reads the grid back from the total with `gety1`, which steps to the
+    // next abscissa ABOVE the current one: a repeated energy appears once.
+    grid.dedup();
     let nes = grid.len();
     let reactions = carry_reactions(tape, mat, &grid, text_pendf)?;
 
