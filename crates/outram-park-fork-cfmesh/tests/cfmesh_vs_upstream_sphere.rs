@@ -41,7 +41,7 @@ use common::*;
 use outram_park_fork_cfmesh::mesh_octree_creator::MeshDict;
 use outram_park_fork_cfmesh::pipeline::cartesian_mesh::{cartesian_mesh, CartesianMeshGeneratorOptions};
 use outram_park_fork_cfmesh::pipeline::p_mesh::p_mesh;
-use outram_park_fork_cfmesh::pipeline::tet_mesh::TetMeshOptions;
+use outram_park_fork_cfmesh::pipeline::tet_mesh::{tet_mesh, TetMeshOptions};
 use outram_park_fork_cfmesh::workflow_controls::{WorkflowSettings, WorkflowStep};
 
 mod common;
@@ -85,13 +85,6 @@ fn assert_matches(d: &Diff, what: &str) {
     assert_eq!(d.index_faces_identical, Some((d.counts.1).1), "{what}: faces");
 }
 
-/// Same counts, faces identical at their index.
-fn assert_same_topology(d: &Diff, what: &str) {
-    println!("{what}: {}", d.summary());
-    assert!(d.counts_equal, "{what}: counts {:?}", d.counts);
-    assert_eq!(d.index_faces_identical, Some((d.counts.1).1), "{what}: faces");
-}
-
 /// `cartesianMesh`: all seven stages are bit-identical (points, faces, owner,
 /// neighbour). Fixes that made them so, with the number each moved: the V&V
 /// README, "Rust-side differential". The last one (gh:#1385, 2026-11-11):
@@ -105,28 +98,72 @@ fn cartesian_mesh_matches_upstream_through_mesh_optimisation() {
     }
 }
 
-/// `pMesh`: the first six stages are bit-identical (points, faces, owner,
-/// neighbour). The edgeExtraction stage needed `meshSurfaceEdgeExtractorFUN`
-/// to run on a surface of one region (the port skipped it without
-/// `regions`): before that fix 8352 of 9744 points were bit-identical,
-/// worst 1.091e-2 m.
+/// `pMesh`: all seven stages are bit-identical. History (gh:#1385,
+/// 2026-11-11): edgeExtraction needed `meshSurfaceEdgeExtractorFUN` to run on
+/// a surface of one region (before: 8352/9744 points, worst 1.091e-2 m);
+/// meshOptimisation needed the octree-backed `meshSurfaceOptimizer` and the
+/// cell lists to be carried through `surfaceMorpherCells` (before:
+/// ~~3435/9744, worst 1.332e-15 m~~ 9744/9744).
 #[test]
-fn p_mesh_matches_upstream_through_boundary_layer_generation() {
-    for s in &STEPS[..6] {
+fn p_mesh_matches_upstream_through_mesh_optimisation() {
+    for s in &STEPS {
         assert_matches(&p_mesh_stage(*s), &format!("pMesh after {}", s.name()));
     }
 }
 
-/// `pMesh` meshOptimisation: counts and faces are identical, 3435 of 9744
-/// points are bit-identical and the worst difference is 1.332e-15 m; the
-/// cause is the one of the `cartesianMesh` test above (cell face order in
-/// the Laplacian sums; proven there for `cartesianMesh` only, not
-/// separately for `pMesh`). Pinned from above, not matched.
+fn final_cartesian() -> Diff {
+    let (p, t) = read_sphere();
+    let opts = CartesianMeshGeneratorOptions { dict: MeshDict::with_max_cell_size(0.5), ..Default::default() };
+    let (m, _) = cartesian_mesh(&p, &t, None, &opts).unwrap();
+    compare(&m, &read_upstream("sphere_cartesianMesh"))
+}
+
+fn final_tet() -> Diff {
+    let (p, t) = read_sphere();
+    let opts = TetMeshOptions { dict: MeshDict::with_max_cell_size(0.5), ..Default::default() };
+    let (m, _) = tet_mesh(&p, &t, None, &opts).unwrap();
+    compare(&m, &read_upstream("sphere_tetMesh"))
+}
+
+fn final_p() -> Diff {
+    let (p, t) = read_sphere();
+    let opts = TetMeshOptions { dict: MeshDict::with_max_cell_size(0.5), ..Default::default() };
+    let (m, _) = p_mesh(&p, &t, None, &opts).unwrap();
+    compare(&m, &read_upstream("sphere_pMesh"))
+}
+
+/// gh:#1385: the FINAL meshes (after `renumberMesh` and
+/// `renameBoundaryPatches`) of all three generators are bit-identical to
+/// upstream's written `polyMesh`: points, faces, owner and neighbour. Before
+/// the cell lists were carried: `cartesianMesh` points 623/1425 and 2/3648
+/// faces index-identical; `tetMesh` points 2/2651 (worst 0.19 m), faces not
+/// matched.
 #[test]
-fn p_mesh_mesh_optimisation_is_within_the_last_bit() {
-    let d = p_mesh_stage(WorkflowStep::MeshOptimisation);
-    assert_same_topology(&d, "pMesh after meshOptimisation");
-    let (same, worst) = d.index_points.unwrap();
-    assert!(same >= 3435, "bit-identical points fell from 3435 to {same}");
-    assert!(worst < 2e-15, "worst difference {worst:e}");
+fn final_meshes_match_upstream() {
+    assert_matches(&final_cartesian(), "cartesianMesh final");
+    assert_matches(&final_tet(), "tetMesh final");
+    assert_matches(&final_p(), "pMesh final");
+}
+
+fn tet_stage(s: WorkflowStep) -> Diff {
+    let (p, t) = read_sphere();
+    let opts = TetMeshOptions { dict: MeshDict::with_max_cell_size(0.5), workflow: stop(s), ..Default::default() };
+    let (m, rep) = tet_mesh(&p, &t, None, &opts).unwrap();
+    assert_eq!(rep.stopped_after, Some(s));
+    compare(&m, &read_upstream(&format!("stages/tetMesh_{}", s.name())))
+}
+
+/// `tetMesh` against the staged upstream runs added in gh:#1385
+/// (`runs/stages/tetMesh_<step>`): all seven stages bit-identical. History:
+/// `surfaceTopology` had the right points and 819/26580 faces at their index
+/// (`TopoMesh::remove_cells` ordered faces by a stable sort where upstream's
+/// `reorderBoundaryFaces` swaps pairwise, and reversed a ring wholesale where
+/// `face::reverseFace` keeps the first point); `meshOptimisation` needed the
+/// octree-backed `optimizeSurface` and the carried cell lists (before:
+/// 2/2651 final points).
+#[test]
+fn tet_mesh_matches_upstream_through_mesh_optimisation() {
+    for s in &STEPS {
+        assert_matches(&tet_stage(*s), &format!("tetMesh after {}", s.name()));
+    }
 }

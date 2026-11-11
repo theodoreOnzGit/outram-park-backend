@@ -1016,12 +1016,9 @@ pub fn cartesian_mesh_extractor_from_dict(o: &MeshOctree, opts: &CartesianMeshOp
 /// together; nothing else is reordered (gh:#1385: the template's face order
 /// is upstream's, not a stable internal-then-boundary sort).
 pub fn reorder_boundary_faces(faces: &mut [Vec<usize>], owner: &mut [usize], neighbour: &mut [Option<usize>]) -> Vec<usize> {
-    let n_int = neighbour.iter().filter(|x| x.is_some()).count();
-    let to_boundary: Vec<usize> = (0..n_int).filter(|&f| neighbour[f].is_none()).collect();
-    let to_internal: Vec<usize> = (n_int..faces.len()).filter(|&f| neighbour[f].is_some()).collect();
-    assert_eq!(to_boundary.len(), to_internal.len());
+    let pairs = boundary_swap_pairs(neighbour);
     let mut new_label: Vec<usize> = (0..faces.len()).collect();
-    for (&a, &b) in to_boundary.iter().zip(&to_internal) {
+    for &(a, b) in &pairs {
         faces.swap(a, b);
         owner.swap(a, b);
         neighbour.swap(a, b);
@@ -1029,6 +1026,18 @@ pub fn reorder_boundary_faces(faces: &mut [Vec<usize>], owner: &mut [usize], nei
         new_label[b] = a;
     }
     new_label
+}
+
+/// The pairs `reorderBoundaryFaces` swaps: the faces without a neighbour among
+/// the first `nInternalFaces` (the count of faces with one), in order, with
+/// the faces with a neighbour among the rest, in order (gh:#1385). A face in
+/// no cell has no neighbour and is swapped like a boundary face.
+pub fn boundary_swap_pairs(neighbour: &[Option<usize>]) -> Vec<(usize, usize)> {
+    let n_int = neighbour.iter().filter(|x| x.is_some()).count();
+    let to_boundary: Vec<usize> = (0..n_int).filter(|&f| neighbour[f].is_none()).collect();
+    let to_internal: Vec<usize> = (n_int..neighbour.len()).filter(|&f| neighbour[f].is_some()).collect();
+    assert_eq!(to_boundary.len(), to_internal.len());
+    to_boundary.into_iter().zip(to_internal).collect()
 }
 
 /// The cell lists after `reorderBoundaryFaces` (gh:#1385): upstream renumbers

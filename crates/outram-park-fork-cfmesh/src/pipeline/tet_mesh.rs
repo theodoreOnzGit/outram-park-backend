@@ -310,11 +310,15 @@ pub fn create_octree(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&Surf
 /// `optimizeLowQualityFaces`, `optimizeBoundaryLayer(false)` (acts only
 /// with `optimiseLayer`, off by default; gh:#1476), `untangleMeshFV`.
 /// Returns the report line.
-fn generator_optimise_final_mesh(kind: Template, m: &mut VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], reg: &SurfaceRegions, enforce_geometry_constraints: bool, optimise_layer: Option<&crate::boundary_layer_optimisation::BoundaryLayerOptimisationControls>) -> Result<String, String> {
+fn generator_optimise_final_mesh(kind: Template, m: &mut VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], reg: &SurfaceRegions, enforce_geometry_constraints: bool, optimise_layer: Option<&crate::boundary_layer_optimisation::BoundaryLayerOptimisationControls>, octree: Option<&MeshOctree>) -> Result<String, String> {
     let given = face_regions(m, reg);
     if kind == Template::Voronoi {
-        // meshSurfaceOptimizer::optimizeSurface on its own
-        optimise_mesh_surface(m, points, tris, reg, &given);
+        // meshSurfaceOptimizer(mse, octree)::optimizeSurface on its own
+        // (gh:#1385: the searches go through the octree, as upstream's)
+        match octree {
+            Some(o) => crate::surface_optimizer::optimise_mesh_surface_octree(m, o, points, tris, reg, &given),
+            None => optimise_mesh_surface(m, points, tris, reg, &given),
+        };
     }
     let mut opt = MeshOptimizer::new(m);
     if enforce_geometry_constraints {
@@ -322,7 +326,10 @@ fn generator_optimise_final_mesh(kind: Template, m: &mut VolumeMesh, points: &[V
     }
     if kind == Template::Tet {
         // meshOptimizer::optimizeSurface(octree)
-        crate::mesh_optimizer::optimize_surface(m, points, tris, reg, &given);
+        match octree {
+            Some(o) => crate::mesh_optimizer::optimize_surface_octree(m, o, points, tris, reg, &given),
+            None => crate::mesh_optimizer::optimize_surface(m, points, tris, reg, &given),
+        };
     }
     let controls = UntangleControls { boundary_moves: true, mesh_untangler: true, ..UntangleControls::default() };
     let r1 = opt.optimize_mesh_fv(m, 5, &controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
@@ -569,14 +576,14 @@ pub(crate) fn run_generator(
             WorkflowStep::MeshOptimisation => {
                 // optimiseFinalMesh on the octree's surface (the modified
                 // one with anisotropicSources)
-                let line = generator_optimise_final_mesh(kind, m, spts, tris, reg, opts.enforce_geometry_constraints, opts.optimise_layer.as_ref())?;
+                let line = generator_optimise_final_mesh(kind, m, spts, tris, reg, opts.enforce_geometry_constraints, opts.optimise_layer.as_ref(), Some(&o))?;
                 rep.notes.push(format!("meshOptimisation: {line}"));
                 // its end: revertGeometryModification while modSurfacePtr_
                 // is set, then projectSurfaceAfterBackScaling
                 if let (true, Some(cm)) = (mod_active, opts.dict.anisotropic_sources.as_ref()) {
                     mod_active = false;
                     let b = crate::anisotropic::revert_and_project(m, cm, points, tris);
-                    let line2 = generator_optimise_final_mesh(kind, m, points, tris, reg, opts.enforce_geometry_constraints, opts.optimise_layer.as_ref())?;
+                    let line2 = generator_optimise_final_mesh(kind, m, points, tris, reg, opts.enforce_geometry_constraints, opts.optimise_layer.as_ref(), None)?;
                     rep.back_scaling = Some(b);
                     rep.notes.push(format!(
                         "meshOptimisation: revertGeometryModification ({} points); projectSurfaceAfterBackScaling: mapVerticesOntoSurface on the original surface (largest move {:.3e}), optimiseFinalMesh again: {line2}",
