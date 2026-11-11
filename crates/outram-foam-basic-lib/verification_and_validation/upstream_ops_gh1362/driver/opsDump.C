@@ -28,6 +28,9 @@
 #include "UMIST.H"
 #include "OSPRE.H"
 #include "limitedLinear.H"
+#include "mixedFvPatchFields.H"
+#include "fixedGradientFvPatchFields.H"
+#include "fixedValueFvPatchFields.H"
 #include <cstdio>
 #include <cstring>
 #include <cstdint>
@@ -66,6 +69,27 @@ static vector fU(const point& p)
     return vector(1.0 + 0.5*y - 0.25*z*z, 0.3*x + 0.2*z, -0.1*x*y + 0.4);
 }
 
+static tensor fS(const point& p)
+{
+    const scalar x = p.x(), y = p.y(), z = p.z();
+    return tensor
+    (
+        1.0 + 0.5*x - 0.25*y*z, 0.3*y + 0.1*x*x, -0.2*z + 0.15*x*y,
+        0.4*x - 0.1*z*z, 2.0 - 0.3*y + 0.05*x*z, 0.25*x*y - 0.2*z,
+        0.1*z + 0.2*y*y, -0.5*x + 0.3*y*z, 1.5 + 0.1*x - 0.2*y
+    );
+}
+
+static void H9(const char* key, label i, const tensor& t)
+{
+    uint64_t u[9];
+    scalar c[9] = {t.xx(), t.xy(), t.xz(), t.yx(), t.yy(), t.yz(), t.zx(), t.zy(), t.zz()};
+    std::memcpy(u, c, 72);
+    std::printf("%s %d", key, int(i));
+    for (int k = 0; k < 9; ++k) std::printf(" %016llx", (unsigned long long)u[k]);
+    std::printf("\n");
+}
+
 static scalar fG(const point& p)
 {
     return 1.0 + 0.5*p.x() + 0.25*p.y()*p.y();
@@ -88,6 +112,41 @@ static void dumpFace(const char* key, const surfaceScalarField& s)
         }
     }
     (void)mesh;
+}
+
+// Dump a per-face vector quantity: internal faces then boundary faces
+static void dumpFaceV(const char* key, const surfaceVectorField& s)
+{
+    label k = 0;
+    forAll(s.primitiveField(), fi) H3(key, k++, s.primitiveField()[fi]);
+    forAll(s.boundaryField(), pi)
+    {
+        forAll(s.boundaryField()[pi], fi) H3(key, k++, s.boundaryField()[pi][fi]);
+    }
+}
+
+// Dump a scalar-matrix: diag, upper, source, patch internal/boundary coeffs
+static void dumpLap(const std::string& pre, fvScalarMatrix& L)
+{
+    forAll(L.diag(), c) H((pre + "_diag").c_str(), c, L.diag()[c]);
+    forAll(L.upper(), f) H((pre + "_upper").c_str(), f, L.upper()[f]);
+    forAll(L.source(), c) H((pre + "_source").c_str(), c, L.source()[c]);
+    label k = 0;
+    forAll(L.internalCoeffs(), pi)
+    {
+        forAll(L.internalCoeffs()[pi], fi)
+            H((pre + "_intCoeff").c_str(), k++, L.internalCoeffs()[pi][fi]);
+    }
+    k = 0;
+    forAll(L.boundaryCoeffs(), pi)
+    {
+        forAll(L.boundaryCoeffs()[pi], fi)
+            H((pre + "_bndCoeff").c_str(), k++, L.boundaryCoeffs()[pi][fi]);
+    }
+    if (L.faceFluxCorrectionPtr())
+    {
+        dumpFace((pre + "_ffc").c_str(), *L.faceFluxCorrectionPtr());
+    }
 }
 
 template<class Lim>
@@ -216,8 +275,17 @@ int main(int argc, char* argv[])
     }
     // 2. interpolation schemes, positive and negative face flux
     {
-        const char* names[] = {"linear", "upwind", "vanLeer", "Minmod"};
-        for (int s = 0; s < 4; ++s)
+        const char* names[] =
+        {
+            "linear", "upwind", "vanLeer", "Minmod",
+            "linearUpwind grad(T)", "limitedLinear 1", "limitedLinear 0.5"
+        };
+        const char* keys[] =
+        {
+            "linear", "upwind", "vanLeer", "Minmod",
+            "linearUpwind", "limitedLinear1", "limitedLinear05"
+        };
+        for (int s = 0; s < 7; ++s)
         {
             for (int sgn = 1; sgn >= -1; sgn -= 2)
             {
@@ -230,7 +298,7 @@ int main(int argc, char* argv[])
                 tmp<surfaceInterpolationScheme<scalar>> sch =
                     surfaceInterpolationScheme<scalar>::New(mesh, ff, is);
                 tmp<surfaceScalarField> r = sch().interpolate(T);
-                std::string key = std::string("interp_") + names[s] + (sgn > 0 ? "_pos" : "_neg");
+                std::string key = std::string("interp_") + keys[s] + (sgn > 0 ? "_pos" : "_neg");
                 dumpFace(key.c_str(), r());
             }
         }
@@ -275,6 +343,144 @@ int main(int argc, char* argv[])
         }
     }
 
+
+    // ---- gh:#1362 task 2 additions ---------------------------------------
+    // 6. leastSquares gradient (fvSchemes: grad(Tls) leastSquares)
+    {
+        tmp<volVectorField> g = fvc::grad(T, "grad(Tls)");
+        forAll(g().primitiveField(), c) H3("gradT_ls", c, g().primitiveField()[c]);
+    }
+    // 7. corrected / limited snGrad, and the non-orthogonal correction vectors
+    {
+        dumpFaceV("nonOrthCorrVec", mesh.nonOrthCorrectionVectors());
+        const char* txt[] = {"corrected", "limited corrected 0.33", "limited corrected 0.5"};
+        const char* key[] = {"corrected", "limited033", "limited05"};
+        for (int i = 0; i < 3; ++i)
+        {
+            IStringStream is(txt[i]);
+            tmp<fv::snGradScheme<scalar>> s = fv::snGradScheme<scalar>::New(mesh, is);
+            dumpFace((std::string("snGrad_") + key[i]).c_str(), s().snGrad(T)());
+            dumpFace((std::string("snGradCorr_") + key[i]).c_str(), s().correction(T)());
+        }
+    }
+    // 8. corrected / limited laplacian matrices (fvSchemes: laplacian(gam,Tc), (gam,Tl))
+    {
+        mesh.setFluxRequired(T.name());
+        {
+            fvScalarMatrix L(fvm::laplacian(gam, T, "laplacian(gam,Tc)"));
+            dumpLap("lapc", L);
+        }
+        {
+            fvScalarMatrix L(fvm::laplacian(gam, T, "laplacian(gam,Tl)"));
+            dumpLap("lapl", L);
+        }
+    }
+    // 9. vector and tensor divergence (Gauss linear)
+    {
+        wordList bv(mesh.boundary().size(), fixedValueFvPatchVectorField::typeName);
+        volVectorField U
+        (
+            IOobject("U", runTime.timeName(), mesh, IOobject::NO_READ, IOobject::NO_WRITE),
+            mesh, dimensionedVector(dimless, Zero), bv
+        );
+        forAll(C, c) U.primitiveFieldRef()[c] = fU(C[c]);
+        forAll(U.boundaryField(), pi)
+        {
+            vectorField vals(mesh.boundary()[pi].size());
+            forAll(vals, fi) vals[fi] = fU(mesh.boundary()[pi].Cf()[fi]);
+            U.boundaryFieldRef()[pi] == vals;
+        }
+        tmp<volVectorField> dU = fvc::div(phi, U, "div(phi,U)");
+        forAll(dU().primitiveField(), c) H3("divPhiU", c, dU().primitiveField()[c]);
+
+        wordList bs(mesh.boundary().size(), fixedValueFvPatchTensorField::typeName);
+        volTensorField S
+        (
+            IOobject("S", runTime.timeName(), mesh, IOobject::NO_READ, IOobject::NO_WRITE),
+            mesh, dimensionedTensor(dimless, Zero), bs
+        );
+        forAll(C, c) S.primitiveFieldRef()[c] = fS(C[c]);
+        forAll(S.boundaryField(), pi)
+        {
+            tensorField vals(mesh.boundary()[pi].size());
+            forAll(vals, fi) vals[fi] = fS(mesh.boundary()[pi].Cf()[fi]);
+            S.boundaryFieldRef()[pi] == vals;
+        }
+        forAll(S.primitiveField(), c) H9("S", c, S.primitiveField()[c]);
+        tmp<volVectorField> dS = fvc::div(S);
+        forAll(dS().primitiveField(), c) H3("divS", c, dS().primitiveField()[c]);
+    }
+    // 10. mixed and fixedGradient patches: inlet fixedGradient (uniform),
+    // outlet mixed (per face values), walls mixed (uniform values)
+    {
+        wordList bm(3);
+        bm[0] = fixedGradientFvPatchScalarField::typeName;
+        bm[1] = mixedFvPatchScalarField::typeName;
+        bm[2] = mixedFvPatchScalarField::typeName;
+        volScalarField Tm
+        (
+            IOobject("Tm", runTime.timeName(), mesh, IOobject::NO_READ, IOobject::NO_WRITE),
+            mesh, dimensionedScalar(dimless, 0), bm
+        );
+        forAll(C, c) Tm.primitiveFieldRef()[c] = fT(C[c]);
+        {
+            fixedGradientFvPatchScalarField& g =
+                refCast<fixedGradientFvPatchScalarField>(Tm.boundaryFieldRef()[0]);
+            g.gradient() = 0.7;
+        }
+        {
+            mixedFvPatchScalarField& m =
+                refCast<mixedFvPatchScalarField>(Tm.boundaryFieldRef()[1]);
+            const fvPatch& p = m.patch();
+            forAll(p, fi)
+            {
+                const point& x = p.Cf()[fi];
+                m.refValue()[fi] = fT(x);
+                m.refGrad()[fi] = 0.3 + 0.1*x.y();
+                m.valueFraction()[fi] = 0.2 + 0.3*x.z();
+            }
+        }
+        {
+            mixedFvPatchScalarField& m =
+                refCast<mixedFvPatchScalarField>(Tm.boundaryFieldRef()[2]);
+            m.refValue() = 2.5;
+            m.refGrad() = -0.8;
+            m.valueFraction() = 0.35;
+        }
+        Tm.correctBoundaryConditions();
+        {
+            label k = 0;
+            forAll(Tm.boundaryField(), pi)
+            {
+                forAll(Tm.boundaryField()[pi], fi) H("Tm_bnd", k++, Tm.boundaryField()[pi][fi]);
+            }
+        }
+        {
+            tmp<volVectorField> g = fvc::grad(Tm);
+            forAll(g().primitiveField(), c) H3("gradTm", c, g().primitiveField()[c]);
+        }
+        {
+            surfaceScalarField ff
+            (
+                IOobject("ff", runTime.timeName(), mesh, IOobject::NO_READ, IOobject::NO_WRITE),
+                mesh, dimensionedScalar(dimless, scalar(1))
+            );
+            IStringStream is("linear");
+            tmp<surfaceInterpolationScheme<scalar>> sch =
+                surfaceInterpolationScheme<scalar>::New(mesh, ff, is);
+            dumpFace("interpm_linear", sch().interpolate(Tm)());
+        }
+        {
+            IStringStream isU("uncorrected");
+            tmp<fv::snGradScheme<scalar>> su = fv::snGradScheme<scalar>::New(mesh, isU);
+            dumpFace("snGradm_uncorrected", su().snGrad(Tm)());
+        }
+        {
+            fvScalarMatrix L(fvm::laplacian(gam, Tm, "laplacian(gam,Tm)"));
+            dumpLap("lapm", L);
+        }
+    }
+
     // ---- limiter functions on a grid of r --------------------------------
     {
         scalar rs[400];
@@ -294,6 +500,8 @@ int main(int argc, char* argv[])
         MUSCLLimiter<NVDTVD> mu(isNone);
         UMISTLimiter<NVDTVD> um(isNone);
         OSPRELimiter<NVDTVD> os(isNone);
+        IStringStream isLLs("1e-16");
+        limitedLinearLimiter<NVDTVD> llS(isLLs);
         limitedLinearLimiter<NVDTVD> ll1(isLL);
         limitedLinearLimiter<NVDTVD> ll5(isLL5);
         dumpLimiter("lim_vanLeer", vl, rs, nr);
@@ -305,6 +513,11 @@ int main(int argc, char* argv[])
         dumpLimiter("lim_OSPRE", os, rs, nr);
         dumpLimiter("lim_limitedLinear1", ll1, rs, nr);
         dumpLimiter("lim_limitedLinear05", ll5, rs, nr);
+        // k = 1e-16 is below upstream's `small` (1e-15): twoByk = 2/small. A grid of
+        // tiny r separates `small` = 1e-15 from any other floor.
+        const scalar tiny[] = {0, 1.1102230246251565e-16, 2.220446049250313e-16,
+                               4.440892098500626e-16, 8.881784197001252e-16, 1e-15, 1e-14};
+        dumpLimiter("lim_limitedLinearTiny", llS, tiny, 7);
     }
     return 0;
 }

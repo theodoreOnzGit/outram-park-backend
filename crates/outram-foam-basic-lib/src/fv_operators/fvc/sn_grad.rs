@@ -35,16 +35,24 @@ use crate::mesh::fv_mesh::PatchKind;
 ///   `1/|fvPatch::delta()|` with the patch-normal `delta()` (ESI v2506
 ///   `fvPatch.C:156`); the two agree only on an orthogonal boundary face.
 pub fn sn_grad(vol: &VolScalarField) -> SurfaceScalarField {
+    sn_grad_with_delta(vol, DeltaCoeff::Orthogonal)
+}
+
+/// [`sn_grad`] with the internal-face coefficient chosen by `mode`
+/// (`Orthogonal` = `deltaCoeffs`, the `orthogonal` scheme; `NonOrthogonal` =
+/// `nonOrthDeltaCoeffs`, the `uncorrected` scheme). Boundary faces are the
+/// patch's own `snGrad()` in either mode, as upstream (gh:#1489).
+pub fn sn_grad_with_delta(vol: &VolScalarField, mode: DeltaCoeff) -> SurfaceScalarField {
     let mesh = &vol.mesh;
 
     let internal = Field::from_fn(mesh.n_internal_faces, |f| {
         let o = mesh.owner[f];
         let n = mesh.neighbour[f];
-        let delta = (mesh.cell_centres[n] - mesh.cell_centres[o]).mag();
+        let delta = mode.interior_delta(mesh, f);
         if delta < 1e-300 {
             return 0.0;
         }
-        (vol.internal[n] - vol.internal[o]) / delta
+        (1.0 / delta) * (vol.internal[n] - vol.internal[o]) // gh:#1489: dC*(N-P)
     });
 
     let boundary = mesh
@@ -74,20 +82,21 @@ pub fn sn_grad(vol: &VolScalarField) -> SurfaceScalarField {
                 // `1/|fvPatch::delta()|`, the patch-NORMAL distance `|n . d|`,
                 // not `|Cf - C|` (gh:#1488). Shadows the seam distance above.
                 let d = DeltaCoeff::Orthogonal.boundary_delta(mesh, gf);
+                let dc = 1.0 / d; // gh:#1489: upstream multiplies the stored deltaCoeffs
                 match &bc_patch.bc {
                     BoundaryCondition::ZeroGradient | BoundaryCondition::Symmetry => 0.0,
                     BoundaryCondition::FixedValue(v) => {
                         if d < 1e-300 {
                             0.0
                         } else {
-                            (*v - vol.internal[owner]) / d
+                            dc * (*v - vol.internal[owner])
                         }
                     }
                     BoundaryCondition::FixedField(ff) => {
                         if d < 1e-300 {
                             0.0
                         } else {
-                            (ff[fi] - vol.internal[owner]) / d
+                            dc * (ff[fi] - vol.internal[owner])
                         }
                     }
                     // No-slip wall: fixedValue of zero.
@@ -95,7 +104,7 @@ pub fn sn_grad(vol: &VolScalarField) -> SurfaceScalarField {
                         if d < 1e-300 {
                             0.0
                         } else {
-                            (0.0 - vol.internal[owner]) / d
+                            dc * (0.0 - vol.internal[owner])
                         }
                     }
                     // fixedGradient: the surface-normal gradient IS the
@@ -109,7 +118,7 @@ pub fn sn_grad(vol: &VolScalarField) -> SurfaceScalarField {
                         if d < 1e-300 {
                             0.0
                         } else {
-                            (bc_patch.values[fi] - vol.internal[owner]) / d
+                            dc * (bc_patch.values[fi] - vol.internal[owner])
                         }
                     }
                     // Robin/mixed gradient: w·(refValue − φ_c)/d + (1−w)·refGrad.
@@ -122,7 +131,7 @@ pub fn sn_grad(vol: &VolScalarField) -> SurfaceScalarField {
                         let dirichlet = if d < 1e-300 {
                             0.0
                         } else {
-                            (*ref_value - vol.internal[owner]) / d
+                            dc * (*ref_value - vol.internal[owner])
                         };
                         w * dirichlet + (1.0 - w) * ref_grad
                     }
@@ -136,7 +145,7 @@ pub fn sn_grad(vol: &VolScalarField) -> SurfaceScalarField {
                         let dirichlet = if d < 1e-300 {
                             0.0
                         } else {
-                            (ref_value[fi] - vol.internal[owner]) / d
+                            dc * (ref_value[fi] - vol.internal[owner])
                         };
                         w * dirichlet + (1.0 - w) * ref_grad[fi]
                     }

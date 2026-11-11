@@ -18,6 +18,9 @@
 //! - **topology hash**: FNV-1a over u64 values, per face `(len, verts...)`,
 //!   then `owner`, then `neighbour`; pinned on every case (faces, owner and
 //!   neighbour were identical on all 12 blockMesh and 12 polyDualMesh cases).
+//! - the three petir-trig cases (T3A, `sweep_sphere`, `sweep_torus_minor`) are
+//!   pinned by the exact list of points that differ from the binary and their
+//!   dev bit patterns (`tests/fixtures/dev_trig_ulp_points.txt`).
 //! - the two non-exact blockMesh cases the issues ask about (`sweep` torus,
 //!   minor edges, factor 1, and the sphere block) are pinned by the worst
 //!   residual measured on the BINARY's points, which the port reproduces to
@@ -63,19 +66,21 @@ fn block_mesh(dict: &str) -> FoamMesh {
 }
 
 /// blockMesh, dev flavour: topology identical to the dev binary on all twelve
-/// fixture dicts; points bit-identical on seven of them (`Some(hash)`).
+/// fixture dicts; points bit-identical on nine of them (`Some(hash)`); the other
+/// three differ only by petir trig, pinned by
+/// `dev_block_mesh_petir_trig_differences_are_pinned`.
 #[test]
 fn dev_block_mesh_matches_the_dev_binary() {
     // (name, dict text, points, faces, points hash if bit-identical, topology hash)
     let cases: Vec<(&str, String, usize, usize, Option<u64>, u64)> = vec![
         ("cavity", cavity_dict(), 882, 1640, Some(0xbfc09ba0165b42f1), 0xfae50c490be2fe5b),
         ("T3A", fixture("T3A_blockMeshDict"), 54496, 107707, None, 0x679f3117dfb43b37),
-        ("pitzDailySteady", fixture("pitzDailySteady_blockMeshDict"), 25012, 49180, None, 0x9d7497b41a081079),
+        ("pitzDailySteady", fixture("pitzDailySteady_blockMeshDict"), 25012, 49180, Some(0x0ce06ce8718d0416), 0x9d7497b41a081079),
         ("proj_cyl", fixture("proj_cyl.dict"), 567, 1312, Some(0xd0d3cd7ad736e121), 0x7ee97b855d18eaf1),
         ("proj_edges", fixture("proj_edges.dict"), 7351, 21300, Some(0xa733ce51f1d6cd0f), 0x6b8d4b9a08a6acc9),
         ("proj_faces", fixture("proj_faces.dict"), 7351, 21300, Some(0xabb3ba6e93ca39a6), 0x6b8d4b9a08a6acc9),
         ("proj_two", fixture("proj_two.dict"), 567, 1312, Some(0xcc961f0716f02692), 0x7ee97b855d18eaf1),
-        ("proj_vertex", fixture("proj_vertex.dict"), 210, 434, None, 0x500279b355dde49d),
+        ("proj_vertex", fixture("proj_vertex.dict"), 210, 434, Some(0x81d60ecae0a68c88), 0x500279b355dde49d),
         ("sweep_sphere", fixture("sweep_sphere.dict"), 1331, 3300, None, 0x97d1e04aca89e01d),
         ("sweep_torus_major", fixture("sweep_torus_major.dict"), 637, 1476, Some(0xbeb91bc2ae7f59a7), 0x82d8bbda2aa3be31),
         ("sweep_torus_minor", fixture("sweep_torus_minor.dict"), 637, 1476, None, 0x82d8bbda2aa3be31),
@@ -89,6 +94,55 @@ fn dev_block_mesh_matches_the_dev_binary() {
         if let Some(h) = pts_hash {
             assert_eq!(points_hash(&m), h, "{name}: points not bit-identical to OpenFOAM-dev");
         }
+    }
+}
+
+/// The three dicts whose points differ from the dev binary only through
+/// petir's `sin`/`cos`/`tan`/`acos`/`asin` against glibc (accepted below the
+/// 1e-8 round-off allowance, flagged for the maintainer; gh:#1364).
+///
+/// Methodology: the dev binary's `points` hash (`dev_hashes.py`) is pinned. The
+/// port's points with the listed points replaced by the binary's bit patterns
+/// (`tests/fixtures/dev_trig_ulp_points.txt`) must hash to it, which fixes
+/// both the set of differing points and every other point's bit-identity. The
+/// count and the worst absolute difference are pinned as well.
+///
+/// Results (2026-11-11, after the integer-pow and unclamped-division fixes):
+/// T3A 80 of 54496 points differ, worst 5.55e-17 (46220 differing, worst
+/// 1.78e-15 before the fixes); `sweep_sphere` 42 of 1331, worst 4.44e-16;
+/// `sweep_torus_minor` 4 of 637, worst 1.11e-16. All far below 1e-8 relative.
+#[test]
+fn dev_block_mesh_petir_trig_differences_are_pinned() {
+    let table = fixture("dev_trig_ulp_points.txt");
+    // (name, dict file, dev points hash, differing points, worst abs diff)
+    let cases = [
+        ("T3A", "T3A_blockMeshDict", 0x2cdae0205111a726u64, 80usize, 5.551115123125783e-17f64),
+        ("sweep_sphere", "sweep_sphere.dict", 0xb21561f6557af09b, 42, 4.440892098500626e-16),
+        ("sweep_torus_minor", "sweep_torus_minor.dict", 0x4e2c8df34da90e66, 4, 1.1102230246251565e-16),
+    ];
+    for (name, file, dev_hash, n_diff, worst_pin) in cases {
+        let m = block_mesh(&fixture(file));
+        let mut bits: Vec<[u64; 3]> =
+            m.points.iter().map(|p| [p.x.to_bits(), p.y.to_bits(), p.z.to_bits()]).collect();
+        let (mut n, mut worst) = (0usize, 0.0f64);
+        for line in table.lines().filter(|l| !l.starts_with('#')) {
+            let t: Vec<&str> = line.split_whitespace().collect();
+            if t.len() != 5 || t[0] != name {
+                continue;
+            }
+            let i: usize = t[1].parse().unwrap();
+            let dev: Vec<u64> = t[2..5].iter().map(|h| u64::from_str_radix(h, 16).unwrap()).collect();
+            for k in 0..3 {
+                worst = worst.max((f64::from_bits(bits[i][k]) - f64::from_bits(dev[k])).abs());
+            }
+            assert_ne!(bits[i], [dev[0], dev[1], dev[2]], "{name} point {i} is bit-identical, drop it from the table");
+            bits[i] = [dev[0], dev[1], dev[2]];
+            n += 1;
+        }
+        assert_eq!(n, n_diff, "{name}: differing points");
+        assert_eq!(worst, worst_pin, "{name}: worst absolute difference");
+        let h = fnv(bits.iter().flatten().copied());
+        assert_eq!(h, dev_hash, "{name}: not bit-identical to OpenFOAM-dev outside the listed points");
     }
 }
 

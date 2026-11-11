@@ -230,7 +230,7 @@ impl Grading {
     /// multi-segment distribution (see [`graded_positions_multi`]).
     #[cfg(test)]
     fn node_positions(&self, n: usize) -> Vec<f64> {
-        line_divide_weights(n, self)
+        line_divide_weights(n, self, ProjectionFlavour::Dev)
     }
 }
 
@@ -262,9 +262,48 @@ impl Grading {
 
 /// `lineDivide::lambdaDivisions()` for `n` divisions under `grading`: always
 /// the `lineDivide.C` formulas (a scalar ratio is a single descriptor), which
-/// is what curved edges use (`blockDescriptorEdges.C`).
-fn line_divide_weights(n: usize, grading: &Grading) -> Vec<f64> {
-    graded_positions_multi(n, &grading.as_segments())
+/// is what curved edges use (`blockDescriptorEdges.C`). `flavour` selects the
+/// OpenFOAM line followed where dev and v2506 differ (see
+/// [`graded_positions_multi`]).
+fn line_divide_weights(n: usize, grading: &Grading, flavour: ProjectionFlavour) -> Vec<f64> {
+    graded_positions_multi(n, &grading.as_segments(), flavour)
+}
+
+/// OpenFOAM-dev's `pow(Scalar, int32_t)`: `IntegerPow`
+/// (`src/OpenFOAM/primitives/Scalar/Scalar.H`, 852527377c7e), exponentiation by
+/// repeated squaring in upstream's exact order (`e == 0`, `1`, `-1` special
+/// cases; `xx` is `x` or `1/x`; `y *= xx` on odd `i`, `xx *= xx` each step).
+/// The multiplication order, not the mathematical value, is what makes the
+/// result bit-identical to the dev binary; the real `pow` differs by up to
+/// 1 ulp.
+fn integer_pow_dev(x: f64, e: i32) -> f64 {
+    if e == 0 {
+        return 1.0;
+    } else if e == 1 {
+        return x;
+    } else if e == -1 {
+        return 1.0 / x;
+    }
+    let mut xx = if e > 0 { x } else { 1.0 / x };
+    let mut y = 1.0;
+    let mut i = e;
+    while i != 0 {
+        if i % 2 != 0 {
+            y *= xx;
+        }
+        xx *= xx;
+        i /= 2;
+    }
+    y
+}
+
+/// `pow(expFact, int)` of `lineDivide.C`, per flavour. Dev: [`integer_pow_dev`].
+/// v2506: the real power (`pow(double, double)` after integer promotion).
+fn line_divide_pow(base: f64, e: usize, flavour: ProjectionFlavour) -> f64 {
+    match flavour {
+        ProjectionFlavour::Dev => integer_pow_dev(base, e as i32),
+        ProjectionFlavour::Esi => base.r_powf(e as f64),
+    }
 }
 
 /// Local hex-edge endpoints `(start, end)` in OpenFOAM edge order
@@ -719,9 +758,13 @@ fn graded_positions(n: usize, expansion: f64) -> Vec<f64> {
 /// the largest `fraction_cells` absorbs any rounding remainder so the total is
 /// exactly `n` (OpenFOAM `secnMaxDivs` adjustment).
 ///
-/// Returns `n + 1` monotonically increasing positions with `s[0] == 0` and
-/// `s[n] == 1` (endpoints clamped exactly so block corners coincide across
-/// blocks). If `n` is smaller than the number of segments — OpenFOAM cannot
+/// Returns `n + 1` monotonically increasing positions with `s[0] == 0`.
+/// ~~`s[n]` was clamped to exactly `1`~~ **CORRECTED 2026-11-11 (gh:#1364):**
+/// neither dev nor v2506 clamps: `lineDivide.C` sets `divisions_[nDiv] = 1.0`
+/// and the last section's loop then overwrites it with the computed value
+/// (`secStart + blockFrac*...`, 1 ulp off 1 on some multi-section edges, 208
+/// pitzDailySteady points); both flavours keep the computed value. If `n` is
+/// smaller than the number of segments — OpenFOAM cannot
 /// place at least one division per section — the edge is meshed uniformly, as
 /// OpenFOAM does (`lineDivide.C` line 128).
 ///
@@ -729,7 +772,11 @@ fn graded_positions(n: usize, expansion: f64) -> Vec<f64> {
 /// the cumulative position of the `p`-th interior node is
 /// `blockFrac * (1 - g^p) / (1 - g^m)` offset by the segment start — the same
 /// geometric-series partial sum used by the single-ratio [`graded_positions`].
-fn graded_positions_multi(n: usize, segments: &[GradingSegment]) -> Vec<f64> {
+fn graded_positions_multi(
+    n: usize,
+    segments: &[GradingSegment],
+    flavour: ProjectionFlavour,
+) -> Vec<f64> {
     if n == 0 {
         return vec![0.0];
     }
@@ -772,8 +819,13 @@ fn graded_positions_multi(n: usize, segments: &[GradingSegment]) -> Vec<f64> {
         let expansion = seg.expansion;
         let secn_div = secn_divs[si];
         let secn_end = secn_start + secn_div;
-        // Exact comparison, as `lineDivide.C` (`expRatio == 1.0`).
-        if expansion == 1.0 {
+        // Dev: `expRatio == 1.0`; v2506: `equal(expRatio, 1)`, i.e.
+        // `mag(expRatio - 1) <= VSMALL` (1e-300).
+        let unit_ratio = match flavour {
+            ProjectionFlavour::Dev => expansion == 1.0,
+            ProjectionFlavour::Esi => (expansion - 1.0).abs() <= 1.0e-300,
+        };
+        if unit_ratio {
             for (offset, slot) in s[secn_start..secn_end].iter_mut().enumerate() {
                 // `p` is the node index within the section (1..=secn_div).
                 let p = (offset + 1) as f64;
@@ -787,20 +839,25 @@ fn graded_positions_multi(n: usize, segments: &[GradingSegment]) -> Vec<f64> {
             } else {
                 0.0
             };
-            // `pow(expFact, int)` in C++ is `pow(double, double)`, not repeated
-            // multiplication: use the real power, as upstream.
-            let denom = 1.0 - exp_fact.r_powf(secn_div as f64);
+            // ~~`pow(expFact, int)` in C++ is `pow(double, double)`, not repeated
+            // multiplication: use the real power, as upstream.~~ **CORRECTED
+            // 2026-11-11 (gh:#1364):** true of v2506 only. In OpenFOAM-dev
+            // `pow(Scalar, int32_t)` is `IntegerPow` (repeated squaring,
+            // `Scalar.H`), so the dev flavour uses [`integer_pow_dev`] and the
+            // v2506 flavour the real power ([`line_divide_pow`]).
+            let denom = 1.0 - line_divide_pow(exp_fact, secn_div, flavour);
             for (offset, slot) in s[secn_start..secn_end].iter_mut().enumerate() {
-                let p = (offset + 1) as f64;
-                *slot = sec_start + block_frac * (1.0 - exp_fact.r_powf(p)) / denom;
+                // `offset + 1` is the node index within the section (1..=secn_div).
+                let numer = 1.0 - line_divide_pow(exp_fact, offset + 1, flavour);
+                *slot = sec_start + block_frac * numer / denom;
             }
         }
         sec_start = s[secn_end - 1];
         secn_start = secn_end;
     }
-    // Clamp the endpoints exactly so block corners coincide across blocks.
+    // `divisions_[0] = 0` as upstream; the last node keeps its computed value
+    // (no clamp, see the doc comment).
     s[0] = 0.0;
-    s[n] = 1.0;
     s
 }
 
@@ -1377,13 +1434,13 @@ impl BlockMeshDict {
                 });
             match hit {
                 Some((ci, cmp)) if cmp > 0 => {
-                    let w = line_divide_weights(n, grading);
+                    let w = line_divide_weights(n, grading, self.geometry.flavour);
                     points.push(curves[ci].positions(&w));
                     weights.push(w);
                     n_curved += 1;
                 }
                 Some((ci, _)) => {
-                    let d = line_divide_weights(n, &grading.inv());
+                    let d = line_divide_weights(n, &grading.inv(), self.geometry.flavour);
                     let p = curves[ci].positions(&d);
                     let pn = p.len() - 1;
                     points.push((0..=pn).map(|pi| p[pn - pi]).collect());
@@ -1391,7 +1448,7 @@ impl BlockMeshDict {
                     n_curved += 1;
                 }
                 None => {
-                    let w = line_divide_weights(n, grading);
+                    let w = line_divide_weights(n, grading, self.geometry.flavour);
                     let (a, b) = (raw[ls], raw[le]);
                     if !self.edges.is_empty() {
                         points.push(w.iter().map(|&l| a + (b - a) * l).collect());
@@ -2555,6 +2612,47 @@ mod tests {
         )
     }
 
+    /// V&V (gh:#1364) — dev's integer `pow` and the unclamped last division.
+    ///
+    /// Methodology: `integer_pow_dev` is compared with the hand-unrolled
+    /// squaring order of `Scalar.H` `IntegerPow` (`x^5 = x * (x^2)^2`, written
+    /// out as `y = x; xx = x*x; xx = xx*xx; y *= xx`), and its special cases
+    /// (`0`, `1`, `-1`, negative) are checked. For a 2-section edge with
+    /// sections of equal length, the dev and v2506 flavours must both keep the
+    /// computed last division (`s[4] + 0.5 * 4 / 4`, bit for bit) instead of
+    /// assigning 1. The flavours must differ on a
+    /// graded edge only through `pow` (real against integer), by at most a few
+    /// ulp. Pass criterion: exact equality for the pow cases and the computed
+    /// last division, flavour difference `<= 1e-15`.
+    /// Results (measured 2026-11-11): all met; see the test body.
+    #[test]
+    fn dev_integer_pow_and_unclamped_last_division() {
+        let x = 1.0173_f64;
+        let x2 = x * x;
+        let x4 = x2 * x2;
+        assert_eq!(integer_pow_dev(x, 5).to_bits(), (x * x4).to_bits());
+        assert_eq!(integer_pow_dev(x, 0), 1.0);
+        assert_eq!(integer_pow_dev(x, 1), x);
+        assert_eq!(integer_pow_dev(x, -1), 1.0 / x);
+        let inv = 1.0 / x;
+        assert_eq!(integer_pow_dev(x, -3).to_bits(), (inv * (inv * inv)).to_bits());
+        let segs = vec![
+            GradingSegment { fraction_length: 1.0, fraction_cells: 1.0, expansion: 2.0 },
+            GradingSegment { fraction_length: 1.0, fraction_cells: 1.0, expansion: 1.0 },
+        ];
+        for fl in [ProjectionFlavour::Dev, ProjectionFlavour::Esi] {
+            let s = graded_positions_multi(8, &segs, fl);
+            // Two unit-length sections: the last node is secStart + blockFrac
+            // with blockFrac = 0.5, so the raw value is 1, but it is computed,
+            // not assigned: it must equal that computation bit for bit.
+            assert_eq!(s[8].to_bits(), (s[4] + 0.5 * 4.0 / 4.0).to_bits());
+        }
+        let d = graded_positions_multi(10, &segs[..1], ProjectionFlavour::Dev);
+        let e = graded_positions_multi(10, &segs[..1], ProjectionFlavour::Esi);
+        let worst = d.iter().zip(&e).map(|(a, b)| (a - b).abs()).fold(0.0, f64::max);
+        assert!(worst <= 1e-15, "flavours differ by {worst}");
+    }
+
     /// V&V — multi-grading node distribution (`graded_positions_multi`).
     ///
     /// Methodology: distribute `n = 10` cells over the three segments
@@ -2591,7 +2689,7 @@ mod tests {
                 expansion: 1.0,
             },
         ];
-        let s = graded_positions_multi(10, &segs);
+        let s = graded_positions_multi(10, &segs, ProjectionFlavour::Dev);
 
         // 11 nodes, exact endpoints.
         assert_eq!(s.len(), 11);
@@ -2666,7 +2764,7 @@ mod tests {
             fraction_cells: 1.0,
             expansion: 5.0,
         }];
-        let a = graded_positions_multi(8, &seg);
+        let a = graded_positions_multi(8, &seg, ProjectionFlavour::Dev);
         let b = graded_positions(8, 5.0);
         for i in 0..a.len() {
             assert!(
