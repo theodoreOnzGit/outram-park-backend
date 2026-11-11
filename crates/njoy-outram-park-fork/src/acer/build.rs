@@ -1014,13 +1014,13 @@ impl AceTable {
 /// Accumulates the ACE [`xss`](super::AceTable::xss) data block together with the
 /// parallel integer/real type mask, so blocks can be appended in order while the
 /// 1-based locators that JXS needs are read off with [`next_locator`][Self::next_locator].
-struct XssBuilder {
+pub(super) struct XssBuilder {
     xss: Vec<f64>,
     is_int: Vec<bool>,
 }
 
 impl XssBuilder {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         XssBuilder {
             xss: Vec::new(),
             is_int: Vec::new(),

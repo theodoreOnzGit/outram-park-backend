@@ -81,6 +81,7 @@
 //! ```
 
 pub mod acelcp;
+pub mod charged;
 /// **A set of ACE files indexed by header** (ZAID, class, kT), for the ACE
 /// way into transport (gh #936). See [`ace_set`].
 pub mod ace_set;

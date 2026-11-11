@@ -149,7 +149,26 @@ pub fn acelf6(
     iza: i32,
     ismooth: bool,
 ) -> Result<Option<DlwEntry>, NjoyError> {
-    let izai = 1.0_f64;
+    acelf6_incident(section, mt, q_mev, iza, 1, ismooth)
+}
+
+/// [`acelf6`] for an incident particle `izai` (`acefc.f90:7139`'s argument of
+/// that name, ZA of the projectile: 1 neutron, 1001 proton, 1002 deuteron,
+/// 1003 triton, 2003 He-3, 2004 alpha; gh:#1485). Upstream selects the MF=6
+/// subsections whose `ZAP` equals `izai` -- the DLW block describes the
+/// outgoing particle of the **same kind as the projectile** -- so for a proton
+/// table the proton subsection is written here, and the neutron, deuteron and
+/// alpha ones go to `acelcp`. `bachaa` is still called with `(1, 1)`
+/// (`acefc.f90:7717`), whatever the projectile.
+pub fn acelf6_incident(
+    section: &Section,
+    mt: i32,
+    q_mev: f64,
+    iza: i32,
+    izai: i32,
+    ismooth: bool,
+) -> Result<Option<DlwEntry>, NjoyError> {
+    let izai = f64::from(izai);
     let mut cur = SectionCursor::new(&section.rows);
     let head = cur.read_cont()?;
     let jp = head.l1;
