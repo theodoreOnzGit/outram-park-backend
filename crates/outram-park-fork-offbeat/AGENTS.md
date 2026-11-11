@@ -47,6 +47,31 @@ against `openmc --plot`
 axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
 worked example. For meshes, plot the mesh itself (cells, patches, zones).
 
+## Scope: the materials and fuel-behaviour crate (2026-11-10)
+
+Maintainer decisions of 2026-11-10 (gh:#977, gh:#1335): this crate is the
+workspace's materials and fuel-behaviour crate. Besides the OFFBEAT port it
+holds `melcor` (MELCOR-class severe-accident equations, moved from
+`sembawang::bwr_mark1` 2026-11-11) and is to hold the GPUMD-derived molecular
+dynamics (#977).
+
+## `melcor`: the MELCOR clean room (HARD RULE)
+
+- **Public manuals and literature only**, never MELCOR, MAAP, ASTEC, RELAP5,
+  SCDAP or FRAPCON source, not even to check one equation
+  (`docs/melcor-scoping.md` §1, §8). Cite the manual section and equation in
+  the doc comment of every model.
+- **Equations here, plants in `sembawang`.** Plant data, sequences and the
+  BSAF comparison stay in `sembawang::bwr_mark1`, which calls this module.
+  `sembawang -> outram-park-fork-offbeat`, never the reverse.
+- **No `tampines` dependency, ever** (gh:#1335): `tampines` may come to use
+  this crate's fuel properties, so an edge the other way would be a cycle. A
+  model that needs `tampines` stays in `sembawang`. `melcor` needs only
+  `petir` today.
+- **Behaviour changes move the BSAF numbers**: any change here is re-measured
+  in `sembawang` (`compare`, the lumped fixture
+  `the_lumped_headless_run_matches_its_fixture`) and recorded on the issue.
+
 ## Avoid writing macros (workspace rule, 2026-11-05)
 
 Maintainer direction: macros make code harder to read and review. Do not

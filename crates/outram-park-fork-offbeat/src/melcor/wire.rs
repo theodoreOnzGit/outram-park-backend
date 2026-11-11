@@ -2,6 +2,10 @@
 //! in (a `Float64Array` in the browser). Every value crosses as its exact
 //! `f64` bits, so a step computed on another worker is bit-for-bit the step
 //! computed in place.
+//!
+//! **Clean room; moved 2026-11-11 (gh:#1335)** from `sembawang::bwr_mark1`
+//! unchanged: built from the public MELCOR manuals and open literature only,
+//! never MELCOR, MAAP or other code source (see [`super`]).
 
 #[derive(Default)]
 pub struct Writer(pub Vec<f64>);

@@ -28,6 +28,10 @@
 //!
 //! Evaporation from a surface is limited to what it holds (TRAP-MELT2's
 //! step does not limit it; the excess returns to the vapour).
+//!
+//! **Clean room; moved 2026-11-11 (gh:#1335)** from `sembawang::bwr_mark1`
+//! unchanged: built from the public MELCOR manuals and open literature only,
+//! never MELCOR, MAAP or other code source (see [`super`]).
 
 use super::aerosol::{Medium, Sections, Surface};
 use super::wire::{Reader, Writer};

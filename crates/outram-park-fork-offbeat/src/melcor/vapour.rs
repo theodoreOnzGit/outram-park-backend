@@ -1,5 +1,7 @@
 //! Fission-product vapours: vapour pressures and condensation onto surfaces
-//! (gh:#1047, second deliverable; not yet wired into the plant).
+//! (gh:#1047, second deliverable; ~~not yet wired into the plant~~
+//! **CORRECTED 2026-11-11 (gh:#1335):** wired since, through
+//! [`super::rn_volume`] and `sembawang::bwr_mark1`'s containment).
 //!
 //! **Vapour pressures** are MELCOR's default curves (Vol. 1, SAND2017-0455
 //! O, RN sensitivity coefficients 7110; no source used),
@@ -28,6 +30,10 @@
 //! NCG/H2O Table 6.1 with its extrapolations. An aerosol section takes
 //! vapour with the mass-transfer coefficient of Sherwood number 2 (RN
 //! §2.5.2).
+//!
+//! **Clean room; moved 2026-11-11 (gh:#1335)** from `sembawang::bwr_mark1`
+//! unchanged: built from the public MELCOR manuals and open literature only,
+//! never MELCOR, MAAP or other code source (see [`super`]).
 
 use super::params::R_GAS;
 use petir::mathf::RealMath;

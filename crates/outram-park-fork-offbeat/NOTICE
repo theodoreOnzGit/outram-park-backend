@@ -85,3 +85,12 @@ under, forever; this affects future versions only. No version was bumped.
 
 The per-crate record is `docs/relicensing-agpl-2026-10-20.md`; the audit it
 rests on is the first comment on GitHub issue #973.
+
+MELCOR clean-room equations (`src/melcor/`, added 2026-11-11, gh:#1335).
+These modules are NOT derived from OFFBEAT or from any MELCOR source. They
+were written clean-room from the public MELCOR 2.2 manuals (Vol. 1,
+SAND2017-0455 O; Vol. 2, SAND2023-10994 O), the SPARC-90 report and the open
+literature, each cited by section and equation in its doc comments. No
+MELCOR, MAAP, ASTEC, RELAP5, SCDAP or FRAPCON source was read or copied. They
+moved unchanged from `sembawang::bwr_mark1` (same workspace, AGPL-3.0-only);
+"MELCOR" is used only to identify the manuals the equations are taken from.
