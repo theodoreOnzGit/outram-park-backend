@@ -132,11 +132,26 @@ pub struct TopoMesh {
     pub n_cells: usize,
     /// Patch names, indexed by [`TopoMesh::region`].
     pub patch_names: Vec<String>,
+    /// The cells' face lists of the [`VolumeMesh`] this came from (gh:#1385),
+    /// in this mesh's face labels. Carried back out by
+    /// [`TopoMesh::into_volume_mesh`] only while they are still consistent
+    /// with `owner` / `neighbour` / `n_cells`, so an operation that changes
+    /// the cells or their faces drops them without being told to.
+    pub cells: Option<Vec<Vec<usize>>>,
 }
 
 /// An undirected edge equal to `(a, b)` (OpenFOAM `edge::operator==`).
 fn same_edge(e: (usize, usize), a: usize, b: usize) -> bool {
     (e.0 == a && e.1 == b) || (e.0 == b && e.1 == a)
+}
+
+/// OpenFOAM's `face::reverseFace`: the first point stays, the rest reverse
+/// (gh:#1385; a plain reversal is the same ring rotated, which changes the
+/// written file).
+pub fn reverse_face(ring: &[usize]) -> Vec<usize> {
+    let mut r = ring.to_vec();
+    r[1..].reverse();
+    r
 }
 
 /// The edges of `ring`, edge `i` from point `i` to `i + 1` (`face::edges`).
@@ -163,6 +178,7 @@ impl TopoMesh {
             region,
             n_cells: mesh.n_cells,
             patch_names: mesh.patches.iter().map(|p| p.name.clone()).collect(),
+            cells: if mesh.carried_cells_are_consistent() { mesh.cells.clone() } else { None },
         }
     }
 
@@ -186,6 +202,16 @@ impl TopoMesh {
         if order.len() > start {
             patches.push(BoundaryPatch { name: "unassigned".into(), start_face: start, n_faces: order.len() - start });
         }
+        let cells = match &w.cells {
+            Some(c) if crate::volume_mesh::cell_lists_are_consistent(c, w.n_cells, &w.owner, &w.neighbour) => {
+                let mut new_label = vec![usize::MAX; w.faces.len()];
+                for (n, &o) in order.iter().enumerate() {
+                    new_label[o] = n;
+                }
+                Some(c.iter().map(|l| l.iter().map(|&f| new_label[f]).collect()).collect())
+            }
+            _ => None,
+        };
         let out = VolumeMesh {
             faces: order.iter().map(|&f| w.faces[f].clone()).collect(),
             owner: order.iter().map(|&f| w.owner[f]).collect(),
@@ -193,6 +219,7 @@ impl TopoMesh {
             n_cells: w.n_cells,
             patches,
             points: w.points,
+            cells,
         };
         let regions = order.iter().map(|&f| w.region[f]).collect();
         (out, regions)
@@ -390,7 +417,10 @@ impl TopoMesh {
                 n += 1;
             }
         }
-        let (mut faces, mut owner, mut neighbour, mut region) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+        // upstream: reverse, renumber the cells, `reorderBoundaryFaces` over
+        // ALL faces (a face of removed cells only has no neighbour, so it is
+        // swapped like a boundary face), then `removeFaces` (gh:#1385)
+        let (mut faces, mut owner, mut neighbour, mut dead) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
         for f in 0..self.faces.len() {
             let o = self.owner[f];
             match self.neighbour[f] {
@@ -399,30 +429,62 @@ impl TopoMesh {
                         faces.push(self.faces[f].clone());
                         owner.push(new_id[o]);
                         neighbour.push(Some(new_id[nb]));
+                        dead.push(false);
                     }
                     (true, false) => {
-                        faces.push(self.faces[f].iter().rev().copied().collect());
+                        faces.push(reverse_face(&self.faces[f]));
                         owner.push(new_id[nb]);
                         neighbour.push(None);
+                        dead.push(false);
                     }
                     (false, true) => {
                         faces.push(self.faces[f].clone());
                         owner.push(new_id[o]);
                         neighbour.push(None);
+                        dead.push(false);
                     }
-                    (true, true) => continue,
+                    (true, true) => {
+                        faces.push(self.faces[f].clone());
+                        owner.push(0);
+                        neighbour.push(None);
+                        dead.push(true);
+                    }
                 },
                 None => {
-                    if remove[o] {
-                        continue;
-                    }
                     faces.push(self.faces[f].clone());
-                    owner.push(new_id[o]);
+                    owner.push(if remove[o] { 0 } else { new_id[o] });
                     neighbour.push(None);
+                    dead.push(remove[o]);
                 }
             }
-            region.push(None);
         }
+        let carried = match &self.cells {
+            Some(c) if crate::volume_mesh::cell_lists_are_consistent(c, self.n_cells, &self.owner, &self.neighbour) => Some(c.clone()),
+            _ => None,
+        };
+        // `at[p]`: the original face now at position `p`
+        let mut at: Vec<usize> = (0..faces.len()).collect();
+        for (a, b) in crate::cartesian_mesh::boundary_swap_pairs(&neighbour) {
+            faces.swap(a, b);
+            owner.swap(a, b);
+            neighbour.swap(a, b);
+            dead.swap(a, b);
+            at.swap(a, b);
+        }
+        let live: Vec<usize> = (0..faces.len()).filter(|&f| !dead[f]).collect();
+        // the kept cells' lists keep their order; labels follow the swaps and
+        // the removal of the dead faces (`reorderBoundaryFaces`, `removeFaces`)
+        let new_cells: Option<Vec<Vec<usize>>> = carried.map(|c| {
+            let mut final_label = vec![usize::MAX; faces.len()];
+            for (n, &p) in live.iter().enumerate() {
+                final_label[at[p]] = n;
+            }
+            (0..self.n_cells).filter(|&k| !remove[k]).map(|k| c[k].iter().map(|&f| final_label[f]).collect()).collect()
+        });
+        let faces: Vec<Vec<usize>> = live.iter().map(|&f| faces[f].clone()).collect();
+        let owner: Vec<usize> = live.iter().map(|&f| owner[f]).collect();
+        let neighbour: Vec<Option<usize>> = live.iter().map(|&f| neighbour[f]).collect();
+        let mut region: Vec<Option<usize>> = vec![None; faces.len()];
         let collapsed = self.patch_names.len() != 1;
         if collapsed {
             self.patch_names = vec!["defaultFaces".to_string()];
@@ -437,6 +499,7 @@ impl TopoMesh {
         self.neighbour = neighbour;
         self.region = region;
         self.n_cells = n;
+        self.cells = new_cells;
         collapsed
     }
 
@@ -444,13 +507,57 @@ impl TopoMesh {
     /// order, and replace every boundary face by the given faces, owners
     /// and patches.
     pub fn replace_boundary(&mut self, names: Vec<String>, faces: Vec<Vec<usize>>, owners: Vec<usize>, patches: Vec<usize>) {
+        // upstream assumes the internal faces come first, and puts the new
+        // boundary faces patch by patch; every cell list keeps its internal
+        // faces and gets the new faces it owns appended in the order given
+        // (gh:#1385)
+        let n_internal = self.neighbour.iter().filter(|n| n.is_some()).count();
+        let prefix = (0..n_internal).all(|f| self.neighbour[f].is_some());
+        let carried = match &self.cells {
+            Some(c) if prefix && crate::volume_mesh::cell_lists_are_consistent(c, self.n_cells, &self.owner, &self.neighbour) => Some(c.clone()),
+            _ => None,
+        };
         self.remove_faces(&self.neighbour.iter().map(|n| n.is_none()).collect::<Vec<bool>>());
-        for ((ring, o), p) in faces.into_iter().zip(owners).zip(patches) {
+        let mut start = vec![0usize; names.len() + 1];
+        for &p in &patches {
+            if p < names.len() {
+                start[p + 1] += 1;
+            }
+        }
+        for i in 0..names.len() {
+            start[i + 1] += start[i];
+        }
+        let mut label_of = Vec::with_capacity(faces.len());
+        let mut placed = vec![0usize; names.len()];
+        let n_new = faces.len();
+        let in_range = patches.iter().all(|&p| p < names.len());
+        let mut slots: Vec<Option<(Vec<usize>, usize, usize)>> = vec![None; n_new];
+        for (i, ((ring, o), p)) in faces.into_iter().zip(owners.iter().copied()).zip(patches.iter().copied()).enumerate() {
+            let slot = if in_range {
+                let s = start[p] + placed[p];
+                placed[p] += 1;
+                s
+            } else {
+                i
+            };
+            label_of.push(n_internal + slot);
+            slots[slot] = Some((ring, o, p));
+        }
+        for (ring, o, p) in slots.into_iter().flatten() {
             self.faces.push(ring);
             self.owner.push(o);
             self.neighbour.push(None);
             self.region.push(Some(p));
         }
+        self.cells = carried.map(|mut c| {
+            for l in c.iter_mut() {
+                l.retain(|&f| f < n_internal);
+            }
+            for (i, &o) in owners.iter().enumerate() {
+                c[o].push(label_of[i]);
+            }
+            c
+        });
         self.patch_names = names;
     }
 
@@ -550,7 +657,7 @@ pub(crate) fn decompose_faces_and_cells(
     decompose_cell: &[bool],
 ) -> (Vec<Vec3>, Vec<Vec<usize>>, Vec<usize>, Vec<Option<usize>>, usize) {
     let region = vec![None; faces.len()];
-    let mut w = TopoMesh { points, faces, owner, neighbour, region, n_cells, patch_names: Vec::new() };
+    let mut w = TopoMesh { points, faces, owner, neighbour, region, n_cells, patch_names: Vec::new(), cells: None };
     let mut split = BTreeMap::new();
     for (f, &d) in fan_faces.iter().enumerate() {
         if d {

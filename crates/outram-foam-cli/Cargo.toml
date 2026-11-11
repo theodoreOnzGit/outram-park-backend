@@ -47,6 +47,9 @@ petir = { workspace = true }
 # GeN-Foam one on a mesh this crate's own `blockMesh` tool writes. The CLI
 # binaries do not link OFFBEAT.
 outram-park-fork-offbeat.workspace = true
+# gh:#1483: tests/cfmesh_patch_types.rs inflates the committed upstream cfMesh
+# `boundary.gz` files it compares the written boundary with.
+miniz_oxide = { workspace = true }
 
 [lib]
 name = "outram_foam_cli"

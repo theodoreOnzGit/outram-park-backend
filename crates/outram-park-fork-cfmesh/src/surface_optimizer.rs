@@ -1270,6 +1270,7 @@ mod tests {
                 crate::volume_mesh::BoundaryPatch { name: "top".into(), start_face: 0, n_faces: 6 },
                 crate::volume_mesh::BoundaryPatch { name: "bottom".into(), start_face: 6, n_faces: 6 },
             ],
+            cells: None,
         }
     }
 
@@ -1586,6 +1587,7 @@ mod tests_gh1259 {
                 crate::volume_mesh::BoundaryPatch { name: "top".into(), start_face: 0, n_faces: 6 },
                 crate::volume_mesh::BoundaryPatch { name: "bottom".into(), start_face: 6, n_faces: 6 },
             ],
+            cells: None,
         }
     }
 

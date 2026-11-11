@@ -1440,7 +1440,7 @@ mod tests {
     }
 
     fn surface(names: &[&str]) -> TriSurf {
-        let regions = crate::patches::SurfaceRegions { names: names.iter().map(|s| s.to_string()).collect(), region_of_tri: (0..names.len()).collect() };
+        let regions = crate::patches::SurfaceRegions { names: names.iter().map(|s| s.to_string()).collect(), region_of_tri: (0..names.len()).collect(), types: vec!["patch".to_string(); names.len()] };
         let pts = (0..names.len() + 2).map(|i| Vec3::new(i as f64, (i * i) as f64, 0.0)).collect();
         let tris = (0..names.len()).map(|i| [i, i + 1, i + 2]).collect();
         TriSurf::with_surface_regions(pts, tris, &regions)
