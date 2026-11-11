@@ -312,16 +312,18 @@ fn test_07_acer_old_format_ace() {
 /// 443 skipped, `acefc.f90:1743-1782, :5664`), MTRP, LSIGP, SIGP, LANDP, ANDP,
 /// LDLWP and DLWP (photon production).
 ///
-/// ~~**CORRECTED 2026-11-11:** the earlier note here and on gh:#1449 said NJOY's
-/// ACER has 4 460 energies against this crate's 4 447.~~ **It is the other way
-/// round:** NJOY2016.80's table has NES = 4 447 (`unionx` takes the grid of the
-/// PENDF's MT=1, `acefc.f90:1236-1300`, not a union with MT=301/444 energies),
-/// this crate's 4 460. The cause is upstream of ACER: **RECONR's MT=1 grid
-/// already differs** (`test_08_pendf_stages_diagnosis`: 4 827 against 4 825
-/// points, extra energies 2.53e-2 and 2.530004e-2 eV beside the 0.0253 eV
-/// thermal node, `reconr.f90` `rdfil2`/`lunion`), so BROADR and HEATR follow
-/// and ESZ, LSIG, SIG, GPD, YP differ. **Still different, not ported:**
-/// LAND/LDLW/DLW for the MF=6 reactions (old-format laws, `acelf6` `newfor = 0`
+/// **UPDATE 2026-11-11 (gh:#1449): ESZ is now identical (22 235 words), NXS(7)
+/// and JXS(30-32) now agree (0), and units 41/42/43 of the PENDF are identical
+/// line for line** (`test_08_pendf_stages_diagnosis`). Fixed: RECONR's `resxs`
+/// seed took the `rdfil2` halo twice (the 4 827 against 4 825 points: extra
+/// 2.53e-2 and 2.530004e-2 eV), the elastic 1e-8 floor now applies at the
+/// background-only point above the range, the ESZ grid is the PENDF MT=1's
+/// energies (`unionx`, `acefc.f90:1236-1300`; a bare 742925.0 from another
+/// section had displaced MT=2's own 742925.0000000001 and the elastic read
+/// 3.900002e-8 against 3.9e-8), and `acelcp` writes nothing for `newfor = 0`
+/// (`first` collects production items only for `newfor != 0`, `:423`, `:621`).
+/// **Still different, not ported:** LAND/LDLW/DLW for the MF=6 reactions (old-format laws,
+/// `acelf6` `newfor = 0`
 /// branches `:7495`, `:7722`, `:7765`, and `topfil`'s MF=6 conversion
 /// `:2233-2350`, `fix6` `:3351-3570`). Pass criterion: the deck runs and AND agrees.
 #[test]
@@ -342,7 +344,18 @@ fn test_08_acer_old_format_ace() {
 
 /// **Test 08 (Ni-61 ENDF/B-VI.1) PENDF stages: RECONR (unit 41), BROADR (42),
 /// HEATR (43)**, line by line against NJOY2016.80 (gh:#1449 diagnosis of the
-/// ACE energy grid). Recorded result: see the doc of `test_08_acer_old_format_ace`.
+/// ACE energy grid).
+///
+/// **Result (2026-11-11, after the fix): 0 differing lines on units 41, 42 and
+/// 43.** Before: 6 336 / 13 879 / 23 696. Two causes, both in RECONR:
+/// (1) `rebuild_range` seeded `resxs` with the `rdfil2` halo as well as the
+/// `lunion` grid; upstream's `resxs` walks the `lunion` grid only, and
+/// `lunion` had replaced the 0.0253 eV node by the histogram pair
+/// 2.529999e-2/2.530001e-2 (MT=102), so ours kept 2.53e-2 and its bisections;
+/// (2) `emerge`'s `sn = small` floor (1e-8) on MT=2 applies at every written
+/// point, including the background-only point above the resonance range.
+/// The earlier ACE comparison note in `test_08_acer_old_format_ace` about the
+/// grid is superseded by this.
 #[test]
 fn test_08_pendf_stages_diagnosis() {
     let root = njoy_root();

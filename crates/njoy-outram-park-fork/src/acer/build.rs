@@ -551,11 +551,21 @@ impl AceTable {
         // The ACE grid is the union of the elastic grid and every stored
         // partial's grid (acelod builds this with `unionx`).
         let mut egrid: Vec<f64> = Vec::new();
-        if let Some(e) = elastic {
-            egrid.extend(e.pairs.iter().map(|&(x, _)| x));
-        }
-        for sec in &partials {
-            egrid.extend(sec.pairs.iter().map(|&(x, _)| x));
+        // `unionx` walks the PENDF's MT=1 with `gety1` and takes ITS energies
+        // (`acefc.f90:1236-1300`), so the bits of the grid are MT=1's. Taking
+        // the union of the sections' energies let a bare 742925.0 from another
+        // section displace MT=2's 742925.0000000001, and the elastic read one
+        // ulp below its own point (Ni-61: 3.900002e-8 against 3.9e-8, gh:#1449).
+        let total_sec = result.sections.iter().find(|s| i32::from(s.mt) == 1);
+        if let Some(t) = total_sec {
+            egrid.extend(t.pairs.iter().map(|&(x, _)| x));
+        } else {
+            if let Some(e) = elastic {
+                egrid.extend(e.pairs.iter().map(|&(x, _)| x));
+            }
+            for sec in &partials {
+                egrid.extend(sec.pairs.iter().map(|&(x, _)| x));
+            }
         }
         egrid.retain(|&x| x > 0.0);
         egrid.sort_by(|a, b| a.partial_cmp(b).unwrap());
