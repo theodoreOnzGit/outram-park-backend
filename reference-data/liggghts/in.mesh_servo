@@ -1,6 +1,6 @@
 # fix mesh/surface/stress/servo (gh:#1416): a plate descends under a PID force servo (ctrlPV force)
 # onto two spheres resting on a floor; target 0.1 N, kp+ki+kd all active, velocity saturation reached.
-# NB the floor fix is declared BEFORE the mesh wall: the crate applies primitive walls before mesh walls, and the per-contact f_pw on the mesh is a difference of the particle force (rounding depends on that order).
+# Floor declared BEFORE the mesh wall. ~~The crate could only apply primitive walls first~~ CORRECTED 2026-11-11 (gh:#1482): in.mesh_servo_rev declares the reverse order and the crate follows via GranularSystem::with_fix_order.
 atom_style	granular
 atom_modify	map array
 boundary	f f f

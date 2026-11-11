@@ -39,7 +39,7 @@
 //! is `node_orig + dX`, reproduced operation for operation.
 
 use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial};
-use outram_park_fork_liggghts::granular_system::GranularSystem;
+use outram_park_fork_liggghts::granular_system::{FixSlot, GranularSystem};
 use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::mesh_stress::MeshServo;
 use outram_park_fork_liggghts::mesh_wall::{MeshWall, MovingBoundary, WallGeometry};
@@ -88,15 +88,30 @@ fn table(text: &str, sep_comma: bool, skip: usize) -> Vec<Vec<f64>> {
 ///
 /// Result (2026-11-11, Rust 1.99.1, LIGGGHTS 3d5c00f2): see the assertion
 /// message. Measured: **0 of 9 990 compared values differ** (501 frames x 18
-/// + 81 x 12). The deck declares the floor fix before the mesh wall because
-/// this crate applies primitive walls first (rounding of the per-contact
-/// `f_after - f_before`); the reverse declaration order gave 1-ulp force
-/// differences (1890/9990) and is not supported.
+/// + 81 x 12). Deck order: floor, then the mesh wall (the crate's default).
 #[test]
 fn mesh_servo_matches_liggghts() {
+    run_servo("mesh_servo.csv", "mesh_servo_thermo.txt", false);
+}
+
+/// The same deck with the **mesh wall declared before the floor**
+/// (`in.mesh_servo_rev`, gh:#1482): LIGGGHTS applies `post_force` in
+/// declaration order (`Modify::post_force`), and the per-contact
+/// `f_pw = f_after - f_before` rounds differently, so its trajectory differs
+/// from the forward deck (thermo line 11 first differs). The port follows via
+/// `GranularSystem::with_fix_order`.
+///
+/// Before the fix (fixed order, primitive walls first): 1890 of 9 990 values
+/// differed by 1 ulp in force. Result 2026-11-11: see the assertion.
+#[test]
+fn mesh_servo_reverse_declaration_order_matches_liggghts() {
+    run_servo("mesh_servo_rev.csv", "mesh_servo_rev_thermo.txt", true);
+}
+
+fn run_servo(csv_name: &str, thermo_name: &str, mesh_first: bool) {
     let (Some(csv), Some(thermo), Some(stl)) = (
-        read("mesh_servo.csv"),
-        read("mesh_servo_thermo.txt"),
+        read(csv_name),
+        read(thermo_name),
         read("plate_servo.stl"),
     ) else {
         eprintln!("skipping: reference-data/liggghts/ not present");
@@ -125,7 +140,7 @@ fn mesh_servo_matches_liggghts() {
     let floor =
         Boundary::wall(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 1.0)).expect("valid wall");
     let material = GranularMaterial::new(1.0e7, 0.3, 0.9, 0.5).expect("valid material");
-    let mut sys = GranularSystem::new(
+    let sys = GranularSystem::new(
         vec![sphere(&rows[0], 0, 0.005), sphere(&rows[0], 1, 0.005)],
         vec![floor],
         GranularContactModel::hertz_history(material),
@@ -135,6 +150,19 @@ fn mesh_servo_matches_liggghts() {
     .expect("valid system")
     .with_moving_walls(vec![plate])
     .with_neighbor_skin(0.003);
+    if mesh_first {
+        assert!(sys.clone().with_fix_order(vec![FixSlot::Gravity]).is_err());
+    }
+    let mut sys = if mesh_first {
+        sys.with_fix_order(vec![
+            FixSlot::MovingWall(0),
+            FixSlot::PrimitiveWall(0),
+            FixSlot::Gravity,
+        ])
+        .expect("complete fix order")
+    } else {
+        sys
+    };
 
     let (mut mismatched, mut total, mut first) = (0, 0, None);
     let mut last = 0_usize;

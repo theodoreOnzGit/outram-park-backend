@@ -83,6 +83,20 @@ use crate::particle::{Particle, Vec3};
 use crate::tri_mesh::arr;
 use crate::DemError;
 
+/// One `post_force` fix of the wall/gravity/force-fix family, for
+/// [`GranularSystem::with_fix_order`] (gh:#1482).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FixSlot {
+    /// `boundaries()[i]`, a `fix wall/gran ... primitive` wall.
+    PrimitiveWall(usize),
+    /// `moving_walls()[i]`, a mesh or analytic moving wall.
+    MovingWall(usize),
+    /// The `fix gravity`.
+    Gravity,
+    /// `force_fixes()[i]`.
+    ForceFix(usize),
+}
+
 /// Resolve one contact: the ordinary history-advancing law, or at set-up the
 /// frozen law that only registers the contact (`shearupdate = 0`).
 fn resolve_c(
@@ -189,6 +203,9 @@ pub struct GranularSystem {
     /// `post_force` fixes (`addforce`, `viscous`, `freeze`), applied after gravity
     /// in declaration order (gh:#1418).
     force_fixes: Vec<ForceFix>,
+    /// Declared order of wall/gravity/force fixes (`None`: the default order),
+    /// gh:#1482.
+    fix_order: Option<Vec<FixSlot>>,
     /// `fix freeze` group per particle (pair `meff`, gh:#1478).
     frozen: Vec<bool>,
     /// True during the set-up force evaluation, where upstream does not
@@ -354,6 +371,7 @@ impl GranularSystem {
             moving_walls: Vec::new(),
             neigh_skin: 0.0,
             force_fixes: Vec::new(),
+            fix_order: None,
             frozen: Vec::new(),
             setup_phase: false,
             xhold: Vec::new(),
@@ -405,6 +423,7 @@ impl GranularSystem {
     #[must_use]
     pub fn with_moving_walls(mut self, walls: Vec<MovingBoundary>) -> Self {
         self.moving_walls = walls;
+        self.fix_order = None;
         self.xhold = self.particles.iter().map(|p| p.position).collect();
         self.compute_forces_setup();
         self
@@ -1415,95 +1434,16 @@ impl GranularSystem {
             self.resolve_pairs_serial();
         }
 
-        // --- particle-wall (primitive boundaries, immovable) ---
-        for i in 0..n {
-            let p = self.particles[i];
-            for (w, boundary) in self.boundaries.iter().enumerate() {
-                // Axis-aligned planes and cylinders go through upstream's
-                // own resolution and kinematics (`PrimitiveWall::
-                // resolveContact`, `r = radi - deltan`, `en = delta*rinv`).
-                if let Some(res) = boundary.upstream_contact(&p) {
-                    if let Some((overlap, delta)) = res {
-                        let k = ContactKinematics::mesh_wall(&p, delta, overlap, Vec3::zero())
-                            .with_types(self.types[i], self.types[i]);
-                        let gf = resolve_c(
-                            &self.model,
-                            setup,
-                            ContactKey::wall(self.tags[i] as usize, w),
-                            &k,
-                            &mut self.history,
-                            self.dt,
-                        );
-                        self.forces[i] = self.forces[i].add(gf.force_i);
-                        self.torques[i] = self.torques[i].add(gf.torque_i);
-                    }
-                    continue;
-                }
-                if let Some(c) = boundary.particle_overlap(&p) {
-                    // `Contact::normal` is the inward normal (wall -> particle),
-                    // which is exactly upstream's `en` for a wall contact.
-                    if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, Vec3::zero())
-                        .map(|k| k.with_types(self.types[i], self.types[i]))
-                    {
-                        let gf = resolve_c(
-                            &self.model,
-                            setup,
-                            ContactKey::wall(self.tags[i] as usize, w),
-                            &k,
-                            &mut self.history,
-                            self.dt,
-                        );
-                        self.forces[i] = self.forces[i].add(gf.force_i);
-                        self.torques[i] = self.torques[i].add(gf.torque_i);
-                    }
-                }
-            }
-        }
-
-        // --- particle-moving-wall ---
-        self.compute_mesh_wall_forces();
-        for i in 0..n {
-            let p = self.particles[i];
-            for (w, wall) in self.moving_walls.iter().enumerate() {
-                if matches!(wall.geometry, WallGeometry::Mesh(_)) {
-                    continue;
-                }
-                if let Some(c) = wall.particle_overlap(&p) {
-                    let v_wall = wall.surface_velocity(c.point);
-                    if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, v_wall)
-                        .map(|k| k.with_types(self.types[i], self.types[i]))
-                    {
-                        let gf = resolve_c(
-                            &self.model,
-                            setup,
-                            // Wall ids are offset past the static boundaries so
-                            // the two families cannot collide in the history map.
-                            ContactKey::wall(self.tags[i] as usize, self.boundaries.len() + w),
-                            &k,
-                            &mut self.history,
-                            self.dt,
-                        );
-                        self.forces[i] = self.forces[i].add(gf.force_i);
-                        self.torques[i] = self.torques[i].add(gf.torque_i);
-                    }
-                }
-            }
-        }
-
-        if matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
-            self.history.end_step_keep_pairs();
+        // --- wall and force fixes, in deck declaration order ---
+        // Upstream runs every `post_force` in the order the fixes were declared
+        // (`Modify::post_force`, modify.cpp loops `list_post_force`), and the
+        // per-contact `f_pw = f_after - f_before` and every force sum depend on
+        // that order (gh:#1482). The default order below reproduces the
+        // previous fixed one; `with_fix_order` sets the deck's.
+        let order = self.effective_fix_order();
+        let ff_ctx = if self.force_fixes.is_empty() {
+            None
         } else {
-            self.history.end_step();
-        }
-
-        // --- gravity ---
-        for i in 0..n {
-            let m = self.particles[i].mass;
-            self.forces[i] = self.forces[i].add(self.gravity.scale(m));
-        }
-
-        // --- post_force fixes declared after gravity (gh:#1418) ---
-        if !self.force_fixes.is_empty() {
             let ctx = VarContext {
                 step: self.step_count as i64,
                 begin_step: 0,
@@ -1511,12 +1451,167 @@ impl GranularSystem {
                 dt: self.dt,
             };
             let vel: Vec<Vec3> = self.particles.iter().map(|p| p.velocity).collect();
-            let order = self.local_order_indices();
+            let lorder = self.local_order_indices();
             let pos: Vec<Vec3> = self.particles.iter().map(|p| p.position).collect();
             let rad: Vec<f64> = self.particles.iter().map(|p| p.radius).collect();
-            for fx in &mut self.force_fixes {
-                fx.apply(&ctx, &order, &pos, &rad, &vel, &self.types, &mut self.forces, &mut self.torques)
-                    .expect("force fix variable evaluation (upstream error->all)");
+            Some((ctx, vel, lorder, pos, rad))
+        };
+        for slot in order {
+            match slot {
+                FixSlot::PrimitiveWall(w) => self.primitive_wall_forces(w),
+                FixSlot::MovingWall(w) => {
+                    if matches!(self.moving_walls[w].geometry, WallGeometry::Mesh(_)) {
+                        self.compute_mesh_wall_forces(w);
+                    } else {
+                        self.moving_primitive_wall_forces(w);
+                    }
+                }
+                FixSlot::Gravity => {
+                    for i in 0..n {
+                        let m = self.particles[i].mass;
+                        self.forces[i] = self.forces[i].add(self.gravity.scale(m));
+                    }
+                }
+                FixSlot::ForceFix(k) => {
+                    if let Some((ctx, vel, lorder, pos, rad)) = &ff_ctx {
+                        self.force_fixes[k]
+                            .apply(ctx, lorder, pos, rad, vel, &self.types, &mut self.forces, &mut self.torques)
+                            .expect("force fix variable evaluation (upstream error->all)");
+                    }
+                }
+            }
+        }
+
+        // the history bracket closes after the last wall contact; gravity and
+        // the force fixes never touch it, so their position in the order is free
+        if matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
+            self.history.end_step_keep_pairs();
+        } else {
+            self.history.end_step();
+        }
+    }
+
+    /// The order the wall and force fixes are applied in: the one set by
+    /// [`GranularSystem::with_fix_order`], else primitive walls, mesh walls,
+    /// other moving walls, gravity, force fixes (gh:#1482).
+    fn effective_fix_order(&self) -> Vec<FixSlot> {
+        if let Some(o) = &self.fix_order {
+            return o.clone();
+        }
+        let mut o: Vec<FixSlot> = (0..self.boundaries.len()).map(FixSlot::PrimitiveWall).collect();
+        for pass_mesh in [true, false] {
+            for (w, m) in self.moving_walls.iter().enumerate() {
+                if matches!(m.geometry, WallGeometry::Mesh(_)) == pass_mesh {
+                    o.push(FixSlot::MovingWall(w));
+                }
+            }
+        }
+        o.push(FixSlot::Gravity);
+        o.extend((0..self.force_fixes.len()).map(FixSlot::ForceFix));
+        o
+    }
+
+    /// Declare the **order of the wall and force fixes** as the deck does
+    /// (`Modify::post_force` applies them in declaration order). Each primitive
+    /// boundary, moving wall (mesh or analytic), the gravity fix and each force
+    /// fix must appear exactly once. Call after `with_moving_walls` and
+    /// `with_force_fixes`. gh:#1482.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if a slot is out of range, repeated or missing.
+    pub fn with_fix_order(mut self, order: Vec<FixSlot>) -> Result<Self, DemError> {
+        self.fix_order = None;
+        let key = |s: &FixSlot| format!("{s:?}");
+        let mut a: Vec<String> = order.iter().map(key).collect();
+        let mut b: Vec<String> = self.effective_fix_order().iter().map(key).collect();
+        a.sort();
+        b.sort();
+        if a != b {
+            return Err(DemError::InvalidInput(
+                "fix order must list every wall, gravity and force fix exactly once".into(),
+            ));
+        }
+        self.fix_order = Some(order);
+        // upstream's set-up evaluation also runs in declaration order
+        self.compute_forces_setup();
+        Ok(self)
+    }
+
+    /// One primitive (analytic, immovable) wall's contacts for every particle
+    /// (`FixWallGran::post_force_wall` of one `fix wall/gran primitive`).
+    fn primitive_wall_forces(&mut self, w: usize) {
+        let setup = self.setup_phase;
+        let n = self.particles.len();
+        for i in 0..n {
+            let p = self.particles[i];
+            let boundary = &self.boundaries[w];
+            // Axis-aligned planes and cylinders go through upstream's own
+            // resolution and kinematics (`PrimitiveWall::resolveContact`,
+            // `r = radi - deltan`, `en = delta*rinv`).
+            if let Some(res) = boundary.upstream_contact(&p) {
+                if let Some((overlap, delta)) = res {
+                    let k = ContactKinematics::mesh_wall(&p, delta, overlap, Vec3::zero())
+                        .with_types(self.types[i], self.types[i]);
+                    let gf = resolve_c(
+                        &self.model,
+                        setup,
+                        ContactKey::wall(self.tags[i] as usize, w),
+                        &k,
+                        &mut self.history,
+                        self.dt,
+                    );
+                    self.forces[i] = self.forces[i].add(gf.force_i);
+                    self.torques[i] = self.torques[i].add(gf.torque_i);
+                }
+                continue;
+            }
+            if let Some(c) = boundary.particle_overlap(&p) {
+                // `Contact::normal` is the inward normal (wall -> particle),
+                // which is exactly upstream's `en` for a wall contact.
+                if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, Vec3::zero())
+                    .map(|k| k.with_types(self.types[i], self.types[i]))
+                {
+                    let gf = resolve_c(
+                        &self.model,
+                        setup,
+                        ContactKey::wall(self.tags[i] as usize, w),
+                        &k,
+                        &mut self.history,
+                        self.dt,
+                    );
+                    self.forces[i] = self.forces[i].add(gf.force_i);
+                    self.torques[i] = self.torques[i].add(gf.torque_i);
+                }
+            }
+        }
+    }
+
+    /// One non-mesh moving wall's contacts for every particle.
+    fn moving_primitive_wall_forces(&mut self, w: usize) {
+        let setup = self.setup_phase;
+        let n = self.particles.len();
+        for i in 0..n {
+            let p = self.particles[i];
+            let wall = &self.moving_walls[w];
+            if let Some(c) = wall.particle_overlap(&p) {
+                let v_wall = wall.surface_velocity(c.point);
+                if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, v_wall)
+                    .map(|k| k.with_types(self.types[i], self.types[i]))
+                {
+                    let gf = resolve_c(
+                        &self.model,
+                        setup,
+                        // Wall ids are offset past the static boundaries so
+                        // the two families cannot collide in the history map.
+                        ContactKey::wall(self.tags[i] as usize, self.boundaries.len() + w),
+                        &k,
+                        &mut self.history,
+                        self.dt,
+                    );
+                    self.forces[i] = self.forces[i].add(gf.force_i);
+                    self.torques[i] = self.torques[i].add(gf.torque_i);
+                }
             }
         }
     }
@@ -1543,6 +1638,7 @@ impl GranularSystem {
         }
         self.frozen = frozen;
         self.force_fixes = fixes;
+        self.fix_order = None;
         // upstream `setup` calls every fix's post_force, so the step-0 forces
         // (used by the first half-kick) already carry the fixes
         self.compute_forces_setup();
@@ -1556,13 +1652,13 @@ impl GranularSystem {
     /// is dropped when a coplanar neighbour facet is already handled this step
     /// and inherits that neighbour's history otherwise
     /// (`FixContactHistoryMesh::handleContact`). gh:#1416.
-    fn compute_mesh_wall_forces(&mut self) {
+    fn compute_mesh_wall_forces(&mut self, w: usize) {
         let setup = self.setup_phase;
         let n = self.particles.len();
         let nb = self.boundaries.len();
-        for w in 0..self.moving_walls.len() {
+        {
             let WallGeometry::Mesh(mesh) = &self.moving_walls[w].geometry else {
-                continue;
+                return;
             };
             let has_stress = self.moving_walls[w].stress.is_some();
             let mut contributions: Vec<(usize, [f64; 3], [f64; 3], [f64; 3])> = Vec::new();
