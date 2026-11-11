@@ -3118,6 +3118,84 @@ pub struct GranularContactModel {
     /// The cohesion model ([`GranularCohesion::Off`] by default); set it
     /// with [`GranularContactModel::with_cohesion`]. gh:#1411.
     pub cohesion: GranularCohesion,
+    /// Per-type-pair sub-model coefficients (`None` = every pair uses the
+    /// coefficients inside [`GranularContactModel::normal`] etc.). Set with
+    /// [`GranularContactModel::with_pair_models`]. gh:#1410.
+    pub pair_models: Option<PairModelTable>,
+}
+
+/// The sub-models of one atom-type pair: upstream's `peratomtypepair`
+/// coefficient matrices of the normal, tangential, rolling and cohesion
+/// models evaluated at one `(itype, jtype)`. See [`PairModelTable`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PairModel {
+    /// Normal model with this pair's coefficients.
+    pub normal: GranularNormalModel,
+    /// Tangential model with this pair's coefficients.
+    pub tangential: TangentialModel,
+    /// Rolling model with this pair's coefficients.
+    pub rolling: RollingModel,
+    /// Cohesion model with this pair's coefficients.
+    pub cohesion: GranularCohesion,
+}
+
+/// Per-`(itype, jtype)` model coefficients: the Rust form of upstream's
+/// `MatrixProperty` lookups (`coeff[itype][jtype]`, `PropertyRegistry`) for
+/// every model-specific coefficient (stiffnesses, adhesion, plasticity depth,
+/// rolling and cohesion coefficients, `peratomtype` values such as the
+/// Thornton-Ning yield ratio). The entry for `(i, j)` is used when the
+/// contact is resolved with `itype = i`, `jtype = j`; fill **both** `(i, j)`
+/// and `(j, i)` (they differ only for a `peratomtype` value, which upstream
+/// indexes by `itype`). `E`, `nu`, `e`, `mu` still come from the
+/// [`MaterialTable`]. gh:#1410.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PairModelTable {
+    n_types: usize,
+    entries: [[Option<PairModel>; MAX_TYPES]; MAX_TYPES],
+}
+
+impl PairModelTable {
+    /// An empty table for `n_types` atom types.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] unless `1 <= n_types <= MAX_TYPES`.
+    pub fn new(n_types: usize) -> Result<Self, DemError> {
+        if n_types == 0 || n_types > MAX_TYPES {
+            return Err(DemError::InvalidInput(format!(
+                "a pair-model table needs 1..={MAX_TYPES} types, got {n_types}"
+            )));
+        }
+        Ok(Self {
+            n_types,
+            entries: [[None; MAX_TYPES]; MAX_TYPES],
+        })
+    }
+
+    /// Set the entry for `(itype, jtype)` (0-based).
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if a type is out of range.
+    pub fn set(mut self, itype: usize, jtype: usize, model: PairModel) -> Result<Self, DemError> {
+        if itype >= self.n_types || jtype >= self.n_types {
+            return Err(DemError::InvalidInput(format!(
+                "pair ({itype}, {jtype}) outside the {} types of the table",
+                self.n_types
+            )));
+        }
+        self.entries[itype][jtype] = Some(model);
+        Ok(self)
+    }
+
+    /// Set `(i, j)` and `(j, i)` to the same model.
+    ///
+    /// # Errors
+    ///
+    /// As [`PairModelTable::set`].
+    pub fn set_symmetric(self, i: usize, j: usize, model: PairModel) -> Result<Self, DemError> {
+        self.set(i, j, model)?.set(j, i, model)
+    }
 }
 
 impl GranularContactModel {
@@ -3153,7 +3231,44 @@ impl GranularContactModel {
             rolling: RollingModel::Off,
             materials: None,
             cohesion: GranularCohesion::Off,
+            pair_models: None,
         }
+    }
+
+    /// Return a copy of this model with per-type-pair sub-model coefficients
+    /// ([`PairModelTable`]); the model's own `normal`, `tangential`,
+    /// `rolling`, `cohesion` then only fix the model *kinds* and the state
+    /// layout, and each contact uses the entry of its `(itype, jtype)`.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if an entry of the `n x n` table is missing
+    /// or names a different model kind than this model (the contact-state
+    /// layout is fixed by the kind).
+    pub fn with_pair_models(self, table: PairModelTable) -> Result<Self, DemError> {
+        use std::mem::discriminant as d;
+        for i in 0..table.n_types {
+            for j in 0..table.n_types {
+                let Some(e) = table.entries[i][j] else {
+                    return Err(DemError::InvalidInput(format!(
+                        "pair-model table entry ({i}, {j}) is missing"
+                    )));
+                };
+                if d(&e.normal) != d(&self.normal)
+                    || d(&e.tangential) != d(&self.tangential)
+                    || d(&e.rolling) != d(&self.rolling)
+                    || d(&e.cohesion) != d(&self.cohesion)
+                {
+                    return Err(DemError::InvalidInput(format!(
+                        "pair-model entry ({i}, {j}) changes a model kind"
+                    )));
+                }
+            }
+        }
+        Ok(Self {
+            pair_models: Some(table),
+            ..self
+        })
     }
 
     /// Return a copy of this model with a per-atom-type [`MaterialTable`]
@@ -3378,6 +3493,21 @@ impl GranularContactModel {
         k: &ContactKinematics,
         dt: f64,
     ) -> (GranularForce, Option<Vec3>, ContactAux) {
+        if let Some(table) = &self.pair_models {
+            // Upstream indexes every `peratomtypepair` coefficient by
+            // `[itype][jtype]`; resolve with this pair's sub-models.
+            let e = table.entries[k.itype][k.jtype]
+                .expect("pair-model table checked complete by with_pair_models");
+            let pair = Self {
+                normal: e.normal,
+                tangential: e.tangential,
+                rolling: e.rolling,
+                cohesion: e.cohesion,
+                materials: self.materials,
+                pair_models: None,
+            };
+            return pair.resolve_impl_x::<UPDATE>(prior_shear, prior_aux, k, dt);
+        }
         let props = match self.materials {
             Some(table) => table.pair_props(k.itype, k.jtype),
             None => PairProps::from_material(&self.normal.material()),
