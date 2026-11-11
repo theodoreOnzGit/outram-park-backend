@@ -72,6 +72,9 @@ outram-foam-mesh = { workspace = true }
 [dev-dependencies]
 # (outram-foam-mesh, used by the gh:#1276 feature-edge differential, is a
 # normal dependency since gh:#1480.)
+# gh:#1385: the upstream-differential tests inflate the committed `.gz`
+# polyMesh files (pure-Rust DEFLATE, already a workspace dependency).
+miniz_oxide = { workspace = true }
 
 # GUI example stack — the `mesh_studio` egui app (author a surface → generate a
 # polyhedral volume mesh with prism boundary layers → export OpenFOAM/outram-foam

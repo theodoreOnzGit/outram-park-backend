@@ -7546,6 +7546,7 @@ dependencies = [
  "eframe",
  "egui",
  "env_logger",
+ "miniz_oxide 0.8.9",
  "outram-foam-basic-lib",
  "outram-foam-mesh",
  "petir",

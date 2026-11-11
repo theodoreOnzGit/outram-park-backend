@@ -155,6 +155,81 @@ pub(crate) fn cell_geometry(mesh: &VolumeMesh) -> (Vec<f64>, Vec<Vec3>) {
     (vols, centres)
 }
 
+/// cfMesh's `polyMeshGenAddressing::makeFaceCentresAndAreas` /
+/// `updateGeometry` for one face, operation for operation (gh:#1385). **Not**
+/// `face::centre` / `face::areaNormal`: the addressing has its own, with
+/// `n = (next - p) ^ (centre - p)` per side, `centre = (1.0/3.0)*sumAc /
+/// (sumA + VSMALL)` and `area = 0.5*sumN`; a triangle is `(1.0/3.0)*(p0 + p1
+/// + p2)` and `0.5*((p1 - p0)^(p2 - p0))`.
+pub fn pmg_face_centre_and_area(points: &[Vec3], ring: &[usize]) -> (Vec3, Vec3) {
+    let k = ring.len();
+    if k == 3 {
+        let (p0, p1, p2) = (points[ring[0]], points[ring[1]], points[ring[2]]);
+        return (p0.add(p1).add(p2).scale(1.0 / 3.0), p1.sub(p0).cross(p2.sub(p0)).scale(0.5));
+    }
+    let mut f_centre = points[ring[0]];
+    for &v in &ring[1..] {
+        f_centre = f_centre.add(points[v]);
+    }
+    let f_centre = f_centre.div(k as f64);
+    let (mut sum_n, mut sum_a, mut sum_ac) = (Vec3::ZERO, 0.0, Vec3::ZERO);
+    for i in 0..k {
+        let p = points[ring[i]];
+        let next = points[ring[(i + 1) % k]];
+        let c = p.add(next).add(f_centre);
+        let n = next.sub(p).cross(f_centre.sub(p));
+        let a = n.length();
+        sum_n = sum_n.add(n);
+        sum_a += a;
+        sum_ac = sum_ac.add(c.scale(a));
+    }
+    (sum_ac.scale(1.0 / 3.0).div(sum_a + 1e-300), sum_n.scale(0.5))
+}
+
+/// cfMesh's `polyMeshGenAddressing::makeCellCentresAndVols`, operation for
+/// operation (gh:#1385): face centres and areas by
+/// [`pmg_face_centre_and_area`]; per cell the estimate `cEst` is the average of its face
+/// centres (`/= c.size()`), each face's `pyr3Vol = (area & (centre - cEst))`
+/// negated where the cell is not the owner and floored at `VSMALL`, the
+/// pyramid centre `(3.0/4.0)*fc + (1.0/4.0)*cEst`, the cell centre
+/// `sum/cellVol` and the volume `cellVol/3.0`. The faces of a cell run in
+/// ascending face order here (upstream's cell lists are in construction
+/// order; where they differ the last bit of a sum can).
+pub fn foam_cell_centres_and_vols(mesh: &VolumeMesh) -> (Vec<f64>, Vec<Vec3>) {
+    let (centres_f, areas_f): (Vec<Vec3>, Vec<Vec3>) = mesh.faces.iter().map(|r| pmg_face_centre_and_area(&mesh.points, r)).unzip();
+    let mut cell_faces: Vec<Vec<usize>> = vec![Vec::new(); mesh.n_cells];
+    for f in 0..mesh.face_count() {
+        cell_faces[mesh.owner[f]].push(f);
+        if let Some(nb) = mesh.neighbour[f] {
+            cell_faces[nb].push(f);
+        }
+    }
+    let mut vols = vec![0.0; mesh.n_cells];
+    let mut centres = vec![Vec3::ZERO; mesh.n_cells];
+    for (c, faces) in cell_faces.iter().enumerate() {
+        let mut c_est = Vec3::ZERO;
+        for &f in faces {
+            c_est = c_est.add(centres_f[f]);
+        }
+        let c_est = c_est.div(faces.len() as f64);
+        let mut cell_centre = Vec3::ZERO;
+        let mut cell_vol = 0.0;
+        for &f in faces {
+            let mut pyr3 = areas_f[f].dot(centres_f[f].sub(c_est));
+            if mesh.owner[f] != c {
+                pyr3 *= -1.0;
+            }
+            pyr3 = pyr3.max(1e-300);
+            let pc = centres_f[f].scale(3.0 / 4.0).add(c_est.scale(1.0 / 4.0));
+            cell_centre = cell_centre.add(pc.scale(pyr3));
+            cell_vol += pyr3;
+        }
+        centres[c] = cell_centre.div(cell_vol);
+        vols[c] = cell_vol / 3.0;
+    }
+    (vols, centres)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

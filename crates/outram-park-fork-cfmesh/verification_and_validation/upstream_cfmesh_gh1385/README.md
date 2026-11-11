@@ -17,7 +17,7 @@ written here).
 
 ## Status and how to resume
 
-STATUS: done 2026-11-11 (build, all runs, #1299 distances). Next step, not done here: the Rust-side comparison per stage (#1385 table; #1476's `meshDict` reader).
+STATUS: done 2026-11-11 (build, all runs, #1299 distances). ~~Next step, not done here: the Rust-side comparison per stage (#1385 table; #1476's `meshDict` reader).~~ **UPDATED 2026-11-11 (gh:#1385):** the Rust-side per-stage comparison is made on the sphere, see "Rust-side differential" at the end; what remains is listed there.
 
 Everything is built **outside the repository**, under
 `/home/user/upstream-build/`, and is lost with the container. To rebuild:
@@ -198,11 +198,15 @@ isotropic rows), not re-run here.
 
 **U5 held:** the cell counts are identical for all three generators. The
 volumes and distances are not: they differ in the third or fourth digit, so
-the port's final points are **not** upstream's. Part of that may be the
+the port's final points are **not** upstream's. ~~Part of that may be the
 input: the port builds the sphere in double precision, upstream reads the
 STL as float (a difference of order 1e-7 m in the surface). Which stage the
 points first part is the per-stage comparison #1385 asks for; it is not
-made here.
+made here.~~ **CORRECTED 2026-11-11 (gh:#1385):** the comparison is made
+(last section). It was not the input: on the same float-rounded STL the port
+first parted from upstream at `edgeExtraction` (cartesianMesh) and
+`surfaceProjection` (pMesh), and the causes were port defects, not
+precision.
 
 ### #1299: do upstream's final boundary points lie on the surface?
 
@@ -294,3 +298,205 @@ rebuilt there). These stage meshes are the per-stage reference for cases
 `foamToVTK` was not built (see above). No image of the meshes themselves is
 drawn here: the port's own records already draw the port's meshes, and
 drawing upstream's needs a reader of these files, which is #1476's job.
+
+## Rust-side differential (gh:#1385, 2026-11-11)
+
+**Research, education and V&V only.** AI-run; not reviewed by a human yet.
+
+The port against the upstream output above, stage by stage, on the sphere
+(R 3 m, `maxCellSize 0.5`). Tests: `tests/cfmesh_vs_upstream_sphere.rs`
+(stage pins), `tests/cfmesh_vs_upstream_cell_order.rs` (the proven cause of
+the one difference left), helpers `tests/common/mod.rs` (gunzip with
+`miniz_oxide`, `outram_foam_basic_lib::io::poly_mesh::PolyMesh::read`, the
+comparison).
+
+**CORRECTED 2026-11-11 (gh:#1385)** for the "Against the port" paragraph
+above: ~~"the port's final points are not upstream's ... Which stage the
+points first part is ... not made here"~~ the per-stage comparison is made
+below. The input was not the cause (the committed single-precision STL is
+used for both); the points part at `meshOptimisation`, in the last bit, once
+the fixes below are in.
+
+### Method
+
+1. **Same input.** The committed STL (`inputs/sphere_r3_24x48.stl.gz`) read by
+   the port's STL reader (a port of OpenFOAM's `STLReader`), so both codes
+   hold the same single-precision points; the port's own double-precision
+   `sphere_surface` is not used.
+2. **Same steps.** `WorkflowSettings { stop_after }` for each of the seven
+   steps against `workflowControls stopAfter` in the upstream run.
+3. **Comparison per stage.** Counts; points at the same index (bit-identical
+   count, largest absolute difference); faces as vertex sets and at the same
+   index (ring, owner, neighbour). The upstream `neighbour` file lists every
+   face (-1 on the boundary); the helper keeps the internal ones, as
+   OpenFOAM's reader wants.
+4. **At the first difference, upstream was instrumented** (not only read):
+   `patches/gh1385-trace-instrumentation.patch` (applies on top of the
+   OpenFOAM-v2506 patch) prints point coordinates to stderr when
+   `GH1385_TRACE` is set, inside `preMapVertices`, `mapVerticesOntoSurface`,
+   `meshSurfaceOptimizer::optimizeSurface` and `optimiseFinalMesh`. The port
+   was compared with those traces sub-step by sub-step (premap iteration 1, 2,
+   3; `smoothLaplacianFC`, `smoothSurfaceOptimizer`, ...), which is how each
+   cause below was isolated. Output unchanged without the variable. The raw
+   traces are not committed (about 1 MB each); only the one the cell-order
+   proof needs is (`traces/`).
+
+### Result: stage table (points bit-identical / total; faces identical at their index with owner and neighbour / total)
+
+| step | cartesianMesh points | faces | pMesh points | faces |
+|---|---|---|---|---|
+| templateGeneration | 895/895 | 2064/2064 | 12840/12840 | 13690/13690 |
+| surfaceTopology | 895/895 | 2064/2064 | 9744/9744 | 11494/11494 |
+| surfaceProjection | 895/895 | 2064/2064 | 9744/9744 | 11494/11494 |
+| patchAssignment | 895/895 | 2064/2064 | 9744/9744 | 11494/11494 |
+| edgeExtraction | 895/895 | 2064/2064 | 9744/9744 | 11494/11494 |
+| boundaryLayerGeneration | 1425/1425 | 3648/3648 | 9744/9744 | 11494/11494 |
+| meshOptimisation | **623/1425, worst 1.332e-15 m** | 3648/3648 | **3435/9744, worst 1.332e-15 m** | 11494/11494 |
+
+**First stage that differs: `meshOptimisation`, in the last bit, for both
+generators.** Before the fixes below the first difference was
+`edgeExtraction` (cartesianMesh, 2.5e-5 m) and `surfaceProjection` (pMesh,
+7.5e-4 m); at the end of the workflow they were 5.0e-3 m (cartesianMesh) and
+1.3e-2 m (pMesh).
+
+**Not compared (no staged upstream reference):** `tetMesh` (only its final
+mesh is committed) and everything after `meshOptimisation`: the
+`renumberMesh` and `renameBoundaryPatches` that end every generator. The
+final meshes do not match: `cartesianMesh` keeps 623/1425 points at the same
+index but its faces differ in order (2/3648 index-identical: the port's
+`renumber_mesh` does not reproduce upstream's output order); `tetMesh`'s
+points are in another order (2/2651 at the same index, worst 0.19 m; its
+faces do not match as vertex sets either). These are the next steps, not
+results.
+
+### The fixes, in the order found (each: prediction, then result)
+
+Every fix follows the upstream routine named; the cfMesh crate has no
+kovan-reviewed function (`src/review.md` holds no `kind = "review"` block).
+Committed with `gh:#1385` and the prediction in the message.
+
+1. **Template face order** (`cartesian_mesh::extract_from_addressing`).
+   Upstream's `createPolyMesh` numbers the faces in octree-face order, internal
+   and boundary mixed, and `polyMeshGenModifier::reorderBoundaryFaces` then
+   swaps the boundary faces in the internal range with the internal faces in
+   the boundary range, pairwise. The port sorted stably (internal, then
+   boundary). *Prediction:* faces index-identical, and the 2.5e-5 m difference
+   at `edgeExtraction` (smoothing in place follows the face order) shrinks.
+   *Result:* faces 14/2064 -> 2064/2064 identical; `edgeExtraction` worst
+   2.5e-5 m -> 3.1e-15 m.
+2. **`surfaceProjection`** (cartesianMesh 428/895 -> 895/895, worst 1.7e-15 m
+   -> 0; pMesh 8472/9744, worst 7.5e-4 m -> 9744/9744). Found by tracing
+   `preMapVertices` (iteration 1: 528/530 bit-identical, iteration 2: 137/530,
+   so a difference that needs a first move to show):
+   - `foam_face_centre` is `face::centre` operation for operation: area weight
+     `|(p - c) x (next - c)|` (the port had `(q - p) x (avg - p)`), the
+     average and the result divided, a triangle `(1.0/3.0)*(p0+p1+p2)`;
+   - `Vec3::div`: OpenFOAM's `v /= s` and `v/s` divide each component; the
+     port multiplied by `1/s` (`premap_vertices`, last bit);
+   - `mapVerticesOntoSurface` and the untangler's re-mapping now call
+     `meshOctree::findNearestSurfacePoint` (`SurfaceQueries::with_octree`);
+     the port used a brute-force closest point, which differs in the last bit
+     from `nearestPointOnTheTriangle`. The pMesh miss of 7.5e-4 m was this one
+     (brute force and the octree search pick different triangles near a shared
+     edge).
+3. **`patchAssignment`** (cartesianMesh 636/895, worst 1.6e-15 m -> 895/895;
+   pMesh -> 9744/9744): `EdgeExtractor` queries are octree-backed
+   (`checkFacePatchesGeometry` calls `mapVerticesOntoSurfacePatches`).
+4. **`edgeExtraction`, cartesianMesh** (374/895, worst 2.2e-15 m -> 895/895).
+   Traced through `optimizeSurface`: `smoothLaplacianFC` 530/530 first, then
+   `smoothSurfaceOptimizer` 171/530:
+   - `meshSurfaceEdgeExtractorNonTopo` always runs (`decomposeBoundaryFaces`,
+     `remapBoundaryPoints`); the port skipped it on a surface without named
+     regions (`regions` `None`), which is every STL;
+   - `ring_area_vector` is `face::areaNormal` (central decomposition about the
+     vertex average, triangles direct), not `0.5 sum(p_i x p_{i+1})`;
+   - divisions where OpenFOAM divides: the `plane` normal (`normal_ /=
+     magNormal`), `vecX`, `vecY`, the point normal, the average of face
+     centres, `optimizePoint`'s `pts_ /= scale`, `partTriMesh::updateVertex`'s
+     `c /= 3` and `centre/faceArea`;
+   - `optimiseSteepestDescent`: `dir = disp/mag(disp); disp = dir*0.2*avgEdge`;
+     `pow(stab, 3)` through `r_powf(3.0)` (it was `r_powi`).
+   `optimizeSurface` is then 530/530 bit-identical at each of its 5 iterations.
+5. **`boundaryLayerGeneration`** (faces 536/3648 -> 3648/3648 identical; the
+   points were already 1425/1425). The layer is assembled as upstream's
+   `addCells` (old faces keep their places, each layer cell appends the faces
+   it does not find), the owner = the lower cell, `reorderBoundaryFaces`, and
+   `replaceBoundary` (boundary faces patch by patch in list order):
+   `boundary_layers::add_cells_upstream`.
+6. **`edgeExtraction`, pMesh** (8352/9744, worst 1.1e-2 m -> 9744/9744): the
+   same rule, `meshSurfaceEdgeExtractorFUN` (`createFundamentalSheetsJFS`,
+   `smoothMeshSurface`, `remapBoundaryPoints`) ran only with named regions;
+   upstream always runs it. The untangle after it uses the octree too.
+7. **`meshOptimisation`** (cartesianMesh 530/1425, worst 5.0e-3 m -> 623/1425,
+   worst 1.3e-15 m; pMesh worst 6.5e-3 m -> 1.3e-15 m). `laplacianPC` used a
+   different cell-centre formula (`cell_geometry`, pyramids about the average
+   of the face centroids): `checks::foam_cell_centres_and_vols` is
+   `polyMeshGenAddressing::makeCellCentresAndVols`, with the addressing's own
+   face centres and areas (`pmg_face_centre_and_area`, not `face::centre`).
+   The earlier expectation in `laplace_smoother_fixed_point_and_one_pass` used
+   the old formula and differed by 1.3e-5.
+
+### The difference left, and its proven cause
+
+`meshOptimisation` differs in the last bit: worst 1.332e-15 m on coordinates
+of 2-3 m (6e-16 relative), 623/1425 and 3435/9744 points bit-identical. **Cause,
+proven (`cfmesh_vs_upstream_cell_order.rs`):** the cell centre sums over the
+faces **in the cell's face list**, and 491 of the 1128 upstream cells have a
+list that is not ascending in face label (cell 433: `1461 1513 1529 1534 1535
+0`: face labels move when `reorderBoundaryFaces` swaps, the lists do not).
+`VolumeMesh` has no cell lists; the port sums in ascending face order. Fed
+upstream's own cell lists (dumped by the instrumented run,
+`traces/sphere_cartesianMesh_meshOptimisation_cells_surface_fv.txt.gz`), the
+same five Laplacian iterations are **bit-identical on all 1425 points**; with
+ascending lists they give 623. Proven for `cartesianMesh`; the same cause is
+expected for `pMesh` and not separately shown.
+
+**Why this is not closed:** reproducing the lists means carrying cell lists
+through every stage of the port (26 `VolumeMesh { .. }` literals in this
+crate), or rebuilding upstream's cell-list history. It is a change of the
+mesh type, not a fix of a routine, so it is left for a decision. Below 1e-8
+relative with a proven cause is acceptable (task rule); this is 6e-16, and it
+is counted and pinned (`cartesian_mesh_mesh_optimisation_is_within_the_last_bit`,
+`p_mesh_mesh_optimisation_is_within_the_last_bit`: the bit-identical count may
+not fall, the worst difference may not grow).
+
+### Moved pins (fixes that follow upstream; the old value is struck through in the source)
+
+| pin | moved | cause |
+|---|---|---|
+| `correct_edges::tests::correct_edges_is_pinned_bit_for_bit` | hash 7179125119703641544 -> 15811906865840324897 (counts unchanged) | its input pipeline now follows upstream (fixes 2-6) |
+| `layers::refine_boundary_layers::tests::prism_refinement_is_pinned_bit_for_bit` | pipe 0x677a875f14ca046b -> 0x018284a992e4c789 (box unchanged) | the layer's faces in upstream's order (fix 5) |
+| `anisotropic::tests::generators_without_anisotropic_sources_are_pinned_bit_for_bit` | all four fingerprints (cell counts unchanged) | fixes 1-7; **the crate's `AGENTS.md` says "do not move that pin"** (written to guard the anisotropic wiring); moved here under the task's default that a fix following upstream may move pins; flagged for the maintainer |
+| `mesh_optimizer::tests::laplace_smoother_fixed_point_and_one_pass` | its expectation now uses `foam_cell_centres_and_vols` | fix 7 |
+
+**Did not move:** `back_off_only_layers_are_pinned_bit_for_bit`,
+`dual_kinds_are_pinned_bit_for_bit`, `octree_path_is_pinned_bit_for_bit`,
+`layer_strategies_are_deterministic`,
+`foam_studio_default_mesh_keeps_its_fingerprint` and the restart pins (full
+`--lib` run of the crate on 2026-11-11, before the last two edits: 244 passed,
+3 failed = the three re-pinned above, 19 ignored). **Not run:** Foam Studio's
+`headless_unstructured_default_is_pinned` (0.9394 / 1.0062, the `dhoby-ghaut`
+example `foam_studio_web`): it was not built on this machine. Foam Studio
+meshes through the tet-dual pipeline, not the four workflows, but it shares
+`surface_optimizer`, `ring_area_vector` and `foam_face_centre`, so it can
+move; check before merging.
+
+### What remains
+
+1. `meshOptimisation`: cell lists (above).
+2. `renumberMesh` and `renameBoundaryPatches` (the end of every generator):
+   the final meshes do not match yet.
+3. `tetMesh`, `cartesian2DMesh`: no staged upstream runs yet (run with
+   `workflowControls stopAfter`, as for the sphere); the same fixes apply to
+   `tetMesh`'s shared steps but are not measured.
+4. `asmoOctree`, `elbow_90degree`, `cutCube`, `hatOctree`: the cell counts of
+   #1476 (52,997 vs 53,003; 108,383 vs 108,995) are the leads; start with
+   `asmoOctree` at the first stage. These multi-patch cases exercise
+   `findNearestEdgePoint`, `mapEdgeNodes`, `mapCorners` and the edge
+   extractor's own searches, none of which was checked against upstream here:
+   only the single-patch paths were.
+5. Searches elsewhere in the port that still use the brute-force
+   `closest_point_on_surface` where upstream uses the octree (`snap`,
+   `surface_mapper::nearest_edge_point`), and other `scale(1.0 / x)` where
+   upstream divides (about 140 sites remain; the ones on the paths above are
+   fixed).

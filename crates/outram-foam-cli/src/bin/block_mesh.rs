@@ -56,6 +56,10 @@ pub fn run(args: &CaseArgs) -> Result<(), CliError> {
         .write(&poly_dir)
         .map_err(|e| CliError::Io(e.to_string()))?;
 
+    // Named block zones become `cellZones` (blockMesh.C, "Adding cell zones").
+    IoPolyMesh::write_cell_zones(&poly_dir, &mesh.cell_zones)
+        .map_err(|e| CliError::Io(e.to_string()))?;
+
     print_summary(&mesh, &poly_dir);
     Ok(())
 }

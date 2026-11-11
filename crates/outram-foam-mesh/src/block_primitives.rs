@@ -140,6 +140,28 @@ impl PipeOGrid {
         let sq = |k: usize, zl: usize| zl * 2 * n4 + (k % n4);
         let ci = |k: usize, zl: usize| zl * 2 * n4 + n4 + (k % n4);
 
+        // The central square is n x n single-cell-wide blocks (not one n x n
+        // block), so that every block face the outer blocks touch is a face
+        // of one central block: upstream `blockMesh` merges points only
+        // across block faces the topology shares (gh:#1464), so a coarse
+        // central block against n outer blocks would not be merged. The
+        // interior vertices are the bilinear positions the single block's
+        // map produced, so the mesh is geometrically the same.
+        let n_in = (n - 1) * (n - 1);
+        let base = 2 * 2 * n4;
+        let gi = |i: usize, j: usize, zl: usize| -> usize {
+            if j == 0 {
+                sq(i, zl)
+            } else if i == n {
+                sq(n + j, zl)
+            } else if j == n {
+                sq(2 * n + (n - i), zl)
+            } else if i == 0 {
+                sq(3 * n + (n - j), zl)
+            } else {
+                base + zl * n_in + (i - 1) + (j - 1) * (n - 1)
+            }
+        };
         let mut d = String::from("convertToMeters 1;\nvertices\n(\n");
         for zl in 0..2 {
             let z = oz + if zl == 0 { 0.0 } else { l };
@@ -152,13 +174,39 @@ impl PipeOGrid {
                 d.push_str(&format!("  ({:.17e} {:.17e} {z:.17e})\n", x + ox, y + oy));
             }
         }
+        for zl in 0..2 {
+            let z = oz + if zl == 0 { 0.0 } else { l };
+            for j in 1..n {
+                for i in 1..n {
+                    let x = -s + 2.0 * s * (i as f64 / n as f64);
+                    let y = -s + 2.0 * s * (j as f64 / n as f64);
+                    d.push_str(&format!("  ({:.17e} {:.17e} {z:.17e})\n", x + ox, y + oy));
+                }
+            }
+        }
         d.push_str(");\nblocks\n(\n");
-        let c = [sq(0, 0), sq(n, 0), sq(2 * n, 0), sq(3 * n, 0)];
-        let ct = [sq(0, 1), sq(n, 1), sq(2 * n, 1), sq(3 * n, 1)];
-        d.push_str(&format!(
-            "  hex ({} {} {} {} {} {} {} {}) ({} {} {}) simpleGrading (1 1 1)\n",
-            c[0], c[1], c[2], c[3], ct[0], ct[1], ct[2], ct[3], n, n, self.nz
-        ));
+        let mut lo = Vec::new();
+        let mut hi = Vec::new();
+        for j in 0..n {
+            for i in 0..n {
+                let b = [
+                    gi(i, j, 0),
+                    gi(i + 1, j, 0),
+                    gi(i + 1, j + 1, 0),
+                    gi(i, j + 1, 0),
+                    gi(i, j, 1),
+                    gi(i + 1, j, 1),
+                    gi(i + 1, j + 1, 1),
+                    gi(i, j + 1, 1),
+                ];
+                d.push_str(&format!(
+                    "  hex ({} {} {} {} {} {} {} {}) (1 1 {}) simpleGrading (1 1 1)\n",
+                    b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], self.nz
+                ));
+                lo.push([b[0], b[3], b[2], b[1]]);
+                hi.push([b[4], b[5], b[6], b[7]]);
+            }
+        }
         let outer = |k: usize| [sq(k, 0), ci(k, 0), ci(k + 1, 0), sq(k + 1, 0), sq(k, 1), ci(k, 1), ci(k + 1, 1), sq(k + 1, 1)];
         for k in 0..n4 {
             let v = outer(k);
@@ -167,8 +215,6 @@ impl PipeOGrid {
                 v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], self.nr, self.nz
             ));
         }
-        let mut lo = vec![[c[0], c[3], c[2], c[1]]];
-        let mut hi = vec![[ct[0], ct[1], ct[2], ct[3]]];
         let mut side = Vec::new();
         for k in 0..n4 {
             let v = outer(k);

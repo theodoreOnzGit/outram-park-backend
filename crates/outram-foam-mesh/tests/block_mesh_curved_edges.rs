@@ -272,7 +272,6 @@ boundary ( a {{ type patch; faces ((0 3 2 1)); }} );"
     for extra in [
         "geometry { s { type triSurfaceMesh; } }",
         "faces ( project (0 1 2 3) s );",
-        "namedVertices { a 0; }",
         "mergePatchPairs ( (a b) );",
         "x #calc \"1+1\";",
         "y ${missing};",
@@ -287,6 +286,8 @@ boundary ( a {{ type patch; faces ((0 3 2 1)); }} );"
         Err(MeshError::NotImplemented(_))
     ));
     assert!(BlockMeshDict::parse(&base("mergePatchPairs ( );", "")).is_ok());
+    // Supported since gh:#1463: an explicit name table.
+    assert!(BlockMeshDict::parse(&base("namedVertices { a 0; }", "")).is_ok());
 }
 
 /// P8: T3A (8 arcs, `defaultPatch { type empty; }`) builds a valid mesh whose

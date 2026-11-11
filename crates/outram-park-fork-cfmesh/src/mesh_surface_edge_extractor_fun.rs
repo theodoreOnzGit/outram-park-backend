@@ -89,6 +89,7 @@ pub struct FunReport {
 /// mesh.
 pub fn mesh_surface_edge_extractor_fun(
     mesh: &mut VolumeMesh,
+    octree: Option<&crate::mesh_octree::MeshOctree>,
     points: &[Vec3],
     tris: &[[usize; 3]],
     regions: &SurfaceRegions,
@@ -114,7 +115,13 @@ pub fn mesh_surface_edge_extractor_fun(
             })
         }
     };
-    let smoothing = optimise_mesh_surface(mesh, points, tris, regions, &given);
-    *mesh = map_vertices_onto_surface_patches_given(mesh, points, tris, regions, &given);
+    let smoothing = match octree {
+        Some(o) => crate::surface_optimizer::optimise_mesh_surface_octree(mesh, o, points, tris, regions, &given),
+        None => optimise_mesh_surface(mesh, points, tris, regions, &given),
+    };
+    *mesh = match octree {
+        Some(o) => crate::surface_mapper::map_vertices_onto_surface_patches_given_octree(mesh, o, points, tris, regions, &given),
+        None => map_vertices_onto_surface_patches_given(mesh, points, tris, regions, &given),
+    };
     (FunReport { sheets: sheets_result, smoothing }, given)
 }

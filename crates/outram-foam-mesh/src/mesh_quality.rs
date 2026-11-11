@@ -371,6 +371,7 @@ pub fn assess_quality(mesh: &PolyMesh) -> MeshQualityReport {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use outram_foam_basic_lib::io::MeshFace;
     use outram_foam_basic_lib::mesh::{BoundaryPatch, PatchKind};
 
