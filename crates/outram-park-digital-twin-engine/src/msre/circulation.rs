@@ -7,7 +7,9 @@
 //! that through any flow history, in one of two ORNL models
 //! ([`CirculationModel`]):
 //!
-//! - **[`CirculationModel::WellStirredTm1070`]** (the default): ORNL-TM-1070
+//! - **[`CirculationModel::WellStirredTm1070`]** (~~the default~~ **CHANGED
+//!   2026-11-11, gh:#1330, maintainer: "Let's use ORNL more correct
+//!   physics": now the named ablation**, `MsreConfig::without_line_model`): ORNL-TM-1070
 //!   App. A (A.29), p. 57. The core is a well-stirred tank of transit `τ_c`
 //!   and the external loop a pure delay `τ_L` (Table 1: 8.46 s and 16.73 s),
 //!   with TM-1070 App. B p. 69's six groups. Every delayed neutron emitted in
@@ -15,7 +17,8 @@
 //!   is `teh_o_prke`'s `CirculatingPointKinetics` (MSRE T-C1, gh:#1131)
 //!   step for step; the test `the_well_stirred_model_is_teh_o_prkes_at_full_flow`
 //!   pins that.
-//! - **[`CirculationModel::LineTm1626`]**: ORNL-TM-1626's line model
+//! - **[`CirculationModel::LineTm1626`]** (**the default since 2026-11-11**,
+//!   gh:#1330): ORNL-TM-1626's line model
 //!   (Prince, 1966, Eqs. 14 and 24-27, pp. 7-15): plug flow through the
 //!   lower plenum, the graphite region, the upper plenum and the external
 //!   loop (Table 1 residence times 3.8, 9.4, 3.9, 8.1 s); precursors made in
@@ -67,13 +70,24 @@ use super::design::{BETA, LAMBDA};
 
 /// Which ORNL circulating-fuel model [`CirculatingKinetics`] uses. See the
 /// module docs.
+///
+/// The default is [`CirculationModel::LineTm1626`] (maintainer decision
+/// 2026-11-11, gh:#1330: "Let's use ORNL more correct physics"), pinned by
+/// `tests/msre_correct_physics_is_default.rs`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CirculationModel {
     /// ORNL-TM-1070 (A.29): well-stirred core, delayed loop, TM-1070 data.
-    /// The default: the MSRE T-1 frequency-response V&V was measured with it.
-    #[default]
+    /// ~~The default: the MSRE T-1 frequency-response V&V was measured with
+    /// it.~~ **CHANGED 2026-11-11 (gh:#1330):** an explicit ablation. It is
+    /// the model `nee_soon`'s T-1 frequency response solves, so the
+    /// code-to-code checks against `nee_soon` run with it.
     WellStirredTm1070,
-    /// ORNL-TM-1626's importance-weighted line model, TM-1626 data.
+    /// ORNL-TM-1626's importance-weighted line model, TM-1626 data. The
+    /// default since 2026-11-11 (gh:#1330): it carries the plenums'
+    /// delayed neutrons at their importance, which the well-stirred model
+    /// counts as worthless, and it reproduces ORNL-4233 Fig. 24's start-up
+    /// timing, which the well-stirred model does not (gh:#1332).
+    #[default]
     LineTm1626,
 }
 
