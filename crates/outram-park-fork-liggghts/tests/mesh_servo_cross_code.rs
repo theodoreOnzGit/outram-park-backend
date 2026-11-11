@@ -91,7 +91,7 @@ fn table(text: &str, sep_comma: bool, skip: usize) -> Vec<Vec<f64>> {
 /// + 81 x 12). Deck order: floor, then the mesh wall (the crate's default).
 #[test]
 fn mesh_servo_matches_liggghts() {
-    run_servo("mesh_servo.csv", "mesh_servo_thermo.txt", false);
+    run_servo(&Case::force_pid("mesh_servo", "plate_servo.stl", false));
 }
 
 /// The same deck with the **mesh wall declared before the floor**
@@ -105,14 +105,91 @@ fn mesh_servo_matches_liggghts() {
 /// differed by 1 ulp in force. Result 2026-11-11: see the assertion.
 #[test]
 fn mesh_servo_reverse_declaration_order_matches_liggghts() {
-    run_servo("mesh_servo_rev.csv", "mesh_servo_rev_thermo.txt", true);
+    run_servo(&Case::force_pid("mesh_servo_rev", "plate_servo.stl", true));
 }
 
-fn run_servo(csv_name: &str, thermo_name: &str, mesh_first: bool) {
+/// `ctrlPV torque` (PID): the plate rotates about `z` through `com`, nodes
+/// rebuilt as the original nodes rotated by the TOTAL quaternion, cached
+/// edge vectors and normals rotated by the incremental one; node velocity
+/// `omega x (node - xcm)`. Deck `in.mesh_servo_torque` (two sliding spheres
+/// pinched between plate and floor). Result: see the assertion message.
+#[test]
+fn mesh_servo_torque_matches_liggghts() {
+    let mut c = Case::force_pid("mesh_servo_torque", "plate_torque.stl", false);
+    c.torque = true;
+    c.com = [0.0, 0.0, 0.0099];
+    c.target = 0.0001;
+    c.expect_moved = 1.0e-5;
+    run_servo(&c);
+}
+
+/// `mode auto` on the force servo: cruise at `ctrl_op_max` while the mesh
+/// neighbour list holds no contact, then the piecewise gain (needs
+/// `getTotalNumContacts`, recounted on each neighbour-list rebuild). Deck
+/// `in.mesh_servo_auto`, `target_val -0.1`, `ratio 5e-5`.
+#[test]
+fn mesh_servo_auto_matches_liggghts() {
+    let mut c = Case::force_pid("mesh_servo_auto", "plate_auto.stl", false);
+    c.auto_ratio = Some(0.00005);
+    c.gains = [0.01, 0.0, 0.0];
+    c.com = [0.0, 0.0, 0.015];
+    c.target = -0.1;
+    run_servo(&c);
+}
+
+/// `ctrlPV torque` with `mode auto` (`ctrl_op_min = vel_min / rPaMax`).
+#[test]
+fn mesh_servo_torque_auto_matches_liggghts() {
+    let mut c = Case::force_pid("mesh_servo_torque_auto", "plate_torque.stl", false);
+    c.torque = true;
+    c.auto_ratio = Some(0.00005);
+    c.gains = [0.01, 0.0, 0.0];
+    c.com = [0.0, 0.0, 0.0099];
+    c.target = 0.0001;
+    c.expect_moved = 1.0e-5;
+    run_servo(&c);
+}
+
+/// One servo deck: its reference files, controller and plate.
+struct Case {
+    deck: &'static str,
+    stl: &'static str,
+    mesh_first: bool,
+    torque: bool,
+    /// `mode auto ratio`; `None` is PID.
+    auto_ratio: Option<f64>,
+    com: [f64; 3],
+    target: f64,
+    gains: [f64; 3],
+    /// The servo must have moved the plate centre by more than this
+    /// (force servo) or the torque about `z` must be non-zero (torque servo).
+    expect_moved: f64,
+}
+
+impl Case {
+    fn force_pid(deck: &'static str, stl: &'static str, mesh_first: bool) -> Self {
+        Self {
+            deck,
+            stl,
+            mesh_first,
+            torque: false,
+            auto_ratio: None,
+            com: [0.0, 0.0, 0.0112],
+            target: 0.1,
+            gains: [1.0, 0.2, 0.0001],
+            expect_moved: 1.0e-3,
+        }
+    }
+}
+
+fn run_servo(case: &Case) {
+    let csv_name = format!("{}.csv", case.deck);
+    let thermo_name = format!("{}_thermo.txt", case.deck);
+    let mesh_first = case.mesh_first;
     let (Some(csv), Some(thermo), Some(stl)) = (
-        read(csv_name),
-        read(thermo_name),
-        read("plate_servo.stl"),
+        read(&csv_name),
+        read(&thermo_name),
+        read(case.stl),
     ) else {
         eprintln!("skipping: reference-data/liggghts/ not present");
         return;
@@ -121,17 +198,24 @@ fn run_servo(csv_name: &str, thermo_name: &str, mesh_first: bool) {
     let thermo = table(&thermo, false, 0);
     assert_eq!(rows.len(), 501);
     assert_eq!(thermo.len(), 81);
-    let servo = MeshServo::new(
-        [0.0, 0.0, 0.0112],
+    let mesh = MeshWall::from_ascii_stl(&stl).expect("valid plate stl");
+    let mut servo = MeshServo::new(
+        case.com,
         [0.0, 0.0, 1.0],
-        0.1,
+        case.target,
         0.05,
-        [1.0, 0.2, 0.0001],
+        case.gains,
         1.0e-5,
         0.003,
     );
+    if case.torque {
+        servo = servo.with_torque(&mesh.nodes());
+    }
+    if let Some(ratio) = case.auto_ratio {
+        servo = servo.with_auto(ratio, 0.005);
+    }
     let plate = MovingBoundary::new(
-        WallGeometry::Mesh(MeshWall::from_ascii_stl(&stl).expect("valid plate stl")),
+        WallGeometry::Mesh(mesh),
         Vec3::zero(),
         Vec3::zero(),
         Vec3::zero(),
@@ -169,6 +253,7 @@ fn run_servo(csv_name: &str, thermo_name: &str, mesh_first: bool) {
     let mut thermo_rows = thermo.iter();
     let mut next_thermo = thermo_rows.next();
     let mut moved = 0.0_f64;
+    let (mut max_op, mut zero_contacts, mut some_contacts) = (0.0_f64, false, false);
     for row in &rows {
         let step = row[0] as usize;
         while let Some(th) = next_thermo {
@@ -185,8 +270,11 @@ fn run_servo(csv_name: &str, thermo_name: &str, mesh_first: bool) {
                 } else {
                     sys.mesh_servo_xcm(0, k - 9).expect("servo")
                 };
-                if k == 11 {
-                    moved = moved.max(0.0112 - got);
+                if k == 11 && !case.torque {
+                    moved = moved.max((case.com[2] - got).abs());
+                }
+                if k == 5 && case.torque {
+                    moved = moved.max(got.abs());
                 }
                 if got.to_bits() != th[1 + k].to_bits() {
                     mismatched += 1;
@@ -194,6 +282,13 @@ fn run_servo(csv_name: &str, thermo_name: &str, mesh_first: bool) {
                 }
             }
             next_thermo = thermo_rows.next();
+            let op = sys.mesh_servo_ctrl_op(0).expect("servo");
+            max_op = max_op.max((op[0] * op[0] + op[1] * op[1] + op[2] * op[2]).sqrt());
+            if sys.mesh_servo_contacts(0).expect("servo") == 0 {
+                zero_contacts = true;
+            } else {
+                some_contacts = true;
+            }
         }
         sys.run(step - last);
         last = step;
@@ -218,8 +313,17 @@ fn run_servo(csv_name: &str, thermo_name: &str, mesh_first: bool) {
             }
         }
     }
-    assert!(moved > 1.0e-3, "the servo never moved the plate: {moved}");
+    assert!(
+        moved > case.expect_moved,
+        "the servo never moved the plate: {moved}"
+    );
     assert_eq!(mismatched, 0, "{mismatched}/{total} differ, first {first:?}");
+    if case.torque {
+        assert!(max_op > 1.0e-3, "the torque servo never rotated the plate: {max_op}");
+    }
+    if case.auto_ratio.is_some() && !case.torque {
+        assert!(zero_contacts && some_contacts, "auto mode needs both cruise and contact phases");
+    }
 }
 
 /// The upstream abort is kept: `vel_max >= skin / (2 dt)` panics.

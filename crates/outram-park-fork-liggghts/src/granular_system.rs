@@ -439,6 +439,7 @@ impl GranularSystem {
         self.moving_walls = walls;
         self.fix_order = None;
         self.xhold = self.particles.iter().map(|p| p.position).collect();
+        self.update_servo_contacts();
         self.compute_forces_setup();
         self
     }
@@ -460,6 +461,29 @@ impl GranularSystem {
     #[must_use]
     pub fn mesh_servo_xcm(&self, wall: usize, n: usize) -> Option<f64> {
         self.moving_walls[wall].servo.as_ref().map(|s| s.0.xcm()[n])
+    }
+
+    /// Servo velocity `vcm_` (force servo) or angular velocity `omegacm_`
+    /// (torque servo) of wall `wall`; `None` when that wall has no servo.
+    #[must_use]
+    pub fn mesh_servo_ctrl_op(&self, wall: usize) -> Option<[f64; 3]> {
+        self.moving_walls[wall]
+            .servo
+            .as_ref()
+            .map(|s| match s.0.ctrl() {
+                crate::mesh_stress::ServoCtrl::Force => s.0.vcm(),
+                crate::mesh_stress::ServoCtrl::Torque => s.0.omegacm(),
+            })
+    }
+
+    /// Neighbour-list contact count of the servo mesh of wall `wall`
+    /// (`getTotalNumContacts`); `None` when that wall has no servo.
+    #[must_use]
+    pub fn mesh_servo_contacts(&self, wall: usize) -> Option<usize> {
+        self.moving_walls[wall]
+            .servo
+            .as_ref()
+            .map(|_| self.moving_walls[wall].servo_contacts)
     }
 
     /// `(sigma_n, sigma_t)` `[Pa]` of facet `tri` of moving wall `wall`
@@ -509,6 +533,7 @@ impl GranularSystem {
     pub fn with_neighbor_skin(mut self, skin: f64) -> Self {
         self.neigh_skin = skin;
         self.xhold = self.particles.iter().map(|p| p.position).collect();
+        self.update_servo_contacts();
         self
     }
 
@@ -522,6 +547,16 @@ impl GranularSystem {
         self.setup_phase = true;
         self.compute_forces();
         self.setup_phase = false;
+    }
+
+    /// Recount the servo meshes' neighbour-list contacts
+    /// (`getTotalNumContacts`, read by `mode auto`); done where upstream
+    /// rebuilds its neighbour list.
+    fn update_servo_contacts(&mut self) {
+        let skin = self.neigh_skin;
+        for w in &mut self.moving_walls {
+            w.update_servo_contacts(&self.particles, skin);
+        }
     }
 
     /// The neighbour-rebuild decision and mesh refresh that follow the walls'
@@ -591,6 +626,7 @@ impl GranularSystem {
         self.perm = (0..self.particles.len()).collect();
         self.next_sort = 0;
         self.xhold = self.particles.iter().map(|p| p.position).collect();
+        self.update_servo_contacts();
         self.mesh_rebuild_pending = false;
         self.compute_forces_setup();
         self
@@ -1788,6 +1824,7 @@ impl GranularSystem {
         // the mesh neighbour lists rebuild when the neighbour list does (every
         // step when no skin was given)
         if self.rebuild_now || self.neigh_skin <= 0.0 {
+            self.update_servo_contacts();
             for m in &mut self.massflow {
                 m.rebuild_lists(&self.particles);
             }

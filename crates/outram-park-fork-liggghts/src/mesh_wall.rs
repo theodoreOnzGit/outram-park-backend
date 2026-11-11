@@ -139,7 +139,7 @@ use petir::mathf::RealMath;
 use crate::boundary::{Boundary, Contact};
 use crate::particle::{Particle, Vec3};
 use crate::tri_mesh::{arr, vec3, Nodes, TriMeshState, V3};
-use crate::mesh_stress::{MeshServo, MeshStress};
+use crate::mesh_stress::{MeshServo, MeshStress, ServoCtrl, ServoMove};
 use crate::variable::{Expr, VarContext, VariableTable};
 use crate::DemError;
 
@@ -354,7 +354,7 @@ pub struct MeshWall {
 
 impl MeshWall {
     /// The facets' nodes in upstream's array layout.
-    pub(crate) fn nodes(&self) -> Vec<Nodes> {
+    pub fn nodes(&self) -> Vec<Nodes> {
         self.triangles
             .iter()
             .map(|t| [arr(t.a), arr(t.b), arr(t.c)])
@@ -867,6 +867,9 @@ pub struct MovingBoundary {
     /// `mesh_module_stress_servo` (force PID) with the original nodes
     /// `mesh->move` starts from. gh:#1416.
     pub servo: Option<(MeshServo, Vec<Nodes>)>,
+    /// `getTotalNumContacts()` of the servo mesh neighbour list at its last
+    /// rebuild (read by `mode auto`). gh:#1416.
+    pub servo_contacts: usize,
 }
 
 /// Upper bound of the `order` of a vibration mover (upstream `ampl[30]`).
@@ -1011,6 +1014,7 @@ impl MovingBoundary {
     #[must_use]
     pub fn is_rotating(&self) -> bool {
         self.rotation.is_some_and(|r| r.omega != 0.0) || self.angular_velocity.norm() > 0.0
+            || self.servo.as_ref().is_some_and(|s| s.0.ctrl() == ServoCtrl::Torque)
     }
 
     /// Wrap `geometry` as a rigid wall with translational `velocity` `[m/s]`,
@@ -1038,6 +1042,7 @@ impl MovingBoundary {
             end_step: 0,
             stress: None,
             servo: None,
+            servo_contacts: 0,
         }
     }
 
@@ -1361,48 +1366,112 @@ impl MovingBoundary {
 }
 
 impl MovingBoundary {
-    /// `MeshModuleStressServo::initial_integrate`: `mesh->move(dX, dx)` puts
-    /// every node at its original position plus `dX`; `p_ref` follows the
-    /// centre. Node velocities keep what the last `final_integrate` set.
+    /// `MeshModuleStressServo::initial_integrate`: `ctrlPV force` puts every
+    /// node at its original position plus `dX` (`mesh->move(dX, dx)`) and
+    /// `p_ref` follows the centre; `ctrlPV torque` puts every node at its
+    /// original position rotated by the total angle about `xcm`
+    /// (`mesh->rotate(totalPhi, incrementalPhi, axis, xcm)`). Node velocities
+    /// keep what the last `final_integrate` set.
     fn advance_servo(&mut self) {
         let Some((servo, orig)) = &mut self.servo else {
             return;
         };
-        let d = servo.initial_integrate();
+        let mv = servo.initial_integrate();
         let WallGeometry::Mesh(m) = &mut self.geometry else {
             return;
         };
-        let nodes: Vec<Nodes> = orig
-            .iter()
-            .map(|nd| {
-                let mut o = *nd;
-                for node in &mut o {
-                    for k in 0..3 {
-                        node[k] += d[k];
-                    }
+        match mv {
+            ServoMove::Translate { d_x: d } => {
+                let nodes: Vec<Nodes> = orig
+                    .iter()
+                    .map(|nd| {
+                        let mut o = *nd;
+                        for node in &mut o {
+                            for k in 0..3 {
+                                node[k] += d[k];
+                            }
+                        }
+                        o
+                    })
+                    .collect();
+                m.set_nodes(&nodes);
+                m.rebuild_bounds();
+                if let Some(st) = &mut self.stress {
+                    st.p_ref = vec3(servo.xcm());
                 }
-                o
-            })
-            .collect();
-        m.set_nodes(&nodes);
-        m.rebuild_bounds();
-        if let Some(st) = &mut self.stress {
-            st.p_ref = vec3(servo.xcm());
+            }
+            ServoMove::Rotate {
+                total_phi,
+                inc_phi,
+                axis,
+                origin,
+            } => {
+                // `p_ref` is the rotation origin (set in `init()`): the
+                // `move(-origin)`, rotate, `move(origin)` of the tracked
+                // global property leaves it where it is.
+                let mut nodes = orig.clone();
+                m.state
+                    .rotate_total(orig, &mut nodes, total_phi, inc_phi, &axis, &origin);
+                m.set_nodes(&nodes);
+                m.rebuild_bounds();
+            }
         }
     }
 
     /// `MeshModuleStressServo::final_integrate`: new servo velocity from this
-    /// step's total force, written to every node's velocity.
+    /// step's total force (or torque) and the mesh contact count, written to
+    /// every node's velocity (`set_v_node` / `set_v_node_rotate`).
     pub fn servo_final_integrate(&mut self) {
         let (Some((servo, _)), Some(st)) = (&mut self.servo, &self.stress) else {
             return;
         };
-        let v = servo.final_integrate(st.f_total());
+        let pv = match servo.ctrl() {
+            ServoCtrl::Force => st.f_total(),
+            ServoCtrl::Torque => st.torque_total(),
+        };
+        let v = servo.final_integrate_pv(pv, self.servo_contacts);
         if let WallGeometry::Mesh(m) = &mut self.geometry {
-            for nv in &mut m.state.node_velocity {
-                *nv = [v; 3];
+            match servo.ctrl() {
+                ServoCtrl::Force => {
+                    for nv in &mut m.state.node_velocity {
+                        *nv = [v; 3];
+                    }
+                }
+                ServoCtrl::Torque => {
+                    let nodes = m.nodes();
+                    for (nd, nv) in nodes.iter().zip(m.state.node_velocity.iter_mut()) {
+                        for j in 0..3 {
+                            nv[j] = servo.node_velocity_rotate(nd[j]);
+                        }
+                    }
+                }
             }
         }
+    }
+
+    /// `FixNeighlistMesh::pre_force` count for the servo mesh
+    /// (`numAllContacts_`): the number of (facet, particle) pairs the mesh
+    /// neighbour list holds, for a moving mesh (threshold = the full
+    /// `skin`, `r * contactDistanceFactor = r`). A no-op without a servo.
+    pub fn update_servo_contacts(&mut self, particles: &[Particle], skin: f64) {
+        if self.servo.is_none() {
+            return;
+        }
+        let WallGeometry::Mesh(m) = &self.geometry else {
+            return;
+        };
+        let nodes = m.nodes();
+        let mut count = 0;
+        for (i, nd) in nodes.iter().enumerate() {
+            for p in particles {
+                if m.state
+                    .neighbuild(nd, i, p.radius, &arr(p.position), skin)
+                {
+                    count += 1;
+                }
+            }
+        }
+        self.servo_contacts = count;
     }
 
     /// Mesh branch of [`MovingBoundary::advance`]: upstream `FixMoveMesh::

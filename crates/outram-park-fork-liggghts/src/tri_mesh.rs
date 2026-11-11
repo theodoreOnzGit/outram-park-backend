@@ -544,6 +544,55 @@ impl TriMeshState {
         }
     }
 
+    /// `MultiNodeMesh::rotate(totalAngle, dAngle, axis, p)` (the servo's
+    /// torque mode): `nodes` are reset to `orig` (`resetToOrig`) and rotated by
+    /// the TOTAL quaternion about `origin`; the cached edge vectors and
+    /// normals rotate by the INCREMENTAL quaternion (`customValues_.rotate
+    /// (totalQ, dQ)` applies `dQ` to element properties). Unlike the
+    /// incremental overload, `axis` is used as given (not re-normalised), as
+    /// upstream does.
+    pub fn rotate_total(
+        &mut self,
+        orig: &[Nodes],
+        nodes: &mut [Nodes],
+        total_angle: f64,
+        d_angle: f64,
+        axis: &V3,
+        origin: &V3,
+    ) {
+        let total_q = [
+            (total_angle * 0.5).cos(),
+            axis[0] * (total_angle * 0.5).sin(),
+            axis[1] * (total_angle * 0.5).sin(),
+            axis[2] * (total_angle * 0.5).sin(),
+        ];
+        let dq = [
+            (d_angle * 0.5).cos(),
+            axis[0] * (d_angle * 0.5).sin(),
+            axis[1] * (d_angle * 0.5).sin(),
+            axis[2] * (d_angle * 0.5).sin(),
+        ];
+        let trans = v_mag_sq(origin) > 0.;
+        for (nd, o) in nodes.iter_mut().zip(orig) {
+            *nd = *o;
+            for node in nd.iter_mut() {
+                if trans {
+                    *node = v_sub(node, origin);
+                }
+                *node = vec_quat_rotate(node, &total_q);
+                if trans {
+                    *node = v_add(node, origin);
+                }
+            }
+        }
+        for g in &mut self.geo {
+            for e in &mut g.edge_vec {
+                *e = vec_quat_rotate(e, &dq);
+            }
+            g.surf_norm = vec_quat_rotate(&g.surf_norm, &dq);
+        }
+    }
+
     /// Facets sharing at least one node with facet `i`.
     #[must_use]
     pub fn node_neighbours(&self, i: usize) -> &[u32] {
@@ -1165,5 +1214,24 @@ mod tests {
         assert!(s.decide_rebuild(&nodes, 0.1));
         s.refresh_from_nodes(&nodes);
         assert!(!s.decide_rebuild(&nodes, 0.1));
+    }
+
+    /// **Methodology.** `rotate_total` puts the nodes at `orig` rotated by the
+    /// TOTAL angle (a quarter-turn about z through (1, 0, 0)) while the cached
+    /// edge vectors and normal rotate by the INCREMENTAL angle (an eighth).
+    /// **Result:** node `(0,0,0)` goes to `(1,-1,0)`; the edge `(1,0,0)` turns
+    /// to `(cos 45, sin 45, 0)` to 1e-15; the normal stays `(0,0,1)`.
+    #[test]
+    fn rotate_total_uses_total_for_nodes_and_incremental_for_cache() {
+        let orig = vec![tri([0., 0., 0.], [1., 0., 0.], [0., 1., 0.])];
+        let mut s = TriMeshState::new(&orig);
+        let mut nodes = orig.clone();
+        let q = std::f64::consts::FRAC_PI_2;
+        s.rotate_total(&orig, &mut nodes, q, q / 2.0, &[0., 0., 1.], &[1., 0., 0.]);
+        assert!((nodes[0][0][0] - 1.0).abs() < 1e-15 && (nodes[0][0][1] + 1.0).abs() < 1e-15);
+        let c = (0.5_f64).sqrt();
+        let e = s.geo[0].edge_vec[0];
+        assert!((e[0] - c).abs() < 1e-15 && (e[1] - c).abs() < 1e-15, "{e:?}");
+        assert!((s.surface_norm(0)[2] - 1.0).abs() < 1e-15);
     }
 }
