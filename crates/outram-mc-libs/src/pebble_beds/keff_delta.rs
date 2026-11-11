@@ -1203,6 +1203,16 @@ where
 
             // Reaction partition on the total: fission | capture | inelastic |
             // (n,2n) | elastic — identical to keff.rs / transport_csg.rs.
+            // gh:#1386/#1444 (c): OpenMC `create_fission_sites` at every collision.
+            let (pc_production, pc_n) =
+                crate::physics::scatter::per_collision_fission_count(&x, k_running, seed);
+            production += pc_production;
+            for _ in 0..pc_n {
+                let (e_born, u_born) = crate::physics::scatter::sample_fission_neutron_for_driver(
+                    nuc, e, e_cap_fission, u, seed,
+                );
+                next_bank.push(Site { r, u: u_born, e: e_born });
+            }
             let xi = crate::physics::scatter::scatter_ladder_xi(
                 nuc.scatter_kernels(),
                 prn(seed) * x.total,
@@ -1221,14 +1231,22 @@ where
                 } else {
                     0.0
                 };
-                production += nu_bar;
-                let n = sample_num_neutrons(nu_bar, k_running, seed);
+                let per_collision = crate::physics::scatter::fission_banking_from_env()
+                    == crate::physics::scatter::FissionBanking::PerCollision;
+                let n = if per_collision {
+                    0 // banked before the reaction draw, as OpenMC
+                } else {
+                    production += nu_bar;
+                    sample_num_neutrons(nu_bar, k_running, seed)
+                };
                 for _ in 0..n {
-                    let (dx, dy, dz) = isotropic_direction(seed);
+                    let (e_born, u_born) = crate::physics::scatter::sample_fission_neutron_for_driver(
+                    nuc, e, e_cap_fission, u, seed,
+                );
                     next_bank.push(Site {
                         r,
-                        u: Direction::new(dx, dy, dz),
-                        e: nuc.sample_fission_energy_below(e, e_cap_fission, seed),
+                        u: u_born,
+                        e: e_born,
                     });
                 }
                 record_outcome(observe, r, u, e, TrackEvent::Fission, Some(m));

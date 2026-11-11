@@ -2126,46 +2126,62 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                 // absorption threshold, so the **same** ladder serves both
                 // paths and the fission/capture arms are simply unreachable
                 // rather than duplicated with different bounds.
-                let xi = if vr.survival_biasing {
-                    if x.nu_fission > 0.0 && x.total > 0.0 {
-                        // `create_fission_sites`: nu_t = wgt/keff * nuSigma_f/Sigma_t.
-                        let nu_t = w * x.nu_fission / (k_running * x.total);
-                        production += w * x.nu_fission / x.total;
-                        let mut n = nu_t as usize;
-                        if prn(seed) <= nu_t - n as f64 {
-                            n += 1;
-                        }
-                        for _ in 0..n {
+                // gh:#1386/#1444 (c): OpenMC `create_fission_sites` at EVERY collision with
+                // a fissionable nuclide (src/physics.cpp:120-123), before the reaction draw.
+                // Survival biasing always banks this way; analog does by default.
+                let per_collision_banking = crate::physics::scatter::fission_banking_from_env()
+                    == crate::physics::scatter::FissionBanking::PerCollision;
+                if (vr.survival_biasing || per_collision_banking) && x.nu_fission > 0.0 && x.total > 0.0 {
+                    // `create_fission_sites`: nu_t = wgt/keff * nuSigma_f/Sigma_t.
+                    let nu_t = w * x.nu_fission / (k_running * x.total);
+                    production += w * x.nu_fission / x.total;
+                    let mut n = nu_t as usize;
+                    if prn(seed) <= nu_t - n as f64 {
+                        n += 1;
+                    }
+                    for _ in 0..n {
+                        let fission_legacy = crate::physics::scatter::fission_neutron_order_from_env()
+                            == crate::physics::scatter::FissionNeutronOrder::Legacy;
+                        // OpenMC `sample_fission_neutron` order (gh:#1386/#1444 d), or the legacy
+                        // direction-then-energy order.
+                        let (g_born, e_born, u_born) = if fission_legacy {
                             let (dx, dy, dz) = isotropic_direction(seed);
                             let e_born = nuc.sample_fission_energy_below(e, e_cap_fission, seed);
-                            if let Some(t) = tally {
-                                score_fission_birth(
-                                    batch, t, cell_idx, m, leaf.universe, e, e_born, r, w,
-                                );
-                            }
-                            if let Some(x) = extra.as_deref_mut() {
-                                x.each_tally(|t, batch| {
-                                score_fission_birth(
-                                    batch, t, cell_idx, m, leaf.universe, e, e_born, r, w,
-                                );
-                            });
-                            }
-                            next_bank.push(Site {
-                                r,
-                                u: Direction::new(dx, dy, dz),
-                                e: e_born,
-                                delayed_group: if urr_start.is_some() {
-                                    // SeedingMode::OpenMc: STREAM_TRACKING, as OpenMC's
-                                    // `sample_fission_neutron` (`seed = p.current_seed()`)
-                                    nuc.sample_delayed_group(e, seed)
-                                } else {
-                                    nuc.sample_delayed_group(e, &mut delayed_seed)
-                                },
-                                parent_lifetime_s: time_s,
-                            });
+                            (None, e_born, Direction::new(dx, dy, dz))
+                        } else {
+                            nuc.sample_fission_neutron_openmc(e, e_cap_fission, u, seed)
+                        };
+                        if let Some(t) = tally {
+                            score_fission_birth(
+                                batch, t, cell_idx, m, leaf.universe, e, e_born, r, w,
+                            );
                         }
+                        if let Some(x) = extra.as_deref_mut() {
+                            x.each_tally(|t, batch| {
+                            score_fission_birth(
+                                batch, t, cell_idx, m, leaf.universe, e, e_born, r, w,
+                            );
+                        });
+                        }
+                        next_bank.push(Site {
+                            r,
+                            u: u_born,
+                            e: e_born,
+                            delayed_group: if !fission_legacy {
+                                g_born
+                            } else if urr_start.is_some() {
+                                // SeedingMode::OpenMc: STREAM_TRACKING, as OpenMC's
+                                // `sample_fission_neutron` (`seed = p.current_seed()`)
+                                nuc.sample_delayed_group(e, seed)
+                            } else {
+                                nuc.sample_delayed_group(e, &mut delayed_seed)
+                            },
+                            parent_lifetime_s: time_s,
+                        });
                     }
+                }
 
+                let xi = if vr.survival_biasing {
                     // `absorption()`: w -= w * Sigma_a / Sigma_t.
                     let (w_new, _absorbed) =
                         survival_bias_absorption(w, x.absorption, x.total);
@@ -2226,11 +2242,24 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     // GitHub #461. Analog `w` is exactly 1.0, so this is
                     // bit-identical there; under weight windows the split and
                     // rouletted particles used to bank as if at weight 1.
-                    production += w * nu_bar;
-                    let n = sample_num_neutrons(w * nu_bar, k_running, seed);
+                    let n = if per_collision_banking {
+                        0 // already banked above, as OpenMC's create_fission_sites
+                    } else {
+                        production += w * nu_bar;
+                        sample_num_neutrons(w * nu_bar, k_running, seed)
+                    };
                     for _ in 0..n {
-                        let (dx, dy, dz) = isotropic_direction(seed);
-                        let e_born = nuc.sample_fission_energy_below(e, e_cap_fission, seed);
+                        let fission_legacy = crate::physics::scatter::fission_neutron_order_from_env()
+                            == crate::physics::scatter::FissionNeutronOrder::Legacy;
+                        // OpenMC `sample_fission_neutron` order (gh:#1386/#1444 d), or the legacy
+                        // direction-then-energy order.
+                        let (g_born, e_born, u_born) = if fission_legacy {
+                            let (dx, dy, dz) = isotropic_direction(seed);
+                            let e_born = nuc.sample_fission_energy_below(e, e_cap_fission, seed);
+                            (None, e_born, Direction::new(dx, dy, dz))
+                        } else {
+                            nuc.sample_fission_neutron_openmc(e, e_cap_fission, u, seed)
+                        };
                         // Fission-spectrum estimator: chi is MEASURED from the
                         // energies neutrons are actually born with, rather than
                         // assumed from an analytic Watt form.
@@ -2264,9 +2293,11 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                         }
                         next_bank.push(Site {
                             r,
-                            u: Direction::new(dx, dy, dz),
+                            u: u_born,
                             e: e_born,
-                            delayed_group: if urr_start.is_some() {
+                            delayed_group: if !fission_legacy {
+                                g_born
+                            } else if urr_start.is_some() {
                                 nuc.sample_delayed_group(e, seed)
                             } else {
                                 nuc.sample_delayed_group(e, &mut delayed_seed)

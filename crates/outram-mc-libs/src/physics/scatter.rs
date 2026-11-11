@@ -1244,6 +1244,154 @@ pub fn reaction_order_from_env() -> ReactionOrder {
     }
 }
 
+/// Order in which a fission neutron's quantities are drawn (gh:#1386, #1444 d).
+///
+/// [`FissionNeutronOrder::OpenMc`] is the **default**: OpenMC's
+/// `sample_fission_neutron` (`src/physics.cpp:1081`): delayed-group choice, then
+/// `mu` and `E'` from the fission distribution, then `rotate_angle(u, mu)`
+/// ([`crate::material::nuclide::Nuclide::sample_fission_neutron_openmc`]).
+/// [`FissionNeutronOrder::Legacy`] draws an isotropic direction first, then the
+/// energy, and the delayed-group tag from a separate draw. Legacy is selected by
+/// `OUTRAM_MC_LEGACY_FISSION_NEUTRON_ORDER=1` or by the master
+/// `OUTRAM_MC_LEGACY_REACTION_ORDER=1`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FissionNeutronOrder {
+    /// OpenMC `sample_fission_neutron` order (default).
+    #[default]
+    OpenMc,
+    /// The earlier order.
+    Legacy,
+}
+
+/// Read `OUTRAM_MC_LEGACY_FISSION_NEUTRON_ORDER` / the master legacy switch
+/// (cached on first read).
+pub fn fission_neutron_order_from_env() -> FissionNeutronOrder {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
+    let cached = FLAG.load(Ordering::Relaxed);
+    let legacy = if cached != u8::MAX {
+        cached == 1
+    } else {
+        let set = |k: &str| match std::env::var(k) {
+            Ok(v) => !v.is_empty() && v != "0",
+            Err(_) => false,
+        };
+        let on = set("OUTRAM_MC_LEGACY_FISSION_NEUTRON_ORDER") || set("OUTRAM_MC_LEGACY_REACTION_ORDER");
+        FLAG.store(on as u8, Ordering::Relaxed);
+        on
+    };
+    if legacy {
+        FissionNeutronOrder::Legacy
+    } else {
+        FissionNeutronOrder::OpenMc
+    }
+}
+
+/// Where fission sites are banked (gh:#1386, #1444 c).
+///
+/// [`FissionBanking::PerCollision`] follows OpenMC `sample_neutron_reaction`
+/// (`src/physics.cpp:105-139`): at EVERY collision with a nuclide that has
+/// `fission > 0`, `create_fission_sites` banks `nu = int(nu_t)` (+1 with
+/// probability `nu_t - nu`) sites, `nu_t = wgt/keff * nu_sigma_f/sigma_t`, one
+/// `prn` draw before the reaction draw, whether or not the collision then "is" a
+/// fission. [`FissionBanking::AtFission`] banks only when the sampled reaction is
+/// fission (`nu_bar` sites). Legacy is `OUTRAM_MC_LEGACY_FISSION_BANKING=1` or
+/// the master `OUTRAM_MC_LEGACY_REACTION_ORDER=1`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FissionBanking {
+    /// OpenMC `create_fission_sites` at every collision (default).
+    #[default]
+    PerCollision,
+    /// Bank at the sampled fission event only (the earlier behaviour).
+    AtFission,
+}
+
+static FISSION_BANKING_OVERRIDE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(u8::MAX);
+
+/// Force a banking mode for the whole process (`None` = back to the environment
+/// switch). For paired A/B tests that run both modes in one process; not for
+/// concurrent use with other runs in the same process.
+pub fn set_fission_banking_override(mode: Option<FissionBanking>) {
+    let v = match mode {
+        Some(FissionBanking::PerCollision) => 0,
+        Some(FissionBanking::AtFission) => 1,
+        None => u8::MAX,
+    };
+    FISSION_BANKING_OVERRIDE.store(v, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Read `OUTRAM_MC_LEGACY_FISSION_BANKING` / the master legacy switch (cached).
+pub fn fission_banking_from_env() -> FissionBanking {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    match FISSION_BANKING_OVERRIDE.load(Ordering::Relaxed) {
+        0 => return FissionBanking::PerCollision,
+        1 => return FissionBanking::AtFission,
+        _ => {}
+    }
+    static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
+    let cached = FLAG.load(Ordering::Relaxed);
+    let legacy = if cached != u8::MAX {
+        cached == 1
+    } else {
+        let set = |k: &str| match std::env::var(k) {
+            Ok(v) => !v.is_empty() && v != "0",
+            Err(_) => false,
+        };
+        let on = set("OUTRAM_MC_LEGACY_FISSION_BANKING") || set("OUTRAM_MC_LEGACY_REACTION_ORDER");
+        FLAG.store(on as u8, Ordering::Relaxed);
+        on
+    };
+    if legacy { FissionBanking::AtFission } else { FissionBanking::PerCollision }
+}
+
+/// OpenMC `create_fission_sites` count for ONE collision of a unit-weight
+/// neutron (sphere drivers): returns `(expected production nu_sigma_f/sigma_t, n)`
+/// with `nu_t = nu_sigma_f / (keff * sigma_t)`, `n = int(nu_t)` plus one when
+/// `prn <= nu_t - n` (`src/physics.cpp:181-189`). Returns `(0.0, 0)` and draws
+/// nothing when [`fission_banking_from_env`] is [`FissionBanking::AtFission`] or
+/// the nuclide has no fission. The caller banks `n` sites at the collision point.
+pub fn per_collision_fission_count(
+    x: &crate::material::nuclide::MicroXS,
+    keff: f64,
+    seed: &mut u64,
+) -> (f64, usize) {
+    if fission_banking_from_env() != FissionBanking::PerCollision
+        || !(x.nu_fission > 0.0 && x.total > 0.0)
+    {
+        return (0.0, 0);
+    }
+    let k = if keff.is_finite() && keff > 0.0 { keff } else { 1.0 };
+    let nu_t = x.nu_fission / (k * x.total);
+    let mut n = nu_t as usize;
+    if prn(seed) <= nu_t - n as f64 {
+        n += 1;
+    }
+    (x.nu_fission / x.total, n)
+}
+
+/// One fission neutron `(E', direction)` for the sphere drivers, in the order
+/// [`fission_neutron_order_from_env`] selects. Legacy: isotropic direction, then
+/// energy ([`crate::material::nuclide::Nuclide::sample_fission_energy_below`]).
+pub fn sample_fission_neutron_for_driver(
+    nuc: &crate::material::nuclide::Nuclide,
+    e: f64,
+    e_cap: f64,
+    u: Direction,
+    seed: &mut u64,
+) -> (f64, Direction) {
+    match fission_neutron_order_from_env() {
+        FissionNeutronOrder::OpenMc => {
+            let (_g, e_born, dir) = nuc.sample_fission_neutron_openmc(e, e_cap, u, seed);
+            (e_born, dir)
+        }
+        FissionNeutronOrder::Legacy => {
+            let (dx, dy, dz) = crate::rng::distributions::isotropic_direction(seed);
+            let e_born = nuc.sample_fission_energy_below(e, e_cap, seed);
+            (e_born, Direction::new(dx, dy, dz))
+        }
+    }
+}
+
 /// The reaction group one collision resolved to.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ReactionGroup {

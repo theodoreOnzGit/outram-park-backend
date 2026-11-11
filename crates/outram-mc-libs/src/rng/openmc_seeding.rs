@@ -68,13 +68,18 @@
 //! default (`physics::scatter::ReactionOrder::OpenMc`, `classify_reaction`;
 //! legacy via `OUTRAM_MC_LEGACY_REACTION_ORDER=1`), in the CSG driver, the three
 //! `physics/keff.rs` sphere sites and `pebble_beds/keff_delta.rs`, verified 1600/1600
-//! by `tests/reaction_walk_vs_openmc_code_to_code.rs`; still differing: a fissionable nuclide banks fission sites only
+//! by `tests/reaction_walk_vs_openmc_code_to_code.rs`; ~~fission neutrons draw direction before energy and isotropically with no `rotate_angle`~~ **CORRECTED 2026-11-11 (gh:#1386, #1444 d)** -- `Nuclide::sample_fission_neutron_openmc` follows `sample_fission_neutron` (`prn<beta`, group, time draw, `mu` then `E'`, `rotate_angle`), the default in the CSG and sphere drivers (legacy via `OUTRAM_MC_LEGACY_FISSION_NEUTRON_ORDER=1`; pinned by `tests/fission_neutron_order_openmc.rs`, a replay, not yet a compiled-upstream differential); ~~still differing: a fissionable nuclide banks fission sites only
 //! at a fission event where OpenMC's `create_fission_sites` runs at EVERY
-//! collision (weight `nu_t = wgt/k * nu * sigma_f/sigma_t`); fission neutrons
-//! draw direction before energy and isotropically with no `rotate_angle`. The
+//! collision (weight `nu_t = wgt/k * nu * sigma_f/sigma_t`) (item c, not done). The
 //! first track divergence on a one-nuclide non-fissile sphere is therefore the
 //! level pick and the ladder order; on a fissionable one, the per-collision
-//! fission banking. The streams are OpenMC's; the consumption order is closer,
+//! fission banking.~~ **CORRECTED 2026-11-11 (gh:#1386, #1444 c)** -- `create_fission_sites`
+//! at every collision with `fission > 0` (`nu_t = wgt/k * nu_sigma_f/sigma_t`, one `prn`
+//! before the reaction draw) is the default in the CSG driver and the sphere drivers
+//! (`physics::scatter::FissionBanking::PerCollision`; legacy bank-at-fission via
+//! `OUTRAM_MC_LEGACY_FISSION_BANKING=1`); paired Godiva
+//! `tests/godiva_fission_banking_paired.rs` +600 pcm, +1.99 sigma. Not done: the GPU
+//! `collide_batched` path still banks at fission. The streams are OpenMC's; the consumption order is closer,
 //! not identical.
 //!
 //! Indexing: OpenMC's `current_batch` and `current_gen` start at 1 and

@@ -41,6 +41,29 @@
 //! **SUPERSEDED 2026-10-20 (gh:#985):** the platform libm is no longer
 //! called, so one pin holds for every host; see below.
 //!
+//! # Re-pinned 2026-11-11 (newest): OpenMC `sample_fission_neutron` order (gh:#1386, #1444 item d)
+//!
+//! Fission neutrons are drawn in OpenMC's order (delayed-group choice and time
+//! draw, then `mu` and `E'`, then `rotate_angle(u, mu)`;
+//! `Nuclide::sample_fission_neutron_openmc`) in the CSG and sphere drivers.
+//! Control: `OUTRAM_MC_LEGACY_FISSION_NEUTRON_ORDER=1` reproduces every previous
+//! pin (surface_seq, keff_delta_seq, keff_delta_par2 and the 5 hybrid pins,
+//! 2026-11-11). sigma = |old-new| over the quadrature of the two standard errors
+//! (same seeds, so correlated: an overestimate).
+//!
+//! | case | old k | new k | sigma | old -> new fingerprint |
+//! |---|---|---|---|---|
+//! | `keff_delta_seq` | 1.26562 +/- 0.03210 | 1.27714 +/- 0.03527 | 0.24 | `0x97e986a6c3e751c4` -> `0x433df03ca859ac7d` |
+//! | `surface_seq` | 1.31480 +/- 0.02377 | 1.25533 +/- 0.01497 | 2.12 | `0x70a3fc7b0653f8ad` -> `0xa6ad64b16c46ade1` |
+//! | `keff_delta_par2` | 1.25708 +/- 0.01259 | 1.27067 +/- 0.02744 | 0.45 | `0x149277ecca97e03c` -> `0x9f563d5ced6f1398` |
+//! | `hybrid_seq_*` (4 pins, one k) | 1.22848 +/- 0.02420 | 1.32016 +/- 0.02617 | 2.57 | `0x9d6a..` -> `0x4664cb360ba0dcac`; `0x75c6..` -> `0xbfa540cebde5736d`; `0xd8a6..` -> `0x4a7158f3dba7ec4f`; `0xb3e8..` -> `0x9a5f4d7319c36c6c` |
+//! | `hybrid_par2_tentative` | 1.27927 +/- 0.01850 | 1.32530 +/- 0.01627 | 1.87 | `0x086fd9d726390639` -> `0x21fce7d5ea3faf47` |
+//! | `keff_delta_stepping` | (per-generation k) | | | `0x7096c1a6ca43d768` -> `0xf3435ca8ecec41ae` |
+//!
+//! None exceeds 3 sigma (`hybrid_seq` is the largest at 2.57, one sample of
+//! 55 generations x 1000 histories; the other three fission-order-sensitive
+//! cases move by under 2.2): re-pinned, not a finding.
+//!
 //! # Re-pinned 2026-11-11 (latest): OpenMC `scatter()` reaction order and single-cutoff level pick (gh:#1386, #1444 items a, b)
 //!
 //! `physics::scatter::ReactionOrder::OpenMc` is the CSG collision default: the
@@ -53,12 +76,12 @@
 //!
 //! | case | old k | new k | sigma | old -> new fingerprint |
 //! |---|---|---|---|---|
-//! | `surface_seq` | 1.29102 +/- 0.04422 | 1.31480 +/- 0.02377 | 0.47 | `0x421af953c2c86352` -> `0x70a3fc7b0653f8ad` |
-//! | `hybrid_seq_*` (4 pins, one k) | 1.28224 +/- 0.02684 | 1.22848 +/- 0.02420 | 1.49 | `0x612a86565c772cf0` -> `0x9d6a14eceb527ae2`; `0x98379999342903ee` -> `0x75c6be0e87920854`; `0x8522bc2194983adc` -> `0xd8a66a7d2479eeb4`; `0x59f808f27651cb38` -> `0xb3e8f993cc67b42c` |
-//! | `hybrid_par2_tentative` | 1.26183 +/- 0.01395 | 1.27927 +/- 0.01850 | 0.75 | `0x43e85d46f7bdb5d1` -> `0x086fd9d726390639` |
-//! | `keff_delta_seq` | 1.24358 +/- 0.03208 | 1.26562 +/- 0.03210 | 0.49 | `0xa24251ff7a0c4d8c` -> `0x97e986a6c3e751c4` |
-//! | `keff_delta_par2` | 1.23575 +/- 0.00783 | 1.25708 +/- 0.01259 | 1.44 | `0xd05b9af98b9744f5` -> `0x149277ecca97e03c` |
-//! | `keff_delta_stepping` | per-generation k | | | `0x2a764f3378416ab5` -> `0x7096c1a6ca43d768` |
+//! | `surface_seq` | 1.29102 +/- 0.04422 | 1.31480 +/- 0.02377 | 0.47 | `0x421af953c2c86352` -> `0xa6ad64b16c46ade1` |
+//! | `hybrid_seq_*` (4 pins, one k) | 1.28224 +/- 0.02684 | 1.22848 +/- 0.02420 | 1.49 | `0x612a86565c772cf0` -> `0x4664cb360ba0dcac`; `0x98379999342903ee` -> `0x75c6be0e87920854`; `0x8522bc2194983adc` -> `0xd8a66a7d2479eeb4`; `0x59f808f27651cb38` -> `0x9a5f4d7319c36c6c` |
+//! | `hybrid_par2_tentative` | 1.26183 +/- 0.01395 | 1.27927 +/- 0.01850 | 0.75 | `0x43e85d46f7bdb5d1` -> `0x21fce7d5ea3faf47` |
+//! | `keff_delta_seq` | 1.24358 +/- 0.03208 | 1.26562 +/- 0.03210 | 0.49 | `0xa24251ff7a0c4d8c` -> `0x433df03ca859ac7d` |
+//! | `keff_delta_par2` | 1.23575 +/- 0.00783 | 1.25708 +/- 0.01259 | 1.44 | `0xd05b9af98b9744f5` -> `0x9f563d5ced6f1398` |
+//! | `keff_delta_stepping` | per-generation k | | | `0x2a764f3378416ab5` -> `0xf3435ca8ecec41ae` |
 //!
 //! None exceeds 3 sigma: re-pinned, not a finding. (The three `keff_delta_*`
 //! rows moved when the sphere drivers were wired, `keff.rs` and `keff_delta.rs`.)
@@ -438,7 +461,7 @@ fn hybrid_csg_paths_are_bit_identical() {
     );
     let mut fp = Fp::new();
     fp.keff(&surf);
-    check("surface_seq", fp.0, 0x70a3fc7b0653f8ad, &describe(&surf));
+    check("surface_seq", fp.0, 0xa6ad64b16c46ade1, &describe(&surf));
 
     let a = run_keff_csg_hybrid(
         &geom,
@@ -452,18 +475,18 @@ fn hybrid_csg_paths_are_bit_identical() {
     );
     let mut fp = Fp::new();
     fp.keff(&a);
-    check("hybrid_seq_no_tally", fp.0, 0x9d6a14eceb527ae2, &describe(&a));
+    check("hybrid_seq_no_tally", fp.0, 0x4664cb360ba0dcac, &describe(&a));
 
     for (name, est, pin) in [
         (
             "hybrid_seq_tentative",
             DeltaTallyEstimator::TentativeCollision,
-            0x75c6be0e87920854_u64,
+            0xbfa540cebde5736d_u64,
         ),
         (
             "hybrid_seq_real",
             DeltaTallyEstimator::RealCollision,
-            0xd8a66a7d2479eeb4,
+            0x4a7158f3dba7ec4f,
         ),
     ] {
         let mut t = tally();
@@ -498,7 +521,7 @@ fn hybrid_csg_paths_are_bit_identical() {
     let mut fp = Fp::new();
     fp.keff(&r);
     fp.fs(&ks);
-    check("hybrid_seq_progress", fp.0, 0xb3e8f993cc67b42c, &describe(&r));
+    check("hybrid_seq_progress", fp.0, 0x9a5f4d7319c36c6c, &describe(&r));
 
     let mut t = tally();
     let r = run_keff_csg_hybrid(
@@ -514,7 +537,7 @@ fn hybrid_csg_paths_are_bit_identical() {
     let mut fp = Fp::new();
     fp.keff(&r);
     fp.tally(&t, n_active);
-    check("hybrid_par2_tentative", fp.0, 0x086fd9d726390639, &describe(&r));
+    check("hybrid_par2_tentative", fp.0, 0x21fce7d5ea3faf47, &describe(&r));
 }
 
 #[test]
@@ -528,7 +551,7 @@ fn keff_delta_paths_are_bit_identical() {
     let r = run_keff_delta_seq_in(domain, &mats, &nucs, &maj, zone, &seq);
     let mut fp = Fp::new();
     fp.keff(&r);
-    check("keff_delta_seq", fp.0, 0x97e986a6c3e751c4, &describe(&r));
+    check("keff_delta_seq", fp.0, 0x433df03ca859ac7d, &describe(&r));
 
     let mut it = DeltaPowerIteration::new(domain, &mats, &nucs, &zone, &seq);
     let mut fp = Fp::new();
@@ -539,12 +562,12 @@ fn keff_delta_paths_are_bit_identical() {
             fp.f(s);
         }
     }
-    check("keff_delta_stepping", fp.0, 0x7096c1a6ca43d768, "per-generation k");
+    check("keff_delta_stepping", fp.0, 0xf3435ca8ecec41ae, "per-generation k");
 
     let r = run_keff_delta_par_in(domain, &mats, &nucs, &maj, zone, &seq, ThreadCount::Fixed(2));
     let mut fp = Fp::new();
     fp.keff(&r);
-    check("keff_delta_par2", fp.0, 0x149277ecca97e03c, &describe(&r));
+    check("keff_delta_par2", fp.0, 0x9f563d5ced6f1398, &describe(&r));
 }
 
 #[test]
