@@ -57,13 +57,24 @@ pub struct CellSection {
 /// plane passes through, in cell order.
 pub fn plane_section(mesh: &PolyMesh, axis: Axis, offset: Length) -> Vec<CellSection> {
     let h = offset.get::<meter>();
+    // A point within round-off of the plane is ON it (treated as the
+    // non-negative side). Node coordinates carry a few ulp of blend round-off
+    // (gh:#1464: blockMesh's 12-edge blend), so a plane that is meant to pass
+    // exactly through a layer of nodes must not split that layer.
+    let extent = mesh
+        .points
+        .iter()
+        .map(|p| axis.normal(*p).abs())
+        .fold(h.abs(), f64::max);
+    let tol = 1.0e-12 * extent;
+    let snap = |d: f64, tol: f64| if d.abs() <= tol { 0.0 } else { d };
     let mut pts: Vec<Vec<[f64; 2]>> = vec![Vec::new(); mesh.n_cells];
     for f in &mesh.faces {
         let n = f.verts.len();
         for i in 0..n {
             let a = mesh.points[f.verts[i]];
             let b = mesh.points[f.verts[(i + 1) % n]];
-            let (da, db) = (axis.normal(a) - h, axis.normal(b) - h);
+            let (da, db) = (snap(axis.normal(a) - h, tol), snap(axis.normal(b) - h, tol));
             if (da < 0.0) == (db < 0.0) {
                 continue;
             }

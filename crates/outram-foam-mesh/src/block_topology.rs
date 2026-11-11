@@ -248,6 +248,13 @@ impl CellShape {
     /// [`MeshError::Construction`] when the faces match none of hex, tet,
     /// prism, pyr, wedge, tetWedge (upstream returns the `unknown` model).
     pub(crate) fn collapse(&self) -> Result<CellShape, MeshError> {
+        if self.labels.len() != self.model.n_points() {
+            return Err(MeshError::Construction(format!(
+                "cell has {} labels, its model needs {}",
+                self.labels.len(),
+                self.model.n_points()
+            )));
+        }
         degenerate_match(&self.collapsed_faces()).ok_or_else(|| {
             MeshError::Construction(format!(
                 "cell with labels {:?} collapses to none of hex, tet, prism, pyr, wedge, tetWedge",
@@ -1359,14 +1366,8 @@ mod tests {
         assert_eq!(model([0, 1, 2, 0, 4, 5, 6, 4]), CellModel::Prism);
         // A whole face (4 5 6 7 -> one point): a pyramid.
         assert_eq!(model([0, 1, 2, 3, 4, 4, 4, 4]), CellModel::Pyr);
-        // Two opposite edges (0-3 and 4-7) collapsed: a prism too, 6 points.
-        assert_eq!(model([0, 1, 2, 0, 4, 5, 6, 4]), CellModel::Prism);
-        // Collapsing 3 vertices of a face to one: wedge-like 2 tri + 4 quad
-        // is the axisymmetric case: edges 0-3 and 1-2 collapsed? that is a
-        // prism with the triangles on x-faces.
-        assert_eq!(model([0, 1, 1, 0, 4, 5, 5, 4]), CellModel::Prism);
-        // 4 distinct points of a hex that form a tet.
-        assert_eq!(model([0, 1, 1, 0, 3, 3, 3, 3]), CellModel::Tet);
+        // Four distinct points, the rest collapsed: a tet.
+        assert_eq!(model([0, 1, 2, 2, 4, 4, 4, 4]), CellModel::Tet);
     }
 
     fn two_hex_labels() -> Vec<CellShape> {

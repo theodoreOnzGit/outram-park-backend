@@ -108,6 +108,10 @@ use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKin
 use outram_foam_basic_lib::primitives::Vector3;
 
 use crate::block_edges::{BlockEdge, BlockEdgeKind, EdgeCurve};
+use crate::block_topology::{
+    calc_merge_info, create_cells, create_patch_faces, create_points, faces_equal, mesh_from_shapes,
+    BlockGrid, CellModel, CellShape, Face, ShapeMesh,
+};
 use crate::MeshError;
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -118,6 +122,7 @@ use crate::MeshError;
 ///
 /// `v0=(0,0,0) v1=(1,0,0) v2=(1,1,0) v3=(0,1,0) v4=(0,0,1) v5=(1,0,1)
 ///  v6=(1,1,1) v7=(0,1,1)`.
+#[cfg(test)]
 const HEX_CORNER: [[f64; 3]; 8] = [
     [0.0, 0.0, 0.0],
     [1.0, 0.0, 0.0],
@@ -127,18 +132,6 @@ const HEX_CORNER: [[f64; 3]; 8] = [
     [1.0, 0.0, 1.0],
     [1.0, 1.0, 1.0],
     [0.0, 1.0, 1.0],
-];
-
-/// The 6 faces of the `hex` cellModel, as local-vertex quads wound so the
-/// normal points **out** of the cell. Order: x-min, x-max, y-min, y-max,
-/// z-min, z-max.
-const HEX_FACE: [[usize; 4]; 6] = [
-    [0, 4, 7, 3], // x-min
-    [1, 2, 6, 5], // x-max
-    [0, 1, 5, 4], // y-min
-    [3, 7, 6, 2], // y-max
-    [0, 3, 2, 1], // z-min
-    [4, 5, 6, 7], // z-max
 ];
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -214,11 +207,9 @@ impl Grading {
     /// `s[n] == 1`. For [`Grading::Uniform`] this is the geometric single-ratio
     /// distribution; for [`Grading::Multi`] it is the piecewise-geometric
     /// multi-segment distribution (see [`graded_positions_multi`]).
+    #[cfg(test)]
     fn node_positions(&self, n: usize) -> Vec<f64> {
-        match self {
-            Grading::Uniform(r) => graded_positions(n, *r),
-            Grading::Multi(segments) => graded_positions_multi(n, segments),
-        }
+        line_divide_weights(n, self)
     }
 }
 
@@ -349,6 +340,15 @@ pub struct BlockMeshDict {
     /// when the entry is absent is `empty` (`blockMeshTopology.C`,
     /// `defaultPatchType = emptyPolyPatch::typeName`).
     pub default_patch_kind: PatchKind,
+    /// `fastMerge` (default `no`). `yes` selects `blockMeshMergeFast.C`, which
+    /// is not ported: `build` returns `NotImplemented` for it.
+    pub fast_merge: bool,
+    /// `checkFaceCorrespondence` (default `yes`): neighbouring blocks must
+    /// have the same number of faces on their shared block face.
+    pub check_face_correspondence: bool,
+    /// `checkBlockFaceOrientation` (default `yes`): every block's faces must
+    /// point away from its centre (`blockDescriptor::check`).
+    pub check_block_face_orientation: bool,
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -638,6 +638,7 @@ pub fn block_mesh_from_file(path: impl AsRef<Path>) -> Result<PolyMesh, MeshErro
 //  Grading
 // ───────────────────────────────────────────────────────────────────────────
 
+#[cfg(test)]
 /// Normalised node positions `[0, 1]` for `n` cells under a `simpleGrading`
 /// expansion ratio (last-cell-width / first-cell-width).
 ///
@@ -742,7 +743,8 @@ fn graded_positions_multi(n: usize, segments: &[GradingSegment]) -> Vec<f64> {
         let expansion = seg.expansion;
         let secn_div = secn_divs[si];
         let secn_end = secn_start + secn_div;
-        if (expansion - 1.0).abs() < 1e-12 {
+        // Exact comparison, as `lineDivide.C` (`expRatio == 1.0`).
+        if expansion == 1.0 {
             for (offset, slot) in s[secn_start..secn_end].iter_mut().enumerate() {
                 // `p` is the node index within the section (1..=secn_div).
                 let p = (offset + 1) as f64;
@@ -756,10 +758,12 @@ fn graded_positions_multi(n: usize, segments: &[GradingSegment]) -> Vec<f64> {
             } else {
                 0.0
             };
-            let denom = 1.0 - exp_fact.r_powi(secn_div as i32);
+            // `pow(expFact, int)` in C++ is `pow(double, double)`, not repeated
+            // multiplication: use the real power, as upstream.
+            let denom = 1.0 - exp_fact.r_powf(secn_div as f64);
             for (offset, slot) in s[secn_start..secn_end].iter_mut().enumerate() {
-                let p = (offset + 1) as i32;
-                *slot = sec_start + block_frac * (1.0 - exp_fact.r_powi(p)) / denom;
+                let p = (offset + 1) as f64;
+                *slot = sec_start + block_frac * (1.0 - exp_fact.r_powf(p)) / denom;
             }
         }
         sec_start = s[secn_end - 1];
@@ -771,6 +775,7 @@ fn graded_positions_multi(n: usize, segments: &[GradingSegment]) -> Vec<f64> {
     s
 }
 
+#[cfg(test)]
 /// Trilinear interpolation of the 8 (scaled) block corners at unit-cube
 /// parametric coordinates `(u, v, w)`.
 fn trilinear(corners: &[Vector3; 8], u: f64, v: f64, w: f64) -> Vector3 {
@@ -796,6 +801,7 @@ fn trilinear(corners: &[Vector3; 8], u: f64, v: f64, w: f64) -> Vector3 {
 /// straight-edge `lineDivide::lambdaDivisions()` for each edge.
 type EdgeLambdas = [Vec<f64>; 12];
 
+#[cfg(test)]
 /// Build the 12 per-edge `[0, 1]` node-position arrays for a block, from its 12
 /// per-edge gradings and its `(nx, ny, nz)` cell counts.
 ///
@@ -816,6 +822,7 @@ fn edge_lambdas(edge_grading: &[Grading; 12], cells: [usize; 3]) -> EdgeLambdas 
     })
 }
 
+#[cfg(test)]
 /// One interior node position `[m]` of a per-edge-graded hex block, blended
 /// from all 12 edge distributions.
 ///
@@ -982,51 +989,34 @@ fn edge_blended_node_with(
 //  Build
 // ───────────────────────────────────────────────────────────────────────────
 
-/// A boundary face awaiting patch assignment.
-struct PendingBoundaryFace {
-    verts: Vec<usize>,
-    owner: usize,
-    block_face: Option<[usize; 4]>,
-}
-
 impl BlockMeshDict {
-    /// Subdivide every block, merge coincident points, dedupe faces, assign
-    /// boundary patches, and return the [`PolyMesh`].
+    /// Build the mesh the way upstream `blockMesh` does (gh:#1464): every
+    /// block is generated by the 12-edge blend (`block::createPoints`), points
+    /// are merged **topologically** across the block faces the block topology
+    /// shares (`blockMesh::calcMergeInfo`) and numbered by first appearance,
+    /// cells are re-labelled by `cellShape(hex, labels, true)` (collapsing
+    /// degenerate hexes to prisms, wedges, pyramids and tets), and the faces,
+    /// owners and neighbours are numbered by `polyMesh::setTopology`:
+    /// internal faces cell by cell in increasing neighbour order, then each
+    /// patch in dictionary order, then the unnamed faces in `defaultPatch`.
+    ///
+    /// The result is checked as `blockMesh::check` does (curved edges that
+    /// match no block edge or repeat another, patch faces that match no block
+    /// face or point inwards) and, unless `checkBlockFaceOrientation no`, each
+    /// block's faces must point away from its centre.
     ///
     /// # Errors
-    /// [`MeshError::Construction`] on a non-manifold face (a face shared by more
-    /// than two cells) or a failed validate; boundary faces that match no patch
-    /// are collected into a trailing default patch (`defaultPatch`, default
-    /// `defaultFaces` of type `empty`) rather than erroring.
+    /// [`MeshError::Construction`] for any of upstream's fatal errors: bad
+    /// vertex labels, inside-out blocks, inconsistent gradings between
+    /// neighbouring blocks, patch faces that belong to no block, or a failed
+    /// check. [`MeshError::NotImplemented`] for `fastMerge yes`.
     pub fn build(&self) -> Result<PolyMesh, MeshError> {
-        let scale = self.convert_to_meters;
-
-        // Global point merge: quantised coordinate -> canonical point index.
-        let tol = self.merge_tolerance();
-        let inv_tol = 1.0 / tol;
-        let mut point_map: HashMap<(i64, i64, i64), usize> = HashMap::new();
-        let mut points: Vec<Vector3> = Vec::new();
-        let mut intern = |p: Vector3| -> usize {
-            let key = (
-                (p.x * inv_tol).round() as i64,
-                (p.y * inv_tol).round() as i64,
-                (p.z * inv_tol).round() as i64,
-            );
-            *point_map.entry(key).or_insert_with(|| {
-                points.push(p);
-                points.len() - 1
-            })
-        };
-
-        // Candidate faces, keyed later for dedup.
-        struct FaceCand {
-            verts: [usize; 4],              // wound outward from `owner`
-            owner: usize,                   // cell index
-            block_face: Option<[usize; 4]>, // sorted coarse block-corner set, if on a block boundary
+        if self.fast_merge {
+            return Err(MeshError::NotImplemented(
+                "`fastMerge yes` (blockMeshMergeFast.C; gh:#1464 remaining item)".into(),
+            ));
         }
-        let mut cands: Vec<FaceCand> = Vec::new();
-        let mut cell_count = 0usize;
-        let mut cell_zones: Vec<(String, Vec<usize>)> = Vec::new();
+        let scale = self.convert_to_meters;
 
         // Resolve the `edges` list against the raw vertices (upstream builds
         // edges from the unscaled vertices and scales the finished points).
@@ -1036,7 +1026,9 @@ impl BlockMeshDict {
             .map(|e| e.resolve(&self.vertices))
             .collect::<Result<_, _>>()?;
 
-        for block in &self.blocks {
+        let mut grids: Vec<BlockGrid> = Vec::with_capacity(self.blocks.len());
+        let mut shapes: Vec<CellShape> = Vec::with_capacity(self.blocks.len());
+        for (bi, block) in self.blocks.iter().enumerate() {
             for &vi in &block.vertices {
                 if vi >= self.vertices.len() {
                     return Err(MeshError::Construction(format!(
@@ -1045,317 +1037,284 @@ impl BlockMeshDict {
                     )));
                 }
             }
-            let corners: [Vector3; 8] = {
-                let mut c = [Vector3::ZERO; 8];
-                for (k, &vi) in block.vertices.iter().enumerate() {
-                    c[k] = self.vertices[vi] * scale;
-                }
-                c
-            };
-            let [nx, ny, nz] = block.cells;
-            if nx == 0 || ny == 0 || nz == 0 {
+            if block.cells.iter().any(|&n| n == 0) {
                 return Err(MeshError::Construction(
                     "block has a zero cell count".to_string(),
                 ));
             }
-            // Node global-index grid for this block.
-            let nnx = nx + 1;
-            let nny = ny + 1;
-            let mut grid = vec![0usize; nnx * nny * (nz + 1)];
-            let curved = self.curved_edge_data(block, &curves)?;
-            if let Some((el, ep)) = &curved {
-                // Block with at least one listed edge: the full 12-edge blend
-                // plus the curved-edge correction (`block::createPoints`), in
-                // raw coordinates, scaled at the end like
-                // `blockMeshCreate.C:223`.
-                let raw: [Vector3; 8] = std::array::from_fn(|c| self.vertices[block.vertices[c]]);
-                for k in 0..=nz {
-                    for j in 0..=ny {
-                        for i in 0..=nx {
-                            let cx = i == nx;
-                            let cy = j == ny;
-                            let cz = k == nz;
-                            let is_corner = (i == 0 || cx) && (j == 0 || cy) && (k == 0 || cz);
-                            let p = if is_corner {
-                                let base = if !cx && !cy {
-                                    0
-                                } else if cx && !cy {
-                                    1
-                                } else if cx && cy {
-                                    2
-                                } else {
-                                    3
-                                };
-                                raw[base + if cz { 4 } else { 0 }]
-                            } else {
-                                edge_blended_node_with(&raw, el, Some(ep), i, j, k)
-                            };
-                            grid[i + j * nnx + k * nnx * nny] = intern(p * scale);
-                        }
-                    }
-                }
-            } else {
-            match &block.edge_grading {
-                // Fast path: one node distribution per direction (simpleGrading,
-                // or an edgeGrading whose four edges per direction agree). The
-                // block map is a straight trilinear interpolation.
-                None => {
-                    let us = block.grading[0].node_positions(nx);
-                    let vs = block.grading[1].node_positions(ny);
-                    let ws = block.grading[2].node_positions(nz);
-                    for k in 0..=nz {
-                        for j in 0..=ny {
-                            for i in 0..=nx {
-                                let p = trilinear(&corners, us[i], vs[j], ws[k]);
-                                grid[i + j * nnx + k * nnx * nny] = intern(p);
-                            }
-                        }
-                    }
-                }
-                // General per-edge path: blend interior nodes from all 12 edge
-                // distributions (OpenFOAM `block::createPoints`). Block corners
-                // are set exactly to the corner points, matching the upstream
-                // `vertex(i,j,k)` skip (blockCreate.C:69-85).
-                Some(eg) => {
-                    let el = edge_lambdas(eg, block.cells);
-                    for k in 0..=nz {
-                        for j in 0..=ny {
-                            for i in 0..=nx {
-                                let cx = i == nx;
-                                let cy = j == ny;
-                                let cz = k == nz;
-                                let is_corner = (i == 0 || cx) && (j == 0 || cy) && (k == 0 || cz);
-                                let p = if is_corner {
-                                    let base = if !cx && !cy {
-                                        0
-                                    } else if cx && !cy {
-                                        1
-                                    } else if cx && cy {
-                                        2
-                                    } else {
-                                        3
-                                    };
-                                    corners[base + if cz { 4 } else { 0 }]
-                                } else {
-                                    edge_blended_node(&corners, &el, i, j, k)
-                                };
-                                grid[i + j * nnx + k * nnx * nny] = intern(p);
-                            }
-                        }
-                    }
-                }
-            }
-            }
-            let node_at = |i: usize, j: usize, k: usize| grid[i + j * nnx + k * nnx * nny];
-            if let Some(zone) = &block.zone {
-                let cells = cell_count..cell_count + nx * ny * nz;
-                match cell_zones.iter_mut().find(|(n, _)| n == zone) {
-                    Some((_, v)) => v.extend(cells),
-                    None => cell_zones.push((zone.clone(), cells.collect())),
-                }
-            }
-
-            // Coarse block-face corner sets (block-corner vertex indices),
-            // indexed by HEX_FACE order.
-            let block_face_set = |lf: usize| -> [usize; 4] {
-                let mut s = [
-                    block.vertices[HEX_FACE[lf][0]],
-                    block.vertices[HEX_FACE[lf][1]],
-                    block.vertices[HEX_FACE[lf][2]],
-                    block.vertices[HEX_FACE[lf][3]],
-                ];
-                s.sort_unstable();
-                s
+            let shape = CellShape {
+                model: CellModel::Hex,
+                labels: block.vertices.to_vec(),
             };
+            if self.check_block_face_orientation {
+                self.check_block_orientation(bi, &shape)?;
+            }
+            grids.push(self.block_grid(block, &curves)?);
+            shapes.push(shape);
+        }
 
-            // Emit cells + their 6 faces.
-            for ck in 0..nz {
-                for cj in 0..ny {
-                    for ci in 0..nx {
-                        let cell = cell_count;
-                        cell_count += 1;
-                        let n = [
-                            node_at(ci, cj, ck),
-                            node_at(ci + 1, cj, ck),
-                            node_at(ci + 1, cj + 1, ck),
-                            node_at(ci, cj + 1, ck),
-                            node_at(ci, cj, ck + 1),
-                            node_at(ci + 1, cj, ck + 1),
-                            node_at(ci + 1, cj + 1, ck + 1),
-                            node_at(ci, cj + 1, ck + 1),
-                        ];
-                        let on_boundary = [
-                            ci == 0,      // x-min
-                            ci == nx - 1, // x-max
-                            cj == 0,      // y-min
-                            cj == ny - 1, // y-max
-                            ck == 0,      // z-min
-                            ck == nz - 1, // z-max
-                        ];
-                        for (lf, corners_lf) in HEX_FACE.iter().enumerate() {
-                            let verts = [
-                                n[corners_lf[0]],
-                                n[corners_lf[1]],
-                                n[corners_lf[2]],
-                                n[corners_lf[3]],
-                            ];
-                            let block_face = if on_boundary[lf] {
-                                Some(block_face_set(lf))
-                            } else {
-                                None
-                            };
-                            cands.push(FaceCand {
-                                verts,
-                                owner: cell,
-                                block_face,
-                            });
-                        }
-                    }
+        // Block topology: the blocks as hex cells over the dictionary
+        // vertices, with the `boundary` faces as patches.
+        let names: Vec<String> = self.patches.iter().map(|p| p.name.clone()).collect();
+        let topo_patch_faces: Vec<Vec<Face>> = self
+            .patches
+            .iter()
+            .map(|p| p.faces.iter().map(|q| q.to_vec()).collect())
+            .collect();
+        let topo = mesh_from_shapes(self.vertices.len(), &shapes, &topo_patch_faces, &names)?;
+        self.check(&topo)?;
+
+        let merge = calc_merge_info(
+            &grids,
+            &topo,
+            &self.vertices,
+            self.check_face_correspondence,
+        )?;
+        let points = create_points(&grids, &merge, scale);
+        let cells = create_cells(&grids, &merge)?;
+
+        // Patches of the topology, with the default patch last when non-empty.
+        let n_default = topo.faces.len() - topo.default_start;
+        let mut patch_names = names.clone();
+        let mut patch_kinds: Vec<PatchKind> = self.patches.iter().map(|p| p.kind).collect();
+        let mut ranges: Vec<(usize, usize)> = topo
+            .patch_starts
+            .iter()
+            .zip(&topo.patch_sizes)
+            .map(|(&s, &n)| (s, n))
+            .collect();
+        if n_default > 0 {
+            patch_names.push(self.default_patch_name.clone());
+            patch_kinds.push(self.default_patch_kind);
+            ranges.push((topo.default_start, n_default));
+        }
+        let mut patch_faces: Vec<Vec<Face>> = Vec::with_capacity(ranges.len());
+        for &(start, size) in &ranges {
+            let faces = &topo.faces[start..start + size];
+            let owners = &topo.owner[start..start + size];
+            patch_faces.push(create_patch_faces(&grids, &shapes, &merge, faces, owners));
+        }
+
+        let sm = mesh_from_shapes(merge.n_points, &cells, &patch_faces, &patch_names)?;
+        if sm.default_start != sm.faces.len() {
+            return Err(MeshError::Construction(format!(
+                "{} cell faces belong to no patch (default patch `{}` already has faces)",
+                sm.faces.len() - sm.default_start,
+                self.default_patch_name
+            )));
+        }
+
+        let n_internal_faces = sm.n_internal();
+        let faces: Vec<MeshFace> = sm
+            .faces
+            .iter()
+            .enumerate()
+            .map(|(fi, f)| MeshFace {
+                verts: f.clone(),
+                owner: sm.owner[fi],
+                neighbour: (fi < n_internal_faces).then(|| sm.neighbour[fi]),
+            })
+            .collect();
+        let patches: Vec<BoundaryPatch> = patch_names
+            .iter()
+            .zip(&patch_kinds)
+            .enumerate()
+            .map(|(pi, (name, &kind))| {
+                BoundaryPatch::new(name.clone(), sm.patch_starts[pi], sm.patch_sizes[pi], kind)
+            })
+            .collect();
+
+        // Cell zones: block cells are contiguous, in block order.
+        let mut cell_zones: Vec<(String, Vec<usize>)> = Vec::new();
+        let mut cell_count = 0usize;
+        for (block, grid) in self.blocks.iter().zip(&grids) {
+            if let Some(zone) = &block.zone {
+                let range = cell_count..cell_count + grid.n_cells();
+                match cell_zones.iter_mut().find(|(n, _)| n == zone) {
+                    Some((_, v)) => v.extend(range),
+                    None => cell_zones.push((zone.clone(), range.collect())),
                 }
             }
-        }
-
-        // Dedup faces by their sorted point set.
-        let mut groups: HashMap<[usize; 4], Vec<usize>> = HashMap::new();
-        for (idx, c) in cands.iter().enumerate() {
-            let mut key = c.verts;
-            key.sort_unstable();
-            groups.entry(key).or_default().push(idx);
-        }
-
-        // Partition into internal faces and pending boundary faces.
-        let mut internal: Vec<MeshFace> = Vec::new();
-        let mut boundary: Vec<PendingBoundaryFace> = Vec::new();
-        for members in groups.values() {
-            match members.len() {
-                1 => {
-                    let c = &cands[members[0]];
-                    boundary.push(PendingBoundaryFace {
-                        verts: c.verts.to_vec(),
-                        owner: c.owner,
-                        block_face: c.block_face,
-                    });
-                }
-                2 => {
-                    let a = &cands[members[0]];
-                    let b = &cands[members[1]];
-                    // Owner = smaller cell index; keep that cell's outward winding.
-                    let (own, nbr) = if a.owner < b.owner { (a, b) } else { (b, a) };
-                    internal.push(MeshFace {
-                        verts: own.verts.to_vec(),
-                        owner: own.owner,
-                        neighbour: Some(nbr.owner),
-                    });
-                }
-                m => {
-                    return Err(MeshError::Construction(format!(
-                        "non-manifold face shared by {m} cells (points {:?})",
-                        cands[members[0]].verts
-                    )));
-                }
-            }
-        }
-
-        // Deterministic internal-face ordering: by (owner, neighbour).
-        internal.sort_by_key(|f| (f.owner, f.neighbour.unwrap_or(usize::MAX)));
-
-        // Deterministic boundary-face ordering: by (owner, sorted point ids).
-        // `groups` is a randomly seeded `HashMap`, so `groups.values()` hands
-        // the boundary faces over in a different order on every run. Without
-        // this sort, a patch's face order (and so the summation order of every
-        // face-sum, cell centres included) changed from process to process:
-        // the Sod shock tube's cell centres moved by 1 ulp between runs of the
-        // same binary and its final rho sum by up to 7 ulp (gh:#903, 2026-10-16;
-        // `wasm_worker_timing/README.md` in outram-foam-appbuilder-lib). This
-        // does not reproduce OpenFOAM blockMesh's own boundary-face numbering;
-        // the port did not do that before either.
-        boundary.sort_by_key(|f| {
-            let mut key = f.verts.clone();
-            key.sort_unstable();
-            (f.owner, key)
-        });
-
-        // Assign boundary faces to patches by coarse block-face set.
-        let mut patch_lookup: HashMap<[usize; 4], usize> = HashMap::new();
-        for (pi, pd) in self.patches.iter().enumerate() {
-            for quad in &pd.faces {
-                let mut key = *quad;
-                key.sort_unstable();
-                patch_lookup.insert(key, pi);
-            }
-        }
-        let mut per_patch: Vec<Vec<PendingBoundaryFace>> =
-            (0..self.patches.len()).map(|_| Vec::new()).collect();
-        let mut unmatched: Vec<PendingBoundaryFace> = Vec::new();
-        for bf in boundary {
-            match bf.block_face.and_then(|s| patch_lookup.get(&s).copied()) {
-                Some(pi) => per_patch[pi].push(bf),
-                None => unmatched.push(bf),
-            }
-        }
-
-        // Assemble the final face list: internal first, then patches in dict
-        // order, then any unmatched faces in a trailing defaultFaces patch.
-        let n_internal_faces = internal.len();
-        let mut faces = internal;
-        let mut patches: Vec<BoundaryPatch> = Vec::new();
-        let mut cursor = n_internal_faces;
-        for (pi, pd) in self.patches.iter().enumerate() {
-            let group = std::mem::take(&mut per_patch[pi]);
-            let size = group.len();
-            for bf in group {
-                faces.push(MeshFace {
-                    verts: bf.verts,
-                    owner: bf.owner,
-                    neighbour: None,
-                });
-            }
-            patches.push(BoundaryPatch::new(pd.name.clone(), cursor, size, pd.kind));
-            cursor += size;
-        }
-        if !unmatched.is_empty() {
-            let size = unmatched.len();
-            for bf in unmatched {
-                faces.push(MeshFace {
-                    verts: bf.verts,
-                    owner: bf.owner,
-                    neighbour: None,
-                });
-            }
-            patches.push(BoundaryPatch::new(
-                self.default_patch_name.clone(),
-                cursor,
-                size,
-                self.default_patch_kind,
-            ));
+            cell_count += grid.n_cells();
         }
 
         Ok(PolyMesh {
             points,
             faces,
             n_internal_faces,
-            n_cells: cell_count,
+            n_cells: cells.len(),
             patches,
             cell_zones,
         })
     }
 
-    /// The 12 edge point arrays and weights of `block` when at least one of its
-    /// edges is listed in `edges` (upstream `blockDescriptor::edgesPointsWeights`
-    /// with `nCurvedEdges > 0`); `None` when all twelve are plain straight
-    /// edges, which keeps the straight code path.
+    /// `block::createPoints()` for one block: raw (unscaled) points, the 12
+    /// edges' weights blended by `blockCreate.C:45-183`, with the curved-edge
+    /// correction when any edge is listed. The eight block vertices are set
+    /// exactly (the `vertex(i, j, k)` skip).
+    fn block_grid(&self, block: &Block, curves: &[EdgeCurve]) -> Result<BlockGrid, MeshError> {
+        let [nx, ny, nz] = block.cells;
+        let (el, ep) = self.edge_data(block, curves);
+        let raw: [Vector3; 8] = std::array::from_fn(|c| self.vertices[block.vertices[c]]);
+        let mut points = Vec::with_capacity((nx + 1) * (ny + 1) * (nz + 1));
+        for k in 0..=nz {
+            for j in 0..=ny {
+                for i in 0..=nx {
+                    let cx = i == nx;
+                    let cy = j == ny;
+                    let cz = k == nz;
+                    let is_corner = (i == 0 || cx) && (j == 0 || cy) && (k == 0 || cz);
+                    let p = if is_corner {
+                        let base = if !cx && !cy {
+                            0
+                        } else if cx && !cy {
+                            1
+                        } else if cx && cy {
+                            2
+                        } else {
+                            3
+                        };
+                        raw[base + if cz { 4 } else { 0 }]
+                    } else {
+                        edge_blended_node_with(&raw, &el, ep.as_ref(), i, j, k)
+                    };
+                    points.push(p);
+                }
+            }
+        }
+        Ok(BlockGrid {
+            n: block.cells,
+            points,
+        })
+    }
+
+    /// `blockDescriptor::check`: each face of the block must point away from
+    /// the block centre (some other face centre lies behind it).
+    fn check_block_orientation(&self, bi: usize, shape: &CellShape) -> Result<(), MeshError> {
+        let faces = shape.faces();
+        let mut outward = 0usize;
+        let mut correct = vec![true; faces.len()];
+        for (i, f) in faces.iter().enumerate() {
+            let (centre, area) = face_centre_and_area(&self.vertices, f);
+            if area.mag() > 1.0e-15 {
+                let is_out = faces.iter().enumerate().any(|(j, g)| {
+                    j != i && {
+                        let (cj, _) = face_centre_and_area(&self.vertices, g);
+                        let d = centre - cj;
+                        d.x * area.x + d.y * area.y + d.z * area.z > 0.0
+                    }
+                });
+                if is_out {
+                    outward += 1;
+                } else {
+                    correct[i] = false;
+                }
+            } else {
+                outward += 1;
+            }
+        }
+        if outward == 0 {
+            return Err(MeshError::Construction(format!("block {bi} is inside-out")));
+        }
+        if outward != faces.len() {
+            let bad: Vec<_> = faces
+                .iter()
+                .zip(&correct)
+                .filter(|(_, &ok)| !ok)
+                .map(|(f, _)| format!("{f:?}"))
+                .collect();
+            return Err(MeshError::Construction(format!(
+                "block {bi} has inward-pointing faces {}",
+                bad.join(" ")
+            )));
+        }
+        Ok(())
+    }
+
+    /// `blockMesh::check`: curved edges that repeat or match no block edge,
+    /// patch faces that match no block face or point inwards.
+    fn check(&self, topo: &ShapeMesh) -> Result<(), MeshError> {
+        let mut msg = String::new();
+        for (cei, e) in self.edges.iter().enumerate() {
+            if let Some(cej) = self.edges[cei + 1..]
+                .iter()
+                .position(|o| e.compare(o.start, o.end) != 0)
+            {
+                msg.push_str(&format!(
+                    "    Curved edge #{cei} is a duplicate of curved edge #{}\n",
+                    cei + 1 + cej
+                ));
+            }
+        }
+        for (cei, e) in self.edges.iter().enumerate() {
+            let found = self.blocks.iter().any(|b| {
+                HEX_EDGE_ENDS
+                    .iter()
+                    .any(|&(s, t)| e.compare(b.vertices[s], b.vertices[t]) != 0)
+            });
+            if !found {
+                msg.push_str(&format!(
+                    "    Curved edge #{cei} does not correspond to a block edge\n"
+                ));
+            }
+        }
+        // Patch-face consistency. Upstream iterates `bm.boundary()`, whose
+        // faces are the mesh's own faces (each cell's outward face), not the
+        // dictionary's quads, so a dictionary quad wound the wrong way is
+        // accepted and the "points inwards" test only fires for a mesh face
+        // that is not its cell's outward face. Ported as upstream does it.
+        for pi in 0..topo.patch_starts.len() {
+            let (start, size) = (topo.patch_starts[pi], topo.patch_sizes[pi]);
+            for fi in 0..size {
+                let patch_face = &topo.faces[start + fi];
+                let mut ok = false;
+                for cell in &topo.cells {
+                    for &cf in cell {
+                        let tf = &topo.faces[cf];
+                        if faces_equal(patch_face, tf) {
+                            ok = true;
+                            let a = face_centre_and_area(&self.vertices, patch_face).1;
+                            let b = face_centre_and_area(&self.vertices, tf).1;
+                            if a.x * b.x + a.y * b.y + a.z * b.z < 0.0 {
+                                msg.push_str(&format!(
+                                    "    Face #{fi} {patch_face:?} of patch #{pi} {} points inwards\n",
+                                    self.patches[pi].name
+                                ));
+                            }
+                        }
+                    }
+                }
+                if !ok {
+                    msg.push_str(&format!(
+                        "    Face #{fi} {patch_face:?} of patch #{pi} {} does not match any block faces\n",
+                        self.patches[pi].name
+                    ));
+                }
+            }
+        }
+        if msg.is_empty() {
+            Ok(())
+        } else {
+            Err(MeshError::Construction(format!(
+                "blockMesh topology check failed:\n{msg}"
+            )))
+        }
+    }
+
+    /// The 12 edges' weights, and their point arrays when at least one edge
+    /// is listed in `edges` (upstream `blockDescriptor::edgesPointsWeights`
+    /// with `nCurvedEdges > 0`); the points are `None` when all twelve are
+    /// plain straight edges (the `nCurvedEdges == 0` branch of
+    /// `block::createPoints`).
     ///
     /// Per edge, the first listed edge that matches the block's vertex pair
     /// wins; a reversed match divides the edge with the inverted grading and
     /// reverses the result (`weights = 1 - d`), exactly as upstream.
-    fn curved_edge_data(
+    fn edge_data(
         &self,
         block: &Block,
         curves: &[EdgeCurve],
-    ) -> Result<Option<(EdgeLambdas, [Vec<Vector3>; 12])>, MeshError> {
-        if self.edges.is_empty() {
-            return Ok(None);
-        }
+    ) -> (EdgeLambdas, Option<[Vec<Vector3>; 12]>) {
         let raw: [Vector3; 8] = std::array::from_fn(|c| self.vertices[block.vertices[c]]);
         let mut n_curved = 0usize;
         let mut weights: Vec<Vec<f64>> = Vec::with_capacity(12);
@@ -1393,39 +1352,19 @@ impl BlockMeshDict {
                 None => {
                     let w = line_divide_weights(n, grading);
                     let (a, b) = (raw[ls], raw[le]);
-                    points.push(w.iter().map(|&l| a + (b - a) * l).collect());
+                    if !self.edges.is_empty() {
+                        points.push(w.iter().map(|&l| a + (b - a) * l).collect());
+                    }
                     weights.push(w);
                 }
             }
         }
-        if n_curved == 0 {
-            return Ok(None);
-        }
         let el: EdgeLambdas = std::array::from_fn(|e| std::mem::take(&mut weights[e]));
+        if n_curved == 0 {
+            return (el, None);
+        }
         let ep: [Vec<Vector3>; 12] = std::array::from_fn(|e| std::mem::take(&mut points[e]));
-        Ok(Some((el, ep)))
-    }
-
-    /// Absolute coincident-point merge tolerance `[m]`, derived from the scaled
-    /// vertex bounding box (`~1e-9` of the diagonal, floored at `1e-12 m`).
-    fn merge_tolerance(&self) -> f64 {
-        if self.vertices.is_empty() {
-            return 1e-9;
-        }
-        let scale = self.convert_to_meters;
-        let mut lo = self.vertices[0] * scale;
-        let mut hi = lo;
-        for v in &self.vertices {
-            let p = *v * scale;
-            lo.x = lo.x.min(p.x);
-            lo.y = lo.y.min(p.y);
-            lo.z = lo.z.min(p.z);
-            hi.x = hi.x.max(p.x);
-            hi.y = hi.y.max(p.y);
-            hi.z = hi.z.max(p.z);
-        }
-        let diag = (hi - lo).mag();
-        (diag * 1e-9).max(1e-12)
+        (el, Some(ep))
     }
 }
 
@@ -1520,6 +1459,9 @@ impl BlockMeshDict {
         let mut edges = Vec::new();
         let mut default_patch_name = "defaultFaces".to_string();
         let mut default_patch_kind = PatchKind::Empty;
+        let mut fast_merge = false;
+        let mut check_face_correspondence = true;
+        let mut check_block_face_orientation = true;
 
         while let Some(tok) = cur.peek() {
             match tok {
@@ -1588,6 +1530,26 @@ impl BlockMeshDict {
                     }
                     cur.expect(";")?;
                 }
+                "fastMerge" | "checkFaceCorrespondence" | "checkBlockFaceOrientation"
+                | "verbose" => {
+                    cur.next();
+                    let v = match cur.next() {
+                        Some("yes" | "on" | "true" | "y" | "t") => true,
+                        Some("no" | "off" | "false" | "n" | "f" | "none") => false,
+                        other => {
+                            return Err(MeshError::DictParse(format!(
+                                "`{tok}` expects a switch, found {other:?}"
+                            )))
+                        }
+                    };
+                    cur.expect(";")?;
+                    match tok {
+                        "fastMerge" => fast_merge = v,
+                        "checkFaceCorrespondence" => check_face_correspondence = v,
+                        "checkBlockFaceOrientation" => check_block_face_orientation = v,
+                        _ => {}
+                    }
+                }
                 "FoamFile" => {
                     cur.next();
                     cur.skip_braces()?;
@@ -1634,6 +1596,9 @@ impl BlockMeshDict {
             edges,
             default_patch_name,
             default_patch_kind,
+            fast_merge,
+            check_face_correspondence,
+            check_block_face_orientation,
         })
     }
 }
