@@ -476,3 +476,261 @@ pub fn read_groupr(r: &mut CardReader) -> Result<GrouprJob, NjoyError> {
     input.next_material = more.first().copied();
     Ok(GrouprJob { input, weight_cards, extended, more_materials: more })
 }
+
+// ── UNRESR ──────────────────────────────────────────────────────────────
+
+/// One material of UNRESR's cards (`unresr.f90:116-127`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnresrMaterial {
+    /// `matd`.
+    pub mat: i32,
+    /// `iprint`.
+    pub iprint: i32,
+    /// Temperatures \[K\].
+    pub temps: Vec<f64>,
+    /// Sigma-zero values \[b\].
+    pub sigz: Vec<f64>,
+}
+
+/// UNRESR's cards: the three units and the materials.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnresrCards {
+    /// `nendf`.
+    pub nendf: i32,
+    /// `nin`.
+    pub nin: i32,
+    /// `nout`.
+    pub nout: i32,
+    /// Materials, until `matd = 0`.
+    pub materials: Vec<UnresrMaterial>,
+}
+
+/// Read UNRESR's cards.
+pub fn read_unresr(r: &mut CardReader) -> Result<UnresrCards, NjoyError> {
+    let u = ints(r, &[0, 0, 0])?;
+    let mut materials = Vec::new();
+    loop {
+        let c = ints(r, &[0, 1, 1, 0])?;
+        if c[0] == 0 {
+            break;
+        }
+        let temps = r.read_reals(&vec![0.0; count(c[1], "ntemp")?])?;
+        let sigz = r.read_reals(&vec![0.0; count(c[2], "nsigz")?])?;
+        materials.push(UnresrMaterial { mat: c[0], iprint: c[3], temps, sigz });
+    }
+    Ok(UnresrCards { nendf: u[0], nin: u[1], nout: u[2], materials })
+}
+
+// ── PURR ────────────────────────────────────────────────────────────────
+
+/// One material of PURR's cards (`purr.f90:176-190`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct PurrMaterial {
+    /// `matd`.
+    pub mat: i32,
+    /// `nbin`: probability bins.
+    pub nbin: i32,
+    /// `nladr`: resonance ladders.
+    pub nladr: i32,
+    /// `iprint` (default 1).
+    pub iprint: i32,
+    /// `nunx`: extra unresolved energies (default 0).
+    pub nunx: i32,
+    /// Temperatures \[K\].
+    pub temps: Vec<f64>,
+    /// Sigma-zero values \[b\].
+    pub sigz: Vec<f64>,
+}
+
+/// PURR's cards.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PurrCards {
+    /// `nendf`.
+    pub nendf: i32,
+    /// `nin`.
+    pub nin: i32,
+    /// `nout`.
+    pub nout: i32,
+    /// Materials, until `matd = 0`.
+    pub materials: Vec<PurrMaterial>,
+}
+
+/// Read PURR's cards.
+pub fn read_purr(r: &mut CardReader) -> Result<PurrCards, NjoyError> {
+    let u = ints(r, &[0, 0, 0])?;
+    let mut materials = Vec::new();
+    loop {
+        // `nbin` and `nladr` have no default upstream (the manual's 20 and 64
+        // are what a deck normally gives); a deck that omits them is refused.
+        let c = ints(r, &[0, 1, 1, 0, 0, 1, 0])?;
+        if c[0] == 0 {
+            break;
+        }
+        if c[3] <= 0 || c[4] <= 0 {
+            return Err(bad("purr: nbin and nladr must be given on card 2"));
+        }
+        let temps = r.read_reals(&vec![0.0; count(c[1], "ntemp")?])?;
+        let sigz = r.read_reals(&vec![0.0; count(c[2], "nsigz")?])?;
+        materials.push(PurrMaterial { mat: c[0], nbin: c[3], nladr: c[4], iprint: c[5], nunx: c[6], temps, sigz });
+    }
+    Ok(PurrCards { nendf: u[0], nin: u[1], nout: u[2], materials })
+}
+
+// ── ACER ────────────────────────────────────────────────────────────────
+
+/// ACER's cards (`acer.f90:282-447`), every option's cards read; only the
+/// fast-data run is executed by the deck driver.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AcerCards {
+    /// `nendf`.
+    pub nendf: i32,
+    /// `npend`.
+    pub npend: i32,
+    /// `ngend`.
+    pub ngend: i32,
+    /// `nace`.
+    pub nace: i32,
+    /// `ndir`.
+    pub ndir: i32,
+    /// `|iopt|`: 1 fast, 2 thermal, 3 dosimetry, 4 photoatomic, 5 photonuclear, 7/8 edit.
+    pub iopt: i32,
+    /// `iopt < 0`: mcnpx formats.
+    pub mcnpx: bool,
+    /// `iprint` (default 1).
+    pub iprint: i32,
+    /// `itype`: ACE file type (default 1).
+    pub itype: i32,
+    /// `suff`: ZAID suffix (default 0).
+    pub suff: f64,
+    /// `nxtra`.
+    pub nxtra: i32,
+    /// `izaoption`.
+    pub izaopt: i32,
+    /// `hk`: the 70-character comment.
+    pub hk: String,
+    /// The `nxtra` `(iz, aw)` pairs.
+    pub extra: Vec<(i32, f64)>,
+    /// `matd` (cards 5, 8, 10, 11).
+    pub matd: i32,
+    /// `tempd` \[K\] (default 300).
+    pub tempd: f64,
+    /// `newfor` (fast, default 1).
+    pub newfor: i32,
+    /// `iopp` (fast, default 1).
+    pub iopp: i32,
+    /// `ismooth` (fast, default 1).
+    pub ismooth: i32,
+    /// Fast card 7, `thin(1..3)` as read.
+    pub thin: [f64; 3],
+    /// Thermal cards 8, 8a and 9.
+    pub thermal: Option<ThermalCards>,
+}
+
+/// ACER's thermal cards 8, 8a and 9.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ThermalCards {
+    /// `tname`.
+    pub tname: String,
+    /// Moderator ZAs of card 8a.
+    pub iza: Vec<i32>,
+    /// `mti`.
+    pub mti: i32,
+    /// `nbint`.
+    pub nbint: i32,
+    /// `mte`.
+    pub mte: i32,
+    /// `ielas`.
+    pub ielas: i32,
+    /// `nmix`.
+    pub nmix: i32,
+    /// `emax` \[eV\].
+    pub emax: f64,
+    /// `iwt`.
+    pub iwt: i32,
+}
+
+/// Read ACER's cards.
+pub fn read_acer(r: &mut CardReader) -> Result<AcerCards, NjoyError> {
+    let u = ints(r, &[0, 0, 0, 0, 0])?;
+    let c = {
+        let mut s = [Slot::Int(0), Slot::Int(1), Slot::Int(1), Slot::Real(0.0), Slot::Int(0), Slot::Int(0)];
+        r.read(&mut s)?;
+        s
+    };
+    let (iopt_signed, iprint, itype, suff, nxtra, izaopt) =
+        (c[0].int(), c[1].int(), c[2].int(), c[3].real(), c[4].int(), c[5].int());
+    let hk = r.read_string(70)?;
+    let mut extra = Vec::new();
+    for _ in 0..nxtra.max(0) {
+        let mut s = [Slot::Int(0), Slot::Real(0.0)];
+        r.read(&mut s)?;
+        extra.push((s[0].int(), s[1].real()));
+    }
+    let mut a = AcerCards {
+        nendf: u[0],
+        npend: u[1],
+        ngend: u[2],
+        nace: u[3],
+        ndir: u[4],
+        iopt: iopt_signed.abs(),
+        mcnpx: iopt_signed < 0,
+        iprint,
+        itype,
+        suff,
+        nxtra,
+        izaopt,
+        hk,
+        extra,
+        matd: 0,
+        tempd: 300.0,
+        newfor: 1,
+        iopp: 1,
+        ismooth: 1,
+        thin: [0.0; 3],
+        thermal: None,
+    };
+    match a.iopt {
+        1 => {
+            let mut s = [Slot::Int(0), Slot::Real(300.0)];
+            r.read(&mut s)?;
+            a.matd = s[0].int();
+            a.tempd = s[1].real();
+            let f = ints(r, &[1, 1, 1])?;
+            (a.newfor, a.iopp, a.ismooth) = (f[0], f[1], f[2]);
+            let z = r.read_reals(&[0.0, 0.0, 0.0])?;
+            a.thin = [z[0], z[1], z[2]];
+        }
+        2 => {
+            let mut s = [Slot::Int(0), Slot::Real(300.0), Slot::string(6, ""), Slot::Int(3)];
+            r.read(&mut s)?;
+            a.matd = s[0].int();
+            a.tempd = s[1].real();
+            let nza = count(s[3].int(), "nza")?;
+            let iza = ints(r, &vec![0; nza])?;
+            let mut t = [Slot::Int(0), Slot::Int(0), Slot::Int(0), Slot::Int(0), Slot::Int(1), Slot::Real(1000.0), Slot::Int(0)];
+            r.read(&mut t)?;
+            a.thermal = Some(ThermalCards {
+                tname: s[2].text().to_string(),
+                iza,
+                mti: t[0].int(),
+                nbint: t[1].int(),
+                mte: t[2].int(),
+                ielas: t[3].int(),
+                nmix: t[4].int(),
+                emax: t[5].real(),
+                iwt: t[6].int(),
+            });
+        }
+        3 => {
+            let mut s = [Slot::Int(0), Slot::Real(300.0)];
+            r.read(&mut s)?;
+            a.matd = s[0].int();
+            a.tempd = s[1].real();
+        }
+        4 | 5 => {
+            a.matd = ints(r, &[0])?[0];
+        }
+        _ => {}
+    }
+    Ok(a)
+}
