@@ -90,7 +90,33 @@ pub enum BoundarySkewness {
     Mirrored,
 }
 
-/// Options of [`check_quality`].
+/// How `svHat = sv / (|sv| + guard)` is evaluated in [`face_skewness`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SvHat {
+    /// `sv / (|sv| + guard)`: **what upstream does** (`meshCheck::faceSkewness`)
+    /// and what `outram-foam-mesh` did before gh:#1480.
+    Divide,
+    /// `sv * (1 / (|sv| + guard))`: what cfMesh did; differs from
+    /// [`SvHat::Divide`] in the last bit.
+    ReciprocalMultiply,
+}
+
+/// What [`check_quality`] does with a degenerate internal face
+/// (`|d| <= 1e-30` or `|Sf| <= 1e-30`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DegenerateFaces {
+    /// Skip it in non-orthogonality and skewness (cfMesh's behaviour).
+    Skip,
+    /// Evaluate it with the `+1e-300` denominators, so a zero `d` reads 90
+    /// degrees (`outram-foam-mesh`'s behaviour; upstream's `faceOrthogonality`
+    /// has no skip either).
+    Include,
+}
+
+/// Options of [`check_quality`]. Every difference between the three
+/// pre-gh:#1480 copies is one explicit option here; each caller passes the
+/// values that reproduce what it computed before, so no number moved. Which
+/// value matches upstream dev `852527377c7e` is stated on each variant.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CheckOptions {
     /// Boundary skewness definition; see [`BoundarySkewness`].
@@ -98,13 +124,45 @@ pub struct CheckOptions {
     /// Non-orthogonality `[degrees]` above which a face counts as severely
     /// non-orthogonal (`checkMesh`'s `primitiveMesh::nonOrthThreshold`, 70).
     pub severe_non_ortho_deg: f64,
+    /// `svHat` evaluation; see [`SvHat`].
+    pub sv_hat: SvHat,
+    /// The guard added to the skewness denominators (upstream `rootVSmall`
+    /// `1e-150`; cfMesh's report and `outram-foam-mesh` used `1e-300`).
+    pub skew_guard: f64,
+    /// Degenerate-face handling; see [`DegenerateFaces`].
+    pub degenerate_faces: DegenerateFaces,
+    /// Compute the face-pyramid and cell-determinant sliver metrics
+    /// (`false` leaves them `0`; the snapping loop does not read them).
+    pub sliver_metrics: bool,
 }
 
 impl Default for CheckOptions {
+    /// The cfMesh `check_quality` choices (the gh:#1480 reference).
     fn default() -> Self {
         CheckOptions {
             boundary_skewness: BoundarySkewness::NormalProjection,
             severe_non_ortho_deg: 70.0,
+            sv_hat: SvHat::ReciprocalMultiply,
+            skew_guard: 1e-300,
+            degenerate_faces: DegenerateFaces::Skip,
+            sliver_metrics: true,
+        }
+    }
+}
+
+impl CheckOptions {
+    /// The choices `outram-foam-mesh` made before gh:#1480
+    /// (`mesh_quality::assess_quality` and `PolyPatchMesh::quality`):
+    /// mirrored boundary skewness, divide, `1e-300`, degenerate faces
+    /// included. Deviates from upstream dev in the boundary definition.
+    pub fn foam_mesh_legacy() -> Self {
+        CheckOptions {
+            boundary_skewness: BoundarySkewness::Mirrored,
+            severe_non_ortho_deg: 70.0,
+            sv_hat: SvHat::Divide,
+            skew_guard: 1e-300,
+            degenerate_faces: DegenerateFaces::Include,
+            sliver_metrics: true,
         }
     }
 }
@@ -143,7 +201,8 @@ pub fn face_non_orthogonality_deg(d: Vector3, sf: Vector3) -> Option<f64> {
 /// `cf`), floored at `floor * |d|`. `own_cc` is the owner cell centre, `ring`
 /// the face's point indices. `guard` is the small number added to the
 /// denominators (`1e-150` upstream's `rootVSmall`, `1e-300` in cfMesh's
-/// report).
+/// report). `sv_hat_kind` selects divide (upstream) or reciprocal-multiply
+/// (cfMesh), see [`SvHat`].
 #[allow(clippy::too_many_arguments)]
 pub fn face_skewness(
     cf: Vector3,
@@ -152,13 +211,17 @@ pub fn face_skewness(
     d: Vector3,
     floor: f64,
     guard: f64,
+    sv_hat_kind: SvHat,
     ring: &[usize],
     points: &[Vector3],
 ) -> f64 {
     let cpf = cf - own_cc;
     let sv = cpf - d * (sf.dot(cpf) / (sf.dot(d) + guard));
     let sv_mag = sv.mag();
-    let sv_hat = sv * (1.0 / (sv_mag + guard));
+    let sv_hat = match sv_hat_kind {
+        SvHat::Divide => sv / (sv_mag + guard),
+        SvHat::ReciprocalMultiply => sv * (1.0 / (sv_mag + guard)),
+    };
     let mut fd = floor * d.mag() + guard;
     for &v in ring {
         fd = fd.max(sv_hat.dot(points[v] - cf).abs());
@@ -168,22 +231,22 @@ pub fn face_skewness(
 
 /// Skewness of a boundary face by the chosen [`BoundarySkewness`] definition.
 fn boundary_face_skewness(
-    kind: BoundarySkewness,
+    opts: &CheckOptions,
     cf: Vector3,
     sf: Vector3,
     own_cc: Vector3,
     ring: &[usize],
     points: &[Vector3],
 ) -> f64 {
-    match kind {
+    match opts.boundary_skewness {
         BoundarySkewness::NormalProjection => {
             let nrm = sf * (1.0 / (sf.mag() + ROOT_V_SMALL));
             let d = nrm * nrm.dot(cf - own_cc);
-            face_skewness(cf, sf, own_cc, d, 0.4, ROOT_V_SMALL, ring, points)
+            face_skewness(cf, sf, own_cc, d, 0.4, ROOT_V_SMALL, opts.sv_hat, ring, points)
         }
         BoundarySkewness::Mirrored => {
             let d = (cf - own_cc) * 2.0;
-            face_skewness(cf, sf, own_cc, d, 0.2, 1e-300, ring, points)
+            face_skewness(cf, sf, own_cc, d, 0.2, opts.skew_guard, opts.sv_hat, ring, points)
         }
     }
 }
@@ -385,25 +448,37 @@ pub fn check_quality<F: AsRef<[usize]>>(
             let co = centres[owner[f]];
             let cn = centres[nb];
             let d = cn - co;
-            let dlen = d.mag();
-            if let Some(ang) = face_non_orthogonality_deg(d, sf) {
+            let ang = match opts.degenerate_faces {
+                DegenerateFaces::Skip => face_non_orthogonality_deg(d, sf),
+                DegenerateFaces::Include => {
+                    let cos = (d.dot(sf) / (d.mag() * sf.mag() + 1e-300)).clamp(-1.0, 1.0);
+                    Some(cos.r_acos().to_degrees())
+                }
+            };
+            let evaluated = match opts.degenerate_faces {
+                DegenerateFaces::Skip => ang.is_some(),
+                DegenerateFaces::Include => true,
+            };
+            if let Some(ang) = ang {
                 max_non_orth = max_non_orth.max(ang);
                 sum_non_orth += ang;
                 if ang > opts.severe_non_ortho_deg {
                     n_severe += 1;
                 }
-                // Skewness (OpenFOAM `primitiveMeshTools::faceSkewness`):
-                // the face-centre offset from where the centre line pierces
-                // the face plane, over the face's extent along that offset,
+            }
+            if evaluated {
+                // Skewness (OpenFOAM `meshCheck::faceSkewness`): the
+                // face-centre offset from where the centre line pierces the
+                // face plane, over the face's extent along that offset,
                 // floored at 0.2 |d|.
-                let _ = dlen;
                 let s = face_skewness(
                     geom.face_centres[f],
                     sf,
                     co,
                     d,
                     0.2,
-                    1e-300,
+                    opts.skew_guard,
+                    opts.sv_hat,
                     faces[f].as_ref(),
                     points,
                 );
@@ -411,7 +486,7 @@ pub fn check_quality<F: AsRef<[usize]>>(
             }
         } else {
             let s = boundary_face_skewness(
-                opts.boundary_skewness,
+                opts,
                 geom.face_centres[f],
                 sf,
                 centres[owner[f]],
@@ -469,7 +544,7 @@ pub fn check_quality<F: AsRef<[usize]>>(
     // Per-cell Σ|Sf| (n̂ ⊗ n̂) as [xx, yy, zz, xy, xz, yz], and Σ|Sf|.
     let mut normal_tensor = vec![[0.0f64; 6]; n_cells];
     let mut normal_area = vec![0.0f64; n_cells];
-    for f in 0..nf {
+    for f in 0..(if opts.sliver_metrics { nf } else { 0 }) {
         let sf = geom.face_areas[f];
         let area = sf.mag();
         let fc = geom.face_centres[f];
@@ -498,7 +573,7 @@ pub fn check_quality<F: AsRef<[usize]>>(
     }
 
     let mut min_det = f64::MAX;
-    for c in 0..n_cells {
+    for c in 0..(if opts.sliver_metrics { n_cells } else { 0 }) {
         let a = normal_area[c];
         let det = if a > 1e-300 {
             let t = normal_tensor[c];
@@ -636,7 +711,7 @@ pub fn faces_failing_mesh_quality<F: AsRef<[usize]>>(
                     b = true;
                 }
                 if controls.max_internal_skewness > 0.0
-                    && face_skewness(fc, s, co, d, 0.2, RVS, ring, points) > controls.max_internal_skewness
+                    && face_skewness(fc, s, co, d, 0.2, RVS, SvHat::ReciprocalMultiply, ring, points) > controls.max_internal_skewness
                 {
                     b = true;
                 }
@@ -658,7 +733,7 @@ pub fn faces_failing_mesh_quality<F: AsRef<[usize]>>(
                 if controls.max_boundary_skewness > 0.0 {
                     let nrm = s * (1.0 / (s.mag() + RVS));
                     let d = nrm * nrm.dot(fc - co);
-                    if face_skewness(fc, s, co, d, 0.4, RVS, ring, points) > controls.max_boundary_skewness {
+                    if face_skewness(fc, s, co, d, 0.4, RVS, SvHat::ReciprocalMultiply, ring, points) > controls.max_boundary_skewness {
                         b = true;
                     }
                 }
@@ -787,7 +862,10 @@ mod tests {
             assert_eq!(q.n_negative_volume_cells, 0);
             assert_eq!(q.n_negative_pyramid_faces, 0);
         }
-        let bad = faces_failing_mesh_quality(&points, &faces, &owner, &nb, &geom, &MeshQualityControls::default());
+        // A lone cell has no internal faces, so `cellDeterminant` (internal
+        // faces only) would fail it; that check is disabled here.
+        let controls = MeshQualityControls { min_determinant: -1.0, ..MeshQualityControls::default() };
+        let bad = faces_failing_mesh_quality(&points, &faces, &owner, &nb, &geom, &controls);
         assert!(bad.iter().all(|&b| !b), "{bad:?}");
     }
 

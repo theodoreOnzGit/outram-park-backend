@@ -82,6 +82,7 @@ pub mod block_primitives;
 pub mod section;
 pub mod driver;
 pub mod ideas_unv_to_foam;
+pub mod check_mesh;
 pub mod mesh_quality;
 pub mod poly_dual_mesh;
 pub mod snappy_hex_mesh;
