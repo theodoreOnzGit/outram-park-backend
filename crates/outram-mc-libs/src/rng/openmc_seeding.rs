@@ -59,11 +59,16 @@
 //! `sample_target_velocity` (CXS, RVS, DBRC; target velocity drawn before the CM
 //! cosine) and OpenMC's two-draw reaction ladder (absorption check, then
 //! `scatter()`'s `prn * (total - absorption)`). What still differs from OpenMC's
-//! consumption order: the port picks the reaction GROUP with its ladder (absorb,
+//! consumption order: ~~the port picks the reaction GROUP with its ladder (absorb,
 //! inelastic levels + MT91, (n,2n), (n,3n), MT5, other, elastic last) where OpenMC
 //! walks elastic then the inelastic reactions in MT order; a discrete level is
 //! then chosen with one more draw (`Nuclide::sample_inelastic`) where OpenMC
-//! reuses the `scatter()` cutoff; a fissionable nuclide banks fission sites only
+//! reuses the `scatter()` cutoff;~~ **CORRECTED 2026-11-11 (gh:#1386, #1444 a, b)**
+//! -- the reaction-group order and the single-cutoff level pick are now the
+//! default (`physics::scatter::ReactionOrder::OpenMc`, `classify_reaction`;
+//! legacy via `OUTRAM_MC_LEGACY_REACTION_ORDER=1`), in the CSG driver, the three
+//! `physics/keff.rs` sphere sites and `pebble_beds/keff_delta.rs`, verified 1600/1600
+//! by `tests/reaction_walk_vs_openmc_code_to_code.rs`; still differing: a fissionable nuclide banks fission sites only
 //! at a fission event where OpenMC's `create_fission_sites` runs at EVERY
 //! collision (weight `nu_t = wgt/k * nu * sigma_f/sigma_t`); fission neutrons
 //! draw direction before energy and isotropically with no `rotate_angle`. The

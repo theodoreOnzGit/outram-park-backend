@@ -1210,7 +1210,12 @@ where
                 x.total,
                 seed,
             );
-            if xi < x.fission {
+            let group = crate::physics::scatter::classify_reaction(
+                crate::physics::scatter::reaction_order_from_env(),
+                &x,
+                xi,
+            );
+            if group == crate::physics::scatter::ReactionGroup::Fission {
                 let nu_bar = if x.fission > 0.0 {
                     x.nu_fission / x.fission
                 } else {
@@ -1228,11 +1233,11 @@ where
                 }
                 record_outcome(observe, r, u, e, TrackEvent::Fission, Some(m));
                 break 'history; // fission absorbs the incident neutron
-            } else if xi < x.absorption {
+            } else if group == crate::physics::scatter::ReactionGroup::Capture {
                 record_outcome(observe, r, u, e, TrackEvent::Absorption, Some(m));
                 break 'history; // radiative capture
-            } else if xi < x.absorption + x.inelastic {
-                let (e2, u2) = match nuc.sample_inelastic(e, seed) {
+            } else if let crate::physics::scatter::ReactionGroup::Inelastic(level_cutoff) = group {
+                let (e2, u2) = match nuc.sample_inelastic_at(e, level_cutoff, seed) {
                     // Discrete level: the CM angular law is the level's own ENDF
                     // MF=4 (op-tm9f). Isotropic-CM only when the evaluation
                     // carries none for this level -- sampling every inelastic
@@ -1250,7 +1255,7 @@ where
                 };
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n {
+            } else if group == crate::physics::scatter::ReactionGroup::N2n {
                 // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
                 // elastic CM energy as before. Sharing the available energy between
                 // the two emitted neutrons is a separate gap (GitHub #192).
@@ -1282,7 +1287,7 @@ where
                 }
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+            } else if group == crate::physics::scatter::ReactionGroup::N3n {
                 // (n,3n): yield 3 -- the primary down-scatters and TWO extra neutrons
                 // are emitted. Before 2026-09-16 there was no branch here at all:
                 // MT=17 is inside MT=1, so the collision still happened but fell
@@ -1310,7 +1315,7 @@ where
                 }
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+            } else if group == crate::physics::scatter::ReactionGroup::Mt5 {
                 // MT=5, "(n,anything)" -- GitHub #365 audit: this delta-tracking
                 // kernel had no MT=5 arm, so those collisions fell through to
                 // ELASTIC here while every other kernel in the crate has handled
@@ -1330,7 +1335,7 @@ where
                 }
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+            } else if group == crate::physics::scatter::ReactionGroup::Other {
                 // The other neutron-emitting reactions (GitHub #365 audit).
                 let o = nuc.sample_other_emission(e, u, seed);
                 if o.n_emit == 0 {

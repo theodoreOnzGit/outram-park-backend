@@ -3736,6 +3736,15 @@ impl Nuclide {
     /// kernel applies the Weisskopf evaporation energy-loss law. An empty-level
     /// call likewise defaults to `Continuum`.
     pub fn sample_inelastic(&self, e: f64, seed: &mut u64) -> Inelastic {
+        self.sample_inelastic_at(e, None, seed)
+    }
+
+    /// [`Self::sample_inelastic`] with the level chosen by `cutoff` (measured from
+    /// the start of the inelastic block, in barn) instead of a fresh draw: OpenMC
+    /// `scatter()` walks `index_inelastic_scatter_` against the SAME cutoff that
+    /// chose the group (`prob < cutoff` continues; the first `prob >= cutoff`
+    /// wins). `None` draws `prn * total` (legacy).
+    pub fn sample_inelastic_at(&self, e: f64, cutoff: Option<f64>, seed: &mut u64) -> Inelastic {
         let XsSource::Pointwise { recon, inel, .. } = &self.xs else {
             return Inelastic::Continuum { q: 0.0 };
         };
@@ -3753,11 +3762,14 @@ impl Nuclide {
         if !(total > 0.0) {
             return Inelastic::Continuum { q: 0.0 };
         }
-        let xi = prn(seed) * total;
+        let (xi, upstream) = match cutoff {
+            Some(c) => (c, true),
+            None => (prn(seed) * total, false),
+        };
         let mut cum = 0.0;
         for l in inel {
             cum += level_xs(l);
-            if xi < cum {
+            if (upstream && cum >= xi) || (!upstream && xi < cum) {
                 return if l.continuum {
                     Inelastic::Continuum { q: l.q }
                 } else {

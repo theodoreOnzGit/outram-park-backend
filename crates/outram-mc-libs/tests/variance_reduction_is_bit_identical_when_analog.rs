@@ -264,10 +264,15 @@ const TEMP: f64 = 293.6;
 // 0.935485, last 0.979643. After: k_mean 0.999782 (k_std 4.41e-3), first 0.911470,
 // last 1.061531: +685 pcm, 1.07 sigma (quadrature of the two k_std), so
 // re-pinned. The old values were not re-measured under the legacy switch here.
-const K_MEAN_PRE_258: f64 = 9.997_817_252_659_183_53e-1;
-const K_STD_PRE_258: f64 = 4.411_017_979_954_415_94e-3;
-const K_GEN_FIRST_PRE_258: f64 = 9.114_703_457_598_035_69e-1;
-const K_GEN_LAST_PRE_258: f64 = 1.061_530_662_392_313_97e0;
+// Re-pinned again 2026-11-11 (gh:#1386, #1444 a, b: OpenMC scatter() reaction
+// order + single-cutoff level pick, CSG default). Before: k_mean 0.999782 (k_std
+// 4.41e-3), first 0.911470, last 1.061531. After: k_mean 0.994679 (k_std 4.92e-3),
+// first 0.947756, last 0.957608: -510 pcm, 0.77 sigma (quadrature of the two
+// k_std), so re-pinned. OUTRAM_MC_LEGACY_REACTION_ORDER=1 reproduces the old values.
+const K_MEAN_PRE_258: f64 = 9.946_793_011_875_267_88e-1;
+const K_STD_PRE_258: f64 = 4.924_672_070_320_445_32e-3;
+const K_GEN_FIRST_PRE_258: f64 = 9.477_563_495_950_562_80e-1;
+const K_GEN_LAST_PRE_258: f64 = 9.576_084_708_232_835_97e-1;
 
 fn heu() -> Option<Vec<Nuclide>> {
     let base =
