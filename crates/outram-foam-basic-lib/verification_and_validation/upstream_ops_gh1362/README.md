@@ -96,3 +96,44 @@ prediction was committed before the fix.
 ### gh:#1488 results (2026-11-11, release) against the prediction above
 - **Differential: as predicted.** Boundary `deltaCoeffs`: hex ~~789/1083, rel 0.66~~ **1083/1083 bit-identical**; polyDual ~~1236/1788, rel 0.88~~ **1788/1788**. `snGrad (orthogonal)`: ~~533/1083~~ **737/1083, worst 1 ulp** (hex), ~~890/1788~~ **1285/1788, 1 ulp** (poly), remainder `/d` against `deltaCoeffs*` (gh:#1489). Every other row unchanged.
 - **Solver numbers: the prediction was too pessimistic.** Whole suites re-run against the recorded baseline (basic-lib 566 tests, appbuilder 477, cli 29, Foam Studio 19, digital twin `double_pipe` 22, all pass). Only ONE printed number moved beyond round-off: the laminar pipe's orthogonal ablation, ~~dpdz/HP 1.03160~~ **1.03221** (see `crates/outram-foam-appbuilder-lib/verification_and_validation/non_orthogonal_correction_gh1161.md`), 6e-4 further from Hagen-Poiseuille. Foam Studio's unstructured default (0.9393 / 1.0063 printed, pins 0.9394 / 1.0062 within 2e-3), `headless_pipe_reaches_steady_hagen_poiseuille` (0.9753 / 1.0177), the GeN-Foam V&V tests and the CHT / Graetz-Nusselt / pimple / energy tests print identical numbers (round-off changes only, e.g. an energy-balance residual 1.81e-13 to 1.76e-13). I predicted Foam Studio's unstructured pipe would move; it does not, because its default solver uses the `NonOrthogonal` mode, whose boundary distance was already patch-normal, so the fix cannot reach it (the 0.9394 / 1.0062 pins did not move; not re-pinned).
+
+## gh:#1489 (D2 fix): prediction, written 2026-11-11 BEFORE the code change
+Upstream read (ESI v2506): `primitiveMeshTools::makeFaceCentresAndAreas` /
+`makeCellCentresAndVols`, `basicFvGeometryScheme::nonOrthDeltaCoeffs`,
+`surfaceInterpolationScheme::interpolate`, `gaussGrad::gradf`,
+`gaussLaplacianScheme::fvmLaplacianUncorrected`, `fixedValueFvPatchField::
+gradientBoundaryCoeffs`, `LimitedScheme::calcLimiter`, `NVDTVD::r`,
+`limitedSurfaceInterpolationScheme::weights`. The "proof" rows already replay each
+one bit for bit from upstream inputs, so the plan is to make the port's arithmetic
+the replayed arithmetic. Foundation (dev) text not re-checked (as above).
+
+**Changes planned (each follows its proof row):** polygon face centre `(1/3)*sumAc/sumA`,
+triangle `(1/3)*(a+b+c)`, zero-area test `sumA < ROOTVSMALL` (1e-150) in place of
+`EPSILON`; cell centres/volumes summed owner faces then neighbour faces, `*(1/3)`,
+`VSMALL` (1e-300) test; `nonOrthDeltaCoeffs` unit normal `Sf/magSf`, boundary floor
+`0.05*mag(delta)`; linear interpolation `w*(P-N)+N`; Gauss gradient `g/V`;
+`snGrad` `deltaCoeffs*(N-P)`; Laplacian `dC*(gamma*magSf)` and, for a fixedValue
+face, source `gm*(dC*v)`; limited-scheme reconstruction as upstream's
+`w = lim*cdWeight + (1-lim)*pos0(flux)` then `w*(P-N)+N` (upwind is `1*(P-N)+N`),
+with `NVDTVD::r` including its `1000` clamp (a missing LIMIT in the port, which has no
+clamp and a `|dphi| < 1e-30` shortcut instead); OSPRE `rrp1 = r(r+1); 1.5 rrp1/(rrp1+1)`.
+
+**Predicted differential result, both meshes** (n/n bit-identical, 0 ulp):
+Cf (triangles and others), V, C, nonOrthDeltaCoeffs, interpolate linear, grad, snGrad
+(orthogonal), snGrad (uncorrected, replayed with the stored coefficient),
+div(phi,T), recon upwind / linear / vanLeer / Minmod, laplacian upper / diag / source,
+limiter OSPRE [r>=0]. Already identical rows stay identical. **Remaining, and why:**
+limiter vanAlbada [r<0] and OSPRE [r<0] (the port clamps `r` at 0, upstream does not;
+that is a semantic difference, not operation order, outside gh:#1489) and the
+boundary `Mixed` / `FixedGradient` Laplacian arms, which the differential does not
+reach (fixedValue only). The recon rows are the least certain: they depend on the
+gradient (now identical) and on `r` through a division, so one surviving ulp
+there would mean a second ordering difference I have not found.
+
+**Predicted solver movement:** ulp-level (relative 1e-15, up to 1e-13 where a
+limiter ratio amplifies) on every field; printed digits of V&V numbers should not
+move; any test that pins a bit pattern or an exact value to more than 12 digits
+will move. The `1000` clamp can change a limited-scheme face value only where
+`|d.grad| >= 1000 |dphi|`, so reconstruct-based solvers (rhoCentralFoam, HEM,
+pcice) move beyond round-off only on near-discontinuous data; I expect none of
+the pinned tolerances to be crossed.
