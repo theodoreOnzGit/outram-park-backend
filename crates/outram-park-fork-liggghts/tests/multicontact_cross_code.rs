@@ -26,18 +26,23 @@
 //!   and the worst difference are printed. A control run WITHOUT the model must
 //!   differ from upstream by far more (so the model is exercised).
 //!
-//! ## Result (2026-11-11, release, rustc 1.99.1) - PREDICTION MISSED
-//! Step 1 is bit-identical (z, vz of particle 0); step 20 onward is not:
-//! 54/1674 values bit-identical (step 0 only), worst |diff|/scale = 1.76e-3
-//! (velocity z at step 20 differs by ~4.5e-7 m/s). The control without the
-//! model misses by 1.07e-1, so the hooks capture ~98.4 % of the effect but
-//! something still differs from step 2, i.e. from the first use of the
-//! step-1 history. Ruled out: history written during set-up (1.57e-3, no
-//! gain); wall history (dropping it gives 8.8e-2, so it is used). Found and
-//! copied: upstream sets `sidata.radi` once per particle UNEXPANDED while
+//! ## Result (2026-11-11, release, rustc 1.99.1) - PREDICTION MET AFTER ONE FIX
+//! 1674/1674 values bit-identical over all 600 steps (31 frames x 6 particles
+//! x 9 columns), worst |diff|/scale = 0. The control without the model misses
+//! by 1.07e-1 (so the model is exercised).
+//!
+//! First run missed (1.76e-3 from step 2). Cause, found by instrumenting the
+//! compiled upstream (prints of the contact-history slots, surfPos and delta
+//! per contact; the port's `HalfSpaceFix` inputs and outputs were bit-equal at
+//! steps 1 and 2): `ContactKinematics::pair_radii` computed `R* = radi*radj /
+//! radsum`, but Hertz (`normal_model_hertz.h` l. 211) computes `R* = radi*radj /
+//! (radi+radj)` from `sidata.radi` (UNEXPANDED) and `sidata.radj` (EXPANDED);
+//! `radsum` (both expanded) differs under multicontact. Fixed in
+//! `granular.rs` (identical for every other model, where radsum = radi+radj).
+//! Also copied: upstream sets `sidata.radi` once per particle UNEXPANDED while
 //! `sidata.radj` and `radsum` are expanded (`pair_gran_base.h` l. 271-311).
-//! Open: see gh:#1410. The trajectory test is `#[ignore]`d until it is
-//! bit-identical; nothing was loosened.
+//! Not covered by this deck: mesh walls (not hooked), cylinder-wall close
+//! history.
 
 use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial};
@@ -135,7 +140,7 @@ fn compare(multicontact: bool) -> (usize, usize, f64) {
 /// Whole-trajectory comparison (integration test of the pair, wall, pre_force
 /// and history hooks together).
 #[test]
-#[ignore = "gh:#1410: 1.8e-3 residual from step 2, cause not yet found (see module docs)"]
+
 fn multicontact_trajectory_matches_upstream() {
     let (same, total, worst) = compare(true);
     println!("multicontact: {same}/{total} values bit-identical, worst |diff|/scale = {worst:e}");
@@ -148,8 +153,7 @@ fn control_without_multicontact_differs() {
     let (_, _, with) = compare(true);
     let (_, _, without) = compare(false);
     println!("control: with {with:e}, without {without:e}");
-    // measured 1.76e-3 vs 1.07e-1 (not a tolerance on the port: the model must
-    // at least close most of the gap to upstream)
+    // measured 0 vs 1.07e-1
     assert!(without > 10.0 * with, "with {with:e} without {without:e}");
 }
 

@@ -524,7 +524,7 @@ impl ContactKinematics {
             vtr,
             cri,
             crj,
-            r_eff: radi * radj / radsum,
+            r_eff: radi * radj / (radi + radj),
             m_eff: {
                 let mut m = i.mass * j.mass / (i.mass + j.mass);
                 if frozen_i {
