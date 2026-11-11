@@ -779,7 +779,6 @@ fn test_12_gaspr_coded_pendf_is_identical() {
 /// units, as for `convr`/`gamsum` in the charged-particle work), not GASPR: open,
 /// so the test is ignored until it is traced.
 #[test]
-#[ignore = "SIGP differs in 280 words by 3e-9 (a11 rounding of binary units), not GASPR; open"]
 fn test_24_gaspr_chain_ace() {
     let root = njoy_root();
     let Some(full) = deck_text(&root, "24", Some("viewr"), "") else { return };

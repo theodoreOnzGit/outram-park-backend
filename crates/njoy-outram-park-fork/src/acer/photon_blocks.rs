@@ -99,6 +99,11 @@ pub enum SigP {
     /// grid, which is built inside `AceTable::build`, so tabulating it any
     /// earlier would index a different grid. The writer does it.
     Xs {
+        /// `gamsum`'s scratch tape is coded text (a positive PENDF unit):
+        /// `acelpp` reads each value back through `a11`. With a binary PENDF
+        /// unit (`mscr = -mscr`, `acefc.f90:176-178`) it reads the
+        /// `sigfig(y,7,0)` double itself (gh:#1492, deck 24).
+        text: bool,
         /// ENDF interpolation regions `(NBT, INT)`.
         interp: Vec<(u32, u32)>,
         /// `(E \[eV\], sigma \[barn\])` pairs.
@@ -171,7 +176,7 @@ pub struct PhotonApplicability {
 /// Returns `Some(vec![])` for a material with no photon data at all — also a
 /// legal table, and not an error.
 pub fn build(tape: &Tape, mat: i32) -> Option<Vec<PhotonEntry>> {
-    build_impl(tape, mat, None, true)
+    build_impl(tape, mat, None, true, true)
 }
 
 /// [`build`] with the PENDF the ACE table is made from, which is what
@@ -191,7 +196,15 @@ pub fn build(tape: &Tape, mat: i32) -> Option<Vec<PhotonEntry>> {
 /// the PENDF, and BROADR moves a broadened level's threshold: NJOY's U-235
 /// yields differ between its 0 K and 293.6 K tables for that reason.
 pub fn build_with_pendf(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option<Vec<PhotonEntry>> {
-    build_impl(tape, mat, Some(pendf), true)
+    build_impl(tape, mat, Some(pendf), true, true)
+}
+
+/// [`build_with_pendf`] for a PENDF unit that is blocked binary (a negative
+/// ACER `npend`): `gamsum`'s MF=13 scratch tape is then binary too, so the
+/// MF=13 words in SIGP and the ENDF-mode `convr` rounding follow the two
+/// units' signs (gh:#1492).
+pub fn build_with_pendf_units(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult, text_endf: bool, text_pendf: bool) -> Option<Vec<PhotonEntry>> {
+    build_impl(tape, mat, Some(pendf), text_endf, text_pendf)
 }
 
 /// [`build_with_pendf`] for an ENDF unit in the given mode. `convr` opens its
@@ -201,9 +214,9 @@ pub fn build_with_pendf(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResu
 /// `acelpp` as the double it is, not as `a11`'s seven-figure text
 /// (gh:#1485, deck 51).
 pub fn build_with_pendf_mode(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult, text_endf: bool) -> Option<Vec<PhotonEntry>> {
-    build_impl(tape, mat, Some(pendf), text_endf)
+    build_impl(tape, mat, Some(pendf), text_endf, true)
 }
-fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>, text_endf: bool) -> Option<Vec<PhotonEntry>> {
+fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>, text_endf: bool, text_scratch: bool) -> Option<Vec<PhotonEntry>> {
     // ~~Anisotropic photons are not written: MF=14 with LI = 0 refused the
     // whole photon build.~~ CORRECTED 2026-10-14 (GitHub #872): O-16 lost all
     // 131 photons to that rule. The anisotropic tables are written now, by
@@ -234,9 +247,11 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
         .unwrap_or(2.0e7);
 
     let mut cascade = Lo2Cascade::new();
+    // `convr` opens its scratch tape in the mode of its input unit, so with a
+    // binary ENDF unit no `a11` rounding happens (gh:#1492, deck 24).
     let rt = |x: f64| {
         use crate::endf::parse::{format_endf_float, parse_endf_float};
-        parse_endf_float(&format_endf_float(x)).unwrap_or(x)
+        if text_endf { parse_endf_float(&format_endf_float(x)).unwrap_or(x) } else { x }
     };
     let eeth = |mt: i32| -> Option<f64> {
         let p = pendf?;
@@ -369,6 +384,7 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                     }
                 } else {
                     SigP::Xs {
+                        text: text_scratch,
                         interp: tab.interp.clone(),
                         pairs: tab.pairs.clone(),
                     }
@@ -842,6 +858,18 @@ fn acelpp_law4(
 /// rather than a wrong block: an `LO = 1` section with `NK > 1`, whose total
 /// `convr` rebuilds from the subsections.
 pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option<Vec<f64>> {
+    gpd_with_mode(tape, mat, pendf, true)
+}
+
+/// [`gpd`] with `gamsum`'s scratch tape coded (`text`, a positive PENDF unit)
+/// or binary (gh:#1492).
+pub fn gpd_with_mode(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult, text: bool) -> Option<Vec<f64>> {
+    gpd_with_units(tape, mat, pendf, true, text)
+}
+
+/// [`gpd_with_mode`] with `convr`'s mode (the ENDF unit's sign) apart from
+/// `gamsum`'s (the PENDF unit's) (gh:#1492).
+pub fn gpd_with_units(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult, text_endf: bool, text: bool) -> Option<Vec<f64>> {
     use crate::endf::gety1::Gety1;
     use crate::endf::parse::{format_endf_float, parse_endf_float};
     use crate::endf::records::{Cont, Tab1};
@@ -850,7 +878,7 @@ pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option
 
     // `gamsum` runs on the ACE grid (`unionx`), not on the PENDF's MT=1 energies.
     let grid: Vec<f64> = crate::acer::build::esz_grid(pendf, &gamma_discontinuities(tape, mat))?;
-    gpd_on_grid(tape, mat, pendf, &grid, true)
+    gpd_on_grid_units(tape, mat, pendf, &grid, text_endf, text)
 }
 
 /// [`gpd`] on a caller-supplied ACE grid (eV): the incident-charged-particle
@@ -862,6 +890,13 @@ pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option
 /// `sigfig(c,7,0)` word and not `a11`'s text of it (gh:#1485, deck 71, whose
 /// 18 smallest words read 2.379134e-29 against the text form's 2.37913e-29).
 pub fn gpd_on_grid(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult, grid: &[f64], text: bool) -> Option<Vec<f64>> {
+    gpd_on_grid_units(tape, mat, pendf, grid, text, text)
+}
+
+/// [`gpd_on_grid`] with the two scratch tapes' modes apart: `text_endf` for
+/// `convr`'s (the sign of the ENDF unit), `text` for `gamsum`'s (the sign of
+/// the PENDF unit) (gh:#1492).
+pub fn gpd_on_grid_units(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult, grid: &[f64], text_endf: bool, text: bool) -> Option<Vec<f64>> {
     use crate::endf::gety1::Gety1;
     use crate::endf::parse::{format_endf_float, parse_endf_float};
     use crate::endf::records::{Cont, Tab1};
@@ -939,7 +974,7 @@ pub fn gpd_on_grid(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult, g
             // text (`tab1io`, `acefc.f90:4318-4331`), so `gamsum` reads back
             // `a11`'s rounding: Cu-65's MT=52 yield 1.0000607248 is
             // 1.00006072 there (GitHub #875).
-            let rt = |v: f64| parse_endf_float(&format_endf_float(v)).unwrap_or(v);
+            let rt = |v: f64| if text_endf { parse_endf_float(&format_endf_float(v)).unwrap_or(v) } else { v };
             let ysum = rt(out.ysum);
             let elow = rt(eeth(sec.key.mt).unwrap_or(0.0));
             let elim = rt(elim);
@@ -953,7 +988,7 @@ pub fn gpd_on_grid(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult, g
                 // `convr` rebuilds a multi-subsection LO=1 total as the sum
                 // of its subsections, and `gamsum` reads the rebuilt one
                 // (GitHub #872: F-19, Al-27 and Si had no GPD for want of it).
-                convr_corrected_total(sec, 12)?
+                convr_corrected_total(sec, 12, text_endf)?
             } else {
                 cur.read_tab1().ok()?
             }
@@ -1024,7 +1059,7 @@ pub fn gpd_on_grid(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult, g
 /// by `gety1` and only while its next tabulated energy is below
 /// `etop - etop/100`. `convr` writes the result to its output tape as text,
 /// so every value carries `a11`'s rounding, which is what `gamsum` reads back.
-fn convr_corrected_total(sec: &crate::endf::tape::Section, mf: i32) -> Option<crate::endf::records::Tab1> {
+fn convr_corrected_total(sec: &crate::endf::tape::Section, mf: i32, text_endf: bool) -> Option<crate::endf::records::Tab1> {
     use crate::endf::gety1::Gety1;
     use crate::endf::parse::{format_endf_float, parse_endf_float};
     use crate::mixr::mix::sigfig;
@@ -1064,7 +1099,7 @@ fn convr_corrected_total(sec: &crate::endf::tape::Section, mf: i32) -> Option<cr
             }
         }
     }
-    let rt = |x: f64| parse_endf_float(&format_endf_float(x)).unwrap_or(x);
+    let rt = |x: f64| if text_endf { parse_endf_float(&format_endf_float(x)).unwrap_or(x) } else { x };
     for p in tot.pairs.iter_mut() {
         *p = (rt(p.0), rt(p.1));
     }

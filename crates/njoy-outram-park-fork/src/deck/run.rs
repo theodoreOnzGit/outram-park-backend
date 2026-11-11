@@ -444,7 +444,7 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     if !pend.meta.heatr {
         deck = deck.without_heatr();
     }
-    deck = deck.with_heatr_partials(pend.meta.heatr_partials).with_purr_binary(pend.meta.purr_binary).with_heatr_binary(pend.meta.heatr_binary).with_newfor(c.newfor).with_pendf_binary(c.npend < 0);
+    deck = deck.with_heatr_partials(pend.meta.heatr_partials).with_purr_binary(pend.meta.purr_binary).with_heatr_binary(pend.meta.heatr_binary).with_newfor(c.newfor).with_pendf_binary(c.npend < 0).with_endf_binary(c.nendf < 0);
     // rows[0] is the HEAD, rows[1] the TAB1 record (NR, NP), then the
     // interpolation table (three pairs a row), then the points.
     let tab1_pairs = |mt: i32| -> Option<Vec<(f64, f64)>> {

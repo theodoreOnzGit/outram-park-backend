@@ -1293,7 +1293,7 @@ pub(super) fn append_photon_blocks(
     // non-zero value. ~~The window used to stop at the table's last energy~~
     // (CORRECTED 2026-10-14, GitHub #872): O-16's MT=4 tables run to 150 MeV
     // with zeros above 30 MeV, which NJOY2016 does not store.
-    let xs_window = |interp: &[(u32, u32)], pairs: &[(f64, f64)]| -> (i32, Vec<f64>) {
+    let xs_window = |text: bool, interp: &[(u32, u32)], pairs: &[(f64, f64)]| -> (i32, Vec<f64>) {
         const EPS: f64 = 1.0e-10;
         let Some(&(thresh, _)) = pairs.first() else {
             return (1, Vec::new());
@@ -1327,7 +1327,13 @@ pub(super) fn append_photon_blocks(
                 // reads back, so each value carries `a11`'s rounding (6
                 // figures for a two-digit exponent).
                 let y = sigfig(y, 7);
-                crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(y)).unwrap_or(y)
+                // A binary PENDF unit makes the scratch tape binary: no `a11`
+                // (gh:#1492, deck 24).
+                if text {
+                    crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(y)).unwrap_or(y)
+                } else {
+                    y
+                }
             })
             .collect();
         // `acelpp`'s jfirst / jlast over those values.
@@ -1359,7 +1365,7 @@ pub(super) fn append_photon_blocks(
             // [12, MTMULT, NR, NBT(NR), INT(NR), NE, E(NE), y(NE)]
             SigP::Yield { e_mev, interp, .. } => 4 + 2 * e_mev.len() as i32 + 2 * yield_nr(interp) as i32,
             // [13, IE, NE, sigma(NE)]
-            SigP::Xs { interp, pairs } => 3 + xs_window(interp, pairs).1.len() as i32,
+            SigP::Xs { text, interp, pairs } => 3 + xs_window(*text, interp, pairs).1.len() as i32,
         }
     };
     let mut sig_off = Vec::with_capacity(n);
@@ -1406,8 +1412,8 @@ pub(super) fn append_photon_blocks(
                     b.real(v);
                 }
             }
-            SigP::Xs { interp, pairs } => {
-                let (ie, sig) = xs_window(interp, pairs);
+            SigP::Xs { text, interp, pairs } => {
+                let (ie, sig) = xs_window(*text, interp, pairs);
                 b.int(13);
                 b.int(ie);
                 b.int(sig.len() as i32);
@@ -1487,8 +1493,8 @@ pub(super) fn append_photon_blocks(
         // with zeros from 1e-5 eV, and its header read 1e-11 MeV where NJOY
         // writes 4.518e-2.
         let (e_lo, e_hi) = match &e.sigp {
-            SigP::Xs { interp, pairs } => {
-                let (ie, sig) = xs_window(interp, pairs);
+            SigP::Xs { text, interp, pairs } => {
+                let (ie, sig) = xs_window(*text, interp, pairs);
                 let lo = (ie - 1) as usize;
                 let hi = lo + sig.len().max(1) - 1;
                 match (egrid.get(lo), egrid.get(hi)) {

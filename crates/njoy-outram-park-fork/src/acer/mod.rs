@@ -442,6 +442,9 @@ pub struct AceDeck {
     /// cross sections stay at full double precision instead of going through
     /// ENDF text (gh:#1449).
     pendf_binary: bool,
+    /// ACER's ENDF unit is blocked binary (negative `nendf`): `convr`'s scratch
+    /// tape is then binary and photon production keeps full doubles (gh:#1492).
+    endf_binary: bool,
     /// ACER's `newfor`: `1` (default) the new angular format, `0` the old
     /// equally probable bins (gh:#1449).
     newfor: i32,
@@ -471,6 +474,7 @@ impl Default for AceDeck {
             purr_binary: false,
             heatr_binary: false,
             pendf_binary: false,
+            endf_binary: false,
             newfor: 1,
             photon_matrix: None,
             esz_kerma: None,
@@ -518,8 +522,15 @@ impl AceDeck {
         self
     }
 
-    /// HEATR's output unit was blocked binary (`nout < 0`): the modules after
-    /// it read its MT=301 (and partials) as doubles, not as printed text.
+    /// ACER's ENDF unit is blocked binary (`nendf < 0`): `convr`'s scratch
+    /// tape is binary and photon production keeps full doubles (gh:#1492).
+    pub fn with_endf_binary(mut self, binary: bool) -> Self {
+        self.endf_binary = binary;
+        self
+    }
+
+    /// ACER's PENDF unit is blocked binary (`npend < 0`): its values stay full
+    /// doubles and `gamsum`'s scratch tape is binary (gh:#1449, #1492).
     pub fn with_pendf_binary(mut self, binary: bool) -> Self {
         self.pendf_binary = binary;
         self
@@ -619,6 +630,11 @@ pub(crate) struct DeckModules {
     pub(crate) mt444: Option<Vec<(f64, f64)>>,
     /// GASPR's MT=203-207 pairs from the PENDF tape.
     pub(crate) gas: Vec<(i32, Vec<(f64, f64)>)>,
+    /// ACER's PENDF unit is blocked binary, so `gamsum`'s scratch tape is too
+    /// (gh:#1492).
+    pub(crate) pendf_binary: bool,
+    /// ACER's ENDF unit is blocked binary, so `convr`'s scratch tape is too.
+    pub(crate) endf_binary: bool,
 }
 
 /// Run the deck's PURR and HEATR on `pendf` (a result already through
@@ -714,7 +730,7 @@ pub(crate) fn deck_modules(
         }),
         _ => kerma,
     };
-    Ok(DeckModules { urr, kerma, damage_energy, newfor: deck.newfor, photon_matrix: deck.photon_matrix.clone(), mt444: deck.mt444.clone(), gas: deck.gas.clone() })
+    Ok(DeckModules { urr, kerma, damage_energy, newfor: deck.newfor, photon_matrix: deck.photon_matrix.clone(), mt444: deck.mt444.clone(), gas: deck.gas.clone(), pendf_binary: deck.pendf_binary, endf_binary: deck.endf_binary })
 }
 
 /// ACER proper: the continuous-energy table from the PENDF and what
@@ -785,12 +801,12 @@ pub(crate) fn assemble(
         kerma,
         nu_block.as_deref(),
         crate::acer::has_mt19_distributions(tape, mat),
-        crate::acer::photon_blocks::build_with_pendf(tape, mat, recon).as_deref(),
+        crate::acer::photon_blocks::build_with_pendf_units(tape, mat, recon, !modules.endf_binary, !modules.pendf_binary).as_deref(),
         urr,
         delayed.as_ref(),
         &crate::acer::photon_blocks::gamma_discontinuities(tape, mat),
     );
-    if let Some(mut g) = crate::acer::photon_blocks::gpd(tape, mat, recon) {
+    if let Some(mut g) = crate::acer::photon_blocks::gpd_with_units(tape, mat, recon, !modules.endf_binary, !modules.pendf_binary) {
         // `acelod`: the 30 x 20 photon matrix follows GPD when ACER had an `ngend` GENDF.
         if let Some(m) = &modules.photon_matrix {
             g.extend_from_slice(m);
