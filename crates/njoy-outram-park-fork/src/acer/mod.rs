@@ -587,13 +587,21 @@ pub(crate) fn deck_modules(
         )?,
         None => None,
     };
-    // EXPERIMENT (gh:#1450/#1449): ACER's ESZ keeps reading MT=301 as printed
-    // (the five-route decks, test 19), PURR's rdheat gets the doubles.
+    // ACER's ESZ reads MT=301 from the PENDF as HEATR left it: every value
+    // went through `hout`'s `sigfig(v, 7, 0)` (6 figures above `big = 1e10`,
+    // `heatr.f90` hout) and then, on the scratch tape `unionx` writes, through
+    // `a11` text. `format_endf_float` alone rounds half-up on the binary
+    // double, which differs from `sigfig` on a value like 3204091.4999...:
+    // test 07's ESZ heating at 81.99999 eV (gh:#1449, 75.45917 against NJOY's
+    // 75.45914) was that one word. PURR's `rdheat` was given the unrounded
+    // doubles above.
     let kerma = if deck.heatr_binary {
         kerma.map(|k| {
             use crate::endf::parse::{format_endf_float, parse_endf_float};
+            use crate::mixr::mix::sigfig;
             let rt = |x: f64| parse_endf_float(&format_endf_float(x)).unwrap_or(x);
-            crate::heatr::Kerma { energy: k.energy.iter().map(|&x| rt(x)).collect(), h: k.h.iter().map(|&x| rt(x)).collect() }
+            let rth = |x: f64| rt(sigfig(x, if x > 1.0e10 { 6 } else { 7 }, 0));
+            crate::heatr::Kerma { energy: k.energy.iter().map(|&x| rt(x)).collect(), h: k.h.iter().map(|&x| rth(x)).collect() }
         })
     } else {
         kerma
