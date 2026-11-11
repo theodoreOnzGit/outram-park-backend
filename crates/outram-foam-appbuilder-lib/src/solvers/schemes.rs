@@ -317,24 +317,11 @@ pub fn div_vec_scheme(
 
     match scheme {
         DivScheme::GaussUpwind => Ok(fvm::div_vec(phi, u, mesh)),
-        DivScheme::GaussLinear => {
-            let mut mat = fvm::div_vec(phi, u, mesh.clone());
-            let u_f = fvc::interpolate(u); // geometric linear weighting
-            for f in 0..mesh.n_internal_faces {
-                let o = mesh.owner[f];
-                let nb = mesh.neighbour[f];
-                let phi_f = phi.internal[f];
-                let u_up = if phi_f >= 0.0 {
-                    u.internal[o]
-                } else {
-                    u.internal[nb]
-                };
-                let d = (u_f.internal[f] - u_up) * phi_f;
-                mat.source[o] -= d;
-                mat.source[nb] += d;
-            }
-            Ok(mat)
-        }
+        // gh:#1363: upstream `gaussConvectionScheme` with the `linear`
+        // weights is fully implicit (`lower = -w*phi`, `upper = lower + phi`);
+        // this arm used to be implicit upwind plus a lagged explicit
+        // correction, a different operator inside a time step.
+        DivScheme::GaussLinear => Ok(fvm::div_vec_linear(phi, u, mesh)),
         DivScheme::GaussLinearUpwind(_) => {
             let mut mat = fvm::div_vec(phi, u, mesh.clone());
             let g = grad_vec_scheme(grad, u)?;
@@ -618,27 +605,23 @@ mod tests {
         assert!(steady.ldu.diag.iter().all(|d| d.abs() < 1e-15));
     }
 
-    /// V&V (verification) — `DivScheme::GaussLinear` reproduces the exact
-    /// central-difference convective flux on a uniform 1-D mesh.
+
+    /// V&V (verification) — `DivScheme::GaussLinear` is the fully IMPLICIT
+    /// central operator of upstream `gaussConvectionScheme` (gh:#1363).
     ///
-    /// **Methodology.** Reference (analytical): for a uniform mesh the linear
-    /// face value is the arithmetic mean `(U_O + U_N)/2`, so the deferred
-    /// correction on face f is `D_f = φ_f (U_O + U_N)/2 − φ_f U_upwind`. With
-    /// φ_f = +1 m³/s (flow owner→neighbour, upwind = owner) that is
-    /// `φ_f (U_N − U_O)/2`. Inputs: the 3-cell unit line mesh, φ = 1 m³/s on
-    /// both internal faces, U_x = {1, 2, 3} m/s. Expected corrections: face 0
-    /// (cells 0→1) D = 1·(2−1)/2 = 0.5; face 1 (cells 1→2) D = 1·(3−2)/2 = 0.5.
-    /// Hence `source_linear − source_upwind` = [−0.5, 0.0, +0.5] m⁴/s².
-    /// Pass criterion: |Δ| < 1e-12; and the implicit matrix (diag, off-diagonals)
-    /// must be unchanged, since deferred correction touches only the source.
-    ///
-    /// **Results (run 2026-08-07, release mode).** measured
-    /// `source_linear − source_upwind` = [−0.5, 0.0, +0.5] m⁴/s² exactly
-    /// (max |Δ| = 0.0); diag and upper/lower coefficients identical between the
-    /// two schemes to 0.0. Confirms the scheme selection changes the
-    /// discretisation in precisely the intended way and nowhere else.
+    /// **Methodology.** Reference (analytical): on the 3-cell unit line with
+    /// φ = 1 m³/s on both internal faces and linear weight w = 1/2,
+    /// `lower = -w φ = -0.5`, `upper = lower + φ = 0.5`,
+    /// `diag = negSumDiag = [0.5, 0, -0.5]` (+ boundary terms, common to
+    /// upwind). So `lin.diag - up.diag = [-0.5, -1, -0.5]`, every `upper` is
+    /// 0.5 and every `lower` -0.5, and the interior source is NOT touched
+    /// (the previous implementation put the central part in a lagged source).
+    /// Pass criterion: |Δ| < 1e-15. This replaces the 2026-08-07 test of the
+    /// deferred-correction form, which asserted the opposite (matrix equal to
+    /// upwind, source carrying the correction): changed because that form is
+    /// not upstream's operator (gh:#1363, cavity differential).
     #[test]
-    fn linear_div_adds_the_exact_central_difference_correction() {
+    fn linear_div_is_the_fully_implicit_central_operator() {
         let mesh = line_mesh();
         let mut u = VolVectorField::zero("U", mesh.clone());
         u.internal = Field::new(vec![vx(1.0), vx(2.0), vx(3.0)]);
@@ -650,21 +633,15 @@ mod tests {
         let up = div_vec_scheme(&DivScheme::GaussUpwind, &g, &phi, &u, mesh.clone()).unwrap();
         let lin = div_vec_scheme(&DivScheme::GaussLinear, &g, &phi, &u, mesh.clone()).unwrap();
 
-        let expected = [-0.5, 0.0, 0.5];
-        for (c, want) in expected.iter().enumerate() {
-            let d = lin.source[c].x - up.source[c].x;
-            assert!(
-                (d - want).abs() < 1e-12,
-                "cell {c}: correction {d} expected {want}"
-            );
-            assert!(
-                (lin.ldu.diag[c] - up.ldu.diag[c]).abs() < 1e-15,
-                "diag[{c}]"
-            );
+        let want_diag_shift = [-0.5, -1.0, -0.5];
+        for c in 0..3 {
+            let d = lin.ldu.diag[c] - up.ldu.diag[c];
+            assert!((d - want_diag_shift[c]).abs() < 1e-15, "diag shift[{c}] = {d}");
+            assert!((lin.source[c].x - up.source[c].x).abs() < 1e-15, "source[{c}]");
         }
         for f in 0..mesh.n_internal_faces {
-            assert!((lin.ldu.upper[f] - up.ldu.upper[f]).abs() < 1e-15);
-            assert!((lin.ldu.lower[f] - up.ldu.lower[f]).abs() < 1e-15);
+            assert!((lin.ldu.upper[f] - 0.5).abs() < 1e-15);
+            assert!((lin.ldu.lower[f] + 0.5).abs() < 1e-15);
         }
     }
 

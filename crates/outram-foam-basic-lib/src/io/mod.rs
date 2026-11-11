@@ -69,7 +69,7 @@ pub use dict::{Dimensioned, FoamDict, FoamEntry, FoamHeader, FoamValue};
 pub use field::{
     read_vol_scalar_field, read_vol_vector_field, write_vol_scalar_field, write_vol_vector_field,
 };
-pub use poly_mesh::{MeshFace, PolyMesh};
+pub use poly_mesh::{cell_geometry_from_faces, face_centre_and_area, MeshFace, PolyMesh};
 
 /// Errors raised while reading or writing OpenFOAM ASCII case files.
 #[derive(Debug, thiserror::Error)]

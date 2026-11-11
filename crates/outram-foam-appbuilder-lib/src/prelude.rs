@@ -86,7 +86,7 @@ pub use crate::solvers::cht_multi_region_foam::{ChtMultiRegionFoam, CoupledTempe
 pub use crate::solvers::energy::{EnergyEquation, IncompressibleThermo};
 pub use crate::solvers::hrm_foam::{HrmFoam, HrmModelConfig};
 pub use crate::solvers::melt_foam::MeltFoam;
-pub use crate::solvers::pimple_foam::{PimpleFoam, PressureSolver};
+pub use crate::solvers::pimple_foam::{PimpleFoam, PressureSolver, SolveRecord};
 pub use crate::solvers::schemes::DdtCorrForm;
 pub use crate::solvers::reacting_two_phase_euler_foam::{
     build_default as build_reacting_two_phase_euler, InterfacialHeatTransfer,

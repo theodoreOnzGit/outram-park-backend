@@ -130,13 +130,27 @@ int main(int argc, char *argv[])
 
     {
         // constants of the mixture, bit patterns (R = RR/W, Cp, Cv at a sample state)
-        scalarField k(4);
+        scalarField k(8);
         k[0] = mix.R();
         k[1] = mix.Cp(1e5, 300.0);
         k[2] = mix.Cv(1e5, 300.0);
         k[3] = mix.W();
+        k[4] = mix.Es(1e5, 348.432);
+        k[5] = mix.Es(1e4, 278.746);
+        k[6] = mix.THE(mix.Es(1e5, 348.432), 1e5, 300.0);
+        k[7] = mix.THE(mix.Es(1e4, 278.746), 1e4, 348.432);
         std::printf("# CONSTANTS\n");
         hexDump("const", k);
+    }
+
+    {
+        // mesh geometry as upstream computes it: cell volumes, internal-face Sf_x
+        std::printf("# GEOMETRY\n");
+        hexDump("V", mesh.V().field());
+        scalarField sfx(mesh.Sf().primitiveField().component(0));
+        hexDump("Sfx", sfx);
+        scalarField cx(mesh.C().primitiveField().component(0));
+        hexDump("Cx", cx);
     }
 
     IOdictionary ctrl

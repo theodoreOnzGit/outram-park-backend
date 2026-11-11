@@ -7,11 +7,11 @@
 # crates/outram-park-fork-cfmesh/verification_and_validation/upstream_cfmesh_gh1385/README.md
 # (libOpenFOAM, libfiniteVolume, libmeshTools, blockMesh); nothing of
 # OpenFOAM is committed here.
-#   usage: run_shock.sh <deltaT> <nSteps> "<dump steps>"      (default 1e-5 700 "1 2 10 100 700")
+#   usage: run_shock.sh <deltaT> <nSteps> "<dump steps>"      (default 1e-5 700 "1 2 3 4 5 6 7 8 9 10 20 50 100 300 700")
 set -e
 DT=${1:-1e-5}
 NSTEPS=${2:-700}
-DUMPS=${3:-"1 2 10 100 700"}
+DUMPS=${3:-"1 2 3 4 5 6 7 8 9 10 20 50 100 300 700"}
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 W=/home/user/upstream-build/gh1363
 WITH=/home/user/upstream-build/scripts/with-of.sh
@@ -59,5 +59,5 @@ mkfield() { # name dimensions lowvalue highvalue
 mkfield T "[0 0 0 1 0 0 0]" 278.746 348.432
 mkfield p "[1 -1 -2 0 0 0 0]" 10000 100000
 cp $TUT/0.orig/U $W/shock/0/U
-(cd $W/shock && $WITH ../bin/rhoCentralDump | grep -E "^# STEP|^# CONSTANTS|^(const|rho|Ux|T|p|e|rhoU|rhoE) [0-9]+ [0-9a-f]{16}$" > ref_shock.txt)
+(cd $W/shock && $WITH ../bin/rhoCentralDump | grep -E "^# STEP|^# CONSTANTS|^# GEOMETRY|^(V|Sfx|Cx|const|rho|Ux|T|p|e|rhoU|rhoE) [0-9]+ [0-9a-f]{16}$" > ref_shock.txt)
 gzip -9n -c $W/shock/ref_shock.txt > $HERE/shock/reference/shock_v2506_rhoCentral.txt.gz

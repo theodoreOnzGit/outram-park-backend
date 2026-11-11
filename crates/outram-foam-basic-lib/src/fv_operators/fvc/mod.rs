@@ -61,7 +61,7 @@ pub use grad::grad;
 pub use grad_least_squares::{grad_least_squares, grad_least_squares_face_centre};
 pub use grad_vec::grad_vec;
 pub use interpolate::{interpolate, linear_weight};
-pub use muscl::{reconstruct_pos_neg, Limiter};
+pub use muscl::{reconstruct_pos_neg, reconstruct_pos_neg_vector, Limiter};
 pub use reconstruct::reconstruct;
 pub use linear_upwind::{linear_upwind, linear_upwind_with_grad};
 pub use sn_grad::{sn_grad, sn_grad_with_delta};
