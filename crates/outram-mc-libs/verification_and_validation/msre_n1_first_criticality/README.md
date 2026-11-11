@@ -555,7 +555,7 @@ Salt density follows −1.18e-4 /°F (ORNL-4233 §4.1). Runs at 1131 °F and
 - **Every value is inside its posted prediction**, and the posted precision
   target σ ≤ 0.5 is met.
 - **The components add:** −7.59 against −7.19.
-- **Mo:** arm A only. Mo absorption is nearly flat in temperature, so the
+- **Mo:** arm A only (~~not measured~~ **measured on arm C 2026-11-11, below**). Mo absorption is nearly flat in temperature, so the
   coefficient should be insensitive to it. That expectation was not
   measured.
 
@@ -608,6 +608,37 @@ Both components lie inside the band posted on gh:#1129 before the run
 (−4.6 to −3.0). The components add to −7.81 against −7.12 for the
 isothermal run. T-1 re-run with these: −14 % to +6 % of the measured
 periods (nee_soon T-1 README).
+
+**On the default model, arm C with natural Mo (2026-11-11, gh:#1129).**
+Every coefficient above was measured on arm A (Mo omitted); the N-1
+default has been arm C since 2026-11-09. Isothermal, RVS, 30P, cold
+dimensions, seeds 1–6 at each temperature; rows `mo-natural@salt1131F…`
+and `…salt1231F…` in `data/n3.csv`. About 720 s per seed (4-core Intel
+Xeon, 4 threads, 15.7 GiB RAM, Linux, CPU only).
+
+| temperature | k (6 seeds) | seed sd | internal σ |
+|---|---|---|---|
+| 1131 °F | 1.01245 ± 0.00032 | 78 pcm | 63 pcm |
+| 1231 °F | 1.00478 ± 0.00024 | 58 pcm | 64 pcm |
+
+| | α_iso (×10⁻⁵ /°F) |
+|---|---|
+| **arm C (natural Mo, the default)** | **−7.54 ± 0.40** |
+| arm A (Mo omitted), RVS, six seeds | −7.12 ± 0.39 |
+| C − A | −0.42 ± 0.56 (0.8σ), not resolved |
+| measured (ORNL-4233 p. 37) | −7.24; arm C is −0.30 from it (0.8σ) |
+
+- **Inside the prediction** posted on gh:#1129 before the run: |C − A| ≤ 0.5
+  and α_iso(C) in −7.6 to −6.6. It lands near the band's negative edge.
+  The predicted sign (C slightly less negative) is not what the central
+  value shows, but the difference is not resolved.
+- **The Mo does not change N-3** at this precision, so T-1's periods (which
+  use the fuel/graphite split) are not re-run. The split itself was not
+  re-measured on arm C.
+- **Consistency with N-1:** the mean of the two temperatures, 1.00862, sits
+  20 ± 40 pcm from arm C's 1181 °F value of 1.00882.
+- **Quote −7.54 ± 0.40 for the default model.** Arm A's −7.12 stays as the
+  Mo-omitted ablation.
 
 ### A finding about the statistics
 
