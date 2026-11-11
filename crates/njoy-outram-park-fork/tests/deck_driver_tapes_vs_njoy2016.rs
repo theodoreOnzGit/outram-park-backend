@@ -1069,3 +1069,136 @@ fn test_71_charged_particle_ace() {
         assert!(c.identical(), "test 71 ACE differs from NJOY2016");
     }
 }
+
+/// Only the lines THERMR owns: MF=3 and MF=6 sections with `MT` in `mts`, and
+/// the MF=1/MT=451 dictionary rows that list them. Used where the tape also
+/// carries sections of modules whose tape writers are not ported (UNRESR's
+/// MF=2/MT=152).
+fn thermr_lines(path: &Path, mts: &[i32]) -> Vec<String> {
+    let text = std::fs::read_to_string(path).unwrap();
+    text.lines()
+        .filter(|l| {
+            if l.len() < 75 {
+                return false;
+            }
+            let (mf, mt) = (l[70..72].trim().parse::<i32>().unwrap_or(-1), l[72..75].trim().parse::<i32>().unwrap_or(-1));
+            if (mf == 3 || mf == 6) && mts.contains(&mt) {
+                return true;
+            }
+            if mf == 1 && mt == 451 {
+                let (dmf, dmt) = (l[22..33].trim().parse::<i32>().unwrap_or(-1), l[33..44].trim().parse::<i32>().unwrap_or(-1));
+                return (dmf == 3 || dmf == 6) && mts.contains(&dmt) && l[..22].trim().is_empty();
+            }
+            false
+        })
+        .map(str::to_string)
+        .collect()
+}
+
+/// Differing lines of one unit grouped by the `MAT MF MT` of NJOY's line.
+fn differing_by_section(ours: &Path, njoy: &Path, only: Option<&[i32]>) -> Vec<(String, usize)> {
+    let mut by: std::collections::BTreeMap<String, usize> = Default::default();
+    let diff = match only {
+        None => differing_lines(ours, njoy),
+        Some(mts) => {
+            let (a, b) = (thermr_lines(ours, mts), thermr_lines(njoy, mts));
+            assert!(!b.is_empty(), "no THERMR lines on NJOY's tape");
+            let mut out = Vec::new();
+            for i in 0..a.len().max(b.len()) {
+                let (x, y) = (a.get(i).map_or("", String::as_str), b.get(i).map_or("", String::as_str));
+                if x != y {
+                    out.push((i + 1, if y.len() >= 75 { y[66..75].to_string() } else { "past end".into() }));
+                }
+            }
+            out
+        }
+    };
+    for (_, key) in diff {
+        *by.entry(key).or_default() += 1;
+    }
+    by.into_iter().collect()
+}
+
+/// **THERMR tape driver, one deck, line for line** (gh:#1369).
+///
+/// Deck: upstream `tests/<case>/input` cut before module `cut` (`""`: whole
+/// deck), `tail` appended (MODERs converting each THERMR output to the text
+/// units `checks`), the deck's resources mounted as units. Pass criterion:
+/// **zero** differing lines on every unit in `checks`; on failure the
+/// differing lines are reported grouped by `MAT MF MT`, which separates the
+/// routines (`calcem` MF=3/6 `mtref`, `coh` `mtref+1`, `iel`, MF=1 dictionary).
+fn thermr_deck(case: &str, cut: &str, tail: &str, res: &[(&str, u32)], checks: &[u32], only: Option<&[i32]>) -> Option<()> {
+    let root = njoy_root();
+    let deck = deck_text(&root, case, if cut.is_empty() { None } else { Some(cut) }, tail)?;
+    let (r0, rest) = res.split_first().unwrap();
+    let (ours, njoy) = run_pair_decks_extra(&root, &format!("th{case}"), r0.0, rest, &deck, &deck)?;
+    let mut bad = Vec::new();
+    for &u in checks {
+        let (a, b) = (ours.join(format!("tape{u}")), njoy.join(format!("tape{u}")));
+        let n = std::fs::read_to_string(&b).unwrap().lines().count();
+        let d = differing_by_section(&a, &b, only);
+        println!("deck {case} unit {u}: {} differing sections of {n} lines: {:?}", d.len(), &d[..d.len().min(12)]);
+        if !d.is_empty() {
+            bad.push((u, d));
+        }
+    }
+    if std::env::var_os("KEEP_DECK_DIRS").is_none() {
+        let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    }
+    assert!(bad.is_empty(), "deck {case}: differing {bad:?}");
+    Some(())
+}
+
+/// Deck 11: free gas at three temperatures (`ntemp = 3`) on an ENDF-IV tape.
+#[test]
+fn test_11_thermr_three_temperatures_free_gas() {
+    thermr_deck("11", "groupr", "moder\n -25 91\n", &[("t404", 20)], &[91], Some(&[221]));
+}
+
+/// Deck 25: ENDF-6 H in H2O at 300, 400, 500 K, `iinc = 2`, card `icoh = 1` with no MF=7/MT=2 on the tape: `thermr` keeps the card and runs `coh` with the built-in graphite lattice (`mtref+1`). Three temperatures, `T_eff` TAB1, `calcem` iform 0.
+#[test]
+fn test_25_thermr_tape_is_identical_line_for_line() {
+    thermr_deck("25", "acer", "moder\n -50 91\n", &[("n-001_H_001-ENDF8.0-Beta6.endf", 20), ("tsl-HinH2O-ENDF8.0-Beta6.endf", 21)], &[91], Some(&[222, 223]));
+}
+
+/// Deck 32: ENDF-6 Zr in ZrH, `LTHR = 2` (incoherent elastic, `rdelas` + `iel`, MF=3/6 `mtref+1`): unit 91 is `iform = 0`, unit 92 is `iform = 1` (`LAW = 7`).
+#[test]
+fn test_32_thermr_tape_is_identical_line_for_line() {
+    thermr_deck("32", "", "moder\n -24 91\nmoder\n -25 92\n", &[("n-040_Zr_090-ENDF8.0.endf", 20), ("tsl-ZrinZrH-ENDF8.0.endf", 30)], &[91, 92], Some(&[227, 228]));
+}
+
+/// Deck 49: as deck 32's first THERMR with `nendf` positive (unit 30) and the PENDF through HEATR.
+#[test]
+fn test_49_thermr_tape_is_identical_line_for_line() {
+    thermr_deck("49", "acer", "moder\n -25 91\n", &[("n-040_Zr_090-ENDF8.0.endf", 20), ("tsl-ZrinZrH-ENDF8.0.endf", 30)], &[91], Some(&[227, 228]));
+}
+
+/// Deck 67: ENDF-8.1 D in 7LiD, `LTHR = 3` (mixed elastic: `coh` at `mtref+1`, `iel` at `mtref+2`; both MF=6 carry `iel`'s `ncdse`).
+#[test]
+fn test_67_thermr_tape_is_identical_line_for_line() {
+    thermr_deck("67", "acer", "moder\n -50 91\n", &[("n-001_H_002-ENDF8.0.endf", 20), ("tsl-DinLiD-ENDF8.1-beta.endf", 21)], &[91], Some(&[221, 222, 223]));
+}
+
+/// Deck 68: H in H2O, inelastic only (`icoh = 0`, no MT=2).
+#[test]
+fn test_68_thermr_tape_is_identical_line_for_line() {
+    thermr_deck("68", "acer", "moder\n -50 91\n", &[("n-001_H_001-ENDF8.0-Beta6.endf", 20), ("tsl-HinH2O-ENDF8.0-Beta6.endf", 21)], &[91], Some(&[221]));
+}
+
+/// Deck 69: Zr in ZrH, `iinc = 2`, ENDF-6 `LTHR = 2` replaces the card `icoh = 1`.
+#[test]
+fn test_69_thermr_tape_is_identical_line_for_line() {
+    thermr_deck("69", "acer", "moder\n -50 91\n", &[("n-040_Zr_090-ENDF8.0.endf", 20), ("tsl-ZrinZrH-ENDF8.0.endf", 21)], &[91], Some(&[221, 222]));
+}
+
+/// Deck 70: Al-27 at 400 K, `LTHR = 1` (coherent from the tape `S(E)`, `rdelas`).
+#[test]
+fn test_70_thermr_tape_is_identical_line_for_line() {
+    thermr_deck("70", "acer", "moder\n -50 91\n", &[("n-013_Al_027-ENDF8.0.endf", 20), ("tsl-013_Al_027-ENDF8.0.endf", 21)], &[91], Some(&[221, 222]));
+}
+
+/// Deck 74: H in ZrH at 296 K, `LTHR = 2`.
+#[test]
+fn test_74_thermr_tape_is_identical_line_for_line() {
+    thermr_deck("74", "acer", "moder\n -50 91\n", &[("n-001_H_001-ENDF8.0-Beta6.endf", 20), ("tsl-HinZrH-ENDF8.0.endf", 21)], &[91], Some(&[221, 222]));
+}

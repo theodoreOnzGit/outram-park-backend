@@ -1,6 +1,7 @@
 // Translated from NJOY2016.80 `src/thermr.f90`: `subroutine thermr` (the main
-// flow, `:34-475`), `calcem`'s free-gas path (`:1857-1916`, `:2453-2470`) and
-// `tpend` (`:2998-3385`), for the free-gas inelastic case (`iinc = 1`).
+// flow, `:34-475`), `rdelas` (`:477-592`), `coh` (`:748-922`), `iel`
+// (`:1244-1425`), `calcem`'s free-gas, `S(alpha,beta)` (`iform = 0` and `1`)
+// and bookkeeping paths (`:1541-2480`) and `tpend` (`:2998-3385`).
 // NJOY2016 is under a modified BSD 3-Clause (LANL/DOE) licence, GPL-compatible;
 // this derivative file is distributed under AGPL-3.0-only. This is a modified,
 // non-LANL version, not endorsed by LANL/DOE. See crate root LICENSE.njoy + NOTICE.
@@ -8,24 +9,43 @@
 //! **THERMR as a tape driver** (gh:#1369): the PENDF with thermal MF=3 and MF=6
 //! sections inserted, as `tpend` writes it.
 //!
-//! Ported here: **free gas** (`iinc = 1`) and **`S(alpha,beta)` from an ENDF-4/5
-//! tape** (`iinc = 2`, `gateff` effective temperature, the existing MF=7
-//! reader, which reads the older layout unchanged: it differs from ENDF-6 only
-//! in lacking the `T_eff` TAB1), each with optional **built-in coherent
-//! elastic** (`icoh = 1..3`: `sigcoh` `lat < 10`, `form`, `coh`), `iform = 0`,
-//! one temperature. `calcem` on the 45-point `β` grid for free gas
-//! ([`IncoherentInelastic::free_gas`]) or on the tape's `S(α,β)`; MF=3 `mtref`
-//! on the input PENDF's own elastic (MT=2) grid up to `emax` (free gas:
-//! `ex(3)=ex(2)`, label 610; bound: `terp(esi,xsi)`), merged with `coh`'s
-//! Bragg-edge points when `icoh > 0` (MF=3 `mtref+1`, MF=6 `mtref+1` with
-//! `LIP = -nbragg`, `LAW = 0`); MF=6 `mtref` as the special `LANG = 3`
-//! equally-probable-cosine format with `tpend`'s `1/σ` normalisation of the
-//! pdf column; and the MF=1 dictionary.
+//! Ported here: **free gas** (`iinc = 1`) and **`S(alpha,beta)`** (`iinc = 2`)
+//! from an ENDF-4/5 tape (`gateff` effective temperature) or an **ENDF-6 tape**
+//! (`T_eff` TAB1 read by the MF=7 parser, `rdelas`'s `LTHR`), `iform = 0`
+//! (the special `LANG = 3` equally-probable-cosine MF=6) and `iform = 1`
+//! (`LAW = 7`, E-mu-E' ordering), and **several temperatures** (one `tpend`
+//! per requested temperature, each on its own block of the multi-temperature
+//! PENDF). Elastic scattering, as `thermr` picks it:
 //!
-//! Not ported (each stops the run with [`NjoyError::NotPorted`]): ENDF-6 `nendf`
-//! tapes (`rdelas`, `T_eff` TAB1), incoherent elastic (`iel`), `iform = 1`,
-//! several temperatures.
+//! - ENDF-6 tape with an MF=7/MT=2 section: `icoh = 10 * LTHR` overrides the
+//!   card (`thermr.f90:337-348`): `LTHR = 1` coherent from the tape's `S(E)`
+//!   (`rdelas`'s temperature rule, [`crate::thermr::coherent::CoherentElastic::s_of_e_rdelas`]),
+//!   `2` incoherent (`iel`, `mat = 20`: the tape's `W'(T)`), `3` both
+//!   (`coh` at `mtref+1`, `iel` at `mtref+2`);
+//! - otherwise the card's `icoh`: `1..3` the built-in graphite, beryllium or
+//!   BeO lattice (`sigcoh`'s `lat`, also for an ENDF-6 tape that has no MT=2:
+//!   upstream does not look at the tape then).
+//!
+//! `calcem` on the 45-point `β` grid for free gas ([`IncoherentInelastic::free_gas`])
+//! or on the tape's `S(α,β)`; MF=3 `mtref` on the input PENDF's own elastic
+//! (MT=2) grid up to `emax` (free gas: `ex(3)=ex(2)`, label 610; bound:
+//! `terp(esi,xsi)`), merged with `coh`'s Bragg-edge points when there is a
+//! coherent part (MF=3 `mtref+1`, MF=6 `mtref+1` with `LIP = -nbragg`,
+//! `LAW = 0`); `iel`'s column on the same grid (`terp(esi,xie,nne,E,3)`) and
+//! its MF=6 (`LIP = -2`, `LAW = 1`, `nbin` cosines per incident energy of
+//! `calcem`'s grid); MF=6 `mtref` as the special `LANG = 3`
+//! equally-probable-cosine format with `tpend`'s `1/σ` normalisation of the
+//! pdf column, or as `LAW = 7`; and the MF=1 dictionary, including `ncdse`
+//! (a single global that the **last** `coh`/`iel` call sets, so beside mixed
+//! elastic both elastic MF=6 sections carry `iel`'s count) and `ncds`'s
+//! `j*(nep+1)` page arithmetic for `iform = 1`.
+//!
+//! Not ported (each stops the run with [`NjoyError::NotPorted`]): `iinc = 0`
+//! (elastic only), the built-in incoherent lattices (`icoh = 11, 12, 13`),
+//! temperatures of the PENDF that are skipped over (`icopy`), a PENDF block
+//! with a different `iverf` from the tape's.
 
+use crate::acer::thermal::thermr_terp;
 use crate::deck::modules::ThermrCards;
 use crate::deck::tapes::TapeUnits;
 use crate::endf::gety1::Gety1;
@@ -33,11 +53,11 @@ use crate::endf::records::SectionCursor;
 use crate::endf::tape::{Section, Tape};
 use crate::endf::EndfKey;
 use crate::mixr::mix::sigfig;
-use crate::thermr::calcem::compute_iform0;
-use crate::acer::thermal::thermr_terp;
+use crate::thermr::calcem::types::{Iform0Table, Iform1Table};
+use crate::thermr::calcem::{compute_iform0, compute_iform1};
 use crate::thermr::effective_temperature::gateff;
-use crate::thermr::mf3_grid::{coh_with, Sigcoh};
-use crate::thermr::mf7::IncoherentInelastic;
+use crate::thermr::mf3_grid::{coh_with, sigcoh_from_endf6, Sigcoh};
+use crate::thermr::mf7::{calcem_temperature_k, parse_mf7, parse_mf7_at_temperature, IncoherentElastic, IncoherentInelastic, Mf7};
 use crate::NjoyError;
 
 const SMALL: f64 = 1.0e-10;
@@ -45,6 +65,8 @@ const UP: f64 = 1.00001;
 const BREAK: f64 = 3000.0;
 const EM9: f64 = 1.0e-9;
 const ETOP: f64 = 20.0e6;
+/// `endf.f90:19` `npage`, as `main.f90:150` leaves it: `(306/102)*102`.
+const NPAGE: usize = 306;
 
 fn nint(x: f64) -> i32 {
     x.round() as i32
@@ -69,6 +91,166 @@ fn rows_of_pairs(pairs: &[(f64, f64)]) -> Vec<[f64; 6]> {
         .collect()
 }
 
+fn rows_of_words(words: &[f64]) -> Vec<[f64; 6]> {
+    words
+        .chunks(6)
+        .map(|c| {
+            let mut r = [0.0; 6];
+            r[..c.len()].copy_from_slice(c);
+            r
+        })
+        .collect()
+}
+
+/// Where the coherent-elastic part of an `icoh` comes from.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum CoherentSource {
+    /// The ENDF-6 tape's `S(E)` (`sigcoh`'s `lat = 10`).
+    Endf6,
+    /// `sigcoh`'s built-in lattice `lat` (1 graphite, 2 beryllium, 3 BeO).
+    Builtin(i32),
+}
+
+/// Which elastic channels `thermr` computes (`thermr.f90:337-348`, `:360-368`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct ElasticPlan {
+    /// `coh` at `mtref+1`.
+    pub coherent: Option<CoherentSource>,
+    /// `iel` (`mat = 20`, the ENDF-6 `W'(T)`) at the next free `mt`.
+    pub incoherent: bool,
+}
+
+/// `thermr`'s choice of elastic channels from the card's `icoh` and, for an
+/// ENDF-6 tape with an MF=7/MT=2 section, that section's `LTHR`
+/// (`icoh = 10*lthr`, which replaces the card).
+///
+/// # Errors
+/// [`NjoyError::NotPorted`] for the built-in incoherent lattices (`icoh = 11..13`)
+/// and any `icoh` that would need data an ENDF-4/5 run does not have.
+pub(crate) fn plan_elastic(icoh_card: i32, lthr: Option<i32>) -> Result<ElasticPlan, NjoyError> {
+    let (icoh, endf6) = match lthr {
+        Some(l) => (10 * l, true),
+        None => (icoh_card, false),
+    };
+    if icoh <= 0 {
+        return Ok(ElasticPlan { coherent: None, incoherent: false });
+    }
+    if icoh <= 10 {
+        let src = if endf6 { CoherentSource::Endf6 } else if icoh == 10 {
+            return Err(NjoyError::NotPorted("THERMR icoh = 10 on a tape that has no ENDF-6 elastic data"));
+        } else {
+            CoherentSource::Builtin(icoh)
+        };
+        return Ok(ElasticPlan { coherent: Some(src), incoherent: false });
+    }
+    if !endf6 {
+        return Err(NjoyError::NotPorted("THERMR built-in incoherent elastic (icoh = 11, 12, 13) or mixed elastic without ENDF-6 data"));
+    }
+    if icoh <= 20 {
+        return Ok(ElasticPlan { coherent: None, incoherent: true });
+    }
+    Ok(ElasticPlan { coherent: Some(CoherentSource::Endf6), incoherent: true })
+}
+
+/// `LTHR` of the ENDF-6 tape's MF=7/MT=2 for `matde` (`thermr.f90:337-343`:
+/// `findf(matde,7,0)` then the first section's `mth.eq.2`, `lthr=l1h`), or
+/// `None` when the tape has no MT=2 for it.
+pub(crate) fn lthr_of(endf: &Tape, matde: i32) -> Option<i32> {
+    endf.section(matde, 7, 2).map(|s| nint(s.rows[0][2]))
+}
+
+/// `calcem`'s `ncds` increment for one `LAW = 7` outgoing-energy table of `nep`
+/// points (`thermr.f90:2386-2436`): `1 + (j*(nep+1)+5)/6` with `j` the Fortran
+/// index left by the page loop, which is **not** a line count: `7 + 2*nep` on a
+/// single page; on several pages (`npage/2` points each) the last page's
+/// `-1 + 2*points`.
+pub(crate) fn law7_ncds_increment(nep: usize) -> usize {
+    let half = NPAGE / 2;
+    let (mut k, mut istart) = (8i64, 1usize);
+    let mut j;
+    loop {
+        let mut iend = nep;
+        if iend - istart >= half {
+            iend = istart + half - 1;
+        }
+        j = k - 1 + 2 * (iend - istart + 1) as i64;
+        if iend == nep {
+            break;
+        }
+        k = 0;
+        istart = iend + 1;
+    }
+    1 + ((j * (nep as i64 + 1) + 5) / 6) as usize
+}
+
+/// MF=6 `mtref` as `calcem` writes it for `iform = 1` and `tpend` copies it
+/// (`ltt = 4`, `thermr.f90:2285-2404`, `:3323-3340`): `LAW = 7`, one TAB2 over
+/// the incident energies, each with a TAB2 over `nmu` cosines of TAB1s of
+/// `(E', pdf)`. Returns the rows and `ncds`.
+pub(crate) fn law7_mf6(za: f64, awr: f64, emax: f64, table: &Iform1Table) -> (Vec<[f64; 6]>, usize) {
+    let nne = table.records.len();
+    let mut rows: Vec<[f64; 6]> = vec![
+        [za, awr, 0.0, 1.0, 1.0, 0.0],
+        [1.0, 1.0, 0.0, 7.0, 1.0, 2.0],
+        [2.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+        [1.0e-5, 1.0, emax, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 1.0, nne as f64],
+        [nne as f64, 2.0, 0.0, 0.0, 0.0, 0.0],
+    ];
+    let mut ncds = 1 + 2 + 2;
+    for rec in &table.records {
+        let nmu = rec.mu_distributions.len();
+        rows.push([0.0, rec.e_in_ev, 0.0, 0.0, 1.0, nmu as f64]);
+        rows.push([nmu as f64, 2.0, 0.0, 0.0, 0.0, 0.0]);
+        ncds += 1;
+        for md in &rec.mu_distributions {
+            let nep = md.points.len();
+            rows.push([0.0, md.mu, 0.0, 0.0, 1.0, nep as f64]);
+            rows.push([nep as f64, 2.0, 0.0, 0.0, 0.0, 0.0]);
+            rows.extend(rows_of_pairs(&md.points));
+            ncds += law7_ncds_increment(nep);
+        }
+    }
+    (rows, ncds)
+}
+
+/// MF=6 for `iel` (`thermr.f90:1334-1424`, copied by `tpend`'s `ltt = 6`
+/// branch, `:3258-3270`): `LIP = -2`, `LAW = 1`, the `LANG = 3` TAB2 over
+/// `calcem`'s incident energies (`temp` is `iel`'s, the requested one), and one
+/// LIST `(E, 1, cosines)` of `nbin + 2` words per incident energy.
+pub(crate) fn iel_mf6(
+    za: f64,
+    awr: f64,
+    temp: f64,
+    emax: f64,
+    ie: &IncoherentElastic,
+    esi: &[f64],
+    natom: f64,
+    nbin: usize,
+) -> Result<(Vec<[f64; 6]>, Vec<f64>), NjoyError> {
+    let dwa = ie.iel_dwa(temp)?;
+    let nne = esi.len();
+    let mut rows: Vec<[f64; 6]> = vec![
+        [za, awr, 0.0, 1.0, 1.0, 0.0],
+        [1.0, 1.0, -2.0, 1.0, 1.0, 2.0],
+        [2.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+        [1.0e-5, 1.0, emax, 1.0, 0.0, 0.0],
+        [temp, 0.0, 3.0, 1.0, 1.0, nne as f64],
+        [nne as f64, 2.0, 0.0, 0.0, 0.0, 0.0],
+    ];
+    let mut xie = Vec::with_capacity(nne);
+    for &e in esi {
+        let (xsec, cosines) = ie.iel_record(e, dwa, natom, nbin);
+        xie.push(xsec);
+        let n = (nbin + 2) as f64;
+        rows.push([0.0, e, 0.0, 0.0, n, n]);
+        let mut words = vec![e, 1.0];
+        words.extend(cosines);
+        rows.extend(rows_of_words(&words));
+    }
+    Ok((rows, xie))
+}
+
 /// THERMR (`thermr.f90`) on unit `c.nin` -> `c.nout`.
 ///
 /// # Errors
@@ -81,38 +263,84 @@ pub fn run_thermr(c: &ThermrCards, units: &mut TapeUnits) -> Result<(), NjoyErro
     if c.iinc != 1 && c.iinc != 2 {
         return Err(NjoyError::NotPorted("THERMR tape driver with iinc = 0 (elastic only)"));
     }
-    if !(0..=3).contains(&c.icoh) || c.iform != 0 || c.ntemp != 1 {
-        return Err(NjoyError::NotPorted(
-            "THERMR tape driver with incoherent elastic (iel/rdelas), ENDF-6 elastic, iform = 1 or several temperatures",
-        ));
-    }
     if c.nendf != 0 {
         units.openz(c.nendf, 0)?;
     }
     units.openz(c.nin, 0)?;
     units.openz(c.nout, 1)?;
     let input = units.get(c.nin)?.clone();
-    let endf = if c.iinc == 2 || c.icoh > 0 { Some(units.get(c.nendf)?.tape.clone()) } else { None };
+    let endf = if c.nendf != 0 { Some(units.get(c.nendf)?.tape.clone()) } else { None };
     let tape = thermr_tape(&input.tape, endf.as_ref(), c)?;
     units.store(c.nout, tape, input.pointwise)?;
     units.set_meta(c.nout, input.meta);
     Ok(())
 }
 
-/// The output PENDF: free gas (`iinc = 1`) or `S(alpha,beta)` from an ENDF-4/5
-/// tape (`iinc = 2`), with the built-in coherent elastic lattices (`icoh = 1..3`).
+/// The output PENDF: `thermr`'s temperature loop (`:253-330`) over the blocks
+/// (one MF=1/MT=451 and what follows it) of the material on the input PENDF.
 fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape, NjoyError> {
     let matd = c.matdp;
+    let secs = prev.sections();
+    let is_head = |s: &Section| s.key.mat == matd && s.key.mf == 1 && s.key.mt == 451;
+    let mut out: Vec<Section> = Vec::new();
+    let mut itemp = 0usize;
+    let mut i = 0usize;
+    let mut seen = false;
+    while i < secs.len() {
+        if !is_head(&secs[i]) {
+            out.push(secs[i].clone());
+            i += 1;
+            continue;
+        }
+        seen = true;
+        let mut j = i + 1;
+        while j < secs.len() && secs[j].key.mat == matd && !is_head(&secs[j]) {
+            j += 1;
+        }
+        let block = &secs[i..j];
+        if itemp < c.temps.len() {
+            let temp = c.temps[itemp];
+            let iverf = crate::moder::layout::iverf_from_mf1(&block[0].rows);
+            let thead = match iverf {
+                4 => 1,
+                5 => 2,
+                _ => 3,
+            };
+            let t = block[0].rows[thead][0];
+            if (t - temp).abs() <= 1.0e-4 * temp {
+                out.extend(thermr_block(block, endf, c, itemp)?);
+                itemp += 1;
+            } else if t > temp {
+                return Err(NjoyError::InvalidInput("thermr: desired temperature not on tape.".into()));
+            } else {
+                return Err(NjoyError::NotPorted("THERMR skipping tape temperatures below the desired one"));
+            }
+        } else {
+            out.extend(block.iter().cloned());
+        }
+        i = j;
+    }
+    if !seen || itemp < c.temps.len() {
+        return Err(NjoyError::InvalidInput("thermr: desired material not on pendf tape.".into()));
+    }
+    let mut tape = Tape::from_sections(prev.tpid.clone(), out);
+    tape.copy_raw_mf32_from(prev);
+    Ok(tape)
+}
+
+/// One temperature: `thermr`'s body from label 180 to `tpend`, on `block`
+/// (this temperature's sections of the material). Returns the block's output
+/// sections in file order. The MF=1/MT=451 description text is set on `out`'s
+/// tape by the caller's `copy_raw_mf32_from`; its length is the block's.
+fn thermr_block(block: &[Section], endf: Option<&Tape>, c: &ThermrCards, itemp: usize) -> Result<Vec<Section>, NjoyError> {
+    let matd = c.matdp;
     let mtref = c.mtref;
-    let temp = c.temps[0];
+    let temp = c.temps[itemp];
     let nbin = c.nbin as usize;
     let natom = f64::from(c.natom);
     let key451 = EndfKey { mat: matd, mf: 1, mt: 451 };
-    let n451 = prev.sections().iter().filter(|s| s.key == key451).count();
-    let mf1 = prev.section(matd, 1, 451).ok_or_else(|| NjoyError::InvalidInput("thermr: desired material not on pendf tape.".into()))?;
-    if n451 != 1 {
-        return Err(NjoyError::NotPorted("THERMR on a PENDF with several temperatures"));
-    }
+    let find = |mf: i32, mt: i32| block.iter().find(|s| s.key.mf == mf && s.key.mt == mt);
+    let mf1 = &block[0];
     let iverf = crate::moder::layout::iverf_from_mf1(&mf1.rows);
     let thead = match iverf {
         4 => 1,
@@ -120,16 +348,10 @@ fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape
         _ => 3,
     };
     let t = mf1.rows[thead][0];
-    if (t - temp).abs() > 1.0e-4 * temp {
-        if t > temp {
-            return Err(NjoyError::InvalidInput("thermr: desired temperature not on tape.".into()));
-        }
-        return Err(NjoyError::NotPorted("THERMR skipping tape temperatures below the desired one"));
-    }
     let (za, awr) = (mf1.rows[0][0], mf1.rows[0][1]);
 
     // Elastic cross section of the PENDF, walked as `thermr.f90:370-395` does.
-    let el = prev.section(matd, 3, 2).ok_or(NjoyError::SectionNotFound { mat: matd, mf: 3, mt: 2 })?;
+    let el = find(3, 2).ok_or(NjoyError::SectionNotFound { mat: matd, mf: 3, mt: 2 })?;
     let mut cur = SectionCursor::new(&el.rows);
     cur.read_cont()?;
     let tab = cur.read_tab1()?;
@@ -160,38 +382,78 @@ fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape
     emax = emaxs;
     let ne = old.len();
 
-    // calcem: free gas, or S(alpha,beta) from the ENDF-4/5 tape with `gateff`'s T_eff.
+    // ENDF-6 elastic (`rdelas`): `LTHR` of the tape's MF=7/MT=2, only with an
+    // ENDF-6 `nendf` (`thermr.f90:337-348`).
+    let endf6 = match endf {
+        Some(et) if c.matde != 0 => {
+            let mf1e = et.sections().iter().find(|s| s.key.mf == 1 && s.key.mt == 451);
+            if mf1e.is_some_and(|s| crate::moder::layout::iverf_from_mf1(&s.rows) >= 6) { Some(et) } else { None }
+        }
+        _ => None,
+    };
+    let lthr = endf6.and_then(|et| lthr_of(et, c.matde));
+    let plan = plan_elastic(c.icoh, lthr)?;
+
+    // calcem's temperature: `t` of the tape for `iinc = 2` (`thermr.f90:331`).
+    let calcem_temp = if c.iinc == 2 { t } else { temp };
+
+    // calcem: free gas, or S(alpha,beta) with the tape's `T_eff`.
+    let mut mf7: Option<Mf7> = None;
     let ii = if c.iinc == 1 {
+        if lthr.is_some() {
+            mf7 = Some(parse_mf7(endf.expect("lthr implies an ENDF-6 tape"), c.matde)?);
+        }
         IncoherentInelastic::free_gas(awr, temp, natom)
     } else {
         let et = endf.ok_or_else(|| NjoyError::InvalidInput("thermr: No ENDF tape given for iinc=2 (nendf is 0)".into()))?;
-        let mf1e = et
-            .sections()
-            .iter()
-            .find(|s| s.key.mf == 1 && s.key.mt == 451)
-            .ok_or_else(|| NjoyError::InvalidInput("thermr: endf tape has no MF=1".into()))?;
-        if crate::moder::layout::iverf_from_mf1(&mf1e.rows) >= 6 {
-            return Err(NjoyError::NotPorted("THERMR tape driver with an ENDF-6 nendf tape (teff TAB1, rdelas)"));
-        }
-        let mf7 = crate::thermr::mf7::parse_mf7_at_temperature(et, c.matde, Some(t))?;
-        let mut ii = mf7
+        let parsed = parse_mf7_at_temperature(et, c.matde, Some(t))?;
+        let mut ii = parsed
             .incoherent_inelastic
+            .clone()
             .ok_or(NjoyError::SectionNotFound { mat: c.matde, mf: 7, mt: 4 })?;
         if ii.temperature_bracket.is_some() {
             return Err(NjoyError::NotPorted("THERMR tape driver at a temperature interpolated between tabulated ones"));
         }
-        // `thermr.f90:145-157, 214-221`: ENDF-4/5 has no T_eff record; `gateff`.
-        let eft = if c.matde == 0 { temp } else { gateff(temp, c.matde) };
-        ii.teff_table = vec![(temp, eft)];
+        if endf6.is_some() {
+            // `thermr.f90:1812-1834`: `S(alpha,beta)` and `kT` at the tabulated
+            // temperature `calcem` finds, `T_eff` read at the requested one.
+            let calcem_k = calcem_temperature_k(&ii.tabulated_temperatures_k, t)?;
+            if ii.temperature_k != calcem_k {
+                return Err(NjoyError::ThermalTemperatureMismatch {
+                    requested_k: t,
+                    calcem_k,
+                    resolved_k: ii.temperature_k,
+                    interpolated: false,
+                });
+            }
+            ii.teff_request_k = Some(calcem_temp);
+        } else {
+            // `thermr.f90:145-157, 214-221`: ENDF-4/5 has no T_eff record; `gateff`.
+            let eft = if c.matde == 0 { temp } else { gateff(temp, c.matde) };
+            ii.teff_table = vec![(temp, eft)];
+        }
+        mf7 = Some(parsed);
         ii
     };
-    let table = compute_iform0(&ii, natom, nbin, emax, c.tol)?;
+    // `calcem`'s table: `iform = 1` is E-mu-E' (`LAW = 7`); anything else the
+    // `LANG = 3` equally-probable-cosine format (`thermr.f90:1925`).
+    enum Table {
+        F0(Iform0Table),
+        F1(Iform1Table),
+    }
+    let table = if c.iform == 1 {
+        Table::F1(compute_iform1(&ii, natom, emax, c.tol)?)
+    } else {
+        Table::F0(compute_iform0(&ii, natom, nbin, emax, c.tol)?)
+    };
+    let (esi, xsi): (Vec<f64>, Vec<f64>) = match &table {
+        Table::F0(t0) => t0.records.iter().map(|r| (r.e_in_ev, r.cross_section_b)).unzip(),
+        Table::F1(t1) => t1.records.iter().map(|r| (r.e_in_ev, r.cross_section_b)).unzip(),
+    };
+    let nne = esi.len();
     let nl = nbin + 1;
-    let nne = table.records.len();
 
     // `calcem` label 610: the inelastic column on the elastic grid.
-    let esi: Vec<f64> = table.records.iter().map(|r| r.e_in_ev).collect();
-    let xsi: Vec<f64> = table.records.iter().map(|r| r.cross_section_b).collect();
     let nlt = if nne <= 5 { nne - 1 } else { 5 };
     let col3: Vec<(f64, f64)> = old
         .iter()
@@ -208,20 +470,48 @@ fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape
         })
         .collect();
 
-    // `coh` (icoh = 1..3 on ENDF-4/5): the built-in lattice, merged onto the grid.
+    // `coh`: the lattice's Bragg edges, merged onto the grid.
     let mut nbragg = 0usize;
-    let merged: Vec<(f64, f64, Option<f64>)> = if c.icoh > 0 {
-        let sc = Sigcoh::builtin(c.icoh, c.temps[0], emax, natom)?;
-        nbragg = sc.nbragg;
-        coh_with(&col3, &sc, emax, c.tol).into_iter().map(|(e, z, x)| (e, z, Some(x))).collect()
-    } else {
-        col3.iter().map(|&(e, z)| (e, z, None)).collect()
+    let merged: Vec<(f64, f64, Option<f64>)> = match plan.coherent {
+        Some(src) => {
+            let sc: Sigcoh = match src {
+                CoherentSource::Builtin(lat) => Sigcoh::builtin(lat, temp, emax, natom)?,
+                CoherentSource::Endf6 => {
+                    let ce = mf7
+                        .as_ref()
+                        .and_then(|m| m.coherent_elastic.as_ref())
+                        .ok_or(NjoyError::SectionNotFound { mat: c.matde, mf: 7, mt: 2 })?;
+                    sigcoh_from_endf6(&ce.s_of_e_rdelas(temp), emax)
+                }
+            };
+            nbragg = sc.nbragg;
+            coh_with(&col3, &sc, emax, c.tol).into_iter().map(|(e, z, x)| (e, z, Some(x))).collect()
+        }
+        None => col3.iter().map(|&(e, z)| (e, z, None)).collect(),
     };
     let ne = merged.len();
-    let n_extra = usize::from(c.icoh > 0);
 
-    // MF=3, mtref and, with `coh`, mtref+1 (`tpend` :3170-3235, once per column).
-    let mf3_section = |col: Vec<(f64, f64)>| -> (Vec<[f64; 6]>, usize) {
+    // `iel`: MF=6 and its column on `terp(esi, xie, nne, E, 3)`.
+    let iel = if plan.incoherent {
+        let ie = mf7
+            .as_ref()
+            .and_then(|m| m.incoherent_elastic.as_ref())
+            .ok_or(NjoyError::SectionNotFound { mat: c.matde, mf: 7, mt: 2 })?;
+        let (rows6, xie) = iel_mf6(za, awr, temp, emax, ie, &esi, natom, nbin)?;
+        let col: Vec<(f64, f64)> = merged
+            .iter()
+            .enumerate()
+            .map(|(i, m)| (m.0, if i + 1 == ne { 0.0 } else { thermr_terp(&esi, &xie, m.0, 3) }))
+            .collect();
+        Some((rows6, col))
+    } else {
+        None
+    };
+    let n_extra = usize::from(plan.coherent.is_some()) + usize::from(plan.incoherent);
+
+    // MF=3, `mtref` and the elastic columns (`tpend` :3170-3235, once per column).
+    let nc3 = 3 + (ne + 2) / 3;
+    let mf3_section = |col: Vec<(f64, f64)>| -> Vec<[f64; 6]> {
         let mut pairs: Vec<(f64, f64)> = col.iter().map(|&(e, v)| (sigfig(e, 7, 0), round_xs(v))).collect();
         pairs.push((sigfig(ETOP, 7, 0), round_xs(0.0)));
         let mut rows3: Vec<[f64; 6]> = vec![
@@ -230,48 +520,51 @@ fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape
             [(ne + 1) as f64, 2.0, 0.0, 0.0, 0.0, 0.0],
         ];
         rows3.extend(rows_of_pairs(&pairs));
-        (rows3, 3 + (ne + 2) / 3)
+        rows3
     };
-    let (rows3, nc3) = mf3_section(merged.iter().map(|m| (m.0, m.1)).collect());
-    let rows3c = if c.icoh > 0 {
-        Some(mf3_section(merged.iter().map(|m| (m.0, m.2.unwrap_or(0.0))).collect()).0)
-    } else {
-        None
-    };
-
-    // MF=6, mtref: `calcem` writes (:1927-1990, :2222-2236), `tpend` rewrites (:3262-3322).
-    let mut rows6: Vec<[f64; 6]> = vec![
-        [za, awr, 0.0, 1.0, 1.0, 0.0],
-        [1.0, 1.0, -1.0, 1.0, 1.0, 2.0],
-        [2.0, 2.0, 0.0, 0.0, 0.0, 0.0],
-        [1.0e-5, 1.0, emax, 1.0, 0.0, 0.0],
-        [temp, 0.0, 3.0, 1.0, 1.0, nne as f64],
-        [nne as f64, 2.0, 0.0, 0.0, 0.0, 0.0],
-    ];
-    let mut ncds = 1 + 2 + 2;
-    for rec in &table.records {
-        if rec.cross_section_b == 0.0 {
-            return Err(NjoyError::InvalidInput("tpend: cross section=0.".into()));
-        }
-        let rxsec = 1.0 / rec.cross_section_b;
-        let j = rec.rows.len();
-        let mut data: Vec<f64> = Vec::with_capacity(j * (nl + 1));
-        for r in &rec.rows {
-            data.push(r.ep_ev);
-            data.push(round_xs(r.pdf * rxsec));
-            data.extend_from_slice(&r.cosines);
-        }
-        rows6.push([0.0, rec.e_in_ev, 0.0, 0.0, (nl + 1) as f64 * j as f64, (nl + 1) as f64]);
-        for ch in data.chunks(6) {
-            let mut r = [0.0; 6];
-            r[..ch.len()].copy_from_slice(ch);
-            rows6.push(r);
-        }
-        ncds += 1 + (j * (nl + 1) + 5) / 6;
+    let mut mf3_rows: Vec<Vec<[f64; 6]>> = vec![mf3_section(merged.iter().map(|m| (m.0, m.1)).collect())];
+    if plan.coherent.is_some() {
+        mf3_rows.push(mf3_section(merged.iter().map(|m| (m.0, m.2.unwrap_or(0.0))).collect()));
+    }
+    if let Some((_, col)) = &iel {
+        mf3_rows.push(mf3_section(col.clone()));
     }
 
-    // MF=6, mtref+1 (`coh` :890-914): ZAP = AWP = 1, LIP = -nbragg, LAW = 0, T(E) = (1e-5, emax).
-    let rows6c: Option<Vec<[f64; 6]>> = (c.icoh > 0).then(|| {
+    // MF=6, mtref: `calcem` writes (:1927-1990, :2222-2236, :2285-2404), `tpend` rewrites (:3262-3340).
+    let (rows6, ncds) = match &table {
+        Table::F1(t1) => law7_mf6(za, awr, emax, t1),
+        Table::F0(t0) => {
+            let mut rows6: Vec<[f64; 6]> = vec![
+                [za, awr, 0.0, 1.0, 1.0, 0.0],
+                [1.0, 1.0, -1.0, 1.0, 1.0, 2.0],
+                [2.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                [1.0e-5, 1.0, emax, 1.0, 0.0, 0.0],
+                [calcem_temp, 0.0, 3.0, 1.0, 1.0, nne as f64],
+                [nne as f64, 2.0, 0.0, 0.0, 0.0, 0.0],
+            ];
+            let mut ncds = 1 + 2 + 2;
+            for rec in &t0.records {
+                if rec.cross_section_b == 0.0 {
+                    return Err(NjoyError::InvalidInput("tpend: cross section=0.".into()));
+                }
+                let rxsec = 1.0 / rec.cross_section_b;
+                let j = rec.rows.len();
+                let mut data: Vec<f64> = Vec::with_capacity(j * (nl + 1));
+                for r in &rec.rows {
+                    data.push(r.ep_ev);
+                    data.push(round_xs(r.pdf * rxsec));
+                    data.extend_from_slice(&r.cosines);
+                }
+                rows6.push([0.0, rec.e_in_ev, 0.0, 0.0, (nl + 1) as f64 * j as f64, (nl + 1) as f64]);
+                rows6.extend(rows_of_words(&data));
+                ncds += 1 + (j * (nl + 1) + 5) / 6;
+            }
+            (rows6, ncds)
+        }
+    };
+
+    // MF=6, `coh` (:890-914): ZAP = AWP = 1, LIP = -nbragg, LAW = 0, T(E) = (1e-5, emax).
+    let rows6c: Option<Vec<[f64; 6]>> = plan.coherent.map(|_| {
         vec![
             [za, awr, 0.0, 1.0, 1.0, 0.0],
             [1.0, 1.0, -(nbragg as f64), 0.0, 1.0, 2.0],
@@ -281,6 +574,13 @@ fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape
     });
     let mts: Vec<i32> = (0..=n_extra as i32).map(|k| mtref + k).collect();
 
+    // `ncdse`: one global, set by the last of `coh` (3) and `iel` (`5+ne*((n+11)/6)`).
+    let ncdse: i32 = if plan.incoherent {
+        (5 + ne * ((nbin + 11) / 6)) as i32
+    } else {
+        3
+    };
+
     // MF=1/MT=451: TEMP, NXC and the dictionary (`tpend` :3040-3140, :3146-3165).
     let ncards = nint(mf1.rows[thead][4]) as usize;
     let dict0 = thead + 1 + ncards;
@@ -288,11 +588,12 @@ fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape
     let nx = old_dict.len();
     let mut dict: Vec<(i32, i32, i32)> =
         old_dict.into_iter().filter(|e| !((e.0 == 3 || e.0 == 6) && mts.contains(&e.1))).collect();
-    dict.push((3, mtref, nc3 as i32));
+    for &mt in &mts {
+        dict.push((3, mt, nc3 as i32));
+    }
     dict.push((6, mtref, ncds as i32));
-    if c.icoh > 0 {
-        dict.push((3, mtref + 1, nc3 as i32));
-        dict.push((6, mtref + 1, 3)); // `ncdse = 3` (:905), one less than the record count
+    for &mt in mts.iter().skip(1) {
+        dict.push((6, mt, ncdse));
     }
     dict.sort_by_key(|e| (e.0, e.1)); // stable; 451's entry (mf 1) stays first
     let nxn = dict.len();
@@ -310,38 +611,29 @@ fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape
         }
         rows1.push([0.0, 0.0, f64::from(e.0), f64::from(e.1), nc, 0.0]);
     }
-    let mut raw = prev.raw_text(key451).map(<[String]>::to_vec).unwrap_or_default();
-    raw.resize(dict0, String::new());
-    raw.resize(rows1.len(), String::new());
-
-    // Assemble: this material's sections with MF=3/6 `mtref` replaced.
-    let mut out: Vec<Section> = Vec::new();
+    // Assemble: this block's sections with MF=3/6 `mtref..` replaced.
     let mut group: Vec<Section> = Vec::new();
-    let flush = |group: &mut Vec<Section>, out: &mut Vec<Section>| {
-        group.sort_by_key(|s| (s.key.mf, s.key.mt));
-        out.append(group);
-    };
-    for s in prev.sections() {
-        if s.key.mat != matd {
-            flush(&mut group, &mut out);
-            out.push(s.clone());
-        } else if s.key == key451 {
+    for s in block {
+        if s.key == key451 {
             group.push(Section { key: key451, rows: rows1.clone() });
         } else if !((s.key.mf == 3 || s.key.mf == 6) && mts.contains(&s.key.mt)) {
             group.push(s.clone());
         }
     }
-    group.push(Section { key: EndfKey { mat: matd, mf: 3, mt: mtref }, rows: rows3 });
-    group.push(Section { key: EndfKey { mat: matd, mf: 6, mt: mtref }, rows: rows6 });
-    if let (Some(r3), Some(r6)) = (rows3c, rows6c) {
-        group.push(Section { key: EndfKey { mat: matd, mf: 3, mt: mtref + 1 }, rows: r3 });
-        group.push(Section { key: EndfKey { mat: matd, mf: 6, mt: mtref + 1 }, rows: r6 });
+    for (k, rows) in mf3_rows.into_iter().enumerate() {
+        group.push(Section { key: EndfKey { mat: matd, mf: 3, mt: mtref + k as i32 }, rows });
     }
-    flush(&mut group, &mut out);
-    let mut tape = Tape::from_sections(prev.tpid.clone(), out);
-    tape.copy_raw_mf32_from(prev);
-    tape.set_raw_text(key451, raw);
-    Ok(tape)
+    group.push(Section { key: EndfKey { mat: matd, mf: 6, mt: mtref }, rows: rows6 });
+    let mut k = 1;
+    if let Some(r6) = rows6c {
+        group.push(Section { key: EndfKey { mat: matd, mf: 6, mt: mtref + k }, rows: r6 });
+        k += 1;
+    }
+    if let Some((r6, _)) = iel {
+        group.push(Section { key: EndfKey { mat: matd, mf: 6, mt: mtref + k }, rows: r6 });
+    }
+    group.sort_by_key(|s| (s.key.mf, s.key.mt));
+    Ok(group)
 }
 
 #[cfg(test)]
@@ -349,27 +641,45 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_card_with_incoherent_elastic_is_refused_not_guessed() {
-        let c = ThermrCards {
-            nendf: 26,
-            nin: -22,
-            nout: -24,
-            matde: 1065,
-            matdp: 1306,
-            nbin: 8,
-            ntemp: 1,
-            iinc: 1,
-            icoh: 12,
-            iform: 0,
-            natom: 1,
-            mtref: 229,
-            iprint: 0,
-            temps: vec![296.0],
-            tol: 0.05,
-            emax: 1.2,
+    fn plan_elastic_follows_thermr_f90_337_368() {
+        // ENDF-6 LTHR overrides the card (icoh = 10*lthr).
+        let p = plan_elastic(1, Some(2)).unwrap();
+        assert_eq!((p.coherent, p.incoherent), (None, true));
+        let p = plan_elastic(0, Some(3)).unwrap();
+        assert_eq!((p.coherent, p.incoherent), (Some(CoherentSource::Endf6), true));
+        let p = plan_elastic(0, Some(1)).unwrap();
+        assert_eq!((p.coherent, p.incoherent), (Some(CoherentSource::Endf6), false));
+        // No MT=2 on an ENDF-6 tape: the card stands (deck 25: graphite lattice).
+        let p = plan_elastic(1, None).unwrap();
+        assert_eq!(p.coherent, Some(CoherentSource::Builtin(1)));
+        assert_eq!(plan_elastic(0, None).unwrap(), ElasticPlan { coherent: None, incoherent: false });
+        // Built-in incoherent lattices are refused, not guessed.
+        assert!(matches!(plan_elastic(12, None), Err(NjoyError::NotPorted(_))));
+        assert!(matches!(plan_elastic(10, None), Err(NjoyError::NotPorted(_))));
+    }
+
+    #[test]
+    fn law7_ncds_uses_upstreams_j_not_a_line_count() {
+        // single page: j = 7 + 2*nep -> 1 + (j*(nep+1)+5)/6
+        assert_eq!(law7_ncds_increment(10), 1 + ((27 * 11 + 5) / 6));
+        // two pages of 153 + 1 points: the last page has j = -1 + 2*1 = 1
+        assert_eq!(law7_ncds_increment(154), 1 + ((1 * 155 + 5) / 6));
+    }
+
+    #[test]
+    fn iel_mf6_rows_have_nbin_plus_two_words_per_energy() {
+        let ie = IncoherentElastic {
+            temperature_k: 296.0,
+            sb: 81.0,
+            interp: vec![(3, 2)],
+            wp_of_t: vec![(296.0, 8.0), (400.0, 11.0), (600.0, 16.0)],
         };
-        let mut u = TapeUnits::new(None);
-        assert!(matches!(run_thermr(&c, &mut u), Err(NjoyError::NotPorted(_))));
+        let (rows, xie) = iel_mf6(1.0, 2.0, 300.0, 1.0, &ie, &[1.0e-3, 2.0e-3], 1.0, 8).unwrap();
+        assert_eq!(xie.len(), 2);
+        assert_eq!(rows[5], [2.0, 2.0, 0.0, 0.0, 0.0, 0.0]);
+        assert_eq!(rows[6][4], 10.0);
+        assert_eq!(rows[7][1], 1.0); // second word is the literal 1
+        assert_eq!(rows.len(), 6 + 2 * 3);
     }
 
     #[test]

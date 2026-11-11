@@ -229,6 +229,12 @@ impl Sigcoh {
     }
 }
 
+/// `sigcoh`'s initialisation for an ENDF-6 tape (`lat = 10`) from `rdelas`'s
+/// `S(E)` table: the deck driver's entry to [`Sigcoh::new`].
+pub(crate) fn sigcoh_from_endf6(s_of_e: &[(f64, f64)], emax: f64) -> Sigcoh {
+    Sigcoh::new(s_of_e, emax)
+}
+
 /// THERMR's MF=3 for the inelastic MT as `(E [eV], σ [b])` after `tpend`'s
 /// rounding and the ENDF text, up to just past `emax`.
 ///
