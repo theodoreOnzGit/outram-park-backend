@@ -1507,11 +1507,37 @@ cohesion models (upstream `MatrixProperty` lookups); `E, nu, e, mu` come from
 distinct E/nu/e/mu and model coefficients) are bit-identical, 4518/4518 `f64`
 each, first run (`liggghts_contact_models_cross_code`, `two_type_*`).
 
-**Not translated.** `surface_model multicontact` (needs `fix
-multicontact/halfspace`, a separate module), the liquid-bridge cohesion models
-`easo/capillary/viscous` and `washino/capillary/viscous` (need `fix
-transportequation/scalar liquidtransfer` and bridges beyond touching, i.e.
-`neighbor->register_contact_dist_factor`), multi-type material tables for the
+**Liquid-bridge cohesion (gh:#1411, 2026-11-11).** ~~The liquid-bridge cohesion
+models `easo/capillary/viscous` and `washino/capillary/viscous` are not
+translated.~~ **CORRECTED 2026-11-11:** both are translated
+(`src/capillary.rs`, `GranularCohesion::Capillary`,
+`GranularSystem::with_capillary`: per-particle `surfaceLiquidContent`,
+`liquidFlux` and the `liquidtransfer` integration, per-pair bridge flags, bridges
+out of contact via `register_contact_dist_factor`, Washino `limitLiquidContent`
+/ `modifyLbVolume`, `tangential_reduce`, per-type contact angles). Six decks
+(`in.cap_*`, upstream `3d5c00f2`), every sampled frame, all 14 columns
+(`x v omega f L flux`), `tests/capillary_cross_code.rs`:
+
+| Case | values bit-identical | worst ulp |
+|---|---|---|
+| Easo pair (formation, rebound, stretch, rupture) | 5628 / 5628 | 0 |
+| Easo, 2 types, hard-limit rupture, `tangential_reduce` | 5628 / 5628 | 0 |
+| Easo, 84-pebble bed | 19992 / 19992 | 0 |
+| Washino pair (bridge out of contact) | 5620 / 5628 | 4 |
+| Washino, `limitLiquidContent` + `modifyLbVolume`, 2 types | 5606 / 5628 | 2 |
+| Washino, 84-pebble bed | 19601 / 19992 | 1118 (rel. 1.3e-15) |
+
+Easo is bit-identical. The Washino residue is PETIR libm vs glibc only, proved by
+swapping `r_sin`/`r_cos`/`r_cbrt` for `f64::sin/cos/cbrt` (glibc): then all three
+Washino decks are 100 % bit-identical (accepted and pinned, gh:#1455). The first
+run missed by 0.24 % at first contact; cause was the test feeding the deck's
+`contactAngle` (degrees) as radians, found by instrumenting a copy of the
+upstream header. **Not ported:** particle-wall bridges (Easo dry walls, Washino
+mesh liquid content); `with_capillary` refuses a system with walls. No
+control run without the model was made.
+
+**Not translated.** `surface_model multicontact` (~~needs `fix
+multicontact/halfspace`~~ done, gh:#1410), multi-type material tables for the
 new models (~~single type pair only~~ **CORRECTED 2026-11-11**: done, see
 above), ~~the Luding `torsion` option~~ (done 2026-11-11).
 

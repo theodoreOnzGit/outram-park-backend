@@ -103,11 +103,14 @@
 //!   history and no-history tangential models; per-pair shear-history storage
 //!   with Coulomb rescaling of the stored displacement; the CDT
 //!   (constant-directional-torque) rolling model.
-//! - **Not implemented:** cohesion models, the EPSD rolling family,
-//!   superquadrics, multi-contact surface corrections,
+//! - **Not implemented:** ~~cohesion models, the EPSD rolling family,~~
+//!   **CORRECTED 2026-11-11 (gh:#1410, #1411): `sjkr`, `sjkr2` and the
+//!   `easo`/`washino` capillary cohesion models, the EPSD family and
+//!   multicontact are translated (checked: `GranularCohesion`,
+//!   `crate::capillary`, `tests/*_cross_code.rs`)**;
+//!   superquadrics,
 //!   the `limitForce`/`viscous`/`heating`/elastic-potential switches, and
-//!   mixed-material property matrices (a single material is assumed, as in
-//!   [`crate::contact`]).
+//!   ~~mixed-material property matrices~~ **(`MaterialTable` exists)**.
 //! - **Verified against upstream** — see `docs/verification-and-validation.md`
 //!   and `tests/liggghts_cross_code.rs`.
 

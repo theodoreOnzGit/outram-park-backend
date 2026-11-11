@@ -32,7 +32,35 @@
 //! by one step would show as a gross difference, not an ulp one.
 //!
 //! ## Result
-//! See the `RESULT` constant at the bottom, filled from the first run.
+//! 2026-11-11, release, rustc 1.99.1, upstream `3d5c00f2` g++ (all 14 columns,
+//! every sampled frame):
+//!
+//! | case | frames | values bit-identical | worst ulp |
+//! |---|---|---|---|
+//! | `easo_pair` | 201 | 5628 / 5628 | 0 |
+//! | `easo_hard` (2 types, hard-limit rupture, `tangential_reduce`) | 201 | 5628 / 5628 | 0 |
+//! | `easo_bed` (84 pebbles) | 17 | 19992 / 19992 | 0 |
+//! | `washino_pair` | 201 | 5620 / 5628 | 4 (first at step 1890) |
+//! | `washino_limit` | 201 | 5606 / 5628 | 2 (first at step 1740) |
+//! | `washino_bed` (84 pebbles) | 17 | 19601 / 19992 | 1118 (rel. 1.3e-15, first at step 500) |
+//!
+//! **Easo: bit-identical in all three cases.** **Washino: last-ulp
+//! differences, cause PROVED to be libm only.** With `r_sin`, `r_cos`,
+//! `r_cbrt` of `capillary.rs` temporarily swapped for `f64::sin/cos/cbrt`
+//! (which call glibc, the libm LIGGGHTS links), all three Washino cases are
+//! 5628/5628, 5628/5628 and 19992/19992 bit-identical (A/B run 2026-11-11, then
+//! reverted: PETIR maths stays, gh:#1455). Easo uses none of the three
+//! (`exp`, `log`, `pow` agree bit for bit). The bed's 1118 ulp is the same
+//! 1-ulp seed amplified over 4000 steps of 84 interacting pebbles. The pins in
+//! each test hold the counts above.
+//!
+//! **First run missed (0.24 % in the first-contact force) and the cause was the
+//! test input, not the port**: the decks give `contactAngle` in degrees
+//! (`createContactAngle`, `global_properties.cpp`: `v * M_PI / 180`) and the
+//! deck's 0.3 had been fed as radians. Found by printing the contact angle,
+//! the capillary and viscous terms from a COPY of the upstream header built
+//! in the scratchpad (the shared build untouched); the terms agreed with the
+//! port once the angle was converted.
 
 use outram_park_fork_liggghts::granular::{
     GranularCohesion, GranularContactModel, GranularMaterial, MaterialTable,
@@ -277,47 +305,57 @@ fn compare(case: Case) -> Outcome {
     o
 }
 
-fn report(name: &str, case: Case) {
+/// Pins `(bit-identical count, worst ulp)`; `None` = must be bit-identical in
+/// every value. The Washino pins are the PETIR-libm vs glibc residue (module
+/// docs, gh:#1455): a change in either is a finding, not noise.
+fn report(name: &str, case: Case, pin: Option<(usize, u64)>) {
     let o = compare(case);
     println!(
         "{name}: {}/{} bit-identical, worst |diff|/scale = {:e}, worst ulp = {}, first difference at step {:?}",
         o.same, o.total, o.worst_rel, o.worst_ulp, o.first_diff_step
     );
     assert!(o.worst_rel <= 1e-8, "{name}: worst {:e}", o.worst_rel);
+    match pin {
+        None => assert_eq!(o.same, o.total, "{name} must be bit-identical"),
+        Some((same, ulp)) => {
+            assert_eq!(o.same, same, "{name}: bit-identical count moved");
+            assert!(o.worst_ulp <= ulp, "{name}: worst ulp {} > pinned {ulp}", o.worst_ulp);
+        }
+    }
 }
 
 /// Easo, two equal spheres: formation, rebound, stretch and rupture.
 #[test]
 fn easo_pair_matches_upstream() {
-    report("easo_pair", Case::EasoPair);
+    report("easo_pair", Case::EasoPair, None);
 }
 
 /// Easo, unequal two-type spheres, hard-limit rupture, `tangential_reduce`.
 #[test]
 fn easo_hard_limit_matches_upstream() {
-    report("easo_hard", Case::EasoHard);
+    report("easo_hard", Case::EasoHard, None);
 }
 
 /// Washino, two equal spheres: bridge formed out of contact.
 #[test]
 fn washino_pair_matches_upstream() {
-    report("washino_pair", Case::WashinoPair);
+    report("washino_pair", Case::WashinoPair, Some((5620, 4)));
 }
 
 /// Washino with `limitLiquidContent`, `modifyLbVolume`, `tangential_reduce`.
 #[test]
 fn washino_limited_matches_upstream() {
-    report("washino_limit", Case::WashinoLimit);
+    report("washino_limit", Case::WashinoLimit, Some((5606, 2)));
 }
 
 /// Easo, 84-pebble bed (integration: many bridges, transfer, re-formation).
 #[test]
 fn easo_bed_matches_upstream() {
-    report("easo_bed", Case::EasoBed);
+    report("easo_bed", Case::EasoBed, None);
 }
 
 /// Washino, 84-pebble bed.
 #[test]
 fn washino_bed_matches_upstream() {
-    report("washino_bed", Case::WashinoBed);
+    report("washino_bed", Case::WashinoBed, Some((19601, 1118)));
 }

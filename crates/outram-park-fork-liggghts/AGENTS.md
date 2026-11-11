@@ -331,7 +331,7 @@ are different claims and this entry keeps them apart.
 
 ## Scope
 
-Modules: `bonded`, `boundary`, `compute`, `contact`, `coupling`, `gnn_bridge`
+Modules: `bonded`, `boundary`, `capillary` (liquid-bridge cohesion, gh:#1411), `compute`, `contact`, `coupling`, `gnn_bridge`
 (feature `gnn`), `gpu` (non-Android; ~~non-wasm~~ wasm since 2026-11-05), `granular`, `granular_system`,
 `htr10_fill`, `integrator`, `mesh_wall`, `particle`, `rdf`, `rolling`,
 `simulation`, `thermal`, `thermal_radiation`, `timestep`.
