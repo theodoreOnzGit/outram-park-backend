@@ -168,7 +168,13 @@ pub fn run_acer_thermal(c: &AcerCards, units: &mut TapeUnits, date: String) -> R
         return Err(NjoyError::NotPorted("ACER iopt = 2: mte/ielas selects an elastic reaction THERMR did not write as such"));
     };
     let table = crate::acer::acesix::with_binary_units(c.npend < 0, || -> Result<AceTable, NjoyError> {
-        let thermr = crate::thermr::on_pendf::thermr_tables(&mf7, temp, opts.natom, opts.n_cosines, opts.emax_ev, tc.tol, Some(&incident))?;
+        // A card `icoh` with no MF=7/MT=2 on the tape runs a built-in lattice in `coh`.
+        let lthr = crate::deck::thermr::lthr_of(endf, tc.matde);
+        let lattice = match crate::deck::thermr::plan_elastic(tc.icoh, lthr)?.coherent {
+            Some(crate::deck::thermr::CoherentSource::Builtin(lat)) => Some(lat),
+            _ => None,
+        };
+        let thermr = crate::thermr::on_pendf::thermr_tables_lattice(&mf7, temp, opts.natom, opts.n_cosines, opts.emax_ev, tc.tol, Some(&incident), lattice)?;
         AceTable::thermal_from_thermr_elastic(&thermr, th.tname.trim(), suffix, &grid, opts.n_outgoing, opts.form, elastic)
     });
     let mut table = table?;

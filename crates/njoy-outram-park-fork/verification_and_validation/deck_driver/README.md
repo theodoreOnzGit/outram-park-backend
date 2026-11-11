@@ -234,3 +234,42 @@ their dictionary rows). Gate: `tests/deck_driver_tapes_vs_njoy2016.rs`,
 differs in 4025's MF=3 MT=52/53/58 (one line each) and MF=10 MT=16/28/112 (29
 lines): RECONR/BROADR output, same in all three, not investigated here. Deck 11's
 tape lacks UNRESR's MF=2/MT=152 (UNRESR passes the tape through).
+
+## 8. ACER `iopt = 2`, `iopt = 7` on thermal files, the thermal plot (2026-11-12, gh:#1369)
+
+Decks 25, 49, 67, 68, 69, 70 and 74 stopped at ACER `iopt = 2`. Now ACER's cards 8, 8a
+and 9 (already read by `read_acer`) drive `src/deck/acer_thermal.rs`.
+
+**No second builder.** ACER's `acesix` reads THERMR's PENDF back. The deck driver records
+each THERMR run on the PENDF it writes (`PendfMeta::thermr`: the cards and the thermal ENDF
+tape). `run_acer_thermal` finds the run for `mti`/`matd`, reads the incident MT=2 and `aw0`
+from the PENDF block within 1 K of `tempd`, parses MF=7 at the block's temperature, and calls
+`thermr_tables` + `AceTable::thermal_from_thermr_elastic`, the builder gated word for word by
+`tests/acer_thermal_word_parity.rs`. Card 4's `(iz, aw)` pairs reach the header (`izn/awn`;
+`AceTable::aw` is new); card 8a then overwrites `izn(1..nza)`.
+
+**Prediction (before the runs):** identical ACE and directory units on every deck, because
+the builder was already NJOY's. **What the first runs showed** (each cause found by reading
+upstream):
+
+| finding | decks | cause |
+|---|---|---|
+| ACE differs in the 12th figure of ITIX/ITXE; ITIX 0 at the first energy | 49 (binary `-25`) | every earlier gate had positive (text) units. With negative units THERMR's tape and `calcem`'s scratch tape are binary: no `a11` rounding, so `pendf_text` is the identity (`acesix::with_binary_units`, per thread, set by `npend < 0`). `calcem` rounds each incident energy `sigfig(.,8,0)` (`thermr.f90:1979`), so the ITIX query energy does too; and `gety1` shades a non-zero first abscissa to `0.999999*x0` (`endf.f90:1967`), which `itix_at` lacked |
+| `NXS(5) = 3, NXS(6) = 19` against NJOY's `4, -1` | 49 | card 9 `mte = 228, ielas = 0` reads `iel`'s MF=3 as **Bragg data** (`aceth.f90:134-189`): `ElasticRead::BraggFromIncoherentMf3`. `mte = 0` is `ElasticRead::NoElastic` |
+| ITCX half NJOY's | 67 (`natom = 2`, mixed elastic) | the builder divided ITCX by `natom`; `thrlod` divides by `nmix` (`aceth.f90:735`). Every earlier case had `natom = 1`. **Defect in the port, fixed** |
+
+**`iopt = 7` on a thermal file** is `acer::thrfix` (`aceth.f90:550-637`: re-print through the
+thermal class's own integer/real walk, the comment, and `throut`'s directory line,
+`:2420-2429`). **The plot file** is `acer::tplots` (`aceth.f90:1073-2106`: log-log cross
+sections, mubar, ebar, and for `IFENG = 2` the four 3-D pages and the angle-energy pages).
+`aceth` has its own `ascll` without the "make sure amin and amax differ" step, so `tplots`
+has its own copy. Not ported (`NotPorted`): a ZAID suffix and `nxtra != 0` on a thermal
+file, `nmix > 1`, an ENDF-4/5 thermal tape, mcnpx formats, Type 2.
+
+**Result** (`tests/deck_driver_tapes_vs_njoy2016.rs`,
+`test_{25,49,67,68,69,70,74}_thermal_ace_and_directory`): 0 differing lines on every unit
+compared. Deck 25: ACE 70-72 and directory 75. Deck 49: ACE 71 and directory 61. Decks 67-70
+and 74: ACE 70, directory 75, and for the second ACER the check file 71, its directory 76 and
+the plot file 55 (`viewr` input text). Deck 74 covers the continuous-form 3-D and
+angle-energy pages, deck 70 the coherent pages, deck 67 the mixed-elastic pages. `viewr`
+itself (unit 56) is not ported. Survey rows: `survey.md`.
