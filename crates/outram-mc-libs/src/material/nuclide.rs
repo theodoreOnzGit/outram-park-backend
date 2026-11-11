@@ -4395,6 +4395,24 @@ impl Nuclide {
         self
     }
 
+    /// Replace this nuclide's fission data (total ν̄, prompt χ, delayed data) with
+    /// explicit tables. **A V&V constructor**: it lets a differential test hand the
+    /// port and the compiled OpenMC the same synthetic fission distribution
+    /// (`tests/fission_neutron_vs_openmc_code_to_code.rs`, gh:#1444 d). Real
+    /// nuclides get these from the evaluation ([`Self::from_ace`],
+    /// [`Self::from_tape`]); nothing in transport calls this.
+    pub fn with_fission_data(
+        mut self,
+        nu: NuBar,
+        chi: FissionSpectrum,
+        delayed: Option<DelayedData>,
+    ) -> Self {
+        self.nu = nu;
+        self.chi = chi;
+        self.delayed = delayed;
+        self
+    }
+
     /// Whether fission sampling applies delayed-neutron spectra: `true` when the
     /// nuclide carries them and they have not been ablated.
     pub fn applies_delayed_spectra(&self) -> bool {

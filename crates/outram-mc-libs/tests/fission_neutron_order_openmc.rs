@@ -5,7 +5,7 @@
 //!
 //! # Methodology
 //!
-//! Compiled-upstream differential of the whole routine needs `Particle`,
+//! (SUPERSEDED 2026-11-11: the compiled-upstream differential now exists, `fission_neutron_vs_openmc_code_to_code.rs`.) Earlier note: it needed
 //! `Nuclide` and `Reaction` stubs that `verification_and_validation/
 //! upstream_openmc_samplers/` does not yet carry; its pieces (the uncorrelated
 //! law's `mu`-then-`E` order, `rotate_angle`, the Watt/Maxwell/tabulated energy

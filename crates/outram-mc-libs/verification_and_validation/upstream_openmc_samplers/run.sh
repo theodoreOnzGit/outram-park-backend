@@ -17,5 +17,10 @@ for f in random_lcg random_dist distribution_energy distribution_angle secondary
 done
 g++ $flags "$here/driver.cpp" $objs -o "$build/driver"
 "$build/driver" > "$here/reference.txt"
+# fission-neutron differential (gh:#1444 d): same objects, own stubs
+fflags="-O2 -std=c++17 -ffp-contract=off -include cstdint -include openmc/error.h -I$here/stubs -I$here/generated -I$up/include"
+g++ $fflags "$here/fission_driver.cpp" $objs -o "$build/fission_driver"
+"$build/fission_driver" > "$here/reference_fission.txt"
+echo "wrote $here/reference_fission.txt ($(wc -l < "$here/reference_fission.txt") lines)"
 rm -rf "$build"
 echo "wrote $here/reference.txt ($(wc -l < "$here/reference.txt") lines)"

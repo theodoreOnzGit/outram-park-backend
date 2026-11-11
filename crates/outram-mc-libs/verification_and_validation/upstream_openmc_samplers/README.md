@@ -194,3 +194,23 @@ LF=7/9/11 (`tabulated1d_eval`); Kalbach-Mann cosine as upstream's two-variate
 mixture (`kalbach_mann_mu_openmc`; the isotropic ablation arm draws the same
 number of variates). `normal_variate` ported (the port only had RAFFLES'
 Box-Muller).
+
+## Fission-neutron birth (`sample_fission_neutron`, gh:#1444 d), added 2026-11-11
+
+- **Upstream:** `physics.cpp:1081` and `Nuclide::nu` (`nuclide.cpp:532`) and
+  `rotate_angle`, verbatim via `extract.sh` into `generated/fission_extract.inc`
+  (SHA-checked); `fission_driver.cpp` + `stubs/fission_stubs.h` supply the
+  `Particle`/`SourceSite`/`Nuclide`/`Reaction`/`ReactionProduct` members they read;
+  real `UncorrelatedAngleEnergy`, `Tabulated1D`, LCG. `run.sh` writes
+  `reference_fission.txt`.
+- **Data:** synthetic (nu_total, inflated nu_d so beta ~ 0.12, 3 groups with yield
+  nu_d*p_k, prompt Watt, delayed Maxwell with per-group theta, `energy_max` 1.5 MeV so
+  resampling fires). Incident energies start at 3e4 eV: upstream's Maxwell/Watt loop
+  `while E' > E_in - u` never ends for E_in < u (upstream oddity, not copied).
+- **Prediction (before the run):** group and final RNG state bit-identical; E' and
+  direction bit-identical except last-bit libm.
+- **Result:** `tests/fission_neutron_vs_openmc_code_to_code.rs`, 2160 births (226
+  delayed): group 2160/2160, RNG end state 2160/2160, E' 2137/2160 bit-identical (worst
+  6.5e-16 rel), direction 2034/2160 (worst 3.3e-16 abs). No port defect found; the
+  port's draw order, group selection (`nu_d*p_k` vs tabulated yields) and resampling
+  match. Direction last-bit cause is inferred, not A/B-tested.
