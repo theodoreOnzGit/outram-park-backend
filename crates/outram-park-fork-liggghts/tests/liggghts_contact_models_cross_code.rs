@@ -461,6 +461,40 @@ fn luding_limit_force_matches_liggghts() {
     assert_bit_identical(&oblique_pair("luding_nocoh.csv", model));
 }
 
+/// Head-on twin of [`luding_full_matches_liggghts`] (`in.headon_luding_full`,
+/// `v = +-1 m/s` along x, spins kept), bit for bit over 251 frames.
+#[test]
+fn headon_luding_full_matches_liggghts() {
+    assert_collided("headon_luding_full.csv");
+    assert_bit_identical(&headon_pair("headon_luding_full.csv", luding_full_model()));
+}
+
+/// Head-on twin of [`luding_plastic_cohesion_branch_matches_liggghts`]
+/// (`in.headon_luding_plastic`).
+#[test]
+fn headon_luding_plastic_matches_liggghts() {
+    let normal =
+        GranularNormalModel::luding(material(), 1.0e4, 3.0, 0.2, 0.02, 0.0).expect("valid luding");
+    let model = GranularContactModel::new(
+        normal,
+        TangentialModel::luding_tn(0.8, 0.6, 0.5).expect("valid tan_luding"),
+    )
+    .with_rolling(RollingModel::luding(0.1, 0.3, 0.5).expect("valid rolling"));
+    assert_collided("headon_luding_plastic.csv");
+    assert_bit_identical(&headon_pair("headon_luding_plastic.csv", model));
+}
+
+/// Head-on twin of [`luding_limit_force_matches_liggghts`]
+/// (`in.headon_luding_nocoh`).
+#[test]
+fn headon_luding_nocoh_matches_liggghts() {
+    let normal =
+        GranularNormalModel::luding(material(), 1.0e4, 3.0, 0.0, 0.05, 0.0).expect("valid luding");
+    let model = GranularContactModel::new(normal, TangentialModel::History);
+    assert_collided("headon_luding_nocoh.csv");
+    assert_bit_identical(&headon_pair("headon_luding_nocoh.csv", model));
+}
+
 fn luding_full_model() -> GranularContactModel {
     let normal = GranularNormalModel::luding(material(), 1.0e4, 3.0, 0.4, 0.05, 0.001)
         .expect("valid luding");
