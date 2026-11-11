@@ -13,6 +13,7 @@ OUT=$HERE/cavity/reference
     echo "#time $t"
     awk '/^\($/{f=1;next} /^\)$/{f=0} f{gsub(/[()]/,"");print "U",$1,$2,$3}' $CASE/$t/U
     awk '/^\($/{f=1;next} /^\)$/{f=0} f{print "p",$1}' $CASE/$t/p
+    awk '/^\($/{f=1;next} /^\)$/{f=0} f{print "phi",$1}' $CASE/$t/phi | head -760
   done
 } | gzip -9n > $OUT/cavity_dev_icoFoam.txt.gz
 # initial residuals per time step: Ux Uy p(corrector 1) p(corrector 2)
