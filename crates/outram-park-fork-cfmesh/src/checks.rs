@@ -193,17 +193,12 @@ pub fn pmg_face_centre_and_area(points: &[Vec3], ring: &[usize]) -> (Vec3, Vec3)
 /// negated where the cell is not the owner and floored at `VSMALL`, the
 /// pyramid centre `(3.0/4.0)*fc + (1.0/4.0)*cEst`, the cell centre
 /// `sum/cellVol` and the volume `cellVol/3.0`. The faces of a cell run in
-/// ascending face order here (upstream's cell lists are in construction
-/// order; where they differ the last bit of a sum can).
+/// the order of `VolumeMesh::cells` (cfMesh's cell lists, gh:#1385) when the
+/// mesh carries consistent ones, else in ascending face order (where the two
+/// differ the last bit of a sum can).
 pub fn foam_cell_centres_and_vols(mesh: &VolumeMesh) -> (Vec<f64>, Vec<Vec3>) {
     let (centres_f, areas_f): (Vec<Vec3>, Vec<Vec3>) = mesh.faces.iter().map(|r| pmg_face_centre_and_area(&mesh.points, r)).unzip();
-    let mut cell_faces: Vec<Vec<usize>> = vec![Vec::new(); mesh.n_cells];
-    for f in 0..mesh.face_count() {
-        cell_faces[mesh.owner[f]].push(f);
-        if let Some(nb) = mesh.neighbour[f] {
-            cell_faces[nb].push(f);
-        }
-    }
+    let cell_faces = mesh.cell_face_lists();
     let mut vols = vec![0.0; mesh.n_cells];
     let mut centres = vec![Vec3::ZERO; mesh.n_cells];
     for (c, faces) in cell_faces.iter().enumerate() {
@@ -316,6 +311,7 @@ mod tests {
                 start_face: 0,
                 n_faces: n,
             }],
+            cells: None,
         }
     }
 
@@ -398,6 +394,7 @@ mod tests {
                 start_face: 1,
                 n_faces: 6,
             }],
+            cells: None,
         }
     }
 
@@ -634,6 +631,7 @@ mod tests {
             neighbour: Vec::new(),
             n_cells: 0,
             patches: Vec::new(),
+            cells: None,
         };
         let q = check_quality(&empty);
         assert_eq!(q.min_face_pyramid_volume, 0.0);

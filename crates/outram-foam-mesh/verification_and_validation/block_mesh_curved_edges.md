@@ -6,12 +6,20 @@ Upstream: OpenFOAM-dev `852527377c7e87e33d51b19ca8974b5db60af28b`
 
 ## Status of the upstream-run differential
 
-No upstream `blockMesh` binary exists on this machine
+~~No upstream `blockMesh` binary exists on this machine
 (`find /home/user/upstream-build -name blockMesh -type f` returned nothing on
 2026-11-11; that tree has cfMesh's libraries only). So the `points`/`faces`
 comparison against a real `blockMesh` run on T3A, sphere and pitzDailySteady is
-**not done** and stays a remaining item on gh:#1364. What is checked instead is
-each port against upstream's own analytic definitions (below).
+**not done** and stays a remaining item on gh:#1364.~~ **CORRECTED 2026-11-11
+(gh:#1462):** an OpenFOAM.com v2506 `blockMesh` binary exists at
+`/home/user/upstream-build/OpenFOAM-v2506/platforms/*/bin/blockMesh` (built later
+the same day). T3A has now been run on it (`writePrecision 17`) and compared with
+`examples/compare_polymesh`: 54496 points on both sides, faces, owner,
+neighbour and patches identical, **49965 of 54496 points bit-identical, worst
+difference 1.1e-16 (one ulp)**, the PETIR `cos`/`sin`/`tan`/`acos` against glibc
+as predicted below. pitzDailySteady (needs `units [mm]`, unknown to v2506) and
+the `sphere*` tutorials (need `#eval`) were not run. Besides that, each port is
+checked against upstream's own analytic definitions (below).
 
 ## Predictions, written before the first run (2026-11-11)
 

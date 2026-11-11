@@ -637,6 +637,7 @@ pub fn extrude_layer(w: &TopoMesh, front: &[(usize, usize)], thickness: Option<f
         region: keep.iter().map(|&f| if neighbour[f].is_some() { None } else { region[f] }).collect(),
         n_cells: cells.len(),
         patch_names: w.patch_names.clone(),
+        cells: None,
     };
     Ok((out, report))
 }

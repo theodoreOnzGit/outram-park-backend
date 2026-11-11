@@ -175,6 +175,8 @@ pub struct EdgeExtractor {
     pub engine: SurfaceEngine,
     queries: SurfaceQueries,
     names: Vec<String>,
+    /// The surface patches' `geometricType()` (gh:#1483), parallel to `names`.
+    types: Vec<String>,
     /// Boundary faces at each boundary point (`pointValence_`).
     pub point_valence: Vec<usize>,
     /// Patch of the surface point nearest each boundary point
@@ -294,6 +296,7 @@ impl EdgeExtractor {
             engine,
             queries,
             names: regions.names.clone(),
+            types: regions.types_for(regions.names.len()),
             point_valence: Vec::new(),
             point_patch: Vec::new(),
             face_patch: Vec::new(),
@@ -979,7 +982,9 @@ impl EdgeExtractor {
     /// `updateMeshPatches`: `replaceBoundary` with one patch per surface
     /// patch, in patch order (empty patches kept), boundary faces in
     /// boundary-face order within each. Returns the mesh and the patch
-    /// types (`patch`: the surface carries no geometric type).
+    /// types: each surface patch's `geometricType()`
+    /// (`boundaries[patchI].patchType() = surfPatches[patchI].geometricType()`,
+    /// gh:#1483; `patch` for a surface built without types).
     pub fn update_mesh_patches(&self) -> (VolumeMesh, Vec<String>) {
         let m = &self.mesh;
         let e = &self.engine;
@@ -988,6 +993,7 @@ impl EdgeExtractor {
         let mut owner: Vec<usize> = internal.iter().map(|&f| m.owner[f]).collect();
         let mut neighbour: Vec<Option<usize>> = internal.iter().map(|&f| m.neighbour[f]).collect();
         let mut patches = Vec::with_capacity(self.n_patches());
+        let n_internal = internal.len();
         for (pi, name) in self.names.iter().enumerate() {
             let start = faces.len();
             for bf in 0..e.n_boundary_faces() {
@@ -999,8 +1005,14 @@ impl EdgeExtractor {
             }
             patches.push(BoundaryPatch { name: name.clone(), start_face: start, n_faces: faces.len() - start });
         }
-        let out = VolumeMesh { points: m.points.clone(), faces, owner, neighbour, n_cells: m.n_cells, patches };
-        (out, vec!["patch".to_string(); self.n_patches()])
+        // `replaceBoundary` also rewrites the cell lists (gh:#1385)
+        let cells = if m.carried_cells_are_consistent() && internal.iter().enumerate().all(|(i, &f)| i == f) {
+            Some(crate::cartesian_mesh::replace_boundary_cell_lists(m.cells.as_ref().unwrap_or(&Vec::new()), n_internal, &owner[n_internal..]))
+        } else {
+            None
+        };
+        let out = VolumeMesh { points: m.points.clone(), faces, owner, neighbour, n_cells: m.n_cells, patches, cells };
+        (out, self.types.clone())
     }
 
     /// The patch of every face of [`Self::update_mesh_patches`]'s mesh

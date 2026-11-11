@@ -385,9 +385,9 @@ impl TriSurf {
     }
 
     /// A surface labelled by [`crate::patches::SurfaceRegions`]: the
-    /// patches take its names (geometric type `"patch"`).
+    /// patches take its names and geometric types (gh:#1483).
     pub fn with_surface_regions(points: Vec<Vec3>, triangles: Vec<[usize; 3]>, regions: &crate::patches::SurfaceRegions) -> Self {
-        let patches = regions.names.iter().map(|n| SurfacePatch::new(n)).collect();
+        let patches = regions.names.iter().zip(regions.types_for(regions.names.len())).map(|(n, t)| SurfacePatch { name: n.clone(), geometric_type: t }).collect();
         TriSurf::from_parts(points, triangles, regions.region_of_tri.clone(), patches, Vec::new())
     }
 
@@ -396,6 +396,7 @@ impl TriSurf {
         crate::patches::SurfaceRegions {
             names: self.patches.iter().map(|p| p.name.clone()).collect(),
             region_of_tri: self.regions.clone(),
+            types: self.patches.iter().map(|p| p.geometric_type.clone()).collect(),
         }
     }
 

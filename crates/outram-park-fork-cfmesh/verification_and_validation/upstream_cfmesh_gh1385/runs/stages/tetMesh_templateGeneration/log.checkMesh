@@ -1,0 +1,3053 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2506                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : 615aae61-20250627 OPENFOAM=2506 version=v2506
+Arch   : "LSB;label=32;scalar=64"
+Exec   : checkMesh
+Date   : Nov 11 2026
+Time   : 13:15:22
+Host   : vm
+PID    : 24892
+I/O    : uncollated
+Case   : /home/user/upstream-build/runs/stage_sphere_tetMesh_templateGeneration
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+--> FOAM Warning : 
+    From static Foam::instantList Foam::timeSelector::select0(Foam::Time&, const Foam::argList&)
+    in file db/Time/timeSelector.C at line 284
+    No time specified or available, selecting 'constant'
+Create mesh for time = constant
+
+Check mesh...
+
+Time = constant
+
+Mesh stats 
+    points:           3215
+    faces:            29352
+    internal faces:   26520
+    cells:            13968
+    faces per cell:   4
+    boundary patches: 1
+    point zones:      0
+    face zones:       0
+    cell zones:       0
+
+Overall number of cells of each type:
+    hexahedra:     0
+    prisms:        0
+    wedges:        0
+    pyramids:      0
+    tet wedges:    0
+    tetrahedra:    13968
+    polyhedra:     0
+
+Checking topology...
+    Boundary definition OK.
+    Cell to face addressing OK.
+    Point usage OK.
+ ***Faces not in upper triangular order.
+  <<Writing 7405 unordered faces to set upperTriangularFace
+    Face vertices OK.
+   *Number of regions: 73
+    The mesh has multiple regions which are not connected by any face.
+  <<Writing region information to "constant/cellToRegion"
+  <<Writing region 0 with 4 cells to cellSet region0
+  <<Writing region 1 with 4 cells to cellSet region1
+  <<Writing region 2 with 4 cells to cellSet region2
+  <<Writing region 3 with 4 cells to cellSet region3
+  <<Writing region 4 with 4 cells to cellSet region4
+  <<Writing region 5 with 4 cells to cellSet region5
+  <<Writing region 6 with 4 cells to cellSet region6
+  <<Writing region 7 with 4 cells to cellSet region7
+  <<Writing region 8 with 4 cells to cellSet region8
+  <<Writing region 9 with 4 cells to cellSet region9
+  <<Writing region 10 with 4 cells to cellSet region10
+  <<Writing region 11 with 4 cells to cellSet region11
+  <<Writing region 12 with 4 cells to cellSet region12
+  <<Writing region 13 with 4 cells to cellSet region13
+  <<Writing region 14 with 4 cells to cellSet region14
+  <<Writing region 15 with 4 cells to cellSet region15
+  <<Writing region 16 with 4 cells to cellSet region16
+  <<Writing region 17 with 4 cells to cellSet region17
+  <<Writing region 18 with 4 cells to cellSet region18
+  <<Writing region 19 with 4 cells to cellSet region19
+  <<Writing region 20 with 4 cells to cellSet region20
+  <<Writing region 21 with 4 cells to cellSet region21
+  <<Writing region 22 with 4 cells to cellSet region22
+  <<Writing region 23 with 4 cells to cellSet region23
+  <<Writing region 24 with 4 cells to cellSet region24
+  <<Writing region 25 with 4 cells to cellSet region25
+  <<Writing region 26 with 4 cells to cellSet region26
+  <<Writing region 27 with 4 cells to cellSet region27
+  <<Writing region 28 with 4 cells to cellSet region28
+  <<Writing region 29 with 4 cells to cellSet region29
+  <<Writing region 30 with 4 cells to cellSet region30
+  <<Writing region 31 with 4 cells to cellSet region31
+  <<Writing region 32 with 4 cells to cellSet region32
+  <<Writing region 33 with 4 cells to cellSet region33
+  <<Writing region 34 with 4 cells to cellSet region34
+  <<Writing region 35 with 4 cells to cellSet region35
+  <<Writing region 36 with 4 cells to cellSet region36
+  <<Writing region 37 with 4 cells to cellSet region37
+  <<Writing region 38 with 4 cells to cellSet region38
+  <<Writing region 39 with 4 cells to cellSet region39
+  <<Writing region 40 with 4 cells to cellSet region40
+  <<Writing region 41 with 4 cells to cellSet region41
+  <<Writing region 42 with 4 cells to cellSet region42
+  <<Writing region 43 with 4 cells to cellSet region43
+  <<Writing region 44 with 4 cells to cellSet region44
+  <<Writing region 45 with 4 cells to cellSet region45
+  <<Writing region 46 with 4 cells to cellSet region46
+  <<Writing region 47 with 4 cells to cellSet region47
+  <<Writing region 48 with 4 cells to cellSet region48
+  <<Writing region 49 with 4 cells to cellSet region49
+  <<Writing region 50 with 4 cells to cellSet region50
+  <<Writing region 51 with 4 cells to cellSet region51
+  <<Writing region 52 with 4 cells to cellSet region52
+  <<Writing region 53 with 4 cells to cellSet region53
+  <<Writing region 54 with 4 cells to cellSet region54
+  <<Writing region 55 with 4 cells to cellSet region55
+  <<Writing region 56 with 4 cells to cellSet region56
+  <<Writing region 57 with 4 cells to cellSet region57
+  <<Writing region 58 with 4 cells to cellSet region58
+  <<Writing region 59 with 4 cells to cellSet region59
+  <<Writing region 60 with 4 cells to cellSet region60
+  <<Writing region 61 with 4 cells to cellSet region61
+  <<Writing region 62 with 4 cells to cellSet region62
+  <<Writing region 63 with 4 cells to cellSet region63
+  <<Writing region 64 with 4 cells to cellSet region64
+  <<Writing region 65 with 4 cells to cellSet region65
+  <<Writing region 66 with 4 cells to cellSet region66
+  <<Writing region 67 with 4 cells to cellSet region67
+  <<Writing region 68 with 4 cells to cellSet region68
+  <<Writing region 69 with 4 cells to cellSet region69
+  <<Writing region 70 with 4 cells to cellSet region70
+  <<Writing region 71 with 4 cells to cellSet region71
+  <<Writing region 72 with 13680 cells to cellSet region72
+
+Checking patch topology for multiply connected surfaces...
+    Patch               Faces    Points     Surface topology
+    defaultFaces        2832     1466     Point 46 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    0
+    2
+    4
+    8
+
+Unconnected (patch) faces:
+    684
+    685
+    688
+    689
+    712
+    713
+Point 2879 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    0
+    1
+    2
+    3
+
+Unconnected (patch) faces:
+    16
+    17
+    18
+    19
+Point 48 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    11
+    16
+    18
+    20
+
+Unconnected (patch) faces:
+    680
+    681
+    690
+    691
+    734
+    735
+Point 59 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    23
+    26
+    28
+    30
+
+Unconnected (patch) faces:
+    718
+    719
+    720
+    721
+    730
+    731
+    976
+    977
+Point 70 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    32
+    34
+    36
+    38
+
+Unconnected (patch) faces:
+    742
+    743
+    744
+    745
+    748
+    749
+    1274
+    1275
+Point 105 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    44
+    46
+    50
+    54
+
+Unconnected (patch) faces:
+    796
+    797
+    800
+    801
+    808
+    809
+Point 2890 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    46
+    48
+    50
+    52
+
+Unconnected (patch) faces:
+    59
+    60
+    62
+    63
+Point 1445 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    55
+    56
+    58
+    61
+    149
+    150
+
+Unconnected (patch) faces:
+    564
+    566
+    568
+    570
+Point 110 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    59
+    62
+    64
+    66
+
+Unconnected (patch) faces:
+    794
+    795
+    798
+    799
+    844
+    845
+Point 117 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    68
+    70
+    72
+    74
+
+Unconnected (patch) faces:
+    814
+    815
+    818
+    819
+    826
+    827
+    1068
+    1069
+Point 140 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    76
+    78
+    80
+    82
+
+Unconnected (patch) faces:
+    850
+    851
+    854
+    855
+    856
+    857
+    1868
+    1873
+Point 158 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    84
+    86
+    88
+    90
+
+Unconnected (patch) faces:
+    884
+    885
+    890
+    891
+    894
+    895
+Point 2901 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    84
+    85
+    86
+    87
+
+Unconnected (patch) faces:
+    94
+    95
+    96
+    97
+Point 161 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    92
+    94
+    96
+    98
+
+Unconnected (patch) faces:
+    886
+    887
+    888
+    889
+    916
+    917
+Point 170 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    100
+    102
+    104
+    106
+
+Unconnected (patch) faces:
+    900
+    901
+    902
+    903
+    910
+    911
+    1366
+    1367
+Point 185 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    108
+    111
+    114
+    116
+
+Unconnected (patch) faces:
+    924
+    925
+    926
+    927
+    928
+    929
+    1968
+    1969
+Point 289 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    118
+    120
+    122
+    124
+
+Unconnected (patch) faces:
+    982
+    983
+    986
+    987
+    994
+    995
+Point 2919 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    120
+    121
+    122
+    123
+
+Unconnected (patch) faces:
+    132
+    133
+    134
+    135
+Point 300 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    126
+    129
+    132
+    134
+
+Unconnected (patch) faces:
+    996
+    997
+    1002
+    1003
+    1036
+    1037
+Point 320 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    136
+    138
+    140
+    142
+
+Unconnected (patch) faces:
+    1044
+    1045
+    1046
+    1047
+    1048
+    1049
+    1562
+    1563
+Point 337 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    144
+    146
+    148
+    154
+
+Unconnected (patch) faces:
+    1074
+    1075
+    1076
+    1077
+    1086
+    1087
+Point 2929 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    144
+    145
+    146
+    147
+
+Unconnected (patch) faces:
+    156
+    157
+    166
+    167
+Point 351 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    156
+    158
+    160
+    166
+
+Unconnected (patch) faces:
+    1100
+    1101
+    1102
+    1103
+    1132
+    1133
+Point 1451 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    161
+    162
+    164
+    165
+    179
+    180
+    2772
+    2773
+
+Unconnected (patch) faces:
+    572
+    574
+    576
+    578
+Point 376 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    168
+    170
+    172
+    178
+
+Unconnected (patch) faces:
+    1140
+    1141
+    1142
+    1143
+    1144
+    1145
+    2226
+    2227
+Point 456 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    188
+    198
+    200
+    202
+
+Unconnected (patch) faces:
+    1180
+    1181
+    1186
+    1187
+    1190
+    1191
+Point 2940 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    198
+    199
+    200
+    201
+
+Unconnected (patch) faces:
+    204
+    205
+    206
+    207
+Point 458 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    204
+    206
+    208
+    210
+
+Unconnected (patch) faces:
+    1182
+    1183
+    1184
+    1185
+    1212
+    1213
+Point 464 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    212
+    214
+    216
+    218
+
+Unconnected (patch) faces:
+    1196
+    1197
+    1198
+    1199
+    1206
+    1207
+    1654
+    1655
+Point 474 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    220
+    222
+    224
+    226
+
+Unconnected (patch) faces:
+    1220
+    1221
+    1222
+    1223
+    1224
+    1225
+    2328
+    2329
+Point 509 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    228
+    230
+    232
+    234
+
+Unconnected (patch) faces:
+    1284
+    1285
+    1286
+    1287
+    1288
+    1289
+Point 2952 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    228
+    229
+    230
+    231
+
+Unconnected (patch) faces:
+    236
+    237
+    242
+    243
+Point 526 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    236
+    238
+    240
+    242
+
+Unconnected (patch) faces:
+    1304
+    1305
+    1308
+    1309
+    1330
+    1331
+Point 537 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    244
+    246
+    248
+    250
+
+Unconnected (patch) faces:
+    1334
+    1335
+    1336
+    1337
+    1346
+    1347
+    1582
+    1583
+Point 557 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    252
+    254
+    256
+    258
+
+Unconnected (patch) faces:
+    1370
+    1371
+    1372
+    1373
+    1382
+    1383
+Point 2962 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    254
+    255
+    256
+    257
+
+Unconnected (patch) faces:
+    264
+    265
+    266
+    267
+Point 570 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    260
+    262
+    264
+    266
+
+Unconnected (patch) faces:
+    1396
+    1397
+    1398
+    1399
+    1428
+    1429
+Point 595 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    268
+    270
+    272
+    274
+
+Unconnected (patch) faces:
+    1436
+    1437
+    1438
+    1439
+    1442
+    1443
+    2562
+    2563
+Point 675 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    276
+    278
+    280
+    282
+
+Unconnected (patch) faces:
+    1478
+    1479
+    1482
+    1483
+    1484
+    1485
+Point 2973 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    276
+    277
+    278
+    279
+
+Unconnected (patch) faces:
+    286
+    287
+    288
+    289
+Point 678 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    284
+    286
+    288
+    290
+
+Unconnected (patch) faces:
+    1476
+    1477
+    1480
+    1481
+    1508
+    1509
+Point 683 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    292
+    294
+    296
+    298
+
+Unconnected (patch) faces:
+    1490
+    1491
+    1494
+    1495
+    1502
+    1503
+    1744
+    1745
+Point 694 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    300
+    302
+    304
+    306
+
+Unconnected (patch) faces:
+    1514
+    1515
+    1518
+    1519
+    1520
+    1521
+    2652
+    2653
+Point 723 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    308
+    310
+    312
+    314
+
+Unconnected (patch) faces:
+    1570
+    1571
+    1572
+    1573
+    1574
+    1575
+Point 2986 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    308
+    309
+    314
+    315
+
+Unconnected (patch) faces:
+    320
+    321
+    322
+    323
+Point 732 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    316
+    318
+    320
+    322
+
+Unconnected (patch) faces:
+    1586
+    1587
+    1588
+    1589
+    1590
+    1591
+Point 823 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    324
+    326
+    328
+    330
+
+Unconnected (patch) faces:
+    1660
+    1662
+    1663
+    1665
+    1672
+    1673
+Point 2995 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    324
+    325
+    326
+    327
+
+Unconnected (patch) faces:
+    332
+    333
+    338
+    339
+Point 832 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    332
+    334
+    336
+    338
+
+Unconnected (patch) faces:
+    1692
+    1693
+    1694
+    1695
+    1720
+    1721
+Point 848 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    340
+    342
+    344
+    346
+
+Unconnected (patch) faces:
+    1732
+    1733
+    1734
+    1735
+    1740
+    1741
+    1871
+    1872
+Point 854 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    348
+    350
+    352
+    354
+
+Unconnected (patch) faces:
+    1750
+    1751
+    1752
+    1753
+    1760
+    1761
+Point 3008 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    350
+    351
+    352
+    353
+
+Unconnected (patch) faces:
+    360
+    361
+    362
+    363
+Point 864 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    356
+    358
+    360
+    362
+
+Unconnected (patch) faces:
+    1782
+    1783
+    1784
+    1785
+    1808
+    1809
+Point 879 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    364
+    366
+    368
+    370
+
+Unconnected (patch) faces:
+    1816
+    1817
+    1818
+    1819
+    1820
+    1821
+    2266
+    2267
+Point 906 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    372
+    374
+    376
+    378
+
+Unconnected (patch) faces:
+    1880
+    1881
+    1882
+    1883
+    1884
+    1885
+Point 3018 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    374
+    375
+    376
+    377
+
+Unconnected (patch) faces:
+    384
+    385
+    386
+    387
+Point 922 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    380
+    382
+    384
+    386
+
+Unconnected (patch) faces:
+    1906
+    1907
+    1908
+    1909
+    1944
+    1945
+Point 933 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    388
+    390
+    392
+    394
+
+Unconnected (patch) faces:
+    1948
+    1949
+    1950
+    1951
+    1962
+    1963
+    2246
+    2247
+Point 949 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    396
+    398
+    400
+    402
+
+Unconnected (patch) faces:
+    1978
+    1979
+    1982
+    1983
+    1984
+    1985
+Point 3028 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    396
+    397
+    398
+    399
+
+Unconnected (patch) faces:
+    404
+    405
+    410
+    411
+Point 970 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    404
+    406
+    408
+    410
+
+Unconnected (patch) faces:
+    2020
+    2021
+    2024
+    2025
+    2048
+    2049
+Point 981 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    412
+    414
+    416
+    418
+
+Unconnected (patch) faces:
+    2053
+    2056
+    2058
+    2063
+    2078
+    2079
+    2590
+    2591
+Point 1073 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    420
+    422
+    424
+    426
+
+Unconnected (patch) faces:
+    2132
+    2133
+    2134
+    2135
+    2138
+    2139
+Point 3039 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    422
+    423
+    424
+    425
+
+Unconnected (patch) faces:
+    428
+    429
+    430
+    431
+Point 1074 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    428
+    430
+    432
+    434
+
+Unconnected (patch) faces:
+    2128
+    2131
+    2136
+    2137
+    2162
+    2163
+Point 1081 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    436
+    438
+    440
+    442
+
+Unconnected (patch) faces:
+    2146
+    2147
+    2148
+    2149
+    2158
+    2159
+    2452
+    2453
+Point 1090 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    444
+    446
+    448
+    450
+
+Unconnected (patch) faces:
+    2170
+    2171
+    2172
+    2173
+    2176
+    2177
+    2765
+    2766
+Point 1121 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    452
+    454
+    456
+    458
+
+Unconnected (patch) faces:
+    2234
+    2235
+    2236
+    2237
+    2238
+    2239
+Point 3052 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    456
+    457
+    458
+    459
+
+Unconnected (patch) faces:
+    460
+    461
+    466
+    467
+Point 1128 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    460
+    462
+    464
+    466
+
+Unconnected (patch) faces:
+    2250
+    2251
+    2253
+    2255
+    2258
+    2259
+Point 1217 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    468
+    470
+    472
+    474
+
+Unconnected (patch) faces:
+    2336
+    2337
+    2338
+    2339
+    2340
+    2341
+Point 3060 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    470
+    471
+    472
+    473
+
+Unconnected (patch) faces:
+    480
+    481
+    482
+    483
+Point 1232 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    476
+    478
+    480
+    482
+
+Unconnected (patch) faces:
+    2377
+    2378
+    2382
+    2384
+    2394
+    2395
+Point 1238 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    484
+    486
+    488
+    490
+
+Unconnected (patch) faces:
+    1972
+    1973
+    2398
+    2399
+    2400
+    2401
+    2424
+    2425
+Point 1252 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    492
+    494
+    496
+    498
+
+Unconnected (patch) faces:
+    2458
+    2459
+    2460
+    2461
+    2468
+    2469
+Point 3074 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    492
+    493
+    494
+    495
+
+Unconnected (patch) faces:
+    500
+    501
+    506
+    507
+Point 1260 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    500
+    502
+    504
+    506
+
+Unconnected (patch) faces:
+    2486
+    2487
+    2488
+    2489
+    2510
+    2511
+Point 1275 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    508
+    510
+    512
+    514
+
+Unconnected (patch) faces:
+    2516
+    2517
+    2518
+    2519
+    2520
+    2521
+    2674
+    2675
+Point 1298 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    516
+    518
+    520
+    522
+
+Unconnected (patch) faces:
+    2574
+    2575
+    2576
+    2577
+    2578
+    2579
+Point 3085 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    516
+    517
+    522
+    523
+
+Unconnected (patch) faces:
+    528
+    529
+    530
+    531
+Point 1306 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    524
+    526
+    528
+    530
+
+Unconnected (patch) faces:
+    2594
+    2595
+    2596
+    2597
+    2598
+    2599
+Point 1395 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    532
+    534
+    536
+    538
+
+Unconnected (patch) faces:
+    2661
+    2664
+    2665
+    2668
+    2670
+    2673
+Point 3093 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    532
+    533
+    534
+    535
+
+Unconnected (patch) faces:
+    540
+    541
+    546
+    547
+Point 1409 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    540
+    542
+    544
+    546
+
+Unconnected (patch) faces:
+    2714
+    2715
+    2716
+    2717
+    2726
+    2727
+Point 1415 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    548
+    550
+    552
+    554
+
+Unconnected (patch) faces:
+    2361
+    2362
+    2730
+    2731
+    2732
+    2733
+    2746
+    2747
+Point 1430 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    556
+    558
+    560
+    562
+
+Unconnected (patch) faces:
+    2780
+    2781
+    2782
+    2783
+    2786
+    2790
+Point 3107 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    558
+    559
+    560
+    561
+
+Unconnected (patch) faces:
+    568
+    569
+    570
+    571
+Point 1534 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    580
+    582
+    584
+    586
+
+Unconnected (patch) faces:
+    1921
+    1924
+    1925
+    1926
+    1927
+    1928
+Point 3118 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    584
+    585
+    586
+    587
+
+Unconnected (patch) faces:
+    588
+    589
+    594
+    595
+Point 1539 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    588
+    590
+    592
+    594
+
+Unconnected (patch) faces:
+    1999
+    2002
+    2003
+    2004
+    2005
+    2006
+Point 1560 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    596
+    598
+    600
+    602
+
+Unconnected (patch) faces:
+    2308
+    2309
+    2310
+    2313
+    2314
+    2315
+Point 3129 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    596
+    597
+    602
+    603
+
+Unconnected (patch) faces:
+    608
+    609
+    610
+    611
+Point 1564 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    604
+    606
+    608
+    610
+
+Unconnected (patch) faces:
+    2374
+    2375
+    2376
+    2379
+    2380
+    2381
+Point 1586 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    612
+    614
+    616
+    618
+
+Unconnected (patch) faces:
+    2688
+    2689
+    2691
+    2692
+    2693
+    2695
+Point 3142 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    616
+    617
+    618
+    619
+
+Unconnected (patch) faces:
+    620
+    621
+    626
+    627
+Point 1592 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    620
+    622
+    624
+    626
+
+Unconnected (patch) faces:
+    2784
+    2785
+    2787
+    2788
+    2789
+    2791
+multiply connected (shared point) 
+    ".*"                2832     1466     Point 46 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    0
+    2
+    4
+    8
+
+Unconnected (patch) faces:
+    684
+    685
+    688
+    689
+    712
+    713
+Point 2879 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    0
+    1
+    2
+    3
+
+Unconnected (patch) faces:
+    16
+    17
+    18
+    19
+Point 48 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    11
+    16
+    18
+    20
+
+Unconnected (patch) faces:
+    680
+    681
+    690
+    691
+    734
+    735
+Point 59 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    23
+    26
+    28
+    30
+
+Unconnected (patch) faces:
+    718
+    719
+    720
+    721
+    730
+    731
+    976
+    977
+Point 70 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    32
+    34
+    36
+    38
+
+Unconnected (patch) faces:
+    742
+    743
+    744
+    745
+    748
+    749
+    1274
+    1275
+Point 105 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    44
+    46
+    50
+    54
+
+Unconnected (patch) faces:
+    796
+    797
+    800
+    801
+    808
+    809
+Point 2890 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    46
+    48
+    50
+    52
+
+Unconnected (patch) faces:
+    59
+    60
+    62
+    63
+Point 1445 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    55
+    56
+    58
+    61
+    149
+    150
+
+Unconnected (patch) faces:
+    564
+    566
+    568
+    570
+Point 110 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    59
+    62
+    64
+    66
+
+Unconnected (patch) faces:
+    794
+    795
+    798
+    799
+    844
+    845
+Point 117 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    68
+    70
+    72
+    74
+
+Unconnected (patch) faces:
+    814
+    815
+    818
+    819
+    826
+    827
+    1068
+    1069
+Point 140 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    76
+    78
+    80
+    82
+
+Unconnected (patch) faces:
+    850
+    851
+    854
+    855
+    856
+    857
+    1868
+    1873
+Point 158 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    84
+    86
+    88
+    90
+
+Unconnected (patch) faces:
+    884
+    885
+    890
+    891
+    894
+    895
+Point 2901 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    84
+    85
+    86
+    87
+
+Unconnected (patch) faces:
+    94
+    95
+    96
+    97
+Point 161 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    92
+    94
+    96
+    98
+
+Unconnected (patch) faces:
+    886
+    887
+    888
+    889
+    916
+    917
+Point 170 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    100
+    102
+    104
+    106
+
+Unconnected (patch) faces:
+    900
+    901
+    902
+    903
+    910
+    911
+    1366
+    1367
+Point 185 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    108
+    111
+    114
+    116
+
+Unconnected (patch) faces:
+    924
+    925
+    926
+    927
+    928
+    929
+    1968
+    1969
+Point 289 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    118
+    120
+    122
+    124
+
+Unconnected (patch) faces:
+    982
+    983
+    986
+    987
+    994
+    995
+Point 2919 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    120
+    121
+    122
+    123
+
+Unconnected (patch) faces:
+    132
+    133
+    134
+    135
+Point 300 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    126
+    129
+    132
+    134
+
+Unconnected (patch) faces:
+    996
+    997
+    1002
+    1003
+    1036
+    1037
+Point 320 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    136
+    138
+    140
+    142
+
+Unconnected (patch) faces:
+    1044
+    1045
+    1046
+    1047
+    1048
+    1049
+    1562
+    1563
+Point 337 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    144
+    146
+    148
+    154
+
+Unconnected (patch) faces:
+    1074
+    1075
+    1076
+    1077
+    1086
+    1087
+Point 2929 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    144
+    145
+    146
+    147
+
+Unconnected (patch) faces:
+    156
+    157
+    166
+    167
+Point 351 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    156
+    158
+    160
+    166
+
+Unconnected (patch) faces:
+    1100
+    1101
+    1102
+    1103
+    1132
+    1133
+Point 1451 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    161
+    162
+    164
+    165
+    179
+    180
+    2772
+    2773
+
+Unconnected (patch) faces:
+    572
+    574
+    576
+    578
+Point 376 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    168
+    170
+    172
+    178
+
+Unconnected (patch) faces:
+    1140
+    1141
+    1142
+    1143
+    1144
+    1145
+    2226
+    2227
+Point 456 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    188
+    198
+    200
+    202
+
+Unconnected (patch) faces:
+    1180
+    1181
+    1186
+    1187
+    1190
+    1191
+Point 2940 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    198
+    199
+    200
+    201
+
+Unconnected (patch) faces:
+    204
+    205
+    206
+    207
+Point 458 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    204
+    206
+    208
+    210
+
+Unconnected (patch) faces:
+    1182
+    1183
+    1184
+    1185
+    1212
+    1213
+Point 464 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    212
+    214
+    216
+    218
+
+Unconnected (patch) faces:
+    1196
+    1197
+    1198
+    1199
+    1206
+    1207
+    1654
+    1655
+Point 474 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    220
+    222
+    224
+    226
+
+Unconnected (patch) faces:
+    1220
+    1221
+    1222
+    1223
+    1224
+    1225
+    2328
+    2329
+Point 509 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    228
+    230
+    232
+    234
+
+Unconnected (patch) faces:
+    1284
+    1285
+    1286
+    1287
+    1288
+    1289
+Point 2952 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    228
+    229
+    230
+    231
+
+Unconnected (patch) faces:
+    236
+    237
+    242
+    243
+Point 526 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    236
+    238
+    240
+    242
+
+Unconnected (patch) faces:
+    1304
+    1305
+    1308
+    1309
+    1330
+    1331
+Point 537 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    244
+    246
+    248
+    250
+
+Unconnected (patch) faces:
+    1334
+    1335
+    1336
+    1337
+    1346
+    1347
+    1582
+    1583
+Point 557 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    252
+    254
+    256
+    258
+
+Unconnected (patch) faces:
+    1370
+    1371
+    1372
+    1373
+    1382
+    1383
+Point 2962 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    254
+    255
+    256
+    257
+
+Unconnected (patch) faces:
+    264
+    265
+    266
+    267
+Point 570 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    260
+    262
+    264
+    266
+
+Unconnected (patch) faces:
+    1396
+    1397
+    1398
+    1399
+    1428
+    1429
+Point 595 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    268
+    270
+    272
+    274
+
+Unconnected (patch) faces:
+    1436
+    1437
+    1438
+    1439
+    1442
+    1443
+    2562
+    2563
+Point 675 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    276
+    278
+    280
+    282
+
+Unconnected (patch) faces:
+    1478
+    1479
+    1482
+    1483
+    1484
+    1485
+Point 2973 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    276
+    277
+    278
+    279
+
+Unconnected (patch) faces:
+    286
+    287
+    288
+    289
+Point 678 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    284
+    286
+    288
+    290
+
+Unconnected (patch) faces:
+    1476
+    1477
+    1480
+    1481
+    1508
+    1509
+Point 683 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    292
+    294
+    296
+    298
+
+Unconnected (patch) faces:
+    1490
+    1491
+    1494
+    1495
+    1502
+    1503
+    1744
+    1745
+Point 694 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    300
+    302
+    304
+    306
+
+Unconnected (patch) faces:
+    1514
+    1515
+    1518
+    1519
+    1520
+    1521
+    2652
+    2653
+Point 723 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    308
+    310
+    312
+    314
+
+Unconnected (patch) faces:
+    1570
+    1571
+    1572
+    1573
+    1574
+    1575
+Point 2986 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    308
+    309
+    314
+    315
+
+Unconnected (patch) faces:
+    320
+    321
+    322
+    323
+Point 732 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    316
+    318
+    320
+    322
+
+Unconnected (patch) faces:
+    1586
+    1587
+    1588
+    1589
+    1590
+    1591
+Point 823 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    324
+    326
+    328
+    330
+
+Unconnected (patch) faces:
+    1660
+    1662
+    1663
+    1665
+    1672
+    1673
+Point 2995 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    324
+    325
+    326
+    327
+
+Unconnected (patch) faces:
+    332
+    333
+    338
+    339
+Point 832 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    332
+    334
+    336
+    338
+
+Unconnected (patch) faces:
+    1692
+    1693
+    1694
+    1695
+    1720
+    1721
+Point 848 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    340
+    342
+    344
+    346
+
+Unconnected (patch) faces:
+    1732
+    1733
+    1734
+    1735
+    1740
+    1741
+    1871
+    1872
+Point 854 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    348
+    350
+    352
+    354
+
+Unconnected (patch) faces:
+    1750
+    1751
+    1752
+    1753
+    1760
+    1761
+Point 3008 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    350
+    351
+    352
+    353
+
+Unconnected (patch) faces:
+    360
+    361
+    362
+    363
+Point 864 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    356
+    358
+    360
+    362
+
+Unconnected (patch) faces:
+    1782
+    1783
+    1784
+    1785
+    1808
+    1809
+Point 879 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    364
+    366
+    368
+    370
+
+Unconnected (patch) faces:
+    1816
+    1817
+    1818
+    1819
+    1820
+    1821
+    2266
+    2267
+Point 906 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    372
+    374
+    376
+    378
+
+Unconnected (patch) faces:
+    1880
+    1881
+    1882
+    1883
+    1884
+    1885
+Point 3018 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    374
+    375
+    376
+    377
+
+Unconnected (patch) faces:
+    384
+    385
+    386
+    387
+Point 922 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    380
+    382
+    384
+    386
+
+Unconnected (patch) faces:
+    1906
+    1907
+    1908
+    1909
+    1944
+    1945
+Point 933 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    388
+    390
+    392
+    394
+
+Unconnected (patch) faces:
+    1948
+    1949
+    1950
+    1951
+    1962
+    1963
+    2246
+    2247
+Point 949 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    396
+    398
+    400
+    402
+
+Unconnected (patch) faces:
+    1978
+    1979
+    1982
+    1983
+    1984
+    1985
+Point 3028 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    396
+    397
+    398
+    399
+
+Unconnected (patch) faces:
+    404
+    405
+    410
+    411
+Point 970 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    404
+    406
+    408
+    410
+
+Unconnected (patch) faces:
+    2020
+    2021
+    2024
+    2025
+    2048
+    2049
+Point 981 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    412
+    414
+    416
+    418
+
+Unconnected (patch) faces:
+    2053
+    2056
+    2058
+    2063
+    2078
+    2079
+    2590
+    2591
+Point 1073 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    420
+    422
+    424
+    426
+
+Unconnected (patch) faces:
+    2132
+    2133
+    2134
+    2135
+    2138
+    2139
+Point 3039 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    422
+    423
+    424
+    425
+
+Unconnected (patch) faces:
+    428
+    429
+    430
+    431
+Point 1074 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    428
+    430
+    432
+    434
+
+Unconnected (patch) faces:
+    2128
+    2131
+    2136
+    2137
+    2162
+    2163
+Point 1081 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    436
+    438
+    440
+    442
+
+Unconnected (patch) faces:
+    2146
+    2147
+    2148
+    2149
+    2158
+    2159
+    2452
+    2453
+Point 1090 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    444
+    446
+    448
+    450
+
+Unconnected (patch) faces:
+    2170
+    2171
+    2172
+    2173
+    2176
+    2177
+    2765
+    2766
+Point 1121 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    452
+    454
+    456
+    458
+
+Unconnected (patch) faces:
+    2234
+    2235
+    2236
+    2237
+    2238
+    2239
+Point 3052 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    456
+    457
+    458
+    459
+
+Unconnected (patch) faces:
+    460
+    461
+    466
+    467
+Point 1128 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    460
+    462
+    464
+    466
+
+Unconnected (patch) faces:
+    2250
+    2251
+    2253
+    2255
+    2258
+    2259
+Point 1217 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    468
+    470
+    472
+    474
+
+Unconnected (patch) faces:
+    2336
+    2337
+    2338
+    2339
+    2340
+    2341
+Point 3060 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    470
+    471
+    472
+    473
+
+Unconnected (patch) faces:
+    480
+    481
+    482
+    483
+Point 1232 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    476
+    478
+    480
+    482
+
+Unconnected (patch) faces:
+    2377
+    2378
+    2382
+    2384
+    2394
+    2395
+Point 1238 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    484
+    486
+    488
+    490
+
+Unconnected (patch) faces:
+    1972
+    1973
+    2398
+    2399
+    2400
+    2401
+    2424
+    2425
+Point 1252 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    492
+    494
+    496
+    498
+
+Unconnected (patch) faces:
+    2458
+    2459
+    2460
+    2461
+    2468
+    2469
+Point 3074 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    492
+    493
+    494
+    495
+
+Unconnected (patch) faces:
+    500
+    501
+    506
+    507
+Point 1260 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    500
+    502
+    504
+    506
+
+Unconnected (patch) faces:
+    2486
+    2487
+    2488
+    2489
+    2510
+    2511
+Point 1275 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    508
+    510
+    512
+    514
+
+Unconnected (patch) faces:
+    2516
+    2517
+    2518
+    2519
+    2520
+    2521
+    2674
+    2675
+Point 1298 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    516
+    518
+    520
+    522
+
+Unconnected (patch) faces:
+    2574
+    2575
+    2576
+    2577
+    2578
+    2579
+Point 3085 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    516
+    517
+    522
+    523
+
+Unconnected (patch) faces:
+    528
+    529
+    530
+    531
+Point 1306 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    524
+    526
+    528
+    530
+
+Unconnected (patch) faces:
+    2594
+    2595
+    2596
+    2597
+    2598
+    2599
+Point 1395 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    532
+    534
+    536
+    538
+
+Unconnected (patch) faces:
+    2661
+    2664
+    2665
+    2668
+    2670
+    2673
+Point 3093 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    532
+    533
+    534
+    535
+
+Unconnected (patch) faces:
+    540
+    541
+    546
+    547
+Point 1409 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    540
+    542
+    544
+    546
+
+Unconnected (patch) faces:
+    2714
+    2715
+    2716
+    2717
+    2726
+    2727
+Point 1415 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    548
+    550
+    552
+    554
+
+Unconnected (patch) faces:
+    2361
+    2362
+    2730
+    2731
+    2732
+    2733
+    2746
+    2747
+Point 1430 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    556
+    558
+    560
+    562
+
+Unconnected (patch) faces:
+    2780
+    2781
+    2782
+    2783
+    2786
+    2790
+Point 3107 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    558
+    559
+    560
+    561
+
+Unconnected (patch) faces:
+    568
+    569
+    570
+    571
+Point 1534 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    580
+    582
+    584
+    586
+
+Unconnected (patch) faces:
+    1921
+    1924
+    1925
+    1926
+    1927
+    1928
+Point 3118 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    584
+    585
+    586
+    587
+
+Unconnected (patch) faces:
+    588
+    589
+    594
+    595
+Point 1539 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    588
+    590
+    592
+    594
+
+Unconnected (patch) faces:
+    1999
+    2002
+    2003
+    2004
+    2005
+    2006
+Point 1560 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    596
+    598
+    600
+    602
+
+Unconnected (patch) faces:
+    2308
+    2309
+    2310
+    2313
+    2314
+    2315
+Point 3129 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    596
+    597
+    602
+    603
+
+Unconnected (patch) faces:
+    608
+    609
+    610
+    611
+Point 1564 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    604
+    606
+    608
+    610
+
+Unconnected (patch) faces:
+    2374
+    2375
+    2376
+    2379
+    2380
+    2381
+Point 1586 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    612
+    614
+    616
+    618
+
+Unconnected (patch) faces:
+    2688
+    2689
+    2691
+    2692
+    2693
+    2695
+Point 3142 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    616
+    617
+    618
+    619
+
+Unconnected (patch) faces:
+    620
+    621
+    626
+    627
+Point 1592 uses faces which are not connected through an edge
+This means that the surface formed by this patched is multiply connected at this point
+Connected (patch) faces:
+    620
+    622
+    624
+    626
+
+Unconnected (patch) faces:
+    2784
+    2785
+    2787
+    2788
+    2789
+    2791
+multiply connected (shared point) 
+
+
+Checking faceZone topology for multiply connected surfaces...
+    No faceZones found.
+  <<Writing 96 conflicting points to set nonManifoldPoints
+
+Checking basic cellZone addressing...
+    No cellZones found.
+
+Checking basic pointZone addressing...
+    No pointZones found.
+
+Checking geometry...
+    Overall domain bounding box (-3.500000000000016 -3.500000000000016 -3.500000000000016) (3.500000000000016 3.500000000000016 3.500000000000008)
+    Mesh has 3 geometric (non-empty/wedge) directions (1 1 1)
+    Mesh has 3 solution (non-empty) directions (1 1 1)
+    Boundary openness (1.4192926180192431e-17 7.0964630900962157e-18 1.5967041952717507e-17) OK.
+    Max cell openness = 2.0447274663328626e-27 OK.
+    Max aspect ratio = 2.0000000000002558 OK.
+    Minimum face area = 0.088388347648309967. Maximum face area = 0.088388347648329743.  Face area magnitudes OK.
+    Min volume = 0.01041666666666566. Max volume = 0.010416666666668007.  Total volume = 145.50000000000563.  Cell volumes OK.
+    Mesh non-orthogonality Max: 1.2074182697257333e-06 average: 0
+    Non-orthogonality check OK.
+    Face pyramids OK.
+    Max skewness = 0.12500000000003683 OK.
+    Coupled point location match (average 0) OK.
+
+Failed 1 mesh checks.
+
+End
+

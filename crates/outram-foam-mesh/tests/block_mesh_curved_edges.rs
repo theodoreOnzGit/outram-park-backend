@@ -271,7 +271,6 @@ boundary ( a {{ type patch; faces ((0 3 2 1)); }} );"
     };
     for extra in [
         "geometry { s { type triSurfaceMesh; } }",
-        "faces ( project (0 1 2 3) s );",
         "mergePatchPairs ( (a b) );",
         "x #calc \"1+1\";",
         "y ${missing};",
@@ -281,10 +280,15 @@ boundary ( a {{ type patch; faces ((0 3 2 1)); }} );"
             "{extra}"
         );
     }
+    // ~~`faces` and `project` edges returned NotImplemented~~ **CHANGED
+    // 2026-11-11 (gh:#1462)**: they are ported; an undefined surface name is
+    // the error now (tests/block_mesh_projection.rs).
     assert!(matches!(
-        BlockMeshDict::parse(&base("", "project 0 1 (s)")),
-        Err(MeshError::NotImplemented(_))
+        BlockMeshDict::parse(&base("faces ( project (0 1 2 3) s );", "")),
+        Err(MeshError::DictParse(_))
     ));
+    let d = BlockMeshDict::parse(&base("", "project 0 1 (s)")).unwrap();
+    assert!(matches!(d.build(), Err(MeshError::DictParse(_))));
     assert!(BlockMeshDict::parse(&base("mergePatchPairs ( );", "")).is_ok());
     // Supported since gh:#1463: an explicit name table.
     assert!(BlockMeshDict::parse(&base("namedVertices { a 0; }", "")).is_ok());

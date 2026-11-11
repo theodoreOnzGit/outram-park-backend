@@ -49,6 +49,27 @@ git sparse-checkout set src/mesh/snappyHexMesh \
 git checkout 852527377c7e87e33d51b19ca8974b5db60af28b
 ```
 
+## blockMesh projection sparse set (gh:#1462)
+
+Same clone and commit; the paths read for `geometry`, `project` vertices /
+edges / faces and `sweep` (verified 2026-11-11, 32 MB):
+
+```bash
+git sparse-checkout set src/mesh/blockMesh \
+  applications/utilities/mesh/generation/blockMesh tutorials/mesh/blockMesh \
+  src/meshTools/searchableSurfaces src/OpenFOAM/geometry \
+  src/OpenFOAM/meshes/primitiveShapes/plane src/OpenFOAM/meshes/meshShapes/face \
+  src/OpenFOAM/primitives/Tensor src/OpenFOAM/primitives/transform \
+  src/OpenFOAM/primitives/Vector src/OpenFOAM/primitives/Scalar/doubleScalar \
+  src/OpenFOAM/interpolations/interpolationWeights src/meshTools/triSurface
+git checkout 852527377c7e87e33d51b19ca8974b5db60af28b
+```
+
+The v2506 binary used for the differential is the one under
+`/home/user/upstream-build/OpenFOAM-v2506` (`scripts/with-of.sh blockMesh`);
+its `controlDict` must not carry a second `writePrecision` after the one
+that sets 17 (a later `writePrecision 6;` silently wins).
+
 Note: in this commit the mesh-quality checks live in `src/meshCheck/`
 (`checkMesh.C`, `polyMeshCheck/polyMeshCheckQuality.C`,
 `primitiveMeshCheck/primitiveMeshCheck.C`, namespace `meshCheck::`), not in
