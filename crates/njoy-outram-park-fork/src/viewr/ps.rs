@@ -315,6 +315,7 @@ mod tests {
     fn move_and_draw_land_on_the_rotated_page() {
         let mut g = Graph::default();
         g.gplot(1, 10.0, 7.5);
+        g.land = 1;
         g.ifg = 1;
         g.moveh(0.0, 0.0);
         g.drawh(0.0, 7.5, 0.005, 0);
