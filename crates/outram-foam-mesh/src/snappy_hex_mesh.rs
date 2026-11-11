@@ -92,6 +92,7 @@
 pub mod background;
 pub mod castellation;
 pub mod cyclic;
+pub mod dict;
 pub mod layers;
 pub mod poly_topology;
 pub mod refinement;
