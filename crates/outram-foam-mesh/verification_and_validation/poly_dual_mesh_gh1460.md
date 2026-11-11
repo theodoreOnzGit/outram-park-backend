@@ -56,4 +56,159 @@ Note on P2: an earlier draft of this table said 233 (it double-counted the seam 
 
 ## Results
 
-(filled in below after the runs)
+
+Dates: 2026-11-11. Toolchain Rust 1.99.1, `--release`. All runs below are
+from the committed code; the primal meshes are `blockMesh` output of
+OpenFOAM.com v2506 at `writePrecision 17`.
+
+### Predictions P1 to P5 (in-tree tests, `tests/poly_dual_mesh_upstream.rs`)
+
+All five hit on the first run: hash-set order `[1, 2, 5, 6]` and `[0, 2]`;
+3x3x3 block 64 dual cells, **197** points, 144 internal faces, volume 27 to
+1e-9, closure and Euler satisfied, upper-triangular internal faces;
+`splitAllFaces` **311** points and **324** internal faces with several faces
+between one cell pair; L-shape 16 cells plain and **20** with
+`concaveMultiCells`; face zone 16 cells preserved, 12 without. (Nothing was
+tuned: the numbers were derived from the source before the first run, see
+the table above.)
+
+### P7, the differential against OpenFOAM.com v2506 `polyDualMesh`
+
+v2506's `polyDualMesh` application was built from
+`applications/utilities/mesh/manipulation/polyDualMesh` with two lines
+removed (`polyDualMeshApp.local.patch`: `processorMeshes.H` and its
+`removeFiles` call, which need the unbuilt `reconstruct` library and only
+act on parallel cases; the algorithm is untouched). Four primal cases, three
+option variants each, `polyDualMesh 60 [-splitAllFaces | -concaveMultiCells]`;
+recipe and scripts in `poly_dual_mesh_upstream_gh1460/`. Compared with
+`examples/compare_polymesh.rs` (dual mode): `points` bit for bit, `faces`
+vertex loops exactly, `owner`, `neighbour`, `boundary` exactly.
+
+| case (primal cells) | variant | v2506 flavour: points bit-identical | faces identical | owner, neighbour, boundary |
+|---|---|---|---|---|
+| cavity 20x20x1 (400) | base | 1832 / 1832 | 3475 / 3475 | identical |
+| cavity | `-splitAllFaces` | 4321 / 4321 | 6154 / 6154 | identical |
+| cavity | `-concaveMultiCells` | 1832 / 1832 | 3475 / 3475 | identical |
+| annulus, arc edges (240) | base | 924 / 924 | 1670 / 1670 | identical |
+| annulus | split | 2288 / 2288 | 3478 / 3478 | identical |
+| annulus | concave | 924 / 924 | 1670 / 1670 | identical |
+| warped hex 6x5x4 (120) | base | 480 / 480 | 833 / 833 | identical |
+| warped | split | 1133 / 1133 | 1750 / 1750 | identical |
+| warped | concave | 480 / 480 | 833 / 833 | identical |
+| L-shape, 3 blocks (96) | base | 522 / 522 | 830 / 830 | identical |
+| L-shape | split | 1000 / 1000 | 1516 / 1516 | identical |
+| L-shape | concave (531 points: the concave edge is live) | 531 / 531 | 857 / 857 | identical |
+
+**12 of 12 cases are byte-for-byte identical in all five files** with
+`UpstreamOptions::with_esi2506_flavour()` (v2506's face-centre formula and
+hash-set sizing).
+
+#### The same comparison with the OpenFOAM-dev flavour (the port's default)
+
+Identical connectivity (faces, owner, neighbour, boundary) everywhere, and
+the differences in `points` are exactly the two dev/v2506 differences the
+source reading found, nothing else:
+
+| case | points bit-identical (dev flavour vs v2506 run) | worst difference | cause |
+|---|---|---|---|
+| cavity | 1832 / 1832 (all variants) | 0 | planar axis-aligned faces: both formulas agree exactly |
+| annulus | 665 / 924 | 8.9e-16 | face-centre formulas differ at round-off on curved faces |
+| warped hex | 242 / 480 | **1.1e-6** (a real, warp-level difference) | dev's projected-area weights against v2506's `mag(n)` |
+| L-shape base / concave | 362 / 522, 371 / 531 | index-level (the dual points are the same set, numbered differently) | dev's `labelHashSet(n)` capacity `n` against v2506's `reserve(n)` capacity `2n` wraps the feature-face labels: different `toc()` order, so different numbering |
+
+The dev flavour was **not** run against an OpenFOAM-dev binary (none was
+built; the dev source is only read). Its two differences from v2506 are
+therefore source-derived and checked here only through the v2506 binary
+(the v2506 flavour matches it; the dev flavour moves exactly where the two
+sources differ). Not verified: that dev's own binary reproduces the dev
+flavour bit for bit.
+
+#### Misses on the way (recorded, not hidden)
+
+The first differential run (before the two fixes below) **missed**: cavity
+base 1675 / 1832 points bit-identical, L-shape 362 / 522. owner, neighbour
+and boundary were already identical. Both causes were found by reading
+upstream, not by tuning:
+
+1. **Edge numbering.** The port numbered mesh edges lexicographically.
+   `primitiveMesh::reset` (both lines) checks the point order and, when the
+   points are ordered (internal points first; trivially so when every point
+   is on the boundary), `calcEdges` groups edges (internal-internal,
+   internal-boundary, boundary-boundary, boundary-face edges last).
+   A `printEdges` probe of v2506 gave `E 0 = (22, 463)` for the cavity, not
+   `(0, 1)`. The port now reproduces `calcEdges` for both cases, pinned by
+   `edge_numbering_follows_calc_edges_for_ordered_points` against that
+   probe's values. Edge numbers set the `toc()` order of the feature-edge
+   set.
+2. **Feature-face hash set capacity** (dev `labelHashSet(n)`, v2506
+   `reserve(n)` = capacity `2n`), above.
+
+### Default surface-preserving mode against upstream mode (#1472 measure)
+
+`examples/compare_dual_modes.rs`, feature angle 60, enclosed volume against
+the primal's and `assess_quality`:
+
+| case | mode | dual points | boundary faces | volume error vs primal | max / mean non-ortho | max skew |
+|---|---|---|---|---|---|---|
+| cavity | default | 3200 | 1050 | +4.9e-15 | 0.00 / 0.00 deg | 0.000 |
+| cavity | upstream | 1832 | 1354 | +8.5e-15 | 0.00 / 0.00 deg | 0.000 |
+| annulus (curved) | default | 1316 | 430 | **-4.91e-4** | 1.12 / 0.17 deg | 0.067 |
+| annulus | upstream | 924 | 598 | **-3.27e-4** | 1.12 / 0.10 deg | 0.067 |
+| warped hex | default | 620 | 214 | +1.10e-3 | 20.69 / 6.13 deg | 0.007 |
+| warped | upstream | 480 | 310 | +2.86e-4 | 20.17 / 6.10 deg | 0.008 |
+| L-shape | default | 646 | 244 | 0 | 8.75 / 0.18 deg | 0.308 |
+| L-shape | upstream | 522 | 364 | 0 | 8.75 / 0.18 deg | 0.308 |
+
+Interpretation, against what #1460 assumed: on **flat** patches the default
+and upstream modes enclose the same volume (round-off), so the default's
+extra edge midpoints buy nothing there. On **curved or warped** boundaries
+the upstream mode's volume error is *smaller* in all three measured cases
+(annulus -3.3e-4 against -4.9e-4; warped +2.9e-4 against +1.1e-3), the
+opposite of what "the surface-preserving default reproduces the surface
+better" suggests: the extra midpoints lie on the straight primal edges, and
+the faces through them bulge differently from upstream's. Quality figures are
+equal to the displayed precision except the mean non-orthogonality on the
+annulus (0.17 against 0.10 deg). Three small meshes; this is a measurement,
+not a verdict, and the default was **not** changed (maintainer decision).
+
+### Pins (default mode must not move)
+
+The default code path is untouched (only `///` and `//!` text in
+`src/poly_dual_mesh.rs` changed, the stale doc claims of gh:#1471).
+Run after the change: `cargo test --release -p outram-foam-mesh --test
+poly_dual_mesh` (8 passed), cfMesh `dual_kinds_are_pinned_bit_for_bit` and
+`foam_studio_default_mesh_keeps_its_fingerprint` with
+`--features cell-centre-dual` (2 passed), `cargo test --release -p petir
+--test no_platform_libm` (4 passed; it caught a `log10` in the CLI's
+`time_name` on the first run, replaced by `{:e}` formatting). Foam Studio's
+`headless_unstructured_default_is_pinned` (a `dhoby-ghaut` example target
+with the egui/wgpu stack) was **not run** here: it reaches the default only
+through `poly_dual_mesh_with`, which this change does not touch.
+
+### Drawings (AGENTS.md: meshes are drawn)
+
+`images/poly_dual_{lshape,annulus,cavity}_gh1460.png`
+(`examples/draw_poly_dual_mesh.rs`): four panels of the lowest-z boundary
+faces seen from +z: primal, default dual, upstream-mode dual, upstream mode
+with `-concaveMultiCells`. Checked by eye on the L-shape: the dual cells
+tile the L with no overlaps or gaps; the default has a point on every
+boundary edge (the dense red dots along the outline) and upstream only at
+seams and feature edges; the inner re-entrant corner is closed in all.
+Not checked in the drawings: the interior (only the bottom plane is drawn),
+and the split of the concave edge's two points into three cells (it lies
+along z and is only visible as a different face count, 531 points, 204
+cells).
+
+### What is not done (maintainer decisions, left open)
+
+- Default behaviour: unchanged (maintainer, gh:#1472).
+- gh:#1473 unification: the five existing copies of the face/cell centre
+  routine are untouched. This change adds a sixth, upstream-exact routine
+  pair (`face_area_and_centre`, `cell_centres_and_volumes`, both lines) used
+  only by the upstream mode; switching the five callers moves FV solver
+  results at round-off level and is the maintainer's call. The new pair
+  lives in `outram-foam-mesh` (not `outram-foam-basic-lib` as #1473 asks) so
+  no other crate's API or review stamps move; relocating it is mechanical.
+- The boundary-rule duplicate in cfMesh `dual.rs` and the
+  `FeaturePoints` / `FeaturePointRule` twin enum: not touched (dependency
+  decision).
