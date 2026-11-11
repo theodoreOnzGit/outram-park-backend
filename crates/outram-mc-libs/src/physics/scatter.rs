@@ -1143,9 +1143,12 @@ pub fn continuum_angular_mode_from_env() -> ContinuumAngularMode {
 //   src/nuclide.cpp         Nuclide::elastic_xs_0K, the 0 K CDF build
 //   openmc/data/reaction.py LevelInelastic parameters (threshold, mass ratio)
 //
-// These sit BESIDE the older kernels above (`two_body_scatter_with_mu`,
-// `free_gas_elastic_scatter_dbrc`, `rotate_direction`), which stay callable and
-// keep every recorded pin: they are the same physics with different operation
+// ~~These sit BESIDE the older kernels above, which keep every recorded pin~~
+// **CORRECTED 2026-11-11 (maintainer decision, gh:#1386): the functions below are
+// now the transport DEFAULT (`ScatterKernels::OpenMc`); the older kernels
+// (`two_body_scatter_with_mu`, `free_gas_elastic_scatter_dbrc`, `rotate_direction`)
+// stay callable as `ScatterKernels::Legacy`, and reproduce the old pins exactly.**
+// They are the same physics with different operation
 // order, a different order of the CM-cosine draw against the target-velocity
 // draws, and (for `rotate_direction`) a different pole branch. The functions
 // below follow upstream line by line so a track differential can be bit-identical
