@@ -7,11 +7,18 @@
 
 //! **GROUPR as a tape driver** (gh:#1369): the GENDF text NJOY writes.
 //!
-//! MF=3 vector sections and MF=6 `MT = 2, 51-90` two-body matrices (`nl = lord + 1`,
-//! `getdis`) are written identical to NJOY2016 for test 01 (gh:#1369). Not yet: MF=6
-//! (MT 91 continuum, label 200, is done: `groupr/continuum.rs`; thermal MT 221/229/230 `getaed`, label 700, is done: `groupr/thermal.rs`.) Not yet: Thermal MF=6 `MT = 221-250`
-//! (`getaed`, label 700), MF=16 photon production (`getgyl`/`getgfl`/`getsed`/`gamout`),
-//! and the FEND/SEND/MEND layout between files, so the whole tape is not yet compared.
+//! MF=3 vector sections, MF=6 `MT = 2, 51-90` two-body matrices (`nl = lord + 1`,
+//! `getdis`), MF=6 `MT = 91` continuum (`getff` label 200, `groupr/continuum.rs`),
+//! MF=6 thermal `MT = 221-250` (`getaed`, label 700, `groupr/thermal.rs`) and MF=16
+//! photon production (`mfd = 17` MF=13/14, and `mfd = 16` MF=12 multiplicities with
+//! the `econst` constant-spectrum branch, `groupr/photon_prod.rs`) are written, and
+//! the **whole GENDF tape of NJOY2016 test 01 is identical** line for line (1330
+//! lines, 2026-11-11, `test_01_groupr_gendf_whole_tape`; gh:#1369).
+//! ~~Not yet: thermal MF=6, MF=16 photon production and the FEND/SEND/MEND layout, so
+//! the whole tape is not yet compared.~~ **CORRECTED 2026-11-11** - all three are done
+//! (verified by the whole-tape test). Still `NotPorted` here: several temperatures,
+//! sigma-zeros or materials, an input GENDF (`ngout1`), MF=3 `MT = 257-259, 452-456`,
+//! `getsed` continuum photons, and the automatic reaction lists (`mtd = 0`, `nextr`).
 //!
 //! Ported so far: the tape label, the MF=1/MT=451 head record of a material
 //! (`ZA, AWR, 0, nz, -1, ntw`; LIST `temp, 0, ngn, ngg, np, 0` with the title
@@ -187,8 +194,8 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
                 write_mf6_thermal(&mut g, inp, &pend, za, &egn, emaxx, mtd)?;
                 continue;
             }
-            if req.mfd == 17 {
-                write_mf16_photon(&mut g, inp, units, &pend, za, &egn, &egg, emaxx, mtd)?;
+            if req.mfd == 17 || req.mfd == 16 {
+                write_mf16_photon(&mut g, inp, units, &pend, za, &egn, &egg, emaxx, mtd, req.mfd)?;
                 continue;
             }
             if req.mfd != 3 {
@@ -217,6 +224,10 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
                 crate::groupr::njoy_panel::PanelFeed::Vector
             };
             let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, iwt, &egn, first, emaxx, ratio, 1)?;
+            if rows.is_empty() {
+                // threshold above the top group: `ig1 = 0`, nothing written (`:566-578`, `asend` needs `ig1 /= 0`).
+                continue;
+            }
             g.begin(inp.matb, 3, mtd);
             g.cont([za, 0.0], [1, 1, lrflag, (egn.len() - 1) as i32]);
             for (ig, ng2, ig2lo, data) in rows {
@@ -254,6 +265,9 @@ fn write_mf6_two_body(
     let tb = crate::groupr::two_body::TwoBodyFeed::new(ang, egn, head.c2, tab.head.c2, lrflag)?;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::TwoBodyNl(tb, nl);
     let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
+    if rows.is_empty() {
+        return Ok(());
+    }
     g.begin(inp.matb, 6, mtd);
     g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
@@ -285,6 +299,9 @@ fn write_mf6_continuum(
     let nl = cf.nl;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::Continuum(cf);
     let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
+    if rows.is_empty() {
+        return Ok(());
+    }
     g.begin(inp.matb, 6, mtd);
     g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
@@ -314,6 +331,9 @@ fn write_mf6_thermal(
     let tf = crate::groupr::thermal::ThermalFeed::new(pend, inp.matb, mtd, egn, nl)?;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::Thermal(tf);
     let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
+    if rows.is_empty() {
+        return Ok(());
+    }
     g.begin(inp.matb, 6, mtd);
     g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
@@ -335,19 +355,26 @@ fn write_mf16_photon(
     egg: &[f64],
     emaxx: f64,
     mtd: i32,
+    mfd: i32,
 ) -> Result<(), NjoyError> {
-    // `getsig` with `mfd = 17` reads MF=13 of the PENDF (`:6681`); `lrflag = 0` for `mf /= 3`.
-    let Some(sec) = pend.section(inp.matb, 13, mtd) else { return Ok(()) };
+    // `getsig` with `mfd = 17` reads MF=13 of the PENDF, `mfd = 16` reads MF=3 (`:6681`);
+    // `lrflag = 0` for `mf /= 3`.
+    let mf_sig = if mfd == 17 { 13 } else { 3 };
+    let Some(sec) = pend.section(inp.matb, mf_sig, mtd) else { return Ok(()) };
     let mut cur = crate::endf::records::SectionCursor::new(&sec.rows);
     let _head = cur.read_cont()?;
     let tab = cur.read_tab1()?;
+    let lrflag = if mfd == 16 { tab.head.l2 } else { 0 };
     let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
-    let pf = crate::groupr::photon_prod::PhotonFeed::new(&units.get(inp.units.nendf)?.tape, inp.matb, mtd, 17, egg, inp.lord.max(0) as usize + 1)?;
+    let pf = crate::groupr::photon_prod::PhotonFeed::new(&units.get(inp.units.nendf)?.tape, inp.matb, mtd, mfd, egn, egg, inp.lord.max(0) as usize + 1)?;
     let nl = pf.nl;
     let mut pf = crate::groupr::njoy_panel::PanelFeed::Photon(pf);
     let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
+    if rows.is_empty() {
+        return Ok(());
+    }
     g.begin(inp.matb, 16, mtd);
-    g.cont([za, 0.0], [nl as i32, 1, 0, (egn.len() - 1) as i32]);
+    g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
     for (ig, ng2, ig2lo, data) in rows {
         g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
     }

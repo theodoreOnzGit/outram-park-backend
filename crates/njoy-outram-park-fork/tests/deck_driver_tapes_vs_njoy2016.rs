@@ -531,8 +531,8 @@ fn test_01_groupr_gendf_mf3() {
 ///
 /// Deck as `test_01_groupr_gendf_head`. One discrete photon (4.439 MeV, MF=13 cross
 /// section, MF=14 `LTT = 1` Legendre) binned into the 12 gamma groups with `nl = 4`.
-/// MT 102 (MF=12 multiplicities, `econst` constant-spectrum branch) is not yet ported.
 /// Pass criterion: zero differing lines of the 22 MF=16/MT=51 lines. Prediction: identical.
+/// (MT 102 is `test_01_groupr_gendf_mf16_mt102`.)
 #[test]
 fn test_01_groupr_gendf_mf16_mt51() {
     let root = njoy_root();
@@ -549,5 +549,59 @@ fn test_01_groupr_gendf_mf16_mt51() {
         println!("  ours: {:?}\n  njoy: {:?}", al.get(i), bl.get(i));
     }
     assert!(bl.len() >= 22 && diffs.is_empty());
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
+
+/// **Test 01 GROUPR: MF=16 MT 102 capture-gamma production (`mfd = 16`, MF=12 multiplicities), line for line.**
+///
+/// Deck as `test_01_groupr_gendf_head`. Three photons (4.9465 MeV primary `LP = 2`,
+/// 3.684 MeV, 1.2625 MeV `LP = 2`) with constant multiplicities and isotropic MF=14.
+/// The constant-spectrum branch of `getff` label 300 is exercised: `getgyl`'s constant-range
+/// scan gives `econst = 1.2625e6/100 = 12625 eV`, `jconst = 12` neutron groups; the spectrum
+/// is the `ig = 0` record, groups 1-12 carry flux and yield only (`ig2lo = 0`, `iglo = -1`),
+/// groups 13+ the full matrix. Pass criterion: zero differing lines of the 72 MF=16/MT=102 lines.
+/// Prediction: identical.
+#[test]
+fn test_01_groupr_gendf_mf16_mt102() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "01", None, "moder\n -24 27/\n") else { return };
+    let Some((ours, njoy)) = run_pair_decks_extra(&root, "t01g16b", "t511", &[("t322", 26)], &deck, &deck) else { return };
+    let want = |l: &str| l.len() >= 75 && &l[70..72] == "16" && l[72..75].trim() == "102";
+    let a = std::fs::read_to_string(ours.join("tape27")).unwrap();
+    let b = std::fs::read_to_string(njoy.join("tape27")).unwrap();
+    let al: Vec<&str> = a.lines().filter(|l| want(l)).collect();
+    let bl: Vec<&str> = b.lines().filter(|l| want(l)).collect();
+    let diffs: Vec<usize> = (0..al.len().max(bl.len())).filter(|&i| al.get(i) != bl.get(i)).collect();
+    println!("test 01 GENDF MF=16 MT 102: {} differing lines of {} (ours {})", diffs.len(), bl.len(), al.len());
+    for &i in diffs.iter().take(6) {
+        println!("  ours: {:?}\n  njoy: {:?}", al.get(i), bl.get(i));
+    }
+    assert!(bl.len() >= 72 && diffs.is_empty());
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
+
+/// **Test 01 GROUPR: the WHOLE GENDF tape (unit 27), every line, against NJOY2016.80.**
+///
+/// Deck as `test_01_groupr_gendf_head`. Methodology: run the upstream deck (plus
+/// `moder -24 27`) through this crate's deck driver and through the compiled
+/// NJOY2016 and compare `tape27` line for line, MF=1 head, MF=3, MF=6 and MF=16
+/// together with every FEND/SEND/MEND/TEND card and sequence number (`E: tape27`
+/// is the GENDF; the sections are the union of the per-section tests above).
+/// Pass criterion: identical line count and zero differing lines. Prediction:
+/// identical (every section already matches individually).
+#[test]
+fn test_01_groupr_gendf_whole_tape() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "01", None, "moder\n -24 27/\n") else { return };
+    let Some((ours, njoy)) = run_pair_decks_extra(&root, "t01gw", "t511", &[("t322", 26)], &deck, &deck) else { return };
+    let a = std::fs::read_to_string(ours.join("tape27")).unwrap();
+    let b = std::fs::read_to_string(njoy.join("tape27")).unwrap();
+    let (al, bl): (Vec<&str>, Vec<&str>) = (a.lines().collect(), b.lines().collect());
+    let diffs: Vec<usize> = (0..al.len().max(bl.len())).filter(|&i| al.get(i) != bl.get(i)).collect();
+    println!("test 01 GENDF whole tape: {} differing lines of {} (ours {})", diffs.len(), bl.len(), al.len());
+    for &i in diffs.iter().take(6) {
+        println!("  line {}\n  ours: {:?}\n  njoy: {:?}", i + 1, al.get(i), bl.get(i));
+    }
+    assert!(bl.len() > 1000 && diffs.is_empty());
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
 }

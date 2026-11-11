@@ -11,9 +11,10 @@
 //! Ported: `getsed`'s analytic subsections with law 9 (evaporation) and
 //! `anased` law 9. Not ported (each returns [`NjoyError::NotPorted`]): the
 //! tabulated law 1 branch, analytic laws 5, 7, 11, 12 (`erfc`, `hnab`, `gami`,
-//! `e1`), `getyld` (`MT = 18-21, 38`), and any reaction with `econst != 0`
-//! (`MT = 18, 19, 102, 452, 455, 456`), whose `jconst` yield-only branch is not
-//! translated. `econst = 0` makes the `econst` search in `getsed` inert
+//! `e1`), `getyld` (`MT = 18-21, 38`), and any MF=6 reaction with `econst != 0`
+//! (`MT = 18, 19, 452, 455, 456`), whose `jconst` yield-only branch is not
+//! translated here (the `econst` branch of the MF=12 photon feed, `MT = 102`, IS
+//! ported, in `photon_prod.rs`). `econst = 0` makes the `econst` search in `getsed` inert
 //! (`ee < econst` never holds), so it is not carried.
 
 use crate::endf::records::{SectionCursor, Tab1};
