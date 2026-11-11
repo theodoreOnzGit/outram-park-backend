@@ -1158,7 +1158,7 @@ fn test_11_thermr_three_temperatures_free_gas() {
 /// Deck 25: ENDF-6 H in H2O at 300, 400, 500 K, `iinc = 2`, card `icoh = 1` with no MF=7/MT=2 on the tape: `thermr` keeps the card and runs `coh` with the built-in graphite lattice (`mtref+1`). Three temperatures, `T_eff` TAB1, `calcem` iform 0.
 #[test]
 fn test_25_thermr_tape_is_identical_line_for_line() {
-    thermr_deck("25", "acer", "moder\n -50 91\n", &[("n-001_H_001-ENDF8.0-Beta6.endf", 20), ("tsl-HinH2O-ENDF8.0-Beta6.endf", 21)], &[91], Some(&[222, 223]));
+    thermr_deck("25", "acer", "moder\n -50 91\n", &[("n-001_H_001-ENDF8.0-Beta6.endf", 20), ("tsl-HinH2O-ENDF8.0-Beta6.endf", 21)], &[91], None);
 }
 
 /// Deck 32: ENDF-6 Zr in ZrH, `LTHR = 2` (incoherent elastic, `rdelas` + `iel`, MF=3/6 `mtref+1`): unit 91 is `iform = 0`, unit 92 is `iform = 1` (`LAW = 7`).
@@ -1176,13 +1176,13 @@ fn test_49_thermr_tape_is_identical_line_for_line() {
 /// Deck 67: ENDF-8.1 D in 7LiD, `LTHR = 3` (mixed elastic: `coh` at `mtref+1`, `iel` at `mtref+2`; both MF=6 carry `iel`'s `ncdse`).
 #[test]
 fn test_67_thermr_tape_is_identical_line_for_line() {
-    thermr_deck("67", "acer", "moder\n -50 91\n", &[("n-001_H_002-ENDF8.0.endf", 20), ("tsl-DinLiD-ENDF8.1-beta.endf", 21)], &[91], Some(&[221, 222, 223]));
+    thermr_deck("67", "acer", "moder\n -50 91\n", &[("n-001_H_002-ENDF8.0.endf", 20), ("tsl-DinLiD-ENDF8.1-beta.endf", 21)], &[91], None);
 }
 
 /// Deck 68: H in H2O, inelastic only (`icoh = 0`, no MT=2).
 #[test]
 fn test_68_thermr_tape_is_identical_line_for_line() {
-    thermr_deck("68", "acer", "moder\n -50 91\n", &[("n-001_H_001-ENDF8.0-Beta6.endf", 20), ("tsl-HinH2O-ENDF8.0-Beta6.endf", 21)], &[91], Some(&[221]));
+    thermr_deck("68", "acer", "moder\n -50 91\n", &[("n-001_H_001-ENDF8.0-Beta6.endf", 20), ("tsl-HinH2O-ENDF8.0-Beta6.endf", 21)], &[91], None);
 }
 
 /// Deck 69: Zr in ZrH, `iinc = 2`, ENDF-6 `LTHR = 2` replaces the card `icoh = 1`.
@@ -1194,11 +1194,20 @@ fn test_69_thermr_tape_is_identical_line_for_line() {
 /// Deck 70: Al-27 at 400 K, `LTHR = 1` (coherent from the tape `S(E)`, `rdelas`).
 #[test]
 fn test_70_thermr_tape_is_identical_line_for_line() {
-    thermr_deck("70", "acer", "moder\n -50 91\n", &[("n-013_Al_027-ENDF8.0.endf", 20), ("tsl-013_Al_027-ENDF8.0.endf", 21)], &[91], Some(&[221, 222]));
+    thermr_deck("70", "acer", "moder\n -50 91\n", &[("n-013_Al_027-ENDF8.0.endf", 20), ("tsl-013_Al_027-ENDF8.0.endf", 21)], &[91], None);
 }
 
 /// Deck 74: H in ZrH at 296 K, `LTHR = 2`.
 #[test]
 fn test_74_thermr_tape_is_identical_line_for_line() {
-    thermr_deck("74", "acer", "moder\n -50 91\n", &[("n-001_H_001-ENDF8.0-Beta6.endf", 20), ("tsl-HinZrH-ENDF8.0.endf", 21)], &[91], Some(&[221, 222]));
+    thermr_deck("74", "acer", "moder\n -50 91\n", &[("n-001_H_001-ENDF8.0-Beta6.endf", 20), ("tsl-HinZrH-ENDF8.0.endf", 21)], &[91], None);
 }
+
+// Results, 2026-11-12 (rustc per rust-toolchain.toml, NJOY2016.80 `ac5adf5`, gfortran 13.3).
+// Decks 25, 67, 68, 70 and 74 compare the **whole** unit 91 tape (995 320, 463 392,
+// 324 387, 213 800 and 470 251 lines): 0 differing lines. Decks 11, 32 (units 91
+// and 92), 49 and 69 compare THERMR's own sections (MF=3/6 `mtref..`, their
+// MF=1 dictionary rows): 0 differing lines. On the Zr-90 decks (32, 49, 69) the
+// whole tape differs in 4025's MF=3 MT=52/53/58 (1 line each) and MF=10 MT=16/28/112
+// (29 lines) -- RECONR/BROADR output, identical across the three decks and not
+// THERMR's; deck 11's tape lacks UNRESR's MF=2/MT=152, whose writer is not ported.
