@@ -338,10 +338,14 @@ fn operators(text: &str) -> Vec<(&'static str, Stat)> {
     let sn_unc: Vec<f64> = (0..nf)
         .map(|f| {
             if f < r.n_int {
-                (t.internal[mesh.neighbour[f]] - t.internal[mesh.owner[f]])
-                    / DeltaCoeff::NonOrthogonal.interior_delta(&mesh, f)
+                // upstream `uncorrectedSnGrad`: `nonOrthDeltaCoeffs * (N - P)`
+                // (gh:#1489: multiply by the stored coefficient, not divide)
+                DeltaCoeff::NonOrthogonal.interior_delta_coeff(&mesh, f)
+                    * (t.internal[mesh.neighbour[f]] - t.internal[mesh.owner[f]])
             } else {
-                (tb(f) - t.internal[mesh.owner[f]]) / DeltaCoeff::NonOrthogonal.boundary_delta(&mesh, f)
+                // non-coupled boundary: `pvf.snGrad()` uses the patch's own
+                // `deltaCoeffs`, not the scheme's `nonOrthDeltaCoeffs`
+                DeltaCoeff::Orthogonal.boundary_delta_coeff(&mesh, f) * (tb(f) - t.internal[mesh.owner[f]])
             }
         })
         .collect();
@@ -626,26 +630,26 @@ fn rows(text: &str) -> Vec<(String, Stat)> {
 const PINS: &[(&str, &str, usize, usize, u64)] = &[
     ("hex", "Sf (all faces)", 3249, 3249, 0),
     ("hex", "magSf", 1083, 1083, 0),
-    ("hex", "Cf (triangles)", 90, 58, 1),
-    ("hex", "Cf (non-triangles)", 3159, 1737, 3),
-    ("hex", "V", 316, 42, 47),
-    ("hex", "C", 948, 342, 4),
+    ("hex", "Cf (triangles)", 90, 90, 0), // ~~58, 1 ulp~~ gh:#1489
+    ("hex", "Cf (non-triangles)", 3159, 3159, 0), // ~~1737, 3 ulp~~ gh:#1489
+    ("hex", "V", 316, 316, 0), // ~~42, 47 ulp~~ gh:#1489
+    ("hex", "C", 948, 948, 0), // ~~342, 4 ulp~~ gh:#1489
     ("hex", "weights (internal)", 789, 789, 0),
     ("hex", "deltaCoeffs", 1083, 1083, 0), // ~~789, 6819937884107484~~ gh:#1488
-    ("hex", "nonOrthDeltaCoeffs", 1083, 772, 6),
-    ("hex", "interpolate linear", 1083, 888, 12),
-    ("hex", "grad Gauss linear", 948, 506, 62),
-    ("hex", "snGrad (orthogonal)", 1083, 737, 1), // ~~533, 7394036669051906~~ gh:#1488
-    ("hex", "snGrad (uncorrected, via delta)", 1083, 627, 3),
+    ("hex", "nonOrthDeltaCoeffs", 1083, 1083, 0), // ~~772, 6 ulp~~ gh:#1489
+    ("hex", "interpolate linear", 1083, 1083, 0), // ~~888, 12 ulp~~ gh:#1489
+    ("hex", "grad Gauss linear", 948, 948, 0), // ~~506, 62 ulp~~ gh:#1489
+    ("hex", "snGrad (orthogonal)", 1083, 1083, 0), // ~~737, 1 ulp~~ gh:#1489 // ~~533, 7394036669051906~~ gh:#1488
+    ("hex", "snGrad (uncorrected, via delta)", 1083, 1083, 0), // ~~627, 3 ulp~~ gh:#1489
     ("hex", "div(phi)", 316, 316, 0),
-    ("hex", "div(phi,T) Gauss linear", 316, 196, 34),
-    ("hex", "recon upwind", 1578, 1546, 32),
-    ("hex", "recon linear", 1578, 1199, 16),
-    ("hex", "recon vanLeer", 1578, 813, 192),
-    ("hex", "recon Minmod", 1578, 1010, 32),
-    ("hex", "laplacian upper", 789, 466, 3),
-    ("hex", "laplacian diag (+bnd)", 316, 224, 2),
-    ("hex", "laplacian source (bnd)", 316, 197, 3),
+    ("hex", "div(phi,T) Gauss linear", 316, 316, 0), // ~~196, 34 ulp~~ gh:#1489
+    ("hex", "recon upwind", 1578, 1578, 0), // ~~1546, 32 ulp~~ gh:#1489
+    ("hex", "recon linear", 1578, 1578, 0), // ~~1199, 16 ulp~~ gh:#1489
+    ("hex", "recon vanLeer", 1578, 1578, 0), // ~~813, 192 ulp~~ gh:#1489
+    ("hex", "recon Minmod", 1578, 1578, 0), // ~~1010, 32 ulp~~ gh:#1489
+    ("hex", "laplacian upper", 789, 789, 0), // ~~466, 3 ulp~~ gh:#1489
+    ("hex", "laplacian diag (+bnd)", 316, 316, 0), // ~~224, 2 ulp~~ gh:#1489
+    ("hex", "laplacian source (bnd)", 316, 316, 0), // ~~197, 3 ulp~~ gh:#1489
     ("hex", "limiter vanLeer [r>=0]", 232, 232, 0),
     ("hex", "limiter vanLeer [r<0]", 82, 82, 0),
     ("hex", "limiter vanAlbada [r>=0]", 232, 232, 0),
@@ -658,7 +662,7 @@ const PINS: &[(&str, &str, usize, usize, u64)] = &[
     ("hex", "limiter MUSCL [r<0]", 82, 82, 0),
     ("hex", "limiter UMIST [r>=0]", 232, 232, 0),
     ("hex", "limiter UMIST [r<0]", 82, 82, 0),
-    ("hex", "limiter OSPRE [r>=0]", 232, 151, 2),
+    ("hex", "limiter OSPRE [r>=0]", 232, 232, 0), // ~~151, 2 ulp~~ gh:#1489
     ("hex", "limiter OSPRE [r<0]", 82, 1, 4608469161550694693),
     ("hex", "limiter limitedLinear 1 [r>=0]", 232, 232, 0),
     ("hex", "limiter limitedLinear 1 [r<0]", 82, 82, 0),
@@ -681,25 +685,25 @@ const PINS: &[(&str, &str, usize, usize, u64)] = &[
     ("poly", "Sf (all faces)", 5364, 5364, 0),
     ("poly", "magSf", 1788, 1788, 0),
     ("poly", "Cf (triangles)", 0, 0, 0),
-    ("poly", "Cf (non-triangles)", 5364, 2933, 23),
-    ("poly", "V", 470, 70, 60),
-    ("poly", "C", 1410, 496, 6),
+    ("poly", "Cf (non-triangles)", 5364, 5364, 0), // ~~2933, 23 ulp~~ gh:#1489
+    ("poly", "V", 470, 470, 0), // ~~70, 60 ulp~~ gh:#1489
+    ("poly", "C", 1410, 1410, 0), // ~~496, 6 ulp~~ gh:#1489
     ("poly", "weights (internal)", 1236, 1236, 0),
     ("poly", "deltaCoeffs", 1788, 1788, 0), // ~~1236, 14045069578427769~~ gh:#1488
-    ("poly", "nonOrthDeltaCoeffs", 1788, 1193, 4),
-    ("poly", "interpolate linear", 1788, 1469, 16),
-    ("poly", "grad Gauss linear", 1410, 696, 103),
-    ("poly", "snGrad (orthogonal)", 1788, 1285, 1), // ~~890, 13935367941715158~~ gh:#1488
-    ("poly", "snGrad (uncorrected, via delta)", 1788, 947, 3),
+    ("poly", "nonOrthDeltaCoeffs", 1788, 1788, 0), // ~~1193, 4 ulp~~ gh:#1489
+    ("poly", "interpolate linear", 1788, 1788, 0), // ~~1469, 16 ulp~~ gh:#1489
+    ("poly", "grad Gauss linear", 1410, 1410, 0), // ~~696, 103 ulp~~ gh:#1489
+    ("poly", "snGrad (orthogonal)", 1788, 1788, 0), // ~~1285, 1 ulp~~ gh:#1489 // ~~890, 13935367941715158~~ gh:#1488
+    ("poly", "snGrad (uncorrected, via delta)", 1788, 1788, 0), // ~~947, 3 ulp~~ gh:#1489
     ("poly", "div(phi)", 470, 470, 0),
-    ("poly", "div(phi,T) Gauss linear", 470, 297, 49),
-    ("poly", "recon upwind", 2472, 2407, 8),
-    ("poly", "recon linear", 2472, 1858, 16),
-    ("poly", "recon vanLeer", 2472, 1322, 1024),
-    ("poly", "recon Minmod", 2472, 1537, 80),
-    ("poly", "laplacian upper", 1236, 740, 2),
-    ("poly", "laplacian diag (+bnd)", 470, 312, 2),
-    ("poly", "laplacian source (bnd)", 470, 311, 8),
+    ("poly", "div(phi,T) Gauss linear", 470, 470, 0), // ~~297, 49 ulp~~ gh:#1489
+    ("poly", "recon upwind", 2472, 2472, 0), // ~~2407, 8 ulp~~ gh:#1489
+    ("poly", "recon linear", 2472, 2472, 0), // ~~1858, 16 ulp~~ gh:#1489
+    ("poly", "recon vanLeer", 2472, 2472, 0), // ~~1322, 1024 ulp~~ gh:#1489
+    ("poly", "recon Minmod", 2472, 2472, 0), // ~~1537, 80 ulp~~ gh:#1489
+    ("poly", "laplacian upper", 1236, 1236, 0), // ~~740, 2 ulp~~ gh:#1489
+    ("poly", "laplacian diag (+bnd)", 470, 470, 0), // ~~312, 2 ulp~~ gh:#1489
+    ("poly", "laplacian source (bnd)", 470, 470, 0), // ~~311, 8 ulp~~ gh:#1489
     ("poly", "limiter vanLeer [r>=0]", 232, 232, 0),
     ("poly", "limiter vanLeer [r<0]", 82, 82, 0),
     ("poly", "limiter vanAlbada [r>=0]", 232, 232, 0),
@@ -712,7 +716,7 @@ const PINS: &[(&str, &str, usize, usize, u64)] = &[
     ("poly", "limiter MUSCL [r<0]", 82, 82, 0),
     ("poly", "limiter UMIST [r>=0]", 232, 232, 0),
     ("poly", "limiter UMIST [r<0]", 82, 82, 0),
-    ("poly", "limiter OSPRE [r>=0]", 232, 151, 2),
+    ("poly", "limiter OSPRE [r>=0]", 232, 232, 0), // ~~151, 2 ulp~~ gh:#1489
     ("poly", "limiter OSPRE [r<0]", 82, 1, 4608469161550694693),
     ("poly", "limiter limitedLinear 1 [r>=0]", 232, 232, 0),
     ("poly", "limiter limitedLinear 1 [r<0]", 82, 82, 0),
@@ -737,22 +741,26 @@ const PINS: &[(&str, &str, usize, usize, u64)] = &[
 #[test]
 fn operators_match_upstream_as_pinned() {
     let mut seen = 0;
+    let mut mismatches: Vec<String> = vec![];
     for (label, text) in [("hex", HEX_BLOCK), ("poly", POLY_DUAL)] {
         for (name, st) in rows(text) {
             let pin = PINS
                 .iter()
                 .find(|p| p.0 == label && p.1 == name)
                 .unwrap_or_else(|| panic!("no pin for {label}|{name}"));
-            assert_eq!(
-                (st.n, st.identical, st.max_ulp),
-                (pin.2, pin.3, pin.4),
-                "{label}|{name}"
-            );
+            if (st.n, st.identical, st.max_ulp) != (pin.2, pin.3, pin.4) {
+                // collect, so one run lists every moved row (PINS format)
+                mismatches.push(format!(
+                    "    (\"{label}\", \"{name}\", {}, {}, {}), // pinned ({}, {}, {})",
+                    st.n, st.identical, st.max_ulp, pin.2, pin.3, pin.4
+                ));
+            }
             if name.starts_with("proof ") && !name.contains("port form") && !name.contains("g*(1/V)") {
                 assert_eq!(st.identical, st.n, "{label}|{name}: proof row must be bit-identical");
             }
             seen += 1;
         }
     }
+    assert!(mismatches.is_empty(), "moved rows:\n{}", mismatches.join("\n"));
     assert_eq!(seen, PINS.len());
 }

@@ -56,31 +56,31 @@ stated cause.
 | quantity | hex/prism | polyDual | cause (proven by) |
 |---|---|---|---|
 | Sf, magSf | all identical | all identical | same arithmetic |
-| Cf, triangles | 58/90, 1 ulp | none | port `(a+b+c)/3` against upstream `(1/3)*(a+b+c)` (proof) |
-| Cf, other faces | 1737/3159, 3 ulp | 2933/5364, 23 ulp | port divides each triangle centre by 3 before the area weighting; upstream `(1/3)*sumAc/sumA` (proof) |
-| V | 42/316, 47 ulp | 70/470, 60 ulp | port interleaves faces and uses `/3`; upstream sums owner faces then neighbour faces and uses `*(1/3)` (proof) |
-| C | 342/948, 4 ulp | 496/1410, 6 ulp | summation order, as V (proof) |
+| Cf, triangles | ~~58/90, 1 ulp~~ **90/90, 0 ulp** (gh:#1489, FIXED) | none | port `(a+b+c)/3` against upstream `(1/3)*(a+b+c)` (proof) |
+| Cf, other faces | ~~1737/3159, 3 ulp~~ **3159/3159, 0 ulp** (gh:#1489, FIXED) | ~~2933/5364, 23 ulp~~ **5364/5364, 0 ulp** (gh:#1489, FIXED) | port divides each triangle centre by 3 before the area weighting; upstream `(1/3)*sumAc/sumA` (proof) |
+| V | ~~42/316, 47 ulp~~ **316/316, 0 ulp** (gh:#1489, FIXED) | ~~70/470, 60 ulp~~ **470/470, 0 ulp** (gh:#1489, FIXED) | port interleaves faces and uses `/3`; upstream sums owner faces then neighbour faces and uses `*(1/3)` (proof) |
+| C | ~~342/948, 4 ulp~~ **948/948, 0 ulp** (gh:#1489, FIXED) | ~~496/1410, 6 ulp~~ **1410/1410, 0 ulp** (gh:#1489, FIXED) | summation order, as V (proof) |
 | linear weights | all identical | all identical | |
 | deltaCoeffs | ~~**789/1083, rel 0.66**~~ **1083/1083, 0 ulp** (gh:#1488) | ~~**1236/1788, rel 0.88**~~ **1788/1788, 0 ulp** (gh:#1488) | **DEFECT D1**, below, FIXED 2026-11-11 (proof) |
-| nonOrthDeltaCoeffs | 772/1083, 6 ulp | 1193/1788, 4 ulp | `sf*(1/area)` against upstream `Sf/magSf` (proof) |
-| interpolate linear | 888/1083, 12 ulp | 1469/1788, 16 ulp | port `w*a+(1-w)*b`; upstream `w*(a-b)+b` (proof) |
-| grad, Gauss linear | 506/948, 62 ulp | 696/1410, 103 ulp | interpolation form, plus port `g*(1/V)` against upstream `g/V` (proof: `g/V` on upstream face values is 948/948; `g*(1/V)` is 728/948) |
-| snGrad, orthogonal | ~~**533/1083, rel 0.66**~~ **737/1083, 1 ulp** (gh:#1488) | ~~**890/1788, rel 0.88**~~ **1285/1788, 1 ulp** (gh:#1488) | boundary deltaCoeffs (D1, fixed), plus `/d` against `deltaCoeffs*` (proof; the remaining 1-ulp differences, gh:#1489) |
-| snGrad, uncorrected (port: via `DeltaCoeff::NonOrthogonal`) | 627/1083, 3 ulp | 947/1788, 3 ulp | `nonOrthDeltaCoeffs` form, `/delta` against `*dC` |
+| nonOrthDeltaCoeffs | ~~772/1083, 6 ulp~~ **1083/1083, 0 ulp** (gh:#1489, FIXED) | ~~1193/1788, 4 ulp~~ **1788/1788, 0 ulp** (gh:#1489, FIXED) | `sf*(1/area)` against upstream `Sf/magSf` (proof) |
+| interpolate linear | ~~888/1083, 12 ulp~~ **1083/1083, 0 ulp** (gh:#1489, FIXED) | ~~1469/1788, 16 ulp~~ **1788/1788, 0 ulp** (gh:#1489, FIXED) | port `w*a+(1-w)*b`; upstream `w*(a-b)+b` (proof) |
+| grad, Gauss linear | ~~506/948, 62 ulp~~ **948/948, 0 ulp** (gh:#1489, FIXED) | ~~696/1410, 103 ulp~~ **1410/1410, 0 ulp** (gh:#1489, FIXED) | interpolation form, plus port `g*(1/V)` against upstream `g/V` (proof: `g/V` on upstream face values is 948/948; `g*(1/V)` is 728/948) |
+| snGrad, orthogonal | ~~**533/1083, rel 0.66**~~ ~~737/1083, 1 ulp~~ **1083/1083, 0 ulp** (gh:#1489, FIXED) | ~~**890/1788, rel 0.88**~~ ~~1285/1788, 1 ulp~~ **1788/1788, 0 ulp** (gh:#1489, FIXED) | boundary deltaCoeffs (D1, fixed), plus `/d` against `deltaCoeffs*` (proof; the remaining 1-ulp differences, gh:#1489) |
+| snGrad, uncorrected (port: via `DeltaCoeff::NonOrthogonal`) | ~~627/1083, 3 ulp~~ **1083/1083, 0 ulp** (gh:#1489, FIXED) | ~~947/1788, 3 ulp~~ **1788/1788, 0 ulp** (gh:#1489, FIXED) | `nonOrthDeltaCoeffs` form, `/delta` against `*dC`. ~~replayed with `NonOrthogonal` on boundary faces~~ **CORRECTED gh:#1489**: upstream's non-coupled boundary `snGrad` is `pvf.snGrad()` with the PATCH's `deltaCoeffs` (`snGradScheme::snGrad`), so the replay uses the orthogonal boundary coefficient |
 | div(phi) | all identical | all identical | both divide by V |
-| div(phi,T), Gauss linear | 196/316, 34 ulp | 297/470, 49 ulp | interpolation form |
-| reconstruct upwind (+/-) | 1546/1578, 32 ulp | 2407/2472, 8 ulp | upstream `upwind` weights are 1 or 0 applied as `1*(P-N)+N`, which is not `P` in floating point; the port returns `P` (proof) |
-| reconstruct linear / vanLeer / Minmod | 1199, 813, 1010 of 1578; 16, 192, 32 ulp | 1858, 1322, 1537 of 2472; 16, 1024, 80 ulp | different structure from upstream's `limitedScheme` (`P + lambda*(lin-P)` against `w*(P-N)+N` with `w = lambda*cdWeight + (1-lambda)*upwind`), and `r` amplifies gradient ulps; not replayed |
-| laplacian upper / diag / source (uncorrected) | 466/789, 224/316, 197/316; 3 ulp | 740/1236, 312/470, 311/470; 8 ulp | `gamma*magSf/delta` against `dC*(gamma*magSf)` (proof for upper) |
+| div(phi,T), Gauss linear | ~~196/316, 34 ulp~~ **316/316, 0 ulp** (gh:#1489, FIXED) | ~~297/470, 49 ulp~~ **470/470, 0 ulp** (gh:#1489, FIXED) | interpolation form |
+| reconstruct upwind (+/-) | ~~1546/1578, 32 ulp~~ **1578/1578, 0 ulp** (gh:#1489, FIXED) | ~~2407/2472, 8 ulp~~ **2472/2472, 0 ulp** (gh:#1489, FIXED) | upstream `upwind` weights are 1 or 0 applied as `1*(P-N)+N`, which is not `P` in floating point; the port returns `P` (proof) |
+| reconstruct linear / vanLeer / Minmod | ~~1199, 813, 1010 of 1578; 16, 192, 32 ulp~~ **1578 of 1578, 0 ulp, all three** (gh:#1489, FIXED) | ~~1858, 1322, 1537 of 2472; 16, 1024, 80 ulp~~ **2472 of 2472, 0 ulp, all three** (gh:#1489, FIXED) | different structure from upstream's `limitedScheme` (`P + lambda*(lin-P)` against `w*(P-N)+N` with `w = lambda*cdWeight + (1-lambda)*upwind`), and `r` amplifies gradient ulps; ~~not replayed~~ the port now follows `LimitedScheme`/`NVDTVD::r`/`limitedSurfaceInterpolationScheme::weights` operation for operation (incl. the `1000` clamp), which made them identical |
+| laplacian upper / diag / source (uncorrected) | ~~466/789, 224/316, 197/316; 3 ulp~~ **789/789, 316/316, 316/316; 0 ulp** (gh:#1489, FIXED) | ~~740/1236, 312/470, 311/470; 8 ulp~~ **1236/1236, 470/470, 470/470; 0 ulp** (gh:#1489, FIXED) | `gamma*magSf/delta` against `dC*(gamma*magSf)` (proof for upper); a fixedValue source is `gm*(dC*v)`; the non-coupled boundary uses the patch `deltaCoeffs`, not the scheme's (`fvmLaplacianUncorrected`) |
 | limiters vanLeer, Minmod, SuperBee, MUSCL, UMIST, limitedLinear(1, 0.5) | all identical (314) | same | |
 | limiter vanAlbada | r>=0 232/232; **r<0 1/82** | same | **D3**: upstream has no `max(0,r)` clamp (proof) |
-| limiter OSPRE | r>=0 151/232, 2 ulp; **r<0 1/82** | same | operation order, and the same clamp (proof) |
+| limiter OSPRE | r>=0 ~~151/232, 2 ulp~~ **232/232, 0 ulp** (gh:#1489, `rrp1 = r(r+1)`); **r<0 1/82** | same | operation order, and the same clamp (proof) |
 
 ## Findings
 Nothing below was changed in solver code: each fix would move solver results,
 so each is a maintainer decision.
 - **D1. Boundary `deltaCoeffs` in `DeltaCoeff::Orthogonal` mode (the default of `fvm::laplacian` and `fvc::sn_grad`).** Upstream `fvPatch::delta()` returns the patch-NORMAL component `n (n . d)` (ESI v2506 `fvPatch.C:156`), so `deltaCoeffs = 1/|n . d|` on boundary faces. The port uses `1/|Cf - C|`, so on a non-orthogonal boundary face the coefficient is too small by `cos(theta)`; here by up to 66 % (blockMesh) and 88 % (polyDual). The `NonOrthogonal` mode already does it. Predicted movement of the fix: every non-orthogonal boundary face of every case that uses the default mode; zero on orthogonal meshes. ~~Not fixed: the pinned appbuilder results would need re-measuring.~~ **FIXED 2026-11-11 (gh:#1488)**: `fvm::DeltaCoeff::Orthogonal.boundary_delta` now computes `|nHat (nHat . d)|` with upstream's operation order (`patch_normal_delta` in `src/fv_operators/fvm/laplacian.rs`); the boundary `fixedGradient` / `mixed` face reconstruction (`fvc::interpolate`), `fvc::sn_grad`, `fvm::laplacian_vec` and the boundary part of `laplacian_corrected` use it too. Boundary `deltaCoeffs` is 1083/1083 and 1788/1788 bit-identical, `snGrad (orthogonal)` is within 1 ulp (2.2e-16 relative). Not touched: coupled (cyclic / AMI) seams, which have their own `delta()` upstream.
-- **D2. Arithmetic order (ulp level), all proven above:** cell volume and centre and face centre order, `*(1/x)` in place of `/x` (grad, `nonOrthDeltaCoeffs`), linear interpolation form, upwind. Bit-identity needs each changed to upstream's form; each change moves every downstream result by ulps, so none was made. Predicted movement: relative 1e-15 on fields, up to 1e-13 where a limiter ratio `r` amplifies it.
+- **D2. Arithmetic order (ulp level), all proven above:** cell volume and centre and face centre order, `*(1/x)` in place of `/x` (grad, `nonOrthDeltaCoeffs`), linear interpolation form, upwind. Bit-identity needs each changed to upstream's form; each change moves every downstream result by ulps, so none was made. Predicted movement: relative 1e-15 on fields, up to 1e-13 where a limiter ratio `r` amplifies it. ~~Bit-identity needs each changed to upstream's form; each change moves every downstream result by ulps, so none was made.~~ **FIXED 2026-11-11 (gh:#1489)**: every ordering above was changed to upstream's form; see the gh:#1489 results section below.
 - **D3. vanAlbada and OSPRE clamp `r` at 0; upstream does not.** Their doc comments claimed the clamp was upstream's; corrected in `src/limiters.rs` (documentation only).
 - **Which line.** The source read and run is ESI v2506. The Foundation (dev) text of `makeFaceCentresAndAreas`, `fvPatch::delta` and `surfaceInterpolationScheme::interpolate` was not run or read here, so D2's orderings are stated for ESI only and may differ in dev.
 
@@ -137,3 +137,35 @@ will move. The `1000` clamp can change a limited-scheme face value only where
 `|d.grad| >= 1000 |dphi|`, so reconstruct-based solvers (rhoCentralFoam, HEM,
 pcice) move beyond round-off only on near-discontinuous data; I expect none of
 the pinned tolerances to be crossed.
+
+### gh:#1489 results (2026-11-11, release) against the prediction above
+- **Differential: as predicted, every row.** All 34 listed rows (18 hex, 17 poly, counting
+  OSPRE r>=0 on both) moved to n/n bit-identical, 0 ulp; the table above has old
+  struck through. Remaining differences: limiter vanAlbada [r<0] and OSPRE [r<0] (the
+  `max(0, r)` clamp, not operation order, kept as documented), and the `proof ... g*(1/V)
+  (port form)` row, which is the retired port arithmetic kept as a control.
+- **One thing the prediction missed, found by the differential.** The first run left
+  `laplacian diag` / `source` at 286/316 and 245/316 (hex). The cause was not
+  an ordering: upstream's non-coupled branch of `fvmLaplacianUncorrected` calls
+  `pvf.gradientInternalCoeffs()` with no argument, so a boundary face uses the patch's own
+  `deltaCoeffs` (orthogonal, `1/mag(delta)`), not the scheme's `nonOrthDeltaCoeffs`; the same
+  holds for `snGradScheme::snGrad`, whose non-coupled boundary is `pvf.snGrad()`. The port
+  used the scheme's coefficient on boundary faces (an ulp apart), and my replay of
+  "snGrad (uncorrected)" copied that. Both now use the patch coefficient
+  (`laplacian_with_delta`, the replay in the test).
+- **Missing limit found, as the porting rule predicts.** `NVDTVD::r` clamps
+  `|gradcf| >= 1000|gradf|`; the port had no clamp and a `|dphi| < 1e-30` shortcut. Now
+  upstream's. It changes a face value only where the slope ratio exceeds 1000.
+- **Solver numbers: nothing moved beyond round-off.** Re-run, release, all pass:
+  basic-lib lib+tests (546 + integration) and doc tests (119), turbulence 16, multiphase 67,
+  outram-foam-mesh, appbuilder, cli, moltres, offbeat, farrer-park, tampines (222 + others),
+  dhoby-ghaut, Foam Studio example (19), digital twin `double_pipe` (22). Printed V&V numbers
+  equal their gh:#1488 values to the digits printed: 5k ablation dpdz/HP 1.03221 (poly 1.02046),
+  uc15 0.9904, uc17 0.9926, uc_dev 0.9902; Foam Studio 0.9393 / 1.0063 and 0.9753 / 1.0177.
+  Only the `operators_vs_openfoam` pins moved (old struck through in `PINS`).
+- **Not changed (no upstream replay row, so not claimed):** `fvc::div_vec` /
+  `div_tensor` still multiply by `1/V` (upstream `surfaceIntegrate` divides); boundary `Mixed`
+  and `MixedField` arms of the Laplacian and `snGrad` keep their algebra; coupled
+  (cyclic / AMI) seams; the `fvc::interpolate` boundary `Mixed` / `FixedGradient`
+  reconstructions. `outram-foam-mesh`'s own geometry code (blockMesh / dual) was not touched.
+  Foundation (dev) arithmetic not re-read.

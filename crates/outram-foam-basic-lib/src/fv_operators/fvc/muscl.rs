@@ -26,7 +26,7 @@
 //! reach second order, à la OpenFOAM's `interpolate(field, pos)` /
 //! `interpolate(field, neg)`.
 
-use super::{grad, interpolate};
+use super::{grad, interpolate, linear_weight};
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
 use crate::fields::surface_field::SurfaceScalarField;
@@ -61,6 +61,20 @@ impl Limiter {
     }
 }
 
+/// Upstream `NVDTVD::r` (ESI v2506 `LimitedScheme/NVDTVD.H`): the slope ratio
+/// `2*(gradcf/gradf) - 1`, where `gradcf = d . grad(phi)` on the upwind side and
+/// `gradf = phi_N - phi_P`, with upstream's clamp: when
+/// `|gradcf| >= 1000 |gradf|` it returns `2*1000*sign(gradcf)*sign(gradf) - 1`
+/// (`sign(0) = +1`). The port previously had no clamp (gh:#1489).
+fn nvdtvd_r(gradf: f64, gradcf: f64) -> f64 {
+    let sign = |x: f64| if x >= 0.0 { 1.0 } else { -1.0 };
+    if gradcf.abs() >= 1000.0 * gradf.abs() {
+        2.0 * 1000.0 * sign(gradcf) * sign(gradf) - 1.0
+    } else {
+        2.0 * (gradcf / gradf) - 1.0
+    }
+}
+
 /// MUSCL reconstruction of `field` to owner-biased (`pos`) and neighbour-biased
 /// (`neg`) face values.
 ///
@@ -69,10 +83,13 @@ impl Limiter {
 /// gradf  = φ_N − φ_O
 /// r_pos  = 2·(d·∇φ_O)/gradf − 1      (owner is the upwind side)
 /// r_neg  = 2·(d·∇φ_N)/gradf − 1      (neighbour is the upwind side)
-/// φ_pos  = φ_O + λ(r_pos)·(φ_lin − φ_O)
-/// φ_neg  = φ_N + λ(r_neg)·(φ_lin − φ_N)
+/// w_pos  = λ(r_pos)·w_cd + (1 − λ(r_pos))·1     φ_pos = w_pos·(φ_O − φ_N) + φ_N
+/// w_neg  = λ(r_neg)·w_cd + (1 − λ(r_neg))·0     φ_neg = w_neg·(φ_O − φ_N) + φ_N
 /// ```
-/// where `φ_lin` is the geometric linear (central) face interpolation. `λ = 0`
+/// (`r` as upstream's `NVDTVD::r`, with its `1000` clamp, see `nvdtvd_r`;
+/// ~~`φ_O + λ·(φ_lin − φ_O)`~~ **CORRECTED 2026-11-11 gh:#1489**, bit-identical
+/// to upstream's `limitedSurfaceInterpolationScheme`) where `w_cd` is the
+/// geometric linear weight. `λ = 0`
 /// reduces each side to first-order upwind (the previous rhoCentralFoam
 /// behaviour); `λ = 1` gives central differencing. Mirrors `NVDTVD::r` plus the
 /// limited-scheme weight blend in
@@ -90,31 +107,30 @@ pub fn reconstruct_pos_neg(
     let lin = interpolate(field); // central face values (+ boundary)
     let phi = field.internal.as_slice();
     let gc = grad_c.internal.as_slice();
-    const TINY: f64 = 1e-30;
 
     let mut pos = vec![0.0_f64; mesh.n_internal_faces];
     let mut neg = vec![0.0_f64; mesh.n_internal_faces];
 
+    // gh:#1489: upstream `LimitedScheme::calcLimiter` + `NVDTVD::r` +
+    // `limitedSurfaceInterpolationScheme::weights` + `interpolate`:
+    //   w = lim*cdWeight + (1 - lim)*pos0(faceFlux);  face = w*(P - N) + N
+    // with `pos0(flux)` = 1 for the owner-biased (flux > 0) side and 0 for the
+    // neighbour-biased one. ~~`P + lambda*(lin - P)` and a `|dphi| < 1e-30`
+    // shortcut~~ **CORRECTED 2026-11-11 (gh:#1489)**.
     for f in 0..mesh.n_internal_faces {
         let o = mesh.owner[f];
         let nb = mesh.neighbour[f];
         let gradf = phi[nb] - phi[o];
 
-        if gradf.abs() < TINY {
-            // No jump across the face: limiter is irrelevant, both sides equal
-            // their own cell value.
-            pos[f] = phi[o];
-            neg[f] = phi[nb];
-            continue;
-        }
-
         let d = mesh.cell_centres[nb] - mesh.cell_centres[o];
-        let phi_lin = lin.internal[f];
-        let r_pos = 2.0 * d.dot(gc[o]) / gradf - 1.0;
-        let r_neg = 2.0 * d.dot(gc[nb]) / gradf - 1.0;
+        let cd = linear_weight(&mesh, f);
+        let r_pos = nvdtvd_r(gradf, d.dot(gc[o]));
+        let r_neg = nvdtvd_r(gradf, d.dot(gc[nb]));
+        let w_pos = limiter.lambda(r_pos) * cd + (1.0 - limiter.lambda(r_pos)) * 1.0;
+        let w_neg = limiter.lambda(r_neg) * cd + (1.0 - limiter.lambda(r_neg)) * 0.0;
 
-        pos[f] = phi[o] + limiter.lambda(r_pos) * (phi_lin - phi[o]);
-        neg[f] = phi[nb] + limiter.lambda(r_neg) * (phi_lin - phi[nb]);
+        pos[f] = w_pos * (phi[o] - phi[nb]) + phi[nb];
+        neg[f] = w_neg * (phi[o] - phi[nb]) + phi[nb];
     }
 
     let boundary = || -> Vec<PatchField<f64>> {
