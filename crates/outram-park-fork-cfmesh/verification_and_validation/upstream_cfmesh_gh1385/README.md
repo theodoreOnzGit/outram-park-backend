@@ -709,3 +709,44 @@ curvature marks become 131, 112, 0, the automatic refinement 39950 leaves, and
 the elbow template 21977 cells, bit-identical points and faces. If curvature
 agrees but the template still differs, the next suspect is the partition
 criterion (27 vs 35: `findEdgesInBox` / `edgeGroups`).
+
+### Prediction for elbow_90degree meshOptimisation, written before the fix (committed first)
+
+State after the curvature-estimator fix (the elbow template and every stage
+through `patchAssignment` are bit-identical; counts equal at all eight steps,
+108 995 cells at the end). `edgeExtraction` differs in 253 boundary points by
+1e-15 to 1e-14 m; `boundaryLayerGeneration` in 537; `meshOptimisation`
+49266/49382... see below; the final 106 825/121 398.
+
+**Cause of the 253, proven, the same as asmoOctree's single point.** The first
+differing boundary point (bp 12597) enters `surfaceOptimizer::optimizePoint`
+with bit-identical inputs (point normal, `vecX`, `vecY`, 10 points, divide-and-
+conquer iterations 0-8 bit-identical); the first `evaluateGradients` has an
+identical gradient and a Hessian diagonal that differs by 1 ulp (1066.8964240848784
+upstream, ...82 here). Python's `math.pow` (this machine's glibc, whose `pow`
+is the FMA ifunc build) in upstream's operation order reproduces upstream's
+Hessian; `x*x*x` for `pow(stab, 3)` reproduces ours. PETIR's `powf` is the
+non-FMA ARM routine by design, and differs from glibc's FMA build on some
+inputs by 1 ulp. **Check by experiment (not committed; the std `powf` is the
+platform libm that PETIR's gate forbids):** with `stab.powf(3.0)` and the other
+`pow`s of `surface_optimizer.rs` / `mesh_optimizer.rs` on the platform libm,
+asmoOctree `meshOptimisation` and its final mesh are 71650/71650 points and
+177 398/177 398 faces bit-identical, and the elbow is bit-identical through
+`boundaryLayerGeneration` (49 382/49 382 points, 128 265 faces). So the pow
+ulp is the **only** cause of those differences.
+
+**What the experiment leaves: a real difference in elbow `meshOptimisation`**
+(49266/49382 points bit-identical, worst 0.21 m; final 120098/121398, worst
+0.23 m). Upstream's `optimizeMeshFV` untangle flags 2 faces (93688, 95202), the
+port 3 (adds 97570), with a part tet mesh of 1366 nodes against 1915. The port's
+`flag_faces` is an approximation of `findBadFaces` (vertex-average face
+centres, `cell_geometry` centres, `face_area_vector`), not the checks as
+upstream computes them on the polyMeshGen addressing's `faceCentres`,
+`faceAreas`, `cellCentres` and OpenFOAM's `face::areaNormal` / `face::centre`
+for `pyramidPointFaceRef::mag`.
+Prediction: with `checkFacePyramids`, `checkFaceFlatness`,
+`checkCellPartTetrahedra`, `checkFaceAreas`, `checkFaceDotProduct`,
+`checkFaceSkewness` ported on that geometry, the elbow's `untangle` flags 93688
+and 95202 only, the part tet mesh has 1366 nodes, and (with the glibc-pow
+experiment) elbow `meshOptimisation` and the final mesh are bit-identical. If a
+difference remains, the first `BADF`/`TN` line that differs names it.

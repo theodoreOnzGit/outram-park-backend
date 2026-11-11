@@ -1081,6 +1081,13 @@ impl MeshSurfaceOptimizer {
         if std::env::var("GH1385_TRACE").is_err() {
             return;
         }
+        if std::env::var("GH1385_BP").is_ok_and(|v| v == "all") {
+            for (bp, &v) in self.engine.boundary_points.iter().enumerate() {
+                let p = points[v];
+                eprintln!("TRACE {tag} {iter} {bp} {:.17e} {:.17e} {:.17e}", p.x, p.y, p.z);
+            }
+            return;
+        }
         if let Some(bp) = std::env::var("GH1385_BP").ok().and_then(|v| v.parse::<usize>().ok()) {
             let p = points[self.engine.boundary_points[bp]];
             eprintln!("TRACE {tag} {iter} {bp} {:.17e} {:.17e} {:.17e}", p.x, p.y, p.z);
@@ -1093,6 +1100,7 @@ impl MeshSurfaceOptimizer {
     /// `surfaceOptimizer` smoothing of the patch points, then
     /// `untangleSurface(0)`.
     pub fn optimize_surface(&mut self, points: &mut [Vec3], n_iterations: usize) -> UntangleReport {
+        self.trace_bp("opt_pre", 0, points);
         let (mut edge, mut partition) = (Vec::new(), Vec::new());
         for b in 0..self.engine.n_boundary_points() {
             if self.locked(b) {
