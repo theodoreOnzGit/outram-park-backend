@@ -161,7 +161,6 @@ pub fn acefix_type1(text: &str, req: &AcefixRequest) -> Result<AcefixOutput, Njo
     nxs.copy_from_slice(&v[..16]);
     let mut jxs = [0i64; 32];
     jxs.copy_from_slice(&v[16..48]);
-    let xss_lines = super::acefix_change::xss_lines(&xss, &super::acefix_change::AceIndex { nxs, jxs })?;
 
     // Class letter and ZAID (`acefix`: `read(hz,'(a9,a1)') str,ht`).
     let ht = hz_in.chars().nth(9).unwrap_or(' ');
@@ -173,6 +172,28 @@ pub fn acefix_type1(text: &str, req: &AcefixRequest) -> Result<AcefixOutput, Njo
         'u' => return Err(NjoyError::NotPorted("ACER iopt = 7 on a photo-nuclear file (phnfix)")),
         _ => return Err(fmt_err("problem with particle id in zaid")),
     }
+    // `izai`/`awi` from the class letter (`acefix`, `awit`).
+    let (izai, awi) = match ht {
+        'c' => (1, 1.0),
+        'h' => (1001, 0.99862),
+        'o' => (1002, 1.99626),
+        'r' => (1003, 2.98960),
+        's' => (2003, 2.98903),
+        _ => (2004, 3.96713),
+    };
+    // `consis` edits the table in memory before it is written and plotted.
+    let cidx = super::consis::ConsisIndex {
+        nr: nxs[4],
+        mtr: jxs[2],
+        lqr: jxs[3],
+        tyr: jxs[4],
+        ldlw: jxs[9],
+        dlw: jxs[10],
+        aw0,
+        awi,
+    };
+    super::consis::consis_shift_distributions(&mut xss, &cidx);
+    let xss_lines = super::acefix_change::xss_lines(&xss, &super::acefix_change::AceIndex { nxs, jxs })?;
     let mut hz = hz_in.clone();
     if req.suff >= 0.0 {
         let zaid = read_real(&hz_in[..9])?;
@@ -224,17 +245,8 @@ pub fn acefix_type1(text: &str, req: &AcefixRequest) -> Result<AcefixOutput, Njo
     }
     xsdir.push('\n');
     let plot = if req.plot {
-        // `izai`/`awi` from the class letter (`acefix`, `awit`); `iverf` is the
-        // `endf` module's, 6 after an ENDF-6 `iopt = 1` run in the same job and
-        // -1 otherwise: `mtname` treats both alike.
-        let (izai, awi) = match ht {
-            'c' => (1, 1.0),
-            'h' => (1001, 0.99862),
-            'o' => (1002, 1.99626),
-            'r' => (1003, 2.98960),
-            's' => (2003, 2.98903),
-            _ => (2004, 3.96713),
-        };
+        // `iverf` is the `endf` module's, 6 after an ENDF-6 `iopt = 1` run in the
+        // same job and -1 otherwise: `mtname` treats both alike.
         let table = super::aplots::AceTable::new(&nxs, &jxs, xss.clone(), aw0, izai, awi, -1);
         Some(super::aplots::aplots(&table, hk.trim_end())?)
     } else {

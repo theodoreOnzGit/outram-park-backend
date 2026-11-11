@@ -861,54 +861,54 @@ fn acer_check_deck(case: &str, resource: &str, extra: &[(&str, u32)], units: &[u
 /// survey table.
 #[test]
 fn test_72_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("72", "n-004_Be_009-ENDF8.0.endf", &[], &[42, 44, 45]);
+    let _ = acer_check_deck("72", "n-004_Be_009-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
 }
 
 #[test]
 fn test_24_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("24", "n-094_Pu_239-ENDF8.0-Beta6.endf", &[], &[32, 34, 35]);
+    let _ = acer_check_deck("24", "n-094_Pu_239-ENDF8.0-Beta6.endf", &[], &[32, 33, 34, 35]);
 }
 
 #[test]
 #[ignore = "the preceding iopt = 1 ACE differs in 5 unresolved-range (PURR) words, which the check file repeats; not the iopt = 7 writer (gh:#1492)"]
 fn test_35_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("35", "n-047_Ag_109-ENDF8.0.endf", &[], &[42, 44, 45]);
+    let _ = acer_check_deck("35", "n-047_Ag_109-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
 }
 
 #[test]
 fn test_36_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("36", "n-050_Sn_119-ENDF8.0.endf", &[], &[42, 44, 45]);
+    let _ = acer_check_deck("36", "n-050_Sn_119-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
 }
 
 #[test]
 #[ignore = "the preceding iopt = 1 ACE is 21 words longer than NJOY's (PURR unresolved block), so its directory line differs; not the iopt = 7 writer (gh:#1492)"]
 fn test_37_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("37", "n-027_Co_058-ENDF8.0.endf", &[], &[42, 44, 45]);
+    let _ = acer_check_deck("37", "n-027_Co_058-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
 }
 
 #[test]
 fn test_38_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("38", "n-036_Kr_083-ENDF8.0.endf", &[], &[42, 44, 45]);
+    let _ = acer_check_deck("38", "n-036_Kr_083-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
 }
 
 #[test]
 fn test_39_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("39", "n-028_Ni_063-ENDF8.0.endf", &[], &[42, 44, 45]);
+    let _ = acer_check_deck("39", "n-028_Ni_063-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
 }
 
 #[test]
 fn test_40_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("40", "n-025_Mn_055-ENDF8.0.endf", &[], &[42, 44, 45]);
+    let _ = acer_check_deck("40", "n-025_Mn_055-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
 }
 
 #[test]
 fn test_41_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("41", "n-032_Ge_071-ENDF8.0.endf", &[], &[42, 44, 45]);
+    let _ = acer_check_deck("41", "n-032_Ge_071-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
 }
 
 #[test]
 fn test_42_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("42", "n-030_Zn_067-ENDF8.0.endf", &[], &[42, 44, 45]);
+    let _ = acer_check_deck("42", "n-030_Zn_067-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
 }
 
 #[test]
@@ -944,13 +944,61 @@ fn test_62_acer_check_unit_and_directory() {
 #[test]
 #[ignore = "the preceding iopt = 1 ACE is 2 178 words longer than NJOY's (PURR unresolved block); not the iopt = 7 writer (gh:#1492)"]
 fn test_63_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("63", "n-047_Ag_109-ENDF8.0.endf", &[], &[42, 44, 45]);
+    let _ = acer_check_deck("63", "n-047_Ag_109-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
 }
 
 #[test]
 #[ignore = "the preceding iopt = 1 ACE differs from NJOY's (a TENDL-2021 d + Pt-184 charged-particle table), which the check file repeats; not the iopt = 7 writer (gh:#1492)"]
 fn test_71_acer_check_unit_and_directory() {
     let _ = acer_check_deck("71", "d-078_Pt_184-TENDL2021.endf", &[], &[32, 33, 34, 35]);
+}
+
+/// **The plot file of NJOY's own ACE file** (gh:#1369): `acefix` with `aplots`
+/// run on the `iopt = 1` ACE file *NJOY2016 wrote* (`ace_unit` of the NJOY
+/// run), against NJOY2016's own plot file (`plot_unit`), line by line, and the
+/// edited ACE file (`ace_out_unit`) as a control.
+///
+/// Why: decks 35, 37, 63 and 71 cannot compare unit 43/33 end to end, because
+/// the table this crate writes for them differs from NJOY's before `aplots`
+/// runs (PURR words; a TENDL d + Pt-184 table). Feeding NJOY's own table to
+/// both writers isolates `aplots` from that.
+fn plot_of_njoys_own_ace(case: &str, resource: &str, ace_unit: u32, plot_unit: u32, ace_out_unit: u32, hk: &str) -> Option<()> {
+    let root = njoy_root();
+    let full = deck_text(&root, case, Some("viewr"), "")?;
+    let (ours, njoy) = run_pair_decks_extra(&root, &format!("own{case}"), resource, &[], &full, &full)?;
+    let ace = std::fs::read_to_string(njoy.join(format!("tape{ace_unit}"))).unwrap();
+    let req = njoy_outram_park_fork::acer::acefix::AcefixRequest { suff: -1.0, hk: hk.into(), nxtra: 0, plot: true };
+    let out = njoy_outram_park_fork::acer::acefix::acefix_type1(&ace, &req).unwrap();
+    std::fs::write(ours.join("own_plot"), out.plot.expect("plot requested")).unwrap();
+    std::fs::write(ours.join("own_ace"), out.ace).unwrap();
+    let d = differing_lines(&ours.join("own_plot"), &njoy.join(format!("tape{plot_unit}")));
+    println!("deck {case}: plot of NJOY's own ACE: {} differing lines; first {:?}", d.len(), &d[..d.len().min(5)]);
+    let c = differing_lines(&ours.join("own_ace"), &njoy.join(format!("tape{ace_out_unit}")));
+    println!("deck {case}: edited ACE of NJOY's own ACE: {} differing lines; first {:?}", c.len(), &c[..c.len().min(5)]);
+    assert!(d.is_empty(), "deck {case}: {} plot lines differ from NJOY2016", d.len());
+    assert!(c.is_empty(), "deck {case}: {} edited-ACE lines differ from NJOY2016", c.len());
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    Some(())
+}
+
+#[test]
+fn test_35_plot_of_njoys_own_ace() {
+    let _ = plot_of_njoys_own_ace("35", "n-047_Ag_109-ENDF8.0.endf", 41, 43, 44, "acer check/plot tape for material 4731");
+}
+
+#[test]
+fn test_37_plot_of_njoys_own_ace() {
+    let _ = plot_of_njoys_own_ace("37", "n-027_Co_058-ENDF8.0.endf", 41, 43, 44, "acer check/plot tape for material 2722");
+}
+
+#[test]
+fn test_63_plot_of_njoys_own_ace() {
+    let _ = plot_of_njoys_own_ace("63", "n-047_Ag_109-ENDF8.0.endf", 41, 43, 44, "acer check/plot tape for material 4731");
+}
+
+#[test]
+fn test_71_plot_of_njoys_own_ace() {
+    let _ = plot_of_njoys_own_ace("71", "d-078_Pt_184-TENDL2021.endf", 31, 33, 34, "TENDL-2021 deuteron + Pt184");
 }
 
 /// Run upstream deck `case` (`moder; moder; acer iopt = 1`, the raw
