@@ -104,6 +104,7 @@ pub mod boundary;
 pub mod compute;
 pub mod contact;
 pub mod coupling;
+pub mod diagnostics;
 #[cfg(feature = "gnn")]
 pub mod gnn_bridge;
 #[cfg(not(target_os = "android"))]
