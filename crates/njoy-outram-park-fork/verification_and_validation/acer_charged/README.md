@@ -62,7 +62,8 @@ the Fortran expression with glibc maths reproduces NJOY's bits
 (`0x3FD75F5020806155`). The workspace keeps PETIR's maths (gh:#1455), so this
 is pinned as exactly these two words, under 2e-16. Not covered: `LTP = 2`
 (no held evaluation has one), `LTP >= 12` (tabulated; `acecpe` never calls
-`coul` for it, and `coul` overruns its 65-word `p` for such a record).
+`coul` for it; the driver segfaulted when fed such a record, probably through
+`coul`'s 65-word `p`, which was not investigated).
 
 `law6_h` (the LAW=6 heating; it never reaches the ACE for a neutron, so the
 deck cannot gate it): 119 / 119 bit-identical to NJOY2016.80 built with
@@ -77,7 +78,8 @@ the ESZ energy column of the seven decks, 894 energies, 0 differing
 
 `elastic_recoil_angular` has no separate driver: its words (AND block, the
 cdf sums, the heating through `h(E)` log-log) are in every word of deck 54's
-ACE and its heating in ESZ; the intermediate heating table was checked once
-against an instrumented NJOY (`e`, `ubar`, `amass` matched to 17 figures
-after the `awr` fix). LAW=5 products other than the projectile, and the LAW=4
+ACE and its heating in ESZ. An instrumented NJOY was read once for it: `e` and
+`ubar` matched to 17 figures at the first five energies, and `amass` did not,
+which is how the `awr` defect above was found; it was not re-compared after
+that fix, the deck-54 identity is the evidence. LAW=5 products other than the projectile, and the LAW=4
 recoil heating of an incident charged particle, are still refused.
