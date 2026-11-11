@@ -1002,3 +1002,21 @@ divisions the hat's `surfaceProjection` points move from 29008/29498 toward
 query used by the 2D mapper (`findNearestSurfacePoint` on the quadtree; the
 3D mapper needed `NearestSearch::Upstream` and the octree), and the order in
 which `mapVerticesOntoSurface` reads the live points.
+
+### Prediction 2 was wrong; prediction 3, written before the fix
+
+Result of prediction 2: **wrong.** With `lp.coordinates() /= n` and
+`newP /= ePatches.size()` as divisions the hat's `surfaceProjection` stays at
+29008/29498 points (worst 7.813e-4 m): the divisions are not the cause. (They
+stay, as upstream.)
+
+Reading `meshSurfaceMapper2D.H` again: **`preMapVertices(const label
+nIterations = 2)`** (the 3D `meshSurfaceMapper.H` has 3), and
+`cartesian2DMeshGenerator::mapMeshToSurface` calls `mapper.preMapVertices()`.
+The port's pipeline calls `pre_map_vertices_2d(m, &o, 3)` and its module docs
+say "default 3": a port defect (the iteration count of the 3D routine carried
+over), and a doc claim the upstream header contradicts.
+Prediction 3: with two iterations the hat's `surfaceProjection` is
+29498/29498 bit-identical and faces identical; later stages then show what is
+left (`edgeExtraction` and on: the 2D edge extractor, `optimizeSurface2D`,
+`untangleSurface2D`, the pow ulp).
