@@ -61,10 +61,10 @@
 //!
 //! [`build_fvmesh`]: PolyPatchMesh::build_fvmesh
 
-use petir::mathf::RealMath;
 use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMesh, FvMeshBuilder};
 use outram_foam_basic_lib::primitives::Vector3;
 
+use crate::check_mesh::{check_quality, CheckGeometry, CheckOptions};
 use crate::MeshError;
 
 /// A polyhedral mesh in point + face-connectivity form.
@@ -310,92 +310,29 @@ impl PolyPatchMesh {
     pub fn quality(&self) -> MeshQuality {
         let (areas, centres) = self.face_geometry();
         let (cell_ctrs, cell_vols) = self.cell_geometry(&areas, &centres);
-
-        let mut max_non_ortho = 0.0f64;
-        for f in 0..self.n_internal_faces {
-            let (o, nb) = (self.owner[f], self.neighbour[f]);
-            let d = cell_ctrs[nb] - cell_ctrs[o];
-            let s = areas[f];
-            let denom = d.mag() * s.mag() + 1e-300;
-            let cos = (d.dot(s) / denom).clamp(-1.0, 1.0);
-            let ang = cos.r_acos().to_degrees();
-            if ang > max_non_ortho {
-                max_non_ortho = ang;
-            }
-        }
-
-        let mut max_skew = 0.0f64;
-        // Internal-face skewness.
-        for f in 0..self.n_internal_faces {
-            let (o, nb) = (self.owner[f], self.neighbour[f]);
-            let s = self.face_skewness(f, &areas, &centres, cell_ctrs[o], Some(cell_ctrs[nb]));
-            if s > max_skew {
-                max_skew = s;
-            }
-        }
-        // Boundary-face skewness (mirror-cell treatment: neighbour = None).
-        for f in self.n_internal_faces..self.faces.len() {
-            let o = self.owner[f];
-            let s = self.face_skewness(f, &areas, &centres, cell_ctrs[o], None);
-            if s > max_skew {
-                max_skew = s;
-            }
-        }
-
-        let mut min_vol = f64::INFINITY;
-        let mut n_neg = 0usize;
-        for &v in &cell_vols {
-            if v < min_vol {
-                min_vol = v;
-            }
-            if v <= 0.0 {
-                n_neg += 1;
-            }
-        }
-        if !min_vol.is_finite() {
-            min_vol = 0.0;
-        }
-
-        MeshQuality {
-            max_non_ortho_deg: max_non_ortho,
-            max_skewness: max_skew,
-            min_cell_volume: min_vol,
-            n_negative_volume_cells: n_neg,
-        }
-    }
-
-    /// Skewness of face `f` (OpenFOAM `primitiveMeshTools::faceSkewness`).
-    ///
-    /// For a boundary face pass `nei_cc = None`: OpenFOAM mirrors the owner
-    /// centre across the face (`neiCc = ownCc + 2·(Cf − ownCc)`), i.e.
-    /// `d = 2·(Cf − ownCc)`.
-    fn face_skewness(
-        &self,
-        f: usize,
-        areas: &[Vector3],
-        centres: &[Vector3],
-        own_cc: Vector3,
-        nei_cc: Option<Vector3>,
-    ) -> f64 {
-        let cf = centres[f];
-        let d = match nei_cc {
-            Some(nc) => nc - own_cc,
-            None => (cf - own_cc) * 2.0,
+        // gh:#1480: the checks live in `check_mesh`; the options reproduce this
+        // method's pre-consolidation formulas (mirrored boundary skewness,
+        // divide, degenerate faces included), bit for bit.
+        let neighbour: Vec<Option<usize>> = (0..self.faces.len())
+            .map(|f| if f < self.n_internal_faces { Some(self.neighbour[f]) } else { None })
+            .collect();
+        let geom = CheckGeometry {
+            face_areas: areas,
+            face_centres: centres,
+            cell_centres: cell_ctrs,
+            cell_volumes: cell_vols,
         };
-        let sf = areas[f];
-        let cpf = cf - own_cc;
-        let sv = cpf - d * (sf.dot(cpf) / (sf.dot(d) + 1e-300));
-        let sv_mag = sv.mag();
-        let sv_hat = sv / (sv_mag + 1e-300);
-        // Normalisation distance = max projection of face-point offsets onto sv.
-        let mut fd = 0.2 * d.mag() + 1e-300;
-        for &p in &self.faces[f] {
-            let proj = sv_hat.dot(self.points[p] - cf).abs();
-            if proj > fd {
-                fd = proj;
-            }
+        let opts = CheckOptions {
+            sliver_metrics: false,
+            ..CheckOptions::foam_mesh_legacy()
+        };
+        let r = check_quality(&self.points, &self.faces, &self.owner, &neighbour, &geom, &opts);
+        MeshQuality {
+            max_non_ortho_deg: r.max_non_orthogonality_deg,
+            max_skewness: r.max_skewness.max(r.max_boundary_skewness),
+            min_cell_volume: r.min_cell_volume,
+            n_negative_volume_cells: r.n_negative_volume_cells,
         }
-        sv_mag / fd
     }
 
     /// Convert to the writable `outram-foam-basic-lib`

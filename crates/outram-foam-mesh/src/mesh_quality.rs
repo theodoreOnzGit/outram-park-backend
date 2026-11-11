@@ -95,10 +95,10 @@
 //! doc comments in this module for the measured values; every case agrees with
 //! its closed form to `< 1e-12`.
 
-use petir::mathf::RealMath;
 use outram_foam_basic_lib::io::PolyMesh;
 use outram_foam_basic_lib::primitives::Vector3;
 
+use crate::check_mesh::{check_quality, CheckGeometry, CheckOptions};
 use crate::snappy_hex_mesh::poly_topology::face_area_and_centre;
 
 /// Non-orthogonality `[degrees]` at or below which a mesh is unremarkable —
@@ -305,26 +305,20 @@ pub fn assess_quality(mesh: &PolyMesh) -> MeshQualityReport {
 
     let mut cell_ctrs = vec![Vector3::ZERO; n_cells];
     let mut cell_vols = vec![0.0f64; n_cells];
-    // `sum_cmpt_mag[c]` accumulates Σ_f (|Sf_x|, |Sf_y|, |Sf_z|) for the aspect
-    // ratio (OpenFOAM `primitiveMesh::checkClosedCells`'s `sumMagClosed`).
-    let mut sum_cmpt_mag = vec![Vector3::ZERO; n_cells];
     for (fi, f) in mesh.faces.iter().enumerate() {
         let cf = centres[fi];
         let sf = areas[fi];
-        let cmpt = Vector3::new(sf.x.abs(), sf.y.abs(), sf.z.abs());
 
         let o = f.owner;
         let pyr3 = sf.dot(cf - c_est[o]);
         cell_ctrs[o] += (cf * 0.75 + c_est[o] * 0.25) * pyr3;
         cell_vols[o] += pyr3;
-        sum_cmpt_mag[o] += cmpt;
 
         if let Some(nb) = f.neighbour {
             // Outward normal of the neighbour cell is -Sf.
             let pyr3 = (sf * -1.0).dot(cf - c_est[nb]);
             cell_ctrs[nb] += (cf * 0.75 + c_est[nb] * 0.25) * pyr3;
             cell_vols[nb] += pyr3;
-            sum_cmpt_mag[nb] += cmpt;
         }
     }
     for c in 0..n_cells {
@@ -336,86 +330,23 @@ pub fn assess_quality(mesh: &PolyMesh) -> MeshQualityReport {
         cell_vols[c] /= 3.0;
     }
 
-    // ── Volume metrics ──────────────────────────────────────────────────────
-    let mut total_volume = 0.0f64;
-    let mut min_cell_volume = f64::INFINITY;
-    let mut max_cell_volume = f64::NEG_INFINITY;
-    let mut n_negative_volume_cells = 0usize;
-    for &v in &cell_vols {
-        total_volume += v;
-        min_cell_volume = min_cell_volume.min(v);
-        max_cell_volume = max_cell_volume.max(v);
-        if v <= 0.0 {
-            n_negative_volume_cells += 1;
-        }
-    }
-    if !min_cell_volume.is_finite() {
-        min_cell_volume = 0.0;
-    }
-    if !max_cell_volume.is_finite() {
-        max_cell_volume = 0.0;
-    }
-
-    // ── Non-orthogonality (internal faces only) ─────────────────────────────
-    let mut max_non_ortho_deg = 0.0f64;
-    let mut sum_non_ortho = 0.0f64;
-    let mut n_severely_non_ortho_faces = 0usize;
-    for (fi, f) in mesh.faces.iter().enumerate().take(n_internal) {
-        let nb = match f.neighbour {
-            Some(nb) => nb,
-            None => continue,
-        };
-        let d = cell_ctrs[nb] - cell_ctrs[f.owner];
-        let sf = areas[fi];
-        let denom = d.mag() * sf.mag() + 1e-300;
-        let cos = (d.dot(sf) / denom).clamp(-1.0, 1.0);
-        let ang = cos.r_acos().to_degrees();
-        sum_non_ortho += ang;
-        max_non_ortho_deg = max_non_ortho_deg.max(ang);
-        if ang > NON_ORTHO_SEVERE_DEG {
-            n_severely_non_ortho_faces += 1;
-        }
-    }
-    let mean_non_ortho_deg = if n_internal > 0 {
-        sum_non_ortho / n_internal as f64
-    } else {
-        0.0
+    // ── The checks (gh:#1480): one implementation, `check_mesh` ─────────────
+    // The geometry above is this function's own (area-weighted OpenFOAM face
+    // centres); the options reproduce the pre-consolidation formulas exactly.
+    let rings: Vec<&[usize]> = mesh.faces.iter().map(|f| f.verts.as_slice()).collect();
+    let owner: Vec<usize> = mesh.faces.iter().map(|f| f.owner).collect();
+    let neighbour: Vec<Option<usize>> = mesh.faces.iter().map(|f| f.neighbour).collect();
+    let geom = CheckGeometry {
+        face_areas: areas,
+        face_centres: centres,
+        cell_centres: cell_ctrs,
+        cell_volumes: cell_vols,
     };
-
-    // ── Skewness ────────────────────────────────────────────────────────────
-    let mut max_skewness = 0.0f64;
-    let mut max_boundary_skewness = 0.0f64;
-    for (fi, f) in mesh.faces.iter().enumerate() {
-        let own_cc = cell_ctrs[f.owner];
-        let nei_cc = f.neighbour.map(|nb| cell_ctrs[nb]);
-        let s = face_skewness(
-            centres[fi],
-            areas[fi],
-            own_cc,
-            nei_cc,
-            &f.verts,
-            &mesh.points,
-        );
-        if f.neighbour.is_some() {
-            max_skewness = max_skewness.max(s);
-        } else {
-            max_boundary_skewness = max_boundary_skewness.max(s);
-        }
-    }
-
-    // ── Aspect ratio ────────────────────────────────────────────────────────
-    let mut max_aspect_ratio = 0.0f64;
-    let mut sum_aspect = 0.0f64;
-    for c in 0..n_cells {
-        let ar = cell_aspect_ratio(sum_cmpt_mag[c], cell_vols[c]);
-        sum_aspect += ar;
-        max_aspect_ratio = max_aspect_ratio.max(ar);
-    }
-    let mean_aspect_ratio = if n_cells > 0 {
-        sum_aspect / n_cells as f64
-    } else {
-        0.0
+    let opts = CheckOptions {
+        sliver_metrics: false,
+        ..CheckOptions::foam_mesh_legacy()
     };
+    let q = check_quality(&mesh.points, &rings, &owner, &neighbour, &geom, &opts);
 
     MeshQualityReport {
         n_cells,
@@ -423,65 +354,18 @@ pub fn assess_quality(mesh: &PolyMesh) -> MeshQualityReport {
         n_faces,
         n_internal_faces: n_internal,
         n_boundary_faces: n_faces - n_internal,
-        total_volume,
-        min_cell_volume,
-        max_cell_volume,
-        n_negative_volume_cells,
-        max_non_ortho_deg,
-        mean_non_ortho_deg,
-        n_severely_non_ortho_faces,
-        max_skewness,
-        max_boundary_skewness,
-        max_aspect_ratio,
-        mean_aspect_ratio,
+        total_volume: q.total_volume,
+        min_cell_volume: q.min_cell_volume,
+        max_cell_volume: q.max_cell_volume,
+        n_negative_volume_cells: q.n_negative_volume_cells,
+        max_non_ortho_deg: q.max_non_orthogonality_deg,
+        mean_non_ortho_deg: q.mean_non_orthogonality_deg,
+        n_severely_non_ortho_faces: q.n_severely_non_orthogonal_faces,
+        max_skewness: q.max_skewness,
+        max_boundary_skewness: q.max_boundary_skewness,
+        max_aspect_ratio: q.max_aspect_ratio_cmpt,
+        mean_aspect_ratio: q.mean_aspect_ratio_cmpt,
     }
-}
-
-/// Cell aspect ratio (dimensionless), OpenFOAM
-/// `primitiveMesh::checkClosedCells`:
-/// `(1/6) · (Σ_f |Sf_x| + Σ_f |Sf_y| + Σ_f |Sf_z|) / V^(2/3)`.
-///
-/// Exactly `1` for a cube of any size. Returns `0` for a non-positive volume
-/// (the negative-volume count is the metric that flags those).
-fn cell_aspect_ratio(sum_cmpt_mag: Vector3, volume: f64) -> f64 {
-    if volume <= 0.0 {
-        return 0.0;
-    }
-    (sum_cmpt_mag.x + sum_cmpt_mag.y + sum_cmpt_mag.z) / (6.0 * volume.r_powf(2.0 / 3.0))
-}
-
-/// Skewness of a single face (OpenFOAM `primitiveMeshTools::faceSkewness`).
-///
-/// `nei_cc = None` marks a boundary face, for which OpenFOAM mirrors the owner
-/// centre across the face plane, i.e. `d = 2·(Cf − ownCc)`.
-fn face_skewness(
-    cf: Vector3,
-    sf: Vector3,
-    own_cc: Vector3,
-    nei_cc: Option<Vector3>,
-    verts: &[usize],
-    points: &[Vector3],
-) -> f64 {
-    let d = match nei_cc {
-        Some(nc) => nc - own_cc,
-        None => (cf - own_cc) * 2.0,
-    };
-    let cpf = cf - own_cc;
-    // Offset of the face centre from where the owner→neighbour line pierces
-    // the face plane.
-    let sv = cpf - d * (sf.dot(cpf) / (sf.dot(d) + 1e-300));
-    let sv_mag = sv.mag();
-    let sv_hat = sv / (sv_mag + 1e-300);
-    // Normalising length: the face's own half-extent along `sv`, floored at
-    // 0.2·|d| so a tiny face cannot report an enormous skewness.
-    let mut fd = 0.2 * d.mag() + 1e-300;
-    for &p in verts {
-        let proj = sv_hat.dot(points[p] - cf).abs();
-        if proj > fd {
-            fd = proj;
-        }
-    }
-    sv_mag / fd
 }
 
 #[cfg(test)]
