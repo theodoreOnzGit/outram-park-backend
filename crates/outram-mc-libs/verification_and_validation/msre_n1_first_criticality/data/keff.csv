@@ -50,3 +50,6 @@ mo-natural@salt1181F/graphite1181F+shield-tm0728,3,1.016886,0.000651,20000,100,2
 mo-natural@salt1181F/graphite1181F+shield-tm0728-drained,1,1.021030,0.000581,20000,100,200,4,807.4,145.6,"llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor, 15.7 GiB RAM"
 mo-natural@salt1181F/graphite1181F+shield-tm0728-drained,2,1.023111,0.000619,20000,100,200,4,770.4,145.6,"llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor, 15.7 GiB RAM"
 mo-natural@salt1181F/graphite1181F+shield-tm0728-drained,3,1.020570,0.000677,20000,100,200,4,768.8,145.6,"llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor, 15.7 GiB RAM"
+mo-natural@salt1181F/graphite1181F+shield-tm0728-packed,1,1.018578,0.000698,20000,100,200,4,768.8,170.4,"llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor, 15.7 GiB RAM"
+mo-natural@salt1181F/graphite1181F+shield-tm0728-packed,2,1.018180,0.000634,20000,100,200,4,766.5,170.4,"llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor, 15.7 GiB RAM"
+mo-natural@salt1181F/graphite1181F+shield-tm0728-packed,3,1.016540,0.000632,20000,100,200,4,766.7,170.4,"llvmpipe (LLVM 20.1.2, 256 bits) / Vulkan, 4 cores, linux, Intel(R) Xeon(R) Processor, 15.7 GiB RAM"

@@ -429,6 +429,51 @@ water is net-absorbing, and that I would record it as a miss.
   internal σ. The quoted σ is the seed sem, as everywhere in this README.
 - **The default is not changed.**
 
+### N-1 residual: the shield's steel fraction (2026-11-11, gh:#1128)
+
+**Why:** the drained run showed the shield's worth is its iron. TM-0728
+gives two steel fractions that disagree:
+- **"50 % Fe / 50 % H₂O"** over the 16 in. This is the model's input, and it
+  puts the balls at 6/14 = 0.43 of the annulus.
+- **70 tons of balls (p. 128).** The annulus holds 11.86 m³, and iron is
+  7870 kg/m³. That gives 0.68 of the annulus in short tons, 0.75 in metric
+  and 0.76 in long. **No ton is consistent with the 50 %**, and every one is
+  above random close packing of equal spheres, **0.64** (Scott & Kilgour
+  1969).
+
+**Sensitivity:** `--shield tm0728-packed`
+(`shield_materials_packed`, `SHIELD_BALL_FRACTION_PACKED`). The annulus is at
+0.64 balls and 0.36 water, which is 0.685 iron overall. The plates and the
+geometry are unchanged. `shield_ball_zone_with_fraction` reproduces the
+stated zone at 6/14 to 1e-12 (tested).
+
+**Prediction** (posted on gh:#1128 before the run): a shift of **+900 to
++1300 pcm** against no shield.
+
+**Run:** arm C, RVS, 30P, cold, seeds 1–3: 1.01858, 1.01818, 1.01654 (each
+± 0.0006–0.0007). About 770 s per seed (4-core Intel Xeon, 4 threads,
+15.7 GiB RAM, Linux, CPU only).
+
+| shield | balls in annulus | k (3 seeds) | vs k_ref | shift vs no shield |
+|---|---|---|---|---|
+| none (default, 6 seeds) | — | 1.00882 ± 0.00022 | +801 pcm | — |
+| stated 50/50 | 0.43 | 1.01661 ± 0.00037 | +1581 pcm | +779 ± 43 pcm |
+| **close-packed** | **0.64** | **1.01777 ± 0.00062** | **+1695 pcm** | **+895 ± 66 pcm** |
+| drained | 0.43, no water | 1.02157 ± 0.00078 | +2075 pcm | +1275 ± 81 pcm |
+
+- **On the prediction's lower edge.** +895 sits 5 pcm below the band's
+  +900, well inside 1σ. So the result neither confirms nor misses the band.
+  I record it as at the edge, not inside.
+- **Packed − stated = +115 ± 67 pcm (1.7σ), not resolved.** Raising the
+  shield's iron from 0.50 to 0.685 moves k by about a tenth of the shield's
+  worth or less. **The steel-fraction disagreement in TM-0728 does not
+  change the conclusion:** the shield is worth +780 to +900 pcm either way.
+- **Against the maintainer's 1000 pcm band:** with the shield the model is
+  +1580 to +1700 pcm. It fails at either steel fraction.
+- **Statistics:** the seeds spread 0.00108 (sd), about 1.7× their internal
+  σ, as in the drained run. The quoted σ is the seed sem.
+- **The default is not changed.**
+
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
 Salt density follows −1.18e-4 /°F (ORNL-4233 §4.1). Runs at 1131 °F and
