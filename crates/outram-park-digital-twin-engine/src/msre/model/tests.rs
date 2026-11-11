@@ -3,21 +3,21 @@
 //! `crates/outram-park-digital-twin-engine/docs/msre_library.md`.
 
 use super::*;
-use crate::msre::design::{measured_circulation_loss_tm1626, MsreDesignPoint, MEASURED_PERIODS_TM1647};
+use crate::msre::design::{measured_circulation_loss_tm1626, MsreDesignPoint, BETA, MEASURED_PERIODS_TM1647};
 use petir::mathf::RealMath;
 use uom::si::angular_velocity::radian_per_second;
 use uom::si::f64::AngularVelocity;
 
-fn model_at(p_mw: f64) -> MsreModel {
+pub(super) fn model_at(p_mw: f64) -> MsreModel {
     MsreModel::new(MsreConfig::tm1070(Power::new::<megawatt>(p_mw))).expect("MSRE model")
 }
 
-fn f(t: ThermodynamicTemperature) -> f64 {
+pub(super) fn f(t: ThermodynamicTemperature) -> f64 {
     t.get::<degree_fahrenheit>()
 }
 
 /// Every lump, in °F, for comparisons.
-fn temperatures(m: &MsreModel) -> [f64; 9] {
+pub(super) fn temperatures(m: &MsreModel) -> [f64; 9] {
     [
         f(m.core_inlet_temperature()),
         f(m.core_outlet_temperature()),
