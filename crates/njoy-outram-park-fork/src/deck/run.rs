@@ -156,7 +156,8 @@ fn run_moder(c: &ModerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
             if nin.abs() >= 20 {
                 units.openz(*nin, 0)?;
             }
-            let u = units.get(*nin)?.clone();
+            let mut u = units.get(*nin)?.clone();
+            u.tape.clear_copied_closers();
             units.store(*nout, u.tape, u.pointwise)?;
             units.set_meta(*nout, u.meta);
             Ok(())

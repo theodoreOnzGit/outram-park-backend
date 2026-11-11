@@ -328,6 +328,12 @@ impl Tape {
         self.copied_closers.extend(keys);
     }
 
+    /// Forget the copied-closer marks: MODER writes every SEND/FEND/MEND anew
+    /// (`moder.f90`), so its output is numbered the ordinary way.
+    pub fn clear_copied_closers(&mut self) {
+        self.copied_closers.clear();
+    }
+
     /// Take over `other`'s copied-closer marks (see [`Tape::set_copied_closers`]),
     /// for a tape re-read from the text `other` wrote (the numbering is the
     /// only thing a re-read loses).
