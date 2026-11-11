@@ -403,8 +403,8 @@ fn operators(text: &str) -> Vec<(&'static str, Stat)> {
 }
 
 /// Every limiter function against upstream's, with the upstream-computed `r`.
-/// Stats are split at `r < 0`, where the port clamps vanAlbada / OSPRE and
-/// upstream does not.
+/// Stats are split at `r < 0`, where the port once clamped vanAlbada / OSPRE and
+/// upstream does not (gh:#1362: clamp removed, now bit-identical).
 fn limiters(text: &str) -> Vec<(String, Stat)> {
     let r = parse(text);
     let mut out = vec![];
@@ -653,7 +653,7 @@ const PINS: &[(&str, &str, usize, usize, u64)] = &[
     ("hex", "limiter vanLeer [r>=0]", 232, 232, 0),
     ("hex", "limiter vanLeer [r<0]", 82, 82, 0),
     ("hex", "limiter vanAlbada [r>=0]", 232, 232, 0),
-    ("hex", "limiter vanAlbada [r<0]", 82, 1, 4603579539098121011),
+    ("hex", "limiter vanAlbada [r<0]", 82, 82, 0), // ~~1/82, clamp~~ gh:#1362
     ("hex", "limiter Minmod [r>=0]", 232, 232, 0),
     ("hex", "limiter Minmod [r<0]", 82, 82, 0),
     ("hex", "limiter SuperBee [r>=0]", 232, 232, 0),
@@ -663,7 +663,7 @@ const PINS: &[(&str, &str, usize, usize, u64)] = &[
     ("hex", "limiter UMIST [r>=0]", 232, 232, 0),
     ("hex", "limiter UMIST [r<0]", 82, 82, 0),
     ("hex", "limiter OSPRE [r>=0]", 232, 232, 0), // ~~151, 2 ulp~~ gh:#1489
-    ("hex", "limiter OSPRE [r<0]", 82, 1, 4608469161550694693),
+    ("hex", "limiter OSPRE [r<0]", 82, 82, 0), // ~~1/82, clamp~~ gh:#1362
     ("hex", "limiter limitedLinear 1 [r>=0]", 232, 232, 0),
     ("hex", "limiter limitedLinear 1 [r<0]", 82, 82, 0),
     ("hex", "limiter limitedLinear 0.5 [r>=0]", 232, 232, 0),
@@ -707,7 +707,7 @@ const PINS: &[(&str, &str, usize, usize, u64)] = &[
     ("poly", "limiter vanLeer [r>=0]", 232, 232, 0),
     ("poly", "limiter vanLeer [r<0]", 82, 82, 0),
     ("poly", "limiter vanAlbada [r>=0]", 232, 232, 0),
-    ("poly", "limiter vanAlbada [r<0]", 82, 1, 4603579539098121011),
+    ("poly", "limiter vanAlbada [r<0]", 82, 82, 0), // ~~1/82, clamp~~ gh:#1362
     ("poly", "limiter Minmod [r>=0]", 232, 232, 0),
     ("poly", "limiter Minmod [r<0]", 82, 82, 0),
     ("poly", "limiter SuperBee [r>=0]", 232, 232, 0),
@@ -717,7 +717,7 @@ const PINS: &[(&str, &str, usize, usize, u64)] = &[
     ("poly", "limiter UMIST [r>=0]", 232, 232, 0),
     ("poly", "limiter UMIST [r<0]", 82, 82, 0),
     ("poly", "limiter OSPRE [r>=0]", 232, 232, 0), // ~~151, 2 ulp~~ gh:#1489
-    ("poly", "limiter OSPRE [r<0]", 82, 1, 4608469161550694693),
+    ("poly", "limiter OSPRE [r<0]", 82, 82, 0), // ~~1/82, clamp~~ gh:#1362
     ("poly", "limiter limitedLinear 1 [r>=0]", 232, 232, 0),
     ("poly", "limiter limitedLinear 1 [r<0]", 82, 82, 0),
     ("poly", "limiter limitedLinear 0.5 [r>=0]", 232, 232, 0),
