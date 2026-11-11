@@ -55,19 +55,19 @@
 //! Unifying the geometry would move every pinned cfMesh mesh, so it is **not**
 //! done here; it is listed as remaining work on gh:#1480.
 //!
-//! Where the three copies differed, the cfMesh formula is used and the
-//! difference is recorded in
-//! `verification_and_validation/check_mesh_1480/`:
-//! non-orthogonality skips degenerate faces (`|d| <= 1e-30` or `|Sf| <= 1e-30`),
-//! skewness multiplies by `1/(|sv|+guard)` where upstream divides, and the
-//! `guard` is a parameter of [`face_skewness`] (cfMesh used `1e-300` in
-//! [`check_quality`] and upstream's `rootVSmall = 1e-150` in
-//! [`faces_failing_mesh_quality`]).
-//! Boundary skewness has two definitions, selected explicitly by
-//! [`BoundarySkewness`]: dev's `boundaryFaceSkewness` (normal projection, what
-//! the cfMesh gate uses) and the mirrored-neighbour form `outram-foam-mesh`
-//! used since before it ported dev. Which one snappyHexMesh's snapping gate
-//! should use is a maintainer decision (changing it moves the gate).
+//! Where the three copies differed, **each difference is an explicit option**
+//! ([`CheckOptions`]: [`BoundarySkewness`], [`SvHat`], the skewness guard,
+//! [`DegenerateFaces`], and the aspect ratio reported in both forms), and every
+//! caller passes the values that reproduce what it computed before, so no
+//! number moved (maintainer decision, gh:#1480; bit-identity measured in
+//! `tests/check_mesh_consolidation.rs` and the cfMesh pins). Which value
+//! matches upstream dev `852527377c7e` is documented on each option; cfMesh
+//! ([`CheckOptions::default`]) deviates in `svHat`, the report's guard,
+//! degenerate-face skipping and its aspect-ratio field; `outram-foam-mesh`
+//! ([`CheckOptions::foam_mesh_legacy`]) deviates in the boundary-skewness
+//! definition (its mirrored form is identically zero, so the snapping gate
+//! never sees a boundary skew). Whether callers should move to upstream's
+//! definitions is a maintainer decision, filed as gh:#1486.
 //!
 //! Pure Rust, wasm- and Android-safe.
 
