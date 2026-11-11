@@ -135,6 +135,9 @@ fn build(n_side: usize, tangential: TangentialModel, compute: ComputeType) -> Gr
             GranularNormalModel::hertz(material),
             TangentialModel::NoHistory,
         ),
+        // This equivalence test only builds the two plain models above; the
+        // newer tangential models (Luding, ...) have their own cross-code tests.
+        other => panic!("compute_backend_equivalence does not build {other:?}"),
     }
     .with_rolling(RollingModel::cdt(0.1).expect("valid mu_r"));
     let boundaries = vec![
