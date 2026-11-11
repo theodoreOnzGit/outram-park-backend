@@ -178,6 +178,31 @@ worst 8.9e-16), warped (242 / 480, worst 1.1e-6) and L-shape base / concave
 flavour-blind. Not compared here: the `.obj` feature sets (`cmpfeat.py` of
 `../poly_dual_mesh_upstream_gh1460/` was not re-run against the dev dumps).
 
+## Prediction for the fixes of defects 1 and 2 (written 2026-11-11, BEFORE any code change)
+
+Basis: the attribution table above (changes (a), (b), (c) measured in sequence
+by the throwaway experiment). Fix (a) = dev integer `pow` in `line_divide_weights`,
+fix (b) = no `s[n] = 1.0` clamp in `graded_positions_multi`; petir trig stays.
+Reading of the sources before the change: v2506 `lineDivide.C` is the same loop as
+dev's (it too overwrites `divisions_[nDiv]` with the computed value, so it has no
+clamp either; it differs only in `equal(expRatio, 1)` against `expRatio == 1.0`),
+and v2506 `pow(Scalar, label)` is the real `pow`. So the v2506 flavour keeps real
+`pow` and (per source) loses the clamp too; the v2506 pins are expected NOT to move.
+
+| dict | predicted points after fixes 1+2 | reason |
+|---|---|---|
+| pitzDailySteady | **25012 / 25012 bit-identical** | (a)+(b) took it there before (c) was needed |
+| proj_vertex | **210 / 210 bit-identical** | (a) alone did it |
+| T3A | 54416 / 54496 (80 differ, petir trig) | (c) is what closes the last 80 |
+| sweep_sphere | 1289 / 1331 (42 differ, petir trig) | (c) |
+| sweep_torus_minor | 633 / 637 (4 differ, petir trig) | (c) |
+| the 7 already bit-identical dicts | unchanged (bit-identical) | no graded multi-section edge |
+| topology on all 12 | unchanged | |
+| polyDualMesh 12 of 12 | unchanged | primals are unaffected |
+
+Predicted worst absolute differences of the three trig dicts: unchanged
+(T3A 1.78e-15, sweep_sphere 4.44e-16, sweep_torus_minor 1.11e-16).
+
 ## Port defects found (listed, NOT fixed, nothing filed, by instruction)
 
 1. **`line_divide_weights`: integer `pow` (dev) vs real `pow`.** The port comment
