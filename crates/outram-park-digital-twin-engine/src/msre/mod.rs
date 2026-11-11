@@ -8,7 +8,7 @@
 //! |---|---|---|
 //! | [`design`] | Cited plant constants (TM-0728 design point, TM-1070 kinetics and lumps, TM-1626 measured circulation loss) | here, re-exporting `nee_soon`'s where they exist |
 //! | [`model::MsreModel`] | A stepping simulator: circulating-fuel kinetics with fuel and graphite feedback, heat exchanger, coolant loop, radiator, piping lags, and (since gh:#1332) fuel- and coolant-pump trips and start-ups | here; TM-1070's equations, ~~composes `teh_o_prke`~~ kinetics from [`circulation`] (equal to `teh_o_prke`'s at full flow) |
-//! | [`circulation`] | Circulating-fuel kinetics at variable flow: TM-1070's well-stirred core (default) or TM-1626's importance-weighted line model (gh:#1330, gh:#1332) | here |
+//! | [`circulation`] | Circulating-fuel kinetics at variable flow: ~~TM-1070's well-stirred core (default) or TM-1626's importance-weighted line model~~ TM-1626's importance-weighted line model (the default since 2026-11-11, gh:#1330) or TM-1070's well-stirred core (the ablation `MsreConfig::without_line_model`) (gh:#1330, gh:#1332) | here |
 //! | [`pumps`] | Pump flow schedules: ORNL-4233 Fig. 23's measured coast-downs, TM-0728's start-up, caller tables, `tampines`' inertial coast-down | here |
 //! | [`frequency_response`] | The linear frequency-domain model and TM-1647's measured natural periods (MSRE T-1, gh:#1132) | `nee_soon::msre_frequency_response` |
 //! | [`first_criticality`] | The full-core Monte Carlo geometry and materials of first criticality (MSRE N-1, gh:#1128) | `outram_mc_libs::vv::msre_n1` |
@@ -17,9 +17,12 @@
 //!
 //! ## Using it from a web demo
 //!
-//! [`model::MsreModel::step`] costs about a microsecond per 0.01 s of plant
-//! time (measured in the tests, `docs/msre_library.md`), so a Web Worker can
-//! run it faster than real time and post the getters' values to the page.
+//! [`model::MsreModel::step`] costs ~~about a microsecond~~ **(CORRECTED
+//! 2026-11-11, gh:#1330: with the line-model default)** 40-60 µs per
+//! 0.01 s of plant time natively, 165-260× real time (measured in the
+//! tests, `docs/msre_library.md`; the well-stirred ablation costs about a
+//! microsecond), so a Web Worker can run it faster than real time and post
+//! the getters' values to the page.
 //! Per the workspace's no-lag rule the UI thread should still not call it in
 //! a loop; it holds no GUI type, no clock and no thread, so it moves into a
 //! worker unchanged.
