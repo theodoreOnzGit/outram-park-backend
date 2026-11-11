@@ -127,7 +127,7 @@ pub fn write_head(g: &mut GendfText, mat: i32, za: f64, awr: f64, tempin: f64, s
 ///
 /// # Errors
 /// [`NjoyError::NotPorted`] for options and reactions not yet translated.
-pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits) -> Result<(), NjoyError> {
+pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String>) -> Result<(), NjoyError> {
     let inp = &job.input;
     let u = &inp.units;
     if u.ngout2 == 0 {
@@ -153,6 +153,45 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits) -> Result<(), NjoyErro
     };
     let mut g = GendfText::label(&inp.title);
     write_head(&mut g, inp.matb, za, awr, inp.temperatures[0], &inp.sigma_zeros, &egn, &egg);
+    // MF=3 vector reactions (card 9, `mfd = 3`), `groupr.f90:766-830` with `panel`.
+    let iverf = crate::moder::layout::iverf_from_mf1(&mf1.rows);
+    let emaxx = match iverf {
+        ..=4 => 1.5e7,
+        5 => 2.0e7,
+        _ => {
+            let c2 = mf1.rows[1][1];
+            if c2 > 0.0 { c2 } else { 2.0e7 }
+        }
+    };
+    let mut mtd_prev = 0;
+    for req in &inp.reactions {
+        let mts: Vec<i32> = if req.mtd < 0 { (mtd_prev + 1..=-req.mtd).collect() } else { vec![req.mtd] };
+        mtd_prev = req.mtd.abs();
+        for mtd in mts {
+            if req.mfd != 3 {
+                notes.push(format!("groupr: mf {} mt {} not written (matrix and photon-production sections are not ported)", req.mfd, mtd));
+                continue;
+            }
+            if matches!(mtd, 221..=250 | 251..=253 | 257..=259 | 452 | 455 | 456) {
+                notes.push(format!("groupr: mf 3 mt {mtd} not written (thermal, mubar/xi/gamma and nu sections are not ported)"));
+                continue;
+            }
+            let Some(sec) = pend.section(inp.matb, 3, mtd) else { continue };
+            let mut cur = crate::endf::records::SectionCursor::new(&sec.rows);
+            cur.read_cont()?;
+            let tab = cur.read_tab1()?;
+            let lrflag = tab.head.l2;
+            let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
+            let iwt = inp.weight.iwt();
+            let rows = crate::groupr::njoy_panel::group_vector(&mut feed, iwt, &egn, first, emaxx)?;
+            g.begin(inp.matb, 3, mtd);
+            g.cont([za, 0.0], [1, 1, lrflag, (egn.len() - 1) as i32]);
+            for (ig, flux, sigma, iglo) in rows {
+                g.list([inp.temperatures[0], 0.0], 2, iglo, ig as i32, &[flux, sigma]);
+            }
+            g.send();
+        }
+    }
     g.end_tape();
     units.put_text(u.ngout2, g.text());
     Ok(())

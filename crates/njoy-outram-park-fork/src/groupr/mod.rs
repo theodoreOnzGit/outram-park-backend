@@ -85,6 +85,7 @@ pub mod matrix_panel;
 pub mod mf6_feed;
 pub mod overlap;
 pub mod panel;
+pub mod njoy_panel;
 pub mod pendf_feed;
 pub mod photon_groups;
 pub mod self_shielded;

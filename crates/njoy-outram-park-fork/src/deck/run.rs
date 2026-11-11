@@ -99,7 +99,7 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
             }
             "groupr" => {
                 let job = read_groupr(&mut r)?;
-                if opts.parse_only { Ok(()) } else { crate::deck::groupr::run_groupr(&job, &mut units) }
+                if opts.parse_only { Ok(()) } else { crate::deck::groupr::run_groupr(&job, &mut units, &mut notes) }
             }
             "gaspr" => {
                 read_gaspr(&mut r)?;

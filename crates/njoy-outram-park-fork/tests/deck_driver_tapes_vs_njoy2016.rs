@@ -461,3 +461,35 @@ fn test_01_groupr_gendf_head() {
     assert_eq!(al, bl);
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
 }
+
+/// **Test 01 GROUPR: MF=3 vector sections of the GENDF, line for line.**
+///
+/// Deck as `test_01_groupr_gendf_head`. Compares every line of unit 27 with
+/// MF=3 and MT in {1, 2, 4, 51-64, 91, 102, 103, 104, 107, 301, 444} (the
+/// sections this driver writes: faithful `panel`, `getwtf` `iwt = 3`,
+/// `getsig`/`gety1`, `displa` rounding). Prints the counts; pass criterion:
+/// zero differing lines.
+#[test]
+fn test_01_groupr_gendf_mf3() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "01", None, "moder\n -24 27/\n") else { return };
+    let Some((ours, njoy)) = run_pair_decks_extra(&root, "t01g3", "t511", &[("t322", 26)], &deck, &deck) else { return };
+    let want = |l: &str| -> bool {
+        if l.len() < 75 || &l[70..72] != " 3" {
+            return false;
+        }
+        let mt: i32 = l[72..75].trim().parse().unwrap_or(0);
+        matches!(mt, 1 | 2 | 4 | 51..=64 | 91 | 102 | 103 | 104 | 107 | 301 | 444)
+    };
+    let a = std::fs::read_to_string(ours.join("tape27")).unwrap();
+    let b = std::fs::read_to_string(njoy.join("tape27")).unwrap();
+    let al: Vec<&str> = a.lines().filter(|l| want(l)).collect();
+    let bl: Vec<&str> = b.lines().filter(|l| want(l)).collect();
+    let diffs: Vec<usize> = (0..al.len().max(bl.len())).filter(|&i| al.get(i) != bl.get(i)).collect();
+    println!("test 01 GENDF MF=3: {} differing lines of {} (ours {})", diffs.len(), bl.len(), al.len());
+    for &i in diffs.iter().take(6) {
+        println!("  ours: {:?}\n  njoy: {:?}", al.get(i), bl.get(i));
+    }
+    assert!(diffs.is_empty());
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
