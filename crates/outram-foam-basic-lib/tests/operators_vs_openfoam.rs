@@ -612,6 +612,13 @@ fn rows(text: &str) -> Vec<(String, Stat)> {
 }
 
 /// Measured 2026-11-11 (release): (mesh, row, n, bit-identical, worst ulp).
+/// **gh:#1488 (same day):** `deltaCoeffs` and `snGrad (orthogonal)` re-pinned
+/// after the boundary-`deltaCoeffs` fix (patch-normal `fvPatch::delta()`):
+/// `deltaCoeffs` hex ~~789/1083, 6.8e15 ulp (rel 0.66)~~ **1083/1083, 0**,
+/// poly ~~1236/1788, 1.4e16 ulp (rel 0.88)~~ **1788/1788, 0**; `snGrad
+/// (orthogonal)` hex ~~533/1083~~ **737/1083, 1 ulp**, poly ~~890/1788~~
+/// **1285/1788, 1 ulp**. The remaining 1-ulp snGrad differences are `/d`
+/// against upstream's `deltaCoeffs*` (proof row `proof snGrad`), gh:#1489.
 /// Pinned in BOTH directions: a change that improves a row fails this test too,
 /// so the README table is updated with it. Rows named `proof ...` must be
 /// 100 % bit-identical: they replay the upstream arithmetic and explain the
@@ -624,11 +631,11 @@ const PINS: &[(&str, &str, usize, usize, u64)] = &[
     ("hex", "V", 316, 42, 47),
     ("hex", "C", 948, 342, 4),
     ("hex", "weights (internal)", 789, 789, 0),
-    ("hex", "deltaCoeffs", 1083, 789, 6819937884107484),
+    ("hex", "deltaCoeffs", 1083, 1083, 0), // ~~789, 6819937884107484~~ gh:#1488
     ("hex", "nonOrthDeltaCoeffs", 1083, 772, 6),
     ("hex", "interpolate linear", 1083, 888, 12),
     ("hex", "grad Gauss linear", 948, 506, 62),
-    ("hex", "snGrad (orthogonal)", 1083, 533, 7394036669051906),
+    ("hex", "snGrad (orthogonal)", 1083, 737, 1), // ~~533, 7394036669051906~~ gh:#1488
     ("hex", "snGrad (uncorrected, via delta)", 1083, 627, 3),
     ("hex", "div(phi)", 316, 316, 0),
     ("hex", "div(phi,T) Gauss linear", 316, 196, 34),
@@ -678,11 +685,11 @@ const PINS: &[(&str, &str, usize, usize, u64)] = &[
     ("poly", "V", 470, 70, 60),
     ("poly", "C", 1410, 496, 6),
     ("poly", "weights (internal)", 1236, 1236, 0),
-    ("poly", "deltaCoeffs", 1788, 1236, 14045069578427769),
+    ("poly", "deltaCoeffs", 1788, 1788, 0), // ~~1236, 14045069578427769~~ gh:#1488
     ("poly", "nonOrthDeltaCoeffs", 1788, 1193, 4),
     ("poly", "interpolate linear", 1788, 1469, 16),
     ("poly", "grad Gauss linear", 1410, 696, 103),
-    ("poly", "snGrad (orthogonal)", 1788, 890, 13935367941715158),
+    ("poly", "snGrad (orthogonal)", 1788, 1285, 1), // ~~890, 13935367941715158~~ gh:#1488
     ("poly", "snGrad (uncorrected, via delta)", 1788, 947, 3),
     ("poly", "div(phi)", 470, 470, 0),
     ("poly", "div(phi,T) Gauss linear", 470, 297, 49),
