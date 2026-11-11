@@ -60,6 +60,8 @@
 //! all-pairs scan below [`GranularSystem::BRUTE_FORCE_THRESHOLD`] and a
 //! uniform linked-cell grid above it.
 
+use crate::force_fixes::ForceFix;
+use crate::variable::VarContext;
 use petir::mathf::RealMath;
 use std::collections::HashMap;
 
@@ -155,6 +157,9 @@ pub struct GranularSystem {
     /// them incrementally in between). `0` (default) recomputes after every
     /// rotation. See [`GranularSystem::with_neighbor_skin`].
     neigh_skin: f64,
+    /// `post_force` fixes (`addforce`, `viscous`, `freeze`), applied after gravity
+    /// in declaration order (gh:#1418).
+    force_fixes: Vec<ForceFix>,
     /// True during the set-up force evaluation, where upstream does not
     /// advance the shear history (`update->setupflag` -> `shearupdate = 0`).
     setup_phase: bool,
@@ -298,6 +303,7 @@ impl GranularSystem {
             boundaries,
             moving_walls: Vec::new(),
             neigh_skin: 0.0,
+            force_fixes: Vec::new(),
             setup_phase: false,
             xhold: Vec::new(),
             mesh_rebuild_pending: false,
@@ -1214,6 +1220,33 @@ impl GranularSystem {
             let m = self.particles[i].mass;
             self.forces[i] = self.forces[i].add(self.gravity.scale(m));
         }
+
+        // --- post_force fixes declared after gravity (gh:#1418) ---
+        if !self.force_fixes.is_empty() {
+            let ctx = VarContext {
+                step: self.step_count as i64,
+                begin_step: 0,
+                end_step: i64::MAX,
+                dt: self.dt,
+            };
+            let vel: Vec<Vec3> = self.particles.iter().map(|p| p.velocity).collect();
+            for fx in &mut self.force_fixes {
+                fx.apply(&ctx, &vel, &self.types, &mut self.forces, &mut self.torques)
+                    .expect("force fix variable evaluation (upstream error->all)");
+            }
+        }
+    }
+
+    /// Add `post_force` fixes (`fix addforce`/`viscous`/`freeze`), applied after
+    /// gravity in the order added (gh:#1418). Group masks must have one entry
+    /// per particle.
+    #[must_use]
+    pub fn with_force_fixes(mut self, fixes: Vec<ForceFix>) -> Self {
+        self.force_fixes = fixes;
+        // upstream `setup` calls every fix's post_force, so the step-0 forces
+        // (used by the first half-kick) already carry the fixes
+        self.compute_forces_setup();
+        self
     }
 
     /// Particle–mesh-wall forces, translated from `FixWallGran::

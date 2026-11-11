@@ -108,6 +108,7 @@ pub mod coupling;
 pub mod gnn_bridge;
 #[cfg(not(target_os = "android"))]
 pub mod gpu;
+pub mod force_fixes;
 pub mod granular;
 pub mod granular_system;
 pub mod heat_gran;
