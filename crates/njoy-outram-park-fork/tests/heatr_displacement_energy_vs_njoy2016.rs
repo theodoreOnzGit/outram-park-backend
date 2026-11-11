@@ -34,9 +34,11 @@
 //!
 //! # Results (2026-11-11, rustc 1.99.1)
 //!
-//! See the assertions' output with `--nocapture`; recorded in
-//! `verification_and_validation/` of this crate (`heatr_vs_njoy2016.md`, the
-//! #4022 section).
+//! Al-27 `ed = 0` (NJOY table, 27 eV): **5563/5563** (E, MT=444) pairs
+//! bit-identical to NJOY2016; Al-27 `ed = 33`: **5563/5563**; Si-28 `ed = 25`:
+//! **7447/7447**. Sum of Al-27 MT=444: 3.723744e8 (table) against 3.723728e8
+//! (`ed = 33`), so the override is visible and lowers the damage energy. MT=301
+//! and the Type-2 ACE bytes are identical with and without the override.
 
 use njoy_outram_park_fork::endf::parse::parse_endf_float;
 use njoy_outram_park_fork::endf::tape::Tape;
@@ -127,5 +129,5 @@ fn override_leaves_everything_else_alone() {
     assert_eq!(a.energy.len(), b.energy.len());
     assert!(a.h.iter().zip(&b.h).all(|(x, y)| x.to_bits() == y.to_bits()), "MT=301 must not depend on ed");
     let (ta, tb) = (plain.to_ace().expect("ace"), with.to_ace().expect("ace"));
-    assert_eq!(ta.to_type2_bytes(), tb.to_type2_bytes(), "the ACE table must not depend on ed");
+    assert_eq!(ta.to_type2_bytes().expect("type2"), tb.to_type2_bytes().expect("type2"), "the ACE table must not depend on ed");
 }
