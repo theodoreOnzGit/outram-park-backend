@@ -47,8 +47,8 @@
 //! scattering reactions are walked elastic, MT5, (n,2n), (n,3n), other, levels
 //! against one cutoff, and the discrete level reuses that cutoff (no extra
 //! draw). Control: `OUTRAM_MC_LEGACY_REACTION_ORDER=1` reproduces every previous
-//! pin (3 passed, 2026-11-11). The sphere drivers (`keff_delta_*`) are not wired
-//! yet and are unchanged. Cause of the move: OpenMC reaction order (#1386);
+//! pin (3 passed, 2026-11-11). The sphere drivers (`keff_delta_*`) are wired to
+//! it too (step 2, same day). Cause of the move: OpenMC reaction order (#1386);
 //! sigma = old-new over the quadrature of the two standard errors.
 //!
 //! | case | old k | new k | sigma | old -> new fingerprint |
@@ -56,8 +56,12 @@
 //! | `surface_seq` | 1.29102 +/- 0.04422 | 1.31480 +/- 0.02377 | 0.47 | `0x421af953c2c86352` -> `0x70a3fc7b0653f8ad` |
 //! | `hybrid_seq_*` (4 pins, one k) | 1.28224 +/- 0.02684 | 1.22848 +/- 0.02420 | 1.49 | `0x612a86565c772cf0` -> `0x9d6a14eceb527ae2`; `0x98379999342903ee` -> `0x75c6be0e87920854`; `0x8522bc2194983adc` -> `0xd8a66a7d2479eeb4`; `0x59f808f27651cb38` -> `0xb3e8f993cc67b42c` |
 //! | `hybrid_par2_tentative` | 1.26183 +/- 0.01395 | 1.27927 +/- 0.01850 | 0.75 | `0x43e85d46f7bdb5d1` -> `0x086fd9d726390639` |
+//! | `keff_delta_seq` | 1.24358 +/- 0.03208 | 1.26562 +/- 0.03210 | 0.49 | `0xa24251ff7a0c4d8c` -> `0x97e986a6c3e751c4` |
+//! | `keff_delta_par2` | 1.23575 +/- 0.00783 | 1.25708 +/- 0.01259 | 1.44 | `0xd05b9af98b9744f5` -> `0x149277ecca97e03c` |
+//! | `keff_delta_stepping` | per-generation k | | | `0x2a764f3378416ab5` -> `0x7096c1a6ca43d768` |
 //!
-//! None exceeds 3 sigma: re-pinned, not a finding.
+//! None exceeds 3 sigma: re-pinned, not a finding. (The three `keff_delta_*`
+//! rows moved when the sphere drivers were wired, `keff.rs` and `keff_delta.rs`.)
 //!
 //! # Re-pinned 2026-11-11 (later): the OpenMC-faithful collision kernels are the transport default (gh:#1386, #1444, #1456)
 //!
@@ -524,7 +528,7 @@ fn keff_delta_paths_are_bit_identical() {
     let r = run_keff_delta_seq_in(domain, &mats, &nucs, &maj, zone, &seq);
     let mut fp = Fp::new();
     fp.keff(&r);
-    check("keff_delta_seq", fp.0, 0xa24251ff7a0c4d8c, &describe(&r));
+    check("keff_delta_seq", fp.0, 0x97e986a6c3e751c4, &describe(&r));
 
     let mut it = DeltaPowerIteration::new(domain, &mats, &nucs, &zone, &seq);
     let mut fp = Fp::new();
@@ -535,12 +539,12 @@ fn keff_delta_paths_are_bit_identical() {
             fp.f(s);
         }
     }
-    check("keff_delta_stepping", fp.0, 0x2a764f3378416ab5, "per-generation k");
+    check("keff_delta_stepping", fp.0, 0x7096c1a6ca43d768, "per-generation k");
 
     let r = run_keff_delta_par_in(domain, &mats, &nucs, &maj, zone, &seq, ThreadCount::Fixed(2));
     let mut fp = Fp::new();
     fp.keff(&r);
-    check("keff_delta_par2", fp.0, 0xd05b9af98b9744f5, &describe(&r));
+    check("keff_delta_par2", fp.0, 0x149277ecca97e03c, &describe(&r));
 }
 
 #[test]

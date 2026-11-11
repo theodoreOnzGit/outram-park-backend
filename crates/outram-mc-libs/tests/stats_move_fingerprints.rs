@@ -164,8 +164,12 @@
 //! |---|---|---|---|---|
 //! | `godiva_csg_entropy_trigger` | `0xbe7e011c738c0da1` -> `0xf767ab315e51ecef` | 0.97710 +/- 0.00960 (13 gens) | 0.99831 +/- 0.00966 (39 gens) | 1.56 |
 //! | `csg_nested_lattice_keff` | `0xab5ac3e0eb072bf8` -> `0xc79b620923731abe` | 1.72835 +/- 0.01486 | 1.71604 +/- 0.01213 | 0.64 |
+//! | `godiva_run_keff` (sphere driver, wired) | `0x60ece10b8fc3777e` -> `0x37740397665ba80b` | 1.01140 +/- 0.00568 | 1.01485 +/- 0.00533 | 0.44 |
+//! | `fhr_explicit_triso_delta` (sphere driver, wired) | `0x173834441cc42ed4` -> `0x127cc36551eda56c` | 1.52732 +/- 0.00833 | 1.53753 +/- 0.00859 | 0.85 |
 //!
-//! None exceeds 3 sigma: re-pinned, not a finding.
+//! None exceeds 3 sigma: re-pinned, not a finding. Legacy control for the sphere
+//! rows: `OUTRAM_MC_LEGACY_REACTION_ORDER=1` reproduces `godiva_run_keff`,
+//! `fhr_explicit_triso_delta` and the three `keff_delta_*` pins (2 + 3 passed).
 //!
 //! # Re-pinned 2026-11-11 (later): OpenMC-faithful collision kernels are the transport default (gh:#1386, #1444, #1456)
 //!
@@ -357,7 +361,9 @@ fn godiva_run_keff_is_bit_identical() {
         fp.0,
         // Re-pinned 2026-10-05 for gh:#527 (independent source direction);
         // was 0xe78387f55e2fa2fd.
-        0x60ece10b8fc3777e,
+        // Re-pinned again 2026-11-11 (gh:#1386, OpenMC reaction order, sphere driver):
+        // was 0x60ece10b8fc3777e (k 1.01140 +/- 0.00568), now k 1.01485 +/- 0.00533, 0.44 sigma.
+        0x37740397665ba80b,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),
@@ -562,7 +568,9 @@ fn fhr_explicit_triso_delta_is_bit_identical() {
         // Re-pinned 2026-10-20 (gh:#985): every transcendental on PETIR, one
         // pin for every host. Was host B 0x235271e5059e6adf, host A
         // 0x1fb06c36a096d760 (#578).
-        0x173834441cc42ed4,
+        // Re-pinned again 2026-11-11 (gh:#1386, OpenMC reaction order, sphere driver):
+        // was 0x173834441cc42ed4 (k 1.52732 +/- 0.00833), now k 1.53753 +/- 0.00859, 0.85 sigma.
+        0x127cc36551eda56c,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),

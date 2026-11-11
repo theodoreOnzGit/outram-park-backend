@@ -1938,7 +1938,12 @@ fn collide_batched(
                 x.total,
                 seed,
             );
-    if xi < x.fission {
+    let group = crate::physics::scatter::classify_reaction(
+        crate::physics::scatter::reaction_order_from_env(),
+        &x,
+        xi,
+    );
+    if group == crate::physics::scatter::ReactionGroup::Fission {
         let nu_bar = if x.fission > 0.0 {
             x.nu_fission / x.fission
         } else {
@@ -1954,10 +1959,10 @@ fn collide_batched(
             });
         }
         (nu_bar, CollisionResult::Dead)
-    } else if xi < x.absorption {
+    } else if group == crate::physics::scatter::ReactionGroup::Capture {
         (0.0, CollisionResult::Dead) // radiative capture
-    } else if xi < x.absorption + x.inelastic {
-        let (e2, u2) = match nuc.sample_inelastic(e, seed) {
+    } else if let crate::physics::scatter::ReactionGroup::Inelastic(level_cutoff) = group {
+        let (e2, u2) = match nuc.sample_inelastic_at(e, level_cutoff, seed) {
             // Discrete level: the CM angular law is the level's own ENDF
             // MF=4 (op-tm9f). Isotropic-CM only when the evaluation
             // carries none for this level -- sampling every inelastic
@@ -1967,7 +1972,7 @@ fn collide_batched(
             Inelastic::Continuum { q } => nuc.sample_inelastic_emission(91, e, u, q, seed),
         };
         (0.0, CollisionResult::Scatter { e: e2, u: u2 })
-    } else if xi < x.absorption + x.inelastic + x.n2n {
+    } else if group == crate::physics::scatter::ReactionGroup::N2n {
         // (n,2n): the primary down-scatters and one extra neutron is emitted
         // sharing the sampled outgoing state (Weisskopf stand-in for the emission
         // law, as in transport_history).
@@ -2005,7 +2010,7 @@ fn collide_batched(
         } else {
             (0.0, CollisionResult::Scatter { e: e2, u: u2 })
         }
-    } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+    } else if group == crate::physics::scatter::ReactionGroup::N3n {
         // (n,3n): yield 3. Kept in lockstep with `transport_history`'s arm --
         // the two differ only in that this one RETURNS the extras instead of
         // pushing them onto a local stack. Below the MT=17 threshold `x.n3n` is
@@ -2034,7 +2039,7 @@ fn collide_batched(
         } else {
             (0.0, CollisionResult::Scatter { e: e2, u: u2 })
         }
-    } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+    } else if group == crate::physics::scatter::ReactionGroup::Mt5 {
         // MT=5, "(n,anything)": the lumped high-energy channels. Unlike (n,2n)
         // and (n,3n) its multiplicity is a TABULATED y(E), so the integer count
         // is drawn from it (`sample_mt5_multiplicity`) rather than fixed.
@@ -2079,7 +2084,7 @@ fn collide_batched(
         } else {
             (0.0, CollisionResult::Scatter { e: e2, u: u2 })
         }
-    } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+    } else if group == crate::physics::scatter::ReactionGroup::Other {
         // The other neutron-emitting reactions -- (n,n alpha), (n,np), (n,4n),
         // ... (GitHub #365 audit). Inside MT=1 like the arms above, so before
         // this they fell through to ELASTIC and lost their extra neutrons.
@@ -2198,7 +2203,12 @@ fn transport_history(
                 x.total,
                 seed,
             );
-            if xi < x.fission {
+            let group = crate::physics::scatter::classify_reaction(
+                crate::physics::scatter::reaction_order_from_env(),
+                &x,
+                xi,
+            );
+            if group == crate::physics::scatter::ReactionGroup::Fission {
                 // ANCHOR: fission_bank
                 let nu_bar = if x.fission > 0.0 {
                     x.nu_fission / x.fission
@@ -2221,16 +2231,16 @@ fn transport_history(
                 // ANCHOR_END: fission_bank
                 counts.record_fission(e);
                 break; // fission is a terminal absorption for the incident neutron
-            } else if xi < x.absorption {
+            } else if group == crate::physics::scatter::ReactionGroup::Capture {
                 counts.captured += 1;
                 break; // radiative capture → dead
             // ANCHOR_END: reaction_choice
-            } else if xi < x.absorption + x.inelastic {
+            } else if let crate::physics::scatter::ReactionGroup::Inelastic(level_cutoff) = group {
                 // Inelastic scatter with a real energy-loss law: a discrete level's
                 // two-body kinematics (Q-value) or continuum evaporation. This is
                 // the dominant fast-spectrum down-scatter off heavy nuclei.
                 // ANCHOR: inelastic
-                let (e2, u2) = match nuc.sample_inelastic(e, seed) {
+                let (e2, u2) = match nuc.sample_inelastic_at(e, level_cutoff, seed) {
                     // Discrete level: the CM angular law is the level's own ENDF
                     // MF=4 (op-tm9f). Isotropic-CM only when the evaluation
                     // carries none for this level -- sampling every inelastic
@@ -2242,7 +2252,7 @@ fn transport_history(
                 // ANCHOR_END: inelastic
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n {
+            } else if group == crate::physics::scatter::ReactionGroup::N2n {
                 // (n,2n): the incident neutron down-scatters and one extra neutron
                 // is emitted — the yield-2 multiplicity that restores the neutron
                 // a bare fast sphere would otherwise lose. Ported from OpenMC
@@ -2287,7 +2297,7 @@ fn transport_history(
                 }
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+            } else if group == crate::physics::scatter::ReactionGroup::N3n {
                 // (n,3n): yield 3 -- the primary down-scatters and TWO extra neutrons
                 // are emitted. Before 2026-09-16 there was no branch here at all:
                 // MT=17 is inside MT=1, so the collision still happened but fell
@@ -2314,7 +2324,7 @@ fn transport_history(
                 }
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+            } else if group == crate::physics::scatter::ReactionGroup::Mt5 {
                 // MT=5, "(n,anything)" -- the lumped high-energy channels, wired
                 // 2026-09-17. Same history as the (n,3n) arm above: MT=5 is
                 // inside MT=1, so before this the collision happened and fell
@@ -2345,7 +2355,7 @@ fn transport_history(
                 }
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+            } else if group == crate::physics::scatter::ReactionGroup::Other {
                 // Other neutron-emitting reactions (GitHub #365 audit); see the
                 // equivalent arm in `collide`.
                 let o = nuc.sample_other_emission(e, u, seed);
@@ -2460,7 +2470,12 @@ fn transport_history_tabulated(
                 x.total,
                 seed,
             );
-            if xi < x.fission {
+            let group = crate::physics::scatter::classify_reaction(
+                crate::physics::scatter::reaction_order_from_env(),
+                &x,
+                xi,
+            );
+            if group == crate::physics::scatter::ReactionGroup::Fission {
                 let nu_bar = if x.fission > 0.0 {
                     x.nu_fission / x.fission
                 } else {
@@ -2477,10 +2492,10 @@ fn transport_history_tabulated(
                     });
                 }
                 break;
-            } else if xi < x.absorption {
+            } else if group == crate::physics::scatter::ReactionGroup::Capture {
                 break;
-            } else if xi < x.absorption + x.inelastic {
-                let (e2, u2) = match nuc.sample_inelastic(e, seed) {
+            } else if let crate::physics::scatter::ReactionGroup::Inelastic(level_cutoff) = group {
+                let (e2, u2) = match nuc.sample_inelastic_at(e, level_cutoff, seed) {
                     // Discrete level: the CM angular law is the level's own ENDF
                     // MF=4 (op-tm9f). Isotropic-CM only when the evaluation
                     // carries none for this level -- sampling every inelastic
@@ -2491,7 +2506,7 @@ fn transport_history_tabulated(
                 };
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n {
+            } else if group == crate::physics::scatter::ReactionGroup::N2n {
                 // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
                 // elastic CM energy as before. Sharing the available energy between
                 // the two emitted neutrons is a separate gap (GitHub #192).
@@ -2522,7 +2537,7 @@ fn transport_history_tabulated(
                 }
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+            } else if group == crate::physics::scatter::ReactionGroup::N3n {
                 // (n,3n): yield 3 -- the primary down-scatters and TWO extra neutrons
                 // are emitted. Before 2026-09-16 there was no branch here at all:
                 // MT=17 is inside MT=1, so the collision still happened but fell
@@ -2549,7 +2564,7 @@ fn transport_history_tabulated(
                 }
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+            } else if group == crate::physics::scatter::ReactionGroup::Mt5 {
                 // MT=5, "(n,anything)" -- the lumped high-energy channels, wired
                 // 2026-09-17. Same history as the (n,3n) arm above: MT=5 is
                 // inside MT=1, so before this the collision happened and fell
@@ -2579,7 +2594,7 @@ fn transport_history_tabulated(
                 }
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+            } else if group == crate::physics::scatter::ReactionGroup::Other {
                 // Other neutron-emitting reactions (GitHub #365 audit); see the
                 // equivalent arm in `collide`.
                 let o = nuc.sample_other_emission(e, u, seed);
