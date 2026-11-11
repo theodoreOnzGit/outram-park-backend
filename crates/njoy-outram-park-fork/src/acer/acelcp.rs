@@ -333,7 +333,17 @@ impl Xss<'_> {
 /// `pendf` is the PENDF the table was made from. The table must be complete
 /// (ESZ, SIG and LQR final), as `acelcp` runs after `acelod`'s final pass
 /// (`acefc.f90:6323`).
-pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult) {
+///
+/// `newfor = 0` writes nothing: `first` collects production items only
+/// `if (iflag.ne.0.and.newfor.ne.0)` for the MF=3/MF=4 dictionary pass
+/// (`acefc.f90:423`) and `if (newfor.ne.0)` for the MF=6 pass (`:621`), so with
+/// the old format every `t201..t207` stays `etop` and `acelcp` exits at
+/// `ntype.eq.0` (`:9280`). Test 08 (Ni-61) wrote NXS(7)=2 and JXS(30-32)
+/// where NJOY wrote 0 (gh:#1449).
+pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult, newfor: i32) {
+    if newfor == 0 {
+        return;
+    }
     let za = f64::from(table.nxs[nxs::ZA]);
     let awr = table.awr;
     let awi = 1.0f64;

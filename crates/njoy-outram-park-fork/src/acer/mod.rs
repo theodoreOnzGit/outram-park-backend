@@ -721,7 +721,7 @@ pub(crate) fn assemble(
     // byte matched NJOY2016's: it read `mat92234` (the ZA) for `mat9225`.
     table.mat_id = format!("   mat{mat:4}");
     // Charged-particle production, after END (`acelcp`, `acefc.f90:6323`).
-    crate::acer::acelcp::append(&mut table, tape, mat, recon);
+    crate::acer::acelcp::append(&mut table, tape, mat, recon, modules.newfor);
     Ok(table)
 }
 
