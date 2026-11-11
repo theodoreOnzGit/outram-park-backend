@@ -79,6 +79,7 @@
 pub mod block_edges;
 pub mod block_mesh;
 pub mod block_primitives;
+mod block_topology;
 pub mod section;
 pub mod driver;
 pub mod ideas_unv_to_foam;
