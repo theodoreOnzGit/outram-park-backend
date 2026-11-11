@@ -219,6 +219,8 @@ pub struct GranularSystem {
     /// The neighbour list must be rebuilt in the next force evaluation
     /// (`Neighbor::decide` returned 1, or the particle set changed).
     rebuild_now: bool,
+    /// `fix insert/*` fixes, run at `pre_exchange` (gh:#1414).
+    inserters: Vec<crate::insert::InsertFix>,
     /// `fix heat/gran/conduction`, if attached ([`GranularSystem::with_heat_conduction`]).
     heat: Option<HeatGranConduction>,
     /// Heat flux into each particle `[W]` from the last step's contact
@@ -322,6 +324,7 @@ impl GranularSystem {
             step_count: 0,
             next_sort: 0,
             rebuild_now: false,
+            inserters: Vec::new(),
             heat: None,
             heat_flux: Vec::new(),
             massflow: Vec::new(),
@@ -530,6 +533,9 @@ impl GranularSystem {
             self.perm = (0..n).collect();
         }
         let max_radius = self.particles.iter().fold(0.0_f64, |m, p| m.max(p.radius));
+        // upstream's cut radius includes the largest particle a `fix insert`
+        // can still add (`PairGran::init_style`: `max_rad(type)` of fixes)
+        let max_radius = self.inserters.iter().fold(max_radius, |m, f| m.max(f.max_rad()));
         let cut = cfg.cutneighmax(max_radius);
         if cfg.sort_every > 0 && (self.setup_phase || self.step_count >= self.next_sort) {
             let x: Vec<Vec3> = self.perm.iter().map(|&p| self.particles[p].position).collect();
@@ -821,6 +827,56 @@ impl GranularSystem {
         removed
     }
 
+    /// Attach a `fix insert/pack` or `fix insert/rate/region` (gh:#1414). Runs
+    /// the fix's set-up (`calc_insertion_properties`) now; it then acts inside
+    /// [`GranularSystem::step`] at upstream's `pre_exchange` point: after the
+    /// first half-step, before the neighbour build and force evaluation, so a
+    /// new particle takes only the second half-kick of its first step. Use with
+    /// [`GranularSystem::with_liggghts_neighbor_order`] (the insertion forces a
+    /// list rebuild, as `next_reneighbor` does). Returns the fix's index.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`crate::insert::InsertFix::setup`] reports.
+    pub fn add_insertion(&mut self, mut fix: crate::insert::InsertFix) -> Result<usize, crate::DemError> {
+        fix.setup()?;
+        self.inserters.push(fix);
+        Ok(self.inserters.len() - 1)
+    }
+
+    /// The `i`-th insertion fix.
+    #[must_use]
+    pub fn insertion(&self, i: usize) -> &crate::insert::InsertFix {
+        &self.inserters[i]
+    }
+
+    /// `FixInsert::pre_exchange` for every attached insertion fix.
+    ///
+    /// Insertion errors upstream would abort the run on; here they panic with
+    /// the same message, since `step` has no error channel.
+    fn run_insertions(&mut self) {
+        if self.inserters.is_empty() {
+            return;
+        }
+        let step = self.step_count as u64;
+        for k in 0..self.inserters.len() {
+            let new = match self.inserters[k].pre_exchange(step, &self.particles) {
+                Ok(v) => v,
+                Err(e) => panic!("fix insert: {e}"),
+            };
+            for ip in new {
+                let tag = self.next_tag;
+                self.next_tag += 1;
+                self.note_inserted();
+                self.particles.push(ip.particle);
+                self.tags.push(tag);
+                self.types.push(ip.atom_type - 1);
+                self.forces.push(Vec3::zero());
+                self.torques.push(Vec3::zero());
+            }
+        }
+    }
+
     /// Keep the LIGGGHTS local order in step with an insertion: the new atom
     /// takes the last local slot (`nlocal++`) and the list is rebuilt.
     fn note_inserted(&mut self) {
@@ -1004,6 +1060,7 @@ impl GranularSystem {
             m.post_integrate(&self.particles, &self.tags, self.dt);
         }
         self.refresh_moving_meshes();
+        self.run_insertions();
         // the mesh neighbour lists rebuild when the neighbour list does (every
         // step when no skin was given)
         if self.rebuild_now || self.neigh_skin <= 0.0 {

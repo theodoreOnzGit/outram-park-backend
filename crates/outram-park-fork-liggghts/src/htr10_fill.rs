@@ -240,7 +240,9 @@ const SEED_SOLID_FRACTION: f64 = 0.30;
 
 /// `n` pebble centres placed at random without overlap in the vessel, filling
 /// it from the valve upward at a loose solid fraction (0.30), the way
-/// LIGGGHTS' `fix insert/pack` seeds a region: random positions, rejected if
+/// LIGGGHTS' `fix insert/pack` seeds a region (**NOTE 2026-11-11, gh:#1414:** this
+/// function is only *modelled on* it; the faithful, bit-identical translation is
+/// [`crate::insert::InsertFix`]): random positions, rejected if
 /// they overlap a placed pebble or the wall. Deterministic in `seed`
 /// (SplitMix64, no RNG dependency). The pour then settles under gravity.
 ///

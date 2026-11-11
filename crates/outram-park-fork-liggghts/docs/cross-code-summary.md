@@ -130,6 +130,14 @@ nodes (`GranularSystem::with_neighbor_skin`). Measured 2026-11-11, Rust 1.99.1:
 
 Both predictions (bit-identical) were written before the run and are met.
 
+**Particle insertion (gh:#1414, gh:#1406 prio 3), 2026-11-11.** `fix insert/pack`,
+`insert/rate/region`, `particletemplate/sphere`, `particledistribution/discrete`
+and `RanPark` are translated (`src/insert.rs`). Five pour decks into the `D/d = 6`
+cylinder, 9 frames each to step 30 000 (contacts after ~20 000, up to 12
+insertions per step into a falling pile): **every field of every particle
+bit-identical in 45 / 45 frames** (`insertion_cross_code.rs`;
+`verification_and_validation/insertion/README.md`). Not translated: `insert/stream`.
+
 **Per-contact dump and `fix check/timestep/gran` (gh:#1406 prio 2, gh:#1418),
 2026-11-11.** `compute pair/gran/local` is translated as
 `GranularSystem::pair_gran_local_for` / `pair_gran_local`. Deck
