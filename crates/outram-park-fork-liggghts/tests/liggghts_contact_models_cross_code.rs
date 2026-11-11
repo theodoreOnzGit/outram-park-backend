@@ -1056,3 +1056,78 @@ fn two_type_pair_table_is_sensitive() {
     .with_pair_models(bad)
     .is_err());
 }
+
+// ---------------------------------------------------------------------------
+// gh:#1410 (2026-11-11): `rolling_friction luding torsion on`.
+// ---------------------------------------------------------------------------
+
+fn luding_torsion_model(torsion: bool) -> GranularContactModel {
+    let m = luding_full_model();
+    m.with_rolling(m.rolling.with_luding_torsion(torsion))
+}
+
+/// `rolling_friction luding torsion on`, particle-particle: a torsion
+/// spring-dashpot on the NORMAL component of the relative rotation, with the
+/// rolling coefficients. Upstream quirks reproduced: the torsion history
+/// aliases the rolling history, and `calcTorTorque` overwrites `r_torque`.
+///
+/// **Methodology.** Deck `in.luding_torsion`: `in.luding_full` plus x-spins
+/// (`+30`/`-15` rad/s, with `omega_z = +40/-20`) so the relative rotation has
+/// a component along the contact normal; 2500 steps, 251 frames bit for bit.
+///
+/// **Prediction (written before the first run, 2026-11-11).** Bit-identical:
+/// a line-for-line translation of `calcTorTorque`, applied to the history left
+/// by `calcRollTorque`.
+///
+/// **Result (2026-11-11, Rust 1.99.1, upstream g++ 15.2.1).** See the test
+/// run record in `verification_and_validation/` section 4.11; the deck
+/// differs from `luding_full` (torsion is active).
+#[test]
+fn luding_torsion_pair_matches_liggghts() {
+    let rows = load("luding_torsion.csv").expect("reference present");
+    assert_eq!(rows.len(), 251);
+    let d = replay_pair_at(
+        &rows,
+        luding_torsion_model(true),
+        0.0060,
+        Vec3::new(1.0, 0.5, 0.0),
+        Vec3::new(-1.0, -0.5, 0.0),
+        Vec3::new(30.0, 0.0, 40.0),
+        Vec3::new(-15.0, 0.0, -20.0),
+    );
+    assert_bit_identical(&d);
+    // Sensitivity: torsion off must NOT reproduce the torsion-on reference.
+    let off = replay_pair_at(
+        &rows,
+        luding_torsion_model(false),
+        0.0060,
+        Vec3::new(1.0, 0.5, 0.0),
+        Vec3::new(-1.0, -0.5, 0.0),
+        Vec3::new(30.0, 0.0, 40.0),
+        Vec3::new(-15.0, 0.0, -20.0),
+    );
+    assert!(!off.bit_identical(), "deck insensitive to torsion");
+}
+
+/// `torsion on` against a wall (`in.luding_torsion_wall`): the separate
+/// `r_tor_torque` of the wall branch, from `omega_i . e_n`.
+///
+/// **Prediction (2026-11-11).** Bit-identical; the second torque is applied
+/// in addition to the rolling one (`delta_torque -= r_torque; -= r_tor_torque`).
+#[test]
+fn luding_torsion_wall_matches_liggghts() {
+    let rows = load("luding_torsion_wall.csv").expect("reference present");
+    assert_eq!(rows.len(), 251);
+    let floor = Boundary::wall(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0)).expect("valid wall");
+    let mut p = sphere(Vec3::new(0.0, 0.0, 0.0053), Vec3::new(0.6, 0.2, -0.8));
+    p.angular_velocity = Vec3::new(0.0, 30.0, 25.0);
+    let mut sys = GranularSystem::new(
+        vec![p],
+        vec![floor],
+        luding_torsion_model(true),
+        Vec3::zero(),
+        1.0e-6,
+    )
+    .expect("valid system");
+    assert_bit_identical(&replay_system(&mut sys, &rows));
+}

@@ -2684,7 +2684,9 @@ pub enum RollingModel {
     /// Luding's rolling spring-dashpot with the friction limit
     /// `mu_r |F_n + k_c delta_n - f_adh| R*` (`kc`, `f_adh` stored by
     /// `model luding`). Unlike EPSD the spring history is written
-    /// **unconditionally** (also at set-up). `torsion off` only.
+    /// **unconditionally** (also at set-up). ~~`torsion off` only.~~
+    /// **CORRECTED 2026-11-11**: `torsion on` is ported (field `torsion`,
+    /// [`RollingModel::with_luding_torsion`]) and pinned bit-identical.
     /// gh:#1410.
     Luding {
         /// `coeffRollFrict` `[-]`.
@@ -2693,12 +2695,21 @@ pub enum RollingModel {
         mu_visc: f64,
         /// `kR2kcMax` (property `coeffRollingStiffness`): `k_r = k_t kR2kcMax R*^2`.
         kr_ratio: f64,
+        /// Upstream `torsion` (default off): add a torsion spring-dashpot on
+        /// the normal component of the relative rotation, with the same
+        /// coefficients. **Upstream quirks kept for parity:** its history
+        /// aliases the rolling history (`c_tor_history = &contact_history
+        /// [history_offset]`, not `+ 3`), and for a particle-particle contact
+        /// `calcTorTorque` writes into `r_torque`, replacing the rolling
+        /// torque; for a wall contact it writes a separate `r_tor_torque`
+        /// that is applied in addition.
+        torsion: bool,
     },
 }
 
 /// Fields of [`RollingModel::Luding`] documented here to keep the enum short.
-/// Upstream `torsion` (a second, torsion spring) is **not** ported: its
-/// history aliases the rolling one in upstream and is off by default.
+/// ~~Upstream `torsion` is **not** ported~~ **CORRECTED 2026-11-11**: it is
+/// (see the `torsion` field); its history aliases the rolling one in upstream.
 #[allow(dead_code)]
 const _LUDING_ROLLING_NOTE: () = ();
 
@@ -2738,11 +2749,33 @@ impl RollingModel {
             mu_r,
             mu_visc,
             kr_ratio,
+            torsion: false,
         })
     }
 
+    /// `rolling_friction luding torsion on|off` (no-op for other models).
+    #[must_use]
+    pub fn with_luding_torsion(self, on: bool) -> Self {
+        match self {
+            Self::Luding {
+                mu_r,
+                mu_visc,
+                kr_ratio,
+                ..
+            } => Self::Luding {
+                mu_r,
+                mu_visc,
+                kr_ratio,
+                torsion: on,
+            },
+            other => other,
+        }
+    }
+
     /// Torque and new history of any stateful rolling model (EPSD or Luding).
-    /// `kc_fo` is the normal model's stored `(kc, f_adh)`.
+    /// `kc_fo` is the normal model's stored `(kc, f_adh)`. The middle value is
+    /// the separate torsion torque of a Luding **wall** contact with `torsion
+    /// on` (applied in addition to the first), `None` otherwise.
     #[must_use]
     pub fn stateful_torque(
         &self,
@@ -2752,10 +2785,13 @@ impl RollingModel {
         prior: Vec3,
         dt: f64,
         update: bool,
-    ) -> (Vec3, Vec3) {
+    ) -> (Vec3, Option<Vec3>, Vec3) {
         match self {
             Self::Luding { .. } => self.luding_torque(k, normal, kc_fo, prior, dt),
-            _ => self.epsd_torque(k, normal, prior, dt, update),
+            _ => {
+                let (m, h) = self.epsd_torque(k, normal, prior, dt, update);
+                (m, None, h)
+            }
         }
     }
 
@@ -2768,14 +2804,15 @@ impl RollingModel {
         kc_fo: (f64, f64),
         prior: Vec3,
         dt: f64,
-    ) -> (Vec3, Vec3) {
+    ) -> (Vec3, Option<Vec3>, Vec3) {
         let Self::Luding {
             mu_r: rmu,
             mu_visc,
             kr_ratio,
+            torsion,
         } = *self
         else {
-            return (Vec3::zero(), prior);
+            return (Vec3::zero(), None, prior);
         };
         let radi = k.rad_i;
         let radj = k.rad_j;
@@ -2802,36 +2839,52 @@ impl RollingModel {
         let wr_dot_delta = wr1 * enx + wr2 * eny + wr3 * enz;
         let wr_n = Vec3::new(enx * wr_dot_delta, eny * wr_dot_delta, enz * wr_dot_delta);
         let wr_t = Vec3::new(wr1 - wr_n.x, wr2 - wr_n.y, wr3 - wr_n.z);
-        let k_r = normal.kt;
-        let kr = k_r * kr_ratio * reff * reff;
+        let kr = normal.kt * kr_ratio * reff * reff;
         let (kc, f_adh) = kc_fo;
-        let dt_kr = dt * kr;
-        let mut r_torque = Vec3::new(
-            prior.x + wr_t.x * dt_kr,
-            prior.y + wr_t.y * dt_kr,
-            prior.z + wr_t.z * dt_kr,
-        );
-        let r_torque_mag = r_torque.norm();
-        let r_torque_max = rmu * (normal.fn_scalar + kc * k.delta_n - f_adh).abs() * reff;
-        let hist;
-        if r_torque_mag > r_torque_max {
-            let factor = r_torque_max / r_torque_mag;
-            r_torque = Vec3::new(
-                r_torque.x * factor,
-                r_torque.y * factor,
-                r_torque.z * factor,
+        // calcRollTorque / calcTorTorque share one body: the spring history
+        // `prior` integrates `w`, is capped at the modified Coulomb limit, is
+        // stored, and below the cap a dashpot on `w` is added.
+        let spring_dashpot = |w: Vec3, prior: Vec3| -> (Vec3, Vec3) {
+            let dt_kr = dt * kr;
+            let mut t = Vec3::new(
+                prior.x + w.x * dt_kr,
+                prior.y + w.y * dt_kr,
+                prior.z + w.z * dt_kr,
             );
-            hist = r_torque;
-        } else {
-            hist = r_torque;
-            let r_coef = normal.gammat * mu_visc * 2.0 * (r_inertia * kr).sqrt();
-            r_torque = Vec3::new(
-                r_torque.x + r_coef * wr_t.x,
-                r_torque.y + r_coef * wr_t.y,
-                r_torque.z + r_coef * wr_t.z,
-            );
+            let mag = t.norm();
+            let max = rmu * (normal.fn_scalar + kc * k.delta_n - f_adh).abs() * reff;
+            if mag > max {
+                let factor = max / mag;
+                t = Vec3::new(t.x * factor, t.y * factor, t.z * factor);
+                (t, t)
+            } else {
+                let hist = t;
+                let r_coef = normal.gammat * mu_visc * 2.0 * (r_inertia * kr).sqrt();
+                t = Vec3::new(t.x + r_coef * w.x, t.y + r_coef * w.y, t.z + r_coef * w.z);
+                (t, hist)
+            }
+        };
+        let (mut r_torque, mut hist) = spring_dashpot(wr_t, prior);
+        let mut tor = None;
+        if torsion {
+            let dot = |w: Vec3| enx * w.x + eny * w.y + enz * w.z;
+            let c = if k.is_wall {
+                dot(k.omega_i)
+            } else {
+                dot(k.omega_i) - dot(k.omega_j)
+            };
+            let omega_normal = Vec3::new(enx * c, eny * c, enz * c);
+            // The torsion spring reads and writes the SAME history as the
+            // rolling spring (upstream aliasing).
+            let (t2, h2) = spring_dashpot(omega_normal, hist);
+            hist = h2;
+            if k.is_wall {
+                tor = Some(t2);
+            } else {
+                r_torque = t2;
+            }
         }
-        (r_torque, hist)
+        (r_torque, tor, hist)
     }
 
     /// `rolling_model epsd` with upstream's defaults (`torsionTorque off`).
@@ -3639,8 +3692,9 @@ impl GranularContactModel {
         let mut torque_j = Vec3::zero().add(tor.scale(-k.crj));
 
         // Rolling resistance: upstream applies -M_r to i and +M_r to j.
+        let mut m_tor_out: Option<Vec3> = None;
         let m_r = if self.rolling.has_state() {
-            let (m, hist) = self.rolling.stateful_torque(
+            let (m, m_tor, hist) = self.rolling.stateful_torque(
                 k,
                 &normal,
                 self.normal.kc_fo(&aux.normal),
@@ -3649,6 +3703,7 @@ impl GranularContactModel {
                 UPDATE,
             );
             aux.roll = hist;
+            m_tor_out = m_tor;
             m
         } else {
             self.rolling
@@ -3656,6 +3711,11 @@ impl GranularContactModel {
         };
         torque_i = torque_i.sub(m_r);
         torque_j = torque_j.add(m_r);
+        if let Some(m_tor) = m_tor_out {
+            // Luding `torsion on`, wall contact: a second, separate torque.
+            torque_i = torque_i.sub(m_tor);
+            torque_j = torque_j.add(m_tor);
+        }
 
         (
             GranularForce {
