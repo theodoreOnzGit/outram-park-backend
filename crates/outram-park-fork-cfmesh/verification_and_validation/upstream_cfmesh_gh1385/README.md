@@ -17,7 +17,7 @@ written here).
 
 ## Status and how to resume
 
-STATUS: in progress (see the milestone list at the end).
+STATUS: in progress. Done: OpenFOAM-v2506 partial build. Next: cfMesh build, then the runs.
 
 Everything is built **outside the repository**, under
 `/home/user/upstream-build/`, and is lost with the container. To rebuild:
@@ -61,6 +61,45 @@ mapping after. `tetMeshGenerator::optimiseFinalMesh` instead calls
 - **U5 (sphere, cell counts).** Upstream's counts equal the port's
   (`cartesian_mesh` 1128, `tet_mesh` 12840, `p_mesh` 1749). Least confident
   for `pMesh`, where `preMapVertices` is recorded as not ported (gh:#1273).
+
+## Build
+
+Machine: 4 cores (3 used: `WM_NCOMPPROCS=3`, another agent's cargo build on
+the fourth), Ubuntu 24.04, g++ 13.3.0, no MPI.
+
+### OpenFOAM-v2506, partial (2026-11-11)
+
+`scripts/of-env.sh` sources `etc/bashrc` with `WM_MPLIB=dummy` (the dummy
+Pstream, no MPI), `WM_COMPILE_OPTION=Opt` (`-O3`), double precision, 32-bit
+labels. `scripts/build-of.sh` builds only what cfMesh and `checkMesh` link:
+
+| target | why |
+|---|---|
+| `wmake/src` tools | wmake itself |
+| `OSspecific/POSIX` (`libOSspecific.o`), `Pstream/dummy` | linked into `libOpenFOAM` |
+| `OpenFOAM`, `fileFormats`, `surfMesh`, `meshTools` | cfMesh `meshLibrary/Make/options` |
+| `finiteVolume` | cfMesh executables' `Make/options` |
+| `mesh/blockMesh`, `mesh/extrudeModel`, `dynamicMesh` | `checkMesh` links `-ldynamicMesh`, which needs `extrudeModel`, which needs `blockMesh` |
+| `applications/utilities/mesh/manipulation/checkMesh` | case 8 |
+
+Not built: `foamToVTK` (it links `lagrangianIntermediate`, `conversion`,
+`finiteArea` and `genericPatchFields`, most of the remaining tree; the polyMesh
+files are what the comparison needs), ThirdParty, scotch, MPI, the rest of `src/`.
+
+System packages installed: `flex bison zlib1g-dev libfl-dev` (and `time`, for
+`/usr/bin/time -v`). No patch to OpenFOAM.
+
+**One obstacle.** The first attempt passed `libso` to
+`OSspecific/POSIX/Allwmake` and `Pstream/Allwmake`; that overrides their own
+preferred target (`libo`, a `libOSspecific.o` object that `libOpenFOAM.so`
+links), and the `libOpenFOAM.so` link failed (`cannot find
+.../libOSspecific.o`). Calling the two `Allwmake` scripts with no argument,
+as `src/Allwmake` does, fixed it; the rerun reused the compiled objects.
+
+Wall time: 476 s (attempt 1, to the link error) + 2 843 s (attempt 2) =
+**3 319 s (55 min)**, 1 607 compiler invocations. Disk: 864 MB in all
+(297 MB source, 472 MB objects under `build/`, 90 MB libraries and binary
+under `platforms/`). Log: `logs/build-openfoam-v2506.log.gz` (both attempts).
 
 ## Results
 
