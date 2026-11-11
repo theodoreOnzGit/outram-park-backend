@@ -69,6 +69,13 @@ impl Vec3 {
         Vec3::new(self.x * s, self.y * s, self.z * s)
     }
 
+    /// Quotient `self / s`, each component divided: OpenFOAM's `operator/`
+    /// and `/=` on a vector. `scale(1.0 / s)` is NOT the same in the last
+    /// bit (gh:#1385); use this wherever upstream divides.
+    pub fn div(self, s: f64) -> Vec3 {
+        Vec3::new(self.x / s, self.y / s, self.z / s)
+    }
+
     /// Dot product `self · other`.
     pub fn dot(self, other: Vec3) -> f64 {
         self.x * other.x + self.y * other.y + self.z * other.z

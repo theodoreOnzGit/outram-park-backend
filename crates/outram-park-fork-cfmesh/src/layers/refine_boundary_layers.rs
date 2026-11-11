@@ -1241,7 +1241,11 @@ mod tests {
         let (bl, _) = boundary_layers_add_layer(&named_box(0.25), &["walls"], &BoundaryLayersControls::default()).unwrap();
         let (br, _) = refine_boundary_layers(&bl, &walls(3, Some(1.2), None)).unwrap();
         println!("fingerprints: pipe {:#018x}, box {:#018x}", mesh_fingerprint(&r), mesh_fingerprint(&br));
-        assert_eq!((mesh_fingerprint(&r), mesh_fingerprint(&br)), (0x677a875f14ca046b, 0x687256342d92ed50));
+        // Re-pinned 2026-11-11 (gh:#1385): the pipe's layer now comes out in
+        // upstream's face order (`addCells`, `reorderBoundaryFaces`,
+        // `replaceBoundary`); ~~0x677a875f14ca046b~~ 0x018284a992e4c789. The box
+        // did not move.
+        assert_eq!((mesh_fingerprint(&r), mesh_fingerprint(&br)), (0x018284a992e4c789, 0x687256342d92ed50));
     }
 
     fn global(n: usize, r: f64) -> RefineBoundaryLayersSettings {

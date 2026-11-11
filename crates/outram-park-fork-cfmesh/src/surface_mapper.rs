@@ -86,7 +86,7 @@ pub fn map_vertices_onto_surface_patches(
     tris: &[[usize; 3]],
     regions: &SurfaceRegions,
 ) -> VolumeMesh {
-    map_impl(mesh, points, tris, regions, None, None)
+    map_impl(mesh, points, tris, regions, None, None, None)
 }
 
 /// [`map_vertices_onto_surface_patches`] with the patch of every boundary
@@ -100,7 +100,21 @@ pub fn map_vertices_onto_surface_patches_given(
     regions: &SurfaceRegions,
     face_region: &[Option<usize>],
 ) -> VolumeMesh {
-    map_impl(mesh, points, tris, regions, Some(face_region), None)
+    map_impl(mesh, points, tris, regions, Some(face_region), None, None)
+}
+
+/// [`map_vertices_onto_surface_patches_given`] with upstream's octree for the
+/// nearest-point searches (gh:#1385): `meshSurfaceEdgeExtractorNonTopo::
+/// remapBoundaryPoints` as the generators run it.
+pub fn map_vertices_onto_surface_patches_given_octree(
+    mesh: &VolumeMesh,
+    o: &crate::mesh_octree::MeshOctree,
+    points: &[Vec3],
+    tris: &[[usize; 3]],
+    regions: &SurfaceRegions,
+    face_region: &[Option<usize>],
+) -> VolumeMesh {
+    map_impl(mesh, points, tris, regions, Some(face_region), None, Some(o))
 }
 
 /// [`map_vertices_onto_surface_patches_given`] for the boundary points with
@@ -118,7 +132,7 @@ pub fn map_points_onto_surface_patches_given(
     face_region: &[Option<usize>],
     only: &[bool],
 ) -> VolumeMesh {
-    map_impl(mesh, points, tris, regions, Some(face_region), Some(only))
+    map_impl(mesh, points, tris, regions, Some(face_region), Some(only), None)
 }
 
 /// The patch of every boundary face by its nearest surface triangle (the
@@ -146,9 +160,19 @@ pub struct SurfaceQueries {
     region_tris: Vec<Vec<usize>>,
     feature_edges: BTreeMap<(usize, usize), Vec<(usize, usize)>>,
     vertex_regions: BTreeMap<usize, BTreeSet<usize>>,
+    /// gh:#1385: with an octree, `nearest` and `nearest_in_region` are
+    /// `meshOctree::findNearestSurfacePoint[InRegion]` (upstream's search and
+    /// `nearestPointOnTheTriangle`), not the brute-force stand-ins.
+    octree: Option<std::sync::Arc<crate::mesh_octree::MeshOctree>>,
 }
 
 impl SurfaceQueries {
+    /// These queries answered by upstream's octree search (see the field).
+    pub fn with_octree(mut self, o: std::sync::Arc<crate::mesh_octree::MeshOctree>) -> Self {
+        self.octree = Some(o);
+        self
+    }
+
     pub fn new(points: &[Vec3], tris: &[[usize; 3]], regions: &SurfaceRegions) -> Self {
         let n_regions = regions.names.len();
         let mut region_tris: Vec<Vec<usize>> = vec![Vec::new(); n_regions];
@@ -171,12 +195,18 @@ impl SurfaceQueries {
                 feature_edges.entry((v[0], v[1])).or_default().push(e);
             }
         }
-        SurfaceQueries { points: points.to_vec(), tris: tris.to_vec(), region_tris, feature_edges, vertex_regions }
+        SurfaceQueries { points: points.to_vec(), tris: tris.to_vec(), region_tris, feature_edges, vertex_regions, octree: None }
     }
 
     /// `findNearestSurfacePointInRegion`: the nearest point of region `r`
     /// (`p` itself when the region has no triangle).
     pub(crate) fn nearest_in_region(&self, p: Vec3, r: usize) -> Vec3 {
+        if let Some(o) = &self.octree {
+            use crate::mesh_octree_queries::{NearestSearch, TriangleProjection};
+            if let Some(h) = o.find_nearest_surface_point_with(p, NearestSearch::Upstream, TriangleProjection::Upstream, Some(r)) {
+                return h.point;
+            }
+        }
         let mut best = p;
         let mut best_d2 = f64::MAX;
         for &i in &self.region_tris[r] {
@@ -193,6 +223,9 @@ impl SurfaceQueries {
 
     /// `findNearestSurfacePoint`: the nearest point of the whole surface.
     pub(crate) fn nearest(&self, p: Vec3) -> Vec3 {
+        if let Some(h) = self.octree.as_ref().and_then(|o| o.find_nearest_surface_point(p)) {
+            return h.point;
+        }
         crate::snap::closest_point_on_surface(p, &self.points, &self.tris)
     }
 
@@ -273,6 +306,7 @@ fn map_impl(
     regions: &SurfaceRegions,
     given: Option<&[Option<usize>]>,
     only: Option<&[bool]>,
+    octree: Option<&crate::mesh_octree::MeshOctree>,
 ) -> VolumeMesh {
     // The boundary's addressing from the shared engine (gh:#1257): patch
     // of every boundary face as given (upstream's mesh patches), or by its
@@ -287,7 +321,10 @@ fn map_impl(
         })
         .collect();
     let part = SurfacePartitioner::with_face_patches(&engine, face_region);
-    let q = SurfaceQueries::new(points, tris, regions);
+    let mut q = SurfaceQueries::new(points, tris, regions);
+    if let Some(o) = octree {
+        q = q.with_octree(std::sync::Arc::new(o.clone()));
+    }
     let mut new_points = mesh.points.clone();
     // gh:#1283's `only` (mesh point labels) as the boundary-point selection
     // of `map_points_onto_patches` (gh:#1269): the same rule, one copy.
@@ -423,7 +460,7 @@ fn untangled_impl(
     passes: usize,
     given: Option<&[Option<usize>]>,
 ) -> (VolumeMesh, usize) {
-    let mapped = map_impl(mesh, points, tris, regions, given, None);
+    let mapped = map_impl(mesh, points, tris, regions, given, None, None);
     // With given patches (after correctEdgesBetweenPatches) a tangled cell
     // may be a pyramid with no boundary face of its own: revert the
     // boundary points of all its faces. Without, the historical rule.

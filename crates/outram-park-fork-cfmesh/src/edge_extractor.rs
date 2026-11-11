@@ -289,7 +289,7 @@ impl EdgeExtractor {
             return Err("edgeExtractor: the regions do not label the octree's surface".into());
         }
         let engine = SurfaceEngine::new(&mesh);
-        let queries = SurfaceQueries::new(&surf.points, &surf.triangles, regions);
+        let queries = SurfaceQueries::new(&surf.points, &surf.triangles, regions).with_octree(std::sync::Arc::new(octree.clone()));
         let mut ex = EdgeExtractor {
             engine,
             queries,

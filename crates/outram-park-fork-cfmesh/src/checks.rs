@@ -28,6 +28,13 @@
 
 //! Mesh **quality checks** — the Rust analogue of cfMesh's `polyMeshGenChecks`.
 //!
+//! **gh:#1480:** the checks themselves now live once, in
+//! [`outram_foam_mesh::check_mesh`]; this module is the adapter that feeds
+//! them a [`VolumeMesh`] and its cfMesh geometry (vertex-average face
+//! centres, [`cell_geometry`]), with the options that reproduce what this
+//! module computed before the move, bit for bit. The text below describes
+//! the metrics; the definitions are in `check_mesh`.
+//!
 //! A generated volume mesh must be *checked* before it is handed to a solver:
 //! finite-volume discretisation error grows with face **non-orthogonality** and
 //! **skewness**, ill-conditioning grows with cell **aspect ratio**, and a
@@ -53,276 +60,48 @@
 //! volumes and centroids from the faces — so the metrics match what the solver
 //! itself would compute. Pure Rust, no dependencies.
 
-use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::volume_mesh::VolumeMesh;
+use outram_foam_basic_lib::primitives::Vector3;
+use outram_foam_mesh::check_mesh::{self, CheckGeometry, CheckOptions};
 
-/// Summary of mesh-quality metrics (worst-case values over the mesh).
-#[derive(Debug, Clone, PartialEq)]
-pub struct QualityReport {
-    /// Maximum face **non-orthogonality**, in degrees: the angle between an
-    /// internal face's normal and the vector joining its two cell centres. `0°`
-    /// is perfectly orthogonal; OpenFOAM flags `> 70°`.
-    pub max_non_orthogonality_deg: f64,
-    /// Maximum face **skewness** over the internal faces, OpenFOAM's
-    /// `primitiveMeshTools::faceSkewness`: the offset `s` of the face centre
-    /// from where the owner–neighbour centre line crosses the face plane,
-    /// divided by the face's own extent along `s` (the largest projection of
-    /// a face vertex, measured from the face centre, on `s`), floored at
-    /// `0.2 |d|`. OpenFOAM flags `> 4` (`maxInternalSkewness 4`).
-    ///
-    /// ~~as a fraction of that line's length~~ **CORRECTED 2026-11-04
-    /// (gh:#1202):** that was this port's normalisation, not upstream's; on
-    /// a stack of thin prism layers it read width/thickness (6.6–7.2 on
-    /// 3-layer pipes) where upstream's reads the actual skew. Ported from
-    /// the workspace's existing port, `outram_foam_mesh::mesh_quality::
-    /// face_skewness` (OpenFOAM `primitiveMeshTools.C`).
-    pub max_skewness: f64,
-    /// Maximum cell **aspect ratio** (`Σ|Sf| / (6 · V^{2/3})`, which is `1` for
-    /// a cube). Large values mean sliver cells.
-    pub max_aspect_ratio: f64,
-    /// Smallest face area in the mesh.
-    pub min_face_area: f64,
-    /// Smallest (signed) cell volume in the mesh.
-    pub min_cell_volume: f64,
-    /// Number of cells with non-positive volume (a broken mesh has `> 0`).
-    pub n_negative_volume_cells: usize,
-    /// Smallest **face pyramid volume** in the mesh (a volume, so `m³` if the
-    /// points are in metres), minimised over every *(cell, face)* incidence —
-    /// an internal face is checked twice, once from each side.
-    ///
-    /// For face `f` of cell `c`, the pyramid has the face as its base and the
-    /// **cell centre** as its apex, so its signed volume is
-    /// `V_pyr = (1/3) · (c_f − C_c) · S_f`, with `c_f` the face centroid and
-    /// `S_f` the face area vector taken **outward from `c`**.
-    ///
-    /// Valid range: strictly `> 0` for every face of a well-formed cell — a
-    /// cube of side `h` gives `h³/6` on all six faces, and the pyramid volumes
-    /// of a cell sum exactly to its volume. A value `<= 0` means the cell
-    /// centre lies **on or outside the plane of one of its own faces**: the
-    /// cell is locally inverted or tangled, the face's flux stencil points the
-    /// wrong way, and OpenFOAM's `checkMesh` fails such a mesh outright.
-    ///
-    /// This is not redundant with [`QualityReport::min_cell_volume`]: a
-    /// strongly concave cell can have a healthily positive *total* volume and
-    /// still have its centre outside one of its faces (verified in this
-    /// module's `concave_cell_has_negative_pyramid_but_positive_volume` test).
-    /// Conversely, a merely **flat** (sliver) cell keeps *positive* pyramid
-    /// volumes — they just become small — so flatness is
-    /// [`QualityReport::min_cell_determinant`]'s job, not this metric's.
-    ///
-    /// `0.0` for a mesh with no faces.
-    pub min_face_pyramid_volume: f64,
-    /// Number of *(cell, face)* incidences whose pyramid volume is `<= 0`
-    /// (see [`QualityReport::min_face_pyramid_volume`]). `0` for a valid mesh;
-    /// any non-zero count is a hard failure in OpenFOAM's `checkMesh`. An
-    /// internal face can contribute up to `2` (once per adjacent cell).
-    ///
-    /// Deliberately **not** wired into [`QualityReport::is_solvable`], whose
-    /// thresholds are left unchanged; test it explicitly if you want
-    /// `checkMesh`'s stricter gate.
-    pub n_negative_pyramid_faces: usize,
-    /// Smallest **cell determinant** over the mesh (dimensionless) — the
-    /// sliver detector.
-    ///
-    /// # Definition implemented here
-    ///
-    /// For cell `c` with faces `f`, area vectors `S_f` and unit normals
-    /// `n_f = S_f / |S_f|`, form the area-weighted normal-orientation tensor
-    ///
-    /// ```text
-    ///         Σ_f |S_f| (n_f ⊗ n_f)
-    ///   D_c = ─────────────────────
-    ///              Σ_f |S_f|
-    /// ```
-    ///
-    /// and report `27 · det(D_c)`, minimised over the cells. (Sign-free: `n_f`
-    /// enters only through an outer product, so the face winding is
-    /// irrelevant.)
-    ///
-    /// # Valid range and interpretation
-    ///
-    /// `D_c` is symmetric positive semi-definite with `tr(D_c) = 1`, so by
-    /// AM–GM `det(D_c) <= (1/3)³` and the reported value lies in `[0, 1]`:
-    ///
-    /// - `1.0` — the face normals are **isotropic** (`D_c = I/3`). An
-    ///   axis-aligned cube and a regular tetrahedron both give exactly `1`;
-    ///   both are verified in this module's tests.
-    /// - `→ 0` — the normals collapse towards a plane (flat sliver) or a line
-    ///   (needle), i.e. the cell is degenerate in at least one direction. The
-    ///   tensor loses rank *long before* the cell volume changes sign, which is
-    ///   what makes this the metric that sees slivers when non-orthogonality,
-    ///   skewness and `min_cell_volume` all read healthy.
-    ///
-    /// A cell whose faces all have zero area contributes `0.0`; a mesh with no
-    /// cells reports `0.0`.
-    ///
-    /// # Parity caveat — read before quoting this against OpenFOAM
-    ///
-    /// This is the same *form* and normalisation as the "cell determinant"
-    /// (`wellposedness`) figure OpenFOAM's `checkMesh` prints — a normalised
-    /// determinant of the summed face-normal outer products, scaled so a cube
-    /// reads `1` — but it was implemented from that description and from the
-    /// algebra above, **not** transcribed from OpenFOAM source, and it has
-    /// **not** been compared numerically against a `checkMesh` run on the same
-    /// mesh. Treat it as a documented equivalent with the properties proved and
-    /// tested here, **not** as verified `checkMesh` parity. No threshold from
-    /// `checkMesh` is reproduced here, and [`QualityReport::is_solvable`] does
-    /// not gate on it.
-    pub min_cell_determinant: f64,
+pub use outram_foam_mesh::check_mesh::{MeshQualityControls, QualityReport};
+
+fn to_vector3(v: Vec3) -> Vector3 {
+    Vector3::new(v.x, v.y, v.z)
 }
 
-impl QualityReport {
-    /// A conservative "good enough to solve" gate: no negative-volume cells,
-    /// non-orthogonality `< 70°`, and skewness `< 4` (OpenFOAM's default
-    /// `checkMesh` thresholds).
-    ///
-    /// The sliver metrics ([`QualityReport::n_negative_pyramid_faces`],
-    /// [`QualityReport::min_cell_determinant`]) are deliberately **not** part
-    /// of this gate — it is kept at its historical thresholds so existing
-    /// callers' behaviour does not change. Check them separately for
-    /// `checkMesh`'s stricter criteria.
-    pub fn is_solvable(&self) -> bool {
-        self.n_negative_volume_cells == 0
-            && self.max_non_orthogonality_deg < 70.0
-            && self.max_skewness < 4.0
-    }
-}
-
-/// Compute the [`QualityReport`] for `mesh`.
-pub fn check_quality(mesh: &VolumeMesh) -> QualityReport {
+/// The geometry the shared checks read, from this crate's providers:
+/// [`VolumeMesh::face_area_vector`], the vertex-average
+/// [`VolumeMesh::face_centroid`] and [`cell_geometry`]. Returns the points too.
+fn check_inputs(mesh: &VolumeMesh) -> (Vec<Vector3>, CheckGeometry) {
     let (vols, centres) = cell_geometry(mesh);
+    let nf = mesh.face_count();
+    let geom = CheckGeometry {
+        face_areas: (0..nf).map(|f| to_vector3(mesh.face_area_vector(f))).collect(),
+        face_centres: (0..nf).map(|f| to_vector3(mesh.face_centroid(f))).collect(),
+        cell_centres: centres.into_iter().map(to_vector3).collect(),
+        cell_volumes: vols,
+    };
+    (mesh.points.iter().map(|&p| to_vector3(p)).collect(), geom)
+}
 
-    let mut min_face_area = f64::MAX;
-    let mut max_non_orth = 0.0f64;
-    let mut max_skew = 0.0f64;
-    for f in 0..mesh.face_count() {
-        let sf = mesh.face_area_vector(f);
-        let area = sf.length();
-        min_face_area = min_face_area.min(area);
-        // Non-orthogonality + skewness are defined on internal faces.
-        if let Some(nb) = mesh.neighbour[f] {
-            let co = centres[mesh.owner[f]];
-            let cn = centres[nb];
-            let d = cn.sub(co);
-            let dlen = d.length();
-            if dlen > 1e-30 && area > 1e-30 {
-                let cos = (d.dot(sf) / (dlen * area)).clamp(-1.0, 1.0);
-                max_non_orth = max_non_orth.max(cos.r_acos().to_degrees());
-                // Skewness (OpenFOAM `primitiveMeshTools::faceSkewness`):
-                // the face-centre offset from where the centre line pierces
-                // the face plane, over the face's extent along that offset,
-                // floored at 0.2 |d|.
-                let fc = mesh.face_centroid(f);
-                let cpf = fc.sub(co);
-                let sv = cpf.sub(d.scale(sf.dot(cpf) / (sf.dot(d) + 1e-300)));
-                let sv_mag = sv.length();
-                let sv_hat = sv.scale(1.0 / (sv_mag + 1e-300));
-                let mut fd = 0.2 * dlen + 1e-300;
-                for &v in &mesh.faces[f] {
-                    fd = fd.max(sv_hat.dot(mesh.points[v].sub(fc)).abs());
-                }
-                max_skew = max_skew.max(sv_mag / fd);
-            }
-        }
-    }
+/// Compute the [`QualityReport`] for `mesh` (gh:#1480: calls
+/// [`outram_foam_mesh::check_mesh::check_quality`] with its default options,
+/// which are this module's historical choices).
+pub fn check_quality(mesh: &VolumeMesh) -> QualityReport {
+    let (points, geom) = check_inputs(mesh);
+    check_mesh::check_quality(&points, &mesh.faces, &mesh.owner, &mesh.neighbour, &geom, &CheckOptions::default())
+}
 
-    let mut max_ar = 0.0f64;
-    let mut min_vol = f64::MAX;
-    let mut n_neg = 0usize;
-    // Sum of face areas per cell for the aspect ratio.
-    let mut cell_area_sum = vec![0.0f64; mesh.n_cells];
-    for f in 0..mesh.face_count() {
-        let a = mesh.face_area_vector(f).length();
-        cell_area_sum[mesh.owner[f]] += a;
-        if let Some(nb) = mesh.neighbour[f] {
-            cell_area_sum[nb] += a;
-        }
-    }
-    for c in 0..mesh.n_cells {
-        let v = vols[c];
-        min_vol = min_vol.min(v);
-        if v <= 0.0 {
-            n_neg += 1;
-        } else {
-            let ar = cell_area_sum[c] / (6.0 * v.r_powf(2.0 / 3.0));
-            max_ar = max_ar.max(ar);
-        }
-    }
-
-    // Sliver detectors: face pyramid volumes about the cell centres, and the
-    // per-cell face-normal orientation determinant. Both reuse `centres` from
-    // the pyramid decomposition above, so they see exactly the cell centres the
-    // solver would.
-    let mut min_pyr = f64::MAX;
-    let mut n_neg_pyr = 0usize;
-    // Per-cell Σ|Sf| (n̂ ⊗ n̂) as [xx, yy, zz, xy, xz, yz], and Σ|Sf|.
-    let mut normal_tensor = vec![[0.0f64; 6]; mesh.n_cells];
-    let mut normal_area = vec![0.0f64; mesh.n_cells];
-    for f in 0..mesh.face_count() {
-        let sf = mesh.face_area_vector(f);
-        let area = sf.length();
-        let fc = mesh.face_centroid(f);
-        // The owner's outward normal is +Sf; the neighbour's is −Sf.
-        let incident: [Option<(usize, f64)>; 2] = [
-            Some((mesh.owner[f], 1.0)),
-            mesh.neighbour[f].map(|nb| (nb, -1.0)),
-        ];
-        for (c, sign) in incident.into_iter().flatten() {
-            let pyr = fc.sub(centres[c]).dot(sf.scale(sign)) / 3.0;
-            min_pyr = min_pyr.min(pyr);
-            if pyr <= 0.0 {
-                n_neg_pyr += 1;
-            }
-            if area > 1e-300 {
-                // n̂ ⊗ n̂ is sign-free, so accumulate once per incidence.
-                let n = sf.scale(1.0 / area);
-                let t = &mut normal_tensor[c];
-                t[0] += area * n.x * n.x;
-                t[1] += area * n.y * n.y;
-                t[2] += area * n.z * n.z;
-                t[3] += area * n.x * n.y;
-                t[4] += area * n.x * n.z;
-                t[5] += area * n.y * n.z;
-                normal_area[c] += area;
-            }
-        }
-    }
-
-    let mut min_det = f64::MAX;
-    for c in 0..mesh.n_cells {
-        let a = normal_area[c];
-        let det = if a > 1e-300 {
-            let t = normal_tensor[c];
-            let (xx, yy, zz, xy, xz, yz) =
-                (t[0] / a, t[1] / a, t[2] / a, t[3] / a, t[4] / a, t[5] / a);
-            // Determinant of the symmetric 3×3 [[xx,xy,xz],[xy,yy,yz],[xz,yz,zz]].
-            let d = xx * (yy * zz - yz * yz) - xy * (xy * zz - yz * xz) + xz * (xy * yz - yy * xz);
-            // The tensor is positive semi-definite, so a negative value here is
-            // round-off on a degenerate cell; clamp to the true lower bound.
-            (27.0 * d).max(0.0)
-        } else {
-            // A cell with no faces, or only zero-area ones: fully degenerate.
-            0.0
-        };
-        min_det = min_det.min(det);
-    }
-
-    QualityReport {
-        max_non_orthogonality_deg: max_non_orth,
-        max_skewness: max_skew,
-        max_aspect_ratio: max_ar,
-        min_face_area: if min_face_area == f64::MAX {
-            0.0
-        } else {
-            min_face_area
-        },
-        min_cell_volume: if min_vol == f64::MAX { 0.0 } else { min_vol },
-        n_negative_volume_cells: n_neg,
-        min_face_pyramid_volume: if min_pyr == f64::MAX { 0.0 } else { min_pyr },
-        n_negative_pyramid_faces: n_neg_pyr,
-        min_cell_determinant: if min_det == f64::MAX { 0.0 } else { min_det },
-    }
+/// The faces that fail `controls` (gh:#1215; gh:#1480: calls
+/// [`outram_foam_mesh::check_mesh::faces_failing_mesh_quality`]; the port's
+/// documentation, upstream citation and the list of checks not ported are
+/// there). Centres are this crate's ([`cell_geometry`], vertex-average face
+/// centres), not OpenFOAM's area-weighted ones.
+pub fn faces_failing_mesh_quality(mesh: &VolumeMesh, controls: &MeshQualityControls) -> Vec<bool> {
+    let (points, geom) = check_inputs(mesh);
+    check_mesh::faces_failing_mesh_quality(&points, &mesh.faces, &mesh.owner, &mesh.neighbour, &geom, controls)
 }
 
 /// Per-cell `(volume, centroid)` via the OpenFOAM pyramid decomposition: each
@@ -376,191 +155,79 @@ pub(crate) fn cell_geometry(mesh: &VolumeMesh) -> (Vec<f64>, Vec<Vec3>) {
     (vols, centres)
 }
 
-/// snappyHexMesh's mesh-quality controls (`meshQualityControls`, the file
-/// `etc/caseDicts/mesh/generation/meshQualityDict` of OpenFOAM-dev
-/// `852527377c7e`), as checked by [`faces_failing_mesh_quality`]. The
-/// defaults are that file's values.
-#[derive(Debug, Clone, PartialEq)]
-pub struct MeshQualityControls {
-    /// `maxNonOrtho` [degrees]; 180 disables.
-    pub max_non_ortho_deg: f64,
-    /// `maxBoundarySkewness`; negative disables.
-    pub max_boundary_skewness: f64,
-    /// `maxInternalSkewness`; negative disables.
-    pub max_internal_skewness: f64,
-    /// `minTetQuality`: here only its sign is checked (a decomposition
-    /// tetrahedron of non-positive volume fails); `None` disables.
-    pub min_tet_quality: Option<f64>,
-    /// `minTwist`; below −1 disables.
-    pub min_twist: f64,
-    /// `minDeterminant`; negative disables.
-    pub min_determinant: f64,
-    /// `minFaceWeight`; outside [0, 1) disables.
-    pub min_face_weight: f64,
-    /// `minVolRatio`; outside [0, 1) disables.
-    pub min_vol_ratio: f64,
-}
-
-impl Default for MeshQualityControls {
-    fn default() -> Self {
-        MeshQualityControls {
-            max_non_ortho_deg: 65.0,
-            max_boundary_skewness: 20.0,
-            max_internal_skewness: 4.0,
-            min_tet_quality: Some(1e-15),
-            min_twist: 0.02,
-            min_determinant: 0.001,
-            min_face_weight: 0.05,
-            min_vol_ratio: 0.01,
-        }
+/// cfMesh's `polyMeshGenAddressing::makeFaceCentresAndAreas` /
+/// `updateGeometry` for one face, operation for operation (gh:#1385). **Not**
+/// `face::centre` / `face::areaNormal`: the addressing has its own, with
+/// `n = (next - p) ^ (centre - p)` per side, `centre = (1.0/3.0)*sumAc /
+/// (sumA + VSMALL)` and `area = 0.5*sumN`; a triangle is `(1.0/3.0)*(p0 + p1
+/// + p2)` and `0.5*((p1 - p0)^(p2 - p0))`.
+pub fn pmg_face_centre_and_area(points: &[Vec3], ring: &[usize]) -> (Vec3, Vec3) {
+    let k = ring.len();
+    if k == 3 {
+        let (p0, p1, p2) = (points[ring[0]], points[ring[1]], points[ring[2]]);
+        return (p0.add(p1).add(p2).scale(1.0 / 3.0), p1.sub(p0).cross(p2.sub(p0)).scale(0.5));
     }
+    let mut f_centre = points[ring[0]];
+    for &v in &ring[1..] {
+        f_centre = f_centre.add(points[v]);
+    }
+    let f_centre = f_centre.div(k as f64);
+    let (mut sum_n, mut sum_a, mut sum_ac) = (Vec3::ZERO, 0.0, Vec3::ZERO);
+    for i in 0..k {
+        let p = points[ring[i]];
+        let next = points[ring[(i + 1) % k]];
+        let c = p.add(next).add(f_centre);
+        let n = next.sub(p).cross(f_centre.sub(p));
+        let a = n.length();
+        sum_n = sum_n.add(n);
+        sum_a += a;
+        sum_ac = sum_ac.add(c.scale(a));
+    }
+    (sum_ac.scale(1.0 / 3.0).div(sum_a + 1e-300), sum_n.scale(0.5))
 }
 
-/// The faces that fail `controls` (gh:#1215): the port of OpenFOAM's
-/// `meshCheck::checkMesh(report, mesh, dict, checkFaces, baffles,
-/// wrongFaces)` (OpenFOAM-dev `852527377c7e`, `src/meshCheck/checkMesh.C`,
-/// with the per-check definitions of `polyMeshCheck/polyMeshCheckQuality.C`
-/// and `primitiveMeshCheck/primitiveMeshCheck.C`), which snappyHexMesh's
-/// layer driver runs on every layered mesh (`snappyLayerDriver::
-/// checkAndUnmark`).
-///
-/// Checks ported: `checkFaceOrthogonality` (internal faces),
-/// `checkFaceSkewness` (`faceSkewness` on internal faces,
-/// `boundaryFaceSkewness` with its 0.4 |d| floor on boundary faces),
-/// `checkFaceTets` (sign only), `checkFaceTwist`, `checkCellDeterminant`
-/// (`cellDeterminant`: det of Σ (S/⟨|S|⟩)² over the cell's internal faces; a
-/// failing cell marks all its faces), `checkFaceWeights`, `checkVolRatio`.
-/// Not ported: `maxConcave` (`checkFaceAngles`), `minVol` (disabled, −1e30,
-/// in the default dictionary) and `minFaceFlatness` (absent from it).
-/// Centres are this crate's ([`cell_geometry`], vertex-average face
-/// centres), not OpenFOAM's area-weighted ones.
-pub fn faces_failing_mesh_quality(mesh: &VolumeMesh, controls: &MeshQualityControls) -> Vec<bool> {
-    let (vols, centres) = cell_geometry(mesh);
-    let nf = mesh.face_count();
-    let mut bad = vec![false; nf];
-    let cos_max = controls.max_non_ortho_deg.to_radians().r_cos();
-    const RVS: f64 = 1e-150;
+/// cfMesh's `polyMeshGenAddressing::makeCellCentresAndVols`, operation for
+/// operation (gh:#1385): face centres and areas by
+/// [`pmg_face_centre_and_area`]; per cell the estimate `cEst` is the average of its face
+/// centres (`/= c.size()`), each face's `pyr3Vol = (area & (centre - cEst))`
+/// negated where the cell is not the owner and floored at `VSMALL`, the
+/// pyramid centre `(3.0/4.0)*fc + (1.0/4.0)*cEst`, the cell centre
+/// `sum/cellVol` and the volume `cellVol/3.0`. The faces of a cell run in
+/// ascending face order here (upstream's cell lists are in construction
+/// order; where they differ the last bit of a sum can).
+pub fn foam_cell_centres_and_vols(mesh: &VolumeMesh) -> (Vec<f64>, Vec<Vec3>) {
+    let (centres_f, areas_f): (Vec<Vec3>, Vec<Vec3>) = mesh.faces.iter().map(|r| pmg_face_centre_and_area(&mesh.points, r)).unzip();
     let mut cell_faces: Vec<Vec<usize>> = vec![Vec::new(); mesh.n_cells];
-    for f in 0..nf {
+    for f in 0..mesh.face_count() {
         cell_faces[mesh.owner[f]].push(f);
-        if let Some(n) = mesh.neighbour[f] {
-            cell_faces[n].push(f);
+        if let Some(nb) = mesh.neighbour[f] {
+            cell_faces[nb].push(f);
         }
     }
-    for f in 0..nf {
-        let s = mesh.face_area_vector(f);
-        let fc = mesh.face_centroid(f);
-        let co = centres[mesh.owner[f]];
-        let ring = &mesh.faces[f];
-        let k = ring.len();
-        let skew_of = |d: Vec3, floor: f64| -> f64 {
-            let cpf = fc.sub(co);
-            let sv = cpf.sub(d.scale(s.dot(cpf) / (s.dot(d) + RVS)));
-            let sv_hat = sv.scale(1.0 / (sv.length() + RVS));
-            let mut fd = floor * d.length() + RVS;
-            for &v in ring {
-                fd = fd.max(sv_hat.dot(mesh.points[v].sub(fc)).abs());
-            }
-            sv.length() / fd
-        };
-        let mut b = false;
-        match mesh.neighbour[f] {
-            Some(n) => {
-                let cn = centres[n];
-                let d = cn.sub(co);
-                if controls.max_non_ortho_deg < 180.0 && d.dot(s) / (d.length() * s.length() + RVS) < cos_max {
-                    b = true;
-                }
-                if controls.max_internal_skewness > 0.0 && skew_of(d, 0.2) > controls.max_internal_skewness {
-                    b = true;
-                }
-                if (0.0..1.0).contains(&controls.min_face_weight) {
-                    let d_own = s.dot(fc.sub(co)).abs();
-                    let d_nei = s.dot(cn.sub(fc)).abs();
-                    if d_own.min(d_nei) / (d_own + d_nei + 1e-300) < controls.min_face_weight {
-                        b = true;
-                    }
-                }
-                if (0.0..1.0).contains(&controls.min_vol_ratio) {
-                    let (a, c) = (vols[mesh.owner[f]].abs(), vols[n].abs());
-                    if a.min(c) / (a.max(c) + 1e-300) < controls.min_vol_ratio {
-                        b = true;
-                    }
-                }
-            }
-            None => {
-                if controls.max_boundary_skewness > 0.0 {
-                    let nrm = s.scale(1.0 / (s.length() + RVS));
-                    let d = nrm.scale(nrm.dot(fc.sub(co)));
-                    if skew_of(d, 0.4) > controls.max_boundary_skewness {
-                        b = true;
-                    }
-                }
-            }
+    let mut vols = vec![0.0; mesh.n_cells];
+    let mut centres = vec![Vec3::ZERO; mesh.n_cells];
+    for (c, faces) in cell_faces.iter().enumerate() {
+        let mut c_est = Vec3::ZERO;
+        for &f in faces {
+            c_est = c_est.add(centres_f[f]);
         }
-        if controls.min_tet_quality.is_some() {
-            for i in 0..k {
-                let p = mesh.points[ring[i]];
-                let q = mesh.points[ring[(i + 1) % k]];
-                // owner tets with the face and cell centres exchanged, as
-                // upstream, so a valid one is positive
-                if q.sub(p).cross(fc.sub(p)).dot(co.sub(p)) >= 0.0 {
-                    b = true;
-                }
-                if let Some(n) = mesh.neighbour[f] {
-                    if q.sub(p).cross(fc.sub(p)).dot(centres[n].sub(p)) <= 0.0 {
-                        b = true;
-                    }
-                }
+        let c_est = c_est.div(faces.len() as f64);
+        let mut cell_centre = Vec3::ZERO;
+        let mut cell_vol = 0.0;
+        for &f in faces {
+            let mut pyr3 = areas_f[f].dot(centres_f[f].sub(c_est));
+            if mesh.owner[f] != c {
+                pyr3 *= -1.0;
             }
+            pyr3 = pyr3.max(1e-300);
+            let pc = centres_f[f].scale(3.0 / 4.0).add(c_est.scale(1.0 / 4.0));
+            cell_centre = cell_centre.add(pc.scale(pyr3));
+            cell_vol += pyr3;
         }
-        if controls.min_twist >= -1.0 && k > 3 {
-            let nf_dir = match mesh.neighbour[f] {
-                Some(n) => centres[n].sub(co),
-                None => fc.sub(co),
-            };
-            let nf_dir = nf_dir.scale(1.0 / (nf_dir.length() + RVS));
-            for i in 0..k {
-                let p = mesh.points[ring[i]];
-                let q = mesh.points[ring[(i + 1) % k]];
-                let tri = q.sub(p).cross(fc.sub(p)).scale(0.5);
-                let m = tri.length();
-                if m > RVS && nf_dir.dot(tri.scale(1.0 / m)) < controls.min_twist {
-                    b = true;
-                }
-            }
-        }
-        bad[f] = b;
+        centres[c] = cell_centre.div(cell_vol);
+        vols[c] = cell_vol / 3.0;
     }
-    if controls.min_determinant >= 0.0 {
-        for faces in cell_faces.iter() {
-            let internal: Vec<Vec3> = faces.iter().filter(|&&f| mesh.neighbour[f].is_some()).map(|&f| mesh.face_area_vector(f)).collect();
-            let det = if internal.is_empty() {
-                0.0
-            } else {
-                let avg = internal.iter().map(|s| s.length()).sum::<f64>() / internal.len() as f64;
-                let mut t = [[0.0f64; 3]; 3];
-                for s in &internal {
-                    let v = [s.x / avg, s.y / avg, s.z / avg];
-                    for i in 0..3 {
-                        for j in 0..3 {
-                            t[i][j] += v[i] * v[j];
-                        }
-                    }
-                }
-                (t[0][0] * (t[1][1] * t[2][2] - t[1][2] * t[2][1]) - t[0][1] * (t[1][0] * t[2][2] - t[1][2] * t[2][0])
-                    + t[0][2] * (t[1][0] * t[2][1] - t[1][1] * t[2][0]))
-                    .abs()
-            };
-            if det < controls.min_determinant {
-                for &f in faces {
-                    bad[f] = true;
-                }
-            }
-        }
-    }
-    let _ = vols;
-    bad
+    (vols, centres)
 }
 
 #[cfg(test)]
