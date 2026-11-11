@@ -76,6 +76,7 @@
 //! | [`poly_dual_mesh`] | [`poly_dual_mesh::DualMesh::to_foam_poly_mesh`] |
 //! | [`driver`] | already a `PolyMesh` — [`GeneratedMesh::write_case`] |
 
+pub mod block_edges;
 pub mod block_mesh;
 pub mod block_primitives;
 pub mod section;
