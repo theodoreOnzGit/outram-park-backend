@@ -269,10 +269,16 @@ const TEMP: f64 = 293.6;
 // 4.41e-3), first 0.911470, last 1.061531. After: k_mean 0.994679 (k_std 4.92e-3),
 // first 0.947756, last 0.957608: -510 pcm, 0.77 sigma (quadrature of the two
 // k_std), so re-pinned. OUTRAM_MC_LEGACY_REACTION_ORDER=1 reproduces the old values.
-const K_MEAN_PRE_258: f64 = 9.946_793_011_875_267_88e-1;
-const K_STD_PRE_258: f64 = 4.924_672_070_320_445_32e-3;
-const K_GEN_FIRST_PRE_258: f64 = 9.477_563_495_950_562_80e-1;
-const K_GEN_LAST_PRE_258: f64 = 9.576_084_708_232_835_97e-1;
+// Re-pinned again 2026-11-11 (gh:#1386, #1444 d: OpenMC sample_fission_neutron
+// order). Before: k_mean 0.994679 (k_std 4.92e-3), first 0.947756, last 0.957608.
+// After: k_mean 0.987865 (k_std 4.52e-3), first 0.889782, last 0.954621: -681 pcm,
+// 1.02 sigma (quadrature of the two k_std), so re-pinned, not a finding.
+// OUTRAM_MC_LEGACY_FISSION_NEUTRON_ORDER=1 should reproduce the old values (not
+// re-run for this test: ~6 min; the delta and stats pins were).
+const K_MEAN_PRE_258: f64 = 9.878_650_436_859_930_38e-1;
+const K_STD_PRE_258: f64 = 4.518_980_462_505_944_70e-3;
+const K_GEN_FIRST_PRE_258: f64 = 8.897_816_856_242_519_72e-1;
+const K_GEN_LAST_PRE_258: f64 = 9.546_207_091_314_036_22e-1;
 
 fn heu() -> Option<Vec<Nuclide>> {
     let base =
