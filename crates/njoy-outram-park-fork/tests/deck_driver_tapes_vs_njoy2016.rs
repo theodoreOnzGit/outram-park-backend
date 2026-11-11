@@ -1305,3 +1305,34 @@ fn test_70_thermal_ace_and_directory() {
 fn test_74_thermal_ace_and_directory() {
     thermal_acer_deck("74", 2, &[("n-001_H_001-ENDF8.0-Beta6.endf", 20), ("tsl-HinZrH-ENDF8.0.endf", 21)], &[70, 75, 71, 76, 55]);
 }
+
+/// VIEWR (gh:#1369): run upstream deck `case` **whole**, ACER plot file included, in NJOY2016.80
+/// and in this crate, and compare, line by line, the PostScript unit `ps_unit` (and the plot
+/// file `plot_unit` VIEWR read, as a control that both sides fed it the same text).
+fn viewr_deck(case: &str, resource: &str, extra: &[(&str, u32)], plot_unit: u32, ps_unit: u32) -> Option<()> {
+    let root = njoy_root();
+    let full = deck_text(&root, case, None, "")?;
+    let (ours, njoy) = run_pair_decks_extra(&root, &format!("vw{case}"), resource, extra, &full, &full)?;
+    let mut bad = Vec::new();
+    for u in [plot_unit, ps_unit] {
+        let name = format!("tape{u}");
+        let d = differing_lines(&ours.join(&name), &njoy.join(&name));
+        let n = std::fs::read_to_string(njoy.join(&name)).unwrap().lines().count();
+        println!("deck {case} unit {u}: {} differing lines of {n}; first {:?}", d.len(), &d[..d.len().min(5)]);
+        if !d.is_empty() {
+            bad.push((u, d.len()));
+        }
+    }
+    if std::env::var_os("KEEP_DECK_DIRS").is_none() {
+        let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    }
+    assert!(bad.is_empty(), "deck {case}: units differ from NJOY2016: {bad:?}");
+    Some(())
+}
+
+/// **VIEWR on deck 72 (Be-9)**: the PostScript file (unit 54, 34 325 lines, 36 pages) against
+/// NJOY2016.80, line by line (gh:#1369).
+#[test]
+fn test_72_viewr_postscript() {
+    let _ = viewr_deck("72", "n-004_Be_009-ENDF8.0.endf", &[], 43, 54);
+}

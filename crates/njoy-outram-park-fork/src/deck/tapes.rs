@@ -243,6 +243,16 @@ impl TapeUnits {
         self.texts.get(&lun.abs()).map(String::as_str)
     }
 
+    /// The text file on unit `lun`: the one put there by a module, else the
+    /// work directory's `tape<n>` (an input file such as an ACER plot file).
+    pub fn text_or_file(&self, lun: i32) -> Option<String> {
+        if let Some(t) = self.text(lun) {
+            return Some(t.to_string());
+        }
+        let dir = self.workdir.as_ref()?;
+        std::fs::read_to_string(dir.join(format!("tape{}", lun.abs()))).ok()
+    }
+
     /// Unit numbers currently holding a tape, ascending.
     pub fn open_units(&self) -> Vec<i32> {
         self.units.keys().copied().collect()

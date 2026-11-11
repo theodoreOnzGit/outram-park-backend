@@ -159,7 +159,9 @@ impl Graph {
                 }
             }
         }
-        let wbord = 0.005_f64;
+        // `wbord=.005e0` is a *single-precision* literal in `initp` (no `_kr`): 0.004999999888...
+        // It differs from the double `.005e0_kr` of `gset`, so `drawh` sees a new width there.
+        let wbord = f64::from(0.005_f32);
         self.land = iori;
         self.ifont = istyle;
         self.width = wtt;
@@ -348,7 +350,7 @@ impl Graph {
         let mut vmax = -1000.0_f64;
         let mut u = 0.0_f64;
         let mut v = 0.0_f64;
-        let mut upd = |u: f64, v: f64, umin: &mut f64, umax: &mut f64, vmin: &mut f64, vmax: &mut f64| {
+        let upd = |u: f64, v: f64, umin: &mut f64, umax: &mut f64, vmin: &mut f64, vmax: &mut f64| {
             if u < *umin {
                 *umin = u;
             }

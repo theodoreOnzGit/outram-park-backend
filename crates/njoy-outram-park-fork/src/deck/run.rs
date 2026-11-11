@@ -14,7 +14,7 @@ use crate::deck::cards::CardReader;
 use crate::acer::{build_deck, AceDeck};
 use crate::deck::modules::{
     read_acer, read_broadr, read_gaspr, read_groupr, read_heatr, read_moder, read_purr, read_reconr, read_thermr,
-    read_unresr, AcerCards, BroadrCards, ModerCards, PurrCards, ReconrCards, UnresrCards,
+    read_unresr, read_viewr, AcerCards, BroadrCards, ModerCards, PurrCards, ReconrCards, UnresrCards,
 };
 use crate::deck::tapes::{PendfMeta, TapeUnits};
 use crate::endf::tape::{Section, Tape};
@@ -68,6 +68,8 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
     let mut listing = String::new();
     let mut notes: Vec<String> = Vec::new();
     let mut blocked = None;
+    // VIEWR's module variables live as long as the process (`drawh` remembers its last line width).
+    let mut viewr_state = crate::viewr::ViewrState::default();
     loop {
         let name = r.read_string(6)?;
         if name == "stop" {
@@ -117,8 +119,12 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
                 let c = read_acer(&mut r)?;
                 if opts.parse_only { Ok(()) } else { run_acer(&c, &mut units, &mut notes) }
             }
+            "viewr" => {
+                let c = read_viewr(&mut r)?;
+                if opts.parse_only { Ok(()) } else { run_viewr(c, &mut units, &mut viewr_state) }
+            }
             "gaminr" | "errorr" | "covr" | "dtfr" | "ccccr" | "matxsr" | "resxsr"
-            | "powr" | "wimsr" | "plotr" | "viewr" | "mixr" | "leapr" => {
+            | "powr" | "wimsr" | "plotr" | "mixr" | "leapr" => {
                 // The card readers of these modules are a later part of gh:#1369.
                 blocked = Some((name.clone(), "card reader not yet translated".to_string()));
                 break;
@@ -141,6 +147,18 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
         units.write_coded_files()?;
     }
     Ok(DeckRun { units, modules, blocked, listing, notes })
+}
+
+/// VIEWR (`viewr.f90`): the plot-command text on unit `infile` becomes the
+/// PostScript file on unit `nps` ([`crate::viewr`]).
+fn run_viewr(c: [i32; 2], units: &mut TapeUnits, state: &mut crate::viewr::ViewrState) -> Result<(), NjoyError> {
+    let [infile, nps] = c;
+    let plot = units
+        .text_or_file(infile)
+        .ok_or_else(|| NjoyError::InvalidInput(format!("viewr: unit {infile} holds no plot-command file")))?;
+    let ps = state.viewr(&plot)?;
+    units.put_text(nps, ps);
+    Ok(())
 }
 
 /// MODER (`moder.f90`): mode change or material selection.

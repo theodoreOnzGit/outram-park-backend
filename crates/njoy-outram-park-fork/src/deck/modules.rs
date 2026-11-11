@@ -346,6 +346,15 @@ pub fn read_gaspr(r: &mut CardReader) -> Result<[i32; 3], NjoyError> {
     Ok([c[0], c[1], c[2]])
 }
 
+// ── VIEWR ───────────────────────────────────────────────────────────────
+
+/// VIEWR's card (`viewr.f90:371`): `infile nps`, the plot-command unit and the
+/// PostScript output unit.
+pub fn read_viewr(r: &mut CardReader) -> Result<[i32; 2], NjoyError> {
+    let c = ints(r, &[0, 0])?;
+    Ok([c[0], c[1]])
+}
+
 // ── GROUPR ──────────────────────────────────────────────────────────────
 
 /// One material's worth of GROUPR cards: the crate's [`GrouprInput`] plus the
