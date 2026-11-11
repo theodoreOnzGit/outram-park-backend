@@ -20,7 +20,7 @@ use crate::deck::tapes::{PendfMeta, TapeUnits};
 use crate::endf::tape::{Section, Tape};
 use crate::heatr::{heatr, pendf_for_heatr, HeatrInput};
 use crate::moder::{select_materials, MaterialSelection};
-use crate::reconr::{reconr, ReconrConfig, ReconrResult};
+use crate::reconr::{ReconrConfig, ReconrResult};
 use crate::NjoyError;
 
 /// How to run a deck.
@@ -156,7 +156,8 @@ fn run_moder(c: &ModerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
             if nin.abs() >= 20 {
                 units.openz(*nin, 0)?;
             }
-            let u = units.get(*nin)?.clone();
+            let mut u = units.get(*nin)?.clone();
+            u.tape.clear_copied_closers();
             units.store(*nout, u.tape, u.pointwise)?;
             units.set_meta(*nout, u.meta);
             Ok(())
@@ -234,9 +235,6 @@ fn run_broadr(c: &BroadrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         if m.istart != 0 || m.temp1 != 0.0 {
             return Err(NjoyError::NotPorted("BROADR restart / starting temperature (cards 2)"));
         }
-        if m.thnmx != 6.5e6 || m.errmax != 0.0 || m.errint != 0.0 {
-            return Err(NjoyError::NotPorted("BROADR non-default thnmx/errmax/errint (card 3)"));
-        }
         let Some((mat, res)) = &input.pointwise else {
             return Err(NjoyError::NotPorted(
                 "BROADR on a PENDF tape not made by RECONR in this run (no PENDF reader into pointwise form)",
@@ -252,7 +250,16 @@ fn run_broadr(c: &BroadrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         let mut meta = input.meta.clone();
         meta.blocks.clear();
         for &temp in &m.temps {
-            let tol = BroadnTolerances::with_errthn(m.errthn);
+            // `broadr.f90:204-209`: a zero `errmax` is `10 errthn`, a zero
+            // `errint` is `errthn / 20000`; `thnmx` goes to `broadr_joint`
+            // (which `sigfig`s it and applies `eresh`, `emax` and the sign).
+            let mut tol = BroadnTolerances::with_errthn(m.errthn);
+            if m.errmax != 0.0 {
+                tol.errmax = m.errmax;
+            }
+            if m.errint != 0.0 {
+                tol.errint = m.errint;
+            }
             let out = match broadr_joint(&src, temp, &tol, m.thnmx) {
                 Some(b) if text_mode => b.through_pendf_text(),
                 Some(b) => b,
@@ -384,6 +391,16 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     units.openz(c.nace, 1)?;
     let endf = units.get(c.nendf)?.tape.clone();
     let pend = units.get(c.npend)?.clone();
+    // A PENDF unit that no RECONR/BROADR in this run made (decks 14, 50-54, 62,
+    // 71 hand ACER the raw evaluation `epn14`/..., an incident-charged-particle
+    // ENDF tape with MF=6 charged-particle data, as both ENDF and PENDF) has no
+    // pointwise block. Upstream's `first` reads on (`acefc.f90:288-299`) and
+    // builds the charged-particle table (`izai != 1`); that path is not ported
+    // (`acelcp` module doc: "incident charged particles"), so say so rather
+    // than report a temperature that was never the problem (gh:#1369).
+    if pend.meta.blocks.is_empty() && pend.pointwise.is_none() {
+        return Err(NjoyError::NotPorted("ACER of an incident charged particle (acefc izai != 1) from a raw evaluation used as PENDF"));
+    }
     // `first`: the temperature block within `ttol = 1` K of `tempd`.
     let Some((_, res)) = pend.meta.blocks.iter().find(|(t, _)| (t - c.tempd).abs() < 1.0) else {
         return Err(NjoyError::InvalidInput("acer: desired temperature not found.".into()));

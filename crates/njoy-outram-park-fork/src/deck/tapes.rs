@@ -201,7 +201,8 @@ impl TapeUnits {
         let (tape, pointwise) = if lun > 0 {
             let mut text = Vec::new();
             tape.write(&mut text)?;
-            let back = Tape::read(&text[..])?;
+            let mut back = Tape::read(&text[..])?;
+            back.copy_closers_from(&tape);
             (back, pointwise.map(|(m, r)| (m, r.through_pendf_text())))
         } else {
             (tape, pointwise)

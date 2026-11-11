@@ -132,6 +132,11 @@ pub fn read_reconr(r: &mut CardReader) -> Result<ReconrCards, NjoyError> {
             cards.push(r.read_string(66)?);
         }
         let enode = if ngrid > 0 { r.read_reals(&vec![0.0; ngrid])? } else { Vec::new() };
+        // `ruina` (`reconr.f90:445-455`): no descriptive card is one blank card
+        // (`ncards = 1`), which is what NWD = 17 on the tape counts.
+        if cards.is_empty() {
+            cards.push(" ".repeat(66));
+        }
         materials.push(ReconrMaterial { mat: c[0], err: v[0], tempr: v[1], errmax: v[2], errint: v[3], cards, enode });
     }
     Ok(ReconrCards { nendf: u[0], npend: u[1], label, materials })
