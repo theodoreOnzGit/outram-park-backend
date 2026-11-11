@@ -23,16 +23,32 @@
 //!
 //! # What `SeedingMode::OpenMc` does and does not do
 //!
-//! It sets each history's **tracking stream** (stream 0) to OpenMC's
-//! `seeds[STREAM_TRACKING]` for that particle, and hands the URR stream
-//! (`seeds[STREAM_URR_PTABLE]`) to the history in place of the jump-ahead the
-//! port derives from the tracking stream. It does **not** make a history
-//! consume random numbers in OpenMC's order: the port samples the delayed group
-//! on a separate jump-ahead stream, where OpenMC uses the tracking stream. That is a
-//! deliberate port decision, recorded in `transport_csg.rs`, and is the first place a
-//! track differential will diverge. Only the CSG parallel drivers
-//! (`run_keff_csg_par*`, `CsgPowerIteration::step_par`) read the mode; the
-//! single-stream drivers ignore it.
+//! Every random stream of OpenMC's run has its OpenMC seed in this mode
+//! (extended 2026-11-11, gh:#1386 task 3):
+//!
+//! | OpenMC stream | what draws from it | in `SeedingMode::OpenMc` |
+//! |---|---|---|
+//! | `STREAM_TRACKING` (0) | every transport draw of a history, **including the delayed-group draw** | the history's tracking seed; the delayed group is sampled from it (it used a separate jump-ahead sub-stream in `Outram` mode) |
+//! | `STREAM_SOURCE` (1) | `initialize_source`: the external source of generation 1 | [`OpenMcRunLayout::source_seed`] per source particle (`sample_box_source_openmc`) |
+//! | `STREAM_URR_PTABLE` (2) | URR probability-table bands | the history's URR seed (as before) |
+//! | `STREAM_VOLUME` (3) | `volume_calc` | `geometry::volume_calc` has always used `init_seed(i, STREAM_VOLUME, seed)` |
+//! | tracking, at `init_seed(total_gen + overall_generation, STREAM_TRACKING)` | `synchronize_bank`'s uniform comb | [`OpenMcRunLayout::bank_comb_seed`] and [`comb_resample_openmc`] |
+//!
+//! All three CSG k-eigenvalue drivers (`run_keff_csg_seq`,
+//! `run_keff_csg_par*`, `CsgPowerIteration::new/step/step_par`) read the mode
+//! (the sequential driver and the iteration object since 2026-11-11; before
+//! that only the parallel drivers did). Not covered: the GPU batched drivers
+//! (`run_keff_batched*`, WGSL) and the non-CSG sphere drivers
+//! (`physics::keff`), which keep their own layout, and a fixed-source
+//! (`FixedSource`) run.
+//!
+//! It still does **not** make every history consume random numbers in OpenMC's
+//! ORDER: the port draws a fission neutron's direction before its energy and
+//! isotropically (OpenMC: delayed/prompt, then the energy law, then a cosine and
+//! `rotate_angle`), uses the older `two_body_scatter_with_mu` and
+//! `free_gas_elastic_scatter_dbrc` kernels (see `physics::scatter` for the
+//! OpenMC-faithful `*_openmc` versions), and so on. The streams are OpenMC's; the
+//! consumption order is the port's. That is where a track differential diverges.
 //!
 //! Indexing: OpenMC's `current_batch` and `current_gen` start at 1 and
 //! `index_source` at 1. With `gen_per_batch = 1` (this crate's generation
@@ -143,6 +159,58 @@ impl OpenMcRunLayout {
         let tseed = self.compute_transport_seed(id, current_batch, current_gen);
         init_particle_seeds(tseed, self.master_seed, self.stride)
     }
+
+    /// The seed `initialize_source` gives the `i`-th source particle of this
+    /// rank (0-based) when it samples the external source:
+    /// `init_seed(total_gen * n_particles + work_index + i + 1, STREAM_SOURCE)`
+    /// (`src/eigenvalue.cpp` / `src/source.cpp`), which is stream
+    /// [`STREAM_SOURCE`] of [`init_particle_seeds`] at that id.
+    pub fn source_seed(&self, i: i64) -> u64 {
+        let id = self.total_gen * self.n_particles + self.rank_work_index + i + 1;
+        init_particle_seeds(id, self.master_seed, self.stride)[STREAM_SOURCE]
+    }
+
+    /// The seed `synchronize_bank` combs the fission bank with after batch
+    /// `current_batch` (1-based), generation `current_gen` (1-based):
+    /// `init_seed(total_gen + overall_generation(), STREAM_TRACKING)`
+    /// (`src/eigenvalue.cpp:150-151`).
+    pub fn bank_comb_seed(&self, current_batch: i64, current_gen: i64) -> u64 {
+        let id = self.total_gen + self.overall_generation(current_batch, current_gen);
+        init_particle_seeds(id, self.master_seed, self.stride)[STREAM_TRACKING]
+    }
+}
+
+/// `synchronize_bank`'s uniform comb (`src/eigenvalue.cpp:153-175`) on a single
+/// rank: `n` sites from `bank`, teeth `total / n` apart from one offset
+/// `prn(seed) * total / n`, the tooth position **accumulated by repeated
+/// addition** (`tooth += teeth_distance`) as upstream does.
+/// [`crate::physics::fission::comb_resample`] computes `offset + i * teeth`
+/// instead; the two agree except where an accumulated rounding error moves a
+/// tooth across an integer, so this one is the bit-exact version. Needs a bank
+/// in OpenMC's order (sorted by parent, then progeny).
+pub fn comb_resample_openmc<T: Copy>(bank: &[T], n: usize, seed: &mut u64) -> Vec<T> {
+    let total = bank.len();
+    if total == 0 || n == 0 {
+        return Vec::new();
+    }
+    // Comb specification
+    let teeth_distance = total as f64 / n as f64;
+    let teeth_offset = crate::rng::lcg::prn(seed) * teeth_distance;
+    // First and last hitting tooth (start = 0 on a single rank)
+    let end = total as f64;
+    let tooth_start = ((0.0 - teeth_offset) / teeth_distance).ceil() as i64;
+    let tooth_end = ((end - teeth_offset) / teeth_distance).floor() as i64 + 1;
+    let mut tooth = tooth_start as f64 * teeth_distance + teeth_offset;
+    let mut out = Vec::with_capacity(n + 1);
+    for _ in tooth_start..tooth_end {
+        // upstream indexes `fission_bank[floor(tooth) - start]` unchecked; a
+        // tooth exactly at `total` (offset 0) is clamped to the last site.
+        let idx = (tooth.floor() as usize).min(total - 1);
+        out.push(bank[idx]);
+        // Next tooth
+        tooth += teeth_distance;
+    }
+    out
 }
 
 impl SeedingMode {

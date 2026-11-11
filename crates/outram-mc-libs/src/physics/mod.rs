@@ -63,6 +63,7 @@ pub mod variance_reduction;
 pub mod weight_windows;
 pub mod fixed_source;
 pub mod scatter;
+pub mod nbody;
 pub mod fission;
 pub mod keff;
 pub mod ifp;
