@@ -657,8 +657,9 @@ impl AceTable {
             }
             let disap = is_disappearance(mt, &present);
             // `acelod` adds to the total only `mth <= 200` or `>= 600`
-            // (`acefc.f90:5655-5663`), so 444 does not.
-            let in_total = mt != 444 && contributes_to_total(mt, &present);
+            // (`acefc.f90:5655-5663`), so 444 does not, nor GASPR's 203-207
+            // (gh:#1369, test 13).
+            let in_total = !(201..=599).contains(&mt) && contributes_to_total(mt, &present);
             for j in 0..nes {
                 if in_total {
                     total[j] += partial_xs[k][j];

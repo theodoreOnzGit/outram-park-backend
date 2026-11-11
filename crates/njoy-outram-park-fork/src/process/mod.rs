@@ -178,6 +178,7 @@ impl NuclearCrossSections {
             newfor: 1,
             photon_matrix: None,
             mt444: None,
+            gas: Vec::new(),
         };
         crate::acer::assemble(&self.tape, self.mat, &self.pendf, K_B_MEV * t_k, self.settings.ace_suffix, &modules)
     }
