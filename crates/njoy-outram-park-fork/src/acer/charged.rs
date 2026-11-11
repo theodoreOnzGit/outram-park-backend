@@ -572,7 +572,7 @@ pub fn build_charged(tape: &Tape, mat: i32, kt_mev: f64, suffix: u32, text_pendf
     nx[nxs::Z] = za / 1000;
     nx[nxs::A] = za % 1000;
     let zaid_num = za as f64 + suffix as f64 / 100.0;
-    Ok(AceTable {
+    let mut table = AceTable {
         zaid: format!("{:9.2}{}", zaid_num, letter),
         awr,
         kt_mev: kt,
@@ -584,7 +584,12 @@ pub fn build_charged(tape: &Tape, mat: i32, kt_mev: f64, suffix: u32, text_pendf
         jxs: jx,
         xss,
         xss_is_int: is_int,
-    })
+    };
+    if !super::acelcp::recoil_heating_supported(tape, mat) {
+        return Err(NjoyError::NotPorted("acelcp: LAW=4 recoil heating of an incident charged particle (acefc.f90:11060)"));
+    }
+    super::acelcp::append_incident(&mut table, tape, mat, &pendf, 1, izai, awi);
+    Ok(table)
 }
 
 fn rt_text(x: f64) -> f64 {
