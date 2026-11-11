@@ -202,6 +202,12 @@ pub struct KeffSettings {
     /// eigenvalue does not depend on this choice; only the tallies do.
     /// Surface-tracked regions always use the track-length estimator.
     pub delta_tally_estimator: crate::physics::transport_csg::DeltaTallyEstimator,
+    /// How the CSG parallel drivers derive each history's random streams.
+    /// `SeedingMode::Outram` (the default) is the crate's own layout;
+    /// `SeedingMode::OpenMc` is OpenMC's `init_particle_seeds` layout
+    /// (gh:#1386). See `crate::rng::openmc_seeding` for what it does and does
+    /// not make identical to OpenMC.
+    pub seeding: crate::rng::openmc_seeding::SeedingMode,
 }
 
 impl Default for KeffSettings {
@@ -221,11 +227,19 @@ impl Default for KeffSettings {
             variance_reduction: Default::default(),
             keff_trigger: None,
             delta_tally_estimator: Default::default(),
+            seeding: Default::default(),
         }
     }
 }
 
 impl KeffSettings {
+    /// Return a copy of these settings with the named seeding layout
+    /// (gh:#1386); the default is [`crate::rng::openmc_seeding::SeedingMode::Outram`].
+    pub fn with_seeding(mut self, seeding: crate::rng::openmc_seeding::SeedingMode) -> Self {
+        self.seeding = seeding;
+        self
+    }
+
     /// Return a copy of these settings with the transport backend set to
     /// `compute`. A builder-style convenience for selecting a [`ComputeType`]
     /// without spelling out the whole struct.

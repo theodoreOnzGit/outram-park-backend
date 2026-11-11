@@ -41,6 +41,36 @@
 //! **SUPERSEDED 2026-10-20 (gh:#985):** the platform libm is no longer
 //! called, so one pin holds for every host; see below.
 //!
+//! # Re-pinned 2026-11-11: surface and lattice distances follow OpenMC `8f79d9d0` (gh:#1442, #1443, #701, #1386)
+//!
+//! The surface `distance` routines (planes, sphere, cylinders, cones, quadric,
+//! tori) and `RectLattice::distance` were rewritten as line-by-line ports of
+//! OpenMC's `surface.cpp` / `lattice.cpp` and are now bit-identical to a
+//! compiled OpenMC (`surface_distance_vs_openmc_code_to_code.rs`,
+//! `lattice_distance_vs_openmc_code_to_code.rs`). The old routines differed
+//! from upstream in the last bits (e.g. cylinders: `a = u^2 + v^2` against
+//! upstream's `a = 1 - u_axis^2`) and in the coincidence band (`1e-14` / `1e-10`
+//! against `FP_COINCIDENT = 1e-12`). A re-measurement, not a tuning: no input
+//! was changed to reach a number, and the new bits are the upstream-faithful
+//! ones. Measured on this machine (Intel Xeon, 4 vCPU shared, rustc 1.99.1,
+//! release); the random streams are unchanged, so `k` moves only by the
+//! path divergence a last-bit distance change causes. Pins that did NOT move:
+//! `keff_delta_seq`, `keff_delta_stepping`, `keff_delta_par2`, `majorants`,
+//! `bounded_delta_flight_visiting`, `track_to_collision` (pebble spheres and
+//! planes: already bit-identical to upstream).
+//!
+//! | case | old | new | k (new) |
+//! |---|---|---|---|
+//! | `surface_seq` | `0xced442c206c401d6` | `0x41960ccb3770903b` | 1.31841 +/- 0.02358 (old k not recorded) |
+//! | `hybrid_seq_no_tally` | `0x26fa1f95baf5d18f` | `0xacc3c32c58981f20` | 1.29572 +/- 0.02027 |
+//! | `hybrid_seq_tentative` | `0x156e5ccf26d1bdfd` | `0xe85b3aec28389b6f` | 1.29572 +/- 0.02027 |
+//! | `hybrid_seq_real` | `0x99da6a61ef5d2918` | `0xc30aa4bbdf19a23a` | 1.29572 +/- 0.02027 |
+//! | `hybrid_seq_progress` | `0x795ccb20e19aebe1` | `0x8b4986730a5f5879` | 1.29572 +/- 0.02027 |
+//! | `hybrid_par2_tentative` | `0x06b91807b471d659` | `0xbb38c221486406cf` | 1.29103 +/- 0.02417 |
+//!
+//! The old `k` of these cases was not recorded when they were pinned (the
+//! pins hold fingerprints), so the size of the move cannot be stated.
+
 //! # Re-pinned once, 2026-10-20: every transcendental on PETIR (gh:#985)
 //!
 //! gh:#985 routed every `exp`/`ln`/`powf`/trig call in the workspace through
@@ -351,7 +381,7 @@ fn hybrid_csg_paths_are_bit_identical() {
     );
     let mut fp = Fp::new();
     fp.keff(&surf);
-    check("surface_seq", fp.0, 0xced442c206c401d6, &describe(&surf));
+    check("surface_seq", fp.0, 0x41960ccb3770903b, &describe(&surf));
 
     let a = run_keff_csg_hybrid(
         &geom,
@@ -365,18 +395,18 @@ fn hybrid_csg_paths_are_bit_identical() {
     );
     let mut fp = Fp::new();
     fp.keff(&a);
-    check("hybrid_seq_no_tally", fp.0, 0x26fa1f95baf5d18f, &describe(&a));
+    check("hybrid_seq_no_tally", fp.0, 0xacc3c32c58981f20, &describe(&a));
 
     for (name, est, pin) in [
         (
             "hybrid_seq_tentative",
             DeltaTallyEstimator::TentativeCollision,
-            0x156e5ccf26d1bdfd_u64,
+            0xe85b3aec28389b6f_u64,
         ),
         (
             "hybrid_seq_real",
             DeltaTallyEstimator::RealCollision,
-            0x99da6a61ef5d2918,
+            0xc30aa4bbdf19a23a,
         ),
     ] {
         let mut t = tally();
@@ -411,7 +441,7 @@ fn hybrid_csg_paths_are_bit_identical() {
     let mut fp = Fp::new();
     fp.keff(&r);
     fp.fs(&ks);
-    check("hybrid_seq_progress", fp.0, 0x795ccb20e19aebe1, &describe(&r));
+    check("hybrid_seq_progress", fp.0, 0x8b4986730a5f5879, &describe(&r));
 
     let mut t = tally();
     let r = run_keff_csg_hybrid(
@@ -427,7 +457,7 @@ fn hybrid_csg_paths_are_bit_identical() {
     let mut fp = Fp::new();
     fp.keff(&r);
     fp.tally(&t, n_active);
-    check("hybrid_par2_tentative", fp.0, 0x06b91807b471d659, &describe(&r));
+    check("hybrid_par2_tentative", fp.0, 0xbb38c221486406cf, &describe(&r));
 }
 
 #[test]

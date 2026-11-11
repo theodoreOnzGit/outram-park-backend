@@ -4489,9 +4489,12 @@ fn disappearance() -> [MtReaction; 21] {
 /// # Variate count is deliberately not fixed
 ///
 /// Unlike [`crate::physics::scatter::continuum_inelastic_scatter_evaluated_with`],
-/// this consumes a variable number of variates — `sample_mf4_mu_cm` spends one
+/// this consumes a variable number of variates — ~~`sample_mf4_mu_cm` spends one
 /// on its statistical neighbour pick only when the incident energy falls inside
-/// the tabulated grid. That is correct for this law and is why it is a separate
+/// the tabulated grid~~ **CORRECTED 2026-11-11 (gh:#1386):** it spends that one
+/// variate on every call, as OpenMC's `AngleDistribution::sample` does; the count
+/// still varies with the angular table and the energy law's rejection loop
+/// (LF=7/9/11). That is correct for this law and is why it is a separate
 /// entry point: the continuum path's ablation control depends on a fixed
 /// one-variate cosine draw, and folding this in would have broken that
 /// invariant silently.
@@ -4499,13 +4502,23 @@ fn disappearance() -> [MtReaction; 21] {
 /// Returns an isotropic cosine when the evaluation declares the reaction
 /// isotropic (`LTT = 0` or `LI = 1`, as C-12's MT=91 does) — a statement by the
 /// evaluator, not a gap in this port.
+///
+/// **Draw order, CORRECTED 2026-11-11 (gh:#1386):** the cosine is drawn FIRST,
+/// then the energy, as OpenMC's `UncorrelatedAngleEnergy::sample` does. It was
+/// energy first. Bit-identical to OpenMC on the fixed-seed differential
+/// (`tests/secondary_samplers_vs_openmc_code_to_code.rs`).
 pub fn sample_uncorrelated_emission(
     law: &UncorrelatedEmission,
     e_in: f64,
     seed: &mut u64,
 ) -> (f64, f64) {
-    let e_out = sample_chi(&law.energy, e_in, seed);
+    // OpenMC order (`UncorrelatedAngleEnergy::sample`, `src/secondary_uncorrelated.cpp`,
+    // commit `8f79d9d0`): the cosine FIRST, then the energy. **CORRECTED
+    // 2026-11-11 (gh:#1386):** this drew the energy first, so the same seed gave
+    // a different `(E', mu)` from OpenMC's
+    // (`tests/secondary_samplers_vs_openmc_code_to_code.rs`).
     let mu = sample_mf4_mu_cm(&law.angular, e_in, seed).unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
+    let e_out = sample_chi(&law.energy, e_in, seed);
     (e_out, mu)
 }
 
@@ -4539,6 +4552,69 @@ fn sample_chi(chi: &FissionSpectrum, e_in: f64, seed: &mut u64) -> f64 {
     }
 }
 
+/// OpenMC's `Tabulated1D::operator()` (`src/endf.cpp`, commit `8f79d9d0`): the
+/// evaluator behind `MaxwellEnergy`, `Evaporation` and `WattEnergy`'s `theta`,
+/// `a`, `b`. **Not** [`eval_tab1`] (NJOY's `terp1`): OpenMC returns the first or
+/// last value outside the table (no zero), finds the bin with `lower_bound_index`
+/// (`x` equal to an interior abscissa belongs to the bin BELOW it), picks the
+/// region by `i < NBT_j - 1`, and writes lin-lin as `y0 + r (y1 - y0)` with
+/// `r = (x - x0) / (x1 - x0)`, which differs from `terp1` in the last bit.
+/// Bit-identical to upstream on `tests/secondary_samplers_vs_openmc_code_to_code.rs`
+/// (lin-lin; the log laws call PETIR's `ln`/`exp`, not the platform's).
+/// `interp` is ENDF `(NBT, INT)` with `NBT` 1-based; empty means lin-lin.
+pub(crate) fn tabulated1d_eval(x: f64, interp: &[(u32, u32)], pairs: &[(f64, f64)]) -> f64 {
+    let n = pairs.len();
+    if n == 0 {
+        return 0.0;
+    }
+    if x < pairs[0].0 || n == 1 {
+        return pairs[0].1;
+    } else if x > pairs[n - 1].0 {
+        return pairs[n - 1].1;
+    }
+    // lower_bound_index (search.h)
+    let i = if pairs[0].0 == x {
+        0
+    } else {
+        pairs.partition_point(|p| p.0 < x) - 1
+    };
+    // `int2interp` (endf.cpp): 1/11/21 histogram, 2/12/22 lin-lin, 3/13/23
+    // lin-log, 4/14/24 log-lin, 5/15/25 log-log.
+    let code = if interp.is_empty() {
+        2
+    } else {
+        let mut c = interp[0].1;
+        for &(nbt, int) in interp {
+            if (i as i64) < nbt as i64 - 1 {
+                c = int;
+                break;
+            }
+        }
+        c
+    };
+    let (x0, y0) = pairs[i];
+    let (x1, y1) = pairs[i + 1];
+    match code % 10 {
+        1 => y0,
+        3 => {
+            let r = (x / x0).r_ln() / (x1 / x0).r_ln();
+            y0 + r * (y1 - y0)
+        }
+        4 => {
+            let r = (x - x0) / (x1 - x0);
+            y0 * (r * (y1 / y0).r_ln()).r_exp()
+        }
+        5 => {
+            let r = (x / x0).r_ln() / (x1 / x0).r_ln();
+            y0 * (r * (y1 / y0).r_ln()).r_exp()
+        }
+        _ => {
+            let r = (x - x0) / (x1 - x0);
+            y0 + r * (y1 - y0)
+        }
+    }
+}
+
 /// **LF=7** — sample the simple Maxwellian fission spectrum at incident energy
 /// `e_in` \[eV\], restricted to `E' ≤ e_in − u`. Evaluates θ(E) at `e_in`
 /// ([`eval_tab1`], the full ENDF multi-region interpolation), then rejects
@@ -4546,7 +4622,7 @@ fn sample_chi(chi: &FissionSpectrum, e_in: f64, seed: &mut u64) -> f64 {
 /// `MaxwellEnergy::sample` (`src/distribution_energy.cpp`), which itself calls
 /// [`maxwell`] (`src/random_dist.cpp` `maxwell_spectrum`).
 fn sample_maxwell_lf7(theta: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f64 {
-    let t = eval_tab1(e_in, &theta.interp, &theta.pairs).unwrap_or(0.0);
+    let t = tabulated1d_eval(e_in, &theta.interp, &theta.pairs);
     loop {
         let e_out = maxwell(seed, t);
         if e_out <= e_in - u {
@@ -4561,7 +4637,7 @@ fn sample_maxwell_lf7(theta: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f64 {
 /// truncated-exponential-squared density by rejection
 /// (`x = −ln[(1−vξ₁)(1−vξ₂)]`, accept `x ≤ y`), returning `x·θ`.
 fn sample_evaporation_lf9(theta: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f64 {
-    let t = eval_tab1(e_in, &theta.interp, &theta.pairs).unwrap_or(0.0);
+    let t = tabulated1d_eval(e_in, &theta.interp, &theta.pairs);
     if !(t > 0.0) {
         return 0.0;
     }
@@ -4583,8 +4659,8 @@ fn sample_evaporation_lf9(theta: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f6
 /// direct port of OpenMC `WattEnergy::sample` (`src/distribution_energy.cpp`),
 /// which itself calls [`watt`] (`src/random_dist.cpp` `watt_spectrum`).
 fn sample_watt_lf11(a: &Tab1, b: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f64 {
-    let av = eval_tab1(e_in, &a.interp, &a.pairs).unwrap_or(0.0);
-    let bv = eval_tab1(e_in, &b.interp, &b.pairs).unwrap_or(0.0);
+    let av = tabulated1d_eval(e_in, &a.interp, &a.pairs);
+    let bv = tabulated1d_eval(e_in, &b.interp, &b.pairs);
     loop {
         let e_out = watt(seed, av, bv);
         if e_out <= e_in - u {
@@ -5026,9 +5102,16 @@ fn sample_mf4_mu_cm(dist: &ElasticAngular, e: f64, seed: &mut u64) -> Option<f64
 
     let e_mev = e * 1.0e-6;
     let n = dists.len();
+    // OpenMC's `AngleDistribution::sample` draws the neighbour-pick variate
+    // (`if (r > prn(seed)) ++i`) on EVERY call, including outside the grid where
+    // `r` is 0 or 1 and the pick is decided. **CORRECTED 2026-11-11 (gh:#1386):**
+    // the two out-of-grid arms below drew nothing, so the stream was one variate
+    // short of upstream's there.
     let chosen = if e_mev <= dists[0].e_mev {
+        let _ = prn(seed);
         &dists[0]
     } else if e_mev >= dists[n - 1].e_mev {
+        let _ = prn(seed);
         &dists[n - 1]
     } else {
         let mut i = 0;

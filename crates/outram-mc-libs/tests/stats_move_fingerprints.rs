@@ -154,6 +154,22 @@
 //! the point of the change; if one does not, the cause is a remaining
 //! platform call, to be found and routed, not a host line to add.
 
+//! # Re-pinned 2026-11-11: surface and lattice distances follow OpenMC `8f79d9d0` (gh:#1442, #1443, #701, #1386)
+//!
+//! The surface `distance` routines and `RectLattice::distance` are now
+//! line-by-line ports of OpenMC's (bit-identical to a compiled OpenMC in
+//! `surface_distance_vs_openmc_code_to_code.rs` and
+//! `lattice_distance_vs_openmc_code_to_code.rs`); the old ones differed in the
+//! last bits (cylinder `a = u^2 + v^2` against `1 - u_axis^2`) and in the
+//! coincidence band. A re-measurement, not a tuning: the new bits are the
+//! upstream-faithful ones. Intel Xeon (4 vCPU, shared), rustc 1.99.1, release.
+//!
+//! | case | old pin | new pin | detail |
+//! |---|---|---|---|
+//! | `csg_nested_lattice_navigation` | `0x713ceb92878a0977` | `0x8c30242091a4ade8` | counts unchanged (3104 of 4000 located, 17220 events); the hash includes `s.distance` of every surface |
+//! | `csg_nested_lattice_keff` | `0x9a0a134b77cc8def` | `0x8931164ebf355c38` | k 1.73360 +/- 0.01313 -> **1.72559 +/- 0.01517** (-801 pcm, 0.4 combined sigma) |
+//! | `godiva_run_keff`, `godiva_csg_entropy_trigger`, `mg_sphere`, `shannon_entropy`, `tally_meshes`, `pure_statistics`, `fhr_explicit_triso_delta` | unchanged | unchanged | spheres and planes only: already bit-identical |
+//!
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -856,9 +872,10 @@ fn csg_nested_lattice_navigation_is_bit_identical() {
     check(
         "csg_nested_lattice_navigation",
         fp.0,
-        // Re-pinned 2026-10-20 (gh:#985): direction sampling on PETIR trig.
-        // Was 0xa10fb6daad87f539.
-        0x713ceb92878a0977,
+        // Re-pinned 2026-11-11 (gh:#1442, #1443, #701): surface `distance` and
+        // `RectLattice::distance` follow OpenMC 8f79d9d0 bit for bit. Was
+        // 0x713ceb92878a0977 (2026-10-20, gh:#985), 0xa10fb6daad87f539 before.
+        0x8c30242091a4ade8,
         &format!("{n_located} of 4000 points located, {n_events} flight events"),
     );
 }
@@ -916,10 +933,11 @@ fn csg_nested_lattice_keff_is_bit_identical() {
     check(
         "csg_nested_lattice_keff",
         fp.0,
-        // Re-pinned 2026-10-20 (gh:#985): every transcendental on PETIR, one
-        // pin for every host. Was host A 0x509ddd7ff08feef7, host B
-        // 0xa9f3504144099ed2 (#578).
-        0x9a0a134b77cc8def,
+        // Re-pinned 2026-11-11 (gh:#1442, #1443, #701): surface and lattice
+        // distances follow OpenMC 8f79d9d0 bit for bit. Was 0x9a0a134b77cc8def
+        // (2026-10-20, gh:#985; k 1.73360 +/- 0.01313), before that host A
+        // 0x509ddd7ff08feef7, host B 0xa9f3504144099ed2 (#578).
+        0x8931164ebf355c38,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),

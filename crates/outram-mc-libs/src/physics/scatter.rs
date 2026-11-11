@@ -978,16 +978,82 @@ pub fn sample_continuum_branch(
     // One variate, spent either on inverting the row's cosine CDF or on the flat
     // map — so the ablation does not shift the RNG stream.
     let xi = prn(seed);
+    let kalbach = matches!(
+        branch.angular,
+        njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular::KalbachMann(_)
+    );
     let mu = match mode {
-        ContinuumAngularMode::IsotropicAblation => 2.0 * xi - 1.0,
-        // `sample_mu_at` dispatches over the representation and returns `None`
-        // only where no angular law exists, where isotropic is right anyway.
-        ContinuumAngularMode::Evaluated => branch
-            .angular
-            .sample_mu_at(table, pick, xi)
-            .unwrap_or(2.0 * xi - 1.0),
+        ContinuumAngularMode::IsotropicAblation => {
+            // Kalbach-Mann spends a SECOND variate in OpenMC's sampler (below);
+            // the ablation spends it too, so the two arms stay on one stream.
+            if kalbach {
+                let _ = prn(seed);
+            }
+            2.0 * xi - 1.0
+        }
+        ContinuumAngularMode::Evaluated => {
+            if let Some((r, a)) = kalbach_row_at(&branch.angular, table, pick) {
+                kalbach_mann_mu_openmc(r, a, xi, seed)
+            } else {
+                // `sample_mu_at` dispatches over the representation and returns `None`
+                // only where no angular law exists, where isotropic is right anyway.
+                branch
+                    .angular
+                    .sample_mu_at(table, pick, xi)
+                    .unwrap_or(2.0 * xi - 1.0)
+            }
+        }
     };
     (sampled, mu)
+}
+
+/// The Kalbach-Mann `(r, a)` of the row `pick` selects, interpolated in outgoing
+/// energy as OpenMC's `KalbachMann::sample_params` does
+/// (`r[k] + frac * (r[k+1] - r[k])`, `frac = 0` for histogram tables and
+/// lines), or `None` for any other angular representation.
+fn kalbach_row_at(
+    angular: &njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular,
+    table: usize,
+    pick: njoy_outram_park_fork::nuclear_data::secondary::AnglePick,
+) -> Option<(f64, f64)> {
+    use njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular;
+    let ContinuumAngular::KalbachMann(tables) = angular else {
+        return None;
+    };
+    let rows = &tables.get(table)?.rows;
+    let a = rows.get(pick.row)?;
+    Some(match rows.get(pick.row + 1) {
+        Some(b) if pick.frac > 0.0 => (a.r + pick.frac * (b.r - a.r), a.a + pick.frac * (b.a - a.a)),
+        _ => (a.r, a.a),
+    })
+}
+
+/// OpenMC's Kalbach-Mann emission cosine (`KalbachMann::sample`,
+/// `src/secondary_kalbach.cpp`, commit `8f79d9d0`): a **mixture** sampled with
+/// two variates, not the closed-form inverse of the density. `xi` is the first
+/// (`prn(seed) > km_r` selects the branch), the second is drawn here:
+///
+/// - `xi > r`: `T = U(-1, 1) sinh(a)`, `mu = ln(T + sqrt(T^2 + 1)) / a`;
+/// - else: `r1 = prn`, `mu = ln(r1 e^a + (1 - r1) e^-a) / a`.
+///
+/// The same distribution as [`ContinuumKalbachRow::sample_mu`]'s inverse, with a
+/// different map from variates to `mu`; this is the one that reproduces OpenMC's
+/// `mu` for a given seed (`tests/secondary_samplers_vs_openmc_code_to_code.rs`).
+/// `a` below `1e-12` (the isotropic limit, which upstream would divide by zero
+/// on) gives `2 u - 1`.
+///
+/// [`ContinuumKalbachRow::sample_mu`]: njoy_outram_park_fork::nuclear_data::secondary::ContinuumKalbachRow::sample_mu
+pub fn kalbach_mann_mu_openmc(r: f64, a: f64, xi: f64, seed: &mut u64) -> f64 {
+    if !(a.abs() > 1.0e-12) || !a.is_finite() {
+        return 2.0 * prn(seed) - 1.0;
+    }
+    if xi > r {
+        let t = (-1.0 + 2.0 * prn(seed)) * a.r_sinh();
+        (t + (t * t + 1.0).sqrt()).r_ln() / a
+    } else {
+        let r1 = prn(seed);
+        (r1 * a.r_exp() + (1.0 - r1) * (-a).r_exp()).r_ln() / a
+    }
 }
 
 /// The continuum angular mode for this process, from

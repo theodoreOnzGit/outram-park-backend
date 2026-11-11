@@ -22,11 +22,12 @@
 //! arithmetic except the final conversion, which is one multiply by 2^-64 in
 //! both codes, so a mismatch would be a real defect.
 //!
-//! **Not ported.** `future_prn`, `advance_prn_seed` and `init_particle_seeds`
-//! have no PETIR function. The first two are tested here as the same
+//! **Not ported.** `future_prn` and `advance_prn_seed` have no PETIR function
+//! (~~nor `init_particle_seeds`~~, ported 2026-11-11). They are tested here as the same
 //! composition the C++ performs (`future_seed` then `prn`, and `future_seed`
-//! into the state); they are NOT PETIR APIs. `init_particle_seeds` is not
-//! compared, and its absence is recorded in the V&V README.
+//! into the state); they are NOT PETIR APIs. ~~`init_particle_seeds` is not
+//! compared~~ **CORRECTED 2026-11-11 (gh:#1386):** `init_particle_seeds` is ported
+//! and compared in `outram-mc-libs/tests/openmc_seeding_vs_openmc_code_to_code.rs`.
 //!
 //! # Results (2026-11-10)
 //!

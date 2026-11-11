@@ -1226,6 +1226,18 @@ pub(crate) fn transport_generation_par(
                     // owned locally — never shared across threads.
                     let mut seed =
                         future_seed((hist_idx as u64).wrapping_mul(HIST_STRIDE), gen_base_seed);
+                    // OpenMC-compatible layout (gh:#1386): stream 0 and the URR
+                    // stream from `init_particle_seeds`; `None` for the default.
+                    let mut urr_start: Option<u64> = None;
+                    if let Some((trk, urr)) = settings.seeding.openmc_history_seeds(
+                        run_seed,
+                        source.len(),
+                        generation,
+                        hist_idx,
+                    ) {
+                        seed = trk;
+                        urr_start = Some(urr);
+                    }
                     let mut bank: Vec<Site> = Vec::new();
                     let mut batch: Vec<f64> = if tally_def.is_some() {
                         vec![0.0; n_bins]
@@ -1242,7 +1254,7 @@ pub(crate) fn transport_generation_par(
                     // hard-coded analog~~ until 2026-09-30: survival
                     // biasing and weight windows were silently dropped
                     // under `CpuMultiThread`.
-                    let outcome = transport_history_vr(
+                    let outcome = transport_history_vr_urr(
                         source[hist_idx],
                         geom,
                         materials,
@@ -1262,6 +1274,7 @@ pub(crate) fn transport_generation_par(
                         None,
                         None,
                         1.0,
+                        urr_start,
                         &mut no_trace,
                     );
                     ParHistory {
@@ -1512,6 +1525,41 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
     geom: &Geometry,
     materials: &[Material],
     nuclides: &[Nuclide],
+    majorants: &[Majorant],
+    k_running: f64,
+    next_bank: &mut Vec<Site>,
+    seed: &mut u64,
+    tally: Option<&Tally>,
+    batch: &mut [f64],
+    leak_edges: &[f64],
+    leak_batch: &mut [f64],
+    extra: Option<&mut ExtraScoring>,
+    vr: &VarianceReduction,
+    delta_estimator: DeltaTallyEstimator,
+    tracks: Option<&mut TrackRecorder>,
+    surface_source: Option<&mut SurfaceSource>,
+    distribcell: Option<&DistribcellOffsets>,
+    birth_weight: f64,
+    observe: &mut O,
+) -> HistoryOutcome {
+    transport_history_vr_urr(
+        site, geom, materials, nuclides, majorants, k_running, next_bank, seed, tally, batch,
+        leak_edges, leak_batch, extra, vr, delta_estimator, tracks, surface_source, distribcell,
+        birth_weight, None, observe,
+    )
+}
+
+/// [`transport_history_vr`] with an explicit start of the URR probability-table
+/// stream. `urr_start = None` derives it from the tracking stream as the port
+/// always has (`future_seed(URR_STRIDE, *seed)`), so every existing caller is
+/// bit-identical; `Some(s)` is OpenMC's `seeds[STREAM_URR_PTABLE]`
+/// ([`crate::rng::openmc_seeding::SeedingMode::OpenMc`], gh:#1386).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
+    site: Site,
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
     // Majorants indexed by `TrackingMethod::Delta`. EMPTY when no region
     // declares delta tracking, which is every model predating bn:op-867c --
     // and that is what makes this change bit-identical for all of them.
@@ -1557,6 +1605,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
     // stage one, in proportion to how far the weights had drifted from 1 —
     // which under variance reduction is arbitrarily far.
     birth_weight: f64,
+    urr_start: Option<u64>,
     // Step-level events (gh:#784): every `locate`, distance-to-boundary
     // query, crossing and collision, for the rung-5 tutorial demo. Every
     // untraced caller passes `no_trace`; observing draws no random number,
@@ -1632,7 +1681,10 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
     // changed since the band was last used, which is OpenMC's
     // `advance_prn_seed(data::nuclides.size(), ..)` after a collision that
     // changed `E` (`physics.cpp`).
-    let mut urr_seed = crate::rng::lcg::future_seed(URR_STRIDE, *seed);
+    let mut urr_seed = match urr_start {
+        Some(s0) => s0,
+        None => crate::rng::lcg::future_seed(URR_STRIDE, *seed),
+    };
     // Reset for each popped particle before it is read (see the pop below).
     let mut urr_e_last: f64;
     let mut neg_dist: u64 = 0;
