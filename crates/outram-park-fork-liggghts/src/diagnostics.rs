@@ -223,8 +223,8 @@ mod tests {
     #[test]
     fn window_and_running_means() {
         // nevery=1, nrepeat=1, nfreq=1: every step is an output
-        let mut w = AveTime::new(1, 1, 1, 1, AveMode::Window(2), 0).unwrap();
-        let mut r = AveTime::new(1, 1, 1, 1, AveMode::Running, 0).unwrap();
+        let mut w = AveTime::new(1, 1, 1, 1, AveMode::Window(2), 1).unwrap();
+        let mut r = AveTime::new(1, 1, 1, 1, AveMode::Running, 1).unwrap();
         for (s, x) in [(1, 1.0), (2, 3.0), (3, 5.0)] {
             w.end_of_step(s, &[x]);
             r.end_of_step(s, &[x]);
