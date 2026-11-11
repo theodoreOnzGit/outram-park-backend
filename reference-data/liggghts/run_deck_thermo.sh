@@ -4,7 +4,8 @@
 # the log, `%.17g`), gh:#1416.
 #   ./run_deck_thermo.sh <lmp_serial> <deck-name> [ncols]
 # Needs in.<deck-name> and the STL it names beside this script. Writes
-# <deck-name>.csv and <deck-name>_thermo.txt beside it. `ncols` is the number
+# <deck-name>.csv and <deck-name>_thermo.txt beside it (RAWDUMP=1: the raw dump as
+# <deck-name>_dump.txt instead of the CSV, for decks whose atom count changes). `ncols` is the number
 # of thermo columns (default 13: step + f_plate[1..12]).
 set -eu
 lmp=$(realpath "$1"); name=$2; ncols=${3:-13}
@@ -14,5 +15,5 @@ cp "$here"/*.stl "$work"/
 cd "$work"
 "$lmp" -in "$here/in.$name" > "log.$name" 2>&1
 awk -v n="$ncols" 'NF==n && $1 ~ /^[0-9]+$/ && $2 ~ /^[-+0-9.eE]+$/' "log.$name" > "$here/${name}_thermo.txt"
-sh "$here/dump2traj.sh" "dump.$name" "$here/$name.csv"
+if [ -n "${RAWDUMP:-}" ]; then cp "dump.$name" "$here/${name}_dump.txt"; else sh "$here/dump2traj.sh" "dump.$name" "$here/$name.csv"; fi
 rm -rf "$work"

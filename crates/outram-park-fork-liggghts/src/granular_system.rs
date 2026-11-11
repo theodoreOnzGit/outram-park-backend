@@ -97,6 +97,9 @@ pub enum FixSlot {
     Gravity,
     /// `force_fixes()[i]`.
     ForceFix(usize),
+    /// The `post_force` of massflow counter `i` that is a
+    /// `fix massflow/mesh/sieve` (see [`GranularSystem::add_massflow_mesh`]).
+    MassflowSieve(usize),
 }
 
 /// Resolve one contact: the ordinary history-advancing law, or at set-up the
@@ -500,10 +503,61 @@ impl GranularSystem {
     /// Attach a `fix massflow/mesh` counter (gh:#1416); it is invoked after
     /// the particles move each step. Returns its index for
     /// [`GranularSystem::massflow_vector`].
-    pub fn add_massflow_mesh(&mut self, mut fix: crate::massflow::MassFlowMesh) -> usize {
-        fix.rebuild_lists(&self.particles);
+    pub fn add_massflow_mesh(&mut self, fix: crate::massflow::MassFlowMesh) -> usize {
         self.massflow.push(fix);
+        self.rebuild_massflow_lists();
         self.massflow.len() - 1
+    }
+
+    /// Rebuild every massflow counter's mesh neighbour list at the current
+    /// positions (`FixNeighlistMesh::pre_force` on a rebuild).
+    fn rebuild_massflow_lists(&mut self) {
+        for k in 0..self.massflow.len() {
+            match self.massflow[k].wall() {
+                Some(w) => {
+                    if let WallGeometry::Mesh(mesh) = &self.moving_walls[w].geometry {
+                        self.massflow[k].rebuild_lists(mesh, &self.particles);
+                    }
+                }
+                None => {
+                    let mesh = self.massflow[k].mesh_arc();
+                    self.massflow[k].rebuild_lists(&mesh, &self.particles);
+                }
+            }
+        }
+    }
+
+    /// `FixMassflowMesh::pre_exchange` with `delete_atoms yes`: remove the
+    /// marked particles one at a time in marking order, each by copying the
+    /// last atom into its slot (`AtomVec::copy(nlocal-1, iPart)`), and book
+    /// the deleted mass and count on the fix.
+    fn delete_massflow_marked(&mut self) {
+        let mut any = false;
+        for k in 0..self.massflow.len() {
+            for tag in self.massflow[k].take_pending_deletions() {
+                let Some(i) = self.tags.iter().position(|&t| t == tag) else {
+                    continue;
+                };
+                let mass = self.particles[i].mass;
+                self.note_removed(i);
+                self.particles.swap_remove(i);
+                self.tags.swap_remove(i);
+                self.types.swap_remove(i);
+                self.forces.swap_remove(i);
+                self.torques.swap_remove(i);
+                self.massflow[k].record_deleted(tag, mass);
+                any = true;
+            }
+        }
+        if any {
+            self.xhold = self.particles.iter().map(|p| p.position).collect();
+        }
+    }
+
+    /// Set the summed property (`sum_property`) of the particle with tag
+    /// `tag` on massflow counter `fix`.
+    pub fn set_massflow_property(&mut self, fix: usize, tag: u64, value: f64) {
+        self.massflow[fix].set_property(tag, value);
     }
 
     /// `f_<id>[index+1]` of massflow counter `fix` (0 mass, 1 count, 2 mass
@@ -1816,18 +1870,31 @@ impl GranularSystem {
         }
         // `post_integrate` of `fix massflow/mesh`: after the move, before the
         // neighbour decision and the force evaluation.
-        for m in &mut self.massflow {
-            m.post_integrate(&self.particles, &self.tags, self.dt);
+        for k in 0..self.massflow.len() {
+            match self.massflow[k].wall() {
+                Some(w) => {
+                    if let WallGeometry::Mesh(mesh) = &self.moving_walls[w].geometry {
+                        self.massflow[k].post_integrate(mesh, &self.particles, &self.tags, self.dt);
+                    }
+                }
+                None => {
+                    let mesh = self.massflow[k].mesh_arc();
+                    self.massflow[k].post_integrate(&mesh, &self.particles, &self.tags, self.dt);
+                }
+            }
         }
         self.refresh_moving_meshes();
+        // `FixMassflowMesh::pre_exchange` (`delete_atoms yes`): runs on a
+        // neighbour-list rebuild step only
+        if self.rebuild_now || self.neigh_skin <= 0.0 {
+            self.delete_massflow_marked();
+        }
         self.run_insertions();
         // the mesh neighbour lists rebuild when the neighbour list does (every
         // step when no skin was given)
         if self.rebuild_now || self.neigh_skin <= 0.0 {
             self.update_servo_contacts();
-            for m in &mut self.massflow {
-                m.rebuild_lists(&self.particles);
-            }
+            self.rebuild_massflow_lists();
         }
         // `MeshModuleStress::pre_force`
         for w in &mut self.moving_walls {
@@ -1972,7 +2039,9 @@ impl GranularSystem {
             match slot {
                 FixSlot::PrimitiveWall(w) => self.primitive_wall_forces(w),
                 FixSlot::MovingWall(w) => {
-                    if matches!(self.moving_walls[w].geometry, WallGeometry::Mesh(_)) {
+                    if self.moving_walls[w].contactless {
+                        // `fix mesh/surface` with no `fix wall/gran`: moves, never touches
+                    } else if matches!(self.moving_walls[w].geometry, WallGeometry::Mesh(_)) {
                         self.compute_mesh_wall_forces(w);
                     } else {
                         self.moving_primitive_wall_forces(w);
@@ -1984,6 +2053,27 @@ impl GranularSystem {
                         self.forces[i] = self.forces[i].add(self.gravity.scale(m));
                     }
                 }
+                FixSlot::MassflowSieve(k) => match self.massflow[k].wall() {
+                    Some(w) => {
+                        if let WallGeometry::Mesh(mesh) = &self.moving_walls[w].geometry {
+                            self.massflow[k].sieve_post_force(
+                                mesh,
+                                &self.particles,
+                                &self.tags,
+                                &mut self.forces,
+                            );
+                        }
+                    }
+                    None => {
+                        let mesh = self.massflow[k].mesh_arc();
+                        self.massflow[k].sieve_post_force(
+                            &mesh,
+                            &self.particles,
+                            &self.tags,
+                            &mut self.forces,
+                        );
+                    }
+                },
                 FixSlot::ForceFix(k) => {
                     if let Some((ctx, vel, lorder, pos, rad)) = &ff_ctx {
                         self.force_fixes[k]
@@ -2020,6 +2110,11 @@ impl GranularSystem {
         }
         o.push(FixSlot::Gravity);
         o.extend((0..self.force_fixes.len()).map(FixSlot::ForceFix));
+        o.extend(
+            (0..self.massflow.len())
+                .filter(|&k| self.massflow[k].is_sieve())
+                .map(FixSlot::MassflowSieve),
+        );
         o
     }
 

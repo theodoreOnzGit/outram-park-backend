@@ -870,6 +870,9 @@ pub struct MovingBoundary {
     /// `getTotalNumContacts()` of the servo mesh neighbour list at its last
     /// rebuild (read by `mode auto`). gh:#1416.
     pub servo_contacts: usize,
+    /// A mesh with no `fix wall/gran` (`fix mesh/surface` only): it moves and
+    /// counts (`fix massflow/mesh`) but exerts no contact force.
+    pub contactless: bool,
 }
 
 /// Upper bound of the `order` of a vibration mover (upstream `ampl[30]`).
@@ -1043,7 +1046,16 @@ impl MovingBoundary {
             stress: None,
             servo: None,
             servo_contacts: 0,
+            contactless: false,
         }
+    }
+
+    /// A mesh with no `fix wall/gran`: it moves (and may be counted by
+    /// `fix massflow/mesh`) but exerts no contact force on particles.
+    #[must_use]
+    pub fn without_contact(mut self) -> Self {
+        self.contactless = true;
+        self
     }
 
     /// Track the force and torque on this mesh (`fix mesh/surface/stress ...

@@ -429,6 +429,16 @@ test's `///` doc):
 
 | `fix property/atom/tracer`, `compute nparticles/tracer/region` | `src/tracer.rs` | `tracer_cross_code.rs` | **2440 / 2440** bit-identical (`verification_and_validation/tracer/README.md`) |
 | `compute wall/gran/local` (mesh floor, 2 triangles) | `granular_system.rs` `wall_gran_local` | `wall_gran_local_cross_code.rs` | **1449 / 1449** values bit-identical at steps 1, 10, 100 (21 contacts each); the first run found 45 sign-of-zero differences (torque z, `-0` vs `+0`), fixed in `granular.rs` (upstream's `delta_torque` starts at +0) |
+| `mesh_module_stress_servo` `ctrlPV torque`, `mode auto` (gh:#1416) | `mesh_stress.rs`, `mesh_wall.rs` | `mesh_servo_cross_code.rs` (`in.mesh_servo_{torque,auto,torque_auto}`) | 3 x **9 990 / 9 990** (501 frames x 18 + 81 x 12) bit-identical; the auto deck covers cruise (0 mesh contacts) and contact phases, the torque deck a rotating plate (torque is friction-saturated, so insensitive to the set point: the test checks the code path, not control quality) |
+| `dump mesh/stl` ascii, binary, `region` (gh:#1416) | `mesh_dump.rs` | `mesh_dump_cross_code.rs` (`in.mesh_dump_stl`) | 3 ascii + 2 region + 1 binary file of a rotating drum identical to upstream (text / bytes) |
+| `fix massflow/mesh` moving mesh, `delete_atoms yes`, `sum_property`, `massflow/mesh/sieve` (gh:#1416) | `massflow.rs`, `granular_system.rs` | `massflow_options_cross_code.rs` (`in.massflow_{move,delete,sieve}`) | 3 decks x 121 frames bit-identical (positions, velocities, `f_<fix>[1..7]`; delete: atom count 12 -> 5 matched by id) |
+
+`tri_mesh_deform` has nothing to translate: upstream's `tri_mesh_deform.h` is
+the single line `typedef TriMesh TriMeshDeformable;` (style
+`mesh/surface/stress/deform` is not registered). `dump mesh/vtk`, `mesh/vtm`
+and `mesh/gran/vtk` need the VTK library, which the compiled upstream lacks
+(`lmp_serial -h` lists `mesh/stl` only), so they cannot be compared and are
+not ported.
 
 ~~Still **not translated** (gh:#1418, #1414): `compute wall/gran/local` (mesh
 walls only upstream), the tracer fixes (`property/atom/tracer`,
