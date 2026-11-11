@@ -60,8 +60,13 @@ fn fnv1a(hash: u64, bits: u64) -> u64 {
 pub(crate) fn fingerprint(nuclide: FissioningNuclideType, implicit: bool) -> (u64, u64) {
     let mut prke = SixGroupPRKE::default();
     prke.delayed_group_mode = nuclide;
-    prke.decay_constant_array = nuclide.get_decay_constant_array();
-    prke.delayed_fraction_array = nuclide.get_delayed_fraction_array();
+    // The textbook (pre-gh:#1319) arrays, not the nuclide defaults: this pin
+    // is about the PRKE arithmetic, so its input data must not move when a
+    // default data set changes. gh:#1319 (2026-11-10) switched U-235's
+    // default to ENDF/B-VIII.0; these are the arrays the pin was recorded
+    // with, so the fingerprints are unchanged.
+    prke.decay_constant_array = nuclide.textbook_decay_constant_array();
+    prke.delayed_fraction_array = nuclide.textbook_delayed_fraction_array();
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
     // repeat the script three times so precursors build up
     for _ in 0..3 {

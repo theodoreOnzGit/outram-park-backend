@@ -11,7 +11,10 @@
 //! In a nuclear reactor, fissions produce neutrons in two ways:
 //! - **Prompt neutrons**: emitted almost instantly (~1e-14 s after fission).
 //! - **Delayed neutrons**: emitted by decay of fission products (precursors),
-//!   with decay constants ranging from ~0.08 s^-1 to ~3 s^-1.
+//!   with decay constants ranging from ~~~0.08 s^-1~~ **~0.013 s^-1**
+//!   (corrected 2026-11-10, gh:#1319: the U-235 sets this crate carries
+//!   start at 0.0124 s^-1, textbook, and 0.0133 s^-1, ENDF/B-VIII.0) to
+//!   ~3 s^-1.
 //!
 //! The delayed neutrons are crucial: they prevent the reactor from becoming
 //! "prompt critical" (uncontrollable). When reactivity is positive but below

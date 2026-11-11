@@ -369,7 +369,23 @@ but U-235's decay constants `lambda_i` (see
 
 ###### `U235`
 
-chooses the U235 group of delayed constants
+~~chooses the U235 group of delayed constants~~ **CHANGED
+2026-11-10 (gh:#1319, maintainer decision: ENDF/B-VIII.0):** chooses
+the ENDF/B-VIII.0 U-235 thermal six-group set, `lambda_i` and `beta_i`
+both from the evaluation (`ENDF_B_VIII0_U235`). The previous
+textbook set is still available as
+`FissioningNuclideType::textbook_decay_constant_array` and
+`FissioningNuclideType::textbook_delayed_fraction_array`.
+
+> **Mirror note (2026-11-10, gh:#1319):** this file was edited by hand,
+> not regenerated: `kovan-cli api-docs` needs a nightly toolchain, which
+> this session does not have. New public items not listed here yet:
+> `SixGroupDelayedNeutronData` (struct, with `decay_constant_array` and
+> `delayed_fraction_array`), the constants `ENDF_B_VIII0_U235` and
+> `ENDF_B_VIII0_U238`, and the methods
+> `FissioningNuclideType::textbook_decay_constant_array` /
+> `textbook_delayed_fraction_array`. Regenerate with
+> `kovan-cli api-docs teh-o-prke`.
 
 ###### `Pu239`
 
@@ -385,7 +401,10 @@ but U-235's decay constants `lambda_i` (see
 - ```rust
   pub fn get_decay_constant_array(self: &Self) -> [DecayConstant; 6] { /* ... */ }
   ```
-  returns a new decay constant array based on nuclide
+  returns a new decay constant array based on nuclide.
+  **CHANGED 2026-11-10 (gh:#1319):** `U235` returns ENDF/B-VIII.0;
+  `U233` and `Pu239` still return the old textbook U-235 set (known
+  defect, open on gh:#1319).
 
 - ```rust
   pub fn get_delayed_fraction_array(self: &Self) -> [Ratio; 6] { /* ... */ }
@@ -967,14 +986,16 @@ otherwise, rather than interpolating the history.
 
 **MSRE inputs**, ORNL-TM-0728 Table 5.4 (PDF pp. 137-138): core transit
 9.4 s, fuel-loop total 25.2 s (so τ_L = 15.8 s), Λ = 2.40e-4 s (35 %
-U-235 fuel). Group data: the crate's U-235 six-group set, β = 650 pcm.
+U-235 fuel). Group data: the crate's U-235 six-group set, ~~β = 650 pcm~~
+**since 2026-11-10 (gh:#1319) the ENDF/B-VIII.0 U-235 default, β =
+652.30 pcm**.
 
 | Check | Criterion | Result |
 |---|---|---|
-| V1 equilibrium at ρ = Δρ, 300 s at dt = 0.01 s | \|n/n0 − 1\| ≤ 1e-9 | 2.2e-16 |
-| V2 analytic Δρ | reported | **224.3505 pcm** (β_circ = 425.6495 pcm) |
-| V3 asymptotic ω vs the circulating in-hour root, Δρ ± 50 pcm | 1 % at dt = 0.01 s, falling with dt | +50 pcm: +0.0363 / +0.0181 / +0.0091 %; −50 pcm: −0.0079 / −0.0040 / −0.0020 % at dt = 0.04 / 0.02 / 0.01 s: first order |
-| V4 τ_c = 1e12 s vs `PointKinetics::inhour_growth_rate` | 1e-9 relative | 8e-11 |
+| V1 equilibrium at ρ = Δρ, 300 s at dt = 0.01 s | \|n/n0 − 1\| ≤ 1e-9 | ~~2.2e-16~~ **0** |
+| V2 analytic Δρ | reported | ~~224.3505 pcm (β_circ = 425.6495 pcm)~~ **207.1463 pcm (β_circ = 445.1573 pcm)**, re-measured 2026-11-10 with the ENDF/B-VIII.0 default (gh:#1319) |
+| V3 asymptotic ω vs the circulating in-hour root, Δρ ± 50 pcm | 1 % at dt = 0.01 s, falling with dt | ~~+50 pcm: +0.0363 / +0.0181 / +0.0091 %; −50 pcm: −0.0079 / −0.0040 / −0.0020 %~~ **+50 pcm: +0.0447 / +0.0223 / +0.0112 %; −50 pcm: −0.0086 / −0.0043 / −0.0022 %** at dt = 0.04 / 0.02 / 0.01 s: first order |
+| V4 τ_c = 1e12 s vs `PointKinetics::inhour_growth_rate` | 1e-9 relative | ~~8e-11~~ **7e-11** |
 
 **Protocol correction (not a criterion change).** V3 first measured the
 slope over the last 100 s of a 600 s run. At −50 pcm that read 0.53 % off
@@ -983,7 +1004,7 @@ not died away. The protocol was lengthened to 2400 s (last 400 s), and
 the criterion was not moved.
 
 **What this does not show.** It verifies the solver against its own
-equations. Whether the lumped model's 224 pcm describes the MSRE (TM-0728
+equations. Whether the lumped model's ~~224~~ **207** pcm describes the MSRE (TM-0728
 implies 310 pcm, importance-weighted, from its static and circulating
 β_eff; the measured loss is MSRE N-4) is validation, gh:#1130.
 
