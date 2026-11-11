@@ -427,6 +427,16 @@ pub struct AceDeck {
     heatr: bool,
     purr: Option<(usize, usize, usize)>,
     temperature_k: Option<f64>,
+    /// HEATR's card 3 asked for the partial kermas `302`, `318`, `402` (each
+    /// flag in that order): PURR's `rdheat` then finds them (`ihave = 2`).
+    heatr_partials: [bool; 3],
+    /// PURR's output unit was blocked binary (`nout < 0`).
+    purr_binary: bool,
+    /// HEATR's output unit was blocked binary (`nout < 0`).
+    heatr_binary: bool,
+    /// ACER's `newfor`: `1` (default) the new angular format, `0` the old
+    /// equally probable bins (gh:#1449).
+    newfor: i32,
 }
 
 impl Default for AceDeck {
@@ -435,6 +445,10 @@ impl Default for AceDeck {
             heatr: true,
             purr: None,
             temperature_k: None,
+            heatr_partials: [false; 3],
+            purr_binary: false,
+            heatr_binary: false,
+            newfor: 1,
         }
     }
 }
@@ -443,6 +457,34 @@ impl AceDeck {
     /// The deck without HEATR: the ESZ heating column is written as zero.
     pub fn without_heatr(mut self) -> Self {
         self.heatr = false;
+        self
+    }
+
+    /// HEATR's card 3 asked for the partial kermas MT=302, 318, 402 (each flag
+    /// in that order). PURR then self-shields the heating column
+    /// (`purr.f90:533-558`) instead of dividing MT=301 by the total.
+    pub fn with_heatr_partials(mut self, partials: [bool; 3]) -> Self {
+        self.heatr_partials = partials;
+        self
+    }
+
+    /// ACER's `newfor` (`0` the old angular format, `1` the new, the default).
+    pub fn with_newfor(mut self, newfor: i32) -> Self {
+        self.newfor = newfor;
+        self
+    }
+
+    /// HEATR's output unit was blocked binary (`nout < 0`): the modules after
+    /// it read its MT=301 (and partials) as doubles, not as printed text.
+    pub fn with_heatr_binary(mut self, binary: bool) -> Self {
+        self.heatr_binary = binary;
+        self
+    }
+
+    /// PURR's output unit was blocked binary (`nout < 0`): its MT=153 reaches
+    /// ACER without a text round trip.
+    pub fn with_purr_binary(mut self, binary: bool) -> Self {
+        self.purr_binary = binary;
         self
     }
 
@@ -491,6 +533,8 @@ pub(crate) struct DeckModules {
     pub(crate) urr: Option<crate::purr::UrrProbabilityTables>,
     /// HEATR's KERMA; `None` without HEATR.
     pub(crate) kerma: Option<crate::heatr::Kerma>,
+    /// ACER's `newfor` (gh:#1449).
+    pub newfor: i32,
 }
 
 /// Run the deck's PURR and HEATR on `pendf` (a result already through
@@ -510,24 +554,51 @@ pub(crate) fn deck_modules(
     // an approximation of `nheat`/`gheat` on its own grid. It runs BEFORE
     // PURR, as in the deck (`... broadr -> heatr -> purr -> acer`), because
     // PURR's `rdheat` reads its MT=301 for the bands' heating column.
-    let kerma = if deck.heatr {
-        Some(crate::heatr::heatr_kerma(tape, mat, pendf)?)
+    let wanted: Vec<i32> = [302, 318, 402]
+        .iter()
+        .zip(deck.heatr_partials)
+        .filter_map(|(&mt, on)| if on { Some(mt) } else { None })
+        .collect();
+    let (kerma, partial_kermas) = if deck.heatr {
+        let (total, parts) = crate::heatr::heatr_kerma_with_partials(tape, mat, pendf, &wanted, !deck.heatr_binary)?;
+        (Some(total), parts)
     } else {
-        None
+        (None, Vec::new())
     };
+    // `rdheat`: MT=302, 318, 402 by position of the three, `None` when absent.
+    let mut partial: [Option<crate::heatr::Kerma>; 3] = [None, None, None];
+    for (mt, k) in wanted.iter().zip(partial_kermas) {
+        let slot = match mt {
+            302 => 0,
+            318 => 1,
+            _ => 2,
+        };
+        partial[slot] = k;
+    }
     let urr = match deck.purr {
-        Some((nbin, nladr, nsamp)) => crate::purr::UrrProbabilityTables::from_endf_with_mt301(
+        Some((nbin, nladr, nsamp)) => crate::purr::UrrProbabilityTables::from_endf_with_heating(
             tape,
             mat,
             deck.temperature_k.unwrap_or(kt_mev / K_BOLTZMANN_MEV),
             nbin,
             nladr,
             nsamp,
-            kerma.as_ref(),
+            &crate::purr::PurrHeating { total: kerma.clone(), partial, binary: deck.purr_binary },
         )?,
         None => None,
     };
-    Ok(DeckModules { urr, kerma })
+    // EXPERIMENT (gh:#1450/#1449): ACER's ESZ keeps reading MT=301 as printed
+    // (the five-route decks, test 19), PURR's rdheat gets the doubles.
+    let kerma = if deck.heatr_binary {
+        kerma.map(|k| {
+            use crate::endf::parse::{format_endf_float, parse_endf_float};
+            let rt = |x: f64| parse_endf_float(&format_endf_float(x)).unwrap_or(x);
+            crate::heatr::Kerma { energy: k.energy.iter().map(|&x| rt(x)).collect(), h: k.h.iter().map(|&x| rt(x)).collect() }
+        })
+    } else {
+        kerma
+    };
+    Ok(DeckModules { urr, kerma, newfor: deck.newfor })
 }
 
 /// ACER proper: the continuous-energy table from the PENDF and what
@@ -545,7 +616,7 @@ pub(crate) fn assemble(
     let urr = modules.urr.as_ref();
     let kerma = modules.kerma.as_ref();
     let angular = match tape.section(mat, 4, 2) {
-        Some(s) => Some(crate::acer::angular::parse_elastic_angular(s)?),
+        Some(s) => Some(crate::acer::angular::parse_elastic_angular_newfor(s, modules.newfor)?),
         None => None,
     };
     let partials: Vec<(i32, f64)> = recon
@@ -553,7 +624,7 @@ pub(crate) fn assemble(
         .iter()
         .map(|s| (i32::from(s.mt), s.qi))
         .collect();
-    let emissions = crate::acer::energy::build_emissions(tape, mat, recon.material.awr, &partials);
+    let emissions = crate::acer::energy::build_emissions_newfor(tape, mat, recon.material.awr, &partials, modules.newfor);
     let nu_block = crate::acer::nu::build(tape, mat)?;
     // Delayed-neutron blocks whenever the evaluation has them, as NJOY writes
     // them regardless of the rest of the deck (`acefc.f90:6003`). ismooth = 1

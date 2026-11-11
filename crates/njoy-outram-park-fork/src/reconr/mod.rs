@@ -34,6 +34,7 @@
 //! ```
 
 pub mod aa;
+pub mod csunr;
 pub mod linearize;
 pub mod lunion;
 pub mod mf1;
@@ -1684,6 +1685,9 @@ pub(crate) fn rebuild_range_with(
     rebuild_total_as_sum_of_parts(sections, &egrid);
 }
 
+/// `test = 1.e-10_kr` of `emerge` (`reconr.f90:4665`): the relative window of a threshold.
+const SUM_THRESHOLD_TEST: f64 = 1.0e-10;
+
 /// Rebuild MF=3 MT=1 as the **sum of its parts**, which is what RECONR means by
 /// a redundant reaction: *"Redundant reactions are reconstructed to be the sum
 /// of their parts"* (`reconr.f90:72-73`).
@@ -1787,6 +1791,13 @@ fn rebuild_total_as_sum_of_parts(sections: &mut [ReconrSection], egrid: &[f64]) 
             let total = sections
                 .iter()
                 .filter(|s| is_part(s.mt.number()))
+                // `emerge`: `if (thresh-eg.gt.test*thresh.and.itype.eq.0) go to 370`
+                // -- below its threshold a non-resonance section adds nothing
+                // to the redundant sums (`reconr.f90:4786`, `:4872`). Its first
+                // pair is that threshold; `eval_lin_lin` would return the first
+                // value for any lower energy (2.08e-7 b of Pu-241 MT=51 at
+                // 2.5e4 eV, one unit in the 7th figure of MT=1; gh:#1448).
+                .filter(|s| s.pairs.first().is_none_or(|&(t, _)| t - e <= SUM_THRESHOLD_TEST * t))
                 .map(|s| eval_lin_lin(&s.pairs, e))
                 .sum();
             (e, total)

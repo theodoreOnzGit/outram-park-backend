@@ -253,6 +253,37 @@ fn acensd_entry(e_ev: f64, mu: &[f64], p: &[f64]) -> EnergyAngular {
 /// # Errors
 /// Propagates record-structure errors and `ptleg2`'s upstream limits.
 pub fn parse_mf4_for_acer(section: &Section) -> Result<ElasticAngular, NjoyError> {
+    parse_mf4_for_acer_newfor(section, 1)
+}
+
+/// The old format's entry for one incident energy: the 33 bin edges of
+/// `ptleg`/`pttab` as `acensd` stores them (`sigfig(edge, 6, 0)`,
+/// `acefc.f90:6419`), or isotropic (`n <= 2`, locator 0, `:6408`).
+fn old_format_entry(e_ev: f64, edges: Option<[f64; crate::acer::photon_angular::NPT]>) -> EnergyAngular {
+    let e_mev = sigfig(e_ev / 1.0e6, 7, 0);
+    match edges {
+        None => EnergyAngular { e_mev, cosines: Vec::new(), pdf: Vec::new(), cdf: Vec::new(), histogram: false },
+        Some(b) => EnergyAngular {
+            e_mev,
+            cosines: b.iter().map(|&x| sigfig(x, 6, 0)).collect(),
+            pdf: Vec::new(),
+            cdf: Vec::new(),
+            histogram: true,
+        },
+    }
+}
+
+/// [`parse_mf4_for_acer`] for ACER's `newfor` (gh:#1449). `newfor = 1` is the
+/// `ptleg2`/`pttab2` route above. `newfor = 0` is the old format: `topfil`
+/// converts every incident energy to 32 equally probable cosine bins with
+/// `ptleg` (Legendre, `acefc.f90:2105`) or `pttab` (tabulated, `:2117`), and
+/// `acensd` stores the 33 edges at a positive locator, with locator 0 where the
+/// law came out isotropic (`n <= 2`, `:6408-6413`).
+///
+/// # Errors
+/// As [`parse_mf4_for_acer`], and `pttab`'s (more than one interpolation
+/// region, `INT = 3, 5`).
+pub fn parse_mf4_for_acer_newfor(section: &Section, newfor: i32) -> Result<ElasticAngular, NjoyError> {
     let mut cur = SectionCursor::new(&section.rows);
     let head = cur.read_cont()?; // ZA, AWR, LVT, LTT, 0, 0
     let ltt = head.l2;
@@ -282,6 +313,10 @@ pub fn parse_mf4_for_acer(section: &Section) -> Result<ElasticAngular, NjoyError
         let tab2 = cur.read_tab2()?;
         for _ in 0..tab2.head.n2 {
             let list = cur.read_list()?;
+            if newfor == 0 {
+                energies.push(old_format_entry(list.head.c2, crate::acer::photon_angular::ptleg(&list.data)));
+                continue;
+            }
             let (mu, p) = ptleg2(&list.data)?;
             energies.push(acensd_entry(list.head.c2, &mu, &p));
         }
@@ -290,6 +325,13 @@ pub fn parse_mf4_for_acer(section: &Section) -> Result<ElasticAngular, NjoyError
         let tab2 = cur.read_tab2()?;
         for _ in 0..tab2.head.n2 {
             let tab1 = cur.read_tab1()?;
+            if newfor == 0 {
+                energies.push(old_format_entry(
+                    tab1.head.c2,
+                    crate::acer::photon_angular::pttab(&tab1.interp, &tab1.pairs)?,
+                ));
+                continue;
+            }
             let (mu, p) = pttab2(&tab1.pairs);
             energies.push(acensd_entry(tab1.head.c2, &mu, &p));
         }

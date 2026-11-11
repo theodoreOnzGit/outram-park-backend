@@ -298,6 +298,8 @@ fn run_heatr(input: &HeatrInput, units: &mut TapeUnits, listing: &mut String) ->
     units.store(u.nout, out.tape, pendf.pointwise)?;
     let mut meta = pendf.meta;
     meta.heatr = true;
+    meta.heatr_binary = u.nout < 0;
+    meta.heatr_partials = [302, 318, 402].map(|mt| input.partial_kermas.contains(&mt));
     units.set_meta(u.nout, meta);
     Ok(())
 }
@@ -342,6 +344,7 @@ fn run_purr(c: &PurrCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     notes.push("purr: MF=2/MT=153 (probability tables) not written (tape writer not ported)".into());
     pass_through(c.nin, c.nout, units, |meta| {
         meta.purr = Some((m.nbin as usize, m.nladr as usize, m.temps.clone()));
+        meta.purr_binary = c.nout < 0;
     })
 }
 
@@ -363,7 +366,8 @@ fn dater() -> String {
 }
 
 /// ACER (`acer.f90`, `acefc.f90`), `iopt = 1` (fast data) with the options this
-/// crate has: `newfor = 1`, `iopp = 1`, `ismooth = 1`, no thinning, ZAID rule 0,
+/// crate has: `newfor = 1` (or 0: the old equally probable angular bins, MF=4
+/// only, gh:#1449), `iopp = 1`, `ismooth = 1`, no thinning, ZAID rule 0,
 /// Type 1 output. The table is [`build_deck`] on the PENDF's pointwise block
 /// for `tempd` (`first`: the block within 1 K), HEATR and PURR as the chain ran
 /// them. The ACE text goes to unit `nace`; the directory unit `ndir` is not
@@ -372,8 +376,8 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     if c.iopt != 1 {
         return Err(NjoyError::NotPorted("ACER iopt other than 1 from a deck (typed APIs exist: acer::thermal, dosimetry, photoatomic, photonuclear)"));
     }
-    if c.newfor != 1 {
-        return Err(NjoyError::NotPorted("ACER newfor = 0 (the old angular format: acefc.f90 :6356, :7495, :7722; no port)"));
+    if c.newfor != 1 && c.newfor != 0 {
+        return Err(NjoyError::InvalidInput(format!("acer: newfor = {} is not 0 or 1", c.newfor)));
     }
     if c.iopp != 1 || c.ismooth != 1 || c.thin != [0.0; 3] || c.izaopt != 0 || c.mcnpx || c.itype != 1 || c.nxtra != 0 {
         return Err(NjoyError::NotPorted("ACER iopp/ismooth/thin/izaopt/mcnpx/itype/nxtra other than the defaults"));
@@ -391,6 +395,7 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     if !pend.meta.heatr {
         deck = deck.without_heatr();
     }
+    deck = deck.with_heatr_partials(pend.meta.heatr_partials).with_purr_binary(pend.meta.purr_binary).with_heatr_binary(pend.meta.heatr_binary).with_newfor(c.newfor);
     if let Some((nbin, nladr, temps)) = &pend.meta.purr {
         // PURR draws one random sequence over all its temperatures in order;
         // the table for the first is what a run at that temperature alone gives.

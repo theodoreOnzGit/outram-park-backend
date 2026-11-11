@@ -44,10 +44,17 @@ use crate::NjoyError;
 pub struct PendfMeta {
     /// HEATR ran on this PENDF (MT=301 is present).
     pub heatr: bool,
+    /// HEATR's card 3 asked for the partial kermas MT=302, 318, 402 (flags in
+    /// that order), which PURR's `rdheat` reads.
+    pub heatr_partials: [bool; 3],
+    /// HEATR's output unit was negative (blocked binary).
+    pub heatr_binary: bool,
     /// UNRESR ran (its MT=152 is not on the tape, see above).
     pub unresr: bool,
     /// PURR ran: `(nbin, nladr, temperatures)` of its cards.
     pub purr: Option<(usize, usize, Vec<f64>)>,
+    /// PURR's output unit was negative (blocked binary).
+    pub purr_binary: bool,
     /// The pointwise result of every temperature block on the tape, in tape
     /// order: `(temperature [K], result)`.
     pub blocks: Vec<(f64, ReconrResult)>,
