@@ -119,8 +119,10 @@ fn init_particles(csv: &str) -> Vec<Particle> {
 }
 
 fn run_cell(label: &str, mu: f64, mur: f64) {
-    let (Some(init), Some(traj)) = (read("pebble_bed_init.csv"), read(&format!("ablate_{label}.csv")))
-    else {
+    let (Some(init), Some(traj)) = (
+        read("pebble_bed_init.csv"),
+        read(&format!("ablate_{label}.csv")),
+    ) else {
         eprintln!("skipping {label}: reference data not present");
         return;
     };
@@ -141,8 +143,12 @@ fn run_cell(label: &str, mu: f64, mur: f64) {
     )
     .unwrap()
     .with_liggghts_neighbor_order(
-        LiggghtsNeighbor::new(Vec3::new(-1.0, -1.0, -0.005), Vec3::new(1.0, 1.0, 0.35), 0.003)
-            .unwrap(),
+        LiggghtsNeighbor::new(
+            Vec3::new(-1.0, -1.0, -0.005),
+            Vec3::new(1.0, 1.0, 0.35),
+            0.003,
+        )
+        .unwrap(),
     );
 
     let mut done = 0usize;

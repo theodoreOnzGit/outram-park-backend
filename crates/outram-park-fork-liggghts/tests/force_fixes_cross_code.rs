@@ -92,16 +92,14 @@ fn addforce_viscous_freeze_match_liggghts() {
     run(700);
 }
 
-/// The whole deck (21 frames). **Known gap, not loosened** (gh:#1418): from
-/// frame 800 pebble 188 (0-based; id 189, in the `addforce` group) differs by
-/// 9 values (`v` by 0.3 %, `omega` by 40 %), 66 699 / 66 906 values still
-/// bit-identical. Pebble 188 is in a first sustained contact (overlap `1e-6`)
-/// with frozen pebble 24 that begins between steps 700 and 800; every other
-/// pebble stays identical. Cause not yet found (see the V&V note); it is a
-/// contact-onset difference, not the fixes, since the 700-step prefix with the
-/// same fixes active is exact.
+/// The whole deck (21 frames): **66 906 / 66 906 bit-identical** (measured
+/// 2026-11-11, Rust 1.99.1). ~~Pebble 188 diverged from frame 800~~
+/// **CORRECTED 2026-11-11 (gh:#1478)**: the cause was the pair effective mass.
+/// Upstream `pair_gran_base.h` sets `meff = mj` when `i` is in the `fix freeze`
+/// group and `meff = mi` when `j` is (a frozen particle does not reduce the
+/// mass), not the reduced mass; the port used the reduced mass. Fixed by
+/// `ContactKinematics::pair_frozen`.
 #[test]
-#[ignore = "known gap gh:#1418: first-contact divergence at step 800 (pebble 188 vs frozen 24)"]
 fn addforce_viscous_freeze_full_deck() {
     run(usize::MAX);
 }
@@ -114,8 +112,14 @@ fn run(max_step: usize) {
     let ps = particles(&init);
     let n = ps.len();
     let mut table = VariableTable::new();
-    table.define_equal("fz", "0.002*sin(step*dt*3000.0)-0.001").unwrap();
-    let mask = |lo: usize, hi: usize| (0..n).map(|i| (lo..=hi).contains(&(i + 1))).collect::<Vec<bool>>();
+    table
+        .define_equal("fz", "0.002*sin(step*dt*3000.0)-0.001")
+        .unwrap();
+    let mask = |lo: usize, hi: usize| {
+        (0..n)
+            .map(|i| (lo..=hi).contains(&(i + 1)))
+            .collect::<Vec<bool>>()
+    };
     let fixes = vec![
         ForceFix::AddForce {
             group: mask(31, 200),
@@ -126,8 +130,14 @@ fn run(max_step: usize) {
             ],
             foriginal: [0.0; 3],
         },
-        ForceFix::Viscous { group: vec![true; n], gamma: vec![0.002] },
-        ForceFix::Freeze { group: mask(1, 30), foriginal: [0.0; 3] },
+        ForceFix::Viscous {
+            group: vec![true; n],
+            gamma: vec![0.002],
+        },
+        ForceFix::Freeze {
+            group: mask(1, 30),
+            foriginal: [0.0; 3],
+        },
     ];
     let material = GranularMaterial::new(5.0e6, 0.3, 0.5, 0.3).unwrap();
     let mut sys = GranularSystem::new(
@@ -142,7 +152,12 @@ fn run(max_step: usize) {
     )
     .unwrap()
     .with_liggghts_neighbor_order(
-        LiggghtsNeighbor::new(Vec3::new(-1.0, -1.0, -0.005), Vec3::new(1.0, 1.0, 0.35), 0.003).unwrap(),
+        LiggghtsNeighbor::new(
+            Vec3::new(-1.0, -1.0, -0.005),
+            Vec3::new(1.0, 1.0, 0.35),
+            0.003,
+        )
+        .unwrap(),
     )
     .with_force_fixes(fixes);
 
@@ -161,9 +176,15 @@ fn run(max_step: usize) {
         for (i, p) in sys.particles().iter().enumerate() {
             let o = 1 + 9 * i;
             let ours = [
-                p.position.x, p.position.y, p.position.z,
-                p.velocity.x, p.velocity.y, p.velocity.z,
-                p.angular_velocity.x, p.angular_velocity.y, p.angular_velocity.z,
+                p.position.x,
+                p.position.y,
+                p.position.z,
+                p.velocity.x,
+                p.velocity.y,
+                p.velocity.z,
+                p.angular_velocity.x,
+                p.angular_velocity.y,
+                p.angular_velocity.z,
             ];
             for k in 0..9 {
                 total += 1;

@@ -75,8 +75,8 @@ use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial};
 use outram_park_fork_liggghts::granular_system::GranularSystem;
 use outram_park_fork_liggghts::insert::{
-    Axis, InsertFix, InsertMode, InsertVelocity, InsertRegion, PackTarget, ParticleDistributionDiscrete, ParticleTemplateSphere, Rate,
-    RateTotal,
+    Axis, InsertFix, InsertMode, InsertVelocity, InsertRegion, PackTarget,
+    ParticleDistributionDiscrete, ParticleTemplateSphere, Rate, RateTotal,
 };
 use outram_park_fork_liggghts::neighbor_list::LiggghtsNeighbor;
 use outram_park_fork_liggghts::particle::Vec3;
@@ -84,8 +84,16 @@ use uom::si::f64::{Length, MassDensity, Velocity};
 use uom::si::{length::meter, mass_density::kilogram_per_cubic_meter, velocity::meter_per_second};
 
 const FRAMES: [u64; 9] = [1, 1000, 1001, 6001, 10001, 20000, 24000, 26000, 30000];
-const BOX_LO: Vec3 = Vec3 { x: -0.035, y: -0.035, z: -0.005 };
-const BOX_HI: Vec3 = Vec3 { x: 0.035, y: 0.035, z: 0.35 };
+const BOX_LO: Vec3 = Vec3 {
+    x: -0.035,
+    y: -0.035,
+    z: -0.005,
+};
+const BOX_HI: Vec3 = Vec3 {
+    x: 0.035,
+    y: 0.035,
+    z: 0.35,
+};
 
 fn read(name: &str) -> Option<String> {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -99,7 +107,13 @@ fn m(v: f64) -> Length {
 }
 
 fn template(seed: i32, r: f64) -> ParticleTemplateSphere {
-    ParticleTemplateSphere::new(seed, 1, m(r), MassDensity::new::<kilogram_per_cubic_meter>(2500.0)).unwrap()
+    ParticleTemplateSphere::new(
+        seed,
+        1,
+        m(r),
+        MassDensity::new::<kilogram_per_cubic_meter>(2500.0),
+    )
+    .unwrap()
 }
 
 fn region() -> InsertRegion {
@@ -114,7 +128,12 @@ fn fix_for(deck: &str) -> InsertFix {
     let (mode, dist, vel) = match deck {
         "pour_pack" => (
             InsertMode::Pack(PackTarget::Particles(200)),
-            ParticleDistributionDiscrete::new(15485867, true, vec![(template(15485863, 0.005), 1.0)]).unwrap(),
+            ParticleDistributionDiscrete::new(
+                15485867,
+                true,
+                vec![(template(15485863, 0.005), 1.0)],
+            )
+            .unwrap(),
             None,
         ),
         "pour_poly" => (
@@ -122,7 +141,10 @@ fn fix_for(deck: &str) -> InsertFix {
             ParticleDistributionDiscrete::new(
                 15485867,
                 true,
-                vec![(template(15485863, 0.005), 0.7), (template(49979687, 0.0035), 0.3)],
+                vec![
+                    (template(15485863, 0.005), 0.7),
+                    (template(49979687, 0.0035), 0.3),
+                ],
             )
             .unwrap(),
             Some(InsertVelocity::Uniform {
@@ -131,25 +153,51 @@ fn fix_for(deck: &str) -> InsertFix {
             }),
         ),
         "pour_rate" => (
-            InsertMode::RateRegion { total: Some(RateTotal::Particles(120)), rate: Rate::Particles(8000.0), dt: 5e-6 },
-            ParticleDistributionDiscrete::new(15485867, true, vec![(template(15485863, 0.005), 1.0)]).unwrap(),
+            InsertMode::RateRegion {
+                total: Some(RateTotal::Particles(120)),
+                rate: Rate::Particles(8000.0),
+                dt: 5e-6,
+            },
+            ParticleDistributionDiscrete::new(
+                15485867,
+                true,
+                vec![(template(15485863, 0.005), 1.0)],
+            )
+            .unwrap(),
             None,
         ),
         "pour_block" => (
             InsertMode::Pack(PackTarget::Mass(0.1)),
-            ParticleDistributionDiscrete::new(15485867, false, vec![(template(15485863, 0.004), 1.0)]).unwrap(),
-            Some(InsertVelocity::Gaussian { v: Vec3::new(0.0, 0.0, -0.1), fluct: Vec3::new(0.03, 0.03, 0.03) }),
+            ParticleDistributionDiscrete::new(
+                15485867,
+                false,
+                vec![(template(15485863, 0.004), 1.0)],
+            )
+            .unwrap(),
+            Some(InsertVelocity::Gaussian {
+                v: Vec3::new(0.0, 0.0, -0.1),
+                fluct: Vec3::new(0.03, 0.03, 0.03),
+            }),
         ),
         "pour_nocheck" => (
             InsertMode::Pack(PackTarget::Particles(6)),
-            ParticleDistributionDiscrete::new(15485867, true, vec![(template(15485863, 0.005), 1.0)]).unwrap(),
+            ParticleDistributionDiscrete::new(
+                15485867,
+                true,
+                vec![(template(15485863, 0.005), 1.0)],
+            )
+            .unwrap(),
             None,
         ),
         _ => unreachable!(),
     };
     let block = deck == "pour_block";
     let reg = if block {
-        InsertRegion::block(Vec3::new(-0.016, -0.016, 0.05), Vec3::new(0.016, 0.016, 0.3)).unwrap()
+        InsertRegion::block(
+            Vec3::new(-0.016, -0.016, 0.05),
+            Vec3::new(0.016, 0.016, 0.3),
+        )
+        .unwrap()
     } else {
         region()
     };
@@ -158,7 +206,9 @@ fn fix_for(deck: &str) -> InsertFix {
         .with_overlap_check(deck != "pour_nocheck")
         .with_all_in(!block);
     if block {
-        f = f.with_exact_number(false).with_omega(Vec3::new(1.0, 2.0, 3.0));
+        f = f
+            .with_exact_number(false)
+            .with_omega(Vec3::new(1.0, 2.0, 3.0));
     }
     match vel {
         Some(v) => f.with_velocity(v),
@@ -227,8 +277,15 @@ fn compare(deck: &str) -> Option<Vec<(u64, usize, usize, f64, f64)>> {
         for r in &rows {
             let p = &ours[r[0] as usize - 1];
             let mine = [
-                p.position.x, p.position.y, p.position.z, p.velocity.x, p.velocity.y, p.velocity.z,
-                p.angular_velocity.x, p.angular_velocity.y, p.angular_velocity.z,
+                p.position.x,
+                p.position.y,
+                p.position.z,
+                p.velocity.x,
+                p.velocity.y,
+                p.velocity.z,
+                p.angular_velocity.x,
+                p.angular_velocity.y,
+                p.angular_velocity.z,
             ];
             let mut same = true;
             for k in 0..9 {
@@ -263,9 +320,15 @@ fn report(deck: &str) {
     }
     for (step, n, same, rel, _) in &stats {
         if *step <= 10001 {
-            assert_eq!(same, n, "{deck} step {step}: insertion + free flight must be bit-identical");
+            assert_eq!(
+                same, n,
+                "{deck} step {step}: insertion + free flight must be bit-identical"
+            );
         } else {
-            assert!(*rel <= 1e-8, "{deck} step {step}: worst relative difference {rel:e} (bit-identical {same}/{n})");
+            assert!(
+                *rel <= 1e-8,
+                "{deck} step {step}: worst relative difference {rel:e} (bit-identical {same}/{n})"
+            );
         }
     }
 }

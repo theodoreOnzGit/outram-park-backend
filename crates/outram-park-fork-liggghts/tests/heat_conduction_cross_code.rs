@@ -90,9 +90,10 @@ fn parse(csv: &str) -> HashMap<usize, HashMap<usize, (f64, f64)>> {
     let mut out: HashMap<usize, HashMap<usize, (f64, f64)>> = HashMap::new();
     for l in csv.lines().skip(1).filter(|l| !l.trim().is_empty()) {
         let v: Vec<&str> = l.split(',').collect();
-        out.entry(v[0].parse().unwrap())
-            .or_default()
-            .insert(v[1].parse().unwrap(), (v[2].parse().unwrap(), v[3].parse().unwrap()));
+        out.entry(v[0].parse().unwrap()).or_default().insert(
+            v[1].parse().unwrap(),
+            (v[2].parse().unwrap(), v[3].parse().unwrap()),
+        );
     }
     out
 }
@@ -114,8 +115,20 @@ fn pair_system() -> GranularSystem {
     let material = GranularMaterial::new(1.0e7, 0.3, 0.9, 0.5).unwrap();
     GranularSystem::new(
         vec![
-            sphere(Vec3::new(-0.0048, 0.0, 0.0), Vec3::zero(), 0.005, 2500.0, 400.0),
-            sphere(Vec3::new(0.0048, 0.0, 0.0), Vec3::zero(), 0.005, 2500.0, 300.0),
+            sphere(
+                Vec3::new(-0.0048, 0.0, 0.0),
+                Vec3::zero(),
+                0.005,
+                2500.0,
+                400.0,
+            ),
+            sphere(
+                Vec3::new(0.0048, 0.0, 0.0),
+                Vec3::zero(),
+                0.005,
+                2500.0,
+                300.0,
+            ),
         ],
         vec![],
         GranularContactModel::hertz_history(material),
@@ -156,7 +169,10 @@ fn two_spheres_match_upstream() {
             flux10 = sys.heat_flux()[0];
         }
     }
-    eprintln!("heat pair: {same}/{total} values bit-identical over {} frames", total / 4);
+    eprintln!(
+        "heat pair: {same}/{total} values bit-identical over {} frames",
+        total / 4
+    );
     assert_eq!(same, total);
 
     // The clean-room model on the same contact at step 10: its conductance
@@ -170,7 +186,10 @@ fn two_spheres_match_upstream() {
     let delta9 = a9.radius + b9.radius - a9.position.sub(b9.position).norm();
     let ac = hertzian_contact_radius(a9.radius, b9.radius, delta9).unwrap();
     // Particle 0 is the hot one: heat rate INTO particle 0 from particle 1.
-    let model = ThermalModel::ContactConduction { k_i: 50.0, k_j: 50.0 };
+    let model = ThermalModel::ContactConduction {
+        k_i: 50.0,
+        k_j: 50.0,
+    };
     let q_clean =
         outram_park_fork_liggghts::thermal::particle_pair_heat_rate(&model, ac, &a9, &b9).unwrap();
     let ratio = flux10 / q_clean;
@@ -186,7 +205,10 @@ fn two_spheres_match_upstream() {
          delta = {delta9:.3e} m)",
         (2.0 * std::f64::consts::PI).sqrt()
     );
-    assert!((ratio / closed - 1.0).abs() < 2e-4, "ratio {ratio} vs closed form {closed}");
+    assert!(
+        (ratio / closed - 1.0).abs() < 2e-4,
+        "ratio {ratio} vs closed form {closed}"
+    );
 }
 
 /// The settled bed with a temperature gradient: T and heat flux of all 354
@@ -195,7 +217,9 @@ fn two_spheres_match_upstream() {
 #[test]
 fn bed_matches_upstream() {
     let (Some(bed), Some(csv)) = (read("pebble_bed_settled.csv"), read("heat_bed.csv")) else {
-        eprintln!("skipping: reference-data/liggghts/ heat_bed.csv or pebble_bed_settled.csv not present");
+        eprintln!(
+            "skipping: reference-data/liggghts/ heat_bed.csv or pebble_bed_settled.csv not present"
+        );
         return;
     };
     let want = parse(&csv);
@@ -209,7 +233,13 @@ fn bed_matches_upstream() {
         .map(|(n, l)| {
             let v: Vec<f64> = l.split(',').map(|x| x.parse().unwrap()).collect();
             assert_eq!(v[0] as usize, n + 1);
-            sphere(Vec3::new(v[1], v[2], v[3]), Vec3::new(v[4], v[5], v[6]), r, 2500.0, t0[&(n + 1)].0)
+            sphere(
+                Vec3::new(v[1], v[2], v[3]),
+                Vec3::new(v[4], v[5], v[6]),
+                r,
+                2500.0,
+                t0[&(n + 1)].0,
+            )
         })
         .collect();
     let build = |lig: bool| {
@@ -227,13 +257,18 @@ fn bed_matches_upstream() {
         .unwrap();
         let sys = if lig {
             sys.with_liggghts_neighbor_order(
-                LiggghtsNeighbor::new(Vec3::new(-1.0, -1.0, -0.005), Vec3::new(1.0, 1.0, 0.35), 0.003)
-                    .unwrap(),
+                LiggghtsNeighbor::new(
+                    Vec3::new(-1.0, -1.0, -0.005),
+                    Vec3::new(1.0, 1.0, 0.35),
+                    0.003,
+                )
+                .unwrap(),
             )
         } else {
             sys
         };
-        sys.with_heat_conduction(HeatGranConduction::single_type(50.0, 10.0).unwrap()).unwrap()
+        sys.with_heat_conduction(HeatGranConduction::single_type(50.0, 10.0).unwrap())
+            .unwrap()
     };
     for (label, lig) in [("liggghts order", true), ("cell-grid order", false)] {
         let mut sys = build(lig);
@@ -262,7 +297,10 @@ fn bed_matches_upstream() {
         if lig {
             assert_eq!(bad, vec![0, 0, 0, 0]);
         } else {
-            assert!(worst_rel < 1e-8, "cell-grid order: worst relative {worst_rel:e}");
+            assert!(
+                worst_rel < 1e-8,
+                "cell-grid order: worst relative {worst_rel:e}"
+            );
         }
     }
 }

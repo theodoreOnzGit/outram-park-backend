@@ -78,9 +78,11 @@ fn sphere(row: &[f64], k: usize, r: f64) -> Particle {
 /// message.
 #[test]
 fn mesh_stress_matches_liggghts() {
-    let (Some(csv), Some(thermo), Some(stl)) =
-        (read("mesh_stress.csv"), read("mesh_stress_thermo.txt"), read("plate_square.stl"))
-    else {
+    let (Some(csv), Some(thermo), Some(stl)) = (
+        read("mesh_stress.csv"),
+        read("mesh_stress_thermo.txt"),
+        read("plate_square.stl"),
+    ) else {
         eprintln!("skipping: reference-data/liggghts/ not present");
         return;
     };
@@ -88,11 +90,19 @@ fn mesh_stress_matches_liggghts() {
         .lines()
         .skip(1)
         .filter(|l| !l.trim().is_empty())
-        .map(|l| l.split(',').map(|v| v.parse().expect("numeric csv")).collect())
+        .map(|l| {
+            l.split(',')
+                .map(|v| v.parse().expect("numeric csv"))
+                .collect()
+        })
         .collect();
     let thermo: Vec<Vec<f64>> = thermo
         .lines()
-        .map(|l| l.split_whitespace().map(|v| v.parse().expect("numeric thermo")).collect())
+        .map(|l| {
+            l.split_whitespace()
+                .map(|v| v.parse().expect("numeric thermo"))
+                .collect()
+        })
         .collect();
     assert_eq!(rows.len(), 251);
     assert_eq!(thermo.len(), 41);
@@ -167,8 +177,14 @@ fn mesh_stress_matches_liggghts() {
             }
         }
     }
-    assert!(max_force > 0.03, "the mesh never carried the spheres' weight: {max_force}");
-    assert_eq!(mismatched, 0, "{mismatched}/{total} differ, first {first:?}");
+    assert!(
+        max_force > 0.03,
+        "the mesh never carried the spheres' weight: {max_force}"
+    );
+    assert_eq!(
+        mismatched, 0,
+        "{mismatched}/{total} differ, first {first:?}"
+    );
 }
 
 /// A mesh without `with_stress` reports no stress vector; with it the total
@@ -183,7 +199,11 @@ fn facet_stress_sums_to_the_total_force() {
         .lines()
         .skip(1)
         .filter(|l| !l.trim().is_empty())
-        .map(|l| l.split(',').map(|v| v.parse().expect("numeric csv")).collect())
+        .map(|l| {
+            l.split(',')
+                .map(|v| v.parse().expect("numeric csv"))
+                .collect()
+        })
         .collect();
     let mesh = || WallGeometry::Mesh(MeshWall::from_ascii_stl(&stl).expect("valid plate stl"));
     let material = GranularMaterial::new(1.0e7, 0.3, 0.9, 0.5).expect("valid material");
@@ -198,10 +218,18 @@ fn facet_stress_sums_to_the_total_force() {
         .expect("valid system")
         .with_moving_walls(vec![plate])
     };
-    let mut plain = build(MovingBoundary::new(mesh(), Vec3::zero(), Vec3::zero(), Vec3::zero()));
+    let mut plain = build(MovingBoundary::new(
+        mesh(),
+        Vec3::zero(),
+        Vec3::zero(),
+        Vec3::zero(),
+    ));
     plain.run(10);
     assert_eq!(plain.mesh_stress_vector(0, 0), None);
-    let mut sys = build(MovingBoundary::new(mesh(), Vec3::zero(), Vec3::zero(), Vec3::zero()).with_stress(Vec3::zero()));
+    let mut sys = build(
+        MovingBoundary::new(mesh(), Vec3::zero(), Vec3::zero(), Vec3::zero())
+            .with_stress(Vec3::zero()),
+    );
     sys.run(1);
     let fz = sys.mesh_stress_vector(0, 2).expect("tracked");
     assert!(fz < 0.0, "the plate is pushed down by the spheres: {fz}");

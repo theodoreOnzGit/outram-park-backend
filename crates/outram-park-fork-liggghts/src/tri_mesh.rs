@@ -885,13 +885,13 @@ impl TriMeshState {
         let obtuse_angle_index = g.obtuse;
 
         let node0_to_sphere_centre = v_sub(c_sphere, &nd[0]);
-        let mut bary = Self::calc_bary_tri_coords(&node0_to_sphere_centre, &g.edge_vec, &g.edge_len);
+        let mut bary =
+            Self::calc_bary_tri_coords(&node0_to_sphere_centre, &g.edge_vec, &g.edge_len);
 
         let invlen = 1. / (2. * self.r_bound[n_tri]);
         let thr = -PRECISION * invlen;
-        let bary_sign: u8 = u8::from(bary[0] > thr)
-            + 2 * u8::from(bary[1] > thr)
-            + 4 * u8::from(bary[2] > thr);
+        let bary_sign: u8 =
+            u8::from(bary[0] > thr) + 2 * u8::from(bary[1] > thr) + 4 * u8::from(bary[2] > thr);
 
         let mut delta = [0.; 3];
         let d = match bary_sign {
@@ -952,7 +952,9 @@ impl TriMeshState {
                 &mut bary,
                 skip_inactive,
             ),
-            7 => self.resolve_face_contact_bary(n_tri, c_sphere, &node0_to_sphere_centre, &mut delta),
+            7 => {
+                self.resolve_face_contact_bary(n_tri, c_sphere, &node0_to_sphere_centre, &mut delta)
+            }
             // Upstream: error->one("Internal error"). All three barycentric
             // coordinates at or below -threshold cannot happen for a facet
             // whose barycentric coordinates sum to one.
@@ -1055,7 +1057,12 @@ mod tests {
     fn incremental_rotation_rotates_nodes_and_cached_vectors() {
         let mut nodes = vec![tri([1., 0., 0.], [2., 0., 0.], [1., 1., 0.])];
         let mut s = TriMeshState::new(&nodes);
-        s.rotate_incremental(&mut nodes, std::f64::consts::FRAC_PI_2, &[0., 0., 1.], &[0.; 3]);
+        s.rotate_incremental(
+            &mut nodes,
+            std::f64::consts::FRAC_PI_2,
+            &[0., 0., 1.],
+            &[0.; 3],
+        );
         assert!((nodes[0][0][0]).abs() < 1e-15 && (nodes[0][0][1] - 1.0).abs() < 1e-15);
         let n = s.surface_norm(0);
         assert!((n[2] - 1.0).abs() < 1e-15);

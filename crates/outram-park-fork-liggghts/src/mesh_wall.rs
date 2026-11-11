@@ -467,7 +467,6 @@ impl MeshWall {
         Self::new(triangles)
     }
 
-
     /// Every facet the sphere `(c, radius)` overlaps, in ascending facet order,
     /// resolved by upstream's `TriMesh::resolveTriSphereContactBary` (face,
     /// edge or corner region, inactive edges and corners skipped). Only
@@ -933,13 +932,21 @@ fn harmonics(
     amplitude: &[f64],
     phase: &[f64],
     period: &[f64],
-) -> Option<(usize, [f64; MAX_VIBRATION_ORDER], [f64; MAX_VIBRATION_ORDER], [f64; MAX_VIBRATION_ORDER])>
-{
+) -> Option<(
+    usize,
+    [f64; MAX_VIBRATION_ORDER],
+    [f64; MAX_VIBRATION_ORDER],
+    [f64; MAX_VIBRATION_ORDER],
+)> {
     let n = amplitude.len();
     if n == 0 || n > MAX_VIBRATION_ORDER || phase.len() != n || period.len() != n {
         return None;
     }
-    let (mut a, mut ph, mut om) = ([0.0; MAX_VIBRATION_ORDER], [0.0; MAX_VIBRATION_ORDER], [0.0; MAX_VIBRATION_ORDER]);
+    let (mut a, mut ph, mut om) = (
+        [0.0; MAX_VIBRATION_ORDER],
+        [0.0; MAX_VIBRATION_ORDER],
+        [0.0; MAX_VIBRATION_ORDER],
+    );
     for j in 0..n {
         a[j] = amplitude[j];
         ph[j] = phase[j];
@@ -1030,10 +1037,22 @@ impl MovingBoundary {
     ///
     /// # Errors
     /// If a variable is not defined in `table`.
-    pub fn linear_variable(geometry: WallGeometry, table: &VariableTable, names: [&str; 3]) -> Result<Self, String> {
-        let get = |n: &str| table.get(n).cloned().ok_or_else(|| format!("Variable name {n} for fix move/mesh linear/variable does not exist"));
+    pub fn linear_variable(
+        geometry: WallGeometry,
+        table: &VariableTable,
+        names: [&str; 3],
+    ) -> Result<Self, String> {
+        let get = |n: &str| {
+            table.get(n).cloned().ok_or_else(|| {
+                format!("Variable name {n} for fix move/mesh linear/variable does not exist")
+            })
+        };
         let formulas = [get(names[0])?, get(names[1])?, get(names[2])?];
-        Ok(Self::with_motion(geometry, Vec3::zero(), MeshMotion::LinearVariable { formulas }))
+        Ok(Self::with_motion(
+            geometry,
+            Vec3::zero(),
+            MeshMotion::LinearVariable { formulas },
+        ))
     }
 
     /// `fix move/mesh ... rotate/variable origin <o> axis <a> omega v_<name>`.
@@ -1047,14 +1066,16 @@ impl MovingBoundary {
         axis: Vec3,
         name: &str,
     ) -> Result<Self, String> {
-        let omega = table
-            .get(name)
-            .cloned()
-            .ok_or_else(|| format!("Variable name {name} for fix move/mesh rotate/variable does not exist"))?;
+        let omega = table.get(name).cloned().ok_or_else(|| {
+            format!("Variable name {name} for fix move/mesh rotate/variable does not exist")
+        })?;
         Ok(Self::with_motion(
             geometry,
             origin,
-            MeshMotion::RotateVariable { axis: unit_vector(axis), omega },
+            MeshMotion::RotateVariable {
+                axis: unit_vector(axis),
+                omega,
+            },
         ))
     }
 
@@ -1062,7 +1083,11 @@ impl MovingBoundary {
     #[must_use]
     pub fn wiggle(geometry: WallGeometry, amplitude: Vec3, period: f64) -> Self {
         let omega = 2. * std::f64::consts::PI / period;
-        Self::with_motion(geometry, Vec3::zero(), MeshMotion::Wiggle { amplitude, omega })
+        Self::with_motion(
+            geometry,
+            Vec3::zero(),
+            MeshMotion::Wiggle { amplitude, omega },
+        )
     }
 
     /// `fix move/mesh ... viblin axis <a> order <n> amplitude .. phase ..
@@ -1092,7 +1117,13 @@ impl MovingBoundary {
     /// `fix move/mesh ... riggle origin <o> axis <a> period <T> amplitude
     /// <deg>`.
     #[must_use]
-    pub fn riggle(geometry: WallGeometry, origin: Vec3, axis: Vec3, period: f64, amplitude_deg: f64) -> Self {
+    pub fn riggle(
+        geometry: WallGeometry,
+        origin: Vec3,
+        axis: Vec3,
+        period: f64,
+        amplitude_deg: f64,
+    ) -> Self {
         Self::with_motion(
             geometry,
             origin,
@@ -1135,40 +1166,74 @@ impl MovingBoundary {
     /// dt`.
     fn apply_motion(&mut self, dt: f64) {
         let t = self.time;
-        let ctx = VarContext { step: self.step, begin_step: 0, end_step: self.end_step, dt };
+        let ctx = VarContext {
+            step: self.step,
+            begin_step: 0,
+            end_step: self.end_step,
+            dt,
+        };
         match &self.motion {
             MeshMotion::None => {}
             MeshMotion::LinearVariable { formulas } => {
                 let mut v = [0.0; 3];
                 for (k, f) in formulas.iter().enumerate() {
-                    v[k] = f.eval(&ctx).unwrap_or_else(|e| panic!("fix move/mesh linear/variable: {e}"));
+                    v[k] = f
+                        .eval(&ctx)
+                        .unwrap_or_else(|e| panic!("fix move/mesh linear/variable: {e}"));
                 }
                 self.velocity = Vec3::new(v[0], v[1], v[2]);
             }
             MeshMotion::RotateVariable { axis, omega } => {
-                let w = omega.eval(&ctx).unwrap_or_else(|e| panic!("fix move/mesh rotate/variable: {e}"));
-                self.rotation = Some(MeshRotation { axis: *axis, omega: w });
+                let w = omega
+                    .eval(&ctx)
+                    .unwrap_or_else(|e| panic!("fix move/mesh rotate/variable: {e}"));
+                self.rotation = Some(MeshRotation {
+                    axis: *axis,
+                    omega: w,
+                });
             }
             MeshMotion::Wiggle { amplitude, omega } => {
                 self.velocity = amplitude.scale(omega * (omega * t).cos());
             }
-            MeshMotion::VibLin { axis, order, ampl, phi, omega } => {
+            MeshMotion::VibLin {
+                axis,
+                order,
+                ampl,
+                phi,
+                omega,
+            } => {
                 let mut v_a = 0.0;
                 for j in 0..*order {
                     v_a -= ampl[j] * omega[j] * (omega[j] * t + phi[j]).sin();
                 }
                 self.velocity = axis.scale(v_a);
             }
-            MeshMotion::Riggle { amplitude, omega, axis } => {
+            MeshMotion::Riggle {
+                amplitude,
+                omega,
+                axis,
+            } => {
                 let pre = omega * amplitude * (omega * t).cos();
-                self.rotation = Some(MeshRotation { axis: *axis, omega: pre });
+                self.rotation = Some(MeshRotation {
+                    axis: *axis,
+                    omega: pre,
+                });
             }
-            MeshMotion::VibRot { axis, order, ampl, phi, omega } => {
+            MeshMotion::VibRot {
+                axis,
+                order,
+                ampl,
+                phi,
+                omega,
+            } => {
                 let mut v_r = 0.0;
                 for j in 0..*order {
                     v_r -= ampl[j] * omega[j] * (omega[j] * t + phi[j]).sin();
                 }
-                self.rotation = Some(MeshRotation { axis: *axis, omega: v_r });
+                self.rotation = Some(MeshRotation {
+                    axis: *axis,
+                    omega: v_r,
+                });
             }
         }
     }
@@ -1281,7 +1346,8 @@ impl MovingBoundary {
         }
         let rotating = omega != 0.0;
         if rotating {
-            m.state.rotate_incremental(&mut nodes, omega * dt, &axis, &pivot);
+            m.state
+                .rotate_incremental(&mut nodes, omega * dt, &axis, &pivot);
             if let Some(st) = &mut self.stress {
                 // TrackingMesh::rotate: customValues_.move(-origin), rotate by dQ, move(origin)
                 let an = {
@@ -1304,7 +1370,11 @@ impl MovingBoundary {
             let omega_vec = [omega * axis[0], omega * axis[1], omega * axis[2]];
             for (nd, vn) in nodes.iter().zip(m.state.node_velocity.iter_mut()) {
                 for j in 0..3 {
-                    let r = [nd[j][0] - pivot[0], nd[j][1] - pivot[1], nd[j][2] - pivot[2]];
+                    let r = [
+                        nd[j][0] - pivot[0],
+                        nd[j][1] - pivot[1],
+                        nd[j][2] - pivot[2],
+                    ];
                     let v_rot = [
                         omega_vec[1] * r[2] - omega_vec[2] * r[1],
                         omega_vec[2] * r[0] - omega_vec[0] * r[2],

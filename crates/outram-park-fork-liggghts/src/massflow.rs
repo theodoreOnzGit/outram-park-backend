@@ -125,7 +125,8 @@ impl MassFlowMesh {
         if !cfg.once && have_outlet {
             return bad("setting 'point_at_outlet' requires 'count once'");
         }
-        if (side[0] * side[0] + side[1] * side[1] + side[2] * side[2]).sqrt() == 0.0 && !have_outlet {
+        if (side[0] * side[0] + side[1] * side[1] + side[2] * side[2]).sqrt() == 0.0 && !have_outlet
+        {
             return bad("expecting keyword 'vec_side'");
         }
         let t0 = mesh.triangles[0];
@@ -146,7 +147,9 @@ impl MassFlowMesh {
                 let n = mesh.state.surface_norm(i);
                 let off = [t.a.x - pref[0], t.a.y - pref[1], t.a.z - pref[2]];
                 if dot(&n, &n0).abs() < 1.0 - 1e-9 || dot(&off, &n0).abs() > 1e-9 {
-                    return bad("requires a planar face mass flow measurement or using 'point_at_outlet'");
+                    return bad(
+                        "requires a planar face mass flow measurement or using 'point_at_outlet'",
+                    );
                 }
             }
         }
@@ -191,10 +194,10 @@ impl MassFlowMesh {
                     continue;
                 }
                 let x = arr(p.position);
-                let (deltan, delta, _bary, bary_sign) =
-                    self.mesh
-                        .state
-                        .resolve_tri_sphere_contact_bary(&nodes[i_tri], i_tri, p.radius, &x, true);
+                let (deltan, delta, _bary, bary_sign) = self
+                    .mesh
+                    .state
+                    .resolve_tri_sphere_contact_bary(&nodes[i_tri], i_tri, p.radius, &x, true);
                 let d = if let Some(out) = self.cfg.point_at_outlet {
                     if deltan < p.radius {
                         let nv = [x[0] - out.x, x[1] - out.y, x[2] - out.z];
@@ -208,7 +211,11 @@ impl MassFlowMesh {
                         continue;
                     }
                 } else {
-                    let dl = [x[0] - self.pref[0], x[1] - self.pref[1], x[2] - self.pref[2]];
+                    let dl = [
+                        x[0] - self.pref[0],
+                        x[1] - self.pref[1],
+                        x[2] - self.pref[2],
+                    ];
                     dot(&dl, &self.nvec)
                 };
                 if c == -1.0 {
@@ -227,7 +234,8 @@ impl MassFlowMesh {
                             velocity: p.velocity,
                         });
                     }
-                    self.counter.insert(tag, if self.cfg.once { 2.0 } else { 1.0 });
+                    self.counter
+                        .insert(tag, if self.cfg.once { 2.0 } else { 1.0 });
                 } else if d <= 0.0 {
                     self.counter.insert(tag, 0.0);
                 }
@@ -252,7 +260,13 @@ impl MassFlowMesh {
                     .iter()
                     .enumerate()
                     .filter(|(_, p)| {
-                        self.mesh.state.neighbuild(&nodes[i], i, p.radius, &arr(p.position), threshold)
+                        self.mesh.state.neighbuild(
+                            &nodes[i],
+                            i,
+                            p.radius,
+                            &arr(p.position),
+                            threshold,
+                        )
                     })
                     .map(|(k, _)| k)
                     .collect()

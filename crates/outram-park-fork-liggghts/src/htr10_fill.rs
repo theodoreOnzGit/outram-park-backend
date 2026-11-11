@@ -192,24 +192,31 @@ fn pebble(x: Vec3) -> Result<Particle, DemError> {
 pub fn discharge_mesh(segments: usize) -> Result<MeshWall, DemError> {
     let n = segments.max(3);
     let mut tris = Vec::with_capacity(4 * n);
-    let band = |z0: f64, r0: f64, z1: f64, r1: f64, tris: &mut Vec<Triangle>| -> Result<(), DemError> {
-        for i in 0..n {
-            let (a0, a1) = (
-                std::f64::consts::TAU * i as f64 / n as f64,
-                std::f64::consts::TAU * (i + 1) as f64 / n as f64,
-            );
-            let p0 = Vec3::new(r0 * a0.r_cos(), r0 * a0.r_sin(), z0);
-            let p1 = Vec3::new(r0 * a1.r_cos(), r0 * a1.r_sin(), z0);
-            let q0 = Vec3::new(r1 * a0.r_cos(), r1 * a0.r_sin(), z1);
-            let q1 = Vec3::new(r1 * a1.r_cos(), r1 * a1.r_sin(), z1);
-            // Windings make (b - a) x (c - a) point toward the axis.
-            tris.push(Triangle::new(p0, q1, q0)?);
-            tris.push(Triangle::new(p0, p1, q1)?);
-        }
-        Ok(())
-    };
+    let band =
+        |z0: f64, r0: f64, z1: f64, r1: f64, tris: &mut Vec<Triangle>| -> Result<(), DemError> {
+            for i in 0..n {
+                let (a0, a1) = (
+                    std::f64::consts::TAU * i as f64 / n as f64,
+                    std::f64::consts::TAU * (i + 1) as f64 / n as f64,
+                );
+                let p0 = Vec3::new(r0 * a0.r_cos(), r0 * a0.r_sin(), z0);
+                let p1 = Vec3::new(r0 * a1.r_cos(), r0 * a1.r_sin(), z0);
+                let q0 = Vec3::new(r1 * a0.r_cos(), r1 * a0.r_sin(), z1);
+                let q1 = Vec3::new(r1 * a1.r_cos(), r1 * a1.r_sin(), z1);
+                // Windings make (b - a) x (c - a) point toward the axis.
+                tris.push(Triangle::new(p0, q1, q0)?);
+                tris.push(Triangle::new(p0, p1, q1)?);
+            }
+            Ok(())
+        };
     band(0.0, CORE_RADIUS_M, -CONE_HEIGHT_M, TUBE_RADIUS_M, &mut tris)?;
-    band(-CONE_HEIGHT_M, TUBE_RADIUS_M, VALVE_Z_M, TUBE_RADIUS_M, &mut tris)?;
+    band(
+        -CONE_HEIGHT_M,
+        TUBE_RADIUS_M,
+        VALVE_Z_M,
+        TUBE_RADIUS_M,
+        &mut tris,
+    )?;
     MeshWall::new(tris)
 }
 
@@ -263,8 +270,15 @@ pub fn seed_loose(n: usize, seed: u64) -> Vec<Vec3> {
     let mut state = seed;
     let mut out: Vec<Vec3> = Vec::with_capacity(n);
     // Spatial hash of placed centres on a d-sized grid, for O(1) overlap checks.
-    let mut grid: std::collections::BTreeMap<(i64, i64, i64), Vec<usize>> = std::collections::BTreeMap::new();
-    let cell = |p: Vec3| ((p.x / d).floor() as i64, (p.y / d).floor() as i64, (p.z / d).floor() as i64);
+    let mut grid: std::collections::BTreeMap<(i64, i64, i64), Vec<usize>> =
+        std::collections::BTreeMap::new();
+    let cell = |p: Vec3| {
+        (
+            (p.x / d).floor() as i64,
+            (p.y / d).floor() as i64,
+            (p.z / d).floor() as i64,
+        )
+    };
     let v_pebble = 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
     // Fill slab by slab (one diameter thick) from the valve up, each slab to
     // the target solid fraction, so the seed is uniformly loose.
@@ -285,7 +299,11 @@ pub fn seed_loose(n: usize, seed: u64) -> Vec<Vec3> {
             // Uniform in the disc of radius `reach`, uniform in z within the slab.
             let rr = reach * splitmix(&mut state).sqrt();
             let th = std::f64::consts::TAU * splitmix(&mut state);
-            let p = Vec3::new(rr * th.r_cos(), rr * th.r_sin(), z0 + (z1 - z0) * splitmix(&mut state));
+            let p = Vec3::new(
+                rr * th.r_cos(),
+                rr * th.r_sin(),
+                z0 + (z1 - z0) * splitmix(&mut state),
+            );
             if p.z - r <= VALVE_Z_M {
                 continue;
             }
@@ -297,7 +315,11 @@ pub fn seed_loose(n: usize, seed: u64) -> Vec<Vec3> {
                         if let Some(ids) = grid.get(&(cx + dx, cy + dy, cz + dz)) {
                             for &k in ids {
                                 let q = out[k];
-                                if (p.x - q.x).r_powi(2) + (p.y - q.y).r_powi(2) + (p.z - q.z).r_powi(2) < d * d {
+                                if (p.x - q.x).r_powi(2)
+                                    + (p.y - q.y).r_powi(2)
+                                    + (p.z - q.z).r_powi(2)
+                                    < d * d
+                                {
                                     clear = false;
                                     break 'scan;
                                 }
@@ -335,7 +357,9 @@ pub fn surface_height_m(centres: &[Vec3]) -> Option<f64> {
 /// Whole-core filling fraction `N V / (π R² h)` over `z > 0`: the like-for-like
 /// comparison with the published 0.61, itself a whole-core figure.
 pub fn whole_core_fraction(centres: &[Vec3]) -> f64 {
-    let Some(top) = surface_height_m(centres) else { return f64::NAN };
+    let Some(top) = surface_height_m(centres) else {
+        return f64::NAN;
+    };
     let n = centres.iter().filter(|c| c.z > 0.0).count();
     let v = 4.0 / 3.0 * std::f64::consts::PI * PEBBLE_RADIUS_M.r_powi(3);
     n as f64 * v / (std::f64::consts::PI * CORE_RADIUS_M * CORE_RADIUS_M * top)
@@ -363,8 +387,10 @@ impl Htr10Fill {
             Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), CORE_RADIUS_M)?,
             Boundary::wall(Vec3::new(0.0, 0.0, VALVE_Z_M), Vec3::new(0.0, 0.0, 1.0))?,
         ];
-        let particles: Vec<Particle> =
-            seed_loose(settings.n_pebbles, settings.seed).into_iter().map(pebble).collect::<Result<_, _>>()?;
+        let particles: Vec<Particle> = seed_loose(settings.n_pebbles, settings.seed)
+            .into_iter()
+            .map(pebble)
+            .collect::<Result<_, _>>()?;
         let sys = GranularSystem::new(
             particles,
             boundaries,
@@ -379,7 +405,12 @@ impl Htr10Fill {
             Vec3::zero(),
             Vec3::zero(),
         )]);
-        Ok(Self { sys, settings, steps: 0, peak_ke_ratio: 0.0 })
+        Ok(Self {
+            sys,
+            settings,
+            steps: 0,
+            peak_ke_ratio: 0.0,
+        })
     }
 
     /// The settings it was built with.
@@ -404,13 +435,24 @@ impl Htr10Fill {
 
     /// `(pebbles above the conus inlet, their mean KE over a one-radius drop)`.
     fn ke_ratio_core(&self) -> (usize, f64) {
-        ke_ratio_of(self.sys.particles().iter().map(|p| (p.position, p.velocity, p.mass)))
+        ke_ratio_of(
+            self.sys
+                .particles()
+                .iter()
+                .map(|p| (p.position, p.velocity, p.mass)),
+        )
     }
 
     /// Where the fill is now, without stepping.
     #[must_use]
     pub fn progress(&self) -> FillProgress {
-        progress_of(&self.settings, self.steps, self.peak_ke_ratio, &self.centres(), self.ke_ratio_core())
+        progress_of(
+            &self.settings,
+            self.steps,
+            self.peak_ke_ratio,
+            &self.centres(),
+            self.ke_ratio_core(),
+        )
     }
 
     /// Pebble centres \[m\], in insertion order.
@@ -449,7 +491,10 @@ impl Htr10GpuFill {
     ///
     /// # Errors
     /// A setting the CPU pour refuses, or one the GPU path does not hold.
-    pub async fn new_async(settings: Htr10FillSettings, ctx: crate::gpu::GpuContext) -> Result<Self, String> {
+    pub async fn new_async(
+        settings: Htr10FillSettings,
+        ctx: crate::gpu::GpuContext,
+    ) -> Result<Self, String> {
         let cpu = Htr10Fill::new(settings).map_err(|e| format!("{e:?}"))?;
         // A browser reports a shader or pipeline it rejects only through an
         // error scope (the dispatches are then silently dropped and nothing
@@ -460,7 +505,14 @@ impl Htr10GpuFill {
             return Err(format!("the browser rejected the GPU kernels: {e}"));
         }
         let states = dem.states_async().await;
-        Ok(Self { dem, settings, steps: 0, peak_ke_ratio: 0.0, states, mass: pebble_mass() })
+        Ok(Self {
+            dem,
+            settings,
+            steps: 0,
+            peak_ke_ratio: 0.0,
+            states,
+            mass: pebble_mass(),
+        })
     }
 
     /// [`Self::advance`] without blocking.
@@ -504,7 +556,14 @@ impl Htr10GpuFill {
         let ctx = crate::gpu::probe().ok_or("no GPU adapter")?;
         let dem = crate::gpu::dem::GpuDem::new(ctx, cpu.system())?;
         let states = dem.states();
-        Ok(Self { dem, settings, steps: 0, peak_ke_ratio: 0.0, states, mass: pebble_mass() })
+        Ok(Self {
+            dem,
+            settings,
+            steps: 0,
+            peak_ke_ratio: 0.0,
+            states,
+            mass: pebble_mass(),
+        })
     }
 
     /// Step `n` more times (fewer if `max_steps` is reached) and report.
@@ -521,13 +580,23 @@ impl Htr10GpuFill {
     }
 
     fn ke_ratio_core(&self) -> (usize, f64) {
-        ke_ratio_of(self.states.iter().map(|s| (s.position, s.velocity, self.mass)))
+        ke_ratio_of(
+            self.states
+                .iter()
+                .map(|s| (s.position, s.velocity, self.mass)),
+        )
     }
 
     /// Where the fill is now, without stepping.
     #[must_use]
     pub fn progress(&self) -> FillProgress {
-        progress_of(&self.settings, self.steps, self.peak_ke_ratio, &self.centres(), self.ke_ratio_core())
+        progress_of(
+            &self.settings,
+            self.steps,
+            self.peak_ke_ratio,
+            &self.centres(),
+            self.ke_ratio_core(),
+        )
     }
 
     /// Pebble centres \[m\], in insertion order.
@@ -568,11 +637,24 @@ fn ke_ratio_of(bodies: impl Iterator<Item = (Vec3, Vec3, f64)>) -> (usize, f64) 
             n += 1;
         }
     }
-    (n, if n == 0 { f64::INFINITY } else { ke / n as f64 / e_drop() })
+    (
+        n,
+        if n == 0 {
+            f64::INFINITY
+        } else {
+            ke / n as f64 / e_drop()
+        },
+    )
 }
 
 /// The report of a fill at `steps`, from its centres and `(n, ke ratio)`.
-fn progress_of(settings: &Htr10FillSettings, steps: usize, peak_ke_ratio: f64, centres: &[Vec3], ke: (usize, f64)) -> FillProgress {
+fn progress_of(
+    settings: &Htr10FillSettings,
+    steps: usize,
+    peak_ke_ratio: f64,
+    centres: &[Vec3],
+    ke: (usize, f64),
+) -> FillProgress {
     {
         let (n, ke_ratio_core) = ke;
         // Settled only once the bed has reached the core and come to rest; a
@@ -608,7 +690,11 @@ mod tests {
     #[test]
     fn the_mesh_matches_the_stl_script_and_faces_inward() {
         let m = discharge_mesh(120).expect("mesh");
-        assert_eq!(m.triangles.len(), 480, "make_htr10_discharge_stl.sh writes 480 facets");
+        assert_eq!(
+            m.triangles.len(),
+            480,
+            "make_htr10_discharge_stl.sh writes 480 facets"
+        );
         for t in &m.triangles {
             let n = t.normal();
             let c = t.a; // any vertex: the normal must point toward the axis
@@ -624,7 +710,10 @@ mod tests {
         assert_eq!(a.len(), 3000);
         for c in &a {
             let r = (c.x * c.x + c.y * c.y).sqrt();
-            assert!(r + PEBBLE_RADIUS_M <= wall_radius_at(c.z).max(wall_radius_at(c.z - PEBBLE_RADIUS_M)) + 1e-9);
+            assert!(
+                r + PEBBLE_RADIUS_M
+                    <= wall_radius_at(c.z).max(wall_radius_at(c.z - PEBBLE_RADIUS_M)) + 1e-9
+            );
             assert!(c.z - PEBBLE_RADIUS_M > VALVE_Z_M);
         }
         // Loose: no two seeds touch.
@@ -649,10 +738,16 @@ mod tests {
         .expect("fill");
         let p = fill.advance(20);
         assert!(p.n_in_core > 0, "the seed reaches the core");
-        assert!(p.ke_ratio_core < fill.settings().settle_target, "at rest after 20 steps");
+        assert!(
+            p.ke_ratio_core < fill.settings().settle_target,
+            "at rest after 20 steps"
+        );
         assert!(!p.settled, "at rest is not settled");
         let p = fill.advance(400);
-        assert!(p.ke_ratio_core > fill.settings().settle_target && !p.settled, "falling");
+        assert!(
+            p.ke_ratio_core > fill.settings().settle_target && !p.settled,
+            "falling"
+        );
     }
 
     /// A small pour (300 pebbles: tube and conus) runs, loses kinetic energy
@@ -670,7 +765,10 @@ mod tests {
         for c in fill.centres() {
             assert!(c.z > VALVE_Z_M, "a pebble fell through the valve: {c:?}");
             let r = (c.x * c.x + c.y * c.y).sqrt();
-            assert!(r <= wall_radius_at(c.z) + 0.01, "a pebble left the wall at {c:?}");
+            assert!(
+                r <= wall_radius_at(c.z) + 0.01,
+                "a pebble left the wall at {c:?}"
+            );
         }
     }
 }

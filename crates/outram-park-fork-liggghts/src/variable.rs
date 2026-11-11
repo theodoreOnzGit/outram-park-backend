@@ -189,7 +189,10 @@ impl VariableTable {
                         }
                     }
                     let txt: String = s[start..i].iter().collect();
-                    args.push(Expr::Const(txt.parse::<f64>().map_err(|_| format!("bad number {txt}"))?));
+                    args.push(Expr::Const(
+                        txt.parse::<f64>()
+                            .map_err(|_| format!("bad number {txt}"))?,
+                    ));
                     expect_arg = false;
                 } else if c.is_ascii_alphabetic() || c == '_' {
                     let start = i;
@@ -332,8 +335,8 @@ fn split_args(s: &str) -> Vec<String> {
 
 fn check_function(name: &str, n: usize) -> Result<(), String> {
     let want = match name {
-        "sqrt" | "exp" | "ln" | "log" | "abs" | "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "ceil"
-        | "floor" | "round" => 1,
+        "sqrt" | "exp" | "ln" | "log" | "abs" | "sin" | "cos" | "tan" | "asin" | "acos"
+        | "atan" | "ceil" | "floor" | "round" => 1,
         "atan2" | "ramp" | "vdisplace" => 2,
         "swiggle" | "cwiggle" => 3,
         _ => return Err(format!("unsupported function {name}")),
@@ -455,9 +458,12 @@ impl Expr {
                     }
                     "ramp" => {
                         if ctx.end_step == ctx.begin_step {
-                            return Err("Cannot use ramp in variable formula with zero-length run".into());
+                            return Err(
+                                "Cannot use ramp in variable formula with zero-length run".into()
+                            );
                         }
-                        let d = (ctx.step - ctx.begin_step) as f64 / (ctx.end_step - ctx.begin_step) as f64;
+                        let d = (ctx.step - ctx.begin_step) as f64
+                            / (ctx.end_step - ctx.begin_step) as f64;
                         v[0] + d * (v[1] - v[0])
                     }
                     "vdisplace" => v[0] + v[1] * delta * ctx.dt,
@@ -484,7 +490,12 @@ mod tests {
     use super::*;
 
     fn ctx(step: i64) -> VarContext {
-        VarContext { step, begin_step: 0, end_step: 1000, dt: 1e-5 }
+        VarContext {
+            step,
+            begin_step: 0,
+            end_step: 1000,
+            dt: 1e-5,
+        }
     }
 
     /// Precedence and associativity follow upstream's table: `-2^2` is
@@ -516,11 +527,17 @@ mod tests {
         assert_eq!(sw, 1.0 + 2.0 * (w * 250.0 * 1e-5).sin());
         let cw = t.parse("cwiggle(1,2,0.5)").unwrap().eval(&c).unwrap();
         assert_eq!(cw, 1.0 + 2.0 * (1.0 - (w * 250.0 * 1e-5).cos()));
-        assert_eq!(t.parse("vdisplace(1,2)").unwrap().eval(&c).unwrap(), 1.0 + 2.0 * 250.0 * 1e-5);
+        assert_eq!(
+            t.parse("vdisplace(1,2)").unwrap().eval(&c).unwrap(),
+            1.0 + 2.0 * 250.0 * 1e-5
+        );
         assert_eq!(t.parse("ramp(0,10)").unwrap().eval(&ctx(500)).unwrap(), 5.0);
         assert_eq!(t.parse("round(2.5)").unwrap().eval(&c).unwrap(), 3.0);
         assert_eq!(
-            t.parse("floor(2.9)+ceil(2.1)+abs(-1)+sqrt(4)+exp(0)").unwrap().eval(&c).unwrap(),
+            t.parse("floor(2.9)+ceil(2.1)+abs(-1)+sqrt(4)+exp(0)")
+                .unwrap()
+                .eval(&c)
+                .unwrap(),
             9.0
         );
         let m = t
@@ -535,11 +552,32 @@ mod tests {
             .eval(&c)
             .unwrap();
         assert_eq!(l, 7.0);
-        for bad in ["1/0", "5 % 0", "2^0", "sqrt(0-1)", "ln(0)", "log(0)", "asin(2)", "swiggle(1,2,0)"] {
+        for bad in [
+            "1/0",
+            "5 % 0",
+            "2^0",
+            "sqrt(0-1)",
+            "ln(0)",
+            "log(0)",
+            "asin(2)",
+            "swiggle(1,2,0)",
+        ] {
             assert!(t.parse(bad).unwrap().eval(&c).is_err(), "{bad}");
         }
-        assert!(t.parse("ramp(0,1)").unwrap().eval(&VarContext { end_step: 0, ..c }).is_err());
-        for bad in ["random(0,1,1)", "v_nope", "1 +", "(1", "sin(1,2)", "1 $ 2", "foo"] {
+        assert!(t
+            .parse("ramp(0,1)")
+            .unwrap()
+            .eval(&VarContext { end_step: 0, ..c })
+            .is_err());
+        for bad in [
+            "random(0,1,1)",
+            "v_nope",
+            "1 +",
+            "(1",
+            "sin(1,2)",
+            "1 $ 2",
+            "foo",
+        ] {
             assert!(t.parse(bad).is_err(), "{bad}");
         }
     }

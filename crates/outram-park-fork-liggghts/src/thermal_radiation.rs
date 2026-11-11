@@ -603,7 +603,8 @@ mod tests {
         assert!(q > 0.0, "radiative heat must flow INTO the colder surface");
 
         // Matches the explicit sigma * eps_eff * A * (T2^4 - T1^4) product.
-        let expected = STEFAN_BOLTZMANN * eps_eff * area * (400.0_f64.r_powi(4) - 300.0_f64.r_powi(4));
+        let expected =
+            STEFAN_BOLTZMANN * eps_eff * area * (400.0_f64.r_powi(4) - 300.0_f64.r_powi(4));
         assert_abs_diff_eq!(q, expected, epsilon = 1.0e-15);
         // And the hand-computed number.
         assert_abs_diff_eq!(q, 0.066_154_368_23, epsilon = 1.0e-9);

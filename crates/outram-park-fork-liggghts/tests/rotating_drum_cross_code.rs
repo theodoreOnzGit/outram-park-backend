@@ -72,7 +72,11 @@ fn rotating_drum_matches_liggghts() {
         .lines()
         .skip(1)
         .filter(|l| !l.trim().is_empty())
-        .map(|l| l.split(',').map(|v| v.parse().expect("numeric csv")).collect())
+        .map(|l| {
+            l.split(',')
+                .map(|v| v.parse().expect("numeric csv"))
+                .collect()
+        })
         .collect();
     assert_eq!(rows.len(), 251);
     let r = 0.004;
@@ -140,5 +144,8 @@ fn rotating_drum_matches_liggghts() {
         }
     }
     eprintln!("rotating drum vs LIGGGHTS: {bad}/{total} differ, worst {worst:?}, first {first:?}");
-    assert_eq!(bad, 0, "not bit-identical: {bad}/{total}, first {first:?}, worst {worst:?}");
+    assert_eq!(
+        bad, 0,
+        "not bit-identical: {bad}/{total}, first {first:?}, worst {worst:?}"
+    );
 }

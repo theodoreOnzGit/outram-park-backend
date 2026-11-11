@@ -209,8 +209,9 @@ pub fn atom_sort_permutation(x: &[Vec3], cfg: &LiggghtsNeighbor, cutneighmax: f6
             let ix = c_int((p.x - cfg.box_lo.x) * bininvx).max(0).min(nbinx - 1);
             let iy = c_int((p.y - cfg.box_lo.y) * bininvy).max(0).min(nbiny - 1);
             let iz = c_int((p.z - cfg.box_lo.z) * bininvz).max(0).min(nbinz - 1);
-            let ibin =
-                i64::from(iz) * i64::from(nbiny) * i64::from(nbinx) + i64::from(iy) * i64::from(nbinx) + i64::from(ix);
+            let ibin = i64::from(iz) * i64::from(nbiny) * i64::from(nbinx)
+                + i64::from(iy) * i64::from(nbinx)
+                + i64::from(ix);
             (ibin, i)
         })
         .collect();
@@ -259,7 +260,11 @@ pub fn half_bin_no_newton(
     let bbox = hi.sub(lo);
 
     // --- setup_bins ---
-    let binsize_optimal = if cutneighmax == 0.0 { bbox.x } else { 0.5 * cutneighmax };
+    let binsize_optimal = if cutneighmax == 0.0 {
+        bbox.x
+    } else {
+        0.5 * cutneighmax
+    };
     let binsizeinv = 1.0 / binsize_optimal;
     let nb = |e: f64| c_int(e * binsizeinv).max(1);
     let (nbinx, nbiny, nbinz) = (nb(bbox.x), nb(bbox.y), nb(bbox.z));
@@ -421,13 +426,23 @@ mod tests {
     fn sort_is_a_bin_ordered_permutation() {
         let c = cfg();
         let x: Vec<Vec3> = (0..50)
-            .map(|i| Vec3::new(((i * 37) % 200) as f64 / 100.0 - 1.0, ((i * 53) % 200) as f64 / 100.0 - 1.0, ((i * 11) % 100) as f64 / 100.0))
+            .map(|i| {
+                Vec3::new(
+                    ((i * 37) % 200) as f64 / 100.0 - 1.0,
+                    ((i * 53) % 200) as f64 / 100.0 - 1.0,
+                    ((i * 11) % 100) as f64 / 100.0,
+                )
+            })
             .collect();
         let perm = atom_sort_permutation(&x, &c, c.cutneighmax(0.005));
         let mut seen = perm.clone();
         seen.sort_unstable();
         assert_eq!(seen, (0..50).collect::<Vec<_>>());
-        assert_ne!(perm, (0..50).collect::<Vec<_>>(), "scattered input must reorder");
+        assert_ne!(
+            perm,
+            (0..50).collect::<Vec<_>>(),
+            "scattered input must reorder"
+        );
     }
 
     /// A single-bin box leaves the order alone (`if (nbins == 1) return;`).
@@ -435,7 +450,10 @@ mod tests {
     fn single_bin_box_is_identity() {
         let c = LiggghtsNeighbor::new(Vec3::zero(), Vec3::new(0.01, 0.01, 0.01), 0.003).unwrap();
         let x = vec![Vec3::new(0.001, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0)];
-        assert_eq!(atom_sort_permutation(&x, &c, c.cutneighmax(0.005)), vec![0, 1]);
+        assert_eq!(
+            atom_sort_permutation(&x, &c, c.cutneighmax(0.005)),
+            vec![0, 1]
+        );
     }
 
     #[test]

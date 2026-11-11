@@ -374,14 +374,16 @@ impl MaterialTable {
     /// caller bug; `GranularSystem::with_particle_types` checks it up front).
     #[must_use]
     pub fn pair_props(&self, i: usize, j: usize) -> PairProps {
-        assert!(i < self.n_types && j < self.n_types, "atom type out of range");
+        assert!(
+            i < self.n_types && j < self.n_types,
+            "atom type out of range"
+        );
         let (yi, yj) = (self.youngs[i], self.youngs[j]);
         let (vi, vj) = (self.poisson[i], self.poisson[j]);
         let ln_e = self.restitution[i][j].r_ln();
         PairProps {
             y_eff: 1.0 / ((1.0 - vi * vi) / yi + (1.0 - vj * vj) / yj),
-            g_eff: 1.0
-                / (2.0 * (2.0 - vi) * (1.0 + vi) / yi + 2.0 * (2.0 - vj) * (1.0 + vj) / yj),
+            g_eff: 1.0 / (2.0 * (2.0 - vi) * (1.0 + vi) / yi + 2.0 * (2.0 - vj) * (1.0 + vj) / yj),
             ln_e,
             beta_eff: ln_e / (ln_e * ln_e + std::f64::consts::PI * std::f64::consts::PI).sqrt(),
             friction: self.friction[i][j],
@@ -462,6 +464,16 @@ impl ContactKinematics {
     /// `is_wall = false`.
     #[must_use]
     pub fn pair(i: &Particle, j: &Particle) -> Option<Self> {
+        Self::pair_frozen(i, j, false, false)
+    }
+
+    /// As [`Self::pair`], with the `fix freeze` group flags of the two
+    /// particles. Upstream (`pair_gran_base.h`, LIGGGHTS-PUBLIC `3d5c00f2`,
+    /// `compute`): `meff = mi*mj/(mi+mj); if (mask[i] & freeze_group_bit)
+    /// meff = mj; if (mask[j] & freeze_group_bit) meff = mi;` — a frozen
+    /// particle does not reduce the effective mass (gh:#1478).
+    #[must_use]
+    pub fn pair_frozen(i: &Particle, j: &Particle, frozen_i: bool, frozen_j: bool) -> Option<Self> {
         let delta = i.position.sub(j.position); // x_i - x_j
         let r = delta.norm();
         let radsum = i.radius + j.radius;
@@ -495,7 +507,16 @@ impl ContactKinematics {
             cri,
             crj,
             r_eff: i.radius * j.radius / radsum,
-            m_eff: i.mass * j.mass / (i.mass + j.mass),
+            m_eff: {
+                let mut m = i.mass * j.mass / (i.mass + j.mass);
+                if frozen_i {
+                    m = j.mass;
+                }
+                if frozen_j {
+                    m = i.mass;
+                }
+                m
+            },
             omega_i: i.angular_velocity,
             omega_j: j.angular_velocity,
             is_wall: false,
@@ -514,7 +535,11 @@ impl ContactKinematics {
     /// for a [`MaterialTable`] lookup.
     #[must_use]
     pub fn with_types(self, itype: usize, jtype: usize) -> Self {
-        Self { itype, jtype, ..self }
+        Self {
+            itype,
+            jtype,
+            ..self
+        }
     }
 
     /// Resolve the kinematics of a particle–**wall** contact.
@@ -1179,13 +1204,27 @@ impl GranularNormalModel {
     #[must_use]
     pub fn with_tangential_damping(mut self, on: bool) -> Self {
         match &mut self {
-            Self::Hertz { tangential_damping, .. }
-            | Self::Hooke { tangential_damping, .. }
-            | Self::HertzStiffness { tangential_damping, .. }
-            | Self::HookeStiffness { tangential_damping, .. }
-            | Self::HookeHysteresis { tangential_damping, .. }
-            | Self::Luding { tangential_damping, .. }
-            | Self::Edinburgh { tangential_damping, .. } => *tangential_damping = on,
+            Self::Hertz {
+                tangential_damping, ..
+            }
+            | Self::Hooke {
+                tangential_damping, ..
+            }
+            | Self::HertzStiffness {
+                tangential_damping, ..
+            }
+            | Self::HookeStiffness {
+                tangential_damping, ..
+            }
+            | Self::HookeHysteresis {
+                tangential_damping, ..
+            }
+            | Self::Luding {
+                tangential_damping, ..
+            }
+            | Self::Edinburgh {
+                tangential_damping, ..
+            } => *tangential_damping = on,
             Self::ThorntonNing { .. } => {}
         }
         self
@@ -1195,7 +1234,10 @@ impl GranularNormalModel {
     /// (the other variants have no such switch and are returned unchanged).
     #[must_use]
     pub fn with_absolute_damping(mut self, on: bool) -> Self {
-        if let Self::HookeStiffness { absolute_damping, .. } = &mut self {
+        if let Self::HookeStiffness {
+            absolute_damping, ..
+        } = &mut self
+        {
             *absolute_damping = on;
         }
         self
@@ -1428,8 +1470,8 @@ fn edi_k_adh(
     cex: f64,
 ) -> f64 {
     let dsq = d * d;
-    let a = (1.0 / (2.0 * d))
-        * (4.0 * dsq * risq - ((dsq - rjsq + risq) * (dsq - rjsq + risq))).sqrt();
+    let a =
+        (1.0 / (2.0 * d)) * (4.0 * dsq * risq - ((dsq - rjsq + risq) * (dsq - rjsq + risq))).sqrt();
     let mut f_min = 1.5 * std::f64::consts::PI * g_surf * a;
     let delta_min;
     if f_min > f_min_lim {
@@ -1530,7 +1572,16 @@ impl GranularNormalModel {
                 let d = d2;
                 let _ = d1;
                 k_adh_outer = edi_k_adh(
-                    d, risq, rjsq, g_surf, f_min_lim, deltan_pe_max, deltan_p_max, k2, dex_i, cex,
+                    d,
+                    risq,
+                    rjsq,
+                    g_surf,
+                    f_min_lim,
+                    deltan_pe_max,
+                    deltan_p_max,
+                    k2,
+                    dex_i,
+                    cex,
                 );
                 state[2] = k_adh_outer;
                 if f_tmp > (-k_adh_outer * deltan_ce) {
@@ -1691,17 +1742,43 @@ impl GranularNormalModel {
                     df = tn_plastic_df(a_yield, e_eff, fl, fc, yield_stress, reff) * dn;
                     fv = force_old + df;
                 } else {
-                    (fv, df) =
-                        tn_branch_2(force_old, fc, adhesion_flag, e_eff, reff, delta, dn, gamma_s);
+                    (fv, df) = tn_branch_2(
+                        force_old,
+                        fc,
+                        adhesion_flag,
+                        e_eff,
+                        reff,
+                        delta,
+                        dn,
+                        gamma_s,
+                    );
                 }
             } else if yielding_flag == 0 {
-                (fv, df) = tn_branch_2(force_old, fc, adhesion_flag, e_eff, reff, delta, dn, gamma_s);
+                (fv, df) = tn_branch_2(
+                    force_old,
+                    fc,
+                    adhesion_flag,
+                    e_eff,
+                    reff,
+                    delta,
+                    dn,
+                    gamma_s,
+                );
             } else {
                 let fl_max = tn_fl(force_max, fc, 0);
                 reff = reff * fl_max / (force_max + (4.0 * fc * fl_max).sqrt());
                 fc = (3.0 / 2.0) * PI * gamma_s * reff;
                 fo = -fc;
-                (fv, df) = tn_branch_2(force_old, fc, adhesion_flag, e_eff, reff, delta, dn, gamma_s);
+                (fv, df) = tn_branch_2(
+                    force_old,
+                    fc,
+                    adhesion_flag,
+                    e_eff,
+                    reff,
+                    delta,
+                    dn,
+                    gamma_s,
+                );
             }
             if gamma_s == 0.0 && fv < 0.0 {
                 fv = 0.0;
@@ -1711,7 +1788,16 @@ impl GranularNormalModel {
             }
             if fv < -fc {
                 adhesion_flag = 1 - adhesion_flag;
-                (fv, df) = tn_branch_2(force_old, fc, adhesion_flag, e_eff, reff, delta, dn, gamma_s);
+                (fv, df) = tn_branch_2(
+                    force_old,
+                    fc,
+                    adhesion_flag,
+                    e_eff,
+                    reff,
+                    delta,
+                    dn,
+                    gamma_s,
+                );
             }
             if adhesion_flag == 1 && fv + 3.0 * df >= -(5.0 / 9.0) * fc {
                 fv = 0.0;
@@ -1988,7 +2074,11 @@ impl TangentialModel {
     ///
     /// [`DemError::InvalidInput`] unless all three coefficients are finite
     /// and `> 0` (upstream: `coeffMu > 0`, `coeffFricVisc > 0`).
-    pub fn luding_tn(mu_dynamic_ratio: f64, fric_visc: f64, kt_ratio: f64) -> Result<Self, DemError> {
+    pub fn luding_tn(
+        mu_dynamic_ratio: f64,
+        fric_visc: f64,
+        kt_ratio: f64,
+    ) -> Result<Self, DemError> {
         for v in [mu_dynamic_ratio, fric_visc, kt_ratio] {
             if !(v > 0.0) || !v.is_finite() {
                 return Err(DemError::InvalidInput(format!(
@@ -2097,11 +2187,31 @@ impl ContactKey {
     #[must_use]
     pub fn aux_slot(self, slot: u8) -> Self {
         match self {
-            Self::Pair { lo, hi } => Self::Aux { kind: 0, slot, a: lo, b: hi, c: 0 },
-            Self::Wall { particle, wall } => Self::Aux { kind: 1, slot, a: particle, b: wall, c: 0 },
-            Self::Tri { particle, wall, tri } => {
-                Self::Aux { kind: 2, slot, a: particle, b: wall, c: tri }
-            }
+            Self::Pair { lo, hi } => Self::Aux {
+                kind: 0,
+                slot,
+                a: lo,
+                b: hi,
+                c: 0,
+            },
+            Self::Wall { particle, wall } => Self::Aux {
+                kind: 1,
+                slot,
+                a: particle,
+                b: wall,
+                c: 0,
+            },
+            Self::Tri {
+                particle,
+                wall,
+                tri,
+            } => Self::Aux {
+                kind: 2,
+                slot,
+                a: particle,
+                b: wall,
+                c: tri,
+            },
             Self::Aux { .. } => self,
         }
     }
@@ -2266,7 +2376,8 @@ impl ShearHistory {
     /// marking it live. Used to hand a new mesh-facet contact the history of a
     /// coplanar neighbour facet (upstream `checkCoplanarContactHistory`).
     pub fn seed(&mut self, key: ContactKey, shear: Vec3) {
-        self.contacts.insert(key, ContactHistoryEntry { shear, live: false });
+        self.contacts
+            .insert(key, ContactHistoryEntry { shear, live: false });
     }
 
     /// Re-orient a stored pair displacement: replace it by `0 - shear`
@@ -2315,9 +2426,13 @@ impl ShearHistory {
     /// overlaps at the rebuild, `rsq < radsum*radsum`). Other contacts are kept.
     pub fn retain_pairs(&mut self, mut keep: impl FnMut(usize, usize) -> bool) {
         self.contacts.retain(|k, _| match *k {
-            ContactKey::Pair { lo, hi } | ContactKey::Aux { kind: 0, a: lo, b: hi, .. } => {
-                keep(lo, hi)
-            }
+            ContactKey::Pair { lo, hi }
+            | ContactKey::Aux {
+                kind: 0,
+                a: lo,
+                b: hi,
+                ..
+            } => keep(lo, hi),
             _ => true,
         });
     }
@@ -2440,7 +2555,12 @@ impl GranularCohesion {
     #[must_use]
     pub fn with_tangential_reduce(mut self, on: bool) -> Self {
         match &mut self {
-            Self::Sjkr { tangential_reduce, .. } | Self::Sjkr2 { tangential_reduce, .. } => {
+            Self::Sjkr {
+                tangential_reduce, ..
+            }
+            | Self::Sjkr2 {
+                tangential_reduce, ..
+            } => {
                 *tangential_reduce = on;
             }
             Self::Off => {}
@@ -2641,7 +2761,11 @@ impl RollingModel {
         };
         let radi = k.rad_i;
         let radj = k.rad_j;
-        let reff = if k.is_wall { radi } else { radi * radj / (radi + radj) };
+        let reff = if k.is_wall {
+            radi
+        } else {
+            radi * radj / (radi + radj)
+        };
         let (wr1, wr2, wr3, r_inertia);
         if k.is_wall {
             wr1 = k.wr.x;
@@ -2674,7 +2798,11 @@ impl RollingModel {
         let hist;
         if r_torque_mag > r_torque_max {
             let factor = r_torque_max / r_torque_mag;
-            r_torque = Vec3::new(r_torque.x * factor, r_torque.y * factor, r_torque.z * factor);
+            r_torque = Vec3::new(
+                r_torque.x * factor,
+                r_torque.y * factor,
+                r_torque.z * factor,
+            );
             hist = r_torque;
         } else {
             hist = r_torque;
@@ -2715,8 +2843,17 @@ impl RollingModel {
         Self::epsd_variant(EpsdKind::Three, mu_r, mu_visc, stiffness)
     }
 
-    fn epsd_variant(kind: EpsdKind, mu_r: f64, mu_visc: f64, stiffness: f64) -> Result<Self, DemError> {
-        for (name, v) in [("mu_r", mu_r), ("mu_visc", mu_visc), ("stiffness", stiffness)] {
+    fn epsd_variant(
+        kind: EpsdKind,
+        mu_r: f64,
+        mu_visc: f64,
+        stiffness: f64,
+    ) -> Result<Self, DemError> {
+        for (name, v) in [
+            ("mu_r", mu_r),
+            ("mu_visc", mu_visc),
+            ("stiffness", stiffness),
+        ] {
             if !(v >= 0.0) || !v.is_finite() {
                 return Err(DemError::InvalidInput(format!(
                     "EPSD rolling coefficient {name} must be finite and >= 0, got {v}"
@@ -2761,7 +2898,11 @@ impl RollingModel {
         };
         let radi = k.rad_i;
         let radj = k.rad_j;
-        let reff = if k.is_wall { radi } else { radi * radj / (radi + radj) };
+        let reff = if k.is_wall {
+            radi
+        } else {
+            radi * radj / (radi + radj)
+        };
         // relative rotational velocity and the inertia the dashpot scales with
         let (wr1, wr2, wr3, r_inertia);
         if k.is_wall {
@@ -2803,7 +2944,11 @@ impl RollingModel {
         let mut hist = prior;
         if r_torque_mag > r_torque_max {
             let factor = r_torque_max / r_torque_mag;
-            r_torque = Vec3::new(r_torque.x * factor, r_torque.y * factor, r_torque.z * factor);
+            r_torque = Vec3::new(
+                r_torque.x * factor,
+                r_torque.y * factor,
+                r_torque.z * factor,
+            );
             if update {
                 hist = r_torque;
             }
@@ -2973,7 +3118,10 @@ impl GranularContactModel {
     /// the model, not of any individual contact.
     #[must_use]
     pub fn has_tangential_history(&self) -> bool {
-        matches!(self.tangential, TangentialModel::History | TangentialModel::LudingTn { .. })
+        matches!(
+            self.tangential,
+            TangentialModel::History | TangentialModel::LudingTn { .. }
+        )
     }
 
     /// Assemble a contact model from its normal and tangential halves, with
@@ -3161,7 +3309,12 @@ impl GranularContactModel {
     /// projection, nothing written back). `dt` still enters the rolling
     /// spring increment (upstream reads `update->dt` there).
     #[must_use]
-    pub fn resolve_frozen(&self, stored_shear: Vec3, k: &ContactKinematics, dt: f64) -> GranularForce {
+    pub fn resolve_frozen(
+        &self,
+        stored_shear: Vec3,
+        k: &ContactKinematics,
+        dt: f64,
+    ) -> GranularForce {
         self.resolve_impl::<false>(stored_shear, k, dt).0
     }
 
@@ -3212,7 +3365,9 @@ impl GranularContactModel {
             None => PairProps::from_material(&self.normal.material()),
         };
         let mut aux = prior_aux;
-        let mut normal = self.normal.evaluate_stateful(k, &props, &mut aux.normal, UPDATE);
+        let mut normal = self
+            .normal
+            .evaluate_stateful(k, &props, &mut aux.normal, UPDATE);
         // cohesion (between the normal and the tangential model upstream)
         let fn_own = normal.fn_scalar;
         let (f_coh, coh_reduce) = self.cohesion.normal_force(k);
@@ -3335,15 +3490,14 @@ impl GranularContactModel {
 
         // Rolling resistance: upstream applies -M_r to i and +M_r to j.
         let m_r = if self.rolling.has_state() {
-            let (m, hist) =
-                self.rolling.stateful_torque(
-                    k,
-                    &normal,
-                    self.normal.kc_fo(&aux.normal),
-                    aux.roll,
-                    dt,
-                    UPDATE,
-                );
+            let (m, hist) = self.rolling.stateful_torque(
+                k,
+                &normal,
+                self.normal.kc_fo(&aux.normal),
+                aux.roll,
+                dt,
+                UPDATE,
+            );
             aux.roll = hist;
             m
         } else {

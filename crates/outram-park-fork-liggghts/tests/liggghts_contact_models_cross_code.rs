@@ -201,7 +201,6 @@ fn assert_bit_identical(diff: &Diff) {
     );
 }
 
-
 fn hooke_history() -> GranularNormalModel {
     GranularNormalModel::hooke(material(), 2.0).expect("valid hooke")
 }
@@ -288,8 +287,8 @@ fn wall_case(file: &str, model: GranularContactModel) -> Diff {
 /// one verified on the pair decks.
 #[test]
 fn hooke_hysteresis_wall_matches_liggghts() {
-    let normal = GranularNormalModel::hooke_hysteresis(material(), 2.0, 3.0, 0.5, 0.05)
-        .expect("valid");
+    let normal =
+        GranularNormalModel::hooke_hysteresis(material(), 2.0, 3.0, 0.5, 0.05).expect("valid");
     assert_bit_identical(&wall_case(
         "wall_hyst.csv",
         GranularContactModel::new(normal, TangentialModel::History),
@@ -321,7 +320,10 @@ fn epsd_decks_are_sensitive_to_the_rolling_model() {
     let as_two = GranularContactModel::new(hooke_history(), TangentialModel::History)
         .with_rolling(RollingModel::epsd2(0.1).expect("valid"));
     let d_two = oblique_pair("epsd_pair.csv", as_two);
-    assert!(d_two.mismatched > 0, "epsd2 must differ from the epsd reference");
+    assert!(
+        d_two.mismatched > 0,
+        "epsd2 must differ from the epsd reference"
+    );
     let wall_off = GranularContactModel::new(hooke_history(), TangentialModel::History);
     assert!(
         wall_case("wall_epsd.csv", wall_off).mismatched > 100,
@@ -348,7 +350,10 @@ fn cdt_rolling_with_relative_spin_matches_liggghts() {
 fn assert_collided(file: &str) {
     let rows = load(file).expect("reference present");
     let vx_end = rows.last().expect("frames")[4];
-    assert!(vx_end < 0.9, "{file}: no collision in the reference (vx = {vx_end})");
+    assert!(
+        vx_end < 0.9,
+        "{file}: no collision in the reference (vx = {vx_end})"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -389,8 +394,8 @@ fn luding_full_matches_liggghts() {
 /// formula from `hooke/hysteresis`).
 #[test]
 fn luding_plastic_cohesion_branch_matches_liggghts() {
-    let normal = GranularNormalModel::luding(material(), 1.0e4, 3.0, 0.2, 0.02, 0.0)
-        .expect("valid luding");
+    let normal =
+        GranularNormalModel::luding(material(), 1.0e4, 3.0, 0.2, 0.02, 0.0).expect("valid luding");
     let model = GranularContactModel::new(
         normal,
         TangentialModel::luding_tn(0.8, 0.6, 0.5).expect("valid tan_luding"),
@@ -405,8 +410,8 @@ fn luding_plastic_cohesion_branch_matches_liggghts() {
 /// force.
 #[test]
 fn luding_limit_force_matches_liggghts() {
-    let normal = GranularNormalModel::luding(material(), 1.0e4, 3.0, 0.0, 0.05, 0.0)
-        .expect("valid luding");
+    let normal =
+        GranularNormalModel::luding(material(), 1.0e4, 3.0, 0.0, 0.05, 0.0).expect("valid luding");
     let model = GranularContactModel::new(normal, TangentialModel::History);
     assert_collided("luding_nocoh.csv");
     assert_bit_identical(&oblique_pair("luding_nocoh.csv", model));
@@ -427,7 +432,10 @@ fn luding_full_model() -> GranularContactModel {
 #[test]
 fn luding_wall_matches_liggghts() {
     let rows = load("luding_wall.csv").expect("reference present");
-    assert!(rows.last().expect("frames")[6] > 0.0, "the sphere must bounce");
+    assert!(
+        rows.last().expect("frames")[6] > 0.0,
+        "the sphere must bounce"
+    );
     assert_bit_identical(&wall_case("luding_wall.csv", luding_full_model()));
 }
 
@@ -437,9 +445,15 @@ fn luding_wall_matches_liggghts() {
 #[test]
 fn luding_decks_are_sensitive_to_each_sub_model() {
     let full = luding_full_model();
-    let plain_tangential = GranularContactModel { tangential: TangentialModel::History, ..full };
+    let plain_tangential = GranularContactModel {
+        tangential: TangentialModel::History,
+        ..full
+    };
     assert!(oblique_pair("luding_full.csv", plain_tangential).mismatched > 100);
-    let no_rolling = GranularContactModel { rolling: RollingModel::Off, ..full };
+    let no_rolling = GranularContactModel {
+        rolling: RollingModel::Off,
+        ..full
+    };
     assert!(oblique_pair("luding_full.csv", no_rolling).mismatched > 100);
     let no_adhesion = GranularContactModel {
         normal: GranularNormalModel::luding(material(), 1.0e4, 3.0, 0.4, 0.05, 0.0)
@@ -457,7 +471,10 @@ fn tn_case(file: &str, gamma_surf: f64, yield_ratio: f64) -> Diff {
     assert_collided(file);
     let normal =
         GranularNormalModel::thornton_ning(material(), gamma_surf, yield_ratio).expect("valid");
-    oblique_pair(file, GranularContactModel::new(normal, TangentialModel::History))
+    oblique_pair(
+        file,
+        GranularContactModel::new(normal, TangentialModel::History),
+    )
 }
 
 /// `thornton_ning`, adhesive and yielding (`a_Y = 0.05 r_i`): virgin loading,
@@ -494,7 +511,10 @@ fn thornton_ning_without_cohesion_matches_liggghts() {
 #[test]
 fn thornton_ning_wall_matches_liggghts() {
     let rows = load("tn_wall.csv").expect("reference present");
-    assert!(rows.last().expect("frames")[6] > 0.0, "the sphere must bounce");
+    assert!(
+        rows.last().expect("frames")[6] > 0.0,
+        "the sphere must bounce"
+    );
     let normal = GranularNormalModel::thornton_ning(material(), 0.05, 0.05).expect("valid");
     assert_bit_identical(&wall_case(
         "tn_wall.csv",
@@ -507,9 +527,18 @@ fn thornton_ning_wall_matches_liggghts() {
 /// adhesion branches), and the plastic and elastic decks differ from each other.
 #[test]
 fn thornton_ning_decks_are_sensitive() {
-    assert!(tn_case("tn_plastic.csv", 0.05, 0.2).mismatched > 100, "yield branch not exercised");
-    assert!(tn_case("tn_plastic.csv", 0.02, 0.05).mismatched > 100, "adhesion not exercised");
-    assert!(tn_case("tn_nocoh.csv", 0.05, 0.05).mismatched > 100, "gamma_s = 0 not distinct");
+    assert!(
+        tn_case("tn_plastic.csv", 0.05, 0.2).mismatched > 100,
+        "yield branch not exercised"
+    );
+    assert!(
+        tn_case("tn_plastic.csv", 0.02, 0.05).mismatched > 100,
+        "adhesion not exercised"
+    );
+    assert!(
+        tn_case("tn_nocoh.csv", 0.05, 0.05).mismatched > 100,
+        "gamma_s = 0 not distinct"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -539,7 +568,10 @@ fn edinburgh_case(
     )
     .expect("valid edinburgh")
     .with_fix_kc(fix_kc);
-    oblique_pair(file, GranularContactModel::new(normal, TangentialModel::History))
+    oblique_pair(
+        file,
+        GranularContactModel::new(normal, TangentialModel::History),
+    )
 }
 
 /// `edinburgh/stiffness`, linear (`dex = cex = 1`), `fixKc off`: the
@@ -557,38 +589,51 @@ fn edinburgh_case(
 /// a branch error.
 #[test]
 fn edinburgh_stiffness_linear_matches_liggghts() {
-    assert_bit_identical(&edinburgh_case("edi_stiff_lin.csv", Some(1.0e4), 0.3, 1.0, 0.0005, false));
+    assert_bit_identical(&edinburgh_case(
+        "edi_stiff_lin.csv",
+        Some(1.0e4),
+        0.3,
+        1.0,
+        0.0005,
+        false,
+    ));
 }
 
 /// `edinburgh` (Hertzian `k_n = 4/3 Y_eff sqrt(R*)`, `dex = cex = 1.5`),
 /// `fixKc off`.
 #[test]
 fn edinburgh_nonlinear_matches_liggghts() {
-    assert_bit_identical(&edinburgh_case("edi_nonlin.csv", None, 0.3, 1.5, 0.0, false));
+    assert_bit_identical(&edinburgh_case(
+        "edi_nonlin.csv",
+        None,
+        0.3,
+        1.5,
+        0.0,
+        false,
+    ));
 }
 
 /// `edinburgh/stiffness fixKc on`: `k_c = kn2kc k_n`, with upstream's
 /// shadowed `k_adh` (the `limitForce` test sees zero).
 #[test]
 fn edinburgh_fix_kc_matches_liggghts() {
-    assert_bit_identical(&edinburgh_case("edi_fixkc.csv", Some(1.0e4), 0.3, 1.0, 0.0, true));
+    assert_bit_identical(&edinburgh_case(
+        "edi_fixkc.csv",
+        Some(1.0e4),
+        0.3,
+        1.0,
+        0.0,
+        true,
+    ));
 }
 
 /// Controls: the Edinburgh decks are sensitive to the surface energy
 /// (`fixKc off`) and to the exponent.
 #[test]
 fn edinburgh_decks_are_sensitive() {
-    let alt = GranularNormalModel::edinburgh(
-        material(),
-        Some(1.0e4),
-        3.0,
-        0.3,
-        1.0,
-        1.0,
-        0.0005,
-        0.02,
-    )
-    .expect("valid");
+    let alt =
+        GranularNormalModel::edinburgh(material(), Some(1.0e4), 3.0, 0.3, 1.0, 1.0, 0.0005, 0.02)
+            .expect("valid");
     let d = oblique_pair(
         "edi_stiff_lin.csv",
         GranularContactModel::new(alt, TangentialModel::History),
@@ -649,11 +694,20 @@ fn sjkr_tangential_reduce_matches_liggghts() {
 #[test]
 fn sjkr_and_sjkr2_wall_match_liggghts() {
     for (file, cohesion) in [
-        ("sjkr_wall.csv", GranularCohesion::sjkr(2.0e5).expect("valid")),
-        ("sjkr2_wall.csv", GranularCohesion::sjkr2(2.0e5).expect("valid")),
+        (
+            "sjkr_wall.csv",
+            GranularCohesion::sjkr(2.0e5).expect("valid"),
+        ),
+        (
+            "sjkr2_wall.csv",
+            GranularCohesion::sjkr2(2.0e5).expect("valid"),
+        ),
     ] {
         let rows = load(file).expect("reference present");
-        assert!(rows.last().expect("frames")[6] > 0.0, "{file}: the sphere must bounce");
+        assert!(
+            rows.last().expect("frames")[6] > 0.0,
+            "{file}: the sphere must bounce"
+        );
         assert_bit_identical(&wall_case(file, hertz_with(cohesion)));
     }
 }
@@ -686,9 +740,17 @@ fn edinburgh_long_oscillation_matches_liggghts() {
         assert_collided_below(file, 0.3);
         let rows = load(file).expect("reference present");
         assert_eq!(rows.len(), 251);
-        let normal =
-            GranularNormalModel::edinburgh(material(), stiffness, 3.0, 0.3, exponent, exponent, f_adh, 0.05)
-                .expect("valid edinburgh");
+        let normal = GranularNormalModel::edinburgh(
+            material(),
+            stiffness,
+            3.0,
+            0.3,
+            exponent,
+            exponent,
+            f_adh,
+            0.05,
+        )
+        .expect("valid edinburgh");
         let model = GranularContactModel::new(normal, TangentialModel::History);
         let diff = replay_pair_at(
             &rows,
@@ -707,5 +769,8 @@ fn edinburgh_long_oscillation_matches_liggghts() {
 fn assert_collided_below(file: &str, v0: f64) {
     let rows = load(file).expect("reference present");
     let vx_end = rows.last().expect("frames")[4];
-    assert!(vx_end < 0.9 * v0, "{file}: no collision in the reference (vx = {vx_end})");
+    assert!(
+        vx_end < 0.9 * v0,
+        "{file}: no collision in the reference (vx = {vx_end})"
+    );
 }

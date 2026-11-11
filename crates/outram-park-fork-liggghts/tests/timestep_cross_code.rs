@@ -137,7 +137,12 @@ fn run_case(c: &Case, reference: &str) {
         );
     }
     for k in 0..3 {
-        assert_eq!(ours[k].to_bits(), theirs[k].to_bits(), "{} fraction[{k}]", c.name);
+        assert_eq!(
+            ours[k].to_bits(),
+            theirs[k].to_bits(),
+            "{} fraction[{k}]",
+            c.name
+        );
     }
 }
 

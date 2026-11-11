@@ -105,7 +105,11 @@ fn run_case() -> Option<Stats> {
         .lines()
         .skip(1)
         .filter(|l| !l.trim().is_empty())
-        .map(|l| l.split(',').map(|v| v.parse().expect("numeric csv")).collect())
+        .map(|l| {
+            l.split(',')
+                .map(|v| v.parse().expect("numeric csv"))
+                .collect()
+        })
         .collect();
     assert_eq!(rows.len(), 251, "unexpected reference frame count");
 

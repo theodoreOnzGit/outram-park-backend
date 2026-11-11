@@ -74,9 +74,7 @@ use crate::wasm_par::prelude::*;
 
 use crate::boundary::Boundary;
 use crate::compute::ComputeType;
-use crate::granular::{
-    ContactKey, ContactKinematics, GranularContactModel, ShearHistory,
-};
+use crate::granular::{ContactKey, ContactKinematics, GranularContactModel, ShearHistory};
 use crate::heat_gran::HeatGranConduction;
 use crate::integrator::VelocityVerlet;
 use crate::mesh_wall::{MovingBoundary, WallGeometry};
@@ -160,6 +158,8 @@ pub struct GranularSystem {
     /// `post_force` fixes (`addforce`, `viscous`, `freeze`), applied after gravity
     /// in declaration order (gh:#1418).
     force_fixes: Vec<ForceFix>,
+    /// `fix freeze` group per particle (pair `meff`, gh:#1478).
+    frozen: Vec<bool>,
     /// True during the set-up force evaluation, where upstream does not
     /// advance the shear history (`update->setupflag` -> `shearupdate = 0`).
     setup_phase: bool,
@@ -263,10 +263,26 @@ impl PairOutcome {
     const EMPTY: Self = Self {
         i: 0,
         j: 0,
-        force_i: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
-        torque_i: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
-        torque_j: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
-        shear: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
+        force_i: Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        torque_i: Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        torque_j: Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        shear: Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
     };
 }
 
@@ -304,6 +320,7 @@ impl GranularSystem {
             moving_walls: Vec::new(),
             neigh_skin: 0.0,
             force_fixes: Vec::new(),
+            frozen: Vec::new(),
             setup_phase: false,
             xhold: Vec::new(),
             mesh_rebuild_pending: false,
@@ -363,7 +380,10 @@ impl GranularSystem {
     /// `None` when that wall tracks no stress.
     #[must_use]
     pub fn mesh_stress_vector(&self, wall: usize, n: usize) -> Option<f64> {
-        self.moving_walls[wall].stress.as_ref().map(|s| s.compute_vector(n))
+        self.moving_walls[wall]
+            .stress
+            .as_ref()
+            .map(|s| s.compute_vector(n))
     }
 
     /// `(sigma_n, sigma_t)` `[Pa]` of facet `tri` of moving wall `wall`
@@ -371,7 +391,10 @@ impl GranularSystem {
     /// [`crate::mesh_stress::MeshStress::sigma_n`].
     #[must_use]
     pub fn facet_stress(&self, wall: usize, tri: usize) -> Option<(f64, f64)> {
-        self.moving_walls[wall].stress.as_ref().map(|s| (s.sigma_n(tri), s.sigma_t(tri)))
+        self.moving_walls[wall]
+            .stress
+            .as_ref()
+            .map(|s| (s.sigma_n(tri), s.sigma_t(tri)))
     }
 
     /// Attach a `fix massflow/mesh` counter (gh:#1416); it is invoked after
@@ -541,10 +564,17 @@ impl GranularSystem {
         let max_radius = self.particles.iter().fold(0.0_f64, |m, p| m.max(p.radius));
         // upstream's cut radius includes the largest particle a `fix insert`
         // can still add (`PairGran::init_style`: `max_rad(type)` of fixes)
-        let max_radius = self.inserters.iter().fold(max_radius, |m, f| m.max(f.max_rad()));
+        let max_radius = self
+            .inserters
+            .iter()
+            .fold(max_radius, |m, f| m.max(f.max_rad()));
         let cut = cfg.cutneighmax(max_radius);
         if cfg.sort_every > 0 && (self.setup_phase || self.step_count >= self.next_sort) {
-            let x: Vec<Vec3> = self.perm.iter().map(|&p| self.particles[p].position).collect();
+            let x: Vec<Vec3> = self
+                .perm
+                .iter()
+                .map(|&p| self.particles[p].position)
+                .collect();
             let order = neighbor_list::atom_sort_permutation(&x, &cfg, cut);
             self.perm = order.iter().map(|&o| self.perm[o]).collect();
             self.next_sort = (self.step_count / cfg.sort_every) * cfg.sort_every + cfg.sort_every;
@@ -572,13 +602,24 @@ impl GranularSystem {
                 rsq < radsum * radsum
             });
         }
-        let x: Vec<Vec3> = self.perm.iter().map(|&p| self.particles[p].position).collect();
-        let r: Vec<f64> = self.perm.iter().map(|&p| self.particles[p].radius).collect();
+        let x: Vec<Vec3> = self
+            .perm
+            .iter()
+            .map(|&p| self.particles[p].position)
+            .collect();
+        let r: Vec<f64> = self
+            .perm
+            .iter()
+            .map(|&p| self.particles[p].radius)
+            .collect();
         let mut local = Vec::new();
         neighbor_list::half_bin_no_newton(&x, &r, &cfg, cut, &mut local);
         self.pairs.clear();
-        self.pairs
-            .extend(local.iter().map(|&(a, b)| (self.perm[a as usize] as u32, self.perm[b as usize] as u32)));
+        self.pairs.extend(
+            local
+                .iter()
+                .map(|&(a, b)| (self.perm[a as usize] as u32, self.perm[b as usize] as u32)),
+        );
         self.xhold = self.particles.iter().map(|p| p.position).collect();
     }
 
@@ -844,7 +885,10 @@ impl GranularSystem {
     /// # Errors
     ///
     /// Whatever [`crate::insert::InsertFix::setup`] reports.
-    pub fn add_insertion(&mut self, mut fix: crate::insert::InsertFix) -> Result<usize, crate::DemError> {
+    pub fn add_insertion(
+        &mut self,
+        mut fix: crate::insert::InsertFix,
+    ) -> Result<usize, crate::DemError> {
         fix.setup()?;
         self.inserters.push(fix);
         Ok(self.inserters.len() - 1)
@@ -974,12 +1018,22 @@ impl GranularSystem {
         let i = self.tags.iter().position(|&t| t == tag_i)?;
         let j = self.tags.iter().position(|&t| t == tag_j)?;
         let (a, b) = (self.particles[i], self.particles[j]);
-        let k = ContactKinematics::pair(&a, &b).map(|k| k.with_types(self.types[i], self.types[j]))?;
+        let k = ContactKinematics::pair_frozen(
+            &a,
+            &b,
+            self.frozen.get(i).copied().unwrap_or(false),
+            self.frozen.get(j).copied().unwrap_or(false),
+        )
+        .map(|k| k.with_types(self.types[i], self.types[j]))?;
         let key = ContactKey::pair(tag_i as usize, tag_j as usize);
         // The store holds the displacement in the (lower index, higher index)
         // orientation the timestep evaluates pairs in; flip it for `i > j`.
         let stored = self.history.get(key).unwrap_or_else(Vec3::zero);
-        let hist = if tag_i < tag_j { stored } else { Vec3::zero().sub(stored) };
+        let hist = if tag_i < tag_j {
+            stored
+        } else {
+            Vec3::zero().sub(stored)
+        };
         let gf = self.model.resolve_frozen(hist, &k, self.dt);
         let (radi, radj) = (a.radius, b.radius);
         let del = a.position.sub(b.position);
@@ -1086,7 +1140,12 @@ impl GranularSystem {
             // (reset at initial_integrate), summed in pair-list order.
             self.heat_flux.clear();
             self.heat_flux.resize(self.particles.len(), 0.0);
-            heat.accumulate(&self.pairs, &self.particles, &self.types, &mut self.heat_flux);
+            heat.accumulate(
+                &self.pairs,
+                &self.particles,
+                &self.types,
+                &mut self.heat_flux,
+            );
         }
         let (f2, t2) = (self.forces.clone(), self.torques.clone());
         self.integrator
@@ -1094,7 +1153,9 @@ impl GranularSystem {
         // `MeshModuleStress::final_integrate` (calc_total_force)
         for w in &mut self.moving_walls {
             if let (Some(st), WallGeometry::Mesh(m)) = (&mut w.stress, &w.geometry) {
-                let norms: Vec<[f64; 3]> = (0..m.triangles.len()).map(|i| m.state.surface_norm(i)).collect();
+                let norms: Vec<[f64; 3]> = (0..m.triangles.len())
+                    .map(|i| m.state.surface_norm(i))
+                    .collect();
                 st.final_integrate(&norms);
             }
         }
@@ -1168,7 +1229,9 @@ impl GranularSystem {
                     if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, Vec3::zero())
                         .map(|k| k.with_types(self.types[i], self.types[i]))
                     {
-                        let gf = resolve_c(&self.model, setup, 
+                        let gf = resolve_c(
+                            &self.model,
+                            setup,
                             ContactKey::wall(self.tags[i] as usize, w),
                             &k,
                             &mut self.history,
@@ -1194,7 +1257,9 @@ impl GranularSystem {
                     if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, v_wall)
                         .map(|k| k.with_types(self.types[i], self.types[i]))
                     {
-                        let gf = resolve_c(&self.model, setup, 
+                        let gf = resolve_c(
+                            &self.model,
+                            setup,
                             // Wall ids are offset past the static boundaries so
                             // the two families cannot collide in the history map.
                             ContactKey::wall(self.tags[i] as usize, self.boundaries.len() + w),
@@ -1242,6 +1307,15 @@ impl GranularSystem {
     /// per particle.
     #[must_use]
     pub fn with_force_fixes(mut self, fixes: Vec<ForceFix>) -> Self {
+        let mut frozen = vec![false; self.particles.len()];
+        for fx in &fixes {
+            if let ForceFix::Freeze { group, .. } = fx {
+                for (f, g) in frozen.iter_mut().zip(group) {
+                    *f |= *g;
+                }
+            }
+        }
+        self.frozen = frozen;
         self.force_fixes = fixes;
         // upstream `setup` calls every fix's post_force, so the step-0 forces
         // (used by the first half-kick) already carry the fixes
@@ -1335,7 +1409,9 @@ impl GranularSystem {
                     let overlap = -c.deltan;
                     let k = ContactKinematics::mesh_wall(&p, delta, overlap, v_wall)
                         .with_types(self.types[i], self.types[i]);
-                    let gf = resolve_c(&self.model, setup, 
+                    let gf = resolve_c(
+                        &self.model,
+                        setup,
                         ContactKey::tri(tag, nb + w, c.tri),
                         &k,
                         &mut self.history,
@@ -1367,7 +1443,8 @@ impl GranularSystem {
                     }
                 }
             }
-            self.mesh_partners.retain(|_, v| v.iter().any(Option::is_some));
+            self.mesh_partners
+                .retain(|_, v| v.iter().any(Option::is_some));
         }
     }
 
@@ -1380,8 +1457,13 @@ impl GranularSystem {
             let (i, j) = (i as usize, j as usize);
             let a = self.particles[i];
             let b = self.particles[j];
-            if let Some(k) =
-                ContactKinematics::pair(&a, &b).map(|k| k.with_types(self.types[i], self.types[j]))
+            if let Some(k) = ContactKinematics::pair_frozen(
+                &a,
+                &b,
+                self.frozen.get(i).copied().unwrap_or(false),
+                self.frozen.get(j).copied().unwrap_or(false),
+            )
+            .map(|k| k.with_types(self.types[i], self.types[j]))
             {
                 let key = ContactKey::pair(self.tags[i] as usize, self.tags[j] as usize);
                 // The store holds the displacement in (lower tag, higher tag)
@@ -1458,6 +1540,7 @@ impl GranularSystem {
             let particles: &[Particle] = &self.particles;
             let tags: &[u64] = &self.tags;
             let types: &[usize] = &self.types;
+            let frozen: &[bool] = &self.frozen;
             let model = &self.model;
             let history = &self.history;
             let dt = self.dt;
@@ -1476,9 +1559,13 @@ impl GranularSystem {
                             let (i, j) = (i as usize, j as usize);
                             let a = particles[i];
                             let b = particles[j];
-                            let Some(k) = ContactKinematics::pair(&a, &b)
-                                .map(|k| k.with_types(types[i], types[j]))
-                            else {
+                            let Some(k) = ContactKinematics::pair_frozen(
+                                &a,
+                                &b,
+                                frozen.get(i).copied().unwrap_or(false),
+                                frozen.get(j).copied().unwrap_or(false),
+                            )
+                            .map(|k| k.with_types(types[i], types[j])) else {
                                 continue;
                             };
                             let key = ContactKey::pair(tags[i] as usize, tags[j] as usize);
@@ -1652,7 +1739,10 @@ impl GranularSystem {
             )
         };
 
-        let (mut lo, mut hi) = ((i64::MAX, i64::MAX, i64::MAX), (i64::MIN, i64::MIN, i64::MIN));
+        let (mut lo, mut hi) = (
+            (i64::MAX, i64::MAX, i64::MAX),
+            (i64::MIN, i64::MIN, i64::MIN),
+        );
         for p in particles {
             let c = icell(p.position);
             lo = (lo.0.min(c.0), lo.1.min(c.1), lo.2.min(c.2));
@@ -2431,8 +2521,8 @@ mod tests {
         ];
         let material = GranularMaterial::new(1.0e7, 0.3, 0.9, 0.5).expect("valid material");
         let model = GranularContactModel::hertz_history(material);
-        let mut sys =
-            GranularSystem::new(particles, Vec::new(), model, Vec3::zero(), 1.0e-6).expect("system");
+        let mut sys = GranularSystem::new(particles, Vec::new(), model, Vec3::zero(), 1.0e-6)
+            .expect("system");
 
         sys.run(50);
         let key = ContactKey::pair(2, 3);
@@ -2527,9 +2617,18 @@ mod tests {
             .unwrap()
         };
         assert!(mk(model).with_particle_types(vec![0, 1]).is_ok());
-        assert!(mk(model).with_particle_types(vec![0]).is_err(), "wrong length");
-        assert!(mk(model).with_particle_types(vec![0, 2]).is_err(), "type out of range");
+        assert!(
+            mk(model).with_particle_types(vec![0]).is_err(),
+            "wrong length"
+        );
+        assert!(
+            mk(model).with_particle_types(vec![0, 2]).is_err(),
+            "type out of range"
+        );
         let single = GranularContactModel::hertz_history(m);
-        assert!(mk(single).with_particle_types(vec![0, 1]).is_err(), "no table: only type 0");
+        assert!(
+            mk(single).with_particle_types(vec![0, 1]).is_err(),
+            "no table: only type 0"
+        );
     }
 }

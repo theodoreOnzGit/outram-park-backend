@@ -144,7 +144,11 @@ impl RanPark {
                 "Invalid seed for Park random # generator: {seed}"
             )));
         }
-        Ok(Self { seed, save: false, second: 0.0 })
+        Ok(Self {
+            seed,
+            save: false,
+            second: 0.0,
+        })
     }
 
     /// [`RanPark::new`] plus `Random::Random`'s rule that the seed is
@@ -282,7 +286,9 @@ impl InsertRegion {
     /// (`"Illegal region block command"`).
     pub fn block(lo: Vec3, hi: Vec3) -> Result<Self, DemError> {
         if lo.x > hi.x || lo.y > hi.y || lo.z > hi.z {
-            return Err(DemError::InvalidInput("Illegal region block command".into()));
+            return Err(DemError::InvalidInput(
+                "Illegal region block command".into(),
+            ));
         }
         Ok(Self::Block { lo, hi })
     }
@@ -293,10 +299,19 @@ impl InsertRegion {
     ///
     /// [`DemError::InvalidInput`] if `radius <= 0` (`"Illegal region cylinder
     /// command"`).
-    pub fn cylinder(axis: Axis, c1: Length, c2: Length, radius: Length, lo: Length, hi: Length) -> Result<Self, DemError> {
+    pub fn cylinder(
+        axis: Axis,
+        c1: Length,
+        c2: Length,
+        radius: Length,
+        lo: Length,
+        hi: Length,
+    ) -> Result<Self, DemError> {
         let radius = radius.get::<meter>();
         if radius <= 0.0 {
-            return Err(DemError::InvalidInput("Illegal region cylinder command".into()));
+            return Err(DemError::InvalidInput(
+                "Illegal region cylinder command".into(),
+            ));
         }
         Ok(Self::Cylinder {
             axis,
@@ -313,10 +328,26 @@ impl InsertRegion {
     pub fn extent(&self) -> (Vec3, Vec3) {
         match *self {
             Self::Block { lo, hi } => (lo, hi),
-            Self::Cylinder { axis, c1, c2, radius, lo, hi } => match axis {
-                Axis::X => (Vec3::new(lo, c1 - radius, c2 - radius), Vec3::new(hi, c1 + radius, c2 + radius)),
-                Axis::Y => (Vec3::new(c1 - radius, lo, c2 - radius), Vec3::new(c1 + radius, hi, c2 + radius)),
-                Axis::Z => (Vec3::new(c1 - radius, c2 - radius, lo), Vec3::new(c1 + radius, c2 + radius, hi)),
+            Self::Cylinder {
+                axis,
+                c1,
+                c2,
+                radius,
+                lo,
+                hi,
+            } => match axis {
+                Axis::X => (
+                    Vec3::new(lo, c1 - radius, c2 - radius),
+                    Vec3::new(hi, c1 + radius, c2 + radius),
+                ),
+                Axis::Y => (
+                    Vec3::new(c1 - radius, lo, c2 - radius),
+                    Vec3::new(c1 + radius, hi, c2 + radius),
+                ),
+                Axis::Z => (
+                    Vec3::new(c1 - radius, c2 - radius, lo),
+                    Vec3::new(c1 + radius, c2 + radius, hi),
+                ),
             },
         }
     }
@@ -326,9 +357,21 @@ impl InsertRegion {
     pub fn contains(&self, p: Vec3) -> bool {
         match *self {
             Self::Block { lo, hi } => {
-                p.x >= lo.x && p.x <= hi.x && p.y >= lo.y && p.y <= hi.y && p.z >= lo.z && p.z <= hi.z
+                p.x >= lo.x
+                    && p.x <= hi.x
+                    && p.y >= lo.y
+                    && p.y <= hi.y
+                    && p.z >= lo.z
+                    && p.z <= hi.z
             }
-            Self::Cylinder { axis, c1, c2, radius, lo, hi } => {
+            Self::Cylinder {
+                axis,
+                c1,
+                c2,
+                radius,
+                lo,
+                hi,
+            } => {
                 let (d1, d2, a) = Self::cyl_coords(axis, c1, c2, p);
                 let dist = (d1 * d1 + d2 * d2).sqrt();
                 dist <= radius && a >= lo && a <= hi
@@ -342,7 +385,8 @@ impl InsertRegion {
     pub fn within_cut_of_surface(&self, p: Vec3, cut: f64) -> bool {
         match *self {
             Self::Block { lo, hi } => {
-                if p.x < lo.x || p.x > hi.x || p.y < lo.y || p.y > hi.y || p.z < lo.z || p.z > hi.z {
+                if p.x < lo.x || p.x > hi.x || p.y < lo.y || p.y > hi.y || p.z < lo.z || p.z > hi.z
+                {
                     return false;
                 }
                 p.x - lo.x < cut
@@ -352,7 +396,14 @@ impl InsertRegion {
                     || p.z - lo.z < cut
                     || hi.z - p.z < cut
             }
-            Self::Cylinder { axis, c1, c2, radius, lo, hi } => {
+            Self::Cylinder {
+                axis,
+                c1,
+                c2,
+                radius,
+                lo,
+                hi,
+            } => {
                 let (d1, d2, a) = Self::cyl_coords(axis, c1, c2, p);
                 let r = (d1 * d1 + d2 * d2).sqrt();
                 if r > radius || a < lo || a > hi {
@@ -406,10 +457,20 @@ impl ParticleTemplateSphere {
     ///
     /// [`DemError::InvalidInput`] for an invalid seed (see [`RanPark::checked`]),
     /// `atom_type < 1`, or a non-positive radius or density.
-    pub fn new(seed: i32, atom_type: usize, radius: Length, density: MassDensity) -> Result<Self, DemError> {
-        let (radius, density) = (radius.get::<meter>(), density.get::<kilogram_per_cubic_meter>());
+    pub fn new(
+        seed: i32,
+        atom_type: usize,
+        radius: Length,
+        density: MassDensity,
+    ) -> Result<Self, DemError> {
+        let (radius, density) = (
+            radius.get::<meter>(),
+            density.get::<kilogram_per_cubic_meter>(),
+        );
         if atom_type < 1 {
-            return Err(DemError::InvalidInput("invalid atom type (must be >=1)".into()));
+            return Err(DemError::InvalidInput(
+                "invalid atom type (must be >=1)".into(),
+            ));
         }
         if radius <= 0.0 {
             return Err(DemError::InvalidInput("radius must be > 0".into()));
@@ -417,7 +478,13 @@ impl ParticleTemplateSphere {
         if density <= 0.0 {
             return Err(DemError::InvalidInput("density must be > 0".into()));
         }
-        Ok(Self { seed, atom_type, radius, density, random_insertion: RanPark::checked(seed)? })
+        Ok(Self {
+            seed,
+            atom_type,
+            radius,
+            density,
+            random_insertion: RanPark::checked(seed)?,
+        })
     }
 
     /// `volume_expect = cubic_expectancy * 4 * pi / 3` (upstream's order).
@@ -437,7 +504,13 @@ impl ParticleTemplateSphere {
         let radius = self.radius;
         let density = self.density;
         let volume = radius * radius * radius * 4.0 * std::f64::consts::PI / 3.0;
-        ParticleToInsert { radius, density, volume, mass: density * volume, atom_type: self.atom_type }
+        ParticleToInsert {
+            radius,
+            density,
+            volume,
+            mass: density * volume,
+            atom_type: self.atom_type,
+        }
     }
 }
 
@@ -463,7 +536,11 @@ impl ParticleDistributionDiscrete {
     ///
     /// [`DemError::InvalidInput`] for an invalid seed, no templates, a negative
     /// weight, or a template volume below `1e-12` (`volume_limit`).
-    pub fn new(seed: i32, mass_based: bool, templates: Vec<(ParticleTemplateSphere, f64)>) -> Result<Self, DemError> {
+    pub fn new(
+        seed: i32,
+        mass_based: bool,
+        templates: Vec<(ParticleTemplateSphere, f64)>,
+    ) -> Result<Self, DemError> {
         let random = RanPark::checked(seed)?;
         let nt = templates.len();
         if nt < 1 {
@@ -521,8 +598,18 @@ impl ParticleDistributionDiscrete {
                 break;
             }
         }
-        let maxrad = templates.iter().fold(0.0_f64, |m, t| if t.radius > m { t.radius } else { m });
-        Ok(Self { random, templates, distweight, distorder, volexpect, massexpect, maxrad })
+        let maxrad = templates
+            .iter()
+            .fold(0.0_f64, |m, t| if t.radius > m { t.radius } else { m });
+        Ok(Self {
+            random,
+            templates,
+            distweight,
+            distorder,
+            volexpect,
+            massexpect,
+            maxrad,
+        })
     }
 
     /// Number-based weights after normalisation (`distweight`).
@@ -898,7 +985,9 @@ impl InsertFix {
                     || self.region_volume_local < 0.0
                     || (self.region_volume_local - self.region_volume) / self.region_volume > 1e-3
                 {
-                    return Err(DemError::InvalidInput("Fix insert: Region volume calculation with MC failed".into()));
+                    return Err(DemError::InvalidInput(
+                        "Fix insert: Region volume calculation with MC failed".into(),
+                    ));
                 }
                 let ok = match target {
                     PackTarget::VolumeFraction(f) => (0.0..=1.0).contains(&f) && f > 0.0,
@@ -918,10 +1007,14 @@ impl InsertFix {
                     || self.region_volume_local < 0.0
                     || self.region_volume_local > self.region_volume + f64::EPSILON
                 {
-                    return Err(DemError::InvalidInput("Fix insert: Region volume calculation with MC failed".into()));
+                    return Err(DemError::InvalidInput(
+                        "Fix insert: Region volume calculation with MC failed".into(),
+                    ));
                 }
                 if self.insert_every == 0 {
-                    return Err(DemError::InvalidInput("'insert_every' = once not allowed".into()));
+                    return Err(DemError::InvalidInput(
+                        "'insert_every' = once not allowed".into(),
+                    ));
                 }
                 let mass_expect = self.distribution.mass_expect();
                 self.ninsert_exists = total.is_some();
@@ -936,7 +1029,9 @@ impl InsertFix {
                     Rate::Mass(m) => m / mass_expect,
                 };
                 if nflowrate <= 0.0 {
-                    return Err(DemError::InvalidInput("must define either 'massrate' or 'particlerate'".into()));
+                    return Err(DemError::InvalidInput(
+                        "must define either 'massrate' or 'particlerate'".into(),
+                    ));
                 }
                 self.ninsert_per = nflowrate * ((self.insert_every as f64) * dt);
             }
@@ -981,7 +1076,9 @@ impl InsertFix {
             }
             if self.region.contains(pos) {
                 n_in_global += 1;
-                if self.in_subdomain(pos) && !(self.all_in && self.region.within_cut_of_surface(pos, cut)) {
+                if self.in_subdomain(pos)
+                    && !(self.all_in && self.region.within_cut_of_surface(pos, cut))
+                {
                     n_in_local += 1;
                 }
             }
@@ -999,7 +1096,9 @@ impl InsertFix {
         let mut vol_local = (n_in_local as f64) / n_test * vol_bbox;
         let vol_local_all = vol_local;
         if vol_local_all < 1.0e-10 {
-            return Err(DemError::InvalidInput("Unable to calculate region volume (volume_limit)".into()));
+            return Err(DemError::InvalidInput(
+                "Unable to calculate region volume (volume_limit)".into(),
+            ));
         }
         vol_local *= vol_global / vol_local_all;
         self.region_volume = vol_global;
@@ -1042,14 +1141,27 @@ impl InsertFix {
     /// box.
     fn generate_random(&mut self, shrink_by: Option<f64>) -> Result<Vec3, DemError> {
         let (elo, ehi) = self.region.extent();
-        let lo = Vec3::new(elo.x.max(self.box_lo.x), elo.y.max(self.box_lo.y), elo.z.max(self.box_lo.z));
-        let hi = Vec3::new(ehi.x.min(self.box_hi.x), ehi.y.min(self.box_hi.y), ehi.z.min(self.box_hi.z));
+        let lo = Vec3::new(
+            elo.x.max(self.box_lo.x),
+            elo.y.max(self.box_lo.y),
+            elo.z.max(self.box_lo.z),
+        );
+        let hi = Vec3::new(
+            ehi.x.min(self.box_hi.x),
+            ehi.y.min(self.box_hi.y),
+            ehi.z.min(self.box_hi.z),
+        );
         if lo.x >= hi.x || lo.y >= hi.y || lo.z >= hi.z {
-            return Err(DemError::InvalidInput("Impossible to generate random points on wrong sub-domain".into()));
+            return Err(DemError::InvalidInput(
+                "Impossible to generate random points on wrong sub-domain".into(),
+            ));
         }
         let diff = Vec3::new(hi.x - lo.x, hi.y - lo.y, hi.z - lo.z);
         if let Some(cut) = shrink_by {
-            if (ehi.x - elo.x < 2.0 * cut) || (ehi.y - elo.y < 2.0 * cut) || (ehi.z - elo.z < 2.0 * cut) {
+            if (ehi.x - elo.x < 2.0 * cut)
+                || (ehi.y - elo.y < 2.0 * cut)
+                || (ehi.z - elo.z < 2.0 * cut)
+            {
                 return Err(DemError::InvalidInput(
                     "Impossible to generate random points within region - region too small (smaller than twice \
                      the particle cutoff)"
@@ -1064,7 +1176,9 @@ impl InsertFix {
             let pos = Vec3::new(x, y, z);
             let ok = match shrink_by {
                 None => self.region.contains(pos),
-                Some(cut) => self.region.contains(pos) && !self.region.within_cut_of_surface(pos, cut),
+                Some(cut) => {
+                    self.region.contains(pos) && !self.region.within_cut_of_surface(pos, cut)
+                }
             };
             if ok {
                 return Ok(pos);
@@ -1074,8 +1188,14 @@ impl InsertFix {
 
     /// `Domain::dist_subbox_borders`.
     fn dist_subbox_borders(&self, p: Vec3) -> f64 {
-        let dlo = (self.box_lo.x - p.x).abs().min((self.box_lo.y - p.y).abs()).min((self.box_lo.z - p.z).abs());
-        let dhi = (self.box_hi.x - p.x).abs().min((self.box_hi.y - p.y).abs()).min((self.box_hi.z - p.z).abs());
+        let dlo = (self.box_lo.x - p.x)
+            .abs()
+            .min((self.box_lo.y - p.y).abs())
+            .min((self.box_lo.z - p.z).abs());
+        let dhi = (self.box_hi.x - p.x)
+            .abs()
+            .min((self.box_hi.y - p.y).abs())
+            .min((self.box_hi.z - p.z).abs());
         if dlo < dhi {
             dlo
         } else {
@@ -1117,7 +1237,8 @@ impl InsertFix {
                 }
                 let mut n = match target {
                     PackTarget::VolumeFraction(f) => {
-                        let n = ((f * self.region_volume - vol_region) / self.distribution.vol_expect()
+                        let n = ((f * self.region_volume - vol_region)
+                            / self.distribution.vol_expect()
                             + self.random.uniform()) as i64;
                         self.insertion_ratio = vol_region / (f * self.region_volume);
                         n
@@ -1127,7 +1248,8 @@ impl InsertFix {
                         total as i64 - np_region
                     }
                     PackTarget::Mass(total) => {
-                        let n = ((total - mass_region) / self.distribution.mass_expect() + self.random.uniform()) as i64;
+                        let n = ((total - mass_region) / self.distribution.mass_expect()
+                            + self.random.uniform()) as i64;
                         self.insertion_ratio = mass_region / total;
                         n
                     }
@@ -1155,7 +1277,8 @@ impl InsertFix {
                 if self.insertion_ratio >= 1.0 {
                     ninsert_this_local * self.maxattempt
                 } else {
-                    ((ninsert_this_local * self.maxattempt) as f64 / (1.0 - self.insertion_ratio)) as i64
+                    ((ninsert_this_local * self.maxattempt) as f64 / (1.0 - self.insertion_ratio))
+                        as i64
                 }
             }
             InsertMode::RateRegion { .. } => ninsert_this_local * self.maxattempt,
@@ -1174,7 +1297,11 @@ impl InsertFix {
     ///
     /// [`DemError::InvalidInput`] if upstream would stop with an error (region
     /// too small for `all_in`, a particle at the origin, an overflowing count).
-    pub fn pre_exchange(&mut self, step: u64, atoms: &[Particle]) -> Result<Vec<InsertedParticle>, DemError> {
+    pub fn pre_exchange(
+        &mut self,
+        step: u64,
+        atoms: &[Particle],
+    ) -> Result<Vec<InsertedParticle>, DemError> {
         if self.next_reneighbor != Some(step) || self.most_recent_ins_step == Some(step) {
             return Ok(Vec::new());
         }
@@ -1182,7 +1309,8 @@ impl InsertFix {
         let mut ninsert_this = self.calc_ninsert_this(atoms);
         if ninsert_this < -200_000 {
             return Err(DemError::InvalidInput(
-                "overflow in particle number calculation: inserting too many particles in one step".into(),
+                "overflow in particle number calculation: inserting too many particles in one step"
+                    .into(),
             ));
         }
         let mut exact_number = self.exact_number;
@@ -1196,11 +1324,15 @@ impl InsertFix {
             (fraction_local * ninsert_this as f64 + self.random.uniform()) as i64
         } else {
             if fraction_local < 0.02 {
-                return Err(DemError::InvalidInput("Internal error distributing particles to processes".into()));
+                return Err(DemError::InvalidInput(
+                    "Internal error distributing particles to processes".into(),
+                ));
             }
             ((fraction_local / fraction_local) * ninsert_this as f64) as i64
         };
-        let list = self.distribution.randomize_list(ninsert_this_local.max(0) as usize, exact_number);
+        let list = self
+            .distribution
+            .randomize_list(ninsert_this_local.max(0) as usize, exact_number);
         let ninsert_this = list.len() as i64;
         if ninsert_this == 0 {
             if self.insert_every != 0 && (!self.ninsert_exists || self.ninserted < self.ninsert) {
@@ -1249,16 +1381,27 @@ impl InsertFix {
         let mut placed: Vec<(Vec3, Vec3)> = Vec::with_capacity(ninsert_this_local);
         if !self.overlap_check {
             for pti in list {
-                let pos = if self.all_in { self.generate_random(Some(pti.radius))? } else { self.generate_random(None)? };
+                let pos = if self.all_in {
+                    self.generate_random(Some(pti.radius))?
+                } else {
+                    self.generate_random(None)?
+                };
                 let v = self.generate_random_velocity();
                 if pos.x == 0.0 && pos.y == 0.0 && pos.z == 0.0 {
-                    return Err(DemError::InvalidInput("FixInsertPack::x_v_omega() illegal position".into()));
+                    return Err(DemError::InvalidInput(
+                        "FixInsertPack::x_v_omega() illegal position".into(),
+                    ));
                 }
                 placed.push((pos, v));
             }
             return Ok((placed, ninsert_this_local));
         }
-        let mut grid = OverlapGrid::new(2.0 * self.distribution.max_r_bound().max(atoms.iter().fold(0.0, |m, a| a.radius.max(m))));
+        let mut grid = OverlapGrid::new(
+            2.0 * self
+                .distribution
+                .max_r_bound()
+                .max(atoms.iter().fold(0.0, |m, a| a.radius.max(m))),
+        );
         for a in atoms {
             grid.insert(a.position, a.radius);
         }
@@ -1270,9 +1413,16 @@ impl InsertFix {
             let mut nins = 0;
             while nins == 0 && ntry < maxtry {
                 let pos = loop {
-                    let pos = if self.all_in { self.generate_random(Some(rbound))? } else { self.generate_random(None)? };
+                    let pos = if self.all_in {
+                        self.generate_random(Some(rbound))?
+                    } else {
+                        self.generate_random(None)?
+                    };
                     ntry += 1;
-                    if !(self.check_dist_from_subdomain_border && ntry < maxtry && self.dist_subbox_borders(pos) < rbound) {
+                    if !(self.check_dist_from_subdomain_border
+                        && ntry < maxtry
+                        && self.dist_subbox_borders(pos) < rbound)
+                    {
                         break pos;
                     }
                 };
@@ -1301,11 +1451,18 @@ struct OverlapGrid {
 
 impl OverlapGrid {
     fn new(cell: f64) -> Self {
-        Self { cell: if cell > 0.0 { cell } else { 1.0 }, cells: BTreeMap::new() }
+        Self {
+            cell: if cell > 0.0 { cell } else { 1.0 },
+            cells: BTreeMap::new(),
+        }
     }
 
     fn key(&self, p: Vec3) -> (i64, i64, i64) {
-        ((p.x / self.cell).floor() as i64, (p.y / self.cell).floor() as i64, (p.z / self.cell).floor() as i64)
+        (
+            (p.x / self.cell).floor() as i64,
+            (p.y / self.cell).floor() as i64,
+            (p.z / self.cell).floor() as i64,
+        )
     }
 
     fn insert(&mut self, p: Vec3, r: f64) {
@@ -1342,11 +1499,18 @@ mod tests {
     use super::*;
 
     fn tpl(seed: i32, r: f64) -> ParticleTemplateSphere {
-        ParticleTemplateSphere::new(seed, 1, Length::new::<meter>(r), MassDensity::new::<kilogram_per_cubic_meter>(2500.0)).unwrap()
+        ParticleTemplateSphere::new(
+            seed,
+            1,
+            Length::new::<meter>(r),
+            MassDensity::new::<kilogram_per_cubic_meter>(2500.0),
+        )
+        .unwrap()
     }
 
     fn one_template_dist() -> ParticleDistributionDiscrete {
-        ParticleDistributionDiscrete::new(15_485_867, true, vec![(tpl(15_485_863, 0.005), 1.0)]).unwrap()
+        ParticleDistributionDiscrete::new(15_485_867, true, vec![(tpl(15_485_863, 0.005), 1.0)])
+            .unwrap()
     }
 
     #[test]
@@ -1375,7 +1539,10 @@ mod tests {
         let d = ParticleDistributionDiscrete::new(
             15_485_867,
             true,
-            vec![(tpl(15_485_863, 0.005), 0.7), (tpl(49_979_687, 0.0035), 0.3)],
+            vec![
+                (tpl(15_485_863, 0.005), 0.7),
+                (tpl(49_979_687, 0.0035), 0.3),
+            ],
         )
         .unwrap();
         let w = d.number_weights();
@@ -1387,16 +1554,19 @@ mod tests {
 
     #[test]
     fn fix_setup_checks_and_scheduling() {
-        let reg = InsertRegion::block(Vec3::new(-0.01, -0.01, 0.0), Vec3::new(0.01, 0.01, 0.05)).unwrap();
+        let reg =
+            InsertRegion::block(Vec3::new(-0.01, -0.01, 0.0), Vec3::new(0.01, 0.01, 0.05)).unwrap();
         let lo = Vec3::new(-0.1, -0.1, -0.1);
         let hi = Vec3::new(0.1, 0.1, 0.1);
         let mode = InsertMode::Pack(PackTarget::Particles(3));
         // the fix, distribution and template seeds must differ
         assert!(InsertFix::new(mode, 15_485_867, one_template_dist(), reg, 10, lo, hi).is_err());
-        assert!(InsertFix::new(mode, 32_452_843, one_template_dist(), reg, 10, lo, hi)
-            .unwrap()
-            .with_ntry_mc(10)
-            .is_err());
+        assert!(
+            InsertFix::new(mode, 32_452_843, one_template_dist(), reg, 10, lo, hi)
+                .unwrap()
+                .with_ntry_mc(10)
+                .is_err()
+        );
         let mut fix = InsertFix::new(mode, 32_452_843, one_template_dist(), reg, 10, lo, hi)
             .unwrap()
             .with_ntry_mc(2000)
@@ -1415,14 +1585,23 @@ mod tests {
         assert!(fix.pre_exchange(11, &atoms).unwrap().is_empty());
         // a region outside the box is refused at set-up
         let far = InsertRegion::block(Vec3::new(1.0, 1.0, 1.0), Vec3::new(2.0, 2.0, 2.0)).unwrap();
-        let mut bad = InsertFix::new(mode, 32_452_843, one_template_dist(), far, 10, lo, hi).unwrap();
+        let mut bad =
+            InsertFix::new(mode, 32_452_843, one_template_dist(), far, 10, lo, hi).unwrap();
         assert!(bad.setup().is_err());
     }
 
     #[test]
     fn region_predicates() {
         let z = Length::new::<meter>(0.0);
-        let c = InsertRegion::cylinder(Axis::Z, z, z, Length::new::<meter>(1.0), z, Length::new::<meter>(2.0)).unwrap();
+        let c = InsertRegion::cylinder(
+            Axis::Z,
+            z,
+            z,
+            Length::new::<meter>(1.0),
+            z,
+            Length::new::<meter>(2.0),
+        )
+        .unwrap();
         assert!(c.contains(Vec3::new(0.5, 0.0, 1.0)) && !c.contains(Vec3::new(1.5, 0.0, 1.0)));
         assert!(c.within_cut_of_surface(Vec3::new(0.95, 0.0, 1.0), 0.1));
         assert!(!c.within_cut_of_surface(Vec3::new(0.0, 0.0, 1.0), 0.1));

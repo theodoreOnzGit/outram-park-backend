@@ -85,9 +85,11 @@ fn config(side: f64, once: bool) -> MassFlowConfig {
 /// state is `mfu = (0.014398966328953218 kg, 11)`, `mfd = (0.0065449846949787354 kg, 5)`.
 #[test]
 fn massflow_mesh_matches_liggghts() {
-    let (Some(csv), Some(thermo), Some(stl)) =
-        (read("massflow_plate.csv"), read("massflow_plate_thermo.txt"), read("plate_square.stl"))
-    else {
+    let (Some(csv), Some(thermo), Some(stl)) = (
+        read("massflow_plate.csv"),
+        read("massflow_plate_thermo.txt"),
+        read("plate_square.stl"),
+    ) else {
         eprintln!("skipping: reference-data/liggghts/ not present");
         return;
     };
@@ -95,11 +97,19 @@ fn massflow_mesh_matches_liggghts() {
         .lines()
         .skip(1)
         .filter(|l| !l.trim().is_empty())
-        .map(|l| l.split(',').map(|v| v.parse().expect("numeric csv")).collect())
+        .map(|l| {
+            l.split(',')
+                .map(|v| v.parse().expect("numeric csv"))
+                .collect()
+        })
         .collect();
     let thermo: Vec<Vec<f64>> = thermo
         .lines()
-        .map(|l| l.split_whitespace().map(|v| v.parse().expect("numeric thermo")).collect())
+        .map(|l| {
+            l.split_whitespace()
+                .map(|v| v.parse().expect("numeric thermo"))
+                .collect()
+        })
         .collect();
     assert_eq!(rows.len(), 121);
     assert_eq!(thermo.len(), 121);
@@ -120,7 +130,8 @@ fn massflow_mesh_matches_liggghts() {
             .expect("valid sphere")
         })
         .collect();
-    let floor = Boundary::wall(Vec3::new(0.0, 0.0, -0.12), Vec3::new(0.0, 0.0, 1.0)).expect("valid wall");
+    let floor =
+        Boundary::wall(Vec3::new(0.0, 0.0, -0.12), Vec3::new(0.0, 0.0, 1.0)).expect("valid wall");
     let material = GranularMaterial::new(1.0e7, 0.3, 0.9, 0.5).expect("valid material");
     let mut sys = GranularSystem::new(
         particles,
@@ -132,8 +143,10 @@ fn massflow_mesh_matches_liggghts() {
     .expect("valid system")
     .with_neighbor_skin(0.003);
     let mesh = || MeshWall::from_ascii_stl(&stl).expect("valid plate stl");
-    let up = sys.add_massflow_mesh(MassFlowMesh::new(mesh(), config(1.0, false)).expect("valid fix"));
-    let down = sys.add_massflow_mesh(MassFlowMesh::new(mesh(), config(-1.0, true)).expect("valid fix"));
+    let up =
+        sys.add_massflow_mesh(MassFlowMesh::new(mesh(), config(1.0, false)).expect("valid fix"));
+    let down =
+        sys.add_massflow_mesh(MassFlowMesh::new(mesh(), config(-1.0, true)).expect("valid fix"));
 
     let (mut mismatched, mut total, mut first) = (0, 0, None);
     let mut last = 0_usize;
@@ -172,7 +185,10 @@ fn massflow_mesh_matches_liggghts() {
             check(4 + k, sys.massflow_vector(down, k), th[5 + k]);
         }
     }
-    assert_eq!(mismatched, 0, "{mismatched}/{total} differ, first {first:?}");
+    assert_eq!(
+        mismatched, 0,
+        "{mismatched}/{total} differ, first {first:?}"
+    );
     assert_eq!(sys.massflow(up).crossings().len(), 11);
     assert_eq!(sys.massflow(down).crossings().len(), 5);
 }
@@ -188,12 +204,43 @@ fn massflow_constructor_rejects_invalid_setups() {
     let mesh = || MeshWall::from_ascii_stl(&stl).expect("valid plate stl");
     let ok = config(1.0, true);
     assert!(MassFlowMesh::new(mesh(), ok).is_ok());
-    assert!(MassFlowMesh::new(mesh(), MassFlowConfig { vec_side: Vec3::zero(), ..ok }).is_err());
-    assert!(MassFlowMesh::new(mesh(), MassFlowConfig { vec_side: Vec3::new(1.0, 0.0, 0.0), ..ok }).is_err());
-    let outlet = MassFlowConfig { point_at_outlet: Some(Vec3::new(0.0, 0.0, -1.0)), ..ok };
+    assert!(MassFlowMesh::new(
+        mesh(),
+        MassFlowConfig {
+            vec_side: Vec3::zero(),
+            ..ok
+        }
+    )
+    .is_err());
+    assert!(MassFlowMesh::new(
+        mesh(),
+        MassFlowConfig {
+            vec_side: Vec3::new(1.0, 0.0, 0.0),
+            ..ok
+        }
+    )
+    .is_err());
+    let outlet = MassFlowConfig {
+        point_at_outlet: Some(Vec3::new(0.0, 0.0, -1.0)),
+        ..ok
+    };
     assert!(MassFlowMesh::new(mesh(), outlet).is_ok());
-    assert!(MassFlowMesh::new(mesh(), MassFlowConfig { once: false, ..outlet }).is_err());
-    assert!(MassFlowMesh::new(mesh(), MassFlowConfig { inside_out: true, ..ok }).is_err());
+    assert!(MassFlowMesh::new(
+        mesh(),
+        MassFlowConfig {
+            once: false,
+            ..outlet
+        }
+    )
+    .is_err());
+    assert!(MassFlowMesh::new(
+        mesh(),
+        MassFlowConfig {
+            inside_out: true,
+            ..ok
+        }
+    )
+    .is_err());
     // a closed drum is not planar
     let Some(drum) = read("drum_cylinder.stl") else {
         return;
@@ -243,6 +290,10 @@ fn massflow_point_at_outlet_counts_a_fall_through() {
         // measured 2026-11-11 (NOT cross-coded against LIGGGHTS, no deck was run for
         // the outlet branch): the dot product with the outlet direction is positive
         // after the plate for the default orientation and negated by `inside_out`
-        assert_eq!(counted, if inside_out { 0.0 } else { 1.0 }, "inside_out={inside_out}");
+        assert_eq!(
+            counted,
+            if inside_out { 0.0 } else { 1.0 },
+            "inside_out={inside_out}"
+        );
     }
 }

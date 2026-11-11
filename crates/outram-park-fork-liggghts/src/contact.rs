@@ -128,8 +128,8 @@ use uom::si::f64::Pressure;
 use uom::si::pressure::pascal;
 
 use crate::granular::{
-    ContactKinematics, GranularContactModel, GranularMaterial, GranularNormalModel, TangentialModel,
-    SQRT_FIVE_OVER_SIX,
+    ContactKinematics, GranularContactModel, GranularMaterial, GranularNormalModel,
+    TangentialModel, SQRT_FIVE_OVER_SIX,
 };
 use crate::particle::{Particle, Vec3};
 use crate::DemError;

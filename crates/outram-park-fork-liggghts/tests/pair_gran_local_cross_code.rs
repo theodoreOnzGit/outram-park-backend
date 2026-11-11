@@ -72,18 +72,40 @@ fn read(name: &str) -> Option<String> {
 
 fn fields(rec: &outram_park_fork_liggghts::granular_system::PairLocalRecord) -> [f64; 23] {
     [
-        rec.pos_i.x, rec.pos_i.y, rec.pos_i.z, rec.pos_j.x, rec.pos_j.y, rec.pos_j.z,
-        rec.vel_i.x, rec.vel_i.y, rec.vel_i.z, rec.vel_j.x, rec.vel_j.y, rec.vel_j.z,
-        rec.force.x, rec.force.y, rec.force.z,
-        rec.torque.x, rec.torque.y, rec.torque.z,
-        rec.history.x, rec.history.y, rec.history.z,
-        rec.contact_area, rec.delta,
+        rec.pos_i.x,
+        rec.pos_i.y,
+        rec.pos_i.z,
+        rec.pos_j.x,
+        rec.pos_j.y,
+        rec.pos_j.z,
+        rec.vel_i.x,
+        rec.vel_i.y,
+        rec.vel_i.z,
+        rec.vel_j.x,
+        rec.vel_j.y,
+        rec.vel_j.z,
+        rec.force.x,
+        rec.force.y,
+        rec.force.z,
+        rec.torque.x,
+        rec.torque.y,
+        rec.torque.z,
+        rec.history.x,
+        rec.history.y,
+        rec.history.z,
+        rec.contact_area,
+        rec.delta,
     ]
 }
 
 /// The deck's neighbour settings: `read_data` box, `neighbor 0.003 bin`.
 fn deck_neighbor() -> LiggghtsNeighbor {
-    LiggghtsNeighbor::new(Vec3::new(-1.0, -1.0, -0.005), Vec3::new(1.0, 1.0, 0.35), 0.003).unwrap()
+    LiggghtsNeighbor::new(
+        Vec3::new(-1.0, -1.0, -0.005),
+        Vec3::new(1.0, 1.0, 0.35),
+        0.003,
+    )
+    .unwrap()
 }
 
 /// Compare the committed dumps (steps 0, 1, 10, 100) with the port, field by
@@ -167,9 +189,9 @@ fn compare(order: Option<LiggghtsNeighbor>) -> Option<Vec<usize>> {
         let mut worst_abs = [0.0_f64; 23];
         for row in &rows {
             let (tag_i, tag_j) = (row[12] as u64 - 1, row[13] as u64 - 1);
-            let rec = sys
-                .pair_gran_local_for(tag_i, tag_j)
-                .unwrap_or_else(|| panic!("step {step}: upstream contact ({tag_i},{tag_j}) missing"));
+            let rec = sys.pair_gran_local_for(tag_i, tag_j).unwrap_or_else(|| {
+                panic!("step {step}: upstream contact ({tag_i},{tag_j}) missing")
+            });
             let ours = fields(&rec);
             // upstream column order: pos_i, pos_j, vel_i, vel_j, id x3,
             // force, torque, history, area, delta
@@ -215,8 +237,14 @@ fn compare(order: Option<LiggghtsNeighbor>) -> Option<Vec<usize>> {
 /// 100 (the 1-3 ulp of the cell-grid order were a force-sum-order effect).
 #[test]
 fn per_contact_dump_matches_upstream() {
-    let Some(bad) = compare(Some(deck_neighbor())) else { return };
-    assert_eq!(bad, vec![0, 0, 0, 0], "values differing at steps 0, 1, 10, 100");
+    let Some(bad) = compare(Some(deck_neighbor())) else {
+        return;
+    };
+    assert_eq!(
+        bad,
+        vec![0, 0, 0, 0],
+        "values differing at steps 0, 1, 10, 100"
+    );
 }
 
 /// Ablation: the default cell-grid order. Step 0 is a single evaluation and
@@ -227,7 +255,10 @@ fn cell_grid_order_differs_only_in_sum_order() {
     let Some(bad) = compare(None) else { return };
     eprintln!("cell-grid order: differing values at steps 0,1,10,100 = {bad:?}");
     assert_eq!(bad[0], 0);
-    assert!(bad[1] > 0, "the cell-grid order is expected to differ from step 1");
+    assert!(
+        bad[1] > 0,
+        "the cell-grid order is expected to differ from step 1"
+    );
 }
 
 /// Ablation: LIGGGHTS' list order but no atom sort (`atom_modify sort 0 0`):
@@ -236,7 +267,9 @@ fn cell_grid_order_differs_only_in_sum_order() {
 fn list_order_without_atom_sort_is_not_upstream() {
     let mut cfg = deck_neighbor();
     cfg.sort_every = 0;
-    let Some(bad) = compare(Some(cfg)) else { return };
+    let Some(bad) = compare(Some(cfg)) else {
+        return;
+    };
     eprintln!("no atom sort: differing values at steps 0,1,10,100 = {bad:?}");
     assert_eq!(bad[0], 0);
 }

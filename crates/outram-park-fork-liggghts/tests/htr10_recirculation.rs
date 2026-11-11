@@ -165,7 +165,9 @@ fn data_path(name: &str) -> std::path::PathBuf {
     } else {
         "../../reference-data/liggghts"
     };
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(dir).join(name)
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join(dir)
+        .join(name)
 }
 
 fn load_positions(name: &str) -> Option<Vec<Vec3>> {
@@ -388,23 +390,17 @@ fn slow_recirculation_through_the_discharge_system() {
 
     let particles: Vec<Particle> = init.iter().map(|x| pebble(*x)).collect();
     let n0 = particles.len();
-    let mut sys = GranularSystem::new(
-        particles,
-        boundaries,
-        model,
-        Vec3::new(0.0, 0.0, -9.81),
-        DT,
-    )
-    .expect("valid system")
-    .with_compute(ComputeType::CpuMultiThread(ThreadCount::Auto))
-    .with_moving_walls(vec![MovingBoundary::new(
-        // Static in practice: the discharge geometry does not move. It is a
-        // MovingBoundary only because that is the path a mesh wall takes.
-        WallGeometry::Mesh(mesh),
-        Vec3::zero(),
-        Vec3::zero(),
-        Vec3::zero(),
-    )]);
+    let mut sys = GranularSystem::new(particles, boundaries, model, Vec3::new(0.0, 0.0, -9.81), DT)
+        .expect("valid system")
+        .with_compute(ComputeType::CpuMultiThread(ThreadCount::Auto))
+        .with_moving_walls(vec![MovingBoundary::new(
+            // Static in practice: the discharge geometry does not move. It is a
+            // MovingBoundary only because that is the path a mesh wall takes.
+            WallGeometry::Mesh(mesh),
+            Vec3::zero(),
+            Vec3::zero(),
+            Vec3::zero(),
+        )]);
 
     let started = std::time::Instant::now();
     let m_pebble = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.r_powi(3);

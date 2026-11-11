@@ -225,8 +225,11 @@ impl HeatGranConduction {
             if rsq < radsum * radsum {
                 let r = rsq.sqrt();
                 let area = self.contact_area(radi, radj, r);
-                let hc =
-                    Self::pair_conductance(self.conductivity[types[i]], self.conductivity[types[j]], area);
+                let hc = Self::pair_conductance(
+                    self.conductivity[types[i]],
+                    self.conductivity[types[j]],
+                    area,
+                );
                 let q = (b.temperature - a.temperature) * hc;
                 flux[i] += q;
                 flux[j] -= q;
@@ -307,10 +310,18 @@ mod tests {
         // r < max(ri, rj): the smaller sphere's area
         let inside = h.contact_area(0.005, 0.003, 0.004);
         assert!((inside - std::f64::consts::PI * 0.003 * 0.003).abs() < 1e-18);
-        let c = h.clone().with_contact_area(ConductionContactArea::Constant(2e-6)).unwrap();
+        let c = h
+            .clone()
+            .with_contact_area(ConductionContactArea::Constant(2e-6))
+            .unwrap();
         assert_eq!(c.contact_area(0.005, 0.005, r), 2e-6);
-        let p = h.with_contact_area(ConductionContactArea::Projection).unwrap();
-        assert_eq!(p.contact_area(0.005, 0.003, r), std::f64::consts::PI * 0.005 * 0.005);
+        let p = h
+            .with_contact_area(ConductionContactArea::Projection)
+            .unwrap();
+        assert_eq!(
+            p.contact_area(0.005, 0.003, r),
+            std::f64::consts::PI * 0.005 * 0.005
+        );
         assert!(HeatGranConduction::single_type(1.0, 1.0)
             .unwrap()
             .with_contact_area(ConductionContactArea::Constant(0.0))

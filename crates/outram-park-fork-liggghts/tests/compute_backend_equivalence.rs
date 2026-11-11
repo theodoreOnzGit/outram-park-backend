@@ -271,7 +271,11 @@ fn the_same_backend_twice_gives_the_same_answer() {
         );
         a.run(250);
         b.run(250);
-        assert_eq!(checksum(&a), checksum(&b), "{compute:?} is not deterministic");
+        assert_eq!(
+            checksum(&a),
+            checksum(&b),
+            "{compute:?} is not deterministic"
+        );
     }
 }
 
@@ -288,9 +292,12 @@ fn the_same_backend_twice_gives_the_same_answer() {
 #[test]
 fn parallel_is_bit_identical_to_serial_with_liggghts_neighbor_order() {
     use outram_park_fork_liggghts::neighbor_list::LiggghtsNeighbor;
-    let cfg =
-        LiggghtsNeighbor::new(Vec3::new(-0.2, -0.2, -0.005), Vec3::new(0.2, 0.2, 0.4), 0.003)
-            .unwrap();
+    let cfg = LiggghtsNeighbor::new(
+        Vec3::new(-0.2, -0.2, -0.005),
+        Vec3::new(0.2, 0.2, 0.4),
+        0.003,
+    )
+    .unwrap();
     let mut reference = build(8, TangentialModel::History, ComputeType::CpuSingleThread)
         .with_liggghts_neighbor_order(cfg);
     reference.run(400);

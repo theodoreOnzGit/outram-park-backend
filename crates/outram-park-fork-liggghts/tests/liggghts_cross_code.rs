@@ -512,8 +512,18 @@ fn twotype_case(file: &str, oblique: bool) -> Diff {
     let rows = load(file).unwrap_or_else(|| panic!("{file} missing"));
     assert_eq!(rows.len(), 251, "unexpected reference frame count");
     let vy = if oblique { 0.5 } else { 0.0 };
-    let pa = sphere_rho(0.005, 2500.0, Vec3::new(-0.0060, 0.0, 0.0), Vec3::new(1.0, vy, 0.0));
-    let pb = sphere_rho(0.006, 4000.0, Vec3::new(0.0060, 0.0, 0.0), Vec3::new(-1.0, if oblique { -0.5 } else { 0.0 }, 0.0));
+    let pa = sphere_rho(
+        0.005,
+        2500.0,
+        Vec3::new(-0.0060, 0.0, 0.0),
+        Vec3::new(1.0, vy, 0.0),
+    );
+    let pb = sphere_rho(
+        0.006,
+        4000.0,
+        Vec3::new(0.0060, 0.0, 0.0),
+        Vec3::new(-1.0, if oblique { -0.5 } else { 0.0 }, 0.0),
+    );
     let table = MaterialTable::new(
         &[(1.0e7, 0.3), (3.0e7, 0.2)],
         &[&[0.9, 0.7], &[0.7, 0.5]],
@@ -561,7 +571,12 @@ fn stiffness_case(file: &str, normal: GranularNormalModel) -> Diff {
     let rows = load(file).unwrap_or_else(|| panic!("{file} missing"));
     assert_eq!(rows.len(), 251, "unexpected reference frame count");
     let model = GranularContactModel::new(normal, TangentialModel::History);
-    replay_pair(&rows, model, Vec3::new(1.0, 0.5, 0.0), Vec3::new(-1.0, -0.5, 0.0))
+    replay_pair(
+        &rows,
+        model,
+        Vec3::new(1.0, 0.5, 0.0),
+        Vec3::new(-1.0, -0.5, 0.0),
+    )
 }
 
 /// `hertz/stiffness`: `kn = 1.2e8`, `kt = 4e7`, `gamman = 4.8e5`, `gammat =
@@ -613,8 +628,17 @@ fn hysteresis_case(file: &str, normal: GranularNormalModel) -> Diff {
     let rows = load(file).unwrap_or_else(|| panic!("{file} missing"));
     assert_eq!(rows.len(), 251, "unexpected reference frame count");
     let model = GranularContactModel::new(normal, TangentialModel::History);
-    let (vx, vy) = if file.contains("fast") { (1.0, 0.5) } else { (0.25, 0.125) };
-    replay_pair(&rows, model, Vec3::new(vx, vy, 0.0), Vec3::new(-vx, -vy, 0.0))
+    let (vx, vy) = if file.contains("fast") {
+        (1.0, 0.5)
+    } else {
+        (0.25, 0.125)
+    };
+    replay_pair(
+        &rows,
+        model,
+        Vec3::new(vx, vy, 0.0),
+        Vec3::new(-vx, -vy, 0.0),
+    )
 }
 
 /// Fast impact: plastic loading past `deltaMaxLim`, cohesion on unloading.

@@ -127,7 +127,11 @@ impl ForceFix {
         torques: &mut [Vec3],
     ) -> Result<(), String> {
         match self {
-            Self::AddForce { group, components, foriginal } => {
+            Self::AddForce {
+                group,
+                components,
+                foriginal,
+            } => {
                 *foriginal = [0.0; 3];
                 // variables are evaluated once, before the atom loop
                 let v = [
@@ -178,7 +182,12 @@ mod tests {
     use super::*;
 
     fn ctx(step: i64) -> VarContext {
-        VarContext { step, begin_step: 0, end_step: 100, dt: 1e-5 }
+        VarContext {
+            step,
+            begin_step: 0,
+            end_step: 100,
+            dt: 1e-5,
+        }
     }
 
     #[test]
@@ -195,8 +204,14 @@ mod tests {
                 ],
                 foriginal: [0.0; 3],
             },
-            ForceFix::Viscous { group: vec![true, true], gamma: vec![0.5] },
-            ForceFix::Freeze { group: vec![false, true], foriginal: [0.0; 3] },
+            ForceFix::Viscous {
+                group: vec![true, true],
+                gamma: vec![0.5],
+            },
+            ForceFix::Freeze {
+                group: vec![false, true],
+                foriginal: [0.0; 3],
+            },
         ];
         let v = [Vec3::new(2.0, 0.0, 0.0), Vec3::new(0.0, 4.0, 0.0)];
         let mut f = vec![Vec3::new(1.0, 1.0, 1.0); 2];

@@ -88,12 +88,22 @@ impl MeshStress {
     /// `add_particle_contribution(ip, frc, delta, iTri, v_wall)` for stress:
     /// `frc` is the contact force on the particle (`f_pw`), `x` the particle
     /// centre, `delta` the already negated `-sidata.delta`.
-    pub fn add_particle_contribution(&mut self, frc: [f64; 3], x: [f64; 3], delta: [f64; 3], tri: usize) {
+    pub fn add_particle_contribution(
+        &mut self,
+        frc: [f64; 3],
+        x: [f64; 3],
+        delta: [f64; 3],
+        tri: usize,
+    ) {
         let frc = [-frc[0], -frc[1], -frc[2]];
         let contact = add(x, delta);
         self.f_tri[tri] = add(self.f_tri[tri], frc);
         self.f_total = add(self.f_total, frc);
-        let tmp = [contact[0] - self.p_ref.x, contact[1] - self.p_ref.y, contact[2] - self.p_ref.z];
+        let tmp = [
+            contact[0] - self.p_ref.x,
+            contact[1] - self.p_ref.y,
+            contact[2] - self.p_ref.z,
+        ];
         let tmp2 = [
             tmp[1] * frc[2] - tmp[2] * frc[1],
             tmp[2] * frc[0] - tmp[0] * frc[2],

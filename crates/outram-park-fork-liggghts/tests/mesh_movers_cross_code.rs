@@ -57,7 +57,10 @@ fn read(name: &str) -> Option<String> {
 
 /// Replay `csv` with the plate moved by `plate`; returns (mismatched, total,
 /// first mismatch, final position) after asserting nothing.
-fn run_case(csv: &str, plate: impl Fn(WallGeometry) -> MovingBoundary) -> Option<(usize, usize, Option<(usize, usize, f64, f64)>, [f64; 3])> {
+fn run_case(
+    csv: &str,
+    plate: impl Fn(WallGeometry) -> MovingBoundary,
+) -> Option<(usize, usize, Option<(usize, usize, f64, f64)>, [f64; 3])> {
     let (Some(csv), Some(stl)) = (read(csv), read("plate_square.stl")) else {
         eprintln!("skipping: reference-data/liggghts/ not present");
         return None;
@@ -66,7 +69,11 @@ fn run_case(csv: &str, plate: impl Fn(WallGeometry) -> MovingBoundary) -> Option
         .lines()
         .skip(1)
         .filter(|l| !l.trim().is_empty())
-        .map(|l| l.split(',').map(|v| v.parse().expect("numeric csv")).collect())
+        .map(|l| {
+            l.split(',')
+                .map(|v| v.parse().expect("numeric csv"))
+                .collect()
+        })
         .collect();
     assert_eq!(rows.len(), 251, "unexpected reference frame count");
     let r = 0.005;
@@ -121,11 +128,21 @@ fn run_case(csv: &str, plate: impl Fn(WallGeometry) -> MovingBoundary) -> Option
         }
     }
     let q = sys.particles()[0];
-    Some((mismatched, total, first, [q.position.x, q.position.y, q.position.z]))
+    Some((
+        mismatched,
+        total,
+        first,
+        [q.position.x, q.position.y, q.position.z],
+    ))
 }
 
-fn assert_identical(name: &str, res: Option<(usize, usize, Option<(usize, usize, f64, f64)>, [f64; 3])>) {
-    let Some((mismatched, total, first, end)) = res else { return };
+fn assert_identical(
+    name: &str,
+    res: Option<(usize, usize, Option<(usize, usize, f64, f64)>, [f64; 3])>,
+) {
+    let Some((mismatched, total, first, end)) = res else {
+        return;
+    };
     assert_eq!(
         mismatched, 0,
         "{name}: not bit-identical vs LIGGGHTS: {mismatched}/{total} differ, first {first:?}"
@@ -172,7 +189,13 @@ fn riggle_matches_liggghts() {
     assert_identical(
         "riggle",
         run_case("mover_riggle.csv", |g| {
-            MovingBoundary::riggle(g, Vec3::new(0.01, 0.0, 0.0), Vec3::new(0.1, 0.2, 1.0), 0.2, 4.0)
+            MovingBoundary::riggle(
+                g,
+                Vec3::new(0.01, 0.0, 0.0),
+                Vec3::new(0.1, 0.2, 1.0),
+                0.2,
+                4.0,
+            )
         }),
     );
 }
@@ -222,7 +245,8 @@ fn vibration_movers_validate_their_order() {
 fn linear_variable_matches_liggghts() {
     use outram_park_fork_liggghts::variable::VariableTable;
     let mut t = VariableTable::new();
-    t.define_equal("vx", "0.3*sin(2*PI*time/0.08)+0.5*step*dt").unwrap();
+    t.define_equal("vx", "0.3*sin(2*PI*time/0.08)+0.5*step*dt")
+        .unwrap();
     t.define_equal("vy", "swiggle(0,0.15,0.05)").unwrap();
     t.define_equal("vz", "-0.05*cwiggle(0,1,0.1)").unwrap();
     assert_identical(
@@ -243,8 +267,14 @@ fn rotate_variable_matches_liggghts() {
     assert_identical(
         "rotate/variable",
         run_case("mover_rotvar.csv", |g| {
-            MovingBoundary::rotate_variable(g, &t, Vec3::new(0.01, 0.0, 0.0), Vec3::new(0.1, 0.2, 1.0), "ww")
-                .expect("defined variable")
+            MovingBoundary::rotate_variable(
+                g,
+                &t,
+                Vec3::new(0.01, 0.0, 0.0),
+                Vec3::new(0.1, 0.2, 1.0),
+                "ww",
+            )
+            .expect("defined variable")
         }),
     );
 }
@@ -259,5 +289,12 @@ fn variable_movers_reject_undefined_variables() {
     let plate = || WallGeometry::Mesh(MeshWall::from_ascii_stl(&stl).expect("valid plate stl"));
     let t = VariableTable::new();
     assert!(MovingBoundary::linear_variable(plate(), &t, ["a", "b", "c"]).is_err());
-    assert!(MovingBoundary::rotate_variable(plate(), &t, Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), "w").is_err());
+    assert!(MovingBoundary::rotate_variable(
+        plate(),
+        &t,
+        Vec3::zero(),
+        Vec3::new(0.0, 0.0, 1.0),
+        "w"
+    )
+    .is_err());
 }

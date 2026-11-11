@@ -18,12 +18,25 @@ fn main() {
             })
             .collect();
         let d = 0.06;
-        let rdf = radial_distribution(&c, RdfSettings::for_diameter(d, RdfDomain::from_positions(&c)), ComputeType::CpuMultiThread(ThreadCount::Fixed(8)));
+        let rdf = radial_distribution(
+            &c,
+            RdfSettings::for_diameter(d, RdfDomain::from_positions(&c)),
+            ComputeType::CpuMultiThread(ThreadCount::Fixed(8)),
+        );
         let at = |x: f64| {
             let i = rdf.r.iter().position(|r| *r >= x * d).unwrap_or(0);
-            rdf.g[i.saturating_sub(1)..=(i + 1).min(rdf.g.len() - 1)].iter().sum::<f64>() / 3.0
+            rdf.g[i.saturating_sub(1)..=(i + 1).min(rdf.g.len() - 1)]
+                .iter()
+                .sum::<f64>()
+                / 3.0
         };
         let peak = rdf.g.iter().cloned().fold(0.0, f64::max);
-        println!("{f}: n={} contact peak {peak:.2}  g(sqrt2 d) {:.3}  g(sqrt3 d) {:.3}  g(2 d) {:.3}", c.len(), at(2f64.sqrt()), at(3f64.sqrt()), at(2.0));
+        println!(
+            "{f}: n={} contact peak {peak:.2}  g(sqrt2 d) {:.3}  g(sqrt3 d) {:.3}  g(2 d) {:.3}",
+            c.len(),
+            at(2f64.sqrt()),
+            at(3f64.sqrt()),
+            at(2.0)
+        );
     }
 }

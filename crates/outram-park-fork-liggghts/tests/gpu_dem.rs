@@ -84,7 +84,14 @@ fn ball(pos: Vec3, vel: Vec3, spin: Vec3) -> Particle {
 
 fn system(ps: Vec<Particle>, walls: Vec<Boundary>, g: f64) -> GranularSystem {
     let m = GranularMaterial::new(5e8, 0.2, 0.5, 0.1).expect("material");
-    GranularSystem::new(ps, walls, GranularContactModel::hertz_history(m), Vec3::new(0.0, 0.0, g), 3.5e-5).expect("system")
+    GranularSystem::new(
+        ps,
+        walls,
+        GranularContactModel::hertz_history(m),
+        Vec3::new(0.0, 0.0, g),
+        3.5e-5,
+    )
+    .expect("system")
 }
 
 fn rel(a: Vec3, b: Vec3, scale: f64) -> f64 {
@@ -92,7 +99,10 @@ fn rel(a: Vec3, b: Vec3, scale: f64) -> f64 {
 }
 
 /// Run `steps` on both backends; `None` without an adapter.
-fn both(mut cpu: GranularSystem, steps: usize) -> Option<(GranularSystem, Vec<gpu::dem::GpuState>)> {
+fn both(
+    mut cpu: GranularSystem,
+    steps: usize,
+) -> Option<(GranularSystem, Vec<gpu::dem::GpuState>)> {
     let ctx = gpu::probe()?;
     eprintln!("adapter: {} ({:?})", ctx.info.name, ctx.info.backend);
     let mut g = GpuDem::new(ctx, &cpu).expect("supported");
@@ -106,18 +116,41 @@ fn both(mut cpu: GranularSystem, steps: usize) -> Option<(GranularSystem, Vec<gp
 #[test]
 fn a_head_on_pair_rebounds_as_on_the_cpu() {
     let sys = system(
-        vec![ball(Vec3::new(-0.0305, 0.0, 0.0), Vec3::new(0.5, 0.0, 0.0), Vec3::zero()), ball(Vec3::new(0.0305, 0.0, 0.0), Vec3::new(-0.5, 0.0, 0.0), Vec3::zero())],
+        vec![
+            ball(
+                Vec3::new(-0.0305, 0.0, 0.0),
+                Vec3::new(0.5, 0.0, 0.0),
+                Vec3::zero(),
+            ),
+            ball(
+                Vec3::new(0.0305, 0.0, 0.0),
+                Vec3::new(-0.5, 0.0, 0.0),
+                Vec3::zero(),
+            ),
+        ],
         vec![],
         0.0,
     );
-    let Some((cpu, g)) = both(sys, 400) else { return eprintln!("skipping: no GPU adapter") };
+    let Some((cpu, g)) = both(sys, 400) else {
+        return eprintln!("skipping: no GPU adapter");
+    };
     for (c, s) in cpu.particles().iter().zip(&g) {
         let dv = rel(c.velocity, s.velocity, c.velocity.norm());
-        eprintln!("head-on: CPU v {:?}, GPU v {:?}, rel {dv:.2e}", c.velocity, s.velocity);
+        eprintln!(
+            "head-on: CPU v {:?}, GPU v {:?}, rel {dv:.2e}",
+            c.velocity, s.velocity
+        );
         assert!(c.velocity.x.abs() > 0.1, "it rebounded");
         assert!(dv < 1e-5, "{dv}");
         // The final state: the position within 1e-5 of the distance moved.
-        let moved = c.position.sub(Vec3::new(if c.velocity.x > 0.0 { 0.0305 } else { -0.0305 }, 0.0, 0.0)).norm();
+        let moved = c
+            .position
+            .sub(Vec3::new(
+                if c.velocity.x > 0.0 { 0.0305 } else { -0.0305 },
+                0.0,
+                0.0,
+            ))
+            .norm();
         let dx = c.position.sub(s.position).norm();
         eprintln!("head-on position: |dx| {dx:.2e} m of {moved:.3e} m moved");
         assert!(dx < 1e-5 * moved, "{dx}");
@@ -128,17 +161,34 @@ fn a_head_on_pair_rebounds_as_on_the_cpu() {
 fn an_oblique_pair_with_friction_and_spin_matches_the_cpu() {
     let sys = system(
         vec![
-            ball(Vec3::new(-0.0305, 0.012, 0.0), Vec3::new(0.8, -0.1, 0.05), Vec3::new(0.0, 0.0, 30.0)),
-            ball(Vec3::new(0.0305, -0.012, 0.0), Vec3::new(-0.8, 0.1, 0.0), Vec3::new(5.0, 0.0, -10.0)),
+            ball(
+                Vec3::new(-0.0305, 0.012, 0.0),
+                Vec3::new(0.8, -0.1, 0.05),
+                Vec3::new(0.0, 0.0, 30.0),
+            ),
+            ball(
+                Vec3::new(0.0305, -0.012, 0.0),
+                Vec3::new(-0.8, 0.1, 0.0),
+                Vec3::new(5.0, 0.0, -10.0),
+            ),
         ],
         vec![],
         0.0,
     );
-    let Some((cpu, g)) = both(sys, 600) else { return eprintln!("skipping: no GPU adapter") };
+    let Some((cpu, g)) = both(sys, 600) else {
+        return eprintln!("skipping: no GPU adapter");
+    };
     for (c, s) in cpu.particles().iter().zip(&g) {
         let dv = rel(c.velocity, s.velocity, c.velocity.norm());
-        let dw = rel(c.angular_velocity, s.angular_velocity, c.angular_velocity.norm());
-        eprintln!("oblique: dv {dv:.2e}, dw {dw:.2e}; CPU w {:?}, GPU w {:?}", c.angular_velocity, s.angular_velocity);
+        let dw = rel(
+            c.angular_velocity,
+            s.angular_velocity,
+            c.angular_velocity.norm(),
+        );
+        eprintln!(
+            "oblique: dv {dv:.2e}, dw {dw:.2e}; CPU w {:?}, GPU w {:?}",
+            c.angular_velocity, s.angular_velocity
+        );
         assert!(dv < 1e-5 && dw < 1e-4, "{dv} {dw}");
     }
 }
@@ -153,26 +203,48 @@ fn a_ball_dropped_on_the_valve_wall_rests_as_on_the_cpu() {
         ],
         -9.81,
     );
-    let Some((cpu, g)) = both(sys, 60_000) else { return eprintln!("skipping: no GPU adapter") };
+    let Some((cpu, g)) = both(sys, 60_000) else {
+        return eprintln!("skipping: no GPU adapter");
+    };
     let (c, s) = (cpu.particles()[0], g[0]);
     let d = c.position.sub(s.position).norm();
-    eprintln!("resting ball: CPU {:?}, GPU {:?}, |dx| {d:.2e} m", c.position, s.position);
-    assert!(c.position.z < -0.5699 && c.position.z > -0.5701, "rests on the floor: {}", c.position.z);
+    eprintln!(
+        "resting ball: CPU {:?}, GPU {:?}, |dx| {d:.2e} m",
+        c.position, s.position
+    );
+    assert!(
+        c.position.z < -0.5699 && c.position.z > -0.5701,
+        "rests on the floor: {}",
+        c.position.z
+    );
     assert!(d < 1e-7, "{d}");
 }
 
 #[test]
 fn a_ball_bounces_off_the_cylinder_as_on_the_cpu() {
     let sys = system(
-        vec![ball(Vec3::new(0.86, 0.0, 0.0), Vec3::new(0.7, 0.3, 0.0), Vec3::new(0.0, 0.0, 4.0))],
+        vec![ball(
+            Vec3::new(0.86, 0.0, 0.0),
+            Vec3::new(0.7, 0.3, 0.0),
+            Vec3::new(0.0, 0.0, 4.0),
+        )],
         vec![Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), 0.9).expect("cyl")],
         0.0,
     );
-    let Some((cpu, g)) = both(sys, 600) else { return eprintln!("skipping: no GPU adapter") };
+    let Some((cpu, g)) = both(sys, 600) else {
+        return eprintln!("skipping: no GPU adapter");
+    };
     let (c, s) = (cpu.particles()[0], g[0]);
     let dv = rel(c.velocity, s.velocity, c.velocity.norm());
-    let dw = rel(c.angular_velocity, s.angular_velocity, c.angular_velocity.norm());
-    eprintln!("cylinder bounce: CPU v {:?}, GPU v {:?}, rel {dv:.2e}, spin rel {dw:.2e}", c.velocity, s.velocity);
+    let dw = rel(
+        c.angular_velocity,
+        s.angular_velocity,
+        c.angular_velocity.norm(),
+    );
+    eprintln!(
+        "cylinder bounce: CPU v {:?}, GPU v {:?}, rel {dv:.2e}, spin rel {dw:.2e}",
+        c.velocity, s.velocity
+    );
     assert!(c.velocity.x < 0.0, "it bounced");
     assert!(dv < 1e-5 && dw < 1e-4, "{dv} {dw}");
 }
@@ -181,15 +253,27 @@ fn a_ball_bounces_off_the_cylinder_as_on_the_cpu() {
 fn an_htr10_pour_matches_the_cpu_early_and_settled() {
     use outram_park_fork_liggghts::compute::ThreadCount;
     use outram_park_fork_liggghts::htr10_fill::{Htr10Fill, Htr10FillSettings, Htr10GpuFill};
-    let settings = Htr10FillSettings { n_pebbles: 4_000, threads: ThreadCount::Fixed(4), seed: 7, ..Htr10FillSettings::default() };
-    let Ok(mut g) = Htr10GpuFill::new(settings) else { return eprintln!("skipping: no GPU adapter") };
+    let settings = Htr10FillSettings {
+        n_pebbles: 4_000,
+        threads: ThreadCount::Fixed(4),
+        seed: 7,
+        ..Htr10FillSettings::default()
+    };
+    let Ok(mut g) = Htr10GpuFill::new(settings) else {
+        return eprintln!("skipping: no GPU adapter");
+    };
     let mut c = Htr10Fill::new(settings).expect("cpu");
     eprintln!("adapter: {}", g.adapter());
     let (t0, pc) = (std::time::Instant::now(), c.advance(2_000));
     let tc = t0.elapsed().as_secs_f64();
     let (t1, pg) = (std::time::Instant::now(), g.advance(2_000));
     let tg = t1.elapsed().as_secs_f64();
-    let mut d: Vec<f64> = c.centres().iter().zip(g.centres()).map(|(a, b)| a.sub(b).norm()).collect();
+    let mut d: Vec<f64> = c
+        .centres()
+        .iter()
+        .zip(g.centres())
+        .map(|(a, b)| a.sub(b).norm())
+        .collect();
     d.sort_by(f64::total_cmp);
     eprintln!(
         "2 000 steps: median |dx| {:.2e} m, max {:.2e} m; CPU {:.1} ms/step (4 threads), GPU {:.1} ms/step",
@@ -208,7 +292,10 @@ fn an_htr10_pour_matches_the_cpu_early_and_settled() {
     while !(pg.settled || pg.gave_up) && pg.steps < 60_000 {
         pg = g.advance(2_000);
     }
-    let (hc, hg) = (pc.surface_height.get::<meter>(), pg.surface_height.get::<meter>());
+    let (hc, hg) = (
+        pc.surface_height.get::<meter>(),
+        pg.surface_height.get::<meter>(),
+    );
     eprintln!(
         "settled: CPU {} steps, φ {:.4}, surface {:.4} m; GPU {} steps, φ {:.4}, surface {:.4} m",
         pc.steps, pc.phi_whole_core, hc, pg.steps, pg.phi_whole_core, hg
