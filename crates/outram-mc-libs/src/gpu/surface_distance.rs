@@ -108,7 +108,8 @@ pub struct SurfaceQuery {
 /// - `XCylinder→[y0,z0,r]`, `YCylinder→[x0,z0,r]`, `ZCylinder→[x0,y0,r]`
 /// - cones `{X,Y,Z}Cone→[x0,y0,z0,r_sq]`
 /// - `Quadric→[a,b,c,d,e,f,g,h,j,k]`
-/// - tori `{X,Y,Z}Torus→[x0,y0,z0,a,b,c]`
+/// - tori `{X,Y,Z}Torus→[x0,y0,z0,a,c,b]` (radial minor radius first: the shader's
+///   `b` is the CPU struct's `c`, see gh:#701)
 ///
 /// The `bc` (boundary condition) field is intentionally not encoded — this kernel
 /// computes geometric distance only.
@@ -202,8 +203,10 @@ pub fn encode_surfaces(surfaces: &[SurfaceKind]) -> EncodedSurfaces {
                 c[1] = p.y0 as f32;
                 c[2] = p.z0 as f32;
                 c[3] = p.a as f32;
-                c[4] = p.b as f32;
-                c[5] = p.c as f32;
+                // The f32 twin keeps (b radial, c axial); OpenMC's CPU struct is
+                // (b axial, c radial) since gh:#701, so swap here.
+                c[4] = p.c as f32;
+                c[5] = p.b as f32;
                 12
             }
             SurfaceKind::YTorus(p) => {
@@ -211,8 +214,10 @@ pub fn encode_surfaces(surfaces: &[SurfaceKind]) -> EncodedSurfaces {
                 c[1] = p.y0 as f32;
                 c[2] = p.z0 as f32;
                 c[3] = p.a as f32;
-                c[4] = p.b as f32;
-                c[5] = p.c as f32;
+                // The f32 twin keeps (b radial, c axial); OpenMC's CPU struct is
+                // (b axial, c radial) since gh:#701, so swap here.
+                c[4] = p.c as f32;
+                c[5] = p.b as f32;
                 13
             }
             SurfaceKind::ZTorus(p) => {
@@ -220,8 +225,10 @@ pub fn encode_surfaces(surfaces: &[SurfaceKind]) -> EncodedSurfaces {
                 c[1] = p.y0 as f32;
                 c[2] = p.z0 as f32;
                 c[3] = p.a as f32;
-                c[4] = p.b as f32;
-                c[5] = p.c as f32;
+                // The f32 twin keeps (b radial, c axial); OpenMC's CPU struct is
+                // (b axial, c radial) since gh:#701, so swap here.
+                c[4] = p.c as f32;
+                c[5] = p.b as f32;
                 14
             }
         };

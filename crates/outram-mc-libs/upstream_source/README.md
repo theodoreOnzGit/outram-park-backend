@@ -14,7 +14,7 @@
   defeats the strict matcher. MIT is GPLv3-compatible one-way; ported files
   must carry the MIT copyright + permission notice.
 - **Branch tracked:** `develop` (when cloned — see below)
-- **Commit at last sync:** not currently tracked — no persistent local clone (see note)
+- **Commit at last sync:** `8f79d9d02483c90e4134f03a9df4b75ce6b062bf` (2026-11-10), a shallow clone in `upstream_source/OpenMC/` made for the surface/lattice differential test (gh:#1386; `verification_and_validation/upstream_openmc_surfaces/`), accessed 2026-11-10. ~~not currently tracked — no persistent local clone~~ **CORRECTED 2026-11-10**
 - **Clone command:** `git clone --depth 1 https://github.com/openmc-dev/openmc.git upstream_source/OpenMC`
 
 ### Fork clone: `virtual_lattice`
