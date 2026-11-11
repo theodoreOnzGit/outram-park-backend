@@ -259,7 +259,7 @@ pub fn parse_mf4_for_acer(section: &Section) -> Result<ElasticAngular, NjoyError
 /// The old format's entry for one incident energy: the 33 bin edges of
 /// `ptleg`/`pttab` as `acensd` stores them (`sigfig(edge, 6, 0)`,
 /// `acefc.f90:6419`), or isotropic (`n <= 2`, locator 0, `:6408`).
-fn old_format_entry(e_ev: f64, edges: Option<[f64; crate::acer::photon_angular::NPT]>) -> EnergyAngular {
+pub(crate) fn old_format_entry(e_ev: f64, edges: Option<[f64; crate::acer::photon_angular::NPT]>) -> EnergyAngular {
     let e_mev = sigfig(e_ev / 1.0e6, 7, 0);
     match edges {
         None => EnergyAngular { e_mev, cosines: Vec::new(), pdf: Vec::new(), cdf: Vec::new(), histogram: false },

@@ -327,6 +327,17 @@ pub fn build_emissions_newfor(tape: &Tape, mat: i32, awr: f64, partials: &[(i32,
             // comes off the section's own HEAD record.
             let iza = sec.rows.first().map_or(0, |r| r[0].round() as i32);
             let q_mev = crate::mixr::mix::sigfig(qi / EMEV, 7, 0);
+            if newfor == 0 {
+                // Old format: `topfil` converts LAW=1 lab/CM to law 7 (gh:#1449).
+                if let Ok(Some(o)) = crate::acer::acelf6::acelf6_old_format(sec, mt, q_mev, iza, true) {
+                    let tyr = match o.entry.tyr {
+                        crate::acer::acelf6::Acelf6Tyr::Fixed(t) => t,
+                        crate::acer::acelf6::Acelf6Tyr::Generalized { sign } => sign,
+                    };
+                    out.push(Emission { mt, tyr, law: EnergyLaw::Acelf6(o.entry), angular: Some(o.angular) });
+                    continue;
+                }
+            }
             if let Ok(Some(entry)) = crate::acer::acelf6::acelf6(sec, mt, q_mev, iza, true) {
                 let tyr = match entry.tyr {
                     crate::acer::acelf6::Acelf6Tyr::Fixed(t) => t,
