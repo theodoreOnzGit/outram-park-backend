@@ -870,12 +870,6 @@ pub fn gpd_with_mode(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult,
 /// [`gpd_with_mode`] with `convr`'s mode (the ENDF unit's sign) apart from
 /// `gamsum`'s (the PENDF unit's) (gh:#1492).
 pub fn gpd_with_units(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult, text_endf: bool, text: bool) -> Option<Vec<f64>> {
-    use crate::endf::gety1::Gety1;
-    use crate::endf::parse::{format_endf_float, parse_endf_float};
-    use crate::endf::records::{Cont, Tab1};
-    use crate::mixr::mix::sigfig;
-    const EPS: f64 = 1.0e-10;
-
     // `gamsum` runs on the ACE grid (`unionx`), not on the PENDF's MT=1 energies.
     let grid: Vec<f64> = crate::acer::build::esz_grid(pendf, &gamma_discontinuities(tape, mat))?;
     gpd_on_grid_units(tape, mat, pendf, &grid, text_endf, text)

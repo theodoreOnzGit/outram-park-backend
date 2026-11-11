@@ -833,6 +833,123 @@ fn test_72_gaspr_chain_ace() {
     }
 }
 
+/// ACER `iopt = 7` (gh:#1492): run upstream deck `case` cut before its first
+/// `viewr`, and compare, line by line against NJOY2016.80, the listed units:
+/// the ACE file the check run writes and the directory lines. The
+/// plot file on `ngend` (`aplots`) is not written by this crate, so it is not
+/// compared; the survey lists it as a tape not written.
+fn acer_check_deck(case: &str, resource: &str, extra: &[(&str, u32)], units: &[u32]) -> Option<()> {
+    let root = njoy_root();
+    let full = deck_text(&root, case, Some("viewr"), "")?;
+    let (ours, njoy) = run_pair_decks_extra(&root, &format!("t{case}"), resource, extra, &full, &full)?;
+    for &unit in units {
+        let name = format!("tape{unit}");
+        let d = differing_lines(&ours.join(&name), &njoy.join(&name));
+        println!("deck {case} unit {unit}: {} differing lines; first {:?}", d.len(), &d[..d.len().min(5)]);
+        // The date field of the ACE header is the run's own date on both sides.
+        assert!(d.is_empty(), "deck {case} unit {unit}: {} lines differ from NJOY2016", d.len());
+    }
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    Some(())
+}
+
+/// **Test 72 (Be-9), ACER `iopt = 7`**: the check run's ACE unit 44 and its
+/// directory unit 45 against NJOY2016.80, line by line (gh:#1492).
+///
+/// Prediction (before the run): `acefix` re-writes the file it reads, so unit 44
+/// is unit 41 with the comment replaced by the card-3 text (`suff = -1` keeps
+/// the ZAID); unit 45 is one `xsdir` line. Both identical. Result: see the
+/// survey table.
+#[test]
+fn test_72_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("72", "n-004_Be_009-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_24_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("24", "n-094_Pu_239-ENDF8.0-Beta6.endf", &[], &[32, 34, 35]);
+}
+
+#[test]
+fn test_35_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("35", "n-047_Ag_109-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_36_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("36", "n-050_Sn_119-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_37_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("37", "n-027_Co_058-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_38_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("38", "n-036_Kr_083-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_39_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("39", "n-028_Ni_063-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_40_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("40", "n-025_Mn_055-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_41_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("41", "n-032_Ge_071-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_42_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("42", "n-030_Zn_067-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_50_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("50", "a-002_He_004-ENDF8.0.endf", &[], &[32, 34, 35]);
+}
+
+#[test]
+fn test_51_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("51", "p-001_H_002-ENDF8.0.endf", &[], &[32, 34, 35]);
+}
+
+#[test]
+fn test_52_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("52", "p-001_H_001-ENDF8.0.endf", &[], &[32, 34, 35]);
+}
+
+#[test]
+fn test_53_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("53", "d-001_H_002-ENDF8.0.endf", &[], &[32, 34, 35]);
+}
+
+#[test]
+fn test_54_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("54", "p-001_H_003-ENDF8.0.endf", &[], &[32, 34, 35]);
+}
+
+#[test]
+fn test_62_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("62", "d-002_He_003.endf", &[], &[32, 34, 35]);
+}
+
+#[test]
+fn test_63_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("63", "n-047_Ag_109-ENDF8.0.endf", &[], &[42, 44, 45]);
+}
+
+#[test]
+fn test_71_acer_check_unit_and_directory() {
+    let _ = acer_check_deck("71", "d-078_Pt_184-TENDL2021.endf", &[], &[32, 34, 35]);
+}
+
 /// Run upstream deck `case` (`moder; moder; acer iopt = 1`, the raw
 /// incident-charged-particle evaluation `resource` on unit 20) cut before its
 /// second ACER (the `iopt = 7` plot), and return the ACE comparison of unit 31.

@@ -80,6 +80,8 @@
 //! ace.write_type1("92235.00c.ace").unwrap();
 //! ```
 
+pub mod acefix;
+pub mod acefix_change;
 pub mod acelcp;
 mod acelcp_ext;
 pub mod charged;

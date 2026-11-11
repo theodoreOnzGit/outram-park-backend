@@ -86,11 +86,13 @@ pub fn fortran_e(x: f64, d: usize, w: usize) -> String {
     let s = format!("{:.*E}", d, x.abs());
     let (mant, exp) = s.split_once('E').unwrap_or((s.as_str(), "0"));
     let exp: i32 = exp.parse().unwrap_or(0);
-    let body = format!(
-        "{sign}{mant}E{}{:02}",
-        if exp < 0 { "-" } else { "+" },
-        exp.abs()
-    );
+    // A three-digit exponent has no room for the `E`: Fortran `Ew.d` writes
+    // `1.15510000000-117` (gh:#1492, ACE words below 1e-99).
+    let body = if exp.abs() >= 100 {
+        format!("{sign}{mant}{}{}", if exp < 0 { "-" } else { "+" }, exp.abs())
+    } else {
+        format!("{sign}{mant}E{}{:02}", if exp < 0 { "-" } else { "+" }, exp.abs())
+    };
     format!("{body:>w$}")
 }
 

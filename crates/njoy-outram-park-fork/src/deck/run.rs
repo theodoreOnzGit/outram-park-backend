@@ -393,6 +393,33 @@ fn dater() -> String {
     format!("  {m:02}/{d:02}/{:02}", y % 100)
 }
 
+/// ACER `iopt = 7` (`acer.f90:485-536`, `acefix`): the ACE file on `npend` is
+/// read, its ZAID, comment and `(iz, aw)` list edited by cards 2-4, and written
+/// to `nace` with the directory line on `ndir` ([`crate::acer::acefix`]).
+/// `ngend != 0` asks for the plot file (`aplots`), which is not written
+/// (a note is recorded).
+fn run_acer_fix(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Result<(), NjoyError> {
+    if c.mcnpx || c.itype != 1 {
+        return Err(NjoyError::NotPorted("ACER iopt = 7 with itype != 1 or mcnpx formats"));
+    }
+    let text = units
+        .text(c.npend)
+        .ok_or_else(|| NjoyError::InvalidInput(format!("acer: unit {} holds no ACE file", c.npend)))?
+        .to_string();
+    let req = crate::acer::acefix::AcefixRequest { suff: c.suff, hk: c.hk.clone(), nxtra: c.nxtra };
+    let out = crate::acer::acefix::acefix_type1(&text, &req)?;
+    if c.nace > 0 {
+        units.put_text(c.nace, out.ace);
+        if c.ndir != 0 {
+            units.put_text(c.ndir, out.xsdir);
+        }
+    }
+    if c.ngend != 0 {
+        notes.push("acer: plot file (aplots) not written".into());
+    }
+    Ok(())
+}
+
 /// ACER (`acer.f90`, `acefc.f90`), `iopt = 1` (fast data) with the options this
 /// crate has: `newfor = 1` (or 0: the old equally probable angular bins, MF=4
 /// only, gh:#1449), `iopp = 1`, `ismooth = 1`, no thinning, ZAID rule 0,
@@ -401,8 +428,11 @@ fn dater() -> String {
 /// them. The ACE text goes to unit `nace`; the directory unit `ndir` is not
 /// written.
 fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Result<(), NjoyError> {
+    if c.iopt == 7 {
+        return run_acer_fix(c, units, notes);
+    }
     if c.iopt != 1 {
-        return Err(NjoyError::NotPorted("ACER iopt other than 1 from a deck (typed APIs exist: acer::thermal, dosimetry, photoatomic, photonuclear)"));
+        return Err(NjoyError::NotPorted("ACER iopt other than 1 and 7 from a deck (typed APIs exist: acer::thermal, dosimetry, photoatomic, photonuclear)"));
     }
     if c.newfor != 1 && c.newfor != 0 {
         return Err(NjoyError::InvalidInput(format!("acer: newfor = {} is not 0 or 1", c.newfor)));
@@ -430,10 +460,9 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
         let mut table = crate::acer::charged::build_charged(&endf, c.matd, kt_mev, suffix, c.npend > 0, c.nendf > 0)?;
         table.comment = c.hk.clone();
         table.date = dater();
-        units.put_text(c.nace, table.to_type1_text()?);
-        if c.ndir != 0 {
-            notes.push("acer: directory unit not written".into());
-        }
+        let ace = table.to_type1_text()?;
+        write_directory(c, &ace, units, notes);
+        units.put_text(c.nace, ace);
         return Ok(());
     }
     // `first`: the temperature block within `ttol = 1` K of `tempd`.
@@ -496,9 +525,22 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     let mut table = build_deck(&endf, c.matd, res, kt_mev, suffix, &deck)?;
     table.comment = c.hk.clone();
     table.date = dater();
-    units.put_text(c.nace, table.to_type1_text()?);
-    if c.ndir != 0 {
-        notes.push("acer: directory unit not written".into());
-    }
+    let ace = table.to_type1_text()?;
+    write_directory(c, &ace, units, notes);
+    units.put_text(c.nace, ace);
     Ok(())
+}
+
+/// `aceout`'s directory line on `ndir` for the Type 1 table just written
+/// (`acefc.f90:13052-13086`); the line is derived by reading the table back
+/// through [`crate::acer::acefix`] with nothing to edit.
+fn write_directory(c: &AcerCards, ace: &str, units: &mut TapeUnits, notes: &mut Vec<String>) {
+    if c.ndir == 0 {
+        return;
+    }
+    let keep = crate::acer::acefix::AcefixRequest { suff: -1.0, hk: String::new(), nxtra: 0 };
+    match crate::acer::acefix::acefix_type1(ace, &keep) {
+        Ok(out) if c.itype == 1 && !c.mcnpx => units.put_text(c.ndir, out.xsdir),
+        _ => notes.push("acer: directory unit not written".into()),
+    }
 }
