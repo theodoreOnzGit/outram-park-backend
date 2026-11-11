@@ -23,8 +23,9 @@
 //! `neighbor->register_contact_dist_factor(2.0)`).
 //!
 //! The module is pure data: positions, tags and the per-contact history in,
-//! the per-contact radius expansions out. Hooking it into the pair and wall
-//! loops is a separate step.
+//! the per-contact radius expansions out. [`MulticontactState`] holds the
+//! per-contact history between steps; `GranularSystem::with_multicontact`
+//! hooks it into the pair and primitive-wall loops (mesh walls are not hooked).
 //!
 //! Research, education and V&V only (`RESPONSIBLE_USE.md`).
 
@@ -357,6 +358,53 @@ impl HalfSpaceFix {
             }
         }
         data
+    }
+}
+
+/// Per-system multicontact state: the fix, this step's [`McData`] and the
+/// contact history the surface model writes (`[radij, radji, fn]` per pair,
+/// `[surfPos, fn]` per primitive-wall contact), kept between steps.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MulticontactState {
+    /// The `fix multicontact/halfspace`.
+    pub fix: HalfSpaceFix,
+    /// Expansions computed by the last `pre_force`.
+    pub data: McData,
+    /// Pair history keyed by `(lower tag, higher tag)`, stored as
+    /// `[rad of lower tag, rad of higher tag, fn]`.
+    pub pair_hist: std::collections::HashMap<(usize, usize), [f64; 3]>,
+    /// Primitive-wall history keyed by `(tag, wall)`.
+    pub wall_hist: std::collections::HashMap<(usize, usize), [f64; 4]>,
+    /// Local index of each particle (inverse of the atom-sort permutation).
+    pub local_of: Vec<usize>,
+}
+
+impl MulticontactState {
+    /// Fresh state with empty history.
+    #[must_use]
+    pub fn new(fix: HalfSpaceFix) -> Self {
+        Self {
+            fix,
+            data: McData::default(),
+            pair_hist: std::collections::HashMap::new(),
+            wall_hist: std::collections::HashMap::new(),
+            local_of: Vec::new(),
+        }
+    }
+
+    /// History `[radij, radji, fn]` of the pair as listed `(tag_i, tag_j)`.
+    #[must_use]
+    pub fn pair_history(&self, tag_i: usize, tag_j: usize) -> [f64; 3] {
+        let key = (tag_i.min(tag_j), tag_i.max(tag_j));
+        let h = self.pair_hist.get(&key).copied().unwrap_or([0.0; 3]);
+        if tag_i <= tag_j { h } else { [h[1], h[0], h[2]] }
+    }
+
+    /// Store `[radij, radji, fn]` of the pair as listed `(tag_i, tag_j)`.
+    pub fn set_pair_history(&mut self, tag_i: usize, tag_j: usize, h: [f64; 3]) {
+        let key = (tag_i.min(tag_j), tag_i.max(tag_j));
+        let v = if tag_i <= tag_j { h } else { [h[1], h[0], h[2]] };
+        self.pair_hist.insert(key, v);
     }
 }
 

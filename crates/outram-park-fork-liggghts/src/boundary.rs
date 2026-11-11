@@ -396,6 +396,22 @@ impl Boundary {
         }
     }
 
+    /// Axis index and plane coordinate of an axis-aligned plane or one-sided
+    /// wall (`None` for any other boundary). Used by the multicontact
+    /// `surfacesClose` history of a plane.
+    #[must_use]
+    pub fn plane_axis_and_param(&self) -> Option<(usize, f64)> {
+        let (point, normal) = match *self {
+            Self::Plane { point, normal } | Self::Wall { point, normal } => (point, normal),
+            _ => return None,
+        };
+        let c = [normal.x, normal.y, normal.z];
+        let p = [point.x, point.y, point.z];
+        (0..3)
+            .find(|&a| c[(a + 1) % 3] == 0.0 && c[(a + 2) % 3] == 0.0 && c[a].abs() == 1.0)
+            .map(|a| (a, p[a]))
+    }
+
     /// Upstream's primitive-wall resolution (`PrimitiveWall::resolveContact`,
     /// LIGGGHTS-PUBLIC `3d5c00f2`, `primitive_wall_definitions.h`:
     /// `Plane<dim>` and `Cylinder<dim>`) for the axis-aligned cases, as the
