@@ -1117,3 +1117,37 @@ created from the current points.
 Prediction 6: with one optimiser for both calls (`pMesh`), the 16 points agree,
 and `edgeExtraction` is bit-identical with the platform `pow` (and differs only
 by the pow cascade with PETIR's).
+
+### Result of prediction 6, and prediction 7 (written before the fix)
+
+**Prediction 6 held:** with one optimiser for `optimizeSurface()` and
+`untangleSurface()` and the platform `pow` (experiment, not committed)
+cutCube `pMesh` is bit-identical (points 222560/222560, faces index-identical,
+`FA`..`FC`) through `edgeExtraction` and `boundaryLayerGeneration`. Without the
+experiment the difference through these two steps is the pow ulp cascade (476
+points after `FB`).
+
+`meshOptimisation` of cutCube `pMesh` is the next first divergence
+(experiment build): `M1` (`optimizeSurface`) identical, `M2` (`optimizeMeshFV`)
+3482 points differ, worst 6.2e-3 m. Inside the first untangle iteration the
+bad-face sets (771 faces), the part tet mesh (21340 nodes, 85894 tets) and the
+`knupp` and `untangler` stages are identical; `vopt`
+(`optimiseUsingVolumeOptimizer(10)`) is not. Per iteration (instrumented
+`tetMeshOptimisation`, `VI` lines): iteration 0 differs in only **80 of 21340
+nodes** (7 `SMOOTH`, 42 face centres, 31 cell centres; worst 1.1e-10), growing
+to 12680 by iteration 9 (worst 7.5e-3): the centres follow their `SMOOTH`
+neighbours, so the seven `SMOOTH` nodes of iteration 0 are the cause. A
+dump of node 3009's simplex (`VO` lines, `GH1385_NODE`) shows a 48-tet simplex
+whose first Newton step has a **negative Hessian determinant**
+(-4.2e33), i.e. upstream's `else` branch of `optimiseSteepestDescent`
+("move in random direction ... off the zero volume"). Reading it against the
+port's `volume_optimizer`: upstream adds `0.01*(n/d)` with `n =
+triangle(a,b,c).normal()` (the area vector, `0.5*((b-a)^(c-a))`) and `d =
+mag(n)`; the port adds `n.scale(0.01/m)` on the doubled vector, which rounds
+differently. This branch had never been entered by the sphere, asmoOctree and
+elbow runs.
+Prediction 7: with `disp += 0.01*(n/d)` on the area vector the seven `SMOOTH`
+nodes of iteration 0 agree, `VI` identical through the 10 iterations, and cutCube
+`pMesh` `meshOptimisation` becomes bit-identical (experiment build); the
+remaining difference without the experiment is the pow cascade. If a difference
+remains, the next `VI` iteration names the node.
