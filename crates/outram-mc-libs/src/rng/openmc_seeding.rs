@@ -258,3 +258,31 @@ impl SeedingMode {
         }
     }
 }
+
+#[cfg(test)]
+mod history_seed_tests {
+    use super::*;
+
+    /// `SeedingMode::openmc_history_seeds` is exactly OpenMC's layout:
+    /// history `h` (0-based) of generation `g` (0-based) with `n` particles has
+    /// the `STREAM_TRACKING` and `STREAM_URR_PTABLE` seeds of
+    /// `init_particle_seeds((total_gen + g) * n + h + 1, master_seed)` (gh:#1386;
+    /// reached by every OpenMc-seeded driver). Pass criterion: bit identity.
+    /// `Outram` gives `None`.
+    #[test]
+    fn openmc_history_seeds_are_init_particle_seeds_of_the_transport_seed() {
+        assert_eq!(SeedingMode::Outram.openmc_history_seeds(7, 10, 0, 0), None);
+        let n = 13usize;
+        for total_gen in [0i64, 5] {
+            let mode = SeedingMode::OpenMc { total_gen };
+            for g in 0..4usize {
+                for h in 0..n {
+                    let id = (total_gen + g as i64) * n as i64 + h as i64 + 1;
+                    let want = init_particle_seeds(id, 20261111, DEFAULT_STRIDE);
+                    let got = mode.openmc_history_seeds(20261111, n, g, h).unwrap();
+                    assert_eq!(got, (want[STREAM_TRACKING], want[STREAM_URR_PTABLE]));
+                }
+            }
+        }
+    }
+}
