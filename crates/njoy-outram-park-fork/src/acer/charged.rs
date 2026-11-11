@@ -304,7 +304,7 @@ mod lists {
 /// # Errors
 /// [`NjoyError::NotPorted`] for the branches not yet ported (see the module
 /// documentation), [`NjoyError::EndfParse`] for malformed records.
-pub fn build_charged(tape: &Tape, mat: i32, kt_mev: f64, suffix: u32, text_pendf: bool) -> Result<AceTable, NjoyError> {
+pub fn build_charged(tape: &Tape, mat: i32, kt_mev: f64, suffix: u32, text_pendf: bool, text_endf: bool) -> Result<AceTable, NjoyError> {
     let izai = incident_particle(tape, mat);
     if izai == 1 {
         return Err(NjoyError::InvalidInput("build_charged: the evaluation is an incident-neutron tape".into()));
@@ -548,7 +548,7 @@ pub fn build_charged(tape: &Tape, mat: i32, kt_mev: f64, suffix: u32, text_pendf
     // ---- photon production: GPD, MTRP..DLWP, YP ----------------------------
     let pendf = raw_pendf(tape, mat, za, awr)?;
     let mut ntrp = 0i32;
-    if let Some(entries) = super::photon_blocks::build_with_pendf(tape, mat, &pendf) {
+    if let Some(entries) = super::photon_blocks::build_with_pendf_mode(tape, mat, &pendf, text_endf) {
         if !entries.is_empty() {
             if let Some(g) = super::photon_blocks::gpd_on_grid(tape, mat, &pendf, &es) {
                 jx[11] = b.next_locator();

@@ -403,7 +403,7 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
         }
         let kt_mev = 8.617_333_262e-11 * c.tempd;
         let suffix = (c.suff * 100.0).round() as u32;
-        let mut table = crate::acer::charged::build_charged(&endf, c.matd, kt_mev, suffix, c.npend > 0)?;
+        let mut table = crate::acer::charged::build_charged(&endf, c.matd, kt_mev, suffix, c.npend > 0, c.nendf > 0)?;
         table.comment = c.hk.clone();
         table.date = dater();
         units.put_text(c.nace, table.to_type1_text()?);

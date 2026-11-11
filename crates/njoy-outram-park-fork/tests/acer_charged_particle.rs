@@ -40,7 +40,7 @@ fn deck14_table_blocks() {
     let (Ok(tape), Ok(ace)) = (Tape::read_file(&r.join("tests/resources/epn14")), std::fs::read_to_string(r.join("tests/14/referenceTape31"))) else {
         return;
     };
-    let t = charged::build_charged(&tape, 725, 0.0, 0, true).unwrap();
+    let t = charged::build_charged(&tape, 725, 0.0, 0, true, true).unwrap();
     let ours = parse_type1(&t.to_type1_text().unwrap()).unwrap();
     let theirs = parse_type1(&ace).unwrap();
     let c = njoy_outram_park_fork::acer::compare::compare(&ours, &theirs);
