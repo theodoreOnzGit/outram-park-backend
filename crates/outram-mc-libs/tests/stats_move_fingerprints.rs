@@ -172,20 +172,17 @@
 //! | `godiva_run_keff` | `0xb525169aa6d32f38` -> `0x60ece10b8fc3777e` | 1.01064 +/- 0.00535 | 1.01140 +/- 0.00568 | +0.10 (+75 pcm) |
 //! | `fhr_explicit_triso_delta` | `0x1d7c42860b929df3` -> `0x173834441cc42ed4` | 1.52541 +/- 0.00847 | 1.52732 +/- 0.00833 | +0.16 (+191 pcm) |
 //! | `csg_nested_lattice_keff` | `0x20e5b4eeeede18f1` -> `0xab5ac3e0eb072bf8` | 1.72835 +/- 0.01486 | 1.69980 +/- 0.01402 | -1.40 (-2855 pcm) |
-//! | `godiva_csg_entropy_trigger` | `0x0f90e5295c6cbcae` -> `0xbe7e011c738c0da1` | 1.02531 +/- 0.00976 (33 gens) | 0.97710 +/- 0.00960 (13 gens) | **-3.52 (-4821 pcm), see below** |
+//! | `godiva_csg_entropy_trigger` | `0x0f90e5295c6cbcae` -> `0xbe7e011c738c0da1` | 1.02531 +/- 0.00976 (33 gens) | 0.97710 +/- 0.00960 (13 gens) | -3.52 (-4821 pcm), 3-generation error, resolved below |
 //!
-//! **`godiva_csg_entropy_trigger` exceeds 3 sigma and is flagged, not explained
-//! away.** What was checked: the case stops on a k trigger (standard deviation
-//! 0.01 of the active generations). Old stop: 33 generations (23 active); new
-//! stop: 13 (3 active). With 3 active generations the printed standard error is
-//! computed from three values and is itself a noisy estimate (and stopping the
-//! first time it falls under 0.01 selects low-variance draws), so the -3.5 sigma
-//! is not a comparison of two converged means. It is NOT a measured physics shift:
-//! the same kernels move `godiva_run_keff` (the same Godiva model, 100+ active
-//! generations) by +0.10 sigma. What was NOT done: a paired run of this case
-//! without the trigger under both kernel sets. The pin is re-pinned to the new
-//! bits so the suite stays green; the maintainer should treat the 3.5 sigma as an
-//! open item until that paired run exists.
+//! **`godiva_csg_entropy_trigger` exceeded 3 sigma; RESOLVED 2026-11-11 (gh:#1457).**
+//! The case stops on a k trigger: old stop 33 generations (23 active), new stop 13
+//! (3 active), so the printed standard error came from three values. ~~What was NOT
+//! done: a paired run without the trigger under both kernel sets.~~ **Done:**
+//! `tests/godiva_csg_kernel_sets_paired.rs` runs the same model with no trigger,
+//! 100 active generations, 3 seeds, both kernel sets: d = +113, +264, +297 pcm
+//! (+0.19, +0.44, +0.58 sigma), mean +225 pcm = +0.69 sigma. The -3.5 sigma was
+//! the 3-generation standard error. The pin below stays (it pins bits, and the
+//! bits are the OpenMC-kernel ones); it is not evidence of a physics shift.
 //!
 //! # Re-pinned 2026-11-11: surface and lattice distances follow OpenMC `8f79d9d0` (gh:#1442, #1443, #701, #1386)
 //!
