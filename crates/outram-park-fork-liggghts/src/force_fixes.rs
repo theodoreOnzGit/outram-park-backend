@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Force fixes `fix addforce`, `fix viscous` and `fix freeze` (gh:#1418).
+//! Force fixes `fix addforce`, `fix viscous`, `fix freeze` (gh:#1418) and `fix wall/region` (gh:#1416).
 //!
 //! Translated from LIGGGHTS-PUBLIC `3d5c00f2`: `src/fix_addforce.cpp`
 //! (`FixAddForce::post_force`), `src/fix_viscous.cpp`
@@ -26,7 +26,17 @@
 //! crate applies them at the end of [`crate::granular_system::GranularSystem`]'s
 //! force evaluation, after gravity, in the order they were added.
 //!
+//! `fix wall/region` is translated from `src/fix_wall_region.cpp` (LAMMPS
+//! original, Sandia, via LIGGGHTS-PUBLIC `3d5c00f2`): `lj93`, `lj126`,
+//! `colloid` and `harmonic` styles, the energy scalar and the three force
+//! components on the wall, for an INTERIOR `block` or `cylinder` region
+//! (`units box`, not dynamic): contacts from
+//! [`InsertRegion::surface_interior`]. Not ported: exterior regions, other
+//! region styles, `side out`, moving/rotating regions. `pow` and `log` are
+//! the platform libm (`f64::powf`, `f64::ln`), the same glibc as upstream.
+//!
 //! ## Scope, stated plainly
+//!
 //!
 //! * `addforce`: constant and equal-style (`v_name`) components, via
 //!   [`crate::variable`]. NOT ported: atom-style variables, the `region`
@@ -43,6 +53,7 @@
 //!   length is stored), so `ramp()` in an `addforce` variable is not faithful;
 //!   use `step`/`time` based formulas.
 
+use crate::insert::InsertRegion;
 use crate::particle::Vec3;
 use crate::variable::{Expr, VarContext, VariableTable};
 
@@ -82,6 +93,123 @@ impl ForceComponent {
     }
 }
 
+/// Potential of a `fix wall/region` (`enum{LJ93,LJ126,COLLOID,HARMONIC}`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WallRegionStyle {
+    /// Lennard-Jones 9/3.
+    Lj93,
+    /// Lennard-Jones 12/6.
+    Lj126,
+    /// Colloid (finite-size sphere against a flat wall).
+    Colloid,
+    /// Harmonic: `2 epsilon (cutoff - r)`.
+    Harmonic,
+}
+
+/// `FixWallRegion::init` coefficients and `lj93`/`lj126`/`colloid`/`harmonic`:
+/// returns `(fwall, eng)` at wall distance `r` (`rad` for colloid).
+fn wall_region_pair(
+    style: WallRegionStyle,
+    epsilon: f64,
+    sigma: f64,
+    cutoff: f64,
+    r: f64,
+    rad: f64,
+) -> (f64, f64) {
+    // coefficients and offset exactly as FixWallRegion::init
+    let (coeff1, coeff2, coeff3, coeff4, offset);
+    match style {
+        WallRegionStyle::Lj93 => {
+            coeff1 = 6.0 / 5.0 * epsilon * sigma.powf(9.0);
+            coeff2 = 3.0 * epsilon * sigma.powf(3.0);
+            coeff3 = 2.0 / 15.0 * epsilon * sigma.powf(9.0);
+            coeff4 = epsilon * sigma.powf(3.0);
+            let rinv = 1.0 / cutoff;
+            let r2inv = rinv * rinv;
+            let r4inv = r2inv * r2inv;
+            offset = coeff3 * r4inv * r4inv * rinv - coeff4 * r2inv * rinv;
+        }
+        WallRegionStyle::Lj126 => {
+            coeff1 = 48.0 * epsilon * sigma.powf(12.0);
+            coeff2 = 24.0 * epsilon * sigma.powf(6.0);
+            coeff3 = 4.0 * epsilon * sigma.powf(12.0);
+            coeff4 = 4.0 * epsilon * sigma.powf(6.0);
+            let r2inv = 1.0 / (cutoff * cutoff);
+            let r6inv = r2inv * r2inv * r2inv;
+            offset = r6inv * (coeff3 * r6inv - coeff4);
+        }
+        WallRegionStyle::Colloid => {
+            coeff1 = -4.0 / 315.0 * epsilon * sigma.powf(6.0);
+            coeff2 = -2.0 / 3.0 * epsilon;
+            coeff3 = epsilon * sigma.powf(6.0) / 7560.0;
+            coeff4 = epsilon / 6.0;
+            let rinv = 1.0 / cutoff;
+            let r2inv = rinv * rinv;
+            let r4inv = r2inv * r2inv;
+            offset = coeff3 * r4inv * r4inv * rinv - coeff4 * r2inv * rinv;
+        }
+        WallRegionStyle::Harmonic => {
+            let dr = cutoff - r;
+            return (2.0 * epsilon * dr, epsilon * dr * dr);
+        }
+    }
+    match style {
+        WallRegionStyle::Lj93 => {
+            let rinv = 1.0 / r;
+            let r2inv = rinv * rinv;
+            let r4inv = r2inv * r2inv;
+            let r10inv = r4inv * r4inv * r2inv;
+            (
+                coeff1 * r10inv - coeff2 * r4inv,
+                coeff3 * r4inv * r4inv * rinv - coeff4 * r2inv * rinv - offset,
+            )
+        }
+        WallRegionStyle::Lj126 => {
+            let rinv = 1.0 / r;
+            let r2inv = rinv * rinv;
+            let r6inv = r2inv * r2inv * r2inv;
+            (
+                r6inv * (coeff1 * r6inv - coeff2) * rinv,
+                r6inv * (coeff3 * r6inv - coeff4) - offset,
+            )
+        }
+        _ => {
+            let new_coeff2 = coeff2 * rad * rad * rad;
+            let diam = 2.0 * rad;
+            let rad2 = rad * rad;
+            let rad4 = rad2 * rad2;
+            let rad8 = rad4 * rad4;
+            let delta2 = rad2 - r * r;
+            let rinv = 1.0 / delta2;
+            let r2inv = rinv * rinv;
+            let r4inv = r2inv * r2inv;
+            let r8inv = r4inv * r4inv;
+            let fwall = coeff1
+                * (rad8 * rad
+                    + 27.0 * rad4 * rad2 * rad * r.powf(2.0)
+                    + 63.0 * rad4 * rad * r.powf(4.0)
+                    + 21.0 * rad2 * rad * r.powf(6.0))
+                * r8inv
+                - new_coeff2 * r2inv;
+            let r2 = 0.5 * diam - r;
+            let rinv2 = 1.0 / r2;
+            let r2inv2 = rinv2 * rinv2;
+            let r4inv2 = r2inv2 * r2inv2;
+            let r3 = r + 0.5 * diam;
+            let rinv3 = 1.0 / r3;
+            let r2inv3 = rinv3 * rinv3;
+            let r4inv3 = r2inv3 * r2inv3;
+            let eng = coeff3
+                * ((-3.5 * diam + r) * r4inv2 * r2inv2 * rinv2
+                    + (3.5 * diam + r) * r4inv3 * r2inv3 * rinv3)
+                - coeff4
+                    * ((-diam * r + r2 * r3 * ((-r2).ln() - r3.ln())) * (-rinv2) * rinv3)
+                - offset;
+            (fwall, eng)
+        }
+    }
+}
+
 /// A force fix applied at `post_force`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ForceFix {
@@ -102,6 +230,25 @@ pub enum ForceFix {
         /// Drag coefficient indexed by particle type.
         gamma: Vec<f64>,
     },
+    /// `fix ID group wall/region region style epsilon sigma cutoff`
+    /// (`FixWallRegion::post_force`).
+    WallRegion {
+        /// Group membership per particle.
+        group: Vec<bool>,
+        /// The interior region.
+        region: InsertRegion,
+        /// Wall potential.
+        style: WallRegionStyle,
+        /// `epsilon`.
+        epsilon: f64,
+        /// `sigma`.
+        sigma: f64,
+        /// `cutoff` (> 0).
+        cutoff: f64,
+        /// `ewall[0..4]`: energy, then minus the summed force on the particles
+        /// (the force on the wall), rebuilt every step.
+        ewall: [f64; 4],
+    },
     /// `fix ID group freeze`.
     Freeze {
         /// Group membership per particle.
@@ -112,6 +259,8 @@ pub enum ForceFix {
 }
 
 impl ForceFix {
+    /// `order` is the local atom order (sums over atoms, e.g. the wall
+    /// energy, are accumulated in it; see `GranularSystem::local_order_indices`).
     /// `FixAddForce::post_force` / `FixViscous::post_force` /
     /// `FixFreeze::post_force`, applied to `forces`/`torques` of the particles
     /// with velocities `velocities` and types `types`.
@@ -121,6 +270,9 @@ impl ForceFix {
     pub fn apply(
         &mut self,
         ctx: &VarContext,
+        order: &[usize],
+        positions: &[Vec3],
+        radii: &[f64],
         velocities: &[Vec3],
         types: &[usize],
         forces: &mut [Vec3],
@@ -158,6 +310,57 @@ impl ForceFix {
                         f.y -= drag * velocities[i].y;
                         f.z -= drag * velocities[i].z;
                     }
+                }
+            }
+            Self::WallRegion {
+                group,
+                region,
+                style,
+                epsilon,
+                sigma,
+                cutoff,
+                ewall,
+            } => {
+                *ewall = [0.0; 4];
+                let mut onflag = false;
+                for &i in order {
+                    let f = &mut forces[i];
+                    if !group[i] {
+                        continue;
+                    }
+                    if !region.contains(positions[i]) {
+                        onflag = true;
+                        continue;
+                    }
+                    let tooclose = if *style == WallRegionStyle::Colloid {
+                        radii[i]
+                    } else {
+                        0.0
+                    };
+                    for (r, del) in region.surface_interior(positions[i], *cutoff) {
+                        if r <= tooclose {
+                            onflag = true;
+                            continue;
+                        }
+                        let rinv = 1.0 / r;
+                        let (fwall, eng) =
+                            wall_region_pair(*style, *epsilon, *sigma, *cutoff, r, radii[i]);
+                        ewall[0] += eng;
+                        let fx = fwall * del[0] * rinv;
+                        let fy = fwall * del[1] * rinv;
+                        let fz = fwall * del[2] * rinv;
+                        f.x += fx;
+                        f.y += fy;
+                        f.z += fz;
+                        ewall[1] -= fx;
+                        ewall[2] -= fy;
+                        ewall[3] -= fz;
+                    }
+                }
+                if onflag {
+                    return Err(
+                        "Particle on or inside surface of region used in fix wall/region".into(),
+                    );
                 }
             }
             Self::Freeze { group, foriginal } => {
@@ -213,11 +416,13 @@ mod tests {
                 foriginal: [0.0; 3],
             },
         ];
+        let pos = [Vec3::zero(); 2];
+        let rad = [0.005; 2];
         let v = [Vec3::new(2.0, 0.0, 0.0), Vec3::new(0.0, 4.0, 0.0)];
         let mut f = vec![Vec3::new(1.0, 1.0, 1.0); 2];
         let mut tq = vec![Vec3::new(1.0, 1.0, 1.0); 2];
         for fx in &mut fixes {
-            fx.apply(&ctx(3), &v, &[0, 0], &mut f, &mut tq).unwrap();
+            fx.apply(&ctx(3), &[0, 1], &pos, &rad, &v, &[0, 0], &mut f, &mut tq).unwrap();
         }
         // particle 0: x 1+1-0.5*2, y 1, z 1+6
         assert_eq!(f[0], Vec3::new(1.0, 1.0, 7.0));

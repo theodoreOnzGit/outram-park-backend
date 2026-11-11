@@ -1500,14 +1500,24 @@ impl GranularSystem {
                 dt: self.dt,
             };
             let vel: Vec<Vec3> = self.particles.iter().map(|p| p.velocity).collect();
+            let order = self.local_order_indices();
+            let pos: Vec<Vec3> = self.particles.iter().map(|p| p.position).collect();
+            let rad: Vec<f64> = self.particles.iter().map(|p| p.radius).collect();
             for fx in &mut self.force_fixes {
-                fx.apply(&ctx, &vel, &self.types, &mut self.forces, &mut self.torques)
+                fx.apply(&ctx, &order, &pos, &rad, &vel, &self.types, &mut self.forces, &mut self.torques)
                     .expect("force fix variable evaluation (upstream error->all)");
             }
         }
     }
 
-    /// Add `post_force` fixes (`fix addforce`/`viscous`/`freeze`), applied after
+    /// The `post_force` fixes, in declaration order (read `ewall` of a
+    /// `WallRegion` for the thermo scalar and vector).
+    #[must_use]
+    pub fn force_fixes(&self) -> &[ForceFix] {
+        &self.force_fixes
+    }
+
+    /// Add `post_force` fixes (`fix addforce`/`viscous`/`freeze`/`wall/region`), applied after
     /// gravity in the order added (gh:#1418). Group masks must have one entry
     /// per particle.
     #[must_use]

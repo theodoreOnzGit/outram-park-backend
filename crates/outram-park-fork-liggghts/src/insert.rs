@@ -414,6 +414,81 @@ impl InsertRegion {
         }
     }
 
+    /// `RegBlock::surface_interior` / `RegCylinder::surface_interior`
+    /// (region_block.cpp, region_cylinder.cpp, 3d5c00f2): the contacts of an
+    /// interior point `p` with the region's surfaces closer than `cutoff`, as
+    /// `(r, [delx, dely, delz])` in upstream's order (`Region::contact[]`);
+    /// `del` points from the surface point to `p`. Empty if `p` is outside.
+    #[must_use]
+    pub fn surface_interior(&self, p: Vec3, cutoff: f64) -> Vec<(f64, [f64; 3])> {
+        let mut out = Vec::new();
+        match *self {
+            Self::Block { lo, hi } => {
+                if p.x < lo.x || p.x > hi.x || p.y < lo.y || p.y > hi.y || p.z < lo.z || p.z > hi.z
+                {
+                    return out;
+                }
+                let x = [p.x, p.y, p.z];
+                let l = [lo.x, lo.y, lo.z];
+                let h = [hi.x, hi.y, hi.z];
+                for k in 0..3 {
+                    let delta = x[k] - l[k];
+                    if delta < cutoff {
+                        let mut d = [0.0; 3];
+                        d[k] = delta;
+                        out.push((delta, d));
+                    }
+                    let delta = h[k] - x[k];
+                    if delta < cutoff {
+                        let mut d = [0.0; 3];
+                        d[k] = -delta;
+                        out.push((delta, d));
+                    }
+                }
+            }
+            Self::Cylinder {
+                axis,
+                c1,
+                c2,
+                radius,
+                lo,
+                hi,
+            } => {
+                let (d1, d2, a) = Self::cyl_coords(axis, c1, c2, p);
+                let r = (d1 * d1 + d2 * d2).sqrt();
+                if r > radius || a < lo || a > hi {
+                    return out;
+                }
+                // index of the axis component in (x, y, z) and of d1, d2
+                let (ia, i1, i2) = match axis {
+                    Axis::X => (0, 1, 2),
+                    Axis::Y => (1, 0, 2),
+                    Axis::Z => (2, 0, 1),
+                };
+                let delta = radius - r;
+                if delta < cutoff && r > 0.0 {
+                    let mut d = [0.0; 3];
+                    d[i1] = d1 * (1.0 - radius / r);
+                    d[i2] = d2 * (1.0 - radius / r);
+                    out.push((delta, d));
+                }
+                let delta = a - lo;
+                if delta < cutoff {
+                    let mut d = [0.0; 3];
+                    d[ia] = delta;
+                    out.push((delta, d));
+                }
+                let delta = hi - a;
+                if delta < cutoff {
+                    let mut d = [0.0; 3];
+                    d[ia] = -delta;
+                    out.push((delta, d));
+                }
+            }
+        }
+        out
+    }
+
     fn cyl_coords(axis: Axis, c1: f64, c2: f64, p: Vec3) -> (f64, f64, f64) {
         match axis {
             Axis::X => (p.y - c1, p.z - c2, p.x),
