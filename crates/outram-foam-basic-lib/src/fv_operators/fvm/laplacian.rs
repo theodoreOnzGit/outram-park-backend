@@ -57,10 +57,21 @@ const NON_ORTH_FLOOR: f64 = 0.05;
 /// in `k_eff`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum DeltaCoeff {
-    /// `1/|d|` — OpenFOAM's `deltaCoeffs`, exact only on an orthogonal mesh.
+    /// `1/|d|` on an internal face, `1/|n (n . d)|` = `1/|n . d|` on a
+    /// boundary face — OpenFOAM's `deltaCoeffs`, exact only on an orthogonal
+    /// mesh.
     ///
-    /// The **default**, so that every existing caller keeps its behaviour
-    /// bit-for-bit.
+    /// ~~On a boundary face this used `1/|Cf - C|`.~~ **CORRECTED 2026-11-11
+    /// (gh:#1488)**: upstream's boundary `deltaCoeffs` is
+    /// `1/mag(fvPatch::delta())` and `fvPatch::delta()` is the patch-normal
+    /// projection (ESI v2506 `fvPatch.C:156`,
+    /// `basicFvGeometryScheme::deltaCoeffs`). The old form was up to 66 %
+    /// (blockMesh) and 88 % (polyDualMesh) off on the #1362 meshes. Coupled
+    /// (cyclic) patches have their own `delta()` upstream and are handled by
+    /// the seam couplings here, not by this function.
+    ///
+    /// The **default**; boundary values moved with gh:#1488 on non-orthogonal
+    /// boundary faces (orthogonal ones are unchanged to an ulp).
     #[default]
     Orthogonal,
     /// `1/max(n . d, 0.05 |d|)` — OpenFOAM's `nonOrthDeltaCoeffs`, the
@@ -122,6 +133,26 @@ fn interior_delta(mode: DeltaCoeff, sf: Vector3, d: Vector3, area: f64) -> f64 {
     }
 }
 
+/// OpenFOAM `fvPatch::delta()` for a non-coupled patch: the patch-NORMAL
+/// component of the cell-centre-to-face-centre vector, `nHat (nHat . d)`
+/// (ESI v2506 `fvPatch.C:156`, "Use patch-normal delta for all non-coupled
+/// BCs"), with `nHat = Sf/magSf`.
+///
+/// Same operation order as upstream so the result is bit-identical:
+/// component-wise `Sf/magSf`, then `nHat . d`, then `nHat * (.)`.
+/// A boundary face's `deltaCoeffs` is `1/mag` of this, and the
+/// `fixedGradient` / `mixed` `evaluate` divide a gradient by that same
+/// `deltaCoeffs`. gh:#1488: before, the port used `d` itself, too long by
+/// `1/cos(theta)` on a non-orthogonal boundary face.
+///
+/// `d` is `Cf - C_owner` `[m]`, `sf` the face area vector `[m^2]`, `area` its
+/// magnitude `[m^2]` (must be positive).
+fn patch_normal_delta(sf: Vector3, d: Vector3, area: f64) -> Vector3 {
+    let n_hat = Vector3::new(sf.x / area, sf.y / area, sf.z / area);
+    let s = n_hat.dot(d);
+    Vector3::new(n_hat.x * s, n_hat.y * s, n_hat.z * s)
+}
+
 /// The boundary-face distance the Laplacian divides by, per `mode`.
 ///
 /// `d` is the owner-cell-centre-to-face-centre vector `[m]`. For
@@ -130,7 +161,12 @@ fn interior_delta(mode: DeltaCoeff, sf: Vector3, d: Vector3, area: f64) -> f64 {
 /// the result is `max(n . d, 0.05 |n . d|)`.
 fn boundary_delta(mode: DeltaCoeff, sf: Vector3, d: Vector3, area: f64) -> f64 {
     match mode {
-        DeltaCoeff::Orthogonal => d.mag(),
+        DeltaCoeff::Orthogonal => {
+            if area < 1.0e-300 {
+                return d.mag();
+            }
+            patch_normal_delta(sf, d, area).mag()
+        }
         DeltaCoeff::NonOrthogonal => {
             if area < 1.0e-300 {
                 return d.mag();
@@ -1039,7 +1075,16 @@ mod tests {
         let mesh = sheared_mesh(0.5);
         assert!((DeltaCoeff::NonOrthogonal.boundary_delta(&mesh, 1) - 0.25).abs() < 1e-14);
         let euclid = (mesh.face_centres[1] - mesh.cell_centres[1]).mag();
-        assert!((DeltaCoeff::Orthogonal.boundary_delta(&mesh, 1) - euclid).abs() < 1e-14);
+        // ~~`Orthogonal.boundary_delta == euclid`~~ **CORRECTED 2026-11-11
+        // (gh:#1488)**: upstream's boundary `deltaCoeffs` is `1/|fvPatch::delta()|`
+        // = `1/|n . d|` too, so the default mode also gives 0.25 (it gave
+        // `euclid`, 0.559, before; pinned against OpenFOAM-v2506 bit for bit in
+        // `tests/operators_vs_openfoam.rs`).
+        assert!((DeltaCoeff::Orthogonal.boundary_delta(&mesh, 1) - 0.25).abs() < 1e-14);
+        for dy in [0.0, 0.25, 0.5, 1.0] {
+            let mesh = sheared_mesh(dy);
+            assert!((DeltaCoeff::Orthogonal.boundary_delta(&mesh, 2) - 0.25).abs() < 1e-14);
+        }
         assert!(euclid > 0.5, "the Euclidean distance should have grown");
     }
 
