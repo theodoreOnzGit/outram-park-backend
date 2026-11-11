@@ -180,7 +180,7 @@ Prediction posted on gh:#1128 before the run: k up by +50 to +300 pcm.
 - **Not adopted as the default.** Hot dimensions are the more physical
   state, but making them the default re-states every N-1 and N-3 number
   on this page; that is the maintainer's call. The N-3 coefficients
-  ignore expansion over their ±50 °F swing. If the +158 pcm over 1111 °F
+  ignore expansion over their ±50 °F swing (~~not measured~~ **measured 2026-11-11 as an ablation, N-3 section: −0.69 ± 0.54, not resolved**). If the +158 pcm over 1111 °F
   is linear, expansion adds about **+0.14 × 10⁻⁵ /°F** (14 pcm over the
   100 °F swing): about 2 % of α_iso, positive, and inside N-3's ±0.5–0.7
   σ. Not measured at N-3's temperatures.
@@ -672,6 +672,43 @@ seeds 1–6 each, against the arm-C 1131 °F run above; rows
   inside −4.9 ± 2.3. **This comparison was not predicted before the runs:**
   the reference was found after them, so it carries no pre-registered band.
   The graphite coefficient was not measured separately.
+
+**Thermal expansion in N-3, an ablation (2026-11-11, gh:#1129).** Every N-3
+coefficient above uses cold dimensions. `--hot-dims` expands the graphite and
+INOR-8 to each run's own temperature (TM-0728 §5.3 coefficients, as in the
+N-1 hot-dims section). Arm C, RVS, 30P, seeds 1–6 at each temperature; rows
+`…+hot-dims` in `data/n3.csv`. About 720 s per seed, same hardware.
+
+| temperature | cold k (6 seeds) | hot-dims k (6 seeds) | hot − cold |
+|---|---|---|---|
+| 1131 °F | 1.01245 ± 0.00032 | 1.01532 ± 0.00027 | +279 ± 41 pcm |
+| 1231 °F | 1.00478 ± 0.00026 | 1.00690 ± 0.00026 | +210 ± 37 pcm |
+
+| | α_iso (×10⁻⁵ /°F) |
+|---|---|
+| cold (the default) | −7.54 ± 0.40 |
+| hot dimensions | **−8.23 ± 0.37** |
+| hot − cold | **−0.69 ± 0.54 (1.3σ)** |
+
+- **A miss on both predicted quantities** (posted on gh:#1129 before the
+  run). I predicted the shift at +0.14, inside ±0.6, and α_hot in −8.0 to
+  −6.8. The shift came out −0.69, and α_hot −8.23. **The sign was the
+  opposite of the prediction**, though at 1.3σ the shift is not resolved.
+- **What the prediction assumed:** that hot − cold grows linearly with
+  temperature (N-1's +158 ± 50 pcm over 1111 °F, so about +14 pcm per
+  100 °F). The two pairs show the opposite: +279 pcm at 1131 °F and +210
+  at 1231 °F. Neither agrees well with the linear estimate (about +150 and
+  +165). The 1131 °F point is the outlier. The test cannot tell whether that
+  is a fluctuation or a real non-linearity: the difference between the two
+  pairs is 69 ± 55 pcm.
+- **Bound:** at 2σ, expansion moves α_iso by less than about 1.8 × 10⁻⁵ /°F
+  in magnitude, on either side. The README's earlier "about 2 % of α_iso"
+  estimate is neither confirmed nor excluded.
+- **Against the measurement:** the hot-dims value is −0.99 ± 0.37 from the
+  measured −7.24 (2.7σ), and the cold value −0.30 (0.8σ). Whether the
+  comparison should use hot dimensions is part of the open hot-dims default
+  question, which is the maintainer's call.
+- **The default is not changed.**
 
 ### A finding about the statistics
 
