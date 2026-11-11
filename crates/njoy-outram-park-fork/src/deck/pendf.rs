@@ -103,46 +103,52 @@ fn other_files(endf: &Tape, mat: i32, grid: &[f64], mtr522: bool) -> Result<Vec<
         if mf == 12 && head.l1 != 1 {
             continue;
         }
-        if mf == 10 {
-            return Err(NjoyError::NotPorted("deck PENDF: MF=10 sections (multiple subsections per head)"));
-        }
-        let t = cur.read_tab1()?;
-        let mut g = Gety1::new(&t);
-        let thresh = sigfig(g.get(0.0).xnext, 7, 0);
-        let mut pts: Vec<(f64, f64)> = Vec::new();
-        let mut ith = 0usize;
-        for &eg in grid {
-            if thresh - eg > TEST * thresh {
-                continue;
+        // `emerge` loops `iss = nss..1` over the TAB1 subsections of an MF=10
+        // section (`nss = N1` of the head); every other file has one.
+        let nss = if mf == 10 { head.n1.max(1) as usize } else { 1 };
+        let mut rows: Vec<[f64; 6]> = Vec::new();
+        for iss in 0..nss {
+            let t = cur.read_tab1()?;
+            let mut g = Gety1::new(&t);
+            let thresh = sigfig(g.get(0.0).xnext, 7, 0);
+            let mut pts: Vec<(f64, f64)> = Vec::new();
+            let mut ith = 0usize;
+            for &eg in grid {
+                if thresh - eg > TEST * thresh {
+                    continue;
+                }
+                let r = g.get(eg);
+                let mut sn = r.y;
+                if thresh > 1.0 && (thresh - eg).abs() < TEST * thresh {
+                    sn = 0.0;
+                }
+                let sn = sigfig(sn, 7, 0);
+                pts.push((eg, sn));
+                if ith == 0 && sn > 0.0 {
+                    ith = pts.len();
+                }
             }
-            let mut sn = g.get(eg).y;
-            if thresh > 1.0 && (thresh - eg).abs() < TEST * thresh {
-                sn = 0.0;
+            if ith > 1 {
+                ith -= 1;
             }
-            let sn = sigfig(sn, 7, 0);
-            pts.push((eg, sn));
-            if ith == 0 && sn > 0.0 {
-                ith = pts.len();
+            if ith == 0 {
+                return Err(NjoyError::NotPorted("deck PENDF: MF=10-23 section with no positive point"));
             }
-        }
-        if ith > 1 {
-            ith -= 1;
-        }
-        if ith == 0 {
-            return Err(NjoyError::NotPorted("deck PENDF: MF=10-23 section with no positive point"));
-        }
-        let kept = &pts[ith - 1..];
-        let np = kept.len() as f64;
-        let mut rows = vec![[head.c1, head.c2, f64::from(head.l1), f64::from(head.l2), if mf == 3 { f64::from(head.n1) } else { 1.0 }, f64::from(head.n2)]];
-        rows.push([t.head.c1, t.head.c2, f64::from(t.head.l1), f64::from(t.head.l2), 1.0, np]);
-        rows.push([np, 2.0, 0.0, 0.0, 0.0, 0.0]);
-        for chunk in kept.chunks(3) {
-            let mut row = [0.0f64; 6];
-            for (i, &(x, y)) in chunk.iter().enumerate() {
-                row[2 * i] = x;
-                row[2 * i + 1] = y;
+            let kept = &pts[ith - 1..];
+            let np = kept.len() as f64;
+            if iss == 0 {
+                rows.push([head.c1, head.c2, f64::from(head.l1), f64::from(head.l2), if mf == 3 || mf == 10 { f64::from(head.n1) } else { 1.0 }, f64::from(head.n2)]);
             }
-            rows.push(row);
+            rows.push([t.head.c1, t.head.c2, f64::from(t.head.l1), f64::from(t.head.l2), 1.0, np]);
+            rows.push([np, 2.0, 0.0, 0.0, 0.0, 0.0]);
+            for chunk in kept.chunks(3) {
+                let mut row = [0.0f64; 6];
+                for (i, &(x, y)) in chunk.iter().enumerate() {
+                    row[2 * i] = x;
+                    row[2 * i + 1] = y;
+                }
+                rows.push(row);
+            }
         }
         out.push(Section { key: EndfKey { mat, mf, mt }, rows });
     }
