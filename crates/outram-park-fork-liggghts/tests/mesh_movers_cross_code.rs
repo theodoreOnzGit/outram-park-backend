@@ -17,6 +17,8 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 //! # Time-dependent `fix move/mesh` movers against upstream (gh:#1416)
+//! (plus `linear/variable` and `rotate/variable`, added 2026-11-11: **2259/2259
+//! bit-identical each** against `in.mover_linvar` / `in.mover_rotvar`, Rust 1.99.1)
 //!
 //! `MeshMoverWiggle`, `MeshMoverVibLin` (`mesh_mover_linear.cpp`) and
 //! `MeshMoverRiggle`, `MeshMoverVibRot` (`mesh_mover_rotation.cpp`),
@@ -209,4 +211,53 @@ fn vibration_movers_validate_their_order() {
     assert!(MovingBoundary::viblin(plate(), axis, &[1.0], &[0.0, 0.0], &[1.0]).is_none());
     assert!(MovingBoundary::vibrot(plate(), Vec3::zero(), axis, &[], &[], &[]).is_none());
     assert!(MovingBoundary::viblin(plate(), axis, &[1.0], &[0.0], &[1.0]).is_some());
+}
+
+/// `linear/variable v_vx v_vy v_vz` (gh:#1416, new 2026-11-11): the plate
+/// velocity comes from three equal-style variables
+/// (`0.3*sin(2*PI*time/0.08)+0.5*step*dt`, `swiggle(0,0.15,0.05)`,
+/// `-0.05*cwiggle(0,1,0.1)`) re-evaluated every step through
+/// [`outram_park_fork_liggghts::variable`], deck `in.mover_linvar`.
+#[test]
+fn linear_variable_matches_liggghts() {
+    use outram_park_fork_liggghts::variable::VariableTable;
+    let mut t = VariableTable::new();
+    t.define_equal("vx", "0.3*sin(2*PI*time/0.08)+0.5*step*dt").unwrap();
+    t.define_equal("vy", "swiggle(0,0.15,0.05)").unwrap();
+    t.define_equal("vz", "-0.05*cwiggle(0,1,0.1)").unwrap();
+    assert_identical(
+        "linear/variable",
+        run_case("mover_linvar.csv", |g| {
+            MovingBoundary::linear_variable(g, &t, ["vx", "vy", "vz"]).expect("defined variables")
+        }),
+    );
+}
+
+/// `rotate/variable origin 0.01 0 0 axis 0.1 0.2 1 omega v_ww` with
+/// `ww = 3+6*sin(2*PI*time/0.12)` rad/s, deck `in.mover_rotvar`.
+#[test]
+fn rotate_variable_matches_liggghts() {
+    use outram_park_fork_liggghts::variable::VariableTable;
+    let mut t = VariableTable::new();
+    t.define_equal("ww", "3.0+6.0*sin(2*PI*time/0.12)").unwrap();
+    assert_identical(
+        "rotate/variable",
+        run_case("mover_rotvar.csv", |g| {
+            MovingBoundary::rotate_variable(g, &t, Vec3::new(0.01, 0.0, 0.0), Vec3::new(0.1, 0.2, 1.0), "ww")
+                .expect("defined variable")
+        }),
+    );
+}
+
+/// A missing variable is rejected, as upstream's `error->all` does.
+#[test]
+fn variable_movers_reject_undefined_variables() {
+    use outram_park_fork_liggghts::variable::VariableTable;
+    let Some(stl) = read("plate_square.stl") else {
+        return;
+    };
+    let plate = || WallGeometry::Mesh(MeshWall::from_ascii_stl(&stl).expect("valid plate stl"));
+    let t = VariableTable::new();
+    assert!(MovingBoundary::linear_variable(plate(), &t, ["a", "b", "c"]).is_err());
+    assert!(MovingBoundary::rotate_variable(plate(), &t, Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), "w").is_err());
 }

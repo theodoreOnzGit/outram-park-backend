@@ -139,6 +139,7 @@ use petir::mathf::RealMath;
 use crate::boundary::{Boundary, Contact};
 use crate::particle::{Particle, Vec3};
 use crate::tri_mesh::{arr, vec3, Nodes, TriMeshState, V3};
+use crate::variable::{Expr, VarContext, VariableTable};
 use crate::DemError;
 
 /// Normalise a vector to unit length: `v / ‖v‖`.
@@ -831,6 +832,12 @@ pub struct MovingBoundary {
     /// Time since the mover started `[s]`, accumulated by `+= dt` per step as
     /// `FixMoveMesh::time_` is.
     pub time: f64,
+    /// `update->ntimestep` seen by equal-style variables: incremented once
+    /// per [`MovingBoundary::advance`] before the mover runs, as upstream
+    /// increments `ntimestep` before `initial_integrate`.
+    pub step: i64,
+    /// `update->endstep` of the run, for `ramp()` in a variable (0 = unset).
+    pub end_step: i64,
 }
 
 /// Upper bound of the `order` of a vibration mover (upstream `ampl[30]`).
@@ -839,8 +846,8 @@ pub const MAX_VIBRATION_ORDER: usize = 30;
 /// The time-dependent `fix move/mesh` movers of `mesh_mover_linear.cpp` and
 /// `mesh_mover_rotation.cpp` (LIGGGHTS-PUBLIC `3d5c00f2`). The constant-rate
 /// `linear` and `rotate` movers are the plain `velocity` and `rotation` of
-/// [`MovingBoundary`]; `linear/variable` and `rotate/variable` read LIGGGHTS
-/// equal-style variables and are not ported.
+/// [`MovingBoundary`]; `linear/variable` and `rotate/variable` (~~not ported~~ **ported 2026-11-11, gh:#1416**, via [`crate::variable`]) read LIGGGHTS
+/// equal-style variables.
 #[derive(Debug, Clone, PartialEq)]
 pub enum MeshMotion {
     /// No time-dependent mover (use `velocity` / `rotation`).
@@ -866,6 +873,22 @@ pub enum MeshMotion {
         phi: [f64; MAX_VIBRATION_ORDER],
         /// `2 pi / T_j` `[rad/s]`.
         omega: [f64; MAX_VIBRATION_ORDER],
+    },
+    /// `linear/variable v_x v_y v_z`: translation with the velocity given by
+    /// three equal-style variables, re-evaluated every step
+    /// (`MeshMoverLinearVariable::initial_integrate`).
+    LinearVariable {
+        /// Velocity components `[m/s]` as formulas.
+        formulas: [Expr; 3],
+    },
+    /// `rotate/variable origin o axis a omega v_w`: rotation about the fixed
+    /// point with the rate given by an equal-style variable
+    /// (`MeshMoverRotateVariable::initial_integrate`).
+    RotateVariable {
+        /// Unit axis.
+        axis: Vec3,
+        /// Rate `[rad/s]` as a formula.
+        omega: Expr,
     },
     /// `riggle origin o axis a period T amplitude deg`: rotation about the
     /// fixed point `o` with angular velocity `A omega cos(omega t)`.
@@ -974,6 +997,8 @@ impl MovingBoundary {
             rotation: None,
             motion: MeshMotion::None,
             time: 0.0,
+            step: 0,
+            end_step: 0,
         }
     }
 
@@ -981,6 +1006,40 @@ impl MovingBoundary {
         let mut m = Self::new(geometry, Vec3::zero(), Vec3::zero(), pivot);
         m.motion = motion;
         m
+    }
+
+    /// `fix move/mesh ... linear/variable v_<x> v_<y> v_<z>`: the three
+    /// formulas are the (already `v_`-stripped) equal-style variables of
+    /// `table`, evaluated at `ntimestep` every step.
+    ///
+    /// # Errors
+    /// If a variable is not defined in `table`.
+    pub fn linear_variable(geometry: WallGeometry, table: &VariableTable, names: [&str; 3]) -> Result<Self, String> {
+        let get = |n: &str| table.get(n).cloned().ok_or_else(|| format!("Variable name {n} for fix move/mesh linear/variable does not exist"));
+        let formulas = [get(names[0])?, get(names[1])?, get(names[2])?];
+        Ok(Self::with_motion(geometry, Vec3::zero(), MeshMotion::LinearVariable { formulas }))
+    }
+
+    /// `fix move/mesh ... rotate/variable origin <o> axis <a> omega v_<name>`.
+    ///
+    /// # Errors
+    /// If the variable is not defined in `table`.
+    pub fn rotate_variable(
+        geometry: WallGeometry,
+        table: &VariableTable,
+        origin: Vec3,
+        axis: Vec3,
+        name: &str,
+    ) -> Result<Self, String> {
+        let omega = table
+            .get(name)
+            .cloned()
+            .ok_or_else(|| format!("Variable name {name} for fix move/mesh rotate/variable does not exist"))?;
+        Ok(Self::with_motion(
+            geometry,
+            origin,
+            MeshMotion::RotateVariable { axis: unit_vector(axis), omega },
+        ))
     }
 
     /// `fix move/mesh ... wiggle amplitude <a> period <T>`.
@@ -1058,10 +1117,22 @@ impl MovingBoundary {
     /// Set `velocity` / `rotation` for this step from the time-dependent
     /// mover (`MeshMover*::initial_integrate` of upstream), after `time +=
     /// dt`.
-    fn apply_motion(&mut self) {
+    fn apply_motion(&mut self, dt: f64) {
         let t = self.time;
+        let ctx = VarContext { step: self.step, begin_step: 0, end_step: self.end_step, dt };
         match &self.motion {
             MeshMotion::None => {}
+            MeshMotion::LinearVariable { formulas } => {
+                let mut v = [0.0; 3];
+                for (k, f) in formulas.iter().enumerate() {
+                    v[k] = f.eval(&ctx).unwrap_or_else(|e| panic!("fix move/mesh linear/variable: {e}"));
+                }
+                self.velocity = Vec3::new(v[0], v[1], v[2]);
+            }
+            MeshMotion::RotateVariable { axis, omega } => {
+                let w = omega.eval(&ctx).unwrap_or_else(|e| panic!("fix move/mesh rotate/variable: {e}"));
+                self.rotation = Some(MeshRotation { axis: *axis, omega: w });
+            }
             MeshMotion::Wiggle { amplitude, omega } => {
                 self.velocity = amplitude.scale(omega * (omega * t).cos());
             }
@@ -1144,7 +1215,8 @@ impl MovingBoundary {
     pub fn advance(&mut self, dt: f64) {
         if matches!(self.geometry, WallGeometry::Mesh(_)) {
             self.time += dt;
-            self.apply_motion();
+            self.step += 1;
+            self.apply_motion(dt);
             self.advance_mesh(dt);
             return;
         }

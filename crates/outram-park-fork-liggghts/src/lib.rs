@@ -125,6 +125,7 @@ pub mod thermal;
 pub mod thermal_radiation;
 pub mod timestep;
 pub mod tri_mesh;
+pub mod variable;
 /// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where
 /// `rayon` does not build. Numerically exact here — see the module docs.
 #[cfg(target_arch = "wasm32")]
