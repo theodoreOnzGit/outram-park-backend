@@ -20,9 +20,11 @@
 //! bootstrap), HEATR and ACER `iopt = 1` (`newfor = 1` and, for MF=4 angular
 //! distributions, `newfor = 0`) run from cards; UNRESR
 //! and PURR read their cards and pass the tape through (their MT=152/153 are
-//! not written; see [`DeckRun::notes`]); THERMR, GROUPR and GASPR read their
-//! cards but have no tape driver, so a deck reaching them stops with
-//! [`DeckRun::blocked`] set. The other modules' cards are not yet read.
+//! not written; see [`DeckRun::notes`]); THERMR runs the free-gas case
+//! (`iinc = 1`, [`thermr`]; **CORRECTED 2026-11-11**, was "no tape driver"),
+//! GROUPR and GASPR read their cards but have no tape driver, so a deck
+//! reaching them (or THERMR with `iinc = 2`, an elastic option or `iform = 1`)
+//! stops with [`DeckRun::blocked`] set. The other modules' cards are not yet read.
 
 pub mod cards;
 pub mod modules;

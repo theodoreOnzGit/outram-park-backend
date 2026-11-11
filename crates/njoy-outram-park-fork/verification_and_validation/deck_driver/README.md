@@ -154,3 +154,20 @@ and one ESZ heating word at 81.99999 eV (75.45917 against 75.45914; HEATR's own 
 is identical, cause not found); test 08 needs ACER to read the deck's HEATR-extended
 PENDF (MT=443/444 in the reaction list and union grid) and the old-format MF=6 laws
 (`acelf6` `newfor = 0`, `topfil` MF=6 conversion); tests 21 and 13 not started.
+
+## 5. THERMR tape driver, free gas (2026-11-11, gh:#1369)
+
+`src/deck/thermr.rs` translates `thermr.f90`'s main flow, `calcem`'s free-gas path
+(`:1857-1916`, `sig` label 200) and `tpend` for `iinc = 1`, no elastic, `iform = 0`,
+one temperature. **Predicted before running:** bit-identical tape (the kernel is a
+closed form; the only libm exposure is one `exp` per `sig` call, PETIR `r_exp`
+vs glibc, so a last-digit difference in a 7-figure rounded value was possible).
+**Result:** `tests/deck_driver_tapes_vs_njoy2016.rs::test_01_first_thermr_free_gas_tape_is_identical_line_for_line`:
+test 01 up to its first THERMR (carbon free gas, `mtref = 221`, `0 -22 -24`) then
+MODER to text: **0 differing lines of 13 056** (9 642 in MF=6), MF=1 dictionary,
+MF=3/MT=221 and MF=6/MT=221 included.
+**Not ported (`NotPorted`):** `iinc = 2` from ENDF-4/5 tapes (test 01's second THERMR:
+graphite `matde = 1065`, `icoh = 1`: `gateff`, ENDF-5 MF=7 reader, `coh` with
+`lat = 1` internal form factors written to the tape, `tpend` MF=3 for `mtref+1`);
+`iform = 1`; several temperatures; `iinc = 2`/`icoh` from ENDF-6 tapes
+(`rdelas`, `iel`) as tape writers (the physics exists in `thermr::on_pendf`).
