@@ -648,10 +648,17 @@ fn test_07_groupr_gendf_whole_tape() {
 /// differ from MT=4 on**: NJOY numbers the SEND of MT=2 `16599` and continues
 /// the sequence count (`16600`, ...) into MT=4, where this port writes `99999`
 /// and restarts at 1. The data columns are not yet shown equal (the diff is
-/// dominated by the sequence column). OPEN: the trigger (MT=2 ends after 16 598
-/// lines; MT=1 of the same length matched) is not yet found, hence `#[ignore]`.
+/// dominated by the sequence column).
+///
+/// ~~OPEN: the trigger (MT=2 ends after 16 598 lines) is not yet found~~
+/// **CORRECTED 2026-11-11 (gh:#1484):** `recout` writes the redundant sums, MF=1
+/// and MF=2 with `asend`/`afend` (SEND = 99999, count restarts) but COPIES every
+/// non-redundant MF=3 section and all later files from its scratch tape with
+/// `tosend`/`tofend`/`tomend` (`endf.f90:1064-1230`), which write the SEND, FEND
+/// and MEND with the running count (`nsh`) and carry on. MT=2's SEND is
+/// therefore `16599`, MT=4's HEAD `16600`; the MF=10 FEND is `1064`, the MEND
+/// `1065`. `Tape::set_copied_closers` reproduces it.
 #[test]
-#[ignore = "open: NJOY's sequence numbering after MT=2 (see doc); gh:#1369"]
 fn test_21_reconr_with_errmax_is_identical_line_for_line() {
     let root = njoy_root();
     let Some(deck) = deck_text(&root, "21", Some("broadr"), "") else { return };
@@ -660,4 +667,33 @@ fn test_21_reconr_with_errmax_is_identical_line_for_line() {
     println!("test 21 unit 21: {} differing lines", d.len());
     assert!(d.is_empty(), "first differences {:?}", &d[..d.len().min(5)]);
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
+
+/// **Tests 27 and 46: BROADR with card 3 `thnmx`, `errmax`, `errint`** (gh:#1369,
+/// #1366), the PENDF after BROADR against NJOY2016.80 line by line.
+///
+/// Deck 27 (Pu-239 ENDF/B-VIII.0 Beta6): `0.001 1e+6 0.01 5e-8` (thnmx 1 MeV,
+/// errmax 0.01, errint 5e-8); deck 46 (Fe-56 JEFF-3.3): `0.001 -850000.0`
+/// (negative `thnmx`: broadening starts at 850 keV and the zero `errmax`/`errint`
+/// take their `10 errthn` / `errthn/20000` defaults). Each deck is cut at its
+/// GROUPR and a MODER conversion of the BROADR unit appended.
+///
+/// Prediction (before the run): BROADR already honours `thnmx` (`broadr_joint`,
+/// `sigfig` and `eresh`) and the tolerance struct carries `errmax`/`errint`, so
+/// the deck driver only refused the card; lifting the refusal should give
+/// identical tapes. Result: printed below by the test; see survey.md.
+#[test]
+fn test_27_and_46_broadr_card3_pendf() {
+    let root = njoy_root();
+    for (case, res, tail, unit) in [
+        ("27", "n-094_Pu_239-ENDF8.0-Beta6.endf", "moder\n -21 29/\n", 29),
+        ("46", "n-026_Fe_056-JEFF3.3.endf", "moder\n -23 29/\n", 29),
+    ] {
+        let Some(deck) = deck_text(&root, case, Some("groupr"), tail) else { return };
+        let Some((ours, njoy)) = run_pair(&root, &format!("t{case}"), res, &deck) else { return };
+        let d = differing_lines(&ours.join(format!("tape{unit}")), &njoy.join(format!("tape{unit}")));
+        println!("test {case} BROADR unit {unit}: {} differing lines", d.len());
+        assert!(d.is_empty(), "test {case}: first differences {:?}", &d[..d.len().min(5)]);
+        let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    }
 }

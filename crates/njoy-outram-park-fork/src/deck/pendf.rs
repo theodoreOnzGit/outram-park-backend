@@ -309,6 +309,22 @@ pub fn reconr_tape(
     let (secs, raw) = with_directory(mat, iverf, head, &text, body)?;
     let mut tape = Tape::from_sections(tpid_line(label), secs);
     tape.set_raw_text(EndfKey { mat, mf: 1, mt: 451 }, raw);
+    // `recout` copies (tosend/tofend/tomend) every non-redundant MF=3 section
+    // and all later files from its scratch tape, so their SEND, FEND and the
+    // MEND carry the running count; the redundant sums, MF=1 and MF=2 are
+    // written with asend/afend (`reconr.f90:5270-5435`). gh:#1484.
+    let mut copied: Vec<EndfKey> = Vec::new();
+    for s in tape.sections() {
+        let k = s.key;
+        if k.mf >= 3 && !(k.mf == 3 && redundant.contains(&k.mt)) {
+            copied.push(k);
+        }
+        if k.mf >= 3 {
+            copied.push(EndfKey { mat, mf: k.mf, mt: 0 });
+        }
+    }
+    copied.push(EndfKey { mat, mf: 0, mt: 0 });
+    tape.set_copied_closers(copied);
     let _ = zain;
     Ok(tape)
 }

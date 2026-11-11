@@ -62,6 +62,15 @@ pub struct Tape {
     ///
     /// Only these are kept so the tape's memory footprint does not double.
     raw_mf32: HashMap<EndfKey, Vec<String>>,
+    /// Closing records NJOY *copies* from a scratch tape (`tosend`/`tofend`/
+    /// `tomend`, `endf.f90:1064-1230`) instead of writing with `asend`/`afend`/
+    /// `amend`: a copied record carries the running sequence number (and counts
+    /// on) where a written one carries 99999 / 0 and restarts the count. Keys:
+    /// a section's own key for its SEND, `{mat, mf, mt: 0}` for the FEND of
+    /// `(mat, mf)`, `{mat, mf: 0, mt: 0}` for the MEND of `mat`. RECONR's
+    /// `recout` copies every non-redundant MF=3 section and the files after
+    /// it, so its PENDF numbers its lines this way (gh:#1484).
+    copied_closers: std::collections::HashSet<EndfKey>,
 }
 
 /// Whether [`Tape::read`] keeps a section's raw line text (see `raw_mf32`).
@@ -239,6 +248,7 @@ impl Tape {
             sections,
             index,
             raw_mf32,
+            copied_closers: Default::default(),
         })
     }
 
@@ -291,6 +301,7 @@ impl Tape {
             sections,
             index,
             raw_mf32: HashMap::new(),
+            copied_closers: Default::default(),
         }
     }
 
@@ -308,6 +319,20 @@ impl Tape {
     /// PENDF a deck driver builds (gh:#1369, `deck::pendf`).
     pub fn set_raw_text(&mut self, key: EndfKey, lines: Vec<String>) {
         self.raw_mf32.insert(key, lines);
+    }
+
+    /// Mark closing records as copied, not written, by NJOY (see the
+    /// `copied_closers` field): [`Tape::write`] then numbers them with the
+    /// running sequence count.
+    pub fn set_copied_closers(&mut self, keys: impl IntoIterator<Item = EndfKey>) {
+        self.copied_closers.extend(keys);
+    }
+
+    /// Take over `other`'s copied-closer marks (see [`Tape::set_copied_closers`]),
+    /// for a tape re-read from the text `other` wrote (the numbering is the
+    /// only thing a re-read loses).
+    pub fn copy_closers_from(&mut self, other: &Tape) {
+        self.copied_closers.extend(other.copied_closers.iter().copied());
     }
 
     /// The raw text rows of `key` (see [`Tape::set_raw_text`]).
@@ -485,8 +510,14 @@ impl Tape {
             }
 
             // SEND (`asend`): sequence 99999, then the next section starts at 1.
-            writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", k.mat, k.mf, 0, 99_999).map_err(io)?;
-            seq = 1;
+            if self.copied_closers.contains(&k) {
+                // `tosend`: copied with the running count, which goes on.
+                writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", k.mat, k.mf, 0, seq).map_err(io)?;
+                seq = if seq >= 99_999 { 1 } else { seq + 1 };
+            } else {
+                writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", k.mat, k.mf, 0, 99_999).map_err(io)?;
+                seq = 1;
+            }
 
             let next_key = iter.peek().map(|s| s.key);
             // A material repeats on a multi-temperature PENDF: its next
@@ -496,13 +527,23 @@ impl Tape {
             let new_occurrence = |n: crate::endf::EndfKey| n.mf == 1 && n.mt == 451;
             if next_key.is_none_or(|n| n.mf != k.mf || n.mat != k.mat || new_occurrence(n)) {
                 // FEND (`afend`): sequence 0.
-                writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", k.mat, 0, 0, 0).map_err(io)?;
-                seq = 1;
+                if self.copied_closers.contains(&EndfKey { mat: k.mat, mf: k.mf, mt: 0 }) {
+                    writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", k.mat, 0, 0, seq).map_err(io)?;
+                    seq = if seq >= 99_999 { 1 } else { seq + 1 };
+                } else {
+                    writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", k.mat, 0, 0, 0).map_err(io)?;
+                    seq = 1;
+                }
             }
             if next_key.is_none_or(|n| n.mat != k.mat || new_occurrence(n)) {
                 // MEND (`amend`).
-                writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", 0, 0, 0, 0).map_err(io)?;
-                seq = 1;
+                if self.copied_closers.contains(&EndfKey { mat: k.mat, mf: 0, mt: 0 }) {
+                    writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", 0, 0, 0, seq).map_err(io)?;
+                    seq = if seq >= 99_999 { 1 } else { seq + 1 };
+                } else {
+                    writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", 0, 0, 0, 0).map_err(io)?;
+                    seq = 1;
+                }
             }
         }
 
