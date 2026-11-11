@@ -1201,6 +1201,129 @@ pub fn scatter_kernels_from_env() -> ScatterKernels {
     }
 }
 
+/// Which order the scattering reactions of a collision are walked in
+/// (maintainer task, gh:#1386/#1444, 2026-11-11).
+///
+/// [`ReactionOrder::OpenMc`] is the **default**: OpenMC `scatter()`
+/// (`src/physics.cpp:712`, commit `8f79d9d0`) walks the scattering reactions in
+/// MT order, elastic first, then (5, 16, 17, the other neutron-emitting MTs below
+/// 51, the discrete levels 51..90, the MT=91 continuum), against ONE cutoff
+/// `prn * (total - absorption)`, and the discrete level is chosen by that SAME
+/// cutoff (no extra draw). [`ReactionOrder::Legacy`] is the earlier ladder
+/// (absorb, inelastic levels + MT91, (n,2n), (n,3n), MT5, other, elastic last, with
+/// one more draw for the level), kept so recorded results can be reproduced;
+/// select it with `OUTRAM_MC_LEGACY_REACTION_ORDER=1`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ReactionOrder {
+    /// OpenMC `scatter()` order and single-cutoff level pick (default).
+    #[default]
+    OpenMc,
+    /// The earlier ladder.
+    Legacy,
+}
+
+/// `OUTRAM_MC_LEGACY_REACTION_ORDER` (cached on first read).
+pub fn reaction_order_from_env() -> ReactionOrder {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
+    let cached = FLAG.load(Ordering::Relaxed);
+    let legacy = if cached != u8::MAX {
+        cached == 1
+    } else {
+        let on = match std::env::var("OUTRAM_MC_LEGACY_REACTION_ORDER") {
+            Ok(v) => !v.is_empty() && v != "0",
+            Err(_) => false,
+        };
+        FLAG.store(on as u8, Ordering::Relaxed);
+        on
+    };
+    if legacy {
+        ReactionOrder::Legacy
+    } else {
+        ReactionOrder::OpenMc
+    }
+}
+
+/// The reaction group one collision resolved to.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ReactionGroup {
+    /// Fission (analog: the incident neutron is absorbed).
+    Fission,
+    /// Capture.
+    Capture,
+    /// Elastic (free atom or S(alpha,beta)).
+    Elastic,
+    /// Discrete-level or continuum inelastic; carries the cutoff measured from the
+    /// START of the inelastic block (the level pick reuses it: no extra draw), or
+    /// `None` in the legacy order (the level draws its own variate).
+    Inelastic(Option<f64>),
+    /// (n,2n).
+    N2n,
+    /// (n,3n).
+    N3n,
+    /// MT=5.
+    Mt5,
+    /// The other neutron-emitting reactions.
+    Other,
+}
+
+/// Resolve the collision variate `xi` (as returned by [`scatter_ladder_xi`]) to a
+/// [`ReactionGroup`] in the chosen `order`. The absorption arms are identical in
+/// both orders; the scattering block `xi - absorption` is walked in OpenMC's MT
+/// order or in the legacy order.
+pub fn classify_reaction(order: ReactionOrder, x: &crate::material::nuclide::MicroXS, xi: f64) -> ReactionGroup {
+    if xi < x.fission {
+        return ReactionGroup::Fission;
+    }
+    if xi < x.absorption {
+        return ReactionGroup::Capture;
+    }
+    match order {
+        ReactionOrder::Legacy => {
+            if xi < x.absorption + x.inelastic {
+                ReactionGroup::Inelastic(None)
+            } else if xi < x.absorption + x.inelastic + x.n2n {
+                ReactionGroup::N2n
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+                ReactionGroup::N3n
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+                ReactionGroup::Mt5
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+                ReactionGroup::Other
+            } else {
+                ReactionGroup::Elastic
+            }
+        }
+        ReactionOrder::OpenMc => {
+            // cutoff = prn * (total - absorption); elastic is walked first.
+            let cutoff = xi - x.absorption;
+            let el = x.total - x.absorption - x.inelastic - x.n2n - x.n3n - x.mt5 - x.other;
+            if cutoff < el {
+                return ReactionGroup::Elastic;
+            }
+            let mut prob = el;
+            prob += x.mt5;
+            if prob >= cutoff && x.mt5 > 0.0 {
+                return ReactionGroup::Mt5;
+            }
+            prob += x.n2n;
+            if prob >= cutoff && x.n2n > 0.0 {
+                return ReactionGroup::N2n;
+            }
+            prob += x.n3n;
+            if prob >= cutoff && x.n3n > 0.0 {
+                return ReactionGroup::N3n;
+            }
+            prob += x.other;
+            if prob >= cutoff && x.other > 0.0 {
+                return ReactionGroup::Other;
+            }
+            // levels 51..90 and the MT=91 continuum: the remainder of the walk
+            ReactionGroup::Inelastic(Some((cutoff - prob).max(0.0)))
+        }
+    }
+}
+
 /// `uniform_distribution(-1, 1, seed)` (`random_dist.h`): `-1 + 2 * prn`.
 pub fn uniform_pm1(seed: &mut u64) -> f64 {
     -1.0 + (1.0 - (-1.0)) * prn(seed)
