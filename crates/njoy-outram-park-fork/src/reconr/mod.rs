@@ -1885,6 +1885,32 @@ struct RefineTolerances {
     errint: f64,
 }
 
+thread_local! {
+    /// Card-3 `errmax`/`errint` of the RECONR call running on this thread
+    /// (`None`: upstream's defaults). Set only by [`reconr_with_errtol`].
+    static ERRTOL_OVERRIDE: std::cell::Cell<Option<(f64, f64)>> = const { std::cell::Cell::new(None) };
+}
+
+/// [`reconr`] with the card-3 `errmax` and `errint` of the NJOY deck
+/// (`reconr.f90:428-430`: `errmax` defaults to `10*err` and is raised to at
+/// least `err`, `errint` to `err/20000`; pass those values for the defaults).
+///
+/// Both enter only the resonance-grid refinement (`resxs`, `reconr.f90:2388-2407`).
+///
+/// # Errors
+/// As [`reconr`].
+pub fn reconr_with_errtol(tape: &Tape, config: &ReconrConfig, errmax: f64, errint: f64) -> Result<ReconrResult, NjoyError> {
+    struct Reset;
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            ERRTOL_OVERRIDE.with(|c| c.set(None));
+        }
+    }
+    ERRTOL_OVERRIDE.with(|c| c.set(Some((errmax, errint))));
+    let _reset = Reset;
+    reconr(tape, config)
+}
+
 impl RefineTolerances {
     /// Upstream's card-4 defaults for a deck that gives only `err`.
     fn defaults(err: f64) -> Self {
@@ -2108,7 +2134,11 @@ fn refine_resonance_grid(
     #[cfg(target_arch = "wasm32")]
     use crate::wasm_par::*;
 
-    let tol = RefineTolerances::defaults(eps);
+    let mut tol = RefineTolerances::defaults(eps);
+    if let Some((errmax, errint)) = ERRTOL_OVERRIDE.with(|c| c.get()) {
+        tol.errmax = errmax;
+        tol.errint = errint;
+    }
     let n = seed_grid.len();
 
     // Phase 1: every seed window independently (`delta_at` is a pure function

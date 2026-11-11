@@ -195,13 +195,10 @@ fn run_reconr(c: &ReconrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         // ruina: errmax/errint default from err; the port's RECONR has only `err`.
         let errmax = if m.errmax <= 0.0 { 10.0 * m.err } else { m.errmax }.max(m.err);
         let errint = if m.errint <= 0.0 { m.err / 20000.0 } else { m.errint };
-        if errmax != 10.0 * m.err || errint != m.err / 20000.0 {
-            return Err(NjoyError::NotPorted("RECONR with non-default errmax/errint (card 3)"));
-        }
         if !m.enode.is_empty() {
             return Err(NjoyError::NotPorted("RECONR user grid energies enode (card 6)"));
         }
-        let res = reconr(&endf, &ReconrConfig { mat: m.mat, tolerance: m.err, temperature: m.tempr })?;
+        let res = crate::reconr::reconr_with_errtol(&endf, &ReconrConfig { mat: m.mat, tolerance: m.err, temperature: m.tempr }, errmax, errint)?;
         if c.materials.len() == 1 {
             let tape = crate::deck::pendf::reconr_tape(&endf, m.mat, &res, &c.label, &m.cards, m.err, m.tempr)?;
             let meta = PendfMeta { blocks: vec![(res.temperature_k, res.clone())], ..PendfMeta::default() };

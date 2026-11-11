@@ -632,3 +632,22 @@ fn test_07_groupr_gendf_whole_tape() {
     if std::env::var_os("KEEP_DECK_DIRS").is_none() { let _ = std::fs::remove_dir_all(ours.parent().unwrap()); }
     assert!(bl.len() > 300 && diffs.is_empty());
 }
+
+/// **Test 21 (Fe-58 ENDF/B-VIII.0 Beta4) RECONR with card-3 `errmax = 0.003`**
+/// (`err = 0.001`, `errint` default), the PENDF against NJOY2016.80 line by
+/// line (gh:#1369, #1366).
+///
+/// Prediction (before the run): with `errmax` threaded into the `resxs`
+/// refinement (`reconr.f90:2388-2407`; the default `10*err` was the only value
+/// before) the grid matches NJOY's; any residual would be a separate port defect.
+/// Result: see the commit message / survey table (2026-11-11).
+#[test]
+fn test_21_reconr_with_errmax_is_identical_line_for_line() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "21", Some("broadr"), "moder\n -21 28/\n") else { return };
+    let Some((ours, njoy)) = run_pair(&root, "t21", "n-026_Fe_058-ENDF8.0-Beta4.endf", &deck) else { return };
+    let d = differing_lines(&ours.join("tape28"), &njoy.join("tape28"));
+    println!("test 21 unit 28: {} differing lines", d.len());
+    assert!(d.is_empty(), "first differences {:?}", &d[..d.len().min(5)]);
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
