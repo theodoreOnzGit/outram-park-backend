@@ -273,12 +273,17 @@ const TEMP: f64 = 293.6;
 // order). Before: k_mean 0.994679 (k_std 4.92e-3), first 0.947756, last 0.957608.
 // After: k_mean 0.987865 (k_std 4.52e-3), first 0.889782, last 0.954621: -681 pcm,
 // 1.02 sigma (quadrature of the two k_std), so re-pinned, not a finding.
-// OUTRAM_MC_LEGACY_FISSION_NEUTRON_ORDER=1 should reproduce the old values (not
-// re-run for this test: ~6 min; the delta and stats pins were).
-const K_MEAN_PRE_258: f64 = 9.878_650_436_859_930_38e-1;
-const K_STD_PRE_258: f64 = 4.518_980_462_505_944_70e-3;
-const K_GEN_FIRST_PRE_258: f64 = 8.897_816_856_242_519_72e-1;
-const K_GEN_LAST_PRE_258: f64 = 9.546_207_091_314_036_22e-1;
+// Verified 2026-11-11: the (d) pin above passed (6.3 min) before (c) landed.
+// Re-pinned again 2026-11-11 (gh:#1386, #1444 c: OpenMC per-collision
+// create_fission_sites banking). Before: k_mean 0.987865 (k_std 4.52e-3), first
+// 0.889782, last 0.954621. After: k_mean 0.994298 (k_std 3.73e-3), first 0.910957,
+// last 1.014228: +643 pcm, 1.10 sigma (quadrature of the two k_std), so
+// re-pinned, not a finding. OUTRAM_MC_LEGACY_FISSION_BANKING=1 reproduces the old
+// values (verified 2026-11-11, 5.9 min, passes against the previous pin).
+const K_MEAN_PRE_258: f64 = 9.942_984_087_246_982_13e-1;
+const K_STD_PRE_258: f64 = 3.728_545_886_689_060_49e-3;
+const K_GEN_FIRST_PRE_258: f64 = 9.109_570_513_333_912_21e-1;
+const K_GEN_LAST_PRE_258: f64 = 1.014_228_059_342_313_19e0;
 
 fn heu() -> Option<Vec<Nuclide>> {
     let base =
