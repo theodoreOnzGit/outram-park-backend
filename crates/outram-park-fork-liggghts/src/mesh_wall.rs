@@ -360,6 +360,11 @@ impl MeshWall {
             .collect()
     }
 
+    /// Bounding sphere `(centre, radius)` of facet `i`.
+    pub(crate) fn facet_bound(&self, i: usize) -> (Vec3, f64) {
+        self.bounds[i]
+    }
+
     /// Write nodes back into `triangles`.
     pub(crate) fn set_nodes(&mut self, nodes: &[Nodes]) {
         for (t, n) in self.triangles.iter_mut().zip(nodes) {

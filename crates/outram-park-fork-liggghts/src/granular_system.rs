@@ -223,6 +223,8 @@ pub struct GranularSystem {
     /// Heat flux into each particle `[W]` from the last step's contact
     /// conduction (upstream's `heatFlux` per-atom property).
     heat_flux: Vec<f64>,
+    /// `fix massflow/mesh` counters, called after the particles move each step.
+    massflow: Vec<crate::massflow::MassFlowMesh>,
 }
 
 /// One candidate pair's resolved contact, staged by the parallel force loop so
@@ -321,6 +323,7 @@ impl GranularSystem {
             rebuild_now: false,
             heat: None,
             heat_flux: Vec::new(),
+            massflow: Vec::new(),
         };
         s.compute_forces_setup();
         Ok(s)
@@ -342,6 +345,27 @@ impl GranularSystem {
         self.xhold = self.particles.iter().map(|p| p.position).collect();
         self.compute_forces_setup();
         self
+    }
+
+    /// Attach a `fix massflow/mesh` counter (gh:#1416); it is invoked after
+    /// the particles move each step. Returns its index for
+    /// [`GranularSystem::massflow_vector`].
+    pub fn add_massflow_mesh(&mut self, mut fix: crate::massflow::MassFlowMesh) -> usize {
+        fix.rebuild_lists(&self.particles);
+        self.massflow.push(fix);
+        self.massflow.len() - 1
+    }
+
+    /// `f_<id>[index+1]` of massflow counter `fix` (0 mass, 1 count, 2 mass
+    /// rate, 3 count rate; see [`crate::massflow::MassFlowMesh::compute_vector`]).
+    pub fn massflow_vector(&mut self, fix: usize, index: usize) -> f64 {
+        self.massflow[fix].compute_vector(index)
+    }
+
+    /// The counter attached as `fix`.
+    #[must_use]
+    pub fn massflow(&self, fix: usize) -> &crate::massflow::MassFlowMesh {
+        &self.massflow[fix]
     }
 
     /// Emulate upstream's neighbour-list rebuild schedule (`neighbor <skin>`,
@@ -956,7 +980,19 @@ impl GranularSystem {
         for w in &mut self.moving_walls {
             w.advance(self.dt);
         }
+        // `post_integrate` of `fix massflow/mesh`: after the move, before the
+        // neighbour decision and the force evaluation.
+        for m in &mut self.massflow {
+            m.post_integrate(&self.particles, &self.tags, self.dt);
+        }
         self.refresh_moving_meshes();
+        // the mesh neighbour lists rebuild when the neighbour list does (every
+        // step when no skin was given)
+        if self.rebuild_now || self.neigh_skin <= 0.0 {
+            for m in &mut self.massflow {
+                m.rebuild_lists(&self.particles);
+            }
+        }
         self.compute_forces();
         if let Some(heat) = &self.heat {
             // post_force of `fix heat/gran/conduction`: the flux of this step
