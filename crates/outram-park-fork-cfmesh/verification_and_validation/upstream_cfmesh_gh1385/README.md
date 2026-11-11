@@ -656,3 +656,28 @@ of the crate: all pass after the three re-pins). Foam Studio's
 5. Brute-force searches still used where upstream uses the octree (`snap`,
    `SurfaceQueries::nearest_edge_point`), and other `scale(1.0 / x)` where
    upstream divides.
+
+## Rust-side differential, round 3 (gh:#1385, 2026-11-11)
+
+**Research, education and V&V only.** AI-run; not reviewed by a human yet.
+
+### Predictions, written before the fixes (committed first)
+
+Reading upstream's `volumeOptimizer*.C`, `knuppMetric.C`, `partTetMesh.C`
+against the port's `mesh_optimizer.rs` (the volume optimiser had never been
+compared operation by operation; only the Laplacian and surface steps had)
+shows arithmetic that associates or rounds differently: `evaluateGradientsExact`
+(`grad_v.scale(v/stab)` for `Vtri*gradV/stab`, `scale(2C/Vs13)` for
+`C*(2*gradVs)/Vs13`, `scale(1/x)` for `/x`, Hessian terms accumulated into the
+running sum instead of `gradGradF += ((A - B) - C) + D`, `pow(stab,3)` /
+`pow(Vs13,4)` as `r_powi`), `Tensor::det` (the port used a cofactor expansion),
+`tetrahedron::mag` (`(1.0/6.0)*x`, the port divided by 6), the final
+`points_ /= scale`, `knuppMetric`'s `n/d`, and `partTetMesh::updateVerticesSMP`'s
+centres (`c/=3` then `c*area`; `centre/cellVol`).
+Prediction: asmoOctree `meshOptimisation` moves from 71542/71650 bit-identical
+points toward 71650/71650 (the first differing point 38527 is a volume-optimiser
+move), the worst difference falls below 4.9e-4 m, and the sphere final meshes of
+all three generators stay bit-identical (their untangle never reaches a Newton
+step with a tolerance-sensitive decision). If a residual remains, the next
+suspects are `meshUntangler` (LP cut region), `optimizeLowQualityFaces` and the
+`findBadFaces` checks.
