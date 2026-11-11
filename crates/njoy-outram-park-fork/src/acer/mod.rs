@@ -446,6 +446,10 @@ pub struct AceDeck {
     esz_kerma: Option<Vec<(f64, f64)>>,
     /// MT=444 (damage energy) as HEATR's tape carries it, `(E [eV], sigma [eV-b])`.
     mt444: Option<Vec<(f64, f64)>>,
+    /// HEATR's card-2 `ed` (OpenMC #4022): `Some(0.0)` asks for the damage
+    /// energy (partial `444`) with NJOY's default displacement table,
+    /// `Some(ed)` overrides it with `ed` eV, `None` (default) asks for neither.
+    displacement_energy: Option<f64>,
 }
 
 impl Default for AceDeck {
@@ -461,6 +465,7 @@ impl Default for AceDeck {
             newfor: 1,
             esz_kerma: None,
             mt444: None,
+            displacement_energy: None,
         }
     }
 }
@@ -477,6 +482,15 @@ impl AceDeck {
     /// (`purr.f90:533-558`) instead of dividing MT=301 by the total.
     pub fn with_heatr_partials(mut self, partials: [bool; 3]) -> Self {
         self.heatr_partials = partials;
+        self
+    }
+
+    /// Ask HEATR for the damage-energy production (MT=444) with the threshold
+    /// displacement energy `ed` \[eV\] on its card 2 (OpenMC #4022,
+    /// `make_ace(displacement_energy=...)`): `0.0` is NJOY's built-in table.
+    /// The result is [`DeckModules`]' `damage_energy`; MT=301 is unchanged.
+    pub fn with_displacement_energy(mut self, ed: Option<f64>) -> Self {
+        self.displacement_energy = ed;
         self
     }
 
@@ -568,6 +582,9 @@ pub(crate) struct DeckModules {
     pub(crate) urr: Option<crate::purr::UrrProbabilityTables>,
     /// HEATR's KERMA; `None` without HEATR.
     pub(crate) kerma: Option<crate::heatr::Kerma>,
+    /// HEATR's damage-energy production MT=444 \[eV b\] when a displacement
+    /// energy was asked for (OpenMC #4022); `None` otherwise.
+    pub(crate) damage_energy: Option<crate::heatr::Kerma>,
     /// ACER's `newfor` (gh:#1449).
     pub newfor: i32,
     /// HEATR's MT=444 `(E, sigma)` pairs, when the deck's HEATR wrote it.
@@ -591,24 +608,41 @@ pub(crate) fn deck_modules(
     // an approximation of `nheat`/`gheat` on its own grid. It runs BEFORE
     // PURR, as in the deck (`... broadr -> heatr -> purr -> acer`), because
     // PURR's `rdheat` reads its MT=301 for the bands' heating column.
-    let wanted: Vec<i32> = [302, 318, 402]
+    let mut wanted: Vec<i32> = [302, 318, 402]
         .iter()
         .zip(deck.heatr_partials)
         .filter_map(|(&mt, on)| if on { Some(mt) } else { None })
         .collect();
+    // OpenMC #4022: `make_ace(displacement_energy=ed)` puts `ed` on HEATR's
+    // card 2 and asks for the damage-energy partial 444.
+    if deck.displacement_energy.is_some() && deck.heatr {
+        wanted.push(444);
+    }
     let (kerma, partial_kermas) = if deck.heatr {
-        let (total, parts) = crate::heatr::heatr_kerma_with_partials(tape, mat, pendf, &wanted, !deck.heatr_binary)?;
+        let (total, parts) = crate::heatr::heatr_kerma_with_partials_ed(
+            tape,
+            mat,
+            pendf,
+            &wanted,
+            !deck.heatr_binary,
+            deck.displacement_energy.unwrap_or(0.0),
+        )?;
         (Some(total), parts)
     } else {
         (None, Vec::new())
     };
+    let mut damage_energy = None;
     // `rdheat`: MT=302, 318, 402 by position of the three, `None` when absent.
     let mut partial: [Option<crate::heatr::Kerma>; 3] = [None, None, None];
     for (mt, k) in wanted.iter().zip(partial_kermas) {
         let slot = match mt {
             302 => 0,
             318 => 1,
-            _ => 2,
+            402 => 2,
+            _ => {
+                damage_energy = k;
+                continue;
+            }
         };
         partial[slot] = k;
     }
@@ -650,7 +684,7 @@ pub(crate) fn deck_modules(
         }),
         _ => kerma,
     };
-    Ok(DeckModules { urr, kerma, newfor: deck.newfor, mt444: deck.mt444.clone() })
+    Ok(DeckModules { urr, kerma, damage_energy, newfor: deck.newfor, mt444: deck.mt444.clone() })
 }
 
 /// ACER proper: the continuous-energy table from the PENDF and what

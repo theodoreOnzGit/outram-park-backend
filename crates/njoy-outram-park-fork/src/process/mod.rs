@@ -124,6 +124,11 @@ pub struct NuclearCrossSections {
     /// HEATR's heating (KERMA, MT=301, with photons transported). `None` only
     /// when HEATR was switched off.
     pub heating: Option<Kerma>,
+    /// HEATR's **damage-energy production** (MT=444, \[eV b\]) at the threshold
+    /// displacement energy of [`CrossSectionSettings::with_displacement_energy`]
+    /// (OpenMC #4022). `None` unless one was asked for, or when HEATR was
+    /// switched off.
+    pub damage_energy: Option<Kerma>,
     /// The **0 K (unbroadened) elastic** cross section, `(E [eV], σ [b])`,
     /// that DBRC (Doppler Broadening Rejection Correction) needs to accept or
     /// reject a sampled target velocity (GitHub #928). It is RECONR's MT=2 at
@@ -166,7 +171,13 @@ impl NuclearCrossSections {
     /// Those of ACER's block builders (a malformed MF=4/5/6 section).
     pub fn to_ace(&self) -> Result<AceTable, NjoyError> {
         let t_k = self.temperature.get::<kelvin>();
-        let modules = crate::acer::DeckModules { urr: self.urr.clone(), kerma: self.heating.clone(), newfor: 1, mt444: None };
+        let modules = crate::acer::DeckModules {
+            urr: self.urr.clone(),
+            kerma: self.heating.clone(),
+            damage_energy: self.damage_energy.clone(),
+            newfor: 1,
+            mt444: None,
+        };
         crate::acer::assemble(&self.tape, self.mat, &self.pendf, K_B_MEV * t_k, self.settings.ace_suffix, &modules)
     }
 
@@ -302,6 +313,7 @@ pub fn cross_sections_at(
     if !settings.heatr {
         deck = deck.without_heatr();
     }
+    deck = deck.with_displacement_energy(settings.displacement_energy);
     if let (Some(p), true) = (settings.purr, t_k > 0.0) {
         deck = deck.with_purr(p.bands, p.ladders, p.samples);
     }
@@ -313,6 +325,7 @@ pub fn cross_sections_at(
         pendf,
         urr: modules.urr,
         heating: modules.kerma,
+        damage_energy: modules.damage_energy,
         elastic_0k,
         settings: settings.clone(),
     })

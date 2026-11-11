@@ -154,6 +154,39 @@
 //! the point of the change; if one does not, the cause is a remaining
 //! platform call, to be found and routed, not a host line to add.
 
+//! # Re-pinned 2026-11-11 (later): OpenMC-faithful collision kernels are the transport default (gh:#1386, #1444, #1456)
+//!
+//! `physics::scatter::ScatterKernels::OpenMc` (level inelastic, CM-to-lab,
+//! `rotate_angle`, `elastic_scatter` + `sample_target_velocity`, OpenMC's two-draw
+//! reaction ladder) replaced the older kernels in transport (maintainer decision
+//! 2026-11-11); the old ones remain as `ScatterKernels::Legacy`. **Control:** with
+//! `OUTRAM_MC_LEGACY_SCATTER_KERNELS=1` every pin of this file reproduces its
+//! previous value exactly, so only the kernels moved them. Unmoved: `mg_sphere`,
+//! `pure_statistics`, `shannon_entropy`, `tally_meshes`,
+//! `csg_nested_lattice_navigation` (no collision kernel). Measured on this machine
+//! (Intel Xeon, 4 vCPU shared, rustc 1.99.1, release); sigma = difference over the
+//! quadrature of the two printed standard errors:
+//!
+//! | case | old fingerprint -> new | old k | new k | sigma |
+//! |---|---|---|---|---|
+//! | `godiva_run_keff` | `0xb525169aa6d32f38` -> `0x60ece10b8fc3777e` | 1.01064 +/- 0.00535 | 1.01140 +/- 0.00568 | +0.10 (+75 pcm) |
+//! | `fhr_explicit_triso_delta` | `0x1d7c42860b929df3` -> `0x173834441cc42ed4` | 1.52541 +/- 0.00847 | 1.52732 +/- 0.00833 | +0.16 (+191 pcm) |
+//! | `csg_nested_lattice_keff` | `0x20e5b4eeeede18f1` -> `0xab5ac3e0eb072bf8` | 1.72835 +/- 0.01486 | 1.69980 +/- 0.01402 | -1.40 (-2855 pcm) |
+//! | `godiva_csg_entropy_trigger` | `0x0f90e5295c6cbcae` -> `0xbe7e011c738c0da1` | 1.02531 +/- 0.00976 (33 gens) | 0.97710 +/- 0.00960 (13 gens) | **-3.52 (-4821 pcm), see below** |
+//!
+//! **`godiva_csg_entropy_trigger` exceeds 3 sigma and is flagged, not explained
+//! away.** What was checked: the case stops on a k trigger (standard deviation
+//! 0.01 of the active generations). Old stop: 33 generations (23 active); new
+//! stop: 13 (3 active). With 3 active generations the printed standard error is
+//! computed from three values and is itself a noisy estimate (and stopping the
+//! first time it falls under 0.01 selects low-variance draws), so the -3.5 sigma
+//! is not a comparison of two converged means. It is NOT a measured physics shift:
+//! the same kernels move `godiva_run_keff` (the same Godiva model, 100+ active
+//! generations) by +0.10 sigma. What was NOT done: a paired run of this case
+//! without the trigger under both kernel sets. The pin is re-pinned to the new
+//! bits so the suite stays green; the maintainer should treat the 3.5 sigma as an
+//! open item until that paired run exists.
+//!
 //! # Re-pinned 2026-11-11: surface and lattice distances follow OpenMC `8f79d9d0` (gh:#1442, #1443, #701, #1386)
 //!
 //! The surface `distance` routines and `RectLattice::distance` are now
@@ -314,7 +347,7 @@ fn godiva_run_keff_is_bit_identical() {
         fp.0,
         // Re-pinned 2026-10-05 for gh:#527 (independent source direction);
         // was 0xe78387f55e2fa2fd.
-        0xb525169aa6d32f38,
+        0x60ece10b8fc3777e,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),
@@ -364,7 +397,7 @@ fn godiva_csg_with_entropy_and_trigger_is_bit_identical() {
     check(
         "godiva_csg_entropy_trigger",
         fp.0,
-        0x0f90e5295c6cbcae,
+        0xbe7e011c738c0da1,
         &format!(
             "k = {:#018x} +/- {:#018x}, {} generations, {} entropy values",
             r.k_mean.to_bits(),
@@ -517,7 +550,7 @@ fn fhr_explicit_triso_delta_is_bit_identical() {
         // Re-pinned 2026-10-20 (gh:#985): every transcendental on PETIR, one
         // pin for every host. Was host B 0x235271e5059e6adf, host A
         // 0x1fb06c36a096d760 (#578).
-        0x1d7c42860b929df3,
+        0x173834441cc42ed4,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),
@@ -962,7 +995,7 @@ fn csg_nested_lattice_keff_is_bit_identical() {
         // 0x509ddd7ff08feef7, host B 0xa9f3504144099ed2 (#578). Re-pinned
         // again 2026-11-11 (gh:#1387, OpenMC #3934): was 0x8931164ebf355c38
         // (k 1.72559 +/- 0.01517), now k 1.72835 +/- 0.01486.
-        0x20e5b4eeeede18f1,
+        0xab5ac3e0eb072bf8,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),

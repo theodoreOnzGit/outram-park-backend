@@ -107,9 +107,6 @@ use crate::material::nuclide::{Inelastic, Nuclide};
 // hit E0603.
 pub use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
-use crate::physics::scatter::{
-    free_gas_elastic_scatter_dbrc, rotate_direction, two_body_scatter, two_body_scatter_with_mu,
-};
 use crate::gpu::batched_event::{EventBatch, EventSphere, EventTablesF32, FISS_NONE};
 use crate::gpu::collision_grid::CollisionTables;
 use crate::rng::distributions::{isotropic_direction, watt};
@@ -597,7 +594,7 @@ impl PowerIteration {
         // one draw did both, so every first-generation neutron flew radially
         // outward and generation 1 leaked far too much (Godiva: k_1 = 0.468
         // at 5000 neutrons, seed 1).
-        let source: Vec<Site> = (0..settings.n_particles)
+        let mut source: Vec<Site> = (0..settings.n_particles)
             .map(|_| {
                 let (dx, dy, dz) = isotropic_direction(&mut seed);
                 let rr = radius_cm * prn(&mut seed).r_cbrt(); // uniform-in-volume radius
@@ -611,6 +608,9 @@ impl PowerIteration {
             })
             .collect();
         // ANCHOR_END: initial_source
+        if settings.seeding != crate::rng::openmc_seeding::SeedingMode::Outram {
+            source = sphere_source_openmc(radius_cm, settings);
+        }
         Self::from_source(radius_cm, settings, source, seed)
     }
 
@@ -695,7 +695,17 @@ impl PowerIteration {
         let mut production = 0.0_f64;
         let mut counts = HistoryCounts::default();
 
-        for site in &self.source {
+        for (hist_idx, site) in self.source.iter().enumerate() {
+            // SeedingMode::OpenMc: this history on OpenMC's tracking and URR
+            // seeds; the default keeps one stream, copied in and out so it is
+            // bit-identical.
+            let st = self.settings.seeding.openmc_history_seeds(
+                self.settings.seed,
+                n_particles,
+                gen,
+                hist_idx,
+            );
+            let mut hs = st.map_or(self.seed, |s| s.0);
             production += transport_history(
                 *site,
                 &self.sphere,
@@ -704,9 +714,13 @@ impl PowerIteration {
                 temp,
                 self.k_running,
                 &mut next_bank,
-                &mut self.seed,
+                &mut hs,
+                st.map(|s| s.1),
                 &mut counts,
             );
+            if st.is_none() {
+                self.seed = hs;
+            }
         }
 
         let k_gen = production / n_particles as f64;
@@ -739,7 +753,7 @@ impl PowerIteration {
             // Sub-critical to extinction (or no data): nothing left to iterate.
             self.finished = true;
         } else {
-            self.source = resample(&next_bank, n_particles, &mut self.seed);
+            self.source = resample_gen(&self.settings, gen, &next_bank, n_particles, &mut self.seed);
         }
         Some(GenerationReport {
             index: gen,
@@ -925,6 +939,9 @@ pub fn run_keff_cpu_multi(
             }
         })
         .collect();
+    if settings.seeding != crate::rng::openmc_seeding::SeedingMode::Outram {
+        source = sphere_source_openmc(radius_cm, settings);
+    }
 
     let n_gen = settings.n_inactive + settings.n_active;
     let mut k_by_generation = Vec::with_capacity(n_gen);
@@ -949,7 +966,13 @@ pub fn run_keff_cpu_multi(
                     // locally — never shared across threads.
                     let hist_seed =
                         future_seed((hist_idx as u64).wrapping_mul(HIST_STRIDE), gen_base_seed);
-                    let mut seed = hist_seed;
+                    let st = settings.seeding.openmc_history_seeds(
+                        settings.seed,
+                        source.len(),
+                        gen,
+                        hist_idx,
+                    );
+                    let mut seed = st.map_or(hist_seed, |s| s.0);
                     let mut local_bank: Vec<Site> = Vec::new();
                     let production = transport_history(
                         source[hist_idx],
@@ -960,6 +983,7 @@ pub fn run_keff_cpu_multi(
                         k_running,
                         &mut local_bank,
                         &mut seed,
+                        st.map(|s| s.1),
                         // Not reported by this backend (see `PowerIteration`).
                         &mut HistoryCounts::default(),
                     );
@@ -986,7 +1010,7 @@ pub fn run_keff_cpu_multi(
             if next_bank.is_empty() {
                 break;
             }
-            source = resample(&next_bank, settings.n_particles, &mut src_seed);
+            source = resample_gen(settings, gen, &next_bank, settings.n_particles, &mut src_seed);
         }
     });
 
@@ -1130,6 +1154,9 @@ pub fn run_keff_gpu_inner(
             }
         })
         .collect();
+    if settings.seeding != crate::rng::openmc_seeding::SeedingMode::Outram {
+        source = sphere_source_openmc(radius_cm, settings);
+    }
 
     let n_gen = settings.n_inactive + settings.n_active;
     let mut k_by_generation = Vec::with_capacity(n_gen);
@@ -1147,6 +1174,14 @@ pub fn run_keff_gpu_inner(
         let mut production = 0.0_f64;
 
         for (i, site) in source.iter().enumerate() {
+            // SeedingMode::OpenMc: OpenMC's tracking seed for this history.
+            let st = settings.seeding.openmc_history_seeds(
+                settings.seed,
+                settings.n_particles,
+                gen,
+                i,
+            );
+            let mut hs = st.map_or(seed, |s| s.0);
             production += transport_history_tabulated(
                 *site,
                 Some(birth_sigma[i] as f64),
@@ -1157,8 +1192,11 @@ pub fn run_keff_gpu_inner(
                 temp,
                 k_running,
                 &mut next_bank,
-                &mut seed,
+                &mut hs,
             );
+            if st.is_none() {
+                seed = hs;
+            }
         }
 
         let k_gen = production / settings.n_particles as f64;
@@ -1171,7 +1209,7 @@ pub fn run_keff_gpu_inner(
         if next_bank.is_empty() {
             break;
         }
-        source = resample(&next_bank, settings.n_particles, &mut seed);
+        source = resample_gen(settings, gen, &next_bank, settings.n_particles, &mut seed);
     }
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
@@ -1328,6 +1366,9 @@ pub fn run_keff_gpu_batched(
             }
         })
         .collect();
+    if settings.seeding != crate::rng::openmc_seeding::SeedingMode::Outram {
+        source = sphere_source_openmc(radius_cm, settings);
+    }
 
     let n_gen = settings.n_inactive + settings.n_active;
     let mut k_by_generation = Vec::with_capacity(n_gen);
@@ -1346,10 +1387,21 @@ pub fn run_keff_gpu_batched(
                 r: s.r,
                 u: s.u,
                 e: s.e,
-                seed: future_seed(
-                    (hist_idx as u64).wrapping_mul(BATCH_HIST_STRIDE),
-                    gen_base_seed,
-                ),
+                // SeedingMode::OpenMc: OpenMC's tracking seed. The GPU draws are
+                // not OpenMC's values (raw LCG state, no PCG output permutation,
+                // `batched_flight.wgsl`); the seed layout is.
+                seed: settings
+                    .seeding
+                    .openmc_history_seeds(settings.seed, source.len(), gen, hist_idx)
+                    .map_or_else(
+                        || {
+                            future_seed(
+                                (hist_idx as u64).wrapping_mul(BATCH_HIST_STRIDE),
+                                gen_base_seed,
+                            )
+                        },
+                        |s| s.0,
+                    ),
             })
             .collect();
 
@@ -1468,7 +1520,7 @@ pub fn run_keff_gpu_batched(
         if next_bank.is_empty() {
             break;
         }
-        source = resample(&next_bank, settings.n_particles, &mut src_seed);
+        source = resample_gen(settings, gen, &next_bank, settings.n_particles, &mut src_seed);
     }
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
@@ -1510,7 +1562,12 @@ const EVENT_MAX_EVENTS: usize = 100_000;
 /// Build a fresh, all-alive [`EventBatch`] for one generation from the source
 /// sites, giving each history its own independent LCG sub-stream (the same
 /// jump-ahead striding as [`run_keff_cpu_multi`], via [`HIST_STRIDE`]).
-fn build_event_batch(source: &[Site], gen_base_seed: u64) -> EventBatch {
+fn build_event_batch(
+    source: &[Site],
+    gen_base_seed: u64,
+    settings: &KeffSettings,
+    gen: usize,
+) -> EventBatch {
     let n = source.len();
     let mut pos = Vec::with_capacity(3 * n);
     let mut dir = Vec::with_capacity(3 * n);
@@ -1518,7 +1575,14 @@ fn build_event_batch(source: &[Site], gen_base_seed: u64) -> EventBatch {
     let mut seed_lo = Vec::with_capacity(n);
     let mut seed_hi = Vec::with_capacity(n);
     for (hist_idx, s) in source.iter().enumerate() {
-        let seed = future_seed((hist_idx as u64).wrapping_mul(HIST_STRIDE), gen_base_seed);
+        // SeedingMode::OpenMc: OpenMC's tracking seed (layout only, see the batched driver).
+        let seed = settings
+            .seeding
+            .openmc_history_seeds(settings.seed, n, gen, hist_idx)
+            .map_or_else(
+                || future_seed((hist_idx as u64).wrapping_mul(HIST_STRIDE), gen_base_seed),
+                |s| s.0,
+            );
         pos.push(s.r.x as f32);
         pos.push(s.r.y as f32);
         pos.push(s.r.z as f32);
@@ -1709,6 +1773,9 @@ fn run_event_power_iteration(
             }
         })
         .collect();
+    if settings.seeding != crate::rng::openmc_seeding::SeedingMode::Outram {
+        source = sphere_source_openmc(radius_cm, settings);
+    }
 
     let n_gen = settings.n_inactive + settings.n_active;
     let mut k_by_generation = Vec::with_capacity(n_gen);
@@ -1717,7 +1784,7 @@ fn run_event_power_iteration(
 
     for gen in 0..n_gen {
         let gen_base_seed = future_seed((gen as u64).wrapping_mul(GEN_STRIDE), settings.seed);
-        let mut batch = build_event_batch(&source, gen_base_seed);
+        let mut batch = build_event_batch(&source, gen_base_seed, settings, gen);
 
         // Advance the whole generation to extinction — resident on the GPU when a
         // context is present, else on the CPU mirror (both Android-buildable at the
@@ -1763,7 +1830,7 @@ fn run_event_power_iteration(
         if next_bank.is_empty() {
             break;
         }
-        source = resample(&next_bank, settings.n_particles, &mut src_seed);
+        source = resample_gen(settings, gen, &next_bank, settings.n_particles, &mut src_seed);
     }
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
@@ -1864,7 +1931,13 @@ fn collide_batched(
         nuc.xs_at_energy(e, temp)
     };
 
-    let xi = prn(seed) * x.total;
+    let xi = crate::physics::scatter::scatter_ladder_xi(
+                nuc.scatter_kernels(),
+                prn(seed) * x.total,
+                x.absorption,
+                x.total,
+                seed,
+            );
     if xi < x.fission {
         let nu_bar = if x.fission > 0.0 {
             x.nu_fission / x.fission
@@ -1890,10 +1963,7 @@ fn collide_batched(
             // carries none for this level -- sampling every inelastic
             // collision isotropically understates <mu>, inflating
             // Sigma_tr, suppressing leakage and raising k.
-            Inelastic::Level { q, mt } => match nuc.sample_inelastic_mu_cm(mt, e, seed) {
-                Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, seed),
-                None => two_body_scatter(e, u, nuc.awr, q, seed),
-            },
+            Inelastic::Level { q, mt } => nuc.sample_level_inelastic_scatter(mt, q, e, u, seed),
             Inelastic::Continuum { q } => nuc.sample_inelastic_emission(91, e, u, q, seed),
         };
         (0.0, CollisionResult::Scatter { e: e2, u: u2 })
@@ -2036,21 +2106,7 @@ fn collide_batched(
     } else {
         // Bound-atom S(alpha, beta) below the table cutoff, else free-gas —
         // see the equivalent branch in [`transport_history`].
-        let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
-            (e_out, rotate_direction(u, mu_lab, seed))
-        } else {
-            {
-                // Free-gas: below 400 kT the target's own thermal motion is
-                // sampled, so the neutron can gain energy and the population has
-                // a Maxwellian fixed point (bead op-50vu). Above it this is the
-                // old target-at-rest kinematics.
-                let kt = nuc.free_gas_kt(temp);
-                let mu_cm = nuc
-                    .sample_elastic_mu_cm(e, seed)
-                    .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                free_gas_elastic_scatter_dbrc(e, u, nuc.awr, kt, mu_cm, seed, nuc.dbrc_table())
-            }
-        };
+        let (e2, u2) = nuc.sample_elastic_collision(e, u, temp, seed);
         (0.0, CollisionResult::Scatter { e: e2, u: u2 })
     }
 }
@@ -2074,6 +2130,7 @@ fn transport_history(
     k_running: f64,
     next_bank: &mut Vec<Site>,
     seed: &mut u64,
+    urr_start: Option<u64>,
     counts: &mut HistoryCounts,
 ) -> f64 {
     // OpenMC's `data::energy_max[neutron]` (GitHub #463 item 2).
@@ -2083,7 +2140,8 @@ fn transport_history(
     let mut stack: Vec<Site> = vec![site];
     // The URR probability-table stream, OpenMC's `STREAM_URR_PTABLE`: see
     // `transport_csg::transport_history_vr`, which this mirrors (GitHub #407).
-    let mut urr_seed = future_seed(5 * crate::rng::lcg::DEFAULT_STRIDE, *seed);
+    // Under `SeedingMode::OpenMc` it starts from OpenMC's `STREAM_URR_PTABLE` seed.
+    let mut urr_seed = urr_start.unwrap_or_else(|| future_seed(5 * crate::rng::lcg::DEFAULT_STRIDE, *seed));
 
     while let Some(start) = stack.pop() {
         counts.tracked += 1;
@@ -2133,7 +2191,13 @@ fn transport_history(
             // elastic split. The final elastic bucket (total − absorption −
             // inelastic − n2n) sweeps up any remaining scattering as elastic-like.
             // ANCHOR: reaction_choice
-            let xi = prn(seed) * x.total;
+            let xi = crate::physics::scatter::scatter_ladder_xi(
+                nuc.scatter_kernels(),
+                prn(seed) * x.total,
+                x.absorption,
+                x.total,
+                seed,
+            );
             if xi < x.fission {
                 // ANCHOR: fission_bank
                 let nu_bar = if x.fission > 0.0 {
@@ -2172,10 +2236,7 @@ fn transport_history(
                     // carries none for this level -- sampling every inelastic
                     // collision isotropically understates <mu>, inflating
                     // Sigma_tr, suppressing leakage and raising k.
-                    Inelastic::Level { q, mt } => match nuc.sample_inelastic_mu_cm(mt, e, seed) {
-                        Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, seed),
-                        None => two_body_scatter(e, u, nuc.awr, q, seed),
-                    },
+                    Inelastic::Level { q, mt } => nuc.sample_level_inelastic_scatter(mt, q, e, u, seed),
                     Inelastic::Continuum { q } => nuc.sample_inelastic_emission(91, e, u, q, seed),
                 };
                 // ANCHOR_END: inelastic
@@ -2306,29 +2367,7 @@ fn transport_history(
                 // ENDF MF=4 angular distribution when the nuclide carries one
                 // (HIGH tier) — fast neutrons scatter forward off heavy nuclei,
                 // which raises bare-sphere leakage — else isotropic-CM.
-                let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
-                    (e_out, rotate_direction(u, mu_lab, seed))
-                } else {
-                    {
-                        // Free-gas: below 400 kT the target's own thermal motion
-                        // is sampled, so the neutron can gain energy and the
-                        // population has a Maxwellian fixed point (bead op-50vu).
-                        // Above it this is the old target-at-rest kinematics.
-                        let kt = nuc.free_gas_kt(temp);
-                        let mu_cm = nuc
-                            .sample_elastic_mu_cm(e, seed)
-                            .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                        free_gas_elastic_scatter_dbrc(
-                            e,
-                            u,
-                            nuc.awr,
-                            kt,
-                            mu_cm,
-                            seed,
-                            nuc.dbrc_table(),
-                        )
-                    }
-                };
+                let (e2, u2) = nuc.sample_elastic_collision(e, u, temp, seed);
                 e = e2;
                 u = u2;
             }
@@ -2414,7 +2453,13 @@ fn transport_history_tabulated(
 
             // Reaction partition — VERBATIM from `transport_history`; only the
             // Sigma_t *source* above differs, never the RNG draws below.
-            let xi = prn(seed) * x.total;
+            let xi = crate::physics::scatter::scatter_ladder_xi(
+                nuc.scatter_kernels(),
+                prn(seed) * x.total,
+                x.absorption,
+                x.total,
+                seed,
+            );
             if xi < x.fission {
                 let nu_bar = if x.fission > 0.0 {
                     x.nu_fission / x.fission
@@ -2441,10 +2486,7 @@ fn transport_history_tabulated(
                     // carries none for this level -- sampling every inelastic
                     // collision isotropically understates <mu>, inflating
                     // Sigma_tr, suppressing leakage and raising k.
-                    Inelastic::Level { q, mt } => match nuc.sample_inelastic_mu_cm(mt, e, seed) {
-                        Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, seed),
-                        None => two_body_scatter(e, u, nuc.awr, q, seed),
-                    },
+                    Inelastic::Level { q, mt } => nuc.sample_level_inelastic_scatter(mt, q, e, u, seed),
                     Inelastic::Continuum { q } => nuc.sample_inelastic_emission(91, e, u, q, seed),
                 };
                 e = e2;
@@ -2553,29 +2595,7 @@ fn transport_history_tabulated(
                 // Kept in lockstep with [`transport_history`] — the two differ
                 // only in where Sigma_t comes from, so the bound-atom
                 // S(alpha, beta) branch must be present here too.
-                let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
-                    (e_out, rotate_direction(u, mu_lab, seed))
-                } else {
-                    {
-                        // Free-gas: below 400 kT the target's own thermal motion
-                        // is sampled, so the neutron can gain energy and the
-                        // population has a Maxwellian fixed point (bead op-50vu).
-                        // Above it this is the old target-at-rest kinematics.
-                        let kt = nuc.free_gas_kt(temp);
-                        let mu_cm = nuc
-                            .sample_elastic_mu_cm(e, seed)
-                            .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                        free_gas_elastic_scatter_dbrc(
-                            e,
-                            u,
-                            nuc.awr,
-                            kt,
-                            mu_cm,
-                            seed,
-                            nuc.dbrc_table(),
-                        )
-                    }
-                };
+                let (e2, u2) = nuc.sample_elastic_collision(e, u, temp, seed);
                 e = e2;
                 u = u2;
             }
@@ -2586,6 +2606,56 @@ fn transport_history_tabulated(
 
 /// Resample `n` sites for the next generation by uniform combing
 /// ([`crate::physics::fission::comb_resample`], GitHub #460).
+/// The first-generation source of the sphere drivers under
+/// [`SeedingMode::OpenMc`](crate::rng::openmc_seeding::SeedingMode::OpenMc):
+/// source particle `i` is sampled by the port's own sphere sampler (isotropic
+/// position direction, `cbrt` radius, independent flight direction, Watt energy)
+/// on OpenMC's `STREAM_SOURCE` seed of particle `i`
+/// ([`crate::rng::openmc_seeding::OpenMcRunLayout::source_seed`]). The stream is
+/// OpenMC's; the sampler is not (a bare-sphere volume source is not an OpenMC
+/// distribution the CSG box source reproduces), so this fixes where the draws
+/// start, not their consumption order.
+fn sphere_source_openmc(radius_cm: f64, settings: &KeffSettings) -> Vec<Site> {
+    let total_gen = match settings.seeding {
+        crate::rng::openmc_seeding::SeedingMode::OpenMc { total_gen } => total_gen,
+        crate::rng::openmc_seeding::SeedingMode::Outram => 0,
+    };
+    let mut layout = crate::rng::openmc_seeding::OpenMcRunLayout::single_rank(
+        settings.seed as i64,
+        settings.n_particles as i64,
+        1,
+    );
+    layout.total_gen = total_gen;
+    (0..settings.n_particles)
+        .map(|i| {
+            let mut seed = layout.source_seed(i as i64);
+            let (dx, dy, dz) = isotropic_direction(&mut seed);
+            let rr = radius_cm * prn(&mut seed).r_cbrt();
+            let (ux, uy, uz) = isotropic_direction(&mut seed);
+            Site {
+                r: Position::new(rr * dx, rr * dy, rr * dz),
+                u: Direction::new(ux, uy, uz),
+                e: watt(&mut seed, settings.watt_a, settings.watt_b),
+            }
+        })
+        .collect()
+}
+
+/// The next generation's source from generation `gen`'s bank: the run's comb
+/// ([`resample`]) or, under `SeedingMode::OpenMc`, `synchronize_bank`'s comb.
+fn resample_gen(settings: &KeffSettings, gen: usize, bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site> {
+    use crate::rng::openmc_seeding::{comb_resample_openmc, OpenMcRunLayout, SeedingMode};
+    match settings.seeding {
+        SeedingMode::Outram => resample(bank, n, seed),
+        SeedingMode::OpenMc { total_gen } => {
+            let mut layout = OpenMcRunLayout::single_rank(settings.seed as i64, settings.n_particles as i64, 1);
+            layout.total_gen = total_gen;
+            let mut s = layout.bank_comb_seed(gen as i64 + 1, 1);
+            comb_resample_openmc(bank, n, &mut s)
+        }
+    }
+}
+
 fn resample(bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site> {
     // Uniform combing, as OpenMC's `synchronize_bank` (GitHub #460). ~~Each of
     // the `n` sites was drawn independently with replacement~~ until

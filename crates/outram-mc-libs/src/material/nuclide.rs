@@ -305,6 +305,11 @@ pub struct Nuclide {
     /// [`Nuclide::with_target_at_rest`] and [`Nuclide::free_gas_kt`]. `false`
     /// (the default, and what every constructor produces) is the physics.
     target_at_rest: bool,
+    /// `true` after [`Nuclide::with_legacy_scatter_kernels`]: collisions on this
+    /// nuclide use the pre-2026-11-11 kernels and the single-variate reaction
+    /// ladder instead of the OpenMC-faithful defaults
+    /// ([`crate::physics::scatter::ScatterKernels`]).
+    legacy_scatter_kernels: bool,
     /// kT \[eV\] of the temperature this nuclide's pointwise data were
     /// broadened to: an ACE table's own `kT`, or `k_B * T` for a nuclide built
     /// from ENDF at `T`. `None` on the LOW (`Core`, multipole) tier, whose
@@ -618,6 +623,7 @@ impl Nuclide {
             // LOW tier reads no tape, so there is no MF=6 to carry.
             continuum: ContinuumLaws::default(),
             target_at_rest: false,
+            legacy_scatter_kernels: false,
             data_kt_ev: None,
             nu_frozen_at: None,
             chi_frozen_at: None,
@@ -882,6 +888,109 @@ impl Nuclide {
     pub fn with_target_at_rest(mut self) -> Self {
         self.target_at_rest = true;
         self
+    }
+
+    /// Select the **legacy** collision kernels for this nuclide (the named
+    /// alternative to the OpenMC-faithful default,
+    /// [`crate::physics::scatter::ScatterKernels::Legacy`]): `two_body_scatter_with_mu`,
+    /// `free_gas_elastic_scatter_dbrc`, `rotate_direction`, `cm_to_lab`, and the
+    /// single-variate reaction ladder. For reproducing a number recorded before
+    /// the 2026-11-11 switch (gh:#1386); the same distributions, a different
+    /// last bit and draw order.
+    pub fn with_legacy_scatter_kernels(mut self) -> Self {
+        self.legacy_scatter_kernels = true;
+        self
+    }
+
+    /// The collision kernels transport uses on this nuclide: the legacy set when
+    /// [`with_legacy_scatter_kernels`](Self::with_legacy_scatter_kernels) was
+    /// applied or `OUTRAM_MC_LEGACY_SCATTER_KERNELS` is set, else OpenMC's.
+    pub fn scatter_kernels(&self) -> crate::physics::scatter::ScatterKernels {
+        if self.legacy_scatter_kernels {
+            crate::physics::scatter::ScatterKernels::Legacy
+        } else {
+            crate::physics::scatter::scatter_kernels_from_env()
+        }
+    }
+
+    /// A discrete-level inelastic collision (MT 51..90): `(E', u')`.
+    ///
+    /// OpenMC kernels (default): the level's CM cosine from its MF=4 law (else
+    /// `uniform_distribution(-1, 1)`), drawn first, as `UncorrelatedAngleEnergy`
+    /// does, then `LevelInelastic` energy, the CM-to-lab block of
+    /// `inelastic_scatter` and `rotate_angle`. Legacy: `two_body_scatter_with_mu`.
+    pub fn sample_level_inelastic_scatter(
+        &self,
+        mt: i32,
+        q: f64,
+        e: f64,
+        u: crate::geometry::position::Direction,
+        seed: &mut u64,
+    ) -> (f64, crate::geometry::position::Direction) {
+        use crate::physics::scatter::{
+            level_inelastic_scatter_openmc, two_body_scatter, two_body_scatter_with_mu,
+            uniform_pm1, ScatterKernels,
+        };
+        let mu_cm = self.sample_inelastic_mu_cm(mt, e, seed);
+        match self.scatter_kernels() {
+            ScatterKernels::OpenMc => {
+                let mu = mu_cm.unwrap_or_else(|| uniform_pm1(seed));
+                level_inelastic_scatter_openmc(e, u, self.awr, q, mu, seed)
+            }
+            ScatterKernels::Legacy => match mu_cm {
+                Some(mu) => two_body_scatter_with_mu(e, u, self.awr, q, mu, seed),
+                None => two_body_scatter(e, u, self.awr, q, seed),
+            },
+        }
+    }
+
+    /// An elastic collision at material temperature `mat_temp_k`: `(E', u')`.
+    /// Below the S(alpha,beta) cutoff of a nuclide carrying a table the bound-atom
+    /// law is used (then `rotate_angle`); otherwise the free-gas elastic kernel.
+    ///
+    /// OpenMC kernels (default): `elastic_scatter` with `sample_target_velocity`
+    /// (CXS / RVS / DBRC), the target velocity drawn BEFORE the CM cosine, the
+    /// target at rest when the URR probability table is in use
+    /// (`use_ptable`, `needs_urr_draw`) or under `with_target_at_rest`. Legacy:
+    /// the CM cosine first, then `free_gas_elastic_scatter_dbrc`.
+    pub fn sample_elastic_collision(
+        &self,
+        e: f64,
+        u: crate::geometry::position::Direction,
+        mat_temp_k: f64,
+        seed: &mut u64,
+    ) -> (f64, crate::geometry::position::Direction) {
+        use crate::physics::scatter::{
+            elastic_scatter_openmc, free_gas_elastic_scatter_dbrc, rotate_kernel, uniform_pm1,
+            ScatterKernels,
+        };
+        let kernels = self.scatter_kernels();
+        if let Some((e_out, mu_lab)) = self.sample_thermal(e, seed) {
+            return (e_out, rotate_kernel(kernels, u, mu_lab, seed));
+        }
+        let kt = self.free_gas_kt(mat_temp_k);
+        match kernels {
+            ScatterKernels::OpenMc => {
+                let use_ptable = self.target_at_rest || self.needs_urr_draw(e);
+                let (e_out, u_out, _mu_lab) = elastic_scatter_openmc(
+                    e,
+                    u,
+                    self.awr,
+                    kt,
+                    self.dbrc_table(),
+                    use_ptable,
+                    |s| self.sample_elastic_mu_cm(e, s).unwrap_or_else(|| uniform_pm1(s)),
+                    seed,
+                );
+                (e_out, u_out)
+            }
+            ScatterKernels::Legacy => {
+                let mu_cm = self
+                    .sample_elastic_mu_cm(e, seed)
+                    .unwrap_or_else(|| 2.0 * crate::rng::lcg::prn(seed) - 1.0);
+                free_gas_elastic_scatter_dbrc(e, u, self.awr, kt, mu_cm, seed, self.dbrc_table())
+            }
+        }
     }
 
     /// Whether [`with_target_at_rest`](Self::with_target_at_rest) has been
@@ -2383,6 +2492,7 @@ impl Nuclide {
                 mt5,
             },
             target_at_rest: false,
+            legacy_scatter_kernels: false,
             data_kt_ev: Some(ace.kt_ev),
             nu_frozen_at: None,
             chi_frozen_at: None,
@@ -2941,6 +3051,7 @@ impl Nuclide {
             thermal: None,
             continuum,
             target_at_rest: false,
+            legacy_scatter_kernels: false,
             data_kt_ev: Some(crate::physics::scatter::K_BOLTZMANN_EV_PER_K * temp_k),
             nu_frozen_at: None,
             chi_frozen_at: None,
@@ -3075,10 +3186,14 @@ impl Nuclide {
         seed: &mut u64,
     ) -> (f64, crate::geometry::position::Direction) {
         use crate::physics::scatter::{
-            continuum_inelastic_scatter, continuum_inelastic_scatter_evaluated, rotate_direction,
+            cm_lab_rotate, continuum_inelastic_scatter_evaluated_kernels,
+            continuum_inelastic_scatter_kernels, rotate_kernel,
         };
+        let kernels = self.scatter_kernels();
         if let Some(law) = self.continuum_law(mt) {
-            return continuum_inelastic_scatter_evaluated(e, u, self.awr, q, Some(law), seed);
+            return continuum_inelastic_scatter_evaluated_kernels(
+                e, u, self.awr, q, Some(law), kernels, seed,
+            );
         }
         if let Some(law) = self.uncorrelated_law(mt) {
             let (e_out, mu) = sample_uncorrelated_emission(law, e, seed);
@@ -3091,14 +3206,13 @@ impl Nuclide {
                 // exactly `cm_to_lab`. ~~`lct == 1` is guaranteed by
                 // `UncorrelatedEmission::from_endf`~~ CORRECTED 2026-09-29: no
                 // longer; see that function.
-                let (e_lab, mu_lab) = crate::physics::scatter::cm_to_lab(e, e_out, mu, self.awr);
-                return (e_lab, rotate_direction(u, mu_lab, seed));
+                return cm_lab_rotate(kernels, u, e, e_out, mu, self.awr, seed);
             }
             // Laboratory law: both halves are already lab-frame and only the
             // rotation about the incident direction is needed.
-            return (e_out, rotate_direction(u, mu, seed));
+            return (e_out, rotate_kernel(kernels, u, mu, seed));
         }
-        continuum_inelastic_scatter(e, u, self.awr, q, seed)
+        continuum_inelastic_scatter_kernels(e, u, self.awr, q, kernels, seed)
     }
 
     /// Σ of the "other" neutron-emitting channels at `e` \[eV\] on the
@@ -3182,27 +3296,30 @@ impl Nuclide {
         seed: &mut u64,
     ) -> (f64, crate::geometry::position::Direction) {
         use crate::physics::scatter::{
-            continuum_inelastic_scatter, continuum_inelastic_scatter_evaluated, rotate_direction,
-            two_body_scatter, two_body_scatter_with_mu,
+            cm_lab_rotate, continuum_inelastic_scatter_evaluated_kernels,
+            continuum_inelastic_scatter_kernels, rotate_kernel, two_body_scatter,
+            two_body_scatter_with_mu,
         };
+        let kernels = self.scatter_kernels();
         match &ch.law {
-            OtherLaw::Correlated(law) => {
-                continuum_inelastic_scatter_evaluated(e, u, self.awr, ch.q, Some(law), seed)
-            }
+            OtherLaw::Correlated(law) => continuum_inelastic_scatter_evaluated_kernels(
+                e, u, self.awr, ch.q, Some(law), kernels, seed,
+            ),
             OtherLaw::Uncorrelated(law) => {
                 let (e_out, mu) = sample_uncorrelated_emission(law, e, seed);
                 if law.lct >= 2 {
-                    let (el, ml) = crate::physics::scatter::cm_to_lab(e, e_out, mu, self.awr);
-                    (el, rotate_direction(u, ml, seed))
+                    cm_lab_rotate(kernels, u, e, e_out, mu, self.awr, seed)
                 } else {
-                    (e_out, rotate_direction(u, mu, seed))
+                    (e_out, rotate_kernel(kernels, u, mu, seed))
                 }
             }
             OtherLaw::TwoBody(ang) => match sample_mf4_mu_cm(ang, e, seed) {
                 Some(mu) => two_body_scatter_with_mu(e, u, self.awr, ch.q, mu, seed),
                 None => two_body_scatter(e, u, self.awr, ch.q, seed),
             },
-            OtherLaw::StandIn => continuum_inelastic_scatter(e, u, self.awr, ch.q, seed),
+            OtherLaw::StandIn => {
+                continuum_inelastic_scatter_kernels(e, u, self.awr, ch.q, kernels, seed)
+            }
         }
     }
 

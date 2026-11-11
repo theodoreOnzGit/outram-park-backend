@@ -1142,15 +1142,18 @@ history of the CSG drivers OpenMC's own stream seeds
 uses for a k-eigenvalue run (tracking including the delayed-group draw, source,
 URR, the `synchronize_bank` comb; volume always did) and the sequential
 `run_keff_csg_seq` / `CsgPowerIteration::step` as well as the parallel drivers
-(scalar and parallel k bit-identical under it); the GPU batched drivers and the
-sphere drivers do not read it. The OpenMC-faithful collision kernels
+(scalar and parallel k bit-identical under it); ~~the GPU batched drivers and the
+sphere drivers do not read it~~ **CORRECTED 2026-11-11:** the sphere drivers,
+the GPU batched drivers (seed layout only) and `FixedSource` read it too. The OpenMC-faithful collision kernels
 (`physics::scatter::{rotate_angle_openmc, inelastic_cm_to_lab_openmc,
 level_inelastic_scatter_openmc, elastic_scatter_openmc}`) and
 `physics::nbody::NBodyPhaseSpace` sit beside the older kernels, differential-tested
 bit for bit (`tests/collision_kinematics_vs_openmc_code_to_code.rs`,
-`verification_and_validation/upstream_openmc_samplers/`) but are **not wired into
-transport**; swapping them in would re-pin most of the suite and is the
-maintainer's call. **The default stays `SeedingMode::Outram`**: the decision above
+`verification_and_validation/upstream_openmc_samplers/`) ~~but are **not wired into
+transport**~~ **CORRECTED 2026-11-11 (maintainer decision): they ARE the transport
+default now** (`ScatterKernels::OpenMc`; legacy kernels via
+`Nuclide::with_legacy_scatter_kernels` or `OUTRAM_MC_LEGACY_SCATTER_KERNELS=1`);
+the pins that moved are re-pinned with old/new/sigma in their test docs. **The default stays `SeedingMode::Outram`**: the decision above
 stands and every recorded k-eff and bit-identity pin was measured with it. The
 option exists so one history can be compared with OpenMC's track file, not
 because parity became a goal.
