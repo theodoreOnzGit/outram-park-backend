@@ -68,6 +68,9 @@ outram-foam-mesh = { workspace = true, optional = true }
 # `outram_foam_mesh::snappy_hex_mesh::snapping::detect_feature_edges`. Pure
 # Rust, Android- and wasm-safe; outram-foam-mesh does not depend on this crate.
 outram-foam-mesh = { workspace = true }
+# gh:#1385: the upstream-differential tests inflate the committed `.gz`
+# polyMesh files (pure-Rust DEFLATE, already a workspace dependency).
+miniz_oxide = { workspace = true }
 
 # GUI example stack — the `mesh_studio` egui app (author a surface → generate a
 # polyhedral volume mesh with prism boundary layers → export OpenFOAM/outram-foam

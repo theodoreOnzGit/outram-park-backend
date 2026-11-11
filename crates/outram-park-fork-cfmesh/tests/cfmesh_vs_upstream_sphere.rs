@@ -1,0 +1,49 @@
+//! gh:#1385 exploratory per-stage differential on the sphere (prints the table).
+mod common;
+use common::*;
+use outram_park_fork_cfmesh::mesh_octree_creator::MeshDict;
+use outram_park_fork_cfmesh::pipeline::cartesian_mesh::{cartesian_mesh, CartesianMeshGeneratorOptions};
+use outram_park_fork_cfmesh::pipeline::p_mesh::p_mesh;
+use outram_park_fork_cfmesh::pipeline::tet_mesh::TetMeshOptions;
+use outram_park_fork_cfmesh::workflow_controls::{WorkflowSettings, WorkflowStep};
+
+const STEPS: [WorkflowStep; 7] = [
+    WorkflowStep::TemplateGeneration,
+    WorkflowStep::SurfaceTopology,
+    WorkflowStep::SurfaceProjection,
+    WorkflowStep::PatchAssignment,
+    WorkflowStep::EdgeExtraction,
+    WorkflowStep::BoundaryLayerGeneration,
+    WorkflowStep::MeshOptimisation,
+];
+
+#[test]
+fn stage_table_cartesian_mesh() {
+    let (p, t) = read_sphere();
+    println!("sphere: {} points {} tris", p.len(), t.len());
+    for s in STEPS {
+        let opts = CartesianMeshGeneratorOptions {
+            dict: MeshDict::with_max_cell_size(0.5),
+            workflow: WorkflowSettings { stop_after: Some(s), restart_from_latest_step: false },
+            ..Default::default()
+        };
+        let (m, rep) = cartesian_mesh(&p, &t, None, &opts).unwrap();
+        let u = read_upstream(&format!("stages/cartesianMesh_{}", s.name()));
+        println!("cartesianMesh after {:24} stopped={:?} {:?}", s.name(), rep.stopped_after, compare(&m, &u));
+    }
+}
+
+#[test]
+fn stage_table_p_mesh() {
+    let (p, t) = read_sphere();
+    for s in STEPS {
+        let opts = TetMeshOptions {
+            dict: MeshDict::with_max_cell_size(0.5),
+            workflow: WorkflowSettings { stop_after: Some(s), restart_from_latest_step: false },
+            ..Default::default()
+        };
+        let (m, rep) = p_mesh(&p, &t, None, &opts).unwrap();
+        let u = read_upstream(&format!("stages/pMesh_{}", s.name()));
+        println!("pMesh after {:24} stopped={:?} {:?}", s.name(), rep.stopped_after, compare(&m, &u));
+    }
+}
