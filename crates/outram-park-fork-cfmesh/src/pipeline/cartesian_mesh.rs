@@ -161,9 +161,29 @@ pub(crate) fn boundary_layer_generation(m: &VolumeMesh, request: &LayerRequest, 
 /// `removeUserConstraints`, `untangleMeshFV(2, 50, 1, true)`). Returns the
 /// report line and the refusal, if any (the mesh is then unchanged).
 pub(crate) fn ref_boundary_layers(m: &mut VolumeMesh, s: &RefineBoundaryLayersSettings, controls: &UntangleControls) -> Result<(String, Option<String>, usize), String> {
+    if std::env::var("GH1385_TRACE").is_ok() {
+        // gh:#1385: the mesh before `refineBoundaryLayers` (`PFP`, `PFF`), as upstream's instrumented generator prints it
+        for (i, p) in m.points.iter().enumerate() {
+            eprintln!("PFP {i} {:.17e} {:.17e} {:.17e}", p.x, p.y, p.z);
+        }
+        for (i, f) in m.faces.iter().enumerate() {
+            let verts: Vec<String> = f.iter().map(|v| v.to_string()).collect();
+            eprintln!("PFF {i} {} {} {}", m.owner[i], m.neighbour[i].map_or(-1, |n| n as i64), verts.join(" "));
+        }
+    }
     match refine_boundary_layers(m, s) {
         Ok((mm, rr)) => {
             *m = mm;
+            if std::env::var("GH1385_TRACE").is_ok() {
+                // gh:#1385: the instrumented upstream prints the mesh the same way (`RFP`, `RFF`)
+                for (i, p) in m.points.iter().enumerate() {
+                    eprintln!("RFP {i} {:.17e} {:.17e} {:.17e}", p.x, p.y, p.z);
+                }
+                for (i, f) in m.faces.iter().enumerate() {
+                    let verts: Vec<String> = f.iter().map(|v| v.to_string()).collect();
+                    eprintln!("RFF {i} {} {} {}", m.owner[i], m.neighbour[i].map_or(-1, |n| n as i64), verts.join(" "));
+                }
+            }
             let lp = points_in_bnd_layer(m, &rr);
             let mut opt = MeshOptimizer::new(m);
             opt.lock_points(&lp);

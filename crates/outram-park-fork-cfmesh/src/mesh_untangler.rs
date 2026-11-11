@@ -213,7 +213,7 @@ impl Plane {
     /// `plane(point, normal)`.
     pub fn new(ref_point: Vec3, normal: Vec3) -> Self {
         let m = normal.length();
-        Plane { ref_point, normal: if m > VSMALL { normal.scale(1.0 / m) } else { Vec3::ZERO } }
+        Plane { ref_point, normal: if m > VSMALL { normal.div(m) } else { Vec3::ZERO } }
     }
 }
 
@@ -503,7 +503,7 @@ pub fn mesh_untangler(pts: &mut [Vec3], tets: &[[usize; 4]], free: usize) -> boo
     for &q in cr.points() {
         p = p.add(q);
     }
-    let p = p.scale(1.0 / cr.points().len() as f64);
+    let p = p.div(cr.points().len() as f64);
     if !(p.x.is_finite() && p.y.is_finite() && p.z.is_finite()) {
         return false;
     }

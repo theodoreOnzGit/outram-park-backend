@@ -274,9 +274,9 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
             }
             WorkflowStep::SurfaceProjection => {
                 adjust_z_coordinates(m, &o)?;
-                let missed = pre_map_vertices_2d(m, &o, 3)?;
+                let missed = pre_map_vertices_2d(m, &o, 2)?;
                 map_vertices_onto_surface_2d(m, &o)?;
-                rep.notes.push(format!("surfaceProjection: adjustZCoordinates, preMapVertices (3 iterations, {missed} searches found nothing), mapVerticesOntoSurface"));
+                rep.notes.push(format!("surfaceProjection: adjustZCoordinates, preMapVertices (2 iterations, {missed} searches found nothing), mapVerticesOntoSurface"));
             }
             WorkflowStep::PatchAssignment => {
                 let (mm, ty) = distribute_boundary_faces(m, &o, &reg.names, &reg.types)?;
@@ -332,9 +332,28 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
             }
             WorkflowStep::BoundaryLayerRefinement => match &opts.boundary_layers {
                 None => rep.notes.push("boundaryLayerRefinement: no boundaryLayers dict; nothing to do".into()),
-                Some(s) => match refine_boundary_layers_2d(m, s) {
+                Some(s) => match {
+                    if std::env::var("GH1385_TRACE").is_ok() {
+                        for (i, c) in m.cell_face_lists().iter().enumerate() {
+                            let fs: Vec<String> = c.iter().map(|v| v.to_string()).collect();
+                            eprintln!("PFC {i} {}", fs.join(" "));
+                        }
+                    }
+                    refine_boundary_layers_2d(m, s)
+                } {
                     Ok((mm, rr)) => {
                         *m = mm;
+                        if std::env::var("GH1385_TRACE").is_ok() {
+                            // gh:#1385: the mesh as `refineLayers` leaves it, as upstream's instrumented generator prints it (`RFF`, `RFC`)
+                            for (i, f) in m.faces.iter().enumerate() {
+                                let verts: Vec<String> = f.iter().map(|v| v.to_string()).collect();
+                                eprintln!("RFF {i} {} {} {}", m.owner[i], m.neighbour[i].map_or(-1, |n| n as i64), verts.join(" "));
+                            }
+                            for (i, c) in m.cell_face_lists().iter().enumerate() {
+                                let fs: Vec<String> = c.iter().map(|v| v.to_string()).collect();
+                                eprintln!("RFC {i} {}", fs.join(" "));
+                            }
+                        }
                         types.resize(m.patches.len(), "patch".to_string());
                         rep.n_cells_refined = rr.n_cells_split;
                         let u = untangle_surface_2d(m)?;

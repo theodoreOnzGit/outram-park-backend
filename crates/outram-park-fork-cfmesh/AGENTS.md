@@ -306,7 +306,7 @@ A run stopped before the revert returns the mesh in the modified space,
 as upstream does. Without sources, all four outputs are pinned to their
 pre-wiring fingerprints
 (`anisotropic::tests::generators_without_anisotropic_sources_are_pinned_bit_for_bit`):
-~~**do not move that pin.**~~ **MOVED 2026-11-11 (gh:#1385, flagged for the maintainer):** all four fingerprints moved (cell counts did not) when the generators were made to follow upstream bit for bit on the sphere; causes in the "Rust-side differential" section of `verification_and_validation/upstream_cfmesh_gh1385/README.md`. The pin guards the anisotropic wiring against *wiring* changes; re-pin again only for a fix that follows upstream.
+~~**do not move that pin.**~~ **MOVED 2026-11-11 (gh:#1385, flagged for the maintainer):** all four fingerprints moved (cell counts did not) when the generators were made to follow upstream bit for bit on the sphere; causes in the "Rust-side differential" section of `verification_and_validation/upstream_cfmesh_gh1385/README.md`. The pin guards the anisotropic wiring against *wiring* changes; re-pin again only for a fix that follows upstream. **Moved again 2026-11-11 (gh:#1385 round 4, flagged): the 2D fingerprint only** (`preMapVertices` 2 iterations; the 2D template and `distributeBoundaryFaces` carry the cell lists through `replaceBoundary`); cartesian, tet and p did not move.
 
 Record and images: `verification_and_validation/anisotropic_gh1279/`.
 
@@ -426,6 +426,30 @@ Rules this taught:
   `mapEdgeNodes` / `mapCorners`, `decomposeCells` and `createNewVertex` now follow
   upstream line by line (the approximation loop breaks before replacing the
   estimate; `distanceOfPointFromTheEdge` is the distance to the infinite line).
+- **Round 3 (2026-11-11): the optimiser, its checks and the part tet mesh
+  follow upstream operation by operation** (V&V README, "round 3"). Rules it
+  taught: `findBadFaces` / `findLowQualityFaces` are cfMesh's checks on the
+  **addressing's** geometry (`checks::pmg_geometry`, the `*_g` functions of
+  `poly_mesh_gen_checks`), never on vertex-average centres; the part tet mesh
+  takes the addressing's centres, cfMesh's cell-list order and `tetMatcher`;
+  `partTetMesh::updateOrigMesh` marks **every** tet-mesh node as changed, moved
+  or not; `scale(1.0 / x)` is wrong wherever upstream writes `/ x` (the
+  volume optimiser, Knupp, the LP untangler, `generateNewVertices`).
+- **An OpenFOAM `HashSet` is iterated in hash order, and that can be the
+  answer, not round-off.** `triSurfaceCurvatureEstimator` fits a quadric over
+  `otherLabels` (`labelHashSet`); with five to seven points the fit is
+  near-singular and the order moves the curvature by O(1).
+  `surface::curvature::FoamLabelHashSet` emulates `HashTable::setEntry`
+  (capacity 128, head insertion, rehash at 0.8). Use it, or an equivalent,
+  wherever upstream iterates a hash container into a sum or a list.
+- **The one known residual is `pow`, not an algorithm.** glibc's `pow` on an
+  FMA CPU differs from PETIR's no-FMA ARM `pow` by one ulp on some inputs; the
+  `pow(stab, 3)` of `surfaceOptimizer::evaluateGradients` makes asmoOctree
+  `meshOptimisation` 71649/71650 and the elbow differ from `edgeExtraction`
+  on. Do not "fix" it by calling the platform `powf` (PETIR's gate forbids it);
+  `asmo_octree_mesh_optimisation_is_within_one_pow_ulp` pins it from above.
+  A difference **bigger** than a last-bit cascade is not this: look at the
+  traces (`GH1385_TRACE`, patches `gh1385-trace-instrumentation-*.patch`).
 - **Two face-geometry formulas.** `foam_face_centre` / `ring_area_vector` are
   `face::centre` / `face::areaNormal` (the surface engine, the optimisers);
   `checks::pmg_face_centre_and_area` is the polyMeshGen addressing's own
