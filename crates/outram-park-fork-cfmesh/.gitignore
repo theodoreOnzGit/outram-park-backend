@@ -7,12 +7,12 @@
 #   git clone --depth 1 https://github.com/wyldckat/cfMesh.git upstream_source/cfMesh
 /upstream_source/cfMesh/
 #
+# cfMesh, DAFoam line (GPL-3.0-or-later) at e944f6ba695f — the line newer ports
+# cite, and the one built and run for gh:#1385 (see upstream_source/README.md).
+#   git clone https://github.com/DAFoam/cfmesh.git upstream_source/cfmesh_dafoam
+/upstream_source/cfmesh_dafoam/
+#
 # voro++ (modified BSD, LBNL) — 3D Voronoi tessellation, the polyhedral-dual
 # (polyDualMesh-style) reference.
 #   git clone --depth 1 https://github.com/chr1shr/voro.git upstream_source/voro
 /upstream_source/voro/
-#
-# DAFoam cfMesh (GPL-3.0-only) at e944f6ba695f — the commit the port follows
-# (gh:#1251) and the upstream built and run for the differential (gh:#1385).
-#   git clone https://github.com/DAFoam/cfmesh.git upstream_source/cfmesh_dafoam
-/upstream_source/cfmesh_dafoam/
