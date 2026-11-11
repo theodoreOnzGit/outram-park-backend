@@ -1780,14 +1780,14 @@ pub fn laplace_smoother(mesh: &mut VolumeMesh, vertex_location: &[u8], smooth_po
                     for &q in &pp[p] {
                         new_p = new_p.add(mesh.points[q]);
                     }
-                    mesh.points[p] = new_p.scale(1.0 / pp[p].len() as f64);
+                    mesh.points[p] = new_p.div(pp[p].len() as f64);
                 }
             }
         }
         LaplaceKind::PointCells | LaplaceKind::WeightedPointCells => {
             let pc = point_cells(mesh);
             for _ in 0..n_iterations {
-                let (vols, centres) = cell_geometry(mesh);
+                let (vols, centres) = crate::checks::foam_cell_centres_and_vols(mesh);
                 for &p in smooth_points {
                     if !unlocked(p) || pc[p].is_empty() {
                         continue;
@@ -1797,7 +1797,7 @@ pub fn laplace_smoother(mesh: &mut VolumeMesh, vertex_location: &[u8], smooth_po
                         for &c in &pc[p] {
                             new_p = new_p.add(centres[c]);
                         }
-                        new_p = new_p.scale(1.0 / pc[p].len() as f64);
+                        new_p = new_p.div(pc[p].len() as f64);
                     } else {
                         let mut sum_w = 0.0;
                         for &c in &pc[p] {
@@ -1805,7 +1805,7 @@ pub fn laplace_smoother(mesh: &mut VolumeMesh, vertex_location: &[u8], smooth_po
                             new_p = new_p.add(centres[c].scale(w));
                             sum_w += w;
                         }
-                        new_p = new_p.scale(1.0 / sum_w);
+                        new_p = new_p.div(sum_w);
                     }
                     mesh.points[p] = new_p;
                 }

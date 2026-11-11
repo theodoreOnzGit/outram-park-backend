@@ -376,6 +376,51 @@ pub(crate) fn cell_geometry(mesh: &VolumeMesh) -> (Vec<f64>, Vec<Vec3>) {
     (vols, centres)
 }
 
+/// cfMesh's `polyMeshGenAddressing::makeCellCentresAndVols`, operation for
+/// operation (gh:#1385): face centres by `face::centre`, face areas by
+/// `face::areaNormal`; per cell the estimate `cEst` is the average of its face
+/// centres (`/= c.size()`), each face's `pyr3Vol = (area & (centre - cEst))`
+/// negated where the cell is not the owner and floored at `VSMALL`, the
+/// pyramid centre `(3.0/4.0)*fc + (1.0/4.0)*cEst`, the cell centre
+/// `sum/cellVol` and the volume `cellVol/3.0`. The faces of a cell run in
+/// ascending face order here (upstream's cell lists are in construction
+/// order; where they differ the last bit of a sum can).
+pub fn foam_cell_centres_and_vols(mesh: &VolumeMesh) -> (Vec<f64>, Vec<Vec3>) {
+    let centres_f: Vec<Vec3> = mesh.faces.iter().map(|r| crate::correct_edges::foam_face_centre(&mesh.points, r)).collect();
+    let areas_f: Vec<Vec3> = mesh.faces.iter().map(|r| crate::surface_engine::ring_area_vector(&mesh.points, r)).collect();
+    let mut cell_faces: Vec<Vec<usize>> = vec![Vec::new(); mesh.n_cells];
+    for f in 0..mesh.face_count() {
+        cell_faces[mesh.owner[f]].push(f);
+        if let Some(nb) = mesh.neighbour[f] {
+            cell_faces[nb].push(f);
+        }
+    }
+    let mut vols = vec![0.0; mesh.n_cells];
+    let mut centres = vec![Vec3::ZERO; mesh.n_cells];
+    for (c, faces) in cell_faces.iter().enumerate() {
+        let mut c_est = Vec3::ZERO;
+        for &f in faces {
+            c_est = c_est.add(centres_f[f]);
+        }
+        let c_est = c_est.div(faces.len() as f64);
+        let mut cell_centre = Vec3::ZERO;
+        let mut cell_vol = 0.0;
+        for &f in faces {
+            let mut pyr3 = areas_f[f].dot(centres_f[f].sub(c_est));
+            if mesh.owner[f] != c {
+                pyr3 *= -1.0;
+            }
+            pyr3 = pyr3.max(1e-300);
+            let pc = centres_f[f].scale(3.0 / 4.0).add(c_est.scale(1.0 / 4.0));
+            cell_centre = cell_centre.add(pc.scale(pyr3));
+            cell_vol += pyr3;
+        }
+        centres[c] = cell_centre.div(cell_vol);
+        vols[c] = cell_vol / 3.0;
+    }
+    (vols, centres)
+}
+
 /// snappyHexMesh's mesh-quality controls (`meshQualityControls`, the file
 /// `etc/caseDicts/mesh/generation/meshQualityDict` of OpenFOAM-dev
 /// `852527377c7e`), as checked by [`faces_failing_mesh_quality`]. The

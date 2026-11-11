@@ -345,9 +345,13 @@ pub(crate) fn cartesian_optimise_final_mesh(
     controls: &UntangleControls,
     optimise_layer: Option<&crate::boundary_layer_optimisation::BoundaryLayerOptimisationControls>,
     add_buffer_layer: bool,
+    octree: Option<&MeshOctree>,
 ) -> Result<((usize, usize), String), String> {
     let given = face_regions(m, reg);
-    optimise_mesh_surface(m, points, tris, reg, &given);
+    match octree {
+        Some(o) => optimise_mesh_surface_octree(m, o, points, tris, reg, &given),
+        None => optimise_mesh_surface(m, points, tris, reg, &given),
+    };
     let mut opt = MeshOptimizer::new(m);
     if enforce_geometry_constraints {
         opt.set_enforce_constraints("badPoints");
@@ -520,7 +524,7 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
             WorkflowStep::MeshOptimisation => {
                 // optimiseFinalMesh on the octree's surface (the modified
                 // one with anisotropicSources)
-                let (bad, line) = cartesian_optimise_final_mesh(m, spts, tris, reg, opts.enforce_geometry_constraints, &controls, opts.optimise_layer.as_ref(), !mod_active)?;
+                let (bad, line) = cartesian_optimise_final_mesh(m, spts, tris, reg, opts.enforce_geometry_constraints, &controls, opts.optimise_layer.as_ref(), !mod_active, Some(&o))?;
                 rep.bad_faces_mesh_optimisation = bad;
                 rep.notes.push(format!("meshOptimisation: {line}"));
                 // its end: revertGeometryModification while modSurfacePtr_
@@ -529,7 +533,7 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
                 if let (true, Some(cm)) = (mod_active, opts.dict.anisotropic_sources.as_ref()) {
                     mod_active = false;
                     let b = crate::anisotropic::revert_and_project(m, cm, points, tris);
-                    let (bad2, line2) = cartesian_optimise_final_mesh(m, points, tris, reg, opts.enforce_geometry_constraints, &controls, opts.optimise_layer.as_ref(), true)?;
+                    let (bad2, line2) = cartesian_optimise_final_mesh(m, points, tris, reg, opts.enforce_geometry_constraints, &controls, opts.optimise_layer.as_ref(), true, None)?;
                     rep.back_scaling = Some(b);
                     rep.bad_faces_after_back_scaling = Some(bad2);
                     rep.notes.push(format!(
