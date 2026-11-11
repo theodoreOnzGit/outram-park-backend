@@ -86,3 +86,9 @@ so each is a maintainer decision.
 
 ## Not covered (open items on gh:#1362)
 Thermophysics and turbulence (need `libthermophysicalModels` and `libmomentumTransportModels`, not in the partial build; not attempted); `linearUpwind` and `limitedLinear` as full schemes (the port has neither; only the limiter functions are compared); `leastSquares` and `cellLimited` gradients; `snGrad corrected` and limited; an AMI pair; linear solvers (case 3); ODE (case 6).
+
+## gh:#1488 (D1 fix): prediction, written 2026-11-11 BEFORE the code change
+The baseline (all pinned and V&V numbers, current code) was recorded first; this
+prediction was committed before the fix.
+- **Differential test.** After the fix, boundary `deltaCoeffs` should be bit-identical on both meshes (1083/1083 and 1788/1788): `1/|nHat (nHat . d)|` with `nHat = Sf/magSf` is the upstream arithmetic. `snGrad (orthogonal)` still differs on interior faces by the `/d` against `deltaCoeffs*` ordering, so its identical count should rise from 533 and 890 to about the interior-face level, with a worst error of a few ulp instead of 66 % / 88 % relative.
+- **Solver numbers.** Only boundary faces whose normal is not parallel to `Cf - C` move, and only in `DeltaCoeff::Orthogonal` mode (the default). Cases with orthogonal wall cells (Cartesian blocks, the 1-D and RZ structured pipes) should not move beyond an ulp (`|n . d|` against `|d|`). Skewed or polyhedral boundary cells should move: the wall conductance `Gamma |Sf| / |n . d|` gets larger (`|n . d| <= |d|`), so wall flux and wall shear grow in magnitude for the same wall value. Foam Studio's unstructured (polyDual) pipe, pinned at 0.9394 / 1.0062, is the likeliest to move, by up to a few percent; the sign relative to the analytic Hagen-Poiseuille value is not known in advance. GeN-Foam V&V and the CHT double pipe (structured, near-orthogonal) should move by under 1e-6 relative.
