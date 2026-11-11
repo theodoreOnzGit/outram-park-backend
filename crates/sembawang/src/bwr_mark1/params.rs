@@ -666,7 +666,10 @@ pub const M_ZR: f64 = 0.091_224;
 pub const M_H2O: f64 = 0.018_015;
 pub const M_H2: f64 = 0.002_016;
 pub const M_N2: f64 = 0.028_014;
-pub const R_GAS: f64 = 8.314_462;
+/// The molar gas constant, J/(mol K): since gh:#1335 (2026-11-11) a
+/// re-export of the generic constant in `outram_park_fork_offbeat::melcor::params`,
+/// the same `f64` as before (8.314 462).
+pub use outram_park_fork_offbeat::melcor::params::R_GAS;
 
 // ── Containment (Mark I) ────────────────────────────────────────────────────
 

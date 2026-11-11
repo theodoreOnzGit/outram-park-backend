@@ -45,6 +45,10 @@
 //! The condensate cannot hold more iodine than the partition allows. And it
 //! stops vapour scrubbing altogether when the pool's own iodine, over H,
 //! exceeds the entering gas's (RN §2.7.1).
+//!
+//! **Clean room; moved 2026-11-11 (gh:#1335)** from `sembawang::bwr_mark1`
+//! unchanged: built from the public MELCOR manuals and open literature only,
+//! never MELCOR, MAAP or other code source (see [`super`]).
 
 use petir::mathf::RealMath;
 

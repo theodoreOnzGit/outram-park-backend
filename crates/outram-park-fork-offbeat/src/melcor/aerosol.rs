@@ -1,6 +1,7 @@
 //! Sectional aerosol dynamics for one well-mixed volume: agglomeration and
-//! gravitational settling (gh:#1047, first deliverable; not yet wired into
-//! the plant).
+//! gravitational settling (gh:#1047, first deliverable; ~~not yet wired into
+//! the plant~~ **CORRECTED 2026-11-11 (gh:#1335):** wired since, through
+//! [`super::rn_volume`] and `sembawang::bwr_mark1`'s containment and vessel).
 //!
 //! **Kernels** are MELCOR's MAEROS kernels, from the description in its
 //! manual (Vol. 2, SAND2023-10994 O, RN §2.4.2 and Appendix B, which takes
@@ -41,6 +42,10 @@
 //! (Eqs 2-45, 2-46), summed per surface as MELCOR's table says and floored
 //! at zero, then applied as exact exponential decay at `sum A v / V`.
 //! Turbulent deposition in pipes and bends is not built.
+//!
+//! **Clean room; moved 2026-11-11 (gh:#1335)** from `sembawang::bwr_mark1`
+//! unchanged: built from the public MELCOR manuals and open literature only,
+//! never MELCOR, MAAP or other code source (see [`super`]).
 
 use petir::mathf::RealMath;
 
@@ -107,7 +112,7 @@ impl Medium {
         1.0 + kn * (self.slip + 0.4 * (-1.1 / kn).r_exp())
     }
     /// Particle diffusion coefficient, m^2/s (Eq B-2).
-    pub(crate) fn diffusivity(&self, d: f64) -> f64 {
+    pub fn diffusivity(&self, d: f64) -> f64 {
         K_B * self.t_k / (3.0 * std::f64::consts::PI * d * self.mu_pa_s * self.chi) * self.slip_correction(d)
     }
     /// Stokes terminal velocity with slip, m/s (Eq B-14, and the settling

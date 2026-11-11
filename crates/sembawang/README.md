@@ -64,7 +64,11 @@ explosion never happening; in-vessel H2 at 25 h is inside its band
 the example moved there 2026-11-05). **Still does not exist:**
 ~~MCCI, aerosol physics, in-plant fission-product transport,~~ (**CORRECTED
 2026-11-02**: MCCI, sectional aerosol physics and in-plant fission-product
-transport exist since 2026-10-29: `cavity`, `rn_volume`, `containment_fp`) a general
+transport exist since 2026-10-29: `cavity`, `rn_volume`, `containment_fp`;
+**since 2026-11-11 (gh:#1335)** the MELCOR clean-room *equations*
+`aerosol`, `vapour`, `rn_volume`, `iodine` and `wire` live in
+`outram_park_fork_offbeat::melcor`, re-exported here under their old paths
+for one release, while the plant assembly stays here) a general
 (MELCOR-class) progression engine. **The containment is a control-volume
 network since 2026-11-02** (gh:#1099, maintainer: "switch it"):
 `containment_network` on `tampines`' `CvNetwork` (drywell, torus and

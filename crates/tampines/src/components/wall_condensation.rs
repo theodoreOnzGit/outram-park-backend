@@ -203,7 +203,8 @@ impl Gas {
     }
     /// Lennard-Jones `σ`, Å, `ε/k`, K, and molar mass, g/mol: Svehla (NASA
     /// TR R-132, 1962), the table MELCOR's NCG/H2O RM §5.2 takes steam's,
-    /// N2's and H2's from (as `sembawang::bwr_mark1::vapour::BulkGas::lj`),
+    /// N2's and H2's from (as `outram_park_fork_offbeat::melcor::vapour::BulkGas::lj`, in
+    /// `sembawang::bwr_mark1::vapour` until 2026-11-11, gh:#1335),
     /// reprinted in Poling, Prausnitz & O'Connell, *The Properties of Gases
     /// and Liquids*, Appendix B.
     fn lj(self) -> (f64, f64, f64) {
@@ -299,7 +300,8 @@ pub(crate) fn chapman_enskog_viscosity(lj: (f64, f64, f64), t: f64) -> f64 {
 /// The diffusion collision integral at reduced temperature `t_star`
 /// (MELCOR NCG/H2O RM Table 6.1, linear between its points; `2.662
 /// (T*/0.3)^-0.5` below 0.3 and `0.5170 (T*/100)^-0.155` from 100, as
-/// there). **Port of `sembawang::bwr_mark1::vapour::collision_integral`**,
+/// there). **Port of `outram_park_fork_offbeat::melcor::vapour::collision_integral`**
+/// (in `sembawang::bwr_mark1::vapour` until 2026-11-11, gh:#1335),
 /// operation for operation (`tampines` cannot depend on `sembawang`).
 fn collision_integral(t_star: f64) -> f64 {
     const T: [f64; 75] = [
@@ -335,7 +337,8 @@ fn collision_integral(t_star: f64) -> f64 {
 
 /// Binary diffusivity of A in B, m²/s (MELCOR RN §2.5.2, Eq 2-105, cm²/s
 /// with P in atm, converted), from `(σ Å, ε/k K, M g/mol)`. **Port of
-/// `sembawang::bwr_mark1::vapour::binary_diffusivity`**, operation for
+/// `outram_park_fork_offbeat::melcor::vapour::binary_diffusivity`** (in
+/// `sembawang::bwr_mark1::vapour` until 2026-11-11, gh:#1335), operation for
 /// operation.
 pub(crate) fn binary_diffusivity(a: (f64, f64, f64), b: (f64, f64, f64), t_k: f64, p_pa: f64) -> f64 {
     let sigma = 0.5 * (a.0 + b.0);
