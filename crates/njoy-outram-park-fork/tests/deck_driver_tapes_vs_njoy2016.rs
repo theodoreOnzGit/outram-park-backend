@@ -322,10 +322,18 @@ fn test_07_acer_old_format_ace() {
 /// section had displaced MT=2's own 742925.0000000001 and the elastic read
 /// 3.900002e-8 against 3.9e-8), and `acelcp` writes nothing for `newfor = 0`
 /// (`first` collects production items only for `newfor != 0`, `:423`, `:621`).
-/// **Still different, not ported:** LAND/LDLW/DLW for the MF=6 reactions (old-format laws,
-/// `acelf6` `newfor = 0`
-/// branches `:7495`, `:7722`, `:7765`, and `topfil`'s MF=6 conversion
-/// `:2233-2350`, `fix6` `:3351-3570`). Pass criterion: the deck runs and AND agrees.
+/// ~~**Still different, not ported:** LAND/LDLW/DLW for the MF=6 reactions~~
+/// **CORRECTED 2026-11-11 (gh:#1449): ported.** `topfil`'s `newfor = 0` MF=6 branch
+/// (`acefc.f90:2233-2350`) and `fix6` (`:3351-3570`) convert Ni-61's LAW=1,
+/// LANG=1 (Legendre) neutron subsections of MT=16/28/91 to LAW=7 with 33 lab
+/// cosines, `pttab` reduces each energy's cosine table to its overall angular
+/// law (`:2490-2530`), and `acelf6`'s law-7 branch writes ACE law 67
+/// (`:7878-7946`): `acer::acelf6::acelf6_old_format`. **Measured: every block
+/// is identical, 89 227 of 89 227 XSS words** (LAND 12, AND 2 943, LDLW 11, DLW
+/// 6 823, LANDP/ANDP/LDLWP 36, DLWP 22 430; NXS and JXS agree), ESZ 22 235.
+/// Pass criterion: no block differs. **Not exercised by this deck:** `LCT = 2`
+/// (cm Jacobian), tabulated `LANG = 11-13` (ported with `fix6`'s own index
+/// offset, unexercised), and a text PENDF scratch (`a11` rounding not applied).
 #[test]
 fn test_08_acer_old_format_ace() {
     let root = njoy_root();
@@ -338,7 +346,7 @@ fn test_08_acer_old_format_ace() {
     }
     let differing: Vec<&str> = c.blocks.iter().filter(|b| !b.verdict.agrees()).map(|b| b.name).collect();
     println!("test 08 differing blocks: {differing:?}");
-    assert!(!differing.contains(&"AND"), "the old-format angular block must agree: {differing:?}");
+    assert!(differing.is_empty(), "recorded: every block identical: {differing:?}");
     if std::env::var_os("KEEP_DECK_DIRS").is_none() { let _ = std::fs::remove_dir_all(ours.parent().unwrap()); }
 }
 
