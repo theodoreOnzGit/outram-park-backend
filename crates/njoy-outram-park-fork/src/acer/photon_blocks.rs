@@ -850,12 +850,18 @@ pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option
 
     // `gamsum` runs on the ACE grid (`unionx`), not on the PENDF's MT=1 energies.
     let grid: Vec<f64> = crate::acer::build::esz_grid(pendf, &gamma_discontinuities(tape, mat))?;
-    gpd_on_grid(tape, mat, pendf, &grid)
+    gpd_on_grid(tape, mat, pendf, &grid, true)
 }
 
 /// [`gpd`] on a caller-supplied ACE grid (eV): the incident-charged-particle
 /// table's `unionx` grid is not the neutron one (`acer::charged`, gh:#1485).
-pub fn gpd_on_grid(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult, grid: &[f64]) -> Option<Vec<f64>> {
+///
+/// `text` is whether the scratch tape `gamsum` writes is coded: `mscr` takes
+/// the sign of the PENDF unit (`if (npend.lt.0) mscr=-mscr`,
+/// `acefc.f90:176-178`), so with a binary PENDF `acelod` reads back the
+/// `sigfig(c,7,0)` word and not `a11`'s text of it (gh:#1485, deck 71, whose
+/// 18 smallest words read 2.379134e-29 against the text form's 2.37913e-29).
+pub fn gpd_on_grid(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult, grid: &[f64], text: bool) -> Option<Vec<f64>> {
     use crate::endf::gety1::Gety1;
     use crate::endf::parse::{format_endf_float, parse_endf_float};
     use crate::endf::records::{Cont, Tab1};
@@ -1005,7 +1011,7 @@ pub fn gpd_on_grid(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult, g
     // (`:6259-6270`), so the stored word carries `a11`'s rounding and not
     // `sigfig`'s `bias`. Without the round trip every GPD word sat 1e-13
     // high (B-10: 941 of 941), invisible at Type-1 print precision.
-    Some(c.into_iter().map(|v| parse_endf_float(&format_endf_float(sigfig(v, 7, 0))).unwrap_or(v)).collect())
+    Some(c.into_iter().map(|v| if text { parse_endf_float(&format_endf_float(sigfig(v, 7, 0))).unwrap_or(v) } else { sigfig(v, 7, 0) }).collect())
 }
 
 /// `convr`'s corrected total of an MF=12 (`LO = 1`) or MF=13 section with

@@ -556,7 +556,7 @@ pub fn build_charged(tape: &Tape, mat: i32, kt_mev: f64, suffix: u32, text_pendf
     let mut ntrp = 0i32;
     if let Some(entries) = super::photon_blocks::build_with_pendf_mode(tape, mat, &pendf, text_endf) {
         if !entries.is_empty() {
-            if let Some(g) = super::photon_blocks::gpd_on_grid(tape, mat, &pendf, &es) {
+            if let Some(g) = super::photon_blocks::gpd_on_grid(tape, mat, &pendf, &es, text_pendf) {
                 jx[11] = b.next_locator();
                 g.iter().for_each(|&v| b.real(v));
             }
