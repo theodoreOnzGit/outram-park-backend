@@ -1151,3 +1151,84 @@ nodes of iteration 0 agree, `VI` identical through the 10 iterations, and cutCub
 `pMesh` `meshOptimisation` becomes bit-identical (experiment build); the
 remaining difference without the experiment is the pow cascade. If a difference
 remains, the next `VI` iteration names the node.
+
+### Round 4 results (2026-11-11, release)
+
+#### Foam Studio headless (not run in round 3)
+`cargo test --release -p dhoby-ghaut --example foam_studio_web -- headless`:
+5 passed. `headless_unstructured_default_is_pinned` prints
+uc = 0.9394, dpdz = 1.0062 (pin 0.9394 / 1.0062 +-2e-3: **did not move**);
+`headless_unstructured_pipe_runs_and_is_pinned` 0.8925 / 1.0326 (did not move).
+(A first run on the pre-round-4 tree failed `headless_coil_shows_dean_flow`, a
+structured-mesh case that does not touch cfMesh; it passed on the final tree and
+on a rerun, the failing run was made while another agent shared the target
+directory; not investigated further.)
+
+#### 1. `refineBoundaryLayers` in upstream's assembly order: done
+Prediction 1 (elbow prisms and unrefined cells index-identical, hex cells the
+open point) held, and the hex cells were the last piece: the elbow has 13618
+prisms and **626 edge hexahedra, no corner hexahedra**; `refineEdgeHexCell`
+(with `sortFacePoints`, `sortFaceFaces`, `storeFacesIntoCells`) is translated
+and the mesh is written as upstream does. Elbow `refineLayers` output **all
+339265 faces index-identical** (ring, owner, neighbour, checked against the
+`RFF` trace of the instrumented upstream before the untangler) and the final
+mesh's faces 339265/339265 identical (`elbow_90degree_refined_faces_are_index_identical`,
+upstream faces committed, 3.0 MB gz); points 107598/121398 with PETIR `pow`.
+`refineCornerHexCell` is still the lattice construction (no corner cell in the
+elbow, so untested against upstream). Non-quad faces still get hair points
+inserted (upstream copies them).
+
+#### 2. Elbow edgeExtraction / boundaryLayerGeneration residuals: pow, confirmed
+With the platform `pow` (experiment, not committed) the elbow is **bit-identical
+at every one of the 8 stages including the final mesh: 121398/121398 points,
+339265/339265 faces**; the 2.7e-15 m of round 3's glibc-pow table is gone too.
+Every residual of the elbow is the `pow(stab, 3)` ulp.
+
+#### 3. pMesh (cutCube) and cartesian2DMesh (hatOctree)
+Staged upstream runs: `scripts/run-stages.sh`. hatOctree: **bit-identical at
+every stage and in the final mesh (38090/38090 points, 75072/75072 faces), no
+pow involved.** Causes, each with its prediction committed first (prediction 2,
+the divisions, was wrong; 3 and 4 held): `meshSurfaceMapper2D::preMapVertices`
+defaults to 2 iterations (the port ran 3); the 2D template's
+`createEmptyPatches` and `distributeBoundaryFaces` are `replaceBoundary` calls
+whose cell lists the port dropped.
+
+cutCube pMesh, PETIR `pow` (before round 4 -> now): templateGeneration ...
+patchAssignment identical; edgeExtraction 211975/222560 (worst 7.07e-3) ->
+221379/222560 (4.1e-5); meshOptimisation 18160/222560 (6.9e-3) -> 177630/222560
+(4.5e-4). **With the platform `pow`: bit-identical through meshOptimisation
+(222560/222560 points, 313010/313010 faces).** Causes, predictions 5-7 committed
+before their fixes, all held: `extrudeLayer` / `createFundamentalSheetsJFS` in
+upstream's face and cell-list order (`movePoints` divides; start from the mesh's
+own lists; `updateBoundary` is `reorderBoundaryFaces` + `replaceBoundary`; the
+feature-edge front reads the lists); `TopoMesh::remove_faces` drops the removed
+faces from the carried lists (`surfaceMorpherCells` returned ascending lists);
+`optimiseMeshSurface` of pMesh untangles on the **same optimiser** as
+`optimizeSurface` (its `partTriMesh` keeps stale coordinates); the volume
+optimiser's zero-volume branch (`disp += 0.01*(n/d)` on the area vector) was
+entered for the first time by this case.
+
+#### 4. tetMesh (cutCube) 3.3e-13 rest: found
+It was the same volume-optimiser zero-volume branch. With the platform `pow`
+cutCube `tetMesh` is now **bit-identical through meshOptimisation
+(40498/40498 points, 420782/420782 faces)**; with PETIR `pow` 39477/40498,
+worst 2.2e-10 (pow cascade). Final-mesh status with PETIR `pow`:
+cutCube cartesianMesh 13470/13470 and hatOctree 38090/38090 **bit-identical**;
+tetMesh 39477/40498 (2.2e-10); pMesh 177630/222560 (4.5e-4).
+
+#### Moved pins (old struck in the source)
+| pin | moved | cause |
+|---|---|---|
+| `prism_refinement_is_pinned_bit_for_bit` | pipe ~~0xeaba2317968a1edb~~ -> 0xcde59973cd9ea3a7, box ~~0xe9d49663cdf3d5e8~~ -> 0x8530aad7b2a287d4 | assembly order of `refineBoundaryLayers` |
+| `anisotropic::generators_without_anisotropic_sources_are_pinned_bit_for_bit` (**maintainer-flagged**) | 2D ~~871841484633274847~~ -> 4370305401663068383; pMesh ~~11509605158896565506~~ -> 9105338267624933032; cartesian and tet did not move; cells unchanged | 2D: preMapVertices 2 iterations, carried lists; pMesh: sheets, morpher lists, one optimiser, zero-volume branch |
+| `pipeline::tests::layer_strategies_are_deterministic` (CfMeshOptimise) | ~~6667351423853767910~~ -> 4182164109682097358 (7725 cells unchanged) | volume optimiser zero-volume branch |
+
+Not moved: Foam Studio pins, sphere pins, asmoOctree/elbow stage asserts.
+
+#### What remains
+* `pow`: the platform FMA `pow` makes every compared case bit-identical; PETIR's
+  no-FMA `pow` is by design 1 ulp off on some inputs (a PETIR decision, not made).
+* `refineCornerHexCell` untranslated (no case reaches it); non-quad faces in
+  `refineBoundaryLayers`; pMesh/tetMesh final meshes with `boundaryLayers`
+  dicts and `renameBoundary` not compared; ~140 `scale(1.0/x)`; 2D
+  anisotropic cases not staged.

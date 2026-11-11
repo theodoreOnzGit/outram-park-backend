@@ -146,7 +146,7 @@ fn compare(port: &PolyMesh, up: &PolyMesh) -> (String, bool) {
 
 fn port_stage(tutorial: &str, generator: Generator, step: &str) -> PolyMesh {
     let src = crate_dir().join("test_data/cfmesh_tutorials").join(tutorial);
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(format!("stage_{}_{step}", tutorial.replace('/', "_")));
+    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(format!("stage_{}_{generator:?}_{step}", tutorial.replace('/', "_")));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("system")).unwrap();
     for e in std::fs::read_dir(&src).unwrap() {
@@ -424,7 +424,7 @@ fn elbow_90degree_refined_faces_are_index_identical() {
         let text = String::from_utf8(gunzip(&std::fs::read(committed.join(format!("{f}.gz"))).expect("committed upstream stage file"))).unwrap();
         std::fs::write(dst.join(f), if f == "neighbour" { internal_neighbours_only(&text) } else { text }).unwrap();
     }
-    let port_points = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("stage_cartesianMesh_elbow_90degree_boundaryLayerRefinement/constant/polyMesh/points");
+    let port_points = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("stage_cartesianMesh_elbow_90degree_CartesianMesh_boundaryLayerRefinement/constant/polyMesh/points");
     std::fs::copy(&port_points, dst.join("points")).expect("the port's points file");
     let up = PolyMesh::read(&dst).expect("read upstream faces");
     assert_eq!((port.points.len(), port.faces.len(), port.n_cells, port.n_internal_faces), (up.points.len(), up.faces.len(), up.n_cells, up.n_internal_faces));
@@ -440,6 +440,14 @@ fn elbow_90degree_refined_faces_are_index_identical() {
 #[test]
 fn cut_cube_p_mesh_stages() {
     let r = staged("tetMesh/cutCubeOctree", Generator::PMesh, "cutCube_pMesh", "stage_cutCube_pMesh");
+    println!("{r:?}");
+}
+
+/// `cutCube` through `tetMesh` (`GH1385_UPSTREAM_RUNS/stage_cutCube_tetMesh_<step>`):
+/// prints the stage table (round 4: status record).
+#[test]
+fn cut_cube_tet_mesh_stages() {
+    let r = staged("tetMesh/cutCubeOctree", Generator::TetMesh, "cutCube_tetMesh", "stage_cutCube_tetMesh");
     println!("{r:?}");
 }
 
