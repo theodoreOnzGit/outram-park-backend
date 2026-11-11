@@ -432,8 +432,11 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     if c.iopt == 7 {
         return run_acer_fix(c, units);
     }
+    if c.iopt == 2 {
+        return crate::deck::acer_thermal::run_acer_thermal(c, units, dater());
+    }
     if c.iopt != 1 {
-        return Err(NjoyError::NotPorted("ACER iopt other than 1 and 7 from a deck (typed APIs exist: acer::thermal, dosimetry, photoatomic, photonuclear)"));
+        return Err(NjoyError::NotPorted("ACER iopt other than 1, 2 and 7 from a deck (typed APIs exist: acer::thermal, dosimetry, photoatomic, photonuclear)"));
     }
     if c.newfor != 1 && c.newfor != 0 {
         return Err(NjoyError::InvalidInput(format!("acer: newfor = {} is not 0 or 1", c.newfor)));

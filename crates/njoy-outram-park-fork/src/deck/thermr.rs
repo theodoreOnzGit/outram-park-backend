@@ -272,7 +272,9 @@ pub fn run_thermr(c: &ThermrCards, units: &mut TapeUnits) -> Result<(), NjoyErro
     let endf = if c.nendf != 0 { Some(units.get(c.nendf)?.tape.clone()) } else { None };
     let tape = thermr_tape(&input.tape, endf.as_ref(), c)?;
     units.store(c.nout, tape, input.pointwise)?;
-    units.set_meta(c.nout, input.meta);
+    let mut meta = input.meta;
+    meta.thermr.push(crate::deck::tapes::ThermrRun { cards: c.clone(), endf });
+    units.set_meta(c.nout, meta);
     Ok(())
 }
 

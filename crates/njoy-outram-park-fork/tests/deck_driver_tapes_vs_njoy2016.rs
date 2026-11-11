@@ -1211,3 +1211,67 @@ fn test_74_thermr_tape_is_identical_line_for_line() {
 // whole tape differs in 4025's MF=3 MT=52/53/58 (1 line each) and MF=10 MT=16/28/112
 // (29 lines) -- RECONR/BROADR output, identical across the three decks and not
 // THERMR's; deck 11's tape lacks UNRESR's MF=2/MT=152, whose writer is not ported.
+
+/// The upstream deck of `case` with only its first `n` ACER modules (later
+/// modules, `viewr` and the rest dropped), then `stop`.
+fn deck_first_acers(root: &Path, case: &str, n: usize) -> Option<String> {
+    let input = std::fs::read_to_string(root.join(format!("tests/{case}/input"))).ok()?;
+    let mut out = String::new();
+    let mut seen = 0;
+    for line in input.lines() {
+        let w = line.split_whitespace().next();
+        if w == Some("stop") {
+            break;
+        }
+        if w == Some("acer") {
+            seen += 1;
+            if seen > n {
+                break;
+            }
+        }
+        if seen >= n && w == Some("viewr") {
+            break;
+        }
+        out.push_str(line);
+        out.push('\n');
+    }
+    out.push_str("stop\n");
+    Some(out)
+}
+
+/// ACER `iopt = 2` (gh:#1369): the first `n` ACER modules of upstream deck `case`
+/// run by NJOY2016.80 and by this crate; each listed unit (the thermal ACE files
+/// and the directory) is compared line by line, the date line included (both
+/// sides stamp the run's own date).
+fn thermal_acer_deck(case: &str, n: usize, res: &[(&str, u32)], units: &[u32]) -> Option<()> {
+    let root = njoy_root();
+    let deck = deck_first_acers(&root, case, n)?;
+    let (r0, rest) = res.split_first().unwrap();
+    let (ours, njoy) = run_pair_decks_extra(&root, &format!("ta{case}"), r0.0, rest, &deck, &deck)?;
+    let mut bad = Vec::new();
+    for &u in units {
+        let name = format!("tape{u}");
+        let d = differing_lines(&ours.join(&name), &njoy.join(&name));
+        println!("deck {case} unit {u}: {} differing lines; first {:?}", d.len(), &d[..d.len().min(5)]);
+        if !d.is_empty() {
+            bad.push((u, d.len()));
+        }
+    }
+    if std::env::var_os("KEEP_DECK_DIRS").is_none() {
+        let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    }
+    assert!(bad.is_empty(), "deck {case}: units differ from NJOY2016: {bad:?}");
+    Some(())
+}
+
+/// Deck 25 (H in H2O, three temperatures, `iwt` 0/1/2): ACE units 70, 71, 72 and directory unit 75.
+#[test]
+fn test_25_thermal_ace_and_directory() {
+    thermal_acer_deck("25", 3, &[("n-001_H_001-ENDF8.0-Beta6.endf", 20), ("tsl-HinH2O-ENDF8.0-Beta6.endf", 21)], &[70, 71, 72, 75]);
+}
+
+/// Deck 49 (Zr in ZrH, `LTHR = 2`, `iwt = 2`): ACE unit 61 and directory unit 71.
+#[test]
+fn test_49_thermal_ace_and_directory() {
+    thermal_acer_deck("49", 1, &[("n-040_Zr_090-ENDF8.0.endf", 20), ("tsl-ZrinZrH-ENDF8.0.endf", 30)], &[61, 71]);
+}

@@ -58,6 +58,21 @@ pub struct PendfMeta {
     /// The pointwise result of every temperature block on the tape, in tape
     /// order: `(temperature [K], result)`.
     pub blocks: Vec<(f64, ReconrResult)>,
+    /// THERMR's runs on this PENDF, in order (gh:#1369): its cards and the
+    /// thermal ENDF tape it read. ACER `iopt = 2` takes THERMR's result from the
+    /// PENDF it is given; here that result is rebuilt from these by
+    /// [`crate::acer::AceTable::thermal_from_mf7_on_pendf`], which is gated word
+    /// for word against the NJOY2016 tape read-back.
+    pub thermr: Vec<ThermrRun>,
+}
+
+/// One THERMR run recorded in a [`PendfMeta`].
+#[derive(Debug, Clone)]
+pub struct ThermrRun {
+    /// THERMR's cards.
+    pub cards: crate::deck::modules::ThermrCards,
+    /// The thermal ENDF tape (`nendf`), when the run had one.
+    pub endf: Option<Tape>,
 }
 
 /// What a unit holds besides its tape.

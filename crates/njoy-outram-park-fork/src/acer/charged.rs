@@ -603,6 +603,7 @@ pub fn build_charged(tape: &Tape, mat: i32, kt_mev: f64, suffix: u32, text_pendf
         awr,
         kt_mev: kt,
         iz: [0; 16],
+        aw: [0.0; 16],
         date: "  njoy-rust".to_string(),
         comment: String::new(),
         mat_id: format!("   mat{mat:4}"),

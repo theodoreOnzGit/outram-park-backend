@@ -214,6 +214,10 @@ pub struct AceTable {
     /// for a table built from an incident evaluation; a thermal table carries
     /// ACER card 8a's moderator ZA values (`acer.f90:396-399`).
     pub iz: [i32; 16],
+    /// The header's 16 AW entries, partners of [`iz`](Self::iz): zero except for a
+    /// table a deck run built, where they are ACER card 4's `nxtra` weights
+    /// (`awn`, `acer.f90:289-296`; gh:#1369).
+    pub aw: [f64; 16],
     /// The 16-entry **NXS** array of table dimensions (1-based in ACE docs;
     /// stored 0-based here). See [`nxs`](self::nxs) for the index names.
     pub nxs: [i32; 16],

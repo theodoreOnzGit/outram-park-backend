@@ -26,6 +26,7 @@
 //! reaching them (or THERMR with `iinc = 2`, an elastic option or `iform = 1`)
 //! stops with [`DeckRun::blocked`] set. The other modules' cards are not yet read.
 
+pub mod acer_thermal;
 pub mod cards;
 pub mod groupr;
 pub mod modules;

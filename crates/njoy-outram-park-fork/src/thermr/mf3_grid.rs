@@ -485,7 +485,14 @@ pub(crate) fn coh_with(old: &[(f64, f64)], sc: &Sigcoh, emax: f64, tol: f64) -> 
 pub fn itix_at(mf3: &[(f64, f64)], e: f64) -> f64 {
     let k = mf3.partition_point(|p| p.0 <= e);
     if k == 0 {
-        return 0.0;
+        // `gety1` shades the first abscissa down to `0.999999*x0` when its
+        // value is not zero (`endf.f90:1967-1968`, `down`), so a point just
+        // below it (an ulp, on a binary-unit deck whose MF=6 energies are not
+        // rounded the way the MF=3 ones are) still reads `y0`.
+        return match mf3.first() {
+            Some(&(x0, y0)) if y0 != 0.0 && e >= 0.999999 * x0 => y0,
+            _ => 0.0,
+        };
     }
     let (x1, y1) = mf3[k - 1];
     if x1 == e || k == mf3.len() {

@@ -287,7 +287,32 @@ pub fn normalized_rows(rows: &[EqualProbableRow]) -> Vec<EqualProbableRow> {
 /// # Errors
 /// Only if this crate's own `a11` port wrote text its ENDF reader cannot read.
 pub fn pendf_text(x: f64) -> Result<f64, crate::NjoyError> {
+    if BINARY_UNITS.with(std::cell::Cell::get) {
+        return Ok(x);
+    }
     crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(x))
+}
+
+thread_local! {
+    /// Set by [`with_binary_units`] while a thermal table is built for a deck
+    /// whose THERMR/ACER units are negative (blocked binary).
+    static BINARY_UNITS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Run `f` with [`pendf_text`] as the identity when `binary` (gh:#1369).
+///
+/// With **negative (binary) units** THERMR's output tape and `calcem`'s
+/// scratch tape hold the doubles as they are: `a11`'s text rounding (and the
+/// read back through it) never happens, so every value ACER reads is the one
+/// THERMR computed, after the explicit `sigfig` calls only. The deck driver
+/// builds the thermal table of a binary-unit deck inside this scope; the flag
+/// is per thread and restored on return. Measured on deck 49 (`-25`): without
+/// it the equiprobable cosines differ from NJOY2016's in the 12th figure.
+pub fn with_binary_units<R>(binary: bool, f: impl FnOnce() -> R) -> R {
+    let prev = BINARY_UNITS.with(|c| c.replace(binary));
+    let r = f();
+    BINARY_UNITS.with(|c| c.set(prev));
+    r
 }
 
 /// One `calcem` record's rows as `acesix` reads them from THERMR's PENDF

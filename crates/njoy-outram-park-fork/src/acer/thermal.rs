@@ -124,6 +124,41 @@ pub struct ThermalAceOptions {
     pub form: InelasticForm,
 }
 
+/// Which of THERMR's elastic reactions ACER reads (`mte`, `ielas`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ElasticRead {
+    /// Each elastic reaction as the evaluation made it: Bragg edges for
+    /// coherent data, `iel` for incoherent (what card 9 asks in the usual
+    /// decks, and what [`AceTable::thermal_from_thermr`] does).
+    #[default]
+    AsTape,
+    /// `mte = 0`: no elastic block at all, whatever THERMR wrote.
+    NoElastic,
+    /// `ielas = 0` with `mte` the MT of `iel`'s MF=3: read as Bragg data.
+    BraggFromIncoherentMf3,
+}
+
+/// `acesix`'s coherent walk (`aceth.f90:166-189`) over a real MF=3 section
+/// `(E, sigma)`: a point is kept where `E*sigma` rises by more than
+/// `(clast+1)/1e6`, and the walk stops when the next point reaches `emax`
+/// (`gety1`'s `enext`; the last point has no next and is not processed).
+fn mf3_edges(pts: &[(f64, f64)], emax_ev: f64) -> Vec<(f64, f64)> {
+    let mut kept = Vec::new();
+    let mut clast = 0.0_f64;
+    for (k, &(e, x)) in pts.iter().enumerate() {
+        let Some(&(enext, _)) = pts.get(k + 1) else { break };
+        if enext > emax_ev || (enext - emax_ev).abs() <= 1.0e-5 {
+            break;
+        }
+        let cnow = e * x;
+        if cnow - clast > (clast + 1.0) / 1_000_000.0 {
+            kept.push((e, cnow));
+            clast = cnow;
+        }
+    }
+    kept
+}
+
 /// The incident energies ACER keeps from THERMR's grid (GitHub #865):
 /// `calcem` runs on [`EGRID`](crate::thermr::calcem::egrid::EGRID) up to and
 /// including the first energy above `emax`, and `acesix` stops at the first
@@ -567,6 +602,25 @@ impl AceTable {
         n_outgoing: usize,
         form: InelasticForm,
     ) -> Result<Self, NjoyError> {
+        Self::thermal_from_thermr_elastic(thermr, name, suffix, energy_grid, n_outgoing, form, ElasticRead::AsTape)
+    }
+
+    /// [`Self::thermal_from_thermr`] with ACER's card-9 elastic choice (`mte`,
+    /// `ielas`, `aceth.f90:134-147`) made explicit: which of THERMR's elastic
+    /// reactions `acesix` reads, and as which kind (gh:#1369).
+    ///
+    /// # Errors
+    /// As [`Self::thermal_from_thermr`]; [`NjoyError::InvalidInput`] for
+    /// [`ElasticRead::BraggFromIncoherentMf3`] without THERMR's incoherent MF=3.
+    pub fn thermal_from_thermr_elastic(
+        thermr: &crate::thermr::on_pendf::ThermrTables,
+        name: &str,
+        suffix: u32,
+        energy_grid: &[f64],
+        n_outgoing: usize,
+        form: InelasticForm,
+        elastic: ElasticRead,
+    ) -> Result<Self, NjoyError> {
         let temp_k = thermr.temperature_k;
         let incident = thermr.incident.as_ref();
         let bragg_s = &thermr.coherent_elastic_s;
@@ -597,7 +651,7 @@ impl AceTable {
         let xs: Vec<f64> = match &thermr.inelastic_mf3 {
             Some(mf3) => energy_grid
                 .iter()
-                .map(|&e| Ok(crate::thermr::mf3_grid::itix_at(mf3, pendf_text(e)?)))
+                .map(|&e| Ok(crate::thermr::mf3_grid::itix_at(mf3, pendf_text(crate::mixr::mix::sigfig(e, 8, 0))?)))
                 .collect::<Result<_, NjoyError>>()?,
             None => energy_grid
                 .iter()
@@ -732,7 +786,32 @@ impl AceTable {
         // the Debye-Waller-suppressed structure factors, not the base-T ones.
         // On NJOY's deck (`incident`) it is `rdelas`'s table instead, never
         // interpolated (GitHub #866).
-        if let Some(bragg_s) = &bragg_s {
+        let bragg_s = if elastic == ElasticRead::NoElastic { &None } else { bragg_s };
+        // `ielas = 0` on a reaction that is not Bragg data (Zr in ZrH, deck 49:
+        // `mte = 228` is `iel`'s MF=3): `acesix` walks it as Bragg edges all the
+        // same (`aceth.f90:166-189`), `cnow = E*sigma`, and `thrlod` writes it as
+        // ITCE/ITCX with `idpnc = 4`, `ncl = -1`.
+        let edges_from_mf3 = if elastic == ElasticRead::BraggFromIncoherentMf3 {
+            let mf3 = iel_mf3.ok_or_else(|| NjoyError::InvalidInput("thermal ACE: no incoherent-elastic MF=3 to read as Bragg data".into()))?;
+            Some(mf3_edges(mf3, opts.emax_ev))
+        } else {
+            None
+        };
+        if let Some(edges) = edges_from_mf3 {
+            let nee = edges.len();
+            itce = xss.len() as i32 + 1;
+            xss.push(nee as f64);
+            is_int.push(true);
+            for &(e, _) in &edges {
+                real(e / EMEV, &mut xss, &mut is_int);
+            }
+            itcx = xss.len() as i32 + 1;
+            for &(_, s) in &edges {
+                real(s / EMEV, &mut xss, &mut is_int);
+            }
+            idpnc = 4;
+            ncl = -1;
+        } else if let Some(bragg_s) = bragg_s {
             // ~~Every edge on the tape is written.~~ **CORRECTED 2026-10-14
             // (GitHub #865):** the edges ACER keeps, as it finds them on
             // THERMR's PENDF ([`aceth_bragg_edges`]).
@@ -753,7 +832,11 @@ impl AceTable {
         }
 
         // Incoherent-elastic: NEE energies, σ, and NEA equally-probable cosines.
-        if let Some(ie) = &thermr.incoherent_elastic {
+        let incoherent = match elastic {
+            ElasticRead::AsTape => thermr.incoherent_elastic.as_ref(),
+            ElasticRead::NoElastic | ElasticRead::BraggFromIncoherentMf3 => None,
+        };
+        if let Some(ie) = incoherent {
             let nea = nang; // reuse the inelastic cosine count for the elastic bins
             // `(E [eV], σ [b], cosines)` per incident energy. On the incident
             // PENDF, as ACER reads them back from THERMR's (GitHub #866):
@@ -844,6 +927,7 @@ impl AceTable {
             zaid,
             awr: incident.map_or(thermr.mf7_awr, |inc| inc.awr),
             iz,
+            aw: [0.0; 16],
             kt_mev,
             date: "  njoy-rust".to_string(),
             // Same provenance stamp as the continuous-energy path; see
