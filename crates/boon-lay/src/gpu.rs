@@ -80,7 +80,7 @@ pub enum GpuError {
     /// The map callback never fired.
     MapCallbackMissing,
     /// A layer has no cited diffusion coefficient for the nuclide (gh:#638:
-    /// krypton in the buffer), so no per-layer table can be built. The CPU
+    /// ~~krypton in the buffer~~ **CORRECTED 2026-11-10:** no layer of a `TrisoCell` today; Kr in the buffer now has a cited value, and only graphite, which a `TrisoCell` has none of, still lacks one), so no per-layer table can be built. The CPU
     /// path reports the same case through `WoSWalker::missing_diffusion_data`.
     MissingDiffusionData(MissingDiffusionData),
 }
