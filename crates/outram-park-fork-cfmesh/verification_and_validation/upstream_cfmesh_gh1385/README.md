@@ -1080,3 +1080,40 @@ Prediction 5: with (a), (b) and (c) the `FA` points are identical (222560), the
 faces index-identical (313010) and the cell lists identical (60263); `FB` /
 `FC` then show what `smoothMeshSurface` and `remapBoundaryPoints` add (the
 first differing point names the next step).
+
+### Result of prediction 5, and prediction 6 (written before the fix)
+
+**Prediction 5 held completely:** after the three changes the `FA` dump
+(`createFundamentalSheetsJFS`) is identical to upstream's in points (222560),
+faces (313010 at their index, with owner and neighbour) and cell lists (60263).
+The three changes: `movePoints` divides; `extrudeLayer` starts from the mesh's
+own cell lists and ends as `updateBoundary` does (`reorderBoundaryFaces`, then
+`replaceBoundary` over the old boundary faces and the new patched quads);
+`createFundamentalSheetsJFS`'s front reads the carried cell lists. Two more
+carried-list defects found on the way and fixed: `TopoMesh::remove_faces`
+(upstream's `removeFaces` renumbers the lists and drops the removed faces)
+dropped them, so `surfaceMorpherCells` returned a mesh with ascending lists
+(the `F0` dump at the start of the FUN extractor: 533 of 30068 cell lists
+differed, now all identical).
+
+`FB` (`smoothMeshSurface` = `optimizeSurface`) and `FC` (`remapBoundaryPoints`)
+differ by 476 points, worst 2.7e-4 m: **the pow ulp** (the experiment with the
+platform `pow` makes `FB` and `FC` identical, 222560/222560). The stage still
+differs in 16 points (worst 7.1e-3 m) after `optimiseMeshSurface`
+(`OAP` identical after `optimizeSurface`, `OBP` 16 points after
+`untangleSurface`); `UNT` lines (inverted-vertex counts per iteration) are
+identical in all 78 iterations; the substep dumps `S1`-`S5` of the last untangle
+(24 selected points) are identical through `smoothLaplacianFC` (`S3`) and
+differ after **`smoothSurfaceOptimizer`** (`S4`) at 16 points.
+
+Reading upstream: `voronoiMeshGenerator::optimiseMeshSurface` runs
+`optimizeSurface()` and `untangleSurface()` on **one** `meshSurfaceOptimizer`;
+its `partTriMesh` (`triMesh()`) is created at the first
+`smoothSurfaceOptimizer` call and afterwards only the selected points'
+coordinates are refreshed (`updateTriMesh(selectedPoints)`), so the
+triangulation keeps stale coordinates for every other point. The port builds a
+second optimiser for the untangle (`untangle_again`), whose `partTriMesh` is
+created from the current points.
+Prediction 6: with one optimiser for both calls (`pMesh`), the 16 points agree,
+and `edgeExtraction` is bit-identical with the platform `pow` (and differs only
+by the pow cascade with PETIR's).
