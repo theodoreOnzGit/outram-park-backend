@@ -104,3 +104,54 @@ fn mtname_is_identical_to_upstream() {
     println!("mtname: {n} names identical");
     assert!(n > 20000);
 }
+
+/// **Law 67 (`getl7` and `aplodd`'s law-67 page): reached, not compared.** No
+/// NJOY ACE file here carries a law 67, so there is no upstream plot to diff.
+/// This builds a 45-word table by hand (two incident energies, two cosines,
+/// two outgoing-energy points each) and checks that the page is produced with
+/// the structure upstream writes: `(n,2n)` neutron emission page, `-1 2/`, a
+/// `1/` curve-set record, one energy record and one `ep, f0` pair list per
+/// incident energy. It is a smoke test of a translation that is **unverified**
+/// against upstream (see `verification_and_validation/aplots/README.md`).
+#[test]
+fn law_67_page_is_written() {
+    use njoy_outram_park_fork::acer::aplots::{aplots, AceTable};
+    let mut x = vec![0.0f64; 45];
+    let set = |x: &mut Vec<f64>, i: usize, v: f64| x[i - 1] = v;
+    // ESZ: energy, total, absorption, elastic, heating (nes = 2).
+    for (i, v) in [1.0e-5, 20.0, 1.0, 1.0, 0.1, 0.1, 0.5, 0.5, 0.01, 0.01].into_iter().enumerate() {
+        set(&mut x, i + 1, v);
+    }
+    set(&mut x, 11, 16.0); // MTR
+    set(&mut x, 13, 1.0); // TYR
+    set(&mut x, 14, 1.0); // LDLW
+    set(&mut x, 16, 67.0); // law
+    set(&mut x, 21, 3.0); // NE
+    for (i, v) in [1.0, 10.0, 20.0, 14.0, 14.0, 14.0].into_iter().enumerate() {
+        set(&mut x, 22 + i, v); // energies, then locators (a7 index 14)
+    }
+    for (i, v) in [2.0, 2.0, -1.0, 1.0, 20.0, 26.0].into_iter().enumerate() {
+        set(&mut x, 28 + i, v); // intmu, nmu, u1, u2, loc1, loc2
+    }
+    for (i, v) in [2.0, 2.0, 0.1, 5.0, 0.5, 0.2, 2.0, 2.0, 0.1, 5.0, 0.4, 0.1].into_iter().enumerate() {
+        set(&mut x, 34 + i, v); // per cosine: intep, npep, ep1, ep2, f1, f2
+    }
+    let mut nxs = [0i64; 16];
+    nxs[0] = 45;
+    nxs[2] = 2; // nes
+    nxs[4] = 1; // nr
+    let mut jxs = [0i64; 32];
+    jxs[0] = 1; // esz
+    jxs[2] = 11; // mtr
+    jxs[4] = 13; // tyr
+    jxs[9] = 14; // ldlw
+    jxs[10] = 15; // dlw
+    let table = AceTable::new(&nxs, &jxs, x, 8.934, 1, 1.0, -1);
+    let text = aplots(&table, "synthetic law 67").unwrap();
+    assert!(text.contains("'<n>eutron emission for (n,2n)    '/\n-1 2/\n"), "no law-67 page:\n{text}");
+    let tail = text.split("'<n>eutron emission for").nth(1).unwrap();
+    assert!(tail.contains("\n1/\n"));
+    // Two incident energies (10 and 20 MeV), each with its energy record.
+    assert!(tail.contains("  1.000000E+01/\n") && tail.contains("  2.000000E+01/\n"));
+    assert!(text.ends_with("99/\nstop\n"));
+}
