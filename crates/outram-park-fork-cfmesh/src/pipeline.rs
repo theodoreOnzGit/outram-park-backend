@@ -1965,8 +1965,18 @@ pub(crate) mod tests {
         // unchanged): ~~(7725, 11521056484853145326), (957,
         // 10164118906460112537)~~. gh:#1284 (Knupp makes one pass, as
         // upstream; CfMeshOptimise only, SnappyCollapse unchanged):
-        // ~~(7725, 5422758738504758818)~~.
-        assert_eq!(got, vec![(7725, 18177691582502802893), (957, 18444736245533413537)]);
+        // ~~(7725, 5422758738504758818)~~. gh:#1385 round 3 (the volume
+        // optimiser, Knupp metric, tet-mesh centres and cell-list order
+        // follow upstream; cell count unchanged, SnappyCollapse unchanged):
+        // ~~(7725, 18177691582502802893)~~. gh:#1385 round 3, second move
+        // (`findBadFaces` / `findLowQualityFaces` on the addressing's
+        // geometry, `updateOrigMesh` marks every tet-mesh node as changed,
+        // the LP untangler's divisions, `generateNewVertices`; cell count
+        // unchanged): ~~(7725, 14814967247723517733)~~ ~~(7725, 6667351423853767910)~~.
+        // gh:#1385 round 4 (the volume optimiser's zero-volume branch adds
+        // `0.01*(n/d)` on the area vector, as upstream; cell count unchanged):
+        // (7725, 4182164109682097358).
+        assert_eq!(got, vec![(7725, 4182164109682097358), (957, 18444736245533413537)]);
     }
 
     /// Diagnostic (gh:#1215), `--ignored`: how many wall faces each

@@ -37,7 +37,7 @@ use crate::fields::vol_field::VolScalarField;
 /// `λ(r)` blends between first-order upwind (`λ = 0`) and central differencing
 /// (`λ = 1`); TVD limiters choose `λ(r)` from the local slope ratio `r` so the
 /// reconstruction stays monotone (no new extrema) near discontinuities.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Limiter {
     /// First-order upwind: `λ = 0`.
     Upwind,
@@ -47,6 +47,9 @@ pub enum Limiter {
     VanLeer,
     /// minmod TVD limiter: `λ(r) = max(0, min(r, 1))`.
     Minmod,
+    /// `limitedLinear k` (gh:#1362): `lambda(r) = max(min((2/max(k, small)) r, 1), 0)`,
+    /// `small` = 1e-15, `k` in `[0, 1]`.
+    LimitedLinear(f64),
 }
 
 impl Limiter {
@@ -57,6 +60,10 @@ impl Limiter {
             Limiter::Linear => 1.0,
             Limiter::VanLeer => (r + r.abs()) / (1.0 + r.abs()),
             Limiter::Minmod => 0.0_f64.max(r.min(1.0)),
+            Limiter::LimitedLinear(k) => {
+                let two_by_k = 2.0 / k.max(1.0e-15);
+                (two_by_k * r).min(1.0).max(0.0)
+            }
         }
     }
 }

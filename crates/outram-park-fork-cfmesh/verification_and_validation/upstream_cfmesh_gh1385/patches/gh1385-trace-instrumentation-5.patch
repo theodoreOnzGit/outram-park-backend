@@ -1,0 +1,56 @@
+diff --git a/meshLibrary/utilities/surfaceTools/meshSurfaceEdgeExtractorFUN/meshSurfaceEdgeExtractorFUN.C b/meshLibrary/utilities/surfaceTools/meshSurfaceEdgeExtractorFUN/meshSurfaceEdgeExtractorFUN.C
+index 92c0617..37e22cc 100644
+--- a/meshLibrary/utilities/surfaceTools/meshSurfaceEdgeExtractorFUN/meshSurfaceEdgeExtractorFUN.C
++++ b/meshLibrary/utilities/surfaceTools/meshSurfaceEdgeExtractorFUN/meshSurfaceEdgeExtractorFUN.C
+@@ -75,10 +75,37 @@ Foam::Module::meshSurfaceEdgeExtractorFUN::meshSurfaceEdgeExtractorFUN
+             << "Cannot run in parallel!" << exit(FatalError);
+ 
+     createBasicFundamentalSheets();
++    gh1385Dump("FA");
+ 
+     smoothMeshSurface();
++    gh1385Dump("FB");
+ 
+     remapBoundaryPoints();
++    gh1385Dump("FC");
++}
++
++void Foam::Module::meshSurfaceEdgeExtractorFUN::gh1385Dump(const char* tag) const
++{
++    if (!getenv("GH1385_TRACE")) return;
++    const pointFieldPMG& pts = mesh_.points();
++    for (Foam::label i = 0; i < pts.size(); ++i)
++        fprintf(stderr, "%sP %d %.17g %.17g %.17g\n", tag, int(i), pts[i].x(), pts[i].y(), pts[i].z());
++    const faceListPMG& fcs = mesh_.faces();
++    const labelList& own = mesh_.owner();
++    const labelList& nei = mesh_.neighbour();
++    for (Foam::label i = 0; i < fcs.size(); ++i)
++    {
++        fprintf(stderr, "%sF %d %d %d", tag, int(i), int(own[i]), int(nei[i]));
++        for (Foam::label j = 0; j < fcs[i].size(); ++j) fprintf(stderr, " %d", int(fcs[i][j]));
++        fprintf(stderr, "\n");
++    }
++    const cellListPMG& cls = mesh_.cells();
++    for (Foam::label i = 0; i < cls.size(); ++i)
++    {
++        fprintf(stderr, "%sC %d", tag, int(i));
++        for (Foam::label j = 0; j < cls[i].size(); ++j) fprintf(stderr, " %d", int(cls[i][j]));
++        fprintf(stderr, "\n");
++    }
+ }
+ 
+ 
+diff --git a/meshLibrary/utilities/surfaceTools/meshSurfaceEdgeExtractorFUN/meshSurfaceEdgeExtractorFUN.H b/meshLibrary/utilities/surfaceTools/meshSurfaceEdgeExtractorFUN/meshSurfaceEdgeExtractorFUN.H
+index 87046de..afecb69 100644
+--- a/meshLibrary/utilities/surfaceTools/meshSurfaceEdgeExtractorFUN/meshSurfaceEdgeExtractorFUN.H
++++ b/meshLibrary/utilities/surfaceTools/meshSurfaceEdgeExtractorFUN/meshSurfaceEdgeExtractorFUN.H
+@@ -79,6 +79,9 @@ class meshSurfaceEdgeExtractorFUN
+         //- clear mesh suirface engine
+         void clearOut();
+ 
++        //- gh:#1385 trace dump
++        void gh1385Dump(const char* tag) const;
++
+         //- distribute boundary faces into patches
+         void distributeBoundaryFaces();
+ 

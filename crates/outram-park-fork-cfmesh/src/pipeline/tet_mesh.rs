@@ -71,9 +71,8 @@ use crate::patches::{assign_patches_by_region, SurfaceRegions};
 use crate::rename_boundary_patches::{rename_boundary_patches, RenameBoundary};
 use crate::renumber_mesh::renumber_mesh;
 use crate::correct_edges::correct_edges_between_patches;
-use crate::surface_engine::{SurfaceEngine, SurfacePartitioner};
-use crate::surface_mapper::{map_vertices_onto_surface_patches_given_octree, SurfaceQueries};
-use crate::surface_optimizer::{map_mesh_to_surface_octree, optimise_mesh_surface_octree, optimise_mesh_surface, MeshSurfaceOptimizer, UntangleReport};
+use crate::surface_mapper::map_vertices_onto_surface_patches_given_octree;
+use crate::surface_optimizer::{map_mesh_to_surface_octree, optimise_mesh_surface_octree, optimise_mesh_surface};
 use crate::topology::{surface_morpher_cells, topological_cleaner, TopoMesh};
 use crate::tet_creator_octree::{tet_creator_octree, TetCreatorDefects};
 use crate::tet_mesh_extractor_octree::tet_mesh_extractor_octree;
@@ -256,22 +255,6 @@ pub(crate) fn face_regions(m: &VolumeMesh, reg: &SurfaceRegions) -> Vec<Option<u
     out
 }
 
-/// `meshSurfaceOptimizer(mse, octree).untangleSurface()` (2 additional
-/// layers) on `m`'s boundary, the second untangle of `pMesh`'s
-/// `optimiseMeshSurface`.
-fn untangle_again(m: &VolumeMesh, o: &MeshOctree, points: &[Vec3], tris: &[[usize; 3]], reg: &SurfaceRegions, given: &[Option<usize>]) -> (VolumeMesh, UntangleReport) {
-    let mut out = m.clone();
-    let q = SurfaceQueries::new(points, tris, reg).with_octree(std::sync::Arc::new(o.clone()));
-    let unassigned = reg.names.len();
-    let patch_of: Vec<usize> = given.iter().map(|r| r.unwrap_or(unassigned)).collect();
-    let engine = SurfaceEngine::from_parts(&out.points, &out.faces, &out.owner, &out.neighbour, &patch_of);
-    let part = SurfacePartitioner::new(&engine);
-    let mut opt = MeshSurfaceOptimizer::new(engine, part, Some(q));
-    let rep = opt.untangle_surface(&mut out.points, 2);
-    (out, rep)
-}
-
-/// Which template the shared generator builds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Template {
     /// `tetMeshExtractorOctree`.
@@ -332,10 +315,23 @@ fn generator_optimise_final_mesh(kind: Template, m: &mut VolumeMesh, points: &[V
         };
     }
     let controls = UntangleControls { boundary_moves: true, mesh_untangler: true, ..UntangleControls::default() };
+    // gh:#1385: `M1`..`M5` point dumps after each step, as the instrumented `voronoiMeshGenerator::optimiseFinalMesh` prints
+    let dump = |tag: &str, m: &VolumeMesh| {
+        if kind == Template::Voronoi && std::env::var("GH1385_TRACE").is_ok() {
+            for (i, p) in m.points.iter().enumerate() {
+                eprintln!("{tag}P {i} {:?} {:?} {:?}", p.x, p.y, p.z);
+            }
+        }
+    };
+    dump("M1", m);
     let r1 = opt.optimize_mesh_fv(m, 5, &controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
+    dump("M2", m);
     let r2 = opt.optimize_low_quality_faces(m, 10);
+    dump("M3", m);
     let bl = crate::pipeline::cartesian_mesh::optimize_boundary_layer_step(m, optimise_layer, false, &controls, "optimizeBoundaryLayer(false): acts only with optimiseLayer (off, upstream default)");
+    dump("M4", m);
     let r3 = opt.untangle_mesh_fv(m, &controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
+    dump("M5", m);
     Ok(format!(
         "optimizeSurface, then optimizeMeshFV bad faces {} -> {}, optimizeLowQualityFaces {} -> {}, untangleMeshFV {} -> {}; {bl}",
         r1.flagged_before, r1.flagged_after, r2.flagged_before, r2.flagged_after, r3.flagged_before, r3.flagged_after
@@ -551,14 +547,16 @@ pub(crate) fn run_generator(
                         fr.smoothing.n_inverted_first, fr.smoothing.n_inverted_last
                     ));
                 }
-                // optimiseMeshSurface (pMesh untangles once more after it)
-                let u = optimise_mesh_surface_octree(m, &o, spts, tris, reg, &given);
-                let mut last = u.n_inverted_last;
-                if kind == Template::Voronoi {
-                    let (mm, u2) = untangle_again(m, &o, spts, tris, reg, &given);
-                    *m = mm;
-                    last = u2.n_inverted_last;
-                }
+                // optimiseMeshSurface: tetMesh optimises the surface; pMesh also
+                // untangles it, on the same optimiser (gh:#1385 round 4)
+                let (u, last) = if kind == Template::Voronoi {
+                    let (a, b) = crate::surface_optimizer::optimise_mesh_surface_then_untangle_octree(m, &o, spts, tris, reg, &given);
+                    (a, b.n_inverted_last)
+                } else {
+                    let a = optimise_mesh_surface_octree(m, &o, spts, tris, reg, &given);
+                    let last = a.n_inverted_last;
+                    (a, last)
+                };
                 rep.n_inverted_after_edge_extraction = last;
                 rep.notes.push(format!("edgeExtraction: optimiseMeshSurface: inverted points {} -> {last}", u.n_inverted_first));
             }

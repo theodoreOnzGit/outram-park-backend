@@ -980,15 +980,25 @@ pub fn create_empty_patches(mesh: &VolumeMesh, root_box: &crate::mesh_octree::Bo
     out.neighbour.truncate(n_int);
     out.patches.clear();
     let names = ["defaultFaces", "unusedFacesBottom", "unusedFacesTop"];
+    let mut new_label = vec![usize::MAX; mesh.face_count()];
     for (g, name) in groups.iter().zip(names) {
         let start = out.faces.len();
         for &f in g {
+            new_label[f] = out.faces.len();
             out.faces.push(mesh.faces[f].clone());
             out.owner.push(mesh.owner[f]);
             out.neighbour.push(None);
         }
         out.patches.push(BoundaryPatch { name: name.to_string(), start_face: start, n_faces: g.len() });
     }
+    // `replaceBoundary`: the internal faces stay in each cell's list, the new
+    // boundary labels (patch by patch) are appended to the owner's list in the
+    // order of the boundary list, i.e. of the old boundary faces (gh:#1385 round 4)
+    let mut lists: Vec<Vec<usize>> = mesh.cell_face_lists().into_iter().map(|c| c.into_iter().filter(|&f| f < n_int).collect()).collect();
+    for f in n_int..mesh.face_count() {
+        lists[mesh.owner[f]].push(new_label[f]);
+    }
+    out.cells = Some(lists);
     Ok((out, vec!["patch".to_string(), "empty".to_string(), "empty".to_string()]))
 }
 

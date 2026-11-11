@@ -25,14 +25,15 @@
 use outram_foam_basic_lib::fields::boundary::bc::{BoundaryCondition, PatchField};
 use outram_foam_basic_lib::fields::field::Field;
 use outram_foam_basic_lib::fields::surface_field::SurfaceScalarField;
-use outram_foam_basic_lib::fields::vol_field::VolScalarField;
+use outram_foam_basic_lib::fields::vol_field::{VolScalarField, VolTensorField, VolVectorField};
 use outram_foam_basic_lib::fv_operators::fvc;
 use outram_foam_basic_lib::fv_operators::fvc::Limiter;
-use outram_foam_basic_lib::fv_operators::fvm::{laplacian_with_delta, DeltaCoeff};
+use outram_foam_basic_lib::fv_operators::fvm;
+use outram_foam_basic_lib::fv_operators::fvm::{laplacian_with_delta, DeltaCoeff, NonOrthoScheme};
 use outram_foam_basic_lib::io::poly_mesh::{MeshFace, PolyMesh};
 use outram_foam_basic_lib::limiters::FluxLimiter;
 use outram_foam_basic_lib::mesh::fv_mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
-use outram_foam_basic_lib::primitives::Vector3;
+use outram_foam_basic_lib::primitives::{Tensor, Vector3};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -362,6 +363,8 @@ fn operators(text: &str) -> Vec<(&'static str, Stat)> {
         ("recon linear", Limiter::Linear, "interp_linear_pos", "interp_linear_neg"),
         ("recon vanLeer", Limiter::VanLeer, "interp_vanLeer_pos", "interp_vanLeer_neg"),
         ("recon Minmod", Limiter::Minmod, "interp_Minmod_pos", "interp_Minmod_neg"),
+        ("recon limitedLinear 1", Limiter::LimitedLinear(1.0), "interp_limitedLinear1_pos", "interp_limitedLinear1_neg"),
+        ("recon limitedLinear 0.5", Limiter::LimitedLinear(0.5), "interp_limitedLinear05_pos", "interp_limitedLinear05_neg"),
     ] {
         let (pos, neg) = fvc::reconstruct_pos_neg(&t, lim);
         let mut both = pos.internal.as_slice().to_vec();
@@ -403,8 +406,8 @@ fn operators(text: &str) -> Vec<(&'static str, Stat)> {
 }
 
 /// Every limiter function against upstream's, with the upstream-computed `r`.
-/// Stats are split at `r < 0`, where the port clamps vanAlbada / OSPRE and
-/// upstream does not.
+/// Stats are split at `r < 0`, where the port once clamped vanAlbada / OSPRE and
+/// upstream does not (gh:#1362: clamp removed, now bit-identical).
 fn limiters(text: &str) -> Vec<(String, Stat)> {
     let r = parse(text);
     let mut out = vec![];
@@ -433,6 +436,12 @@ fn limiters(text: &str) -> Vec<(String, Stat)> {
             out.push((label, st));
         }
     }
+    // limitedLinear with k = 1e-16: upstream floors k at `small` = 1e-15
+    let rs = r.s("lim_limitedLinearTiny_r");
+    let a: Vec<f64> = rs.iter().map(|x| FluxLimiter::LimitedLinear(1e-16).psi(*x)).collect();
+    let label = "limiter limitedLinear 1e-16 (tiny r)".to_string();
+    let st = cmp(&label, &a, &r.s("lim_limitedLinearTiny"));
+    out.push((label, st));
     // cause proofs for the two limiters whose r<0 / operation order differ
     let rs = r.s("lim_OSPRE_r");
     let o: Vec<f64> = rs.iter().map(|&x| { let rrp1 = x * (x + 1.0); 1.5 * rrp1 / (rrp1 + 1.0) }).collect();
@@ -440,6 +449,232 @@ fn limiters(text: &str) -> Vec<(String, Stat)> {
     let rs = r.s("lim_vanAlbada_r");
     let o: Vec<f64> = rs.iter().map(|&x| x * (x + 1.0) / (x * x + 1.0)).collect();
     out.push(("proof vanAlbada r(r+1)/(r^2+1), no clamp".to_string(), cmp("proof vanAlbada r(r+1)/(r^2+1), no clamp", &o, &r.s("lim_vanAlbada"))));
+    out
+}
+
+// ── gh:#1362 task 2/3 rows: schemes and operators added to the harness ─────
+
+/// `fU` of the C++ driver (operation order preserved).
+fn f_u(p: Vector3) -> Vector3 {
+    let (x, y, z) = (p.x, p.y, p.z);
+    Vector3::new(1.0 + 0.5 * y - 0.25 * z * z, 0.3 * x + 0.2 * z, -0.1 * x * y + 0.4)
+}
+
+/// `fS` of the C++ driver (operation order preserved).
+fn f_s(p: Vector3) -> Tensor {
+    let (x, y, z) = (p.x, p.y, p.z);
+    Tensor::new(
+        1.0 + 0.5 * x - 0.25 * y * z,
+        0.3 * y + 0.1 * x * x,
+        -0.2 * z + 0.15 * x * y,
+        0.4 * x - 0.1 * z * z,
+        2.0 - 0.3 * y + 0.05 * x * z,
+        0.25 * x * y - 0.2 * z,
+        0.1 * z + 0.2 * y * y,
+        -0.5 * x + 0.3 * y * z,
+        1.5 + 0.1 * x - 0.2 * y,
+    )
+}
+
+/// fixedValue boundary of any field type from a per-face function of the global face index.
+fn fixed_boundary<T: Clone>(mesh: &FvMesh, face_value: impl Fn(usize) -> T) -> Vec<PatchField<T>> {
+    mesh.patches
+        .iter()
+        .map(|p| {
+            let vals = Field::new((p.start..p.start + p.size).map(&face_value).collect::<Vec<T>>());
+            PatchField { bc: BoundaryCondition::FixedField(vals.clone()), values: vals }
+        })
+        .collect()
+}
+
+fn comps9(v: &[Tensor]) -> Vec<f64> {
+    v.iter()
+        .flat_map(|t| [t.xx, t.xy, t.xz, t.yx, t.yy, t.yz, t.zx, t.zy, t.zz])
+        .collect()
+}
+
+impl Ref {
+    fn t9(&self, k: &str) -> Vec<Tensor> {
+        self.cols[k]
+            .iter()
+            .map(|v| Tensor::new(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8]))
+            .collect()
+    }
+    /// `Tm`: inlet fixedGradient (uniform 0.7), outlet mixed with per-face values,
+    /// walls mixed with uniform values (the C++ driver's section 10).
+    fn tm_field(&self, mesh: &Arc<FvMesh>) -> VolScalarField {
+        let cf = self.v("Cf");
+        let n = |pi: usize| mesh.patches[pi].size;
+        let o = mesh.patches[1].start;
+        let mixed_field = BoundaryCondition::MixedField {
+            value_fraction: Field::new((0..n(1)).map(|i| 0.2 + 0.3 * cf[o + i].z).collect()),
+            ref_value: Field::new((0..n(1)).map(|i| f_t(cf[o + i])).collect()),
+            ref_grad: Field::new((0..n(1)).map(|i| 0.3 + 0.1 * cf[o + i].y).collect()),
+        };
+        let boundary = vec![
+            PatchField { bc: BoundaryCondition::FixedGradient(0.7), values: Field::new(vec![0.0; n(0)]) },
+            PatchField { bc: mixed_field, values: Field::new(vec![0.0; n(1)]) },
+            PatchField {
+                bc: BoundaryCondition::Mixed { value_fraction: 0.35, ref_value: 2.5, ref_grad: -0.8 },
+                values: Field::new(vec![0.0; n(2)]),
+            },
+        ];
+        VolScalarField::new("Tm", mesh.clone(), Field::new(self.s("T")), boundary)
+    }
+}
+
+/// Compare a Rust matrix (the port's sign: `-div(gamma grad)`) against an upstream
+/// matrix dumped under `key` (`<key>_diag`, `_upper`, `_source`, `_intCoeff`,
+/// `_bndCoeff`), folding the patch coefficients in as `fvMatrix::solve` does:
+/// `diag += internalCoeffs` and `source = source_ + boundaryCoeffs`, patch by patch.
+fn lap_rows(
+    r: &Ref,
+    mesh: &FvMesh,
+    m: &outram_foam_basic_lib::ldu_matrix::fv_matrix::FvMatrix,
+    key: &str,
+    label: &str,
+) -> Vec<(String, Stat)> {
+    let neg = |v: Vec<f64>| -> Vec<f64> { v.into_iter().map(|x| -x).collect() };
+    let mut out = vec![];
+    let l = format!("{label} upper");
+    out.push((l.clone(), cmp(&l, m.ldu.upper.as_slice(), &neg(r.s(&format!("{key}_upper"))))));
+    let mut diag = r.s(&format!("{key}_diag"));
+    let ic = r.s(&format!("{key}_intCoeff"));
+    let mut src = r.s(&format!("{key}_source"));
+    let bc = r.s(&format!("{key}_bndCoeff"));
+    let mut k = 0;
+    for p in &mesh.patches {
+        for fi in 0..p.size {
+            diag[mesh.owner[p.start + fi]] += ic[k];
+            src[mesh.owner[p.start + fi]] += bc[k];
+            k += 1;
+        }
+    }
+    let l = format!("{label} diag (+bnd)");
+    out.push((l.clone(), cmp(&l, m.ldu.diag.as_slice(), &neg(diag))));
+    let l = format!("{label} source (+bnd)");
+    out.push((l.clone(), cmp(&l, m.source.as_slice(), &neg(src))));
+    out
+}
+
+fn more_operators(text: &str) -> Vec<(String, Stat)> {
+    let r = parse(text);
+    let mesh = r.fv_mesh();
+    let t = r.t_field(&mesh);
+    let mut out: Vec<(String, Stat)> = vec![];
+    let push = |name: &str, rust: &[f64], up: &[f64], out: &mut Vec<(String, Stat)>| {
+        out.push((name.to_string(), cmp(name, rust, up)));
+    };
+
+    // leastSquares gradient (upstream `leastSquaresGrad` + `leastSquaresVectors`)
+    let g = fvc::grad_least_squares(&t);
+    push("grad leastSquares", &comps(g.internal.as_slice()), &comps(&r.v("gradT_ls")), &mut out);
+
+    // non-orthogonal correction vectors, internal faces (upstream
+    // `basicFvGeometryScheme::nonOrthCorrectionVectors`)
+    let ncv: Vec<Vector3> = fvc::non_orth_correction_vectors(&mesh);
+    // the port-original `non_ortho_geometry` (used by appbuilder) keeps `Sf*(1/magSf)`
+    let ncv_old: Vec<Vector3> = (0..r.n_int)
+        .map(|f| {
+            let d = mesh.cell_centres[mesh.neighbour[f]] - mesh.cell_centres[mesh.owner[f]];
+            fvm::non_ortho_geometry(mesh.face_area_vectors[f], d).unwrap().corr_vec
+        })
+        .collect();
+    push(
+        "nonOrthCorrVec (port-original non_ortho_geometry)",
+        &comps(&ncv_old),
+        &comps(&r.v("nonOrthCorrVec")[..r.n_int]),
+        &mut out,
+    );
+    push(
+        "nonOrthCorrVec (internal)",
+        &comps(&ncv),
+        &comps(&r.v("nonOrthCorrVec")[..r.n_int]),
+        &mut out,
+    );
+
+    // linearUpwind, flux +1 and -1 (internal faces)
+    for (sgn, key) in [(1.0, "interp_linearUpwind_pos"), (-1.0, "interp_linearUpwind_neg")] {
+        let flux = SurfaceScalarField::new(
+            "ff",
+            mesh.clone(),
+            Field::new(vec![sgn; r.n_int]),
+            mesh.patches
+                .iter()
+                .map(|p| PatchField {
+                    bc: BoundaryCondition::FixedField(Field::new(vec![sgn; p.size])),
+                    values: Field::new(vec![sgn; p.size]),
+                })
+                .collect(),
+        );
+        let lu = fvc::linear_upwind(&t, &flux);
+        let name = if sgn > 0.0 { "linearUpwind +flux" } else { "linearUpwind -flux" };
+        push(name, lu.internal.as_slice(), &r.s(key)[..r.n_int], &mut out);
+    }
+
+    // corrected / limited snGrad, full faces (boundary = patch snGrad)
+    for (scheme, key, corr_key, name) in [
+        (NonOrthoScheme::Corrected, "snGrad_corrected", "snGradCorr_corrected", "snGrad corrected"),
+        (NonOrthoScheme::Limited(0.33), "snGrad_limited033", "snGradCorr_limited033", "snGrad limited 0.33"),
+        (NonOrthoScheme::Limited(0.5), "snGrad_limited05", "snGradCorr_limited05", "snGrad limited 0.5"),
+    ] {
+        let sn = fvc::sn_grad_corrected(&t, scheme);
+        let all = all_faces(&mesh, sn.internal.as_slice(), |pi| sn.boundary[pi].values.as_slice().to_vec());
+        push(name, &all, &r.s(key), &mut out);
+        let corr = fvc::sn_grad_correction_with_grad(&t, &fvc::grad(&t), scheme);
+        let cname = format!("{name} correction (internal)");
+        push(&cname, &corr, &r.s(corr_key)[..r.n_int], &mut out);
+    }
+
+    // corrected and limited Laplacian (gamma from the dump, grad = Gauss linear)
+    let gam = r.surf(&mesh, "gam");
+    let gt = fvc::grad(&t);
+    let mc = fvm::laplacian_corrected(&gam, &t, &gt, NonOrthoScheme::Corrected);
+    out.extend(lap_rows(&r, &mesh, &mc, "lapc", "laplacian corrected"));
+    let ml = fvm::laplacian_corrected(&gam, &t, &gt, NonOrthoScheme::Limited(0.33));
+    out.extend(lap_rows(&r, &mesh, &ml, "lapl", "laplacian limited 0.33"));
+    // faceFluxCorrection = gamma*magSf*correction, internal faces
+    let corr = fvc::sn_grad_correction_with_grad(&t, &gt, NonOrthoScheme::Corrected);
+    let ffc: Vec<f64> = (0..r.n_int).map(|f| (gam.internal[f] * mesh.face_areas[f]) * corr[f]).collect();
+    push("laplacian corrected faceFluxCorrection", &ffc, &r.s("lapc_ffc")[..r.n_int], &mut out);
+
+    // vector and tensor divergence (Gauss linear), polynomial fixedValue inputs
+    let phi = r.surf(&mesh, "phi");
+    let cf = r.v("Cf");
+    let cc = r.v("C");
+    let u = VolVectorField::new(
+        "U",
+        mesh.clone(),
+        Field::new(cc.iter().map(|c| f_u(*c)).collect()),
+        fixed_boundary(&mesh, |f| f_u(cf[f])),
+    );
+    let dv = fvc::div_vec(&phi, &u);
+    push("div(phi,U) Gauss linear", &comps(dv.internal.as_slice()), &comps(&r.v("divPhiU")), &mut out);
+    let s_cells: Vec<Tensor> = cc.iter().map(|c| f_s(*c)).collect();
+    push("input S (sanity)", &comps9(&s_cells), &comps9(&r.t9("S")), &mut out);
+    let sg = VolTensorField::new(
+        "S",
+        mesh.clone(),
+        Field::new(s_cells),
+        fixed_boundary(&mesh, |f| f_s(cf[f])),
+    );
+    let ds = fvc::div_tensor(&sg);
+    push("div(S) tensor Gauss linear", &comps(ds.internal.as_slice()), &comps(&r.v("divS")), &mut out);
+
+    // mixed and fixedGradient patches
+    let tm = r.tm_field(&mesh);
+    let lin = fvc::interpolate(&tm);
+    let lin_all = all_faces(&mesh, lin.internal.as_slice(), |pi| lin.boundary[pi].values.as_slice().to_vec());
+    push("interpolate linear (mixed)", &lin_all, &r.s("interpm_linear"), &mut out);
+    let gm = fvc::grad(&tm);
+    push("grad Gauss linear (mixed)", &comps(gm.internal.as_slice()), &comps(&r.v("gradTm")), &mut out);
+    let sn = fvc::sn_grad(&tm);
+    let sn_b: Vec<f64> = (0..mesh.patches.len())
+        .flat_map(|pi| sn.boundary[pi].values.as_slice().to_vec())
+        .collect();
+    push("snGrad (mixed, boundary faces)", &sn_b, &r.s("snGradm_uncorrected")[r.n_int..], &mut out);
+    let mm = fvm::laplacian_with_delta(&gam, &tm, DeltaCoeff::NonOrthogonal);
+    out.extend(lap_rows(&r, &mesh, &mm, "lapm", "laplacian mixed"));
     out
 }
 
@@ -611,6 +846,7 @@ fn rows(text: &str) -> Vec<(String, Stat)> {
     v.extend(geometry(text).into_iter().map(|(n, s)| (n.to_string(), s)));
     v.extend(operators(text).into_iter().map(|(n, s)| (n.to_string(), s)));
     v.extend(limiters(text));
+    v.extend(more_operators(text));
     v.extend(proofs(text).into_iter().map(|(n, s)| (n.to_string(), s)));
     v
 }
@@ -653,7 +889,7 @@ const PINS: &[(&str, &str, usize, usize, u64)] = &[
     ("hex", "limiter vanLeer [r>=0]", 232, 232, 0),
     ("hex", "limiter vanLeer [r<0]", 82, 82, 0),
     ("hex", "limiter vanAlbada [r>=0]", 232, 232, 0),
-    ("hex", "limiter vanAlbada [r<0]", 82, 1, 4603579539098121011),
+    ("hex", "limiter vanAlbada [r<0]", 82, 82, 0), // ~~1/82, clamp~~ gh:#1362
     ("hex", "limiter Minmod [r>=0]", 232, 232, 0),
     ("hex", "limiter Minmod [r<0]", 82, 82, 0),
     ("hex", "limiter SuperBee [r>=0]", 232, 232, 0),
@@ -663,7 +899,7 @@ const PINS: &[(&str, &str, usize, usize, u64)] = &[
     ("hex", "limiter UMIST [r>=0]", 232, 232, 0),
     ("hex", "limiter UMIST [r<0]", 82, 82, 0),
     ("hex", "limiter OSPRE [r>=0]", 232, 232, 0), // ~~151, 2 ulp~~ gh:#1489
-    ("hex", "limiter OSPRE [r<0]", 82, 1, 4608469161550694693),
+    ("hex", "limiter OSPRE [r<0]", 82, 82, 0), // ~~1/82, clamp~~ gh:#1362
     ("hex", "limiter limitedLinear 1 [r>=0]", 232, 232, 0),
     ("hex", "limiter limitedLinear 1 [r<0]", 82, 82, 0),
     ("hex", "limiter limitedLinear 0.5 [r>=0]", 232, 232, 0),
@@ -707,7 +943,7 @@ const PINS: &[(&str, &str, usize, usize, u64)] = &[
     ("poly", "limiter vanLeer [r>=0]", 232, 232, 0),
     ("poly", "limiter vanLeer [r<0]", 82, 82, 0),
     ("poly", "limiter vanAlbada [r>=0]", 232, 232, 0),
-    ("poly", "limiter vanAlbada [r<0]", 82, 1, 4603579539098121011),
+    ("poly", "limiter vanAlbada [r<0]", 82, 82, 0), // ~~1/82, clamp~~ gh:#1362
     ("poly", "limiter Minmod [r>=0]", 232, 232, 0),
     ("poly", "limiter Minmod [r<0]", 82, 82, 0),
     ("poly", "limiter SuperBee [r>=0]", 232, 232, 0),
@@ -717,7 +953,7 @@ const PINS: &[(&str, &str, usize, usize, u64)] = &[
     ("poly", "limiter UMIST [r>=0]", 232, 232, 0),
     ("poly", "limiter UMIST [r<0]", 82, 82, 0),
     ("poly", "limiter OSPRE [r>=0]", 232, 232, 0), // ~~151, 2 ulp~~ gh:#1489
-    ("poly", "limiter OSPRE [r<0]", 82, 1, 4608469161550694693),
+    ("poly", "limiter OSPRE [r<0]", 82, 82, 0), // ~~1/82, clamp~~ gh:#1362
     ("poly", "limiter limitedLinear 1 [r>=0]", 232, 232, 0),
     ("poly", "limiter limitedLinear 1 [r<0]", 82, 82, 0),
     ("poly", "limiter limitedLinear 0.5 [r>=0]", 232, 232, 0),
@@ -736,6 +972,66 @@ const PINS: &[(&str, &str, usize, usize, u64)] = &[
     ("poly", "proof grad g*(1/V)", 1410, 1060, 1),
     ("poly", "proof snGrad", 1788, 1788, 0),
     ("poly", "proof laplacian upper", 1236, 1236, 0),
+    ("hex", "recon limitedLinear 1", 1578, 1578, 0), // gh:#1362
+    ("hex", "recon limitedLinear 0.5", 1578, 1578, 0), // gh:#1362
+    ("hex", "limiter limitedLinear 1e-16 (tiny r)", 7, 7, 0), // gh:#1362
+    ("hex", "grad leastSquares", 948, 948, 0), // gh:#1362
+    ("hex", "nonOrthCorrVec (internal)", 2367, 2367, 0), // gh:#1362
+    ("hex", "linearUpwind +flux", 789, 789, 0), // gh:#1362
+    ("hex", "linearUpwind -flux", 789, 789, 0), // gh:#1362
+    ("hex", "snGrad corrected", 1083, 1083, 0), // gh:#1362
+    ("hex", "snGrad corrected correction (internal)", 789, 789, 0), // gh:#1362
+    ("hex", "snGrad limited 0.33", 1083, 1083, 0), // gh:#1362
+    ("hex", "snGrad limited 0.33 correction (internal)", 789, 789, 0), // gh:#1362
+    ("hex", "snGrad limited 0.5", 1083, 1083, 0), // gh:#1362
+    ("hex", "snGrad limited 0.5 correction (internal)", 789, 789, 0), // gh:#1362
+    ("hex", "laplacian corrected upper", 789, 789, 0), // gh:#1362
+    ("hex", "laplacian corrected diag (+bnd)", 316, 316, 0), // gh:#1362
+    ("hex", "laplacian corrected source (+bnd)", 316, 316, 0), // gh:#1362
+    ("hex", "laplacian limited 0.33 upper", 789, 789, 0), // gh:#1362
+    ("hex", "laplacian limited 0.33 diag (+bnd)", 316, 316, 0), // gh:#1362
+    ("hex", "laplacian limited 0.33 source (+bnd)", 316, 316, 0), // gh:#1362
+    ("hex", "laplacian corrected faceFluxCorrection", 789, 789, 0), // gh:#1362
+    ("hex", "div(phi,U) Gauss linear", 948, 948, 0), // gh:#1362
+    ("hex", "input S (sanity)", 2844, 2844, 0), // gh:#1362
+    ("hex", "div(S) tensor Gauss linear", 948, 948, 0), // gh:#1362
+    ("hex", "interpolate linear (mixed)", 1083, 1083, 0), // gh:#1362
+    ("hex", "grad Gauss linear (mixed)", 948, 948, 0), // gh:#1362
+    ("hex", "snGrad (mixed, boundary faces)", 294, 294, 0), // gh:#1362
+    ("hex", "laplacian mixed upper", 789, 789, 0), // gh:#1362
+    ("hex", "laplacian mixed diag (+bnd)", 316, 316, 0), // gh:#1362
+    ("hex", "laplacian mixed source (+bnd)", 316, 316, 0), // gh:#1362
+    ("poly", "recon limitedLinear 1", 2472, 2472, 0), // gh:#1362
+    ("poly", "recon limitedLinear 0.5", 2472, 2472, 0), // gh:#1362
+    ("poly", "limiter limitedLinear 1e-16 (tiny r)", 7, 7, 0), // gh:#1362
+    ("poly", "grad leastSquares", 1410, 1410, 0), // gh:#1362
+    ("poly", "nonOrthCorrVec (internal)", 3708, 3708, 0), // gh:#1362
+    ("poly", "linearUpwind +flux", 1236, 1236, 0), // gh:#1362
+    ("poly", "linearUpwind -flux", 1236, 1236, 0), // gh:#1362
+    ("poly", "snGrad corrected", 1788, 1788, 0), // gh:#1362
+    ("poly", "snGrad corrected correction (internal)", 1236, 1236, 0), // gh:#1362
+    ("poly", "snGrad limited 0.33", 1788, 1788, 0), // gh:#1362
+    ("poly", "snGrad limited 0.33 correction (internal)", 1236, 1236, 0), // gh:#1362
+    ("poly", "snGrad limited 0.5", 1788, 1788, 0), // gh:#1362
+    ("poly", "snGrad limited 0.5 correction (internal)", 1236, 1236, 0), // gh:#1362
+    ("poly", "laplacian corrected upper", 1236, 1236, 0), // gh:#1362
+    ("poly", "laplacian corrected diag (+bnd)", 470, 470, 0), // gh:#1362
+    ("poly", "laplacian corrected source (+bnd)", 470, 470, 0), // gh:#1362
+    ("poly", "laplacian limited 0.33 upper", 1236, 1236, 0), // gh:#1362
+    ("poly", "laplacian limited 0.33 diag (+bnd)", 470, 470, 0), // gh:#1362
+    ("poly", "laplacian limited 0.33 source (+bnd)", 470, 470, 0), // gh:#1362
+    ("poly", "laplacian corrected faceFluxCorrection", 1236, 1236, 0), // gh:#1362
+    ("poly", "div(phi,U) Gauss linear", 1410, 1410, 0), // gh:#1362
+    ("poly", "input S (sanity)", 4230, 4230, 0), // gh:#1362
+    ("poly", "div(S) tensor Gauss linear", 1410, 1410, 0), // gh:#1362
+    ("poly", "interpolate linear (mixed)", 1788, 1788, 0), // gh:#1362
+    ("poly", "grad Gauss linear (mixed)", 1410, 1410, 0), // gh:#1362
+    ("poly", "snGrad (mixed, boundary faces)", 552, 552, 0), // gh:#1362
+    ("poly", "laplacian mixed upper", 1236, 1236, 0), // gh:#1362
+    ("poly", "laplacian mixed diag (+bnd)", 470, 470, 0), // gh:#1362
+    ("poly", "laplacian mixed source (+bnd)", 470, 470, 0), // gh:#1362
+    ("hex", "nonOrthCorrVec (port-original non_ortho_geometry)", 2367, 1699, 4375247037990436864), // gh:#1362: port keeps `Sf*(1/magSf)`, 668 differ (values near 0 make the ulp count huge)
+    ("poly", "nonOrthCorrVec (port-original non_ortho_geometry)", 3708, 2639, 16777216), // gh:#1362
 ];
 
 #[test]
@@ -744,10 +1040,14 @@ fn operators_match_upstream_as_pinned() {
     let mut mismatches: Vec<String> = vec![];
     for (label, text) in [("hex", HEX_BLOCK), ("poly", POLY_DUAL)] {
         for (name, st) in rows(text) {
-            let pin = PINS
-                .iter()
-                .find(|p| p.0 == label && p.1 == name)
-                .unwrap_or_else(|| panic!("no pin for {label}|{name}"));
+            let Some(pin) = PINS.iter().find(|p| p.0 == label && p.1 == name) else {
+                mismatches.push(format!(
+                    "    (\"{label}\", \"{name}\", {}, {}, {}), // NEW row, no pin yet",
+                    st.n, st.identical, st.max_ulp
+                ));
+                seen += 1;
+                continue;
+            };
             if (st.n, st.identical, st.max_ulp) != (pin.2, pin.3, pin.4) {
                 // collect, so one run lists every moved row (PINS format)
                 mismatches.push(format!(
@@ -762,5 +1062,5 @@ fn operators_match_upstream_as_pinned() {
         }
     }
     assert!(mismatches.is_empty(), "moved rows:\n{}", mismatches.join("\n"));
-    assert_eq!(seen, PINS.len());
+    assert_eq!(seen, PINS.len() + mismatches.iter().filter(|m| m.contains("NEW row")).count(), "every pin must correspond to a row");
 }

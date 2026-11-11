@@ -89,7 +89,7 @@
 use crate::math::Vec3;
 use crate::surface_engine::{SurfaceEngine, VSMALL};
 use crate::topology::TopoMesh;
-use crate::volume_mesh::{from_cell_faces_wound, VolumeMesh};
+use crate::volume_mesh::VolumeMesh;
 use std::collections::{BTreeMap, BTreeSet};
 use petir::mathf::RealMath;
 
@@ -462,16 +462,16 @@ fn refine_boundary_layers_mode(mesh: &VolumeMesh, s: &RefineBoundaryLayersSettin
         let magv = v.length();
         let mut first = magv / n_layers as f64;
         if ratio > 1.0 + SMALL {
-            first = magv / ((1.0 - ratio.r_powi(n_layers as i32)) / (1.0 - ratio));
+            first = magv / ((1.0 - ratio.r_powf(n_layers as f64)) / (1.0 - ratio));
         }
         let first = thickness.max(SMALL).min(first);
-        let dir = v.scale(1.0 / (magv + VSMALL));
+        let dir = v.div(magv + VSMALL);
         let mut labels = vec![h[0]];
         let mut param = first;
         for j in 1..n_layers {
             labels.push(points.len());
             points.push(start.add(dir.scale(param)));
-            param += first * ratio.r_powi(j as i32);
+            param += first * ratio.r_powf(j as f64);
         }
         labels.push(h[1]);
         hair_labels.push(labels);
@@ -603,24 +603,42 @@ fn refine_boundary_layers_mode(mesh: &VolumeMesh, s: &RefineBoundaryLayersSettin
             }
         }
     }
-    let outward = |c: usize, f: usize, ring: &[usize]| -> Vec<usize> {
-        let mut r = ring.to_vec();
-        if mesh.owner[f] != c {
-            r.reverse();
-        }
-        r
-    };
-    let mut cells: Vec<Vec<Vec<usize>>> = Vec::new();
+    // generateNewFaces' result: `newFaces_` holds the pieces of every face in
+    // label order (internal faces, then the boundary faces), `facesFromFace_`
+    // the labels of each face's pieces (gh:#1385 round 4).
+    let mut new_faces: Vec<Vec<usize>> = Vec::new();
+    let mut faces_from_face: Vec<Vec<usize>> = Vec::with_capacity(mesh.face_count());
+    for p in &pieces {
+        faces_from_face.push((new_faces.len()..new_faces.len() + p.len()).collect());
+        new_faces.extend(p.iter().cloned());
+    }
+    let n_faces_before = new_faces.len();
+    // `pointNewFaces` + `areFacesEqual`: a face is found by its vertex set, the first one wins.
+    let mut face_index: std::collections::HashMap<Vec<usize>, usize> = std::collections::HashMap::new();
+    for (i, r) in new_faces.iter().enumerate() {
+        face_index.entry(sorted_key(r)).or_insert(i);
+    }
+    // The cells' face lists as cfMesh holds them (`mesh_.cells()`).
+    let cells_up = mesh.cell_face_lists();
+    let n_orig_cells = mesh.n_cells;
+    let mut cell_lists: Vec<Vec<usize>> = vec![Vec::new(); n_orig_cells];
+    let mut new_cells_from_cell: Vec<Vec<usize>> = vec![Vec::new(); n_orig_cells];
+    let mut n_cells = n_orig_cells;
     let (mut n_split, mut n_edge, mut n_corner) = (0usize, 0usize, 0usize);
-    for c in 0..mesh.n_cells {
-        match ref_type[c] {
-            0 => cells.push(cf[c].iter().flat_map(|&f| pieces[f].iter().map(move |p| (f, p))).map(|(f, p)| outward(c, f, p)).collect()),
+    for c in 0..n_orig_cells {
+        let children: Vec<Vec<Vec<usize>>> = match ref_type[c] {
+            0 => {
+                // not refined: the pieces of its faces, in its list's order
+                new_cells_from_cell[c].push(c);
+                cell_lists[c] = cells_up[c].iter().flat_map(|&f| faces_from_face[f].iter().copied()).collect();
+                continue;
+            }
             1 => {
                 n_split += 1;
                 let fm = bases[c][0];
-                let base = &mesh.faces[fm];
-                let k = base.len();
                 let hs = hairs_for_face(mesh, &cf, c, fm).expect("checked above");
+                let k = mesh.faces[fm].len();
+                let base = &mesh.faces[fm];
                 let col: Vec<Vec<usize>> = hs
                     .iter()
                     .enumerate()
@@ -632,52 +650,360 @@ fn refine_boundary_layers_mode(mesh: &VolumeMesh, s: &RefineBoundaryLayersSettin
                         l
                     })
                     .collect();
-                let n = col[0].len() - 1;
-                for i in 0..n {
-                    let mut faces: Vec<Vec<usize>> = Vec::with_capacity(k + 2);
-                    faces.push((0..k).map(|p| col[p][i]).collect());
-                    faces.push((0..k).rev().map(|p| col[p][i + 1]).collect());
-                    for e in 0..k {
-                        let (p, q) = (e, (e + 1) % k);
-                        faces.push(vec![col[p][i], col[p][i + 1], col[q][i + 1], col[q][i]]);
-                    }
-                    cells.push(faces);
-                }
+                prism_children(mesh, c, fm, &cells_up[c], &faces_from_face, &new_faces, &col, k)
             }
-            2 | 3 => {
+            2 => {
+                // `refineEdgeHexCell`, as upstream orders its cells and faces
                 n_split += 1;
-                if ref_type[c] == 2 {
-                    n_edge += 1;
-                } else {
-                    n_corner += 1;
-                }
+                n_edge += 1;
+                let dirs: Vec<usize> = cells_up[c].iter().copied().filter(|&f| bf_of_face[f].is_some_and(|bf| n_at_bf[bf] > 1)).collect();
+                let counts = [n_at_bf[bf_of_face[dirs[0]].expect("a boundary face")], n_at_bf[bf_of_face[dirs[1]].expect("a boundary face")]];
+                let sf = SplitFaces { mesh, faces_from_face: &faces_from_face, new_faces: &new_faces };
+                edge_hex_children(&sf, c, &cells_up[c], [dirs[0], dirs[1]], counts)?
+            }
+            3 => {
+                // not translated: a lattice construction (`refineCornerHexCell` orders its cells differently)
+                n_split += 1;
+                n_corner += 1;
                 let base_counts: Vec<usize> = bases[c].iter().map(|&f| n_at_bf[bf_of_face[f].expect("base is a boundary face")]).collect();
-                cells.extend(refine_hex_cell(mesh, c, &cf[c], &bases[c], &base_counts, &grids, &mut points)?);
+                refine_hex_cell(mesh, c, &cf[c], &bases[c], &base_counts, &grids, &mut points)?
             }
             t => return Err(RefineError::NotPorted(format!("cell {c} has {t} boundary faces of more than one layer"))),
-        }
-    }
-    let mut patch_of_key: BTreeMap<Vec<usize>, usize> = BTreeMap::new();
-    let key = |ring: &[usize]| -> Vec<usize> {
-        let mut k = ring.to_vec();
-        k.sort_unstable();
-        k
-    };
-    for (pi, p) in mesh.patches.iter().enumerate() {
-        for f in p.start_face..p.start_face + p.n_faces {
-            for piece in &pieces[f] {
-                patch_of_key.entry(key(piece)).or_insert(pi);
+        };
+        // the first child keeps the label, the others are appended
+        for (ci, rings) in children.into_iter().enumerate() {
+            let label = if ci == 0 {
+                c
+            } else {
+                n_cells += 1;
+                n_cells - 1
+            };
+            new_cells_from_cell[c].push(label);
+            let list: Vec<usize> = rings.into_iter().map(|r| face_label(r, &mut new_faces, &mut face_index)).collect();
+            if label < cell_lists.len() {
+                cell_lists[label] = list;
+            } else {
+                cell_lists.push(list);
             }
         }
     }
-    let layered = from_cell_faces_wound(points, &cells);
-    let mut w = TopoMesh::from_volume_mesh(&layered);
-    w.patch_names = names.clone();
-    for f in 0..w.faces.len() {
-        w.region[f] = if w.neighbour[f].is_none() { patch_of_key.get(&key(&w.faces[f])).copied() } else { None };
+    // A new face of a split internal face must point from its lower cell to the higher.
+    let n_orig_internal = mesh.n_internal_faces();
+    for fi in 0..n_orig_internal {
+        if faces_from_face[fi].len() == 1 {
+            continue;
+        }
+        let (own, nei) = (mesh.owner[fi], mesh.neighbour[fi].expect("an internal face"));
+        let cell_of = |label: usize, parent: usize| -> i64 { new_cells_from_cell[parent].iter().copied().find(|&nc| cell_lists[nc].contains(&label)).map_or(-1, |x| x as i64) };
+        for &l in &faces_from_face[fi] {
+            if cell_of(l, own) > cell_of(l, nei) {
+                new_faces[l] = crate::topology::reverse_face(&new_faces[l]);
+            }
+        }
     }
-    let (out, _) = w.into_volume_mesh();
+    // The mesh as `generateNewCells` writes it: the original internal faces
+    // with their pieces, the new internal faces in creation order, then the
+    // boundary faces patch by patch.
+    let mut new_label = vec![usize::MAX; new_faces.len()];
+    let mut faces: Vec<Vec<usize>> = Vec::with_capacity(new_faces.len());
+    for fi in 0..n_orig_internal {
+        for &l in &faces_from_face[fi] {
+            new_label[l] = faces.len();
+            faces.push(new_faces[l].clone());
+        }
+    }
+    for l in n_faces_before..new_faces.len() {
+        new_label[l] = faces.len();
+        faces.push(new_faces[l].clone());
+    }
+    let mut patches: Vec<crate::volume_mesh::BoundaryPatch> = Vec::with_capacity(mesh.patches.len());
+    for p in &mesh.patches {
+        let start = faces.len();
+        for f in p.start_face..p.start_face + p.n_faces {
+            for &l in &faces_from_face[f] {
+                new_label[l] = faces.len();
+                faces.push(new_faces[l].clone());
+            }
+        }
+        patches.push(crate::volume_mesh::BoundaryPatch { name: p.name.clone(), start_face: start, n_faces: faces.len() - start });
+    }
+    let cell_lists: Vec<Vec<usize>> = cell_lists.into_iter().map(|l| l.into_iter().map(|f| new_label[f]).collect()).collect();
+    // owner = the first cell that lists the face, neighbour = the second
+    let mut owner = vec![usize::MAX; faces.len()];
+    let mut neighbour: Vec<Option<usize>> = vec![None; faces.len()];
+    for (c, l) in cell_lists.iter().enumerate() {
+        for &f in l {
+            if owner[f] == usize::MAX {
+                owner[f] = c;
+            } else {
+                neighbour[f] = Some(c);
+            }
+        }
+    }
+    let out = VolumeMesh { points, faces, owner, neighbour, n_cells, patches, cells: Some(cell_lists) };
     Ok((out, RefineReport { detected, n_layers_at_bnd_face: n_at_bf, hair_points, n_cells_split: n_split, n_edge_hex_cells: n_edge, n_corner_hex_cells: n_corner }))
+}
+
+/// A face's vertex set, sorted (the key of the face lookup).
+fn sorted_key(ring: &[usize]) -> Vec<usize> {
+    let mut k = ring.to_vec();
+    k.sort_unstable();
+    k
+}
+
+/// The label of `ring` among `new_faces` (`areFacesEqual` on the faces at its
+/// first point), appending it when absent.
+fn face_label(ring: Vec<usize>, new_faces: &mut Vec<Vec<usize>>, face_index: &mut std::collections::HashMap<Vec<usize>, usize>) -> usize {
+    let k = sorted_key(&ring);
+    if let Some(&l) = face_index.get(&k) {
+        return l;
+    }
+    new_faces.push(ring);
+    face_index.insert(k, new_faces.len() - 1);
+    new_faces.len() - 1
+}
+
+/// cfMesh `generateNewCellsPrism`: the `n` cells a prism over its wall face
+/// `fm` splits into, as lists of face rings, **child 0 on the far side, child
+/// `n - 1` at the wall**. `cell` is the prism's face list; the far base face
+/// (the one other face with a single piece) and the pieces of the side faces
+/// go to their children, then the cap face of layer `l` (the hair points at
+/// height `l`, ordered as the wall face) is appended to the children
+/// `n - l` and `n - 1 - l`. `col[p]` is the hair of the wall ring's point
+/// `p`, wall point first.
+fn prism_children(mesh: &VolumeMesh, c: usize, fm: usize, cell: &[usize], faces_from_face: &[Vec<usize>], new_faces: &[Vec<usize>], col: &[Vec<usize>], k: usize) -> Vec<Vec<Vec<usize>>> {
+    let n = col[0].len() - 1;
+    let mut children: Vec<Vec<Vec<usize>>> = vec![Vec::new(); n];
+    for &f in cell {
+        let pieces = &faces_from_face[f];
+        if f == fm {
+            children[n - 1].push(new_faces[pieces[0]].clone());
+        } else if pieces.len() == 1 {
+            children[0].push(new_faces[pieces[0]].clone());
+        } else {
+            for (i, &l) in pieces.iter().enumerate() {
+                let mut r = new_faces[l].clone();
+                if mesh.owner[f] != c {
+                    r = crate::topology::reverse_face(&r);
+                }
+                children[(n - 1).saturating_sub(i)].push(r);
+            }
+        }
+    }
+    for l in 1..n {
+        let cap: Vec<usize> = (0..k).map(|p| col[p][l]).collect();
+        children[n - l].push(cap.clone());
+        children[n - 1 - l].push(cap);
+    }
+    children
+}
+
+
+/// What `refineEdgeHexCell` and `sortFacePoints` / `sortFaceFaces` read: the
+/// original mesh's faces, the pieces of every face and their rings.
+struct SplitFaces<'a> {
+    mesh: &'a VolumeMesh,
+    faces_from_face: &'a [Vec<usize>],
+    new_faces: &'a [Vec<usize>],
+}
+
+impl SplitFaces<'_> {
+    /// How many pieces the face has along its first direction, and along its
+    /// second (`numSplitsI`, `numSplitsJ` of `sortFacePoints`, serial branch).
+    fn splits(&self, face: usize) -> (usize, usize) {
+        let f = &self.mesh.faces[face];
+        let pieces = &self.faces_from_face[face];
+        let pos = f.iter().position(|&v| v == self.new_faces[pieces[0]][0]).expect("the first piece starts at a point of the face");
+        let next = f[(pos + 1) % f.len()];
+        let mut n_i = 1;
+        for (i, &nf) in pieces.iter().enumerate() {
+            if n_i == 1 && self.new_faces[nf].contains(&next) {
+                n_i = i + 1;
+                break;
+            }
+        }
+        (n_i, pieces.len() / n_i)
+    }
+
+    /// `sortFacePoints`: the matrix of the points of a split face, `[i][j]`,
+    /// transposed when `transpose`.
+    fn sort_face_points(&self, face: usize, transpose: bool) -> Vec<Vec<usize>> {
+        let f = &self.mesh.faces[face];
+        let pieces = &self.faces_from_face[face];
+        let (n_i, n_j) = self.splits(face);
+        let mut fp = vec![vec![0usize; n_j + 1]; n_i + 1];
+        for (fi, &nf) in pieces.iter().enumerate() {
+            let (i, j) = (fi % n_i, fi / n_i);
+            let r = &self.new_faces[nf];
+            if r.len() == 4 {
+                fp[i][j] = r[0];
+                fp[i + 1][j] = r[1];
+                fp[i + 1][j + 1] = r[2];
+                fp[i][j + 1] = r[3];
+            } else {
+                let on_face = r.iter().copied().find(|v| f.contains(v));
+                if let Some(v) = on_face {
+                    if j == 0 {
+                        fp[i + 1][0] = v;
+                    } else if i == 0 {
+                        fp[0][j + 1] = v;
+                    } else {
+                        fp[i + 1][j + 1] = v;
+                    }
+                }
+            }
+        }
+        if transpose {
+            let mut t = vec![vec![0usize; fp.len()]; fp[0].len()];
+            for (i, row) in fp.iter().enumerate() {
+                for (j, &v) in row.iter().enumerate() {
+                    t[j][i] = v;
+                }
+            }
+            return t;
+        }
+        fp
+    }
+
+    /// `sortFaceFaces`: the matrix of the pieces of a split face, `[i][j]`.
+    fn sort_face_faces(&self, face: usize, transpose: bool) -> Vec<Vec<usize>> {
+        let pieces = &self.faces_from_face[face];
+        let (n_i, n_j) = self.splits(face);
+        let mut ff = vec![vec![0usize; n_j]; n_i];
+        for (fi, &nf) in pieces.iter().enumerate() {
+            ff[fi % n_i][fi / n_i] = nf;
+        }
+        if transpose {
+            let mut t = vec![vec![0usize; ff.len()]; ff[0].len()];
+            for (i, row) in ff.iter().enumerate() {
+                for (j, &v) in row.iter().enumerate() {
+                    t[j][i] = v;
+                }
+            }
+            return t;
+        }
+        ff
+    }
+
+    /// `storeFacesIntoCells`.
+    fn store_faces_into_cells(&self, face: usize, reverse: bool, normal_direction: usize, max_coordinate: bool, n: [usize; 3], cells: &mut [Vec<Vec<usize>>]) {
+        let ff = self.sort_face_faces(face, reverse);
+        let (max_i, max_j, max_k) = (n[0] - 1, n[1] - 1, n[2] - 1);
+        for (ni, row) in ff.iter().enumerate() {
+            for (nj, &nf) in row.iter().enumerate() {
+                let (i, j, k) = match normal_direction {
+                    0 => (ni.min(max_i), nj.min(max_j), if max_coordinate { max_k } else { 0 }),
+                    1 => (nj.min(max_i), if max_coordinate { max_j } else { 0 }, ni.min(max_k)),
+                    _ => (if max_coordinate { max_i } else { 0 }, ni.min(max_j), nj.min(max_k)),
+                };
+                cells[j * n[0] + k * n[0] * n[1] + i].push(self.new_faces[nf].clone());
+            }
+        }
+    }
+}
+
+fn shares_an_edge(f1: &[usize], f2: &[usize]) -> bool {
+    let (k1, k2) = (f1.len(), f2.len());
+    (0..k1).any(|i| (0..k2).any(|j| same_edge((f1[i], f1[(i + 1) % k1]), (f2[j], f2[(j + 1) % k2]))))
+}
+
+/// cfMesh `refineEdgeHexCell`: the `nI * nJ` cells (cell `j * nI + i`) a
+/// hexahedron with two boundary faces of `dir_counts` layers splits into, as
+/// lists of face rings in upstream's order: the pieces of its existing faces
+/// (`populateExistingFaces`), then the faces it creates
+/// (`generateMissingFaces`). `cell` is the cell's face list, `dir_faces` its
+/// two boundary faces in that list's order.
+fn edge_hex_children(sf: &SplitFaces, c: usize, cell: &[usize], dir_faces: [usize; 2], dir_counts: [usize; 2]) -> Result<Vec<Vec<Vec<usize>>>, RefineError> {
+    let mesh = sf.mesh;
+    let refuse = |why: &str| RefineError::NotPorted(format!("cell {c}: {why}"));
+    let (n_i, n_j) = (dir_counts[0], dir_counts[1]);
+    let ring = |f: usize| &mesh.faces[f];
+    // determineFacesInDirections
+    let (shared0, shared1) = (ring(dir_faces[0]), ring(dir_faces[1]));
+    let k0 = shared0.len();
+    let common = (0..k0)
+        .map(|i| (shared0[i], shared0[(i + 1) % k0]))
+        .find(|&e| {
+            let k1 = shared1.len();
+            (0..k1).any(|j| same_edge(e, (shared1[j], shared1[(j + 1) % k1])))
+        })
+        .ok_or_else(|| refuse("its two layer faces share no edge"))?;
+    let mut determined: Vec<usize> = vec![dir_faces[0]];
+    let mut face_in_dir = [usize::MAX; 6];
+    face_in_dir[4] = dir_faces[0];
+    face_in_dir[5] = *cell.iter().find(|&&f| !determined.contains(&f) && !shares_an_edge(ring(dir_faces[0]), ring(f))).ok_or_else(|| refuse("no face opposite its first layer face"))?;
+    determined.push(face_in_dir[5]);
+    face_in_dir[2] = dir_faces[1];
+    determined.push(dir_faces[1]);
+    face_in_dir[3] = *cell.iter().find(|&&f| !determined.contains(&f) && !shares_an_edge(ring(dir_faces[1]), ring(f))).ok_or_else(|| refuse("no face opposite its second layer face"))?;
+    determined.push(face_in_dir[3]);
+    for &f in cell {
+        if determined.contains(&f) {
+            continue;
+        }
+        let r = ring(f);
+        let has_edge = (0..r.len()).any(|i| same_edge((r[i], r[(i + 1) % r.len()]), common));
+        if r.contains(&common.0) && !has_edge {
+            face_in_dir[0] = f;
+        }
+        if r.contains(&common.1) && !has_edge {
+            face_in_dir[1] = f;
+        }
+    }
+    if face_in_dir.contains(&usize::MAX) {
+        return Err(refuse("its six faces were not found"));
+    }
+    let own = |f: usize| mesh.owner[f] == c;
+    let orientation = [own(face_in_dir[0]), !own(face_in_dir[1]), true, !own(face_in_dir[3]), true, !own(face_in_dir[5])];
+    // populateExistingFaces
+    let mut cells: Vec<Vec<Vec<usize>>> = vec![Vec::new(); n_i * n_j];
+    sf.store_faces_into_cells(face_in_dir[0], orientation[0], 0, false, [n_i, n_j, 1], &mut cells);
+    sf.store_faces_into_cells(face_in_dir[1], orientation[1], 0, true, [n_i, n_j, 1], &mut cells);
+    let (max_i, max_j) = (n_i - 1, n_j - 1);
+    let pieces = |f: usize| &sf.faces_from_face[f];
+    for (i, &l) in pieces(face_in_dir[2]).iter().enumerate() {
+        cells[i].push(sf.new_faces[l].clone());
+    }
+    for (i, &l) in pieces(face_in_dir[3]).iter().enumerate() {
+        cells[i + max_j * n_i].push(sf.new_faces[l].clone());
+    }
+    for (j, &l) in pieces(face_in_dir[4]).iter().enumerate() {
+        cells[j * n_i].push(sf.new_faces[l].clone());
+    }
+    for (j, &l) in pieces(face_in_dir[5]).iter().enumerate() {
+        cells[j * n_i + max_i].push(sf.new_faces[l].clone());
+    }
+    // generateMissingFaces
+    let cp = [sf.sort_face_points(face_in_dir[0], orientation[0]), sf.sort_face_points(face_in_dir[1], orientation[1])];
+    for i in 1..n_i {
+        for j in 0..n_j {
+            let (o, n) = (j * n_i + i - 1, j * n_i + i);
+            let mf: Vec<usize> = if j < max_j {
+                vec![cp[0][i][j], cp[0][i][j + 1], cp[1][i][j + 1], cp[1][i][j]]
+            } else {
+                let mut m: Vec<usize> = (j..cp[0][i].len()).map(|x| cp[0][i][x]).collect();
+                m.extend((j..cp[1][i].len()).rev().map(|x| cp[1][i][x]));
+                m
+            };
+            cells[n].push(crate::topology::reverse_face(&mf));
+            cells[o].push(mf);
+        }
+    }
+    for i in 0..n_i {
+        for j in 1..n_j {
+            let (n, o) = (j * n_i + i, (j - 1) * n_i + i);
+            let mf: Vec<usize> = if i < max_i {
+                vec![cp[0][i][j], cp[1][i][j], cp[1][i + 1][j], cp[0][i + 1][j]]
+            } else {
+                let mut m: Vec<usize> = (i..cp[1].len()).map(|x| cp[1][x][j]).collect();
+                m.extend((i..cp[0].len()).rev().map(|x| cp[0][x][j]));
+                m
+            };
+            cells[n].push(crate::topology::reverse_face(&mf));
+            cells[o].push(mf);
+        }
+    }
+    Ok(cells)
 }
 
 /// A quad's point grid `G[i][j]` (`i` along its first split direction) and
@@ -1250,7 +1576,19 @@ mod tests {
         // a neighbouring patch is to the infinite line, `help::
         // distanceOfPointFromTheEdge`; `v /= magV`, `normal /= magN`, `normal /=
         // 2.0*dist` divide), and the layer's cell lists follow `replaceBoundary`.
-        assert_eq!((mesh_fingerprint(&r), mesh_fingerprint(&br)), (0x591e062dc441a92f, 0xb10f852a9b013e88));
+        // Moved a third time 2026-11-11 (gh:#1385 round 3): ~~0x591e062dc441a92f~~
+        // 0xeaba2317968a1edb and ~~0xb10f852a9b013e88~~ 0xe9d49663cdf3d5e8; `generateNewVertices` follows
+        // upstream (`vec = v/(magv + VSMALL)` divides, `pow(ratio, n)` is
+        // `pow(double, double)`), which moves the split points in the last bit.
+        // Moved a fourth time 2026-11-11 (gh:#1385 round 4): ~~0xeaba2317968a1edb~~
+        // 0xcde59973cd9ea3a7 and ~~0xe9d49663cdf3d5e8~~ 0x8530aad7b2a287d4; the refined
+        // mesh is assembled in upstream's order (`generateNewFaces`,
+        // `generateNewCells`: prism children from the far side to the wall, caps in
+        // creation order, `refineEdgeHexCell`'s cells and faces, faces written as
+        // original internal pieces, new internal faces, boundary per patch).
+        // Cell and point counts are unchanged; the elbow's 339 265 faces are
+        // index-identical to upstream's.
+        assert_eq!((mesh_fingerprint(&r), mesh_fingerprint(&br)), (0xcde59973cd9ea3a7, 0x8530aad7b2a287d4));
     }
 
     fn global(n: usize, r: f64) -> RefineBoundaryLayersSettings {

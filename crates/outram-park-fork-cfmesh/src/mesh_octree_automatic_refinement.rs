@@ -255,6 +255,9 @@ impl MeshOctreeAutomaticRefinement {
             }
         }
         self.report.n_corners += n_marked;
+        if std::env::var("GH1385_TRACE").is_ok() {
+            eprintln!("AUTOREF corner {n_marked}");
+        }
         n_marked != 0
     }
 
@@ -312,6 +315,9 @@ impl MeshOctreeAutomaticRefinement {
             }
         }
         self.report.n_partitions += n_marked;
+        if std::env::var("GH1385_TRACE").is_ok() {
+            eprintln!("AUTOREF partition {n_marked}");
+        }
         n_marked != 0
     }
 
@@ -336,6 +342,9 @@ impl MeshOctreeAutomaticRefinement {
             }
         }
         self.report.n_curvature += n_marked;
+        if std::env::var("GH1385_TRACE").is_ok() {
+            eprintln!("AUTOREF curvature {n_marked}");
+        }
         n_marked != 0
     }
 
@@ -357,6 +366,9 @@ impl MeshOctreeAutomaticRefinement {
             }
         }
         self.report.n_proximity += n_marked;
+        if std::env::var("GH1385_TRACE").is_ok() {
+            eprintln!("AUTOREF proximity {n_marked}");
+        }
         n_marked != 0
     }
 
