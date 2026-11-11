@@ -1336,3 +1336,141 @@ fn viewr_deck(case: &str, resource: &str, extra: &[(&str, u32)], plot_unit: u32,
 fn test_72_viewr_postscript() {
     let _ = viewr_deck("72", "n-004_Be_009-ENDF8.0.endf", &[], 43, 54);
 }
+
+
+/// VIEWR on deck 36: PostScript unit 54 against NJOY2016.80, line by line (gh:#1369).
+#[test]
+fn test_36_viewr_postscript() {
+    let _ = viewr_deck("36", "n-050_Sn_119-ENDF8.0.endf", &[], 43, 54);
+}
+
+
+/// VIEWR on deck 38: PostScript unit 54 against NJOY2016.80, line by line (gh:#1369).
+#[test]
+fn test_38_viewr_postscript() {
+    let _ = viewr_deck("38", "n-036_Kr_083-ENDF8.0.endf", &[], 43, 54);
+}
+
+/// VIEWR on deck 39: PostScript unit 54 against NJOY2016.80, line by line (gh:#1369).
+#[test]
+fn test_39_viewr_postscript() {
+    let _ = viewr_deck("39", "n-028_Ni_063-ENDF8.0.endf", &[], 43, 54);
+}
+
+/// VIEWR on deck 40: PostScript unit 54 against NJOY2016.80, line by line (gh:#1369).
+#[test]
+fn test_40_viewr_postscript() {
+    let _ = viewr_deck("40", "n-025_Mn_055-ENDF8.0.endf", &[], 43, 54);
+}
+
+/// VIEWR on deck 41: PostScript unit 54 against NJOY2016.80, line by line (gh:#1369).
+#[test]
+fn test_41_viewr_postscript() {
+    let _ = viewr_deck("41", "n-032_Ge_071-ENDF8.0.endf", &[], 43, 54);
+}
+
+/// VIEWR on deck 42: PostScript unit 54 against NJOY2016.80, line by line (gh:#1369).
+#[test]
+fn test_42_viewr_postscript() {
+    let _ = viewr_deck("42", "n-030_Zn_067-ENDF8.0.endf", &[], 43, 54);
+}
+
+
+/// VIEWR on the thermal check/plot file of deck 67 (`tplots`): PostScript unit 56 against NJOY2016.80 (gh:#1369).
+#[test]
+fn test_67_viewr_postscript() {
+    let _ = viewr_deck("67", "n-001_H_002-ENDF8.0.endf", &[("tsl-DinLiD-ENDF8.1-beta.endf", 21)], 55, 56);
+}
+
+/// VIEWR on the thermal check/plot file of deck 68 (`tplots`): PostScript unit 56 against NJOY2016.80 (gh:#1369).
+#[test]
+fn test_68_viewr_postscript() {
+    let _ = viewr_deck("68", "n-001_H_001-ENDF8.0-Beta6.endf", &[("tsl-HinH2O-ENDF8.0-Beta6.endf", 21)], 55, 56);
+}
+
+/// VIEWR on the thermal check/plot file of deck 69 (`tplots`): PostScript unit 56 against NJOY2016.80 (gh:#1369).
+#[test]
+fn test_69_viewr_postscript() {
+    let _ = viewr_deck("69", "n-040_Zr_090-ENDF8.0.endf", &[("tsl-ZrinZrH-ENDF8.0.endf", 21)], 55, 56);
+}
+
+/// VIEWR on the thermal check/plot file of deck 70 (`tplots`): PostScript unit 56 against NJOY2016.80 (gh:#1369).
+#[test]
+fn test_70_viewr_postscript() {
+    let _ = viewr_deck("70", "n-013_Al_027-ENDF8.0.endf", &[("tsl-013_Al_027-ENDF8.0.endf", 21)], 55, 56);
+}
+
+/// VIEWR on the thermal check/plot file of deck 74 (`tplots`): PostScript unit 56 against NJOY2016.80 (gh:#1369).
+#[test]
+fn test_74_viewr_postscript() {
+    let _ = viewr_deck("74", "n-001_H_001-ENDF8.0-Beta6.endf", &[("tsl-HinZrH-ENDF8.0.endf", 21)], 55, 56);
+}
+
+
+
+/// VIEWR on **NJOY's own plot file** (gh:#1369): NJOY2016.80 runs the whole upstream deck `case`; this
+/// crate's VIEWR is then run on NJOY's plot-command unit `plot_unit`, and its PostScript is compared,
+/// line by line, with NJOY's unit `ps_unit`. This isolates VIEWR from the ACER tables that decks 13,
+/// 14, 35, 37 and 63 do not yet reproduce word for word upstream of the plot file.
+fn viewr_of_njoys_own_plot(case: &str, resource: &str, extra: &[(&str, u32)], plot_unit: u32, ps_unit: u32) -> Option<()> {
+    let root = njoy_root();
+    let full = deck_text(&root, case, None, "")?;
+    let bin = root.join("build/njoy");
+    let mut srcs = vec![(resource, 20u32)];
+    srcs.extend_from_slice(extra);
+    for (r, _) in &srcs {
+        let p = root.join("tests/resources").join(r);
+        if !p.exists() || !bin.exists() {
+            eprintln!("skip: {} or {} not present (set NJOY2016_ROOT)", p.display(), bin.display());
+            return None;
+        }
+    }
+    let tmp = std::env::temp_dir().join(format!("njoy_deck_vo{case}_{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    for (r, u) in &srcs {
+        std::fs::copy(root.join("tests/resources").join(r), tmp.join(format!("tape{u}"))).unwrap();
+    }
+    std::fs::write(tmp.join("deck"), &full).unwrap();
+    let st = Command::new("sh").arg("-c").arg(format!("{} < deck > log 2>&1", bin.display())).current_dir(&tmp).status().unwrap();
+    assert!(st.success(), "NJOY2016 binary failed on {case}");
+    let plot = std::fs::read_to_string(tmp.join(format!("tape{plot_unit}"))).unwrap();
+    let theirs = std::fs::read_to_string(tmp.join(format!("tape{ps_unit}"))).unwrap();
+    let ours = njoy_outram_park_fork::viewr::viewr_postscript(&plot).unwrap();
+    let (a, b): (Vec<&str>, Vec<&str>) = (ours.lines().collect(), theirs.lines().collect());
+    let n = (0..a.len().max(b.len())).filter(|&i| a.get(i) != b.get(i)).count();
+    let first = (0..a.len().max(b.len())).find(|&i| a.get(i) != b.get(i));
+    println!("deck {case}: VIEWR on NJOY's plot unit {plot_unit}: {n} differing lines of {}; first {first:?}", b.len());
+    let _ = std::fs::remove_dir_all(&tmp);
+    assert_eq!(n, 0, "deck {case}: PostScript differs from NJOY2016");
+    Some(())
+}
+
+/// Deck 35 (Ag-109): VIEWR on NJOY's own plot file against its PostScript.
+#[test]
+fn test_35_viewr_of_njoys_plot() {
+    let _ = viewr_of_njoys_own_plot("35", "n-047_Ag_109-ENDF8.0.endf", &[], 43, 54);
+}
+
+/// Deck 37 (Co-58): VIEWR on NJOY's own plot file against its PostScript.
+#[test]
+fn test_37_viewr_of_njoys_plot() {
+    let _ = viewr_of_njoys_own_plot("37", "n-027_Co_058-ENDF8.0.endf", &[], 43, 54);
+}
+
+/// Deck 63 (Ag-109, second ACER chain): VIEWR on NJOY's own plot file against its PostScript.
+#[test]
+fn test_63_viewr_of_njoys_plot() {
+    let _ = viewr_of_njoys_own_plot("63", "n-047_Ag_109-ENDF8.0.endf", &[], 43, 54);
+}
+
+/// Deck 13 (Ni-61, ENDF/B-VI.1): VIEWR on NJOY's own plot file (unit 33) against unit 36.
+#[test]
+fn test_13_viewr_of_njoys_plot() {
+    let _ = viewr_of_njoys_own_plot("13", "eni61", &[], 33, 36);
+}
+
+/// Deck 14 (p + N-14, charged-particle ACE plot): VIEWR on NJOY's own plot file (unit 33) against unit 36.
+#[test]
+fn test_14_viewr_of_njoys_plot() {
+    let _ = viewr_of_njoys_own_plot("14", "epn14", &[("epn14", 21)], 33, 36);
+}
