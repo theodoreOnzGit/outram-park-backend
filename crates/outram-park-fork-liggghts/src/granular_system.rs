@@ -691,6 +691,21 @@ impl GranularSystem {
         &self.particles
     }
 
+    /// The particles in upstream's **local atom order** (`atom->x[l]`, `l = 0..nlocal`),
+    /// the order every LIGGGHTS per-atom sum (`compute ke`, `erotate/sphere`, ...)
+    /// is accumulated in. Under [`NeighborOrder::Liggghts`] this is the order after
+    /// the last `Atom::sort`; otherwise it is the tag order of
+    /// [`GranularSystem::particles`]. Floating-point sums are not associative, so
+    /// a bit-identical diagnostic must sum in this order.
+    #[must_use]
+    pub fn particles_in_local_order(&self) -> Vec<Particle> {
+        if self.perm.len() == self.particles.len() && matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
+            self.perm.iter().map(|&p| self.particles[p].clone()).collect()
+        } else {
+            self.particles.clone()
+        }
+    }
+
     /// Assign an atom type (0-based) to every particle, for a model carrying a
     /// [`MaterialTable`](crate::granular::MaterialTable)
     /// ([`GranularContactModel::with_materials`]). Particles inserted later get

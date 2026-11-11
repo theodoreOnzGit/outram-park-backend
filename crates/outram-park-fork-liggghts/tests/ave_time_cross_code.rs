@@ -45,6 +45,7 @@ use uom::si::f64::{Length, Mass, ThermodynamicTemperature};
 use uom::si::{length::meter, mass::kilogram, thermodynamic_temperature::kelvin};
 
 const REF: &str = include_str!("../../../reference-data/liggghts/avetime_thermo.txt");
+const REF_CONTACT: &str = include_str!("../../../reference-data/liggghts/avetime_contact_thermo.txt");
 
 fn particles(csv: &str) -> Vec<Particle> {
     let r = 0.005;
@@ -67,15 +68,14 @@ fn particles(csv: &str) -> Vec<Particle> {
         .collect()
 }
 
-/// Five columns x 11 thermo rows: **all bit-identical** is the pass criterion;
-/// the measured count is in the assertion message.
-#[test]
-fn ave_time_ke_erotate_match_liggghts() {
+/// Runs one deck in the port and compares the five thermo columns as bits;
+/// returns `(bit-identical, total, count of rows with erotate/sphere != 0)`.
+fn run_case(csv: &str, gravity: Vec3, reference: &str) -> (usize, usize, usize) {
     let Ok(init) = std::fs::read_to_string(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/liggghts/pebble_bed_init.csv"),
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/liggghts").join(csv),
     ) else {
         eprintln!("skipping: reference data not present");
-        return;
+        return (0, 0, 0);
     };
     let material = GranularMaterial::new(5.0e6, 0.3, 0.5, 0.3).unwrap();
     let mut sys = GranularSystem::new(
@@ -85,7 +85,7 @@ fn ave_time_ke_erotate_match_liggghts() {
             Boundary::wall(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0)).unwrap(),
         ],
         GranularContactModel::hertz_history(material),
-        Vec3::new(0.0, 0.0, -9.81),
+        gravity,
         5e-6,
     )
     .unwrap()
@@ -95,6 +95,7 @@ fn ave_time_ke_erotate_match_liggghts() {
     let mut at = AveTime::new(10, 5, 100, 2, AveMode::One, 0).unwrap();
     let mut at2 = AveTime::new(5, 3, 50, 1, AveMode::Running, 0).unwrap();
     let (mut total, mut same) = (0usize, 0usize);
+    let mut rotating = 0usize;
     let mut check = |ours: f64, theirs: &str| {
         total += 1;
         let t: f64 = theirs.parse().unwrap();
@@ -105,22 +106,57 @@ fn ave_time_ke_erotate_match_liggghts() {
         }
     };
     let mut done = 0i64;
-    for row in REF.lines() {
+    for row in reference.lines() {
         let c: Vec<&str> = row.split_whitespace().collect();
         let step: i64 = c[0].parse().unwrap();
         while done < step {
             sys.run(1);
             done += 1;
-            let (ke, er) = (compute_ke(sys.particles()), compute_erotate_sphere(sys.particles()));
+            let local = sys.particles_in_local_order();
+            let (ke, er) = (compute_ke(&local), compute_erotate_sphere(&local));
             at.end_of_step(done, &[ke, er]);
             at2.end_of_step(done, &[ke]);
         }
-        check(compute_ke(sys.particles()), c[1]);
-        check(compute_erotate_sphere(sys.particles()), c[2]);
+        let local = sys.particles_in_local_order();
+        check(compute_ke(&local), c[1]);
+        let er = compute_erotate_sphere(&local);
+        if er != 0.0 {
+            rotating += 1;
+        }
+        check(er, c[2]);
         check(at.value(0), c[3]);
         check(at.value(1), c[4]);
         check(at2.scalar(), c[5]);
     }
-    eprintln!("ave/time deck: {same}/{total} values bit-identical");
+    (same, total, rotating)
+}
+
+/// Free-fall deck `in.avetime`: five columns x 11 thermo rows, **all
+/// bit-identical** is the pass criterion.
+#[test]
+fn ave_time_ke_erotate_match_liggghts() {
+    let (same, total, _) = run_case("pebble_bed_init.csv", Vec3::new(0.0, 0.0, -9.81), REF);
+    eprintln!("ave/time free-fall deck: {same}/{total} values bit-identical");
+    assert_eq!(same, total);
+}
+
+/// `fix gravity 9.81 vector 0.6 0 -0.8` exactly as upstream forms it
+/// (`fix_gravity.cpp` l.379-397: normalise the direction, then scale).
+fn tilted_gravity() -> Vec3 {
+    let (xd, zd): (f64, f64) = (0.6, -0.8);
+    let length = (xd * xd + 0.0 * 0.0 + zd * zd).sqrt();
+    Vec3::new(9.81 * (xd / length), 9.81 * (0.0 / length), 9.81 * (zd / length))
+}
+
+/// Contact deck `in.avetime_contact`: the settled bed under tilted gravity
+/// `(0.6, 0, -0.8) * 9.81`, 2000 steps, so the pebbles slide and roll on each
+/// other and on the walls and `erotate/sphere` is non-zero (exercises the
+/// rotational `0.5 * I * w^2` sum and its averaging). Pass: all 21 x 5 values
+/// bit-identical, and `erotate/sphere` non-zero on every row after step 0.
+#[test]
+fn ave_time_nonzero_erotate_with_contacts_matches_liggghts() {
+    let (same, total, rotating) = run_case("pebble_bed_settled.csv", tilted_gravity(), REF_CONTACT);
+    eprintln!("ave/time contact deck: {same}/{total} values bit-identical, {rotating} rows with erotate != 0");
+    assert!(rotating >= 20, "deck must exercise non-zero rotation");
     assert_eq!(same, total);
 }
