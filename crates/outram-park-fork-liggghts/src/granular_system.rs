@@ -200,6 +200,8 @@ pub struct GranularSystem {
     /// them incrementally in between). `0` (default) recomputes after every
     /// rotation. See [`GranularSystem::with_neighbor_skin`].
     neigh_skin: f64,
+    /// `fix multicontact/halfspace` + `surface_model multicontact` (opt-in).
+    mc: Option<crate::multicontact::MulticontactState>,
     /// `post_force` fixes (`addforce`, `viscous`, `freeze`), applied after gravity
     /// in declaration order (gh:#1418).
     force_fixes: Vec<ForceFix>,
@@ -272,6 +274,10 @@ pub struct GranularSystem {
     /// The neighbour list must be rebuilt in the next force evaluation
     /// (`Neighbor::decide` returned 1, or the particle set changed).
     rebuild_now: bool,
+    /// Primitive-wall neighbour lists of the last rebuild, `[wall][particle]`
+    /// (`PrimitiveWall::buildNeighList`). Empty until a LIGGGHTS-order rebuild;
+    /// only the multicontact `surfacesClose` history reads it (gh:#1410).
+    wall_near: Vec<Vec<bool>>,
     /// `fix insert/*` fixes, run at `pre_exchange` (gh:#1414).
     inserters: Vec<crate::insert::InsertFix>,
     /// `fix insert/stream` fixes and the shared release data (by tag).
@@ -370,6 +376,7 @@ impl GranularSystem {
             boundaries,
             moving_walls: Vec::new(),
             neigh_skin: 0.0,
+            mc: None,
             force_fixes: Vec::new(),
             fix_order: None,
             frozen: Vec::new(),
@@ -399,6 +406,7 @@ impl GranularSystem {
             step_count: 0,
             next_sort: 0,
             rebuild_now: false,
+            wall_near: Vec::new(),
             inserters: Vec::new(),
             stream_inserters: Vec::new(),
             stream_release: std::collections::BTreeMap::new(),
@@ -582,6 +590,138 @@ impl GranularSystem {
         self
     }
 
+    /// Enable the multicontact surface model and `fix multicontact/halfspace`
+    /// (Brodu et al.; LIGGGHTS `surface_model multicontact`): each contact's
+    /// radius is expanded by the displacement the particle's other contacts
+    /// cause, at the pair (`pair_gran_base.h`) and primitive-wall
+    /// (`fix_wall_gran.cpp`) sites, and the neighbour list looks out to a
+    /// contact-distance factor of 2 (`register_contact_dist_factor(2.0)`).
+    /// Mesh walls are NOT hooked. Opt-in: without this call nothing changes.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] unless the system is under
+    /// [`NeighborOrder::Liggghts`] (the history lives on upstream's list).
+    pub fn with_multicontact(mut self, fix: crate::multicontact::HalfSpaceFix) -> Result<Self, DemError> {
+        let NeighborOrder::Liggghts(mut cfg) = self.neighbor_order else {
+            return Err(DemError::InvalidInput(
+                "multicontact needs the LIGGGHTS neighbour order (with_liggghts_neighbor_order)".into(),
+            ));
+        };
+        cfg.contact_distance_factor = cfg.contact_distance_factor.max(crate::multicontact::CONTACT_DISTANCE_FACTOR);
+        self.neighbor_order = NeighborOrder::Liggghts(cfg);
+        self.mc = Some(crate::multicontact::MulticontactState::new(fix));
+        self.compute_forces_setup();
+        Ok(self)
+    }
+
+    /// `FixMultiContactHalfSpace::pre_force`: expansions for this step from the
+    /// history the last force evaluation wrote.
+    fn mc_pre_force(&mut self) {
+        use crate::multicontact::{PairContact, ParticleView, WallContact};
+        let Some(mc) = self.mc.as_mut() else { return };
+        let n = self.particles.len();
+        let lorder = if self.perm.len() == n { self.perm.clone() } else { (0..n).collect() };
+        let mut local_of = vec![0usize; n];
+        for (l, &p) in lorder.iter().enumerate() {
+            local_of[p] = l;
+        }
+        let x: Vec<[f64; 3]> = lorder.iter().map(|&p| { let v = self.particles[p].position; [v.x, v.y, v.z] }).collect();
+        let tag: Vec<usize> = lorder.iter().map(|&p| self.tags[p] as usize).collect();
+        let typ: Vec<usize> = lorder.iter().map(|&p| self.types[p]).collect();
+        let rad: Vec<f64> = lorder.iter().map(|&p| self.particles[p].radius).collect();
+        let grp = vec![true; n];
+        let mut pairs: Vec<Vec<PairContact>> = vec![Vec::new(); n];
+        for &(i, j) in &self.pairs {
+            let (i, j) = (i as usize, j as usize);
+            let h = mc.pair_history(self.tags[i] as usize, self.tags[j] as usize);
+            pairs[local_of[i]].push(PairContact { j: local_of[j], history: h });
+        }
+        let nb = self.boundaries.len();
+        let mut walls: Vec<Vec<Vec<WallContact>>> = vec![vec![Vec::new(); n]; nb];
+        for (w, wl) in walls.iter_mut().enumerate() {
+            for l in 0..n {
+                if let Some(h) = mc.wall_hist.get(&(tag[l], w)) {
+                    wl[l].push(WallContact { id: 1, history: *h });
+                }
+            }
+        }
+        let is_mesh = vec![false; nb];
+        mc.data = mc.fix.pre_force(
+            ParticleView { x: &x, tag: &tag, typ: &typ, radius: &rad, in_group: &grp },
+            &pairs,
+            &walls,
+            &is_mesh,
+        );
+        mc.local_of = local_of;
+    }
+
+    /// Particle–particle loop with the multicontact radius expansion and
+    /// history writes (`pair_gran_base.h` compute + the surface model).
+    fn resolve_pairs_mc(&mut self) {
+        let setup = self.setup_phase;
+        let pairs = std::mem::take(&mut self.pairs);
+        for &(i, j) in &pairs {
+            let (i, j) = (i as usize, j as usize);
+            let (ti, tj) = (self.tags[i] as usize, self.tags[j] as usize);
+            let (a, b) = (self.particles[i], self.particles[j]);
+            // `pair_gran_base.h`: `sidata.radi` is the UNEXPANDED radius of i
+            // (set once per i), `sidata.radj` and `radsum` are expanded.
+            let (radj, radsum) = {
+                let mc = self.mc.as_ref().expect("multicontact");
+                let radi_e = a.radius + mc.data.pair_expansion(mc.local_of[i], tj);
+                let radj_e = b.radius + mc.data.pair_expansion(mc.local_of[j], ti);
+                (radj_e, radi_e + radj_e)
+            };
+            let d = a.position.sub(b.position);
+            let rsq = d.x * d.x + d.y * d.y + d.z * d.z;
+            let kin = ContactKinematics::pair_radii(
+                &a,
+                &b,
+                self.frozen.get(i).copied().unwrap_or(false),
+                self.frozen.get(j).copied().unwrap_or(false),
+                a.radius,
+                radj,
+                radsum,
+            )
+            .map(|k| k.with_types(self.types[i], self.types[j]));
+            if let Some(k) = kin {
+                let key = ContactKey::pair(ti, tj);
+                let flip = ti > tj;
+                if flip {
+                    self.history.flip(key);
+                    self.model.flip_aux(key, &mut self.history);
+                }
+                let gf = resolve_c(&self.model, setup, key, &k, &mut self.history, self.dt);
+                if flip {
+                    self.history.flip(key);
+                    self.model.flip_aux(key, &mut self.history);
+                }
+                self.forces[i] = self.forces[i].add(gf.force_i);
+                self.forces[j] = self.forces[j].add(gf.force_j);
+                self.torques[i] = self.torques[i].add(gf.torque_i);
+                self.torques[j] = self.torques[j].add(gf.torque_j);
+                if !setup {
+                    let fnorm = crate::multicontact::end_surfaces_intersect_history(
+                        [gf.force_i.x, gf.force_i.y, gf.force_i.z],
+                        [k.en.x, k.en.y, k.en.z],
+                    );
+                    let h = crate::multicontact::surfaces_intersect_history(false, [0.0; 3], a.radius, radj);
+                    self.mc.as_mut().expect("multicontact").set_pair_history(ti, tj, [h[0], h[1], fnorm]);
+                }
+            } else if !setup
+                && rsq < crate::multicontact::CONTACT_DISTANCE_FACTOR
+                    * crate::multicontact::CONTACT_DISTANCE_FACTOR
+                    * radsum
+                    * radsum
+            {
+                let h = crate::multicontact::surfaces_close_history(false, [0.0; 3], a.radius, radj);
+                self.mc.as_mut().expect("multicontact").set_pair_history(ti, tj, [h[0], h[1], h[2]]);
+            }
+        }
+        self.pairs = pairs;
+    }
+
     /// Attach upstream's contact conduction (`fix heat/gran/conduction`,
     /// [`crate::heat_gran`]). Temperatures are the particles' own
     /// [`Particle::temperature`] (upstream's `initial_temperature`, or a later
@@ -668,6 +808,19 @@ impl GranularSystem {
                 rsq < radsum * radsum
             });
         }
+        if let Some(mc) = self.mc.as_mut() {
+            let by_tag: HashMap<u64, usize> =
+                self.tags.iter().enumerate().map(|(i, &t)| (t, i)).collect();
+            let particles = &self.particles;
+            mc.pair_hist.retain(|&(lo, hi), _| {
+                let (Some(&i), Some(&j)) = (by_tag.get(&(lo as u64)), by_tag.get(&(hi as u64))) else {
+                    return false;
+                };
+                let d = particles[i].position.sub(particles[j].position);
+                let radsum = particles[i].radius + particles[j].radius;
+                d.x * d.x + d.y * d.y + d.z * d.z < radsum * radsum
+            });
+        }
         let x: Vec<Vec3> = self
             .perm
             .iter()
@@ -687,6 +840,19 @@ impl GranularSystem {
                 .map(|&(a, b)| (self.perm[a as usize] as u32, self.perm[b as usize] as u32)),
         );
         self.xhold = self.particles.iter().map(|p| p.position).collect();
+        // `FixWallGran::pre_neighbor`: rebuild each primitive wall's list with
+        // threshold = skin and the atom radius
+        let skin = cfg.skin;
+        self.wall_near = self
+            .boundaries
+            .iter()
+            .map(|b| {
+                self.particles
+                    .iter()
+                    .map(|p| b.upstream_neighlist(p, skin).unwrap_or(true))
+                    .collect()
+            })
+            .collect();
     }
 
     /// Select the compute backend for the timestep, returning the updated
@@ -1424,11 +1590,15 @@ impl GranularSystem {
 
         self.rebuild_candidate_pairs();
         self.history.begin_step();
+        // `FixMultiContactHalfSpace::pre_force`
+        self.mc_pre_force();
 
         // --- particle-particle ---
         // Both paths accumulate in the SAME order (ascending candidate-pair
         // index), which is what makes them bit-identical. See `compute`.
-        if self.compute.is_parallel_step() && !setup && !self.model.has_contact_state() {
+        if self.mc.is_some() {
+            self.resolve_pairs_mc();
+        } else if self.compute.is_parallel_step() && !setup && !self.model.has_contact_state() {
             self.resolve_pairs_parallel();
         } else {
             self.resolve_pairs_serial();
@@ -1544,7 +1714,11 @@ impl GranularSystem {
         let setup = self.setup_phase;
         let n = self.particles.len();
         for i in 0..n {
-            let p = self.particles[i];
+            let mut p = self.particles[i];
+            let radius0 = p.radius;
+            if let Some(mc) = &self.mc {
+                p.radius += mc.data.wall_expansion(w, mc.local_of[i], 1);
+            }
             let boundary = &self.boundaries[w];
             // Axis-aligned planes and cylinders go through upstream's own
             // resolution and kinematics (`PrimitiveWall::resolveContact`,
@@ -1563,6 +1737,44 @@ impl GranularSystem {
                     );
                     self.forces[i] = self.forces[i].add(gf.force_i);
                     self.torques[i] = self.torques[i].add(gf.torque_i);
+                    if self.mc.is_some() && !setup {
+                        let h = crate::multicontact::surfaces_intersect_history(true, arr(delta), p.radius, 0.0);
+                        let fnorm = crate::multicontact::end_surfaces_intersect_history(arr(gf.force_i), arr(k.en));
+                        self.mc.as_mut().expect("multicontact").wall_hist.insert(
+                            (self.tags[i] as usize, w),
+                            [h[0], h[1], h[2], fnorm],
+                        );
+                    }
+                } else if self.mc.is_some()
+                    && !setup
+                    && self.wall_near.get(w).is_none_or(|v| v[i])
+                {
+                    // `surfacesClose` of an axis-aligned plane within one
+                    // (unexpanded) radius: delta*radi*rinv with rinv = -1/|delta|
+                    if let Some((deltan, dv)) = boundary.cylinder_resolve(&p) {
+                        // Cylinder<dim>::resolveContact: `delta` is defined
+                        // for deltan > 0 too; `deltan < (factor-1)*radius[i]`.
+                        if deltan < radius0 {
+                            let h = crate::multicontact::surfaces_close_history(true, [dv.x, dv.y, dv.z], p.radius, 0.0);
+                            self.mc.as_mut().expect("multicontact").wall_hist.insert(
+                                (self.tags[i] as usize, w),
+                                [h[0], h[1], h[2], h[3]],
+                            );
+                        }
+                    } else if let Some((a, param)) = boundary.plane_axis_and_param() {
+                        let pos = [p.position.x, p.position.y, p.position.z];
+                        let dist = pos[a] - param;
+                        let deltan = dist.abs() - p.radius;
+                        if deltan < radius0 {
+                            let mut dv = [0.0; 3];
+                            dv[a] = dist;
+                            let h = crate::multicontact::surfaces_close_history(true, dv, p.radius, 0.0);
+                            self.mc.as_mut().expect("multicontact").wall_hist.insert(
+                                (self.tags[i] as usize, w),
+                                [h[0], h[1], h[2], h[3]],
+                            );
+                        }
+                    }
                 }
                 continue;
             }

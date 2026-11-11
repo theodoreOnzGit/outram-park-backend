@@ -474,9 +474,27 @@ impl ContactKinematics {
     /// particle does not reduce the effective mass (gh:#1478).
     #[must_use]
     pub fn pair_frozen(i: &Particle, j: &Particle, frozen_i: bool, frozen_j: bool) -> Option<Self> {
+        Self::pair_radii(i, j, frozen_i, frozen_j, i.radius, j.radius, i.radius + j.radius)
+    }
+
+    /// [`Self::pair_frozen`] with upstream's three radii separated: the
+    /// overlap test uses `radsum`, while the contact radii, `R*` and the
+    /// recorded `rad_i`/`rad_j` use `radi`/`radj` (`sidata.radi`, `.radj`).
+    /// They differ only under the multicontact model, where `pair_gran_base.h`
+    /// sets `sidata.radi` once per particle (unexpanded) but `sidata.radj` and
+    /// `radsum` per contact (expanded); that asymmetry is reproduced for parity.
+    #[must_use]
+    pub fn pair_radii(
+        i: &Particle,
+        j: &Particle,
+        frozen_i: bool,
+        frozen_j: bool,
+        radi: f64,
+        radj: f64,
+        radsum: f64,
+    ) -> Option<Self> {
         let delta = i.position.sub(j.position); // x_i - x_j
         let r = delta.norm();
-        let radsum = i.radius + j.radius;
         let delta_n = radsum - r;
         if delta_n <= 0.0 || r <= 0.0 {
             return None;
@@ -488,8 +506,8 @@ impl ContactKinematics {
         let vn = vr.dot(en);
         let vt = vr.sub(en.scale(vn));
 
-        let cri = i.radius - 0.5 * delta_n;
-        let crj = j.radius - 0.5 * delta_n;
+        let cri = radi - 0.5 * delta_n;
+        let crj = radj - 0.5 * delta_n;
         // wr = (c_ri ω_i + c_rj ω_j) / r
         let wr = i
             .angular_velocity
@@ -506,7 +524,7 @@ impl ContactKinematics {
             vtr,
             cri,
             crj,
-            r_eff: i.radius * j.radius / radsum,
+            r_eff: radi * radj / (radi + radj),
             m_eff: {
                 let mut m = i.mass * j.mass / (i.mass + j.mass);
                 if frozen_i {
@@ -524,8 +542,8 @@ impl ContactKinematics {
             jtype: 0,
             wr,
             r,
-            rad_i: i.radius,
-            rad_j: j.radius,
+            rad_i: radi,
+            rad_j: radj,
             mass_i: i.mass,
             mass_j: j.mass,
         })
