@@ -202,13 +202,17 @@ pub fn non_ortho_geometry(sf: Vector3, d: Vector3) -> Option<NonOrthoGeometry> {
     if mag_sf < 1.0e-300 || mag_d < 1.0e-300 {
         return None;
     }
-    // gh:#1362: upstream `unitArea = Sf/magSf` (divide, not `Sf*(1/magSf)`)
-    let n = Vector3::new(sf.x / mag_sf, sf.y / mag_sf, sf.z / mag_sf);
+    // NOT upstream's `Sf/magSf` (gh:#1362): this port-original geometry keeps
+    // `Sf*(1/magSf)` because outram-foam-appbuilder-lib's own non-orthogonal solver
+    // uses it, and moving it by an ulp shifted Foam Studio's coil mass balance
+    // (out/in 0.999999996 -> 0.999999967) past that test's 1e-8 gate. The
+    // upstream-form vectors are `fvc::non_orth_correction_vectors`.
+    let n = sf * (1.0 / mag_sf);
     let n_dot_d = n.dot(d);
     let cos_theta = (n_dot_d / mag_d).clamp(-1.0, 1.0);
     let angle_deg = cos_theta.r_acos().to_degrees();
     let delta_coeff = 1.0 / n_dot_d.max(NON_ORTH_FLOOR * mag_d);
-    let corr_vec = n - Vector3::new(d.x * delta_coeff, d.y * delta_coeff, d.z * delta_coeff);
+    let corr_vec = n - d * delta_coeff;
     Some(NonOrthoGeometry {
         delta_coeff,
         corr_vec,

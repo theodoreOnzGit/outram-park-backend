@@ -278,7 +278,7 @@ operator, which does, reaches ~7e-12 (`tests/non_orthogonal_laplacian.rs`, still
 generic bound gained `Div<f64>`), `fvm/laplacian.rs` (mixed arms; `laplacian_with_delta_and_source`,
 `patch_delta`), `fvc/grad_least_squares.rs` (upstream translation; old operator renamed
 `..._face_centre`), `fvm/laplacian_corrected.rs` (upstream translation; old renamed `..._face_centre`;
-`non_ortho_geometry` uses `Sf/magSf`), `fvc/sn_grad.rs` (`sn_grad_with_delta`), new
+`non_ortho_geometry` is UNCHANGED, see below), `fvc/sn_grad.rs` (`sn_grad_with_delta`), new
 `fvc/sn_grad_corrected.rs`, `fvc/linear_upwind.rs`, `limiters.rs` (`small`), `fvc/muscl.rs`
 (`Limiter::LimitedLinear`; `Eq` derive dropped).
 
@@ -286,3 +286,17 @@ generic bound gained `Div<f64>`), `fvm/laplacian.rs` (mixed arms; `laplacian_wit
 (coupled) seams for every row; Mixed arms of `laplacian_vec` and `snGrad` for
 `FixedFluxPressure`/`TotalPressure`; `cellLimited` gradients; `skewCorrected` snGrad;
 turbulence, thermo and linear-solver rows (separate work).
+
+**A change that was made and reverted (gh:#1362).** `fvm::non_ortho_geometry` (used by
+`outram-foam-appbuilder-lib`'s own non-orthogonal solver and by `laplacian_corrected_face_centre`)
+first took upstream's `Sf/magSf` unit normal. Re-running the downstream suites, Foam Studio's
+`headless_coil_shows_dean_flow` then failed: the steady coil's out/in flux ratio moved from
+~~0.999999996~~ to **0.999999967** (iteration 81 both times, residual 4.1e-10 -> 4.7e-10), past that
+test's 1e-8 gate. Cause: an ulp-level change in the correction vector, amplified by a stopping rule
+that is residual-based; confirmed by reverting only that line (0.999999996 again). The gate was not
+relaxed and nothing was retuned: `non_ortho_geometry` keeps `Sf*(1/magSf)` (documented in its source),
+the differential row `nonOrthCorrVec (port-original non_ortho_geometry)` pins the 668 / 1069 faces
+(hex / polyDual) that differ from upstream by an ulp or two, and the upstream-form vectors are
+`fvc::non_orth_correction_vectors` (2367/2367, 3708/3708 identical). Left for the maintainer: whether
+appbuilder's non-orthogonal solver should move to the upstream form and the Foam Studio coil gate be
+re-baselined.
