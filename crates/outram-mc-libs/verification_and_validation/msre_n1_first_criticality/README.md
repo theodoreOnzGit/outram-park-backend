@@ -474,6 +474,65 @@ stated zone at 6/14 to 1e-12 (tested).
   σ, as in the drained run. The quoted σ is the seed sem.
 - **The default is not changed.**
 
+### N-1: the ²³⁵U concentration coefficient (2026-11-11, gh:#1128)
+
+**Reference:** ORNL-4233 §3.4, p. 19. The measured (δk/k)/(δM/M) is
+**0.223**, the slope of Fig. 7 during the capsule additions, "very nearly
+independent of ²³⁵U mass". ORNL's own calculation gave 0.248 for the
+approach to critical and 0.234 averaged over the excess additions. No
+uncertainty is quoted for the measured value.
+
+**Perturbation:** the one ORNL made, `--u235-scale X`
+(`salt_with_enriching_salt`). It adds or removes enriching salt,
+73LiF-27UF₄ with 93 wt % ²³⁵U (ORNL-4233 pp. 3–4), until the salt's ²³⁵U is
+X times the default.
+- The other 7 % of that uranium is taken as ²³⁸U; the report does not
+  split it.
+- Li is added in the salt's own isotopic ratio, and F balances U and Li.
+- The salt volume is fixed: ±5 % of the ²³⁵U is about ±0.1 wt % of the salt.
+- The sample basket keeps the default salt.
+- A unit test pins each of these ratios, and that removal inverts addition.
+
+**Estimator:** the central difference (k₊ − k₋)/(k₀ · 0.10), with k₀ the
+6-seed default 1.00882. σ is each arm's seed sem in quadrature.
+
+**Prediction** (posted on gh:#1128 before the run): **0.24 ± 0.02**
+(window 0.22–0.26), nearer ORNL's calculation than the measurement.
+
+**Run:** arm C, RVS, 30P, cold, no shield; seeds 1–3 at each of X = 0.95
+and 1.05. About 730 s per seed (4-core Intel Xeon, 4 threads, 15.7 GiB RAM,
+Linux, CPU only).
+
+| ²³⁵U | seeds | k (3 seeds, sem) |
+|---|---|---|
+| × 0.95 | 0.99661, 0.99767, 0.99607 | 0.99678 ± 0.00047 |
+| × 1.00 (default, 6 seeds) | — | 1.00882 ± 0.00022 |
+| × 1.05 | 1.02011, 1.02045, 1.01964 | 1.02007 ± 0.00023 |
+
+| quantity | value |
+|---|---|
+| **(δk/k)/(δM/M), central** | **0.231 ± 0.005** |
+| same, logarithmic form ln(k₊/k₋)/ln(1.05/0.95) | 0.231 |
+| upper half, (k₊ − k₀)/(k₀ · 0.05) | 0.223 ± 0.006 |
+| lower half, (k₀ − k₋)/(k₀ · 0.05) | 0.239 ± 0.010 |
+
+- **Inside the prediction.** 0.231 is in 0.22–0.26, though below the 0.24
+  centre.
+- **Against the measurement: +3.5 %, 1.5σ** of our statistics alone, with
+  no σ on the measured 0.223. Our coefficient sits between the measurement
+  and ORNL's own calculation (0.234–0.248), nearer the measurement.
+- **The halves differ by 0.016 ± 0.012, not resolved.** Their sign (a
+  smaller coefficient at higher loading) is what a thermal core should do,
+  but this run cannot show it.
+- **What it implies for the residual.** At 0.231, the default model's
+  +801 pcm is the reactivity of **3.5 % too much ²³⁵U, about 1.14 g/L**
+  against the measured 32.8 ± 0.3 g/L. Put the other way, the model would
+  go critical (k = k_ref) at about 31.7 g/L.
+- **Against the 1000 pcm band:** this is a coefficient, not a k, so the
+  band does not apply. The two rows above at ±5 % are perturbations, not
+  the model's state.
+- **The default is not changed.**
+
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
 Salt density follows −1.18e-4 /°F (ORNL-4233 §4.1). Runs at 1131 °F and
