@@ -74,6 +74,15 @@ Every **sampled frame** is compared, not just the endpoint.
 | oblique Hooke + history + CDT rolling (2026-11-10) | Hooke normal, shear history, CDT rolling together | 251 | `0` | `0` | `0` |
 | two atom types, head-on (2026-11-10) | `createYeff`, `createBetaEff` mixing, unequal `R*`, `m*` | 251 | `0` | `0` | `0` |
 | two atom types, oblique (2026-11-10) | adds `createGeff`, 1-2 friction entry | 251 | `0` | `0` | `0` |
+| head-on + oblique, Edinburgh (linear, Hertzian, `fixKc on`) (2026-11-11) | `edinburgh/stiffness`, `edinburgh`: adhesive `k_adh`, pull-off | 251 each | `0` | `0` | `0` |
+| head-on + oblique, SJKR / SJKR2 / `tangential_reduce` (2026-11-11) | cohesion area and force, cohesion in `Fn` | 251 each | `0` | `0` | `0` |
+| head-on + oblique, `hooke/hysteresis` fast and slow (2026-11-11) | `deltaMax` branches, `k2` interpolation, cohesion branch | 251 each | `0` | `0` | `0` |
+| head-on + oblique, `hertz/stiffness` and `hooke/stiffness` (2026-11-11) | given `k_n`, `k_t`, `gamma_n`, `gamma_t` | 251 each | `0` | `0` | `0` |
+
+Upstream oddity (2026-11-11): `in.headon_tn_plastic` gives `nan` in every
+position and velocity from step 2310 (`headon_tn_plastic.csv`, 20 nan rows).
+The port's test compares the 231 finite frames bit for bit and asserts the
+onset; the port does not reproduce the NaN. Not yet traced in upstream source.
 
 ~~**Four of the six are bit-identical to upstream over the whole trajectory**;
 the two oblique cases agree to round-off (1–3 ulp).~~ **CORRECTED 2026-11-10
