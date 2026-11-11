@@ -75,7 +75,8 @@
 //!   is read; without it the unassigned faces form `defaultFaces` of type
 //!   `empty`, as upstream (it was `patch` before 2026-11-11). `$name` of an
 //!   earlier top-level entry is expanded. Block zone names are kept in
-//!   [`PolyMesh::cell_zones`] (not yet written to disk).
+//!   [`PolyMesh::cell_zones`]; the `blockMesh` CLI writes them as
+//!   `constant/polyMesh/cellZones` (`io::PolyMesh::write_cell_zones`).
 //! - `simpleGrading (gx gy gz)` is fully supported, where each of the three
 //!   directions is **either** a single scalar expansion ratio **or** a
 //!   multi-grading list of `( fractionLength fractionCells expansionRatio )`
@@ -402,8 +403,10 @@ pub struct PolyMesh {
     pub patches: Vec<BoundaryPatch>,
     /// Cell zones, one per distinct block zone name in dictionary order:
     /// `(name, cell indices)`. Upstream writes these as `cellZones`; the
-    /// `outram-foam-basic-lib` `io::PolyMesh` has no zone output yet, so
-    /// [`PolyMesh::to_foam_poly_mesh`] drops them (gh:#1463 remaining item).
+    /// `io::PolyMesh` carries no zones, so [`PolyMesh::to_foam_poly_mesh`]
+    /// drops them; write them with
+    /// `outram_foam_basic_lib::io::poly_mesh::PolyMesh::write_cell_zones`
+    /// (~~"no zone output yet"~~ **CORRECTED 2026-11-11, gh:#1463**).
     pub cell_zones: Vec<(String, Vec<usize>)>,
 }
 

@@ -127,3 +127,28 @@ fn ideas_unv_to_foam_single_hex() {
     assert_eq!(mesh.n_internal_faces, 0, "one cell has no internal faces");
     assert_eq!(mesh.n_boundary_faces(), 6, "a hex has 6 boundary faces");
 }
+
+/// gh:#1463: a block that names a zone makes `blockMesh` write `cellZones`.
+#[test]
+fn block_mesh_writes_cell_zones_for_named_blocks() {
+    let case = Path::new(env!("CARGO_TARGET_TMPDIR")).join("zoned_case");
+    let _ = fs::remove_dir_all(&case);
+    fs::create_dir_all(case.join("system")).unwrap();
+    let dict = "convertToMeters 1;
+vertices ((0 0 0) (1 0 0) (2 0 0) (0 1 0) (1 1 0) (2 1 0)
+          (0 0 1) (1 0 1) (2 0 1) (0 1 1) (1 1 1) (2 1 1));
+blocks (hex (0 1 4 3 6 7 10 9) fluid (2 1 1) simpleGrading (1 1 1)
+        hex (1 2 5 4 7 8 11 10) solid (3 1 1) simpleGrading (1 1 1));
+boundary ();";
+    fs::write(case.join("system/blockMeshDict"), dict).unwrap();
+    block_mesh::run(&CaseArgs { case: case.clone() }).expect("blockMesh run");
+    let text = fs::read_to_string(case.join("constant/polyMesh/cellZones")).unwrap();
+    let lines: Vec<&str> = text.lines().map(str::trim).collect();
+    let fluid = lines.iter().position(|l| *l == "fluid").expect("fluid zone");
+    // name, {, type, cellLabels, count, (, labels...
+    assert_eq!(lines[fluid + 4], "2");
+    assert_eq!(&lines[fluid + 6..fluid + 8], &["0", "1"]);
+    let solid = lines.iter().position(|l| *l == "solid").expect("solid zone");
+    assert_eq!(lines[solid + 4], "3");
+    assert_eq!(&lines[solid + 6..solid + 9], &["2", "3", "4"]);
+}
