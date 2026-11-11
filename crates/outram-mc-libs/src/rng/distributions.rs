@@ -48,6 +48,28 @@ pub fn watt(seed: &mut u64, a: f64, b: f64) -> f64 {
     w + 0.25 * a * a * b + (2.0 * prn(seed) - 1.0) * (a * a * b * w).sqrt()
 }
 
+/// OpenMC's normal variate, Marsaglia's polar method (`normal_variate`,
+/// `src/random_dist.cpp`, commit `8f79d9d0`): draws pairs `(x, y)` uniform on
+/// `[-1, 1)` until `0 < x² + y² <= 1`, then `mean + sd · x · sqrt(-2 ln(r²)/r²)`.
+///
+/// **Not** [`sample_normal`], which is RAFFLES' Box-Muller deviate (different
+/// algorithm, different draw count, so a different value for the same seed).
+/// This one is the OpenMC `Normal` / `Muir` source-distribution sampler,
+/// compared bit for bit in `tests/secondary_samplers_vs_openmc_code_to_code.rs`.
+pub fn normal_variate(mean: f64, standard_deviation: f64, seed: &mut u64) -> f64 {
+    let (mut x, mut r2);
+    loop {
+        x = uniform(seed, -1.0, 1.0);
+        let y = uniform(seed, -1.0, 1.0);
+        r2 = x * x + y * y;
+        if !(r2 > 1.0 || r2 == 0.0) {
+            break;
+        }
+    }
+    let z = (-2.0 * r2.r_ln() / r2).sqrt();
+    mean + standard_deviation * z * x
+}
+
 /// Sample an isotropic direction on the unit sphere.
 ///
 /// Returns direction cosines `(u, v, w)`. The polar cosine μ is uniform on

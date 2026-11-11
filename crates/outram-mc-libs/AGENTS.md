@@ -1133,6 +1133,16 @@ fidelity is this crate's whole value. The exemption is narrow and applies to the
 **bit-level output of the RNG only**, where matching upstream is a means to
 statistical quality rather than the goal itself.
 
+**OpenMC-compatible seeding exists as a named option (2026-11-11, gh:#1386).**
+`KeffSettings::with_seeding(SeedingMode::OpenMc { total_gen: 0 })` gives each
+history of the CSG parallel drivers OpenMC's own stream seeds
+(`petir::rng::lcg::init_particle_seeds`, `rng::openmc_seeding`;
+`tests/openmc_seeding_vs_openmc_code_to_code.rs`, bit-identical to OpenMC
+`8f79d9d0`). **The default stays `SeedingMode::Outram`**: the decision above
+stands and every recorded k-eff and bit-identity pin was measured with it. The
+option exists so one history can be compared with OpenMC's track file, not
+because parity became a goal.
+
 Practical consequence: where OpenMC's RNG design exists *for* statistical
 quality — as the PCG output permutation does, see `op-jis` — port it, and gate it
 with statistical tests rather than golden-value comparisons.

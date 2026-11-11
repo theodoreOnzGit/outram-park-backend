@@ -26,9 +26,14 @@
 - `advance_prn_seed` and `future_prn` have **no PETIR function**. The Rust tests
   check the composition the C++ performs (`future_seed` into the state, and
   `future_seed` then `prn`). They are not PETIR APIs.
-- `init_particle_seeds` (`random_lcg.cpp` lines 70-76) is **not ported** and is
-  not compared. It uses a different formula from `init_seed`
-  (`multiplier * (master + i) + increment` for `N_STREAMS` streams).
+- ~~`init_particle_seeds` (`random_lcg.cpp` lines 70-76) is **not ported** and is
+  not compared.~~ **CORRECTED 2026-11-11 (gh:#1386):** it is ported as
+  `petir::rng::lcg::init_particle_seeds` (with `future_seed_coefficients`,
+  `N_STREAMS`, `STREAM_*`) and compared bit for bit against OpenMC in
+  `crates/outram-mc-libs/verification_and_validation/upstream_openmc_seeding/`
+  (5 masters x 12 ids x 4 streams, a non-default stride, and
+  `compute_particle_id` / `compute_transport_seed`). It equals `init_seed(id, i)`
+  per stream: `multiplier * (master + i) + increment` is the same jump-ahead.
 - `openmc_set_seed` / `openmc_set_stride` are replaced by explicit arguments,
   as recorded in `lcg.rs`. The driver calls `openmc_set_seed` to select the master.
 
