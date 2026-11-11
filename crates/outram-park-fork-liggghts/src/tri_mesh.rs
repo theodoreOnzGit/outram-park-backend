@@ -189,6 +189,19 @@ struct TriGeo {
     obtuse: Option<usize>,
 }
 
+/// `TriMeshPlanar` element properties `nearestActiveEdgeID`,
+/// `nearestActiveEdgeIndex` and `minActiveEdgeDist` (`-1` = unused slot).
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlanarEdgeLists {
+    /// Facet that owns the stored edge (upstream stores the facet ID, which is
+    /// the local index on a serial, non-parallel mesh).
+    pub edge_facet: Vec<[i32; 6]>,
+    /// Edge number within that facet.
+    pub edge_index: Vec<[i32; 6]>,
+    /// Smallest stored distance per facet `[m]`.
+    pub min_dist: Vec<f64>,
+}
+
 /// Everything the upstream mesh object holds beside the nodes themselves.
 ///
 /// The nodes live in [`crate::mesh_wall::MeshWall::triangles`]; every method
@@ -405,6 +418,83 @@ impl TriMeshState {
         let g = &self.geo[i];
         let c = v_cross(&g.edge_vec[0], &g.edge_vec[1]);
         0.5 * v_mag(&c) * g.edge_len[0] * g.edge_len[1]
+    }
+
+    /// `SurfaceMesh::edgePointDist(iSrf, iEdge, point)`: distance from `point`
+    /// to the segment of edge `i_edge` of facet `i` (node `i_edge` to
+    /// `i_edge + 1`), as upstream: node distance beyond either end, else the
+    /// absolute dot product with the edge normal.
+    #[must_use]
+    pub fn edge_point_dist(&self, nodes: &[Nodes], i: usize, i_edge: usize, point: &V3) -> f64 {
+        let g = &self.geo[i];
+        let mut node_to_p = v_sub(point, &nodes[i][i_edge]);
+        let dot = v_dot(&g.edge_vec[i_edge], &node_to_p);
+        if dot < 0. {
+            v_mag(&node_to_p)
+        } else if dot > g.edge_len[i_edge] {
+            node_to_p = v_sub(point, &nodes[i][(i_edge + 1) % 3]);
+            v_mag(&node_to_p)
+        } else {
+            let edge_norm = Self::calc_edge_normals(&g.edge_vec, &g.surf_norm);
+            v_dot(&edge_norm[i_edge], &node_to_p).abs()
+        }
+    }
+
+    /// `TriMeshPlanar::buildEdgeLists`: for every facet the (up to) six nearest
+    /// active edges, keeping the first maximum for replacement, and the
+    /// minimum of those distances.
+    #[must_use]
+    pub fn build_planar_edge_lists(&self, nodes: &[Nodes]) -> PlanarEdgeLists {
+        let n = nodes.len();
+        let mut out = PlanarEdgeLists {
+            edge_facet: vec![[-1; 6]; n],
+            edge_index: vec![[-1; 6]; n],
+            min_dist: vec![0.0; n],
+        };
+        for i in 0..n {
+            let mut n_edges = 0usize;
+            let mut dist_edges = [1e8_f64; 6];
+            for j in 0..n {
+                if !self.edge_active[j].iter().any(|&a| a) {
+                    continue;
+                }
+                for i_edge in 0..3 {
+                    for j_edge in 0..3 {
+                        if !self.edge_active[j][j_edge] {
+                            continue;
+                        }
+                        // edgeNodeDist(i, i_edge, j, j_edge)
+                        let dist = self.edge_point_dist(nodes, i, i_edge, &nodes[j][j_edge]);
+                        if n_edges < 6 {
+                            out.edge_facet[i][n_edges] = j as i32;
+                            out.edge_index[i][n_edges] = j_edge as i32;
+                            dist_edges[n_edges] = dist;
+                            n_edges += 1;
+                        } else {
+                            let mut which = 0;
+                            let mut m = dist_edges[0];
+                            for (k, &d) in dist_edges.iter().enumerate().skip(1) {
+                                if d > m {
+                                    m = d;
+                                    which = k;
+                                }
+                            }
+                            out.edge_facet[i][which] = j as i32;
+                            out.edge_index[i][which] = j_edge as i32;
+                            dist_edges[which] = dist;
+                        }
+                    }
+                }
+            }
+            let mut m = dist_edges[0];
+            for &d in dist_edges.iter().skip(1) {
+                if d < m {
+                    m = d;
+                }
+            }
+            out.min_dist[i] = m;
+        }
+        out
     }
 
     /// Current unit surface normal of facet `i`.
