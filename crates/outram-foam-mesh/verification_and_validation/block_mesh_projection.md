@@ -27,7 +27,7 @@ run is NOT a differential of the dev port everywhere):
 | `projectFace::project` | projects, predicts along i (adds the i residual), predicts along j, **breaks before adding the j residual** when converged | projects, **breaks right after a projection** when the previous iteration's residual has converged, otherwise adds both residuals | converged face points differ: dev leaves them off the surface by the i residual, v2506 leaves them on it |
 | multi-surface `findNearest` | alternates surfaces, intersects the two tangent planes, no step clipping | the same idea with the step clipped to `sqrt(distSqr)` and a `1e-6` collinearity test (dev: `rootSmall`) | agree where the iteration converges without clipping |
 | `blockCreate.C` | face passes as quoted in gh:#1462 | same arithmetic (diff shows only renames) | bit identity expected given identical face points |
-| `sweepFace` | present | **absent** (v2506 has only `projectFace`) | no binary differential for `sweep`; analytic check only |
+| `sweepFace` | present | **absent** (v2506 has only `projectFace`) | ~~no binary differential for `sweep`; analytic check only~~ **CORRECTED 2026-11-11**: differential against an OpenFOAM-dev `blockMesh` (commit 852527377c7e) in `upstream_dev_852527377c7e/README.md`: torus major / minor-wrong 637 / 637 bit-identical, minor 633 / 637, sphere 1289 / 1331 (worst 4.4e-16, a libm trig difference, see there) |
 
 The port implements the dev algorithm as the default (it is the specification)
 and `ProjectFaceFlavour::Esi` (the v2506 loop) beside it so the binary can be
@@ -139,8 +139,8 @@ topology identical, 91.7 % of points bit-identical, worst difference one ulp
    the epsilon, then reached 567 / 567). All three are now in the table in
    `block_projection.rs` (`ProjectionFlavour`), and the v2506 flavour is what
    the frozen hashes pin. The dev code stays the default because it is the
-   specification; **it is not verified against any dev binary** (none exists
-   here).
+   specification; ~~**it is not verified against any dev binary** (none exists
+   here)~~ **CORRECTED 2026-11-11**: a partial OpenFOAM-dev build at 852527377c7e exists (`upstream_dev_852527377c7e/`): `proj_cyl`, `proj_edges`, `proj_faces`, `proj_two` are bit-identical to its `blockMesh` (567 / 567, 7351 / 7351 twice, 567 / 567) in the DEFAULT dev flavour, `proj_vertex` 56 / 210 (worst 2.2e-16; integer `pow` in dev's `lineDivide`, see there).
 2. **P4b**: with the dev loop the converged face points are left off the
    surface by the last i residual, 2.1e-4 R on the 10-division sphere face,
    twice my upper bound; the v2506 loop leaves them on it. This is upstream's
@@ -158,8 +158,7 @@ topology identical, 91.7 % of points bit-identical, worst difference one ulp
    0.1 to 0.5). The transcription was re-read line by line against
    `sweepFace.C`, the factor-0 major case is exact to 2e-15, and the
    transposed branch is exercised; so I judge this upstream behaviour, but it
-   **cannot be confirmed without a dev `blockMesh`**, and the tutorial's word
-   "exact" is not reproduced. **Flagged for the maintainer.**
+   ~~**cannot be confirmed without a dev `blockMesh`**~~ **CORRECTED 2026-11-11 (gh:#1364): confirmed.** The dev `blockMesh` (852527377c7e, `writePrecision 17`) puts the same 270 boundary nodes off the torus with worst residual **1.156682493910e-4**, the port 1.1566824939102e-4, and `sweep_torus_minor` agrees to 633 / 637 points (worst 1.1e-16); the sphere block misses by 0.1389840342370774 in both. The tutorial's word "exact" is not reproduced by upstream itself, so #1462's 1.2e-4 is not a port defect. Pinned in `tests/upstream_dev_852527377c7e.rs`.
 4. **P7, the sphere block** falls short of the sphere by 0.139, consistent with
    the tutorial's "not exact ... falls short", at a larger size than I
    predicted.
@@ -169,10 +168,12 @@ topology identical, 91.7 % of points bit-identical, worst difference one ulp
 - v2506 is matched bit for bit on `project` vertices, edges and faces for the
   sphere and the cylinder, and on two-surface edges; that checks the port of
   the *algorithms* (the loops, the weights, the three correction passes). It
-  does not check the dev-only differences (the dev face loop, the dev
-  multi-surface step) against any binary.
-- `sweep` has no binary differential at all (v2506 has no `sweepFace`); it is
-  checked only analytically, with the miss above.
+  ~~does not check the dev-only differences (the dev face loop, the dev
+  multi-surface step) against any binary~~ **CORRECTED 2026-11-11**: the dev face
+  loop is checked against the dev binary (`proj_faces` 7351 / 7351
+  bit-identical, `proj_two` 567 / 567).
+- ~~`sweep` has no binary differential at all (v2506 has no `sweepFace`); it is
+  checked only analytically, with the miss above.~~ **CORRECTED 2026-11-11**: `sweep` is differenced against the dev binary (see the row above and `upstream_dev_852527377c7e/README.md`).
 - Not ported, refused with `NotImplemented`: `triSurface` / `triSurfaceMesh`,
   `extrudedCircle` (and `projectCurve`'s special handling of it), `plate`,
   `box`, `disk`, planes given by equation or three points. The dev `pipe`,

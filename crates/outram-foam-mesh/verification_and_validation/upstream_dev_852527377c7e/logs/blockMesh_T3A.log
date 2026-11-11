@@ -1,0 +1,116 @@
+/*---------------------------------------------------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  dev
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+Build  : dev-852527377c7e
+Exec   : blockMesh
+Date   : Nov 11 2026
+Time   : 15:19:45
+Host   : "vm"
+PID    : 28200
+I/O    : uncollated
+Case   : /home/user/upstream-build/dev-runs/blockMesh/T3A
+nProcs : 1
+sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 10)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Reading "blockMeshDict"
+
+Creating block mesh from
+    "system/blockMeshDict"
+Creating block edges
+No non-planar block faces defined
+Creating topology blocks
+Creating topology patches
+
+Creating block mesh topology
+
+Basic statistics
+    Number of internal faces : 14
+    Number of boundary faces : 38
+    Number of defined boundary faces : 38
+    Number of undefined boundary faces : 0
+
+Checking topology
+Creating block offsets
+Creating merge list .
+
+Creating polyMesh from blockMesh
+Creating patches
+Creating cells
+Creating points with scale 1
+    Block 0 cell size :
+        i : 0.0040318051330879654 .. 0.0019024798245399557 0.0040350631266929853 .. 0.0019040171674663696 0.0040318051330879654 .. 0.0019024798245399557 0.0040350631266929853 .. 0.0019040171674663696 
+        j : 0.00073362328548104503 .. 0.00073362328548104601 0.00074996263689440133 .. 0.00071327967994330548 0.00073362328548104503 .. 0.00073362328548104601 0.00074996263689440133 .. 0.00071327967994330027 
+        k : 0.10000000000000001
+    Block 1 cell size :
+        i : 0.0019025167655048955 .. 4.1855368841110796e-05
+        j : 0.00081479823711607541 .. 0.00081479823711607508 0.00074009137896585036 .. 0.00074009137896584852 0.00081479823711607541 .. 0.00081479823711607508 0.00074009137896585047 .. 0.0007400913789658522 
+        k : 0.10000000000000001
+    Block 2 cell size :
+        i : 0.0019025167655049046 .. 4.1855368841105483e-05
+        j : 0.0008147982371160728 .. 0.00081479823711608365 0.00074009137896585112 .. 0.00074009137896585318 0.0008147982371160728 .. 0.00081479823711608365 0.00074009137896585112 .. 0.00074009137896586001 
+        k : 0.10000000000000001
+    Block 3 cell size :
+        i : 0.0052569768305113949 .. 0.0024805991430597515
+        j : 0.0019143299614170772 .. 0.095790333777465597
+        k : 0.10000000000000001
+    Block 4 cell size :
+        i : 0.0008147982371160715 .. 0.00081479823711608365 0.00081424325662132508 .. 0.00081464025322349788 0.0008147982371160728 .. 0.00081479823711608365 0.00081424325662133006 .. 0.00081464025322349777 
+        j : 0.0019143299614170772 .. 0.095790333777465597 0.001913232811728905 .. 0.095735433975993364 0.0019143299614170772 .. 0.095790333777465597 0.001913232811728903 .. 0.095735433975993364 
+        k : 0.10000000000000001
+    Block 5 cell size :
+        i : 2.9451063229109231e-05 .. 0.0020892260293032816
+        j : 4.1855045936883459e-05 .. 0.0019025211130610474
+        k : 0.10000000000000001
+    Block 6 cell size :
+        i : 2.9451063229109231e-05 .. 0.0020892260293032816
+        j : 0.0019025223080442362 .. 0.095199495687633195
+        k : 0.10000000000000001
+    Block 7 cell size :
+        i : 0.0020882045167552599 .. 0.015223428568048814
+        j : 4.1855045936883459e-05 .. 0.0019025211130610474
+        k : 0.10000000000000001
+    Block 8 cell size :
+        i : 0.0020882045167552599 .. 0.015223428568048814
+        j : 0.0019025223080442362 .. 0.095199495687633195
+        k : 0.10000000000000001
+    Block 9 cell size :
+        i : 0.014615160706104025 .. 0.058327644861991157
+        j : 4.1855045936883459e-05 .. 0.0019025211130610474
+        k : 0.10000000000000001
+    Block 10 cell size :
+        i : 0.014615160706104025 .. 0.058327644861991157
+        j : 0.0019025223080442362 .. 0.095199495687633195
+        k : 0.10000000000000001
+
+No patch pairs to merge
+
+Writing polyMesh
+----------------
+Mesh Information
+----------------
+  boundingBox: (0 0 -0.050000000000000017) (3.0400000000000005 1 0.050000000000000017)
+  nPoints: 54496
+  nCells: 26820
+  nFaces: 107707
+  nInternalFaces: 53213
+----------------
+Patches
+----------------
+  patch 0 (start: 53213 size: 47) name: above
+  patch 1 (start: 53260 size: 327) name: top
+  patch 2 (start: 53587 size: 60) name: inlet
+  patch 3 (start: 53647 size: 80) name: outlet
+  patch 4 (start: 53727 size: 340) name: plate
+  patch 5 (start: 54067 size: 53640) name: defaultFaces
+
+End
+

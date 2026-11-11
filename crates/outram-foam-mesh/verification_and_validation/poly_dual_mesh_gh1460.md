@@ -116,12 +116,12 @@ source reading found, nothing else:
 | warped hex | 242 / 480 | **1.1e-6** (a real, warp-level difference) | dev's projected-area weights against v2506's `mag(n)` |
 | L-shape base / concave | 362 / 522, 371 / 531 | index-level (the dual points are the same set, numbered differently) | dev's `labelHashSet(n)` capacity `n` against v2506's `reserve(n)` capacity `2n` wraps the feature-face labels: different `toc()` order, so different numbering |
 
-The dev flavour was **not** run against an OpenFOAM-dev binary (none was
-built; the dev source is only read). Its two differences from v2506 are
+~~The dev flavour was **not** run against an OpenFOAM-dev binary (none was
+built; the dev source is only read).~~ **CORRECTED 2026-11-11 (gh:#1364): it was run; 12 of 12 case x variant duals are bit-identical to OpenFOAM-dev 852527377c7e `polyDualMesh`** (`upstream_dev_852527377c7e/README.md`, pinned in `tests/upstream_dev_852527377c7e.rs`). The paragraph below is the state before that run. Its two differences from v2506 are
 therefore source-derived and checked here only through the v2506 binary
 (the v2506 flavour matches it; the dev flavour moves exactly where the two
-sources differ). Not verified: that dev's own binary reproduces the dev
-flavour bit for bit.
+sources differ). ~~Not verified: that dev's own binary reproduces the dev
+flavour bit for bit.~~ Verified 2026-11-11, see above.
 
 #### Misses on the way (recorded, not hidden)
 
