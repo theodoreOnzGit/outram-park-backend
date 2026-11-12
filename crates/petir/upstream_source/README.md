@@ -285,3 +285,15 @@ the portable form is the one a Rust transcription can hold on every target.
 
 `/upstream_source/ARM-optimized-routines/` is gitignored (see the crate
 `.gitignore`, written before cloning). Only this README is tracked.
+
+---
+
+# Upstream source — OpenMC (MIT): `src/random_lcg.cpp`, `include/openmc/random_lcg.h`
+
+- **Upstream repository:** <https://github.com/openmc-dev/openmc>
+- **Commit:** `8f79d9d02483c90e4134f03a9df4b75ce6b062bf` (committer date 2026-11-10)
+- **Accessed:** 2026-11-10
+- **Licence:** MIT (`LICENSE`: "Copyright (c) 2011-2026 Massachusetts Institute of Technology, UChicago Argonne LLC, and OpenMC contributors"), flowing one-way into this GPL-3.0-only crate; see `NOTICE`.
+- **Clone command:** `git clone --depth 1 https://github.com/openmc-dev/openmc.git upstream_source/openmc`
+- **Used for:** `verification_and_validation/upstream_openmc_lcg/`, which compiles only `random_lcg.cpp` (with its header). OpenMC itself is not built.
+- **Location note:** cloned into this worktree's own `upstream_source/`, not the main checkout, because the worktree agent's git operations on the main checkout were refused.

@@ -99,13 +99,19 @@ fn main() {
     let backend = match std::env::args().nth(1).as_deref() {
         Some("serial") | None => ComputeType::CpuSingleThread,
         Some("gpu") => ComputeType::Gpu,
-        Some(n) => ComputeType::CpuMultiThread(ThreadCount::Fixed(
-            n.parse().expect("thread count"),
-        )),
+        Some(n) => {
+            ComputeType::CpuMultiThread(ThreadCount::Fixed(n.parse().expect("thread count")))
+        }
     };
-    let mut sys = GranularSystem::new(particles, boundaries, model, Vec3::new(0.0, 0.0, -9.81), 3.5e-5)
-        .expect("system")
-        .with_compute(backend);
+    let mut sys = GranularSystem::new(
+        particles,
+        boundaries,
+        model,
+        Vec3::new(0.0, 0.0, -9.81),
+        3.5e-5,
+    )
+    .expect("system")
+    .with_compute(backend);
     println!("backend {backend:?} -> {} thread(s)", backend.threads());
 
     let t0 = std::time::Instant::now();
@@ -116,8 +122,14 @@ fn main() {
     // raw IEEE-754 bits. Any last-ulp difference anywhere changes it.
     let mut h: u64 = 0;
     for p in sys.particles() {
-        for v in [p.position.x, p.position.y, p.position.z,
-                  p.velocity.x, p.velocity.y, p.velocity.z] {
+        for v in [
+            p.position.x,
+            p.position.y,
+            p.position.z,
+            p.velocity.x,
+            p.velocity.y,
+            p.velocity.z,
+        ] {
             h ^= v.to_bits();
             h = h.rotate_left(7);
         }

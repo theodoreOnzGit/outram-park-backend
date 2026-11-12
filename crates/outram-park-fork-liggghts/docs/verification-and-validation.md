@@ -6,8 +6,10 @@ workspace `CLAUDE.md` rule that a V&V document must state both.
 Summary of what changed on this date: the crate gained a **cross-code
 verification leg against upstream LIGGGHTS-PUBLIC**, which its 2026-09-06
 maturity declaration explicitly recorded as missing. **Four of six**
-deterministic cases are **bit-identical** to upstream; the two oblique cases
-agree to floating-point round-off (1-3 ulp). A bulk pebble-bed settling case
+deterministic cases are **bit-identical** to upstream; ~~the two oblique cases
+agree to floating-point round-off (1-3 ulp)~~ **CORRECTED 2026-11-10 (gh:#1406):
+the two oblique cases are now bit-identical too, as are three new cases (see
+`cross-code-summary.md`)**. A bulk pebble-bed settling case
 agrees on packing fraction to **0.2 %**. **Three** defects in the pre-existing
 code were found and are documented below.
 
@@ -67,11 +69,25 @@ Every **sampled frame** is compared, not just the endpoint.
 | head-on, Hooke | linearised normal model, `v_char = 2 m/s` | 251 | `0` | `0` | `0` |
 | wall bounce + gravity | primitive wall branch (`R* = r`, `m* = m`), contact make/break over 400 000 steps | 2001 | `0` | `0` | — |
 | rolling, counter-spinning pair | **CDT rolling resistance** (`µ_r = 0.1`) | 201 | `0` | `0` | `0` |
-| oblique + friction | **tangential shear-history spring**, Coulomb slip, contact torque / spin-up | 251 | `0` | `1.11e-16` | `5.68e-14` |
-| oblique, **no-history** (stateless path) | `contact` + `simulation` vs `tangential no_history` | 251 | `0` | `1.11e-16` | `1.42e-14` |
+| oblique + friction | **tangential shear-history spring**, Coulomb slip, contact torque / spin-up | 251 | `0` | ~~`1.11e-16`~~ **`0`** | ~~`5.68e-14`~~ **`0`** |
+| oblique, **no-history** (stateless path) | `contact` + `simulation` vs `tangential no_history` | 251 | `0` | ~~`1.11e-16`~~ **`0`** | ~~`1.42e-14`~~ **`0`** |
+| oblique Hooke + history + CDT rolling (2026-11-10) | Hooke normal, shear history, CDT rolling together | 251 | `0` | `0` | `0` |
+| two atom types, head-on (2026-11-10) | `createYeff`, `createBetaEff` mixing, unequal `R*`, `m*` | 251 | `0` | `0` | `0` |
+| two atom types, oblique (2026-11-10) | adds `createGeff`, 1-2 friction entry | 251 | `0` | `0` | `0` |
+| head-on + oblique, Edinburgh (linear, Hertzian, `fixKc on`) (2026-11-11) | `edinburgh/stiffness`, `edinburgh`: adhesive `k_adh`, pull-off | 251 each | `0` | `0` | `0` |
+| head-on + oblique, SJKR / SJKR2 / `tangential_reduce` (2026-11-11) | cohesion area and force, cohesion in `Fn` | 251 each | `0` | `0` | `0` |
+| head-on + oblique, `hooke/hysteresis` fast and slow (2026-11-11) | `deltaMax` branches, `k2` interpolation, cohesion branch | 251 each | `0` | `0` | `0` |
+| head-on + oblique, `hertz/stiffness` and `hooke/stiffness` (2026-11-11) | given `k_n`, `k_t`, `gamma_n`, `gamma_t` | 251 each | `0` | `0` | `0` |
 
-**Four of the six are bit-identical to upstream over the whole trajectory**;
-the two oblique cases agree to round-off (1–3 ulp). The last row verifies the
+Upstream oddity (2026-11-11): `in.headon_tn_plastic` gives `nan` in every
+position and velocity from step 2310 (`headon_tn_plastic.csv`, 20 nan rows).
+The port's test compares the 231 finite frames bit for bit and asserts the
+onset; the port does not reproduce the NaN. Not yet traced in upstream source.
+
+~~**Four of the six are bit-identical to upstream over the whole trajectory**;
+the two oblique cases agree to round-off (1–3 ulp).~~ **CORRECTED 2026-11-10
+(gh:#1406): all nine rows are bit-identical (4518 of 4518 `f64` per case);
+the operation-order fixes are tabulated in `cross-code-summary.md`.** The last row verifies the
 *other* engine — the stateless `contact` + `simulation` path — against the
 upstream model it actually implements; see § 4.2.
 
@@ -1340,6 +1356,234 @@ processes, in all four settings.** This is a far stronger check than the
 the neighbour-grid fix — the committed reference beds can now be regenerated
 exactly. The regression test independently reproduced `φ 0.5766 → 0.5732` to
 four decimals on two separate runs.
+
+## 4.10 Pair-order translation, friction cells in both codes, heat conduction, stiffness and hysteresis models (2026-11-11, gh:#1406, #1410, #1412, #1418)
+
+**Per-contact forces beyond step 0 (gh:#1418).** `neighbor_list.rs` translates
+LIGGGHTS' atom sort and `bin` half neighbour list; with
+`GranularSystem::with_liggghts_neighbor_order` the per-contact dump of the
+settled `D/d = 6` bed is **bit-identical at steps 0, 1, 10 and 100** (793 / 793 /
+793 / 792 contacts, all 23 fields). Ablations: default cell grid 3440 / 3799 /
+6266 values differ at steps 1 / 10 / 100; LIGGGHTS list without the atom sort
+4442 / 4923 / 6831. Prediction (written first): bit-identical. Met. Test
+`pair_gran_local_cross_code.rs`. The option is named, not the default: the order
+needs the deck's box and skin.
+
+**Friction cells run in BOTH codes (gh:#1406 prio 2).** Cell-by-cell check of
+`reference-data/liggghts/htr10_*_mu*_mur*.csv`: all are **port output**
+(`reference-data/liggghts/README.md`); the HTR-10 cells `mu10_mur00`,
+`mu10_mur10`, `mu40_mur00` and the `mu125`..`mu200` sweep were **never run in
+LIGGGHTS**; only `mu40_mur10` has a LIGGGHTS run (`in.htr10_conus`). An HTR-10
+cell costs ~10 min of port time and more in LIGGGHTS on one core, so the
+ablation was run on the **`D/d = 6` bed instead**, from the same inserted state
+(`pebble_bed_init.csv`), 400 000 steps (2 s), `mu in {0.1, 0.4}` x
+`mu_r in {0, 0.1}` (CDT), decks `in.ablate`, `in.ablate_cdt`, `run_ablate.sh`,
+output `ablate_<cell>.csv` (9 frames, every 50 000 steps, x, v, omega of every
+pebble). Prediction: bit-identical, because the mechanical path and the sum order
+are. **Result (`friction_ablation_cross_code.rs`, Rust 1.99.1):**
+
+| cell | values bit-identical / total (9 frames) | final `phi` ours / LIGGGHTS |
+|---|---|---|
+| `mu = 0.1`, `mu_r = 0` | **28 674 / 28 674** | 0.584154 / 0.584154 |
+| `mu = 0.1`, `mu_r = 0.1` | **28 674 / 28 674** | 0.568520 / 0.568520 |
+| `mu = 0.4`, `mu_r = 0` | **28 674 / 28 674** | 0.545985 / 0.545985 |
+| `mu = 0.4`, `mu_r = 0.1` | **28 674 / 28 674** | 0.526996 / 0.526996 |
+
+So `mu` moves `phi` by `-0.038` (`mu_r = 0`) and `-0.042` (`mu_r = 0.1`), and
+`mu_r` by `-0.016` / `-0.019` at this `D/d`, identically in both codes. (Absolute
+`phi` here is a `D/d = 6` slab number and is not comparable to the whole-core
+HTR-10 `phi`.) **The HTR-10 conus cells `mu10_mur00`, `mu10_mur10` and
+`mu40_mur00` remain port-only**; the V&V 4.9 numbers carry no LIGGGHTS
+counterpart except `mu40_mur10`.
+
+**The run found two defects the shorter tests could not** (first first-written
+version of the test diverged at step 19 117 and at step 18 433):
+1. gh:#1451, pair shear history life cycle: upstream keeps a pair's shear
+   history through separation for the whole neighbour-list life (`surfacesClose`
+   never runs at contact distance factor 1) and drops it at a rebuild only if the
+   pair does not overlap then; the port dropped it on separation. Fixed in the
+   LIGGGHTS-order mode.
+2. gh:#1452, CDT rolling torque operation order and the wall-branch `w_r`.
+   Fixed.
+
+**`fix heat/gran/conduction` (gh:#1412).** `heat_gran.rs`; two spheres at
+`DeltaT`: 1004 / 1004 values bit-identical over 251 frames; the 354-pebble bed
+(initial `T = 300 + 200 z/0.35`): 0 of 708 values differ at steps 0, 1, 10, 100
+with the LIGGGHTS order (default cell-grid order: 63 / 61 / 63 differ, worst
+relative `1.1e-13`). Clean-room `thermal.rs` against the translation: flux ratio
+2.4813 at `delta = 0.4 mm`, `r = 5 mm`; closed form
+`sqrt(2 pi (1 - delta/(4 r))) = 2.4815`. The first-written prediction
+(`sqrt(2 pi) = 2.507` within 1 %) was wrong by 1.01 % (omitted the
+`delta/(4r)` term of the chord radius) and is corrected in the test header.
+`test: heat_conduction_cross_code.rs`.
+
+**Contact sub-models (gh:#1410), oblique pair, 251 frames, bit patterns.**
+
+| model | deck | result |
+|---|---|---|
+| `hertz/stiffness` | `in.stiff_hertz` | **4518 / 4518** (bit-identical) |
+| `hooke/stiffness` (relative damping) | `in.stiff_hooke` | bit-identical |
+| `hooke/stiffness absolute_damping on tangential_damping off` | `in.stiff_hooke_abs` | bit-identical |
+| `hooke/hysteresis`, fast impact (plastic loading past `deltaMaxLim`, cohesion on unloading) | `in.hyst_fast` | bit-identical |
+| `hooke/hysteresis`, slow impact (interpolated `k2`, no adhesion) | `in.hyst_slow` | bit-identical |
+
+(`liggghts_cross_code.rs`; every prediction written first was bit-identical.)
+~~Not translated yet: `epsd`, `epsd2`, `epsd3` rolling, Luding (normal, tangential,
+rolling), Thornton-Ning, Edinburgh (+ stiffness), multicontact.~~ **CORRECTED
+2026-11-11 (gh:#1410): all but multicontact are translated and bit-identical,
+see section 4.11.** The hysteresis
+model resolves contacts serially (no rayon staging; its per-contact `deltaMax` is
+held in the shear store under `ContactKey::Aux`) and is wall-capable only through
+the same store; wall and mesh hysteresis contacts have no cross-code deck.
+
+## 4.11 EPSD rolling, Luding, Thornton-Ning, Edinburgh, SJKR cohesion, time-dependent mesh movers (2026-11-11, gh:#1410, #1411, #1416)
+
+**Method (all rows).** Each model was translated from the upstream header
+(LIGGGHTS-PUBLIC `3d5c00f2`, recipe in `upstream_source/README.md`), a deck was
+run through the compiled upstream (`reference-data/liggghts/in.<name>`,
+generated CSV beside it, converted by `dump2traj.sh`), and the port replays the
+same deck. Every x, v and omega of every frame is compared on its IEEE-754 bit
+pattern. Pair decks: the standard oblique pair (`v = +-(1, 0.5)`, 2500 steps,
+251 frames, 4518 `f64`) with initial relative spins `omega_z = +40 / -20 rad/s`
+so every rolling model sees `w_r != 0`; wall decks: one spinning sphere
+(`v = (0.6, 0.2, -0.8)`, `omega_y = 30`) on a z-plane. Tests:
+`tests/liggghts_contact_models_cross_code.rs`, `tests/mesh_movers_cross_code.rs`.
+**Predictions (written before the first run of each):** bit-identical for all.
+
+| model (upstream file) | decks | result |
+|---|---|---|
+| `rolling_friction epsd`, `epsd2`, `epsd3` (`rolling_model_epsd*.h`) | `epsd_pair`, `epsd2_pair`, `epsd3_pair`, `wall_epsd` | **bit-identical** (4518/4518 each; wall 2259/2259) |
+| `hooke/hysteresis` against a wall | `wall_hyst` | **bit-identical** |
+| `model luding` + `tangential tan_luding` + `rolling_friction luding` (`normal_model_luding.h`, `tangential_model_luding_tn.h`, `rolling_model_luding.h`) | `luding_full`, `luding_plastic` (cohesion branch), `luding_nocoh` (`limitForce`), `luding_wall` | **bit-identical** |
+| `model thornton_ning` (`normal_model_thornton_ning.h`) | `tn_plastic`, `tn_elastic`, `tn_nocoh`, `tn_wall` | **bit-identical** |
+| `model edinburgh`, `edinburgh/stiffness`, `fixKc` (`normal_model_edinburgh*.h`) | `edi_stiff_lin`, `edi_nonlin`, `edi_fixkc` | **bit-identical** (3/3). `edi_long_stiff_lin`, `edi_long_nonlin` (20 000 steps, exercise the `goto temp_calc` re-entry): **bit-identical** (2/2; the first run failed on a test-side error, wrong initial velocities, fixed; the re-entry ablation fails these decks) |
+| `cohesion sjkr`, `sjkr2`, `tangential_reduce` (`cohesion_model_sjkr*.h`) | `sjkr_pair`, `sjkr2_pair`, `sjkr_reduce`, `sjkr_wall`, `sjkr2_wall` | **bit-identical** (5/5) |
+| `fix move/mesh` wiggle, viblin, riggle, vibrot | `mover_wiggle`, `mover_viblin`, `mover_riggle`, `mover_vibrot` | **bit-identical** (4/4, 2259 f64 each; `tests/mesh_movers_cross_code.rs`) |
+| `fix move/mesh` `linear/variable`, `rotate/variable` (equal-style variables, `src/variable.rs` from `variable.cpp`) | `mover_linvar` (`0.3*sin(2*PI*time/0.08)+0.5*step*dt`, `swiggle`, `cwiggle`), `mover_rotvar` | **bit-identical** (2/2, 2259 f64 each; written 2026-11-11, prediction: bit-identical, as for the other movers) |
+| `fix massflow/mesh` (`fix_massflow_mesh.cpp`, incl. the mesh neighbour list `resolveTriSphereNeighbuild`) | `massflow_plate` (12 spheres, floor bounce, `count multiple` and `count once`, 60 000 steps) | **bit-identical** (14 036/14 036: trajectories plus mass, count, mass rate, count rate at 121 steps; `tests/massflow_mesh_cross_code.rs`). A first version that visited every particle near a facet bounding sphere miscounted one crossing from step 36 500 (stale-counter effect); translating the neighbour list removed it. `point_at_outlet`/`inside_out`: unit-tested only, not cross-coded |
+| `fix mesh/surface/stress` totals (`mesh_module_stress.cpp`) | `mesh_stress` (2 spheres, one straddling the plate diagonal, rotating plate, `reference_point`) | **bit-identical** (3 069 values: 251 frames x 18 + 41 x 9 `f_plate[1..9]`; `tests/mesh_stress_cross_code.rs`). Per-facet `f`/`sigma_n`/`sigma_t` not cross-coded (upstream accumulates the per-facet `f` over the whole run, read from the source); `wear finnie` and the servo module are not translated |
+
+**Sensitivity controls (the decks can fail).** Each family has a control test:
+with rolling off, with the Luding tangential or rolling model replaced by the
+ordinary one, with a different yield ratio or surface energy, with cohesion
+off, the same reference is NOT reproduced (more than 100 of 4518 values
+differ). An ablation of the Edinburgh `goto temp_calc` re-entry (disabled in
+the port) showed that the four short Edinburgh decks do **not** reach it (all
+still passed) and that the two 20 000-step `edi_long_*` decks do (they fail
+without it), which is why those were added.
+
+**Finding about an existing test.** `in.oblique_hooke_rolling` is symmetric
+(both spheres spin up identically), so `w_r = omega_i - omega_j = 0` and the CDT
+torque was never applied: its bit-identity said nothing about CDT. `in.cdt_pair`
+adds the relative spin; CDT is bit-identical there too, and its model-off
+control differs.
+
+**Upstream oddities kept for parity (not fixed).**
+- `thornton_ning`: `gammat = 2 sqrt(5/6) beta_eff sqrt(k_t m_eff)` has no
+  leading minus sign (the Hertz model has `-2 sqrt(5/6) ...`), and `beta_eff` is
+  negative, so the tangential dashpot adds force; `sidata.kn` is never set
+  (the port returns 0).
+- `edinburgh` with `fixKc on`: the inner `const double k_adh` shadows the outer
+  one, so the `limitForce` test `k_adh == 0` is always true.
+- `luding` rolling: `torsion on` aliases the torsion history onto the rolling
+  one in upstream; ~~not ported (default is off)~~ **CORRECTED 2026-11-11**:
+  ported and bit-identical (pair deck `in.luding_torsion`, wall deck
+  `in.luding_torsion_wall`; in the pair branch `calcTorTorque` also overwrites
+  `r_torque`, in the wall branch it adds a separate torque). The Luding
+  rolling spring is written unconditionally, also at set-up.
+- History values declared `"1"` (sign-flipping) in TN and Edinburgh would
+  corrupt (`virgin_loading_flag = -1`) if a pair were stored in the opposite
+  orientation; the port does not flip them (the decks never flip). Only the
+  EPSD rolling torque is flipped.
+
+**Regression runs (2026-11-11).** `htr10_conus_cross_code` passed (1244 s): step 2000 phi 0.5646 vs 0.5646, median 11.05 um, 27 554/27 554 within 1 mm; step 20000 phi 0.5767 vs 0.5769 (-0.04 %), surface +1.2 mm, median 3.2 mm, 1456/27 554 within 1 mm (chaotic divergence). `angle_of_repose`: 15.66 deg vs 15.43 deg.
+
+**Two-type tables (added 2026-11-11, gh:#1410).** `PairModelTable` carries
+per-`(itype, jtype)` coefficients of the normal, tangential, rolling and
+cohesion models (upstream `MatrixProperty` lookups); `E, nu, e, mu` come from
+`MaterialTable`. Eight two-type decks (`in.mt_epsd`, `mt_epsd2`, `mt_epsd3`,
+`mt_luding`, `mt_tn`, `mt_edi`, `mt_sjkr`, `mt_sjkr2`, generated by
+`make_multitype_decks.sh`: type 1 d 10 mm rho 2500, type 2 d 12 mm rho 4000,
+distinct E/nu/e/mu and model coefficients) are bit-identical, 4518/4518 `f64`
+each, first run (`liggghts_contact_models_cross_code`, `two_type_*`).
+
+**Liquid-bridge cohesion (gh:#1411, 2026-11-11).** ~~The liquid-bridge cohesion
+models `easo/capillary/viscous` and `washino/capillary/viscous` are not
+translated.~~ **CORRECTED 2026-11-11:** both are translated
+(`src/capillary.rs`, `GranularCohesion::Capillary`,
+`GranularSystem::with_capillary`: per-particle `surfaceLiquidContent`,
+`liquidFlux` and the `liquidtransfer` integration, per-pair bridge flags, bridges
+out of contact via `register_contact_dist_factor`, Washino `limitLiquidContent`
+/ `modifyLbVolume`, `tangential_reduce`, per-type contact angles). Six decks
+(`in.cap_*`, upstream `3d5c00f2`), every sampled frame, all 14 columns
+(`x v omega f L flux`), `tests/capillary_cross_code.rs`:
+
+| Case | values bit-identical | worst ulp |
+|---|---|---|
+| Easo pair (formation, rebound, stretch, rupture) | 5628 / 5628 | 0 |
+| Easo, 2 types, hard-limit rupture, `tangential_reduce` | 5628 / 5628 | 0 |
+| Easo, 84-pebble bed | 19992 / 19992 | 0 |
+| Washino pair (bridge out of contact) | 5620 / 5628 | 4 |
+| Washino, `limitLiquidContent` + `modifyLbVolume`, 2 types | 5606 / 5628 | 2 |
+| Washino, 84-pebble bed | 19601 / 19992 | 1118 (rel. 1.3e-15) |
+
+Easo is bit-identical. The Washino residue is PETIR libm vs glibc only, proved by
+swapping `r_sin`/`r_cos`/`r_cbrt` for `f64::sin/cos/cbrt` (glibc): then all three
+Washino decks are 100 % bit-identical (accepted and pinned, gh:#1455). The first
+run missed by 0.24 % at first contact; cause was the test feeding the deck's
+`contactAngle` (degrees) as radians, found by instrumenting a copy of the
+upstream header. **Not ported:** particle-wall bridges (Easo dry walls, Washino
+mesh liquid content); `with_capillary` refuses a system with walls. No
+control run without the model was made.
+
+**Not translated.** `surface_model multicontact` (~~needs `fix
+multicontact/halfspace`~~ done, gh:#1410), multi-type material tables for the
+new models (~~single type pair only~~ **CORRECTED 2026-11-11**: done, see
+above), ~~the Luding `torsion` option~~ (done 2026-11-11).
+
+## 4.12 `massflow/mesh` and `mesh/surface/stress` on the HTR-10 conus (2026-11-11, gh:#1416)
+
+**Method.** `reference-data/liggghts/in.htr10_conus_massflow` is `in.htr10_conus`
+(27 554 pebbles from `htr10_settled.csv` with velocities, `htr10_discharge.stl`,
+`E = 5e8`, `mu = 0.4`, CDT `0.1`, `dt = 3.5e-5`, 20 000 steps) with the conus as
+`mesh/surface/stress ... reference_point 0.1 -0.05 -0.2` and three
+`massflow/mesh` planes (`vec_side 0 0 -1`, `count once`) at `z = -0.02`, `-0.10`
+(over the conus) and `-0.50` (in the tube), `thermo 500` of the 21 values,
+`%.17g`. Run with `lmp_serial` (3d5c00f2, 257 s). The upstream positions at
+2 000 and 20 000 are bit-identical to the plain conus deck's frames
+(27 554 / 27 554 twice): the fixes do not touch the dynamics. The port runs
+under `with_liggghts_neighbor_order` (box of the data file, skin 18 mm) so
+contact forces are summed in upstream's order. Test:
+`tests/htr10_conus_massflow_stress_cross_code.rs` (19 min; `long-tests`).
+
+**Prediction (before the first run).** Counts identical; force and torque
+bit-identical while the configurations are; divergence at the chaos horizon
+(1.1 mm median at step 6 000 in section 4.8).
+
+**Result.**
+
+| quantity | result |
+|---|---|
+| pebbles at 2 000 and 20 000 (x y z vx vy vz) | **27 554 / 27 554** bit-identical at both |
+| mass-flow count/mass/rates, 3 planes x 4 x 41 samples; reference point 3 x 41 | **all bit-identical** (final a 2001, b 1239, c 103 pebbles; c first crossed near step 7 000) |
+| force and torque on the conus, 6 x 41 | bit-identical through step 2 500 (6 of 41 rows); after that 1-5 values per row differ by at most **8.46e-16** of the vector norm |
+
+**Two predictions missed, both explained.** (1) The beds did **not** diverge:
+with upstream's neighbour order the port tracks LIGGGHTS bit for bit through the
+whole slump, so section 4.8's divergence (11 µm at 2 000, 1.10 mm at 6 000) comes
+from the port's default linked-cell summation order (and that test starting
+from zero velocities), not from chaos intrinsic to two correct codes.
+(2) The totals are not bit-identical after step 2 500. The total is a sum over
+every particle-facet contact. Upstream accumulates facet-major, particles in the
+facet's mesh neighbour list, whose order is bin-by-bin of the positions at the
+last rebuild. The port first summed particle-major: worst difference 1.06e-13
+of a component. Re-ordering the accumulation facet-major by upstream's local
+atom slot (the change to `compute_mesh_wall_forces` made with this test) took
+the worst to 8.46e-16 and kept bit-identity to step 2 500; the remaining few
+ulp are the within-facet bin order, **not reproduced** (it needs the mesh
+neighbour list's bin geometry). That cause is inferred from the 100-fold drop
+under the reordering, not proved by a run that closes the gap. It is within the
+1e-8 round-off allowance; flagged for the maintainer.
 
 ## 5. What is still NOT validated
 

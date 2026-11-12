@@ -52,6 +52,14 @@ pub struct CrossSectionSettings {
     /// ([`super::NuclearCrossSections::elastic_0k`]). On by default; it does
     /// not change the ACE table.
     pub elastic_0k: bool,
+    /// HEATR's threshold displacement energy `ed` \[eV\] for the damage-energy
+    /// cross section (OpenMC #4022, `make_ace(displacement_energy=...)`).
+    /// `None` (default) asks HEATR for no damage energy; `Some(0.0)` asks for it
+    /// with NJOY's built-in per-element table (OpenMC's `None`), `Some(ed)`
+    /// overrides the table with `ed`. It changes only
+    /// [`super::NuclearCrossSections::damage_energy`], never MT=301 or the ACE
+    /// table.
+    pub displacement_energy: Option<f64>,
 }
 
 impl Default for CrossSectionSettings {
@@ -63,6 +71,7 @@ impl Default for CrossSectionSettings {
             heatr: true,
             ace_suffix: 0,
             elastic_0k: true,
+            displacement_energy: None,
         }
     }
 }
@@ -91,6 +100,14 @@ impl CrossSectionSettings {
     /// on it has no DBRC. Only to measure what DBRC is worth.
     pub fn without_elastic_0k(mut self) -> Self {
         self.elastic_0k = false;
+        self
+    }
+
+    /// Ask HEATR for the damage-energy production with the threshold
+    /// displacement energy `ed` \[eV\] (OpenMC #4022); `0.0` selects NJOY's
+    /// default table. See [`Self::displacement_energy`].
+    pub fn with_displacement_energy(mut self, ed: f64) -> Self {
+        self.displacement_energy = Some(ed);
         self
     }
 
@@ -247,6 +264,7 @@ impl ThermalSettings {
             heatr: false,
             ace_suffix: 0,
             elastic_0k: false,
+            displacement_energy: None,
         }
     }
 

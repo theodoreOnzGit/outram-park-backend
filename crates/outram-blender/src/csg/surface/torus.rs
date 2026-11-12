@@ -249,6 +249,7 @@ pub(crate) fn cubic_real_roots(a: f64, b: f64, c: f64, d: f64, out: &mut [f64]) 
 /// Real roots of `a x⁴ + b x³ + c x² + d x + e = 0`, ascending, into `out`
 /// (len >= 4). Degenerates to [`cubic_real_roots`] when the leading coefficient
 /// `a ≈ 0` (the promised lower-degree fallback).
+#[allow(dead_code)]
 pub(crate) fn quartic_real_roots(a: f64, b: f64, c: f64, d: f64, e: f64, out: &mut [f64]) -> usize {
     if a.abs() < 1.0e-12 * (1.0 + b.abs() + c.abs() + d.abs() + e.abs()) {
         return cubic_real_roots(b, c, d, e, out);
@@ -289,141 +290,119 @@ pub(crate) fn smallest_positive_quartic_root(coeffs: [f64; 5], eps: f64) -> f64 
 
 // ── Torus surfaces (Torus{X,Y,Z}) ───────────────────────────────────────────
 //
-// A torus about an axis, centred at `(x0, y0, z0)`, has three radii:
+// **Field meaning, CORRECTED 2026-11-10 (gh:#701, #1386).** ~~`b` in-plane minor
+// radius, `c` axial minor radius~~ — that was the opposite of OpenMC. A torus
+// about an axis, centred at `(x0, y0, z0)`, has (OpenMC `include/openmc/surface.h`
+// and `openmc/surface.py`):
 //   - `a` — **major** radius (radius of the circle of revolution),
-//   - `b` — **in-plane minor** radius (tube radius in the radial direction),
-//   - `c` — **axial minor** radius (tube radius along the axis).
+//   - `b` — minor radius/half-axis **parallel** to the axis of revolution,
+//   - `c` — minor radius **perpendicular** to the axis of revolution (radial).
 //
-// Writing the radial pair as `(r1, r2)` and the axial displacement as `ax`, and
-// `R⊥ = sqrt(r1² + r2²)`, every torus shares one implicit "sense" form
-// (OpenMC `SurfaceZTorus`/`SurfaceXTorus`/`SurfaceYTorus`, `src/surface.cpp`):
+// Writing the radial pair as `(r1, r2)` and the axial displacement as `ax`, every
+// torus shares one implicit "sense" form (`SurfaceZTorus::evaluate`,
+// `src/surface.cpp:1198`, OpenMC `8f79d9d0`):
 //
-//     f = ((R⊥ − a) / b)² + (ax / c)² − 1
+//     f = ax² / b² + (sqrt(r1² + r2²) − a)² / c² − 1
 //
 // The three structs differ only in which Cartesian axis is the torus axis:
 //   Z-torus → radial pair (x, y), axial z;
 //   X-torus → radial pair (y, z), axial x;
 //   Y-torus → radial pair (x, z), axial y.
 
-/// Torus sense in the axis-independent `(r1, r2, ax)` frame (radial pair +
-/// axial). Negative inside the tube, positive outside, zero on the surface.
+/// `SurfaceXTorus/YTorus/ZTorus::evaluate` (`src/surface.cpp:1073/1137/1198`),
+/// same operation order.
 #[inline]
 pub(crate) fn torus_evaluate(r1: f64, r2: f64, ax: f64, a: f64, b: f64, c: f64) -> f64 {
-    let rperp = (r1 * r1 + r2 * r2).sqrt();
-    let t = (rperp - a) / b;
-    let s = ax / c;
-    t * t + s * s - 1.0
+    let t = (r1 * r1 + r2 * r2).sqrt() - a;
+    (ax * ax) / (b * b) + (t * t) / (c * c) - 1.0
 }
 
-/// Gradient of the torus sense in the `(r1, r2, ax)` frame (un-normalised; the
-/// caller maps the components back to Cartesian and normalises).
-///
-/// From `f = (R⊥ − a)²/b² + ax²/c² − 1` with `R⊥ = sqrt(r1² + r2²)`:
-///   ∂f/∂r1 = 2(R⊥ − a)/b² · r1/R⊥,  ∂f/∂r2 = 2(R⊥ − a)/b² · r2/R⊥,
-///   ∂f/∂ax = 2·ax/c².
-/// The shared factor 2 is dropped (normalisation removes it).
+/// The unnormalised gradient direction of the `*Torus::normal` routines
+/// (`src/surface.cpp:1101/1162/1223`): `f`'s gradient multiplied by
+/// `g c² b² / 2` (`g = sqrt(r1² + r2²)`), returned as `(n_r1, n_r2, n_ax)`.
 #[inline]
 pub(crate) fn torus_gradient(r1: f64, r2: f64, ax: f64, a: f64, b: f64, c: f64) -> (f64, f64, f64) {
-    let rperp = (r1 * r1 + r2 * r2).sqrt();
-    let coeff = (rperp - a) / (b * b * rperp);
-    (coeff * r1, coeff * r2, ax / (c * c))
+    let g = (r1 * r1 + r2 * r2).sqrt();
+    (r1 * (g - a) * b * b, r2 * (g - a) * b * b, c * c * g * ax)
 }
 
-/// Smallest positive ray-torus distance in the `(r1, r2, ax)` frame.
+/// `torus_distance` (`src/surface.cpp:1007`): the quartic's coefficients, the
+/// coincident `e = 0` rule, the `TORUS_TOL` cutoff and the interior-root check
+/// are upstream's, in upstream's order. `(p1, p2, pax)` is the position relative
+/// to the centre with `pax` along the axis of revolution; `a`, `b`, `c` as above.
 ///
-/// **Deriving the quartic.** Substitute the ray `P(t) = start + t·u` into the
-/// cleared surface equation. `f = 0` multiplied through by `b²` and rearranged
-/// isolates the square root:
-///
-/// ```text
-/// ρ²(t) + a² − b² + (b²/c²)·ax²(t)  =  2a·R⊥(t)          (call the LHS G(t))
-/// ```
-///
-/// where `ρ²(t) = r1² + r2²` is quadratic in `t`. Squaring to remove `R⊥`
-/// (`R⊥² = ρ²`) gives the quartic
-///
-/// ```text
-/// F(t) = G(t)² − 4a²·ρ²(t) = 0.
-/// ```
-///
-/// With `ρ²(t) = α t² + 2β t + γ`, `ax²(t) = ax_α t² + 2 ax_β t + ax_γ`,
-/// `k = b²/c²`, and `G(t) = Ga t² + 2Gb t + Gc` where
-///
-/// ```text
-/// Ga = α + k·ax_α,  Gb = β + k·ax_β,  Gc = γ + a² − b² + k·ax_γ,
-/// ```
-///
-/// expanding `G² − 4a²ρ²` yields the coefficients below.
-///
-/// **Spurious roots.** Squaring also admits the branch `G(t) = −2a·R⊥(t) ≤ 0`,
-/// which is not a geometric intersection. A genuine hit has `G(t) = +2a·R⊥ ≥ 0`,
-/// so any real root with `G(t) < 0` is discarded. (For a ring torus, `a > b`,
-/// this branch is unreachable and the filter never fires; it is exact cover for
-/// horn/spindle tori where `a ≤ b`.)
-///
-/// `coincident` (`start` sits on the surface) discards roots at/below a small
-/// positive `eps` so round-off cannot report `d ≈ 0`.
+/// The quartic is solved by `oqs::quartic_solver` exactly as upstream does
+/// (Orellana & De Michele; `quartic_oqs.rs`). ~~This port solved it by derivative
+/// bracketing and bisection ([`quartic_real_roots`]), so roots agreed to
+/// round-off at best~~ **CORRECTED 2026-11-10** (gh:#1386).
 #[allow(clippy::too_many_arguments)]
 #[inline]
 pub(crate) fn torus_distance(
-    p1: f64,
-    p2: f64,
-    pax: f64,
+    x1: f64,
+    x2: f64,
+    x3: f64,
     u1: f64,
     u2: f64,
-    uax: f64,
+    u3: f64,
     a: f64,
     b: f64,
     c: f64,
     coincident: bool,
 ) -> f64 {
-    let k = (b * b) / (c * c);
-    let alpha = u1 * u1 + u2 * u2;
-    let beta = p1 * u1 + p2 * u2;
-    let gamma = p1 * p1 + p2 * p2;
-    let ax_alpha = uax * uax;
-    let ax_beta = pax * uax;
-    let ax_gamma = pax * pax;
+    const TORUS_TOL: f64 = 1.0e-10; // include/openmc/constants.h:58
+    // Coefficients for equation: (c2 t^2 + c1 t + c0)^2 = c2' t^2 + c1' t + c0'
+    let dd = (c * c) / (b * b);
+    let c2 = u1 * u1 + u2 * u2 + dd * u3 * u3;
+    let c1 = 2.0 * (u1 * x1 + u2 * x2 + dd * u3 * x3);
+    let c0 = x1 * x1 + x2 * x2 + dd * x3 * x3 + a * a - c * c;
+    let four_a2 = 4.0 * a * a;
+    let c2p = four_a2 * (u1 * u1 + u2 * u2);
+    let c1p = 2.0 * four_a2 * (u1 * x1 + u2 * x2);
+    let c0p = four_a2 * (x1 * x1 + x2 * x2);
 
-    let ga = alpha + k * ax_alpha;
-    let gb = beta + k * ax_beta;
-    let gc = gamma + a * a - b * b + k * ax_gamma;
-    let a2 = a * a;
+    // a t^4 + b t^3 + c t^2 + d t + e = 0; when coincident, e is set to zero.
+    let coeff_e = if coincident { 0.0 } else { c0 * c0 - c0p };
+    let coeff_d = 2.0 * c0 * c1 - c1p;
+    let coeff_c = c1 * c1 + 2.0 * c0 * c2 - c2p;
+    let coeff_b = 2.0 * c1 * c2;
+    let coeff_a = c2 * c2;
 
-    // F(t) = (Ga t² + 2Gb t + Gc)² − 4a²(α t² + 2β t + γ)
-    let c4 = ga * ga;
-    let c3 = 4.0 * ga * gb;
-    let c2 = 4.0 * gb * gb + 2.0 * ga * gc - 4.0 * a2 * alpha;
-    let c1 = 4.0 * gb * gc - 8.0 * a2 * beta;
-    let c0 = gc * gc - 4.0 * a2 * gamma;
+    // `oqs::quartic_solver` (src/external/quartic_solver.cpp), ported in quartic_oqs.rs.
+    let roots = super::quartic_oqs::quartic_solver([coeff_e, coeff_d, coeff_c, coeff_b, coeff_a]);
 
-    let mut roots = [0.0f64; 4];
-    let n = quartic_real_roots(c4, c3, c2, c1, c0, &mut roots);
-
-    let eps = if coincident { 1.0e-8 } else { 1.0e-10 };
-    let mut best = f64::INFINITY;
-    for &t in &roots[..n] {
-        if t <= eps {
+    // Smallest positive real root; for a coincident point one root is ~0 and a
+    // tolerance discards it.
+    let mut distance = f64::INFINITY;
+    let cutoff = if coincident { TORUS_TOL } else { 0.0 };
+    for z in &roots {
+        if z.im != 0.0 {
             continue;
         }
-        // Reject the spurious branch G(t) = −2a·R⊥.
-        let gt = ga * t * t + 2.0 * gb * t + gc;
-        let tol = 1.0e-9 * (1.0 + ga * t * t + (2.0 * gb * t).abs() + gc.abs());
-        if gt >= -tol && t < best {
-            best = t;
+        let root = z.re;
+        if root > cutoff && root < distance {
+            // Avoid roots corresponding to internal surfaces.
+            let s1 = x1 + u1 * root;
+            let s2 = x2 + u2 * root;
+            let s3 = x3 + u3 * root;
+            let check = dd * s3 * s3 + s1 * s1 + s2 * s2 + a * a - c * c;
+            if check >= 0.0 {
+                distance = root;
+            }
         }
     }
-    best
+    distance
 }
 
 #[derive(Debug, Clone)]
 /// Torus about the **Z** axis, centred at `(x0, y0, z0)`.
 ///
 /// Radial pair `(x, y)`, axial `z`:
-///   `((sqrt((x−x0)² + (y−y0)²) − a) / b)² + ((z−z0) / c)² − 1 = 0`.
+/// `(z−z0)² / b² + (sqrt((x−x0)² + (y−y0)²) − a)² / c² − 1 = 0`.
 ///
-/// `a` = major radius, `b` = in-plane minor radius, `c` = axial minor radius
-/// (all cm). Maps to OpenMC `SurfaceZTorus` (`src/surface.cpp`).
+/// `a` = major radius, `b` = minor radius **along the axis**, `c` = minor radius
+/// **perpendicular** to the axis (all cm) — OpenMC's meaning since 2026-11-10
+/// (gh:#701; it was the other way round). Maps to OpenMC `SurfaceZTorus`
+/// (`src/surface.cpp:1198`).
 pub struct ZTorus {
     pub x0: f64,
     pub y0: f64,
@@ -437,25 +416,12 @@ pub struct ZTorus {
 impl Surface for ZTorus {
     #[inline]
     fn evaluate(&self, r: Position) -> f64 {
-        torus_evaluate(
-            r.x - self.x0,
-            r.y - self.y0,
-            r.z - self.z0,
-            self.a,
-            self.b,
-            self.c,
-        )
+        torus_evaluate(r.x - self.x0, r.y - self.y0, r.z - self.z0, self.a, self.b, self.c)
     }
     #[inline]
     fn normal(&self, r: Position) -> Direction {
-        let (g1, g2, gax) = torus_gradient(
-            r.x - self.x0,
-            r.y - self.y0,
-            r.z - self.z0,
-            self.a,
-            self.b,
-            self.c,
-        );
+        let (g1, g2, gax) =
+            torus_gradient(r.x - self.x0, r.y - self.y0, r.z - self.z0, self.a, self.b, self.c);
         Direction::from_unnormalised(g1, g2, gax)
     }
     #[inline]
@@ -478,9 +444,8 @@ impl Surface for ZTorus {
 #[derive(Debug, Clone)]
 /// Torus about the **X** axis, centred at `(x0, y0, z0)`.
 ///
-/// Radial pair `(y, z)`, axial `x`:
-///   `((sqrt((y−y0)² + (z−z0)²) − a) / b)² + ((x−x0) / c)² − 1 = 0`.
-/// X-axis twin of [`ZTorus`]; maps to OpenMC `SurfaceXTorus` (`src/surface.cpp`).
+/// Radial pair `(y, z)`, axial `x`; `b` along the axis, `c` perpendicular (see
+/// [`ZTorus`]). Maps to OpenMC `SurfaceXTorus` (`src/surface.cpp:1073`).
 pub struct XTorus {
     pub x0: f64,
     pub y0: f64,
@@ -495,26 +460,13 @@ impl Surface for XTorus {
     #[inline]
     fn evaluate(&self, r: Position) -> f64 {
         // radial pair (y, z), axial x
-        torus_evaluate(
-            r.y - self.y0,
-            r.z - self.z0,
-            r.x - self.x0,
-            self.a,
-            self.b,
-            self.c,
-        )
+        torus_evaluate(r.y - self.y0, r.z - self.z0, r.x - self.x0, self.a, self.b, self.c)
     }
     #[inline]
     fn normal(&self, r: Position) -> Direction {
-        let (g1, g2, gax) = torus_gradient(
-            r.y - self.y0,
-            r.z - self.z0,
-            r.x - self.x0,
-            self.a,
-            self.b,
-            self.c,
-        );
-        // (g1, g2) are ∂f/∂y, ∂f/∂z; gax is ∂f/∂x → reorder to (x, y, z).
+        let (g1, g2, gax) =
+            torus_gradient(r.y - self.y0, r.z - self.z0, r.x - self.x0, self.a, self.b, self.c);
+        // (g1, g2) belong to (y, z); gax to x → reorder to (x, y, z).
         Direction::from_unnormalised(gax, g1, g2)
     }
     #[inline]
@@ -537,9 +489,8 @@ impl Surface for XTorus {
 #[derive(Debug, Clone)]
 /// Torus about the **Y** axis, centred at `(x0, y0, z0)`.
 ///
-/// Radial pair `(x, z)`, axial `y`:
-///   `((sqrt((x−x0)² + (z−z0)²) − a) / b)² + ((y−y0) / c)² − 1 = 0`.
-/// Y-axis twin of [`ZTorus`]; maps to OpenMC `SurfaceYTorus` (`src/surface.cpp`).
+/// Radial pair `(x, z)`, axial `y`; `b` along the axis, `c` perpendicular (see
+/// [`ZTorus`]). Maps to OpenMC `SurfaceYTorus` (`src/surface.cpp:1137`).
 pub struct YTorus {
     pub x0: f64,
     pub y0: f64,
@@ -554,26 +505,13 @@ impl Surface for YTorus {
     #[inline]
     fn evaluate(&self, r: Position) -> f64 {
         // radial pair (x, z), axial y
-        torus_evaluate(
-            r.x - self.x0,
-            r.z - self.z0,
-            r.y - self.y0,
-            self.a,
-            self.b,
-            self.c,
-        )
+        torus_evaluate(r.x - self.x0, r.z - self.z0, r.y - self.y0, self.a, self.b, self.c)
     }
     #[inline]
     fn normal(&self, r: Position) -> Direction {
-        let (g1, g2, gax) = torus_gradient(
-            r.x - self.x0,
-            r.z - self.z0,
-            r.y - self.y0,
-            self.a,
-            self.b,
-            self.c,
-        );
-        // (g1, g2) are ∂f/∂x, ∂f/∂z; gax is ∂f/∂y → reorder to (x, y, z).
+        let (g1, g2, gax) =
+            torus_gradient(r.x - self.x0, r.z - self.z0, r.y - self.y0, self.a, self.b, self.c);
+        // (g1, g2) belong to (x, z); gax to y → reorder to (x, y, z).
         Direction::from_unnormalised(g1, gax, g2)
     }
     #[inline]

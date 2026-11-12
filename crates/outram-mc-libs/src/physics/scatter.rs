@@ -69,13 +69,65 @@ use njoy_outram_park_fork::nuclear_data::secondary::ContinuumEmission;
 use std::f64::consts::PI;
 use crate::mathf::RealMath;
 
+/// How far `|u|^2` may drift from 1 before a direction is renormalised:
+/// `sqrt(f64::EPSILON)` (about 1.5e-8), the point at which half the mantissa
+/// of the norm has been lost. Fixed from that definition, not from any run
+/// (gh:#1497).
+///
+/// Round-off keeps a typical direction far inside it: 2e5 successive rotations
+/// of a unit vector by isotropic cosines drift `|u|^2 - 1` to about 1e-12 to
+/// 1e-11, and on such directions [`renormalise_if_drifted`] never fires, so the
+/// kernels below are bit-identical to their upstream. It does fire within a few
+/// microradians of the `w` pole, where `1 - w^2` loses most of its digits to
+/// cancellation and upstream's `rotate_angle` itself returns a vector 7e-8 to
+/// 8e-8 off unit length from a unit input (12 of the 120 reference rotations of
+/// `tests/collision_kinematics_vs_openmc_code_to_code.rs`); there the guarded
+/// kernel returns upstream's output divided by its norm.
+pub const DIRECTION_NORM_DRIFT_TOL: f64 = 1.4901161193847656e-8;
+
+/// `u` unchanged (bit for bit) when `| |u|^2 - 1 | <= DIRECTION_NORM_DRIFT_TOL`,
+/// otherwise `u / |u|`. A NaN norm is returned unchanged.
+///
+/// **New work, not a port (gh:#1497).** OpenMC's `rotate_angle`
+/// (`src/math_functions.cpp:772`) and `sab_scatter` (`src/physics.cpp:871`)
+/// never renormalise the particle direction. `rotate_angle` multiplies a
+/// norm error `eps = |u|^2 - 1` of its input by about `1 + a^2/b^2`
+/// (`a = sqrt(1 - mu^2)`, `b = sqrt(1 - w^2)`), which is unbounded as `|w| -> 1`.
+/// Through a run of S(alpha,beta) collisions, where no free-gas elastic
+/// collision rebuilds `u` from a velocity, the error is never reset: on the
+/// HTR-10 DH pebble (graphite, 4000 x 60 histories) it grew from round-off to
+/// `|u| = 2.9` within one history, after which the near-pole branch took
+/// `sqrt(1 - v^2)` of a negative number, the direction became NaN, the next
+/// free-gas elastic collision turned it into a NaN energy, and `NuBar::at`
+/// panicked. Upstream has the same exposure; it is guarded here instead of
+/// copied.
+#[inline]
+pub fn renormalise_if_drifted(u: Direction) -> Direction {
+    let n2 = u.u * u.u + u.v * u.v + u.w * u.w;
+    if (n2 - 1.0).abs() > DIRECTION_NORM_DRIFT_TOL {
+        let n = n2.sqrt();
+        Direction::new(u.u / n, u.v / n, u.w / n)
+    } else {
+        u
+    }
+}
+
 /// Rotate the unit direction `u` by scattering cosine `mu` and a uniformly
 /// sampled azimuth φ ∈ [0, 2π), returning the new unit direction.
+///
+/// [`rotate_direction_unguarded`] with its input and its output passed through
+/// [`renormalise_if_drifted`] (gh:#1497): bit-identical to it whenever the
+/// direction's norm is within [`DIRECTION_NORM_DRIFT_TOL`] of 1.
+pub fn rotate_direction(u: Direction, mu: f64, seed: &mut u64) -> Direction {
+    renormalise_if_drifted(rotate_direction_unguarded(renormalise_if_drifted(u), mu, seed))
+}
+
+/// The rotation of [`rotate_direction`] without the norm guard.
 ///
 /// This is the standard OpenMC `rotate_angle`: it builds an orthonormal frame
 /// around `u` and tilts by `(mu, φ)`. The near-pole branch (`|w| ≈ 1`) rotates
 /// about the x-axis instead to avoid dividing by √(1−w²) ≈ 0.
-pub fn rotate_direction(u: Direction, mu: f64, seed: &mut u64) -> Direction {
+pub fn rotate_direction_unguarded(u: Direction, mu: f64, seed: &mut u64) -> Direction {
     let phi = 2.0 * PI * prn(seed);
     let (sinphi, cosphi) = phi.r_sin_cos();
     let a = (1.0 - mu * mu).max(0.0).sqrt();
@@ -783,6 +835,19 @@ pub fn continuum_inelastic_scatter(
     q: f64,
     seed: &mut u64,
 ) -> (f64, Direction) {
+    continuum_inelastic_scatter_kernels(e, u, awr, q, scatter_kernels_from_env(), seed)
+}
+
+/// [`continuum_inelastic_scatter`] with the CM-to-lab kernel chosen explicitly
+/// ([`ScatterKernels`]).
+pub fn continuum_inelastic_scatter_kernels(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    q: f64,
+    kernels: ScatterKernels,
+    seed: &mut u64,
+) -> (f64, Direction) {
     let a = awr;
     let ap1 = a + 1.0;
     // Max neutron CM energy allowed by two-body energy balance for this channel.
@@ -805,8 +870,7 @@ pub fn continuum_inelastic_scatter(
     }
 
     let mu_cm = 2.0 * prn(seed) - 1.0; // isotropic in CM
-    let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu_cm, a);
-    (e_out, rotate_direction(u, mu_lab, seed))
+    cm_lab_rotate(kernels, u, e, e_cm_out, mu_cm, a, seed)
 }
 
 /// Continuum inelastic (MT=91) or (n,2n) (MT=16) scatter using the
@@ -894,6 +958,21 @@ pub fn continuum_inelastic_scatter_evaluated(
     )
 }
 
+/// [`continuum_inelastic_scatter_evaluated`] with the CM-to-lab and rotation
+/// kernels chosen explicitly ([`ScatterKernels`]); this is what a nuclide that
+/// carries `Nuclide::with_legacy_scatter_kernels` calls.
+pub fn continuum_inelastic_scatter_evaluated_kernels(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    q: f64,
+    law: Option<&ContinuumEmission>,
+    kernels: ScatterKernels,
+    seed: &mut u64,
+) -> (f64, Direction) {
+    continuum_evaluated_impl(e, u, awr, q, law, continuum_angular_mode_from_env(), kernels, seed)
+}
+
 /// Whether the evaluated continuum angular law is sampled, or ablated away.
 ///
 /// The ablation arm of a paired worth measurement. Separating it from the
@@ -930,8 +1009,22 @@ pub fn continuum_inelastic_scatter_evaluated_with(
     mode: ContinuumAngularMode,
     seed: &mut u64,
 ) -> (f64, Direction) {
+    continuum_evaluated_impl(e, u, awr, q, law, mode, scatter_kernels_from_env(), seed)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn continuum_evaluated_impl(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    q: f64,
+    law: Option<&ContinuumEmission>,
+    mode: ContinuumAngularMode,
+    kernels: ScatterKernels,
+    seed: &mut u64,
+) -> (f64, Direction) {
     let Some(law) = law else {
-        return continuum_inelastic_scatter(e, u, awr, q, seed);
+        return continuum_inelastic_scatter_kernels(e, u, awr, q, kernels, seed);
     };
 
     let branch = law.branch_for(e, prn(seed));
@@ -947,12 +1040,11 @@ pub fn continuum_inelastic_scatter_evaluated_with(
         let e_cm_out = sampled.min(cap);
         // `mu` is a CM cosine here (ENDF LCT=2), so it goes through the same
         // frame transform as the energy.
-        let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu, awr);
-        (e_out, rotate_direction(u, mu_lab, seed))
+        cm_lab_rotate(kernels, u, e, e_cm_out, mu, awr, seed)
     } else {
         // Laboratory-frame law (LCT=1): the sampled energy is already the
         // outgoing lab energy and `mu` is already a lab cosine.
-        (sampled, rotate_direction(u, mu, seed))
+        (sampled, rotate_kernel(kernels, u, mu, seed))
     }
 }
 
@@ -978,16 +1070,82 @@ pub fn sample_continuum_branch(
     // One variate, spent either on inverting the row's cosine CDF or on the flat
     // map — so the ablation does not shift the RNG stream.
     let xi = prn(seed);
+    let kalbach = matches!(
+        branch.angular,
+        njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular::KalbachMann(_)
+    );
     let mu = match mode {
-        ContinuumAngularMode::IsotropicAblation => 2.0 * xi - 1.0,
-        // `sample_mu_at` dispatches over the representation and returns `None`
-        // only where no angular law exists, where isotropic is right anyway.
-        ContinuumAngularMode::Evaluated => branch
-            .angular
-            .sample_mu_at(table, pick, xi)
-            .unwrap_or(2.0 * xi - 1.0),
+        ContinuumAngularMode::IsotropicAblation => {
+            // Kalbach-Mann spends a SECOND variate in OpenMC's sampler (below);
+            // the ablation spends it too, so the two arms stay on one stream.
+            if kalbach {
+                let _ = prn(seed);
+            }
+            2.0 * xi - 1.0
+        }
+        ContinuumAngularMode::Evaluated => {
+            if let Some((r, a)) = kalbach_row_at(&branch.angular, table, pick) {
+                kalbach_mann_mu_openmc(r, a, xi, seed)
+            } else {
+                // `sample_mu_at` dispatches over the representation and returns `None`
+                // only where no angular law exists, where isotropic is right anyway.
+                branch
+                    .angular
+                    .sample_mu_at(table, pick, xi)
+                    .unwrap_or(2.0 * xi - 1.0)
+            }
+        }
     };
     (sampled, mu)
+}
+
+/// The Kalbach-Mann `(r, a)` of the row `pick` selects, interpolated in outgoing
+/// energy as OpenMC's `KalbachMann::sample_params` does
+/// (`r[k] + frac * (r[k+1] - r[k])`, `frac = 0` for histogram tables and
+/// lines), or `None` for any other angular representation.
+fn kalbach_row_at(
+    angular: &njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular,
+    table: usize,
+    pick: njoy_outram_park_fork::nuclear_data::secondary::AnglePick,
+) -> Option<(f64, f64)> {
+    use njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular;
+    let ContinuumAngular::KalbachMann(tables) = angular else {
+        return None;
+    };
+    let rows = &tables.get(table)?.rows;
+    let a = rows.get(pick.row)?;
+    Some(match rows.get(pick.row + 1) {
+        Some(b) if pick.frac > 0.0 => (a.r + pick.frac * (b.r - a.r), a.a + pick.frac * (b.a - a.a)),
+        _ => (a.r, a.a),
+    })
+}
+
+/// OpenMC's Kalbach-Mann emission cosine (`KalbachMann::sample`,
+/// `src/secondary_kalbach.cpp`, commit `8f79d9d0`): a **mixture** sampled with
+/// two variates, not the closed-form inverse of the density. `xi` is the first
+/// (`prn(seed) > km_r` selects the branch), the second is drawn here:
+///
+/// - `xi > r`: `T = U(-1, 1) sinh(a)`, `mu = ln(T + sqrt(T^2 + 1)) / a`;
+/// - else: `r1 = prn`, `mu = ln(r1 e^a + (1 - r1) e^-a) / a`.
+///
+/// The same distribution as [`ContinuumKalbachRow::sample_mu`]'s inverse, with a
+/// different map from variates to `mu`; this is the one that reproduces OpenMC's
+/// `mu` for a given seed (`tests/secondary_samplers_vs_openmc_code_to_code.rs`).
+/// `a` below `1e-12` (the isotropic limit, which upstream would divide by zero
+/// on) gives `2 u - 1`.
+///
+/// [`ContinuumKalbachRow::sample_mu`]: njoy_outram_park_fork::nuclear_data::secondary::ContinuumKalbachRow::sample_mu
+pub fn kalbach_mann_mu_openmc(r: f64, a: f64, xi: f64, seed: &mut u64) -> f64 {
+    if !(a.abs() > 1.0e-12) || !a.is_finite() {
+        return 2.0 * prn(seed) - 1.0;
+    }
+    if xi > r {
+        let t = (-1.0 + 2.0 * prn(seed)) * a.r_sinh();
+        (t + (t * t + 1.0).sqrt()).r_ln() / a
+    } else {
+        let r1 = prn(seed);
+        (r1 * a.r_exp() + (1.0 - r1) * (-a).r_exp()).r_ln() / a
+    }
 }
 
 /// The continuum angular mode for this process, from
@@ -1024,6 +1182,787 @@ pub fn continuum_angular_mode_from_env() -> ContinuumAngularMode {
         ContinuumAngularMode::Evaluated
     }
 }
+
+// ---------------------------------------------------------------------------
+// OpenMC-faithful collision kinematics (gh:#1444, #1386 prio-1 row 4).
+//
+// Translation of routines from OpenMC `8f79d9d02483c90e4134f03a9df4b75ce6b062bf`
+// (MIT; Copyright 2011-2025 Massachusetts Institute of Technology, UChicago
+// Argonne LLC and OpenMC contributors):
+//   src/math_functions.cpp  rotate_angle
+//   src/physics.cpp         elastic_scatter, sample_target_velocity,
+//                           sample_cxs_target_velocity, inelastic_scatter (CM -> lab block)
+//   src/nuclide.cpp         Nuclide::elastic_xs_0K, the 0 K CDF build
+//   openmc/data/reaction.py LevelInelastic parameters (threshold, mass ratio)
+//
+// ~~These sit BESIDE the older kernels above, which keep every recorded pin~~
+// **CORRECTED 2026-11-11 (maintainer decision, gh:#1386): the functions below are
+// now the transport DEFAULT (`ScatterKernels::OpenMc`); the older kernels
+// (`two_body_scatter_with_mu`, `free_gas_elastic_scatter_dbrc`, `rotate_direction`)
+// stay callable as `ScatterKernels::Legacy`, and reproduce the old pins exactly.**
+// They are the same physics with different operation
+// order, a different order of the CM-cosine draw against the target-velocity
+// draws, and (for `rotate_direction`) a different pole branch. The functions
+// below follow upstream line by line so a track differential can be bit-identical
+// (`tests/collision_kinematics_vs_openmc_code_to_code.rs`).
+// ---------------------------------------------------------------------------
+
+/// Which collision kernels transport uses (maintainer decision, 2026-11-11, gh:#1386).
+///
+/// [`ScatterKernels::OpenMc`] is the **default**: the translations of OpenMC's
+/// `rotate_angle`, the CM-to-lab block of `inelastic_scatter`, `LevelInelastic`,
+/// `elastic_scatter` and `sample_target_velocity` (free gas CXS, RVS, DBRC),
+/// bit-identical to OpenMC given the same xi
+/// (`tests/collision_kinematics_vs_openmc_code_to_code.rs`), and OpenMC's
+/// two-variate reaction ladder (`sample_reaction` then `scatter`).
+/// [`ScatterKernels::Legacy`] is the named alternative: the earlier kernels
+/// ([`two_body_scatter_with_mu`], [`free_gas_elastic_scatter_dbrc`],
+/// [`rotate_direction`], [`cm_to_lab`]) and the single-variate ladder, kept so a
+/// result recorded before the switch can be reproduced. Select it per nuclide
+/// with `Nuclide::with_legacy_scatter_kernels` or process-wide with
+/// `OUTRAM_MC_LEGACY_SCATTER_KERNELS=1`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ScatterKernels {
+    /// OpenMC-faithful kernels and draw order (default).
+    #[default]
+    OpenMc,
+    /// The earlier kernels, before 2026-11-11.
+    Legacy,
+}
+
+/// `OUTRAM_MC_LEGACY_SCATTER_KERNELS` (cached on first read): [`ScatterKernels::Legacy`]
+/// when set to anything but `""`/`"0"`, else [`ScatterKernels::OpenMc`].
+pub fn scatter_kernels_from_env() -> ScatterKernels {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
+    let cached = FLAG.load(Ordering::Relaxed);
+    let legacy = if cached != u8::MAX {
+        cached == 1
+    } else {
+        let on = match std::env::var("OUTRAM_MC_LEGACY_SCATTER_KERNELS") {
+            Ok(v) => !v.is_empty() && v != "0",
+            Err(_) => false,
+        };
+        FLAG.store(on as u8, Ordering::Relaxed);
+        on
+    };
+    if legacy {
+        ScatterKernels::Legacy
+    } else {
+        ScatterKernels::OpenMc
+    }
+}
+
+/// Which order the scattering reactions of a collision are walked in
+/// (maintainer task, gh:#1386/#1444, 2026-11-11).
+///
+/// [`ReactionOrder::OpenMc`] is the **default**: OpenMC `scatter()`
+/// (`src/physics.cpp:712`, commit `8f79d9d0`) walks the scattering reactions in
+/// MT order, elastic first, then (5, 16, 17, the other neutron-emitting MTs below
+/// 51, the discrete levels 51..90, the MT=91 continuum), against ONE cutoff
+/// `prn * (total - absorption)`, and the discrete level is chosen by that SAME
+/// cutoff (no extra draw). [`ReactionOrder::Legacy`] is the earlier ladder
+/// (absorb, inelastic levels + MT91, (n,2n), (n,3n), MT5, other, elastic last, with
+/// one more draw for the level), kept so recorded results can be reproduced;
+/// select it with `OUTRAM_MC_LEGACY_REACTION_ORDER=1`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ReactionOrder {
+    /// OpenMC `scatter()` order and single-cutoff level pick (default).
+    #[default]
+    OpenMc,
+    /// The earlier ladder.
+    Legacy,
+}
+
+/// `OUTRAM_MC_LEGACY_REACTION_ORDER` (cached on first read).
+pub fn reaction_order_from_env() -> ReactionOrder {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
+    let cached = FLAG.load(Ordering::Relaxed);
+    let legacy = if cached != u8::MAX {
+        cached == 1
+    } else {
+        let on = match std::env::var("OUTRAM_MC_LEGACY_REACTION_ORDER") {
+            Ok(v) => !v.is_empty() && v != "0",
+            Err(_) => false,
+        };
+        FLAG.store(on as u8, Ordering::Relaxed);
+        on
+    };
+    if legacy {
+        ReactionOrder::Legacy
+    } else {
+        ReactionOrder::OpenMc
+    }
+}
+
+/// Order in which a fission neutron's quantities are drawn (gh:#1386, #1444 d).
+///
+/// [`FissionNeutronOrder::OpenMc`] is the **default**: OpenMC's
+/// `sample_fission_neutron` (`src/physics.cpp:1081`): delayed-group choice, then
+/// `mu` and `E'` from the fission distribution, then `rotate_angle(u, mu)`
+/// ([`crate::material::nuclide::Nuclide::sample_fission_neutron_openmc`]).
+/// [`FissionNeutronOrder::Legacy`] draws an isotropic direction first, then the
+/// energy, and the delayed-group tag from a separate draw. Legacy is selected by
+/// `OUTRAM_MC_LEGACY_FISSION_NEUTRON_ORDER=1` or by the master
+/// `OUTRAM_MC_LEGACY_REACTION_ORDER=1`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FissionNeutronOrder {
+    /// OpenMC `sample_fission_neutron` order (default).
+    #[default]
+    OpenMc,
+    /// The earlier order.
+    Legacy,
+}
+
+/// Read `OUTRAM_MC_LEGACY_FISSION_NEUTRON_ORDER` / the master legacy switch
+/// (cached on first read).
+pub fn fission_neutron_order_from_env() -> FissionNeutronOrder {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
+    let cached = FLAG.load(Ordering::Relaxed);
+    let legacy = if cached != u8::MAX {
+        cached == 1
+    } else {
+        let set = |k: &str| match std::env::var(k) {
+            Ok(v) => !v.is_empty() && v != "0",
+            Err(_) => false,
+        };
+        let on = set("OUTRAM_MC_LEGACY_FISSION_NEUTRON_ORDER") || set("OUTRAM_MC_LEGACY_REACTION_ORDER");
+        FLAG.store(on as u8, Ordering::Relaxed);
+        on
+    };
+    if legacy {
+        FissionNeutronOrder::Legacy
+    } else {
+        FissionNeutronOrder::OpenMc
+    }
+}
+
+/// Where fission sites are banked (gh:#1386, #1444 c).
+///
+/// [`FissionBanking::PerCollision`] follows OpenMC `sample_neutron_reaction`
+/// (`src/physics.cpp:105-139`): at EVERY collision with a nuclide that has
+/// `fission > 0`, `create_fission_sites` banks `nu = int(nu_t)` (+1 with
+/// probability `nu_t - nu`) sites, `nu_t = wgt/keff * nu_sigma_f/sigma_t`, one
+/// `prn` draw before the reaction draw, whether or not the collision then "is" a
+/// fission. [`FissionBanking::AtFission`] banks only when the sampled reaction is
+/// fission (`nu_bar` sites). Legacy is `OUTRAM_MC_LEGACY_FISSION_BANKING=1` or
+/// the master `OUTRAM_MC_LEGACY_REACTION_ORDER=1`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FissionBanking {
+    /// OpenMC `create_fission_sites` at every collision (default).
+    #[default]
+    PerCollision,
+    /// Bank at the sampled fission event only (the earlier behaviour).
+    AtFission,
+}
+
+static FISSION_BANKING_OVERRIDE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(u8::MAX);
+
+/// Force a banking mode for the whole process (`None` = back to the environment
+/// switch). For paired A/B tests that run both modes in one process; not for
+/// concurrent use with other runs in the same process.
+pub fn set_fission_banking_override(mode: Option<FissionBanking>) {
+    let v = match mode {
+        Some(FissionBanking::PerCollision) => 0,
+        Some(FissionBanking::AtFission) => 1,
+        None => u8::MAX,
+    };
+    FISSION_BANKING_OVERRIDE.store(v, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Read `OUTRAM_MC_LEGACY_FISSION_BANKING` / the master legacy switch (cached).
+pub fn fission_banking_from_env() -> FissionBanking {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    match FISSION_BANKING_OVERRIDE.load(Ordering::Relaxed) {
+        0 => return FissionBanking::PerCollision,
+        1 => return FissionBanking::AtFission,
+        _ => {}
+    }
+    static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
+    let cached = FLAG.load(Ordering::Relaxed);
+    let legacy = if cached != u8::MAX {
+        cached == 1
+    } else {
+        let set = |k: &str| match std::env::var(k) {
+            Ok(v) => !v.is_empty() && v != "0",
+            Err(_) => false,
+        };
+        let on = set("OUTRAM_MC_LEGACY_FISSION_BANKING") || set("OUTRAM_MC_LEGACY_REACTION_ORDER");
+        FLAG.store(on as u8, Ordering::Relaxed);
+        on
+    };
+    if legacy { FissionBanking::AtFission } else { FissionBanking::PerCollision }
+}
+
+/// OpenMC `create_fission_sites` count for ONE collision of a unit-weight
+/// neutron (sphere drivers): returns `(expected production nu_sigma_f/sigma_t, n)`
+/// with `nu_t = nu_sigma_f / (keff * sigma_t)`, `n = int(nu_t)` plus one when
+/// `prn <= nu_t - n` (`src/physics.cpp:181-189`). Returns `(0.0, 0)` and draws
+/// nothing when [`fission_banking_from_env`] is [`FissionBanking::AtFission`] or
+/// the nuclide has no fission. The caller banks `n` sites at the collision point.
+pub fn per_collision_fission_count(
+    x: &crate::material::nuclide::MicroXS,
+    keff: f64,
+    seed: &mut u64,
+) -> (f64, usize) {
+    if fission_banking_from_env() != FissionBanking::PerCollision
+        || !(x.nu_fission > 0.0 && x.total > 0.0)
+    {
+        return (0.0, 0);
+    }
+    let k = if keff.is_finite() && keff > 0.0 { keff } else { 1.0 };
+    let nu_t = x.nu_fission / (k * x.total);
+    let mut n = nu_t as usize;
+    if prn(seed) <= nu_t - n as f64 {
+        n += 1;
+    }
+    (x.nu_fission / x.total, n)
+}
+
+/// One fission neutron `(E', direction)` for the sphere drivers, in the order
+/// [`fission_neutron_order_from_env`] selects. Legacy: isotropic direction, then
+/// energy ([`crate::material::nuclide::Nuclide::sample_fission_energy_below`]).
+pub fn sample_fission_neutron_for_driver(
+    nuc: &crate::material::nuclide::Nuclide,
+    e: f64,
+    e_cap: f64,
+    u: Direction,
+    seed: &mut u64,
+) -> (f64, Direction) {
+    match fission_neutron_order_from_env() {
+        FissionNeutronOrder::OpenMc => {
+            let (_g, e_born, dir) = nuc.sample_fission_neutron_openmc(e, e_cap, u, seed);
+            (e_born, dir)
+        }
+        FissionNeutronOrder::Legacy => {
+            let (dx, dy, dz) = crate::rng::distributions::isotropic_direction(seed);
+            let e_born = nuc.sample_fission_energy_below(e, e_cap, seed);
+            (e_born, Direction::new(dx, dy, dz))
+        }
+    }
+}
+
+/// The reaction group one collision resolved to.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ReactionGroup {
+    /// Fission (analog: the incident neutron is absorbed).
+    Fission,
+    /// Capture.
+    Capture,
+    /// Elastic (free atom or S(alpha,beta)).
+    Elastic,
+    /// Discrete-level or continuum inelastic; carries the cutoff measured from the
+    /// START of the inelastic block (the level pick reuses it: no extra draw), or
+    /// `None` in the legacy order (the level draws its own variate).
+    Inelastic(Option<f64>),
+    /// (n,2n).
+    N2n,
+    /// (n,3n).
+    N3n,
+    /// MT=5.
+    Mt5,
+    /// The other neutron-emitting reactions.
+    Other,
+}
+
+/// Resolve the collision variate `xi` (as returned by [`scatter_ladder_xi`]) to a
+/// [`ReactionGroup`] in the chosen `order`. The absorption arms are identical in
+/// both orders; the scattering block `xi - absorption` is walked in OpenMC's MT
+/// order or in the legacy order.
+pub fn classify_reaction(order: ReactionOrder, x: &crate::material::nuclide::MicroXS, xi: f64) -> ReactionGroup {
+    if xi < x.fission {
+        return ReactionGroup::Fission;
+    }
+    if xi < x.absorption {
+        return ReactionGroup::Capture;
+    }
+    match order {
+        ReactionOrder::Legacy => {
+            if xi < x.absorption + x.inelastic {
+                ReactionGroup::Inelastic(None)
+            } else if xi < x.absorption + x.inelastic + x.n2n {
+                ReactionGroup::N2n
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+                ReactionGroup::N3n
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+                ReactionGroup::Mt5
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+                ReactionGroup::Other
+            } else {
+                ReactionGroup::Elastic
+            }
+        }
+        ReactionOrder::OpenMc => {
+            // cutoff = prn * (total - absorption); elastic is walked first.
+            let cutoff = xi - x.absorption;
+            let el = x.total - x.absorption - x.inelastic - x.n2n - x.n3n - x.mt5 - x.other;
+            if cutoff < el {
+                return ReactionGroup::Elastic;
+            }
+            let mut prob = el;
+            prob += x.mt5;
+            if prob >= cutoff && x.mt5 > 0.0 {
+                return ReactionGroup::Mt5;
+            }
+            prob += x.n2n;
+            if prob >= cutoff && x.n2n > 0.0 {
+                return ReactionGroup::N2n;
+            }
+            prob += x.n3n;
+            if prob >= cutoff && x.n3n > 0.0 {
+                return ReactionGroup::N3n;
+            }
+            prob += x.other;
+            if prob >= cutoff && x.other > 0.0 {
+                return ReactionGroup::Other;
+            }
+            // levels 51..90 and the MT=91 continuum: the remainder of the walk
+            ReactionGroup::Inelastic(Some((cutoff - prob).max(0.0)))
+        }
+    }
+}
+
+/// `uniform_distribution(-1, 1, seed)` (`random_dist.h`): `-1 + 2 * prn`.
+pub fn uniform_pm1(seed: &mut u64) -> f64 {
+    -1.0 + (1.0 - (-1.0)) * prn(seed)
+}
+
+/// The reaction variate of an analog collision, in OpenMC's two-draw order.
+///
+/// `xi0 = prn * sigma_t` decides absorption (OpenMC `absorption()`: `prn >
+/// sigma_a / sigma_t` survives). A survivor then draws a SECOND variate in
+/// `scatter()` (`cutoff = prn * (sigma_t - sigma_a)`), which selects the
+/// scattering reaction; this returns `sigma_a + prn * (sigma_t - sigma_a)` for it
+/// so the ladder `xi < sigma_a + sigma_inelastic + ...` is reused unchanged.
+/// An absorbed collision, a pure absorber or the [`ScatterKernels::Legacy`]
+/// kernels return `xi0` and consume no further draw (the single-variate ladder).
+pub fn scatter_ladder_xi(
+    kernels: ScatterKernels,
+    xi0: f64,
+    absorption: f64,
+    total: f64,
+    seed: &mut u64,
+) -> f64 {
+    if kernels == ScatterKernels::OpenMc && xi0 >= absorption && total > absorption {
+        absorption + prn(seed) * (total - absorption)
+    } else {
+        xi0
+    }
+}
+
+/// Rotate `u` by the lab cosine `mu` with the kernel `kernels` selects.
+pub fn rotate_kernel(kernels: ScatterKernels, u: Direction, mu: f64, seed: &mut u64) -> Direction {
+    match kernels {
+        ScatterKernels::OpenMc => rotate_angle_openmc(u, mu, None, seed),
+        ScatterKernels::Legacy => rotate_direction(u, mu, seed),
+    }
+}
+
+/// CM -> lab transform followed by the rotation, with the kernel `kernels` selects:
+/// `(E_lab, u_out)` from the incident `e`, outgoing CM energy `e_cm`, CM cosine `mu`.
+pub fn cm_lab_rotate(
+    kernels: ScatterKernels,
+    u: Direction,
+    e: f64,
+    e_cm: f64,
+    mu: f64,
+    awr: f64,
+    seed: &mut u64,
+) -> (f64, Direction) {
+    match kernels {
+        ScatterKernels::OpenMc => {
+            let (e_lab, mu_lab) = inelastic_cm_to_lab_openmc(e, e_cm, mu, awr);
+            (e_lab, rotate_angle_openmc(u, mu_lab, None, seed))
+        }
+        ScatterKernels::Legacy => {
+            let (e_lab, mu_lab) = cm_to_lab(e, e_cm, mu, awr);
+            (e_lab, rotate_direction(u, mu_lab, seed))
+        }
+    }
+}
+
+/// [`rotate_angle_openmc_unguarded`] (upstream's `rotate_angle`) with its input
+/// and its output passed through [`renormalise_if_drifted`] (gh:#1497). On any
+/// direction whose `|u|^2` is within [`DIRECTION_NORM_DRIFT_TOL`] of 1 (every
+/// direction of a healthy history) it is bit-identical to upstream; it differs
+/// only where upstream's own direction has drifted far enough to head for NaN.
+/// This is what transport calls.
+pub fn rotate_angle_openmc(u: Direction, mu: f64, phi: Option<f64>, seed: &mut u64) -> Direction {
+    renormalise_if_drifted(rotate_angle_openmc_unguarded(renormalise_if_drifted(u), mu, phi, seed))
+}
+
+/// `rotate_angle(u, mu, nullptr, seed)` (`src/math_functions.cpp:772`): rotate the
+/// unit direction `u` by `mu` with an azimuth sampled uniformly (one draw, or
+/// `phi` when given). Differs from [`rotate_direction`] only in the near-pole
+/// branch (`1 - w^2 <= 1e-20`), where upstream expands about the `v` component
+/// with `sin`/`cos` swapped, and in using `fmax` for the `a`, `b` radicands.
+/// The translation as upstream has it, with no norm guard: the oracle for
+/// [`rotate_angle_openmc`].
+pub fn rotate_angle_openmc_unguarded(
+    u: Direction,
+    mu: f64,
+    phi: Option<f64>,
+    seed: &mut u64,
+) -> Direction {
+    // Sample azimuthal angle in [0,2pi) if none provided
+    let phi_ = match phi {
+        Some(p) => p,
+        None => 2.0 * PI * prn(seed),
+    };
+    let (sinphi, cosphi) = phi_.r_sin_cos();
+    let a = (1.0 - mu * mu).max(0.0).sqrt();
+    let mut b = (1.0 - u.w * u.w).max(0.0).sqrt();
+    if b > 1e-10 {
+        Direction::new(
+            mu * u.u + a * (u.u * u.w * cosphi - u.v * sinphi) / b,
+            mu * u.v + a * (u.v * u.w * cosphi + u.u * sinphi) / b,
+            mu * u.w - a * b * cosphi,
+        )
+    } else {
+        b = (1.0 - u.v * u.v).sqrt();
+        Direction::new(
+            mu * u.u + a * (-u.u * u.v * sinphi + u.w * cosphi) / b,
+            mu * u.v + a * b * sinphi,
+            mu * u.w - a * (u.v * u.w * sinphi + u.u * cosphi) / b,
+        )
+    }
+}
+
+/// The CM -> lab block of `inelastic_scatter` (`src/physics.cpp:1169-1179`) plus
+/// its clamp of `|mu| > 1` to `+-1`: `(E_lab, mu_lab)` from the incident lab energy
+/// `e_in`, the outgoing CM energy `e_cm`, the CM cosine `mu` and the target mass
+/// ratio `awr`. [`cm_to_lab`] is the same transform in another operation order.
+pub fn inelastic_cm_to_lab_openmc(e_in: f64, e_cm: f64, mu: f64, awr: f64) -> (f64, f64) {
+    let a = awr;
+    let e = e_cm + (e_in + 2.0 * mu * (a + 1.0) * (e_in * e_cm).sqrt()) / ((a + 1.0) * (a + 1.0));
+    let mu_lab = mu * (e_cm / e).sqrt() + 1.0 / (a + 1.0) * (e_in / e).sqrt();
+    let mu_lab = if mu_lab.abs() > 1.0 { 1.0_f64.copysign(mu_lab) } else { mu_lab };
+    (e, mu_lab)
+}
+
+/// `LevelInelastic::sample` with the parameters `openmc.data` derives
+/// (`reaction.py:1274-1275`): `threshold = (A + 1)/A * |Q|`, `mass_ratio =
+/// (A/(A + 1))^2`, `E_cm = mass_ratio * (E - threshold)`.
+pub fn level_inelastic_e_cm_openmc(e: f64, awr: f64, q: f64) -> f64 {
+    let threshold = (awr + 1.0) / awr * q.abs();
+    let mass_ratio = (awr / (awr + 1.0)) * (awr / (awr + 1.0));
+    mass_ratio * (e - threshold)
+}
+
+/// A discrete-level inelastic scatter as OpenMC does it: [`level_inelastic_e_cm_openmc`],
+/// [`inelastic_cm_to_lab_openmc`], then [`rotate_angle_openmc`] by the lab cosine
+/// (`inelastic_scatter`, `src/physics.cpp:1157`). `mu_cm` is drawn by the caller
+/// BEFORE this is called, as upstream draws the cosine inside `sample` before
+/// `rotate_angle` draws the azimuth. Returns `(E_lab, u_out)`.
+pub fn level_inelastic_scatter_openmc(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    q: f64,
+    mu_cm: f64,
+    seed: &mut u64,
+) -> (f64, Direction) {
+    let e_cm = level_inelastic_e_cm_openmc(e, awr, q);
+    let (e_lab, mu_lab) = inelastic_cm_to_lab_openmc(e, e_cm, mu_cm, awr);
+    (e_lab, rotate_angle_openmc(u, mu_lab, None, seed))
+}
+
+/// Which target-velocity sampler `sample_target_velocity` ends up using
+/// (OpenMC `ResScatMethod`, `constants.h:274`).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TargetMethod {
+    Cxs,
+    Rvs,
+    Dbrc,
+}
+
+fn dot3(a: [f64; 3], b: [f64; 3]) -> f64 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+/// `lower_bound_index` (`include/openmc/search.h`): `0` when the first element
+/// equals `value`, else `lower_bound(value) - first - 1` (so a value equal to a
+/// grid point `k > 0` gives `k - 1`, unlike an upper-bound search). Signed, as upstream's
+/// `difference_type` (`-1` when `value` is below the first element).
+fn lower_bound_index_openmc(slice: &[f64], value: f64) -> isize {
+    if slice[0] == value {
+        return 0;
+    }
+    slice.partition_point(|&x| x < value) as isize - 1
+}
+
+impl DbrcTable {
+    /// The 0 K cross section as OpenMC holds it: negative values zeroed in place
+    /// for every point but the last (`nuclide.cpp:489-491` loops `i < size - 1`).
+    fn xs0(&self, i: usize) -> f64 {
+        let v = self.xs[i];
+        if i + 1 < self.xs.len() && v < 0.0 {
+            0.0
+        } else {
+            v
+        }
+    }
+
+    /// `Nuclide::elastic_xs_0K` (`src/nuclide.cpp:589`).
+    fn elastic_xs_0k_openmc(&self, e: f64) -> f64 {
+        let n = self.energy.len();
+        let mut i_grid = if e < self.energy[0] {
+            0
+        } else if e > self.energy[n - 1] {
+            n - 2
+        } else {
+            lower_bound_index_openmc(&self.energy, e) as usize
+        };
+        // check for rare case where two energy points are the same
+        if self.energy[i_grid] == self.energy[i_grid + 1] {
+            i_grid += 1;
+        }
+        let f = (e - self.energy[i_grid]) / (self.energy[i_grid + 1] - self.energy[i_grid]);
+        (1.0 - f) * self.xs0(i_grid) + f * self.xs0(i_grid + 1)
+    }
+
+    /// Window index of `sample_target_velocity` (`physics.cpp:900-925`).
+    fn window_index_openmc(&self, e: f64) -> usize {
+        let n = self.energy.len();
+        if e < self.energy[0] {
+            0
+        } else if e > self.energy[n - 1] {
+            n - 2
+        } else {
+            lower_bound_index_openmc(&self.energy, e) as usize
+        }
+    }
+}
+
+/// `sample_cxs_target_velocity` (`src/physics.cpp:1028`): the target velocity in
+/// the constant-cross-section approximation, in `|v| = sqrt(E)` units.
+fn sample_cxs_target_velocity_openmc(awr: f64, e: f64, u: Direction, kt: f64, seed: &mut u64) -> [f64; 3] {
+    let beta_vn = (awr * e / kt).sqrt();
+    let alpha = 1.0 / (1.0 + PI.sqrt() * beta_vn / 2.0);
+    let (mut beta_vt_sq, mut mu);
+    loop {
+        // Sample two random numbers
+        let r1 = prn(seed);
+        let r2 = prn(seed);
+        if prn(seed) < alpha {
+            // sampling scheme C45 from the Monte Carlo sampler
+            beta_vt_sq = -(r1 * r2).r_ln();
+        } else {
+            // sampling scheme C61
+            let c = (PI / 2.0 * prn(seed)).r_cos();
+            beta_vt_sq = -r1.r_ln() - r2.r_ln() * c * c;
+        }
+        // Determine beta * vt
+        let beta_vt = beta_vt_sq.sqrt();
+        // Sample cosine of angle between neutron and target velocity
+        mu = -1.0 + (1.0 - (-1.0)) * prn(seed);
+        // Determine rejection probability
+        let accept_prob = (beta_vn * beta_vn + beta_vt_sq - 2.0 * beta_vn * beta_vt * mu).sqrt()
+            / (beta_vn + beta_vt);
+        // Perform rejection sampling on vt and mu
+        if prn(seed) < accept_prob {
+            break;
+        }
+    }
+    // Determine speed of target nucleus
+    let vt = (beta_vt_sq * kt / awr).sqrt();
+    // Determine velocity vector of target nucleus based on neutron's velocity
+    // and the sampled angle between them
+    let d = rotate_angle_openmc(u, mu, None, seed);
+    [vt * d.u, vt * d.v, vt * d.w]
+}
+
+/// `sample_target_velocity` (`src/physics.cpp:874`): the target nucleus velocity
+/// for a collision of a neutron of lab energy `e` and velocity `v_neut`.
+/// `resonant` is the nuclide's 0 K table (`nuc.resonant_` is `resonant.is_some()`;
+/// its `e_max_ev` is `res_scat_energy_max`, `res_scat_energy_min` is upstream's
+/// 0.01 eV, and the method is the table's).
+fn sample_target_velocity_openmc(
+    awr: f64,
+    resonant: Option<&DbrcTable>,
+    e: f64,
+    u: Direction,
+    v_neut: [f64; 3],
+    kt: f64,
+    seed: &mut u64,
+) -> [f64; 3] {
+    const RES_SCAT_ENERGY_MIN: f64 = 0.01;
+    let mut method;
+    match resonant {
+        Some(t) => {
+            method = match t.method {
+                ResonanceScatteringMethod::Rvs => TargetMethod::Rvs,
+                ResonanceScatteringMethod::Dbrc => TargetMethod::Dbrc,
+            };
+            // upper resonance scattering energy bound (target is at rest above this E)
+            if e > t.e_max {
+                return [0.0; 3];
+                // lower resonance scattering energy bound (should be no resonances below)
+            } else if e < RES_SCAT_ENERGY_MIN {
+                method = TargetMethod::Cxs;
+            }
+        }
+        // otherwise, use free gas model
+        None => {
+            if e >= FREE_GAS_THRESHOLD * kt && awr > 1.0 {
+                return [0.0; 3];
+            }
+            method = TargetMethod::Cxs;
+        }
+    }
+
+    match (method, resonant) {
+        (TargetMethod::Rvs | TargetMethod::Dbrc, Some(t)) => {
+            let e_red = (awr * e / kt).sqrt();
+            let e_low = (e_red - 4.0).max(0.0).powi(2) * kt / awr;
+            let e_up = (e_red + 4.0) * (e_red + 4.0) * kt / awr;
+            let i_e_low = t.window_index_openmc(e_low);
+            let i_e_up = t.window_index_openmc(e_up);
+            if i_e_up == i_e_low {
+                // Handle degenerate case -- the bounds fall in one interval
+                return sample_cxs_target_velocity_openmc(awr, e, u, kt, seed);
+            }
+            let en = &t.energy;
+            if method == TargetMethod::Dbrc {
+                // interpolate xs since we're not exactly at the energy indices
+                let mut xs_low = t.xs0(i_e_low);
+                let mut m = (t.xs0(i_e_low + 1) - xs_low) / (en[i_e_low + 1] - en[i_e_low]);
+                xs_low += m * (e_low - en[i_e_low]);
+                let mut xs_up = t.xs0(i_e_up);
+                m = (t.xs0(i_e_up + 1) - xs_up) / (en[i_e_up + 1] - en[i_e_up]);
+                xs_up += m * (e_up - en[i_e_up]);
+                // get max 0K xs value over range of practical relative energies
+                // (`std::max_element` over [i_E_low + 1, i_E_up + 1))
+                let mut xs_max = t.xs0(i_e_low + 1);
+                for k in (i_e_low + 2)..(i_e_up + 1) {
+                    if t.xs0(k) > xs_max {
+                        xs_max = t.xs0(k);
+                    }
+                }
+                xs_max = xs_low.max(xs_max).max(xs_up);
+                loop {
+                    let (mut e_rel, mut v_target);
+                    loop {
+                        // sample target velocity with the cxs approximation
+                        v_target = sample_cxs_target_velocity_openmc(awr, e, u, kt, seed);
+                        let v_rel = [v_neut[0] - v_target[0], v_neut[1] - v_target[1], v_neut[2] - v_target[2]];
+                        e_rel = dot3(v_rel, v_rel);
+                        if e_rel < e_up {
+                            break;
+                        }
+                    }
+                    // perform Doppler broadening rejection correction (dbrc)
+                    let xs_0k = t.elastic_xs_0k_openmc(e_rel);
+                    let r = xs_0k / xs_max;
+                    if prn(seed) < r {
+                        return v_target;
+                    }
+                }
+            } else {
+                // rvs: interpolate xs CDF since we're not exactly at the energy indices
+                let cdf = &t.cdf;
+                let mut cdf_low = 0.0;
+                if e_low > en[0] {
+                    let m = (cdf[i_e_low + 1] - cdf[i_e_low]) / (en[i_e_low + 1] - en[i_e_low]);
+                    cdf_low = cdf[i_e_low] + m * (e_low - en[i_e_low]);
+                }
+                let m = (cdf[i_e_up + 1] - cdf[i_e_up]) / (en[i_e_up + 1] - en[i_e_up]);
+                let cdf_up = cdf[i_e_up] + m * (e_up - en[i_e_up]);
+                loop {
+                    // directly sample Maxwellian
+                    let mut e_t = -kt * prn(seed).r_ln();
+                    // sample a relative energy using the xs cdf
+                    let cdf_rel = cdf_low + prn(seed) * (cdf_up - cdf_low);
+                    let i_e_rel = lower_bound_index_openmc(&cdf[i_e_low..i_e_up + 2], cdf_rel) as usize;
+                    let mut e_rel = en[i_e_low + i_e_rel];
+                    let m = (cdf[i_e_low + i_e_rel + 1] - cdf[i_e_low + i_e_rel])
+                        / (en[i_e_low + i_e_rel + 1] - en[i_e_low + i_e_rel]);
+                    e_rel += (cdf_rel - cdf[i_e_low + i_e_rel]) / m;
+                    // rejection sampling on cosine between neutron and target velocities
+                    let mu = (e_t + awr * (e - e_rel)) / (2.0 * (awr * e * e_t).sqrt());
+                    if mu.abs() < 1.0 {
+                        // set and accept target velocity
+                        e_t /= awr;
+                        let d = rotate_angle_openmc(u, mu, None, seed);
+                        let s = e_t.sqrt();
+                        return [s * d.u, s * d.v, s * d.w];
+                    }
+                }
+            }
+        }
+        _ => sample_cxs_target_velocity_openmc(awr, e, u, kt, seed),
+    }
+}
+
+/// `elastic_scatter` (`src/physics.cpp:792`): an elastic collision of a neutron
+/// of lab energy `e` and direction `u` with a target of mass ratio `awr` at
+/// `kt` \[eV\], with the target velocity from `sample_target_velocity` (target at
+/// rest above `400 kT`, or above the resonance window of a resonant nuclide).
+///
+/// `use_ptable` is `p.neutron_xs(i).use_ptable` (target at rest when the URR
+/// probability table is in use). **`sample_mu_cm` is called AFTER the target
+/// velocity has been sampled**, as upstream draws the CM cosine there: with
+/// `Some` angular law it is `angle().sample(E, seed)`, with none
+/// `uniform_distribution(-1, 1, seed)`. (The older
+/// [`free_gas_elastic_scatter_dbrc`] takes the cosine drawn BEFORE the target
+/// velocity, so for a free-gas collision the two consume the stream in a
+/// different order: the same distribution, a different path.)
+///
+/// Returns `(E_out, u_out, mu_lab)`.
+#[allow(clippy::too_many_arguments)]
+pub fn elastic_scatter_openmc<F: FnOnce(&mut u64) -> f64>(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    kt: f64,
+    resonant: Option<&DbrcTable>,
+    use_ptable: bool,
+    sample_mu_cm: F,
+    seed: &mut u64,
+) -> (f64, Direction, f64) {
+    let mut vel = e.sqrt();
+    // Neutron velocity in LAB
+    let mut v_n = [vel * u.u, vel * u.v, vel * u.w];
+    // Sample velocity of target nucleus
+    let v_t = if !use_ptable {
+        sample_target_velocity_openmc(awr, resonant, e, u, v_n, kt, seed)
+    } else {
+        [0.0; 3]
+    };
+    // Velocity of center-of-mass
+    let v_cm = [
+        (v_n[0] + awr * v_t[0]) / (awr + 1.0),
+        (v_n[1] + awr * v_t[1]) / (awr + 1.0),
+        (v_n[2] + awr * v_t[2]) / (awr + 1.0),
+    ];
+    // Transform to CM frame
+    v_n = [v_n[0] - v_cm[0], v_n[1] - v_cm[1], v_n[2] - v_cm[2]];
+    // Find speed of neutron in CM
+    vel = dot3(v_n, v_n).sqrt();
+    // Sample scattering angle
+    let mu_cm = sample_mu_cm(seed);
+    // Determine direction cosines in CM
+    let u_cm = Direction::new(v_n[0] / vel, v_n[1] / vel, v_n[2] / vel);
+    // Rotate neutron velocity vector to new angle
+    let d = rotate_angle_openmc(u_cm, mu_cm, None, seed);
+    v_n = [vel * d.u, vel * d.v, vel * d.w];
+    // Transform back to LAB frame
+    v_n = [v_n[0] + v_cm[0], v_n[1] + v_cm[1], v_n[2] + v_cm[2]];
+    let e_out = dot3(v_n, v_n);
+    vel = e_out.sqrt();
+    // cosine of scattering angle in LAB frame by the dot product of the
+    // pre- and post-collision directions
+    let mut mu = (u.u * v_n[0] + u.v * v_n[1] + u.w * v_n[2]) / vel;
+    let u_out = Direction::new(v_n[0] / vel, v_n[1] / vel, v_n[2] / vel);
+    // Because of floating-point roundoff, mu_lab may leave [-1,1)
+    if mu.abs() > 1.0 {
+        mu = 1.0_f64.copysign(mu);
+    }
+    (e_out, u_out, mu)
+}
+
 
 #[cfg(test)]
 mod tests {

@@ -372,23 +372,17 @@ fn main() {
 
     let particles: Vec<Particle> = init.iter().map(|x| pebble(*x)).collect();
     let n0 = particles.len();
-    let mut sys = GranularSystem::new(
-        particles,
-        boundaries,
-        model,
-        Vec3::new(0.0, 0.0, -9.81),
-        dt,
-    )
-    .expect("valid system")
-    .with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(threads)))
-    .with_moving_walls(vec![MovingBoundary::new(
-        // Static in practice: the discharge geometry does not move. It is a
-        // MovingBoundary only because that is the path a mesh wall takes.
-        WallGeometry::Mesh(mesh),
-        Vec3::zero(),
-        Vec3::zero(),
-        Vec3::zero(),
-    )]);
+    let mut sys = GranularSystem::new(particles, boundaries, model, Vec3::new(0.0, 0.0, -9.81), dt)
+        .expect("valid system")
+        .with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(threads)))
+        .with_moving_walls(vec![MovingBoundary::new(
+            // Static in practice: the discharge geometry does not move. It is a
+            // MovingBoundary only because that is the path a mesh wall takes.
+            WallGeometry::Mesh(mesh),
+            Vec3::zero(),
+            Vec3::zero(),
+            Vec3::zero(),
+        )]);
 
     let mut skip_presettle = false;
     // phi vs STEP, sampled densely through both phases. Kept separate from the
@@ -475,10 +469,7 @@ fn main() {
         // Flush the trace every decision chunk, for the same reason the batch
         // log is flushed every batch: a pre-settle is ~10 minutes and losing it
         // to a crash or a Ctrl-C would be gratuitous.
-        let _ = std::fs::write(
-            data_path(&format!("htr10_phi_vs_step_{label}.csv")),
-            &trace,
-        );
+        let _ = std::fs::write(data_path(&format!("htr10_phi_vs_step_{label}.csv")), &trace);
         let ratio = ke_ratio(&sys);
         let centres: Vec<Vec3> = sys.particles().iter().map(|p| p.position).collect();
         let (phi, top) = bulk_solid_fraction(&centres);
@@ -513,7 +504,10 @@ fn main() {
     let trace_path = format!("htr10_phi_vs_step_{label}.csv");
     if trace.lines().count() > 1 {
         std::fs::write(data_path(&trace_path), &trace).expect("write phi-vs-step trace");
-        println!("# wrote {trace_path} ({} samples)", trace.lines().count() - 1);
+        println!(
+            "# wrote {trace_path} ({} samples)",
+            trace.lines().count() - 1
+        );
     }
     if trace_only {
         println!(
@@ -580,7 +574,10 @@ fn main() {
 
         // --- re-insert the same number, PLACED on the surface, not dropped ---
         let mut existing: Vec<Vec3> = sys.particles().iter().map(|p| p.position).collect();
-        let top = existing.iter().map(|c| c.z).fold(f64::NEG_INFINITY, f64::max);
+        let top = existing
+            .iter()
+            .map(|c| c.z)
+            .fold(f64::NEG_INFINITY, f64::max);
         let mut fresh = Vec::with_capacity(removed);
         for _ in 0..removed {
             let (x, y) = insertion_site(site_counter);

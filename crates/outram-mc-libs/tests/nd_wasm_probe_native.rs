@@ -29,6 +29,34 @@
 //! `0x9a9dbebd27900700`. Record:
 //! `verification_and_validation/nuclear_data_loading_web/README.md`.
 
+//!
+//! # Re-pinned 2026-11-12 (gh:#1386; found by the full suite, branch `claude/pflortran-merge-develop-8k3wji`)
+//!
+//! Two of the five pins had moved; the index, generated-ACE and ACE-XSS pins
+//! did not.
+//!
+//! - **zip** `0xdbbc098a42d96f62` -> `0xc85bbd987dade063`. The zip carries
+//!   `reference-data/endf/README.md` as `CHANGELOG.txt`, and 396fb5597 added the
+//!   Ca-40 tape's provenance row to it. The index fingerprint, which covers the
+//!   four tapes themselves, is unchanged (`0x0e80455b35bda55c`).
+//! - **Godiva k trace** `0xcedab1315589be07` -> `0x2611432d237eaafd`. The
+//!   transport this pins has changed several times since 2026-10-17, on
+//!   `develop` (RVS resonance scattering by default, gh:#1311, 2026-11-10; PETIR
+//!   maths, gh:#985) and on this branch (OpenMC-faithful collision kernels,
+//!   reaction order, fission-neutron order and per-collision banking as
+//!   defaults; the direction-norm guard, gh:#1497). The legacy switch
+//!   `OUTRAM_MC_LEGACY_REACTION_ORDER=1` does **not** reproduce the old pin
+//!   (`0x3c9d316c61fb89eb`), which shows the pin was already stale on
+//!   `develop` before this branch.
+//!   - k on this 200 x [2 + 3] run: pinned 0.996492, new default **0.933366 ±
+//!     0.020230**, legacy switch **1.043427 ± 0.047170**. A run this small, with a
+//!     source two cycles from a point, swings thousands of pcm between any two
+//!     random paths. Default against legacy is −11 006 pcm, 2.1σ on the runs'
+//!     own errors, which understate it. It is a fingerprint, not a physics gate.
+//!   - The physics gate for these defaults is the Godiva ensemble: +4 ± 21 pcm
+//!     over 64 seeds, against the 1024-seed record −6 ± 5.
+//! - The browser leg (headless Chromium) has **not** been re-run against the
+//!   new pins.
 #[path = "../examples/nd_wasm_probe/probe.rs"]
 #[allow(dead_code)]
 mod probe;
@@ -87,10 +115,10 @@ fn value<'a>(report: &'a str, key: &str) -> &'a str {
 }
 
 /// Native fingerprints, x86_64 Linux, release, 2026-10-17.
-const ZIP_FNV: &str = "0xdbbc098a42d96f62";
+const ZIP_FNV: &str = "0xc85bbd987dade063";
 const INDEX_FNV: &str = "0x0e80455b35bda55c";
 const ACE_FNV: &str = "0xd2477939bbaba20a";
-const GODIVA_K_FNV: &str = "0xcedab1315589be07";
+const GODIVA_K_FNV: &str = "0x2611432d237eaafd";
 const ACE_XSS_FNV: &str = "0x9a9dbebd27900700";
 
 fn check(report: &str, key: &str, pinned: &str) {

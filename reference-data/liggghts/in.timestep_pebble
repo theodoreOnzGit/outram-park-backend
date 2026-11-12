@@ -1,0 +1,25 @@
+# fix check/timestep/gran on the settled bed (gh:#1406 prio 2): prints the
+# Rayleigh and Hertz step fractions for comparison with timestep.rs.
+# Needs timestep_pebble.data = csv2data.sh pebble_bed_settled.csv timestep_pebble.data 0.01 2500 -0.005 0.35
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+neighbor	0.003 bin
+neigh_modify	delay 0
+read_data	timestep_pebble.data
+fix 		m1 all property/global youngsModulus peratomtype 5.0e6
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.5
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.3
+pair_style	gran model hertz tangential history
+pair_coeff	* *
+timestep	5e-6
+fix		ts all check/timestep/gran 1 0.1 0.1 warn no
+fix		integr all nve/sphere
+thermo_style	custom step f_ts[1] f_ts[2] f_ts[3]
+thermo_modify	format float %.17g
+thermo		1
+run		1

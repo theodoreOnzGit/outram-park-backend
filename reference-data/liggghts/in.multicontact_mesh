@@ -1,0 +1,32 @@
+# Multicontact on a MESH wall (gh:#1410): the multicontact_init.csv bed (six soft
+# spheres, no gravity) between a 2-triangle STL floor (plate_square.stl, z = 0,
+# diagonal through the origin, so particle 1 straddles two coplanar facets) and a
+# zplane at 0.0195. Both codes start from multicontact_init.csv.
+# Needs multicontact_mesh.data = csv2data.sh multicontact_init.csv multicontact_mesh.data 0.01 2500 -0.005 0.03
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+soft_particles	yes
+neighbor	0.002 bin
+neigh_modify	delay 0
+read_data	multicontact_mesh.data
+fix 		m1 all property/global youngsModulus peratomtype 1.0e5
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.5
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.3
+pair_style	gran model hertz tangential history surface multicontact
+pair_coeff	* *
+timestep	2e-6
+fix		floor all mesh/surface file plate_square.stl type 1
+fix		wmesh all wall/gran model hertz tangential history surface multicontact mesh n_meshes 1 meshes floor
+fix		whi all wall/gran model hertz tangential history surface multicontact primitive type 1 zplane 0.0195
+fix		mc all multicontact/halfspace geometric_prefactor 1.125
+fix		integr all nve/sphere
+dump		d1 all custom 20 dump.multicontact_mesh id x y z vx vy vz omegax omegay omegaz
+dump_modify	d1 sort id
+thermo		100
+thermo_modify	lost ignore norm no
+run		600

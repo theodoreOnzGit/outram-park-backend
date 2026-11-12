@@ -52,16 +52,7 @@ impl Surface for XPlane {
     }
     #[inline]
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
-        let dist_hint = if coincident { 1e-14 } else { 0.0 };
-        if u.u.abs() < 1e-14 {
-            return f64::INFINITY;
-        }
-        let d = (self.x0 - r.x) / u.u;
-        if d > dist_hint {
-            d
-        } else {
-            f64::INFINITY
-        }
+        axis_aligned_plane_distance(r.x, u.u, coincident, self.x0)
     }
 }
 
@@ -83,16 +74,7 @@ impl Surface for YPlane {
     }
     #[inline]
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
-        let dist_hint = if coincident { 1e-14 } else { 0.0 };
-        if u.v.abs() < 1e-14 {
-            return f64::INFINITY;
-        }
-        let d = (self.y0 - r.y) / u.v;
-        if d > dist_hint {
-            d
-        } else {
-            f64::INFINITY
-        }
+        axis_aligned_plane_distance(r.y, u.v, coincident, self.y0)
     }
 }
 
@@ -114,16 +96,7 @@ impl Surface for ZPlane {
     }
     #[inline]
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
-        let dist_hint = if coincident { 1e-14 } else { 0.0 };
-        if u.w.abs() < 1e-14 {
-            return f64::INFINITY;
-        }
-        let d = (self.z0 - r.z) / u.w;
-        if d > dist_hint {
-            d
-        } else {
-            f64::INFINITY
-        }
+        axis_aligned_plane_distance(r.z, u.w, coincident, self.z0)
     }
 }
 
@@ -153,40 +126,40 @@ impl Surface for Sphere {
     ///
     /// Solves |o + d·u|² = R² with o = r − center. Since |u| = 1 the quadratic
     /// is d² + 2(o·u)d + (o·o − R²) = 0, so d = −k ± √(k² − c) where k = o·u and
-    /// c = o·o − R². Returns the nearest root with `d > ε`, or `INFINITY` if the
-    /// ray misses (discriminant < 0) or both roots are behind the particle.
-    ///
-    /// `coincident` (the particle is sitting on this surface, e.g. just after a
-    /// boundary crossing) forces c = 0 so round-off can't reflect the tangent
-    /// root back inside — the standard OpenMC treatment.
+    /// c = o·o − R². Returns `INFINITY` if the ray misses (discriminant < 0).
+    /// Three cases, as `SurfaceSphere::distance` (`src/surface.cpp:652`): on the
+    /// sphere (`coincident` or `|c| < FP_COINCIDENT`), the sign of `k` says whether
+    /// the ray faces out (no hit) or in (`−k + √quad`); inside (`c < 0`) the `+√`
+    /// root; outside the `−√` root, if not behind. ~~`coincident` forced c = 0 and
+    /// roots below a 1e-10 floor were dropped~~ **CORRECTED 2026-11-10** (gh:#1386:
+    /// that differed from upstream).
     // ANCHOR: sphere_distance (mdBook include, Monte Carlo tutorial gh:#521)
     #[inline]
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
-        const EPS: f64 = 1.0e-10;
-        let ox = r.x - self.x0;
-        let oy = r.y - self.y0;
-        let oz = r.z - self.z0;
-        let k = ox * u.u + oy * u.v + oz * u.w; // o·u
-        let c = if coincident {
-            0.0
-        } else {
-            ox * ox + oy * oy + oz * oz - self.r * self.r
-        };
-        let disc = k * k - c;
-        if disc < 0.0 {
-            return f64::INFINITY;
-        }
-        let sq = disc.sqrt();
-        // Roots in increasing order: (−k − sq) ≤ (−k + sq).
-        let d_near = -k - sq;
-        if d_near > EPS {
-            d_near
-        } else {
-            let d_far = -k + sq;
-            if d_far > EPS {
-                d_far
-            } else {
+        // `SurfaceSphere::distance`, src/surface.cpp:652.
+        let x = r.x - self.x0;
+        let y = r.y - self.y0;
+        let z = r.z - self.z0;
+        let k = x * u.u + y * u.v + z * u.w;
+        let c = x * x + y * y + z * z - self.r * self.r;
+        let quad = k * k - c;
+        if quad < 0.0 {
+            f64::INFINITY
+        } else if coincident || c.abs() < FP_COINCIDENT {
+            // On the sphere: the sign of k says whether we face in or out.
+            if k >= 0.0 {
                 f64::INFINITY
+            } else {
+                -k + quad.sqrt()
+            }
+        } else if c < 0.0 {
+            -k + quad.sqrt()
+        } else {
+            let d = -k - quad.sqrt();
+            if d < 0.0 {
+                f64::INFINITY
+            } else {
+                d
             }
         }
     }
@@ -222,72 +195,118 @@ impl Surface for ZCylinder {
     /// sign of `k` says whether it faces out (no hit) or in.
     #[inline]
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
-        const FP_COINCIDENT: f64 = 1.0e-12;
-        let a = u.u * u.u + u.v * u.v;
-        if a == 0.0 {
-            return f64::INFINITY; // travelling parallel to the axis
-        }
-        let dx = r.x - self.x0;
-        let dy = r.y - self.y0;
-        let k = dx * u.u + dy * u.v;
-        let c = dx * dx + dy * dy - self.r * self.r;
-        let quad = k * k - a * c;
-        if quad < 0.0 {
-            return f64::INFINITY; // ray misses the cylinder
-        }
-        let sq = quad.sqrt();
-        if coincident || c.abs() < FP_COINCIDENT {
-            // On the surface: one root is ~0. Facing out (k≥0) ⇒ no forward hit.
-            if k >= 0.0 {
-                f64::INFINITY
-            } else {
-                (-k + sq) / a
-            }
-        } else if c < 0.0 {
-            // Inside: exactly one positive root, the +√ branch.
-            (-k + sq) / a
+        axis_aligned_cylinder_distance(
+            u.w,
+            (r.x - self.x0, r.y - self.y0),
+            (u.u, u.v),
+            coincident,
+            self.r,
+        )
+    }
+}
+
+/// `FP_COINCIDENT` (`include/openmc/constants.h:55`), shared with the module root.
+use super::FP_COINCIDENT;
+
+// The three helpers below are line-by-line ports of OpenMC `8f79d9d0`
+// `src/surface.cpp` (gh:#1386; code-to-code test
+// `tests/surface_distance_vs_openmc_code_to_code.rs`). Upstream returns
+// `INFTY` (= `DBL_MAX`) for "no hit"; this port returns `f64::INFINITY`
+// (same meaning; the test counts the two as agreeing misses).
+
+/// `axis_aligned_plane_distance<i>` (`src/surface.cpp:209`): distance along `u_i`
+/// from coordinate `r_i` to the plane at `offset`.
+#[inline]
+fn axis_aligned_plane_distance(r_i: f64, u_i: f64, coincident: bool, offset: f64) -> f64 {
+    let f = offset - r_i;
+    if coincident || f.abs() < FP_COINCIDENT || u_i == 0.0 {
+        return f64::INFINITY;
+    }
+    let d = f / u_i;
+    if d < 0.0 {
+        return f64::INFINITY;
+    }
+    d
+}
+
+/// `axis_aligned_cylinder_distance<i1,i2,i3>` (`src/surface.cpp:446`).
+/// `u1` is the direction cosine along the cylinder axis, `(r2, r3)` the position
+/// relative to the axis in the other two coordinates and `(u2, u3)` the matching
+/// direction cosines.
+#[inline]
+fn axis_aligned_cylinder_distance(
+    u1: f64,
+    (r2, r3): (f64, f64),
+    (u2, u3): (f64, f64),
+    coincident: bool,
+    radius: f64,
+) -> f64 {
+    let a = 1.0 - u1 * u1; // u^2 + v^2
+    if a == 0.0 {
+        return f64::INFINITY;
+    }
+    let k = r2 * u2 + r3 * u3;
+    let c = r2 * r2 + r3 * r3 - radius * radius;
+    let quad = k * k - a * c;
+    if quad < 0.0 {
+        f64::INFINITY
+    } else if coincident || c.abs() < FP_COINCIDENT {
+        // On the cylinder: the sign of k says whether we face out or in.
+        if k >= 0.0 {
+            f64::INFINITY
         } else {
-            // Outside: nearest forward root is the −√ branch, if positive.
-            let d = (-k - sq) / a;
-            if d < 0.0 {
-                f64::INFINITY
-            } else {
-                d
-            }
+            (-k + quad.sqrt()) / a
+        }
+    } else if c < 0.0 {
+        (-k + quad.sqrt()) / a
+    } else {
+        let d = (-k - quad.sqrt()) / a;
+        if d < 0.0 {
+            f64::INFINITY
+        } else {
+            d
         }
     }
 }
 
-/// Smallest root `d > eps` of `a·d² + b·d + c = 0`, or `INFINITY` if none.
-///
-/// The shared ray-quadric intersection solver for the surfaces below whose
-/// distance reduces to a general quadratic (cones and the general [`Quadric`]).
-/// Degenerates to the linear solve `b·d + c = 0` when `a ≈ 0` (a ray parallel
-/// to a cone's generator, or a quadric that is locally planar along `u`).
+/// `axis_aligned_cone_distance<i1,i2,i3>` (`src/surface.cpp:734`); `(r1, r2, r3)`
+/// is the position relative to the apex with `1` the cone axis.
 #[inline]
-fn smallest_positive_root(a: f64, b: f64, c: f64, eps: f64) -> f64 {
-    if a.abs() < 1.0e-14 {
-        if b.abs() < 1.0e-14 {
-            return f64::INFINITY;
-        }
-        let d = -c / b;
-        return if d > eps { d } else { f64::INFINITY };
-    }
-    let disc = b * b - 4.0 * a * c;
-    if disc < 0.0 {
+fn axis_aligned_cone_distance(
+    (r1, r2, r3): (f64, f64, f64),
+    (u1, u2, u3): (f64, f64, f64),
+    coincident: bool,
+    radius_sq: f64,
+) -> f64 {
+    let a = u2 * u2 + u3 * u3 - radius_sq * u1 * u1;
+    let k = r2 * u2 + r3 * u3 - radius_sq * r1 * u1;
+    let c = r2 * r2 + r3 * r3 - radius_sq * r1 * r1;
+    let mut quad = k * k - a * c;
+    let mut d;
+    if quad < 0.0 {
         return f64::INFINITY;
-    }
-    let sq = disc.sqrt();
-    let inv = 0.5 / a;
-    let d1 = (-b - sq) * inv;
-    let d2 = (-b + sq) * inv;
-    let (lo, hi) = if d1 <= d2 { (d1, d2) } else { (d2, d1) };
-    if lo > eps {
-        lo
-    } else if hi > eps {
-        hi
+    } else if coincident || c.abs() < FP_COINCIDENT {
+        if k >= 0.0 {
+            d = (-k - quad.sqrt()) / a;
+        } else {
+            d = (-k + quad.sqrt()) / a;
+        }
     } else {
+        quad = quad.sqrt();
+        d = (-k - quad) / a;
+        let b = (-k + quad) / a;
+        if d < 0.0 {
+            if b > 0.0 {
+                d = b;
+            }
+        } else if b > 0.0 && b < d {
+            d = b;
+        }
+    }
+    if d <= 0.0 {
         f64::INFINITY
+    } else {
+        d
     }
 }
 
@@ -317,16 +336,18 @@ impl Surface for Plane {
     }
     #[inline]
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
-        let dist_hint = if coincident { 1.0e-14 } else { 0.0 };
-        let denom = self.a * u.u + self.b * u.v + self.c * u.w;
-        if denom.abs() < 1.0e-14 {
-            return f64::INFINITY; // ray parallel to the plane
-        }
-        let d = -(self.a * r.x + self.b * r.y + self.c * r.z - self.d) / denom;
-        if d > dist_hint {
-            d
-        } else {
+        // `SurfacePlane::distance`, src/surface.cpp:400.
+        let f = self.a * r.x + self.b * r.y + self.c * r.z - self.d;
+        let projection = self.a * u.u + self.b * u.v + self.c * u.w;
+        if coincident || f.abs() < FP_COINCIDENT || projection == 0.0 {
             f64::INFINITY
+        } else {
+            let d = -f / projection;
+            if d < 0.0 {
+                f64::INFINITY
+            } else {
+                d
+            }
         }
     }
 }
@@ -357,36 +378,13 @@ impl Surface for XCylinder {
     }
     #[inline]
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
-        const FP_COINCIDENT: f64 = 1.0e-12;
-        let a = u.v * u.v + u.w * u.w;
-        if a == 0.0 {
-            return f64::INFINITY;
-        }
-        let dy = r.y - self.y0;
-        let dz = r.z - self.z0;
-        let k = dy * u.v + dz * u.w;
-        let c = dy * dy + dz * dz - self.r * self.r;
-        let quad = k * k - a * c;
-        if quad < 0.0 {
-            return f64::INFINITY;
-        }
-        let sq = quad.sqrt();
-        if coincident || c.abs() < FP_COINCIDENT {
-            if k >= 0.0 {
-                f64::INFINITY
-            } else {
-                (-k + sq) / a
-            }
-        } else if c < 0.0 {
-            (-k + sq) / a
-        } else {
-            let d = (-k - sq) / a;
-            if d < 0.0 {
-                f64::INFINITY
-            } else {
-                d
-            }
-        }
+        axis_aligned_cylinder_distance(
+            u.u,
+            (r.y - self.y0, r.z - self.z0),
+            (u.v, u.w),
+            coincident,
+            self.r,
+        )
     }
 }
 
@@ -415,36 +413,13 @@ impl Surface for YCylinder {
     }
     #[inline]
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
-        const FP_COINCIDENT: f64 = 1.0e-12;
-        let a = u.u * u.u + u.w * u.w;
-        if a == 0.0 {
-            return f64::INFINITY;
-        }
-        let dx = r.x - self.x0;
-        let dz = r.z - self.z0;
-        let k = dx * u.u + dz * u.w;
-        let c = dx * dx + dz * dz - self.r * self.r;
-        let quad = k * k - a * c;
-        if quad < 0.0 {
-            return f64::INFINITY;
-        }
-        let sq = quad.sqrt();
-        if coincident || c.abs() < FP_COINCIDENT {
-            if k >= 0.0 {
-                f64::INFINITY
-            } else {
-                (-k + sq) / a
-            }
-        } else if c < 0.0 {
-            (-k + sq) / a
-        } else {
-            let d = (-k - sq) / a;
-            if d < 0.0 {
-                f64::INFINITY
-            } else {
-                d
-            }
-        }
+        axis_aligned_cylinder_distance(
+            u.v,
+            (r.x - self.x0, r.z - self.z0),
+            (u.u, u.w),
+            coincident,
+            self.r,
+        )
     }
 }
 
@@ -481,17 +456,12 @@ impl Surface for ZCone {
     }
     #[inline]
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
-        let dx = r.x - self.x0;
-        let dy = r.y - self.y0;
-        let dz = r.z - self.z0;
-        let a = u.u * u.u + u.v * u.v - self.r_sq * u.w * u.w;
-        let k = dx * u.u + dy * u.v - self.r_sq * dz * u.w; // half the linear coeff
-        let c = if coincident {
-            0.0
-        } else {
-            dx * dx + dy * dy - self.r_sq * dz * dz
-        };
-        smallest_positive_root(a, 2.0 * k, c, 1.0e-10)
+        axis_aligned_cone_distance(
+            (r.z - self.z0, r.x - self.x0, r.y - self.y0),
+            (u.w, u.u, u.v),
+            coincident,
+            self.r_sq,
+        )
     }
 }
 
@@ -526,17 +496,12 @@ impl Surface for XCone {
     }
     #[inline]
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
-        let dx = r.x - self.x0;
-        let dy = r.y - self.y0;
-        let dz = r.z - self.z0;
-        let a = u.v * u.v + u.w * u.w - self.r_sq * u.u * u.u;
-        let k = dy * u.v + dz * u.w - self.r_sq * dx * u.u;
-        let c = if coincident {
-            0.0
-        } else {
-            dy * dy + dz * dz - self.r_sq * dx * dx
-        };
-        smallest_positive_root(a, 2.0 * k, c, 1.0e-10)
+        axis_aligned_cone_distance(
+            (r.x - self.x0, r.y - self.y0, r.z - self.z0),
+            (u.u, u.v, u.w),
+            coincident,
+            self.r_sq,
+        )
     }
 }
 
@@ -571,17 +536,12 @@ impl Surface for YCone {
     }
     #[inline]
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
-        let dx = r.x - self.x0;
-        let dy = r.y - self.y0;
-        let dz = r.z - self.z0;
-        let a = u.u * u.u + u.w * u.w - self.r_sq * u.v * u.v;
-        let k = dx * u.u + dz * u.w - self.r_sq * dy * u.v;
-        let c = if coincident {
-            0.0
-        } else {
-            dx * dx + dz * dz - self.r_sq * dy * dy
-        };
-        smallest_positive_root(a, 2.0 * k, c, 1.0e-10)
+        axis_aligned_cone_distance(
+            (r.y - self.y0, r.x - self.x0, r.z - self.z0),
+            (u.v, u.u, u.w),
+            coincident,
+            self.r_sq,
+        )
     }
 }
 
@@ -608,16 +568,11 @@ pub struct Quadric {
 impl Surface for Quadric {
     #[inline]
     fn evaluate(&self, r: Position) -> f64 {
+        // `SurfaceQuadric::evaluate`, src/surface.cpp:907 (this operation order).
         let (x, y, z) = (r.x, r.y, r.z);
-        self.a * x * x
-            + self.b * y * y
-            + self.c * z * z
-            + self.d * x * y
-            + self.e * y * z
-            + self.f * x * z
-            + self.g * x
-            + self.h * y
-            + self.j * z
+        x * (self.a * x + self.d * y + self.g)
+            + y * (self.b * y + self.e * z + self.h)
+            + z * (self.c * z + self.f * x + self.j)
             + self.k
     }
     #[inline]
@@ -630,25 +585,68 @@ impl Surface for Quadric {
         )
     }
     #[inline]
-    fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
+    fn distance(&self, r: Position, ang: Direction, coincident: bool) -> f64 {
+        // `SurfaceQuadric::distance`, src/surface.cpp:916.
         let (x, y, z) = (r.x, r.y, r.z);
-        // Substitute r + d·u into the quadric → a_q·d² + b_q·d + c_q = 0.
-        let a_q = self.a * u.u * u.u
-            + self.b * u.v * u.v
-            + self.c * u.w * u.w
-            + self.d * u.u * u.v
-            + self.e * u.v * u.w
-            + self.f * u.u * u.w;
-        let b_q = 2.0 * self.a * x * u.u
-            + 2.0 * self.b * y * u.v
-            + 2.0 * self.c * z * u.w
-            + self.d * (x * u.v + y * u.u)
-            + self.e * (y * u.w + z * u.v)
-            + self.f * (x * u.w + z * u.u)
-            + self.g * u.u
-            + self.h * u.v
-            + self.j * u.w;
-        let c_q = if coincident { 0.0 } else { self.evaluate(r) };
-        smallest_positive_root(a_q, b_q, c_q, 1.0e-10)
+        let (u, v, w) = (ang.u, ang.v, ang.w);
+        let a = self.a * u * u
+            + self.b * v * v
+            + self.c * w * w
+            + self.d * u * v
+            + self.e * v * w
+            + self.f * u * w;
+        let k = self.a * u * x
+            + self.b * v * y
+            + self.c * w * z
+            + 0.5
+                * (self.d * (u * y + v * x)
+                    + self.e * (v * z + w * y)
+                    + self.f * (w * x + u * z)
+                    + self.g * u
+                    + self.h * v
+                    + self.j * w);
+        let c = self.a * x * x
+            + self.b * y * y
+            + self.c * z * z
+            + self.d * x * y
+            + self.e * y * z
+            + self.f * x * z
+            + self.g * x
+            + self.h * y
+            + self.j * z
+            + self.k;
+        let mut quad = k * k - a * c;
+        let mut d;
+        if quad < 0.0 {
+            return f64::INFINITY;
+        } else if coincident || c.abs() < FP_COINCIDENT {
+            // On the surface; a == 0 means plane-like along this ray.
+            if a == 0.0 {
+                d = f64::INFINITY;
+            } else if k >= 0.0 {
+                d = (-k - quad.sqrt()) / a;
+            } else {
+                d = (-k + quad.sqrt()) / a;
+            }
+        } else if a == 0.0 {
+            // Locally a plane: one solution, a = 0 in a d^2 + 2 k d + c = 0.
+            d = -0.5 * c / k;
+        } else {
+            quad = quad.sqrt();
+            d = (-k - quad) / a;
+            let b = (-k + quad) / a;
+            if d < 0.0 {
+                if b > 0.0 {
+                    d = b;
+                }
+            } else if b > 0.0 && b < d {
+                d = b;
+            }
+        }
+        if d <= 0.0 {
+            f64::INFINITY
+        } else {
+            d
+        }
     }
 }

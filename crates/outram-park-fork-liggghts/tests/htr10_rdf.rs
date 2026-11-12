@@ -102,7 +102,9 @@ fn data_path(name: &str) -> std::path::PathBuf {
     } else {
         "../../reference-data/liggghts"
     };
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(dir).join(name)
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join(dir)
+        .join(name)
 }
 
 fn load_positions(name: &str) -> Option<Vec<Vec3>> {
@@ -135,17 +137,83 @@ fn settings_for(centres: &[Vec3]) -> RdfSettings {
 /// only the committed LIGGGHTS reference beds, while the sweep outputs appear
 /// once `examples/htr10_recirculation_sweep.rs` has been run.
 const BEDS: &[(&str, &str, &str, &str, &str)] = &[
-    ("htr10_settled.csv", "liggghts_settled", "0.4", "0.1", "settled_flat_floor"),
-    ("htr10_settled_ours.csv", "ours_settled", "0.4", "0.1", "settled_flat_floor"),
-    ("htr10_conus_settled_liggghts.csv", "liggghts_conus", "0.4", "0.1", "conus_slump"),
-    ("htr10_conus_presettled_mu40_mur10.csv", "ours_conus_mu40_mur10", "0.4", "0.1", "conus_slump"),
-    ("htr10_conus_presettled_mu40_mur00.csv", "ours_conus_mu40_mur00", "0.4", "0.0", "conus_slump"),
-    ("htr10_conus_presettled_mu10_mur10.csv", "ours_conus_mu10_mur10", "0.1", "0.1", "conus_slump"),
-    ("htr10_conus_presettled_mu10_mur00.csv", "ours_conus_mu10_mur00", "0.1", "0.0", "conus_slump"),
-    ("htr10_recirc_mu40_mur10_bed.csv", "ours_recirc_mu40_mur10", "0.4", "0.1", "recirculated"),
-    ("htr10_recirc_mu40_mur00_bed.csv", "ours_recirc_mu40_mur00", "0.4", "0.0", "recirculated"),
-    ("htr10_recirc_mu10_mur10_bed.csv", "ours_recirc_mu10_mur10", "0.1", "0.1", "recirculated"),
-    ("htr10_recirc_mu10_mur00_bed.csv", "ours_recirc_mu10_mur00", "0.1", "0.0", "recirculated"),
+    (
+        "htr10_settled.csv",
+        "liggghts_settled",
+        "0.4",
+        "0.1",
+        "settled_flat_floor",
+    ),
+    (
+        "htr10_settled_ours.csv",
+        "ours_settled",
+        "0.4",
+        "0.1",
+        "settled_flat_floor",
+    ),
+    (
+        "htr10_conus_settled_liggghts.csv",
+        "liggghts_conus",
+        "0.4",
+        "0.1",
+        "conus_slump",
+    ),
+    (
+        "htr10_conus_presettled_mu40_mur10.csv",
+        "ours_conus_mu40_mur10",
+        "0.4",
+        "0.1",
+        "conus_slump",
+    ),
+    (
+        "htr10_conus_presettled_mu40_mur00.csv",
+        "ours_conus_mu40_mur00",
+        "0.4",
+        "0.0",
+        "conus_slump",
+    ),
+    (
+        "htr10_conus_presettled_mu10_mur10.csv",
+        "ours_conus_mu10_mur10",
+        "0.1",
+        "0.1",
+        "conus_slump",
+    ),
+    (
+        "htr10_conus_presettled_mu10_mur00.csv",
+        "ours_conus_mu10_mur00",
+        "0.1",
+        "0.0",
+        "conus_slump",
+    ),
+    (
+        "htr10_recirc_mu40_mur10_bed.csv",
+        "ours_recirc_mu40_mur10",
+        "0.4",
+        "0.1",
+        "recirculated",
+    ),
+    (
+        "htr10_recirc_mu40_mur00_bed.csv",
+        "ours_recirc_mu40_mur00",
+        "0.4",
+        "0.0",
+        "recirculated",
+    ),
+    (
+        "htr10_recirc_mu10_mur10_bed.csv",
+        "ours_recirc_mu10_mur10",
+        "0.1",
+        "0.1",
+        "recirculated",
+    ),
+    (
+        "htr10_recirc_mu10_mur00_bed.csv",
+        "ours_recirc_mu10_mur00",
+        "0.1",
+        "0.0",
+        "recirculated",
+    ),
 ];
 
 /// Compute `g(r)` for every available HTR-10 bed and write the combined tidy
@@ -172,7 +240,8 @@ const BEDS: &[(&str, &str, &str, &str, &str)] = &[
 /// destroy the measurement.
 #[test]
 fn radial_distribution_of_every_htr10_bed() {
-    let mut csv = String::from("case,mu,mu_r,stage,n_pebbles,n_centres,r_m,r_over_d,g,coordination,counts\n");
+    let mut csv =
+        String::from("case,mu,mu_r,stage,n_pebbles,n_centres,r_m,r_over_d,g,coordination,counts\n");
     let mut found = 0usize;
 
     for (file, case, mu, mu_r, stage) in BEDS {

@@ -62,9 +62,16 @@
 //! | velocity | `1.11e-16 m/s` (1 ulp at `|v| ≈ 1`) |
 //! | angular velocity | `1.42e-14 rad/s` (≈3 ulp at `ω_z ≈ 41.6`) |
 //!
-//! Agreement to floating-point round-off — the residual is the expected
-//! consequence of summing identical terms in a different association order,
-//! the same signature the history-model oblique case shows. Final state in
+//! ~~Agreement to floating-point round-off — the residual is the expected
+//! consequence of summing identical terms in a different association order.~~
+//! **CORRECTED 2026-11-10 (gh:#1406): bit-identical** — all 4518 `f64`
+//! (251 frames x 2 atoms x 9) match upstream's bit pattern. Two causes of the
+//! old residual: the integrator's `ω` update order (`fix_nve_sphere.cpp`) and
+//! this path's own copy of the contact arithmetic, whose operation order
+//! differed from `surface_model_default.h` / `normal_model_hertz.h` /
+//! `tangential_model_no_history.h`. `HertzContact::contact_force` now
+//! delegates to the engine path's translation of those files, so there is one
+//! implementation. Final state in
 //! both codes:
 //! `v = (−0.72176686213860586, 0.68189877446166391, 0) m/s`,
 //! `ω_z = −41.624058372713392 rad/s`.
@@ -140,6 +147,8 @@ fn stateless_path_matches_liggghts_no_history() {
     .expect("valid simulation");
 
     let (mut dx, mut dv, mut dw) = (0.0_f64, 0.0_f64, 0.0_f64);
+    let (mut mismatched, mut total) = (0_usize, 0_usize);
+    let mut first = None;
     let mut last = 0_usize;
     for row in &rows {
         let step = row[0] as usize;
@@ -149,33 +158,41 @@ fn stateless_path_matches_liggghts_no_history() {
         last = step;
         for (index, base) in [(0_usize, 1_usize), (1, 10)] {
             let p = sim.particles()[index];
-            for (got, want) in [
-                (p.position.x, row[base]),
-                (p.position.y, row[base + 1]),
-                (p.position.z, row[base + 2]),
-            ] {
-                dx = dx.max((got - want).abs());
-            }
-            for (got, want) in [
-                (p.velocity.x, row[base + 3]),
-                (p.velocity.y, row[base + 4]),
-                (p.velocity.z, row[base + 5]),
-            ] {
-                dv = dv.max((got - want).abs());
-            }
-            for (got, want) in [
-                (p.angular_velocity.x, row[base + 6]),
-                (p.angular_velocity.y, row[base + 7]),
-                (p.angular_velocity.z, row[base + 8]),
-            ] {
-                dw = dw.max((got - want).abs());
+            let got = [
+                p.position.x,
+                p.position.y,
+                p.position.z,
+                p.velocity.x,
+                p.velocity.y,
+                p.velocity.z,
+                p.angular_velocity.x,
+                p.angular_velocity.y,
+                p.angular_velocity.z,
+            ];
+            for (k, g) in got.iter().enumerate() {
+                let want = row[base + k];
+                let err = (g - want).abs();
+                match k / 3 {
+                    0 => dx = dx.max(err),
+                    1 => dv = dv.max(err),
+                    _ => dw = dw.max(err),
+                }
+                total += 1;
+                if g.to_bits() != want.to_bits() {
+                    mismatched += 1;
+                    first.get_or_insert((step, index, k, *g, want));
+                }
             }
         }
     }
-    eprintln!("stateless path vs LIGGGHTS no_history: dx={dx:e} dv={dv:e} dw={dw:e}");
-    assert!(dx <= 1e-15, "position drift {dx:e} m vs LIGGGHTS");
-    assert!(dv <= 1e-13, "velocity drift {dv:e} m/s vs LIGGGHTS");
-    assert!(dw <= 1e-11, "spin drift {dw:e} rad/s vs LIGGGHTS");
+    eprintln!(
+        "stateless path vs LIGGGHTS no_history: {mismatched}/{total} values differ \
+         dx={dx:e} dv={dv:e} dw={dw:e} first={first:?}"
+    );
+    assert_eq!(
+        mismatched, 0,
+        "not bit-identical vs LIGGGHTS: {mismatched}/{total} differ, first {first:?}"
+    );
 
     // The case must actually spin the particles up, or it proves nothing about
     // the contact radii or the torque arm.

@@ -305,6 +305,11 @@ pub struct Nuclide {
     /// [`Nuclide::with_target_at_rest`] and [`Nuclide::free_gas_kt`]. `false`
     /// (the default, and what every constructor produces) is the physics.
     target_at_rest: bool,
+    /// `true` after [`Nuclide::with_legacy_scatter_kernels`]: collisions on this
+    /// nuclide use the pre-2026-11-11 kernels and the single-variate reaction
+    /// ladder instead of the OpenMC-faithful defaults
+    /// ([`crate::physics::scatter::ScatterKernels`]).
+    legacy_scatter_kernels: bool,
     /// kT \[eV\] of the temperature this nuclide's pointwise data were
     /// broadened to: an ACE table's own `kT`, or `k_B * T` for a nuclide built
     /// from ENDF at `T`. `None` on the LOW (`Core`, multipole) tier, whose
@@ -618,6 +623,7 @@ impl Nuclide {
             // LOW tier reads no tape, so there is no MF=6 to carry.
             continuum: ContinuumLaws::default(),
             target_at_rest: false,
+            legacy_scatter_kernels: false,
             data_kt_ev: None,
             nu_frozen_at: None,
             chi_frozen_at: None,
@@ -882,6 +888,109 @@ impl Nuclide {
     pub fn with_target_at_rest(mut self) -> Self {
         self.target_at_rest = true;
         self
+    }
+
+    /// Select the **legacy** collision kernels for this nuclide (the named
+    /// alternative to the OpenMC-faithful default,
+    /// [`crate::physics::scatter::ScatterKernels::Legacy`]): `two_body_scatter_with_mu`,
+    /// `free_gas_elastic_scatter_dbrc`, `rotate_direction`, `cm_to_lab`, and the
+    /// single-variate reaction ladder. For reproducing a number recorded before
+    /// the 2026-11-11 switch (gh:#1386); the same distributions, a different
+    /// last bit and draw order.
+    pub fn with_legacy_scatter_kernels(mut self) -> Self {
+        self.legacy_scatter_kernels = true;
+        self
+    }
+
+    /// The collision kernels transport uses on this nuclide: the legacy set when
+    /// [`with_legacy_scatter_kernels`](Self::with_legacy_scatter_kernels) was
+    /// applied or `OUTRAM_MC_LEGACY_SCATTER_KERNELS` is set, else OpenMC's.
+    pub fn scatter_kernels(&self) -> crate::physics::scatter::ScatterKernels {
+        if self.legacy_scatter_kernels {
+            crate::physics::scatter::ScatterKernels::Legacy
+        } else {
+            crate::physics::scatter::scatter_kernels_from_env()
+        }
+    }
+
+    /// A discrete-level inelastic collision (MT 51..90): `(E', u')`.
+    ///
+    /// OpenMC kernels (default): the level's CM cosine from its MF=4 law (else
+    /// `uniform_distribution(-1, 1)`), drawn first, as `UncorrelatedAngleEnergy`
+    /// does, then `LevelInelastic` energy, the CM-to-lab block of
+    /// `inelastic_scatter` and `rotate_angle`. Legacy: `two_body_scatter_with_mu`.
+    pub fn sample_level_inelastic_scatter(
+        &self,
+        mt: i32,
+        q: f64,
+        e: f64,
+        u: crate::geometry::position::Direction,
+        seed: &mut u64,
+    ) -> (f64, crate::geometry::position::Direction) {
+        use crate::physics::scatter::{
+            level_inelastic_scatter_openmc, two_body_scatter, two_body_scatter_with_mu,
+            uniform_pm1, ScatterKernels,
+        };
+        let mu_cm = self.sample_inelastic_mu_cm(mt, e, seed);
+        match self.scatter_kernels() {
+            ScatterKernels::OpenMc => {
+                let mu = mu_cm.unwrap_or_else(|| uniform_pm1(seed));
+                level_inelastic_scatter_openmc(e, u, self.awr, q, mu, seed)
+            }
+            ScatterKernels::Legacy => match mu_cm {
+                Some(mu) => two_body_scatter_with_mu(e, u, self.awr, q, mu, seed),
+                None => two_body_scatter(e, u, self.awr, q, seed),
+            },
+        }
+    }
+
+    /// An elastic collision at material temperature `mat_temp_k`: `(E', u')`.
+    /// Below the S(alpha,beta) cutoff of a nuclide carrying a table the bound-atom
+    /// law is used (then `rotate_angle`); otherwise the free-gas elastic kernel.
+    ///
+    /// OpenMC kernels (default): `elastic_scatter` with `sample_target_velocity`
+    /// (CXS / RVS / DBRC), the target velocity drawn BEFORE the CM cosine, the
+    /// target at rest when the URR probability table is in use
+    /// (`use_ptable`, `needs_urr_draw`) or under `with_target_at_rest`. Legacy:
+    /// the CM cosine first, then `free_gas_elastic_scatter_dbrc`.
+    pub fn sample_elastic_collision(
+        &self,
+        e: f64,
+        u: crate::geometry::position::Direction,
+        mat_temp_k: f64,
+        seed: &mut u64,
+    ) -> (f64, crate::geometry::position::Direction) {
+        use crate::physics::scatter::{
+            elastic_scatter_openmc, free_gas_elastic_scatter_dbrc, rotate_kernel, uniform_pm1,
+            ScatterKernels,
+        };
+        let kernels = self.scatter_kernels();
+        if let Some((e_out, mu_lab)) = self.sample_thermal(e, seed) {
+            return (e_out, rotate_kernel(kernels, u, mu_lab, seed));
+        }
+        let kt = self.free_gas_kt(mat_temp_k);
+        match kernels {
+            ScatterKernels::OpenMc => {
+                let use_ptable = self.target_at_rest || self.needs_urr_draw(e);
+                let (e_out, u_out, _mu_lab) = elastic_scatter_openmc(
+                    e,
+                    u,
+                    self.awr,
+                    kt,
+                    self.dbrc_table(),
+                    use_ptable,
+                    |s| self.sample_elastic_mu_cm(e, s).unwrap_or_else(|| uniform_pm1(s)),
+                    seed,
+                );
+                (e_out, u_out)
+            }
+            ScatterKernels::Legacy => {
+                let mu_cm = self
+                    .sample_elastic_mu_cm(e, seed)
+                    .unwrap_or_else(|| 2.0 * crate::rng::lcg::prn(seed) - 1.0);
+                free_gas_elastic_scatter_dbrc(e, u, self.awr, kt, mu_cm, seed, self.dbrc_table())
+            }
+        }
     }
 
     /// Whether [`with_target_at_rest`](Self::with_target_at_rest) has been
@@ -2383,6 +2492,7 @@ impl Nuclide {
                 mt5,
             },
             target_at_rest: false,
+            legacy_scatter_kernels: false,
             data_kt_ev: Some(ace.kt_ev),
             nu_frozen_at: None,
             chi_frozen_at: None,
@@ -2941,6 +3051,7 @@ impl Nuclide {
             thermal: None,
             continuum,
             target_at_rest: false,
+            legacy_scatter_kernels: false,
             data_kt_ev: Some(crate::physics::scatter::K_BOLTZMANN_EV_PER_K * temp_k),
             nu_frozen_at: None,
             chi_frozen_at: None,
@@ -3075,10 +3186,14 @@ impl Nuclide {
         seed: &mut u64,
     ) -> (f64, crate::geometry::position::Direction) {
         use crate::physics::scatter::{
-            continuum_inelastic_scatter, continuum_inelastic_scatter_evaluated, rotate_direction,
+            cm_lab_rotate, continuum_inelastic_scatter_evaluated_kernels,
+            continuum_inelastic_scatter_kernels, rotate_kernel,
         };
+        let kernels = self.scatter_kernels();
         if let Some(law) = self.continuum_law(mt) {
-            return continuum_inelastic_scatter_evaluated(e, u, self.awr, q, Some(law), seed);
+            return continuum_inelastic_scatter_evaluated_kernels(
+                e, u, self.awr, q, Some(law), kernels, seed,
+            );
         }
         if let Some(law) = self.uncorrelated_law(mt) {
             let (e_out, mu) = sample_uncorrelated_emission(law, e, seed);
@@ -3091,14 +3206,13 @@ impl Nuclide {
                 // exactly `cm_to_lab`. ~~`lct == 1` is guaranteed by
                 // `UncorrelatedEmission::from_endf`~~ CORRECTED 2026-09-29: no
                 // longer; see that function.
-                let (e_lab, mu_lab) = crate::physics::scatter::cm_to_lab(e, e_out, mu, self.awr);
-                return (e_lab, rotate_direction(u, mu_lab, seed));
+                return cm_lab_rotate(kernels, u, e, e_out, mu, self.awr, seed);
             }
             // Laboratory law: both halves are already lab-frame and only the
             // rotation about the incident direction is needed.
-            return (e_out, rotate_direction(u, mu, seed));
+            return (e_out, rotate_kernel(kernels, u, mu, seed));
         }
-        continuum_inelastic_scatter(e, u, self.awr, q, seed)
+        continuum_inelastic_scatter_kernels(e, u, self.awr, q, kernels, seed)
     }
 
     /// Σ of the "other" neutron-emitting channels at `e` \[eV\] on the
@@ -3182,27 +3296,30 @@ impl Nuclide {
         seed: &mut u64,
     ) -> (f64, crate::geometry::position::Direction) {
         use crate::physics::scatter::{
-            continuum_inelastic_scatter, continuum_inelastic_scatter_evaluated, rotate_direction,
-            two_body_scatter, two_body_scatter_with_mu,
+            cm_lab_rotate, continuum_inelastic_scatter_evaluated_kernels,
+            continuum_inelastic_scatter_kernels, rotate_kernel, two_body_scatter,
+            two_body_scatter_with_mu,
         };
+        let kernels = self.scatter_kernels();
         match &ch.law {
-            OtherLaw::Correlated(law) => {
-                continuum_inelastic_scatter_evaluated(e, u, self.awr, ch.q, Some(law), seed)
-            }
+            OtherLaw::Correlated(law) => continuum_inelastic_scatter_evaluated_kernels(
+                e, u, self.awr, ch.q, Some(law), kernels, seed,
+            ),
             OtherLaw::Uncorrelated(law) => {
                 let (e_out, mu) = sample_uncorrelated_emission(law, e, seed);
                 if law.lct >= 2 {
-                    let (el, ml) = crate::physics::scatter::cm_to_lab(e, e_out, mu, self.awr);
-                    (el, rotate_direction(u, ml, seed))
+                    cm_lab_rotate(kernels, u, e, e_out, mu, self.awr, seed)
                 } else {
-                    (e_out, rotate_direction(u, mu, seed))
+                    (e_out, rotate_kernel(kernels, u, mu, seed))
                 }
             }
             OtherLaw::TwoBody(ang) => match sample_mf4_mu_cm(ang, e, seed) {
                 Some(mu) => two_body_scatter_with_mu(e, u, self.awr, ch.q, mu, seed),
                 None => two_body_scatter(e, u, self.awr, ch.q, seed),
             },
-            OtherLaw::StandIn => continuum_inelastic_scatter(e, u, self.awr, ch.q, seed),
+            OtherLaw::StandIn => {
+                continuum_inelastic_scatter_kernels(e, u, self.awr, ch.q, kernels, seed)
+            }
         }
     }
 
@@ -3619,6 +3736,15 @@ impl Nuclide {
     /// kernel applies the Weisskopf evaporation energy-loss law. An empty-level
     /// call likewise defaults to `Continuum`.
     pub fn sample_inelastic(&self, e: f64, seed: &mut u64) -> Inelastic {
+        self.sample_inelastic_at(e, None, seed)
+    }
+
+    /// [`Self::sample_inelastic`] with the level chosen by `cutoff` (measured from
+    /// the start of the inelastic block, in barn) instead of a fresh draw: OpenMC
+    /// `scatter()` walks `index_inelastic_scatter_` against the SAME cutoff that
+    /// chose the group (`prob < cutoff` continues; the first `prob >= cutoff`
+    /// wins). `None` draws `prn * total` (legacy).
+    pub fn sample_inelastic_at(&self, e: f64, cutoff: Option<f64>, seed: &mut u64) -> Inelastic {
         let XsSource::Pointwise { recon, inel, .. } = &self.xs else {
             return Inelastic::Continuum { q: 0.0 };
         };
@@ -3636,11 +3762,14 @@ impl Nuclide {
         if !(total > 0.0) {
             return Inelastic::Continuum { q: 0.0 };
         }
-        let xi = prn(seed) * total;
+        let (xi, upstream) = match cutoff {
+            Some(c) => (c, true),
+            None => (prn(seed) * total, false),
+        };
         let mut cum = 0.0;
         for l in inel {
             cum += level_xs(l);
-            if xi < cum {
+            if (upstream && cum >= xi) || (!upstream && xi < cum) {
                 return if l.continuum {
                     Inelastic::Continuum { q: l.q }
                 } else {
@@ -4146,6 +4275,74 @@ impl Nuclide {
         self.resample_below_data_max(&self.chi, e_chi, e_cap, seed)
     }
 
+    /// OpenMC's `sample_fission_neutron` (`src/physics.cpp:1081`, commit `8f79d9d0`),
+    /// draw for draw: returns `(delayed group, E', direction)` for a fission
+    /// neutron born from incident energy `e_in` and incident direction `u`.
+    ///
+    /// Order of draws (gh:#1386, #1444 d): (1) `prn < beta = nu_d/nu_t` (drawn
+    /// even when `beta = 0`); (2) if delayed, `xi = prn * nu_d` picks the group by
+    /// the cumulative group yields (the last group takes the remainder, as the
+    /// upstream loop `for group = 1; group < n_precursor_`), then ONE draw for the
+    /// emission time (`-log(prn)/lambda`; the value is not stored here, the draw
+    /// is what keeps the stream aligned); (3) the angle-energy law of the chosen
+    /// group: `mu = -1 + 2 prn` THEN the energy (`UncorrelatedAngleEnergy::sample`),
+    /// resampled together while `E' >= min(e_cap, data top)`; (4)
+    /// `rotate_angle(u, mu)` (one azimuth draw). The legacy order (direction
+    /// first, then energy, delayed group from a separate draw) is
+    /// [`Self::sample_fission_energy_below`] plus `isotropic_direction`.
+    pub fn sample_fission_neutron_openmc(
+        &self,
+        e_in: f64,
+        e_cap: f64,
+        u: crate::geometry::position::Direction,
+        seed: &mut u64,
+    ) -> (Option<usize>, f64, crate::geometry::position::Direction) {
+        const MAX_SAMPLE: usize = 100_000;
+        let e_chi = self.chi_incident_energy(e_in);
+        let delayed = self
+            .delayed
+            .as_ref()
+            .filter(|d| !d.spectra.is_empty() && !self.delayed_spectra_ablated && !self.prompt_only);
+        let nu_t = self.nu.at(e_chi);
+        let nu_d = delayed.map_or(0.0, |d| d.nu_delayed_at(e_chi));
+        let beta = if nu_t > 0.0 { nu_d / nu_t } else { 0.0 };
+        let mut group: Option<usize> = None;
+        if prn(seed) < beta {
+            let d = delayed.expect("beta > 0 implies delayed data");
+            let n = d.spectra.len();
+            let xi = prn(seed) * nu_d;
+            let mut prob = 0.0;
+            let mut g = n - 1;
+            for k in 0..n.saturating_sub(1) {
+                prob += nu_d * d.group_fraction(k, e_chi);
+                if xi < prob {
+                    g = k;
+                    break;
+                }
+            }
+            group = Some(g);
+            let _emission_time = prn(seed); // site->time -= log(prn)/decay_rate
+        }
+        let spectrum = match (group, delayed) {
+            (Some(g), Some(d)) => &d.spectra[g],
+            _ => &self.chi,
+        };
+        let e_top = self.pointwise_energy_max_ev().unwrap_or(f64::INFINITY).min(e_cap);
+        for _ in 0..MAX_SAMPLE {
+            let mu = -1.0 + 2.0 * prn(seed);
+            let e = sample_chi(spectrum, e_chi, seed);
+            if e < e_top {
+                let dir = crate::physics::scatter::rotate_angle_openmc(u, mu, None, seed);
+                return (group, e, dir);
+            }
+        }
+        panic!(
+            "{}: fission energy resampled {MAX_SAMPLE} times without falling below the \
+             data maximum {e_top:.4e} eV (OpenMC stops with the same error)",
+            self.name
+        );
+    }
+
     /// Draw from `spectrum` at `e_chi` until the birth energy is below
     /// `min(e_cap, this nuclide's pointwise data top)`, as OpenMC's
     /// `sample_fission_neutron` does (`src/physics.cpp:1091-1109`: `if
@@ -4195,6 +4392,24 @@ impl Nuclide {
     /// spectra; the default applies them.
     pub fn without_delayed_spectra(mut self) -> Self {
         self.delayed_spectra_ablated = true;
+        self
+    }
+
+    /// Replace this nuclide's fission data (total ν̄, prompt χ, delayed data) with
+    /// explicit tables. **A V&V constructor**: it lets a differential test hand the
+    /// port and the compiled OpenMC the same synthetic fission distribution
+    /// (`tests/fission_neutron_vs_openmc_code_to_code.rs`, gh:#1444 d). Real
+    /// nuclides get these from the evaluation ([`Self::from_ace`],
+    /// [`Self::from_tape`]); nothing in transport calls this.
+    pub fn with_fission_data(
+        mut self,
+        nu: NuBar,
+        chi: FissionSpectrum,
+        delayed: Option<DelayedData>,
+    ) -> Self {
+        self.nu = nu;
+        self.chi = chi;
+        self.delayed = delayed;
         self
     }
 
@@ -4489,9 +4704,12 @@ fn disappearance() -> [MtReaction; 21] {
 /// # Variate count is deliberately not fixed
 ///
 /// Unlike [`crate::physics::scatter::continuum_inelastic_scatter_evaluated_with`],
-/// this consumes a variable number of variates — `sample_mf4_mu_cm` spends one
+/// this consumes a variable number of variates — ~~`sample_mf4_mu_cm` spends one
 /// on its statistical neighbour pick only when the incident energy falls inside
-/// the tabulated grid. That is correct for this law and is why it is a separate
+/// the tabulated grid~~ **CORRECTED 2026-11-11 (gh:#1386):** it spends that one
+/// variate on every call, as OpenMC's `AngleDistribution::sample` does; the count
+/// still varies with the angular table and the energy law's rejection loop
+/// (LF=7/9/11). That is correct for this law and is why it is a separate
 /// entry point: the continuum path's ablation control depends on a fixed
 /// one-variate cosine draw, and folding this in would have broken that
 /// invariant silently.
@@ -4499,13 +4717,23 @@ fn disappearance() -> [MtReaction; 21] {
 /// Returns an isotropic cosine when the evaluation declares the reaction
 /// isotropic (`LTT = 0` or `LI = 1`, as C-12's MT=91 does) — a statement by the
 /// evaluator, not a gap in this port.
+///
+/// **Draw order, CORRECTED 2026-11-11 (gh:#1386):** the cosine is drawn FIRST,
+/// then the energy, as OpenMC's `UncorrelatedAngleEnergy::sample` does. It was
+/// energy first. Bit-identical to OpenMC on the fixed-seed differential
+/// (`tests/secondary_samplers_vs_openmc_code_to_code.rs`).
 pub fn sample_uncorrelated_emission(
     law: &UncorrelatedEmission,
     e_in: f64,
     seed: &mut u64,
 ) -> (f64, f64) {
-    let e_out = sample_chi(&law.energy, e_in, seed);
+    // OpenMC order (`UncorrelatedAngleEnergy::sample`, `src/secondary_uncorrelated.cpp`,
+    // commit `8f79d9d0`): the cosine FIRST, then the energy. **CORRECTED
+    // 2026-11-11 (gh:#1386):** this drew the energy first, so the same seed gave
+    // a different `(E', mu)` from OpenMC's
+    // (`tests/secondary_samplers_vs_openmc_code_to_code.rs`).
     let mu = sample_mf4_mu_cm(&law.angular, e_in, seed).unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
+    let e_out = sample_chi(&law.energy, e_in, seed);
     (e_out, mu)
 }
 
@@ -4539,6 +4767,69 @@ fn sample_chi(chi: &FissionSpectrum, e_in: f64, seed: &mut u64) -> f64 {
     }
 }
 
+/// OpenMC's `Tabulated1D::operator()` (`src/endf.cpp`, commit `8f79d9d0`): the
+/// evaluator behind `MaxwellEnergy`, `Evaporation` and `WattEnergy`'s `theta`,
+/// `a`, `b`. **Not** [`eval_tab1`] (NJOY's `terp1`): OpenMC returns the first or
+/// last value outside the table (no zero), finds the bin with `lower_bound_index`
+/// (`x` equal to an interior abscissa belongs to the bin BELOW it), picks the
+/// region by `i < NBT_j - 1`, and writes lin-lin as `y0 + r (y1 - y0)` with
+/// `r = (x - x0) / (x1 - x0)`, which differs from `terp1` in the last bit.
+/// Bit-identical to upstream on `tests/secondary_samplers_vs_openmc_code_to_code.rs`
+/// (lin-lin; the log laws call PETIR's `ln`/`exp`, not the platform's).
+/// `interp` is ENDF `(NBT, INT)` with `NBT` 1-based; empty means lin-lin.
+pub(crate) fn tabulated1d_eval(x: f64, interp: &[(u32, u32)], pairs: &[(f64, f64)]) -> f64 {
+    let n = pairs.len();
+    if n == 0 {
+        return 0.0;
+    }
+    if x < pairs[0].0 || n == 1 {
+        return pairs[0].1;
+    } else if x > pairs[n - 1].0 {
+        return pairs[n - 1].1;
+    }
+    // lower_bound_index (search.h)
+    let i = if pairs[0].0 == x {
+        0
+    } else {
+        pairs.partition_point(|p| p.0 < x) - 1
+    };
+    // `int2interp` (endf.cpp): 1/11/21 histogram, 2/12/22 lin-lin, 3/13/23
+    // lin-log, 4/14/24 log-lin, 5/15/25 log-log.
+    let code = if interp.is_empty() {
+        2
+    } else {
+        let mut c = interp[0].1;
+        for &(nbt, int) in interp {
+            if (i as i64) < nbt as i64 - 1 {
+                c = int;
+                break;
+            }
+        }
+        c
+    };
+    let (x0, y0) = pairs[i];
+    let (x1, y1) = pairs[i + 1];
+    match code % 10 {
+        1 => y0,
+        3 => {
+            let r = (x / x0).r_ln() / (x1 / x0).r_ln();
+            y0 + r * (y1 - y0)
+        }
+        4 => {
+            let r = (x - x0) / (x1 - x0);
+            y0 * (r * (y1 / y0).r_ln()).r_exp()
+        }
+        5 => {
+            let r = (x / x0).r_ln() / (x1 / x0).r_ln();
+            y0 * (r * (y1 / y0).r_ln()).r_exp()
+        }
+        _ => {
+            let r = (x - x0) / (x1 - x0);
+            y0 + r * (y1 - y0)
+        }
+    }
+}
+
 /// **LF=7** — sample the simple Maxwellian fission spectrum at incident energy
 /// `e_in` \[eV\], restricted to `E' ≤ e_in − u`. Evaluates θ(E) at `e_in`
 /// ([`eval_tab1`], the full ENDF multi-region interpolation), then rejects
@@ -4546,7 +4837,7 @@ fn sample_chi(chi: &FissionSpectrum, e_in: f64, seed: &mut u64) -> f64 {
 /// `MaxwellEnergy::sample` (`src/distribution_energy.cpp`), which itself calls
 /// [`maxwell`] (`src/random_dist.cpp` `maxwell_spectrum`).
 fn sample_maxwell_lf7(theta: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f64 {
-    let t = eval_tab1(e_in, &theta.interp, &theta.pairs).unwrap_or(0.0);
+    let t = tabulated1d_eval(e_in, &theta.interp, &theta.pairs);
     loop {
         let e_out = maxwell(seed, t);
         if e_out <= e_in - u {
@@ -4561,7 +4852,7 @@ fn sample_maxwell_lf7(theta: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f64 {
 /// truncated-exponential-squared density by rejection
 /// (`x = −ln[(1−vξ₁)(1−vξ₂)]`, accept `x ≤ y`), returning `x·θ`.
 fn sample_evaporation_lf9(theta: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f64 {
-    let t = eval_tab1(e_in, &theta.interp, &theta.pairs).unwrap_or(0.0);
+    let t = tabulated1d_eval(e_in, &theta.interp, &theta.pairs);
     if !(t > 0.0) {
         return 0.0;
     }
@@ -4583,8 +4874,8 @@ fn sample_evaporation_lf9(theta: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f6
 /// direct port of OpenMC `WattEnergy::sample` (`src/distribution_energy.cpp`),
 /// which itself calls [`watt`] (`src/random_dist.cpp` `watt_spectrum`).
 fn sample_watt_lf11(a: &Tab1, b: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f64 {
-    let av = eval_tab1(e_in, &a.interp, &a.pairs).unwrap_or(0.0);
-    let bv = eval_tab1(e_in, &b.interp, &b.pairs).unwrap_or(0.0);
+    let av = tabulated1d_eval(e_in, &a.interp, &a.pairs);
+    let bv = tabulated1d_eval(e_in, &b.interp, &b.pairs);
     loop {
         let e_out = watt(seed, av, bv);
         if e_out <= e_in - u {
@@ -5026,9 +5317,16 @@ fn sample_mf4_mu_cm(dist: &ElasticAngular, e: f64, seed: &mut u64) -> Option<f64
 
     let e_mev = e * 1.0e-6;
     let n = dists.len();
+    // OpenMC's `AngleDistribution::sample` draws the neighbour-pick variate
+    // (`if (r > prn(seed)) ++i`) on EVERY call, including outside the grid where
+    // `r` is 0 or 1 and the pick is decided. **CORRECTED 2026-11-11 (gh:#1386):**
+    // the two out-of-grid arms below drew nothing, so the stream was one variate
+    // short of upstream's there.
     let chosen = if e_mev <= dists[0].e_mev {
+        let _ = prn(seed);
         &dists[0]
     } else if e_mev >= dists[n - 1].e_mev {
+        let _ = prn(seed);
         &dists[n - 1]
     } else {
         let mut i = 0;

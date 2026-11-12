@@ -178,8 +178,14 @@ impl VelocityVerlet {
             // v += (dt/2)·F/m
             p.velocity = p.velocity.add(f.scale(half / p.mass));
             // ω += (dt/2)·τ/I,  I = (2/5) m r²
-            let inv_inertia = 1.0 / (INERTIA * p.mass * p.radius * p.radius);
-            p.angular_velocity = p.angular_velocity.add(t.scale(half * inv_inertia));
+            // Upstream operation order (fix_nve_sphere.cpp):
+            //   dtfrotate  = dtf / INERTIA
+            //   dtirotate  = dtfrotate / (radius * radius * rmass)
+            //   omega     += dtirotate * torque
+            // Not `half * (1/(INERTIA m r^2))`, which differs by 1-2 ulp.
+            let dtfrotate = half / INERTIA;
+            let dtirotate = dtfrotate / (p.radius * p.radius * p.mass);
+            p.angular_velocity = p.angular_velocity.add(t.scale(dtirotate));
             // x += dt·v   (drift with the half-kicked velocity)
             p.position = p.position.add(p.velocity.scale(self.dt));
         }
@@ -196,8 +202,14 @@ impl VelocityVerlet {
             let f = forces.get(i).copied().unwrap_or_else(Vec3::zero);
             let t = torques.get(i).copied().unwrap_or_else(Vec3::zero);
             p.velocity = p.velocity.add(f.scale(half / p.mass));
-            let inv_inertia = 1.0 / (INERTIA * p.mass * p.radius * p.radius);
-            p.angular_velocity = p.angular_velocity.add(t.scale(half * inv_inertia));
+            // Upstream operation order (fix_nve_sphere.cpp):
+            //   dtfrotate  = dtf / INERTIA
+            //   dtirotate  = dtfrotate / (radius * radius * rmass)
+            //   omega     += dtirotate * torque
+            // Not `half * (1/(INERTIA m r^2))`, which differs by 1-2 ulp.
+            let dtfrotate = half / INERTIA;
+            let dtirotate = dtfrotate / (p.radius * p.radius * p.mass);
+            p.angular_velocity = p.angular_velocity.add(t.scale(dtirotate));
         }
     }
 }

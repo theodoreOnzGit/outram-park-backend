@@ -80,7 +80,16 @@
 //! ace.write_type1("92235.00c.ace").unwrap();
 //! ```
 
+pub mod acefix;
+pub mod thrfix;
+pub mod tplots;
+pub mod aplots;
+pub mod consis;
+pub mod acefix_change;
 pub mod acelcp;
+mod acelcp_ext;
+pub mod charged;
+pub mod charged_coulomb;
 /// **A set of ACE files indexed by header** (ZAID, class, kT), for the ACE
 /// way into transport (gh #936). See [`ace_set`].
 pub mod ace_set;
@@ -102,6 +111,7 @@ pub mod nu;
 pub mod photoatomic;
 pub mod photon_angular;
 pub mod photon_blocks;
+pub mod gamout;
 pub mod photonuclear;
 
 /// True when the evaluation supplies **MF=4/5/6 secondary distributions for
@@ -206,6 +216,10 @@ pub struct AceTable {
     /// for a table built from an incident evaluation; a thermal table carries
     /// ACER card 8a's moderator ZA values (`acer.f90:396-399`).
     pub iz: [i32; 16],
+    /// The header's 16 AW entries, partners of [`iz`](Self::iz): zero except for a
+    /// table a deck run built, where they are ACER card 4's `nxtra` weights
+    /// (`awn`, `acer.f90:289-296`; gh:#1369).
+    pub aw: [f64; 16],
     /// The 16-entry **NXS** array of table dimensions (1-based in ACE docs;
     /// stored 0-based here). See [`nxs`](self::nxs) for the index names.
     pub nxs: [i32; 16],
@@ -422,11 +436,42 @@ pub fn build_full(
 /// leaves the ESZ heating column at zero (`acefc.f90:5641-5645`). The
 /// reference tables in `reference-data/ace/reference-njoy/` were made that
 /// way, which is the reason this exists.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AceDeck {
     heatr: bool,
     purr: Option<(usize, usize, usize)>,
     temperature_k: Option<f64>,
+    /// HEATR's card 3 asked for the partial kermas `302`, `318`, `402` (each
+    /// flag in that order): PURR's `rdheat` then finds them (`ihave = 2`).
+    heatr_partials: [bool; 3],
+    /// PURR's output unit was blocked binary (`nout < 0`).
+    purr_binary: bool,
+    /// HEATR's output unit was blocked binary (`nout < 0`).
+    heatr_binary: bool,
+    /// ACER's PENDF unit is blocked binary (negative `npend`): its energies and
+    /// cross sections stay at full double precision instead of going through
+    /// ENDF text (gh:#1449).
+    pendf_binary: bool,
+    /// ACER's ENDF unit is blocked binary (negative `nendf`): `convr`'s scratch
+    /// tape is then binary and photon production keeps full doubles (gh:#1492).
+    endf_binary: bool,
+    /// ACER's `newfor`: `1` (default) the new angular format, `0` the old
+    /// equally probable bins (gh:#1449).
+    newfor: i32,
+    /// The old-style 30 x 20 equally probable photon matrix `gamout` makes from
+    /// ACER's `ngend` GENDF; stored after GPD (gh:#1481).
+    photon_matrix: Option<Vec<f64>>,
+    /// MT=301 as HEATR's tape carries it, `(E, H)` pairs; when set, ESZ's
+    /// heating column reads these (ACER reads the tape, not HEATR's memory).
+    esz_kerma: Option<Vec<(f64, f64)>>,
+    /// MT=444 (damage energy) as HEATR's tape carries it, `(E [eV], sigma [eV-b])`.
+    mt444: Option<Vec<(f64, f64)>>,
+    /// GASPR's MT=203-207 as the PENDF tape carries them: `(MT, (E, sigma) pairs)`.
+    gas: Vec<(i32, Vec<(f64, f64)>)>,
+    /// HEATR's card-2 `ed` (OpenMC #4022): `Some(0.0)` asks for the damage
+    /// energy (partial `444`) with NJOY's default displacement table,
+    /// `Some(ed)` overrides it with `ed` eV, `None` (default) asks for neither.
+    displacement_energy: Option<f64>,
 }
 
 impl Default for AceDeck {
@@ -435,6 +480,17 @@ impl Default for AceDeck {
             heatr: true,
             purr: None,
             temperature_k: None,
+            heatr_partials: [false; 3],
+            purr_binary: false,
+            heatr_binary: false,
+            pendf_binary: false,
+            endf_binary: false,
+            newfor: 1,
+            photon_matrix: None,
+            esz_kerma: None,
+            mt444: None,
+            gas: Vec::new(),
+            displacement_energy: None,
         }
     }
 }
@@ -443,6 +499,88 @@ impl AceDeck {
     /// The deck without HEATR: the ESZ heating column is written as zero.
     pub fn without_heatr(mut self) -> Self {
         self.heatr = false;
+        self
+    }
+
+    /// HEATR's card 3 asked for the partial kermas MT=302, 318, 402 (each flag
+    /// in that order). PURR then self-shields the heating column
+    /// (`purr.f90:533-558`) instead of dividing MT=301 by the total.
+    pub fn with_heatr_partials(mut self, partials: [bool; 3]) -> Self {
+        self.heatr_partials = partials;
+        self
+    }
+
+    /// Ask HEATR for the damage-energy production (MT=444) with the threshold
+    /// displacement energy `ed` \[eV\] on its card 2 (OpenMC #4022,
+    /// `make_ace(displacement_energy=...)`): `0.0` is NJOY's built-in table.
+    /// The result is [`DeckModules`]' `damage_energy`; MT=301 is unchanged.
+    pub fn with_displacement_energy(mut self, ed: Option<f64>) -> Self {
+        self.displacement_energy = ed;
+        self
+    }
+
+    /// The `30 x 20` photon matrix of `gamout` ([`gamout::photon_spectra`]), from
+    /// ACER's `ngend` GENDF; it follows GPD (`acelod`, `acefc.f90:6276-6300`).
+    pub fn with_photon_matrix(mut self, m: Option<Vec<f64>>) -> Self {
+        self.photon_matrix = m;
+        self
+    }
+
+    /// ACER's `newfor` (`0` the old angular format, `1` the new, the default).
+    pub fn with_newfor(mut self, newfor: i32) -> Self {
+        self.newfor = newfor;
+        self
+    }
+
+    /// ACER's ENDF unit is blocked binary (`nendf < 0`): `convr`'s scratch
+    /// tape is binary and photon production keeps full doubles (gh:#1492).
+    pub fn with_endf_binary(mut self, binary: bool) -> Self {
+        self.endf_binary = binary;
+        self
+    }
+
+    /// ACER's PENDF unit is blocked binary (`npend < 0`): its values stay full
+    /// doubles and `gamsum`'s scratch tape is binary (gh:#1449, #1492).
+    pub fn with_pendf_binary(mut self, binary: bool) -> Self {
+        self.pendf_binary = binary;
+        self
+    }
+
+    /// See the `heatr_binary` field.
+    pub fn with_heatr_binary(mut self, binary: bool) -> Self {
+        self.heatr_binary = binary;
+        self
+    }
+
+    /// MT=301 as the HEATR tape holds it: ESZ's heating column is built from
+    /// these `(E, H)` pairs, as upstream's ACER reads the tape (gh:#1449: the
+    /// in-memory kerma differs from the printed value by up to half a unit in
+    /// the 7th figure, which moved one ESZ word of test 07).
+    pub fn with_esz_kerma_pairs(mut self, pairs: Vec<(f64, f64)>) -> Self {
+        self.esz_kerma = Some(pairs);
+        self
+    }
+
+    /// MT=444 from HEATR's tape: stored by ACER as a reaction (`unionx` sets
+    /// its threshold to `elow`; `acelod` stores `sigfig(s/emev,7,0)`,
+    /// `acefc.f90:1767, 5664`) and its energies join the union grid.
+    pub fn with_mt444_pairs(mut self, pairs: Vec<(f64, f64)>) -> Self {
+        self.mt444 = Some(pairs);
+        self
+    }
+
+    /// GASPR's MT=203-207 from the PENDF tape: ACER stores them as reactions
+    /// (`unionx` skips only MT > 207 up to 221, `acefc.f90:1735-1745`), so a deck
+    /// that ran GASPR gets them in MTR/LSIG/SIG (gh:#1369, test 13).
+    pub fn with_gas_pairs(mut self, gas: Vec<(i32, Vec<(f64, f64)>)>) -> Self {
+        self.gas = gas;
+        self
+    }
+
+    /// PURR's output unit was blocked binary (`nout < 0`): its MT=153 reaches
+    /// ACER without a text round trip.
+    pub fn with_purr_binary(mut self, binary: bool) -> Self {
+        self.purr_binary = binary;
         self
     }
 
@@ -476,7 +614,7 @@ pub fn build_deck(
     deck: &AceDeck,
 ) -> Result<AceTable, crate::NjoyError> {
     // ACER reads its cross sections from a PENDF tape, not from memory.
-    let pendf = recon.through_pendf_text();
+    let pendf = if deck.pendf_binary { recon.clone() } else { recon.through_pendf_text() };
     let modules = deck_modules(tape, mat, &pendf, kt_mev, deck)?;
     assemble(tape, mat, &pendf, kt_mev, suffix, &modules)
 }
@@ -491,6 +629,22 @@ pub(crate) struct DeckModules {
     pub(crate) urr: Option<crate::purr::UrrProbabilityTables>,
     /// HEATR's KERMA; `None` without HEATR.
     pub(crate) kerma: Option<crate::heatr::Kerma>,
+    /// HEATR's damage-energy production MT=444 \[eV b\] when a displacement
+    /// energy was asked for (OpenMC #4022); `None` otherwise.
+    pub(crate) damage_energy: Option<crate::heatr::Kerma>,
+    /// ACER's `newfor` (gh:#1449).
+    pub newfor: i32,
+    /// The `gamout` photon matrix after GPD (gh:#1481).
+    pub(crate) photon_matrix: Option<Vec<f64>>,
+    /// HEATR's MT=444 `(E, sigma)` pairs, when the deck's HEATR wrote it.
+    pub(crate) mt444: Option<Vec<(f64, f64)>>,
+    /// GASPR's MT=203-207 pairs from the PENDF tape.
+    pub(crate) gas: Vec<(i32, Vec<(f64, f64)>)>,
+    /// ACER's PENDF unit is blocked binary, so `gamsum`'s scratch tape is too
+    /// (gh:#1492).
+    pub(crate) pendf_binary: bool,
+    /// ACER's ENDF unit is blocked binary, so `convr`'s scratch tape is too.
+    pub(crate) endf_binary: bool,
 }
 
 /// Run the deck's PURR and HEATR on `pendf` (a result already through
@@ -510,24 +664,83 @@ pub(crate) fn deck_modules(
     // an approximation of `nheat`/`gheat` on its own grid. It runs BEFORE
     // PURR, as in the deck (`... broadr -> heatr -> purr -> acer`), because
     // PURR's `rdheat` reads its MT=301 for the bands' heating column.
-    let kerma = if deck.heatr {
-        Some(crate::heatr::heatr_kerma(tape, mat, pendf)?)
+    let mut wanted: Vec<i32> = [302, 318, 402]
+        .iter()
+        .zip(deck.heatr_partials)
+        .filter_map(|(&mt, on)| if on { Some(mt) } else { None })
+        .collect();
+    // OpenMC #4022: `make_ace(displacement_energy=ed)` puts `ed` on HEATR's
+    // card 2 and asks for the damage-energy partial 444.
+    if deck.displacement_energy.is_some() && deck.heatr {
+        wanted.push(444);
+    }
+    let (kerma, partial_kermas) = if deck.heatr {
+        let (total, parts) = crate::heatr::heatr_kerma_with_partials_ed(
+            tape,
+            mat,
+            pendf,
+            &wanted,
+            !deck.heatr_binary,
+            deck.displacement_energy.unwrap_or(0.0),
+        )?;
+        (Some(total), parts)
     } else {
-        None
+        (None, Vec::new())
     };
+    let mut damage_energy = None;
+    // `rdheat`: MT=302, 318, 402 by position of the three, `None` when absent.
+    let mut partial: [Option<crate::heatr::Kerma>; 3] = [None, None, None];
+    for (mt, k) in wanted.iter().zip(partial_kermas) {
+        let slot = match mt {
+            302 => 0,
+            318 => 1,
+            402 => 2,
+            _ => {
+                damage_energy = k;
+                continue;
+            }
+        };
+        partial[slot] = k;
+    }
     let urr = match deck.purr {
-        Some((nbin, nladr, nsamp)) => crate::purr::UrrProbabilityTables::from_endf_with_mt301(
+        Some((nbin, nladr, nsamp)) => crate::purr::UrrProbabilityTables::from_endf_with_heating(
             tape,
             mat,
             deck.temperature_k.unwrap_or(kt_mev / K_BOLTZMANN_MEV),
             nbin,
             nladr,
             nsamp,
-            kerma.as_ref(),
+            &crate::purr::PurrHeating { total: kerma.clone(), partial, binary: deck.purr_binary },
         )?,
         None => None,
     };
-    Ok(DeckModules { urr, kerma })
+    // ACER's ESZ reads MT=301 from the PENDF as HEATR left it: every value
+    // went through `hout`'s `sigfig(v, 7, 0)` (6 figures above `big = 1e10`,
+    // `heatr.f90` hout) and then, on the scratch tape `unionx` writes, through
+    // `a11` text. `format_endf_float` alone rounds half-up on the binary
+    // double, which differs from `sigfig` on a value like 3204091.4999...:
+    // test 07's ESZ heating at 81.99999 eV (gh:#1449, 75.45917 against NJOY's
+    // 75.45914) was that one word. PURR's `rdheat` was given the unrounded
+    // doubles above.
+    let kerma = if deck.heatr_binary {
+        kerma.map(|k| {
+            use crate::endf::parse::{format_endf_float, parse_endf_float};
+            use crate::mixr::mix::sigfig;
+            let rt = |x: f64| parse_endf_float(&format_endf_float(x)).unwrap_or(x);
+            let rth = |x: f64| rt(sigfig(x, if x > 1.0e10 { 6 } else { 7 }, 0));
+            crate::heatr::Kerma { energy: k.energy.iter().map(|&x| rt(x)).collect(), h: k.h.iter().map(|&x| rth(x)).collect() }
+        })
+    } else {
+        kerma
+    };
+    let kerma = match &deck.esz_kerma {
+        Some(p) if !p.is_empty() => Some(crate::heatr::Kerma {
+            energy: p.iter().map(|x| x.0).collect(),
+            h: p.iter().map(|x| x.1).collect(),
+        }),
+        _ => kerma,
+    };
+    Ok(DeckModules { urr, kerma, damage_energy, newfor: deck.newfor, photon_matrix: deck.photon_matrix.clone(), mt444: deck.mt444.clone(), gas: deck.gas.clone(), pendf_binary: deck.pendf_binary, endf_binary: deck.endf_binary })
 }
 
 /// ACER proper: the continuous-energy table from the PENDF and what
@@ -541,11 +754,41 @@ pub(crate) fn assemble(
     suffix: u32,
     modules: &DeckModules,
 ) -> Result<AceTable, crate::NjoyError> {
-    let recon = pendf;
+    // MT=444 joins the reactions as `unionx` includes it (`acefc.f90:1743-1782`).
+    let with_gas;
+    let pendf = if modules.gas.is_empty() {
+        pendf
+    } else {
+        let mut r = pendf.clone();
+        for (mt, pairs) in &modules.gas {
+            let sec = crate::reconr::ReconrSection { lr: 0, mt: crate::endf::mt::MtReaction::from_any(*mt), qi: 0.0, pairs: pairs.clone() };
+            let at = r.sections.iter().position(|s| i32::from(s.mt) > *mt).unwrap_or(r.sections.len());
+            r.sections.insert(at, sec);
+        }
+        with_gas = r;
+        &with_gas
+    };
+    let with444;
+    let recon = match &modules.mt444 {
+        Some(pairs) if !pairs.is_empty() => {
+            let mut r = pendf.clone();
+            let sec = crate::reconr::ReconrSection {
+                lr: 0,
+                mt: crate::endf::mt::MtReaction::from_any(444),
+                qi: 0.0,
+                pairs: pairs.clone(),
+            };
+            let at = r.sections.iter().position(|s| i32::from(s.mt) > 444).unwrap_or(r.sections.len());
+            r.sections.insert(at, sec);
+            with444 = r;
+            &with444
+        }
+        _ => pendf,
+    };
     let urr = modules.urr.as_ref();
     let kerma = modules.kerma.as_ref();
     let angular = match tape.section(mat, 4, 2) {
-        Some(s) => Some(crate::acer::angular::parse_elastic_angular(s)?),
+        Some(s) => Some(crate::acer::angular::parse_elastic_angular_newfor(s, modules.newfor)?),
         None => None,
     };
     let partials: Vec<(i32, f64)> = recon
@@ -553,7 +796,7 @@ pub(crate) fn assemble(
         .iter()
         .map(|s| (i32::from(s.mt), s.qi))
         .collect();
-    let emissions = crate::acer::energy::build_emissions(tape, mat, recon.material.awr, &partials);
+    let emissions = crate::acer::energy::build_emissions_mode(tape, mat, recon.material.awr, &partials, modules.newfor, !modules.pendf_binary);
     let nu_block = crate::acer::nu::build(tape, mat)?;
     // Delayed-neutron blocks whenever the evaluation has them, as NJOY writes
     // them regardless of the rest of the deck (`acefc.f90:6003`). ismooth = 1
@@ -568,12 +811,16 @@ pub(crate) fn assemble(
         kerma,
         nu_block.as_deref(),
         crate::acer::has_mt19_distributions(tape, mat),
-        crate::acer::photon_blocks::build_with_pendf(tape, mat, recon).as_deref(),
+        crate::acer::photon_blocks::build_with_pendf_units(tape, mat, recon, !modules.endf_binary, !modules.pendf_binary).as_deref(),
         urr,
         delayed.as_ref(),
         &crate::acer::photon_blocks::gamma_discontinuities(tape, mat),
     );
-    if let Some(g) = crate::acer::photon_blocks::gpd(tape, mat, recon) {
+    if let Some(mut g) = crate::acer::photon_blocks::gpd_with_units(tape, mat, recon, !modules.endf_binary, !modules.pendf_binary) {
+        // `acelod`: the 30 x 20 photon matrix follows GPD when ACER had an `ngend` GENDF.
+        if let Some(m) = &modules.photon_matrix {
+            g.extend_from_slice(m);
+        }
         table.insert_gpd(&g);
     }
     // NJOY's `hm`: the ENDF MAT, `'   mat',i4` (`acefc.f90:4949`). Found
@@ -581,7 +828,7 @@ pub(crate) fn assemble(
     // byte matched NJOY2016's: it read `mat92234` (the ZA) for `mat9225`.
     table.mat_id = format!("   mat{mat:4}");
     // Charged-particle production, after END (`acelcp`, `acefc.f90:6323`).
-    crate::acer::acelcp::append(&mut table, tape, mat, recon);
+    crate::acer::acelcp::append_mode(&mut table, tape, mat, recon, modules.newfor, !modules.pendf_binary);
     Ok(table)
 }
 
@@ -596,9 +843,11 @@ impl AceTable {
     pub fn insert_gpd(&mut self, gpd: &[f64]) {
         let nes = self.nxs[nxs::NES] as usize;
         let at = self.jxs[jxs::MTRP];
-        if at <= 0 || gpd.len() != nes || self.jxs[11] != 0 {
+        // GPD is `nes` words, plus the `30 x 20` photon matrix when there is one.
+        if at <= 0 || (gpd.len() != nes && gpd.len() != nes + 600) || self.jxs[11] != 0 {
             return;
         }
+        let nes = gpd.len();
         let pos = (at - 1) as usize;
         self.xss.splice(pos..pos, gpd.iter().copied());
         self.xss_is_int.splice(pos..pos, std::iter::repeat_n(false, nes));
