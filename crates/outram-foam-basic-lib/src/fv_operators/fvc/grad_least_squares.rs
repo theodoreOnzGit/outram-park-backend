@@ -255,16 +255,34 @@ fn vscale(s: f64, v: Vector3) -> Vector3 {
 /// Cyclic and cyclicAMI seams are treated as ordinary boundary faces here
 /// (upstream adds the neighbour-side value for coupled patches; not ported).
 ///
+/// # Which gradient: this one or the face-centre one (maintainer decision 2026-11-12, gh:#1336 / gh:#1362)
+///
+/// Both operators are kept; the choice between them is **left open for a
+/// future study**.
+///
+/// - **This function is the upstream translation: the default, and
+///   bit-identical to OpenFOAM** (ESI v2506 `leastSquaresGrad`, differential row
+///   `grad leastSquares`, `tests/operators_vs_openfoam.rs`).
+/// - **[`grad_least_squares_face_centre`] (port-original) is the more accurate of
+///   the two at non-orthogonal boundary cells**, and the reason is in the
+///   boundary stencil. Upstream's boundary stencil uses the patch-normal
+///   `fvPatch::delta()`, not `Cf - C_P`, so it is not exact for a linear field
+///   there. The port-original form uses the true face centre and is exact.
+///   Measured on the `amp = 0.5` wavy mesh (17.50 deg max non-orthogonality):
+///   max error **3.067e-1** here against **1.823e-14** for the face-centre form
+///   (`tests/non_orthogonal_laplacian.rs`; upstream figure in
+///   `verification_and_validation/upstream_ops_gh1362/README.md`). Upstream's
+///   figure is the faithful behaviour of OpenFOAM, not a defect of this port.
+///
 /// # Accuracy
 ///
-/// **Exact (to rounding) for any linear field on any mesh**, provided the
-/// boundary face values are themselves the exact field values there — this is
-/// the property the non-orthogonal Laplacian correction depends on. Measured on
-/// a wavy mesh of 17.50 degrees max non-orthogonality
-/// (`tests/non_orthogonal_laplacian.rs`, 2026-08-07): max error **1.823e-14**
-/// against the analytic gradient, versus **1.845e-02** for
-/// [`grad`](super::grad) on the identical field and mesh. (That figure is for the
-/// pre-gh:#1362 arithmetic; the re-measured value is in the test's doc comment.)
+/// **NOT exact for a linear field at non-orthogonal boundary cells**: that is
+/// upstream's behaviour (above). ~~Exact (to rounding) for any linear field on
+/// any mesh~~ **CORRECTED 2026-11-12**: that claim, and its 1.823e-14 figure, belong
+/// to [`grad_least_squares_face_centre`]; it was written for the pre-gh:#1362
+/// operator and the code of this function contradicts it (re-read against the
+/// README's 3.067e-1 on the `amp = 0.5` mesh). Internal cells away from a
+/// non-orthogonal boundary are unaffected.
 ///
 /// # Example
 ///
@@ -360,6 +378,17 @@ pub fn grad_least_squares(phi: &VolScalarField) -> VolVectorField {
 /// (upstream: the patch-NORMAL `fvPatch::delta()`, which makes upstream inexact
 /// for a linear field at non-orthogonal boundary cells), a Gaussian-elimination
 /// solve, and unresolved directions pinned to zero.
+///
+/// **Which one to use (maintainer decision 2026-11-12, gh:#1336 / gh:#1362):** both
+/// are kept and the choice is left open for a future study. This is the
+/// **more accurate** of the pair at non-orthogonal boundary cells: **1.823e-14**
+/// on the `amp = 0.5` wavy mesh (17.50 deg) against **3.067e-1** for
+/// [`grad_least_squares`], because upstream's boundary stencil uses the
+/// patch-normal `delta()` and is not exact for a linear field there. It is NOT the
+/// default and NOT bit-identical to OpenFOAM; [`grad_least_squares`] is the
+/// upstream translation and the default. Measured in
+/// `tests/non_orthogonal_laplacian.rs` and
+/// `verification_and_validation/upstream_ops_gh1362/README.md`.
 ///
 /// Original description follows.
 ///

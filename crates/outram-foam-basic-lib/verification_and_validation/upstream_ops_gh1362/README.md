@@ -300,3 +300,38 @@ the differential row `nonOrthCorrVec (port-original non_ortho_geometry)` pins th
 `fvc::non_orth_correction_vectors` (2367/2367, 3708/3708 identical). Left for the maintainer: whether
 appbuilder's non-orthogonal solver should move to the upstream form and the Foam Studio coil gate be
 re-baselined.
+
+## Maintainer decision 2026-11-12 (gh:#1336): keep both operator pairs, and which is which
+
+The maintainer decided to **keep both** pairs for a later study. Neither is removed; the choice
+between them in each pair is **left open**. The `///` docs of all four functions now carry the
+statement below (none of the four has a `kind = "review"` stamp: `fvc/review.md` and `fvm/review.md`
+hold only `kind = "note"` entries, and no `src` file under the crate holds a review block, checked 2026-11-12).
+
+| Pair | Upstream translation (the default, bit-identical to OpenFOAM) | Port-original (more accurate at non-orthogonal boundary cells) |
+|---|---|---|
+| (a) cell gradient | `fvc::grad_least_squares` (ESI v2506 `leastSquaresGrad`, row `grad leastSquares`) | `fvc::grad_least_squares_face_centre` |
+| (b) corrected Laplacian | `fvm::laplacian_corrected` (ESI v2506 `gaussLaplacianScheme` `corrected` / `limited corrected`) | `fvm::laplacian_corrected_face_centre` |
+
+**Why the port-original forms are more accurate.** They are exact for a linear field at
+non-orthogonal boundary cells. Upstream's are not, for two reasons that are faithful OpenFOAM
+behaviour and not port defects: (a) upstream's leastSquares boundary stencil uses the patch-normal
+`fvPatch::delta()` rather than `Cf - C_P`; (b) upstream's corrected Laplacian carries no correction
+on non-coupled boundary faces (its correction vectors there are zero).
+
+| Quantity | Upstream form | Port-original form | Source |
+|---|---|---|---|
+| (a) max gradient error, linear field, `amp = 0.5` wavy mesh (17.50 deg) | **3.067e-1** | **1.823e-14** | this README ("What the prediction got wrong"); `tests/non_orthogonal_laplacian.rs`, `least_squares_gradient_is_exact_...` |
+| (b) rel. L-inf solution error, `amp = 0.3` (10.55 deg) | **1.264e-3** | **6.981e-12** (recorded table; "~7e-12") | this README; `tests/non_orthogonal_laplacian.rs` table |
+
+Re-read 2026-11-12: the 3.067e-1 and 1.264e-3 figures are the ones recorded in "What the prediction
+got wrong" above (measured 2026-11-11); the 1.823e-14 and 6.981e-12 figures are the recorded table
+in the doc comment of `tests/non_orthogonal_laplacian.rs` (measured 2026-08-07, before the gh:#1362
+arithmetic changes; the test is still green, driven by the `_face_centre` pair). Not re-run in this
+change: the doc-only edit does not move them.
+
+`fvm::solve_laplacian_non_orthogonal` and `tests/non_orthogonal_laplacian.rs` stay on the
+`_face_centre` pair. Two doc claims the code contradicted were corrected in the same change:
+`grad_least_squares`'s "exact for any linear field on any mesh" (it described the port-original
+operator) and `laplacian_corrected`'s "arithmetic mean of the two cell gradients ... owner's gradient
+on a boundary face" (it described the face-centre operator).

@@ -251,6 +251,27 @@ pub fn max_non_orthogonality_deg(mesh: &crate::mesh::fv_mesh::FvMesh) -> f64 {
 /// `fvm::laplacian`. With `scheme = NonOrthoScheme::Orthogonal` the result is
 /// identical to [`fvm::laplacian`](super::laplacian) for every mesh.
 ///
+/// # Which Laplacian: this one or the face-centre one (maintainer decision 2026-11-12, gh:#1336 / gh:#1362)
+///
+/// Both operators are kept; the choice between them is **left open for a
+/// future study**.
+///
+/// - **This function is the upstream translation: the default, and
+///   bit-identical to OpenFOAM** (ESI v2506 `gaussLaplacianScheme` with
+///   `corrected` / `limited corrected`, on two meshes; differential rows in
+///   `tests/operators_vs_openfoam.rs`).
+/// - **[`laplacian_corrected_face_centre`] (port-original) is the more accurate
+///   one**, because it also corrects the non-coupled boundary faces (a
+///   Dirichlet boundary correction) and so recovers a linear field exactly at
+///   non-orthogonal boundary cells. Upstream's corrected Laplacian does not
+///   correct those faces. On the wavy mesh at `amp = 0.3` (10.5 deg) this one
+///   reaches **1.264e-3** where the face-centre form, driven by
+///   [`grad_least_squares_face_centre`](crate::fv_operators::fvc::grad_least_squares_face_centre),
+///   reaches **~7e-12** (`tests/non_orthogonal_laplacian.rs`, 6.981e-12 in
+///   its recorded table; upstream figure in
+///   `verification_and_validation/upstream_ops_gh1362/README.md`). The upstream
+///   figure is OpenFOAM's faithful behaviour, not a defect of this port.
+///
 /// # Arguments
 /// - `gamma` — face diffusivity `[m^2/s]` for scalar transport, or thermal
 ///   conductivity `[W/(m.K)]` for conduction; whatever units make
@@ -266,11 +287,14 @@ pub fn max_non_orthogonality_deg(mesh: &crate::mesh::fv_mesh::FvMesh) -> f64 {
 ///
 /// # Face-gradient interpolation
 ///
-/// `(grad phi)_f` is the arithmetic mean of the two adjacent cell gradients on
-/// an internal face, and the owner's gradient on a boundary face. This is
-/// OpenFOAM's `linear` interpolation of the gradient at the equal-weight limit;
-/// distance weighting is not applied, and on a strongly graded mesh that is a
-/// known (documented, uncorrected) approximation.
+/// ~~`(grad phi)_f` is the arithmetic mean of the two adjacent cell gradients on
+/// an internal face, and the owner's gradient on a boundary face.~~ **CORRECTED
+/// 2026-11-12** (that is [`laplacian_corrected_face_centre`]; this function is
+/// upstream's `correctedSnGrad::fullGradCorrection`): internal faces use the
+/// linear-weighted gradient `w (g_P - g_N) + g_N` dotted into the non-orthogonal
+/// correction vector, and non-coupled boundary faces carry **no** correction
+/// (upstream's correction vectors there are zero). Read from
+/// `fvc::sn_grad_correction_with_grad`, which this calls.
 ///
 /// # Iteration
 ///
@@ -325,6 +349,16 @@ pub fn laplacian_corrected(
 /// non-coupled correction vectors are zero), and `Limited(w)` scaling the
 /// correction by `w` (upstream's `limited corrected w` uses the limiter
 /// `min(w|snGrad|/((1-w)|corr| + SMALL), 1)`).
+///
+/// **Which one to use (maintainer decision 2026-11-12, gh:#1336 / gh:#1362):** both
+/// are kept and the choice is left open for a future study. This is the **more
+/// accurate** of the pair at non-orthogonal boundary cells (~7e-12 against
+/// 1.264e-3 for [`laplacian_corrected`] on the `amp = 0.3` wavy mesh) because it
+/// corrects the non-coupled boundary faces, which upstream does not. It is NOT
+/// the default and NOT bit-identical to OpenFOAM; [`laplacian_corrected`] is the
+/// upstream translation and the default. Measured in
+/// `tests/non_orthogonal_laplacian.rs` and
+/// `verification_and_validation/upstream_ops_gh1362/README.md`.
 ///
 /// Original description follows.
 ///
