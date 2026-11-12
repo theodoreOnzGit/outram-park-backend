@@ -521,12 +521,21 @@ fn write_balance(path: &std::path::Path, label: &str, seed: u64, t: &Tally, mats
     }
 }
 
-/// Energy-bin edges for the salt spectrum: 100 000 logarithmic bins from
-/// 1e-5 eV to 20 MeV, about 4 500 per decade. At U-238's 6.67 eV resonance a
-/// bin is 3.3e-3 eV wide, about a seventh of its 0.025 eV width.
+/// Energy-bin edges for the salt spectrum, 20 000 logarithmic bins in three
+/// spans: 1 000 from 1e-5 eV to 1 eV, 17 000 from 1 eV to 100 keV (3 400 per
+/// decade, the resonance range: at U-238's 6.67 eV resonance a bin is
+/// 4.5e-3 eV, a fifth of its 0.025 eV width) and 2 000 from 100 keV to
+/// 20 MeV. A first version with 100 000 uniform bins ran out of memory
+/// (14 GB) at production statistics, because the tally is copied per batch.
 fn salt_spectrum_edges() -> Vec<f64> {
-    let (lo, hi, n) = (1e-5_f64.ln(), 2e7_f64.ln(), 100_000);
-    (0..=n).map(|i| (lo + (hi - lo) * i as f64 / n as f64).exp()).collect()
+    let span = |lo: f64, hi: f64, n: usize| -> Vec<f64> {
+        (0..n).map(|i| (lo.ln() + (hi.ln() - lo.ln()) * i as f64 / n as f64).exp()).collect()
+    };
+    let mut e = span(1e-5, 1.0, 1_000);
+    e.extend(span(1.0, 1e5, 17_000));
+    e.extend(span(1e5, 2e7, 2_000));
+    e.push(2e7);
+    e
 }
 
 /// Flux and absorption in the salt, by fine energy bin. CLI glue (the
