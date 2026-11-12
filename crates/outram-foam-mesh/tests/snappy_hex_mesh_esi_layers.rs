@@ -337,3 +337,203 @@ fn medial_stages_against_esi_dump() {
     cmp_f("thicknessSmoothed", &rep.thickness, &raw_f64(&format!("{dir}/dump_thicknessSmoothed.bin"))[..n_pp]);
     cmp_f("displacement", &flat(&disp), &raw_f64(&format!("{dir}/dump_displacement.bin"))[..3 * n_points]);
 }
+
+// ---------------------------------------------------------------------------------
+// Round 9: the layer loop (truncateDisplacement, addPatchCellLayer, checkAndUnmark)
+// ---------------------------------------------------------------------------------
+
+use outram_foam_mesh::snappy_hex_mesh::esi_layer_loop::{add_layers_loop, LayerIteration, LayerLoopInput};
+use outram_foam_mesh::snappy_hex_mesh::esi_layers::{ExtrudeState, LayerThickness};
+
+fn loop_input<'a>(
+    m: &'a MergeMesh,
+    pp: &'a LayerPatch,
+    medial: &'a MedialAxis,
+    lt: &'a LayerThickness,
+    st: ExtrudeState,
+    n_layer_iter: usize,
+) -> LayerLoopInput<'a> {
+    let n_points = m.mesh.points.len();
+    LayerLoopInput {
+        m,
+        pp,
+        medial,
+        disp_params: DisplacementParams {
+            max_thickness_to_medial_ratio: 0.3,
+            min_cos_layer_termination: rad(0.5 * 30.0).r_cos(),
+            n_smooth_thickness: 10,
+            n_medial_axis_iter: n_points,
+            detect_extrusion_island: false,
+            n_smooth_displacement: 0,
+        },
+        thickness: &lt.thickness,
+        min_thickness: &lt.min_thickness,
+        expansion_ratio: &lt.expansion_ratio,
+        state: st,
+        quality: EsiQualityControls::default(),
+        relaxed_quality: EsiQualityControls::default(),
+        n_layer_iter,
+        n_relaxed_iter: 20,
+        n_grow: 0,
+        n_buffer_cells_no_extrude: 0,
+        n_relax_iter: 5,
+        n_allowable_errors: 0,
+    }
+}
+
+/// Compare a mesh with ESI's `layer_mesh_TIME`/`layer_points_TIME`: counts of (points
+/// bit-identical, ring, owner, neighbour, patch) and the first differing face.
+fn compare_layer_mesh(m: &MergeMesh, time: &str) -> [usize; 5] {
+    let esi = lines(&format!("layer_mesh_{time}.txt.gz"));
+    let pts = vectors(&format!("layer_points_{time}.bin.gz"));
+    eprintln!(
+        "mesh {time}: port {} points {} faces, ESI {} points {} faces",
+        m.mesh.points.len(),
+        m.mesh.faces.len(),
+        pts.len(),
+        esi.len()
+    );
+    let mut c = [0usize; 5];
+    let n_int = m.mesh.neighbour.len();
+    let mut first_bad: Option<usize> = None;
+    for (a, b) in m.mesh.points.iter().zip(&pts) {
+        c[0] += (a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits())) as usize;
+    }
+    for f in 0..esi.len().min(m.mesh.faces.len()) {
+        let want: Vec<usize> = esi[f][2..].iter().map(|&p| p as usize).collect();
+        let ok_ring = m.mesh.faces[f] == want;
+        let ok_own = m.mesh.owner[f] == esi[f][0] as usize;
+        let ok_nbr = if f < n_int {
+            m.mesh.neighbour[f] as i64 == esi[f][1]
+        } else {
+            m.face_patch[f] as i64 + 1 == -1 - esi[f][1]
+        };
+        c[1] += ok_ring as usize;
+        c[2] += ok_own as usize;
+        if f < n_int {
+            c[3] += ok_nbr as usize;
+        } else {
+            c[4] += ok_nbr as usize;
+        }
+        if !(ok_ring && ok_own && ok_nbr) && first_bad.is_none() {
+            first_bad = Some(f);
+        }
+    }
+    eprintln!(
+        "mesh {time}: points {} / {}, ring {}, owner {}, neighbour {} (of {n_int}), patch {} of {}",
+        c[0],
+        pts.len(),
+        c[1],
+        c[2],
+        c[3],
+        c[4],
+        esi.len() - n_int
+    );
+    if let Some(f) = first_bad {
+        eprintln!(
+            "  first differing face {f}: port ring {:?} own {} | ESI {:?} own {} nbr/patch {}",
+            m.mesh.faces[f],
+            m.mesh.owner[f],
+            &esi[f][2..],
+            esi[f][0],
+            esi[f][1]
+        );
+    }
+    c
+}
+
+/// P55-P59: the layer loop against ESI times 85-91.
+#[test]
+fn layer_loop_against_esi() {
+    let (m, _, _) = mesh83();
+    let cell_level: Vec<usize> = lines("layer_cell_level_81.txt.gz").iter().map(|v| v[0] as usize).collect();
+    let patch_ids: Vec<usize> = (0..4).collect();
+    let overrides: Vec<(usize, PatchLayerDict)> =
+        patch_ids.iter().map(|&p| (p, PatchLayerDict { n_surface_layers: 1, ..Default::default() })).collect();
+    let params = LayerParameters::new(&layer_dict(), 4, &overrides);
+    let pp = LayerPatch::new(&m, &patch_ids);
+    let (st, _) = set_point_num_layers(&m, &params, &patch_ids, &pp, feature_cos(), EDGE0_LEN, &cell_level);
+    let lt = calculate_layer_thickness(&m, &pp, &patch_ids, &params, &cell_level, &st.n_layers, EDGE0_LEN);
+    let me = mesh_edges(&m.mesh);
+    let n_points = m.mesh.points.len();
+    let mp = MedialParams {
+        n_smooth_surface_normals: 1,
+        min_medial_axis_angle_cos: rad(90.0).r_cos(),
+        n_smooth_normals: 3,
+        n_medial_axis_iter: n_points,
+        disable_wall_edges: false,
+    };
+    let medial = MedialAxis::update(&m.mesh.points, &me, &pp, &mp);
+    // nLayerIter 50: the loop ends by itself when `checkAndUnmark` removes nothing
+    let its: Vec<LayerIteration> = add_layers_loop(&loop_input(&m, &pp, &medial, &lt, st, 50));
+    assert_eq!(its.len(), 3, "ESI: three layer iterations");
+    let shrunk_ids = ["85", "87", "89"];
+    let layer_ids = ["86", "88", "90"];
+    // ESI log: faces removed by checkAndUnmark, extruded faces, added cells, truncateDisplacement passes
+    let want_changed = [17, 2, 0];
+    let want_extruded = [8724, 8658, 8642];
+    let want_added = [8743, 8660, 8642];
+    let want_passes: [Vec<(usize, usize)>; 3] = [vec![(0, 0)], vec![(2, 0), (0, 0)], vec![(0, 0)]];
+    for (k, it) in its.iter().enumerate() {
+        eprintln!(
+            "iteration {k}: truncate passes {:?}, faces with layers {}, points with layers {}, added cells {}, check {:?}, changed {}, extruded {}",
+            it.truncate.passes,
+            it.n_face_layers_positive,
+            it.n_point_layers_positive,
+            it.n_added_cells,
+            it.check.new_faces,
+            it.n_changed,
+            it.n_extruded_faces
+        );
+        assert_eq!(it.truncate.passes, want_passes[k], "P55/P58 truncateDisplacement log");
+        assert_eq!(it.n_changed, want_changed[k], "P57/P58");
+        assert_eq!(it.n_extruded_faces, want_extruded[k], "P57/P58");
+        assert_eq!(it.n_added_cells, want_added[k], "P55/P58 'Added N out of 9747 cells'");
+        let esi = vectors(&format!("layer_points_{}.bin.gz", shrunk_ids[k]));
+        assert_eq!(esi.len(), it.shrunk.points.len());
+        for (i, (a, b)) in it.shrunk.points.iter().zip(&esi).enumerate() {
+            assert!(a.iter().zip(b.iter()).all(|(x, y)| x.to_bits() == y.to_bits()), "shrunk mesh {} point {i}", shrunk_ids[k]);
+        }
+        let c = compare_layer_mesh(&it.layers.mesh, layer_ids[k]);
+        let n = it.layers.mesh.mesh.faces.len();
+        let n_int = it.layers.mesh.mesh.neighbour.len();
+        assert_eq!(c, [it.layers.mesh.mesh.points.len(), n, n, n_int, n - n_int], "layer mesh {} equals ESI per index", layer_ids[k]);
+    }
+    assert_eq!(its[0].n_face_layers_positive, 8743, "P55");
+    assert_eq!(its[0].n_point_layers_positive, 7437, "P55: 31742 - 24305 added points");
+    assert_eq!(its[0].check.new_faces[0].1, 2, "P57 non-orthogonality");
+    assert_eq!(its[0].check.new_faces[2].1, 15, "P57 face tets");
+    // the final mesh (time 91): the faces of time 90 with ESI's empty allBoundary patch dropped
+    let last = &its[2];
+    let esi91 = lines("layer_mesh_91.txt.gz");
+    assert_eq!(esi91.len(), last.layers.mesh.mesh.faces.len());
+    let n_int = last.layers.mesh.mesh.neighbour.len();
+    for (f, e) in esi91.iter().enumerate() {
+        let want: Vec<usize> = e[2..].iter().map(|&p| p as usize).collect();
+        assert_eq!(last.layers.mesh.mesh.faces[f], want, "final face {f} ring");
+        assert_eq!(last.layers.mesh.mesh.owner[f], e[0] as usize);
+        if f < n_int {
+            assert_eq!(last.layers.mesh.mesh.neighbour[f] as i64, e[1]);
+        } else {
+            assert_eq!(last.layers.mesh.face_patch[f] as i64, -1 - e[1], "final face {f} patch");
+        }
+    }
+    let p91 = vectors("layer_points_90.bin.gz");
+    assert!(last.layers.mesh.mesh.points.iter().zip(&p91).all(|(a, b)| a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits())));
+    // printLayerData: faces, average layers, thickness [m], thickness [%] to ESI's 3 figures
+    let rows = outram_foam_mesh::snappy_hex_mesh::esi_layer_loop::layer_data_table(last, &pp, &lt.thickness, &patch_ids, &[1, 1, 1, 1]);
+    let esi_table: [(usize, &str, &str, &str); 4] = [
+        (7209, "0.874", "0.000155", "78.8"),
+        (1174, "0.983", "0.000178", "92.2"),
+        (240, "0.933", "0.000162", "82.3"),
+        (1124, "0.859", "0.000173", "81.7"),
+    ];
+    let sig3 = |x: f64| format!("{:.2e}", x);
+    let sig3s = |s: &str| format!("{:.2e}", s.parse::<f64>().unwrap());
+    for (r, e) in rows.iter().zip(&esi_table) {
+        assert_eq!(r.n_faces, e.0);
+        assert_eq!(sig3(r.avg_layers), sig3s(e.1), "patch {} layers", r.patch);
+        assert_eq!(sig3(r.avg_real), sig3s(e.2), "patch {} thickness [m]", r.patch);
+        assert_eq!(sig3(r.avg_fraction_percent), sig3s(e.3), "patch {} thickness [%] ({})", r.patch, r.avg_fraction_percent);
+    }
+}

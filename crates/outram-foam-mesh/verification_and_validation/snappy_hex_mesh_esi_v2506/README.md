@@ -1341,6 +1341,11 @@ reference.
 
 ## Round 8: what remains (not started, stated)
 
+**CORRECTED 2026-11-12 (round 9):** the first four bullets below are ~~not started~~ **done**
+(`truncateDisplacement`, `setupLayerInfoTruncation`, `addPatchCellLayer::setRefinement` with `polyTopoChange`
+numbering, `checkAndUnmark`, the loop, medial iterations 1-2, final mesh 91 and the `printLayerData` table):
+see "Round 9: results". Still open: multi-layer runs, `nOuterIter != 1`, faceZones, non-adapt patch seeds.
+
 - `truncateDisplacement` (+ `getVertexString`, `sameEdgeNeighbour`): 0 faces unextruded in
   iteration 0 of the ESI log, 2 in iteration 1; not ported.
 - `setupLayerInfoTruncation` and **`addPatchCellLayer::setRefinement`** (3517 lines upstream) with
@@ -1387,3 +1392,47 @@ Written from reading `snappyLayerDriver::truncateDisplacement`, `getVertexString
 | P57 | `checkAndUnmark` on layer mesh 86 finds **2 non-orthogonal and 15 tet-quality faces, 17 illegal faces**, and unmarks the extrusion at **17 pp faces** (8724 extruded). | the checks are those of round 4, on a mesh with new boundary faces |
 | P58 | Layer iterations 1 and 2: the shrunk meshes `87`, `89` equal ESI bit for bit (24305 points), `truncateDisplacement` iteration 1 prints 2, 0 then 0, 0; layer meshes `88`, `90` equal per index; extruded faces 8658 and 8642. | the mover's persistent state between iterations (displacement field), `unmarkExtrusion` of faces, `growNoExtrusion` |
 | P59 | The final mesh (91, 31644 points, 85399 faces) equals `layer_mesh_91` per index and the `printLayerData` table equals ESI's. | `doLayers` does more after the loop than the outer loop shows |
+
+## Round 9: results (2026-11-12, release, `tests/snappy_hex_mesh_esi_layers.rs::layer_loop_against_esi`)
+
+Code (all new, opt-in, serial, no face zones, `nOuterIter 1`): `src/snappy_hex_mesh/esi_layer_topo.rs`
+(`truncate_displacement` with `get_vertex_string`, `setup_layer_info_truncation`, `count_extrusion`,
+`add_patch_cell_layer` = `addPatchCellLayer::setRefinement` + `findDuplicatedPoints` + `getEdgeString` +
+`addSideFace` + `polyTopoChange` `makeCells`/`getFaceOrder` numbering, `determine_side_patches`,
+`get_layer_cells_faces`, `check_and_unmark`) and `src/snappy_hex_mesh/esi_layer_loop.rs` (the `addLayers`
+iteration loop and the `printLayerData` table). The references are a fresh ESI run of the same case (the
+round-8 run directory was gone); fixtures `layer_mesh_{86,88,90,91}.txt.gz`, `layer_points_{86..90}.bin.gz`.
+
+| quantity | ESI v2506 | port |
+|---|---|---|
+| `truncateDisplacement` passes, iterations 0 / 1 / 2 | (0,0) / (2,0),(0,0) / (0,0) | equal |
+| iteration 0: faces with layers / points with layers | 8743 (log "8743 added cells") / 7437 (31742-24305) | 8743 / 7437 |
+| iteration 0: layer mesh 86 | 31742 points, 85701 faces | points **31742 / 31742 bit-identical**; ring, owner **85701 / 85701**; neighbour **75954 / 75954**; patch **9747 / 9747** |
+| `checkAndUnmark` iteration 0: non-orthogonal / tet quality / removed faces / extruded | 2 / 15 / 17 / 8724 | 2 / 15 / 17 / 8724 |
+| iteration 1: shrunk mesh 87, layer mesh 88 (31658 points, 85449 faces); removed / extruded / added cells | 2 / 8658 / 8660 | 87: 24305 / 24305 points bit-identical; 88: points, ring, owner, neighbour, patch all equal; 2 / 8658 / 8660 |
+| iteration 2: shrunk 89, layer mesh 90 (31644 points, 85399 faces); removed / extruded / added | 0 / 8642 / 8642 | equal in every item, loop ends by itself |
+| final mesh 91 (26920 cells, 85399 faces, 31644 points) | ESI drops the empty `allBoundary` | every face ring, owner, neighbour, patch equal; points bit-identical |
+| `printLayerData` table (faces, mean layers, thickness [m], [%]) | 7209 0.874 0.000155 78.8; 1174 0.983 0.000178 92.2; 240 0.933 0.000162 82.3; 1124 0.859 0.000173 81.7 | equal to 3 figures in all 16 entries |
+
+**Ledger.** P55, P56, P57, P58 held on the first run of the finished code. P59 held for the mesh and the
+table. Nothing was tuned. **What the prediction text got wrong (found by reading, before the first run):**
+I had assumed `addPatchCellLayer(mesh)` has `extrude = false`; the constructor default is
+**`extrude = true`** (`addPatchCellLayer.H:318`). With it the original patch face becomes the internal
+face between its old owner and layer 0, the last layer face is the new boundary face (patch of the old
+face, owner = the outermost layer cell), the old cells are NOT re-pointed (`findDuplicatedPoints` only
+affects the neighbour cell of internal patch faces) and side faces are not reversed. The first unit test
+(written with the wrong assumption) failed on exactly this, then the code was corrected from the source
+before any ESI comparison. A second small defect, `n_cells_of` took only the owner maximum (the last cell can own
+no face), was found by the first run (out-of-bounds panic), not by the comparison.
+The persistent-state worry of P58 did not materialise: the mover is re-run from the original points each
+iteration with the new extrude status and the shrunk meshes of iterations 1 and 2 are bit-identical.
+
+**Not verified / limits.** One case; `nOuterIter 1`; one layer per point (`offset` branches of
+`getEdgeString`/`addSideFace` for unequal layer counts are translated but only unit-covered by the
+single-layer case), `nBufferCellsNoExtrude > 0` loop translated, not run on ESI data; relaxed quality dict
+(iteration >= `nRelaxedIter`) not reached by this case (the port passes the default controls); no face
+zones, baffles, flip map or parallel; `polyTopoChange` is modelled only for the changes `addPatchCellLayer`
+makes. The `mapPolyMesh` maps are not produced (the face map `AddedLayers::face_map` is enough for the table).
+`doLayers` steps after `addLayers` that are not ported: the final `checkMesh`, removing the empty
+`allBoundary` patch (only compared), `writeLayerData`.
+PETIR: the new code uses `+ - * /`, `sqrt` and comparisons only (no transcendental), 0 libm-dependent values.
