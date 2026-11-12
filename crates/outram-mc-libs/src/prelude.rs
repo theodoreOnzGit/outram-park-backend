@@ -17,6 +17,13 @@ pub use crate::geometry::plot::{
 };
 pub use crate::geometry::lattice::{HexLattice, HexOrientation, Lattice, RectLattice};
 pub use crate::geometry::virtual_lattice::{BuildReport, VirtualLattice};
+// Composite surfaces (gh:#1389). `Axis` is generic, so it is exported as
+// `CompositeAxis`.
+pub use crate::geometry::composite::{
+    Axis as CompositeAxis, Composite, CompositeError, CompositeRegion, ConeOneSided,
+    ConicalFrustum, CruciformPrism, CylinderSector, IsogonalOctagon, Polygon, PolygonBasis,
+    RectangularPrism, Vessel,
+};
 pub use crate::geometry::geometry::{
     BoundaryHit, Coord, Crossing, Geometry, GeometryExt, GeometryPath, SurfaceCrossing,
 };
