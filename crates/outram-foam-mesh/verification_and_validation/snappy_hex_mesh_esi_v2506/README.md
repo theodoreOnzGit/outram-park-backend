@@ -1284,3 +1284,57 @@ iteration 0 is `85/polyMesh/points` (binary).
 | P52 | The three printed residuals equal ESI's to all 16 digits (same edge order from `calcAddressing`, same accumulation, same `calculateEdgeWeights`). | a different summation order of `weightedSum` (patch edges are in `calcAddressing` order, mesh edges in `calcEdges` order); `gAverage` sums in point order |
 | P53 | Counts equal the log: 20 reduced-thickness nodes, 975 isolated points, faces in error 8, 8, 8, 6, 6, 4, 0 over scaling iterations 0-6 and the scale minima above (the scale schedule is `0.75^k`, then 0 at iteration 5 as `nRelaxIter 5`). | the three PointEdgeWaves choose different origins at ties |
 | P54 | The shrunk points of iteration 0 equal `85/polyMesh/points` in **all 24305 points, bit for bit**. | long chain (3 waves, 3 smoothers, 7 scalings); expect at best a few ulp; if not equal, the first divergent stage is found with a dump patch of `medialAxisMeshMover` (original source and library restored, size/hash verified) |
+
+## Round 8, stage 2: results (2026-11-12, release, `tests/snappy_hex_mesh_esi_layers.rs`)
+
+Code: `src/snappy_hex_mesh/esi_medial.rs` (new, opt-in): `getPatchDisplacement` +
+`syncPatchDisplacement`, `PatchTools::pointNormals`, a generic `PointEdgeWave` with `PointData`,
+`fieldSmoother` (`smoothPatchNormals`, `smoothNormals`, `minSmoothField`),
+`medialAxisMeshMover::update`, `calculateDisplacement` (thickness truncation,
+`findIsolatedRegions`, `handleFeatureAngleLayerTerminations`), and `move`/`shrinkMesh` on the
+existing `esi_snap` `scaleMesh` machinery. `esi_layers::LayerPatch` now follows
+`PrimitivePatch::calcAddressing` exactly (edges, edgeFaces, faceEdges, pointEdges).
+
+| quantity (iteration 0) | ESI | port |
+|---|---|---|
+| patch-normal smoothing residual | 0.07867287997577262 | 0.07867287997577262 |
+| interior-normal smoothing residual | 0.1764300260321269 | 0.1764300260321269 |
+| thickness-smoothing residual | 9.162494450008907e-06 | 9.162494450008907e-06 (16 digits) |
+| nodes with reduced thickness / isolated points | 20 / 975 | 20 / 975 |
+| scaling iterations: scale min, faces in error | 1,.75,.5625,.421875,.31640625,.2373046875,0; 8,8,8,6,6,4,0 | equal |
+| **shrunk points (`85/polyMesh/points`), all 24305 points** | | **72915 of 72915 components bit-identical** |
+
+**Ledger.** P52, P53 and P54 held, but **not on the first run**, and the two causes are results:
+
+1. **First run: 71591 of 72915 components identical, 1303 points differing, worst 3.5e-18 m (1-2
+   ulp).** The ESI dump patch (below) localised the first divergent stage: `medialDist` /
+   `medialVec` (1507 / 2617 values), upstream of everything else (`dispVec`, the three wave
+   results at the patch, were identical). Cause 1: **`esi_snap::mesh_edges` oriented every edge
+   in creation order; ESI's `getEdge` (`primitiveMeshEdges.C:40`) creates `(lower, higher)`
+   point**, so `edge.vec()` and the `medialAxisPt = p0 + (s-dist0) eVec` rounded differently.
+   The doc comment claiming creation order is struck through and corrected in `esi_snap.rs`; the
+   snap tests (all 15 across `snappy_hex_mesh_esi_snap/feature/scale/merge`) still pass, as
+   expected since the snap only uses edges symmetrically. After this fix medial fields were
+   bit-identical but the patch displacement still differed by 1 ulp (16470 of 29319 values).
+   Cause 2: **`level0Edge` printed by ESI (0.002999999999999978) has 16 digits and is not the
+   double**; the double is `sqrt(min edge magSqr)` of the blockMesh points as `snappyHexMesh`
+   reads them (16-digit ASCII), **0.0029999999999999784**, derived in
+   `derive_level0_edge.py` from the case's `constant/polyMesh/points`, not tuned. With it all
+   per-stage dumps are identical.
+2. Dump patch: `medialAxisMeshMover.C` edited in place to append binary doubles of `medialRatio_`,
+   `medialDist_`, `medialVec_`, `dispVec_`, the smoothed thickness, `patchDisp` after the
+   isolated-region step and the displacement (the run with it gave the same `91/polyMesh/points`
+   as the unpatched run, `cmp`); the original `.C` (sha256 `49384a3b...`) and
+   `libsnappyHexMesh.so` (sha256 `092cd572...`, 5027088 bytes) were backed up first and
+   **restored and verified by hash** (rebuilt library hash equals the original). The dumps are
+   not committed; the env-gated test `medial_stages_against_esi_dump` (`LAYER_DUMP_DIR`) is the
+   comparison; the end-to-end pin is `medial_axis_first_iteration_against_esi` against the
+   committed `layer_points_85.bin.gz`.
+
+PETIR: `cos(degToRad(90))`, `cos(degToRad(15))`, `cos(degToRad(30))` via `r_cos`; the rest is
+`+ - * /` and `sqrt`; 0 differing values.
+
+**Not done in stage 2.** Iterations 1 and 2 of the layer loop (they need `truncateDisplacement`,
+`addPatchCellLayer` and `checkAndUnmark` first); `nSmoothDisplacement > 0`; non-adapt patches
+with points (slip / fixedValue); `detectExtrusionIsland true` is implemented but has no ESI
+reference.

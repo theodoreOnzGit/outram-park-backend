@@ -95,6 +95,7 @@ pub mod cyclic;
 pub mod dict;
 pub mod esi_feature;
 pub mod esi_layers;
+pub mod esi_medial;
 pub mod esi_octree;
 pub mod esi_merge;
 pub mod esi_snap;

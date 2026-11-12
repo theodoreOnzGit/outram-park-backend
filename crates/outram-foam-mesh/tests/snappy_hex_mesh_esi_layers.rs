@@ -17,6 +17,8 @@ use outram_foam_mesh::snappy_hex_mesh::esi_layers::{
     calculate_layer_thickness, set_point_num_layers, ExtrudeMode, LayerDict, LayerNumbers, LayerParameters, LayerPatch,
     PatchLayerDict, ThicknessModel,
 };
+use outram_foam_mesh::snappy_hex_mesh::esi_medial::{get_patch_displacement, move_mesh, DisplacementParams, MedialAxis, MedialParams};
+use outram_foam_mesh::snappy_hex_mesh::esi_snap::{mesh_edges, scale_topology, PatchPointScaling, ScaleControls};
 use outram_foam_mesh::snappy_hex_mesh::esi_merge::{merge_edges_undo, merge_patch_faces_undo, MergeMesh};
 use outram_foam_mesh::snappy_hex_mesh::esi_snap::{SnapMesh, V};
 use petir::mathf::RealMath;
@@ -145,7 +147,7 @@ fn layer_dict() -> LayerDict {
 }
 
 /// `level0Edge` of the ESI run (`81/polyMesh/level0Edge`).
-const EDGE0_LEN: f64 = 0.002999999999999978;
+const EDGE0_LEN: f64 = 0.0029999999999999784;
 
 /// P50, P51: layer parameters, the extrusion set-up and the thickness table.
 #[test]
@@ -177,4 +179,161 @@ fn layer_parameters_and_point_set_up_against_esi() {
         assert_eq!(format!("{:.2e}", row.avg_near_wall), format!("{nw:.2e}"));
         assert_eq!(format!("{:.2e}", row.avg_thickness), format!("{ov:.2e}"));
     }
+}
+
+fn rad(deg: f64) -> f64 {
+    deg * std::f64::consts::PI / 180.0
+}
+
+/// P52-P54: `medialAxisMeshMover` for the first layer iteration against ESI's time 85.
+#[test]
+fn medial_axis_first_iteration_against_esi() {
+    let (m, _, _) = mesh83();
+    let cell_level: Vec<usize> = lines("layer_cell_level_81.txt.gz").iter().map(|v| v[0] as usize).collect();
+    let patch_ids: Vec<usize> = (0..4).collect();
+    let overrides: Vec<(usize, PatchLayerDict)> =
+        patch_ids.iter().map(|&p| (p, PatchLayerDict { n_surface_layers: 1, ..Default::default() })).collect();
+    let params = LayerParameters::new(&layer_dict(), 4, &overrides);
+    let pp = LayerPatch::new(&m, &patch_ids);
+    let (mut st, _) = set_point_num_layers(&m, &params, &patch_ids, &pp, feature_cos(), EDGE0_LEN, &cell_level);
+    let lt = calculate_layer_thickness(&m, &pp, &patch_ids, &params, &cell_level, &st.n_layers, EDGE0_LEN);
+    let counts = get_patch_displacement(&pp, &m.mesh.points, &lt.thickness, &lt.min_thickness, &mut st);
+    eprintln!("getPatchDisplacement: {counts:?}");
+    assert_eq!((counts.n_no_vis_normal, counts.n_extrude_remove), (0, 0));
+    let patch_disp: Vec<V> = st.disp.iter().map(|d| [-d[0], -d[1], -d[2]]).collect();
+
+    let me = mesh_edges(&m.mesh);
+    let n_points = m.mesh.points.len();
+    let mp = MedialParams {
+        n_smooth_surface_normals: 1,
+        min_medial_axis_angle_cos: rad(90.0).r_cos(),
+        n_smooth_normals: 3,
+        n_medial_axis_iter: n_points,
+        disable_wall_edges: false,
+    };
+    let medial = MedialAxis::update(&m.mesh.points, &me, &pp, &mp);
+    eprintln!(
+        "P52: patch-normal residual {:?} (ESI 0.07867287997577262), interior {:?} (ESI 0.1764300260321269)",
+        medial.patch_normal_residual, medial.interior_normal_residual
+    );
+    let dp = DisplacementParams {
+        max_thickness_to_medial_ratio: 0.3,
+        min_cos_layer_termination: rad(0.5 * 30.0).r_cos(),
+        n_smooth_thickness: 10,
+        n_medial_axis_iter: n_points,
+        detect_extrusion_island: false,
+        n_smooth_displacement: 0,
+    };
+    let mut mesh = m.mesh.clone();
+    let topo = scale_topology(&mesh);
+    let ctl = ScaleControls {
+        error_reduction: 0.75,
+        n_smooth_scale: 4,
+        quality: EsiQualityControls::default(),
+        n_allowable_errors: 0,
+        patch_scaling: PatchPointScaling::Scaled,
+    };
+    let rep = move_mesh(&mut mesh, &me, &topo, &pp, &medial, &lt.min_thickness, &dp, &patch_disp, &ctl, 5);
+    eprintln!(
+        "reduced {} nodes (ESI 20), isolated {} (ESI 975), thickness residual {:?} (ESI 9.162494450008907e-06)",
+        rep.displacement.n_thickness_reduced, rep.displacement.n_isolated, rep.displacement.thickness_residual
+    );
+    let schedule: Vec<(f64, usize)> =
+        rep.scale_iterations.iter().map(|r| (r.scale_min, r.check.wrong_faces.len())).collect();
+    eprintln!("scaling (min, faces in error): {schedule:?}");
+    let esi = vectors("layer_points_85.bin.gz");
+    assert_eq!(esi.len(), mesh.points.len());
+    let mut same = 0usize;
+    let mut worst = 0.0f64;
+    let mut n_diff_points = 0usize;
+    for (a, b) in mesh.points.iter().zip(&esi) {
+        let mut d = false;
+        for c in 0..3 {
+            if a[c].to_bits() == b[c].to_bits() {
+                same += 1;
+            } else {
+                d = true;
+                worst = worst.max((a[c] - b[c]).abs());
+            }
+        }
+        n_diff_points += d as usize;
+    }
+    eprintln!("P54: components bit-identical {same} of {}, points differing {n_diff_points}, worst {worst:e}", 3 * esi.len());
+    assert_eq!(rep.displacement.n_thickness_reduced, 20, "P53");
+    assert_eq!(rep.displacement.n_isolated, 975, "P53");
+    let want = [(1.0, 8), (0.75, 8), (0.5625, 8), (0.421875, 6), (0.31640625, 6), (0.2373046875, 4), (0.0, 0)];
+    assert_eq!(schedule, want.to_vec(), "P53");
+    assert_eq!(n_diff_points, 0, "P54");
+}
+
+fn raw_f64(path: &str) -> Vec<f64> {
+    let b = std::fs::read(path).expect("dump");
+    b.chunks_exact(8).map(|c| f64::from_le_bytes(c.try_into().unwrap())).collect()
+}
+
+fn cmp_f(name: &str, a: &[f64], b: &[f64]) {
+    let n = a.len().min(b.len());
+    let diff = (0..n).filter(|&i| a[i].to_bits() != b[i].to_bits()).count();
+    let worst = (0..n).map(|i| (a[i] - b[i]).abs()).fold(0.0, f64::max);
+    eprintln!("STAGE {name}: {} values, differing {diff}, worst {worst:e}", n);
+}
+
+/// Diagnostic against the ESI dump of `medialAxisMeshMover` (set `LAYER_DUMP_DIR`).
+#[test]
+fn medial_stages_against_esi_dump() {
+    let Ok(dir) = std::env::var("LAYER_DUMP_DIR") else { return };
+    let (m, _, _) = mesh83();
+    let cell_level: Vec<usize> = lines("layer_cell_level_81.txt.gz").iter().map(|v| v[0] as usize).collect();
+    let patch_ids: Vec<usize> = (0..4).collect();
+    let overrides: Vec<(usize, PatchLayerDict)> =
+        patch_ids.iter().map(|&p| (p, PatchLayerDict { n_surface_layers: 1, ..Default::default() })).collect();
+    let params = LayerParameters::new(&layer_dict(), 4, &overrides);
+    let pp = LayerPatch::new(&m, &patch_ids);
+    let (mut st, _) = set_point_num_layers(&m, &params, &patch_ids, &pp, feature_cos(), EDGE0_LEN, &cell_level);
+    let lt = calculate_layer_thickness(&m, &pp, &patch_ids, &params, &cell_level, &st.n_layers, EDGE0_LEN);
+    get_patch_displacement(&pp, &m.mesh.points, &lt.thickness, &lt.min_thickness, &mut st);
+    let me = mesh_edges(&m.mesh);
+    let n_points = m.mesh.points.len();
+    let mp = MedialParams {
+        n_smooth_surface_normals: 1,
+        min_medial_axis_angle_cos: rad(90.0).r_cos(),
+        n_smooth_normals: 3,
+        n_medial_axis_iter: n_points,
+        disable_wall_edges: false,
+    };
+    let medial = MedialAxis::update(&m.mesh.points, &me, &pp, &mp);
+    let flat = |v: &[V]| -> Vec<f64> { v.iter().flat_map(|x| x.iter().copied()).collect() };
+    cmp_f("medialRatio", &medial.medial_ratio, &raw_f64(&format!("{dir}/dump_medialRatio.bin")));
+    cmp_f("medialDist", &medial.medial_dist, &raw_f64(&format!("{dir}/dump_medialDist.bin")));
+    cmp_f("medialVec", &flat(&medial.medial_vec), &raw_f64(&format!("{dir}/dump_medialVec.bin")));
+    cmp_f("dispVec", &flat(&medial.disp_vec), &raw_f64(&format!("{dir}/dump_dispVec.bin")));
+    let dp = DisplacementParams {
+        max_thickness_to_medial_ratio: 0.3,
+        min_cos_layer_termination: rad(0.5 * 30.0).r_cos(),
+        n_smooth_thickness: 10,
+        n_medial_axis_iter: n_points,
+        detect_extrusion_island: false,
+        n_smooth_displacement: 0,
+    };
+    let mut st2 = outram_foam_mesh::snappy_hex_mesh::esi_layers::ExtrudeState::new(pp.n_points());
+    st2.disp = st.disp.iter().map(|d| [-d[0], -d[1], -d[2]]).collect();
+    for i in 0..pp.n_points() {
+        let mg = (st2.disp[i][0].powi(2) + st2.disp[i][1].powi(2) + st2.disp[i][2].powi(2)).sqrt();
+        if mg <= lt.min_thickness[i] + 1e-15 {
+            st2.status[i] = ExtrudeMode::NoExtrude;
+        }
+    }
+    let (disp, rep) = outram_foam_mesh::snappy_hex_mesh::esi_medial::calculate_displacement(
+        &m.mesh.points,
+        &me,
+        &pp,
+        &medial,
+        &lt.min_thickness,
+        &dp,
+        &mut st2,
+    );
+    let n_pp = pp.n_points();
+    cmp_f("patchDispAfterIsolated", &flat(&st2.disp), &raw_f64(&format!("{dir}/dump_patchDispAfterIsolated.bin"))[..3 * n_pp]);
+    cmp_f("thicknessSmoothed", &rep.thickness, &raw_f64(&format!("{dir}/dump_thicknessSmoothed.bin"))[..n_pp]);
+    cmp_f("displacement", &flat(&disp), &raw_f64(&format!("{dir}/dump_displacement.bin"))[..3 * n_points]);
 }
