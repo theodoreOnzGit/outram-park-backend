@@ -1,0 +1,118 @@
+LEU-COMP-THERM-008 — B&W critical lattices, Core XI, 2.459 w/o UO₂
+  specification: mit-crpg/benchmarks OpenMC model, parsed from XML at run time
+  nuclide tier: FULL (36 tapes) -- every nuclide the OpenMC cards name (default); slow to reconstruct
+
+  case 1
+Reconstructing nuclides (RECONR + BROADR @ 293.6 K):
+  reconstructing H1     … 110.6ms
+    H1 carries c_H_in_H2O
+  reconstructing O16    … 5.7s
+  reconstructing B10    … 264.3ms
+  reconstructing B11    … 1.6s
+  reconstructing U234   … 31.3s
+  reconstructing U235   … 197.7s
+  reconstructing U238   … 156.3s
+  reconstructing Mg24   … 171.3ms
+  reconstructing Mg25   … 124.6ms
+  reconstructing Mg26   … 95.7ms
+  reconstructing Al27   … 2.7s
+  reconstructing Si28   … 2.4s
+  reconstructing Si29   … 2.1s
+  reconstructing Si30   … 1.9s
+  reconstructing Ti46   … 1.1s
+  reconstructing Ti47   … 524.5ms
+  reconstructing Ti48   … 982.7ms
+  reconstructing Ti49   … 562.7ms
+  reconstructing Ti50   … 339.1ms
+  reconstructing Cr50   … 4.7s
+  reconstructing Cr52   … 3.7s
+  reconstructing Cr53   … 4.0s
+  reconstructing Cr54   … 2.2s
+  reconstructing Mn55   … 16.3s
+  reconstructing Fe54   … 18.1s
+  reconstructing Fe56   … 20.1s
+  reconstructing Fe57   … 13.5s
+  reconstructing Fe58   … 12.4s
+  reconstructing Cu63   … 7.6s
+  reconstructing Cu65   … 7.0s
+  reconstructing Zn64   … 6.9s
+  reconstructing Zn66   … 6.6s
+  reconstructing Zn67   … 11.3s
+  reconstructing Zn68   … 5.7s
+  reconstructing Zn70   … 4.9s
+Nuclear data ready in 594.6 s.
+  every nuclide in the model has a tape — nothing omitted.
+  fuel self-shielding: Σ_t peaks at 171.1 cm⁻¹ at 6.674 eV (434× the 0.39 cm⁻¹ at 5 eV);
+    the 1.030 cm pellet is 176 mean free paths across there
+
+  geometry: 11 surfaces, 29 cells, 26 universes, 23 lattices (root = universe 0)
+  lattice row convention: the two orders are exact y-mirrors of each other (50000 points), so k cannot depend on the choice
+  geometry check: 200000 points, 139186 inside / 60814 outside; volume shares Water with 1511 PPM 68.9 % / Fuel (2.459 w/o with B-10 for impurities) 22.6 % / Aluminum 6061 Cladding for Fuel 8.5 %
+  speed tier: fast (OUTRAM_SPEED)
+
+  4000 histories/gen, 120 inactive + 250 active generations
+  [transport losses] lct008_keff seed 1
+    histories 1480000   collisions 47120510   leaks: vacuum 31655 / infinity 0
+    lost_locate           0  (0.0000 % of histories)
+    stuck_events          0  (0.0000 %)   mean path 0.000e0 cm   last E 0.000e0 eV
+    neg_dist              0  (0.0000 %)   worst 0.000e0   from lattice 0
+    => CLEAN: no history was lost, trapped, or given a negative distance.
+    seed 2: k = 1.00090 +/- 0.00104
+    seed 3: k = 1.00081 +/- 0.00103
+    seed 4: k = 1.00260 +/- 0.00102
+    seed 5: k = 1.00048 +/- 0.00107
+    seed 6: k = 1.00121 +/- 0.00106
+    seed 7: k = 1.00124 +/- 0.00102
+    seed 8: k = 0.99870 +/- 0.00112
+    seed 9: k = 1.00318 +/- 0.00099
+    seed 10: k = 1.00245 +/- 0.00101
+    seed 11: k = 1.00223 +/- 0.00098
+    seed 12: k = 1.00341 +/- 0.00103
+    seed 13: k = 1.00153 +/- 0.00108
+    seed 14: k = 1.00305 +/- 0.00105
+    seed 15: k = 1.00132 +/- 0.00110
+    seed 16: k = 1.00208 +/- 0.00120
+    seed 17: k = 1.00315 +/- 0.00112
+    seed 18: k = 1.00072 +/- 0.00098
+    seed 19: k = 1.00330 +/- 0.00099
+    seed 20: k = 1.00128 +/- 0.00099
+    seed 21: k = 0.99965 +/- 0.00111
+    seed 22: k = 1.00180 +/- 0.00106
+    seed 23: k = 1.00200 +/- 0.00102
+    seed 24: k = 0.99983 +/- 0.00112
+    seed 25: k = 1.00273 +/- 0.00100
+    seed 26: k = 1.00149 +/- 0.00109
+    seed 27: k = 1.00154 +/- 0.00107
+    seed 28: k = 1.00241 +/- 0.00100
+    seed 29: k = 1.00154 +/- 0.00111
+    seed 30: k = 1.00374 +/- 0.00105
+    seed 31: k = 1.00155 +/- 0.00102
+    seed 32: k = 1.00338 +/- 0.00107
+
+  POOLED SOURCE-CONVERGENCE DRIFT (32 seeds)
+    active-half drift = +24 +/- 34 pcm   (seed-to-seed sd 195)
+    => not resolved; consistent with statistical scatter.
+
+  ENSEMBLE LEU-COMP-THERM-008 case 1: 32 seeds
+    pooled dk    = +172 pcm
+    seed-to-seed sd  = 124 pcm   (what ONE run scatters by)
+    uncertainty  sem = +/-22 pcm   (on the pooled mean)
+    distance from benchmark = 7.8 sem
+  transport: 5580.2 s
+  source convergence, mean k over inactive quarters: 0.9877 0.9954 0.9974 1.0052
+  active halves: 1.00017 then 0.99916 (a drift here means more inactive generations)
+
+=== LEU-COMP-THERM-008 ===
+  k_eff = 0.99966 ± 0.00104
+  ICSBEP benchmark model (critical) = 1.0000 ± ~0.006
+  Δk from the benchmark = -34 ± 104 pcm
+
+  This is the discriminator: the one benchmark whose fuel is both thermal
+  and strongly self-shielded in the U-238 resolved resonances. Measured
+  2026-09-11 at 10 000 × [250 + 400]: k = 1.02950 ± 0.00061, i.e.
+  +2950 ± 61 pcm — against +4004 pcm on the FHR pebble, and against the
+  +3200 pcm predicted by carrying that pebble's 11 % resonance-integral
+  deficit onto p ≈ 0.75. The residual is this code's self-shielded U-238
+  resonance absorption, reproduced on a measured critical experiment; it
+  is not the pebble's reference deck. NOTE: the resonance attribution is
+  REFUTED by --case 2 and --case 8; see the module docs.
