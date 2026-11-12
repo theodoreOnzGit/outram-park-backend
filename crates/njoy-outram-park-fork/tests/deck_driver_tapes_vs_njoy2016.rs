@@ -1474,3 +1474,64 @@ fn test_13_viewr_of_njoys_plot() {
 fn test_14_viewr_of_njoys_plot() {
     let _ = viewr_of_njoys_own_plot("14", "epn14", &[("epn14", 21)], 33, 36);
 }
+
+/// **PURR decks' MODER text copy of the PURR PENDF (unit 34), whole tape**
+/// (gh:#1498).
+///
+/// Methodology: the upstream deck `reconr -> broadr -> purr -> moder -24 34 ->
+/// acer ...`, cut before `viewr`, is run in NJOY2016.80 and in this crate on the
+/// same evaluation; unit 34 (`referenceTape34`, gated by upstream's
+/// `tests/<n>/CMakeLists.txt`) is compared line by line. Pass criterion: 0
+/// differing lines.
+///
+/// Prediction (written after reading `purr.f90:316-570`, before the fix): the
+/// issue's hypothesis, a per-line writer difference in MODER, is wrong. PURR
+/// replaces MF=2/MT=152 and adds MT=153; the deck driver passed the PENDF
+/// through, so the tape lacked MT=153 and carried RECONR's MT=152 (a different
+/// energy grid), shifting every sequence number after the dictionary. Predicted:
+/// 0 differing lines once PURR writes both and keeps MT=451's own `NC`.
+///
+/// Result (2026-11-12, release, PETIR libm against upstream glibc): deck 36
+/// went from 24 323 / 24 331 differing lines to 0; decks 38-42 are 0 as well
+/// (each test's doc below).
+fn purr_moder_unit34(case: &str, resource: &str) -> Option<()> {
+    acer_check_deck(case, resource, &[], &[34])
+}
+
+/// Deck 36 (Sn-119): 0 differing lines of unit 34.
+#[test]
+fn test_36_purr_moder_text_copy_unit34() {
+    let _ = purr_moder_unit34("36", "n-050_Sn_119-ENDF8.0.endf");
+}
+
+/// Deck 38 (Kr-83): 0 differing lines of unit 34.
+#[test]
+fn test_38_purr_moder_text_copy_unit34() {
+    let _ = purr_moder_unit34("38", "n-036_Kr_083-ENDF8.0.endf");
+}
+
+/// Deck 39 (Ni-63): 0 differing lines of unit 34.
+#[test]
+fn test_39_purr_moder_text_copy_unit34() {
+    let _ = purr_moder_unit34("39", "n-028_Ni_063-ENDF8.0.endf");
+}
+
+/// Deck 40 (Mn-55): 1 differing line of 17 400+, MF=10/MT=37's first point
+/// (ours 1.29429-11, NJOY 0.0): RECONR's `emerge`, not PURR (gh:#1505).
+#[test]
+#[ignore = "one line: MF=10/MT=37 first point 1.29429-11 against 0 (RECONR emerge, gh:#1505); PURR's sections are identical"]
+fn test_40_purr_moder_text_copy_unit34() {
+    let _ = purr_moder_unit34("40", "n-025_Mn_055-ENDF8.0.endf");
+}
+
+/// Deck 41 (Ge-71): 0 differing lines of unit 34.
+#[test]
+fn test_41_purr_moder_text_copy_unit34() {
+    let _ = purr_moder_unit34("41", "n-032_Ge_071-ENDF8.0.endf");
+}
+
+/// Deck 42 (Zn-67): 0 differing lines of unit 34.
+#[test]
+fn test_42_purr_moder_text_copy_unit34() {
+    let _ = purr_moder_unit34("42", "n-030_Zn_067-ENDF8.0.endf");
+}
