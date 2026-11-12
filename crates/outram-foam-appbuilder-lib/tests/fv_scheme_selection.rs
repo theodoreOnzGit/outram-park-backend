@@ -168,8 +168,11 @@ fn ghia_error(solver: &PimpleFoam) -> (f64, f64) {
 ///
 /// * [`DivScheme::GaussUpwind`] — first-order upwind (the historical hardwired
 ///   behaviour and the new honest default).
-/// * [`DivScheme::GaussLinear`] — second-order central differencing by deferred
-///   correction.
+/// * [`DivScheme::GaussLinear`] — second-order central differencing,
+///   ~~by deferred correction~~ **CORRECTED 2026-11-12 (gh:#1363):** fully
+///   implicit since dfb334c42, as upstream's `Gauss linear`; the deferred form
+///   is now [`DivScheme::GaussLinearDeferred`]. The Ghia RMS/max recorded for
+///   this test did not move (0.0057 / 0.0127, as reported by the gh:#1363 re-run).
 ///
 /// The vertical-centreline `U_x/U_lid` profile is extracted from the central
 /// column of cells and compared with the 17 tabulated Ghia points; the metric is

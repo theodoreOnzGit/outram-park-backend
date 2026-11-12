@@ -24,6 +24,7 @@ use std::sync::Arc;
 use crate::fields::boundary::bc::BoundaryCondition;
 use crate::fields::surface_field::SurfaceScalarField;
 use crate::fields::vol_field::VolVectorField;
+use crate::fv_operators::fvc::linear_weight;
 use crate::ldu_matrix::fv_vector_matrix::FvVectorMatrix;
 use crate::mesh::fv_mesh::{FvMesh, PatchKind};
 
@@ -41,6 +42,40 @@ use crate::mesh::fv_mesh::{FvMesh, PatchKind};
 ///
 /// Mirrors `fvm::div(phi, U)` with the upwind convection scheme.
 pub fn div_vec(phi: &SurfaceScalarField, u: &VolVectorField, mesh: Arc<FvMesh>) -> FvVectorMatrix {
+    div_vec_assemble(phi, u, mesh, false)
+}
+
+/// Implicit **central** (`Gauss linear`) convection of a vector field `U` by
+/// a face flux `phi`: `∇·(φ U)` with the face value `w U_P + (1-w) U_N`
+/// taken **implicitly** (gh:#1363).
+///
+/// Mirrors upstream `gaussConvectionScheme::fvmDiv`
+/// (`src/finiteVolume/finiteVolume/convectionSchemes/gaussConvectionScheme/`):
+///
+/// ```text
+/// lower = -w*phi;  upper = lower + phi;  negSumDiag
+/// ```
+///
+/// i.e. `diag[owner] -= lower`, `diag[neighbour] -= upper`, with `w` the
+/// linear weight ([`crate::fv_operators::fvc::linear_weight`]). Boundary
+/// faces are treated exactly as in [`div_vec`] (the boundary coefficients do
+/// not depend on the interior weights). Cyclic seams stay first-order upwind,
+/// as in [`div_vec`]: not ported for the central scheme.
+///
+/// Before gh:#1363 the appbuilder solvers realised `Gauss linear` as
+/// [`div_vec`] plus a lagged explicit correction, which is not the same
+/// discrete operator inside a time step (it changes `A` and `H` of PISO).
+pub fn div_vec_linear(phi: &SurfaceScalarField, u: &VolVectorField, mesh: Arc<FvMesh>) -> FvVectorMatrix {
+    div_vec_assemble(phi, u, mesh, true)
+}
+
+/// Shared assembly of [`div_vec`] (upwind) and [`div_vec_linear`] (central).
+fn div_vec_assemble(
+    phi: &SurfaceScalarField,
+    u: &VolVectorField,
+    mesh: Arc<FvMesh>,
+    central: bool,
+) -> FvVectorMatrix {
     let mut mat = FvVectorMatrix::new(mesh.clone());
 
     // Internal faces
@@ -49,10 +84,20 @@ pub fn div_vec(phi: &SurfaceScalarField, u: &VolVectorField, mesh: Arc<FvMesh>) 
         let nb = mesh.neighbour[f];
         let phi_f = phi.internal[f];
 
-        mat.ldu.diag[o] += phi_f.max(0.0);
-        mat.ldu.upper[f] += phi_f.min(0.0);
-        mat.ldu.diag[nb] -= phi_f.min(0.0);
-        mat.ldu.lower[f] -= phi_f.max(0.0);
+        if central {
+            let w = linear_weight(&mesh, f);
+            let lower = -(w * phi_f);
+            let upper = lower + phi_f;
+            mat.ldu.lower[f] += lower;
+            mat.ldu.upper[f] += upper;
+            mat.ldu.diag[o] -= lower;
+            mat.ldu.diag[nb] -= upper;
+        } else {
+            mat.ldu.diag[o] += phi_f.max(0.0);
+            mat.ldu.upper[f] += phi_f.min(0.0);
+            mat.ldu.diag[nb] -= phi_f.min(0.0);
+            mat.ldu.lower[f] -= phi_f.max(0.0);
+        }
     }
 
     // Boundary faces: explicit contribution (upwind = owner cell)

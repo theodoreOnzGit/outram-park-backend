@@ -26,11 +26,12 @@
 //! reach second order, à la OpenFOAM's `interpolate(field, pos)` /
 //! `interpolate(field, neg)`.
 
-use super::{grad, interpolate, linear_weight};
+use super::{grad, grad_vec, interpolate, linear_weight};
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
 use crate::fields::surface_field::SurfaceScalarField;
-use crate::fields::vol_field::VolScalarField;
+use crate::fields::vol_field::{VolScalarField, VolVectorField};
+use crate::primitives::{Tensor, Vector3};
 
 /// Slope / flux limiter for MUSCL reconstruction.
 ///
@@ -163,6 +164,56 @@ pub fn reconstruct_pos_neg(
         boundary(),
     );
     (pos_field, neg_field)
+}
+
+/// Upstream `NVDVTVDV::r` (`LimitedScheme/NVDVTVDV.H`), the slope ratio of a
+/// VECTOR field with one scalar limiter per face (gh:#1363):
+/// `gradfV = phi_N - phi_P`, `gradf = gradfV . gradfV`,
+/// `gradcf = gradfV . (d . gradc)` on the upwind side, then the same clamp and
+/// `2*(gradcf/gradf) - 1` as the scalar `r`. `grad_c` follows upstream's
+/// tensor convention `T_ij = d u_j / d x_i`, so `d . T` has components
+/// `sum_i d_i T_ij`.
+fn nvdvtvdv_r(grad_f_vec: Vector3, grad_c: Tensor, d: Vector3) -> f64 {
+    let d_dot_g = Vector3::new(
+        d.x * grad_c.xx + d.y * grad_c.yx + d.z * grad_c.zx,
+        d.x * grad_c.xy + d.y * grad_c.yy + d.z * grad_c.zy,
+        d.x * grad_c.xz + d.y * grad_c.yz + d.z * grad_c.zz,
+    );
+    nvdtvd_r(grad_f_vec.dot(grad_f_vec), grad_f_vec.dot(d_dot_g))
+}
+
+/// `pos` / `neg` face values of a vector field with ONE scalar limiter per
+/// face from [`nvdvtvdv_r`]: upstream's `vanLeerV` (and `MUSCLV`, ...) of
+/// `interpolate(rhoU, pos, U.name())` in rhoCentralFoam. Same weights as
+/// [`reconstruct_pos_neg`]: `w = lim*cdWeight + (1 - lim)*pos0(flux)` then
+/// `w*(P - N) + N` per component. Returns `(pos, neg)` internal-face values
+/// and the boundary-face values (both sides = the patch face value, as
+/// upstream does on a non-coupled patch). Gradient: `fvc::grad_vec`
+/// (`Gauss linear`).
+pub fn reconstruct_pos_neg_vector(
+    field: &VolVectorField,
+    limiter: Limiter,
+) -> (Vec<Vector3>, Vec<Vector3>) {
+    let mesh = field.mesh.clone();
+    let grad_c = grad_vec(field);
+    let gc = grad_c.internal.as_slice();
+    let phi = field.internal.as_slice();
+    let mut pos = vec![Vector3::ZERO; mesh.n_internal_faces];
+    let mut neg = vec![Vector3::ZERO; mesh.n_internal_faces];
+    for f in 0..mesh.n_internal_faces {
+        let o = mesh.owner[f];
+        let nb = mesh.neighbour[f];
+        let grad_f_vec = phi[nb] - phi[o];
+        let d = mesh.cell_centres[nb] - mesh.cell_centres[o];
+        let cd = linear_weight(&mesh, f);
+        let r_pos = nvdvtvdv_r(grad_f_vec, gc[o], d);
+        let r_neg = nvdvtvdv_r(grad_f_vec, gc[nb], d);
+        let w_pos = limiter.lambda(r_pos) * cd + (1.0 - limiter.lambda(r_pos)) * 1.0;
+        let w_neg = limiter.lambda(r_neg) * cd + (1.0 - limiter.lambda(r_neg)) * 0.0;
+        pos[f] = (phi[o] - phi[nb]) * w_pos + phi[nb];
+        neg[f] = (phi[o] - phi[nb]) * w_neg + phi[nb];
+    }
+    (pos, neg)
 }
 
 #[cfg(test)]

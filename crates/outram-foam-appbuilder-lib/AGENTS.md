@@ -89,7 +89,10 @@ maturity gate in that file for what this means and how the bar is revised.
   asserts is the Table II faithful-station point error < 5 % of peak (worst
   0.43 / 0.96 / 0.43 %); it asserts no whole-field `L2`. The velocity `L2` is
   dominated by the single cell on the shock (`L∞` 48 %, which alone
-  contributes ≈ 4.8 % to a 100-cell `L2`). Found while building the HEM pipe
+  contributes ≈ 4.8 % to a 100-cell `L2`). **RE-MEASURED 2026-11-12 (gh:#1363,
+  re-run)**: after `rhoCentralFoam` became a translation of upstream's
+  `rhoCentralFoam.C` (bit-identical on the shockTube), the whole-field `L2` is
+  ρ 1.51 %, u 5.39 %, p 1.21 % (`RESULTS.md`); u is still not within 5 %. Found while building the HEM pipe
   solver's Sod case (gh #902). Evidence class:
   **analytical / manufactured solution** (the exact Riemann solver is the
   reference, not another code), supported by cross-code comparison against an
