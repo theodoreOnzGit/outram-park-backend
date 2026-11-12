@@ -937,6 +937,51 @@ pub fn scale_mesh_loop(
     reports
 }
 
+/// `snappySnapDriver::repatchToSurface` (v2506 `snappySnapDriver.C:2275`), no zoned
+/// surfaces or preserved faces: every boundary face whose centre has a surface triangle
+/// within `faceSnapDist` (the maximum of `calcSnapDistance` over its points, on `mesh`)
+/// moves to the patch of the region of the nearest triangle (`region_patch[region]`).
+/// `face_patch[i]` is the current patch of patch face `i` (`pa.face_ids[i]`); returns
+/// `(mesh face, new patch)` for the faces whose patch changes, in face order.
+/// `tri_region[t]` is the region of `surface.triangles[t]`. Nearest triangle: first
+/// minimum of the brute-force search (upstream searches an octree; equal distances to two
+/// regions are the one place the two can differ).
+pub fn repatch_to_surface(
+    mesh: &SnapMesh,
+    pa: &PatchAddr,
+    face_patch: &[usize],
+    snap_tol: f64,
+    surface: &TriangleSoup,
+    tri_region: &[usize],
+    region_patch: &[usize],
+) -> Vec<(usize, usize)> {
+    let snap_dist = calc_snap_distance(mesh, pa, snap_tol);
+    let (centres, _) = face_centres_areas(&mesh.points, &mesh.faces);
+    let mut changed = Vec::new();
+    for (i, &f) in pa.face_ids.iter().enumerate() {
+        let face_snap_dist = pa.local_faces[i].iter().fold(-GREAT, |m, &p| m.max(snap_dist[p]));
+        let c = centres[f];
+        let sample = Vector3::new(c[0], c[1], c[2]);
+        let mut best: Option<(f64, usize)> = None;
+        for (t, tri) in surface.triangles.iter().enumerate() {
+            let q = tri.closest_point(sample);
+            let d2 = mag_sqr([q.x - c[0], q.y - c[1], q.z - c[2]]);
+            if best.map(|(b, _)| d2 < b).unwrap_or(true) {
+                best = Some((d2, t));
+            }
+        }
+        if let Some((d2, t)) = best {
+            if d2 <= face_snap_dist * face_snap_dist {
+                let patch = region_patch[tri_region[t]];
+                if patch != face_patch[i] {
+                    changed.push((f, patch));
+                }
+            }
+        }
+    }
+    changed
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

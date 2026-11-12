@@ -767,3 +767,34 @@ NONE`, so neither merge happens), whose final mesh is the repatched mesh; ESI lo
 | # | prediction |
 |---|---|
 | P29 | Starting from ESI's castellated patch assignment and the snapped (time 36) points, the port repatches **exactly 42 faces**, the same 42 faces as ESI, each to the same patch (compared on all 12136 boundary faces: 0 differing). Risk: a face centre at equal distance from triangles of two regions (tie-break by ESI's octree order), which the brute-force nearest triangle (first minimum) may resolve differently. |
+
+### Round 4, task 3a: result (2026-11-12, `tests/snappy_hex_mesh_esi_scale.rs`)
+
+`esi_snap::repatch_to_surface`, from the castellated patch assignment and ESI's time-36
+points: **42 faces repatched, the same 42 faces and the same new patch for each as ESI's
+`mergePatchFaces false` run** (reference `esi_repatch_changes.txt.gz`: mesh face index in
+the castellated mesh, old patch, new patch; faces matched by owner and ring up to rotation
+and orientation across all 63194 faces, every face found). P29 **held**. Patch sizes after:
+9336 / 1162 / 238 / 1400 (from 9310 / 1182 / 248 / 1396). Bit-level: no arithmetic beyond the
+nearest-point routine already used in P21; the face centre and snap distance are the
+earlier ported functions.
+
+### Round 4: not done
+
+`mergePatchFaces` / `mergeEdges` (`meshRefinement::mergePatchFacesUndo`,
+`mergeEdgesUndo`: 2118 face sets, 2005 straight-edge points, 63194 to 61034 faces, with the
+edge-intersection test and the undo/quality loop) are NOT ported. Read for the next round:
+the merge runs only with `mergePatchFaces` true (default); `featureCos` comes from
+`resolveFeatureAngle`; ESI's `Undo iteration 0` re-runs the nine checks (now available as
+`check_mesh::esi_check_mesh`) on the merged mesh and found 0 faces, so no merge is undone on
+the flange. Reference runs for it: this section's case with `mergePatchFaces` true gives the
+final mesh (time 40 in the log of the castellated+snap run).
+
+### Round 4 summary of the ledger
+
+| # | outcome |
+|---|---|
+| P26 | held (nine face sets equal ESI's; 8 faces; 0 on times 32 and 36) |
+| P27 | held (scaleMesh: 2 iterations, snapped points bit-identical to time 36, 79986 of 79986) |
+| P28 | held (0 faces after scaling) |
+| P29 | held (42 faces, same patches) |

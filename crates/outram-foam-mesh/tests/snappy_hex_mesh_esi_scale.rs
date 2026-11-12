@@ -226,3 +226,35 @@ fn unscaled_patch_points_reading_is_refuted() {
     assert_eq!(reports.len(), 10);
     assert!(same < n && worst > 1e-5, "{same} of {n}, {worst:e}");
 }
+
+/// P29: `repatchToSurface` from the castellated patch assignment and the snapped points
+/// against ESI's repatched mesh (`mergePatchFaces false`): the same 42 faces, the same
+/// new patches.
+#[test]
+fn repatch_to_surface_against_esi() {
+    use outram_foam_mesh::snappy_hex_mesh::esi_snap::repatch_to_surface;
+    use outram_foam_mesh::snappy_hex_mesh::stl::read_stl_zoned_bytes;
+    use outram_foam_mesh::snappy_hex_mesh::TriangleSoup;
+    let mesh = esi_mesh("snap_points_36.bin.gz");
+    let pa = patch_addressing(&mesh);
+    // castellated patches: flange_patch1..4 start at 51058, 60368, 61550, 61798
+    let starts = [51058usize, 60368, 61550, 61798, 63194];
+    let face_patch: Vec<usize> =
+        pa.face_ids.iter().map(|&f| (0..4).find(|&p| f >= starts[p] && f < starts[p + 1]).unwrap()).collect();
+    let zoned = read_stl_zoned_bytes(&fixture("flange.stl.gz")).unwrap();
+    let surface = TriangleSoup::from_zoned(&zoned);
+    assert_eq!(zoned.n_zones, 4);
+    let region_patch: Vec<usize> = (0..zoned.n_zones).collect();
+    let changed = repatch_to_surface(&mesh, &pa, &face_patch, 1.0, &surface, &zoned.zones, &region_patch);
+    let esi: Vec<(usize, usize)> = String::from_utf8(fixture("esi_repatch_changes.txt.gz"))
+        .unwrap()
+        .lines()
+        .map(|l| {
+            let v: Vec<usize> = l.split_whitespace().map(|x| x.parse().unwrap()).collect();
+            (v[0], v[2] - 1)
+        })
+        .collect();
+    eprintln!("port repatches {} faces, ESI {}", changed.len(), esi.len());
+    assert_eq!(esi.len(), 42);
+    assert_eq!(changed, esi, "P29");
+}
