@@ -209,7 +209,7 @@ itself (its equality is an integer comparison of 42788 cells).
   `splitMesh`, `meshRefinementBaffles.C:5157`), then `danglingCellRefine`
   (nFaces 21, 24) and `refinementInterfaceRefine` on the post-removal mesh: these
   explain 304 + 38 of the 344 residual cells.
-- `markFacesOnProblemCells` (2 cells), `zonify`, `splitAndMergeBaffles`,
+- ~~`markFacesOnProblemCells` (2 cells)~~ **CORRECTED 2026-11-12 (round 2/3): ported; ESI's 25295 faces reproduced in ESI's cell order**, `zonify`, `splitAndMergeBaffles`,
   `mergePatchFaces` (needs `snap true`), region patches from `patchInfo`,
   multiple surfaces, faceZones/cellZones, `locationsInMesh`.
 - #1465 items 1 (`(min max)` levels, curvature), 2 (`nCellsBetweenLevels` > 1),
@@ -623,3 +623,61 @@ the grey grid showing the undisplaced position. **Not seen:** any red, because r
 is drawn under blue and the largest difference between the port at scale 1 and ESI's time-36
 mesh is 6.0e-5 m (0.9 px at 15000 px/m), which is the effect of the `errorReduction`
 scaling (below); the images cannot show it, the number does. No 3-D view.
+
+### Round 3, task 2: P24 and P25 NOT DONE (stated, not approximated)
+
+`scaleMesh` iteration 0 needs ESI's `meshQualityControls` face checks
+(`motionSmootherAlgoCheck.C` + `polyMeshGeometry.C`: nine checks, about 1500 lines of
+C++). They are NOT ported in this round, so the stage that turns the unscaled mesh
+(ESI time 35; the port reproduces its displacement bit for bit above) into the snapped
+mesh of time 36 is open, and so is the `checkMesh` count table of P25. Measured instead:
+the largest distance between the port's unscaled mesh and ESI's time-36 mesh is
+**6.0e-5 m**, i.e. the effect of `errorReduction 0.75` at the points of the 8 faces
+that failed (4 pyramid-volume, 2 tet-quality, 2 twist; ESI log, iteration 0), which the
+port does not scale. What was read for the next round:
+
+- `checkMesh` runs: `checkFaceDotProduct`, `checkFacePyramids`, `checkFaceTets`,
+  `checkFaceAngles`, `checkFaceSkewness`, `checkFaceWeights`, `checkVolRatio`,
+  `checkFaceTwist`, `checkCellDeterminant` (the disabled ones: `minArea`,
+  `minTriangleTwist`, `minEdgeLength` are -1 in `meshQualityDict`).
+- **Source observation, recorded for the log line it explains:** the pyramid check is
+  called as `checkFacePyramids(report, minTetQuality, ...)`, with `minTetQuality`
+  (1e-15) as its threshold, while the log line that follows prints `minVol`
+  (1e-13). The count in ESI's "faces with face pyramid volume < 1e-13" is therefore
+  the number of faces with pyramid volume above `-1e-15` (owner side) or below
+  `1e-15` (neighbour side).
+- `tetrahedron::quality()` is `mag()/(8/(9 sqrt 3) * pow3(min(circumRadius, GREAT)) + ROOTVSMALL)`:
+  a `sqrt` and a division by `circumRadius`, no `pow`; face-pyramid and tet checks use
+  `polyMeshGeometry`'s own cell centres (`updateCellCentresAndVols`: face-centre
+  estimate, bounding-box guard), not `primitiveMesh`'s.
+- After a failed check: `errorReduction` at the points of the wrong faces, `nSmoothScale` (4)
+  `minSmooth` passes over the affected points with `calcEdgeWeights(oldPoints)`, move
+  again. `repatchToSurface` (42 faces) and `mergePatchFaces`/`mergeEdges` (2118 face
+  sets, 2005 points: 63194 to 61034 faces) follow and are also not ported.
+- Reuse note for #1467: the dev-lineage `outram_park_fork_cfmesh::checks` cannot be called
+  from this crate (cfMesh depends on it, optionally); a quality check shared by both
+  has to live here, ESI-translated, and cfMesh call it.
+
+### Round 3 summary of the prediction ledger
+
+| # | outcome |
+|---|---|
+| P17 | held (25295, same faces, ESI cell order as input) |
+| P18 | failed (1853 faces without hexRef8 hanging points); cause fixed |
+| P19 | held (24646 in the port's leaf order) |
+| P20 | held (all 63194 faces equal ESI per face, patches included) |
+| P21 | held (36389 of 36390 bit-identical, worst 2.2e-19 m) |
+| P22 | held (bit-identical, 3 iterations) |
+| P23 | held after fixing the edge order (first run 47.98 %, 4.8e-7 m) |
+| P24 | not done (face checks not ported); unscaled mesh differs from ESI time 36 by at most 6.0e-5 m |
+| P25 | not done |
+
+### Moved pins and defects, round 3
+
+Pins moved: none. `CellRemoval::EsiSplitMesh` now writes hexRef8 hanging-point
+rings (5-8 vertex faces) in `CastellatedMesh::topology`; face and cell counts are
+unchanged (`castellate_esi_split_mesh_cells` still 18278 / 63194), the default
+removal modes are untouched. Defects found: (1) final assembler wrote T-junction quads
+(fixed, opt-in path); (2) the "649-face problem-face miss" was the visit order, not a missing
+rule (README round 2 corrected); (3) in this round's own port, the edge renumbering of
+`calcEdges` (fixed before the first commit that claims P23).

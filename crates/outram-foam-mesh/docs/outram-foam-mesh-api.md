@@ -7903,6 +7903,7 @@ pub struct CastellationControls {
     pub min_refine_cells: usize,
     pub removal: CellRemoval,
     pub surface_regions: Option<SurfaceRegionPatches>,
+    pub problem_cell_order: Option<Vec<[usize; 4]>>,
 }
 ```
 
@@ -7920,6 +7921,7 @@ pub struct CastellationControls {
 | `min_refine_cells` | `usize` | `minRefinementCells` (upstream default in the tutorials: 0). Only read<br>by [`RefinementSelection::SurfaceIntersection`]. |
 | `removal` | `CellRemoval` | How cells are removed after refinement; see [`CellRemoval`]. Defaults to<br>[`CellRemoval::CentreParity`] so existing callers' meshes are unchanged. |
 | `surface_regions` | `Option<SurfaceRegionPatches>` | Named patches per surface region (ESI `patchInfo` / one `flange_patch1`<br>per STL solid); `None` puts every carved face in the single patch<br>[`Self::surface_patch_name`]. Needs [`CellRemoval::EsiSplitMesh`]. |
+| `problem_cell_order` | `Option<Vec<[usize; 4]>>` | Order in which `markFacesOnProblemCells` visits the cells (ESI: polyMesh cell<br>label). `None` visits in the port's leaf order. Only read by<br>[`CellRemoval::EsiSplitMesh`]; see<br>[`Self::with_esi_problem_cell_order`]. |
 
 ##### Implementations
 
@@ -7929,6 +7931,11 @@ pub struct CastellationControls {
   pub fn new(background: BackgroundMesh, surface_level: usize, keep_point: Vector3) -> Self { /* ... */ }
   ```
   Convenience constructor with the common defaults (auto band, surface
+
+- ```rust
+  pub fn with_esi_problem_cell_order(self: Self, order: Vec<[usize; 4]>) -> Self { /* ... */ }
+  ```
+  Visit the cells in this order (`[level, i, j, k]` on each cell's own lattice,
 
 - ```rust
   pub fn with_surface_region_patches(self: Self, patch_names: Vec<String>, region_of_tri: Vec<usize>) -> Self { /* ... */ }
@@ -9392,6 +9399,471 @@ points).
 pub fn background_from_points(points: &[outram_foam_basic_lib::primitives::Vector3]) -> Result<(crate::snappy_hex_mesh::background::Bounds, [usize; 3]), crate::MeshError> { /* ... */ }
 ```
 
+## Module `esi_snap`
+
+Snapping stages of ESI v2506 `snappyHexMesh`, translated (gh:#1467, epic #1459):
+the plain (no feature) loop of `snappySnapDriver::doSnap`, on a polyMesh read in.
+
+**Upstream (OpenFOAM.com ESI v2506, `src/mesh/snappyHexMesh/snappyHexMeshDriver/snappySnapDriver.C`):**
+`calcSnapDistance` (832), `smoothPatchDisplacement` (290), `preSmoothPatch`
+(872), `calcNearestSurface` (1797), `outwardsDisplacement` (706),
+`smoothDisplacement` (2134), `edgePatchDist` (631); and from
+`src/dynamicMesh/motionSmoother/motionSmootherAlgo.C`: `setDisplacement` (467),
+`smooth`/`avg` (`motionSmootherAlgoTemplates.C`), `curPoints` (748);
+`src/meshTools/algorithms/PointEdgeWave/` (`PointEdgeWave.C`, `pointEdgePointI.H`);
+`primitiveMesh::calcEdges` (edge order), `primitiveMeshTools::makeFaceCentresAndAreas`,
+`face::centre`, `PrimitivePatch::calcMeshData` / `calcPointFaces`.
+
+**What is translated:** the operation order of each routine (loops over the
+same index orders, the same operand grouping), so that results can be compared
+bit for bit; see `verification_and_validation/snappy_hex_mesh_esi_v2506/README.md`
+(round 3, task 2) for the stage table. **What is not:** features
+(`snappySnapDriverFeature.C`), `detectNearSurfaces` (ESI overrides 0 of 12130
+points on the flange), `freezeExposedPoints` (no frozen zone), baffles and
+faceZones, parallel synchronisation (serial only), `repatchToSurface`,
+`mergePatchFaces`, and the quality check of `scaleMesh`. Everything here is opt-in; the
+older [`crate::snappy_hex_mesh::snapping::snap`] is untouched.
+
+Numerics: plain IEEE `+ - * /` and `sqrt` only, in upstream's grouping, no
+`mul_add`; no transcendental is involved, so there is no PETIR residual here.
+
+```rust
+pub mod esi_snap { /* ... */ }
+```
+
+### Types
+
+#### Type Alias `V`
+
+A vector as three doubles, so every operation is spelled out.
+
+```rust
+pub type V = [f64; 3];
+```
+
+#### Struct `SnapMesh`
+
+A polyMesh (serial): the faces of the boundary patches are
+`faces[neighbour.len()..]`, all of them adapt patches.
+
+```rust
+pub struct SnapMesh {
+    pub points: Vec<V>,
+    pub faces: Vec<Vec<usize>>,
+    pub owner: Vec<usize>,
+    pub neighbour: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `points` | `Vec<V>` | Point coordinates. |
+| `faces` | `Vec<Vec<usize>>` | Face vertex rings, internal faces first. |
+| `owner` | `Vec<usize>` | Owner cell of every face. |
+| `neighbour` | `Vec<usize>` | Neighbour cell of every internal face. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn n_internal_faces(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of internal faces.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PatchAddr`
+
+`indirectPrimitivePatch` addressing of all boundary faces:
+`meshPoints` in order of first appearance, `pointFaces` per local point.
+
+```rust
+pub struct PatchAddr {
+    pub face_ids: Vec<usize>,
+    pub mesh_points: Vec<usize>,
+    pub point_faces: Vec<Vec<usize>>,
+    pub local_faces: Vec<Vec<usize>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `face_ids` | `Vec<usize>` | Mesh face index of each patch face. |
+| `mesh_points` | `Vec<usize>` | Mesh point of each local patch point. |
+| `point_faces` | `Vec<Vec<usize>>` | Patch faces (local indices) using each local point, ascending. |
+| `local_faces` | `Vec<Vec<usize>>` | Faces as local point indices. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `MeshEdges`
+
+Mesh edges and `pointEdges` in `primitiveMesh::calcEdges` order.
+
+```rust
+pub struct MeshEdges {
+    pub edges: Vec<[usize; 2]>,
+    pub point_edges: Vec<Vec<usize>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `edges` | `Vec<[usize; 2]>` | Edge end points in creation order. |
+| `point_edges` | `Vec<Vec<usize>>` | Edges of each point in creation order. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `patch_addressing`
+
+`PrimitivePatch::calcMeshData` and `calcPointFaces` for the boundary faces.
+
+```rust
+pub fn patch_addressing(mesh: &SnapMesh) -> PatchAddr { /* ... */ }
+```
+
+#### Function `face_centres_areas`
+
+`primitiveMeshTools::makeFaceCentresAndAreas` (ESI v2506): face centres and
+area vectors.
+
+```rust
+pub fn face_centres_areas(points: &[V], faces: &[Vec<usize>]) -> (Vec<V>, Vec<V>) { /* ... */ }
+```
+
+#### Function `face_centre`
+
+`face::centre(points)` (ESI v2506 `face.C`), which `smoothPatchDisplacement`
+uses for the boundary faces (it is not the same arithmetic as the mesh's face centre).
+
+```rust
+pub fn face_centre(points: &[V], f: &[usize]) -> V { /* ... */ }
+```
+
+#### Function `calc_snap_distance`
+
+`calcSnapDistance` (v2506 `snappySnapDriver.C:832`): `snapTol` times the
+longest patch edge at each patch point.
+
+```rust
+pub fn calc_snap_distance(mesh: &SnapMesh, pa: &PatchAddr, snap_tol: f64) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `calc_nearest_surface`
+
+`calcNearestSurface` (v2506 `snappySnapDriver.C:1797`), one unzoned surface,
+no region restriction: the displacement to the nearest surface point within
+`snap_dist` (zero where none is). Returns the displacement and the number of
+points with no surface in range.
+
+```rust
+pub fn calc_nearest_surface(local_points: &[V], snap_dist: &[f64], surface: &crate::snappy_hex_mesh::stl::TriangleSoup) -> (Vec<V>, usize) { /* ... */ }
+```
+
+#### Function `outwards_displacement`
+
+`outwardsDisplacement` (v2506 `snappySnapDriver.C:706`): the local index of the
+first patch point whose displacement points through its surrounding patch faces
+(ESI prints a warning and stops looking), if any. Does not change the displacement.
+
+```rust
+pub fn outwards_displacement(mesh: &SnapMesh, pa: &PatchAddr, patch_disp: &[V]) -> Option<usize> { /* ... */ }
+```
+
+#### Function `smooth_patch_displacement`
+
+`smoothPatchDisplacement` (v2506 `snappySnapDriver.C:290`, serial, no baffles):
+the displacement of each patch point towards the blend of the average of its
+boundary-face centres and of its internal-face centres.
+
+```rust
+pub fn smooth_patch_displacement(mesh: &SnapMesh, pa: &PatchAddr) -> Vec<V> { /* ... */ }
+```
+
+#### Function `cell_centres`
+
+`primitiveMeshTools::makeCellCentresAndVols` (v2506), cell centres only.
+
+```rust
+pub fn cell_centres(mesh: &SnapMesh) -> Vec<V> { /* ... */ }
+```
+
+#### Function `pre_smooth_patch_iteration`
+
+One iteration of `preSmoothPatch`'s loop body when the mesh check finds no face
+in error (`scaleMesh` with scale 1): `setDisplacement(patchDisp)` then
+`points = oldPoints + 1 * displacement`, where the displacement is zero off the
+patch. ESI reports "Moving mesh using displacement scaling : min:1 max:1" and
+0 faces in error for each of the three iterations of the flange. Returns the
+displacement used.
+
+```rust
+pub fn pre_smooth_patch_iteration(mesh: &mut SnapMesh, pa: &PatchAddr) -> Vec<V> { /* ... */ }
+```
+
+#### Function `mesh_edges`
+
+`primitiveMesh::calcEdges(false)`, serial, `nInternalPoints` unknown: edges are
+found face by face (`getEdge` creates `(point, next)`), then renumbered by
+increasing lower end point and, within it, increasing higher end point (the
+`oldToNew` pass); `pointEdges` are sorted. The end-point order of each edge
+is the creation order.
+
+```rust
+pub fn mesh_edges(mesh: &SnapMesh) -> MeshEdges { /* ... */ }
+```
+
+#### Function `edge_patch_dist`
+
+`edgePatchDist` (v2506 `snappySnapDriver.C:631`): for every mesh edge, the
+distance from its centre to the origin of the wall point `PointEdgeWave`
+propagated to it (seeds: the patch points). Returns the distances and the
+number of wave iterations.
+
+```rust
+pub fn edge_patch_dist(mesh: &SnapMesh, me: &MeshEdges, pa: &PatchAddr) -> (Vec<f64>, usize) { /* ... */ }
+```
+
+#### Function `smooth_displacement`
+
+`snappySnapDriver::smoothDisplacement` (v2506 `snappySnapDriver.C:2134`):
+`n_iter` times `motionSmootherAlgo::smooth(oldDisp, edgeGamma, disp)` with
+`edgeGamma = 1/(edgePatchDist + SMALL)`; points off the patch move to
+`0.5 * old + 0.5 * weighted neighbour average`, patch points keep their value.
+`disp` is the displacement field on all mesh points.
+
+```rust
+pub fn smooth_displacement(mesh: &SnapMesh, me: &MeshEdges, pa: &PatchAddr, disp: &mut [V], n_iter: usize) { /* ... */ }
+```
+
+#### Function `displacement_field`
+
+The displacement field handed to `smoothDisplacement`: the patch displacement on
+the patch points (`motionSmootherAlgo::setDisplacement`), zero elsewhere.
+
+```rust
+pub fn displacement_field(mesh: &SnapMesh, pa: &PatchAddr, patch_disp: &[V]) -> Vec<V> { /* ... */ }
+```
+
 ## Module `esi_split`
 
 The cell-removal stages of `snappyRefineDriver::doRefine` that follow
@@ -9447,6 +9919,15 @@ pub mod esi_split { /* ... */ }
 ```
 
 ### Types
+
+#### Type Alias `CellKey`
+
+A cell's identity on its own level lattice: `[level, i, j, k]` (the key the ESI
+reference fixtures use).
+
+```rust
+pub type CellKey = [usize; 4];
+```
 
 #### Struct `BaffleStats`
 
@@ -9563,6 +10044,7 @@ pub struct EsiStageCells {
     pub after_dangling: Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>,
     pub final_cells: Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>,
     pub baffle: BaffleStats,
+    pub problem_faces: Vec<(CellKey, CellKey)>,
 }
 ```
 
@@ -9575,6 +10057,7 @@ pub struct EsiStageCells {
 | `after_dangling` | `Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>` | After both dangling-cell stages. |
 | `final_cells` | `Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>` | After `baffleAndSplitMesh` (the final castellated cells). |
 | `baffle` | `BaffleStats` | The counts of the baffle step. |
+| `problem_faces` | `Vec<(CellKey, CellKey)>` | The faces `markFacesOnProblemCells` marked, as the two cells each separates<br>(smaller key first). |
 
 ##### Implementations
 
