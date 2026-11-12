@@ -681,3 +681,40 @@ removal modes are untouched. Defects found: (1) final assembler wrote T-junction
 (fixed, opt-in path); (2) the "649-face problem-face miss" was the visit order, not a missing
 rule (README round 2 corrected); (3) in this round's own port, the edge renumbering of
 `calcEdges` (fixed before the first commit that claims P23).
+
+## Round 4, tasks 1 and 2: the nine face checks and `scaleMesh` (predictions)
+
+Written and committed before any round-4 port code exists.
+
+**Correction of a round-3 statement, from reading `motionSmootherAlgoCheck.C` again
+before porting.** Round 3 recorded that ESI calls `checkFacePyramids(report,
+minTetQuality, ...)`. That is true of the OVERLOAD that takes a `polyMeshGeometry`
+(`checkMesh(report, dict, meshGeom, points, checkFaces, ...)`, line 503 onwards, used by
+`snappyLayerDriver`). `snappySnapDriver::scaleMesh` calls `meshMover.scaleMesh(checkFaces,
+baffles, true, nInitErrors)`, which calls the OTHER overload,
+`checkMesh(false, mesh_, meshQualityDict, checkFaces, baffles, wrongFaces)` (line 59), and
+that one passes `minVol` (1e-13) to `polyMeshGeometry::checkFacePyramids`, using the
+mesh's own `cellCentres()` / `faceCentres()` / `faceAreas()` (`primitiveMeshTools`, as
+`polyMesh::movePoints` computes them), not `polyMeshGeometry`'s incremental ones. The
+snapping port therefore uses the mesh overload. On the flange the distinction cannot be
+seen in the result: ESI `checkMesh -meshQuality` at time 35 finds the same 4 pyramid faces
+with `minVol` 1e-13 and with 1e-15.
+
+**Reference (new, `tests/fixtures/esi_v2506_flange/esi_t35_wrong_faces_by_check.txt.gz`).**
+A fresh ESI run of `snappyHexMeshDict.snap` (`debugFlags (mesh)`, binary write). It
+reproduces `snap_points_32/35/36` bit for bit **only if `blockMesh` is run first with the
+ASCII `controlDict`, `writePrecision 16`: with a binary controlDict the background points
+are exact doubles and every point differs by up to 7e-16.** Then `checkMesh -meshQuality
+-time 35` (the mesh overload of `motionSmootherAlgo::checkMesh`), once per check with the
+other eight disabled, gives the exact face sets of the time-35 mesh (scaling iteration 0,
+full displacement). Faces in error: pyramids {56918, 58032, 58040, 58067}; tet quality
+{15275, 28221, 56918, 58032, 58040, 58067}; twist {51965, 56915, 56918, 58032, 58040,
+58067}; non-orthogonality, concavity, skewness, weights, volume ratio, determinant: none.
+Union 8 faces. ESI's log counts are cumulative-new per check (4, +2, +2); the port will
+print the same.
+
+| # | prediction (committed before the port code) |
+|---|---|
+| P26 | The ported nine checks (`check_mesh::esi_*`: `checkFaceDotProduct`, `checkFacePyramids`, `checkFaceTets` incl. `polyMeshTetDecomposition`, `checkFaceAngles`, `checkFaceSkewness`, `checkFaceWeights`, `checkVolRatio`, `checkFaceTwist`, `checkCellDeterminant`) on ESI's time-35 mesh give **exactly** the per-check face sets above (pyramids 4, tets 6, twist 6, the other six checks empty; union 8) and **zero** faces on ESI's time-32 (castellated) and time-36 (snapped) meshes. Pass/fail is discrete, so bit identity of the metric is not needed, only that no face lies within round-off of a threshold; none is expected to. |
+| P27 | `scaleMesh` ported (`errorReduction 0.75`, `nSmoothScale 4`, `calcEdgeWeights(oldPoints)`, `minSmooth` over patch points then internal points, `getAffectedFacesAndPoints`) from the time-34 displacement and the castellated points: iteration 0 finds the 8 faces above, iteration 1 (scale min 0.75, max 1) finds none, and the resulting points equal ESI's time 36 **bit for bit on all 79986 components**. The operations are `+ - * /`, `min` and `sqrt` in upstream's order; the earlier stages were bit-identical for the same reason. Expected failure mode if wrong: the affected-point set (`pointCells` growth) or the order of `scale_ *= errorReduction` before `minSmooth`. |
+| P28 | `checkMesh` of the port's scaled mesh: **0 faces for all nine checks**, as ESI's "Moved mesh" iteration 1 and `checkMesh -meshQuality -time 36`. |
