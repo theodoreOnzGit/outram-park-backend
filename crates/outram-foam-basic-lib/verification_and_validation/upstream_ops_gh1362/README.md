@@ -335,3 +335,23 @@ change: the doc-only edit does not move them.
 `grad_least_squares`'s "exact for any linear field on any mesh" (it described the port-original
 operator) and `laplacian_corrected`'s "arithmetic mean of the two cell gradients ... owner's gradient
 on a boundary face" (it described the face-centre operator).
+
+## gh:#1362 `non_ortho_geometry` -> upstream `Sf/magSf` (maintainer approval 2026-11-12): prediction, written BEFORE the code change
+
+Change: `fvm::non_ortho_geometry` takes upstream's unit normal `Sf/magSf` (componentwise divide) in
+place of `Sf*(1/magSf)`; the previous form stays callable as `fvm::non_ortho_geometry_port_original`.
+
+Predictions:
+
+1. **Differential row.** `nonOrthCorrVec` computed through `fvm::non_ortho_geometry` (pinned at
+   hex 668 / 2367 and polyDual 1069 / 3708 faces differing from upstream, by an ulp or two) becomes
+   **bit-identical: hex 2367 / 2367, polyDual 3708 / 3708, 0 ulp**. Reason: the remaining arithmetic
+   (`n.d`, `1/max(n.d, 0.05|d|)`, `n - d*delta_coeff`) is already upstream's operation order, and
+   `fvc::non_orth_correction_vectors`, which already matches, differs only by the unit-normal form.
+   The `non_ortho_geometry_port_original` row keeps the old pins (1699 / 2367 and 2639 / 3708 identical).
+2. **Foam Studio `headless_coil_shows_dean_flow`.** out/in moves from 0.999999996 to about 0.999999967
+   (the value the reverted attempt in commit 65994af06 measured; iteration 81, residual 4.1e-10 -> 4.7e-10)
+   and fails its 1e-8 gate, which the maintainer approved re-baselining.
+3. **Everything else** that depends on `non_ortho_geometry` (appbuilder's non-orthogonal solver,
+   `laplacian_corrected_face_centre`, `max_non_orthogonality_deg`) moves at the ulp level only. I expect
+   no other test to cross a gate; any that does is reported, not loosened.
