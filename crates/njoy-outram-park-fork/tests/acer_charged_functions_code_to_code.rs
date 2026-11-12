@@ -171,7 +171,17 @@ fn identical_particle_cosine_differs_only_in_libm() {
             }
         }
     }
-    assert!(differing > 0, "PETIR and glibc agree here: the coul residual would then be unexplained");
+    println!("PETIR vs this platform's libm: {differing} of 12 values differ in the last bit");
+    // The claim is about glibc, the libm the Fortran reference called
+    // (gfortran 13.3, Linux). On macOS (Apple libm) and Windows (MSVC CRT) the
+    // platform libm is a different library, and CI 2026-11-12 (run 43185822373)
+    // showed it rounds these four arguments the same way PETIR does, so
+    // `differing == 0` there says nothing about the glibc explanation. Assert
+    // only where the premise holds; the `coul` pin above (43 of 45
+    // bit-identical, worst < 2e-16) is asserted on every platform.
+    if cfg!(all(target_os = "linux", target_env = "gnu")) {
+        assert!(differing > 0, "PETIR and glibc agree here: the coul residual would then be unexplained");
+    }
 }
 
 /// `ptlegc`'s adaptive reconstruction and thinning on the same 9 records.

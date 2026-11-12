@@ -53,6 +53,7 @@
 //!   length is stored), so `ramp()` in an `addforce` variable is not faithful;
 //!   use `step`/`time` based formulas.
 
+use petir::mathf::RealMath;
 use crate::insert::InsertRegion;
 use crate::particle::Vec3;
 use crate::variable::{Expr, VarContext, VariableTable};
@@ -120,28 +121,28 @@ fn wall_region_pair(
     let (coeff1, coeff2, coeff3, coeff4, offset);
     match style {
         WallRegionStyle::Lj93 => {
-            coeff1 = 6.0 / 5.0 * epsilon * sigma.powf(9.0);
-            coeff2 = 3.0 * epsilon * sigma.powf(3.0);
-            coeff3 = 2.0 / 15.0 * epsilon * sigma.powf(9.0);
-            coeff4 = epsilon * sigma.powf(3.0);
+            coeff1 = 6.0 / 5.0 * epsilon * sigma.r_powf(9.0);
+            coeff2 = 3.0 * epsilon * sigma.r_powf(3.0);
+            coeff3 = 2.0 / 15.0 * epsilon * sigma.r_powf(9.0);
+            coeff4 = epsilon * sigma.r_powf(3.0);
             let rinv = 1.0 / cutoff;
             let r2inv = rinv * rinv;
             let r4inv = r2inv * r2inv;
             offset = coeff3 * r4inv * r4inv * rinv - coeff4 * r2inv * rinv;
         }
         WallRegionStyle::Lj126 => {
-            coeff1 = 48.0 * epsilon * sigma.powf(12.0);
-            coeff2 = 24.0 * epsilon * sigma.powf(6.0);
-            coeff3 = 4.0 * epsilon * sigma.powf(12.0);
-            coeff4 = 4.0 * epsilon * sigma.powf(6.0);
+            coeff1 = 48.0 * epsilon * sigma.r_powf(12.0);
+            coeff2 = 24.0 * epsilon * sigma.r_powf(6.0);
+            coeff3 = 4.0 * epsilon * sigma.r_powf(12.0);
+            coeff4 = 4.0 * epsilon * sigma.r_powf(6.0);
             let r2inv = 1.0 / (cutoff * cutoff);
             let r6inv = r2inv * r2inv * r2inv;
             offset = r6inv * (coeff3 * r6inv - coeff4);
         }
         WallRegionStyle::Colloid => {
-            coeff1 = -4.0 / 315.0 * epsilon * sigma.powf(6.0);
+            coeff1 = -4.0 / 315.0 * epsilon * sigma.r_powf(6.0);
             coeff2 = -2.0 / 3.0 * epsilon;
-            coeff3 = epsilon * sigma.powf(6.0) / 7560.0;
+            coeff3 = epsilon * sigma.r_powf(6.0) / 7560.0;
             coeff4 = epsilon / 6.0;
             let rinv = 1.0 / cutoff;
             let r2inv = rinv * rinv;
@@ -186,9 +187,9 @@ fn wall_region_pair(
             let r8inv = r4inv * r4inv;
             let fwall = coeff1
                 * (rad8 * rad
-                    + 27.0 * rad4 * rad2 * rad * r.powf(2.0)
-                    + 63.0 * rad4 * rad * r.powf(4.0)
-                    + 21.0 * rad2 * rad * r.powf(6.0))
+                    + 27.0 * rad4 * rad2 * rad * r.r_powf(2.0)
+                    + 63.0 * rad4 * rad * r.r_powf(4.0)
+                    + 21.0 * rad2 * rad * r.r_powf(6.0))
                 * r8inv
                 - new_coeff2 * r2inv;
             let r2 = 0.5 * diam - r;
@@ -203,7 +204,7 @@ fn wall_region_pair(
                 * ((-3.5 * diam + r) * r4inv2 * r2inv2 * rinv2
                     + (3.5 * diam + r) * r4inv3 * r2inv3 * rinv3)
                 - coeff4
-                    * ((-diam * r + r2 * r3 * ((-r2).ln() - r3.ln())) * (-rinv2) * rinv3)
+                    * ((-diam * r + r2 * r3 * ((-r2).r_ln() - r3.r_ln())) * (-rinv2) * rinv3)
                 - offset;
             (fwall, eng)
         }

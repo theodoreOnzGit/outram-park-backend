@@ -1816,7 +1816,7 @@ fn sample_target_velocity_openmc(
     match (method, resonant) {
         (TargetMethod::Rvs | TargetMethod::Dbrc, Some(t)) => {
             let e_red = (awr * e / kt).sqrt();
-            let e_low = (e_red - 4.0).max(0.0).powi(2) * kt / awr;
+            let e_low = (e_red - 4.0).max(0.0).r_powi(2) * kt / awr;
             let e_up = (e_red + 4.0) * (e_red + 4.0) * kt / awr;
             let i_e_low = t.window_index_openmc(e_low);
             let i_e_up = t.window_index_openmc(e_up);

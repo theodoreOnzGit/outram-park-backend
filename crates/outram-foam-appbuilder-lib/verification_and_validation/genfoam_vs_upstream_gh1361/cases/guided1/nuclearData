@@ -1,0 +1,67 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      nuclearData;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+//- Relevant for both pointKinetics and diffusionNeutronics
+
+fastNeutrons    true;
+
+//- Relevant only for diffusionNeutronics
+
+adjustDiscFactors false;
+
+useGivenDiscFactors false;
+
+energyGroups    1;
+
+precGroups      6;
+
+xsVariables
+{}
+
+states
+(
+    reference // Mandatory state
+    {
+        zones
+        (
+            zone0
+            {
+                fuelFraction    0.4;
+                sigmaRemoval    nonuniform List<scalar> 1 (5.0082);
+                nuSigmaEff      nonuniform List<scalar> 1 (5.5675);
+                sigmaPow        nonuniform List<scalar> 1 (1);
+                scatteringMatrixP0 1 1 ( ( 0.1 ) );
+                discFactor      nonuniform List<scalar> 1 (1);
+                chiPrompt       nonuniform List<scalar> 1 (1);
+                chiDelayed      nonuniform List<scalar> 1 (1);
+                IV              nonuniform List<scalar> 1 (7.1e-08);
+                D               nonuniform List<scalar> 1 (0.1275);
+                integralFlux    nonuniform List<scalar> 1 (1);
+                lambda          nonuniform List<scalar> 6
+                (
+                    0.0125371 0.0300828 0.109879 0.325484 1.3036 9.51817
+                );
+                Beta            nonuniform List<scalar> 6
+                (
+                    7.2315e-05 0.000609661 0.000471181 0.00118907 0.000445487 9.58515e-05
+                );
+            }
+        );
+    }
+);
+
+// ************************************************************************* //

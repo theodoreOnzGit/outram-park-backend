@@ -550,4 +550,5 @@ impl WithInternal for VolScalarField {
 
 mod eigenvalue;
 pub mod precursor_drift;
+mod pseudo_time;
 mod transient;

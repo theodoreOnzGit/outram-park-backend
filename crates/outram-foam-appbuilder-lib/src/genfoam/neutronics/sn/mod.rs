@@ -85,9 +85,13 @@
 //!
 //! ## Scope / deferrals
 //!
-//! Isotropic (P0) scattering only — the anisotropic Legendre-moment source
-//! (`SNNeutronics`'s `legendreMatrices_`, moments `>= 1`) is deferred, matching
-//! how the [`super::diffusion`] port uses only moment 0. Transients, liquid-fuel
+//! [`SnNeutronics`] is isotropic (P0) scattering only on the baked-in level-symmetric
+//! sets; ~~the anisotropic Legendre-moment source (`SNNeutronics`'s
+//! `legendreMatrices_`, moments `>= 1`) is deferred~~ **CORRECTED 2026-11-12**
+//! (gh:#1474, gh:#1361): the anisotropic source and the case's own
+//! `quadratureSet` are ported in [`pseudo_time::SnPseudoTimeSolver`] and
+//! [`quadrature_set::QuadratureSet`], as a translation of upstream's pseudo-time
+//! step; this type is kept unchanged as the named alternative. Transients, liquid-fuel
 //! precursor advection, Aitken acceleration, and live thermal-hydraulic feedback
 //! are likewise deferred with the coupling layer. Reflective boundaries are the
 //! `ZeroGradient` flux BC; a vacuum edge is `FixedValue(0)` (zero incoming
@@ -104,6 +108,8 @@
 //!   [`Self::solve_eigenvalue`] run the real transport eigenvalue solve.
 
 pub mod quadrature;
+pub mod quadrature_set;
+pub mod pseudo_time;
 
 mod eigenvalue;
 mod sweep;

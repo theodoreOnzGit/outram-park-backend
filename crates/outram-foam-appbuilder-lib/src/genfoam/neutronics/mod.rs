@@ -61,6 +61,7 @@
 pub mod albedo;
 pub mod diffusion;
 pub mod point_kinetics;
+pub mod pseudo_time;
 pub mod sn;
 pub mod sp3;
 pub mod state;

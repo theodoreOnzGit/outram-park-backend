@@ -55,8 +55,8 @@ Depends on (both **in-workspace path crates**, not yet on crates.io):
 | `non_orthogonal` | The `Gauss linear corrected` pieces `PimpleFoam` applies (gh:#1161): `LaplacianCorrection`, the explicit face corrections, the vector-matrix re-stamp to `1/(n·d)`. |
 | `melt_foam` | Incompressible buoyant PIMPLE with phase change — pimpleFoam's PISO loop plus a temperature equation and `FvModels` wiring, so `solidificationMelting` can act on **both** the momentum and the energy equation. Not a port of any single upstream application (upstream composes this at runtime through a dictionary). Implemented; **verified** against the closed-form Stefan similarity solution (-0.035 % in integrated melt thickness) and a discrete energy-conservation check (imbalance -2.71e-4 J/m², -1.27e-5 %) in `tests/melting_vv_cases/`. The gallium cavity in the same file is a **demonstration only — no benchmark data, see its `References.md`**. |
 | `rho_central_foam` | Kurganov-Noelle-Petrova (KNP) central-upwind explicit compressible (rhoCentralFoam). Implemented; **validated** against Sod (1978) Table II and an OpenFOAM reference run (`tests/sod_shock_tube_validation/`, `tutorials/rho_central_foam_shock_tube.rs`). **Since gh:#1363 `step` is a translation of OpenFOAM-v2506 `rhoCentralFoam.C` (inviscid) and is BIT-IDENTICAL to it on the shockTube** (rho, U, T, p, e, 100/100 cells at 15 steps up to t = 0.007 s; `verification_and_validation/rho_central_foam_vs_openfoam.md`, `tests/upstream_shock_tube_gh1363.rs`); the gas is `PerfectGas` (default γ = 1.4; `with_gas` for a `Cp`/`molWeight` case), viscous branches not ported. |
-| `rho_pimple_foam` | Compressible transient PIMPLE (rhoPimpleFoam), ideal-gas `ρ = ψ·p` closure. Implemented; exercised by a subsonic NACA 0012 tutorial (`tutorials/rho_pimple_foam_aerofoil_naca0012.rs`). |
-| `sonic_foam` | Transonic/supersonic ψ-based solver (sonicFoam). Implemented, but the implicit `fvm::div` scalar-convection operator is absent from basic-lib, so convection is treated **explicitly** via `fvc::div`. **No tutorial or validation case — unexercised.** |
+| `rho_pimple_foam` | Compressible transient PIMPLE (rhoPimpleFoam), ideal-gas `ρ = ψ·p` closure. Implemented; exercised by a subsonic NACA 0012 tutorial (`tutorials/rho_pimple_foam_aerofoil_naca0012.rs`). `rho_pimple_foam::esi::RhoPimpleFoamEsi` translates ESI v2506 `rhoPimpleFoam` (h-form, 1-D inviscid) and matches an upstream driver bit for bit. |
+| `sonic_foam` | Transonic/supersonic ψ-based solver (sonicFoam). `SonicFoam` is an explicit-convection sketch (**unexercised**); `sonic_foam::esi::SonicFoamEsi` translates ESI v2506 `sonicFoam` (implicit convection, energy equation, `hePsiThermo`) and matches an upstream driver bit for bit on the laminar shockTube (1-D, inviscid, closed ends). |
 | `hrm_foam` | Homogeneous Relaxation Model two-phase (HRMFoam), Downar-Zapolski (1996) relaxation. Implemented. **No tutorial or validation case — unexercised.** |
 | `reacting_two_phase_euler_foam` | Reacting two-phase Euler-Euler (OpenFOAM-dev's `multiphaseEuler`, historic `reactingTwoPhaseEulerFoam`). Composes the `outram-foam-multiphase` hydrodynamic core (`TwoFluidPimple`) and adds per-phase conservative enthalpy equations, one-resistance interfacial heat transfer (Spherical / Ranz-Marshall / constant-Nu), operator-split phase change with latent heat, an optional single-phase multicomponent composition, and a global Arrhenius reaction. Implemented; demonstrated by `examples/reacting_two_phase_euler_combustion.rs`. **Verification-tested only — no benchmark validation.** |
 
@@ -291,16 +291,29 @@ real limitations** as of version 0.1.1 — grounded in the code, not aspirationa
   the exchanger's effectiveness carries an O(Δz) error (measured: the gap to
   ε-NTU falls as 1/nz). Only conformal interfaces have been exercised
   (nearest-face pairing; `max_pairing_gap` checks it).
-- `sonic_foam` and `hrm_foam` are **implemented but have no tutorial or
-  validation case** — they are unexercised and should be treated as unverified.
-- `sonic_foam` uses **explicit** convection (`fvc::div`) because basic-lib has
-  no implicit `fvm::div` scalar-convection operator; expect the accompanying
-  stability/CFL constraints of an explicit scheme.
+- ~~`sonic_foam` and `hrm_foam` are **implemented but have no tutorial or
+  validation case** — they are unexercised and should be treated as unverified.~~
+  **CORRECTED 2026-11-12 (gh:#1363, row 3b):** `hrm_foam` still has none.
+  `sonic_foam::SonicFoam::step` (the sketch below) is still unexercised and
+  unverified, but `sonic_foam::esi::SonicFoamEsi` is a translation of ESI
+  v2506 `sonicFoam` that is **bit-identical** to a driver of the upstream
+  solver on the laminar shockTube for 700 steps (`tests/upstream_sonic_gh1363.rs`,
+  `verification_and_validation/sonic_foam_vs_openfoam.md`; inviscid, 1-D,
+  closed `zeroGradient` ends only, other cases are refused by name).
+- `sonic_foam::SonicFoam::step` uses **explicit** convection (`fvc::div`); the
+  claim that basic-lib has no implicit `fvm::div` scalar convection is
+  ~~still true~~ **outdated**: `fvm::div` exists (basic-lib `fvm::div`,
+  `div_vec`), and `SonicFoamEsi` assembles the implicit convection matrices
+  itself, with upstream's `upwind`/`limitedLinear` weights.
 - `rho_central_foam` (Sod shock tube) and `melt_foam` (Stefan similarity
   solution) are the two solvers checked against a closed-form/published
   reference. `pimple_foam` is checked against both an OpenFOAM (icoFoam)
-  reference and Ghia et al. (1982) Table I. `rho_pimple_foam` has a tutorial
-  but no hard-asserted V&V gate; `sonic_foam` and `hrm_foam` have neither.
+  reference and Ghia et al. (1982) Table I. `rho_pimple_foam::RhoPimpleFoam` has a tutorial
+  but no hard-asserted V&V gate; ~~`sonic_foam` and `hrm_foam` have neither~~
+  **CORRECTED 2026-11-12:** `rho_pimple_foam::esi::RhoPimpleFoamEsi` and
+  `sonic_foam::esi::SonicFoamEsi` are each pinned bit for bit against an
+  ESI v2506 driver (`verification_and_validation/rho_pimple_foam_vs_openfoam.md`,
+  `sonic_foam_vs_openfoam.md`); only `hrm_foam` has no gate.
 
 ### Turbulence
 

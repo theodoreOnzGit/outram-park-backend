@@ -58,6 +58,7 @@
 //! constant (`EPSILON_PRECISION = 1e-8`, `EPSILON_CURVATURE = 1e-5`,
 //! `SMALL_TRIMESH = 1e-10`, `LARGE_TRIMESH = 1e6`).
 
+use petir::mathf::RealMath;
 use crate::particle::Vec3;
 
 /// A plain 3-vector, as upstream's `double[3]`.
@@ -503,6 +504,28 @@ impl TriMeshState {
         self.geo[i].surf_norm
     }
 
+    /// Everything [`Self::resolve_tri_sphere_contact_bary`] reads about facet
+    /// `i` beside its nodes, for the GPU mirror (`gpu::dem`, gh:#1503):
+    /// `(edge_vec, edge_len, surf_norm, obtuse, r_bound, edge_active,
+    /// corner_active)`.
+    #[must_use]
+    #[allow(clippy::type_complexity)]
+    pub(crate) fn facet_data(
+        &self,
+        i: usize,
+    ) -> ([V3; 3], [f64; 3], V3, Option<usize>, f64, [bool; 3], [bool; 3]) {
+        let g = &self.geo[i];
+        (
+            g.edge_vec,
+            g.edge_len,
+            g.surf_norm,
+            g.obtuse,
+            self.r_bound[i],
+            self.edge_active[i],
+            self.corner_active[i],
+        )
+    }
+
     // -------- incremental rotation -----------------------------------------
 
     /// `MultiNodeMesh::rotate(dAngle, axis, p)` followed by the container
@@ -519,10 +542,10 @@ impl TriMeshState {
     ) {
         let axis_norm = v_div(axis, v_mag(axis));
         let dq = [
-            (d_angle * 0.5).cos(),
-            axis_norm[0] * (d_angle * 0.5).sin(),
-            axis_norm[1] * (d_angle * 0.5).sin(),
-            axis_norm[2] * (d_angle * 0.5).sin(),
+            (d_angle * 0.5).r_cos(),
+            axis_norm[0] * (d_angle * 0.5).r_sin(),
+            axis_norm[1] * (d_angle * 0.5).r_sin(),
+            axis_norm[2] * (d_angle * 0.5).r_sin(),
         ];
         let trans = v_mag_sq(origin) > 0.;
         for nd in nodes.iter_mut() {
@@ -561,16 +584,16 @@ impl TriMeshState {
         origin: &V3,
     ) {
         let total_q = [
-            (total_angle * 0.5).cos(),
-            axis[0] * (total_angle * 0.5).sin(),
-            axis[1] * (total_angle * 0.5).sin(),
-            axis[2] * (total_angle * 0.5).sin(),
+            (total_angle * 0.5).r_cos(),
+            axis[0] * (total_angle * 0.5).r_sin(),
+            axis[1] * (total_angle * 0.5).r_sin(),
+            axis[2] * (total_angle * 0.5).r_sin(),
         ];
         let dq = [
-            (d_angle * 0.5).cos(),
-            axis[0] * (d_angle * 0.5).sin(),
-            axis[1] * (d_angle * 0.5).sin(),
-            axis[2] * (d_angle * 0.5).sin(),
+            (d_angle * 0.5).r_cos(),
+            axis[0] * (d_angle * 0.5).r_sin(),
+            axis[1] * (d_angle * 0.5).r_sin(),
+            axis[2] * (d_angle * 0.5).r_sin(),
         ];
         let trans = v_mag_sq(origin) > 0.;
         for (nd, o) in nodes.iter_mut().zip(orig) {

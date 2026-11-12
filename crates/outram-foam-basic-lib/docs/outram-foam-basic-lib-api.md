@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.1.7
+**Version:** 0.1.8
 
 **Format Version:** 61
 
@@ -5193,6 +5193,12 @@ pub use grad::grad;
 pub use grad_least_squares::grad_least_squares;
 ```
 
+#### Re-export `grad_least_squares_face_centre`
+
+```rust
+pub use grad_least_squares::grad_least_squares_face_centre;
+```
+
 #### Re-export `grad_vec`
 
 ```rust
@@ -5205,10 +5211,22 @@ pub use grad_vec::grad_vec;
 pub use interpolate::interpolate;
 ```
 
+#### Re-export `linear_weight`
+
+```rust
+pub use interpolate::linear_weight;
+```
+
 #### Re-export `reconstruct_pos_neg`
 
 ```rust
 pub use muscl::reconstruct_pos_neg;
+```
+
+#### Re-export `reconstruct_pos_neg_vector`
+
+```rust
+pub use muscl::reconstruct_pos_neg_vector;
 ```
 
 #### Re-export `Limiter`
@@ -5223,10 +5241,46 @@ pub use muscl::Limiter;
 pub use reconstruct::reconstruct;
 ```
 
+#### Re-export `linear_upwind`
+
+```rust
+pub use linear_upwind::linear_upwind;
+```
+
+#### Re-export `linear_upwind_with_grad`
+
+```rust
+pub use linear_upwind::linear_upwind_with_grad;
+```
+
 #### Re-export `sn_grad`
 
 ```rust
 pub use sn_grad::sn_grad;
+```
+
+#### Re-export `sn_grad_with_delta`
+
+```rust
+pub use sn_grad::sn_grad_with_delta;
+```
+
+#### Re-export `non_orth_correction_vectors`
+
+```rust
+pub use sn_grad_corrected::non_orth_correction_vectors;
+```
+
+#### Re-export `sn_grad_corrected`
+
+```rust
+pub use sn_grad_corrected::sn_grad_corrected;
+```
+
+#### Re-export `sn_grad_correction_with_grad`
+
+```rust
+pub use sn_grad_corrected::sn_grad_correction_with_grad;
 ```
 
 ## Module `fvm`
@@ -5305,6 +5359,12 @@ pub use div::div;
 pub use div_vec::div_vec;
 ```
 
+#### Re-export `div_vec_linear`
+
+```rust
+pub use div_vec::div_vec_linear;
+```
+
 #### Re-export `laplacian`
 
 ```rust
@@ -5317,6 +5377,12 @@ pub use laplacian::laplacian;
 pub use laplacian::laplacian_with_delta;
 ```
 
+#### Re-export `laplacian_with_delta_and_source`
+
+```rust
+pub use laplacian::laplacian_with_delta_and_source;
+```
+
 #### Re-export `DeltaCoeff`
 
 ```rust
@@ -5327,6 +5393,12 @@ pub use laplacian::DeltaCoeff;
 
 ```rust
 pub use laplacian_corrected::laplacian_corrected;
+```
+
+#### Re-export `laplacian_corrected_face_centre`
+
+```rust
+pub use laplacian_corrected::laplacian_corrected_face_centre;
 ```
 
 #### Re-export `max_non_orthogonality_deg`
@@ -6485,6 +6557,109 @@ pub mod dict { /* ... */ }
 
 ### Types
 
+#### Struct `Token`
+
+One lexical token from an OpenFOAM dictionary.
+
+Public since gh:#1476 so that readers of OpenFOAM **stream** files that
+are not dictionaries (cfMesh's `.fms`/`.ftr` surfaces: bare `N ( … )`
+lists) reuse this tokeniser instead of writing another.
+
+```rust
+pub struct Token {
+    pub text: String,
+    pub glued: bool,
+    pub quoted: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `text` | `String` | The token text. For a quoted string this is the inner content (quotes<br>stripped) and `quoted` is set. |
+| `glued` | `bool` | True if no whitespace separated this token from the previous one. |
+| `quoted` | `bool` | True if this token came from a `"…"` quoted string literal. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 #### Struct `Dimensioned`
 
 A dimensioned quantity: seven SI dimension exponents plus zero or more
@@ -7354,6 +7529,28 @@ pub struct FoamFile {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+### Functions
+
+#### Function `tokenize`
+
+Split dictionary `text` into [`Token`]s, stripping `//` line comments and
+`/* … */` block comments. The delimiters `( ) { } ; [ ]` are always their
+own single-character tokens.
+
+# Examples
+
+```
+use outram_foam_basic_lib::io::dict::tokenize;
+
+let t = tokenize("2 ((0 1 2) 0) // comment");
+let texts: Vec<&str> = t.iter().map(|x| x.text.as_str()).collect();
+assert_eq!(texts, ["2", "(", "(", "0", "1", "2", ")", "0", ")"]);
+```
+
+```rust
+pub fn tokenize(text: &str) -> Vec<Token> { /* ... */ }
+```
+
 ### Constants and Statics
 
 #### Constant `MAX_INCLUDE_DEPTH`
@@ -7652,6 +7849,11 @@ pub struct PolyMesh {
   ```
   Write the `polyMesh` files into `dir`, creating it if necessary.
 
+- ```rust
+  pub fn write_cell_zones</* synthetic */ impl AsRef<Path>: AsRef<Path>>(dir: impl AsRef<Path>, zones: &[(String, Vec<usize>)]) -> Result<(), IoError> { /* ... */ }
+  ```
+  Write `dir/cellZones` (OpenFOAM `cellZoneMesh`, gh:#1463): for each
+
 ###### Trait Implementations
 
 - **Any**
@@ -7729,6 +7931,39 @@ pub struct PolyMesh {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+### Functions
+
+#### Function `cell_geometry_from_faces`
+
+Cell volumes and centres from the face geometry, upstream's
+`primitiveMeshTools::makeCellCentresAndVols` operation for operation (the
+body of [`PolyMesh::cell_geometry`], factored out in gh:#1363 so the
+appbuilder's own mesh reader uses it instead of an older duplicate whose
+summation order differed, giving cell volumes up to 14 ulp off upstream on
+the shockTube mesh). `owner` has one entry per face (internal first),
+`neighbour` one per internal face.
+
+```rust
+pub fn cell_geometry_from_faces(face_ctr: &[crate::primitives::Vector3], face_sf: &[crate::primitives::Vector3], owner: &[usize], neighbour: &[usize], n_cells: usize) -> (Vec<f64>, Vec<crate::primitives::Vector3>) { /* ... */ }
+```
+
+#### Function `face_centre_and_area`
+
+Face centre `[m]` and area vector `Sf` `[m^2]` from a vertex loop, using the
+OpenFOAM decomposition of the polygon into triangles about its centroid.
+
+Same operation order as OpenFOAM-v2506 `primitiveMeshTools::
+makeFaceCentresAndAreas`, so the result is bit-identical (gh:#1489): a
+triangle is `(1/3)*(a+b+c)` and `0.5*((b-a)^(c-a))`; a polygon is
+`(1/3)*sumAc/sumA` with `c = p + p_next + centroid`, area `0.5*sumN`; a
+zero-area face (`sumA < ROOTVSMALL = 1e-150`) takes the vertex mean and a
+zero area. ~~Each triangle centre was divided by 3 before the area
+weighting; threshold `EPSILON`.~~ **CORRECTED 2026-11-11 (gh:#1489).**
+
+```rust
+pub fn face_centre_and_area(points: &[crate::primitives::Vector3], verts: &[usize]) -> (crate::primitives::Vector3, crate::primitives::Vector3) { /* ... */ }
+```
+
 ### Types
 
 #### Enum `IoError`
@@ -7930,6 +8165,18 @@ pub use field::write_vol_scalar_field;
 
 ```rust
 pub use field::write_vol_vector_field;
+```
+
+#### Re-export `cell_geometry_from_faces`
+
+```rust
+pub use poly_mesh::cell_geometry_from_faces;
+```
+
+#### Re-export `face_centre_and_area`
+
+```rust
+pub use poly_mesh::face_centre_and_area;
 ```
 
 #### Re-export `MeshFace`
@@ -8633,6 +8880,11 @@ pub struct FvMatrix {
   Pin one cell to a reference value — fixes the singular pressure matrix
 
 - ```rust
+  pub fn set_reference_openfoam(self: &mut Self, cell: usize, value: f64) { /* ... */ }
+  ```
+  Pin one cell exactly as upstream `fvMatrix::setReference` does
+
+- ```rust
   pub fn a_field(self: &Self) -> VolScalarField { /* ... */ }
   ```
   Diagonal coefficient per cell: `A[c] = diag[c]`.
@@ -8977,7 +9229,12 @@ pub struct FvVectorMatrix {
 - ```rust
   pub fn solve(self: &Self, name: &str, settings: SolverSettings) -> (VolVectorField, SolverPerformance) { /* ... */ }
   ```
-  Solve each component (x, y, z) as an independent scalar Gauss-Seidel problem.
+  Solve each component (x, y, z) as an independent scalar Gauss-Seidel
+
+- ```rust
+  pub fn solve_with_guess(self: &Self, name: &str, initial: &VolVectorField, settings: SolverSettings) -> (VolVectorField, SolverPerformance) { /* ... */ }
+  ```
+  As [`Self::solve`], but the Gauss–Seidel sweeps start from `initial`
 
 - ```rust
   pub fn solve_bicgstab(self: &Self, name: &str, options: KrylovOptions, settings: SolverSettings) -> (VolVectorField, SolverPerformance) { /* ... */ }
@@ -9160,6 +9417,11 @@ pub struct LduMatrix {
   pub fn normalised_residual(self: &Self, x: &[f64], b: &[f64]) -> f64 { /* ... */ }
   ```
   L1-scaled norm of residual: `||r||₁ / (||A·x||₁ + ε)`.
+
+- ```rust
+  pub fn openfoam_initial_residual(self: &Self, x: &[f64], b: &[f64]) -> f64 { /* ... */ }
+  ```
+  The initial residual OpenFOAM prints ("Initial residual = ..." in the
 
 ###### Trait Implementations
 
@@ -11818,7 +12080,8 @@ pub mod limiters { /* ... */ }
 
 A TVD flux limiter `psi(r)`, translated from OpenFOAM's r-based
 `limitedSchemes`. `psi = 0` is first-order upwind, `psi = 1` is second-order
-linear; the TVD variants clip extrema (`psi(r) = 0` for `r <= 0`).
+linear; most TVD variants clip extrema (`psi(r) = 0` for `r <= 0`); `vanAlbada` and `OSPRE` do
+not, as upstream.
 
 ```rust
 pub enum FluxLimiter {
@@ -11851,7 +12114,10 @@ Unlimited `linear` (central) differencing: `psi = 1` (2nd order, not TVD).
 
 ###### `VanAlbada`
 
-`vanAlbada`: upstream `r*(r + 1)/(sqr(r) + 1)` with `r = max(0, r)`. Symmetric.
+`vanAlbada`: upstream `r*(r + 1)/(sqr(r) + 1)` (OpenFOAM-v2506 `vanAlbada.H`), with NO
+`max(0, r)` and no clip: it is negative for `-1 < r < 0`. ~~This port clamped `r` at 0~~
+**CHANGED 2026-11-11 (gh:#1362, maintainer: upstream is the specification)**: now exactly
+upstream for every `r` (bit-identical, 314/314 differential values). Symmetric.
 
 ###### `Minmod`
 
@@ -11872,7 +12138,9 @@ Third-order biased (not symmetric).
 
 ###### `Ospre`
 
-`OSPRE`: upstream `1.5 r (r + 1)/(r (r + 1) + 1)` with `r = max(0, r)`. Symmetric.
+`OSPRE`: upstream `rrp1 = r*(r + 1); 1.5*rrp1/(rrp1 + 1)` (`OSPRE.H`), with NO `max(0, r)`
+and no clip: negative for `-1 < r < 0`. ~~This port clamped `r` at 0~~ **CHANGED
+2026-11-11 (gh:#1362)**: now exactly upstream for every `r`. Symmetric.
 
 ###### `LimitedLinear`
 
@@ -18869,6 +19137,16 @@ pub struct SquareMatrix {
   pub fn solve(self: &Self, rhs: &[f64]) -> Result<Vec<f64>, MatrixError> { /* ... */ }
   ```
   Convenience: decompose a copy and solve `A·x = b`.
+
+- ```rust
+  pub fn inverse(self: &Self) -> Result<SquareMatrix, MatrixError> { /* ... */ }
+  ```
+  The inverse, built the way `Foam::LUscalarMatrix::inv` builds it
+
+- ```rust
+  pub fn multiply_vector(self: &Self, x: &[f64]) -> Vec<f64> { /* ... */ }
+  ```
+  Matrix-vector product `self * x`, accumulated row by row in column
 
 ###### Trait Implementations
 
@@ -26874,10 +27152,52 @@ pub use crate::fv_operators::fvc::central_upwind::KnpWaveSpeeds;
 pub use crate::fv_operators::fvc::grad_least_squares;
 ```
 
+#### Re-export `grad_least_squares_face_centre`
+
+```rust
+pub use crate::fv_operators::fvc::grad_least_squares_face_centre;
+```
+
+#### Re-export `linear_upwind`
+
+```rust
+pub use crate::fv_operators::fvc::linear_upwind;
+```
+
+#### Re-export `linear_upwind_with_grad`
+
+```rust
+pub use crate::fv_operators::fvc::linear_upwind_with_grad;
+```
+
+#### Re-export `non_orth_correction_vectors`
+
+```rust
+pub use crate::fv_operators::fvc::non_orth_correction_vectors;
+```
+
+#### Re-export `sn_grad_corrected`
+
+```rust
+pub use crate::fv_operators::fvc::sn_grad_corrected;
+```
+
+#### Re-export `sn_grad_correction_with_grad`
+
+```rust
+pub use crate::fv_operators::fvc::sn_grad_correction_with_grad;
+```
+
 #### Re-export `laplacian_corrected`
 
 ```rust
 pub use crate::fv_operators::fvm::laplacian_corrected;
+```
+
+#### Re-export `laplacian_corrected_face_centre`
+
+```rust
+pub use crate::fv_operators::fvm::laplacian_corrected_face_centre;
 ```
 
 #### Re-export `max_non_orthogonality_deg`
@@ -31290,13 +31610,23 @@ pub mod ico_polynomial { /* ... */ }
 
 #### Struct `IcoPolynomial`
 
-Incompressible polynomial EOS: `v(T) = poly(T)`, so `ρ = 1 / poly(T)`.
+Incompressible polynomial EOS: `rho(T) = poly(T)`.
 
-Mirrors `Foam::icoPolynomial<Specie, PolySize>` from
-`src/thermophysicalModels/specie/equationOfState/icoPolynomial/`.
+Port of `Foam::icoPolynomial<Specie, PolySize>`, OpenFOAM v2506 (ESI)
+`src/thermophysicalModels/specie/equationOfState/icoPolynomial/icoPolynomialI.H`:
+`rho` returns `rhoCoeffs_.value(T)` (line 83), and `H`, `Cp`, `E`, `Cv`,
+`S`, `psi`, `Z` and `CpMCv` all return `0` (lines 94-171).
 
-The polynomial gives specific volume as a function of T.  ψ = 0 (incompressible).
-h_eos = p·v = p/ρ  (enthalpy departure for incompressible EOS).
+~~The polynomial gives specific volume as a function of T, `ρ = 1/poly(T)`;
+ψ = 0; h_eos = p·v = p/ρ.~~ **CORRECTED 2026-11-04 (gh:#1218):** that was
+not what upstream does. The dictionary keyword is `rhoCoeffs<N>` and
+upstream evaluates it as the **density**, not the specific volume, and its
+enthalpy, entropy and compressibility-factor departures are all zero. Found
+while porting GeN-Foam's two-phase solver, whose sodium and water tutorials
+select `icoPolynomial` (1D_boiling: `rhoCoeffs<8> (1006.81 -0.217 ...)`,
+i.e. ~865 kg/m^3 at 650 K, which the old reading turned into 1/865).
+Checked against the v2506 source fetched from the OpenCFD mirror
+`github.com/ZhangYanTJU/OpenFOAM-ESI` at tag `OpenFOAM-v2506`.
 
 ```rust
 pub struct IcoPolynomial<const N: usize> {
@@ -31317,7 +31647,7 @@ pub struct IcoPolynomial<const N: usize> {
 - ```rust
   pub fn new(mol_weight: MolarMass, poly: Polynomial<N>) -> Self { /* ... */ }
   ```
-  `poly` coefficients give specific volume `[m³/kg]` as a polynomial in T `[K]`.
+  `poly` coefficients give the density `[kg/m³]` as a polynomial in T `[K]`
 
 ###### Trait Implementations
 
@@ -31370,7 +31700,7 @@ pub struct IcoPolynomial<const N: usize> {
     ```
 
   - ```rust
-    fn z(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> Ratio { /* ... */ }
+    fn z(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> Ratio { /* ... */ }
     ```
 
   - ```rust
@@ -31382,7 +31712,7 @@ pub struct IcoPolynomial<const N: usize> {
     ```
 
   - ```rust
-    fn h_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    fn h_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
     ```
 
   - ```rust
