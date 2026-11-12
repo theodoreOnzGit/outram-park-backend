@@ -7444,6 +7444,7 @@ name = "outram-foam-multiphase"
 version = "0.0.5"
 dependencies = [
  "approx",
+ "miniz_oxide 0.8.9",
  "outram-foam-basic-lib",
  "petir",
  "thiserror 2.0.21",

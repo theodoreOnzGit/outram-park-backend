@@ -53,3 +53,63 @@ against the committed input columns, so both sides see identical bits.
   relative difference at most 1e-15, every difference traced to `pow` or `cbrt`.
 - **P5 forced cells.** `alpha_d = 0` and `alpha_d = 1e-9` give the residual
   branch and agree bit for bit in P1, P3 and P4.
+
+### Results (port run 2026-11-12, `tests/upstream_heat_transfer_gh1367.rs`)
+
+4096 cells, bit patterns compared. glibc build of ESI v2506 (`-O3`, no FMA
+contraction), PETIR `RealMath` on the port side.
+
+| Quantity | Bit-identical | Worst rel. diff | Prediction | Outcome |
+|---|---|---|---|---|
+| RanzMarshall vs ESI | 2601 / 4096 (63.5 %) | 6.2e-16 | P1: >= 99 %, <= 4e-16 | **missed** |
+| spherical vs ESI | 0 / 4096 | ratio equals `kappa_d/kappa_c` to 4.2e-16 | P2: 0 %, ratio to 2e-16 | 0 % hit; ratio bound **missed** (4.2e-16 = 2 ulp over three roundings) |
+| spherical vs Foundation | 4096 / 4096 | 0 | P3: 4096 | hit |
+| Gunn vs Foundation | 2639 / 4096 (64.4 %) | 6.7e-16 | P4: >= 90 %, <= 1e-15 | count **missed**, bound hit |
+| residual cells (alpha_d = 0, 1e-9) | RM both, spherical both, Gunn cell 0 only | | P5: all agree | **missed** for Gunn cell 3 (1 ulp) |
+
+### First divergent operation
+
+Upstream's intermediates were dumped too (`sqrtRe`, `cbrtPr`, `powRe02`,
+`powRe07`, `Nu_*`):
+
+| Operation | Bit-identical to glibc |
+|---|---|
+| `sqrt(Re)` | 4096 / 4096 |
+| `cbrt(Pr)` | **2159 / 4096**, worst 4.4e-16 |
+| `pow(Re, 0.2)` | 4090 / 4096, worst 2.2e-16 |
+| `pow(Re, 0.7)` | 4093 / 4096, worst 1.4e-16 |
+
+Feeding upstream's own `sqrt` and `cbrt` into the `Nu` expression reproduces
+upstream's `Nu` in 4096 of 4096 cells, so the algebra and operation order are
+identical. Every differing `K` cell is a cell where a `cbrt` or `pow`
+differs (asserted by the tests).
+
+Why P1 and P4 missed: I predicted a rare 1-ulp `cbrt` difference. In fact
+**glibc's `cbrt` is not correctly rounded**: against a 60-digit Newton
+iteration glibc is correctly rounded in 2159 of 4096 cases, PETIR's `cbrt`
+(`libm`) in **4096 of 4096** (scratch check, not committed). The differences
+are glibc's, up to 2 ulp in `cbrt`, so up to 3 ulp in `K`. PETIR's rule accepts
+1 ulp from the platform libm; this is wider for `K` and is **flagged for the
+maintainer**. PETIR was not changed to chase glibc.
+
+### Structural finding: `sphericalHeatTransfer`
+
+| | conductivity read |
+|---|---|
+| ESI v2506 (`twoPhaseEuler`, `reactingEuler`) | `pair_.continuous().kappa()` |
+| Foundation OpenFOAM-dev 852527377c7e | `interface_.dispersed().thermo().kappa()` |
+| this port | dispersed (`kappa_d`) |
+
+The port follows Foundation. For ESI the K differs in every cell by
+`kappa_d / kappa_c`. Not changed: switching, or offering both, is a decision
+for the maintainer. Other ESI/Foundation differences recorded in the
+`heat_transfer` module doc: ESI v2506 has no `Gunn`; the default
+`residualAlpha` differs.
+
+### Lineage of `chf.rs` and `dryout.rs`
+
+Original / literature-based. Searched ESI v2506 and Foundation for Biasi,
+Bowring, Groeneveld, Tong, Dougall, Rohsenow, criticalHeatFlux and dryout
+models: nothing (the one `Bowring(1962)` hit in ESI's
+`alphatWallBoilingWallFunction` is a bubble-departure correlation). Both files'
+headers already said "not a port"; their `//!` doc comments now say so too.

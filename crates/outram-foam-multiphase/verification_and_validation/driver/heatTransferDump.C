@@ -86,6 +86,9 @@ int main()
 
     dump("ad", ad); dump("kc", kc); dump("kd", kd); dump("d", d);
     dump("Re", Re); dump("Pr", Pr);
+    dump("sqrtRe", sqrt(Re)); dump("cbrtPr", cbrt(Pr));
+    dump("powRe02", pow(Re, 0.2)); dump("powRe07", pow(Re, 0.7));
+    dump("Nu_rm", Nu); dump("Nu_gunn", NuG);
     dump("K_rm_esi", Krm);
     dump("K_sph_esi", KsphEsi);
     dump("K_sph_found", KsphFound);
