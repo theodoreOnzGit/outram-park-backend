@@ -74,6 +74,7 @@
 //! [`crate::NjoyError::NotPorted`] rather than fabricating a GENDF result. See
 //! `README.md` in this directory for the full theory summary and gap list.
 
+pub mod continuum;
 pub mod file4;
 pub mod fission_matrix;
 pub mod gaminr_matrix;
@@ -85,10 +86,13 @@ pub mod matrix_panel;
 pub mod mf6_feed;
 pub mod overlap;
 pub mod panel;
+pub mod njoy_panel;
 pub mod pendf_feed;
+pub mod photon_prod;
 pub mod photon_groups;
 pub mod self_shielded;
 pub mod slowing_down;
+pub mod thermal;
 pub mod two_body;
 pub mod unresolved;
 pub mod urr_pendf;

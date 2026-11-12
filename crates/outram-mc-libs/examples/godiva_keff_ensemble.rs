@@ -146,6 +146,19 @@
 //! not an expected consequence of #527; whether it is a 1-in-200 draw or
 //! something in how the shared machine ran is not resolved.
 //!
+//! **Re-measured 2026-11-11 under the OpenMC-faithful collision kernels as the
+//! transport DEFAULT (gh:#1444; `ScatterKernels::OpenMc`, was legacy).**
+//! 64 seeds, 5000 × [40 + 120], same settings, `SeedingMode::Outram`:
+//! **mean +4 pcm, sd 170, sem ±21** (`chi2/dof 1.00`, no outlier seed).
+//! Old record `−6 ± 5` (1024 seeds, legacy kernels): **Δ = +10 pcm, 0.46 σ
+//! combined (σ = 22)**, so no resolved shift from the kernel switch; cause
+//! of any change is the default kernels (rotate_angle, CM-to-lab, level
+//! inelastic, elastic with target-velocity-first order, two-draw reaction
+//! ladder). `RECORDED_PCM` is NOT re-pinned: 64 seeds resolve ±21 pcm, the
+//! 1024-seed record resolves ±5. Hardware: Intel Xeon @ 2.80 GHz, 4 logical
+//! cores (shared with other jobs), default worker count, 15 GB RAM, Linux
+//! 6.18, CPU only; data 404 s, transport 484 s. Reference-data ENDF/B-VIII.0.
+//!
 //! Hardware: Intel Xeon Processor @ 2.10 GHz, 2 of 4 shared logical cores
 //! (`taskset -c 0,1`, two single-threaded workers), 15.7 GB RAM, Linux 6.18,
 //! CPU only, shared with another agent's runs and this session's builds and

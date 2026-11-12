@@ -1,0 +1,33 @@
+# fix ave/time of ke and erotate/sphere on a settled bed under TILTED gravity: tangential contacts, so erotate/sphere != 0 (gh:#1418)
+# Needs avetime_contact.data = csv2data.sh pebble_bed_settled.csv avetime_contact.data 0.01 2500 -0.005 0.35
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+neighbor	0.003 bin
+neigh_modify	delay 0
+read_data	avetime_contact.data
+fix 		m1 all property/global youngsModulus peratomtype 5.0e6
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.5
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.3
+pair_style	gran model hertz tangential history
+pair_coeff	* *
+timestep	5e-6
+fix		cyl all wall/gran model hertz tangential history primitive type 1 zcylinder 0.030 0. 0.
+fix		zwall all wall/gran model hertz tangential history primitive type 1 zplane 0.0
+fix		grav all gravity 9.81 vector 0.6 0 -0.8
+fix		integr all nve/sphere
+
+
+compute		ke all ke
+compute		er all erotate/sphere
+fix		at all ave/time 10 5 100 c_ke c_er ave one
+fix		at2 all ave/time 5 3 50 c_ke ave running
+thermo_style	custom step c_ke c_er f_at[1] f_at[2] f_at2
+thermo_modify	format float %.17g
+thermo		100
+thermo_modify	lost ignore norm no
+run 2000

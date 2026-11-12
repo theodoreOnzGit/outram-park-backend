@@ -96,6 +96,9 @@
 //! comparison is what found the missing residual rule, the missing RECONR
 //! lumping, and the missing MT=5 yields. **No human V&V.**
 
+pub mod tape;
+pub use tape::gaspr_tape;
+
 use crate::acer::energy::mf6::parse_mf6_product_yields;
 use crate::endf::interp::eval_tab1;
 use crate::endf::tape::Tape;

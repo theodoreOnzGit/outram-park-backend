@@ -11,6 +11,7 @@ pub trait SpatialDist: Send + Sync {
 }
 
 /// Point source — all particles start at the same location.
+#[derive(Debug, Clone)]
 pub struct PointSource {
     pub r: Position,
 }
@@ -21,6 +22,7 @@ impl SpatialDist for PointSource {
 }
 
 /// Uniform box source.
+#[derive(Debug, Clone)]
 pub struct BoxSource {
     pub lower_left: Position,
     pub upper_right: Position,
@@ -37,6 +39,7 @@ impl SpatialDist for BoxSource {
 
 /// Spherical shell source (uniform surface or volume).
 /// TODO: port from `distribution_spatial.cpp`.
+#[derive(Debug, Clone)]
 pub struct SphericalSource {
     pub center: Position,
     pub r_inner: f64,
@@ -67,6 +70,7 @@ impl SpatialDist for SphericalSource {
 /// enums for dispatch); [`SpatialDist`] remains the per-struct contract. The
 /// field was `Box<dyn SpatialDist>` until 2026-09-16, which violated both the
 /// "no trait objects" and "no `Box<T>`" rules.
+#[derive(Debug, Clone)]
 pub enum SpatialKind {
     /// [`PointSource`].
     Point(PointSource),
@@ -74,6 +78,27 @@ pub enum SpatialKind {
     Box(BoxSource),
     /// [`SphericalSource`].
     Spherical(SphericalSource),
+    /// **OpenMC's spatial family** (gh:#1388): `CartesianIndependent`,
+    /// `CylindricalIndependent`, `SphericalIndependent`, `PointCloud`, ... as
+    /// [`super::distribution::SpatialDistribution`]. Its biased variants carry
+    /// an importance weight, which [`SpatialKind::sample_weighted`] returns and
+    /// [`super::source::IndependentSource::sample`] folds into the site weight.
+    Distribution(super::distribution::SpatialDistribution),
+}
+
+impl SpatialKind {
+    /// Sample a position and its importance weight. The weight is exactly `1.0`
+    /// for every variant except a biased [`Self::Distribution`], so the
+    /// position stream of the existing variants is untouched.
+    pub fn sample_weighted(&self, seed: &mut u64) -> (Position, f64) {
+        match self {
+            SpatialKind::Distribution(d) => {
+                let (v, w) = d.sample(seed);
+                (Position::new(v[0], v[1], v[2]), w)
+            }
+            other => (other.sample(seed), 1.0),
+        }
+    }
 }
 
 impl SpatialDist for SpatialKind {
@@ -82,6 +107,10 @@ impl SpatialDist for SpatialKind {
             SpatialKind::Point(d) => d.sample(seed),
             SpatialKind::Box(d) => d.sample(seed),
             SpatialKind::Spherical(d) => d.sample(seed),
+            SpatialKind::Distribution(d) => {
+                let (v, _w) = d.sample(seed);
+                Position::new(v[0], v[1], v[2])
+            }
         }
     }
 }

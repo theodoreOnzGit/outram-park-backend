@@ -60,6 +60,8 @@
 //! all-pairs scan below [`GranularSystem::BRUTE_FORCE_THRESHOLD`] and a
 //! uniform linked-cell grid above it.
 
+use crate::force_fixes::ForceFix;
+use crate::variable::VarContext;
 use petir::mathf::RealMath;
 use std::collections::HashMap;
 
@@ -73,12 +75,108 @@ use crate::wasm_par::prelude::*;
 use crate::boundary::Boundary;
 use crate::compute::ComputeType;
 use crate::granular::{
-    ContactKey, ContactKinematics, GranularContactModel, ShearHistory,
+    ContactKey, ContactKinematics, GranularCohesion, GranularContactModel, ShearHistory, MAX_TYPES,
 };
+use crate::heat_gran::HeatGranConduction;
 use crate::integrator::VelocityVerlet;
-use crate::mesh_wall::MovingBoundary;
+use crate::mesh_wall::{MovingBoundary, WallGeometry};
+use crate::neighbor_list::{self, LiggghtsNeighbor, NeighborOrder};
 use crate::particle::{Particle, Vec3};
+use crate::tri_mesh::arr;
 use crate::DemError;
+
+/// One `post_force` fix of the wall/gravity/force-fix family, for
+/// [`GranularSystem::with_fix_order`] (gh:#1482).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FixSlot {
+    /// `boundaries()[i]`, a `fix wall/gran ... primitive` wall.
+    PrimitiveWall(usize),
+    /// `moving_walls()[i]`, a mesh or analytic moving wall.
+    MovingWall(usize),
+    /// The `fix gravity`.
+    Gravity,
+    /// `force_fixes()[i]`.
+    ForceFix(usize),
+    /// The `post_force` of massflow counter `i` that is a
+    /// `fix massflow/mesh/sieve` (see [`GranularSystem::add_massflow_mesh`]).
+    MassflowSieve(usize),
+}
+
+/// Resolve one contact: the ordinary history-advancing law, or at set-up the
+/// frozen law that only registers the contact (`shearupdate = 0`).
+fn resolve_c(
+    model: &GranularContactModel,
+    setup: bool,
+    key: ContactKey,
+    k: &ContactKinematics,
+    history: &mut ShearHistory,
+    dt: f64,
+) -> crate::granular::GranularForce {
+    if setup {
+        model.resolve_setup(key, k, history, dt)
+    } else {
+        model.resolve(key, k, history, dt)
+    }
+}
+
+/// One row of upstream's `compute wall/gran/local` (default column set `pos
+/// vel id force torque history contactArea delta`): see
+/// [`GranularSystem::wall_gran_local`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct WallLocalRecord {
+    /// Contact point on the mesh `x - delta` `[m]` (`add_wall_1`'s `pos`).
+    pub contact_point: Vec3,
+    /// Position of the particle `[m]`.
+    pub pos_i: Vec3,
+    /// Wall velocity at the contact point `[m/s]`.
+    pub wall_vel: Vec3,
+    /// Particle velocity `[m/s]`.
+    pub vel_i: Vec3,
+    /// Index of the mesh among the mesh walls (`iFMG`).
+    pub mesh: usize,
+    /// Triangle (element) id.
+    pub tri: usize,
+    /// Tag of the particle (0-based; upstream's id is this plus one).
+    pub tag: u64,
+    /// Contact force on the particle `[N]`.
+    pub force: Vec3,
+    /// Contact torque on the particle `[N m]`.
+    pub torque: Vec3,
+    /// Stored tangential displacement of the contact `[m]`.
+    pub history: Vec3,
+    /// `(r_i^2 - r^2) pi` with `r = r_i - overlap` `[m^2]`.
+    pub contact_area: f64,
+    /// `r_i - r` `[m]`.
+    pub delta: f64,
+}
+
+/// One row of upstream's `compute pair/gran/local`: see
+/// [`GranularSystem::pair_gran_local_for`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PairLocalRecord {
+    /// Tag of particle `i` (0-based; upstream's atom id is this plus one).
+    pub tag_i: u64,
+    /// Tag of particle `j`.
+    pub tag_j: u64,
+    /// Position of `i` `[m]`.
+    pub pos_i: Vec3,
+    /// Position of `j` `[m]`.
+    pub pos_j: Vec3,
+    /// Velocity of `i` `[m/s]`.
+    pub vel_i: Vec3,
+    /// Velocity of `j` `[m/s]`.
+    pub vel_j: Vec3,
+    /// Contact force on `i` `[N]`.
+    pub force: Vec3,
+    /// Contact torque on `i` `[N m]`.
+    pub torque: Vec3,
+    /// Stored tangential shear displacement `[m]` (upstream `history`).
+    pub history: Vec3,
+    /// Contact area `[m^2]`.
+    pub contact_area: f64,
+    /// Overlap `r_i + r_j - |x_i - x_j|` `[m]`.
+    pub delta: f64,
+}
 
 /// A runnable DEM simulation with **persistent tangential shear history**.
 ///
@@ -101,6 +199,32 @@ pub struct GranularSystem {
     /// wrapping an analytic primitive or a triangulated mesh. Advanced once per
     /// step, in the drift half of the velocity-Verlet cycle.
     moving_walls: Vec<MovingBoundary>,
+    /// Neighbour skin `[m]` whose rebuild schedule decides when a rotating
+    /// mesh's cached edge vectors and normals are recomputed from its nodes
+    /// (upstream refreshes them only on a neighbour-list rebuild and rotates
+    /// them incrementally in between). `0` (default) recomputes after every
+    /// rotation. See [`GranularSystem::with_neighbor_skin`].
+    neigh_skin: f64,
+    /// `fix multicontact/halfspace` + `surface_model multicontact` (opt-in).
+    mc: Option<crate::multicontact::MulticontactState>,
+    /// `post_force` fixes (`addforce`, `viscous`, `freeze`), applied after gravity
+    /// in declaration order (gh:#1418).
+    force_fixes: Vec<ForceFix>,
+    /// Declared order of wall/gravity/force fixes (`None`: the default order),
+    /// gh:#1482.
+    fix_order: Option<Vec<FixSlot>>,
+    /// `fix freeze` group per particle (pair `meff`, gh:#1478).
+    frozen: Vec<bool>,
+    /// True during the set-up force evaluation, where upstream does not
+    /// advance the shear history (`update->setupflag` -> `shearupdate = 0`).
+    setup_phase: bool,
+    /// Particle positions at the last emulated neighbour rebuild (`xhold`).
+    xhold: Vec<Vec3>,
+    /// A mesh asked for a rebuild on the next step (`next_reneighbor`).
+    mesh_rebuild_pending: bool,
+    /// Per `(particle tag, wall)` mesh-facet contact partners with their
+    /// keep flags, in upstream's slot order (`FixContactHistoryMesh`).
+    mesh_partners: HashMap<(usize, usize), Vec<Option<(u32, bool)>>>,
     model: GranularContactModel,
     history: ShearHistory,
     integrator: VelocityVerlet,
@@ -116,6 +240,10 @@ pub struct GranularSystem {
     /// the array index, so removing or inserting a particle cannot silently
     /// re-attach a stored tangential spring to a different pair.
     tags: Vec<u64>,
+    /// Atom type of each particle (0-based), parallel to `particles`. All zero
+    /// unless set by [`GranularSystem::with_particle_types`]; indexes the
+    /// model's [`MaterialTable`](crate::granular::MaterialTable).
+    types: Vec<usize>,
     /// Next tag to hand out. Monotonic; a tag is never reused.
     next_tag: u64,
     /// Which compute backend the timestep uses. See [`ComputeType`]; the
@@ -139,6 +267,37 @@ pub struct GranularSystem {
     /// Reused cell-membership array: particle indices, grouped by cell,
     /// ascending within each cell.
     cell_items: Vec<u32>,
+    /// How candidate pairs are ordered. See [`NeighborOrder`].
+    neighbor_order: NeighborOrder,
+    /// `NeighborOrder::Liggghts` only: `perm[l]` is the particle index sitting
+    /// in upstream's local atom slot `l` (the `Atom::sort` order).
+    perm: Vec<usize>,
+    /// Upstream's `update->ntimestep` (steps taken by this system).
+    step_count: u64,
+    /// `atom->nextsort`.
+    next_sort: u64,
+    /// The neighbour list must be rebuilt in the next force evaluation
+    /// (`Neighbor::decide` returned 1, or the particle set changed).
+    rebuild_now: bool,
+    /// Primitive-wall neighbour lists of the last rebuild, `[wall][particle]`
+    /// (`PrimitiveWall::buildNeighList`). Empty until a LIGGGHTS-order rebuild;
+    /// only the multicontact `surfacesClose` history reads it (gh:#1410).
+    wall_near: Vec<Vec<bool>>,
+    /// `fix insert/*` fixes, run at `pre_exchange` (gh:#1414).
+    inserters: Vec<crate::insert::InsertFix>,
+    /// `fix insert/stream` fixes and the shared release data (by tag).
+    stream_inserters: Vec<crate::insert_stream::InsertStreamFix>,
+    stream_release: std::collections::BTreeMap<u64, crate::insert_stream::Release>,
+    /// `fix heat/gran/conduction`, if attached ([`GranularSystem::with_heat_conduction`]).
+    heat: Option<HeatGranConduction>,
+    /// Heat flux into each particle `[W]` from the last step's contact
+    /// conduction (upstream's `heatFlux` per-atom property).
+    heat_flux: Vec<f64>,
+    /// `fix massflow/mesh` counters, called after the particles move each step.
+    massflow: Vec<crate::massflow::MassFlowMesh>,
+    /// The `liquidtransfer` state of a capillary cohesion model, if attached
+    /// ([`GranularSystem::with_capillary`], gh:#1411).
+    capillary: Option<crate::capillary::CapillaryState>,
 }
 
 /// One candidate pair's resolved contact, staged by the parallel force loop so
@@ -169,10 +328,26 @@ impl PairOutcome {
     const EMPTY: Self = Self {
         i: 0,
         j: 0,
-        force_i: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
-        torque_i: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
-        torque_j: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
-        shear: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
+        force_i: Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        torque_i: Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        torque_j: Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        shear: Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
     };
 }
 
@@ -208,6 +383,15 @@ impl GranularSystem {
             particles,
             boundaries,
             moving_walls: Vec::new(),
+            neigh_skin: 0.0,
+            mc: None,
+            force_fixes: Vec::new(),
+            fix_order: None,
+            frozen: Vec::new(),
+            setup_phase: false,
+            xhold: Vec::new(),
+            mesh_rebuild_pending: false,
+            mesh_partners: HashMap::new(),
             model,
             history: ShearHistory::new(),
             integrator,
@@ -217,6 +401,7 @@ impl GranularSystem {
             forces: vec![Vec3::zero(); n],
             torques: vec![Vec3::zero(); n],
             tags: (0..n as u64).collect(),
+            types: vec![0; n],
             next_tag: n as u64,
             compute: ComputeType::default(),
             pairs: Vec::new(),
@@ -224,8 +409,21 @@ impl GranularSystem {
             chunk_counts: Vec::new(),
             cell_offsets: Vec::new(),
             cell_items: Vec::new(),
+            neighbor_order: NeighborOrder::CellGrid,
+            perm: Vec::new(),
+            step_count: 0,
+            next_sort: 0,
+            rebuild_now: false,
+            wall_near: Vec::new(),
+            inserters: Vec::new(),
+            stream_inserters: Vec::new(),
+            stream_release: std::collections::BTreeMap::new(),
+            heat: None,
+            heat_flux: Vec::new(),
+            massflow: Vec::new(),
+            capillary: None,
         };
-        s.compute_forces();
+        s.compute_forces_setup();
         Ok(s)
     }
 
@@ -242,8 +440,792 @@ impl GranularSystem {
     #[must_use]
     pub fn with_moving_walls(mut self, walls: Vec<MovingBoundary>) -> Self {
         self.moving_walls = walls;
-        self.compute_forces();
+        self.fix_order = None;
+        self.xhold = self.particles.iter().map(|p| p.position).collect();
+        self.update_servo_contacts();
+        self.compute_forces_setup();
         self
+    }
+
+    /// `f_<mesh>[n+1]` of the `fix mesh/surface/stress` on moving wall `wall`:
+    /// `0..3` force on the mesh, `3..6` torque about the reference point,
+    /// `6..9` the reference point (see [`crate::mesh_stress::MeshStress`]).
+    /// `None` when that wall tracks no stress.
+    #[must_use]
+    pub fn mesh_stress_vector(&self, wall: usize, n: usize) -> Option<f64> {
+        self.moving_walls[wall]
+            .stress
+            .as_ref()
+            .map(|s| s.compute_vector(n))
+    }
+
+    /// `f_<mesh>[10..12]` of a servo mesh: the centre `xcm_` (`n` in `0..3`);
+    /// `None` when that wall has no servo.
+    #[must_use]
+    pub fn mesh_servo_xcm(&self, wall: usize, n: usize) -> Option<f64> {
+        self.moving_walls[wall].servo.as_ref().map(|s| s.0.xcm()[n])
+    }
+
+    /// Servo velocity `vcm_` (force servo) or angular velocity `omegacm_`
+    /// (torque servo) of wall `wall`; `None` when that wall has no servo.
+    #[must_use]
+    pub fn mesh_servo_ctrl_op(&self, wall: usize) -> Option<[f64; 3]> {
+        self.moving_walls[wall]
+            .servo
+            .as_ref()
+            .map(|s| match s.0.ctrl() {
+                crate::mesh_stress::ServoCtrl::Force => s.0.vcm(),
+                crate::mesh_stress::ServoCtrl::Torque => s.0.omegacm(),
+            })
+    }
+
+    /// Neighbour-list contact count of the servo mesh of wall `wall`
+    /// (`getTotalNumContacts`); `None` when that wall has no servo.
+    #[must_use]
+    pub fn mesh_servo_contacts(&self, wall: usize) -> Option<usize> {
+        self.moving_walls[wall]
+            .servo
+            .as_ref()
+            .map(|_| self.moving_walls[wall].servo_contacts)
+    }
+
+    /// `(sigma_n, sigma_t)` `[Pa]` of facet `tri` of moving wall `wall`
+    /// (`None` when that wall tracks no stress); see
+    /// [`crate::mesh_stress::MeshStress::sigma_n`].
+    #[must_use]
+    pub fn facet_stress(&self, wall: usize, tri: usize) -> Option<(f64, f64)> {
+        self.moving_walls[wall]
+            .stress
+            .as_ref()
+            .map(|s| (s.sigma_n(tri), s.sigma_t(tri)))
+    }
+
+    /// Attach a `fix massflow/mesh` counter (gh:#1416); it is invoked after
+    /// the particles move each step. Returns its index for
+    /// [`GranularSystem::massflow_vector`].
+    pub fn add_massflow_mesh(&mut self, fix: crate::massflow::MassFlowMesh) -> usize {
+        self.massflow.push(fix);
+        self.rebuild_massflow_lists();
+        self.massflow.len() - 1
+    }
+
+    /// Rebuild every massflow counter's mesh neighbour list at the current
+    /// positions (`FixNeighlistMesh::pre_force` on a rebuild).
+    fn rebuild_massflow_lists(&mut self) {
+        for k in 0..self.massflow.len() {
+            match self.massflow[k].wall() {
+                Some(w) => {
+                    if let WallGeometry::Mesh(mesh) = &self.moving_walls[w].geometry {
+                        self.massflow[k].rebuild_lists(mesh, &self.particles);
+                    }
+                }
+                None => {
+                    let mesh = self.massflow[k].mesh_arc();
+                    self.massflow[k].rebuild_lists(&mesh, &self.particles);
+                }
+            }
+        }
+    }
+
+    /// `FixMassflowMesh::pre_exchange` with `delete_atoms yes`: remove the
+    /// marked particles one at a time in marking order, each by copying the
+    /// last atom into its slot (`AtomVec::copy(nlocal-1, iPart)`), and book
+    /// the deleted mass and count on the fix.
+    fn delete_massflow_marked(&mut self) {
+        let mut any = false;
+        for k in 0..self.massflow.len() {
+            for tag in self.massflow[k].take_pending_deletions() {
+                let Some(i) = self.tags.iter().position(|&t| t == tag) else {
+                    continue;
+                };
+                let mass = self.particles[i].mass;
+                self.note_removed(i);
+                self.particles.swap_remove(i);
+                self.tags.swap_remove(i);
+                self.types.swap_remove(i);
+                self.forces.swap_remove(i);
+                self.torques.swap_remove(i);
+                self.massflow[k].record_deleted(tag, mass);
+                any = true;
+            }
+        }
+        if any {
+            self.xhold = self.particles.iter().map(|p| p.position).collect();
+        }
+    }
+
+    /// Set the summed property (`sum_property`) of the particle with tag
+    /// `tag` on massflow counter `fix`.
+    pub fn set_massflow_property(&mut self, fix: usize, tag: u64, value: f64) {
+        self.massflow[fix].set_property(tag, value);
+    }
+
+    /// `f_<id>[index+1]` of massflow counter `fix` (0 mass, 1 count, 2 mass
+    /// rate, 3 count rate; see [`crate::massflow::MassFlowMesh::compute_vector`]).
+    pub fn massflow_vector(&mut self, fix: usize, index: usize) -> f64 {
+        self.massflow[fix].compute_vector(index)
+    }
+
+    /// The counter attached as `fix`.
+    #[must_use]
+    pub fn massflow(&self, fix: usize) -> &crate::massflow::MassFlowMesh {
+        &self.massflow[fix]
+    }
+
+    /// Emulate upstream's neighbour-list rebuild schedule (`neighbor <skin>`,
+    /// `neigh_modify delay 0 every 1 check yes`) for the one thing it changes
+    /// numerically here: when a **rotating mesh wall** recomputes its cached
+    /// edge vectors, normals and edge lengths from its nodes. Upstream rotates
+    /// those incrementally by the step quaternion and refreshes them only on a
+    /// rebuild step (a particle moved more than `skin/2` since the last build,
+    /// or a mesh node did, one step earlier); this reproduces that schedule so
+    /// the round-off matches (gh:#1416). The physics does not depend on it.
+    ///
+    /// With the default `skin = 0` the geometry is recomputed after every
+    /// rotation. Call after [`GranularSystem::with_moving_walls`].
+    #[must_use]
+    pub fn with_neighbor_skin(mut self, skin: f64) -> Self {
+        self.neigh_skin = skin;
+        self.xhold = self.particles.iter().map(|p| p.position).collect();
+        self.update_servo_contacts();
+        self
+    }
+
+    /// The set-up force evaluation: like [`GranularSystem::compute_forces`] but
+    /// without advancing the shear history, as upstream's `setup()` does
+    /// (`PairGran::compute`: `if (update->setupflag) shearupdate_ = 0;`, same in
+    /// `FixWallGran::post_force_wall`). ~~The port advanced the history here
+    /// too~~ **CORRECTED 2026-11-11** (gh:#1418): it gave a bed with non-zero
+    /// velocities one extra `v_tr*dt` of shear at step 0.
+    fn compute_forces_setup(&mut self) {
+        self.setup_phase = true;
+        self.compute_forces();
+        self.setup_phase = false;
+    }
+
+    /// Recount the servo meshes' neighbour-list contacts
+    /// (`getTotalNumContacts`, read by `mode auto`); done where upstream
+    /// rebuilds its neighbour list.
+    fn update_servo_contacts(&mut self) {
+        let skin = self.neigh_skin;
+        for w in &mut self.moving_walls {
+            w.update_servo_contacts(&self.particles, skin);
+        }
+    }
+
+    /// The neighbour-rebuild decision and mesh refresh that follow the walls'
+    /// move in a step (`Neighbor::decide`, `FixMesh::pre_force`).
+    fn refresh_moving_meshes(&mut self) {
+        let skin = self.neigh_skin;
+        if skin <= 0.0 {
+            for w in &mut self.moving_walls {
+                if w.is_rotating() {
+                    if let WallGeometry::Mesh(m) = &mut w.geometry {
+                        m.refresh_geometry();
+                    }
+                }
+            }
+            return;
+        }
+        let triggersq = 0.25 * skin * skin;
+        let mut rebuild = self.mesh_rebuild_pending;
+        if !rebuild {
+            for (p, h) in self.particles.iter().zip(&self.xhold) {
+                let d = p.position.sub(*h);
+                let rsq = d.x * d.x + d.y * d.y + d.z * d.z;
+                if rsq > triggersq {
+                    rebuild = true;
+                }
+            }
+        }
+        self.rebuild_now = rebuild;
+        if rebuild {
+            for w in &mut self.moving_walls {
+                if let WallGeometry::Mesh(m) = &mut w.geometry {
+                    m.refresh_geometry();
+                }
+            }
+            self.xhold = self.particles.iter().map(|p| p.position).collect();
+            self.mesh_rebuild_pending = false;
+        } else {
+            let mut any = false;
+            for w in &self.moving_walls {
+                if let WallGeometry::Mesh(m) = &w.geometry {
+                    if m.decide_rebuild(skin) {
+                        any = true;
+                    }
+                }
+            }
+            self.mesh_rebuild_pending = any;
+        }
+    }
+
+    /// Order the pair list the way LIGGGHTS does (`newton off`, `neighbor
+    /// <skin> bin`, `atom_modify sort`): a spatial atom sort at set-up and every
+    /// `sort_every` steps, a bin half-list built in upstream's order, stale
+    /// between rebuilds. With it, a particle's contact forces are summed in
+    /// upstream's order, so per-contact forces stay **bit-identical** to
+    /// upstream beyond step 0 (`tests/pair_gran_local_cross_code.rs`).
+    ///
+    /// **This re-does set-up**, as a new `run` would: the atoms are sorted and
+    /// the list rebuilt at the current positions, and the forces recomputed
+    /// (without advancing shear history). The default is
+    /// [`NeighborOrder::CellGrid`]; see [`crate::neighbor_list`] for why this is
+    /// a named option (it needs the deck's box and skin). Call after
+    /// [`GranularSystem::with_moving_walls`].
+    #[must_use]
+    pub fn with_liggghts_neighbor_order(mut self, cfg: LiggghtsNeighbor) -> Self {
+        self.neighbor_order = NeighborOrder::Liggghts(cfg);
+        self.neigh_skin = cfg.skin;
+        self.perm = (0..self.particles.len()).collect();
+        self.next_sort = 0;
+        self.xhold = self.particles.iter().map(|p| p.position).collect();
+        self.update_servo_contacts();
+        self.mesh_rebuild_pending = false;
+        self.compute_forces_setup();
+        self
+    }
+
+    /// Enable the multicontact surface model and `fix multicontact/halfspace`
+    /// (Brodu et al.; LIGGGHTS `surface_model multicontact`): each contact's
+    /// radius is expanded by the displacement the particle's other contacts
+    /// cause, at the pair (`pair_gran_base.h`) and primitive-wall
+    /// (`fix_wall_gran.cpp`) sites, and the neighbour list looks out to a
+    /// contact-distance factor of 2 (`register_contact_dist_factor(2.0)`).
+    /// Mesh walls are NOT hooked. Opt-in: without this call nothing changes.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] unless the system is under
+    /// [`NeighborOrder::Liggghts`] (the history lives on upstream's list).
+    pub fn with_multicontact(mut self, fix: crate::multicontact::HalfSpaceFix) -> Result<Self, DemError> {
+        let NeighborOrder::Liggghts(mut cfg) = self.neighbor_order else {
+            return Err(DemError::InvalidInput(
+                "multicontact needs the LIGGGHTS neighbour order (with_liggghts_neighbor_order)".into(),
+            ));
+        };
+        cfg.contact_distance_factor = cfg.contact_distance_factor.max(crate::multicontact::CONTACT_DISTANCE_FACTOR);
+        self.neighbor_order = NeighborOrder::Liggghts(cfg);
+        self.mc = Some(crate::multicontact::MulticontactState::new(fix));
+        self.compute_forces_setup();
+        Ok(self)
+    }
+
+    /// `FixMultiContactHalfSpace::pre_force`: expansions for this step from the
+    /// history the last force evaluation wrote.
+    fn mc_pre_force(&mut self) {
+        use crate::multicontact::{PairContact, ParticleView, WallContact};
+        let Some(mc) = self.mc.as_mut() else { return };
+        let n = self.particles.len();
+        let lorder = if self.perm.len() == n { self.perm.clone() } else { (0..n).collect() };
+        let mut local_of = vec![0usize; n];
+        for (l, &p) in lorder.iter().enumerate() {
+            local_of[p] = l;
+        }
+        let x: Vec<[f64; 3]> = lorder.iter().map(|&p| { let v = self.particles[p].position; [v.x, v.y, v.z] }).collect();
+        let tag: Vec<usize> = lorder.iter().map(|&p| self.tags[p] as usize).collect();
+        let typ: Vec<usize> = lorder.iter().map(|&p| self.types[p]).collect();
+        let rad: Vec<f64> = lorder.iter().map(|&p| self.particles[p].radius).collect();
+        let grp = vec![true; n];
+        let mut pairs: Vec<Vec<PairContact>> = vec![Vec::new(); n];
+        for &(i, j) in &self.pairs {
+            let (i, j) = (i as usize, j as usize);
+            let h = mc.pair_history(self.tags[i] as usize, self.tags[j] as usize);
+            pairs[local_of[i]].push(PairContact { j: local_of[j], history: h });
+        }
+        let nb = self.boundaries.len();
+        let nm = self.moving_walls.len();
+        let mut walls: Vec<Vec<Vec<WallContact>>> = vec![vec![Vec::new(); n]; nb + nm];
+        for (w, wl) in walls.iter_mut().enumerate().take(nb) {
+            for l in 0..n {
+                if let Some(h) = mc.wall_hist.get(&(tag[l], w)) {
+                    wl[l].push(WallContact { id: 1, history: *h });
+                }
+            }
+        }
+        // mesh walls: one contact per facet, in `mesh_partners` slot order
+        // (`FixMultiContactHalfSpace::pre_force` iterates `npartners`)
+        let mut is_mesh = vec![false; nb + nm];
+        for w in 0..nm {
+            is_mesh[nb + w] = true;
+            for l in 0..n {
+                if let Some(slots) = self.mesh_partners.get(&(tag[l], w)) {
+                    for &(id, _) in slots.iter().flatten() {
+                        let h = mc.mesh_hist.get(&(tag[l], nb + w, id)).copied().unwrap_or([0.0; 4]);
+                        walls[nb + w][l].push(WallContact { id: id as usize, history: h });
+                    }
+                }
+            }
+        }
+        mc.data = mc.fix.pre_force(
+            ParticleView { x: &x, tag: &tag, typ: &typ, radius: &rad, in_group: &grp },
+            &pairs,
+            &walls,
+            &is_mesh,
+        );
+        mc.local_of = local_of;
+    }
+
+    /// Particle–particle loop with the multicontact radius expansion and
+    /// history writes (`pair_gran_base.h` compute + the surface model).
+    fn resolve_pairs_mc(&mut self) {
+        let setup = self.setup_phase;
+        let pairs = std::mem::take(&mut self.pairs);
+        for &(i, j) in &pairs {
+            let (i, j) = (i as usize, j as usize);
+            let (ti, tj) = (self.tags[i] as usize, self.tags[j] as usize);
+            let (a, b) = (self.particles[i], self.particles[j]);
+            // `pair_gran_base.h`: `sidata.radi` is the UNEXPANDED radius of i
+            // (set once per i), `sidata.radj` and `radsum` are expanded.
+            let (radj, radsum) = {
+                let mc = self.mc.as_ref().expect("multicontact");
+                let radi_e = a.radius + mc.data.pair_expansion(mc.local_of[i], tj);
+                let radj_e = b.radius + mc.data.pair_expansion(mc.local_of[j], ti);
+                (radj_e, radi_e + radj_e)
+            };
+            let d = a.position.sub(b.position);
+            let rsq = d.x * d.x + d.y * d.y + d.z * d.z;
+            let kin = ContactKinematics::pair_radii(
+                &a,
+                &b,
+                self.frozen.get(i).copied().unwrap_or(false),
+                self.frozen.get(j).copied().unwrap_or(false),
+                a.radius,
+                radj,
+                radsum,
+            )
+            .map(|k| k.with_types(self.types[i], self.types[j]));
+            if let Some(k) = kin {
+                let key = ContactKey::pair(ti, tj);
+                let flip = ti > tj;
+                if flip {
+                    self.history.flip(key);
+                    self.model.flip_aux(key, &mut self.history);
+                }
+                let gf = resolve_c(&self.model, setup, key, &k, &mut self.history, self.dt);
+                if flip {
+                    self.history.flip(key);
+                    self.model.flip_aux(key, &mut self.history);
+                }
+                self.forces[i] = self.forces[i].add(gf.force_i);
+                self.forces[j] = self.forces[j].add(gf.force_j);
+                self.torques[i] = self.torques[i].add(gf.torque_i);
+                self.torques[j] = self.torques[j].add(gf.torque_j);
+                if !setup {
+                    let fnorm = crate::multicontact::end_surfaces_intersect_history(
+                        [gf.force_i.x, gf.force_i.y, gf.force_i.z],
+                        [k.en.x, k.en.y, k.en.z],
+                    );
+                    let h = crate::multicontact::surfaces_intersect_history(false, [0.0; 3], a.radius, radj);
+                    self.mc.as_mut().expect("multicontact").set_pair_history(ti, tj, [h[0], h[1], fnorm]);
+                }
+            } else if !setup
+                && rsq < crate::multicontact::CONTACT_DISTANCE_FACTOR
+                    * crate::multicontact::CONTACT_DISTANCE_FACTOR
+                    * radsum
+                    * radsum
+            {
+                let h = crate::multicontact::surfaces_close_history(false, [0.0; 3], a.radius, radj);
+                self.mc.as_mut().expect("multicontact").set_pair_history(ti, tj, [h[0], h[1], h[2]]);
+            }
+        }
+        self.pairs = pairs;
+    }
+
+    /// Attach upstream's contact conduction (`fix heat/gran/conduction`,
+    /// [`crate::heat_gran`]). Temperatures are the particles' own
+    /// [`Particle::temperature`] (upstream's `initial_temperature`, or a later
+    /// `set ... property/atom Temp`); they are advanced every step. The
+    /// clean-room [`crate::thermal`] stays callable on its own.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if a particle's atom type has no entry in
+    /// the fix's per-type properties.
+    pub fn with_heat_conduction(mut self, heat: HeatGranConduction) -> Result<Self, DemError> {
+        if let Some(bad) = self.types.iter().find(|&&t| t >= heat.n_types()) {
+            return Err(DemError::InvalidInput(format!(
+                "atom type {bad} has no thermal properties ({} given)",
+                heat.n_types()
+            )));
+        }
+        self.heat = Some(heat);
+        self.heat_flux = vec![0.0; self.particles.len()];
+        Ok(self)
+    }
+
+    /// Heat flux into each particle `[W]` from the last step (`heatFlux`).
+    #[must_use]
+    pub fn heat_flux(&self) -> &[f64] {
+        &self.heat_flux
+    }
+
+    /// Attach the `liquidtransfer` state of a capillary cohesion model
+    /// ([`GranularCohesion::Capillary`], [`crate::capillary`], gh:#1411): every
+    /// particle starts with `surfaceLiquidContentInitial`, the neighbour list
+    /// looks out to `1.1 * maxSeparationDistanceRatio` contact distances (both
+    /// upstream models call `register_contact_dist_factor(1.1 * max_ratio)`),
+    /// and bridges form, stretch and rupture out of contact as upstream's
+    /// `surfacesClose` does. Washino's `limitLiquidContent` overwrites the
+    /// maximum separation ratio from the current radii and the atom types
+    /// present, as upstream's `connectToProperties` does.
+    ///
+    /// Physics is on as soon as the model is selected: nothing else has to be
+    /// switched on. The set-up evaluation is re-done.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] unless the model's cohesion is
+    /// `Capillary`, the system uses [`NeighborOrder::Liggghts`] (bridges live
+    /// on upstream's list), has no walls (particle-wall bridges are not
+    /// ported) and no per-pair coefficient table.
+    pub fn with_capillary(mut self) -> Result<Self, DemError> {
+        let GranularCohesion::Capillary(mut p) = self.model.cohesion else {
+            return Err(DemError::InvalidInput(
+                "with_capillary needs a model whose cohesion is GranularCohesion::Capillary".into(),
+            ));
+        };
+        let NeighborOrder::Liggghts(mut cfg) = self.neighbor_order else {
+            return Err(DemError::InvalidInput(
+                "capillary bridges need the LIGGGHTS neighbour order (with_liggghts_neighbor_order)".into(),
+            ));
+        };
+        if !self.boundaries.is_empty() || !self.moving_walls.is_empty() {
+            return Err(DemError::InvalidInput(
+                "capillary bridges to walls are not ported (upstream: Easo dry walls, Washino mesh \
+                 liquid content); use a system without walls"
+                    .into(),
+            ));
+        }
+        if self.model.pair_models.is_some() {
+            return Err(DemError::InvalidInput(
+                "capillary cohesion with a per-pair coefficient table is not supported".into(),
+            ));
+        }
+        if let Some(bad) = self.types.iter().find(|&&t| t >= MAX_TYPES) {
+            return Err(DemError::InvalidInput(format!(
+                "atom type {bad} is outside the {MAX_TYPES} types a capillary model holds"
+            )));
+        }
+        let n_types = self.types.iter().copied().max().map_or(1, |t| t + 1);
+        let max_rad = self.particles.iter().fold(-1.0_f64, |m, q| m.max(q.radius));
+        let min_rad = self.particles.iter().fold(f64::MAX, |m, q| m.min(q.radius));
+        p.max_separation_ratio = p.limited_max_separation_ratio(n_types, max_rad, min_rad);
+        self.model.cohesion = GranularCohesion::Capillary(p);
+        cfg.contact_distance_factor = cfg
+            .contact_distance_factor
+            .max(crate::capillary::CapillaryParams::contact_distance_factor(p.max_separation_ratio));
+        self.neighbor_order = NeighborOrder::Liggghts(cfg);
+        self.capillary = Some(crate::capillary::CapillaryState::new(
+            self.particles.len(),
+            p.initial_liquid_content,
+        ));
+        self.compute_forces_setup();
+        Ok(self)
+    }
+
+    /// `surfaceLiquidContent` of each particle (empty without a capillary model).
+    #[must_use]
+    pub fn liquid_content(&self) -> &[f64] {
+        self.capillary.as_ref().map_or(&[], |c| &c.content)
+    }
+
+    /// `liquidFlux` of each particle `[1/s]` from the last force evaluation.
+    #[must_use]
+    pub fn liquid_flux(&self) -> &[f64] {
+        self.capillary.as_ref().map_or(&[], |c| &c.flux)
+    }
+
+    /// Number of pairs with a liquid bridge (`contflag == 1`).
+    #[must_use]
+    pub fn bridge_count(&self) -> usize {
+        self.capillary.as_ref().map_or(0, |c| c.bridges.len())
+    }
+
+    /// Whether the pair of particles with these tags has a liquid bridge.
+    #[must_use]
+    pub fn has_bridge(&self, tag_a: u64, tag_b: u64) -> bool {
+        self.capillary
+            .as_ref()
+            .is_some_and(|c| c.bridges.contains(&crate::capillary::CapillaryState::key(tag_a, tag_b)))
+    }
+
+    /// Set every particle's `surfaceLiquidContent` (upstream `set ... property/atom
+    /// surfaceLiquidContent`, in particle order) and redo the set-up force
+    /// evaluation, as the `run` that follows such a `set` does.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] without a capillary model attached
+    /// ([`GranularSystem::with_capillary`]) or with a list of the wrong length
+    /// or a content outside `[0, 1]`.
+    pub fn with_liquid_contents(mut self, content: Vec<f64>) -> Result<Self, DemError> {
+        let n = self.particles.len();
+        let Some(c) = self.capillary.as_mut() else {
+            return Err(DemError::InvalidInput(
+                "with_liquid_contents needs with_capillary first".into(),
+            ));
+        };
+        if content.len() != n || content.iter().any(|q| !(0.0..=1.0).contains(q)) {
+            return Err(DemError::InvalidInput(format!(
+                "need {n} liquid contents in [0, 1]"
+            )));
+        }
+        c.content = content;
+        self.compute_forces_setup();
+        Ok(self)
+    }
+
+    /// The force on each particle `[N]` from the last force evaluation (what
+    /// upstream dumps as `fx fy fz` after a step).
+    #[must_use]
+    pub fn forces(&self) -> &[Vec3] {
+        &self.forces
+    }
+
+    /// Keep the per-particle liquid arrays the length of the particle set
+    /// (a new particle gets `surfaceLiquidContentInitial`).
+    fn sync_capillary(&mut self) {
+        let n = self.particles.len();
+        let GranularCohesion::Capillary(p) = self.model.cohesion else {
+            return;
+        };
+        if let Some(c) = self.capillary.as_mut() {
+            c.content.resize(n, p.initial_liquid_content);
+            c.flux.resize(n, 0.0);
+        }
+    }
+
+    /// Particle-particle loop of a capillary model: the ordinary contact law
+    /// for overlapping pairs (with the bridge's contact force folded in at
+    /// upstream's place in the force sum) and `surfacesClose` for the pairs
+    /// that do not overlap but lie inside the contact distance factor
+    /// (`pair_gran_base.h`, `compute_force`), in pair-list order.
+    fn resolve_pairs_capillary(&mut self) {
+        use crate::capillary::{CapillaryState, CloseInput, CloseOutcome};
+        let setup = self.setup_phase;
+        let GranularCohesion::Capillary(p) = self.model.cohesion else {
+            return;
+        };
+        let factor = match self.neighbor_order {
+            NeighborOrder::Liggghts(cfg) => cfg.contact_distance_factor,
+            NeighborOrder::CellGrid => 1.0,
+        };
+        let contact_distance_multiplier = factor * factor;
+        let mut cap = self.capillary.take().expect("capillary state");
+        cap.content.resize(self.particles.len(), p.initial_liquid_content);
+        cap.flux.resize(self.particles.len(), 0.0);
+        let pairs = std::mem::take(&mut self.pairs);
+        for &(i, j) in &pairs {
+            let (i, j) = (i as usize, j as usize);
+            let a = self.particles[i];
+            let b = self.particles[j];
+            let (ti, tj) = (self.tags[i], self.tags[j]);
+            let pair_key = CapillaryState::key(ti, tj);
+            let kin = ContactKinematics::pair_frozen(
+                &a,
+                &b,
+                self.frozen.get(i).copied().unwrap_or(false),
+                self.frozen.get(j).copied().unwrap_or(false),
+            )
+            .map(|k| k.with_types(self.types[i], self.types[j]));
+            if let Some(k) = kin {
+                // surfacesIntersect: contflag = 1, limit the liquid, bridge force
+                cap.bridges.insert(pair_key);
+                cap.content[i] = p.limit_content(cap.content[i], self.types[i]);
+                cap.content[j] = p.limit_content(cap.content[j], self.types[j]);
+                let k = k.with_liquid(cap.content[i], cap.content[j]);
+                let key = ContactKey::pair(ti as usize, tj as usize);
+                let flip = ti > tj;
+                if flip {
+                    self.history.flip(key);
+                    self.model.flip_aux(key, &mut self.history);
+                }
+                let gf = resolve_c(&self.model, setup, key, &k, &mut self.history, self.dt);
+                if flip {
+                    self.history.flip(key);
+                    self.model.flip_aux(key, &mut self.history);
+                }
+                self.forces[i] = self.forces[i].add(gf.force_i);
+                self.forces[j] = self.forces[j].add(gf.force_j);
+                self.torques[i] = self.torques[i].add(gf.torque_i);
+                self.torques[j] = self.torques[j].add(gf.torque_j);
+                continue;
+            }
+            let d = a.position.sub(b.position);
+            let rsq = d.x * d.x + d.y * d.y + d.z * d.z;
+            let radsum = a.radius + b.radius;
+            if rsq < contact_distance_multiplier * radsum * radsum {
+                // surfacesClose: the tangential model forgets the shear
+                self.history.forget_shear(ContactKey::pair(ti as usize, tj as usize));
+                cap.content[i] = p.limit_content(cap.content[i], self.types[i]);
+                cap.content[j] = p.limit_content(cap.content[j], self.types[j]);
+                let outcome = p.close(&CloseInput {
+                    delta: d,
+                    rsq,
+                    rad_i: a.radius,
+                    rad_j: b.radius,
+                    radsum,
+                    itype: self.types[i],
+                    jtype: self.types[j],
+                    v_i: a.velocity,
+                    v_j: b.velocity,
+                    omega_i: a.angular_velocity,
+                    omega_j: b.angular_velocity,
+                    liquid_i: cap.content[i],
+                    liquid_j: cap.content[j],
+                    bridge: cap.bridges.contains(&pair_key),
+                    dt: self.dt,
+                });
+                match outcome {
+                    CloseOutcome::NoBridge => {}
+                    CloseOutcome::ActiveNoForce => {
+                        cap.bridges.insert(pair_key);
+                    }
+                    CloseOutcome::Force {
+                        force_i,
+                        torque_i,
+                        force_j,
+                        torque_j,
+                    } => {
+                        cap.bridges.insert(pair_key);
+                        self.forces[i] = self.forces[i].add(force_i);
+                        self.torques[i] = self.torques[i].add(torque_i);
+                        self.forces[j] = self.forces[j].add(force_j);
+                        self.torques[j] = self.torques[j].add(torque_j);
+                    }
+                    CloseOutcome::Breaks { flux_i, flux_j } => {
+                        cap.bridges.remove(&pair_key);
+                        cap.flux[i] += flux_i;
+                        cap.flux[j] += flux_j;
+                    }
+                }
+            }
+        }
+        self.pairs = pairs;
+        self.capillary = Some(cap);
+    }
+
+    /// The pair-ordering mode in use.
+    #[must_use]
+    pub fn neighbor_order(&self) -> NeighborOrder {
+        self.neighbor_order
+    }
+
+    /// Sort (if due) and rebuild the LIGGGHTS-order half list from the current
+    /// positions: `Atom::sort` then `Neighbor::build`.
+    fn rebuild_liggghts_list(&mut self, cfg: LiggghtsNeighbor) {
+        let n = self.particles.len();
+        if self.perm.len() != n {
+            self.perm = (0..n).collect();
+        }
+        let max_radius = self.particles.iter().fold(0.0_f64, |m, p| m.max(p.radius));
+        // upstream's cut radius includes the largest particle a `fix insert`
+        // can still add (`PairGran::init_style`: `max_rad(type)` of fixes)
+        let max_radius = self
+            .inserters
+            .iter()
+            .fold(max_radius, |m, f| m.max(f.max_rad()));
+        let max_radius = self
+            .stream_inserters
+            .iter()
+            .fold(max_radius, |m, f| m.max(f.max_rad()));
+        let cut = cfg.cutneighmax(max_radius);
+        if cfg.sort_every > 0 && (self.setup_phase || self.step_count >= self.next_sort) {
+            let x: Vec<Vec3> = self
+                .perm
+                .iter()
+                .map(|&p| self.particles[p].position)
+                .collect();
+            let order = neighbor_list::atom_sort_permutation(&x, &cfg, cut);
+            self.perm = order.iter().map(|&o| self.perm[o]).collect();
+            self.next_sort = (self.step_count / cfg.sort_every) * cfg.sort_every + cfg.sort_every;
+        }
+        // The list build carries a pair's history over only if the pair
+        // overlaps at the rebuild (`rsq < radsum*radsum`); until then it
+        // persists through separations (see `ShearHistory::end_step_keep_pairs`).
+        {
+            let by_tag: HashMap<u64, usize> =
+                self.tags.iter().enumerate().map(|(i, &t)| (t, i)).collect();
+            let particles = &self.particles;
+            self.history.retain_pairs(|lo, hi| {
+                let (Some(&i), Some(&j)) = (by_tag.get(&(lo as u64)), by_tag.get(&(hi as u64)))
+                else {
+                    return false;
+                };
+                let (a, b) = (&particles[i], &particles[j]);
+                let (dx, dy, dz) = (
+                    a.position.x - b.position.x,
+                    a.position.y - b.position.y,
+                    a.position.z - b.position.z,
+                );
+                let rsq = dx * dx + dy * dy + dz * dz;
+                let radsum = a.radius + b.radius;
+                rsq < radsum * radsum
+            });
+        }
+        if let Some(c) = self.capillary.as_mut() {
+            // the bridge flag is carried over a rebuild only for a pair inside
+            // `(radsum * contactDistanceFactor)` (`granular_bin_no_newton`:
+            // `radsum = (radi + radj) * contactDistanceFactor`)
+            let by_tag: HashMap<u64, usize> =
+                self.tags.iter().enumerate().map(|(i, &t)| (t, i)).collect();
+            let particles = &self.particles;
+            let factor = cfg.contact_distance_factor;
+            c.bridges.retain(|&(lo, hi)| {
+                let (Some(&i), Some(&j)) = (by_tag.get(&lo), by_tag.get(&hi)) else {
+                    return false;
+                };
+                let d = particles[i].position.sub(particles[j].position);
+                let radsum = (particles[i].radius + particles[j].radius) * factor;
+                d.x * d.x + d.y * d.y + d.z * d.z < radsum * radsum
+            });
+        }
+        if let Some(mc) = self.mc.as_mut() {
+            let by_tag: HashMap<u64, usize> =
+                self.tags.iter().enumerate().map(|(i, &t)| (t, i)).collect();
+            let particles = &self.particles;
+            mc.pair_hist.retain(|&(lo, hi), _| {
+                let (Some(&i), Some(&j)) = (by_tag.get(&(lo as u64)), by_tag.get(&(hi as u64))) else {
+                    return false;
+                };
+                let d = particles[i].position.sub(particles[j].position);
+                let radsum = particles[i].radius + particles[j].radius;
+                d.x * d.x + d.y * d.y + d.z * d.z < radsum * radsum
+            });
+        }
+        let x: Vec<Vec3> = self
+            .perm
+            .iter()
+            .map(|&p| self.particles[p].position)
+            .collect();
+        let r: Vec<f64> = self
+            .perm
+            .iter()
+            .map(|&p| self.particles[p].radius)
+            .collect();
+        let mut local = Vec::new();
+        neighbor_list::half_bin_no_newton(&x, &r, &cfg, cut, &mut local);
+        self.pairs.clear();
+        self.pairs.extend(
+            local
+                .iter()
+                .map(|&(a, b)| (self.perm[a as usize] as u32, self.perm[b as usize] as u32)),
+        );
+        self.xhold = self.particles.iter().map(|p| p.position).collect();
+        // `FixWallGran::pre_neighbor`: rebuild each primitive wall's list with
+        // threshold = skin and the atom radius
+        let skin = cfg.skin;
+        self.wall_near = self
+            .boundaries
+            .iter()
+            .map(|b| {
+                self.particles
+                    .iter()
+                    .map(|p| b.upstream_neighlist(p, skin).unwrap_or(true))
+                    .collect()
+            })
+            .collect();
     }
 
     /// Select the compute backend for the timestep, returning the updated
@@ -314,6 +1296,62 @@ impl GranularSystem {
         &self.particles
     }
 
+    /// The particles in upstream's **local atom order** (`atom->x[l]`, `l = 0..nlocal`),
+    /// the order every LIGGGHTS per-atom sum (`compute ke`, `erotate/sphere`, ...)
+    /// is accumulated in. Under [`NeighborOrder::Liggghts`] this is the order after
+    /// the last `Atom::sort`; otherwise it is the tag order of
+    /// [`GranularSystem::particles`]. Floating-point sums are not associative, so
+    /// a bit-identical diagnostic must sum in this order.
+    #[must_use]
+    pub fn particles_in_local_order(&self) -> Vec<Particle> {
+        if self.perm.len() == self.particles.len() && matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
+            self.perm.iter().map(|&p| self.particles[p].clone()).collect()
+        } else {
+            self.particles.clone()
+        }
+    }
+
+    /// The index into [`GranularSystem::particles`] of each atom in the order
+    /// [`GranularSystem::particles_in_local_order`] returns them (identity when
+    /// the system is not under the LIGGGHTS neighbour order). Lets a per-atom
+    /// property stored by tag (e.g. a tracer marker) be summed in local order.
+    #[must_use]
+    pub fn local_order_indices(&self) -> Vec<usize> {
+        if self.perm.len() == self.particles.len() && matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
+            self.perm.clone()
+        } else {
+            (0..self.particles.len()).collect()
+        }
+    }
+
+    /// Assign an atom type (0-based) to every particle, for a model carrying a
+    /// [`MaterialTable`](crate::granular::MaterialTable)
+    /// ([`GranularContactModel::with_materials`]). Particles inserted later get
+    /// type 0.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if `types.len()` differs from the particle
+    /// count, or a type is `>=` the table's type count (or non-zero with no
+    /// table).
+    pub fn with_particle_types(mut self, types: Vec<usize>) -> Result<Self, DemError> {
+        if types.len() != self.particles.len() {
+            return Err(DemError::InvalidInput(format!(
+                "{} types for {} particles",
+                types.len(),
+                self.particles.len()
+            )));
+        }
+        let n_types = self.model.materials.map_or(1, |t| t.n_types());
+        if let Some(bad) = types.iter().find(|&&t| t >= n_types) {
+            return Err(DemError::InvalidInput(format!(
+                "atom type {bad} out of range: the material table has {n_types} type(s)"
+            )));
+        }
+        self.types = types;
+        Ok(self)
+    }
+
     /// The stable tag of each particle, parallel to [`GranularSystem::particles`].
     ///
     /// Tags are assigned `0..n` at construction and monotonically thereafter;
@@ -338,8 +1376,10 @@ impl GranularSystem {
     pub fn insert_particle(&mut self, p: Particle) -> u64 {
         let tag = self.next_tag;
         self.next_tag += 1;
+        self.note_inserted();
         self.particles.push(p);
         self.tags.push(tag);
+        self.types.push(0);
         self.forces.push(Vec3::zero());
         self.torques.push(Vec3::zero());
         self.compute_forces();
@@ -411,8 +1451,10 @@ impl GranularSystem {
         for p in particles {
             let tag = self.next_tag;
             self.next_tag += 1;
+            self.note_inserted();
             self.particles.push(p);
             self.tags.push(tag);
+            self.types.push(0);
             self.forces.push(Vec3::zero());
             self.torques.push(Vec3::zero());
             tags.push(tag);
@@ -452,8 +1494,10 @@ impl GranularSystem {
 
         let mut removed = Vec::with_capacity(doomed.len());
         for &i in doomed.iter().rev() {
+            self.note_removed(i);
             removed.push(self.particles.swap_remove(i));
             self.tags.swap_remove(i);
+            self.types.swap_remove(i);
             self.forces.swap_remove(i);
             self.torques.swap_remove(i);
         }
@@ -461,6 +1505,131 @@ impl GranularSystem {
             self.compute_forces();
         }
         removed
+    }
+
+    /// Attach a `fix insert/pack` or `fix insert/rate/region` (gh:#1414). Runs
+    /// the fix's set-up (`calc_insertion_properties`) now; it then acts inside
+    /// [`GranularSystem::step`] at upstream's `pre_exchange` point: after the
+    /// first half-step, before the neighbour build and force evaluation, so a
+    /// new particle takes only the second half-kick of its first step. Use with
+    /// [`GranularSystem::with_liggghts_neighbor_order`] (the insertion forces a
+    /// list rebuild, as `next_reneighbor` does). Returns the fix's index.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`crate::insert::InsertFix::setup`] reports.
+    pub fn add_insertion(
+        &mut self,
+        mut fix: crate::insert::InsertFix,
+    ) -> Result<usize, crate::DemError> {
+        fix.setup()?;
+        self.inserters.push(fix);
+        Ok(self.inserters.len() - 1)
+    }
+
+    /// Attach a `fix insert/stream` (gh:#1414). Acts at `pre_exchange` like
+    /// [`GranularSystem::add_insertion`]; its particles ride the rail to the
+    /// insertion face in `end_of_step` (see [`crate::insert_stream`]).
+    /// Returns the fix's index.
+    pub fn add_stream_insertion(&mut self, fix: crate::insert_stream::InsertStreamFix) -> usize {
+        self.stream_inserters.push(fix);
+        self.stream_inserters.len() - 1
+    }
+
+    /// The `i`-th `insert/stream` fix.
+    #[must_use]
+    pub fn stream_insertion(&self, i: usize) -> &crate::insert_stream::InsertStreamFix {
+        &self.stream_inserters[i]
+    }
+
+    /// The `i`-th insertion fix.
+    #[must_use]
+    pub fn insertion(&self, i: usize) -> &crate::insert::InsertFix {
+        &self.inserters[i]
+    }
+
+    /// `FixInsert::pre_exchange` for every attached insertion fix.
+    ///
+    /// Insertion errors upstream would abort the run on; here they panic with
+    /// the same message, since `step` has no error channel.
+    fn run_insertions(&mut self) {
+        let step = self.step_count as u64;
+        for k in 0..self.stream_inserters.len() {
+            let ins = match self.stream_inserters[k].pre_exchange(step, &self.particles) {
+                Ok(v) => v,
+                Err(e) => panic!("fix insert/stream: {e}"),
+            };
+            for (ip, rel) in ins.particles.into_iter().zip(ins.release) {
+                let tag = self.next_tag;
+                self.next_tag += 1;
+                self.note_inserted();
+                self.particles.push(ip.particle);
+                self.tags.push(tag);
+                self.types.push(ip.atom_type - 1);
+                self.forces.push(Vec3::zero());
+                self.torques.push(Vec3::zero());
+                self.stream_release.insert(tag, rel);
+            }
+        }
+        if self.inserters.is_empty() {
+            return;
+        }
+        for k in 0..self.inserters.len() {
+            let new = match self.inserters[k].pre_exchange(step, &self.particles) {
+                Ok(v) => v,
+                Err(e) => panic!("fix insert: {e}"),
+            };
+            for ip in new {
+                let tag = self.next_tag;
+                self.next_tag += 1;
+                self.note_inserted();
+                self.particles.push(ip.particle);
+                self.tags.push(tag);
+                self.types.push(ip.atom_type - 1);
+                self.forces.push(Vec3::zero());
+                self.torques.push(Vec3::zero());
+            }
+        }
+    }
+
+    /// Keep the LIGGGHTS local order in step with an insertion: the new atom
+    /// takes the last local slot (`nlocal++`) and the list is rebuilt.
+    fn note_inserted(&mut self) {
+        if matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
+            self.perm.push(self.particles.len());
+            self.rebuild_now = true;
+        }
+    }
+
+    /// Keep the LIGGGHTS local order in step with removing particle `i`
+    /// (called before the `swap_remove`): the last local atom is copied into
+    /// the hole (`AtomVec::copy(nlocal-1, i)`), and the particle array's own
+    /// `swap_remove` moves its last particle into slot `i`.
+    fn note_removed(&mut self, i: usize) {
+        if let Some(c) = self.capillary.as_mut() {
+            // the removed atom's liquid and bridges leave with it; the last
+            // atom takes its slot (`swap_remove`, as the particle array does)
+            if i < c.content.len() {
+                c.content.swap_remove(i);
+                c.flux.swap_remove(i);
+            }
+            let tag = self.tags[i];
+            c.bridges.retain(|&(a, b)| a != tag && b != tag);
+        }
+        if matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
+            let last = self.particles.len() - 1;
+            if let Some(l) = self.perm.iter().position(|&p| p == i) {
+                self.perm.swap_remove(l);
+            }
+            if i != last {
+                for e in &mut self.perm {
+                    if *e == last {
+                        *e = i;
+                    }
+                }
+            }
+            self.rebuild_now = true;
+        }
     }
 
     /// Elapsed simulated time `[s]`.
@@ -508,6 +1677,149 @@ impl GranularSystem {
         out
     }
 
+    /// One per-contact record in the manner of upstream's `compute
+    /// pair/gran/local` (`pos vel id force torque history contactArea
+    /// delta`), for the ordered pair of particles with tags `(tag_i, tag_j)`,
+    /// or `None` if they do not overlap. `force` and `torque` are the contact's
+    /// force and torque **on `i`** (`i_forces.delta_F`, `delta_torque`),
+    /// evaluated at the current state from the stored shear history *without*
+    /// advancing it (`PairGran::compute_pgl(0, 0)`, see
+    /// [`GranularContactModel::resolve_frozen`]).
+    ///
+    /// Translated from `ComputePairGranLocal::add_pair` (LIGGGHTS-PUBLIC
+    /// `3d5c00f2`, `compute_pair_gran_local.cpp`); gh:#1418.
+    #[must_use]
+    pub fn pair_gran_local_for(&self, tag_i: u64, tag_j: u64) -> Option<PairLocalRecord> {
+        let i = self.tags.iter().position(|&t| t == tag_i)?;
+        let j = self.tags.iter().position(|&t| t == tag_j)?;
+        let (a, b) = (self.particles[i], self.particles[j]);
+        let k = ContactKinematics::pair_frozen(
+            &a,
+            &b,
+            self.frozen.get(i).copied().unwrap_or(false),
+            self.frozen.get(j).copied().unwrap_or(false),
+        )
+        .map(|k| k.with_types(self.types[i], self.types[j]))?;
+        let key = ContactKey::pair(tag_i as usize, tag_j as usize);
+        // The store holds the displacement in the (lower index, higher index)
+        // orientation the timestep evaluates pairs in; flip it for `i > j`.
+        let stored = self.history.get(key).unwrap_or_else(Vec3::zero);
+        let hist = if tag_i < tag_j {
+            stored
+        } else {
+            Vec3::zero().sub(stored)
+        };
+        let gf = self.model.resolve_frozen(hist, &k, self.dt);
+        let (radi, radj) = (a.radius, b.radius);
+        let del = a.position.sub(b.position);
+        let rsq = del.x * del.x + del.y * del.y + del.z * del.z;
+        let r = rsq.sqrt();
+        let contact_area = -std::f64::consts::PI / 4.0
+            * ((r - radi - radj) * (r + radi - radj) * (r - radi + radj) * (r + radi + radj))
+            / rsq;
+        Some(PairLocalRecord {
+            tag_i,
+            tag_j,
+            pos_i: a.position,
+            pos_j: b.position,
+            vel_i: a.velocity,
+            vel_j: b.velocity,
+            force: gf.force_i,
+            torque: gf.torque_i,
+            history: hist,
+            contact_area,
+            delta: radi + radj - r,
+        })
+    }
+
+    /// `compute wall/gran/local` (`pos vel id force torque history
+    /// contactArea delta`): one record per particle-mesh contact, particles in
+    /// tag order, facets ascending, mesh walls in order. Force and torque are
+    /// evaluated at the current state from the stored history without
+    /// advancing it (`FixWallGran::post_force_pgl`: `computeflag = 0`,
+    /// `shearupdate = 0`, `addflag = 1`). Primitive walls are not reported,
+    /// as upstream warns. Translated from `ComputePairGranLocal::
+    /// {add_wall_1, add_wall_2}` and `FixWallGranBase::compute_force`
+    /// (LIGGGHTS-PUBLIC `3d5c00f2`); gh:#1418.
+    ///
+    /// A contact that is not yet in the per-particle contact list is reported
+    /// only if no coplanar neighbour facet is (the `coplanarContactAlready`
+    /// drop), with zero history; this does not mutate the list.
+    #[must_use]
+    pub fn wall_gran_local(&self) -> Vec<WallLocalRecord> {
+        let nb = self.boundaries.len();
+        let mut out = Vec::new();
+        let mut mesh_ordinal = 0usize;
+        for (w, wall) in self.moving_walls.iter().enumerate() {
+            let WallGeometry::Mesh(mesh) = &wall.geometry else {
+                continue;
+            };
+            for (i, p) in self.particles.iter().enumerate() {
+                let tag = self.tags[i] as usize;
+                for c in mesh.sphere_contacts(p.position, p.radius) {
+                    let id = c.tri as u32;
+                    let slots = self.mesh_partners.get(&(tag, w));
+                    let known = slots.is_some_and(|sl| sl.iter().flatten().any(|s| s.0 == id));
+                    if !known && c.barysign == 7 {
+                        let dup = slots.is_some_and(|sl| {
+                            sl.iter().flatten().any(|s| {
+                                s.0 != id && mesh.coplanar_node_neighs(s.0 as usize, c.tri)
+                            })
+                        });
+                        if dup {
+                            continue;
+                        }
+                    }
+                    let v_wall = mesh.wall_velocity(c.tri, &c.bary);
+                    let delta = Vec3::new(-c.delta[0], -c.delta[1], -c.delta[2]);
+                    let overlap = -c.deltan;
+                    let k = ContactKinematics::mesh_wall(p, delta, overlap, v_wall)
+                        .with_types(self.types[i], self.types[i]);
+                    let hist = self
+                        .history
+                        .get(ContactKey::tri(tag, nb + w, c.tri))
+                        .unwrap_or_else(Vec3::zero);
+                    let gf = self.model.resolve_frozen(hist, &k, self.dt);
+                    let r = p.radius - overlap;
+                    let rsq = r * r;
+                    out.push(WallLocalRecord {
+                        contact_point: Vec3::new(
+                            p.position.x - delta.x,
+                            p.position.y - delta.y,
+                            p.position.z - delta.z,
+                        ),
+                        pos_i: p.position,
+                        wall_vel: v_wall,
+                        vel_i: p.velocity,
+                        mesh: mesh_ordinal,
+                        tri: c.tri,
+                        tag: tag as u64,
+                        force: gf.force_i,
+                        torque: gf.torque_i,
+                        history: hist,
+                        contact_area: (p.radius * p.radius - rsq) * std::f64::consts::PI,
+                        delta: p.radius - rsq.sqrt(),
+                    });
+                }
+            }
+            mesh_ordinal += 1;
+        }
+        out
+    }
+
+    /// [`GranularSystem::pair_gran_local_for`] for every overlapping pair, `i`
+    /// the lower-tag particle, in candidate-pair order.
+    #[must_use]
+    pub fn pair_gran_local(&self) -> Vec<PairLocalRecord> {
+        self.candidate_pairs()
+            .into_iter()
+            .filter_map(|(i, j)| {
+                let (ti, tj) = (self.tags[i], self.tags[j]);
+                self.pair_gran_local_for(ti.min(tj), ti.max(tj))
+            })
+            .collect()
+    }
+
     /// Mean coordination number `[-]`: contacts per particle, counting both
     /// ends of each contact.
     ///
@@ -543,6 +1855,11 @@ impl GranularSystem {
 
     /// Advance one velocity-Verlet step, in LIGGGHTS' order.
     pub fn step(&mut self) {
+        self.step_count += 1;
+        // `FixScalarTransportEquation::initial_integrate`: reset the flux
+        if let Some(c) = self.capillary.as_mut() {
+            c.reset_flux();
+        }
         let (f, t) = (self.forces.clone(), self.torques.clone());
         self.integrator
             .initial_integrate(&mut self.particles, &f, &t);
@@ -551,11 +1868,108 @@ impl GranularSystem {
         for w in &mut self.moving_walls {
             w.advance(self.dt);
         }
+        // `post_integrate` of `fix massflow/mesh`: after the move, before the
+        // neighbour decision and the force evaluation.
+        for k in 0..self.massflow.len() {
+            match self.massflow[k].wall() {
+                Some(w) => {
+                    if let WallGeometry::Mesh(mesh) = &self.moving_walls[w].geometry {
+                        self.massflow[k].post_integrate(mesh, &self.particles, &self.tags, self.dt);
+                    }
+                }
+                None => {
+                    let mesh = self.massflow[k].mesh_arc();
+                    self.massflow[k].post_integrate(&mesh, &self.particles, &self.tags, self.dt);
+                }
+            }
+        }
+        self.refresh_moving_meshes();
+        // `FixMassflowMesh::pre_exchange` (`delete_atoms yes`): runs on a
+        // neighbour-list rebuild step only
+        if self.rebuild_now || self.neigh_skin <= 0.0 {
+            self.delete_massflow_marked();
+        }
+        self.run_insertions();
+        // the mesh neighbour lists rebuild when the neighbour list does (every
+        // step when no skin was given)
+        if self.rebuild_now || self.neigh_skin <= 0.0 {
+            self.update_servo_contacts();
+            self.rebuild_massflow_lists();
+        }
+        // `MeshModuleStress::pre_force`
+        for w in &mut self.moving_walls {
+            if let Some(st) = &mut w.stress {
+                st.pre_force();
+            }
+        }
         self.compute_forces();
+        if let Some(heat) = &self.heat {
+            // post_force of `fix heat/gran/conduction`: the flux of this step
+            // (reset at initial_integrate), summed in pair-list order.
+            self.heat_flux.clear();
+            self.heat_flux.resize(self.particles.len(), 0.0);
+            heat.accumulate(
+                &self.pairs,
+                &self.particles,
+                &self.types,
+                &mut self.heat_flux,
+            );
+        }
         let (f2, t2) = (self.forces.clone(), self.torques.clone());
         self.integrator
             .final_integrate(&mut self.particles, &f2, &t2);
+        // `MeshModuleStress::final_integrate` (calc_total_force)
+        for w in &mut self.moving_walls {
+            if let (Some(st), WallGeometry::Mesh(m)) = (&mut w.stress, &w.geometry) {
+                let norms: Vec<[f64; 3]> = (0..m.triangles.len())
+                    .map(|i| m.state.surface_norm(i))
+                    .collect();
+                st.final_integrate(&norms);
+            }
+        }
+        // `MeshModuleStressServo::final_integrate`
+        for w in &mut self.moving_walls {
+            w.servo_final_integrate();
+        }
+        if let Some(heat) = &self.heat {
+            // final_integrate of the scalar transport equation
+            heat.advance(&mut self.particles, &self.types, &self.heat_flux, self.dt);
+        }
+        if let Some(c) = self.capillary.as_mut() {
+            // final_integrate of `liquidtransfer`: L += flux * dt
+            c.advance(self.dt);
+        }
+        self.stream_end_of_step();
         self.time += self.dt;
+    }
+
+    /// `FixInsertStream::end_of_step` (the integrating fix): put every
+    /// not-yet-released streamed particle on its rail, release it on its step.
+    fn stream_end_of_step(&mut self) {
+        if self.stream_release.is_empty() {
+            return;
+        }
+        let step = self.step_count as u64;
+        let mut finished: Vec<u64> = Vec::new();
+        for i in 0..self.particles.len() {
+            let tag = self.tags[i];
+            let Some(rel) = self.stream_release.get(&tag) else {
+                continue;
+            };
+            match crate::insert_stream::end_of_step_state(rel, step, self.dt) {
+                None => finished.push(tag),
+                Some((x, v, w, _released)) => {
+                    self.particles[i].position = x;
+                    self.particles[i].velocity = v;
+                    self.particles[i].angular_velocity = w;
+                    self.forces[i] = Vec3::zero();
+                    self.torques[i] = Vec3::zero();
+                }
+            }
+        }
+        for t in finished {
+            self.stream_release.remove(&t);
+        }
     }
 
     /// Advance `n_steps` steps.
@@ -572,6 +1986,7 @@ impl GranularSystem {
     /// gravity body force. The [`ShearHistory`] bracket is applied here, so a
     /// contact that separated between steps loses its stored displacement.
     fn compute_forces(&mut self) {
+        let setup = self.setup_phase;
         let n = self.particles.len();
         self.forces.clear();
         self.forces.resize(n, Vec3::zero());
@@ -580,84 +1995,538 @@ impl GranularSystem {
 
         self.rebuild_candidate_pairs();
         self.history.begin_step();
+        // `FixMultiContactHalfSpace::pre_force`
+        self.mc_pre_force();
+
+        self.sync_capillary();
 
         // --- particle-particle ---
         // Both paths accumulate in the SAME order (ascending candidate-pair
         // index), which is what makes them bit-identical. See `compute`.
-        if self.compute.is_parallel_step() {
+        if self.capillary.is_some() {
+            self.resolve_pairs_capillary();
+        } else if self.mc.is_some() {
+            self.resolve_pairs_mc();
+        } else if self.compute.is_parallel_step() && !setup && !self.model.has_contact_state() {
             self.resolve_pairs_parallel();
         } else {
             self.resolve_pairs_serial();
         }
 
-        // --- particle-wall (primitive boundaries, immovable) ---
-        for i in 0..n {
-            let p = self.particles[i];
-            for (w, boundary) in self.boundaries.iter().enumerate() {
-                if let Some(c) = boundary.particle_overlap(&p) {
-                    // `Contact::normal` is the inward normal (wall -> particle),
-                    // which is exactly upstream's `en` for a wall contact.
-                    if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, Vec3::zero())
-                    {
-                        let gf = self.model.resolve(
-                            ContactKey::wall(self.tags[i] as usize, w),
-                            &k,
-                            &mut self.history,
-                            self.dt,
+        // --- wall and force fixes, in deck declaration order ---
+        // Upstream runs every `post_force` in the order the fixes were declared
+        // (`Modify::post_force`, modify.cpp loops `list_post_force`), and the
+        // per-contact `f_pw = f_after - f_before` and every force sum depend on
+        // that order (gh:#1482). The default order below reproduces the
+        // previous fixed one; `with_fix_order` sets the deck's.
+        let order = self.effective_fix_order();
+        let ff_ctx = if self.force_fixes.is_empty() {
+            None
+        } else {
+            let ctx = VarContext {
+                step: self.step_count as i64,
+                begin_step: 0,
+                end_step: i64::MAX,
+                dt: self.dt,
+            };
+            let vel: Vec<Vec3> = self.particles.iter().map(|p| p.velocity).collect();
+            let lorder = self.local_order_indices();
+            let pos: Vec<Vec3> = self.particles.iter().map(|p| p.position).collect();
+            let rad: Vec<f64> = self.particles.iter().map(|p| p.radius).collect();
+            Some((ctx, vel, lorder, pos, rad))
+        };
+        for slot in order {
+            match slot {
+                FixSlot::PrimitiveWall(w) => self.primitive_wall_forces(w),
+                FixSlot::MovingWall(w) => {
+                    if self.moving_walls[w].contactless {
+                        // `fix mesh/surface` with no `fix wall/gran`: moves, never touches
+                    } else if matches!(self.moving_walls[w].geometry, WallGeometry::Mesh(_)) {
+                        self.compute_mesh_wall_forces(w);
+                    } else {
+                        self.moving_primitive_wall_forces(w);
+                    }
+                }
+                FixSlot::Gravity => {
+                    for i in 0..n {
+                        let m = self.particles[i].mass;
+                        self.forces[i] = self.forces[i].add(self.gravity.scale(m));
+                    }
+                }
+                FixSlot::MassflowSieve(k) => match self.massflow[k].wall() {
+                    Some(w) => {
+                        if let WallGeometry::Mesh(mesh) = &self.moving_walls[w].geometry {
+                            self.massflow[k].sieve_post_force(
+                                mesh,
+                                &self.particles,
+                                &self.tags,
+                                &mut self.forces,
+                            );
+                        }
+                    }
+                    None => {
+                        let mesh = self.massflow[k].mesh_arc();
+                        self.massflow[k].sieve_post_force(
+                            &mesh,
+                            &self.particles,
+                            &self.tags,
+                            &mut self.forces,
                         );
-                        self.forces[i] = self.forces[i].add(gf.force_i);
-                        self.torques[i] = self.torques[i].add(gf.torque_i);
+                    }
+                },
+                FixSlot::ForceFix(k) => {
+                    if let Some((ctx, vel, lorder, pos, rad)) = &ff_ctx {
+                        self.force_fixes[k]
+                            .apply(ctx, lorder, pos, rad, vel, &self.types, &mut self.forces, &mut self.torques)
+                            .expect("force fix variable evaluation (upstream error->all)");
                     }
                 }
             }
         }
 
-        // --- particle-moving-wall ---
-        for i in 0..n {
-            let p = self.particles[i];
-            for (w, wall) in self.moving_walls.iter().enumerate() {
-                if let Some(c) = wall.particle_overlap(&p) {
-                    let v_wall = wall.surface_velocity(c.point);
-                    if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, v_wall) {
-                        let gf = self.model.resolve(
-                            // Wall ids are offset past the static boundaries so
-                            // the two families cannot collide in the history map.
-                            ContactKey::wall(self.tags[i] as usize, self.boundaries.len() + w),
-                            &k,
-                            &mut self.history,
-                            self.dt,
-                        );
-                        self.forces[i] = self.forces[i].add(gf.force_i);
-                        self.torques[i] = self.torques[i].add(gf.torque_i);
-                    }
+        // the history bracket closes after the last wall contact; gravity and
+        // the force fixes never touch it, so their position in the order is free
+        if matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
+            self.history.end_step_keep_pairs();
+        } else {
+            self.history.end_step();
+        }
+    }
+
+    /// The order the wall and force fixes are applied in: the one set by
+    /// [`GranularSystem::with_fix_order`], else primitive walls, mesh walls,
+    /// other moving walls, gravity, force fixes (gh:#1482).
+    fn effective_fix_order(&self) -> Vec<FixSlot> {
+        if let Some(o) = &self.fix_order {
+            return o.clone();
+        }
+        let mut o: Vec<FixSlot> = (0..self.boundaries.len()).map(FixSlot::PrimitiveWall).collect();
+        for pass_mesh in [true, false] {
+            for (w, m) in self.moving_walls.iter().enumerate() {
+                if matches!(m.geometry, WallGeometry::Mesh(_)) == pass_mesh {
+                    o.push(FixSlot::MovingWall(w));
                 }
             }
         }
+        o.push(FixSlot::Gravity);
+        o.extend((0..self.force_fixes.len()).map(FixSlot::ForceFix));
+        o.extend(
+            (0..self.massflow.len())
+                .filter(|&k| self.massflow[k].is_sieve())
+                .map(FixSlot::MassflowSieve),
+        );
+        o
+    }
 
-        self.history.end_step();
+    /// Declare the **order of the wall and force fixes** as the deck does
+    /// (`Modify::post_force` applies them in declaration order). Each primitive
+    /// boundary, moving wall (mesh or analytic), the gravity fix and each force
+    /// fix must appear exactly once. Call after `with_moving_walls` and
+    /// `with_force_fixes`. gh:#1482.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if a slot is out of range, repeated or missing.
+    pub fn with_fix_order(mut self, order: Vec<FixSlot>) -> Result<Self, DemError> {
+        self.fix_order = None;
+        let key = |s: &FixSlot| format!("{s:?}");
+        let mut a: Vec<String> = order.iter().map(key).collect();
+        let mut b: Vec<String> = self.effective_fix_order().iter().map(key).collect();
+        a.sort();
+        b.sort();
+        if a != b {
+            return Err(DemError::InvalidInput(
+                "fix order must list every wall, gravity and force fix exactly once".into(),
+            ));
+        }
+        self.fix_order = Some(order);
+        // upstream's set-up evaluation also runs in declaration order
+        self.compute_forces_setup();
+        Ok(self)
+    }
 
-        // --- gravity ---
+    /// One primitive (analytic, immovable) wall's contacts for every particle
+    /// (`FixWallGran::post_force_wall` of one `fix wall/gran primitive`).
+    fn primitive_wall_forces(&mut self, w: usize) {
+        let setup = self.setup_phase;
+        let n = self.particles.len();
         for i in 0..n {
-            let m = self.particles[i].mass;
-            self.forces[i] = self.forces[i].add(self.gravity.scale(m));
+            let mut p = self.particles[i];
+            let radius0 = p.radius;
+            if let Some(mc) = &self.mc {
+                p.radius += mc.data.wall_expansion(w, mc.local_of[i], 1);
+            }
+            let boundary = &self.boundaries[w];
+            // Axis-aligned planes and cylinders go through upstream's own
+            // resolution and kinematics (`PrimitiveWall::resolveContact`,
+            // `r = radi - deltan`, `en = delta*rinv`).
+            if let Some(res) = boundary.upstream_contact(&p) {
+                if let Some((overlap, delta)) = res {
+                    let k = ContactKinematics::mesh_wall(&p, delta, overlap, Vec3::zero())
+                        .with_types(self.types[i], self.types[i]);
+                    let gf = resolve_c(
+                        &self.model,
+                        setup,
+                        ContactKey::wall(self.tags[i] as usize, w),
+                        &k,
+                        &mut self.history,
+                        self.dt,
+                    );
+                    self.forces[i] = self.forces[i].add(gf.force_i);
+                    self.torques[i] = self.torques[i].add(gf.torque_i);
+                    if self.mc.is_some() && !setup {
+                        let h = crate::multicontact::surfaces_intersect_history(true, arr(delta), p.radius, 0.0);
+                        let fnorm = crate::multicontact::end_surfaces_intersect_history(arr(gf.force_i), arr(k.en));
+                        self.mc.as_mut().expect("multicontact").wall_hist.insert(
+                            (self.tags[i] as usize, w),
+                            [h[0], h[1], h[2], fnorm],
+                        );
+                    }
+                } else if self.mc.is_some()
+                    && !setup
+                    && self.wall_near.get(w).is_none_or(|v| v[i])
+                {
+                    // `surfacesClose` of an axis-aligned plane within one
+                    // (unexpanded) radius: delta*radi*rinv with rinv = -1/|delta|
+                    if let Some((deltan, dv)) = boundary.cylinder_resolve(&p) {
+                        // Cylinder<dim>::resolveContact: `delta` is defined
+                        // for deltan > 0 too; `deltan < (factor-1)*radius[i]`.
+                        if deltan < radius0 {
+                            let h = crate::multicontact::surfaces_close_history(true, [dv.x, dv.y, dv.z], p.radius, 0.0);
+                            self.mc.as_mut().expect("multicontact").wall_hist.insert(
+                                (self.tags[i] as usize, w),
+                                [h[0], h[1], h[2], h[3]],
+                            );
+                        }
+                    } else if let Some((a, param)) = boundary.plane_axis_and_param() {
+                        let pos = [p.position.x, p.position.y, p.position.z];
+                        let dist = pos[a] - param;
+                        let deltan = dist.abs() - p.radius;
+                        if deltan < radius0 {
+                            let mut dv = [0.0; 3];
+                            dv[a] = dist;
+                            let h = crate::multicontact::surfaces_close_history(true, dv, p.radius, 0.0);
+                            self.mc.as_mut().expect("multicontact").wall_hist.insert(
+                                (self.tags[i] as usize, w),
+                                [h[0], h[1], h[2], h[3]],
+                            );
+                        }
+                    }
+                }
+                continue;
+            }
+            if let Some(c) = boundary.particle_overlap(&p) {
+                // `Contact::normal` is the inward normal (wall -> particle),
+                // which is exactly upstream's `en` for a wall contact.
+                if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, Vec3::zero())
+                    .map(|k| k.with_types(self.types[i], self.types[i]))
+                {
+                    let gf = resolve_c(
+                        &self.model,
+                        setup,
+                        ContactKey::wall(self.tags[i] as usize, w),
+                        &k,
+                        &mut self.history,
+                        self.dt,
+                    );
+                    self.forces[i] = self.forces[i].add(gf.force_i);
+                    self.torques[i] = self.torques[i].add(gf.torque_i);
+                }
+            }
+        }
+    }
+
+    /// One non-mesh moving wall's contacts for every particle.
+    fn moving_primitive_wall_forces(&mut self, w: usize) {
+        let setup = self.setup_phase;
+        let n = self.particles.len();
+        for i in 0..n {
+            let p = self.particles[i];
+            let wall = &self.moving_walls[w];
+            if let Some(c) = wall.particle_overlap(&p) {
+                let v_wall = wall.surface_velocity(c.point);
+                if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, v_wall)
+                    .map(|k| k.with_types(self.types[i], self.types[i]))
+                {
+                    let gf = resolve_c(
+                        &self.model,
+                        setup,
+                        // Wall ids are offset past the static boundaries so
+                        // the two families cannot collide in the history map.
+                        ContactKey::wall(self.tags[i] as usize, self.boundaries.len() + w),
+                        &k,
+                        &mut self.history,
+                        self.dt,
+                    );
+                    self.forces[i] = self.forces[i].add(gf.force_i);
+                    self.torques[i] = self.torques[i].add(gf.torque_i);
+                }
+            }
+        }
+    }
+
+    /// The `post_force` fixes, in declaration order (read `ewall` of a
+    /// `WallRegion` for the thermo scalar and vector).
+    #[must_use]
+    pub fn force_fixes(&self) -> &[ForceFix] {
+        &self.force_fixes
+    }
+
+    /// Add `post_force` fixes (`fix addforce`/`viscous`/`freeze`/`wall/region`), applied after
+    /// gravity in the order added (gh:#1418). Group masks must have one entry
+    /// per particle.
+    #[must_use]
+    pub fn with_force_fixes(mut self, fixes: Vec<ForceFix>) -> Self {
+        let mut frozen = vec![false; self.particles.len()];
+        for fx in &fixes {
+            if let ForceFix::Freeze { group, .. } = fx {
+                for (f, g) in frozen.iter_mut().zip(group) {
+                    *f |= *g;
+                }
+            }
+        }
+        self.frozen = frozen;
+        self.force_fixes = fixes;
+        self.fix_order = None;
+        // upstream `setup` calls every fix's post_force, so the step-0 forces
+        // (used by the first half-kick) already carry the fixes
+        self.compute_forces_setup();
+        self
+    }
+
+    /// Particle–mesh-wall forces, translated from `FixWallGran::
+    /// post_force_mesh`: every facet the sphere overlaps contributes its own
+    /// contact (history keyed per facet), in ascending facet order; edge and
+    /// corner contacts of inactive features are skipped; a new face contact
+    /// is dropped when a coplanar neighbour facet is already handled this step
+    /// and inherits that neighbour's history otherwise
+    /// (`FixContactHistoryMesh::handleContact`). gh:#1416.
+    fn compute_mesh_wall_forces(&mut self, w: usize) {
+        let setup = self.setup_phase;
+        let n = self.particles.len();
+        let nb = self.boundaries.len();
+        {
+            let WallGeometry::Mesh(mesh) = &self.moving_walls[w].geometry else {
+                return;
+            };
+            let has_stress = self.moving_walls[w].stress.is_some();
+            let mut contributions: Vec<(usize, usize, [f64; 3], [f64; 3], [f64; 3])> = Vec::new();
+            // markAllContacts
+            for (key, slots) in self.mesh_partners.iter_mut() {
+                if key.1 == w {
+                    for s in slots.iter_mut().flatten() {
+                        s.1 = false;
+                    }
+                }
+            }
+            for i in 0..n {
+                let p = self.particles[i];
+                let tag = self.tags[i] as usize;
+                // multicontact: `radi += deltaData[3]` of a facet already in
+                // the history (`fix_wall_gran.cpp:933-947`); the search also
+                // reaches the "close" facets `deltan < (factor-1)*radius`
+                let contacts = if let Some(mc) = &self.mc {
+                    let loc = mc.local_of[i];
+                    let nbw = nb;
+                    let exp_of = |t: u32| mc.data.wall_expansion(nbw + w, loc, t as usize);
+                    let maxexp = self
+                        .mesh_partners
+                        .get(&(tag, w))
+                        .map_or(0.0, |sl| sl.iter().flatten().map(|s| exp_of(s.0).abs()).fold(0.0, f64::max));
+                    let margin = (crate::multicontact::CONTACT_DISTANCE_FACTOR - 1.0) * p.radius;
+                    let cand = mesh.sphere_contacts_within(p.position, p.radius + maxexp, margin + 2.0 * maxexp);
+                    let slots = self.mesh_partners.get(&(tag, w));
+                    cand.into_iter()
+                        .filter_map(|c0| {
+                            let has = slots.is_some_and(|sl| sl.iter().flatten().any(|s| s.0 == c0.tri as u32));
+                            let re = if has { exp_of(c0.tri as u32) } else { 0.0 };
+                            let c1 = if re != 0.0 { mesh.resolve_facet(c0.tri, p.position, p.radius + re) } else { mesh.resolve_facet(c0.tri, p.position, p.radius) };
+                            (c1.deltan <= 0.0 || c1.deltan < margin).then_some(c1)
+                        })
+                        .collect::<Vec<_>>()
+                } else {
+                    mesh.sphere_contacts(p.position, p.radius)
+                };
+                for c in contacts {
+                    let slots = self.mesh_partners.entry((tag, w)).or_default();
+                    let id = c.tri as u32;
+                    let face = c.barysign == 7;
+                    // haveContact
+                    let mut handled = false;
+                    for s in slots.iter_mut().flatten() {
+                        if s.0 == id {
+                            s.1 = true;
+                            handled = true;
+                            break;
+                        }
+                    }
+                    if !handled {
+                        // coplanarContactAlready
+                        if face {
+                            let mut already = false;
+                            for s in slots.iter().flatten() {
+                                if s.0 != id
+                                    && mesh.coplanar_node_neighs(s.0 as usize, c.tri)
+                                    && s.1
+                                {
+                                    already = true;
+                                }
+                            }
+                            if already {
+                                continue;
+                            }
+                        }
+                        // addNewTriContactToExistingParticle
+                        let new = Some((id, true));
+                        if let Some(slot) = slots.iter_mut().find(|s| s.is_none()) {
+                            *slot = new;
+                        } else {
+                            slots.push(new);
+                        }
+                        // checkCoplanarContactHistory
+                        if face {
+                            let mut inherit = None;
+                            for s in slots.iter().flatten() {
+                                if s.0 != id && mesh.coplanar_node_neighs(s.0 as usize, c.tri) {
+                                    inherit = self
+                                        .history
+                                        .get(ContactKey::tri(tag, nb + w, s.0 as usize))
+                                        .or(Some(Vec3::zero()));
+                                }
+                            }
+                            if let Some(h) = inherit {
+                                self.history.seed(ContactKey::tri(tag, nb + w, c.tri), h);
+                            }
+                            // the multicontact history lives in the same
+                            // contact history, so it is inherited too
+                            if let Some(mc) = self.mc.as_mut() {
+                                let mut src = None;
+                                for s in slots.iter().flatten() {
+                                    if s.0 != id && mesh.coplanar_node_neighs(s.0 as usize, c.tri) {
+                                        src = Some(mc.mesh_hist.get(&(tag, nb + w, s.0)).copied().unwrap_or([0.0; 4]));
+                                    }
+                                }
+                                if let Some(h) = src {
+                                    mc.mesh_hist.insert((tag, nb + w, id), h);
+                                }
+                            }
+                        }
+                    }
+                    // expanded radius of this facet (`sidata.radi`)
+                    let mut p = p;
+                    if let Some(mc) = &self.mc {
+                        p.radius += mc.data.wall_expansion(nb + w, mc.local_of[i], c.tri);
+                    }
+                    if c.deltan > 0.0 {
+                        // `surfacesClose`: history only, no force
+                        if let Some(mc) = self.mc.as_mut().filter(|_| !setup) {
+                            let d = [-c.delta[0], -c.delta[1], -c.delta[2]];
+                            let h = crate::multicontact::surfaces_close_history(true, d, p.radius, 0.0);
+                            mc.mesh_hist.insert((tag, nb + w, id), [h[0], h[1], h[2], h[3]]);
+                        }
+                        continue;
+                    }
+                    let v_wall = mesh.wall_velocity(c.tri, &c.bary);
+                    let delta = Vec3::new(-c.delta[0], -c.delta[1], -c.delta[2]);
+                    let overlap = -c.deltan;
+                    let k = ContactKinematics::mesh_wall(&p, delta, overlap, v_wall)
+                        .with_types(self.types[i], self.types[i]);
+                    let gf = resolve_c(
+                        &self.model,
+                        setup,
+                        ContactKey::tri(tag, nb + w, c.tri),
+                        &k,
+                        &mut self.history,
+                        self.dt,
+                    );
+                    if let Some(mc) = self.mc.as_mut().filter(|_| !setup) {
+                        let d = [-c.delta[0], -c.delta[1], -c.delta[2]];
+                        let h = crate::multicontact::surfaces_intersect_history(true, d, p.radius, 0.0);
+                        let fnorm = crate::multicontact::end_surfaces_intersect_history(arr(gf.force_i), arr(k.en));
+                        mc.mesh_hist.insert((tag, nb + w, id), [h[0], h[1], h[2], fnorm]);
+                    }
+                    // f_pw = f - force_old (fix_wall_gran_base.h), delta passed on is
+                    // -sidata.delta
+                    let before = self.forces[i];
+                    self.forces[i] = self.forces[i].add(gf.force_i);
+                    self.torques[i] = self.torques[i].add(gf.torque_i);
+                    if has_stress {
+                        let f_pw = self.forces[i].sub(before);
+                        contributions.push((i, c.tri, arr(f_pw), arr(p.position), c.delta));
+                    }
+                }
+            }
+            if let Some(st) = &mut self.moving_walls[w].stress {
+                // Upstream's `post_force_mesh` loops facets outermost and, within a
+                // facet, the particles of that facet's mesh neighbour list, which
+                // is in ascending local (atom-sort) slot order. The totals of
+                // `fix mesh/surface/stress` are floating-point sums, so they are
+                // accumulated in that order (the per-contact forces do not depend
+                // on it). gh:#1416, `tests/htr10_conus_massflow_stress_cross_code.rs`.
+                if self.perm.len() == n && matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
+                    let mut local_of = vec![0usize; n];
+                    for (l, &pi) in self.perm.iter().enumerate() {
+                        local_of[pi] = l;
+                    }
+                    contributions.sort_by_key(|c| (c.1, local_of[c.0]));
+                }
+                for (_, tri, f_pw, x, d) in contributions {
+                    st.add_particle_contribution(f_pw, x, d, tri);
+                }
+            }
+            // cleanUpContacts
+            for (key, slots) in self.mesh_partners.iter_mut() {
+                if key.1 == w {
+                    for s in slots.iter_mut() {
+                        if matches!(s, Some((_, false))) {
+                            *s = None;
+                        }
+                    }
+                }
+            }
+            self.mesh_partners
+                .retain(|_, v| v.iter().any(Option::is_some));
+            if let Some(mc) = self.mc.as_mut() {
+                let mp = &self.mesh_partners;
+                mc.mesh_hist.retain(|&(t, ww, id), _| {
+                    ww != nb + w
+                        || mp.get(&(t, w)).is_some_and(|sl| sl.iter().flatten().any(|s| s.0 == id))
+                });
+            }
         }
     }
 
     /// Scalar particle-particle force accumulation — the trusted reference
     /// path, used by [`ComputeType::CpuSingleThread`] and [`ComputeType::Gpu`].
     fn resolve_pairs_serial(&mut self) {
+        let setup = self.setup_phase;
         let pairs = std::mem::take(&mut self.pairs);
         for &(i, j) in &pairs {
             let (i, j) = (i as usize, j as usize);
             let a = self.particles[i];
             let b = self.particles[j];
-            if let Some(k) = ContactKinematics::pair(&a, &b) {
-                let gf = self.model.resolve(
-                    ContactKey::pair(self.tags[i] as usize, self.tags[j] as usize),
-                    &k,
-                    &mut self.history,
-                    self.dt,
-                );
+            if let Some(k) = ContactKinematics::pair_frozen(
+                &a,
+                &b,
+                self.frozen.get(i).copied().unwrap_or(false),
+                self.frozen.get(j).copied().unwrap_or(false),
+            )
+            .map(|k| k.with_types(self.types[i], self.types[j]))
+            {
+                let key = ContactKey::pair(self.tags[i] as usize, self.tags[j] as usize);
+                // The store holds the displacement in (lower tag, higher tag)
+                // orientation; a list that visits the pair the other way
+                // round (LIGGGHTS' sorted local order) flips it around the call.
+                let flip = self.tags[i] > self.tags[j];
+                if flip {
+                    self.history.flip(key);
+                    self.model.flip_aux(key, &mut self.history);
+                }
+                let gf = resolve_c(&self.model, setup, key, &k, &mut self.history, self.dt);
+                if flip {
+                    self.history.flip(key);
+                    self.model.flip_aux(key, &mut self.history);
+                }
                 self.forces[i] = self.forces[i].add(gf.force_i);
                 self.forces[j] = self.forces[j].add(gf.force_j);
                 self.torques[i] = self.torques[i].add(gf.torque_i);
@@ -718,6 +2587,8 @@ impl GranularSystem {
         {
             let particles: &[Particle] = &self.particles;
             let tags: &[u64] = &self.tags;
+            let types: &[usize] = &self.types;
+            let frozen: &[bool] = &self.frozen;
             let model = &self.model;
             let history = &self.history;
             let dt = self.dt;
@@ -736,12 +2607,29 @@ impl GranularSystem {
                             let (i, j) = (i as usize, j as usize);
                             let a = particles[i];
                             let b = particles[j];
-                            let Some(k) = ContactKinematics::pair(&a, &b) else {
+                            let Some(k) = ContactKinematics::pair_frozen(
+                                &a,
+                                &b,
+                                frozen.get(i).copied().unwrap_or(false),
+                                frozen.get(j).copied().unwrap_or(false),
+                            )
+                            .map(|k| k.with_types(types[i], types[j])) else {
                                 continue;
                             };
                             let key = ContactKey::pair(tags[i] as usize, tags[j] as usize);
-                            let prior = history.get(key).unwrap_or_else(Vec3::zero);
+                            let flip = tags[i] > tags[j];
+                            let stored = history.get(key);
+                            let prior = match (stored, flip) {
+                                (Some(h), true) => Vec3::zero().sub(h),
+                                (Some(h), false) => h,
+                                (None, _) => Vec3::zero(),
+                            };
                             let (gf, shear) = model.resolve_pure(prior, &k, dt);
+                            let shear = if flip {
+                                shear.map(|s| Vec3::zero().sub(s))
+                            } else {
+                                shear
+                            };
                             out_chunk[written] = PairOutcome {
                                 i: i as u32,
                                 j: j as u32,
@@ -802,6 +2690,13 @@ impl GranularSystem {
     /// Refill `self.pairs` with the candidate near pairs, reusing the grid
     /// buffers across steps.
     fn rebuild_candidate_pairs(&mut self) {
+        if let NeighborOrder::Liggghts(cfg) = self.neighbor_order {
+            if self.setup_phase || self.rebuild_now || self.perm.len() != self.particles.len() {
+                self.rebuild_liggghts_list(cfg);
+                self.rebuild_now = false;
+            }
+            return;
+        }
         let mut pairs = std::mem::take(&mut self.pairs);
         let mut offsets = std::mem::take(&mut self.cell_offsets);
         let mut items = std::mem::take(&mut self.cell_items);
@@ -892,7 +2787,10 @@ impl GranularSystem {
             )
         };
 
-        let (mut lo, mut hi) = ((i64::MAX, i64::MAX, i64::MAX), (i64::MIN, i64::MIN, i64::MIN));
+        let (mut lo, mut hi) = (
+            (i64::MAX, i64::MAX, i64::MAX),
+            (i64::MIN, i64::MIN, i64::MIN),
+        );
         for p in particles {
             let c = icell(p.position);
             lo = (lo.0.min(c.0), lo.1.min(c.1), lo.2.min(c.2));
@@ -1671,8 +3569,8 @@ mod tests {
         ];
         let material = GranularMaterial::new(1.0e7, 0.3, 0.9, 0.5).expect("valid material");
         let model = GranularContactModel::hertz_history(material);
-        let mut sys =
-            GranularSystem::new(particles, Vec::new(), model, Vec3::zero(), 1.0e-6).expect("system");
+        let mut sys = GranularSystem::new(particles, Vec::new(), model, Vec3::zero(), 1.0e-6)
+            .expect("system");
 
         sys.run(50);
         let key = ContactKey::pair(2, 3);
@@ -1739,6 +3637,46 @@ mod tests {
         assert!(
             !sys.tags().contains(&1),
             "the removed particle's tag must not come back"
+        );
+    }
+
+    #[test]
+    fn particle_types_are_validated_against_the_material_table() {
+        use crate::granular::MaterialTable;
+        let m = GranularMaterial::new(1.0e7, 0.3, 0.9, 0.5).unwrap();
+        let table = MaterialTable::new(
+            &[(1.0e7, 0.3), (2.0e7, 0.3)],
+            &[&[0.9, 0.8], &[0.8, 0.9]],
+            &[&[0.5, 0.4], &[0.4, 0.5]],
+        )
+        .unwrap();
+        let model = GranularContactModel::hertz_history(m).with_materials(table);
+        let mk = |model| {
+            GranularSystem::new(
+                vec![
+                    sphere(Vec3::new(0.0, 0.0, 0.0), Vec3::zero()),
+                    sphere(Vec3::new(0.02, 0.0, 0.0), Vec3::zero()),
+                ],
+                vec![],
+                model,
+                Vec3::zero(),
+                1.0e-6,
+            )
+            .unwrap()
+        };
+        assert!(mk(model).with_particle_types(vec![0, 1]).is_ok());
+        assert!(
+            mk(model).with_particle_types(vec![0]).is_err(),
+            "wrong length"
+        );
+        assert!(
+            mk(model).with_particle_types(vec![0, 2]).is_err(),
+            "type out of range"
+        );
+        let single = GranularContactModel::hertz_history(m);
+        assert!(
+            mk(single).with_particle_types(vec![0, 1]).is_err(),
+            "no table: only type 0"
         );
     }
 }

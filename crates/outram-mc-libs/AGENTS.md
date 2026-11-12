@@ -1133,6 +1133,38 @@ fidelity is this crate's whole value. The exemption is narrow and applies to the
 **bit-level output of the RNG only**, where matching upstream is a means to
 statistical quality rather than the goal itself.
 
+**OpenMC-compatible seeding exists as a named option (2026-11-11, gh:#1386).**
+`KeffSettings::with_seeding(SeedingMode::OpenMc { total_gen: 0 })` gives each
+history of the CSG drivers OpenMC's own stream seeds
+(`petir::rng::lcg::init_particle_seeds`, `rng::openmc_seeding`;
+`tests/openmc_seeding_vs_openmc_code_to_code.rs`, bit-identical to OpenMC
+`8f79d9d0`). **Extended 2026-11-11:** the mode now covers every stream OpenMC
+uses for a k-eigenvalue run (tracking including the delayed-group draw, source,
+URR, the `synchronize_bank` comb; volume always did) and the sequential
+`run_keff_csg_seq` / `CsgPowerIteration::step` as well as the parallel drivers
+(scalar and parallel k bit-identical under it); ~~the GPU batched drivers and the
+sphere drivers do not read it~~ **CORRECTED 2026-11-11:** the sphere drivers,
+the GPU batched drivers (seed layout only) and `FixedSource` read it too. The OpenMC-faithful collision kernels
+(`physics::scatter::{rotate_angle_openmc, inelastic_cm_to_lab_openmc,
+level_inelastic_scatter_openmc, elastic_scatter_openmc}`) and
+`physics::nbody::NBodyPhaseSpace` sit beside the older kernels, differential-tested
+bit for bit (`tests/collision_kinematics_vs_openmc_code_to_code.rs`,
+`verification_and_validation/upstream_openmc_samplers/`) ~~but are **not wired into
+transport**~~ **CORRECTED 2026-11-11 (maintainer decision): they ARE the transport
+default now** (`ScatterKernels::OpenMc`; legacy kernels via
+`Nuclide::with_legacy_scatter_kernels` or `OUTRAM_MC_LEGACY_SCATTER_KERNELS=1`);
+the pins that moved are re-pinned with old/new/sigma in their test docs. **Direction-norm guard
+(2026-11-11, gh:#1497):** `rotate_angle_openmc` and `rotate_direction` renormalise
+a direction whose `|u|^2 - 1` exceeds `sqrt(f64::EPSILON)`
+(`physics::scatter::renormalise_if_drifted`, new work: OpenMC never renormalises,
+and a chain of S(alpha,beta) rotations grew the error to a NaN direction, then a
+NaN energy, on the HTR-10 DH pebble); the plain translations are
+`rotate_angle_openmc_unguarded` / `rotate_direction_unguarded`, still bit-identical
+to upstream (`tests/direction_norm_drift_guard.rs`). **The default stays `SeedingMode::Outram`**: the decision above
+stands and every recorded k-eff and bit-identity pin was measured with it. The
+option exists so one history can be compared with OpenMC's track file, not
+because parity became a goal.
+
 Practical consequence: where OpenMC's RNG design exists *for* statistical
 quality — as the PCG output permutation does, see `op-jis` — port it, and gate it
 with statistical tests rather than golden-value comparisons.

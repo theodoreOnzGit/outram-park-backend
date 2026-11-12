@@ -360,8 +360,9 @@ impl HexLattice {
     /// `i_xyz` and the position in the **lattice** frame. This crate's
     /// [`crate::csg::geometry::Geometry`] descent stores the *tile-local*
     /// position, so `r_local` is passed here and the lattice-frame position is
-    /// reconstructed via `r_local + center_offset(i_xyz)` (an exact inverse of
-    /// [`Self::get_local_position`]).
+    /// reconstructed via `r_local + center_offset(i_xyz)` (~~an exact inverse of
+    /// [`Self::get_local_position`]~~ **CORRECTED 2026-11-10**: an inverse up to
+    /// one rounding, see [`Self::distance_in_lattice_frame`]).
     pub fn distance(&self, r_local: Position, u: Direction, i_xyz: [i32; 3]) -> (f64, [i32; 3]) {
         // Reconstruct the lattice-frame position (inverse of get_local_position).
         let off = self.center_offset(i_xyz);
@@ -393,7 +394,25 @@ impl HexLattice {
             y: r_local.y + off.y,
             z: r_local.z,
         };
+        self.distance_in_lattice_frame(r, u, i_xyz)
+    }
 
+    /// `HexLattice::distance` exactly as OpenMC calls it (`src/lattice.cpp:745`,
+    /// `8f79d9d0`): `r` is the **lattice-frame** `x, y` and the **tile-local** `z`
+    /// (`src/geometry.cpp:459-467`). [`Self::distance`] rebuilds that `r` from the
+    /// tile-local position; the two differ only by the rounding of
+    /// `(r - off) + off` (gh:#1386: measured, last-bit differences in 27 of 390
+    /// walk steps), so use this one for a code-to-code comparison.
+    ///
+    /// When the ray never meets a boundary (a 2-D lattice and `u = (0, 0, ±1)`)
+    /// upstream returns `INFTY` with `lattice_trans` **uninitialised** (undefined
+    /// behaviour); this returns `f64::INFINITY` and `[0, 0, 0]`.
+    pub fn distance_in_lattice_frame(
+        &self,
+        r: Position,
+        u: Direction,
+        i_xyz: [i32; 3],
+    ) -> (f64, [i32; 3]) {
         let s3 = 3.0_f64.sqrt();
         let (beta_dir, gamma_dir, delta_dir) = match self.orientation {
             HexOrientation::Y => (u.u * s3 / 2.0 + u.v / 2.0, u.u * s3 / 2.0 - u.v / 2.0, u.v),

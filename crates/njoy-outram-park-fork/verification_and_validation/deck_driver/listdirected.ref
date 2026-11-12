@@ -1,0 +1,41 @@
+case 1 ints 1 2 3
+case 2 ints 1 2 -3
+case 3 ints 1 -2 3
+case 4 ints -1 2 3
+case 5 ints 7 7 7
+case 6 ints -1 -2 9
+case 7 ints 1 2 3
+case 8 ints 1 2 -3
+case 9 ints 8 9 -3
+case 10 ints 4 5 -3
+case 11 reals 4202A05F20000000 3F747AE147AE147B 4014000000000000 C075E00000000000
+case 12 reals 4072800000000000 3FF0000000000000 4000000000000000 4008000000000000
+case 13 reals 4097700000000000 3F9999999999999A 3FF0000000000000 4034000000000000
+case 14 str |carbon in graphi|<unset2>        |
+case 15 str |it's            |<unset2>        |
+case 16 str |abc def         |<unset2>        |
+case 17 str |reconr          |<unset2>        |
+case 18 str |a/b             |<unset2>        |
+case 18 ints 5 -2 -3
+case 19 str |title           |<unset2>        |
+case 19 ints 5 6 -3
+case 20 str |total           |<unset2>        |
+case 20 ints 3 1 -3
+case 21 ints 1 2 3
+case 22 str |ab              |ab              |
+case 23 ints 1 -2 -3
+case 24 str |                |<unset2>        |
+case 25 str |name            |<unset2>        |
+case 25 ints 7 8 -3
+case 26 str |<unset1>        |<unset2>        |
+case 26 ints 4 -2 -3
+case 27 ints 5 6 -3
+case 28 ints 9 10 -3
+case 29 ints -5 6 -7
+case 30 reals 400C000000000000 400C000000000000 C008000000000000 3FF0000000000000
+case 31 ints 1 2 3
+case 32 ios-nonzero T
+case 33 ios-nonzero T
+case 34 ios-nonzero T
+case 35 ios-nonzero T
+case 36 ios-nonzero T

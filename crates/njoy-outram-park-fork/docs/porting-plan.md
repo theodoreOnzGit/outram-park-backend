@@ -118,8 +118,9 @@ and one is validated:
 - **Ported (🟡):** `dtfr.f90` (`src/dtfr/`), `resxsr.f90` (`src/resxsr/`),
   `mixr.f90` (`src/mixr/`).
 - **Still `NotPorted` stubs (⬜):** `ccccr.f90`, `matxsr.f90`, `powr.f90`,
-  `plotr.f90`, `viewr.f90`, and `graph.f90` (low-level plotting
-  shared by `plotr`/`viewr`/`covr`).
+  `plotr.f90`. ~~`viewr.f90`, and `graph.f90`~~ **CORRECTED 2026-11-12 (gh:#1369):** `viewr.f90`
+  and `graph.f90` are ported (`src/viewr/`, 🟡: PostScript identical to NJOY2016.80 on 17 upstream decks;
+  `plotr`/`covr` can reuse `viewr::Graph`).
 
 > Note: `samm.f90` (Reich–Moore / R-matrix-limited resonance formalism) is shared
 > by RECONR and UNRESR. It may need to move earlier than Phase 5 if a target

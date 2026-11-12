@@ -159,8 +159,11 @@ impl GpuSetup {
     pub fn from_system(sys: &GranularSystem) -> Result<Self, String> {
         let model = sys.model();
         let (material, tangential_damping) = match model.normal {
-            GranularNormalModel::Hertz { material, tangential_damping } => (material, tangential_damping),
-            GranularNormalModel::Hooke { .. } => return Err("the GPU path has the Hertz normal model only".into()),
+            GranularNormalModel::Hertz {
+                material,
+                tangential_damping,
+            } => (material, tangential_damping),
+            _ => return Err("the GPU path has the Hertz normal model only".into()),
         };
         if !matches!(model.tangential, TangentialModel::History) {
             return Err("the GPU path has the history tangential model only".into());
@@ -172,7 +175,11 @@ impl GpuSetup {
         let mut valve = None;
         for b in sys.boundaries() {
             match *b {
-                Boundary::Cylinder { axis_point, axis_dir, radius } if cyl.is_none() => {
+                Boundary::Cylinder {
+                    axis_point,
+                    axis_dir,
+                    radius,
+                } if cyl.is_none() => {
                     let a = axis_dir.scale(1.0 / axis_dir.norm());
                     if (a.z.abs() - 1.0).abs() > 1e-12 {
                         return Err("the GPU path's cylinder must have a z axis".into());
@@ -208,7 +215,10 @@ impl GpuSetup {
                 let mut centroids = Vec::new();
                 for t in &mesh.triangles {
                     let c = t.a.add(t.b).add(t.c).scale(1.0 / 3.0);
-                    let r = [t.a, t.b, t.c].iter().map(|v| v.sub(c).norm()).fold(0.0, f64::max);
+                    let r = [t.a, t.b, t.c]
+                        .iter()
+                        .map(|v| v.sub(c).norm())
+                        .fold(0.0, f64::max);
                     let (ax, ay, az) = (split(t.a.x), split(t.a.y), split(t.a.z));
                     tris.extend([
                         [ax.0, ay.0, az.0, 0.0],
@@ -221,8 +231,14 @@ impl GpuSetup {
                     centroids.push((c, r));
                 }
                 let n = centroids.len().max(1) as f64;
-                let hc = centroids.iter().fold(Vec3::zero(), |s, (c, _)| s.add(*c)).scale(1.0 / n);
-                let hr = centroids.iter().map(|(c, r)| c.sub(hc).norm() + r).fold(0.0, f64::max);
+                let hc = centroids
+                    .iter()
+                    .fold(Vec3::zero(), |s, (c, _)| s.add(*c))
+                    .scale(1.0 / n);
+                let hr = centroids
+                    .iter()
+                    .map(|(c, r)| c.sub(hc).norm() + r)
+                    .fold(0.0, f64::max);
                 hull = f4(hc, hr * (1.0 + 1e-6) + 1e-9);
             }
             _ => return Err("the GPU path holds at most one mesh wall".into()),
@@ -233,20 +249,38 @@ impl GpuSetup {
             return Err("no particles".into());
         }
         if ps.len() >= 1 << 24 {
-            return Err("the GPU path holds fewer than 2^24 particles (an index is held as an f32 value)".into());
+            return Err(
+                "the GPU path holds fewer than 2^24 particles (an index is held as an f32 value)"
+                    .into(),
+            );
         }
         let r_max = ps.iter().map(|p| p.radius).fold(0.0, f64::max);
         let edge = 2.0 * r_max;
-        let (mut lo, mut hi) = (Vec3::new(f64::MAX, f64::MAX, f64::MAX), Vec3::new(f64::MIN, f64::MIN, f64::MIN));
+        let (mut lo, mut hi) = (
+            Vec3::new(f64::MAX, f64::MAX, f64::MAX),
+            Vec3::new(f64::MIN, f64::MIN, f64::MIN),
+        );
         for p in ps {
-            lo = Vec3::new(lo.x.min(p.position.x), lo.y.min(p.position.y), lo.z.min(p.position.z));
-            hi = Vec3::new(hi.x.max(p.position.x), hi.y.max(p.position.y), hi.z.max(p.position.z));
+            lo = Vec3::new(
+                lo.x.min(p.position.x),
+                lo.y.min(p.position.y),
+                lo.z.min(p.position.z),
+            );
+            hi = Vec3::new(
+                hi.x.max(p.position.x),
+                hi.y.max(p.position.y),
+                hi.z.max(p.position.z),
+            );
         }
         // The grid covers the vessel (the cylinder's radius when there is
         // one) and the particles, plus a cell each side; particles that leave
         // it are clamped into the edge cells, which only costs speed.
         let reach = cyl.map_or(0.0, |c| f64::from(c[2]) + f64::from(c[3]));
-        lo = Vec3::new(lo.x.min(-reach) - edge, lo.y.min(-reach) - edge, lo.z - edge);
+        lo = Vec3::new(
+            lo.x.min(-reach) - edge,
+            lo.y.min(-reach) - edge,
+            lo.z - edge,
+        );
         hi = Vec3::new(hi.x.max(reach) + edge, hi.y.max(reach) + edge, hi.z + edge);
         let dims = [
             ((hi.x - lo.x) / edge).ceil().max(1.0) as u32,
@@ -263,17 +297,31 @@ impl GpuSetup {
             dims: [dims[0], dims[1], dims[2], total],
             origin: [lo.x as f32, lo.y as f32, lo.z as f32, edge as f32],
             gravity: [g.x as f32, g.y as f32, g.z as f32, sys.dt() as f32],
-            material: [material.y_eff() as f32, material.g_eff() as f32, material.beta_eff() as f32, material.friction as f32],
+            material: [
+                material.y_eff() as f32,
+                material.g_eff() as f32,
+                material.beta_eff() as f32,
+                material.friction as f32,
+            ],
             cyl: cyl.unwrap_or([0.0; 4]),
             valve: valve.unwrap_or([0.0; 4]),
-            flags: [u32::from(cyl.is_some()), u32::from(valve.is_some()), u32::from(!tris.is_empty()), u32::from(tangential_damping)],
+            flags: [
+                u32::from(cyl.is_some()),
+                u32::from(valve.is_some()),
+                u32::from(!tris.is_empty()),
+                u32::from(tangential_damping),
+            ],
             hull,
             one: [1.0; 4],
         };
         let particles = ps
             .iter()
             .map(|p| {
-                let (x, y, z) = (split(p.position.x), split(p.position.y), split(p.position.z));
+                let (x, y, z) = (
+                    split(p.position.x),
+                    split(p.position.y),
+                    split(p.position.z),
+                );
                 GpuParticle {
                     hi: [x.0, y.0, z.0, p.radius as f32],
                     lo: [x.1, y.1, z.1, p.mass as f32],
@@ -284,7 +332,11 @@ impl GpuSetup {
                 }
             })
             .collect();
-        Ok(Self { params, particles, tris })
+        Ok(Self {
+            params,
+            particles,
+            tris,
+        })
     }
 
     /// Particles.
@@ -342,7 +394,14 @@ pub struct GpuDem {
 }
 
 /// The kernels, in step order.
-const KERNELS: [&str; 6] = ["kick_drift", "clear_cells", "bin", "sort_cells", "forces", "kick"];
+const KERNELS: [&str; 6] = [
+    "kick_drift",
+    "clear_cells",
+    "bin",
+    "sort_cells",
+    "forces",
+    "kick",
+];
 
 impl GpuDem {
     /// Upload `sys`'s state and build the kernels on `ctx`; the forces of the
@@ -357,7 +416,9 @@ impl GpuDem {
         use wgpu::util::DeviceExt;
         let n = setup.particles.len() as u64;
         let p = setup.params;
-        let storage = wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST;
+        let storage = wgpu::BufferUsages::STORAGE
+            | wgpu::BufferUsages::COPY_SRC
+            | wgpu::BufferUsages::COPY_DST;
         let uniform = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("dem params"),
             contents: bytes_of(&p),
@@ -369,10 +430,18 @@ impl GpuDem {
             usage: storage,
         });
         let zeros = |label: &str, bytes: u64| {
-            device.create_buffer(&wgpu::BufferDescriptor { label: Some(label), size: bytes.max(16), usage: storage, mapped_at_creation: false })
+            device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some(label),
+                size: bytes.max(16),
+                usage: storage,
+                mapped_at_creation: false,
+            })
         };
         let ft = zeros("dem force/torque", n * 2 * 16);
-        let cells = zeros("dem cells", u64::from(p.dims[3]) * u64::from(1 + CELL_CAP) * 4);
+        let cells = zeros(
+            "dem cells",
+            u64::from(p.dims[3]) * u64::from(1 + CELL_CAP) * 4,
+        );
         // Every slot starts empty: neighbour −1, wall not live.
         let slots = (u64::from(K_SLOTS) + 3) * n;
         let mut empty: Vec<[f32; 4]> = Vec::with_capacity(slots as usize);
@@ -387,7 +456,11 @@ impl GpuDem {
                 usage: storage,
             })
         });
-        let tri_data: Vec<[f32; 4]> = if setup.tris.is_empty() { vec![[0.0; 4]] } else { setup.tris.clone() };
+        let tri_data: Vec<[f32; 4]> = if setup.tris.is_empty() {
+            vec![[0.0; 4]]
+        } else {
+            setup.tris.clone()
+        };
         let tris = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("dem triangles"),
             contents: slice_bytes(&tri_data),
@@ -402,7 +475,11 @@ impl GpuDem {
         let entry = |binding: u32, ty: wgpu::BufferBindingType| wgpu::BindGroupLayoutEntry {
             binding,
             visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Buffer { ty, has_dynamic_offset: false, min_binding_size: None },
+            ty: wgpu::BindingType::Buffer {
+                ty,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
             count: None,
         };
         let rw = wgpu::BufferBindingType::Storage { read_only: false };
@@ -439,19 +516,52 @@ impl GpuDem {
                 label: Some("dem group"),
                 layout: &layout,
                 entries: &[
-                    wgpu::BindGroupEntry { binding: 0, resource: uniform.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 1, resource: state.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 2, resource: ft.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 3, resource: cells.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 4, resource: old.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 5, resource: new.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 6, resource: tris.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 7, resource: errs.as_entire_binding() },
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: uniform.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: state.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: ft.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: cells.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 4,
+                        resource: old.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 5,
+                        resource: new.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 6,
+                        resource: tris.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 7,
+                        resource: errs.as_entire_binding(),
+                    },
                 ],
             })
         };
         let groups = [group(&hist[0], &hist[1]), group(&hist[1], &hist[0])];
-        let mut dem = Self { ctx, setup, pipelines, groups, state, ft, errs, steps: 0 };
+        let mut dem = Self {
+            ctx,
+            setup,
+            pipelines,
+            groups,
+            state,
+            ft,
+            errs,
+            steps: 0,
+        };
         // The starting forces (`GranularSystem::new` calls `compute_forces`).
         dem.encode(&[1, 2, 3, 4], 1);
         Ok(dem)
@@ -463,16 +573,28 @@ impl GpuDem {
         let p = self.setup.params;
         let particle_groups = p.n.div_ceil(WG);
         let cell_groups = p.dims[3].div_ceil(WG);
-        let mut enc = self.ctx.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("dem steps") });
+        let mut enc = self
+            .ctx
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("dem steps"),
+            });
         for _ in 0..steps {
             // The force pass reads the springs of the last step and writes
             // this step's: the two tables swap every force pass.
             let g = &self.groups[(self.steps % 2) as usize];
-            let mut pass = enc.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("dem step"), timestamp_writes: None });
+            let mut pass = enc.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("dem step"),
+                timestamp_writes: None,
+            });
             pass.set_bind_group(0, g, &[]);
             for &k in kernels {
                 pass.set_pipeline(&self.pipelines[k]);
-                let groups = if k == 1 || k == 3 { cell_groups } else { particle_groups };
+                let groups = if k == 1 || k == 3 {
+                    cell_groups
+                } else {
+                    particle_groups
+                };
                 pass.dispatch_workgroups(groups, 1, 1);
             }
             drop(pass);
@@ -522,7 +644,9 @@ impl GpuDem {
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let mut enc = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("dem read") });
+        let mut enc = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("dem read"),
+        });
         enc.copy_buffer_to_buffer(buf, 0, &rb, 0, bytes);
         self.ctx.queue.submit(Some(enc.finish()));
         rb
@@ -533,9 +657,13 @@ impl GpuDem {
     async fn read_async(&self, buf: &wgpu::Buffer, bytes: u64) -> Option<Vec<u8>> {
         let rb = self.readback(buf, bytes);
         let shared = std::sync::Arc::new(std::sync::Mutex::new(super::Mapped::default()));
-        rb.slice(..).map_async(wgpu::MapMode::Read, super::mapped_callback(shared.clone()));
+        rb.slice(..)
+            .map_async(wgpu::MapMode::Read, super::mapped_callback(shared.clone()));
         #[cfg(not(target_arch = "wasm32"))]
-        self.ctx.device.poll(wgpu::PollType::wait_indefinitely()).ok()?;
+        self.ctx
+            .device
+            .poll(wgpu::PollType::wait_indefinitely())
+            .ok()?;
         if !super::MappedFuture(shared).await {
             return None;
         }
@@ -548,7 +676,10 @@ impl GpuDem {
     /// [`Self::states`]).
     pub async fn states_async(&self) -> Vec<GpuState> {
         let n = self.setup.particles.len();
-        match self.read_async(&self.state, (n * std::mem::size_of::<GpuParticle>()) as u64).await {
+        match self
+            .read_async(&self.state, (n * std::mem::size_of::<GpuParticle>()) as u64)
+            .await
+        {
             Some(b) => decode_states(&b),
             None => Vec::new(),
         }
@@ -576,7 +707,8 @@ impl GpuDem {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn states(&self) -> Vec<GpuState> {
         let n = self.setup.particles.len();
-        self.read(&self.state, (n * std::mem::size_of::<GpuParticle>()) as u64).map_or_else(Vec::new, |b| decode_states(&b))
+        self.read(&self.state, (n * std::mem::size_of::<GpuParticle>()) as u64)
+            .map_or_else(Vec::new, |b| decode_states(&b))
     }
 
     /// Each particle's last computed (force, torque) (waits for the
@@ -585,10 +717,20 @@ impl GpuDem {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn forces(&self) -> Vec<(Vec3, Vec3)> {
         let n = self.setup.particles.len();
-        let Some(b) = self.read(&self.ft, (n * 32) as u64) else { return Vec::new() };
-        let f: Vec<f32> = b.chunks_exact(4).map(|c| f32::from_ne_bytes([c[0], c[1], c[2], c[3]])).collect();
+        let Some(b) = self.read(&self.ft, (n * 32) as u64) else {
+            return Vec::new();
+        };
+        let f: Vec<f32> = b
+            .chunks_exact(4)
+            .map(|c| f32::from_ne_bytes([c[0], c[1], c[2], c[3]]))
+            .collect();
         f.chunks_exact(8)
-            .map(|q| (Vec3::new(f64::from(q[0]), f64::from(q[1]), f64::from(q[2])), Vec3::new(f64::from(q[4]), f64::from(q[5]), f64::from(q[6]))))
+            .map(|q| {
+                (
+                    Vec3::new(f64::from(q[0]), f64::from(q[1]), f64::from(q[2])),
+                    Vec3::new(f64::from(q[4]), f64::from(q[5]), f64::from(q[6])),
+                )
+            })
             .collect()
     }
 
@@ -604,7 +746,8 @@ fn decode_states(bytes: &[u8]) -> Vec<GpuState> {
     bytes
         .chunks_exact(std::mem::size_of::<GpuParticle>())
         .map(|b| {
-            let f = |k: usize| f32::from_ne_bytes([b[4 * k], b[4 * k + 1], b[4 * k + 2], b[4 * k + 3]]);
+            let f =
+                |k: usize| f32::from_ne_bytes([b[4 * k], b[4 * k + 1], b[4 * k + 2], b[4 * k + 3]]);
             let p = GpuParticle {
                 hi: [f(0), f(1), f(2), f(3)],
                 lo: [f(4), f(5), f(6), f(7)],
@@ -623,7 +766,10 @@ fn decode_errors(b: Option<Vec<u8>>) -> GpuErrors {
             cell_overflow: u32::from_ne_bytes([b[0], b[1], b[2], b[3]]),
             slot_overflow: u32::from_ne_bytes([b[4], b[5], b[6], b[7]]),
         },
-        _ => GpuErrors { cell_overflow: u32::MAX, slot_overflow: u32::MAX },
+        _ => GpuErrors {
+            cell_overflow: u32::MAX,
+            slot_overflow: u32::MAX,
+        },
     }
 }
 
@@ -651,7 +797,14 @@ mod tests {
 
     fn system(ps: Vec<Particle>, boundaries: Vec<Boundary>) -> GranularSystem {
         let m = GranularMaterial::new(5e8, 0.2, 0.5, 0.1).expect("material");
-        GranularSystem::new(ps, boundaries, GranularContactModel::hertz_history(m), Vec3::new(0.0, 0.0, -9.81), 3.5e-5).expect("system")
+        GranularSystem::new(
+            ps,
+            boundaries,
+            GranularContactModel::hertz_history(m),
+            Vec3::new(0.0, 0.0, -9.81),
+            3.5e-5,
+        )
+        .expect("system")
     }
 
     /// The shader avoids what Chrome's compiler (Tint) refuses and naga
@@ -661,19 +814,32 @@ mod tests {
     #[test]
     fn the_shader_has_no_bit_pattern_floats() {
         let src = include_str!("shaders/dem.wgsl");
-        let code: String = src.lines().filter(|l| !l.trim_start().starts_with("//")).collect::<Vec<_>>().join("\n");
-        assert!(!code.contains("bitcast<f32>"), "a bit-pattern float in dem.wgsl");
+        let code: String = src
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("//"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(
+            !code.contains("bitcast<f32>"),
+            "a bit-pattern float in dem.wgsl"
+        );
     }
 
     /// The set-up holds the state to the hi + lo split's precision, sizes
     /// the grid from the particles, and refuses what the shader lacks.
     #[test]
     fn the_setup_is_exact_and_refuses_what_the_gpu_lacks() {
-        let p = ball(Vec3::new(0.123_456_789_012_345, -0.3, 2.000_000_123_456_7), Vec3::new(0.1, 0.0, -1.0));
-        let sys = system(vec![p, ball(Vec3::new(0.3, 0.3, 0.5), Vec3::zero())], vec![
-            Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), 0.9).expect("cyl"),
-            Boundary::wall(Vec3::new(0.0, 0.0, -0.6), Vec3::new(0.0, 0.0, 1.0)).expect("wall"),
-        ]);
+        let p = ball(
+            Vec3::new(0.123_456_789_012_345, -0.3, 2.000_000_123_456_7),
+            Vec3::new(0.1, 0.0, -1.0),
+        );
+        let sys = system(
+            vec![p, ball(Vec3::new(0.3, 0.3, 0.5), Vec3::zero())],
+            vec![
+                Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), 0.9).expect("cyl"),
+                Boundary::wall(Vec3::new(0.0, 0.0, -0.6), Vec3::new(0.0, 0.0, 1.0)).expect("wall"),
+            ],
+        );
         let s = GpuSetup::from_system(&sys).expect("supported");
         let back = s.states();
         assert!((back[0].position.x - 0.123_456_789_012_345).abs() < 1e-14);
@@ -687,13 +853,19 @@ mod tests {
         let rolling = GranularSystem::new(
             vec![ball(Vec3::zero(), Vec3::zero())],
             vec![],
-            GranularContactModel::hertz_history(m).with_rolling(RollingModel::cdt(0.1).expect("cdt")),
+            GranularContactModel::hertz_history(m)
+                .with_rolling(RollingModel::cdt(0.1).expect("cdt")),
             Vec3::zero(),
             1e-5,
         )
         .expect("system");
-        assert!(GpuSetup::from_system(&rolling).unwrap_err().contains("rolling"));
-        let plane = system(vec![ball(Vec3::zero(), Vec3::zero())], vec![Boundary::plane(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0)).expect("plane")]);
+        assert!(GpuSetup::from_system(&rolling)
+            .unwrap_err()
+            .contains("rolling"));
+        let plane = system(
+            vec![ball(Vec3::zero(), Vec3::zero())],
+            vec![Boundary::plane(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0)).expect("plane")],
+        );
         assert!(GpuSetup::from_system(&plane).is_err());
     }
 }

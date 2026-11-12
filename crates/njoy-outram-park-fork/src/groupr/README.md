@@ -82,8 +82,7 @@ The numeric engine and its dependencies return `NjoyError::NotPorted`:
   quantities only — the ordinary MF=3/MF=13 case is ported, see
   `pendf_feed.rs`), `getdis` (ported for neutron File-4 two-body channels
   in `two_body.rs` with `getfle`/`getco` in `file4.rs`; charged-particle
-  Coulomb term, `MT=251-253` and File-6 two-body data remain), `getgfl`,
-  `getgyl`, `getsed`, `anased`;
+  Coulomb term, `MT=251-253` and File-6 two-body data remain), ~~`getgfl`, `getgyl`~~ **CORRECTED 2026-11-11** - `getgyl` (`mfd = 12` and the `nyl = 1` MF=13 case, with the constant-range scan), `getgfl` (`LI = 1`, and `LTT = 1` for one photon) and `getff` label 300 (incl. `econst`/`jconst` and the label-395 yield-only path) are ported in `photon_prod.rs` (NJOY2016 test 01 MF=16 MT 51 and 102 identical); MF=13 with several photons, `getgfl` with several anisotropic photons, `LTT = 2` and `getsed` photons remain, ~~`getsed`, `anased`~~ **CORRECTED 2026-11-11** — `getsed` (analytic law 9 only) and `anased` law 9 are ported in `continuum.rs` (tape driver, NJOY2016 test 01 MT 91 identical); `getsed` law 1 and `anased` laws 5/7/11/12 remain;
 - quadrature / accumulation: `epanel`, `gengr`, `glmol` (the vector
   `panel`/`displa` reduction is ported — see `panel.rs`; the full matrix
   `panel`/`displa` with Lobatto re-evaluation of the feed function, the
@@ -94,7 +93,7 @@ The numeric engine and its dependencies return `NjoyError::NotPorted`:
   `genflx` (`nflmax > 0`) — the Bondarenko branch and `getunr`/`stounr` are
   ported, see `unresolved.rs`/`urr_pendf.rs`;
 - kinematics / matrix machinery: `cm2lab`, `f6cm`, `f6lab`, `ll2lab`, `getaed`,
-  `aedi`, `getco`, `gam102`, `conver`, `hnab`;
+  `aedi`, ~~`getaed`~~, ~~`aedi`~~ (ported 2026-11-11 in `thermal.rs`: inelastic, incoherent and coherent elastic; test 01 MT 221/229/230 identical), `getco`, `gam102`, `conver`, `hnab`;
 - the GENDF matrix-record writer is ported (see `matrix.rs`/`gendf.rs`); the
   vector-record writer was already ported before this note.
 

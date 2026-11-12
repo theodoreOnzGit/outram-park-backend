@@ -64,6 +64,13 @@ pub use crate::physics::reactor_physics::{
 pub use crate::physics::fixed_source::{
     run_fixed_source, FixedSource, FixedSourceResult, FixedSourceSettings,
 };
+// General external sources: OpenMC's `openmc.stats` distributions wired into
+// `IndependentSource` and `FixedSource::Independent` (gh:#1388).
+pub use crate::source::angle::AngleKind;
+pub use crate::source::distribution::{Distribution, SpatialDistribution, TabularInterp};
+pub use crate::source::energy::EnergyKind;
+pub use crate::source::source::IndependentSource;
+pub use crate::source::spatial::SpatialKind;
 pub use crate::dh_universe::{
     fit_ring_rpt_inner_radius, is_whole_in_ball, pack_in_ball, BallPacking, BallPackingAttempt,
     DhError, DhPowerIteration, DhTreatment, DhUniverse, DispersedParams, PebbleParams, RingRptFit,

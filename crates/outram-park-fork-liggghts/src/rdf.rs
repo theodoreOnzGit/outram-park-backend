@@ -257,10 +257,18 @@ impl Rdf {
     /// Returns `None` if no minimum follows the peak within `r_max`.
     #[must_use]
     pub fn contact_coordination(&self) -> Option<f64> {
-        let peak = self.g.iter().enumerate().fold(
-            (0usize, f64::NEG_INFINITY),
-            |acc, (k, &v)| if v > acc.1 { (k, v) } else { acc },
-        ).0;
+        let peak = self
+            .g
+            .iter()
+            .enumerate()
+            .fold((0usize, f64::NEG_INFINITY), |acc, (k, &v)| {
+                if v > acc.1 {
+                    (k, v)
+                } else {
+                    acc
+                }
+            })
+            .0;
         let mut k = peak + 1;
         while k + 1 < self.g.len() {
             if self.g[k] <= self.g[k + 1] {
@@ -343,10 +351,17 @@ pub fn radial_distribution(centres: &[Vec3], settings: RdfSettings, compute: Com
     };
 
     let counts = match compute {
-        ComputeType::CpuSingleThread => histogram_serial(centres, &centre_idx, settings.r_max, dr, n_bins),
-        ComputeType::CpuMultiThread(_) => {
-            histogram_parallel(centres, &centre_idx, settings.r_max, dr, n_bins, compute.threads())
+        ComputeType::CpuSingleThread => {
+            histogram_serial(centres, &centre_idx, settings.r_max, dr, n_bins)
         }
+        ComputeType::CpuMultiThread(_) => histogram_parallel(
+            centres,
+            &centre_idx,
+            settings.r_max,
+            dr,
+            n_bins,
+            compute.threads(),
+        ),
         ComputeType::Gpu => {
             #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
             {
