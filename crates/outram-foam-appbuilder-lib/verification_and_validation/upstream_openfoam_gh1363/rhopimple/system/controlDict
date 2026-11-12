@@ -1,0 +1,19 @@
+FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }
+application rhoPimpleDump;
+startFrom startTime;
+startTime 0;
+stopAt endTime;
+endTime 0.0069975000000000002;
+deltaT 1e-5;
+writeControl timeStep;
+writeInterval 100000;
+writeFormat ascii;
+writePrecision 17;
+timeFormat general;
+timePrecision 8;
+runTimeModifiable false;
+adjustTimeStep no;
+dumpSteps (1 2 3 4 5 10 100 700);
+dumpStages yes;
+dumpStageSteps 2;
+dumpStageFrom 1;
