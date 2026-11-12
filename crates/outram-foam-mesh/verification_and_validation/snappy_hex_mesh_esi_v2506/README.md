@@ -1233,3 +1233,33 @@ only ESI results used are the numbers quoted in the paragraph above.
 | P49 | `mergePatchFacesUndo` + `mergeEdgesUndo` of `doLayers` on the round-7 final mesh (the existing `esi_merge`, same `cos 30 deg`) find **6 face sets and remove 4 points**, giving **60805 faces, 24305 points**, all faces equal per index to ESI time 83 (ring, start vertex, owner, neighbour, patch); time 84 equals 83. | the merge's master/hash order only held for the 2118-set case |
 | P50 | `layerParameters` selects `FINAL_AND_EXPANSION`; per point `thickness = finalLayerThickness * edgeLen * nLayers` with `edgeLen = edge0 / 2^maxPointLevel` (level 2: `0.06/20/4 = 7.5e-4`), so **near-wall thickness 2.25e-4 m on all four patches** (the ESI table) and `overall` = near-wall times the fraction of points with `nLayers 1` (points with `nLayers 0` contribute 0). | the table averages by master point; a point on two patches takes the min |
 | P51 | `setNumLayers` + `handleNonStringConnected` + `handleNonManifolds` + `handleFeatureAngle(30)` + `handleWarpedFaces` leave **exactly 8521 pp points with `EXTRUDE`** (ESI: "Layers to add 8521" = sum of `deltaNLayers`), **1269 feature edges**, 0 non-manifold points, 0 warped faces, and the four per-patch `overall` averages of the ESI table (1.89e-4, 1.72e-4, 1.84e-4, 1.98e-4 to 3 s.f.). | a one-point difference would show in the 3rd figure of the average |
+
+## Round 8, stage 1: results (2026-11-12, release, `tests/snappy_hex_mesh_esi_layers.rs`)
+
+Code: `src/snappy_hex_mesh/esi_layers.rs` (new, opt-in, serial, no faceZones): `layerParameters`
+(all six thickness models, `calculateLayerParameters`, `layerThickness` slices), the layer patch
+(`makePatch`), `setNumLayers`, `handleNonStringConnected`, `handleNonManifolds`,
+`handleFeatureAngle`, `handleWarpedFaces`, `growNoExtrusion`, `calculateLayerThickness`.
+Start: ESI's own time-81 snapped mesh (`layer_points_81.bin.gz` exact doubles, faces equal to
+`esi_feat_final_faces`).
+
+| stage | compared with | result |
+|---|---|---|
+| `mergePatchFacesUndo` + `mergeEdgesUndo` of `doLayers` | ESI time 83 | **6 sets, 4 points removed, 60805 faces, 24305 points; ring (start vertex included) 60805/60805, owner 60805/60805, neighbour 51058/51058, patch 9747/9747**; surviving points bit-identical to time 81's |
+| `setPointNumLayers` | log | `pp` 9747 faces, 9773 points; **1269 feature edges, 0 non-manifold points, 0 warped faces, 8521 points `EXTRUDE`** (= "Layers to add 8521"), 9747 ideal added cells (= the "out of 9747" of the log) |
+| `calculateLayerThickness` table | log, `setprecision(3)` | near-wall 2.25e-4 on all four patches; overall **1.89e-4, 1.72e-4, 1.84e-4, 1.98e-4**; faces 7209, 1174, 240, 1124: all equal |
+
+**Ledger.** P49 held in outcome, but **the prediction text was partly wrong**: it said the merge
+used "the same `cos 30 deg`". `snappyLayerDriver::mergePatchFacesUndo` passes
+`concaveCos = cos(degToRad(concaveAngle))` with `concaveAngle` defaulting to **90**, while the snap
+driver's call uses `featureCos` for both. With 30 degrees as concave limit the port found **0 sets**
+(first run, kept as the negative control); with 90 degrees it found ESI's 6. P50 held. P51 held.
+Nothing was tuned: the first run with the corrected call gave all of the above, and the 3-figure
+averages first failed only because my test formatted four significant figures.
+
+**Not verified at exact-double level.** The per-point thickness and `minThickness` arrays are
+checked through the three-figure table and the integer counts, not bit for bit (ESI does not
+write them). `PrimitivePatch` edge order is first-appearance (not ESI's), unused so far.
+PETIR: `pow` goes through `r_powf` (only called for `expansionRatio != 1`, which this case never
+does) and `cos(degToRad(30))`, `cos(degToRad(90))` through `r_cos`; 0 differing values (the
+merge reproduces ESI's sets with both).
