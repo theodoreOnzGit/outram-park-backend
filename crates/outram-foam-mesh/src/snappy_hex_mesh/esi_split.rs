@@ -656,6 +656,69 @@ fn boundary_regions(
     out
 }
 
+/// Insert hexRef8's hanging edge points into the face rings of the assembled mesh.
+///
+/// hexRef8 (ESI v2506 `hexRef8.C`, `setRefinement`) puts the mid-point of an
+/// edge into the vertex ring of every face on that edge once a neighbouring cell
+/// splits it, so a face next to a finer cell has 5 to 8 vertices. The assembler of
+/// `castellate` writes quads; this restores the rings the way
+/// [`build_topo`] builds them: a point is inserted between two consecutive ring points
+/// when it is the lattice mid-point of that edge and a corner of some leaf of
+/// the octree (kept or removed: the refinements all precede the removals).
+/// `faces` and `points` are the mesh's; a missing point is appended. Returns the
+/// number of faces that gained points.
+pub(crate) fn insert_hanging_points(
+    faces: &mut [Vec<usize>],
+    points: &mut Vec<Vector3>,
+    leaves: &[Leaf],
+    origin: Vector3,
+    size0: [f64; 3],
+) -> usize {
+    let lm = lattice_level(leaves);
+    let mut corner_set: HashSet<P> = HashSet::with_capacity(leaves.len() * 2);
+    for l in leaves {
+        let (lo, s) = lattice_box(l, lm);
+        for n in 0..8u32 {
+            corner_set.insert([lo[0] + s * (n & 1), lo[1] + s * ((n >> 1) & 1), lo[2] + s * ((n >> 2) & 1)]);
+        }
+    }
+    let h = [size0[0] / (1usize << lm) as f64, size0[1] / (1usize << lm) as f64, size0[2] / (1usize << lm) as f64];
+    let lattice = |p: Vector3| -> P {
+        [
+            ((p.x - origin.x) / h[0]).round() as u32,
+            ((p.y - origin.y) / h[1]).round() as u32,
+            ((p.z - origin.z) / h[2]).round() as u32,
+        ]
+    };
+    let mut id_of: HashMap<P, usize> = points.iter().enumerate().map(|(i, &p)| (lattice(p), i)).collect();
+    let mut changed = 0usize;
+    for face in faces.iter_mut() {
+        let ring: Vec<P> = face.iter().map(|&p| lattice(points[p])).collect();
+        let mut out: Vec<P> = Vec::with_capacity(ring.len() + 2);
+        for e in 0..ring.len() {
+            push_edge(ring[e], ring[(e + 1) % ring.len()], &corner_set, &mut out);
+        }
+        if out.len() == face.len() {
+            continue;
+        }
+        changed += 1;
+        let mut new_face = Vec::with_capacity(out.len());
+        for q in out {
+            let id = *id_of.entry(q).or_insert_with(|| {
+                points.push(Vector3::new(
+                    origin.x + q[0] as f64 * h[0],
+                    origin.y + q[1] as f64 * h[1],
+                    origin.z + q[2] as f64 * h[2],
+                ));
+                points.len() - 1
+            });
+            new_face.push(id);
+        }
+        *face = new_face;
+    }
+    changed
+}
+
 /// The cells after each ESI stage, for the differential against the ESI
 /// intermediate meshes. Each entry is `(level, centre)`.
 #[derive(Debug, Clone)]

@@ -550,7 +550,19 @@ pub fn castellate(
             builder.unmapped
         )));
     }
-    let (fv_mesh, points, topology, surface_faces) = builder.finish(n_kept)?;
+    let (fv_mesh, mut points, mut topology, surface_faces) = builder.finish(n_kept)?;
+    if controls.removal == CellRemoval::EsiSplitMesh {
+        // hexRef8's rings carry the hanging edge points; the assembler writes quads.
+        let size0 = [span.x / bg.nx as f64, span.y / bg.ny as f64, span.z / bg.nz as f64];
+        crate::snappy_hex_mesh::esi_split::insert_hanging_points(
+            &mut topology.faces,
+            &mut topology.points,
+            &leaves,
+            origin,
+            size0,
+        );
+        points = topology.points.clone();
+    }
 
     Ok(CastellatedMesh {
         fv_mesh,

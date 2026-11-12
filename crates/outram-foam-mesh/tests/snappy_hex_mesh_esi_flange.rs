@@ -37,7 +37,12 @@
 //!   known disagreement, not a pass; with `with_esi_split_mesh_removal()` the
 //!   final cells equal ESI's (`round2_stages_equal_esi`,
 //!   `castellate_esi_split_mesh_cells`: 18278 cells, 63194 faces, 12136 surface
-//!   faces; one miss: 24646 problem faces against ESI's 25295).
+//!   faces; ~~one miss: 24646 problem faces against ESI's 25295~~ **CORRECTED
+//!   2026-11-12 (round 3):** the 649-face miss was the cell visit order of the
+//!   8-anchor loop: in ESI's order the port marks 25295, the same faces
+//!   (`problem_faces_in_esi_cell_order_equal_esi`); in the port's leaf order 24646,
+//!   still pinned below; per-face equality of the final mesh:
+//!   `final_mesh_faces_equal_esi_per_face`).
 
 use std::collections::HashSet;
 
@@ -184,7 +189,7 @@ fn round2_stages_equal_esi() {
     assert_eq!(st.after_dangling.len(), 30530);
     assert_eq!(st.baffle.n_hit_internal, 12145);
     assert_eq!(st.baffle.n_hit_boundary, 0);
-    assert_eq!(st.baffle.n_problem_faces, 24646, "ESI: 25295 (P13 missed)");
+    assert_eq!(st.baffle.n_problem_faces, 24646, "port leaf order; ESI order gives ESI's 25295 (round 3, P19)");
     assert_eq!(keys(&st.final_cells), esi_cells("esi_final_cells.txt.gz"));
     assert_eq!(st.baffle.n_kept, 18278);
 }
@@ -390,28 +395,9 @@ fn final_mesh_faces_equal_esi_per_face() {
     let only_esi: Vec<_> = esi.keys().filter(|k| !port.contains_key(*k)).collect();
     let only_port: Vec<_> = port.keys().filter(|k| !esi.contains_key(*k)).collect();
     eprintln!("only ESI {} only port {}", only_esi.len(), only_port.len());
-    {
-        // Classify: same ring and cell, different patch, versus anything else.
-        let sorted = |r: &Vec<[i64; 3]>| { let mut v = r.clone(); v.sort(); v };
-        let port_by_ring: std::collections::HashMap<Vec<[i64; 3]>, &String> = only_port.iter().map(|r| (sorted(&r.0), &r.1)).collect();
-        let mut same_ring = 0usize;
-        let mut same_cell = 0usize;
-        let mut pair: std::collections::BTreeMap<(String, String), usize> = Default::default();
-        for r in &only_esi {
-            if let Some(o) = port_by_ring.get(&sorted(&r.0)) {
-                same_ring += 1;
-                let cell = |s: &str| s.split('|').next().unwrap().to_string();
-                if cell(&r.1) == cell(o) {
-                    same_cell += 1;
-                }
-                let patch = |s: &str| s.split('|').nth(1).unwrap().to_string();
-                *pair.entry((patch(&r.1), patch(o))).or_default() += 1;
-            }
-        }
-        for r in only_esi.iter().take(3) { eprintln!("ESI  {:?}", r); }
-        for r in only_port.iter().take(3) { eprintln!("PORT {:?}", r); }
-        eprintln!("same ring {same_ring} same cell {same_cell} (esi patch, port patch) {pair:?}");
-    }
+    let hanging = t.faces.iter().filter(|f| f.len() > 4).count();
+    assert_eq!(hanging, esi_faces.iter().filter(|f| f.len() > 6).count(), "faces with hexRef8 hanging points");
+    assert_eq!(hanging, 1853, "round 3: the faces the assembler used to write as quads");
     let internal_only = |v: &[&FaceRecord]| v.iter().filter(|r| !r.1.contains("flange_")).count();
     assert_eq!(internal_only(&only_esi), 0);
     assert_eq!(internal_only(&only_port), 0);
@@ -419,5 +405,5 @@ fn final_mesh_faces_equal_esi_per_face() {
     let port_points: HashSet<[i64; 3]> = t.faces.iter().flat_map(|f| f.iter().map(|&p| lat(t.points[p]))).collect();
     assert_eq!(esi_points, port_points);
     assert_eq!(only_esi.len(), only_port.len());
-    assert_eq!(only_esi.len(), 0, "P18: every face equal, patch included");
+    assert_eq!(only_esi.len(), 0, "P18/P20: every face equal, patch included");
 }

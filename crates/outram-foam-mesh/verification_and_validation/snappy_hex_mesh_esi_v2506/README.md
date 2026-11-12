@@ -509,3 +509,25 @@ NOT ported.
 | # | prediction (before the fix) |
 |---|---|
 | P20 | With the hanging edge points inserted into the face rings of the final mesh (`esi_split::insert_hanging_points`, the points being the corners of every leaf of the octree incl. removed ones, as hexRef8's rings at refinement time), **all 63194 faces equal ESI's** (ring up to rotation, orientation, cells, patch), the 1853 differing faces being exactly the faces with a hanging point; patches may differ on at most 8 faces (problem-cell patch stand-in). |
+
+### Round 3, task 1: results (2026-11-12, release, `tests/snappy_hex_mesh_esi_flange.rs`)
+
+| # | outcome |
+|---|---|
+| P17 | **held**: 25295 problem faces, the same faces, cells 18278 of 18278 (`problem_faces_in_esi_cell_order_equal_esi`). Python replica on ESI's own mesh: 25295 in ESI order, 24331 reversed; port: 25295 in ESI order, 24646 in leaf order. The count depends on the 8-anchor loop visit order and nothing else. |
+| P18 | **failed** (1853 faces, hanging edge points missing from the port's rings), see above. |
+| P19 | **held**: default leaf order, 24646, pinned in `round2_stages_equal_esi`. |
+| P20 | **held**: with `esi_split::insert_hanging_points` (always applied under `CellRemoval::EsiSplitMesh`) **all 63194 faces equal ESI's** (ring up to rotation, orientation relative to the owner, both cells, patch), 51058 internal + 12136 boundary, **including the 4 problem-cell faces** whose patch the nearest-cut-face stand-in assigns (no face differs; 0 of the allowed 8). 1853 faces have 5+ vertices, as in ESI. Point sets equal (26662). |
+
+**Not compared**: face, cell and point NUMBERING. ESI's cell labels follow hexRef8's
+refinement history (children numbered by the parent's own hex frame, see above) and
+its face order is polyTopoChange's upper-triangular renumbering; the port uses its own
+(owner, then neighbour) order, so owner/neighbour arrays are not equal as arrays, only
+as the set of (face, cell, cell) records. The 8-anchor visit order is therefore an
+INPUT of the port (`with_esi_problem_cell_order`, fixture `esi_baffle_cell_order`),
+not derived. With the default (port leaf order) the cell set and everything else
+agree and only the problem-face selection differs (24646 faces, same final cells here).
+
+**Defect fixed**: the final assembler wrote T-junction faces (quads next to split
+edges); hexRef8's rings carry the edge points. Opt-in only (`EsiSplitMesh`); the default
+path (`CentreParity`, `BaffleRegion`) still writes quads and its pins are unchanged.
