@@ -33,6 +33,7 @@ use std::collections::HashMap;
 
 use outram_foam_basic_lib::primitives::Vector3;
 
+use crate::check_mesh::{esi_check_mesh, esi_geometry, EsiCheckResult, EsiQualityControls};
 use crate::snappy_hex_mesh::stl::TriangleSoup;
 
 /// OpenFOAM double-precision constants.
@@ -45,28 +46,28 @@ const PROPAGATION_TOL: f64 = 0.01;
 /// A vector as three doubles, so every operation is spelled out.
 pub type V = [f64; 3];
 
-fn add(a: V, b: V) -> V {
+pub(crate) fn add(a: V, b: V) -> V {
     [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
 }
-fn sub(a: V, b: V) -> V {
+pub(crate) fn sub(a: V, b: V) -> V {
     [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
 }
-fn scale(s: f64, a: V) -> V {
+pub(crate) fn scale(s: f64, a: V) -> V {
     [s * a[0], s * a[1], s * a[2]]
 }
-fn div(a: V, s: f64) -> V {
+pub(crate) fn div(a: V, s: f64) -> V {
     [a[0] / s, a[1] / s, a[2] / s]
 }
-fn cross(a: V, b: V) -> V {
+pub(crate) fn cross(a: V, b: V) -> V {
     [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
 }
-fn dot(a: V, b: V) -> f64 {
+pub(crate) fn dot(a: V, b: V) -> f64 {
     a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }
-fn mag_sqr(a: V) -> f64 {
+pub(crate) fn mag_sqr(a: V) -> f64 {
     a[0] * a[0] + a[1] * a[1] + a[2] * a[2]
 }
-fn mag(a: V) -> f64 {
+pub(crate) fn mag(a: V) -> f64 {
     mag_sqr(a).sqrt()
 }
 
@@ -391,6 +392,12 @@ pub fn smooth_patch_displacement(mesh: &SnapMesh, pa: &PatchAddr) -> Vec<V> {
 
 /// `primitiveMeshTools::makeCellCentresAndVols` (v2506), cell centres only.
 pub fn cell_centres(mesh: &SnapMesh) -> Vec<V> {
+    cell_centres_vols(mesh).0
+}
+
+/// `primitiveMeshTools::makeCellCentresAndVols` (v2506): cell centres and volumes (the
+/// accumulated `3 V` scaled by `1/3` at the end, as upstream).
+pub fn cell_centres_vols(mesh: &SnapMesh) -> (Vec<V>, Vec<f64>) {
     let n_cells = mesh.owner.iter().chain(mesh.neighbour.iter()).max().map_or(0, |&m| m + 1);
     let (f_ctrs, f_areas) = face_centres_areas(&mesh.points, &mesh.faces);
     let mut c_est = vec![[0.0; 3]; n_cells];
@@ -427,7 +434,10 @@ pub fn cell_centres(mesh: &SnapMesh) -> Vec<V> {
             cell_ctrs[c] = c_est[c];
         }
     }
-    cell_ctrs
+    for v in cell_vols.iter_mut() {
+        *v *= 1.0 / 3.0;
+    }
+    (cell_ctrs, cell_vols)
 }
 
 /// One iteration of `preSmoothPatch`'s loop body when the mesh check finds no face
@@ -643,6 +653,333 @@ pub fn displacement_field(mesh: &SnapMesh, pa: &PatchAddr, patch_disp: &[V]) -> 
         d[mp] = patch_disp[i];
     }
     d
+}
+
+/// `motionSmootherAlgo::avg(fld, edgeWeight)` for a scalar field (serial; see [`avg_field`]).
+fn avg_scalar(fld: &[f64], me: &MeshEdges, edge_weight: &[f64]) -> Vec<f64> {
+    let mut res = vec![0.0; fld.len()];
+    let mut sum_weight = vec![0.0; fld.len()];
+    for (edgei, e) in me.edges.iter().enumerate() {
+        let w = edge_weight[edgei];
+        res[e[0]] += w * fld[e[1]];
+        sum_weight[e[0]] += w;
+        res[e[1]] += w * fld[e[0]];
+        sum_weight[e[1]] += w;
+    }
+    for i in 0..res.len() {
+        if sum_weight[i].abs() < VSMALL {
+            res[i] = fld[i];
+        } else {
+            res[i] /= sum_weight[i];
+        }
+    }
+    res
+}
+
+/// Which displacement the patch points get in `curPoints`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PatchPointScaling {
+    /// `scale * displacement` on the patch points too, from the scale field's values
+    /// (the reading of `scaleField(pp.meshPoints(), usedPoints, errorReduction, scale)`).
+    Scaled,
+    /// Patch points keep the unscaled displacement (the reading in which the scale
+    /// field's boundary values, still 1, are what `curPoints` multiplies there).
+    Unscaled,
+}
+
+/// `scaleMesh` controls: `errorReduction`, `nSmoothScale`, the mesh-quality controls
+/// and the number of faces `scaleMesh` tolerates (`nAllowableErrors`).
+#[derive(Debug, Clone)]
+pub struct ScaleControls {
+    /// `errorReduction`.
+    pub error_reduction: f64,
+    /// `nSmoothScale`.
+    pub n_smooth_scale: usize,
+    /// `meshQualityControls`.
+    pub quality: EsiQualityControls,
+    /// `nAllowableErrors` (the faces in error of the initial mesh).
+    pub n_allowable_errors: usize,
+    /// How patch points are displaced.
+    pub patch_scaling: PatchPointScaling,
+}
+
+/// Cell-face and point-cell addressing for [`affected_faces_and_points`].
+#[derive(Debug, Clone)]
+pub struct ScaleTopology {
+    /// Faces of each cell.
+    pub cell_faces: Vec<Vec<usize>>,
+    /// Cells using each point, ascending.
+    pub point_cells: Vec<Vec<usize>>,
+}
+
+/// Addressing of `mesh`.
+pub fn scale_topology(mesh: &SnapMesh) -> ScaleTopology {
+    let cell_faces = esi_geometry(mesh).cell_faces;
+    let mut point_cells: Vec<Vec<usize>> = vec![Vec::new(); mesh.points.len()];
+    for (c, faces) in cell_faces.iter().enumerate() {
+        for &f in faces {
+            for &p in &mesh.faces[f] {
+                point_cells[p].push(c);
+            }
+        }
+    }
+    for pc in point_cells.iter_mut() {
+        pc.sort_unstable();
+        pc.dedup();
+    }
+    ScaleTopology { cell_faces, point_cells }
+}
+
+/// The motion smoother's state: `oldPoints_`, `displacement_`, `scale_`.
+#[derive(Debug, Clone)]
+pub struct MotionSmoother {
+    /// Points at construction (`oldPoints_`).
+    pub old_points: Vec<V>,
+    /// `displacement_` on all points.
+    pub displacement: Vec<V>,
+    /// `scale_` on all points, initially 1.
+    pub scale: Vec<f64>,
+    is_internal_point: Vec<bool>,
+}
+
+impl MotionSmoother {
+    /// `motionSmootherData` + `updateMesh`: scale 1, `isInternalPoint_` false on patch points.
+    pub fn new(mesh: &SnapMesh, pa: &PatchAddr, displacement: Vec<V>) -> Self {
+        let mut is_internal_point = vec![true; mesh.points.len()];
+        for &mp in &pa.mesh_points {
+            is_internal_point[mp] = false;
+        }
+        Self { old_points: mesh.points.clone(), displacement, scale: vec![1.0; mesh.points.len()], is_internal_point }
+    }
+
+    /// `motionSmootherAlgo::curPoints`: `oldPoints + scale * displacement`.
+    pub fn cur_points(&self, pa: &PatchAddr, patch_scaling: PatchPointScaling) -> Vec<V> {
+        let mut is_patch = vec![false; self.old_points.len()];
+        for &mp in &pa.mesh_points {
+            is_patch[mp] = true;
+        }
+        (0..self.old_points.len())
+            .map(|i| {
+                let s = if is_patch[i] && patch_scaling == PatchPointScaling::Unscaled { 1.0 } else { self.scale[i] };
+                add(self.old_points[i], scale(s, self.displacement[i]))
+            })
+            .collect()
+    }
+}
+
+/// `motionSmootherAlgo::getAffectedFacesAndPoints`: grow `wrong_faces` by `n_point_iter`
+/// point-cell-face layers (faces to check next) and mark the points of the layer at
+/// iteration `n_point_iter - 2` as affected (points to smooth).
+pub fn affected_faces_and_points(
+    mesh: &SnapMesh,
+    topo: &ScaleTopology,
+    n_point_iter: usize,
+    wrong_faces: &[usize],
+) -> (Vec<usize>, Vec<bool>) {
+    let mut is_affected_point = vec![false; mesh.points.len()];
+    let mut nbr_faces = vec![false; mesh.faces.len()];
+    for &f in wrong_faces {
+        nbr_faces[f] = true;
+    }
+    for i in 0..n_point_iter {
+        let mut nbr_points = vec![false; mesh.points.len()];
+        for f in 0..mesh.faces.len() {
+            if nbr_faces[f] {
+                for &p in &mesh.faces[f] {
+                    nbr_points[p] = true;
+                }
+            }
+        }
+        for p in 0..mesh.points.len() {
+            if nbr_points[p] {
+                for &c in &topo.point_cells[p] {
+                    for &f in &topo.cell_faces[c] {
+                        nbr_faces[f] = true;
+                    }
+                }
+            }
+        }
+        if i as isize == n_point_iter as isize - 2 {
+            for f in 0..mesh.faces.len() {
+                if nbr_faces[f] {
+                    for &p in &mesh.faces[f] {
+                        is_affected_point[p] = true;
+                    }
+                }
+            }
+        }
+    }
+    let affected_faces: Vec<usize> = (0..mesh.faces.len()).filter(|&f| nbr_faces[f]).collect();
+    (affected_faces, is_affected_point)
+}
+
+/// What one `scaleMesh` call did.
+#[derive(Debug, Clone)]
+pub struct ScaleIteration {
+    /// Minimum of the scale field when the mesh was moved ("displacement scaling min").
+    pub scale_min: f64,
+    /// Maximum of the scale field when the mesh was moved.
+    pub scale_max: f64,
+    /// The quality check of the moved mesh.
+    pub check: EsiCheckResult,
+    /// True when the mesh was accepted (`faces in error <= nAllowableErrors`).
+    pub ok: bool,
+}
+
+/// `motionSmootherAlgo::scaleMesh(checkFaces, baffles, paramDict, meshQualityDict,
+/// smoothMesh = true, nAllowableErrors)` (v2506 `motionSmootherAlgo.C:821`), serial, no
+/// baffles: move the mesh to `oldPoints + scale * displacement`, check `check_faces`;
+/// when too many faces are in error scale the displacement down at their points
+/// (`errorReduction`), smooth the scale (`nSmoothScale` `minSmooth` passes over patch
+/// points, then internal points) and replace `check_faces` by the faces to check next.
+pub fn scale_mesh(
+    mesh: &mut SnapMesh,
+    ms: &mut MotionSmoother,
+    pa: &PatchAddr,
+    me: &MeshEdges,
+    topo: &ScaleTopology,
+    ctl: &ScaleControls,
+    check_faces: &mut Vec<usize>,
+) -> ScaleIteration {
+    let scale_min = ms.scale.iter().cloned().fold(f64::INFINITY, f64::min);
+    let scale_max = ms.scale.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    mesh.points = ms.cur_points(pa, ctl.patch_scaling);
+    let geom = esi_geometry(mesh);
+    let check = esi_check_mesh(mesh, &geom, &ctl.quality, check_faces);
+    if check.wrong_faces.len() <= ctl.n_allowable_errors {
+        return ScaleIteration { scale_min, scale_max, check, ok: true };
+    }
+    let mut wrong_faces = check.wrong_faces.clone();
+    if ctl.error_reduction.abs() < SMALL {
+        // Extend to the faces of the owner and neighbour cells of every wrong face.
+        let mut extended = vec![false; mesh.faces.len()];
+        for &f in &wrong_faces {
+            extended[f] = true;
+            for &fi in &topo.cell_faces[mesh.owner[f]] {
+                extended[fi] = true;
+            }
+            if f < mesh.n_internal_faces() {
+                for &fi in &topo.cell_faces[mesh.neighbour[f]] {
+                    extended[fi] = true;
+                }
+            }
+        }
+        wrong_faces = (0..mesh.faces.len()).filter(|&f| extended[f]).collect();
+    }
+    let mut used_points = vec![false; mesh.points.len()];
+    for &f in &wrong_faces {
+        for &p in &mesh.faces[f] {
+            used_points[p] = true;
+        }
+    }
+    let (affected_faces, is_affected_point) = affected_faces_and_points(mesh, topo, ctl.n_smooth_scale, &wrong_faces);
+    // Scale conflicting patch points, then conflicting internal points.
+    for &mp in &pa.mesh_points {
+        if used_points[mp] {
+            ms.scale[mp] *= ctl.error_reduction;
+        }
+    }
+    for p in 0..mesh.points.len() {
+        if used_points[p] && ms.is_internal_point[p] {
+            ms.scale[p] *= ctl.error_reduction;
+        }
+    }
+    let e_weights: Vec<f64> =
+        me.edges.iter().map(|e| 1.0 / (mag(sub(ms.old_points[e[1]], ms.old_points[e[0]])) + SMALL)).collect();
+    for _ in 0..ctl.n_smooth_scale {
+        // minSmooth on the patch points
+        let old = ms.scale.clone();
+        let avg = avg_scalar(&old, me, &e_weights);
+        for &mp in &pa.mesh_points {
+            if is_affected_point[mp] {
+                ms.scale[mp] = old[mp].min(0.5 * old[mp] + 0.5 * avg[mp]);
+            }
+        }
+        // minSmooth on the internal points
+        let old = ms.scale.clone();
+        let avg = avg_scalar(&old, me, &e_weights);
+        for p in 0..old.len() {
+            if is_affected_point[p] && ms.is_internal_point[p] {
+                ms.scale[p] = old[p].min(0.5 * old[p] + 0.5 * avg[p]);
+            }
+        }
+    }
+    *check_faces = affected_faces;
+    ScaleIteration { scale_min, scale_max, check, ok: false }
+}
+
+/// `snappySnapDriver::scaleMesh` (v2506 `snappySnapDriver.C:2208`): up to `2 * n_snap`
+/// scaling iterations over all faces; from iteration `n_snap` on the error reduction is 0.
+/// Returns every iteration's report.
+pub fn scale_mesh_loop(
+    mesh: &mut SnapMesh,
+    ms: &mut MotionSmoother,
+    pa: &PatchAddr,
+    me: &MeshEdges,
+    topo: &ScaleTopology,
+    ctl: &ScaleControls,
+    n_snap: usize,
+) -> Vec<ScaleIteration> {
+    let mut check_faces: Vec<usize> = (0..mesh.faces.len()).collect();
+    let mut ctl = ctl.clone();
+    let mut reports = Vec::new();
+    for iter in 0..2 * n_snap {
+        if iter == n_snap {
+            ctl.error_reduction = 0.0;
+        }
+        let r = scale_mesh(mesh, ms, pa, me, topo, &ctl, &mut check_faces);
+        let ok = r.ok;
+        reports.push(r);
+        if ok {
+            break;
+        }
+    }
+    reports
+}
+
+/// `snappySnapDriver::repatchToSurface` (v2506 `snappySnapDriver.C:2275`), no zoned
+/// surfaces or preserved faces: every boundary face whose centre has a surface triangle
+/// within `faceSnapDist` (the maximum of `calcSnapDistance` over its points, on `mesh`)
+/// moves to the patch of the region of the nearest triangle (`region_patch[region]`).
+/// `face_patch[i]` is the current patch of patch face `i` (`pa.face_ids[i]`); returns
+/// `(mesh face, new patch)` for the faces whose patch changes, in face order.
+/// `tri_region[t]` is the region of `surface.triangles[t]`. Nearest triangle: first
+/// minimum of the brute-force search (upstream searches an octree; equal distances to two
+/// regions are the one place the two can differ).
+pub fn repatch_to_surface(
+    mesh: &SnapMesh,
+    pa: &PatchAddr,
+    face_patch: &[usize],
+    snap_tol: f64,
+    surface: &TriangleSoup,
+    tri_region: &[usize],
+    region_patch: &[usize],
+) -> Vec<(usize, usize)> {
+    let snap_dist = calc_snap_distance(mesh, pa, snap_tol);
+    let (centres, _) = face_centres_areas(&mesh.points, &mesh.faces);
+    let mut changed = Vec::new();
+    for (i, &f) in pa.face_ids.iter().enumerate() {
+        let face_snap_dist = pa.local_faces[i].iter().fold(-GREAT, |m, &p| m.max(snap_dist[p]));
+        let c = centres[f];
+        let sample = Vector3::new(c[0], c[1], c[2]);
+        let mut best: Option<(f64, usize)> = None;
+        for (t, tri) in surface.triangles.iter().enumerate() {
+            let q = tri.closest_point(sample);
+            let d2 = mag_sqr([q.x - c[0], q.y - c[1], q.z - c[2]]);
+            if best.map(|(b, _)| d2 < b).unwrap_or(true) {
+                best = Some((d2, t));
+            }
+        }
+        if let Some((d2, t)) = best {
+            if d2 <= face_snap_dist * face_snap_dist {
+                let patch = region_patch[tri_region[t]];
+                if patch != face_patch[i] {
+                    changed.push((f, patch));
+                }
+            }
+        }
+    }
+    changed
 }
 
 #[cfg(test)]
