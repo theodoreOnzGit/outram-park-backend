@@ -1,6 +1,6 @@
 feature,elevation_ft_in,elevation_in_above_shield_cylinder_bottom,uncertainty_in,kind,source
-reactor cell bottom (hemispherical head low point),819-0,-72,0,text,TM-0728 p. 30 (cell 819 to 852 ft)
-support platform top = thermal-shield base bottom,823-6,-18,0,text,TM-0728 p. 32 (platform 823-1/2 ft at top); base rests on it per Fig. 5.2
+reactor cell bottom (hemispherical head low point),819-0,-72,0,text,TM-0728 §4.3.1 (cell 819 to 852 ft)
+support platform top = thermal-shield base bottom,823-6,-18,0,text,TM-0728 §4.3.1 (platform 823-1/2 ft at top); base rests on it per Fig. 5.2
 thermal-shield base top = cylinder bottom,825-0,0,0,text + arithmetic,base 18 in deep (TM-0728 5.3.10.1)
 thermal-shield cylinder top,837-7,151,0,reconstructed; callout partly illegible,823-6 + 18 in + 151 in (TM-0728 5.3.10.1); Fig. 5.2 callout reads 8?1-7
 reactor vessel inlet distributor,832-9,93,0,callout (middle digit blurred),Fig. 5.2 reads 8?2-9; 3 is the only digit consistent with the scaled 93 in

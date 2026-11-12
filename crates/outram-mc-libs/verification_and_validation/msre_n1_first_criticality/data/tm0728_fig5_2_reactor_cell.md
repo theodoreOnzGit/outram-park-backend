@@ -21,7 +21,7 @@ were read by eye. Positions without a callout were scaled from the vessel
 OD. **The scan is coarse.** Both callouts near the vessel have one blurred
 digit even at 1200 dpi, so each is reconstructed and its check stated:
 - **shield top:** read as `8?1-7`. Reconstructed as **837'-7"**, from the
-  platform at 823'-6" (TM-0728 p. 32) plus the 18 in base and the 151 in
+  platform at 823'-6" (TM-0728 §4.3.1) plus the 18 in base and the 151 in
   cylinder (§5.3.10.1).
 - **inlet distributor:** read as `8?2-9`. Taken as **832'-9"**, because only
   a 3 agrees with the scaled 93 in.
