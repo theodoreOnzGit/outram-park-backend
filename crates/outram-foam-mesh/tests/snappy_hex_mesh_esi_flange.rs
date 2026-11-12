@@ -260,3 +260,164 @@ fn region_patches_against_esi() {
     assert_eq!(cf_counts, vec![9320, 1182, 242, 1392]);
     assert_eq!(moved, 10);
 }
+
+// ───────────────────────── Round 3 (2026-11-12) ─────────────────────────────
+
+type Key = (usize, i64, i64, i64);
+
+/// Lines of a gzipped fixture as integer vectors.
+fn int_lines(name: &str) -> Vec<Vec<i64>> {
+    String::from_utf8(fixture(name))
+        .unwrap()
+        .lines()
+        .map(|l| l.split_whitespace().map(|x| x.parse().unwrap()).collect())
+        .collect()
+}
+
+/// ESI's cell order at the mesh `markFacesOnProblemCells` runs on (time 16).
+fn esi_baffle_order() -> Vec<[usize; 4]> {
+    int_lines("esi_baffle_cell_order.txt.gz")
+        .iter()
+        .map(|v| [v[0] as usize, v[1] as usize, v[2] as usize, v[3] as usize])
+        .collect()
+}
+
+/// P17 (README, round 3): visiting the 8-anchor loop in ESI's cell order the port
+/// marks ESI's 25295 problem faces, the same faces; in the port's own leaf order it
+/// marks 24646 (P19, pinned in `round2_stages_equal_esi`). Cell sets are equal either way.
+#[test]
+fn problem_faces_in_esi_cell_order_equal_esi() {
+    let order = esi_baffle_order();
+    assert_eq!(order.len(), 30530);
+    let c = controls().with_esi_split_mesh_removal().with_esi_problem_cell_order(order);
+    let st = outram_foam_mesh::snappy_hex_mesh::esi_split::esi_stage_cells(&upstream_surface(), &c).unwrap();
+    assert_eq!(st.baffle.n_problem_faces, 25295, "ESI log: marked 25295 additional internal faces");
+    assert_eq!(st.problem_faces.len(), 25295);
+    let port: HashSet<(Vec<i64>, Vec<i64>)> = st
+        .problem_faces
+        .iter()
+        .map(|(a, b)| (a.iter().map(|&x| x as i64).collect(), b.iter().map(|&x| x as i64).collect()))
+        .collect();
+    let esi: HashSet<(Vec<i64>, Vec<i64>)> =
+        int_lines("esi_problem_faces.txt.gz").into_iter().map(|v| (v[..4].to_vec(), v[4..].to_vec())).collect();
+    assert_eq!(esi.len(), 25295);
+    assert_eq!(port, esi, "the same faces as ESI's 16/polyMesh/sets/problemFaces");
+    assert_eq!(keys(&st.final_cells), esi_cells("esi_final_cells.txt.gz"));
+    assert_eq!(st.baffle.n_kept, 18278);
+}
+
+/// A ring of lattice points rotated to start at its smallest point.
+fn canonical_ring(mut ring: Vec<[i64; 3]>) -> Vec<[i64; 3]> {
+    let m = (0..ring.len()).min_by_key(|&i| ring[i]).unwrap();
+    ring.rotate_left(m);
+    ring
+}
+
+/// A face as `(ring pointing from the smaller cell key to the larger, the two cells)`
+/// for an internal face, `(outward ring, cell and patch)` for a boundary face.
+type FaceRecord = (Vec<[i64; 3]>, String);
+
+fn face_record(ring: Vec<[i64; 3]>, own: Key, nei: Result<Key, &str>) -> FaceRecord {
+    match nei {
+        Ok(nb) => {
+            let mut ring = ring;
+            let (a, b) = if own <= nb { (own, nb) } else { (nb, own) };
+            if own > nb {
+                ring.reverse();
+            }
+            (canonical_ring(ring), format!("{a:?}|{b:?}"))
+        }
+        Err(patch) => (canonical_ring(ring), format!("{own:?}|{patch}")),
+    }
+}
+
+/// P18 (README, round 3): per-face equality of the final castellated mesh with
+/// ESI's `32/polyMesh`: every face by its vertex ring on the level-2 lattice (up to
+/// cyclic rotation), its orientation relative to the owner, its two cells, and its
+/// patch. Face and cell NUMBERING is not compared (the port's order is its own).
+#[test]
+fn final_mesh_faces_equal_esi_per_face() {
+    let zoned = read_stl_zoned_bytes(&fixture("flange.stl.gz")).unwrap();
+    let names: Vec<String> = zoned.names.iter().map(|n| format!("flange_{n}")).collect();
+    let c = controls()
+        .with_esi_split_mesh_removal()
+        .with_esi_problem_cell_order(esi_baffle_order())
+        .with_surface_region_patches(names.clone(), zoned.zones.clone());
+    let m = castellate(&upstream_surface(), &c).unwrap();
+
+    // ESI side.
+    let esi_cell: Vec<Key> = int_lines("esi_final_cells_ordered.txt.gz")
+        .iter()
+        .map(|v| (v[0] as usize, v[1], v[2], v[3]))
+        .collect();
+    let esi_pts: Vec<[i64; 3]> = int_lines("esi_final_points.txt.gz").iter().map(|v| [v[0], v[1], v[2]]).collect();
+    assert_eq!(esi_pts.len(), 26662);
+    let mut esi: std::collections::HashMap<FaceRecord, usize> = std::collections::HashMap::new();
+    let esi_faces = int_lines("esi_final_faces.txt.gz");
+    assert_eq!(esi_faces.len(), 63194);
+    for f in &esi_faces {
+        let ring: Vec<[i64; 3]> = f[2..].iter().map(|&p| esi_pts[p as usize]).collect();
+        let nei = if f[1] >= 0 { Ok(esi_cell[f[1] as usize]) } else { Err(names[(-1 - f[1]) as usize].as_str()) };
+        *esi.entry(face_record(ring, esi_cell[f[0] as usize], nei)).or_default() += 1;
+    }
+    assert_eq!(esi.len(), 63194, "ESI face records are unique");
+
+    // Port side.
+    let port_cell: Vec<Key> =
+        m.fv_mesh.cell_centres.iter().zip(&m.fv_mesh.cell_volumes).map(|(c, v)| key(level_of(*v), *c)).collect();
+    let lat = |p: Vector3| -> [i64; 3] {
+        let one = |v: f64, a: usize| {
+            let q = (v - ORG[a]) / (SIZE0[a] / 4.0);
+            assert!((q - q.round()).abs() < 1e-6, "point off the level-2 lattice");
+            q.round() as i64
+        };
+        [one(p.x, 0), one(p.y, 1), one(p.z, 2)]
+    };
+    let t = &m.topology;
+    let mut patch_of = vec![String::new(); t.faces.len()];
+    for p in &m.fv_mesh.patches {
+        for f in p.start..p.start + p.size {
+            patch_of[f] = p.name.clone();
+        }
+    }
+    let mut port: std::collections::HashMap<FaceRecord, usize> = std::collections::HashMap::new();
+    for (fi, face) in t.faces.iter().enumerate() {
+        let ring: Vec<[i64; 3]> = face.iter().map(|&p| lat(t.points[p])).collect();
+        let nei = if fi < t.n_internal_faces { Ok(port_cell[t.neighbour[fi]]) } else { Err(patch_of[fi].as_str()) };
+        *port.entry(face_record(ring, port_cell[t.owner[fi]], nei)).or_default() += 1;
+    }
+    assert_eq!(port.len(), 63194);
+    let only_esi: Vec<_> = esi.keys().filter(|k| !port.contains_key(*k)).collect();
+    let only_port: Vec<_> = port.keys().filter(|k| !esi.contains_key(*k)).collect();
+    eprintln!("only ESI {} only port {}", only_esi.len(), only_port.len());
+    {
+        // Classify: same ring and cell, different patch, versus anything else.
+        let sorted = |r: &Vec<[i64; 3]>| { let mut v = r.clone(); v.sort(); v };
+        let port_by_ring: std::collections::HashMap<Vec<[i64; 3]>, &String> = only_port.iter().map(|r| (sorted(&r.0), &r.1)).collect();
+        let mut same_ring = 0usize;
+        let mut same_cell = 0usize;
+        let mut pair: std::collections::BTreeMap<(String, String), usize> = Default::default();
+        for r in &only_esi {
+            if let Some(o) = port_by_ring.get(&sorted(&r.0)) {
+                same_ring += 1;
+                let cell = |s: &str| s.split('|').next().unwrap().to_string();
+                if cell(&r.1) == cell(o) {
+                    same_cell += 1;
+                }
+                let patch = |s: &str| s.split('|').nth(1).unwrap().to_string();
+                *pair.entry((patch(&r.1), patch(o))).or_default() += 1;
+            }
+        }
+        for r in only_esi.iter().take(3) { eprintln!("ESI  {:?}", r); }
+        for r in only_port.iter().take(3) { eprintln!("PORT {:?}", r); }
+        eprintln!("same ring {same_ring} same cell {same_cell} (esi patch, port patch) {pair:?}");
+    }
+    let internal_only = |v: &[&FaceRecord]| v.iter().filter(|r| !r.1.contains("flange_")).count();
+    assert_eq!(internal_only(&only_esi), 0);
+    assert_eq!(internal_only(&only_port), 0);
+    let esi_points: HashSet<[i64; 3]> = esi_faces.iter().flat_map(|f| f[2..].iter().map(|&p| esi_pts[p as usize])).collect();
+    let port_points: HashSet<[i64; 3]> = t.faces.iter().flat_map(|f| f.iter().map(|&p| lat(t.points[p]))).collect();
+    assert_eq!(esi_points, port_points);
+    assert_eq!(only_esi.len(), only_port.len());
+    assert_eq!(only_esi.len(), 0, "P18: every face equal, patch included");
+}

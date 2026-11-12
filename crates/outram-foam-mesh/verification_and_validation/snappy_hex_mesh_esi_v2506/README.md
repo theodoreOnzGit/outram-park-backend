@@ -487,3 +487,25 @@ NOT ported.
 | P17 | `CastellationControls::with_esi_problem_cell_order(keys)` (visit the 8-anchor loop in the ESI cell order of `esi_baffle_cell_order`) makes the port mark **25295** problem faces, and the set of marked faces (as pairs of cell keys) equals `esi_problem_faces` exactly. Reason: the replica above; the port's topology (leaf corners, hanging edge/face points in face rings) already matched on every count so far. Can fail if the port's anchor test differs from `pointLevel <= cellLevel` for a cell with a hanging corner. |
 | P18 | Per-face equality of the final castellated mesh with ESI's `32/polyMesh` (face keyed by its vertex ring on the level-2 lattice, up to cyclic rotation, with owner key and neighbour key or patch name; orientation compared): **all 63194 faces equal, including orientation**, except at most 8 boundary faces whose patch differs (the 4 problem-cell faces use the nearest-cut-face stand-in for ESI's topological `nearestPatch`). Point set equal (26662). |
 | P19 | Without the order (default leaf order) P18 still holds for internal faces and counts, but the problem-face count stays 24646 (pinned as the measured effect of the visit order). |
+
+## Round 3, task 1: first results and the next prediction (committed before the fix)
+
+- **P17 held** (`problem_faces_in_esi_cell_order_equal_esi`): with ESI's cell order
+  the port marks **25295** problem faces and the set equals ESI's
+  `problemFaces` (as pairs of cell keys), cells 18278 of 18278. The 649-face miss of
+  round 2 was the visit order, not a missing rule.
+- **P18 failed**: per-face comparison of the final mesh. Cell set, point set
+  (26662) and face count equal, but **1853 faces differ** (1853 in ESI only, the same
+  number in the port only), none with the same vertex set. The first ones: ESI's
+  face between level-1 cells `(1,24,15,9)|(1,24,15,10)` has **5 vertices** (a hanging
+  point on the midpoint of one edge, the corner of a level-2 neighbour), the port's has
+  4. The port's final assembler (`MeshAssembler`) writes quads only, so its polyMesh has
+  T-junction faces where ESI's hexRef8 has inserted the edge points into the face rings
+  (ESI 5- and 6-gons). `esi_split::build_topo` already builds such rings, for the
+  stage logic, but the final assembly did not use them. Topologically the port's mesh
+  is not conformal there (the edge of the neighbouring faces is split, this face's is
+  not), which matters for snapping.
+
+| # | prediction (before the fix) |
+|---|---|
+| P20 | With the hanging edge points inserted into the face rings of the final mesh (`esi_split::insert_hanging_points`, the points being the corners of every leaf of the octree incl. removed ones, as hexRef8's rings at refinement time), **all 63194 faces equal ESI's** (ring up to rotation, orientation, cells, patch), the 1853 differing faces being exactly the faces with a hanging point; patches may differ on at most 8 faces (problem-cell patch stand-in). |
