@@ -526,7 +526,7 @@ const GAMMA_XMAX: f64 = 171.0;
 /// GSL's `cheb_eval_e` value on `[-1, 1]`: `x` is mapped exactly as upstream
 /// maps it, `(2.0*x - a - b) / (b - a)`, whose rounding is not the identity.
 fn cheb_value(coefficients: &[f64], x: f64) -> f64 {
-    crate::cheb_slice::eval_gsl(crate::cheb_slice::scale(x, -1.0, 1.0), coefficients)
+    crate::specfunc::cheb_eval_e(x, coefficients)
 }
 
 /// `gsl_sf_exp_err_e`'s value (specfunc/exp.c:536) without its error term:

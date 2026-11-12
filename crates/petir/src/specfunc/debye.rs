@@ -75,7 +75,7 @@
 #[allow(unused_imports)]
 use crate::real::Real;
 
-use crate::cheb_slice::eval_gsl;
+use crate::specfunc::cheb_eval_e;
 use crate::specfunc::{LOG_DBL_MIN, SQRT_DBL_EPSILON};
 
 use core::f64::consts::{LN_2, SQRT_2};
@@ -289,7 +289,7 @@ fn debye(order: &DebyeOrder, x: f64) -> f64 {
     }
     if x <= 4.0 {
         let t = x * x / 8.0 - 1.0;
-        return eval_gsl(t, order.cheb) - order.lin * x;
+        return cheb_eval_e(t, order.cheb) - order.lin * x;
     }
     if x < -(LN_2 + LOG_DBL_EPSILON) {
         // The exponential sum. `nexp` terms of a geometric-like series,
@@ -542,7 +542,7 @@ mod tests {
         for o in ORDERS.iter() {
             let c = o.small_cut;
             let series = 1.0 - o.lin * c + o.quad * c * c;
-            let cheb = eval_gsl(c * c / 8.0 - 1.0, o.cheb) - o.lin * c;
+            let cheb = cheb_eval_e(c * c / 8.0 - 1.0, o.cheb) - o.lin * c;
             assert!(
                 (series - cheb).abs() < 1e-14,
                 "D_{}: the small-argument series and the Chebyshev branch \

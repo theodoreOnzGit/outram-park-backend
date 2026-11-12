@@ -46,6 +46,40 @@ untrusted until a human reviews it.
   call do NOT move: `dilog`, `elljac`, `psi` at `x < -30` stay as they are,
   which would show they have a different cause. The prediction can fail.
 
+### Prediction 2, written 2026-11-12 after hypothesis H was measured and BEFORE `debye.rs` was changed
+
+H alone (measured, below) did not move `debye_2..6`, `bessel_j0/j1/y0/y1` or
+`transport_5`. Reading `debye.c` against `debye.rs` shows a second cause:
+`debye.rs` collapses upstream's six functions into one table-driven body
+(its doc says "nothing numerical differs"), but upstream writes different
+arithmetic per order: `c - x/3.0` against `c - lin*x` with `lin = 1.0/3.0`,
+`x*x/24.0` against `quad*x*x`, `(1.0 + 2.0/xk + 2.0/(xk*xk))/rk` against a
+Horner loop over falling factorials, `val_infinity/(x*x)` against
+`val_infinity/pow_n(x, n)`, and `(val_infinity/x)/x` against `val_infinity/x^n`.
+Each is a different rounding. Prediction: transcribing the six functions
+exactly (same expressions, same order) makes `debye_2..6` **100 %
+bit-identical** against GSL linked to PETIR's libm (and `debye_1` stays at
+100 %), and moves nothing else.
+
 ## Results
 
-Filled in below as each fix lands (numbers measured, dated).
+Bit-identical share of the 86 238 values GSL returns successfully, against GSL
+linked to PETIR's libm (2026-11-12, Rust 1.99.1 release):
+
+| stage | whole sweep |
+|---|---|
+| before this work (PETIR's libm shim, pre-synchrotron-fix README figure) | 80 820 (93.72 %) |
+| after #1419/#1420 ports and the `LogRootTwoPi_` fix | 84 803 (98.34 %) |
+| after hypothesis H (`cheb_eval_e` argument mapping) | 84 990 (98.55 %) |
+
+Hypothesis H, measured: **partly confirmed.** Moved to (almost) bit-identical:
+`fd_1`, `fd_2` (1022/1024), `fd_3half` (1023/1024), `fd_half`, `fd_mhalf`,
+`fd_0`, `psi_1piy`, `zetam1`, `zeta`, `eta` (981/1026; the worst relative
+difference of the remaining 45 rows is 0, and every one of the four printed
+is an even negative integer where GSL returns `+0.0` and PETIR `-0.0`: a signed
+zero, a separate small defect, not examined further and left open), and a
+few of the `airy_*` rows (+4 each). **Not moved, so the prediction missed
+for them:** `debye_2..6`, `bessel_j0/j1/y0/y1`, `transport_5`, and, as
+predicted, `dilog`, `elljac` and `psi` at `x < -30`. The cross-check that H is a
+real defect and not a fit: `expint.rs` and `gamma_inc.rs` already map the
+argument exactly as `cheb_eval_e` does, and had no residual.

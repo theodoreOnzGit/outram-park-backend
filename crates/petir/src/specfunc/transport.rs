@@ -233,7 +233,7 @@ pub fn transport(n: u32, x: f64) -> f64 {
         for _ in 1..o.n {
             p *= x;
         }
-        return p * crate::cheb_slice::eval_gsl(t, o.cheb);
+        return p * crate::specfunc::cheb_eval_e(t, o.cheb);
     }
 
     // Past 4, the limit minus the tail.
@@ -461,7 +461,7 @@ mod tests {
             }
             let small = p / (nf - 1.0);
             let t = (x * x / 8.0 - 0.5) - 0.5;
-            let cheb = p * crate::cheb_slice::eval_gsl(t, o.cheb);
+            let cheb = p * crate::specfunc::cheb_eval_e(t, o.cheb);
             assert!(
                 ((small - cheb) / cheb).abs() < 1e-8,
                 "J({n}) small/Chebyshev join at {x:e}: {small:e} vs {cheb:e}"
@@ -474,7 +474,7 @@ mod tests {
                 p *= x;
             }
             let t = (x * x / 8.0 - 0.5) - 0.5;
-            let a = p * crate::cheb_slice::eval_gsl(t, o.cheb);
+            let a = p * crate::specfunc::cheb_eval_e(t, o.cheb);
             let numexp = ((-LOG_DBL_EPSILON) / x) as u32 + 1;
             let s = sumexp(numexp, n, (-x).exp(), x);
             let b = o.val_infinity - (nf * x.ln() - x + s.ln()).exp();
