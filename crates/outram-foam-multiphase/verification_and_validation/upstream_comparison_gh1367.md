@@ -255,3 +255,52 @@ number.
   port counterpart, in ESI's `twoPhaseSystem` order (drag, virtual mass, lift,
   wall lubrication, turbulent dispersion), is **virtual mass**; lift follows.
   Recorded as gaps, not defects.
+
+## Row 1 — results (port run 2026-11-12, `tests/upstream_drift_flux_gh1367.rs`)
+
+8000 cells (dahl `blockMesh`), bit patterns compared, y component (x and z are
+exactly zero on both sides in all 8000 cells). Upstream is ESI's real
+`correct()`/`rho()`/`tauDm()` compiled from the unmodified v2506 sources, glibc
+`-O3`, no FMA; port side PETIR `RealMath`.
+
+| Quantity | Bit-identical | Worst rel. diff | Prediction | Outcome |
+|---|---|---|---|---|
+| D1 dev `TerminalVelocity{u_t=V0}` vs ESI `simple` | 1 / 8000 | ratio = rho/rhoc to 4.4e-16 | only `alpha <= 0` cells identical; ratio to 6e-16 | ratio hit; **part-miss**: cell 1 (`alpha = -1e-3`) is not identical, because `rho(-1e-3) != rhoc` |
+| D2 `OpenFoamSimple` vs ESI `simple` | 7993 / 8000 | 2.6e-16 (1 ulp) | >= 99 %, <= 4.5e-16 | hit |
+| D3 `OpenFoamGeneral`, residualAlpha 0 | 7995 / 8000 | 1.5e-16 | >= 95 %, <= 1e-8 | hit (bound far tighter than predicted) |
+| D3 `OpenFoamGeneral`, residualAlpha 1e-3 | 7992 / 8000 | 1.4e-16 | same | hit |
+| D4 `rho_mixture` vs ESI `rho()` (both forms) | 8000 / 8000 | 0 | 100 % | hit |
+| D5 `tau_dm_openfoam` vs ESI `tauDm()` (6 components, fed ESI `Udm`) | 8000 / 8000 each, signed zeros included | 0 | 100 % | hit |
+
+### First divergent operation (D2, D3)
+
+The driver also dumped upstream's `pow(10, -a*max(alpha,0))`, `exp(-a*x)` and
+`exp(-a1*x)` with OpenFOAM's own field operators. `pow(10, x)`: 7 of 8000 cells
+differ between glibc and PETIR; every differing `Udm` cell in D2 is one of
+those 7. For D3 every differing cell has a differing `exp`. The algebra,
+operation order and `rho` are identical to upstream.
+
+### Not compared, and why
+
+- **Alpha transport / MULES limiter.** MULES is not ported: `advance_alpha` is
+  implicit-Euler upwind with a clamp. Comparing step-1 `alpha` against
+  `driftFluxFoam` would compare two algorithms. **Gap**, not a defect; closing
+  it means porting `CMULES` (limiter, `alphaPhi`, sub-cycling) and the
+  `alphaEqn.H` flux `phir`/`phirb` compression, then comparing with
+  `driftFluxFoam` built (needs `fvOptions`, `thermoTools`, turbulence libs,
+  disk).
+- **U_mixture** (PIMPLE `UEqn`/`pEqn`): `pimple.rs` is a simplified coupling
+  with no `tauDm` term and no MULES; not compared.
+- **Mixture viscosity.** ESI `plastic`/`BinghamPlastic`/`slurry` against the
+  port's volume-weighted `mu_mixture`: structurally different, as the port's
+  docs say. Not numerically compared.
+- `alpha = 1` exactly: `betac = 0` makes upstream's `tauDm` divide 0/0 (the
+  driver traps SIGFPE), so the forced cell uses `alpha = 0.999999`.
+
+### Defects and options
+
+- **`TerminalVelocity` doc claim corrected** (it said `u_t` absorbs
+  `(rho_c/rho_m)*V0`; true only at one alpha). Behaviour unchanged.
+- **Added, ESI form, named:** `SlipModel::OpenFoamSimple`,
+  `SlipModel::OpenFoamGeneral`, `drift_flux::tau_dm_openfoam`. The dev form
+  `TerminalVelocity` stays callable (compared in D1).
