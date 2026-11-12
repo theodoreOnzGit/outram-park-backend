@@ -57,6 +57,23 @@ A and B are kept as ablations.** INOR-8 is 16.5 wt % Mo:
 | B, `--mo mo95` | beta ⁹⁵Mo tape at the thermal absorption of natural Mo (σ_a 2.48 / 13.4 b, quoted from memory) |
 | **C, `--mo natural`** | natural Mo, ⁹²⁻¹⁰⁰Mo at IUPAC 2013 abundances, same element density (`scripts/inor8.py`) |
 
+**Reading the `arm` labels in `data/` (added 2026-11-12).** The example
+writes no resonance-scattering tag. The **`+rvs`** in some labels was added by
+hand when those rows were recorded, on 2026-11-09/10, to tell them from the
+DBRC runs before them. Since then the binary's untagged rows are RVS. So:
+
+- **DBRC:** `mo-natural@salt1181F/graphite1181F` with no further suffix
+  (seeds 1–6, some duplicated), every `mo-omitted@…` row without `+rvs`,
+  `mo95-equivalent…`, and the `msre_n1_salt…` rows in `n3.csv`.
+- **RVS:** every `+rvs` row, and every other untagged `mo-natural@…` row:
+  - `+ends-tm0730`, `+shield-*`, `+u235x*`;
+  - `+hot-dims` seeds 4–6 in `keff.csv`;
+  - every `mo-natural@…` row in `n3.csv`.
+
+  Each of these is stated as RVS in its own section.
+- The 6-seed default of 1.00882 is the `mo-natural+rvs@salt1181F/graphite1181F`
+  seeds 1–6. Seeds 1–3 appear twice, with identical values.
+
 **Data and code:**
 
 - **Route 4:** `examples/msre_n1_first_criticality.rs`, reading ENDF/B-VIII.0 at 911.5 K.
@@ -740,6 +757,12 @@ cold and hot. The prediction posted before the run: seeds 7–12 alone give
   run up to twice the internal σ on this model, I record it as **not
   resolved**, not as a physics effect. No mechanism has been identified, and
   none has been tested.
+- **Paired by seed** (cold and hot runs of the same seed), hot − cold is
+  +262 ± 19 (1131 °F, 12 pairs), +161 ± 37 (1181 °F, 6 pairs; seed 3
+  pairs to only +5) and +210 ± 24 (1231 °F, 6 pairs). The dip at 1181 °F
+  is 2.4σ against 1131 °F on this estimator. Pairing shrinks the σ at 1131
+  and 1231 °F, so cold and hot runs of a seed are correlated. It does not
+  shrink it at 1181 °F. The dip is still unresolved.
 - **Consequence for N-3:** the expansion term in α_iso is not determined at
   this statistics. Its sign is uncertain and its size is below about
   1.5 × 10⁻⁵ /°F.
