@@ -316,7 +316,10 @@ pub fn div_vec_scheme(
         // correction, a different operator inside a time step.
         DivScheme::GaussLinear => Ok(fvm::div_vec_linear(phi, u, mesh)),
         // The pre-gh:#1363 `Gauss linear`: implicit upwind plus a lagged
-        // explicit central correction. Not an OpenFOAM scheme.
+        // explicit central correction. Not an OpenFOAM scheme. Deprecated
+        // (gh:#1500); the arm must still exist so a caller's explicit
+        // ablation works, hence the allow, on this arm only.
+        #[allow(deprecated)]
         DivScheme::GaussLinearDeferred => {
             let mut mat = fvm::div_vec(phi, u, mesh.clone());
             let u_f = fvc::interpolate(u); // geometric linear weighting
@@ -666,6 +669,7 @@ mod tests {
     /// phi = 1, and the diagonal and off-diagonals equal to upwind's; measured
     /// then and re-measured 2026-11-12 with max |delta| = 0).
     #[test]
+    #[allow(deprecated)] // the ablation scheme's own test (gh:#1500)
     fn deferred_linear_div_adds_the_exact_central_difference_correction() {
         let mesh = line_mesh();
         let mut u = VolVectorField::zero("U", mesh.clone());

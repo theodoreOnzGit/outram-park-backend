@@ -17,7 +17,7 @@
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --render-exchanger [out-dir]
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --render-coil [out-dir]
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --headless-coil [cells] [re] [turns]
-//! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --coil-run <m> <re> [linear|upwind] [straight] [trace]
+//! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --coil-run <m> <re> [linear|upwind|deferred] [straight] [trace]
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --headless-unstructured [h_mm] [layers] [first_mm] [expansion] [re] [length_mm]
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --mesh-sweep
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --render-unstructured [out-dir]
@@ -589,7 +589,7 @@ fn rebuild_with_zones(all: &outram_foam_mesh::block_mesh::PolyMesh, zones: Vec<o
     UnstructuredMesh::from_polyhedral(LengthUnit::Metre, points, faces, all.n_cells, patches, zones).map_err(|e| format!("{e:?}"))
 }
 
-/// `--coil-run <m> <re> [linear|upwind] [straight] [trace] [max_steps] [co=<Courant, 4>] [tol=<steady tolerance>] [svg=<path>]`: one run of the
+/// `--coil-run <m> <re> [linear|upwind|deferred] [straight] [trace] [max_steps] [co=<Courant, 1>] [tol=<steady tolerance>] [svg=<path>]`: one run of the
 /// coil V&V (`helical_coil_dean_gh1157.md`) on the level-`m` grid, printing
 /// progress and one result row. CLI glue; the run is the tested
 /// `coil::run_to_steady`.
@@ -599,10 +599,20 @@ fn coil_run_cli(args: &[String]) -> Result<(), String> {
     let lvl: usize = args.first().and_then(|v| v.parse().ok()).unwrap_or(3);
     let re: f64 = args.get(1).and_then(|v| v.parse().ok()).unwrap_or(200.0);
     let has = |w: &str| args.iter().any(|a| a == w);
-    let scheme = if has("upwind") { DivScheme::GaussUpwind } else { DivScheme::GaussLinear };
+    // `deferred` is the gh:#1500 ablation row: the old non-OpenFOAM deferred
+    // correction, the only in-workspace use besides the scheme's own unit test.
+    #[allow(deprecated)]
+    let deferred = DivScheme::GaussLinearDeferred;
+    let scheme = if has("upwind") {
+        DivScheme::GaussUpwind
+    } else if has("deferred") {
+        deferred
+    } else {
+        DivScheme::GaussLinear
+    };
     let spec = if has("straight") { coil::CoilSpec::straight_limit() } else { coil::CoilSpec::vv() };
     let max_steps = args.iter().filter_map(|a| a.parse::<usize>().ok()).nth(2).unwrap_or(20_000);
-    let co: f64 = args.iter().find_map(|a| a.strip_prefix("co=")).and_then(|v| v.parse().ok()).unwrap_or(4.0);
+    let co: f64 = args.iter().find_map(|a| a.strip_prefix("co=")).and_then(|v| v.parse().ok()).unwrap_or(engine::COIL_CO);
     let tol = args.iter().find_map(|a| a.strip_prefix("tol=")).and_then(|v| v.parse().ok()).unwrap_or(engine::STEADY);
     let g = spec.level(lvl);
     let cells = g.n_cells();
@@ -626,7 +636,8 @@ fn coil_run_cli(args: &[String]) -> Result<(), String> {
         }
         if has("trace") {
             let umax = run.solver.u.internal.as_slice().iter().map(|v| v.mag()).fold(0.0_f64, f64::max);
-            eprintln!("trace step {} change {c:.3e} max|U|/U {:.3} dt {:.3e}", run.steps, umax / coil::U_COIL, run.solver.control.delta_t);
+            let (co_num, co_mean) = engine::courant_numbers(&run.solver);
+            eprintln!("trace step {} change {c:.3e} max|U|/U {:.3} dt {:.3e} CoNum {co_num:.2} meanCoNum {co_mean:.2}", run.steps, umax / coil::U_COIL, run.solver.control.delta_t);
         }
         if run.steps % 50 == 0 {
             let r = run.report();

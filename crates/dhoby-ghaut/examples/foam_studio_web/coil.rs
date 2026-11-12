@@ -140,7 +140,7 @@ pub struct CoilReport {
 
 impl CoilRun {
     /// The case on `fv` (the mesh of `grid`) at `reynolds`, with convection
-    /// `scheme` (the V&V record's choice is `GaussLinear`), Courant number
+    /// `scheme` (the V&V record's choice is `GaussLinear`, upstream's implicit form), Courant number
     /// `co` on the axial cell length capped at viscous number `max_viscous`,
     /// one non-orthogonal corrector.
     pub fn on_mesh(grid: HelicalPipe, fv: Arc<FvMesh>, reynolds: f64, scheme: DivScheme, co: f64, max_viscous: f64) -> Self {
@@ -206,7 +206,7 @@ impl CoilRun {
     }
 }
 
-/// Run `grid` at `reynolds` (Courant number `co`, 4 in the record) until the steady metric is below `tol` (the
+/// Run `grid` at `reynolds` (Courant number `co`, `engine::COIL_CO` = 1 in the record since gh:#1500; it was 4 for the deferred form) until the steady metric is below `tol` (the
 /// record's criterion is `engine::STEADY`, 1e-3; a smaller one checks that
 /// the reported numbers do not depend on it) or `max_steps`; returns the
 /// report, the run itself (its fields, for pictures) and the wall seconds of
@@ -250,11 +250,23 @@ mod tests {
     /// A coarse half-turn coil at Re = 100 runs to steady: the core flows
     /// outward, the axial maximum moves outward, and the friction factor is
     /// above the straight pipe's. (Regression of the code path, not V&V.)
+    ///
+    /// **Re-pinned 2026-11-12 (gh:#1500), measured, release, this host, 1152
+    /// cells, Re 200:** the case ran with the deferred-correction form at Co
+    /// 4 (63 steps; f·Re/64 on the last turn 1.74452, axial maximum n/R
+    /// -0.647, core u_n -0.1810 U, vortex pair -0.1515, max secondary
+    /// 0.3287 U); with upstream's implicit `Gauss linear` it **diverges at
+    /// Co 4** (cause: the implicit central matrix is not diagonally dominant
+    /// above a cell Courant number of about 1, see the V&V record), and at the
+    /// new Co 1 ([`crate::engine::COIL_CO`]) it takes 90 steps and gives
+    /// 1.76254 (+1.0 %), -0.647, -0.1870, -0.1612, 0.3223. The asserted
+    /// signs and the steady criterion did not change; only the scheme and the
+    /// Courant number (the protocol) did.
     #[test]
     fn a_coarse_coil_shows_dean_flow() {
         let spec = CoilSpec { tube_radius: 0.005, coil_diameter: 0.04, pitch: 0.0, turns: 0.5 };
         let g = spec.grid(4, 2, 24);
-        let (r, run, _) = run_to_steady(g, 200.0, DivScheme::GaussLinear, 4.0, crate::engine::STEADY, 2000, |_, _| {}).unwrap();
+        let (r, run, _) = run_to_steady(g, 200.0, DivScheme::GaussLinear, crate::engine::COIL_CO, crate::engine::STEADY, 2000, |_, _| {}).unwrap();
         let steps = run.steps;
         assert!(steps < 2000, "steady in {steps}");
         assert!(r.section.core_u_n < 0.0, "{r:?}");

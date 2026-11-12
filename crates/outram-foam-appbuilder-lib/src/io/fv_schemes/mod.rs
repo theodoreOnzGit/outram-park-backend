@@ -86,9 +86,14 @@ pub enum DivScheme {
     /// what `GaussLinear` was before gh:#1363. **NOT an OpenFOAM scheme** and
     /// not upstream's `Gauss linear` (it changes `A` and `H` of PISO: 1.4e-3
     /// of the velocity range at step 2 of the cavity differential). Kept
-    /// explicit so a study whose recorded numbers came from it (the Foam
-    /// Studio coil runs of gh:#1157, which diverge with the implicit scheme on
-    /// their coarse grids) stays reproducible.
+    /// explicit so an ablation can still reproduce it.
+    ///
+    /// **Deprecated 2026-11-12 (gh:#1500, maintainer: "Deprecate the old
+    /// scheme"):** use [`DivScheme::GaussLinear`]. The Foam Studio coil and
+    /// its gh:#1157 V&V record now run `GaussLinear`; the one remaining use is
+    /// the record's deferred-form ablation row (`--coil-run ... deferred`) and
+    /// this scheme's own unit test, each under `#[allow(deprecated)]`.
+    #[deprecated(note = "not an OpenFOAM scheme: use `DivScheme::GaussLinear` (upstream's fully implicit Gauss linear); see gh:#1500")]
     GaussLinearDeferred,
     GaussLinearUpwind(String), // e.g. "Gauss linearUpwind grad(U)"
     GaussVanLeer,
