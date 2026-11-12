@@ -69,4 +69,25 @@ The port has only the first.
 
 ## Results
 
-(filled in below after the runs)
+### Run 1, ESI side (2026-11-12) and the first miss
+
+ESI (reduced flange, `snap false`) selects, in the first `surfaceOnlyRefine`,
+914 / 4294 / 344 / 12 / 0 cells per iteration (log
+`esi_log.txt` beside this file). The port with
+`read_stl` gives 758 / 3500 / 348 / 14 / 0. **P1 failed at iteration 0**: 156
+of the 914 level-0 cells ESI refines are not refined by the port, a miss of
+17 %. Tracing the 156 cells with an independent brute-force segment test
+(Python, `probe.py` logic) shows each has a face-neighbour segment that hits a
+triangle of `solid patch2` or `patch3`. **The STL has four `solid ... endsolid`
+blocks (6468 triangles, regions `patch1..patch4`)** and the port's ASCII reader
+(`read_stl_ascii_str`) stops at the first `endsolid`: it meshed against one
+solid of four. The surface search differs, not the refinement loop.
+
+### PREDICTIONS for the follow-up (written before re-running the port)
+
+| # | prediction |
+|---|---|
+| P6 | Reading all four solids (double precision, `read_stl` fixed) makes the per-iteration counts equal ESI's 914 / 4294 / 344 / 12 / 0 exactly, or within 1 cell per iteration. |
+| P7 | Upstream's single-precision STL coordinates (`STLpoint` is `float`; `read_stl_zoned` already ports this) change the counts by at most a few cells (the only decisions that can flip are segments grazing a plane at a cell-centre coordinate); the result with `read_stl_zoned` equals ESI's exactly. |
+
+(results below)

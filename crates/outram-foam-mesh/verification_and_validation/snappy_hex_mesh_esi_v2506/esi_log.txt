@@ -1,0 +1,742 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2506                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : 615aae61-20250627 OPENFOAM=2506 version=v2506
+Arch   : "LSB;label=32;scalar=64"
+Exec   : snappyHexMesh
+Date   : Nov 12 2026
+Time   : 03:13:58
+Host   : vm
+PID    : 10558
+I/O    : uncollated
+Case   : /home/user/upstream-build/runs/snappy_flange
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Create mesh for time = 0
+
+Read mesh in = 0.02 s
+
+Overall mesh bounding box  : (-0.03 -0.03000000000000001 -0.03000000000000001) (0.03 0.03000000000000001 0.01)
+Relative tolerance         : 1e-06
+Absolute matching distance : 9.380831519646861e-08
+
+Reading refinement surfaces.
+Read refinement surfaces in = 0 s
+
+Reading refinement shells.
+Read refinement shells in = 0 s
+
+Setting refinement level of surface to be consistent with shells.
+For geometry flange.stl detected 0 uncached triangles out of 6468
+Checked shell refinement in = 0.02 s
+
+Reading features.
+Read features in = 0 s
+
+
+Determining initial surface intersections
+-----------------------------------------
+
+Edge intersection testing:
+    Number of edges             : 12272
+    Number of edges to retest   : 0
+    Number of intersected edges : 0
+Edge intersection testing:
+    Number of edges             : 12272
+    Number of edges to retest   : 12272
+    Number of intersected edges : 779
+Calculated surface intersections in = 0.01 s
+
+Initial mesh : cells(local):3840  faces(local):12272  points(local):4641
+Initial mesh : cells:3840  faces:12272  points:4641
+Cells per refinement level:
+    0	3840
+Setting refinement level of surface to be consistent with curvature.
+Checked curvature refinement in = 0 s
+
+
+Adding patches for surface regions
+----------------------------------
+
+Patch Type                Region                        
+----- ----                ------                        
+flange:
+
+1     wall                flange_patch1                 
+2     wall                flange_patch2                 
+3     wall                flange_patch3                 
+4     wall                flange_patch4                 
+
+Added patches in = 0 s
+
+Edge intersection testing:
+    Number of edges             : 12272
+    Number of edges to retest   : 0
+    Number of intersected edges : 779
+Decomposition method none [1]
+
+Refinement phase
+----------------
+
+Found point (-9.231490000000001e-05 -0.0025 -0.0025) in cell 2709 on processor 0
+
+Surface refinement iteration 0
+------------------------------
+
+Marked for refinement due to surface intersection          : 914 cells.
+Determined cells to refine in = 0.01 s
+Selected for refinement : 914 cells (out of 3840)
+getChangedFaces : Detected  local:26158 global:26158 changed faces out of 33269
+getChangedFaces : Writing 26158 changed faces to faceSet changedFaces
+Edge intersection testing:
+    Number of edges             : 33269
+    Number of edges to retest   : 26158
+    Number of intersected edges : 3066
+Writing refined but unbalanced "surface refinement iteration 0" mesh to time 1
+Dumped debug data in = 0.05 s
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 0 duplicate pairs of faces.
+Refined mesh in = 0.02 s
+After refinement surface refinement iteration 0 : cells(local):10238  faces(local):33269  points(local):12829
+After refinement surface refinement iteration 0 : cells:10238  faces:33269  points:12829
+Cells per refinement level:
+    0	2926
+    1	7312
+
+Surface refinement iteration 1
+------------------------------
+
+Marked for refinement due to surface intersection          : 4108 cells.
+Determined cells to refine in = 0 s
+Selected for refinement : 4294 cells (out of 10238)
+getChangedFaces : Detected  local:122100 global:122100 changed faces out of 130772
+getChangedFaces : Writing 122100 changed faces to faceSet changedFaces
+Edge intersection testing:
+    Number of edges             : 130772
+    Number of edges to retest   : 122100
+    Number of intersected edges : 12179
+Writing refined but unbalanced "surface refinement iteration 1" mesh to time 2
+Dumped debug data in = 0.26 s
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 0 duplicate pairs of faces.
+Refined mesh in = 0.06 s
+After refinement surface refinement iteration 1 : cells(local):40296  faces(local):130772  points(local):50183
+After refinement surface refinement iteration 1 : cells:40296  faces:130772  points:50183
+Cells per refinement level:
+    0	2686
+    1	5178
+    2	32432
+
+Surface refinement iteration 2
+------------------------------
+
+Marked for refinement due to surface intersection          : 288 cells.
+Determined cells to refine in = 0.01 s
+Selected for refinement : 344 cells (out of 40296)
+getChangedFaces : Detected  local:26711 global:26711 changed faces out of 137951
+getChangedFaces : Writing 26711 changed faces to faceSet changedFaces
+Edge intersection testing:
+    Number of edges             : 137951
+    Number of edges to retest   : 26711
+    Number of intersected edges : 12145
+Writing refined but unbalanced "surface refinement iteration 2" mesh to time 3
+Dumped debug data in = 0.2 s
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 0 duplicate pairs of faces.
+Refined mesh in = 0.05 s
+After refinement surface refinement iteration 2 : cells(local):42704  faces(local):137951  points(local):52539
+After refinement surface refinement iteration 2 : cells:42704  faces:137951  points:52539
+Cells per refinement level:
+    0	2630
+    1	5338
+    2	34736
+
+Surface refinement iteration 3
+------------------------------
+
+Marked for refinement due to surface intersection          : 8 cells.
+Determined cells to refine in = 0.01 s
+Selected for refinement : 12 cells (out of 42704)
+getChangedFaces : Detected  local:1242 global:1242 changed faces out of 138191
+getChangedFaces : Writing 1242 changed faces to faceSet changedFaces
+Edge intersection testing:
+    Number of edges             : 138191
+    Number of edges to retest   : 1242
+    Number of intersected edges : 12145
+Writing refined but unbalanced "surface refinement iteration 3" mesh to time 4
+Dumped debug data in = 0.19 s
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 0 duplicate pairs of faces.
+Refined mesh in = 0.05 s
+After refinement surface refinement iteration 3 : cells(local):42788  faces(local):138191  points(local):52609
+After refinement surface refinement iteration 3 : cells:42788  faces:138191  points:52609
+Cells per refinement level:
+    0	2626
+    1	5362
+    2	34800
+
+Surface refinement iteration 4
+------------------------------
+
+Marked for refinement due to surface intersection          : 0 cells.
+Determined cells to refine in = 0.01 s
+Selected for refinement : 0 cells (out of 42788)
+Stopping refining since too few cells selected.
+
+
+Removing mesh beyond surface intersections
+------------------------------------------
+
+Writing 0 frozen points to "/home/user/upstream-build/runs/snappy_flange/5/frozenPoints.obj"
+Setting cellZones according to locationsInMesh:
+Location : (-9.231490000000001e-05 -0.0025 -0.0025)
+    cellZone : none
+
+For cellZone none found point (-9.231490000000001e-05 -0.0025 -0.0025) in global region 1 out of 2 regions.
+nUnvisited      :24774
+nBackgroundCells:18014
+nZoneCells      :0()
+Writing cell zone allocation on mesh to time 6
+--> FOAM Warning : 
+    From void Foam::meshRefinement::nearestFace(const Foam::labelUList&, const Foam::bitSet&, Foam::autoPtr<Foam::mapDistribute>&, Foam::labelList&, Foam::label) const
+    in file meshRefinement/meshRefinement.C at line 526
+    Did not visit some faces, e.g. face 0 at (-0.027 -0.028125 -0.02833333333333334)
+Keeping all cells containing inside points
+Selected for keeping : 30264 cells.
+Edge intersection testing:
+    Number of edges             : 100918
+    Number of edges to retest   : 12830
+    Number of intersected edges : 12145
+Writing subsetted mesh to time 7
+Dumped mesh in = 0.3 s
+
+
+
+Shell refinement iteration 0
+----------------------------
+
+Marked for refinement due to distance to explicit features : 0 cells.
+Marked for refinement due to refinement shells             : 0 cells.
+Dumping 0 cells to cellSet candidateCellsFromShells.
+Determined cells to refine in = 0.01 s
+Selected for internal refinement : 0 cells (out of 30264)
+Stopping refining since too few cells selected.
+
+
+Dangling coarse cells refinement iteration 0
+--------------------------------------------
+
+Dumping 22 cells to cellSet candidateCellSet.
+Determined cells to refine in = 0 s
+Selected for refinement : 22 cells (out of 30264)
+getChangedFaces : Detected  local:2752 global:2752 changed faces out of 101242
+getChangedFaces : Writing 2752 changed faces to faceSet changedFaces
+Edge intersection testing:
+    Number of edges             : 101242
+    Number of edges to retest   : 2752
+    Number of intersected edges : 12145
+Writing refined but unbalanced "coarse cell refinement iteration 0" mesh to time 8
+Dumped debug data in = 0.16 s
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 0 duplicate pairs of faces.
+Refined mesh in = 0.06 s
+After refinement coarse cell refinement iteration 0 : cells(local):30418  faces(local):101242  points(local):40433
+After refinement coarse cell refinement iteration 0 : cells:30418  faces:101242  points:40433
+Cells per refinement level:
+    0	2
+    1	1532
+    2	28884
+
+Dangling coarse cells refinement iteration 1
+--------------------------------------------
+
+Dumping 4 cells to cellSet candidateCellSet.
+Determined cells to refine in = 0 s
+Selected for refinement : 4 cells (out of 30418)
+getChangedFaces : Detected  local:532 global:532 changed faces out of 101302
+getChangedFaces : Writing 532 changed faces to faceSet changedFaces
+Edge intersection testing:
+    Number of edges             : 101302
+    Number of edges to retest   : 532
+    Number of intersected edges : 12145
+Writing refined but unbalanced "coarse cell refinement iteration 1" mesh to time 9
+Dumped debug data in = 0.15 s
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 0 duplicate pairs of faces.
+Refined mesh in = 0.05 s
+After refinement coarse cell refinement iteration 1 : cells(local):30446  faces(local):101302  points(local):40441
+After refinement coarse cell refinement iteration 1 : cells:30446  faces:101302  points:40441
+Cells per refinement level:
+    0	2
+    1	1528
+    2	28916
+
+Dangling coarse cells refinement iteration 2
+--------------------------------------------
+
+Dumping 4 cells to cellSet candidateCellSet.
+Determined cells to refine in = 0 s
+Selected for refinement : 4 cells (out of 30446)
+getChangedFaces : Detected  local:532 global:532 changed faces out of 101362
+getChangedFaces : Writing 532 changed faces to faceSet changedFaces
+Edge intersection testing:
+    Number of edges             : 101362
+    Number of edges to retest   : 532
+    Number of intersected edges : 12145
+Writing refined but unbalanced "coarse cell refinement iteration 2" mesh to time 10
+Dumped debug data in = 0.16 s
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 0 duplicate pairs of faces.
+Refined mesh in = 0.05 s
+After refinement coarse cell refinement iteration 2 : cells(local):30474  faces(local):101362  points(local):40449
+After refinement coarse cell refinement iteration 2 : cells:30474  faces:101362  points:40449
+Cells per refinement level:
+    0	2
+    1	1524
+    2	28948
+
+Dangling coarse cells refinement iteration 3
+--------------------------------------------
+
+Dumping 4 cells to cellSet candidateCellSet.
+Determined cells to refine in = 0 s
+Selected for refinement : 4 cells (out of 30474)
+getChangedFaces : Detected  local:526 global:526 changed faces out of 101422
+getChangedFaces : Writing 526 changed faces to faceSet changedFaces
+Edge intersection testing:
+    Number of edges             : 101422
+    Number of edges to retest   : 526
+    Number of intersected edges : 12145
+Writing refined but unbalanced "coarse cell refinement iteration 3" mesh to time 11
+Dumped debug data in = 0.15 s
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 0 duplicate pairs of faces.
+Refined mesh in = 0.05 s
+After refinement coarse cell refinement iteration 3 : cells(local):30502  faces(local):101422  points(local):40457
+After refinement coarse cell refinement iteration 3 : cells:30502  faces:101422  points:40457
+Cells per refinement level:
+    0	2
+    1	1520
+    2	28980
+
+Dangling coarse cells refinement iteration 4
+--------------------------------------------
+
+Dumping 2 cells to cellSet candidateCellSet.
+Determined cells to refine in = 0 s
+Selected for refinement : 2 cells (out of 30502)
+getChangedFaces : Detected  local:254 global:254 changed faces out of 101452
+getChangedFaces : Writing 254 changed faces to faceSet changedFaces
+Edge intersection testing:
+    Number of edges             : 101452
+    Number of edges to retest   : 254
+    Number of intersected edges : 12145
+Writing refined but unbalanced "coarse cell refinement iteration 4" mesh to time 12
+Dumped debug data in = 0.15 s
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 0 duplicate pairs of faces.
+Refined mesh in = 0.04 s
+After refinement coarse cell refinement iteration 4 : cells(local):30516  faces(local):101452  points(local):40461
+After refinement coarse cell refinement iteration 4 : cells:30516  faces:101452  points:40461
+Cells per refinement level:
+    0	2
+    1	1518
+    2	28996
+
+Dangling coarse cells refinement iteration 5
+--------------------------------------------
+
+Dumping 0 cells to cellSet candidateCellSet.
+Determined cells to refine in = 0 s
+Selected for refinement : 0 cells (out of 30516)
+Stopping refining since too few cells selected.
+
+
+Dangling coarse cells refinement iteration 0
+--------------------------------------------
+
+Dumping 2 cells to cellSet candidateCellSet.
+Determined cells to refine in = 0 s
+Selected for refinement : 2 cells (out of 30516)
+getChangedFaces : Detected  local:312 global:312 changed faces out of 101476
+getChangedFaces : Writing 312 changed faces to faceSet changedFaces
+Edge intersection testing:
+    Number of edges             : 101476
+    Number of edges to retest   : 312
+    Number of intersected edges : 12145
+Writing refined but unbalanced "coarse cell refinement iteration 0" mesh to time 13
+Dumped debug data in = 0.14 s
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 0 duplicate pairs of faces.
+Refined mesh in = 0.05 s
+After refinement coarse cell refinement iteration 0 : cells(local):30530  faces(local):101476  points(local):40463
+After refinement coarse cell refinement iteration 0 : cells:30530  faces:101476  points:40463
+Cells per refinement level:
+    0	0
+    1	1534
+    2	28996
+
+Dangling coarse cells refinement iteration 1
+--------------------------------------------
+
+Dumping 0 cells to cellSet candidateCellSet.
+Determined cells to refine in = 0 s
+Selected for refinement : 0 cells (out of 30530)
+Stopping refining since too few cells selected.
+
+
+Refinement transition refinement iteration 0
+--------------------------------------------
+
+Dumping 0 cells to cellSet candidateCellSet.
+Determined cells to refine in = 0 s
+Selected for refinement : 0 cells (out of 30530)
+Stopping refining since too few cells selected.
+
+
+Splitting mesh at surface intersections
+---------------------------------------
+
+Introducing baffles for 12145 faces that are intersected by the surface.
+
+Writing 0 frozen points to "/home/user/upstream-build/runs/snappy_flange/14/frozenPoints.obj"
+Setting cellZones according to locationsInMesh:
+Location : (-9.231490000000001e-05 -0.0025 -0.0025)
+    cellZone : none
+
+For cellZone none found point (-9.231490000000001e-05 -0.0025 -0.0025) in global region 1 out of 2 regions.
+nUnvisited      :12250
+nBackgroundCells:18280
+nZoneCells      :0()
+Writing cell zone allocation on mesh to time 15
+Edge intersection testing:
+    Number of edges             : 113621
+    Number of edges to retest   : 79505
+    Number of intersected edges : 24290
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 12145 duplicate pairs of faces.
+Created baffles in = 0.25 s
+
+
+After introducing baffles : cells(local):30530  faces(local):113621  points(local):40463
+After introducing baffles : cells:30530  faces:113621  points:40463
+Cells per refinement level:
+    0	0
+    1	1534
+    2	28996
+Writing baffled mesh to time 16
+Dumped debug data in = 0.09 s
+
+
+
+Introducing baffles to block off problem cells
+----------------------------------------------
+
+markFacesOnProblemCells : marked 25295 additional internal faces to be converted into baffles.
+Analyzed problem cells in = 0.05 s
+
+
+Dumping 25295 problem faces to "/home/user/upstream-build/runs/snappy_flange/16/polyMesh/sets/problemFaces"
+Introducing baffles to delete problem cells.
+
+Edge intersection testing:
+    Number of edges             : 138916
+    Number of edges to retest   : 75652
+    Number of intersected edges : 24290
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 37440 duplicate pairs of faces.
+Created baffles in = 0.18 s
+
+
+After introducing baffles : cells(local):30530  faces(local):138916  points(local):40463
+After introducing baffles : cells:30530  faces:138916  points:40463
+Cells per refinement level:
+    0	0
+    1	1534
+    2	28996
+Writing extra baffled mesh to time 18
+Dumped debug data in = 0.1 s
+
+
+Writing 0 frozen points to "/home/user/upstream-build/runs/snappy_flange/18/frozenPoints.obj"
+Setting cellZones according to locationsInMesh:
+Location : (-9.231490000000001e-05 -0.0025 -0.0025)
+    cellZone : none
+
+For cellZone none found point (-9.231490000000001e-05 -0.0025 -0.0025) in global region 1 out of 12176 regions.
+nUnvisited      :12252
+nBackgroundCells:18278
+nZoneCells      :0()
+Writing cell zone allocation on mesh to time 19
+Edge intersection testing:
+    Number of edges             : 138916
+    Number of edges to retest   : 95043
+    Number of intersected edges : 24290
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 37440 duplicate pairs of faces.
+
+Remove unreachable sections of mesh
+-----------------------------------
+
+Keeping all cells containing points 1((-9.231490000000001e-05 -0.0025 -0.0025))
+Selected for keeping : 18278 cells.
+Edge intersection testing:
+    Number of edges             : 63194
+    Number of edges to retest   : 0
+    Number of intersected edges : 12132
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 0 duplicate pairs of faces.
+Split mesh in = 0.41 s
+
+
+After subsetting : cells(local):18278  faces(local):63194  points(local):26662
+After subsetting : cells:18278  faces:63194  points:26662
+Cells per refinement level:
+    0	0
+    1	1190
+    2	17088
+Writing subsetted mesh to time 21
+Dumped debug data in = 0.05 s
+
+
+
+Introducing zones for interfaces
+--------------------------------
+
+Writing 0 frozen points to "/home/user/upstream-build/runs/snappy_flange/22/frozenPoints.obj"
+Setting cellZones according to locationsInMesh:
+Location : (-9.231490000000001e-05 -0.0025 -0.0025)
+    cellZone : none
+
+For cellZone none found point (-9.231490000000001e-05 -0.0025 -0.0025) in global region 0 out of 1 regions.
+nUnvisited      :0
+nBackgroundCells:18278
+nZoneCells      :0()
+Writing cell zone allocation on mesh to time 23
+Setting faceZones according to neighbouring cellZones:
+
+Edge intersection testing:
+    Number of edges             : 63194
+    Number of edges to retest   : 0
+    Number of intersected edges : 12132
+Writing zoned mesh to time 23
+
+Handling cells with snap problems
+---------------------------------
+
+Introducing baffles for 12132 faces that are intersected by the surface.
+
+Writing 0 frozen points to "/home/user/upstream-build/runs/snappy_flange/24/frozenPoints.obj"
+Setting cellZones according to locationsInMesh:
+Location : (-9.231490000000001e-05 -0.0025 -0.0025)
+    cellZone : none
+
+For cellZone none found point (-9.231490000000001e-05 -0.0025 -0.0025) in global region 0 out of 1 regions.
+nUnvisited      :0
+nBackgroundCells:18278
+nZoneCells      :0()
+Writing cell zone allocation on mesh to time 25
+Edge intersection testing:
+    Number of edges             : 63194
+    Number of edges to retest   : 38849
+    Number of intersected edges : 12132
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 0 duplicate pairs of faces.
+Created baffles in = 0.3 s
+
+
+After introducing baffles : cells(local):18278  faces(local):63194  points(local):26662
+After introducing baffles : cells:18278  faces:63194  points:26662
+Cells per refinement level:
+    0	0
+    1	1190
+    2	17088
+Writing baffled mesh to time 26
+Dumped debug data in = 0.06 s
+
+
+
+Introducing baffles to block off problem cells
+----------------------------------------------
+
+markFacesOnProblemCells : marked 0 additional internal faces to be converted into baffles.
+Analyzed problem cells in = 0.02 s
+
+
+Dumping 0 problem faces to "/home/user/upstream-build/runs/snappy_flange/26/polyMesh/sets/problemFaces"
+Introducing baffles to delete problem cells.
+
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 0 duplicate pairs of faces.
+Created baffles in = 0.03 s
+
+
+After introducing baffles : cells(local):18278  faces(local):63194  points(local):26662
+After introducing baffles : cells:18278  faces:63194  points:26662
+Cells per refinement level:
+    0	0
+    1	1190
+    2	17088
+Writing extra baffled mesh to time 28
+Dumped debug data in = 0.06 s
+
+
+Writing 0 frozen points to "/home/user/upstream-build/runs/snappy_flange/28/frozenPoints.obj"
+Setting cellZones according to locationsInMesh:
+Location : (-9.231490000000001e-05 -0.0025 -0.0025)
+    cellZone : none
+
+For cellZone none found point (-9.231490000000001e-05 -0.0025 -0.0025) in global region 0 out of 1 regions.
+nUnvisited      :0
+nBackgroundCells:18278
+nZoneCells      :0()
+Writing cell zone allocation on mesh to time 29
+Edge intersection testing:
+    Number of edges             : 63194
+    Number of edges to retest   : 38849
+    Number of intersected edges : 12132
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 0 duplicate pairs of faces.
+
+Remove unreachable sections of mesh
+-----------------------------------
+
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 0 duplicate pairs of faces.
+Split mesh in = 0.18 s
+
+
+After subsetting : cells(local):18278  faces(local):63194  points(local):26662
+After subsetting : cells:18278  faces:63194  points:26662
+Cells per refinement level:
+    0	0
+    1	1190
+    2	17088
+Writing subsetted mesh to time 31
+Dumped debug data in = 0.05 s
+
+
+
+Merge free-standing baffles
+---------------------------
+
+freeStandingBaffles : detected 0 free-standing baffles out of 0
+
+Detected free-standing baffles : 0
+Merged free-standing baffles in = 0.01 s
+
+
+dupNonManifoldPoints : Found : 0 non-manifold points (out of 26662)
+Detected unsplittable baffles : 0
+Writing handleProblemCells mesh to time 32
+
+Merge refined boundary faces
+----------------------------
+
+Merging 0 sets of faces.
+
+No faces merged ...
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 0 duplicate pairs of faces.
+
+Merging all points on surface that
+- are used by only two boundary faces and
+- make an angle with a cosine of more than 0.7071067811865476.
+
+No straight edges simplified and no points removed ...
+meshRefinement::checkData() : Checking refinement structure.
+meshRefinement::checkData() : Checking refinement levels.
+meshRefinement::checkData() : Checking synchronization.
+meshRefinement::checkData() : Counting duplicate faces.
+meshRefinement::checkData() : Found 0 duplicate pairs of faces.
+Refined mesh : cells(local):18278  faces(local):63194  points(local):26662
+Refined mesh : cells:18278  faces:63194  points:26662
+Cells per refinement level:
+    0	0
+    1	1190
+    2	17088
+Writing mesh to time 32
+Wrote mesh in = 0.06 s.
+Mesh refined in = 4.52 s.
+Checking final mesh ...
+Checking faces in error :
+    non-orthogonality > 65  degrees                        : 0
+    faces with face pyramid volume < 1e-13                 : 0
+    faces with face-decomposition tet quality < 1e-15      : 0
+    faces with concavity > 80  degrees                     : 0
+    faces with skewness > 4   (internal) or 20  (boundary) : 0
+    faces with interpolation weights (0..1)  < 0.05        : 0
+    faces with volume ratio of neighbour cells < 0.01      : 0
+    faces with face twist < 0.02                           : 0
+    faces on cells with determinant < 0.001                : 0
+Finished meshing without any errors
+Finished meshing in = 4.6 s.
+End
+

@@ -171,7 +171,7 @@ pub(crate) fn face_pairs(
 /// `surface_level` the surface's (min = max) refinement level, and
 /// `min_refine_cells` upstream's `minRefinementCells`.
 pub(crate) fn surface_only_refine(
-    mut leaves: Vec<Leaf>,
+    leaves: Vec<Leaf>,
     n0: [usize; 3],
     origin: Vector3,
     size0: [f64; 3],
@@ -179,8 +179,26 @@ pub(crate) fn surface_only_refine(
     surface: &TriangleSoup,
     min_refine_cells: usize,
 ) -> Vec<Leaf> {
-    const MAX_ITER: usize = 100;
-    for iter in 0..MAX_ITER {
+    surface_only_refine_traced(leaves, n0, origin, size0, surface_level, surface, min_refine_cells, 100).0
+}
+
+/// [`surface_only_refine`] that also returns, per iteration, the number of
+/// cells selected after the 2:1 closure: the integer upstream prints as
+/// `Selected for refinement : N cells` (`snappyRefineDriver.C`
+/// `surfaceOnlyRefine`, ESI v2506 line 342). The final entry is the iteration
+/// that stopped the loop (0 when the loop ended on "no cells selected").
+pub(crate) fn surface_only_refine_traced(
+    mut leaves: Vec<Leaf>,
+    n0: [usize; 3],
+    origin: Vector3,
+    size0: [f64; 3],
+    surface_level: usize,
+    surface: &TriangleSoup,
+    min_refine_cells: usize,
+    max_iter: usize,
+) -> (Vec<Leaf>, Vec<usize>) {
+    let mut selected = Vec::new();
+    for iter in 0..max_iter {
         let pairs: Vec<FacePair> = face_pairs(&leaves, n0, origin, size0)
             .into_iter()
             .map(|(own, nei, start, end)| FacePair { own, nei, start, end })
@@ -209,12 +227,50 @@ pub(crate) fn surface_only_refine(
         consistent_refinement(&leaves, &pairs, &mut refine);
 
         let n_refine = refine.iter().filter(|&&r| r).count();
+        selected.push(n_refine);
         if n_refine == 0 || (iter >= surface_level && n_refine <= min_refine_cells) {
             break;
         }
         leaves = split(&leaves, &refine);
     }
-    leaves
+    (leaves, selected)
+}
+
+/// The refined octree of `surface_only_refine` as `(level, centre)` pairs plus
+/// the per-iteration selected-cell counts, with no cell removal. Exists so the
+/// ESI v2506 differential can compare the refinement stage on its own
+/// (`verification_and_validation/snappy_hex_mesh_esi_v2506`).
+pub fn refined_octree(
+    surface: &TriangleSoup,
+    controls: &crate::snappy_hex_mesh::castellation::CastellationControls,
+    max_iter: usize,
+) -> (Vec<(usize, Vector3)>, Vec<usize>) {
+    let bg = &controls.background;
+    let span = bg.bounds.span();
+    let size0 = [span.x / bg.nx as f64, span.y / bg.ny as f64, span.z / bg.nz as f64];
+    let mut leaves = Vec::with_capacity(bg.n_cells());
+    for i in 0..bg.nx {
+        for j in 0..bg.ny {
+            for k in 0..bg.nz {
+                leaves.push(Leaf { level: 0, i, j, k });
+            }
+        }
+    }
+    let (leaves, selected) = surface_only_refine_traced(
+        leaves,
+        [bg.nx, bg.ny, bg.nz],
+        bg.bounds.min,
+        size0,
+        controls.surface_level,
+        surface,
+        controls.min_refine_cells,
+        max_iter,
+    );
+    let cells = leaves
+        .iter()
+        .map(|l| (l.level, centre(l, bg.bounds.min, size0)))
+        .collect();
+    (cells, selected)
 }
 
 /// `hexRef8::consistentRefinement(cells, maxSet = true)`: raise `refine` until
@@ -372,5 +428,24 @@ mod tests {
         let up = band.with_surface_intersection_refinement();
         let m = castellate(&surface, &up).unwrap();
         assert_eq!(m.cells_by_level, vec![328, 728, 2304]);
+    }
+
+    /// `refined_octree` reports the same leaves as `surface_only_refine` and a
+    /// per-iteration trace that ends in 0 and sums to the cells split.
+    #[test]
+    fn refined_octree_trace_is_consistent() {
+        use crate::snappy_hex_mesh::{BackgroundMesh, Bounds, CastellationControls};
+        let surface = TriangleSoup::uv_sphere(Vector3::new(0.5, 0.5, 0.5), 0.3, 24, 24);
+        let domain = Bounds::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(1.0, 1.0, 1.0));
+        let c = CastellationControls::new(
+            BackgroundMesh::uniform(domain, 8, 8, 8),
+            2,
+            Vector3::new(0.02, 0.02, 0.02),
+        );
+        let (cells, sel) = refined_octree(&surface, &c, 100);
+        let direct = surface_only_refine(background(8), [8; 3], Vector3::new(0.0, 0.0, 0.0), [0.125; 3], 2, &surface, 0);
+        assert_eq!(cells.len(), direct.len());
+        assert_eq!(*sel.last().unwrap(), 0);
+        assert_eq!(512 + 7 * sel.iter().sum::<usize>(), cells.len());
     }
 }
