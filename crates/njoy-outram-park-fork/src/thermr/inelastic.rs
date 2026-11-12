@@ -69,6 +69,33 @@ fn invert_cdf(x: &[f64], cum: &[f64], target: f64) -> f64 {
 const SABFLG: f64 = -225.0;
 
 impl IncoherentInelastic {
+    /// THERMR's **free-gas** scatterer (`iinc = 1`): `calcem`'s synthetic
+    /// 45-point `β` grid (`thermr.f90:1862-1912`), `lat = 0`, `lasym = 0`,
+    /// no table. `awr` is the PENDF's `AWR` (`az = scr(2)`), `natom` card 2's
+    /// (only so that `B(1)/natom = 1`, i.e. `smz = 1`, `:1913`).
+    pub fn free_gas(awr: f64, temp_k: f64, natom: f64) -> Self {
+        let beta = vec![
+            0.0, 0.1, 2.0, 4.0, 6.0, 8.0, 10.0, 15.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 65.0, 70.0,
+            75.0, 80.0, 100.0, 120.0, 140.0, 160.0, 180.0, 200.0, 250.0, 300.0, 350.0, 400.0, 500.0, 600.0, 700.0,
+            800.0, 900.0, 1000.0, 1250.0, 1500.0, 1750.0, 2000.0, 2250.0, 2500.0, 2750.0, 3000.0, 3500.0,
+        ];
+        Self {
+            lat: 0,
+            lasym: 0,
+            lln: 0,
+            b: vec![natom, 0.0, awr, 0.0, 0.0, natom],
+            temperature_k: temp_k,
+            beta,
+            s_tables: Vec::new(),
+            tabulated_temperatures_k: vec![temp_k],
+            temp_interp: Vec::new(),
+            teff_table: Vec::new(),
+            temperature_bracket: None,
+            teff_request_k: None,
+            free_gas: true,
+        }
+    }
+
     /// Mass ratio `A` of the principal scatterer (`B(3)`).
     pub fn mass_ratio(&self) -> f64 {
         self.b[2]
@@ -133,6 +160,26 @@ impl IncoherentInelastic {
         }
     }
 
+    /// THERMR's free-gas kernel, `sig` label 200 (`thermr.f90:2602-2609`):
+    /// `s = exp(-(α+β)²/(4α)) / (c√α)` with `c = √(4π)`, and
+    /// `σ = σc·sb·s` where `sb = ((A+1)/A)²` (`smz = 1`, `:1913-1914`).
+    fn free_gas_double_differential(&self, e: f64, ep: f64, mu: f64, temp_k: f64, natom: f64) -> f64 {
+        const AMIN: f64 = 1.0e-6;
+        let tev = BK_EV_PER_K * temp_k;
+        let rtev = 1.0 / tev;
+        let bb = (ep - e) * rtev;
+        let mut a = (e + ep - 2.0 * mu * (e * ep).sqrt()) / (self.mass_ratio() * tev);
+        if a < AMIN {
+            a = AMIN;
+        }
+        let sigc = (ep / e).sqrt() * rtev / 2.0;
+        let c = (4.0 * std::f64::consts::PI).sqrt();
+        let arg = (a + bb) * (a + bb) / (4.0 * a);
+        let s = if -arg > SABFLG { (-arg).r_exp() / (c * a.sqrt()) } else { 0.0 };
+        let sig = sigc * self.sigma_bound(natom) * s;
+        if sig.is_finite() && sig > 0.0 { sig } else { 0.0 }
+    }
+
     /// [`double_differential`](Self::double_differential) against an explicit
     /// set of `S(α)` tables at their own temperature `temp_k` — the single-
     /// temperature worker the public method dispatches to.
@@ -147,6 +194,9 @@ impl IncoherentInelastic {
     ) -> f64 {
         if e <= 0.0 || ep <= 0.0 {
             return 0.0;
+        }
+        if self.free_gas {
+            return self.free_gas_double_differential(e, ep, mu, temp_k, natom);
         }
         let tev = BK_EV_PER_K * temp_k;
         let a_mass = self.mass_ratio();

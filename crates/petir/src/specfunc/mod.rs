@@ -20,7 +20,11 @@
 //! # What is here
 //!
 //! - **Error function family**: [`erf`], [`erfc`] and the scaled complementary
-//!   form [`erfc_scaled`], translated from GSL's `specfunc/erfc.c`; and
+//!   form [`erfc_scaled`]. ~~translated from GSL's `specfunc/erfc.c`~~
+//!   **CORRECTED 2026-11-10**: `erf`/`erfc` forward to the `libm` crate's
+//!   fdlibm (see `erf.rs`; against GSL 2.8 they are bit-identical on 76-86 %
+//!   of the sweep, worst 5e-14) and `erfc_scaled` is PETIR's own, with no GSL
+//!   counterpart; and
 //!   [`erf_inv`], the Winitzki approximation lifted verbatim from
 //!   `outram-foam-basic-lib`.
 //! - **Bessel family**: the cylindrical functions of orders 0 and 1 —

@@ -390,6 +390,10 @@ impl WeightSelection {
 // Card 9 — reaction requests (groupr.f90:200-215, read at :628)
 // ---------------------------------------------------------------------------
 
+/// `mtd` of a card-9 line that gives none: `groupr.f90:366` sets `mtdp = -1000`
+/// before the list-directed read, and `:382` then switches to automatic mode.
+pub const MTD_AUTO: i32 = -1000;
+
 /// One card-9 reaction request: `read(nsysi,*) mfd, mtd, mtname`
 /// (`groupr.f90:628`). Terminated in the deck by a request with `mfd == 0`.
 #[derive(Debug, Clone, PartialEq)]
@@ -661,7 +665,9 @@ impl GrouprInput {
                     "groupr::parse::card9a_extended_residual",
                 ));
             }
-            let mtd = *nums.get(1).ok_or_else(|| card_err("card 9: mtd"))?;
+            // `groupr.f90:366-382`: `mtdp = -1000` before the `read(nsysi,*)`; a card
+            // with no `mtd` keeps it, which selects automatic reaction lists (`nextr`).
+            let mtd = nums.get(1).copied().unwrap_or(MTD_AUTO);
             reactions.push(ReactionRequest { mfd, mtd, name });
         }
 

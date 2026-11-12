@@ -108,7 +108,8 @@ pub struct SurfaceQuery {
 /// - `XCylinder→[y0,z0,r]`, `YCylinder→[x0,z0,r]`, `ZCylinder→[x0,y0,r]`
 /// - cones `{X,Y,Z}Cone→[x0,y0,z0,r_sq]`
 /// - `Quadric→[a,b,c,d,e,f,g,h,j,k]`
-/// - tori `{X,Y,Z}Torus→[x0,y0,z0,a,b,c]`
+/// - tori `{X,Y,Z}Torus→[x0,y0,z0,a,c,b]` (radial minor radius first: the shader's
+///   `b` is the CPU struct's `c`, see gh:#701)
 ///
 /// The `bc` (boundary condition) field is intentionally not encoded — this kernel
 /// computes geometric distance only.
@@ -202,8 +203,10 @@ pub fn encode_surfaces(surfaces: &[SurfaceKind]) -> EncodedSurfaces {
                 c[1] = p.y0 as f32;
                 c[2] = p.z0 as f32;
                 c[3] = p.a as f32;
-                c[4] = p.b as f32;
-                c[5] = p.c as f32;
+                // The f32 twin keeps (b radial, c axial); OpenMC's CPU struct is
+                // (b axial, c radial) since gh:#701, so swap here.
+                c[4] = p.c as f32;
+                c[5] = p.b as f32;
                 12
             }
             SurfaceKind::YTorus(p) => {
@@ -211,8 +214,10 @@ pub fn encode_surfaces(surfaces: &[SurfaceKind]) -> EncodedSurfaces {
                 c[1] = p.y0 as f32;
                 c[2] = p.z0 as f32;
                 c[3] = p.a as f32;
-                c[4] = p.b as f32;
-                c[5] = p.c as f32;
+                // The f32 twin keeps (b radial, c axial); OpenMC's CPU struct is
+                // (b axial, c radial) since gh:#701, so swap here.
+                c[4] = p.c as f32;
+                c[5] = p.b as f32;
                 13
             }
             SurfaceKind::ZTorus(p) => {
@@ -220,8 +225,10 @@ pub fn encode_surfaces(surfaces: &[SurfaceKind]) -> EncodedSurfaces {
                 c[1] = p.y0 as f32;
                 c[2] = p.z0 as f32;
                 c[3] = p.a as f32;
-                c[4] = p.b as f32;
-                c[5] = p.c as f32;
+                // The f32 twin keeps (b radial, c axial); OpenMC's CPU struct is
+                // (b axial, c radial) since gh:#701, so swap here.
+                c[4] = p.c as f32;
+                c[5] = p.b as f32;
                 14
             }
         };
@@ -1401,10 +1408,20 @@ mod tests {
             for &o in &origins {
                 for i in 0..n_dir {
                     let u = dir(i, n_dir);
-                    let d_ref = s.distance(o, u, false);
+                    // An origin exactly on the surface is a ray that starts ON it,
+                    // which transport flags `coincident` (as OpenMC does after a
+                    // crossing). **CORRECTED 2026-11-11 (gh:#1442, #701):** this
+                    // used `false` for every origin. The f64 `distance` is now the
+                    // line-by-line port of OpenMC `surface.cpp`, which has no
+                    // spurious-root filter of its own and so returns the legitimate
+                    // root at t ~ 2e-15 for a non-coincident ray starting on a
+                    // torus; the old CPU port filtered it. Both sides are queried
+                    // with the flag transport would set.
+                    let on_surface = s.evaluate(o).abs() < 1.0e-12;
+                    let d_ref = s.distance(o, u, on_surface);
                     let q = SurfaceQuery {
                         surface: si as u32,
-                        coincident: false,
+                        coincident: on_surface,
                         r: o,
                         u,
                     };
@@ -1914,15 +1931,20 @@ mod tests {
             "origin is no longer on the torus: {sense}"
         );
 
+        // `coincident: true`: the ray starts on the surface. **CORRECTED
+        // 2026-11-11 (gh:#1442, #701):** was `false`. The f64 reference is now
+        // upstream's `torus_distance`, which (as OpenMC) returns the legitimate
+        // root at 2.4e-15 for a NON-coincident ray starting on the torus; the
+        // old CPU port filtered it out. Transport flags such a ray coincident.
         let q = vec![SurfaceQuery {
             surface: 0,
-            coincident: false,
+            coincident: true,
             r,
             u,
         }];
         let got = surface_distance_cpu_f32(&encoded, &q)[0];
 
-        let reference = surfaces[0].distance(r, u, false) as f32;
+        let reference = surfaces[0].distance(r, u, true) as f32;
         assert!(
             (got - reference).abs() <= 1.0e-3 * (1.0 + reference.abs()),
             "f32 mirror {got} disagrees with the f64 reference {reference}"

@@ -17,7 +17,8 @@
 //! each has the same QI and the same `(E, sigma)` pairs, bit for bit. Ours
 //! must also carry no section NJOY lacks. There is no tolerance.
 //!
-//! References are NJOY2016 `ac5adf5f` outputs committed under
+//! References are NJOY2016 `ac5adf5f` (2016.79) outputs, except the Ca-40 case, which is from
+//! 2016.80 `ab27c64` (the version that fixed `bigeta`; see its test), committed under
 //! `reference-data/reconr/` (`tape21`) and `reference-data/errorr/`
 //! (`tape22`). Each directory's README gives the deck and provenance.
 //!
@@ -112,6 +113,38 @@ fn assert_same(endf: &str, mat: i32, dir: &str, pendf: &str, temp_k: Option<f64>
     };
     assert!(d.is_empty(), "{pendf}: {} sections differ:\n{}", d.len(), d.join("\n"));
     println!("{pendf}: every MF=3 word identical to NJOY2016's");
+}
+
+/// **NJOY2016 regression test 88 (Ca-40, ENDF/B-VIII.0, MAT 2025), RECONR only, against an
+/// NJOY2016 2016.80 build (gh:#1368, #1366).** Deck (upstream `tests/88/input`, committed beside
+/// the PENDF): `moder 20 -21; reconr -21 -22 / 2025 0 / .001 / 0 /; moder -22 50`. The Ca-40
+/// evaluation has `LRF=7` charged-particle channels (proton and alpha emission), so RECONR runs
+/// SAMM's Coulomb functions (`bigeta`, `coulx`); NJOY2016.80 fixed `bigeta`'s K0/K1 harmonic
+/// sums for exactly this evaluation ("corrects the known issue of proton emission on Ca40",
+/// upstream fix #415).
+///
+/// **Prediction (written before the run):** after the 2016.80 sync of `bigeta` (float32
+/// `1./(k+1)`, `getfg` with `llmax = lll+2`) and of `coulx` (`getfg` with `llmax`), every MF=3
+/// word is bit-identical to NJOY2016.80's. Before the sync, differences in the charged-particle
+/// channels' MF=3 sections at the Coulomb-penetrability-limited points.
+///
+/// **Reference:** `reference-data/reconr/ca40-ENDF8.0-0K-err0.001-njoy2016.80.pendf` is
+/// `tape50` of upstream test 88 run with NJOY2016 2016.80 (`ab27c64`), gfortran 13.3.0, built
+/// from a sparse clone; it is byte-identical to upstream's own `referenceTape50` (checked with
+/// `cmp`, 7 930 305 bytes). Tape: `reference-data/endf/n-020_Ca_040-ENDF8.0.endf` (upstream
+/// `tests/resources`, SHA-256 `048ad8b7...ff344b8`).
+///
+/// Result: see `verification_and_validation/upstream_units/samm_bigeta/README.md`
+/// (section "Test 88") for the measured before/after.
+#[test]
+fn reconr_ca40_test88_charged_particle_lrf7_njoy2016_80() {
+    assert_same(
+        "n-020_Ca_040-ENDF8.0.endf",
+        2025,
+        "reconr",
+        "ca40-ENDF8.0-0K-err0.001-njoy2016.80.pendf",
+        None,
+    );
 }
 
 #[test]

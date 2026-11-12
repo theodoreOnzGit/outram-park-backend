@@ -95,7 +95,13 @@
 //!   lumped-capacitance assumption is the caller's responsibility);
 //! - any implicit or higher-order time integration (forward Euler only).
 //!
-//! No cross-code benchmark comparison has been run yet — the tests below are
+//! **CORRECTED 2026-11-11 (gh:#1412):** this clean-room model is now compared
+//! against the translated `fix heat/gran/conduction` ([`crate::heat_gran`],
+//! `tests/heat_conduction_cross_code.rs`): its pair conductance is
+//! `sqrt(2 pi (1 - delta/(4 r)))` times lower than upstream's (2.48 at 0.4 mm
+//! overlap on 5 mm spheres). It stays callable as the named alternative.
+//!
+//! ~~No cross-code benchmark comparison has been run yet~~ — the tests below are
 //! **verification** against hand-computed closed forms (conductance, flux sign
 //! and magnitude, energy balance, one Euler step), not **validation** against a
 //! reference DEM code or experiment. That validation is the later human step in

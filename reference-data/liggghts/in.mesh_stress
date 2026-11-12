@@ -1,0 +1,32 @@
+# fix mesh/surface/stress (gh:#1416): total force and torque on a rotating plate under two spheres.
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+region		reg block -0.3 0.3 -0.3 0.3 -0.01 0.1 units box
+create_box	1 reg
+neighbor	0.003 bin
+neigh_modify	delay 0
+fix 		m1 all property/global youngsModulus peratomtype 1.0e7
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.9
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.5
+pair_style	gran model hertz tangential history
+pair_coeff	* *
+timestep	1e-5
+fix		plate all mesh/surface/stress file plate_square.stl type 1 reference_point 0.02 -0.01 0.03
+fix		pwall all wall/gran model hertz tangential history mesh n_meshes 1 meshes plate
+create_atoms	1 single 0.05 0.0 0.00499 units box
+create_atoms	1 single 0.0 0.003 0.00599 units box
+set		atom 1 diameter 0.01 density 2500 vx 0.05
+set		atom 2 diameter 0.012 density 2500
+fix		grav all gravity 9.81 vector 0 0 -1
+fix		integr all nve/sphere
+fix		spin all move/mesh mesh plate rotate origin 0. 0. 0. axis 0. 0. 1. period 5.0
+thermo_style	custom step f_plate[1] f_plate[2] f_plate[3] f_plate[4] f_plate[5] f_plate[6] f_plate[7] f_plate[8] f_plate[9]
+thermo		250
+thermo_modify	lost ignore norm no format float %.17g
+dump		d1 all custom 40 dump.mesh_stress id x y z vx vy vz omegax omegay omegaz fx fy fz
+run		10000

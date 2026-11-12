@@ -146,12 +146,26 @@ fn underflow_cut() -> f64 {
 
 /// `x^n` for the small integer powers upstream takes with
 /// `gsl_sf_pow_int` — 11 for `S_1`, 5 for `S_2`.
+///
+/// **CORRECTED 2026-11-10 (gh:#1338 case 1).** This was `n` plain
+/// multiplications, which rounds differently from GSL's repeated squaring
+/// (`specfunc/pow_int.c:52`) and, through the cancellation in
+/// `px * c1 - px11 * c2 - c0 * x`, moved `S_1` and `S_2` by up to 1.3e-13
+/// relative on `[1.75, 4]` against compiled GSL 2.8. Now the repeated-squaring
+/// loop, line for line.
 fn pow_int(x: f64, n: u32) -> f64 {
-    let mut out = 1.0;
-    for _ in 0..n {
-        out *= x;
+    let (mut value, mut x, mut n) = (1.0, x, n);
+    loop {
+        if n & 1 == 1 {
+            value *= x;
+        }
+        n >>= 1;
+        x *= x;
+        if n == 0 {
+            break;
+        }
     }
-    out
+    value
 }
 
 /// `S_1(x)`, GSL's `gsl_sf_synchrotron_1`.

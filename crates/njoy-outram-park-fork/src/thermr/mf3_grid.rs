@@ -39,11 +39,16 @@ const UP: f64 = 1.00001;
 /// `sigcoh` with the Bragg data read from an ENDF-6 tape (`lat = 10`,
 /// `thermr.f90:1146-1195`): the edges as `tsq = E·econ` and their increments
 /// `f`, and `emax`.
-struct Sigcoh {
+pub(crate) struct Sigcoh {
     tsq: Vec<f64>,
     f: Vec<f64>,
     recon: f64,
+    scon: f64,
     emax: f64,
+    enext0: f64,
+    /// `nl` returned by the initialisation call: the number of stored shells
+    /// (`k`, including the closing `ulim` entry); `coh` writes it as `-LIP`.
+    pub(crate) nbragg: usize,
 }
 
 impl Sigcoh {
@@ -57,12 +62,138 @@ impl Sigcoh {
             f.push(s - blast);
             blast = s;
         }
-        Self { tsq, f, recon: 1.0 / econ, emax }
+        let enext0 = s_of_e.first().map_or(emax, |p| sigfig(p.0, 7, -1));
+        Self { tsq, f, recon: 1.0 / econ, scon: 1.0, emax, enext0, nbragg: s_of_e.len() }
+    }
+
+    /// `sigcoh`'s internal lattices (`lat = 1` graphite, `2` beryllium, `3`
+    /// beryllium oxide; `thermr.f90:1017-1114`, `form` `:1215-1243`): the
+    /// initialisation call (`e = 0`) at `temp` [K], `emax` [eV] and `natom`
+    /// principal atoms. Used for ENDF-4/5 tapes, whose MF=7 carries no Bragg data.
+    ///
+    /// # Errors
+    /// [`NjoyError::InvalidInput`] for any other `lat` ("illegal lat").
+    pub(crate) fn builtin(lat: i32, temp: f64, emax: f64, natom: f64) -> Result<Self, NjoyError> {
+        use crate::common::phys::PI;
+        use petir::mathf::RealMath;
+        const DWF1: [f64; 10] = [2.1997, 2.7448, 3.2912, 3.8510, 4.4210, 4.9969, 6.1624, 7.3387, 9.6287, 11.992];
+        const DWF2: [f64; 10] =
+            [3.16663, 3.88842, 4.62944, 5.40517, 6.19880, 7.0042, 8.63665, 10.2865, 0.0, 0.0];
+        const DWF3: [f64; 10] = [2.153, 2.6374, 3.1348, 3.6513, 4.1798, 4.7164, 5.8052, 6.9068, 0.0, 0.0];
+        const TMP: [f64; 10] = [296.0, 400.0, 500.0, 600.0, 700.0, 800.0, 1000.0, 1200.0, 1600.0, 2000.0];
+        const SQRT3: f64 = 1.732050808;
+        const CW: f64 = 0.658173e-15;
+        const EPS: f64 = 0.05;
+        let twopis = (2.0 * PI) * (2.0 * PI);
+        let amne = AMASSN_AMU * AMU_G;
+        let econ = EV_ERG * 8.0 * (amne / HBAR_ERG_S) / HBAR_ERG_S;
+        let recon = 1.0 / econ;
+        let tsqx = econ / 20.0;
+        let (a, c, amsc, scoh, wal2) = match lat {
+            1 => (2.4573e-8, 6.700e-8, 12.011, 5.50 / natom, thermr_terp(&TMP, &DWF1, temp, 2)),
+            2 => (2.2856e-8, 3.5832e-8, 9.01, 7.53 / natom, thermr_terp(&TMP, &DWF2, temp, 2)),
+            3 => (2.695e-8, 4.39e-8, 12.5, 1.0 / natom, thermr_terp(&TMP, &DWF3, temp, 2)),
+            _ => return Err(NjoyError::InvalidInput("sigcoh: illegal lat.".into())),
+        };
+        let c1 = 4.0 / (3.0 * a * a);
+        let c2 = 1.0 / (c * c);
+        let four_pi = 4.0 * PI;
+        let scon = scoh * (four_pi * four_pi) / (2.0 * a * a * c * SQRT3 * econ);
+        let wint = CW * amsc * wal2;
+        let t2 = HBAR_ERG_S / (2.0 * AMU_G * amsc);
+        let ulim = econ * emax;
+        let tausq = |m1: i32, m2: i32, m3: i32| -> f64 {
+            (c1 * f64::from(m1 * m1 + m2 * m2 + m1 * m2) + f64::from(m3 * m3) * c2) * twopis
+        };
+        let form = |l1: i32, l2: i32, l3: i32| -> f64 {
+            match lat {
+                1 => {
+                    if (l3 / 2) * 2 != l3 {
+                        let s = (PI * f64::from(l1 - l2) / 3.0).r_sin();
+                        s * s
+                    } else {
+                        (6.0 + 10.0 * (2.0 * PI * f64::from(l1 - l2) / 3.0).r_cos()) / 4.0
+                    }
+                }
+                2 => 1.0 + (2.0 * PI * f64::from(2 * l1 + 4 * l2 + 3 * l3) / 6.0).r_cos(),
+                _ => {
+                    (1.0 + (2.0 * PI * f64::from(2 * l1 + 4 * l2 + 3 * l3) / 6.0).r_cos())
+                        * (7.54 + 4.24 + 11.31 * (3.0 * PI * f64::from(l3) / 4.0).r_cos())
+                }
+            }
+        };
+        let mut wrk: Vec<(f64, f64)> = Vec::new();
+        let add = |tsq: f64, f: f64, wrk: &mut Vec<(f64, f64)>| {
+            if !wrk.is_empty() && tsq > tsqx {
+                for w in wrk.iter_mut() {
+                    if !(tsq < w.0 || tsq >= (1.0 + EPS) * w.0) {
+                        w.1 += f;
+                        return;
+                    }
+                }
+            }
+            wrk.push((tsq, f));
+        };
+        let phi = ulim / twopis;
+        let i1m = (a * phi.sqrt()) as i32 + 1;
+        for i1 in 1..=i1m {
+            let l1 = i1 - 1;
+            let i2m = (0.5 * (f64::from(l1) + (3.0 * (a * a * phi - f64::from(l1 * l1))).sqrt())) as i32 + 1;
+            for i2 in i1..=i2m {
+                let l2 = i2 - 1;
+                let x = phi - c1 * f64::from(l1 * l1 + l2 * l2 - l1 * l2);
+                let i3m = if x > 0.0 { (c * x.sqrt()) as i32 } else { 0 } + 1;
+                for i3 in 1..=i3m {
+                    let l3 = i3 - 1;
+                    let w1 = if l1 == l2 { 1.0 } else { 2.0 };
+                    let w2 = if l1 == 0 && l2 == 0 {
+                        0.5
+                    } else if l1 == 0 || l2 == 0 {
+                        1.0
+                    } else {
+                        2.0
+                    };
+                    let w3 = if l3 == 0 { 1.0 } else { 2.0 };
+                    for sign in [1, -1] {
+                        let l2s = sign * l2;
+                        let tsq = tausq(l1, l2s, l3);
+                        if tsq <= 0.0 || tsq > ulim {
+                            continue;
+                        }
+                        let tau = tsq.sqrt();
+                        let w = (-tsq * t2 * wint).r_exp() * w1 * w2 * w3 / tau;
+                        let f = w * form(l1, l2s, l3);
+                        add(tsq, f, &mut wrk);
+                    }
+                }
+            }
+        }
+        // Selection sort, as `thermr.f90:1090-1104` (ties keep their order).
+        let k = wrk.len();
+        for i in 0..k.saturating_sub(1) {
+            for j in (i + 1)..k {
+                if wrk[j].0 < wrk[i].0 {
+                    wrk.swap(i, j);
+                }
+            }
+        }
+        let last_f = wrk.last().map_or(0.0, |w| w.1);
+        wrk.push((ulim, last_f));
+        let enext0 = sigfig(recon * wrk[0].0, 7, -1);
+        Ok(Self {
+            tsq: wrk.iter().map(|w| w.0).collect(),
+            f: wrk.iter().map(|w| w.1).collect(),
+            recon,
+            scon,
+            emax,
+            enext0,
+            nbragg: wrk.len(),
+        })
     }
 
     /// The initial call (`e = 0`, label 200): the first `enext`.
-    fn first_enext(&self, s_of_e: &[(f64, f64)]) -> f64 {
-        s_of_e.first().map_or(self.emax, |p| sigfig(p.0, 7, -1))
+    fn first_enext(&self) -> f64 {
+        self.enext0
     }
 
     /// Label 210: `(σ_coh(e), enext)`.
@@ -83,7 +214,7 @@ impl Sigcoh {
                 last = true;
             }
         }
-        let s = s * 1.0 * re; // `s*scon*re`, `scon = 1` for ENDF data
+        let s = s * self.scon * re; // `s*scon*re`, `scon = 1` for ENDF data
         if last {
             elim = self.emax;
         }
@@ -96,6 +227,12 @@ impl Sigcoh {
         }
         (s, enext)
     }
+}
+
+/// `sigcoh`'s initialisation for an ENDF-6 tape (`lat = 10`) from `rdelas`'s
+/// `S(E)` table: the deck driver's entry to [`Sigcoh::new`].
+pub(crate) fn sigcoh_from_endf6(s_of_e: &[(f64, f64)], emax: f64) -> Sigcoh {
+    Sigcoh::new(s_of_e, emax)
 }
 
 /// THERMR's MF=3 for the inelastic MT as `(E [eV], σ [b])` after `tpend`'s
@@ -213,24 +350,32 @@ pub fn incoherent_elastic_mf3(grid: &[(f64, f64)], esi: &[f64], xie: &[f64]) -> 
 /// `coh` (`thermr.f90:748-922`) on a grid of `(E, σ_inel)`: returns the merged
 /// grid with the inelastic column carried to `coh`'s new points.
 fn coh(old: &[(f64, f64)], s_of_e: &[(f64, f64)], emax: f64, tol: f64) -> Vec<(f64, f64)> {
+    let sc = Sigcoh::new(s_of_e, emax);
+    coh_with(old, &sc, emax, tol).into_iter().map(|(e, z, _)| (e, z)).collect()
+}
+
+/// [`coh`] on any [`Sigcoh`] (ENDF-6 `S(E)` table or the built-in `lat = 1..3`
+/// lattices), returning `(E, previous column, coherent σ)` per point of the
+/// merged grid: `ej(nex)` and `ej(nex+1)` of `thermr.f90:190-203`, both zero
+/// at the last point (beyond `emax`).
+pub(crate) fn coh_with(old: &[(f64, f64)], sc: &Sigcoh, emax: f64, tol: f64) -> Vec<(f64, f64, f64)> {
     const TOLMIN: f64 = 1.0e-6;
     const EPS: f64 = 3.0e-5;
     const IMAX: usize = 20;
-    let sc = Sigcoh::new(s_of_e, emax);
     let ne = old.len();
     let mut nlt = 5.min(ne);
     let mut nlt1 = nlt - 1;
-    let mut out: Vec<(f64, f64)> = Vec::new();
+    let mut out: Vec<(f64, f64, f64)> = Vec::new();
     // The 5-point window `x`, `z` of old points (1-based in the Fortran).
     let mut x = [0.0f64; 6];
     let mut z = [0.0f64; 6];
-    let mut enext = sc.first_enext(s_of_e);
+    let mut enext = sc.first_enext();
     let mut iex = 0usize; // old points read so far
     let mut ix = 1usize;
     // Label 100: copy the old points up to the first edge.
     loop {
         if iex >= ne {
-            return old.to_vec();
+            return old.iter().map(|&(e, z)| (e, z, 0.0)).collect();
         }
         let (e, v) = old[iex];
         iex += 1;
@@ -246,7 +391,7 @@ fn coh(old: &[(f64, f64)], s_of_e: &[(f64, f64)], emax: f64, tol: f64) -> Vec<(f
         }
         x[1] = e;
         z[1] = v;
-        out.push((e, v));
+        out.push((e, v, 0.0));
     }
     // The stack: index 1..=i, `stk[i]` the lowest energy.
     let mut stk = [(0.0f64, 0.0f64); IMAX + 2];
@@ -322,7 +467,7 @@ fn coh(old: &[(f64, f64)], s_of_e: &[(f64, f64)], emax: f64, tol: f64) -> Vec<(f
             // Label 190.
             let beyond = stk[i].0 > emax * (1.0 + SMALL);
             let zz = if beyond { 0.0 } else { thermr_terp(&x[1..=nlt], &z[1..=nlt], ej1, nlt1) };
-            out.push((ej1, zz));
+            out.push((ej1, zz, if beyond { 0.0 } else { stk[i].1 }));
             if beyond {
                 return out; // label 230
             }
@@ -340,7 +485,14 @@ fn coh(old: &[(f64, f64)], s_of_e: &[(f64, f64)], emax: f64, tol: f64) -> Vec<(f
 pub fn itix_at(mf3: &[(f64, f64)], e: f64) -> f64 {
     let k = mf3.partition_point(|p| p.0 <= e);
     if k == 0 {
-        return 0.0;
+        // `gety1` shades the first abscissa down to `0.999999*x0` when its
+        // value is not zero (`endf.f90:1967-1968`, `down`), so a point just
+        // below it (an ulp, on a binary-unit deck whose MF=6 energies are not
+        // rounded the way the MF=3 ones are) still reads `y0`.
+        return match mf3.first() {
+            Some(&(x0, y0)) if y0 != 0.0 && e >= 0.999999 * x0 => y0,
+            _ => 0.0,
+        };
     }
     let (x1, y1) = mf3[k - 1];
     if x1 == e || k == mf3.len() {
@@ -348,4 +500,18 @@ pub fn itix_at(mf3: &[(f64, f64)], e: f64) -> f64 {
     }
     let (x2, y2) = mf3[k];
     terp1(x1, y1, x2, y2, e, IntLaw::LinLin).unwrap_or(y1)
+}
+
+#[cfg(test)]
+mod itix_shading_tests {
+    use super::itix_at;
+
+    /// `gety1` shades a non-zero first abscissa down to `0.999999*x0`.
+    #[test]
+    fn first_point_is_shaded_down() {
+        let mf3 = [(1.0e-5, 2.5), (2.0e-5, 3.0)];
+        assert_eq!(itix_at(&mf3, 1.0e-5 * (1.0 - 1.0e-9)), 2.5);
+        assert_eq!(itix_at(&mf3, 0.99e-5), 0.0);
+        assert_eq!(itix_at(&mf3, 1.5e-5), 2.75);
+    }
 }

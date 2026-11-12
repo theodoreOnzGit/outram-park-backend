@@ -8,6 +8,7 @@ pub trait EnergyDist: Send + Sync {
 }
 
 /// Monoenergetic source (all particles at the same energy).
+#[derive(Debug, Clone)]
 pub struct Monoenergetic {
     pub e: f64,
 }
@@ -21,6 +22,7 @@ impl EnergyDist for Monoenergetic {
 ///
 /// Sampling is [`crate::rng::distributions::maxwell`], the port of
 /// `random_dist.cpp`'s `maxwell_spectrum`.
+#[derive(Debug, Clone)]
 pub struct MaxwellSpectrum {
     pub theta: f64,
 }
@@ -35,6 +37,7 @@ impl EnergyDist for MaxwellSpectrum {
 ///
 /// Sampling is [`crate::rng::distributions::watt`], the port of
 /// `random_dist.cpp`'s `watt_spectrum`.
+#[derive(Debug, Clone)]
 pub struct WattSpectrum {
     pub a: f64,
     pub b: f64,
@@ -65,6 +68,7 @@ impl EnergyDist for WattSpectrum {
 /// Returns the first energy for an empty or single-point table, and clamps
 /// `xi` into `[0, 1]`, so no input shape can panic. A table whose CDF does not
 /// reach 1 simply saturates at its last energy.
+#[derive(Debug, Clone)]
 pub struct TabulatedEnergy {
     /// Ascending outgoing-energy grid \[eV\].
     pub energies: Vec<f64>,
@@ -102,6 +106,7 @@ impl EnergyDist for TabulatedEnergy {
 /// Every source energy distribution, as a closed enum. See
 /// [`super::spatial::SpatialKind`] for why this is an enum and not a trait
 /// object.
+#[derive(Debug, Clone)]
 pub enum EnergyKind {
     /// [`Monoenergetic`].
     Mono(Monoenergetic),
@@ -111,6 +116,22 @@ pub enum EnergyKind {
     Watt(WattSpectrum),
     /// [`TabulatedEnergy`].
     Tabulated(TabulatedEnergy),
+    /// **OpenMC's univariate family** (gh:#1388): `Discrete`, `Uniform`,
+    /// `PowerLaw`, `Maxwell`, `Watt`, `Normal`, `Tabular`, `Mixture`, as
+    /// [`super::distribution::Distribution`]. A biased one carries an importance
+    /// weight, see [`EnergyKind::sample_weighted`].
+    Distribution(super::distribution::Distribution),
+}
+
+impl EnergyKind {
+    /// Sample an energy \[eV\] and its importance weight (exactly `1.0` except
+    /// for a biased [`Self::Distribution`]).
+    pub fn sample_weighted(&self, seed: &mut u64) -> (f64, f64) {
+        match self {
+            EnergyKind::Distribution(d) => d.sample(seed),
+            other => (other.sample(seed), 1.0),
+        }
+    }
 }
 
 impl EnergyDist for EnergyKind {
@@ -120,6 +141,7 @@ impl EnergyDist for EnergyKind {
             EnergyKind::Maxwell(d) => d.sample(seed),
             EnergyKind::Watt(d) => d.sample(seed),
             EnergyKind::Tabulated(d) => d.sample(seed),
+            EnergyKind::Distribution(d) => d.sample(seed).0,
         }
     }
 }

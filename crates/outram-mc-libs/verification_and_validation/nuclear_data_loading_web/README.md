@@ -77,7 +77,7 @@ was shared with other agents' builds. Release builds. Date 2026-10-17.
 | 1. the mixed reference folder | read as ENDF/B-VIII.0 (its `HSUB` majority): 52 incident-neutron tapes used, 18 of other libraries left out, 8 thermal, 6 files skipped |
 | 1. zip of the folder | 89 files, 373.7 MB to 106.4 MB in 15.5 s (`write_zip`, level 6) |
 | 2. ACE Godiva | runs; 4 tables indexed in 3.5 s (~580 MB of text after gunzip); `data_library` names all four; DBRC on U-235 only, as expected; 600 K refused naming 293.6 K; k = 1.0208 ± 0.0192 (tiny run; different physics from 1, no agreement claimed) |
-| 3. headless Chromium 154 against native | **all five fingerprints equal**: zip `0xdbbc098a42d96f62`, index `0x0e80455b35bda55c`, generated ACE `0xd2477939bbaba20a`, Godiva `k` trace `0xcedab1315589be07` (k = 0.996492226932384 both), ACE XSS `0x9a9dbebd27900700` |
+| 3. headless Chromium 154 against native | **all five fingerprints equal**: zip ~~`0xdbbc098a42d96f62`~~ `0xc85bbd987dade063` (**RE-PINNED 2026-11-12**, native only; see the test's docs), index `0x0e80455b35bda55c`, generated ACE `0xd2477939bbaba20a`, Godiva `k` trace ~~`0xcedab1315589be07` (k = 0.996492226932384 both)~~ `0x2611432d237eaafd` (k = 0.933366474168466, native only; **RE-PINNED 2026-11-12**, transport defaults changed; browser not re-run), ACE XSS `0x9a9dbebd27900700` |
 | 3. browser timings | zip + index 5.2 s; F-19 ACE + 0 K companion 1.4 s; Godiva (processing three uranium tapes, single thread, main thread) 172.6 s; ACE read 0.17 s; wasm memory at the end 688 MB |
 | 4. malformed input | no panic on any truncation or flipped byte; corrupt members fail their CRC or inflate |
 

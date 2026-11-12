@@ -24,7 +24,9 @@
 //!   (law 44, `bachaa` when `NA = 1`) and LANG=11-13 (law 61, tabulated);
 //! - the `ismooth` low-energy extensions for LANG=2, both the `LEP = 1`
 //!   histogram branch (with `fx = .8409` read as the **single-precision**
-//!   literal it is) and the `LEP = 2` lin-lin branch;
+//!   literal it is) and the `LEP = 2` lin-lin branch, both only when the first
+//!   outgoing energy is zero (NJOY2016 2016.80 `7d317f8`, gh:#1368; see
+//!   [`ismooth_extend_low_energy`]);
 //! - the `ep > e` patches for negative-Q reactions;
 //! - LAW=6 (law 66, phase space) with its own grid;
 //! - several neutron subsections, chained through `LNW`.
@@ -124,6 +126,8 @@ struct Sub {
 }
 
 enum Body {
+    /// An old-format (`newfor = 0`) law 7, as `fix6` + `topfil` leave it.
+    Law7Old { interp: Vec<(u32, u32)>, energies: Vec<Law7Energy> },
     Law1 { lang: i32, lep: i32, interp: Vec<(u32, u32)>, incident: Vec<crate::endf::records::List> },
     Law6 { apsx: f64, npsx: i32 },
 }
@@ -145,12 +149,58 @@ pub fn acelf6(
     iza: i32,
     ismooth: bool,
 ) -> Result<Option<DlwEntry>, NjoyError> {
-    let izai = 1.0_f64;
+    acelf6_incident(section, mt, q_mev, iza, 1, ismooth)
+}
+
+/// [`acelf6`] with `topfil`'s scratch tape coded (`text`, a positive PENDF
+/// unit: the LAW=7 rewrite goes through `a11`) or binary (a negative one:
+/// full doubles) (gh:#1492, deck 72).
+pub fn acelf6_mode(
+    section: &Section,
+    mt: i32,
+    q_mev: f64,
+    iza: i32,
+    ismooth: bool,
+    text: bool,
+) -> Result<Option<DlwEntry>, NjoyError> {
+    acelf6_incident_mode(section, mt, q_mev, iza, 1, ismooth, text)
+}
+
+/// [`acelf6`] for an incident particle `izai` (`acefc.f90:7139`'s argument of
+/// that name, ZA of the projectile: 1 neutron, 1001 proton, 1002 deuteron,
+/// 1003 triton, 2003 He-3, 2004 alpha; gh:#1485). Upstream selects the MF=6
+/// subsections whose `ZAP` equals `izai` -- the DLW block describes the
+/// outgoing particle of the **same kind as the projectile** -- so for a proton
+/// table the proton subsection is written here, and the neutron, deuteron and
+/// alpha ones go to `acelcp`. `bachaa` is still called with `(1, 1)`
+/// (`acefc.f90:7717`), whatever the projectile.
+pub fn acelf6_incident(
+    section: &Section,
+    mt: i32,
+    q_mev: f64,
+    iza: i32,
+    izai: i32,
+    ismooth: bool,
+) -> Result<Option<DlwEntry>, NjoyError> {
+    acelf6_incident_mode(section, mt, q_mev, iza, izai, ismooth, true)
+}
+
+/// [`acelf6_incident`] with the scratch-tape mode of [`acelf6_mode`].
+pub fn acelf6_incident_mode(
+    section: &Section,
+    mt: i32,
+    q_mev: f64,
+    iza: i32,
+    izai: i32,
+    ismooth: bool,
+    text: bool,
+) -> Result<Option<DlwEntry>, NjoyError> {
+    let izai = f64::from(izai);
     let mut cur = SectionCursor::new(&section.rows);
     let head = cur.read_cont()?;
     let jp = head.l1;
     let jpn = jp.rem_euclid(10);
-    let mut lct = head.l2.min(2);
+    let lct = head.l2.min(2);
     let nk = head.n1;
 
     // ── pass 1: select the neutron subsections, as `acelf6`'s first loop ───
@@ -190,7 +240,7 @@ pub fn acelf6(
                 let c = cur.read_cont()?;
                 Body::Law6 { apsx: c.c1, npsx: c.n2 }
             }
-            7 => law7_as_law1(&mut cur)?,
+            7 => law7_as_law1(&mut cur, text)?,
             _ => {
                 return Err(NjoyError::EndfParse(format!(
                     "acelf6: illegal law {law} for endf6 file6 neutrons (mt {mt})"
@@ -205,10 +255,28 @@ pub fn acelf6(
         )));
     }
 
+    emit_dlw(&subs, mt, q_mev, iza, ismooth && (izai - 1.0).abs() < 0.5, lct, last_law_read, first_law)
+}
+
+/// The second half of `acelf6`: the yield words and one law per neutron
+/// subsection, from the subsections [`acelf6`] (or [`acelf6_old_format`])
+/// selected.
+#[allow(clippy::too_many_arguments)]
+fn emit_dlw(
+    subs: &[Sub],
+    mt: i32,
+    q_mev: f64,
+    iza: i32,
+    ismooth: bool,
+    mut lct: i32,
+    last_law_read: i32,
+    first_law: Option<i32>,
+) -> Result<Option<DlwEntry>, NjoyError> {
+    let test = 1.0 / 1000.0;
     // `ivar`: 0 constant integer, 1 energy-dependent, 2 non-integer.
     let mut ivar = 0;
     let mut eemx = 0.0;
-    for s in &subs {
+    for s in subs {
         let pairs = &s.yield_tab.pairs;
         let jnt = s.yield_tab.interp.last().map_or(2, |&(_, i)| i);
         let mut nnn = pairs.len();
@@ -236,7 +304,7 @@ pub fn acelf6(
         // Upstream indexes every subsection's first yield with the LAST
         // subsection's `m` (`ii=loc(j)+7+2*m`); with one NR per subsection
         // (every held evaluation) that is each subsection's own first yield.
-        for s in &subs {
+        for s in subs {
             yield_total += s.yield_tab.pairs[0].1;
         }
         let mut ntyr = yield_total.round() as i32;
@@ -262,7 +330,7 @@ pub fn acelf6(
             let xx = xnext;
             let mut yy = 0.0;
             xnext = ETOP;
-            for s in &subs {
+            for s in subs {
                 let (y, mut xn, idis) = terpa(&s.yield_tab.interp, &s.yield_tab.pairs, xx);
                 if k == 0 && xn < xnext {
                     xnext = xn;
@@ -303,7 +371,7 @@ pub fn acelf6(
 
     // ── pass 2: one law per neutron subsection, chained through LNW ────────
     let mut prev_last: Option<usize> = None;
-    for s in &subs {
+    for s in subs {
         if let Some(pl) = prev_last {
             words[pl] = DlwWord::Loc(words.len());
         }
@@ -387,6 +455,23 @@ pub fn acelf6(
                 words.push(DlwWord::Int(2));
                 law66_words(*npsx, &mut words);
             }
+            Body::Law7Old { interp, energies } => {
+                words[last + 2] = DlwWord::Loc(words.len());
+                push_interp_header(interp, &mut words);
+                let ne = energies.len();
+                words.push(DlwWord::Int(ne as i64));
+                for en in energies {
+                    words.push(DlwWord::Real(sigfig(en.e / EMEV, 7, 0)));
+                }
+                let loc_base = words.len();
+                for _ in 0..ne {
+                    words.push(DlwWord::Int(0));
+                }
+                for (j, en) in energies.iter().enumerate() {
+                    words[loc_base + j] = DlwWord::Loc(words.len());
+                    law7_old_block(en, &mut words);
+                }
+            }
             Body::Law1 { lang, lep, interp, incident } => {
                 let (lang, lep) = (*lang, *lep);
                 if !(lang == 1 || lang == 2 || (11..=13).contains(&lang)) {
@@ -438,6 +523,7 @@ pub fn acelf6(
                 Body::Law1 { lang: 2, .. } => 44,
                 _ => 61,
             },
+            7 => 67,
             _ => 66,
         },
         correlated: matches!(first_law, Some(1) | Some(6)),
@@ -456,9 +542,10 @@ pub fn acelf6(
 /// 10 + INTMU` and `LEP` = the last cosine's `INTEP` at the first incident
 /// energy. Everything goes to the scratch tape, which is text for a
 /// positive PENDF unit (`acefc.f90:177-179`), so every value here carries
-/// `a11`'s rounding, as `acelf6` reads it.
-fn law7_as_law1(cur: &mut SectionCursor) -> Result<Body, NjoyError> {
-    let (interp, incident, lang, lep) = law7_rewrite(cur)?;
+/// `a11`'s rounding, as `acelf6` reads it; with a negative one (`text =
+/// false`) it stays at full precision.
+fn law7_as_law1(cur: &mut SectionCursor, text: bool) -> Result<Body, NjoyError> {
+    let (interp, incident, lang, lep) = law7_rewrite(cur, text)?;
     Ok(Body::Law1 { lang, lep, interp, incident })
 }
 
@@ -469,10 +556,13 @@ fn law7_as_law1(cur: &mut SectionCursor) -> Result<Body, NjoyError> {
 #[allow(clippy::type_complexity)]
 pub(crate) fn law7_rewrite(
     cur: &mut SectionCursor,
+    text: bool,
 ) -> Result<(Vec<(u32, u32)>, Vec<crate::endf::records::List>, i32, i32), NjoyError> {
     use crate::endf::parse::{format_endf_float, parse_endf_float};
     use crate::endf::records::{Cont, List};
-    let rt = |x: f64| parse_endf_float(&format_endf_float(x)).unwrap_or(x);
+    // `a11` only when the scratch tape is coded (`mscr` takes the sign of the
+    // PENDF unit, `acefc.f90:177-179`; gh:#1492).
+    let rt = |x: f64| if text { parse_endf_float(&format_endf_float(x)).unwrap_or(x) } else { x };
     let outer = cur.read_tab2()?;
     let ne = outer.head.n2.max(0) as usize;
     let mut incident = Vec::with_capacity(ne);
@@ -599,30 +689,29 @@ fn law66_words(npsx: i32, words: &mut Vec<DlwWord>) {
     words.extend(c.iter().map(|&v| DlwWord::Real(sigfig(v / sum, 9, 0))));
 }
 
-/// One incident energy of a LAW=1 subsection: `[INTT, N, E', pdf, cdf, R|LC,
-/// A]` for law 44, `[INTT, N, E', pdf, cdf, LC]` plus the angular tables for
-/// law 61 (`acefc.f90:7529-7892`).
-#[allow(clippy::too_many_arguments)]
-fn incident_block(
-    list: &crate::endf::records::List,
+/// The `ismooth` low-energy sqrt(E) extensions of one LAW=1 incident-energy record, ported from
+/// `acelf6` (`acefc.f90:7547-7657`, NJOY2016 2016.80 `ab27c64`): `d` is the record's
+/// `(E', pdf, A..)` rows, `ncyc = NA + 2` words each, `n` the number of rows, `nd` the number of
+/// discrete lines. Returns the new row count; `d` is edited in place. Only for LANG=2 neutron
+/// spectra with no discrete lines (`zap = 1` is the caller's).
+///
+/// **2016.80 guard (gh:#1368, upstream commit `7d317f8`, "Fix bug in smoothing distributions
+/// when outgoing energy grid does not start at 0").** Both branches run only when
+/// `eout1 = scr(7)/emev` is zero, i.e. the first tabulated outgoing energy is exactly 0. This
+/// port ran them unconditionally until 2026-11-10; without the guard the inserted rows precede a
+/// first energy above them and the outgoing energies come out of order. Differential:
+/// `tests/acelf6_ismooth_vs_njoy2016_units.rs`.
+pub fn ismooth_extend_low_energy(
+    d: &mut Vec<f64>,
+    mut n: usize,
+    ncyc: usize,
+    nd: usize,
     lang: i32,
     lep: i32,
-    law61: bool,
-    mt: i32,
-    q_mev: f64,
-    iza: i32,
-    ismooth: bool,
-    words: &mut Vec<DlwWord>,
-) -> Result<(), NjoyError> {
-    let ee = list.head.c2 / EMEV;
-    let nd = list.head.l1 as usize;
-    let na = list.head.l2 as usize;
-    let ncyc = na + 2;
-    let mut d: Vec<f64> = list.data.clone();
-    let mut n = list.head.n2 as usize;
-
-    // `ismooth` low-energy extensions, LANG=2 only, no discrete lines.
-    if ismooth && lang == 2 && lep == 1 && nd == 0 {
+) -> usize {
+    // `eout1=scr(7)/emev` (MeV): zero exactly when the first E' is zero.
+    let eout1 = d[0] / EMEV;
+    if lang == 2 && lep == 1 && nd == 0 && eout1 == 0.0 {
         // `fx=.8409` has no kind suffix: a default-real (single-precision)
         // literal promoted to double, exactly as in `acelf5`.
         let fx = 0.8409_f32 as f64;
@@ -649,7 +738,7 @@ fn incident_block(
             d[ncyc + 1] = sigfig((1.0 - fx * fx.sqrt()) * val / (1.0 - fx), 6, 0);
             n += 1;
         }
-    } else if ismooth && lang == 2 && lep == 2 && n > 3 && nd == 0 {
+    } else if lang == 2 && lep == 2 && n > 3 && nd == 0 && eout1 == 0.0 {
         let ex = 40.0;
         let fx = 0.50;
         let mut nn = 0;
@@ -683,6 +772,35 @@ fn incident_block(
                 }
             }
         }
+    }
+    n
+}
+
+/// One incident energy of a LAW=1 subsection: `[INTT, N, E', pdf, cdf, R|LC,
+/// A]` for law 44, `[INTT, N, E', pdf, cdf, LC]` plus the angular tables for
+/// law 61 (`acefc.f90:7529-7892`).
+#[allow(clippy::too_many_arguments)]
+fn incident_block(
+    list: &crate::endf::records::List,
+    lang: i32,
+    lep: i32,
+    law61: bool,
+    mt: i32,
+    q_mev: f64,
+    iza: i32,
+    ismooth: bool,
+    words: &mut Vec<DlwWord>,
+) -> Result<(), NjoyError> {
+    let ee = list.head.c2 / EMEV;
+    let nd = list.head.l1 as usize;
+    let na = list.head.l2 as usize;
+    let ncyc = na + 2;
+    let mut d: Vec<f64> = list.data.clone();
+    let mut n = list.head.n2 as usize;
+
+    // `ismooth` low-energy extensions, LANG=2 only, no discrete lines, first E' = 0.
+    if ismooth {
+        n = ismooth_extend_low_energy(&mut d, n, ncyc, nd, lang, lep);
     }
 
     let e = ee * EMEV;
@@ -941,4 +1059,304 @@ pub fn bachaa(iza1i: i32, iza2: i32, izat: i32, e: f64, ep: f64) -> Result<f64, 
         bb *= (e / (2.0 * emc2)).sqrt() * fact;
     }
     Ok(bb)
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// `newfor = 0`: `topfil`'s MF=6 conversion, `fix6`, and `acelf6`'s law 7
+// (gh:#1449)
+// ─────────────────────────────────────────────────────────────────────────
+
+/// One cosine's outgoing-energy table after `fix6` and `topfil`'s law-7
+/// normalisation: `y` is already divided by the table's own integral.
+struct CosDist {
+    cosine: f64,
+    intep: i32,
+    e_out: Vec<f64>,
+    y: Vec<f64>,
+}
+
+/// One incident energy of an old-format law 7: `topfil`'s special TAB1 (only
+/// its `INTMU`, `NMU` and energy are read back) and the per-cosine tables.
+struct Law7Energy {
+    e: f64,
+    intmu: i32,
+    cos: Vec<CosDist>,
+}
+
+/// The result of [`acelf6_old_format`]: the DLW entry and the angular law
+/// `acensd` stores in AND for the same reaction.
+pub struct OldFormat6 {
+    /// The reaction's DLW entry (ACE law 67).
+    pub entry: DlwEntry,
+    /// The overall angular distribution per incident energy, as the old
+    /// format's equally probable bins (isotropic energies empty).
+    pub angular: super::angular::ElasticAngular,
+}
+
+fn push_interp_header(interp: &[(u32, u32)], words: &mut Vec<DlwWord>) {
+    let m = interp.len();
+    let jnt0 = interp.first().map_or(2, |&(_, i)| (i % 10).min(2));
+    if m != 1 || jnt0 != 2 {
+        words.push(DlwWord::Int(m as i64));
+        for &(nbt, _) in interp {
+            words.push(DlwWord::Int(i64::from(nbt)));
+        }
+        for &(_, int) in interp {
+            words.push(DlwWord::Int(i64::from((int % 10).min(2))));
+        }
+    } else {
+        words.push(DlwWord::Int(0));
+    }
+}
+
+/// `acelf6`'s law-7 branch for one incident energy (`acefc.f90:7878-7946`):
+/// `INTMU`, `NMU`, the cosines and the locators of their tables, then each
+/// table as `INTEP`, `NP`, outgoing energy, pdf, cdf, renormalised by the
+/// cdf's last value.
+fn law7_old_block(en: &Law7Energy, words: &mut Vec<DlwWord>) {
+    let nmu = en.cos.len();
+    words.push(DlwWord::Int(i64::from(en.intmu)));
+    words.push(DlwWord::Int(nmu as i64));
+    let mus = words.len();
+    for c in &en.cos {
+        words.push(DlwWord::Real(c.cosine));
+    }
+    for _ in 0..nmu {
+        words.push(DlwWord::Int(0));
+    }
+    for (i, c) in en.cos.iter().enumerate() {
+        words[mus + nmu + i] = DlwWord::Loc(words.len());
+        let npep = c.e_out.len();
+        words.push(DlwWord::Int(i64::from(c.intep)));
+        words.push(DlwWord::Int(npep as i64));
+        let mut cdf = vec![0.0f64; npep];
+        for ki in 1..npep {
+            let dx = c.e_out[ki] - c.e_out[ki - 1];
+            if c.intep == 1 {
+                cdf[ki] = cdf[ki - 1] + c.y[ki - 1] * dx;
+            }
+            if c.intep == 2 {
+                cdf[ki] = cdf[ki - 1] + (c.y[ki - 1] + c.y[ki]) * dx / 2.0;
+            }
+        }
+        let renorm = 1.0 / cdf[npep - 1];
+        for &e in &c.e_out {
+            words.push(DlwWord::Real(sigfig(e / EMEV, 7, 0)));
+        }
+        for &y in &c.y {
+            words.push(DlwWord::Real(sigfig(renorm * sigfig(y * EMEV, 7, 0), 7, 0)));
+        }
+        for &v in &cdf {
+            words.push(DlwWord::Real(sigfig(renorm * v, 9, 0)));
+        }
+    }
+}
+
+/// `fix6` (`acefc.f90:3351-3570`) for one LIST (one incident energy) of a
+/// LAW=1 subsection: the 33 cosines (2 when only `b_0` is given), and for each
+/// the outgoing-energy table reconstructed from the Legendre series (or the
+/// tabulated pairs), in the laboratory frame, with the cm-to-lab Jacobian when
+/// `lct != 1`. `flat` is the LIST as `fix6` holds it: `[C1, C2, L1, L2, N1,
+/// N2, data...]`, so `flat[k]` is upstream's `a(l1+k)`.
+fn fix6_energy(flat: &[f64], lang: i32, lct: i32, awr: f64) -> Result<Vec<(f64, Vec<(f64, f64)>)>, NjoyError> {
+    use crate::groupr::kinematics::shared::legndr;
+    let ein = flat[1];
+    let nep = flat[5].round() as usize;
+    let nw = flat[4].round() as usize;
+    let ncyc = nw / nep;
+    let nl = ncyc - 1;
+    let ncos = 33usize;
+    let dmu = 2.0 / (ncos as f64 - 1.0);
+    let amu: Vec<f64> = (0..ncos).map(|i| -1.0 + i as f64 * dmu).collect();
+    let nmu = if nl == 1 { 2 } else { ncos };
+    let mut out = Vec::with_capacity(nmu);
+    for imu in 1..=nmu {
+        let acos = if nl == 1 {
+            if imu == 1 { -1.0 } else { 1.0 }
+        } else {
+            amu[imu - 1]
+        };
+        let mut pts: Vec<(f64, f64)> = Vec::new();
+        for iep in 1..=nep {
+            let off = ncyc * (iep - 1);
+            let ep = flat[6 + off];
+            let mut csn = acos;
+            let mut elb = ep;
+            let mut drv = 1.0f64;
+            if lct != 1 {
+                let aw1 = awr + 1.0;
+                let mut clb = csn;
+                let mut cmn = -1.0f64;
+                let mut qq = 1.0 - aw1 * aw1 * ep / ein;
+                if qq > 0.0 {
+                    cmn = qq.sqrt();
+                }
+                if clb < cmn {
+                    clb = cmn;
+                    if imu < nmu && amu[imu] <= cmn {
+                        drv = 0.0;
+                    }
+                }
+                qq = ep - ein * (1.0 - clb * clb) / (aw1 * aw1);
+                if qq < 0.0 {
+                    qq = 0.0;
+                }
+                elb = clb * ein.sqrt() / aw1 + qq.sqrt();
+                elb *= elb;
+                if ep > 0.0 {
+                    csn = clb * (elb / ep).sqrt() - (ein / ep).sqrt() / aw1;
+                }
+                if csn < -1.0 {
+                    csn = -1.0;
+                }
+                if csn > 1.0 {
+                    csn = 1.0;
+                }
+                if ep != 0.0 {
+                    drv *= (elb / ep).sqrt();
+                }
+            }
+            let fmu = if lang <= 10 {
+                let p = legndr(csn, nl);
+                let mut f = 0.0f64;
+                for ll in 1..=nl {
+                    f += ((2 * ll - 1) as f64) * p[ll - 1] * flat[6 + off + ll] / 2.0;
+                }
+                f
+            } else {
+                // `fix6` indexes the pairs from `a(l1+5+2*kmu+off)`, one word
+                // before the first (mu, f) pair (which follows `f0`): ported
+                // as written, not corrected.
+                let mmu = (ncyc - 1) / 2;
+                let mut f = 0.0f64;
+                for kmu in 1..mmu {
+                    let ll = 5 + 2 * kmu + off;
+                    if ll + 3 < flat.len() && csn >= flat[ll] && csn <= flat[ll + 2] {
+                        f = terp1(flat[ll], flat[ll + 1], flat[ll + 2], flat[ll + 3], csn, IntLaw::from_code((lang - 10) as u32))?;
+                    }
+                }
+                f
+            };
+            match pts.last() {
+                None => pts.push((elb, fmu * drv)),
+                Some(&(le, _)) if elb > le => pts.push((elb, fmu * drv)),
+                _ => {}
+            }
+        }
+        if pts.len() == 1 {
+            pts.push((2.0 * pts[0].0, 0.0));
+        }
+        out.push((acos, pts));
+    }
+    Ok(out)
+}
+
+/// `acelf6` for `newfor = 0` (the old ACE angular format) on an MF=6 section
+/// whose neutron subsection is LAW=1 with `LANG != 2`: `topfil` first converts
+/// the section with `fix6` to LAW=7 with 33 laboratory cosines
+/// (`acefc.f90:2233-2350`, `:3351-3570`), then reduces each incident energy's
+/// cosine table to its overall angular law (`pttab`, equally probable bins,
+/// `:2490-2530`), and `acelf6` writes the result as ACE law 67
+/// (`:7878-7946`); the section's `LCT` is forced to 1 (laboratory).
+///
+/// `Ok(None)` when `topfil` would not convert (no neutron subsection, or
+/// `LANG = 2`): the caller takes the ordinary [`acelf6`]. Values go through no
+/// text round-trip, as for binary units (`nsix = -|nsix|`, `mscr < 0`); a
+/// text unit would round them with `a11`, which is not applied here.
+///
+/// # Errors
+/// `NotPorted` when a converted subsection is not LAW=1; the record errors of
+/// [`acelf6`]; `pttab`'s.
+pub fn acelf6_old_format(
+    section: &Section,
+    mt: i32,
+    q_mev: f64,
+    iza: i32,
+    ismooth: bool,
+) -> Result<Option<OldFormat6>, NjoyError> {
+    let test = 1.0 / 1000.0;
+    let mut cur = SectionCursor::new(&section.rows);
+    let head = cur.read_cont()?;
+    let (jp, lct_raw, awr, nk) = (head.l1, head.l2, head.c2, head.n1);
+    // `topfil`'s scan up to the neutron subsection.
+    let (mut ik, mut dzap, mut new6) = (0, 1.0f64, false);
+    while dzap > test && ik < nk {
+        ik += 1;
+        let yt = cur.read_tab1()?;
+        dzap = (yt.head.c1 - 1.0).abs();
+        let lf = yt.head.l2;
+        if lf == 1 {
+            let t2 = cur.read_tab2()?;
+            if dzap <= test && t2.head.l1 != 2 {
+                new6 = true;
+            }
+            for _ in 0..t2.head.n2 {
+                cur.read_list()?;
+            }
+        } else {
+            super::energy::mf6::skip_mf6_subsection(&mut cur, lf)?;
+        }
+    }
+    if !new6 {
+        return Ok(None);
+    }
+    // `fix6` over the first `ik` subsections, then `topfil`/`acelf6` on them.
+    let mut cur = SectionCursor::new(&section.rows);
+    cur.read_cont()?;
+    let jpn = jp.rem_euclid(10);
+    let mut subs: Vec<Sub> = Vec::new();
+    let mut angular = Vec::new();
+    for ikk in 1..=ik {
+        let mut yt = cur.read_tab1()?;
+        if yt.head.l2 != 1 {
+            return Err(NjoyError::NotPorted("fix6 on a subsection that is not LAW=1"));
+        }
+        yt.head.l2 = 7;
+        let t2 = cur.read_tab2()?;
+        let (lang, lep) = (t2.head.l1, t2.head.l2);
+        let ne = t2.head.n2.max(0) as usize;
+        let mut energies = Vec::with_capacity(ne);
+        let mut ang_e = Vec::with_capacity(ne);
+        for _ in 0..ne {
+            let l = cur.read_list()?;
+            let mut flat = vec![l.head.c1, l.head.c2, f64::from(l.head.l1), f64::from(l.head.l2), f64::from(l.head.n1), f64::from(l.head.n2)];
+            flat.extend_from_slice(&l.data);
+            let ein = l.head.c2;
+            let tabs = fix6_energy(&flat, lang, lct_raw, awr)?;
+            let mut cos = Vec::with_capacity(tabs.len());
+            let mut fpairs = Vec::with_capacity(tabs.len());
+            for (acos, pts) in tabs {
+                let interp = [(pts.len() as u32, lep as u32)];
+                let f = crate::endf::interp::intega(&interp, &pts, 0.0, 1.0e9)?;
+                let y: Vec<f64> = pts.iter().map(|p| if f != 0.0 { p.1 / f } else { p.1 }).collect();
+                fpairs.push((acos, f));
+                cos.push(CosDist { cosine: acos, intep: lep, e_out: pts.iter().map(|p| p.0).collect(), y });
+            }
+            let edges = crate::acer::photon_angular::pttab(&[(fpairs.len() as u32, 2)], &fpairs)?;
+            ang_e.push(super::acensd::old_format_entry(ein, edges));
+            energies.push(Law7Energy { e: ein, intmu: 2, cos });
+        }
+        let zap = yt.head.c1;
+        if zap == 0.0 || zap - 1.0 > test || jpn == 2 || (jpn == 1 && ikk > 1) {
+            break;
+        }
+        if (zap - 1.0).abs() > test {
+            continue;
+        }
+        angular = ang_e;
+        subs.push(Sub { yield_tab: yt, law: 7, body: Body::Law7Old { interp: t2.interp, energies } });
+    }
+    if subs.is_empty() {
+        return Err(NjoyError::EndfParse(format!("acelf6: could not find required mf6 subsection, outgoing 1 mt {mt}")));
+    }
+    let entry = emit_dlw(&subs, mt, q_mev, iza, ismooth, 1, 7, Some(7))?
+        .ok_or_else(|| NjoyError::EndfParse("acelf6 old format: no entry".into()))?;
+    Ok(Some(OldFormat6 { entry, angular: super::angular::ElasticAngular { energies: angular, lct: 1 } }))
+}
+
+/// The `LAW` of the first subsection of an MF=6 section (`acefc.f90:5780`).
+pub fn first_law_of_mf6(section: &Section) -> Result<i32, NjoyError> {
+    let mut cur = SectionCursor::new(&section.rows);
+    cur.read_cont()?;
+    Ok(cur.read_tab1()?.head.l2)
 }

@@ -101,19 +101,30 @@
 
 pub mod bonded;
 pub mod boundary;
+pub mod capillary;
 pub mod compute;
 pub mod contact;
 pub mod coupling;
+pub mod diagnostics;
 #[cfg(feature = "gnn")]
 pub mod gnn_bridge;
 #[cfg(not(target_os = "android"))]
 pub mod gpu;
+pub mod force_fixes;
 pub mod granular;
 pub mod granular_system;
+pub mod heat_gran;
 // A fresh HTR-10 pour from empty, steppable by a UI (gh:#561, dhoby-ghaut Step 1).
 pub mod htr10_fill;
+pub mod insert;
+pub mod insert_stream;
 pub mod integrator;
+pub mod massflow;
+pub mod mesh_dump;
+pub mod multicontact;
+pub mod mesh_stress;
 pub mod mesh_wall;
+pub mod neighbor_list;
 pub mod particle;
 pub mod prelude;
 pub mod rdf;
@@ -122,6 +133,9 @@ pub mod simulation;
 pub mod thermal;
 pub mod thermal_radiation;
 pub mod timestep;
+pub mod tracer;
+pub mod tri_mesh;
+pub mod variable;
 /// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where
 /// `rayon` does not build. Numerically exact here — see the module docs.
 #[cfg(target_arch = "wasm32")]
