@@ -35,7 +35,8 @@ to the old +801~~ (corrected 2026-11-12, when the default changed).
 | hot dimensions | +193 ± 23 pcm (12 seeds, paired) | about +648, passes (~~+992, inside by 8 pcm~~) |
 | 10P / crystalline graphite law | −71 ± 32 / −70 ± 35 pcm | passes |
 | TM-0730 end regions | +20 ± 45 pcm | passes |
-| thermal shield (stated / close-packed) | +779 ± 43 / +895 ± 66 pcm | about +1234 / +1350, fails |
+| thermal shield cylinder (stated / close-packed) | +779 ± 43 / +895 ± 66 pcm | about +1234 / +1350, fails |
+| **whole thermal shield, TM-0728 Fig. 5.2** (measured on the current default) | **+1063 ± 39 pcm** | **+1519 ± 31, fails** |
 | 99.9926 % Li-7 | +730 ± 60 pcm | about +1185, fails |
 | INOR-8's Mo omitted (arm A, measured under DBRC) | +441 ± 45 pcm | about +896, passes (~~+1197, fails~~) |
 | ~~U-234/U-236 per TM-0730's 93 % uranium~~ now the default; `--minor-uranium none` removes them | −326 ± 83 pcm | (the default) |
@@ -536,6 +537,74 @@ stated zone at 6/14 to 1e-12 (tested).
 - **Statistics:** the seeds spread 0.00108 (sd), about 1.7× their internal
   σ, as in the drained run. The quoted σ is the seed sem.
 - **The default is not changed.**
+
+### N-1 residual: the whole thermal shield, base, cylinder and cover (2026-11-12, gh:#1128)
+
+**Why:** every shield run above (`tm0728-cylinder`, `-packed`, the drained
+and steel/water splits) models the cylinder only, centred on the vessel,
+with the vessel's top and bottom open to vacuum. TM-0728 §5.3.10 and
+Fig. 5.2 also give an 18 in base under the vessel and a 16 in cover inside
+the cylinder's top, and Fig. 5.2 places the vessel about 7 in below the
+cylinder's centre. Fig. 5.2 was digitised into
+`data/tm0728_fig5_2_reactor_cell.csv` (method and caveats in the `.md`
+beside it): it is a dimensioned drawing, not a schematic, and every scaled
+length carries about ±3 in.
+
+**Ablation:** `--shield tm0728-full` (`Shield::Tm0728Full`,
+`geometry_with_full_shield`, `full_shield_materials`):
+
+- **Placement:** the vessel's mid-height 68.5 in above the cylinder's bottom
+  (`FULL_SHIELD_VESSEL_MID_ABOVE_BOTTOM`; Fig. 5.2, ±3 in).
+- **Base:** 18 in thick at the cylinder's OD, homogenised to 8.3 % 304,
+  4.8 % carbon steel, the rest water.
+- **Cover:** 16 in thick, inside the cylinder's top, 79¾ in OD with a
+  22⅝ in hole; 22.1 % 304 (plates and twelve radial webs), 25 % carbon
+  steel, the rest water.
+- **Ball annulus:** 0.60 balls, from "70 tons (475 ft³)" in short tons
+  (`SHIELD_BALL_FRACTION_TM0728_TONS`; the stated 50/50 and close-packed
+  0.64 are the runs above), with the twelve 1 in webs at 3.5 %.
+- **Left void:** the 6 in insulation and the furnace annulus, whose
+  materials are not given.
+- **Vacuum boundaries:** the shield's outer radius, the base's bottom and
+  the cylinder's top.
+
+Drawn from the assembled CSG and shown to the maintainer before the runs:
+`images/msre_n1_fullshield_xz.png`, `…_xy_cover.png`, `…_xy_base.png`, with
+TM-0728's own figure in `images/tm0728_fig5_2_vessel_in_shield.png`. A unit
+test (`full_tm0728_shield_places_base_cylinder_and_cover_by_fig_5_2`) pins
+the placement and each zone's extent.
+
+**Prediction** (posted on gh:#1128 before the run): **+850 to +1200 pcm**
+against no shield. The cylinder alone was worth +779 ± 43 (stated) to
++895 ± 66 (packed); the base and cover were expected to add reflection at
+the vessel's ends.
+
+**Run:** on the 2026-11-12 default (U-234/U-236, merged binary), arm C,
+RVS, 30P, cold, seeds 1–3: 1.01630, 1.01583, 1.01584 (each ± 0.0005–0.0006).
+About 890 s per seed (4-core Intel Xeon, 4 threads, 15.7 GiB RAM, Linux,
+CPU only). Rows `…+u234+shield-tm0728-full` in `data/keff.csv`.
+
+| shield | k | vs k_ref | shift vs no shield |
+|---|---|---|---|
+| none (2026-11-12 default, 6 seeds) | 1.00536 ± 0.00023 | +455 pcm | — |
+| **whole shield, Fig. 5.2** (3 seeds) | **1.01599 ± 0.00031** | **+1519 pcm** | **+1063 ± 39 pcm** |
+| cylinder only, stated 50/50 (previous default salt) | — | — | +779 ± 43 pcm |
+| cylinder only, close-packed (previous default salt) | — | — | +895 ± 66 pcm |
+
+- **Inside the prediction**, in its upper half.
+- **The base and cover add roughly +170 to +280 pcm** over the cylinder-only
+  runs. That comparison crosses the salt change, so it is an estimate: the
+  shield's worth is a difference, which the U-234 change should move far
+  less than these σ, but the cylinder-only runs were not repeated.
+- **Against the maintainer's 1000 pcm band: fails**, at +1519 ± 31 pcm. The
+  more completely the shield is modelled, the further N-1 moves from the
+  measurement. The finding is the disagreement; nothing was adjusted.
+- **Statistics:** the three seeds spread 27 pcm (sd), below their ≈54 pcm
+  internal σ; the quoted σ is the internal σ/√3.
+- **The default is not changed.** It is the maintainer's call. If the shield
+  is adopted, the residual it exposes, about +1500 pcm, is what the model
+  then has to explain; the neutron balance above already locates the
+  missing absorption in the salt (Zr and F), not in leakage.
 
 ### N-1: the ²³⁵U concentration coefficient (2026-11-11, gh:#1128)
 
