@@ -131,8 +131,15 @@ the first port run had `e` wrong by 6e-3 of max at step 1.
    difference at step 95 (first divergent step found by comparing every step 1-120;
    stage probe at step 95: `phi0_b` 6.1e-14 vs 6.7e-14).
 
+### Real binary
+The real `sonicFoam` binary (link line without `-lthermoTools`, which it does not
+use; `esi_thermo_turbulence_closure_build.md`) was run on the same case: its 6300
+solver log lines and 1400 continuity-error lines (17 digits) are identical to the
+driver's, which validates the driver's omission of `fvOptions`/MRF on this case.
+
 ### Scope and honest limits
-* Not the unmodified `sonicFoam` binary (driver, see above); `fvOptions`/MRF absent.
+* The reference is the driver (see above), checked against the real binary by
+  log identity, not field by field.
 * 100 cells instead of the tutorial's 1000; fixed dt; the waves do not reach the
   closed ends in 700 steps (end-cell speed stays ~1e-6 m/s). Bit-identity of
   the end-cell terms comes from translating the zeroGradient boundary

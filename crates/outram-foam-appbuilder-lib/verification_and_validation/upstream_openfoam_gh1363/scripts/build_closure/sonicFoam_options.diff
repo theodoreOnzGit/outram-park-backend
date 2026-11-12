@@ -1,0 +1,9 @@
+--- /home/user/upstream-build/OpenFOAM-v2506/applications/solvers/compressible/sonicFoam/Make/options	2026-11-11 08:21:33.383086458 +0000
++++ /home/user/upstream-build/gh1363/closure/scratch/sonicFoam/Make/options	2026-11-12 10:09:33.263145914 +0000
+@@ -16,5 +16,4 @@
+     -lfluidThermophysicalModels \
+     -lspecie \
+     -lturbulenceModels \
+-    -lcompressibleTurbulenceModels \
+-    -lthermoTools
++    -lcompressibleTurbulenceModels
