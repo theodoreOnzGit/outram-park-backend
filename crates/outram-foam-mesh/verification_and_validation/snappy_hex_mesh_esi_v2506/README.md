@@ -209,7 +209,7 @@ itself (its equality is an integer comparison of 42788 cells).
   `splitMesh`, `meshRefinementBaffles.C:5157`), then `danglingCellRefine`
   (nFaces 21, 24) and `refinementInterfaceRefine` on the post-removal mesh: these
   explain 304 + 38 of the 344 residual cells.
-- `markFacesOnProblemCells` (2 cells), `zonify`, `splitAndMergeBaffles`,
+- ~~`markFacesOnProblemCells` (2 cells)~~ **CORRECTED 2026-11-12 (round 2/3): ported; ESI's 25295 faces reproduced in ESI's cell order**, `zonify`, `splitAndMergeBaffles`,
   `mergePatchFaces` (needs `snap true`), region patches from `patchInfo`,
   multiple surfaces, faceZones/cellZones, `locationsInMesh`.
 - #1465 items 1 (`(min max)` levels, curvature), 2 (`nCellsBetweenLevels` > 1),
@@ -447,3 +447,237 @@ dots follow the STL cut (black line): patch1 (orange) on the outer faces, patch4
 `round2_slice_z2.png` (below the lower stub, left of the upper arm) belong to faces
 of cells at other z, not to the plane; no 3-D view; which faces are the 4
 problem-cell patch faces was not marked.
+
+---
+
+# Round 3 (2026-11-12): problem-face order, per-face equality, snapping
+
+ESI v2506 re-run (same dictionary, `writePrecision 16`, debug meshes) into
+`/home/user/upstream-build/runs/r3_cast`; `extract_esi_fixtures.py` (beside this
+file) writes the committed references `esi_baffle_cell_order`, `esi_problem_faces`,
+`esi_final_cells_ordered`, `esi_final_points`, `esi_final_faces`,
+`esi_final_boundary` (`tests/fixtures/esi_v2506_flange/`).
+
+## Evidence gathered BEFORE the port change (disclosed, not predictions)
+
+A pure-Python replica of `markFacesOnProblemCells` (v2506
+`meshRefinementProblemCells.C:383-1000`, simple branch, no collapse check) run on
+ESI's own time-16 mesh (the mesh `baffleAndSplitMesh` runs it on: baffled, 30530
+cells) reproduces **25295 faces and the identical face set as ESI's
+`16/polyMesh/sets/problemFaces`** when cells are visited in ESI's cell order, and
+gives **24331** when the same cells are visited in reverse. So the algorithm as
+read is complete, and the count depends on the visit order of the 8-anchor loop
+(it marks faces, hence points, as it goes). The port's leaf order (nested i,j,k,
+dangling children appended) gave 24646.
+ESI's cell order is not a simple function of the lattice: after
+`surfaceOnlyRefine` iteration 1 it is exactly "parent keeps its label as child 0,
+children 1..7 appended per parent in refined-cell order, octant bit0 = x, bit1 = y,
+bit2 = z" (0 mismatches of 10238 cells); from iteration 2 it is not: the child
+numbering follows each parent's own hex frame (hexRef8 orders children by the
+cell's anchor-point numbering, which comes from polyMesh face order): 13 distinct
+child permutations among the iteration-2 parents, 8 of them determined by the
+parent's octant alone and the rest differing in 2 to 3 slots for about 1 % of parents.
+Deriving it needs hexRef8's cell orientation and polyTopoChange's face reordering:
+NOT ported.
+
+## PREDICTIONS (committed before the port was changed or run)
+
+| # | prediction |
+|---|---|
+| P17 | `CastellationControls::with_esi_problem_cell_order(keys)` (visit the 8-anchor loop in the ESI cell order of `esi_baffle_cell_order`) makes the port mark **25295** problem faces, and the set of marked faces (as pairs of cell keys) equals `esi_problem_faces` exactly. Reason: the replica above; the port's topology (leaf corners, hanging edge/face points in face rings) already matched on every count so far. Can fail if the port's anchor test differs from `pointLevel <= cellLevel` for a cell with a hanging corner. |
+| P18 | Per-face equality of the final castellated mesh with ESI's `32/polyMesh` (face keyed by its vertex ring on the level-2 lattice, up to cyclic rotation, with owner key and neighbour key or patch name; orientation compared): **all 63194 faces equal, including orientation**, except at most 8 boundary faces whose patch differs (the 4 problem-cell faces use the nearest-cut-face stand-in for ESI's topological `nearestPatch`). Point set equal (26662). |
+| P19 | Without the order (default leaf order) P18 still holds for internal faces and counts, but the problem-face count stays 24646 (pinned as the measured effect of the visit order). |
+
+## Round 3, task 1: first results and the next prediction (committed before the fix)
+
+- **P17 held** (`problem_faces_in_esi_cell_order_equal_esi`): with ESI's cell order
+  the port marks **25295** problem faces and the set equals ESI's
+  `problemFaces` (as pairs of cell keys), cells 18278 of 18278. The 649-face miss of
+  round 2 was the visit order, not a missing rule.
+- **P18 failed**: per-face comparison of the final mesh. Cell set, point set
+  (26662) and face count equal, but **1853 faces differ** (1853 in ESI only, the same
+  number in the port only), none with the same vertex set. The first ones: ESI's
+  face between level-1 cells `(1,24,15,9)|(1,24,15,10)` has **5 vertices** (a hanging
+  point on the midpoint of one edge, the corner of a level-2 neighbour), the port's has
+  4. The port's final assembler (`MeshAssembler`) writes quads only, so its polyMesh has
+  T-junction faces where ESI's hexRef8 has inserted the edge points into the face rings
+  (ESI 5- and 6-gons). `esi_split::build_topo` already builds such rings, for the
+  stage logic, but the final assembly did not use them. Topologically the port's mesh
+  is not conformal there (the edge of the neighbouring faces is split, this face's is
+  not), which matters for snapping.
+
+| # | prediction (before the fix) |
+|---|---|
+| P20 | With the hanging edge points inserted into the face rings of the final mesh (`esi_split::insert_hanging_points`, the points being the corners of every leaf of the octree incl. removed ones, as hexRef8's rings at refinement time), **all 63194 faces equal ESI's** (ring up to rotation, orientation, cells, patch), the 1853 differing faces being exactly the faces with a hanging point; patches may differ on at most 8 faces (problem-cell patch stand-in). |
+
+### Round 3, task 1: results (2026-11-12, release, `tests/snappy_hex_mesh_esi_flange.rs`)
+
+| # | outcome |
+|---|---|
+| P17 | **held**: 25295 problem faces, the same faces, cells 18278 of 18278 (`problem_faces_in_esi_cell_order_equal_esi`). Python replica on ESI's own mesh: 25295 in ESI order, 24331 reversed; port: 25295 in ESI order, 24646 in leaf order. The count depends on the 8-anchor loop visit order and nothing else. |
+| P18 | **failed** (1853 faces, hanging edge points missing from the port's rings), see above. |
+| P19 | **held**: default leaf order, 24646, pinned in `round2_stages_equal_esi`. |
+| P20 | **held**: with `esi_split::insert_hanging_points` (always applied under `CellRemoval::EsiSplitMesh`) **all 63194 faces equal ESI's** (ring up to rotation, orientation relative to the owner, both cells, patch), 51058 internal + 12136 boundary, **including the 4 problem-cell faces** whose patch the nearest-cut-face stand-in assigns (no face differs; 0 of the allowed 8). 1853 faces have 5+ vertices, as in ESI. Point sets equal (26662). |
+
+**Not compared**: face, cell and point NUMBERING. ESI's cell labels follow hexRef8's
+refinement history (children numbered by the parent's own hex frame, see above) and
+its face order is polyTopoChange's upper-triangular renumbering; the port uses its own
+(owner, then neighbour) order, so owner/neighbour arrays are not equal as arrays, only
+as the set of (face, cell, cell) records. The 8-anchor visit order is therefore an
+INPUT of the port (`with_esi_problem_cell_order`, fixture `esi_baffle_cell_order`),
+not derived. With the default (port leaf order) the cell set and everything else
+agree and only the problem-face selection differs (24646 faces, same final cells here).
+
+**Defect fixed**: the final assembler wrote T-junction faces (quads next to split
+edges); hexRef8's rings carry the edge points. Opt-in only (`EsiSplitMesh`); the default
+path (`CentreParity`, `BaffleRegion`) still writes quads and its pins are unchanged.
+
+## Round 3, task 2: snapping against ESI v2506, stage by stage (predictions)
+
+**Case and reference.** `snappyHexMeshDict.snap` (beside this file) is the reduced
+flange dictionary with `snap true`, the tutorial's `snapControls` (`nSmoothPatch 3;
+tolerance 1.0; nSolveIter 300; nRelaxIter 5`) and the tutorial's
+`meshQualityControls` (`meshQualityDict`, `relaxed { maxNonOrtho 75; }`,
+`nSmoothScale 4; errorReduction 0.75`). **Deviation from the tutorial, stated:**
+`nFeatureSnapIter`, `implicitFeatureSnap`, `explicitFeatureSnap` and
+`multiRegionFeatureSnap` are LEFT OUT (the tutorial's `nFeatureSnapIter 10` with
+`multiRegionFeatureSnap true` makes ESI attract 24 feature points and 1446 feature-edge
+points between the four STL regions, from the multi-patch feature detection of
+`snappySnapDriverFeature.C`, which the port does not have; no `.eMesh` is needed for
+that, but it is a different algorithm). Without them ESI runs the plain loop of
+`doSnap` (`nFeatIter = 1`). ESI log: `esi_snap_log.txt.gz`. With `snap true` the
+castellated mesh is unchanged (18278 cells, 63194 faces, 26662 points; "Merging 0 sets of
+faces"), so task 1's equality carries over.
+
+ESI sequence read (v2506 `snappySnapDriver.C`, `motionSmootherAlgo.C`):
+`calcSnapDistance` (872: `snapTol * max incident edge length` per patch point),
+`motionSmoother` + `checkMesh` of the initial mesh (0 faces in error),
+`preSmoothPatch` (872-985): `nSmoothPatch` times { `smoothPatchDisplacement` (290-
+560: blends the average of connected boundary-face centres and of connected internal-
+face centres, internalBlend 0.1, blend 0.1 with the current position),
+`setDisplacement`, `scaleMesh` (quality check, scale 1 when no face is in error) };
+then one morph iteration: `calcNearestSurface` (nearest surface point within
+`snapDist`), `detectNearSurfaces` (default on; "Overriding ... at 0 out of 12130
+points" here), `outwardsDisplacement`, `freezeExposedPoints`, `setDisplacement`,
+`smoothDisplacement` (2134: `nSmoothDispl` = `nSolveIter` 300 iterations of
+`motionSmootherAlgo::smooth` with edge weights `1/(wall distance + SMALL)` from
+`edgePatchDist`, a `PointEdgeWave`), `scaleMesh` (2208: up to `2 nSnap` scaling
+iterations; faces failing the full `meshQualityControls` get `errorReduction`,
+`nSmoothScale` `minSmooth` passes, move again), `repatchToSurface` (42 faces),
+then `mergePatchFaces`/`mergeEdges` (2118 sets, 2005 points: the final ESI mesh has 61034
+faces and 24615 points; NOT ported, so the comparison stops at the snapped mesh of
+time 36 with 63194 faces).
+
+**Method.** The port starts from ESI's castellated polyMesh READ IN (faces and
+owner/neighbour from `esi_final_faces.txt.gz`, points as exact doubles from the binary
+`snap_points_32`), so numbering, ring start vertices and summation order are ESI's and
+a difference names an operation, not an ordering. References (binary, exact doubles,
+`extract_snap_fixtures.py`): points after each `preSmoothPatch` iteration (runs with
+`nSmoothPatch` 1, 2, 3), `34/displacement` (patch points: the displacement handed to
+`setDisplacement`; internal points: after `smoothDisplacement`), points at time 35
+(scaling iteration 0) and 36 (the snapped mesh). Counts below are over the 26662
+points; 12130 are patch points.
+
+| # | prediction (committed before any port code for snapping exists) |
+|---|---|
+| P21 | Surface attraction: the port's displacement (`calcNearestSurface` with `snapDist`, then `outwardsDisplacement`; `detectNearSurfaces` and `freezeExposedPoints` change nothing here, ESI: 0 overrides, no frozen points) equals ESI's patch-point values of `34/displacement` on **all 12130 points to within 1e-12 m**; the mean wanted distance is ESI's **1.688540950712846e-4 m** (min 6.548561578869996e-8, max 7.516794439290358e-4) to 1e-12 relative. Bit identity is NOT predicted (the nearest-point-on-triangle routines differ in operation order: `triangle::nearestPointClassify` against `TriangleSoup::closest_point`), only <= 1e-12 m. |
+| P22 | `smoothPatchDisplacement` + move, three iterations, all 26662 points: **bit-identical to ESI after iterations 1, 2 and 3** (the faces, face-centre formula and loop order are ESI's; no transcendental is involved; neither build uses FMA). Expected failure mode: face-centre estimate accumulation order. |
+| P23 | `smoothDisplacement` (300 iterations): all 26662 points of the displacement equal ESI's `34/displacement` **to 1e-12 relative to the largest displacement, bit-identical on at least 90 %**; the `edgePatchDist` wave (ported as `PointEdgeWave`'s propagation with its tolerance) gives ESI's edge distances exactly. Risk: the wave's order of updates on ties. |
+| P24 | `scaleMesh` iteration 0 (full displacement) finds faces in error of the three kinds ESI reports, **4 pyramid-volume, 2 tet-quality, 2 twist**, all other checks 0, and the second iteration (scale min 0.75) is clean; the points equal ESI's time 36 to 1e-12 m. This needs the ESI face checks (`polyMeshGeometry`); if they are not all ported in this round the stage is reported as NOT DONE rather than approximated. |
+| P25 | `checkMesh` counts on the snapped mesh (9 `meshQualityControls` checks): 0 for all (ESI log, "Checking final mesh"). |
+
+### Round 3, task 2: results so far (2026-11-12, release, `tests/snappy_hex_mesh_esi_snap.rs`)
+
+Code: `src/snappy_hex_mesh/esi_snap.rs` (opt-in, the older `snapping::snap` is
+untouched). Stage table, from ESI's castellated mesh read in:
+
+| stage | compared with | port | result |
+|---|---|---|---|
+| `preSmoothPatch` iteration 1 (`smoothPatchDisplacement`, move) | ESI time-33 points of the `nSmoothPatch 1` run | 26662 points | **bit-identical, 79986 of 79986 components** |
+| iteration 2 | `nSmoothPatch 2` run | | **bit-identical, 79986 of 79986** |
+| iteration 3 | `nSmoothPatch 3` run | | **bit-identical, 79986 of 79986** |
+| `calcSnapDistance` + `calcNearestSurface` (12130 patch points, from the time-33 mesh) | patch points of `34/displacement` | | **36389 of 36390 components bit-identical, worst 2.2e-19 m**; wanted displacement min 6.548561578869996e-8 and max 7.516794439290358e-4 equal ESI's log exactly, mean 1.688540950712846e-4 equal to 1e-18 |
+| `outwardsDisplacement` | ESI warning "mesh point 16952" | | same first offender, 16952 |
+| `smoothDisplacement` (`edgePatchDist` wave + 300 `smooth` passes), from ESI's patch displacement | all of `34/displacement` | 26662 points | **bit-identical, 79986 of 79986** |
+
+**Prediction ledger.** P21 **held** (the <= 1e-12 m bound, better: 2.2e-19 m; bit identity
+was not predicted and holds for all but one component). P22 **held** (bit-identical, as
+predicted). P23 **held after a defect was found and fixed**: the first run was **47.98 %
+bit-identical with a worst difference of 4.76e-7 m (6e-4 of the largest displacement)**:
+first divergent operation, the order of the mesh edges. `primitiveMesh::calcEdges`
+creates edges face by face and then **renumbers them by lower end point and, within it,
+higher end point** (the `oldToNew` pass, `primitiveMeshEdges.C:300-440`); `avg` sums
+per point in edge-index order and 300 passes amplified the summation-order difference to
+6e-4. I had expected "round-off" and was wrong about the size: an order difference over 300
+smoothing passes is not 1e-16. With the renumbering ported (`mesh_edges`) the result is
+bit-identical, which also shows the `PointEdgeWave` port (propagation order, tolerance 0.01)
+is exact on this mesh. P24 and P25 below.
+
+**Pictures** (`images/snap_slice_z.png`, `images/snap_slice_y.png`, from
+`examples/draw_snap_differential.rs`; z = -0.013333 and y = 0 are cell-face planes of
+the castellated mesh): grey = castellated edges lying in the plane, blue = ESI's snapped
+mesh (time 36), red = the port with the full displacement (scale 1), black = the STL cut.
+**Looked at (I opened both):** the snapped edges follow the STL outline, including the
+circular bores and the slot, with the cut cells' edges pulled onto the surface and
+the grey grid showing the undisplaced position. **Not seen:** any red, because red
+is drawn under blue and the largest difference between the port at scale 1 and ESI's time-36
+mesh is 6.0e-5 m (0.9 px at 15000 px/m), which is the effect of the `errorReduction`
+scaling (below); the images cannot show it, the number does. No 3-D view.
+
+### Round 3, task 2: P24 and P25 NOT DONE (stated, not approximated)
+
+`scaleMesh` iteration 0 needs ESI's `meshQualityControls` face checks
+(`motionSmootherAlgoCheck.C` + `polyMeshGeometry.C`: nine checks, about 1500 lines of
+C++). They are NOT ported in this round, so the stage that turns the unscaled mesh
+(ESI time 35; the port reproduces its displacement bit for bit above) into the snapped
+mesh of time 36 is open, and so is the `checkMesh` count table of P25. Measured instead:
+the largest distance between the port's unscaled mesh and ESI's time-36 mesh is
+**6.0e-5 m**, i.e. the effect of `errorReduction 0.75` at the points of the 8 faces
+that failed (4 pyramid-volume, 2 tet-quality, 2 twist; ESI log, iteration 0), which the
+port does not scale. What was read for the next round:
+
+- `checkMesh` runs: `checkFaceDotProduct`, `checkFacePyramids`, `checkFaceTets`,
+  `checkFaceAngles`, `checkFaceSkewness`, `checkFaceWeights`, `checkVolRatio`,
+  `checkFaceTwist`, `checkCellDeterminant` (the disabled ones: `minArea`,
+  `minTriangleTwist`, `minEdgeLength` are -1 in `meshQualityDict`).
+- **Source observation, recorded for the log line it explains:** the pyramid check is
+  called as `checkFacePyramids(report, minTetQuality, ...)`, with `minTetQuality`
+  (1e-15) as its threshold, while the log line that follows prints `minVol`
+  (1e-13). The count in ESI's "faces with face pyramid volume < 1e-13" is therefore
+  the number of faces with pyramid volume above `-1e-15` (owner side) or below
+  `1e-15` (neighbour side).
+- `tetrahedron::quality()` is `mag()/(8/(9 sqrt 3) * pow3(min(circumRadius, GREAT)) + ROOTVSMALL)`:
+  a `sqrt` and a division by `circumRadius`, no `pow`; face-pyramid and tet checks use
+  `polyMeshGeometry`'s own cell centres (`updateCellCentresAndVols`: face-centre
+  estimate, bounding-box guard), not `primitiveMesh`'s.
+- After a failed check: `errorReduction` at the points of the wrong faces, `nSmoothScale` (4)
+  `minSmooth` passes over the affected points with `calcEdgeWeights(oldPoints)`, move
+  again. `repatchToSurface` (42 faces) and `mergePatchFaces`/`mergeEdges` (2118 face
+  sets, 2005 points: 63194 to 61034 faces) follow and are also not ported.
+- Reuse note for #1467: the dev-lineage `outram_park_fork_cfmesh::checks` cannot be called
+  from this crate (cfMesh depends on it, optionally); a quality check shared by both
+  has to live here, ESI-translated, and cfMesh call it.
+
+### Round 3 summary of the prediction ledger
+
+| # | outcome |
+|---|---|
+| P17 | held (25295, same faces, ESI cell order as input) |
+| P18 | failed (1853 faces without hexRef8 hanging points); cause fixed |
+| P19 | held (24646 in the port's leaf order) |
+| P20 | held (all 63194 faces equal ESI per face, patches included) |
+| P21 | held (36389 of 36390 bit-identical, worst 2.2e-19 m) |
+| P22 | held (bit-identical, 3 iterations) |
+| P23 | held after fixing the edge order (first run 47.98 %, 4.8e-7 m) |
+| P24 | not done (face checks not ported); unscaled mesh differs from ESI time 36 by at most 6.0e-5 m |
+| P25 | not done |
+
+### Moved pins and defects, round 3
+
+Pins moved: none. `CellRemoval::EsiSplitMesh` now writes hexRef8 hanging-point
+rings (5-8 vertex faces) in `CastellatedMesh::topology`; face and cell counts are
+unchanged (`castellate_esi_split_mesh_cells` still 18278 / 63194), the default
+removal modes are untouched. Defects found: (1) final assembler wrote T-junction quads
+(fixed, opt-in path); (2) the "649-face problem-face miss" was the visit order, not a missing
+rule (README round 2 corrected); (3) in this round's own port, the edge renumbering of
+`calcEdges` (fixed before the first commit that claims P23).

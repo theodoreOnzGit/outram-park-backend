@@ -111,6 +111,11 @@ pub struct CastellationControls {
     /// per STL solid); `None` puts every carved face in the single patch
     /// [`Self::surface_patch_name`]. Needs [`CellRemoval::EsiSplitMesh`].
     pub surface_regions: Option<SurfaceRegionPatches>,
+    /// Order in which `markFacesOnProblemCells` visits the cells (ESI: polyMesh cell
+    /// label). `None` visits in the port's leaf order. Only read by
+    /// [`CellRemoval::EsiSplitMesh`]; see
+    /// [`Self::with_esi_problem_cell_order`].
+    pub problem_cell_order: Option<Vec<[usize; 4]>>,
 }
 
 /// Which surface region each triangle belongs to and what its patch is called
@@ -175,7 +180,20 @@ impl CastellationControls {
             min_refine_cells: 0,
             removal: CellRemoval::CentreParity,
             surface_regions: None,
+            problem_cell_order: None,
         }
+    }
+
+    /// Visit the cells in this order (`[level, i, j, k]` on each cell's own lattice,
+    /// as in ESI's cell labels) in `markFacesOnProblemCells`' 8-anchor loop, which
+    /// marks points as it goes and so depends on the order (ESI: 25295 problem faces
+    /// on the flange in its own order, 24646 in the port's leaf order). The order
+    /// is an input here because ESI's labels follow hexRef8's refinement history,
+    /// which is not ported.
+    #[must_use]
+    pub fn with_esi_problem_cell_order(mut self, order: Vec<[usize; 4]>) -> Self {
+        self.problem_cell_order = Some(order);
+        self
     }
 
     /// One patch per surface region, named `patch_names[region]` (ESI's
@@ -392,6 +410,7 @@ pub fn castellate(
             controls.keep_point,
             controls.min_refine_cells,
             controls.surface_regions.as_ref().map(|r| r.region_of_tri.as_slice()),
+            controls.problem_cell_order.as_deref(),
         )
         .ok_or_else(|| {
             MeshError::Construction("keep_point (locationInMesh) is outside every background cell".to_string())
@@ -531,7 +550,19 @@ pub fn castellate(
             builder.unmapped
         )));
     }
-    let (fv_mesh, points, topology, surface_faces) = builder.finish(n_kept)?;
+    let (fv_mesh, mut points, mut topology, surface_faces) = builder.finish(n_kept)?;
+    if controls.removal == CellRemoval::EsiSplitMesh {
+        // hexRef8's rings carry the hanging edge points; the assembler writes quads.
+        let size0 = [span.x / bg.nx as f64, span.y / bg.ny as f64, span.z / bg.nz as f64];
+        crate::snappy_hex_mesh::esi_split::insert_hanging_points(
+            &mut topology.faces,
+            &mut topology.points,
+            &leaves,
+            origin,
+            size0,
+        );
+        points = topology.points.clone();
+    }
 
     Ok(CastellatedMesh {
         fv_mesh,

@@ -369,6 +369,38 @@ pub(crate) fn dangling_cell_refine(
     (leaves, alive, selected)
 }
 
+/// A cell's identity on its own level lattice: `[level, i, j, k]` (the key the ESI
+/// reference fixtures use).
+pub type CellKey = [usize; 4];
+
+fn leaf_key(l: &Leaf) -> CellKey {
+    [l.level, l.i, l.j, l.k]
+}
+
+/// The alive cells in the order `markFacesOnProblemCells` visits them. ESI visits
+/// by polyMesh cell label, which follows the hexRef8 refinement history and is not
+/// derived here: `visit_order` (the ESI order, as cell keys) is honoured when
+/// given, and any alive cell it does not name follows in leaf order. `None` is the
+/// port's own leaf order.
+fn cell_visit_order(leaves: &[Leaf], alive: &[bool], visit_order: Option<&[CellKey]>) -> Vec<usize> {
+    let Some(order) = visit_order else {
+        return (0..leaves.len()).filter(|&c| alive[c]).collect();
+    };
+    let index: HashMap<CellKey, usize> = leaves.iter().enumerate().map(|(c, l)| (leaf_key(l), c)).collect();
+    let mut seen = vec![false; leaves.len()];
+    let mut out = Vec::with_capacity(leaves.len());
+    for key in order {
+        if let Some(&c) = index.get(key) {
+            if alive[c] && !seen[c] {
+                seen[c] = true;
+                out.push(c);
+            }
+        }
+    }
+    out.extend((0..leaves.len()).filter(|&c| alive[c] && !seen[c]));
+    out
+}
+
 /// What [`baffle_and_split_mesh`] counted, to compare with the ESI log.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BaffleStats {
@@ -399,6 +431,7 @@ pub struct BaffleStats {
 /// cells baffles those cells; finally every remaining internal face whose edges
 /// are all marked is baffled (without marking). Returns the alive flags after
 /// the split and the counts, or `None` if `keep` is in no alive leaf.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn baffle_and_split_mesh(
     leaves: &[Leaf],
     alive: &[bool],
@@ -408,7 +441,8 @@ pub(crate) fn baffle_and_split_mesh(
     surface: &TriangleSoup,
     keep: Vector3,
     regions: Option<&[usize]>,
-) -> Option<(Vec<bool>, BaffleStats, BoundaryRegions)> {
+    visit_order: Option<&[CellKey]>,
+) -> Option<(Vec<bool>, BaffleStats, BoundaryRegions, Vec<(CellKey, CellKey)>)> {
     let n = leaves.len();
     let topo = build_topo(leaves, n0);
     let hit = face_hits(leaves, alive, &topo.faces, origin, size0, surface);
@@ -454,10 +488,7 @@ pub(crate) fn baffle_and_split_mesh(
     let mut n_problem = 0usize;
     let mut has_seven = vec![false; n];
     let mut seven_corner: Vec<(usize, P)> = Vec::new();
-    for c in 0..n {
-        if !alive[c] {
-            continue;
-        }
+    for c in cell_visit_order(leaves, alive, visit_order) {
         let mut n_boundary = 0usize;
         let mut unmarked = None;
         for p in &topo.corners[c] {
@@ -539,11 +570,20 @@ pub(crate) fn baffle_and_split_mesh(
     let blocked: Vec<bool> = (0..nfaces).map(|fi| (internal[fi] && hit[fi]) || problem[fi]).collect();
     let kept = flood(n, &topo.faces, alive, &blocked, start);
     stats.n_kept = kept.iter().filter(|&&k| k).count();
+    let mut problem_pairs: Vec<(CellKey, CellKey)> = Vec::with_capacity(n_problem);
+    for fi in 0..nfaces {
+        if problem[fi] {
+            if let Some(nb) = topo.faces[fi].nei {
+                let (a, b) = (leaf_key(&leaves[topo.faces[fi].own]), leaf_key(&leaves[nb]));
+                problem_pairs.push(if a <= b { (a, b) } else { (b, a) });
+            }
+        }
+    }
     let face_region = match regions {
         Some(r) => boundary_regions(leaves, &topo, &kept, &hit, origin, size0, surface, r),
         None => BoundaryRegions::new(),
     };
-    Some((kept, stats, face_region))
+    Some((kept, stats, face_region, problem_pairs))
 }
 
 /// The surface region of every boundary face of the kept mesh that borders a
@@ -616,6 +656,69 @@ fn boundary_regions(
     out
 }
 
+/// Insert hexRef8's hanging edge points into the face rings of the assembled mesh.
+///
+/// hexRef8 (ESI v2506 `hexRef8.C`, `setRefinement`) puts the mid-point of an
+/// edge into the vertex ring of every face on that edge once a neighbouring cell
+/// splits it, so a face next to a finer cell has 5 to 8 vertices. The assembler of
+/// `castellate` writes quads; this restores the rings the way
+/// [`build_topo`] builds them: a point is inserted between two consecutive ring points
+/// when it is the lattice mid-point of that edge and a corner of some leaf of
+/// the octree (kept or removed: the refinements all precede the removals).
+/// `faces` and `points` are the mesh's; a missing point is appended. Returns the
+/// number of faces that gained points.
+pub(crate) fn insert_hanging_points(
+    faces: &mut [Vec<usize>],
+    points: &mut Vec<Vector3>,
+    leaves: &[Leaf],
+    origin: Vector3,
+    size0: [f64; 3],
+) -> usize {
+    let lm = lattice_level(leaves);
+    let mut corner_set: HashSet<P> = HashSet::with_capacity(leaves.len() * 2);
+    for l in leaves {
+        let (lo, s) = lattice_box(l, lm);
+        for n in 0..8u32 {
+            corner_set.insert([lo[0] + s * (n & 1), lo[1] + s * ((n >> 1) & 1), lo[2] + s * ((n >> 2) & 1)]);
+        }
+    }
+    let h = [size0[0] / (1usize << lm) as f64, size0[1] / (1usize << lm) as f64, size0[2] / (1usize << lm) as f64];
+    let lattice = |p: Vector3| -> P {
+        [
+            ((p.x - origin.x) / h[0]).round() as u32,
+            ((p.y - origin.y) / h[1]).round() as u32,
+            ((p.z - origin.z) / h[2]).round() as u32,
+        ]
+    };
+    let mut id_of: HashMap<P, usize> = points.iter().enumerate().map(|(i, &p)| (lattice(p), i)).collect();
+    let mut changed = 0usize;
+    for face in faces.iter_mut() {
+        let ring: Vec<P> = face.iter().map(|&p| lattice(points[p])).collect();
+        let mut out: Vec<P> = Vec::with_capacity(ring.len() + 2);
+        for e in 0..ring.len() {
+            push_edge(ring[e], ring[(e + 1) % ring.len()], &corner_set, &mut out);
+        }
+        if out.len() == face.len() {
+            continue;
+        }
+        changed += 1;
+        let mut new_face = Vec::with_capacity(out.len());
+        for q in out {
+            let id = *id_of.entry(q).or_insert_with(|| {
+                points.push(Vector3::new(
+                    origin.x + q[0] as f64 * h[0],
+                    origin.y + q[1] as f64 * h[1],
+                    origin.z + q[2] as f64 * h[2],
+                ));
+                points.len() - 1
+            });
+            new_face.push(id);
+        }
+        *face = new_face;
+    }
+    changed
+}
+
 /// The cells after each ESI stage, for the differential against the ESI
 /// intermediate meshes. Each entry is `(level, centre)`.
 #[derive(Debug, Clone)]
@@ -630,6 +733,9 @@ pub struct EsiStageCells {
     pub final_cells: Vec<(usize, Vector3)>,
     /// The counts of the baffle step.
     pub baffle: BaffleStats,
+    /// The faces `markFacesOnProblemCells` marked, as the two cells each separates
+    /// (smaller key first).
+    pub problem_faces: Vec<(CellKey, CellKey)>,
 }
 
 /// Everything [`esi_stages`] produced, with leaves (for assembling the mesh).
@@ -652,6 +758,7 @@ fn alive_cells(leaves: &[Leaf], alive: &[bool], origin: Vector3, size0: [f64; 3]
 /// Run `removeInsideCells(1)`, `danglingCellRefine(21)`, `danglingCellRefine(24)`
 /// and `baffleAndSplitMesh` on the octree `leaves` of `surfaceOnlyRefine`.
 /// `None` if `keep` is in no leaf or is removed.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn esi_stages(
     leaves: Vec<Leaf>,
     n0: [usize; 3],
@@ -661,14 +768,15 @@ pub(crate) fn esi_stages(
     keep: Vector3,
     min_refine_cells: usize,
     regions: Option<&[usize]>,
+    visit_order: Option<&[CellKey]>,
 ) -> Option<EsiStages> {
     let alive = remove_inside_cells(&leaves, n0, origin, size0, surface, keep, 1)?;
     let after_remove_inside = alive_cells(&leaves, &alive, origin, size0);
     let (leaves, alive, sel21) = dangling_cell_refine(leaves, alive, n0, 21, min_refine_cells, 100);
     let (leaves, alive, sel24) = dangling_cell_refine(leaves, alive, n0, 24, min_refine_cells, 100);
     let after_dangling = alive_cells(&leaves, &alive, origin, size0);
-    let (kept, baffle, boundary_regions) =
-        baffle_and_split_mesh(&leaves, &alive, n0, origin, size0, surface, keep, regions)?;
+    let (kept, baffle, boundary_regions, problem_faces) =
+        baffle_and_split_mesh(&leaves, &alive, n0, origin, size0, surface, keep, regions, visit_order)?;
     let final_cells = alive_cells(&leaves, &kept, origin, size0);
     Some(EsiStages {
         leaves,
@@ -680,6 +788,7 @@ pub(crate) fn esi_stages(
             after_dangling,
             final_cells,
             baffle,
+            problem_faces,
         },
     })
 }
@@ -713,7 +822,7 @@ pub fn esi_stage_cells(
         surface,
         controls.min_refine_cells,
     );
-    esi_stages(leaves, n0, bg.bounds.min, size0, surface, controls.keep_point, controls.min_refine_cells, None)
+    esi_stages(leaves, n0, bg.bounds.min, size0, surface, controls.keep_point, controls.min_refine_cells, None, controls.problem_cell_order.as_deref())
         .map(|s| s.cells)
 }
 
