@@ -33,6 +33,7 @@ call.
 | thermal shield (stated / close-packed) | +779 ± 43 / +895 ± 66 pcm | fails |
 | 99.9926 % Li-7 | +730 ± 60 pcm | fails |
 | INOR-8's Mo omitted (arm A, measured under DBRC) | +441 ± 45 pcm | +1197, fails |
+| U-234/U-236 per TM-0730's 93 % uranium | −326 ± 83 pcm | +471, passes |
 
 **Open, waiting on the maintainer:**
 - the rod worth, whose geometry is built but needs the Gd tapes;
@@ -691,9 +692,44 @@ range.
   table carries 262 absorptions in them. `scripts/salt.py` counts the
   enriched lot's 7 % non-²³⁵U as U-238. TM-0730 Table 3.2 (p. 21) assumes
   the 93 % uranium to be **1 / 93 / 1 / 5 atom %** U-234 / U-235 / U-236 /
-  U-238. That is a design assumption, not an assay of the as-loaded lot. A
-  sensitivity run with that composition is the next measurement.
+  U-238. That is a design assumption, not an assay of the as-loaded lot.
+  ~~A sensitivity run with that composition is the next measurement.~~
+  **Measured the same day:** see the next section.
 - **Not a validation, and the default is not changed.**
+
+### N-1 residual: U-234 and U-236 in the salt (2026-11-12, gh:#1128)
+
+**Ablation:** `--minor-uranium tm0730` (`salt_with_tm0730_minor_uranium`). It
+splits the enriched lot's non-²³⁵U as TM-0730 Table 3.2 assumes for 93 %
+uranium: 1 / 93 / 1 / 5 atom % U-234 / U-235 / U-236 / U-238. This replaces
+`salt.py`'s all-U-238. U-235 is unchanged, and U-234 and U-236 are added at
+8.99e-7 atoms/b-cm each. A unit test pins every ratio. **The composition is a
+design assumption.** No as-loaded assay was found in ORNL-4233, TM-0728,
+TM-0730, ORNL-4396 or ORNL-4449.
+
+**Prediction** (posted on gh:#1128 before the run): **−150 to −350 pcm**,
+estimated at about −240.
+
+**Run:** arm C, RVS, 30P, cold, seeds 1–3: 1.00398, 1.00668 and 1.00587
+(each ± 0.0006–0.0007). About 750 s per seed, same hardware.
+
+| salt | k | vs k_ref |
+|---|---|---|
+| default (`salt.py`, no U-234/236; 6 seeds) | 1.00882 ± 0.00022 | +801 pcm |
+| **TM-0730's 93 % composition** (3 seeds) | **1.00551 ± 0.00080** | **+471 pcm** |
+| **shift** | **−326 ± 83 pcm** (seed-paired −359 ± 105) | |
+
+- **Inside the prediction,** on the larger side of the estimate.
+- **The first composition lever that moves N-1 toward the measurement by
+  several σ.** It removes about 40 % of the residual. That holds if the
+  1965 lot was like TM-0730's assumed 93 % uranium.
+- **The three seeds spread 138 pcm (sd),** about twice their internal σ,
+  as on other runs of this model. The σ quoted is the larger of the seed
+  sem and the internal σ/√3.
+- **The default is not changed.** Real 93 % uranium does carry U-234
+  (TM-0730 itself puts it at 1 %), so a model with U-234 and U-236 is the
+  more physical one. Which isotopics to adopt without an assay is the
+  maintainer's call.
 
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
