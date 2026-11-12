@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.0.2
+**Version:** 0.0.5
 
 **Format Version:** 61
 
@@ -71,6 +71,15 @@ files, Android-buildable (pure-Rust, no system BLAS/GUI).
 
 Stage 4 — **Critical-heat-flux (CHF / DNB / dryout) correlations**
 (bead `op-2kk.4`).
+
+**Lineage: original work, not a port (checked gh:#1367, 2026-11-12).** No
+upstream OpenFOAM counterpart exists: a search of ESI OpenFOAM-v2506 and
+OpenFOAM Foundation OpenFOAM-dev (`src/`, `applications/`) for `Biasi`,
+`Bowring`, `Groeneveld`, `Tong` and `criticalHeatFlux` found no CHF
+correlation (the one `Bowring(1962)` hit, in `alphatWallBoilingWallFunction`,
+is a bubble-departure correlation, not CHF). Every correlation here is
+implemented from the published paper it cites, so there is no upstream
+to compare against; verification is against the papers' own tabulated values.
 
 Point (0-D) engineering correlations that predict the **critical heat flux**
 `q''_c` `[W/m²]` — the wall heat flux at which the boiling-heat-transfer
@@ -253,7 +262,7 @@ Fields:
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -345,7 +354,7 @@ pub struct Biasi;
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Biasi { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -361,7 +370,7 @@ pub struct Biasi;
 
 - **Default**
   - ```rust
-    fn default() -> Biasi { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -392,7 +401,7 @@ pub struct Biasi;
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -514,7 +523,7 @@ pub struct W3 {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -649,7 +658,7 @@ pub struct Bowring {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -805,7 +814,7 @@ pub struct GroeneveldLut {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1104,7 +1113,7 @@ pub struct DriftFluxMixture {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1262,7 +1271,7 @@ Fields:
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1362,7 +1371,7 @@ pub struct DriftFlux {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1376,6 +1385,13 @@ pub struct DriftFlux {
 ## Module `dryout`
 
 Stage 5 — **Dryout & post-dryout framework** (bead `op-2kk.5`).
+
+**Lineage: original work, not a port (checked gh:#1367, 2026-11-12).** No
+upstream OpenFOAM counterpart exists: a search of ESI OpenFOAM-v2506
+(`src/phaseSystemModels`) and OpenFOAM Foundation OpenFOAM-dev
+(`applications/modules`) for `Rohsenow`, `Dougall`, `Groeneveld` and dryout
+models found none. The worked closure follows the published correlations
+credited in the file header.
 
 A **reserved interface layer** for the dryout / post-dryout boiling-crisis
 regimes of a heated two-phase channel. This module deliberately ships the
@@ -1506,7 +1522,7 @@ pub struct DryoutConditions {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DryoutConditions { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1548,7 +1564,7 @@ pub struct DryoutConditions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1618,7 +1634,7 @@ pub struct VaporProperties {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> VaporProperties { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1660,7 +1676,7 @@ pub struct VaporProperties {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1727,7 +1743,7 @@ pub struct PostDryoutConditions {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PostDryoutConditions { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1769,7 +1785,7 @@ pub struct PostDryoutConditions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1825,7 +1841,7 @@ pub struct DryoutIndicator {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DryoutIndicator { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1854,7 +1870,7 @@ pub struct DryoutIndicator {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DryoutIndicator) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1873,7 +1889,7 @@ pub struct DryoutIndicator {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1973,7 +1989,7 @@ returns [`MultiphaseError::NotImplemented`].
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DryoutOnsetModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2020,7 +2036,7 @@ returns [`MultiphaseError::NotImplemented`].
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2144,7 +2160,7 @@ add: the moving quench-front energy balance. Currently returns
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PostDryoutModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2191,7 +2207,7 @@ add: the moving quench-front energy balance. Currently returns
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2276,6 +2292,26 @@ model worth having at all. Drift flux and HEM both assume the two phases sit
 on the saturation line; only a two-fluid model can carry subcooled liquid
 beside superheated vapour, and the rate at which that difference decays
 *is* `K`.
+
+# Lineage: the Foundation line, not ESI (differential check, gh:#1367)
+
+The file header's paths (`applications/modules/multiphaseEuler/...`) are
+**OpenFOAM Foundation**. Compared against ESI OpenFOAM-v2506
+(`src/phaseSystemModels/{twoPhaseEuler,reactingEuler}/...`) on a frozen
+4096-cell field
+(`verification_and_validation/upstream_comparison_gh1367.md`):
+
+- **RanzMarshall**: same algebra. 2601 of 4096 cells bit-identical; the rest
+  differ by at most 6.2e-16 because glibc's `cbrt` is not correctly rounded
+  (PETIR's is).
+- **Spherical**: **differs.** ESI reads `pair_.continuous().kappa()`; this
+  port, like Foundation, reads the **dispersed** conductivity. 0 of 4096
+  cells agree with ESI; the ratio is `kappa_d / kappa_c`. Whether to follow
+  ESI here is the maintainer's decision; it has not been changed.
+- **Gunn**: Foundation only. ESI v2506 has no `Gunn` model.
+- **Residual alpha**: ESI defaults `residualAlpha` to the dispersed phase's
+  (or phase 1's) residual; Foundation to the geometric mean of the two
+  phases'. Here the caller supplies it.
 
 # The quantity
 
@@ -2369,7 +2405,8 @@ degrades gracefully at low slip instead of going to zero.
 **Spherical conduction** — closes the **dispersed-side** internal
 resistance.
 
-Upstream `sphericalHeatTransfer::K`:
+Upstream (Foundation) `sphericalHeatTransfer::K`. **ESI v2506 differs:**
+it multiplies by `continuous().kappa()` instead (gh:#1367):
 
 ```text
 K = 60 max(alpha_d, alpha_res) kappa_d / d^2
@@ -2442,7 +2479,7 @@ not identical there, because Gunn's `Re` exponents differ.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InterfacialHeatTransfer { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2472,7 +2509,7 @@ not identical there, because Gunn's `Re` exponents differ.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InterfacialHeatTransfer) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2491,7 +2528,7 @@ not identical there, because Gunn's `Re` exponents differ.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2550,7 +2587,7 @@ conductivity.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ResistanceSide { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2580,7 +2617,7 @@ conductivity.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ResistanceSide) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2599,7 +2636,7 @@ conductivity.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2833,7 +2870,7 @@ pub struct DriftFluxPimple {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3082,7 +3119,7 @@ pub struct Phase {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3223,7 +3260,7 @@ Fields:
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3344,7 +3381,7 @@ Fields:
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3447,7 +3484,7 @@ pub struct TwoFluidSystem {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3726,7 +3763,7 @@ pub struct TwoFluidPimple {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3920,7 +3957,7 @@ pub struct WallBoilingConditions {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> WallBoilingConditions { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3962,7 +3999,7 @@ pub struct WallBoilingConditions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4036,7 +4073,7 @@ pub struct HeatFluxPartition {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HeatFluxPartition { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4078,7 +4115,7 @@ pub struct HeatFluxPartition {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4190,7 +4227,7 @@ pub struct RpiPartitioning {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RpiPartitioning { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4238,7 +4275,7 @@ pub struct RpiPartitioning {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4293,7 +4330,7 @@ pub struct ChfModel;
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ChfModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4309,7 +4346,7 @@ pub struct ChfModel;
 
 - **Default**
   - ```rust
-    fn default() -> ChfModel { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -4340,7 +4377,7 @@ pub struct ChfModel;
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4392,7 +4429,7 @@ pub struct ChfSubCoolModel;
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ChfSubCoolModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4408,7 +4445,7 @@ pub struct ChfSubCoolModel;
 
 - **Default**
   - ```rust
-    fn default() -> ChfSubCoolModel { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -4439,7 +4476,7 @@ pub struct ChfSubCoolModel;
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4491,7 +4528,7 @@ pub struct DryoutModel;
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DryoutModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4507,7 +4544,7 @@ pub struct DryoutModel;
 
 - **Default**
   - ```rust
-    fn default() -> DryoutModel { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -4538,7 +4575,7 @@ pub struct DryoutModel;
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4591,7 +4628,7 @@ pub struct FilmBoilingModel;
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FilmBoilingModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4607,7 +4644,7 @@ pub struct FilmBoilingModel;
 
 - **Default**
   - ```rust
-    fn default() -> FilmBoilingModel { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -4638,7 +4675,7 @@ pub struct FilmBoilingModel;
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4765,7 +4802,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> WallBoilingModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4807,7 +4844,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4952,7 +4989,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**

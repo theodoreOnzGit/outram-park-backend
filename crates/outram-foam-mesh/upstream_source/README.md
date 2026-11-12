@@ -75,3 +75,13 @@ Note: in this commit the mesh-quality checks live in `src/meshCheck/`
 `primitiveMeshCheck/primitiveMeshCheck.C`, namespace `meshCheck::`), not in
 `primitiveMeshTools`. `meshCheck::boundaryFaceSkewness` projects `Cf - C` onto
 the face normal (floor `0.4 |d|`); it does not mirror the owner cell.
+
+## ESI v2506 (the snappyHexMesh specification, gh:#1459)
+
+Maintainer decision, gh:#1459, 2026-11-12: **"ESI preferred"**. The
+snappyHexMesh parity work reads **OpenFOAM.com ESI v2506** and compares against
+a v2506 `snappyHexMesh` binary; the OpenFOAM-dev clone above is background for
+this folder. The v2506 tree is the shared one used by blockMesh, polyDualMesh,
+cfMesh and the FV operators: `/home/user/upstream-build/OpenFOAM-v2506`
+(`with-of.sh`, dummy Pstream). The snappyHexMesh build recipe and the disk cost
+are in `verification_and_validation/snappy_hex_mesh_esi_v2506/README.md`.

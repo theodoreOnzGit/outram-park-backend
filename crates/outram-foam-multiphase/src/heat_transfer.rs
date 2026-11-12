@@ -42,6 +42,26 @@
 //! beside superheated vapour, and the rate at which that difference decays
 //! *is* `K`.
 //!
+//! # Lineage: the Foundation line, not ESI (differential check, gh:#1367)
+//!
+//! The file header's paths (`applications/modules/multiphaseEuler/...`) are
+//! **OpenFOAM Foundation**. Compared against ESI OpenFOAM-v2506
+//! (`src/phaseSystemModels/{twoPhaseEuler,reactingEuler}/...`) on a frozen
+//! 4096-cell field
+//! (`verification_and_validation/upstream_comparison_gh1367.md`):
+//!
+//! - **RanzMarshall**: same algebra. 2601 of 4096 cells bit-identical; the rest
+//!   differ by at most 6.2e-16 because glibc's `cbrt` is not correctly rounded
+//!   (PETIR's is).
+//! - **Spherical**: **differs.** ESI reads `pair_.continuous().kappa()`; this
+//!   port, like Foundation, reads the **dispersed** conductivity. 0 of 4096
+//!   cells agree with ESI; the ratio is `kappa_d / kappa_c`. Whether to follow
+//!   ESI here is the maintainer's decision; it has not been changed.
+//! - **Gunn**: Foundation only. ESI v2506 has no `Gunn` model.
+//! - **Residual alpha**: ESI defaults `residualAlpha` to the dispersed phase's
+//!   (or phase 1's) residual; Foundation to the geometric mean of the two
+//!   phases'. Here the caller supplies it.
+//!
 //! # The quantity
 //!
 //! Every variant returns the **volumetric heat-transfer coefficient** `K`
@@ -121,7 +141,8 @@ pub enum InterfacialHeatTransfer {
     /// **Spherical conduction** — closes the **dispersed-side** internal
     /// resistance.
     ///
-    /// Upstream `sphericalHeatTransfer::K`:
+    /// Upstream (Foundation) `sphericalHeatTransfer::K`. **ESI v2506 differs:**
+    /// it multiplies by `continuous().kappa()` instead (gh:#1367):
     ///
     /// ```text
     /// K = 60 max(alpha_d, alpha_res) kappa_d / d^2

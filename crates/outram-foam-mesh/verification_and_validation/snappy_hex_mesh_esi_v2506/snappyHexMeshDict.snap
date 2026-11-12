@@ -1,0 +1,32 @@
+FoamFile { version 2.0; format ascii; class dictionary; object snappyHexMeshDict; }
+// gh:#1465/#1466 differential: reduced flange (what the port can express):
+// no features, no refinementRegions. Castellation only.
+castellatedMesh true;
+snap            true;
+addLayers       false;
+geometry { flange.stl { type triSurfaceMesh; name flange; } }
+castellatedMeshControls
+{
+    maxLocalCells 100000;
+    maxGlobalCells 2000000;
+    minRefinementCells 0;
+    nCellsBetweenLevels 1;
+    features ();
+    refinementSurfaces { flange { level (2 2); } }
+    resolveFeatureAngle 30;
+    refinementRegions {}
+    locationInMesh (-9.23149e-05 -0.0025 -0.0025);
+    allowFreeStandingZoneFaces true;
+}
+snapControls { nSmoothPatch 3; tolerance 1.0; nSolveIter 300; nRelaxIter 5; }
+addLayersControls { relativeSizes true; layers {} expansionRatio 1.0; finalLayerThickness 0.3; minThickness 0.25; }
+meshQualityControls
+{
+    #include "meshQualityDict"
+    relaxed { maxNonOrtho 75; }
+    nSmoothScale 4;
+    errorReduction 0.75;
+}
+writeFlags ( scalarLevels );
+debugFlags ( mesh );
+mergeTolerance 1E-6;

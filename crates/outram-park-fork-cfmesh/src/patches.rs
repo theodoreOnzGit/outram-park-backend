@@ -49,8 +49,15 @@
 //! **geometrically, once, at the end**: every boundary face of the finished mesh
 //! is given the region of the input-surface triangle **closest to its centroid**.
 //!
-//! That is exactly how snappyHexMesh assigns a cut face to a surface region, and
-//! it is well-posed here because every boundary face of a finished mesh lies on
+//! ~~That is exactly how snappyHexMesh assigns a cut face to a surface region~~
+//! **CORRECTED 2026-11-12 (gh:#1466):** ESI v2506 `snappyHexMesh` assigns a cut face
+//! the region of the FIRST triangle hit along the cell-centre to cell-centre segment,
+//! walking from the face's own cell (`getIntersections`,
+//! `meshRefinementBaffles.C:200`), not the nearest triangle. On the ESI flange the
+//! two rules differ on 10 of 12136 faces (0.08 %), so this rule is a close stand-in,
+//! not the upstream rule
+//! (`outram-foam-mesh/verification_and_validation/snappy_hex_mesh_esi_v2506/`).
+//! It is well-posed here because every boundary face of a finished mesh lies on
 //! (post-snap) or within roughly one cell of the input surface. It also handles
 //! the faces the layer stage invents, which no tag-threading scheme could.
 //!

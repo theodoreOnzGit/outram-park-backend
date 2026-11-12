@@ -1072,21 +1072,22 @@ impl CoilNo {
 pub const COIL_LEN: usize = 8;
 /// Turns of the demo coil (see the V&V record for why).
 pub const COIL_DEFAULT_TURNS: f64 = 2.0;
-/// Above this Reynolds number the coil's steady march runs at Co 1, not 4:
-/// on the V&V grid (m = 3) the Co 4 march did not converge at Re = 400 and
-/// 800 (the steady metric grew after 150 steps), while Re ≤ 200 converged
-/// at Co 4 (measured 2026-11-03, `helical_coil_dean_gh1157.md`). At Co 1
-/// Re 400 does not converge on that grid either (gh:#1172).
-pub const COIL_CO4_MAX_RE: f64 = 250.0;
+/// The coil's pseudo-time-step Courant number (on the axial cell length and
+/// 2 U, `cases::double_pipe::pseudo_time_step`), whatever the Reynolds number
+/// or mode. **Changed 2026-11-12 (gh:#1500), was 4 (steady) and 1 above
+/// Re 250:** with upstream's fully implicit `Gauss linear` (the scheme the
+/// coil now runs) the implicit central convection matrix is diagonally
+/// dominant only while the cell Courant number is about 1 or less, and the
+/// coarse coil diverged at Co 4 (step 2) and Co 2 (step 5) but ran to steady
+/// at Co 1 and 0.5. Co 1 is also the value of upstream's own unbounded
+/// `Gauss linear` laminar tutorial (`icoFoam/cavity`). Record:
+/// `verification_and_validation/helical_coil_dean_gh1157.md`.
+pub const COIL_CO: f64 = 1.0;
 
-/// The coil's Courant number for `mode` at `reynolds` (see
-/// [`COIL_CO4_MAX_RE`]).
-pub fn coil_courant(mode: Mode, reynolds: f64) -> f64 {
-    if reynolds > COIL_CO4_MAX_RE {
-        1.0
-    } else {
-        mode.courant()
-    }
+/// The coil's Courant number for `mode`: [`COIL_CO`] (a mode that asks for
+/// less keeps its own).
+pub fn coil_courant(mode: Mode) -> f64 {
+    mode.courant().min(COIL_CO)
 }
 
 /// Indices into [`Progress::exch`].
@@ -1484,11 +1485,11 @@ impl Engine {
         }
         let fv = self.fv.clone().ok_or("mesh first")?;
         if let Some(g) = self.coil.clone() {
-            // The V&V record's settings: Gauss linear convection (the Dean
-            // vortices are resolved convection), Co 4 (1 above
-            // `COIL_CO4_MAX_RE`, or to watch it develop) under the viscous
-            // cap, one non-orthogonal corrector.
-            let run = CoilRun::on_mesh(g, fv, reynolds, outram_foam_appbuilder_lib::io::fv_schemes::DivScheme::GaussLinearDeferred, coil_courant(mode, reynolds), max_viscous());
+            // The V&V record's settings: upstream's implicit Gauss linear
+            // convection (the Dean vortices are resolved convection), Co
+            // `COIL_CO` (1; gh:#1500: it diverges at 2 and 4) under the
+            // viscous cap, one non-orthogonal corrector.
+            let run = CoilRun::on_mesh(g, fv, reynolds, outram_foam_appbuilder_lib::io::fv_schemes::DivScheme::GaussLinear, coil_courant(mode), max_viscous());
             self.case = Some(Case::Coil(run));
             self.steps = 0;
             self.time = 0.0;
@@ -3375,6 +3376,16 @@ mod tests {
     /// mass, shows the Dean flow (core outward, axial maximum outward, the
     /// return flows meeting at the inner wall) and a friction factor above
     /// the straight pipe's; numbers pinned loosely, to this grid.
+    ///
+    /// **Re-measured 2026-11-12 (gh:#1500)**, 2 982 cells, Re 200 (release,
+    /// this host): deferred form at Co 4 (the old setting) took 81 steps,
+    /// f·Re/64 1.34197 on the last turn (1.33450 the turn before), axial
+    /// maximum n/R -0.500, core u_n -0.1981 U, pair -0.0756, max secondary
+    /// 0.2561 U; upstream's implicit `Gauss linear` at Co 1 (the new
+    /// setting; at Co 4 it diverges, see `coil_courant`) takes 148 steps and
+    /// gives 1.34105 (-0.07 %; 1.33596), -0.500, -0.1837, -0.0675, 0.2869.
+    /// The assertions below are unchanged (signs, 1.15 < f < 1.6, mass
+    /// balance 1e-8).
     #[test]
     fn headless_coil_shows_dean_flow() {
         let d = Design { target_cells: 3_000, ..Design::coil() };
@@ -3403,7 +3414,7 @@ mod tests {
         let mut bad = d;
         bad.shape = Shape::Coil { tube_radius: 0.005, coil_diameter: 0.1, pitch: 0.005, turns: 2.0, centre: [0.0; 3] };
         assert!(check(&bad).is_err(), "turns overlap");
-        assert_eq!((coil_courant(Mode::Steady, 200.0), coil_courant(Mode::Steady, 400.0), coil_courant(Mode::Transient, 100.0)), (4.0, 1.0, 1.0));
+        assert_eq!((coil_courant(Mode::Steady), coil_courant(Mode::Transient)), (1.0, 1.0));
         let [lo, hi] = d.shape.bounds();
         assert!((hi[0] - lo[0] - 0.11).abs() < 1e-12 && (hi[2] - lo[2] - (0.02 * COIL_DEFAULT_TURNS + 0.01)).abs() < 1e-12);
         // Served: the cross-section is one layer in the Frenet plane, its
