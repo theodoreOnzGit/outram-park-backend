@@ -74,9 +74,51 @@
 //! most by the handful of histories the guard touches. `gpu_csg_parity` is in
 //! `outram-blender`, which this change does not touch: unchanged.
 //!
-//! ## Results
+//! ## Results (2026-11-12, Rust 1.99.1, release; GPU = Mesa llvmpipe
+//! (LLVM 20.1.2, 256 bits), software Vulkan, so the WGSL really ran on CPU
+//! cores)
 //!
-//! Filled in after the run, below this line.
+//! | prediction | mirror | GPU |
+//! |---|---|---|
+//! | P1 unguarded walks leave the tolerance | 64/64, worst \|eps\| 0.242, none non-finite | 64/64, worst 0.231, none non-finite |
+//! | P2 guarded walks finite and unit | 0/64 left, worst \|eps\| 3.4523e-4 | 0/64 left (with the allowance below), worst 3.4528e-4 |
+//! | P3 guard fire rate | 980 / 6.4e6 = 1.53e-4 | 981 / 6.4e6 = 1.53e-4 |
+//! | P4 bits differ iff the guard fires | 0 mismatches in 12.8e6 steps | 0 mismatches outside the allowance; 2 (guarded) + 19 (unguarded) steps within it |
+//! | P5 one step, \|w\| <= 0.99 | | worst \|GPU - mirror\| 5.96e-8 (bound 1e-5); 80/95 cases bit-identical; near-pole and \|u\| = 2.9 cases finite and unit |
+//! | P6 graphite event walk | 3000 events (4 of 4096 still alive), every direction within the tolerance after every event, worst 3.4517e-4 | 3000 events, every final direction within it, worst 3.378e-4 |
+//!
+//! P1 and P3 held as predicted: the fire rate is the pole-visit estimate
+//! (1.5e-4) to two figures. The unguarded f32 walks did not go non-finite
+//! (unlike the f64 CPU case of gh:#1497) but held `|u|^2` up to 1.24 off unit
+//! length, and sat outside the tolerance on 83 % of their steps.
+//!
+//! **One correction to the protocol, made after the first GPU run and stated
+//! here rather than hidden.** As first written, P2 and P4 judged the GPU's
+//! boundary exactly, as the mirror's. On the GPU one of 64 guarded walks
+//! reached `|eps|` = 3.4528e-4, 1.3e-8 past the tolerance, and 2 + 19 steps
+//! had bits that differed (or not) against what the probe's own drift said.
+//! All of them sat within a few `f32::EPSILON` of the tolerance: the guard in
+//! the kernel and the probe re-evaluate `|u|^2 - 1` of the same vector at
+//! different inlined sites, and WGSL lets the driver contract `a * b + c` to a
+//! fused multiply-add differently at each (routing both through one
+//! `direction_norm_drift` function changed nothing, so the contraction is per
+//! inlined site). The GPU probe therefore counts a step whose drift is within
+//! [`GPU_EVAL_ALLOWANCE`] = `4 f32::EPSILON` of the tolerance apart, as
+//! `boundary`, and judges "left the tolerance" at the tolerance plus that
+//! allowance. The guard's tolerance itself was not moved, and the mirror
+//! (Rust does not contract) is still judged exactly and passes exactly.
+//!
+//! **Existing pins, before and after (P7).** Run on the parent commit and on
+//! this change with the same target directory, every printed figure of
+//! `gpu_fused_event_per_collision_banking`, `gpu_kinematics_invariants`,
+//! `delta_tracking_bit_identity`, `stats_move_fingerprints`,
+//! `direction_norm_drift_guard` and the `gpu::batched*` lib tests is
+//! identical (the fused-event Godiva mirror and GPU `k` to all five decimals,
+//! G3's 23412 records), so on Godiva the guard changed no history.
+//! `outram-blender`'s `gpu_csg_parity` passes (code untouched).
+//! `gpu_fused_event_per_collision_banking::g2_g4_fused_gpu_banks_per_collision`
+//! FAILS identically before and after (fused GPU `k = 1.78183 +/- 0.05545`):
+//! a pre-existing defect unrelated to the guard, filed as gh:#1506.
 
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
