@@ -213,4 +213,50 @@ fn castellate_esi_split_mesh_cells() {
         .map(|(c, v)| key(level_of(*v), *c))
         .collect();
     assert_eq!(port, esi_cells("esi_final_cells.txt.gz"));
+    // P14 held: ESI's 63194 faces and 12136 surface-patch faces.
+    assert_eq!(m.fv_mesh.n_faces, 63194);
+    assert_eq!(m.fv_mesh.patches.iter().map(|p| p.size).sum::<usize>(), 12136);
+}
+
+/// Round 2, task 2 (P15, P16): region patches. ESI writes `flange_patch1..4`
+/// with 9310 / 1182 / 248 / 1396 faces.
+#[test]
+fn region_patches_against_esi() {
+    let zoned = read_stl_zoned_bytes(&fixture("flange.stl.gz")).unwrap();
+    let names: Vec<String> = zoned.names.iter().map(|n| format!("flange_{n}")).collect();
+    assert_eq!(names, ["flange_patch1", "flange_patch2", "flange_patch3", "flange_patch4"]);
+    let c = controls().with_esi_split_mesh_removal().with_surface_region_patches(names.clone(), zoned.zones.clone());
+    let surface = upstream_surface();
+    let m = castellate(&surface, &c).unwrap();
+    let counts: Vec<usize> = names
+        .iter()
+        .map(|n| m.fv_mesh.patches.iter().find(|p| &p.name == n).map_or(0, |p| p.size))
+        .collect();
+    assert_eq!(counts, vec![9310, 1182, 248, 1396], "ESI v2506 flange_patch1..4 (P15 held)");
+    assert_eq!(counts.iter().sum::<usize>(), 12136);
+    // P16: the cfMesh rule (region of the triangle nearest the face centre).
+    let mut moved = 0usize;
+    let mut cf_counts = vec![0usize; names.len()];
+    for (pi, p) in m.fv_mesh.patches.iter().enumerate() {
+        let Some(region) = names.iter().position(|n| n == &p.name) else { continue };
+        let _ = pi;
+        for f in p.start..p.start + p.size {
+            let fc = m.fv_mesh.face_centres[f];
+            let nearest = (0..surface.triangles.len())
+                .min_by(|&a, &b| {
+                    (surface.triangles[a].closest_point(fc) - fc)
+                        .mag()
+                        .total_cmp(&(surface.triangles[b].closest_point(fc) - fc).mag())
+                })
+                .unwrap();
+            let r = zoned.zones[nearest];
+            cf_counts[r] += 1;
+            if r != region {
+                moved += 1;
+            }
+        }
+    }
+    // P16 held: the cfMesh rule differs from ESI's, by 10 faces (0.08 %).
+    assert_eq!(cf_counts, vec![9320, 1182, 242, 1392]);
+    assert_eq!(moved, 10);
 }

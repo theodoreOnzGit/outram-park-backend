@@ -407,7 +407,8 @@ pub(crate) fn baffle_and_split_mesh(
     size0: [f64; 3],
     surface: &TriangleSoup,
     keep: Vector3,
-) -> Option<(Vec<bool>, BaffleStats)> {
+    regions: Option<&[usize]>,
+) -> Option<(Vec<bool>, BaffleStats, BoundaryRegions)> {
     let n = leaves.len();
     let topo = build_topo(leaves, n0);
     let hit = face_hits(leaves, alive, &topo.faces, origin, size0, surface);
@@ -538,7 +539,81 @@ pub(crate) fn baffle_and_split_mesh(
     let blocked: Vec<bool> = (0..nfaces).map(|fi| (internal[fi] && hit[fi]) || problem[fi]).collect();
     let kept = flood(n, &topo.faces, alive, &blocked, start);
     stats.n_kept = kept.iter().filter(|&&k| k).count();
-    Some((kept, stats))
+    let face_region = match regions {
+        Some(r) => boundary_regions(leaves, &topo, &kept, &hit, origin, size0, surface, r),
+        None => BoundaryRegions::new(),
+    };
+    Some((kept, stats, face_region))
+}
+
+/// The surface region of every boundary face of the kept mesh that borders a
+/// removed cell, keyed by `(axis, lower corner in finest-level voxels)` (the
+/// key the assembler of `castellation` computes for the same rectangle).
+pub(crate) type BoundaryRegions = HashMap<(usize, [usize; 3]), usize>;
+
+/// ESI's patch for the boundary face of a kept cell `K` next to a removed
+/// cell `O` (`getBafflePatches` + `getIntersections`, ESI v2506
+/// `meshRefinementBaffles.C:285` and `:200`): the owner side takes `region1`,
+/// the first triangle hit from the segment start, the neighbour side `region2`,
+/// the first hit from the segment end; both are "the first hit walking from the
+/// side's own cell centre". Faces blocked by `markFacesOnProblemCells` were not
+/// cut (no hit); ESI gives them `nearestAdaptPatch` (`meshRefinement.C:545`, a
+/// topological walk from the existing patch faces). The port takes the region of
+/// the nearest cut face of the kept mesh by face-centre distance, a stand-in
+/// whose effect is recorded in the V&V record.
+#[allow(clippy::too_many_arguments)]
+fn boundary_regions(
+    leaves: &[Leaf],
+    topo: &Topo,
+    kept: &[bool],
+    hit: &[bool],
+    origin: Vector3,
+    size0: [f64; 3],
+    surface: &TriangleSoup,
+    region_of_tri: &[usize],
+) -> BoundaryRegions {
+    let lm = lattice_level(leaves);
+    let mut out = BoundaryRegions::new();
+    let mut cut: Vec<(Vector3, usize)> = Vec::new();
+    let mut fallback: Vec<((usize, [usize; 3]), Vector3)> = Vec::new();
+    for (fi, f) in topo.faces.iter().enumerate() {
+        let Some(nb) = f.nei else { continue };
+        if kept[f.own] == kept[nb] {
+            continue;
+        }
+        let (k, o) = if kept[f.own] { (f.own, nb) } else { (nb, f.own) };
+        let own = &leaves[f.own];
+        let (lo, s) = lattice_box(own, lm);
+        let mut corner = lo;
+        corner[f.axis] += if f.positive { s } else { 0 };
+        let key = (f.axis, [(corner[0] / 2) as usize, (corner[1] / 2) as usize, (corner[2] / 2) as usize]);
+        let half = 0.5 * size0[f.axis] / (1usize << own.level) as f64;
+        let mut fc = centre(own, origin, size0);
+        let d = if f.positive { half } else { -half };
+        match f.axis {
+            0 => fc.x += d,
+            1 => fc.y += d,
+            _ => fc.z += d,
+        }
+        if hit[fi] {
+            let (a, b) = (centre(&leaves[k], origin, size0), centre(&leaves[o], origin, size0));
+            let sv = (b - a) * ROOT_SMALL;
+            if let Some(t) = surface.segment_first_hit(a - sv, b + sv) {
+                out.insert(key, region_of_tri[t]);
+                cut.push((fc, region_of_tri[t]));
+                continue;
+            }
+        }
+        fallback.push((key, fc));
+    }
+    for (key, fc) in fallback {
+        let nearest = cut
+            .iter()
+            .min_by(|x, y| (x.0 - fc).mag().total_cmp(&(y.0 - fc).mag()))
+            .map_or(0, |c| c.1);
+        out.insert(key, nearest);
+    }
+    out
 }
 
 /// The cells after each ESI stage, for the differential against the ESI
@@ -561,6 +636,7 @@ pub struct EsiStageCells {
 pub(crate) struct EsiStages {
     pub(crate) leaves: Vec<Leaf>,
     pub(crate) kept: Vec<bool>,
+    pub(crate) boundary_regions: BoundaryRegions,
     pub(crate) cells: EsiStageCells,
 }
 
@@ -584,17 +660,20 @@ pub(crate) fn esi_stages(
     surface: &TriangleSoup,
     keep: Vector3,
     min_refine_cells: usize,
+    regions: Option<&[usize]>,
 ) -> Option<EsiStages> {
     let alive = remove_inside_cells(&leaves, n0, origin, size0, surface, keep, 1)?;
     let after_remove_inside = alive_cells(&leaves, &alive, origin, size0);
     let (leaves, alive, sel21) = dangling_cell_refine(leaves, alive, n0, 21, min_refine_cells, 100);
     let (leaves, alive, sel24) = dangling_cell_refine(leaves, alive, n0, 24, min_refine_cells, 100);
     let after_dangling = alive_cells(&leaves, &alive, origin, size0);
-    let (kept, baffle) = baffle_and_split_mesh(&leaves, &alive, n0, origin, size0, surface, keep)?;
+    let (kept, baffle, boundary_regions) =
+        baffle_and_split_mesh(&leaves, &alive, n0, origin, size0, surface, keep, regions)?;
     let final_cells = alive_cells(&leaves, &kept, origin, size0);
     Some(EsiStages {
         leaves,
         kept,
+        boundary_regions,
         cells: EsiStageCells {
             after_remove_inside,
             dangling_selected: [sel21, sel24],
@@ -634,7 +713,8 @@ pub fn esi_stage_cells(
         surface,
         controls.min_refine_cells,
     );
-    esi_stages(leaves, n0, bg.bounds.min, size0, surface, controls.keep_point, controls.min_refine_cells).map(|s| s.cells)
+    esi_stages(leaves, n0, bg.bounds.min, size0, surface, controls.keep_point, controls.min_refine_cells, None)
+        .map(|s| s.cells)
 }
 
 #[cfg(test)]
@@ -764,5 +844,49 @@ mod tests {
         assert_eq!(st.baffle.n_kept, st.final_cells.len());
         // The kept centres are inside the sphere (keep point inside).
         assert!(st.final_cells.iter().all(|(_, p)| (*p - Vector3::new(0.5, 0.5, 0.5)).mag() < 0.35));
+    }
+
+    /// `segment_first_hit` returns the facet nearest the segment start: through
+    /// a cuboid the two directions meet different facets, and a miss is `None`.
+    #[test]
+    fn first_hit_is_nearest_to_the_start() {
+        let s = TriangleSoup::cuboid(Vector3::new(0.0, 0.0, 0.0), Vector3::new(1.0, 1.0, 1.0));
+        let a = Vector3::new(-1.0, 0.5, 0.5);
+        let b = Vector3::new(2.0, 0.5, 0.5);
+        let fwd = s.segment_first_hit(a, b).unwrap();
+        let back = s.segment_first_hit(b, a).unwrap();
+        assert_ne!(fwd, back);
+        assert!(s.triangles[fwd].centroid().x < 0.01 && s.triangles[back].centroid().x > 0.99);
+        assert!(s.segment_first_hit(Vector3::new(5.0, 5.0, 5.0), Vector3::new(6.0, 5.0, 5.0)).is_none());
+    }
+
+    /// Region patches through `castellate`: two regions (upper and lower half of
+    /// a sphere) give two patches that together hold exactly the faces the
+    /// single-patch run has; bad inputs are errors.
+    #[test]
+    fn region_patches_split_the_carved_faces() {
+        use crate::snappy_hex_mesh::{castellate, BackgroundMesh, Bounds, CastellationControls};
+        let surface = TriangleSoup::uv_sphere(Vector3::new(0.5, 0.5, 0.5), 0.3, 24, 24);
+        let domain = Bounds::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(1.0, 1.0, 1.0));
+        let base = CastellationControls::new(BackgroundMesh::uniform(domain, 8, 8, 8), 2, Vector3::new(0.5, 0.5, 0.5))
+            .with_surface_intersection_refinement()
+            .with_esi_split_mesh_removal();
+        let single = castellate(&surface, &base).unwrap();
+        let regions: Vec<usize> = surface.triangles.iter().map(|t| usize::from(t.centroid().z > 0.5)).collect();
+        let two = base
+            .clone()
+            .with_surface_region_patches(vec!["lower".to_string(), "upper".to_string()], regions.clone());
+        let m = castellate(&surface, &two).unwrap();
+        assert_eq!(m.n_cells(), single.n_cells());
+        assert_eq!(m.fv_mesh.n_faces, single.fv_mesh.n_faces);
+        let size = |n: &str| m.fv_mesh.patches.iter().find(|p| p.name == n).map_or(0, |p| p.size);
+        assert!(size("lower") > 0 && size("upper") > 0);
+        assert_eq!(size("lower") + size("upper"), single.fv_mesh.patches[0].size);
+        // Errors: regions without the ESI removal, and a wrong-length labelling.
+        let no_esi = CastellationControls::new(BackgroundMesh::uniform(domain, 8, 8, 8), 2, Vector3::new(0.5, 0.5, 0.5))
+            .with_surface_region_patches(vec!["a".to_string()], vec![0; surface.len()]);
+        assert!(castellate(&surface, &no_esi).is_err());
+        let short = base.with_surface_region_patches(vec!["a".to_string()], vec![0; 3]);
+        assert!(castellate(&surface, &short).is_err());
     }
 }

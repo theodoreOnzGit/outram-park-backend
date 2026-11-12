@@ -15,6 +15,13 @@
 //! cells only the port keeps), `slice_y.png` (y = 0.01734375, same cells) and
 //! `slice_z2.png` (z = -0.015).
 //!
+//! **Round 2 (2026-11-12):** the port side is now `with_esi_split_mesh_removal()` with
+//! `with_surface_region_patches`, so the cells equal ESI's (no red or blue) and the
+//! patch faces are drawn as dots coloured by patch (flange_patch1 orange, 2
+//! magenta, 3 cyan, 4 yellow). A dot marks a patch face whose normal lies in the
+//! plane and whose centre is within 0.8 mm of it, so dots can sit beside cells the
+//! plane does not cut (faces of cells at nearby z).
+//!
 //! Example binary: drawing code, exempt from the reached-by-a-test rule (it
 //! calls the tested `castellate` and `from_zoned`).
 
@@ -57,6 +64,7 @@ fn draw(
     only_esi: &HashSet<Cell>,
     only_port: &HashSet<Cell>,
     surface: &TriangleSoup,
+    faces: &[(Vector3, Vector3, usize)],
 ) {
     let (u, v) = match axis {
         0 => (1, 2),
@@ -132,6 +140,25 @@ fn draw(
             }
         }
     }
+    // Surface-patch faces (round 2): a dot at the centre of every patch face whose
+    // normal lies in the plane and whose centre is within 0.8 mm of the plane,
+    // coloured by patch (flange_patch1 orange, 2 magenta, 3 cyan, 4 yellow).
+    let patch_cols = [Rgb([240, 140, 0]), Rgb([200, 0, 200]), Rgb([0, 200, 220]), Rgb([230, 210, 0])];
+    for (fc, area, patch) in faces {
+        let g = |q: Vector3, a: usize| [q.x, q.y, q.z][a];
+        if g(*area, axis).abs() > 0.0 || (g(*fc, axis) - at).abs() > 0.0008 {
+            continue;
+        }
+        let (cx, cy) = pos(g(*fc, u), g(*fc, v));
+        for dx in -2..=2i64 {
+            for dy in -2..=2i64 {
+                let (x, y) = (cx + dx, cy + dy);
+                if x >= 0 && y >= 0 && (x as u32) < w && (y as u32) < h {
+                    img.put_pixel(x as u32, y as u32, patch_cols[*patch % 4]);
+                }
+            }
+        }
+    }
     // Ticks every 10 mm on the lower and left borders.
     for k in 0..=6 {
         let (x, _) = pos(ext(u).0 + 0.01 * k as f64, ext(v).0);
@@ -172,9 +199,20 @@ fn main() {
         2,
         Vector3::new(-9.23149e-05, -0.0025, -0.0025),
     )
-    .with_surface_intersection_refinement()
-    .with_baffle_region_removal();
+    .with_surface_intersection_refinement();
+    // Round 2: ESI's whole removal chain and one patch per STL region.
+    let zoned = read_stl_zoned_bytes(&stl).unwrap();
+    let names: Vec<String> = zoned.names.iter().map(|n| format!("flange_{n}")).collect();
+    let c = c.with_esi_split_mesh_removal().with_surface_region_patches(names.clone(), zoned.zones.clone());
     let m = castellate(&surface, &c).unwrap();
+    let mut faces: Vec<(Vector3, Vector3, usize)> = Vec::new();
+    for p in &m.fv_mesh.patches {
+        if let Some(r) = names.iter().position(|n| n == &p.name) {
+            for f in p.start..p.start + p.size {
+                faces.push((m.fv_mesh.face_centres[f], m.fv_mesh.face_area_vectors[f], r));
+            }
+        }
+    }
     let v0 = SIZE0[0] * SIZE0[1] * SIZE0[2];
     let port: HashSet<Cell> = m
         .fv_mesh
@@ -201,7 +239,7 @@ fn main() {
     let only_esi: HashSet<Cell> = esi.difference(&port).copied().collect();
     let only_port: HashSet<Cell> = port.difference(&esi).copied().collect();
     println!("both {} only ESI {} only port {}", both.len(), only_esi.len(), only_port.len());
-    draw(&format!("{out}/slice_z.png"), 2, -0.009583333333, &both, &only_esi, &only_port, &surface);
-    draw(&format!("{out}/slice_y.png"), 1, 0.01734375, &both, &only_esi, &only_port, &surface);
-    draw(&format!("{out}/slice_z2.png"), 2, -0.015, &both, &only_esi, &only_port, &surface);
+    draw(&format!("{out}/slice_z.png"), 2, -0.009583333333, &both, &only_esi, &only_port, &surface, &faces);
+    draw(&format!("{out}/slice_y.png"), 1, 0.01734375, &both, &only_esi, &only_port, &surface, &faces);
+    draw(&format!("{out}/slice_z2.png"), 2, -0.015, &both, &only_esi, &only_port, &surface, &faces);
 }

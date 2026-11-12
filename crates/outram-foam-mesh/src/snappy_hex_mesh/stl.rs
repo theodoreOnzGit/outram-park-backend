@@ -441,6 +441,53 @@ impl TriangleSoup {
         }
         false
     }
+
+    /// Index of the facet the segment `a -> b` meets FIRST walking from `a`
+    /// (smallest hit parameter; lowest index on a tie), or `None`. The same
+    /// test as [`segment_hits`](Self::segment_hits). ESI's
+    /// `findNearestIntersection` returns this first hit from the segment start
+    /// (`region1`), used for the patch of a cut face (gh:#1466).
+    pub fn segment_first_hit(&self, a: Vector3, b: Vector3) -> Option<usize> {
+        let dir = b - a;
+        let lo = Vector3::new(a.x.min(b.x), a.y.min(b.y), a.z.min(b.z));
+        let hi = Vector3::new(a.x.max(b.x), a.y.max(b.y), a.z.max(b.z));
+        let mut best: Option<(f64, usize)> = None;
+        for (index, t) in self.triangles.iter().enumerate() {
+            if t.a.x.max(t.b.x).max(t.c.x) < lo.x
+                || t.a.x.min(t.b.x).min(t.c.x) > hi.x
+                || t.a.y.max(t.b.y).max(t.c.y) < lo.y
+                || t.a.y.min(t.b.y).min(t.c.y) > hi.y
+                || t.a.z.max(t.b.z).max(t.c.z) < lo.z
+                || t.a.z.min(t.b.z).min(t.c.z) > hi.z
+            {
+                continue;
+            }
+            let e1 = t.b - t.a;
+            let e2 = t.c - t.a;
+            let pvec = dir.cross(e2);
+            let det = e1.dot(pvec);
+            let scale = e1.mag() * e2.mag() * dir.mag();
+            if det.abs() <= 1e-14 * scale {
+                continue;
+            }
+            let inv = 1.0 / det;
+            let tvec = a - t.a;
+            let u = tvec.dot(pvec) * inv;
+            if !(0.0..=1.0).contains(&u) {
+                continue;
+            }
+            let qvec = tvec.cross(e1);
+            let v = dir.dot(qvec) * inv;
+            if v < 0.0 || u + v > 1.0 {
+                continue;
+            }
+            let s = e2.dot(qvec) * inv;
+            if (0.0..=1.0).contains(&s) && best.map_or(true, |(bs, _)| s < bs) {
+                best = Some((s, index));
+            }
+        }
+        best.map(|(_, i)| i)
+    }
 }
 
 // ── Readers ─────────────────────────────────────────────────────────────────

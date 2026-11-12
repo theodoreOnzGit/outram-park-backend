@@ -104,6 +104,7 @@ pub mod stl;
 pub use background::{BackgroundMesh, Bounds};
 pub use castellation::{
     castellate, CastellatedMesh, CastellationControls, CellRemoval, RefinementSelection, SurfaceFace,
+    SurfaceRegionPatches,
 };
 pub use cyclic::{
     check_conformity, resolve_pairs, CyclicError, CyclicPair, CyclicPointConstraints,

@@ -398,3 +398,52 @@ rule needs the segment, so it is written here.
 |---|---|
 | P15 | With the ESI rule (first hit from the kept cell's centre; the 4 problem faces take the region of the nearest cut face of a kept cell) the port's faces per patch are **flange_patch1..4 = 9310 / 1182 / 248 / 1396**, equal to ESI. |
 | P16 | The cfMesh rule (nearest triangle to the face centroid) applied to the same 12136 faces gives counts that are NOT all equal to ESI's: at least one patch differs, and at most 5 % of the faces (606) change patch. It can fail by agreeing exactly, if regions meet only along edges the cell faces avoid. |
+
+### Round 2, task 2 results (2026-11-12, `region_patches_against_esi`)
+
+Code: `CastellationControls::with_surface_region_patches(patch_names, region_of_tri)`
+(needs `with_esi_split_mesh_removal()`), `TriangleSoup::segment_first_hit`,
+`esi_split::boundary_regions`; the assembler of `castellation.rs` now has one boundary
+bucket per surface region. Default (no regions) is the single `surface` patch, unchanged.
+
+| patch | ESI v2506 | port, ESI rule (first hit from the kept centre) | port, cfMesh rule (nearest triangle to the face centre) |
+|---|---|---|---|
+| flange_patch1 | 9310 | **9310** | 9320 |
+| flange_patch2 | 1182 | **1182** | 1182 |
+| flange_patch3 | 248 | **248** | 242 |
+| flange_patch4 | 1396 | **1396** | 1392 |
+| total | 12136 | 12136 | 12136 |
+
+- **P15 held**: the four patch counts equal ESI's exactly. The 4 faces blocked by
+  `markFacesOnProblemCells` take the region of the nearest cut face by face-centre
+  distance (a stand-in for ESI's topological `nearestPatch` walk); the counts match,
+  but this does not prove they are the same 4 faces assigned the same way. Per-face
+  equality against ESI's `polyMesh/boundary` and face list was not checked: only the
+  counts were.
+- **P16 held**: the nearest-triangle rule of `outram-park-fork-cfmesh`'s
+  `assign_patches_by_region` differs from ESI's, on **10 of 12136 faces (0.08 %)**:
+  counts 9320 / 1182 / 242 / 1392. Far below the 5 % bound I predicted, but not zero.
+- **Reuse**: `assign_patches_by_region` cannot be called here (it takes cfMesh's
+  `VolumeMesh`; that crate depends on this one only optionally, so moving
+  `SurfaceRegions` here would make cfMesh depend on this crate unconditionally). The
+  ESI rule needs the cell-cell segment anyway. `bash scripts/release-lockstep.sh
+  --dry-run` was therefore not run: no dependency edge was added. The cfMesh module
+  comment's claim that the nearest-triangle rule is "exactly how snappyHexMesh assigns
+  a cut face" is struck through and corrected in `patches.rs` (doc only).
+
+### Round 2 pictures
+
+`images/round2_slice_z.png` (z = -0.009583), `images/round2_slice_y.png`
+(y = 0.01734375) and `images/round2_slice_z2.png` (z = -0.015), from
+`examples/draw_flange_differential.rs`, drawn from the ESI reference cells and the
+port's `castellate` output with the ESI removal chain and region patches (the
+slices of round 1 are kept beside them for the before/after). **Looked at (I opened
+all three):** every cell is green, none red (port only) or blue (ESI only), as the
+integer comparison says (18278 of 18278), and in `round2_slice_y.png` the ring has
+no small cells left at its outer tangent where round 1 had two red ones; the patch
+dots follow the STL cut (black line): patch1 (orange) on the outer faces, patch4
+(yellow) on the bore and the slot, patch2 (magenta) along the flat bottom, patch3
+(cyan) on the top flat. **Not checked:** the dot band is 0.8 mm, so some dots in
+`round2_slice_z2.png` (below the lower stub, left of the upper arm) belong to faces
+of cells at other z, not to the plane; no 3-D view; which faces are the 4
+problem-cell patch faces was not marked.
