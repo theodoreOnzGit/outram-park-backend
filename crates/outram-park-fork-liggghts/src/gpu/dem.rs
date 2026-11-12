@@ -51,9 +51,18 @@
 //!   contacts on itself. A pair's force is antisymmetric (`e_n`, `v_tr` and
 //!   the spring flip sign from the other side), so the two sides compute
 //!   exactly opposite halves, and each keeps its own copy of the spring.
-//! - **Shear history** in fixed slots per particle (`K_SLOTS` pairs and three
-//!   walls), keyed by the neighbour's index, double-buffered: a contact not
-//!   touched in a step is dropped, as `ShearHistory::end_step` does.
+//! - **Shear history** in fixed slots per particle (`K_SLOTS` pairs, two
+//!   analytic walls and `M_SLOTS` mesh facets), keyed by the neighbour's or
+//!   facet's index, double-buffered: a contact not touched in a step is
+//!   dropped, as `ShearHistory::end_step` does.
+//! - **The mesh wall is upstream's per-facet contact**, as the CPU path's
+//!   `compute_mesh_wall_forces` (gh:#1416): every facet the pebble overlaps
+//!   is a contact, resolved face / edge / corner by `TriMesh::
+//!   resolveTriSphereContactBary` with inactive edges and corners skipped,
+//!   and the contact list's coplanar-neighbour rules. ~~One contact with the
+//!   nearest facet, along that facet's normal~~ **CORRECTED 2026-11-12
+//!   (gh:#1503):** that was the CPU's rule when this kernel was written; the
+//!   CPU moved to upstream's on 2026-11-11 (c5f524d03) and the kernel lagged.
 //! - **Cell list** of edge `2 r_max`, at most `CELL_CAP` entries a cell;
 //!   overflows of either table are counted and reported ([`GpuDem::errors`]).
 
@@ -72,6 +81,15 @@ pub const K_SLOTS: u32 = 16;
 /// centres fit).
 pub const CELL_CAP: u32 = 12;
 const WG: u32 = 64;
+/// Mesh-facet contact slots per particle (gh:#1503): upstream keeps one
+/// contact per facet touched (`FixContactHistoryMesh`), so a pebble in a
+/// crease of the conus holds two or more. An overflow is counted.
+pub const M_SLOTS: u32 = 8;
+/// Coplanar node neighbours held per facet (`areCoplanarNodeNeighs`); a mesh
+/// with more is refused.
+const COPLANAR_CAP: usize = 8;
+/// `vec4`s per uploaded triangle (must match `TRI` in `dem.wgsl`).
+const TRI_VEC4S: usize = 11;
 
 /// The uniform block (must match `Params` in `dem.wgsl`).
 #[repr(C)]
@@ -130,8 +148,7 @@ pub struct GpuErrors {
 pub struct GpuSetup {
     params: Params,
     particles: Vec<GpuParticle>,
-    /// Six `vec4`s per triangle: a (hi), a (lo), b − a, c − a, normal,
-    /// bounds (centroid, radius).
+    /// [`TRI_VEC4S`] `vec4`s per triangle (layout in `dem.wgsl`).
     tris: Vec<[f32; 4]>,
 }
 
@@ -209,24 +226,55 @@ impl GpuSetup {
                 let WallGeometry::Mesh(mesh) = &w.geometry else {
                     return Err("the GPU path's moving wall must be a mesh".into());
                 };
-                // Bounding spheres: centroid and farthest vertex, the same
-                // exact bound `MeshWall` prunes with (any true bound gives
-                // the same answer).
+                // Per facet, everything `TriMesh::resolveTriSphereContactBary`
+                // reads (`tri_mesh.rs`, gh:#1503), and the bounding sphere:
+                // centroid and farthest vertex, the same exact bound
+                // `MeshWall` prunes with (any true bound gives the same
+                // answer).
+                let state = &mesh.state;
                 let mut centroids = Vec::new();
-                for t in &mesh.triangles {
+                for (i, t) in mesh.triangles.iter().enumerate() {
                     let c = t.a.add(t.b).add(t.c).scale(1.0 / 3.0);
                     let r = [t.a, t.b, t.c]
                         .iter()
                         .map(|v| v.sub(c).norm())
                         .fold(0.0, f64::max);
+                    let (ev, el, sn, obtuse, r_bound, edge_on, corner_on) = state.facet_data(i);
+                    let v3 = |a: [f64; 3]| Vec3::new(a[0], a[1], a[2]);
+                    let mut flags = 0u32;
+                    for k in 0..3 {
+                        flags |= u32::from(edge_on[k]) << k;
+                        flags |= u32::from(corner_on[k]) << (3 + k);
+                    }
+                    let mut coplanar = [-1.0f32; COPLANAR_CAP];
+                    let mut n_cop = 0;
+                    for &j in state.node_neighbours(i) {
+                        if mesh.coplanar_node_neighs(i, j as usize) {
+                            if n_cop == COPLANAR_CAP {
+                                return Err(format!(
+                                    "facet {i} has more than {COPLANAR_CAP} coplanar node \
+                                     neighbours, which the GPU path cannot hold"
+                                ));
+                            }
+                            coplanar[n_cop] = j as f32;
+                            n_cop += 1;
+                        }
+                    }
+                    // upstream's barycentric threshold, `-precision / (2 rBound)`
+                    let thr = -1e-8 * (1.0 / (2.0 * r_bound));
                     let (ax, ay, az) = (split(t.a.x), split(t.a.y), split(t.a.z));
                     tris.extend([
-                        [ax.0, ay.0, az.0, 0.0],
-                        [ax.1, ay.1, az.1, 0.0],
-                        f4(t.b.sub(t.a), 0.0),
-                        f4(t.c.sub(t.a), 0.0),
-                        f4(t.normal(), 0.0),
+                        [ax.0, ay.0, az.0, thr as f32],
+                        [ax.1, ay.1, az.1, obtuse.map_or(-1.0, |o| o as f32)],
+                        f4(t.b.sub(t.a), el[0]),
+                        f4(t.c.sub(t.a), el[1]),
+                        f4(v3(sn), el[2]),
+                        f4(v3(ev[0]), f64::from(flags)),
+                        f4(v3(ev[1]), 0.0),
+                        f4(v3(ev[2]), 0.0),
                         f4(c, r * (1.0 + 1e-6) + 1e-9),
+                        [coplanar[0], coplanar[1], coplanar[2], coplanar[3]],
+                        [coplanar[4], coplanar[5], coplanar[6], coplanar[7]],
                     ]);
                     centroids.push((c, r));
                 }
@@ -293,7 +341,7 @@ impl GpuSetup {
             n: ps.len() as u32,
             k_slots: K_SLOTS,
             cap: CELL_CAP,
-            n_tris: (tris.len() / 6) as u32,
+            n_tris: (tris.len() / TRI_VEC4S) as u32,
             dims: [dims[0], dims[1], dims[2], total],
             origin: [lo.x as f32, lo.y as f32, lo.z as f32, edge as f32],
             gravity: [g.x as f32, g.y as f32, g.z as f32, sys.dt() as f32],
@@ -442,12 +490,13 @@ impl GpuDem {
             "dem cells",
             u64::from(p.dims[3]) * u64::from(1 + CELL_CAP) * 4,
         );
-        // Every slot starts empty: neighbour −1, wall not live.
-        let slots = (u64::from(K_SLOTS) + 3) * n;
+        // Every slot starts empty: neighbour −1, wall not live, facet −1.
+        let slots = (u64::from(K_SLOTS) + 2 + u64::from(M_SLOTS)) * n;
         let mut empty: Vec<[f32; 4]> = Vec::with_capacity(slots as usize);
         for _ in 0..n {
             empty.extend((0..K_SLOTS).map(|_| [0.0, 0.0, 0.0, -1.0]));
-            empty.extend((0..3).map(|_| [0.0f32; 4]));
+            empty.extend((0..2).map(|_| [0.0f32; 4]));
+            empty.extend((0..M_SLOTS).map(|_| [0.0, 0.0, 0.0, -1.0]));
         }
         let hist = [0, 1].map(|k| {
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -811,6 +860,48 @@ mod tests {
     /// accepts, found 2026-11-05: a NaN bit pattern in a constant
     /// (`bitcast<f32>(0xffffffff)` made every pipeline invalid in the
     /// browser). Indices are f32 values, never bit patterns.
+    /// The shader's slot count and triangle stride are the set-up's.
+    #[test]
+    fn the_shader_layout_matches_the_setup() {
+        let src = include_str!("shaders/dem.wgsl");
+        assert!(src.contains(&format!("const M_SLOTS: u32 = {M_SLOTS}u;")));
+        assert!(src.contains(&format!("const TRI: u32 = {TRI_VEC4S}u;")));
+    }
+
+    /// The HTR-10 discharge mesh uploads upstream's facet data (gh:#1503):
+    /// each facet's quad partner is its one coplanar node neighbour, the
+    /// shared diagonal is inactive on both, and the activity bits are the
+    /// CPU's.
+    #[test]
+    fn the_mesh_setup_carries_the_cpu_facet_topology() {
+        use crate::htr10_fill::discharge_mesh;
+        use crate::mesh_wall::{MovingBoundary, WallGeometry};
+        let mesh = discharge_mesh(120).expect("mesh");
+        let sys = system(
+            vec![ball(Vec3::new(0.0, 0.0, 0.5), Vec3::zero())],
+            vec![Boundary::cylinder(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0), 0.9).expect("cyl")],
+        )
+        .with_moving_walls(vec![MovingBoundary::new(
+            WallGeometry::Mesh(mesh.clone()),
+            Vec3::zero(),
+            Vec3::zero(),
+            Vec3::zero(),
+        )]);
+        let s = GpuSetup::from_system(&sys).expect("supported");
+        assert_eq!(s.triangles() as usize, mesh.triangles.len());
+        for i in 0..mesh.triangles.len() {
+            let row = &s.tris[TRI_VEC4S * i..TRI_VEC4S * (i + 1)];
+            let flags = row[5][3] as u32;
+            for k in 0..3 {
+                assert_eq!(flags >> k & 1 == 1, mesh.state.edge_active(i, k), "edge {i} {k}");
+                assert_eq!(flags >> (3 + k) & 1 == 1, mesh.state.corner_active(i, k));
+            }
+            let cop: Vec<f32> = row[9].iter().chain(&row[10]).copied().filter(|&x| x >= 0.0).collect();
+            assert_eq!(cop.len(), 1, "facet {i}: {cop:?}");
+            assert!(mesh.coplanar_node_neighs(i, cop[0] as usize));
+        }
+    }
+
     #[test]
     fn the_shader_has_no_bit_pattern_floats() {
         let src = include_str!("shaders/dem.wgsl");

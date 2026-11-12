@@ -249,6 +249,59 @@ fn a_ball_bounces_off_the_cylinder_as_on_the_cpu() {
     assert!(dv < 1e-5 && dw < 1e-4, "{dv} {dw}");
 }
 
+/// **Case 5 (gh:#1503): balls against the HTR-10 discharge mesh**, no
+/// gravity. One runs radially, spinning, into a crease of the tube (two
+/// facets 3° apart: two face contacts under upstream's per-facet rule, one
+/// under the nearest-facet rule the kernel had); one runs obliquely into the
+/// conus near the cone-tube junction. Tolerances written before the first
+/// run, as cases 1 and 2: velocity within 1e-5 relative, spin within 1e-4.
+#[test]
+fn balls_bounce_off_the_discharge_mesh_as_on_the_cpu() {
+    use outram_park_fork_liggghts::htr10_fill::{discharge_mesh, CONE_HEIGHT_M};
+    use outram_park_fork_liggghts::mesh_wall::{MovingBoundary, WallGeometry};
+    let z_tube = -CONE_HEIGHT_M - 0.12;
+    let sys = system(
+        vec![
+            ball(
+                Vec3::new(0.21, 0.0, z_tube),
+                Vec3::new(0.5, 0.0, 0.0),
+                Vec3::new(0.0, 0.0, 3.0),
+            ),
+            ball(
+                Vec3::new(-0.21, -0.21, -CONE_HEIGHT_M + 0.06),
+                Vec3::new(-0.4, -0.3, -0.2),
+                Vec3::new(1.0, 0.0, 0.0),
+            ),
+        ],
+        vec![],
+        0.0,
+    )
+    .with_moving_walls(vec![MovingBoundary::new(
+        WallGeometry::Mesh(discharge_mesh(120).expect("mesh")),
+        Vec3::zero(),
+        Vec3::zero(),
+        Vec3::zero(),
+    )]);
+    let v0 = [Vec3::new(0.5, 0.0, 0.0), Vec3::new(-0.4, -0.3, -0.2)];
+    let Some((cpu, g)) = both(sys, 1_400) else {
+        return eprintln!("skipping: no GPU adapter");
+    };
+    for (k, (c, s)) in cpu.particles().iter().zip(&g).enumerate() {
+        let dv = rel(c.velocity, s.velocity, c.velocity.norm());
+        let dw = rel(
+            c.angular_velocity,
+            s.angular_velocity,
+            c.angular_velocity.norm(),
+        );
+        eprintln!(
+            "mesh bounce {k}: CPU v {:?}, GPU v {:?}, rel {dv:.2e}; spin rel {dw:.2e}",
+            c.velocity, s.velocity
+        );
+        assert!(c.velocity.sub(v0[k]).norm() > 0.1, "ball {k} hit the mesh");
+        assert!(dv < 1e-5 && dw < 1e-4, "{dv} {dw}");
+    }
+}
+
 #[test]
 fn an_htr10_pour_matches_the_cpu_early_and_settled() {
     use outram_park_fork_liggghts::compute::ThreadCount;
