@@ -23,7 +23,11 @@ This crate provides:
    GeN-Foam's `twoPhase` boiling solver (implicitUpwind alpha; **MULES is not
    ported**) and runs upstream's `1D_boiling` case files end to end; its V&V
    record is `verification_and_validation/genfoam_two_phase/README.md`, and it
-   is **not** compared with an upstream run (none is shipped or runnable here).
+   is **not** compared with an upstream run (~~none is shipped or runnable
+   here~~ **CORRECTED 2026-11-12** (gh:#1361): none is shipped, and the
+   thermal-hydraulics stack it needs is not built yet; what IS built and run
+   is the neutronics path of the real GeN-Foam binary, see
+   `verification_and_validation/genfoam_vs_upstream_gh1361/README.md`).
    `TwoPhaseCase::read` refuses, by name, every case selection the port does
    not implement: extend the port, never the refusal.
 

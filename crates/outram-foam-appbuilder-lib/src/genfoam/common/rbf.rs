@@ -104,7 +104,34 @@ pub fn polyharmonic_spline_function(r_square: f64, mode: usize) -> f64 {
 }
 
 /// Solve for the polyharmonic-spline weights `[w | v]` of an N-dimensional data
-/// set.
+/// set, the way upstream does: form `inv(A)` (see
+/// [`polyharmonic_spline_inverse`]) and return `inv(A) * [sigma | 0]`, the
+/// product accumulated row by row (`SquareMatrix::multiply_vector`).
+///
+/// Since gh:#1361 (2026-11-12) this is the form of upstream's
+/// `solvePolyharmonicSpline`; before it, this function did one direct
+/// back-substitution, now [`solve_polyharmonic_spline_direct`]. Against a run
+/// of GeN-Foam `652b3da0cc55` the old form differed in 528 of 562 weights
+/// (largest `|dw| / max|w|` = 6.4e-14), this one in none; see
+/// `verification_and_validation/genfoam_vs_upstream_gh1361/README.md`.
+///
+/// Arguments, return layout, errors and panics are those of
+/// [`solve_polyharmonic_spline_direct`].
+pub fn solve_polyharmonic_spline(
+    x_list: &[Vec<f64>],
+    v_list: &[f64],
+    mode: usize,
+) -> Result<Vec<f64>, MatrixError> {
+    let inverse = polyharmonic_spline_inverse(x_list, mode)?;
+    let mut rhs = vec![0.0; inverse.n()];
+    rhs[..v_list.len()].copy_from_slice(v_list);
+    Ok(inverse.multiply_vector(&rhs))
+}
+
+/// Solve for the polyharmonic-spline weights `[w | v]` by one direct
+/// LU back-substitution (no inverse). Mathematically the same weights as
+/// [`solve_polyharmonic_spline`], different rounding: kept callable as the
+/// form this port used before gh:#1361.
 ///
 /// `x_list` is the transposed coordinate table: `x_list[param][data]` is the
 /// value of parameter `param` at data point `data`. Every inner list must have
@@ -126,11 +153,30 @@ pub fn polyharmonic_spline_function(r_square: f64, mode: usize) -> f64 {
 ///
 /// Panics if `x_list` is empty or its rows have unequal length; callers
 /// (`nuclearDataOneEnergy::build`) guarantee a rectangular, non-empty table.
-pub fn solve_polyharmonic_spline(
+pub fn solve_polyharmonic_spline_direct(
     x_list: &[Vec<f64>],
     v_list: &[f64],
     mode: usize,
 ) -> Result<Vec<f64>, MatrixError> {
+    let a = assemble_matrix(x_list, mode);
+    let order = a.n();
+
+    // Right-hand side: data values padded with zeros for the orthogonality rows.
+    let mut rhs = vec![0.0; order];
+    rhs[..v_list.len()].copy_from_slice(v_list);
+
+    a.solve(&rhs)
+}
+
+/// The saddle-point matrix `[A B; B^T 0]` of [`solve_polyharmonic_spline`],
+/// order `n + p + 1`, assembled as upstream's N-dimensional
+/// `solvePolyharmonicSpline` does (`A` symmetric, polynomial-tail rows and
+/// columns after the data block).
+///
+/// # Panics
+///
+/// Panics if `x_list` is empty or its rows have unequal length.
+fn assemble_matrix(x_list: &[Vec<f64>], mode: usize) -> SquareMatrix {
     let n_params = x_list.len();
     assert!(
         n_params >= 1,
@@ -165,12 +211,26 @@ pub fn solve_polyharmonic_spline(
             a.set(n + param_i + 1, di, param[di]);
         }
     }
+    a
+}
 
-    // Right-hand side: data values padded with zeros for the orthogonality rows.
-    let mut rhs = vec![0.0; order];
-    rhs[..v_list.len()].copy_from_slice(v_list);
-
-    a.solve(&rhs)
+/// The inverse of the saddle-point matrix: the `invRBFmatrix` that upstream
+/// `solvePolyharmonicSpline` builds with `LUscalarMatrix::inv` and keeps for
+/// later right-hand sides (gh:#1361). Order `n + p + 1`.
+///
+/// # Errors
+///
+/// [`MatrixError::Singular`] under the same conditions as
+/// [`solve_polyharmonic_spline`].
+///
+/// # Panics
+///
+/// Panics if `x_list` is empty or its rows have unequal length.
+pub fn polyharmonic_spline_inverse(
+    x_list: &[Vec<f64>],
+    mode: usize,
+) -> Result<SquareMatrix, MatrixError> {
+    assemble_matrix(x_list, mode).inverse()
 }
 
 /// Evaluate the polyharmonic spline at an arbitrary parameter point `x_input`.
@@ -212,4 +272,41 @@ pub fn polyharmonic_spline(
         }
     }
     res
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn table() -> (Vec<Vec<f64>>, Vec<f64>) {
+        (
+            vec![vec![1.0, 1.0, 2.0, 3.5], vec![2.0, 4.0, 2.0, 3.0]],
+            vec![10.0, 20.0, 40.0, 33.0],
+        )
+    }
+
+    #[test]
+    fn both_solves_reproduce_the_data_and_agree_to_round_off() {
+        let (x, v) = table();
+        for mode in 1..=4 {
+            let w_inv = solve_polyharmonic_spline(&x, &v, mode).unwrap();
+            let w_dir = solve_polyharmonic_spline_direct(&x, &v, mode).unwrap();
+            assert_eq!(w_inv.len(), 4 + 2 + 1);
+            for (a, b) in w_inv.iter().zip(&w_dir) {
+                assert!((a - b).abs() <= 1e-9 * (1.0 + b.abs()), "mode {mode}: {a} vs {b}");
+            }
+            for d in 0..4 {
+                let q = [x[0][d], x[1][d]];
+                let f = polyharmonic_spline(&w_inv, &x, &q, mode);
+                assert!((f - v[d]).abs() < 1e-8, "mode {mode} point {d}: {f}");
+            }
+        }
+    }
+
+    #[test]
+    fn duplicate_points_are_singular() {
+        let x = vec![vec![1.0, 1.0], vec![2.0, 2.0]];
+        assert!(polyharmonic_spline_inverse(&x, 1).is_err());
+        assert!(solve_polyharmonic_spline(&x, &[1.0, 2.0], 1).is_err());
+    }
 }
