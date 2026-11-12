@@ -447,3 +447,43 @@ dots follow the STL cut (black line): patch1 (orange) on the outer faces, patch4
 `round2_slice_z2.png` (below the lower stub, left of the upper arm) belong to faces
 of cells at other z, not to the plane; no 3-D view; which faces are the 4
 problem-cell patch faces was not marked.
+
+---
+
+# Round 3 (2026-11-12): problem-face order, per-face equality, snapping
+
+ESI v2506 re-run (same dictionary, `writePrecision 16`, debug meshes) into
+`/home/user/upstream-build/runs/r3_cast`; `extract_esi_fixtures.py` (beside this
+file) writes the committed references `esi_baffle_cell_order`, `esi_problem_faces`,
+`esi_final_cells_ordered`, `esi_final_points`, `esi_final_faces`,
+`esi_final_boundary` (`tests/fixtures/esi_v2506_flange/`).
+
+## Evidence gathered BEFORE the port change (disclosed, not predictions)
+
+A pure-Python replica of `markFacesOnProblemCells` (v2506
+`meshRefinementProblemCells.C:383-1000`, simple branch, no collapse check) run on
+ESI's own time-16 mesh (the mesh `baffleAndSplitMesh` runs it on: baffled, 30530
+cells) reproduces **25295 faces and the identical face set as ESI's
+`16/polyMesh/sets/problemFaces`** when cells are visited in ESI's cell order, and
+gives **24331** when the same cells are visited in reverse. So the algorithm as
+read is complete, and the count depends on the visit order of the 8-anchor loop
+(it marks faces, hence points, as it goes). The port's leaf order (nested i,j,k,
+dangling children appended) gave 24646.
+ESI's cell order is not a simple function of the lattice: after
+`surfaceOnlyRefine` iteration 1 it is exactly "parent keeps its label as child 0,
+children 1..7 appended per parent in refined-cell order, octant bit0 = x, bit1 = y,
+bit2 = z" (0 mismatches of 10238 cells); from iteration 2 it is not: the child
+numbering follows each parent's own hex frame (hexRef8 orders children by the
+cell's anchor-point numbering, which comes from polyMesh face order): 13 distinct
+child permutations among the iteration-2 parents, 8 of them determined by the
+parent's octant alone and the rest differing in 2 to 3 slots for about 1 % of parents.
+Deriving it needs hexRef8's cell orientation and polyTopoChange's face reordering:
+NOT ported.
+
+## PREDICTIONS (committed before the port was changed or run)
+
+| # | prediction |
+|---|---|
+| P17 | `CastellationControls::with_esi_problem_cell_order(keys)` (visit the 8-anchor loop in the ESI cell order of `esi_baffle_cell_order`) makes the port mark **25295** problem faces, and the set of marked faces (as pairs of cell keys) equals `esi_problem_faces` exactly. Reason: the replica above; the port's topology (leaf corners, hanging edge/face points in face rings) already matched on every count so far. Can fail if the port's anchor test differs from `pointLevel <= cellLevel` for a cell with a hanging corner. |
+| P18 | Per-face equality of the final castellated mesh with ESI's `32/polyMesh` (face keyed by its vertex ring on the level-2 lattice, up to cyclic rotation, with owner key and neighbour key or patch name; orientation compared): **all 63194 faces equal, including orientation**, except at most 8 boundary faces whose patch differs (the 4 problem-cell faces use the nearest-cut-face stand-in for ESI's topological `nearestPatch`). Point set equal (26662). |
+| P19 | Without the order (default leaf order) P18 still holds for internal faces and counts, but the problem-face count stays 24646 (pinned as the measured effect of the visit order). |
