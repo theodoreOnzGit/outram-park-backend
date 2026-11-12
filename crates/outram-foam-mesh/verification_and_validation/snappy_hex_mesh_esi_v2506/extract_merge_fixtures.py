@@ -24,7 +24,7 @@ Writes (plain text; the caller gzips with `gzip -n`):
   esi_merge_stage1_removed.txt time-36 labels of the points removed by
                               `mergePatchFacesUndo` (unused points)
   esi_merge_all_face_sets.txt the faces of `36/polyMesh/sets/allFaceSets` (faces in any
-                              merge set), TIME-36 face labels, ascending
+                              merge set), face labels of the repatched snapped mesh, ascending
 Standard library only. Tooling for V&V, reached by the recorded run, not a test.
 """
 import re
