@@ -39,10 +39,10 @@ use outram_foam_basic_lib::fields::boundary::bc::BoundaryCondition;
 use outram_foam_basic_lib::ldu_matrix::SolverSettings;
 use outram_foam_basic_lib::mesh::FvMesh;
 
-/// Upstream `keff_` after step 1 (filled in from the log by the README step that records it).
-const UPSTREAM_KEFF: Option<f64> = None;
+/// Upstream `keff_` after step 1 (log of `godiva1`, 2026-11-12).
+const UPSTREAM_KEFF: f64 = 0.92836368151245729;
 /// Upstream `pow:` of step 1.
-const UPSTREAM_POWER: Option<f64> = None;
+const UPSTREAM_POWER: f64 = 947207.42604622082;
 
 #[test]
 #[ignore = "needs the Godiva_SN tutorial directory (GENFOAM_GODIVA_CASE) and runs for many minutes"]
@@ -79,7 +79,10 @@ fn godiva_sn_first_step_against_upstream() {
     assert_eq!(h.len(), 1);
     let s = h[0].step;
     println!("Godiva_SN step 1: keff {:.16} pow {:.10} residual {:.6e}", s.k_eff, s.power, s.first_residual);
-    if let (Some(k), Some(p)) = (UPSTREAM_KEFF, UPSTREAM_POWER) {
-        println!("  dk {:+.3e}  dP rel {:.3e}", s.k_eff - k, ((s.power - p) / p).abs());
-    }
+    let dk = s.k_eff - UPSTREAM_KEFF;
+    let dp = ((s.power - UPSTREAM_POWER) / UPSTREAM_POWER).abs();
+    println!("  dk {dk:+.3e}  dP rel {dp:.3e}");
+    // G1 (README): predicted 1e-8; measured 3e-14 and 3e-15.
+    assert!(dk.abs() < 1e-8, "G1 dk {dk:e}");
+    assert!(dp < 1e-8, "G1 dP {dp:e}");
 }

@@ -156,12 +156,12 @@ not bit identity: the two codes use different linear solvers and iteration struc
 S0: the tutorials as shipped stop at their solver tolerances (1e-6, relTol 1e-3) after 106 pseudo-time steps
 and report `keff_ = 1.0000037` (case 1) and `1.0000227` (case 2), against the converged `1.0000076499876376`
 and `1.0000305055413801`: the shipped numbers are unconverged by -3.9e-6 and -7.8e-6 (-0.39 and -0.78 pcm).
-Any comparison against a shipped log is limited to that. S4 (iteration history): not compared.
+Any comparison against a shipped log is limited to that. ~~S4 (iteration history): not compared.~~ **CORRECTED 2026-11-12:** compared step by step in round 2 ("S4 results").
 The upstream history (230 pseudo-time steps at the tight protocol) is committed in the reference; the port
 has no driver that updates keff once per step. A port of that driver (`solveNeutronics.H` eigenvalue branch,
 `calcKeff.H`, `setDeltaT`/`maxDeltaT`) is the remaining work for S4.
 
-S6, Godiva_SN: not compared (blockers above). The real binary runs it as shipped (P3 scattering, its own
+~~S6, Godiva_SN: not compared (blockers above).~~ **UPDATED 2026-11-12:** both blockers are removed in round 2 (reader and moments ported); see "SN results". The real binary runs it as shipped (P3 scattering, its own
 `quadratureSet`): the first pseudo-time step took about 9 minutes on one core at 3.2 GB resident and moved
 `keff_` from the seed 0.980106 to 0.938566; the shipped case runs 20 steps (about 3 hours), so the run was
 stopped after step 1 and is NOT a reference. Recorded only as the cost of the run. See "What remains".
@@ -212,15 +212,15 @@ both: the `long-tests` feature is on by default) gave 493 passed, 0 failed, 12 i
 
 ## What remains (after round 1)
 
-1. **S4, the iteration history.** Port the eigenvalue branch of `solveNeutronics.H` + `calcKeff.H` + `normFluxes.H`
+1. ~~**S4, the iteration history.**~~ **DONE 2026-11-12 (round 2, "S4 results" below):** ~~Port the eigenvalue branch of `solveNeutronics.H` + `calcKeff.H` + `normFluxes.H`
    and `setDeltaT`/`maxDeltaT` as a pseudo-time driver, with basic-lib's PCG/DIC at the case's own solver
    settings, then compare keff, power and the first residual per step against the 230-step history already
    committed in `refs/guided_slabs.ref.txt.gz` (and `sp3_slabs`). Without it the "iteration history" is
-   compared only as the converged end state.
-2. **Godiva_SN (S6).** Needs a reader for `constant/neutroRegion/quadratureSet` (the port bakes level-symmetric
+   compared only as the converged end state.~~
+2. ~~**Godiva_SN (S6).**~~ **PARTLY DONE 2026-11-12 (round 2, "SN results" below):** ~~Needs a reader for `constant/neutroRegion/quadratureSet` (the port bakes level-symmetric
    sets) and P1 to P3 scattering moments (gh:#1474). The upstream binary runs the case as-is; the first
    pseudo-time step takes several minutes at 3.2 GB resident, 20 steps are shipped. A `legendreMoments 0`
-   run with the case's quadrature is the first identical-input comparison once the reader exists.
+   run with the case's quadrature is the first identical-input comparison once the reader exists.~~
 3. **SP3 on the ESFR** and the transient (`step`) paths, which need the TH state of the ESFR run.
 4. **Plan steps 4 and 5** (ESI thermo/turbulence closure, the full binary): not started, as instructed.
 5. **Singular-matrix behaviour** of `lu_decompose` against ESI (noted above) if a caller ever relies on it.
@@ -382,3 +382,30 @@ verify the multi-group paths (`extraSources` from other groups with moments, `si
 Godiva (23 groups) is the only case that exercises them, see below. The synthetic P1 to P3 values mean nothing physically.
 Upstream's own behaviour on this case is unstable (single-sweep pseudo-time iteration reaches the keff clamp at step 7); the
 comparison stops at step 6, before the clamp.
+
+### SN results, Godiva_SN one step (measured 2026-11-12, `tests/genfoam_godiva_sn_step.rs`, run with `--ignored`)
+
+Shipped case (177,655 tetrahedra, 23 groups, 32 directions, P0 to P3 via `legendreMoments 3`, `inletOutlet`, `keff 0.980106`,
+`pTarget 1e6`), `angularFlux.*` solver at `1e-10 / relTol 0` in both codes, one pseudo-time step.
+
+| quantity | upstream (real binary) | port | difference |
+|---|---|---|---|
+| `keff_` after step 1 | 0.92836368151245729 | 0.9283636815124880 | +3.1e-14 |
+| `pow:` | 947207.42604622082 | 947207.4260462521 | 3.3e-15 relative |
+| step residual | 0.99999999999989375 | 1 (printed `1.000000e0`) | 1e-13 |
+| wall time, one core | 884 s (ExecutionTime 870 s) | 29 min 23 s | port 2.0x slower |
+| peak resident memory | about 3.2 GB (round 1) | 5.35 GB | port 1.7x |
+
+G1 held by six orders (predicted 1e-8, got 3e-14 and 3e-15). **G3 missed**: the step-1 `keff_` of the shipped-tolerance run recorded in round 1
+(0.938566, `angularFlux` at 1e-7 / relTol 0.1) differs from the tightly solved 0.928364 by 1.0e-2. The "within 1e-3" prediction assumed the
+loose solves were nearly converged; they are not (relTol 0.1 stops each direction at 10 % of its starting residual), so the shipped
+GeN-Foam Godiva numbers after step 1 are solver-dependent at the 1 % level, a fact to remember when anyone compares against the tutorial's
+shipped log. G2 (inner-sweep counts) is not measured separately; it is implied by G1, since a flipped stopping test between the two codes
+would have moved `keff_` by far more than 3e-14. G4: recorded in the table.
+
+What the Godiva step verifies beyond the slab: the multi-group paths (`extraSources` from the other 22 groups with P1 to P3 moments, the
+`sigmaFromToYesNo` threshold), the 3-D tetrahedral upwind operator with `inletOutlet` on all patches, 23-group Gauss-Seidel
+ordering, and the reader on the shipped `quadratureSet`. It is ONE step: Godiva's later steps and the 20-step trajectory
+(the round-1 log shows `keff_` moving from the seed) are not compared; the port is 2x slower and 1.7x larger than upstream here, so the 20-step run
+(about 10 hours) was not attempted. The shipped tutorial's own solver tolerance (1e-7 / 0.1) is not reproduced by the port, whose solver stops on a
+different residual; at that tolerance the two codes would differ by the solver, not by the physics.

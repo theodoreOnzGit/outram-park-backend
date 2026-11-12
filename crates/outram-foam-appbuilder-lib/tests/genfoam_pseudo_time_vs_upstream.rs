@@ -50,6 +50,11 @@ fn vv_dir() -> PathBuf {
         .join("verification_and_validation/genfoam_vs_upstream_gh1361")
 }
 
+/// A scratch-directory suffix unique to the calling test (tests run in parallel).
+fn scratch_id() -> String {
+    format!("{:?}", std::thread::current().id()).replace(['(', ')'], "")
+}
+
 fn gunzip(path: &Path) -> Vec<u8> {
     let bytes = std::fs::read(path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
     decompress_to_vec(&bytes[10..bytes.len() - 8]).expect("inflate")
@@ -57,7 +62,7 @@ fn gunzip(path: &Path) -> Vec<u8> {
 
 fn stage_case(case: &str) -> PathBuf {
     let src = vv_dir().join("cases").join(case);
-    let dst = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1361_pt_{case}"));
+    let dst = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1361_pt_{case}_{}", scratch_id()));
     let _ = std::fs::remove_dir_all(&dst);
     std::fs::create_dir_all(dst.join("polyMesh")).expect("scratch dir");
     std::fs::copy(src.join("nuclearData"), dst.join("nuclearData")).expect("nuclearData");

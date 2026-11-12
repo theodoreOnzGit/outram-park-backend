@@ -320,7 +320,7 @@ mod tests {
 
     #[test]
     fn reads_the_godiva_quadrature_set_dictionary() {
-        let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("sn_quadrature_set_test");
+        let dir = std::env::temp_dir().join("sn_quadrature_set_test");
         std::fs::create_dir_all(&dir).expect("dir");
         let p = dir.join("quadratureSet");
         std::fs::write(

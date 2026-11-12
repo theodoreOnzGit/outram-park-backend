@@ -461,7 +461,9 @@ mod tests {
         let m = neutronics_max_delta_t(&c, &clock, 1e6, 1e6);
         assert_eq!(m, 1.0);
         adjust_delta_t(&c, &mut clock, m);
-        assert!((clock.delta_t() - 1.2e-9).abs() < 1e-24);
+        // 1.2e-9, then Time::adjustDeltaT re-divides the interval to the next write time
+        // into round(1/1.2e-9) equal steps: equal to 1.2e-9 to about 1e-9 relative.
+        assert!(((clock.delta_t() - 1.2e-9) / 1.2e-9).abs() < 1e-8);
     }
 
     #[test]
