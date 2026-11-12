@@ -109,7 +109,8 @@ The remaining 878 values:
   series), where PETIR calls libm's `cos`/`sin`. `reference-data/gsl/README.md`
   records this as a deliberate, more accurate substitution for huge arguments;
   porting `trig.c`'s sin/cos would close it at the cost of that accuracy.
-  Not changed here; needs a maintainer decision.
+  ~~Not changed here; needs a maintainer decision.~~ **CLOSED 2026-11-12**:
+  approved, ported as the opt-in `TrigKernel::Gsl` (last section below).
 - `erf`/`erfc` (154 + 249): not ports (fdlibm substitution), documented.
 - `eta` (45) and `transport_4(-0.0)` (1): a signed zero.
 - `fd_2`, `fd_3half`: 1 + 2 rows at x = 1e15, 1e50 (an operation order at huge x
@@ -133,3 +134,101 @@ fdlibm and glibc `lgamma` by up to 1.35e-13 absolute (3.8e-14 at -4.9801), while
 the port reproduces GSL's value. The unit test
 `ln_gamma_and_sign_near_every_pole_agree_with_fdlibm` bounds it and says so.
 
+
+## gh:#1421, `trig.c` option (maintainer approval 2026-11-12: "yes")
+
+The maintainer approved porting GSL's `specfunc/trig.c` `sin`/`cos` into PETIR
+**as an option**, so that Airy and `Ci` (and anything else built on
+`gsl_sf_sin_e`/`gsl_sf_cos_e`) can match GSL bit for bit. The default path stays
+PETIR's own `sin`/`cos`.
+
+### Reading `trig.c` first (2026-11-12, GSL 2.8 `cf180cd7`)
+
+What the decision text assumed and the source says differ in one place that
+matters. The earlier note said GSL's `sin_e`/`cos_e` use "the platform
+`sin`/`cos` for the reduced argument". **They do not.** `gsl_sf_sin_e`
+(`trig.c:162`) and `gsl_sf_cos_e` (`trig.c:235`) call no libm function at all:
+octant reduction with a three-piece `pi/4`, then `cheb_eval_e` on the `sin_cs`
+(12 coefficients) or `cos_cs` (11) series, then `z*(1 + z*z*s)` or
+`1 - 0.5*z*z*(1 - z*z*c)`. Only the `*_err_e` wrappers (`trig.c:620`,
+`:629`) call libm `cos`/`sin`, and only to widen `err`, which PETIR does not
+carry. `airy.c` (668, 709, 747, 804) and `sinint.c` (`Ci`, 374-375) reach
+`sin_e`/`cos_e` this way. So the translation is deterministic and
+platform-independent, and a bit-identity claim does not need the "1 ulp from
+glibc" allowance for these two functions: the reference is **stock** GSL, with
+no libm shim.
+
+### Predictions (written BEFORE the port was run against anything)
+
+- **P1.** `sin_gsl`/`cos_gsl` against `gsl_sf_sin_e`/`gsl_sf_cos_e` over the
+  grid of `reference-data/gsl/trig_sincos_reference_driver.c` (dense, octant
+  boundaries and their neighbours, 18 000 pseudo-random arguments to 1e14, huge
+  and tiny arguments): **100 % bit-identical on every finite row**. This can
+  fail: it fails if my reading of the sign bookkeeping, the order of operations
+  (`0.5*z*z*(...)` is `((0.5*z)*z)*(...)`) or a coefficient is wrong.
+- **P2.** `airy_ai/_scaled`, `airy_bi/_scaled` with `TrigKernel::Gsl` against
+  the committed **stock** reference (`specfunc-gsl-2.8-reference.txt`): **100 %
+  bit-identical** (the only libm calls on the `x < -1` branch are `sqrt`,
+  which is exact); `ci` with `TrigKernel::Gsl`: **100 %**. Hence, against GSL
+  linked to PETIR's libm, the whole sweep moves from 85 360 to **85 778 of
+  86 238 (99.47 %)** (+418 = 98 + 98 + 89 + 89 + 44), the remaining 460 being
+  `erf`/`erfc` 403, `eta` 45, `ln_gamma*` 8, `fd_*` 3, `transport_4` 1. If an
+  airy row still differs, there is a second cause under the trig one, to be
+  traced to its first divergent operation, and the prediction has failed.
+- **P3.** Nothing on the default path moves: against stock GSL the whole sweep
+  stays **83 717 of 86 238 (97.08 %)**, per-routine counts unchanged, and
+  `tests/std_shadowing_digest.rs` keeps its pinned digests.
+
+### The mechanism chosen
+
+`specfunc::trig` gains `sin_gsl(x)` / `cos_gsl(x)` (translations of
+`gsl_sf_sin_e`/`gsl_sf_cos_e`, `trig.c:162-308`, with `SIN_DATA`/`COS_DATA`
+audited bit for bit by `tests/gsl_tables_audit.rs`, now 2436 literals) and a
+plain enum `TrigKernel { Petir (Default), Gsl }` with `sin`/`cos` methods.
+`airy_ai/_scaled`, `airy_bi/_scaled` and `ci` keep their signatures and call
+`*_with(x, TrigKernel::Petir)`; `airy_*_with` and `ci_with` take the kernel.
+No feature flag, no change of default. `si` is not routed: GSL's `gsl_sf_Si_e`
+calls libm `sin`/`cos` itself (`sinint.c:345`). Other `trig.c` users in GSL
+(spherical Bessel, Legendre conical/`H3d`) are not ported in PETIR; `sinc` is
+not ported.
+
+### Results (2026-11-12, Rust 1.99.1 release, GSL 2.8 `cf180cd7`, `gcc -O2`)
+
+The GSL tree was re-cloned from `ampl/gsl` (ftp.gnu.org returned 403) and
+rebuilt; the stock `specfunc` reference regenerated **byte-identical** to the
+committed one (`cmp`).
+
+- **P1 held.** `sin_gsl`/`cos_gsl` vs `gsl_sf_sin_e`/`cos_e`: **39 412 of
+  39 412 (100 %)** bit-identical (`tests/gsl_trig_sincos_code_to_code.rs`,
+  19 706 arguments including 1e300 and `DBL_MAX`, where GSL's reduction has no
+  digits left and the port reproduces the same garbage). For information,
+  PETIR's own `Real::sin/cos` vs GSL on the same rows: 28 772 of 39 412
+  (73 %); the gap is 1 ulp on moderate arguments and unbounded where GSL's
+  reduction has run out of digits.
+- **P2 held** (measured against stock GSL and against GSL linked to PETIR's
+  libm). Rows whose value goes through `sin_e`/`cos_e` (`x < -1` for Airy,
+  `x > 4` for `Ci`), default kernel -> `Gsl` kernel, bit-identical:
+  `airy_ai` 370 -> 468 of 468 (stock) / 370 -> 468 (libm-linked);
+  `airy_ai_scaled` 370 -> 468; `airy_bi` 378 -> 468 (stock), 379 -> 468
+  (libm-linked); `airy_bi_scaled` likewise; `ci` 195 -> 239 of 239. **Every
+  row, 100 %.** The remaining rows of those routines (other regions, kernel
+  independent) are libm noise against stock GSL (e.g. `airy_ai` 531 of 548)
+  and 100 % against the libm-linked GSL (548 of 548, 579 of 579, 176 of
+  176).
+- Whole sweep against GSL linked to PETIR's libm (shim rebuilt with
+  `sincos`): **85 360 -> 85 778 of 86 238 (98.98 % -> 99.47 %)** with the
+  `Gsl` kernel on the five routines (+98, +98, +89, +89, +44 = +418, exactly the
+  predicted figure). 460 remain: `erf`/`erfc` 403, `eta` 45, `ln_gamma*` 8,
+  `fd_*` 3, `transport_4` 1, as before.
+- **P3 held.** Default path, stock GSL: whole sweep **83 717 of 86 238
+  (97.08 %)**, unchanged; per-routine airy/ci counts pinned in
+  `default_trig_kernel_numbers_did_not_move`; against the libm-linked GSL the
+  default path still gives 85 360. `tests/std_shadowing_digest.rs` is not
+  changed and passes.
+- **What bit-identity costs.** `TrigKernel::Gsl` inherits GSL's accuracy
+  limit: past about `|x| = 1e8` for the Airy phase, `1e10` for `Ci`, its
+  Cody-Waite reduction loses digits (`trig-vs-libm-probe-gsl-2.8.txt`:
+  4.6e-7 absolute at 1e10, 3.4e-2 at 1e15), which is why it is an option and
+  not the default. Choose it to match GSL; leave the default for accuracy.
+- Not 1-ulp libm noise: these two functions involve no libm in GSL, so no
+  glibc-versus-PETIR ulp allowance was needed anywhere in the comparison.

@@ -45,10 +45,10 @@ use petir::specfunc::lambert::*;
 use petir::specfunc::legendre::legendre_plm;
 use petir::specfunc::psi;
 use petir::specfunc::shint::{chi, shi};
-use petir::specfunc::sinint::{ci, si};
+use petir::specfunc::sinint::{ci, ci_with, si};
 use petir::specfunc::synchrotron::*;
 use petir::specfunc::transport::*;
-use petir::specfunc::trig::*;
+use petir::specfunc::trig::*; // includes TrigKernel
 use petir::specfunc::zeta;
 use petir::specfunc::{erf, erfc};
 use std::collections::BTreeMap;
@@ -95,7 +95,13 @@ fn table() -> &'static BTreeMap<&'static str, Vec<Row>> {
     static T: OnceLock<BTreeMap<&'static str, Vec<Row>>> = OnceLock::new();
     T.get_or_init(|| {
         let mut m: BTreeMap<&str, Vec<Row>> = BTreeMap::new();
-        for line in REFERENCE.lines() {
+        // Diagnostic: `SPECFUNC_REFERENCE_FILE` replays another reference file,
+        // e.g. the driver linked against PETIR's libm shim
+        // (`reference-data/gsl/petir_libm_shim.rs`, regenerated, not committed).
+        let override_text: Option<&'static str> = std::env::var("SPECFUNC_REFERENCE_FILE")
+            .ok()
+            .map(|path| &*std::fs::read_to_string(path).expect("reference file").leak());
+        for line in override_text.unwrap_or(REFERENCE).lines() {
             let mut it = line.split_whitespace();
             let name = it.next().expect("name");
             let hex = |s: &str| f64::from_bits(u64::from_str_radix(s, 16).expect("hex"));
@@ -118,8 +124,15 @@ fn mode(r: &Row) -> Mode {
     }
 }
 
-/// Evaluate PETIR's routine for one row.
+/// Evaluate PETIR's routine for one row with PETIR's own `sin`/`cos`: the
+/// default path, whose numbers must not move (gh:#1421, prediction P3).
 fn ours(name: &str, r: &Row) -> Option<Vec<f64>> {
+    ours_k(name, r, TrigKernel::Petir)
+}
+
+/// [`ours`] with the sine/cosine kernel of the routines that call GSL's own
+/// `gsl_sf_sin_e`/`gsl_sf_cos_e` (`airy_*`, `ci`) chosen.
+fn ours_k(name: &str, r: &Row, kernel: TrigKernel) -> Option<Vec<f64>> {
     let a = &r.args;
     let x = a[0];
     let int = |v: f64| v as i64;
@@ -134,17 +147,32 @@ fn ours(name: &str, r: &Row) -> Option<Vec<f64>> {
         return None;
     }
     let v = match name {
-        "airy_ai" => airy_ai(x),
-        "airy_ai_scaled" => airy_ai_scaled(x),
-        "airy_bi" => airy_bi(x),
-        "airy_bi_scaled" => airy_bi_scaled(x),
+        "airy_ai" => match kernel {
+            TrigKernel::Petir => airy_ai(x),
+            TrigKernel::Gsl => airy_ai_with(x, kernel),
+        },
+        "airy_ai_scaled" => match kernel {
+            TrigKernel::Petir => airy_ai_scaled(x),
+            TrigKernel::Gsl => airy_ai_scaled_with(x, kernel),
+        },
+        "airy_bi" => match kernel {
+            TrigKernel::Petir => airy_bi(x),
+            TrigKernel::Gsl => airy_bi_with(x, kernel),
+        },
+        "airy_bi_scaled" => match kernel {
+            TrigKernel::Petir => airy_bi_scaled(x),
+            TrigKernel::Gsl => airy_bi_scaled_with(x, kernel),
+        },
         "atanint" => atanint(x),
         "clausen" => clausen(x),
         "dawson" => dawson(x),
         "dilog" => dilog(x),
         "expint_3" => expint_3(x),
         "si" => si(x),
-        "ci" => ci(x),
+        "ci" => match kernel {
+            TrigKernel::Petir => ci(x),
+            TrigKernel::Gsl => ci_with(x, kernel),
+        },
         "shi" => shi(x),
         "chi" => chi(x),
         "synchrotron_1" => synchrotron_1(x),
@@ -296,6 +324,10 @@ fn compare(name: &str) -> Tally {
 }
 
 fn compare_in(name: &str, region: Region) -> Tally {
+    compare_in_k(name, region, TrigKernel::Petir)
+}
+
+fn compare_in_k(name: &str, region: Region, kernel: TrigKernel) -> Tally {
     let mut t = Tally::default();
     for r in table().get(name).unwrap_or_else(|| panic!("no rows for {name}")) {
         match region {
@@ -303,7 +335,7 @@ fn compare_in(name: &str, region: Region) -> Tally {
             Region::NearPoles if !near_pole(name, r) => continue,
             _ => {}
         }
-        let Some(o) = ours(name, r) else {
+        let Some(o) = ours_k(name, r, kernel) else {
             t.not_representable += 1;
             continue;
         };
@@ -749,4 +781,95 @@ fn gh1421_residuals_stay_fixed() {
     at_least(&["eta"], 85, 1.1e-15);
     at_least(&["fd_m1", "fd_1", "fd_2", "fd_mhalf"], 94, 3e-16);
     at_least(&["bessel_j0", "bessel_j1", "bessel_y0", "bessel_y1"], 97, 5e-15);
+}
+
+/// **gh:#1421, the `trig.c` option: `TrigKernel::Gsl` against stock GSL 2.8.**
+///
+/// Methodology: the rows of `specfunc-gsl-2.8-reference.txt` for the four Airy
+/// functions and `Ci` are replayed through `airy_*_with` / `ci_with` with
+/// `TrigKernel::Gsl`, i.e. with GSL's own `gsl_sf_sin_e`/`gsl_sf_cos_e`
+/// (`sin_gsl`/`cos_gsl`, a translation of `specfunc/trig.c`) in place of
+/// PETIR's `sin`/`cos`. `gsl_sf_sin_e`/`gsl_sf_cos_e` call no libm function,
+/// and the rest of the `x < -1` Airy branch and the `x > 4` `Ci` branch uses
+/// only `sqrt` (exact) and Chebyshev series, so the reference is **stock** GSL
+/// with no libm shim, and bit-identity is the pass criterion: every row GSL
+/// returns with status 0 must match bit for bit, and every refused row must be
+/// refused or reproduced.
+///
+/// Prediction P2 (committed in `specfunc_gsl_gh1419_1420_1421.md` before this
+/// ran): 100 % bit-identical for all five routines. The rows include the 1e15
+/// and 1e50 arguments where GSL's own reduction has run out of digits and
+/// returns garbage; the port reproduces that garbage too.
+///
+/// Results: printed per routine below and recorded in
+/// `verification_and_validation/specfunc_gsl_gh1419_1420_1421.md`.
+#[test]
+fn trig_kernel_gsl_makes_airy_and_ci_bit_identical_to_gsl() {
+    let mut problems = Vec::new();
+    for n in ["airy_ai", "airy_ai_scaled", "airy_bi", "airy_bi_scaled", "ci"] {
+        // The rows whose value goes through `gsl_sf_sin_e`/`cos_e`.
+        let in_trig_region = |x: f64| if n == "ci" { x > 4.0 } else { x < -1.0 };
+        let (mut d_rows, mut d_exact, mut g_rows, mut g_exact) = (0, 0, 0, 0);
+        let (mut out_rows, mut out_exact) = (0, 0);
+        for r in table().get(n).expect("rows") {
+            if r.status != 0 || r.args[0].is_nan() || r.vals.iter().any(|v| v.is_nan()) {
+                continue;
+            }
+            let same = |k: TrigKernel| {
+                let o = ours_k(n, r, k).expect("representable");
+                r.vals.iter().zip(&o).all(|(g, p)| g.to_bits() == p.to_bits())
+            };
+            if in_trig_region(r.args[0]) {
+                d_rows += 1;
+                d_exact += same(TrigKernel::Petir) as usize;
+                g_rows += 1;
+                let ok = same(TrigKernel::Gsl);
+                g_exact += ok as usize;
+                if !ok && problems.len() < 6 {
+                    problems.push(format!("{n}({:e}): gsl {:?} ours {:?}", r.args[0], r.vals,
+                        ours_k(n, r, TrigKernel::Gsl)));
+                }
+            } else {
+                // Outside the region the kernel is irrelevant; the residual
+                // there is libm noise (`exp`) against stock GSL, unchanged.
+                out_rows += 1;
+                out_exact += same(TrigKernel::Gsl) as usize;
+                assert_eq!(same(TrigKernel::Gsl), same(TrigKernel::Petir), "{n}: kernel leaked outside its region");
+            }
+        }
+        println!(
+            "  gh1421 {n}: trig-affected rows: default kernel {d_exact}/{d_rows} bit-identical \
+             -> Gsl kernel {g_exact}/{g_rows} ({:.2} %); other rows (kernel-independent) {out_exact}/{out_rows}",
+            100.0 * g_exact as f64 / g_rows as f64
+        );
+        assert!(d_exact < d_rows, "{n}: the default path already matched");
+        // Refused rows: refused or reproduced, for the Gsl kernel too.
+        let g = compare_in_k(n, Region::All, TrigKernel::Gsl);
+        assert_eq!(g.err_agree, g.err_rows, "{n}: refused rows");
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+/// **gh:#1421, prediction P3: the default path does not move.** The counts
+/// pinned here are the default-kernel (`TrigKernel::Petir`) bit-identical
+/// counts against stock GSL, measured 2026-11-12 on the code AFTER the option was
+/// added (the unchanged `airy_ai` etc. now call `airy_ai_with(x, Petir)`). The
+/// before-measurement that they are compared with is the whole-sweep total
+/// recorded in the V&V record before this work, **83 717 of 86 238 (97.08 %)**,
+/// which `whole_specfunc_sweep_vs_gsl_2_8` reprints and which did not change.
+/// A change in any pinned count means the default path moved and must be
+/// re-measured and explained, not re-pinned.
+#[test]
+fn default_trig_kernel_numbers_did_not_move() {
+    let pinned: [(&str, usize, usize); 5] = [
+        ("airy_ai", 1016, 901),
+        ("airy_ai_scaled", 1047, 947),
+        ("airy_bi", 1016, 904),
+        ("airy_bi_scaled", 1047, 953),
+        ("ci", 415, 363),
+    ];
+    for (n, rows, exact) in pinned {
+        let t = compare_in_k(n, Region::All, TrigKernel::Petir);
+        assert_eq!((t.ok_rows, t.ok_exact), (rows, exact), "{n}: default path moved");
+    }
 }
