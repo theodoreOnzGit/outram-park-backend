@@ -375,10 +375,13 @@ fn run_unresr(c: &UnresrCards, units: &mut TapeUnits, notes: &mut Vec<String>) -
     pass_through(c.nin, c.nout, units, |m| m.unresr = true)
 }
 
-/// PURR (`purr.f90`): **cards read, tape passed through.** The probability
-/// tables are made where ACER needs them ([`build_deck`]), from the
-/// evaluation, with PURR's random sequence from its start; PURR's own MT=153
-/// writer is not ported, so the tape carries no MT=153.
+/// PURR (`purr.f90`). The probability tables are made where ACER needs them
+/// ([`build_deck`]), from the evaluation, with PURR's random sequence from its
+/// start. ~~PURR's own MT=152/153 writer is not ported, so the tape carries no
+/// MT=153.~~ **CORRECTED 2026-11-12 (gh:#1498):** for one temperature, one
+/// `sigma_0`, `nunx = 0` and no HEATR on the input, the tape gets PURR's MT=152
+/// and MT=153 ([`crate::deck::pendf::purr_tape`]; unit 34 of upstream tests 36
+/// and 38-42 is identical). Other decks pass the tape through, as before.
 fn run_purr(c: &PurrCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Result<(), NjoyError> {
     units.openz(c.nendf, 0)?;
     units.openz(c.nin, 0)?;
