@@ -8,7 +8,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
-//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730] [--shield none|tm0728|tm0728-drained|tm0728-packed] [--u235-scale X] [--rods none|1|2|3|1-2-3] [--balance-csv path] [--salt-spectrum-csv path] [--minor-uranium tm0730|none]
+//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730] [--shield none|tm0728|tm0728-drained|tm0728-packed|tm0728-full] [--u235-scale X] [--rods none|1|2|3|1-2-3] [--balance-csv path] [--salt-spectrum-csv path] [--minor-uranium tm0730|none]
 //! ```
 //!
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
@@ -55,13 +55,20 @@ fn flag(args: &[String], name: &str) -> Option<String> {
 fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends, shield: m::Shield, rods: [bool; 3]) {
     std::fs::create_dir_all(dir).expect("plot dir");
     let mut mats = m::materials_with_ends(m::MoTreatment::Omitted, m::REFERENCE_TEMPERATURE_F, dims);
-    let shielded = shield == m::Shield::Tm0728Cylinder;
-    let g = if shielded {
-        let g = m::geometry_with_shield(m::TEMPERATURE_K, m::TEMPERATURE_K, dims, ends, mats.len());
-        mats.extend(m::shield_materials());
-        g
-    } else {
-        m::geometry_with_ends(m::TEMPERATURE_K, m::TEMPERATURE_K, dims, ends)
+    let shielded = shield != m::Shield::Omitted;
+    let full = shield == m::Shield::Tm0728Full;
+    let g = match shield {
+        m::Shield::Tm0728Cylinder => {
+            let g = m::geometry_with_shield(m::TEMPERATURE_K, m::TEMPERATURE_K, dims, ends, mats.len());
+            mats.extend(m::shield_materials());
+            g
+        }
+        m::Shield::Tm0728Full => {
+            let g = m::geometry_with_full_shield(m::TEMPERATURE_K, m::TEMPERATURE_K, dims, ends, mats.len());
+            mats.extend(m::full_shield_materials());
+            g
+        }
+        m::Shield::Omitted => m::geometry_with_ends(m::TEMPERATURE_K, m::TEMPERATURE_K, dims, ends),
     };
     let rodded = rods.iter().any(|&r| r);
     let g = if rodded {
@@ -87,6 +94,8 @@ fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends, shield: m::Shield, rods: [b
         Rgb::new(60, 130, 200),
         Rgb::new(30, 30, 30),
         Rgb::new(255, 255, 0),
+        Rgb::new(0, 150, 150),
+        Rgb::new(200, 200, 120),
     ];
     let labels: Vec<String> = mats.iter().map(|(n, _)| n.to_ascii_uppercase()).collect();
     let palette: Vec<(Rgb, &str)> = colours.iter().zip(&labels).map(|(c, l)| (*c, l.as_str())).collect();
@@ -123,6 +132,19 @@ fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends, shield: m::Shield, rods: [b
             "MSRE N-1 X-Y AT MID-HEIGHT IN THE SHIELD: VOID, 1 IN 304 PLATE, 14 IN BALLS + WATER, 1 IN 304 PLATE"));
         slices.push(("msre_n1_shield_wall", Position::new(m::SHIELD_R_IN + 8.0 * m::INCH, 0.0, mid), PlotBasis::Xy, [60.0, 60.0],
             "MSRE N-1 SHIELD WALL, X-Y: INNER PLATE, BALL ANNULUS, OUTER PLATE"));
+        if full {
+            // Replace the cylinder-only views with the full shield's.
+            slices.clear();
+            let zc0 = (z_top + z_bot) / 2.0 - m::FULL_SHIELD_VESSEL_MID_ABOVE_BOTTOM;
+            let zc1 = zc0 + m::SHIELD_HEIGHT;
+            let zb = zc0 - m::SHIELD_BASE_THICKNESS;
+            slices.push(("msre_n1_fullshield_xz", Position::new(0.0, 0.3, (zb + zc1) / 2.0), PlotBasis::Xz, [w, zc1 - zb + 20.0],
+                "MSRE N-1 X-Z, FULL TM-0728 SHIELD: 18 IN BASE, 151 IN CYLINDER, 16 IN COVER, VESSEL MID 68.5 IN ABOVE CYLINDER BOTTOM (FIG. 5.2)"));
+            slices.push(("msre_n1_fullshield_xy_cover", Position::new(0.0, 0.0, zc1 - 8.0 * m::INCH), PlotBasis::Xy, [w, w],
+                "MSRE N-1 X-Y THROUGH THE COVER: 22-5/8 IN HOLE, 79-3/4 IN COVER, GAP, CYLINDER WALL"));
+            slices.push(("msre_n1_fullshield_xy_base", Position::new(0.0, 0.0, zb + 9.0 * m::INCH), PlotBasis::Xy, [w, w],
+                "MSRE N-1 X-Y THROUGH THE BASE: HOMOGENISED 304 PLATES, I-BEAMS AND WATER, 125 IN OD"));
+        }
     }
     if rodded {
         // Outside the thimbles the rodded build is the default cell for cell
@@ -150,7 +172,7 @@ fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends, shield: m::Shield, rods: [b
         };
         let title = if hot { format!("{title} [HOT DIMENSIONS, 1181 F]") } else { title.to_string() };
         let title = if tm0730 { format!("{title} [TM-0730 END REGIONS]") } else { title };
-        let title = if shielded { format!("{title} [TM-0728 SHIELD]") } else { title };
+        let title = if full { format!("{title} [FULL TM-0728 SHIELD]") } else if shielded { format!("{title} [TM-0728 SHIELD]") } else { title };
         let title = if rodded { format!("{title} [RODS {rods:?}]") } else { title };
         let (_raw, img) = render_material_slice(&g, &plot, &palette, &title);
         let path = dir.join(format!("{stem}{}{}{}.png", if hot { "_hot" } else { "" }, if tm0730 { "_tm0730" } else { "" }, if shielded && !stem.contains("shield") { "_shield" } else { "" }));
@@ -176,7 +198,8 @@ fn main() {
     let shield = match flag(&args, "--shield").as_deref().unwrap_or("none") {
         "none" => m::Shield::Omitted,
         "tm0728" | "tm0728-drained" | "tm0728-packed" => m::Shield::Tm0728Cylinder,
-        other => panic!("--shield must be none|tm0728|tm0728-drained|tm0728-packed, got {other}"),
+        "tm0728-full" => m::Shield::Tm0728Full,
+        other => panic!("--shield must be none|tm0728|tm0728-drained|tm0728-packed|tm0728-full, got {other}"),
     };
     // `--shield tm0728-drained`: the same cylinder with the ball annulus's
     // water removed, an ablation splitting the shield's worth (gh:#1128).
@@ -257,6 +280,9 @@ fn main() {
         m::Ends::Tm0730 => m::materials_with_ends(mo, salt_f, dims),
     };
     let base_materials = mats.len();
+    if shield == m::Shield::Tm0728Full {
+        mats.extend(m::full_shield_materials());
+    }
     if shield == m::Shield::Tm0728Cylinder {
         mats.extend(if drained { m::shield_materials_drained() } else if packed { m::shield_materials_packed() } else { m::shield_materials() });
     }
@@ -410,9 +436,10 @@ fn main() {
     let g = match shield {
         m::Shield::Omitted => m::geometry_with_ends(t_k, t_g, dims, ends),
         m::Shield::Tm0728Cylinder => m::geometry_with_shield(t_k, t_g, dims, ends, base_materials),
+        m::Shield::Tm0728Full => m::geometry_with_full_shield(t_k, t_g, dims, ends, base_materials),
     };
     let g = if rodded { m::geometry_with_rods(g, dims, rods, first_rod_material, t_k) } else { g };
-    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_minor_u { "" } else { "+u234" } + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + u235_scale.map_or(String::new(), |x| format!("+u235x{x}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" } + if shield == m::Shield::Tm0728Cylinder { "+shield-tm0728" } else { "" } + if drained { "-drained" } else { "" } + if packed { "-packed" } else { "" } + if rodded { format!("+rods-{rods_spec}") } else { String::new() }.as_str();
+    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_minor_u { "" } else { "+u234" } + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + u235_scale.map_or(String::new(), |x| format!("+u235x{x}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" } + match shield { m::Shield::Tm0728Cylinder => "+shield-tm0728", m::Shield::Tm0728Full => "+shield-tm0728-full", m::Shield::Omitted => "" } + if drained { "-drained" } else { "" } + if packed { "-packed" } else { "" } + if rodded { format!("+rods-{rods_spec}") } else { String::new() }.as_str();
     let new_file = !csv.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&csv).expect("csv");
     if new_file {

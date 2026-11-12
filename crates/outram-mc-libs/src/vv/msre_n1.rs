@@ -781,7 +781,184 @@ pub enum Shield {
     /// - **The cylinder's height relative to the vessel is not given either.**
     ///   It is centred on the vessel's mid-height here; at 151 in it overlaps
     ///   the whole vessel (about 80 in) either way.
+    ///   ~~not given~~ **Measured 2026-11-12** from TM-0728 Fig. 5.2: the
+    ///   vessel sits about 7 in below the cylinder's centre. That is used by
+    ///   [`Shield::Tm0728Full`]; this variant stays centred, so its recorded
+    ///   results are reproducible.
     Tm0728Cylinder,
+    /// The whole shield as TM-0728 §5.3.10 and Fig. 5.2 give it
+    /// ([`geometry_with_full_shield`], [`full_shield_materials`]; gh:#1128):
+    /// - the cylinder placed by Fig. 5.2: the vessel's mid-height at
+    ///   [`FULL_SHIELD_VESSEL_MID_ABOVE_BOTTOM`] above the cylinder's bottom;
+    /// - the 18 in base below it, at the cylinder's OD;
+    /// - the 16 in cover inside the cylinder's top, with its 22⅝ in hole;
+    /// - the ball annulus at the 0.60 packing that "70 tons (475 ft³)" gives,
+    ///   with the twelve 1 in radial webs.
+    ///
+    /// The 6 in insulation and the furnace annulus stay void. Their materials
+    /// are not given.
+    Tm0728Full,
+}
+
+/// Height of the vessel's mid-height above the shield cylinder's bottom,
+/// 68.5 in: the vessel spans about 23 to 114 in above it, scaled from
+/// TM-0728 Fig. 5.2 (±3 in; `data/tm0728_fig5_2_reactor_cell.csv`).
+pub const FULL_SHIELD_VESSEL_MID_ABOVE_BOTTOM: f64 = 68.5 * INCH;
+/// The base's thickness, an 18 in tank (TM-0728 §5.3.10.1).
+pub const SHIELD_BASE_THICKNESS: f64 = 18.0 * INCH;
+/// The cover: 79¾ in OD, 16 in thick, inside the cylinder's top, with a
+/// 22⅝ in central hole (TM-0728 §5.3.10.1).
+pub const SHIELD_COVER_R: f64 = 79.75 / 2.0 * INCH;
+/// The cover's thickness.
+pub const SHIELD_COVER_THICKNESS: f64 = 16.0 * INCH;
+/// The cover's central hole radius.
+pub const SHIELD_COVER_HOLE_R: f64 = 22.625 / 2.0 * INCH;
+/// Ball packing in the annulus from "approximately 70 tons (475 ft³)" of
+/// 1 in carbon-steel balls (TM-0728 p. 128): 70 short tons (63 503 kg) at
+/// 7 870 kg/m³ is 8.069 m³ of steel in 13.45 m³ of bed.
+pub const SHIELD_BALL_FRACTION_TM0728_TONS: f64 = 63_502.9 / 7870.0 / (475.0 * 0.028_316_846_6);
+
+/// Water at 0.9982 g/cm³ (293.6 K), atoms/b-cm, times `f`.
+fn water(f: f64) -> Vec<(&'static str, f64)> {
+    let molecules = 0.9982 * f * 0.602214076 / 18.0153;
+    vec![("H1", 2.0 * molecules), ("O16", molecules)]
+}
+
+/// Sum of compositions, each scaled by its volume fraction.
+fn mix(parts: &[(f64, Vec<(&'static str, f64)>)]) -> Vec<(&'static str, f64)> {
+    let mut out: Vec<(&'static str, f64)> = Vec::new();
+    for (w, comps) in parts {
+        for &(n, d) in comps {
+            match out.iter_mut().find(|e| e.0 == n) {
+                Some(e) => e.1 += w * d,
+                None => out.push((n, w * d)),
+            }
+        }
+    }
+    out
+}
+
+/// Carbon steel as iron, 7.87 g/cm³, at the shield temperature.
+fn carbon_steel() -> Vec<(&'static str, f64)> {
+    element(7.87, 1.0, 55.845, &FE_NATURAL_SHIELD)
+}
+
+/// Volume fractions of the full shield's homogenised zones, each from
+/// TM-0728 §5.3.10.1:
+/// - **annulus:** twelve 1 in radial 304 webs across the 14 in annulus,
+///   `12 in / (2π × 54.5 in)` = 3.5 %, and balls at
+///   [`SHIELD_BALL_FRACTION_TM0728_TONS`] with water in the rest;
+/// - **base:** 3/4 in 304 top and bottom plates (1.5 of 18 in, 8.3 %), and
+///   fifteen 8 in 20 lb/ft I-beams. Assuming about 10 ft each, that is
+///   1 361 kg of carbon steel in the 3.62 m³ base (4.8 %). Water fills the
+///   rest, because the cooling water "flows in series through the base";
+/// - **cover:** 1 in 304 top and bottom (2 of 16 in, 12.5 %), twelve 1 in
+///   radial 304 webs (`12 / (π × 39.9)`, 9.6 %), four 1 in carbon-steel
+///   plates per segment (4 of 16 in, 25 %), and water in the rest.
+pub const FULL_SHIELD_FRACTIONS: [(&str, f64, f64); 3] = [
+    // (zone, 304 fraction, carbon-steel fraction); water fills the rest
+    ("base", 0.083, 0.048),
+    ("cover", 0.125 + 0.096, 0.25),
+    ("annulus webs", 0.035, 0.0),
+];
+
+/// The full shield's four materials, in the order
+/// [`geometry_with_full_shield`] expects: 304 plate, ball annulus (with
+/// webs), base, cover.
+pub fn full_shield_materials() -> Vec<(&'static str, Vec<(&'static str, f64)>)> {
+    let f_ball = SHIELD_BALL_FRACTION_TM0728_TONS;
+    let web = FULL_SHIELD_FRACTIONS[2].1;
+    let annulus = mix(&[(web, ss304()), ((1.0 - web) * f_ball, carbon_steel()), ((1.0 - web) * (1.0 - f_ball), water(1.0))]);
+    let zone = |i: usize| {
+        let (_, ss, cs) = FULL_SHIELD_FRACTIONS[i];
+        mix(&[(ss, ss304()), (cs, carbon_steel()), (1.0 - ss - cs, water(1.0))])
+    };
+    vec![
+        ("Thermal shield 304 plate", ss304()),
+        ("Thermal shield ball annulus, 70 tons + webs", annulus),
+        ("Thermal shield base (homogenised)", zone(0)),
+        ("Thermal shield cover (homogenised)", zone(1)),
+    ]
+}
+
+/// The default vessel inside the whole thermal shield ([`Shield::Tm0728Full`]).
+/// Built from [`geometry_with_ends`] unchanged: the vessel's three vacuum
+/// surfaces become transmissive, and the shield's cells are added to the
+/// root universe, closed by vacuum at the shield's outer radius, under the
+/// base and on the cylinder's top. Every cell added is new; the vessel's are
+/// the default build's, cell for cell.
+pub fn geometry_with_full_shield(t_salt_k: f64, t_graphite_k: f64, d: Dims, ends: Ends, first_shield_material: usize) -> Geometry {
+    let mut g = geometry_with_ends(t_salt_k, t_graphite_k, d, ends);
+    let t = BoundaryType::Transmissive;
+    let v = BoundaryType::Vacuum;
+    let mut vac: Vec<usize> = Vec::new();
+    for (i, s) in g.surfaces.iter_mut().enumerate() {
+        match s {
+            SurfaceKind::ZCylinder(c) if c.bc == v => {
+                c.bc = t;
+                vac.push(i);
+            }
+            SurfaceKind::ZPlane(p) if p.bc == v => {
+                p.bc = t;
+                vac.push(i);
+            }
+            _ => {}
+        }
+    }
+    assert_eq!(vac.len(), 3, "the vessel is closed by one cylinder and two planes");
+    let r_vo = vac[0];
+    let (zlb, zut) = match (&g.surfaces[vac[1]], &g.surfaces[vac[2]]) {
+        (SurfaceKind::ZPlane(a), SurfaceKind::ZPlane(b)) if a.z0 < b.z0 => (vac[1], vac[2]),
+        _ => (vac[2], vac[1]),
+    };
+    let z_mid = match (&g.surfaces[zlb], &g.surfaces[zut]) {
+        (SurfaceKind::ZPlane(a), SurfaceKind::ZPlane(b)) => (a.z0 + b.z0) / 2.0,
+        _ => unreachable!("planes"),
+    };
+    let zc0 = z_mid - FULL_SHIELD_VESSEL_MID_ABOVE_BOTTOM;
+    let zc1 = zc0 + SHIELD_HEIGHT;
+    let zcov = zc1 - SHIELD_COVER_THICKNESS;
+    let zb = zc0 - SHIELD_BASE_THICKNESS;
+    let mut add = |s: SurfaceKind| {
+        g.surfaces.push(s);
+        g.surfaces.len() - 1
+    };
+    let r1 = add(zcyl(0.0, 0.0, SHIELD_R_IN, t));
+    let r2 = add(zcyl(0.0, 0.0, SHIELD_R_IN + SHIELD_PLATE, t));
+    let r3 = add(zcyl(0.0, 0.0, SHIELD_R_OUT - SHIELD_PLATE, t));
+    let r4 = add(zcyl(0.0, 0.0, SHIELD_R_OUT, v));
+    let rc = add(zcyl(0.0, 0.0, SHIELD_COVER_R, t));
+    let rh = add(zcyl(0.0, 0.0, SHIELD_COVER_HOLE_R, t));
+    let p_b = add(SurfaceKind::ZPlane(ZPlane { z0: zb, bc: v }));
+    let p_c0 = add(SurfaceKind::ZPlane(ZPlane { z0: zc0, bc: t }));
+    let p_cov = add(SurfaceKind::ZPlane(ZPlane { z0: zcov, bc: t }));
+    let p_c1 = add(SurfaceKind::ZPlane(ZPlane { z0: zc1, bc: v }));
+    let tk = SHIELD_TEMPERATURE_K;
+    let (plate, balls, base, cover) = (first_shield_material, first_shield_material + 1, first_shield_material + 2, first_shield_material + 3);
+    let void = |id: i32, r: &[RegionToken]| Cell::fill(id, all_of(r), CellFill::Void, Position::ZERO);
+    let new_cells = vec![
+        // Inside the cylinder, below the cover: void around the vessel.
+        void(80, &[hs(r_vo, false), hs(r1, true), hs(p_c0, false), hs(p_cov, true)]),
+        void(81, &[hs(r_vo, true), hs(p_c0, false), hs(zlb, true)]),
+        void(82, &[hs(r_vo, true), hs(zut, false), hs(p_cov, true)]),
+        // Cover level: the hole, the cover, the gap to the cylinder wall.
+        void(86, &[hs(rh, true), hs(p_cov, false), hs(p_c1, true)]),
+        Cell::material(87, all_of(&[hs(rh, false), hs(rc, true), hs(p_cov, false), hs(p_c1, true)]), cover, tk),
+        void(88, &[hs(rc, false), hs(r1, true), hs(p_cov, false), hs(p_c1, true)]),
+        // The cylinder: plate, ball annulus, plate.
+        Cell::material(83, all_of(&[hs(r1, false), hs(r2, true), hs(p_c0, false), hs(p_c1, true)]), plate, tk),
+        Cell::material(84, all_of(&[hs(r2, false), hs(r3, true), hs(p_c0, false), hs(p_c1, true)]), balls, tk),
+        Cell::material(85, all_of(&[hs(r3, false), hs(r4, true), hs(p_c0, false), hs(p_c1, true)]), plate, tk),
+        // The base under it all.
+        Cell::material(89, all_of(&[hs(r4, true), hs(p_b, false), hs(p_c0, true)]), base, tk),
+    ];
+    let root = g.root_universe;
+    for c in new_cells {
+        g.cells.push(c);
+        let idx = g.cells.len() - 1;
+        g.universes[root].cell_indices.push(idx);
+    }
+    g
 }
 
 /// The shield cylinder's inner radius (93 in ID), TM-0728 p. 128.
@@ -1486,6 +1663,59 @@ mod tests {
                 assert!((poison as f64 * px / ring - 1.0).abs() < 0.03, "rod {i} z {z}: {poison}");
                 assert!((inconel as f64 * px / shells - 1.0).abs() < 0.10, "rod {i} z {z}: {inconel}");
             }
+        }
+    }
+
+    #[test]
+    fn full_tm0728_shield_places_base_cylinder_and_cover_by_fig_5_2() {
+        let base = geometry_with_ends(TEMPERATURE_K, TEMPERATURE_K, Dims::COLD, Ends::VolumeEquivalent);
+        let mats = materials_with_ends(MoTreatment::Natural, 1181.0, Dims::COLD);
+        let g = geometry_with_full_shield(TEMPERATURE_K, TEMPERATURE_K, Dims::COLD, Ends::VolumeEquivalent, mats.len());
+        // The vessel is the default build, cell for cell; ten cells added.
+        assert_eq!(format!("{:?}", &g.cells[..base.cells.len()]), format!("{:?}", base.cells));
+        assert_eq!(g.cells.len(), base.cells.len() + 10);
+        // 70 short tons in 475 ft3 of bed: packing 0.60.
+        assert!((SHIELD_BALL_FRACTION_TM0728_TONS - 0.600).abs() < 0.005, "{SHIELD_BALL_FRACTION_TM0728_TONS}");
+        // Placement: the vessel's mid-height 68.5 in above the cylinder bottom.
+        let planes: Vec<f64> = g.surfaces[base.surfaces.len()..]
+            .iter()
+            .filter_map(|s| if let SurfaceKind::ZPlane(p) = s { Some(p.z0) } else { None })
+            .collect();
+        let (zb, zc0, zcov, zc1) = (planes[0], planes[1], planes[2], planes[3]);
+        let vessel: Vec<f64> = base.surfaces.iter().filter_map(|s| if let SurfaceKind::ZPlane(p) = s { if p.bc == BoundaryType::Vacuum { Some(p.z0) } else { None } } else { None }).collect();
+        let z_mid = (vessel[0] + vessel[1]) / 2.0;
+        assert!((z_mid - zc0 - 68.5 * INCH).abs() < 1e-9);
+        assert!((zc1 - zc0 - 151.0 * INCH).abs() < 1e-9);
+        assert!((zc0 - zb - 18.0 * INCH).abs() < 1e-9);
+        assert!((zc1 - zcov - 16.0 * INCH).abs() < 1e-9);
+        // The vessel clears the cover and the base.
+        assert!(vessel[0].max(vessel[1]) < zcov && vessel[0].min(vessel[1]) > zc0);
+        // No overlap or hole anywhere in an x-z section of the whole shield,
+        // and every shield material is hit.
+        let all = SHIELD_R_OUT - 1e-3;
+        let plot = SlicePlot {
+            origin: Position::new(0.0, 0.3, (zb + zc1) / 2.0),
+            basis: PlotBasis::Xz,
+            width: [2.0 * all, zc1 - zb - 1e-3],
+            pixels: [500, 700],
+            level: None,
+            show_overlaps: true,
+            meshlines: None,
+        };
+        let ids = plot.id_map(&g);
+        let mut seen = [false; 4];
+        for h in &ids.hits {
+            match *h {
+                SliceHit::Overlap | SliceHit::NotFound => panic!("overlap or hole in the full shield"),
+                SliceHit::Found { material: Some(m), .. } if m >= mats.len() => seen[m - mats.len()] = true,
+                _ => {}
+            }
+        }
+        assert_eq!(seen, [true; 4]);
+        let ms = full_shield_materials();
+        assert_eq!(ms.len(), 4);
+        for (n, _) in ms.iter().flat_map(|m| m.1.clone()) {
+            assert!(SHIELD_NUCLIDES.iter().any(|(k, _)| *k == n), "{n} has no tape");
         }
     }
 
