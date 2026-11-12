@@ -409,7 +409,29 @@ fn mean_sd_sem(x: &[f64]) -> (f64, f64, f64) {
 /// after the other) on llvmpipe, about 100 min, so it runs under the
 /// `long-tests` feature.
 ///
-/// **Result:** RESULT_PLACEHOLDER
+/// **Result (2026-11-12, llvmpipe: LLVM 20.1.2, 4 shared vCPUs, CPU 4
+/// threads; whole `gpu_dem` file 6/6 pass in 11 395 s): PASS.**
+///
+/// | seed | CPU φ | GPU φ | CPU surface [m] | GPU surface [m] |
+/// |---|---|---|---|---|
+/// | 7 | 0.4394 | 0.4293 | 0.1530 | 0.1577 |
+/// | 8 | 0.4410 | 0.4396 | 0.1533 | 0.1541 |
+/// | 9 | 0.4437 | 0.4470 | 0.1528 | 0.1512 |
+/// | 10 | 0.4359 | 0.4474 | 0.1550 | 0.1513 |
+/// | 11 | 0.4441 | 0.4416 | 0.1534 | 0.1526 |
+/// | 12 | 0.4481 | 0.4481 | 0.1518 | 0.1518 |
+/// | 13 | 0.4383 | 0.4444 | 0.1539 | 0.1528 |
+/// | 14 | 0.4480 | 0.4355 | 0.1517 | 0.1566 |
+///
+/// - φ: CPU mean 0.4423 (sd 0.0044, sem 0.0016); GPU mean 0.4416 (sd 0.0066,
+///   sem 0.0023). Δ −0.0007, i.e. **−0.15 %** and −0.24 sem(Δ).
+/// - Surface: CPU 0.1531 m (sem 0.0004); GPU 0.1535 m (sem 0.0009). Δ
+///   **+0.4 mm**, +0.43 sem(Δ).
+/// - Early phase, seed 7: median |dx| 6.82e-7 m.
+///
+/// The single-pour gate this replaces compared two realisations whose
+/// per-pour sd (0.0044 / 0.0066) is itself ~1-1.5 % of φ. The prediction for
+/// N = 8 (sem(Δ) ≈ 0.0032) held: the measured sem(Δ) is 0.0028.
 #[test]
 #[cfg_attr(not(feature = "long-tests"), ignore = "long test (~100 min on llvmpipe)")]
 fn an_htr10_pour_matches_the_cpu_early_and_settled() {
