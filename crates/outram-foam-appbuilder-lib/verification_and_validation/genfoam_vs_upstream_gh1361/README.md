@@ -161,8 +161,10 @@ The upstream history (230 pseudo-time steps at the tight protocol) is committed 
 has no driver that updates keff once per step. A port of that driver (`solveNeutronics.H` eigenvalue branch,
 `calcKeff.H`, `setDeltaT`/`maxDeltaT`) is the remaining work for S4.
 
-S6, Godiva_SN: not compared (blockers above). The real binary runs it: one pseudo-time step is a 23-group
-sweep taking several minutes on one core at 3.2 GB resident; the shipped case runs 20 steps. See "What remains".
+S6, Godiva_SN: not compared (blockers above). The real binary runs it as shipped (P3 scattering, its own
+`quadratureSet`): the first pseudo-time step took about 9 minutes on one core at 3.2 GB resident and moved
+`keff_` from the seed 0.980106 to 0.938566; the shipped case runs 20 steps (about 3 hours), so the run was
+stopped after step 1 and is NOT a reference. Recorded only as the cost of the run. See "What remains".
 
 (The sentence in S5's row that SP3 sits above diffusion "because SP3 transports the leakage with a smaller
 effective diffusion" was a guess and is withdrawn: nothing here tested it. The sign and size, +0.78 % and +1.11 %
@@ -197,6 +199,16 @@ The run of the guided slabs takes under 1 s each (230 steps); Godiva_SN is the e
 
 Row 3 (guided slabs, cell by cell): done, above. Row 7 (SP3): done on the slab geometry, not on the ESFR (its
 `neutroRegion` needs the TH state; not attempted). Row 4 (Godiva_SN): blocked, see S6.
+
+### Moved numbers (old to new, with cause)
+
+The RBF weights moved by up to 6.4e-14 relative (the `inv * v` change) and every `TimeProfile` table value by
+up to 4.7e-15 relative (the ESI weight form). Re-run after the change (`genfoam_tutorial_keff`, with
+`GENFOAM_UPSTREAM` set, so it did not skip): ESFR at upstream's converged state 0.937442 (+60.7 pcm), MSFR
+per-cell 0.962032, MSFR as shipped +0.3 pcm, MSFR albedo 0.973858 (0.0 pcm): **unchanged at the six printed
+digits**, so no recorded V&V number moved visibly and no test pin was touched. The whole crate suite
+(`cargo test --release -p outram-foam-appbuilder-lib --lib --tests`, 29 binaries, quick tier and long tier,
+both: the `long-tests` feature is on by default) gave 493 passed, 0 failed, 12 ignored on 2026-11-12.
 
 ## What remains (after round 1)
 
