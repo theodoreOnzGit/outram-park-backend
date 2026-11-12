@@ -79,6 +79,22 @@ static void dumpVolUx(const char* tag, const volVectorField& f)
     dumpScalar(tag, "Ux", ux);
 }
 
+static void dumpMatrix(const char* tag, const fvScalarMatrix& m)
+{
+    dumpScalar(tag, "diag", m.diag());
+    dumpScalar(tag, "source", m.source());
+    dumpScalar(tag, "lower", m.lower());
+    dumpScalar(tag, "upper", m.upper());
+}
+
+static void dumpMatrixU(const char* tag, const fvVectorMatrix& m)
+{
+    dumpScalar(tag, "diag", m.diag());
+    dumpScalar(tag, "source", scalarField(m.source().component(0)));
+    dumpScalar(tag, "lower", m.lower());
+    dumpScalar(tag, "upper", m.upper());
+}
+
 static void dumpSurf(const char* tag, const surfaceScalarField& f)
 {
     dumpScalar(tag, f.name().c_str(), f.primitiveField());
@@ -109,6 +125,7 @@ int main(int argc, char *argv[])
     const labelList dumpSteps(ctrl.lookup("dumpSteps"));
     const bool dumpStages = ctrl.lookupOrDefault<bool>("dumpStages", false);
     const label dumpStageSteps = ctrl.lookupOrDefault<label>("dumpStageSteps", 2);
+    const label dumpStageFrom = ctrl.lookupOrDefault<label>("dumpStageFrom", 1);
 
     {
         std::printf("# GEOMETRY\n");
@@ -180,7 +197,7 @@ int main(int argc, char *argv[])
     while (runTime.loop())
     {
         stepNow = runTime.timeIndex();
-        dumpStagesNow = dumpStages && stepNow <= dumpStageSteps;
+        dumpStagesNow = dumpStages && stepNow >= dumpStageFrom && stepNow <= dumpStageSteps;
         Info<< "Time = " << runTime.timeName() << nl << endl;
 
         #include "compressibleCourantNo.H"
@@ -197,6 +214,7 @@ int main(int argc, char *argv[])
             );
 
             UEqn.relax();
+            if (dumpStagesNow) dumpMatrixU("UEqn:m", UEqn);
 
             if (pimple.momentumPredictor())
             {
@@ -206,6 +224,24 @@ int main(int argc, char *argv[])
             if (dumpStagesNow) dumpVolUx("UEqn", U);
 
             // ---- EEqn.H
+            if (dumpStagesNow)
+            {
+                dumpScalar("EEqn:ddtK", "v", tmp<volScalarField>(fvc::ddt(rho, K))().primitiveField());
+                dumpScalar("EEqn:divK", "v", tmp<volScalarField>(fvc::div(phi, K))().primitiveField());
+                dumpScalar
+                (
+                    "EEqn:divp", "v",
+                    tmp<volScalarField>
+                    (
+                        fvc::div(phi/fvc::interpolate(rho), p, "div(phiv,p)")
+                    )().primitiveField()
+                );
+                dumpSurf("EEqn:phi", phi);
+                dumpVolS("EEqn:K", K);
+                dumpVolS("EEqn:rho", rho);
+                dumpScalar("EEqn:phib", "phib", phi.boundaryField()[0]);
+                dumpScalar("EEqn:rhob", "rhob", rho.boundaryField()[0]);
+            }
             {
                 fvScalarMatrix EEqn
                 (
@@ -221,6 +257,7 @@ int main(int argc, char *argv[])
                 );
 
                 EEqn.relax();
+                if (dumpStagesNow) dumpMatrix("EEqn:m", EEqn);
                 EEqn.solve();
                 thermo.correct();
             }
@@ -256,6 +293,16 @@ int main(int argc, char *argv[])
                     dumpVolUx("pEqn:HbyA", HbyA);
                     dumpSurf("pEqn:phid", phid);
                     dumpSurf("pEqn:rhorAUf", rhorAUf);
+                    dumpScalar("pEqn:phidb", "v", phid.boundaryField()[0]);
+                    dumpScalar("pEqn:fluxHbyAb", "v", tmp<surfaceScalarField>(fvc::flux(HbyA))().boundaryField()[0]);
+                    dumpScalar("pEqn:ddtCorrb", "v", tmp<surfaceScalarField>(rhorAUf*fvc::ddtCorr(rho, U, phi)/fvc::interpolate(rho))().boundaryField()[0]);
+                    dumpScalar("pEqn:HbyAb", "v", scalarField(HbyA.boundaryField()[0].component(0)));
+                    dumpScalar("pEqn:rAUb", "v", rAU.boundaryField()[0]);
+                    dumpScalar("pEqn:phi0b", "v", phi.oldTime().boundaryField()[0]);
+                    dumpScalar("pEqn:rho0b", "v", rho.oldTime().boundaryField()[0]);
+                    dumpScalar("pEqn:U0b", "v", scalarField(U.oldTime().boundaryField()[0].component(0)));
+                    dumpScalar("pEqn:U0c", "v", scalarField(U.oldTime().boundaryField()[0].patchInternalField()().component(0)));
+                    dumpScalar("pEqn:rhorAUfb", "v", rhorAUf.boundaryField()[0]);
                 }
 
                 while (pimple.correctNonOrthogonal())
@@ -267,6 +314,7 @@ int main(int argc, char *argv[])
                       - fvm::laplacian(rhorAUf, p)
                     );
 
+                    if (dumpStagesNow) dumpMatrix("pEqn:m", pEqn);
                     pEqn.solve();
 
                     if (pimple.finalNonOrthogonalIter())

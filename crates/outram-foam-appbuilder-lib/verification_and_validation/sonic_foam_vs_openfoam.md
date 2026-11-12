@@ -90,5 +90,58 @@ Read: the five upstream files, `EulerDdtScheme.C`, `ddtScheme.C`,
    (`dumpStages yes`: rho after rhoEqn, Ux after UEqn, e/T after EEqn, rAU, HbyA,
    phid and rhorAUf, p, phi, Ux after pEqn).
 
-## Results
-(Recorded below after the run.)
+## Results (2026-11-12, release, 100 cells, 700 steps)
+`SonicFoamEsi` (`src/solvers/sonic_foam/esi.rs`) against the driver, gate test
+`tests/upstream_sonic_gh1363.rs::shock_tube_matches_upstream_sonicfoam`:
+
+| quantity | result |
+|---|---|
+| geometry V, Sfx, magSf, w, deltaCoeffs | bit-identical (100/100, 99/99) |
+| rho, Ux, T, p, e, psi at steps 1, 2, 3, 4, 5, 10, 100, 700 | **800 of 800 bit-identical each, worst difference 0.0** |
+| face flux phi (99 internal faces) at the same steps | **792 of 792 bit-identical** |
+| `smoothSolver` log (initial residual, final residual, iterations) of every solve in steps 1-10 | **identical to the last bit** |
+| continuity errors (sum local, global) of all 1400 pressure correctors, steps 1-700 | **0 mismatches** |
+
+The prediction (bit-identity, no 1-ulp allowance, no pow/trig in this case)
+held. The first run missed (see below), so the prediction was capable of failing:
+the first port run had `e` wrong by 6e-3 of max at step 1.
+
+### Defects, each located by the first divergent stage and fixed by translating upstream
+1. **`K.oldTime()` created late.** `createK.H` creates the old-time K only
+   `if (U.nOldTimes())`, false at start-up, so `K.oldTime()` is first requested by
+   `fvc::ddt(rho, K)` in the first `EEqn`, as a copy of the K just set by the
+   momentum predictor: `ddt(rho,K) = 0` in the first iteration of step 1. First
+   run: step 1 `e` off by 6.5e-3 of max, `e` solver residual 3e-5 vs 6e-17.
+2. **`psi.oldTime()` created on first use** (prediction 3b, confirmed): step 1's
+   `psi0` is psi after the first `thermo.correct()`.
+3. **y and z round-off of `Sf`, cell centres and U are carried.** The limiter's
+   `d & grad` reacts to them: 9 of 99 `e` matrix coefficients (weights 0.5 vs 1)
+   differed in step 1 until they were carried; the fields were already identical,
+   only the final solver residual (round-off sums) differed in the 5th digit.
+4. **Boundary mass flux of the closed ends** is ~1e-12 kg/s before any wave
+   arrives (the implicit pressure equation) and changes the end-cell `e` source by
+   1 ulp from step 40 on. Translated: boundary `phi_b`, `rho_b` (as last assigned
+   by `rho = thermo.rho()`), `internalCoeffs` added to the diagonal
+   (`addBoundaryDiag`), `cmptAv(internalCoeffs)` in `A()` and `H()`, and `phid_b`.
+5. **`fvcDdtPhiCoeff` zeroes the coefficient on boundary patches whose field
+   `fixesValue()`.** Here that field is `rhoU0 = rho.oldTime()*U.oldTime()`, whose
+   patches are `calculated`, and `calculatedFvPatchField::fixesValue()` is true: the
+   boundary `ddtCorr` is exactly 0. The port had a non-zero boundary coefficient
+   (0.015) and `phid_b` was 10 % off from step 94, first visible as a 1-ulp `e`
+   difference at step 95 (first divergent step found by comparing every step 1-120;
+   stage probe at step 95: `phi0_b` 6.1e-14 vs 6.7e-14).
+
+### Scope and honest limits
+* Not the unmodified `sonicFoam` binary (driver, see above); `fvOptions`/MRF absent.
+* 100 cells instead of the tutorial's 1000; fixed dt; the waves do not reach the
+  closed ends in 700 steps (end-cell speed stays ~1e-6 m/s). Bit-identity of
+  the end-cell terms comes from translating the zeroGradient boundary
+  coefficients; a case where the waves reach the ends is not tested.
+* Inviscid (mu = 0) only, `Euler`, `smoothSolver symGaussSeidel`, `limitedLinear 1`
+  and `upwind`; other schemes are refused or absent, not silently substituted.
+* No transcendental function is used (only `+ - * / sqrt`), so PETIR's pow/trig
+  1-ulp allowance was not needed.
+* Diagnostics kept: `stage_probe_against_upstream_driver_log` and
+  `first_divergent_step_against_upstream_driver_log` read a local driver log from
+  `scripts/run_sonic.sh` (`NOREF=1`, `DUMPSTAGES=yes`, `DUMPSTAGEFROM/STEPS`) and do
+  nothing when it is absent.
