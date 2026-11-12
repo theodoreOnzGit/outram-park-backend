@@ -750,6 +750,7 @@ impl TwoPhaseCase {
             max_dpdt: scalar(pimple, "maxDpdt").unwrap_or(1e6),
             dpdt: true,
             lazy_old_time_first_step: true,
+            stale_pimple_converged_flag: false,
             t_interface_limiter_sees_new_value: true,
             alpha_solver_tolerance,
             alpha_solver_rel_tol,
