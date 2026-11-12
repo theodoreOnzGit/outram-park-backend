@@ -1,0 +1,29 @@
+IEU-MET-FAST-002 'Jemima' — natural-U-reflected assembly of uranium plates
+Reconstructing nuclides (RECONR + BROADR @ 293.6 K):
+  reconstructing U234   … 22.7s
+  reconstructing U235   … 147.4s
+  reconstructing U238   … 115.4s
+Nuclear data ready in 285.6 s.
+
+  geometry check: 200000 points, 136768 inside / 63232 outside, CSG matches the ICSBEP model everywhere
+  core r < 19.05 cm, z 7.62–39.571; natural-U reflector to r = 26.6446 cm and z = 0/47.0894 (vacuum)
+  speed tier: fast (OUTRAM_SPEED)
+  5000 histories/gen, 40 inactive + 120 active generations
+
+  [transport losses] jemima_keff seed 1
+    histories 800000   collisions 14890906   leaks: vacuum 260261 / infinity 0
+    lost_locate           0  (0.0000 % of histories)
+    stuck_events          0  (0.0000 %)   mean path 0.000e0 cm   last E 0.000e0 eV
+    neg_dist              0  (0.0000 %)   worst 0.000e0   from lattice 0
+    => CLEAN: no history was lost, trapped, or given a negative distance.
+  [source convergence] jemima_keff seed 1
+    inactive quarters: 0.9811  1.0006  0.9841  0.9909
+    active halves:     0.99582 then 0.99412   drift -170 +/- 259 pcm (>= this err)
+    Shannon entropy:   NOT COMPUTED for this run
+    => no resolved drift; source looks converged.
+    seed 2: k = 0.99324 +/- 0.00118
+    seed 3: k = 0.99666 +/- 0.00130
+    seed 4: k = 0.99677 +/- 0.00125
+    seed 5: k = 0.99736 +/- 0.00129
+    seed 6: k = 0.99410 +/- 0.00116
+    seed 7: k = 0.99571 +/- 0.00107

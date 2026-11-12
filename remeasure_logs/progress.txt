@@ -1,0 +1,4 @@
+2026-11-11T23:52:57+00:00 start jemima_keff default
+2026-11-11T23:59:28+00:00 aborted 16-seed jemima run (15 s/seed, rerunning at 128)
+2026-11-11T23:59:28+00:00 start jemima_keff default
+2026-11-12T00:30:13+00:00 predictions.md written (resumed agent)
