@@ -5,9 +5,11 @@
 //! # What is compared
 //!
 //! Upstream ships **no numeric reference** for this case (its `Alltest` only
-//! checks the run ends), and upstream cannot be built on this machine, so this
-//! is not a code-to-code comparison. It checks the port, run on upstream's own
-//! case files read by `TwoPhaseCase::read`, against
+//! checks the run ends). ~~and upstream cannot be built on this machine, so this
+//! is not a code-to-code comparison.~~ **CORRECTED 2026-11-12** (gh:#1361 round 3): the real binary was built
+//! and run on this case; the code-to-code comparison is
+//! `tests/genfoam_two_phase_vs_upstream.rs`. THIS file checks the port, run on
+//! upstream's own case files read by `TwoPhaseCase::read`, against
 //!
 //! - **P1**, a closed form: the isothermal single-phase steady velocity
 //!   `0.4e5 Pa = (U/alpha) sum_z Kd_z(U) L_z` (ReynoldsPower friction, the
