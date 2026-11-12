@@ -762,7 +762,29 @@ cold and hot. The prediction posted before the run: seeds 7–12 alone give
   pairs to only +5) and +210 ± 24 (1231 °F, 6 pairs). The dip at 1181 °F
   is 2.4σ against 1131 °F on this estimator. Pairing shrinks the σ at 1131
   and 1231 °F, so cold and hot runs of a seed are correlated. It does not
-  shrink it at 1181 °F. The dip is still unresolved.
+  shrink it at 1181 °F. ~~The dip is still unresolved.~~
+- **The dip, tested (2026-11-12):** seeds 7–12 at 1181 °F, cold and hot.
+  The prediction posted on gh:#1128 before the run was a seed-paired
+  +170 to +300 pcm, and a 12-seed pool of +190–250.
+
+  | 1181 °F, seed-paired hot − cold | |
+  |---|---|
+  | seeds 1–6 | +161 ± 37 pcm |
+  | seeds 7–12 | **+225 ± 22 pcm** (inside the predicted band) |
+  | seeds 1–12 | **+193 ± 23 pcm** (inside the predicted band) |
+
+  **The dip was a fluctuation of seeds 1–6.** The twelve-seed pattern is
+  +262 ± 19 (1131 °F), +193 ± 23 (1181 °F) and +210 ± 24 (1231 °F). That is
+  roughly flat at about +220 pcm, with 1131 °F now the high point (2.3σ
+  above 1181 °F). It still does not show the slow rise the linear estimate
+  assumed. At this statistics, hot − cold does not vary resolvably over
+  1131–1231 °F.
+- **N-1 with twelve seeds at 1181 °F** (`data/keff.csv`): cold **1.00876 ±
+  0.00019 (+795 pcm)**, hot dimensions **1.01073 ± 0.00022 (+992 pcm)**.
+  - The cold value agrees with the six-seed +801 ± 22, which stays the
+    number quoted throughout this page.
+  - The hot-dims model sits inside the 1000 pcm band with only 8 pcm to
+    spare. Within its σ, it could be on either side.
 - **Consequence for N-3:** the expansion term in α_iso is not determined at
   this statistics. Its sign is uncertain and its size is below about
   1.5 × 10⁻⁵ /°F.
