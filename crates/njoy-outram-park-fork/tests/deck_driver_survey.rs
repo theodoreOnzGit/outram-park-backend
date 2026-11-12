@@ -9,7 +9,7 @@
 //! unmodified deck is run by `build/njoy` (300 s limit) and by `run_deck` in a
 //! second directory. Each tape file NJOY left is compared with ours: text tapes
 //! line by line, anything NJOY wrote in blocked-binary form by bytes (this crate
-//! writes no blocked-binary file). An input tape NJOY left byte-identical to the staged original is not compared (this crate rewrites it through its tape parser, which is not an output). `SURVEY_CASES=01,13` limits the decks (and then the table goes to `SURVEY_OUT` or the temp directory, never over `survey.md`). Status per deck: `identical` (every NJOY tape
+//! writes no blocked-binary file). An input tape NJOY left byte-identical to the staged original is not compared ~~(this crate rewrites it through its tape parser, which is not an output)~~ (**CORRECTED 2026-11-12, gh:#1508:** this crate no longer writes back a unit it only read, so its copy is byte-identical too; it is an input, not an output). `SURVEY_CASES=01,13` limits the decks (and then the table goes to `SURVEY_OUT` or the temp directory, never over `survey.md`). Status per deck: `identical` (every NJOY tape
 //! present and equal, deck ran to its end), `differs` (tape, differing-line
 //! count), or `NotPorted` (module or card named by `DeckRun::blocked`; tapes ours
 //! did produce are still compared and listed). A panic in the port is reported

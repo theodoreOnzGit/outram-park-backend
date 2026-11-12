@@ -25,8 +25,14 @@
 //!   with a negative number, or the reverse).
 //! - **A binary tape file on disk cannot be loaded** (needs MODER's `glstio`
 //!   reader, not ported): [`NjoyError::NotPorted`].
+//! - **Only units a module produced are written back** (gh:#1508). Upstream a
+//!   module opens its outputs with `openz(lun,1)` (`status='new'`) and its
+//!   inputs with `openz(lun,0)` (`status='old'`), and never writes an input.
+//!   Here a unit becomes an output by [`TapeUnits::openz`] with `new == 1` or
+//!   by [`TapeUnits::store`]; a unit only loaded from `tape<n>` on disk is an
+//!   input, and [`TapeUnits::write_coded_files`] leaves its file untouched.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 use crate::endf::tape::Tape;
@@ -96,6 +102,8 @@ pub struct Unit {
 pub struct TapeUnits {
     units: BTreeMap<i32, Unit>,
     texts: BTreeMap<i32, String>,
+    /// Units a module opened new or stored a tape on (its outputs), gh:#1508.
+    written: BTreeSet<i32>,
     workdir: Option<PathBuf>,
 }
 
@@ -106,7 +114,7 @@ fn unit_err(msg: String) -> NjoyError {
 impl TapeUnits {
     /// Units backed by files `tape<n>` in `workdir` (`None`: memory only).
     pub fn new(workdir: Option<PathBuf>) -> Self {
-        Self { units: BTreeMap::new(), texts: BTreeMap::new(), workdir }
+        Self { units: BTreeMap::new(), texts: BTreeMap::new(), written: BTreeSet::new(), workdir }
     }
 
     /// `openz(lun, new)`: open unit `lun`; with `new == 1` destroy any previous
@@ -132,6 +140,7 @@ impl TapeUnits {
                 nun,
                 Unit { meta: PendfMeta::default(), tape: Tape::from_sections(String::new(), Vec::new()), binary: lun < 0, pointwise: None },
             );
+            self.written.insert(nun);
             return Ok(());
         }
         if !self.units.contains_key(&nun) {
@@ -186,6 +195,7 @@ impl TapeUnits {
         }
         if (10..=19).contains(&nun) {
             self.units.remove(&nun);
+            self.written.remove(&nun);
         }
         Ok(())
     }
@@ -225,6 +235,7 @@ impl TapeUnits {
             (tape, pointwise)
         };
         self.units.insert(nun, Unit { meta: PendfMeta::default(), tape, binary: lun < 0, pointwise });
+        self.written.insert(nun);
         Ok(())
     }
 
@@ -260,14 +271,22 @@ impl TapeUnits {
         self.units.keys().copied().collect()
     }
 
-    /// Write every coded, non-scratch unit (20 and above, plus 8-9) to
-    /// `tape<n>` in the work directory. Returns the numbers written; binary
-    /// units are skipped (no blocked-binary writer).
+    /// `true` if unit `lun` is a module's output in this run (opened new or
+    /// stored to), `false` for an input only read from disk or an unused unit.
+    pub fn is_output(&self, lun: i32) -> bool {
+        self.written.contains(&lun.abs()) || self.texts.contains_key(&lun.abs())
+    }
+
+    /// Write every coded, non-scratch **output** unit (20 and above, plus 8-9)
+    /// to `tape<n>` in the work directory, and every text unit. Returns the
+    /// numbers written. Binary units are skipped (no blocked-binary writer),
+    /// and so is a unit only read from disk: NJOY never writes a unit it
+    /// opened `old` (`openz`, `util.f90:199-212`; gh:#1508).
     pub fn write_coded_files(&self) -> Result<Vec<i32>, NjoyError> {
         let Some(dir) = &self.workdir else { return Ok(Vec::new()) };
         let mut done = Vec::new();
         for (&n, u) in &self.units {
-            if u.binary || (10..=19).contains(&n) {
+            if u.binary || (10..=19).contains(&n) || !self.written.contains(&n) {
                 continue;
             }
             let mut text = Vec::new();
@@ -302,5 +321,28 @@ mod tests {
         t.closz(-25).unwrap();
         assert!(t.open_units().contains(&25), "regular unit kept");
         assert!(t.closz(1000).is_err());
+    }
+
+    /// gh:#1508: a unit read from disk is an input and is not written back;
+    /// a unit opened new or stored to is an output and is.
+    #[test]
+    fn only_output_units_are_written_back() {
+        let dir = std::env::temp_dir().join(format!("njoy-tapes-1508-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let input = "a tape label                                                         0 0  0\n";
+        std::fs::write(dir.join("tape20"), input).unwrap();
+        let mut t = TapeUnits::new(Some(dir.clone()));
+        t.openz(20, 0).unwrap();
+        assert!(!t.is_output(20));
+        let tape = t.get(20).unwrap().tape.clone();
+        t.openz(21, 1).unwrap();
+        t.store(21, tape, None).unwrap();
+        t.openz(22, 1).unwrap();
+        t.put_text(23, "text\n".into());
+        let done = t.write_coded_files().unwrap();
+        assert_eq!(done, vec![21, 22, 23]);
+        assert_eq!(std::fs::read_to_string(dir.join("tape20")).unwrap(), input, "input untouched");
+        assert!(dir.join("tape21").exists() && dir.join("tape22").exists());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }
