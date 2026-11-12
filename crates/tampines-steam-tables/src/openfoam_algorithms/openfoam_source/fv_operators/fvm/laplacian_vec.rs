@@ -21,6 +21,7 @@
 
 use std::sync::Arc;
 
+use outram_foam_basic_lib::fv_operators::fvm::DeltaCoeff;
 use crate::openfoam_algorithms::openfoam_source::boundary::bc::BoundaryCondition;
 use crate::openfoam_algorithms::openfoam_source::vol_field::{VolScalarField, VolVectorField};
 use crate::openfoam_algorithms::openfoam_source::fv_mesh::FvMesh;
@@ -66,8 +67,9 @@ pub fn laplacian_vec(
             let owner = mesh.owner[gf];
             let sf = mesh.face_area_vectors[gf];
             let area = sf.mag();
-            let cf = mesh.face_centres[gf];
-            let delta = (cf - mesh.cell_centres[owner]).mag().max(1e-30);
+            // gh:#1494 (from gh:#1488): ~~`|Cf - C|`~~ **CORRECTED 2026-11-12** patch-normal
+            // `fvPatch::delta()` (ESI v2506 `fvPatch.C:156`), via basic-lib's `boundary_delta`.
+            let delta = DeltaCoeff::Orthogonal.boundary_delta(&mesh, gf).max(1e-30);
             let coeff = gamma_f.boundary[pi].values[fi] * area / delta;
 
             match &u.boundary[pi].bc {
@@ -167,5 +169,66 @@ mod tests {
             let x = (c as f64 + 0.5) / n as f64;
             assert_relative_eq!(u.internal[c].x, x, epsilon = 1e-2);
         }
+    }
+
+    /// Two cells like `unit_mesh`, but the RIGHT boundary face centre is shifted
+    /// transversally to `(1, 0.25, 0)`: `Cf - C = (0.25, 0.25, 0)` (|d| = 0.3536)
+    /// while the patch normal is `+x`, so `fvPatch::delta() = (0.25, 0, 0)`.
+    /// gh:#1494.
+    fn skewed_boundary_mesh() -> std::sync::Arc<crate::openfoam_algorithms::openfoam_source::FvMesh> {
+        use crate::openfoam_algorithms::openfoam_source::fv_mesh::{
+            BoundaryPatch, FvMeshBuilder, PatchKind,
+        };
+        use crate::openfoam_algorithms::openfoam_source::Vector3;
+        std::sync::Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(2)
+                .n_internal_faces(1)
+                .owner(vec![0, 1, 0])
+                .neighbour(vec![1])
+                .patches(vec![
+                    BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
+                ])
+                .cell_volumes(vec![0.5, 0.5])
+                .cell_centres(vec![
+                    Vector3::new(0.25, 0.0, 0.0),
+                    Vector3::new(0.75, 0.0, 0.0),
+                ])
+                .face_area_vectors(vec![
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(-1.0, 0.0, 0.0),
+                ])
+                .face_centres(vec![
+                    Vector3::new(0.5, 0.0, 0.0),
+                    Vector3::new(1.0, 0.25, 0.0),
+                    Vector3::new(0.0, 0.0, 0.0),
+                ])
+                .build()
+                .unwrap(),
+        )
+    }
+
+    #[test]
+    fn boundary_conductance_uses_the_patch_normal_delta_gh1494() {
+        // Right face: coefficient 1/0.25 = 4 (old 2.828); interior 1/0.5 = 2.
+        // diag[1] = 6; source[1].x = 4 * U_wall.x (= 1) = 4.
+        let m = skewed_boundary_mesh();
+        let gamma = VolScalarField::uniform("nu", m.clone(), 1.0);
+        let u_bc = vec![
+            PatchField {
+                bc: BoundaryCondition::FixedValue(Vector3::new(1.0, 0.0, 0.0)),
+                values: Field::new(vec![Vector3::new(1.0, 0.0, 0.0)]),
+            },
+            PatchField {
+                bc: BoundaryCondition::FixedValue(Vector3::ZERO),
+                values: Field::new(vec![Vector3::ZERO]),
+            },
+        ];
+        let u = VolVectorField::new("U", m.clone(), Field::new(vec![Vector3::ZERO; 2]), u_bc);
+        let mat = laplacian_vec(&gamma, &u, m.clone());
+        assert_relative_eq!(mat.ldu.diag[1], 6.0, epsilon = 1e-12);
+        assert_relative_eq!(mat.source[1].x, 4.0, epsilon = 1e-12);
     }
 }

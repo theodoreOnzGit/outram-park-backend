@@ -574,10 +574,10 @@ impl FoamApp {
         if self.is_coil() {
             ui.add(egui::Slider::new(&mut self.reynolds, 50.0..=800.0).text("Re = U d / ν").logarithmic(true));
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.mode, Mode::Steady, "Steady (Co ≤ 4)");
-                ui.selectable_value(&mut self.mode, Mode::Transient, "Watch it develop (Co ≈ 1)");
+                ui.selectable_value(&mut self.mode, Mode::Steady, "Steady (Co 1)");
+                ui.selectable_value(&mut self.mode, Mode::Transient, "Watch it develop (Co 1)");
             });
-            ui.label(RichText::new("Convection: Gauss linear (second order), as in the V&V record: upwind's numerical viscosity would damp the Dean vortices. Above Re 250 the steady march runs at Co 1 (at Co 4 it did not converge there), so it takes longer.").small());
+            ui.label(RichText::new("Convection: Gauss linear (second order, fully implicit as in OpenFOAM), as in the V&V record: upwind's numerical viscosity would damp the Dean vortices. The march runs at Co 1 (the implicit central scheme diverges at Co 2 and 4), so it takes about four times the steps of a Co 4 march.").small());
         } else if self.is_exchanger() {
             ui.add(egui::Slider::new(&mut self.reynolds, 10.0..=100.0).text("Re in the tube").logarithmic(true));
             ui.label(RichText::new("Steady: the flows are marched to steady, frozen, then the three temperatures are iterated to steady (chtMultiRegionFoam's loop).").small());
