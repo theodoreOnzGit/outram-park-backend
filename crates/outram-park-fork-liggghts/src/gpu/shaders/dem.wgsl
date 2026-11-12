@@ -371,7 +371,7 @@ fn mesh_kin(i: u32, delta: vec3<f32>, d: f32, ov: f32) -> Kin {
 struct Facet {
     d: f32,           // distance centre → closest point (LARGE_TRIMESH: skipped)
     delta: vec3<f32>, // closest point − centre
-    sign: u32,        // barycentric region code, 7 = face
+    code: u32,        // barycentric region code, 7 = face
 };
 
 fn tri_node(t: u32, k: u32) -> vec3<f32> {
@@ -400,38 +400,38 @@ fn coplanar(t: u32, s: f32) -> bool {
     return any(a == vec4<f32>(s)) || any(b == vec4<f32>(s));
 }
 
-fn facet_at(p: vec3<f32>, closest: vec3<f32>, sign: u32) -> Facet {
+fn facet_at(p: vec3<f32>, closest: vec3<f32>, code: u32) -> Facet {
     var o: Facet;
     o.delta = closest - p;
     o.d = length(p - closest);
-    o.sign = sign;
+    o.code = code;
     return o;
 }
 
-fn facet_skip(sign: u32) -> Facet {
+fn facet_skip(code: u32) -> Facet {
     var o: Facet;
     o.d = LARGE_TRIMESH;
     o.delta = vec3<f32>(0.0);
-    o.sign = sign;
+    o.code = code;
     return o;
 }
 
-fn resolve_edge(t: u32, ie: u32, p: vec3<f32>, sign: u32) -> Facet {
+fn resolve_edge(t: u32, ie: u32, p: vec3<f32>, code: u32) -> Facet {
     let ip = (ie + 1u) % 3u;
     let n0 = tri_node(t, ie);
     let dist = dot(p - n0, tri_edge_vec(t, ie));
     if (dist < -SMALL_TRIMESH) {
-        if (!tri_flag(t, 3u + ie)) { return facet_skip(sign); }
-        return facet_at(p, n0, sign);
+        if (!tri_flag(t, 3u + ie)) { return facet_skip(code); }
+        return facet_at(p, n0, code);
     } else if (dist > tri_edge_len(t, ie) + SMALL_TRIMESH) {
-        if (!tri_flag(t, 3u + ip)) { return facet_skip(sign); }
-        return facet_at(p, tri_node(t, ip), sign);
+        if (!tri_flag(t, 3u + ip)) { return facet_skip(code); }
+        return facet_at(p, tri_node(t, ip), code);
     }
-    if (!tri_flag(t, ie)) { return facet_skip(sign); }
-    return facet_at(p, n0 + tri_edge_vec(t, ie) * dist, sign);
+    if (!tri_flag(t, ie)) { return facet_skip(code); }
+    return facet_at(p, n0 + tri_edge_vec(t, ie) * dist, code);
 }
 
-fn resolve_corner(t: u32, inode: u32, obtuse: bool, p: vec3<f32>, sign: u32) -> Facet {
+fn resolve_corner(t: u32, inode: u32, obtuse: bool, p: vec3<f32>, code: u32) -> Facet {
     let ip = (inode + 1u) % 3u;
     let ipp = (inode + 2u) % 3u;
     let n = tri_node(t, inode);
@@ -440,24 +440,24 @@ fn resolve_corner(t: u32, inode: u32, obtuse: bool, p: vec3<f32>, sign: u32) -> 
         let d1 = dot(node_to_p, tri_edge_vec(t, ipp));
         if (d1 < SMALL_TRIMESH) {
             if (d1 > -tri_edge_len(t, ipp)) {
-                if (!tri_flag(t, ipp)) { return facet_skip(sign); }
-                return facet_at(p, n + tri_edge_vec(t, ipp) * d1, sign);
+                if (!tri_flag(t, ipp)) { return facet_skip(code); }
+                return facet_at(p, n + tri_edge_vec(t, ipp) * d1, code);
             }
-            if (!tri_flag(t, 3u + ipp)) { return facet_skip(sign); }
-            return facet_at(p, tri_node(t, ipp), sign);
+            if (!tri_flag(t, 3u + ipp)) { return facet_skip(code); }
+            return facet_at(p, tri_node(t, ipp), code);
         }
         let d2 = dot(node_to_p, tri_edge_vec(t, inode));
         if (d2 > -SMALL_TRIMESH) {
             if (d2 < tri_edge_len(t, inode)) {
-                if (!tri_flag(t, inode)) { return facet_skip(sign); }
-                return facet_at(p, n + tri_edge_vec(t, inode) * d2, sign);
+                if (!tri_flag(t, inode)) { return facet_skip(code); }
+                return facet_at(p, n + tri_edge_vec(t, inode) * d2, code);
             }
-            if (!tri_flag(t, 3u + ip)) { return facet_skip(sign); }
-            return facet_at(p, tri_node(t, ip), sign);
+            if (!tri_flag(t, 3u + ip)) { return facet_skip(code); }
+            return facet_at(p, tri_node(t, ip), code);
         }
     }
-    if (!tri_flag(t, 3u + inode)) { return facet_skip(sign); }
-    return facet_at(p, n, sign);
+    if (!tri_flag(t, 3u + inode)) { return facet_skip(code); }
+    return facet_at(p, n, code);
 }
 
 fn resolve_facet(t: u32, p: vec3<f32>) -> Facet {
@@ -472,22 +472,24 @@ fn resolve_facet(t: u32, p: vec3<f32>) -> Facet {
     let b2 = (a * c - b) / (tri_edge_len(t, 2u) * omc);
     let b0 = 1.0 - b1 - b2;
     let thr = tris[TRI * t].w;
-    let sign = u32(b0 > thr) + 2u * u32(b1 > thr) + 4u * u32(b2 > thr);
+    let code = u32(b0 > thr) + 2u * u32(b1 > thr) + 4u * u32(b2 > thr);
     let ob = i32(tris[TRI * t + 1u].w);
-    switch sign {
-        case 1u: { return resolve_corner(t, 0u, ob == 0, p, sign); }
-        case 2u: { return resolve_corner(t, 1u, ob == 1, p, sign); }
-        case 3u: { return resolve_edge(t, 0u, p, sign); }
-        case 4u: { return resolve_corner(t, 2u, ob == 2, p, sign); }
-        case 5u: { return resolve_edge(t, 2u, p, sign); }
-        case 6u: { return resolve_edge(t, 1u, p, sign); }
+    var out = facet_skip(code);
+    switch code {
+        case 1u: { out = resolve_corner(t, 0u, ob == 0, p, code); }
+        case 2u: { out = resolve_corner(t, 1u, ob == 1, p, code); }
+        case 3u: { out = resolve_edge(t, 0u, p, code); }
+        case 4u: { out = resolve_corner(t, 2u, ob == 2, p, code); }
+        case 5u: { out = resolve_edge(t, 2u, p, code); }
+        case 6u: { out = resolve_edge(t, 1u, p, code); }
         case 7u: {
             // resolveFaceContactBary: the foot of the perpendicular
             let sn = tris[TRI * t + 4u].xyz;
-            return facet_at(p, p - sn * dot(sn, p), sign);
+            out = facet_at(p, p - sn * dot(sn, p), code);
         }
-        default: { return facet_skip(sign); }
+        default: { out = facet_skip(code); }
     }
+    return out;
 }
 
 fn find_prior(i: u32, j: u32) -> vec3<f32> {
@@ -645,7 +647,7 @@ fn forces(@builtin(global_invocation_id) gid: vec3<u32>) {
                 let dd = ts(ri, -c.d);
                 let ov = dd.x + keep(dd.y + pi.v.w);
                 if (ov < 0.0) { continue; }
-                let face = c.sign == 7u;
+                let face = c.code == 7u;
                 let id = f32(tt);
                 var slot = M_SLOTS;
                 // haveContact
