@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.1.0
+**Version:** 0.1.3
 
 **Format Version:** 61
 
@@ -86,6 +86,747 @@ to `outram-foam-basic-lib`'s
 
 ## Modules
 
+## Module `block_edges`
+
+Curved block edges for `blockMesh` (gh:#1461, epic gh:#1458).
+
+A `blockMeshDict` `edges` entry replaces the straight line between two block
+vertices by a curve. Upstream registers `line`, `arc`, `polyLine`, `spline`
+(Catmull-Rom) and `BSpline` in dev `852527377c7e`. ~~`project` and
+`projectCurve` need `geometry` and are reported as not implemented~~
+**CORRECTED 2026-11-11 (gh:#1462)**: they are ported, resolved against the
+`geometry` by [`BlockEdge::resolve_with`] ([`crate::block_projection`]).
+
+Every curve answers one question, [`EdgeCurve::position`]: the point at the
+edge parameter `lambda` in `[0, 1]`. The caller places the `n + 1`
+parameters by the edge's grading as `lineDivide` does, and
+[`crate::block_mesh`] blends the edge points into the block interior as
+`block::createPoints` does.
+
+Coordinates are the **raw dictionary coordinates** (before `convertToMeters`
+/ `units`): upstream builds edges from the unscaled `vertices_` and scales
+the finished points (`blockMeshCreate.C:223`).
+
+Transcendentals (`cos`, `sin`, `tan`, `acos`) go through
+`petir::mathf::RealMath`; `sqrt` and `floor` are exact on `std`.
+
+## Upstream quirks kept on purpose
+
+- `arc v0 v1 angle (axis)` converts `angle` to radians and *then* checks
+  `0 < theta < 360` (`arcEdge.C`, `calc(theta, axis)`), so the bound is 360
+  **radians**, not degrees. Kept; a larger angle is rejected as upstream does.
+- The `spline` / `BSpline` position is not the raw segment polynomial but an
+  iteration (`Spline::position`, at most 16 iterations, tolerance
+  `rootSmall`) that re-parameterises so that `lambda` is the fraction of
+  straight-line distance from the start, as the grading requires.
+- Optional trailing start/end tangents of `spline` / `BSpline` are read and
+  discarded by the parser, as upstream does.
+
+```rust
+pub mod block_edges { /* ... */ }
+```
+
+### Types
+
+#### Enum `BlockEdgeKind`
+
+What an `edges` entry says about the curve, before the vertex positions are
+known.
+
+```rust
+pub enum BlockEdgeKind {
+    Line,
+    ArcThroughPoint(outram_foam_basic_lib::primitives::Vector3),
+    ArcAngleAxis {
+        angle_deg: f64,
+        axis: outram_foam_basic_lib::primitives::Vector3,
+    },
+    PolyLine(Vec<outram_foam_basic_lib::primitives::Vector3>),
+    Spline(Vec<outram_foam_basic_lib::primitives::Vector3>),
+    BSpline(Vec<outram_foam_basic_lib::primitives::Vector3>),
+    Project(Vec<String>),
+    ProjectCurve(Vec<String>),
+}
+```
+
+##### Variants
+
+###### `Line`
+
+`line v0 v1`: a straight edge. Upstream still treats it as a listed
+(curved-counted) edge in `block::createPoints`.
+
+###### `ArcThroughPoint`
+
+`arc v0 v1 (x y z)`: the circle through both vertices and this point.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `outram_foam_basic_lib::primitives::Vector3` |  |
+
+###### `ArcAngleAxis`
+
+`arc v0 v1 angle (ax ay az)`: angle in degrees about an axis (a helix
+when the chord has an axial component).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `angle_deg` | `f64` | Angle `[deg]`. |
+| `axis` | `outram_foam_basic_lib::primitives::Vector3` | Axis (not necessarily unit length in the dictionary). |
+
+###### `PolyLine`
+
+`polyLine v0 v1 ((x y z) ...)`: straight segments through the points.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<outram_foam_basic_lib::primitives::Vector3>` |  |
+
+###### `Spline`
+
+`spline v0 v1 ((x y z) ...)`: Catmull-Rom spline through the points.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<outram_foam_basic_lib::primitives::Vector3>` |  |
+
+###### `BSpline`
+
+`BSpline v0 v1 ((x y z) ...)`: uniform cubic B-spline.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<outram_foam_basic_lib::primitives::Vector3>` |  |
+
+###### `Project`
+
+`project v0 v1 (surface ...)`: the straight edge projected onto the
+named `geometry` surfaces (gh:#1462).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<String>` |  |
+
+###### `ProjectCurve`
+
+`projectCurve v0 v1 (surface ...)` (same algorithm as `project` unless
+an `extrudedCircle` is listed, which is not ported; gh:#1462).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<String>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `BlockEdge`
+
+One parsed `edges` entry: the two block-vertex labels and the curve kind.
+
+```rust
+pub struct BlockEdge {
+    pub start: usize,
+    pub end: usize,
+    pub kind: BlockEdgeKind,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `start` | `usize` | Start vertex label (index into the `vertices` list). |
+| `end` | `usize` | End vertex label. |
+| `kind` | `BlockEdgeKind` | The curve. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn compare(self: &Self, start: usize, end: usize) -> i32 { /* ... */ }
+  ```
+  `blockEdge::compare(start, end)`: `1` when this edge runs `start` ->
+
+- ```rust
+  pub fn resolve(self: &Self, vertices: &[Vector3]) -> Result<EdgeCurve, MeshError> { /* ... */ }
+  ```
+  Resolve the curve against the (raw) vertex positions.
+
+- ```rust
+  pub fn resolve_with(self: &Self, vertices: &[Vector3], geometry: &Arc<Geometry>) -> Result<EdgeCurve, MeshError> { /* ... */ }
+  ```
+  As [`resolve`](Self::resolve), with the `geometry` that `project` /
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `EdgeCurve`
+
+A resolved edge curve (enum dispatch, no trait objects).
+
+```rust
+pub enum EdgeCurve {
+    Line {
+        p0: outram_foam_basic_lib::primitives::Vector3,
+        p1: outram_foam_basic_lib::primitives::Vector3,
+    },
+    Arc(ArcEdge),
+    PolyLine(PolyLine),
+    CatmullRom(Vec<outram_foam_basic_lib::primitives::Vector3>),
+    BSpline(Vec<outram_foam_basic_lib::primitives::Vector3>),
+    Project(crate::block_projection::ProjectEdge),
+}
+```
+
+##### Variants
+
+###### `Line`
+
+`lineEdge`: `p0 + lambda*(p1 - p0)`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `p0` | `outram_foam_basic_lib::primitives::Vector3` | Start point. |
+| `p1` | `outram_foam_basic_lib::primitives::Vector3` | End point. |
+
+###### `Arc`
+
+`arcEdge`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ArcEdge` |  |
+
+###### `PolyLine`
+
+`polyLineEdge`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `PolyLine` |  |
+
+###### `CatmullRom`
+
+`splineEdge` (Catmull-Rom); all knots including both end points.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<outram_foam_basic_lib::primitives::Vector3>` |  |
+
+###### `BSpline`
+
+`BSplineEdge`; all knots including both end points.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<outram_foam_basic_lib::primitives::Vector3>` |  |
+
+###### `Project`
+
+`projectEdge` / `projectCurveEdge`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::block_projection::ProjectEdge` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn position(self: &Self, lambda: f64) -> Vector3 { /* ... */ }
+  ```
+  The point at edge parameter `lambda` (`blockEdge::position(lambda)`).
+
+- ```rust
+  pub fn positions(self: &Self, lambdas: &[f64]) -> Vec<Vector3> { /* ... */ }
+  ```
+  `blockEdge::position(const scalarList&)`: the points at each parameter.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ArcEdge`
+
+A circular (or helical) arc: `arcEdge.C`.
+
+```rust
+pub struct ArcEdge {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn through_point(start: usize, end: usize, p0: Vector3, p1: Vector3, pa: Vector3) -> Result<Self, MeshError> { /* ... */ }
+  ```
+  `arcEdge::calc(const point& pA)`: the arc through `p0`, `pa`, `p1`.
+
+- ```rust
+  pub fn from_angle(start: usize, end: usize, p0: Vector3, p1: Vector3, theta: f64, axis: Vector3) -> Result<Self, MeshError> { /* ... */ }
+  ```
+  `arcEdge::calc(theta, axis)`; `theta` in radians, `axis` a unit vector.
+
+- ```rust
+  pub fn position(self: &Self, lambda: f64) -> Vector3 { /* ... */ }
+  ```
+  `arcEdge::position(lambda)`.
+
+- ```rust
+  pub fn centre(self: &Self) -> Vector3 { /* ... */ }
+  ```
+  Arc centre (raw dictionary coordinates).
+
+- ```rust
+  pub fn theta(self: &Self) -> f64 { /* ... */ }
+  ```
+  Swept angle `[rad]`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PolyLine`
+
+`polyLine`: straight segments through the knots, parameterised by
+normalised cumulative length.
+
+```rust
+pub struct PolyLine {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(points: Vec<Vector3>) -> Self { /* ... */ }
+  ```
+  `polyLine::calcParam` over all knots (end points included).
+
+- ```rust
+  pub fn position(self: &Self, mu: f64) -> Vector3 { /* ... */ }
+  ```
+  `polyLine::position(mu)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ## Module `block_mesh`
 
 `blockMesh` — structured hexahedral block meshing from a `blockMeshDict`.
@@ -103,9 +844,14 @@ internal faces.
 1. [`BlockMeshDict::parse`] tokenises and parses the dict text into a
    [`BlockMeshDict`] (`convertToMeters`, [`vertices`](BlockMeshDict::vertices),
    [`blocks`](BlockMeshDict::blocks), boundary [`patches`](BlockMeshDict::patches)).
-2. [`BlockMeshDict::build`] subdivides every block, merges globally coincident
-   points, deduplicates faces (a face shared by two cells becomes internal),
-   assigns the remaining boundary faces to patches, and returns a [`PolyMesh`].
+2. [`BlockMeshDict::build`] generates every block's points (12-edge blend),
+   merges points **topologically** across the block faces the block topology
+   shares, numbers points, faces and cells as `blockMesh` does (gh:#1464),
+   checks the topology, and returns a [`PolyMesh`]. ~~merges globally
+   coincident points by quantised coordinates~~ **CORRECTED 2026-11-11
+   (gh:#1464)**: coordinates play no part in the merge except to pair
+   points on a shared block face, exactly as upstream's `calcMergeInfo`;
+   blocks that only touch geometrically are not merged.
 3. [`PolyMesh::to_fv_mesh`] computes the finite-volume geometry (cell volumes
    and centres, face-area vectors and centres) and emits the
    `outram-foam-basic-lib` [`FvMesh`].
@@ -121,9 +867,26 @@ points/centres in metres `[m]`, face areas in `[m^2]`, cell volumes in
 
 ## Deferred dict features
 
-- `edges` blocks (arc / spline / polyLine) are parsed and **skipped**: all
-  block edges are treated as straight lines (bilinear/trilinear block map).
-  Curved-edge point projection is a later phase.
+- ~~`edges` blocks (arc / spline / polyLine) are parsed and **skipped**: all
+  block edges are treated as straight lines~~ **CORRECTED 2026-11-11
+  (gh:#1461)**: `edges` (`line`, `arc` in both forms, `polyLine`, `spline`,
+  `BSpline`) are parsed and applied, see [`crate::block_edges`]; a block
+  with a listed edge takes the full 12-edge blend plus upstream's
+  curved-edge correction. ~~`project` / `projectCurve` edges, `geometry`,
+  `faces`~~ **CORRECTED 2026-11-11 (gh:#1462)**: `geometry` (sphere,
+  cylinder, plane), `project` vertices, `project` / `projectCurve` edges and
+  `project` / `sweep` block faces are ported, see
+  [`crate::block_projection`]; a surface type that is not ported (including
+  `triSurface`, `extrudedCircle`, `plate`) returns
+  [`MeshError::NotImplemented`]. `#calc` / `#include` and `namedBlocks`
+  return [`MeshError::NotImplemented`]; they are never skipped.
+- `units [mm]` (a single length unit), `convertToMeters` and `scale` are
+  read, at most one of the three (gh:#1463). `defaultPatch { name; type; }`
+  is read; without it the unassigned faces form `defaultFaces` of type
+  `empty`, as upstream (it was `patch` before 2026-11-11). `$name` of an
+  earlier top-level entry is expanded. Block zone names are kept in
+  [`PolyMesh::cell_zones`]; the `blockMesh` CLI writes them as
+  `constant/polyMesh/cellZones` (`io::PolyMesh::write_cell_zones`).
 - `simpleGrading (gx gy gz)` is fully supported, where each of the three
   directions is **either** a single scalar expansion ratio **or** a
   multi-grading list of `( fractionLength fractionCells expansionRatio )`
@@ -132,21 +895,26 @@ points/centres in metres `[m]`, face areas in `[m^2]`, cell volumes in
   edges carries its own [`Grading`] (single ratio or multi-segment), and
   interior nodes are blended from all 12 edge distributions exactly as
   OpenFOAM's `block::createPoints` does (the straight-edge, no-curvature
-  case). When the four edges of a direction happen to agree, the block
+  case). ~~When the four edges of a direction happen to agree, the block
   collapses to the equivalent `simpleGrading` fast path (bit-identical to a
-  single per-direction distribution); when they disagree, the genuine
-  per-edge 12-edge blend is used. See `edge_blended_node`.
-- `mergePatchPairs` (face-merging of separately-meshed patch pairs) is
-  parsed and ignored; coincident-point merging across blocks is always done.
+  single per-direction distribution)~~ **CORRECTED 2026-11-11 (gh:#1464):**
+  every block, `simpleGrading` or not, takes the 12-edge blend, as upstream
+  (`blockCreate.C` has no trilinear path); the trilinear map differed from
+  it by round-off. See `edge_blended_node_with`.
+- ~~`mergePatchPairs` is parsed and ignored~~ **CORRECTED 2026-11-11**: a
+  non-empty `mergePatchPairs` returns [`MeshError::NotImplemented`]
+  (gh:#1464). `fastMerge yes` also returns `NotImplemented`
+  (`blockMeshMergeFast.C`).
 
 ## Honest scope — what the per-edge blend does NOT model
 
-Only the **straight-edge** branch of OpenFOAM `block::createPoints`
-(`blockCreate.C:45-183`, `nCurvedEdges == 0`) is ported. The curved-edge
-correction (`blockCreate.C:155-180`) and the curved-**face** projection
-passes (`blockCreate.C:185-345`) are **not** implemented — consistent with
-the deferred `arc`/`spline`/`polyLine` edge and `projectFace` support above.
-For blocks with planar faces (all edges straight — the current scope) the
+The straight-edge branch and, since 2026-11-11 (gh:#1461), the curved-edge
+correction of OpenFOAM `block::createPoints` (`blockCreate.C:45-183`) are
+ported. ~~The curved-**face** projection passes (`blockCreate.C:185-345`)
+are **not** implemented (gh:#1462)~~ **CORRECTED 2026-11-11 (gh:#1462)**:
+they are, in [`crate::block_projection::apply_curved_faces`]; a block with no
+`faces` entry never enters them. For blocks with planar faces (straight or
+curved edges only) the
 blend is exact and volume-preserving; a warped internal face between cells of
 a per-edge-graded block is expected and handled by the divergence-theorem
 cell geometry. For multi-block meshes, matching gradings on any **shared**
@@ -215,7 +983,7 @@ pub struct GradingSegment {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GradingSegment { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -243,7 +1011,7 @@ pub struct GradingSegment {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GradingSegment) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -262,7 +1030,7 @@ pub struct GradingSegment {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -337,7 +1105,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Grading { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -365,7 +1133,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Grading) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
   - ```rust
@@ -388,7 +1156,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -417,9 +1185,10 @@ so interior nodes must be blended from all 12 edge distributions
 (OpenFOAM `block::createPoints`) rather than one distribution per direction.
 When it is `Some`, the block-build path uses `edge_blended_node` and
 `grading` merely holds a representative (the first edge of each direction)
-for inspection. When it is `None`, `grading` is authoritative and the fast
-trilinear per-direction map is used (this covers `simpleGrading` and every
-`edgeGrading` whose four edges per direction agree).
+for inspection. When it is `None`, `grading` is authoritative and each of a
+direction's four edges takes it (`simpleGrading`, and every `edgeGrading`
+whose four edges per direction agree). ~~`None` took a trilinear fast
+path~~ **CORRECTED 2026-11-11 (gh:#1464):** both cases take the 12-edge blend.
 
 ```rust
 pub struct Block {
@@ -427,6 +1196,7 @@ pub struct Block {
     pub cells: [usize; 3],
     pub grading: [Grading; 3],
     pub edge_grading: Option<[Grading; 12]>,
+    pub zone: Option<String>,
 }
 ```
 
@@ -437,7 +1207,8 @@ pub struct Block {
 | `vertices` | `[usize; 8]` | The 8 block-corner vertex indices, in OpenFOAM hex order. |
 | `cells` | `[usize; 3]` | Cell counts `(nx, ny, nz)` along the three local directions. |
 | `grading` | `[Grading; 3]` | Per-direction node distributions `(gx, gy, gz)`. Authoritative when<br>`edge_grading` is `None`; a per-direction representative otherwise. |
-| `edge_grading` | `Option<[Grading; 12]>` | The 12 per-edge gradings, present only for a genuinely per-edge<br>`edgeGrading` (edges 0–3 = x, 4–7 = y, 8–11 = z; see<br>`edge_blended_node`). `None` selects the trilinear fast path. |
+| `edge_grading` | `Option<[Grading; 12]>` | The 12 per-edge gradings, present only for a genuinely per-edge<br>`edgeGrading` (edges 0–3 = x, 4–7 = y, 8–11 = z; see<br>`edge_blended_node`). `None`: each direction's four edges share `grading`. |
+| `zone` | `Option<String>` | The block's zone name (`hex (...) zoneName (nx ny nz) ...`), which<br>upstream turns into a `cellZone`; `None` when the block is unzoned. |
 
 ##### Implementations
 
@@ -460,7 +1231,7 @@ pub struct Block {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Block { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -501,7 +1272,7 @@ pub struct Block {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -558,7 +1329,7 @@ pub struct PatchDef {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PatchDef { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -599,7 +1370,7 @@ pub struct PatchDef {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -622,6 +1393,14 @@ pub struct BlockMeshDict {
     pub vertices: Vec<outram_foam_basic_lib::primitives::Vector3>,
     pub blocks: Vec<Block>,
     pub patches: Vec<PatchDef>,
+    pub edges: Vec<crate::block_edges::BlockEdge>,
+    pub default_patch_name: String,
+    pub default_patch_kind: outram_foam_basic_lib::mesh::PatchKind,
+    pub fast_merge: bool,
+    pub check_face_correspondence: bool,
+    pub check_block_face_orientation: bool,
+    pub geometry: std::sync::Arc<crate::block_projection::Geometry>,
+    pub faces: Vec<crate::block_projection::BlockFace>,
 }
 ```
 
@@ -633,6 +1412,14 @@ pub struct BlockMeshDict {
 | `vertices` | `Vec<outram_foam_basic_lib::primitives::Vector3>` | The vertex list (raw, unscaled dict coordinates). |
 | `blocks` | `Vec<Block>` | The `hex` blocks. |
 | `patches` | `Vec<PatchDef>` | The named boundary patches. |
+| `edges` | `Vec<crate::block_edges::BlockEdge>` | The `edges` list: curved (or explicitly `line`) block edges, in<br>dictionary order (the first match wins, as upstream's<br>`blockDescriptor::edgePointsWeights`). Empty means every edge is straight. |
+| `default_patch_name` | `String` | Name of the patch that collects block faces no `boundary` entry names<br>(`defaultPatch { name ...; }`, default `defaultFaces`). |
+| `default_patch_kind` | `outram_foam_basic_lib::mesh::PatchKind` | Type of that patch (`defaultPatch { type ...; }`). Upstream's default<br>when the entry is absent is `empty` (`blockMeshTopology.C`,<br>`defaultPatchType = emptyPolyPatch::typeName`). |
+| `fast_merge` | `bool` | `fastMerge` (default `no`). `yes` selects `blockMeshMergeFast.C`, which<br>is not ported: `build` returns `NotImplemented` for it. |
+| `check_face_correspondence` | `bool` | `checkFaceCorrespondence` (default `yes`): neighbouring blocks must<br>have the same number of faces on their shared block face. |
+| `check_block_face_orientation` | `bool` | `checkBlockFaceOrientation` (default `yes`): every block's faces must<br>point away from its centre (`blockDescriptor::check`). |
+| `geometry` | `std::sync::Arc<crate::block_projection::Geometry>` | The `geometry` dictionary: searchable surfaces that `project` vertices,<br>edges and faces refer to (gh:#1462). Empty when absent. |
+| `faces` | `Vec<crate::block_projection::BlockFace>` | The `faces` list: `project` and `sweep` block faces (gh:#1462). |
 
 ##### Implementations
 
@@ -641,12 +1428,17 @@ pub struct BlockMeshDict {
 - ```rust
   pub fn build(self: &Self) -> Result<PolyMesh, MeshError> { /* ... */ }
   ```
-  Subdivide every block, merge coincident points, dedupe faces, assign
+  Build the mesh the way upstream `blockMesh` does (gh:#1464): every
 
 - ```rust
   pub fn parse(text: &str) -> Result<Self, MeshError> { /* ... */ }
   ```
   Parse `blockMeshDict` text into a [`BlockMeshDict`].
+
+- ```rust
+  pub fn parse_with_flavour(text: &str, flavour: ProjectionFlavour) -> Result<Self, MeshError> { /* ... */ }
+  ```
+  As [`parse`](Self::parse), following v2506 instead of dev where the two
 
 ###### Trait Implementations
 
@@ -667,7 +1459,7 @@ pub struct BlockMeshDict {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BlockMeshDict { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -708,7 +1500,7 @@ pub struct BlockMeshDict {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -764,7 +1556,7 @@ pub struct MeshFace {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshFace { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -805,7 +1597,7 @@ pub struct MeshFace {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -833,6 +1625,7 @@ pub struct PolyMesh {
     pub n_internal_faces: usize,
     pub n_cells: usize,
     pub patches: Vec<outram_foam_basic_lib::mesh::BoundaryPatch>,
+    pub cell_zones: Vec<(String, Vec<usize>)>,
 }
 ```
 
@@ -845,10 +1638,16 @@ pub struct PolyMesh {
 | `n_internal_faces` | `usize` | Number of internal faces (the count of leading internal entries in<br>`faces`). |
 | `n_cells` | `usize` | Number of cells. |
 | `patches` | `Vec<outram_foam_basic_lib::mesh::BoundaryPatch>` | Boundary patches, covering `[n_internal_faces, faces.len())` contiguously. |
+| `cell_zones` | `Vec<(String, Vec<usize>)>` | Cell zones, one per distinct block zone name in dictionary order:<br>`(name, cell indices)`. Upstream writes these as `cellZones`; the<br>`io::PolyMesh` carries no zones, so [`PolyMesh::to_foam_poly_mesh`]<br>drops them; write them with<br>`outram_foam_basic_lib::io::poly_mesh::PolyMesh::write_cell_zones`<br>(~~"no zone output yet"~~ **CORRECTED 2026-11-11, gh:#1463**). |
 
 ##### Implementations
 
 ###### Methods
+
+- ```rust
+  pub fn concatenate(parts: &[(&str, &PolyMesh)]) -> PolyMesh { /* ... */ }
+  ```
+  Several region meshes side by side as one `PolyMesh`, for drawing a
 
 - ```rust
   pub fn n_points(self: &Self) -> usize { /* ... */ }
@@ -876,6 +1675,11 @@ pub struct PolyMesh {
   Convert to the writable `outram-foam-basic-lib`
 
 - ```rust
+  pub fn from_foam_poly_mesh(m: &outram_foam_basic_lib::io::PolyMesh) -> PolyMesh { /* ... */ }
+  ```
+  The inverse of [`PolyMesh::to_foam_poly_mesh`]: take an
+
+- ```rust
   pub fn to_fv_mesh(self: &Self) -> Result<FvMesh, MeshError> { /* ... */ }
   ```
   Convert to the `outram-foam-basic-lib` [`FvMesh`], computing all
@@ -899,7 +1703,7 @@ pub struct PolyMesh {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PolyMesh { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -940,7 +1744,7 @@ pub struct PolyMesh {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -978,6 +1782,2179 @@ As [`block_mesh`], plus [`MeshError::DictParse`] wrapping any I/O error.
 
 ```rust
 pub fn block_mesh_from_file</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(path: impl AsRef<std::path::Path>) -> Result<PolyMesh, crate::MeshError> { /* ... */ }
+```
+
+## Module `block_primitives`
+
+Structured hex meshes of simple primitives, first a **pipe** (cylinder) and a
+**box**, generated as `blockMeshDict` text and built by this crate's
+[`block_mesh`](crate::block_mesh) port (gh:#1155, Foam Studio stage 1).
+
+# The pipe O-grid
+
+A central `n × n` block (half-width `square_frac · R`) and `4 n` outer
+blocks of `nr × 1` cells, one per circumferential cell. Every block edge is
+straight and every outer vertex lies on the circle, so the wall is a
+`4n`-gon inscribed in it: exactly what any finite-volume mesh of a circle
+is, and blockMesh's missing arc edges are never needed. Moved here from the
+stage 0 harness (`outram-foam-appbuilder-lib/verification_and_validation/
+wasm_pimple_3d_pipe`, gh:#1154), where it was measured: max
+non-orthogonality 19.7 / 26.0 / 29.7° at 5k / 20k / 50k cells, no negative
+cells, volume equal to the inscribed-polygon prism to round-off.
+
+**Why this crate.** The blockMesh port lives here, and `outram-blender`'s
+`convert::block_mesh` only calls it; `outram_blender::foam_mesh` triangulates
+surfaces for cfMesh, which gives wrong pipe flow (gh:#1160). A generator
+that writes a blockMeshDict belongs beside the mesher that reads it, and it
+keeps the solver path free of `outram-blender`.
+
+# The annulus and the double pipe (gh:#1156)
+
+[`Annulus`]: `n_theta` blocks of `nr × 1 × nz` cells between two
+polygons, inner radius `r_inner` and outer `r_outer`, every vertex on its
+circle at the O-grid's angles `θ_k = −3π/4 + 2πk/n_theta`. With
+`n_theta = 4n` and `r_inner` equal to a [`PipeOGrid`]'s radius, the
+annulus's inner wall has exactly the pipe's wall vertices, so the two
+meshes meet face to face (conformal), which is what chtMultiRegionFoam's
+coupled interface needs. [`DoublePipe`] builds the three regions of a
+double-pipe heat exchanger that way: the inner fluid (an O-grid), the
+tube wall (an annulus) and the outer fluid (an annulus), all with `4n`
+cells around and the same axial layers.
+
+# The helical pipe (gh:#1157)
+
+[`HelicalPipe`]: a [`PipeOGrid`] as long as the coil's tube, its points
+mapped onto the helix on a rotation-minimising frame (no twist between
+layers); same topology and cell order as the straight grid. Not a
+blockMeshDict: blockMesh's straight block edges cannot follow a helix
+without one block per layer, and the point map is exact.
+
+# The box
+
+One hex block, `nx × ny × nz`, axis-aligned.
+
+# Patches
+
+Each primitive face carries a patch name chosen by the caller. Faces with
+the same name go into one patch; a name containing `wall` gets
+`type wall`, any other `type patch`. Patches appear in first-use order.
+
+```rust
+pub mod block_primitives { /* ... */ }
+```
+
+### Types
+
+#### Struct `PipeOGrid`
+
+A circular pipe along +z, as an O-grid.
+
+```rust
+pub struct PipeOGrid {
+    pub radius: uom::si::f64::Length,
+    pub length: uom::si::f64::Length,
+    pub origin: [uom::si::f64::Length; 3],
+    pub n: usize,
+    pub nr: usize,
+    pub nz: usize,
+    pub square_frac: f64,
+    pub patch_names: [String; 3],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `radius` | `uom::si::f64::Length` | Pipe radius. |
+| `length` | `uom::si::f64::Length` | Pipe length; the pipe runs from `origin.z` to `origin.z + length`. |
+| `origin` | `[uom::si::f64::Length; 3]` | Centre of the `z`-minimum end face. |
+| `n` | `usize` | Cells along each side of the central square (4 n around the wall). |
+| `nr` | `usize` | Radial cells between the square and the wall. |
+| `nz` | `usize` | Axial cells. |
+| `square_frac` | `f64` | Half-width of the central square as a fraction of the radius, in (0, 1/√2). |
+| `patch_names` | `[String; 3]` | Patch names of the `z`-min end, the `z`-max end and the side wall. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(radius: Length, length: Length, n: usize, nr: usize, nz: usize) -> Self { /* ... */ }
+  ```
+  A pipe at the origin with patches `inlet` (z-min), `outlet` (z-max) and
+
+- ```rust
+  pub fn level(radius: Length, length: Length, m: usize) -> Self { /* ... */ }
+  ```
+  The geometrically similar family used for grid studies and the demo:
+
+- ```rust
+  pub fn n_cells(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of cells: `(n² + 4 n nr) nz`.
+
+- ```rust
+  pub fn polygon_area(self: &Self) -> f64 { /* ... */ }
+  ```
+  The cross-section area of the inscribed `4n`-gon, `½ (4n) R² sin(2π/4n)`.
+
+- ```rust
+  pub fn block_mesh_dict(self: &Self) -> String { /* ... */ }
+  ```
+  The blockMeshDict text.
+
+- ```rust
+  pub fn mesh(self: &Self) -> Result<PolyMesh, MeshError> { /* ... */ }
+  ```
+  Build the mesh.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Annulus`
+
+A circular annulus along +z between radii `r_inner` and `r_outer`, as
+`n_theta` blocks of `nr × 1 × nz` cells; see the module docs for the
+vertex angles (shared with [`PipeOGrid`]).
+
+```rust
+pub struct Annulus {
+    pub r_inner: uom::si::f64::Length,
+    pub r_outer: uom::si::f64::Length,
+    pub length: uom::si::f64::Length,
+    pub origin: [uom::si::f64::Length; 3],
+    pub n_theta: usize,
+    pub nr: usize,
+    pub nz: usize,
+    pub patch_names: [String; 4],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r_inner` | `uom::si::f64::Length` | Inner radius (the inner polygon's vertices lie on this circle). |
+| `r_outer` | `uom::si::f64::Length` | Outer radius. |
+| `length` | `uom::si::f64::Length` | Length; the annulus runs from `origin.z` to `origin.z + length`. |
+| `origin` | `[uom::si::f64::Length; 3]` | Centre of the `z`-minimum end. |
+| `n_theta` | `usize` | Cells around (4 n to meet a [`PipeOGrid`] of side n). |
+| `nr` | `usize` | Radial cells. |
+| `nz` | `usize` | Axial cells. |
+| `patch_names` | `[String; 4]` | Patch names of the `z`-min end, the `z`-max end, the inner wall and<br>the outer wall. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(r_inner: Length, r_outer: Length, length: Length, n_theta: usize, nr: usize, nz: usize) -> Self { /* ... */ }
+  ```
+  An annulus at the origin with patches `inlet`, `outlet`, `inner_wall`
+
+- ```rust
+  pub fn n_cells(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of cells: `n_theta · nr · nz`.
+
+- ```rust
+  pub fn polygon_area(self: &Self) -> f64 { /* ... */ }
+  ```
+  Cross-section area between the two inscribed `n_theta`-gons.
+
+- ```rust
+  pub fn block_mesh_dict(self: &Self) -> String { /* ... */ }
+  ```
+  The blockMeshDict text.
+
+- ```rust
+  pub fn mesh(self: &Self) -> Result<PolyMesh, MeshError> { /* ... */ }
+  ```
+  Build the mesh.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `DoublePipe`
+
+The three conformal region meshes of a double-pipe heat exchanger along
++z: the inner fluid (`r < r_tube_inner`), the tube wall
+(`r_tube_inner < r < r_tube_outer`) and the outer (annulus) fluid
+(`r_tube_outer < r < r_shell`), each with `4 n` cells around and `nz`
+axial layers, so every interface is face to face.
+
+Patch names (the defaults; the interface patch has the same name on both
+sides):
+
+| region | z-min | z-max | inner | outer |
+|---|---|---|---|---|
+| inner fluid | `inlet` | `outlet` | — | `tube_inner_wall` |
+| tube wall | `tube_ends` | `tube_ends` | `tube_inner_wall` | `tube_outer_wall` |
+| outer fluid | `outlet` | `inlet` | `tube_outer_wall` | `shell_wall` |
+
+The outer fluid's inlet is at z-max: counterflow.
+
+```rust
+pub struct DoublePipe {
+    pub r_tube_inner: uom::si::f64::Length,
+    pub r_tube_outer: uom::si::f64::Length,
+    pub r_shell: uom::si::f64::Length,
+    pub length: uom::si::f64::Length,
+    pub origin: [uom::si::f64::Length; 3],
+    pub n: usize,
+    pub nr: [usize; 3],
+    pub nz: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r_tube_inner` | `uom::si::f64::Length` | Inner radius of the tube (the inner fluid's radius). |
+| `r_tube_outer` | `uom::si::f64::Length` | Outer radius of the tube. |
+| `r_shell` | `uom::si::f64::Length` | Inner radius of the shell (the outer fluid's outer radius). |
+| `length` | `uom::si::f64::Length` | Length. |
+| `origin` | `[uom::si::f64::Length; 3]` | Centre of the z-min end. |
+| `n` | `usize` | O-grid side: `4 n` cells around every region. |
+| `nr` | `[usize; 3]` | Radial cells: inner fluid ring (beyond its central square), tube<br>wall, outer fluid. |
+| `nz` | `usize` | Axial cells. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn n_cells(self: &Self) -> [usize; 3] { /* ... */ }
+  ```
+  Number of cells in each region (inner fluid, tube wall, outer fluid).
+
+- ```rust
+  pub fn region_grids(self: &Self) -> (PipeOGrid, Annulus, Annulus) { /* ... */ }
+  ```
+  The three region grids, positioned and named (see the type docs).
+
+- ```rust
+  pub fn meshes(self: &Self) -> Result<[PolyMesh; 3], MeshError> { /* ... */ }
+  ```
+  Build the three meshes (inner fluid, tube wall, outer fluid).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `HelicalPipe`
+
+A circular pipe coiled into a helix (gh:#1157, the CFD coil section): a
+[`PipeOGrid`] of the tube's arc length, its points swept along the helix
+centreline on a **rotation-minimising frame**, so successive cross-sections
+are not twisted about the tube axis.
+
+# Geometry
+
+The helix axis is +z through `axis_origin`; the centreline starts at
+`axis_origin + (R, 0, 0)` and winds counter-clockwise seen from +z,
+`C(φ) = (R cos φ, R sin φ, c φ)`, with `R = D_w/2` (half the coil
+diameter at the tube centreline), `c = h/(2π)` (`h` the pitch, rise per
+turn) and arc length `s = ℓ φ`, `ℓ = √(R² + c²)`. Its Frenet frame is
+
+- `T = (−R sin φ, R cos φ, c)/ℓ`,
+- `N = (−cos φ, −sin φ, 0)`: towards the helix axis (the inner side of the
+  bend),
+- `B = T × N = (c sin φ, −c cos φ, R)/ℓ`,
+
+with constant curvature `κ = R/ℓ²` and torsion `τ = c/ℓ²`
+(Frenet–Serret: `T' = κN`, `N' = −κT + τB`, `B' = −τN`). So the
+**curvature diameter** is `1/(κ/2) = D_w [1 + (h/(π D_w))²]`, the same
+formula as `tampines::components::helical_coil_otsg::correlations::curvature_diameter`
+(VDI Heat Atlas Gc, there), derived here from κ rather than called, because
+this crate does not depend on `tampines`.
+
+**Why not the Frenet frame.** It turns about `T` at the rate τ, so a
+cross-section swept on it is rotated by `τ Δs` against its neighbour a
+distance `Δs` along: over one turn (`τ · 2πℓ = h/ℓ` rad) of a `h = 2d`,
+`D_w = 10d` coil that is 23°, and every cell between layers is sheared by
+it. The rotation-minimising
+(Bishop) frame `U = cos θ N + sin θ B`, `V = −sin θ N + cos θ B` with
+`θ = −τ s` has `U' = −κ cos θ T` and `V' = κ sin θ T`, i.e. no component
+about `T` (derived from Frenet–Serret above; the frame is Bishop's, R. L.
+Bishop (1975), "There is more than one way to frame a curve", *Amer. Math.
+Monthly* 82(3), 246–251, doi:10.2307/2319846, cited for the idea, not
+read in this session). The test `helix_frames_are_orthonormal_and_untwisted`
+checks `U'·V = 0` numerically.
+
+# Mesh
+
+[`PipeOGrid::new`]`(radius, arc_length, n, nr, n_layers)`, patches
+`patch_names` (inlet at `s = 0`, outlet at `s = L`, the tube wall), every
+point `(x, y, z)` mapped to `C(z) + x U(z) + y V(z)`. The topology, cell
+order and patch faces are the straight grid's, so cell `i` of
+[`HelicalPipe::mesh`] is cell `i` of [`HelicalPipe::straight_grid`]'s
+mesh (the blockMesh port's cell order is not layer by layer, so use
+[`HelicalPipe::locate`] for a cell's arc position). Faces between layers
+are bilinear, not planar; the face-area vectors of the FV mesh are the
+usual triangle-fan sums.
+
+With `pitch = 0` the coil is a torus section; turns must then not exceed 1
+or the tube overlaps itself (`h ≥ 2 r_tube` is the general no-overlap
+condition, which [`HelicalPipe::check`] enforces for more than one turn).
+
+```rust
+pub struct HelicalPipe {
+    pub radius: uom::si::f64::Length,
+    pub coil_diameter: uom::si::f64::Length,
+    pub pitch: uom::si::f64::Length,
+    pub turns: f64,
+    pub axis_origin: [uom::si::f64::Length; 3],
+    pub n: usize,
+    pub nr: usize,
+    pub n_layers: usize,
+    pub square_frac: f64,
+    pub patch_names: [String; 3],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `radius` | `uom::si::f64::Length` | Tube (inner) radius. |
+| `coil_diameter` | `uom::si::f64::Length` | Coil diameter `D_w` at the tube centreline. |
+| `pitch` | `uom::si::f64::Length` | Pitch `h`: rise of the centreline per turn. |
+| `turns` | `f64` | Number of turns (any positive real). |
+| `axis_origin` | `[uom::si::f64::Length; 3]` | The point of the helix axis at the inlet's height. |
+| `n` | `usize` | O-grid side (`4 n` cells around the wall). |
+| `nr` | `usize` | Radial cells between the O-grid square and the wall. |
+| `n_layers` | `usize` | Cells along the tube. |
+| `square_frac` | `f64` | Half-width of the O-grid's central square over the radius. |
+| `patch_names` | `[String; 3]` | Patch names of the inlet (`s = 0`), outlet (`s = L`) and wall. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(radius: Length, coil_diameter: Length, pitch: Length, turns: f64, n: usize, nr: usize, n_layers: usize) -> Self { /* ... */ }
+  ```
+  A coil with its axis on the z axis, patches `inlet`, `outlet`, `walls`
+
+- ```rust
+  pub fn check(self: &Self) -> Result<(), MeshError> { /* ... */ }
+  ```
+  Why the coil cannot be meshed, if it cannot: positive sizes, the tube
+
+- ```rust
+  pub fn arc_length(self: &Self) -> Length { /* ... */ }
+  ```
+  Developed length of the tube, `turns · √((π D_w)² + h²)`.
+
+- ```rust
+  pub fn curvature(self: &Self) -> f64 { /* ... */ }
+  ```
+  Curvature `κ = R/(R² + c²)` \[1/m\].
+
+- ```rust
+  pub fn torsion(self: &Self) -> f64 { /* ... */ }
+  ```
+  Torsion `τ = c/(R² + c²)` \[1/m\].
+
+- ```rust
+  pub fn curvature_diameter(self: &Self) -> Length { /* ... */ }
+  ```
+  Curvature diameter `2/κ = D_w [1 + (h/(π D_w))²]`.
+
+- ```rust
+  pub fn cells_per_section(self: &Self) -> usize { /* ... */ }
+  ```
+  Cells in one cross-section, `n² + 4 n nr`.
+
+- ```rust
+  pub fn n_cells(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of cells.
+
+- ```rust
+  pub fn centreline(self: &Self, s: Length) -> [f64; 3] { /* ... */ }
+  ```
+  Centreline point at arc length `s` \[m\].
+
+- ```rust
+  pub fn frenet(self: &Self, s: Length) -> [[f64; 3]; 3] { /* ... */ }
+  ```
+  The Frenet frame `[T, N, B]` at arc length `s`.
+
+- ```rust
+  pub fn frame(self: &Self, s: Length) -> [[f64; 3]; 3] { /* ... */ }
+  ```
+  The rotation-minimising frame `[T, U, V]` at `s` (see the type docs),
+
+- ```rust
+  pub fn straight_grid(self: &Self) -> PipeOGrid { /* ... */ }
+  ```
+  The straight O-grid that is swept: radius, arc length, `n`, `nr`,
+
+- ```rust
+  pub fn mesh(self: &Self) -> Result<PolyMesh, MeshError> { /* ... */ }
+  ```
+  Build the mesh: [`HelicalPipe::straight_grid`]'s mesh with every
+
+- ```rust
+  pub fn locate(self: &Self, p: [f64; 3]) -> CoilPoint { /* ... */ }
+  ```
+  The nearest centreline point to `p` \[m\] and `p`'s Frenet offsets
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CoilPoint`
+
+Where a point lies relative to a [`HelicalPipe`]'s centreline:
+arc position and Frenet coordinates of its offset from `C(s)`.
+
+```rust
+pub struct CoilPoint {
+    pub s: f64,
+    pub n: f64,
+    pub b: f64,
+    pub frenet: [[f64; 3]; 3],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `s` | `f64` | Arc length of the nearest centreline point \[m\]. |
+| `n` | `f64` | Offset along `N` (positive towards the helix axis, the inner side) \[m\]. |
+| `b` | `f64` | Offset along `B` \[m\]. |
+| `frenet` | `[[f64; 3]; 3]` | The Frenet frame at `s`: `T`, `N`, `B`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `BoxBlock`
+
+An axis-aligned box as one hex block.
+
+```rust
+pub struct BoxBlock {
+    pub origin: [uom::si::f64::Length; 3],
+    pub size: [uom::si::f64::Length; 3],
+    pub cells: [usize; 3],
+    pub patch_names: [String; 6],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `origin` | `[uom::si::f64::Length; 3]` | Minimum corner. |
+| `size` | `[uom::si::f64::Length; 3]` | Edge lengths along x, y, z. |
+| `cells` | `[usize; 3]` | Cells along x, y, z. |
+| `patch_names` | `[String; 6]` | Patch names of the faces x-min, x-max, y-min, y-max, z-min, z-max. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(size: [Length; 3], cells: [usize; 3]) -> Self { /* ... */ }
+  ```
+  A box at the origin with `inlet` on z-min, `outlet` on z-max and
+
+- ```rust
+  pub fn n_cells(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of cells.
+
+- ```rust
+  pub fn block_mesh_dict(self: &Self) -> String { /* ... */ }
+  ```
+  The blockMeshDict text.
+
+- ```rust
+  pub fn mesh(self: &Self) -> Result<PolyMesh, MeshError> { /* ... */ }
+  ```
+  Build the mesh.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Constants and Statics
+
+#### Constant `DEFAULT_SQUARE_FRAC`
+
+Fraction of R used by default for the central square's half-width.
+
+```rust
+pub const DEFAULT_SQUARE_FRAC: f64 = 0.55;
+```
+
+## Module `block_projection`
+
+`blockMesh` projection: the `geometry` dictionary (searchable surfaces),
+`project` vertices, `project` / `projectCurve` edges, `project` and
+`sweep` block faces, and the curved-face correction passes of
+`block::createPoints` (gh:#1462, epic gh:#1458).
+
+## Scope
+
+Searchable surfaces: `sphere` (`searchableSphere`), `cylinder`
+(`searchableCylinder`) and `plane` (`searchablePlane`), the shapes the
+`mesh/blockMesh/{sphere7ProjectedEdges,pipe}` tutorials use besides
+`extrudedCircle` and `plate`. Any other `type` (including `triSurface`) is
+refused with [`MeshError::NotImplemented`] naming it; nothing is skipped.
+
+## Dev against v2506
+
+The specification is OpenFOAM-dev `852527377c7e`. Its `projectFace` loop
+stops after adding the i residual and testing the combined residual; the
+v2506 loop projects, tests the previous residual and stops on a projected
+point. Both are implemented ([`ProjectionFlavour`]); the default is dev.
+The multi-surface `findNearest` is dev's (alternate surfaces, intersect the
+tangent planes); v2506 additionally clips the step, see
+`verification_and_validation/block_mesh_projection.md`.
+
+Coordinates are the raw dictionary coordinates (before `convertToMeters`):
+upstream projects before scaling.
+
+Transcendentals (`sin`, `cos`, `asin` in `sweep`) go through PETIR
+`RealMath`; `sqrt` is exact.
+
+```rust
+pub mod block_projection { /* ... */ }
+```
+
+### Types
+
+#### Enum `SearchableSurface`
+
+A searchable surface (enum dispatch, no trait objects).
+
+```rust
+pub enum SearchableSurface {
+    Sphere {
+        centre: outram_foam_basic_lib::primitives::Vector3,
+        radius: f64,
+    },
+    Cylinder {
+        point1: outram_foam_basic_lib::primitives::Vector3,
+        point2: outram_foam_basic_lib::primitives::Vector3,
+        radius: f64,
+    },
+    Plane {
+        point: outram_foam_basic_lib::primitives::Vector3,
+        normal: outram_foam_basic_lib::primitives::Vector3,
+    },
+}
+```
+
+##### Variants
+
+###### `Sphere`
+
+`searchableSurfaces::sphere`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `centre` | `outram_foam_basic_lib::primitives::Vector3` | Centre. |
+| `radius` | `f64` | Radius. |
+
+###### `Cylinder`
+
+`searchableSurfaces::cylinder` (finite, with end caps).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `point1` | `outram_foam_basic_lib::primitives::Vector3` | Axis start. |
+| `point2` | `outram_foam_basic_lib::primitives::Vector3` | Axis end. |
+| `radius` | `f64` | Radius. |
+
+###### `Plane`
+
+`searchableSurfaces::plane` (infinite).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `point` | `outram_foam_basic_lib::primitives::Vector3` | A point on the plane. |
+| `normal` | `outram_foam_basic_lib::primitives::Vector3` | Unit normal. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn plane(point: Vector3, normal: Vector3) -> Self { /* ... */ }
+  ```
+  `Foam::plane(basePoint, normalVector)`: the normal is normalised.
+
+- ```rust
+  pub fn find_nearest(self: &Self, sample: Vector3, dist_sqr: f64, flavour: ProjectionFlavour) -> Option<Vector3> { /* ... */ }
+  ```
+  `findNearest(sample, nearestDistSqr)` for one sample: the nearest point
+
+- ```rust
+  pub fn normal_at(self: &Self, hit: Vector3, flavour: ProjectionFlavour) -> Vector3 { /* ... */ }
+  ```
+  `getNormal` at a point returned by [`find_nearest`](Self::find_nearest).
+
+- ```rust
+  pub fn bounds(self: &Self) -> (Vector3, Vector3) { /* ... */ }
+  ```
+  `bounds()`: `(min, max)`; the plane's are `-+vGreat` except along an
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Geometry`
+
+`searchableSurfaceList`: the named surfaces of the `geometry` dictionary.
+
+```rust
+pub struct Geometry {
+    pub surfaces: Vec<(String, SearchableSurface)>,
+    pub flavour: ProjectionFlavour,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surfaces` | `Vec<(String, SearchableSurface)>` | `(name, surface)` in dictionary order. |
+| `flavour` | `ProjectionFlavour` | Which OpenFOAM's arithmetic and loops to follow. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn find_surface_id(self: &Self, name: &str) -> Option<usize> { /* ... */ }
+  ```
+  `findSurfaceID`.
+
+- ```rust
+  pub fn surface_ids(self: &Self, names: &[String]) -> Result<Vec<usize>, MeshError> { /* ... */ }
+  ```
+  Ids of the listed surface names.
+
+- ```rust
+  pub fn bounds(self: &Self, ids: &[usize]) -> (Vector3, Vector3) { /* ... */ }
+  ```
+  `searchableSurfacesQueries::bounds`.
+
+- ```rust
+  pub fn find_nearest(self: &Self, ids: &[usize], start: &[Vector3], dist_sqr: &[f64], n_iter: usize) -> Vec<Vector3> { /* ... */ }
+  ```
+  `searchableSurfacesQueries::findNearest` (multi-surface form, dev): the
+
+- ```rust
+  pub fn project_vertex(self: &Self, ids: &[usize], p: Vector3) -> Vector3 { /* ... */ }
+  ```
+  `blockVertices::projectVertex::operator point()`.
+
+- ```rust
+  pub fn from_entries(entries: &[(String, DictEntry)], flavour: ProjectionFlavour) -> Result<Self, MeshError> { /* ... */ }
+  ```
+  Build the surface list from the body of the `geometry { … }` entry.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ProjectEdge`
+
+A `project` or `projectCurve` block edge: the straight line between the two
+vertices projected onto the listed surfaces.
+
+```rust
+pub struct ProjectEdge {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(geometry: Arc<Geometry>, surfaces: Vec<usize>, p0: Vector3, p1: Vector3) -> Self { /* ... */ }
+  ```
+  Build the edge. `projectCurve` shares the algorithm of `project` when
+
+- ```rust
+  pub fn position(self: &Self, lambda: f64) -> Vector3 { /* ... */ }
+  ```
+  `projectEdge::position(lambda)`: the straight-line point projected once,
+
+- ```rust
+  pub fn positions(self: &Self, lambdas: &[f64]) -> Vec<Vector3> { /* ... */ }
+  ```
+  `projectEdge::position(const scalarList&)`.
+
+- ```rust
+  pub fn positions_counted(self: &Self, lambdas: &[f64]) -> (Vec<Vector3>, usize) { /* ... */ }
+  ```
+  As [`positions`](Self::positions), also returning the number of
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `ProjectionFlavour`
+
+Which OpenFOAM's projection code to follow where dev and v2506 differ.
+
+The differences found (gh:#1462): the `projectFace` loop, the multi-surface
+`findNearest` (step clipping, collinearity test), the sphere's nearest point
+(`n/magN*radius` against `radius*n/magN`, one ulp), its normal, and the
+`linearInterpolationWeights` (`1 - f, f` against `(t1 - t)/dT, 1 - w0`).
+
+```rust
+pub enum ProjectionFlavour {
+    Dev,
+    Esi,
+}
+```
+
+##### Variants
+
+###### `Dev`
+
+OpenFOAM-dev `852527377c7e` (the specification, and the default).
+
+###### `Esi`
+
+OpenFOAM.com v2506 (the binary available for comparison).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `BlockFaceKind`
+
+What a `faces` entry does.
+
+```rust
+pub enum BlockFaceKind {
+    Project(String),
+    Sweep(f64),
+}
+```
+
+##### Variants
+
+###### `Project`
+
+`project (v0 v1 v2 v3) surfaceName`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Sweep`
+
+`sweep (v0 v1 v2 v3) rotationFraction`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `BlockFace`
+
+One `faces` entry: the four vertex labels and what to do to the face.
+
+```rust
+pub struct BlockFace {
+    pub vertices: [usize; 4],
+    pub kind: BlockFaceKind,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `vertices` | `[usize; 4]` | The face's vertex labels, in the user's order. |
+| `kind` | `BlockFaceKind` | The operation. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `DictEntry`
+
+One entry of a parsed dictionary body.
+
+```rust
+pub enum DictEntry {
+    Tokens(Vec<String>),
+    Dict(Vec<(String, DictEntry)>),
+}
+```
+
+##### Variants
+
+###### `Tokens`
+
+`key tokens… ;`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<String>` |  |
+
+###### `Dict`
+
+`key { … }`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<(String, DictEntry)>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `project_face`
+
+Dev `projectFace::project` (and its v2506 variant) on the face points
+`points` (`n.0 * n.1`, first index fastest), with `n = (n.first, n.second)`.
+
+```rust
+pub fn project_face(geometry: &Geometry, surface: usize, n: (usize, usize), points: &mut [outram_foam_basic_lib::primitives::Vector3]) { /* ... */ }
+```
+
+#### Function `sweep_face`
+
+`sweepFace::project`: `points` are the face points of block face
+`block_face_i` (point `(row, col)` at `row * n_cols + col`, transposed when
+the user's vertex order starts along the other direction);
+`transpose` is decided by the caller from the vertex order
+(see [`sweep_transpose`]).
+
+```rust
+pub fn sweep_face(density: [usize; 3], block_face_i: usize, transpose: bool, rotation_fraction: f64, points: &mut [outram_foam_basic_lib::primitives::Vector3]) { /* ... */ }
+```
+
+#### Function `sweep_transpose`
+
+The `transpose` decision of `sweepFace::project`: look along the user's face
+loop for the first edge equal to the block face's anchor edge; transpose
+when it is an odd edge of the loop.
+
+`block_labels` are the block's 8 vertex labels, `block_face_i` the hex face
+index, `user_face` the `sweep (…)` vertex labels.
+
+```rust
+pub fn sweep_transpose(block_labels: &[usize; 8], block_face_i: usize, user_face: &[usize; 4]) -> bool { /* ... */ }
+```
+
+#### Function `find_curved_faces`
+
+`blockDescriptor::findCurvedFaces`: for each hex face, the index of the
+first `faces` entry covering the same four vertices.
+
+```rust
+pub fn find_curved_faces(block_labels: &[usize; 8], faces: &[BlockFace]) -> [Option<usize>; 6] { /* ... */ }
+```
+
+#### Function `apply_curved_faces`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
+
+The curved-face half of `block::createPoints` (`blockCreate.C`): extract the
+six face point sets, project/sweep the curved ones
+(`blockDescriptor::correctFacePoints`), then apply the i-, j- and k-face
+corrections to the block points in place.
+
+`w` are the 12 edge weight arrays (`edgesPointsWeights`), `n` the cell
+counts, `points` the block's `(n0+1)(n1+1)(n2+1)` points, `i` fastest.
+
+# Errors
+[`MeshError::DictParse`] for a `project` face naming a surface that is not
+in `geometry`.
+
+```rust
+pub fn apply_curved_faces(geometry: &Geometry, faces: &[BlockFace], curved: &[Option<usize>; 6], block_labels: &[usize; 8], n: [usize; 3], w: &[Vec<f64>; 12], points: &mut [outram_foam_basic_lib::primitives::Vector3]) -> Result<(), crate::MeshError> { /* ... */ }
+```
+
+#### Function `read_dict_body`
+
+Read `{ key value; key { … } … }` starting at the `{` at `*pos`.
+
+# Errors
+[`MeshError::DictParse`] on an unterminated dictionary.
+
+```rust
+pub fn read_dict_body(tokens: &[String], pos: &mut usize) -> Result<Vec<(String, DictEntry)>, crate::MeshError> { /* ... */ }
+```
+
+## Module `section`
+
+Plane sections and boundary edges of a [`PolyMesh`], for drawing the mesh
+the solver gets and the cell fields on it (gh:#1155, Foam Studio).
+
+[`plane_section`] cuts every cell with an axis-aligned plane: each face
+edge that crosses the plane gives a point to both cells of the face, and a
+cell's section is the convex hull of its points. That is exact for convex
+cells (every hex of [`block_mesh`](crate::block_mesh)); for a non-convex
+polyhedron it is the hull of the true section. A vertex lying on the plane
+counts as above it, so a plane through a layer of faces gives one polygon
+per cell below it rather than two.
+
+```rust
+pub mod section { /* ... */ }
+```
+
+### Types
+
+#### Enum `Axis`
+
+The normal of an axis-aligned cutting plane.
+
+```rust
+pub enum Axis {
+    X,
+    Y,
+    Z,
+}
+```
+
+##### Variants
+
+###### `X`
+
+Plane x = const; in-plane coordinates (y, z).
+
+###### `Y`
+
+Plane y = const; in-plane coordinates (x, z).
+
+###### `Z`
+
+Plane z = const; in-plane coordinates (x, y).
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn in_plane(self: Self, p: Vector3) -> [f64; 2] { /* ... */ }
+  ```
+  The two in-plane coordinates of `p`, in metres.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CellSection`
+
+One cell's section: the cell index and its polygon (counter-clockwise,
+in-plane coordinates in metres, see [`Axis`]).
+
+```rust
+pub struct CellSection {
+    pub cell: usize,
+    pub polygon: Vec<[f64; 2]>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cell` | `usize` | Cell index in the mesh (the solver's cell order). |
+| `polygon` | `Vec<[f64; 2]>` | Polygon vertices \[m\]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `plane_section`
+
+Cut `mesh` with the plane `axis = offset`; one [`CellSection`] per cell the
+plane passes through, in cell order.
+
+```rust
+pub fn plane_section(mesh: &crate::block_mesh::PolyMesh, axis: Axis, offset: uom::si::f64::Length) -> Vec<CellSection> { /* ... */ }
+```
+
+#### Function `boundary_edges`
+
+Every distinct edge of the boundary faces, as two points \[m\] and the
+index of the patch it was first met on: the wireframe of what the solver
+meshes.
+
+```rust
+pub fn boundary_edges(mesh: &crate::block_mesh::PolyMesh) -> Vec<([f64; 3], [f64; 3], usize)> { /* ... */ }
+```
+
+#### Function `polygon_area`
+
+Area of a polygon (shoelace), in the square of its coordinates' unit.
+
+```rust
+pub fn polygon_area(p: &[[f64; 2]]) -> f64 { /* ... */ }
 ```
 
 ## Module `driver`
@@ -1112,7 +4089,7 @@ inserting layers inside it. Always check
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshingPhases { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1142,7 +4119,7 @@ inserting layers inside it. Always check
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MeshingPhases) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1161,7 +4138,7 @@ inserting layers inside it. Always check
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1237,7 +4214,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> KeepRegion { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1266,7 +4243,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &KeepRegion) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1285,7 +4262,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1316,6 +4293,8 @@ pub struct MeshingControls {
     pub surface_patch_name: String,
     pub snap: crate::snappy_hex_mesh::snapping::SnapControls,
     pub layers: crate::snappy_hex_mesh::layers::LayerControls,
+    pub refinement: crate::snappy_hex_mesh::castellation::RefinementSelection,
+    pub min_refine_cells: usize,
 }
 ```
 
@@ -1332,10 +4311,17 @@ pub struct MeshingControls {
 | `surface_patch_name` | `String` | Name of the boundary patch created on the carved surface. |
 | `snap` | `crate::snappy_hex_mesh::snapping::SnapControls` | Snapping controls (ignored when [`phases`](Self::phases) is<br>[`MeshingPhases::Castellate`]). |
 | `layers` | `crate::snappy_hex_mesh::layers::LayerControls` | Layer controls (ignored unless [`phases`](Self::phases) is<br>[`MeshingPhases::CastellateSnapLayers`]). |
+| `refinement` | `crate::snappy_hex_mesh::castellation::RefinementSelection` | How cells are chosen for refinement (default: the historical distance<br>band; [`RefinementSelection::SurfaceIntersection`] is OpenFOAM's rule,<br>gh:#1465). The `snappyHexMesh` binary sets the latter. |
+| `min_refine_cells` | `usize` | `minRefinementCells`, read only by the surface-intersection rule. |
 
 ##### Implementations
 
 ###### Methods
+
+- ```rust
+  pub fn with_surface_intersection_refinement(self: Self) -> Self { /* ... */ }
+  ```
+  Select refinement cells as OpenFOAM's `surfaceOnlyRefine` does
 
 - ```rust
   pub fn external_flow(background_divisions: [usize; 3], refinement_level: usize) -> Self { /* ... */ }
@@ -1386,7 +4372,7 @@ pub struct MeshingControls {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshingControls { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1433,7 +4419,7 @@ pub struct MeshingControls {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1506,7 +4492,7 @@ external-flow case wants. Do not treat such a mesh as validated.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LayerOutcome { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1536,7 +4522,7 @@ external-flow case wants. Do not treat such a mesh as validated.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LayerOutcome) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1555,7 +4541,7 @@ external-flow case wants. Do not treat such a mesh as validated.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1618,7 +4604,7 @@ pub struct GeneratedMesh {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GeneratedMesh { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1659,7 +4645,7 @@ pub struct GeneratedMesh {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1829,7 +4815,7 @@ pub struct UnvPolyMesh {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> UnvPolyMesh { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1870,7 +4856,7 @@ pub struct UnvPolyMesh {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1910,6 +4896,932 @@ Read a `.unv` file from disk and convert it into a `polyMesh` (scale `1.0`).
 
 ```rust
 pub fn convert_file</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(path: impl AsRef<std::path::Path>) -> Result<UnvPolyMesh, crate::MeshError> { /* ... */ }
+```
+
+## Module `check_mesh`
+
+**The** `checkMesh` of this workspace (gh:#1480): OpenFOAM's mesh-quality
+checks, once.
+
+Before gh:#1480 these checks existed three times: `outram-park-fork-cfmesh`
+`checks.rs` (the most complete, and the reference followed here),
+[`crate::mesh_quality::assess_quality`] and
+[`PolyPatchMesh::quality`](crate::snappy_hex_mesh::PolyPatchMesh::quality).
+All three now call this module:
+
+- [`check_quality`] -> [`QualityReport`]: every metric (non-orthogonality,
+  internal and boundary skewness, aspect ratio, volumes, face pyramids,
+  cell determinant);
+- [`faces_failing_mesh_quality`]: the per-face `meshQualityControls` gate
+  ([`MeshQualityControls`], defaults = `meshQualityDict`).
+
+## What is shared and what is not
+
+The *checks* are shared. The *geometry* they read is an input,
+[`CheckGeometry`] (face area vectors and centres, cell centres and
+volumes), because the three callers' meshes deliberately keep different
+geometry: cfMesh uses vertex-average face centres, `outram-foam-mesh` uses
+OpenFOAM's area-weighted ones (and sums the pyramids in different orders).
+Unifying the geometry would move every pinned cfMesh mesh, so it is **not**
+done here; it is listed as remaining work on gh:#1480.
+
+Where the three copies differed, **each difference is an explicit option**
+([`CheckOptions`]: [`BoundarySkewness`], [`SvHat`], the skewness guard,
+[`DegenerateFaces`], and the aspect ratio reported in both forms), and every
+caller passes the values that reproduce what it computed before, so no
+number moved (maintainer decision, gh:#1480; bit-identity measured in
+`tests/check_mesh_consolidation.rs` and the cfMesh pins). Which value
+matches upstream dev `852527377c7e` is documented on each option; cfMesh
+([`CheckOptions::default`]) deviates in `svHat`, the report's guard,
+degenerate-face skipping and its aspect-ratio field; `outram-foam-mesh`
+([`CheckOptions::foam_mesh_legacy`]) deviates in the boundary-skewness
+definition (its mirrored form is identically zero, so the snapping gate
+never sees a boundary skew). Whether callers should move to upstream's
+definitions is a maintainer decision, filed as gh:#1486.
+
+Pure Rust, wasm- and Android-safe.
+
+```rust
+pub mod check_mesh { /* ... */ }
+```
+
+### Types
+
+#### Enum `BoundarySkewness`
+
+Which definition of boundary-face skewness [`check_quality`] reports in
+[`QualityReport::max_boundary_skewness`].
+
+```rust
+pub enum BoundarySkewness {
+    NormalProjection,
+    Mirrored,
+}
+```
+
+##### Variants
+
+###### `NormalProjection`
+
+OpenFOAM-dev `meshCheck::boundaryFaceSkewness`: `d` is the normal
+projection of `Cf - C_own`, floor `0.4 |d|`. Used by cfMesh's gate.
+
+###### `Mirrored`
+
+The owner centre mirrored across the face, `d = 2 (Cf - C_own)`,
+floor `0.2 |d|`: what `outram-foam-mesh` computed before gh:#1480.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `SvHat`
+
+How `svHat = sv / (|sv| + guard)` is evaluated in [`face_skewness`].
+
+```rust
+pub enum SvHat {
+    Divide,
+    ReciprocalMultiply,
+}
+```
+
+##### Variants
+
+###### `Divide`
+
+`sv / (|sv| + guard)`: **what upstream does** (`meshCheck::faceSkewness`)
+and what `outram-foam-mesh` did before gh:#1480.
+
+###### `ReciprocalMultiply`
+
+`sv * (1 / (|sv| + guard))`: what cfMesh did; differs from
+[`SvHat::Divide`] in the last bit.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `DegenerateFaces`
+
+What [`check_quality`] does with a degenerate internal face
+(`|d| <= 1e-30` or `|Sf| <= 1e-30`).
+
+```rust
+pub enum DegenerateFaces {
+    Skip,
+    Include,
+}
+```
+
+##### Variants
+
+###### `Skip`
+
+Skip it in non-orthogonality and skewness (cfMesh's behaviour).
+
+###### `Include`
+
+Evaluate it with the `+1e-300` denominators, so a zero `d` reads 90
+degrees (`outram-foam-mesh`'s behaviour; upstream's `faceOrthogonality`
+has no skip either).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CheckOptions`
+
+Options of [`check_quality`]. Every difference between the three
+pre-gh:#1480 copies is one explicit option here; each caller passes the
+values that reproduce what it computed before, so no number moved. Which
+value matches upstream dev `852527377c7e` is stated on each variant.
+
+```rust
+pub struct CheckOptions {
+    pub boundary_skewness: BoundarySkewness,
+    pub severe_non_ortho_deg: f64,
+    pub sv_hat: SvHat,
+    pub skew_guard: f64,
+    pub degenerate_faces: DegenerateFaces,
+    pub sliver_metrics: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `boundary_skewness` | `BoundarySkewness` | Boundary skewness definition; see [`BoundarySkewness`]. |
+| `severe_non_ortho_deg` | `f64` | Non-orthogonality `[degrees]` above which a face counts as severely<br>non-orthogonal (`checkMesh`'s `primitiveMesh::nonOrthThreshold`, 70). |
+| `sv_hat` | `SvHat` | `svHat` evaluation; see [`SvHat`]. |
+| `skew_guard` | `f64` | The guard added to the skewness denominators (upstream `rootVSmall`<br>`1e-150`; cfMesh's report and `outram-foam-mesh` used `1e-300`). |
+| `degenerate_faces` | `DegenerateFaces` | Degenerate-face handling; see [`DegenerateFaces`]. |
+| `sliver_metrics` | `bool` | Compute the face-pyramid and cell-determinant sliver metrics<br>(`false` leaves them `0`; the snapping loop does not read them). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn foam_mesh_legacy() -> Self { /* ... */ }
+  ```
+  The choices `outram-foam-mesh` made before gh:#1480
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    The cfMesh `check_quality` choices (the gh:#1480 reference).
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CheckGeometry`
+
+The geometry the checks read, supplied by the caller's mesh type (see the
+module docs for why it is an input). All arrays are in face / cell order.
+
+```rust
+pub struct CheckGeometry {
+    pub face_areas: Vec<outram_foam_basic_lib::primitives::Vector3>,
+    pub face_centres: Vec<outram_foam_basic_lib::primitives::Vector3>,
+    pub cell_centres: Vec<outram_foam_basic_lib::primitives::Vector3>,
+    pub cell_volumes: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `face_areas` | `Vec<outram_foam_basic_lib::primitives::Vector3>` | Face area vectors `Sf` (owner -> neighbour / outward). |
+| `face_centres` | `Vec<outram_foam_basic_lib::primitives::Vector3>` | Face centres `Cf`. |
+| `cell_centres` | `Vec<outram_foam_basic_lib::primitives::Vector3>` | Cell centres `C`. |
+| `cell_volumes` | `Vec<f64>` | Signed cell volumes `V`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `QualityReport`
+
+Summary of mesh-quality metrics (worst-case values over the mesh).
+
+```rust
+pub struct QualityReport {
+    pub max_non_orthogonality_deg: f64,
+    pub max_skewness: f64,
+    pub max_aspect_ratio: f64,
+    pub min_face_area: f64,
+    pub min_cell_volume: f64,
+    pub n_negative_volume_cells: usize,
+    pub min_face_pyramid_volume: f64,
+    pub n_negative_pyramid_faces: usize,
+    pub min_cell_determinant: f64,
+    pub mean_non_orthogonality_deg: f64,
+    pub n_severely_non_orthogonal_faces: usize,
+    pub max_boundary_skewness: f64,
+    pub max_aspect_ratio_cmpt: f64,
+    pub mean_aspect_ratio_cmpt: f64,
+    pub max_cell_volume: f64,
+    pub total_volume: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `max_non_orthogonality_deg` | `f64` | Maximum face **non-orthogonality**, in degrees: the angle between an<br>internal face's normal and the vector joining its two cell centres. `0°`<br>is perfectly orthogonal; OpenFOAM flags `> 70°`. |
+| `max_skewness` | `f64` | Maximum face **skewness** over the internal faces, OpenFOAM's<br>`primitiveMeshTools::faceSkewness`: the offset `s` of the face centre<br>from where the owner–neighbour centre line crosses the face plane,<br>divided by the face's own extent along `s` (the largest projection of<br>a face vertex, measured from the face centre, on `s`), floored at<br>`0.2 |d|`. OpenFOAM flags `> 4` (`maxInternalSkewness 4`).<br><br>~~as a fraction of that line's length~~ **CORRECTED 2026-11-04<br>(gh:#1202):** that was this port's normalisation, not upstream's; on<br>a stack of thin prism layers it read width/thickness (6.6–7.2 on<br>3-layer pipes) where upstream's reads the actual skew. Ported from<br>the workspace's existing port, `outram_foam_mesh::mesh_quality::<br>face_skewness` (OpenFOAM `primitiveMeshTools.C`). |
+| `max_aspect_ratio` | `f64` | Maximum cell **aspect ratio** (`Σ|Sf| / (6 · V^{2/3})`, which is `1` for<br>a cube). Large values mean sliver cells. This is cfMesh's definition<br>(sum of face-area magnitudes); OpenFOAM's `checkClosedCells` sums the<br>per-component magnitudes instead, see<br>[`QualityReport::max_aspect_ratio_cmpt`]. |
+| `min_face_area` | `f64` | Smallest face area in the mesh. |
+| `min_cell_volume` | `f64` | Smallest (signed) cell volume in the mesh. |
+| `n_negative_volume_cells` | `usize` | Number of cells with non-positive volume (a broken mesh has `> 0`). |
+| `min_face_pyramid_volume` | `f64` | Smallest **face pyramid volume** in the mesh (a volume, so `m³` if the<br>points are in metres), minimised over every *(cell, face)* incidence —<br>an internal face is checked twice, once from each side.<br><br>For face `f` of cell `c`, the pyramid has the face as its base and the<br>**cell centre** as its apex, so its signed volume is<br>`V_pyr = (1/3) · (c_f − C_c) · S_f`, with `c_f` the face centroid and<br>`S_f` the face area vector taken **outward from `c`**.<br><br>Valid range: strictly `> 0` for every face of a well-formed cell — a<br>cube of side `h` gives `h³/6` on all six faces, and the pyramid volumes<br>of a cell sum exactly to its volume. A value `<= 0` means the cell<br>centre lies **on or outside the plane of one of its own faces**: the<br>cell is locally inverted or tangled, the face's flux stencil points the<br>wrong way, and OpenFOAM's `checkMesh` fails such a mesh outright.<br><br>This is not redundant with [`QualityReport::min_cell_volume`]: a<br>strongly concave cell can have a healthily positive *total* volume and<br>still have its centre outside one of its faces (verified in cfMesh's<br>`concave_cell_has_negative_pyramid_but_positive_volume` test).<br>Conversely, a merely **flat** (sliver) cell keeps *positive* pyramid<br>volumes — they just become small — so flatness is<br>[`QualityReport::min_cell_determinant`]'s job, not this metric's.<br><br>`0.0` for a mesh with no faces. |
+| `n_negative_pyramid_faces` | `usize` | Number of *(cell, face)* incidences whose pyramid volume is `<= 0`<br>(see [`QualityReport::min_face_pyramid_volume`]). `0` for a valid mesh;<br>any non-zero count is a hard failure in OpenFOAM's `checkMesh`. An<br>internal face can contribute up to `2` (once per adjacent cell).<br><br>Deliberately **not** wired into [`QualityReport::is_solvable`], whose<br>thresholds are left unchanged; test it explicitly if you want<br>`checkMesh`'s stricter gate. |
+| `min_cell_determinant` | `f64` | Smallest **cell determinant** over the mesh (dimensionless) — the<br>sliver detector.<br><br># Definition implemented here<br><br>For cell `c` with faces `f`, area vectors `S_f` and unit normals<br>`n_f = S_f / |S_f|`, form the area-weighted normal-orientation tensor<br><br>```text<br>        Σ_f |S_f| (n_f ⊗ n_f)<br>  D_c = ─────────────────────<br>             Σ_f |S_f|<br>```<br><br>and report `27 · det(D_c)`, minimised over the cells. (Sign-free: `n_f`<br>enters only through an outer product, so the face winding is<br>irrelevant.)<br><br># Valid range and interpretation<br><br>`D_c` is symmetric positive semi-definite with `tr(D_c) = 1`, so by<br>AM–GM `det(D_c) <= (1/3)³` and the reported value lies in `[0, 1]`:<br><br>- `1.0` — the face normals are **isotropic** (`D_c = I/3`). An<br>  axis-aligned cube and a regular tetrahedron both give exactly `1`;<br>  both are verified in cfMesh's tests.<br>- `→ 0` — the normals collapse towards a plane (flat sliver) or a line<br>  (needle), i.e. the cell is degenerate in at least one direction. The<br>  tensor loses rank *long before* the cell volume changes sign, which is<br>  what makes this the metric that sees slivers when non-orthogonality,<br>  skewness and `min_cell_volume` all read healthy.<br><br>A cell whose faces all have zero area contributes `0.0`; a mesh with no<br>cells reports `0.0`.<br><br># Parity caveat — read before quoting this against OpenFOAM<br><br>This is the same *form* and normalisation as the "cell determinant"<br>(`wellposedness`) figure OpenFOAM's `checkMesh` prints — a normalised<br>determinant of the summed face-normal outer products, scaled so a cube<br>reads `1` — but it was implemented from that description and from the<br>algebra above, **not** transcribed from OpenFOAM source, and it has<br>**not** been compared numerically against a `checkMesh` run on the same<br>mesh. Treat it as a documented equivalent with the properties proved and<br>tested here, **not** as verified `checkMesh` parity. No threshold from<br>`checkMesh` is reproduced here, and [`QualityReport::is_solvable`] does<br>not gate on it. |
+| `mean_non_orthogonality_deg` | `f64` | Mean non-orthogonality `[degrees]` over the internal faces (degenerate<br>faces count as 0 in the sum; the divisor is the internal-face count). |
+| `n_severely_non_orthogonal_faces` | `usize` | Number of internal faces above [`CheckOptions::severe_non_ortho_deg`]. |
+| `max_boundary_skewness` | `f64` | Maximum **boundary-face** skewness, by the<br>[`CheckOptions::boundary_skewness`] definition. |
+| `max_aspect_ratio_cmpt` | `f64` | Maximum cell aspect ratio by OpenFOAM's `checkClosedCells` definition<br>([`cell_aspect_ratio_cmpt`]). |
+| `mean_aspect_ratio_cmpt` | `f64` | Mean of [`cell_aspect_ratio_cmpt`] over all cells. |
+| `max_cell_volume` | `f64` | Largest signed cell volume. |
+| `total_volume` | `f64` | Sum of the signed cell volumes. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn is_solvable(self: &Self) -> bool { /* ... */ }
+  ```
+  A conservative "good enough to solve" gate: no negative-volume cells,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `MeshQualityControls`
+
+snappyHexMesh's mesh-quality controls (`meshQualityControls`, the file
+`etc/caseDicts/mesh/generation/meshQualityDict` of OpenFOAM-dev
+`852527377c7e`), as checked by [`faces_failing_mesh_quality`]. The
+defaults are that file's values.
+
+```rust
+pub struct MeshQualityControls {
+    pub max_non_ortho_deg: f64,
+    pub max_boundary_skewness: f64,
+    pub max_internal_skewness: f64,
+    pub min_tet_quality: Option<f64>,
+    pub min_twist: f64,
+    pub min_determinant: f64,
+    pub min_face_weight: f64,
+    pub min_vol_ratio: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `max_non_ortho_deg` | `f64` | `maxNonOrtho` [degrees]; 180 disables. |
+| `max_boundary_skewness` | `f64` | `maxBoundarySkewness`; negative disables. |
+| `max_internal_skewness` | `f64` | `maxInternalSkewness`; negative disables. |
+| `min_tet_quality` | `Option<f64>` | `minTetQuality`: here only its sign is checked (a decomposition<br>tetrahedron of non-positive volume fails); `None` disables. |
+| `min_twist` | `f64` | `minTwist`; below −1 disables. |
+| `min_determinant` | `f64` | `minDeterminant`; negative disables. |
+| `min_face_weight` | `f64` | `minFaceWeight`; outside [0, 1) disables. |
+| `min_vol_ratio` | `f64` | `minVolRatio`; outside [0, 1) disables. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `face_non_orthogonality_deg`
+
+Non-orthogonality `[degrees]` of an internal face with centre-to-centre
+vector `d` and area vector `sf`: `None` for a degenerate face
+(`|d| <= 1e-30` or `|Sf| <= 1e-30`), which the cfMesh reference skips.
+
+```rust
+pub fn face_non_orthogonality_deg(d: outram_foam_basic_lib::primitives::Vector3, sf: outram_foam_basic_lib::primitives::Vector3) -> Option<f64> { /* ... */ }
+```
+
+#### Function `face_skewness`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
+
+OpenFOAM `faceSkewness` / `boundaryFaceSkewness` core: the offset `sv` of
+the face centre from where the line of `d` pierces the face plane, over the
+face's own extent along `sv` (largest projection of a ring vertex from
+`cf`), floored at `floor * |d|`. `own_cc` is the owner cell centre, `ring`
+the face's point indices. `guard` is the small number added to the
+denominators (`1e-150` upstream's `rootVSmall`, `1e-300` in cfMesh's
+report). `sv_hat_kind` selects divide (upstream) or reciprocal-multiply
+(cfMesh), see [`SvHat`].
+
+```rust
+pub fn face_skewness(cf: outram_foam_basic_lib::primitives::Vector3, sf: outram_foam_basic_lib::primitives::Vector3, own_cc: outram_foam_basic_lib::primitives::Vector3, d: outram_foam_basic_lib::primitives::Vector3, floor: f64, guard: f64, sv_hat_kind: SvHat, ring: &[usize], points: &[outram_foam_basic_lib::primitives::Vector3]) -> f64 { /* ... */ }
+```
+
+#### Function `cell_aspect_ratio_cmpt`
+
+Cell aspect ratio, OpenFOAM `checkClosedCells`:
+`(1/6) (Σ|Sf_x| + Σ|Sf_y| + Σ|Sf_z|) / V^(2/3)`; `0` for `V <= 0`.
+
+```rust
+pub fn cell_aspect_ratio_cmpt(sum_cmpt_mag: outram_foam_basic_lib::primitives::Vector3, volume: f64) -> f64 { /* ... */ }
+```
+
+#### Function `check_quality`
+
+Compute the [`QualityReport`] of a mesh given as points, face rings,
+owner / neighbour (`None` for a boundary face) and its [`CheckGeometry`].
+
+This is the cfMesh `check_quality` (gh:#1480 reference) extended with the
+metrics `outram-foam-mesh` reported (boundary skewness, OpenFOAM aspect
+ratio, mean / severe non-orthogonality, volume extrema and total).
+
+```rust
+pub fn check_quality<F: AsRef<[usize]>>(points: &[outram_foam_basic_lib::primitives::Vector3], faces: &[F], owner: &[usize], neighbour: &[Option<usize>], geom: &CheckGeometry, opts: &CheckOptions) -> QualityReport { /* ... */ }
+```
+
+#### Function `faces_failing_mesh_quality`
+
+The faces that fail `controls` (gh:#1215): the port of OpenFOAM's
+`meshCheck::checkMesh(report, mesh, dict, checkFaces, baffles,
+wrongFaces)` (OpenFOAM-dev `852527377c7e`, `src/meshCheck/checkMesh.C`,
+with the per-check definitions of `polyMeshCheck/polyMeshCheckQuality.C`
+and `primitiveMeshCheck/primitiveMeshCheck.C`), which snappyHexMesh's
+layer driver runs on every layered mesh (`snappyLayerDriver::
+checkAndUnmark`) and its snap driver on every motion step
+(`motionSmoother`).
+
+Checks ported: `checkFaceOrthogonality` (internal faces),
+`checkFaceSkewness` (`faceSkewness` on internal faces,
+`boundaryFaceSkewness` with its 0.4 |d| floor on boundary faces),
+`checkFaceTets` (sign only), `checkFaceTwist`, `checkCellDeterminant`
+(`cellDeterminant`: det of Σ (S/⟨|S|⟩)² over the cell's internal faces; a
+failing cell marks all its faces), `checkFaceWeights`, `checkVolRatio`.
+Not ported: `maxConcave` (`checkFaceAngles`), `minVol` (disabled, −1e30,
+in the default dictionary) and `minFaceFlatness` (absent from it).
+Centres are the caller's [`CheckGeometry`] (cfMesh passes vertex-average
+face centres, not OpenFOAM's area-weighted ones).
+
+```rust
+pub fn faces_failing_mesh_quality<F: AsRef<[usize]>>(points: &[outram_foam_basic_lib::primitives::Vector3], faces: &[F], owner: &[usize], neighbour: &[Option<usize>], geom: &CheckGeometry, controls: &MeshQualityControls) -> Vec<bool> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `ROOT_V_SMALL`
+
+OpenFOAM's `rootVSmall` (`1e-150`), the guard in `faceSkewness` and
+friends.
+
+```rust
+pub const ROOT_V_SMALL: f64 = 1e-150;
 ```
 
 ## Module `mesh_quality`
@@ -2054,7 +5966,7 @@ the two cell centres). Do not solve on this mesh.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> QualityVerdict { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2089,7 +6001,7 @@ the two cell centres). Do not solve on this mesh.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &QualityVerdict) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2113,7 +6025,7 @@ the two cell centres). Do not solve on this mesh.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2207,7 +6119,7 @@ pub struct MeshQualityReport {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshQualityReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2236,7 +6148,7 @@ pub struct MeshQualityReport {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MeshQualityReport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2255,7 +6167,7 @@ pub struct MeshQualityReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2372,32 +6284,77 @@ the surface through the two boundary-face centres and the edge midpoint; and
 each primal **boundary point** contributes a dual **boundary** face — the
 2-D cell-centre dual of the surface mesh around that point.
 
-## Feature angle
+## Feature angle, feature edges and patch seams
 
-`feature_angle_deg` is the OpenFOAM-style feature angle. A boundary point is
+~~`feature_angle_deg` is the OpenFOAM-style feature angle. A boundary point is
 kept as an explicit dual vertex (preserving a sharp edge or corner) when the
 surface bends across it by **more than** the feature angle; otherwise the
-surface is locally flat there and the point is *merged* away — its ring of
-boundary quads collapses to a single coplanar polygon. On a flat patch this
-removes the redundant vertex without changing the enclosed volume; at a sharp
-feature (e.g. a 90° block edge) merging it away would cut the corner and lose
-volume, which is exactly why the feature is preserved. See the crate tests
-for the numerical demonstration of both regimes.
+surface is locally flat there and the point is *merged* away.~~
+**CHANGED 2026-11-04 (gh:#1240), to upstream's rule.** Features are found on
+**edges** first, as OpenFOAM-dev's `polyDualMesh` utility does
+(`simpleMarkFeatures` in
+`applications/utilities/mesh/manipulation/polyDualMesh/polyDualMesh.C`,
+commit `852527377c7e`; the same rule as `polyDualMesh::calcFeatures` in
+`src/conversion/polyDualMesh/polyDualMesh.C`):
+
+- a boundary edge is a **feature edge** when its two boundary faces lie in
+  **different patches** (step 1, "mark all edges between patches", whatever
+  the angle), or when their normals differ by **more than**
+  `feature_angle_deg` (step 2);
+- every point on a feature edge is a **feature point** (upstream's
+  `singleCellFeaturePoints`) and is kept as an explicit dual vertex.
+
+A non-feature boundary point is merged away: its ring of boundary quads
+collapses to one polygon `[fc, em, fc, em, …]`. On a flat patch this
+removes the redundant vertex without changing the enclosed volume; at a
+sharp feature (e.g. a 90° block edge) merging it away would cut the corner
+and lose volume, which is exactly why the feature is preserved.
+
+## Boundary faces: one per point per feature-bounded sector (gh:#1240)
+
+~~A feature point emits one quad `[p, em, fc, em]` per incident boundary
+face.~~ **CHANGED 2026-11-04 (gh:#1240), to upstream's construction**
+(`meshDualiser::createFacesAroundBoundaryPoint`, same file set and commit):
+the boundary faces around a feature point are walked in order and a dual
+face is **closed at every feature edge**, so the point gives one face per
+sector between consecutive feature edges, `[p, em(feature), fc, em, fc, …,
+em(feature)]`. A point on a straight feature line gets two faces (one per
+side), a box corner three; a patch seam is a feature edge, so no face spans
+two patches. With fewer than two feature edges at the point the ring is
+kept whole (`polyDualMesh::splitFace`: "not enough feature edges, no
+split"). The quad-per-face construction gave a tetrahedral primal's
+feature points 4–8 boundary faces per dual cell, each badly
+non-orthogonal to its owner (gh:#1215, gh:#1240).
+
+**Deviation from upstream, kept on purpose:** upstream puts a dual vertex
+at the midpoint of *feature* edges only; this port puts one on **every**
+boundary edge, so the boundary-edge dual faces close on the surface and a
+flat patch is reproduced exactly (volume conserved to round-off on a
+block). Upstream's surface is the polygon through the boundary-face
+centres, which cuts every curved patch slightly.
 
 ## Scope / honesty
 
 - The interior construction (cell-centre rings around interior edges) is
-  general — it works for any manifold polyhedral primal mesh.
-- The boundary construction is implemented and verified for **manifold**
-  surfaces (each boundary edge shared by exactly two boundary faces). It has
-  been validated on structured hexahedral blocks; non-manifold surfaces and
-  degenerate fans are rejected with [`MeshError::Construction`] rather than
-  silently mis-meshed.
-- Feature handling implements point retention/merge. It does **not** yet
-  split coplanar boundary faces belonging to *different* patches that meet
-  below the feature angle (not needed for the block case, where patch seams
-  coincide with feature edges); this is the one documented boundary
-  limitation.
+  general — it works for any manifold polyhedral primal mesh,
+  ~~validated on structured hexahedral blocks only~~ and since gh:#1240
+  (2026-11-04) run on tetrahedral meshes too, through
+  `outram-park-fork-cfmesh`'s `DualKind::CellCentre` (its `cell-centre-dual`
+  feature), where it is compared differentially against the median dual
+  (`crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`).
+- The boundary construction is implemented for **manifold** surfaces (each
+  boundary edge shared by exactly two boundary faces); non-manifold
+  surfaces and degenerate fans are rejected with [`MeshError::Construction`]
+  rather than silently mis-meshed.
+- ~~It does **not** yet split coplanar boundary faces belonging to
+  *different* patches that meet below the feature angle~~ **DONE
+  2026-11-04 (gh:#1240):** patch seams are feature edges, as upstream.
+- ~~Not ported: upstream's `concaveMultiCells`, `splitAllFaces` and
+  face-zone preservation.~~ **CORRECTED 2026-11-11 (gh:#1471, gh:#1472):**
+  they are ported in the explicit upstream mode,
+  [`poly_dual_mesh_upstream`](crate::poly_dual_mesh_upstream) (a
+  line-for-line `polyDualMesh` + `meshDualiser`, beside this surface-
+  preserving default). This default still has none of the three.
 
 ```rust
 pub mod poly_dual_mesh { /* ... */ }
@@ -2492,7 +6449,7 @@ pub struct PolyMesh {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PolyMesh { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2533,7 +6490,7 @@ pub struct PolyMesh {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2631,7 +6588,7 @@ pub struct DualMesh {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DualMesh { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2672,7 +6629,120 @@ pub struct DualMesh {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `FeaturePoints`
+
+Which boundary points keep their own dual vertex (gh:#1240). OpenFOAM's
+two `polyDualMesh`s differ here; both are kept callable. The same choice
+is `outram-park-fork-cfmesh`'s `dual::FeaturePointRule`.
+
+```rust
+pub enum FeaturePoints {
+    OnFeatureEdge,
+    Corners,
+}
+```
+
+##### Variants
+
+###### `OnFeatureEdge`
+
+Every point on a feature edge: the `polyDualMesh` **utility**
+(`simpleMarkFeatures`' `singleCellFeaturePoints`, `meshDualiser`).
+
+###### `Corners`
+
+Only points with more than two feature edges: the `polyDualMesh`
+**class** (`polyDualMesh::calcFeatures`); a point on a feature line is
+dropped and its ring split along the line (`splitFace`), the sides
+meeting on the chord between the two feature-edge midpoints.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2689,10 +6759,14 @@ pub struct DualMesh {
 
 Construct the polyhedral dual of `primal`.
 
-`feature_angle_deg` controls boundary-point retention (see the module docs):
-a boundary point is kept as an explicit dual vertex when the surface bends
-across it by more than this angle; otherwise it is merged into a coplanar
-boundary polygon.
+`feature_angle_deg` is the feature angle (see the module docs).
+~~A boundary point is kept when the surface bends across it by more than
+this angle~~ **CORRECTED 2026-11-11 (gh:#1471; the rule changed in
+gh:#1240, 2026-11-04):** a boundary *edge* is a feature edge when its two
+boundary faces lie in different patches (whatever the angle) or their
+normals differ by more than this angle; every point on a feature edge is
+kept as an explicit dual vertex, and any other boundary point is merged
+into a coplanar boundary polygon.
 
 # Errors
 Returns [`MeshError::Construction`] for a non-manifold boundary or an
@@ -2700,6 +6774,727 @@ inconsistent edge fan.
 
 ```rust
 pub fn poly_dual_mesh(primal: &PolyMesh, feature_angle_deg: f64) -> Result<DualMesh, crate::MeshError> { /* ... */ }
+```
+
+#### Function `poly_dual_mesh_with`
+
+[`poly_dual_mesh`] with the feature-point rule named (gh:#1240).
+
+# Errors
+As [`poly_dual_mesh`].
+
+```rust
+pub fn poly_dual_mesh_with(primal: &PolyMesh, feature_angle_deg: f64, rule: FeaturePoints) -> Result<DualMesh, crate::MeshError> { /* ... */ }
+```
+
+## Module `poly_dual_mesh_upstream`
+
+`polyDualMesh` in **upstream mode** (gh:#1472, gh:#1471, gh:#1473): a
+line-for-line port of OpenFOAM's `polyDualMesh` utility driver
+(`simpleMarkFeatures`) and its `meshDualiser` engine, with `polyTopoChange`'s
+point / cell / face numbering, so the output can be compared with an
+upstream run file by file.
+
+This is **beside** the surface-preserving default of
+[`poly_dual_mesh`](crate::poly_dual_mesh); nothing here changes that
+default. Choose it explicitly with [`poly_dual_mesh_upstream`].
+
+## What differs from the default (`poly_dual_mesh_with`)
+
+| | default (surface-preserving) | upstream mode (this file) |
+|---|---|---|
+| dual points | cell centres, every boundary-face centre, **every** boundary-edge midpoint, feature points | cell centres, boundary-face centres, **feature**-edge midpoints (and midpoints of boundary edges at feature points), feature points; more only where dual cells differ |
+| dual cells | one per primal point, numbered as the primal point | feature points first (hash-set order), multi-cell points, then the other points; numbered as `polyTopoChange` adds them |
+| options | `featureAngle` | `featureAngle`, `splitAllFaces`, `concaveMultiCells`, face-zone preservation |
+| face / cell centres | the crate's own fan formulas | [`CentreFormula::Dev`] (OpenFOAM-dev `face::areaAndCentre`, area weights projected on the normal) or [`CentreFormula::Esi2506`] (`mag(n)` weights) |
+| face order | internal faces then patches, in construction order | `polyTopoChange::getFaceOrder`: upper-triangular by dual cell, then patches |
+
+## Hash-set order
+
+`simpleMarkFeatures` returns its feature sets with `labelHashSet::toc()`,
+so the numbering of dual points and cells follows the hash table's bucket
+order. [`FoamLabelHashSet`] reproduces OpenFOAM-dev's table (identity hash,
+power-of-two table, insertion at the bucket head, doubling above load 0.8,
+re-insertion in iteration order). It is checked against the OpenFOAM.com
+v2506 binary in the V&V record, not assumed.
+
+## Honest limits
+
+- Face zones are supplied by the caller ([`FaceZoneInput`]); the crate's I/O
+  [`PolyMesh`](crate::poly_dual_mesh::PolyMesh) has no zones.
+- Parallel (processor) patches and cyclic couplings are not handled.
+- OpenFOAM.com's `polyDualMesh` also carries fields and writes the face
+  zones of the dual; neither is done here.
+
+```rust
+pub mod poly_dual_mesh_upstream { /* ... */ }
+```
+
+### Types
+
+#### Enum `CentreFormula`
+
+Which OpenFOAM line's face-centre routine to use.
+
+The two lines differ for faces with more than three vertices (gh:#1473):
+OpenFOAM-dev weights the point-average triangles by their area projected
+on the face normal; OpenFOAM.com v2506 weights by `mag(n)`. For a planar
+face the two agree only to round-off.
+
+```rust
+pub enum CentreFormula {
+    Dev,
+    Esi2506,
+}
+```
+
+##### Variants
+
+###### `Dev`
+
+OpenFOAM-dev `face::areaAndCentre` (faceTemplates.C:79-150), the line
+the port cites (`852527377c7e`).
+
+###### `Esi2506`
+
+OpenFOAM.com v2506 `primitiveMeshTools::makeFaceCentresAndAreas`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `FoamLabelHashSet`
+
+OpenFOAM-dev `labelHashSet`, reproduced for its **iteration order** only.
+
+`HashTable<nil, label, Hash<label>>`: `Hash<label>` is the identity, the
+table size is a power of two (`canonicalSize`), a new key goes to the head
+of its bucket, the table doubles when `nElmts/tableSize > 0.8`, a resize
+re-inserts keys in the old iteration order, and `toc()` walks the buckets
+0.. and each chain head to tail. `HashSet(size = 128)` by default.
+
+```rust
+pub struct FoamLabelHashSet {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn with_size(size: usize) -> Self { /* ... */ }
+  ```
+  A set constructed with `size` (`HashSet(const label size = 128)`).
+
+- ```rust
+  pub fn with_reserve_esi2506(n: usize) -> Self { /* ... */ }
+  ```
+  OpenFOAM.com v2506's `reserve(n)` on an empty set: capacity
+
+- ```rust
+  pub fn new() -> Self { /* ... */ }
+  ```
+  The default-constructed set (`size = 128`).
+
+- ```rust
+  pub fn insert(self: &mut Self, key: usize) -> bool { /* ... */ }
+  ```
+  Insert `key`; `false` if present (`HashTable::set`, protect = true).
+
+- ```rust
+  pub fn erase(self: &mut Self, key: usize) -> bool { /* ... */ }
+  ```
+  Remove `key` (the chain order of the others is kept).
+
+- ```rust
+  pub fn found(self: &Self, key: usize) -> bool { /* ... */ }
+  ```
+  Whether `key` is in the set.
+
+- ```rust
+  pub fn toc(self: &Self) -> Vec<usize> { /* ... */ }
+  ```
+  `toc()`: the keys in bucket order.
+
+- ```rust
+  pub fn len(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of keys.
+
+- ```rust
+  pub fn is_empty(self: &Self) -> bool { /* ... */ }
+  ```
+  True if empty.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `FaceZoneInput`
+
+A face zone of the primal mesh, as `simpleMarkFeatures` reads it: only the
+member faces matter (flip maps do not affect the dual's connectivity in
+OpenFOAM-dev, which clears the zones before `meshDualiser`).
+
+```rust
+pub struct FaceZoneInput {
+    pub name: String,
+    pub faces: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Zone name. |
+| `faces` | `Vec<usize>` | Member face indices into the primal face list. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `UpstreamOptions`
+
+Options of upstream-mode `polyDualMesh` (the utility's command line).
+
+```rust
+pub struct UpstreamOptions {
+    pub feature_angle_deg: f64,
+    pub split_all_faces: bool,
+    pub concave_multi_cells: bool,
+    pub preserve_face_zones: bool,
+    pub face_zones: Vec<FaceZoneInput>,
+    pub centres: CentreFormula,
+    pub esi2506_hash_reserve: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `feature_angle_deg` | `f64` | `featureAngle` in degrees `[0, 180]`. |
+| `split_all_faces` | `bool` | `-splitAllFaces`: one dual face per primal cell an edge passes through. |
+| `concave_multi_cells` | `bool` | `-concaveMultiCells`: points on concave feature edges become several<br>cells. |
+| `preserve_face_zones` | `bool` | Preserve face zones (default); `-doNotPreserveFaceZones` clears it. |
+| `face_zones` | `Vec<FaceZoneInput>` | The primal mesh's face zones. |
+| `centres` | `CentreFormula` | Face-centre formula; see [`CentreFormula`]. |
+| `esi2506_hash_reserve` | `bool` | OpenFOAM.com v2506 sizes the feature-face hash set with<br>`reserve(n)` (capacity `2n`), OpenFOAM-dev with `labelHashSet(n)`<br>(capacity `n`); the capacity fixes the `toc()` order of that set and<br>so the numbering of the face-centre dual points. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(feature_angle_deg: f64) -> Self { /* ... */ }
+  ```
+  Defaults of the utility: no `-splitAllFaces`, no `-concaveMultiCells`,
+
+- ```rust
+  pub fn with_esi2506_flavour(self: Self) -> Self { /* ... */ }
+  ```
+  Everything that differs between the two OpenFOAM lines, set to
+
+- ```rust
+  pub fn with_split_all_faces(self: Self) -> Self { /* ... */ }
+  ```
+  Enable `-splitAllFaces`.
+
+- ```rust
+  pub fn with_concave_multi_cells(self: Self) -> Self { /* ... */ }
+  ```
+  Enable `-concaveMultiCells`.
+
+- ```rust
+  pub fn without_face_zone_preservation(self: Self) -> Self { /* ... */ }
+  ```
+  `-doNotPreserveFaceZones`.
+
+- ```rust
+  pub fn with_face_zones(self: Self, zones: Vec<FaceZoneInput>) -> Self { /* ... */ }
+  ```
+  Supply the primal mesh's face zones.
+
+- ```rust
+  pub fn with_centre_formula(self: Self, f: CentreFormula) -> Self { /* ... */ }
+  ```
+  Choose the face-centre formula.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `FeatureSets`
+
+The feature sets `simpleMarkFeatures` hands to `meshDualiser`, each in
+`labelHashSet::toc()` order (the order that numbers the dual points and
+cells). The utility dumps the same sets to `featureFaces.obj`,
+`featureEdges.obj`, `singleCellFeaturePoints.obj` and
+`multiCellFeaturePoints.obj`, so this is what the differential compares
+first (gh:#1472).
+
+```rust
+pub struct FeatureSets {
+    pub faces: Vec<usize>,
+    pub edges: Vec<usize>,
+    pub single_cell_points: Vec<usize>,
+    pub multi_cell_points: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `faces` | `Vec<usize>` | Face labels. |
+| `edges` | `Vec<usize>` | Edge labels, in [`primal_edges`] numbering. |
+| `single_cell_points` | `Vec<usize>` | Points that become one dual cell. |
+| `multi_cell_points` | `Vec<usize>` | Points that become several dual cells. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `face_area_and_centre`
+
+Area vector and centre of one face, exactly as the chosen OpenFOAM line
+computes them (operation order included).
+
+```rust
+pub fn face_area_and_centre(formula: CentreFormula, ps: &[outram_foam_basic_lib::primitives::Vector3]) -> (outram_foam_basic_lib::primitives::Vector3, outram_foam_basic_lib::primitives::Vector3) { /* ... */ }
+```
+
+#### Function `cell_centres_and_volumes`
+
+Cell centres `primitiveMesh::makeCellCentresAndVols` (identical in
+OpenFOAM-dev and v2506): pyramids about the mean face centre,
+`pc = 3/4 fc + 1/4 cEst`. Returns `(centres, volumes)`.
+
+```rust
+pub fn cell_centres_and_volumes(n_cells: usize, owner: &[usize], neighbour: &[usize], f_ctrs: &[outram_foam_basic_lib::primitives::Vector3], f_areas: &[outram_foam_basic_lib::primitives::Vector3]) -> (Vec<outram_foam_basic_lib::primitives::Vector3>, Vec<f64>) { /* ... */ }
+```
+
+#### Function `poly_dual_mesh_upstream`
+
+The polyhedral dual of `primal` by OpenFOAM's `polyDualMesh` utility
+(`simpleMarkFeatures` + `meshDualiser` + `polyTopoChange` ordering).
+
+Faces come out in `polyTopoChange::changeMesh` order (internal faces
+upper-triangular in the dual cells, then patch by patch), and each dual
+patch is the primal patch of the same index, so the result writes
+directly.
+
+# Errors
+[`MeshError::Construction`] when the primal mesh breaks an assumption the
+utility also aborts on (non-manifold fans, a feature-less change of dual
+cell across a face, ...).
+
+```rust
+pub fn poly_dual_mesh_upstream(primal: &crate::poly_dual_mesh::PolyMesh, opts: &UpstreamOptions) -> Result<crate::poly_dual_mesh::DualMesh, crate::MeshError> { /* ... */ }
+```
+
+#### Function `upstream_feature_sets`
+
+`simpleMarkFeatures` on `primal` (no dual is built).
+
+# Errors
+[`MeshError::Construction`] for a face-zone label out of range.
+
+```rust
+pub fn upstream_feature_sets(primal: &crate::poly_dual_mesh::PolyMesh, opts: &UpstreamOptions) -> Result<FeatureSets, crate::MeshError> { /* ... */ }
+```
+
+#### Function `primal_edges`
+
+The mesh edges in OpenFOAM's `primitiveMesh::calcEdges` numbering for an
+unordered polyMesh: `(min, max)` point pairs in lexicographic order.
+
+```rust
+pub fn primal_edges(primal: &crate::poly_dual_mesh::PolyMesh) -> Vec<(usize, usize)> { /* ... */ }
 ```
 
 ## Module `snappy_hex_mesh`
@@ -2871,7 +7666,7 @@ pub struct Bounds {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Bounds { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2900,7 +7695,7 @@ pub struct Bounds {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Bounds) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2919,7 +7714,7 @@ pub struct Bounds {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2995,7 +7790,7 @@ pub struct BackgroundMesh {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BackgroundMesh { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3036,7 +7831,7 @@ pub struct BackgroundMesh {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3104,6 +7899,10 @@ pub struct CastellationControls {
     pub keep_point: outram_foam_basic_lib::primitives::Vector3,
     pub surface_patch_name: String,
     pub cyclic_axes: [bool; 3],
+    pub selection: RefinementSelection,
+    pub min_refine_cells: usize,
+    pub removal: CellRemoval,
+    pub surface_regions: Option<SurfaceRegionPatches>,
 }
 ```
 
@@ -3117,6 +7916,10 @@ pub struct CastellationControls {
 | `keep_point` | `outram_foam_basic_lib::primitives::Vector3` | `locationInMesh` — a point in the region to KEEP. Cells on the same side<br>of the closed surface as this point survive region removal. |
 | `surface_patch_name` | `String` | Name of the boundary patch created on the carved surface. |
 | `cyclic_axes` | `[bool; 3]` | Which background-box axes are **periodic**: `cyclic_axes[a]` makes the<br>two outer patches normal to axis `a` (`0 = x → xMin/xMax`,<br>`1 = y → yMin/yMax`, `2 = z → zMin/zMax`) a<br>[`PatchKind::Cyclic`] pair instead of two independent<br>[`PatchKind::Patch`]es, with their `cyclic_partner` links resolved.<br><br>Defaults to all `false` (the historical behaviour — six plain patches).<br><br>Marking an axis cyclic only makes sense when the *geometry* is periodic<br>along it; the halves must end up conformal, which<br>[`check_conformity`](crate::snappy_hex_mesh::check_conformity) verifies. |
+| `selection` | `RefinementSelection` | How cells are selected for refinement; see [`RefinementSelection`].<br>Defaults to [`RefinementSelection::DistanceBand`] so existing callers'<br>meshes (and their pins) are unchanged. |
+| `min_refine_cells` | `usize` | `minRefinementCells` (upstream default in the tutorials: 0). Only read<br>by [`RefinementSelection::SurfaceIntersection`]. |
+| `removal` | `CellRemoval` | How cells are removed after refinement; see [`CellRemoval`]. Defaults to<br>[`CellRemoval::CentreParity`] so existing callers' meshes are unchanged. |
+| `surface_regions` | `Option<SurfaceRegionPatches>` | Named patches per surface region (ESI `patchInfo` / one `flange_patch1`<br>per STL solid); `None` puts every carved face in the single patch<br>[`Self::surface_patch_name`]. Needs [`CellRemoval::EsiSplitMesh`]. |
 
 ##### Implementations
 
@@ -3126,6 +7929,26 @@ pub struct CastellationControls {
   pub fn new(background: BackgroundMesh, surface_level: usize, keep_point: Vector3) -> Self { /* ... */ }
   ```
   Convenience constructor with the common defaults (auto band, surface
+
+- ```rust
+  pub fn with_surface_region_patches(self: Self, patch_names: Vec<String>, region_of_tri: Vec<usize>) -> Self { /* ... */ }
+  ```
+  One patch per surface region, named `patch_names[region]` (ESI's
+
+- ```rust
+  pub fn with_baffle_region_removal(self: Self) -> Self { /* ... */ }
+  ```
+  Remove cells the way OpenFOAM's `baffleAndSplitMesh` does
+
+- ```rust
+  pub fn with_esi_split_mesh_removal(self: Self) -> Self { /* ... */ }
+  ```
+  Remove cells the way ESI v2506's `doRefine` does after
+
+- ```rust
+  pub fn with_surface_intersection_refinement(self: Self) -> Self { /* ... */ }
+  ```
+  Select cells the way OpenFOAM's `surfaceOnlyRefine` does
 
 - ```rust
   pub fn with_cyclic_axis(self: Self, axis: usize) -> Self { /* ... */ }
@@ -3151,7 +7974,7 @@ pub struct CastellationControls {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CastellationControls { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3192,7 +8015,340 @@ pub struct CastellationControls {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SurfaceRegionPatches`
+
+Which surface region each triangle belongs to and what its patch is called
+(gh:#1466). `region_of_tri[i]` indexes `patch_names`; for a surface read
+with [`crate::snappy_hex_mesh::stl::read_stl_zoned`] these are
+`StlZoned::zones` and the `<surface>_<solid>` names ESI gives its patches.
+
+```rust
+pub struct SurfaceRegionPatches {
+    pub patch_names: Vec<String>,
+    pub region_of_tri: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `patch_names` | `Vec<String>` | One patch name per region, in patch order. |
+| `region_of_tri` | `Vec<usize>` | Region index of each triangle of the surface. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `CellRemoval`
+
+How [`castellate`] decides which refined cells to keep.
+
+```rust
+pub enum CellRemoval {
+    CentreParity,
+    BaffleRegion,
+    EsiSplitMesh,
+}
+```
+
+##### Variants
+
+###### `CentreParity`
+
+Historical rule of this port: keep a cell when the ray-parity inside
+test of its centre agrees with the keep point's. NOT what OpenFOAM does.
+
+###### `BaffleRegion`
+
+OpenFOAM's `baffleAndSplitMesh` outcome: keep the face-connected region
+holding `locationInMesh`, faces cut by the surface (cell-centre
+segments) being baffles. See
+[`crate::snappy_hex_mesh::refinement::baffle_region`].
+
+###### `EsiSplitMesh`
+
+ESI v2506's whole post-refinement chain: `removeInsideCells(1)`,
+`danglingCellRefine(21)` and `(24)`, `baffleAndSplitMesh` with
+`markFacesOnProblemCells`. Needs
+[`RefinementSelection::SurfaceIntersection`]. See
+[`crate::snappy_hex_mesh::esi_split`].
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `RefinementSelection`
+
+How [`castellate`] chooses the cells to split.
+
+```rust
+pub enum RefinementSelection {
+    DistanceBand,
+    SurfaceIntersection,
+}
+```
+
+##### Variants
+
+###### `DistanceBand`
+
+Historical rule of this port: a cell is split while its centre lies
+within a distance band of the surface. NOT what OpenFOAM does.
+
+###### `SurfaceIntersection`
+
+OpenFOAM's `snappyRefineDriver::surfaceOnlyRefine`: a cell is split when
+a cell-centre to cell-centre segment through one of its faces
+intersects the surface and the surface's level exceeds the cell's,
+followed by `hexRef8::consistentRefinement` (face 2:1). See
+[`crate::snappy_hex_mesh::refinement`].
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3243,7 +8399,7 @@ pub struct SurfaceFace {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SurfaceFace { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3284,7 +8440,7 @@ pub struct SurfaceFace {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3350,7 +8506,7 @@ pub struct CastellatedMesh {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CastellatedMesh { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3391,7 +8547,7 @@ pub struct CastellatedMesh {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3610,7 +8766,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CyclicError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3644,7 +8800,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CyclicError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -3668,7 +8824,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3727,7 +8883,7 @@ pub struct CyclicPair {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CyclicPair { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3756,7 +8912,7 @@ pub struct CyclicPair {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CyclicPair) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -3775,7 +8931,7 @@ pub struct CyclicPair {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3848,7 +9004,7 @@ pub struct CyclicPointConstraints {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CyclicPointConstraints { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3863,7 +9019,7 @@ pub struct CyclicPointConstraints {
 
 - **Default**
   - ```rust
-    fn default() -> CyclicPointConstraints { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -3894,7 +9050,7 @@ pub struct CyclicPointConstraints {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3958,6 +9114,554 @@ while absorbing the round-off of centroid arithmetic.
 pub const DEFAULT_CYCLIC_TOL: f64 = 1e-9;
 ```
 
+## Module `dict`
+
+`snappyHexMeshDict` reader (gh:#1470).
+
+**Upstream followed:** OpenFOAM-dev `852527377c7e87e33d51b19ca8974b5db60af28b`,
+`applications/utilities/mesh/generation/snappyHexMesh/snappyHexMesh.C` and
+`snappyHexMeshDriver/{refinementParameters,snapParameters}/*.C`; the
+tutorial dictionary is `tutorials/mesh/snappyHexMesh/flange/system/snappyHexMeshDict`.
+Note the keyword is `insidePoint` / `insidePoints` in dev (`locationInMesh`
+is the ESI spelling); both are read.
+
+**No silent skip.** Every keyword in the file is either *honoured* (it
+changes the controls this crate builds) or listed in
+[`SnappyDict::not_ported`] with its dotted path. A caller (the
+`snappyHexMesh` binary) prints that list, so a keyword that does nothing is
+never invisible. What is honoured is deliberately small; the rest of the
+dictionary is the work of gh:#1465 to #1469.
+
+`#include "file"` is resolved by [`SnappyDict::read`] (via
+`FoamFile::read_with_includes`); `#includeEtc` is not supported by the
+parser and is reported by [`SnappyDict::parse`] as a not-ported keyword.
+
+```rust
+pub mod dict { /* ... */ }
+```
+
+### Types
+
+#### Struct `GeometryEntry`
+
+One `geometry` entry.
+
+```rust
+pub struct GeometryEntry {
+    pub name: String,
+    pub kind: String,
+    pub file: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Name used by `refinementSurfaces` and region keywords. |
+| `kind` | `String` | `type`: `triSurface` is read; `sphere`, `box`, ... are reported. |
+| `file` | `Option<String>` | `file` (triSurface only). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SnappyDict`
+
+The parts of a `snappyHexMeshDict` this crate acts on, and a report of the
+rest.
+
+```rust
+pub struct SnappyDict {
+    pub castellated_mesh: bool,
+    pub snap: bool,
+    pub add_layers: bool,
+    pub geometry: Vec<GeometryEntry>,
+    pub surface_levels: Vec<(String, usize, usize)>,
+    pub inside_points: Vec<outram_foam_basic_lib::primitives::Vector3>,
+    pub n_cells_between_levels: Option<usize>,
+    pub min_refinement_cells: Option<usize>,
+    pub n_smooth_patch: Option<usize>,
+    pub n_solve_iter: Option<usize>,
+    pub honoured: Vec<String>,
+    pub not_ported: Vec<(String, String)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `castellated_mesh` | `bool` | `castellatedMesh`. |
+| `snap` | `bool` | `snap`. |
+| `add_layers` | `bool` | `addLayers`. |
+| `geometry` | `Vec<GeometryEntry>` | `geometry`. |
+| `surface_levels` | `Vec<(String, usize, usize)>` | `refinementSurfaces.<name>.level (min max)`. |
+| `inside_points` | `Vec<outram_foam_basic_lib::primitives::Vector3>` | `insidePoint` / `insidePoints` / `locationInMesh`. |
+| `n_cells_between_levels` | `Option<usize>` | `nCellsBetweenLevels`. |
+| `min_refinement_cells` | `Option<usize>` | `minRefinementCells`. |
+| `n_smooth_patch` | `Option<usize>` | `snapControls.nSmoothPatch`. |
+| `n_solve_iter` | `Option<usize>` | `snapControls.nSolveIter`. |
+| `honoured` | `Vec<String>` | Dotted paths of keywords that were read and used. |
+| `not_ported` | `Vec<(String, String)>` | Dotted paths of keywords present in the file and NOT acted on, each<br>with the reason. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn parse(text: &str) -> Result<Self, MeshError> { /* ... */ }
+  ```
+  Parse dictionary text (no `#include` resolution).
+
+- ```rust
+  pub fn read</* synthetic */ impl AsRef<Path>: AsRef<Path>>(path: impl AsRef<Path>) -> Result<Self, MeshError> { /* ... */ }
+  ```
+  Read `path`, resolving `#include "name"` relative to it.
+
+- ```rust
+  pub fn to_meshing_controls(self: &Self, domain: Bounds, divisions: [usize; 3]) -> Result<MeshingControls, MeshError> { /* ... */ }
+  ```
+  Build [`MeshingControls`] from this dictionary on a background mesh of
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `background_from_points`
+
+Recover the bounds and per-axis cell counts of an axis-aligned uniform
+background hex mesh (a `blockMesh` box) from its points: the distinct
+coordinates per axis, merged within `1e-9` of the span, give `n + 1` planes.
+
+# Errors
+[`MeshError::Construction`] for fewer than two planes on an axis (or no
+points).
+
+```rust
+pub fn background_from_points(points: &[outram_foam_basic_lib::primitives::Vector3]) -> Result<(crate::snappy_hex_mesh::background::Bounds, [usize; 3]), crate::MeshError> { /* ... */ }
+```
+
+## Module `esi_split`
+
+The cell-removal stages of `snappyRefineDriver::doRefine` that follow
+`surfaceOnlyRefine`, translated for the octree (gh:#1466).
+
+**Upstream: OpenFOAM.com ESI v2506**, `src/mesh/snappyHexMesh`:
+
+| stage | ESI v2506 | here |
+|---|---|---|
+| `removeInsideCells(nBufferLayers)` | `snappyRefineDriver.C:1760`, `meshRefinementBaffles.C:4927` and `:5014` (`splitMesh`) | [`remove_inside_cells`] |
+| `danglingCellRefine(nFaces)` | `snappyRefineDriver.C:1002` | [`dangling_cell_refine`] |
+| `baffleAndSplitMesh` | `snappyRefineDriver.C:2754`, `meshRefinementBaffles.C:4635` | [`baffle_and_split_mesh`] |
+| `handleSnapProblems` -> `markFacesOnProblemCells` | `meshRefinementBaffles.C:3795`, `meshRefinementProblemCells.C:383` | inside [`baffle_and_split_mesh`] |
+
+The order in `doRefine` (`snappyRefineDriver.C:3560-3690`) is
+`removeInsideCells(1)`, `danglingCellRefine(21)`, `danglingCellRefine(24)`,
+`refinementInterfaceRefine` (selected 0 cells on the flange; not ported),
+`baffleAndSplitMesh`. [`esi_stages`] runs them in that order.
+
+## How the octree stands in for the polyMesh
+
+The mesh is the full octree (every leaf ever created, dead or alive) with an
+`alive` flag per leaf: a removed cell leaves its faces behind as boundary
+faces of its alive neighbours, exactly as `removeCells` exposes them. Faces
+are enumerated by [`octree_faces`] (the split-hex faces of the finer side).
+A face's vertex ring is the finer-side quad with every lattice edge midpoint
+that exists in the octree inserted (hexRef8 inserts the mid-points of refined
+edges into every face that uses the edge, also faces of cells that are not
+refined); a mesh point exists when it is a corner of any leaf, dead or alive,
+because removal never deletes a point from the faces of a surviving cell.
+This is the assumption P10-P14 of the V&V record test.
+
+## Cell order
+
+`markFacesOnProblemCells` visits cells in order and updates its boundary
+marks as it goes, so its result can depend on cell order. The port visits
+alive leaves in leaf-vector order (the nested order of
+[`crate::snappy_hex_mesh::castellation::castellate`]), not OpenFOAM's
+(blockMesh order, a refined cell keeps its label, children 1..7 appended).
+The V&V record states whether that mattered.
+
+## Not ported
+
+`locationsOutsideMesh` and leak closure, `frozenPoints`/`frozenFaces`, more
+than one `locationInMesh`, cellZones/faceZones (`zonify`), the
+`removeEdgeConnectedCells` branch and the `minVolCollapseRatio` collapse
+check of `markFacesOnProblemCells` (both off in the flange dictionary:
+`removeEdgeConnectedCells false`, `minVolCollapseRatio` unset), and
+`refinementInterfaceRefine`.
+
+```rust
+pub mod esi_split { /* ... */ }
+```
+
+### Types
+
+#### Struct `BaffleStats`
+
+What [`baffle_and_split_mesh`] counted, to compare with the ESI log.
+
+```rust
+pub struct BaffleStats {
+    pub n_hit_internal: usize,
+    pub n_hit_boundary: usize,
+    pub n_problem_faces: usize,
+    pub n_kept: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n_hit_internal` | `usize` | Internal faces cut by the surface (ESI: "Introducing baffles for N faces"). |
+| `n_hit_boundary` | `usize` | Faces cut by the surface that are boundary faces (exposed or domain). |
+| `n_problem_faces` | `usize` | Additional internal faces baffled by `markFacesOnProblemCells`<br>(ESI: "marked N additional internal faces"). |
+| `n_kept` | `usize` | Cells kept after the final `splitMeshRegions`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `EsiStageCells`
+
+The cells after each ESI stage, for the differential against the ESI
+intermediate meshes. Each entry is `(level, centre)`.
+
+```rust
+pub struct EsiStageCells {
+    pub after_remove_inside: Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>,
+    pub dangling_selected: [Vec<usize>; 2],
+    pub after_dangling: Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>,
+    pub final_cells: Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>,
+    pub baffle: BaffleStats,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `after_remove_inside` | `Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>` | After `removeInsideCells(nBufferLayers = 1)` (ESI: "Selected for keeping"). |
+| `dangling_selected` | `[Vec<usize>; 2]` | Cells selected per iteration by `danglingCellRefine(21)`, then `(24)`. |
+| `after_dangling` | `Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>` | After both dangling-cell stages. |
+| `final_cells` | `Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>` | After `baffleAndSplitMesh` (the final castellated cells). |
+| `baffle` | `BaffleStats` | The counts of the baffle step. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `esi_stage_cells`
+
+The cells after each ESI stage for a whole case: `surfaceOnlyRefine`, then
+[`esi_stages`]. Exists for the ESI v2506 differential
+(`verification_and_validation/snappy_hex_mesh_esi_v2506`); `None` if
+`locationInMesh` is outside the mesh or removed.
+
+```rust
+pub fn esi_stage_cells(surface: &crate::snappy_hex_mesh::stl::TriangleSoup, controls: &crate::snappy_hex_mesh::castellation::CastellationControls) -> Option<EsiStageCells> { /* ... */ }
+```
+
 ## Module `layers`
 
 Layer addition — Phase 3 of `snappyHexMesh` (**implemented, restricted
@@ -3985,6 +9689,16 @@ the prism-block insertion (in OpenFOAM `addPatchCellLayer::setRefinement`,
 `polyTopoChange/polyTopoChange/addPatchCellLayer.C`), and the
 quality-limited collapse (in OpenFOAM the `EXTRUDE`/`NOEXTRUDE` unextrusion
 loop, `snappyLayerDriver.C:217`).
+
+**CORRECTED 2026-11-04 (gh:#1215):** the "quality-limited collapse" here is
+a *global* reduction of the layer count ([`add_layers`] tries `n`, then
+`n − 1`, … everywhere); there is no per-point `extrudeMode` and no local
+unextrusion, as "Honest scope" below says. The per-point port of
+`snappyLayerDriver`'s loop (`extrudeMode`, `handleFeatureAngle`,
+`setupLayerInfoTruncation`, `checkAndUnmark`) is
+`outram_park_fork_cfmesh::snappy_layers`; it was not factored into a shared
+place because this module works on `PolyPatchMesh` / `CastellatedMesh`
+and that crate builds without `outram-foam-basic-lib`.
 
 ## Algorithm implemented here — interior shrink-and-insert
 
@@ -4204,7 +9918,7 @@ pub struct LayerControls {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LayerControls { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4250,7 +9964,7 @@ pub struct LayerControls {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4488,7 +10202,7 @@ pub struct PolyPatchMesh {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PolyPatchMesh { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4529,7 +10243,7 @@ pub struct PolyPatchMesh {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4584,7 +10298,7 @@ pub struct MeshQuality {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshQuality { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4613,7 +10327,7 @@ pub struct MeshQuality {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MeshQuality) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4632,7 +10346,7 @@ pub struct MeshQuality {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4694,7 +10408,7 @@ pub struct QualityLimits {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> QualityLimits { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4741,7 +10455,7 @@ pub struct QualityLimits {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4765,6 +10479,79 @@ in `m²`, centre in metres.
 
 ```rust
 pub fn face_area_and_centre(face: &[usize], points: &[outram_foam_basic_lib::primitives::Vector3]) -> (outram_foam_basic_lib::primitives::Vector3, outram_foam_basic_lib::primitives::Vector3) { /* ... */ }
+```
+
+## Module `refinement`
+
+Surface-intersection refinement: `snappyRefineDriver::surfaceOnlyRefine`.
+
+**Upstream followed:** OpenFOAM.com ESI **v2506** (maintainer decision on
+gh:#1459, 2026-11-12, "ESI preferred"; the run that checks it is
+`verification_and_validation/snappy_hex_mesh_esi_v2506/README.md`).
+~~OpenFOAM-dev (OpenFOAM Foundation) commit
+`852527377c7e87e33d51b19ca8974b5db60af28b`~~ **CORRECTED 2026-11-12** to
+ESI v2506, with the line numbers re-read from the v2506 sources (dev's in
+brackets, background only):
+
+- `snappyHexMeshDriver/snappyRefineDriver.C:342` `surfaceOnlyRefine`
+  [dev :179] (loop, stop rule `nCellsToRefine == 0 || (iter >=
+  overallMaxLevel && nCellsToRefine <= minRefineCells)`, `maxIter` 100);
+- `meshRefinement/meshRefinementRefine.C:945` `markSurfaceRefinement`
+  [dev :908] (one segment per face from `meshRefinement.C:288`
+  `calcCellCellRays`: owner centre to neighbour centre, or, on a non-coupled
+  boundary face, owner centre to the face centre from `calcNeighbourData`;
+  segment extended by `rootSmall` of its length at each end; a cell is
+  marked when the segment hits a surface whose level exceeds the cell's);
+- `refinementSurfaces/refinementSurfaces.C:1265` `findHigherIntersection`
+  [dev :410] (`findLineAny` on the triSurfaceMesh);
+- `dynamicMesh/polyTopoChange/polyTopoChange/hexRef8/hexRef8.C:1567`
+  `faceConsistentRefinement` [dev :1426] and `:2233` `consistentRefinement`
+  [dev :2127] (face 2:1, `maxSet = true`);
+- `meshRefinement/meshRefinementBaffles.C:4927` `splitMesh` and
+  `snappyRefineDriver.C:2754` `baffleAndSplitMesh` for [`baffle_region`].
+
+**Checked against the ESI binary (gh:#1459, 2026-11-12):** on the flange the
+selected-cell counts per iteration and all 42788 cells and levels equal
+ESI's, when the surface is read as upstream reads it
+([`TriangleSoup::from_zoned`]: every `solid`, single-precision corners).
+
+## What is ported, and what is not
+
+Ported: one surface with a single (min = max) level; the face-segment test;
+the 2:1 closure; the stop rule. The octree's face-adjacent leaf pairs are
+the same pairs as upstream's split-hex faces (a coarse face adjoining four
+fine cells is four faces, each with its own fine neighbour), so the
+segments are the same segments.
+
+Not ported (still [`RefinementSelection::DistanceBand`] territory):
+`markSurfaceCurvatureRefinement` (needs `(min max)` levels and
+`resolveFeatureAngle`; with `level (n n)` upstream skips it too),
+`refinementRegions`, `features`, gap refinement, `maxGlobalCells` /
+`maxLocalCells`, `nCellsBetweenLevels > 1` (`consistentSlowRefinement`),
+coupled (cyclic) boundary faces, which are treated as ordinary boundary
+faces here. Cell *removal* after refinement is by default this port's inside test;
+~~not upstream's baffle-and-split (gh:#1466)~~ **UPDATED 2026-11-12:** upstream's
+chain (`removeInsideCells(1)`, `danglingCellRefine`, `baffleAndSplitMesh` with
+`markFacesOnProblemCells`) is [`crate::snappy_hex_mesh::esi_split`], opt-in
+through `CastellationControls::with_esi_split_mesh_removal`.
+
+[`RefinementSelection::DistanceBand`]: crate::snappy_hex_mesh::castellation::RefinementSelection::DistanceBand
+
+```rust
+pub mod refinement { /* ... */ }
+```
+
+### Functions
+
+#### Function `refined_octree`
+
+The refined octree of `surface_only_refine` as `(level, centre)` pairs plus
+the per-iteration selected-cell counts, with no cell removal. Exists so the
+ESI v2506 differential can compare the refinement stage on its own
+(`verification_and_validation/snappy_hex_mesh_esi_v2506`).
+
+```rust
+pub fn refined_octree(surface: &crate::snappy_hex_mesh::stl::TriangleSoup, controls: &crate::snappy_hex_mesh::castellation::CastellationControls, max_iter: usize) -> (Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>, Vec<usize>) { /* ... */ }
 ```
 
 ## Module `snapping`
@@ -4947,7 +10734,7 @@ pub struct SnapControls {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SnapControls { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4993,7 +10780,102 @@ pub struct SnapControls {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `FeatureEdge`
+
+A detected STL feature edge: the two endpoints (metres) of a crease.
+
+Public since 2026-11-05 (gh:#1276) so that `outram-park-fork-cfmesh`'s
+port of cfMesh's `triSurfaceDetectFeatureEdges` can be tested against it.
+
+```rust
+pub struct FeatureEdge {
+    pub a: outram_foam_basic_lib::primitives::Vector3,
+    pub b: outram_foam_basic_lib::primitives::Vector3,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `a` | `outram_foam_basic_lib::primitives::Vector3` | One endpoint `[m]`. |
+| `b` | `outram_foam_basic_lib::primitives::Vector3` | The other endpoint `[m]`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5053,6 +10935,26 @@ coordinates move.
 
 ```rust
 pub fn snap(mesh: &crate::snappy_hex_mesh::castellation::CastellatedMesh, surface: &crate::snappy_hex_mesh::stl::TriangleSoup, controls: &SnapControls) -> Result<crate::snappy_hex_mesh::castellation::CastellatedMesh, crate::MeshError> { /* ... */ }
+```
+
+#### Function `detect_feature_edges`
+
+Detect feature edges of a triangle soup: edges shared by two triangles whose
+dihedral angle exceeds `angle_deg`.
+
+Two triangles share an edge when they share two vertices (matched by
+coordinate, within a small absolute tolerance). The dihedral angle is the
+angle between the two facet normals; a shared edge is a feature edge when
+that angle exceeds the threshold. Restricted port of the feature-edge
+extraction underlying `snappySnapDriverFeature.C`.
+
+The output order follows a `HashMap` and is not deterministic; compare
+it as a set. Open and non-manifold edges are never reported, and the
+facets' relative orientation is not checked. Public since 2026-11-05
+(gh:#1276), for the cfMesh differential.
+
+```rust
+pub fn detect_feature_edges(surface: &crate::snappy_hex_mesh::stl::TriangleSoup, angle_deg: f64) -> Vec<FeatureEdge> { /* ... */ }
 ```
 
 ## Module `stl`
@@ -5161,7 +11063,7 @@ pub struct Triangle {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Triangle { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5190,7 +11092,7 @@ pub struct Triangle {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Triangle) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -5209,7 +11111,7 @@ pub struct Triangle {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5251,6 +11153,11 @@ pub struct TriangleSoup {
   Build a soup from an explicit list of triangles (used by tests that
 
 - ```rust
+  pub fn from_zoned(z: &StlZoned) -> Self { /* ... */ }
+  ```
+  The surface as OpenFOAM's `triSurface::readSTL` hands it to
+
+- ```rust
   pub fn uv_sphere(centre: Vector3, r: f64, n_lat: usize, n_lon: usize) -> Self { /* ... */ }
   ```
   A closed UV sphere of radius `r` `[m]` centred at `centre` `[m]`, as an
@@ -5290,6 +11197,16 @@ pub struct TriangleSoup {
   ```
   True if `p` is inside the *closed* surface, by ray-crossing parity
 
+- ```rust
+  pub fn segment_hits(self: &Self, a: Vector3, b: Vector3) -> bool { /* ... */ }
+  ```
+  True if the closed segment `a`–`b` crosses any facet (any-hit, the
+
+- ```rust
+  pub fn segment_first_hit(self: &Self, a: Vector3, b: Vector3) -> Option<usize> { /* ... */ }
+  ```
+  Index of the facet the segment `a -> b` meets FIRST walking from `a`
+
 ###### Trait Implementations
 
 - **Any**
@@ -5309,7 +11226,7 @@ pub struct TriangleSoup {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TriangleSoup { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5324,7 +11241,7 @@ pub struct TriangleSoup {
 
 - **Default**
   - ```rust
-    fn default() -> TriangleSoup { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -5355,7 +11272,118 @@ pub struct TriangleSoup {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `StlZoned`
+
+An STL as OpenFOAM's `triSurface::readSTL` returns it: points merged,
+one zone (patch) per `solid` name (ASCII) or per attribute value (binary).
+
+Differences from [`read_stl_bytes`] that matter for parity with upstream:
+coordinates are rounded to **single precision** (`STLpoint` is `float`),
+every `solid` of a multi-solid ASCII file is read (not only the first),
+and coincident corners are merged into shared points.
+
+```rust
+pub struct StlZoned {
+    pub points: Vec<outram_foam_basic_lib::primitives::Vector3>,
+    pub triangles: Vec<[usize; 3]>,
+    pub zones: Vec<usize>,
+    pub names: Vec<String>,
+    pub n_zones: usize,
+    pub binary: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `points` | `Vec<outram_foam_basic_lib::primitives::Vector3>` | The merged points `[m]`, in order of first appearance. |
+| `triangles` | `Vec<[usize; 3]>` | Triangles (indices into [`Self::points`]), file order. |
+| `zones` | `Vec<usize>` | Zone of each triangle (index into [`Self::names`] for ASCII). |
+| `names` | `Vec<String>` | Zone names, ASCII only (`solid <name>`; a nameless solid is<br>`"solid"`). Empty for a binary file, as upstream: `triSurface::readSTL`<br>sets patch names only for ASCII. |
+| `n_zones` | `usize` | Number of zones (for binary: distinct attribute values). |
+| `binary` | `bool` | `true` if the file was read as binary. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5406,6 +11434,8 @@ solid <name>
   ...
 endsolid <name>
 ```
+Several such blocks in one file are all read (one soup, region boundaries
+not kept; see [`read_stl_zoned_bytes`] for the per-region reader).
 The stored `normal` is parsed but ignored (the geometric normal is used).
 
 ```rust
@@ -5421,6 +11451,45 @@ Layout: 80-byte header, `u32` facet count, then per facet 12 × `f32`
 
 ```rust
 pub fn read_stl_binary(bytes: &[u8]) -> Result<TriangleSoup, crate::MeshError> { /* ... */ }
+```
+
+#### Function `read_stl_zoned_bytes`
+
+Read an STL buffer as OpenFOAM's `triSurface::readSTL` does (see
+[`StlZoned`]): format by `detectBinaryHeader`, then the ASCII or binary
+reader, then `mergePointsMap` with OpenFOAM's tolerance (`100 *
+doubleScalarSMALL` for ASCII, `10 *` for binary, absolute).
+
+# Errors
+[`MeshError::DictParse`] on a truncated binary file or a facet with a
+vertex component that is not a number.
+
+```rust
+pub fn read_stl_zoned_bytes(bytes: &[u8]) -> Result<StlZoned, crate::MeshError> { /* ... */ }
+```
+
+#### Function `read_stl_zoned`
+
+Read an STL file with [`read_stl_zoned_bytes`].
+
+# Errors
+As [`read_stl_zoned_bytes`], plus [`MeshError::DictParse`] wrapping an
+I/O error.
+
+```rust
+pub fn read_stl_zoned</* synthetic */ impl AsRef<std::path::Path>: AsRef<std::path::Path>>(path: impl AsRef<std::path::Path>) -> Result<StlZoned, crate::MeshError> { /* ... */ }
+```
+
+#### Function `merge_points`
+
+OpenFOAM's `mergePoints(points, mergeTol, verbose, pointToUnique)`
+(`Detail::mergePoints`): a point within `merge_tol` (absolute) of an
+earlier point in distance-from-the-minimum order merges with it. Returns
+the map to the unique points and their number; unique points are numbered
+in order of their lowest-index member, as upstream's renumbering does.
+
+```rust
+pub fn merge_points(points: &[outram_foam_basic_lib::primitives::Vector3], merge_tol: f64) -> (Vec<usize>, usize) { /* ... */ }
 ```
 
 ### Types
@@ -5488,7 +11557,7 @@ pub struct SnappyHexMeshControls {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SnappyHexMeshControls { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5529,7 +11598,7 @@ pub struct SnappyHexMeshControls {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5619,10 +11688,28 @@ pub use castellation::CastellatedMesh;
 pub use castellation::CastellationControls;
 ```
 
+#### Re-export `CellRemoval`
+
+```rust
+pub use castellation::CellRemoval;
+```
+
+#### Re-export `RefinementSelection`
+
+```rust
+pub use castellation::RefinementSelection;
+```
+
 #### Re-export `SurfaceFace`
 
 ```rust
 pub use castellation::SurfaceFace;
+```
+
+#### Re-export `SurfaceRegionPatches`
+
+```rust
+pub use castellation::SurfaceRegionPatches;
 ```
 
 #### Re-export `check_conformity`
@@ -5792,10 +11879,12 @@ Fields:
 
 ##### `NotImplemented`
 
-The input asks for a feature this crate does not support yet. Currently
-raised only by [`block_mesh`] for a non-`hex` block shape; deferred dict
-features that are safe to ignore (curved `edges`, `mergePatchPairs`) are
-skipped silently instead — see the [`block_mesh`] module docs.
+The input asks for a feature this crate does not support yet: raised by
+[`block_mesh`] for a non-`hex` block shape, a macro that is not expanded,
+a searchable-surface type that is not ported, `mergePatchPairs`, ...
+~~deferred dict features that are safe to ignore are skipped silently~~
+**CORRECTED 2026-11-11 (gh:#1462)**: nothing is skipped; see the
+[`block_mesh`] module docs.
 
 Fields:
 
@@ -5879,7 +11968,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**

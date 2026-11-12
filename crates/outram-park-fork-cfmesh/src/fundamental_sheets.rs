@@ -134,7 +134,7 @@ pub fn jfs_feature_edge_front(w: &TopoMesh) -> Vec<(usize, usize)> {
     for &f in &bfaces {
         patch_cell[w.owner[f]] = Some(patch_of(w, f));
     }
-    let cells = w.cell_faces();
+    let cells = w.cell_lists();
     let mut front = Vec::new();
     for &f in &bfaces {
         let c = w.owner[f];
@@ -158,7 +158,7 @@ pub fn fj_feature_edge_front(w: &TopoMesh, patch: usize) -> Vec<(usize, usize)> 
     for &f in &bfaces {
         patch_cell[w.owner[f]] = true;
     }
-    let cells = w.cell_faces();
+    let cells = w.cell_lists();
     let mut front = Vec::new();
     for &f in &bfaces {
         let c = w.owner[f];

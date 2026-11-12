@@ -14,7 +14,11 @@
 //!   a reduced, lumped model for ONE plant, Fukushima Daiichi Unit 1, in
 //!   [`bwr_mark1`]: core heat-up, Zr-steam oxidation and hydrogen,
 //!   relocation, a lower-head failure criterion, and containment
-//!   pressurisation. MCCI and aerosols are not implemented).
+//!   pressurisation. ~~MCCI and aerosols are not implemented~~
+//!   **CORRECTED 2026-11-11 (gh:#1335)**: MCCI (`bwr_mark1::cavity`) and
+//!   sectional aerosols exist since 2026-10-29; the aerosol, vapour and pool
+//!   iodine equations live in `outram_park_fork_offbeat::melcor` since
+//!   2026-11-11, called from [`bwr_mark1`]).
 //! - **What it orchestrates:** [`changi`] for dispersion and deposition (wired
 //!   in, see [`chain`]), `redhill` for ground transport (a placeholder, not
 //!   wired), and `raffles` for uncertainty propagation (GitHub #238, not yet
@@ -64,10 +68,17 @@
 //! the `dhoby-ghaut` `fukushima_web` demo's own physics until it moved here.
 //! It is lumped (a few nodes), an AI draft, uncalibrated, and **outside the
 //! BSAF Unit 1 bands**: the lower head fails about 2 h early and in-vessel
-//! hydrogen is about 3x low ([`bwr_mark1::compare`], gh:#1028). Still absent
+//! hydrogen is about 3x low ([`bwr_mark1::compare`], gh:#1028). ~~Still absent
 //! everywhere in the crate: molten-core-concrete interaction, aerosol
 //! physics, fission-product transport in the plant, and any MELCOR-class
-//! control-volume engine. The TRISO release path still takes a
+//! control-volume engine.~~ **CORRECTED 2026-11-11 (gh:#1335)**, checked
+//! against the module list: MCCI (`bwr_mark1::cavity`), sectional aerosol
+//! and in-plant fission-product transport (`containment_fp`, with the
+//! equations in `outram_park_fork_offbeat::melcor`) exist since 2026-10-29,
+//! and the containment is a control-volume network on `tampines` since
+//! 2026-11-02 (gh:#1099). Still absent: a general MELCOR-class engine. The
+//! lower-head and H2 figures in this paragraph are of 2026-10-29; the current
+//! ones are in [`bwr_mark1::compare`]. The TRISO release path still takes a
 //! **caller-prescribed** temperature transient; [`bwr_mark1`] does not feed
 //! it.
 //!

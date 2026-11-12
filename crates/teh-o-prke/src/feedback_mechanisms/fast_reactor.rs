@@ -84,14 +84,45 @@
 //! thermal-hydraulic model of the driveline (a heat structure), which
 //! supplies [`FastReactorState::driveline_temperature`].
 //!
-//! **Driveline map, as upstream: zero outside it.**
+//! **Driveline map: an expansion outside it is an error (default).**
+//! ~~**Driveline map, as upstream: zero outside it.**
 //! `calcDrivelineReactivity` interpolates linearly between map points
 //! (either order of the expansion axis) and returns **zero** for an
 //! expansion outside the map, and also exactly at the first point of an
 //! ascending map or the last point of a descending one (its half-open
 //! intervals). This port keeps that behaviour so that it agrees with
 //! upstream; make the map cover the expansion range the transient reaches
-//! ([`RodWorthMap::covers`] checks a value).
+//! ([`RodWorthMap::covers`] checks a value).~~ **CHANGED 2026-11-10
+//! (gh:#1326, maintainer decision "Error out of range"):** upstream's
+//! behaviour is now an opt-in variant, not the default. Upstream's
+//! `calcDrivelineReactivity` interpolates linearly between map points
+//! (either order of the expansion axis) and returns **zero** for an
+//! expansion outside the map, and also exactly at the first point of an
+//! ascending map or the last point of a descending one (its half-open
+//! intervals). A rod driven past the map's end giving zero worth is a
+//! discontinuity, so the default here
+//! ([`RodWorthOutOfRange::Error`]) is:
+//!
+//! - **inside the closed range `[min, max]`, interpolate.** Wherever
+//!   upstream's half-open loop finds an interval, the same formula on the
+//!   same interval is used, so every value upstream interpolates is
+//!   reproduced bit for bit.
+//! - **exactly at either end, the tabulated end value.** The one point
+//!   upstream excludes (the first point of an ascending map, the last of a
+//!   descending one) is in range: it returns that point's tabulated
+//!   reactivity exactly, not zero. At the other end upstream's formula
+//!   already gives the tabulated value (exactly when that end is the
+//!   interval's `x0`, to round-off when it is `x1`).
+//! - **outside the range (or NaN), an error**,
+//!   [`TehOPrkeError::ExpansionOutsideRodWorthMap`]: the caller must supply a
+//!   map that covers the expansion the transient reaches.
+//!
+//! GeN-Foam's own behaviour stays callable as
+//! [`RodWorthOutOfRange::UpstreamZero`]
+//! ([`RodWorthMap::with_out_of_range`]), so the differential comparison
+//! against upstream can be re-run (AGENTS.md, differential testing).
+//! [`RodWorthMap::covers`] says which expansions a map evaluates without
+//! error (or, under `UpstreamZero`, without upstream's zero).
 //!
 //! **Not double counting.** This module has its own Doppler term; a model
 //! that also gives the separable model a fuel-temperature table or linear
@@ -191,6 +222,25 @@ impl CoolantDensityTerm {
     }
 }
 
+/// What [`RodWorthMap::reactivity`] does with an expansion its map does not
+/// cover (gh:#1326).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum RodWorthOutOfRange {
+    /// **Default** (maintainer decision 2026-11-10, "Error out of range").
+    /// The closed range `[min, max]` of the map is covered, both ends
+    /// included (each end returns its tabulated reactivity); anything
+    /// outside it, or NaN, is
+    /// [`TehOPrkeError::ExpansionOutsideRodWorthMap`].
+    #[default]
+    Error,
+    /// GeN-Foam's `calcDrivelineReactivity` exactly (commit 652b3da):
+    /// half-open intervals, and **zero** reactivity outside them, including
+    /// at the first point of an ascending map and the last point of a
+    /// descending one. Kept so the comparison against upstream can be
+    /// re-run; not a physical choice.
+    UpstreamZero,
+}
+
 /// **Control-rod reactivity against driveline expansion** (upstream
 /// `controlRodReactivityMap`: pairs of expansion in metres and reactivity).
 ///
@@ -203,6 +253,8 @@ pub struct RodWorthMap {
     expansion_m: Vec<f64>,
     /// Reactivity at each expansion.
     reactivity: Vec<f64>,
+    /// What an expansion outside the map gives.
+    out_of_range: RodWorthOutOfRange,
 }
 
 impl RodWorthMap {
@@ -210,6 +262,7 @@ impl RodWorthMap {
     /// expansions strictly monotonic (either order, as upstream allows).
     /// Upstream takes any list and returns zero for fewer than two points;
     /// here such a map is refused instead, since it can only ever give zero.
+    /// The out-of-range policy is the default, [`RodWorthOutOfRange::Error`].
     pub fn new(expansions: Vec<Length>, reactivities: Vec<Ratio>) -> Result<Self, TehOPrkeError> {
         let x: Vec<f64> = expansions.iter().map(|l| l.get::<meter>()).collect();
         let y: Vec<f64> = reactivities.iter().map(|r| r.get::<ratio>()).collect();
@@ -236,14 +289,47 @@ impl RodWorthMap {
         Ok(Self {
             expansion_m: x,
             reactivity: y,
+            out_of_range: RodWorthOutOfRange::default(),
         })
     }
 
-    /// Whether `expansion` falls in an interval of the map, i.e. whether
-    /// [`Self::reactivity`] interpolates rather than returning upstream's
-    /// zero.
+    /// The same map with out-of-range policy `policy`
+    /// ([`RodWorthOutOfRange::UpstreamZero`] reproduces GeN-Foam).
+    pub fn with_out_of_range(mut self, policy: RodWorthOutOfRange) -> Self {
+        self.out_of_range = policy;
+        self
+    }
+
+    /// The map's out-of-range policy.
+    pub fn out_of_range(&self) -> RodWorthOutOfRange {
+        self.out_of_range
+    }
+
+    /// The map's closed expansion range `(min, max)`.
+    pub fn range(&self) -> (Length, Length) {
+        let (lo, hi) = self.range_m();
+        (Length::new::<meter>(lo), Length::new::<meter>(hi))
+    }
+
+    /// `(min, max)` of the expansion axis, in metres.
+    fn range_m(&self) -> (f64, f64) {
+        let (first, last) = (self.expansion_m[0], self.expansion_m[self.expansion_m.len() - 1]);
+        (first.min(last), first.max(last))
+    }
+
+    /// Whether [`Self::reactivity`] interpolates at `expansion`: under
+    /// [`RodWorthOutOfRange::Error`], whether it lies in the closed range
+    /// (no error); under [`RodWorthOutOfRange::UpstreamZero`], whether
+    /// upstream's half-open loop finds an interval (no zero).
     pub fn covers(&self, expansion: Length) -> bool {
-        self.interval(expansion.get::<meter>()).is_some()
+        let x = expansion.get::<meter>();
+        match self.out_of_range {
+            RodWorthOutOfRange::Error => {
+                let (lo, hi) = self.range_m();
+                lo <= x && x <= hi
+            }
+            RodWorthOutOfRange::UpstreamZero => self.interval(x).is_some(),
+        }
     }
 
     /// The interval upstream's loop would pick, if any.
@@ -260,23 +346,47 @@ impl RodWorthMap {
         })
     }
 
+    /// Upstream's `m (x - x0) + y0` on interval `i`.
+    fn interpolate(&self, i: usize, x: f64) -> f64 {
+        let (x0, x1) = (self.expansion_m[i], self.expansion_m[i + 1]);
+        let (y0, y1) = (self.reactivity[i], self.reactivity[i + 1]);
+        let m = (y1 - y0) / (x1 - x0);
+        m * (x - x0) + y0
+    }
+
     /// Reactivity at driveline expansion `expansion`: upstream's
     /// `calcDrivelineReactivity`, `m (x - x0) + y0` with
     /// `m = (y1 - y0) / (x1 - x0)` on the first interval that holds `x`
     /// (half-open, `x0` excluded on an ascending map, `x1` excluded on a
-    /// descending one), and **zero** when no interval holds it.
-    pub fn reactivity(&self, expansion: Length) -> Ratio {
+    /// descending one). When no interval holds `x`, the map's
+    /// [`RodWorthOutOfRange`] policy decides:
+    /// - [`RodWorthOutOfRange::Error`] (default): the one end upstream
+    ///   excludes returns its tabulated reactivity exactly; anything outside
+    ///   the closed range, or NaN, is
+    ///   [`TehOPrkeError::ExpansionOutsideRodWorthMap`];
+    /// - [`RodWorthOutOfRange::UpstreamZero`]: zero, as upstream.
+    pub fn reactivity(&self, expansion: Length) -> Result<Ratio, TehOPrkeError> {
         let x = expansion.get::<meter>();
-        let r = match self.interval(x) {
-            Some(i) => {
-                let (x0, x1) = (self.expansion_m[i], self.expansion_m[i + 1]);
-                let (y0, y1) = (self.reactivity[i], self.reactivity[i + 1]);
-                let m = (y1 - y0) / (x1 - x0);
-                m * (x - x0) + y0
+        let r = match (self.interval(x), self.out_of_range) {
+            (Some(i), _) => self.interpolate(i, x),
+            (None, RodWorthOutOfRange::UpstreamZero) => 0.0,
+            (None, RodWorthOutOfRange::Error) => {
+                let n = self.expansion_m.len();
+                if x == self.expansion_m[0] {
+                    self.reactivity[0]
+                } else if x == self.expansion_m[n - 1] {
+                    self.reactivity[n - 1]
+                } else {
+                    let (min_m, max_m) = self.range_m();
+                    return Err(TehOPrkeError::ExpansionOutsideRodWorthMap {
+                        expansion_m: x,
+                        min_m,
+                        max_m,
+                    });
+                }
             }
-            None => 0.0,
         };
-        Ratio::new::<ratio>(r)
+        Ok(Ratio::new::<ratio>(r))
     }
 }
 
@@ -311,8 +421,12 @@ impl DrivelineExpansionTerm {
         Length::new::<meter>(absolute_coefficient_m_per_k * delta_t_k)
     }
 
-    /// The rod worth at [`Self::expansion`].
-    pub fn reactivity(&self, temperature: ThermodynamicTemperature) -> Ratio {
+    /// The rod worth at [`Self::expansion`]. Errors when the expansion is
+    /// outside the map under the default [`RodWorthOutOfRange::Error`].
+    pub fn reactivity(
+        &self,
+        temperature: ThermodynamicTemperature,
+    ) -> Result<Ratio, TehOPrkeError> {
         self.worth.reactivity(self.expansion(temperature))
     }
 }
@@ -408,7 +522,9 @@ impl FastReactorReactivity {
 impl FastReactorFeedback {
     /// Evaluate every term at `state`. Errors when
     /// `state.radial_structure_temperatures` does not have one entry per
-    /// [`Self::radial_expansion`] term.
+    /// [`Self::radial_expansion`] term, or when the driveline expansion is
+    /// outside its rod-worth map under the default
+    /// [`RodWorthOutOfRange::Error`].
     pub fn evaluate(
         &self,
         state: &FastReactorState,
@@ -439,10 +555,10 @@ impl FastReactorFeedback {
                 .coolant_density
                 .map_or(Ratio::ZERO, |c| c.reactivity(state.coolant_density)),
             radial_expansion,
-            driveline: self
-                .driveline
-                .as_ref()
-                .map_or(Ratio::ZERO, |d| d.reactivity(state.driveline_temperature)),
+            driveline: match &self.driveline {
+                Some(d) => d.reactivity(state.driveline_temperature)?,
+                None => Ratio::ZERO,
+            },
         })
     }
 }

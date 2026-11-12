@@ -40,7 +40,10 @@
 //! face, the **owner** cell and an optional **neighbour** cell. A face with a
 //! neighbour is *internal* (it separates two cells); a face without one is a
 //! *boundary* face belonging to a [`BoundaryPatch`]. Cells are implicit — the
-//! set of faces that reference a given cell index.
+//! set of faces that reference a given cell index — ~~and nothing more~~
+//! **UPDATED 2026-11-11 (gh:#1385):** the mesh may also carry cfMesh's own cell
+//! face lists ([`VolumeMesh::cells`], in the order upstream's history gives
+//! them; the order changes the last bit of a cell centre sum).
 //!
 //! This is exactly the connectivity OpenFOAM's `constant/polyMesh` stores
 //! (`points` / `faces` / `owner` / `neighbour` / `boundary`), and exactly what
@@ -91,9 +94,69 @@ pub struct VolumeMesh {
     pub n_cells: usize,
     /// Boundary patches (each a contiguous run of boundary faces).
     pub patches: Vec<BoundaryPatch>,
+    /// The cells' face lists as cfMesh's `polyMeshGen::cells_` holds them
+    /// (gh:#1385): for each cell, its face labels **in the order the mesh's
+    /// history gave them** (faces in discovery order, relabelled by
+    /// `reorderBoundaryFaces`, boundary faces appended by `replaceBoundary`),
+    /// not ascending. `None` = not tracked: [`VolumeMesh::cell_face_lists`]
+    /// then derives ascending lists. A carried list is used only while it is
+    /// consistent with `owner` / `neighbour` (see
+    /// [`VolumeMesh::carried_cells_are_consistent`]), so a mesh edited
+    /// without updating it falls back instead of misleading.
+    pub cells: Option<Vec<Vec<usize>>>,
+}
+
+/// Whether `cells` lists every face exactly in the cells that `owner` /
+/// `neighbour` name (twice for an internal face, once for a boundary face) and
+/// nothing else, for `n_cells` cells.
+pub fn cell_lists_are_consistent(cells: &[Vec<usize>], n_cells: usize, owner: &[usize], neighbour: &[Option<usize>]) -> bool {
+    if cells.len() != n_cells {
+        return false;
+    }
+    let mut seen = vec![0u8; owner.len()];
+    for (c, list) in cells.iter().enumerate() {
+        for &f in list {
+            if f >= owner.len() || !(owner[f] == c || neighbour[f] == Some(c)) {
+                return false;
+            }
+            seen[f] = seen[f].saturating_add(1);
+        }
+    }
+    (0..owner.len()).all(|f| usize::from(seen[f]) == 1 + usize::from(neighbour[f].is_some()))
 }
 
 impl VolumeMesh {
+    /// Ascending-face-order cell lists derived from `owner` / `neighbour`
+    /// (what a mesh without carried lists uses).
+    pub fn derived_cell_face_lists(&self) -> Vec<Vec<usize>> {
+        let mut cells: Vec<Vec<usize>> = vec![Vec::new(); self.n_cells];
+        for f in 0..self.faces.len() {
+            cells[self.owner[f]].push(f);
+            if let Some(nb) = self.neighbour[f] {
+                cells[nb].push(f);
+            }
+        }
+        cells
+    }
+
+    /// Whether [`VolumeMesh::cells`] is `Some` and lists every face exactly in
+    /// the cells that `owner` / `neighbour` name (and nothing else).
+    pub fn carried_cells_are_consistent(&self) -> bool {
+        match &self.cells {
+            Some(cells) => cell_lists_are_consistent(cells, self.n_cells, &self.owner, &self.neighbour),
+            None => false,
+        }
+    }
+
+    /// The cells' face lists: the carried ones (cfMesh's order) while they are
+    /// consistent with the mesh, else the ascending derived ones.
+    pub fn cell_face_lists(&self) -> Vec<Vec<usize>> {
+        match &self.cells {
+            Some(c) if self.carried_cells_are_consistent() => c.clone(),
+            _ => self.derived_cell_face_lists(),
+        }
+    }
+
     /// Number of points.
     pub fn point_count(&self) -> usize {
         self.points.len()
@@ -315,6 +378,7 @@ fn assemble_cells(points: Vec<Vec3>, cells: &[Vec<Vec<usize>>], wound: bool) -> 
         neighbour,
         n_cells: cells.len(),
         patches,
+        cells: None,
     }
 }
 

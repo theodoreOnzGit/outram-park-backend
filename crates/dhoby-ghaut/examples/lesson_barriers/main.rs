@@ -74,7 +74,10 @@
 //! - P1 HIT: smallest SiC/IPyC crossing-time ratio 16.7 (Cs, 800 °C).
 //! - P2 HIT: Kr IPyC crossing at 1000 °C 4.79e10 s (about 1500 years).
 //! - P3 HIT: Kr/buffer is the only walker gap among the four layers (read
-//!   from the source; never called).
+//!   from the source; never called). **Superseded 2026-11-10 (gh:#638):**
+//!   the gap is closed with a cited value (IAEA-TECDOC-978 p. 440, `1e-8
+//!   m^2/s`, `Q = 0`); `barrier-data.js` was regenerated and has no gap among
+//!   the four layers. The prediction and its result stand as recorded.
 //! - P4, P5 NOT TESTABLE: a quick run gave no release from boon-lay's walker
 //!   at all, so there was no median to compare. Replaced by P13-P15.
 //! - P6 HIT: sigma 50.2/178.5/370.3/536.5 MPa; phi_1 4.529e-9/3.103e-5/

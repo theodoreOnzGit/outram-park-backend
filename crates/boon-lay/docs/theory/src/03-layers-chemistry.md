@@ -76,10 +76,14 @@ independent measurements.
    $10^9$ between the kernel and the PyC. For Cs the kernel and PyC are
    comparable.
 3. **The SiC is slowest of the three solids for Cs, Sr and Ag.** Step 4 quantifies it.
-4. **Krypton in the buffer has no coefficient**: the lookup is a `todo!()`
-   (gh:#541), so ~~a Kr-85 walker that reaches the buffer panics~~
-   **CORRECTED 2026-11-10 (gh:#638):** a Kr-85 walker that reaches the buffer
-   stops with a typed "no cited coefficient" instead of panicking. Elements other
+4. ~~**Krypton in the buffer has no coefficient**: the lookup is a `todo!()`
+   (gh:#541), so a Kr-85 walker that reaches the buffer panics~~
+   ~~**CORRECTED 2026-11-10 (gh:#638):** a Kr-85 walker that reaches the buffer
+   stops with a typed "no cited coefficient" instead of panicking.~~
+   **CORRECTED AGAIN 2026-11-10 (gh:#638):** krypton in the buffer takes the
+   same $10^{-8}$ m²/s, no temperature dependence, as Ag, Cs and Sr: the
+   German value of IAEA-TECDOC-978 (1997) App. A, section A.1.2, printed p. 440; applied to fission gases by CRP-6, IAEA-TECDOC-1674 (2012) section 10.2.2, p. 538. It is a convention for a porous layer, not a
+   measured Kr coefficient. Elements other
    than Ag, Cs, Sr and Kr silently diffuse as silver, which is a placeholder
    and not a model.
 

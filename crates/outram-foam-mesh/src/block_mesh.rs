@@ -39,9 +39,14 @@
 //! 1. [`BlockMeshDict::parse`] tokenises and parses the dict text into a
 //!    [`BlockMeshDict`] (`convertToMeters`, [`vertices`](BlockMeshDict::vertices),
 //!    [`blocks`](BlockMeshDict::blocks), boundary [`patches`](BlockMeshDict::patches)).
-//! 2. [`BlockMeshDict::build`] subdivides every block, merges globally coincident
-//!    points, deduplicates faces (a face shared by two cells becomes internal),
-//!    assigns the remaining boundary faces to patches, and returns a [`PolyMesh`].
+//! 2. [`BlockMeshDict::build`] generates every block's points (12-edge blend),
+//!    merges points **topologically** across the block faces the block topology
+//!    shares, numbers points, faces and cells as `blockMesh` does (gh:#1464),
+//!    checks the topology, and returns a [`PolyMesh`]. ~~merges globally
+//!    coincident points by quantised coordinates~~ **CORRECTED 2026-11-11
+//!    (gh:#1464)**: coordinates play no part in the merge except to pair
+//!    points on a shared block face, exactly as upstream's `calcMergeInfo`;
+//!    blocks that only touch geometrically are not merged.
 //! 3. [`PolyMesh::to_fv_mesh`] computes the finite-volume geometry (cell volumes
 //!    and centres, face-area vectors and centres) and emits the
 //!    `outram-foam-basic-lib` [`FvMesh`].
@@ -57,9 +62,26 @@
 //!
 //! ## Deferred dict features
 //!
-//! - `edges` blocks (arc / spline / polyLine) are parsed and **skipped**: all
-//!   block edges are treated as straight lines (bilinear/trilinear block map).
-//!   Curved-edge point projection is a later phase.
+//! - ~~`edges` blocks (arc / spline / polyLine) are parsed and **skipped**: all
+//!   block edges are treated as straight lines~~ **CORRECTED 2026-11-11
+//!   (gh:#1461)**: `edges` (`line`, `arc` in both forms, `polyLine`, `spline`,
+//!   `BSpline`) are parsed and applied, see [`crate::block_edges`]; a block
+//!   with a listed edge takes the full 12-edge blend plus upstream's
+//!   curved-edge correction. ~~`project` / `projectCurve` edges, `geometry`,
+//!   `faces`~~ **CORRECTED 2026-11-11 (gh:#1462)**: `geometry` (sphere,
+//!   cylinder, plane), `project` vertices, `project` / `projectCurve` edges and
+//!   `project` / `sweep` block faces are ported, see
+//!   [`crate::block_projection`]; a surface type that is not ported (including
+//!   `triSurface`, `extrudedCircle`, `plate`) returns
+//!   [`MeshError::NotImplemented`]. `#calc` / `#include` and `namedBlocks`
+//!   return [`MeshError::NotImplemented`]; they are never skipped.
+//! - `units [mm]` (a single length unit), `convertToMeters` and `scale` are
+//!   read, at most one of the three (gh:#1463). `defaultPatch { name; type; }`
+//!   is read; without it the unassigned faces form `defaultFaces` of type
+//!   `empty`, as upstream (it was `patch` before 2026-11-11). `$name` of an
+//!   earlier top-level entry is expanded. Block zone names are kept in
+//!   [`PolyMesh::cell_zones`]; the `blockMesh` CLI writes them as
+//!   `constant/polyMesh/cellZones` (`io::PolyMesh::write_cell_zones`).
 //! - `simpleGrading (gx gy gz)` is fully supported, where each of the three
 //!   directions is **either** a single scalar expansion ratio **or** a
 //!   multi-grading list of `( fractionLength fractionCells expansionRatio )`
@@ -68,21 +90,26 @@
 //!   edges carries its own [`Grading`] (single ratio or multi-segment), and
 //!   interior nodes are blended from all 12 edge distributions exactly as
 //!   OpenFOAM's `block::createPoints` does (the straight-edge, no-curvature
-//!   case). When the four edges of a direction happen to agree, the block
+//!   case). ~~When the four edges of a direction happen to agree, the block
 //!   collapses to the equivalent `simpleGrading` fast path (bit-identical to a
-//!   single per-direction distribution); when they disagree, the genuine
-//!   per-edge 12-edge blend is used. See `edge_blended_node`.
-//! - `mergePatchPairs` (face-merging of separately-meshed patch pairs) is
-//!   parsed and ignored; coincident-point merging across blocks is always done.
+//!   single per-direction distribution)~~ **CORRECTED 2026-11-11 (gh:#1464):**
+//!   every block, `simpleGrading` or not, takes the 12-edge blend, as upstream
+//!   (`blockCreate.C` has no trilinear path); the trilinear map differed from
+//!   it by round-off. See `edge_blended_node_with`.
+//! - ~~`mergePatchPairs` is parsed and ignored~~ **CORRECTED 2026-11-11**: a
+//!   non-empty `mergePatchPairs` returns [`MeshError::NotImplemented`]
+//!   (gh:#1464). `fastMerge yes` also returns `NotImplemented`
+//!   (`blockMeshMergeFast.C`).
 //!
 //! ## Honest scope — what the per-edge blend does NOT model
 //!
-//! Only the **straight-edge** branch of OpenFOAM `block::createPoints`
-//! (`blockCreate.C:45-183`, `nCurvedEdges == 0`) is ported. The curved-edge
-//! correction (`blockCreate.C:155-180`) and the curved-**face** projection
-//! passes (`blockCreate.C:185-345`) are **not** implemented — consistent with
-//! the deferred `arc`/`spline`/`polyLine` edge and `projectFace` support above.
-//! For blocks with planar faces (all edges straight — the current scope) the
+//! The straight-edge branch and, since 2026-11-11 (gh:#1461), the curved-edge
+//! correction of OpenFOAM `block::createPoints` (`blockCreate.C:45-183`) are
+//! ported. ~~The curved-**face** projection passes (`blockCreate.C:185-345`)
+//! are **not** implemented (gh:#1462)~~ **CORRECTED 2026-11-11 (gh:#1462)**:
+//! they are, in [`crate::block_projection::apply_curved_faces`]; a block with no
+//! `faces` entry never enters them. For blocks with planar faces (straight or
+//! curved edges only) the
 //! blend is exact and volume-preserving; a warped internal face between cells of
 //! a per-edge-graded block is expected and handled by the divergence-theorem
 //! cell geometry. For multi-block meshes, matching gradings on any **shared**
@@ -91,11 +118,21 @@
 
 use petir::mathf::RealMath;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::path::Path;
 
 use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
 use outram_foam_basic_lib::primitives::Vector3;
 
+use crate::block_edges::{BlockEdge, BlockEdgeKind, EdgeCurve};
+use crate::block_projection::{
+    apply_curved_faces, find_curved_faces, read_dict_body, BlockFace, BlockFaceKind, Geometry,
+    ProjectionFlavour,
+};
+use crate::block_topology::{
+    calc_merge_info, create_cells, create_patch_faces, create_points, faces_equal, mesh_from_shapes,
+    BlockGrid, CellModel, CellShape, Face, ShapeMesh,
+};
 use crate::MeshError;
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -106,6 +143,7 @@ use crate::MeshError;
 ///
 /// `v0=(0,0,0) v1=(1,0,0) v2=(1,1,0) v3=(0,1,0) v4=(0,0,1) v5=(1,0,1)
 ///  v6=(1,1,1) v7=(0,1,1)`.
+#[cfg(test)]
 const HEX_CORNER: [[f64; 3]; 8] = [
     [0.0, 0.0, 0.0],
     [1.0, 0.0, 0.0],
@@ -115,18 +153,6 @@ const HEX_CORNER: [[f64; 3]; 8] = [
     [1.0, 0.0, 1.0],
     [1.0, 1.0, 1.0],
     [0.0, 1.0, 1.0],
-];
-
-/// The 6 faces of the `hex` cellModel, as local-vertex quads wound so the
-/// normal points **out** of the cell. Order: x-min, x-max, y-min, y-max,
-/// z-min, z-max.
-const HEX_FACE: [[usize; 4]; 6] = [
-    [0, 4, 7, 3], // x-min
-    [1, 2, 6, 5], // x-max
-    [0, 1, 5, 4], // y-min
-    [3, 7, 6, 2], // y-max
-    [0, 3, 2, 1], // z-min
-    [4, 5, 6, 7], // z-max
 ];
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -202,13 +228,100 @@ impl Grading {
     /// `s[n] == 1`. For [`Grading::Uniform`] this is the geometric single-ratio
     /// distribution; for [`Grading::Multi`] it is the piecewise-geometric
     /// multi-segment distribution (see [`graded_positions_multi`]).
+    #[cfg(test)]
     fn node_positions(&self, n: usize) -> Vec<f64> {
-        match self {
-            Grading::Uniform(r) => graded_positions(n, *r),
-            Grading::Multi(segments) => graded_positions_multi(n, segments),
-        }
+        line_divide_weights(n, self, ProjectionFlavour::Dev)
     }
 }
+
+impl Grading {
+    /// The grading as `gradingDescriptors` segments (a scalar ratio is one
+    /// segment covering the whole edge).
+    fn as_segments(&self) -> Vec<GradingSegment> {
+        match self {
+            Grading::Uniform(r) => vec![GradingSegment {
+                fraction_length: 1.0,
+                fraction_cells: 1.0,
+                expansion: *r,
+            }],
+            Grading::Multi(s) => s.clone(),
+        }
+    }
+
+    /// `gradingDescriptors::inv()`: the segments in reverse order, each
+    /// expansion ratio inverted (the grading seen from the other end).
+    fn inv(&self) -> Grading {
+        let mut segs = self.as_segments();
+        segs.reverse();
+        for s in segs.iter_mut() {
+            s.expansion = 1.0 / s.expansion;
+        }
+        Grading::Multi(segs)
+    }
+}
+
+/// `lineDivide::lambdaDivisions()` for `n` divisions under `grading`: always
+/// the `lineDivide.C` formulas (a scalar ratio is a single descriptor), which
+/// is what curved edges use (`blockDescriptorEdges.C`). `flavour` selects the
+/// OpenFOAM line followed where dev and v2506 differ (see
+/// [`graded_positions_multi`]).
+fn line_divide_weights(n: usize, grading: &Grading, flavour: ProjectionFlavour) -> Vec<f64> {
+    graded_positions_multi(n, &grading.as_segments(), flavour)
+}
+
+/// OpenFOAM-dev's `pow(Scalar, int32_t)`: `IntegerPow`
+/// (`src/OpenFOAM/primitives/Scalar/Scalar.H`, 852527377c7e), exponentiation by
+/// repeated squaring in upstream's exact order (`e == 0`, `1`, `-1` special
+/// cases; `xx` is `x` or `1/x`; `y *= xx` on odd `i`, `xx *= xx` each step).
+/// The multiplication order, not the mathematical value, is what makes the
+/// result bit-identical to the dev binary; the real `pow` differs by up to
+/// 1 ulp.
+fn integer_pow_dev(x: f64, e: i32) -> f64 {
+    if e == 0 {
+        return 1.0;
+    } else if e == 1 {
+        return x;
+    } else if e == -1 {
+        return 1.0 / x;
+    }
+    let mut xx = if e > 0 { x } else { 1.0 / x };
+    let mut y = 1.0;
+    let mut i = e;
+    while i != 0 {
+        if i % 2 != 0 {
+            y *= xx;
+        }
+        xx *= xx;
+        i /= 2;
+    }
+    y
+}
+
+/// `pow(expFact, int)` of `lineDivide.C`, per flavour. Dev: [`integer_pow_dev`].
+/// v2506: the real power (`pow(double, double)` after integer promotion).
+fn line_divide_pow(base: f64, e: usize, flavour: ProjectionFlavour) -> f64 {
+    match flavour {
+        ProjectionFlavour::Dev => integer_pow_dev(base, e as i32),
+        ProjectionFlavour::Esi => base.r_powf(e as f64),
+    }
+}
+
+/// Local hex-edge endpoints `(start, end)` in OpenFOAM edge order
+/// (`blockDescriptorEdges.C`, `edgesPointsWeights`).
+const HEX_EDGE_ENDS: [(usize, usize); 12] = [
+    (0, 1),
+    (3, 2),
+    (7, 6),
+    (4, 5),
+    (0, 3),
+    (1, 2),
+    (5, 6),
+    (4, 7),
+    (0, 4),
+    (1, 5),
+    (2, 6),
+    (3, 7),
+];
 
 /// One `hex` block from the `blocks` list.
 ///
@@ -226,9 +339,10 @@ impl Grading {
 /// (OpenFOAM `block::createPoints`) rather than one distribution per direction.
 /// When it is `Some`, the block-build path uses `edge_blended_node` and
 /// `grading` merely holds a representative (the first edge of each direction)
-/// for inspection. When it is `None`, `grading` is authoritative and the fast
-/// trilinear per-direction map is used (this covers `simpleGrading` and every
-/// `edgeGrading` whose four edges per direction agree).
+/// for inspection. When it is `None`, `grading` is authoritative and each of a
+/// direction's four edges takes it (`simpleGrading`, and every `edgeGrading`
+/// whose four edges per direction agree). ~~`None` took a trilinear fast
+/// path~~ **CORRECTED 2026-11-11 (gh:#1464):** both cases take the 12-edge blend.
 #[derive(Debug, Clone)]
 pub struct Block {
     /// The 8 block-corner vertex indices, in OpenFOAM hex order.
@@ -240,8 +354,11 @@ pub struct Block {
     pub grading: [Grading; 3],
     /// The 12 per-edge gradings, present only for a genuinely per-edge
     /// `edgeGrading` (edges 0–3 = x, 4–7 = y, 8–11 = z; see
-    /// `edge_blended_node`). `None` selects the trilinear fast path.
+    /// `edge_blended_node`). `None`: each direction's four edges share `grading`.
     pub edge_grading: Option<[Grading; 12]>,
+    /// The block's zone name (`hex (...) zoneName (nx ny nz) ...`), which
+    /// upstream turns into a `cellZone`; `None` when the block is unzoned.
+    pub zone: Option<String>,
 }
 
 /// One named boundary patch from the `boundary` list.
@@ -273,6 +390,31 @@ pub struct BlockMeshDict {
     pub blocks: Vec<Block>,
     /// The named boundary patches.
     pub patches: Vec<PatchDef>,
+    /// The `edges` list: curved (or explicitly `line`) block edges, in
+    /// dictionary order (the first match wins, as upstream's
+    /// `blockDescriptor::edgePointsWeights`). Empty means every edge is straight.
+    pub edges: Vec<BlockEdge>,
+    /// Name of the patch that collects block faces no `boundary` entry names
+    /// (`defaultPatch { name ...; }`, default `defaultFaces`).
+    pub default_patch_name: String,
+    /// Type of that patch (`defaultPatch { type ...; }`). Upstream's default
+    /// when the entry is absent is `empty` (`blockMeshTopology.C`,
+    /// `defaultPatchType = emptyPolyPatch::typeName`).
+    pub default_patch_kind: PatchKind,
+    /// `fastMerge` (default `no`). `yes` selects `blockMeshMergeFast.C`, which
+    /// is not ported: `build` returns `NotImplemented` for it.
+    pub fast_merge: bool,
+    /// `checkFaceCorrespondence` (default `yes`): neighbouring blocks must
+    /// have the same number of faces on their shared block face.
+    pub check_face_correspondence: bool,
+    /// `checkBlockFaceOrientation` (default `yes`): every block's faces must
+    /// point away from its centre (`blockDescriptor::check`).
+    pub check_block_face_orientation: bool,
+    /// The `geometry` dictionary: searchable surfaces that `project` vertices,
+    /// edges and faces refer to (gh:#1462). Empty when absent.
+    pub geometry: Arc<Geometry>,
+    /// The `faces` list: `project` and `sweep` block faces (gh:#1462).
+    pub faces: Vec<BlockFace>,
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -315,6 +457,13 @@ pub struct PolyMesh {
     pub n_cells: usize,
     /// Boundary patches, covering `[n_internal_faces, faces.len())` contiguously.
     pub patches: Vec<BoundaryPatch>,
+    /// Cell zones, one per distinct block zone name in dictionary order:
+    /// `(name, cell indices)`. Upstream writes these as `cellZones`; the
+    /// `io::PolyMesh` carries no zones, so [`PolyMesh::to_foam_poly_mesh`]
+    /// drops them; write them with
+    /// `outram_foam_basic_lib::io::poly_mesh::PolyMesh::write_cell_zones`
+    /// (~~"no zone output yet"~~ **CORRECTED 2026-11-11, gh:#1463**).
+    pub cell_zones: Vec<(String, Vec<usize>)>,
 }
 
 impl PolyMesh {
@@ -350,7 +499,7 @@ impl PolyMesh {
             patches.push(BoundaryPatch::new(name, faces.len(), fs.len(), kind));
             faces.extend(fs);
         }
-        PolyMesh { points, faces, n_internal_faces, n_cells: c0, patches }
+        PolyMesh { points, faces, n_internal_faces, n_cells: c0, patches, cell_zones: Vec::new() }
     }
 
     /// Number of points.
@@ -483,6 +632,7 @@ impl PolyMesh {
             n_internal_faces: m.n_internal_faces,
             n_cells: m.n_cells,
             patches: m.patches.clone(),
+            cell_zones: Vec::new(),
         }
     }
 
@@ -556,6 +706,7 @@ pub fn block_mesh_from_file(path: impl AsRef<Path>) -> Result<PolyMesh, MeshErro
 //  Grading
 // ───────────────────────────────────────────────────────────────────────────
 
+#[cfg(test)]
 /// Normalised node positions `[0, 1]` for `n` cells under a `simpleGrading`
 /// expansion ratio (last-cell-width / first-cell-width).
 ///
@@ -607,9 +758,13 @@ fn graded_positions(n: usize, expansion: f64) -> Vec<f64> {
 /// the largest `fraction_cells` absorbs any rounding remainder so the total is
 /// exactly `n` (OpenFOAM `secnMaxDivs` adjustment).
 ///
-/// Returns `n + 1` monotonically increasing positions with `s[0] == 0` and
-/// `s[n] == 1` (endpoints clamped exactly so block corners coincide across
-/// blocks). If `n` is smaller than the number of segments — OpenFOAM cannot
+/// Returns `n + 1` monotonically increasing positions with `s[0] == 0`.
+/// ~~`s[n]` was clamped to exactly `1`~~ **CORRECTED 2026-11-11 (gh:#1364):**
+/// neither dev nor v2506 clamps: `lineDivide.C` sets `divisions_[nDiv] = 1.0`
+/// and the last section's loop then overwrites it with the computed value
+/// (`secStart + blockFrac*...`, 1 ulp off 1 on some multi-section edges, 208
+/// pitzDailySteady points); both flavours keep the computed value. If `n` is
+/// smaller than the number of segments — OpenFOAM cannot
 /// place at least one division per section — the edge is meshed uniformly, as
 /// OpenFOAM does (`lineDivide.C` line 128).
 ///
@@ -617,7 +772,11 @@ fn graded_positions(n: usize, expansion: f64) -> Vec<f64> {
 /// the cumulative position of the `p`-th interior node is
 /// `blockFrac * (1 - g^p) / (1 - g^m)` offset by the segment start — the same
 /// geometric-series partial sum used by the single-ratio [`graded_positions`].
-fn graded_positions_multi(n: usize, segments: &[GradingSegment]) -> Vec<f64> {
+fn graded_positions_multi(
+    n: usize,
+    segments: &[GradingSegment],
+    flavour: ProjectionFlavour,
+) -> Vec<f64> {
     if n == 0 {
         return vec![0.0];
     }
@@ -660,7 +819,13 @@ fn graded_positions_multi(n: usize, segments: &[GradingSegment]) -> Vec<f64> {
         let expansion = seg.expansion;
         let secn_div = secn_divs[si];
         let secn_end = secn_start + secn_div;
-        if (expansion - 1.0).abs() < 1e-12 {
+        // Dev: `expRatio == 1.0`; v2506: `equal(expRatio, 1)`, i.e.
+        // `mag(expRatio - 1) <= VSMALL` (1e-300).
+        let unit_ratio = match flavour {
+            ProjectionFlavour::Dev => expansion == 1.0,
+            ProjectionFlavour::Esi => (expansion - 1.0).abs() <= 1.0e-300,
+        };
+        if unit_ratio {
             for (offset, slot) in s[secn_start..secn_end].iter_mut().enumerate() {
                 // `p` is the node index within the section (1..=secn_div).
                 let p = (offset + 1) as f64;
@@ -674,21 +839,29 @@ fn graded_positions_multi(n: usize, segments: &[GradingSegment]) -> Vec<f64> {
             } else {
                 0.0
             };
-            let denom = 1.0 - exp_fact.r_powi(secn_div as i32);
+            // ~~`pow(expFact, int)` in C++ is `pow(double, double)`, not repeated
+            // multiplication: use the real power, as upstream.~~ **CORRECTED
+            // 2026-11-11 (gh:#1364):** true of v2506 only. In OpenFOAM-dev
+            // `pow(Scalar, int32_t)` is `IntegerPow` (repeated squaring,
+            // `Scalar.H`), so the dev flavour uses [`integer_pow_dev`] and the
+            // v2506 flavour the real power ([`line_divide_pow`]).
+            let denom = 1.0 - line_divide_pow(exp_fact, secn_div, flavour);
             for (offset, slot) in s[secn_start..secn_end].iter_mut().enumerate() {
-                let p = (offset + 1) as i32;
-                *slot = sec_start + block_frac * (1.0 - exp_fact.r_powi(p)) / denom;
+                // `offset + 1` is the node index within the section (1..=secn_div).
+                let numer = 1.0 - line_divide_pow(exp_fact, offset + 1, flavour);
+                *slot = sec_start + block_frac * numer / denom;
             }
         }
         sec_start = s[secn_end - 1];
         secn_start = secn_end;
     }
-    // Clamp the endpoints exactly so block corners coincide across blocks.
+    // `divisions_[0] = 0` as upstream; the last node keeps its computed value
+    // (no clamp, see the doc comment).
     s[0] = 0.0;
-    s[n] = 1.0;
     s
 }
 
+#[cfg(test)]
 /// Trilinear interpolation of the 8 (scaled) block corners at unit-cube
 /// parametric coordinates `(u, v, w)`.
 fn trilinear(corners: &[Vector3; 8], u: f64, v: f64, w: f64) -> Vector3 {
@@ -714,6 +887,7 @@ fn trilinear(corners: &[Vector3; 8], u: f64, v: f64, w: f64) -> Vector3 {
 /// straight-edge `lineDivide::lambdaDivisions()` for each edge.
 type EdgeLambdas = [Vec<f64>; 12];
 
+#[cfg(test)]
 /// Build the 12 per-edge `[0, 1]` node-position arrays for a block, from its 12
 /// per-edge gradings and its `(nx, ny, nz)` cell counts.
 ///
@@ -734,6 +908,7 @@ fn edge_lambdas(edge_grading: &[Grading; 12], cells: [usize; 3]) -> EdgeLambdas 
     })
 }
 
+#[cfg(test)]
 /// One interior node position `[m]` of a per-edge-graded hex block, blended
 /// from all 12 edge distributions.
 ///
@@ -754,6 +929,22 @@ fn edge_lambdas(edge_grading: &[Grading; 12], cells: [usize; 3]) -> EdgeLambdas 
 fn edge_blended_node(
     corners: &[Vector3; 8],
     el: &EdgeLambdas,
+    i: usize,
+    j: usize,
+    k: usize,
+) -> Vector3 {
+    edge_blended_node_with(corners, el, None, i, j, k)
+}
+
+/// [`edge_blended_node`] plus, when `curved` holds the 12 edges' actual point
+/// arrays (`p[e][i|j|k]`, `blockDescriptor::edgesPointsWeights`), upstream's
+/// curved-edge correction (`blockCreate.C`, "Apply curved-edge correction"):
+/// each straight-edge estimate is shifted by `w * (p_edge - edge_straight)`.
+/// `None` is the straight-edge branch.
+fn edge_blended_node_with(
+    corners: &[Vector3; 8],
+    el: &EdgeLambdas,
+    curved: Option<&[Vec<Vector3>; 12]>,
     i: usize,
     j: usize,
     k: usize,
@@ -833,7 +1024,7 @@ fn edge_blended_node(
     let edgez4 = p010 + (p011 - p010) * w11;
 
     // Mean of the three directional estimates (blockCreate.C:147-152).
-    (edgex1 * wx1
+    let mut point = (edgex1 * wx1
         + edgex2 * wx2
         + edgex3 * wx3
         + edgex4 * wx4
@@ -845,58 +1036,85 @@ fn edge_blended_node(
         + edgez2 * wz2
         + edgez3 * wz3
         + edgez4 * wz4)
-        / 3.0
+        / 3.0;
+
+    // Curved-edge correction vectors, summed in upstream's order.
+    if let Some(p) = curved {
+        let corx1 = (p[0][i] - edgex1) * wx1;
+        let corx2 = (p[1][i] - edgex2) * wx2;
+        let corx3 = (p[2][i] - edgex3) * wx3;
+        let corx4 = (p[3][i] - edgex4) * wx4;
+
+        let cory1 = (p[4][j] - edgey1) * wy1;
+        let cory2 = (p[5][j] - edgey2) * wy2;
+        let cory3 = (p[6][j] - edgey3) * wy3;
+        let cory4 = (p[7][j] - edgey4) * wy4;
+
+        let corz1 = (p[8][k] - edgez1) * wz1;
+        let corz2 = (p[9][k] - edgez2) * wz2;
+        let corz3 = (p[10][k] - edgez3) * wz3;
+        let corz4 = (p[11][k] - edgez4) * wz4;
+
+        point += corx1
+            + corx2
+            + corx3
+            + corx4
+            + cory1
+            + cory2
+            + cory3
+            + cory4
+            + corz1
+            + corz2
+            + corz3
+            + corz4;
+    }
+    point
 }
 
 // ───────────────────────────────────────────────────────────────────────────
 //  Build
 // ───────────────────────────────────────────────────────────────────────────
 
-/// A boundary face awaiting patch assignment.
-struct PendingBoundaryFace {
-    verts: Vec<usize>,
-    owner: usize,
-    block_face: Option<[usize; 4]>,
-}
-
 impl BlockMeshDict {
-    /// Subdivide every block, merge coincident points, dedupe faces, assign
-    /// boundary patches, and return the [`PolyMesh`].
+    /// Build the mesh the way upstream `blockMesh` does (gh:#1464): every
+    /// block is generated by the 12-edge blend (`block::createPoints`), points
+    /// are merged **topologically** across the block faces the block topology
+    /// shares (`blockMesh::calcMergeInfo`) and numbered by first appearance,
+    /// cells are re-labelled by `cellShape(hex, labels, true)` (collapsing
+    /// degenerate hexes to prisms, wedges, pyramids and tets), and the faces,
+    /// owners and neighbours are numbered by `polyMesh::setTopology`:
+    /// internal faces cell by cell in increasing neighbour order, then each
+    /// patch in dictionary order, then the unnamed faces in `defaultPatch`.
+    ///
+    /// The result is checked as `blockMesh::check` does (curved edges that
+    /// match no block edge or repeat another, patch faces that match no block
+    /// face or point inwards) and, unless `checkBlockFaceOrientation no`, each
+    /// block's faces must point away from its centre.
     ///
     /// # Errors
-    /// [`MeshError::Construction`] on a non-manifold face (a face shared by more
-    /// than two cells) or a failed validate; boundary faces that match no patch
-    /// are collected into a trailing `defaultFaces` patch rather than erroring.
+    /// [`MeshError::Construction`] for any of upstream's fatal errors: bad
+    /// vertex labels, inside-out blocks, inconsistent gradings between
+    /// neighbouring blocks, patch faces that belong to no block, or a failed
+    /// check. [`MeshError::NotImplemented`] for `fastMerge yes`.
     pub fn build(&self) -> Result<PolyMesh, MeshError> {
+        if self.fast_merge {
+            return Err(MeshError::NotImplemented(
+                "`fastMerge yes` (blockMeshMergeFast.C; gh:#1464 remaining item)".into(),
+            ));
+        }
         let scale = self.convert_to_meters;
 
-        // Global point merge: quantised coordinate -> canonical point index.
-        let tol = self.merge_tolerance();
-        let inv_tol = 1.0 / tol;
-        let mut point_map: HashMap<(i64, i64, i64), usize> = HashMap::new();
-        let mut points: Vec<Vector3> = Vec::new();
-        let mut intern = |p: Vector3| -> usize {
-            let key = (
-                (p.x * inv_tol).round() as i64,
-                (p.y * inv_tol).round() as i64,
-                (p.z * inv_tol).round() as i64,
-            );
-            *point_map.entry(key).or_insert_with(|| {
-                points.push(p);
-                points.len() - 1
-            })
-        };
+        // Resolve the `edges` list against the raw vertices (upstream builds
+        // edges from the unscaled vertices and scales the finished points).
+        let curves: Vec<EdgeCurve> = self
+            .edges
+            .iter()
+            .map(|e| e.resolve_with(&self.vertices, &self.geometry))
+            .collect::<Result<_, _>>()?;
 
-        // Candidate faces, keyed later for dedup.
-        struct FaceCand {
-            verts: [usize; 4],              // wound outward from `owner`
-            owner: usize,                   // cell index
-            block_face: Option<[usize; 4]>, // sorted coarse block-corner set, if on a block boundary
-        }
-        let mut cands: Vec<FaceCand> = Vec::new();
-        let mut cell_count = 0usize;
-
-        for block in &self.blocks {
+        let mut grids: Vec<BlockGrid> = Vec::with_capacity(self.blocks.len());
+        let mut shapes: Vec<CellShape> = Vec::with_capacity(self.blocks.len());
+        for (bi, block) in self.blocks.iter().enumerate() {
             for &vi in &block.vertices {
                 if vi >= self.vertices.len() {
                     return Err(MeshError::Construction(format!(
@@ -905,279 +1123,346 @@ impl BlockMeshDict {
                     )));
                 }
             }
-            let corners: [Vector3; 8] = {
-                let mut c = [Vector3::ZERO; 8];
-                for (k, &vi) in block.vertices.iter().enumerate() {
-                    c[k] = self.vertices[vi] * scale;
-                }
-                c
-            };
-            let [nx, ny, nz] = block.cells;
-            if nx == 0 || ny == 0 || nz == 0 {
+            if block.cells.iter().any(|&n| n == 0) {
                 return Err(MeshError::Construction(
                     "block has a zero cell count".to_string(),
                 ));
             }
-            // Node global-index grid for this block.
-            let nnx = nx + 1;
-            let nny = ny + 1;
-            let mut grid = vec![0usize; nnx * nny * (nz + 1)];
-            match &block.edge_grading {
-                // Fast path: one node distribution per direction (simpleGrading,
-                // or an edgeGrading whose four edges per direction agree). The
-                // block map is a straight trilinear interpolation.
-                None => {
-                    let us = block.grading[0].node_positions(nx);
-                    let vs = block.grading[1].node_positions(ny);
-                    let ws = block.grading[2].node_positions(nz);
-                    for k in 0..=nz {
-                        for j in 0..=ny {
-                            for i in 0..=nx {
-                                let p = trilinear(&corners, us[i], vs[j], ws[k]);
-                                grid[i + j * nnx + k * nnx * nny] = intern(p);
-                            }
-                        }
-                    }
-                }
-                // General per-edge path: blend interior nodes from all 12 edge
-                // distributions (OpenFOAM `block::createPoints`). Block corners
-                // are set exactly to the corner points, matching the upstream
-                // `vertex(i,j,k)` skip (blockCreate.C:69-85).
-                Some(eg) => {
-                    let el = edge_lambdas(eg, block.cells);
-                    for k in 0..=nz {
-                        for j in 0..=ny {
-                            for i in 0..=nx {
-                                let cx = i == nx;
-                                let cy = j == ny;
-                                let cz = k == nz;
-                                let is_corner = (i == 0 || cx) && (j == 0 || cy) && (k == 0 || cz);
-                                let p = if is_corner {
-                                    let base = if !cx && !cy {
-                                        0
-                                    } else if cx && !cy {
-                                        1
-                                    } else if cx && cy {
-                                        2
-                                    } else {
-                                        3
-                                    };
-                                    corners[base + if cz { 4 } else { 0 }]
-                                } else {
-                                    edge_blended_node(&corners, &el, i, j, k)
-                                };
-                                grid[i + j * nnx + k * nnx * nny] = intern(p);
-                            }
-                        }
-                    }
-                }
-            }
-            let node_at = |i: usize, j: usize, k: usize| grid[i + j * nnx + k * nnx * nny];
-
-            // Coarse block-face corner sets (block-corner vertex indices),
-            // indexed by HEX_FACE order.
-            let block_face_set = |lf: usize| -> [usize; 4] {
-                let mut s = [
-                    block.vertices[HEX_FACE[lf][0]],
-                    block.vertices[HEX_FACE[lf][1]],
-                    block.vertices[HEX_FACE[lf][2]],
-                    block.vertices[HEX_FACE[lf][3]],
-                ];
-                s.sort_unstable();
-                s
+            let shape = CellShape {
+                model: CellModel::Hex,
+                labels: block.vertices.to_vec(),
             };
+            if self.check_block_face_orientation {
+                self.check_block_orientation(bi, &shape)?;
+            }
+            grids.push(self.block_grid(block, &curves)?);
+            shapes.push(shape);
+        }
 
-            // Emit cells + their 6 faces.
-            for ck in 0..nz {
-                for cj in 0..ny {
-                    for ci in 0..nx {
-                        let cell = cell_count;
-                        cell_count += 1;
-                        let n = [
-                            node_at(ci, cj, ck),
-                            node_at(ci + 1, cj, ck),
-                            node_at(ci + 1, cj + 1, ck),
-                            node_at(ci, cj + 1, ck),
-                            node_at(ci, cj, ck + 1),
-                            node_at(ci + 1, cj, ck + 1),
-                            node_at(ci + 1, cj + 1, ck + 1),
-                            node_at(ci, cj + 1, ck + 1),
-                        ];
-                        let on_boundary = [
-                            ci == 0,      // x-min
-                            ci == nx - 1, // x-max
-                            cj == 0,      // y-min
-                            cj == ny - 1, // y-max
-                            ck == 0,      // z-min
-                            ck == nz - 1, // z-max
-                        ];
-                        for (lf, corners_lf) in HEX_FACE.iter().enumerate() {
-                            let verts = [
-                                n[corners_lf[0]],
-                                n[corners_lf[1]],
-                                n[corners_lf[2]],
-                                n[corners_lf[3]],
-                            ];
-                            let block_face = if on_boundary[lf] {
-                                Some(block_face_set(lf))
-                            } else {
-                                None
-                            };
-                            cands.push(FaceCand {
-                                verts,
-                                owner: cell,
-                                block_face,
-                            });
-                        }
-                    }
+        // Block topology: the blocks as hex cells over the dictionary
+        // vertices, with the `boundary` faces as patches.
+        let names: Vec<String> = self.patches.iter().map(|p| p.name.clone()).collect();
+        let topo_patch_faces: Vec<Vec<Face>> = self
+            .patches
+            .iter()
+            .map(|p| p.faces.iter().map(|q| q.to_vec()).collect())
+            .collect();
+        let topo = mesh_from_shapes(self.vertices.len(), &shapes, &topo_patch_faces, &names)?;
+        self.check(&topo)?;
+
+        let merge = calc_merge_info(
+            &grids,
+            &topo,
+            &self.vertices,
+            self.check_face_correspondence,
+        )?;
+        let points = create_points(&grids, &merge, scale);
+        let cells = create_cells(&grids, &merge)?;
+
+        // Patches of the topology, with the default patch last when non-empty.
+        let n_default = topo.faces.len() - topo.default_start;
+        let mut patch_names = names.clone();
+        let mut patch_kinds: Vec<PatchKind> = self.patches.iter().map(|p| p.kind).collect();
+        let mut ranges: Vec<(usize, usize)> = topo
+            .patch_starts
+            .iter()
+            .zip(&topo.patch_sizes)
+            .map(|(&s, &n)| (s, n))
+            .collect();
+        if n_default > 0 {
+            patch_names.push(self.default_patch_name.clone());
+            patch_kinds.push(self.default_patch_kind);
+            ranges.push((topo.default_start, n_default));
+        }
+        let mut patch_faces: Vec<Vec<Face>> = Vec::with_capacity(ranges.len());
+        for &(start, size) in &ranges {
+            let faces = &topo.faces[start..start + size];
+            let owners = &topo.owner[start..start + size];
+            patch_faces.push(create_patch_faces(&grids, &shapes, &merge, faces, owners));
+        }
+
+        let sm = mesh_from_shapes(merge.n_points, &cells, &patch_faces, &patch_names)?;
+        if sm.default_start != sm.faces.len() {
+            return Err(MeshError::Construction(format!(
+                "{} cell faces belong to no patch (default patch `{}` already has faces)",
+                sm.faces.len() - sm.default_start,
+                self.default_patch_name
+            )));
+        }
+
+        let n_internal_faces = sm.n_internal();
+        let faces: Vec<MeshFace> = sm
+            .faces
+            .iter()
+            .enumerate()
+            .map(|(fi, f)| MeshFace {
+                verts: f.clone(),
+                owner: sm.owner[fi],
+                neighbour: (fi < n_internal_faces).then(|| sm.neighbour[fi]),
+            })
+            .collect();
+        let patches: Vec<BoundaryPatch> = patch_names
+            .iter()
+            .zip(&patch_kinds)
+            .enumerate()
+            .map(|(pi, (name, &kind))| {
+                BoundaryPatch::new(name.clone(), sm.patch_starts[pi], sm.patch_sizes[pi], kind)
+            })
+            .collect();
+
+        // Cell zones: block cells are contiguous, in block order.
+        let mut cell_zones: Vec<(String, Vec<usize>)> = Vec::new();
+        let mut cell_count = 0usize;
+        for (block, grid) in self.blocks.iter().zip(&grids) {
+            if let Some(zone) = &block.zone {
+                let range = cell_count..cell_count + grid.n_cells();
+                match cell_zones.iter_mut().find(|(n, _)| n == zone) {
+                    Some((_, v)) => v.extend(range),
+                    None => cell_zones.push((zone.clone(), range.collect())),
                 }
             }
-        }
-
-        // Dedup faces by their sorted point set.
-        let mut groups: HashMap<[usize; 4], Vec<usize>> = HashMap::new();
-        for (idx, c) in cands.iter().enumerate() {
-            let mut key = c.verts;
-            key.sort_unstable();
-            groups.entry(key).or_default().push(idx);
-        }
-
-        // Partition into internal faces and pending boundary faces.
-        let mut internal: Vec<MeshFace> = Vec::new();
-        let mut boundary: Vec<PendingBoundaryFace> = Vec::new();
-        for members in groups.values() {
-            match members.len() {
-                1 => {
-                    let c = &cands[members[0]];
-                    boundary.push(PendingBoundaryFace {
-                        verts: c.verts.to_vec(),
-                        owner: c.owner,
-                        block_face: c.block_face,
-                    });
-                }
-                2 => {
-                    let a = &cands[members[0]];
-                    let b = &cands[members[1]];
-                    // Owner = smaller cell index; keep that cell's outward winding.
-                    let (own, nbr) = if a.owner < b.owner { (a, b) } else { (b, a) };
-                    internal.push(MeshFace {
-                        verts: own.verts.to_vec(),
-                        owner: own.owner,
-                        neighbour: Some(nbr.owner),
-                    });
-                }
-                m => {
-                    return Err(MeshError::Construction(format!(
-                        "non-manifold face shared by {m} cells (points {:?})",
-                        cands[members[0]].verts
-                    )));
-                }
-            }
-        }
-
-        // Deterministic internal-face ordering: by (owner, neighbour).
-        internal.sort_by_key(|f| (f.owner, f.neighbour.unwrap_or(usize::MAX)));
-
-        // Deterministic boundary-face ordering: by (owner, sorted point ids).
-        // `groups` is a randomly seeded `HashMap`, so `groups.values()` hands
-        // the boundary faces over in a different order on every run. Without
-        // this sort, a patch's face order (and so the summation order of every
-        // face-sum, cell centres included) changed from process to process:
-        // the Sod shock tube's cell centres moved by 1 ulp between runs of the
-        // same binary and its final rho sum by up to 7 ulp (gh:#903, 2026-10-16;
-        // `wasm_worker_timing/README.md` in outram-foam-appbuilder-lib). This
-        // does not reproduce OpenFOAM blockMesh's own boundary-face numbering;
-        // the port did not do that before either.
-        boundary.sort_by_key(|f| {
-            let mut key = f.verts.clone();
-            key.sort_unstable();
-            (f.owner, key)
-        });
-
-        // Assign boundary faces to patches by coarse block-face set.
-        let mut patch_lookup: HashMap<[usize; 4], usize> = HashMap::new();
-        for (pi, pd) in self.patches.iter().enumerate() {
-            for quad in &pd.faces {
-                let mut key = *quad;
-                key.sort_unstable();
-                patch_lookup.insert(key, pi);
-            }
-        }
-        let mut per_patch: Vec<Vec<PendingBoundaryFace>> =
-            (0..self.patches.len()).map(|_| Vec::new()).collect();
-        let mut unmatched: Vec<PendingBoundaryFace> = Vec::new();
-        for bf in boundary {
-            match bf.block_face.and_then(|s| patch_lookup.get(&s).copied()) {
-                Some(pi) => per_patch[pi].push(bf),
-                None => unmatched.push(bf),
-            }
-        }
-
-        // Assemble the final face list: internal first, then patches in dict
-        // order, then any unmatched faces in a trailing defaultFaces patch.
-        let n_internal_faces = internal.len();
-        let mut faces = internal;
-        let mut patches: Vec<BoundaryPatch> = Vec::new();
-        let mut cursor = n_internal_faces;
-        for (pi, pd) in self.patches.iter().enumerate() {
-            let group = std::mem::take(&mut per_patch[pi]);
-            let size = group.len();
-            for bf in group {
-                faces.push(MeshFace {
-                    verts: bf.verts,
-                    owner: bf.owner,
-                    neighbour: None,
-                });
-            }
-            patches.push(BoundaryPatch::new(pd.name.clone(), cursor, size, pd.kind));
-            cursor += size;
-        }
-        if !unmatched.is_empty() {
-            let size = unmatched.len();
-            for bf in unmatched {
-                faces.push(MeshFace {
-                    verts: bf.verts,
-                    owner: bf.owner,
-                    neighbour: None,
-                });
-            }
-            patches.push(BoundaryPatch::new(
-                "defaultFaces",
-                cursor,
-                size,
-                PatchKind::Patch,
-            ));
+            cell_count += grid.n_cells();
         }
 
         Ok(PolyMesh {
             points,
             faces,
             n_internal_faces,
-            n_cells: cell_count,
+            n_cells: cells.len(),
             patches,
+            cell_zones,
         })
     }
 
-    /// Absolute coincident-point merge tolerance `[m]`, derived from the scaled
-    /// vertex bounding box (`~1e-9` of the diagonal, floored at `1e-12 m`).
-    fn merge_tolerance(&self) -> f64 {
-        if self.vertices.is_empty() {
-            return 1e-9;
+    /// `block::createPoints()` for one block: raw (unscaled) points, the 12
+    /// edges' weights blended by `blockCreate.C:45-183`, with the curved-edge
+    /// correction when any edge is listed. The eight block vertices are set
+    /// exactly (the `vertex(i, j, k)` skip).
+    fn block_grid(&self, block: &Block, curves: &[EdgeCurve]) -> Result<BlockGrid, MeshError> {
+        let [nx, ny, nz] = block.cells;
+        let (el, ep) = self.edge_data(block, curves);
+        let raw: [Vector3; 8] = std::array::from_fn(|c| self.vertices[block.vertices[c]]);
+        let mut points = Vec::with_capacity((nx + 1) * (ny + 1) * (nz + 1));
+        for k in 0..=nz {
+            for j in 0..=ny {
+                for i in 0..=nx {
+                    let cx = i == nx;
+                    let cy = j == ny;
+                    let cz = k == nz;
+                    let is_corner = (i == 0 || cx) && (j == 0 || cy) && (k == 0 || cz);
+                    let p = if is_corner {
+                        let base = if !cx && !cy {
+                            0
+                        } else if cx && !cy {
+                            1
+                        } else if cx && cy {
+                            2
+                        } else {
+                            3
+                        };
+                        raw[base + if cz { 4 } else { 0 }]
+                    } else {
+                        edge_blended_node_with(&raw, &el, ep.as_ref(), i, j, k)
+                    };
+                    points.push(p);
+                }
+            }
         }
-        let scale = self.convert_to_meters;
-        let mut lo = self.vertices[0] * scale;
-        let mut hi = lo;
-        for v in &self.vertices {
-            let p = *v * scale;
-            lo.x = lo.x.min(p.x);
-            lo.y = lo.y.min(p.y);
-            lo.z = lo.z.min(p.z);
-            hi.x = hi.x.max(p.x);
-            hi.y = hi.y.max(p.y);
-            hi.z = hi.z.max(p.z);
+        let curved = find_curved_faces(&block.vertices, &self.faces);
+        if curved.iter().any(Option::is_some) {
+            apply_curved_faces(
+                &self.geometry,
+                &self.faces,
+                &curved,
+                &block.vertices,
+                block.cells,
+                &el,
+                &mut points,
+            )?;
         }
-        let diag = (hi - lo).mag();
-        (diag * 1e-9).max(1e-12)
+        Ok(BlockGrid {
+            n: block.cells,
+            points,
+        })
+    }
+
+    /// `blockDescriptor::check`: each face of the block must point away from
+    /// the block centre (some other face centre lies behind it).
+    fn check_block_orientation(&self, bi: usize, shape: &CellShape) -> Result<(), MeshError> {
+        let faces = shape.faces();
+        let mut outward = 0usize;
+        let mut correct = vec![true; faces.len()];
+        for (i, f) in faces.iter().enumerate() {
+            let (centre, area) = face_centre_and_area(&self.vertices, f);
+            if area.mag() > 1.0e-15 {
+                let is_out = faces.iter().enumerate().any(|(j, g)| {
+                    j != i && {
+                        let (cj, _) = face_centre_and_area(&self.vertices, g);
+                        let d = centre - cj;
+                        d.x * area.x + d.y * area.y + d.z * area.z > 0.0
+                    }
+                });
+                if is_out {
+                    outward += 1;
+                } else {
+                    correct[i] = false;
+                }
+            } else {
+                outward += 1;
+            }
+        }
+        if outward == 0 {
+            return Err(MeshError::Construction(format!("block {bi} is inside-out")));
+        }
+        if outward != faces.len() {
+            let bad: Vec<_> = faces
+                .iter()
+                .zip(&correct)
+                .filter(|(_, &ok)| !ok)
+                .map(|(f, _)| format!("{f:?}"))
+                .collect();
+            return Err(MeshError::Construction(format!(
+                "block {bi} has inward-pointing faces {}",
+                bad.join(" ")
+            )));
+        }
+        Ok(())
+    }
+
+    /// `blockMesh::check`: curved edges that repeat or match no block edge,
+    /// patch faces that match no block face or point inwards.
+    fn check(&self, topo: &ShapeMesh) -> Result<(), MeshError> {
+        let mut msg = String::new();
+        for (cei, e) in self.edges.iter().enumerate() {
+            if let Some(cej) = self.edges[cei + 1..]
+                .iter()
+                .position(|o| e.compare(o.start, o.end) != 0)
+            {
+                msg.push_str(&format!(
+                    "    Curved edge #{cei} is a duplicate of curved edge #{}\n",
+                    cei + 1 + cej
+                ));
+            }
+        }
+        for (cei, e) in self.edges.iter().enumerate() {
+            let found = self.blocks.iter().any(|b| {
+                HEX_EDGE_ENDS
+                    .iter()
+                    .any(|&(s, t)| e.compare(b.vertices[s], b.vertices[t]) != 0)
+            });
+            if !found {
+                msg.push_str(&format!(
+                    "    Curved edge #{cei} does not correspond to a block edge\n"
+                ));
+            }
+        }
+        // Patch-face consistency. Upstream iterates `bm.boundary()`, whose
+        // faces are the mesh's own faces (each cell's outward face), not the
+        // dictionary's quads, so a dictionary quad wound the wrong way is
+        // accepted and the "points inwards" test only fires for a mesh face
+        // that is not its cell's outward face. Ported as upstream does it.
+        for pi in 0..topo.patch_starts.len() {
+            let (start, size) = (topo.patch_starts[pi], topo.patch_sizes[pi]);
+            for fi in 0..size {
+                let patch_face = &topo.faces[start + fi];
+                let mut ok = false;
+                for cell in &topo.cells {
+                    for &cf in cell {
+                        let tf = &topo.faces[cf];
+                        if faces_equal(patch_face, tf) {
+                            ok = true;
+                            let a = face_centre_and_area(&self.vertices, patch_face).1;
+                            let b = face_centre_and_area(&self.vertices, tf).1;
+                            if a.x * b.x + a.y * b.y + a.z * b.z < 0.0 {
+                                msg.push_str(&format!(
+                                    "    Face #{fi} {patch_face:?} of patch #{pi} {} points inwards\n",
+                                    self.patches[pi].name
+                                ));
+                            }
+                        }
+                    }
+                }
+                if !ok {
+                    msg.push_str(&format!(
+                        "    Face #{fi} {patch_face:?} of patch #{pi} {} does not match any block faces\n",
+                        self.patches[pi].name
+                    ));
+                }
+            }
+        }
+        if msg.is_empty() {
+            Ok(())
+        } else {
+            Err(MeshError::Construction(format!(
+                "blockMesh topology check failed:\n{msg}"
+            )))
+        }
+    }
+
+    /// The 12 edges' weights, and their point arrays when at least one edge
+    /// is listed in `edges` (upstream `blockDescriptor::edgesPointsWeights`
+    /// with `nCurvedEdges > 0`); the points are `None` when all twelve are
+    /// plain straight edges (the `nCurvedEdges == 0` branch of
+    /// `block::createPoints`).
+    ///
+    /// Per edge, the first listed edge that matches the block's vertex pair
+    /// wins; a reversed match divides the edge with the inverted grading and
+    /// reverses the result (`weights = 1 - d`), exactly as upstream.
+    fn edge_data(
+        &self,
+        block: &Block,
+        curves: &[EdgeCurve],
+    ) -> (EdgeLambdas, Option<[Vec<Vector3>; 12]>) {
+        let raw: [Vector3; 8] = std::array::from_fn(|c| self.vertices[block.vertices[c]]);
+        let mut n_curved = 0usize;
+        let mut weights: Vec<Vec<f64>> = Vec::with_capacity(12);
+        let mut points: Vec<Vec<Vector3>> = Vec::with_capacity(12);
+        for (e, &(ls, le)) in HEX_EDGE_ENDS.iter().enumerate() {
+            let n = block.cells[e / 4];
+            let grading = match &block.edge_grading {
+                Some(eg) => &eg[e],
+                None => &block.grading[e / 4],
+            };
+            let (gs, ge) = (block.vertices[ls], block.vertices[le]);
+            let hit = self
+                .edges
+                .iter()
+                .enumerate()
+                .find_map(|(ci, edge)| match edge.compare(gs, ge) {
+                    0 => None,
+                    cmp => Some((ci, cmp)),
+                });
+            match hit {
+                Some((ci, cmp)) if cmp > 0 => {
+                    let w = line_divide_weights(n, grading, self.geometry.flavour);
+                    points.push(curves[ci].positions(&w));
+                    weights.push(w);
+                    n_curved += 1;
+                }
+                Some((ci, _)) => {
+                    let d = line_divide_weights(n, &grading.inv(), self.geometry.flavour);
+                    let p = curves[ci].positions(&d);
+                    let pn = p.len() - 1;
+                    points.push((0..=pn).map(|pi| p[pn - pi]).collect());
+                    weights.push((0..=pn).map(|pi| 1.0 - d[pn - pi]).collect());
+                    n_curved += 1;
+                }
+                None => {
+                    let w = line_divide_weights(n, grading, self.geometry.flavour);
+                    let (a, b) = (raw[ls], raw[le]);
+                    if !self.edges.is_empty() {
+                        points.push(w.iter().map(|&l| a + (b - a) * l).collect());
+                    }
+                    weights.push(w);
+                }
+            }
+        }
+        let el: EdgeLambdas = std::array::from_fn(|e| std::mem::take(&mut weights[e]));
+        if n_curved == 0 {
+            return (el, None);
+        }
+        let ep: [Vec<Vector3>; 12] = std::array::from_fn(|e| std::mem::take(&mut points[e]));
+        (el, Some(ep))
     }
 }
 
@@ -1236,22 +1521,59 @@ impl BlockMeshDict {
     /// Parse `blockMeshDict` text into a [`BlockMeshDict`].
     ///
     /// Handles `//` and `/* */` comments, the `FoamFile` header, and the
-    /// `convertToMeters`/`scale`, `vertices`, `blocks`, `edges` (skipped),
-    /// `boundary`/`patches`, and `mergePatchPairs` (skipped) entries. See the
-    /// module docs for deferred features.
+    /// `convertToMeters`/`scale`/`units`, `geometry`, `vertices` (including
+    /// `project`), `blocks`, `edges` (including `project`/`projectCurve`),
+    /// `faces`, `defaultPatch`, `boundary`/`patches` and an empty
+    /// `mergePatchPairs` entries, after expanding `$name` variables. See the module docs for
+    /// deferred features.
     ///
     /// # Errors
-    /// [`MeshError::DictParse`] on malformed syntax; [`MeshError::NotImplemented`]
-    /// for an unsupported block shape (only `hex`). All grading forms —
+    /// [`MeshError::DictParse`] on malformed syntax (or more than one of
+    /// `convertToMeters`/`scale`/`units`, or a `defaultPatch` without `type`);
+    /// [`MeshError::NotImplemented`] for an unsupported block shape (only
+    /// `hex`), a macro that is not expanded, or a keyword listed in the module
+    /// docs (a surface type that is not ported, non-empty
+    /// `mergePatchPairs`, ...). All grading forms —
     /// `simpleGrading`, multi-grading, and full per-edge `edgeGrading` — parse.
     pub fn parse(text: &str) -> Result<Self, MeshError> {
-        let tokens = tokenize(text);
+        Self::parse_with_flavour(text, ProjectionFlavour::Dev)
+    }
+
+    /// As [`parse`](Self::parse), following v2506 instead of dev where the two
+    /// differ in projection (`ProjectionFlavour`, gh:#1462): used only to compare
+    /// with a v2506 `blockMesh` run.
+    ///
+    /// # Errors
+    /// As [`parse`](Self::parse).
+    pub fn parse_with_flavour(text: &str, flavour: ProjectionFlavour) -> Result<Self, MeshError> {
+        let tokens = expand_variables(tokenize(text))?;
         let mut cur = Cursor::new(&tokens);
 
+        // Dictionary macros are not expanded (gh:#1463): refuse rather than
+        // read `$x` as a literal and mesh something else.
+        if let Some(t) = tokens
+            .iter()
+            .find(|t| t.starts_with('$') || t.starts_with('#'))
+        {
+            return Err(MeshError::NotImplemented(format!(
+                "dictionary macro `{t}` ($var / #calc / #include) is not expanded"
+            )));
+        }
+
         let mut convert_to_meters = 1.0;
+        let mut n_scale_keywords = 0usize;
         let mut vertices = Vec::new();
         let mut blocks = Vec::new();
-        let mut patches = Vec::new();
+        let mut raw_patches: Vec<RawPatch> = Vec::new();
+        let mut edges = Vec::new();
+        let mut default_patch_name = "defaultFaces".to_string();
+        let mut default_patch_kind = PatchKind::Empty;
+        let mut fast_merge = false;
+        let mut check_face_correspondence = true;
+        let mut check_block_face_orientation = true;
+        let mut geometry = Arc::new(Geometry::default());
+        let mut faces: Vec<BlockFace> = Vec::new();
+        let mut vertex_projections: Vec<Option<Vec<String>>> = Vec::new();
 
         while let Some(tok) = cur.peek() {
             match tok {
@@ -1259,10 +1581,26 @@ impl BlockMeshDict {
                     cur.next();
                     convert_to_meters = cur.parse_f64()?;
                     cur.expect(";")?;
+                    n_scale_keywords += 1;
+                }
+                "units" => {
+                    cur.next();
+                    let mut expr = String::new();
+                    loop {
+                        match cur.next() {
+                            Some(";") => break,
+                            Some(t) => expr.push_str(t),
+                            None => {
+                                return Err(MeshError::DictParse("unterminated `units`".into()))
+                            }
+                        }
+                    }
+                    convert_to_meters = length_units_to_metres(&expr)?;
+                    n_scale_keywords += 1;
                 }
                 "vertices" => {
                     cur.next();
-                    vertices = parse_vertices(&mut cur)?;
+                    (vertices, vertex_projections) = parse_vertices(&mut cur)?;
                     cur.expect(";")?;
                 }
                 "blocks" => {
@@ -1272,18 +1610,79 @@ impl BlockMeshDict {
                 }
                 "edges" => {
                     cur.next();
-                    cur.skip_parens()?; // straight edges assumed; curved deferred
+                    edges = parse_edges(&mut cur)?;
+                    cur.expect(";")?;
+                }
+                "defaultPatch" => {
+                    cur.next();
+                    let (name, kind) = parse_default_patch(&mut cur)?;
+                    if let Some(n) = name {
+                        default_patch_name = n;
+                    }
+                    default_patch_kind = kind;
+                }
+                "namedVertices" | "namedBlocks" => {
+                    // `namedVertices { a 0; b 1; }`: explicit name table.
+                    cur.next();
+                    cur.expect("{")?;
+                    while !cur.accept("}") {
+                        let name = cur
+                            .next()
+                            .ok_or_else(|| MeshError::DictParse(format!("unterminated `{tok}`")))?
+                            .to_string();
+                        let idx = cur.parse_usize()?;
+                        cur.expect(";")?;
+                        if tok == "namedVertices" {
+                            cur.vertex_names.insert(name, idx);
+                        } else {
+                            cur.block_names.insert(name, idx);
+                        }
+                    }
+                }
+                "geometry" => {
+                    cur.next();
+                    let entries = read_dict_body(cur.tokens, &mut cur.pos)?;
+                    geometry = Arc::new(Geometry::from_entries(&entries, flavour)?);
+                }
+                "faces" => {
+                    cur.next();
+                    faces = parse_block_faces(&mut cur)?;
                     cur.expect(";")?;
                 }
                 "boundary" | "patches" => {
                     cur.next();
-                    patches = parse_boundary(&mut cur)?;
+                    raw_patches = parse_boundary(&mut cur)?;
                     cur.expect(";")?;
                 }
                 "mergePatchPairs" => {
                     cur.next();
-                    cur.skip_parens()?;
+                    cur.expect("(")?;
+                    if !cur.accept(")") {
+                        return Err(MeshError::NotImplemented(
+                            "non-empty `mergePatchPairs` (gh:#1464)".into(),
+                        ));
+                    }
                     cur.expect(";")?;
+                }
+                "fastMerge" | "checkFaceCorrespondence" | "checkBlockFaceOrientation"
+                | "verbose" => {
+                    cur.next();
+                    let v = match cur.next() {
+                        Some("yes" | "on" | "true" | "y" | "t") => true,
+                        Some("no" | "off" | "false" | "n" | "f" | "none") => false,
+                        other => {
+                            return Err(MeshError::DictParse(format!(
+                                "`{tok}` expects a switch, found {other:?}"
+                            )))
+                        }
+                    };
+                    cur.expect(";")?;
+                    match tok {
+                        "fastMerge" => fast_merge = v,
+                        "checkFaceCorrespondence" => check_face_correspondence = v,
+                        "checkBlockFaceOrientation" => check_block_face_orientation = v,
+                        _ => {}
+                    }
                 }
                 "FoamFile" => {
                     cur.next();
@@ -1317,11 +1716,41 @@ impl BlockMeshDict {
             return Err(MeshError::DictParse("no blocks found".into()));
         }
 
+        // `project` vertices (blockVertices::projectVertex): the surfaces may be
+        // declared after the vertices, so project once everything is read.
+        for (v, proj) in vertices.iter_mut().zip(&vertex_projections) {
+            if let Some(names) = proj {
+                let ids = geometry.surface_ids(names)?;
+                *v = geometry.project_vertex(&ids, *v);
+            }
+        }
+        for f in &faces {
+            if let BlockFaceKind::Project(name) = &f.kind {
+                geometry.surface_ids(std::slice::from_ref(name))?;
+            }
+        }
+
+        let patches = resolve_patch_faces(raw_patches, &blocks, vertices.len())?;
+
+        if n_scale_keywords > 1 {
+            return Err(MeshError::DictParse(
+                "more than one of keywords 'convertToMeters', 'scale' and 'units' defined".into(),
+            ));
+        }
+
         Ok(BlockMeshDict {
             convert_to_meters,
             vertices,
             blocks,
             patches,
+            edges,
+            default_patch_name,
+            default_patch_kind,
+            fast_merge,
+            check_face_correspondence,
+            check_block_face_orientation,
+            geometry,
+            faces,
         })
     }
 }
@@ -1371,15 +1800,117 @@ fn tokenize(text: &str) -> Vec<String> {
     tokens
 }
 
+/// Expand `$name` references to earlier top-level `name value;` entries
+/// (the dictionary-macro subset the OpenFOAM blockMesh tutorials use, e.g.
+/// `pitzDailySteady`'s `$posY`; gh:#1463).
+///
+/// A top-level entry is `key tokens... ;` (parentheses balanced) or
+/// `key { ... }`. Its value tokens, themselves expanded, are recorded under
+/// `key`; a later `$key` token, anywhere, is replaced by them. Upstream looks
+/// the name up in the enclosing dictionary the same way, so a use before the
+/// definition is not expanded. Anything left starting with `$` or `#`
+/// (`${x}`, `$:a.b`, `#calc`, `#include`) is reported by [`BlockMeshDict::parse`].
+fn expand_variables(tokens: Vec<String>) -> Result<Vec<String>, MeshError> {
+    let mut vars: HashMap<String, Vec<String>> = HashMap::new();
+    let mut out: Vec<String> = Vec::with_capacity(tokens.len());
+    let sub = |t: &String, vars: &HashMap<String, Vec<String>>, out: &mut Vec<String>| {
+        match t.strip_prefix('$').and_then(|n| vars.get(n)) {
+            Some(v) => out.extend(v.iter().cloned()),
+            None => out.push(t.clone()),
+        }
+    };
+    let mut i = 0usize;
+    while i < tokens.len() {
+        let key = tokens[i].clone();
+        if key.starts_with('$') || key.starts_with('#') || key == ";" {
+            out.push(key);
+            i += 1;
+            continue;
+        }
+        out.push(key.clone());
+        i += 1;
+        let mut value: Vec<String> = Vec::new();
+        if tokens.get(i).map(|t| t.as_str()) == Some("{") {
+            let mut depth = 0i32;
+            while i < tokens.len() {
+                let t = &tokens[i];
+                if t == "{" {
+                    depth += 1;
+                } else if t == "}" {
+                    depth -= 1;
+                }
+                sub(t, &vars, &mut out);
+                i += 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            continue;
+        }
+        let mut depth = 0i32;
+        while i < tokens.len() {
+            let t = &tokens[i];
+            if t == "(" {
+                depth += 1;
+            } else if t == ")" {
+                depth -= 1;
+            } else if t == ";" && depth <= 0 {
+                break;
+            }
+            sub(t, &vars, &mut value);
+            i += 1;
+        }
+        out.extend(value.iter().cloned());
+        if i < tokens.len() {
+            out.push(";".into());
+            i += 1;
+        }
+        vars.insert(key, value);
+    }
+    Ok(out)
+}
+
 /// A forward-only token cursor with small parsing helpers.
 struct Cursor<'a> {
     tokens: &'a [String],
     pos: usize,
+    /// `namedVertices`: name to vertex index (`name v0 (x y z)`).
+    vertex_names: HashMap<String, usize>,
+    /// `namedBlocks`: name to block index (`name b0 hex (...)`).
+    block_names: HashMap<String, usize>,
 }
 
 impl<'a> Cursor<'a> {
     fn new(tokens: &'a [String]) -> Self {
-        Self { tokens, pos: 0 }
+        Self {
+            tokens,
+            pos: 0,
+            vertex_names: HashMap::new(),
+            block_names: HashMap::new(),
+        }
+    }
+    /// A label: an integer, or a name from `namedVertices`
+    /// (`blockMeshTools::read<label>`). With `blocks_too`, `namedBlocks` names
+    /// resolve as well (the `varDict` of the patch lists).
+    fn parse_label(&mut self, blocks_too: bool) -> Result<usize, MeshError> {
+        let t = self
+            .next()
+            .ok_or_else(|| MeshError::DictParse("expected a label, found end".into()))?;
+        if let Ok(v) = t.parse::<usize>() {
+            return Ok(v);
+        }
+        if let Some(&v) = self.vertex_names.get(t) {
+            return Ok(v);
+        }
+        if blocks_too {
+            if let Some(&v) = self.block_names.get(t) {
+                return Ok(v);
+            }
+        }
+        Err(MeshError::DictParse(format!(
+            "undefined variable `{t}` (valid names: {:?})",
+            self.vertex_names.keys().collect::<Vec<_>>()
+        )))
     }
     fn peek(&self) -> Option<&'a str> {
         self.tokens.get(self.pos).map(|s| s.as_str())
@@ -1453,17 +1984,243 @@ impl<'a> Cursor<'a> {
     }
 }
 
-/// Parse `( (x y z) (x y z) ... )` into raw (unscaled) points.
-fn parse_vertices(cur: &mut Cursor) -> Result<Vec<Vector3>, MeshError> {
+/// Metres per unit for a `units [..]` expression of dimension length
+/// (`blockMeshTopology.C`: `unitSet units(dimensions::length); units.read(..);
+/// scaleFactor_ = units.toStandard(1)`).
+///
+/// The multipliers are those of the length units in OpenFOAM-dev
+/// `etc/configDict` (`units` table, set `SI`): `m`, `um` 1e-6, `mm` 1e-3,
+/// `cm` 1e-2, `km` 1e3, `ft` 0.3048, `in` 25.4 mm, `yd` 3 ft, `mi` 1760 yd.
+/// A single unit name is supported; a compound expression is reported as
+/// not implemented rather than guessed.
+///
+/// # Errors
+/// [`MeshError::NotImplemented`] for any other expression.
+fn length_units_to_metres(expr: &str) -> Result<f64, MeshError> {
+    let inner = expr.trim().trim_start_matches('[').trim_end_matches(']').trim();
+    let ft = 0.3048;
+    let yd = 3.0 * ft;
+    match inner {
+        "m" => Ok(1.0),
+        "um" => Ok(1e-6),
+        "mm" => Ok(1e-3),
+        "cm" => Ok(1e-2),
+        "km" => Ok(1e3),
+        "ft" => Ok(ft),
+        "in" => Ok(25.4 * 1e-3),
+        "yd" => Ok(yd),
+        "mi" => Ok(1760.0 * yd),
+        other => Err(MeshError::NotImplemented(format!(
+            "`units [{other}]`: only a single length unit (m, um, mm, cm, km, in, ft, yd, mi) is supported"
+        ))),
+    }
+}
+
+/// Parse `defaultPatch { name n; type t; }` (the cursor is on `{`). `type` is
+/// required, as upstream (`dictPtr->lookup<word>("type")`).
+fn parse_default_patch(cur: &mut Cursor) -> Result<(Option<String>, PatchKind), MeshError> {
+    cur.expect("{")?;
+    let mut name = None;
+    let mut kind = None;
+    loop {
+        match cur.next() {
+            Some("}") => break,
+            Some("name") => {
+                name = Some(
+                    cur.next()
+                        .ok_or_else(|| MeshError::DictParse("expected a patch name".into()))?
+                        .to_string(),
+                );
+                cur.expect(";")?;
+            }
+            Some("type") => {
+                let t = cur
+                    .next()
+                    .ok_or_else(|| MeshError::DictParse("expected a patch type".into()))?;
+                kind = Some(patch_kind_from_str(t));
+                cur.expect(";")?;
+            }
+            Some(_) => {
+                // Other patch-dictionary keys (e.g. `inGroups`) do not change the mesh.
+                while let Some(t) = cur.next() {
+                    if t == ";" {
+                        break;
+                    }
+                }
+            }
+            None => return Err(MeshError::DictParse("unterminated defaultPatch".into())),
+        }
+    }
+    let kind = kind.ok_or_else(|| {
+        MeshError::DictParse("keyword type is undefined in dictionary defaultPatch".into())
+    })?;
+    Ok((name, kind))
+}
+
+/// Parse `( (x y z) )` into points.
+fn parse_point_list(cur: &mut Cursor) -> Result<Vec<Vector3>, MeshError> {
     cur.expect("(")?;
     let mut out = Vec::new();
     while !cur.accept(")") {
+        out.push(parse_vector(cur)?);
+    }
+    Ok(out)
+}
+
+/// Parse `(x y z)`.
+fn parse_vector(cur: &mut Cursor) -> Result<Vector3, MeshError> {
+    cur.expect("(")?;
+    let x = cur.parse_f64()?;
+    let y = cur.parse_f64()?;
+    let z = cur.parse_f64()?;
+    cur.expect(")")?;
+    Ok(Vector3::new(x, y, z))
+}
+
+/// Parse the `edges ( ... )` list (OpenFOAM `blockEdge::New`): `line`, `arc`
+/// (through a point, or angle and axis), `polyLine`, `spline` and `BSpline`.
+///
+/// # Errors
+/// ~~[`MeshError::NotImplemented`] for `project` / `projectCurve`~~ **CORRECTED
+/// 2026-11-11 (gh:#1462)**: they parse to [`BlockEdgeKind::Project`] /
+/// [`BlockEdgeKind::ProjectCurve`]; [`MeshError::DictParse`] for an unknown type.
+fn parse_edges(cur: &mut Cursor) -> Result<Vec<BlockEdge>, MeshError> {
+    cur.expect("(")?;
+    let mut out = Vec::new();
+    while !cur.accept(")") {
+        let ty = cur
+            .next()
+            .ok_or_else(|| MeshError::DictParse("expected an edge type, found end".into()))?;
+        let start = cur.parse_label(false)?;
+        let end = cur.parse_label(false)?;
+        let kind = match ty {
+            "line" => BlockEdgeKind::Line,
+            "arc" => {
+                if cur.peek() == Some("(") {
+                    BlockEdgeKind::ArcThroughPoint(parse_vector(cur)?)
+                } else {
+                    let angle_deg = cur.parse_f64()?;
+                    let axis = parse_vector(cur)?;
+                    BlockEdgeKind::ArcAngleAxis { angle_deg, axis }
+                }
+            }
+            "polyLine" => BlockEdgeKind::PolyLine(parse_point_list(cur)?),
+            "spline" | "BSpline" => {
+                let pts = parse_point_list(cur)?;
+                // Optional start/end tangents: read and discarded upstream.
+                if cur.peek() == Some("(") {
+                    parse_vector(cur)?;
+                    parse_vector(cur)?;
+                }
+                if ty == "spline" {
+                    BlockEdgeKind::Spline(pts)
+                } else {
+                    BlockEdgeKind::BSpline(pts)
+                }
+            }
+            "project" => BlockEdgeKind::Project(parse_word_list(cur)?),
+            "projectCurve" => BlockEdgeKind::ProjectCurve(parse_word_list(cur)?),
+            other => {
+                return Err(MeshError::DictParse(format!("unknown blockEdge type `{other}`")));
+            }
+        };
+        out.push(BlockEdge { start, end, kind });
+    }
+    Ok(out)
+}
+
+/// Parse `( (x y z) | project (x y z) (surface ...) ... )` into raw (unscaled)
+/// points, plus each vertex's projection surface names (`blockVertex::New`).
+#[allow(clippy::type_complexity)]
+fn parse_vertices(
+    cur: &mut Cursor,
+) -> Result<(Vec<Vector3>, Vec<Option<Vec<String>>>), MeshError> {
+    cur.expect("(")?;
+    let mut out = Vec::new();
+    let mut proj: Vec<Option<Vec<String>>> = Vec::new();
+    while !cur.accept(")") {
+        if cur.peek() == Some("name") {
+            cur.next();
+            let name = cur
+                .next()
+                .ok_or_else(|| MeshError::DictParse("expected a vertex name".into()))?
+                .to_string();
+            cur.vertex_names.insert(name, out.len());
+        }
+        let mut surfaces = None;
+        let projected = cur.peek() == Some("project");
+        if projected {
+            cur.next();
+        }
         cur.expect("(")?;
         let x = cur.parse_f64()?;
         let y = cur.parse_f64()?;
         let z = cur.parse_f64()?;
         cur.expect(")")?;
+        if projected {
+            surfaces = Some(parse_word_list(cur)?);
+        }
         out.push(Vector3::new(x, y, z));
+        proj.push(surfaces);
+    }
+    Ok((out, proj))
+}
+
+/// Parse `(word word ...)`.
+fn parse_word_list(cur: &mut Cursor) -> Result<Vec<String>, MeshError> {
+    cur.expect("(")?;
+    let mut names = Vec::new();
+    while !cur.accept(")") {
+        names.push(
+            cur.next()
+                .ok_or_else(|| MeshError::DictParse("unterminated word list".into()))?
+                .to_string(),
+        );
+    }
+    Ok(names)
+}
+
+/// Parse the `faces ( project (v0 v1 v2 v3) surface  sweep (v0 v1 v2 v3) f ... )`
+/// list (`blockFace::New`).
+///
+/// # Errors
+/// [`MeshError::DictParse`] for an unknown face type, a face that is not four
+/// vertices, or a sweep fraction outside `[0, 1]`.
+fn parse_block_faces(cur: &mut Cursor) -> Result<Vec<BlockFace>, MeshError> {
+    cur.expect("(")?;
+    let mut out = Vec::new();
+    while !cur.accept(")") {
+        let ty = cur
+            .next()
+            .ok_or_else(|| MeshError::DictParse("expected a face type, found end".into()))?;
+        cur.expect("(")?;
+        let mut labels = Vec::new();
+        while !cur.accept(")") {
+            labels.push(cur.parse_label(false)?);
+        }
+        let vertices: [usize; 4] = labels.try_into().map_err(|_| {
+            MeshError::DictParse(format!("block face of type `{ty}` needs four vertices"))
+        })?;
+        let kind = match ty {
+            "project" => BlockFaceKind::Project(
+                cur.next()
+                    .ok_or_else(|| MeshError::DictParse("expected a surface name".into()))?
+                    .to_string(),
+            ),
+            "sweep" => {
+                let f = cur.parse_f64()?;
+                if !(0.0..=1.0).contains(&f) {
+                    return Err(MeshError::DictParse(format!(
+                        "Rotation fraction for face {vertices:?} must be between 0 and 1"
+                    )));
+                }
+                BlockFaceKind::Sweep(f)
+            }
+            other => {
+                return Err(MeshError::DictParse(format!("Unknown blockFace type {other}")))
+            }
+        };
+        out.push(BlockFace { vertices, kind });
     }
     Ok(out)
 }
@@ -1473,7 +2230,16 @@ fn parse_blocks(cur: &mut Cursor) -> Result<Vec<Block>, MeshError> {
     cur.expect("(")?;
     let mut out = Vec::new();
     while !cur.accept(")") {
-        // Block shape keyword — only `hex` is supported.
+        // Optional `name <blockName>` (namedBlock), then the shape keyword;
+        // only `hex` is supported.
+        if cur.peek() == Some("name") {
+            cur.next();
+            let name = cur
+                .next()
+                .ok_or_else(|| MeshError::DictParse("expected a block name".into()))?
+                .to_string();
+            cur.block_names.insert(name, out.len());
+        }
         let shape = cur
             .next()
             .ok_or_else(|| MeshError::DictParse("expected `hex`, found end".into()))?;
@@ -1486,14 +2252,16 @@ fn parse_blocks(cur: &mut Cursor) -> Result<Vec<Block>, MeshError> {
         cur.expect("(")?;
         let mut verts = [0usize; 8];
         for v in verts.iter_mut() {
-            *v = cur.parse_usize()?;
+            *v = cur.parse_label(false)?;
         }
         cur.expect(")")?;
 
         // Optional zone name between the vertex list and the cell counts.
-        if cur.peek() != Some("(") {
-            cur.next();
-        }
+        let zone = if cur.peek() != Some("(") {
+            cur.next().map(|z| z.to_string())
+        } else {
+            None
+        };
 
         // Cell counts (nx ny nz).
         cur.expect("(")?;
@@ -1533,6 +2301,7 @@ fn parse_blocks(cur: &mut Cursor) -> Result<Vec<Block>, MeshError> {
             cells: [nx, ny, nz],
             grading,
             edge_grading,
+            zone,
         });
     }
     Ok(out)
@@ -1649,7 +2418,7 @@ fn collapse_edge_grading(edges: [Grading; 12]) -> ([Grading; 3], Option<[Grading
 }
 
 /// Parse the `boundary ( name { type t; faces ( ... ); } ... )` list.
-fn parse_boundary(cur: &mut Cursor) -> Result<Vec<PatchDef>, MeshError> {
+fn parse_boundary(cur: &mut Cursor) -> Result<Vec<RawPatch>, MeshError> {
     cur.expect("(")?;
     let mut out = Vec::new();
     while !cur.accept(")") {
@@ -1700,23 +2469,100 @@ fn parse_boundary(cur: &mut Cursor) -> Result<Vec<PatchDef>, MeshError> {
                 None => return Err(MeshError::DictParse("unterminated patch block".into())),
             }
         }
-        out.push(PatchDef { name, kind, faces });
+        out.push(RawPatch { name, kind, faces });
     }
     Ok(out)
 }
 
-/// Parse `( (i j k l) (i j k l) ... )` face quads.
-fn parse_face_list(cur: &mut Cursor) -> Result<Vec<[usize; 4]>, MeshError> {
+/// One entry of a patch's `faces` list: four vertex labels, or
+/// `(block face)` naming a face of a block (`blockMesh::checkPatchLabels`).
+#[derive(Debug, Clone, Copy)]
+enum RawFace {
+    Quad([usize; 4]),
+    BlockFace { block: usize, face: usize },
+}
+
+/// A parsed patch before `(block face)` entries are resolved.
+struct RawPatch {
+    name: String,
+    kind: PatchKind,
+    faces: Vec<RawFace>,
+}
+
+/// Parse `( (i j k l) (block face) ... )`; vertex and block names resolve.
+fn parse_face_list(cur: &mut Cursor) -> Result<Vec<RawFace>, MeshError> {
     cur.expect("(")?;
     let mut out = Vec::new();
     while !cur.accept(")") {
         cur.expect("(")?;
-        let mut quad = [0usize; 4];
-        for q in quad.iter_mut() {
-            *q = cur.parse_usize()?;
+        let mut labels = Vec::new();
+        while !cur.accept(")") {
+            labels.push(cur.parse_label(true)?);
         }
-        cur.expect(")")?;
-        out.push(quad);
+        match labels.as_slice() {
+            [a, b, c, d] => out.push(RawFace::Quad([*a, *b, *c, *d])),
+            [block, face] => out.push(RawFace::BlockFace {
+                block: *block,
+                face: *face,
+            }),
+            other => {
+                return Err(MeshError::DictParse(format!(
+                    "a patch face has 4 vertices or is (block face); found {other:?}"
+                )))
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Replace `(block face)` entries by the block's face
+/// (`block.blockShape().faces()[face]`), range-checked as upstream.
+fn resolve_patch_faces(
+    raw: Vec<RawPatch>,
+    blocks: &[Block],
+    n_vertices: usize,
+) -> Result<Vec<PatchDef>, MeshError> {
+    let hex = CellModel::Hex.faces();
+    let mut out = Vec::with_capacity(raw.len());
+    for p in raw {
+        let mut faces = Vec::with_capacity(p.faces.len());
+        for (fi, f) in p.faces.iter().enumerate() {
+            match *f {
+                RawFace::Quad(q) => {
+                    if let Some(&bad) = q.iter().find(|&&v| v >= n_vertices) {
+                        return Err(MeshError::DictParse(format!(
+                            "point label {bad} out of range 0..{} on patch {}, face {fi}",
+                            n_vertices.saturating_sub(1),
+                            p.name
+                        )));
+                    }
+                    faces.push(q);
+                }
+                RawFace::BlockFace { block, face } => {
+                    let Some(b) = blocks.get(block) else {
+                        return Err(MeshError::DictParse(format!(
+                            "block index {block} out of range for patch face on patch {}, face {fi} \
+                             (number of blocks = {})",
+                            p.name,
+                            blocks.len()
+                        )));
+                    };
+                    if face >= hex.len() {
+                        return Err(MeshError::DictParse(format!(
+                            "block face index {face} out of range (6 block faces) on patch {}, \
+                             face {fi}",
+                            p.name
+                        )));
+                    }
+                    faces.push(std::array::from_fn(|k| b.vertices[hex[face][k]]));
+                }
+            }
+        }
+        out.push(PatchDef {
+            name: p.name,
+            kind: p.kind,
+            faces,
+        });
     }
     Ok(out)
 }
@@ -1766,6 +2612,47 @@ mod tests {
         )
     }
 
+    /// V&V (gh:#1364) — dev's integer `pow` and the unclamped last division.
+    ///
+    /// Methodology: `integer_pow_dev` is compared with the hand-unrolled
+    /// squaring order of `Scalar.H` `IntegerPow` (`x^5 = x * (x^2)^2`, written
+    /// out as `y = x; xx = x*x; xx = xx*xx; y *= xx`), and its special cases
+    /// (`0`, `1`, `-1`, negative) are checked. For a 2-section edge with
+    /// sections of equal length, the dev and v2506 flavours must both keep the
+    /// computed last division (`s[4] + 0.5 * 4 / 4`, bit for bit) instead of
+    /// assigning 1. The flavours must differ on a
+    /// graded edge only through `pow` (real against integer), by at most a few
+    /// ulp. Pass criterion: exact equality for the pow cases and the computed
+    /// last division, flavour difference `<= 1e-15`.
+    /// Results (measured 2026-11-11): all met; see the test body.
+    #[test]
+    fn dev_integer_pow_and_unclamped_last_division() {
+        let x = 1.0173_f64;
+        let x2 = x * x;
+        let x4 = x2 * x2;
+        assert_eq!(integer_pow_dev(x, 5).to_bits(), (x * x4).to_bits());
+        assert_eq!(integer_pow_dev(x, 0), 1.0);
+        assert_eq!(integer_pow_dev(x, 1), x);
+        assert_eq!(integer_pow_dev(x, -1), 1.0 / x);
+        let inv = 1.0 / x;
+        assert_eq!(integer_pow_dev(x, -3).to_bits(), (inv * (inv * inv)).to_bits());
+        let segs = vec![
+            GradingSegment { fraction_length: 1.0, fraction_cells: 1.0, expansion: 2.0 },
+            GradingSegment { fraction_length: 1.0, fraction_cells: 1.0, expansion: 1.0 },
+        ];
+        for fl in [ProjectionFlavour::Dev, ProjectionFlavour::Esi] {
+            let s = graded_positions_multi(8, &segs, fl);
+            // Two unit-length sections: the last node is secStart + blockFrac
+            // with blockFrac = 0.5, so the raw value is 1, but it is computed,
+            // not assigned: it must equal that computation bit for bit.
+            assert_eq!(s[8].to_bits(), (s[4] + 0.5 * 4.0 / 4.0).to_bits());
+        }
+        let d = graded_positions_multi(10, &segs[..1], ProjectionFlavour::Dev);
+        let e = graded_positions_multi(10, &segs[..1], ProjectionFlavour::Esi);
+        let worst = d.iter().zip(&e).map(|(a, b)| (a - b).abs()).fold(0.0, f64::max);
+        assert!(worst <= 1e-15, "flavours differ by {worst}");
+    }
+
     /// V&V — multi-grading node distribution (`graded_positions_multi`).
     ///
     /// Methodology: distribute `n = 10` cells over the three segments
@@ -1802,7 +2689,7 @@ mod tests {
                 expansion: 1.0,
             },
         ];
-        let s = graded_positions_multi(10, &segs);
+        let s = graded_positions_multi(10, &segs, ProjectionFlavour::Dev);
 
         // 11 nodes, exact endpoints.
         assert_eq!(s.len(), 11);
@@ -1877,7 +2764,7 @@ mod tests {
             fraction_cells: 1.0,
             expansion: 5.0,
         }];
-        let a = graded_positions_multi(8, &seg);
+        let a = graded_positions_multi(8, &seg, ProjectionFlavour::Dev);
         let b = graded_positions(8, 5.0);
         for i in 0..a.len() {
             assert!(

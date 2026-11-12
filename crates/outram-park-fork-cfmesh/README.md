@@ -140,6 +140,15 @@ smoothing), and `layers::add_boundary_layers` / `add_boundary_layers_adaptive`
 (graded prism wall layers — flat walls, and curved/polyhedral walls with
 per-point thickness limiting).
 
+**Upstream cases (gh:#1476).** `mesh_dict` reads an upstream `system/meshDict`
+(every entry honoured or reported) with `checkMeshDict`'s validation;
+`tri_surf_io` reads the `surfaceFile` (`.fms`, `.ftr`, and STL with the
+`surface-file` feature); `poly_mesh_gen_io` (`foam-export`) writes
+`constant/polyMesh` with subsets and `meshMetaDict`. The executables are
+`outram-foam-cli`'s `cartesianMesh`, `tetMesh`, `pMesh` and `cartesian2DMesh`
+(`cartesianMesh -case <dir>`). Record:
+`verification_and_validation/case_reading_gh1476/`.
+
 ### Honest scope: what "verified" covers, and what is unmeasured
 
 "Verified" above means **topological and volumetric** verification —

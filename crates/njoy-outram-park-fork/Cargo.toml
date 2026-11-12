@@ -116,6 +116,13 @@ directories = { workspace = true }
 [target.'cfg(not(target_os = "android"))'.dependencies]
 wgpu = { workspace = true }
 
+# teh-o-prke carries ENDF/B-VIII.0 delayed-neutron group constants as cited
+# literals; tests/teh_o_prke_delayed_data_vs_endf8.rs re-reads the tapes and
+# asserts they are equal (gh:#1319). A dev-dependency only: teh-o-prke does
+# not depend on this crate, so the edge forms no cycle.
+[dev-dependencies]
+teh-o-prke.workspace = true
+
 [features]
 # `long-tests` is default-on so the reference-data tests run unless someone
 # deliberately opts out with `--no-default-features` (i.e. `cargo quick-test`).

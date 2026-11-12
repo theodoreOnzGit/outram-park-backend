@@ -99,7 +99,12 @@ round-trip.
   constant array for U-233, U-235 and Pu-239, and says so in its own comment. The
   half-life set at `:66` carries a comment doubting its provenance. This is a
   latent correctness trap that should be fixed before any effective delayed
-  fraction is trusted.
+  fraction is trusted. **Partly fixed 2026-11-10 (gh:#1319):** U-235's set is
+  now ENDF/B-VIII.0 (`lambda_i` and `beta_i`, pinned to the tape by
+  `njoy-outram-park-fork/tests/teh_o_prke_delayed_data_vs_endf8.rs`), and an
+  ENDF/B-VIII.0 U-238 set (2 MeV) is available as `ENDF_B_VIII0_U238`.
+  U-233 and Pu-239 still share the old textbook `lambda_i`: no ENDF/B-VIII.0
+  Pu-239 or U-233 tape is in `reference-data/endf/`.
 - **Fuel temperature feedback is explicitly thermal-spectrum.** Functions at
   `crates/teh-o-prke/src/fuel_temperature_feedback.rs:213,243` are named for
   thermal spectrum ~~and have no fast-spectrum sibling~~. **CORRECTED
@@ -135,7 +140,7 @@ thermal-hydraulic side that supplies the temperatures:
 
 - axial fuel expansion — portable from the orphaned genfoam code **(done: `axial_fuel_expansion`)**
 - radial / grid-plate expansion — ~~new~~ **done: `radial_expansion`, one term per structure**
-- control-rod-drive-line expansion — ~~new~~ **done: `driveline` (expansion x rod-worth map, as GeN-Foam; no thermal lag, as GeN-Foam)**
+- control-rod-drive-line expansion — ~~new~~ **done: `driveline` (expansion x rod-worth map, as GeN-Foam; no thermal lag, as GeN-Foam; an expansion outside the map is an error by default, GeN-Foam's zero on request, gh:#1326)**
 - sodium density and void worth — ~~new~~ **done: `coolant_density`**
 
 Without these the simulator will not reproduce the self-shutdown at all. It will

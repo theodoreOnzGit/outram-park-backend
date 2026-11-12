@@ -55,8 +55,12 @@ use super::IoError;
 // ───────────────────────────────────────────────────────────────────────────
 
 /// One lexical token from an OpenFOAM dictionary.
+///
+/// Public since gh:#1476 so that readers of OpenFOAM **stream** files that
+/// are not dictionaries (cfMesh's `.fms`/`.ftr` surfaces: bare `N ( … )`
+/// lists) reuse this tokeniser instead of writing another.
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Token {
+pub struct Token {
     /// The token text. For a quoted string this is the inner content (quotes
     /// stripped) and `quoted` is set.
     pub text: String,
@@ -69,7 +73,17 @@ pub(crate) struct Token {
 /// Split dictionary `text` into [`Token`]s, stripping `//` line comments and
 /// `/* … */` block comments. The delimiters `( ) { } ; [ ]` are always their
 /// own single-character tokens.
-pub(crate) fn tokenize(text: &str) -> Vec<Token> {
+///
+/// # Examples
+///
+/// ```
+/// use outram_foam_basic_lib::io::dict::tokenize;
+///
+/// let t = tokenize("2 ((0 1 2) 0) // comment");
+/// let texts: Vec<&str> = t.iter().map(|x| x.text.as_str()).collect();
+/// assert_eq!(texts, ["2", "(", "(", "0", "1", "2", ")", "0", ")"]);
+/// ```
+pub fn tokenize(text: &str) -> Vec<Token> {
     let bytes = text.as_bytes();
     let n = bytes.len();
     let mut i = 0;

@@ -97,6 +97,67 @@ pub struct CastellationControls {
     /// along it; the halves must end up conformal, which
     /// [`check_conformity`](crate::snappy_hex_mesh::check_conformity) verifies.
     pub cyclic_axes: [bool; 3],
+    /// How cells are selected for refinement; see [`RefinementSelection`].
+    /// Defaults to [`RefinementSelection::DistanceBand`] so existing callers'
+    /// meshes (and their pins) are unchanged.
+    pub selection: RefinementSelection,
+    /// `minRefinementCells` (upstream default in the tutorials: 0). Only read
+    /// by [`RefinementSelection::SurfaceIntersection`].
+    pub min_refine_cells: usize,
+    /// How cells are removed after refinement; see [`CellRemoval`]. Defaults to
+    /// [`CellRemoval::CentreParity`] so existing callers' meshes are unchanged.
+    pub removal: CellRemoval,
+    /// Named patches per surface region (ESI `patchInfo` / one `flange_patch1`
+    /// per STL solid); `None` puts every carved face in the single patch
+    /// [`Self::surface_patch_name`]. Needs [`CellRemoval::EsiSplitMesh`].
+    pub surface_regions: Option<SurfaceRegionPatches>,
+}
+
+/// Which surface region each triangle belongs to and what its patch is called
+/// (gh:#1466). `region_of_tri[i]` indexes `patch_names`; for a surface read
+/// with [`crate::snappy_hex_mesh::stl::read_stl_zoned`] these are
+/// `StlZoned::zones` and the `<surface>_<solid>` names ESI gives its patches.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SurfaceRegionPatches {
+    /// One patch name per region, in patch order.
+    pub patch_names: Vec<String>,
+    /// Region index of each triangle of the surface.
+    pub region_of_tri: Vec<usize>,
+}
+
+/// How [`castellate`] decides which refined cells to keep.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CellRemoval {
+    /// Historical rule of this port: keep a cell when the ray-parity inside
+    /// test of its centre agrees with the keep point's. NOT what OpenFOAM does.
+    #[default]
+    CentreParity,
+    /// OpenFOAM's `baffleAndSplitMesh` outcome: keep the face-connected region
+    /// holding `locationInMesh`, faces cut by the surface (cell-centre
+    /// segments) being baffles. See
+    /// [`crate::snappy_hex_mesh::refinement::baffle_region`].
+    BaffleRegion,
+    /// ESI v2506's whole post-refinement chain: `removeInsideCells(1)`,
+    /// `danglingCellRefine(21)` and `(24)`, `baffleAndSplitMesh` with
+    /// `markFacesOnProblemCells`. Needs
+    /// [`RefinementSelection::SurfaceIntersection`]. See
+    /// [`crate::snappy_hex_mesh::esi_split`].
+    EsiSplitMesh,
+}
+
+/// How [`castellate`] chooses the cells to split.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RefinementSelection {
+    /// Historical rule of this port: a cell is split while its centre lies
+    /// within a distance band of the surface. NOT what OpenFOAM does.
+    #[default]
+    DistanceBand,
+    /// OpenFOAM's `snappyRefineDriver::surfaceOnlyRefine`: a cell is split when
+    /// a cell-centre to cell-centre segment through one of its faces
+    /// intersects the surface and the surface's level exceeds the cell's,
+    /// followed by `hexRef8::consistentRefinement` (face 2:1). See
+    /// [`crate::snappy_hex_mesh::refinement`].
+    SurfaceIntersection,
 }
 
 impl CastellationControls {
@@ -110,7 +171,44 @@ impl CastellationControls {
             keep_point,
             surface_patch_name: "surface".to_string(),
             cyclic_axes: [false; 3],
+            selection: RefinementSelection::DistanceBand,
+            min_refine_cells: 0,
+            removal: CellRemoval::CentreParity,
+            surface_regions: None,
         }
+    }
+
+    /// One patch per surface region, named `patch_names[region]` (ESI's
+    /// `flange_patch1..4`); needs [`Self::with_esi_split_mesh_removal`].
+    #[must_use]
+    pub fn with_surface_region_patches(mut self, patch_names: Vec<String>, region_of_tri: Vec<usize>) -> Self {
+        self.surface_regions = Some(SurfaceRegionPatches { patch_names, region_of_tri });
+        self
+    }
+
+    /// Remove cells the way OpenFOAM's `baffleAndSplitMesh` does
+    /// ([`CellRemoval::BaffleRegion`]).
+    #[must_use]
+    pub fn with_baffle_region_removal(mut self) -> Self {
+        self.removal = CellRemoval::BaffleRegion;
+        self
+    }
+
+    /// Remove cells the way ESI v2506's `doRefine` does after
+    /// `surfaceOnlyRefine` ([`CellRemoval::EsiSplitMesh`]); needs
+    /// [`Self::with_surface_intersection_refinement`].
+    #[must_use]
+    pub fn with_esi_split_mesh_removal(mut self) -> Self {
+        self.removal = CellRemoval::EsiSplitMesh;
+        self
+    }
+
+    /// Select cells the way OpenFOAM's `surfaceOnlyRefine` does
+    /// ([`RefinementSelection::SurfaceIntersection`]).
+    #[must_use]
+    pub fn with_surface_intersection_refinement(mut self) -> Self {
+        self.selection = RefinementSelection::SurfaceIntersection;
+        self
     }
 
     /// Mark background-box axis `axis` (`0 = x`, `1 = y`, `2 = z`) periodic, so
@@ -131,11 +229,11 @@ impl CastellationControls {
 /// A leaf at `level` occupies `S = 2^(max_level - level)` finest-grid voxels per
 /// axis, with lower voxel corner `(i, j, k) · S`.
 #[derive(Debug, Clone, Copy)]
-struct Leaf {
-    level: usize,
-    i: usize,
-    j: usize,
-    k: usize,
+pub(crate) struct Leaf {
+    pub(crate) level: usize,
+    pub(crate) i: usize,
+    pub(crate) j: usize,
+    pub(crate) k: usize,
 }
 
 /// A boundary face lying on the carved surface, retained (with its corner
@@ -195,19 +293,17 @@ pub fn castellate(
     }
 
     let bg = &controls.background;
-    let max_level = controls.surface_level;
-
-    // Finest-grid dimensions (level-max voxels along each axis).
-    let scale = 1usize << max_level;
-    let gdim = [bg.nx * scale, bg.ny * scale, bg.nz * scale];
-    // Finest voxel size per axis [m].
     let span = bg.bounds.span();
-    let h = [
-        span.x / gdim[0] as f64,
-        span.y / gdim[1] as f64,
-        span.z / gdim[2] as f64,
-    ];
     let origin = bg.bounds.min;
+    // Finest-grid dimensions and voxel size for a given finest level.
+    let grid = |max_level: usize| {
+        let scale = 1usize << max_level;
+        let gdim = [bg.nx * scale, bg.ny * scale, bg.nz * scale];
+        let h = [span.x / gdim[0] as f64, span.y / gdim[1] as f64, span.z / gdim[2] as f64];
+        (gdim, h)
+    };
+    let mut max_level = controls.surface_level;
+    let (mut gdim, mut h) = grid(max_level);
 
     // ── Step 1: octree refinement ───────────────────────────────────────────
     // Seed with all level-0 cells, then split near-surface cells level by level.
@@ -220,31 +316,94 @@ pub fn castellate(
         }
     }
 
-    for _ in 0..max_level {
-        let mut next: Vec<Leaf> = Vec::with_capacity(leaves.len());
-        for leaf in &leaves {
-            if leaf.level < max_level
-                && should_refine(leaf, origin, h, max_level, surface, controls)
-            {
-                // Split into 8 children at level+1.
-                let (l, i, j, k) = (leaf.level + 1, leaf.i * 2, leaf.j * 2, leaf.k * 2);
-                for di in 0..2 {
-                    for dj in 0..2 {
-                        for dk in 0..2 {
-                            next.push(Leaf {
-                                level: l,
-                                i: i + di,
-                                j: j + dj,
-                                k: k + dk,
-                            });
+    if controls.selection == RefinementSelection::SurfaceIntersection {
+        let size0 = [
+            span.x / bg.nx as f64,
+            span.y / bg.ny as f64,
+            span.z / bg.nz as f64,
+        ];
+        leaves = crate::snappy_hex_mesh::refinement::surface_only_refine(
+            leaves,
+            [bg.nx, bg.ny, bg.nz],
+            origin,
+            size0,
+            max_level,
+            surface,
+            controls.min_refine_cells,
+        );
+    } else {
+        for _ in 0..max_level {
+            let mut next: Vec<Leaf> = Vec::with_capacity(leaves.len());
+            for leaf in &leaves {
+                if leaf.level < max_level
+                    && should_refine(leaf, origin, h, max_level, surface, controls)
+                {
+                    // Split into 8 children at level+1.
+                    let (l, i, j, k) = (leaf.level + 1, leaf.i * 2, leaf.j * 2, leaf.k * 2);
+                    for di in 0..2 {
+                        for dj in 0..2 {
+                            for dk in 0..2 {
+                                next.push(Leaf {
+                                    level: l,
+                                    i: i + di,
+                                    j: j + dj,
+                                    k: k + dk,
+                                });
+                            }
                         }
                     }
+                } else {
+                    next.push(*leaf);
                 }
-            } else {
-                next.push(*leaf);
             }
+            leaves = next;
         }
-        leaves = next;
+
+    }
+
+    // ESI chain: removal, dangling-cell refinement (may add a level), split.
+    let mut esi_kept: Option<Vec<bool>> = None;
+    let mut boundary_regions = std::collections::HashMap::new();
+    if let Some(r) = &controls.surface_regions {
+        if controls.removal != CellRemoval::EsiSplitMesh {
+            return Err(MeshError::Construction(
+                "surface_regions needs CellRemoval::EsiSplitMesh".to_string(),
+            ));
+        }
+        if r.region_of_tri.len() != surface.len() || r.region_of_tri.iter().any(|&i| i >= r.patch_names.len()) {
+            return Err(MeshError::Construction(
+                "surface_regions: one in-range region per triangle is required".to_string(),
+            ));
+        }
+    }
+    if controls.removal == CellRemoval::EsiSplitMesh {
+        if controls.selection != RefinementSelection::SurfaceIntersection {
+            return Err(MeshError::Construction(
+                "CellRemoval::EsiSplitMesh needs RefinementSelection::SurfaceIntersection".to_string(),
+            ));
+        }
+        let size0 = [span.x / bg.nx as f64, span.y / bg.ny as f64, span.z / bg.nz as f64];
+        let stages = crate::snappy_hex_mesh::esi_split::esi_stages(
+            std::mem::take(&mut leaves),
+            [bg.nx, bg.ny, bg.nz],
+            origin,
+            size0,
+            surface,
+            controls.keep_point,
+            controls.min_refine_cells,
+            controls.surface_regions.as_ref().map(|r| r.region_of_tri.as_slice()),
+        )
+        .ok_or_else(|| {
+            MeshError::Construction("keep_point (locationInMesh) is outside every background cell".to_string())
+        })?;
+        leaves = stages.leaves;
+        esi_kept = Some(stages.kept);
+        boundary_regions = stages.boundary_regions;
+    }
+    let finest = leaves.iter().map(|l| l.level).max().unwrap_or(0);
+    if finest > max_level {
+        max_level = finest;
+        (gdim, h) = grid(max_level);
     }
 
     // ── Voxel ownership grid (all leaves, kept or not) ────────────────────────
@@ -265,13 +424,43 @@ pub fn castellate(
 
     // ── Step 2: region removal (keep the `keep_point` side) ───────────────────
     let keep_inside = surface.contains_point(controls.keep_point);
+    let baffle_kept = if let Some(k) = esi_kept {
+        Some(k)
+    } else if controls.removal == CellRemoval::BaffleRegion {
+        let size0 = [
+            span.x / bg.nx as f64,
+            span.y / bg.ny as f64,
+            span.z / bg.nz as f64,
+        ];
+        Some(
+            crate::snappy_hex_mesh::refinement::baffle_region(
+                &leaves,
+                [bg.nx, bg.ny, bg.nz],
+                origin,
+                size0,
+                surface,
+                controls.keep_point,
+            )
+            .ok_or_else(|| {
+                MeshError::Construction(
+                    "keep_point (locationInMesh) is outside every background cell".to_string(),
+                )
+            })?,
+        )
+    } else {
+        None
+    };
     let mut kept = vec![false; leaves.len()];
     let mut cell_id = vec![usize::MAX; leaves.len()];
     let mut n_kept = 0usize;
     let mut cells_by_level = vec![0usize; max_level + 1];
     for (lid, leaf) in leaves.iter().enumerate() {
         let centre = leaf_centre(leaf, origin, h, max_level);
-        if surface.contains_point(centre) == keep_inside {
+        let keep_cell = match &baffle_kept {
+            Some(region) => region[lid],
+            None => surface.contains_point(centre) == keep_inside,
+        };
+        if keep_cell {
             kept[lid] = true;
             cell_id[lid] = n_kept;
             cells_by_level[leaf.level] += 1;
@@ -285,13 +474,11 @@ pub fn castellate(
     }
 
     // ── Assemble the FvMesh ───────────────────────────────────────────────────
-    let mut builder = MeshAssembler::new(
-        gdim,
-        h,
-        origin,
-        controls.surface_patch_name.clone(),
-        controls.cyclic_axes,
-    );
+    let surface_patch_names = match &controls.surface_regions {
+        Some(r) => r.patch_names.clone(),
+        None => vec![controls.surface_patch_name.clone()],
+    };
+    let mut builder = MeshAssembler::new(gdim, h, origin, surface_patch_names, controls.cyclic_axes, boundary_regions);
 
     for (lid, leaf) in leaves.iter().enumerate() {
         if !kept[lid] {
@@ -338,6 +525,12 @@ pub fn castellate(
         builder.push_cell(cell_box.centre(), cell_box.volume());
     }
 
+    if builder.unmapped > 0 {
+        return Err(MeshError::Construction(format!(
+            "{} carved faces have no surface region (ESI region map out of step with the assembler)",
+            builder.unmapped
+        )));
+    }
     let (fv_mesh, points, topology, surface_faces) = builder.finish(n_kept)?;
 
     Ok(CastellatedMesh {
@@ -393,7 +586,12 @@ struct MeshAssembler {
     gdim: [usize; 3],
     h: [f64; 3],
     origin: Vector3,
-    surface_patch_name: String,
+    surface_patch_names: Vec<String>,
+    /// Region of each carved face by `(axis, lower corner in voxels)`; empty =
+    /// one surface patch.
+    region_of_face: HashMap<(usize, [usize; 3]), usize>,
+    /// Carved faces missing from `region_of_face` when it is not empty.
+    unmapped: usize,
     /// Which axes are periodic — see [`CastellationControls::cyclic_axes`].
     cyclic_axes: [bool; 3],
 
@@ -405,12 +603,12 @@ struct MeshAssembler {
     /// Internal-face corner point ids, wound owner→neighbour (normal +axis).
     int_pts: Vec<[usize; 4]>,
 
-    // Boundary faces bucketed per patch (7 buckets: 6 outer + surface).
-    bnd_owner: [Vec<usize>; 7],
-    bnd_sf: [Vec<Vector3>; 7],
-    bnd_cf: [Vec<Vector3>; 7],
+    // Boundary faces bucketed per patch (6 outer + one per surface region).
+    bnd_owner: Vec<Vec<usize>>,
+    bnd_sf: Vec<Vec<Vector3>>,
+    bnd_cf: Vec<Vec<Vector3>>,
     /// Boundary-face corner point ids per bucket, wound outward.
-    bnd_pts: [Vec<[usize; 4]>; 7],
+    bnd_pts: Vec<Vec<[usize; 4]>>,
 
     // Cell geometry.
     cell_centres: Vec<Vector3>,
@@ -431,24 +629,28 @@ impl MeshAssembler {
         gdim: [usize; 3],
         h: [f64; 3],
         origin: Vector3,
-        surface_patch_name: String,
+        surface_patch_names: Vec<String>,
         cyclic_axes: [bool; 3],
+        region_of_face: HashMap<(usize, [usize; 3]), usize>,
     ) -> Self {
+        let n_buckets = SURFACE_BUCKET + surface_patch_names.len();
         Self {
             gdim,
             h,
             origin,
-            surface_patch_name,
+            surface_patch_names,
+            region_of_face,
+            unmapped: 0,
             cyclic_axes,
             int_owner: Vec::new(),
             int_neighbour: Vec::new(),
             int_sf: Vec::new(),
             int_cf: Vec::new(),
             int_pts: Vec::new(),
-            bnd_owner: Default::default(),
-            bnd_sf: Default::default(),
-            bnd_cf: Default::default(),
-            bnd_pts: Default::default(),
+            bnd_owner: vec![Vec::new(); n_buckets],
+            bnd_sf: vec![Vec::new(); n_buckets],
+            bnd_cf: vec![Vec::new(); n_buckets],
+            bnd_pts: vec![Vec::new(); n_buckets],
             cell_centres: Vec::new(),
             cell_volumes: Vec::new(),
             point_ids: HashMap::new(),
@@ -553,8 +755,23 @@ impl MeshAssembler {
                 // Negative side internal faces are emitted by the neighbour.
             } else {
                 // Removed neighbour (or void) → carved surface boundary face.
+                let bucket = if self.region_of_face.is_empty() {
+                    SURFACE_BUCKET
+                } else {
+                    let mut corner = [0usize; 3];
+                    corner[axis] = plane_g;
+                    corner[t0] = a0;
+                    corner[t1] = b0;
+                    match self.region_of_face.get(&(axis, corner)) {
+                        Some(&r) => SURFACE_BUCKET + r,
+                        None => {
+                            self.unmapped += 1;
+                            SURFACE_BUCKET
+                        }
+                    }
+                };
                 self.push_boundary(
-                    SURFACE_BUCKET,
+                    bucket,
                     axis,
                     positive,
                     plane_g,
@@ -614,7 +831,7 @@ impl MeshAssembler {
         self.bnd_cf[bucket].push(cf);
         self.bnd_pts[bucket].push(pts);
 
-        if bucket == SURFACE_BUCKET {
+        if bucket >= SURFACE_BUCKET {
             self.surface_faces.push(SurfaceFace {
                 owner_cell: owner,
                 corners: pts,
@@ -780,17 +997,17 @@ impl MeshAssembler {
         // bucket -> emitted patch index, so the cyclic partner links can be
         // resolved after the loop (empty buckets are skipped, so bucket index
         // and patch index differ).
-        let mut patch_of_bucket: [Option<usize>; 7] = [None; 7];
+        let mut patch_of_bucket: Vec<Option<usize>> = vec![None; self.bnd_owner.len()];
 
         // Outer patches (6), then the carved surface patch.
         #[allow(clippy::needless_range_loop)]
-        for bucket in 0..7 {
+        for bucket in 0..self.bnd_owner.len() {
             let size = self.bnd_owner[bucket].len();
             if size == 0 {
                 continue;
             }
-            let (name, kind) = if bucket == SURFACE_BUCKET {
-                (self.surface_patch_name.clone(), PatchKind::Wall)
+            let (name, kind) = if bucket >= SURFACE_BUCKET {
+                (self.surface_patch_names[bucket - SURFACE_BUCKET].clone(), PatchKind::Wall)
             } else if self.cyclic_axes[bucket / 2] {
                 (PATCH_NAMES[bucket].to_string(), PatchKind::Cyclic)
             } else {

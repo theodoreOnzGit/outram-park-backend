@@ -124,8 +124,12 @@
 //! - ~~It does **not** yet split coplanar boundary faces belonging to
 //!   *different* patches that meet below the feature angle~~ **DONE
 //!   2026-11-04 (gh:#1240):** patch seams are feature edges, as upstream.
-//! - Not ported: upstream's `concaveMultiCells` (several dual cells per
-//!   concave feature point), `splitAllFaces`, and face-zone preservation.
+//! - ~~Not ported: upstream's `concaveMultiCells`, `splitAllFaces` and
+//!   face-zone preservation.~~ **CORRECTED 2026-11-11 (gh:#1471, gh:#1472):**
+//!   they are ported in the explicit upstream mode,
+//!   [`poly_dual_mesh_upstream`](crate::poly_dual_mesh_upstream) (a
+//!   line-for-line `polyDualMesh` + `meshDualiser`, beside this surface-
+//!   preserving default). This default still has none of the three.
 
 use petir::mathf::RealMath;
 use std::collections::HashMap;
@@ -810,10 +814,14 @@ impl DualMesh {
 
 /// Construct the polyhedral dual of `primal`.
 ///
-/// `feature_angle_deg` controls boundary-point retention (see the module docs):
-/// a boundary point is kept as an explicit dual vertex when the surface bends
-/// across it by more than this angle; otherwise it is merged into a coplanar
-/// boundary polygon.
+/// `feature_angle_deg` is the feature angle (see the module docs).
+/// ~~A boundary point is kept when the surface bends across it by more than
+/// this angle~~ **CORRECTED 2026-11-11 (gh:#1471; the rule changed in
+/// gh:#1240, 2026-11-04):** a boundary *edge* is a feature edge when its two
+/// boundary faces lie in different patches (whatever the angle) or their
+/// normals differ by more than this angle; every point on a feature edge is
+/// kept as an explicit dual vertex, and any other boundary point is merged
+/// into a coplanar boundary polygon.
 ///
 /// # Errors
 /// Returns [`MeshError::Construction`] for a non-manifold boundary or an

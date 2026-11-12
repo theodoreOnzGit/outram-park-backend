@@ -121,6 +121,7 @@ pub fn from_dual(dual: &DualMesh, names: &[String]) -> VolumeMesh {
         neighbour: order.iter().map(|&f| dual.neighbour[f]).collect(),
         n_cells: dual.n_cells,
         patches,
+        cells: None,
     }
 }
 

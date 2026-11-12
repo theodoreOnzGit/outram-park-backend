@@ -268,9 +268,20 @@ LEAPR by default").** `Htr10DataConfig::default().thermal_laws` is
 
 **Every HTR-10 and HTTR k recorded before 2026-11-03 used the published
 tapes' graphite and SiC laws**, at the tape's nearest temperature (296 K for
-a 300.15 K run). To reproduce one, set `OUTRAM_HTR10_TAPE_LAWS=1`
-(`ThermalLawSource::Tapes`). Re-measuring those records under the new default
-is gh:#1145.
+a 300.15 K run). ~~To reproduce one, set `OUTRAM_HTR10_TAPE_LAWS=1`
+(`ThermalLawSource::Tapes`).~~ **CORRECTED 2026-11-11 (gh:#1333):** the
+variable is read only where `ThermalLawSource::from_env()` is called
+(`load_slots_with_progress`, `examples/htr10_rmc_keff.rs`, HTTR's
+materials note); `Htr10DataConfig::default()` ignores it, so a test or
+caller building that config must set `thermal_laws:
+ThermalLawSource::Tapes` itself (verified: with only the variable set,
+`tests/htr10_rod_bank_insertion.rs`'s k was bit-identical to the LEAPR
+run). **And every k recorded before 2026-11-10 also used the DBRC
+resonance-scattering sampler**, now an option beside the default RVS
+(gh:#1311): reproducing one needs `Nuclide::with_resonance_scattering_method(
+ResonanceScatteringMethod::Dbrc)` as well. With both, the rod-bank test's
+2026-10-23 k reproduced bit for bit on 2026-11-11. Re-measuring those
+records under the new default is gh:#1145.
 
 **Do not add physics kernels here** — only orchestration / facade /
 cross-crate glue belongs in this crate.

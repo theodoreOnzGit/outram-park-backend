@@ -49,7 +49,12 @@
 //! ([`mechanics`]), constitutive laws ([`rheology`]), material property
 //! correlations ([`materials`]), gap and contact ([`gap`]), burnup accumulation
 //! ([`burnup`]), fission-gas release ([`fgr`]) and cladding corrosion
-//! ([`corrosion`]).
+//! ([`corrosion`]). **Since 2026-11-10/11** (maintainer direction, gh:#977 and
+//! gh:#1335) this is the workspace's materials and fuel-behaviour crate, and
+//! it also holds [`melcor`]: MELCOR-class severe-accident equations (sectional
+//! aerosol, fission-product vapours, pool iodine), written clean-room from the
+//! public MELCOR manuals and literature, never from MELCOR source. The plant
+//! that assembles them (Fukushima Daiichi Unit 1) stays in `sembawang`.
 //!
 //! **Does not belong here:** the finite-volume machinery itself. Meshes, fields,
 //! `fvc`/`fvm` operators, the LDU matrix and the Krylov solvers all come from
@@ -77,7 +82,8 @@
 //! OFFBEAT is GPL-3.0; this crate is ~~GPL-3.0-only, the same licence as this
 //! workspace~~ **AGPL-3.0-only**, conveyed as a combined work (relicensed
 //! 2026-10-20, gh:#973; ported files keep GPL-3.0, `LICENSE.GPL-3.0`). Each ported module
-//! keeps an attribution header naming the upstream file it derives from. The
+//! keeps an attribution header naming the upstream file it derives from
+//! ([`melcor`] is not a port: it cites public manuals, see `NOTICE`). The
 //! upstream tree is **not** vendored into this repository — porting is done from
 //! a read-only clone kept outside the working tree.
 
@@ -91,6 +97,9 @@ pub mod burnup;
 pub mod corrosion;
 pub mod fgr;
 pub mod gap;
+// MELCOR-class severe-accident equations, clean-room from the public manuals
+// (gh:#1335, moved from `sembawang::bwr_mark1` 2026-11-11).
+pub mod melcor;
 pub mod rheology;
 
 pub mod prelude;

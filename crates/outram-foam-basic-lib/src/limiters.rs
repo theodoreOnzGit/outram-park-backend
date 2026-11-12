@@ -32,7 +32,8 @@
 
 /// A TVD flux limiter `psi(r)`, translated from OpenFOAM's r-based
 /// `limitedSchemes`. `psi = 0` is first-order upwind, `psi = 1` is second-order
-/// linear; the TVD variants clip extrema (`psi(r) = 0` for `r <= 0`).
+/// linear; most TVD variants clip extrema (`psi(r) = 0` for `r <= 0`); `vanAlbada` and `OSPRE` do
+/// not, as upstream.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FluxLimiter {
     /// First-order `upwind`: `psi = 0`.
@@ -41,7 +42,10 @@ pub enum FluxLimiter {
     Linear,
     /// `vanLeer`: upstream `(r + mag(r))/(1 + mag(r))`. Smooth, symmetric.
     VanLeer,
-    /// `vanAlbada`: upstream `r*(r + 1)/(sqr(r) + 1)` with `r = max(0, r)`. Symmetric.
+    /// `vanAlbada`: upstream `r*(r + 1)/(sqr(r) + 1)` (OpenFOAM-v2506 `vanAlbada.H`), with NO
+    /// `max(0, r)` and no clip: it is negative for `-1 < r < 0`. ~~This port clamped `r` at 0~~
+    /// **CHANGED 2026-11-11 (gh:#1362, maintainer: upstream is the specification)**: now exactly
+    /// upstream for every `r` (bit-identical, 314/314 differential values). Symmetric.
     VanAlbada,
     /// `Minmod`: upstream `max(min(r, 1), 0)`. Most diffusive TVD limiter. Symmetric.
     Minmod,
@@ -52,7 +56,9 @@ pub enum FluxLimiter {
     /// `UMIST`: upstream `max(min(min(min(2r, 0.75r + 0.25), 0.25r + 0.75), 2), 0)`.
     /// Third-order biased (not symmetric).
     Umist,
-    /// `OSPRE`: upstream `1.5 r (r + 1)/(r (r + 1) + 1)` with `r = max(0, r)`. Symmetric.
+    /// `OSPRE`: upstream `rrp1 = r*(r + 1); 1.5*rrp1/(rrp1 + 1)` (`OSPRE.H`), with NO `max(0, r)`
+    /// and no clip: negative for `-1 < r < 0`. ~~This port clamped `r` at 0~~ **CHANGED
+    /// 2026-11-11 (gh:#1362)**: now exactly upstream for every `r`. Symmetric.
     Ospre,
     /// `limitedLinear(k)`: upstream `max(min((2/k) r, 1), 0)`, coefficient
     /// `k` in `[0, 1]` (`k -> 0` approaches unlimited linear, `k = 1` most
@@ -63,8 +69,9 @@ pub enum FluxLimiter {
 
 impl FluxLimiter {
     /// The flux-limiter function `psi(r)`. `r` may be any `f64`; a non-finite `r`
-    /// returns `0`. For the TVD limiters `r <= 0` (a local extremum) returns `0`.
-    /// The result is clamped non-negative.
+    /// returns `0`. The limiters with a `max(.., 0)` in upstream return `0` for `r <= 0`
+    /// (a local extremum); `vanAlbada` and `OSPRE` follow upstream and do not clip, so they are
+    /// negative for `-1 < r < 0` (gh:#1362). No extra clamp is applied.
     pub fn psi(&self, r: f64) -> f64 {
         if !r.is_finite() {
             return 0.0;
@@ -74,11 +81,8 @@ impl FluxLimiter {
             FluxLimiter::Linear => 1.0,
             // vanLeer: (r + |r|)/(1 + |r|)
             FluxLimiter::VanLeer => (r + r.abs()) / (1.0 + r.abs()),
-            // vanAlbada: r*(r+1)/(r^2+1), r = max(0,r)
-            FluxLimiter::VanAlbada => {
-                let r = r.max(0.0);
-                r * (r + 1.0) / (r * r + 1.0)
-            }
+            // vanAlbada: r*(r+1)/(sqr(r)+1), no clamp (upstream vanAlbada.H)
+            FluxLimiter::VanAlbada => r * (r + 1.0) / (r * r + 1.0),
             // Minmod: max(min(r,1),0)
             FluxLimiter::Minmod => r.min(1.0).max(0.0),
             // SuperBee: max(max(min(2r,1), min(r,2)), 0)
@@ -91,18 +95,20 @@ impl FluxLimiter {
                 .min(0.25 * r + 0.75)
                 .min(2.0)
                 .max(0.0),
-            // OSPRE: 1.5 r (r+1)/(r(r+1)+1), r = max(0,r)
+            // OSPRE: rrp1 = r(r+1); 1.5 rrp1/(rrp1+1), no clamp (upstream OSPRE.H)
             FluxLimiter::Ospre => {
-                let r = r.max(0.0);
-                1.5 * r * (r + 1.0) / (r * (r + 1.0) + 1.0)
+                let rrp1 = r * (r + 1.0);
+                1.5 * rrp1 / (rrp1 + 1.0)
             }
             // limitedLinear(k): max(min((2/k) r, 1), 0), twoByk = 2/max(k, small)
             FluxLimiter::LimitedLinear(k) => {
-                let two_by_k = 2.0 / k.max(1e-30);
+                // upstream `twoByk_ = 2.0/max(k_, small)`, `small` = 1e-15 (ESI v2506
+                // `doubleScalarSMALL`); ~~1e-30~~ **CORRECTED 2026-11-11 (gh:#1362)**
+                let two_by_k = 2.0 / k.max(1e-15);
                 (two_by_k * r).min(1.0).max(0.0)
             }
         };
-        val.max(0.0)
+        val
     }
 
     /// True if this is a second-order **TVD** limiter (everything except
@@ -154,11 +160,21 @@ mod tests {
 
     #[test]
     fn extrema_are_clipped() {
-        for l in CLASSIC {
+        for l in CLASSIC.iter().filter(|l| !matches!(l, FluxLimiter::VanAlbada | FluxLimiter::Ospre)) {
             for &r in &[-3.0, -1.0, -0.1, 0.0] {
                 assert_eq!(l.psi(r), 0.0, "{l:?} psi({r}) != 0");
             }
         }
+    }
+
+    /// gh:#1362: upstream `vanAlbada.H` / `OSPRE.H` do not clip `r < 0`.
+    #[test]
+    fn van_albada_and_ospre_follow_upstream_for_negative_r() {
+        let r = -0.5_f64;
+        assert_eq!(FluxLimiter::VanAlbada.psi(r), r * (r + 1.0) / (r * r + 1.0));
+        let rrp1 = r * (r + 1.0);
+        assert_eq!(FluxLimiter::Ospre.psi(r), 1.5 * rrp1 / (rrp1 + 1.0));
+        assert!(FluxLimiter::VanAlbada.psi(r) < 0.0 && FluxLimiter::Ospre.psi(r) < 0.0);
     }
 
     #[test]

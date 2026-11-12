@@ -67,7 +67,9 @@
 //! [`MeshDict`] holds the `meshDict` entries this module reads, as typed
 //! fields; it is not a dictionary reader. Patches are named by **region
 //! index** of the [`crate::mesh_octree::TriSurf`] (upstream matches patch
-//! names, with regular expressions).
+//! names, with regular expressions). **Since gh:#1476**,
+//! [`crate::mesh_dict`] reads a `meshDict` file into it, matching the names
+//! as upstream's `findPatches` does (full regular-expression match).
 //!
 //! ~~Not ported: `subsetCellSize` (no facet subsets on `TriSurf`; corrected
 //! by gh:#1276: the subsets exist, the refinement did not),
@@ -706,13 +708,18 @@ impl MeshOctreeCreator {
     pub fn create_octree_boxes(&mut self, o: &mut MeshOctree) {
         self.set_root_cube_size_and_ref_parameters(o);
         self.refine_boundary(o);
+        trace_octree("refineBoundary", o);
         self.refine_boxes_intersecting_surfaces(o);
         self.refine_boxes_intersecting_edge_meshes(o);
+        trace_octree("sources", o);
         self.automatic_refinement(o);
+        trace_octree("auto", o);
         mesh_octree_inside_outside(o);
         self.refine_inside_and_unknown_boxes(o);
+        trace_octree("inside", o);
         self.refine_boxes_contained_in_objects(o);
         self.refine_boxes_near_data_boxes(o, 1);
+        trace_octree("nearData", o);
     }
 
     /// `createOctreeWithRefinedBoundary`: refine every leaf holding more
@@ -736,6 +743,21 @@ impl MeshOctreeCreator {
             o.create_list_of_leaves();
         }
     }
+}
+
+/// With `GH1385_TRACE` set, print the leaf count and the leaves per level as
+/// upstream's instrumented `createOctreeBoxes` does (`OCT <step> leaves <n>
+/// levels <l>:<count> ...`, gh:#1385).
+fn trace_octree(tag: &str, o: &MeshOctree) {
+    if std::env::var("GH1385_TRACE").is_err() {
+        return;
+    }
+    let mut hist = [0usize; 32];
+    for l in 0..o.number_of_leaves() {
+        hist[o.cube(o.leaves[l]).coords.level as usize] += 1;
+    }
+    let levels: Vec<String> = hist.iter().enumerate().filter(|(_, &n)| n > 0).map(|(l, n)| format!("{l}:{n}")).collect();
+    eprintln!("OCT {tag} leaves {} levels {}", o.number_of_leaves(), levels.join(" "));
 }
 
 /// Leaf counts by type after inside/outside marking.

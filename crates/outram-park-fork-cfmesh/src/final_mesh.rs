@@ -312,6 +312,16 @@ mod tests {
     /// That is a measured limit of `AfterUntangle`, recorded in
     /// `verification_and_validation/upper_triangular_gh1285/README.md`, and
     /// not asserted away.
+    ///
+    /// **MOVED 2026-11-11 (gh:#1385 round 3):** ~~`AfterUntangle` leaves the
+    /// rim point 1.78e-4 m off the inlet plane in the gh:#1285 order~~ it now
+    /// keeps the inlet planar there too (0e0). Cause: the part tet mesh now
+    /// takes cfMesh's face and cell centres and cell-list order, and the
+    /// volume optimiser, Knupp metric and tet-mesh updates follow upstream's
+    /// arithmetic (V&V README, round 3), so the interior smoothing, and with
+    /// it the boundary passes, take other paths on this shaken mesh. The
+    /// limit of `AfterUntangle` is not removed in general (the projection is
+    /// still only at the end); this case no longer shows it.
     #[test]
     fn projected_untangle_keeps_the_inlet_planar() {
         let (p, t, regions, recorded) = small_pipe();
@@ -338,12 +348,9 @@ mod tests {
             println!("{case}: plain (inlet off plane {plain_off:e}): {} -> {}, {} boundary passes; EachPass: {} -> {}, {pe:?}; AfterUntangle {pg:?}, off plane {after_off:e}", ra.flagged_before, ra.flagged_after, ra.surface_iterations, re.flagged_before, re.flagged_after);
             assert!(ra.surface_iterations > 0, "the case exercises the boundary loop");
             assert!(inlet_off_plane(&e, &m0, &pr, &regions) < 1e-9, "{case}: EachPass: inlet off plane by {:e}", inlet_off_plane(&e, &m0, &pr, &regions));
-            if case == "recorded" {
-                assert!(after_off < 1e-9, "AfterUntangle: inlet off plane by {after_off:e}");
-            } else {
-                // the measured miss (doc comment); a change in it is seen
-                assert!(after_off > 1e-5, "{case}: AfterUntangle now keeps the inlet planar ({after_off:e}): update the record");
-            }
+            // ~~the "gh1285 order" case missed by 1.78e-4 m (assert > 1e-5)~~
+            // now planar too, gh:#1385 round 3 (doc comment)
+            assert!(after_off < 1e-9, "{case}: AfterUntangle: inlet off plane by {after_off:e}");
             assert_eq!(pe.points_moved > 0, ra.surface_iterations > 0, "boundary points move exactly when a boundary pass runs");
         }
     }

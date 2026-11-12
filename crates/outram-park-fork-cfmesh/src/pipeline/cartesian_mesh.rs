@@ -75,9 +75,9 @@ use crate::mesh_octree::MeshOctree;
 use crate::pipeline::tet_mesh::{create_octree, face_regions, PatchAssignment, SavedMesh};
 use crate::premap_vertices::pre_map_vertices;
 use crate::rename_boundary_patches::{rename_boundary_patches, RenameBoundary};
-use crate::renumber_mesh::{cells_from_mesh, renumber_mesh};
-use crate::surface_mapper::map_vertices_onto_surface_patches_given;
-use crate::surface_optimizer::{map_mesh_to_surface, optimise_mesh_surface};
+use crate::renumber_mesh::renumber_mesh;
+use crate::surface_mapper::map_vertices_onto_surface_patches_given_octree;
+use crate::surface_optimizer::{map_mesh_to_surface_octree, optimise_mesh_surface_octree, optimise_mesh_surface};
 use crate::topology::{check_and_fix_irregular_connections, check_cell_connections_over_faces, remove_non_mappable_cells, BoundaryFacesSharingTwoEdges, TopoMesh};
 use crate::volume_mesh::VolumeMesh;
 use crate::workflow_controls::{MeshMetaData, StepDecision, WorkflowControls, WorkflowSettings, WorkflowStep};
@@ -114,6 +114,11 @@ pub struct CartesianMeshGeneratorOptions {
     /// this route's layer before the patch-wise port, kept for the
     /// differential).
     pub layer_topology: LayerTopology,
+    /// `boundaryLayers/optimiseLayer` with its `optimisationParameters`
+    /// (gh:#1476): `Some` runs `optimizeBoundaryLayer` in
+    /// `optimiseFinalMesh`, `None` (upstream's default, `optimiseLayer` off)
+    /// does not.
+    pub optimise_layer: Option<crate::boundary_layer_optimisation::BoundaryLayerOptimisationControls>,
 }
 
 /// How `boundaryLayers::addLayerForAllPatches` groups the patches.
@@ -156,9 +161,29 @@ pub(crate) fn boundary_layer_generation(m: &VolumeMesh, request: &LayerRequest, 
 /// `removeUserConstraints`, `untangleMeshFV(2, 50, 1, true)`). Returns the
 /// report line and the refusal, if any (the mesh is then unchanged).
 pub(crate) fn ref_boundary_layers(m: &mut VolumeMesh, s: &RefineBoundaryLayersSettings, controls: &UntangleControls) -> Result<(String, Option<String>, usize), String> {
+    if std::env::var("GH1385_TRACE").is_ok() {
+        // gh:#1385: the mesh before `refineBoundaryLayers` (`PFP`, `PFF`), as upstream's instrumented generator prints it
+        for (i, p) in m.points.iter().enumerate() {
+            eprintln!("PFP {i} {:.17e} {:.17e} {:.17e}", p.x, p.y, p.z);
+        }
+        for (i, f) in m.faces.iter().enumerate() {
+            let verts: Vec<String> = f.iter().map(|v| v.to_string()).collect();
+            eprintln!("PFF {i} {} {} {}", m.owner[i], m.neighbour[i].map_or(-1, |n| n as i64), verts.join(" "));
+        }
+    }
     match refine_boundary_layers(m, s) {
         Ok((mm, rr)) => {
             *m = mm;
+            if std::env::var("GH1385_TRACE").is_ok() {
+                // gh:#1385: the instrumented upstream prints the mesh the same way (`RFP`, `RFF`)
+                for (i, p) in m.points.iter().enumerate() {
+                    eprintln!("RFP {i} {:.17e} {:.17e} {:.17e}", p.x, p.y, p.z);
+                }
+                for (i, f) in m.faces.iter().enumerate() {
+                    let verts: Vec<String> = f.iter().map(|v| v.to_string()).collect();
+                    eprintln!("RFF {i} {} {} {}", m.owner[i], m.neighbour[i].map_or(-1, |n| n as i64), verts.join(" "));
+                }
+            }
             let lp = points_in_bnd_layer(m, &rr);
             let mut opt = MeshOptimizer::new(m);
             opt.lock_points(&lp);
@@ -193,6 +218,7 @@ impl Default for CartesianMeshGeneratorOptions {
             without_boundary_layer: false,
             layer_topology: LayerTopology::PatchWise,
             patch_assignment: PatchAssignment::EdgeExtractor,
+            optimise_layer: None,
         }
     }
 }
@@ -324,10 +350,12 @@ pub fn extract_patches(
 /// caller does that, gh:#1279 remainder): `meshSurfaceOptimizer(mse,
 /// octree).optimizeSurface()` against the surface `(points, tris)`, then
 /// `meshOptimizer`'s `optimizeMeshFV`, `optimizeLowQualityFaces`,
-/// `untangleMeshFV`. `optimizeBoundaryLayer(modSurfacePtr_ == nullptr)`
-/// acts only with `optimiseLayer` (off, upstream's default), so its
-/// argument changes nothing here. Returns (bad faces before
-/// `optimizeMeshFV`, after `untangleMeshFV`) and the report line.
+/// `untangleMeshFV`, with `optimizeBoundaryLayer(modSurfacePtr_ ==
+/// nullptr)` between the last two ([`optimize_boundary_layer_step`]; acts
+/// only with `optimiseLayer`, off by default; `add_buffer_layer` is the
+/// argument). Returns (bad faces before `optimizeMeshFV`, after
+/// `untangleMeshFV`) and the report line.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn cartesian_optimise_final_mesh(
     m: &mut VolumeMesh,
     points: &[Vec3],
@@ -335,23 +363,60 @@ pub(crate) fn cartesian_optimise_final_mesh(
     reg: &SurfaceRegions,
     enforce_geometry_constraints: bool,
     controls: &UntangleControls,
+    optimise_layer: Option<&crate::boundary_layer_optimisation::BoundaryLayerOptimisationControls>,
+    add_buffer_layer: bool,
+    octree: Option<&MeshOctree>,
 ) -> Result<((usize, usize), String), String> {
     let given = face_regions(m, reg);
-    optimise_mesh_surface(m, points, tris, reg, &given);
+    match octree {
+        Some(o) => optimise_mesh_surface_octree(m, o, points, tris, reg, &given),
+        None => optimise_mesh_surface(m, points, tris, reg, &given),
+    };
     let mut opt = MeshOptimizer::new(m);
     if enforce_geometry_constraints {
         opt.set_enforce_constraints("badPoints");
     }
+    trace_points("fm_surface", m);
     let r1 = opt.optimize_mesh_fv(m, 5, controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
+    trace_points("fm_fv", m);
     let r2 = opt.optimize_low_quality_faces(m, 10);
+    trace_points("fm_lowq", m);
+    let bl = optimize_boundary_layer_step(m, optimise_layer, add_buffer_layer, controls, "optimizeBoundaryLayer: optimiseLayer off (upstream default), nothing to do");
     let r3 = opt.untangle_mesh_fv(m, controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
+    trace_points("fm_untangle", m);
     Ok((
         (r1.flagged_before, r3.flagged_after),
         format!(
-            "optimizeSurface, then optimizeMeshFV bad faces {} -> {}, optimizeLowQualityFaces {} -> {}, untangleMeshFV {} -> {}; optimizeBoundaryLayer: optimiseLayer off (upstream default), nothing to do",
+            "optimizeSurface, then optimizeMeshFV bad faces {} -> {}, optimizeLowQualityFaces {} -> {}, untangleMeshFV {} -> {}; {bl}",
             r1.flagged_before, r1.flagged_after, r2.flagged_before, r2.flagged_after, r3.flagged_before, r3.flagged_after
         ),
     ))
+}
+
+/// With `GH1385_TRACE` set, print every point as upstream's instrumented
+/// run does (`TRACE <tag> 0 <i> x y z`), for the sub-step differential of
+/// gh:#1385 (`verification_and_validation/upstream_cfmesh_gh1385`). Off
+/// unless the variable is set.
+pub(crate) fn trace_points(tag: &str, m: &VolumeMesh) {
+    if std::env::var("GH1385_TRACE").is_err() {
+        return;
+    }
+    for (i, p) in m.points.iter().enumerate() {
+        eprintln!("TRACE {tag} 0 {i} {:?} {:?} {:?}", p.x, p.y, p.z);
+    }
+}
+
+/// `meshOptimizer::optimizeBoundaryLayer(addBufferLayer)` inside
+/// `optimiseFinalMesh` (gh:#1476): with `optimiseLayer` on
+/// (`Some(controls)`, `boundaryLayerOptimisation::readSettings`' values),
+/// [`crate::boundary_layer_optimisation::optimize_boundary_layer`]; with it
+/// off (`None`, upstream's default) nothing, and the report line is the one
+/// the generators wrote before gh:#1476. Returns the report text.
+pub(crate) fn optimize_boundary_layer_step(m: &mut VolumeMesh, optimise_layer: Option<&crate::boundary_layer_optimisation::BoundaryLayerOptimisationControls>, add_buffer_layer: bool, untangle: &UntangleControls, off_text: &str) -> String {
+    let Some(c) = optimise_layer else { return off_text.to_string() };
+    let s = crate::boundary_layer_optimisation::OptimizeBoundaryLayerSettings { optimise_layer: true, add_buffer_layer, controls: c.clone(), untangle: *untangle };
+    let r = crate::boundary_layer_optimisation::optimize_boundary_layer(m, &s);
+    format!("optimizeBoundaryLayer({add_buffer_layer}): {} hairs, {} layer cells, {} passes, {} hairs thinned; {}", r.n_hairs, r.n_layer_cells, r.passes, r.n_thinned, r.notes.join("; "))
 }
 
 /// cfMesh `cartesianMesh`: the workflow on the surface `(points, tris)`
@@ -443,7 +508,7 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
             WorkflowStep::SurfaceProjection => {
                 let pr = pre_map_vertices(m, &o, spts, tris, reg, 3);
                 rep.premap_mean_distance = pr.mean_distance;
-                let (mm, u) = map_mesh_to_surface(m, spts, tris, reg);
+                let (mm, u) = map_mesh_to_surface_octree(m, &o, spts, tris, reg);
                 *m = mm;
                 rep.n_inverted_after_projection = u.n_inverted_last;
                 rep.notes.push(format!(
@@ -453,24 +518,29 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
             }
             WorkflowStep::PatchAssignment => {
                 let (ty, note) = extract_patches(m, &o, spts, tris, regions, reg, opts.patch_assignment)?;
-                types = ty.unwrap_or_else(|| vec!["patch".to_string(); m.patches.len()]);
+                types = ty.unwrap_or_else(|| reg.types_for(m.patches.len()));
                 rep.notes.push(note);
             }
             WorkflowStep::EdgeExtraction => {
                 let mut given = face_regions(m, reg);
-                if let Some(r) = regions {
+                {
                     // meshSurfaceEdgeExtractorNonTopo: decomposeBoundaryFaces
-                    // (correctEdgesBetweenPatches), then remapBoundaryPoints
+                    // (correctEdgesBetweenPatches), then remapBoundaryPoints.
+                    // gh:#1385: upstream runs both always, also on a surface
+                    // of one region (the port skipped them without `regions`).
+                    let r = regions.unwrap_or(reg);
                     let (corrected, g, cr) = correct_edges_between_patches(m, &given, &r.names);
                     given = g;
-                    *m = map_vertices_onto_surface_patches_given(&corrected, spts, tris, r, &given);
-                    types = vec!["patch".to_string(); m.patches.len()];
+                    *m = map_vertices_onto_surface_patches_given_octree(&corrected, &o, spts, tris, r, &given);
+                    // `replaceBoundary` with as many patches as before keeps
+                    // each patch's type (gh:#1483)
+                    types.resize(m.patches.len(), "patch".to_string());
                     rep.notes.push(format!(
-                        "edgeExtraction: meshSurfaceEdgeExtractorNonTopo (correct_edges + surface_mapper): {} boundary faces split, {} faces fanned, {} cells into pyramids",
-                        cr.n_patch_corrected_faces, cr.n_connection_faces, cr.n_decomposed_cells
+                        "edgeExtraction: meshSurfaceEdgeExtractorNonTopo (correct_edges + surface_mapper): {} concave internal faces fanned, {} boundary faces split, {} faces fanned, {} cells into pyramids",
+                        cr.n_concave_faces, cr.n_patch_corrected_faces, cr.n_connection_faces, cr.n_decomposed_cells
                     ));
                 }
-                let u = optimise_mesh_surface(m, spts, tris, reg, &given);
+                let u = optimise_mesh_surface_octree(m, &o, spts, tris, reg, &given);
                 rep.n_inverted_after_edge_extraction = u.n_inverted_last;
                 rep.notes.push(format!("edgeExtraction: optimiseMeshSurface: inverted points {} -> {}", u.n_inverted_first, u.n_inverted_last));
             }
@@ -493,7 +563,7 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
             WorkflowStep::MeshOptimisation => {
                 // optimiseFinalMesh on the octree's surface (the modified
                 // one with anisotropicSources)
-                let (bad, line) = cartesian_optimise_final_mesh(m, spts, tris, reg, opts.enforce_geometry_constraints, &controls)?;
+                let (bad, line) = cartesian_optimise_final_mesh(m, spts, tris, reg, opts.enforce_geometry_constraints, &controls, opts.optimise_layer.as_ref(), !mod_active, Some(&o))?;
                 rep.bad_faces_mesh_optimisation = bad;
                 rep.notes.push(format!("meshOptimisation: {line}"));
                 // its end: revertGeometryModification while modSurfacePtr_
@@ -502,7 +572,7 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
                 if let (true, Some(cm)) = (mod_active, opts.dict.anisotropic_sources.as_ref()) {
                     mod_active = false;
                     let b = crate::anisotropic::revert_and_project(m, cm, points, tris);
-                    let (bad2, line2) = cartesian_optimise_final_mesh(m, points, tris, reg, opts.enforce_geometry_constraints, &controls)?;
+                    let (bad2, line2) = cartesian_optimise_final_mesh(m, points, tris, reg, opts.enforce_geometry_constraints, &controls, opts.optimise_layer.as_ref(), true, None)?;
                     rep.back_scaling = Some(b);
                     rep.bad_faces_after_back_scaling = Some(bad2);
                     rep.notes.push(format!(
@@ -525,7 +595,7 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
         }
     }
     let m = mesh.ok_or("the workflow produced no mesh")?;
-    let r = renumber_mesh(&m, &cells_from_mesh(&m));
+    let r = renumber_mesh(&m, &m.cell_face_lists());
     let renamed = rename_boundary_patches(&r.mesh, &types, opts.rename_boundary.as_ref(), false);
     // gh:#1280: renameBoundaryPatches now runs symmetryPlaneOptimisation.
     if !renamed.symmetry.planes.is_empty() {
@@ -729,6 +799,25 @@ pub(crate) mod tests {
     /// V&V (gh:#1274): `stopAfter` and restart. A run stopped after
     /// `edgeExtraction`, restarted from its saved mesh, gives the
     /// uninterrupted run's mesh bit for bit; two runs agree bit for bit.
+    #[test]
+    fn optimise_layer_runs_optimize_boundary_layer() {
+        // gh:#1476: `optimiseLayer on` runs optimizeBoundaryLayer inside
+        // optimiseFinalMesh (cartesianMesh: with the buffer layer asked for,
+        // which the port reports it does not build; tetMesh: without).
+        let (p, t, r) = pipe_surface(0.01, 0.06, 24);
+        let ctl = crate::boundary_layer_optimisation::BoundaryLayerOptimisationControls::default();
+        let opts = CartesianMeshGeneratorOptions { dict: MeshDict::with_max_cell_size(0.004), optimise_layer: Some(ctl.clone()), ..Default::default() };
+        let (m, rep) = cartesian_mesh(&p, &t, Some(&r), &opts).unwrap();
+        let line = rep.notes.iter().find(|n| n.starts_with("meshOptimisation")).unwrap();
+        println!("{line}");
+        assert!(line.contains("optimizeBoundaryLayer(true):") && line.contains("addBufferLayer"), "{line}");
+        assert!(m.n_cells > 0);
+        let to = crate::pipeline::tet_mesh::TetMeshOptions { dict: MeshDict::with_max_cell_size(0.006), optimise_layer: Some(ctl), ..Default::default() };
+        let (_, trep) = crate::pipeline::tet_mesh::tet_mesh(&p, &t, Some(&r), &to).unwrap();
+        let tline = trep.notes.iter().find(|n| n.starts_with("meshOptimisation")).unwrap();
+        assert!(tline.contains("optimizeBoundaryLayer(false):"), "{tline}");
+    }
+
     #[test]
     fn cartesian_mesh_stop_and_restart_reproduce_the_full_run() {
         let (p, t, r) = pipe_surface(0.01, 0.06, 24);

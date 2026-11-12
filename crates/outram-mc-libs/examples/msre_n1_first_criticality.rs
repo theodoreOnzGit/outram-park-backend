@@ -8,7 +8,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
-//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730] [--shield none|tm0728|tm0728-drained]
+//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730] [--shield none|tm0728|tm0728-drained|tm0728-packed] [--u235-scale X] [--rods none|1|2|3|1-2-3] [--balance-csv path]
 //! ```
 //!
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
@@ -43,7 +43,7 @@ use outram_mc_libs::physics::keff::KeffSettings;
 use outram_mc_libs::physics::keff::KeffResult;
 use outram_mc_libs::physics::transport_csg::{run_keff_csg, run_keff_csg_hybrid};
 use outram_mc_libs::stats::convergence::SourceConvergence;
-use outram_mc_libs::tally::filter::{EnergyFilter, FilterKind, MeshFilter};
+use outram_mc_libs::tally::filter::{EnergyFilter, FilterKind, MaterialFilter, MeshFilter};
 use outram_mc_libs::tally::mesh::{CylindricalMesh, MeshKind, MeshKindExt, RegularMesh};
 use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
 use outram_mc_libs::vv::msre_n1 as m;
@@ -52,7 +52,7 @@ fn flag(args: &[String], name: &str) -> Option<String> {
     args.iter().position(|a| a == name).and_then(|i| args.get(i + 1).cloned())
 }
 
-fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends, shield: m::Shield) {
+fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends, shield: m::Shield, rods: [bool; 3]) {
     std::fs::create_dir_all(dir).expect("plot dir");
     let mut mats = m::materials_with_ends(m::MoTreatment::Omitted, m::REFERENCE_TEMPERATURE_F, dims);
     let shielded = shield == m::Shield::Tm0728Cylinder;
@@ -62,6 +62,14 @@ fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends, shield: m::Shield) {
         g
     } else {
         m::geometry_with_ends(m::TEMPERATURE_K, m::TEMPERATURE_K, dims, ends)
+    };
+    let rodded = rods.iter().any(|&r| r);
+    let g = if rodded {
+        let g = m::geometry_with_rods(g, dims, rods, mats.len(), m::TEMPERATURE_K);
+        mats.extend(m::rod_materials());
+        g
+    } else {
+        g
     };
     let hot = dims != m::Dims::COLD;
     let tm0730 = ends == m::Ends::Tm0730;
@@ -77,6 +85,8 @@ fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends, shield: m::Shield) {
         Rgb::new(120, 60, 140),
         Rgb::new(110, 110, 120),
         Rgb::new(60, 130, 200),
+        Rgb::new(30, 30, 30),
+        Rgb::new(255, 255, 0),
     ];
     let labels: Vec<String> = mats.iter().map(|(n, _)| n.to_ascii_uppercase()).collect();
     let palette: Vec<(Rgb, &str)> = colours.iter().zip(&labels).map(|(c, l)| (*c, l.as_str())).collect();
@@ -114,8 +124,21 @@ fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends, shield: m::Shield) {
         slices.push(("msre_n1_shield_wall", Position::new(m::SHIELD_R_IN + 8.0 * m::INCH, 0.0, mid), PlotBasis::Xy, [60.0, 60.0],
             "MSRE N-1 SHIELD WALL, X-Y: INNER PLATE, BALL ANNULUS, OUTER PLATE"));
     }
+    if rodded {
+        // Outside the thimbles the rodded build is the default cell for cell
+        // (`control_rods_fill_their_thimbles_with_tm0728_poison`): draw the rods.
+        slices.clear();
+        let (x2, y2) = m::OPENINGS[0];
+        slices.push(("msre_n1_rods_centre", Position::new(0.0, 0.0, mid), PlotBasis::Xy, [24.0, 24.0],
+            "MSRE N-1 CENTRE, X-Y, RODS IN: GD2O3-AL2O3 POISON IN INCONEL ELEMENTS (TM-0728 TABLE 5.4) IN THE THREE THIMBLES"));
+        slices.push(("msre_n1_rods_one", Position::new(x2, y2, mid), PlotBasis::Xy, [6.0, 6.0],
+            "MSRE N-1 ROD 2, X-Y: SHELL 0.790/1.140 IN, 0.020 IN INCONEL, CERAMIC 0.84/1.08 IN, THIMBLE 2 IN OD"));
+        slices.push(("msre_n1_rods_xz", Position::new(0.0, o, (z_top + z_bot) / 2.0), PlotBasis::Xz, [24.0, z_top - z_bot + 4.0],
+            "MSRE N-1 X-Z AT Y = +2 IN, RODS IN ALL THE WAY: POISON THROUGH THE CORE AND UPPER PLENUM (ORNL-4233 TABLE 4 CASE)"));
+    }
     for (stem, origin, basis, width, title) in slices {
         let px = if width[0] > 100.0 { 1600 } else { 1000 };
+        let px = if width[1] > 4.0 * width[0] { 600 } else { px };
         let plot = SlicePlot {
             origin,
             basis,
@@ -128,6 +151,7 @@ fn draw(dir: &PathBuf, dims: m::Dims, ends: m::Ends, shield: m::Shield) {
         let title = if hot { format!("{title} [HOT DIMENSIONS, 1181 F]") } else { title.to_string() };
         let title = if tm0730 { format!("{title} [TM-0730 END REGIONS]") } else { title };
         let title = if shielded { format!("{title} [TM-0728 SHIELD]") } else { title };
+        let title = if rodded { format!("{title} [RODS {rods:?}]") } else { title };
         let (_raw, img) = render_material_slice(&g, &plot, &palette, &title);
         let path = dir.join(format!("{stem}{}{}{}.png", if hot { "_hot" } else { "" }, if tm0730 { "_tm0730" } else { "" }, if shielded && !stem.contains("shield") { "_shield" } else { "" }));
         img.write_png(&path).expect("write png");
@@ -151,21 +175,35 @@ fn main() {
     // (TM-0728 §5.3.10.1; N-1 residual, gh:#1128). Default: vacuum.
     let shield = match flag(&args, "--shield").as_deref().unwrap_or("none") {
         "none" => m::Shield::Omitted,
-        "tm0728" | "tm0728-drained" => m::Shield::Tm0728Cylinder,
-        other => panic!("--shield must be none|tm0728|tm0728-drained, got {other}"),
+        "tm0728" | "tm0728-drained" | "tm0728-packed" => m::Shield::Tm0728Cylinder,
+        other => panic!("--shield must be none|tm0728|tm0728-drained|tm0728-packed, got {other}"),
     };
     // `--shield tm0728-drained`: the same cylinder with the ball annulus's
     // water removed, an ablation splitting the shield's worth (gh:#1128).
     let drained = flag(&args, "--shield").as_deref() == Some("tm0728-drained");
+    // `--shield tm0728-packed`: the ball annulus at random close packing,
+    // the steel TM-0728's 70 tons imply (an input sensitivity, gh:#1128).
+    let packed = flag(&args, "--shield").as_deref() == Some("tm0728-packed");
     let graphite_law = flag(&args, "--graphite-law").unwrap_or_else(|| "30p".to_string());
     let axial_csv: Option<PathBuf> = flag(&args, "--axial-csv").map(PathBuf::from);
+    // `--balance-csv path`: absorption and nu-fission by material, for a
+    // neutron balance against ORNL-TM-0730 Table 3.6 (gh:#1128). One tally
+    // slot, so it cannot be combined with `--axial-csv`.
+    let balance_csv: Option<PathBuf> = flag(&args, "--balance-csv").map(PathBuf::from);
+    assert!(!(balance_csv.is_some() && axial_csv.is_some()), "--balance-csv and --axial-csv share one tally slot");
+    // `--rods none|1|2|3|1-2-3`: control rods inserted all the way through
+    // the core (TM-0728 Table 5.4 elements; ORNL-4233 Table 4's calculated
+    // case), for the rod worth (gh:#1128). Default: none, every recorded run.
+    let rods_spec = flag(&args, "--rods").unwrap_or_else(|| "none".to_string());
+    let rods = m::rods_inserted(&rods_spec);
+    let rodded = rods.iter().any(|&r| r);
     if let Some(d) = flag(&args, "--draw") {
         let dims = if hot_dims {
             m::Dims::hot(m::REFERENCE_TEMPERATURE_F, m::GRAPHITE_EXPANSION_PER_F, m::INOR8_EXPANSION_PER_F)
         } else {
             m::Dims::COLD
         };
-        draw(&PathBuf::from(d), dims, ends, shield);
+        draw(&PathBuf::from(d), dims, ends, shield, rods);
         return;
     }
     let mo = match flag(&args, "--mo").as_deref().unwrap_or("omitted") {
@@ -214,7 +252,11 @@ fn main() {
     };
     let base_materials = mats.len();
     if shield == m::Shield::Tm0728Cylinder {
-        mats.extend(if drained { m::shield_materials_drained() } else { m::shield_materials() });
+        mats.extend(if drained { m::shield_materials_drained() } else if packed { m::shield_materials_packed() } else { m::shield_materials() });
+    }
+    let first_rod_material = mats.len();
+    if rodded {
+        mats.extend(m::rod_materials());
     }
     // `--li7-atom-percent X`: re-split the salt's lithium (total unchanged)
     // to X % Li-7. The default keeps TM-0728's 99.99 %; TM-0730 quotes
@@ -231,6 +273,14 @@ fn main() {
                 _ => {}
             }
         }
+    }
+    // `--u235-scale X`: add (X > 1) or remove (X < 1) ORNL-4233's enriching
+    // salt until the salt's U-235 is X times the default, the perturbation
+    // the measured concentration coefficient 0.223 comes from (gh:#1128).
+    // The homogenised sample basket keeps the default salt.
+    let u235_scale: Option<f64> = flag(&args, "--u235-scale").map(|v| v.parse().expect("scale"));
+    if let Some(x) = u235_scale {
+        mats[m::SALT_IDX].1 = m::salt_with_enriching_salt(&mats[m::SALT_IDX].1, x);
     }
     let mut names: Vec<&str> = Vec::new();
     for (_, comps) in &mats {
@@ -251,6 +301,7 @@ fn main() {
             .iter()
             .chain(mo_list.iter())
             .chain(m::SHIELD_NUCLIDES.iter())
+            .chain(m::ROD_NUCLIDES.iter())
             .find(|(k, _)| *k == n)
             .unwrap_or_else(|| panic!("no tape for {n}"))
             .1;
@@ -329,7 +380,7 @@ fn main() {
         .map(|(i, (mname, comps))| Material {
             id: i as i32 + 1,
             name: (*mname).into(),
-            temperature: if i == m::GRAPHITE_IDX { t_g } else if i >= base_materials { m::SHIELD_TEMPERATURE_K } else { t_k },
+            temperature: if i == m::GRAPHITE_IDX { t_g } else if i >= base_materials && i < first_rod_material { m::SHIELD_TEMPERATURE_K } else { t_k },
             components: comps.iter().map(|(n, d)| NuclideComponent { nuclide_idx: idx(n), atom_density: *d }).collect(),
         })
         .collect();
@@ -340,7 +391,8 @@ fn main() {
         m::Shield::Omitted => m::geometry_with_ends(t_k, t_g, dims, ends),
         m::Shield::Tm0728Cylinder => m::geometry_with_shield(t_k, t_g, dims, ends, base_materials),
     };
-    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" } + if shield == m::Shield::Tm0728Cylinder { "+shield-tm0728" } else { "" } + if drained { "-drained" } else { "" };
+    let g = if rodded { m::geometry_with_rods(g, dims, rods, first_rod_material, t_k) } else { g };
+    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + u235_scale.map_or(String::new(), |x| format!("+u235x{x}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" } + if shield == m::Shield::Tm0728Cylinder { "+shield-tm0728" } else { "" } + if drained { "-drained" } else { "" } + if packed { "-packed" } else { "" } + if rodded { format!("+rods-{rods_spec}") } else { String::new() }.as_str();
     let new_file = !csv.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&csv).expect("csv");
     if new_file {
@@ -365,6 +417,9 @@ fn main() {
         // lower plenum, core and upper plenum, for the N-4 line model
         // (gh:#1130). Scoring draws no random number, so k is unchanged.
         let mut axial = axial_csv.as_ref().map(|_| axial_tally());
+        if balance_csv.is_some() {
+            axial = Some(balance_tally(materials.len()));
+        }
         let r = match &entropy_csv {
             None => run_keff_csg(&g, &materials, &nuclides, m::source_box(), &s, axial.as_mut()),
             Some(_) => {
@@ -382,6 +437,9 @@ fn main() {
         }
         if let (Some(path), Some(t)) = (&axial_csv, &axial) {
             write_axial(path, &label, seed, t);
+        }
+        if let (Some(path), Some(t)) = (&balance_csv, &axial) {
+            write_balance(path, &label, seed, t, &mats);
         }
         let wall = t.elapsed().as_secs_f64();
         let pcm = 1e5 * (r.k_mean - m::REFERENCE_K) / m::REFERENCE_K;
@@ -425,6 +483,32 @@ fn axial_edges() -> Vec<f64> {
 /// Fission and flux on an R-Z mesh: r in [0, graphite radius] and
 /// [graphite radius, vessel inner radius], one azimuthal bin, [`axial_edges`],
 /// split at 0.625 eV.
+/// Absorption and nu-fission in every material, for the neutron balance.
+/// CLI glue (the workspace's exception for `main` glue); the material filter
+/// and scores are tested in the tally modules.
+fn balance_tally(n_materials: usize) -> Tally {
+    Tally {
+        id: 2,
+        name: "N-1 neutron balance by material".into(),
+        filters: vec![FilterKind::Material(MaterialFilter { material_indices: (0..n_materials).collect() })],
+        scores: vec![ScoreType::Absorption, ScoreType::NuFission],
+        bins: vec![TallyBin::default(); n_materials * 2],
+    }
+}
+
+/// Append one run's balance: per material, its absorption and nu-fission
+/// sums. Layout `[material * 2 + score]`. CLI glue, as above.
+fn write_balance(path: &std::path::Path, label: &str, seed: u64, t: &Tally, mats: &[(&str, Vec<(&str, f64)>)]) {
+    let new_file = !path.is_file();
+    let mut f = std::fs::OpenOptions::new().create(true).append(true).open(path).expect("balance csv");
+    if new_file {
+        writeln!(f, "arm,seed,material,absorption,nu_fission").expect("balance csv");
+    }
+    for (i, (name, _)) in mats.iter().enumerate() {
+        writeln!(f, "{label},{seed},\"{name}\",{:.8e},{:.8e}", t.bins[i * 2].sum, t.bins[i * 2 + 1].sum).expect("balance csv");
+    }
+}
+
 fn axial_tally() -> Tally {
     let mesh = MeshKind::Cylindrical(CylindricalMesh {
         r_grid: vec![0.0, m::R_GRAPHITE, m::R_VESSEL_IN],

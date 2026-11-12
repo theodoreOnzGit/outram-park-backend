@@ -42,6 +42,8 @@ outram-foam-basic-lib.workspace = true
 
 [dev-dependencies]
 approx.workspace = true
+# gh:#1367: inflates the committed gzipped upstream reference outputs.
+miniz_oxide = { workspace = true }
 
 [lib]
 name = "outram_foam_multiphase"

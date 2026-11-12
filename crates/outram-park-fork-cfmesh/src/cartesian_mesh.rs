@@ -980,15 +980,25 @@ pub fn create_empty_patches(mesh: &VolumeMesh, root_box: &crate::mesh_octree::Bo
     out.neighbour.truncate(n_int);
     out.patches.clear();
     let names = ["defaultFaces", "unusedFacesBottom", "unusedFacesTop"];
+    let mut new_label = vec![usize::MAX; mesh.face_count()];
     for (g, name) in groups.iter().zip(names) {
         let start = out.faces.len();
         for &f in g {
+            new_label[f] = out.faces.len();
             out.faces.push(mesh.faces[f].clone());
             out.owner.push(mesh.owner[f]);
             out.neighbour.push(None);
         }
         out.patches.push(BoundaryPatch { name: name.to_string(), start_face: start, n_faces: g.len() });
     }
+    // `replaceBoundary`: the internal faces stay in each cell's list, the new
+    // boundary labels (patch by patch) are appended to the owner's list in the
+    // order of the boundary list, i.e. of the old boundary faces (gh:#1385 round 4)
+    let mut lists: Vec<Vec<usize>> = mesh.cell_face_lists().into_iter().map(|c| c.into_iter().filter(|&f| f < n_int).collect()).collect();
+    for f in n_int..mesh.face_count() {
+        lists[mesh.owner[f]].push(new_label[f]);
+    }
+    out.cells = Some(lists);
     Ok((out, vec!["patch".to_string(), "empty".to_string(), "empty".to_string()]))
 }
 
@@ -1010,6 +1020,62 @@ pub fn cartesian_mesh_extractor_from_dict(o: &MeshOctree, opts: &CartesianMeshOp
     extract_from_addressing(o, opts, MeshOctreeAddressing::from_dict(o, dict, opts.use_data_boxes))
 }
 
+/// `polyMeshGenModifier::reorderBoundaryFaces` (serial): the boundary faces
+/// among the first `nInternalFaces` faces are swapped, in order, with the
+/// internal faces among the last ones. Faces and their owner / neighbour move
+/// together; nothing else is reordered (gh:#1385: the template's face order
+/// is upstream's, not a stable internal-then-boundary sort).
+pub fn reorder_boundary_faces(faces: &mut [Vec<usize>], owner: &mut [usize], neighbour: &mut [Option<usize>]) -> Vec<usize> {
+    let pairs = boundary_swap_pairs(neighbour);
+    let mut new_label: Vec<usize> = (0..faces.len()).collect();
+    for &(a, b) in &pairs {
+        faces.swap(a, b);
+        owner.swap(a, b);
+        neighbour.swap(a, b);
+        new_label[a] = b;
+        new_label[b] = a;
+    }
+    new_label
+}
+
+/// The pairs `reorderBoundaryFaces` swaps: the faces without a neighbour among
+/// the first `nInternalFaces` (the count of faces with one), in order, with
+/// the faces with a neighbour among the rest, in order (gh:#1385). A face in
+/// no cell has no neighbour and is swapped like a boundary face.
+pub fn boundary_swap_pairs(neighbour: &[Option<usize>]) -> Vec<(usize, usize)> {
+    let n_int = neighbour.iter().filter(|x| x.is_some()).count();
+    let to_boundary: Vec<usize> = (0..n_int).filter(|&f| neighbour[f].is_none()).collect();
+    let to_internal: Vec<usize> = (n_int..neighbour.len()).filter(|&f| neighbour[f].is_some()).collect();
+    assert_eq!(to_boundary.len(), to_internal.len());
+    to_boundary.into_iter().zip(to_internal).collect()
+}
+
+/// The cell lists after `reorderBoundaryFaces` (gh:#1385): upstream renumbers
+/// the labels inside every cell list (`c[fI] = newFaceLabel[c[fI]]`) and keeps
+/// the lists' order. `new_label` is what [`reorder_boundary_faces`] returned.
+pub fn relabel_cell_lists(cells: &mut [Vec<usize>], new_label: &[usize]) {
+    for c in cells.iter_mut() {
+        for f in c.iter_mut() {
+            *f = new_label[*f];
+        }
+    }
+}
+
+/// The cell lists after `polyMeshGenModifier::replaceBoundary` (gh:#1385):
+/// each list keeps its internal faces (labels below `n_internal`) in their
+/// order, then gets the new boundary faces it owns appended, in the order of
+/// the boundary list (`cells[fOwn].newElmt(nFacesInCell[fOwn]++) = fLabel`).
+/// `new_boundary_owners[i]` is the owner of the boundary face that gets label
+/// `n_internal + i` (the faces patch by patch, in the order `replaceBoundary`
+/// stores them).
+pub fn replace_boundary_cell_lists(old: &[Vec<usize>], n_internal: usize, new_boundary_owners: &[usize]) -> Vec<Vec<usize>> {
+    let mut cells: Vec<Vec<usize>> = old.iter().map(|c| c.iter().copied().filter(|&f| f < n_internal).collect()).collect();
+    for (i, &o) in new_boundary_owners.iter().enumerate() {
+        cells[o].push(n_internal + i);
+    }
+    cells
+}
+
 fn extract_from_addressing(o: &MeshOctree, opts: &CartesianMeshOptions, a: MeshOctreeAddressing) -> CartesianMesh {
     let n = o.number_of_leaves();
     let mut leaf_cell = vec![None; n];
@@ -1020,37 +1086,42 @@ fn extract_from_addressing(o: &MeshOctree, opts: &CartesianMeshOptions, a: MeshO
             n_cells += 1;
         }
     }
-    let (mut int_f, mut int_o, mut int_n) = (Vec::new(), Vec::new(), Vec::new());
-    let (mut bnd_f, mut bnd_o) = (Vec::new(), Vec::new());
+    // `createPolyMesh`: the faces in octree-face order, internal and boundary
+    // faces mixed; `reorderBoundaryFaces` then swaps them into place.
+    let (mut faces, mut owner, mut neighbour) = (Vec::new(), Vec::new(), Vec::new());
+    // `cells[ownLabel][nFacesInCell[ownLabel]++] = nFaces` (then the
+    // neighbour): the cell lists in discovery order (gh:#1385).
+    let mut cell_lists: Vec<Vec<usize>> = vec![Vec::new(); n_cells];
     for f in 0..a.octree_faces.len() {
         let own = leaf_cell[a.octree_face_owner[f]];
         let nei = a.octree_face_neighbour[f].and_then(|l| leaf_cell[l]);
         match (own, nei) {
             (Some(oc), Some(nc)) => {
-                int_f.push(a.octree_faces[f].clone());
-                int_o.push(oc);
-                int_n.push(Some(nc));
+                cell_lists[oc].push(faces.len());
+                cell_lists[nc].push(faces.len());
+                faces.push(a.octree_faces[f].clone());
+                owner.push(oc);
+                neighbour.push(Some(nc));
             }
             (Some(oc), None) => {
-                bnd_f.push(a.octree_faces[f].clone());
-                bnd_o.push(oc);
+                cell_lists[oc].push(faces.len());
+                faces.push(a.octree_faces[f].clone());
+                owner.push(oc);
+                neighbour.push(None);
             }
             (None, Some(nc)) => {
+                cell_lists[nc].push(faces.len());
                 let mut r = a.octree_faces[f].clone();
                 r[1..].reverse();
-                bnd_f.push(r);
-                bnd_o.push(nc);
+                faces.push(r);
+                owner.push(nc);
+                neighbour.push(None);
             }
             (None, None) => {}
         }
     }
-    let n_int = int_f.len();
-    let mut faces = int_f;
-    faces.extend(bnd_f);
-    let mut owner = int_o;
-    owner.extend(bnd_o);
-    let mut neighbour = int_n;
-    neighbour.extend(std::iter::repeat(None).take(faces.len() - n_int));
+    let new_label = reorder_boundary_faces(&mut faces, &mut owner, &mut neighbour);
+    relabel_cell_lists(&mut cell_lists, &new_label);
     let mut points = a.octree_points.clone();
     let mut n_decomposed = 0;
     if opts.decompose_split_hexes {
@@ -1103,6 +1174,7 @@ fn extract_from_addressing(o: &MeshOctree, opts: &CartesianMeshOptions, a: MeshO
         owner,
         neighbour,
         n_cells,
+        cells: if opts.decompose_split_hexes { None } else { Some(cell_lists) },
     };
     CartesianMesh { mesh, leaf_cell_label: leaf_cell, addressing: a, n_decomposed_cells: n_decomposed }
 }

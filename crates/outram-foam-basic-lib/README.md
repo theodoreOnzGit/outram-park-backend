@@ -149,6 +149,7 @@ reference implementation the other backends are verified against.
 | `fields` | `VolScalarField`, `VolVectorField`, `VolTensorField`, `VolSymmTensorField` | Typed aliases |
 | `fields` | `SurfaceScalarField`, `SurfaceVectorField` | Face-centred typed aliases |
 | `mesh` | `FvMesh`, `FvMeshBuilder`, `BoundaryPatch`, `PatchKind` | Unstructured polyhedral mesh |
+| `io::dict` | `tokenize`, `Token` | OpenFOAM `ISstream` tokens (comments stripped, `( ) { } ; [ ]` split, glue and quotes recorded). Public since gh:#1476 for stream files that are not dictionaries (cfMesh `.fms`/`.ftr`) |
 | `mesh` | `BoundaryPatch::new_cyclic`, `CyclicCoupling`, `FvMesh::periodic_1d` | `cyclicPolyPatch` — cyclic (periodic) patch pairing: matched half0/half1 faces + across-seam owner↔owner cell couplings; `periodic_1d` builds a 1-D periodic ring programmatically |
 | `mesh::ami` | `AmiCoupling`, `AmiWeight`, `AmiOverlap`, `overlap_weights_1d`, `FvMesh::periodic_ring_ami`, `PatchKind::CyclicAmi` | `cyclicAMIPolyPatch` / `AMIInterpolation` — **non-conformal** periodic (arbitrary-mesh-interface) seams: each target face couples to a geometric-overlap-weighted set of source cells (Σ weights = 1, conservative). `overlap_weights_1d` computes planar/1-D-structured interval overlaps; `periodic_ring_ami` builds a non-conformal periodic ring programmatically. **First pass: 1-D/planar-structured overlap only** — general 3-D polygon clipping, two-axis tiling, and rotational transforms deferred |
 | `mesh` | `RegionInterface` | Matching and non-matching multi-region face coupling for CHT |
@@ -178,11 +179,15 @@ reference implementation the other backends are verified against.
 | `fvm::laplacian_vec(gamma, U)` | Diffusion −∇·(γ∇U) → `FvVectorMatrix` (cyclic + cyclicAMI seam coupling) |
 | `fvm::div(phi, psi)` | Upwind convection ∇·(φψ) → `FvMatrix` (cyclic + cyclicAMI seam coupling; per-target flux split by overlap weight) |
 | `fvm::div_vec(phi, U)` | Upwind convection ∇·(φU) → `FvVectorMatrix` (cyclic + cyclicAMI seam coupling) |
-| `fvm::laplacian_corrected(gamma, phi, grad_phi, scheme)` | Laplacian with **non-orthogonality correction** (`Foam::correctedSnGrad`): implicit `1/max(n·d, 0.05\|d\|)` part + explicit `k_f·(∇φ)_f`, scheme selected by the `NonOrthoScheme` enum (`Orthogonal` / `Corrected` / `Limited(w)`); `Orthogonal` is bit-for-bit `fvm::laplacian`. Internal + pure-Dirichlet boundary faces only — cyclic/cyclicAMI seams and the other BC arms keep the orthogonal treatment |
+| `fvm::laplacian_corrected(gamma, phi, grad_phi, scheme)` | Gauss linear `corrected` / `limited corrected w` Laplacian, **bit-identical to OpenFOAM-v2506** on two meshes (gh:#1362): `nonOrthDeltaCoeffs` implicit part, `faceFluxCorrection = gamma*magSf*snGradCorr`, `source = V*div(faceFluxCorrection)`; upstream's `limited` limiter; the caller supplies the cell gradient (`fvc::grad` for `Gauss linear`). Non-coupled boundary faces are NOT corrected (as upstream); cyclic/AMI seams keep the orthogonal treatment. `Orthogonal` is bit-for-bit `fvm::laplacian` |
+| `fvm::laplacian_corrected_face_centre(gamma, phi, grad_phi, scheme)` | **Port-original** corrected Laplacian (not upstream): 0.5-weighted face gradient, Dirichlet boundary correction, `Limited(w)` scales by `w`. Exact for a linear field on any mesh when driven by `grad_least_squares_face_centre`; used by `solve_laplacian_non_orthogonal` (V&V in `tests/non_orthogonal_laplacian.rs`) |
+| `fvc::sn_grad_corrected(phi, scheme)`, `fvc::sn_grad_correction_with_grad`, `fvc::non_orth_correction_vectors` | `corrected` / `limited corrected` surface-normal gradient and `nonOrthCorrectionVectors` (`Foam::correctedSnGrad`, `limitedSnGrad`), bit-identical to v2506 (gh:#1362) |
+| `fvc::linear_upwind(phi, flux)`, `linear_upwind_with_grad` | `linearUpwind` face interpolation (`Foam::linearUpwind<scalar>`), bit-identical to v2506 (gh:#1362) |
 | `fvm::solve_laplacian_non_orthogonal(gamma, phi, scheme, n_correctors, settings)` | The deferred-correction loop (`nNonOrthogonalCorrectors`): solve → recompute least-squares gradient → re-assemble → re-solve |
 | `fvm::max_non_orthogonality_deg(mesh)` / `fvm::non_ortho_geometry(sf, d)` / `NonOrthoGeometry` | `checkMesh`-equivalent max non-orthogonality statistic, and the per-face `Δ_f` / `k_f` / angle it is computed from |
 | `fvc::grad(phi)` | Explicit cell-centred Gauss gradient → `VolVectorField`. **Not exact for a linear field on a non-orthogonal mesh** — see `grad_least_squares` |
-| `fvc::grad_least_squares(phi)` | Least-squares cell gradient (`Foam::leastSquaresGrad`), inverse-distance weighted, with rank repair for 2-D/1-D meshes. Exact for a linear field on **any** mesh; the gradient the non-orthogonal correction must be driven by. V&V in `tests/non_orthogonal_laplacian.rs` |
+| `fvc::grad_least_squares(phi)` | `Foam::fv::leastSquaresGrad` as in ESI v2506 (`leastSquaresVectors`: `magSf/\|d\|^2` weights split `(1-w)`/`w`, `safeInv`, patch-normal boundary `delta`), **bit-identical** on two meshes (gh:#1362). ~~Exact for a linear field on any mesh~~ **CORRECTED 2026-11-11**: upstream is exact for a linear field in the interior but not at non-orthogonal boundary cells (the patch-normal `delta` is not `Cf - C`), 3.07e-1 max error on the `amp = 0.5` wavy mesh |
+| `fvc::grad_least_squares_face_centre(phi)` | **Port-original** least-squares gradient with the boundary stencil at the true face centre: exact for a linear field on any mesh (1.8e-14 on the wavy mesh). V&V in `tests/non_orthogonal_laplacian.rs` |
 | `fvc::div(phi, psi)` | Explicit scalar divergence → `VolScalarField` |
 | `fvc::div_flux(phi)` | Divergence of face flux → `VolScalarField` |
 | `fvc::interpolate(phi)` | Linear face interpolation → `SurfaceScalarField` (interpolates across the cyclic seam to the paired cell) |
@@ -243,6 +248,12 @@ dominance exactly where the coefficient is largest; two tests in
 | `steady_conduction` | `ThermalBoundary`, `PatchCondition` | `externalWallHeatFluxTemperatureFvPatchScalarField.C` | Adiabatic, fixed temperature, or convective (`valueFraction = h/(h + k/d)`, no radiation), with an optional per-face film-area fraction for staircase surfaces. |
 | `steady_conduction::mesh` | `radial_mesh`, `voxel_mesh` | new | Nested slab/cylinder/sphere shells with true areas and volumes; cubic voxels of any body given a `zone_at(point)` function. |
 | `steady_conduction::closed_form` | `RadialClosedForm` | new | Exact solution for uniform `q'''` in nested shells, the verification reference. Measured 2026-10-17: single-layer error is the predicted uniform `q dr^2/(8(m+1)k)` offset to 1e-9 K; nested shells converge at order 2.000; a voxel sphere converges only with the film-area fraction. |
+
+### Case I/O — `polyMesh/cellZones` writer (gh:#1463)
+
+| Module | Rust type / fn | C++ source | Notes |
+|---|---|---|---|
+| `io::poly_mesh` | `PolyMesh::write_cell_zones` | `cellZoneMesh::write`, `blockMesh.C` ("Adding cell zones") | Writes `cellZones` (`N ( name { type cellZone; cellLabels List<label> n (...) ; } )`); empty list writes nothing. Used by the `blockMesh` CLI for zoned blocks. |
 
 ## Limitations
 

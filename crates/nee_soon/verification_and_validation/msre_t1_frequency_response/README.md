@@ -84,7 +84,30 @@ is cheap:
 high-power residual shrinks because the fuel coefficient grew. The two
 coefficient sets differ by about 1σ each, so the improvement is not a
 resolved physics result; it shows again that the coefficients' statistics
-set this comparison. **Quote this table under the current default.**
+set this comparison. ~~**Quote this table under the current default.**~~ **Superseded 2026-11-11 by the arm-C table above.**
+
+### T-1 on the default N-1 model, arm C with natural Mo (2026-11-11, gh:#1129)
+
+The split above was measured on arm A (Mo omitted). On the default model,
+arm C, it is **fuel −4.44 ± 0.40, graphite −2.82 ± 0.43 × 10⁻⁵ /°F** (six
+seeds per run, RVS; record in the outram-mc-libs V&V README). Run with
+`--fuel-per-f -4.44e-5 --graphite-per-f -2.82e-5`.
+
+| P [MW] | measured [min] | model [min] | model / measured |
+|---|---|---|---|
+| 0.076 | 29.91 | 26.58 | 0.889 |
+| 0.467 | 11.01 | 10.79 | 0.980 |
+| 1.004 | 7.16 | 7.23 | 1.010 |
+| 2.448 | 4.33 | 4.30 | 0.992 |
+| 4.848 | 2.41 | 2.59 | 1.073 |
+| 6.735 | 1.85 | 1.96 | 1.061 |
+| 7.306 | 1.71 | 1.84 | 1.076 |
+
+**−11 % to +8 %**, against −14 % to +6 % with arm A's split. The graphite
+coefficient is 0.5 smaller in magnitude (about 1σ), which lengthens the
+low-power periods and shortens nothing; the change is inside the
+coefficients' statistics. **~~Quote the arm-A RVS table~~ Quote this table
+under the current default model** (arm C, RVS).
 
 ### A finding on the way: the circulation loss
 

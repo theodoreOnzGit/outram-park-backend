@@ -40,6 +40,10 @@ outram-foam-basic-lib.workspace = true
 
 [dev-dependencies]
 approx.workspace = true
+# PNG output for the mesh drawings (AGENTS.md: geometry is drawn), examples only.
+image.workspace = true
+# gzip fixtures of the ESI v2506 flange differential (tests only).
+miniz_oxide = { workspace = true }
 
 [lib]
 name = "outram_foam_mesh"

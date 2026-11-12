@@ -507,7 +507,11 @@ mod tests {
     /// energy 1.000083e8 J (rel 8.3e-5); better than the ~1e-3 predicted.
     /// A six-group run at `rho_ext = beta + rho_0`, printed for comparison
     /// and not gated (delayed neutrons are outside the closed form), peaks
-    /// 2.8 % higher and has released 31 % more energy by 1.5 s.
+    /// ~~2.8 % higher and has released 31 % more energy by 1.5 s~~
+    /// **(re-measured 2026-11-10, gh:#1319, U-235 now ENDF/B-VIII.0) 3.3 %
+    /// higher (1.291e9 W, at 0.4261 s) and has released 34.6 % more energy
+    /// by 1.5 s**: the shorter-lived ENDF/B-VIII.0 groups return more of
+    /// their neutrons inside the window.
     #[test]
     fn nordheim_fuchs_prompt_excursion() {
         let (rho0, b, big_l, p0): (f64, f64, f64, f64) = (0.005, 1.0e-10, 1.0e-4, 1.0);

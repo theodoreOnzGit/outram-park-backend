@@ -182,6 +182,7 @@ pub fn laplacian_smooth(mesh: &VolumeMesh, passes: usize) -> VolumeMesh {
         neighbour: mesh.neighbour.clone(),
         n_cells: mesh.n_cells,
         patches: mesh.patches.clone(),
+        cells: None,
     }
 }
 

@@ -26,18 +26,19 @@
 //! reach second order, à la OpenFOAM's `interpolate(field, pos)` /
 //! `interpolate(field, neg)`.
 
-use super::{grad, interpolate};
+use super::{grad, grad_vec, interpolate, linear_weight};
 use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
 use crate::fields::surface_field::SurfaceScalarField;
-use crate::fields::vol_field::VolScalarField;
+use crate::fields::vol_field::{VolScalarField, VolVectorField};
+use crate::primitives::{Tensor, Vector3};
 
 /// Slope / flux limiter for MUSCL reconstruction.
 ///
 /// `λ(r)` blends between first-order upwind (`λ = 0`) and central differencing
 /// (`λ = 1`); TVD limiters choose `λ(r)` from the local slope ratio `r` so the
 /// reconstruction stays monotone (no new extrema) near discontinuities.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Limiter {
     /// First-order upwind: `λ = 0`.
     Upwind,
@@ -47,6 +48,9 @@ pub enum Limiter {
     VanLeer,
     /// minmod TVD limiter: `λ(r) = max(0, min(r, 1))`.
     Minmod,
+    /// `limitedLinear k` (gh:#1362): `lambda(r) = max(min((2/max(k, small)) r, 1), 0)`,
+    /// `small` = 1e-15, `k` in `[0, 1]`.
+    LimitedLinear(f64),
 }
 
 impl Limiter {
@@ -57,7 +61,25 @@ impl Limiter {
             Limiter::Linear => 1.0,
             Limiter::VanLeer => (r + r.abs()) / (1.0 + r.abs()),
             Limiter::Minmod => 0.0_f64.max(r.min(1.0)),
+            Limiter::LimitedLinear(k) => {
+                let two_by_k = 2.0 / k.max(1.0e-15);
+                (two_by_k * r).min(1.0).max(0.0)
+            }
         }
+    }
+}
+
+/// Upstream `NVDTVD::r` (ESI v2506 `LimitedScheme/NVDTVD.H`): the slope ratio
+/// `2*(gradcf/gradf) - 1`, where `gradcf = d . grad(phi)` on the upwind side and
+/// `gradf = phi_N - phi_P`, with upstream's clamp: when
+/// `|gradcf| >= 1000 |gradf|` it returns `2*1000*sign(gradcf)*sign(gradf) - 1`
+/// (`sign(0) = +1`). The port previously had no clamp (gh:#1489).
+fn nvdtvd_r(gradf: f64, gradcf: f64) -> f64 {
+    let sign = |x: f64| if x >= 0.0 { 1.0 } else { -1.0 };
+    if gradcf.abs() >= 1000.0 * gradf.abs() {
+        2.0 * 1000.0 * sign(gradcf) * sign(gradf) - 1.0
+    } else {
+        2.0 * (gradcf / gradf) - 1.0
     }
 }
 
@@ -69,10 +91,13 @@ impl Limiter {
 /// gradf  = φ_N − φ_O
 /// r_pos  = 2·(d·∇φ_O)/gradf − 1      (owner is the upwind side)
 /// r_neg  = 2·(d·∇φ_N)/gradf − 1      (neighbour is the upwind side)
-/// φ_pos  = φ_O + λ(r_pos)·(φ_lin − φ_O)
-/// φ_neg  = φ_N + λ(r_neg)·(φ_lin − φ_N)
+/// w_pos  = λ(r_pos)·w_cd + (1 − λ(r_pos))·1     φ_pos = w_pos·(φ_O − φ_N) + φ_N
+/// w_neg  = λ(r_neg)·w_cd + (1 − λ(r_neg))·0     φ_neg = w_neg·(φ_O − φ_N) + φ_N
 /// ```
-/// where `φ_lin` is the geometric linear (central) face interpolation. `λ = 0`
+/// (`r` as upstream's `NVDTVD::r`, with its `1000` clamp, see `nvdtvd_r`;
+/// ~~`φ_O + λ·(φ_lin − φ_O)`~~ **CORRECTED 2026-11-11 gh:#1489**, bit-identical
+/// to upstream's `limitedSurfaceInterpolationScheme`) where `w_cd` is the
+/// geometric linear weight. `λ = 0`
 /// reduces each side to first-order upwind (the previous rhoCentralFoam
 /// behaviour); `λ = 1` gives central differencing. Mirrors `NVDTVD::r` plus the
 /// limited-scheme weight blend in
@@ -90,31 +115,30 @@ pub fn reconstruct_pos_neg(
     let lin = interpolate(field); // central face values (+ boundary)
     let phi = field.internal.as_slice();
     let gc = grad_c.internal.as_slice();
-    const TINY: f64 = 1e-30;
 
     let mut pos = vec![0.0_f64; mesh.n_internal_faces];
     let mut neg = vec![0.0_f64; mesh.n_internal_faces];
 
+    // gh:#1489: upstream `LimitedScheme::calcLimiter` + `NVDTVD::r` +
+    // `limitedSurfaceInterpolationScheme::weights` + `interpolate`:
+    //   w = lim*cdWeight + (1 - lim)*pos0(faceFlux);  face = w*(P - N) + N
+    // with `pos0(flux)` = 1 for the owner-biased (flux > 0) side and 0 for the
+    // neighbour-biased one. ~~`P + lambda*(lin - P)` and a `|dphi| < 1e-30`
+    // shortcut~~ **CORRECTED 2026-11-11 (gh:#1489)**.
     for f in 0..mesh.n_internal_faces {
         let o = mesh.owner[f];
         let nb = mesh.neighbour[f];
         let gradf = phi[nb] - phi[o];
 
-        if gradf.abs() < TINY {
-            // No jump across the face: limiter is irrelevant, both sides equal
-            // their own cell value.
-            pos[f] = phi[o];
-            neg[f] = phi[nb];
-            continue;
-        }
-
         let d = mesh.cell_centres[nb] - mesh.cell_centres[o];
-        let phi_lin = lin.internal[f];
-        let r_pos = 2.0 * d.dot(gc[o]) / gradf - 1.0;
-        let r_neg = 2.0 * d.dot(gc[nb]) / gradf - 1.0;
+        let cd = linear_weight(&mesh, f);
+        let r_pos = nvdtvd_r(gradf, d.dot(gc[o]));
+        let r_neg = nvdtvd_r(gradf, d.dot(gc[nb]));
+        let w_pos = limiter.lambda(r_pos) * cd + (1.0 - limiter.lambda(r_pos)) * 1.0;
+        let w_neg = limiter.lambda(r_neg) * cd + (1.0 - limiter.lambda(r_neg)) * 0.0;
 
-        pos[f] = phi[o] + limiter.lambda(r_pos) * (phi_lin - phi[o]);
-        neg[f] = phi[nb] + limiter.lambda(r_neg) * (phi_lin - phi[nb]);
+        pos[f] = w_pos * (phi[o] - phi[nb]) + phi[nb];
+        neg[f] = w_neg * (phi[o] - phi[nb]) + phi[nb];
     }
 
     let boundary = || -> Vec<PatchField<f64>> {
@@ -140,6 +164,56 @@ pub fn reconstruct_pos_neg(
         boundary(),
     );
     (pos_field, neg_field)
+}
+
+/// Upstream `NVDVTVDV::r` (`LimitedScheme/NVDVTVDV.H`), the slope ratio of a
+/// VECTOR field with one scalar limiter per face (gh:#1363):
+/// `gradfV = phi_N - phi_P`, `gradf = gradfV . gradfV`,
+/// `gradcf = gradfV . (d . gradc)` on the upwind side, then the same clamp and
+/// `2*(gradcf/gradf) - 1` as the scalar `r`. `grad_c` follows upstream's
+/// tensor convention `T_ij = d u_j / d x_i`, so `d . T` has components
+/// `sum_i d_i T_ij`.
+fn nvdvtvdv_r(grad_f_vec: Vector3, grad_c: Tensor, d: Vector3) -> f64 {
+    let d_dot_g = Vector3::new(
+        d.x * grad_c.xx + d.y * grad_c.yx + d.z * grad_c.zx,
+        d.x * grad_c.xy + d.y * grad_c.yy + d.z * grad_c.zy,
+        d.x * grad_c.xz + d.y * grad_c.yz + d.z * grad_c.zz,
+    );
+    nvdtvd_r(grad_f_vec.dot(grad_f_vec), grad_f_vec.dot(d_dot_g))
+}
+
+/// `pos` / `neg` face values of a vector field with ONE scalar limiter per
+/// face from [`nvdvtvdv_r`]: upstream's `vanLeerV` (and `MUSCLV`, ...) of
+/// `interpolate(rhoU, pos, U.name())` in rhoCentralFoam. Same weights as
+/// [`reconstruct_pos_neg`]: `w = lim*cdWeight + (1 - lim)*pos0(flux)` then
+/// `w*(P - N) + N` per component. Returns `(pos, neg)` internal-face values
+/// and the boundary-face values (both sides = the patch face value, as
+/// upstream does on a non-coupled patch). Gradient: `fvc::grad_vec`
+/// (`Gauss linear`).
+pub fn reconstruct_pos_neg_vector(
+    field: &VolVectorField,
+    limiter: Limiter,
+) -> (Vec<Vector3>, Vec<Vector3>) {
+    let mesh = field.mesh.clone();
+    let grad_c = grad_vec(field);
+    let gc = grad_c.internal.as_slice();
+    let phi = field.internal.as_slice();
+    let mut pos = vec![Vector3::ZERO; mesh.n_internal_faces];
+    let mut neg = vec![Vector3::ZERO; mesh.n_internal_faces];
+    for f in 0..mesh.n_internal_faces {
+        let o = mesh.owner[f];
+        let nb = mesh.neighbour[f];
+        let grad_f_vec = phi[nb] - phi[o];
+        let d = mesh.cell_centres[nb] - mesh.cell_centres[o];
+        let cd = linear_weight(&mesh, f);
+        let r_pos = nvdvtvdv_r(grad_f_vec, gc[o], d);
+        let r_neg = nvdvtvdv_r(grad_f_vec, gc[nb], d);
+        let w_pos = limiter.lambda(r_pos) * cd + (1.0 - limiter.lambda(r_pos)) * 1.0;
+        let w_neg = limiter.lambda(r_neg) * cd + (1.0 - limiter.lambda(r_neg)) * 0.0;
+        pos[f] = (phi[o] - phi[nb]) * w_pos + phi[nb];
+        neg[f] = (phi[o] - phi[nb]) * w_neg + phi[nb];
+    }
+    (pos, neg)
 }
 
 #[cfg(test)]

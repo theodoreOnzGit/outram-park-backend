@@ -272,6 +272,7 @@ pub mod dual;
 pub mod edge_extractor;
 pub mod layers;
 pub mod math;
+pub mod mesh_dict;
 pub mod mesh_octree;
 pub mod mesh_octree_automatic_refinement;
 pub mod mesh_octree_creator;
@@ -309,6 +310,7 @@ pub mod tet_mesh_extractor_octree;
 pub mod rename_boundary_patches;
 pub mod renumber_mesh;
 pub mod topology;
+pub mod tri_surf_io;
 pub mod tri_surface_2d;
 pub mod voronoi_mesh_extractor;
 pub mod volume_mesh;
@@ -319,6 +321,12 @@ pub mod workflow_controls;
 /// default so the base crate stays dependency-free and Android-buildable.
 #[cfg(feature = "foam-export")]
 pub mod foam;
+
+/// `polyMeshGen::write` / `read` with subsets and `meshMetaDict` (feature
+/// `foam-export`, gh:#1476): what the cfMesh executables write to
+/// `constant/polyMesh`, and what `restartFromLatestStep` reads back.
+#[cfg(feature = "foam-export")]
+pub mod poly_mesh_gen_io;
 
 /// The cell-centre (`polyDualMesh`) dual of a [`volume_mesh::VolumeMesh`]
 /// through `outram-foam-mesh` (feature `cell-centre-dual`, gh:#1240): the

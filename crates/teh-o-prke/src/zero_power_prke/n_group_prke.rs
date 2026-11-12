@@ -490,17 +490,24 @@ mod tests {
     }
 
     /// Rescaling to a computed `beta_eff` keeps the group shares.
-    /// Hand evaluation: U-235 shares are 0.00021/0.0065 etc; rescaled to
-    /// 0.0070 the first group is 0.00021*0.0070/0.0065 = 2.26154e-4.
-    /// **Result (2026-11-01):** total 0.0070 to 1e-18, group 1 2.26154e-4.
+    /// ~~Hand evaluation: U-235 shares are 0.00021/0.0065 etc; rescaled to
+    /// 0.0070 the first group is 0.00021*0.0070/0.0065 = 2.26154e-4.~~
+    /// ~~**Result (2026-11-01):** total 0.0070 to 1e-18, group 1 2.26154e-4.~~
+    /// **CHANGED 2026-11-10 (gh:#1319):** U-235's default is now
+    /// ENDF/B-VIII.0, whose shares are the abundances `p_i` over their sum
+    /// (0.99999985). Hand evaluation: group 1 is
+    /// 0.03500755 * 0.0070 / 0.99999985 = 2.450529e-4.
+    /// **Result (2026-11-10):** total 0.0070 to 1e-18, group 1 2.450529e-4.
     #[test]
     fn rescale_to_beta_eff_keeps_group_shares() {
         let pk = PointKinetics::from_nuclide(FissioningNuclideType::U235)
             .with_total_delayed_fraction(r(0.0070));
         assert!((pk.total_delayed_fraction().get::<ratio>() - 0.0070).abs() < 1e-18);
+        let p_sum = 0.03500755 + 0.1806982 + 0.1725102 + 0.3867821 + 0.1585752 + 0.0664266;
         assert!(
-            (pk.delayed_fractions()[0].get::<ratio>() - 0.00021 * 0.0070 / 0.0065).abs() < 1e-18
+            (pk.delayed_fractions()[0].get::<ratio>() - 0.03500755 * 0.0070 / p_sum).abs() < 1e-18
         );
+        assert!((pk.delayed_fractions()[0].get::<ratio>() - 2.450529e-4).abs() < 1e-10);
         assert_eq!(pk.decay_constants().len(), 6);
         assert_eq!(pk.precursor_densities().len(), 6);
     }
@@ -547,7 +554,9 @@ mod tests {
 
     /// **V&V: in-hour equation, six groups (gh:#1082).**
     ///
-    /// *Methodology.* U-235 six-group data (beta = 0.0065), `Lambda = 1e-4 s`,
+    /// *Methodology.* U-235 six-group data (~~beta = 0.0065~~ **since
+    /// 2026-11-10, gh:#1319: the ENDF/B-VIII.0 default, beta = 0.0065230**),
+    /// `Lambda = 1e-4 s`,
     /// start at critical equilibrium, apply a step reactivity and integrate by
     /// backward Euler at `dt = 1 ms` to 500 s. The asymptotic growth rate is
     /// measured as `d ln n / dt` between 400 s and 500 s, when every other
@@ -584,6 +593,21 @@ mod tests {
     /// 7.0e-5; rho = -0.001: -7.69269389e-3 /s (-130.0 s), window from
     /// 1831 s, PRKE -7.69266472e-3, rel -3.8e-6 (predicted ~4e-6). Also in
     /// `verification_and_validation/prke_analytic_checks.md`.
+    ///
+    /// *Re-measured 2026-11-10 (gh:#1319), U-235 data now ENDF/B-VIII.0*
+    /// (`cargo test --release -p teh-o-prke --lib inhour_equation_six_group
+    /// -- --nocapture`). The data moved, so the roots moved; the integration
+    /// error stayed of the same order, as predicted on the issue:
+    /// rho = +0.001: omega ~~1.81870702e-2~~ **2.22678814e-2** /s (period
+    /// ~~54.98~~ **44.91** s, +22.4 % in omega), PRKE 2.22681294e-2, rel
+    /// 1.11e-5; rho = +0.003: ~~1.40406076e-1~~ **1.72959426e-1** /s
+    /// (~~7.122~~ **5.782** s, +23.2 %), PRKE 1.72974385e-1, rel 8.6e-5;
+    /// rho = -0.001: ~~-7.69269389e-3~~ **-8.56679171e-3** /s (~~-130.0~~
+    /// **-116.7** s), window from 1562 s, PRKE -8.56675560e-3, rel -4.2e-6.
+    /// The predicted omega rise for small rho was +15 to +18 %; the measured
+    /// +22 % is a miss in size (at omega ~ 0.02 /s the in-hour equation is
+    /// not in its small-omega limit, where only `sum beta_i/lambda_i`
+    /// counts: group 1's lambda is 0.013 /s, the same order as omega).
     #[test]
     fn inhour_equation_six_group() {
         let lam = 1.0e-4;

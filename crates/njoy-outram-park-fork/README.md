@@ -85,9 +85,13 @@ precision; keep CPU for the reference/validated result. (Beads `op-0m5`,
 > **DTFR**, **RESXSR**, and **MIXR**. The `NuclearDataLibrary` OOP API supports the
 > `from_file → reconstruct → broaden` pipeline with uom-typed cross-section
 > queries and a `ContinuousEnergyData` export. The remaining `NjoyError::NotPorted`
-> stubs are only **CCCCR, MATXSR, POWR, PLOTR and WIMSR** (output formats
-> OUTRAM PARK does not target); ~~VIEWR~~ **CORRECTED 2026-11-12 (gh:#1369):** VIEWR and `graph.f90`
-> are ported (`src/viewr/`; PostScript identical to NJOY2016.80, see its V&V README). All ported modules are translation-level until a
+> stubs are only **CCCCR, MATXSR, POWR, PLOTR, ~~VIEWR~~, ~~and WIMSR~~** (output formats
+> OUTRAM PARK does not target). **CORRECTED 2026-11-10 (gh:#1365):** WIMSR *is*
+> ported: `wimsr::run_gendf` (2,053 lines under `src/wimsr/`), checked by
+> `tests/wimsr_u238_njoy_golden.rs`. Only the argument-less `wimsr::run()` deck
+> entry point still returns `NotPorted`. **CORRECTED 2026-11-12 (gh:#1369):** VIEWR
+> and `graph.f90` are ported (`src/viewr/`; PostScript identical to NJOY2016.80,
+> see its V&V README). All ported modules are translation-level until a
 > V&V case demonstrates otherwise — see the banner and
 > [`docs/porting-plan.md`](docs/porting-plan.md).
 

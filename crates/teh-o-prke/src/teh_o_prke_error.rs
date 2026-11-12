@@ -36,6 +36,22 @@ pub enum TehOPrkeError {
     /// non-positive `lambda_i` has no finite time constant.
     #[error("delayed-neutron decay constant lambda_i must be > 0 s^-1; got {0} s^-1")]
     NonPositiveDelayedDecayConstant(f64),
+
+    /// [`crate::feedback_mechanisms::fast_reactor::RodWorthMap`]: a
+    /// driveline expansion outside the closed range of the rod-worth map,
+    /// under the default
+    /// [`crate::feedback_mechanisms::fast_reactor::RodWorthOutOfRange::Error`]
+    /// policy (gh:#1326, maintainer decision 2026-11-10). Holds the
+    /// expansion and the map's lower and upper ends, in metres.
+    #[error("driveline expansion {expansion_m} m is outside the rod-worth map's range [{min_m}, {max_m}] m")]
+    ExpansionOutsideRodWorthMap {
+        /// The expansion asked for \[m\].
+        expansion_m: f64,
+        /// The map's smallest expansion \[m\].
+        min_m: f64,
+        /// The map's largest expansion \[m\].
+        max_m: f64,
+    },
 }
 
 ///  converts ThermalHydraulicsLibError from string error
@@ -53,7 +69,8 @@ impl Into<String> for TehOPrkeError {
             TehOPrkeError::NonNegativeFuelFeedbackCoefficient(_)
             | TehOPrkeError::NonPositivePromptNeutronGenerationTime(_)
             | TehOPrkeError::NonPositiveFuelHeatCapacity(_)
-            | TehOPrkeError::NonPositiveDelayedDecayConstant(_) => self.to_string(),
+            | TehOPrkeError::NonPositiveDelayedDecayConstant(_)
+            | TehOPrkeError::ExpansionOutsideRodWorthMap { .. } => self.to_string(),
         }
     }
 }

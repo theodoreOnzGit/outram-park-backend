@@ -349,6 +349,7 @@ pub fn cartesian_box(min: Vec3, max: Vec3, divisions: [usize; 3]) -> VolumeMesh 
         neighbour,
         n_cells: nx * ny * nz,
         patches,
+        cells: None,
     })
 }
 

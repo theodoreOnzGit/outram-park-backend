@@ -62,7 +62,7 @@
 use crate::math::Vec3;
 use crate::mesh_octree::{TriSurf, SMALL, VSMALL};
 use petir::mathf::RealMath;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 /// `simpleMatrix<scalar>::LUsolve` for a small dense system: Crout LU with
 /// implicit (row-scaled) partial pivoting, then back substitution. A
@@ -159,7 +159,7 @@ impl QuadricFitting {
         let m = normal.length();
         let mut q = QuadricFitting {
             origin,
-            normal: if m * m < VSMALL { Vec3::ZERO } else { normal.scale(1.0 / m) },
+            normal: if m * m < VSMALL { Vec3::ZERO } else { normal.div(m) },
             vec_x: Vec3::ZERO,
             vec_y: Vec3::ZERO,
             coefficients: [0.0; 5],
@@ -171,7 +171,8 @@ impl QuadricFitting {
             let c = q.coefficients;
             if c[3].abs() > SMALL || c[4].abs() > SMALL {
                 let d = (1.0 + c[3] * c[3] + c[4] * c[4]).sqrt();
-                q.normal = q.normal.scale(1.0 / d).sub(q.vec_x.scale(c[3] / d)).sub(q.vec_y.scale(c[4] / d));
+                // `normal_/d - c3*vecX_/d - c4*vecY_/d`: ((c3*vecX)/d), each component
+                q.normal = q.normal.div(d).sub(q.vec_x.scale(c[3]).div(d)).sub(q.vec_y.scale(c[4]).div(d));
             } else {
                 break;
             }
@@ -188,14 +189,15 @@ impl QuadricFitting {
             self.vec_y = Vec3::ZERO;
             return vec![Vec3::ZERO; others.len()];
         }
-        let n = self.normal.normalize();
+        // `plane(origin_, normal_)`: `unitVector_ = normal; unitVector_ /= mag`
+        let n = self.normal.div(self.normal.length());
         for &p in others {
             let vp = p.sub(n.scale(p.sub(self.origin).dot(n)));
             let vx = vp.sub(self.origin);
             if vx.dot(vx) < VSMALL {
                 continue;
             }
-            self.vec_x = vx.scale(1.0 / vx.length());
+            self.vec_x = vx.div(vx.length());
             self.vec_y = self.normal.cross(self.vec_x);
             break;
         }
@@ -271,6 +273,56 @@ impl QuadricFitting {
     }
 }
 
+/// OpenFOAM's `labelHashSet`, as far as its **iteration order** goes (gh:#1385
+/// round 3): `HashTable::setEntry` (capacity 128 on the first insert,
+/// `Hash<label>` is the label itself and the bucket is `label & (capacity - 1)`,
+/// a new node goes to the head of its bucket's chain, and `0.8 * capacity <
+/// size` doubles the capacity, re-chaining bucket by bucket with each node
+/// moved to the head of its new bucket). Iteration is bucket 0, 1, ... with
+/// each chain from its head. `quadricFitting` sums over `otherLabels` in this
+/// order, and with five to seven points the normal equations are nearly
+/// singular, so the order is not a round-off matter. Reference:
+/// OpenFOAM-v2506 `HashTable.C`, `HashTableI.H`, `Hash.H`.
+#[derive(Debug, Clone, Default)]
+struct FoamLabelHashSet {
+    /// Buckets, each a chain with its head first; empty until the first insert.
+    table: Vec<Vec<usize>>,
+    size: usize,
+}
+
+impl FoamLabelHashSet {
+    fn insert(&mut self, key: usize) {
+        if self.table.is_empty() {
+            self.table = vec![Vec::new(); 128];
+        }
+        let cap = self.table.len();
+        let bucket = &mut self.table[key & (cap - 1)];
+        if bucket.contains(&key) {
+            return;
+        }
+        bucket.insert(0, key);
+        self.size += 1;
+        if 0.8 * (cap as f64) < self.size as f64 {
+            self.set_capacity(2 * cap);
+        }
+    }
+
+    fn set_capacity(&mut self, new_cap: usize) {
+        let mut table = vec![Vec::new(); new_cap];
+        for chain in &self.table {
+            for &k in chain {
+                table[k & (new_cap - 1)].insert(0, k);
+            }
+        }
+        self.table = table;
+    }
+
+    /// The keys in iteration order.
+    fn order(&self) -> Vec<usize> {
+        self.table.iter().flatten().copied().collect()
+    }
+}
+
 /// `triSurfaceCurvatureEstimator`. Per point, the values are listed per
 /// patch at that point (`point_patches`, ascending).
 #[derive(Debug, Clone, PartialEq)]
@@ -308,7 +360,7 @@ impl TriSurfaceCurvatureEstimator {
         let (mut max_vector, mut min_vector) = (vec![Vec::new(); np], vec![Vec::new(); np]);
         for p in 0..np {
             let mut region_tris: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
-            let mut others: BTreeMap<usize, BTreeSet<usize>> = BTreeMap::new();
+            let mut others: BTreeMap<usize, FoamLabelHashSet> = BTreeMap::new();
             let mut normals: BTreeMap<usize, Vec3> = BTreeMap::new();
             for &t in &surf.point_facets[p] {
                 let r = surf.regions[t];
@@ -323,23 +375,30 @@ impl TriSurfaceCurvatureEstimator {
                     *n = n.add(surf.facet_area_vector(t));
                 }
             }
-            // Fewer than six neighbours: add the next ring (in the patch).
+            // Fewer than six neighbours: add the next ring (in the patch),
+            // through a second hash set, in hash order, as upstream.
             for (r, set) in others.iter_mut() {
-                if set.len() > 5 {
+                if set.size > 5 {
                     continue;
                 }
-                let mut add = BTreeSet::new();
-                for &q in set.iter() {
+                let mut additional = FoamLabelHashSet::default();
+                for q in set.order() {
                     for &t in &surf.point_facets[q] {
-                        if surf.regions[t] == *r {
-                            add.extend(surf.triangles[t]);
+                        if surf.regions[t] != *r {
+                            continue;
+                        }
+                        for &v in &surf.triangles[t] {
+                            additional.insert(v);
                         }
                     }
                 }
-                set.extend(add);
+                for a in additional.order() {
+                    set.insert(a);
+                }
             }
             for n in normals.values_mut() {
-                *n = n.scale(1.0 / (n.length() + VSMALL));
+                // `nit() /= (mag(nit()) + VSMALL)`
+                *n = n.div(n.length() + VSMALL);
             }
             for (r, set) in &others {
                 point_patches[p].push(*r);
@@ -348,7 +407,7 @@ impl TriSurfaceCurvatureEstimator {
                         patch_positions[t][pos] = gaussian[p].len();
                     }
                 }
-                let op: Vec<Vec3> = set.iter().map(|&q| surf.points[q]).collect();
+                let op: Vec<Vec3> = set.order().into_iter().map(|q| surf.points[q]).collect();
                 let q = QuadricFitting::new(surf.points[p], normals[r], &op);
                 let (kmin, kmax) = (q.min_curvature(), q.max_curvature());
                 gaussian[p].push(kmin * kmax);
@@ -399,7 +458,17 @@ impl TriSurfaceCurvatureEstimator {
                 mean[p][i] = 0.5 * (min[p][i] + max[p][i]);
             }
         }
-        TriSurfaceCurvatureEstimator { edge_point_curvature, point_patches, patch_positions, gaussian, mean, max, min, max_vector, min_vector }
+        let est = TriSurfaceCurvatureEstimator { edge_point_curvature, point_patches, patch_positions, gaussian, mean, max, min, max_vector, min_vector };
+        if std::env::var("GH1385_TRACE").is_ok() {
+            // gh:#1385: the instrumented upstream prints the same (`ECURV`, `MCURV`)
+            for (p, k) in est.edge_point_curvature.iter().enumerate() {
+                eprintln!("ECURV {p} {k:.17e}");
+            }
+            for t in 0..surf.size() {
+                eprintln!("MCURV {t} {:.17e}", est.mean_curvature_at_triangle(surf, t));
+            }
+        }
+        est
     }
 
     /// `curvatureAtEdge`: the mean of its two points' edge curvature.
@@ -448,7 +517,7 @@ fn edge_curvature(surf: &TriSurf) -> Vec<f64> {
         let vec = |e: usize| surf.points[surf.edges[e][1]].sub(surf.points[surf.edges[e][0]]);
         let (e1, e2) = (vec(f[0]), vec(f[1]));
         let (d1, d2) = (e1.length() + VSMALL, e2.length() + VSMALL);
-        let cs = (e1.scale(1.0 / d1).dot(e2.scale(1.0 / d2))).clamp(-1.0, 1.0);
+        let cs = (e1.div(d1).dot(e2.div(d2))).clamp(-1.0, 1.0);
         out[p] = (cs.r_acos() / (0.5 * (d1 + d2 + VSMALL))).abs();
     }
     out

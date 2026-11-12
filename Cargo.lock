@@ -6681,6 +6681,7 @@ dependencies = [
  "ratatui",
  "rayon",
  "sha2",
+ "teh-o-prke",
  "thiserror 2.0.21",
  "uom",
  "ureq 2.12.1",
@@ -7379,6 +7380,7 @@ name = "outram-foam-appbuilder-lib"
 version = "0.1.7"
 dependencies = [
  "approx",
+ "miniz_oxide 0.8.9",
  "ndarray",
  "outram-blender",
  "outram-foam-basic-lib",
@@ -7412,9 +7414,11 @@ name = "outram-foam-cli"
 version = "0.0.2"
 dependencies = [
  "clap",
+ "miniz_oxide 0.8.9",
  "outram-foam-appbuilder-lib",
  "outram-foam-basic-lib",
  "outram-foam-mesh",
+ "outram-park-fork-cfmesh",
  "outram-park-fork-offbeat",
  "petir",
  "thiserror 2.0.21",
@@ -7426,6 +7430,8 @@ name = "outram-foam-mesh"
 version = "0.1.3"
 dependencies = [
  "approx",
+ "image",
+ "miniz_oxide 0.8.9",
  "ndarray",
  "outram-foam-basic-lib",
  "petir",
@@ -7438,6 +7444,7 @@ name = "outram-foam-multiphase"
 version = "0.0.5"
 dependencies = [
  "approx",
+ "miniz_oxide 0.8.9",
  "outram-foam-basic-lib",
  "petir",
  "thiserror 2.0.21",
@@ -7543,6 +7550,7 @@ dependencies = [
  "eframe",
  "egui",
  "env_logger",
+ "miniz_oxide 0.8.9",
  "outram-foam-basic-lib",
  "outram-foam-mesh",
  "petir",

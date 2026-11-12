@@ -1,0 +1,35 @@
+/*---------------------------------------------------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  dev
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+Build  : dev-852527377c7e
+Exec   : polyDualMesh 60
+Date   : Nov 11 2026
+Time   : 15:21:09
+Host   : "vm"
+PID    : 29569
+I/O    : uncollated
+Case   : /home/user/upstream-build/dev-dual/runs/warped__base
+nProcs : 1
+sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 10)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Create mesh for time = 0
+
+Feature:59.999999999999993
+minCos :0.50000000000000011
+
+Dumping centres of featureFaces to obj file "featureFaces.obj"
+Dumping featureEdges to obj file "featureEdges.obj"
+Dumping featurePoints that become a single cell to obj file "singleCellFeaturePoints.obj"
+Dumping featurePoints that become multiple cells to obj file "multiCellFeaturePoints.obj"
+Writing dual mesh to 0
+End
+

@@ -88,12 +88,12 @@
 //! upstream's `addLayerForPatch` when they are (one patch, or patches
 //! meeting at convex edges under 135°).
 
-use super::{build_layered_variable_with_columns, distance_to_segment, layer_setup};
+use super::{build_layered_variable_with_columns, layer_setup};
 use crate::math::Vec3;
 use crate::surface_engine::{SurfaceEngine, SurfacePartitioner, VSMALL};
 use crate::surface_optimizer::check_inverted_vertices;
 use crate::topology::TopoMesh;
-use crate::volume_mesh::{from_cell_faces_wound, VolumeMesh};
+use crate::volume_mesh::VolumeMesh;
 use std::collections::{BTreeMap, BTreeSet};
 use petir::mathf::RealMath;
 
@@ -331,9 +331,10 @@ pub fn create_new_vertex(
                     v = v.add(engine.face_normals[bf]);
                 }
             }
-            let v = v.scale(1.0 / (v.length() + VSMALL));
+            // `v /= magV` and `normal /= magN` divide (gh:#1385)
+            let v = v.div(v.length() + VSMALL);
             let n = n.sub(v.scale(n.dot(v)));
-            let n = n.scale(1.0 / (n.length() + VSMALL));
+            let n = n.div(n.length() + VSMALL);
             let mut dist = f64::MAX;
             for &q in &engine.point_points[b] {
                 if patch_vertex[q] != 0 {
@@ -347,7 +348,7 @@ pub fn create_new_vertex(
             let q = *engine.point_points[b].iter().find(|&&q| others.iter().all(|o| part.point_patches[q].contains(o))).ok_or(BoundaryLayersError::CannotFindMovingVertex { point: wp })?;
             let d = p.sub(points[engine.boundary_points[q]]);
             let dist = c.height_factor * d.length() + VSMALL;
-            (d.scale(1.0 / (2.0 * dist)), dist)
+            (d.div(2.0 * dist), dist)
         }
         _ => return Err(BoundaryLayersError::MoreThanThreePatches { point: wp }),
     };
@@ -361,7 +362,7 @@ pub fn create_new_vertex(
             let k = ring.len();
             let pos = ring.iter().position(|&x| x == wp).ok_or(BoundaryLayersError::CannotFindMovingVertex { point: wp })?;
             let (e1, e2) = (points[ring[(pos + k - 1) % k]], points[ring[(pos + 1) % k]]);
-            let dst = distance_to_segment(p, e1, e2);
+            let dst = crate::mesh_octree::help::distance_of_point_from_the_edge(e1, e2, p);
             if dst < dist {
                 dist = 0.9 * dst;
             }
@@ -968,13 +969,127 @@ pub fn generate_layer(mesh: &VolumeMesh, request: &LayerRequest, c: &BoundaryLay
         LayerRequest::AllPatches => out.all = Some(bl.add_layer_for_all_patches().map_err(|e| format!("boundaryLayers: {e:?}"))?),
         LayerRequest::Patches(names) => {
             for n in names {
-                let o = bl.add_layer_for_patch(n).map_err(|e| format!("boundaryLayers: {e:?}"))?;
+                // upstream's addLayerForPatch(word) walks the patches and
+                // does nothing for a name no patch has (gh:#1476: a
+                // `patchBoundaryLayers` regex such as "orifice.*" reaches
+                // here verbatim)
+                let o = match bl.add_layer_for_patch(n) {
+                    Err(BoundaryLayersError::UnknownPatch(_)) => None,
+                    r => r.map_err(|e| format!("boundaryLayers: {e:?}"))?,
+                };
                 out.per_patch.push((n.clone(), o));
             }
         }
     }
     out.n_layer_cells = bl.mesh.n_cells - n0;
     Ok((bl.mesh, out))
+}
+
+/// `polyMeshGenModifier::addCells(cellsToAdd)`, `reorderBoundaryFaces()` and
+/// `replaceBoundary(patchNames, boundaryFaces, owners, patches)` as
+/// `boundaryLayers::createLayerCells` calls them (gh:#1385), so the faces
+/// come out in upstream's order:
+///
+/// 1. the old faces keep their places; each layer cell, in order, looks each
+///    of its faces up among the faces so far (same vertices) and appends the
+///    ones it does not find;
+/// 2. owner = the lower cell, neighbour = the higher, of the cells using the
+///    face (`calculateOwnersAndNeighbours`);
+/// 3. the boundary faces among the first `nInternalFaces` are swapped, in
+///    order, with the internal faces among the last ones;
+/// 4. the faces after the internal ones are replaced by `bnd`, patch by
+///    patch, in list order.
+///
+/// `cells` holds the old cells first (`first_layer_cell` of them). Returns
+/// the mesh and the number of boundary faces that do not match `bnd` (a face
+/// on one side only, or listed and not a boundary face).
+pub(crate) fn add_cells_upstream(mesh: &VolumeMesh, points: Vec<Vec3>, cells: &[Vec<Vec<usize>>], first_layer_cell: usize, bnd: &[(Vec<usize>, usize)], names: &[String]) -> (VolumeMesh, usize) {
+    use std::collections::HashMap;
+    let key = |ring: &[usize]| -> Vec<usize> {
+        let mut k = ring.to_vec();
+        k.sort_unstable();
+        k
+    };
+    let mut faces: Vec<Vec<usize>> = mesh.faces.clone();
+    let mut owner: Vec<Option<usize>> = mesh.owner.iter().map(|&o| Some(o)).collect();
+    let mut neighbour: Vec<Option<usize>> = mesh.neighbour.clone();
+    let mut index: HashMap<Vec<usize>, usize> = HashMap::new();
+    for (f, ring) in faces.iter().enumerate() {
+        index.insert(key(ring), f);
+    }
+    // the cell lists as `addCells` builds them: the old cells' lists stay, a
+    // layer cell lists the labels of its faces in its own order (gh:#1385)
+    let mut cell_lists: Vec<Vec<usize>> = mesh.cell_face_lists();
+    cell_lists.resize(cells.len(), Vec::new());
+    for (c, cell) in cells.iter().enumerate().skip(first_layer_cell) {
+        for ring in cell {
+            let k = key(ring);
+            let f = match index.get(&k) {
+                Some(&f) => f,
+                None => {
+                    faces.push(ring.clone());
+                    owner.push(None);
+                    neighbour.push(None);
+                    index.insert(k, faces.len() - 1);
+                    faces.len() - 1
+                }
+            };
+            cell_lists[c].push(f);
+            if owner[f].is_none() {
+                owner[f] = Some(c);
+            } else if neighbour[f].is_none() {
+                neighbour[f] = Some(c);
+            }
+        }
+    }
+    let owner: Vec<usize> = owner.into_iter().map(|o| o.expect("every face has a cell")).collect();
+    let mut owner_of: HashMap<Vec<usize>, (usize, bool)> = HashMap::new();
+    for (f, ring) in faces.iter().enumerate() {
+        owner_of.insert(key(ring), (owner[f], neighbour[f].is_some()));
+    }
+    let (mut faces, mut owner, mut neighbour) = (faces, owner, neighbour);
+    let new_label = crate::cartesian_mesh::reorder_boundary_faces(&mut faces, &mut owner, &mut neighbour);
+    crate::cartesian_mesh::relabel_cell_lists(&mut cell_lists, &new_label);
+    let n_int = neighbour.iter().filter(|x| x.is_some()).count();
+    faces.truncate(n_int);
+    owner.truncate(n_int);
+    neighbour.truncate(n_int);
+    let mut n_unmatched = 0;
+    // (owner, label) of every `bnd` entry, in the order `bnd` lists them: upstream's
+    // `replaceBoundary` appends each new boundary face to its owner's list in
+    // that order, while the labels run patch by patch (gh:#1385)
+    let mut assigned: Vec<Option<(usize, usize)>> = vec![None; bnd.len()];
+    let mut patches = Vec::with_capacity(names.len());
+    let mut listed: BTreeSet<Vec<usize>> = BTreeSet::new();
+    for (pi, name) in names.iter().enumerate() {
+        let start = faces.len();
+        for (bi, (ring, patch)) in bnd.iter().enumerate() {
+            if *patch != pi {
+                continue;
+            }
+            let k = key(ring);
+            match owner_of.get(&k) {
+                Some(&(o, false)) => {
+                    faces.push(ring.clone());
+                    owner.push(o);
+                    neighbour.push(None);
+                    assigned[bi] = Some((o, faces.len() - 1));
+                    listed.insert(k);
+                }
+                _ => n_unmatched += 1,
+            }
+        }
+        patches.push(crate::volume_mesh::BoundaryPatch { name: name.clone(), start_face: start, n_faces: faces.len() - start });
+    }
+    n_unmatched += owner_of.iter().filter(|(k, &(_, internal))| !internal && !listed.contains(*k)).count();
+    let mut cell_lists = cell_lists;
+    for l in cell_lists.iter_mut() {
+        l.retain(|&f| f < n_int);
+    }
+    for (o, label) in assigned.into_iter().flatten() {
+        cell_lists[o].push(label);
+    }
+    (VolumeMesh { points, faces, owner, neighbour, n_cells: cells.len(), patches, cells: Some(cell_lists) }, n_unmatched)
 }
 
 /// cfMesh `createNewVertices(labelList)` and `createLayerCells` on `mesh`
@@ -1236,32 +1351,8 @@ fn patch_wise_layer(
         n_corner_cells += 1;
     }
 
-    // addCells, replaceBoundary
-    let layered = from_cell_faces_wound(points, &cells);
-    let key = |ring: &[usize]| -> Vec<usize> {
-        let mut k = ring.to_vec();
-        k.sort_unstable();
-        k
-    };
-    let patch_of_key: BTreeMap<Vec<usize>, usize> = bnd.iter().map(|(r, p)| (key(r), *p)).collect();
-    let mut w = TopoMesh::from_volume_mesh(&layered);
-    w.patch_names = names.to_vec();
-    let mut n_unmatched = 0;
-    let mut found: BTreeSet<Vec<usize>> = BTreeSet::new();
-    for f in 0..w.faces.len() {
-        if w.neighbour[f].is_some() {
-            w.region[f] = None;
-            continue;
-        }
-        let kf = key(&w.faces[f]);
-        w.region[f] = patch_of_key.get(&kf).copied().filter(|&p| p < n_patches);
-        if w.region[f].is_none() {
-            n_unmatched += 1;
-        }
-        found.insert(kf);
-    }
-    n_unmatched += patch_of_key.keys().filter(|k| !found.contains(*k)).count();
-    let out = into_mesh_keeping_patches(w, names);
+    // addCells, reorderBoundaryFaces, replaceBoundary: in upstream's order
+    let (out, n_unmatched) = add_cells_upstream(mesh, points, &cells, first_layer_cell, &bnd, names);
     let pts = displacements.into_iter().map(|(point, d)| PatchWisePoint { point, wall: mesh.points[point], displacements: d }).collect();
     Ok((out, PatchWiseOutcome { groups, points: pts, n_face_cells, n_edge_cells, n_corner_cells, first_layer_cell, n_unmatched_boundary_faces: n_unmatched }))
 }
@@ -1682,6 +1773,19 @@ pub(crate) mod tests {
         bl.mesh.validate().unwrap();
         assert!((bl.mesh.total_volume() - 1.0).abs() < 1e-12);
         assert_eq!(bl.add_layer_for_patch("nowhere"), Err(BoundaryLayersError::UnknownPatch("nowhere".into())));
+    }
+
+    /// gh:#1476: `generateBoundaryLayers` passes `patchBoundaryLayers`
+    /// names verbatim; a name no patch has (a regex such as `"x.*"`) adds
+    /// nothing, as upstream's `addLayerForPatch(word)`, instead of failing.
+    #[test]
+    fn generate_layer_skips_a_name_no_patch_has() {
+        let m = six_patch_box(0.25);
+        let req = LayerRequest::Patches(vec!["x.*".into(), "x0".into()]);
+        let (out, g) = generate_layer(&m, &req, &BoundaryLayersControls::default(), false).unwrap();
+        assert_eq!(g.per_patch.len(), 2);
+        assert!(g.per_patch[0].1.is_none());
+        assert_eq!(out.n_cells, 80);
     }
 
     /// V&V (gh:#1270 remainder), prediction P5: `addWrapperLayer`.

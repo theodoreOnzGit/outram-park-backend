@@ -76,13 +76,18 @@
 //! | [`poly_dual_mesh`] | [`poly_dual_mesh::DualMesh::to_foam_poly_mesh`] |
 //! | [`driver`] | already a `PolyMesh` — [`GeneratedMesh::write_case`] |
 
+pub mod block_edges;
 pub mod block_mesh;
 pub mod block_primitives;
+pub mod block_projection;
+mod block_topology;
 pub mod section;
 pub mod driver;
 pub mod ideas_unv_to_foam;
+pub mod check_mesh;
 pub mod mesh_quality;
 pub mod poly_dual_mesh;
+pub mod poly_dual_mesh_upstream;
 pub mod snappy_hex_mesh;
 
 // The high-level entry points, re-exported at the crate root so they are the
@@ -98,10 +103,12 @@ pub enum MeshError {
     /// A dictionary / input file could not be parsed (bad syntax, missing key).
     #[error("mesh dictionary parse error: {0}")]
     DictParse(String),
-    /// The input asks for a feature this crate does not support yet. Currently
-    /// raised only by [`block_mesh`] for a non-`hex` block shape; deferred dict
-    /// features that are safe to ignore (curved `edges`, `mergePatchPairs`) are
-    /// skipped silently instead — see the [`block_mesh`] module docs.
+    /// The input asks for a feature this crate does not support yet: raised by
+    /// [`block_mesh`] for a non-`hex` block shape, a macro that is not expanded,
+    /// a searchable-surface type that is not ported, `mergePatchPairs`, ...
+    /// ~~deferred dict features that are safe to ignore are skipped silently~~
+    /// **CORRECTED 2026-11-11 (gh:#1462)**: nothing is skipped; see the
+    /// [`block_mesh`] module docs.
     #[error("not yet implemented: {0}")]
     NotImplemented(String),
     /// A geometric / topological inconsistency was detected while building the mesh.

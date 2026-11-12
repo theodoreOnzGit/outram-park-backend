@@ -91,24 +91,29 @@ pub struct CorrectEdgesReport {
     pub n_decomposed_cells: usize,
 }
 
-/// OpenFOAM `face::centre`: the area-weighted centroid of the triangle fan
-/// about the vertex average (the vertex average for a triangle).
+/// OpenFOAM `face::centre` (OpenFOAM-v2506 `face.C`), operation for
+/// operation: a triangle is `(1.0/3.0)*(p0 + p1 + p2)`; any other face the
+/// area-weighted centroid of the fan about the vertex average (`centrePoint
+/// /= nPoints`), with `2*area = |(p - c) x (next - c)|` and the result
+/// `sumAc/(3.0*sumA)` (each component divided). gh:#1385: the earlier port
+/// used `(q - p) x (avg - p)` and multiplied by reciprocals, which differ
+/// from upstream in the last bit.
 pub fn foam_face_centre(points: &[Vec3], ring: &[usize]) -> Vec3 {
     let k = ring.len();
-    let avg = ring.iter().fold(Vec3::ZERO, |a, &v| a.add(points[v])).scale(1.0 / k as f64);
     if k == 3 {
-        return avg;
+        return points[ring[0]].add(points[ring[1]]).add(points[ring[2]]).scale(1.0 / 3.0);
     }
+    let avg = ring.iter().fold(Vec3::ZERO, |a, &v| a.add(points[v])).div(k as f64);
     let (mut sum_ac, mut sum_a) = (Vec3::ZERO, 0.0);
     for i in 0..k {
         let (p, q) = (points[ring[i]], points[ring[(i + 1) % k]]);
-        let c = p.add(q).add(avg);
-        let a = q.sub(p).cross(avg.sub(p)).length();
-        sum_ac = sum_ac.add(c.scale(a));
-        sum_a += a;
+        let ttc = p.add(q).add(avg);
+        let ta = p.sub(avg).cross(q.sub(avg)).length();
+        sum_a += ta;
+        sum_ac = sum_ac.add(ttc.scale(ta));
     }
     if sum_a > 1e-300 {
-        sum_ac.scale(1.0 / (3.0 * sum_a))
+        sum_ac.div(3.0 * sum_a)
     } else {
         avg
     }
@@ -134,6 +139,7 @@ pub fn correct_edges_between_patches(
         region: face_region.to_vec(),
         n_cells: mesh.n_cells,
         patch_names: names.to_vec(),
+        cells: if mesh.carried_cells_are_consistent() { mesh.cells.clone() } else { None },
     };
     let mut rep = CorrectEdgesReport::default();
     let mut decompose_cell = vec![false; mesh.n_cells];
@@ -142,6 +148,10 @@ pub fn correct_edges_between_patches(
     {
         let (engine, part) = w.surface();
         let mut concave: BTreeSet<usize> = BTreeSet::new();
+        // meshSurfaceCheckEdgeTypes::classifyEdges marks every feature edge at
+        // an inverted point UNDETERMINED, and `problematicTypes` holds
+        // UNDETERMINED as well as CONCAVEEDGE (gh:#1385)
+        let inverted = crate::surface_optimizer::check_inverted_vertices(&engine, &part, &w.points, None);
         // edgeInPatch: the patch of a non-feature two-face edge, -1 otherwise.
         let mut edge_in_patch: Vec<i64> = vec![-1; engine.edges.len()];
         for (e, fs) in engine.edge_faces.iter().enumerate() {
@@ -156,10 +166,16 @@ pub fn correct_edges_between_patches(
             // start -> end (the engine's edgeFaces order); concave when
             // tet(s, e, c0, c1) or tet(e, s, c1, c0) is not negative.
             let [s, t] = engine.edges[e];
+            if inverted.contains(&s) || inverted.contains(&t) {
+                concave.insert(s);
+                concave.insert(t);
+                continue;
+            }
             let (c0, c1) = (engine.face_centres[fs[0]], engine.face_centres[fs[1]]);
             let (ps, pt) = (w.points[s], w.points[t]);
-            let vol0 = pt.sub(ps).cross(c0.sub(ps)).dot(c1.sub(ps)) / 6.0;
-            let vol1 = ps.sub(pt).cross(c1.sub(pt)).dot(c0.sub(pt)) / 6.0;
+            // `tetrahedron::mag()` = (1.0/6.0) * ((b - a) ^ (c - a)) & (d - a)
+            let vol0 = (1.0 / 6.0) * pt.sub(ps).cross(c0.sub(ps)).dot(c1.sub(ps));
+            let vol1 = (1.0 / 6.0) * ps.sub(pt).cross(c1.sub(pt)).dot(c0.sub(pt));
             if vol0 > -VSMALL || vol1 > -VSMALL {
                 concave.insert(s);
                 concave.insert(t);
@@ -251,6 +267,18 @@ pub fn correct_edges_between_patches(
     if order.len() > start {
         patches.push(BoundaryPatch { name: "unassigned".into(), start_face: start, n_faces: order.len() - start });
     }
+    // the cell lists survive only while nothing changed the cells or their
+    // faces (gh:#1385); the faces' new labels follow `order`
+    let cells = match &w.cells {
+        Some(c) if crate::volume_mesh::cell_lists_are_consistent(c, w.n_cells, &w.owner, &w.neighbour) => {
+            let mut new_label = vec![usize::MAX; w.faces.len()];
+            for (n, &o) in order.iter().enumerate() {
+                new_label[o] = n;
+            }
+            Some(c.iter().map(|l| l.iter().map(|&f| new_label[f]).collect()).collect())
+        }
+        _ => None,
+    };
     let out = VolumeMesh {
         points: w.points,
         faces: order.iter().map(|&f| w.faces[f].clone()).collect(),
@@ -258,6 +286,7 @@ pub fn correct_edges_between_patches(
         neighbour: order.iter().map(|&f| w.neighbour[f]).collect(),
         n_cells: w.n_cells,
         patches,
+        cells,
     };
     let regions = order.iter().map(|&f| w.region[f]).collect();
     (out, regions, rep)
@@ -309,9 +338,9 @@ mod tests {
         assert_eq!(out.cell_count(), 8);
         assert!((out.total_volume() - 1.0).abs() < 1e-12);
 
-        let mut w = TopoMesh { points: m.points.clone(), faces: m.faces.clone(), owner: m.owner.clone(), neighbour: m.neighbour.clone(), region, n_cells: 8, patch_names: Vec::new() };
+        let mut w = TopoMesh { points: m.points.clone(), faces: m.faces.clone(), owner: m.owner.clone(), neighbour: m.neighbour.clone(), region, n_cells: 8, patch_names: Vec::new(), cells: None };
         decompose_cells_into_pyramids(&mut w, &[true; 8]);
-        let v = VolumeMesh { points: w.points, faces: w.faces, owner: w.owner, neighbour: w.neighbour, n_cells: w.n_cells, patches: vec![] };
+        let v = VolumeMesh { points: w.points, faces: w.faces, owner: w.owner, neighbour: w.neighbour, n_cells: w.n_cells, patches: vec![] , cells: None };
         assert_eq!(v.cell_count(), 48);
         v.validate().unwrap();
         assert!((v.total_volume() - 1.0).abs() < 1e-12);
@@ -351,7 +380,23 @@ mod tests {
     /// gh:#1285: its input is the pipeline's output, now in the
     /// upper-triangular face order; the counts did not move, the hash did
     /// (~~714198749002929189~~).
-    const CORRECT_EDGES_PIN: (usize, usize, usize, usize, usize, u64) = (1727, 8, 16, 112, 14, 7179125119703641544);
+    ///
+    /// **Re-pinned 2026-11-11 (gh:#1385):** ~~7179125119703641544~~
+    /// 15811906865840324897. The counts did not move; the hash did because
+    /// the pipeline that makes its input now follows upstream bit for bit
+    /// where it was compared: `foam_face_centre` and `ring_area_vector` as
+    /// `face::centre` / `face::areaNormal`, divisions where OpenFOAM divides,
+    /// the octree's nearest-point search in the mapper, the layer's faces in
+    /// `addCells` / `reorderBoundaryFaces` order, `meshSurfaceEdgeExtractor
+    /// NonTopo` also on a one-region surface. Geometry moved in the last bit;
+    /// face order moved.
+    // MOVED AGAIN 2026-11-11 (gh:#1385), counts unchanged: ~~15811906865840324897~~
+    // 2364802067049664889. `decomposeCells` now runs upstream's sequence
+    // (`removeCells`, `addCells`, `reorderBoundaryFaces`, `replaceBoundary`; the
+    // apex is the mean of the cell's points in face-list order, divided; fan
+    // points are numbered in face order), and `decomposeConcaveFaces` counts a
+    // feature edge at an inverted point as concave (`UNDETERMINED`).
+    const CORRECT_EDGES_PIN: (usize, usize, usize, usize, usize, u64) = (1727, 8, 16, 112, 14, 2364802067049664889);
 
     /// V&V (gh:#1241) — `patchCorrection` by hand. One unit cube, its top
     /// face in patch 1 and the rest in patch 0: the top's four edges are

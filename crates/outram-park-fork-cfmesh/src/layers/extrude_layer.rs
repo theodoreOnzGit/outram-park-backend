@@ -249,7 +249,11 @@ pub fn extrude_layer(w: &TopoMesh, front: &[(usize, usize)], thickness: Option<f
             }
         }
     }
-    let mut cells: Vec<Vec<usize>> = w.cell_faces();
+    // upstream starts from the mesh's own cell lists (`createDuplicateFrontFaces` renumbers them in place)
+    let mut cells: Vec<Vec<usize>> = match &w.cells {
+        Some(c) if crate::volume_mesh::cell_lists_are_consistent(c, w.n_cells, &w.owner, &w.neighbour) => c.clone(),
+        _ => w.cell_faces(),
+    };
     let mut report = ExtrudeLayerReport::default();
 
     // ---- createDuplicateFrontFaces ----
@@ -427,7 +431,7 @@ pub fn extrude_layer(w: &TopoMesh, front: &[(usize, usize)], thickness: Option<f
         let t = thickness.unwrap_or(t * 0.4);
         let m = normal.length();
         if m > VSMALL {
-            normal = normal.scale(1.0 / m);
+            normal = normal.div(m);
         }
         *d = normal.scale(t);
     }
@@ -581,6 +585,7 @@ pub fn extrude_layer(w: &TopoMesh, front: &[(usize, usize)], thickness: Option<f
             }
         }
     }
+    let mut new_bnd: Vec<usize> = Vec::new();
     for f in n_orig_faces..faces.len() {
         if owner[f].is_none() || neighbour[f].is_some() {
             continue;
@@ -623,9 +628,69 @@ pub fn extrude_layer(w: &TopoMesh, front: &[(usize, usize)], thickness: Option<f
             Some(q) => {
                 region[f] = if q == unassigned { None } else { Some(q) };
                 report.n_new_boundary_faces += 1;
+                new_bnd.push(f);
             }
             None => report.n_unpatched_boundary_faces += 1,
         }
+    }
+    // `updateBoundary`'s end as upstream writes it (gh:#1385 round 4): the
+    // boundary list is the old boundary faces in label order, then the new
+    // patched quads; `reorderBoundaryFaces()` swaps the boundary faces among the
+    // first nInternalFaces slots with the internal faces among the last;
+    // `replaceBoundary` keeps the internal faces and writes the listed boundary
+    // faces patch by patch (a boundary face in no list is dropped), appending
+    // each new label to its owner's cell list in the list's order.
+    if (0..faces.len()).all(|f| owner[f].is_some()) {
+        let mut owner_v: Vec<usize> = owner.iter().map(|o| o.unwrap_or(0)).collect();
+        let mut nei_v = neighbour.clone();
+        let mut bnd: Vec<usize> = (0..n_orig_faces).filter(|&f| w.neighbour[f].is_none()).collect();
+        for &f in &bnd {
+            region[f] = w.region[f];
+        }
+        bnd.extend(new_bnd.iter().copied());
+        let new_label = crate::cartesian_mesh::reorder_boundary_faces(&mut faces, &mut owner_v, &mut nei_v);
+        crate::cartesian_mesh::relabel_cell_lists(&mut cells, &new_label);
+        let mut region_r: Vec<Option<usize>> = vec![None; faces.len()];
+        for f in 0..region.len() {
+            region_r[new_label[f]] = region[f];
+        }
+        let bnd: Vec<usize> = bnd.into_iter().map(|f| new_label[f]).collect();
+        let n_int = nei_v.iter().filter(|x| x.is_some()).count();
+        let mut out_faces: Vec<Vec<usize>> = faces[..n_int].to_vec();
+        let mut out_region: Vec<Option<usize>> = vec![None; n_int];
+        let mut final_label = vec![usize::MAX; faces.len()];
+        for (f, l) in final_label.iter_mut().enumerate().take(n_int) {
+            *l = f;
+        }
+        for q in 0..=w.patch_names.len() {
+            for &f in &bnd {
+                let r = region_r[f];
+                if r.unwrap_or(w.patch_names.len()) != q {
+                    continue;
+                }
+                final_label[f] = out_faces.len();
+                out_faces.push(faces[f].clone());
+                out_region.push(r);
+            }
+        }
+        for l in cells.iter_mut() {
+            l.retain(|&f| f < n_int);
+        }
+        for &f in &bnd {
+            cells[owner_v[f]].push(final_label[f]);
+        }
+        let (own, nei) = owners_and_neighbours(out_faces.len(), &cells)?;
+        let out = TopoMesh {
+            points,
+            faces: out_faces,
+            owner: own.iter().map(|o| o.unwrap_or(0)).collect(),
+            neighbour: nei,
+            region: out_region,
+            n_cells: cells.len(),
+            patch_names: w.patch_names.clone(),
+            cells: Some(cells),
+        };
+        return Ok((out, report));
     }
     // Assemble, dropping faces no cell holds.
     let keep: Vec<usize> = (0..faces.len()).filter(|&f| owner[f].is_some()).collect();
@@ -637,6 +702,7 @@ pub fn extrude_layer(w: &TopoMesh, front: &[(usize, usize)], thickness: Option<f
         region: keep.iter().map(|&f| if neighbour[f].is_some() { None } else { region[f] }).collect(),
         n_cells: cells.len(),
         patch_names: w.patch_names.clone(),
+        cells: None,
     };
     Ok((out, report))
 }

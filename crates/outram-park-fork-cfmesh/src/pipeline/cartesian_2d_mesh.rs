@@ -75,7 +75,7 @@ use crate::patches::SurfaceRegions;
 use crate::pipeline::cartesian_mesh::{cartesian_surface_preparation, n_nonpositive_cells};
 use crate::pipeline::tet_mesh::SavedMesh;
 use crate::rename_boundary_patches::{rename_boundary_patches, RenameBoundary};
-use crate::renumber_mesh::{cells_from_mesh, renumber_mesh};
+use crate::renumber_mesh::renumber_mesh;
 use crate::surface_mapper_2d::{adjust_z_coordinates, distribute_boundary_faces, map_vertices_onto_surface_2d, pre_map_vertices_2d, remap_boundary_points};
 use crate::volume_mesh::VolumeMesh;
 use crate::workflow_controls::{MeshMetaData, StepDecision, WorkflowControls, WorkflowSettings, WorkflowStep};
@@ -274,12 +274,12 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
             }
             WorkflowStep::SurfaceProjection => {
                 adjust_z_coordinates(m, &o)?;
-                let missed = pre_map_vertices_2d(m, &o, 3)?;
+                let missed = pre_map_vertices_2d(m, &o, 2)?;
                 map_vertices_onto_surface_2d(m, &o)?;
-                rep.notes.push(format!("surfaceProjection: adjustZCoordinates, preMapVertices (3 iterations, {missed} searches found nothing), mapVerticesOntoSurface"));
+                rep.notes.push(format!("surfaceProjection: adjustZCoordinates, preMapVertices (2 iterations, {missed} searches found nothing), mapVerticesOntoSurface"));
             }
             WorkflowStep::PatchAssignment => {
-                let (mm, ty) = distribute_boundary_faces(m, &o, &reg.names)?;
+                let (mm, ty) = distribute_boundary_faces(m, &o, &reg.names, &reg.types)?;
                 *m = mm;
                 types = ty;
                 rep.notes.push(format!("patchAssignment: distributeBoundaryFaces: {:?}", m.patches.iter().map(|p| (p.name.clone(), p.n_faces)).collect::<Vec<_>>()));
@@ -332,9 +332,28 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
             }
             WorkflowStep::BoundaryLayerRefinement => match &opts.boundary_layers {
                 None => rep.notes.push("boundaryLayerRefinement: no boundaryLayers dict; nothing to do".into()),
-                Some(s) => match refine_boundary_layers_2d(m, s) {
+                Some(s) => match {
+                    if std::env::var("GH1385_TRACE").is_ok() {
+                        for (i, c) in m.cell_face_lists().iter().enumerate() {
+                            let fs: Vec<String> = c.iter().map(|v| v.to_string()).collect();
+                            eprintln!("PFC {i} {}", fs.join(" "));
+                        }
+                    }
+                    refine_boundary_layers_2d(m, s)
+                } {
                     Ok((mm, rr)) => {
                         *m = mm;
+                        if std::env::var("GH1385_TRACE").is_ok() {
+                            // gh:#1385: the mesh as `refineLayers` leaves it, as upstream's instrumented generator prints it (`RFF`, `RFC`)
+                            for (i, f) in m.faces.iter().enumerate() {
+                                let verts: Vec<String> = f.iter().map(|v| v.to_string()).collect();
+                                eprintln!("RFF {i} {} {} {}", m.owner[i], m.neighbour[i].map_or(-1, |n| n as i64), verts.join(" "));
+                            }
+                            for (i, c) in m.cell_face_lists().iter().enumerate() {
+                                let fs: Vec<String> = c.iter().map(|v| v.to_string()).collect();
+                                eprintln!("RFC {i} {}", fs.join(" "));
+                            }
+                        }
                         types.resize(m.patches.len(), "patch".to_string());
                         rep.n_cells_refined = rr.n_cells_split;
                         let u = untangle_surface_2d(m)?;
@@ -350,7 +369,7 @@ fn run_2d(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>
         }
     }
     let m = mesh.ok_or("the workflow produced no mesh")?;
-    let r = renumber_mesh(&m, &cells_from_mesh(&m));
+    let r = renumber_mesh(&m, &m.cell_face_lists());
     let renamed = rename_boundary_patches(&r.mesh, &types, opts.rename_boundary.as_ref(), true);
     w.workflow_completed();
     rep.meta = w.meta;

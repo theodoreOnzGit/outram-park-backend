@@ -589,7 +589,41 @@ mod tests {
         let (m2, _) = crate::pipeline::cartesian_2d_mesh::cartesian_2d_mesh(&cp, &ct, Some(&cr), &o2).unwrap();
         let got = [mesh_fingerprint(&mc), mesh_fingerprint(&mt), mesh_fingerprint(&mp), mesh_fingerprint(&m2)];
         println!("fingerprints cartesian {} tet {} p {} 2D {}; cells {} {} {} {}", got[0], got[1], got[2], got[3], mc.n_cells, mt.n_cells, mp.n_cells, m2.n_cells);
-        assert_eq!(got, [17611812511072804258, 6523714470801621594, 3039883993825308236, 4427172929438988611]);
+        // Re-pinned 2026-11-11 (gh:#1385), by decision of the task that made
+        // the generators follow upstream bit for bit (the cell counts did not
+        // move): cartesian ~~17611812511072804258~~ ~~7180829290865451833~~ 13254281021629600304
+        // (moved again 2026-11-11, gh:#1385: the mesh carries cfMesh's cell face
+        // lists, so `meshOptimisation`'s sums run in upstream's order and the
+        // sphere is bit-identical to upstream; the pipe moves with it),
+        // tet ~~6523714470801621594~~ ~~17254294393733896570~~ 13218850471215003652
+        // (moved again 2026-11-11, gh:#1385: `TopoMesh::remove_cells` follows
+        // `reorderBoundaryFaces`' pairwise swap and `face::reverseFace`, and
+        // `tetMesh`'s `optimizeSurface` goes through the octree), p
+        // ~~3039883993825308236~~ ~~3134079275981119636~~ 11509605158896565506, 2D
+        // ~~4427172929438988611~~ ~~11695678344881703815~~ 871841484633274847.
+        // Third move, 2026-11-11 (gh:#1385), all four again (cells unchanged):
+        // cartesian ~~13254281021629600304~~ 13144889121674496086, tet
+        // ~~13218850471215003652~~ 5974506692092754484. Causes: `decomposeCells`
+        // in upstream's sequence, `createNewVertex` as upstream
+        // (infinite-line edge distance, divisions), the layer's cell lists as
+        // `replaceBoundary` appends them, the octree-backed `pMesh`
+        // `optimiseFinalMesh`, the corner / edge mapper as upstream writes it.
+        // See the gh:#1385 section of the cfMesh crate's V&V README.
+        // **Fourth move, 2026-11-11 (gh:#1385 round 4, FLAGGED for the maintainer):
+        // only the 2D fingerprint, ~~871841484633274847~~ 4370305401663068383
+        // (cells 120 unchanged; cartesian, tet and p did not move).** Causes:
+        // `meshSurfaceMapper2D::preMapVertices` runs 2 iterations as upstream
+        // (the port ran the 3D routine's 3), and the 2D template's
+        // `createEmptyPatches` / `distributeBoundaryFaces` carry the cell lists
+        // through `replaceBoundary` (the lists decide the final `renumberMesh`).
+        // **Fifth move, 2026-11-11 (gh:#1385 round 4, FLAGGED for the maintainer):
+        // only the `pMesh` fingerprint, ~~11509605158896565506~~ 9105338267624933032
+        // (cells 1529 unchanged).** Causes: `createFundamentalSheetsJFS` /
+        // `extrudeLayer` follow upstream's face and cell-list order, `surfaceMorpherCells`
+        // keeps the cell lists (`removeFaces`), `optimiseMeshSurface` untangles on the
+        // same optimiser as `optimizeSurface`, and the volume optimiser's zero-volume
+        // branch rounds as upstream.
+        assert_eq!(got, [13144889121674496086, 5974506692092754484, 9105338267624933032, 4370305401663068383]);
         assert_eq!((mc.n_cells, mt.n_cells, mp.n_cells, m2.n_cells), (560, 4576, 1529, 120));
     }
 
