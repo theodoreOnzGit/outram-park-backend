@@ -60,7 +60,11 @@ fn gunzip(path: &Path) -> Vec<u8> {
 /// Decompress a committed case's polyMesh into the test scratch directory.
 fn stage_case(case: &str) -> PathBuf {
     let src = vv_dir().join("cases").join(case);
-    let dst = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1361_{case}"));
+    // One directory per test thread: the diffusion and SP3 tests stage the same
+    // case concurrently, and a shared directory let one test's `remove_dir_all`
+    // delete the other's files (seen 2026-11-12 as a `nuclearData` read panic).
+    let thread = format!("{:?}", std::thread::current().id()).replace(|c: char| !c.is_ascii_alphanumeric(), "");
+    let dst = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1361_{case}_{thread}"));
     let _ = std::fs::remove_dir_all(&dst);
     std::fs::create_dir_all(dst.join("polyMesh")).expect("scratch dir");
     std::fs::copy(src.join("nuclearData"), dst.join("nuclearData")).expect("nuclearData");
