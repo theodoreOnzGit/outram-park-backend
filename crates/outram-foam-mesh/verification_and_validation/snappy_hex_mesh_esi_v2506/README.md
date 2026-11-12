@@ -975,3 +975,59 @@ overrides in iterations 0-8, **2 in iteration 9**, see P41).
 Method: each stage is run from ESI's own previous-stage data first (isolating that
 stage), then chained; every difference is explained by its first divergent operation;
 no tolerance is relaxed and no input is tuned.
+
+### Round 6: results (2026-11-12, release, `tests/snappy_hex_mesh_esi_feature.rs`)
+
+Code: `src/snappy_hex_mesh/esi_feature.rs` (opt-in; nothing existing calls it). Iteration 0
+started from ESI's time-33 points and the castellated topology.
+
+| stage | compared with | result |
+|---|---|---|
+| eMesh reader (P36) | `flange.extendedFeatureEdgeMesh` | **held**: 767 points, 776 edges, starts 4 / 8 / 18, 376 region edges |
+| wanted displacement | log line | min and max **exactly** (6.548561578869996e-8, 7.516794439290358e-4), mean to 1e-18 |
+| raw analysis, baffles, reverse attraction, stringing, final (P38, single region) | log row 0 | **every count equal**: 24 / 1446 / 10660 / 0; 0 baffle edges; 1470 -> 4312; 18 / 1306; 101 1 1 2 1 1 0; 26 / 1405 / 0 / 10699 |
+| `Attraction: linear` (max and average), `feature` max | log | **equal in all printed digits** |
+| `Attraction: feature` average | log | equal to ~1e-16 absolute, not in the last digits (summation order of `gAverage` or an ulp in a few attractions; not resolved) |
+| same, `multiRegionFeatureSnap true` | `esi_feature_multiregion_log.txt.gz` (new ESI run) | **every count equal**: raw 24 / 1651; 1675 -> 4745; 18 / 1495; 119 1 1 2 1 1 0; 26 / 1612 |
+| smoothed displacement (P39) | `34/displacement` | **NOT met: 37365 of 79986 components bit-identical**, worst 1.4e-6 m |
+| points after the move | `35/polyMesh/points` | 42862 of 79986 bit-identical, worst 1.4e-6 m, 1 scale pass as ESI |
+
+**P39 failed; first divergence localised, cause not found.** Patch points by final
+constraint (identical / all): feature points 26 / 26, **feature edges 1401 / 1405**, free
+points 10231 / 10699. The 468 free points are the neighbourhood of the 4 edge points, which
+are the four mirror-image valence-3 corner points mesh 6704, 6710, 6738, 6744: their
+displacement agrees in z to the bit and differs in x, y by (1.4e-6, 1.2e-6) m, i.e. a shift
+along the horizontal feature edge direction (0.605, 0.796, 0), after the 20-pass
+`smoothAndConstrain` has spread it to the free points around. So the first divergent
+quantity is the feature attraction of an edge-constrained neighbour (mesh 7 or 16888), not
+the arithmetic of the smoothing. Variants tried and **refuted** (each measured against the
+79986 components; none was tuned to ESI, each is a falsified alternative reading):
+brute-force ties resolved by the LAST minimum for triangles (26 / 1405 becomes 30 / 1397,
+26647 identical), for feature edges (35171 identical), and per single edge tie (14 toggles:
+none improves, two worsen to 35449 / 35455); `preventFaceSqueeze` off (no change, 37365);
+`stringFeatures` off (18793); `nbrFeatVec` read from the neighbour instead of the point as
+upstream writes it (27763). Remaining candidates, not tested: the octree order for the 190
+triangle ties (a different triangle gives the same nearest point but a different normal and
+region), the `PrimitivePatch` edge order in `pointEdges` for the summation in
+`smoothAndConstrain` (ported from `calcAddressing`, not compared with ESI directly), and
+`face::unitNormal` of the patch versus the mesh-level normal. **Next step:** dump ESI's
+`patchAttraction` (a `debugFlags (attraction)` run writes `patchAttraction_<iter>.obj`)
+and compare it per point, which separates the attraction from the smoothing.
+
+**Tie counts (P37, partly refuted).** Feature-edge ties 14 per iteration-0 run (as
+predicted: edges sharing a vertex), feature-point ties 0, patch-point ties 0 (as
+predicted); **triangle ties 190**, which P37 did not predict (face centres on a shared
+triangle edge give the same nearest point for two triangles with different normals and,
+at region boundaries, different regions). The first-minimum rule reproduces all log counts;
+the octree order is not ported and is the main open suspect above.
+
+**Not done this round:** iterations 1-9, the chained run, P40-P42 (final mesh 60813 faces),
+`detectNearSurfaces` (P41), because P39 is open and everything chained depends on it.
+**Moved numbers:** none. **Defects found in the existing port:** none confirmed (the
+existing `calc_nearest_surface` compares `mag_sqr`, upstream compares `sqr(mag)`; the new
+`calc_nearest_surface_sqr_mag` does the latter; whether it removes round 3's one 2.2e-19 m
+component was not re-measured). PETIR: no transcendental in the new code (callers pass
+`featureCos`); count of differing values 0.
+
+**Ledger.** P36 held. P37 partly refuted (190 triangle ties). P38 held (counts, both
+single-region and multi-region). P39 **failed** (37365 / 79986). P40-P43 untested.
