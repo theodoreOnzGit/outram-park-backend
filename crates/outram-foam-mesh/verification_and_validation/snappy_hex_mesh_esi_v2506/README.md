@@ -1188,6 +1188,48 @@ held. P43 held.
   the `setUnrefinement` undo paths are not ported.
 - The per-iteration references are pinned by a 64-bit digest, not stored; the iteration-0
   and scaled-iteration-0 meshes are stored (`feat_disp_34`, `feat_points_35`).
-- `addLayers` was not started.
+- ~~`addLayers` was not started.~~ **CORRECTED 2026-11-12:** round 8 starts it (below).
 - The ESI dump patch (a copy of `snappySnapDriverFeature.C` edited in place, original and
   rebuilt library restored) is not committed; its layout is described above.
+
+# Round 8 (2026-11-12): `addLayers`, ESI v2506 `snappyLayerDriver`
+
+**Inventory first (search-before-building).** The workspace holds two layer codes and neither is
+the ESI one: `src/snappy_hex_mesh/layers.rs` (an own interior shrink-and-insert with a global
+layer-count fallback; its header says so) and `outram_park_fork_cfmesh::snappy_layers` (a
+per-point port of the *Foundation*-style `extrudeMode` loop for cfMesh). Neither has
+`layerParameters`, `medialAxisMeshMover`, `addPatchCellLayer` or ESI's `checkAndUnmark` loop;
+`grep` for `addPatchCellLayer`, `medialAxis`, `layerParameters` over the workspace finds only
+doc comments and the Foundation-style paths, which stay callable and are not touched.
+
+## ESI reference run
+
+Case `snappyHexMeshDict.layers`: the round-7 flange dictionary (explicit feature snap, 10
+iterations) plus `addLayers true` with `layers { "flange_.*" { nSurfaceLayers 1; } }`,
+`expansionRatio 1.0`, `finalLayerThickness 0.3`, `minThickness 0.25`, `nGrow 0`, `featureAngle
+30`, and the tutorial's defaults for everything else (`nRelaxIter 5`, `nSmoothSurfaceNormals 1`,
+`nSmoothNormals 3`, `nSmoothThickness 10`, `maxFaceThicknessRatio 0.5`,
+`maxThicknessToMedialRatio 0.3`, `minMedialAxisAngle 90`, `nBufferCellsNoExtrude 0`,
+`nLayerIter 50`, `nRelaxedIter 20`). The flange is one STL; ESI splits it into four region
+patches `flange_patch1..4`, so "one surface" means four patches here, all matched by the regex.
+Run: `blockMesh` (ASCII, `writePrecision 16`), `surfaceFeatureExtract`
+(`surfaceFeatureExtractDict.flange`), `snappyHexMesh -noFunctionObjects` (binary), 19 s. The
+snapped mesh (time 81) is the round-7 final mesh (60813 faces, checked against
+`esi_feat_final_faces`, 0 differing). `debugFlags (mesh)` writes: 82/83 merged faces/edges (before
+layers), 84 baffled, then per layer iteration the shrunk mesh (85, 87, 89) and the layer mesh (86,
+88, 90); 91 final (26920 cells, 85399 faces, 31644 points). Log numbers: 1269 feature edges;
+"Layers to add in current iteration : 8521"; three layer iterations (17, 2, 0 faces unextruded by
+`checkAndUnmark`; 8724, 8658, 8642 of 9747 faces extruded); medial-axis scaling retries 6, 6, 0 in
+the three iterations (displacement scaling down to 0 in iteration 0).
+
+## PREDICTIONS (committed before any round-8 port code exists)
+
+Written from reading `snappyLayerDriver.C` `addLayers` / `setPointNumLayers` /
+`calculateLayerThickness`, `layerParameters.C` and `snappyLayerDriver::doLayers` (v2506); the
+only ESI results used are the numbers quoted in the paragraph above.
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P49 | `mergePatchFacesUndo` + `mergeEdgesUndo` of `doLayers` on the round-7 final mesh (the existing `esi_merge`, same `cos 30 deg`) find **6 face sets and remove 4 points**, giving **60805 faces, 24305 points**, all faces equal per index to ESI time 83 (ring, start vertex, owner, neighbour, patch); time 84 equals 83. | the merge's master/hash order only held for the 2118-set case |
+| P50 | `layerParameters` selects `FINAL_AND_EXPANSION`; per point `thickness = finalLayerThickness * edgeLen * nLayers` with `edgeLen = edge0 / 2^maxPointLevel` (level 2: `0.06/20/4 = 7.5e-4`), so **near-wall thickness 2.25e-4 m on all four patches** (the ESI table) and `overall` = near-wall times the fraction of points with `nLayers 1` (points with `nLayers 0` contribute 0). | the table averages by master point; a point on two patches takes the min |
+| P51 | `setNumLayers` + `handleNonStringConnected` + `handleNonManifolds` + `handleFeatureAngle(30)` + `handleWarpedFaces` leave **exactly 8521 pp points with `EXTRUDE`** (ESI: "Layers to add 8521" = sum of `deltaNLayers`), **1269 feature edges**, 0 non-manifold points, 0 warped faces, and the four per-patch `overall` averages of the ESI table (1.89e-4, 1.72e-4, 1.84e-4, 1.98e-4 to 3 s.f.). | a one-point difference would show in the 3rd figure of the average |
