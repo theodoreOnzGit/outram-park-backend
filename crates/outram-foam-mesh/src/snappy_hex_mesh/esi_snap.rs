@@ -467,10 +467,14 @@ pub struct MeshEdges {
 }
 
 /// `primitiveMesh::calcEdges(false)`, serial, `nInternalPoints` unknown: edges are
-/// found face by face (`getEdge` creates `(point, next)`), then renumbered by
+/// found face by face (`getEdge`), then renumbered by
 /// increasing lower end point and, within it, increasing higher end point (the
-/// `oldToNew` pass); `pointEdges` are sorted. The end-point order of each edge
-/// is the creation order.
+/// `oldToNew` pass); `pointEdges` are sorted. ~~The end-point order of each edge is the
+/// creation order.~~ **CORRECTED 2026-11-12 (gh:#1467 round 8):** `getEdge`
+/// (`primitiveMeshEdges.C:40`) creates every edge as `(lower point, higher point)`, so
+/// `edge.vec()` points from the lower to the higher label. The old reading made
+/// `medialAxisMeshMover`'s medial-axis points differ by 1 ulp (invisible to the snap, whose
+/// uses of an edge are symmetric).
 pub fn mesh_edges(mesh: &SnapMesh) -> MeshEdges {
     let mut es: Vec<[usize; 2]> = Vec::new();
     let mut pe: Vec<Vec<usize>> = vec![Vec::new(); mesh.points.len()];
@@ -482,7 +486,7 @@ pub fn mesh_edges(mesh: &SnapMesh) -> MeshEdges {
                 (a == p && b == next) || (b == p && a == next)
             });
             if !found {
-                es.push([p, next]);
+                es.push([p.min(next), p.max(next)]);
                 let e = es.len() - 1;
                 pe[p].push(e);
                 pe[next].push(e);
