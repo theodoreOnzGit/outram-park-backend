@@ -100,6 +100,12 @@ pub enum FixedSource {
     /// [`SurfaceSource::dropped`](crate::source::extra::SurfaceSource::dropped)
     /// before building this if a soft failure is wanted.
     Surface(std::sync::Arc<crate::source::extra::SurfaceSource>),
+    /// **A general [`IndependentSource`](crate::source::source::IndependentSource)**
+    /// (gh:#1388): any spatial, energy and angular distribution, including
+    /// OpenMC's `Mixture`, `CylindricalIndependent`, ... (via the
+    /// `Distribution` variants of `SpatialKind` / `EnergyKind`). The birth
+    /// weight is the source's `strength` times the importance weights.
+    Independent(std::sync::Arc<crate::source::source::IndependentSource>),
 }
 
 impl FixedSource {
@@ -130,6 +136,10 @@ impl FixedSource {
                     lower.z + prn(seed) * (upper.z - lower.z),
                 );
                 (Site::new(r, u, *energy_ev), 1.0)
+            }
+            FixedSource::Independent(src) => {
+                let site = src.sample(seed);
+                (Site::new(site.r, site.u, site.e), site.wgt)
             }
             FixedSource::Surface(ss) => {
                 // A replay draws no direction or energy of its own: both were
@@ -178,6 +188,23 @@ pub struct FixedSourceSettings {
     /// so the attenuated tally never converges. That is why this field is here
     /// and not only on [`crate::physics::keff::KeffSettings`].
     pub variance_reduction: crate::physics::variance_reduction::VarianceReduction,
+    /// Where each history's random streams start. The default is the run's
+    /// single sequential stream. [`SeedingMode::OpenMc`] puts particle `p` of
+    /// batch `b` (OpenMC's `current_batch = b + 1`, `n_particles` per batch,
+    /// one generation per batch) on OpenMC's `init_particle_seeds` layout: the
+    /// source is sampled from `STREAM_SOURCE`, the transport (and the fission
+    /// progeny, which continue the parent's stream as in OpenMC) from
+    /// `STREAM_TRACKING`, the URR bands from `STREAM_URR_PTABLE`
+    /// (gh:#1386, `initialize_history`, `src/simulation.cpp`).
+    pub seeding: crate::rng::openmc_seeding::SeedingMode,
+}
+
+impl FixedSourceSettings {
+    /// This run with `seeding` ([`FixedSourceSettings::seeding`]).
+    pub fn with_seeding(mut self, seeding: crate::rng::openmc_seeding::SeedingMode) -> Self {
+        self.seeding = seeding;
+        self
+    }
 }
 
 impl Default for FixedSourceSettings {
@@ -189,6 +216,7 @@ impl Default for FixedSourceSettings {
             temperature_k: 293.6,
             seed: 1,
             max_secondaries: 10_000,
+            seeding: Default::default(),
         }
     }
 }
@@ -291,14 +319,38 @@ pub fn run_fixed_source_traced(
     let mut production_sum = 0.0;
     let mut done = 0usize;
 
-    for _b in 0..n_batches {
+    for b in 0..n_batches {
         let this_batch = per_batch.min(n - done);
         if this_batch == 0 {
             break;
         }
-        for _ in 0..this_batch {
+        for i in 0..this_batch {
+            // SeedingMode::OpenMc: this particle's three OpenMC streams.
+            let openmc = match settings.seeding {
+                crate::rng::openmc_seeding::SeedingMode::Outram => None,
+                crate::rng::openmc_seeding::SeedingMode::OpenMc { total_gen } => {
+                    let mut layout = crate::rng::openmc_seeding::OpenMcRunLayout::single_rank(
+                        settings.seed as i64,
+                        per_batch as i64,
+                        1,
+                    );
+                    layout.total_gen = total_gen;
+                    Some(layout.particle_seeds(b as i64 + 1, 1, i as i64 + 1))
+                }
+            };
+            let mut src_stream = openmc.map(|s| s[crate::rng::openmc_seeding::STREAM_SOURCE]);
+            // The default keeps the one sequential stream, copied in and out.
+            let urr_start = openmc.map(|s| s[crate::rng::openmc_seeding::STREAM_URR_PTABLE]);
             // One source particle and its fission progeny (a private bank).
-            let (birth_site, birth_weight) = source.sample(&mut seed);
+            let (birth_site, birth_weight) = match src_stream.as_mut() {
+                Some(ss) => source.sample(ss),
+                None => source.sample(&mut seed),
+            };
+            // gh:#1493: the copy is taken AFTER the source draws, so the default
+            // mode keeps develop's one sequential stream. Copying before them
+            // (3134e3134) made `seed = hseed` below discard the source's advance:
+            // every history reused the same source variates.
+            let mut hseed = openmc.map_or(seed, |s| s[crate::rng::openmc_seeding::STREAM_TRACKING]);
             let mut bank = vec![birth_site];
             // Only the SOURCE particle carries the replayed weight; its
             // fission progeny are born at 1 like any other secondary.
@@ -308,7 +360,7 @@ pub fn run_fixed_source_traced(
                 total_histories += 1;
                 let mut next: Vec<Site> = Vec::new();
                 // k_running = 1.0: analog multiplicity (no eigenvalue normalization).
-                let prod = transport_history_vr(
+                let prod = crate::physics::transport_csg::transport_history_vr_urr(
                     site,
                     geom,
                     materials,
@@ -317,7 +369,7 @@ pub fn run_fixed_source_traced(
                     &[],
                     1.0,
                     &mut next,
-                    &mut seed,
+                    &mut hseed,
                     tally.as_deref(),
                     &mut batch,
                     // Leakage accounting is not tracked for fixed-source runs —
@@ -335,6 +387,7 @@ pub fn run_fixed_source_traced(
                     // Only the source particle carries a replayed weight; a
                     // fission secondary is born at 1 like any other.
                     if is_source_particle { birth_weight } else { 1.0 },
+                    urr_start,
                     &mut crate::physics::tracking_trace::no_trace,
                 );
                 is_source_particle = false;
@@ -345,6 +398,9 @@ pub fn run_fixed_source_traced(
                         secondaries += 1;
                     }
                 }
+            }
+            if openmc.is_none() {
+                seed = hseed;
             }
         }
         done += this_batch;

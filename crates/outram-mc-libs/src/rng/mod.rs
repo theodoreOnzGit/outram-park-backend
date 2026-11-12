@@ -19,3 +19,4 @@
 
 pub use petir::rng::lcg;
 pub mod distributions;
+pub mod openmc_seeding;

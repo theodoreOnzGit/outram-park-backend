@@ -502,23 +502,31 @@ fn our_penetrability_clamps_l_at_two_like_uunfac() {
     println!("  l >= 3 clamps to the l = 2 formula, as uunfac does");
 }
 
-/// Fe-58's value disagreement is upstream's `unfac` fall-through, quantitatively.
+/// **Fe-58: the stored values now match NJOY's, `unfac` fall-through included.**
 ///
-/// Reproduces `csunr1` literally — including the missing `l >= 3` branch and
-/// the `vl = vl*e2` that sits inside the J loop — and shows it lands on NJOY's
-/// published numbers. Without this, "we differ from the oracle" is an
-/// assertion; with it, it is a measurement with a named cause.
+/// ~~Fe-58's value disagreement is upstream's `unfac` fall-through,
+/// quantitatively: this test reproduced `csunr1` literally in a helper and showed
+/// it lands on NJOY's numbers while production did not (3113x to 139210x apart).~~
+/// **CORRECTED 2026-11-11 (gh:#1448):** production now *is* the literal
+/// translation (`reconr::csunr`, `csunr1`/`csunr2`/`unfac`/`gnrl`), so the helper
+/// is gone and the comparison is direct. Decision recorded: the port follows
+/// upstream here, defect and all, because RECONR's PENDF and everything the deck
+/// driver compares must be the NJOY tape. The MF=2/MT=152 values are consumed
+/// only by `LSSF = 0` cross-section reconstruction and by GROUPR's `stounr`;
+/// Fe-58 is `LSSF = 1`, so its MF=3 and every ACE table are unaffected.
+/// UNRESR's and PURR's own kernels still clamp `l >= 3` to the `l = 2` formula as
+/// their upstream routines do (`uunfac`, `unfac2`).
+///
+/// Pass criterion: all 13 energies x 4 stored cross sections agree with NJOY's
+/// to 1e-12 relative (they are the same 7-figure text values, decoded to within
+/// last-bit noise), and Fe-58 really carries an `L >= 3` state so the test cannot pass
+/// vacuously. **Result (2026-11-11): 52 of 52 identical to 1e-12 (the printed text is the same)**; the stored total
+/// still exceeds the evaluation's own MF=3 by 3113x to 139210x, which is upstream's.
 #[test]
-fn fe58_disagreement_is_explained_by_upstreams_unfac_fall_through() {
+fn fe58_stored_values_match_njoy_including_unfac_fall_through() {
     let Some(l) = load(&FE58) else { return };
-    let mine = read_urr_table(&l.rows, 0.0).expect("round-trips");
-    let theirs = read_urr_from_tape(Some(&l.njoy_tape), FE58.mat, 1, 0.0)
-        .expect("parses")
-        .expect("present");
     let range = &l.ranges[0];
 
-    // The defect needs an L >= 3 state to bite; assert Fe-58 supplies one, so
-    // this test cannot pass vacuously on an evaluation that stops at l = 2.
     let UnresolvedCase::CaseA { l_states, .. } = &range.case_ else {
         panic!("Fe-58's unresolved range should parse as Case A");
     };
@@ -529,210 +537,11 @@ fn fe58_disagreement_is_explained_by_upstreams_unfac_fall_through() {
          without one, unfac's missing branch never fires and this test proves \
          nothing"
     );
-
-    let mf3_at = |e: f64| -> f64 {
-        for w in l.mf3_mt1.windows(2) {
-            if e >= w[0].0 && e <= w[1].0 {
-                let f = if w[1].0 > w[0].0 {
-                    (e - w[0].0) / (w[1].0 - w[0].0)
-                } else {
-                    0.0
-                };
-                return w[0].1 + f * (w[1].1 - w[0].1);
-            }
-        }
-        f64::NAN
-    };
-
-    println!(
-        "{:>13} {:>13} {:>13} {:>11} {:>13} {:>10}",
-        "E (eV)", "ours", "NJOY", "NJOY/ours", "reproduced", "repro dev"
-    );
-    let (mut worst_repro, mut min_ratio) = (0.0_f64, f64::INFINITY);
-    for (a, b) in mine.points().iter().zip(theirs.points()) {
-        let (ours, njoy) = (a.xs[0][0], b.xs[0][0]);
-        let repro = reproduce_csunr1_with_upstream_fall_through(range, a.energy_ev);
-        let dev = (repro - njoy).abs() / njoy;
-        let ratio = njoy / ours;
-        worst_repro = worst_repro.max(dev);
-        min_ratio = min_ratio.min(ratio);
-        println!(
-            "{:13.6e} {:13.6e} {:13.6e} {:11.1} {:13.6e} {:10.2e}",
-            a.energy_ev, ours, njoy, ratio, repro, dev
-        );
-
-        // Ours must stay near the evaluation's own MF=3, which for LSSF=1 IS
-        // the infinitely-dilute cross section. Loose on purpose: MT=1 picks up
-        // inelastic above ~0.8 MeV, which the URR formalism does not carry, so
-        // this is an order-of-magnitude sanity check and nothing more.
-        let mf3 = mf3_at(a.energy_ev);
-        assert!(
-            mf3.is_finite() && ours > 0.5 * mf3 && ours < 2.0 * mf3,
-            "at E={:.6e} our stored total {ours:.6e} b is not within a factor 2 \
-             of the evaluation's own MF=3 MT=1 {mf3:.6e} b",
-            a.energy_ev
-        );
-    }
-
-    assert!(
-        worst_repro < 1.0e-3,
-        "reproducing csunr1 with unfac's fall-through should land on NJOY's \
-         published values; worst deviation {worst_repro:.2e}. If this fails, \
-         the diagnosis in this file's header is wrong and must be revisited \
-         before anything is concluded about Fe-58."
-    );
-    assert!(
-        min_ratio > 100.0,
-        "NJOY/ours should be at least 100x everywhere (measured 3113x rising to \
-         139210x); the smallest seen was {min_ratio:.1}x. If this shrinks, \
-         either the port has started reproducing the defect or the oracle changed."
-    );
-    println!(
-        "  reproduced NJOY's Fe-58 totals to {worst_repro:.2e} using the \
-         fall-through; NJOY exceeds ours by {min_ratio:.0}x at minimum"
-    );
+    // Same 7-figure text values on both sides: within 1e-12 relative, the
+    // decode noise the other gates here see as 1e-13.
+    compare_stored_values(&FE58, 1.0e-12);
 }
 
-/// `csunr1` (`reconr.f90:3826-4077`) for Case A, reproduced **including its
-/// defect**, to prove the Fe-58 diagnosis rather than assert it.
-///
-/// Differs from production in exactly one way, and deliberately: `unfac`
-/// (`:4473-4496`) has no `l >= 3` branch, so `vl` and `ps` are carried over
-/// from the previous call, and `vl = vl*e2` inside the J loop (`:4010`)
-/// multiplies `vl` by another `sqrt(E)` per J-state. **Never call this from
-/// anything but this test.**
-///
-/// Returns the stored total (elastic + fission + capture) in barns.
-fn reproduce_csunr1_with_upstream_fall_through(range: &UnresolvedRange, e: f64) -> f64 {
-    // Porter-Thomas quadrature for mu = 1 (`gnrl`, reconr.f90:4508-4530).
-    const QW: [f64; 10] = [
-        1.1120413e-1,
-        2.3546798e-1,
-        2.8440987e-1,
-        2.2419127e-1,
-        0.10967668,
-        0.030493789,
-        0.0042930874,
-        2.5827047e-4,
-        4.9031965e-6,
-        1.4079206e-8,
-    ];
-    const QP: [f64; 10] = [
-        3.0013465e-3,
-        7.8592886e-2,
-        4.3282415e-1,
-        1.3345267,
-        3.0481846,
-        5.8263198,
-        9.9452656,
-        15.782128,
-        23.996824,
-        36.216208,
-    ];
-
-    let UnresolvedCase::CaseA {
-        awri,
-        ap,
-        spi,
-        l_states,
-    } = &range.case_
-    else {
-        panic!("this reproduction covers Case A only");
-    };
-    let (awri, ap, spi) = (*awri, *ap, *spi);
-    let rat = awri / (awri + 1.0);
-    let aw = awri * AMASSN_AMU;
-    // `naps` handling, `csunr1:3950-3958`.
-    let aa = match range.naps {
-        0 => 0.123 * aw.r_cbrt() + 0.08,
-        _ => ap,
-    };
-    let konst = (2.0 * PI * PI) / (WAVE_K * rat).r_powi(2);
-
-    let (mut elastic, mut capture) = (0.0_f64, 0.0_f64);
-    // `vl`/`ps` are Fortran locals of `csunr1`, so they persist across l and j.
-    // That persistence IS the defect being reproduced.
-    let (mut vl, mut ps) = (0.0_f64, 0.0_f64);
-    for state in l_states {
-        let ll = state.l;
-        let mut spot = 0.0;
-        for (jdx, j) in state.j_states.iter().enumerate() {
-            let gj = (2.0 * j.aj + 1.0) / (4.0 * spi + 2.0);
-            let e2 = e.sqrt();
-            let k = rat * e2 * WAVE_K;
-            let (rho, rho_c) = (k * aa, k * ap);
-            assert!(
-                (j.amun - 1.0).abs() < 1e-9,
-                "this reproduction hard-codes the mu = 1 quadrature; AMUN = {}",
-                j.amun
-            );
-            // `call unfac(ll,rho,rhoc,amun,vl,ps)` -- for ll >= 3 it assigns
-            // NEITHER output, so both keep their previous values.
-            if ll <= 2 {
-                let (v, p) = penetrability_factor(ll, rho, rho_c);
-                // `unfac` folds AMUN into vl (`vl=amun*...`); ours does not.
-                vl = v * j.amun;
-                ps = p;
-            }
-            vl *= e2; // `:4010`, inside the j loop.
-            if jdx == 0 {
-                spot = 4.0 * PI * (2.0 * ll as f64 + 1.0) * (ps.r_sin() / k).r_powi(2);
-            }
-            let gnx = j.gno * vl;
-            let den = e * j.d;
-            let temp = konst * gj * gnx / den;
-            let (mut s, mut c) = (0.0, 0.0);
-            for i in 0..10 {
-                s += QW[i] * QP[i] * QP[i] / (gnx * QP[i] + j.gg);
-                c += QW[i] * QP[i] / (gnx * QP[i] + j.gg);
-            }
-            let add = konst * gj * 2.0 * gnx * ps.r_sin().r_powi(2) / den;
-            elastic += s * temp * gnx - add;
-            capture += c * temp * j.gg;
-        }
-        elastic += spot;
-    }
-    elastic + capture
-}
-
-/// The `unfac` defect reaches a **shipping** library, not just a pre-release.
-///
-/// # Why this test exists
-///
-/// The natural first objection to the Fe-58 evidence is that our copy is
-/// `ENDF/B-VIII.0 Beta4` — a pre-release — so whatever is wrong with it was
-/// presumably fixed before distribution. That objection is wrong, and this
-/// gate is what makes it checkable instead of arguable.
-///
-/// The released ENDF/B-VIII.0 Fe-58 (`----ENDF/B-VIII.0 MATERIAL 2637`,
-/// `DIST-FEB18`, eval Oct-2016, NDS **148**, 214 (2018)) carries an unresolved
-/// parameter block **character-for-character identical** to Beta4's: the same
-/// `3.5e5 .. 3.0e6 eV` range, `LRU=2, LRF=1, LFW=0, LSSF=1`, and the same
-/// `NLS = 4` with the same widths on all four L-states. The two therefore
-/// produce byte-identical MF=2/MT=152 through NJOY, superluminal values and
-/// all.
-///
-/// # Methodology
-///
-/// Compare the MF=2/MT=151 records of the two evaluations from the start of
-/// the `LRU=2` range header onward, field by field as decoded numbers. Then
-/// assert both reach `L = 3`, since that is the precondition for the defect.
-///
-/// # Results (2026-09-15)
-///
-/// All 13 records of the unresolved block match exactly. `NLS = 4` on both.
-/// NJOY's stored total is `1.422225e4 b` at 350 keV and `6.620656e5 b` at
-/// 3 MeV on **both** tapes — identical to seven figures.
-///
-/// # What this does and does not establish
-///
-/// It establishes that one shipping evaluation in ENDF/B-VIII.0 trips the
-/// defect. It says **nothing** about how many others do; that survey is open
-/// (`gh:#211`). It also does not make the defect dangerous here: Fe-58 is
-/// `LSSF = 1`, so `genunr` returns at `reconr.f90:1694` and the bad table
-/// never enters MF=3. The combination that would reach a transport
-/// calculation is `NLS > 3` **and** `LSSF = 0`, which no evaluation held here
-/// exhibits.
 #[test]
 fn released_and_beta_fe58_carry_the_same_unresolved_parameters() {
     let (Some(beta), Some(rel)) = (

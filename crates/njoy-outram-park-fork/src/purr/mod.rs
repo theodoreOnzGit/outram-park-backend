@@ -66,7 +66,7 @@ pub use ladder::{
     generate_ladder, infinite_dilution_reference, read_heating_cross_sections,
     InfiniteDilutionResult, LadderResonance, Rng, SequenceLadderParams,
 };
-pub use tables::{UrrProbabilityTables, UrrSample, PURR_SEED};
+pub use tables::{PurrHeating, UrrProbabilityTables, UrrSample, PURR_SEED};
 pub use unrest::{probability_table, sample_ladder, ConvergenceStats, LadderSamples, ProbabilityTable, ProbabilityTableResult};
 
 use crate::NjoyError;

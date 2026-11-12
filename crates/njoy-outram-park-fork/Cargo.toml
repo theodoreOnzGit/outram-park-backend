@@ -198,6 +198,11 @@ path = "tests/openmc_notebooks_data/main.rs"
 name = "njoy-tui"
 path = "src/bin/njoy-tui/main.rs"
 
+# `njoy-deck <deck> [workdir]`: run an NJOY input deck (gh:#1369).
+[[bin]]
+name = "njoy-deck"
+path = "src/bin/njoy_deck.rs"
+
 # ── rayon: native + Android only ─────────────────────────────────────────────
 # rayon-core does not build for wasm32-unknown-unknown at all — it needs OS
 # threads and fails with "cannot find module or crate sys". So it is

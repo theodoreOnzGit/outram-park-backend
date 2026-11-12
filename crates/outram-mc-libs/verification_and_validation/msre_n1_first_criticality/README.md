@@ -4,6 +4,40 @@
 > unreviewed. **Validation** against a measurement, on a model with stated
 > simplifications.
 
+## Numbers to quote (summary, 2026-11-12)
+
+The default model is **arm C (natural Mo), RVS, 30P graphite, cold
+dimensions, no shield, rods out**. σ comes from the seed spread. Every row
+links to the section that holds its method, data and caveats. This summary
+adds no number of its own.
+
+| quantity | this model | reference | section |
+|---|---|---|---|
+| N-1 k at 1181 °F (6 seeds) | 1.00882 ± 0.00022, **+801 ± 22 pcm** | k_ref 1.00080 (ORNL-4233); measurement ±200–270 pcm | [N-1](#n-1-2026-11-09) |
+| N-1 against the 1000 pcm band (maintainer, 2026-11-10) | **passes** | — | [Methodology](#methodology) |
+| ²³⁵U concentration coefficient | **0.231 ± 0.005** | measured 0.223; ORNL calc. 0.234–0.248 | [concentration coefficient](#n-1-the-²³⁵u-concentration-coefficient-2026-11-11-gh1128) |
+| equivalent ²³⁵U excess behind +801 pcm | about 1.14 g/L (3.5 %) | measured 32.8 ± 0.3 g/L | same |
+| α_iso (×10⁻⁵ /°F) | **−7.54 ± 0.40** | measured −7.24 | [N-3](#n-3-isothermal-temperature-coefficient-2026-11-09-gh1129) |
+| fuel coefficient | **−4.44 ± 0.40** | measured −4.7 ± 0.7 (found after the run) | same |
+| graphite coefficient | **−2.82 ± 0.43** | not measured | same |
+| T-1 natural periods, with the arm-C split | **−11 % to +8 %** of TM-1647 | — | nee_soon T-1 README |
+
+**Ablations.** None of these is in the default; each is the maintainer's
+call.
+
+| change | effect on N-1 k | N-1 against the band |
+|---|---|---|
+| hot dimensions | +193 ± 23 pcm (12 seeds, paired) | +992, inside by 8 pcm |
+| 10P / crystalline graphite law | −71 ± 32 / −70 ± 35 pcm | passes |
+| TM-0730 end regions | +20 ± 45 pcm | passes |
+| thermal shield (stated / close-packed) | +779 ± 43 / +895 ± 66 pcm | fails |
+| 99.9926 % Li-7 | +730 ± 60 pcm | fails |
+| INOR-8's Mo omitted (arm A, measured under DBRC) | +441 ± 45 pcm | +1197, fails |
+
+**Open, waiting on the maintainer:**
+- the rod worth, whose geometry is built but needs the Gd tapes;
+- the defaults in the ablation table above.
+
 ## Methodology
 
 **Reference: ORNL-4233** (Prince et al. 1968), §2, Table 1, p. 11.
@@ -56,6 +90,23 @@ A and B are kept as ablations.** INOR-8 is 16.5 wt % Mo:
 | A, `--mo omitted` | left out |
 | B, `--mo mo95` | beta ⁹⁵Mo tape at the thermal absorption of natural Mo (σ_a 2.48 / 13.4 b, quoted from memory) |
 | **C, `--mo natural`** | natural Mo, ⁹²⁻¹⁰⁰Mo at IUPAC 2013 abundances, same element density (`scripts/inor8.py`) |
+
+**Reading the `arm` labels in `data/` (added 2026-11-12).** The example
+writes no resonance-scattering tag. The **`+rvs`** in some labels was added by
+hand when those rows were recorded, on 2026-11-09/10, to tell them from the
+DBRC runs before them. Since then the binary's untagged rows are RVS. So:
+
+- **DBRC:** `mo-natural@salt1181F/graphite1181F` with no further suffix
+  (seeds 1–6, some duplicated), every `mo-omitted@…` row without `+rvs`,
+  `mo95-equivalent…`, and the `msre_n1_salt…` rows in `n3.csv`.
+- **RVS:** every `+rvs` row, and every other untagged `mo-natural@…` row:
+  - `+ends-tm0730`, `+shield-*`, `+u235x*`;
+  - `+hot-dims` seeds 4–6 in `keff.csv`;
+  - every `mo-natural@…` row in `n3.csv`.
+
+  Each of these is stated as RVS in its own section.
+- The 6-seed default of 1.00882 is the `mo-natural+rvs@salt1181F/graphite1181F`
+  seeds 1–6. Seeds 1–3 appear twice, with identical values.
 
 **Data and code:**
 
@@ -173,14 +224,14 @@ Prediction posted on gh:#1128 before the run: k up by +50 to +300 pcm.
 | cold (as drawn) | 6 | 1.00882 ± 0.00022 | +801 ± 22 pcm |
 | **hot (1181 °F)** | 3 (1.01103, 1.01062, 1.00954) | **1.01040 ± 0.00045** | **+959 ± 45 pcm** |
 
-- **Hot − cold = +158 ± 50 pcm (3.2σ)**, inside the prediction.
+- ~~**Hot − cold = +158 ± 50 pcm (3.2σ)**, inside the prediction.~~ **With six seeds (2026-11-12, below): +161 ± 38 pcm**; the three-seed value stands within its σ.
 - **The residual grows**, as the screen on gh:#1128 expected: the core
   grows 0.17 % each way (less leakage) and the can gap, downcomer and
   plenums gain salt.
 - **Not adopted as the default.** Hot dimensions are the more physical
   state, but making them the default re-states every N-1 and N-3 number
   on this page; that is the maintainer's call. The N-3 coefficients
-  ignore expansion over their ±50 °F swing. If the +158 pcm over 1111 °F
+  ignore expansion over their ±50 °F swing (~~not measured~~ **measured 2026-11-11 as an ablation, N-3 section: −0.69 ± 0.54, not resolved**). If the +158 pcm over 1111 °F
   is linear, expansion adds about **+0.14 × 10⁻⁵ /°F** (14 pcm over the
   100 °F swing): about 2 % of α_iso, positive, and inside N-3's ±0.5–0.7
   σ. Not measured at N-3's temperatures.
@@ -533,6 +584,117 @@ Linux, CPU only).
   the model's state.
 - **The default is not changed.**
 
+### N-1: neutron balance against ORNL's design calculation (2026-11-12, gh:#1128)
+
+**Question:** where does the +801 pcm sit? Is it leakage, structure, or
+the salt?
+
+**Reference:** ORNL-TM-0730 Table 3.6, the balance for fuel C, clean and
+critical, per 10⁵ neutrons produced.
+- It is a design calculation, not a measurement.
+- Fuel C is ORNL's 35 %-enriched model salt; ours is the as-loaded salt, at
+  about 31 % by atoms.
+- So this comparison **locates** a difference. It validates nothing.
+
+**Instrument:** `--balance-csv` (opt-in), a material-filter tally of
+absorption and ν-fission, read per 10⁵ ν-fission. Leakage is
+`10⁵/k − Σ absorption`, so it also carries the Be-9 (n,2n) gain. ORNL's
+table, which closes at exactly 10⁵, folds that gain the same way.
+- k is bit-identical with the tally on: seeds 1–3 reproduce
+  `data/keff.csv`'s RVS rows to every digit.
+- Arm C, RVS, 30P, cold, seeds 1–3, at about 750 s per seed (4-core Intel
+  Xeon, 4 threads, 15.7 GiB RAM, Linux, CPU only).
+- Per-seed sums are in `data/balance.csv`.
+
+| per 10⁵ neutrons produced | this model (3 seeds) | ORNL fuel C | difference | predicted |
+|---|---|---|---|---|
+| salt (all nuclides) | 64,957 ± 19 | 65,826 | −869 | 63,000–67,000 |
+| graphite | 1,244 ± 1 | 796 | +448 | 900–1,500 |
+| INOR-8 | 8,304 ± 4 | 9,682 | −1,378 | 7,500–9,500 |
+| sample baskets | 817 ± 2 | in ORNL's main-core columns | — | — |
+| leakage, with (n,2n) gain | 23,771 ± 33 | 23,696 | +75 | 22,000–26,000 |
+| **total losses (10⁵/k)** | **99,092 ± 32** | 100,000 | **−908** | — |
+
+- **Every row is inside the prediction** posted on gh:#1128. A short
+  smoke run had been seen before the posting, and the post said so.
+- **Leakage agrees with ORNL's to 0.3 %.** The geometry's escape
+  probability, with its plenums, downcomer and cold dimensions, is not where
+  the excess is.
+- **The 908 missing losses are absorption.** Of these:
+  - the salt carries 869;
+  - graphite, INOR-8 and the baskets together carry a net 113;
+  - within that net 113, INOR-8 is 1,378 lower than ORNL's (561 lower even
+    after adding all of our basket absorption to it), and graphite is 448
+    higher.
+- **Graphite reads 56 % higher than ORNL's.** That is the boron (0.8 ppm)
+  and the 30P S(α,β), against ORNL's 1960s graphite cross section. It works
+  against the excess.
+- **The salt's deficit is the lead this gives.** Per neutron produced,
+  U-235's own absorption is fixed by η. So a salt shortfall is a shortfall
+  in its other absorbers: U-238, Li-6, F-19, Be-9 or Zr. Our salt has *more*
+  U-238 per U-235 than fuel C (31 % against 35 % enriched), so U-238 should
+  pull the other way. **This instrument cannot split the salt by nuclide**,
+  because the tally has no nuclide filter. That split is the next measurement.
+- **Not a validation, and the default is not changed.**
+
+### N-1: the salt's absorption by nuclide (2026-11-12, gh:#1128)
+
+**Question:** the balance above puts the excess in the salt. Which salt
+nuclides carry it?
+
+**Reference:** ORNL-TM-0730 Table 3.7 (p. 52, read from the rendered page,
+because the OCR garbled the column heads), fuel C, per 10⁵ produced.
+
+**Instrument:** `--salt-spectrum-csv` (opt-in). It tallies the salt's flux and
+absorption on 20 000 logarithmic energy bins:
+- 1 000 bins over 1e-5–1 eV;
+- 17 000 over 1 eV–100 keV, 3 400 per decade, so a bin at U-238's 6.67 eV
+  resonance is a fifth of its width;
+- 2 000 over 100 keV–20 MeV.
+
+It then folds that flux with each salt nuclide's σ_a at the bin's geometric
+midpoint, at the salt temperature, infinitely dilute in the unresolved
+range.
+- **Self-check:** the folded total reproduces the directly tallied salt
+  absorption to **4.8–5.2e-5** on all three seeds.
+- That tallied absorption equals the balance run's to 1e-6, and k is
+  identical.
+- A first version with 100 000 bins was killed for memory at 14 GB, because
+  the tally is copied per batch. This one peaked at 5.8 GB.
+- Seeds 1–3, arm C, RVS, about 1 700 s per seed (4-core Intel Xeon, 4
+  threads, 15.7 GiB RAM, Linux, CPU only). Sums are in `data/salt_split.csv`.
+
+| per 10⁵ produced | this model | ORNL fuel C | difference | predicted |
+|---|---|---|---|---|
+| U-235 | 50,698 ± 3 | 51,329 | −631 | — |
+| U-238 | 9,562 ± 18 | 8,967 | +595 | 9,000–10,000 |
+| U-234 + U-236 | **0 (not in the model)** | 262 | −262 | not predicted |
+| Li-6 | 1,821 | 1,056 | +765 | 1,500–2,100 |
+| Li-7 | 881 | 599 | +282 | — |
+| Be | 310 | 315 | −5 | 235–395 |
+| **Zr** | **800 ± 1** | **1,850** | **−1,050** | 600–1,100 |
+| **F**, (n,α) + (n,γ) | **889** | **1,449** | **−560** | 700–1,100 |
+
+- **Every predicted row is inside its band.** A short smoke run had been
+  seen before the prediction was posted, and the post said so.
+- **Zr and F carry the deficit.** Our model has 1,610 fewer absorptions
+  per 10⁵ produced in them than ORNL's. Li-6, Li-7 and U-238 go the other way:
+  - Li-6 is +765, partly because our 100 ppm is above fuel C's 74 ppm;
+  - U-238 is +595, because our salt has more U-238 per U-235.
+- **These are nuclear-data or composition differences, and the comparison
+  cannot say whose are right.** ORNL's are 1960s cross sections. Ours are
+  ENDF/B-VIII.0. A Zr deficit of a factor 2.3 at a near-equal Zr/Li ratio is
+  a cross-section question. The next step is to read both evaluations'
+  thermal and resonance Zr and F absorption against independent
+  measurements.
+- **Found on the way: U-234 and U-236 are missing from our salt.** ORNL's
+  table carries 262 absorptions in them. `scripts/salt.py` counts the
+  enriched lot's 7 % non-²³⁵U as U-238. TM-0730 Table 3.2 (p. 21) assumes
+  the 93 % uranium to be **1 / 93 / 1 / 5 atom %** U-234 / U-235 / U-236 /
+  U-238. That is a design assumption, not an assay of the as-loaded lot. A
+  sensitivity run with that composition is the next measurement.
+- **Not a validation, and the default is not changed.**
+
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
 Salt density follows −1.18e-4 /°F (ORNL-4233 §4.1). Runs at 1131 °F and
@@ -548,14 +710,14 @@ Salt density follows −1.18e-4 /°F (ORNL-4233 §4.1). Runs at 1131 °F and
 | coefficient (×10⁻⁵ /°F) | this model | ORNL calc. (ORNL-4233 p. 38) | measured (p. 37) |
 |---|---|---|---|
 | **isothermal** | **−7.19 ± 0.50** | −8.1 | **−7.24** (69.9 kg), −7.3 (71.7 kg) |
-| fuel | −3.82 ± 0.44 | −4.1 | — |
+| fuel | −3.82 ± 0.44 | −4.1 | ~~—~~ **−4.7 ± 0.7** (p. 42; see below) |
 | graphite | −3.77 ± 0.65 | −4.0 | — |
 
 - **Isothermal against the measurement:** +0.05 ± 0.50, i.e. 0.1σ.
 - **Every value is inside its posted prediction**, and the posted precision
   target σ ≤ 0.5 is met.
 - **The components add:** −7.59 against −7.19.
-- **Mo:** arm A only. Mo absorption is nearly flat in temperature, so the
+- **Mo:** arm A only (~~not measured~~ **measured on arm C 2026-11-11, below**). Mo absorption is nearly flat in temperature, so the
   coefficient should be insensitive to it. That expectation was not
   measured.
 
@@ -608,6 +770,172 @@ Both components lie inside the band posted on gh:#1129 before the run
 (−4.6 to −3.0). The components add to −7.81 against −7.12 for the
 isothermal run. T-1 re-run with these: −14 % to +6 % of the measured
 periods (nee_soon T-1 README).
+
+**On the default model, arm C with natural Mo (2026-11-11, gh:#1129).**
+Every coefficient above was measured on arm A (Mo omitted); the N-1
+default has been arm C since 2026-11-09. Isothermal, RVS, 30P, cold
+dimensions, seeds 1–6 at each temperature; rows `mo-natural@salt1131F…`
+and `…salt1231F…` in `data/n3.csv`. About 720 s per seed (4-core Intel
+Xeon, 4 threads, 15.7 GiB RAM, Linux, CPU only).
+
+| temperature | k (6 seeds) | seed sd | internal σ |
+|---|---|---|---|
+| 1131 °F | 1.01245 ± 0.00032 | 78 pcm | 63 pcm |
+| 1231 °F | 1.00478 ± 0.00024 | 58 pcm | 64 pcm |
+
+| | α_iso (×10⁻⁵ /°F) |
+|---|---|
+| **arm C (natural Mo, the default)** | **−7.54 ± 0.40** |
+| arm A (Mo omitted), RVS, six seeds | −7.12 ± 0.39 |
+| C − A | −0.42 ± 0.56 (0.8σ), not resolved |
+| measured (ORNL-4233 p. 37) | −7.24; arm C is −0.30 from it (0.8σ) |
+
+- **Inside the prediction** posted on gh:#1129 before the run: |C − A| ≤ 0.5
+  and α_iso(C) in −7.6 to −6.6. It lands near the band's negative edge.
+  The predicted sign (C slightly less negative) is not what the central
+  value shows, but the difference is not resolved.
+- **The Mo does not change N-3** at this precision. ~~The split itself was
+  not re-measured on arm C.~~ **The split was re-measured on arm C the same
+  day (below), and T-1 re-run with it.**
+- **Consistency with N-1:** the mean of the two temperatures, 1.00862, sits
+  20 ± 40 pcm from arm C's 1181 °F value of 1.00882.
+- **Quote −7.54 ± 0.40 for the default model.** Arm A's −7.12 stays as the
+  Mo-omitted ablation.
+
+**Fuel/graphite split on arm C (2026-11-11, gh:#1129).** Runs C (salt
+1231 / graphite 1131 °F) and D (1131 / 1231 °F), arm C, RVS, 30P, cold,
+seeds 1–6 each, against the arm-C 1131 °F run above; rows
+`mo-natural@salt1231F/graphite1131F` and `…salt1131F/graphite1231F` in
+`data/n3.csv`. About 720 s per seed, same hardware.
+
+| run | k (6 seeds, sem) |
+|---|---|
+| 1131 / 1131 (reference) | 1.01245 ± 0.00032 |
+| C 1231 / 1131 | 1.00792 ± 0.00026 |
+| D 1131 / 1231 | 1.00957 ± 0.00031 |
+
+| coefficient (×10⁻⁵ /°F) | arm C (default) | arm A, RVS | posted band |
+|---|---|---|---|
+| fuel | **−4.44 ± 0.40** | −4.48 ± 0.54 | −5.3 to −3.7 |
+| graphite | **−2.82 ± 0.43** | −3.33 ± 0.40 | −4.1 to −2.5 |
+| sum | −7.26 | −7.81 | within ~1 of −7.54 |
+
+- **Both components are inside the prediction** posted on gh:#1129 before the
+  run, and they add to within 0.3 of the arm-C isothermal value.
+- **T-1 re-run with them** (nee_soon T-1 README): **−11 % to +8 %** of
+  TM-1647's measured periods. **Quote these for the default model.**
+- **Against ORNL's measured fuel coefficient (added 2026-11-11).** ~~This
+  page listed no measured fuel coefficient.~~ **CORRECTED:** ORNL-4233 §4.2
+  (pp. 41–42) reports two transient tests in which a hot slug of salt
+  entered the core before the graphite could follow: **−(4.9 ± 2.3)** and,
+  repeated with less noise, **−(4.7 ± 0.7) × 10⁻⁵ /°F**. ORNL notes that
+  measurement-lag effects keep the uncertainty of the second from being well
+  assessed. Arm C's −4.44 ± 0.40 is **+0.26 ± 0.81 (0.3σ)** from −4.7 and
+  inside −4.9 ± 2.3. **This comparison was not predicted before the runs:**
+  the reference was found after them, so it carries no pre-registered band.
+  The graphite coefficient was not measured separately.
+
+**Thermal expansion in N-3, an ablation (2026-11-11, gh:#1129).** Every N-3
+coefficient above uses cold dimensions. `--hot-dims` expands the graphite and
+INOR-8 to each run's own temperature (TM-0728 §5.3 coefficients, as in the
+N-1 hot-dims section). Arm C, RVS, 30P, seeds 1–6 at each temperature; rows
+`…+hot-dims` in `data/n3.csv`. About 720 s per seed, same hardware.
+
+| temperature | cold k (6 seeds) | hot-dims k (6 seeds) | hot − cold |
+|---|---|---|---|
+| 1131 °F | 1.01245 ± 0.00032 | 1.01532 ± 0.00027 | +279 ± 41 pcm |
+| 1231 °F | 1.00478 ± 0.00026 | 1.00690 ± 0.00026 | +210 ± 37 pcm |
+
+| | α_iso (×10⁻⁵ /°F) |
+|---|---|
+| cold (the default) | −7.54 ± 0.40 |
+| hot dimensions | **−8.23 ± 0.37** |
+| hot − cold | **−0.69 ± 0.54 (1.3σ)** |
+
+- **A miss on both predicted quantities** (posted on gh:#1129 before the
+  run). I predicted the shift at +0.14, inside ±0.6, and α_hot in −8.0 to
+  −6.8. The shift came out −0.69, and α_hot −8.23. **The sign was the
+  opposite of the prediction**, though at 1.3σ the shift is not resolved.
+- **What the prediction assumed:** that hot − cold grows linearly with
+  temperature (N-1's +158 ± 50 pcm over 1111 °F, so about +14 pcm per
+  100 °F). The two pairs show the opposite: +279 pcm at 1131 °F and +210
+  at 1231 °F. Neither agrees well with the linear estimate (about +150 and
+  +165). The 1131 °F point is the outlier. The test cannot tell whether that
+  is a fluctuation or a real non-linearity: the difference between the two
+  pairs is 69 ± 55 pcm.
+- **Bound:** at 2σ, expansion moves α_iso by less than about 1.8 × 10⁻⁵ /°F
+  in magnitude, on either side. The README's earlier "about 2 % of α_iso"
+  estimate is neither confirmed nor excluded.
+- **Against the measurement:** the hot-dims value is −0.99 ± 0.37 from the
+  measured −7.24 (2.7σ), and the cold value −0.30 (0.8σ). Whether the
+  comparison should use hot dimensions is part of the open hot-dims default
+  question, which is the maintainer's call.
+- **The default is not changed.**
+
+**Follow-up: six more seeds at 1131 °F (2026-11-11, gh:#1129).** To test
+whether the +279 pcm pair was a fluctuation, seeds 7–12 were run at 1131 °F,
+cold and hot. The prediction posted before the run: seeds 7–12 alone give
++150 to +250 pcm, and the 12-seed pool lands at about +200–260.
+
+| 1131 °F | cold k | hot-dims k | hot − cold |
+|---|---|---|---|
+| seeds 1–6 | 1.01245 ± 0.00032 | 1.01532 ± 0.00027 | +279 ± 41 pcm |
+| seeds 7–12 | 1.01240 ± 0.00026 | 1.01492 ± 0.00032 | **+245 ± 41 pcm** |
+| seeds 1–12 | 1.01243 ± 0.00018 | 1.01512 ± 0.00021 | **+262 ± 28 pcm** |
+
+- **Seeds 7–12 are inside their predicted band; the pool is 2 pcm above
+  its own.** The new seeds reproduce the excess, so the +279 pcm was not
+  a fluctuation of seeds 1–6.
+- **What stays unresolved** is the trend with temperature. 1231 °F gives
+  +210 ± 37, so the difference between the two pairs is 52 ± 47 pcm.
+  Against the linear estimate of about +150 from N-1's three-seed 1181 °F
+  pair (+158 ± 50), 1131 °F is 111 ± 57 pcm high (1.9σ). ~~The likelier reading
+  is that the three-seed N-1 hot-dims value is low, not that expansion is
+  non-linear. Neither is tested.~~ **TESTED 2026-11-12 and refuted:** N-1's
+  seeds 4–6 at 1181 °F give +168 ± 56 pcm, below the +180 to +300 posted on
+  gh:#1128 before the run, and the six-seed pool is **+161 ± 38**, below
+  its predicted 190–240. The 1181 °F value was not low.
+- **The three temperatures now read +262 ± 28 (1131 °F), +161 ± 38
+  (1181 °F) and +210 ± 37 (1231 °F).** Smooth expansion should raise hot −
+  cold steadily with temperature, and this pattern does not: 1181 °F sits
+  101 ± 47 pcm (2.1σ) below 1131 °F. At 2σ, with seed spreads that have
+  run up to twice the internal σ on this model, I record it as **not
+  resolved**, not as a physics effect. No mechanism has been identified, and
+  none has been tested.
+- **Paired by seed** (cold and hot runs of the same seed), hot − cold is
+  +262 ± 19 (1131 °F, 12 pairs), +161 ± 37 (1181 °F, 6 pairs; seed 3
+  pairs to only +5) and +210 ± 24 (1231 °F, 6 pairs). The dip at 1181 °F
+  is 2.4σ against 1131 °F on this estimator. Pairing shrinks the σ at 1131
+  and 1231 °F, so cold and hot runs of a seed are correlated. It does not
+  shrink it at 1181 °F. ~~The dip is still unresolved.~~
+- **The dip, tested (2026-11-12):** seeds 7–12 at 1181 °F, cold and hot.
+  The prediction posted on gh:#1128 before the run was a seed-paired
+  +170 to +300 pcm, and a 12-seed pool of +190–250.
+
+  | 1181 °F, seed-paired hot − cold | |
+  |---|---|
+  | seeds 1–6 | +161 ± 37 pcm |
+  | seeds 7–12 | **+225 ± 22 pcm** (inside the predicted band) |
+  | seeds 1–12 | **+193 ± 23 pcm** (inside the predicted band) |
+
+  **The dip was a fluctuation of seeds 1–6.** The twelve-seed pattern is
+  +262 ± 19 (1131 °F), +193 ± 23 (1181 °F) and +210 ± 24 (1231 °F). That is
+  roughly flat at about +220 pcm, with 1131 °F now the high point (2.3σ
+  above 1181 °F). It still does not show the slow rise the linear estimate
+  assumed. At this statistics, hot − cold does not vary resolvably over
+  1131–1231 °F.
+- **N-1 with twelve seeds at 1181 °F** (`data/keff.csv`): cold **1.00876 ±
+  0.00019 (+795 pcm)**, hot dimensions **1.01073 ± 0.00022 (+992 pcm)**.
+  - The cold value agrees with the six-seed +801 ± 22, which stays the
+    number quoted throughout this page.
+  - The hot-dims model sits inside the 1000 pcm band with only 8 pcm to
+    spare. Within its σ, it could be on either side.
+- **Consequence for N-3:** the expansion term in α_iso is not determined at
+  this statistics. Its sign is uncertain and its size is below about
+  1.5 × 10⁻⁵ /°F.
+- **α_iso with twelve seeds at 1131 °F** (six at 1231 °F): cold **−7.52 ±
+  0.32**, hot **−8.04 ± 0.33**, shift **−0.52 ± 0.46 (1.1σ)**. The cold value
+  agrees with the six-seed −7.54 ± 0.40, which stays the quoted number.
 
 ### A finding about the statistics
 

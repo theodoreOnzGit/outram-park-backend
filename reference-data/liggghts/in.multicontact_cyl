@@ -1,0 +1,38 @@
+# Multicontact surface model + fix multicontact/halfspace (Brodu et al. 2016),
+# gh:#1410: multicontact on a z-cylinder wall (surfacesClose history of a cylinder): six soft
+# apart, so several carry a wall contact AND pair contacts and the half-space
+# radius expansion is active. No gravity. Both codes start from
+# multicontact_cyl_init.csv.
+# GEOMETRY RULE (upstream oddity, found 2026-11-11): every particle that gets a close
+# (non-overlapping) wall history must lie within half a skin (1 mm) of the wall surface
+# or be farther than one radius: FixContactPropertyAtomWall::clear() allocates
+# isNear(half_skin) slots, a particle outside that gets a zero-size allocation that
+# ALIASES the next particle's slot (tag 3 read tag 5's surface position).
+# Needs multicontact_cyl.data = csv2data.sh multicontact_cyl_init.csv multicontact_cyl.data 0.01 2500 -0.005 0.03
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+soft_particles	yes
+neighbor	0.002 bin
+neigh_modify	delay 0
+read_data	multicontact_cyl.data
+fix 		m1 all property/global youngsModulus peratomtype 1.0e5
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.5
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.3
+pair_style	gran model hertz tangential history surface multicontact
+pair_coeff	* *
+timestep	2e-6
+fix		wlo all wall/gran model hertz tangential history surface multicontact primitive type 1 zplane 0.0
+fix		whi all wall/gran model hertz tangential history surface multicontact primitive type 1 zplane 0.0195
+fix		wcyl all wall/gran model hertz tangential history surface multicontact primitive type 1 zcylinder 0.0125 0.0 0.0
+fix		mc all multicontact/halfspace geometric_prefactor 1.125
+fix		integr all nve/sphere
+dump		d1 all custom 20 dump.multicontact_cyl id x y z vx vy vz omegax omegay omegaz
+dump_modify	d1 sort id
+thermo		100
+thermo_modify	lost ignore norm no
+run		600

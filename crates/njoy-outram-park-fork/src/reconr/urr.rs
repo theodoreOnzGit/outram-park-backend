@@ -43,33 +43,27 @@
 //! section is an infinite flight in transport. See `bn:op-12lu` / gh:#202's
 //! sibling thread.
 //!
-//! # Why this is wiring rather than a 632-line port
+//! # `csunr1`/`csunr2`: translated, not wired (CORRECTED 2026-11-11, gh:#1448)
 //!
-//! RECONR computes the dilute cross sections with its own `csunr1`/`csunr2`
+//! ~~RECONR computes the dilute cross sections with its own `csunr1`/`csunr2`
 //! (`reconr.f90:3826-4317`, 491 lines). Those were **not** ported, and they did
-//! not need to be: [`crate::unresr::unresolved_cross_sections`] — the ETOX
-//! kernel UNRESR already uses — reduces to exactly the same numbers when it is
-//! handed a single dilution of `1e10`. That is measured, not assumed. Against
-//! NJOY2016's own U-234 PENDF, at `sig0 = 1e10`:
+//! not need to be: [`crate::unresr::unresolved_cross_sections`] -- the ETOX
+//! kernel UNRESR already uses -- reduces to exactly the same numbers when it is
+//! handed a single dilution of `1e10`.~~ That held to the 7 printed figures where
+//! `csunr` evaluates the parameters at each energy, and failed by one unit in the
+//! 7th figure where `csunr1` (`LFW = 1`) and `csunr2` **interpolate the cross
+//! sections between stored panel end points** (`ilast`, `enxt`, `elst`, `snxt`,
+//! `wide = 1.26`): ENDF/B-V U-235 (deck test 07) differed in 56 of 17 897 PENDF
+//! lines, and Pu-241 and Pu-238 in the MT=152 table. [`crate::reconr::csunr`] is
+//! now the literal translation of `csunr1`, `csunr2`, `unfac` and `gnrl` with that
+//! state kept, and [`SunrTable::build`] uses it; all three decks' PENDF tapes are
+//! identical line for line, and the routines are bit-compared against the
+//! compiled upstream (`tests/reconr_csunr_code_to_code.rs`).
 //!
-//! | E (eV) | total | elastic | fission | capture |
-//! |---|---|---|---|---|
-//! | 1.7e3 | 2.032567e1 | 1.779554e1 | 6.687414e-3 | 2.523447e0 |
-//! | 5.0e3 | 1.616041e1 | 1.476491e1 | 9.153020e-3 | 1.386346e0 |
-//! | 1.0e4 | 1.438603e1 | 1.335173e1 | 1.291686e-2 | 1.021381e0 |
-//!
-//! — identical to every one of the 7 figures NJOY prints, on all four
-//! reactions. This is the "search the workspace before building" rule paying
-//! for itself: an earlier note on the bead had estimated a 632-line port.
-//!
-//! That agreement holds at **26 of the 34 points** NJOY's PENDF carries in
-//! U-234's unresolved window. The other 8 are points NJOY *interpolates* from
-//! its MF=2/MT=152 table via `sigunr` rather than evaluating, and each is
-//! reproduced to 1e-7 or better by lin-lin interpolation of NJOY's own
-//! neighbours — so where this port and NJOY differ there, **this port is the
-//! more accurate of the two**. Established in
-//! `tests/reconr_urr_kernel_vs_njoy2016.rs`, which also records the three
-//! competing explanations that were tested and refuted first.
+//! The earlier 26-of-34 / "this port is the more accurate of the two" reading of
+//! U-234 was the same effect seen from the other side: the 8 points NJOY
+//! interpolates were reproduced by lin-lin interpolation of its own neighbours,
+//! which is exactly what `csunr2` does.
 //!
 //! # The grid
 //!
@@ -88,39 +82,35 @@
 //! literally; see [`unresolved_grid`] for the table and for what was wrong
 //! here before 2026-09-15.
 //!
-//! # Where this port deliberately does not match NJOY
+//! # Where this port matches NJOY's defect on purpose (CORRECTED 2026-11-11)
 //!
-//! One place, on one class of evaluation. RECONR's `unfac`
-//! (`reconr.f90:4473-4496`) has **no `l >= 3` branch** — `if (l.eq.0) … else
-//! if (l.eq.1) … else if (l.eq.2) … endif`, no `else` — so `vl` and `ps` are
-//! left at their previous values, and `csunr1` re-applies `vl = vl*e2`
-//! (`:4010`) inside its J loop, multiplying `vl` by another `sqrt(E)` per
-//! J-state. On an evaluation with `NLS > 3` that inflates the `l >= 3` neutron
-//! width by `E` and drives the stored cross section orders of magnitude past
-//! the unitarity limit.
+//! ~~Where this port deliberately does not match NJOY: one place, on one class of
+//! evaluation.~~ RECONR's `unfac` (`reconr.f90:4473-4496`) has **no `l >= 3`
+//! branch** -- `if (l.eq.0) ... else if (l.eq.1) ... else if (l.eq.2) ... endif`,
+//! no `else` -- so `vl` and `ps` keep their previous values, and `csunr1`
+//! re-applies `vl = vl*e2` (`:4010`) inside its J loop. On an evaluation with
+//! `NLS > 3` that inflates the `l >= 3` neutron width and drives the stored
+//! cross section orders of magnitude past the unitarity limit (Fe-58, ENDF/B-VIII.0
+//! Beta4: NJOY stores `1.42e4 b` at 350 keV against the evaluation's `4.57 b`).
 //!
-//! This port does not reproduce it, and that is not a local decision:
-//! [`crate::unresr::penetrability_factor`] clamps `l >= 2` to the `l = 2`
-//! formula because NJOY's **UNRESR** does exactly that — `uunfac`
-//! (`unresr.f90:1213-1239`) writes a bare `else` where RECONR's `unfac` and
-//! PURR's `unfac2` (`purr.f90:1487-1511`) write `else if (l.eq.2)`. The kernel
-//! here ports `uunfac`, so it is faithful to its own source, and the defect is
-//! confined to the two routines that fall through.
-//!
-//! Measured on Fe-58 (ENDF/B-VIII.0 Beta4, `NLS = 4`): NJOY stores
-//! `1.42e4 b` at 350 keV rising to `6.62e5 b` at 3 MeV, against this port's
-//! `4.57 b` and `4.76 b`, which track the evaluation's own MF=3.
-//! `tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs` reproduces NJOY's
-//! numbers from the defective recurrence to 2.7e-7, so this is a diagnosis
-//! rather than a difference of opinion. It affects `LSSF = 1` materials only
-//! in the self-shielding *ratios* UNRESR/PURR take, where the scale cancels.
+//! **Decision (gh:#1448, 2026-11-11): the MF=2/MT=152 builder follows upstream**,
+//! defect included, because RECONR's PENDF is what the deck driver and every
+//! differential compare; [`crate::reconr::csunr::unfac`] leaves `vl`/`ps` alone for
+//! `l >= 3` and the caller keeps them across J-states. `tests/reconr_mt152_all_
+//! unresolved_cases_vs_njoy2016.rs` now compares Fe-58's stored values directly.
+//! The effect is confined to RECONR's own MT=152 (and the MF=3 of `LSSF = 0`
+//! ranges, which have no `NLS > 3` evaluation here; Fe-58 is `LSSF = 1`, whose
+//! MF=3 is untouched). UNRESR's kernel
+//! ([`crate::unresr::penetrability_factor`]) still clamps `l >= 2` to the `l = 2`
+//! formula because NJOY's **UNRESR** does (`uunfac`, `unresr.f90:1213-1239`, a
+//! bare `else`), and PURR's `unfac2` falls through like RECONR's; that is
+//! unchanged here.
 
 use crate::endf::mt::MtReaction;
 use crate::mixr::mix::sigfig;
 use crate::reconr::{eval_lin_lin, ReconrSection};
 use crate::unresr::mf2::{ilist, UnresolvedCase, UnresolvedRange};
-use crate::unresr::unresolved_cross_sections;
-use crate::unresr::wfun::WTable;
+use crate::reconr::csunr::UnrState;
 use crate::NjoyError;
 
 /// The single dilution at which RECONR tabulates: infinite, as `genunr`'s
@@ -369,13 +359,12 @@ impl SunrTable {
     /// `gety1` of the tape's own TAB1.
     pub(crate) fn build(
         ranges: &[UnresolvedRange],
-        temperature_k: f64,
+        _temperature_k: f64,
         bkg: impl Fn(i32, f64) -> Option<f64>,
     ) -> Result<Option<Self>, NjoyError> {
         let Some(range) = ranges.first() else {
             return Ok(None);
         };
-        let table = WTable::new();
 
         // One merged grid across every range, as `eunr` is a single sorted list.
         let mut grid: Vec<f64> = Vec::new();
@@ -389,26 +378,20 @@ impl SunrTable {
         }
 
         let mut rows: Vec<(f64, [f64; 5])> = Vec::with_capacity(grid.len());
+        // `call csunr1(0,..); call csunr2(0,..)` (`genunr`, `:1667-1668`): fresh
+        // panel state, one slot per section (gh:#1448).
+        let mut state = UnrState::new(ranges.len());
         for &e in &grid {
             let mut row = [0.0_f64; 5];
             // `if (mode.ge.11.and.e.ge.elt(j).and.e.lt.eht(j))` (:1672):
             // the range's own top energy gets no unresolved contribution.
-            for r in ranges {
+            for (isect, r) in ranges.iter().enumerate() {
                 if e < r.el || e >= r.eh {
                     continue;
                 }
-                let out = unresolved_cross_sections(
-                    std::slice::from_ref(r),
-                    e,
-                    temperature_k,
-                    &[INFINITE_DILUTION],
-                    [0.0; 4],
-                    &table,
-                )?;
-                if let Some(v) = out.first() {
-                    for k in 0..4 {
-                        row[k] = sigfig(row[k] + r.abn * v[k], 7, 0);
-                    }
+                let v = state.evaluate(isect, r, e)?;
+                for k in 0..4 {
+                    row[k] = sigfig(row[k] + r.abn * v[k], 7, 0);
                 }
             }
             row[4] = row[0];

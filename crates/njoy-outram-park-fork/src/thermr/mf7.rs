@@ -216,6 +216,11 @@ pub struct IncoherentInelastic {
     /// NJOY-deck thermal path (GitHub #866); `None` (what the parsers
     /// produce) reads `T_eff` at `temperature_k`.
     pub teff_request_k: Option<f64>,
+    /// `true` for THERMR's **free-gas** kernel (`iinc = 1`, `thermr.f90:1857-1916`
+    /// and `sig` label 200): no `S(α,β)` table, the analytic gas law on a
+    /// fixed 45-point `β` grid. Built by [`IncoherentInelastic::free_gas`];
+    /// every parser leaves it `false`.
+    pub free_gas: bool,
 }
 
 /// The two tabulated `S(α,β)` tables bracketing an interpolated temperature
@@ -761,6 +766,7 @@ fn parse_inelastic(
         teff_table,
         temperature_bracket,
         teff_request_k: None,
+        free_gas: false,
     })
 }
 

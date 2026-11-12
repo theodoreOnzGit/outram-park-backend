@@ -96,7 +96,7 @@ impl AceTable {
                 // 2026-10-14 (gh:#865): a thermal table's IZ is ACER card 8a's
                 // moderator ZA list (`acer.f90:396-399`); AW stays 0.
                 iz: self.iz,
-                aw: [0.0; 16],
+                aw: self.aw,
             },
             nxs: self.nxs,
             jxs: self.jxs,

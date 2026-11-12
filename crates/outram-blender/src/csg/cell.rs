@@ -41,7 +41,7 @@
 //! cell** (filled with a nested `Universe` or `Lattice`).
 
 use super::position::{Direction, Position};
-use super::surface::SurfaceKind;
+use super::surface::{SurfaceKind, FP_COINCIDENT};
 
 /// Which side of a surface a half-space token selects.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -381,16 +381,34 @@ impl Cell {
         stack.pop().unwrap_or(false)
     }
 
+    /// Whether the region has no union or complement, i.e. it is a pure
+    /// intersection of half-spaces: OpenMC's `Region::simple_`.
+    #[inline]
+    pub fn is_simple(&self) -> bool {
+        self.region
+            .iter()
+            .all(|t| matches!(t, RegionToken::HalfSpace { .. } | RegionToken::Intersection))
+    }
+
     /// Distance along ray `(r, u)` to the nearest surface bounding this cell.
     ///
-    /// Ported from `Region::distance` (`src/cell.cpp:950`): take the minimum
-    /// `distance` over every half-space surface in the region (operators are
-    /// skipped). `on_surface` names the surface the particle currently sits on
-    /// (see [`SurfaceToken`]) — that surface is queried with the `coincident`
-    /// flag so round-off cannot re-report a zero crossing.
+    /// Ported from `Region::distance` (`src/cell.cpp:950` at OpenMC
+    /// `8f79d9d0`): a simple region takes the nearest surface of its tokens
+    /// ([`Self::distance_to_nearest_surface`]); a complex one (union or
+    /// complement) follows OpenMC #3934 ("Fix virtual surface crossing",
+    /// `03b036aa6`) and skips surfaces whose crossing does not change region
+    /// membership ([`Self::distance_complex`]). `on_surface` names the surface
+    /// the particle currently sits on (see [`SurfaceToken`]) — that surface is
+    /// queried with the `coincident` flag so round-off cannot re-report a zero
+    /// crossing.
     ///
     /// Returns `(distance, surface_idx)`; `surface_idx == usize::MAX` when no
     /// bounding surface is crossed (distance `INFINITY`).
+    ///
+    /// **GPU mirror:** `gpu/csg_trace.wgsl` still evaluates every region as a
+    /// plain nearest surface (the pre-#3934 rule, without the `FP_PRECISION` tie
+    /// rule), so it differs from this for union / complement regions. It is
+    /// exact for the simple regions the GPU tests use.
     #[inline]
     pub fn distance_to_boundary(
         &self,
@@ -399,6 +417,32 @@ impl Cell {
         surfaces: &[SurfaceKind],
         on_surface: SurfaceToken,
     ) -> (f64, usize) {
+        if self.is_simple() {
+            self.distance_to_nearest_surface(r, u, surfaces, on_surface, false)
+        } else {
+            self.distance_complex(r, u, surfaces, on_surface)
+        }
+    }
+
+    /// `Region::distance_to_nearest_surface` (`src/cell.cpp`, `8f79d9d0`): the
+    /// minimum surface distance over the region's half-space tokens.
+    ///
+    /// A candidate replaces the running minimum only when it is shorter by at
+    /// least `FP_PRECISION` of it (`min_dist - d >= FP_PRECISION * min_dist`), so
+    /// two surfaces at the same distance to round-off keep the first one found.
+    /// With `ignore_coincident_surfaces` an intersection closer than
+    /// `FP_COINCIDENT` is skipped: different surface definitions can describe the
+    /// same geometric surface, and crossing between them repeatedly by round-off
+    /// is what #3934 guards against.
+    fn distance_to_nearest_surface(
+        &self,
+        r: Position,
+        u: Direction,
+        surfaces: &[SurfaceKind],
+        on_surface: SurfaceToken,
+        ignore_coincident_surfaces: bool,
+    ) -> (f64, usize) {
+        // upstream's INFTY is DBL_MAX; this port's surfaces report INFINITY
         let mut min_dist = f64::INFINITY;
         let mut i_surf = usize::MAX;
         for tok in &self.region {
@@ -407,14 +451,76 @@ impl Cell {
             };
             let coincident = on_surface.is_on(*surface_idx);
             let d = surfaces[*surface_idx].distance(r, u, coincident);
-            if d < min_dist {
+            if ignore_coincident_surfaces && d < FP_COINCIDENT {
+                continue;
+            }
+            if d < min_dist && (min_dist - d >= FP_PRECISION * min_dist || min_dist.is_infinite()) {
                 min_dist = d;
                 i_surf = *surface_idx;
             }
         }
         (min_dist, i_surf)
     }
+
+    /// `Region::distance_complex` (`src/cell.cpp`, `8f79d9d0`, OpenMC #3934):
+    /// the oncoming boundary of a union/complement region. Walk to the nearest
+    /// candidate surface; if crossing it does not change whether the point is in
+    /// the region (a *virtual* crossing, e.g. an internal face of a union) go on
+    /// from there, summing the distances. The side entered is taken from the
+    /// surface normal, not from the surface equation, because accumulated
+    /// round-off can put the point on the wrong side of a curved surface.
+    fn distance_complex(
+        &self,
+        r: Position,
+        u: Direction,
+        surfaces: &[SurfaceKind],
+        on_surface: SurfaceToken,
+    ) -> (f64, usize) {
+        let in_region = self.contains(r, u, surfaces, on_surface);
+        let mut total_distance = 0.0_f64;
+        let mut r = r;
+        let mut on_surface = on_surface;
+        loop {
+            let (distance, i_surf) = self.distance_to_nearest_surface(
+                r,
+                u,
+                surfaces,
+                on_surface,
+                !matches!(on_surface, SurfaceToken::None),
+            );
+            // upstream: `distance == INFTY` (DBL_MAX); surfaces here miss with INFINITY
+            if !(distance < f64::MAX) {
+                return (f64::INFINITY, usize::MAX);
+            }
+            // Move to the candidate surface and find which side the ray enters.
+            r += u_scaled(u, distance);
+            total_distance += distance;
+            let n = surfaces[i_surf].normal_unnormalised(r);
+            let entering_negative = u.u * n[0] + u.v * n[1] + u.w * n[2] <= 0.0;
+            let sense = if entering_negative {
+                HalfSpaceSense::Inside
+            } else {
+                HalfSpaceSense::Outside
+            };
+            let token = SurfaceToken::on(i_surf, sense);
+            // A crossing that changes the membership is a true boundary;
+            // otherwise continue from the virtual crossing.
+            if self.contains(r, u, surfaces, token) != in_region {
+                return (total_distance, i_surf);
+            }
+            on_surface = token;
+        }
+    }
 }
+
+/// `distance * u` as a position offset (`Position += double * Direction`).
+#[inline]
+fn u_scaled(u: Direction, d: f64) -> Position {
+    Position { x: d * u.u, y: d * u.v, z: d * u.w }
+}
+
+/// `FP_PRECISION` (`include/openmc/constants.h`).
+const FP_PRECISION: f64 = 1.0e-14;
 
 #[cfg(test)]
 mod tests {
@@ -553,5 +659,51 @@ mod tests {
             &surfaces,
             SurfaceToken::NONE
         ));
+    }
+    /// **OpenMC #3934 (`03b036aa6`): a virtual crossing of a union is not a
+    /// boundary.** Cell = inside A OR inside B, A and B overlapping spheres
+    /// (radius 2 at x = 0 and x = 2). A ray from x = -1 along +x leaves A at
+    /// x = 2, but that point is inside B, so the cell is not left there; the true
+    /// boundary is B's far side at x = 4, 5 cm from the start. The pre-#3934
+    /// nearest-surface rule returned 3 cm. A simple (intersection) region still
+    /// returns its nearest surface, and an ignored coincident surface is skipped.
+    #[test]
+    fn a_union_skips_virtual_crossings_like_openmc_3934() {
+        let sphere = |x0: f64| {
+            SurfaceKind::Sphere(Sphere { x0, y0: 0.0, z0: 0.0, r: 2.0, bc: BoundaryType::Transmissive })
+        };
+        let surfaces = vec![sphere(0.0), sphere(2.0)];
+        let inside = |i: usize| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Inside };
+        let union_cell = Cell::material(
+            1,
+            vec![inside(0), inside(1), RegionToken::Union],
+            0,
+            293.6,
+        );
+        assert!(!union_cell.is_simple());
+        let u = Direction::new(1.0, 0.0, 0.0);
+        let r = Position::new(-1.0, 0.0, 0.0);
+        let (d, i) = union_cell.distance_to_boundary(r, u, &surfaces, SurfaceToken::NONE);
+        assert_eq!((d, i), (5.0, 1), "the union is left through B at x = 4");
+
+        // The same two surfaces as an intersection (the lens): left through A at x = 2.
+        let lens = Cell::material(2, vec![inside(0), inside(1), RegionToken::Intersection], 0, 293.6);
+        assert!(lens.is_simple());
+        let r = Position::new(1.0, 0.0, 0.0);
+        let (d, i) = lens.distance_to_boundary(r, u, &surfaces, SurfaceToken::NONE);
+        assert_eq!((d, i), (1.0, 0), "the lens is left through A at x = 2");
+
+        // A ray that misses every surface of a union reports no boundary.
+        let up = Direction::new(0.0, 0.0, 1.0);
+        let far = Position::new(100.0, 0.0, 0.0);
+        let (d, i) = union_cell.distance_to_boundary(far, up, &surfaces, SurfaceToken::NONE);
+        assert!(d.is_infinite() && i == usize::MAX);
+
+        // Standing on A's outer face (just crossed, outward, still inside B) the
+        // union stays occupied and the boundary is B's far side.
+        let on_a = SurfaceToken::on(0, HalfSpaceSense::Outside);
+        let r = Position::new(2.0, 0.0, 0.0);
+        let (d, i) = union_cell.distance_to_boundary(r, u, &surfaces, on_a);
+        assert_eq!((d, i), (2.0, 1));
     }
 }

@@ -1,0 +1,172 @@
+IEU-MET-FAST-002 'Jemima' — natural-U-reflected assembly of uranium plates
+Reconstructing nuclides (RECONR + BROADR @ 293.6 K):
+  reconstructing U234   … 28.7s
+  reconstructing U235   … 190.2s
+  reconstructing U238   … 136.8s
+Nuclear data ready in 355.7 s.
+
+  geometry check: 200000 points, 136768 inside / 63232 outside, CSG matches the ICSBEP model everywhere
+  core r < 19.05 cm, z 7.62–39.571; natural-U reflector to r = 26.6446 cm and z = 0/47.0894 (vacuum)
+  speed tier: fast (OUTRAM_SPEED)
+  5000 histories/gen, 40 inactive + 120 active generations
+
+  [transport losses] jemima_keff seed 1
+    histories 800000   collisions 14916305   leaks: vacuum 258519 / infinity 0
+    lost_locate           0  (0.0000 % of histories)
+    stuck_events          0  (0.0000 %)   mean path 0.000e0 cm   last E 0.000e0 eV
+    neg_dist              0  (0.0000 %)   worst 0.000e0   from lattice 0
+    => CLEAN: no history was lost, trapped, or given a negative distance.
+  [source convergence] jemima_keff seed 1
+    inactive quarters: 0.9784  0.9945  0.9979  1.0005
+    active halves:     0.99588 then 0.99676   drift +87 +/- 361 pcm (>= this err)
+    Shannon entropy:   NOT COMPUTED for this run
+    => no resolved drift; source looks converged.
+    seed 2: k = 0.99533 +/- 0.00159
+    seed 3: k = 0.99424 +/- 0.00156
+    seed 4: k = 0.99628 +/- 0.00163
+    seed 5: k = 0.99647 +/- 0.00155
+    seed 6: k = 0.99372 +/- 0.00159
+    seed 7: k = 0.99728 +/- 0.00187
+    seed 8: k = 1.00120 +/- 0.00168
+    seed 9: k = 0.99784 +/- 0.00181
+    seed 10: k = 0.99425 +/- 0.00183
+    seed 11: k = 0.99707 +/- 0.00170
+    seed 12: k = 0.99755 +/- 0.00187
+    seed 13: k = 0.99789 +/- 0.00173
+    seed 14: k = 0.99434 +/- 0.00167
+    seed 15: k = 0.99775 +/- 0.00161
+    seed 16: k = 0.99422 +/- 0.00169
+    seed 17: k = 0.99352 +/- 0.00172
+    seed 18: k = 0.99522 +/- 0.00169
+    seed 19: k = 0.99710 +/- 0.00163
+    seed 20: k = 0.99531 +/- 0.00160
+    seed 21: k = 0.99536 +/- 0.00167
+    seed 22: k = 0.99935 +/- 0.00153
+    seed 23: k = 0.99802 +/- 0.00167
+    seed 24: k = 0.99852 +/- 0.00170
+    seed 25: k = 0.99653 +/- 0.00173
+    seed 26: k = 0.99589 +/- 0.00164
+    seed 27: k = 0.99761 +/- 0.00168
+    seed 28: k = 0.99343 +/- 0.00165
+    seed 29: k = 0.99675 +/- 0.00164
+    seed 30: k = 0.99494 +/- 0.00164
+    seed 31: k = 0.99385 +/- 0.00154
+    seed 32: k = 0.99636 +/- 0.00183
+    seed 33: k = 0.99662 +/- 0.00157
+    seed 34: k = 0.99469 +/- 0.00186
+    seed 35: k = 0.99566 +/- 0.00175
+    seed 36: k = 0.99604 +/- 0.00161
+    seed 37: k = 0.99601 +/- 0.00160
+    seed 38: k = 0.99681 +/- 0.00155
+    seed 39: k = 0.99745 +/- 0.00189
+    seed 40: k = 0.99720 +/- 0.00163
+    seed 41: k = 0.99921 +/- 0.00171
+    seed 42: k = 0.99554 +/- 0.00182
+    seed 43: k = 0.99851 +/- 0.00164
+    seed 44: k = 0.99522 +/- 0.00163
+    seed 45: k = 0.99186 +/- 0.00172
+    seed 46: k = 0.99469 +/- 0.00174
+    seed 47: k = 0.99587 +/- 0.00179
+    seed 48: k = 0.99540 +/- 0.00178
+    seed 49: k = 0.99704 +/- 0.00173
+    seed 50: k = 0.99651 +/- 0.00155
+    seed 51: k = 0.99761 +/- 0.00171
+    seed 52: k = 0.99631 +/- 0.00157
+    seed 53: k = 0.99768 +/- 0.00169
+    seed 54: k = 0.99485 +/- 0.00152
+    seed 55: k = 0.99635 +/- 0.00176
+    seed 56: k = 0.99499 +/- 0.00183
+    seed 57: k = 0.99612 +/- 0.00164
+    seed 58: k = 0.99615 +/- 0.00156
+    seed 59: k = 0.99721 +/- 0.00182
+    seed 60: k = 0.99450 +/- 0.00156
+    seed 61: k = 0.99751 +/- 0.00172
+    seed 62: k = 0.99611 +/- 0.00171
+    seed 63: k = 0.99697 +/- 0.00175
+    seed 64: k = 0.99700 +/- 0.00144
+    seed 65: k = 0.99464 +/- 0.00161
+    seed 66: k = 0.99634 +/- 0.00157
+    seed 67: k = 0.99329 +/- 0.00156
+    seed 68: k = 0.99485 +/- 0.00163
+    seed 69: k = 0.99680 +/- 0.00164
+    seed 70: k = 0.99405 +/- 0.00179
+    seed 71: k = 0.99554 +/- 0.00171
+    seed 72: k = 0.99804 +/- 0.00161
+    seed 73: k = 0.99758 +/- 0.00163
+    seed 74: k = 0.99714 +/- 0.00172
+    seed 75: k = 0.99957 +/- 0.00171
+    seed 76: k = 0.99640 +/- 0.00165
+    seed 77: k = 0.99100 +/- 0.00171
+    seed 78: k = 0.99524 +/- 0.00161
+    seed 79: k = 0.99558 +/- 0.00160
+    seed 80: k = 0.99539 +/- 0.00176
+    seed 81: k = 0.99598 +/- 0.00184
+    seed 82: k = 0.99569 +/- 0.00153
+    seed 83: k = 0.99689 +/- 0.00182
+    seed 84: k = 0.99940 +/- 0.00171
+    seed 85: k = 1.00243 +/- 0.00157
+    seed 86: k = 0.99825 +/- 0.00151
+    seed 87: k = 0.99688 +/- 0.00165
+    seed 88: k = 0.99575 +/- 0.00170
+    seed 89: k = 0.99743 +/- 0.00170
+    seed 90: k = 0.99777 +/- 0.00161
+    seed 91: k = 0.99823 +/- 0.00166
+    seed 92: k = 0.99643 +/- 0.00157
+    seed 93: k = 0.99754 +/- 0.00171
+    seed 94: k = 0.99659 +/- 0.00161
+    seed 95: k = 0.99990 +/- 0.00157
+    seed 96: k = 0.99624 +/- 0.00162
+    seed 97: k = 0.99783 +/- 0.00176
+    seed 98: k = 0.99839 +/- 0.00164
+    seed 99: k = 0.99189 +/- 0.00185
+    seed 100: k = 0.99585 +/- 0.00182
+    seed 101: k = 0.99218 +/- 0.00167
+    seed 102: k = 0.99681 +/- 0.00161
+    seed 103: k = 0.99677 +/- 0.00152
+    seed 104: k = 0.99975 +/- 0.00161
+    seed 105: k = 0.99690 +/- 0.00172
+    seed 106: k = 0.99512 +/- 0.00152
+    seed 107: k = 0.99859 +/- 0.00161
+    seed 108: k = 0.99819 +/- 0.00171
+    seed 109: k = 0.99605 +/- 0.00163
+    seed 110: k = 0.99617 +/- 0.00177
+    seed 111: k = 0.99567 +/- 0.00162
+    seed 112: k = 0.99397 +/- 0.00176
+    seed 113: k = 0.99314 +/- 0.00170
+    seed 114: k = 0.99295 +/- 0.00162
+    seed 115: k = 0.99586 +/- 0.00168
+    seed 116: k = 1.00006 +/- 0.00166
+    seed 117: k = 0.99401 +/- 0.00153
+    seed 118: k = 0.99400 +/- 0.00195
+    seed 119: k = 0.99460 +/- 0.00174
+    seed 120: k = 0.99514 +/- 0.00163
+    seed 121: k = 0.99746 +/- 0.00176
+    seed 122: k = 0.99780 +/- 0.00164
+    seed 123: k = 0.99519 +/- 0.00188
+    seed 124: k = 0.99740 +/- 0.00171
+    seed 125: k = 0.99496 +/- 0.00161
+    seed 126: k = 0.99532 +/- 0.00167
+    seed 127: k = 0.99859 +/- 0.00169
+    seed 128: k = 0.99763 +/- 0.00161
+
+  POOLED SOURCE-CONVERGENCE DRIFT (128 seeds)
+    active-half drift = -1 +/- 30 pcm   (seed-to-seed sd 342)
+    => not resolved; consistent with statistical scatter.
+
+  ENSEMBLE IEU-MET-FAST-002 (Jemima): 128 seeds
+    pooled dk    = -370 pcm
+    seed-to-seed sd  = 187 pcm   (what ONE run scatters by)
+    uncertainty  sem = +/-17 pcm   (on the pooled mean)
+    distance from benchmark = 22.4 sem
+  transport: 3111.2 s
+  k_eff = 0.99632 ± 0.00181
+  ICSBEP IEU-MET-FAST-002 (critical) = 1.0000 ± ~0.003
+  Δk from the benchmark = -368 ± 181 pcm
+
+  U-238 is 83 % of this core's heavy metal and 99.3 % of its reflector,
+  against 5 % in Godiva and in HEU-SOL-THERM-009. The spectrum is fast, so
+  this reaches U-238 fast fission and keV capture, not the 6 eV – 20 keV
+  resolved resonance escape the FHR pebble residual is.
+
+=== V&V gate: ICSBEP IEU-MET-FAST-002 ===
+  [PASS] IEU-MET-FAST-002 (Jemima), the most U-238-dominated case reachable here: k = 0.99632 ± 0.00181 vs benchmark 1.00000 ± 0.00300  (-368 pcm, gate ±1023 pcm)

@@ -1,0 +1,10 @@
+--- a/src/acefc.f90	2026-11-11 02:46:01.534074839 +0000
++++ b/src/acefc.f90	2026-11-11 12:17:50.254127387 +0000
+@@ -10730,6 +10730,7 @@
+                            chkl=chk
+                         enddo
+                         if (chek.gt.zero) h=h/chek
++                        write(6,'(a,i4,8es25.17)') 'DBGL6',ie,e,q,awr,awi,awp,apsx,real(npsx,kr),h
+                         call terpa(y,ee,en,idis,scr(lly),npp,nrr)
+                         ss=0
+                         if (ie.ge.iaa) ss=xss(2+k+ie-iaa)
