@@ -338,3 +338,17 @@ stops at step 6, before the clamp).
 | N5 | scalar flux at step 6 (unit-sum shape), port vs upstream | max relative difference `< 1e-5` |
 | N6 | ablation: port with P0 only (`legendre_moments = 1`) on the same quadrature | step-1 `keff_` differs from upstream by MORE than 1e-4 relative: the anisotropic source carries visible weight (if it does not, the case does not test P1 to P3 and the test must say so) |
 | N7 | first divergent operation if a bound is missed | the BiCGStab stopping rule (port: `||r||/||b|| < 1e-13` ILU(0); upstream: normalised residual 1e-14 DILU), which only sets WHERE each linear solve stops, not what it solves |
+
+### Godiva_SN, one step (predictions written BEFORE the port run; committed first)
+
+Upstream run (started before the port ran; log not yet read for the numbers): `scripts/run_tutorial.sh reactorCases/Godiva_SN godiva1`
+with `scripts/godiva_one_step.sh` (`endTime 1`, only `angularFlux.*` tightened to `1e-10 / 0`; shipped `1e-7 / 0.1` makes the answer depend on
+the solver). Shipped case otherwise: 23 groups, `legendreMoments 3`, `maxInnerIter 3`, `innToOutTolerance 0.01`, `keff 0.980106`, `pTarget 1e6`.
+Port: `tests/genfoam_godiva_sn_step.rs` (ignored; needs the tutorial directory).
+
+| id | quantity | prediction |
+|---|---|---|
+| G1 | step-1 `keff_` and `pow:` | `abs(dk) < 1e-8`, `pow` relative `< 1e-8`; not 1e-14 as on the slab, because 120k-cell tetrahedral BiCGStab solves stop at the 1e-10 residual of two different residual definitions, and 23 groups x 32 directions x up to 3 inner sweeps accumulate that |
+| G2 | the number of inner sweeps per group | identical in both codes; not measured separately (the port does not report sweeps, upstream's log has them), inferred from G1: a flipped stopping test would show as a 1e-3 or larger difference in `keff_` |
+| G3 | the step-1 `keff_` moves from the seed 0.980106 to about the shipped-tolerance value 0.938566 recorded in round 1 | within 1e-3 of it (that run used 1e-7 / 0.1 solves) |
+| G4 | wall time and memory of the port | not predicted (no basis); recorded |
