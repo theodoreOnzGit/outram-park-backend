@@ -89,7 +89,7 @@ pub const M_SLOTS: u32 = 8;
 /// with more is refused.
 const COPLANAR_CAP: usize = 8;
 /// `vec4`s per uploaded triangle (must match `TRI` in `dem.wgsl`).
-const TRI_VEC4S: usize = 12;
+const TRI_VEC4S: usize = 16;
 
 /// The uniform block (must match `Params` in `dem.wgsl`).
 #[repr(C)]
@@ -260,6 +260,11 @@ impl GpuSetup {
                             n_cop += 1;
                         }
                     }
+                    // calcBaryTriCoords' coefficients, in f64 (`bary_code`)
+                    let c_e = ev[0][0] * ev[2][0] + ev[0][1] * ev[2][1] + ev[0][2] * ev[2][2];
+                    let omc = 1.0 - c_e * c_e;
+                    let (k1, k2) = (split(1.0 / (el[0] * omc)), split(-c_e / (el[0] * omc)));
+                    let (k3, k4) = (split(c_e / (el[2] * omc)), split(-1.0 / (el[2] * omc)));
                     // upstream's barycentric threshold, `-precision / (2 rBound)`
                     let thr = -1e-8 * (1.0 / (2.0 * r_bound));
                     let (ax, ay, az) = (split(t.a.x), split(t.a.y), split(t.a.z));
@@ -276,6 +281,10 @@ impl GpuSetup {
                         [coplanar[0], coplanar[1], coplanar[2], coplanar[3]],
                         [coplanar[4], coplanar[5], coplanar[6], coplanar[7]],
                         [split(sn[0]).1, split(sn[1]).1, split(sn[2]).1, 0.0],
+                        [split(ev[0][0]).1, split(ev[0][1]).1, split(ev[0][2]).1, 0.0],
+                        [split(ev[2][0]).1, split(ev[2][1]).1, split(ev[2][2]).1, 0.0],
+                        [k1.0, k1.1, k2.0, k2.1],
+                        [k3.0, k3.1, k4.0, k4.1],
                     ]);
                     centroids.push((c, r));
                 }

@@ -272,6 +272,22 @@ fn balls_bounce_off_the_discharge_mesh_as_on_the_cpu() {
                 Vec3::new(-0.4, -0.3, -0.2),
                 Vec3::new(1.0, 0.0, 0.0),
             ),
+            // At the middle of a tube quad's diagonal (facets 10 of each
+            // band: angles 30° to 33°, z from the cone foot to the valve),
+            // the edge two coplanar facets share and both mark inactive.
+            ball(
+                Vec3::new(
+                    0.21 * (31.5f64).to_radians().cos(),
+                    0.21 * (31.5f64).to_radians().sin(),
+                    -CONE_HEIGHT_M - 0.125,
+                ),
+                Vec3::new(
+                    0.5 * (31.5f64).to_radians().cos(),
+                    0.5 * (31.5f64).to_radians().sin(),
+                    0.0,
+                ),
+                Vec3::new(0.0, 0.0, 3.0),
+            ),
         ],
         vec![],
         0.0,
@@ -282,7 +298,15 @@ fn balls_bounce_off_the_discharge_mesh_as_on_the_cpu() {
         Vec3::zero(),
         Vec3::zero(),
     )]);
-    let v0 = [Vec3::new(0.5, 0.0, 0.0), Vec3::new(-0.4, -0.3, -0.2)];
+    let v0 = [
+        Vec3::new(0.5, 0.0, 0.0),
+        Vec3::new(-0.4, -0.3, -0.2),
+        Vec3::new(
+            0.5 * (31.5f64).to_radians().cos(),
+            0.5 * (31.5f64).to_radians().sin(),
+            0.0,
+        ),
+    ];
     let Some((cpu, g)) = both(sys, 2_000) else {
         return eprintln!("skipping: no GPU adapter");
     };

@@ -62,6 +62,8 @@ struct P {
 //   8: bounds (centroid, radius)
 //   9, 10: up to 8 coplanar node-neighbour facets (f32 values, −1 empty)
 //   11: surfaceNorm's lo part (normal = row 4 + row 11, for the face distance)
+//   12, 13: edgeVec[0] and edgeVec[2] lo parts
+//   14, 15: barycentric coefficients as hi, lo pairs (`bary_code`)
 // The contact is resolved in coordinates local to a (node 0), so magnitudes
 // are a facet's size, not the vessel's.
 @group(0) @binding(6) var<storage, read_write> tris: array<vec4<f32>>;
@@ -79,7 +81,7 @@ const INERTIA: f32 = 0.4;
 // Mesh-facet contact slots per particle (`gpu::dem::M_SLOTS`).
 const M_SLOTS: u32 = 8u;
 // vec4s per triangle (`gpu::dem::TRI_VEC4S`).
-const TRI: u32 = 12u;
+const TRI: u32 = 16u;
 // Upstream `SMALL_TRIMESH` and `LARGE_TRIMESH` (`tri_mesh.rs`).
 const SMALL_TRIMESH: f32 = 1.0e-10;
 const LARGE_TRIMESH: f32 = 1000000.0;
@@ -481,19 +483,35 @@ fn resolve_corner(t: u32, inode: u32, obtuse: bool, p: vec3<f32>, code: u32) -> 
     return facet_at(p, n, code);
 }
 
-fn resolve_facet(t: u32, p: vec3<f32>) -> Facet {
-    // calcBaryTriCoords(node0 → centre, edgeVec, edgeLen)
-    let e0 = tri_edge_vec(t, 0u);
-    let e2 = tri_edge_vec(t, 2u);
-    let a = dot(p, e0);
-    let b = dot(p, e2);
-    let c = dot(e0, e2);
-    let omc = 1.0 - c * c;
-    let b1 = (a - b * c) / (tri_edge_len(t, 0u) * omc);
-    let b2 = (a * c - b) / (tri_edge_len(t, 2u) * omc);
-    let b0 = 1.0 - b1 - b2;
+// a · (b.x + b.y) for a double-f32 vector a and a hi + lo direction.
+fn dd_dot(ax: vec2<f32>, ay: vec2<f32>, az: vec2<f32>, h: vec3<f32>, l: vec3<f32>) -> vec2<f32> {
+    return dd_add(
+        dd_add(dd_mul(vec2<f32>(h.x, l.x), ax), dd_mul(vec2<f32>(h.y, l.y), ay)),
+        dd_mul(vec2<f32>(h.z, l.z), az),
+    );
+}
+
+// The barycentric region code of `calcBaryTriCoords` + the sign test of
+// `resolveTriSphereContactBary`, in double-f32: `q` is node 0 → centre as
+// hi + lo, the edge vectors are hi + lo and the coefficients
+// 1/(len0 (1 − c²)), −c/(len0 (1 − c²)), c/(len2 (1 − c²)), −1/(len2 (1 − c²))
+// are formed in f64 by the set-up. In f32 the coordinates of a 0.75 m facet
+// carry ~1e-7 against upstream's threshold −1e-8/(2 rBound): a pebble on a
+// quad's diagonal read as an edge contact on both coplanar facets, whose
+// shared edge is inactive, and lost the wall (gh:#1503, case 5, ball 2).
+fn bary_code(t: u32, qx: vec2<f32>, qy: vec2<f32>, qz: vec2<f32>) -> u32 {
+    let a = dd_dot(qx, qy, qz, tri_edge_vec(t, 0u), tris[TRI * t + 12u].xyz);
+    let b = dd_dot(qx, qy, qz, tri_edge_vec(t, 2u), tris[TRI * t + 13u].xyz);
+    let k = tris[TRI * t + 14u];
+    let m = tris[TRI * t + 15u];
+    let b1 = dd_add(dd_mul(a, k.xy), dd_mul(b, k.zw));
+    let b2 = dd_add(dd_mul(a, m.xy), dd_mul(b, m.zw));
+    let b0 = dd_add(ts(1.0, -b1.x), dd_add(vec2<f32>(-b1.y, 0.0), vec2<f32>(-b2.x, -b2.y)));
     let thr = tris[TRI * t].w;
-    let code = u32(b0 > thr) + 2u * u32(b1 > thr) + 4u * u32(b2 > thr);
+    return u32(b0.x + b0.y > thr) + 2u * u32(b1.x + b1.y > thr) + 4u * u32(b2.x + b2.y > thr);
+}
+
+fn resolve_facet(t: u32, p: vec3<f32>, code: u32) -> Facet {
     let ob = i32(tris[TRI * t + 1u].w);
     var out = facet_skip(code);
     switch code {
@@ -663,7 +681,12 @@ fn forces(@builtin(global_invocation_id) gid: vec3<u32>) {
                 if (length(p - bb.xyz) - bb.w >= ri) { continue; }
                 // The particle in coordinates local to node 0.
                 let lp = keep3(pi.hi.xyz - tris[TRI * tt].xyz) + keep3(pi.lo.xyz - tris[TRI * tt + 1u].xyz);
-                var c = resolve_facet(tt, lp);
+                let ah = tris[TRI * tt].xyz;
+                let al = tris[TRI * tt + 1u].xyz;
+                let qx = dd_add(ts(pi.hi.x, -ah.x), vec2<f32>(keep(pi.lo.x - al.x), 0.0));
+                let qy = dd_add(ts(pi.hi.y, -ah.y), vec2<f32>(keep(pi.lo.y - al.y), 0.0));
+                let qz = dd_add(ts(pi.hi.z, -ah.z), vec2<f32>(keep(pi.lo.z - al.z), 0.0));
+                var c = resolve_facet(tt, lp, bary_code(tt, qx, qy, qz));
                 // overlap = r − d (upstream deltan = d − r <= 0), r as hi + lo.
                 let dd = ts(ri, -c.d);
                 var ov = dd.x + keep(dd.y + pi.v.w);
@@ -672,17 +695,7 @@ fn forces(@builtin(global_invocation_id) gid: vec3<u32>) {
                     // double-f32 (x, a and n each as hi + lo). In f32 a
                     // facet 0.75 m long (the conus) leaves ~1e-7 m in d
                     // against a ~1e-4 m overlap (gh:#1503, case 5).
-                    let ah = tris[TRI * tt].xyz;
-                    let al = tris[TRI * tt + 1u].xyz;
-                    let nh = tris[TRI * tt + 4u].xyz;
-                    let nl = tris[TRI * tt + 11u].xyz;
-                    let qx = dd_add(ts(pi.hi.x, -ah.x), vec2<f32>(keep(pi.lo.x - al.x), 0.0));
-                    let qy = dd_add(ts(pi.hi.y, -ah.y), vec2<f32>(keep(pi.lo.y - al.y), 0.0));
-                    let qz = dd_add(ts(pi.hi.z, -ah.z), vec2<f32>(keep(pi.lo.z - al.z), 0.0));
-                    var dn = dd_add(
-                        dd_add(dd_mul(vec2<f32>(nh.x, nl.x), qx), dd_mul(vec2<f32>(nh.y, nl.y), qy)),
-                        dd_mul(vec2<f32>(nh.z, nl.z), qz),
-                    );
+                    var dn = dd_dot(qx, qy, qz, tris[TRI * tt + 4u].xyz, tris[TRI * tt + 11u].xyz);
                     if (dn.x < 0.0) { dn = -dn; }
                     let o2 = dd_add(dd_add(ts(ri, -dn.x), vec2<f32>(-dn.y, 0.0)), vec2<f32>(pi.v.w, 0.0));
                     ov = o2.x + o2.y;
