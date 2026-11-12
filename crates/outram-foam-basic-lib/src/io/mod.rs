@@ -61,13 +61,17 @@
 
 pub mod case;
 pub mod dict;
+pub mod esi;
 pub mod field;
 pub mod poly_mesh;
 
 pub use case::FoamCase;
+pub use esi::{format_g, write_cell_zones_esi, write_time_file_esi, EsiWriteOptions};
 pub use dict::{Dimensioned, FoamDict, FoamEntry, FoamHeader, FoamValue};
 pub use field::{
-    read_vol_scalar_field, read_vol_vector_field, write_vol_scalar_field, write_vol_vector_field,
+    read_vol_scalar_field, read_vol_vector_field, write_vol_scalar_field,
+    write_surface_scalar_field_esi, write_vol_scalar_field_esi, write_vol_vector_field,
+    write_vol_vector_field_esi,
 };
 pub use poly_mesh::{cell_geometry_from_faces, face_centre_and_area, MeshFace, PolyMesh};
 

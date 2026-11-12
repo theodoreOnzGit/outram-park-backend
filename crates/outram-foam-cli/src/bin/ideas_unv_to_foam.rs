@@ -27,7 +27,8 @@ use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use outram_foam_basic_lib::io::poly_mesh::{MeshFace as IoMeshFace, PolyMesh as IoPolyMesh};
-use outram_foam_cli::{CaseArgs, CliError};
+use outram_foam_basic_lib::io::esi::EsiWriteOptions;
+use outram_foam_cli::{CaseArgs, CliError, WriteFlavour};
 use outram_foam_mesh::ideas_unv_to_foam::{self, UnvPolyMesh};
 
 /// `ideasUnvToFoam` command-line arguments.
@@ -40,12 +41,17 @@ struct Args {
     /// The `.unv` file (absolute, or relative to the case directory). When
     /// omitted, the single `.unv` file in the case directory is used.
     unv: Option<PathBuf>,
+    /// File layout: `default` (this project's) or `esi` (OpenFOAM v2506's bytes).
+    #[arg(long = "flavour", default_value = "default")]
+    flavour: String,
 }
 
 fn main() {
     let args = Args::parse_from(outram_foam_cli::openfoam_argv(std::env::args_os()));
     let case = CaseArgs { case: args.case };
-    if let Err(e) = run_with_unv(&case, args.unv) {
+    let result = WriteFlavour::parse(&args.flavour)
+        .and_then(|f| run_with_unv_flavour(&case, args.unv, f));
+    if let Err(e) = result {
         eprintln!("ideasUnvToFoam: error: {e}");
         std::process::exit(1);
     }
@@ -71,6 +77,19 @@ pub fn run(args: &CaseArgs) -> Result<(), CliError> {
 ///   cannot be written.
 /// - [`CliError::Tool`] if the UNV file cannot be parsed / assembled.
 pub fn run_with_unv(args: &CaseArgs, unv: Option<PathBuf>) -> Result<(), CliError> {
+    run_with_unv_flavour(args, unv, WriteFlavour::Default)
+}
+
+/// [`run_with_unv`] writing the chosen file layout; [`WriteFlavour::Esi`] gives
+/// ESI v2506's bytes at the case's `writePrecision` (default 6).
+///
+/// # Errors
+/// As [`run_with_unv`].
+pub fn run_with_unv_flavour(
+    args: &CaseArgs,
+    unv: Option<PathBuf>,
+    flavour: WriteFlavour,
+) -> Result<(), CliError> {
     let case = args.case_dir()?;
     let unv_path = resolve_unv(&case, unv)?;
 
@@ -80,9 +99,15 @@ pub fn run_with_unv(args: &CaseArgs, unv: Option<PathBuf>) -> Result<(), CliErro
     let io_mesh = bridge(&mesh);
 
     let poly_dir = case.join("constant").join("polyMesh");
-    io_mesh
-        .write(&poly_dir)
-        .map_err(|e| CliError::Io(e.to_string()))?;
+    match flavour {
+        WriteFlavour::Default => io_mesh.write(&poly_dir),
+        WriteFlavour::Esi => {
+            let opts = EsiWriteOptions::default()
+                .with_precision(outram_foam_cli::write_precision(&case));
+            io_mesh.write_esi(&poly_dir, "constant/polyMesh", &opts)
+        }
+    }
+    .map_err(|e| CliError::Io(e.to_string()))?;
 
     print_summary(&mesh, &unv_path, &poly_dir);
     Ok(())
