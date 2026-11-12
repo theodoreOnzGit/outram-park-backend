@@ -798,3 +798,83 @@ final mesh (time 40 in the log of the castellated+snap run).
 | P27 | held (scaleMesh: 2 iterations, snapped points bit-identical to time 36, 79986 of 79986) |
 | P28 | held (0 faces after scaling) |
 | P29 | held (42 faces, same patches) |
+
+## Round 5: `mergePatchFaces` / `mergeEdges` (predictions, committed before the port exists)
+
+**Source read first** (v2506): `snappySnapDriver.C:3640-3660` (after `repatchToSurface`:
+`mergePatchFacesUndo(featureCos, featureCos, meshedPatches, motionDict, duplicateFace,
+GEOMETRIC)` then `mergeEdgesUndo(featureCos, motionDict)`, `featureCos = cos(degToRad(30))`
+= 0.8660254037844387 from `resolveFeatureAngle 30`), `meshRefinementMerge.C`,
+`combineFaces.C` (`getMergeSets`, `regioniseFaces`, `faceNeighboursValid`, `validFace`,
+`getOutsideFace`, `setRefinement`), `removePoints.C` (`countPointUsage`, `setRefinement`),
+`polyTopoChange.C` (`getFaceOrder`: internal faces by (cell, neighbour), boundary faces by
+patch then OLD face label; `compact`: points keep their order when `orderPoints` is false;
+`changeMesh(mesh, false, true)` so cells and points are not reordered).
+Ordering that decides the numbering and that the port must replicate: the master face of
+a set is `setFaces[0]`, i.e. the first face of the region in the iteration order of
+`Map<label> faceRegion`, an OpenFOAM `HashTable` (power-of-two capacity >= 8, identity hash
+`Hash<label>` = the label, insertion at the chain head, growth x2 at load 0.8, iteration by
+bucket then chain), and the insertion order of that map follows `cellEdges(celli, set,
+storage)` = the iteration order of a `labelHashSet` of capacity 128 (when `cellEdges()` is not
+cached). ESI reference run: `snappyHexMeshDict.snap`, `debugFlags (mesh)`, ASCII precision 17;
+time 36 snapped, 37 after faces, 38/40 after edges (log: 2118 sets, 2005 points, 63194 to 61034
+faces, 26662 to 24615 points, both undo loops find 0 faces in error). Fixtures:
+`extract_merge_fixtures.py`, `tests/fixtures/esi_v2506_flange/esi_merge_*.txt.gz`.
+
+| # | prediction (before any merge code exists) |
+|---|---|
+| P30 | `getMergeSets` on the repatched time-36 mesh (patches from the P29 port, `GEOMETRIC`, `minCos = concaveCos = cos 30 deg`) finds **2118** sets whose faces union to ESI's `allFaceSets` (**4278** faces, same labels). Reason: the rules (same non-constraint patch, normal dot > minCos, fan validity, convexity) are deterministic and ported literally. Fails if face area normals differ at a threshold. |
+| P31 | After `setRefinement` + the `polyTopoChange` renumbering, the mesh has **61034 faces**, **26620 points** (42 unused points removed; ESI time 37), patch sizes 7432/1162/238/1144, cells unchanged. |
+| P32 | Face numbering equals ESI's: face `i` of the port equals face `i` of ESI's final mesh as a vertex ring up to rotation, **all 61034 faces including orientation, owner, neighbour and patch**, i.e. the master choice (hash iteration order) is reproduced. This is the risky one: if `cellEdges()` is cached in ESI at that point the insertion order differs and some masters (so face labels) differ while the face SET still equals ESI's. |
+| P33 | Ring start vertex (rotation) of a merged face equals ESI's for **at least 90 %** of the 2118 merged faces (it follows `edgeLoops()[0]`, which starts at the first boundary edge of the patch built in set-face order); an inequality is a rotation only. |
+| P34 | `countPointUsage` at `cos 30 deg` marks **2005** points; after removal the mesh has **24615** points, the surviving points are ESI's (labels `esi_merge_final_points`, coordinates unchanged bit for bit), and every face equals ESI's final face `i` up to rotation. |
+| P35 | The undo loops re-run the nine face checks on the merged mesh (`check_mesh::esi_check_mesh`, all faces): **0 faces in error** after the face merge and after the point removal, so nothing is restored (`setUnrefinement` is not needed on the flange and is NOT ported; the port reports the count and stops if it is ever above 0). |
+
+### Round 5: results (2026-11-12, release, `tests/snappy_hex_mesh_esi_merge.rs`)
+
+Code: `src/snappy_hex_mesh/esi_merge.rs` (opt-in; nothing existing calls it). Start: ESI's
+time-36 snapped mesh read in, `repatch_to_surface` (P29) and the `polyTopoChange`
+renumbering of the repatch, then `merge_patch_faces_undo` and `merge_edges_undo`.
+
+| stage | compared with | result |
+|---|---|---|
+| merge sets (`getMergeSets`, GEOMETRIC, `cos 30 deg`) | `36/polyMesh/sets/allFaceSets` | **2118 sets, union 4278 faces, equal** |
+| `combineFaces::setRefinement` + renumbering | ESI time 37 | 61034 faces, 26620 points (42 unused removed, the same 42 labels); **all 61034 faces equal ESI per face index: same ring, same start vertex, same orientation, same owner and neighbour** |
+| undo loop, faces step | `checkMesh` of the merged mesh | 0 faces in error, 1 iteration, nothing restored (ESI: same) |
+| `countPointUsage` + `removePoints::setRefinement` | ESI times 38/40 | **2005 points removed, 24615 points left; the surviving points are ESI's by label and bit-identical in coordinates** (ESI's final points equal the time-36 points as exact text, checked in `extract_merge_fixtures.py`) |
+| final mesh | ESI time 40 (final) | **61034 faces: all equal per face index** (ring, start vertex, orientation), owner 61034 of 61034, neighbour 51058 of 51058, patch 9976 of 9976; patches start at 51058, 58490, 59652, 59890 (sizes 7432, 1162, 238, 1144) |
+| undo loop, edges step | `checkMesh` | 0 faces in error (ESI: same) |
+
+**Numbering IS reachable and equal.** Face, point and owner/neighbour numbering equal
+ESI's, not just the sets, because the three things that decide it are reproduced: (1) the
+master face of a set is the first face of its region in the iteration order of the OpenFOAM
+`Map<label>` (`FoamHashMap`: identity hash, head insertion, growth at 0.8); (2) its
+insertion order follows the `labelHashSet` of `cellEdges` (capacity 128), which ESI uses
+because `cellEdges()` is not cached at that point; (3) `polyTopoChange::getFaceOrder`
+(internal faces by lower cell then higher cell, boundary faces by patch then OLD label),
+with points keeping their order. **Negative control**
+(`lowest_label_master_is_refuted_by_esi_numbering`): taking the lowest face label as master
+instead changes the master of 831 of 2118 sets and **8477 faces** differ from the hash-order
+result, so the equality is not an accident of the data. Cells are not renumbered (no cell is
+removed; `orderCells` false).
+
+**Prediction ledger.** P30 held (2118, 4278, equal). P31 held. P32 held (all 61034, the
+risky prediction). P33 held beyond the prediction: **61034 of 61034** start vertices equal,
+not 90 %: the ring start of a merged face follows `edgeLoops()[0]` of the patch built in
+set-face order, as read. P34 held. P35 held. No prediction failed; I did not tune anything:
+the first run of the port against ESI gave all of the above.
+
+**Not ported (stated):** `combineFaces::setUnrefinement` and `removePoints::setUnrefinement`
+(restoring merged faces/points when a face check fails after merging). The loops run the checks
+and return `MergeError::UndoNeeded(n)` instead of restoring; ESI restores nothing on the flange
+so this path has NO ESI reference and no test beyond the type. Also not done: merging across
+patches (`IGNOREPATCH`) is implemented in `get_merge_sets` (largest-face master) but has no ESI
+comparison; `preserveFaces`/baffles and face zones are not modelled. No picture this round:
+the merged mesh differs from the unmerged one only in faces that are coplanar within `cos 30`
+and the equality is by number; a slice would show nothing the counts do not.
+
+**Moved pins:** none. **Defects found:** none in the port this round; one in the record: the
+fixture `esi_merge_all_face_sets` holds labels of the REPATCHED mesh (the set is written after
+`repatchToSurface`), recorded in `extract_merge_fixtures.py`. PETIR residuals: the only
+transcendental is `cos(degToRad(30))` through `RealMath::r_cos`, equal to ESI's printed
+0.8660254037844387; count 0 differing.
