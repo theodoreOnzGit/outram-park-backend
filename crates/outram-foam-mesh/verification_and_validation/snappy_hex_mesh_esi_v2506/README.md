@@ -878,3 +878,100 @@ fixture `esi_merge_all_face_sets` holds labels of the REPATCHED mesh (the set is
 `repatchToSurface`), recorded in `extract_merge_fixtures.py`. PETIR residuals: the only
 transcendental is `cos(degToRad(30))` through `RealMath::r_cos`, equal to ESI's printed
 0.8660254037844387; count 0 differing.
+
+## Round 6: explicit feature snapping (gh:#1467, epic #1459 / #1336), predictions
+
+**Written and committed BEFORE any feature-snap port code exists.** Upstream read first
+(ESI v2506 `snappySnapDriverFeature.C`, 4467 lines; `snappySnapDriver.C::doSnap`
+`:2574-3660`; `refinementFeatures.C`; `snapParameters.C`; `plane.C`, `pointConstraintI.H`,
+`TensorI.H`, `PatchToolsNormals.C`, `PrimitivePatchMeshData.C`, `face.C`).
+
+**Tool built.** `surfaceFeatureExtract` was not built (round 3 said so). Built with
+`wmake -j1 libso extractionMethod && wmake -j1` in
+`applications/utilities/surface/surfaceFeatureExtract` under `with-of.sh`: 15 s, no
+other library needed, a few MB. Run on `flange.stl` with the tutorial's
+`surfaceFeatureExtractDict` (`extractFromSurface`, `includedAngle 150`; copy
+`surfaceFeatureExtractDict.flange`): 767 points (4 convex, 4 concave, 10 mixed
+feature points, 749 non-feature), 776 edges (488 external, 198 internal, 90 flat),
+376 region edges, written as `constant/extendedFeatureEdgeMesh/flange.extendedFeatureEdgeMesh`
+(ASCII, `writePrecision 16`; committed gzipped as
+`tests/fixtures/esi_v2506_flange/flange.extendedFeatureEdgeMesh.gz`, the **input**
+of both ESI and the port, so its rounding is common to both).
+
+**Case.** `snappyHexMeshDict.feature` = the round-3 reduced flange dictionary
+(`snappyHexMeshDict.snap`) with exactly two changes: `features ( { file
+"flange.extendedFeatureEdgeMesh"; level 0; } )` (level 0: castellation is unchanged,
+ESI log "Selected for feature refinement : 0 cells") and `snapControls { nSmoothPatch 3;
+tolerance 1.0; nSolveIter 300; nRelaxIter 5; nFeatureSnapIter 10; implicitFeatureSnap
+false; explicitFeatureSnap true; multiRegionFeatureSnap false; }`. `multiRegionFeatureSnap`
+is false here; the round-3 remark that the tutorial's `true` attracts "24 feature points
+and 1446 feature-edge points" is the same as this explicit-only count (identical in
+iteration 0). The tutorial's `refineHole` sphere is still not ported. The other
+`snapParameters` are upstream's defaults (read from `snapParameters.C`, not assumed):
+`releasePoints false`, `stringFeatures true`, `avoidDiagonal false`, `detectBaffles
+true`, `baffleFeaturePoints false`, `detectNearSurfacesSnap true`, `strictRegionSnap
+false`, `nFaceSplitInterval` unset (`labelMin`, so no face splitting and
+`alignMeshEdges` true). Reference run: `blockMesh` with the ASCII `controlDict`
+(`writePrecision 16`) first, then `snappyHexMesh` with `writeFormat binary` (exact
+doubles; the round-3 note on blockMesh precision applies). The log is
+`esi_feature_log.txt.gz`; it equals the ASCII run's log apart from timings.
+
+**What ESI does (the reference numbers).** 18278 cells, 63194 faces, 26662 points
+castellated, unchanged by the feature file (so rounds 1-5 carry over). `doSnap` runs
+`nFeatIter = 10` morph iterations, each: `calcNearestSurface`, `detectNearSurfaces`,
+`calcNearestSurfaceFeature` (blend factor `featureAttract = (iter+1)/10`),
+`outwardsDisplacement` (a warning only), `setDisplacement`, `smoothDisplacement`,
+`scaleMesh`, `meshMover.correct()`; then `repatchToSurface` and the two merges. Final
+mesh (time 81): 18278 cells, **60813 faces, 24311 points** (the plain snap gives
+61034 / 24615). Per iteration the log prints (the gates of this round):
+
+| it | wanted displacement mean | raw point / edge | reverse-attract grown (initial) | after reverse point / edge | stringing | final point / edge | gap overrides | scale passes |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 1.688540950712846e-4 | 24 / 1446 | 4312 (1470) | 18 / 1306 | 101 1 1 2 1 1 0 | 26 / 1405 | 0 | 1 |
+| 1 | 1.557839932393523e-4 | 24 / 1446 | 4321 (1470) | 18 / 1300 | 109 4 1 2 1 0 | 26 / 1409 | 0 | 1 |
+| 2 | 1.311383484862793e-4 | 28 / 1444 | 4323 (1472) | 18 / 1306 | 102 1 1 2 1 0 | 26 / 1405 | 0 | 1 |
+| 3 | 9.992840140840707e-5 | 28 / 1444 | 4324 (1472) | 18 / 1310 | 98 2 0 | 26 / 1402 | 0 | 1 |
+| 4 | 6.830408578944219e-5 | 28 / 1420 | 4271 (1448) | 18 / 1310 | 96 1 0 | 26 / 1399 | 0 | 1 |
+| 5 | 4.103490302037604e-5 | 28 / 1414 | 4246 (1442) | 18 / 1318 | 88 0 | 24 / 1400 | 0 | 1 |
+| 6 | 2.122369759119509e-5 | 26 / 1414 | 4228 (1442) | 18 / 1320 | 93 0 | 27 / 1404 | 0 | 7 |
+| 7 | 1.238645002129053e-5 | 26 / 1414 | 4226 (1442) | 18 / 1328 | 85 0 | 27 / 1404 | 0 | 7 |
+| 8 | 7.423801224059679e-6 | 24 / 1414 | 4223 (1439) | 18 / 1362 | 51 0 | 29 / 1402 | 0 | 7 |
+| 9 | 3.265670138296469e-6 | 25 / 1413 | 4223 (1439) | 18 / 1383 | 28 0 | 28 / 1401 | **2** | 7 |
+
+(Nearest-surface count 10660 and "rest" 0 at the raw stage; 0 baffle edges in all
+iterations; "scale passes" is the number of `Moving mesh using displacement scaling`
+passes, i.e. the `scaleMesh` loop of round 4.) Iteration `k` writes its smoothed mesh
+and displacement at times 34, 36, 38, 40, 42, 44, 46, 54, 62, 70 and its last scaled
+mesh at 35, 37, 39, 41, 43, 45, 53, 61, 69, 77.
+
+**Inventory of this round (new code in `src/snappy_hex_mesh/esi_feature.rs`, opt-in,
+nothing existing calls it):** the `extendedFeatureEdgeMesh` ASCII reader; `plane`
+(`planeIntersect`, `planePlaneIntersect` with `Tensor::inv`); `pointConstraint`
+(`applyConstraint`); `calcNearestFace`, `calcNearestFacePointProperties`; the per-point
+`featureAttractionUsingReconstruction`; `determineFeatures` (single-region and
+`multiRegionFeatureSnap` branches); `findNearFeatureEdge/Point`;
+`determineBaffleFeatures` (detection only: it reports an error if a baffle edge is
+found, none is on the flange); `reverseAttractMeshPoints`; `stringFeatureEdges`;
+`preventFaceSqueeze`; `PatchTools::pointNormals`; `smoothAndConstrain`; the tail of
+`calcNearestSurfaceFeature`; and a `doSnap` morph loop reusing rounds 3-5. NOT ported:
+the mesh-wide `implicitFeatureSnap` driver (its per-point reconstruction is ported because
+`determineFeatures` calls it), `releasePointsNextToMultiPatch`, `avoidDiagonalAttraction`,
+`splitDiagonals` (face splitting), baffle point attraction, `detectNearSurfaces` (0
+overrides in iterations 0-8, **2 in iteration 9**, see P41).
+
+### Predictions (committed before the port code)
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P36 | The reader gives 767 points, 776 edges, `concaveStart 4 mixedStart 8 nonFeatureStart 18`, 376 region edges, and exact coordinates (no arithmetic). | file layout surprises |
+| P37 | **Tie count.** Upstream searches feature edges, feature points and patch points through `indexedOctree::findNearest`; the port brute-forces (first minimum in index order). They differ only when two shapes are at exactly equal distance. The port counts exact-equal-distance ties per query class and reports them. Prediction: ties occur for **feature-edge queries** at shared edge vertices (a sample projecting beyond both edges clamps to the same vertex, so the two distances are bit-equal), a few tens of queries per iteration; **zero** for feature-point and patch-point queries. If a tie changes a later stage the octree traversal order has to be ported; if it does not (both edges give the same point, and `reverseAttract` reads only the points) the brute force stands and the tie count is pinned. | ties are more frequent than guessed, or reach `reverseAttract` through the processing order of `edgeAttractors[feati][edge]` |
+| P38 | Iteration 0, started from ESI's time-33 points (`snap_points_33_n3`) and the castellated topology, reproduces **every count of table row 0**: raw 24 / 1446 / 10660 / 0; 0 baffle edges; reverse-attract selection 1470 then 4312; after reverse 18 / 1306 / 0 / 10806; stringing 101 1 1 2 1 1 0; final 26 / 1405 / 0 / 10699, and the `Attraction: linear max` line exactly. Rows 1-8 likewise, started from ESI's own mesh at the start of that iteration. | any divergence in `calcNearestFace` or the plane arithmetic changes which points are attracted; the count table localises it |
+| P39 | The smoothed displacement of iteration 0 equals ESI's `34/displacement` **bit for bit on all 79986 components** (patch displacement from `calcNearestSurfaceFeature`, then round 3's `smoothDisplacement`), and the scaled points equal `35/polyMesh/points`. The operations are `+ - * /`, `sqrt`, `min`, in upstream's order; `inv(a)` is `adjunct()/det()`. | the nearest-surface triangle search (round 3: one component differed by 2.2e-19 m), the face-fan normals of `PatchTools::pointNormals`, a summation order in `smoothAndConstrain` |
+| P40 | Iterations 1-5 (one scale pass each) are bit-identical to ESI's meshes at times 36/37 ... 44/45 when each is started from ESI's mesh, and chained they stay bit-identical. Iterations 6-8 (7 scale passes) are bit-identical if round 4's `scale_mesh_loop` is. | accumulated 1-ulp differences; iteration 6's later passes test the `errorReduction 0` branch (from pass `nRelaxIter` = 5 on) |
+| P41 | Iteration 9 is **not** bit-identical: ESI's `detectNearSurfaces` overrides the nearest displacement at 2 points there and the port does not have it. First divergent operation: the nearest-surface displacement at those two points. | none: an inventory gap stated in advance; porting `detectNearSurfaces` is the fix |
+| P42 | After the ten iterations (with ESI's iteration-9 displacement supplied if `detectNearSurfaces` is not ported), `repatchToSurface` + `mergePatchFacesUndo` + `mergeEdgesUndo` give ESI's final mesh: **60813 faces, 24311 points, 18278 cells, all faces equal per index** (rounds 4-5 machinery; only the point positions change, but the merge sets depend on them). | merge thresholds near `cos 30 deg` on features: a merge set could differ by a face |
+| P43 | PETIR (`RealMath`) residuals: the transcendentals are `cos(degToRad(30))` (featureCos) and `cos(degToRad(110))` (baffleFeatureCos); both agree with ESI as in round 5; count of differing values 0. | |
+
+Method: each stage is run from ESI's own previous-stage data first (isolating that
+stage), then chained; every difference is explained by its first divergent operation;
+no tolerance is relaxed and no input is tuned.
