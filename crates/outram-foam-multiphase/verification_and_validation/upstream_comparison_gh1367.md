@@ -304,3 +304,72 @@ operation order and `rho` are identical to upstream.
 - **Added, ESI form, named:** `SlipModel::OpenFoamSimple`,
   `SlipModel::OpenFoamGeneral`, `drift_flux::tau_dm_openfoam`. The dev form
   `TerminalVelocity` stays callable (compared in D1).
+
+## Row 2 — results (port run 2026-11-12, `tests/upstream_drag_gh1367.rs`)
+
+4096 cells, bit patterns compared. Upstream expressions transcribed from ESI
+v2506 and evaluated with its own `scalarField`/`vectorField` algebra (glibc
+`-O3`, no FMA); the port is a real `TwoFluidSystem` on a 4096-cell line mesh.
+Only 750 of 4096 cells have `Re < 1000` (the `24(1+0.15 Re^0.687)` branch);
+the rest take the Newton branch `0.44 Re`. For Wen-Yu 1886 cells have
+`Res < 1000`.
+
+| Quantity | Bit-identical | Worst rel. diff | Prediction | Outcome |
+|---|---|---|---|---|
+| F1 slip `Re` | 4096 / 4096 | 0 | 4096 | hit |
+| F2 SchillerNaumann `K`, port vs ESI | 4096 / 4096 | 0 | >= 99 %, <= 4.5e-16 | hit (better) |
+| F3 WenYu `K`, dev form | 2889 / 4096 (70.5 %) | 6.1e-16 | < 50 % identical, <= 1e-14 | count **missed** (more agreement than predicted); bound hit; cell 2 (`alpha_d = 1`) differs by < 1e-14 |
+| F4 `WenYuEsi` vs ESI `WenYu` | 4096 / 4096 | 0 | >= 99 %, <= 1e-15 | hit |
+| F5 first diverging force | see below | | virtual mass | hit |
+
+### First divergent operation
+
+`pow(Re, 0.687)` differs between glibc and PETIR in 5 cells (326, 1598, 1968,
+2020, 2644). Four are in the Newton branch (`Re >= 1000`), where the value is
+multiplied by `pos0`/`neg` zero and not used; the fifth (cell 2020, `Re = 550`)
+differs by 1 ulp in `pow` and is absorbed by the rounding of `1 + 0.15*pow`.
+So the port's SchillerNaumann `K` is bit-identical although PETIR's `pow`
+is not bit-identical to glibc's. For the dev Wen-Yu form the first divergent
+operation is the exponent: ESI computes `pow(alpha2,-3.65)*alpha_c`, the port
+`pow(alpha2,-2.65)`; the products round differently in 1207 of 4096 cells.
+Mathematically identical, so this is an operation-order difference, not a
+physics one; `WenYuEsi` removes it.
+
+### Per-force status (F5)
+
+| Force (ESI v2506 `twoPhaseSystem`) | Port | Status |
+|---|---|---|
+| Drag SchillerNaumann | `DragModel::SchillerNaumann` | bit-identical (F2) |
+| Drag WenYu | `DragModel::WenYu` (dev), `WenYuEsi` (ESI) | dev 2889/4096, ESI 4096/4096 |
+| Drag Ergun, Gibilaro, GidaspowErgunWenYu, GidaspowSchillerNaumann, IshiiZuber, Lain, SyamlalOBrien, TomiyamaAnalytic, TomiyamaCorrelated, segregated | none | gap |
+| Drag blending between dispersed/segregated (bubbleColumn `blending`) | none | gap |
+| Swarm correction | `Cs = 1` only (ESI `noSwarm`) | TomiyamaSwarm is a gap |
+| Virtual mass (constantCoefficient Cvm 0.5 in bubbleColumn, Lamb) | `NotImplemented` | **first force without a port counterpart** |
+| Lift (constantLiftCoefficient, LegendreMagnaudet, Moraga, TomiyamaLift) | `NotImplemented` | gap |
+| Wall lubrication | `NotImplemented` | gap |
+| Turbulent dispersion (Burns, Gosman, LopezDeBertodano, constant) | `NotImplemented` | gap |
+
+The gaps are not defects (the port's own docs say drag only; the #1363 row-5
+note says the same for `TwoFluidPimple`). Not evaluated: the first four
+`Re`-dependent forces' ESI expressions were not transcribed, since there is no
+port value to compare against.
+
+### Defects and options
+
+- No port defect found in drag: `Re`, `Ki`, `K`, SchillerNaumann agree to the
+  bit with ESI v2506 on this field.
+- **Added, ESI form, named:** `DragModel::WenYuEsi { residual_re }`
+  (`twoPhaseEuler/.../WenYu.C`). The dev form `WenYu` stays callable (F3).
+- `residualRe` (ESI SchillerNaumann/WenYu `max(Re, residualRe)`) is absent from
+  the dev forms; inert for `0 < residualRe < 1000` (no cell had `Re` below
+  1e-3 and `Re >= 1000` at once). `WenYuEsi` carries it.
+
+### What remains (rows 1 and 2)
+
+- MULES / alpha transport and `U_mixture` for dahl (needs a MULES port and a
+  built `driftFluxFoam`).
+- Mixture viscosity (`plastic`, `BinghamPlastic`, `slurry`).
+- bubbleColumn `p_rgh`, `U.air`, `U.water` over 10 steps: needs the missing
+  forces, drag blending, and the PEA/`faceMomentum` coupling.
+- ESI expressions for virtual mass, lift, wall lubrication and turbulent
+  dispersion, once the port has them.
