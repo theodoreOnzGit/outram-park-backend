@@ -75,8 +75,21 @@ pub enum GradScheme {
 /// Divergence / convection scheme (divSchemes).
 #[derive(Debug, Clone, PartialEq)]
 pub enum DivScheme {
+    /// `Gauss linear`: central differencing, fully implicit, as upstream's
+    /// `gaussConvectionScheme` (since gh:#1363; see
+    /// `fvm::div_vec_linear`). Unbounded: on a coarse convection-dominated
+    /// mesh it can diverge, as upstream's does.
     GaussLinear,
     GaussUpwind,
+    /// Central differencing by **deferred correction**: implicit upwind plus
+    /// the lagged explicit `φ (U_linear − U_upwind)` in the source, which is
+    /// what `GaussLinear` was before gh:#1363. **NOT an OpenFOAM scheme** and
+    /// not upstream's `Gauss linear` (it changes `A` and `H` of PISO: 1.4e-3
+    /// of the velocity range at step 2 of the cavity differential). Kept
+    /// explicit so a study whose recorded numbers came from it (the Foam
+    /// Studio coil runs of gh:#1157, which diverge with the implicit scheme on
+    /// their coarse grids) stays reproducible.
+    GaussLinearDeferred,
     GaussLinearUpwind(String), // e.g. "Gauss linearUpwind grad(U)"
     GaussVanLeer,
     GaussMUSCL,

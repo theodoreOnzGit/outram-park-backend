@@ -268,26 +268,19 @@ pub fn ddt_vec_scheme(
 ///
 /// * [`DivScheme::GaussUpwind`] — first-order upwind, `fvm::div_vec` unmodified.
 ///   Unconditionally bounded, strongly diffusive on a coarse mesh.
-/// * [`DivScheme::GaussLinear`] — second-order central differencing, assembled
-///   by **deferred correction**: the implicit matrix stays the (diagonally
-///   dominant) upwind operator, and the difference between the linear and upwind
-///   face values is added explicitly to the source,
+/// * [`DivScheme::GaussLinear`] — second-order central differencing, fully
+///   IMPLICIT as upstream's `gaussConvectionScheme` with the `linear` weights
+///   (`fvm::div_vec_linear`: `lower = -w φ`, `upper = lower + φ`, `negSumDiag`).
+///   ~~Until gh:#1363 this was the upwind matrix plus a lagged explicit
+///   (Khosla–Rubin deferred) correction, which is a different discrete operator
+///   inside a time step~~ **CORRECTED 2026-11-11** (cavity differential against
+///   OpenFOAM-dev icoFoam: 1.4e-3 of the velocity range at step 2 before,
+///   ~1e-13 after). The matrix is no longer diagonally dominant and the scheme
+///   is **not** bounded — central differencing on a convection-dominated coarse
+///   mesh can produce over/undershoots.
 ///
-///   ```text
-///     D_f = φ_f (U_f^linear − U_f^upwind)
-///     source[owner]     −= D_f
-///     source[neighbour] += D_f
-///   ```
-///
-///   This is the standard Khosla–Rubin treatment: it recovers second-order
-///   accuracy at convergence while keeping the matrix M-like. It is **not**
-///   bounded — central differencing on a convection-dominated coarse mesh can
-///   produce over/undershoots.
-///
-///   Boundary faces are left to `fvm::div_vec`: on a zero-gradient patch the
-///   linear and upwind face values coincide (both equal the owner value), and on
-///   a fixed-value patch `fvm::div_vec` already uses the prescribed value, so
-///   there is no correction to apply either way.
+///   Boundary faces are treated as in `fvm::div_vec` (the boundary
+///   coefficients do not depend on the interior weights).
 /// * [`DivScheme::GaussLinearUpwind`] — OpenFOAM's `linearUpwind`
 ///   (gh:#1202): upwind weights in the implicit matrix plus the explicit
 ///   correction `φ_f (C_f − C_u)·(∇U)_u` of [`linear_upwind_correction`],
@@ -322,6 +315,26 @@ pub fn div_vec_scheme(
         // this arm used to be implicit upwind plus a lagged explicit
         // correction, a different operator inside a time step.
         DivScheme::GaussLinear => Ok(fvm::div_vec_linear(phi, u, mesh)),
+        // The pre-gh:#1363 `Gauss linear`: implicit upwind plus a lagged
+        // explicit central correction. Not an OpenFOAM scheme.
+        DivScheme::GaussLinearDeferred => {
+            let mut mat = fvm::div_vec(phi, u, mesh.clone());
+            let u_f = fvc::interpolate(u); // geometric linear weighting
+            for f in 0..mesh.n_internal_faces {
+                let o = mesh.owner[f];
+                let nb = mesh.neighbour[f];
+                let phi_f = phi.internal[f];
+                let u_up = if phi_f >= 0.0 {
+                    u.internal[o]
+                } else {
+                    u.internal[nb]
+                };
+                let d = (u_f.internal[f] - u_up) * phi_f;
+                mat.source[o] -= d;
+                mat.source[nb] += d;
+            }
+            Ok(mat)
+        }
         DivScheme::GaussLinearUpwind(_) => {
             let mut mat = fvm::div_vec(phi, u, mesh.clone());
             let g = grad_vec_scheme(grad, u)?;
@@ -642,6 +655,38 @@ mod tests {
         for f in 0..mesh.n_internal_faces {
             assert!((lin.ldu.upper[f] - 0.5).abs() < 1e-15);
             assert!((lin.ldu.lower[f] + 0.5).abs() < 1e-15);
+        }
+    }
+
+    /// V&V (verification) — `DivScheme::GaussLinearDeferred` is the
+    /// pre-gh:#1363 `Gauss linear`: the upwind matrix unchanged and the central
+    /// correction in the source. This is the 2026-08-07 test of that form,
+    /// kept for the explicit variant (it asserted `source_linear -
+    /// source_upwind = [-0.5, 0, 0.5]` on the 3-cell line with U = {1, 2, 3},
+    /// phi = 1, and the diagonal and off-diagonals equal to upwind's; measured
+    /// then and re-measured 2026-11-12 with max |delta| = 0).
+    #[test]
+    fn deferred_linear_div_adds_the_exact_central_difference_correction() {
+        let mesh = line_mesh();
+        let mut u = VolVectorField::zero("U", mesh.clone());
+        u.internal = Field::new(vec![vx(1.0), vx(2.0), vx(3.0)]);
+        let mut phi = SurfaceScalarField::zeros("phi", mesh.clone());
+        phi.internal[0] = 1.0;
+        phi.internal[1] = 1.0;
+
+        let g = GradScheme::GaussLinear;
+        let up = div_vec_scheme(&DivScheme::GaussUpwind, &g, &phi, &u, mesh.clone()).unwrap();
+        let lin = div_vec_scheme(&DivScheme::GaussLinearDeferred, &g, &phi, &u, mesh.clone()).unwrap();
+
+        let expected = [-0.5, 0.0, 0.5];
+        for (c, want) in expected.iter().enumerate() {
+            let d = lin.source[c].x - up.source[c].x;
+            assert!((d - want).abs() < 1e-12, "cell {c}: correction {d} expected {want}");
+            assert!((lin.ldu.diag[c] - up.ldu.diag[c]).abs() < 1e-15, "diag[{c}]");
+        }
+        for f in 0..mesh.n_internal_faces {
+            assert!((lin.ldu.upper[f] - up.ldu.upper[f]).abs() < 1e-15);
+            assert!((lin.ldu.lower[f] - up.ldu.lower[f]).abs() < 1e-15);
         }
     }
 

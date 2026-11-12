@@ -1488,7 +1488,7 @@ impl Engine {
             // vortices are resolved convection), Co 4 (1 above
             // `COIL_CO4_MAX_RE`, or to watch it develop) under the viscous
             // cap, one non-orthogonal corrector.
-            let run = CoilRun::on_mesh(g, fv, reynolds, outram_foam_appbuilder_lib::io::fv_schemes::DivScheme::GaussLinear, coil_courant(mode, reynolds), max_viscous());
+            let run = CoilRun::on_mesh(g, fv, reynolds, outram_foam_appbuilder_lib::io::fv_schemes::DivScheme::GaussLinearDeferred, coil_courant(mode, reynolds), max_viscous());
             self.case = Some(Case::Coil(run));
             self.steps = 0;
             self.time = 0.0;

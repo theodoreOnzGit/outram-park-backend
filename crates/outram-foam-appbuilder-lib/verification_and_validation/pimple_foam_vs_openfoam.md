@@ -59,5 +59,82 @@ Read: dev `icoFoam.C`, `EulerDdtScheme::fvcDdtPhiCorr`, `ddtScheme::fvcDdtPhiCoe
   the moving lid in `fvm::div` (Gauss linear on the lid face), then `ddtCorr` on
   boundary faces.
 
-## Results
-(to be filled after the port run)
+## Results (measured 2026-11-11, release; `tests/upstream_cavity_gh1363.rs`)
+
+**Process note.** The committed reference was regenerated once after the first
+port run: the first extraction held U and p only; after the first port run
+showed a step-2 disagreement, `phi` (face flux) was added to the reference to
+locate it. Nothing in the upstream run changed (same binary, same inputs).
+
+### First run, as the code stood before this work: the prediction MISSED
+| | step 1 | step 2 | step 100 |
+|---|---|---|---|
+| Ux, Uy, p worst difference / field max | 7e-15, 1e-14, 4e-14 (as predicted) | **1.4e-3, 3.0e-3, 5.0e-3** | **1.4e-3, 2.8e-3, 3.5e-3** |
+
+Step 1 agreed to ~1e-14, step 2 did not, and the initial Ux residual of step 2
+differed (0.14805 against upstream 0.14858) before the pressure solve, so the
+momentum matrix differed. `phi` agreed after step 1 (6e-15), so the difference was
+in the operator, not the state: **defect D1**, below. The prediction "<= 1e-9 at
+t = 0.5" was wrong for the code as it stood, and right after the fix.
+
+### After the fixes (D1, D2): what the test pins
+Worst `|port - upstream| / max|upstream field|` over the 7 snapshots (steps 1, 2, 5,
+10, 25, 50, 100), cell by cell:
+
+| quantity | step 1 | step 2 | step 100 | worst, any step |
+|---|---|---|---|---|
+| Ux | 3.0e-15 | 2.0e-14 | 2.5e-14 | 6.0e-14 |
+| Uy | 8.9e-15 | 4.2e-14 | 5.0e-14 | 1.3e-13 |
+| p | 2.5e-14 | 5.7e-14 | 4.5e-14 | 1.1e-13 |
+| phi (760 faces) | 4.2e-15 | 1.3e-14 | 2.5e-14 | 9.4e-14 |
+
+Bit-identical cells: 0 to 5 of 400 per field and step (coincidence, as predicted
+that none would be). Worst per-cell relative difference on cells above 1e-6 of
+the field max: Ux 4.7e-9, Uy 2.6e-10, p 2.2e-9 at their worst steps (cells where
+the field is small). |Uz| of the port: <= 1.4e-15 (predicted exactly zero: wrong,
+it is round-off from `Sf_z` of the empty faces; upstream prints ~1e-20).
+**The test asserts worst < 3e-13 of field max** (measured 1.3e-13) and fewer than 10 %
+of cells bit-identical. The bound is not relaxed.
+
+Initial residuals (upstream normalisation, 100 steps x Ux, Uy, p1, p2 = 400
+numbers; 183 of them above 1e-6 are compared): step 1 Ux = 1 and p(1) = 1 exactly
+on both sides; worst
+relative difference over the 183: **U 7.6e-9, p 3.5e-8** (asserted < 1e-7). Below 1e-6
+the residual is dominated by the ~1e-14 state difference, not compared.
+
+**Cause of the remaining ~1e-14, stated as a hypothesis, not proven:** the linear
+solvers differ (the port's CG with its preconditioner and its Gauss-Seidel,
+against upstream DIC-PCG and symGaussSeidel), both stopped at a 1e-14 residual.
+Not isolated: that would need the same solver on both sides, which means porting
+upstream's `symGaussSeidel` and `DICPreconditioner`, not done this round.
+Bit-identity at step 1 is therefore NOT reached.
+
+### Defects found and fixed (all by translating upstream)
+- **D1. `Gauss linear` convection was not upstream's operator.** The port built
+  implicit UPWIND plus a lagged explicit central correction
+  (`solvers::schemes::div_vec_scheme`, `DivScheme::GaussLinear`); upstream
+  `gaussConvectionScheme::fvmDiv` with the `linear` weights is fully implicit
+  (`lower = -w*phi`, `upper = lower + phi`, `negSumDiag`). Inside a time step these
+  differ, so `A`, `H`, `rAU` and everything downstream differed. New
+  `fvm::div_vec_linear` (basic-lib) carries it. ABLATION: the old behaviour is the
+  first-run row above (1.4e-3 at step 2). The unit test that asserted the old
+  deferred-correction form (`linear_div_adds_the_exact_central_difference_correction`)
+  now asserts the implicit one; changed because the old assertion is not upstream's operator.
+- **D2. Pressure reference pinned with a 1e30 penalty.** Upstream
+  `fvMatrix::setReference` does `source[c] += diag[c]*value; diag[c] += diag[c]`.
+  `PimpleFoam` now uses `FvMatrix::set_reference_openfoam`; the old
+  `set_reference` (1e30) is unchanged for the other solvers. Effect measured:
+  p differs from the penalty version by < 5e-14 of max; its real cost was that the
+  pressure initial residual was meaningless (about 1e-35, from the 1e30 in the norm).
+
+### Added for this comparison
+`LduMatrix::openfoam_initial_residual` (upstream `normFactor`), `PimpleFoam::
+with_solve_log` / `SolveRecord` (opt-in, off by default), `FvMatrix::set_reference_openfoam`,
+`fvm::div_vec_linear`.
+
+### Not covered
+Non-orthogonal meshes, `Gauss linearUpwind`/`limitedLinear` (the latter is not in the
+port), nOuterCorrectors > 1, turbulence, and Foundation `pimpleFoam` (the
+`incompressibleFluid` module) itself: icoFoam is the same algorithm by the port's
+own statement, which this record does not independently verify. `phi` boundary
+values are zero on both sides and are not compared.
