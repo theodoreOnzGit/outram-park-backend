@@ -409,3 +409,76 @@ ordering, and the reader on the shipped `quadratureSet`. It is ONE step: Godiva'
 (the round-1 log shows `keff_` moving from the seed) are not compared; the port is 2x slower and 1.7x larger than upstream here, so the 20-step run
 (about 10 hours) was not attempted. The shipped tutorial's own solver tolerance (1e-7 / 0.1) is not reproduced by the port, whose solver stops on a
 different residual; at that tolerance the two codes would differ by the solver, not by the physics.
+
+
+## Round 3 (gh:#1361 plan steps 4 and 5): the thermal-hydraulics stack of the real binary
+
+AI-written, not human-reviewed. Research, education and V&V only. Rule: "ESI preferred"; where
+GeN-Foam needs ESI behaviour the port gets it as a named option and the Foundation form stays
+callable (maintainer, 2026-11-12).
+
+### Build (measured 2026-11-12; `scripts/build_th_stack.sh`, `WM_NCOMPPROCS=2`, `-O3`, objects deleted after each link)
+
+The 19 ESI closure libraries were built earlier (`../esi_thermo_turbulence_closure_build.md`). New here:
+
+| item | wall | peak RSS | output | transient objects |
+|---|---:|---:|---:|---:|
+| libFFSSrc2 (`thermalHydraulics/src`, 167 .C, `-g` removed from its `Make/options`) | 11 min 53 s (load shared with another build) | 0.83 GB | .so 6.2 MB | 33.7 MB |
+| libFFSSolvers2 (`thermalHydraulics/solvers`, **without `-lthermoTools`**) | 1 min 01 s | 0.94 GB | .so 2.3 MB | 6.4 MB |
+| GeN-Foam.C + setDeltaT.C relinked with `-lFFSSrc2 -lFFSSolvers2` and the closure libs | 7 s | 0.50 GB | exe 106 KB | |
+
+Total about 13 min, 8.5 MB of libraries. **`thermoTools` was NOT built and is not needed**: the scoping
+comment's estimate (it pulls incompressibleMultiphaseSystems, combustionModels, geometricVoF and
+saturationModel, "10 to 30 min") did not arise, because neither GeN-Foam library calls a symbol from it
+at link or at load time for the cases run here (the link and the runs below are the evidence;
+a case that selected a thermoTools-only boundary condition would fail at run time, "Unknown patchField
+type"). Disk never fell below 3.8 GB. Only link lines and one `-g` were edited; no `.C`/`.H` file.
+
+### Case defects found in upstream's shipped 1D_boiling (not port defects)
+
+1. `0/fluidRegion/alpha.liquid` declares `type calulated` on the inlet and outlet. ESI v2506 refuses it
+   ("Unknown patchField type calulated"); the port's reader accepts it silently. The comparison copies
+   fix the spelling (`boiling_protocol.sh`); the port's tolerance is a deliberate choice recorded in
+   `tests/data/genfoam_1d_boiling/PROVENANCE.md`.
+2. The shipped `alpha` solver is `"MULES"`; the port has implicitUpwind only (gh:#1219). Both codes
+   run `implicitUpwind` with `solvePhase vapour` (ESI requires the `solvePhase` entry; the port
+   defaults to the vapour).
+
+### Upstream facts measured before any port run (real binary, serial)
+
+| run | steps | wall | final cumulative continuity error liquid / vapour [kg/m3] |
+|---|---:|---:|---|
+| shipped tolerances (p_rgh GAMG 1e-6, generic PBiCGStab 1e-6 / relTol 1e-3), implicitUpwind, 12 s | 4401 | 123 s | -0.44658 / +1.997e-4 |
+| tight (every `solvers` tolerance 1e-14, relTol 0; residualControl untouched), 12 s | 6157 | 303 s | -2.29649 / +1.155e-3 |
+
+**The liquid continuity error of upstream's own run moves by a factor of 5 with the linear-solver
+tolerance alone.** The port's recorded -2.7 kg/m3 (gh:#1239) was measured at the shipped tolerances; the
+comparison with the like-for-like upstream number is the port rows below, not this one.
+
+### Predictions, 1D_boiling (written BEFORE the first port run; committed first)
+
+Both codes run the same equations on the same 40-cell mesh, so the translation is judged against these
+numbers. `T.vapour` is the field most likely to differ (the vapour is absent, `alpha.vapour = 0`, and
+its temperature is set by interface coupling at `residualAlpha`).
+
+| id | quantity | prediction | cause if missed |
+|---|---|---|---|
+| R1 | tight, steps 1-20: `deltaT` | relative difference < 1e-9 at every step (the step is a function of the Courant number, itself a function of `U` to 1e-9) | Courant definition |
+| R2 | tight, steps 1-20: p, p_rgh, T.liquid, U.liquid, U.vapour | worst relative difference < 1e-9 at every step | closure or sign difference |
+| R3 | tight, steps 1-20: T.vapour, T.interface, dmdt | below 1e-6 (looser than R2: set by the absent vapour) | residualAlpha handling |
+| R4 | tight, steps 1-20: alpha.vapour | exactly 0 in both (no boiling in the first 0.06 s) | |
+| R5 | tight, full 12 s: first reference time (0.5 s steps) at which any field leaves 1e-6 | at or after boiling onset (the port's recorded onset, about 3-4 s) | outer-loop count flips (residualControl exit) |
+| R6 | tight, full: final cumulative liquid continuity error, port vs upstream -2.2965 | the port lies in [-3.0, -1.6]: i.e. #1239 is the case (a continuity error that grows with tighter solves), not a port defect | |
+| R7 | shipped tolerances, full: final cumulative liquid error | the port is NOT within 20 % of upstream's -0.4466, because the two codes' loose-tolerance solvers stop at different residuals; the tight run is the comparison | |
+
+### Predictions, PSBT and gFHR against a FRESH run at writePrecision 17 (written BEFORE the port run)
+
+The earlier tests could only reach the ASCII write precision of the committed CSVs (6 significant digits,
+6.15e-6 and 7.2e-6). At 17 digits, with the first step only (no vapour, no boiling):
+
+| id | quantity | prediction |
+|---|---|---|
+| Q1 | PSBT `Ex1_01_5215` first step: port `FsWallFriction::ReynoldsPower` drag factor from upstream's own Re and Dh, per cell | worst relative < 1e-13 (an ulp-level `pow`; 0 differing cells for the pow-free part) |
+| Q2 | gFHR first step: each pebble stage (`keffmatrix`, `Tmout`, `Tmav`, `TfS`, `Tfav`, `Tfmax`) from upstream's `TpS`, per cell | worst relative < 1e-12 per stage (the 5e-6 of the old record is the 6-digit ASCII floor) |
+
+The mesh for gFHR is 292,500 cells; the run is one time step to bound disk.
