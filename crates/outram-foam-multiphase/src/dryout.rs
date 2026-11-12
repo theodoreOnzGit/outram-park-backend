@@ -30,6 +30,13 @@
 
 //! Stage 5 — **Dryout & post-dryout framework** (bead `op-2kk.5`).
 //!
+//! **Lineage: original work, not a port (checked gh:#1367, 2026-11-12).** No
+//! upstream OpenFOAM counterpart exists: a search of ESI OpenFOAM-v2506
+//! (`src/phaseSystemModels`) and OpenFOAM Foundation OpenFOAM-dev
+//! (`applications/modules`) for `Rohsenow`, `Dougall`, `Groeneveld` and dryout
+//! models found none. The worked closure follows the published correlations
+//! credited in the file header.
+//!
 //! A **reserved interface layer** for the dryout / post-dryout boiling-crisis
 //! regimes of a heated two-phase channel. This module deliberately ships the
 //! *architecture* — traits as compiler-enforced contracts, plus `enum`
