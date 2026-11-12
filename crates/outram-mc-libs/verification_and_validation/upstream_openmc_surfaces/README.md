@@ -113,6 +113,15 @@ outram-mc-libs --test surface_distance_vs_openmc_code_to_code --test
 lattice_distance_vs_openmc_code_to_code` (16 + 9 passed, 0 ignored; g++ 13.3, rustc 1.99.1,
 x86-64, glibc libm, 2026-11-10).
 
+**Update 2026-11-12 (epic gh:#1336, gh:#1455): ztorus is 1595/1596 on `distance`.**
+`quartic_oqs.rs` called `f64::{acos, cos, cbrt, powf, hypot}` (glibc) when the table above was
+measured; the workspace no-platform-libm gate moved it to `petir::mathf::RealMath`. One ztorus
+distance (instance 33, `r = (2.5, 0.125, -0.5)`, `u = (0.6, 0.8, 0)`) now differs by 1 ulp
+(2.618e-16 relative). Proven by A/B: with only the `acos`/`cos` calls swapped back to glibc,
+16/16 tests pass bit-identical again. Accepted under the PETIR-maths decision (gh:#1455) and
+pinned in `ztorus_matches_openmc` (exactly 1 case, at most 2.62e-16). `evaluate` and `sense`
+remain 1596/1596; xtorus and ytorus remain fully bit-identical.
+
 **Lattices** (before = tile-local convention for the hex walk, `RectLattice::distance` of the
 earlier port; after = this change):
 

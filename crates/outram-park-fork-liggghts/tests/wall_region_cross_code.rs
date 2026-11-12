@@ -32,10 +32,17 @@
 //! upstream and in Rust's `std`, so **everything bit-identical**. If not, the
 //! only accepted cause is a last-ulp `pow`/`log` difference (gh:#1455).
 //!
+//! **CORRECTED 2026-11-12 (epic gh:#1336):** the port's `pow`/`log` are no
+//! longer `std`: the no-platform-libm gate moved `force_fixes.rs` to
+//! PETIR's `r_powf`/`r_ln`. Re-run the same day on PETIR's maths: both tests
+//! still pass, every compared value bit-identical.
+//!
 //! ## Result
 //!
 //! See the printed counts (`--nocapture`) and
-//! `verification_and_validation/wall_region.md`.
+//! ~~`verification_and_validation/wall_region.md`~~
+//! `verification_and_validation/force_fixes.md`, section `fix wall/region`
+//! (**CORRECTED 2026-11-12**: `wall_region.md` does not exist).
 
 use outram_park_fork_liggghts::force_fixes::{ForceFix, WallRegionStyle};
 use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial};
