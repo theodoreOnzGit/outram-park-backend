@@ -8,7 +8,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
-//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730] [--shield none|tm0728|tm0728-drained|tm0728-packed] [--u235-scale X] [--rods none|1|2|3|1-2-3] [--balance-csv path]
+//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730] [--shield none|tm0728|tm0728-drained|tm0728-packed] [--u235-scale X] [--rods none|1|2|3|1-2-3] [--balance-csv path] [--salt-spectrum-csv path]
 //! ```
 //!
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
@@ -190,7 +190,13 @@ fn main() {
     // neutron balance against ORNL-TM-0730 Table 3.6 (gh:#1128). One tally
     // slot, so it cannot be combined with `--axial-csv`.
     let balance_csv: Option<PathBuf> = flag(&args, "--balance-csv").map(PathBuf::from);
-    assert!(!(balance_csv.is_some() && axial_csv.is_some()), "--balance-csv and --axial-csv share one tally slot");
+    // `--salt-spectrum-csv path`: the salt's flux and absorption on a fine
+    // energy grid, folded afterwards with each salt nuclide's absorption cross
+    // section to split the salt's absorption by nuclide (gh:#1128). Also uses
+    // the one tally slot.
+    let spectrum_csv: Option<PathBuf> = flag(&args, "--salt-spectrum-csv").map(PathBuf::from);
+    let tallies_requested = [axial_csv.is_some(), balance_csv.is_some(), spectrum_csv.is_some()].iter().filter(|&&x| x).count();
+    assert!(tallies_requested <= 1, "--axial-csv, --balance-csv and --salt-spectrum-csv share one tally slot");
     // `--rods none|1|2|3|1-2-3`: control rods inserted all the way through
     // the core (TM-0728 Table 5.4 elements; ORNL-4233 Table 4's calculated
     // case), for the rod worth (gh:#1128). Default: none, every recorded run.
@@ -420,6 +426,9 @@ fn main() {
         if balance_csv.is_some() {
             axial = Some(balance_tally(materials.len()));
         }
+        if spectrum_csv.is_some() {
+            axial = Some(salt_spectrum_tally());
+        }
         let r = match &entropy_csv {
             None => run_keff_csg(&g, &materials, &nuclides, m::source_box(), &s, axial.as_mut()),
             Some(_) => {
@@ -440,6 +449,9 @@ fn main() {
         }
         if let (Some(path), Some(t)) = (&balance_csv, &axial) {
             write_balance(path, &label, seed, t, &mats);
+        }
+        if let (Some(path), Some(t)) = (&spectrum_csv, &axial) {
+            write_salt_split(path, &label, seed, t, &mats[m::SALT_IDX].1, &names, &nuclides, t_k);
         }
         let wall = t.elapsed().as_secs_f64();
         let pcm = 1e5 * (r.k_mean - m::REFERENCE_K) / m::REFERENCE_K;
@@ -507,6 +519,65 @@ fn write_balance(path: &std::path::Path, label: &str, seed: u64, t: &Tally, mats
     for (i, (name, _)) in mats.iter().enumerate() {
         writeln!(f, "{label},{seed},\"{name}\",{:.8e},{:.8e}", t.bins[i * 2].sum, t.bins[i * 2 + 1].sum).expect("balance csv");
     }
+}
+
+/// Energy-bin edges for the salt spectrum: 100 000 logarithmic bins from
+/// 1e-5 eV to 20 MeV, about 4 500 per decade. At U-238's 6.67 eV resonance a
+/// bin is 3.3e-3 eV wide, about a seventh of its 0.025 eV width.
+fn salt_spectrum_edges() -> Vec<f64> {
+    let (lo, hi, n) = (1e-5_f64.ln(), 2e7_f64.ln(), 100_000);
+    (0..=n).map(|i| (lo + (hi - lo) * i as f64 / n as f64).exp()).collect()
+}
+
+/// Flux and absorption in the salt, by fine energy bin. CLI glue (the
+/// workspace's exception for `main` glue); the filters and scores are tested
+/// in the tally modules.
+fn salt_spectrum_tally() -> Tally {
+    let edges = salt_spectrum_edges();
+    let n = edges.len() - 1;
+    Tally {
+        id: 3,
+        name: "N-1 salt spectrum".into(),
+        filters: vec![
+            FilterKind::Material(MaterialFilter { material_indices: vec![m::SALT_IDX] }),
+            FilterKind::Energy(EnergyFilter { bins: edges }),
+        ],
+        scores: vec![ScoreType::Flux, ScoreType::Absorption],
+        bins: vec![TallyBin::default(); n * 2],
+    }
+}
+
+/// Split the salt's absorption by nuclide: `A_i = sum_g N_i sigma_a,i(E_g)
+/// phi_g`, with `E_g` the bin's geometric midpoint and the cross section at
+/// the salt temperature (infinitely dilute in the unresolved range). Writes
+/// one row per nuclide and a closure row comparing the reconstructed total
+/// with the directly tallied absorption. CLI glue, as above.
+#[allow(clippy::too_many_arguments)]
+fn write_salt_split(path: &std::path::Path, label: &str, seed: u64, t: &Tally, salt: &[(&str, f64)], names: &[&str], nuclides: &[Nuclide], t_k: f64) {
+    let edges = salt_spectrum_edges();
+    let n = edges.len() - 1;
+    let new_file = !path.is_file();
+    let mut f = std::fs::OpenOptions::new().create(true).append(true).open(path).expect("spectrum csv");
+    if new_file {
+        writeln!(f, "arm,seed,nuclide,absorption").expect("spectrum csv");
+    }
+    let mut recon_total = 0.0;
+    for (name, density) in salt {
+        let nuc = &nuclides[names.iter().position(|k| k == name).expect("salt nuclide loaded")];
+        let mut a = 0.0;
+        for g in 0..n {
+            let phi = t.bins[g * 2].sum;
+            if phi != 0.0 {
+                let e = (edges[g] * edges[g + 1]).sqrt();
+                a += density * nuc.xs_at_energy(e, t_k).absorption.max(0.0) * phi;
+            }
+        }
+        recon_total += a;
+        writeln!(f, "{label},{seed},{name},{a:.8e}").expect("spectrum csv");
+    }
+    let tallied: f64 = (0..n).map(|g| t.bins[g * 2 + 1].sum).sum();
+    writeln!(f, "{label},{seed},RECONSTRUCTED_TOTAL,{recon_total:.8e}").expect("spectrum csv");
+    writeln!(f, "{label},{seed},TALLIED_TOTAL,{tallied:.8e}").expect("spectrum csv");
 }
 
 fn axial_tally() -> Tally {
