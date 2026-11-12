@@ -1,0 +1,17 @@
+FoamFile { version 2.0; format ascii; class dictionary; object fvOptions; }
+melt
+{
+    type            solidificationMeltingSource;
+    active          yes;
+    selectionMode   all;
+    solidificationMeltingSourceCoeffs
+    {
+        selectionMode all;
+        thermoMode  thermo;
+        Tmelt       302.78;
+        L           80160;
+        relax       0.9;
+        rhoRef      6093;
+        beta        1.2e-4;
+    }
+}
