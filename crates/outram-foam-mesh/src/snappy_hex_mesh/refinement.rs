@@ -64,8 +64,11 @@
 //! `refinementRegions`, `features`, gap refinement, `maxGlobalCells` /
 //! `maxLocalCells`, `nCellsBetweenLevels > 1` (`consistentSlowRefinement`),
 //! coupled (cyclic) boundary faces, which are treated as ordinary boundary
-//! faces here. Cell *removal* after refinement stays this port's inside test,
-//! not upstream's baffle-and-split (gh:#1466).
+//! faces here. Cell *removal* after refinement is by default this port's inside test;
+//! ~~not upstream's baffle-and-split (gh:#1466)~~ **UPDATED 2026-11-12:** upstream's
+//! chain (`removeInsideCells(1)`, `danglingCellRefine`, `baffleAndSplitMesh` with
+//! `markFacesOnProblemCells`) is [`crate::snappy_hex_mesh::esi_split`], opt-in
+//! through `CastellationControls::with_esi_split_mesh_removal`.
 //!
 //! [`RefinementSelection::DistanceBand`]: crate::snappy_hex_mesh::castellation::RefinementSelection::DistanceBand
 
@@ -78,21 +81,21 @@ use crate::snappy_hex_mesh::stl::TriangleSoup;
 
 /// OpenFOAM's `rootSmall`, `sqrt(small)` with `small = 2.2204e-16` double
 /// (`doubleScalarRootSmall`, `OpenFOAM/primitives/Scalar/doubleScalar`).
-const ROOT_SMALL: f64 = 1.490_116_119_384_765_6e-8;
+pub(crate) const ROOT_SMALL: f64 = 1.490_116_119_384_765_6e-8;
 
 /// One mesh face of the current octree: an owner leaf, an optional neighbour
 /// leaf (`None` = domain boundary face) and the segment tested against the
 /// surface.
 #[derive(Debug, Clone, Copy)]
-struct FacePair {
-    own: usize,
-    nei: Option<usize>,
-    start: Vector3,
-    end: Vector3,
+pub(crate) struct FacePair {
+    pub(crate) own: usize,
+    pub(crate) nei: Option<usize>,
+    pub(crate) start: Vector3,
+    pub(crate) end: Vector3,
 }
 
 /// Centre of `leaf` `[m]` on a background of `size0` level-0 cell sizes.
-fn centre(leaf: &Leaf, origin: Vector3, size0: [f64; 3]) -> Vector3 {
+pub(crate) fn centre(leaf: &Leaf, origin: Vector3, size0: [f64; 3]) -> Vector3 {
     let f = 1.0 / (1usize << leaf.level) as f64;
     Vector3::new(
         origin.x + (leaf.i as f64 + 0.5) * size0[0] * f,
@@ -101,30 +104,33 @@ fn centre(leaf: &Leaf, origin: Vector3, size0: [f64; 3]) -> Vector3 {
     )
 }
 
-/// Enumerate the faces of the octree as owner/neighbour leaf pairs, with their
-/// `calcNeighbourData` segments (already extended by `rootSmall`).
+/// One face of the octree's split-hex mesh, by topology only: the (finer-side)
+/// owner leaf, the neighbour leaf (an equal-level leaf or the nearest coarser
+/// ancestor; `None` on the domain boundary), and which side of `own` the face
+/// lies on. The face itself is the `axis`/`positive` side of `own`, whichever of
+/// the two leaves is finer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OctFace {
+    pub(crate) own: usize,
+    pub(crate) nei: Option<usize>,
+    pub(crate) axis: usize,
+    pub(crate) positive: bool,
+}
+
+/// Enumerate the faces of the octree (topology only, see [`OctFace`]).
 ///
 /// A face between two leaves of different level is listed once per finer-side
 /// leaf, exactly as the split-hex mesh lists it. Equal-level pairs are listed
-/// from the lower-index side along the positive axis only.
-pub(crate) fn face_pairs(
-    leaves: &[Leaf],
-    n0: [usize; 3],
-    origin: Vector3,
-    size0: [f64; 3],
-) -> Vec<(usize, Option<usize>, Vector3, Vector3)> {
+/// from the lower-index side along the positive axis only. gh:#1466: split out
+/// of [`face_pairs`] (same order, same faces) so the ESI cell-removal stages can
+/// reuse the adjacency.
+pub(crate) fn octree_faces(leaves: &[Leaf], n0: [usize; 3]) -> Vec<OctFace> {
     let mut map: HashMap<(usize, usize, usize, usize), usize> = HashMap::with_capacity(leaves.len());
     for (id, l) in leaves.iter().enumerate() {
         map.insert((l.level, l.i, l.j, l.k), id);
     }
     let mut out = Vec::new();
     for (id, l) in leaves.iter().enumerate() {
-        let c = centre(l, origin, size0);
-        let half = [
-            0.5 * size0[0] / (1usize << l.level) as f64,
-            0.5 * size0[1] / (1usize << l.level) as f64,
-            0.5 * size0[2] / (1usize << l.level) as f64,
-        ];
         let ijk = [l.i, l.j, l.k];
         let extent = [n0[0] << l.level, n0[1] << l.level, n0[2] << l.level];
         for axis in 0..3 {
@@ -138,42 +144,67 @@ pub(crate) fn face_pairs(
                     ijk[axis] - 1
                 };
                 let outside = ni == usize::MAX || ni >= extent[axis];
-                let (start, end, nei) = if outside {
-                    // Non-coupled boundary face: neiCc is the face centre.
-                    let mut fc = c;
-                    let d = if positive { half[axis] } else { -half[axis] };
-                    match axis {
-                        0 => fc.x += d,
-                        1 => fc.y += d,
-                        _ => fc.z += d,
+                if outside {
+                    out.push(OctFace { own: id, nei: None, axis, positive });
+                    continue;
+                }
+                let mut q = ijk;
+                q[axis] = ni;
+                // Same level, or the nearest coarser ancestor.
+                let mut found = None;
+                for d in 0..=l.level {
+                    let key = (l.level - d, q[0] >> d, q[1] >> d, q[2] >> d);
+                    if let Some(&nid) = map.get(&key) {
+                        found = Some((nid, d));
+                        break;
                     }
-                    (c, fc, None)
-                } else {
-                    let mut q = ijk;
-                    q[axis] = ni;
-                    // Same level, or the nearest coarser ancestor.
-                    let mut found = None;
-                    for d in 0..=l.level {
-                        let key = (l.level - d, q[0] >> d, q[1] >> d, q[2] >> d);
-                        if let Some(&nid) = map.get(&key) {
-                            found = Some((nid, d));
-                            break;
-                        }
-                    }
-                    let Some((nid, d)) = found else {
-                        continue; // neighbour side is finer: listed from there
-                    };
-                    if d == 0 && !positive {
-                        continue; // equal level: positive direction only
-                    }
-                    (c, centre(&leaves[nid], origin, size0), Some(nid))
+                }
+                let Some((nid, d)) = found else {
+                    continue; // neighbour side is finer: listed from there
                 };
-                let sv = (end - start) * ROOT_SMALL;
-                out.push((id, nei, start - sv, end + sv));
+                if d == 0 && !positive {
+                    continue; // equal level: positive direction only
+                }
+                out.push(OctFace { own: id, nei: Some(nid), axis, positive });
             }
         }
     }
     out
+}
+
+/// Enumerate the faces of the octree as owner/neighbour leaf pairs, with their
+/// `calcNeighbourData` segments (already extended by `rootSmall`). See
+/// [`octree_faces`] for which faces are listed.
+pub(crate) fn face_pairs(
+    leaves: &[Leaf],
+    n0: [usize; 3],
+    origin: Vector3,
+    size0: [f64; 3],
+) -> Vec<(usize, Option<usize>, Vector3, Vector3)> {
+    octree_faces(leaves, n0)
+        .into_iter()
+        .map(|f| {
+            let l = &leaves[f.own];
+            let c = centre(l, origin, size0);
+            let (start, end) = match f.nei {
+                None => {
+                    // Non-coupled boundary face: neiCc is the face centre.
+                    let half = 0.5 * size0[f.axis] / (1usize << l.level) as f64;
+                    let d = if f.positive { half } else { -half };
+                    let mut fc = c;
+                    match f.axis {
+                        0 => fc.x += d,
+                        1 => fc.y += d,
+                        _ => fc.z += d,
+                    }
+                    (c, fc)
+                }
+                Some(n) => (c, centre(&leaves[n], origin, size0)),
+            };
+            let sv = (end - start) * ROOT_SMALL;
+            (f.own, f.nei, start - sv, end + sv)
+        })
+        .collect()
 }
 
 /// Run `surfaceOnlyRefine` on the octree `leaves` (all level 0 on entry or any
@@ -285,6 +316,18 @@ pub fn refined_octree(
     (cells, selected)
 }
 
+/// Index of the leaf whose half-open box holds `p` (`findCell` for
+/// `locationInMesh`), or `None` outside every leaf.
+pub(crate) fn find_leaf(leaves: &[Leaf], origin: Vector3, size0: [f64; 3], p: Vector3) -> Option<usize> {
+    leaves.iter().position(|l| {
+        let c = centre(l, origin, size0);
+        let f = 0.5 / (1usize << l.level) as f64;
+        (p.x >= c.x - f * size0[0] && p.x < c.x + f * size0[0])
+            && (p.y >= c.y - f * size0[1] && p.y < c.y + f * size0[1])
+            && (p.z >= c.z - f * size0[2] && p.z < c.z + f * size0[2])
+    })
+}
+
 /// Keep the face-connected region of the octree that holds `keep`, where a
 /// face is a baffle (blocks the region) when its `calcCellCellRays` segment
 /// hits the surface: the cell-selection result of upstream's
@@ -294,9 +337,11 @@ pub fn refined_octree(
 /// face-connected regions, `findRegions` keeps those holding
 /// `locationInMesh`, the rest is removed.
 ///
-/// Returns `None` if `keep` is in no leaf. Not ported here: the buffer layers
-/// of `removeInsideCells` (`nBufferLayers`), `locationsOutsideMesh`, more than
-/// one `locationsInMesh`, faceZones/cellZones (gh:#1466).
+/// Returns `None` if `keep` is in no leaf. Not ported here: ~~the buffer layers
+/// of `removeInsideCells` (`nBufferLayers`)~~ **UPDATED 2026-11-12:** the buffer
+/// layers are in [`crate::snappy_hex_mesh::esi_split::remove_inside_cells`];
+/// still not ported: `locationsOutsideMesh`, more than one `locationsInMesh`,
+/// faceZones/cellZones (gh:#1466).
 pub(crate) fn baffle_region(
     leaves: &[Leaf],
     n0: [usize; 3],
@@ -305,13 +350,7 @@ pub(crate) fn baffle_region(
     surface: &TriangleSoup,
     keep: Vector3,
 ) -> Option<Vec<bool>> {
-    let start_leaf = leaves.iter().position(|l| {
-        let c = centre(l, origin, size0);
-        let f = 0.5 / (1usize << l.level) as f64;
-        (keep.x >= c.x - f * size0[0] && keep.x < c.x + f * size0[0])
-            && (keep.y >= c.y - f * size0[1] && keep.y < c.y + f * size0[1])
-            && (keep.z >= c.z - f * size0[2] && keep.z < c.z + f * size0[2])
-    })?;
+    let start_leaf = find_leaf(leaves, origin, size0, keep)?;
     let mut adjacent: Vec<Vec<usize>> = vec![Vec::new(); leaves.len()];
     for (own, nei, a, b) in face_pairs(leaves, n0, origin, size0) {
         if let Some(n) = nei {
@@ -337,7 +376,7 @@ pub(crate) fn baffle_region(
 
 /// `hexRef8::consistentRefinement(cells, maxSet = true)`: raise `refine` until
 /// no face joins cells whose post-refinement levels differ by more than one.
-fn consistent_refinement(leaves: &[Leaf], pairs: &[FacePair], refine: &mut [bool]) {
+pub(crate) fn consistent_refinement(leaves: &[Leaf], pairs: &[FacePair], refine: &mut [bool]) {
     loop {
         let mut changed = 0usize;
         for p in pairs {

@@ -29,10 +29,15 @@
 //! - Final cells: the port keeps 18014, ESI 18278. 17974 are equal. ESI has 304
 //!   more and the port 40 that ESI lacks. 304 = 8 x 38: ESI's
 //!   `danglingCellRefine` splits 38 cells (32 level-1, 6 level-0) that the
-//!   port leaves whole (NOT ported). The other 2 port-only cells are level-2
+//!   port leaves whole (~~NOT ported~~ **UPDATED 2026-11-12:** ported in
+//!   `esi_split`, opt-in). The other 2 port-only cells are level-2
 //!   cells ESI removes in `baffleAndSplitMesh` problem-cell handling
-//!   (`markFacesOnProblemCells`, not ported; hypothesis, the stage was not
-//!   isolated). The residual is pinned as a known disagreement, not a pass.
+//!   (`markFacesOnProblemCells`; ~~not ported; hypothesis~~ **ported, hypothesis
+//!   confirmed, 2026-11-12**). The residual of the DEFAULT removal is pinned as a
+//!   known disagreement, not a pass; with `with_esi_split_mesh_removal()` the
+//!   final cells equal ESI's (`round2_stages_equal_esi`,
+//!   `castellate_esi_split_mesh_cells`: 18278 cells, 63194 faces, 12136 surface
+//!   faces; one miss: 24646 problem faces against ESI's 25295).
 
 use std::collections::HashSet;
 
@@ -158,4 +163,54 @@ fn final_cells_residual_against_esi_is_pinned() {
     let unexplained: Vec<_> = only_port.iter().filter(|c| !parents.contains(c)).collect();
     assert_eq!(unexplained.len(), 2);
     assert!(unexplained.iter().all(|c| c.0 == 2));
+}
+
+/// Cells of a stage as lattice keys.
+fn keys(cells: &[(usize, Vector3)]) -> HashSet<(usize, i64, i64, i64)> {
+    cells.iter().map(|(l, c)| key(*l, *c)).collect()
+}
+
+/// Round 2 of the record (P10-P14): every ESI stage after `surfaceOnlyRefine`
+/// against the ESI intermediate meshes, cell for cell. P10, P11, P12 and the
+/// cell set of P13 held as predicted; the problem-face count of P13 missed
+/// (24646, predicted 25295; see the README).
+#[test]
+fn round2_stages_equal_esi() {
+    let st = outram_foam_mesh::snappy_hex_mesh::esi_split::esi_stage_cells(&upstream_surface(), &controls()).unwrap();
+    assert_eq!(keys(&st.after_remove_inside), esi_cells("esi_removeinside_cells.txt.gz"));
+    assert_eq!(st.after_remove_inside.len(), 30264);
+    assert_eq!(st.dangling_selected, [vec![22, 4, 4, 4, 2, 0], vec![2, 0]]);
+    assert_eq!(keys(&st.after_dangling), esi_cells("esi_dangling_cells.txt.gz"));
+    assert_eq!(st.after_dangling.len(), 30530);
+    assert_eq!(st.baffle.n_hit_internal, 12145);
+    assert_eq!(st.baffle.n_hit_boundary, 0);
+    assert_eq!(st.baffle.n_problem_faces, 24646, "ESI: 25295 (P13 missed)");
+    assert_eq!(keys(&st.final_cells), esi_cells("esi_final_cells.txt.gz"));
+    assert_eq!(st.baffle.n_kept, 18278);
+}
+
+/// The same chain through `castellate` with `with_esi_split_mesh_removal()`:
+/// the final mesh has ESI's 18278 cells.
+#[test]
+fn castellate_esi_split_mesh_cells() {
+    let c = controls().with_esi_split_mesh_removal();
+    let m = castellate(&upstream_surface(), &c).unwrap();
+    eprintln!(
+        "cells {} faces {} internal {} by level {:?}",
+        m.n_cells(),
+        m.fv_mesh.n_faces,
+        m.fv_mesh.n_internal_faces,
+        m.cells_by_level
+    );
+    for p in &m.fv_mesh.patches {
+        eprintln!("patch {} {}", p.name, p.size);
+    }
+    let port: HashSet<_> = m
+        .fv_mesh
+        .cell_centres
+        .iter()
+        .zip(&m.fv_mesh.cell_volumes)
+        .map(|(c, v)| key(level_of(*v), *c))
+        .collect();
+    assert_eq!(port, esi_cells("esi_final_cells.txt.gz"));
 }

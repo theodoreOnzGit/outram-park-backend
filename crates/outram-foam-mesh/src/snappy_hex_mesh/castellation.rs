@@ -121,6 +121,12 @@ pub enum CellRemoval {
     /// segments) being baffles. See
     /// [`crate::snappy_hex_mesh::refinement::baffle_region`].
     BaffleRegion,
+    /// ESI v2506's whole post-refinement chain: `removeInsideCells(1)`,
+    /// `danglingCellRefine(21)` and `(24)`, `baffleAndSplitMesh` with
+    /// `markFacesOnProblemCells`. Needs
+    /// [`RefinementSelection::SurfaceIntersection`]. See
+    /// [`crate::snappy_hex_mesh::esi_split`].
+    EsiSplitMesh,
 }
 
 /// How [`castellate`] chooses the cells to split.
@@ -160,6 +166,15 @@ impl CastellationControls {
     #[must_use]
     pub fn with_baffle_region_removal(mut self) -> Self {
         self.removal = CellRemoval::BaffleRegion;
+        self
+    }
+
+    /// Remove cells the way ESI v2506's `doRefine` does after
+    /// `surfaceOnlyRefine` ([`CellRemoval::EsiSplitMesh`]); needs
+    /// [`Self::with_surface_intersection_refinement`].
+    #[must_use]
+    pub fn with_esi_split_mesh_removal(mut self) -> Self {
+        self.removal = CellRemoval::EsiSplitMesh;
         self
     }
 
@@ -253,19 +268,17 @@ pub fn castellate(
     }
 
     let bg = &controls.background;
-    let max_level = controls.surface_level;
-
-    // Finest-grid dimensions (level-max voxels along each axis).
-    let scale = 1usize << max_level;
-    let gdim = [bg.nx * scale, bg.ny * scale, bg.nz * scale];
-    // Finest voxel size per axis [m].
     let span = bg.bounds.span();
-    let h = [
-        span.x / gdim[0] as f64,
-        span.y / gdim[1] as f64,
-        span.z / gdim[2] as f64,
-    ];
     let origin = bg.bounds.min;
+    // Finest-grid dimensions and voxel size for a given finest level.
+    let grid = |max_level: usize| {
+        let scale = 1usize << max_level;
+        let gdim = [bg.nx * scale, bg.ny * scale, bg.nz * scale];
+        let h = [span.x / gdim[0] as f64, span.y / gdim[1] as f64, span.z / gdim[2] as f64];
+        (gdim, h)
+    };
+    let mut max_level = controls.surface_level;
+    let (mut gdim, mut h) = grid(max_level);
 
     // ── Step 1: octree refinement ───────────────────────────────────────────
     // Seed with all level-0 cells, then split near-surface cells level by level.
@@ -323,6 +336,36 @@ pub fn castellate(
 
     }
 
+    // ESI chain: removal, dangling-cell refinement (may add a level), split.
+    let mut esi_kept: Option<Vec<bool>> = None;
+    if controls.removal == CellRemoval::EsiSplitMesh {
+        if controls.selection != RefinementSelection::SurfaceIntersection {
+            return Err(MeshError::Construction(
+                "CellRemoval::EsiSplitMesh needs RefinementSelection::SurfaceIntersection".to_string(),
+            ));
+        }
+        let size0 = [span.x / bg.nx as f64, span.y / bg.ny as f64, span.z / bg.nz as f64];
+        let stages = crate::snappy_hex_mesh::esi_split::esi_stages(
+            std::mem::take(&mut leaves),
+            [bg.nx, bg.ny, bg.nz],
+            origin,
+            size0,
+            surface,
+            controls.keep_point,
+            controls.min_refine_cells,
+        )
+        .ok_or_else(|| {
+            MeshError::Construction("keep_point (locationInMesh) is outside every background cell".to_string())
+        })?;
+        leaves = stages.leaves;
+        esi_kept = Some(stages.kept);
+    }
+    let finest = leaves.iter().map(|l| l.level).max().unwrap_or(0);
+    if finest > max_level {
+        max_level = finest;
+        (gdim, h) = grid(max_level);
+    }
+
     // ── Voxel ownership grid (all leaves, kept or not) ────────────────────────
     let nvox = gdim[0] * gdim[1] * gdim[2];
     let idx = |g: [usize; 3]| -> usize { (g[0] * gdim[1] + g[1]) * gdim[2] + g[2] };
@@ -341,7 +384,9 @@ pub fn castellate(
 
     // ── Step 2: region removal (keep the `keep_point` side) ───────────────────
     let keep_inside = surface.contains_point(controls.keep_point);
-    let baffle_kept = if controls.removal == CellRemoval::BaffleRegion {
+    let baffle_kept = if let Some(k) = esi_kept {
+        Some(k)
+    } else if controls.removal == CellRemoval::BaffleRegion {
         let size0 = [
             span.x / bg.nx as f64,
             span.y / bg.ny as f64,

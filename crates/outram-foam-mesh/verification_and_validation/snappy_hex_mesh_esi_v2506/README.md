@@ -324,3 +324,47 @@ What the sources say, which the port is to reproduce:
 
 Disclosure: P10-P14 are integers read from the round-1 ESI log and meshes; no
 port run of these stages had happened when they were written.
+
+## Round 2 results (2026-11-12, release, `tests/snappy_hex_mesh_esi_flange.rs`)
+
+Code: `src/snappy_hex_mesh/esi_split.rs` (`remove_inside_cells`,
+`dangling_cell_refine`, `baffle_and_split_mesh`, `esi_stages`), opt-in through
+`CastellationControls::with_esi_split_mesh_removal()` (`CellRemoval::EsiSplitMesh`,
+needs `with_surface_intersection_refinement()`). Defaults unchanged.
+
+| stage | ESI v2506 | port | cells equal |
+|---|---|---|---|
+| `surfaceOnlyRefine` (round 1) | 42788 | 42788 | 42788 of 42788 |
+| `removeInsideCells(1)` | 30264 | 30264 | **30264 of 30264** |
+| `danglingCellRefine(21)` selected per iteration | 22, 4, 4, 4, 2, 0 | 22, 4, 4, 4, 2, 0 | |
+| `danglingCellRefine(24)` selected per iteration | 2, 0 | 2, 0 | |
+| after both dangling stages | 30530 | 30530 | **30530 of 30530** |
+| faces cut by the surface (baffles) | 12145 | 12145 (boundary: 0) | |
+| `markFacesOnProblemCells`, additional internal faces | 25295 | **24646** | |
+| final castellated cells | 18278 | 18278 | **18278 of 18278** |
+| final faces | 63194 | 63194 (internal 51058) | |
+| surface-patch boundary faces (all regions) | 12136 | 12136 | |
+
+Before this round: 18014 cells, 62644 faces, 12140 surface faces, residual
+304 / 40 (round 1 table above).
+
+### Prediction ledger, round 2
+
+| # | outcome |
+|---|---|
+| P10 | **held**: 30264 of 30264. The geometric point model (corner of any leaf, dead or alive; closed-box adjacency; hanging edge points inserted into face rings) reproduced the buffer layer exactly. |
+| P11 | **held**: selected 22, 4, 4, 4, 2, 0 and 2, 0; 30530 of 30530. |
+| P12 | **held**: 12145 internal cut faces, 0 cut boundary faces (exposed-face segments use the `calcNeighbourData` extrapolation). |
+| P13 | **cell set held, count missed**: final 18278 of 18278 equal to ESI and the two level-2 cells are gone, but the port marks **24646** problem faces against ESI's **25295** (-649, -2.6 %). Not isolated. Candidate causes, none tested: (a) faces ESI counts that the port excludes (`!hit`, internal-only), (b) cell-order dependence of the 8-anchor loop (the port visits cells in nested leaf order, OpenFOAM in blockMesh order with children appended), (c) ESI counting a face once per side of a coupled/baffled pair. The extra 649 faces are not needed for the cell set: it is equal. |
+| P14 | **held**: 63194 faces and 12136 surface faces. |
+
+**Cell-order sensitivity** (the stated risk of P13) was not measured: with the
+port's order the cell set equals ESI's, and the 649-face miss may or may not be
+the order. A reversed-order run would answer it; not done.
+
+### Hypothesis P8 of round 1, closed
+
+The two port-only level-2 cells are removed by `markFacesOnProblemCells`, as
+hypothesised: the port, with that stage, no longer keeps them (18278 of 18278).
+The baffle-region removal of round 1 alone (`with_baffle_region_removal`) was
+not the cause, as recorded.
