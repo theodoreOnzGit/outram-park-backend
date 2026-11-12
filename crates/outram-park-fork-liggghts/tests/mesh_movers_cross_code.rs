@@ -17,8 +17,9 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 //! # Time-dependent `fix move/mesh` movers against upstream (gh:#1416)
-//! (plus `linear/variable` and `rotate/variable`, added 2026-11-11: **2259/2259
-//! bit-identical each** against `in.mover_linvar` / `in.mover_rotvar`, Rust 1.99.1)
+//! (plus `linear/variable` and `rotate/variable`, added 2026-11-11: ~~**2259/2259
+//! bit-identical each**~~ bit-identical with glibc trig; since 2026-11-12 see
+//! "PETIR libm" below for the libm-only counts) against `in.mover_linvar` / `in.mover_rotvar`, Rust 1.99.1)
 //!
 //! `MeshMoverWiggle`, `MeshMoverVibLin` (`mesh_mover_linear.cpp`) and
 //! `MeshMoverRiggle`, `MeshMoverVibRot` (`mesh_mover_rotation.cpp`),
@@ -40,6 +41,33 @@
 //! **Prediction (written before the first run, 2026-11-11).** Bit-identical in
 //! all four: each mover is a few `cos`/`sin` evaluations on top of the
 //! verified linear/rotate step.
+//!
+//! ## PETIR libm (2026-11-12, epic gh:#1336, accepted under gh:#1455)
+//!
+//! The results above were measured while `mesh_wall.rs`, `tri_mesh.rs` and
+//! `variable.rs` called `f64::{sin, cos, ...}` (glibc, as LIGGGHTS links).
+//! The workspace no-platform-libm gate (`petir/tests/no_platform_libm.rs`)
+//! moved those calls to `petir::mathf::RealMath`, whose `sin`/`cos` differ
+//! from glibc's in the last bit on some arguments; through the contact
+//! dynamics that grows over 10 000 steps. Measured 2026-11-12 (develop
+//! `8e7b07eb9` + the sweep, x86_64 Linux, glibc, Rust 1.99.1):
+//!
+//! | case | differ / 2259 | worst normwise |
+//! |---|---|---|
+//! | wiggle, linear/variable | 0 | 0 |
+//! | viblin | 323 | 1.33e-16 |
+//! | rotate/variable | 785 | 6.13e-15 |
+//! | riggle | 596 | 3.50e-14 |
+//! | vibrot | 1509 | 7.88e-13 |
+//!
+//! "Normwise" is the largest `|port - LIGGGHTS|` of a quantity (x, v or
+//! omega component) over all frames, over that quantity's largest
+//! `|LIGGGHTS|`. **Proof the cause is libm and nothing else:** with only
+//! those three files put back to their pre-sweep text (std trig, glibc), all
+//! eight tests pass bit-identical again (2259/2259 in every case). That swap
+//! is a diagnostic and is not committed (PETIR AGENTS.md). Each affected
+//! test pins its count exactly and its worst size; a count that moves is a
+//! finding.
 
 use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial};
 use outram_park_fork_liggghts::granular_system::GranularSystem;
@@ -55,12 +83,28 @@ fn read(name: &str) -> Option<String> {
     std::fs::read_to_string(path).ok()
 }
 
-/// Replay `csv` with the plate moved by `plate`; returns (mismatched, total,
-/// first mismatch, final position) after asserting nothing.
+/// One replayed case against its reference.
+struct CaseResult {
+    /// Compared values that are not bit-identical.
+    mismatched: usize,
+    /// Compared values (251 frames x 9).
+    total: usize,
+    /// First mismatch: (step, column, port, LIGGGHTS).
+    first: Option<(usize, usize, f64, f64)>,
+    /// Largest `|port - LIGGGHTS|` over all values, divided by the largest
+    /// `|LIGGGHTS|` in the same column (normwise per quantity, so a value
+    /// crossing zero does not read as a huge relative error).
+    worst_normwise: f64,
+    /// Final sphere position.
+    end: [f64; 3],
+}
+
+/// Replay `csv` with the plate moved by `plate`; returns the comparison
+/// after asserting nothing.
 fn run_case(
     csv: &str,
     plate: impl Fn(WallGeometry) -> MovingBoundary,
-) -> Option<(usize, usize, Option<(usize, usize, f64, f64)>, [f64; 3])> {
+) -> Option<CaseResult> {
     let (Some(csv), Some(stl)) = (read(csv), read("plate_square.stl")) else {
         eprintln!("skipping: reference-data/liggghts/ not present");
         return None;
@@ -101,6 +145,8 @@ fn run_case(
     .with_neighbor_skin(0.003);
 
     let (mut mismatched, mut total, mut first) = (0, 0, None);
+    let mut scale = [0.0_f64; 9];
+    let mut diff = [0.0_f64; 9];
     let mut last = 0_usize;
     for row in &rows {
         let step = row[0] as usize;
@@ -121,37 +167,69 @@ fn run_case(
         for (k, g) in got.iter().enumerate() {
             let want = row[1 + k];
             total += 1;
+            scale[k] = scale[k].max(want.abs());
+            diff[k] = diff[k].max((g - want).abs());
             if g.to_bits() != want.to_bits() {
                 mismatched += 1;
                 first.get_or_insert((step, k, *g, want));
             }
         }
     }
+    let worst_normwise = (0..9)
+        .filter(|&k| scale[k] > 0.0)
+        .map(|k| diff[k] / scale[k])
+        .fold(0.0, f64::max);
     let q = sys.particles()[0];
-    Some((
+    Some(CaseResult {
         mismatched,
         total,
         first,
-        [q.position.x, q.position.y, q.position.z],
-    ))
+        worst_normwise,
+        end: [q.position.x, q.position.y, q.position.z],
+    })
 }
 
-fn assert_identical(
-    name: &str,
-    res: Option<(usize, usize, Option<(usize, usize, f64, f64)>, [f64; 3])>,
-) {
-    let Some((mismatched, total, first, end)) = res else {
-        return;
-    };
-    assert_eq!(
-        mismatched, 0,
-        "{name}: not bit-identical vs LIGGGHTS: {mismatched}/{total} differ, first {first:?}"
-    );
+fn assert_moved(name: &str, end: [f64; 3]) {
     // the plate must actually have moved the sphere
     assert!(
         (end[0] - 0.05).abs() > 1e-4 || (end[2] - 0.0049).abs() > 5e-4 || end[1].abs() > 1e-4,
         "{name}: the sphere never moved, the case is vacuous"
     );
+}
+
+fn assert_identical(name: &str, res: Option<CaseResult>) {
+    let Some(r) = res else {
+        return;
+    };
+    assert_eq!(
+        r.mismatched, 0,
+        "{name}: not bit-identical vs LIGGGHTS: {}/{} differ, first {:?}",
+        r.mismatched, r.total, r.first
+    );
+    assert_moved(name, r.end);
+}
+
+/// Bit-identical except for differences that come ONLY from PETIR's libm
+/// against the glibc LIGGGHTS links (accepted, gh:#1455): exactly
+/// `n_differ` of the compared values differ, and the worst per-quantity
+/// normwise difference is at most `worst`. The A/B proof of the cause is in
+/// the calling test's doc comment. A count or size that moves is a finding to
+/// explain, not a number to re-pin.
+fn assert_libm_only_case(name: &str, n_differ: usize, worst: f64, res: Option<CaseResult>) {
+    let Some(r) = res else {
+        return;
+    };
+    println!(
+        "{name}: {}/{} differ (libm), worst normwise {:.3e}, first {:?}",
+        r.mismatched, r.total, r.worst_normwise, r.first
+    );
+    assert_eq!(r.mismatched, n_differ, "{name}: libm-only differing count moved");
+    assert!(
+        r.worst_normwise <= worst,
+        "{name}: worst normwise {:.3e} > pinned {worst:.3e}",
+        r.worst_normwise
+    );
+    assert_moved(name, r.end);
 }
 
 /// `wiggle amplitude 0.004 0.002 0.002 period 0.08`.
@@ -166,10 +244,15 @@ fn wiggle_matches_liggghts() {
 }
 
 /// `viblin axis 0.3 0.2 1.0 order 2 amplitude 0.002 0.001 phase 0 1.1 period 0.06 0.035`.
+///
+/// **libm-only: 323/2259 differ, worst normwise 1.33e-16** (2026-11-12,
+/// gh:#1455; see "PETIR libm" in the module docs for the A/B proof).
 #[test]
 fn viblin_matches_liggghts() {
-    assert_identical(
+    assert_libm_only_case(
         "viblin",
+        323,
+        1.4e-16,
         run_case("mover_viblin.csv", |g| {
             MovingBoundary::viblin(
                 g,
@@ -184,10 +267,15 @@ fn viblin_matches_liggghts() {
 }
 
 /// `riggle origin 0.01 0 0 axis 0.1 0.2 1 period 0.2 amplitude 4` (degrees).
+///
+/// **libm-only: 596/2259 differ, worst normwise 3.50e-14** (2026-11-12,
+/// gh:#1455; see "PETIR libm" in the module docs for the A/B proof).
 #[test]
 fn riggle_matches_liggghts() {
-    assert_identical(
+    assert_libm_only_case(
         "riggle",
+        596,
+        3.6e-14,
         run_case("mover_riggle.csv", |g| {
             MovingBoundary::riggle(
                 g,
@@ -202,10 +290,15 @@ fn riggle_matches_liggghts() {
 
 /// `vibrot origin 0.01 0 0 axis 0.1 0.2 1 order 2 amplitude 0.05 0.02 phase 0
 /// 0.7 period 0.15 0.09`.
+///
+/// **libm-only: 1509/2259 differ, worst normwise 7.88e-13** (2026-11-12,
+/// gh:#1455; see "PETIR libm" in the module docs for the A/B proof).
 #[test]
 fn vibrot_matches_liggghts() {
-    assert_identical(
+    assert_libm_only_case(
         "vibrot",
+        1509,
+        8.0e-13,
         run_case("mover_vibrot.csv", |g| {
             MovingBoundary::vibrot(
                 g,
@@ -259,13 +352,18 @@ fn linear_variable_matches_liggghts() {
 
 /// `rotate/variable origin 0.01 0 0 axis 0.1 0.2 1 omega v_ww` with
 /// `ww = 3+6*sin(2*PI*time/0.12)` rad/s, deck `in.mover_rotvar`.
+///
+/// **libm-only: 785/2259 differ, worst normwise 6.13e-15** (2026-11-12,
+/// gh:#1455; see "PETIR libm" in the module docs for the A/B proof).
 #[test]
 fn rotate_variable_matches_liggghts() {
     use outram_park_fork_liggghts::variable::VariableTable;
     let mut t = VariableTable::new();
     t.define_equal("ww", "3.0+6.0*sin(2*PI*time/0.12)").unwrap();
-    assert_identical(
+    assert_libm_only_case(
         "rotate/variable",
+        785,
+        6.2e-15,
         run_case("mover_rotvar.csv", |g| {
             MovingBoundary::rotate_variable(
                 g,

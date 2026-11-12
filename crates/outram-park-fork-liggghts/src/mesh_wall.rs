@@ -1252,7 +1252,7 @@ impl MovingBoundary {
                 });
             }
             MeshMotion::Wiggle { amplitude, omega } => {
-                self.velocity = amplitude.scale(omega * (omega * t).cos());
+                self.velocity = amplitude.scale(omega * (omega * t).r_cos());
             }
             MeshMotion::VibLin {
                 axis,
@@ -1263,7 +1263,7 @@ impl MovingBoundary {
             } => {
                 let mut v_a = 0.0;
                 for j in 0..*order {
-                    v_a -= ampl[j] * omega[j] * (omega[j] * t + phi[j]).sin();
+                    v_a -= ampl[j] * omega[j] * (omega[j] * t + phi[j]).r_sin();
                 }
                 self.velocity = axis.scale(v_a);
             }
@@ -1272,7 +1272,7 @@ impl MovingBoundary {
                 omega,
                 axis,
             } => {
-                let pre = omega * amplitude * (omega * t).cos();
+                let pre = omega * amplitude * (omega * t).r_cos();
                 self.rotation = Some(MeshRotation {
                     axis: *axis,
                     omega: pre,
@@ -1287,7 +1287,7 @@ impl MovingBoundary {
             } => {
                 let mut v_r = 0.0;
                 for j in 0..*order {
-                    v_r -= ampl[j] * omega[j] * (omega[j] * t + phi[j]).sin();
+                    v_r -= ampl[j] * omega[j] * (omega[j] * t + phi[j]).r_sin();
                 }
                 self.rotation = Some(MeshRotation {
                     axis: *axis,
@@ -1526,7 +1526,7 @@ impl MovingBoundary {
                     [axis[0] / mag, axis[1] / mag, axis[2] / mag]
                 };
                 let h = omega * dt * 0.5;
-                let dq = [h.cos(), an[0] * h.sin(), an[1] * h.sin(), an[2] * h.sin()];
+                let dq = [h.r_cos(), an[0] * h.r_sin(), an[1] * h.r_sin(), an[2] * h.r_sin()];
                 let trans = pivot[0] * pivot[0] + pivot[1] * pivot[1] + pivot[2] * pivot[2] > 0.;
                 let mut p = arr(st.p_ref);
                 if trans {
