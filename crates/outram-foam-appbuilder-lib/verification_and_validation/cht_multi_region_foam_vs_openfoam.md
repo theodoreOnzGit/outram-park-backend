@@ -92,3 +92,66 @@ port's `cht_multi_region_foam/mod.rs` and `energy.rs`.
 5. **Where the port could first diverge, in order:** thermo constants (checked
    against upstream's dumped kappa/Cp/rho first), step-1 interface face
    temperature (the BC), step-1 cell T of the fluid, then of the solid.
+
+## Results (2026-11-12; `cargo test --release -p outram-foam-appbuilder-lib --test upstream_cht_gh1363`)
+Port: `ChtMultiRegionFoam` with `energy_outer_correctors = 1`, linear solvers
+1e-16, upstream's own kappa / Cp / rho fed in (fluid Cp 4181, rho 1000, kappa =
+Cp mu / Pr from upstream; solid kappa 80, Cp 450, rho 8000). Upstream: solver
+tolerance 1e-15 (re-run at 1e-19: the reference moves by 2.8e-13 K, so the
+reference is converged). 50 steps, 150 cells, 7500 cell values.
+
+| quantity | worst abs(port - upstream) over 50 steps | prediction | verdict |
+|---|---|---|---|
+| fluid cell T | 1.05e-11 K (step 1: 1.1e-13) | <= 1e-12 K | **missed 10x** |
+| solid cell T | 4.2e-12 K (step 1: 2.3e-13) | <= 1e-12 K | **missed 4x** |
+| interface face T (implied by the BC coefficients and the new cell T) | 2.7e-11 K | <= 1e-12 K | **missed 27x** |
+| heat into each region through the interface | 7.7e-13 of the larger flux | <= 1e-9 relative | held |
+| bit-identical cell values | 1437 of 7500 (19 %) | < 10 % | missed (more identical than predicted) |
+| step-1 fluid heat | upstream exactly 0; port 6e-32 W | exactly 0 | missed by round-off |
+| 30 converged passes vs upstream's one pass, steps 1-5 | cells 0.069 K, faces 1.73 K | > 1e-4 K | held |
+
+**Withdrawn prediction.** The two regions' fluxes are NOT equal within a step.
+At step 50 upstream's fluid takes +0.30019 W and the solid gives -0.30253 W
+(0.8 % apart): the lagged block Gauss-Seidel of `nOuterCorrectors 1`. The port
+has the same imbalance to 7.7e-13. Prediction 3 wrote "sum to 1e-9", which
+contradicts point 4 of the same list; it is withdrawn. The comparison that
+matters is port against upstream.
+
+**Why 1e-11 and not 1e-12 (explained from evidence, not tuned).** It is not the
+linear solvers: the port at 1e-14, 1e-16 and 1e-18 gives the same 1.05e-11 at
+step 50, and upstream at 1e-15 and 1e-19 differs by 2.8e-13. Step 1 of the fluid
+is 100/100 bit-identical at port tolerance 1e-14; the error then grows roughly
+linearly with the step (1e-13 at step 1, 3e-13 at step 3, 1e-11 at step 50), a
+bias of a few ulp(300 K) = 5.7e-14 K per step. The port stores T (about 300, ulp
+5.7e-14 K) and updates it every step; upstream stores h = Cp (T - 298.15)
+(about 1e4 J/kg, ulp 1.8e-12 J/kg = 4e-16 K) and converts to T once. Two
+correct discretisations of one equation with different primary variables differ
+by this representation floor. **Not verified beyond the evidence above** (it
+would take an extended-precision solve of the T-form system).
+
+**Found while comparing (an instrument issue, not a port defect).** Upstream's
+stored `T.boundaryField()` at the interface lags the BC coefficients by one step
+(step 1 reads 300.0 on both sides although the solid already carries a flux).
+The first comparison used it and showed a 2.15 K "difference" that was entirely
+that lag. The face temperature compared above is the one the BC coefficients
+imply with the new cell value, `Tf = vf refValue + (1 - vf)(Tc + refGrad/deltaCoeffs)`,
+dumped as `Tf`; the stored value is also in the reference as `Tb`.
+
+**Defects in the port: none found at this scope.** The port's coupled condition
+(`CoupledTemperature::update_coeffs`, Foundation's
+`turbulentTemperatureCoupledBaffleMixed`) and ESI's
+`turbulentTemperatureRadCoupledMixed` give the same face temperatures and
+fluxes, to the floor above, on a conformal, orthogonal, graded interface with no
+contact layers; `KDeltaC = GREAT` makes the Rad form's `alpha` equal to
+`kappa deltaCoeffs`, as predicted. **No ESI-form option was added**, because
+nothing differs here. No number moved; no tolerance was relaxed (the pin is the
+first measurement with 2x margin).
+
+## Not covered
+Flowing fluid (`div(phi,h)`, `K`), buoyancy and the compressible pressure
+equation (the port's fluid is incompressible), turbulence (`alphat`),
+`thicknessLayers` / `kappaLayers` (the Rad form's `KDeltaC` path), `thermalInertia`
+and radiation, `nOuterCorrectors > 1` with the `energyCoupling` loop and
+`coupledEnergyField`, non-orthogonal or non-conformal interfaces, variable
+properties (`polynomial`, `sutherland`), and the shipped `multiRegionHeater`
+tutorial.

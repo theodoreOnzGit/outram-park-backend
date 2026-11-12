@@ -36,6 +36,7 @@
 #include "fvOptions.H"
 #include "regionProperties.H"
 #include "gravityMeshObject.H"
+#include "mixedFvPatchFields.H"
 #include "IOdictionary.H"
 #include <cstring>
 #include <cstdio>
@@ -84,6 +85,22 @@ static double heatIn
     double q = 0;
     forAll(sn, i) q += kp[i]*magSf[i]*sn[i];
     return q;
+}
+
+// The interface face temperature the mixed condition implies from the
+// coefficients used in this step's matrix and the NEW cell temperature,
+// Tf = vf refValue + (1 - vf) (Tc + refGrad/deltaCoeffs). (The stored
+// T.boundaryField() lags the BC coefficients by one step, because the energy
+// solve evaluates the h condition from the previous face value; both are
+// dumped, as "Tb" and "Tf".)
+static scalarField faceT(const volScalarField& T, label pi)
+{
+    const mixedFvPatchScalarField& m =
+        refCast<const mixedFvPatchScalarField>(T.boundaryField()[pi]);
+    const fvPatch& patch = T.mesh().boundary()[pi];
+    const scalarField Tc(m.patchInternalField());
+    return m.valueFraction()*m.refValue()
+         + (1.0 - m.valueFraction())*(Tc + m.refGrad()/patch.deltaCoeffs());
 }
 
 int main(int argc, char *argv[])
@@ -280,6 +297,8 @@ int main(int argc, char *argv[])
         dumpScalar("s", "h", sthermo.he().primitiveField());
         dumpScalar("f", "Tb", thermo.T().boundaryField()[fpi]);
         dumpScalar("s", "Tb", sthermo.T().boundaryField()[spi]);
+        dumpScalar("f", "Tf", faceT(thermo.T(), fpi));
+        dumpScalar("s", "Tf", faceT(sthermo.T(), spi));
         {
             tmp<volScalarField> tk = thermo.kappa();
             tmp<volScalarField> tsk = sthermo.kappa();
