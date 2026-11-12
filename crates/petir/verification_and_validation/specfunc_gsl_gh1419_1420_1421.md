@@ -83,3 +83,53 @@ for them:** `debye_2..6`, `bessel_j0/j1/y0/y1`, `transport_5`, and, as
 predicted, `dilog`, `elljac` and `psi` at `x < -30`. The cross-check that H is a
 real defect and not a fit: `expint.rs` and `gamma_inc.rs` already map the
 argument exactly as `cheb_eval_e` does, and had no residual.
+
+Prediction 2, measured: **confirmed.** `debye_1..6` are 419/419, 418/418,
+417/417, 417/417, 417/417 bit-identical (100 %) against GSL linked to PETIR's
+libm, from 94.5 / 98.6 / 90.2 / 92.6 / 91.8 % (stock-GSL figures before; the
+libm-linked figures before were 396/419 ... 385/417). Whole sweep 98.55 % ->
+98.70 %.
+
+Three more causes found while looking for the rest, each by reading the C
+against the Rust, none predicted in advance (so none of the below is a
+prediction that held):
+
+| cause | where | effect, libm-linked GSL |
+|---|---|---|
+| `transport` multiplied the Chebyshev value by a running product `((x*x)*x)*x`; GSL writes `x2*x`, `x2*x2` (transport.c:343, :420) | `transport.rs` | `transport_5` 379/416 -> 416/416 |
+| `dilog_series_2` returned `s + 1.0 + t`; GSL does `val += 1.0 + t`, i.e. `s + (1.0 + t)` (dilog.c:119) | `dilog.rs` | `dilog` 935/1053 -> 1053/1053 |
+| the diagnostic shim lacked `sincos`: `gcc -O2` fuses `sin(y)`, `cos(y)` into one glibc `sincos` call (17 references in `libgsl.a`) that bypassed the shim | `reference-data/gsl/petir_libm_shim.rs` | `bessel_j0/j1/y0/y1`, `elljac`, `psi` (x < -30), `psi_1piy`: all 100 % once the shim exports it. These were NOT port defects. |
+
+Final, 2026-11-12, against GSL linked to PETIR's libm (shim with `sincos`):
+**85 360 of 86 238 (98.98 %)** bit-identical, from 80 820 (93.72 %).
+The remaining 878 values:
+
+- `airy_ai/_scaled`, `airy_bi/_scaled` (98 + 98 + 89 + 89 rows) and `ci` (44):
+  GSL's own `gsl_sf_cos_e`/`sin_e` (trig.c, Cody-Waite reduction plus a Chebyshev
+  series), where PETIR calls libm's `cos`/`sin`. `reference-data/gsl/README.md`
+  records this as a deliberate, more accurate substitution for huge arguments;
+  porting `trig.c`'s sin/cos would close it at the cost of that accuracy.
+  Not changed here; needs a maintainer decision.
+- `erf`/`erfc` (154 + 249): not ports (fdlibm substitution), documented.
+- `eta` (45) and `transport_4(-0.0)` (1): a signed zero.
+- `fd_2`, `fd_3half`: 1 + 2 rows at x = 1e15, 1e50 (an operation order at huge x
+  not yet traced).
+- `ln_gamma`, `ln_gamma_sgn` (4 each): `+-1e-310`, `5e-324`, where GSL returns
+  `+inf` for a finite answer and PETIR keeps the finite value (the documented
+  DEVIATION in `lngamma_sgn_0`).
+
+Against STOCK GSL (glibc libm, the committed reference): 79 642 (92.35 %) ->
+**83 717 (97.08 %)**. The libm noise is what remains between those two figures.
+
+Gamma/beta, gh:#1419/#1420 (stock GSL): see the doc comments of
+`near_pole_rows_meet_the_gh1419_prediction` and
+`fact_choose_beta_rows_meet_the_gh1420_prediction`; every prediction written
+before the port held (worst near-pole difference 2.3e-16 against a predicted
+5e-15; 99.1 % bit-identical against a predicted 60 %).
+
+One thing in `lngamma_sgn_sing` is upstream's, not the port's: its series is
+truncated and at the edge of its window (`|eps|` near 0.02) it differs from
+fdlibm and glibc `lgamma` by up to 1.35e-13 absolute (3.8e-14 at -4.9801), while
+the port reproduces GSL's value. The unit test
+`ln_gamma_and_sign_near_every_pole_agree_with_fdlibm` bounds it and says so.
+

@@ -155,23 +155,23 @@ const XCUT: f64 = -LOG_DBL_MIN;
 /// this crate's rule 2 exists to prevent, and it happened here.
 const LOG_DBL_EPSILON: f64 = -3.604_365_338_911_715_4e1;
 
-/// The shared body of all six `D_n`.
+/// The per-order constants of `D_1` .. `D_6`.
 ///
-/// Upstream writes the six out separately, each with its own copy of the same
-/// five branches. They differ only in the constants gathered into
-/// [`DebyeOrder`], so this carries the control flow once — the arithmetic,
-/// the branch boundaries and the accumulation order are upstream's, only the
-/// duplication is gone.
-///
-/// # Why factoring this is safe here and would not always be
-///
-/// A port's value is that it reproduces upstream's *numerics*, so collapsing
-/// six functions into one is only legitimate if nothing numerical differs
-/// between them. `tests/gsl_tables_audit.rs` pins the tables, and
-/// `the_six_orders_differ_only_in_their_constants` re-reads `debye.c` and
-/// checks that each order's five branches really are the same shape. If
-/// upstream ever gives one order a different structure, that test fails
-/// rather than this silently flattening it.
+/// ~~The shared body of all six `D_n`. Upstream writes the six out separately
+/// ... they differ only in the constants gathered here, so this carries the
+/// control flow once — only the duplication is gone. Factoring this is safe
+/// because nothing numerical differs between the orders.~~ **CORRECTED
+/// 2026-11-12 (gh:#1421):** something numerical does differ. Upstream's
+/// arithmetic is written out per order and rounds differently from the
+/// parametrised body (`c - x/3.0` against `c - lin*x`, `x*x/24.0` against
+/// `quad*x*x`, a Horner loop against `(1.0 + 2.0/xk + 2.0/(xk*xk))/rk`,
+/// `(val_infinity/x)/x` against `val_infinity/x^n`); against GSL linked to
+/// PETIR's libm `debye_2..6` were 90-99 % bit-identical. The evaluation is now
+/// `debye_1_e` .. `debye_6_e`, one per upstream function. This table keeps the
+/// Chebyshev series and the constants the structural tests read (`lin`,
+/// `quad`, `small_cut`, `val_infinity` are cross-checks of the tables
+/// against the literal expressions, not inputs to the evaluation).
+#[cfg_attr(not(test), allow(dead_code))]
 struct DebyeOrder {
     /// The order `n`.
     n: u32,
@@ -192,10 +192,6 @@ struct DebyeOrder {
     quad: f64,
     /// The Chebyshev coefficients, `c[0 ..= order]`.
     cheb: &'static [f64],
-    /// `n! / (n-k)!` for `k = 0 ..= n`, ascending — the polynomial in `1/xk`
-    /// that the exponential sum accumulates, and the same coefficients the
-    /// closed-form branch uses as a polynomial in `x`.
-    fall: &'static [f64],
     /// The small-argument cutoff. `D_1` uses `2 sqrt(eps)`; the rest use
     /// `2 sqrt(2) sqrt(eps)`. Kept per-order rather than unified, because
     /// that difference is upstream's and unifying it would change which
@@ -206,9 +202,7 @@ struct DebyeOrder {
 /// `D_1` .. `D_6`, indexed by `n - 1`.
 ///
 /// Every literal is upstream's own, transcribed from the corresponding
-/// `gsl_sf_debye_n_e`, not derived from a general formula for `n`. The
-/// falling-factorial rows do follow `n!/(n-k)!`, but they are written out
-/// because that is what `debye.c` writes out.
+/// `gsl_sf_debye_n_e`, not derived from a general formula for `n`.
 const ORDERS: [DebyeOrder; 6] = [
     DebyeOrder {
         n: 1,
@@ -216,7 +210,6 @@ const ORDERS: [DebyeOrder; 6] = [
         lin: 0.25,
         quad: 1.0 / 36.0,
         cheb: &ADEB1,
-        fall: &[1.0, 1.0],
         small_cut: 2.0 * SQRT_DBL_EPSILON,
     },
     DebyeOrder {
@@ -225,7 +218,6 @@ const ORDERS: [DebyeOrder; 6] = [
         lin: 1.0 / 3.0,
         quad: 1.0 / 24.0,
         cheb: &ADEB2,
-        fall: &[1.0, 2.0, 2.0],
         small_cut: 2.0 * SQRT_2 * SQRT_DBL_EPSILON,
     },
     DebyeOrder {
@@ -234,7 +226,6 @@ const ORDERS: [DebyeOrder; 6] = [
         lin: 0.375,
         quad: 1.0 / 20.0,
         cheb: &ADEB3,
-        fall: &[1.0, 3.0, 6.0, 6.0],
         small_cut: 2.0 * SQRT_2 * SQRT_DBL_EPSILON,
     },
     DebyeOrder {
@@ -243,7 +234,6 @@ const ORDERS: [DebyeOrder; 6] = [
         lin: 2.0 / 5.0,
         quad: 1.0 / 18.0,
         cheb: &ADEB4,
-        fall: &[1.0, 4.0, 12.0, 24.0, 24.0],
         small_cut: 2.0 * SQRT_2 * SQRT_DBL_EPSILON,
     },
     DebyeOrder {
@@ -252,7 +242,6 @@ const ORDERS: [DebyeOrder; 6] = [
         lin: 5.0 / 12.0,
         quad: 5.0 / 84.0,
         cheb: &ADEB5,
-        fall: &[1.0, 5.0, 20.0, 60.0, 120.0, 120.0],
         small_cut: 2.0 * SQRT_2 * SQRT_DBL_EPSILON,
     },
     DebyeOrder {
@@ -261,12 +250,13 @@ const ORDERS: [DebyeOrder; 6] = [
         lin: 3.0 / 7.0,
         quad: 1.0 / 16.0,
         cheb: &ADEB6,
-        fall: &[1.0, 6.0, 30.0, 120.0, 360.0, 720.0, 720.0],
         small_cut: 2.0 * SQRT_2 * SQRT_DBL_EPSILON,
     },
 ];
 
-/// `x^n` for the small `n` this module uses.
+/// `x^n` for the small `n` this module uses (the unit tests; the evaluation
+/// writes upstream's own power expression per order).
+#[cfg(test)]
 #[inline]
 fn pow_n(x: f64, n: u32) -> f64 {
     let mut out = 1.0;
@@ -276,57 +266,253 @@ fn pow_n(x: f64, n: u32) -> f64 {
     out
 }
 
-/// Evaluate `D_n(x)` for one of the six tabulated orders.
+/// `gsl_sf_debye_1_e`, expression for expression (specfunc/debye.c:194).
+fn debye_1_e(cheb: &[f64], x: f64) -> f64 {
+    const VAL_INFINITY: f64 = 1.64493406684822644;
+    if x < 0.0 {
+        f64::NAN
+    } else if x < 2.0 * SQRT_DBL_EPSILON {
+        1.0 - 0.25 * x + x * x / 36.0
+    } else if x <= 4.0 {
+        let t = x * x / 8.0 - 1.0;
+        cheb_eval_e(t, cheb) - 0.25 * x
+    } else if x < -(LN_2 + LOG_DBL_EPSILON) {
+        let nexp = Real::floor(XCUT / x) as i32;
+        let ex = Real::exp(-x);
+        let mut sum = 0.0;
+        let mut xk = nexp as f64 * x;
+        let mut rk = nexp as f64;
+        let mut i = nexp;
+        while i >= 1 {
+            sum *= ex;
+            sum += (1.0 + 1.0 / xk) / rk;
+            rk -= 1.0;
+            xk -= x;
+            i -= 1;
+        }
+        VAL_INFINITY / x - sum * ex
+    } else if x < XCUT {
+        (VAL_INFINITY - Real::exp(-x) * (x + 1.0)) / x
+    } else {
+        VAL_INFINITY / x
+    }
+}
+
+/// `gsl_sf_debye_2_e`, expression for expression (specfunc/debye.c:247).
+fn debye_2_e(cheb: &[f64], x: f64) -> f64 {
+    const VAL_INFINITY: f64 = 4.80822761263837714;
+    if x < 0.0 {
+        f64::NAN
+    } else if x < 2.0 * SQRT_2 * SQRT_DBL_EPSILON {
+        1.0 - x / 3.0 + x * x / 24.0
+    } else if x <= 4.0 {
+        let t = x * x / 8.0 - 1.0;
+        cheb_eval_e(t, cheb) - x / 3.0
+    } else if x < -(LN_2 + LOG_DBL_EPSILON) {
+        let nexp = Real::floor(XCUT / x) as i32;
+        let ex = Real::exp(-x);
+        let mut xk = nexp as f64 * x;
+        let mut rk = nexp as f64;
+        let mut sum = 0.0;
+        let mut i = nexp;
+        while i >= 1 {
+            sum *= ex;
+            sum += (1.0 + 2.0 / xk + 2.0 / (xk * xk)) / rk;
+            rk -= 1.0;
+            xk -= x;
+            i -= 1;
+        }
+        VAL_INFINITY / (x * x) - 2.0 * sum * ex
+    } else if x < XCUT {
+        let x2 = x * x;
+        let sum = 2.0 + 2.0 * x + x2;
+        (VAL_INFINITY - 2.0 * sum * Real::exp(-x)) / x2
+    } else {
+        (VAL_INFINITY / x) / x
+    }
+}
+
+/// `gsl_sf_debye_3_e`, expression for expression (specfunc/debye.c:303).
+fn debye_3_e(cheb: &[f64], x: f64) -> f64 {
+    const VAL_INFINITY: f64 = 19.4818182068004875;
+    if x < 0.0 {
+        f64::NAN
+    } else if x < 2.0 * SQRT_2 * SQRT_DBL_EPSILON {
+        1.0 - 3.0 * x / 8.0 + x * x / 20.0
+    } else if x <= 4.0 {
+        let t = x * x / 8.0 - 1.0;
+        cheb_eval_e(t, cheb) - 0.375 * x
+    } else if x < -(LN_2 + LOG_DBL_EPSILON) {
+        let nexp = Real::floor(XCUT / x) as i32;
+        let ex = Real::exp(-x);
+        let mut xk = nexp as f64 * x;
+        let mut rk = nexp as f64;
+        let mut sum = 0.0;
+        let mut i = nexp;
+        while i >= 1 {
+            let xk_inv = 1.0 / xk;
+            sum *= ex;
+            sum += (((6.0 * xk_inv + 6.0) * xk_inv + 3.0) * xk_inv + 1.0) / rk;
+            rk -= 1.0;
+            xk -= x;
+            i -= 1;
+        }
+        VAL_INFINITY / (x * x * x) - 3.0 * sum * ex
+    } else if x < XCUT {
+        let x3 = x * x * x;
+        let sum = 6.0 + 6.0 * x + 3.0 * x * x + x3;
+        (VAL_INFINITY - 3.0 * sum * Real::exp(-x)) / x3
+    } else {
+        ((VAL_INFINITY / x) / x) / x
+    }
+}
+
+/// `gsl_sf_debye_4_e`, expression for expression (specfunc/debye.c:360).
+fn debye_4_e(cheb: &[f64], x: f64) -> f64 {
+    const VAL_INFINITY: f64 = 99.5450644937635129;
+    if x < 0.0 {
+        f64::NAN
+    } else if x < 2.0 * SQRT_2 * SQRT_DBL_EPSILON {
+        1.0 - 2.0 * x / 5.0 + x * x / 18.0
+    } else if x <= 4.0 {
+        let t = x * x / 8.0 - 1.0;
+        cheb_eval_e(t, cheb) - 2.0 * x / 5.0
+    } else if x < -(LN_2 + LOG_DBL_EPSILON) {
+        let nexp = Real::floor(XCUT / x) as i32;
+        let ex = Real::exp(-x);
+        let mut xk = nexp as f64 * x;
+        let mut rk = nexp as f64;
+        let mut sum = 0.0;
+        let mut i = nexp;
+        while i >= 1 {
+            let xk_inv = 1.0 / xk;
+            sum *= ex;
+            sum += ((((24.0 * xk_inv + 24.0) * xk_inv + 12.0) * xk_inv + 4.0) * xk_inv + 1.0) / rk;
+            rk -= 1.0;
+            xk -= x;
+            i -= 1;
+        }
+        VAL_INFINITY / (x * x * x * x) - 4.0 * sum * ex
+    } else if x < XCUT {
+        let x2 = x * x;
+        let x4 = x2 * x2;
+        let sum = 24.0 + 24.0 * x + 12.0 * x2 + 4.0 * x2 * x + x4;
+        (VAL_INFINITY - 4.0 * sum * Real::exp(-x)) / x4
+    } else {
+        (((VAL_INFINITY / x) / x) / x) / x
+    }
+}
+
+/// `gsl_sf_debye_5_e`, expression for expression (specfunc/debye.c:417).
+fn debye_5_e(cheb: &[f64], x: f64) -> f64 {
+    const VAL_INFINITY: f64 = 610.405837190669483828710757875;
+    if x < 0.0 {
+        f64::NAN
+    } else if x < 2.0 * SQRT_2 * SQRT_DBL_EPSILON {
+        1.0 - 5.0 * x / 12.0 + 5.0 * x * x / 84.0
+    } else if x <= 4.0 {
+        let t = x * x / 8.0 - 1.0;
+        cheb_eval_e(t, cheb) - 5.0 * x / 12.0
+    } else if x < -(LN_2 + LOG_DBL_EPSILON) {
+        let nexp = Real::floor(XCUT / x) as i32;
+        let ex = Real::exp(-x);
+        let mut xk = nexp as f64 * x;
+        let mut rk = nexp as f64;
+        let mut sum = 0.0;
+        let mut i = nexp;
+        while i >= 1 {
+            let xk_inv = 1.0 / xk;
+            sum *= ex;
+            sum += (((((120.0 * xk_inv + 120.0) * xk_inv + 60.0) * xk_inv + 20.0) * xk_inv + 5.0)
+                * xk_inv
+                + 1.0)
+                / rk;
+            rk -= 1.0;
+            xk -= x;
+            i -= 1;
+        }
+        VAL_INFINITY / (x * x * x * x * x) - 5.0 * sum * ex
+    } else if x < XCUT {
+        let x2 = x * x;
+        let x4 = x2 * x2;
+        let x5 = x4 * x;
+        let sum = 120.0 + 120.0 * x + 60.0 * x2 + 20.0 * x2 * x + 5.0 * x4 + x5;
+        (VAL_INFINITY - 5.0 * sum * Real::exp(-x)) / x5
+    } else {
+        ((((VAL_INFINITY / x) / x) / x) / x) / x
+    }
+}
+
+/// `gsl_sf_debye_6_e`, expression for expression (specfunc/debye.c:475).
+fn debye_6_e(cheb: &[f64], x: f64) -> f64 {
+    const VAL_INFINITY: f64 = 4356.06887828990661194792541535;
+    if x < 0.0 {
+        f64::NAN
+    } else if x < 2.0 * SQRT_2 * SQRT_DBL_EPSILON {
+        1.0 - 3.0 * x / 7.0 + x * x / 16.0
+    } else if x <= 4.0 {
+        let t = x * x / 8.0 - 1.0;
+        cheb_eval_e(t, cheb) - 3.0 * x / 7.0
+    } else if x < -(LN_2 + LOG_DBL_EPSILON) {
+        let nexp = Real::floor(XCUT / x) as i32;
+        let ex = Real::exp(-x);
+        let mut xk = nexp as f64 * x;
+        let mut rk = nexp as f64;
+        let mut sum = 0.0;
+        let mut i = nexp;
+        while i >= 1 {
+            let xk_inv = 1.0 / xk;
+            sum *= ex;
+            sum += ((((((720.0 * xk_inv + 720.0) * xk_inv + 360.0) * xk_inv + 120.0) * xk_inv
+                + 30.0)
+                * xk_inv
+                + 6.0)
+                * xk_inv
+                + 1.0)
+                / rk;
+            rk -= 1.0;
+            xk -= x;
+            i -= 1;
+        }
+        VAL_INFINITY / (x * x * x * x * x * x) - 6.0 * sum * ex
+    } else if x < XCUT {
+        let x2 = x * x;
+        let x4 = x2 * x2;
+        let x6 = x4 * x2;
+        let sum = 720.0 + 720.0 * x + 360.0 * x2 + 120.0 * x2 * x + 30.0 * x4 + 6.0 * x4 * x + x6;
+        (VAL_INFINITY - 6.0 * sum * Real::exp(-x)) / x6
+    } else {
+        (((((VAL_INFINITY / x) / x) / x) / x) / x) / x
+    }
+}
+
+/// `D_n` for one of the six tabulated orders: dispatch to upstream's own
+/// per-order function.
+///
+/// ~~The shared body of all six `D_n`~~ **CORRECTED 2026-11-12 (gh:#1421):** an
+/// earlier version carried the control flow once and parametrised the
+/// constants (`lin`, `quad`, a Horner loop over falling factorials,
+/// `val_infinity / x^n`), on the claim that nothing numerical differs between
+/// the orders. It does: upstream writes `c - x/3.0` where the shared body
+/// computed `c - (1/3)*x`, `x*x/24.0` where it computed `(1/24)*x*x`,
+/// `(1.0 + 2.0/xk + 2.0/(xk*xk))/rk` where it ran Horner, and so on, and each
+/// is a different rounding. Measured against GSL linked to PETIR's libm,
+/// `debye_2..6` were 90-99 % bit-identical; see
+/// `verification_and_validation/specfunc_gsl_gh1419_1420_1421.md`. The six are
+/// now transcribed one by one.
 fn debye(order: &DebyeOrder, x: f64) -> f64 {
     if x.is_nan() {
         return f64::NAN;
     }
-    if x < 0.0 {
-        return f64::NAN;
+    match order.n {
+        1 => debye_1_e(order.cheb, x),
+        2 => debye_2_e(order.cheb, x),
+        3 => debye_3_e(order.cheb, x),
+        4 => debye_4_e(order.cheb, x),
+        5 => debye_5_e(order.cheb, x),
+        6 => debye_6_e(order.cheb, x),
+        _ => f64::NAN,
     }
-    if x < order.small_cut {
-        return 1.0 - order.lin * x + order.quad * x * x;
-    }
-    if x <= 4.0 {
-        let t = x * x / 8.0 - 1.0;
-        return cheb_eval_e(t, order.cheb) - order.lin * x;
-    }
-    if x < -(LN_2 + LOG_DBL_EPSILON) {
-        // The exponential sum. `nexp` terms of a geometric-like series,
-        // accumulated from the far end inwards so the smallest contributions
-        // are added first -- upstream's own loop direction.
-        let nexp = (XCUT / x).floor();
-        let ex = Real::exp(-x);
-        let mut sum = 0.0;
-        let mut xk = nexp * x;
-        let mut rk = nexp;
-        let mut i = nexp;
-        while i >= 1.0 {
-            let xk_inv = 1.0 / xk;
-            // Horner over the falling factorials, descending -- the same
-            // nesting upstream writes out per order.
-            let mut poly = 0.0;
-            for &c in order.fall.iter().rev() {
-                poly = poly * xk_inv + c;
-            }
-            sum *= ex;
-            sum += poly / rk;
-            rk -= 1.0;
-            xk -= x;
-            i -= 1.0;
-        }
-        return order.val_infinity / pow_n(x, order.n) - order.n as f64 * sum * ex;
-    }
-    if x < XCUT {
-        // One term of the same series, written as a polynomial in x.
-        let mut poly = 0.0;
-        for &c in order.fall.iter() {
-            poly = poly * x + c;
-        }
-        return (order.val_infinity - order.n as f64 * poly * Real::exp(-x)) / pow_n(x, order.n);
-    }
-    // Past xcut, exp(-x) has underflowed and only the tail remains.
-    order.val_infinity / pow_n(x, order.n)
 }
 
 /// Index [`ORDERS`] without a fallible subscript.
@@ -643,6 +829,17 @@ mod tests {
     /// `n * poly(x) * exp(-x) / x^n`, and at `XCUT` that is below `f64`'s
     /// smallest normal. Asserting the two agree exactly is what shows the
     /// cut is in the right place.
+    /// GSL's tail, `((val_infinity/x)/x)/x...`: `n` successive divisions, which
+    /// is not `val_infinity / x^n` to the last bit (~~the test compared that~~
+    /// **CORRECTED 2026-11-12, gh:#1421**).
+    fn nested_tail(val_infinity: f64, x: f64, n: u32) -> f64 {
+        let mut t = val_infinity;
+        for _ in 0..n {
+            t /= x;
+        }
+        t
+    }
+
     #[test]
     fn past_the_underflow_cut_only_the_tail_remains() {
         for n in 1..=6u32 {
@@ -651,7 +848,19 @@ mod tests {
             };
             let x = XCUT * (1.0 - 1e-15);
             let closed = debye_n(n, x);
-            let tail = o.val_infinity / pow_n(x, n);
+            // Just below the cut GSL divides by its own power of x
+            // (`x3 = x*x*x`, `x4 = x2*x2`, `x5 = x4*x`, `x6 = x4*x2`).
+            let x2 = x * x;
+            let x4 = x2 * x2;
+            let xn = match n {
+                1 => x,
+                2 => x2,
+                3 => x * x * x,
+                4 => x4,
+                5 => x4 * x,
+                _ => x4 * x2,
+            };
+            let tail = o.val_infinity / xn;
             assert_eq!(
                 closed.to_bits(),
                 tail.to_bits(),
@@ -661,7 +870,7 @@ mod tests {
             // And just above, where the implementation takes the tail branch.
             assert_eq!(
                 debye_n(n, XCUT * (1.0 + 1e-15)).to_bits(),
-                (o.val_infinity / pow_n(XCUT * (1.0 + 1e-15), n)).to_bits()
+                nested_tail(o.val_infinity, XCUT * (1.0 + 1e-15), n).to_bits()
             );
         }
     }

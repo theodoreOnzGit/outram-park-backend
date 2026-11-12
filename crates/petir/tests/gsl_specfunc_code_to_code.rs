@@ -705,3 +705,48 @@ fn fact_choose_beta_rows_meet_the_gh1420_prediction() {
     println!("  gh1420 psi_n: {exact}/{rows} bit-identical, worst {worst:e}");
     assert!(10_000 * exact > 3_497 * rows, "psi_n must improve on its pre-port 34.97 %");
 }
+
+/// **Regression pins for gh:#1421** (what the fixes bought, against STOCK GSL;
+/// the clean numbers, against GSL linked to PETIR's libm, are in
+/// `verification_and_validation/specfunc_gsl_gh1419_1420_1421.md`).
+///
+/// Causes found and fixed, each traced by reading the C against the Rust or by
+/// relinking GSL: (1) `cheb_eval_e` maps its argument `((2x + 1) - 1)/2`;
+/// (2) `debye.rs` collapsed six differently-written functions into one;
+/// (3) `transport.rs` multiplied by a running product where GSL writes `x2*x2`;
+/// (4) `dilog_series_2` added `s + 1.0 + t` where GSL adds `s + (1.0 + t)`;
+/// (5) `LogRootTwoPi_` one ulp off; (6) `lnfact`; and, in the diagnostic
+/// shim only, (7) `gcc -O2` turns `sin(y)`, `cos(y)` into glibc `sincos`.
+/// Measured 2026-11-12 against stock GSL, bit-identical share / worst relative
+/// difference, before -> after: `debye_2` 94.5 % -> 100 %; `debye_4..6`
+/// 90-92 % -> 99.76 %; `transport_5` 90.1 % -> 98.6 %, 1.7e-15 worst;
+/// `dilog` 86.0 % -> 96.2 %; `psi_n` 35.0 % -> 82.5 %; `zeta` 8.6e-14 -> 8.4e-16
+/// worst. The thresholds below are those measurements, not predictions.
+#[test]
+fn gh1421_residuals_stay_fixed() {
+    let exact_all = |names: &[&str]| {
+        for n in names {
+            let (rows, exact, worst, _) = finite_rows(n, Region::All);
+            println!("  gh1421 {n}: {exact}/{rows} bit-identical, worst rel {worst:e}");
+            assert_eq!(exact, rows, "{n} must stay bit-identical");
+        }
+    };
+    exact_all(&["debye_1", "debye_2", "debye_3"]);
+    let at_least = |names: &[&str], pct: usize, worst_max: f64| {
+        for n in names {
+            let (rows, exact, worst, _) = finite_rows(n, Region::All);
+            println!("  gh1421 {n}: {exact}/{rows} bit-identical, worst rel {worst:e}");
+            assert!(100 * exact >= pct * rows, "{n}: {exact}/{rows} below {pct} %");
+            assert!(worst <= worst_max, "{n}: worst {worst:e} above {worst_max:e}");
+        }
+    };
+    at_least(&["debye_4", "debye_5", "debye_6"], 99, 5e-16);
+    at_least(&["transport_3", "transport_4", "transport_5"], 98, 2e-15);
+    at_least(&["dilog"], 96, 5e-14);
+    at_least(&["psi_1piy"], 98, 2e-16);
+    at_least(&["psi_n"], 82, 3e-16);
+    at_least(&["zeta", "zetam1"], 90, 9e-16);
+    at_least(&["eta"], 85, 1.1e-15);
+    at_least(&["fd_m1", "fd_1", "fd_2", "fd_mhalf"], 94, 3e-16);
+    at_least(&["bessel_j0", "bessel_j1", "bessel_y0", "bessel_y1"], 97, 5e-15);
+}

@@ -229,10 +229,19 @@ pub fn transport(n: u32, x: f64) -> f64 {
         // x^2/8 - 1.0: the two differ in the last bit near x = 0, and the
         // grouping is reproduced rather than simplified.
         let t = (x * x / 8.0 - 0.5) - 0.5;
-        let mut p = 1.0;
-        for _ in 1..o.n {
-            p *= x;
-        }
+        // The power multiplying the Chebyshev value is written out per order
+        // upstream: `x`, `x2`, `x2*x`, `x2*x2` with `x2 = x*x`
+        // (specfunc/transport.c:189, :266, :343, :420). ~~A running product
+        // `((x*x)*x)*x`~~ **CORRECTED 2026-11-12 (gh:#1421):** for orders 4
+        // and 5 that is a different rounding, and `transport_5` differed from
+        // GSL linked to PETIR's libm on 9 % of its values because of it.
+        let x2 = x * x;
+        let p = match o.n {
+            2 => x,
+            3 => x2,
+            4 => x2 * x,
+            _ => x2 * x2,
+        };
         return p * crate::specfunc::cheb_eval_e(t, o.cheb);
     }
 

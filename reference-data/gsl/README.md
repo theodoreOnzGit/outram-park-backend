@@ -484,7 +484,7 @@ kept (7 MB); the command above regenerates it.
 | ~~`factorial` 2.2e-13, `ln_factorial` 1.4e-15, `choose` 3.2e-10, `gamma(n)` 1e-13~~ | ~~`exp(ln_gamma)` against GSL's exact `fact_table` / product loop~~ | **FIXED 2026-11-12 (gh:#1420)**: `fact_table` (extracted by script), `fact`, `lnfact`, `choose`, `lnchoose` ported: `factorial` 171/171, `choose` 1934/1934, `gamma(n)` 67/67 bit-identical against stock GSL. |
 | `choose(n, k > n)` | PETIR 0 (documented), GSL EDOM; not compared | API difference |
 | `gegenpoly_n(n < 0)` | PETIR's `n` is `u32`; not compared | API difference |
-| remaining last-ulp residuals (debye 2-6, dilog, bessel J/Y, elljac, fermi_dirac, psi, zeta, transport_5), all <= 8.6e-14 | NOT explained by libm (they persist with the shim); partly traced 2026-11-12, see "After gh:#1419 / #1420 / #1421" below | gh:#1421 |
+| ~~remaining last-ulp residuals (debye 2-6, dilog, bessel J/Y, elljac, fermi_dirac, psi, zeta, transport_5), all <= 8.6e-14~~ | ~~NOT explained by libm (they persist with the shim)~~ | **TRACED AND FIXED 2026-11-12 (gh:#1421)**, apart from the items listed under "After gh:#1419 / #1420 / #1421" below. |
 
 The prediction above was wrong in two ways: it expected `erfc` within 2 ulp
 (76 % identical, worst 5e-14 at the largest arguments) and expected the
@@ -497,10 +497,9 @@ Full record, with the predictions committed before each change:
 `crates/petir/verification_and_validation/specfunc_gsl_gh1419_1420_1421.md`.
 The stock reference above was regenerated from a fresh GSL build and is
 byte-identical to the committed file. Whole sweep against **stock GSL**
-(glibc): 79 642 -> **83 264 / 86 238 (96.55 %)** bit-identical after the
-gamma/beta/factorial work and the `LogRootTwoPi_` fix below. Against GSL linked
-to PETIR's own libm (shim regenerated, not committed): 80 820 -> **84 803 /
-86 238 (98.34 %)**.
+(glibc): 79 642 -> **83 717 / 86 238 (97.08 %)** bit-identical. Against GSL
+linked to PETIR's own libm (shim regenerated, not committed; the shim now also
+exports `sincos`, see below): 80 820 -> **85 360 / 86 238 (98.98 %)**.
 
 Two defects were found only because the libm-linked comparison removed the
 noise: (1) `LOG_ROOT_TWO_PI` in `specfunc/gamma.rs` was `0.9189385332046727`,
@@ -510,3 +509,23 @@ ulp-level error; (2) `lnfact` (the cause the issue suspected): with GSL's
 `fact_table` in, `psi_n` went from 50/143 to 118/143 bit-identical against
 stock GSL and to 143/143 against the libm-linked GSL, and `zeta`/`eta`/`zetam1`
 worst differences from 8.6e-14 to 8.4e-16/1.0e-15/7.2e-16.
+
+More causes of the gh:#1421 residuals, all found 2026-11-12: GSL's
+`cheb_eval_e` maps its argument `((2x + 1) - 1)/2` (every `cheb_series` in
+`specfunc/*.c` is on `[-1, 1]`), and the specfunc modules did not
+(`specfunc::cheb_eval_e`); `debye.rs` had folded six differently-written
+upstream functions into one body (`debye_1_e` .. `debye_6_e` now follow
+`debye.c` expression by expression); `transport.rs` used a running product
+where GSL writes `x2*x`, `x2*x2`; `dilog_series_2` summed `s + 1.0 + t` where
+GSL does `s + (1.0 + t)`. **`petir_libm_shim.rs` did not export `sincos`**:
+`gcc -O2` fuses `sin(y)` and `cos(y)` into one glibc `sincos` call (17
+references in `libgsl.a`), so the libm-linked reference still contained glibc's
+sin/cos; adding it made `bessel_j0/j1/y0/y1`, `elljac`, `psi` (x < -30) and
+`psi_1piy` 100 % bit-identical, so those four were not port defects.
+
+Still open (878 values against the libm-linked GSL): `airy_*` and `ci`, where
+GSL uses its own `gsl_sf_cos_e`/`sin_e` (trig.c) and PETIR calls libm
+(the decision recorded above); `erf`/`erfc` (not ports); signed zeros in `eta`
+and `transport_4`; three `fd_2`/`fd_3half` rows at x >= 1e15; and `ln_gamma`
+at +-1e-310, 5e-324 (DEVIATION in `lngamma_sgn_0`).
+

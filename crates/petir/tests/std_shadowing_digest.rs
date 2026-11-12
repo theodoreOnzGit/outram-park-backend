@@ -111,7 +111,13 @@ const EXPECTED: &[(&str, u64)] = &[
     // `gsl_specfunc_code_to_code.rs`.
     // Re-pinned again 2026-11-12 (gh:#1421: GSL's `cheb_eval_e` argument
     // mapping applied in every specfunc module); was 0x3d124b25beabb7e5.
-    ("specfunc", 0x18bf982163cead28),
+    // And a third time, same day (gh:#1421: `debye_1..6` and the Chebyshev
+    // multiplier of `transport` written as GSL writes them, `dilog_series_2`
+    // adds `s + (1.0 + t)`); was 0x18bf982163cead28. Each move is a route
+    // that now matches compiled GSL 2.8 more closely, measured in
+    // `gsl_specfunc_code_to_code.rs` and the V&V record in
+    // `verification_and_validation/specfunc_gsl_gh1419_1420_1421.md`.
+    ("specfunc", 0xe50d01159d15e0be),
     ("wgsl_mirrors", 0xea6f3ca0eb4f5ece),
     // Re-pinned 2026-10-21 (gh:#985 re-lift); was 0x142dfcde5eb88a64.
     ("transfer_fn", 0x328eb18a7aceaede),
