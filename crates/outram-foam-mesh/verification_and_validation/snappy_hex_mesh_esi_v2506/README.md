@@ -90,4 +90,63 @@ solid of four. The surface search differs, not the refinement loop.
 | P6 | Reading all four solids (double precision, `read_stl` fixed) makes the per-iteration counts equal ESI's 914 / 4294 / 344 / 12 / 0 exactly, or within 1 cell per iteration. |
 | P7 | Upstream's single-precision STL coordinates (`STLpoint` is `float`; `read_stl_zoned` already ports this) change the counts by at most a few cells (the only decisions that can flip are segments grazing a plane at a cell-centre coordinate); the result with `read_stl_zoned` equals ESI's exactly. |
 
+### Run 2 results: stage 1 (`surfaceOnlyRefine`), ESI v2506 vs port
+
+Selected cells per iteration (after the 2:1 closure), reduced flange:
+
+| port reader | iter 0 | iter 1 | iter 2 | iter 3 | iter 4 | leaves | cells equal to ESI |
+|---|---|---|---|---|---|---|---|
+| ESI v2506 `snappyHexMesh` | 914 | 4294 | 344 | 12 | 0 | 42788 | (reference) |
+| `read_stl` as found (first solid only) | 758 | 3500 | 348 | 14 | 0 | 36180 | 35068 of 42788 |
+| `read_stl` fixed (all solids, double) | 914 | 4294 | 370 | 14 | 0 | 42984 | 42760 (28 only in ESI, 224 only in port) |
+| `read_stl_zoned` (all solids, single precision) | 914 | 4294 | 344 | 12 | 0 | 42788 | **42788 of 42788, levels equal** |
+
+- **P1 failed** as written (it assumed the STL was read identically). Cause 1,
+  first divergent operation: `read_stl_ascii_str` stopped at the first
+  `endsolid` and meshed against 1 of the flange's 4 solids (patch1; 6468
+  triangles in the file). Fixed in `stl.rs` (all solids are read now).
+- **P6 half held**: with all solids the first two iterations equal ESI
+  (914, 4294); iterations 2-4 do not (370 vs 344, 14 vs 12), so "within 1 cell"
+  was wrong.
+- **P7 held in its equality, missed in its size**: single-precision STL
+  corners (upstream's `STLpoint` is `float`; `read_stl_zoned` ports it) remove
+  the last difference, and the effect was 196 leaves (0.46 %), not "a few
+  cells". Cause 2, first divergent operation: a double-precision corner such as
+  0.0075 sits on a cell face or a cell-centre plane of the background grid and
+  the float rounding flips grazing segment tests. Upstream is the specification,
+  so the single-precision reader is the right one for parity.
+- The ESI tutorial's `controlDict` has `writePrecision 6`, so its `blockMesh`
+  points are rounded (e.g. z = -0.02833335 for -0.0283333...). The
+  differential run uses `writePrecision 16`; the counts above are the same with
+  6 digits (914, 4294, 344, 12), so the rounding does not matter here, but a
+  comparison against a 6-digit tutorial mesh should not assume that.
+
+### Stage 2: cell removal and the stages the port does not have
+
+ESI after `surfaceOnlyRefine` runs `removeInsideCells` (42788 -> 30264 cells),
+`danglingCellRefine` (22+4+4+4+2 then 2 cells: 38 parents) and
+`refinementInterfaceRefine` (0 selected), then `baffleAndSplitMesh` (30530 ->
+18278 cells; 12145 faces intersected by the surface become baffles) and
+`splitAndMergeBaffles`. Final ESI mesh (time 32): 18278 cells, 63194 faces,
+patches `flange_patch1..4` = 9310 / 1182 / 248 / 1396 faces (the domain boundary
+patch ends up empty: the kept region is the inside of the flange).
+
+Port (octree of stage 1, `read_stl_zoned`, centre-parity removal): 18014
+cells, 62644 faces, one `surface` patch with 12140 faces (ESI: 12136). Cell
+comparison against the ESI final mesh: 17974 matched, **304 only in ESI (256
+level-2, 48 level-1) and 40 only in port (32 level-1, 6 level-0, 2
+level-2)**. 304 = 8 x 38: ESI's dangling-cell refinement split 38 cells that the
+port leaves whole (32 level-1 and 6 level-0 parents, each replaced by its 8
+children). That leaves **2 level-2 cells that only the port keeps**: they are
+mirror images (x = +-0.009375, y = 0.0173, z = -0.00958): cells whose centre
+is on the keep side by ray parity but which the surface cuts off from
+`locationInMesh` (face-connected region test).
+
+### PREDICTIONS for the baffle-region removal (written before it was run)
+
+| # | prediction |
+|---|---|
+| P8 | `CastellationControls::with_baffle_region_removal()` (new: keeps the face-connected region holding `locationInMesh` across faces whose cell-centre segment misses the surface) removes exactly those 2 cells: the port keeps **18012** cells and the comparison with the ESI final mesh shows **304 only in ESI, 38 only in port, 0 level differences**. |
+| P9 | The remaining 304 / 38 go away only by porting `danglingCellRefine` (nFaces 21 and 24) on the post-`removeInsideCells` mesh; that needs the nBufferLayers erosion of `splitMesh`, which is NOT ported in this change (see "What remains"). |
+
 (results below)

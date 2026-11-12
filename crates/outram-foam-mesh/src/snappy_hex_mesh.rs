@@ -102,7 +102,7 @@ pub mod stl;
 // Re-export the primary entry points at the module root for discoverability.
 pub use background::{BackgroundMesh, Bounds};
 pub use castellation::{
-    castellate, CastellatedMesh, CastellationControls, RefinementSelection, SurfaceFace,
+    castellate, CastellatedMesh, CastellationControls, CellRemoval, RefinementSelection, SurfaceFace,
 };
 pub use cyclic::{
     check_conformity, resolve_pairs, CyclicError, CyclicPair, CyclicPointConstraints,

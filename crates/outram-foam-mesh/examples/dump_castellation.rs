@@ -15,15 +15,21 @@
 //! exempt from the reached-by-a-test rule (it calls only the tested `castellate`).
 
 use outram_foam_basic_lib::primitives::Vector3;
+use outram_foam_mesh::snappy_hex_mesh::stl::read_stl_zoned;
 use outram_foam_mesh::snappy_hex_mesh::{
-    castellate, read_stl, BackgroundMesh, Bounds, CastellationControls,
+    castellate, read_stl, BackgroundMesh, Bounds, CastellationControls, TriangleSoup,
 };
 
 fn main() {
     let a: Vec<String> = std::env::args().skip(1).collect();
     let f = |i: usize| a[i].parse::<f64>().expect("number");
     let u = |i: usize| a[i].parse::<usize>().expect("integer");
-    let surface = read_stl(&a[0]).expect("stl");
+    // 18th argument `zoned`: upstream's reader (single precision, merged corners).
+    let surface = if a.get(17).map(String::as_str) == Some("zoned") {
+        TriangleSoup::from_zoned(&read_stl_zoned(&a[0]).expect("stl"))
+    } else {
+        read_stl(&a[0]).expect("stl")
+    };
     let domain = Bounds::new(Vector3::new(f(1), f(2), f(3)), Vector3::new(f(4), f(5), f(6)));
     let bg = BackgroundMesh::uniform(domain, u(7), u(8), u(9));
     let v0 = (f(4) - f(1)) * (f(5) - f(2)) * (f(6) - f(3)) / (u(7) * u(8) * u(9)) as f64;

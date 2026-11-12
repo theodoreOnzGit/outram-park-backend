@@ -273,6 +273,56 @@ pub fn refined_octree(
     (cells, selected)
 }
 
+/// Keep the face-connected region of the octree that holds `keep`, where a
+/// face is a baffle (blocks the region) when its `calcCellCellRays` segment
+/// hits the surface: the cell-selection result of upstream's
+/// `meshRefinement::splitMesh` / `baffleAndSplitMesh` (ESI v2506
+/// `meshRefinementBaffles.C:4927`, `snappyRefineDriver.C:2754`): intersected
+/// faces become baffles (`getBafflePatches`), `regionSplit` labels the
+/// face-connected regions, `findRegions` keeps those holding
+/// `locationInMesh`, the rest is removed.
+///
+/// Returns `None` if `keep` is in no leaf. Not ported here: the buffer layers
+/// of `removeInsideCells` (`nBufferLayers`), `locationsOutsideMesh`, more than
+/// one `locationsInMesh`, faceZones/cellZones (gh:#1466).
+pub(crate) fn baffle_region(
+    leaves: &[Leaf],
+    n0: [usize; 3],
+    origin: Vector3,
+    size0: [f64; 3],
+    surface: &TriangleSoup,
+    keep: Vector3,
+) -> Option<Vec<bool>> {
+    let start_leaf = leaves.iter().position(|l| {
+        let c = centre(l, origin, size0);
+        let f = 0.5 / (1usize << l.level) as f64;
+        (keep.x >= c.x - f * size0[0] && keep.x < c.x + f * size0[0])
+            && (keep.y >= c.y - f * size0[1] && keep.y < c.y + f * size0[1])
+            && (keep.z >= c.z - f * size0[2] && keep.z < c.z + f * size0[2])
+    })?;
+    let mut adjacent: Vec<Vec<usize>> = vec![Vec::new(); leaves.len()];
+    for (own, nei, a, b) in face_pairs(leaves, n0, origin, size0) {
+        if let Some(n) = nei {
+            if !surface.segment_hits(a, b) {
+                adjacent[own].push(n);
+                adjacent[n].push(own);
+            }
+        }
+    }
+    let mut reached = vec![false; leaves.len()];
+    reached[start_leaf] = true;
+    let mut stack = vec![start_leaf];
+    while let Some(c) = stack.pop() {
+        for &n in &adjacent[c] {
+            if !reached[n] {
+                reached[n] = true;
+                stack.push(n);
+            }
+        }
+    }
+    Some(reached)
+}
+
 /// `hexRef8::consistentRefinement(cells, maxSet = true)`: raise `refine` until
 /// no face joins cells whose post-refinement levels differ by more than one.
 fn consistent_refinement(leaves: &[Leaf], pairs: &[FacePair], refine: &mut [bool]) {
@@ -447,5 +497,33 @@ mod tests {
         assert_eq!(cells.len(), direct.len());
         assert_eq!(*sel.last().unwrap(), 0);
         assert_eq!(512 + 7 * sel.iter().sum::<usize>(), cells.len());
+    }
+
+    /// gh:#1466: `baffle_region` keeps the cells reachable from the keep point
+    /// across faces the surface does not cut. A sphere in a box, keep point
+    /// outside: no kept cell has its centre inside, and cells inside are not
+    /// reached; a keep point inside keeps only the inside; a point outside the
+    /// box is `None`.
+    #[test]
+    fn baffle_region_separates_inside_from_outside() {
+        let surface = TriangleSoup::uv_sphere(Vector3::new(0.5, 0.5, 0.5), 0.3, 24, 24);
+        let n0 = [8, 8, 8];
+        let origin = Vector3::new(0.0, 0.0, 0.0);
+        let size0 = [0.125; 3];
+        let leaves = surface_only_refine(background(8), n0, origin, size0, 2, &surface, 0);
+        let outside = baffle_region(&leaves, n0, origin, size0, &surface, Vector3::new(0.02, 0.02, 0.02)).unwrap();
+        let inside = baffle_region(&leaves, n0, origin, size0, &surface, Vector3::new(0.5, 0.5, 0.5)).unwrap();
+        for (i, l) in leaves.iter().enumerate() {
+            let deep_inside = surface.contains_point(centre(l, origin, size0)) && surface.distance_to(centre(l, origin, size0)) > 0.2;
+            let deep_outside = !surface.contains_point(centre(l, origin, size0)) && surface.distance_to(centre(l, origin, size0)) > 0.2;
+            if deep_inside {
+                assert!(!outside[i] && inside[i]);
+            }
+            if deep_outside {
+                assert!(outside[i] && !inside[i]);
+            }
+            assert!(!(outside[i] && inside[i]));
+        }
+        assert!(baffle_region(&leaves, n0, origin, size0, &surface, Vector3::new(5.0, 5.0, 5.0)).is_none());
     }
 }

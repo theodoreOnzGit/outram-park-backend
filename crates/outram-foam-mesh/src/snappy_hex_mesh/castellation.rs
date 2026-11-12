@@ -104,6 +104,23 @@ pub struct CastellationControls {
     /// `minRefinementCells` (upstream default in the tutorials: 0). Only read
     /// by [`RefinementSelection::SurfaceIntersection`].
     pub min_refine_cells: usize,
+    /// How cells are removed after refinement; see [`CellRemoval`]. Defaults to
+    /// [`CellRemoval::CentreParity`] so existing callers' meshes are unchanged.
+    pub removal: CellRemoval,
+}
+
+/// How [`castellate`] decides which refined cells to keep.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CellRemoval {
+    /// Historical rule of this port: keep a cell when the ray-parity inside
+    /// test of its centre agrees with the keep point's. NOT what OpenFOAM does.
+    #[default]
+    CentreParity,
+    /// OpenFOAM's `baffleAndSplitMesh` outcome: keep the face-connected region
+    /// holding `locationInMesh`, faces cut by the surface (cell-centre
+    /// segments) being baffles. See
+    /// [`crate::snappy_hex_mesh::refinement::baffle_region`].
+    BaffleRegion,
 }
 
 /// How [`castellate`] chooses the cells to split.
@@ -134,7 +151,16 @@ impl CastellationControls {
             cyclic_axes: [false; 3],
             selection: RefinementSelection::DistanceBand,
             min_refine_cells: 0,
+            removal: CellRemoval::CentreParity,
         }
+    }
+
+    /// Remove cells the way OpenFOAM's `baffleAndSplitMesh` does
+    /// ([`CellRemoval::BaffleRegion`]).
+    #[must_use]
+    pub fn with_baffle_region_removal(mut self) -> Self {
+        self.removal = CellRemoval::BaffleRegion;
+        self
     }
 
     /// Select cells the way OpenFOAM's `surfaceOnlyRefine` does
@@ -315,13 +341,41 @@ pub fn castellate(
 
     // ── Step 2: region removal (keep the `keep_point` side) ───────────────────
     let keep_inside = surface.contains_point(controls.keep_point);
+    let baffle_kept = if controls.removal == CellRemoval::BaffleRegion {
+        let size0 = [
+            span.x / bg.nx as f64,
+            span.y / bg.ny as f64,
+            span.z / bg.nz as f64,
+        ];
+        Some(
+            crate::snappy_hex_mesh::refinement::baffle_region(
+                &leaves,
+                [bg.nx, bg.ny, bg.nz],
+                origin,
+                size0,
+                surface,
+                controls.keep_point,
+            )
+            .ok_or_else(|| {
+                MeshError::Construction(
+                    "keep_point (locationInMesh) is outside every background cell".to_string(),
+                )
+            })?,
+        )
+    } else {
+        None
+    };
     let mut kept = vec![false; leaves.len()];
     let mut cell_id = vec![usize::MAX; leaves.len()];
     let mut n_kept = 0usize;
     let mut cells_by_level = vec![0usize; max_level + 1];
     for (lid, leaf) in leaves.iter().enumerate() {
         let centre = leaf_centre(leaf, origin, h, max_level);
-        if surface.contains_point(centre) == keep_inside {
+        let keep_cell = match &baffle_kept {
+            Some(region) => region[lid],
+            None => surface.contains_point(centre) == keep_inside,
+        };
+        if keep_cell {
             kept[lid] = true;
             cell_id[lid] = n_kept;
             cells_by_level[leaf.level] += 1;

@@ -200,6 +200,19 @@ impl TriangleSoup {
         }
     }
 
+    /// The surface as OpenFOAM's `triSurface::readSTL` hands it to
+    /// `snappyHexMesh`: every solid, corners merged, coordinates single
+    /// precision (see [`StlZoned`]). Region membership is not kept here
+    /// (`StlZoned::zones` has it).
+    pub fn from_zoned(z: &StlZoned) -> Self {
+        let triangles = z
+            .triangles
+            .iter()
+            .map(|t| Triangle::new(z.points[t[0]], z.points[t[1]], z.points[t[2]]))
+            .collect();
+        Self { triangles, name: z.names.first().cloned().unwrap_or_default() }
+    }
+
     /// A closed UV sphere of radius `r` `[m]` centred at `centre` `[m]`, as an
     /// outward-wound triangle soup.
     ///
@@ -473,6 +486,8 @@ pub fn read_stl_bytes(bytes: &[u8]) -> Result<TriangleSoup, MeshError> {
 ///   ...
 /// endsolid <name>
 /// ```
+/// Several such blocks in one file are all read (one soup, region boundaries
+/// not kept; see [`read_stl_zoned_bytes`] for the per-region reader).
 /// The stored `normal` is parsed but ignored (the geometric normal is used).
 pub fn read_stl_ascii_str(text: &str) -> Result<TriangleSoup, MeshError> {
     let mut tokens = text.split_whitespace();
@@ -494,18 +509,18 @@ pub fn read_stl_ascii_str(text: &str) -> Result<TriangleSoup, MeshError> {
     // `endsolid`. Simpler: peek tokens and treat the first non-keyword run as
     // the name is fragile, so we just record the next token if it is not a
     // keyword.
-    let mut pending = tokens.next();
-    if let Some(tok) = pending {
+    let mut pending: Option<String> = tokens.next().map(str::to_string);
+    if let Some(tok) = pending.clone() {
         if tok != "facet" && tok != "endsolid" {
-            name = tok.to_string();
-            pending = tokens.next();
+            name = tok;
+            pending = tokens.next().map(str::to_string);
         }
     }
 
     // Helper to pull the next token, threading the one-token lookahead.
-    let mut next = |pending: &mut Option<&str>| -> Option<String> {
+    let mut next = |pending: &mut Option<String>| -> Option<String> {
         if let Some(t) = pending.take() {
-            Some(t.to_string())
+            Some(t)
         } else {
             tokens.next().map(|s| s.to_string())
         }
@@ -560,7 +575,30 @@ pub fn read_stl_ascii_str(text: &str) -> Result<TriangleSoup, MeshError> {
                 }
                 triangles.push(Triangle::new(verts[0], verts[1], verts[2]));
             }
-            "endsolid" => break,
+            "endsolid" => {
+                // A file may hold several `solid ... endsolid` blocks (one per
+                // region, as the OpenFOAM `flange.stl` has four): skip the
+                // optional name, and carry on with the next `solid`. Upstream
+                // `STLReader` reads every solid (`STLAsciiParse`); stopping at
+                // the first one silently dropped the other regions.
+                let mut resumed = false;
+                while let Some(t) = next(&mut pending) {
+                    if t == "solid" {
+                        resumed = true;
+                        break;
+                    }
+                }
+                if !resumed {
+                    break;
+                }
+                // Optional name of the new solid (any words, up to a keyword).
+                while let Some(t) = next(&mut pending) {
+                    if t == "facet" || t == "endsolid" {
+                        pending = Some(t);
+                        break;
+                    }
+                }
+            }
             other => {
                 return Err(MeshError::DictParse(format!(
                     "unexpected token in ASCII STL: {other:?}"
@@ -881,6 +919,21 @@ mod zoned_tests {
         assert_eq!(s.triangles, vec![[0, 1, 2], [1, 3, 2], [4, 1, 2]]);
         assert_eq!(s.points[4].x, 0.1f32 as f64);
         assert_ne!(s.points[4].x, 0.1);
+    }
+
+    /// gh:#1465: `read_stl_ascii_str` reads every `solid` of a multi-solid file
+    /// (it stopped at the first `endsolid`, dropping the other regions of
+    /// OpenFOAM's four-region `flange.stl`), and `from_zoned` agrees on the
+    /// triangle count and carries the single-precision corners.
+    #[test]
+    fn plain_reader_reads_all_solids_and_matches_zoned() {
+        let plain = read_stl_ascii_str(TWO_SOLIDS).unwrap();
+        assert_eq!(plain.len(), 3);
+        let zoned = TriangleSoup::from_zoned(&read_stl_zoned_bytes(TWO_SOLIDS.as_bytes()).unwrap());
+        assert_eq!(zoned.len(), 3);
+        assert_eq!(plain.triangles[2].a.x, 0.1);
+        assert_eq!(zoned.triangles[2].a.x, 0.1f32 as f64);
+        assert_eq!(zoned.name, "inlet_S1");
     }
 
     /// Binary: zones from the attribute word, numbered by first appearance;
