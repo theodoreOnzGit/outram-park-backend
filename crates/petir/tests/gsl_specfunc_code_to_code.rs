@@ -466,6 +466,21 @@ fn gamma_matches_gsl() {
 /// grows like `1e-16 / |eps|`: 3e-8 at `eps = 1e-9`, 3e-4 at `1e-12`, and
 /// 0.04 to 0.15 (a factor `e^0.1` in Gamma itself) at one ulp from the pole.
 /// Ignored until the branch is ported.
+///
+/// **Prediction, written 2026-11-12 and committed BEFORE the fix (gh:#1419).**
+/// Porting `lngamma_sgn_0` / `lngamma_sgn_sing` and GSL's dispatch in
+/// `gsl_sf_lngamma_e` / `gsl_sf_lngamma_sgn_e` (specfunc/gamma.c:729, :763,
+/// :1115, :1167), and `gsl_sf_gamma_e` (:1255, which reaches the poles through
+/// `sin(pi f)/pi` with `f = x - rint(x)` and so never divides by a rounded
+/// `sin(pi x)`), moves the error against stock GSL (glibc libm) from the
+/// measured 0.15 absolute / 1e-16/|eps| relative to: worst relative
+/// difference below **5e-15** for `ln_gamma`, `ln_gamma_sgn` and `gamma` on
+/// every near-pole row; no row at or above 1e-8; and at least **60 %** of
+/// the near-pole values bit-identical to stock GSL. What remains is the
+/// platform-libm last-ulp difference (`log`, `sin`, `exp`: PETIR's ARM/musl
+/// ports against glibc, AGENTS.md "A 1-ulp difference ... is accepted") and,
+/// for `N >= 2`, whatever `psi_n` contributes (its own 3.8e-15 residual, see
+/// gh:#1421). The prediction can fail: a miss would be reported as it is.
 #[test]
 #[ignore = "gh:#1419 ln_gamma/gamma/beta near negative integers: GSL's lngamma_sgn_sing branch is not ported"]
 fn gamma_near_negative_integer_poles_match_gsl() {
@@ -477,6 +492,23 @@ fn gamma_near_negative_integer_poles_match_gsl() {
 /// (specfunc/gamma.c) switches to `lnpoch` when one argument dominates and
 /// handles negative non-integers with a sign. At `b = 1e10` PETIR's `ln_beta`
 /// is off by 4e-6 absolute (GSL's own `err` is 5e-14).
+///
+/// **Prediction, written 2026-11-12 and committed BEFORE the fix (gh:#1420).**
+/// Porting `fact_table`, `gsl_sf_fact_e`, `gsl_sf_lnfact_e`, `gsl_sf_choose_e`,
+/// `gsl_sf_lnchoose_e` (specfunc/gamma.c), `gsl_sf_gamma_e` (the table for
+/// integer arguments) and `gsl_sf_lnbeta_sgn_e` / `gsl_sf_beta_e`
+/// (specfunc/beta.c; note that GSL's cancellation guard there is
+/// `gsl_sf_gammastar_e` + `log_1plusx`, not `lnpoch` as the issue text says)
+/// gives: `factorial`, `choose` (n <= 170 and the product branch) and
+/// `gamma(n)` **100 % bit-identical** to stock GSL (they are table reads and
+/// IEEE divisions, with no libm call); `ln_factorial` at least **95 %**
+/// (one `log` of an exact table value; the miss is glibc `log` against
+/// PETIR's); `ln_beta(1, 1e10)` within **1e-14** relative (from 4e-5
+/// absolute); `beta` and `ln_beta` rows with negative non-integer arguments
+/// return GSL's value instead of NaN, worst relative difference below
+/// **1e-13** over the whole `beta` family; `psi_n`'s bit-identical share
+/// rises above its present 34.97 % (it calls `lnfact`), by an amount I
+/// do not predict. The prediction can fail: a miss would be reported as it is.
 #[test]
 #[ignore = "gh:#1420 ln_beta/beta: cancellation at large b/a and NaN for negative arguments"]
 fn beta_family_matches_gsl() {
