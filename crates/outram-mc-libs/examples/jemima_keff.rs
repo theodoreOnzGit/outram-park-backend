@@ -96,6 +96,19 @@
 //! data 294.8 s, transport 2699.9 s for the 128 seeds. Log:
 //! `remeasure_logs/jemima_keff_default_s128.log`.
 //!
+//! **Legacy arm at the same 128 seeds** (`OUTRAM_MC_LEGACY_REACTION_ORDER=1
+//! OUTRAM_MC_LEGACY_SCATTER_KERNELS=1`, same code, same host): **`−370 ± 17`,
+//! sd 187**. It reproduces route 4's `−376 ± 17` to 0.25σ, which checks the
+//! harness. Default − legacy = **−31 ± 21 pcm (−1.5σ)**: the new defaults are
+//! not resolved here (the per-seed differences are no better paired, sd 238,
+//! because the draw order diverges at the first collision). One thing *is*
+//! resolved: the seed-to-seed sd fell from **187 to 144 pcm** (variance ratio
+//! 1.69, two-sided F-test p ≈ 0.003 at 127/127 dof), and the mean per-run `k_std` from
+//! 167 to 123 pcm. Per-collision fission banking (an expected-value bank
+//! at every collision instead of an analog bank at fission events) is the
+//! expected cause; it was not isolated by its own switch. Legacy transport
+//! 3111.2 s on the same host. Log: `remeasure_logs/jemima_keff_legacy_s128.log`.
+//!
 //! ## POOLED RESULT (2026-09-18) — 32 seeds, `OUTRAM_BENCH_SEEDS=32`
 //!
 //! **Superseded twice: by the URR/DBRC defaults (2026-09-20) and by the
