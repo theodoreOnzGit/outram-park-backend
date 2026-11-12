@@ -1043,7 +1043,12 @@ pub fn run_keff_cpu_multi(
 /// GPU-accelerated fission-source power iteration ([`ComputeType::Gpu`]), with a
 /// **graceful CPU fallback** — never an error, never a panic on a missing GPU.
 ///
-/// If a usable GPU adapter is present ([`crate::gpu::probe`] returns `Some`), the
+/// **CORRECTED 2026-11-12 (gh:#1507):** with an adapter the run goes to
+/// [`run_keff_gpu_event`] (flight and collision on the GPU, op-u6s.8), not to
+/// [`run_keff_gpu_batched`]; the next paragraph predates that switch and is kept
+/// struck as history.
+///
+/// ~~If a usable GPU adapter is present ([`crate::gpu::probe`] returns `Some`), the
 /// run is handed to [`run_keff_gpu_batched`] — the **event-based batched-flight**
 /// path, which keeps a whole batch of live neutrons resident in GPU buffers and
 /// advances them one flight at a time on the GPU (RNG draw + native-union Sigma_t
@@ -1051,7 +1056,7 @@ pub fn run_keff_cpu_multi(
 /// branchy per-collision reaction physics on the CPU (see that function for
 /// exactly how far the GPU reaches into the loop). The earlier
 /// [`run_keff_gpu_inner`] (first-flight-only GPU Sigma_t) is retained for
-/// comparison but no longer the default. If no adapter is available — a headless
+/// comparison but no longer the default.~~ If no adapter is available — a headless
 /// server, CI with no Vulkan/Metal loader, or **Android**, where the whole `wgpu`
 /// path is compiled out — it emits a `log::debug!` line and transparently runs
 /// the trusted [`run_keff_cpu_single`] reference instead.
@@ -3580,6 +3585,16 @@ mod tests {
     /// **Results.** Recorded on an NVIDIA GeForce RTX 3050; the measured table and
     /// the honest crossover verdict live in the committed
     /// `docs/gpu_collision_dev_log.md`.
+    ///
+    /// **gh:#1507 (2026-11-12), BEFORE arm only.** The flight kernel's sphere
+    /// test became OpenMC's `Surface::sense` + `SurfaceSphere::distance`. Same
+    /// run on the old and new kernel (Mesa llvmpipe LLVM 20.1.2, i.e. software
+    /// Vulkan on a 4-vCPU shared container; seeds fixed, k reproducible
+    /// run-to-run): N = 1e4 and 1e5 bit-identical (1.00542 ± 0.00270,
+    /// 1.01159 ± 0.00179); N = 1e6 moved **1.00971 ± 0.00094 → 1.00937 ±
+    /// 0.00095 (−34 pcm, 0.25 σ combined)**, the predicted sign: the boundary
+    /// case was reached there and those neutrons now leak. AFTER and Multi arms
+    /// unchanged, as they do not use this kernel.
     #[cfg(not(target_os = "android"))]
     #[test]
     #[ignore]
