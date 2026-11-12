@@ -166,7 +166,41 @@ fn interp_channel(base: u32, j: u32, loc: GridLoc) -> f32 {
 // direction and advanced seed (one RNG draw for phi).
 struct DirSeed { dir: vec3<f32>, seed: vec2<u32> };
 
+// Direction-norm guard (gh:#1499, the f32 twin of the CPU's gh:#1497 guard,
+// `physics::scatter::renormalise_if_drifted`). NEW WORK, not a port: OpenMC
+// never renormalises. The rotation multiplies a norm error eps = |u|^2 - 1 by
+// about 1 + a^2/b^2 (b = sqrt(1 - w^2)), unbounded near the w pole, and the
+// fused path never rebuilds a direction within a generation.
+// Tolerance sqrt(f32::EPSILON) = 2^-11.5, the f32 analogue of the CPU's
+// sqrt(f64::EPSILON); mirrored by `DIRECTION_NORM_DRIFT_TOL_F32`.
+const DIRECTION_NORM_DRIFT_TOL: f32 = 3.4526698e-4;
+
+// | |u|^2 - 1 |, the quantity the guard tests. One function, so a probe that
+// asks whether the guard should have fired evaluates it the same way.
+fn direction_norm_drift(u: vec3<f32>) -> f32 {
+    return abs(u.x * u.x + u.y * u.y + u.z * u.z - 1.0);
+}
+
+// `u` unchanged (bit for bit) when | |u|^2 - 1 | <= DIRECTION_NORM_DRIFT_TOL,
+// otherwise u / |u|. A NaN norm is returned unchanged (the comparison is false).
+fn renormalise_if_drifted(u: vec3<f32>) -> vec3<f32> {
+    if (direction_norm_drift(u) > DIRECTION_NORM_DRIFT_TOL) {
+        let n = sqrt(u.x * u.x + u.y * u.y + u.z * u.z);
+        return vec3<f32>(u.x / n, u.y / n, u.z / n);
+    }
+    return u;
+}
+
+// The guarded rotation every collision calls: `rotate_direction_unguarded` with
+// its input and output passed through `renormalise_if_drifted`. Identical to it,
+// bit for bit, whenever neither is outside the tolerance.
 fn rotate_direction(u: vec3<f32>, mu: f32, seed_in: vec2<u32>) -> DirSeed {
+    let r = rotate_direction_unguarded(renormalise_if_drifted(u), mu, seed_in);
+    return DirSeed(renormalise_if_drifted(r.dir), r.seed);
+}
+
+// The rotation without the guard (the kernel's rotation before gh:#1499).
+fn rotate_direction_unguarded(u: vec3<f32>, mu: f32, seed_in: vec2<u32>) -> DirSeed {
     let r = petir_lcg_next(seed_in);
     let seed = r.xy;
     let phi = 2.0 * PI * bitcast<f32>(r.z);

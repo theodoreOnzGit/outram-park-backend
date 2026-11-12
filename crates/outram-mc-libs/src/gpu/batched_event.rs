@@ -357,10 +357,58 @@ fn rng_next(lo: u32, hi: u32) -> (u32, u32, f32) {
     petir::wgsl::mirror_lcg::lcg_next(lo, hi)
 }
 
-/// Rotate unit direction `u` by cosine `mu` and a sampled azimuth (one draw).
-/// Mirrors `rotate_direction` (scatter.rs) in f32. Returns `(dir, new_lo, new_hi)`.
+/// How far `|u|^2` may drift from 1 before the fused path renormalises a
+/// direction: `sqrt(f32::EPSILON)` = 2^-11.5 = 3.4526698e-4, the f32 analogue
+/// of the CPU's [`crate::physics::scatter::DIRECTION_NORM_DRIFT_TOL`]
+/// (`sqrt(f64::EPSILON)`, half the stored mantissa lost). Fixed from that
+/// definition, not from any run (gh:#1499). The WGSL kernel declares the same
+/// value as `DIRECTION_NORM_DRIFT_TOL`;
+/// `tests/gpu_direction_norm_drift_guard.rs` pins both.
+pub const DIRECTION_NORM_DRIFT_TOL_F32: f32 = f32::from_bits(0x39B5_04F3);
+
+/// `u` unchanged (bit for bit) when `| |u|^2 - 1 | <= DIRECTION_NORM_DRIFT_TOL_F32`,
+/// otherwise `u / |u|`; a NaN norm is returned unchanged. Mirrors
+/// `renormalise_if_drifted` in `batched_event.wgsl`.
+///
+/// **New work, not a port (gh:#1499)**: the f32 twin of
+/// [`crate::physics::scatter::renormalise_if_drifted`] (gh:#1497). OpenMC never
+/// renormalises; the rotation multiplies a norm error by about `1 + a^2/b^2`,
+/// unbounded near the `w` pole, and the fused path never rebuilds a direction
+/// within a generation.
 #[inline]
-fn rotate_direction(u: [f32; 3], mu: f32, lo: u32, hi: u32) -> ([f32; 3], u32, u32) {
+pub fn renormalise_if_drifted_f32(u: [f32; 3]) -> [f32; 3] {
+    let n2 = u[0] * u[0] + u[1] * u[1] + u[2] * u[2];
+    if (n2 - 1.0).abs() > DIRECTION_NORM_DRIFT_TOL_F32 {
+        let n = n2.sqrt();
+        [u[0] / n, u[1] / n, u[2] / n]
+    } else {
+        u
+    }
+}
+
+/// The rotation every mirrored collision calls: [`rotate_direction_f32_unguarded`]
+/// with its input and output passed through [`renormalise_if_drifted_f32`]
+/// (gh:#1499). Bit-identical to it whenever neither is outside
+/// [`DIRECTION_NORM_DRIFT_TOL_F32`]. Mirrors `rotate_direction` in
+/// `batched_event.wgsl`. Returns `(dir, new_lo, new_hi)`.
+#[inline]
+pub fn rotate_direction_f32(u: [f32; 3], mu: f32, lo: u32, hi: u32) -> ([f32; 3], u32, u32) {
+    let (dir, lo, hi) = rotate_direction_f32_unguarded(renormalise_if_drifted_f32(u), mu, lo, hi);
+    (renormalise_if_drifted_f32(dir), lo, hi)
+}
+
+/// Rotate unit direction `u` by cosine `mu` and a sampled azimuth (one draw),
+/// without the norm guard: the mirror's rotation before gh:#1499, kept
+/// callable as the reference for the guarded one. Mirrors `rotate_direction`
+/// (scatter.rs) in f32, and `rotate_direction_unguarded` in
+/// `batched_event.wgsl`. Returns `(dir, new_lo, new_hi)`.
+#[inline]
+pub fn rotate_direction_f32_unguarded(
+    u: [f32; 3],
+    mu: f32,
+    lo: u32,
+    hi: u32,
+) -> ([f32; 3], u32, u32) {
     let (lo, hi, xi) = rng_next(lo, hi);
     let phi = 2.0 * std::f32::consts::PI * xi;
     let (sinphi, cosphi) = phi.r_sin_cos();
@@ -413,7 +461,7 @@ fn two_body_with_mu(
     let ap1 = a + 1.0;
     let e_cm_out = (e * (a / ap1) * (a / ap1) + q * a / ap1).max(0.0);
     let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu_cm.clamp(-1.0, 1.0), a);
-    let (dir, lo, hi) = rotate_direction(u, mu_lab, lo, hi);
+    let (dir, lo, hi) = rotate_direction_f32(u, mu_lab, lo, hi);
     (e_out, dir, lo, hi)
 }
 
@@ -499,7 +547,7 @@ fn continuum_inelastic(
     hi = hm;
     let mu_cm = 2.0 * xim - 1.0;
     let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu_cm, a);
-    let (dir, lo, hi) = rotate_direction(u, mu_lab, lo, hi);
+    let (dir, lo, hi) = rotate_direction_f32(u, mu_lab, lo, hi);
     (e_out, dir, lo, hi)
 }
 

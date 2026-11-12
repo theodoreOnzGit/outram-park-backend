@@ -1160,7 +1160,12 @@ a direction whose `|u|^2 - 1` exceeds `sqrt(f64::EPSILON)`
 and a chain of S(alpha,beta) rotations grew the error to a NaN direction, then a
 NaN energy, on the HTR-10 DH pebble); the plain translations are
 `rotate_angle_openmc_unguarded` / `rotate_direction_unguarded`, still bit-identical
-to upstream (`tests/direction_norm_drift_guard.rs`). **The default stays `SeedingMode::Outram`**: the decision above
+to upstream (`tests/direction_norm_drift_guard.rs`). **The GPU twin (2026-11-12,
+gh:#1499):** the fused-event WGSL `rotate_direction` and its f32 mirror
+(`gpu::batched_event::rotate_direction_f32`) carry the same guard at
+`sqrt(f32::EPSILON)` (`DIRECTION_NORM_DRIFT_TOL_F32`); the old rotations stay
+callable as `rotate_direction_unguarded` / `rotate_direction_f32_unguarded`
+(`tests/gpu_direction_norm_drift_guard.rs`). **The default stays `SeedingMode::Outram`**: the decision above
 stands and every recorded k-eff and bit-identity pin was measured with it. The
 option exists so one history can be compared with OpenMC's track file, not
 because parity became a goal.
