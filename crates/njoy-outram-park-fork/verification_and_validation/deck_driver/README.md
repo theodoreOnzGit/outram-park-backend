@@ -230,9 +230,19 @@ THERMRs, iform 0 and 1), 49, 69: THERMR's own sections (MF=3/6 `mtref..` and
 their dictionary rows). Gate: `tests/deck_driver_tapes_vs_njoy2016.rs`,
 `test_{11,25,32,49,67,68,69,70,74}_thermr_*`.
 
-**Findings outside THERMR:** on the Zr-90 decks (32, 49, 69) the whole tape
+**Findings outside THERMR:** ~~on the Zr-90 decks (32, 49, 69) the whole tape
 differs in 4025's MF=3 MT=52/53/58 (one line each) and MF=10 MT=16/28/112 (29
-lines): RECONR/BROADR output, same in all three, not investigated here. Deck 11's
+lines): RECONR/BROADR output, same in all three, not investigated here.~~
+**FIXED 2026-11-12 (gh:#1496)**: both came from RECONR, and both were already on
+RECONR's own tape. (1) `lunion`'s scratch `nscr1` is binary unless `npend > 0`
+(`reconr.f90:155,193`), so with `reconr -21 -22` `emerge` reads a threshold
+raised to `sigfig(thr,7,+1)` that still carries sigfig's 1e-13 bias. The port
+always rounded it to 11 columns, which is right only for `npend > 0`
+(`reconr::reconr_for_deck`). (2) The deck PENDF's MF=10 writer read the raw
+subsections, not `lunion`'s threshold-raised copy (`:1913-1938`;
+`deck::pendf::other_files`). The whole tapes are now identical (deck 32 units
+34/35, deck 49 unit 91, deck 69 unit 60), gated by
+`test_{32,49,69}_whole_pendf_tape_is_identical`. Deck 11's
 tape lacks UNRESR's MF=2/MT=152 (UNRESR passes the tape through).
 
 ## 8. ACER `iopt = 2`, `iopt = 7` on thermal files, the thermal plot (2026-11-12, gh:#1369)

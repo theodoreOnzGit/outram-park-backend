@@ -1207,10 +1207,76 @@ fn test_74_thermr_tape_is_identical_line_for_line() {
 // Decks 25, 67, 68, 70 and 74 compare the **whole** unit 91 tape (995 320, 463 392,
 // 324 387, 213 800 and 470 251 lines): 0 differing lines. Decks 11, 32 (units 91
 // and 92), 49 and 69 compare THERMR's own sections (MF=3/6 `mtref..`, their
-// MF=1 dictionary rows): 0 differing lines. On the Zr-90 decks (32, 49, 69) the
+// MF=1 dictionary rows): 0 differing lines. ~~On the Zr-90 decks (32, 49, 69) the
 // whole tape differs in 4025's MF=3 MT=52/53/58 (1 line each) and MF=10 MT=16/28/112
 // (29 lines) -- RECONR/BROADR output, identical across the three decks and not
-// THERMR's; deck 11's tape lacks UNRESR's MF=2/MT=152, whose writer is not ported.
+// THERMR's~~ **FIXED 2026-11-12 (gh:#1496)**: both were RECONR's (`lunion`'s
+// scratch mode and its MF=10 threshold raise); the whole tapes are gated by
+// `test_{32,49,69}_whole_pendf_tape_is_identical`, 0 lines. Deck 11's tape lacks
+// UNRESR's MF=2/MT=152, whose writer is not ported.
+
+/// **Zr-90 decks 32, 49 and 69: the whole PENDF tape, line for line** (gh:#1496).
+///
+/// Methodology: upstream deck `case` cut before `cut` (`""`: whole deck), `tail`
+/// appended, run by NJOY2016.80 and by this crate on ENDF/B-VIII.0 Zr-90 (MAT
+/// 4025) and Zr in ZrH; every line of each unit in `units` is compared: MF=1
+/// with its dictionary, MF=2, every MF=3 (RECONR, BROADR, HEATR on deck 49,
+/// THERMR), MF=6 and MF=10. Pass criterion: **0** differing lines. Its own
+/// work directory (`wt<case>`), so it runs beside the `test_*_thermr_*` gate of
+/// the same deck.
+///
+/// Prediction (on #1496, before the fix): two RECONR causes. (1) `lunion`'s
+/// scratch `nscr1` is binary for `npend < 0` (`reconr.f90:155,193`), so
+/// `emerge` sees a raised threshold with sigfig's 1e-13 bias, which the port
+/// always dropped: MF=3 MT=52/53/58's second point one unit high in the 7th
+/// figure. (2) The deck PENDF's MF=10 writer read the raw subsections, not
+/// `lunion`'s threshold-raised copy (`:1913-1938`): MT=16/28/112's `LFS = 1`
+/// subsections one point too many (29 lines).
+///
+/// Result (2026-11-12, release, NJOY2016.80 `ac5adf5`, gfortran 13.3): before
+/// the fix 32 lines differed on deck 32 units 34/35 and deck 69 unit 60 (the
+/// survey) and on deck 32's RECONR tape alone (3 in MF=3, 29 in MF=10), exactly
+/// the lines predicted; deck 49's whole tape was not measured before. After it **0** of 216 275 lines on deck 32 units 34 and 35,
+/// 0 of 239 985 on deck 49 unit 91 and 0 of 226 829 on deck 69 unit 60.
+fn zr90_whole_tape(case: &str, cut: &str, tail: &str, res: &[(&str, u32)], units: &[u32]) -> Option<()> {
+    let root = njoy_root();
+    let deck = deck_text(&root, case, if cut.is_empty() { None } else { Some(cut) }, tail)?;
+    let (r0, rest) = res.split_first().unwrap();
+    let (ours, njoy) = run_pair_decks_extra(&root, &format!("wt{case}"), r0.0, rest, &deck, &deck)?;
+    let mut bad = Vec::new();
+    for &u in units {
+        let (a, b) = (ours.join(format!("tape{u}")), njoy.join(format!("tape{u}")));
+        let n = std::fs::read_to_string(&b).unwrap().lines().count();
+        let d = differing_by_section(&a, &b, None);
+        println!("deck {case} unit {u}: {} differing sections of {n} lines: {:?}", d.len(), &d[..d.len().min(12)]);
+        if !d.is_empty() {
+            bad.push((u, d));
+        }
+    }
+    if std::env::var_os("KEEP_DECK_DIRS").is_none() {
+        let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    }
+    assert!(bad.is_empty(), "deck {case}: differing {bad:?}");
+    Some(())
+}
+
+/// Deck 32 (`reconr -21 -22`, BROADR 296 K, two THERMRs): units 34 and 35, whole tapes.
+#[test]
+fn test_32_whole_pendf_tape_is_identical() {
+    zr90_whole_tape("32", "", "", &[("n-040_Zr_090-ENDF8.0.endf", 20), ("tsl-ZrinZrH-ENDF8.0.endf", 30)], &[34, 35]);
+}
+
+/// Deck 49 (`reconr -21 -22`, BROADR, HEATR, THERMR): the PENDF before ACER (unit 25 as text, 91), whole tape.
+#[test]
+fn test_49_whole_pendf_tape_is_identical() {
+    zr90_whole_tape("49", "acer", "moder\n -25 91\n", &[("n-040_Zr_090-ENDF8.0.endf", 20), ("tsl-ZrinZrH-ENDF8.0.endf", 30)], &[91]);
+}
+
+/// Deck 69 (`reconr -30 -31`, two description cards, BROADR 400 K, THERMR): unit 60, whole tape.
+#[test]
+fn test_69_whole_pendf_tape_is_identical() {
+    zr90_whole_tape("69", "acer", "", &[("n-040_Zr_090-ENDF8.0.endf", 20), ("tsl-ZrinZrH-ENDF8.0.endf", 21)], &[60]);
+}
 
 /// The upstream deck of `case` with only its first `n` ACER modules (later
 /// modules, `viewr` and the rest dropped), then `stop`.
@@ -1525,10 +1591,13 @@ fn test_39_purr_moder_text_copy_unit34() {
     let _ = purr_moder_unit34("39", "n-028_Ni_063-ENDF8.0.endf");
 }
 
-/// Deck 40 (Mn-55): 1 differing line of 17 400+, MF=10/MT=37's first point
-/// (ours 1.29429-11, NJOY 0.0): RECONR's `emerge`, not PURR (gh:#1505).
+/// Deck 40 (Mn-55): ~~1 differing line of 17 400+, MF=10/MT=37's first point
+/// (ours 1.29429-11, NJOY 0.0): RECONR's `emerge`, not PURR (gh:#1505).~~
+/// **FIXED 2026-11-12 (gh:#1496)**: 0 differing lines. The deck PENDF's MF=10
+/// writer read the raw subsection rather than `lunion`'s threshold-raised copy
+/// (`reconr.f90:1913-1938`), so the first point missed `emerge`'s
+/// `sn = 0` at the threshold (`:4794`).
 #[test]
-#[ignore = "one line: MF=10/MT=37 first point 1.29429-11 against 0 (RECONR emerge, gh:#1505); PURR's sections are identical"]
 fn test_40_purr_moder_text_copy_unit34() {
     let _ = purr_moder_unit34("40", "n-025_Mn_055-ENDF8.0.endf");
 }

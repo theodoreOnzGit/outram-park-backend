@@ -90,8 +90,22 @@ fn nint(x: f64) -> i32 {
 
 /// MF=10/12/13/23 sections as `emerge` writes them: `gety1` on each union-grid
 /// energy, `sigfig(.,7,0)`.
-fn other_files(endf: &Tape, mat: i32, grid: &[f64], mtr522: bool) -> Result<Vec<Section>, NjoyError> {
+///
+/// `emerge` reads `lunion`'s scratch copy `nscr1`, not the ENDF tape
+/// (`reconr.f90:372`, `:4752`), so each MF=10 subsection is read with its
+/// first energy raised to the kinematic threshold of its own `QI`
+/// (`lunion`, `:1913-1938`, once per subsection through `:2187`) and in the
+/// scratch mode `coded_scratch` (`npend > 0`, `:193`):
+/// [`crate::reconr::lunion_tab1_for_emerge`]. ~~The raw subsection~~
+/// **CORRECTED 2026-11-12 (gh:#1496)**: read raw, Zr-90's second subsections
+/// of MT=16/28/112 (excited residual states, `LFS = 1`) kept their tabulated thresholds
+/// (1.269870e7 eV against the raised 1.269890e7), one point too many and
+/// values off in the 5th figure on NJOY2016 decks 32, 49, 69. MF=12 (`LO=1`)
+/// and MF=13 TAB1s have `C2 = 0` by ENDF-6 format, so `lunion`'s raise is a
+/// no-op there; MF=23 skips it (`:1914`).
+fn other_files(endf: &Tape, mat: i32, grid: &[f64], mtr522: bool, coded_scratch: bool) -> Result<Vec<Section>, NjoyError> {
     const TEST: f64 = 1.0e-10;
+    let awin = endf.section(mat, 1, 451).map_or(1.0, crate::reconr::lunion_awin);
     let mut out = Vec::new();
     for s in endf.sections().iter().filter(|s| s.key.mat == mat && matches!(s.key.mf, 10 | 12 | 13 | 23)) {
         let (mf, mt) = (s.key.mf, s.key.mt);
@@ -108,7 +122,10 @@ fn other_files(endf: &Tape, mat: i32, grid: &[f64], mtr522: bool) -> Result<Vec<
         let nss = if mf == 10 { head.n1.max(1) as usize } else { 1 };
         let mut rows: Vec<[f64; 6]> = Vec::new();
         for iss in 0..nss {
-            let t = cur.read_tab1()?;
+            let mut t = cur.read_tab1()?;
+            if mf == 10 {
+                crate::reconr::lunion_tab1_for_emerge(&mut t, head.c2, awin, coded_scratch)?;
+            }
             let mut g = Gety1::new(&t);
             let thresh = sigfig(g.get(0.0).xnext, 7, 0);
             let mut pts: Vec<(f64, f64)> = Vec::new();
@@ -202,7 +219,8 @@ fn with_directory(mat: i32, iverf: i32, head_rows: Vec<[f64; 6]>, text: &[String
 ///
 /// `cards` are the description cards (`ncards` text lines), `label` the tape
 /// label, `err` card 3's tolerance, `tempr` card 4's temperature (RECONR's
-/// own, normally 0).
+/// own, normally 0). `npend` is the deck's output unit: its sign is the
+/// mode of `lunion`'s scratch tape (see [`crate::reconr::reconr_for_deck`]).
 ///
 /// # Errors
 /// An ENDF tape lacking the material's MF=1, or a section kind not ported
@@ -215,6 +233,7 @@ pub fn reconr_tape(
     cards: &[String],
     err: f64,
     tempr: f64,
+    npend: i32,
 ) -> Result<Tape, NjoyError> {
     let mf1 = endf.section(mat, 1, 451).ok_or(NjoyError::SectionNotFound { mat, mf: 1, mt: 451 })?;
     let iverf = crate::moder::layout::iverf_from_mf1(&mf1.rows);
@@ -304,7 +323,7 @@ pub fn reconr_tape(
         .unwrap_or_default();
     body.extend(mf3);
     let _ = skipped_in_mf3;
-    body.extend(other_files(endf, mat, &grid, false)?);
+    body.extend(other_files(endf, mat, &grid, false, npend > 0)?);
     let text: Vec<String> = cards.to_vec();
     let (secs, raw) = with_directory(mat, iverf, head, &text, body)?;
     let mut tape = Tape::from_sections(tpid_line(label), secs);

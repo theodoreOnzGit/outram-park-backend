@@ -217,9 +217,9 @@ fn run_reconr(c: &ReconrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         if !m.enode.is_empty() {
             return Err(NjoyError::NotPorted("RECONR user grid energies enode (card 6)"));
         }
-        let res = crate::reconr::reconr_with_errtol(&endf, &ReconrConfig { mat: m.mat, tolerance: m.err, temperature: m.tempr }, errmax, errint)?;
+        let res = crate::reconr::reconr_for_deck(&endf, &ReconrConfig { mat: m.mat, tolerance: m.err, temperature: m.tempr }, errmax, errint, c.npend)?;
         if c.materials.len() == 1 {
-            let tape = crate::deck::pendf::reconr_tape(&endf, m.mat, &res, &c.label, &m.cards, m.err, m.tempr)?;
+            let tape = crate::deck::pendf::reconr_tape(&endf, m.mat, &res, &c.label, &m.cards, m.err, m.tempr, c.npend)?;
             let meta = PendfMeta { blocks: vec![(res.temperature_k, res.clone())], ..PendfMeta::default() };
             units.store(c.npend, tape, Some((m.mat, res)))?;
             units.set_meta(c.npend, meta);

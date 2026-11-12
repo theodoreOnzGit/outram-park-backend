@@ -393,11 +393,7 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
     // took the temperature (0) for AWI, which switched off `lunion`'s
     // kinematic threshold raise: C-nat (tape 511) lost 4 points in MT=1/2/102
     // and every inelastic threshold (4 812 000 eV against NJOY's 4 812 123).
-    let awin = if crate::moder::layout::iverf_from_mf1(&mf1_sec.rows) >= 6 {
-        mf1_sec.rows.get(2).map_or(1.0, |r| r[0])
-    } else {
-        1.0
-    };
+    let awin = lunion_awin(mf1_sec);
 
     // MF=3 — background cross sections, as tabulated (after `lunion`'s
     // threshold raise). Every section is evaluated on RECONR's union grid
@@ -423,25 +419,24 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
 
     let union = union_grid(tape, mat, &raw_mf3, &res_info, &urr_ranges, eps, awin, material.lrp)?;
     // `lunion` builds the grid from its in-memory TAB1s, but writes them to
-    // a formatted scratch tape (`tab1io(0,nout,...)`, `reconr.f90:1940`),
-    // and `emerge` reads that tape. So `emerge` sees a raised threshold as
-    // printed: `sigfig(thr,7,+1)` carries sigfig's 1e-13 bias, which the
-    // 11-column field drops. Sr-88 (ENDF/B-VIII.1) MT=63/66/72 were one
-    // unit off in the 7th figure at the point above the threshold before
-    // this (2026-09-26).
-    let raw_mf3: Vec<(i32, crate::endf::records::Tab1)> = {
-        use crate::endf::parse::{format_endf_float, parse_endf_float};
-        let rt = |x: f64| parse_endf_float(&format_endf_float(x)).unwrap_or(x);
-        raw_mf3
-            .into_iter()
-            .map(|(mt, mut t)| {
-                for p in &mut t.pairs {
-                    *p = (rt(p.0), rt(p.1));
-                }
-                (mt, t)
-            })
-            .collect()
-    };
+    // its scratch tape `nscr1` (`tab1io(0,nout,...)`, `reconr.f90:1940`),
+    // and `emerge` reads that tape. ~~So `emerge` sees a raised threshold as
+    // printed~~ **CORRECTED 2026-11-12 (gh:#1496)**: `nscr1` is coded only
+    // when `npend > 0` (`reconr.f90:155,193`); then `emerge` sees a raised
+    // threshold as printed: `sigfig(thr,7,+1)` carries sigfig's 1e-13 bias,
+    // which the 11-column field drops. Sr-88 (ENDF/B-VIII.1, `reconr 20 22`)
+    // MT=63/66/72 were one unit off in the 7th figure at the point above the
+    // threshold before this (2026-09-26). With `npend < 0` the scratch is
+    // binary and the bias survives: Zr-90's MT=52/53/58 on decks 32/49/69
+    // (`reconr -21 -22`) were one unit off the other way when this round
+    // trip was unconditional. See [`reconr_for_deck`].
+    let raw_mf3: Vec<(i32, crate::endf::records::Tab1)> = raw_mf3
+        .into_iter()
+        .map(|(mt, mut t)| {
+            as_emerge_reads(&mut t);
+            (mt, t)
+        })
+        .collect();
     // `emerge`'s resonance reactions (`itype != 0`) and the first resonance
     // point (`reconr.f90:4755-4775`).
     // `nrtot = 0` for LRP != 1 (`reconr.f90:304`): no resonance reactions.
@@ -1883,6 +1878,87 @@ struct RefineTolerances {
     /// `errint` — the maximum resonance-integral error per grid point \[b\]
     /// (card 4, default `err/20000`, `reconr.f90:430`).
     errint: f64,
+}
+
+thread_local! {
+    /// Whether `lunion`'s scratch tape `nscr1` is coded (formatted) on this
+    /// thread: `nscr1 = -10` (binary) unless `npend > 0`, then `10`
+    /// (`reconr.f90:155,193`). `true` (coded, as before gh:#1496) unless
+    /// [`reconr_for_deck`] set it from a deck's `npend`. A direct [`reconr`]
+    /// call therefore models `npend > 0`; some committed goldens compared that
+    /// way were made with `reconr -21 -22` (`reference-data/{gaspr,heatr}`,
+    /// Ca-40), which is the binary mode. Not re-checked whether any of them
+    /// has a raised threshold where the mode matters (2026-11-12).
+    static CODED_SCRATCH: std::cell::Cell<bool> = const { std::cell::Cell::new(true) };
+}
+
+/// [`reconr_with_errtol`] for a deck's `reconr nendf npend` card: `npend`'s
+/// sign picks the mode of `lunion`'s scratch tape `nscr1`, which `emerge`
+/// reads back (`reconr.f90:155` `nscr1=-10`, `:193` `if (npend.gt.0)
+/// nscr1=10`). On a binary scratch a threshold `lunion` raised to
+/// `sigfig(thr,7,+1)` (`:1925-1936`) keeps sigfig's `1.0000000000001` bias
+/// (`util.f90:372,390`); on a coded one the 11-column field drops it. The
+/// bias moves the first interpolated point above the threshold by one unit
+/// in the 7th figure: Zr-90 MT=52/53/58 on NJOY2016 decks 32, 49 and 69
+/// (`npend = -22`), gh:#1496.
+///
+/// # Errors
+/// As [`reconr`].
+pub fn reconr_for_deck(tape: &Tape, config: &ReconrConfig, errmax: f64, errint: f64, npend: i32) -> Result<ReconrResult, NjoyError> {
+    struct Reset;
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            CODED_SCRATCH.with(|c| c.set(true));
+        }
+    }
+    CODED_SCRATCH.with(|c| c.set(npend > 0));
+    let _reset = Reset;
+    reconr_with_errtol(tape, config, errmax, errint)
+}
+
+/// A TAB1 as `emerge` reads it back from `lunion`'s scratch tape `nscr1`:
+/// rounded to the 11-column ENDF field when the scratch is coded
+/// (`npend > 0`), untouched when it is binary. See [`reconr_for_deck`].
+pub(crate) fn as_emerge_reads_scratch(t: &mut crate::endf::records::Tab1, coded: bool) {
+    use crate::endf::parse::{format_endf_float, parse_endf_float};
+    if !coded {
+        return;
+    }
+    let rt = |x: f64| parse_endf_float(&format_endf_float(x)).unwrap_or(x);
+    for p in &mut t.pairs {
+        *p = (rt(p.0), rt(p.1));
+    }
+}
+
+/// [`as_emerge_reads_scratch`] in the scratch mode of the RECONR call running
+/// on this thread.
+fn as_emerge_reads(t: &mut crate::endf::records::Tab1) {
+    as_emerge_reads_scratch(t, CODED_SCRATCH.with(|c| c.get()));
+}
+
+/// `lunion`'s TAB1 of one MF=3 section or MF=10 subsection as `emerge` reads it
+/// back (`reconr.f90:1913-1940`): first energy raised to the kinematic
+/// threshold from the TAB1's own `QI` ([`raise_threshold_to_kinematic`]),
+/// then through the scratch tape in mode `coded`
+/// ([`as_emerge_reads_scratch`]). `awr` is the section head's `AWR`, `awin`
+/// MF=1's `AWI`.
+///
+/// # Errors
+/// `lunion`'s `ill-behaved threshold`.
+pub(crate) fn lunion_tab1_for_emerge(t: &mut crate::endf::records::Tab1, awr: f64, awin: f64, coded: bool) -> Result<(), NjoyError> {
+    raise_threshold_to_kinematic(&mut t.pairs, t.head.c2, awr, awin)?;
+    as_emerge_reads_scratch(t, coded);
+    Ok(())
+}
+
+/// `lunion`'s `awin` (`reconr.f90:247-256`): MF=1's `AWI` for `iverf >= 6`,
+/// else 1.
+pub(crate) fn lunion_awin(mf1: &crate::endf::tape::Section) -> f64 {
+    if crate::moder::layout::iverf_from_mf1(&mf1.rows) >= 6 {
+        mf1.rows.get(2).map_or(1.0, |r| r[0])
+    } else {
+        1.0
+    }
 }
 
 thread_local! {
