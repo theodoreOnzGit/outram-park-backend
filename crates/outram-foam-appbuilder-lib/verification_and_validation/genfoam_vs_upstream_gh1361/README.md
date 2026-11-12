@@ -97,5 +97,118 @@ and its boundary treatment).
 
 | id | quantity | prediction |
 |---|---|---|
-| S5 | SP3 on the same two slabs (the tutorials' `0.orig` already holds `defaultFlux2`; only `regionSolvers { neutroRegion SP3Neutronics; }` was changed), real binary at the tight protocol: k_eff and flux per cell, port `Sp3Neutronics::solve_eigenvalue` with the same boundary conditions on both moments (top/bottom fixedValue 0, walls zeroGradient). Upstream: case 1 `keff_ = 1.0078490573983063`, case 2 `1.0110843916601269` (last digits jitter by 9e-16) | the port was written from `SP3Neutronics`, same discrete system: `abs(dk) < 1e-9`, flux shape max relative difference `< 1e-7`. If it misses, the first suspect is the second-moment boundary treatment (upstream reads `defaultFlux2` per patch; the port applies one `BoundaryCondition` to both moments). SP3 (1.0078) is above diffusion (1.0000) because SP3 transports the leakage with a smaller effective diffusion at these dimensions: a physics sanity check, not a comparison. |
+| S5 | SP3 on the same two slabs (the tutorials' `0.orig` already holds `defaultFlux2`; only `regionSolvers { neutroRegion SP3Neutronics; }` was changed), real binary at the tight protocol: k_eff and flux per cell, port `Sp3Neutronics::solve_eigenvalue` with the same boundary conditions on both moments (top/bottom fixedValue 0, walls zeroGradient). Upstream: case 1 `keff_ = 1.0078490573983063`, case 2 `1.0110843916601269` (last digits jitter by 9e-16) | the port was written from `SP3Neutronics`, same discrete system: `abs(dk) < 1e-9`, flux shape max relative difference `< 1e-7`. If it misses, the first suspect is the second-moment boundary treatment (upstream reads `defaultFlux2` per patch; the port applies one `BoundaryCondition` to both moments). ~~SP3 (1.0078) is above diffusion (1.0000) because SP3 transports the leakage with a smaller effective diffusion at these dimensions: a physics sanity check, not a comparison.~~ **WITHDRAWN 2026-11-12**, it was a guess, see Results. |
 | S6 | `reactorCases/Godiva_SN` (23 groups, `legendreMoments 3`, `quadratureSet` of 4 directions per octant, unstructured sphere mesh) | **not comparable on identical inputs this round**, two blockers read from the port source before any run: (a) the port's `AngularQuadrature` is baked-in level-symmetric (`quadrature.rs:18`: "this port bakes the standard sets") and has no reader for the case's `quadratureSet`; (b) anisotropic scattering moments P1 to P3 are not implemented (gh:#1474). Running the port on its own quadrature and P0 would be a different problem, not a comparison, so it is not run. The upstream binary was run for the record (below). |
+
+## Results (measured 2026-11-12; reference runs from the scripts here; tests are `tests/genfoam_common_vs_upstream.rs` and `tests/genfoam_neutronics_vs_upstream.rs`)
+
+### Step 2: libCommon, quantity by quantity
+
+Upstream's own `Test-radialBasisFunctions` (built and run): the three tests (1-D, 2-D, 2-D small values)
+pass. Our driver then ran upstream's functions on 34 RBF cases (modes 1 to 4; 1-D, 2-D, 36-point 2-D
+small-value set, random sets of 1 to 5 parameters and 6 to 20 points, a physical-scale set), 18 tables
+and 13 time profiles.
+
+| id | quantity | n | predicted | measured BEFORE the fix | cause | AFTER the fix |
+|---|---|---:|---|---|---|---|
+| P1 | `invRBFmatrix` entries | 8193 | bit-identical | **0 differ** (held) | `lu_decompose` + `lu_back_substitute` match `LUDecompose`/`LUBacksubstitute` for non-singular input | same |
+| P2 | RBF weights | 562 | not bit-identical, `max abs dw / max abs w < 1e-8` | **528 differ**, 29 of 34 vectors not identical, `max abs dw / max abs w = 6.4e-14` (held in direction; the 1e-6 worry for the small-value set was too pessimistic) | port solved `A w = v` by one back-substitution; upstream forms `inv(A)` then `w = inv * v` (`result[i] += mat(i,j)*x[j]`). First divergent operation: the product `inv * v` against a direct back-substitution | **0 differ** |
+| P2' | RBF value with the port's own weights | 280 | follows P2 | 240 differ, up to 26039 ulp = 4.8e-12 relative (a value cancelling to near zero) | the weights | **0 differ** |
+| P3 | RBF value given UPSTREAM's weights (evaluator alone) | 280 (140 in modes 2 and 4, which use `ln`) | modes 1 and 3 identical, modes 2 and 4 within 1 ulp of glibc | **0 differ in all 280** (the `ln` of PETIR equals glibc's on every term here) | none | same |
+| P4 | `InterpolateTable` values, 3 policies x 2 methods (in range and out of range) | 618 | bit-identical | **0 differ** (held) | | same |
+| P5 | `integral(k)`, k = 1, 2, 3, 0.5, 1.5, and `getNextPoint` | 90 and 504 | `getNextPoint` identical; integral identical at k = 1, possibly 1 ulp at the other k (`pow`) | **0 differ in both** (PETIR `r_powf` equals glibc `pow` on all 72) | none | same |
+| P6 | `timeProfile` constant, and a table outside its range (clamp) | 4 and 41 | bit-identical | **0 differ** (held) | | same |
+| P7 | `timeProfile` table inside its range | 667 | 10 to 40 % differ, at most 4 ulp | **242 differ (36 %, held)**, **up to 24 ulp = 4.7e-15 relative (the size prediction MISSED: the ordinates change sign, so a small sum cancels)** | port used the Foundation `interpolateXY` `y0 + t*(y1-y0)`; GeN-Foam runs ESI `Function1Types::Table`: `w0 = (t1-x)/(t1-t0)`, `w1 = 1-w0`, `w0*y0 + w1*y1` | **0 differ** |
+
+Difference counts are bit comparisons of IEEE doubles, not tolerances: no threshold was set or moved.
+The two superseded forms stay callable and are pinned at the numbers above
+(`direct_solve_is_the_old_form_and_differs_from_upstream`, `foundation_form_of_a_table_differs_from_upstream`).
+
+**Defects fixed (both by translating upstream).**
+1. `solve_polyharmonic_spline` now forms the inverse and multiplies, as `solvePolyharmonicSpline` does
+   (new `polyharmonic_spline_inverse`, new basic-lib `SquareMatrix::inverse` and `multiply_vector`). The old
+   one-back-substitution form is kept as `solve_polyharmonic_spline_direct`. This is not an ESI/Foundation
+   question (the RBF code is GeN-Foam's own); no option name beyond `_direct` was needed.
+2. `TimeProfile::value` uses the ESI table form. This IS an ESI-versus-Foundation difference, so per the
+   maintainer's rule the ESI form is the default (GeN-Foam requires it) and the Foundation form is kept
+   callable as `TimeProfile::value_foundation`; basic-lib's `interpolate_xy` is untouched.
+
+**Noted, not changed.** `SquareMatrix::lu_decompose` differs from ESI `LUDecompose` for an exactly singular
+matrix only (it writes `f64::EPSILON` where ESI writes `SMALL` and aborts on an all-zero row); the port
+returns `Err(Singular)` by design and no regular path reaches it.
+
+### Step 3: the guided slabs (real GeN-Foam binary, tight protocol)
+
+| case | model | upstream k_eff | port - upstream | tridiagonal reference - upstream | port - tridiagonal | flux per cell, max relative difference of the unit-sum shape | port outer iterations |
+|---|---|---|---:|---:|---:|---:|---:|
+| guided 1 (151 cells) | diffusion | 1.0000076499876376 | -5.8e-14 | +6.6e-14 | -1.2e-13 | 5.7e-13 | 47 |
+| guided 2 (751 cells, reflected) | diffusion | 1.0000305055413801 | -4.6e-14 | +3.9e-14 | -8.5e-14 | 3.4e-13 | 43 |
+| guided 1 | SP3 | 1.0078490573983063 | -1.7e-13 | n/a | n/a | 2.3e-12 | 53 |
+| guided 2 | SP3 | 1.0110843916601269 | -1.3e-13 | n/a | n/a | 1.4e-12 | 46 |
+
+Predictions S1, S2, S3, S5 all held, at the predicted bounds (1e-12 on k, 1e-9 and 1e-7 on the shapes), with a
+margin of one to four orders of magnitude. The port needed no change for these: the diffusion and SP3 operators,
+the Dirichlet/zeroGradient treatment, the face-D interpolation and the eigenvalue update agree with upstream,
+and the independent tridiagonal solve agrees with both, so the agreement is not shared error between the two
+codes' reading of the equation. Differences are linear-solver residual level (1e-13 absolute tolerance),
+not bit identity: the two codes use different linear solvers and iteration structures.
+
+S0: the tutorials as shipped stop at their solver tolerances (1e-6, relTol 1e-3) after 106 pseudo-time steps
+and report `keff_ = 1.0000037` (case 1) and `1.0000227` (case 2), against the converged `1.0000076499876376`
+and `1.0000305055413801`: the shipped numbers are unconverged by -3.9e-6 and -7.8e-6 (-0.39 and -0.78 pcm).
+Any comparison against a shipped log is limited to that. S4 (iteration history): not compared.
+The upstream history (230 pseudo-time steps at the tight protocol) is committed in the reference; the port
+has no driver that updates keff once per step. A port of that driver (`solveNeutronics.H` eigenvalue branch,
+`calcKeff.H`, `setDeltaT`/`maxDeltaT`) is the remaining work for S4.
+
+S6, Godiva_SN: not compared (blockers above). The real binary runs it: one pseudo-time step is a 23-group
+sweep taking several minutes on one core at 3.2 GB resident; the shipped case runs 20 steps. See "What remains".
+
+(The sentence in S5's row that SP3 sits above diffusion "because SP3 transports the leakage with a smaller
+effective diffusion" was a guess and is withdrawn: nothing here tested it. The sign and size, +0.78 % and +1.11 %
+in k, are as measured.)
+
+### Build and run measurements (to rescale the scoping estimates)
+
+All with `WM_NCOMPPROCS=2`, `wmake -j2`, `-O3`, objects deleted after each link. Wall time and peak resident set
+from `/usr/bin/time -v`; sizes from `du`/`ls`.
+
+| item | wall | peak RSS | objects (transient) | output | scoping estimate (4 cores) |
+|---|---:|---:|---:|---:|---|
+| libCommon (8 sources, 132 KB) | 32 s | 0.72 GB | 2.4 MB | `.so` 1.23 MB | 2 to 6 min, 3 to 9 MB, 13 to 63 MB objects |
+| Test-radialBasisFunctions | 5 s | | small | 27 KB | |
+| genfoamCommonDump (this driver) | not timed (the log has no `time -v`) | | small | 86 KB | |
+| libMultiRegion (92 KB source) | 21 s | 0.75 GB | 1.8 MB | `.so` 0.96 MB | not separately estimated |
+| libNeutronicsSolvers (508 KB source) | 104 s | 0.71 GB | 9.2 MB | `.so` 2.28 MB | with the above |
+| GeN-Foam.C + setDeltaT.C (unmodified) | 7 s | 0.50 GB | 0.3 MB | executable 106 KB | |
+| lnInclude symlinks for 14 ESI source directories | seconds | | links only | | |
+
+The N0 tier (common + multiRegion + neutronics + main) took **about 2.8 minutes in all and 4.5 MB of
+libraries, 13.4 MB of transient objects**, against the estimate of 2 to 6 minutes for common + neutronics. The
+estimate was in range on time and 2 to 5 times too high on size; its +-3x band holds. The estimates for tiers A
+and B (thermo/turbulence/fvOptions and the TH libraries, 17 to 50 MB and 14 to 54 MB) are not tested by this
+round and should be rescaled by the same ratios with caution (these libraries are small; the estimate's
+finiteVolume-like template-heavy part is the risk). Disk on `/` stayed above 4.3 GB throughout; the largest
+single consumer was the cargo `target/` directory (11 GB, shared), not the upstream build.
+
+The run of the guided slabs takes under 1 s each (230 steps); Godiva_SN is the expensive one.
+
+### What the 2026-11-11 plan items (rows 3, 4, 7 of the shared-cases table) now say
+
+Row 3 (guided slabs, cell by cell): done, above. Row 7 (SP3): done on the slab geometry, not on the ESFR (its
+`neutroRegion` needs the TH state; not attempted). Row 4 (Godiva_SN): blocked, see S6.
+
+## What remains (after round 1)
+
+1. **S4, the iteration history.** Port the eigenvalue branch of `solveNeutronics.H` + `calcKeff.H` + `normFluxes.H`
+   and `setDeltaT`/`maxDeltaT` as a pseudo-time driver, with basic-lib's PCG/DIC at the case's own solver
+   settings, then compare keff, power and the first residual per step against the 230-step history already
+   committed in `refs/guided_slabs.ref.txt.gz` (and `sp3_slabs`). Without it the "iteration history" is
+   compared only as the converged end state.
+2. **Godiva_SN (S6).** Needs a reader for `constant/neutroRegion/quadratureSet` (the port bakes level-symmetric
+   sets) and P1 to P3 scattering moments (gh:#1474). The upstream binary runs the case as-is; the first
+   pseudo-time step takes several minutes at 3.2 GB resident, 20 steps are shipped. A `legendreMoments 0`
+   run with the case's quadrature is the first identical-input comparison once the reader exists.
+3. **SP3 on the ESFR** and the transient (`step`) paths, which need the TH state of the ESFR run.
+4. **Plan steps 4 and 5** (ESI thermo/turbulence closure, the full binary): not started, as instructed.
+5. **Singular-matrix behaviour** of `lu_decompose` against ESI (noted above) if a caller ever relies on it.

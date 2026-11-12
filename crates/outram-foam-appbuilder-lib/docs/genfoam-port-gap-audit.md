@@ -186,9 +186,9 @@ Counts are of rows in the tables below (one row per upstream model or class).
 | upstream | lines | port | status | tests / V&V |
 |---|---:|---|---|---|
 | `neutronics.{C,H}` base + `include/` | 827 | `neutronics/mod.rs` (`NeutronicsModel` enum), `state.rs` | ported | unit (5) |
-| `diffusion/` | 1,218 | `neutronics/diffusion/` incl. `precursor_drift/` | ported | unit (9); **upstream run**: MSFR +0.3 pcm, ESFR +60.7 pcm (`tests/genfoam_tutorial_keff.rs`) |
-| `SP3/` | 1,140 | `neutronics/sp3/` | ported | unit (5) |
-| `SN/` | 1,323 | `neutronics/sn/` | partial: eigenvalue only, transient and higher moments missing | unit (6) |
+| `diffusion/` | 1,218 | `neutronics/diffusion/` incl. `precursor_drift/` | ported | unit (9); **upstream run**: MSFR +0.3 pcm, ESFR +60.7 pcm (`tests/genfoam_tutorial_keff.rs`); **real binary, guided slabs, gh:#1361 (2026-11-12)**: k_eff 6e-14 and flux per cell 6e-13 from upstream at tight tolerances (`tests/genfoam_neutronics_vs_upstream.rs`) |
+| `SP3/` | 1,140 | `neutronics/sp3/` | ported | unit (5); **real binary, guided slabs, gh:#1361 (2026-11-12)**: k_eff 1.7e-13, flux per cell 2.3e-12 (SP3 ~~"unit (5)" only~~ CORRECTED, it had not been compared with an upstream run before) |
+| `SN/` | 1,323 | `neutronics/sn/` | partial: eigenvalue only, transient and higher moments missing | unit (6); Godiva_SN not comparable on identical inputs yet (case `quadratureSet` has no reader, P1-P3 scattering missing, gh:#1474; upstream binary runs it, ~7.5 min per step, 2.9 GB) |
 | `albedoSP3/` | 642 | `neutronics/albedo/` | ported | unit (5); upstream run (MSFR boundary rows, ≤ 0.6 pcm) |
 | `pointKinetics/` | 2,391 | `neutronics/point_kinetics/` | ported | unit (5); inhour test |
 | `XS/` + `nuclearDataOneEnergy` | 2,722 | `neutronics/xs/` | partial: discontinuity-factor adjustment deferred | unit (13) |
@@ -204,9 +204,9 @@ Counts are of rows in the tables below (one row per upstream model or class).
 | `multiRegion/meshHandler` | 1,194 | `multi_region/coupling_fields.rs`, `mesh_to_mesh.rs`, `rbf_mapping.rs` | partial: no `movePoints` mesh deformation | unit (15) |
 | `multiRegion/multiPhysicsSolver` | 460 | `multi_region/outer_iteration.rs` | partial | unit (3) |
 | `multiRegion/regionSolvers` | 726 | `multi_region/outer_iteration.rs`, `mesh_region.rs` (`RegionKernel`) | partial: the TH region kernel is a lumped stand-in (`MeshThermalHydraulics`), not `onePhase`/`twoPhase` | unit (6) |
-| `common/radialBasisFunctionInterpolation` | 1,090 | `common/rbf.rs`, `multi_region/rbf_mapping.rs` | ported | unit; upstream run (MSFR XS parametrisation, 14 pcm) |
-| `common/timeProfile` | 397 | `common/time_profile.rs` | ported (`commDataLayer` out of scope) | unit (7) |
-| `common/InterpolateTable` | 675 | `common/interpolate_table.rs` | ported (1-D); `FieldField` 2-D/3-D instantiations deferred | unit (9) |
+| `common/radialBasisFunctionInterpolation` | 1,090 | `common/rbf.rs`, `multi_region/rbf_mapping.rs` | ported | unit; upstream run (MSFR XS parametrisation, 14 pcm); **libCommon driver, gh:#1361 (2026-11-12)**: inverse, weights and values bit-identical to GeN-Foam `libCommon` on 34 cases (weights were NOT before: the solve is now `inv(A) * v` as upstream) |
+| `common/timeProfile` | 397 | `common/time_profile.rs` | ported (`commDataLayer` out of scope) | unit (8); **libCommon driver, gh:#1361 (2026-11-12)**: table values bit-identical to upstream on 712 points (ESI `Function1::Table` form; the Foundation form is kept as `value_foundation` and differed in 242 of 667 interior points, up to 24 ulp) |
+| `common/InterpolateTable` | 675 | `common/interpolate_table.rs` | ported (1-D); `FieldField` 2-D/3-D instantiations deferred | unit (9); **libCommon driver, gh:#1361 (2026-11-12)**: 618 values, 90 integrals and 504 `getNextPoint` bit-identical to upstream |
 | `common/solver` | 457 | enum dispatch in each module | partial (by design) | — |
 | `common/mergeOrSplitBaffles` | 608 | — | missing | — |
 | `common/latticeMap` | 315 | — | missing | — |
