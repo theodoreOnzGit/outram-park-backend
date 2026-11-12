@@ -7,6 +7,8 @@
 #   endTime $END_TIME        long enough for the pseudo-time eigenvalue iteration to settle
 sed -i 's/^writePrecision .*/writePrecision  17;/' system/controlDict
 sed -i "s/^endTime .*/endTime         ${END_TIME:-60};/" system/controlDict
+# SOLVER=SP3Neutronics switches the region solver (the slab tutorials ship defaultFlux2 in 0.orig)
+[ -n "$SOLVER" ] && sed -i "s/diffusionNeutronics/$SOLVER/" system/controlDict
 for f in system/*/fvSolution; do
   sed -i 's/^\( *\)tolerance .*/\1tolerance        1e-14;/; s/^\( *\)relTol .*/\1relTol           0;/' "$f"
 done
