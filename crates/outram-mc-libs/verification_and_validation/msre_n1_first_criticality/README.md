@@ -173,7 +173,7 @@ Prediction posted on gh:#1128 before the run: k up by +50 to +300 pcm.
 | cold (as drawn) | 6 | 1.00882 ± 0.00022 | +801 ± 22 pcm |
 | **hot (1181 °F)** | 3 (1.01103, 1.01062, 1.00954) | **1.01040 ± 0.00045** | **+959 ± 45 pcm** |
 
-- **Hot − cold = +158 ± 50 pcm (3.2σ)**, inside the prediction.
+- ~~**Hot − cold = +158 ± 50 pcm (3.2σ)**, inside the prediction.~~ **With six seeds (2026-11-12, below): +161 ± 38 pcm**; the three-seed value stands within its σ.
 - **The residual grows**, as the screen on gh:#1128 expected: the core
   grows 0.17 % each way (less leakage) and the can gap, downcomer and
   plenums gain salt.
@@ -727,9 +727,22 @@ cold and hot. The prediction posted before the run: seeds 7–12 alone give
 - **What stays unresolved** is the trend with temperature. 1231 °F gives
   +210 ± 37, so the difference between the two pairs is 52 ± 47 pcm.
   Against the linear estimate of about +150 from N-1's three-seed 1181 °F
-  pair (+158 ± 50), 1131 °F is 111 ± 57 pcm high (1.9σ). The likelier reading
+  pair (+158 ± 50), 1131 °F is 111 ± 57 pcm high (1.9σ). ~~The likelier reading
   is that the three-seed N-1 hot-dims value is low, not that expansion is
-  non-linear. Neither is tested.
+  non-linear. Neither is tested.~~ **TESTED 2026-11-12 and refuted:** N-1's
+  seeds 4–6 at 1181 °F give +168 ± 56 pcm, below the +180 to +300 posted on
+  gh:#1128 before the run, and the six-seed pool is **+161 ± 38**, below
+  its predicted 190–240. The 1181 °F value was not low.
+- **The three temperatures now read +262 ± 28 (1131 °F), +161 ± 38
+  (1181 °F) and +210 ± 37 (1231 °F).** Smooth expansion should raise hot −
+  cold steadily with temperature, and this pattern does not: 1181 °F sits
+  101 ± 47 pcm (2.1σ) below 1131 °F. At 2σ, with seed spreads that have
+  run up to twice the internal σ on this model, I record it as **not
+  resolved**, not as a physics effect. No mechanism has been identified, and
+  none has been tested.
+- **Consequence for N-3:** the expansion term in α_iso is not determined at
+  this statistics. Its sign is uncertain and its size is below about
+  1.5 × 10⁻⁵ /°F.
 - **α_iso with twelve seeds at 1131 °F** (six at 1231 °F): cold **−7.52 ±
   0.32**, hot **−8.04 ± 0.33**, shift **−0.52 ± 0.46 (1.1σ)**. The cold value
   agrees with the six-seed −7.54 ± 0.40, which stays the quoted number.
