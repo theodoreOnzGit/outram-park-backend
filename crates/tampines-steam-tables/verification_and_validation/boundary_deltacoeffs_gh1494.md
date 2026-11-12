@@ -34,3 +34,47 @@ place and this is not a third copy.
    These are new tests, not moved numbers.
 3. If any existing hash or V&V number moves, the 1-D-mesh assumption in (1) is
    wrong. That is a finding to investigate, not a golden to re-pin.
+
+## Results (2026-11-12, release, x86_64-unknown-linux-gnu)
+
+**Decision: option (a), by calling the fixed basic-lib code, not by re-exporting.**
+Option (b) does not compose: the fork's `VolScalarField`, `SurfaceScalarField`,
+`FvMatrix`, `FvVectorMatrix` and boundary-condition types are its own vendored
+copies (only `FvMesh` and the tensor primitives were deduped to basic-lib,
+gh:#492), so basic-lib's operators take different argument types. The
+dependency direction is not the obstacle (`outram-foam-basic-lib` is already a
+dependency and precedes this crate in `scripts/release-lockstep.sh --dry-run`,
+no cycle); the type stack is. The three forked operators now take the boundary
+distance from `DeltaCoeff::Orthogonal.boundary_delta` (basic-lib, gh:#1488), so
+`patch_normal_delta` stays in one place.
+
+**Before / after** (`cargo test --release -p tampines-steam-tables --lib --tests`):
+
+| | before | after |
+|---|---|---|
+| passed / failed / ignored | 1140 / 0 / 14 | 1143 / 0 / 14 |
+| lib | 1049 passed | 1052 (+3 new gh1494 tests) |
+| `tests/edwards_blowdown.rs` | passed, 298.00 s | passed, 295.14 s |
+| `tests/cross_platform_determinism.rs` (FNV-1a-64 goldens) | 3 passed | 3 passed, no golden changed |
+| all other `tests/*` | pass | pass |
+
+**Moved numbers: none.** Predicted none (the pipe mesh is axis-aligned, so
+`sqrt(dx^2) = |dx|` exactly); measured none: the determinism goldens are
+bit-hashes and did not move, so the Edwards and `rhoPimpleFoam` paths are
+bit-identical to before. The prediction could have failed on either golden and
+did not.
+
+**New tests** (each fails against the old `|Cf - C|` form: 2.828 vs 4 on the
+skewed face): `fvm::laplacian::tests::boundary_conductance_uses_the_patch_normal_delta_gh1494`,
+`fvm::laplacian_vec::tests::boundary_conductance_uses_the_patch_normal_delta_gh1494`,
+`fvc::sn_grad::tests::boundary_sn_grad_uses_the_patch_normal_delta_gh1494`.
+Skewed 2-cell mesh, right face centre `(1, 0.25, 0)`: boundary coefficient 4
+(`1/n.d`, `n.d = 0.25`) instead of 2.828 (`1/|d|`). Every changed function is
+also reached by the existing solver tests.
+
+**Scope, stated not claimed:** only the non-coupled boundary distance of these
+three operators changed. The interior distances, the mixed / fixedGradient
+arms and the rest of the vendored operators (`fvc::interpolate`, `grad`, `div`,
+`muscl`) are the older copies and were not compared with upstream here.
+No tolerance was changed. No kovan-reviewed function was touched (the three
+folders' `review.md` blocks are `kind = "note"`).

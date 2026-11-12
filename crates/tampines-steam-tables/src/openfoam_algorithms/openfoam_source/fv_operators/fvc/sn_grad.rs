@@ -19,6 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use outram_foam_basic_lib::fv_operators::fvm::DeltaCoeff;
 use crate::openfoam_algorithms::openfoam_source::boundary::bc::{BoundaryCondition, PatchField};
 use crate::openfoam_algorithms::openfoam_source::field::Field;
 use crate::openfoam_algorithms::openfoam_source::vol_field::VolScalarField;
@@ -28,7 +29,8 @@ use crate::openfoam_algorithms::openfoam_source::surface_field::SurfaceScalarFie
 ///
 /// Boundary face contributions:
 /// - `ZeroGradient` / `Symmetry`: zero normal gradient.
-/// - `FixedValue(v)`: `(v − φ_owner) / |C_f − C_owner|`.
+/// - `FixedValue(v)`: `(v − φ_owner) / |n (n · (C_f − C_owner))|`, upstream's boundary
+///   `deltaCoeffs` (~~`/ |C_f − C_owner|`~~ **CORRECTED 2026-11-12, gh:#1494**).
 pub fn sn_grad(vol: &VolScalarField) -> SurfaceScalarField {
     let mesh = &vol.mesh;
 
@@ -50,7 +52,9 @@ pub fn sn_grad(vol: &VolScalarField) -> SurfaceScalarField {
             let values = Field::from_fn(patch.size, |fi| {
                 let gf = patch.start + fi;
                 let owner = mesh.owner[gf];
-                let d = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+                // gh:#1494 (from gh:#1488): ~~`|Cf - C|`~~ **CORRECTED 2026-11-12** patch-normal
+                // `fvPatch::delta()` (ESI v2506 `fvPatch.C:156`), via basic-lib's `boundary_delta`.
+                let d = DeltaCoeff::Orthogonal.boundary_delta(mesh, gf);
                 match &bc_patch.bc {
                     BoundaryCondition::ZeroGradient | BoundaryCondition::Symmetry => 0.0,
                     BoundaryCondition::FixedValue(v) => {
@@ -142,5 +146,66 @@ mod tests {
         t.internal[1] = 1.0;
         let g = sn_grad(&t);
         assert!((g.internal[0] - 2.0).abs() < 1e-10);
+    }
+
+    /// Two cells like `unit_mesh`, but the RIGHT boundary face centre is shifted
+    /// transversally to `(1, 0.25, 0)`: `Cf - C = (0.25, 0.25, 0)` (|d| = 0.3536)
+    /// while the patch normal is `+x`, so `fvPatch::delta() = (0.25, 0, 0)`.
+    /// gh:#1494.
+    fn skewed_boundary_mesh() -> std::sync::Arc<crate::openfoam_algorithms::openfoam_source::FvMesh> {
+        use crate::openfoam_algorithms::openfoam_source::fv_mesh::{
+            BoundaryPatch, FvMeshBuilder, PatchKind,
+        };
+        use crate::openfoam_algorithms::openfoam_source::Vector3;
+        std::sync::Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(2)
+                .n_internal_faces(1)
+                .owner(vec![0, 1, 0])
+                .neighbour(vec![1])
+                .patches(vec![
+                    BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
+                ])
+                .cell_volumes(vec![0.5, 0.5])
+                .cell_centres(vec![
+                    Vector3::new(0.25, 0.0, 0.0),
+                    Vector3::new(0.75, 0.0, 0.0),
+                ])
+                .face_area_vectors(vec![
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(-1.0, 0.0, 0.0),
+                ])
+                .face_centres(vec![
+                    Vector3::new(0.5, 0.0, 0.0),
+                    Vector3::new(1.0, 0.25, 0.0),
+                    Vector3::new(0.0, 0.0, 0.0),
+                ])
+                .build()
+                .unwrap(),
+        )
+    }
+
+    #[test]
+    fn boundary_sn_grad_uses_the_patch_normal_delta_gh1494() {
+        // Right face fixedValue 1, owner cell value 0: (1 - 0)/0.25 = 4
+        // (old (1 - 0)/0.35355 = 2.828).
+        use crate::openfoam_algorithms::openfoam_source::boundary::bc::{BoundaryCondition, PatchField};
+        use crate::openfoam_algorithms::openfoam_source::field::Field;
+        let m = skewed_boundary_mesh();
+        let bc = vec![
+            PatchField {
+                bc: BoundaryCondition::FixedValue(1.0),
+                values: Field::new(vec![0.0]),
+            },
+            PatchField {
+                bc: BoundaryCondition::ZeroGradient,
+                values: Field::new(vec![0.0]),
+            },
+        ];
+        let t = VolScalarField::new("T", m.clone(), Field::zeros(2), bc);
+        let g = sn_grad(&t);
+        assert!((g.boundary[0].values[0] - 4.0).abs() < 1e-12, "{}", g.boundary[0].values[0]);
     }
 }

@@ -33,3 +33,30 @@ place and this is not a third copy.
    These are new tests, not moved numbers.
 3. If any existing hash or V&V number moves, the 1-D-mesh assumption in (1) is
    wrong. That is a finding to investigate, not a golden to re-pin.
+
+## Results (2026-11-12, release, x86_64-unknown-linux-gnu)
+
+**Decision: option (a), by calling the fixed basic-lib code, not by re-exporting.**
+Option (b) does not compose: the fork's `VolScalarField`, `SurfaceScalarField`,
+`FvMatrix`, `FvVectorMatrix` and boundary-condition types are its own vendored
+copies (only `FvMesh` and the tensor primitives were deduped to basic-lib,
+gh:#492), so basic-lib's operators take different argument types. The
+dependency direction is not the obstacle (`outram-foam-basic-lib` is already a
+dependency and precedes this crate in `scripts/release-lockstep.sh --dry-run`,
+no cycle); the type stack is. The three forked operators now take the boundary
+distance from `DeltaCoeff::Orthogonal.boundary_delta` (basic-lib, gh:#1488).
+
+**Before / after** (`cargo test --release -p outram-park-fork-coolprop --lib --tests`):
+
+| | before | after |
+|---|---|---|
+| passed / failed / ignored | 325 / 0 / 4 | 328 / 0 / 4 |
+| lib | 246 passed (236 s) | 249 (+3 new gh1494 tests) |
+| `tests/cross_platform_determinism.rs` | 3 passed | 3 passed, no golden changed |
+| all other `tests/*` | pass | pass |
+
+**Moved numbers: none**, as predicted (axis-aligned 1-D mesh; the property
+library V&V does not call these operators). **New tests:** the same three
+as in `tampines-steam-tables` (`..._uses_the_patch_normal_delta_gh1494`), on a
+skewed 2-cell mesh, boundary coefficient 4 instead of 2.828. Same scope
+limits and the same statement on tolerances and kovan review stamps as there.
