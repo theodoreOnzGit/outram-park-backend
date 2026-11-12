@@ -466,7 +466,7 @@ not fall, the worst difference may not grow).
 |---|---|---|
 | `correct_edges::tests::correct_edges_is_pinned_bit_for_bit` | hash 7179125119703641544 -> 15811906865840324897 (counts unchanged) | its input pipeline now follows upstream (fixes 2-6) |
 | `layers::refine_boundary_layers::tests::prism_refinement_is_pinned_bit_for_bit` | pipe 0x677a875f14ca046b -> 0x018284a992e4c789 (box unchanged) | the layer's faces in upstream's order (fix 5) |
-| `anisotropic::tests::generators_without_anisotropic_sources_are_pinned_bit_for_bit` | all four fingerprints (cell counts unchanged) | fixes 1-7; **the crate's `AGENTS.md` says "do not move that pin"** (written to guard the anisotropic wiring); moved here under the task's default that a fix following upstream may move pins; flagged for the maintainer |
+| `anisotropic::tests::generators_without_anisotropic_sources_are_pinned_bit_for_bit` | all four fingerprints (cell counts unchanged) | fixes 1-7; **the crate's `AGENTS.md` says "do not move that pin"** (written to guard the anisotropic wiring); moved here under the task's default that a fix following upstream may move pins; ~~flagged for the maintainer~~ accepted by the maintainer 2026-11-12 (gh:#1336) |
 | `mesh_optimizer::tests::laplace_smoother_fixed_point_and_one_pass` | its expectation now uses `foam_cell_centres_and_vols` | fix 7 |
 
 **Did not move:** `back_off_only_layers_are_pinned_bit_for_bit`,
@@ -634,7 +634,7 @@ steps) but are not committed.
 
 | pin | moved | cause |
 |---|---|---|
-| `anisotropic::...generators_without_anisotropic_sources_are_pinned_bit_for_bit` | cartesian, tet (this round); p, 2D (second move) | fixes 1-9; **`AGENTS.md` says "do not move that pin"**, moved again under the task's rule that a fix following upstream may move pins; flagged for the maintainer |
+| `anisotropic::...generators_without_anisotropic_sources_are_pinned_bit_for_bit` | cartesian, tet (this round); p, 2D (second move) | fixes 1-9; **`AGENTS.md` says "do not move that pin"**, moved again under the task's rule that a fix following upstream may move pins; ~~flagged for the maintainer~~ accepted by the maintainer 2026-11-12 (gh:#1336) |
 | `correct_edges::tests::correct_edges_is_pinned_bit_for_bit` | hash 15811906865840324897 -> 2364802067049664889 (counts unchanged) | fixes 6, 7 |
 | `layers::refine_boundary_layers::tests::prism_refinement_is_pinned_bit_for_bit` | pipe 0x018284a992e4c789 -> 0x591e062dc441a92f, box 0x687256342d92ed50 -> 0xb10f852a9b013e88 | fix 8, 9 |
 
@@ -891,7 +891,7 @@ pins it from above (at most that one point, worst 4.2e-25 m).
 
 **`anisotropic::...generators_without_anisotropic_sources_are_pinned_bit_for_bit`
 did not move this round** (all four fingerprints identical after all fixes;
-its maintainer flag from round 2 stands). Did not move: the sphere tests
+its ~~maintainer flag from round 2 stands~~ round-2 move was accepted by the maintainer 2026-11-12, gh:#1336). Did not move: the sphere tests
 (`cfmesh_vs_upstream_sphere`: all seven steps and the final meshes of the
 three generators stay bit-identical), `cfmesh_vs_upstream_cell_order`,
 `cfmesh_patch_types*`, `octree_path`, `back_off_only`. **Not run:** Foam
@@ -1220,7 +1220,7 @@ tetMesh 39477/40498 (2.2e-10); pMesh 177630/222560 (4.5e-4).
 | pin | moved | cause |
 |---|---|---|
 | `prism_refinement_is_pinned_bit_for_bit` | pipe ~~0xeaba2317968a1edb~~ -> 0xcde59973cd9ea3a7, box ~~0xe9d49663cdf3d5e8~~ -> 0x8530aad7b2a287d4 | assembly order of `refineBoundaryLayers` |
-| `anisotropic::generators_without_anisotropic_sources_are_pinned_bit_for_bit` (**maintainer-flagged**) | 2D ~~871841484633274847~~ -> 4370305401663068383; pMesh ~~11509605158896565506~~ -> 9105338267624933032; cartesian and tet did not move; cells unchanged | 2D: preMapVertices 2 iterations, carried lists; pMesh: sheets, morpher lists, one optimiser, zero-volume branch |
+| `anisotropic::generators_without_anisotropic_sources_are_pinned_bit_for_bit` (~~maintainer-flagged~~ accepted by the maintainer 2026-11-12, gh:#1336) | 2D ~~871841484633274847~~ -> 4370305401663068383; pMesh ~~11509605158896565506~~ -> 9105338267624933032; cartesian and tet did not move; cells unchanged | 2D: preMapVertices 2 iterations, carried lists; pMesh: sheets, morpher lists, one optimiser, zero-volume branch |
 | `pipeline::tests::layer_strategies_are_deterministic` (CfMeshOptimise) | ~~6667351423853767910~~ -> 4182164109682097358 (7725 cells unchanged) | volume optimiser zero-volume branch |
 
 Not moved: Foam Studio pins, sphere pins, asmoOctree/elbow stage asserts.

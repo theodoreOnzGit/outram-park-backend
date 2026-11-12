@@ -54,7 +54,7 @@ pub use div_vec::{div_vec, div_vec_linear};
 pub use laplacian::{laplacian, laplacian_with_delta, laplacian_with_delta_and_source, DeltaCoeff};
 pub(crate) use laplacian::patch_delta;
 pub use laplacian_corrected::{
-    laplacian_corrected, laplacian_corrected_face_centre, max_non_orthogonality_deg, non_ortho_geometry,
+    laplacian_corrected, laplacian_corrected_face_centre, max_non_orthogonality_deg, non_ortho_geometry, non_ortho_geometry_port_original,
     solve_laplacian_non_orthogonal, NonOrthoGeometry, NonOrthoScheme,
 };
 pub use laplacian_vec::laplacian_vec;
