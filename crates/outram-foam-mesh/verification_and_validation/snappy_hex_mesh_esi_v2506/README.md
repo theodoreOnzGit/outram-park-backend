@@ -368,3 +368,33 @@ The two port-only level-2 cells are removed by `markFacesOnProblemCells`, as
 hypothesised: the port, with that stage, no longer keeps them (18278 of 18278).
 The baffle-region removal of round 1 alone (`with_baffle_region_removal`) was
 not the cause, as recorded.
+
+## Round 2, task 2: region patches (predictions, committed before the code)
+
+ESI source read: `meshRefinementBaffles.C:200-284` (`getIntersections`) and
+`:285-420` (`getBafflePatches`): for a cut face, `findNearestIntersection` along the
+cell-centre to cell-centre segment returns the first hit from the segment start
+(`region1`, the owner side) and from its end (`region2`, the neighbour side); the
+owner-side boundary face gets `globalToMasterPatch[region1]`, the neighbour-side face
+`globalToMasterPatch[region2]`. So **a kept cell's boundary face takes the region of
+the first triangle hit walking from that cell's own centre towards the cut
+neighbour.** Faces baffled by `markFacesOnProblemCells` carry
+`nearestAdaptPatch` instead (`meshRefinement.C:545`, a topological walk from the
+existing patch faces). The ESI log gives 12132 cut faces on the final mesh and 12136
+patch faces: **4 faces come from the problem-cell rule.**
+
+`outram-park-fork-cfmesh/src/patches.rs` (`assign_patches_by_region`) assigns the
+region of the triangle NEAREST to the face centroid. Its module comment says that is
+"exactly how snappyHexMesh assigns a cut face to a surface region"; the ESI source
+above says otherwise (first hit along the cell-cell segment), so that sentence is
+corrected in place in this change. Dependency direction: `outram-park-fork-cfmesh`
+depends on `outram-foam-mesh` only optionally, and `assign_patches_by_region` takes
+cfMesh's `VolumeMesh`, so it cannot be called from here, and `SurfaceRegions` cannot
+move here without making cfMesh depend on this crate unconditionally. What is shared
+in spirit is the label-to-name data (per-triangle region index plus names); the ESI
+rule needs the segment, so it is written here.
+
+| # | prediction (integers, before the code) |
+|---|---|
+| P15 | With the ESI rule (first hit from the kept cell's centre; the 4 problem faces take the region of the nearest cut face of a kept cell) the port's faces per patch are **flange_patch1..4 = 9310 / 1182 / 248 / 1396**, equal to ESI. |
+| P16 | The cfMesh rule (nearest triangle to the face centroid) applied to the same 12136 faces gives counts that are NOT all equal to ESI's: at least one patch differs, and at most 5 % of the faces (606) change patch. It can fail by agreeing exactly, if regions meet only along edges the cell faces avoid. |
