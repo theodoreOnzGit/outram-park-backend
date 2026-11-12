@@ -777,6 +777,45 @@ range.
   **Measured the same day:** see the next section.
 - **Not a validation, and the default is not changed.**
 
+**Follow-up: is the Zr and F gap composition or cross section? (2026-11-12, gh:#1128).**
+Fuel C is TM-0730's design salt (Table 3.2, p. 21): LiF-BeF₂-ZrF₄-UF₄
+65 / 29.2 / 5 / 0.8 mol %, uranium 0.3 / 35 / 0.3 / 64.4 atom % U-234 / 235
+/ 236 / 238. Ours is the as-loaded salt of `scripts/salt.py`, 31.3 % U-235.
+Dividing each nuclide's absorptions by U-235's removes most of the flux
+level; dividing again by the atom ratio removes the composition:
+
+| nuclide | atoms per U-235, ours / fuel C | absorptions per U-235 absorption, ORNL / ours | per-atom, ORNL / ours |
+|---|---|---|---|
+| Zr | 19.6 / 17.9 | 2.28 | **2.50** |
+| F | 591 / 524 | 1.61 | **1.82** |
+| Be | 118 / 104 | 1.00 | 1.14 |
+| Li-7 | 264 / 232 | 0.67 | 0.76 |
+
+- **Composition does not explain the gap.** Per U-235 atom our salt has 10–14 %
+  *more* Zr, F, Be and Li-7 than fuel C. So the per-atom gap is larger
+  than the raw one: ORNL's Zr absorbs 2.5 times, and its F 1.8 times, what
+  ours does, relative to U-235.
+- **Caveat on the instrument.** The last column assumes both calculations
+  give U-235 the same spectrum-averaged cross section. A harder or softer
+  spectrum moves every row together; it cannot make Zr 2.5 and Li-7 0.76.
+- **Where TM-0730's cross sections came from** (§3.4, pp. 20–23; refs. 2, 3,
+  10, 11): BNL-325 (2nd ed., 1958) for the early GNU runs; the GAM-1 library
+  for 32 fast groups, which **lacked Li-6, Li-7 and F-19**, so their fast
+  cross sections "were compiled from basic cross-section data" and their
+  slowing-down was simulated with oxygen; THERMOS and a Wilkins heavy-gas
+  model for the thermal group. TM-0730 gives no Zr or F values and does not
+  mention hafnium.
+- **Not resolved, and not guessed.** BNL-325 and ORNL CF-60-3-35 (Nestor's
+  multigroup set) are not in the open corpus, so the 1960s Zr and F values
+  cannot be read against ENDF/B-VIII.0 here. The pattern is a large gap in
+  Zr and F, a small one in Be, and the opposite sign in Li-7, whose
+  absorption is 1/v and so thermal. That suggests the epithermal and fast
+  data rather than the thermal. **This is a hypothesis.** The salt-spectrum
+  instrument records totals per nuclide, not per energy band, so this page
+  has not measured how much of our Zr and F absorption is epithermal. An
+  energy-banded fold of the existing tally would test that cheaply. **The maintainer supplies the literature**; this is
+  recorded as a request on gh:#1128.
+
 ### N-1 residual: U-234 and U-236 in the salt (2026-11-12, gh:#1128)
 
 **Ablation:** `--minor-uranium tm0730` (`salt_with_tm0730_minor_uranium`). It

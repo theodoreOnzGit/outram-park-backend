@@ -601,7 +601,10 @@ fn salt_spectrum_tally() -> Tally {
 /// phi_g`, with `E_g` the bin's geometric midpoint and the cross section at
 /// the salt temperature (infinitely dilute in the unresolved range). Writes
 /// one row per nuclide and a closure row comparing the reconstructed total
-/// with the directly tallied absorption. CLI glue, as above.
+/// with the directly tallied absorption. Each row also splits the absorption
+/// into three bands by the bin's lower edge: thermal (below 0.625 eV),
+/// epithermal (0.625 eV to 100 keV) and fast (above 100 keV); the three add
+/// to the total. CLI glue, as above.
 #[allow(clippy::too_many_arguments)]
 fn write_salt_split(path: &std::path::Path, label: &str, seed: u64, t: &Tally, salt: &[(&str, f64)], names: &[&str], nuclides: &[Nuclide], t_k: f64) {
     let edges = salt_spectrum_edges();
@@ -609,25 +612,27 @@ fn write_salt_split(path: &std::path::Path, label: &str, seed: u64, t: &Tally, s
     let new_file = !path.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(path).expect("spectrum csv");
     if new_file {
-        writeln!(f, "arm,seed,nuclide,absorption").expect("spectrum csv");
+        writeln!(f, "arm,seed,nuclide,absorption,thermal,epithermal,fast").expect("spectrum csv");
     }
     let mut recon_total = 0.0;
     for (name, density) in salt {
         let nuc = &nuclides[names.iter().position(|k| k == name).expect("salt nuclide loaded")];
-        let mut a = 0.0;
+        let mut band = [0.0_f64; 3];
         for g in 0..n {
             let phi = t.bins[g * 2].sum;
             if phi != 0.0 {
                 let e = (edges[g] * edges[g + 1]).sqrt();
-                a += density * nuc.xs_at_energy(e, t_k).absorption.max(0.0) * phi;
+                let b = if edges[g] < 0.625 { 0 } else if edges[g] < 1.0e5 { 1 } else { 2 };
+                band[b] += density * nuc.xs_at_energy(e, t_k).absorption.max(0.0) * phi;
             }
         }
+        let a = band[0] + band[1] + band[2];
         recon_total += a;
-        writeln!(f, "{label},{seed},{name},{a:.8e}").expect("spectrum csv");
+        writeln!(f, "{label},{seed},{name},{a:.8e},{:.8e},{:.8e},{:.8e}", band[0], band[1], band[2]).expect("spectrum csv");
     }
     let tallied: f64 = (0..n).map(|g| t.bins[g * 2 + 1].sum).sum();
-    writeln!(f, "{label},{seed},RECONSTRUCTED_TOTAL,{recon_total:.8e}").expect("spectrum csv");
-    writeln!(f, "{label},{seed},TALLIED_TOTAL,{tallied:.8e}").expect("spectrum csv");
+    writeln!(f, "{label},{seed},RECONSTRUCTED_TOTAL,{recon_total:.8e},,,").expect("spectrum csv");
+    writeln!(f, "{label},{seed},TALLIED_TOTAL,{tallied:.8e},,,").expect("spectrum csv");
 }
 
 fn axial_tally() -> Tally {
