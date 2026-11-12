@@ -103,7 +103,13 @@ const EXPECTED: &[(&str, u64)] = &[
     ("linalg", 0xd8c5ccef7949ea52),
     ("poly", 0x79cf17c03ec9892a),
     // Re-pinned 2026-10-21 (gh:#985 re-lift); was 0xa12b16066df916cf.
-    ("specfunc", 0x88ec94e3202a1c7e),
+    // Re-pinned 2026-11-12 (gh:#1419/#1420: `ln_gamma`/`gamma` follow GSL's
+    // dispatch near poles, `factorial`/`ln_factorial`/`choose` read GSL's
+    // fact_table, `beta` is GSL's `lnbeta_sgn`; `LogRootTwoPi_` corrected by
+    // one ulp); was 0x88ec94e3202a1c7e. Moved on purpose: every route that
+    // changed is compared with compiled GSL 2.8 in
+    // `gsl_specfunc_code_to_code.rs`.
+    ("specfunc", 0x3d124b25beabb7e5),
     ("wgsl_mirrors", 0xea6f3ca0eb4f5ece),
     // Re-pinned 2026-10-21 (gh:#985 re-lift); was 0x142dfcde5eb88a64.
     ("transfer_fn", 0x328eb18a7aceaede),

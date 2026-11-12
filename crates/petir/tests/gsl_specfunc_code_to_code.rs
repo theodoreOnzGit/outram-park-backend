@@ -277,8 +277,9 @@ enum Region {
 }
 
 /// GSL's `lngamma_sgn_sing` (specfunc/gamma.c:763) is the branch for
-/// `x = -N + eps` with `|eps| < 0.02`; PETIR does not port it
-/// (`gamma.rs`, gh:#1419). A row is "near a pole" when the argument of
+/// `x = -N + eps` with `|eps| < 0.02`; ~~PETIR does not port it~~ **CORRECTED
+/// 2026-11-12:** PETIR ports it since gh:#1419 (`gamma.rs`,
+/// `lngamma_sgn_sing`). A row is "near a pole" when the argument of
 /// Gamma, or of any Gamma inside `beta`/`ln_beta`, is in that
 /// neighbourhood on the negative axis.
 fn near_pole(name: &str, r: &Row) -> bool {
@@ -465,7 +466,9 @@ fn gamma_matches_gsl() {
 /// GSL switches to the `lngamma_sgn_sing` series. The error in `ln|Gamma|`
 /// grows like `1e-16 / |eps|`: 3e-8 at `eps = 1e-9`, 3e-4 at `1e-12`, and
 /// 0.04 to 0.15 (a factor `e^0.1` in Gamma itself) at one ulp from the pole.
-/// Ignored until the branch is ported.
+/// ~~Ignored until the branch is ported.~~ **Un-ignored 2026-11-12**: the
+/// branch is ported; results are below and in
+/// `near_pole_rows_meet_the_gh1419_prediction`.
 ///
 /// **Prediction, written 2026-11-12 and committed BEFORE the fix (gh:#1419).**
 /// Porting `lngamma_sgn_0` / `lngamma_sgn_sing` and GSL's dispatch in
@@ -482,16 +485,18 @@ fn gamma_matches_gsl() {
 /// for `N >= 2`, whatever `psi_n` contributes (its own 3.8e-15 residual, see
 /// gh:#1421). The prediction can fail: a miss would be reported as it is.
 #[test]
-#[ignore = "gh:#1419 ln_gamma/gamma/beta near negative integers: GSL's lngamma_sgn_sing branch is not ported"]
 fn gamma_near_negative_integer_poles_match_gsl() {
     family_in("gamma-poles", &["ln_gamma", "ln_gamma_sgn", "gamma"], Region::NearPoles);
 }
 
-/// **Measured defects, gh:#1420.** `ln_beta` and `beta` are `lnG(a) + lnG(b) -
-/// lnG(a+b)` and refuse non-positive arguments (NaN), where GSL's `lnbeta_sgn`
-/// (specfunc/gamma.c) switches to `lnpoch` when one argument dominates and
-/// handles negative non-integers with a sign. At `b = 1e10` PETIR's `ln_beta`
-/// is off by 4e-6 absolute (GSL's own `err` is 5e-14).
+/// **Measured defects, gh:#1420 (FIXED 2026-11-12; un-ignored).** `ln_beta`
+/// and `beta` were `lnG(a) + lnG(b) - lnG(a+b)` and refused non-positive
+/// arguments (NaN), where GSL's `lnbeta_sgn` (specfunc/beta.c) switches to
+/// `gammastar` + `log_1plusx` (the issue text says `lnpoch`; the source does
+/// not) when one argument dominates and handles negative non-integers with a
+/// sign. At `b = 1e10` PETIR's `ln_beta` was off by 4e-6 absolute (GSL's own
+/// `err` is 5e-14). Results: `near_pole_rows_meet_the_gh1419_prediction` and
+/// `fact_choose_beta_rows_meet_the_gh1420_prediction`.
 ///
 /// **Prediction, written 2026-11-12 and committed BEFORE the fix (gh:#1420).**
 /// Porting `fact_table`, `gsl_sf_fact_e`, `gsl_sf_lnfact_e`, `gsl_sf_choose_e`,
@@ -510,7 +515,6 @@ fn gamma_near_negative_integer_poles_match_gsl() {
 /// rises above its present 34.97 % (it calls `lnfact`), by an amount I
 /// do not predict. The prediction can fail: a miss would be reported as it is.
 #[test]
-#[ignore = "gh:#1420 ln_beta/beta: cancellation at large b/a and NaN for negative arguments"]
 fn beta_family_matches_gsl() {
     family("beta", &["ln_beta", "beta"]);
 }
@@ -587,4 +591,117 @@ fn whole_specfunc_sweep_vs_gsl_2_8() {
         }
     }
     assert!(rows > 70_000, "reference truncated: {rows} rows");
+}
+
+/// Rows of `name` in `region` where GSL succeeded with a FINITE value:
+/// `(rows, bit-identical, worst relative difference, rows skipped because GSL
+/// returned a non-finite value with status 0)`.
+fn finite_rows(name: &str, region: Region) -> (usize, usize, f64, usize) {
+    let (mut rows, mut exact, mut worst, mut skipped) = (0, 0, 0.0_f64, 0);
+    for r in table().get(name).expect("rows") {
+        match region {
+            Region::OutsidePoles if near_pole(name, r) => continue,
+            Region::NearPoles if !near_pole(name, r) => continue,
+            _ => {}
+        }
+        let Some(o) = ours(name, r) else { continue };
+        if r.status != 0 || r.args.iter().any(|v| v.is_nan()) {
+            continue;
+        }
+        if r.vals.iter().any(|v| !v.is_finite()) {
+            skipped += 1;
+            continue;
+        }
+        rows += 1;
+        let mut same = true;
+        for (g, p) in r.vals.iter().zip(&o) {
+            same &= g.to_bits() == p.to_bits();
+            worst = worst.max(rel(*p, *g));
+        }
+        exact += same as usize;
+    }
+    (rows, exact, worst, skipped)
+}
+
+/// **Results for gh:#1419 against its committed prediction** (the prediction
+/// is in the doc comment of `gamma_near_negative_integer_poles_match_gsl`,
+/// committed before the port): worst relative difference below 5e-15 on every
+/// near-pole row where GSL is finite, and at least 60 % bit-identical.
+///
+/// Measured 2026-11-12, stock GSL 2.8 (glibc libm), Rust 1.99.1 release:
+/// before the port the same rows differed by up to 0.15 in `ln|Gamma|` and
+/// 15 % in `Gamma` (the issue's measurement). After: `ln_gamma` and `ln_gamma_sgn` 341/344 finite rows
+/// bit-identical (99.13 %), worst relative difference **2.27e-16**; `gamma`
+/// 313/336 (93.15 %), worst **8.63e-16** (the prediction was 5e-15 and 60 %).
+/// The 2 rows excluded for each are the arguments `+-1e-310`, where GSL
+/// returns `+inf` (status 0, `err = inf`): for `ln_gamma` that is `gee/|eps|`
+/// overflowing for a finite answer, 713.80, which PETIR keeps
+/// (`lngamma_sgn_0`'s documented DEVIATION); for `gamma` both codes overflow
+/// identically. With GSL linked to PETIR's own libm: `gamma` 338/338
+/// bit-identical, `ln_gamma` and `ln_gamma_sgn` 344/344 of the finite rows
+/// (`reference-data/gsl/README.md`).
+#[test]
+fn near_pole_rows_meet_the_gh1419_prediction() {
+    for name in ["ln_gamma", "ln_gamma_sgn", "gamma"] {
+        let (rows, exact, worst, skipped) = finite_rows(name, Region::NearPoles);
+        println!(
+            "  gh1419 {name}: {rows} finite near-pole rows, {exact} bit-identical ({:.2} %), \
+             worst rel {worst:.3e}, {skipped} GSL-infinite rows skipped",
+            100.0 * exact as f64 / rows as f64
+        );
+        assert!(worst < 5e-15, "{name}: worst {worst:e} misses the 5e-15 prediction");
+        assert!(10 * exact >= 6 * rows, "{name}: {exact}/{rows} bit-identical misses the 60 % prediction");
+        // GSL's `inf` at +-1e-310: `ln_gamma` overflows in `gee/|eps|`
+        // (PETIR's guard returns the finite 713.80); `gamma` overflows in
+        // `1/(sin_term g)` in both codes, so those two rows are bit-equal.
+        assert_eq!(skipped, 2, "{name}: the GSL-infinite rows are +-1e-310 only");
+    }
+}
+
+/// **Results for gh:#1420 against its committed prediction**: `factorial` and
+/// `choose` 100 % bit-identical to stock GSL (no libm call), `gamma` at integer
+/// arguments 100 %, `ln_factorial` at least 95 %, the beta family within 1e-13,
+/// `psi_n` above its pre-port 34.97 % bit-identical.
+///
+/// Measured 2026-11-12 vs stock GSL (glibc): `factorial` 171/171, `choose`
+/// 1934/1934, `ln_factorial` 406/411 (98.78 %, worst 2.2e-16), `ln_beta`
+/// 182/210 (worst 2.2e-15), `beta` 170/240 (worst 3.6e-15), `psi_n` 118/143
+/// (82.52 %, worst 2.5e-16; was 50/143 and 3.8e-15). Against GSL linked to
+/// PETIR's own libm: all of `ln_factorial`, `choose`, `ln_beta`, `beta` and
+/// `psi_n` are 100 % bit-identical.
+#[test]
+fn fact_choose_beta_rows_meet_the_gh1420_prediction() {
+    for name in ["factorial", "choose"] {
+        let (rows, exact, worst, _) = finite_rows(name, Region::All);
+        println!("  gh1420 {name}: {exact}/{rows} bit-identical, worst rel {worst:e}");
+        assert_eq!(exact, rows, "{name} is a table read / IEEE quotient: it must be bit-identical");
+    }
+    // gamma at integer arguments 1..=171: the table.
+    let (mut int_rows, mut int_exact) = (0, 0);
+    for r in table().get("gamma").expect("rows") {
+        let x = r.args[0];
+        if r.status == 0 && x >= 1.0 && x <= 171.0 && x == x.floor() {
+            int_rows += 1;
+            int_exact += (ours("gamma", r).expect("gamma")[0].to_bits() == r.vals[0].to_bits()) as usize;
+        }
+    }
+    println!("  gh1420 gamma(n): {int_exact}/{int_rows} bit-identical");
+    assert!(int_rows >= 60 && int_exact == int_rows);
+
+    let (rows, exact, worst, _) = finite_rows("ln_factorial", Region::All);
+    println!("  gh1420 ln_factorial: {exact}/{rows}, worst {worst:e}");
+    assert!(100 * exact >= 95 * rows);
+
+    for name in ["ln_beta", "beta"] {
+        let (rows, exact, worst, _) = finite_rows(name, Region::All);
+        println!("  gh1420 {name}: {exact}/{rows} bit-identical, worst rel {worst:e}");
+        assert!(worst < 1e-13, "{name}: worst {worst:e} misses the 1e-13 prediction");
+    }
+    // Rows with a negative non-integer argument exist and are answered.
+    let negative = table()["beta"].iter().filter(|r| r.status == 0 && r.args.iter().any(|v| *v < 0.0)).count();
+    assert!(negative > 0);
+
+    let (rows, exact, worst, _) = finite_rows("psi_n", Region::All);
+    println!("  gh1420 psi_n: {exact}/{rows} bit-identical, worst {worst:e}");
+    assert!(10_000 * exact > 3_497 * rows, "psi_n must improve on its pre-port 34.97 %");
 }
