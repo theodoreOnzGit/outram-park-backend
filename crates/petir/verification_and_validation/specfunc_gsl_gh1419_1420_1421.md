@@ -133,3 +133,47 @@ fdlibm and glibc `lgamma` by up to 1.35e-13 absolute (3.8e-14 at -4.9801), while
 the port reproduces GSL's value. The unit test
 `ln_gamma_and_sign_near_every_pole_agree_with_fdlibm` bounds it and says so.
 
+
+## gh:#1421, `trig.c` option (maintainer approval 2026-11-12: "yes")
+
+The maintainer approved porting GSL's `specfunc/trig.c` `sin`/`cos` into PETIR
+**as an option**, so that Airy and `Ci` (and anything else built on
+`gsl_sf_sin_e`/`gsl_sf_cos_e`) can match GSL bit for bit. The default path stays
+PETIR's own `sin`/`cos`.
+
+### Reading `trig.c` first (2026-11-12, GSL 2.8 `cf180cd7`)
+
+What the decision text assumed and the source says differ in one place that
+matters. The earlier note said GSL's `sin_e`/`cos_e` use "the platform
+`sin`/`cos` for the reduced argument". **They do not.** `gsl_sf_sin_e`
+(`trig.c:162`) and `gsl_sf_cos_e` (`trig.c:235`) call no libm function at all:
+octant reduction with a three-piece `pi/4`, then `cheb_eval_e` on the `sin_cs`
+(12 coefficients) or `cos_cs` (11) series, then `z*(1 + z*z*s)` or
+`1 - 0.5*z*z*(1 - z*z*c)`. Only the `*_err_e` wrappers (`trig.c:620`,
+`:629`) call libm `cos`/`sin`, and only to widen `err`, which PETIR does not
+carry. `airy.c` (668, 709, 747, 804) and `sinint.c` (`Ci`, 374-375) reach
+`sin_e`/`cos_e` this way. So the translation is deterministic and
+platform-independent, and a bit-identity claim does not need the "1 ulp from
+glibc" allowance for these two functions: the reference is **stock** GSL, with
+no libm shim.
+
+### Predictions (written BEFORE the port was run against anything)
+
+- **P1.** `sin_gsl`/`cos_gsl` against `gsl_sf_sin_e`/`gsl_sf_cos_e` over the
+  grid of `reference-data/gsl/trig_sincos_reference_driver.c` (dense, octant
+  boundaries and their neighbours, 18 000 pseudo-random arguments to 1e14, huge
+  and tiny arguments): **100 % bit-identical on every finite row**. This can
+  fail: it fails if my reading of the sign bookkeeping, the order of operations
+  (`0.5*z*z*(...)` is `((0.5*z)*z)*(...)`) or a coefficient is wrong.
+- **P2.** `airy_ai/_scaled`, `airy_bi/_scaled` with `TrigKernel::Gsl` against
+  the committed **stock** reference (`specfunc-gsl-2.8-reference.txt`): **100 %
+  bit-identical** (the only libm calls on the `x < -1` branch are `sqrt`,
+  which is exact); `ci` with `TrigKernel::Gsl`: **100 %**. Hence, against GSL
+  linked to PETIR's libm, the whole sweep moves from 85 360 to **85 778 of
+  86 238 (99.47 %)** (+418 = 98 + 98 + 89 + 89 + 44), the remaining 460 being
+  `erf`/`erfc` 403, `eta` 45, `ln_gamma*` 8, `fd_*` 3, `transport_4` 1. If an
+  airy row still differs, there is a second cause under the trig one, to be
+  traced to its first divergent operation, and the prediction has failed.
+- **P3.** Nothing on the default path moves: against stock GSL the whole sweep
+  stays **83 717 of 86 238 (97.08 %)**, per-routine counts unchanged, and
+  `tests/std_shadowing_digest.rs` keeps its pinned digests.
