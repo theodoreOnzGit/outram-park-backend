@@ -44,3 +44,7 @@ atom order, which `Atom::sort` permutes into bin order at setup; the port
 summed in tag order. Fixed by passing `GranularSystem::local_order_indices()`
 into `ForceFix::apply`. Not ported: exterior regions, other region styles,
 moving regions.
+
+**Re-run 2026-11-12 on PETIR maths (epic gh:#1336):** the port's `pow`/`log`
+moved from `std` (glibc) to `petir::mathf::RealMath` (`r_powf`, `r_ln`). Both
+tests still pass, every trajectory and thermo value bit-identical.
