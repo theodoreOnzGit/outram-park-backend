@@ -637,6 +637,64 @@ table, which closes at exactly 10⁵, folds that gain the same way.
   because the tally has no nuclide filter. That split is the next measurement.
 - **Not a validation, and the default is not changed.**
 
+### N-1: the salt's absorption by nuclide (2026-11-12, gh:#1128)
+
+**Question:** the balance above puts the excess in the salt. Which salt
+nuclides carry it?
+
+**Reference:** ORNL-TM-0730 Table 3.7 (p. 52, read from the rendered page,
+because the OCR garbled the column heads), fuel C, per 10⁵ produced.
+
+**Instrument:** `--salt-spectrum-csv` (opt-in). It tallies the salt's flux and
+absorption on 20 000 logarithmic energy bins:
+- 1 000 bins over 1e-5–1 eV;
+- 17 000 over 1 eV–100 keV, 3 400 per decade, so a bin at U-238's 6.67 eV
+  resonance is a fifth of its width;
+- 2 000 over 100 keV–20 MeV.
+
+It then folds that flux with each salt nuclide's σ_a at the bin's geometric
+midpoint, at the salt temperature, infinitely dilute in the unresolved
+range.
+- **Self-check:** the folded total reproduces the directly tallied salt
+  absorption to **4.8–5.2e-5** on all three seeds.
+- That tallied absorption equals the balance run's to 1e-6, and k is
+  identical.
+- A first version with 100 000 bins was killed for memory at 14 GB, because
+  the tally is copied per batch. This one peaked at 5.8 GB.
+- Seeds 1–3, arm C, RVS, about 1 700 s per seed (4-core Intel Xeon, 4
+  threads, 15.7 GiB RAM, Linux, CPU only). Sums are in `data/salt_split.csv`.
+
+| per 10⁵ produced | this model | ORNL fuel C | difference | predicted |
+|---|---|---|---|---|
+| U-235 | 50,698 ± 3 | 51,329 | −631 | — |
+| U-238 | 9,562 ± 18 | 8,967 | +595 | 9,000–10,000 |
+| U-234 + U-236 | **0 (not in the model)** | 262 | −262 | not predicted |
+| Li-6 | 1,821 | 1,056 | +765 | 1,500–2,100 |
+| Li-7 | 881 | 599 | +282 | — |
+| Be | 310 | 315 | −5 | 235–395 |
+| **Zr** | **800 ± 1** | **1,850** | **−1,050** | 600–1,100 |
+| **F**, (n,α) + (n,γ) | **889** | **1,449** | **−560** | 700–1,100 |
+
+- **Every predicted row is inside its band.** A short smoke run had been
+  seen before the prediction was posted, and the post said so.
+- **Zr and F carry the deficit.** Our model has 1,610 fewer absorptions
+  per 10⁵ produced in them than ORNL's. Li-6, Li-7 and U-238 go the other way:
+  - Li-6 is +765, partly because our 100 ppm is above fuel C's 74 ppm;
+  - U-238 is +595, because our salt has more U-238 per U-235.
+- **These are nuclear-data or composition differences, and the comparison
+  cannot say whose are right.** ORNL's are 1960s cross sections. Ours are
+  ENDF/B-VIII.0. A Zr deficit of a factor 2.3 at a near-equal Zr/Li ratio is
+  a cross-section question. The next step is to read both evaluations'
+  thermal and resonance Zr and F absorption against independent
+  measurements.
+- **Found on the way: U-234 and U-236 are missing from our salt.** ORNL's
+  table carries 262 absorptions in them. `scripts/salt.py` counts the
+  enriched lot's 7 % non-²³⁵U as U-238. TM-0730 Table 3.2 (p. 21) assumes
+  the 93 % uranium to be **1 / 93 / 1 / 5 atom %** U-234 / U-235 / U-236 /
+  U-238. That is a design assumption, not an assay of the as-loaded lot. A
+  sensitivity run with that composition is the next measurement.
+- **Not a validation, and the default is not changed.**
+
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
 Salt density follows −1.18e-4 /°F (ORNL-4233 §4.1). Runs at 1131 °F and
