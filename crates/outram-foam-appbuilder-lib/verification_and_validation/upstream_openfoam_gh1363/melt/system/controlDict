@@ -1,0 +1,15 @@
+FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }
+application meltDump;
+startFrom startTime;
+startTime 0;
+stopAt endTime;
+endTime 99.875;
+deltaT 0.5;
+writeControl timeStep;
+writeInterval 100000;
+writeFormat ascii;
+writePrecision 17;
+timeFormat general;
+timePrecision 8;
+runTimeModifiable false;
+adjustTimeStep no;

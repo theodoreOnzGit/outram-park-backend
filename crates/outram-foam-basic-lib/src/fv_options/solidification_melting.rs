@@ -31,10 +31,13 @@ pub struct SolidificationMeltingCoefficients {
     pub solidus: f64,
     /// Liquidus temperature `T_liq` \[K\] — above this it is fully liquid.
     ///
-    /// Must exceed [`solidus`](Self::solidus). A pure substance melts at a
-    /// single temperature, which would make the two equal and the liquid
-    /// fraction a step function; the model needs a finite mushy range, so set
-    /// them a degree or two apart even for a pure metal.
+    /// ~~Must exceed [`solidus`](Self::solidus).~~ **CORRECTED 2026-11-12**
+    /// (gh:#1363 row 6): the code has no such check, and `liquidus == solidus`
+    /// with `eutectic_fraction = 0` is exactly ESI v2506's single-`Tmelt`
+    /// `solidificationMeltingSource` (effective liquidus `max(Tsol, Tsol + 0)`);
+    /// 200 steps of a 1-D slab agree with the upstream run to 3.4e-11 K
+    /// (`melt_foam_vs_openfoam.md`). A finite mushy range remains the usual
+    /// choice for a Foundation-style alloy.
     pub liquidus: f64,
     /// Latent heat of fusion `L` \[J/kg\].
     pub latent_heat: f64,
