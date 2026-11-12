@@ -56,6 +56,7 @@ pub mod transport_csg;
 pub mod particle_restart;
 pub mod scattdata;
 pub mod state_point;
+pub mod collision_track;
 pub mod track_output;
 pub mod tracking_trace;
 pub mod ufs;

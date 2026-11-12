@@ -1255,6 +1255,10 @@ pub(crate) fn transport_generation_par(
                     // hard-coded analog~~ until 2026-09-30: survival
                     // biasing and weight windows were silently dropped
                     // under `CpuMultiThread`.
+                    if let Some(x) = scratch.as_mut() {
+                        // Collision tracks (gh:#1392): OpenMC's particle id on one rank.
+                        x.begin_history(hist_idx as i64 + 1);
+                    }
                     let outcome = transport_history_vr_urr(
                         source[hist_idx],
                         geom,
@@ -1409,6 +1413,71 @@ fn record_track_state<O: FnMut(TraceEvent)>(
         t.record(state);
     }
     observe(TraceEvent::State(state));
+}
+
+/// Collision tracks (gh:#1392): hand one collision to the bank in `extra`,
+/// in the identifiers OpenMC records (ids, not indices). Called only when a
+/// bank is attached; reads state and draws no random number.
+#[allow(clippy::too_many_arguments)]
+fn record_collision_track(
+    extra: &mut Option<&mut ExtraScoring>,
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    r: Position,
+    u: Direction,
+    e_last: f64,
+    e: f64,
+    time_s: f64,
+    wgt: f64,
+    event_mt: i32,
+    delayed_group: Option<usize>,
+    cell_idx: usize,
+    universe: usize,
+    m: usize,
+    nuclide_idx: usize,
+    n_collision: u64,
+    progeny: u64,
+) {
+    if let Some(x) = extra.as_deref_mut() {
+        x.record_collision(
+            crate::physics::collision_track::CollisionRecord {
+                r: [r.x, r.y, r.z],
+                u: [u.u, u.v, u.w],
+                e_last,
+                e,
+                time: time_s,
+                wgt,
+                event_mt,
+                delayed_group,
+                cell_id: geom.cells.get(cell_idx).map_or(0, |c| c.id),
+                universe_id: geom.universes.get(universe).map_or(0, |v| v.id),
+                material_id: materials.get(m).map_or(0, |v| v.id),
+                nuclide_idx,
+                n_collision,
+                progeny,
+            },
+            nuclides,
+        );
+    }
+}
+
+/// The ENDF MT a collision-track record carries for a reaction group
+/// (gh:#1392): OpenMC's `p.event_mt()` after `collision()`. A discrete
+/// inelastic level and an "other" channel overwrite it with their own MT at
+/// the collision site; 91 stands for the continuum.
+fn collision_track_group_mt(group: crate::physics::scatter::ReactionGroup) -> i32 {
+    use crate::physics::scatter::ReactionGroup as Rg;
+    match group {
+        Rg::Fission => 18,
+        Rg::Capture => 101,
+        Rg::Elastic => 2,
+        Rg::Inelastic(_) => 91,
+        Rg::N2n => 16,
+        Rg::N3n => 17,
+        Rg::Mt5 => 5,
+        Rg::Other => 0,
+    }
 }
 
 /// One weight-window checkpoint. Upstream has two,
@@ -1615,6 +1684,11 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
 ) -> HistoryOutcome {
     // OpenMC's `data::energy_max[neutron]` (GitHub #463 item 2).
     let e_cap_fission = library_energy_max_ev(nuclides);
+    // Collision tracks (gh:#1392): off unless a bank rides in `extra`.
+    // Building a record draws no random number, so the history is the same.
+    let ct_on = extra.as_deref().is_some_and(ExtraScoring::records_collisions);
+    let ct_bank_start = next_bank.len();
+    let mut ct_pops: u64 = 0;
     // Virtual collisions rejected inside delta regions (bn:op-867c.5).
     // Stays zero on a purely surface-tracked model.
     let mut virtual_collisions: u64 = 0;
@@ -1756,6 +1830,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
     const MAX_EVENTS: u32 = 100_000;
 
     while let Some((start, start_wgt, own_seed, start_ww, start_time)) = stack.pop() {
+        ct_pops += 1;
         time_s = start_time;
         // A newly popped particle keeps the history's URR stream as it stands
         // and draws its first bands at its own energy without advancing it,
@@ -2095,6 +2170,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                 let mat_temp = material.temperature;
                 let ci = material.sample_nuclide_urr(e, seed, nuclides, urr_seed);
                 let nuc_idx = material.components[ci].nuclide_idx;
+                let ct_e_last = e;
                 observe(TraceEvent::Collision {
                     r,
                     material: m,
@@ -2231,6 +2307,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     xi,
                 );
                 use crate::physics::scatter::ReactionGroup as Rg;
+                let mut ct_mt = collision_track_group_mt(group);
                 if group == Rg::Fission {
                     let nu_bar = if x.fission > 0.0 {
                         x.nu_fission / x.fission
@@ -2307,10 +2384,24 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     }
                     ends.record_fission_end(e);
                     record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Fission, cell_idx, Some(m));
+                    if ct_on {
+                        let progeny = (next_bank.len() - ct_bank_start) as u64 + ct_pops - 1 + stack.len() as u64;
+                        record_collision_track(
+                            &mut extra, geom, materials, nuclides, r, u, ct_e_last, e, time_s, 0.0, ct_mt,
+                            my_group, cell_idx, leaf.universe, m, nuc_idx, collisions, progeny,
+                        );
+                    }
                     break 'history; // fission absorbs the incident neutron
                 } else if group == Rg::Capture {
                     ends.record_capture();
                     record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Absorption, cell_idx, Some(m));
+                    if ct_on {
+                        let progeny = (next_bank.len() - ct_bank_start) as u64 + ct_pops - 1 + stack.len() as u64;
+                        record_collision_track(
+                            &mut extra, geom, materials, nuclides, r, u, ct_e_last, e, time_s, 0.0, ct_mt,
+                            my_group, cell_idx, leaf.universe, m, nuc_idx, collisions, progeny,
+                        );
+                    }
                     break 'history; // capture
                 } else if let Rg::Inelastic(level_cutoff) = group {
                     let (e2, u2) = match nuc.sample_inelastic_at(e, level_cutoff, seed) {
@@ -2320,6 +2411,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                         // collision isotropically understates <mu>, inflating
                         // Sigma_tr, suppressing leakage and raising k.
                         Inelastic::Level { q, mt } => {
+                            ct_mt = mt as i32;
                             nuc.sample_level_inelastic_scatter(mt, q, e, u, seed)
                         }
                         Inelastic::Continuum { q } => {
@@ -2586,6 +2678,7 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     // before this they fell through to ELASTIC and lost their
                     // extra neutrons. Kept in lockstep with the MT=5 arm above.
                     let o = nuc.sample_other_emission(e, u, seed);
+                    ct_mt = o.mt;
                     if o.n_emit == 0 {
                         break;
                     }
@@ -2653,6 +2746,13 @@ pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
                     u = u2;
                 }
                 record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Scatter, cell_idx, Some(m));
+                if ct_on {
+                    let progeny = (next_bank.len() - ct_bank_start) as u64 + ct_pops - 1 + stack.len() as u64;
+                    record_collision_track(
+                        &mut extra, geom, materials, nuclides, r, u, ct_e_last, e, time_s, w, ct_mt,
+                        my_group, cell_idx, leaf.universe, m, nuc_idx, collisions, progeny,
+                    );
+                }
                 // `weight_window_checkpoint_collision` — AFTER the outgoing
                 // energy is set, because the window is resolved in energy and
                 // the particle's importance is that of where it is going, not
@@ -3459,6 +3559,10 @@ pub struct ExtraScoring {
     leak_edges: Vec<Vec<f64>>,
     leak_bins: Vec<Vec<TallyBin>>,
     leak_batches: Vec<Vec<f64>>,
+    /// Collision tracks (gh:#1392). `None` unless
+    /// [`Self::with_collision_track`] was called, which is every run before
+    /// it: nothing recorded, nothing drawn.
+    collision_track: Option<crate::physics::collision_track::CollisionTrackBank>,
 }
 
 impl ExtraScoring {
@@ -3522,8 +3626,65 @@ impl ExtraScoring {
         &self.leak_batches[i]
     }
 
+    /// **Record collision tracks** (OpenMC's `<collision_track>`, gh:#1392):
+    /// the CSG kernel hands every surface-tracked collision to a
+    /// [`crate::physics::collision_track::CollisionTrackBank`] under `config`.
+    /// Recording draws no random number, so the histories are those of a run
+    /// without it, bit for bit. [`Self::flush`] keeps an active generation's
+    /// records and [`Self::discard`] drops an inactive one's.
+    pub fn with_collision_track(
+        mut self,
+        config: crate::physics::collision_track::CollisionTrackConfig,
+    ) -> Self {
+        self.collision_track = Some(crate::physics::collision_track::CollisionTrackBank::new(config));
+        self
+    }
+
+    /// The collision-track bank, when recording.
+    pub fn collision_track(&self) -> Option<&crate::physics::collision_track::CollisionTrackBank> {
+        self.collision_track.as_ref()
+    }
+
+    /// The collision-track bank, mutably (to call
+    /// [`crate::physics::collision_track::CollisionTrackBank::flush_bank`] at a
+    /// batch end).
+    pub fn collision_track_mut(
+        &mut self,
+    ) -> Option<&mut crate::physics::collision_track::CollisionTrackBank> {
+        self.collision_track.as_mut()
+    }
+
+    /// Whether collisions are recorded at all.
+    #[inline]
+    pub(crate) fn records_collisions(&self) -> bool {
+        self.collision_track.is_some()
+    }
+
+    /// The particle id the next history's records carry.
+    #[inline]
+    pub(crate) fn begin_history(&mut self, id: i64) {
+        if let Some(b) = self.collision_track.as_mut() {
+            b.begin_history(id);
+        }
+    }
+
+    /// Hand one collision to the bank, if recording.
+    #[inline]
+    pub(crate) fn record_collision(
+        &mut self,
+        rec: crate::physics::collision_track::CollisionRecord,
+        nuclides: &[Nuclide],
+    ) {
+        if let Some(b) = self.collision_track.as_mut() {
+            b.record(rec, nuclides);
+        }
+    }
+
     /// Close the generation as one realization of every tally and grid.
     pub fn flush(&mut self) {
+        if let Some(b) = self.collision_track.as_mut() {
+            b.flush_generation();
+        }
         for (t, b) in self.tallies.iter_mut().zip(self.batches.iter_mut()) {
             flush_batch(t, b);
         }
@@ -3534,6 +3695,9 @@ impl ExtraScoring {
 
     /// Drop the generation's scores (an inactive generation).
     pub fn discard(&mut self) {
+        if let Some(b) = self.collision_track.as_mut() {
+            b.discard_generation();
+        }
         for b in self.batches.iter_mut().chain(self.leak_batches.iter_mut()) {
             b.iter_mut().for_each(|x| *x = 0.0);
         }
@@ -3567,11 +3731,18 @@ impl ExtraScoring {
                 .iter()
                 .map(|b| vec![0.0; b.len()])
                 .collect(),
+            collision_track: self
+                .collision_track
+                .as_ref()
+                .map(crate::physics::collision_track::CollisionTrackBank::scratch),
         }
     }
 
     /// Add a [`Self::scratch`]'s batches into this generation's batches.
     pub(crate) fn absorb(&mut self, chunk: &Self) {
+        if let (Some(b), Some(c)) = (self.collision_track.as_mut(), chunk.collision_track.as_ref()) {
+            b.absorb(c);
+        }
         for (b, c) in self.batches.iter_mut().zip(&chunk.batches) {
             for (x, y) in b.iter_mut().zip(c) {
                 *x += y;
@@ -3716,6 +3887,10 @@ impl CsgPowerIteration {
                 None => self.seed,
             };
             let urr_start = openmc.map(|(_, urr)| urr);
+            if let Some(x) = extra.as_deref_mut() {
+                // Collision tracks (gh:#1392): OpenMC's particle id on one rank.
+                x.begin_history(i as i64 + 1);
+            }
             let outcome = transport_history_vr_urr(
                 *site,
                 geom,
