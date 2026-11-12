@@ -18,10 +18,9 @@
 //!
 //! **Serial only** (`syncTools` calls are identities), **no faceZones** (no baffles, no point
 //! duplication). The patch-name regex of the `layers {}` dictionary is not ported: the caller
-//! gives the per-patch overrides. The primitive-patch **edge order** is first appearance, not
-//! `PrimitivePatch::calcAddressing`'s internal-then-boundary order; nothing in this module depends
-//! on edge order (every use is an order-independent set operation), the later stages
-//! (`addPatchCellLayer`) will.
+//! gives the per-patch overrides. The primitive-patch addressing (`edges`, `edgeFaces`,
+//! `faceEdges`, `pointEdges`) follows `PrimitivePatch::calcAddressing` exactly, because the
+//! smoothing sums of `medialAxisMeshMover` accumulate in edge order.
 //!
 //! Methodology, predictions P49-P51 and the results: `verification_and_validation/
 //! snappy_hex_mesh_esi_v2506/README.md`, "Round 8".
@@ -422,11 +421,17 @@ pub struct LayerPatch {
     pub local_faces: Vec<Vec<usize>>,
     /// `pointFaces()`.
     pub point_faces: Vec<Vec<usize>>,
-    /// `edges()` (local points, smaller first as `edge`'s constructor does not sort: kept as
-    /// `(first, second)` of first appearance), in order of first appearance.
+    /// `edges()` in `PrimitivePatch::calcAddressing` order (internal edges by face and lowest
+    /// neighbour, then boundary edges by face), each oriented as in the first face that has it.
     pub edges: Vec<[usize; 2]>,
     /// `edgeFaces()`.
     pub edge_faces: Vec<Vec<usize>>,
+    /// `faceEdges()`: the edges of each face, in face-vertex order.
+    pub face_edges: Vec<Vec<usize>>,
+    /// `pointEdges()`: ascending edge labels per point.
+    pub point_edges: Vec<Vec<usize>>,
+    /// `nInternalEdges()`: edges used by more than one face come first.
+    pub n_internal_edges: usize,
     /// `faceNormals()` (unit), on the mesh points at construction.
     pub face_normals: Vec<V>,
 }
@@ -440,6 +445,84 @@ pub fn unit_normal(points: &[V], f: &[usize]) -> V {
     } else {
         div(n, s)
     }
+}
+
+/// `PrimitivePatch::calcAddressing` (v2506 `PrimitivePatchAddressing.C`): internal edges first,
+/// in order of face and, within a face, of the smallest neighbouring face; then the boundary
+/// edges face by face. Returns `(edges, edgeFaces, faceEdges, nInternalEdges)`.
+pub fn calc_addressing(
+    local_faces: &[Vec<usize>],
+    point_faces: &[Vec<usize>],
+) -> (Vec<[usize; 2]>, Vec<Vec<usize>>, Vec<Vec<usize>>, usize) {
+    let n_faces = local_faces.len();
+    let face_into_edges: Vec<Vec<[usize; 2]>> = local_faces
+        .iter()
+        .map(|f| (0..f.len()).map(|k| [f[k], f[(k + 1) % f.len()]]).collect())
+        .collect();
+    let same = |a: [usize; 2], b: [usize; 2]| (a[0] == b[0] && a[1] == b[1]) || (a[0] == b[1] && a[1] == b[0]);
+    let none = usize::MAX;
+    let mut face_edges: Vec<Vec<usize>> = face_into_edges.iter().map(|e| vec![none; e.len()]).collect();
+    let mut edges: Vec<[usize; 2]> = Vec::new();
+    let mut edge_faces: Vec<Vec<usize>> = Vec::new();
+    for facei in 0..n_faces {
+        let cur_edges = &face_into_edges[facei];
+        let mut nei_faces: Vec<Vec<usize>> = vec![Vec::new(); cur_edges.len()];
+        let mut edge_of_nei_face: Vec<Vec<usize>> = vec![Vec::new(); cur_edges.len()];
+        let mut n_neighbours = 0;
+        for (edge_i, &e) in cur_edges.iter().enumerate() {
+            if face_edges[facei][edge_i] != none {
+                continue;
+            }
+            let mut found = false;
+            for &cur_nei in &point_faces[e[0]] {
+                if cur_nei > facei {
+                    for (nei_edge_i, &se) in face_into_edges[cur_nei].iter().enumerate() {
+                        if same(se, e) {
+                            found = true;
+                            nei_faces[edge_i].push(cur_nei);
+                            edge_of_nei_face[edge_i].push(nei_edge_i);
+                        }
+                    }
+                }
+            }
+            if found {
+                n_neighbours += 1;
+            }
+        }
+        for _ in 0..n_neighbours {
+            let mut next_nei = none;
+            let mut min_nei = n_faces;
+            for (nf_i, nf) in nei_faces.iter().enumerate() {
+                if !nf.is_empty() && nf[0] < min_nei {
+                    next_nei = nf_i;
+                    min_nei = nf[0];
+                }
+            }
+            assert!(next_nei != none, "Error in internal edge insertion");
+            let ne = edges.len();
+            edges.push(cur_edges[next_nei]);
+            face_edges[facei][next_nei] = ne;
+            let cnf = std::mem::take(&mut nei_faces[next_nei]);
+            let eonf = std::mem::take(&mut edge_of_nei_face[next_nei]);
+            let mut cur_ef = vec![facei];
+            for (c, &nf) in cnf.iter().enumerate() {
+                face_edges[nf][eonf[c]] = ne;
+                cur_ef.push(nf);
+            }
+            edge_faces.push(cur_ef);
+        }
+    }
+    let n_internal = edges.len();
+    for facei in 0..n_faces {
+        for edge_i in 0..face_edges[facei].len() {
+            if face_edges[facei][edge_i] == none {
+                edges.push(face_into_edges[facei][edge_i]);
+                face_edges[facei][edge_i] = edges.len() - 1;
+                edge_faces.push(vec![facei]);
+            }
+        }
+    }
+    (edges, edge_faces, face_edges, n_internal)
 }
 
 impl LayerPatch {
@@ -473,23 +556,14 @@ impl LayerPatch {
                 point_faces[p].push(fi);
             }
         }
-        let mut edge_of: HashMap<(usize, usize), usize> = HashMap::new();
-        let mut edges: Vec<[usize; 2]> = Vec::new();
-        let mut edge_faces: Vec<Vec<usize>> = Vec::new();
-        for (fi, f) in local_faces.iter().enumerate() {
-            for k in 0..f.len() {
-                let (a, b) = (f[k], f[(k + 1) % f.len()]);
-                let key = (a.min(b), a.max(b));
-                let ei = *edge_of.entry(key).or_insert_with(|| {
-                    edges.push([a, b]);
-                    edge_faces.push(Vec::new());
-                    edges.len() - 1
-                });
-                edge_faces[ei].push(fi);
-            }
+        let (edges, edge_faces, face_edges, n_internal_edges) = calc_addressing(&local_faces, &point_faces);
+        let mut point_edges = vec![Vec::new(); mesh_points.len()];
+        for (ei, e) in edges.iter().enumerate() {
+            point_edges[e[0]].push(ei);
+            point_edges[e[1]].push(ei);
         }
         let face_normals: Vec<V> = addressing.iter().map(|&f| unit_normal(&m.mesh.points, &m.mesh.faces[f])).collect();
-        Self { addressing, mesh_points, local_faces, point_faces, edges, edge_faces, face_normals }
+        Self { addressing, mesh_points, local_faces, point_faces, edges, edge_faces, face_edges, point_edges, n_internal_edges, face_normals }
     }
 
     /// Number of points.
@@ -718,20 +792,9 @@ pub fn handle_non_manifolds(pp: &LayerPatch, st: &mut ExtrudeState) -> NonManifo
             st.unmark_point(i);
         }
     }
-    // faceEdges, in face order
-    let mut edge_of: HashMap<(usize, usize), usize> = HashMap::new();
-    for (ei, e) in pp.edges.iter().enumerate() {
-        edge_of.insert((e[0].min(e[1]), e[0].max(e[1])), ei);
-    }
     let mut n_baffle = 0;
     for facei in 0..pp.local_faces.len() {
-        let f = &pp.local_faces[facei];
-        let fe: Vec<usize> = (0..f.len())
-            .map(|k| {
-                let (a, b) = (f[k], f[(k + 1) % f.len()]);
-                edge_of[&(a.min(b), a.max(b))]
-            })
-            .collect();
+        let fe = &pp.face_edges[facei];
         let g0 = &pp.edge_faces[fe[0]];
         if g0.len() == 2 {
             let e0 = (g0[0].min(g0[1]), g0[0].max(g0[1]));
@@ -744,7 +807,7 @@ pub fn handle_non_manifolds(pp: &LayerPatch, st: &mut ExtrudeState) -> NonManifo
                 }
             }
             if is_baffle {
-                let fc = f.clone();
+                let fc = pp.local_faces[facei].clone();
                 if st.unmark_face(&fc) {
                     n_baffle += 1;
                 }
@@ -1124,7 +1187,12 @@ mod tests {
         assert!((first - 1.0).abs() < 1e-12);
         let mut n = LayerNumbers { first: -123.0, final_: 4.0, total: 7.0, expansion: -123.0 };
         calculate_layer_parameters(ThicknessModel::FinalAndTotal, 3, &mut n);
-        assert!((n.first - 1.0).abs() < 1e-5 && (n.expansion - 2.0).abs() < 1e-5, "{n:?}");
+        // ESI quirk, ported as read: the first call passes `VGREAT` as the final thickness, so the
+        // stored first thickness is garbage (NaN here); the expansion ratio is computed properly.
+        assert!(n.first.is_nan() || n.first.abs() > 1e10 || n.first.abs() < 1e-10, "{n:?}");
+        assert!((n.expansion - 2.0).abs() < 1e-5, "{n:?}");
+        let first = first_layer_thickness_spec(ThicknessModel::FinalAndTotal, 3, LayerNumbers { first: 0.0, final_: 4.0, total: 7.0, expansion: 2.0 });
+        assert!((first - 1.0).abs() < 1e-5, "{first}");
         let mut n = LayerNumbers { first: 1.0, final_: -123.0, total: -123.0, expansion: 2.0 };
         calculate_layer_parameters(ThicknessModel::FirstAndExpansion, 3, &mut n);
         assert!((n.total - 7.0).abs() < 1e-12 && (n.final_ - 4.0).abs() < 1e-12);

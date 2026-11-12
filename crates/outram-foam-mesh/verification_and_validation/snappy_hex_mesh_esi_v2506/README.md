@@ -1263,3 +1263,24 @@ write them). `PrimitivePatch` edge order is first-appearance (not ESI's), unused
 PETIR: `pow` goes through `r_powf` (only called for `expansionRatio != 1`, which this case never
 does) and `cos(degToRad(30))`, `cos(degToRad(90))` through `r_cos`; 0 differing values (the
 merge reproduces ESI's sets with both).
+
+## Round 8, stage 2: `medialAxisMeshMover`, iteration 0 (predictions, committed before the port exists)
+
+Written from reading `medialAxisMeshMover.C` (`update`, `isMaxEdge`, `calculateDisplacement`,
+`findIsolatedRegions`, `handleFeatureAngleLayerTerminations`, `shrinkMesh`, `move`),
+`fieldSmoother.C` (`smoothPatchNormals`, `smoothNormals`, `minSmoothField`),
+`meshRefinement::calculateEdgeWeights/weightedSum`, `PatchTools::pointNormals`,
+`PrimitivePatch::calcAddressing`, `PointData`/`pointEdgePoint`, `motionSmootherAlgo::scaleMesh`
+and `snappyLayerDriver::getPatchDisplacement`/`syncPatchDisplacement`/`makeLayerDisplacementField`.
+ESI numbers available from the log (printed to 16 digits): normal-smoothing residual of the patch
+normals `0.07867287997577262`, of the interior normals `0.1764300260321269`, of the thickness
+smoothing `9.162494450008907e-06` (all "Iteration 0"); 20 nodes with reduced thickness; 975
+isolated points; scaling iterations 0-6 with faces in error 8, 8, 8, 6, 6, 4, 0 and scaling
+min 1, 0.75, 0.5625, 0.421875, 0.31640625, 0.2373046875, 0. Exact doubles: the shrunk mesh of
+iteration 0 is `85/polyMesh/points` (binary).
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P52 | The three printed residuals equal ESI's to all 16 digits (same edge order from `calcAddressing`, same accumulation, same `calculateEdgeWeights`). | a different summation order of `weightedSum` (patch edges are in `calcAddressing` order, mesh edges in `calcEdges` order); `gAverage` sums in point order |
+| P53 | Counts equal the log: 20 reduced-thickness nodes, 975 isolated points, faces in error 8, 8, 8, 6, 6, 4, 0 over scaling iterations 0-6 and the scale minima above (the scale schedule is `0.75^k`, then 0 at iteration 5 as `nRelaxIter 5`). | the three PointEdgeWaves choose different origins at ties |
+| P54 | The shrunk points of iteration 0 equal `85/polyMesh/points` in **all 24305 points, bit for bit**. | long chain (3 waves, 3 smoothers, 7 scalings); expect at best a few ulp; if not equal, the first divergent stage is found with a dump patch of `medialAxisMeshMover` (original source and library restored, size/hash verified) |
