@@ -458,7 +458,7 @@ linear tolerance; the change alternates sign each step.
 |---|---|---|---|
 | 1e-7 (default) | **not reached in 3 000** (plateau 4.680e-3) | 4.680e-3 | 1.42097 |
 | 1e-10 | **351** | 3.295e-3 | 1.42097 |
-| 1e-12 | reached (stopped at 400 by the harness cap) | 3.295e-3 | 1.42097 |
+| 1e-12 | **351** | 3.295e-3 | 1.42097 |
 
 **H4 holds, H5 does not**: the plateau is the linear solver's floor; at 1e-10
 and 1e-12 the trajectories agree to four digits and the answer is the same to
