@@ -751,3 +751,19 @@ Not covered by the port: baffles, coupled patches, `minArea`, `minTriangleTwist`
 `polyMeshGeometry` overload used by layer addition. No picture drawn for this stage:
 the change (8 faces' points scaled by at most 0.25 of a sub-0.1 mm displacement) is
 below a pixel, as for round 3.
+
+## Round 4, task 3a: `repatchToSurface` (predictions)
+
+Committed before the port code. `snappySnapDriver::repatchToSurface` (v2506 `:2275`): per
+boundary face `faceSnapDist` = max over its points of `calcSnapDistance` (snap tolerance 1.0
+times the longest incident edge, evaluated on the SNAPPED mesh), `findNearestRegion` of the
+face centre (`mesh.faceCentres()`) against the unzoned surfaces within `sqr(faceSnapDist)`, and
+the face goes to the patch of the hit region (`globalToMasterPatch_`; here STL region k to
+`flange_patch(k+1)`); `createBaffles(ownPatch, neiPatch)` with equal arrays only changes the
+patch. Reference: the same ESI run with `mergePatchFaces false` (top level; `mergeType
+NONE`, so neither merge happens), whose final mesh is the repatched mesh; ESI log "Repatched
+42 faces". Faces are matched by (owner cell, ring up to rotation).
+
+| # | prediction |
+|---|---|
+| P29 | Starting from ESI's castellated patch assignment and the snapped (time 36) points, the port repatches **exactly 42 faces**, the same 42 faces as ESI, each to the same patch (compared on all 12136 boundary faces: 0 differing). Risk: a face centre at equal distance from triangles of two regions (tie-break by ESI's octree order), which the brute-force nearest triangle (first minimum) may resolve differently. |
