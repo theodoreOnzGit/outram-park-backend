@@ -21,8 +21,9 @@
 // GSL is free software under the GNU General Public License, version 3 or
 // later.
 //
-// Only the two ANGLE REDUCTION entry points are ported -- see "What is
-// deliberately absent".
+// Ported: the two ANGLE REDUCTION entry points, and (gh:#1421, maintainer
+// approval 2026-11-12) GSL's own `gsl_sf_sin_e` / `gsl_sf_cos_e` -- see
+// "What is deliberately absent".
 
 //! Extended-precision reduction of an angle to one period.
 //!
@@ -52,22 +53,49 @@
 //!
 //! `NaN` propagates.
 //!
+//! # `sin_gsl` and `cos_gsl`: GSL's own sine and cosine (gh:#1421)
+//!
+//! `gsl_sf_sin_e` and `gsl_sf_cos_e` (`trig.c:162`, `:235`) do **not** call
+//! the platform's `sin`/`cos`. Upstream's comment says why: "I would have
+//! preferred just using the library sin() function. But ... library sin() is
+//! just a black box." They reduce the argument by octants with the same
+//! three-piece `pi/4` split used above (`P1 + P2 + P3`), then evaluate a
+//! Chebyshev series (`sin_cs`, 12 coefficients; `cos_cs`, 11) in
+//! `t = 8|z|/pi - 1`. So [`sin_gsl`] and [`cos_gsl`] are fully deterministic
+//! (no libm, no FMA): on any platform they give the bits GSL gives on a
+//! machine that does not contract `a*b + c`. That is what lets PETIR's Airy
+//! functions and `Ci` be compared with GSL bit for bit (see [`TrigKernel`]).
+//!
+//! **They are a named, opt-in alternative, not the default.** PETIR's own
+//! `sin`/`cos` stay what `crate::real::Real` provides. The two differ in the
+//! last bit on a share of arguments, and, for huge arguments, GSL's
+//! reduction is the less accurate one (it carries about 3 x 24 bits of
+//! `pi/4`, so past roughly `1e8` it loses digits that a Payne-Hanek reduction
+//! keeps; `reference-data/gsl/README.md`). Choose [`TrigKernel::Gsl`] when
+//! matching GSL is the goal, [`TrigKernel::Petir`] otherwise.
+//!
+//! Only the value is returned. Upstream's `result.err` is not carried (PETIR's
+//! specfunc return a bare `f64`), and the status of `cheb_eval_e` is always
+//! `GSL_SUCCESS`. The `gsl_sf_sin_err_e`/`gsl_sf_cos_err_e` entry points add
+//! to `err` only, so their value equals `sin_gsl`/`cos_gsl`.
+//!
 //! # What is deliberately absent
 //!
-//! `trig.c`'s other entry points — the complex sine and cosine, `sinc`,
-//! `lnsinh`, `lncosh`, and the `*_err` forms that propagate an input
-//! uncertainty — are **not** ported. This crate has no complex type, and the
-//! error-propagating forms need the `gsl_sf_result` error channel that PETIR
-//! deliberately does not carry. The two reductions are here because
-//! [`crate::specfunc::clausen`] needs one and because they are useful on
-//! their own.
+//! `trig.c`'s other entry points -- the complex sine and cosine, `sinc`,
+//! `lnsinh`, `lncosh`, `polar_to_rect`, and the `*_err` forms that propagate
+//! an input uncertainty -- are **not** ported. This crate has no complex type,
+//! and the error-propagating forms need the `gsl_sf_result` error channel that
+//! PETIR deliberately does not carry. (`gsl_sf_sinc_e` is not ported either:
+//! nothing in PETIR calls it, and between `0.8` and `100` it calls libm's
+//! `sin`.) ~~Only the two reductions are ported~~ **CORRECTED 2026-11-12
+//! (gh:#1421):** `sin_e`/`cos_e` are ported too.
 
 // Under a std-linked build (`cargo test`) f64's inherent floor/abs shadow
 // these trait methods, leaving the import formally unused. See crate::real.
 #[allow(unused_imports)]
 use crate::real::Real;
 
-use crate::specfunc::DBL_EPSILON;
+use crate::specfunc::{cheb_eval_e, DBL_EPSILON};
 
 /// The three-way split of `pi/2`, scaled by 4 to give `2 pi = 2 (P1+P2+P3)`.
 ///
@@ -148,6 +176,188 @@ pub fn angle_restrict_symm(theta: f64) -> f64 {
         r = ((r + 2.0 * P1) + 2.0 * P2) + 2.0 * P3;
     }
     r
+}
+
+/// Which sine and cosine the routines that call `gsl_sf_sin_e`/`gsl_sf_cos_e`
+/// in upstream use (gh:#1421, maintainer approval 2026-11-12).
+///
+/// A plain enum, dispatched by `match`, as the workspace rules require.
+///
+/// - [`TrigKernel::Petir`], the **default** of every routine that takes one:
+///   PETIR's own `sin`/`cos` (`crate::real::Real`), as before.
+/// - [`TrigKernel::Gsl`]: [`sin_gsl`]/[`cos_gsl`], the translation of GSL's own
+///   `gsl_sf_sin_e`/`gsl_sf_cos_e`. Used by `airy_*_with` and `ci_with`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum TrigKernel {
+    /// PETIR's own `sin`/`cos`. The default.
+    #[default]
+    Petir,
+    /// GSL's `gsl_sf_sin_e`/`gsl_sf_cos_e` (`specfunc/trig.c`).
+    Gsl,
+}
+
+impl TrigKernel {
+    /// `sin(x)` by this kernel.
+    pub fn sin(self, x: f64) -> f64 {
+        match self {
+            TrigKernel::Petir => Real::sin(x),
+            TrigKernel::Gsl => sin_gsl(x),
+        }
+    }
+
+    /// `cos(x)` by this kernel.
+    pub fn cos(self, x: f64) -> f64 {
+        match self {
+            TrigKernel::Petir => Real::cos(x),
+            TrigKernel::Gsl => cos_gsl(x),
+        }
+    }
+}
+
+/// `GSL_ROOT4_DBL_EPSILON`, `DBL_EPSILON^(1/4)`, the small-argument cut of
+/// `gsl_sf_sin_e`/`gsl_sf_cos_e` (`gsl_machine.h`).
+const ROOT4_DBL_EPSILON: f64 = 1.220_703_125e-4;
+
+/// The three-piece `pi/4` of `gsl_sf_sin_e`/`gsl_sf_cos_e` (`trig.c:166-168`).
+/// Written with fewer digits than the `angle_restrict_*` copy but the same
+/// `f64`s; `the_sin_cos_split_equals_the_restrict_split` checks.
+const SP1: f64 = 7.853_981_256_484_985_351_56e-1;
+const SP2: f64 = 3.774_894_707_930_798_176_68e-8;
+const SP3: f64 = 2.695_151_429_079_059_526_45e-15;
+
+/// `sin_data` of `trig.c:110-122`: Chebyshev series of
+/// `g(x) = (sin(x)/x - 1)/(x*x)` at `x = (t+1) pi/8`. `sin_cs.order = 11`.
+const SIN_DATA: [f64; 12] = [
+    -0.329_519_016_066_351_150_417_3,
+    0.002_537_428_467_166_799_199_0,
+    0.000_626_192_878_264_735_587_4,
+    -4.649_554_752_185_404_215_754_1e-06,
+    -5.691_753_154_937_970_652_667_7e-07,
+    3.728_333_514_097_380_362_786_6e-09,
+    3.026_737_648_474_747_372_786_6e-10,
+    -1.740_087_501_643_662_232_202_2e-12,
+    -1.055_467_830_579_084_983_446_2e-13,
+    5.370_198_140_913_241_079_706_2e-16,
+    2.598_413_798_309_902_033_611_5e-17,
+    -1.182_155_525_536_483_346_828_8e-19,
+];
+
+/// `cos_data` of `trig.c:134-145`: Chebyshev series of
+/// `g(x) = (2(cos(x) - 1)/x^2 + 1)/x^2`. `cos_cs.order = 10`.
+const COS_DATA: [f64; 11] = [
+    0.165_391_825_637_921_473_505_668_118_136,
+    -0.000_848_528_838_450_001_736_711_965_301_95,
+    -0.000_210_086_507_222_940_730_213_625_768_083,
+    1.165_822_696_197_602_042_996_397_575_84e-6,
+    1.433_193_758_562_598_703_344_127_011_65e-7,
+    -7.477_088_342_900_714_161_795_133_018_4e-10,
+    -6.096_999_494_458_425_270_699_743_800_7e-11,
+    2.907_482_492_019_093_539_498_548_726_38e-13,
+    1.771_267_398_762_614_356_671_564_904_61e-14,
+    -7.689_642_150_281_557_907_857_726_314_9e-17,
+    -3.736_312_113_307_941_207_920_137_731_8e-18,
+];
+
+/// The octant reduction shared by `gsl_sf_sin_e` and `gsl_sf_cos_e`
+/// (`trig.c:187-204`, `:259-280` -- the two blocks are identical up to the
+/// sign bookkeeping). Returns `(z, octant, flips)` with `octant` in `{0, 2}`
+/// after the fold and `flips` the number of sign changes the folding made
+/// (0, 1 or 2).
+///
+/// `abs_x` must be finite and non-negative.
+fn octant_reduce(abs_x: f64) -> (f64, i32, i32) {
+    use core::f64::consts::PI;
+    let mut y = (abs_x / (0.25 * PI)).floor();
+    // `y - ldexp(floor(ldexp(y,-3)),3)`: `ldexp` by a power of two is exact.
+    let mut octant = (y - (y * 0.125).floor() * 8.0) as i32;
+    if octant & 1 != 0 {
+        octant += 1;
+        octant &= 7;
+        y += 1.0;
+    }
+    let mut flips = 0;
+    if octant > 3 {
+        octant -= 4;
+        flips += 1;
+    }
+    let z = ((abs_x - y * SP1) - y * SP2) - y * SP3;
+    (z, octant, flips)
+}
+
+/// `sin(x)` as GSL computes it, `gsl_sf_sin_e` (`specfunc/trig.c:162-232`),
+/// GSL 2.8 commit `cf180cd7`. Value only.
+///
+/// No libm call: the result is a function of `x` alone and is the same on
+/// every platform. Non-finite `x` gives `NaN` (upstream converts a `NaN`
+/// octant to `int`, which is undefined behaviour in C; the value it then
+/// returns is `NaN` as well on x86-64).
+///
+/// # Examples
+///
+/// ```
+/// use petir::specfunc::trig::sin_gsl;
+/// assert!((sin_gsl(1.0) - 0.841_470_984_807_896_5).abs() < 2e-16);
+/// assert_eq!(sin_gsl(0.0), 0.0);
+/// assert!((sin_gsl(-10.0) - 0.544_021_110_889_369_8).abs() < 4e-16);
+/// ```
+pub fn sin_gsl(x: f64) -> f64 {
+    if !x.is_finite() {
+        return f64::NAN;
+    }
+    // GSL_SIGN: +1 for zero (and -0.0, since -0.0 >= 0.0).
+    let sgn_x = if x >= 0.0 { 1.0 } else { -1.0 };
+    let abs_x = x.abs();
+    if abs_x < ROOT4_DBL_EPSILON {
+        let x2 = x * x;
+        return x * (1.0 - x2 / 6.0);
+    }
+    let (z, octant, flips) = octant_reduce(abs_x);
+    let sgn_result = if flips == 1 { -sgn_x } else { sgn_x };
+    let t = 8.0 * z.abs() / core::f64::consts::PI - 1.0;
+    let val = if octant == 0 {
+        z * (1.0 + z * z * cheb_eval_e(t, &SIN_DATA))
+    } else {
+        // octant == 2
+        1.0 - 0.5 * z * z * (1.0 - z * z * cheb_eval_e(t, &COS_DATA))
+    };
+    val * sgn_result
+}
+
+/// `cos(x)` as GSL computes it, `gsl_sf_cos_e` (`specfunc/trig.c:235-308`),
+/// GSL 2.8 commit `cf180cd7`. Value only. Same conventions as [`sin_gsl`].
+///
+/// # Examples
+///
+/// ```
+/// use petir::specfunc::trig::cos_gsl;
+/// assert_eq!(cos_gsl(0.0), 1.0);
+/// assert!((cos_gsl(1.0) - 0.540_302_305_868_139_7).abs() < 2e-16);
+/// assert!((cos_gsl(-10.0) + 0.839_071_529_076_452_5).abs() < 4e-16);
+/// ```
+pub fn cos_gsl(x: f64) -> f64 {
+    if !x.is_finite() {
+        return f64::NAN;
+    }
+    let abs_x = x.abs();
+    if abs_x < ROOT4_DBL_EPSILON {
+        let x2 = x * x;
+        return 1.0 - 0.5 * x2;
+    }
+    let (z, octant, flips) = octant_reduce(abs_x);
+    // After the fold: one sign change if the original octant was > 3, and one
+    // more if the folded octant is > 1 (that is, 2).
+    let mut sgn_result = if flips == 1 { -1.0 } else { 1.0 };
+    if octant > 1 {
+        sgn_result = -sgn_result;
+    }
+    let t = 8.0 * z.abs() / core::f64::consts::PI - 1.0;
+    let val = if octant == 0 {
+        1.0 - 0.5 * z * z * (1.0 - z * z * cheb_eval_e(t, &COS_DATA))
+    } else {
+        // octant == 2
+        z * (1.0 + z * z * cheb_eval_e(t, &SIN_DATA))
+    };
+    val * sgn_result
 }
 
 #[cfg(test)]
@@ -356,6 +566,39 @@ mod tests {
                 d < 1e-12 || (d - TWO_PI).abs() < 1e-12,
                 "at {t}: pos {p}, symm {s} differ by {d}, neither 0 nor 2pi"
             );
+        }
+    }
+
+    /// `sin_e`/`cos_e` write `P1+P2+P3` with fewer digits than
+    /// `angle_restrict_*` but the same three `f64`s (times 4 for the latter).
+    #[test]
+    fn the_sin_cos_split_equals_the_restrict_split() {
+        assert_eq!(4.0 * SP1, P1);
+        assert_eq!(4.0 * SP2, P2);
+        assert_eq!(4.0 * SP3, P3);
+    }
+
+    /// Every octant is reached and `sin_gsl`/`cos_gsl` agree with PETIR's own
+    /// to a few ulp away from huge arguments; `sin^2 + cos^2 = 1`, oddness and
+    /// evenness hold, and non-finite arguments give NaN. (Bit-identity with
+    /// GSL is `tests/gsl_trig_sincos_code_to_code.rs`.)
+    #[test]
+    fn sin_gsl_and_cos_gsl_are_accurate_in_every_octant() {
+        for k in -400..=400i32 {
+            let x = k as f64 * 0.0987 + 1e-3;
+            let (s, c) = (sin_gsl(x), cos_gsl(x));
+            assert!((s - Real::sin(x)).abs() < 4e-16, "sin({x}): {s}");
+            assert!((c - Real::cos(x)).abs() < 4e-16, "cos({x}): {c}");
+            assert!((s * s + c * c - 1.0).abs() < 4e-16);
+            assert_eq!(sin_gsl(-x).to_bits(), (-s).to_bits());
+            assert_eq!(cos_gsl(-x).to_bits(), c.to_bits());
+        }
+        // The small-argument branches.
+        assert_eq!(sin_gsl(1e-9), 1e-9);
+        assert_eq!(cos_gsl(1e-9), 1.0);
+        assert_eq!(sin_gsl(0.0), 0.0);
+        for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(sin_gsl(bad).is_nan() && cos_gsl(bad).is_nan());
         }
     }
 }
