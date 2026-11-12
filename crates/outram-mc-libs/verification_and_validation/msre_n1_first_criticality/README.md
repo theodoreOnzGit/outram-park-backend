@@ -7,32 +7,39 @@
 ## Numbers to quote (summary, 2026-11-12)
 
 The default model is **arm C (natural Mo), RVS, 30P graphite, cold
-dimensions, no shield, rods out**. σ comes from the seed spread. Every row
+dimensions, no shield, rods out, and since 2026-11-12 U-234/U-236 in the
+salt** (TM-0730's 93 % uranium; maintainer: "More physical model is
+better"). σ is the larger of the seed sem and the internal σ/√n. Every row
 links to the section that holds its method, data and caveats. This summary
 adds no number of its own.
 
 | quantity | this model | reference | section |
 |---|---|---|---|
-| N-1 k at 1181 °F (6 seeds) | 1.00882 ± 0.00022, **+801 ± 22 pcm** | k_ref 1.00080 (ORNL-4233); measurement ±200–270 pcm | [N-1](#n-1-2026-11-09) |
+| N-1 k at 1181 °F (6 seeds) | 1.00536 ± 0.00023, **+455 ± 23 pcm** (~~1.00882, +801 ± 22~~ before U-234) | k_ref 1.00080 (ORNL-4233); measurement ±200–270 pcm | [re-measured](#re-measured-on-the-2026-11-12-default-salt-with-u-234-and-u-236-gh1128-gh1129) |
 | N-1 against the 1000 pcm band (maintainer, 2026-11-10) | **passes** | — | [Methodology](#methodology) |
-| ²³⁵U concentration coefficient | **0.231 ± 0.005** | measured 0.223; ORNL calc. 0.234–0.248 | [concentration coefficient](#n-1-the-²³⁵u-concentration-coefficient-2026-11-11-gh1128) |
-| equivalent ²³⁵U excess behind +801 pcm | about 1.14 g/L (3.5 %) | measured 32.8 ± 0.3 g/L | same |
-| α_iso (×10⁻⁵ /°F) | **−7.54 ± 0.40** | measured −7.24 | [N-3](#n-3-isothermal-temperature-coefficient-2026-11-09-gh1129) |
-| fuel coefficient | **−4.44 ± 0.40** | measured −4.7 ± 0.7 (found after the run) | same |
-| graphite coefficient | **−2.82 ± 0.43** | not measured | same |
-| T-1 natural periods, with the arm-C split | **−11 % to +8 %** of TM-1647 | — | nee_soon T-1 README |
+| ²³⁵U concentration coefficient | **0.235 ± 0.006** (~~0.231 ± 0.005~~) | measured 0.223; ORNL calc. 0.234–0.248 | re-measured |
+| equivalent ²³⁵U excess behind +455 pcm | about 0.63 g/L (1.9 %) | measured 32.8 ± 0.3 g/L | same |
+| α_iso (×10⁻⁵ /°F) | **−7.69 ± 0.35** (~~−7.54 ± 0.40~~) | measured −7.24 | same |
+| fuel coefficient | **−4.18 ± 0.35** (~~−4.44 ± 0.40~~) | measured −4.7 ± 0.7 (found after the arm-C run) | same |
+| graphite coefficient | **−3.08 ± 0.35** (~~−2.82 ± 0.43~~) | not measured | same |
+| T-1 natural periods, with this split | **−11 % to +12 %** of TM-1647 (~~−11 % to +8 %~~) | — | nee_soon T-1 README |
 
 **Ablations.** None of these is in the default; each is the maintainer's
-call.
+call. **Measured on the previous default salt** (without U-234/U-236); the
+shifts are differences and were not re-run. The last column adds each
+shift to the current +455 pcm, an estimate, not a run; ~~the column added it
+to the old +801~~ (corrected 2026-11-12, when the default changed).
 
-| change | effect on N-1 k | N-1 against the band |
+| change | effect on N-1 k | estimated N-1 against the band |
 |---|---|---|
-| hot dimensions | +193 ± 23 pcm (12 seeds, paired) | +992, inside by 8 pcm |
+| hot dimensions | +193 ± 23 pcm (12 seeds, paired) | about +648, passes (~~+992, inside by 8 pcm~~) |
 | 10P / crystalline graphite law | −71 ± 32 / −70 ± 35 pcm | passes |
 | TM-0730 end regions | +20 ± 45 pcm | passes |
-| thermal shield (stated / close-packed) | +779 ± 43 / +895 ± 66 pcm | fails |
-| 99.9926 % Li-7 | +730 ± 60 pcm | fails |
-| INOR-8's Mo omitted (arm A, measured under DBRC) | +441 ± 45 pcm | +1197, fails |
+| thermal shield cylinder (stated / close-packed) | +779 ± 43 / +895 ± 66 pcm | about +1234 / +1350, fails |
+| **whole thermal shield, TM-0728 Fig. 5.2** (measured on the current default) | **+1063 ± 39 pcm** | **+1519 ± 31, fails** |
+| 99.9926 % Li-7 | +730 ± 60 pcm | about +1185, fails |
+| INOR-8's Mo omitted (arm A, measured under DBRC) | +441 ± 45 pcm | about +896, passes (~~+1197, fails~~) |
+| ~~U-234/U-236 per TM-0730's 93 % uranium~~ now the default; `--minor-uranium none` removes them | −326 ± 83 pcm | (the default) |
 
 **Open, waiting on the maintainer:**
 - the rod worth, whose geometry is built but needs the Gd tapes;
@@ -105,8 +112,14 @@ DBRC runs before them. Since then the binary's untagged rows are RVS. So:
   - every `mo-natural@…` row in `n3.csv`.
 
   Each of these is stated as RVS in its own section.
-- The 6-seed default of 1.00882 is the `mo-natural+rvs@salt1181F/graphite1181F`
-  seeds 1–6. Seeds 1–3 appear twice, with identical values.
+- ~~The 6-seed default of 1.00882~~ The previous default's 6-seed 1.00882
+  is the `mo-natural+rvs@salt1181F/graphite1181F` seeds 1–6. Seeds 1–3
+  appear twice, with identical values.
+- **U-234 and U-236 in the salt:** `+minorU-tm0730` marks the three-seed
+  sensitivity run (pre-#1386 binary, when they were an option), and
+  **`+u234`** every run on the 2026-11-12 default (merged binary), which
+  the example now writes itself. Both are RVS. The 2026-11-12 default's N-1
+  is the six `mo-natural@salt1181F/graphite1181F+u234` seeds.
 
 **Data and code:**
 
@@ -525,6 +538,74 @@ stated zone at 6/14 to 1e-12 (tested).
   σ, as in the drained run. The quoted σ is the seed sem.
 - **The default is not changed.**
 
+### N-1 residual: the whole thermal shield, base, cylinder and cover (2026-11-12, gh:#1128)
+
+**Why:** every shield run above (`tm0728-cylinder`, `-packed`, the drained
+and steel/water splits) models the cylinder only, centred on the vessel,
+with the vessel's top and bottom open to vacuum. TM-0728 §5.3.10 and
+Fig. 5.2 also give an 18 in base under the vessel and a 16 in cover inside
+the cylinder's top, and Fig. 5.2 places the vessel about 7 in below the
+cylinder's centre. Fig. 5.2 was digitised into
+`data/tm0728_fig5_2_reactor_cell.csv` (method and caveats in the `.md`
+beside it): it is a dimensioned drawing, not a schematic, and every scaled
+length carries about ±3 in.
+
+**Ablation:** `--shield tm0728-full` (`Shield::Tm0728Full`,
+`geometry_with_full_shield`, `full_shield_materials`):
+
+- **Placement:** the vessel's mid-height 68.5 in above the cylinder's bottom
+  (`FULL_SHIELD_VESSEL_MID_ABOVE_BOTTOM`; Fig. 5.2, ±3 in).
+- **Base:** 18 in thick at the cylinder's OD, homogenised to 8.3 % 304,
+  4.8 % carbon steel, the rest water.
+- **Cover:** 16 in thick, inside the cylinder's top, 79¾ in OD with a
+  22⅝ in hole; 22.1 % 304 (plates and twelve radial webs), 25 % carbon
+  steel, the rest water.
+- **Ball annulus:** 0.60 balls, from "70 tons (475 ft³)" in short tons
+  (`SHIELD_BALL_FRACTION_TM0728_TONS`; the stated 50/50 and close-packed
+  0.64 are the runs above), with the twelve 1 in webs at 3.5 %.
+- **Left void:** the 6 in insulation and the furnace annulus, whose
+  materials are not given.
+- **Vacuum boundaries:** the shield's outer radius, the base's bottom and
+  the cylinder's top.
+
+Drawn from the assembled CSG and shown to the maintainer before the runs:
+`images/msre_n1_fullshield_xz.png`, `…_xy_cover.png`, `…_xy_base.png`, with
+TM-0728's own figure in `images/tm0728_fig5_2_vessel_in_shield.png`. A unit
+test (`full_tm0728_shield_places_base_cylinder_and_cover_by_fig_5_2`) pins
+the placement and each zone's extent.
+
+**Prediction** (posted on gh:#1128 before the run): **+850 to +1200 pcm**
+against no shield. The cylinder alone was worth +779 ± 43 (stated) to
++895 ± 66 (packed); the base and cover were expected to add reflection at
+the vessel's ends.
+
+**Run:** on the 2026-11-12 default (U-234/U-236, merged binary), arm C,
+RVS, 30P, cold, seeds 1–3: 1.01630, 1.01583, 1.01584 (each ± 0.0005–0.0006).
+About 890 s per seed (4-core Intel Xeon, 4 threads, 15.7 GiB RAM, Linux,
+CPU only). Rows `…+u234+shield-tm0728-full` in `data/keff.csv`.
+
+| shield | k | vs k_ref | shift vs no shield |
+|---|---|---|---|
+| none (2026-11-12 default, 6 seeds) | 1.00536 ± 0.00023 | +455 pcm | — |
+| **whole shield, Fig. 5.2** (3 seeds) | **1.01599 ± 0.00031** | **+1519 pcm** | **+1063 ± 39 pcm** |
+| cylinder only, stated 50/50 (previous default salt) | — | — | +779 ± 43 pcm |
+| cylinder only, close-packed (previous default salt) | — | — | +895 ± 66 pcm |
+
+- **Inside the prediction**, in its upper half.
+- **The base and cover add roughly +170 to +280 pcm** over the cylinder-only
+  runs. That comparison crosses the salt change, so it is an estimate: the
+  shield's worth is a difference, which the U-234 change should move far
+  less than these σ, but the cylinder-only runs were not repeated.
+- **Against the maintainer's 1000 pcm band: fails**, at +1519 ± 31 pcm. The
+  more completely the shield is modelled, the further N-1 moves from the
+  measurement. The finding is the disagreement; nothing was adjusted.
+- **Statistics:** the three seeds spread 27 pcm (sd), below their ≈54 pcm
+  internal σ; the quoted σ is the internal σ/√3.
+- **The default is not changed.** It is the maintainer's call. If the shield
+  is adopted, the residual it exposes, about +1500 pcm, is what the model
+  then has to explain; the neutron balance above already locates the
+  missing absorption in the salt (Zr and F), not in leakage.
+
 ### N-1: the ²³⁵U concentration coefficient (2026-11-11, gh:#1128)
 
 **Reference:** ORNL-4233 §3.4, p. 19. The measured (δk/k)/(δM/M) is
@@ -691,9 +772,122 @@ range.
   table carries 262 absorptions in them. `scripts/salt.py` counts the
   enriched lot's 7 % non-²³⁵U as U-238. TM-0730 Table 3.2 (p. 21) assumes
   the 93 % uranium to be **1 / 93 / 1 / 5 atom %** U-234 / U-235 / U-236 /
-  U-238. That is a design assumption, not an assay of the as-loaded lot. A
-  sensitivity run with that composition is the next measurement.
+  U-238. That is a design assumption, not an assay of the as-loaded lot.
+  ~~A sensitivity run with that composition is the next measurement.~~
+  **Measured the same day:** see the next section.
 - **Not a validation, and the default is not changed.**
+
+### N-1 residual: U-234 and U-236 in the salt (2026-11-12, gh:#1128)
+
+**Ablation:** `--minor-uranium tm0730` (`salt_with_tm0730_minor_uranium`). It
+splits the enriched lot's non-²³⁵U as TM-0730 Table 3.2 assumes for 93 %
+uranium: 1 / 93 / 1 / 5 atom % U-234 / U-235 / U-236 / U-238. This replaces
+`salt.py`'s all-U-238. U-235 is unchanged, and U-234 and U-236 are added at
+8.99e-7 atoms/b-cm each. A unit test pins every ratio. **The composition is a
+design assumption.** No as-loaded assay was found in ORNL-4233, TM-0728,
+TM-0730, ORNL-4396 or ORNL-4449.
+
+**Prediction** (posted on gh:#1128 before the run): **−150 to −350 pcm**,
+estimated at about −240.
+
+**Run:** arm C, RVS, 30P, cold, seeds 1–3: 1.00398, 1.00668 and 1.00587
+(each ± 0.0006–0.0007). About 750 s per seed, same hardware.
+
+| salt | k | vs k_ref |
+|---|---|---|
+| default (`salt.py`, no U-234/236; 6 seeds) | 1.00882 ± 0.00022 | +801 pcm |
+| **TM-0730's 93 % composition** (3 seeds) | **1.00551 ± 0.00080** | **+471 pcm** |
+| **shift** | **−326 ± 83 pcm** (seed-paired −359 ± 105) | |
+
+- **Inside the prediction,** on the larger side of the estimate.
+- **The first composition lever that moves N-1 toward the measurement by
+  several σ.** It removes about 40 % of the residual. That holds if the
+  1965 lot was like TM-0730's assumed 93 % uranium.
+- **The three seeds spread 138 pcm (sd),** about twice their internal σ,
+  as on other runs of this model. The σ quoted is the larger of the seed
+  sem and the internal σ/√3.
+- ~~**The default is not changed.** Real 93 % uranium does carry U-234
+  (TM-0730 itself puts it at 1 %), so a model with U-234 and U-236 is the
+  more physical one. Which isotopics to adopt without an assay is the
+  maintainer's call.~~ **CHANGED 2026-11-12** (maintainer: "More physical
+  model is better"): `default_salt()` now carries U-234 and U-236, and
+  `--minor-uranium none` is the ablation. Re-measured below.
+
+
+### Re-measured on the 2026-11-12 default salt, with U-234 and U-236 (gh:#1128, gh:#1129)
+
+**Why:** the correct-physics rule requires every V&V number that depended on
+a default to be re-measured when the default changes. Two defaults changed on
+2026-11-12: the salt (above), and develop's transport defaults (#1386:
+seeding, reaction order, per-collision fission banking, fission-neutron
+order), merged before these runs. Every run below is on that merged binary
+(branch commit `090fb2703`), arm C, RVS, 30P, cold dimensions, no shield.
+About 800 s per seed (4-core Intel Xeon, 4 threads, 15.7 GiB RAM, Linux, CPU
+only; nuclear data 144 s, 37 nuclides). Rows carry `+u234` in their label
+in `data/keff.csv` and `data/n3.csv`. σ is the larger of the seed sem and
+the internal σ/√n.
+
+**Predictions** (posted on gh:#1128 before the runs): N-1 +380 to +560 pcm;
+α_iso within ±0.6 of −7.54; each split component within ±0.8 of its
+previous value; concentration coefficient 0.219–0.243.
+
+| quantity | previous default | **2026-11-12 default** | reference | prediction |
+|---|---|---|---|---|
+| N-1 k at 1181 °F (6 seeds) | 1.00882 ± 0.00022 (+801) | **1.00536 ± 0.00023, +455 ± 23 pcm** | k_ref 1.00080 | inside |
+| α_iso (×10⁻⁵ /°F) | −7.54 ± 0.40 | **−7.69 ± 0.35** | measured −7.24 | inside |
+| fuel | −4.44 ± 0.40 | **−4.18 ± 0.35** | measured −4.7 ± 0.7 | inside |
+| graphite | −2.82 ± 0.43 | **−3.08 ± 0.35** | not measured | inside |
+| (δk/k)/(δM/M), central | 0.231 ± 0.005 | **0.235 ± 0.006** | measured 0.223 | inside |
+
+**N-1 seeds:** 1.00498, 1.00600, 1.00594, 1.00493, 1.00561, 1.00470 (sd
+57 pcm, internal σ ≈ 57 pcm). Against the three-seed U-234 run on the
+pre-#1386 binary (+471 ± 80): −16 ± 83 pcm, so **the #1386 transport
+defaults make no visible difference on this model.**
+
+**N-3 runs** (6 seeds each):
+
+| run (salt / graphite °F) | k | seed sd | internal σ |
+|---|---|---|---|
+| 1131 / 1131 | 1.00917 ± 0.00027 | 67 pcm | 55 pcm |
+| 1231 / 1231 | 1.00140 ± 0.00022 | 40 pcm | 54 pcm |
+| C 1231 / 1131 | 1.00493 ± 0.00022 | 47 pcm | 54 pcm |
+| D 1131 / 1231 | 1.00605 ± 0.00023 | 43 pcm | 56 pcm |
+
+- **α_iso −7.69 ± 0.35** is −0.45 from the measured −7.24 (1.3σ), and moves
+  −0.15 ± 0.53 from the previous default: not resolved.
+- **The split adds:** −4.18 − 3.08 = −7.26 against −7.69 isothermal.
+- **Fuel −4.18 ± 0.35** is +0.52 ± 0.78 (0.7σ) from ORNL's measured
+  −4.7 ± 0.7, which was found after the previous runs (see N-3 below).
+- **Consistency with N-1:** the mean of 1131 and 1231 °F, 1.00528, sits
+  −8 ± 40 pcm from the 1181 °F value.
+- **T-1 re-run with this split:** −11 % to +12 % of TM-1647's measured
+  periods (nee_soon T-1 README).
+
+**Concentration coefficient** (3 seeds at each scale): × 0.95 0.99384,
+0.99326, 0.99319 → 0.99343 ± 0.00031; × 1.05 1.01782, 1.01624, 1.01712 →
+1.01706 ± 0.00046.
+
+| form | value |
+|---|---|
+| **central, (k₊ − k₋)/(k₀ · 0.10)** | **0.235 ± 0.006** |
+| logarithmic | 0.235 |
+| upper half | 0.233 ± 0.010 |
+| lower half | 0.237 ± 0.008 |
+
+- **+5 % from the measured 0.223 (2σ** of our statistics alone, with no σ on
+  the measurement), and inside ORNL's own calculated 0.234–0.248. The
+  previous 0.231 ± 0.005 is +0.004 ± 0.008 away: not resolved.
+- **The halves now agree** (0.004 ± 0.013); the previous 0.016 split was
+  noise, as flagged.
+- **What it implies for the residual.** At 0.235, the +455 pcm is the
+  reactivity of **1.9 % too much ²³⁵U, about 0.63 g/L** against the measured
+  32.8 ± 0.3 g/L; the model would go critical at about 32.2 g/L. That is
+  about twice the measurement's own ±0.3 g/L.
+
+**Quote these numbers for the default model.** The ablation rows in the
+summary table were measured on the previous default salt; their shifts are
+differences, which the U-234 change should move by much less than their σ,
+but they were not re-run.
 
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
