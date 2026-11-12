@@ -44,6 +44,7 @@ use crate::snappy_hex_mesh::esi_snap::{
     MotionSmoother, PatchAddr, ScaleControls, ScaleIteration, ScaleTopology, SnapMesh, V,
 };
 use crate::snappy_hex_mesh::stl::{StlZoned, Triangle};
+use crate::snappy_hex_mesh::esi_octree::{edge_tree, surface_tree, EdgeShapes, Octree, OctreeShapes, TriShapes};
 use outram_foam_basic_lib::primitives::Vector3;
 
 
@@ -403,13 +404,16 @@ pub struct FeatureSurface {
     pub tris: Vec<Triangle>,
     /// STL region (zone) of each triangle.
     pub region: Vec<usize>,
+    /// `triSurfaceSearch::tree()`.
+    pub tree: Octree<TriShapes>,
 }
 
 impl FeatureSurface {
     /// From a zoned STL (all solids, single-precision corners).
     pub fn from_zoned(z: &StlZoned) -> Self {
-        let tris = z.triangles.iter().map(|t| Triangle::new(z.points[t[0]], z.points[t[1]], z.points[t[2]])).collect();
-        Self { tris, region: z.zones.clone() }
+        let tris: Vec<Triangle> = z.triangles.iter().map(|t| Triangle::new(z.points[t[0]], z.points[t[1]], z.points[t[2]])).collect();
+        let tree = surface_tree(&tris);
+        Self { tris, region: z.zones.clone(), tree }
     }
 }
 
@@ -446,7 +450,12 @@ pub struct TieCounts {
 impl FeatureSurface {
     /// Nearest triangle to `p` closer than `dist_sqr` (strict, as `findNearestOp`): the
     /// triangle, the nearest point and the unit normal of the triangle.
-    pub fn nearest(&self, p: V, dist_sqr: f64, ties: &mut TieCounts) -> Option<(usize, V, V)> {
+    pub fn nearest(&self, p: V, dist_sqr: f64, _ties: &mut TieCounts) -> Option<(usize, V, V)> {
+        self.tree.find_nearest(p, dist_sqr).map(|(i, q)| (i, q, tri_unit_normal(&self.tris[i])))
+    }
+
+    /// Brute-force nearest triangle (first minimum in index order), the round-6 search.
+    pub fn nearest_brute(&self, p: V, dist_sqr: f64, ties: &mut TieCounts) -> Option<(usize, V, V)> {
         let sample = Vector3::new(p[0], p[1], p[2]);
         let mut best = dist_sqr;
         let mut hit: Option<(usize, V)> = None;
@@ -502,6 +511,19 @@ pub fn calc_nearest_surface_sqr_mag(
 pub struct FeatureSet {
     /// The feature meshes.
     pub features: Vec<ExtendedEdgeMesh>,
+    /// `refinementFeatures::edgeTrees_`: per feature, the octree over all edges.
+    pub edge_trees: Vec<Octree<EdgeShapes>>,
+    /// `refinementFeatures::regionEdgeTrees()`: per feature, the octree over the region edges.
+    pub region_edge_trees: Vec<Octree<EdgeShapes>>,
+}
+
+impl FeatureSet {
+    /// Builds the upstream octrees (`buildTrees`, `regionEdgeTrees`) of every feature.
+    pub fn new(features: Vec<ExtendedEdgeMesh>) -> Self {
+        let edge_trees = features.iter().map(|em| edge_tree(&em.edges, &em.points, (0..em.edges.len()).collect())).collect();
+        let region_edge_trees = features.iter().map(|em| edge_tree(&em.edges, &em.points, em.region_edges.clone())).collect();
+        Self { features, edge_trees, region_edge_trees }
+    }
 }
 
 fn line_nearest(a: V, b: V, p: V) -> (V, f64) {
@@ -534,7 +556,7 @@ fn unit_vec(a: V, b: V) -> V {
 type EdgeHit = Option<(usize, usize, V, V)>;
 
 impl FeatureSet {
-    fn nearest_edge_generic(&self, region_only: bool, sample: V, dist_sqr: f64, ties: &mut TieCounts) -> EdgeHit {
+    fn nearest_edge_brute(&self, region_only: bool, sample: V, dist_sqr: f64, ties: &mut TieCounts) -> EdgeHit {
         let mut result: EdgeHit = None;
         for (feati, em) in self.features.iter().enumerate() {
             let all: Vec<usize>;
@@ -577,14 +599,46 @@ impl FeatureSet {
         result
     }
 
-    /// `refinementFeatures::findNearestEdge` for one sample.
-    pub fn find_nearest_edge(&self, sample: V, dist_sqr: f64, ties: &mut TieCounts) -> EdgeHit {
-        self.nearest_edge_generic(false, sample, dist_sqr, ties)
+    /// `refinementFeatures::findNearestEdge` for one sample (`indexedOctree::findNearest`
+    /// of upstream, so ties resolve as in ESI). `ties` is unused (kept for the brute-force
+    /// twins).
+    pub fn find_nearest_edge(&self, sample: V, dist_sqr: f64, _ties: &mut TieCounts) -> EdgeHit {
+        self.nearest_edge_tree(&self.edge_trees, sample, dist_sqr)
     }
 
     /// `refinementFeatures::findNearestRegionEdge` for one sample.
-    pub fn find_nearest_region_edge(&self, sample: V, dist_sqr: f64, ties: &mut TieCounts) -> EdgeHit {
-        self.nearest_edge_generic(true, sample, dist_sqr, ties)
+    pub fn find_nearest_region_edge(&self, sample: V, dist_sqr: f64, _ties: &mut TieCounts) -> EdgeHit {
+        self.nearest_edge_tree(&self.region_edge_trees, sample, dist_sqr)
+    }
+
+    fn nearest_edge_tree(&self, trees: &[Octree<EdgeShapes>], sample: V, dist_sqr: f64) -> EdgeHit {
+        let mut result: EdgeHit = None;
+        for (feati, tree) in trees.iter().enumerate() {
+            if tree.shapes().len() == 0 {
+                continue;
+            }
+            let start = match &result {
+                Some((_, _, pt, _)) => mag_sqr(sub(*pt, sample)),
+                None => dist_sqr,
+            };
+            if let Some((shape, pt)) = tree.find_nearest(sample, start) {
+                let ei = tree.shapes().ids[shape];
+                let e = self.features[feati].edges[ei];
+                let em = &self.features[feati];
+                result = Some((feati, ei, pt, unit_vec(em.points[e[0]], em.points[e[1]])));
+            }
+        }
+        result
+    }
+
+    /// Brute-force `findNearestEdge` (first minimum in index order), the round-6 search.
+    pub fn find_nearest_edge_brute(&self, sample: V, dist_sqr: f64, ties: &mut TieCounts) -> EdgeHit {
+        self.nearest_edge_brute(false, sample, dist_sqr, ties)
+    }
+
+    /// Brute-force `findNearestRegionEdge`.
+    pub fn find_nearest_region_edge_brute(&self, sample: V, dist_sqr: f64, ties: &mut TieCounts) -> EdgeHit {
+        self.nearest_edge_brute(true, sample, dist_sqr, ties)
     }
 
     /// `refinementFeatures::findNearestPoint` for one sample: feature index, feature point

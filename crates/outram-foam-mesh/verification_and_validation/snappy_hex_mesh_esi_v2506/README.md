@@ -1031,3 +1031,56 @@ component was not re-measured). PETIR: no transcendental in the new code (caller
 
 **Ledger.** P36 held. P37 partly refuted (190 triangle ties). P38 held (counts, both
 single-region and multi-region). P39 **failed** (37365 / 79986). P40-P43 untested.
+
+---
+
+# Round 7 (2026-11-12): the first divergence of round 6, found and fixed
+
+## Evidence gathered BEFORE the port change (disclosed, not predictions)
+
+1. **ESI reference rebuilt** (the round-6 run directory was gone): `blockMesh` (ASCII,
+   `writePrecision 16`) then `snappyHexMesh` (binary) on `snappyHexMeshDict.feature`
+   reproduces `esi_feature_log.txt.gz` line for line (apart from the case path), 9 s.
+2. **A dump patch in `snappySnapDriverFeature.C`** (upstream edited in place, then restored
+   and the library rebuilt from the restored source; the original `libsnappyHexMesh.so` and
+   `.C` were backed up first, and the rebuilt library has the same size, 5027088 bytes).
+   `calcNearestSurfaceFeature` wrote, per iteration, raw doubles of `ppLocalPoints`,
+   `nearestDisp`, the final `patchAttraction`, `patchConstraints` (count and direction),
+   and after smoothing `smoothedPatchDisp`, `tangPatchDisp`, `pointNormals`. The patched
+   run gave `34/displacement` and `77/polyMesh/points` byte-identical to the unpatched run.
+3. **Port vs the dump, iteration 0, per point (12130 patch points):** patch points 36390 of
+   36390 components bit-identical; **constraints differ at exactly 4 points** and
+   **attraction at exactly the same 4** (mesh points 6704, 6710, 6738, 6744). ESI's
+   constraint direction there is (+-0.80286, +-0.59617, 0), the port's (+-0.60532, +-0.79598, 0):
+   the points were attracted along a *different feature edge*, both edges at the same
+   distance from the sample, ending at the same feature vertex (a tie; `TieCounts.edge` is
+   14 per run). The z attraction agrees to the bit (the shared vertex), which is why round 6
+   saw only an along-edge shift. So the divergence starts in the attraction, not in the
+   smoothing.
+4. Round 6's "single edge-tie toggles refuted" tested the wrong thing: a toggle flips the
+   rule for one tie, not the per-query traversal order of upstream's octree.
+
+**Cause (hypothesis, to be confirmed by the run below):** `refinementFeatures::findNearestEdge`
+calls `indexedOctree<treeDataEdge>::findNearest`; among equidistant edges the first one the
+traversal reaches wins (`distSqr < nearestDistSqr`). The port searched in index order.
+
+## Port change (written after the evidence above, before the stage runs below)
+
+`src/snappy_hex_mesh/esi_octree.rs` (new, opt-in): `indexedOctree` build and `findNearest`,
+`treeBoundBox` (`subBbox`, `searchOrder`, sphere and box `subOverlaps`, segment `intersects`,
+the separating-axis triangle test), `Random` (`Rand48` + libstdc++ `generate_canonical`)
+for `inflate`, `treeDataEdge`, `treeDataTriSurface`. `FeatureSet::new` builds the edge and
+region-edge trees as `refinementFeatures` does (`Random(65431)`, `inflate(rndGen, 1e-4,
+ROOTVSMALL)`, `maxLevel 8`, leaf 10, duplicity 3); `FeatureSurface` builds
+`triSurfaceSearch::tree()` (`maxTreeDepth 10`). The brute-force searches stay as `*_brute`
+twins so tests can count where the two differ.
+
+## PREDICTIONS (committed before the stage runs)
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P44 | With the octree, iteration 0 (from ESI's time-33 points) has **all 12130 constraints and attractions bit-identical** to the dump, and `34/displacement` is **79986 of 79986** bit-identical. | the 4 points were not the only divergence, or smoothing has its own one |
+| P45 | The octree and the brute force differ in **at least 4** edge queries and in **0 or few** triangle queries of iteration 0 (190 triangle ties; a different triangle gives the same point). | the tie classes behave the other way |
+| P46 | Iterations 1-8, each started from ESI's mesh at the start of that iteration (`feat_points_*`), are bit-identical in displacement and scaled points; chained they stay so. Iterations 6-8 pass through 7 scale passes (round 4 machinery). | accumulated ulp, or `scaleMesh` on the `errorReduction 0` branch |
+| P47 | Iteration 9 is NOT bit-identical without `detectNearSurfaces` (2 overrides); with it ported, it is. | |
+| P48 | After ten iterations (+ `detectNearSurfaces`), `repatchToSurface` + merges give ESI's final mesh, 60813 faces, 24311 points, all faces equal per index. | merge sets near `cos 30 deg` |

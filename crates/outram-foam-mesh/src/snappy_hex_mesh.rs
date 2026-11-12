@@ -94,6 +94,7 @@ pub mod castellation;
 pub mod cyclic;
 pub mod dict;
 pub mod esi_feature;
+pub mod esi_octree;
 pub mod esi_merge;
 pub mod esi_snap;
 pub mod esi_split;

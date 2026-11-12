@@ -79,7 +79,7 @@ fn compare(a: &[V], b: &[V]) -> (usize, usize, f64) {
 
 fn feature_set() -> FeatureSet {
     let text = String::from_utf8(fixture("flange.extendedFeatureEdgeMesh.gz")).unwrap();
-    FeatureSet { features: vec![read_extended_edge_mesh(&text).expect("eMesh")] }
+    FeatureSet::new(vec![read_extended_edge_mesh(&text).expect("eMesh")])
 }
 
 /// The feature snap of `snappyHexMeshDict.feature` on ESI's castellated mesh.
