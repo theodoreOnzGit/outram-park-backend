@@ -102,11 +102,38 @@
 //! measured effect is in `docs/profiling/speed_tiers_2026_09_27.md`.
 
 //!
+//! ## RE-MEASURED 2026-11-12 — 128 seeds, `OUTRAM_BENCH_SEEDS=128` (gh:#1386)
+//!
+//! **Current value: `+80 pcm, sem ±13, seed-to-seed sd 146` (128 seeds)**
+//! against k = 1.0000, i.e. `k = 1.00080 ± 0.00013`, at code `49148da11`:
+//! this branch's transport defaults (OpenMC-faithful collision kernels,
+//! OpenMC reaction order with a single-cutoff level pick, OpenMC
+//! fission-neutron order, per-collision fission banking, the gh:#1497
+//! direction-norm guard). 5000 × [40 + 120], speed tier `fast`, U-236 in
+//! the model, URR and DBRC on. Every history clean.
+//!
+//! **Against which record.** The 2026-09-18 `−38 ± 36` below predates the
+//! URR/DBRC defaults and U-236 (worth −167 ± 38), so it is not a baseline.
+//! The latest record of this model at this run size is route 4 of
+//! `icsbep_five_route_keff`: **`+76 ± 14` over 96 seeds, 2026-10-18**
+//! (k 1.00076 ± 0.00014, `verification_and_validation/route4_process_931/`).
+//! **New − old = +4 ± 19 pcm (+0.2σ)**, inside the ±2σ predicted before the
+//! run (`remeasure_logs/predictions.md`). Not strictly like-for-like:
+//! route 4 takes H in H₂O from the embedded LEAPR deck since 2026-10-14,
+//! this example from `tsl-HinH2O.endf`; the agreement says that difference
+//! is small here too, not that it is zero. Measured on an Intel Xeon @
+//! 2.80 GHz, 4 logical cores shared with a concurrent workspace test suite,
+//! 15 GiB RAM, Linux 6.18.44, CPU only: data 401.0 s, transport 6735.3 s for
+//! the 128 seeds. Log: `remeasure_logs/hst009_keff_default_s128.log`.
+//!
 //! ## POOLED RESULT (2026-09-18) — 32 seeds, `OUTRAM_BENCH_SEEDS=32`
+//!
+//! **Superseded twice: by the URR/DBRC defaults and U-236, and by the
+//! 2026-11-12 re-measure above. Quote `+80 ± 13`.**
 //!
 //! | | dk vs benchmark |
 //! |---|---|
-//! | **pooled mean, 32 seeds** | **-38 pcm, sem +/-36** |
+//! | **pooled mean, 32 seeds** | ~~**-38 pcm, sem +/-36**~~ **RE-MEASURED 2026-11-12: +80 ± 13 (128 seeds)** |
 //! | seed-to-seed sd | 205 pcm — what ONE run scatters by |
 //! | previously recorded (SINGLE seed) | `-18 ± 171 pcm` |
 //!
