@@ -47,8 +47,8 @@ The deck driver reads VIEWR's card (`infile nps`) and runs it on the plot file t
 module left (`aplots` for decks 13-72, `tplots` for 67-70 and 74).
 
 **Prediction (before the runs):** every PostScript unit identical where the plot file is
-identical; and, where ACER's table differs upstream of the plot file (decks 35, 37, 63), NJOY's own plot
-file gives identical PostScript.
+identical; and, where ACER's table differs upstream of the plot file (decks 35, 37, 63 at the time;
+identical since 2026-11-12, gh:#1498), NJOY's own plot file gives identical PostScript.
 
 **Whole deck, both codes** (`viewr_deck`, `test_*_viewr_postscript`): PostScript unit and the plot unit VIEWR read:
 

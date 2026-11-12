@@ -472,6 +472,9 @@ pub struct AceDeck {
     /// energy (partial `444`) with NJOY's default displacement table,
     /// `Some(ed)` overrides it with `ed` eV, `None` (default) asks for neither.
     displacement_energy: Option<f64>,
+    /// PURR card 2's `nunx`: unresolved energies processed, `0` all
+    /// (`purr.f90:283-292`, gh:#1498).
+    purr_nunx: usize,
 }
 
 impl Default for AceDeck {
@@ -491,6 +494,7 @@ impl Default for AceDeck {
             mt444: None,
             gas: Vec::new(),
             displacement_energy: None,
+            purr_nunx: 0,
         }
     }
 }
@@ -581,6 +585,14 @@ impl AceDeck {
     /// ACER without a text round trip.
     pub fn with_purr_binary(mut self, binary: bool) -> Self {
         self.purr_binary = binary;
+        self
+    }
+
+    /// PURR card 2's `nunx`: process only `nunx` of the unresolved energies
+    /// (`0`, the default, all of them; `purr.f90:283-292`). Upstream test 63
+    /// uses `nunx = 2` (gh:#1498).
+    pub fn with_purr_nunx(mut self, nunx: usize) -> Self {
+        self.purr_nunx = nunx;
         self
     }
 
@@ -703,7 +715,7 @@ pub(crate) fn deck_modules(
         partial[slot] = k;
     }
     let urr = match deck.purr {
-        Some((nbin, nladr, nsamp)) => crate::purr::UrrProbabilityTables::from_endf_with_heating(
+        Some((nbin, nladr, nsamp)) => crate::purr::UrrProbabilityTables::from_endf_with_heating_nunx(
             tape,
             mat,
             deck.temperature_k.unwrap_or(kt_mev / K_BOLTZMANN_MEV),
@@ -711,6 +723,7 @@ pub(crate) fn deck_modules(
             nladr,
             nsamp,
             &crate::purr::PurrHeating { total: kerma.clone(), partial, binary: deck.purr_binary },
+            deck.purr_nunx,
         )?,
         None => None,
     };

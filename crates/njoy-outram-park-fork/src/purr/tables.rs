@@ -375,6 +375,27 @@ impl UrrProbabilityTables {
         nsamp: usize,
         heating_in: &PurrHeating,
     ) -> Result<Option<Self>, NjoyError> {
+        Self::from_endf_with_heating_nunx(tape, mat, temperature_k, nbin, nladr, nsamp, heating_in, 0)
+    }
+
+    /// [`Self::from_endf_with_heating`] with PURR card 2's `nunx`, the number
+    /// of unresolved energies to process (`0`: all). PURR keeps every
+    /// `nstep = nunr/(nunx-1)`-th energy of its grid, then the last
+    /// (`purr.f90:283-292`, `nunx_indices`), and samples ladders at those
+    /// energies only, so the random sequence is drawn for them alone. The
+    /// tables, MT=152/153 and ACER's UNR block then carry `nunx` energies
+    /// (upstream test 63: `nunx = 2`, gh:#1498).
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_endf_with_heating_nunx(
+        tape: &Tape,
+        mat: i32,
+        temperature_k: f64,
+        nbin: usize,
+        nladr: usize,
+        nsamp: usize,
+        heating_in: &PurrHeating,
+        nunx: usize,
+    ) -> Result<Option<Self>, NjoyError> {
         let (mt301, partial) = (heating_in.total.as_ref(), &heating_in.partial);
         let Some(sec) = tape.section(mat, 2, 151) else {
             return Ok(None);
@@ -427,7 +448,9 @@ impl UrrProbabilityTables {
         let mut points = Vec::with_capacity(energy.len());
         let mut pendf_bondarenko: Vec<[f64; 5]> = Vec::with_capacity(energy.len());
         let mut pendf_bands: Vec<Vec<f64>> = Vec::with_capacity(energy.len());
-        for (k, &e) in energy.iter().enumerate() {
+        let selected = nunx_indices(energy.len(), nunx);
+        for &k in &selected {
+            let e = energy[k];
             let inf = infinite_dilution_reference(&ranges, e)?;
             let bkg = if range.lssf > 0 {
                 lssf_reduced_background(bkg_all[k], e, competes, ecomp)
@@ -607,7 +630,7 @@ impl UrrProbabilityTables {
             interpolation: 2,
             inelastic_competition,
             absorption_competition,
-            energy,
+            energy: selected.iter().map(|&k| energy[k]).collect(),
             points,
             pendf: Some(PurrPendf { intunr, nbin, bondarenko: pendf_bondarenko, bands: pendf_bands }),
         }))
@@ -900,6 +923,43 @@ mod f64s_tests {
         long.push(0.0);
         assert!(UrrProbabilityTables::from_f64s(&long).is_err());
     }
+}
+
+/// The 0-based indices of the unresolved energies PURR processes for card 2's
+/// `nunx` out of `nunr` (`purr.f90:283-292`):
+///
+/// ```text
+/// if ((nunx.eq.0).or.(nunx.gt.nunr)) nunx=nunr
+/// if (nunx.eq.1) nunx=2
+/// nstep=nunr/(nunx-1)
+/// if (nstep.lt.1) nstep=1
+/// ie=1-nstep
+/// do while (ie.lt.nunr)
+///    ie=ie+nstep
+///    if (ie.gt.nunr) ie=nunr
+/// ```
+pub(crate) fn nunx_indices(nunr: usize, nunx: usize) -> Vec<usize> {
+    if nunr == 0 {
+        return Vec::new();
+    }
+    let (nunr, mut nunx) = (nunr as i64, nunx as i64);
+    if nunx == 0 || nunx > nunr {
+        nunx = nunr;
+    }
+    if nunx == 1 {
+        nunx = 2;
+    }
+    let nstep = (nunr / (nunx - 1).max(1)).max(1);
+    let mut out = Vec::new();
+    let mut ie = 1 - nstep;
+    while ie < nunr {
+        ie += nstep;
+        if ie > nunr {
+            ie = nunr;
+        }
+        out.push((ie - 1) as usize);
+    }
+    out
 }
 
 /// PURR's **competition flags** for an unresolved range — a port of the
@@ -1199,6 +1259,21 @@ fn urr_energy_grid(range: &UnresolvedRange) -> Vec<f64> {
 mod urr_grid_tests {
     use super::*;
     use crate::reference_data::reference_endf;
+
+    /// `purr.f90:283-292`: `nunx = 0` keeps every energy; `nunx = 2` the first
+    /// and last (upstream test 63, Ag-109's 20 energies); a middle stride ends
+    /// on the last energy.
+    #[test]
+    fn nunx_indices_follow_purrs_stride() {
+        assert_eq!(nunx_indices(20, 0), (0..20).collect::<Vec<_>>());
+        assert_eq!(nunx_indices(20, 2), vec![0, 19]);
+        assert_eq!(nunx_indices(20, 1), vec![0, 19]);
+        assert_eq!(nunx_indices(20, 5), vec![0, 5, 10, 15, 19]);
+        assert_eq!(nunx_indices(20, 50), (0..20).collect::<Vec<_>>());
+        assert_eq!(nunx_indices(2, 0), vec![0, 1]);
+        assert_eq!(nunx_indices(1, 0), vec![0]);
+        assert!(nunx_indices(0, 0).is_empty());
+    }
 
     fn grid_of(tape_file: &str) -> Option<Vec<f64>> {
         let path = reference_endf(tape_file)?;

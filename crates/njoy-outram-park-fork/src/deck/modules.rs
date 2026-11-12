@@ -548,7 +548,9 @@ pub struct PurrMaterial {
     pub nladr: i32,
     /// `iprint` (default 1).
     pub iprint: i32,
-    /// `nunx`: extra unresolved energies (default 0).
+    /// `nunx`: ~~extra unresolved energies~~ the number of unresolved energies
+    /// processed, `0` (default) all of them (`purr.f90:98`, `:283-292`; corrected
+    /// 2026-11-12, gh:#1498).
     pub nunx: i32,
     /// Temperatures \[K\].
     pub temps: Vec<f64>,

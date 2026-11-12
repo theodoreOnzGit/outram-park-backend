@@ -837,6 +837,24 @@ fn test_72_gaspr_chain_ace() {
 /// `viewr`, and compare, line by line against NJOY2016.80, the listed units:
 /// the ACE file the check run writes, the directory lines and, where the deck
 /// has `ngend`, the plot file (`aplots`, unit 33: viewr input text, gh:#1369).
+///
+/// **The PURR decks (35-42, 63) also compare unit 34** (MODER's text copy of
+/// PURR's PENDF) **and unit 41** (the `iopt = 1` ACE), so the whole
+/// `reconr -> broadr -> purr -> moder -> acer -> acer` chain is gated, every
+/// line (gh:#1498).
+///
+/// Predictions and results (2026-11-12, release, NJOY2016.80):
+/// - Decks 39 and 40, tape41: 3 and 5 lines differed, all in integer against
+///   real format, with the values equal. `acelcp` rewrites words before an HPD
+///   block (`acefc.f90:9376-9384`) and `aceout` prints through `change`
+///   (`:13024`), which this crate's `iopt = 1` writer did not. Predicted 0;
+///   **measured 0**.
+/// - Deck 63 (`nunx = 2`): ACE 2 178 words long, unit 34 117 lines. Predicted 0
+///   once PURR keeps `purr.f90:283-292`'s stride; **measured 0** on 34 and 41.
+/// - Deck 37: unit 34 and the RECONR copy differed in 624 lines from one extra
+///   grid point, `sigfig(eh,7,+1)` at the URR top. Predicted 0 without it;
+///   **measured 0** on every unit.
+/// - Deck 35: already 0 before this change (the survey row predated gh:#1505).
 fn acer_check_deck(case: &str, resource: &str, extra: &[(&str, u32)], units: &[u32]) -> Option<()> {
     let root = njoy_root();
     let full = deck_text(&root, case, Some("viewr"), "")?;
@@ -870,45 +888,47 @@ fn test_24_acer_check_unit_and_directory() {
 }
 
 #[test]
-#[ignore = "the preceding iopt = 1 ACE differs in 5 unresolved-range (PURR) words, which the check file repeats; not the iopt = 7 writer (gh:#1492)"]
+/// ~~Ignored: the preceding `iopt = 1` ACE differed in 5 unresolved-range words.~~
+/// Gated since 2026-11-12 (gh:#1498): identical once RECONR's MF=10 fix (gh:#1505) landed.
 fn test_35_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("35", "n-047_Ag_109-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
+    let _ = acer_check_deck("35", "n-047_Ag_109-ENDF8.0.endf", &[], &[34, 41, 42, 43, 44, 45]);
 }
 
 #[test]
 fn test_36_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("36", "n-050_Sn_119-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
+    let _ = acer_check_deck("36", "n-050_Sn_119-ENDF8.0.endf", &[], &[34, 41, 42, 43, 44, 45]);
 }
 
 #[test]
-#[ignore = "the preceding iopt = 1 ACE is 21 words longer than NJOY's (PURR unresolved block), so its directory line differs; not the iopt = 7 writer (gh:#1492)"]
+/// ~~Ignored: the preceding `iopt = 1` ACE was 21 words longer than NJOY's.~~ Gated
+/// since 2026-11-12 (gh:#1498): RECONR's extra `sigfig(eh,7,+1)` point at the URR top.
 fn test_37_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("37", "n-027_Co_058-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
+    let _ = acer_check_deck("37", "n-027_Co_058-ENDF8.0.endf", &[], &[34, 41, 42, 43, 44, 45]);
 }
 
 #[test]
 fn test_38_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("38", "n-036_Kr_083-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
+    let _ = acer_check_deck("38", "n-036_Kr_083-ENDF8.0.endf", &[], &[34, 41, 42, 43, 44, 45]);
 }
 
 #[test]
 fn test_39_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("39", "n-028_Ni_063-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
+    let _ = acer_check_deck("39", "n-028_Ni_063-ENDF8.0.endf", &[], &[34, 41, 42, 43, 44, 45]);
 }
 
 #[test]
 fn test_40_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("40", "n-025_Mn_055-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
+    let _ = acer_check_deck("40", "n-025_Mn_055-ENDF8.0.endf", &[], &[34, 41, 42, 43, 44, 45]);
 }
 
 #[test]
 fn test_41_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("41", "n-032_Ge_071-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
+    let _ = acer_check_deck("41", "n-032_Ge_071-ENDF8.0.endf", &[], &[34, 41, 42, 43, 44, 45]);
 }
 
 #[test]
 fn test_42_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("42", "n-030_Zn_067-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
+    let _ = acer_check_deck("42", "n-030_Zn_067-ENDF8.0.endf", &[], &[34, 41, 42, 43, 44, 45]);
 }
 
 #[test]
@@ -942,9 +962,10 @@ fn test_62_acer_check_unit_and_directory() {
 }
 
 #[test]
-#[ignore = "the preceding iopt = 1 ACE is 2 178 words longer than NJOY's (PURR unresolved block); not the iopt = 7 writer (gh:#1492)"]
+/// ~~Ignored: the preceding `iopt = 1` ACE was 2 178 words longer than NJOY's (PURR
+/// unresolved block).~~ Gated since 2026-11-12 (gh:#1498): PURR's `nunx = 2` stride.
 fn test_63_acer_check_unit_and_directory() {
-    let _ = acer_check_deck("63", "n-047_Ag_109-ENDF8.0.endf", &[], &[42, 43, 44, 45]);
+    let _ = acer_check_deck("63", "n-047_Ag_109-ENDF8.0.endf", &[], &[34, 41, 42, 43, 44, 45]);
 }
 
 #[test]
@@ -958,10 +979,13 @@ fn test_71_acer_check_unit_and_directory() {
 /// run), against NJOY2016's own plot file (`plot_unit`), line by line, and the
 /// edited ACE file (`ace_out_unit`) as a control.
 ///
-/// Why: decks 35, 37, 63 and 71 cannot compare unit 43/33 end to end, because
+/// Why: ~~decks 35, 37, 63 and 71 cannot compare unit 43/33 end to end, because
 /// the table this crate writes for them differs from NJOY's before `aplots`
-/// runs (PURR words; a TENDL d + Pt-184 table). Feeding NJOY's own table to
-/// both writers isolates `aplots` from that.
+/// runs (PURR words; a TENDL d + Pt-184 table).~~ **CORRECTED 2026-11-12
+/// (gh:#1498):** decks 35, 37 and 63 now give NJOY's `iopt = 1` table and are
+/// compared end to end (`test_{35,37,63}_acer_check_unit_and_directory`); this
+/// test stays as the isolation of `aplots`. Feeding NJOY's own table to both
+/// writers isolates `aplots` from the table builder.
 fn plot_of_njoys_own_ace(case: &str, resource: &str, ace_unit: u32, plot_unit: u32, ace_out_unit: u32, hk: &str) -> Option<()> {
     let root = njoy_root();
     let full = deck_text(&root, case, Some("viewr"), "")?;
@@ -1477,7 +1501,8 @@ fn test_74_viewr_postscript() {
 /// VIEWR on **NJOY's own plot file** (gh:#1369): NJOY2016.80 runs the whole upstream deck `case`; this
 /// crate's VIEWR is then run on NJOY's plot-command unit `plot_unit`, and its PostScript is compared,
 /// line by line, with NJOY's unit `ps_unit`. This isolates VIEWR from the ACER tables that decks 13,
-/// 14, 35, 37 and 63 do not yet reproduce word for word upstream of the plot file.
+/// 14 ~~, 35, 37 and 63~~ do not yet reproduce word for word upstream of the plot file (35, 37 and 63
+/// do since 2026-11-12, gh:#1498; their whole-deck units are gated by `acer_check_deck`).
 fn viewr_of_njoys_own_plot(case: &str, resource: &str, extra: &[(&str, u32)], plot_unit: u32, ps_unit: u32) -> Option<()> {
     let root = njoy_root();
     let full = deck_text(&root, case, None, "")?;

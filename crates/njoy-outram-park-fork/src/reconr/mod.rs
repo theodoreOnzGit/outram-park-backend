@@ -1531,10 +1531,10 @@ pub(crate) fn rebuild_range_with(
     // at `sigfig(eh,7,-1)` (with resonances) and the first point beyond it at
     // `sigfig(eh,7,+1)` (background only). Likewise at `el`, unless `el` is the
     // grid floor `elow` (`if (abs(el-elow).le.small)` — nothing below it).
+    // Those nodes reach the table only through `lunion`'s union grid, which can
+    // drop one (gh:#1498; see below), so nothing here adds them.
     let eh_lo = sigfig(eh, 7, -1);
-    let eh_hi = sigfig(eh, 7, 1);
     let shade_el = (el - ELOW).abs() > SAME_ENERGY_REL * ELOW;
-    let el_lo = sigfig(el, 7, -1);
     let el_hi = sigfig(el, 7, 1);
     let same = |a: f64, b: f64| (a - b).abs() <= SAME_ENERGY_REL * b.abs();
 
@@ -1622,17 +1622,20 @@ pub(crate) fn rebuild_range_with(
             .filter(|&(e, _)| e < el || e > eh)
             .collect();
 
-        // Background-only shaded nodes just outside the range (`eh_hi`, and
+        // ~~Background-only shaded nodes just outside the range (`eh_hi`, and
         // `el_lo` when `el` is shaded), unless the background already carries
-        // a point there — as it does when an MF=3 discontinuity at the
-        // boundary was itself shaded by `shade_discontinuities`.
-        let has_point_near = |e: f64| bg.iter().any(|&(x, _)| same(x, e));
-        if !has_point_near(eh_hi) {
-            new_pairs.push((eh_hi, eval_lin_lin(&bg, eh_hi)));
-        }
-        if shade_el && !has_point_near(el_lo) {
-            new_pairs.push((el_lo, eval_lin_lin(&bg, el_lo)));
-        }
+        // a point there.~~ **REMOVED 2026-11-12 (gh:#1498):** `emerge` writes
+        // `lunion`'s union grid and nothing else (`reconr.f90:4646-4982`).
+        // `rdfil2` puts `sigfig(eh,7,+1)` and `sigfig(el,7,-1)` among the nodes
+        // (`:751-767`), and when `lunion` keeps them the background `bg`
+        // (on that grid) already carries them, outside `[el, eh]`, so the
+        // filter above keeps them. `lunion` can drop one: Co-58 ENDF/B-VIII.0
+        // (upstream test 37) has MF=3 steps `(24900, 0) -> (24900, 15.11)` on a
+        // region boundary at the URR top, the look-ahead shading
+        // (`if (ir.lt.nbta)`, `:2021`) does not fire, and the node
+        // `24900.01` is not carried (measured with an instrumented NJOY2016.80).
+        // Pushing it here put a point NJOY does not have, at a lin-lin
+        // background of 6.19e-4 b (MT=2), into every resonance reaction.
 
         // Add background + resonance for every in-range grid energy, as
         // `emerge` does: the background is `gety1` of the tape's own TAB1 at

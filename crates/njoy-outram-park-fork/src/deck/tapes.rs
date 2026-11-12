@@ -55,6 +55,8 @@ pub struct PendfMeta {
     pub purr: Option<(usize, usize, Vec<f64>)>,
     /// PURR's output unit was negative (blocked binary).
     pub purr_binary: bool,
+    /// PURR card 2's `nunx` (`0`: every unresolved energy), gh:#1498.
+    pub purr_nunx: usize,
     /// The pointwise result of every temperature block on the tape, in tape
     /// order: `(temperature [K], result)`.
     pub blocks: Vec<(f64, ReconrResult)>,

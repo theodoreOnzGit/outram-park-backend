@@ -679,3 +679,31 @@ fn particle_blocks(w: &mut Walk, ntype: i64, ptype: i64, ntro: i64, ploct: i64) 
     }
     Ok(())
 }
+
+/// The Type-1 text of a fast ACE table as `aceout` writes it for `itype = 1`
+/// (`acefc.f90:13006-13024`): the header block, then the XSS array printed
+/// by `change` ([`xss_lines`]) rather than by the builder's own
+/// [`super::AceTable::xss_is_int`] flags.
+///
+/// Why (gh:#1498): which words are integers is decided upstream by `change`'s
+/// block walk, never by how a word was stored. `acelcp`'s MF=4 / capture-recoil
+/// branch writes `xss(hpd+2+ie-it)` from `ie = iaa` (`acefc.f90:9376-9384`), so
+/// when a reaction's threshold index `iaa` is below the particle's `it` it
+/// rewrites, value unchanged, up to `it - iaa` words *before* the HPD block (the
+/// previous particle's last `MTY`, then this HPD's `IE` and `NE`). Upstream's
+/// output is unaffected; a writer that trusted the builder's flags printed them
+/// as reals (upstream tests 39 and 40: 3 and 5 lines of tape41).
+///
+/// # Errors
+/// As [`super::AceTable::to_type1_text`] and [`xss_lines`].
+pub fn type1_text(table: &super::AceTable) -> Result<String, NjoyError> {
+    let text = table.to_type1_text()?;
+    // Header: two title lines, four `(iz, aw)` lines, two NXS and four JXS lines.
+    let mut out: String = text.split_inclusive('\n').take(12).collect();
+    let idx = AceIndex { nxs: table.nxs.map(i64::from), jxs: table.jxs.map(i64::from) };
+    for line in xss_lines(&table.xss, &idx)? {
+        out.push_str(&line);
+        out.push('\n');
+    }
+    Ok(out)
+}
