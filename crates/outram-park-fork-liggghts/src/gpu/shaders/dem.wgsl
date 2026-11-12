@@ -60,7 +60,8 @@ struct P {
 //   5: edgeVec[0], edge/corner activity bits (edge k: bit k, corner k: bit 3 + k)
 //   6: edgeVec[1]             7: edgeVec[2]
 //   8: bounds (centroid, radius)
-//   9, 10: up to 8 coplanar node-neighbour facets (f32 values, −1 empty).
+//   9, 10: up to 8 coplanar node-neighbour facets (f32 values, −1 empty)
+//   11: surfaceNorm's lo part (normal = row 4 + row 11, for the face distance)
 // The contact is resolved in coordinates local to a (node 0), so magnitudes
 // are a facet's size, not the vessel's.
 @group(0) @binding(6) var<storage, read_write> tris: array<vec4<f32>>;
@@ -78,7 +79,7 @@ const INERTIA: f32 = 0.4;
 // Mesh-facet contact slots per particle (`gpu::dem::M_SLOTS`).
 const M_SLOTS: u32 = 8u;
 // vec4s per triangle (`gpu::dem::TRI_VEC4S`).
-const TRI: u32 = 11u;
+const TRI: u32 = 12u;
 // Upstream `SMALL_TRIMESH` and `LARGE_TRIMESH` (`tri_mesh.rs`).
 const SMALL_TRIMESH: f32 = 1.0e-10;
 const LARGE_TRIMESH: f32 = 1000000.0;
@@ -190,6 +191,26 @@ fn dd_sqrt(a: vec2<f32>) -> vec2<f32> {
     if (h == 0.0) { return vec2<f32>(0.0); }
     let r = dd_add(a, -dd_sq(vec2<f32>(h, 0.0)));
     return ts(h, (r.x + r.y) / (2.0 * h));
+}
+
+// The exact error of a·b = p (Dekker's split product, as `sq_err`).
+fn mul_err(a: f32, b: f32, p: f32) -> f32 {
+    let ca = keep(4097.0 * a);
+    let ah = keep(ca - keep(ca - a));
+    let al = keep(a - ah);
+    let cb = keep(4097.0 * b);
+    let bh = keep(cb - keep(cb - b));
+    let bl = keep(b - bh);
+    return keep(keep(keep(keep(keep(ah * bh) - p) + keep(ah * bl)) + keep(al * bh)) + keep(al * bl));
+}
+
+// (a.x + a.y)(b.x + b.y), to double-f32.
+fn dd_mul(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
+    let p = keep(a.x * b.x);
+    let e = mul_err(a.x, b.x, p);
+    let lo = keep(keep(e + keep(a.x * b.y)) + keep(a.y * b.x));
+    let h = keep(p + lo);
+    return vec2<f32>(h, lo - keep(h - p));
 }
 
 // The exact error of a·a (Dekker's split product, which needs no fused
@@ -642,10 +663,31 @@ fn forces(@builtin(global_invocation_id) gid: vec3<u32>) {
                 if (length(p - bb.xyz) - bb.w >= ri) { continue; }
                 // The particle in coordinates local to node 0.
                 let lp = keep3(pi.hi.xyz - tris[TRI * tt].xyz) + keep3(pi.lo.xyz - tris[TRI * tt + 1u].xyz);
-                let c = resolve_facet(tt, lp);
+                var c = resolve_facet(tt, lp);
                 // overlap = r − d (upstream deltan = d − r <= 0), r as hi + lo.
                 let dd = ts(ri, -c.d);
-                let ov = dd.x + keep(dd.y + pi.v.w);
+                var ov = dd.x + keep(dd.y + pi.v.w);
+                if (c.code == 7u && ov > -ri) {
+                    // A face contact: d = |n · (x − a)| re-formed in
+                    // double-f32 (x, a and n each as hi + lo). In f32 a
+                    // facet 0.75 m long (the conus) leaves ~1e-7 m in d
+                    // against a ~1e-4 m overlap (gh:#1503, case 5).
+                    let ah = tris[TRI * tt].xyz;
+                    let al = tris[TRI * tt + 1u].xyz;
+                    let nh = tris[TRI * tt + 4u].xyz;
+                    let nl = tris[TRI * tt + 11u].xyz;
+                    let qx = dd_add(ts(pi.hi.x, -ah.x), vec2<f32>(keep(pi.lo.x - al.x), 0.0));
+                    let qy = dd_add(ts(pi.hi.y, -ah.y), vec2<f32>(keep(pi.lo.y - al.y), 0.0));
+                    let qz = dd_add(ts(pi.hi.z, -ah.z), vec2<f32>(keep(pi.lo.z - al.z), 0.0));
+                    var dn = dd_add(
+                        dd_add(dd_mul(vec2<f32>(nh.x, nl.x), qx), dd_mul(vec2<f32>(nh.y, nl.y), qy)),
+                        dd_mul(vec2<f32>(nh.z, nl.z), qz),
+                    );
+                    if (dn.x < 0.0) { dn = -dn; }
+                    let o2 = dd_add(dd_add(ts(ri, -dn.x), vec2<f32>(-dn.y, 0.0)), vec2<f32>(pi.v.w, 0.0));
+                    ov = o2.x + o2.y;
+                    c.d = dn.x + dn.y;
+                }
                 if (ov < 0.0) { continue; }
                 let face = c.code == 7u;
                 let id = f32(tt);

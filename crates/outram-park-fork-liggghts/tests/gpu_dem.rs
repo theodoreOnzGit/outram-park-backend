@@ -268,7 +268,7 @@ fn balls_bounce_off_the_discharge_mesh_as_on_the_cpu() {
                 Vec3::new(0.0, 0.0, 3.0),
             ),
             ball(
-                Vec3::new(-0.21, -0.21, -CONE_HEIGHT_M + 0.06),
+                Vec3::new(-0.1838, -0.1838, -CONE_HEIGHT_M + 0.06),
                 Vec3::new(-0.4, -0.3, -0.2),
                 Vec3::new(1.0, 0.0, 0.0),
             ),
@@ -283,7 +283,7 @@ fn balls_bounce_off_the_discharge_mesh_as_on_the_cpu() {
         Vec3::zero(),
     )]);
     let v0 = [Vec3::new(0.5, 0.0, 0.0), Vec3::new(-0.4, -0.3, -0.2)];
-    let Some((cpu, g)) = both(sys, 1_400) else {
+    let Some((cpu, g)) = both(sys, 2_000) else {
         return eprintln!("skipping: no GPU adapter");
     };
     for (k, (c, s)) in cpu.particles().iter().zip(&g).enumerate() {

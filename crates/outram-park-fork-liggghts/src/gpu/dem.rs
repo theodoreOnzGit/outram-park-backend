@@ -89,7 +89,7 @@ pub const M_SLOTS: u32 = 8;
 /// with more is refused.
 const COPLANAR_CAP: usize = 8;
 /// `vec4`s per uploaded triangle (must match `TRI` in `dem.wgsl`).
-const TRI_VEC4S: usize = 11;
+const TRI_VEC4S: usize = 12;
 
 /// The uniform block (must match `Params` in `dem.wgsl`).
 #[repr(C)]
@@ -275,6 +275,7 @@ impl GpuSetup {
                         f4(c, r * (1.0 + 1e-6) + 1e-9),
                         [coplanar[0], coplanar[1], coplanar[2], coplanar[3]],
                         [coplanar[4], coplanar[5], coplanar[6], coplanar[7]],
+                        [split(sn[0]).1, split(sn[1]).1, split(sn[2]).1, 0.0],
                     ]);
                     centroids.push((c, r));
                 }
