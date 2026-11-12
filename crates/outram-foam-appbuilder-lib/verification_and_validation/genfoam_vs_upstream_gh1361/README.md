@@ -298,3 +298,43 @@ fixed by reading upstream).** None changes a number that was recorded before.
    diffusion only; the test asserts the column is empty rather than silently skipping it).
 
 The static `solve_eigenvalue` paths are untouched; all four histories pass through `PseudoTimeEigenvalue` only.
+
+## SN (gh:#1474): quadratureSet reader, anisotropic scattering, and a small S_N case
+
+Read first: `SNNeutronics.C` / `SN/include/*.H` (see the list in the module header of `sn/pseudo_time.rs`).
+What was found before writing anything, none of it in the round-1 plan:
+
+* `xs_.legendreMoments()` is `1 + legendreMoments` (`XS.C:75`). Godiva's `legendreMoments 3` therefore uses P0 to P3 (the file
+  stores P0 to P5; P4 and P5 are ignored). The port's `read_nuclear_data` already counts all stored matrices.
+* Upstream's SN uses weights summing to 1 and no `1/(4 pi)` in the source (the port's `SnNeutronics` uses `4 pi` and `1/(4 pi)`); the two give the
+  same scalar flux, but the new code follows upstream's convention so every intermediate quantity is comparable.
+* The within-group moment source is `sum_{d'} psi_{d'} w_{d'} sum_{L>=1} P_L(Omega_d' . Omega_d)(2L+1) Sigma_{sL}`
+  with `P_L(Omega_d . Omega_d')` the Legendre polynomial of the direction cosine (not the spherical-harmonics addition theorem).
+  It is evaluated with the CURRENT `psi` of earlier directions (Gauss-Seidel over directions), and re-evaluated for every direction.
+* Godiva uses `inletOutlet` (`inletValue 0`) on every patch, the port's `fvm::div` already has it (a V&V test in basic-lib).
+* `SNNeutronics::maxDeltaT` has no `time > deltaT` guard (as SP3); Godiva has `adjustTimeStep false`.
+* The new code is a separate type `SnPseudoTimeSolver` (+ `QuadratureSet`); `SnNeutronics` (baked-in sets, P0, static power
+  iteration) is left exactly as it is, which is the named option that keeps the existing behaviour.
+
+**The small case.** Godiva_SN is 9 minutes and 3.2 GB per step upstream (round 1), so the identical-input comparison uses a case built
+from the SAME dictionaries on a small mesh: guided tutorial 1's slab (151 cells, one group, 6 precursor groups, its `polyMesh`
+and removal/fission data, committed under `cases/guided1`) turned into an S_N case by `scripts/sn_slab_protocol.sh`:
+Godiva's own `quadratureSet` (4 directions per octant, 32 in all), `legendreMoments 3` with P1 = 0.03, P2 = 0.012, P3 = 0.005 added to
+P0 = 0.1 (m^-1; **synthetic**: the slab has no published anisotropic data, chosen only so the moment sources are not negligible next to
+removal 5.0082; they are inputs of BOTH codes and no result depends on being physical), and `inletOutlet` on the vacuum faces as Godiva
+has. Linear solvers at 1e-14 / relTol 0, `adjustTimeStep false`, `deltaT 1`, 6 steps (upstream log for 12 steps: keff_ goes
+1.1345, 0.9304, 1.3823, 0.6475, 2.8265, 0.1707, 5, 0.1, 5, 0.1: the single-sweep pseudo-time iteration is unstable on this case, it
+reaches the `[0.1, 5]` clamp at step 7. That is upstream's behaviour, recorded, not a defect of the comparison; the comparison
+stops at step 6, before the clamp).
+
+### Predictions (written BEFORE the port run; committed first)
+
+| id | quantity | prediction |
+|---|---|---|
+| N1 | step 1: `keff_` (upstream 1.1345062686135805), `pow:`, first residual (upstream 1) | `abs(dk) < 1e-11`; `pow` relative `< 1e-11`; residual equal to 1 within 1e-9 |
+| N2 | steps 2 to 4 `keff_` | `abs(dk) < 1e-9`; the iteration amplifies a solver-level difference at each step (k swings 0.93, 1.38, 0.65) |
+| N3 | steps 5 and 6 `keff_` | `abs(dk) < 1e-6` (two more amplifications, k swings to 2.83 and 0.17) |
+| N4 | residuals (upstream 0.221, 0.247, 0.432, 0.611, 0.659 for steps 2 to 6) | relative difference `< 1e-5` for steps 2 to 4, `< 1e-3` for steps 5 and 6 |
+| N5 | scalar flux at step 6 (unit-sum shape), port vs upstream | max relative difference `< 1e-5` |
+| N6 | ablation: port with P0 only (`legendre_moments = 1`) on the same quadrature | step-1 `keff_` differs from upstream by MORE than 1e-4 relative: the anisotropic source carries visible weight (if it does not, the case does not test P1 to P3 and the test must say so) |
+| N7 | first divergent operation if a bound is missed | the BiCGStab stopping rule (port: `||r||/||b|| < 1e-13` ILU(0); upstream: normalised residual 1e-14 DILU), which only sets WHERE each linear solve stops, not what it solves |

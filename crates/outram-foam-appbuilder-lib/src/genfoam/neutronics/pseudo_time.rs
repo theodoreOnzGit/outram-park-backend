@@ -260,7 +260,8 @@ pub fn neutronics_max_delta_t(
     new_delta_t
 }
 
-/// The SP3 solver's `maxDeltaT()` (`SP3Neutronics.C:216`): as
+/// The SP3 and SN solvers' `maxDeltaT()` (`SP3Neutronics.C:216`,
+/// `SNNeutronics.C:184`, identical): as
 /// [`neutronics_max_delta_t`] but evaluated from the first step on.
 #[must_use]
 pub fn sp3_max_delta_t(

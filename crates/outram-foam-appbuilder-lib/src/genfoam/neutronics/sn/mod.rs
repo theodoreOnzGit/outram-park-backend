@@ -104,6 +104,8 @@
 //!   [`Self::solve_eigenvalue`] run the real transport eigenvalue solve.
 
 pub mod quadrature;
+pub mod quadrature_set;
+pub mod pseudo_time;
 
 mod eigenvalue;
 mod sweep;
