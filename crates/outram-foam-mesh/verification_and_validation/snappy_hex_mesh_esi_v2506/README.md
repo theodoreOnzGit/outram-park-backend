@@ -718,3 +718,36 @@ print the same.
 | P26 | The ported nine checks (`check_mesh::esi_*`: `checkFaceDotProduct`, `checkFacePyramids`, `checkFaceTets` incl. `polyMeshTetDecomposition`, `checkFaceAngles`, `checkFaceSkewness`, `checkFaceWeights`, `checkVolRatio`, `checkFaceTwist`, `checkCellDeterminant`) on ESI's time-35 mesh give **exactly** the per-check face sets above (pyramids 4, tets 6, twist 6, the other six checks empty; union 8) and **zero** faces on ESI's time-32 (castellated) and time-36 (snapped) meshes. Pass/fail is discrete, so bit identity of the metric is not needed, only that no face lies within round-off of a threshold; none is expected to. |
 | P27 | `scaleMesh` ported (`errorReduction 0.75`, `nSmoothScale 4`, `calcEdgeWeights(oldPoints)`, `minSmooth` over patch points then internal points, `getAffectedFacesAndPoints`) from the time-34 displacement and the castellated points: iteration 0 finds the 8 faces above, iteration 1 (scale min 0.75, max 1) finds none, and the resulting points equal ESI's time 36 **bit for bit on all 79986 components**. The operations are `+ - * /`, `min` and `sqrt` in upstream's order; the earlier stages were bit-identical for the same reason. Expected failure mode if wrong: the affected-point set (`pointCells` growth) or the order of `scale_ *= errorReduction` before `minSmooth`. |
 | P28 | `checkMesh` of the port's scaled mesh: **0 faces for all nine checks**, as ESI's "Moved mesh" iteration 1 and `checkMesh -meshQuality -time 36`. |
+
+### Round 4, tasks 1 and 2: results (2026-11-12, release, `tests/snappy_hex_mesh_esi_scale.rs`)
+
+Code: `check_mesh::esi_*` (the nine checks, `esi_check_mesh`, `EsiQualityControls`,
+`EsiGeometry`; beside the older `check_quality`, which is untouched; no kovan review
+stamp exists in this crate) and `esi_snap::{scale_mesh, scale_mesh_loop, MotionSmoother,
+affected_faces_and_points}`. `esi_snap::cell_centres` now delegates to the new
+`cell_centres_vols` (same operations); the vector helpers became `pub(crate)`.
+
+| stage | compared with | result |
+|---|---|---|
+| nine checks alone, ESI time-35 mesh | `checkMesh -meshQuality` with one check enabled | **all nine face sets equal**: pyramids {56918, 58032, 58040, 58067}, tets 6, twist 6, the other six empty; union 8; cumulative-new counts 0, 4, +2, 0, 0, 0, 0, +2, 0 as ESI's log |
+| same checks, threshold `minVol` 1e-15 | ESI with 1e-15 | same 4 faces |
+| ESI time-32 and time-36 meshes | ESI "Mesh OK" | 0 faces |
+| `oldPoints + 1 * displacement` | ESI time 35 | **bit-identical, 79986 of 79986** |
+| `scaleMesh` loop (2 iterations: 8 faces at scale 1, 0 faces at scale min 0.75) | ESI log iterations 0 and 1 | same counts and same 8 faces |
+| snapped points | ESI time 36 | **bit-identical, 79986 of 79986** |
+
+**Ledger.** P26 **held**, P27 **held**, P28 **held**; no round-off residual to count
+(no transcendental other than `cos`/`sin` of the two thresholds, through
+`RealMath`, and they agree). One pre-declared alternative was measured and refuted
+rather than tuned: whether `curPoints` scales PATCH points by the scale field (the
+`scale_*displacement_` product's boundary values might have stayed 1). With patch
+points unscaled the run does not converge (10 iterations, 77664 of 79986 bit-identical,
+worst 1.2e-4 m), so ESI does scale them; pinned by
+`unscaled_patch_points_reading_is_refuted`. Round-3 statement "unscaled mesh differs
+from time 36 by at most 6.0e-5 m" is now explained: that was the scaling of the 8 faces'
+neighbourhood. Pins moved: none. Defects: the round-3 pyramid-threshold note (above).
+Not covered by the port: baffles, coupled patches, `minArea`, `minTriangleTwist`,
+`minFaceFlatness`, `minEdgeLength` (all -1 or absent in `meshQualityDict`), the
+`polyMeshGeometry` overload used by layer addition. No picture drawn for this stage:
+the change (8 faces' points scaled by at most 0.25 of a sub-0.1 mm displacement) is
+below a pixel, as for round 3.

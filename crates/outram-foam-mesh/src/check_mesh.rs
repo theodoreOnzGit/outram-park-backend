@@ -74,6 +74,8 @@
 use outram_foam_basic_lib::primitives::Vector3;
 use petir::mathf::RealMath;
 
+use crate::snappy_hex_mesh::esi_snap::{self, SnapMesh};
+
 /// OpenFOAM's `rootVSmall` (`1e-150`), the guard in `faceSkewness` and
 /// friends.
 pub const ROOT_V_SMALL: f64 = 1e-150;
@@ -806,6 +808,626 @@ pub fn faces_failing_mesh_quality<F: AsRef<[usize]>>(
         }
     }
     bad
+}
+
+// ---------------------------------------------------------------------------
+// ESI v2506 `meshQualityControls`: the nine face checks of `polyMeshGeometry`
+// as `snappySnapDriver::scaleMesh` runs them (gh:#1467, round 4).
+// ---------------------------------------------------------------------------
+
+/// OpenFOAM double-precision constants used by the ESI checks.
+const ESI_SMALL: f64 = 1e-15;
+const ESI_VSMALL: f64 = 1e-300;
+const ESI_GREAT: f64 = 1e15;
+const ESI_VGREAT: f64 = 1e300;
+
+/// The nine checks in the order `motionSmootherAlgo::checkMesh` runs them (and
+/// ESI's log prints them).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EsiCheck {
+    /// `checkFaceDotProduct`: non-orthogonality.
+    NonOrthogonality,
+    /// `checkFacePyramids`.
+    FacePyramids,
+    /// `checkFaceTets` (face-decomposition tet quality and the base-point search).
+    FaceTets,
+    /// `checkFaceAngles` (concavity).
+    Concavity,
+    /// `checkFaceSkewness`.
+    Skewness,
+    /// `checkFaceWeights`.
+    FaceWeights,
+    /// `checkVolRatio`.
+    VolRatio,
+    /// `checkFaceTwist`.
+    FaceTwist,
+    /// `checkCellDeterminant`.
+    CellDeterminant,
+}
+
+/// The `meshQualityControls` keys of ESI v2506 `etc/caseDicts/meshQualityDict`
+/// that `motionSmootherAlgo::checkMesh` evaluates. A key disables its check with
+/// ESI's own condition (`maxNonOrtho >= 180 - SMALL`, `minVol <= -GREAT`,
+/// `minTetQuality <= -GREAT`, `maxConcave >= 180 - SMALL`, both skewness limits
+/// not positive, `minFaceWeight` outside [0, 1), `minVolRatio < 0`, `minTwist <=
+/// -1`, `minDeterminant <= -1`). `minArea`, `minTriangleTwist`, `minFaceFlatness`
+/// and `minEdgeLength` are -1 in that dictionary, so those checks are not ported.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EsiQualityControls {
+    /// `maxNonOrtho` [degrees].
+    pub max_non_ortho: f64,
+    /// `minVol`: the face-pyramid threshold of the MESH overload of `checkMesh`
+    /// (the one `scaleMesh` uses); the `polyMeshGeometry` overload passes
+    /// `minTetQuality` instead.
+    pub min_vol: f64,
+    /// `minTetQuality`.
+    pub min_tet_quality: f64,
+    /// `maxConcave` [degrees].
+    pub max_concave: f64,
+    /// `maxInternalSkewness`.
+    pub max_internal_skewness: f64,
+    /// `maxBoundarySkewness`.
+    pub max_boundary_skewness: f64,
+    /// `minFaceWeight`.
+    pub min_face_weight: f64,
+    /// `minVolRatio`.
+    pub min_vol_ratio: f64,
+    /// `minTwist`.
+    pub min_twist: f64,
+    /// `minDeterminant`.
+    pub min_determinant: f64,
+}
+
+impl Default for EsiQualityControls {
+    /// The values of `etc/caseDicts/meshQualityDict` (v2506).
+    fn default() -> Self {
+        EsiQualityControls {
+            max_non_ortho: 65.0,
+            min_vol: 1e-13,
+            min_tet_quality: 1e-15,
+            max_concave: 80.0,
+            max_internal_skewness: 4.0,
+            max_boundary_skewness: 20.0,
+            min_face_weight: 0.05,
+            min_vol_ratio: 0.01,
+            min_twist: 0.02,
+            min_determinant: 0.001,
+        }
+    }
+}
+
+impl EsiQualityControls {
+    /// Every check switched off, ESI's way: the base for a one-check run.
+    pub fn all_disabled() -> Self {
+        EsiQualityControls {
+            max_non_ortho: 180.0,
+            min_vol: -ESI_VGREAT,
+            min_tet_quality: -ESI_VGREAT,
+            max_concave: 180.0,
+            max_internal_skewness: -1.0,
+            max_boundary_skewness: -1.0,
+            min_face_weight: -1.0,
+            min_vol_ratio: -1.0,
+            min_twist: -2.0,
+            min_determinant: -2.0,
+        }
+    }
+}
+
+/// The mesh geometry `polyMesh::movePoints` leaves in the mesh
+/// (`primitiveMeshTools::makeFaceCentresAndAreas` and `makeCellCentresAndVols`)
+/// plus `primitiveMesh::cells()`: what the ESI checks read.
+#[derive(Debug, Clone)]
+pub struct EsiGeometry {
+    /// Face centres.
+    pub face_centres: Vec<[f64; 3]>,
+    /// Face area vectors.
+    pub face_areas: Vec<[f64; 3]>,
+    /// Cell centres.
+    pub cell_centres: Vec<[f64; 3]>,
+    /// Cell volumes.
+    pub cell_volumes: Vec<f64>,
+    /// `primitiveMesh::cells()`: per cell the faces it owns (ascending) and then the
+    /// faces it neighbours (ascending), as `calcCells` fills them.
+    pub cell_faces: Vec<Vec<usize>>,
+}
+
+/// Geometry of `mesh` as ESI computes it after a point move.
+pub fn esi_geometry(mesh: &SnapMesh) -> EsiGeometry {
+    let (face_centres, face_areas) = esi_snap::face_centres_areas(&mesh.points, &mesh.faces);
+    let (cell_centres, cell_volumes) = esi_snap::cell_centres_vols(mesh);
+    let n_cells = cell_volumes.len();
+    let mut cell_faces: Vec<Vec<usize>> = vec![Vec::new(); n_cells];
+    for (f, &o) in mesh.owner.iter().enumerate() {
+        cell_faces[o].push(f);
+    }
+    for (f, &n) in mesh.neighbour.iter().enumerate() {
+        cell_faces[n].push(f);
+    }
+    EsiGeometry { face_centres, face_areas, cell_centres, cell_volumes, cell_faces }
+}
+
+/// `face::areaNormal(points)` (v2506 `face.C:576`): centre decomposition, centre
+/// point last in each triangle, plain triangle for a 3-vertex face.
+pub fn esi_face_area_normal(points: &[[f64; 3]], f: &[usize]) -> [f64; 3] {
+    let n_points = f.len();
+    let tri = |p0: [f64; 3], p1: [f64; 3], p2: [f64; 3]| {
+        esi_snap::scale(0.5, esi_snap::cross(esi_snap::sub(p1, p0), esi_snap::sub(p2, p0)))
+    };
+    if n_points == 3 {
+        return tri(points[f[0]], points[f[1]], points[f[2]]);
+    }
+    let mut centre_point = [0.0; 3];
+    for &p in f {
+        centre_point = esi_snap::add(centre_point, points[p]);
+    }
+    centre_point = esi_snap::div(centre_point, n_points as f64);
+    let mut n = [0.0; 3];
+    for pi in 0..n_points {
+        let next_point = points[f[(pi + 1) % n_points]];
+        n = esi_snap::add(n, tri(points[f[pi]], next_point, centre_point));
+    }
+    n
+}
+
+/// `normalised(v)`: zero when `|v| < ROOTVSMALL`, else `v/|v|`.
+fn esi_normalised(v: [f64; 3]) -> [f64; 3] {
+    let s = esi_snap::mag(v);
+    if s < ROOT_V_SMALL {
+        [0.0; 3]
+    } else {
+        esi_snap::div(v, s)
+    }
+}
+
+/// `tetrahedron::quality()` for the tet (a, b, c, d): `mag/(8/(9 sqrt 3) *
+/// min(circumRadius, GREAT)^3 + ROOTVSMALL)`, `mag = (1/6) ((b-a) x (c-a)) . (d-a)`.
+pub fn esi_tet_quality(a: [f64; 3], b: [f64; 3], c: [f64; 3], d: [f64; 3]) -> f64 {
+    use esi_snap::{add, cross, dot, mag, mag_sqr, scale, sub};
+    let tet_mag = (1.0 / 6.0) * dot(cross(sub(b, a), sub(c, a)), sub(d, a));
+    // circumRadius
+    let va = sub(b, a);
+    let vb = sub(c, a);
+    let vc = sub(d, a);
+    let lambda = mag_sqr(vc) - dot(va, vc);
+    let mu = mag_sqr(vb) - dot(va, vb);
+    let ba = cross(vb, va);
+    let ca = cross(vc, va);
+    let num = sub(scale(lambda, ba), scale(mu, ca));
+    let denom = dot(vc, ba);
+    let circum_radius = if denom.abs() < ROOT_V_SMALL {
+        ESI_GREAT
+    } else {
+        mag(scale(0.5, add(va, esi_snap::div(num, denom))))
+    };
+    let r = circum_radius.min(ESI_GREAT);
+    let pow3 = r * (r * r);
+    tet_mag / (8.0 / (9.0 * 3.0f64.sqrt()) * pow3 + ROOT_V_SMALL)
+}
+
+/// `checkFaceDotProduct` (internal faces; no coupled patches or baffles): faces whose
+/// `d.S/(|d||S| + VSMALL)` is below `cos(degToRad(max_non_ortho))`,
+/// `degToRad(x) = x*M_PI/180`.
+pub fn esi_check_non_orthogonality(
+    mesh: &SnapMesh,
+    geom: &EsiGeometry,
+    max_non_ortho: f64,
+    check_faces: &[usize],
+) -> Vec<usize> {
+    use esi_snap::{dot, mag, sub};
+    let threshold = (max_non_ortho * std::f64::consts::PI / 180.0).r_cos();
+    let mut wrong = Vec::new();
+    for &f in check_faces {
+        if f < mesh.neighbour.len() {
+            let d = sub(geom.cell_centres[mesh.neighbour[f]], geom.cell_centres[mesh.owner[f]]);
+            let s = geom.face_areas[f];
+            let d_dot_s = dot(d, s) / (mag(d) * mag(s) + ESI_VSMALL);
+            if d_dot_s < threshold {
+                wrong.push(f);
+            }
+        }
+    }
+    wrong
+}
+
+/// `checkFacePyramids`: the owner pyramid (volume must be below `-min_pyr_vol`) and the
+/// neighbour pyramid (above `min_pyr_vol`); `pyramid::mag = (1/3) areaNormal . (apex -
+/// face::centre)`.
+pub fn esi_check_face_pyramids(
+    mesh: &SnapMesh,
+    geom: &EsiGeometry,
+    min_pyr_vol: f64,
+    check_faces: &[usize],
+) -> Vec<usize> {
+    use esi_snap::{dot, sub};
+    let mut wrong = Vec::new();
+    for &f in check_faces {
+        let ring = &mesh.faces[f];
+        let area = esi_face_area_normal(&mesh.points, ring);
+        let centre = esi_snap::face_centre(&mesh.points, ring);
+        let own_vol = (1.0 / 3.0) * dot(area, sub(geom.cell_centres[mesh.owner[f]], centre));
+        let mut bad = own_vol > -min_pyr_vol;
+        if f < mesh.neighbour.len() {
+            let nei_vol = (1.0 / 3.0) * dot(area, sub(geom.cell_centres[mesh.neighbour[f]], centre));
+            if nei_vol < min_pyr_vol {
+                bad = true;
+            }
+        }
+        if bad {
+            wrong.push(f);
+        }
+    }
+    wrong
+}
+
+/// `polyMeshTetDecomposition::minQuality(mesh, cC, fI, isOwner, faceBasePtI)`.
+fn esi_tet_decomposition_min_quality(
+    mesh: &SnapMesh,
+    c_c: [f64; 3],
+    f: usize,
+    is_owner: bool,
+    face_base_pt: usize,
+) -> f64 {
+    let ring = &mesh.faces[f];
+    let n = ring.len();
+    let tet_base_pt = mesh.points[ring[face_base_pt]];
+    let mut min_q = ESI_VGREAT;
+    for tet_pt in 1..n - 1 {
+        let face_pt = (tet_pt + face_base_pt) % n;
+        let other = (face_pt + 1) % n;
+        let (a, b) = if is_owner { (ring[face_pt], ring[other]) } else { (ring[other], ring[face_pt]) };
+        let q = esi_tet_quality(c_c, tet_base_pt, mesh.points[a], mesh.points[b]);
+        if q < min_q {
+            min_q = q;
+        }
+    }
+    min_q
+}
+
+/// `checkFaceTets`: each face-decomposition tet of the owner (cell and face centre
+/// exchanged, as upstream) and of the neighbour must have quality at least
+/// `min_tet_quality`, and a base point must exist for which the fan decomposition of the
+/// face is good for both cells (`findSharedBasePoint`, `findBasePoint` on a boundary
+/// face).
+pub fn esi_check_face_tets(
+    mesh: &SnapMesh,
+    geom: &EsiGeometry,
+    min_tet_quality: f64,
+    check_faces: &[usize],
+) -> Vec<usize> {
+    let tets_bad = |f: usize, fc: [f64; 3], cc: [f64; 3]| -> bool {
+        let ring = &mesh.faces[f];
+        (0..ring.len()).any(|fp| {
+            let q = esi_tet_quality(mesh.points[ring[fp]], mesh.points[ring[(fp + 1) % ring.len()]], fc, cc);
+            q < min_tet_quality
+        })
+    };
+    let mut wrong = Vec::new();
+    for &f in check_faces {
+        let mut bad = tets_bad(f, geom.cell_centres[mesh.owner[f]], geom.face_centres[f]);
+        let own_cc = geom.cell_centres[mesh.owner[f]];
+        if f < mesh.neighbour.len() {
+            let nei_cc = geom.cell_centres[mesh.neighbour[f]];
+            if tets_bad(f, geom.face_centres[f], nei_cc) {
+                bad = true;
+            }
+            let n = mesh.faces[f].len();
+            let shared = (0..n).any(|base| {
+                let own_q = esi_tet_decomposition_min_quality(mesh, own_cc, f, true, base);
+                let nei_q = esi_tet_decomposition_min_quality(mesh, nei_cc, f, false, base);
+                own_q.min(nei_q) > min_tet_quality
+            });
+            if !shared {
+                bad = true;
+            }
+        } else {
+            let n = mesh.faces[f].len();
+            let base = (0..n).any(|base| esi_tet_decomposition_min_quality(mesh, own_cc, f, true, base) > min_tet_quality);
+            if !base {
+                bad = true;
+            }
+        }
+        if bad {
+            wrong.push(f);
+        }
+    }
+    wrong
+}
+
+/// `checkFaceAngles`: a face is concave when at one vertex the normal of the two edges
+/// (their sine at least `sin(degToRad(max_deg))`) points against the face normal.
+pub fn esi_check_face_angles(
+    mesh: &SnapMesh,
+    geom: &EsiGeometry,
+    max_deg: f64,
+    check_faces: &[usize],
+) -> Vec<usize> {
+    use esi_snap::{cross, div, dot, mag, sub};
+    let max_sin = (max_deg * std::f64::consts::PI / 180.0).r_sin();
+    let mut wrong = Vec::new();
+    for &f in check_faces {
+        let ring = &mesh.faces[f];
+        let n = ring.len();
+        let face_normal = esi_normalised(geom.face_areas[f]);
+        let p = &mesh.points;
+        let mut e_prev = sub(p[ring[0]], p[ring[n - 1]]);
+        let mut mag_e_prev = mag(e_prev);
+        e_prev = div(e_prev, mag_e_prev + ESI_VSMALL);
+        for fp0 in 0..n {
+            let mut e10 = sub(p[ring[(fp0 + 1) % n]], p[ring[fp0]]);
+            let mag_e10 = mag(e10);
+            e10 = div(e10, mag_e10 + ESI_VSMALL);
+            if mag_e_prev > ESI_SMALL && mag_e10 > ESI_SMALL {
+                let mut edge_normal = cross(e_prev, e10);
+                let mag_edge_normal = mag(edge_normal);
+                if !(mag_edge_normal < max_sin) {
+                    edge_normal = div(edge_normal, mag_edge_normal);
+                    if dot(edge_normal, face_normal) < ESI_SMALL && wrong.last() != Some(&f) {
+                        wrong.push(f);
+                    }
+                }
+            }
+            e_prev = e10;
+            mag_e_prev = mag_e10;
+        }
+    }
+    wrong
+}
+
+/// `primitiveMeshTools::faceSkewness` / `boundaryFaceSkewness` (v2506). `owner_cc`,
+/// and `nei_cc` for an internal face.
+fn esi_face_skewness(
+    mesh: &SnapMesh,
+    geom: &EsiGeometry,
+    f: usize,
+    owner_cc: [f64; 3],
+    nei_cc: Option<[f64; 3]>,
+) -> f64 {
+    use esi_snap::{dot, mag, scale, sub};
+    let fc = geom.face_centres[f];
+    let fa = geom.face_areas[f];
+    let cpf = sub(fc, owner_cc);
+    let (d, floor) = match nei_cc {
+        Some(n) => (sub(n, owner_cc), 0.2),
+        None => {
+            let normal = esi_normalised(fa);
+            (scale(dot(normal, cpf), normal), 0.4)
+        }
+    };
+    // `(S . Cpf)/((S . d) + ROOTVSMALL) * d`: scalar times vector.
+    let q = dot(fa, cpf) / (dot(fa, d) + ROOT_V_SMALL);
+    let sv = sub(cpf, scale(q, d));
+    let sv_hat = esi_snap::div(sv, mag(sv) + ROOT_V_SMALL);
+    let mut fd = floor * mag(d) + ROOT_V_SMALL;
+    for &pi in &mesh.faces[f] {
+        fd = fd.max(dot(sv_hat, sub(mesh.points[pi], fc)).abs());
+    }
+    mag(sv) / fd
+}
+
+/// `checkFaceSkewness`: internal faces above `internal_skew`, boundary faces above
+/// `boundary_skew`.
+pub fn esi_check_face_skewness(
+    mesh: &SnapMesh,
+    geom: &EsiGeometry,
+    internal_skew: f64,
+    boundary_skew: f64,
+    check_faces: &[usize],
+) -> Vec<usize> {
+    let mut wrong = Vec::new();
+    for &f in check_faces {
+        let own_cc = geom.cell_centres[mesh.owner[f]];
+        if f < mesh.neighbour.len() {
+            let s = esi_face_skewness(mesh, geom, f, own_cc, Some(geom.cell_centres[mesh.neighbour[f]]));
+            if s > internal_skew {
+                wrong.push(f);
+            }
+        } else if esi_face_skewness(mesh, geom, f, own_cc, None) > boundary_skew {
+            wrong.push(f);
+        }
+    }
+    wrong
+}
+
+/// `checkFaceWeights`: internal faces with `min(dNei, dOwn)/(dNei + dOwn + VSMALL)`
+/// below `warn_weight`.
+pub fn esi_check_face_weights(
+    mesh: &SnapMesh,
+    geom: &EsiGeometry,
+    warn_weight: f64,
+    check_faces: &[usize],
+) -> Vec<usize> {
+    use esi_snap::{dot, sub};
+    let mut wrong = Vec::new();
+    for &f in check_faces {
+        if f < mesh.neighbour.len() {
+            let fc = geom.face_centres[f];
+            let fa = geom.face_areas[f];
+            let d_own = dot(fa, sub(fc, geom.cell_centres[mesh.owner[f]])).abs();
+            let d_nei = dot(fa, sub(geom.cell_centres[mesh.neighbour[f]], fc)).abs();
+            let weight = d_nei.min(d_own) / (d_nei + d_own + ESI_VSMALL);
+            if weight < warn_weight {
+                wrong.push(f);
+            }
+        }
+    }
+    wrong
+}
+
+/// `checkVolRatio`: internal faces whose neighbouring cells' volume ratio is below
+/// `warn_ratio`.
+pub fn esi_check_vol_ratio(
+    mesh: &SnapMesh,
+    geom: &EsiGeometry,
+    warn_ratio: f64,
+    check_faces: &[usize],
+) -> Vec<usize> {
+    let mut wrong = Vec::new();
+    for &f in check_faces {
+        if f < mesh.neighbour.len() {
+            let own_vol = geom.cell_volumes[mesh.owner[f]].abs();
+            let nei_vol = geom.cell_volumes[mesh.neighbour[f]].abs();
+            let ratio = own_vol.min(nei_vol) / (own_vol.max(nei_vol) + ESI_VSMALL);
+            if ratio < warn_ratio {
+                wrong.push(f);
+            }
+        }
+    }
+    wrong
+}
+
+/// `checkFaceTwist`: for faces with more than 3 vertices the dot product of the cell-cell
+/// (or cell-face) direction with each face-centre triangle's unit normal must be at
+/// least `min_twist`.
+pub fn esi_check_face_twist(
+    mesh: &SnapMesh,
+    geom: &EsiGeometry,
+    min_twist: f64,
+    check_faces: &[usize],
+) -> Vec<usize> {
+    use esi_snap::{cross, div, dot, mag, scale, sub};
+    let mut wrong = Vec::new();
+    for &f in check_faces {
+        let ring = &mesh.faces[f];
+        if ring.len() > 3 {
+            let own_cc = geom.cell_centres[mesh.owner[f]];
+            let nf = if f < mesh.neighbour.len() {
+                esi_normalised(sub(geom.cell_centres[mesh.neighbour[f]], own_cc))
+            } else {
+                esi_normalised(sub(geom.face_centres[f], own_cc))
+            };
+            if nf != [0.0; 3] {
+                let fc = geom.face_centres[f];
+                for fp in 0..ring.len() {
+                    let p0 = mesh.points[ring[fp]];
+                    let p1 = mesh.points[ring[(fp + 1) % ring.len()]];
+                    let tri_area = scale(0.5, cross(sub(p1, p0), sub(fc, p0)));
+                    let mag_tri = mag(tri_area);
+                    if mag_tri > ESI_VSMALL && dot(nf, div(tri_area, mag_tri)) < min_twist {
+                        wrong.push(f);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    wrong
+}
+
+/// `checkCellDeterminant`: every face of each cell (among `primitiveMesh::cells()` of the
+/// faces in `check_faces`, `affectedCells`) whose scaled determinant of
+/// `sum(S (x) S/(|S| + VSMALL))/(sum |S| + VSMALL)` over `0.037037037037037` is below
+/// `warn_det`.
+pub fn esi_check_cell_determinant(
+    mesh: &SnapMesh,
+    geom: &EsiGeometry,
+    warn_det: f64,
+    check_faces: &[usize],
+) -> Vec<usize> {
+    let mut affected: Vec<usize> = Vec::new();
+    for &f in check_faces {
+        affected.push(mesh.owner[f]);
+        if f < mesh.neighbour.len() {
+            affected.push(mesh.neighbour[f]);
+        }
+    }
+    affected.sort_unstable();
+    affected.dedup();
+    let mut wrong = Vec::new();
+    for c in affected {
+        let mut t = [[0.0f64; 3]; 3];
+        let mut mag_area_sum = 0.0;
+        for &f in &geom.cell_faces[c] {
+            let fa = geom.face_areas[f];
+            let mag_area = esi_snap::mag(fa);
+            mag_area_sum += mag_area;
+            let b = esi_snap::div(fa, mag_area + ESI_VSMALL);
+            for i in 0..3 {
+                for j in 0..3 {
+                    t[i][j] += fa[i] * b[j];
+                }
+            }
+        }
+        let s = mag_area_sum + ESI_VSMALL;
+        let a = |i: usize, j: usize| t[i][j] / s;
+        let det = a(0, 0) * a(1, 1) * a(2, 2) + a(0, 1) * a(1, 2) * a(2, 0) + a(0, 2) * a(1, 0) * a(2, 1)
+            - a(0, 0) * a(1, 2) * a(2, 1)
+            - a(0, 1) * a(1, 0) * a(2, 2)
+            - a(0, 2) * a(1, 1) * a(2, 0);
+        if det / 0.037037037037037 < warn_det {
+            wrong.extend(geom.cell_faces[c].iter().copied());
+        }
+    }
+    wrong.sort_unstable();
+    wrong.dedup();
+    wrong
+}
+
+/// Result of [`esi_check_mesh`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct EsiCheckResult {
+    /// Faces in error (`wrongFaces`), ascending.
+    pub wrong_faces: Vec<usize>,
+    /// For each enabled check, in ESI's order, the number of faces it ADDED to the set
+    /// (ESI's log prints this, not the check's own count).
+    pub new_faces: Vec<(EsiCheck, usize)>,
+}
+
+/// `motionSmootherAlgo::checkMesh(false, mesh, dict, checkFaces, baffles, wrongFaces)`
+/// (v2506 `motionSmootherAlgoCheck.C:59`, the MESH overload `scaleMesh` calls), without
+/// baffles or coupled patches: the nine checks in ESI's order on `check_faces`.
+pub fn esi_check_mesh(
+    mesh: &SnapMesh,
+    geom: &EsiGeometry,
+    controls: &EsiQualityControls,
+    check_faces: &[usize],
+) -> EsiCheckResult {
+    let mut in_set = vec![false; mesh.faces.len()];
+    let mut n_wrong = 0usize;
+    let mut new_faces: Vec<(EsiCheck, usize)> = Vec::new();
+    let mut add = |kind: EsiCheck, faces: Vec<usize>| {
+        for f in faces {
+            if !in_set[f] {
+                in_set[f] = true;
+                n_wrong += 1;
+            }
+        }
+        let before: usize = new_faces.iter().map(|(_, n)| n).sum();
+        new_faces.push((kind, n_wrong - before));
+    };
+    let c = controls;
+    if c.max_non_ortho < 180.0 - ESI_SMALL {
+        add(EsiCheck::NonOrthogonality, esi_check_non_orthogonality(mesh, geom, c.max_non_ortho, check_faces));
+    }
+    if c.min_vol > -ESI_GREAT {
+        add(EsiCheck::FacePyramids, esi_check_face_pyramids(mesh, geom, c.min_vol, check_faces));
+    }
+    if c.min_tet_quality > -ESI_GREAT {
+        add(EsiCheck::FaceTets, esi_check_face_tets(mesh, geom, c.min_tet_quality, check_faces));
+    }
+    if c.max_concave < 180.0 - ESI_SMALL {
+        add(EsiCheck::Concavity, esi_check_face_angles(mesh, geom, c.max_concave, check_faces));
+    }
+    if c.max_internal_skewness > 0.0 || c.max_boundary_skewness > 0.0 {
+        add(
+            EsiCheck::Skewness,
+            esi_check_face_skewness(mesh, geom, c.max_internal_skewness, c.max_boundary_skewness, check_faces),
+        );
+    }
+    if c.min_face_weight >= 0.0 && c.min_face_weight < 1.0 {
+        add(EsiCheck::FaceWeights, esi_check_face_weights(mesh, geom, c.min_face_weight, check_faces));
+    }
+    if c.min_vol_ratio >= 0.0 {
+        add(EsiCheck::VolRatio, esi_check_vol_ratio(mesh, geom, c.min_vol_ratio, check_faces));
+    }
+    if c.min_twist > -1.0 {
+        add(EsiCheck::FaceTwist, esi_check_face_twist(mesh, geom, c.min_twist, check_faces));
+    }
+    if c.min_determinant > -1.0 {
+        add(EsiCheck::CellDeterminant, esi_check_cell_determinant(mesh, geom, c.min_determinant, check_faces));
+    }
+    let wrong_faces: Vec<usize> = (0..in_set.len()).filter(|&f| in_set[f]).collect();
+    EsiCheckResult { wrong_faces, new_faces }
 }
 
 #[cfg(test)]
