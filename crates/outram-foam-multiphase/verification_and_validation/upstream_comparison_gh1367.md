@@ -113,3 +113,145 @@ Bowring, Groeneveld, Tong, Dougall, Rohsenow, criticalHeatFlux and dryout
 models: nothing (the one `Bowring(1962)` hit in ESI's
 `alphatWallBoilingWallFunction` is a bubble-departure correlation). Both files'
 headers already said "not a port"; their `//!` doc comments now say so too.
+
+---
+
+# Round 2 (rows 1 and 2) — predictions, written before any driver or port run
+
+Upstream is ESI OpenFOAM-v2506 throughout ("ESI preferred"). Research,
+education and V&V only (`RESPONSIBLE_USE.md`).
+
+## What was read first (2026-11-12)
+
+- ESI `applications/solvers/multiphase/driftFluxFoam`: `relativeVelocityModel`
+  (`rho()`, `tauDm()`), `simple::correct()`, `general::correct()`,
+  `incompressibleTwoPhaseInteractingMixture` (`rho() = alpha1*rhod + alpha2*rhoc`),
+  `alphaEqn.H` (MULES, `alphaPhi`), `mixtureViscosityModels/plastic`.
+- ESI `src/phaseSystemModels/twoPhaseEuler/twoPhaseSystem`: `phasePair`
+  (`Re = mag(U1-U2)*dispersed.d/continuous.nu`), `dragModel` (`Ki`, `K`),
+  `dragModels/SchillerNaumann`, `dragModels/WenYu`, `swarmCorrections/noSwarm`;
+  `liftModels`, `virtualMassModels`, `turbulentDispersionModels` directories.
+- Port: `drift_flux.rs` (`SlipModel`, `DriftFluxMixture`, `advance_alpha`),
+  `two_fluid.rs` (`DragModel`, `InterfacialForce`, `TwoFluidSystem`).
+
+Findings from reading, stated before running anything:
+
+1. **MULES is not ported.** `DriftFlux::advance_alpha` and
+   `TwoFluidSystem::advance_dispersed_alpha` are implicit-Euler upwind plus a
+   clamp to `[0,1]`; there is no limiter, no `alphaPhi`, no sub-cycling.
+   A step-1 `alpha` or MULES-limiter comparison against `driftFluxFoam` would
+   compare two different algorithms, so it is recorded as a gap, not run. The
+   relative-velocity model is compared on a frozen field instead (the issue's
+   fallback).
+2. **The port's `SlipModel::TerminalVelocity` is not ESI's `simple`.** ESI:
+   `Udm = (rhoc/rho(alpha))*V0*pow(10, -a*max(alphad,0))`, with `rho(alpha)`
+   per cell. The port: `Udm = u_t*pow(10, -a*max(alpha,0))`, and its doc says
+   `u_t` "absorbs `(rho_c/rho_m)*V0`". That is true only at one alpha: `rho_m`
+   varies cell by cell with alpha (dahl: 996 to 1996 kg/m3). Not changed (dev
+   form stays callable); ESI forms are added as named variants.
+3. **ESI's `general` model has no port counterpart** (the port's `UserDefined`
+   is a per-cell field, not the formula).
+4. **Port has no `tauDm`** (the diffusion-stress input to the momentum
+   equation).
+5. **Port `mu_mixture` is volume-weighted;** ESI uses a run-time
+   `mixtureViscosityModel` (`plastic`, `BinghamPlastic`, `slurry`). Not
+   compared (structural, as the port's own docs say).
+6. **Port two-fluid has drag only.** Lift, virtual mass, wall lubrication and
+   turbulent dispersion return `NotImplemented`. ESI v2506 twoPhaseEuler has
+   `liftModels` (LegendreMagnaudet, Moraga, TomiyamaLift,
+   constantLiftCoefficient), `virtualMassModels` (Lamb,
+   constantVirtualMassCoefficient), `turbulentDispersionModels` (Burns,
+   Gosman, LopezDeBertodano, constant) and drag models Ergun, Gibilaro,
+   GidaspowErgunWenYu, GidaspowSchillerNaumann, IshiiZuber, Lain,
+   SyamlalOBrien, TomiyamaAnalytic, TomiyamaCorrelated, WenYu,
+   SchillerNaumann, segregated. These are **gaps, not defects**.
+7. **ESI's `WenYu` form differs from the port's:** ESI
+   `CdsRes*pow(alpha2,-3.65)*max(continuous,residualAlpha)`; the port
+   `CdsRes*pow(alpha2,-2.65)`. Equal in exact arithmetic, different in
+   rounding. ESI's `SchillerNaumann` also carries `residualRe`
+   (`max(Re,residualRe)` in the Newton branch), which the port lacks; it can
+   only matter when `Re >= 1000 > residualRe`, so it is inert for any positive
+   `residualRe < 1000`.
+8. **ESI's real bubbleColumn blends** the dispersed drag with `segregated`
+   drag between `maxFullyDispersedAlpha` and `maxPartlyDispersedAlpha`
+   (0.3 / 0.5). The port has no blending. Row 2 compares the *dispersed*
+   model ("air in water") only.
+
+## Row 1 — method
+
+`driver/driftFluxDump.C` is built from ESI's **own** driftFluxFoam sources
+(`relativeVelocityModel`, `simple`, `general`,
+`incompressibleTwoPhaseInteractingMixture`, `mixtureViscosityModels`), compiled
+into the driver unmodified, linked to the built ESI v2506 libraries. It
+reads the `RAS/dahl` tutorial mesh (blockMesh) and dictionaries (`simple`
+coefficients `V0 (0 -0.002198 0)`, `a 285.84`, `rho` 1996 / 996), imposes a
+frozen `alpha.sludge` from a splitmix64 generator (the Rust test reproduces it
+and checks the committed input columns), calls the real `correct()`, and dumps
+`rho()`, `Udm` and `tauDm()` per cell as hexadecimal bit patterns. Forced
+cells: `alpha = 0`, `alpha = -1e-3` (exercises `max(alphad,0)`), `alpha = 1e-9`,
+`alpha = 0.5`, `alpha = 1`. `general` is run with `residualAlpha 0` (dahl) and
+also with `residualAlpha 1e-3`, so the `max(alphad - residualAlpha, 0)` branch
+is hit.
+
+## Row 1 — predictions
+
+- **D1 dev form vs ESI.** Port `TerminalVelocity{u_t = V0, a}` against ESI
+  `simple`. Predicted: bit-identical only in cells with `alpha <= 0` (there
+  `rho = rhoc`, so `rhoc/rho` is exactly 1); at least 99.9 % of the other
+  cells differ, and `Udm_port / Udm_ESI = rho(alpha)/rhoc` to 6e-16.
+  Structural, not round-off.
+- **D2 ESI form (`OpenFoamSimple`) vs ESI.** Same algebra and operation order
+  (`((rhoc/rho)*V0_i)*pow(10, -a*max(alpha,0))`); `pow` is glibc on one side
+  and PETIR on the other. Predicted: at least 99 % of components
+  bit-identical; worst relative difference at most 4.5e-16 (2 ulp); every
+  difference traced to `pow(10, x)`.
+- **D3 `OpenFoamGeneral` vs ESI `general`.** Two `exp` calls and a subtraction.
+  Predicted: at least 95 % bit-identical; worst relative difference at most
+  1e-8, reached only in cells where `alpha - residualAlpha` is tiny and the two
+  exponentials cancel (the 1e-9 forced cell); every difference traced to
+  `exp`.
+- **D4 mixture density.** Port `DriftFluxMixture::rho_mixture`
+  (`al*rho_d + (1-al)*rho_c`) against ESI `alpha1*rhod + alpha2*rhoc`
+  (`alpha2 = 1 - alpha1`). Pure `+`, `*`, `-`; addition is commutative, so
+  predicted 100 % bit-identical.
+- **D5 `tauDm`.** The new port function against ESI `tauDm()`, fed ESI's own
+  `Udm` bits so only the tensor algebra is under test. Only `+`, `*`, `/`:
+  predicted 100 % bit-identical in all six components.
+
+## Row 2 — method
+
+`driver/dragDump.C` evaluates ESI's `phasePair::Re()`, `dragModel::Ki()`,
+`dragModel::K()`, `SchillerNaumann::CdRe()` and `WenYu::CdRe()` expressions,
+transcribed verbatim, on OpenFOAM `scalarField`/`vectorField` (v2506 field
+algebra, glibc), exactly as row 3 did: the `phasePair` and `phaseSystem`
+libraries are not built (disk). Constants from the
+`twoPhaseEulerFoam/laminar/bubbleColumn` tutorial: `d = 3e-3` (air),
+`residualRe = 1e-3`, `residualAlpha = 1e-6`, `swarmCorrection none`, water
+`rho = 1027`, `mu = 3.645e-4`, `nu = mu/rho` (round trip `nu*rho/rho == nu`
+checked in Python for these two numbers: exact, so the port's `nu = mu/rho` is
+bit-equal to ESI's `nu`). 4096 cells, `alpha_d` in `[0,1]`, relative velocity
+components uniform in `[-1.2, 1.2]` m/s (spans both drag branches). Forced
+cells: `Ur = 0`, `alpha_d = 0`, `alpha_d = 1` (continuous fraction below
+residual), `alpha_d = 1e-9`. The forces the port lacks are a table, not a
+number.
+
+## Row 2 — predictions
+
+- **F1 slip Reynolds number.** Port `reynolds_number()` against ESI
+  `mag(U1-U2)*d/nu`. `sqrt` is correctly rounded on both sides, no
+  transcendentals. Predicted 4096/4096 bit-identical.
+- **F2 SchillerNaumann `K`.** Port `DragModel::SchillerNaumann` against ESI.
+  Only `pow(Re,0.687)` differs between libms. Predicted: at least 99 %
+  bit-identical, worst relative difference at most 4.5e-16, every difference
+  traced to `pow`.
+- **F3 WenYu `K`, dev form.** Port `DragModel::WenYu` against ESI. Different
+  `pow` arguments (-2.65 against -3.65 times alpha_c) so different rounding.
+  Predicted: bit-identical in fewer than 50 % of cells, worst relative
+  difference at most 1e-14. In the `alpha_d = 1` cell both agree to 1e-14.
+- **F4 WenYu `K`, ESI form (`WenYuEsi`).** Same expression and operation
+  order as ESI. Predicted: at least 99 % bit-identical, worst relative
+  difference at most 1e-15, every difference traced to `pow`.
+- **F5 first diverging force.** Drag agrees (F1, F2). The first force with no
+  port counterpart, in ESI's `twoPhaseSystem` order (drag, virtual mass, lift,
+  wall lubrication, turbulent dispersion), is **virtual mass**; lift follows.
+  Recorded as gaps, not defects.
