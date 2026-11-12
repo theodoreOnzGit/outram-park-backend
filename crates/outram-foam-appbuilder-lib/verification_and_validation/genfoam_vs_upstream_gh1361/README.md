@@ -2,8 +2,10 @@
 
 AI-written, not human-reviewed. Research, education and V&V only
 (`RESPONSIBLE_USE.md`). Round 1 covers plan steps 2 and 3 of the scoping
-comment on gh:#1361. Step 4 (ESI thermo/turbulence closure) and step 5 (the
-full GeN-Foam binary) are not started.
+comment on gh:#1361. ~~Step 4 (ESI thermo/turbulence closure) and step 5 (the
+full GeN-Foam binary) are not started.~~ **UPDATED 2026-11-12:** round 3 built the thermal-hydraulics
+libraries and the full binary (without `thermoTools`, which no case run needs) and compares `1D_boiling`,
+PSBT Ex1 and gFHR: see "Round 3" below.
 
 Upstream: GeN-Foam `652b3da0cc55` on OpenFOAM-ESI **v2506** (the version
 GeN-Foam declares, `README.md:34`), partial build with dummy Pstream, gcc 13.3,
@@ -482,3 +484,154 @@ The earlier tests could only reach the ASCII write precision of the committed CS
 | Q2 | gFHR first step: each pebble stage (`keffmatrix`, `Tmout`, `Tmav`, `TfS`, `Tfav`, `Tfmax`) from upstream's `TpS`, per cell | worst relative < 1e-12 per stage (the 5e-6 of the old record is the 6-digit ASCII floor) |
 
 The mesh for gFHR is 292,500 cells; the run is one time step to bound disk.
+
+
+### Round 3 results (measured 2026-11-12)
+
+Tests: `tests/genfoam_two_phase_vs_upstream.rs` (6 gates + 1 diagnostic), `tests/genfoam_psbt_closures.rs`
+(new test `..._fresh_17_digit_psbt_run`), `tests/genfoam_gfhr_pebble_vs_upstream.rs` (new test
+`..._fresh_17_digit_gfhr_run`). References (gzipped text, 0.04 to 0.18 MB each): `refs/boiling_tight_steps80`
+(65 steps, every step), `refs/boiling_tight_onset` (steps 616-627), `refs/boiling_tight_full` and
+`refs/boiling_shipped_full` (every 0.5 s of the 12 s run), `refs/psbt_psbt_ex1_t1` and `_t5`,
+`refs/gfhr_chain`. Upstream runs, all the real unmodified binary, serial, ESI v2506:
+
+| run | steps | wall | notes |
+|---|---:|---:|---|
+| 1D_boiling, shipped tolerances, `implicitUpwind` | 4401 | 123 s | final cumulative continuity error liquid -0.44658 kg/m3 |
+| 1D_boiling, tight (every `solvers` tolerance 1e-14, relTol 0) | 6157 | 303 s | liquid -2.29649 kg/m3; boiling onset at step 618, t = 6.02 s |
+| PSBT `PhaseII_Ex1_01_5215`, writePrecision 17 | 1065 | 111 s | max `alpha.vapour` 0.12383476677792404: the tutorial's own `Alltest` value (0.123835) reproduced |
+| gFHR `steadyStateNSSP`, writePrecision 17, 3 steps (292,500 cells) | 3 | 25 s init + 46 s, 0.82 GB | the tutorial's `-initializeMappedFields` then the run |
+
+#### 1D_boiling, port vs upstream (tight protocol, every step, 40 cells)
+
+The progress of the port's agreement as each defect below was fixed, at step 1 / step 2 / step 20 of the
+first 20 steps (worst relative difference of any field, relative to that field's maximum):
+
+| state | step 1 | step 2 | step 20 |
+|---|---|---|---|
+| port at the start of round 3 | p 1.5e-3, T.vapour 3.0e-2 | p 2.2e-4, T.vapour 2.6e-2, T.interface 1.0e-2 | p 3.7e-4, T.liquid 8.5e-4 |
+| + lazy old-time pressure and structure (D1, D2) | p 4.6e-12, T.liquid 1.4e-14, U.vapour 1.1e-5 | T.interface 1.1e-2 | T.liquid 8.5e-4 |
+| + `T.interface` limiter as OpenFOAM runs it (D3) | unchanged | p 8e-12, T.interface 1.6e-11 | T.liquid 8.5e-4 (the step size now differs: protocol) |
+| + the every-step write control also applied to the port's case copy (my harness), and old-time patch values (D5) | p 7.6e-11, U.vapour 2.1e-5 | p 8.4e-12, U.vapour 5.7e-6 | p 4.5e-13, T.liquid 3.1e-15, T.vapour 1.7e-10 |
+
+Final state, pinned by the tests (all fields p, p_rgh, T.liquid, T.vapour, T.interface, T.fixedPower, U.liquid, U.vapour,
+alpha.vapour, dmdt, each as worst |port - upstream| / max |upstream| over the 40 cells):
+
+| span | what | result |
+|---|---|---|
+| steps 1-65 (to t = 0.5 s) | step size | **identical** at every step (relative difference 0) |
+| steps 3-65 | p, p_rgh | <= 4.7e-12 |
+| | T.liquid, T.fixedPower | <= 2.5e-13, 1.3e-13 |
+| | U.liquid | <= 9.3e-12 |
+| | T.vapour, T.interface, U.vapour | <= 2.3e-10, 7.6e-10, 7.0e-10 |
+| | alpha.vapour, dmdt | exactly 0 in both (no vapour) |
+| steps 1-2 | everything except U.vapour | <= 1e-10 |
+| steps 1-2 | U.vapour | 2.1e-5 (step 1), 5.7e-6 (step 2): **a known, unexplained residual** (below) |
+| t = 0.5 ... 6.0 s of the full 12 s (12 reference times) | every field | <= 2.5e-11 (the vapour is absent); before D4 the same times were off by 1e-6 to 1e-4 (the port took 77 steps to t = 0.5 s, 66 after) |
+| step 616 (t = 6.0 s) | every field | <= 5.5e-12 |
+| steps 617-627 (boiling onset) | p, p_rgh | <= 3.6e-10 |
+| | T.liquid, T.vapour, T.interface, T.fixedPower | <= 1.2e-11, 2.6e-11, 4.0e-11, 1.0e-11 |
+| | U.liquid, U.vapour | <= 1.7e-9, 1.9e-8 |
+| | **alpha.vapour, dmdt** | **3.4e-6, 3.1e-6** of their maxima (1.4e-6 and 2.6e-7 at the first boiling step) |
+| t >= 6.5 s | all fields | O(1e-2) to O(1): not reproducible point-wise, see "the noise floor" |
+| shipped tolerances, t <= 6.0 s | all fields | T.liquid <= 3.0e-5, T.fixedPower <= 3.0e-5, p <= 4.2e-7, p_rgh <= 6.5e-7: the two codes' loose solvers stop at different residuals |
+
+**The noise floor.** Port against ITSELF with only the `alpha` linear solve changed (the old exact solve, an
+ablation that moves alpha at onset by 1e-6): identical to 0.0 at t = 6.0 s, and at t = 6.5 s differing by
+p 2.3e-2, T.liquid 9.0e-3, U.liquid 1.7e-1, alpha.vapour 7.6e-1, dmdt 3.4e-1 (7.0 s: 5.0e-2, 1.9e-2, 4.0e-1, 5.1e-2, 2.1e-1).
+That is the same size as port against upstream at 6.5 s (p 6e-2, alpha.vapour 0.68-0.82). So after the boiling onset this
+case is a flow excursion that amplifies a 1e-6 difference in the vapour tail to O(1) within 0.5 s, and **a
+pointwise comparison after 6.0 s measures the flow's sensitivity, not a model difference.** The comparison that can
+be made, and is gated, is everything up to and through the first twelve boiling steps.
+
+**Where the remaining onset difference comes from.** Upstream solves the `alpha.vapour` equation with the case's
+`".*"` entry, `PBiCGStab` with the `diagonal` preconditioner, stopping on a residual normalised by the matrix norm.
+The tail of the vapour front (cells at 1e-9 to 1e-17) is therefore solver noise in upstream, not the exact solution
+of the triangular upwind system that the port computed before. Reproducing the algorithm and the stopping rule
+(D6) cut the alpha difference at the first boiling step from 1.3e-4 to 1.4e-6. Bit-identity of the tail would need
+bit-identical inputs at step 616 and the p_rgh solve (upstream GAMG vs the port's ILU-BiCGStab) and was not reached.
+
+**#1239 (liquid continuity error -2.7 kg/m3 unexplained): answered.** Upstream's own run on the same case, with the same
+`implicitUpwind` alpha, has a cumulative liquid continuity error of **-0.4466 kg/m3 at the shipped solver tolerances and
+-2.2965 kg/m3 at 1e-14**: it moves by a factor 5 with the linear-solver tolerance alone, in the same direction
+(more negative when tighter) as the port's (shipped -1.860, tight -4.290). It is a property of the case's boiling
+phase (a flow excursion, which the previous section shows is not reproducible point-wise), not a port-specific defect.
+The port's numbers are not within 20 % of upstream's at either tolerance, which is what the noise floor predicts.
+
+#### Predictions of this round: what held
+
+| id | held? | measured |
+|---|---|---|
+| R1 step size, steps 1-20 within 1e-9 | **missed as first run, then held** | first run: up to 2.5e-1. Two causes, both found: my harness did not apply the every-step write control to the port's case copy (the port then snapped its step to the write interval), and the port's snapping was not ESI's `Time::adjustDeltaT` (D4). Now exactly identical for 65 steps |
+| R2 p, p_rgh, T.liquid, U within 1e-9 | **missed as first run, then held** | first run: p 1.5e-3 at step 1. D1-D3, D5. Now p 7.6e-11 at step 1, <= 5e-12 from step 3 |
+| R3 T.vapour, T.interface, dmdt within 1e-6 | held after the same fixes | 1.7e-10, 7.6e-10, exactly 0 |
+| R3 (implied) U.vapour | **missed** | 2.1e-5 at step 1, 5.7e-6 at step 2, then <= 7e-10: inlet cell of the absent vapour |
+| R4 alpha.vapour exactly 0 | held | exactly 0 in both |
+| R5 first reference time at which any field leaves 1e-6 is at or after the boiling onset (about 3-4 s) | **held in kind, missed in number** | no field leaves 1e-9 before onset; the onset is at t = 6.02 s (port: 6.14 s first normalised alpha > 1e-3), not 3-4 s |
+| R6 tight, final liquid error in [-3.0, -1.6] | **missed** | port -4.290 (upstream -2.2965) |
+| R7 shipped, not within 20 % of -0.4466 | held | port -1.860 |
+| Q1 PSBT drag within 1e-13 | **missed** | t = 5 s (steady): worst 1.2e-11 (84,616 ulp), 836 single-phase cells, none bit-identical. t = 1 s (transient): 8.0e-6 |
+| Q2 gFHR chain within 1e-12 | **held, bit-identically** | 2,927 sampled cells, five stages and `keffmatrix`: **0 ulp** |
+
+Q1's miss is informative twice. At t = 5 s the 17-digit number (1.2e-11) shows that the 6.15e-6 recorded in
+`genfoam_psbt_closures.rs` was the write precision of its CSV, as stated there. At t = 1 s the same relation is off
+by 8.0e-6 at full precision, which is not write precision: `Kd` and `Re` are computed at the start of an outer
+iteration and `alphaRhoMagU` at its end, and `residualControl` is 1e-5, so in a transient the three fields are
+not one state. **This explanation is a hypothesis, not tested.** The 1.2e-11 at t = 5 s is also not explained to
+round-off: the declared hydraulic diameters (8 significant digits in the case) are upstream's exact inputs.
+gFHR: the older test's `POWER_DENSITY = 19_965_700` is a rounded value; the case states `19.96567386e6`, and using the
+rounded one against the 17-digit run gives 1.8e-8 (Tmout) to 8.9e-8 (Tfmax). With the case's value every stage is
+bit-identical.
+
+#### Defects found and fixed by translating upstream (each first divergent operation, its sign and size)
+
+Each is **upstream behaviour made the default** and the port's earlier form kept callable by a named method (the
+maintainer's rule: do not delete the dev form). None is in a kovan-reviewed function (`review.md` of
+`solver/two_phase/`, `solver/` and `thermal_hydraulics/` carry no `kind = "review"` block).
+
+| id | first divergent operation | upstream does | option (old form) |
+|---|---|---|---|
+| D1 | `fvc::ddt(p_)` in `EEqns_2p.H`, outer iteration 1 of step 1: `T.liquid` rose 9.6e-4 K in the port, 5.6e-5 K upstream | OpenFOAM creates `p.oldTime()` at its FIRST request, so in step 1 the old pressure is the one after the first `p_rgh` solve and `dpdt` is 0 in iteration 1 | `TwoPhaseControls::lazy_old_time_first_step`, `without_first_step_lazy_old_time()` |
+| D2 | `fixedPower::correct`, `T_.oldTime()` and `T_[celli] = ...`: structure `T.fixedPower` +0.1155 K in step 1 upstream, +1.5e-5 K in the port at iteration 2 | `T_[celli]` goes through `operator[]`, which does not call `storeOldTimes`, so the copy made in iteration 1 carries a stale time index and is overwritten with the iteration-1 result at the start of iteration 2 (once): the structure gets one extra step of power in step 1, for the whole run | same switch |
+| D3 | `phaseChangeModel::correctInterfacialTemperature`, `maxTInterfaceDdt`: step 2 `T.interface` +4.747 K upstream (saturation jump +37.98 K), +1.375 K in the port | `iT_.oldTime()` is read after `correctField` has overwritten `iT_` and called `correctBoundaryConditions` (`storeOldTimes`), so the limiter compares the new value with itself and never limits (iteration >= 2: with the iteration-1 raw value) | `t_interface_limiter_sees_new_value`, `with_documented_t_interface_rate_limiter()` |
+| D4 | step size at step 3 (0.0012086 vs 0.00121) | ESI `Time::adjustDeltaT`: `max(1, round(nSteps))`, growth capped 2x, shrink 0.2x, `writeTimeIndex` from `Time::operator++` | `TimeControls::esi_adjust_delta_t`, `with_foundation_style_write_time_adjust()` (**this is the ESI vs earlier-rule option**) |
+| D5 | vapour inlet-face flux at step 1: port -9.80010e-4, upstream -9.80219e-4 m3/s | old-time patch values are stored with the field (`oldTime()` of `rho`, `alpha`), not the owner cell's | none (a plain fix) |
+| D6 | tail of `alpha.vapour` at the boiling onset (relative 1.3e-4) | `alpha.vapour` solved by OpenFOAM `PBiCGStab`/`diagonal`, the matrix assembled in OpenFOAM's order | `alpha_solver_openfoam`, `with_exact_alpha_solve()` |
+
+The ablation numbers are pinned (`one_d_boiling_ablations_reproduce_the_recorded_misses`): without D1/D2/D3 step 1 `p` is off by 1.5e-3,
+without D3 step 2 `T.interface` by 1.1e-2, and the earlier step rule differs from ESI's by up to 5.3e-1 in the step size over 30 steps.
+
+Two defects were in my own work and are recorded because they would have passed silently: (1) the reference extractor
+wrote nothing for an `internalField uniform V;` field (OpenFOAM writes that form for a field whose cells are all equal),
+so `T.interface`/`T.vapour` at step 1 were compared against an empty list, which passes; the extractor now expands
+it and the comparison asserts equal length; (2) the first references had been written with `writeControl timeStep`
+while the port's case copy still said `adjustableRunTime`.
+
+#### Moved numbers (old to new, cause)
+
+| number | old | new | cause |
+|---|---|---|---|
+| `1D_boiling` port, cumulative liquid continuity error, shipped tolerances (`genfoam_two_phase` README P5) | -2.675 kg/m3 | **-1.860 kg/m3** | D1-D6 (the run is chaotic after onset, so the move is not itself an error estimate) |
+| same, vapour | 1.85e-3 | 8.51e-4 kg/m3 | same |
+| P3 minimum inlet liquid velocity during boiling | -0.94 m/s | -0.735 m/s | same |
+| P4 maximum void at 12 s | 5.9e-12 | 2.4e-10 | same |
+| P2 first normalised alpha.vapour > 1e-3 | 6.14 s | 6.14 s | unchanged |
+| PSBT drag deviation, t = 5 s | 6.15e-6 (6-digit CSV) | 1.2e-11 (fresh 17-digit run) | higher write precision; the CSV record stays valid |
+| gFHR pebble chain, worst stage | 7.2e-6 (6-digit CSV, t = 50 s) | 0 (fresh 17-digit run, t = 0.358511 s, 2,927 cells) | higher write precision, case's power density |
+| `genfoam_two_phase_1d_boiling.rs` P1 isothermal | asserted < 1e-3 | 2.1e-5 | the same changes |
+
+No ESFR, MSFR, albedo, Godiva number was re-run or moved by this round (their code paths are untouched; the shared
+`FixedPower` is unchanged, `power_model.rs` was not edited).
+
+#### What remains
+
+- onePhase TH against the binary: `featureCases/2D_cavityBoussinesq` runs on the real binary after the build here (not run
+  in this round), but the port's `OnePhaseSolver` has no case reader, so the comparison needs a harness that builds the
+  mesh, boundary conditions and Boussinesq thermo in Rust. Not started.
+- The U.vapour residual at steps 1-2 (absent vapour, inlet cell): after D5 the vapour inlet-face flux differs by 4e-6
+  relative; it is consistent with the old-time vapour `rho` patch value being about 0.57 % lower in upstream, cause not found.
+- PSBT beyond the closure: the port refuses the case (`multiRegimeBoilingTRACE`, `twoParameters`, `byRegime`), so only the
+  `ReynoldsPower` relation is compared. `1D_CHF`, `2D_KNS37-L22` (MULES) and PSBT Ex2/Ex3 stay port gaps.
+- Coupled transients (MSFR, ESFR) with the TH region kernel (#1475), thermoMechanics (offbeat stubbed), and the full-binary
+  runs that need `thermoTools` (not built here, and not needed for any case run in this round).
+- Bit-identity of the alpha tail at the onset needs bit-identical p_rgh solves (GAMG).

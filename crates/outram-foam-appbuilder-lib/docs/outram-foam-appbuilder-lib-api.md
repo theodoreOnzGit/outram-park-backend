@@ -533,6 +533,11 @@ pub struct CaseRun {
   Write the solver's fields into `<case>/<time>/` and describe the run.
 
 - ```rust
+  pub fn write_fields_esi(self: &Self, opts: &EsiWriteOptions) -> Result<CaseSummary, AppBuilderError> { /* ... */ }
+  ```
+  [`write_fields`](CaseRun::write_fields) in ESI v2506's file layout
+
+- ```rust
   pub fn summary(self: &Self, output_dir: PathBuf) -> CaseSummary { /* ... */ }
   ```
   Describe the run so far without writing anything.
@@ -646,6 +651,39 @@ Format a time value the way OpenFOAM names a time directory: `0.1`, not
 
 ```rust
 pub fn format_time(t: f64) -> String { /* ... */ }
+```
+
+#### Function `div_scheme_from_case`
+
+`div(phi,U)` (else `default`) of `system/fvSchemes`, when it is one of the
+two convection schemes this port implements for `pimpleFoam`
+(`Gauss linear`, `Gauss upwind`); `None` leaves the solver's default.
+
+```rust
+pub fn div_scheme_from_case(case: &outram_foam_basic_lib::io::case::FoamCase) -> Option<crate::io::fv_schemes::DivScheme> { /* ... */ }
+```
+
+#### Function `final_solver_tolerance`
+
+`tolerance` of the final-iteration linear solver for `field`
+(`<field>Final`, else `<field>`) in `system/fvSolution`, only when its
+`relTol` is 0 (or absent): this port's linear solvers stop on an absolute
+tolerance and have no relative one, so an entry with `relTol > 0` (the
+shipped cavity's non-final `p`) cannot be represented and yields `None`
+(the solver's own default stands). Partly closes gh:#1291 for `pimpleFoam`.
+
+```rust
+pub fn final_solver_tolerance(case: &outram_foam_basic_lib::io::case::FoamCase, field: &str) -> Option<f64> { /* ... */ }
+```
+
+#### Function `newtonian_nu`
+
+Kinematic viscosity from `<case>/constant/transportProperties` when
+`transportModel Newtonian` (or absent): `nu [0 2 -1 0 0 0 0] 0.01;` or
+`nu 0.01;`.
+
+```rust
+pub fn newtonian_nu(case_dir: &std::path::Path) -> Option<f64> { /* ... */ }
 ```
 
 ## Module `cases`
@@ -14139,8 +14177,12 @@ under "Known gaps".
   have not been exercised inside a converged multiphysics run.~~ **UPDATED
   2026-11-04:** those `1D_boiling` selects (ReynoldsPower, SchillerNaumann,
   Kaiser88, Nusselt, Shah, COBRA-TF, FinkLeibowitz, BrowningPotter,
-  heatDriven, oneParameter) now run inside [`solver::two_phase`]; none is
-  compared with an upstream run there (upstream ships no reference).
+  heatDriven, oneParameter) now run inside [`solver::two_phase`]; ~~none is
+  compared with an upstream run there (upstream ships no reference).~~
+  **CORRECTED 2026-11-12** (gh:#1361 round 3): the system is compared with a run of the real binary on
+  `1D_boiling` (`tests/genfoam_two_phase_vs_upstream.rs`: 65 steps to 1e-9,
+  the single-phase run to 2.5e-11, the boiling onset to 3e-6), though not each
+  closure leaf in isolation.
 - The great majority of upstream `thermalHydraulics` (~65k LOC) is still
   unported; what exists here is the closure/field/one-phase-driver
   foundation.
@@ -27594,6 +27636,11 @@ pub struct TwoPhaseControls {
     pub p_min: f64,
     pub max_dpdt: f64,
     pub dpdt: bool,
+    pub lazy_old_time_first_step: bool,
+    pub t_interface_limiter_sees_new_value: bool,
+    pub alpha_solver_tolerance: f64,
+    pub alpha_solver_rel_tol: f64,
+    pub alpha_solver_openfoam: bool,
 }
 ```
 
@@ -27622,6 +27669,11 @@ pub struct TwoPhaseControls {
 | `p_min` | `f64` | `pMin` [Pa]. |
 | `max_dpdt` | `f64` | `maxDpdt` [Pa/s] (default 1e6). |
 | `dpdt` | `bool` | Whether the thermo packages carry `dpdt` (OpenFOAM default `true`). |
+| `lazy_old_time_first_step` | `bool` | Reproduce what GeN-Foam 652b3da does in the FIRST time step because<br>OpenFOAM creates a field's old-time copy lazily (gh:#1361 round 3).<br>Default `true` (upstream is the specification); see<br>[`TwoPhaseSolver::without_first_step_lazy_old_time`] for the ablation.<br><br>1. `fvc::ddt(p_)` in the energy equation is the first request for<br>   `p.oldTime()`, so in step 1 the old-time pressure is the pressure<br>   after the first `p_rgh` solve, not the initial field (`dpdt` = 0 in<br>   the first outer iteration).<br>2. `fixedPower::correct` writes `T_[celli]` through `operator[]`, which<br>   does not call `storeOldTimes`, so the old-time copy created in outer<br>   iteration 1 carries a stale time index and is overwritten with the<br>   iteration-1 result at the start of outer iteration 2 (and only then):<br>   in step 1 the structure is advanced from its iteration-1 temperature<br>   in every iteration after the first, i.e. it receives one extra step of<br>   power, `alpha q dt / (alpha rho Cp)`. |
+| `t_interface_limiter_sees_new_value` | `bool` | Reproduce what `phaseChangeModel::correctInterfacialTemperature` really does<br>with `maxTInterfaceDdt` (gh:#1361 round 3). Default `true`.<br><br>The code reads `iT_.oldTime()[i]` AFTER `saturationPtr_->correctField(iT_)`<br>has overwritten `iT_`, and `correctField` ends with<br>`correctBoundaryConditions()`, which calls `storeOldTimes()`: the old-time<br>copy is therefore refreshed from the NEW saturation temperature (in step 1<br>the copy is first created from it), so `(iT - iT0)/dt` is 0 and the<br>`maxTInterfaceDdt` limiter never limits. Measured: after step 2 of<br>`1D_boiling` upstream's `T.interface` moved by +4.747 K from a saturation<br>jump of +37.98 K, where the limiter as documented would allow +1.375 K.<br>`false` applies the limiter against the temperature at the start of the step<br>(the documented intent; the port's behaviour before round 3). |
+| `alpha_solver_tolerance` | `f64` | `tolerance` of the linear solver selected for `alpha.<solved phase>`<br>(the catch-all `".*"` entry in `1D_boiling`). |
+| `alpha_solver_rel_tol` | `f64` | `relTol` of that solver (0 if absent). |
+| `alpha_solver_openfoam` | `bool` | `true` (default): solve the `alpha` equation with OpenFOAM's<br>`PBiCGStab`/`diagonal` and the case's tolerances, stopping where upstream<br>stops (gh:#1361 round 3: the tail of a decaying vapour front is solver<br>noise in upstream). `false`: solve it to round-off with ILU(0)-BiCGStab (the<br>port's earlier behaviour,<br>[`TwoPhaseSolver::with_exact_alpha_solve`]). |
 
 ##### Implementations
 
@@ -27714,6 +27766,8 @@ pub struct TimeControls {
     pub margin_to_phase_change: Option<f64>,
     pub max_delta_t: f64,
     pub write_interval: Option<f64>,
+    pub start_time: f64,
+    pub esi_adjust_delta_t: bool,
 }
 ```
 
@@ -27727,6 +27781,8 @@ pub struct TimeControls {
 | `margin_to_phase_change` | `Option<f64>` | `marginToPhaseChange` [K]. |
 | `max_delta_t` | `f64` | `maxDeltaT` [s]. |
 | `write_interval` | `Option<f64>` | `writeInterval` [s] with `writeControl adjustableRunTime`. |
+| `start_time` | `f64` | `startTime` [s]. |
+| `esi_adjust_delta_t` | `bool` | `true` (default): snap the step to the write times exactly as ESI<br>`Time::adjustDeltaT` does (`max(1, round(nSteps))` steps, growth capped at<br>2x and shrink at 0.2x, `writeTimeIndex` from `Time::operator++`), which is<br>what GeN-Foam 652b3da on v2506 runs (gh:#1361 round 3). `false` keeps the<br>port's earlier rule (always round the step count UP, from the written<br>time): see [`TwoPhaseSolver::with_foundation_style_write_time_adjust`]. |
 
 ##### Implementations
 
@@ -28263,6 +28319,26 @@ pub struct TwoPhaseSolver {
   pub fn courant(self: &Self) -> f64 { /* ... */ }
   ```
   `twoPhase::correctCourant`: the larger of the mixture and the relative
+
+- ```rust
+  pub fn without_first_step_lazy_old_time(self: Self) -> Self { /* ... */ }
+  ```
+  The ablation of [`TwoPhaseControls::lazy_old_time_first_step`]: the first
+
+- ```rust
+  pub fn with_exact_alpha_solve(self: Self) -> Self { /* ... */ }
+  ```
+  Solve the `alpha` equation to round-off ([`TwoPhaseControls::alpha_solver_openfoam`]
+
+- ```rust
+  pub fn with_foundation_style_write_time_adjust(self: Self) -> Self { /* ... */ }
+  ```
+  Keep the port's earlier write-time rule instead of ESI `Time::adjustDeltaT`
+
+- ```rust
+  pub fn with_documented_t_interface_rate_limiter(self: Self) -> Self { /* ... */ }
+  ```
+  The ablation of [`TwoPhaseControls::t_interface_limiter_sees_new_value`]:
 
 ###### Trait Implementations
 
