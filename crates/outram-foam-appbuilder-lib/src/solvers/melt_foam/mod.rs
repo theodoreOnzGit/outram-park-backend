@@ -276,9 +276,12 @@ impl MeltFoam {
     ///
     /// # Parameters and units
     ///
-    /// - `solidus`, `liquidus` — \[K\]. `liquidus` must exceed `solidus`; a pure
-    ///   metal needs an artificial mushy interval of order 0.1–1 K, since a true
-    ///   step function makes the liquid fraction non-differentiable.
+    /// - `solidus`, `liquidus` — \[K\]. ~~`liquidus` must exceed `solidus`; a pure
+    ///   metal needs an artificial mushy interval of order 0.1–1 K~~
+    ///   **CORRECTED 2026-11-12** (gh:#1363 row 6): nothing checks this, and
+    ///   `liquidus == solidus` reproduces ESI v2506's single-`Tmelt` option to
+    ///   3.4e-11 K over 200 steps (`melt_foam_vs_openfoam.md`). A mushy
+    ///   interval is still the usual choice for an alloy.
     /// - `latent_heat` — latent heat of fusion `L` \[J/kg\].
     /// - `specific_heat` — `Cp` \[J/(kg·K)\].
     /// - `density` — the material density ρ \[kg/m³\], used **only** to convert

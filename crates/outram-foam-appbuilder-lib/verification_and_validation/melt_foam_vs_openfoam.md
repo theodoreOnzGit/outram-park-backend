@@ -76,3 +76,53 @@ Read: `solidificationMeltingSource.C` (`update`, `addSup`, constructor),
    "Must exceed `solidus`". The code has no such check, and `Tsol = Tliq` is the
    ESI-equivalent configuration; if the run works, that doc claim is stronger than
    the code and is corrected in this change.
+
+## Results (2026-11-12; `cargo test --release -p outram-foam-appbuilder-lib --test upstream_melt_gh1363`)
+Port: `MeltFoam` + `SolidificationMelting` (`solidus = liquidus = 302.78 K`,
+`eutectic_fraction = 0`, no gravity), temperature solver 1e-16, thermal
+diffusivity `kappa/(rho Cp)` from upstream's own constants. 200 steps, 40 cells,
+16 000 compared values (T and `alpha1`).
+
+| quantity | worst abs(port - upstream), 200 steps | prediction | verdict |
+|---|---|---|---|
+| cell T | 3.4e-11 K | <= 1e-10 K | held |
+| `alpha1` | 2.0e-12 | <= 1e-12 | **missed 2x** |
+| cells at exactly 0 / exactly 1 | same count at all 200 steps | identical | held |
+| bit-identical values | 1874 of 16 000 (11.7 %) | < 25 % | held |
+| step-1 `alpha1` | 0 on both (T = 301 K < Tmelt, clamped) | (stage check) | no divergence |
+
+**First run was wrong, and it was my input, not the port.** The first run gave
+T off by 9.9 K and `alpha1` off by 1.0 from step 1. The first divergent stage
+was step-1 T (the port's cells were nearly uniform, i.e. far too diffusive), and
+the cause was that I passed upstream's dumped `thermo.alpha()` (= kappa/Cp =
+0.0839 kg/(m s), the `alphahe` of the h-form equation) to the port as its
+thermal diffusivity (m^2/s). The port's `alpha_thermal` is `kappa/(rho Cp)`; with
+that, step-1 T agrees to 2e-13. No port code changed for this.
+
+**Why `alpha1` is 2e-12 rather than 1e-12.** The same T-form against h-form
+floor as row 4 (about 3e-11 K in T), multiplied by the update gain
+`relax Cp/L = 0.0043` per K, gives about 1e-13 per step, and `alpha1` accumulates
+that over the steps it spends in the mushy range; 2e-12 is that accumulation.
+Not isolated further.
+
+**Defects in the port: none found at this scope.** The port's liquid-fraction
+update, once-per-step guard, and `-(L/Cp) rho d(alpha)/dt` source reproduce
+ESI's `update()` and `apply()` over 200 steps including the clamps at 0 and 1.
+**No ESI-form option was added**: with `solidus == liquidus` the Foundation form
+IS the ESI form. No number moved; no tolerance was relaxed.
+
+**Doc claims corrected in this change** (both contradicted by the run and by the
+code, which has no such check): `SolidificationMeltingCoefficients::liquidus`
+("Must exceed `solidus`") and `MeltFoam::boussinesq_coefficients` ("`liquidus`
+must exceed `solidus`; a pure metal needs an artificial mushy interval"),
+struck through with a dated correction. The generated API mirrors were
+regenerated.
+
+## Not covered
+The momentum side of the option (Darcy drag `-Cu (1-alpha)^2/(alpha^3 + q)`,
+Boussinesq buoyancy), which needs a flow solver taking `fvOptions` (ESI ships
+none that is incompressible; `buoyantFoam` is compressible), and the unit
+convention of that term (the port divides `Cu` by rho for its kinematic
+equation; upstream does not). Also not covered: temperature-dependent Cp,
+`thermoMode lookup`, a cell-set selection, the h-form of the port's source
+(`energy_is_temperature = false`), and the shipped `windshieldDefrost` tutorial.
