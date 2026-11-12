@@ -938,8 +938,8 @@ mesh (time 81): 18278 cells, **60813 faces, 24311 points** (the plain snap gives
 | 8 | 7.423801224059679e-6 | 24 / 1414 | 4223 (1439) | 18 / 1362 | 51 0 | 29 / 1402 | 0 | 7 |
 | 9 | 3.265670138296469e-6 | 25 / 1413 | 4223 (1439) | 18 / 1383 | 28 0 | 28 / 1401 | **2** | 7 |
 
-(Nearest-surface count 10660 and "rest" 0 at the raw stage; 0 baffle edges in all
-iterations; "scale passes" is the number of `Moving mesh using displacement scaling`
+(Nearest-surface count 10660 and "rest" 0 at the raw stage; ~~0 baffle edges in all
+iterations~~ **CORRECTED 2026-11-12 (round 7): 0 in iterations 0-5, then 2, 2, 1, 2**; "scale passes" is the number of `Moving mesh using displacement scaling`
 passes, i.e. the `scaleMesh` loop of round 4.) Iteration `k` writes its smoothed mesh
 and displacement at times 34, 36, 38, 40, 42, 44, 46, 54, 62, 70 and its last scaled
 mesh at 35, 37, 39, 41, 43, 45, 53, 61, 69, 77.
@@ -950,8 +950,9 @@ nothing existing calls it):** the `extendedFeatureEdgeMesh` ASCII reader; `plane
 (`applyConstraint`); `calcNearestFace`, `calcNearestFacePointProperties`; the per-point
 `featureAttractionUsingReconstruction`; `determineFeatures` (single-region and
 `multiRegionFeatureSnap` branches); `findNearFeatureEdge/Point`;
-`determineBaffleFeatures` (detection only: it reports an error if a baffle edge is
-found, none is on the flange); `reverseAttractMeshPoints`; `stringFeatureEdges`;
+`determineBaffleFeatures` (~~detection only: it reports an error if a baffle edge is
+found, none is on the flange~~ **CORRECTED 2026-11-12**: the log has 2, 2, 1, 2 baffle edges
+in iterations 6-9; the attraction of their end points is ported in round 7); `reverseAttractMeshPoints`; `stringFeatureEdges`;
 `preventFaceSqueeze`; `PatchTools::pointNormals`; `smoothAndConstrain`; the tail of
 `calcNearestSurfaceFeature`; and a `doSnap` morph loop reusing rounds 3-5. NOT ported:
 the mesh-wide `implicitFeatureSnap` driver (its per-point reconstruction is ported because
@@ -1084,3 +1085,109 @@ twins so tests can count where the two differ.
 | P46 | Iterations 1-8, each started from ESI's mesh at the start of that iteration (`feat_points_*`), are bit-identical in displacement and scaled points; chained they stay so. Iterations 6-8 pass through 7 scale passes (round 4 machinery). | accumulated ulp, or `scaleMesh` on the `errorReduction 0` branch |
 | P47 | Iteration 9 is NOT bit-identical without `detectNearSurfaces` (2 overrides); with it ported, it is. | |
 | P48 | After ten iterations (+ `detectNearSurfaces`), `repatchToSurface` + merges give ESI's final mesh, 60813 faces, 24311 points, all faces equal per index. | merge sets near `cos 30 deg` |
+
+## Round 7: results (2026-11-12, release, `tests/snappy_hex_mesh_esi_feature.rs`)
+
+Reference: the rebuilt ESI run (binary, `blockMesh` ASCII `writePrecision 16`), identical in
+log to round 6's; exact doubles per iteration as in `extract_feature_fixtures.py`. The
+per-iteration meshes are 640 KB each and are not committed: the test pins the **64-bit FNV-1a
+digest of ESI's binary file** (`ESI_DIGESTS`), so a digest match is equality of all 79986
+components. Final-mesh fixtures (`esi_feat_final_faces/points/boundary`, `esi_feat_all_face_sets`)
+come from a second ESI run of the same case with ASCII `writePrecision 17`, through
+`extract_merge_fixtures.py` run on a directory whose `36`, `37`, `40` are symlinks to ESI times
+77, 78, 81.
+
+| stage | compared with | result |
+|---|---|---|
+| per-point attraction, iteration 0 (P44) | ESI dump, 12130 patch points | **0 differing** constraints and attractions (were 4, mesh 6704, 6710, 6738, 6744) |
+| smoothed displacement and scaled points, iteration 0 (P44) | `34/displacement`, `35/polyMesh/points` | **79986 of 79986 each** (was 37365 / 42862) |
+| iterations 1-9, each from ESI's mesh and ESI's previous displacement (P46) | `N/displacement`, scaled points | **79986 of 79986, both, all nine** |
+| iterations 0-9 **chained** from the port's own state (P46) | digests of ESI's files | **identical, ten of ten, both fields** |
+| log counts per iteration | table above | all equal (raw, reverse, stringing, final), scale passes 1,1,1,1,1,1,7,7,7,7 |
+| `repatchToSurface` | ESI log "Repatched 26 faces" | 26 faces |
+| merge sets | `allFaceSets` | 4666 faces equal (2285 sets) |
+| final mesh | ESI time 81 | **60813 faces, 24311 points, 18278 cells; all 60813 faces equal per index, ring and start vertex; owner 60813/60813; neighbour 51058/51058; patch 9755/9755**; patch starts 51058 / 58275 / 59449 / 59689 / 60813; surviving points are ESI's, coordinates bit-identical |
+
+### What the dump found, in order (each fix measured before the next)
+
+1. **Edge search order** (the round-6 miss): octree traversal. After porting it, iteration 0
+   attraction and constraint differences: 4 -> 0; displacement 37365 -> 79986.
+2. **Iteration 1 onward: the displacement field persists in `meshMover`.** With iteration 0
+   exact, chained iterations still differed by up to 1.1e-11 m (37868 of 79986 components
+   bit-identical in iteration 1) although `nearestDisp`, the constraints, the attraction and the
+   patch displacement were all bit-identical to the dump. First divergent operation: the
+   interior points. `motionSmootherAlgo::setDisplacement` writes only the patch points, so the
+   interior starts the next 300 `smoothDisplacement` passes from the previous iteration's smoothed
+   values, not zero (the port zeroed it; 300 passes leave ~1e-11 of the start). Fixed by
+   `FeatureSnap::morph_iteration_from(.., prev)`; iterations 0-5: 79986 of 79986.
+3. **Baffle edges.** Iteration 6 stopped with the round-6 `NotPorted` error because the port
+   detected 2 baffle edges. **Round 6's record "0 baffle edges in all iterations" was wrong**:
+   ESI's log has them in iterations 6-9. ~~0 baffle edges in all iterations~~ **CORRECTED
+   2026-11-12**: ESI detects 2, 2, 1, 2 baffle edges (4, 4, 2, 3 baffle points, all attracted to a
+   feature edge, 0 to a feature point) in iterations 6, 7, 8, 9, and "After baffle feature
+   analysis" reads 26 / 1416, 26 / 1416, 24 / 1415, 25 / 1414 (feature point / feature edge); the
+   port now reproduces all of these. `determineBaffleFeatures` with `baffleFeaturePoints false`
+   is a loop over baffle-edge end points calling `findNearFeatureEdge` in point order (the
+   feature-point loop and the `pointStatus == 1` branch are commented out or unreachable
+   upstream), ported as `determine_baffle_features`. Iterations 6-9: 79986 of 79986.
+
+### P41 refuted in effect; what `detectNearSurfaces` does (not ported)
+
+ESI overrides the nearest displacement at 2 points in iteration 9 (log: "Overriding nearest
+with intersection of close gaps at 2 out of 12130 points"; mesh points 19516 and 25248; the
+port's nearest differs from ESI's there by up to 3.5e-8 m, measured against the dump). The
+iteration is nevertheless bit-identical without it: at `featureAttract = 1` the displacement
+of a feature-constrained point is its attraction, `(1-1)*nearest + 1*attraction`, and both
+points are feature-constrained (constraints and attractions equal the dump at every point).
+So the first divergent operation is the one predicted in P41, but it has no effect on the
+result of this case. The port is therefore **not shown to be correct for a case whose overridden
+points are free (nearest-surface) points**; `detectNearSurfaces` is still to be ported before the
+feature snap is claimed for other geometry.
+
+### Octree vs brute force (P45), measured
+
+Triangle search at the 12130 patch points of iteration 0: the two searches return a different
+triangle at **8** points and the same nearest point at **all** of them (equidistant
+triangles). Round 6's "190 triangle ties" counted face-centre queries as well, which are not
+in this comparison. Feature-edge search: the four corner points above. 410 s -> 0.2 s for the
+per-point stage, since the nearest-triangle search is now O(log n).
+
+### Moved numbers (old -> new)
+
+| quantity | round 6 | round 7 |
+|---|---|---|
+| `34/displacement` bit-identical components | 37365 / 79986 (worst 1.4e-6 m) | **79986 / 79986** |
+| `35/polyMesh/points` bit-identical | 42862 / 79986 | **79986 / 79986** |
+| patch points, feature-edge class bit-identical | 1401 / 1405 | 1405 / 1405 |
+| patch points, free class bit-identical | 10231 / 10699 | 10699 / 10699 |
+| iterations 1-9 | not run | all bit-identical (single and chained) |
+| baffle edges, iterations 6-9 | "0" (wrong) | 2, 2, 1, 2 (ESI's) |
+| final mesh | not run | 60813 faces / 24311 points, all equal per index |
+
+### PETIR (P43)
+
+The only transcendentals are `cos(degToRad(30))` and `cos(degToRad(110))`, both through
+`RealMath` (`r_cos`) and equal to ESI's as in round 5; **0 differing values**. The octree code
+uses only `+ - * /`, `sqrt`, `min`, `max`; `Random` is integer arithmetic plus one
+`u64 -> f64` conversion and a division, no libm.
+
+### Ledger, round 7
+
+P44 held. P45 held (differences exist, all nearest points equal; count 8, not the predicted
+"0 or few" of triangle index differences only in the sense of "few"). P46 held (single and
+chained, after the two further fixes above, neither of which was predicted: the persistent
+displacement field and the baffle attraction). P47 refuted in effect (iteration 9 is
+bit-identical without `detectNearSurfaces`; the override exists and is inert here). P48
+held. P43 held.
+
+### Honest limits
+
+- The match is for this one case (reduced flange, one surface, serial, `multiRegionFeatureSnap
+  false`). The multi-region counts are pinned for iteration 0 only (not chained).
+- `detectNearSurfaces`, `baffleFeaturePoints true`, `implicitFeatureSnap`, face splitting and
+  the `setUnrefinement` undo paths are not ported.
+- The per-iteration references are pinned by a 64-bit digest, not stored; the iteration-0
+  and scaled-iteration-0 meshes are stored (`feat_disp_34`, `feat_points_35`).
+- `addLayers` was not started.
+- The ESI dump patch (a copy of `snappySnapDriverFeature.C` edited in place, original and
+  rebuilt library restored) is not committed; its layout is described above.

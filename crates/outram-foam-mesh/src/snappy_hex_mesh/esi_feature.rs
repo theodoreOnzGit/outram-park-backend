@@ -24,17 +24,20 @@
 //! `treeDataPrimitivePatch.C` (`findNearest`: `sqr(nearHit.distance())`).
 //!
 //! **Scope.** Explicit feature snapping with an `extendedFeatureEdgeMesh`, the
-//! `multiRegionFeatureSnap` branches, `stringFeatures`, `detectBaffles` (detection only: a
-//! baffle edge is an error here), no face splitting (`nFaceSplitInterval` unset),
-//! `releasePoints false`, `avoidDiagonal false`, `strictRegionSnap false`, serial, one
-//! unzoned surface. NOT ported: `implicitFeatureSnap` driver, `releasePointsNextToMultiPatch`,
-//! `avoidDiagonalAttraction`, `splitDiagonals`, baffle point attraction,
-//! `detectNearSurfaces` (see the V&V record, P41), the octree traversal order.
+//! `multiRegionFeatureSnap` branches, `stringFeatures`, `detectBaffles` (baffle edges attract
+//! their end points to the nearest feature edge, `baffleFeaturePoints false`; round 7), no face
+//! splitting (`nFaceSplitInterval` unset), `releasePoints false`, `avoidDiagonal false`,
+//! `strictRegionSnap false`, serial, one unzoned surface. NOT ported: `implicitFeatureSnap`
+//! driver, `releasePointsNextToMultiPatch`, `avoidDiagonalAttraction`, `splitDiagonals`,
+//! `baffleFeaturePoints true`, and `detectNearSurfaces` (ESI overrides the nearest displacement
+//! of 2 points in iteration 9 of the flange; both points are feature-constrained at blend 1,
+//! so the result is bit-identical without it, see the V&V record, P47).
 //!
-//! **Nearest-shape searches** are brute force (first minimum in index order, strict `<`
-//! as upstream's `findNearestOp`); upstream walks an `indexedOctree`. The two differ only
-//! when two shapes are at exactly equal distance; every query counts such ties in
-//! [`TieCounts`] so the difference is measured, not assumed away.
+//! **Nearest-shape searches** walk upstream's `indexedOctree` ([`crate::snappy_hex_mesh::esi_octree`])
+//! so equidistant shapes resolve as in ESI (round 7). ~~Round 6 searched by brute force, first
+//! minimum in index order~~ **CORRECTED 2026-11-12**: that choice picked a different feature
+//! edge than ESI at four equidistant-edge points and was the first divergence of the smoothed
+//! displacement. The brute-force searches remain as `*_brute` twins for comparison tests.
 //!
 //! Numerics: plain IEEE `+ - * /` and `sqrt` in upstream's operand grouping, no `mul_add`.
 
@@ -57,7 +60,7 @@ const GREAT: f64 = 1e15;
 pub enum FeatureError {
     /// The `extendedFeatureEdgeMesh` text could not be read.
     BadEdgeMesh(String),
-    /// A situation upstream handles that this port does not (baffle edges, open patch
+    /// A situation upstream handles that this port does not (`baffleFeaturePoints`, open patch
     /// edges, ...). Nothing is approximated.
     NotPorted(String),
 }
@@ -1085,8 +1088,9 @@ pub fn determine_features(
 // baffles, reverse attraction, stringing, squeeze
 // ---------------------------------------------------------------------------------------
 
-/// `determineBaffleFeatures`, detection only: the number of baffle edges (patch edges
-/// with two faces whose unit normals have a dot product below `baffleFeatureCos`).
+/// The number of baffle edges (patch edges with two faces whose unit normals have a dot
+/// product below `baffleFeatureCos`): the detection half of `determineBaffleFeatures`, kept as
+/// a cross-check of [`determine_baffle_features`] (which also attracts the end points).
 pub fn count_baffle_edges(pa: &PatchAddr, topo: &PatchTopo, local_points: &[V], baffle_feature_cos: f64) -> usize {
     let normals: Vec<V> = pa
         .local_faces
@@ -1105,6 +1109,77 @@ pub fn count_baffle_edges(pa: &PatchAddr, topo: &PatchTopo, local_points: &[V], 
         .iter()
         .filter(|ef| ef.len() == 2 && dot(normals[ef[0]], normals[ef[1]]) < baffle_feature_cos)
         .count()
+}
+
+/// What `determineBaffleFeatures` printed ("Baffle points : N of which attracted to").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct BaffleStats {
+    /// "Detected N baffle edges".
+    pub edges: usize,
+    /// "Baffle points : N" (end points of baffle edges).
+    pub points: usize,
+    /// "feature point".
+    pub feature_point: usize,
+    /// "feature edge".
+    pub feature_edge: usize,
+}
+
+/// `determineBaffleFeatures` (v2506 `:2990`) with `baffleFeaturePoints false` (the default;
+/// the feature-point loop and the `pointStatus == 1` branch are disabled upstream:
+/// "TEMPORARILY DISABLED"). Every end point of a baffle edge (patch edge with two faces whose
+/// unit normals have a dot product below `baffleFeatureCos`) is attracted to its nearest
+/// feature edge, overwriting whatever the geometric analysis stored for it, in point order.
+///
+/// # Errors
+/// [`FeatureError::NotPorted`] when `baffle_feature_points` is true (not ported).
+pub fn determine_baffle_features(
+    fs: &FeatureSet,
+    pa: &PatchAddr,
+    topo: &PatchTopo,
+    local_points: &[V],
+    snap_dist: &[f64],
+    baffle_feature_cos: f64,
+    baffle_feature_points: bool,
+    st: &mut AttractState,
+    ties: &mut TieCounts,
+) -> Result<BaffleStats, FeatureError> {
+    if baffle_feature_points {
+        return Err(FeatureError::NotPorted("baffleFeaturePoints true".into()));
+    }
+    let normals: Vec<V> = pa
+        .local_faces
+        .iter()
+        .map(|f| {
+            let n = esi_face_area_normal(local_points, f);
+            let s = mag(n);
+            if s < ROOTVSMALL {
+                [0.0; 3]
+            } else {
+                div(n, s)
+            }
+        })
+        .collect();
+    let mut status = vec![-1i32; local_points.len()];
+    let mut stats = BaffleStats::default();
+    for (ei, ef) in topo.edge_faces.iter().enumerate() {
+        if ef.len() == 2 && dot(normals[ef[0]], normals[ef[1]]) < baffle_feature_cos {
+            stats.edges += 1;
+            let e = topo.edges[ei];
+            status[e[0]] = 0;
+            status[e[1]] = 0;
+        }
+    }
+    stats.points = status.iter().filter(|&&s| s != -1).count();
+    for pointi in 0..local_points.len() {
+        if status[pointi] == 0 {
+            let pt = local_points[pointi];
+            let (_, hit) = find_near_feature_edge(fs, false, local_points, snap_dist, pointi, pt, st, ties);
+            if hit {
+                stats.feature_edge += 1;
+            }
+        }
+    }
+    Ok(stats)
 }
 
 /// Counts of `writeStats`: points attracted to a feature point / feature edge / the
@@ -1423,6 +1498,10 @@ pub struct FeatureReport {
     pub raw: AttractStats,
     /// "Detected N baffle edges".
     pub baffle_edges: usize,
+    /// "Baffle points : N of which attracted to" (round 7).
+    pub baffle: BaffleStats,
+    /// "After baffle feature analysis" (round 7).
+    pub after_baffle: AttractStats,
     /// "Initially selected N mesh points ... for reverse attraction".
     pub reverse_initial: usize,
     /// "Selected N mesh points".
@@ -1490,10 +1569,9 @@ pub fn calc_nearest_surface_feature(
     let mut raw = AttractState::new(fs, n);
     determine_features(fs, ctl.feature_cos, ctl.multi_region, local_points, snap_dist, nearest_disp, &pfd, &mut raw, &mut ties);
     let raw_stats = attract_stats(&raw.patch_constraints);
-    let baffle_edges = count_baffle_edges(pa, topo, local_points, ctl.baffle_feature_cos);
-    if baffle_edges > 0 {
-        return Err(FeatureError::NotPorted(format!("{baffle_edges} baffle edges: baffle attraction is not ported")));
-    }
+    let baffle = determine_baffle_features(fs, pa, topo, local_points, snap_dist, ctl.baffle_feature_cos, false, &mut raw, &mut ties)?;
+    let baffle_edges = baffle.edges;
+    let after_baffle = attract_stats(&raw.patch_constraints);
     let (reverse_initial, reverse_grown, mut patch_attraction, mut patch_constraints) =
         reverse_attract_mesh_points(fs, pa, local_points, &raw, &mut ties);
     let reverse = attract_stats(&patch_constraints);
@@ -1541,6 +1619,8 @@ prevent_face_squeeze(pa, local_points, nearest_disp, &mut patch_attraction, &pat
     let report = FeatureReport {
         raw: raw_stats,
         baffle_edges,
+        baffle,
+        after_baffle,
         reverse_initial,
         reverse_grown,
         reverse,
@@ -1608,6 +1688,18 @@ impl FeatureSnap {
     /// [`FeatureError::NotPorted`] from the feature attraction, or when a patch point has
     /// no surface within its snap distance.
     pub fn morph_iteration(&self, mesh: &mut SnapMesh, iter: usize) -> Result<MorphIteration, FeatureError> {
+        self.morph_iteration_from(mesh, iter, None)
+    }
+
+    /// [`Self::morph_iteration`] with the displacement field the previous iteration left in
+    /// `meshMover` (`prev`, all mesh points; `None` for the first iteration, where it is
+    /// zero). Upstream's `motionSmoother::setDisplacement` writes only the patch points, so
+    /// the internal points start the next `smoothDisplacement` from the previous smoothed
+    /// values (round 7: starting them from zero left 1e-11 m of residual after 300 passes).
+    ///
+    /// # Errors
+    /// As [`Self::morph_iteration`].
+    pub fn morph_iteration_from(&self, mesh: &mut SnapMesh, iter: usize, prev: Option<&[V]>) -> Result<MorphIteration, FeatureError> {
         let local: Vec<V> = self.pa.mesh_points.iter().map(|&p| mesh.points[p]).collect();
         let mut ties = TieCounts::default();
         let (nearest, missing) = calc_nearest_surface_sqr_mag(&local, &self.snap_dist, &self.surface, &mut ties);
@@ -1633,7 +1725,16 @@ impl FeatureSnap {
             attract,
         )?;
         report.ties.triangle += ties.triangle;
-        let mut disp = displacement_field(mesh, &self.pa, &patch_disp);
+        let mut disp = match prev {
+            Some(p) => {
+                let mut d = p.to_vec();
+                for (i, &mp) in self.pa.mesh_points.iter().enumerate() {
+                    d[mp] = patch_disp[i];
+                }
+                d
+            }
+            None => displacement_field(mesh, &self.pa, &patch_disp),
+        };
         smooth_displacement(mesh, &self.mesh_edges, &self.pa, &mut disp, self.n_solve_iter);
         let mut ms = MotionSmoother::new(mesh, &self.pa, disp.clone());
         let scale_passes =
