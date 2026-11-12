@@ -8162,6 +8162,19 @@ pub struct DiffusionNeutronics {
     ```
     Calls `U::from(self)`.
 
+- **PseudoTimeEigenvalue**
+  - ```rust
+    fn pseudo_time_power(self: &Self) -> f64 { /* ... */ }
+    ```
+
+  - ```rust
+    fn pseudo_time_max_delta_t(self: &Self, controls: &PseudoTimeControls, clock: &PseudoTimeClock, p_tot: f64, p_tot_old: f64) -> f64 { /* ... */ }
+    ```
+
+  - ```rust
+    fn eigenvalue_time_step(self: &mut Self, p_target: f64, first_step: bool) -> Result<PseudoTimeStep, PseudoTimeError> { /* ... */ }
+    ```
+
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -8802,6 +8815,761 @@ pub struct PointKineticsState {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+## Module `pseudo_time`
+
+GeN-Foam's pseudo-time eigenvalue driver (gh:#1361, S4).
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+GeN-Foam does not converge an eigenvalue in one call. With
+`eigenvalueNeutronics true` every **time step** of `GeN-Foam.C` does one flux
+solve per group (the time-derivative coefficient is `1 - eigenvalueNeutronics
+= 0`), then `calcKeff.H` updates `keff_ *= pTot / pTarget_` (clamped to
+`[0.1, 5]`) and `normFluxes.H` rescales the flux to `pTarget_`. The
+converged `keff_` is the eigenvalue of the discrete operator; the
+"iteration history" is `keff_` per pseudo-time step. Existing
+`solve_eigenvalue` methods are a different algorithm (a static power
+iteration to a tolerance) and are kept untouched.
+
+This module holds what is model-independent: the `Time` object of
+OpenFOAM-ESI as far as the loop uses it ([`PseudoTimeClock`]:
+`adjustableRunTime` write alignment, `run()`, `operator++`), GeN-Foam's
+`setDeltaT`/`adjustDeltaT`, the neutronics `maxDeltaT`, and the loop
+([`run_pseudo_time_eigenvalue`]). The per-step body lives with each model
+(`diffusion/pseudo_time.rs`, `sp3/pseudo_time.rs`) behind
+[`PseudoTimeEigenvalue`]. A generic bound, not a trait object.
+
+Scope: the discontinuity factors are 1 (the guided slabs; `dfAdjust` is
+gh:#1474), no `integralPredictor`/`implicitPredictor`/Aitken (they are
+transient-only upstream: `!eigenvalueNeutronics_`), and only the neutronics
+region (`regionSolvers { neutroRegion ... }`) is stepped.
+
+```rust
+pub mod pseudo_time { /* ... */ }
+```
+
+### Types
+
+#### Enum `PseudoTimeError`
+
+Why a pseudo-time step could not be taken.
+
+```rust
+pub enum PseudoTimeError {
+    NoCrossSections,
+    LiquidFuel,
+}
+```
+
+##### Variants
+
+###### `NoCrossSections`
+
+The model was built without cross sections (state-only scaffold).
+
+###### `LiquidFuel`
+
+Circulating fuel (`liquidFuel true`): `precEq.H`'s transported branch is
+not part of this driver.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PseudoTimeControls`
+
+The `controlDict` entries the loop reads (GeN-Foam `GeN-Foam.C`,
+`setDeltaT.C`, `diffusionNeutronics::maxDeltaT`) and `pTarget` from
+`0/uniform/reactorState`.
+
+```rust
+pub struct PseudoTimeControls {
+    pub delta_t: f64,
+    pub end_time: f64,
+    pub write_interval: Option<f64>,
+    pub adjust_time_step: bool,
+    pub max_delta_t: f64,
+    pub min_delta_t: f64,
+    pub max_power_variation: f64,
+    pub p_target: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `delta_t` | `f64` | `deltaT`. |
+| `end_time` | `f64` | `endTime`. |
+| `write_interval` | `Option<f64>` | `writeInterval` when `writeControl adjustableRunTime`, else `None`. |
+| `adjust_time_step` | `bool` | `adjustTimeStep`. |
+| `max_delta_t` | `f64` | `maxDeltaT` (default `GREAT`). |
+| `min_delta_t` | `f64` | `minDeltaT` (default `VSMALL`). |
+| `max_power_variation` | `f64` | `maxPowerVariation` (default 0.025). |
+| `p_target` | `f64` | `pTarget` of `reactorState`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn guided(delta_t: f64, end_time: f64, write_interval: f64, max_delta_t: f64, max_power_variation: f64, p_target: f64) -> Self { /* ... */ }
+  ```
+  The `controlDict` of the guided slab tutorials: `adjustTimeStep true`,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PseudoTimeClock`
+
+OpenFOAM's `Time`, as far as GeN-Foam's neutronics loop uses it.
+
+```rust
+pub struct PseudoTimeClock {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(controls: &PseudoTimeControls) -> Self { /* ... */ }
+  ```
+  `Time` at `startTime 0`, then GeN-Foam's `setDeltaT(runTime, solvers)`
+
+- ```rust
+  pub fn value(self: &Self) -> f64 { /* ... */ }
+  ```
+  Current time value.
+
+- ```rust
+  pub fn delta_t(self: &Self) -> f64 { /* ... */ }
+  ```
+  Current time step.
+
+- ```rust
+  pub fn time_index(self: &Self) -> usize { /* ... */ }
+  ```
+  Steps taken so far (`timeIndex`).
+
+- ```rust
+  pub fn run(self: &Self) -> bool { /* ... */ }
+  ```
+  `Time::run()`: `value() < endTime - 0.5 deltaT`.
+
+- ```rust
+  pub fn set_delta_t(self: &mut Self, delta_t: f64, adjust: bool) { /* ... */ }
+  ```
+  `Time::setDeltaT(deltaT, adjust)`.
+
+- ```rust
+  pub fn adjust_delta_t(self: &mut Self) { /* ... */ }
+  ```
+  `Time::adjustDeltaT()` for `writeControl adjustableRunTime`; a no-op
+
+- ```rust
+  pub fn advance(self: &mut Self) { /* ... */ }
+  ```
+  `Time::operator++()`: advance by `deltaT`, reset a time within
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PseudoTimeStep`
+
+What one eigenvalue time step reports (the lines the upstream log prints).
+
+```rust
+pub struct PseudoTimeStep {
+    pub power: f64,
+    pub k_eff: f64,
+    pub first_residual: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `power` | `f64` | `power: ...`, `power()` after the flux solves, before `calcKeff.H`. |
+| `k_eff` | `f64` | `keff_ = ...` after `calcKeff.H`. |
+| `first_residual` | `f64` | `neutroResidual (neutroIter: 1)`: the largest initial residual of the<br>first solve of every equation of the step. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PseudoTimeRecord`
+
+One row of the pseudo-time history.
+
+```rust
+pub struct PseudoTimeRecord {
+    pub time: f64,
+    pub delta_t: f64,
+    pub step: PseudoTimeStep,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `time` | `f64` | `Time = ` of the step (value after `runTime++`). |
+| `delta_t` | `f64` | The `deltaT` the step was taken with. |
+| `step` | `PseudoTimeStep` | The step's report. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Traits
+
+#### Trait `PseudoTimeEigenvalue`
+
+A neutronics model that can take GeN-Foam's eigenvalue time step.
+
+```rust
+pub trait PseudoTimeEigenvalue {
+    /* Associated items */
+}
+```
+
+##### Required Items
+
+###### Required Methods
+
+- `pseudo_time_power`: `power()`: the domain integral of `sum_g flux_g sigmaPow_g`.
+- `pseudo_time_max_delta_t`: The model's `maxDeltaT()` given `power()` after the step and the
+- `eigenvalue_time_step`: `correctPhysics()` for `eigenvalueNeutronics true`, after `pTotOld_` was
+
+##### Implementations
+
+This trait is implemented for the following types:
+
+- `super::DiffusionNeutronics`
+- `SnPseudoTimeSolver`
+- `super::Sp3Neutronics`
+
+### Functions
+
+#### Function `neutronics_max_delta_t`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The diffusion solver's `maxDeltaT()` (`diffusionNeutronics.C:220`): the
+largest time step the power variation of the step allows, only once the
+time exceeds the dictionary `deltaT`. (SP3 has no such guard,
+[`sp3_max_delta_t`].)
+
+`p_tot` is `power()` after the step, `p_tot_old` the `pTotOld_` taken at the
+start of `correctPhysics()`.
+
+```rust
+pub fn neutronics_max_delta_t(controls: &PseudoTimeControls, clock: &PseudoTimeClock, p_tot: f64, p_tot_old: f64) -> f64 { /* ... */ }
+```
+
+#### Function `sp3_max_delta_t`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The SP3 and SN solvers' `maxDeltaT()` (`SP3Neutronics.C:216`,
+`SNNeutronics.C:184`, identical): as
+[`neutronics_max_delta_t`] but evaluated from the first step on.
+
+```rust
+pub fn sp3_max_delta_t(controls: &PseudoTimeControls, clock: &PseudoTimeClock, p_tot: f64, p_tot_old: f64) -> f64 { /* ... */ }
+```
+
+#### Function `adjust_delta_t`
+
+GeN-Foam `adjustDeltaT(runTime, solvers)` (`setDeltaT.C`) with the one
+neutronics solver's `maxDeltaT` already evaluated.
+
+```rust
+pub fn adjust_delta_t(controls: &PseudoTimeControls, clock: &mut PseudoTimeClock, solver_max_delta_t: f64) { /* ... */ }
+```
+
+#### Function `calc_keff`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`calcKeff.H`: `keff_ *= pTot / pTarget_`, limited to `[0.1, 5]`.
+
+```rust
+pub fn calc_keff(keff: f64, p_tot: f64, p_target: f64) -> f64 { /* ... */ }
+```
+
+#### Function `run_pseudo_time_eigenvalue`
+
+GeN-Foam's main time loop for a single neutronics region.
+
+```text
+setDeltaT; while (runTime.run()) { runTime++; correctPhysics(); adjustDeltaT; }
+```
+
+# Errors
+
+The first [`PseudoTimeError`] a step reports.
+
+```rust
+pub fn run_pseudo_time_eigenvalue<S: PseudoTimeEigenvalue>(solver: &mut S, controls: &PseudoTimeControls) -> Result<Vec<PseudoTimeRecord>, PseudoTimeError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `SMALL`
+
+OpenFOAM `SMALL` (double precision).
+
+```rust
+pub const SMALL: f64 = 1e-15;
+```
+
+#### Constant `GREAT`
+
+OpenFOAM `GREAT` (double precision).
+
+```rust
+pub const GREAT: f64 = 1e15;
+```
+
+#### Constant `VSMALL`
+
+OpenFOAM `VSMALL` (double precision).
+
+```rust
+pub const VSMALL: f64 = 1e-300;
+```
+
+#### Constant `VGREAT`
+
+OpenFOAM `VGREAT` (double precision).
+
+```rust
+pub const VGREAT: f64 = 1e300;
+```
+
+#### Constant `ROOTVGREAT`
+
+OpenFOAM `ROOTVGREAT` (double precision).
+
+```rust
+pub const ROOTVGREAT: f64 = 1e150;
+```
+
+#### Constant `DELTA_T_FACTOR`
+
+`solver::deltaTFactor` (`src/classes/common/solver/solver.C:52`).
+
+```rust
+pub const DELTA_T_FACTOR: f64 = 1.2;
+```
+
 ## Module `sn`
 
 # Discrete-ordinates (S_N) transport
@@ -8856,9 +9624,13 @@ Gauss-Seidel LDU solver (not CG).
 
 ## Scope / deferrals
 
-Isotropic (P0) scattering only — the anisotropic Legendre-moment source
-(`SNNeutronics`'s `legendreMatrices_`, moments `>= 1`) is deferred, matching
-how the [`super::diffusion`] port uses only moment 0. Transients, liquid-fuel
+[`SnNeutronics`] is isotropic (P0) scattering only on the baked-in level-symmetric
+sets; ~~the anisotropic Legendre-moment source (`SNNeutronics`'s
+`legendreMatrices_`, moments `>= 1`) is deferred~~ **CORRECTED 2026-11-12**
+(gh:#1474, gh:#1361): the anisotropic source and the case's own
+`quadratureSet` are ported in [`pseudo_time::SnPseudoTimeSolver`] and
+[`quadrature_set::QuadratureSet`], as a translation of upstream's pseudo-time
+step; this type is kept unchanged as the named alternative. Transients, liquid-fuel
 precursor advection, Aitken acceleration, and live thermal-hydraulic feedback
 are likewise deferred with the coupling layer. Reflective boundaries are the
 `ZeroGradient` flux BC; a vacuum edge is `FixedValue(0)` (zero incoming
@@ -9153,6 +9925,447 @@ pub struct AngularQuadrature {
     fn into(self: Self) -> U { /* ... */ }
     ```
     Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `quadrature_set`
+
+The `quadratureSet` of a GeN-Foam S_N case, read as upstream reads it
+(gh:#1474, gh:#1361).
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+[`AngularQuadrature::level_symmetric`](super::AngularQuadrature::level_symmetric)
+bakes the standard S2, S4, S6 sets. GeN-Foam instead reads the directions
+and weights of ONE octant from `constant/<region>/quadratureSet`
+(`discreteDirectionsOct`, `directionUxOct`, `directionUyOct`,
+`directionUzOct`, `directionWeightsOct`) and replicates them over the eight
+sign octants in a fixed order (`readQuadratureSet.H`); the weights are then
+normalised to sum to 1 (not `4 pi`) and every direction to unit length. This
+type is exactly that, so a case's own set (the Godiva tutorial ships a
+4-direction-per-octant set that is not level-symmetric S4) is used as it is.
+
+It also builds `legendreMatrices_` (`calcLegendreMatrices.H`): for each
+moment `L`, `P_L(Omega_i . Omega_j)` between every pair of directions.
+
+```rust
+pub mod quadrature_set { /* ... */ }
+```
+
+### Types
+
+#### Struct `QuadratureSet`
+
+A discrete-ordinates direction set in GeN-Foam's convention: unit versors
+and weights summing to 1.
+
+```rust
+pub struct QuadratureSet {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn read(path: &Path) -> Result<Self, AppBuilderError> { /* ... */ }
+  ```
+  Read `constant/<region>/quadratureSet`.
+
+- ```rust
+  pub fn from_octant(ux: &[f64], uy: &[f64], uz: &[f64], w: &[f64]) -> Self { /* ... */ }
+  ```
+  Build the full set from one octant's direction cosines and weights:
+
+- ```rust
+  pub fn direction_count(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of discrete directions (`8 discreteDirectionsOct`).
+
+- ```rust
+  pub fn versors(self: &Self) -> &[Vector3] { /* ... */ }
+  ```
+  The unit direction vectors.
+
+- ```rust
+  pub fn weights(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  The weights, summing to 1.
+
+- ```rust
+  pub fn legendre_matrices(self: &Self, moments: usize) -> Vec<Vec<Vec<f64>>> { /* ... */ }
+  ```
+  `legendreMatrices_[L][i][j] = P_L(Omega_i . Omega_j)` for `L` in
+
+- ```rust
+  pub fn face_phi(self: &Self, mesh: &Arc<FvMesh>, direction: usize) -> SurfaceScalarField { /* ... */ }
+  ```
+  `facePhis_[direction] = directionVersors_[direction] & mesh.Sf()`, the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `legendre_poly`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`legendrePoly(n, mu)` of `include/legendrePoly.C`, orders 0 to 7 with
+upstream's expressions; `0.0` for any other order, as upstream returns.
+
+```rust
+pub fn legendre_poly(n: usize, mu: f64) -> f64 { /* ... */ }
+```
+
+## Module `pseudo_time`
+
+GeN-Foam's S_N eigenvalue time step, with the case's own `quadratureSet` and
+anisotropic (Legendre-moment) scattering (gh:#1474, gh:#1361).
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+[`SnNeutronics`](super::SnNeutronics) keeps its own algorithm (a static
+power iteration on the baked-in level-symmetric sets with isotropic
+scattering, weights summing to `4 pi`); it is untouched. This module is the
+translation of `SNNeutronics`'s `correctPhysics()`:
+`solveNeutronicsSN.H`, `fluxEqSN.H`, `calcSourceSN.H`,
+`calcThisIntraSource.H`, `updateScalarFluxes.H`, `normFluxesSN.H`, with
+upstream's conventions (weights sum to 1, no `1/(4 pi)` in the source).
+
+## What one step does (eigenvalue branch)
+
+1. `flux_g = sum_d w_d psi_{g,d}`; `pTot = power()`; the precursors and the
+   delayed source from the fission source at the old `keff_` (stationary
+   fuel: the diagonal solve `(V S/k beta)/(V lambda)`).
+2. On the first step only: every flux scaled by `pTarget / pTot`.
+3. For each group `g`, `Gauss-Seidel` over directions, repeating (at most
+   `maxInnerIter`, until the inner residual is no more than
+   `innToOutTolerance` times the step's largest) :
+   `div(Omega_d psi) + Sp(Sigma_r + Sigma_{s0,g->g}) psi = extra_d + intra_d +
+   delayed chi_d`, where `intra_d` re-evaluates the within-group fission and
+   P0 source at the current `flux_g` plus, for moments `L >= 1`,
+   `sum_{d'} psi_{g,d'} w_{d'} sum_L P_L(Omega_d' . Omega_d)(2L+1) Sigma_{sL,g->g}`,
+   and `extra_d` the same from the other groups (fixed over the inner loop).
+4. `power()`, `calcKeff.H`, and every flux scaled by `pTarget / pTot`.
+
+The linear solver is basic-lib's ILU(0) BiCGStab (the analogue of
+`PBiCGStab`/`DILU`), stopping on `||r||/||b||`, not upstream's residual.
+
+```rust
+pub mod pseudo_time { /* ... */ }
+```
+
+### Types
+
+#### Struct `SnPseudoTimeSettings`
+
+Controls of the S_N time step: the `neutronTransport` entries of
+`fvSolution` that `solveNeutronicsSN.H` reads, plus the `legendreMoments`
+of `nuclearData` and the linear solver.
+
+```rust
+pub struct SnPseudoTimeSettings {
+    pub legendre_moments: usize,
+    pub inn_to_out_tolerance: f64,
+    pub max_inner_iter: usize,
+    pub linear: outram_foam_basic_lib::prelude::SolverSettings,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `legendre_moments` | `usize` | The number of scattering matrices used, `xs_.legendreMoments()` =<br>`1 + legendreMoments` of `nuclearData` (`XS.C:75`): the Godiva tutorial's<br>`legendreMoments 3` is 4 here (P0, P1, P2, P3). Must not exceed the stored<br>matrices. |
+| `inn_to_out_tolerance` | `f64` | `innToOutTolerance` (default 0.01). |
+| `max_inner_iter` | `usize` | `maxInnerIter` (default 3). |
+| `linear` | `outram_foam_basic_lib::prelude::SolverSettings` | Per-direction linear solve. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SnPseudoTimeSolver`
+
+An S_N model that takes GeN-Foam's eigenvalue time step. See the module doc.
+
+```rust
+pub struct SnPseudoTimeSolver {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: Arc<FvMesh>, xs: &CrossSectionData, zone_of_cell: &[usize], quadrature: QuadratureSet, flux_boundary: &[BoundaryCondition<f64>], k_eff: f64, settings: SnPseudoTimeSettings) -> Result<Self, NeutronicsError> { /* ... */ }
+  ```
+  Build the model: cross sections at the reference point, the case's
+
+- ```rust
+  pub fn k_eff(self: &Self) -> f64 { /* ... */ }
+  ```
+  The current `keff_`.
+
+- ```rust
+  pub fn flux(self: &Self, group: usize) -> &[f64] { /* ... */ }
+  ```
+  The scalar flux of group `g`, per cell.
+
+- ```rust
+  pub fn quadrature(self: &Self) -> &QuadratureSet { /* ... */ }
+  ```
+  The quadrature in use.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PseudoTimeEigenvalue**
+  - ```rust
+    fn pseudo_time_power(self: &Self) -> f64 { /* ... */ }
+    ```
+
+  - ```rust
+    fn pseudo_time_max_delta_t(self: &Self, controls: &PseudoTimeControls, clock: &PseudoTimeClock, p_tot: f64, p_tot_old: f64) -> f64 { /* ... */ }
+    ```
+
+  - ```rust
+    fn eigenvalue_time_step(self: &mut Self, p_target: f64, first_step: bool) -> Result<PseudoTimeStep, PseudoTimeError> { /* ... */ }
+    ```
 
 - **RefUnwindSafe**
 - **Same**
@@ -9807,6 +11020,11 @@ pub struct Sp3Neutronics {
   Solve the SP3 k-eigenvalue problem by outer power iteration.
 
 - ```rust
+  pub fn set_uniform_second_moment(self: &mut Self, value: f64) { /* ... */ }
+  ```
+  Set the second moment of every group to the uniform `value`, as GeN-Foam
+
+- ```rust
   pub fn step(self: &mut Self, dt: Time) -> Result<(), NeutronicsError> { /* ... */ }
   ```
   Advance the coupled SP3 moment + precursor system by one implicit
@@ -9900,6 +11118,19 @@ pub struct Sp3Neutronics {
     fn into(self: Self) -> U { /* ... */ }
     ```
     Calls `U::from(self)`.
+
+- **PseudoTimeEigenvalue**
+  - ```rust
+    fn pseudo_time_power(self: &Self) -> f64 { /* ... */ }
+    ```
+
+  - ```rust
+    fn pseudo_time_max_delta_t(self: &Self, controls: &PseudoTimeControls, clock: &PseudoTimeClock, p_tot: f64, p_tot_old: f64) -> f64 { /* ... */ }
+    ```
+
+  - ```rust
+    fn eigenvalue_time_step(self: &mut Self, p_target: f64, first_step: bool) -> Result<PseudoTimeStep, PseudoTimeError> { /* ... */ }
+    ```
 
 - **RefUnwindSafe**
 - **Same**
@@ -10228,8 +11459,9 @@ multi-region layers and so are not implemented *in this module*. Mesh
 materialisation has since landed next door, in
 [`DiffusionXsFields`](crate::genfoam::neutronics::diffusion::DiffusionXsFields)
 and its SP3 counterpart. **Control-rod driveline motion and
-discontinuity-factor adjustment remain deferred** (tracked in beads under
-the `neutronics` epic). The evaluation methods below are exactly the per-cell `.get(...)` call
+discontinuity-factor adjustment remain deferred** (~~tracked in beads under
+the `neutronics` epic~~ **CORRECTED 2026-11-12**: the beads tracker is retired;
+they are gh:#1474). The evaluation methods below are exactly the per-cell `.get(...)` call
 GeN-Foam performs in `setNeutronicsVariables.H`, lifted out of the cell loop.
 
 ## Dependency on `genfoam::common`
