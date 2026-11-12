@@ -383,9 +383,13 @@ in `verification-and-validation.md` section 4.2.
   those unit systems is out of scope and would be silently wrong.
 - **Not every upstream model.** Ported and compared: Hertz, Hooke, tangential
   history and no-history, CDT rolling, the default surface model, primitive and
-  mesh walls, `fix nve/sphere`, `fix check/timestep/gran`. Everything else in
+  mesh walls, `fix nve/sphere`, `fix check/timestep/gran`. ~~Everything else in
   LIGGGHTS' granular package — cohesion models, liquid bridges, superquadrics,
-  fibres, CFD-DEM coupling — is neither ported nor compared.
+  fibres, CFD-DEM coupling — is neither ported nor compared.~~ **CORRECTED
+  2026-11-12 (gh:#1487):** the SJKR/SJKR2 cohesion and the Easo/Washino
+  liquid-bridge models (pairs, and since gh:#1487 walls) are ported and
+  cross-coded (`docs/verification-and-validation.md` § 4.11). Superquadrics,
+  fibres and CFD-DEM coupling are neither ported nor compared.
 - **Bookkeeping axes unsigned.** Both axes of the crate README's
   `## Bookkeeping status` block remain **not yet manually checked**. Nothing in
   this document flips them; only the maintainer does.

@@ -84,14 +84,45 @@
 //! * Washino has `limitLiquidContent` (clip `L` at the per-type
 //!   `maxLiquidContent`, and overwrite `maxSeparationDistanceRatio` from it) and
 //!   `modifyLbVolume` (`lbVolumeFraction`); Easo has neither.
-//! * Washino's wall branch (mesh `LiquidContent`) is not ported.
+//! * ~~Washino's wall branch (mesh `LiquidContent`) is not ported.~~
+//!   **CORRECTED 2026-11-12 (gh:#1487):** both wall branches are ported, see
+//!   below.
+//!
+//! ## Particle-wall bridges (gh:#1487)
+//!
+//! Translated from the `is_wall` branches of both headers, with the wall data
+//! upstream's `FixWallGranBase::compute_force` (`fix_wall_gran_base.h`) hands
+//! them: `radsum = radi`, `r = radi - deltan`, `area_ratio = 1`, and
+//! `sidata.radj` **never set, so `0.0`** (`SurfacesCloseData()`).
+//!
+//! * **Easo** (upstream warns "only supports dry walls"): `radj = radi`,
+//!   `V_Lj = 0`, so `V_b = 0.5 V_Li (1 - sqrt(1 - radi^2/radi^2)) = 0.5 V_Li`;
+//!   a rupture at a wall moves no liquid.
+//! * **Washino**: the wall's liquid volume is
+//!   `V_Lj = LC_tri min(pi r^2, A_tri) 1000 t_wall` on a mesh carrying
+//!   `fix mesh/surface/liquidtransfer` ([`MeshLiquid`]), else `0`. In contact
+//!   upstream reads the raw `radj = 0`, so `rEff = 0` and the capillary and
+//!   viscous wall forces are signed zeros (only the bridge flag and
+//!   `limitLiquidContent` act); out of contact `radj = radi`. That asymmetry is
+//!   upstream's and is reproduced, not repaired. A rupture on a liquid mesh
+//!   moves `volFlux = (0.5 V_b - f V_Li)/dt` to the particle and
+//!   `-volFlux/(1000 t A)` to the facet.
+//!
+//! A wall contact is only visited while `deltan < (cdf - 1) radius`
+//! (`FixWallGran::post_force_*`); beyond that the history (the bridge flag) is
+//! zeroed without a rupture flux, exactly as upstream.
 //!
 //! ## Not ported (honestly)
 //!
-//! * **Walls.** Both upstream models also handle particle-wall contacts (Easo:
+//! * ~~**Walls.** Both upstream models also handle particle-wall contacts (Easo:
 //!   dry walls only, with a warning; Washino: mesh liquid content through
 //!   `MeshModuleLiquidTransfer`). [`crate::granular_system::GranularSystem::with_capillary`]
-//!   refuses a system with walls rather than silently dropping those bridges.
+//!   refuses a system with walls rather than silently dropping those bridges.~~
+//!   **CORRECTED 2026-11-12 (gh:#1487):** ported (section above). Still not
+//!   representable: a wall atom type different from its particles' (the crate
+//!   resolves every wall contact with the particle's own type), non-axis-aligned
+//!   or one-sided primitive walls, and moving analytic walls;
+//!   `with_capillary` refuses those.
 //! * The pair-style `tangential_reduce` is ported; coarse graining is an
 //!   upstream error (`error->cg`) and is not representable here.
 
@@ -373,6 +404,13 @@ impl CapillaryParams {
     fn bond_volumes(&self, radi: f64, radj: f64, radsum: f64, li: f64, lj: f64) -> BondVolumes {
         let vol_li1000 = FOUR_THIRDS_1000 * PI * radi * radi * radi * li;
         let vol_lj1000 = FOUR_THIRDS_1000 * PI * radj * radj * radj * lj;
+        self.bond_volumes_from(radi, radj, radsum, vol_li1000, vol_lj1000)
+    }
+
+    /// [`Self::bond_volumes`] from the two liquid volumes `* 1000` directly
+    /// (a wall's `volLj1000` is not a sphere's: `0` for a dry wall, the mesh
+    /// facet's film for Washino, gh:#1487).
+    fn bond_volumes_from(&self, radi: f64, radj: f64, radsum: f64, vol_li1000: f64, vol_lj1000: f64) -> BondVolumes {
         match self.kind {
             CapillaryKind::Easo => {
                 let vol_li_bond1000 = 0.5 * vol_li1000 * (1. - (1. - radj * radj / (radsum * radsum)).sqrt());
@@ -415,22 +453,41 @@ impl CapillaryParams {
         }
     }
 
-    /// `surfacesIntersect` of the capillary models for an overlapping pair.
+    /// `surfacesIntersect` of the capillary models for an overlapping pair or
+    /// a particle-wall contact (`k.is_wall`, gh:#1487).
     ///
     /// `k.liquid_i`, `k.liquid_j` must hold the particles' (already limited)
-    /// `surfaceLiquidContent`. Returns `None` when upstream returns early
-    /// (bond volume `< 1e-14`) and for a wall contact (not ported, see the
-    /// module docs). The caller has already set the pair's bridge flag
-    /// (`contflag = 1`), which upstream does before the early return.
+    /// `surfaceLiquidContent`; for a wall, `k.wall_liquid_vol1000` holds the
+    /// facet's liquid volume `* 1000` (Washino on a `liquidtransfer` mesh, else
+    /// `0`). Returns `None` when upstream returns early (bond volume
+    /// `< 1e-14`). The caller has already set the bridge flag (`contflag = 1`),
+    /// which upstream does before the early return.
+    ///
+    /// On a wall upstream has `radsum = radi`; Easo sets `radj = radi` and a dry
+    /// wall (`volLj = 0`), Washino reads the unset `sidata.radj = 0` (so
+    /// `rEff = 0`: the wall forces in contact are signed zeros) and
+    /// `dist = r - radi`.
     #[must_use]
     pub fn intersect(&self, k: &ContactKinematics) -> Option<CapillaryIntersect> {
-        if k.is_wall {
-            return None;
-        }
         let radi = k.rad_i;
-        let radj = k.rad_j;
-        let radsum = k.rad_i + k.rad_j;
-        let bv = self.bond_volumes(radi, radj, radsum, k.liquid_i, k.liquid_j);
+        let (radj, radsum) = if k.is_wall {
+            match self.kind {
+                CapillaryKind::Easo => (radi, radi),
+                CapillaryKind::Washino => (k.rad_j, radi),
+            }
+        } else {
+            (k.rad_j, k.rad_i + k.rad_j)
+        };
+        let vol_li1000 = FOUR_THIRDS_1000 * PI * radi * radi * radi * k.liquid_i;
+        let vol_lj1000 = if k.is_wall {
+            match self.kind {
+                CapillaryKind::Easo => 0.0,
+                CapillaryKind::Washino => k.wall_liquid_vol1000,
+            }
+        } else {
+            FOUR_THIRDS_1000 * PI * radj * radj * radj * k.liquid_j
+        };
+        let bv = self.bond_volumes_from(radi, radj, radsum, vol_li1000, vol_lj1000);
         // skip if bond volume too small
         if bv.vol_bond1000 < SMALL_BOND_VOLUME {
             return None;
@@ -452,7 +509,7 @@ impl CapillaryParams {
             }
             CapillaryKind::Washino => {
                 // Rabinovich et al. (2005), Eqn. A11
-                let dist = k.r - (radi + radj);
+                let dist = if k.is_wall { k.r - radi } else { k.r - (radi + radj) };
                 -2. * PI
                     * r_eff
                     * self.surface_tension
@@ -479,9 +536,16 @@ impl CapillaryParams {
         })
     }
 
-    /// `surfacesClose` of the capillary models for a pair that does not
-    /// overlap but lies inside the contact distance factor. `bridge` is the
-    /// pair's `contflag == 1` on entry.
+    /// `surfacesClose` of the capillary models for a pair (or, with
+    /// `c.is_wall`, a particle-wall contact, gh:#1487) that does not overlap
+    /// but lies inside the contact distance factor. `bridge` is the contact's
+    /// `contflag == 1` on entry.
+    ///
+    /// On a wall both models use `radj = radi` and `dist = r - radi`; `c.radsum`
+    /// must be `radi` (upstream's wall `sidata.radsum`), `c.v_j` the wall
+    /// velocity, and the relative spin is the particle's alone (Easo
+    /// `radi omega_i rinv`, Washino `(radi omega_i + 0) rinv`, as each header
+    /// writes it). A wall rupture returns [`CloseOutcome::WallBreaks`].
     #[must_use]
     pub fn close(&self, c: &CloseInput) -> CloseOutcome {
         // Easo: case (i), no bridge present -> nothing (upstream returns before
@@ -490,11 +554,20 @@ impl CapillaryParams {
             return CloseOutcome::NoBridge;
         }
         let radi = c.rad_i;
-        let radj = c.rad_j;
+        let radj = if c.is_wall { radi } else { c.rad_j };
         let r = c.rsq.sqrt();
         let radsum = c.radsum;
-        let dist = r - (radi + radj);
-        let bv = self.bond_volumes(radi, radj, radsum, c.liquid_i, c.liquid_j);
+        let dist = if c.is_wall { r - radi } else { r - (radi + radj) };
+        let bv = if c.is_wall {
+            let vol_li1000 = FOUR_THIRDS_1000 * PI * radi * radi * radi * c.liquid_i;
+            let vol_lj1000 = match self.kind {
+                CapillaryKind::Easo => 0.0,
+                CapillaryKind::Washino => c.wall_liquid_vol1000.unwrap_or(0.0),
+            };
+            self.bond_volumes_from(radi, radj, radsum, vol_li1000, vol_lj1000)
+        } else {
+            self.bond_volumes(radi, radj, radsum, c.liquid_i, c.liquid_j)
+        };
         let r_eff = radi * radj / (radi + radj);
         let contact_angle_eff = 0.5 * (self.contact_angle[c.itype] + self.contact_angle[c.jtype]);
         let dist_max = (1. + 0.5 * contact_angle_eff) * bv.vol_bond1000.r_cbrt() * 0.1;
@@ -566,9 +639,25 @@ impl CapillaryParams {
             let vt1 = vr1 - vn1;
             let vt2 = vr2 - vn2;
             let vt3 = vr3 - vn3;
-            let wr1 = (radi * c.omega_i.x + radj * c.omega_j.x) * rinv;
-            let wr2 = (radi * c.omega_i.y + radj * c.omega_j.y) * rinv;
-            let wr3 = (radi * c.omega_i.z + radj * c.omega_j.z) * rinv;
+            let (wr1, wr2, wr3) = match (c.is_wall, self.kind) {
+                (false, _) => (
+                    (radi * c.omega_i.x + radj * c.omega_j.x) * rinv,
+                    (radi * c.omega_i.y + radj * c.omega_j.y) * rinv,
+                    (radi * c.omega_i.z + radj * c.omega_j.z) * rinv,
+                ),
+                // Easo: `wr1 = radi * omega_i[0] * rinv`
+                (true, CapillaryKind::Easo) => (
+                    radi * c.omega_i.x * rinv,
+                    radi * c.omega_i.y * rinv,
+                    radi * c.omega_i.z * rinv,
+                ),
+                // Washino: `wr1 = 0.0; wr1 = (radi * omega_i[0] + wr1) * rinv`
+                (true, CapillaryKind::Washino) => (
+                    (radi * c.omega_i.x + 0.0) * rinv,
+                    (radi * c.omega_i.y + 0.0) * rinv,
+                    (radi * c.omega_i.z + 0.0) * rinv,
+                ),
+            };
             let vtr1 = vt1 - (dz * wr2 - dy * wr3);
             let vtr2 = vt2 - (dx * wr3 - dz * wr1);
             let vtr3 = vt3 - (dy * wr1 - dx * wr2);
@@ -595,6 +684,21 @@ impl CapillaryParams {
                 force_j,
                 torque_j,
             }
+        } else if bridge_breaks && c.is_wall {
+            // Easo: no transfer at a (dry) wall. Washino: only on a mesh that
+            // carries `LiquidContent` (`else if (liquidContPtr)`).
+            let transfer = match (self.kind, c.wall_liquid_vol1000) {
+                (CapillaryKind::Washino, Some(_)) => {
+                    let invdt = 1. / c.dt;
+                    // liquid flux in vol per time
+                    let vol_flux = invdt * (0.5 * bv.vol_bond1000 - self.volume_fraction * bv.vol_li1000);
+                    // liquid flux in vol% per time for particle
+                    let flux_i = vol_flux / (FOUR_THIRDS_1000 * PI * radi * radi * radi);
+                    Some(WallTransfer { flux_i, vol_flux })
+                }
+                _ => None,
+            };
+            CloseOutcome::WallBreaks { transfer }
         } else if bridge_breaks {
             // liquid transfer: assume the liquid distributes evenly. The
             // flux is in volume fraction per time.
@@ -678,6 +782,25 @@ pub struct CloseInput {
     pub bridge: bool,
     /// The time step `[s]` (`update->dt`).
     pub dt: f64,
+    /// A particle-wall contact (gh:#1487): `j` is the wall, `rad_j` and
+    /// `liquid_j` are ignored, `radsum` must be `rad_i`, `v_j` is the wall
+    /// velocity and `omega_j` is ignored.
+    pub is_wall: bool,
+    /// Washino on a mesh carrying `fix mesh/surface/liquidtransfer`: the
+    /// facet's liquid volume `* 1000` ([`MeshLiquid::wall_volume1000`]);
+    /// `None` for a dry wall (upstream `liquidContPtr == NULL`) and for pairs.
+    pub wall_liquid_vol1000: Option<f64>,
+}
+
+/// The liquid a Washino wall bridge moves when it ruptures on a
+/// `liquidtransfer` mesh (gh:#1487).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct WallTransfer {
+    /// Added to the particle's `liquidFlux` `[1/s]`.
+    pub flux_i: f64,
+    /// `volFlux` `[m^3/s * 1000]`; the facet receives
+    /// `-volFlux / (1000 t_wall A_tri)` ([`MeshLiquid::add_liquid_flux`]).
+    pub vol_flux: f64,
 }
 
 /// Result of [`CapillaryParams::close`].
@@ -707,6 +830,96 @@ pub enum CloseOutcome {
         /// Added to `liquidFlux[j]`.
         flux_j: f64,
     },
+    /// A particle-wall bridge ruptures this step (`contflag = 0`); `transfer`
+    /// is `Some` only for Washino on a `liquidtransfer` mesh (gh:#1487).
+    WallBreaks {
+        /// The liquid moved, if any.
+        transfer: Option<WallTransfer>,
+    },
+}
+
+/// `MeshModuleLiquidTransfer` (`mesh_module_liquidtransfer.cpp`, LIGGGHTS-PUBLIC
+/// `3d5c00f2`): the per-facet `LiquidContent` and `LiquidFlux` of a mesh
+/// declared `fix ... mesh/surface/liquidtransfer ... wall_thickness t
+/// initial_liquid_content c` (gh:#1487). Only the Washino model reads or
+/// writes it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MeshLiquid {
+    /// `LiquidContent` per facet (volume fraction of the wall film).
+    pub content: Vec<f64>,
+    /// `LiquidFlux` per facet `[1/s]`.
+    pub flux: Vec<f64>,
+    /// `wall_thickness` `[m]`.
+    pub wall_thickness: f64,
+    /// `limit_liquid_content_`: set by the last `add_liquid_flux`.
+    limit: bool,
+    /// `max_liquid_content_`: set by the last `add_liquid_flux`.
+    max_content: f64,
+}
+
+impl MeshLiquid {
+    /// The module for a mesh of `n_tri` facets (`post_create`: every facet at
+    /// `initial_liquid_content`, flux 0).
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] as upstream's constructor: `wall_thickness`
+    /// or `initial_liquid_content` below `1e-12` ("have to define ...").
+    pub fn new(n_tri: usize, wall_thickness: f64, initial_liquid_content: f64) -> Result<Self, DemError> {
+        if !(wall_thickness >= 1e-12) || !wall_thickness.is_finite() {
+            return Err(DemError::InvalidInput("liquidtransfer: have to define 'wall_thickness'".into()));
+        }
+        if !(initial_liquid_content >= 1e-12) || !initial_liquid_content.is_finite() {
+            return Err(DemError::InvalidInput(
+                "liquidtransfer: have to define 'initial_liquid_content'".into(),
+            ));
+        }
+        Ok(Self {
+            content: vec![initial_liquid_content; n_tri],
+            flux: vec![0.0; n_tri],
+            wall_thickness,
+            limit: false,
+            max_content: 0.0,
+        })
+    }
+
+    /// `pre_force` / `setup_pre_force`: `LiquidFlux = 0`.
+    pub fn reset_flux(&mut self) {
+        for f in &mut self.flux {
+            *f = 0.;
+        }
+    }
+
+    /// Washino's `volLj1000` for a wall contact on facet `tri` of area `area`:
+    /// `LC * fmin(radi*radi*pi, area) * 1000 * wall_thickness`.
+    #[must_use]
+    pub fn wall_volume1000(&self, tri: usize, radi: f64, area: f64) -> f64 {
+        self.content[tri] * (radi * radi * PI).min(area) * 1000.0 * self.wall_thickness
+    }
+
+    /// The rupture branch of Washino's `surfacesClose` on this mesh:
+    /// `add_liquid_flux(j, -volFlux/(1000 t A), limit, max)`, which also
+    /// (re)sets the module's limit flags (upstream: "TODO get from registry").
+    pub fn add_liquid_flux(&mut self, tri: usize, vol_flux: f64, area: f64, limit: bool, max_content: f64) {
+        let wall_liquid_flux = -vol_flux / (1000.0 * self.wall_thickness * area);
+        self.limit = limit;
+        self.max_content = max_content;
+        self.flux[tri] += wall_liquid_flux;
+    }
+
+    /// `final_integrate` (`update_mesh_liquid_content`): `lc += flux dt`,
+    /// clamped to `[0, 1]`, then to the maximum if limited.
+    pub fn advance(&mut self, dt: f64) {
+        for (lc, f) in self.content.iter_mut().zip(&self.flux) {
+            let mut v = *lc;
+            v += f * dt;
+            v = 0.0_f64.max(1.0_f64.min(v));
+            if self.limit {
+                v = v.min(self.max_content);
+            }
+            *lc = v;
+        }
+    }
 }
 
 /// The `liquidtransfer` state a [`crate::granular_system::GranularSystem`]
@@ -720,6 +933,13 @@ pub struct CapillaryState {
     pub flux: Vec<f64>,
     /// Tag pairs `(lo, hi)` whose history `contflag` is 1.
     pub bridges: std::collections::BTreeSet<(u64, u64)>,
+    /// Particle-wall bridges `(tag, wall id, facet)` with `contflag == 1`
+    /// (wall id as in the contact history: a primitive wall's index, or the
+    /// static-boundary count plus a moving wall's index; facet 0 for a
+    /// primitive wall). gh:#1487.
+    pub wall_bridges: std::collections::BTreeSet<(u64, usize, usize)>,
+    /// `fix mesh/surface/liquidtransfer` modules, by moving-wall index.
+    pub mesh_liquid: std::collections::BTreeMap<usize, MeshLiquid>,
 }
 
 impl CapillaryState {
@@ -730,6 +950,8 @@ impl CapillaryState {
             content: vec![initial; n],
             flux: vec![0.0; n],
             bridges: std::collections::BTreeSet::new(),
+            wall_bridges: std::collections::BTreeSet::new(),
+            mesh_liquid: std::collections::BTreeMap::new(),
         }
     }
 
@@ -792,6 +1014,8 @@ mod tests {
             liquid_j: li,
             bridge,
             dt: 1e-6,
+            is_wall: false,
+            wall_liquid_vol1000: None,
         }
     }
 
@@ -959,6 +1183,119 @@ mod tests {
         s.advance(0.01);
         assert_relative_eq!(s.content[0], 0.12, max_relative = 1e-14);
         assert_eq!(CapillaryState::key(5, 2), (2, 5));
+    }
+
+    /// A wall contact of `overlap` on a z plane (gh:#1487), upstream's wall
+    /// kinematics (`ContactKinematics::mesh_wall`).
+    fn wall_kin(li: f64, overlap: f64) -> ContactKinematics {
+        use crate::particle::Particle;
+        use uom::si::f64::{Length, Mass, ThermodynamicTemperature};
+        use uom::si::{length::meter, mass::kilogram, thermodynamic_temperature::kelvin};
+        let r = 0.005;
+        let p = Particle::new(
+            Vec3::new(0.0, 0.0, r - overlap),
+            Vec3::new(0.1, 0.02, -0.2),
+            Vec3::new(1.0, 2.0, 3.0),
+            Mass::new::<kilogram>(1e-3),
+            Length::new::<meter>(r),
+            ThermodynamicTemperature::new::<kelvin>(300.0),
+        )
+        .unwrap();
+        ContactKinematics::mesh_wall(&p, Vec3::new(0.0, 0.0, r - overlap), overlap, Vec3::zero())
+            .with_liquid(li, 0.0)
+    }
+
+    /// Easo on a (dry) wall, hand-evaluated: `radj = radsum = radi`, so
+    /// `V_b = 0.5 V_Li` and `rEff = r/2` (gh:#1487).
+    #[test]
+    fn easo_wall_contact_bridge_is_half_the_particle_liquid() {
+        let k = wall_kin(0.1, 1e-5);
+        let out = easo().intersect(&k).unwrap();
+        let r: f64 = 0.005;
+        let vb1000 = 0.5 * (1333.333333 * PI * r.powi(3) * 0.1);
+        let scaled = vb1000 / r / r / r * 0.001;
+        let b = -0.0082 * scaled.ln() + 0.48;
+        let c = 0.0018 * scaled.ln() + 0.078;
+        let f_c = -PI * 0.072 * r * (b.exp() + c);
+        let f_v = -6.0 * PI * 1.0e-3 * (0.5 * r) * k.vn / 0.01;
+        assert_relative_eq!(out.f_n, f_c + f_v, max_relative = 1e-12);
+    }
+
+    /// Washino in wall contact reads upstream's unset `sidata.radj = 0`: the
+    /// bridge exists (not `None`) but its forces are zero (gh:#1487).
+    #[test]
+    fn washino_wall_contact_force_is_zero() {
+        let out = washino().intersect(&wall_kin(0.1, 1e-5)).unwrap();
+        assert_eq!(out.f_n, 0.0);
+        assert_eq!(out.ft.norm(), 0.0);
+        // dry particle on a dry wall: no bridge volume
+        assert!(washino().intersect(&wall_kin(0.0, 1e-5)).is_none());
+    }
+
+    /// Wall `surfacesClose`: an active bridge pulls the particle to the wall;
+    /// rupture moves liquid only for Washino on a liquid mesh, with the
+    /// particle share `(0.5 V_b - f V_Li)/dt` (gh:#1487).
+    #[test]
+    fn wall_close_and_rupture() {
+        let r = 0.005;
+        let at = |gap: f64, bridge: bool, wall: Option<f64>| CloseInput {
+            delta: Vec3::new(-0.0, -0.0, r + gap),
+            rsq: (r + gap) * (r + gap),
+            rad_i: r,
+            rad_j: r,
+            radsum: r,
+            itype: 0,
+            jtype: 0,
+            v_i: Vec3::new(0.1, 0.0, 0.05),
+            v_j: Vec3::zero(),
+            omega_i: Vec3::new(0.0, 4.0, 0.0),
+            omega_j: Vec3::zero(),
+            liquid_i: 0.2,
+            liquid_j: 0.0,
+            bridge,
+            dt: 1e-6,
+            is_wall: true,
+            wall_liquid_vol1000: wall,
+        };
+        for p in [easo(), washino()] {
+            let CloseOutcome::Force { force_i, .. } = p.close(&at(0.0005, true, None)) else {
+                panic!("active bridge");
+            };
+            assert!(force_i.z < 0.0, "attracts towards the wall");
+            assert_eq!(p.close(&at(0.05, true, None)), CloseOutcome::WallBreaks { transfer: None });
+        }
+        assert_eq!(easo().close(&at(0.05, true, Some(1e-5))), CloseOutcome::WallBreaks { transfer: None });
+        let CloseOutcome::WallBreaks { transfer: Some(tr) } = washino().close(&at(0.05, true, Some(1e-5))) else {
+            panic!("liquid mesh rupture transfers");
+        };
+        let vli = 1333.333333 * PI * r * r * r * 0.2;
+        let vb = (vli + 1e-5) * 0.05;
+        assert_relative_eq!(tr.vol_flux, (0.5 * vb - 0.05 * vli) / 1e-6, max_relative = 1e-12);
+        assert_relative_eq!(tr.flux_i, tr.vol_flux / (1333.333333 * PI * r * r * r), max_relative = 1e-12);
+    }
+
+    /// `MeshModuleLiquidTransfer`: film volume, flux, clamp to `[0, 1]` and
+    /// the limit set by the last `add_liquid_flux` (gh:#1487).
+    #[test]
+    fn mesh_liquid_module() {
+        assert!(MeshLiquid::new(2, 0.0, 0.1).is_err());
+        assert!(MeshLiquid::new(2, 1e-3, 0.0).is_err());
+        let mut m = MeshLiquid::new(2, 1e-3, 0.1).unwrap();
+        // fmin(pi r^2, A): the facet area caps the wetted patch
+        assert_relative_eq!(m.wall_volume1000(0, 0.005, 1.0), 0.1 * PI * 25e-6 * 1000.0 * 1e-3, max_relative = 1e-14);
+        assert_relative_eq!(m.wall_volume1000(0, 0.005, 1e-6), 0.1 * 1e-6 * 1000.0 * 1e-3, max_relative = 1e-14);
+        m.add_liquid_flux(0, -2.0, 4.0, false, 0.0);
+        assert_relative_eq!(m.flux[0], 2.0 / (1000.0 * 1e-3 * 4.0), max_relative = 1e-14);
+        m.advance(0.1);
+        assert_relative_eq!(m.content[0], 0.15, max_relative = 1e-14);
+        assert_eq!(m.content[1], 0.1);
+        m.flux[1] = -100.0;
+        m.advance(1.0);
+        assert_eq!(m.content[1], 0.0, "clamped at 0");
+        m.reset_flux();
+        m.add_liquid_flux(0, -1e9, 1.0, true, 0.3);
+        m.advance(1.0);
+        assert_eq!(m.content[0], 0.3, "clamped to [0, 1], then to the limit");
     }
 
     /// Constructor validation (upstream's `error->one` and property checks).

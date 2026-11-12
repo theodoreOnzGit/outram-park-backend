@@ -1532,9 +1532,58 @@ swapping `r_sin`/`r_cos`/`r_cbrt` for `f64::sin/cos/cbrt` (glibc): then all thre
 Washino decks are 100 % bit-identical (accepted and pinned, gh:#1455). The first
 run missed by 0.24 % at first contact; cause was the test feeding the deck's
 `contactAngle` (degrees) as radians, found by instrumenting a copy of the
-upstream header. **Not ported:** particle-wall bridges (Easo dry walls, Washino
-mesh liquid content); `with_capillary` refuses a system with walls. No
-control run without the model was made.
+upstream header. ~~**Not ported:** particle-wall bridges (Easo dry walls, Washino
+mesh liquid content); `with_capillary` refuses a system with walls.~~
+**CORRECTED 2026-11-12 (gh:#1487):** ported, see the next paragraph. No
+control run without the model was made for the six pair decks.
+
+**Particle-wall liquid bridges (gh:#1487, 2026-11-12).** The `is_wall` branches
+of both headers are translated (`CapillaryParams::intersect`/`close`), with the
+wall data `FixWallGranBase::compute_force` gives them (`radsum = radi`,
+`r = radi - deltan`, `area_ratio = 1`, and `sidata.radj` never set, so `0`),
+the primitive-wall close range and history zeroing of
+`FixWallGran::post_force_primitive`
+(`GranularSystem::primitive_wall_forces_capillary`), the mesh close facets and
+per-facet bridge flags (cleaned up with `cleanUpContacts`, copied by
+`checkCoplanarContactHistory`), and `MeshModuleLiquidTransfer`
+(`fix mesh/surface/liquidtransfer`, `capillary::MeshLiquid`,
+`GranularSystem::with_mesh_liquid_transfer`). Two upstream facts the decks
+exercise. First, Washino's wall `surfacesIntersect` reads `radj = 0`, so the
+capillary and viscous wall forces in contact are signed zeros, and the bridge
+acts only out of contact. Second, a wall contact is visited only while
+`deltan < (cdf - 1) r`; beyond that the flag is zeroed with no rupture flux. So
+the decks use `maxSeparationDistanceRatio 2.0`, which puts `d_max` inside that
+range.
+
+Prediction, written on #1487 before the first run: all four decks
+bit-identical, with any residue Washino-only, last-ulp and libm. Four decks
+(`in.cap_{easo,washino}_{plane,mesh}`), each with two d = 10 mm spheres: a fast
+one that bridges, rebounds and ruptures, and a slow one that stays bridged.
+Each runs 40 000 steps and is compared every 200 steps on all 14 columns:
+
+| Case | values bit-identical | worst ulp |
+|---|---|---|
+| Easo, `zplane` primitive wall (dry) | 5628 / 5628 | 0 |
+| Easo, `plate_square.stl` mesh (dry) | 5628 / 5628 | 0 |
+| Washino, `zplane` primitive wall (dry) | 5624 / 5628 | 8 (rel. 1.7e-19, first at step 3800) |
+| Washino, mesh with `liquidtransfer` (t = 1 mm, LC0 = 0.1) | 5622 / 5628 | 2 (rel. 1.7e-19, first at step 4000) |
+
+Easo is bit-identical on the first run. The Washino residue is PETIR libm vs
+glibc only, by the #1411 A/B. With `r_sin`/`r_cos`/`r_cbrt` swapped for glibc
+`f64::sin/cos/cbrt`, all ten capillary decks are 100 % bit-identical: both
+Washino wall decks, the three Washino pair decks and the five others. The swap
+was reverted and the counts above are pinned (gh:#1455). Ablations
+(`wall_bridge_ablations_miss_upstream`, judged on `x v omega f` only): dry
+spheres on the Easo plane deck miss by 8.9e-2 of scale, and the Washino mesh
+without `liquidtransfer` misses by 5.1e-3. The wall bridges and the facet film
+carry the agreement. In the liquid-mesh deck the fast sphere's content drops
+from 0.2 to 0.195375 at rupture, moved to the facet. **Not representable,
+refused by `with_capillary`:** a wall
+atom type different from the particles' (the crate resolves every wall contact
+with the particle's type), one-sided or non-axis-aligned primitive walls, and
+moving analytic walls. Facet liquid flux from 3+ ruptures on one facet in one
+step is summed in particle order, not upstream's neighbour-list order (no deck
+has it).
 
 **Not translated.** `surface_model multicontact` (~~needs `fix
 multicontact/halfspace`~~ done, gh:#1410), multi-type material tables for the
