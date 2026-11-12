@@ -80,8 +80,12 @@
 //!   have not been exercised inside a converged multiphysics run.~~ **UPDATED
 //!   2026-11-04:** those `1D_boiling` selects (ReynoldsPower, SchillerNaumann,
 //!   Kaiser88, Nusselt, Shah, COBRA-TF, FinkLeibowitz, BrowningPotter,
-//!   heatDriven, oneParameter) now run inside [`solver::two_phase`]; none is
-//!   compared with an upstream run there (upstream ships no reference).
+//!   heatDriven, oneParameter) now run inside [`solver::two_phase`]; ~~none is
+//!   compared with an upstream run there (upstream ships no reference).~~
+//!   **CORRECTED 2026-11-12** (gh:#1361 round 3): the system is compared with a run of the real binary on
+//!   `1D_boiling` (`tests/genfoam_two_phase_vs_upstream.rs`: 65 steps to 1e-9,
+//!   the single-phase run to 2.5e-11, the boiling onset to 3e-6), though not each
+//!   closure leaf in isolation.
 //! - The great majority of upstream `thermalHydraulics` (~65k LOC) is still
 //!   unported; what exists here is the closure/field/one-phase-driver
 //!   foundation.
