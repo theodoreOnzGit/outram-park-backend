@@ -531,3 +531,57 @@ agree and only the problem-face selection differs (24646 faces, same final cells
 **Defect fixed**: the final assembler wrote T-junction faces (quads next to split
 edges); hexRef8's rings carry the edge points. Opt-in only (`EsiSplitMesh`); the default
 path (`CentreParity`, `BaffleRegion`) still writes quads and its pins are unchanged.
+
+## Round 3, task 2: snapping against ESI v2506, stage by stage (predictions)
+
+**Case and reference.** `snappyHexMeshDict.snap` (beside this file) is the reduced
+flange dictionary with `snap true`, the tutorial's `snapControls` (`nSmoothPatch 3;
+tolerance 1.0; nSolveIter 300; nRelaxIter 5`) and the tutorial's
+`meshQualityControls` (`meshQualityDict`, `relaxed { maxNonOrtho 75; }`,
+`nSmoothScale 4; errorReduction 0.75`). **Deviation from the tutorial, stated:**
+`nFeatureSnapIter`, `implicitFeatureSnap`, `explicitFeatureSnap` and
+`multiRegionFeatureSnap` are LEFT OUT (the tutorial's `nFeatureSnapIter 10` with
+`multiRegionFeatureSnap true` makes ESI attract 24 feature points and 1446 feature-edge
+points between the four STL regions, from the multi-patch feature detection of
+`snappySnapDriverFeature.C`, which the port does not have; no `.eMesh` is needed for
+that, but it is a different algorithm). Without them ESI runs the plain loop of
+`doSnap` (`nFeatIter = 1`). ESI log: `esi_snap_log.txt.gz`. With `snap true` the
+castellated mesh is unchanged (18278 cells, 63194 faces, 26662 points; "Merging 0 sets of
+faces"), so task 1's equality carries over.
+
+ESI sequence read (v2506 `snappySnapDriver.C`, `motionSmootherAlgo.C`):
+`calcSnapDistance` (872: `snapTol * max incident edge length` per patch point),
+`motionSmoother` + `checkMesh` of the initial mesh (0 faces in error),
+`preSmoothPatch` (872-985): `nSmoothPatch` times { `smoothPatchDisplacement` (290-
+560: blends the average of connected boundary-face centres and of connected internal-
+face centres, internalBlend 0.1, blend 0.1 with the current position),
+`setDisplacement`, `scaleMesh` (quality check, scale 1 when no face is in error) };
+then one morph iteration: `calcNearestSurface` (nearest surface point within
+`snapDist`), `detectNearSurfaces` (default on; "Overriding ... at 0 out of 12130
+points" here), `outwardsDisplacement`, `freezeExposedPoints`, `setDisplacement`,
+`smoothDisplacement` (2134: `nSmoothDispl` = `nSolveIter` 300 iterations of
+`motionSmootherAlgo::smooth` with edge weights `1/(wall distance + SMALL)` from
+`edgePatchDist`, a `PointEdgeWave`), `scaleMesh` (2208: up to `2 nSnap` scaling
+iterations; faces failing the full `meshQualityControls` get `errorReduction`,
+`nSmoothScale` `minSmooth` passes, move again), `repatchToSurface` (42 faces),
+then `mergePatchFaces`/`mergeEdges` (2118 sets, 2005 points: the final ESI mesh has 61034
+faces and 24615 points; NOT ported, so the comparison stops at the snapped mesh of
+time 36 with 63194 faces).
+
+**Method.** The port starts from ESI's castellated polyMesh READ IN (faces and
+owner/neighbour from `esi_final_faces.txt.gz`, points as exact doubles from the binary
+`snap_points_32`), so numbering, ring start vertices and summation order are ESI's and
+a difference names an operation, not an ordering. References (binary, exact doubles,
+`extract_snap_fixtures.py`): points after each `preSmoothPatch` iteration (runs with
+`nSmoothPatch` 1, 2, 3), `34/displacement` (patch points: the displacement handed to
+`setDisplacement`; internal points: after `smoothDisplacement`), points at time 35
+(scaling iteration 0) and 36 (the snapped mesh). Counts below are over the 26662
+points; 12130 are patch points.
+
+| # | prediction (committed before any port code for snapping exists) |
+|---|---|
+| P21 | Surface attraction: the port's displacement (`calcNearestSurface` with `snapDist`, then `outwardsDisplacement`; `detectNearSurfaces` and `freezeExposedPoints` change nothing here, ESI: 0 overrides, no frozen points) equals ESI's patch-point values of `34/displacement` on **all 12130 points to within 1e-12 m**; the mean wanted distance is ESI's **1.688540950712846e-4 m** (min 6.548561578869996e-8, max 7.516794439290358e-4) to 1e-12 relative. Bit identity is NOT predicted (the nearest-point-on-triangle routines differ in operation order: `triangle::nearestPointClassify` against `TriangleSoup::closest_point`), only <= 1e-12 m. |
+| P22 | `smoothPatchDisplacement` + move, three iterations, all 26662 points: **bit-identical to ESI after iterations 1, 2 and 3** (the faces, face-centre formula and loop order are ESI's; no transcendental is involved; neither build uses FMA). Expected failure mode: face-centre estimate accumulation order. |
+| P23 | `smoothDisplacement` (300 iterations): all 26662 points of the displacement equal ESI's `34/displacement` **to 1e-12 relative to the largest displacement, bit-identical on at least 90 %**; the `edgePatchDist` wave (ported as `PointEdgeWave`'s propagation with its tolerance) gives ESI's edge distances exactly. Risk: the wave's order of updates on ties. |
+| P24 | `scaleMesh` iteration 0 (full displacement) finds faces in error of the three kinds ESI reports, **4 pyramid-volume, 2 tet-quality, 2 twist**, all other checks 0, and the second iteration (scale min 0.75) is clean; the points equal ESI's time 36 to 1e-12 m. This needs the ESI face checks (`polyMeshGeometry`); if they are not all ported in this round the stage is reported as NOT DONE rather than approximated. |
+| P25 | `checkMesh` counts on the snapped mesh (9 `meshQualityControls` checks): 0 for all (ESI log, "Checking final mesh"). |
