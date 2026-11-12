@@ -118,62 +118,18 @@ impl PolyMesh {
     fn cell_geometry(&self) -> (Vec<f64>, Vec<Vector3>) {
         let mut face_ctr = Vec::with_capacity(self.faces.len());
         let mut face_sf = Vec::with_capacity(self.faces.len());
+        let mut owner = Vec::with_capacity(self.faces.len());
+        let mut neighbour = Vec::with_capacity(self.n_internal_faces);
         for f in &self.faces {
             let (c, sf) = face_centre_and_area(&self.points, &f.verts);
             face_ctr.push(c);
             face_sf.push(sf);
-        }
-
-        // First pass: estimate each cell centre as the mean of its face centres.
-        let mut c_est = vec![Vector3::ZERO; self.n_cells];
-        let mut n_cell_faces = vec![0.0f64; self.n_cells];
-        for (fi, f) in self.faces.iter().enumerate() {
-            c_est[f.owner] += face_ctr[fi];
-            n_cell_faces[f.owner] += 1.0;
-        }
-        for (fi, f) in self.faces.iter().enumerate() {
+            owner.push(f.owner);
             if let Some(nb) = f.neighbour {
-                c_est[nb] += face_ctr[fi];
-                n_cell_faces[nb] += 1.0;
+                neighbour.push(nb);
             }
         }
-        for c in 0..self.n_cells {
-            if n_cell_faces[c] > 0.0 {
-                c_est[c] /= n_cell_faces[c];
-            }
-        }
-
-        // Second pass: sum pyramid volumes / centroids about the estimate.
-        let mut vol = vec![0.0f64; self.n_cells];
-        let mut ctr = vec![Vector3::ZERO; self.n_cells];
-        for (fi, f) in self.faces.iter().enumerate() {
-            let cf = face_ctr[fi];
-            let cell = f.owner;
-            let pyr3 = face_sf[fi].dot(cf - c_est[cell]);
-            let pyr_ctr = cf * (3.0 / 4.0) + c_est[cell] * (1.0 / 4.0);
-            ctr[cell] += pyr_ctr * pyr3;
-            vol[cell] += pyr3;
-        }
-        for (fi, f) in self.faces.iter().enumerate() {
-            if let Some(cell) = f.neighbour {
-                let cf = face_ctr[fi];
-                let pyr3 = face_sf[fi].dot(c_est[cell] - cf);
-                let pyr_ctr = cf * (3.0 / 4.0) + c_est[cell] * (1.0 / 4.0);
-                ctr[cell] += pyr_ctr * pyr3;
-                vol[cell] += pyr3;
-            }
-        }
-        for c in 0..self.n_cells {
-            if vol[c].abs() > 1.0e-300 {
-                ctr[c] /= vol[c];
-            } else {
-                ctr[c] = c_est[c];
-            }
-        }
-        for v in vol.iter_mut() {
-            *v *= 1.0 / 3.0;
-        }
-        (vol, ctr)
+        cell_geometry_from_faces(&face_ctr, &face_sf, &owner, &neighbour, self.n_cells)
     }
 
     /// Convert to the geometry-carrying [`FvMesh`], computing cell
@@ -402,6 +358,67 @@ impl PolyMesh {
 
 // ── Geometry (mirrors outram-foam-mesh::block_mesh) ─────────────────────────
 
+/// Cell volumes and centres from the face geometry, upstream's
+/// `primitiveMeshTools::makeCellCentresAndVols` operation for operation (the
+/// body of [`PolyMesh::cell_geometry`], factored out in gh:#1363 so the
+/// appbuilder's own mesh reader uses it instead of an older duplicate whose
+/// summation order differed, giving cell volumes up to 14 ulp off upstream on
+/// the shockTube mesh). `owner` has one entry per face (internal first),
+/// `neighbour` one per internal face.
+pub fn cell_geometry_from_faces(
+    face_ctr: &[Vector3],
+    face_sf: &[Vector3],
+    owner: &[usize],
+    neighbour: &[usize],
+    n_cells: usize,
+) -> (Vec<f64>, Vec<Vector3>) {
+    // First pass: estimate each cell centre as the mean of its face centres.
+    let mut c_est = vec![Vector3::ZERO; n_cells];
+    let mut n_cell_faces = vec![0.0f64; n_cells];
+    for (fi, &o) in owner.iter().enumerate() {
+        c_est[o] += face_ctr[fi];
+        n_cell_faces[o] += 1.0;
+    }
+    for (fi, &nb) in neighbour.iter().enumerate() {
+        c_est[nb] += face_ctr[fi];
+        n_cell_faces[nb] += 1.0;
+    }
+    for c in 0..n_cells {
+        if n_cell_faces[c] > 0.0 {
+            c_est[c] /= n_cell_faces[c];
+        }
+    }
+
+    // Second pass: sum pyramid volumes / centroids about the estimate.
+    let mut vol = vec![0.0f64; n_cells];
+    let mut ctr = vec![Vector3::ZERO; n_cells];
+    for (fi, &cell) in owner.iter().enumerate() {
+        let cf = face_ctr[fi];
+        let pyr3 = face_sf[fi].dot(cf - c_est[cell]);
+        let pyr_ctr = cf * (3.0 / 4.0) + c_est[cell] * (1.0 / 4.0);
+        ctr[cell] += pyr_ctr * pyr3;
+        vol[cell] += pyr3;
+    }
+    for (fi, &cell) in neighbour.iter().enumerate() {
+        let cf = face_ctr[fi];
+        let pyr3 = face_sf[fi].dot(c_est[cell] - cf);
+        let pyr_ctr = cf * (3.0 / 4.0) + c_est[cell] * (1.0 / 4.0);
+        ctr[cell] += pyr_ctr * pyr3;
+        vol[cell] += pyr3;
+    }
+    for c in 0..n_cells {
+        if vol[c].abs() > 1.0e-300 {
+            ctr[c] /= vol[c];
+        } else {
+            ctr[c] = c_est[c];
+        }
+    }
+    for v in vol.iter_mut() {
+        *v *= 1.0 / 3.0;
+    }
+    (vol, ctr)
+}
+
 /// Face centre `[m]` and area vector `Sf` `[m^2]` from a vertex loop, using the
 /// OpenFOAM decomposition of the polygon into triangles about its centroid.
 ///
@@ -412,7 +429,7 @@ impl PolyMesh {
 /// zero-area face (`sumA < ROOTVSMALL = 1e-150`) takes the vertex mean and a
 /// zero area. ~~Each triangle centre was divided by 3 before the area
 /// weighting; threshold `EPSILON`.~~ **CORRECTED 2026-11-11 (gh:#1489).**
-fn face_centre_and_area(points: &[Vector3], verts: &[usize]) -> (Vector3, Vector3) {
+pub fn face_centre_and_area(points: &[Vector3], verts: &[usize]) -> (Vector3, Vector3) {
     let n = verts.len();
     debug_assert!(n >= 3);
     if n == 3 {

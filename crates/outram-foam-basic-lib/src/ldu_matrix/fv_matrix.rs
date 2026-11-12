@@ -424,6 +424,18 @@ impl FvMatrix {
         self.source[cell] += 1e30 * value;
     }
 
+    /// Pin one cell exactly as upstream `fvMatrix::setReference` does
+    /// (gh:#1363): `source[c] += diag[c]*value; diag[c] += diag[c]`. The
+    /// diagonal is doubled, not given a `1e30` penalty as
+    /// [`Self::set_reference`] does, so the system stays well conditioned
+    /// and its residual is comparable with an upstream log. The solution
+    /// satisfies `p[c] ≈ value` only to the compatibility error of the
+    /// right-hand side, as upstream's does.
+    pub fn set_reference_openfoam(&mut self, cell: usize, value: f64) {
+        self.source[cell] += self.ldu.diag[cell] * value;
+        self.ldu.diag[cell] += self.ldu.diag[cell];
+    }
+
     /// Diagonal coefficient per cell: `A[c] = diag[c]`.
     ///
     /// Used in PISO: `rAU = 1 / pEqn.a_field()`.

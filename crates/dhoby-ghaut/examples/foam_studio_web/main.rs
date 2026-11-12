@@ -599,7 +599,7 @@ fn coil_run_cli(args: &[String]) -> Result<(), String> {
     let lvl: usize = args.first().and_then(|v| v.parse().ok()).unwrap_or(3);
     let re: f64 = args.get(1).and_then(|v| v.parse().ok()).unwrap_or(200.0);
     let has = |w: &str| args.iter().any(|a| a == w);
-    let scheme = if has("upwind") { DivScheme::GaussUpwind } else { DivScheme::GaussLinear };
+    let scheme = if has("upwind") { DivScheme::GaussUpwind } else { DivScheme::GaussLinearDeferred };
     let spec = if has("straight") { coil::CoilSpec::straight_limit() } else { coil::CoilSpec::vv() };
     let max_steps = args.iter().filter_map(|a| a.parse::<usize>().ok()).nth(2).unwrap_or(20_000);
     let co: f64 = args.iter().find_map(|a| a.strip_prefix("co=")).and_then(|v| v.parse().ok()).unwrap_or(4.0);

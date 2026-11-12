@@ -254,7 +254,7 @@ mod tests {
     fn a_coarse_coil_shows_dean_flow() {
         let spec = CoilSpec { tube_radius: 0.005, coil_diameter: 0.04, pitch: 0.0, turns: 0.5 };
         let g = spec.grid(4, 2, 24);
-        let (r, run, _) = run_to_steady(g, 200.0, DivScheme::GaussLinear, 4.0, crate::engine::STEADY, 2000, |_, _| {}).unwrap();
+        let (r, run, _) = run_to_steady(g, 200.0, DivScheme::GaussLinearDeferred, 4.0, crate::engine::STEADY, 2000, |_, _| {}).unwrap();
         let steps = run.steps;
         assert!(steps < 2000, "steady in {steps}");
         assert!(r.section.core_u_n < 0.0, "{r:?}");
