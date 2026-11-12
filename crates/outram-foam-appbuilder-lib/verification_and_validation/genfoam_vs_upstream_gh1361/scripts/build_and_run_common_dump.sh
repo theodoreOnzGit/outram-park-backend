@@ -3,10 +3,10 @@
 # link-only -lfvOptions is dropped from Make/options, see README.md) and the
 # genfoamCommonDump driver, run it, and write common_dump.ref.txt.gz.
 # Needs the ESI v2506 environment of /home/user/upstream-build/scripts.
-set -e
+# (no `set -e`: the OpenFOAM bashrc returns non-zero and would end the script)
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 export GENFOAM_SRC=/home/user/upstream-build/GeN-Foam-src
-source /home/user/upstream-build/scripts/of-env.sh >/dev/null 2>&1
+source /home/user/upstream-build/scripts/of-env.sh >/dev/null 2>&1; set -e
 export WM_NCOMPPROCS=2
 WORK=/home/user/upstream-build/gh1361/common_dump
 rm -rf "$WORK"

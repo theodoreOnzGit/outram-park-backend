@@ -312,7 +312,7 @@ static void tpAll(const Time& runTime)
         const int n = 3 + 4*tbl;
         std::vector<double> ts, vs;
         double t = uni(0.0, 0.5);
-        std::string table = "table (";
+        std::string table = "table table (";
         for (int i = 0; i < n; ++i)
         {
             ts.push_back(t);

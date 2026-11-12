@@ -50,4 +50,43 @@ ESI-vs-Foundation difference, so `TimeProfile::value` takes the ESI form (GeN-Fo
 requires ESI) and the Foundation form stays callable as
 `TimeProfile::value_foundation`.
 
-(Results follow below once the runs are made.)
+(Step 2 results: see "Step 2 results" below.)
+
+## Step 3: libNeutronicsSolvers and the guided slab cases
+
+### What was built, and what ran
+
+`scripts/build_neutronics_stack.sh` builds `libMultiRegion`, `libNeutronicsSolvers` and the **unmodified
+`GeN-Foam.C` + `include/setDeltaT.C`** into an executable that links only the neutronics path. This is
+the real GeN-Foam main, not a transcription of it (the scoping comment had expected a transcription).
+Only link lines of three `Make/options` were pruned, removing libraries that are not built here and that
+the neutronics path never calls (fvOptions, regionModels, solidSpecie, ODE, genericPatchFields, the
+thermo and turbulence libraries, FFS*, ThermoMechanics, offbeat, OFSolvers); the link succeeded with no
+unresolved symbol, which is the evidence that the scoping comment's reading (headers only, no thermo
+symbols in `neutronics/`) was right. Headers for the thermo/turbulence/ODE/region libraries were made
+reachable by `wmakeLnInclude -u` (symlinks only).
+
+The cases ran with the real binary, serial, on the tutorials' own polyMesh/nuclearData:
+`guidedCases/1_reactorSlab_1D_1Gr_neutronicDiffusion` (151 cells) and
+`guidedCases/2_reactorSlabReflected_1D_1Gr_neutronicDiffusion` (751 cells, core + 2 reflectors).
+Protocol (`scripts/tight_protocol.sh`, applied to the copy): `writePrecision 17`, every linear solver
+`tolerance 1e-14, relTol 0`, `endTime 60`. These change precision only, never mesh, cross sections or
+boundary conditions. The tutorials as shipped stop at their solver tolerances (1e-6, relTol 1e-3), see S0.
+
+### Predictions (written BEFORE the port run; committed first)
+
+The two tutorials are eigenvalue cases. GeN-Foam does not run a power iteration to convergence in one
+call: with `eigenvalueNeutronics true` each *time step* does one flux solve per group, renormalises to
+`pTarget`, and updates `keff_ *= power/pTarget` (`calcKeff.H`), so the converged `keff_` is the
+eigenvalue of the discrete operator and the "iteration history" is the keff per pseudo-time step. The
+port has no such time-stepping eigenvalue driver (`solve_eigenvalue` is a static power iteration), so a
+step-by-step history comparison is not possible without porting that driver; this round records it as
+**not compared** and compares what is comparable.
+
+| id | quantity | prediction |
+|---|---|---|
+| S0 | upstream's own keff as the tutorials ship them (solver tolerance 1e-6 / relTol 1e-3) vs tight (1e-14 / 0), case 1 | shipped run `keff_ = 1.0000037`, tight run `1.0000076499876376`: the shipped value is not converged, differing by about -3.9e-6 (-0.39 pcm). |
+| S1 | k_eff, port (k tolerance 1e-13, linear 1e-14) vs upstream tight, both cases | both codes solve the same discrete operator (uniform orthogonal mesh, `Gauss linear` face D, zero-flux Dirichlet at top and bottom, zeroGradient walls): `abs(k_port - k_up) < 1e-12`. Case 1: upstream 1.0000076499876376; case 2: 1.0000305055413801 (last digits jitter by 3e-16). |
+| S2 | independent third reference | a tridiagonal power iteration written in the test (Thomas algorithm, per-cell D, linear face interpolation, half-cell Dirichlet distance) agrees with both to 1e-12. If it disagrees with BOTH, my reading of the operator is wrong, not the codes. |
+| S3 | flux per cell, shapes normalised to unit sum | max over cells of the relative difference port vs upstream < 1e-9. |
+| S4 | iteration history | not compared (no port driver); the port's outer iteration count at the tight tolerance is reported next to upstream's 230 time steps only as context. |
