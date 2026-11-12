@@ -905,6 +905,51 @@ pub fn salt_with_enriching_salt(salt: &[(&'static str, f64)], u235_scale: f64) -
         .collect()
 }
 
+/// The 93 % uranium's composition as ORNL-TM-0730 Table 3.2 (p. 21) assumes
+/// it, atom %: U-234, U-235, U-236, U-238 = 1, 93, 1, 5. This is a design
+/// assumption, not an assay of the lot loaded in 1965 (none was found).
+pub const ENRICHED_LOT_ATOM_PCT: [f64; 4] = [1.0, 93.0, 1.0, 5.0];
+
+/// Share of the salt's U-235 that came from the enriched lot: in
+/// `scripts/salt.py`, 69.6 kg of U-235 of which 150 kg of depleted uranium
+/// at its assumed 0.2 % assay supplies 0.3 kg.
+pub const U235_FROM_ENRICHED: f64 = (69.6 - 150.0 * 0.002) / 69.6;
+
+/// The extra nuclides [`salt_with_tm0730_minor_uranium`] needs.
+pub const MINOR_U_NUCLIDES: [(&str, &str); 2] = [("U234", "n-092_U_234-ENDF8.0.endf"), ("U236", "n-092_U_236-ENDF8.0.endf")];
+
+/// `salt` with the enriched lot's non-²³⁵U split as TM-0730 assumes it
+/// ([`ENRICHED_LOT_ATOM_PCT`]), in place of `scripts/salt.py`'s "all U-238"
+/// (gh:#1128).
+///
+/// U-235 is unchanged. The lot's U-235, `f N₅` with `f` =
+/// [`U235_FROM_ENRICHED`], brings U-234 and U-236 at 1/93 of it each and
+/// U-238 at 5/93. These replace the U-238 that `salt.py` gave it: 7 % of the
+/// lot's mass, at a lot mass of `f N₅ · 235.0439 / 0.93`. Fluorine follows
+/// the change in uranium atoms, 4 per U. Everything else is unchanged.
+///
+/// The split's total mass is about 1 % above the 7 % it replaces, because
+/// atom % and wt % differ. The volume is held fixed.
+pub fn salt_with_tm0730_minor_uranium(salt: &[(&'static str, f64)]) -> Vec<(&'static str, f64)> {
+    let get = |n: &str| salt.iter().find(|e| e.0 == n).map_or(0.0, |e| e.1);
+    let n5e = U235_FROM_ENRICHED * get("U235");
+    let [p4, p5, p6, p8] = ENRICHED_LOT_ATOM_PCT;
+    let old_u238_from_lot = n5e * 235.043_930 / 0.93 * 0.07 / 238.050_788;
+    let (n4, n6, n8) = (n5e * p4 / p5, n5e * p6 / p5, n5e * p8 / p5);
+    let d_u = n4 + n6 + n8 - old_u238_from_lot;
+    let mut out: Vec<(&'static str, f64)> = salt
+        .iter()
+        .map(|&(n, v)| match n {
+            "U238" => (n, v - old_u238_from_lot + n8),
+            "F19" => (n, v + 4.0 * d_u),
+            _ => (n, v),
+        })
+        .collect();
+    out.push(("U234", n4));
+    out.push(("U236", n6));
+    out
+}
+
 /// [`shield_ball_zone`] with its water removed: the same balls, the space
 /// between them void. An ablation for splitting the shield's worth between
 /// its steel and its water (gh:#1128); the real shield is water-filled
@@ -1304,6 +1349,34 @@ mod tests {
         for ((n, b), ((_, u), (_, w))) in base.iter().zip(up.iter().zip(&down)) {
             assert!(((u - b) + (w - b)).abs() <= 1e-9 * (u - b).abs() + 1e-17, "{n}");
         }
+    }
+
+    #[test]
+    fn tm0730_minor_uranium_resplits_only_the_enriched_lot() {
+        let base = SALT.to_vec();
+        let s = salt_with_tm0730_minor_uranium(&base);
+        let get = |v: &[(&str, f64)], n: &str| v.iter().find(|e| e.0 == n).map_or(0.0, |e| e.1);
+        // U-235 untouched; U-234 and U-236 at 1/93 of the lot's U-235.
+        assert_eq!(get(&s, "U235"), get(&base, "U235"));
+        let n5e = U235_FROM_ENRICHED * get(&base, "U235");
+        assert!((get(&s, "U234") / n5e - 1.0 / 93.0).abs() < 1e-12);
+        assert!((get(&s, "U236") / n5e - 1.0 / 93.0).abs() < 1e-12);
+        // The lot's non-235 mass moves by about 1 % (atom % vs wt %), and
+        // the depleted lot's U-238 is untouched.
+        let m_old = n5e * 235.043_930 / 0.93 * 0.07;
+        let m_new = get(&s, "U234") * 234.040_952 + get(&s, "U236") * 236.045_568
+            + (get(&s, "U238") - get(&base, "U238")) * 238.050_788
+            + m_old;
+        assert!((m_new / m_old - 1.0).abs() < 0.015, "{}", m_new / m_old);
+        // Fluorine balances uranium as UF4; nothing else moves.
+        let du: f64 = ["U234", "U235", "U236", "U238"].iter().map(|n| get(&s, n) - get(&base, n)).sum();
+        assert!(((get(&s, "F19") - get(&base, "F19")) - 4.0 * du).abs() < 1e-15);
+        for (n, v) in &base {
+            if !["U238", "F19"].contains(n) {
+                assert_eq!(get(&s, n), *v, "{n}");
+            }
+        }
+        assert!(MINOR_U_NUCLIDES.iter().all(|(k, _)| get(&s, k) > 0.0));
     }
 
     #[test]
