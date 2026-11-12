@@ -1495,7 +1495,16 @@ fn test_14_viewr_of_njoys_plot() {
 /// went from 24 323 / 24 331 differing lines to 0; decks 38-42 are 0 as well
 /// (each test's doc below).
 fn purr_moder_unit34(case: &str, resource: &str) -> Option<()> {
-    acer_check_deck(case, resource, &[], &[34])
+    let root = njoy_root();
+    let full = deck_text(&root, case, Some("viewr"), "")?;
+    // Its own work directory: the `*_acer_check_*` test of the same deck runs
+    // in parallel under tag `chk<case>`.
+    let (ours, njoy) = run_pair_decks_extra(&root, &format!("purr{case}"), resource, &[], &full, &full)?;
+    let d = differing_lines(&ours.join("tape34"), &njoy.join("tape34"));
+    println!("deck {case} unit 34: {} differing lines; first {:?}", d.len(), &d[..d.len().min(5)]);
+    assert!(d.is_empty(), "deck {case} unit 34: {} lines differ from NJOY2016", d.len());
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    Some(())
 }
 
 /// Deck 36 (Sn-119): 0 differing lines of unit 34.
