@@ -320,6 +320,8 @@ impl TwoPhaseCase {
             margin_to_phase_change: scalar(&cd, "marginToPhaseChange"),
             max_delta_t: scalar(&cd, "maxDeltaT").unwrap_or(f64::MAX),
             write_interval,
+            start_time,
+            esi_adjust_delta_t: true,
         };
         if let Some(rs) = cd.get_dict("regionSolvers") {
             if word(rs, region).as_deref() != Some("twoPhase") {
@@ -698,6 +700,11 @@ impl TwoPhaseCase {
                 if fluids[0].is_liquid { 1 } else { 0 }
             }
         };
+        let (alpha_solver_tolerance, alpha_solver_rel_tol) =
+            match lookup_regex(solvers, &format!("alpha.{}", names[solve_phase])) {
+                Some(FoamEntry::SubDict(d)) => (ctx.f64(d, "tolerance")?, scalar(d, "relTol").unwrap_or(0.0)),
+                _ => return Err(ctx.e("no linear solver for alpha.<phase>")),
+            };
         if alpha_solver != "implicitUpwind" {
             deviations.push(format!(
                 "alpha solver `{alpha_solver}` is not ported; ran GeN-Foam's implicitUpwind \
@@ -742,6 +749,11 @@ impl TwoPhaseCase {
             p_min: scalar(&pp, "pMin").unwrap_or(0.0),
             max_dpdt: scalar(pimple, "maxDpdt").unwrap_or(1e6),
             dpdt: true,
+            lazy_old_time_first_step: true,
+            t_interface_limiter_sees_new_value: true,
+            alpha_solver_tolerance,
+            alpha_solver_rel_tol,
+            alpha_solver_openfoam: true,
         };
         if scalar(pimple, "oscillationLimiterFraction").unwrap_or(0.0) != 0.0 {
             return Err(ctx.e("oscillationLimiterFraction != 0 is not ported"));

@@ -20,4 +20,6 @@ if [ -n "$TIGHT" ]; then
          if(ins && $1=="relTol"){sub(/relTol .*/,"relTol          0;")}
          print }' "$f" > "$f.new" && mv "$f.new" "$f"
 fi
+# NOUTER=k: PIMPLE nOuterCorrectors k (fields after k outer iterations of step 1; diagnostic for the first divergent operation)
+[ -n "$NOUTER" ] && sed -i "s/^\( *\)nOuterCorrectors .*/\1nOuterCorrectors    $NOUTER;/" system/fluidRegion/fvSolution
 sed -i 's/calulated/calculated/' 0/fluidRegion/* # upstream typo: ESI rejects 'calulated' (alpha.liquid), the port ignores patch types it does not need
