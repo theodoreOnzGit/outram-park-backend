@@ -60,7 +60,7 @@
 //! transient-only upstream: `!eigenvalueNeutronics_`), and only the neutronics
 //! region (`regionSolvers { neutroRegion ... }`) is stepped.
 
-use outram_foam_basic_lib::prelude::{Field, FvMatrix, SolverSettings, VolScalarField};
+use outram_foam_basic_lib::prelude::{BoundaryCondition, Field, FvMatrix, SolverSettings, VolScalarField};
 use thiserror::Error;
 
 /// OpenFOAM `SMALL` (double precision).
@@ -236,8 +236,10 @@ impl PseudoTimeClock {
     }
 }
 
-/// The neutronics `maxDeltaT()` (`diffusionNeutronics.C:220`, identical in SP3
-/// and SN): the largest time step the power variation of the step allows.
+/// The diffusion solver's `maxDeltaT()` (`diffusionNeutronics.C:220`): the
+/// largest time step the power variation of the step allows, only once the
+/// time exceeds the dictionary `deltaT`. (SP3 has no such guard,
+/// [`sp3_max_delta_t`].)
 ///
 /// `p_tot` is `power()` after the step, `p_tot_old` the `pTotOld_` taken at the
 /// start of `correctPhysics()`.
@@ -256,6 +258,21 @@ pub fn neutronics_max_delta_t(
         return (delta_t_neutro_fact * clock.delta_t()).min(new_delta_t);
     }
     new_delta_t
+}
+
+/// The SP3 solver's `maxDeltaT()` (`SP3Neutronics.C:216`): as
+/// [`neutronics_max_delta_t`] but evaluated from the first step on.
+#[must_use]
+pub fn sp3_max_delta_t(
+    controls: &PseudoTimeControls,
+    clock: &PseudoTimeClock,
+    p_tot: f64,
+    p_tot_old: f64,
+) -> f64 {
+    let power_variation = ((p_tot - p_tot_old) / (p_tot_old + SMALL)).abs();
+    let max_delta_t_neutro_fact = (controls.max_power_variation / (power_variation + SMALL)).abs();
+    let delta_t_neutro_fact = (max_delta_t_neutro_fact.min(1.0 + 0.1 * max_delta_t_neutro_fact)).min(1.2);
+    (delta_t_neutro_fact * clock.delta_t()).min(controls.max_delta_t)
 }
 
 /// GeN-Foam `adjustDeltaT(runTime, solvers)` (`setDeltaT.C`) with the one
@@ -293,10 +310,18 @@ pub(crate) fn solve_twice(
     (second, initial)
 }
 
-/// A cell field of `values` with the boundary of `template`.
+/// A coefficient or source field of `values` on the mesh of `template`, with
+/// zero-gradient patches. (A coefficient such as `D` is a field whose boundary
+/// value is the cell value, as the cross-section fields of upstream are; a
+/// template that carried the flux's `fixedValue 0` would zero the face
+/// diffusivity on the vacuum patches.)
 pub(crate) fn field_like(template: &VolScalarField, values: Vec<f64>) -> VolScalarField {
     let mut f = template.clone();
     f.internal = Field::new(values);
+    for patch in f.boundary.iter_mut() {
+        patch.bc = BoundaryCondition::ZeroGradient;
+        patch.values = Field::uniform(patch.values.len(), 0.0);
+    }
     f
 }
 
@@ -341,6 +366,16 @@ pub trait PseudoTimeEigenvalue {
     /// `power()`: the domain integral of `sum_g flux_g sigmaPow_g`.
     fn pseudo_time_power(&self) -> f64;
 
+    /// The model's `maxDeltaT()` given `power()` after the step and the
+    /// `pTotOld_` taken before it.
+    fn pseudo_time_max_delta_t(
+        &self,
+        controls: &PseudoTimeControls,
+        clock: &PseudoTimeClock,
+        p_tot: f64,
+        p_tot_old: f64,
+    ) -> f64;
+
     /// `correctPhysics()` for `eigenvalueNeutronics true`, after `pTotOld_` was
     /// taken. `first_step` is `timeIndex - startTimeIndex == 1`.
     ///
@@ -382,7 +417,7 @@ pub fn run_pseudo_time_eigenvalue<S: PseudoTimeEigenvalue>(
             step,
         });
         let p_tot = solver.pseudo_time_power();
-        let solver_max = neutronics_max_delta_t(controls, &clock, p_tot, p_tot_old);
+        let solver_max = solver.pseudo_time_max_delta_t(controls, &clock, p_tot, p_tot_old);
         adjust_delta_t(controls, &mut clock, solver_max);
     }
     Ok(history)
@@ -440,6 +475,17 @@ mod tests {
     }
 
     #[test]
+    fn sp3_limits_the_step_from_the_first_step_on() {
+        let c = controls();
+        let mut clock = PseudoTimeClock::new(&c);
+        clock.advance();
+        // diffusion: guarded (value == deltaT), sp3: not.
+        assert_eq!(neutronics_max_delta_t(&c, &clock, 2e6, 1e6), 1.0);
+        let m = sp3_max_delta_t(&c, &clock, 2e6, 1e6);
+        assert!((m / clock.delta_t() - 0.01).abs() < 1e-3);
+    }
+
+    #[test]
     fn a_non_adjustable_clock_keeps_its_step() {
         let mut c = controls();
         c.write_interval = None;
@@ -470,6 +516,15 @@ mod tests {
     impl PseudoTimeEigenvalue for Fixed {
         fn pseudo_time_power(&self) -> f64 {
             1e6
+        }
+        fn pseudo_time_max_delta_t(
+            &self,
+            controls: &PseudoTimeControls,
+            clock: &PseudoTimeClock,
+            p_tot: f64,
+            p_tot_old: f64,
+        ) -> f64 {
+            neutronics_max_delta_t(controls, clock, p_tot, p_tot_old)
         }
         fn eigenvalue_time_step(
             &mut self,

@@ -49,7 +49,8 @@ use outram_foam_basic_lib::prelude::fvm;
 
 use super::DiffusionNeutronics;
 use crate::genfoam::neutronics::pseudo_time::{
-    calc_keff, field_like, solve_twice, PseudoTimeEigenvalue, PseudoTimeError, PseudoTimeStep,
+    calc_keff, field_like, neutronics_max_delta_t, solve_twice, PseudoTimeClock,
+    PseudoTimeControls, PseudoTimeEigenvalue, PseudoTimeError, PseudoTimeStep,
 };
 
 impl DiffusionNeutronics {
@@ -74,6 +75,16 @@ impl DiffusionNeutronics {
 impl PseudoTimeEigenvalue for DiffusionNeutronics {
     fn pseudo_time_power(&self) -> f64 {
         self.upstream_power()
+    }
+
+    fn pseudo_time_max_delta_t(
+        &self,
+        controls: &PseudoTimeControls,
+        clock: &PseudoTimeClock,
+        p_tot: f64,
+        p_tot_old: f64,
+    ) -> f64 {
+        neutronics_max_delta_t(controls, clock, p_tot, p_tot_old)
     }
 
     fn eigenvalue_time_step(

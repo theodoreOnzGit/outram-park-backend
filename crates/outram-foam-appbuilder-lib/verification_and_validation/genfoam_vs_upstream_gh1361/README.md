@@ -263,3 +263,38 @@ Read first (upstream is the specification): `GeN-Foam.C` (loop: `runTime++`, `co
 | T5 | first-solve initial residual per step | same normalisation (`lduMatrix::solver::normFactor`): for upstream residuals at or above 1e-6 the relative difference is below 1e-6; below 1e-8 the residual is solver noise on both sides and only the absolute bound `< 1e-9` is claimed |
 | T6 | SP3 steps 1 and 2 | `keff_` equals 0.1 exactly in both codes (the clamp) |
 | T7 | final flux shape (unit sum), port vs upstream | max relative difference below 1e-10 |
+
+### S4 results (measured 2026-11-12, `tests/genfoam_pseudo_time_vs_upstream.rs`)
+
+Real binary vs `run_pseudo_time_eigenvalue`, same committed mesh and `nuclearData`, port linear tolerance 1e-14.
+
+| case | steps (port / upstream) | max `abs(dk)` (step) | median `abs(dk)` | max rel `dP` | residual: max rel (upstream >= 1e-6) / max abs (< 1e-6) | `Time` max rel | flux shape (unit sum) max rel |
+|---|---|---|---|---|---|---|---|
+| diffusion, guided 1 | 230 / 230 | 3.3e-14 (146) | 2.5e-14 | 1.4e-14 | 2.3e-10 / 4.6e-15 | 4.2e-8 | 2.6e-13 |
+| diffusion, guided 2 | 230 / 230 | 6.2e-14 (193) | 4.8e-14 | 2.0e-14 | 1.3e-10 / 4.9e-15 | 4.2e-8 | 4.3e-13 |
+| SP3, guided 1 | 355 / 355 | 4.5e-14 (3) | 3.8e-14 | n/a | 2.8e-9 / 8.7e-14 | 4.9e-8 | 3.7e-13 |
+| SP3, guided 2 | 357 / 357 | 1.3e-13 (2) | 1.0e-14 | n/a | 6.1e-9 / 9.3e-14 | 5.0e-8 | 1.5e-13 |
+
+T1, T3, T4, T5, T7 held (the numbers are 1 to 2 orders inside the predicted bounds, as predicted: the residual of the two
+linear solvers' stopping points, the algorithm is the same). `Time` (T2) is bounded by the 8-digit print of the reference
+(a leading digit of 1 allows 5e-8); the true agreement is better: the first `deltaT` of the SP3 run (1.5000000225e-19, from
+`maxPowerVariation` over the first step's power change) is reproduced to the printed digits once the start state is right.
+
+**Misses and defects found by this comparison (all in the new code written for it, none in code that existed; each
+fixed by reading upstream).** None changes a number that was recorded before.
+1. T6 over-generalised: SP3 step 2 is clamped to 0.1 only in guided 1 (guided 2: 1.4332785577569906). The test now asserts the clamp at
+   step 1 for both and at step 2 for guided 1 only. SP3 `keff_` step 1 is 0.1 in both codes, 0.1 and 0.1 at steps 1, 2 for guided 1.
+2. First SP3 run: the port's `keff_` left upstream at step 2 (0.381 vs 0.1) with the first step's power 96657 against
+   upstream's 36041. First divergent operation: the coefficient fields of the second-moment equation were built on a template
+   copy of the FLUX field, so the vacuum patches carried `fixedValue 0` and `fvc::interpolate` gave the second-moment diffusivity
+   0 on top and bottom faces. Upstream's coefficient is a field of cross sections, whose patch value is the cell value. After the
+   fix the first step's power is 36041.29 (matches the log) and every step agrees. (`field_like` now builds zero-gradient patches.)
+3. SP3 time axis: 230 port steps vs 355 upstream. Reading `SP3Neutronics::maxDeltaT` showed it has NO `time > deltaT` guard
+   (the diffusion one has); the port had copied the diffusion form. Now `sp3_max_delta_t`.
+4. First `deltaT` off by 3e-8 relative (1.49999997750e-19 vs 1.5000000225e-19): upstream's `flux_` before the first step is
+   `defaultFlux` (= 1), not `fluxStar - 2 fluxStar2` (= -1), and `pTotOld_` of step 1 is `power()` of it. `set_uniform_second_moment` leaves the
+   physical flux untouched.
+5. The SP3 reference has no POWER column: the SP3 log prints `pow:`, not `power:` (extraction script unchanged, so T4 is
+   diffusion only; the test asserts the column is empty rather than silently skipping it).
+
+The static `solve_eigenvalue` paths are untouched; all four histories pass through `PseudoTimeEigenvalue` only.

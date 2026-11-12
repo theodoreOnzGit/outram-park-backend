@@ -45,21 +45,24 @@ use outram_foam_basic_lib::prelude::{fvc, fvm};
 
 use super::{Sp3Neutronics, Sp3XsFields};
 use crate::genfoam::neutronics::pseudo_time::{
-    calc_keff, field_like, solve_twice, PseudoTimeEigenvalue, PseudoTimeError, PseudoTimeStep,
+    calc_keff, field_like, solve_twice, sp3_max_delta_t, PseudoTimeClock, PseudoTimeControls,
+    PseudoTimeEigenvalue, PseudoTimeError, PseudoTimeStep,
 };
 
 impl Sp3Neutronics {
-    /// Set the second moment of every group to the uniform `value` and rebuild
-    /// the physical flux, as GeN-Foam does when it reads `defaultFlux2`
-    /// (`createNeutronicsFieldsSP3.H`). The shipped slab tutorials start from
-    /// `defaultFlux2 uniform 1`; this crate's constructors start from 0.
+    /// Set the second moment of every group to the uniform `value`, as GeN-Foam
+    /// does when it reads `defaultFlux2` (`createNeutronicsFieldsSP3.H`). The
+    /// shipped slab tutorials start from `defaultFlux2 uniform 1`; this crate's
+    /// constructors start from 0. The physical flux is left as it is (the
+    /// `defaultFlux` of upstream's `flux_`): it is recomputed as
+    /// `fluxStar - 2 fluxStar2` only inside the first time step, and the
+    /// `pTotOld_` of that step (which sets the first `deltaT`) is taken from it.
     pub fn set_uniform_second_moment(&mut self, value: f64) {
         for field in self.flux_star2.iter_mut() {
             for v in field.internal.as_mut_slice() {
                 *v = value;
             }
         }
-        self.reconstruct_flux();
     }
 
     /// `power()`: `sum_g domainIntegrate(flux_g sigmaPow_g)`, `None` without
@@ -109,6 +112,16 @@ impl Sp3Neutronics {
 impl PseudoTimeEigenvalue for Sp3Neutronics {
     fn pseudo_time_power(&self) -> f64 {
         self.upstream_power().unwrap_or(0.0)
+    }
+
+    fn pseudo_time_max_delta_t(
+        &self,
+        controls: &PseudoTimeControls,
+        clock: &PseudoTimeClock,
+        p_tot: f64,
+        p_tot_old: f64,
+    ) -> f64 {
+        sp3_max_delta_t(controls, clock, p_tot, p_tot_old)
     }
 
     fn eigenvalue_time_step(
