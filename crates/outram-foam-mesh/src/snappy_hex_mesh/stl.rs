@@ -393,8 +393,10 @@ impl TriangleSoup {
 
     /// True if the closed segment `a`–`b` crosses any facet (any-hit, the
     /// analogue of `searchableSurface::findLineAny`, which
-    /// `refinementSurfaces::findHigherIntersection` calls in OpenFOAM-dev
-    /// `852527377c7e`, `refinementSurfaces.C:410`).
+    /// `refinementSurfaces::findHigherIntersection` calls in ESI v2506,
+    /// `refinementSurfaces.C:1265`; ~~OpenFOAM-dev `852527377c7e`,
+    /// `refinementSurfaces.C:410`~~ **CORRECTED 2026-11-12**, maintainer
+    /// decision "ESI preferred", gh:#1459).
     ///
     /// Möller–Trumbore with the direction `b - a`, so the hit parameter is
     /// accepted on `[0, 1]`. Brute force over the facets with a per-facet

@@ -30,7 +30,7 @@ blockMesh, extrudeModel. Added, in this order (`wmake -j2 libso <dir>`):
 7. the application `applications/utilities/mesh/generation/snappyHexMesh`
    (see "Executable" below).
 
-Disk cost is recorded in the Results section.
+Disk cost: see "Executable ... and disk" below.
 
 ## Case (the maintainer's flange)
 
@@ -61,7 +61,7 @@ The port has only the first.
 
 | # | prediction | why it can fail |
 |---|---|---|
-| P1 | **Iteration by iteration, the number of cells ESI's first `surfaceOnlyRefine` selects equals the port's `surface_only_refine`** (integers, same doubles, same segments, same face-only 2:1 closure), and so does the leaf-level histogram after the loop. | `refinementSurfaces::findHigherIntersection` uses an octree `findLine` on the triSurfaceMesh, the port a brute-force segment test; a segment grazing a triangle edge could split them. The STL is read as ASCII text in both. |
+| P1 | **Iteration by iteration, the number of cells ESI's first `surfaceOnlyRefine` selects equals the port's `surface_only_refine`** (integers, same doubles, same segments, same face-only 2:1 closure), and so does the leaf-level histogram after the loop. | `refinementSurfaces::findHigherIntersection` uses an octree `findLine` on the triSurfaceMesh, the port a brute-force segment test; a segment grazing a triangle edge could split them. ~~The STL is read as ASCII text in both.~~ **WRONG, see Run 1.** |
 | P2 | After all stages, ESI has MORE refined cells than the port (the port ends at the P1 octree): `danglingCellRefine` and `refinementInterfaceRefine` add level-1/2 cells; no stage of the cases here removes any. Prediction: ESI total refined (before removal) exceeds the port by a small positive amount, 0 < Delta < 5 % of the cell count. | If the flange octree has no hex with 5-6 refined faces and no level interface needing extra refinement, Delta = 0. |
 | P3 | Kept cells (after removal) differ between ESI (face-connected region holding `locationInMesh`, cut cells included when reachable) and the port (centre parity). Every cell in the symmetric difference touches the surface or is one of the P2 extras; **no cell farther than its own edge length from the surface differs** apart from the P2 extras. | The port's parity test mis-classifies through-thin-wall cells. |
 | P4 | Patch names differ by construction: ESI `flange_patch1` for the surface, port `surface`; ESI keeps one background patch `allBoundary` (as blockMesh), port splits the box into six (`xMin` ...). Counts of boundary faces on the surface patch differ whenever P3 differs; they are equal if P2 = 0 and P3 = 0. | |
@@ -149,4 +149,121 @@ is on the keep side by ray parity but which the surface cuts off from
 | P8 | `CastellationControls::with_baffle_region_removal()` (new: keeps the face-connected region holding `locationInMesh` across faces whose cell-centre segment misses the surface) removes exactly those 2 cells: the port keeps **18012** cells and the comparison with the ESI final mesh shows **304 only in ESI, 38 only in port, 0 level differences**. |
 | P9 | The remaining 304 / 38 go away only by porting `danglingCellRefine` (nFaces 21 and 24) on the post-`removeInsideCells` mesh; that needs the nBufferLayers erosion of `splitMesh`, which is NOT ported in this change (see "What remains"). |
 
-(results below)
+### Result of the baffle-region removal (P8, P9)
+
+`CastellationControls::with_baffle_region_removal()` (code:
+`refinement::baffle_region`, ESI `splitMesh` / `baffleAndSplitMesh`) was run on
+the same octree. **P8 failed:** the port keeps the same **18014** cells as with
+centre parity (not 18012), and the residual is unchanged (304 only in ESI, 40
+only in port). So the 2 level-2 cells are not an inside/outside parity artefact:
+they are connected to `locationInMesh` through faces the surface does not cut.
+What the ESI log shows instead: the two cells (x = +-0.009375, y = 0.0173438,
+z = -0.00958333) exist in ESI's meshes after `removeInsideCells` (time 7) and
+after the dangling-cell stage (time 13) and are gone after `baffleAndSplitMesh`
+(time 21), whose log reads "Introducing baffles to block off problem cells:
+`markFacesOnProblemCells` marked 25295 additional internal faces". The picture
+`images/slice_y.png` shows both on the outer edge of the pipe wall at the
+tangent of the faceted circle, i.e. cells with a sliver of kept volume.
+**Hypothesis, not isolated:** `markFacesOnProblemCells` (quality-driven removal,
+`meshRefinementProblemCells.C:383`, not ported) removes them. The port's
+baffle-region removal is kept (opt-in, as upstream's semantic; it changes
+nothing on this case) and is tested by `baffle_region_separates_inside_from_outside`.
+**P9 stands untested:** `danglingCellRefine` needs the `removeInsideCells(1)`
+buffer-layer erosion first (it counts a cell's internal faces in the
+post-removal mesh); neither is ported.
+
+### Pictures (AGENTS.md: meshes are drawn)
+
+`images/slice_z.png` (x-y plane, z = -0.009583: the flange profile, axis along
+y), `images/slice_y.png` (x-z plane, y = 0.01734: the pipe ring) and
+`images/slice_z2.png` (z = -0.015), from
+`examples/draw_flange_differential.rs`, which draws the ESI reference cells and
+the port's `castellate` output (not constants). Level 0/1/2 cells present in
+both meshes are shaded pale/mid/dark green, cells only in ESI blue, only in the
+port red, the STL cut by the plane is black, ticks every 10 mm. **Checked** (I
+opened them): the kept region follows the STL on both sides of the wall; the
+red squares are the six level-0 and 32 level-1 cells that ESI's dangling-cell
+stage splits (their level-2 children are the blue ones, hidden where the
+plane misses them) and the two small red level-2 cells at the outer edge of the
+ring. **Not checked:** blue cells are not visible in these three planes
+(they lie at other z and y); no 3-D view; no picture of the stage-1 octree
+itself (its equality is an integer comparison of 42788 cells).
+
+### Prediction ledger
+
+| # | prediction | outcome |
+|---|---|---|
+| P1 | per-iteration counts and level histogram equal ESI | **failed** with `read_stl` (758 vs 914 at iteration 0); holds (42788 of 42788 cells) with the upstream reader. ~~"The STL is read as ASCII text in both."~~ was the wrong assumption: ESI reads four solids with single-precision corners. |
+| P2 | ESI has more refined cells than the port, 0 < delta < 5 % | **held**: +266 cells from `danglingCellRefine` (38 parents x 7), 1.5 % of 18278 final cells; `refinementInterfaceRefine` selected 0. |
+| P3 | removal differs only at cut cells and the P2 extras | **held**: only difference beyond the extras is 2 level-2 cells at the surface. |
+| P4 | patch names differ; surface-face counts differ if P3 differs | **held in part**: ESI `flange_patch1..4` = 9310 / 1182 / 248 / 1396 = 12136 faces, port `surface` 12140 (+4, not attributed: the 38 refined parents and the 2 extra cells both change it); ESI keeps an empty `allBoundary` patch, the port has no box patches (none of its faces are on the box). |
+| P5 | `mergePatchFaces` does not run (`snap false`) | **held**: log "Merging 0 sets of faces"; ESI face count 63194 vs port 62644. |
+| P6 | all solids, double precision: counts equal ESI within 1 cell | **half**: iterations 0-1 equal, 2-4 not (370 vs 344, 14 vs 12). |
+| P7 | single precision changes "a few" cells; equals ESI | **equality held, size missed**: 196 leaves (0.46 %). |
+| P8 | baffle-region removal removes the 2 cells (18012) | **failed**: 18014; cause is ESI's problem-cell handling (hypothesis). |
+| P9 | dangling-cell refinement needs the buffer-layer erosion | untested, not ported. |
+
+### What remains (not done in this change)
+
+- `removeInsideCells` with `nBufferLayers` (the point-based erosion in
+  `splitMesh`, `meshRefinementBaffles.C:5157`), then `danglingCellRefine`
+  (nFaces 21, 24) and `refinementInterfaceRefine` on the post-removal mesh: these
+  explain 304 + 38 of the 344 residual cells.
+- `markFacesOnProblemCells` (2 cells), `zonify`, `splitAndMergeBaffles`,
+  `mergePatchFaces` (needs `snap true`), region patches from `patchInfo`,
+  multiple surfaces, faceZones/cellZones, `locationsInMesh`.
+- #1465 items 1 (`(min max)` levels, curvature), 2 (`nCellsBetweenLevels` > 1),
+  3 (`refinementRegions`, the tutorial's `refineHole`), 4 (features, needs
+  `surfaceFeatureExtract`, not built), 5 (gap refinement, cell limits).
+- Snapping and layers stages of the flange (the tutorial's `snap true`), and the
+  full tutorial dictionary.
+- A sphere case through ESI (the #1465 step-1 sphere pin 3360 is not compared).
+- The cfMesh `snappy_layers` comparison against ESI (#1469).
+
+### Executable (step 7 of the recipe) and disk
+
+`parallel/decompose/decompose` and `parallel/reconstruct/reconstruct` are built
+first (`processorMeshes.H`, `decompositionModel.H`); then the application with
+its `Make/options` edited (original kept as `Make/options.orig`) to drop the
+dummy `-L$(FOAM_LIBBIN)/dummy -lkahipDecomp -lmetisDecomp -lptscotchDecomp
+-lscotchDecomp` line, which the dummy-Pstream tree does not provide and the
+serial run does not need. Scripts: `/home/user/upstream-build/scripts/build-snappy.sh`
+and `build-snappy-exe.sh`; logs `build-snappy-*.log` beside them. Whole build
+about 25 minutes at `WM_NCOMPPROCS=2`, all at the tree's default `-O3` (no
+`-O0` was needed).
+
+**Disk.** New objects under `build/` about 85 MB (snappyHexMesh 14, sampling
+34, fvMotionSolver 21, parallel 13, lagrangian 1, application 3), new libraries
+and the binary about 16 MB under `platforms/` (`libsnappyHexMesh.so` 5.0 MB,
+`snappyHexMesh` 0.5 MB). Free space on `/` fell from 5.2 GB to 3.9 GB over the
+session; the flange run directory with its debug meshes is 158 MB, and the
+rest of the fall is not attributable to this build (the merge-gate run shares
+the disk). Intermediate time directories were deleted after the reference
+cells were extracted.
+
+### Run it again
+
+```bash
+cd /home/user/upstream-build/runs/snappy_flange      # blockMesh + system/ from the tutorial
+/home/user/upstream-build/scripts/with-of.sh blockMesh
+/home/user/upstream-build/scripts/with-of.sh snappyHexMesh -noFunctionObjects
+# port side, stage by stage:
+dump_castellation constant/triSurface/flange.stl -0.03 -0.03 -0.03 0.03 0.03 0.01 \
+    20 16 12 2 -9.23149e-05 -0.0025 -0.0025 OUT.txt octree 100 zoned
+python3 -I compare_cells.py 4/polyMesh 4/polyMesh/cellLevel OUT.txt     # stage 1
+```
+
+`system/controlDict` must have `writePrecision 16` (the tutorial's 6 rounds the
+`blockMesh` points). The dictionary is `snappyHexMeshDict.reduced`, the full ESI
+log `esi_log.txt`. Reference cells are committed gzipped under
+`tests/fixtures/esi_v2506_flange/` and pinned by
+`tests/snappy_hex_mesh_esi_flange.rs`.
+
+### Moved pins
+
+None moved. `read_stl_ascii_str` changed behaviour only for multi-solid files
+(it returned the first solid; now all): no existing test or example reads one
+(the cfMesh crate uses `read_stl_zoned_bytes`). `read_stl` itself stays
+double precision (the single-precision upstream reader is the new
+`TriangleSoup::from_zoned`, opt-in), and the default cell removal stays centre
+parity, so the CLI and driver pins are untouched.

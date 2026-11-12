@@ -20,23 +20,35 @@
 
 //! Surface-intersection refinement: `snappyRefineDriver::surfaceOnlyRefine`.
 //!
-//! **Upstream followed:** OpenFOAM-dev (OpenFOAM Foundation) commit
-//! `852527377c7e87e33d51b19ca8974b5db60af28b`:
+//! **Upstream followed:** OpenFOAM.com ESI **v2506** (maintainer decision on
+//! gh:#1459, 2026-11-12, "ESI preferred"; the run that checks it is
+//! `verification_and_validation/snappy_hex_mesh_esi_v2506/README.md`).
+//! ~~OpenFOAM-dev (OpenFOAM Foundation) commit
+//! `852527377c7e87e33d51b19ca8974b5db60af28b`~~ **CORRECTED 2026-11-12** to
+//! ESI v2506, with the line numbers re-read from the v2506 sources (dev's in
+//! brackets, background only):
 //!
-//! - `snappyHexMeshDriver/snappyRefineDriver.C:179` `surfaceOnlyRefine`
-//!   (loop, stop rule `nCellsToRefine == 0 || (iter >= overallMaxLevel &&
-//!   nCellsToRefine <= minRefineCells)`, `maxIter` 100);
-//! - `meshRefinement/meshRefinementRefine.C:908` `markSurfaceRefinement`
-//!   (one segment per face: owner centre to neighbour centre, or, on a
-//!   non-coupled boundary face, owner centre to the face centre, from
-//!   `meshRefinement.C:97` `calcNeighbourData`; segment extended by
-//!   `rootSmall` of its length at each end; a cell is marked when the
-//!   segment hits a surface whose level exceeds the cell's level and the
-//!   face's lower cell level);
-//! - `refinementSurfaces/refinementSurfaces.C:410` `findHigherIntersection`;
-//! - `polyTopoChange/polyTopoChange/hexRef8/hexRef8.C:1426`
-//!   `faceConsistentRefinement` and `:2127` `consistentRefinement` (face 2:1,
-//!   `maxSet = true`).
+//! - `snappyHexMeshDriver/snappyRefineDriver.C:342` `surfaceOnlyRefine`
+//!   [dev :179] (loop, stop rule `nCellsToRefine == 0 || (iter >=
+//!   overallMaxLevel && nCellsToRefine <= minRefineCells)`, `maxIter` 100);
+//! - `meshRefinement/meshRefinementRefine.C:945` `markSurfaceRefinement`
+//!   [dev :908] (one segment per face from `meshRefinement.C:288`
+//!   `calcCellCellRays`: owner centre to neighbour centre, or, on a non-coupled
+//!   boundary face, owner centre to the face centre from `calcNeighbourData`;
+//!   segment extended by `rootSmall` of its length at each end; a cell is
+//!   marked when the segment hits a surface whose level exceeds the cell's);
+//! - `refinementSurfaces/refinementSurfaces.C:1265` `findHigherIntersection`
+//!   [dev :410] (`findLineAny` on the triSurfaceMesh);
+//! - `dynamicMesh/polyTopoChange/polyTopoChange/hexRef8/hexRef8.C:1567`
+//!   `faceConsistentRefinement` [dev :1426] and `:2233` `consistentRefinement`
+//!   [dev :2127] (face 2:1, `maxSet = true`);
+//! - `meshRefinement/meshRefinementBaffles.C:4927` `splitMesh` and
+//!   `snappyRefineDriver.C:2754` `baffleAndSplitMesh` for [`baffle_region`].
+//!
+//! **Checked against the ESI binary (gh:#1459, 2026-11-12):** on the flange the
+//! selected-cell counts per iteration and all 42788 cells and levels equal
+//! ESI's, when the surface is read as upstream reads it
+//! ([`TriangleSoup::from_zoned`]: every `solid`, single-precision corners).
 //!
 //! ## What is ported, and what is not
 //!

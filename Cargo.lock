@@ -7431,6 +7431,7 @@ version = "0.1.3"
 dependencies = [
  "approx",
  "image",
+ "miniz_oxide 0.8.9",
  "ndarray",
  "outram-foam-basic-lib",
  "petir",

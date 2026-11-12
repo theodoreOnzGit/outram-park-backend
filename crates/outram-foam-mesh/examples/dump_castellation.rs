@@ -10,6 +10,9 @@
 //! ([`outram_foam_mesh::snappy_hex_mesh::refinement::refined_octree`]): `OUT` holds
 //! the refined leaves (a 16th argument limits the iterations), and the per-iteration selected-cell counts are printed.
 //!
+//! Arguments 16-19: octree iteration limit, `zoned` (upstream STL reader),
+//! `baffle` (face-connected-region removal).
+//!
 //! Writes `OUT` with one line per cell, `level cx cy cz` (level recovered from
 //! the cell volume), and prints patch face counts. Example binary: CLI glue,
 //! exempt from the reached-by-a-test rule (it calls only the tested `castellate`).
@@ -33,8 +36,12 @@ fn main() {
     let domain = Bounds::new(Vector3::new(f(1), f(2), f(3)), Vector3::new(f(4), f(5), f(6)));
     let bg = BackgroundMesh::uniform(domain, u(7), u(8), u(9));
     let v0 = (f(4) - f(1)) * (f(5) - f(2)) * (f(6) - f(3)) / (u(7) * u(8) * u(9)) as f64;
-    let c = CastellationControls::new(bg, u(10), Vector3::new(f(11), f(12), f(13)))
+    let mut c = CastellationControls::new(bg, u(10), Vector3::new(f(11), f(12), f(13)))
         .with_surface_intersection_refinement();
+    // 19th argument `baffle`: OpenFOAM's face-connected-region cell removal.
+    if a.get(18).map(String::as_str) == Some("baffle") {
+        c = c.with_baffle_region_removal();
+    }
     if a.get(15).map(String::as_str) == Some("octree") {
         let (cells, selected) = outram_foam_mesh::snappy_hex_mesh::refinement::refined_octree(
             &surface,

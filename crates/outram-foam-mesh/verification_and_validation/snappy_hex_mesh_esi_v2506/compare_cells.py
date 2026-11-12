@@ -146,6 +146,9 @@ def main():
     print("matched", len(seen), "level differs among matched", len(lvl_diff))
     print("only in ESI", len(only_esi), Counter(l for _, l in only_esi))
     print("only in port", len(only_port), Counter(l for _, l in only_port))
+    with open(sys.argv[-1] + ".esi", "w") as f:
+        for i in range(ncell):
+            f.write("%d %.12e %.12e %.12e\n" % ((level[i],) + tuple(cc[i])))
     out = sys.argv[-1] + ".diff"
     with open(out, "w") as f:
         for c, l in only_esi:
