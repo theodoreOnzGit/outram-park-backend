@@ -267,6 +267,14 @@ pub fn build_emissions_newfor(tape: &Tape, mat: i32, awr: f64, partials: &[(i32,
 /// [`build_emissions_newfor`] with `topfil`'s scratch tape coded (`text`) or
 /// binary, as the sign of ACER's PENDF unit sets it (gh:#1492).
 pub fn build_emissions_mode(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)], newfor: i32, text: bool) -> Vec<Emission> {
+    build_emissions_smooth(tape, mat, awr, partials, newfor, text, true)
+}
+
+/// [`build_emissions_mode`] with ACER card 6's `ismooth` (`acer.f90:163-171`):
+/// `acelod` passes it to `acelf5` (the MT=18 tail above 10 MeV,
+/// `acefc.f90:6816`) and `acelf6` (the LANG=2 low-energy `sqrt(E)`
+/// extensions, `:7555`, `:7596`) (upstream test 28's third ACER, gh:#1369).
+pub fn build_emissions_smooth(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)], newfor: i32, text: bool, ismooth: bool) -> Vec<Emission> {
     let mut out = Vec::new();
     for &(mt, qi) in partials {
         // FISSION FIRST, and deliberately from MF=5 rather than MF=6.
@@ -286,7 +294,7 @@ pub fn build_emissions_mode(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f
                 // outgoing energies, and the MT=18 tail supplement. See
                 // `crate::acer::acelf5`.
                 let q_mev = crate::mixr::mix::sigfig(qi / EMEV, 7, 0);
-                if let Ok(Some(entry)) = crate::acer::acelf5::acelf5(sec, mt, q_mev, TYR_FISSION, true) {
+                if let Ok(Some(entry)) = crate::acer::acelf5::acelf5(sec, mt, q_mev, TYR_FISSION, ismooth) {
                     out.push(Emission {
                         mt,
                         tyr: TYR_FISSION,
@@ -335,7 +343,7 @@ pub fn build_emissions_mode(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f
             let q_mev = crate::mixr::mix::sigfig(qi / EMEV, 7, 0);
             if newfor == 0 {
                 // Old format: `topfil` converts LAW=1 lab/CM to law 7 (gh:#1449).
-                if let Ok(Some(o)) = crate::acer::acelf6::acelf6_old_format(sec, mt, q_mev, iza, true) {
+                if let Ok(Some(o)) = crate::acer::acelf6::acelf6_old_format(sec, mt, q_mev, iza, ismooth) {
                     let tyr = match o.entry.tyr {
                         crate::acer::acelf6::Acelf6Tyr::Fixed(t) => t,
                         crate::acer::acelf6::Acelf6Tyr::Generalized { sign } => sign,
@@ -344,7 +352,7 @@ pub fn build_emissions_mode(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f
                     continue;
                 }
             }
-            if let Ok(Some(entry)) = crate::acer::acelf6::acelf6_mode(sec, mt, q_mev, iza, true, text) {
+            if let Ok(Some(entry)) = crate::acer::acelf6::acelf6_mode(sec, mt, q_mev, iza, ismooth, text) {
                 let tyr = match entry.tyr {
                     crate::acer::acelf6::Acelf6Tyr::Fixed(t) => t,
                     // Placeholder sign; the builder fills in `100 + L` once
@@ -393,7 +401,7 @@ pub fn build_emissions_mode(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f
             let lct = ang.as_ref().map_or(1, |a| a.lct);
             let tyr = if lct >= 2 { -(y as i32) } else { y as i32 };
             let q_mev = crate::mixr::mix::sigfig(qi / EMEV, 7, 0);
-            if let Ok(Some(entry)) = crate::acer::acelf5::acelf5(s5, mt, q_mev, tyr, true) {
+            if let Ok(Some(entry)) = crate::acer::acelf5::acelf5(s5, mt, q_mev, tyr, ismooth) {
                 out.push(Emission {
                     mt,
                     tyr,

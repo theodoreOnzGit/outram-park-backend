@@ -315,6 +315,14 @@ fn run_heatr(input: &HeatrInput, units: &mut TapeUnits, listing: &mut String) ->
     let pendf = units.get(u.nin)?.clone();
     let out = heatr(&endf, &pendf.tape, input)?;
     listing.push_str(&out.listing);
+    // `nplot != 0`: HEATR's `viewr` plot commands go on that unit
+    // (`heatr.f90:157`, written by the plot block from `:6035`), which a later VIEWR reads (upstream test 24's
+    // `viewr 26 36`, gh:#1369).
+    if u.nplot != 0 {
+        if let Some(p) = out.plot {
+            units.put_text(u.nplot, p);
+        }
+    }
     // HEATR leaves the pointwise cross sections as they were; MF=3 additions
     // ride on the tape only.
     units.store(u.nout, out.tape, pendf.pointwise)?;
@@ -444,8 +452,13 @@ fn dater() -> String {
 /// to `nace` with the directory line on `ndir` ([`crate::acer::acefix`]).
 /// `ngend != 0` asks for the plot file (`aplots`), written to that unit.
 fn run_acer_fix(c: &AcerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
-    if c.mcnpx || c.itype != 1 {
-        return Err(NjoyError::NotPorted("ACER iopt = 7 with itype != 1 or mcnpx formats"));
+    // `itype=iopt-6` (`acer.f90:486`): for `iopt = 7` the input and output
+    // files are Type 1 whatever card 2's `itype` says (decks 13 and 14 give
+    // `7 1 2`); card 2's value is only echoed in the listing (`:313`). The
+    // caller sends only `iopt = 7` here; Type-2 input (`iopt = 8`) has no
+    // reader in this driver.
+    if c.mcnpx || c.iopt - 6 != 1 {
+        return Err(NjoyError::NotPorted("ACER iopt = 8 (Type-2 input) or mcnpx formats"));
     }
     let text = units
         .text(c.npend)
@@ -471,11 +484,13 @@ fn run_acer_fix(c: &AcerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
 
 /// ACER (`acer.f90`, `acefc.f90`), `iopt = 1` (fast data) with the options this
 /// crate has: `newfor = 1` (or 0: the old equally probable angular bins, MF=4
-/// only, gh:#1449), `iopp = 1`, `ismooth = 1`, no thinning, ZAID rule 0,
+/// only, gh:#1449), ~~`iopp = 1`, `ismooth = 1`~~ `iopp` and `ismooth` 0 or 1
+/// (gh:#1369, upstream test 28), no thinning, ZAID rule 0,
 /// Type 1 output. The table is [`build_deck`] on the PENDF's pointwise block
 /// for `tempd` (`first`: the block within 1 K), HEATR and PURR as the chain ran
-/// them. The ACE text goes to unit `nace`; the directory unit `ndir` is not
-/// written.
+/// them. The ACE text goes to unit `nace`; ~~the directory unit `ndir` is not
+/// written~~ **CORRECTED 2026-11-12:** the directory line goes to `ndir`
+/// ([`write_directory`]).
 fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Result<(), NjoyError> {
     if c.iopt == 7 {
         return run_acer_fix(c, units);
@@ -489,8 +504,8 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     if c.newfor != 1 && c.newfor != 0 {
         return Err(NjoyError::InvalidInput(format!("acer: newfor = {} is not 0 or 1", c.newfor)));
     }
-    if c.iopp != 1 || c.ismooth != 1 || c.thin != [0.0; 3] || c.izaopt != 0 || c.mcnpx || c.itype != 1 || c.nxtra != 0 {
-        return Err(NjoyError::NotPorted("ACER iopp/ismooth/thin/izaopt/mcnpx/itype/nxtra other than the defaults"));
+    if c.thin != [0.0; 3] || c.izaopt != 0 || c.mcnpx || c.itype != 1 || c.nxtra != 0 {
+        return Err(NjoyError::NotPorted("ACER thin/izaopt/mcnpx/itype/nxtra other than the defaults"));
     }
     units.openz(c.nendf, 0)?;
     units.openz(c.npend, 0)?;
@@ -512,7 +527,11 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
         let mut table = crate::acer::charged::build_charged(&endf, c.matd, kt_mev, suffix, c.npend > 0, c.nendf > 0)?;
         table.comment = c.hk.clone();
         table.date = dater();
-        let ace = table.to_type1_text()?;
+        // `aceout` prints XSS through `change` (`acefc.f90:13024`) for a
+        // charged-particle table too; `acelcp`'s rewrite before an HPD block
+        // (`acefc.f90:9376-9384`) leaves integer words the builder flagged as
+        // reals (upstream test 14, 5 lines of tape31).
+        let ace = crate::acer::acefix_change::type1_text(&table)?;
         write_directory(c, &ace, units, notes);
         units.put_text(c.nace, ace);
         return Ok(());
@@ -525,7 +544,7 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     if !pend.meta.heatr {
         deck = deck.without_heatr();
     }
-    deck = deck.with_heatr_partials(pend.meta.heatr_partials).with_purr_binary(pend.meta.purr_binary).with_heatr_binary(pend.meta.heatr_binary).with_newfor(c.newfor).with_pendf_binary(c.npend < 0).with_endf_binary(c.nendf < 0);
+    deck = deck.with_heatr_partials(pend.meta.heatr_partials).with_purr_binary(pend.meta.purr_binary).with_heatr_binary(pend.meta.heatr_binary).with_newfor(c.newfor).with_iopp(c.iopp != 0).with_ismooth(c.ismooth > 0).with_pendf_binary(c.npend < 0).with_endf_binary(c.nendf < 0);
     // rows[0] is the HEAD, rows[1] the TAB1 record (NR, NP), then the
     // interpolation table (three pairs a row), then the points.
     let tab1_pairs = |mt: i32| -> Option<Vec<(f64, f64)>> {

@@ -72,8 +72,12 @@ NJOY runs the deck, our VIEWR runs on NJOY's plot unit): decks 35 (143 580), 37 
 (143 418), 13 (111 182) and 14 (41 152) -- **0 differing lines of 679 533**. Deck 35 whole-deck
 also gives an identical PostScript (143 580 lines) although its plot file differs in 5 lines
 (PURR words in the ACE, README section 8); decks 37 and 63 differ upstream of VIEWR (ACE words,
-`acer_iopt7_2026_11_12.md`), and decks 13 and 14 stop earlier at an ACER `iopt = 7` variant
-(`itype != 1`/mcnpx), so those five are gated on NJOY's own plot file.
+`acer_iopt7_2026_11_12.md`), and ~~decks 13 and 14 stop earlier at an ACER `iopt = 7` variant
+(`itype != 1`/mcnpx), so those five are gated on NJOY's own plot file.~~
+**CORRECTED 2026-11-12 (gh:#1369):** decks 13 and 14 were refused for card 2's
+`itype = 2`, which `acer.f90:486` overwrites (`itype=iopt-6`). They now run whole-deck and
+their PostScript (unit 36) is identical (`test_13_whole_deck`, `test_14_whole_deck`); decks 37
+and 63 are identical whole-deck since gh:#1498. The own-plot-file gates stay as isolation of VIEWR.
 
 ## 3. Features no upstream deck reaches (`tests/viewr_vs_njoy2016.rs`)
 

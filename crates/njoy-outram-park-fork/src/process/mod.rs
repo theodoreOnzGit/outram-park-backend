@@ -181,6 +181,8 @@ impl NuclearCrossSections {
             gas: Vec::new(),
             pendf_binary: false,
             endf_binary: false,
+            iopp: true,
+            ismooth: true,
         };
         crate::acer::assemble(&self.tape, self.mat, &self.pendf, K_B_MEV * t_k, self.settings.ace_suffix, &modules)
     }

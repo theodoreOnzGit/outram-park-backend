@@ -475,6 +475,10 @@ pub struct AceDeck {
     /// PURR card 2's `nunx`: unresolved energies processed, `0` all
     /// (`purr.f90:283-292`, gh:#1498).
     purr_nunx: usize,
+    /// ACER card 6's `iopp`: `false` writes no photon production (gh:#1369).
+    iopp: bool,
+    /// ACER card 6's `ismooth` (gh:#1369).
+    ismooth: bool,
 }
 
 impl Default for AceDeck {
@@ -495,6 +499,8 @@ impl Default for AceDeck {
             gas: Vec::new(),
             displacement_energy: None,
             purr_nunx: 0,
+            iopp: true,
+            ismooth: true,
         }
     }
 }
@@ -533,6 +539,26 @@ impl AceDeck {
     /// ACER's `newfor` (`0` the old angular format, `1` the new, the default).
     pub fn with_newfor(mut self, newfor: i32) -> Self {
         self.newfor = newfor;
+        self
+    }
+
+    /// ACER card 6's `iopp` (`acer.f90:163`, default `1`). With `0`, `first`
+    /// counts no MF=12/13/15 section (`mf1x` and `ngmt` stay 0,
+    /// `acefc.f90:390-402`), so `gamsum` is not called (`:209`) and `acelod`
+    /// stores neither GPD nor the detailed photon blocks (`:6256`, `:6304`).
+    /// `convr` still runs (`:200`), so the photon discontinuities stay in the
+    /// union grid. Upstream test 28's third ACER (gh:#1369).
+    pub fn with_iopp(mut self, iopp: bool) -> Self {
+        self.iopp = iopp;
+        self
+    }
+
+    /// ACER card 6's `ismooth` (`acer.f90:164-171`, default `1`): `acelf5`'s
+    /// MT=18 tail (`acefc.f90:6816`), `acelf6`'s LANG=2 low-energy extensions
+    /// (`:7555`, `:7596`) and the delayed-neutron law-5 `sqrt(E)` bin
+    /// (`:6181`). Upstream test 28's third ACER (gh:#1369).
+    pub fn with_ismooth(mut self, ismooth: bool) -> Self {
+        self.ismooth = ismooth;
         self
     }
 
@@ -657,6 +683,10 @@ pub(crate) struct DeckModules {
     pub(crate) pendf_binary: bool,
     /// ACER's ENDF unit is blocked binary, so `convr`'s scratch tape is too.
     pub(crate) endf_binary: bool,
+    /// ACER card 6's `iopp` ([`AceDeck::with_iopp`]).
+    pub(crate) iopp: bool,
+    /// ACER card 6's `ismooth` ([`AceDeck::with_ismooth`]).
+    pub(crate) ismooth: bool,
 }
 
 /// Run the deck's PURR and HEATR on `pendf` (a result already through
@@ -753,7 +783,7 @@ pub(crate) fn deck_modules(
         }),
         _ => kerma,
     };
-    Ok(DeckModules { urr, kerma, damage_energy, newfor: deck.newfor, photon_matrix: deck.photon_matrix.clone(), mt444: deck.mt444.clone(), gas: deck.gas.clone(), pendf_binary: deck.pendf_binary, endf_binary: deck.endf_binary })
+    Ok(DeckModules { urr, kerma, damage_energy, newfor: deck.newfor, photon_matrix: deck.photon_matrix.clone(), mt444: deck.mt444.clone(), gas: deck.gas.clone(), pendf_binary: deck.pendf_binary, endf_binary: deck.endf_binary, iopp: deck.iopp, ismooth: deck.ismooth })
 }
 
 /// ACER proper: the continuous-energy table from the PENDF and what
@@ -809,12 +839,14 @@ pub(crate) fn assemble(
         .iter()
         .map(|s| (i32::from(s.mt), s.qi))
         .collect();
-    let emissions = crate::acer::energy::build_emissions_mode(tape, mat, recon.material.awr, &partials, modules.newfor, !modules.pendf_binary);
+    let emissions = crate::acer::energy::build_emissions_smooth(tape, mat, recon.material.awr, &partials, modules.newfor, !modules.pendf_binary, modules.ismooth);
     let nu_block = crate::acer::nu::build(tape, mat)?;
     // Delayed-neutron blocks whenever the evaluation has them, as NJOY writes
     // them regardless of the rest of the deck (`acefc.f90:6003`). ismooth = 1
-    // is upstream's default (`acer.f90:326`).
-    let delayed = crate::acer::delayed_blocks::build(tape, mat, true)?;
+    // is upstream's default (`acer.f90:326`); card 6 may turn it off.
+    let delayed = crate::acer::delayed_blocks::build(tape, mat, modules.ismooth)?;
+    // `iopp = 0`: no photon production at all (`acefc.f90:209`, `:6256`).
+    let photons = if modules.iopp { crate::acer::photon_blocks::build_with_pendf_units(tape, mat, recon, !modules.endf_binary, !modules.pendf_binary) } else { None };
     let mut table = AceTable::from_reconr_full_with_extras_disc(
         recon,
         kt_mev,
@@ -824,12 +856,13 @@ pub(crate) fn assemble(
         kerma,
         nu_block.as_deref(),
         crate::acer::has_mt19_distributions(tape, mat),
-        crate::acer::photon_blocks::build_with_pendf_units(tape, mat, recon, !modules.endf_binary, !modules.pendf_binary).as_deref(),
+        photons.as_deref(),
         urr,
         delayed.as_ref(),
         &crate::acer::photon_blocks::gamma_discontinuities(tape, mat),
     );
-    if let Some(mut g) = crate::acer::photon_blocks::gpd_with_units(tape, mat, recon, !modules.endf_binary, !modules.pendf_binary) {
+    let gpd = if modules.iopp { crate::acer::photon_blocks::gpd_with_units(tape, mat, recon, !modules.endf_binary, !modules.pendf_binary) } else { None };
+    if let Some(mut g) = gpd {
         // `acelod`: the 30 x 20 photon matrix follows GPD when ACER had an `ngend` GENDF.
         if let Some(m) = &modules.photon_matrix {
             g.extend_from_slice(m);

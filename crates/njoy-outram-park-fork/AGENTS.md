@@ -1457,7 +1457,10 @@ means the NJOY2016 port (`reconr`, `broadr`, `purr`/`unrest`, `thermr`,
 `acefc.f90`'s `izai != 1` branches are ported (`acer::charged`, `charged_coulomb`,
 `acelcp`, `acelcp_ext`). Test decks 14, 50, 51, 52, 53, 54, 62 and 71 give unit
 31's ACE identical to NJOY2016's in every word
-(`tests/deck_driver_tapes_vs_njoy2016.rs`); `coul`, `ptlegc` and `terp1`
+(`tests/deck_driver_tapes_vs_njoy2016.rs`); ~~and so in every line~~ **CORRECTED
+2026-11-12 (gh:#1369):** deck 14's unit 31 still differed in 5 text lines, integer words printed
+as reals, until the charged branch printed through `change` (`acefix_change::type1_text`); it is
+identical line for line now (`test_14_whole_deck`); `coul`, `ptlegc` and `terp1`
 `INT = 6` are bit-identical to NJOY2016's own routines apart from two
 last-ulp values that are PETIR `cos` against glibc. Three things worth
 carrying forward, each found by reading upstream and each invisible until a

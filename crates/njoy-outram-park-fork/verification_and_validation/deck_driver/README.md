@@ -293,7 +293,33 @@ writing the PostScript to `nps`. **Prediction (before the runs):** identical Pos
 the plot file is identical. **Result:** unit 54/56 identical, line by line, on decks 72, 36, 38-42,
 67-70 and 74 whole-deck (1 230 516 lines), and on NJOY's own plot file for decks 13, 14, 35, 37
 and 63 (679 533 lines). Deck 35 whole-deck is identical too although its plot file differs in 5
-PURR-word lines; decks 37 and 63 differ upstream of VIEWR (ACE words); decks 13 and 14 stop at an
-ACER `iopt = 7` variant. Function level (against unmodified `graph.f90`), hand-written plot files
+PURR-word lines; ~~decks 37 and 63 differ upstream of VIEWR (ACE words); decks 13 and 14 stop at an
+ACER `iopt = 7` variant.~~ **CORRECTED 2026-11-12:** decks 37 and 63 are identical whole-deck since
+gh:#1498, and decks 13 and 14 since section 10. Function level (against unmodified `graph.f90`), hand-written plot files
 (legend, tags, error bars, hatching, alternate axis, portrait, 3-d) and the upstream quirks found:
 `../viewr/README.md`. **The survey rows were not regenerated** (see `survey.md`).
+
+## 10. Decks 13, 14, 24 and 28 (2026-11-12, gh:#1369)
+
+Each cause was found by diffing the decks hex-exact against NJOY2016.80 and reading the routine
+that writes the differing lines. A prediction was posted on gh:#1369 before each change.
+**Result:** all four decks are `identical` whole-deck (`tests/deck_driver_tapes_vs_njoy2016.rs`,
+`test_{13,14,24,28}_whole_deck`). Deck 13: 7 units, deck 14: 6, deck 24: 9, deck 28: 18.
+0 differing lines on every unit. Every prediction held on the first run.
+
+| deck | was | cause (upstream) | fix |
+|---|---|---|---|
+| 13, 14 | `NotPorted`: ACER `iopt = 7` with `itype != 1` | card 2 reads `7 1 2`, but `acer.f90:486` sets `itype=iopt-6`, so `iopt = 7` reads and writes Type 1. The card's `itype` is only echoed (`:313`) | `run_acer_fix` tests `iopt - 6` and refuses only `iopt = 8` and mcnpx |
+| 14 | tape31 5 of 17 855 lines | integer words printed as reals: `aceout` prints XSS through `change` (`acefc.f90:13024`), and the charged-particle branch of the deck driver used `to_type1_text` | that branch writes through `acefix_change::type1_text`, as the neutron branch has done since gh:#1498 |
+| 24 | `viewr: unit 26 holds no plot-command file` | HEATR's `nplot` unit (`heatr.f90:157`, plot block from `:6035`); `heatr::heatr` made the file and `run_heatr` dropped it | `run_heatr` writes it on `nplot` |
+| 28 | `NotPorted`: ACER `iopp`/`ismooth` other than the defaults | card 6 `0 0 0/`. `iopp = 0`: `first` counts no MF=12/13/15 (`acefc.f90:390-402`), so no `gamsum` (`:209`), and no GPD or photon blocks in `acelod` (`:6256`, `:6304`). `convr` still runs, so the grid is unchanged. `ismooth = 0`: no MT=18 tail (`:6816`), no delayed `sqrt(E)` bin (`:6181`), no LANG=2 extension (`:7555`, `:7596`) | `AceDeck::with_iopp`, `with_ismooth`, `energy::build_emissions_smooth`; the defaults are unchanged |
+
+NJOY's listing for deck 28 shows that `ismooth = 0` is exercised. The first two ACERs print
+"extending lowest delayed bin using sqrt(E)" and the third does not. The table now matches with
+and without it.
+
+The same changes closed decks 26 and 72. Their HEATR plot units (50 and 26) had not been
+written, and both are now `identical`. Deck 82's first ACER table (unit 26) is identical; the
+deck stops at `izaopt = 1` (not ported). Its tape21/22 rows compare the last material NJOY wrote
+against the first one this run wrote.
+

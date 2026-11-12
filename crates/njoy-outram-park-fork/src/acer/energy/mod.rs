@@ -94,7 +94,7 @@ pub mod mf6;
 #[cfg(test)]
 mod tests;
 
-pub use core::{build_emissions, build_emissions_mode, build_emissions_newfor, law3_discrete_level, Emission, EnergyLaw, Law4, OutgoingEnergy};
+pub use core::{build_emissions, build_emissions_mode, build_emissions_newfor, build_emissions_smooth, law3_discrete_level, Emission, EnergyLaw, Law4, OutgoingEnergy};
 pub use mf6::parse_mf6_law1_products;
 pub use mf5::{parse_mf5_law4, parse_mf5_section, Applicability, Mf5Law, Mf5Subsection, TabFn};
 pub use mf6::{

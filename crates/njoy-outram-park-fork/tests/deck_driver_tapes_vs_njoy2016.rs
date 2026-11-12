@@ -969,7 +969,10 @@ fn test_63_acer_check_unit_and_directory() {
 }
 
 #[test]
-#[ignore = "the preceding iopt = 1 ACE differs from NJOY's (a TENDL-2021 d + Pt-184 charged-particle table), which the check file repeats; not the iopt = 7 writer (gh:#1492)"]
+/// ~~Ignored: the preceding `iopt = 1` ACE differs from NJOY's (a TENDL-2021 d + Pt-184
+/// charged-particle table).~~ **CORRECTED 2026-11-12 (gh:#1369):** the ignore was stale; run
+/// with `--ignored` on this date, units 32-35 gave 0 differing lines (`consis`' table edit,
+/// `src/acer/consis.rs`, closed it), so the gate is live again.
 fn test_71_acer_check_unit_and_directory() {
     let _ = acer_check_deck("71", "d-078_Pt_184-TENDL2021.endf", &[], &[32, 33, 34, 35]);
 }
@@ -1500,9 +1503,10 @@ fn test_74_viewr_postscript() {
 
 /// VIEWR on **NJOY's own plot file** (gh:#1369): NJOY2016.80 runs the whole upstream deck `case`; this
 /// crate's VIEWR is then run on NJOY's plot-command unit `plot_unit`, and its PostScript is compared,
-/// line by line, with NJOY's unit `ps_unit`. This isolates VIEWR from the ACER tables that decks 13,
-/// 14 ~~, 35, 37 and 63~~ do not yet reproduce word for word upstream of the plot file (35, 37 and 63
-/// do since 2026-11-12, gh:#1498; their whole-deck units are gated by `acer_check_deck`).
+/// line by line, with NJOY's unit `ps_unit`. This isolates VIEWR from the ACER tables that decks ~~13,
+/// 14~~ ~~, 35, 37 and 63~~ do not yet reproduce word for word upstream of the plot file (35, 37 and 63
+/// do since 2026-11-12, gh:#1498; their whole-deck units are gated by `acer_check_deck`; 13 and 14
+/// run whole-deck since 2026-11-12, `test_{13,14}_whole_deck`).
 fn viewr_of_njoys_own_plot(case: &str, resource: &str, extra: &[(&str, u32)], plot_unit: u32, ps_unit: u32) -> Option<()> {
     let root = njoy_root();
     let full = deck_text(&root, case, None, "")?;
@@ -1564,6 +1568,92 @@ fn test_13_viewr_of_njoys_plot() {
 #[test]
 fn test_14_viewr_of_njoys_plot() {
     let _ = viewr_of_njoys_own_plot("14", "epn14", &[("epn14", 21)], 33, 36);
+}
+
+/// The whole upstream deck `case`, unmodified, in NJOY2016.80 and in this
+/// crate; every unit in `units` compared line by line (gh:#1369). Pass
+/// criterion: 0 differing lines on every unit.
+fn whole_deck_units(case: &str, resource: &str, extra: &[(&str, u32)], units: &[u32]) -> Option<()> {
+    let root = njoy_root();
+    let full = deck_text(&root, case, None, "")?;
+    let (ours, njoy) = run_pair_decks_extra(&root, &format!("wd{case}"), resource, extra, &full, &full)?;
+    let mut bad = Vec::new();
+    for &u in units {
+        let name = format!("tape{u}");
+        let d = differing_lines(&ours.join(&name), &njoy.join(&name));
+        let n = std::fs::read_to_string(njoy.join(&name)).unwrap().lines().count();
+        println!("deck {case} unit {u}: {} differing lines of {n}; first {:?}", d.len(), &d[..d.len().min(5)]);
+        if !d.is_empty() {
+            bad.push((u, d.len()));
+        }
+    }
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    assert!(bad.is_empty(), "deck {case}: units differ from NJOY2016: {bad:?}");
+    Some(())
+}
+
+/// **Deck 13 (Ni-61 ENDF/B-VI.1), the whole deck** (gh:#1369): the PENDF after
+/// GASPR and its MODER copy (26 ACE, 27 directory, 28 PENDF), the `iopt = 7`
+/// edit (33 plot file, 34 ACE, 35 directory) and VIEWR's PostScript (36).
+///
+/// The second ACER's card 2 is `7 1 2` (`itype = 2`). It was refused as
+/// "Type-2 `iopt = 7`", but `acer.f90:486` sets `itype=iopt-6`, so `iopt = 7`
+/// reads and writes Type 1 whatever the card says. Prediction (before the
+/// change): every unit identical. **Result (2026-11-12): 0 differing lines on
+/// all seven units.**
+#[test]
+fn test_13_whole_deck() {
+    let _ = whole_deck_units("13", "eni61", &[], &[26, 27, 28, 33, 34, 35, 36]);
+}
+
+/// **Deck 14 (p + N-14 LA150), the whole deck** (gh:#1369): the charged-particle
+/// ACE (31) and its directory line (32), the `iopt = 7` edit (33 plot file, 34
+/// ACE, 35 directory) and VIEWR's PostScript (36).
+///
+/// Two causes, each predicted before the change (gh:#1369 comments):
+/// - unit 31 differed in 5 of 17 855 lines, all integer words printed as reals.
+///   `aceout` prints XSS through `change` (`acefc.f90:13024`), and the
+///   charged-particle branch of the deck driver did not.
+/// - card 2 `7 1 2` was refused as Type 2, as in deck 13 (`acer.f90:486`).
+///
+/// **Result (2026-11-12): 0 differing lines on all six units.**
+#[test]
+fn test_14_whole_deck() {
+    let _ = whole_deck_units("14", "epn14", &[("epn14", 21)], &[31, 32, 33, 34, 35, 36]);
+}
+
+/// **Deck 24 (Pu-239 ENDF/B-VIII.0 Beta6), the whole deck** (gh:#1369): the
+/// second HEATR's plot file (26) and its PostScript (36), the ACE (31) and
+/// directory (32), the `iopt = 7` plot / ACE / directory (33-35) and its
+/// PostScript (37), and MODER's text copy of the PENDF after GASPR (38).
+///
+/// The run stopped at `viewr 26 36` because the deck driver dropped HEATR's
+/// `nplot` file (`heatr.f90:157`, `:6035`), which `heatr::heatr` already made.
+/// Prediction (before the change): all units identical; the risk named was
+/// that this HEATR reads binary units, which no committed HEATR plot deck
+/// does. **Result (2026-11-12): 0 differing lines on all nine units.**
+#[test]
+fn test_24_whole_deck() {
+    let _ = whole_deck_units("24", "n-094_Pu_239-ENDF8.0-Beta6.endf", &[], &[26, 31, 32, 33, 34, 35, 36, 37, 38]);
+}
+
+/// **Deck 28 (Pu-241 ENDF/B-VIII.0), the whole deck** (gh:#1369): three
+/// `acer iopt = 1` + `iopt = 7` + `viewr` chains on one BROADR PENDF. Card 6 is
+/// defaulted (`/`), explicit defaults (`1 1 1/`) and `0 0 0/`
+/// (`newfor = 0`, `iopp = 0`, `ismooth = 0`). Every ACE (31, 41, 51),
+/// directory (32, 42, 52), `iopt = 7` plot / ACE / directory (33-35, 43-45,
+/// 53-55) and PostScript (37, 47, 57) unit is compared.
+///
+/// The third chain needed ACER's `iopp = 0` (no photon production: `first`
+/// leaves `mf1x` and `ngmt` at 0, `acefc.f90:390-402`, so `acelod` stores no
+/// GPD or photon blocks, `:6256`, `:6304`) and `ismooth = 0` (`acelf5`'s
+/// MT=18 tail, `:6816`; the delayed `sqrt(E)` bin, `:6181`). Prediction
+/// (before the first run): all units identical. **Result (2026-11-12): 0
+/// differing lines on all 18 units**, first run.
+#[test]
+fn test_28_whole_deck() {
+    let units = [31, 32, 33, 34, 35, 37, 41, 42, 43, 44, 45, 47, 51, 52, 53, 54, 55, 57];
+    let _ = whole_deck_units("28", "n-094_Pu_241-ENDF8.0.endf", &[], &units);
 }
 
 /// **PURR decks' MODER text copy of the PURR PENDF (unit 34), whole tape**
