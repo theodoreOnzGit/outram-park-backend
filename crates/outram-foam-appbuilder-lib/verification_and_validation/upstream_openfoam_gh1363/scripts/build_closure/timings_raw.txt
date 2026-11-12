@@ -1,0 +1,6 @@
+thermophysicalModels/specie rc=0 seconds=48 objects_MB=12 lib_bytes=8470048
+thermophysicalModels/thermophysicalProperties rc=0 seconds=46 objects_MB=5 lib_bytes=1227960
+transportModels/compressible rc=0 seconds=2 objects_MB=1 lib_bytes=
+thermophysicalModels/basic rc=0 seconds=101 objects_MB=27 lib_bytes=
+TurbulenceModels/turbulenceModels rc=0 seconds=131 objects_MB=18 lib_bytes=3596688
+TurbulenceModels/compressible(scratch,pruned) rc=0 seconds=47 objects_MB=6 lib_bytes=3261208

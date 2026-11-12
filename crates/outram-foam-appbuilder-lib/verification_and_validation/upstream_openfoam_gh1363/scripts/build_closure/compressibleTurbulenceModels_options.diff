@@ -1,0 +1,19 @@
+--- /home/user/upstream-build/OpenFOAM-v2506/src/TurbulenceModels/compressible/Make/options	2026-11-11 08:21:34.195439948 +0000
++++ /home/user/upstream-build/gh1363/closure/scratch/compressibleTurbulenceModels/Make/options	2026-11-12 09:08:37.068662871 +0000
+@@ -1,5 +1,5 @@
+ EXE_INC = \
+-    -I../turbulenceModels/lnInclude \
++    -I$(LIB_SRC)/TurbulenceModels/turbulenceModels/lnInclude \
+     -I$(LIB_SRC)/finiteVolume/lnInclude \
+     -I$(LIB_SRC)/meshTools/lnInclude \
+     -I$(LIB_SRC)/transportModels/compressible/lnInclude \
+@@ -14,9 +14,6 @@
+     -lcompressibleTransportModels \
+     -lfiniteVolume \
+     -lmeshTools \
+-    -lradiationModels \
+     -lfluidThermophysicalModels \
+-    -lsolidThermo \
+-    -lsolidSpecie \
+     -lturbulenceModels \
+     -lspecie
