@@ -9,7 +9,7 @@
 //!
 //! ## License & provenance — read this first
 //!
-//! This crate is a **derivative work** of NJOY2016 (v2016.79), which is licensed
+//! This crate is a **derivative work** of NJOY2016 (~~v2016.79~~ **v2016.80**, synced 2026-11-10, gh:#1368), which is licensed
 //! under a modified BSD 3-Clause license (the LANL/DOE variant). That license is
 //! GPL-compatible, so this translation is distributed under ~~`GPL-3.0-only`~~ **`AGPL-3.0-only`** (relicensed 2026-10-20, gh:#973) — the
 //! same license as the rest of the OUTRAM PARK workspace.
@@ -56,6 +56,8 @@ pub mod acquire;
 /// See [`archive`].
 pub mod archive;
 pub mod broadr;
+/// NJOY input-deck driver (gh:#1369): card reader, tape units, `run_deck`. See [`deck`].
+pub mod deck;
 pub mod common;
 pub mod endf;
 /// A folder of ENDF tapes, flat or an extracted library with sub-library
@@ -118,8 +120,10 @@ pub mod wmp;
 // declared above next to their long-form docs; unresr, purr, samm, groupr,
 // gaminr, errorr, covr, leapr, dtfr, resxsr, mixr and wimsr (below) are also
 // ported (translation-level — V&V is the trust gate). The genuine `NotPorted`
-// stubs are only ccccr, matxsr, powr, plotr and viewr (output formats OUTRAM
-// PARK does not target). ~~…and wimsr~~ CORRECTED 2026-10-04: wimsr was ported
+// stubs are only ccccr, matxsr, powr and plotr (output formats OUTRAM
+// PARK does not target). ~~…and viewr~~ **CORRECTED 2026-11-12 (gh:#1369):** viewr and
+// graph.f90 are ported (`src/viewr/`, PostScript identical to NJOY2016.80 on 17 upstream decks);
+// only its bare `run()` stays `NotPorted` (it needs the deck's tape units). ~~…and wimsr~~ CORRECTED 2026-10-04: wimsr was ported
 // 2026-09-11 (`src/wimsr/`, `wimsr::run_gendf`, byte-identical library vs
 // NJOY2016 in `tests/wimsr_u238_njoy_golden.rs`); only its card-deck `run()`
 // stays `NotPorted`. Dispatch is via the `NjoyModule` enum in `modules.rs`.

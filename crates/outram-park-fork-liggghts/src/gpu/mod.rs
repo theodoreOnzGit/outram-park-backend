@@ -329,8 +329,15 @@ pub fn block_on<F: Future>(future: F) -> F::Output {
 /// (compute shaders; WebGL has none), and `None` means "this browser has no
 /// WebGPU". Natively it is [`probe`]'s device.
 pub async fn probe_async() -> Option<GpuContext> {
-    let backends = if cfg!(target_arch = "wasm32") { wgpu::Backends::BROWSER_WEBGPU } else { wgpu::Backends::all() };
-    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor { backends, ..wgpu::InstanceDescriptor::new_without_display_handle() });
+    let backends = if cfg!(target_arch = "wasm32") {
+        wgpu::Backends::BROWSER_WEBGPU
+    } else {
+        wgpu::Backends::all()
+    };
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        backends,
+        ..wgpu::InstanceDescriptor::new_without_display_handle()
+    });
     let adapter = instance
         .request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::HighPerformance,
@@ -350,7 +357,11 @@ pub async fn probe_async() -> Option<GpuContext> {
         })
         .await
         .ok()?;
-    Some(GpuContext { device, queue, info })
+    Some(GpuContext {
+        device,
+        queue,
+        info,
+    })
 }
 
 /// A one-shot completion a `map_async` callback fills and a future awaits:
@@ -368,7 +379,9 @@ pub(crate) struct MappedFuture(pub(crate) Arc<Mutex<Mapped>>);
 impl Future for MappedFuture {
     type Output = bool;
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<bool> {
-        let Ok(mut m) = self.0.lock() else { return Poll::Ready(false) };
+        let Ok(mut m) = self.0.lock() else {
+            return Poll::Ready(false);
+        };
         match m.done {
             Some(ok) => Poll::Ready(ok),
             None => {
@@ -380,7 +393,9 @@ impl Future for MappedFuture {
 }
 
 /// The callback half of [`MappedFuture`].
-pub(crate) fn mapped_callback(shared: Arc<Mutex<Mapped>>) -> impl FnOnce(Result<(), wgpu::BufferAsyncError>) + Send + 'static {
+pub(crate) fn mapped_callback(
+    shared: Arc<Mutex<Mapped>>,
+) -> impl FnOnce(Result<(), wgpu::BufferAsyncError>) + Send + 'static {
     move |r| {
         if let Ok(mut m) = shared.lock() {
             m.done = Some(r.is_ok());

@@ -688,7 +688,13 @@ Three things worth carrying forward:
   `xie`, rounded by `tpend`), not from `iel`'s own value. That alone was
   2.2e-3 at 3.75 eV. Record:
   [`verification_and_validation/acer_thermal_incoherent_elastic_2026_10_14.md`](verification_and_validation/acer_thermal_incoherent_elastic_2026_10_14.md).
-  Mixed elastic (`IDPNC = 5`) is not gated: no `LTHR = 3` tape is held.
+  ~~Mixed elastic (`IDPNC = 5`) is not gated: no `LTHR = 3` tape is held.~~
+  **CORRECTED 2026-11-12 (gh:#1369):** NJOY2016's test 67 (D in 7LiD,
+  ENDF/B-VIII.1-beta, `LTHR = 3`, `natom = 2`) is gated word for word, through the
+  deck driver (`tests/deck_driver_tapes_vs_njoy2016.rs::test_67_thermal_ace_and_directory`).
+  It exposed one defect in the builder: the Bragg block (ITCX) was divided by
+  `natom`, where `thrlod` divides by `nmix` (`aceth.f90:735`); every earlier
+  case had `natom = 1`.
 
 **Away from the base temperature too (GitHub #866).** Graphite at 600 K and
 600.5 K and H in H₂O at 293.6 K and 293.9 K are word for word NJOY2016's
@@ -1445,3 +1451,19 @@ means the NJOY2016 port (`reconr`, `broadr`, `purr`/`unrest`, `thermr`,
 - Fixing a genuine defect in the port is a separate matter: it follows the
   root `CLAUDE.md` rules ("read upstream first", and the closed-to-modification
   rule for kovan-reviewed functions), not this one.
+
+## ACER of an incident charged particle is NJOY2016's in every word (2026-11-11, GitHub #1485)
+
+`acefc.f90`'s `izai != 1` branches are ported (`acer::charged`, `charged_coulomb`,
+`acelcp`, `acelcp_ext`). Test decks 14, 50, 51, 52, 53, 54, 62 and 71 give unit
+31's ACE identical to NJOY2016's in every word
+(`tests/deck_driver_tapes_vs_njoy2016.rs`); `coul`, `ptlegc` and `terp1`
+`INT = 6` are bit-identical to NJOY2016's own routines apart from two
+last-ulp values that are PETIR `cos` against glibc. Three things worth
+carrying forward, each found by reading upstream and each invisible until a
+deck was compared: `acelod` leaves the module `awr` at the AWR of the last
+MF=4/6 section it read; `convr` and `gamsum` open their scratch tapes in the
+mode of the ENDF and PENDF units, so a binary deck skips `a11`'s text
+rounding; an evaluation with an empty MF=1/MT=451 dictionary has no
+production at all. Record: `verification_and_validation/acer_charged/README.md`.
+

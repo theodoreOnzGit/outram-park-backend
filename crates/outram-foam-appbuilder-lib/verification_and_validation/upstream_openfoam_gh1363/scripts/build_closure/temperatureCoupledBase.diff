@@ -1,0 +1,16 @@
+34d33
+< #include "multiphaseInterSystem.H"
+304,316d302
+<                 }
+<             }
+< 
+<             {
+<                 const auto* ptr =
+<                     mesh.cfindObject<multiphaseInterSystem>
+<                     (
+<                         multiphaseInterSystem::phasePropertiesName
+<                     );
+< 
+<                 if (ptr)
+<                 {
+<                     return ptr->kappaEff(patchi);

@@ -106,6 +106,29 @@ pub fn thermr_tables(
     tol: f64,
     incident: Option<&IncidentPendf>,
 ) -> Result<ThermrTables, NjoyError> {
+    thermr_tables_lattice(mf7, temp_k, natom, n_cosines, emax_ev, tol, incident, None)
+}
+
+/// [`thermr_tables`] for a THERMR run whose card `icoh = 1..3` asks for a
+/// **built-in lattice** (`sigcoh`'s graphite, beryllium or BeO) on a tape with no
+/// MF=7/MT=2 (gh:#1369, NJOY2016 test 25: H in H2O with `icoh = 1`). `coh` then
+/// merges that lattice's Bragg-edge points into THERMR's MF=3 grid, whether or
+/// not ACER reads the elastic reaction, and ACER's ITIX interpolates on that
+/// grid. `lattice = None` is [`thermr_tables`].
+///
+/// # Errors
+/// As [`thermr_tables`].
+#[allow(clippy::too_many_arguments)]
+pub fn thermr_tables_lattice(
+    mf7: &Mf7,
+    temp_k: f64,
+    natom: f64,
+    n_cosines: usize,
+    emax_ev: f64,
+    tol: f64,
+    incident: Option<&IncidentPendf>,
+    lattice: Option<i32>,
+) -> Result<ThermrTables, NjoyError> {
     let ii = mf7
         .incoherent_inelastic
         .as_ref()
@@ -148,7 +171,11 @@ pub fn thermr_tables(
         use crate::thermr::mf3_grid;
         let (esi, xsi): (Vec<f64>, Vec<f64>) =
             calcem.records.iter().map(|r| (r.e_in_ev, r.cross_section_b)).unzip();
-        let grid = mf3_grid::thermr_grid(&inc.elastic, emax_ev, &esi, &xsi, bragg_s.as_deref(), tol)?;
+        let mut grid = mf3_grid::thermr_grid(&inc.elastic, emax_ev, &esi, &xsi, bragg_s.as_deref(), tol)?;
+        if let (Some(lat), None) = (lattice, bragg_s.as_ref()) {
+            let sc = mf3_grid::Sigcoh::builtin(lat, temp_k, emax_ev, natom)?;
+            grid = mf3_grid::coh_with(&grid, &sc, emax_ev, tol).into_iter().map(|(e, z, _)| (e, z)).collect();
+        }
         inelastic_mf3 = Some(mf3_grid::tpend_mf3(&grid)?);
         if let Some(ie) = &mf7.incoherent_elastic {
             let dwa = ie.iel_dwa(temp_k)?;

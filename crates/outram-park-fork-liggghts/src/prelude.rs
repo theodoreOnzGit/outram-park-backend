@@ -117,6 +117,7 @@ pub use crate::timestep::TimestepEstimate;
 
 // Bonded particles, cohesion and rolling torque.
 pub use crate::bonded::{Bond, BondForce, BondModel};
+pub use crate::capillary::{CapillaryKind, CapillaryParams};
 pub use crate::rolling::{CohesionModel, RollingTorque};
 
 // Heat transfer between particles and walls.

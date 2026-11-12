@@ -44172,10 +44172,22 @@ pub use crate::solvers::reacting_two_phase_euler_foam::ReactionSource;
 pub use crate::solvers::rho_central_foam::RhoCentralFoam;
 ```
 
+#### Re-export `RhoPimpleFoamEsi`
+
+```rust
+pub use crate::solvers::rho_pimple_foam::esi::RhoPimpleFoamEsi;
+```
+
 #### Re-export `RhoPimpleFoam`
 
 ```rust
 pub use crate::solvers::rho_pimple_foam::RhoPimpleFoam;
+```
+
+#### Re-export `SonicFoamEsi`
+
+```rust
+pub use crate::solvers::sonic_foam::esi::SonicFoamEsi;
 ```
 
 #### Re-export `SonicFoam`
@@ -48375,6 +48387,166 @@ loop; a companion stability primer lives in this module's `docs/`.
 pub mod rho_pimple_foam { /* ... */ }
 ```
 
+### Modules
+
+## Module `esi`
+
+# `esi` — rhoPimpleFoam as OpenFOAM-v2506 (ESI) writes it (gh:#1363, row 3a)
+
+A translation of ESI v2506 `applications/solvers/compressible/rhoPimpleFoam`
+(`rhoPimpleFoam.C`, `createFields.H`, `UEqn.H`, `EEqn.H`, `pEqn.H` -- the
+non-transonic, non-consistent branch) for the same restricted case as
+[`crate::solvers::sonic_foam::esi`]: a one-dimensional mesh along x, closed
+`zeroGradient` ends, `mu = 0`, Euler ddt, `upwind` for `U`, `limitedLinear 1`
+for `h` and `K`, `smoothSolver symGaussSeidel`, `sensibleEnthalpy`
+(`h`-form, so the `-dpdt` term runs). It reuses that module's translated
+operators and linear solver; what is new here is the energy variable `h`
+(`Hs = Cp (T - Tref)`, Newton with `dFdT = Cp`), `dpdt = fvc::ddt(p)`, the
+compressibility pressure equation
+`ddt(rho) + psi*correction(ddt(p)) + div(phiHbyA) - laplacian(rhorAUf, p)`
+(a symmetric matrix) and the end-of-`pEqn` `rho = thermo.rho()`.
+
+The existing [`super::RhoPimpleFoam::step`] is not changed and stays callable.
+Refusals are by name ([`AppBuilderError::UnsupportedScheme`]). The V&V
+record is `verification_and_validation/rho_pimple_foam_vs_openfoam.md`.
+
+```rust
+pub mod esi { /* ... */ }
+```
+
+### Types
+
+#### Struct `RhoPimpleFoamEsi`
+
+rhoPimpleFoam (ESI v2506) on a 1-D closed tube. See the module documentation.
+
+```rust
+pub struct RhoPimpleFoamEsi {
+    pub rho: Vec<f64>,
+    pub ux: Vec<f64>,
+    pub p: Vec<f64>,
+    pub t: Vec<f64>,
+    pub h: Vec<f64>,
+    pub psi: Vec<f64>,
+    pub phi: Vec<f64>,
+    pub dump_stage_steps: usize,
+    pub dump_stage_from: usize,
+    pub stages: crate::solvers::sonic_foam::esi::StageDump,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `rho` | `Vec<f64>` | Density [kg/m3]. |
+| `ux` | `Vec<f64>` | x velocity [m/s]. |
+| `p` | `Vec<f64>` | Pressure [Pa]. |
+| `t` | `Vec<f64>` | Temperature [K]. |
+| `h` | `Vec<f64>` | Specific sensible enthalpy [J/kg]. |
+| `psi` | `Vec<f64>` | Compressibility psi = 1/(R T). |
+| `phi` | `Vec<f64>` | Mass flux through the internal faces [kg/s]. |
+| `dump_stage_steps` | `usize` | Intermediate fields of the steps in `[dump_stage_from, dump_stage_steps]`. |
+| `dump_stage_from` | `usize` | First step recorded in [`Self::stages`]. |
+| `stages` | `crate::solvers::sonic_foam::esi::StageDump` | Recorded intermediate fields. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: &Arc<FvMesh>, gas: PerfectGas, mu: f64, dt: f64, p: &[f64], t: &[f64], ux: &[f64]) -> Result<Self, AppBuilderError> { /* ... */ }
+  ```
+  Upstream `createFields.H` and the `hePsiThermo` constructor from `p`,
+
+- ```rust
+  pub fn topo(self: &Self) -> &Topo { /* ... */ }
+  ```
+  The mesh data the translation uses.
+
+- ```rust
+  pub fn set_n_outer_correctors(self: &mut Self, n: usize) { /* ... */ }
+  ```
+  Set `nOuterCorrectors` (tutorial-style case: 2).
+
+- ```rust
+  pub fn step(self: &mut Self) -> Result<StepLog, AppBuilderError> { /* ... */ }
+  ```
+  Advance one time step (`while (runTime.loop())` body of `rhoPimpleFoam.C`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ### Types
 
 #### Struct `RhoPimpleFoam`
@@ -48914,6 +49086,609 @@ equation and the current explicit-convection limitation.
 
 ```rust
 pub mod sonic_foam { /* ... */ }
+```
+
+### Modules
+
+## Module `esi`
+
+# `esi` — sonicFoam as OpenFOAM-v2506 (ESI) writes it (gh:#1363, row 3b)
+
+A translation, operation for operation, of ESI v2506
+`applications/solvers/compressible/sonicFoam` (`sonicFoam.C`,
+`createFields.H`, `UEqn.H`, `EEqn.H`, `pEqn.H`) and of the finite-volume
+machinery those files call, for the case the port can honestly claim:
+a mesh that is one-dimensional along x (`empty` y and z patches), every
+other patch `zeroGradient` for `U`, `p` and `T`, a gas with `mu = 0`.
+Anything else is **refused** by name ([`AppBuilderError::UnsupportedScheme`]).
+
+The existing [`super::SonicFoam::step`] is not changed and stays callable;
+it is a sketch of neither the ESI nor the Foundation line (no energy
+equation).
+
+## Upstream sources translated (all `OpenFOAM-v2506/src`)
+* `finiteVolume/finiteVolume/ddtSchemes/EulerDdtScheme/EulerDdtScheme.C`
+  (`fvmDdt(rho, vf)`, `fvmDdt(vf)`, `fvcDdt(rho, vf)`, `fvcDdtPhiCorr(rho, U, phi)`)
+  and `ddtSchemes/ddtScheme/ddtScheme.C` (`fvcDdtPhiCoeff`, default branch
+  because `experimentalDdtCorr 0` in `etc/controlDict`);
+* `convectionSchemes/gaussConvectionScheme` (`fvmDiv`, `fvcDiv`, `flux`);
+* `interpolation/surfaceInterpolation/limitedSchemes` (`LimitedScheme`,
+  `limitedLinear`, `NVDTVD`, `limitedSurfaceInterpolationScheme::weights`);
+* `fvMesh/fvGeometryScheme/basic/basicFvGeometryScheme.C` (weights,
+  `deltaCoeffs`), `gradSchemes/gaussGrad`, `laplacianSchemes/gaussLaplacianScheme`;
+* `fvMatrices/fvMatrix/fvMatrix.C` (`A`, `H`, `flux`, `solveSegregated`),
+  `OpenFOAM/matrices/lduMatrix` (`Amul`, `sumA`, `residual`, `H`, `faceH`,
+  `negSumDiag`, `operator+=`/`-=`, `smoothSolver`, `symGaussSeidelSmoother`,
+  `solver::normFactor`, `SolverPerformance::checkConvergence`);
+* `thermophysicalModels/basic/psiThermo/hePsiThermo.C` (`calculate`).
+
+## What was verified, and what was not
+See `verification_and_validation/sonic_foam_vs_openfoam.md`: the port is
+compared with a driver that is `sonicFoam.C` on the unmodified ESI thermo
+and turbulence libraries, per cell, bit for bit.
+
+```rust
+pub mod esi { /* ... */ }
+```
+
+### Types
+
+#### Struct `Topo`
+
+Mesh data in the order OpenFOAM's `lduAddressing` and `surfaceInterpolation`
+use it (x only: the mesh is one-dimensional along x).
+
+```rust
+pub struct Topo {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn volumes(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  Cell volumes `V`.
+
+- ```rust
+  pub fn weights(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  Interpolation weights of the internal faces (`mesh.weights()`).
+
+- ```rust
+  pub fn delta_coeffs(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  `mesh.deltaCoeffs()` of the internal faces.
+
+- ```rust
+  pub fn mag_sf(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  `mag(Sf)` of the internal faces.
+
+- ```rust
+  pub fn sf_x(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  `Sf_x` of the internal faces.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Matrix`
+
+An `fvMatrix<scalar>` (one component) with internal-face coefficients.
+
+```rust
+pub struct Matrix {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SolveLog`
+
+Outcome of one `smoothSolver` solve, the fields of upstream's
+`SolverPerformance` that are printed in its log line.
+
+```rust
+pub struct SolveLog {
+    pub initial: f64,
+    pub final_: f64,
+    pub iterations: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `initial` | `f64` | Initial residual. |
+| `final_` | `f64` | Final residual. |
+| `iterations` | `usize` | Number of iterations (sweeps). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `StepLog`
+
+Per-solve log of one time step, in the order upstream prints them.
+
+```rust
+pub struct StepLog {
+    pub solves: Vec<(&'static str, SolveLog)>,
+    pub continuity: Vec<(f64, f64)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solves` | `Vec<(&'static str, SolveLog)>` | `(field name, performance)` per linear solve. |
+| `continuity` | `Vec<(f64, f64)>` | `(sumLocalContErr, globalContErr)` per `compressibleContinuityErrs.H` call. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Type Alias `StageDump`
+
+Dumps of intermediate fields (upstream driver's `dumpStages`): `(tag, name, values)`.
+
+```rust
+pub type StageDump = Vec<(&'static str, &'static str, Vec<f64>)>;
+```
+
+#### Struct `SonicFoamEsi`
+
+sonicFoam (ESI v2506) on a 1-D closed tube. See the module documentation.
+
+```rust
+pub struct SonicFoamEsi {
+    pub rho: Vec<f64>,
+    pub ux: Vec<f64>,
+    pub p: Vec<f64>,
+    pub t: Vec<f64>,
+    pub e: Vec<f64>,
+    pub psi: Vec<f64>,
+    pub phi: Vec<f64>,
+    pub dump_stage_steps: usize,
+    pub dump_stage_from: usize,
+    pub stages: StageDump,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `rho` | `Vec<f64>` | Density [kg/m3]. |
+| `ux` | `Vec<f64>` | x velocity [m/s]. |
+| `p` | `Vec<f64>` | Pressure [Pa]. |
+| `t` | `Vec<f64>` | Temperature [K]. |
+| `e` | `Vec<f64>` | Specific internal energy [J/kg]. |
+| `psi` | `Vec<f64>` | Compressibility psi = 1/(R T). |
+| `phi` | `Vec<f64>` | Mass flux through the internal faces [kg/s]. |
+| `dump_stage_steps` | `usize` | When set, intermediate fields of the steps up to this index are recorded. |
+| `dump_stage_from` | `usize` | First step whose intermediate fields are recorded (default 1). |
+| `stages` | `StageDump` | Recorded intermediate fields (see [`Self::dump_stage_steps`]). |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: &Arc<FvMesh>, gas: PerfectGas, mu: f64, dt: f64, p: &[f64], t: &[f64], ux: &[f64]) -> Result<Self, AppBuilderError> { /* ... */ }
+  ```
+  Upstream `createFields.H` + the `hePsiThermo` constructor: from `p`, `T`
+
+- ```rust
+  pub fn topo(self: &Self) -> &Topo { /* ... */ }
+  ```
+  The mesh data the translation uses.
+
+- ```rust
+  pub fn set_n_outer_correctors(self: &mut Self, n: usize) { /* ... */ }
+  ```
+  Set `nOuterCorrectors` (tutorial: 2).
+
+- ```rust
+  pub fn step(self: &mut Self) -> Result<StepLog, AppBuilderError> { /* ... */ }
+  ```
+  Advance one time step (`while (runTime.loop())` body of `sonicFoam.C`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `build_topo`
+
+Build [`Topo`] from `mesh`, refusing what the translation does not cover.
+
+# Errors
+[`AppBuilderError::UnsupportedScheme`] if the mesh is not one-dimensional in
+x with `empty` y/z patches, has a patch other than `Patch`/`Wall`/`Empty`,
+or its internal faces are not in upper-triangular order.
+
+```rust
+pub fn build_topo(mesh: &outram_foam_basic_lib::mesh::fv_mesh::FvMesh) -> Result<Topo, crate::error::AppBuilderError> { /* ... */ }
 ```
 
 ### Types

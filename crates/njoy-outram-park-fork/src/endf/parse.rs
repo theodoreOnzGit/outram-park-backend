@@ -27,6 +27,18 @@ use crate::NjoyError;
 /// ```
 pub fn parse_endf_float(s: &str) -> Result<f64, NjoyError> {
     let s = s.trim();
+    // **CHANGED 2026-11-11 (gh:#1369, test 01 / ENDF/B-V tape 511):** a blank
+    // inside a numeric field is ignored, as a Fortran formatted `read` does
+    // (BN mode). ENDF/B-V writes `1.00000- 5` for 1e-5; the exponent `- 5`
+    // used to fail to parse and the field silently became 0.0, which made
+    // HEATR's photon-yield scan on C-nat loop forever.
+    let compact;
+    let s = if s.contains(' ') {
+        compact = s.replace(' ', "");
+        compact.as_str()
+    } else {
+        s
+    };
     if s.is_empty() {
         return Ok(0.0);
     }

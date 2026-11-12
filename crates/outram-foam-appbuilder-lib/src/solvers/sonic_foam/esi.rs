@@ -60,11 +60,11 @@ use outram_foam_basic_lib::mesh::fv_mesh::{FvMesh, PatchKind};
 use std::sync::Arc;
 
 /// `SMALL` of `doubleScalar.H`.
-const SMALL: f64 = 1.0e-15;
+pub(crate) const SMALL: f64 = 1.0e-15;
 /// `solverPerformance::small_`.
 const SOLVER_SMALL: f64 = 1.0e-20;
 
-fn unsupported(scheme: &str, reason: &'static str) -> AppBuilderError {
+pub(crate) fn unsupported(scheme: &str, reason: &'static str) -> AppBuilderError {
     AppBuilderError::UnsupportedScheme {
         family: "sonicFoam (ESI v2506)",
         scheme: scheme.to_string(),
@@ -73,7 +73,7 @@ fn unsupported(scheme: &str, reason: &'static str) -> AppBuilderError {
 }
 
 /// `Foam::sign`: `(s >= 0) ? 1 : -1`.
-fn sign(s: f64) -> f64 {
+pub(crate) fn sign(s: f64) -> f64 {
     if s >= 0.0 {
         1.0
     } else {
@@ -82,7 +82,7 @@ fn sign(s: f64) -> f64 {
 }
 
 /// `Foam::pos0`: `(s >= 0) ? 1 : 0`.
-fn pos0(s: f64) -> f64 {
+pub(crate) fn pos0(s: f64) -> f64 {
     if s >= 0.0 {
         1.0
     } else {
@@ -94,23 +94,23 @@ fn pos0(s: f64) -> f64 {
 /// use it (x only: the mesh is one-dimensional along x).
 #[derive(Debug, Clone)]
 pub struct Topo {
-    n: usize,
-    nf: usize,
-    owner: Vec<usize>,
-    nei: Vec<usize>,
-    own_start: Vec<usize>,
-    v: Vec<f64>,
-    cx: Vec<f64>,
-    cy: Vec<f64>,
-    cz: Vec<f64>,
-    sfx: Vec<f64>,
-    sfy: Vec<f64>,
-    sfz: Vec<f64>,
-    mag_sf: Vec<f64>,
-    w: Vec<f64>,
-    dc: Vec<f64>,
+    pub(crate) n: usize,
+    pub(crate) nf: usize,
+    pub(crate) owner: Vec<usize>,
+    pub(crate) nei: Vec<usize>,
+    pub(crate) own_start: Vec<usize>,
+    pub(crate) v: Vec<f64>,
+    pub(crate) cx: Vec<f64>,
+    pub(crate) cy: Vec<f64>,
+    pub(crate) cz: Vec<f64>,
+    pub(crate) sfx: Vec<f64>,
+    pub(crate) sfy: Vec<f64>,
+    pub(crate) sfz: Vec<f64>,
+    pub(crate) mag_sf: Vec<f64>,
+    pub(crate) w: Vec<f64>,
+    pub(crate) dc: Vec<f64>,
     /// `(owner cell, Sf)` of every face on a non-empty boundary patch.
-    bfaces: Vec<(usize, [f64; 3])>,
+    pub(crate) bfaces: Vec<(usize, [f64; 3])>,
 }
 
 impl Topo {
@@ -141,7 +141,7 @@ impl Topo {
     }
 }
 
-fn dot3(a: [f64; 3], b: [f64; 3]) -> f64 {
+pub(crate) fn dot3(a: [f64; 3], b: [f64; 3]) -> f64 {
     a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }
 
@@ -251,18 +251,18 @@ pub fn build_topo(mesh: &FvMesh) -> Result<Topo, AppBuilderError> {
 // ---------------------------------------------------------------- operators
 
 /// `surfaceInterpolationScheme::interpolate(vf, lambda)` on an internal face.
-fn lin(w: f64, vf: &[f64], o: usize, nb: usize) -> f64 {
+pub(crate) fn lin(w: f64, vf: &[f64], o: usize, nb: usize) -> f64 {
     w * (vf[o] - vf[nb]) + vf[nb]
 }
 
 /// `fvc::interpolate(vf)` with the `linear` scheme, internal faces.
-fn interpolate_linear(t: &Topo, vf: &[f64]) -> Vec<f64> {
+pub(crate) fn interpolate_linear(t: &Topo, vf: &[f64]) -> Vec<f64> {
     (0..t.nf).map(|f| lin(t.w[f], vf, t.owner[f], t.nei[f])).collect()
 }
 
 /// `fvc::surfaceIntegrate(ssf)`; `bflux` is the flux through every boundary
 /// face in `Topo::bfaces` order.
-fn surface_integrate(t: &Topo, ssf: &[f64], bflux: &[f64]) -> Vec<f64> {
+pub(crate) fn surface_integrate(t: &Topo, ssf: &[f64], bflux: &[f64]) -> Vec<f64> {
     let mut r = vec![0.0; t.n];
     for f in 0..t.nf {
         r[t.owner[f]] += ssf[f];
@@ -279,7 +279,7 @@ fn surface_integrate(t: &Topo, ssf: &[f64], bflux: &[f64]) -> Vec<f64> {
 
 /// `fvc::grad(vf)` (`Gauss linear`, `gaussGrad::calcGrad`). Boundary face
 /// value is the adjacent cell value (`zeroGradient`).
-fn grad3(t: &Topo, vf: &[f64]) -> Vec<[f64; 3]> {
+pub(crate) fn grad3(t: &Topo, vf: &[f64]) -> Vec<[f64; 3]> {
     let mut g = vec![[0.0_f64; 3]; t.n];
     for f in 0..t.nf {
         let ssf = lin(t.w[f], vf, t.owner[f], t.nei[f]);
@@ -305,7 +305,7 @@ fn grad3(t: &Topo, vf: &[f64]) -> Vec<[f64; 3]> {
 /// Weights of `limitedLinear 1` for flux `flux` and field `phi`:
 /// `LimitedScheme::calcLimiter` followed by
 /// `limitedSurfaceInterpolationScheme::weights`.
-fn limited_linear_weights(t: &Topo, flux: &[f64], phi: &[f64]) -> Vec<f64> {
+pub(crate) fn limited_linear_weights(t: &Topo, flux: &[f64], phi: &[f64]) -> Vec<f64> {
     let gradc = grad3(t, phi);
     let two_by_k = 2.0 / 1.0_f64.max(SMALL);
     (0..t.nf)
@@ -333,14 +333,14 @@ fn limited_linear_weights(t: &Topo, flux: &[f64], phi: &[f64]) -> Vec<f64> {
 }
 
 /// `upwind` weights `pos0(flux)`.
-fn upwind_weights(flux: &[f64]) -> Vec<f64> {
+pub(crate) fn upwind_weights(flux: &[f64]) -> Vec<f64> {
     flux.iter().map(|&q| pos0(q)).collect()
 }
 
 /// `fvc::div(flux, vf)` with face weights `w`: `surfaceIntegrate(flux*interpolate)`;
 /// `bflux` is the flux through the boundary faces, whose `zeroGradient` value of
 /// `vf` is the adjacent cell value.
-fn fvc_div(t: &Topo, flux: &[f64], w: &[f64], vf: &[f64], bflux: &[f64]) -> Vec<f64> {
+pub(crate) fn fvc_div(t: &Topo, flux: &[f64], w: &[f64], vf: &[f64], bflux: &[f64]) -> Vec<f64> {
     let ssf: Vec<f64> = (0..t.nf)
         .map(|f| flux[f] * lin(w[f], vf, t.owner[f], t.nei[f]))
         .collect();
@@ -351,18 +351,18 @@ fn fvc_div(t: &Topo, flux: &[f64], w: &[f64], vf: &[f64], bflux: &[f64]) -> Vec<
 /// An `fvMatrix<scalar>` (one component) with internal-face coefficients.
 #[derive(Debug, Clone)]
 pub struct Matrix {
-    diag: Vec<f64>,
+    pub(crate) diag: Vec<f64>,
     /// `None` for a diagonal matrix (upstream: neither `lower` nor `upper` allocated).
-    lower: Option<Vec<f64>>,
-    upper: Option<Vec<f64>>,
-    source: Vec<f64>,
+    pub(crate) lower: Option<Vec<f64>>,
+    pub(crate) upper: Option<Vec<f64>>,
+    pub(crate) source: Vec<f64>,
     /// `internalCoeffs` of the boundary faces (`Topo::bfaces` order): added to the
     /// diagonal by `addBoundaryDiag` when the matrix is solved.
-    bcoef: Vec<f64>,
+    pub(crate) bcoef: Vec<f64>,
 }
 
 /// `fvm::ddt(rho, vf)` (Euler): `diag = rDeltaT*rho*V`, `source = rDeltaT*rho0*vf0*V`.
-fn fvm_ddt_rho(t: &Topo, r_dt: f64, rho: &[f64], rho0: &[f64], vf0: &[f64]) -> Matrix {
+pub(crate) fn fvm_ddt_rho(t: &Topo, r_dt: f64, rho: &[f64], rho0: &[f64], vf0: &[f64]) -> Matrix {
     Matrix {
         diag: (0..t.n).map(|c| r_dt * rho[c] * t.v[c]).collect(),
         lower: None,
@@ -373,7 +373,7 @@ fn fvm_ddt_rho(t: &Topo, r_dt: f64, rho: &[f64], rho0: &[f64], vf0: &[f64]) -> M
 }
 
 /// `fvm::ddt(vf)` (Euler): `diag = rDeltaT*V`, `source = rDeltaT*vf0*V`.
-fn fvm_ddt(t: &Topo, r_dt: f64, vf0: &[f64]) -> Matrix {
+pub(crate) fn fvm_ddt(t: &Topo, r_dt: f64, vf0: &[f64]) -> Matrix {
     Matrix {
         diag: (0..t.n).map(|c| r_dt * t.v[c]).collect(),
         lower: None,
@@ -384,7 +384,7 @@ fn fvm_ddt(t: &Topo, r_dt: f64, vf0: &[f64]) -> Matrix {
 }
 
 /// `fvm::div(flux, vf)` with weights `w` (`gaussConvectionScheme::fvmDiv`).
-fn fvm_div(t: &Topo, flux: &[f64], w: &[f64], bflux: &[f64]) -> Matrix {
+pub(crate) fn fvm_div(t: &Topo, flux: &[f64], w: &[f64], bflux: &[f64]) -> Matrix {
     let lower: Vec<f64> = (0..t.nf).map(|f| -w[f] * flux[f]).collect();
     let upper: Vec<f64> = (0..t.nf).map(|f| lower[f] + flux[f]).collect();
     let mut diag = vec![0.0; t.n];
@@ -402,7 +402,7 @@ fn fvm_div(t: &Topo, flux: &[f64], w: &[f64], bflux: &[f64]) -> Matrix {
 impl Matrix {
     /// `lduMatrix::operator+=` for `this` diagonal-or-asymmetric and `a`
     /// diagonal-or-asymmetric, plus `fvMatrix::operator+=` of the source.
-    fn add(&mut self, a: &Matrix) {
+    pub(crate) fn add(&mut self, a: &Matrix) {
         for (d, x) in self.diag.iter_mut().zip(&a.diag) {
             *d += *x;
         }
@@ -432,7 +432,7 @@ impl Matrix {
     }
 
     /// The diagonal after `addBoundaryDiag`.
-    fn solve_diag(&self, t: &Topo) -> Vec<f64> {
+    pub(crate) fn solve_diag(&self, t: &Topo) -> Vec<f64> {
         let mut d = self.diag.clone();
         for (b, &(c, _)) in t.bfaces.iter().enumerate() {
             d[c] += self.bcoef[b];
@@ -441,7 +441,7 @@ impl Matrix {
     }
 
     /// `A - B` for `B` a symmetric matrix (`upper` only, `lower == upper`).
-    fn sub_symmetric(&mut self, b_diag: &[f64], b_upper: &[f64]) {
+    pub(crate) fn sub_symmetric(&mut self, b_diag: &[f64], b_upper: &[f64]) {
         for (d, x) in self.diag.iter_mut().zip(b_diag) {
             *d -= *x;
         }
@@ -456,7 +456,7 @@ impl Matrix {
     }
 
     /// `fvMatrix + volField`: `source -= V*field`.
-    fn add_field(&mut self, t: &Topo, field: &[f64]) {
+    pub(crate) fn add_field(&mut self, t: &Topo, field: &[f64]) {
         for c in 0..t.n {
             self.source[c] -= t.v[c] * field[c];
         }
@@ -477,7 +477,7 @@ pub struct SolveLog {
     pub iterations: usize,
 }
 
-fn amul(t: &Topo, m: &Matrix, psi: &[f64]) -> Vec<f64> {
+pub(crate) fn amul(t: &Topo, m: &Matrix, psi: &[f64]) -> Vec<f64> {
     let (lo, up) = (m.lower.as_ref().expect("asymmetric"), m.upper.as_ref().expect("asymmetric"));
     let mut ap: Vec<f64> = (0..t.n).map(|c| m.diag[c] * psi[c]).collect();
     for f in 0..t.nf {
@@ -487,7 +487,7 @@ fn amul(t: &Topo, m: &Matrix, psi: &[f64]) -> Vec<f64> {
     ap
 }
 
-fn residual(t: &Topo, m: &Matrix, psi: &[f64], source: &[f64]) -> Vec<f64> {
+pub(crate) fn residual(t: &Topo, m: &Matrix, psi: &[f64], source: &[f64]) -> Vec<f64> {
     let (lo, up) = (m.lower.as_ref().expect("asymmetric"), m.upper.as_ref().expect("asymmetric"));
     let mut r: Vec<f64> = (0..t.n).map(|c| source[c] - m.diag[c] * psi[c]).collect();
     for f in 0..t.nf {
@@ -497,7 +497,7 @@ fn residual(t: &Topo, m: &Matrix, psi: &[f64], source: &[f64]) -> Vec<f64> {
     r
 }
 
-fn sum_mag(v: &[f64]) -> f64 {
+pub(crate) fn sum_mag(v: &[f64]) -> f64 {
     let mut s = 0.0;
     for x in v {
         s += x.abs();
@@ -506,7 +506,7 @@ fn sum_mag(v: &[f64]) -> f64 {
 }
 
 /// `symGaussSeidelSmoother::smooth`, one sweep, no interfaces.
-fn sym_gauss_seidel_sweep(t: &Topo, m: &Matrix, psi: &mut [f64], source: &[f64]) {
+pub(crate) fn sym_gauss_seidel_sweep(t: &Topo, m: &Matrix, psi: &mut [f64], source: &[f64]) {
     let (lo, up) = (m.lower.as_ref().expect("asymmetric"), m.upper.as_ref().expect("asymmetric"));
     let mut b_prime = source.to_vec();
     for c in 0..t.n {
@@ -536,7 +536,7 @@ fn sym_gauss_seidel_sweep(t: &Topo, m: &Matrix, psi: &mut [f64], source: &[f64])
 /// `minIter 0`, `relTol 0` at absolute tolerance `tolerance`; or
 /// `diagonalSolver` if the matrix has no off-diagonal coefficients (what
 /// `lduMatrix::solver::New` selects whatever the dictionary says).
-fn solve_matrix(t: &Topo, m_in: &Matrix, psi: &mut [f64], tolerance: f64) -> SolveLog {
+pub(crate) fn solve_matrix(t: &Topo, m_in: &Matrix, psi: &mut [f64], tolerance: f64) -> SolveLog {
     let mut m_owned = m_in.clone();
     m_owned.diag = m_in.solve_diag(t);
     let m = &m_owned;

@@ -27,6 +27,8 @@
 //! transient flow. See [`RhoPimpleFoam`] for the governing equations and time
 //! loop; a companion stability primer lives in this module's `docs/`.
 
+pub mod esi;
+
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;

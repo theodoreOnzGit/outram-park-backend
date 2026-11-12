@@ -1058,12 +1058,29 @@ fn skipped(mt: i32) -> bool {
 /// Returns `None` when there is no MT=1 section to take the grid from. The
 /// caller then keeps the per-reaction form.
 #[must_use]
-#[allow(clippy::too_many_lines)]
 pub fn broadr_joint(
     result: &ReconrResult,
     temp_k: f64,
     tol: &BroadnTolerances,
     thnmx: f64,
+) -> Option<ReconrResult> {
+    broadr_joint_rounding(result, temp_k, tol, thnmx, true)
+}
+
+/// [`broadr_joint`] with the choice of the **output `sigfig`**. `bfile3`
+/// writes every point as `sigfig(scr(k),7,0)` (`broadr.f90:980`) but the
+/// scratch tape the next temperature reads under `istrap` (`:1004-1011`) holds
+/// the values before that rounding, so a bootstrap pass starts from
+/// `round_output = false` (gh:#1369, deck test 10: 400 MT=18 lines of the
+/// second temperature differed in the 7th figure without it).
+#[must_use]
+#[allow(clippy::too_many_lines)]
+pub fn broadr_joint_rounding(
+    result: &ReconrResult,
+    temp_k: f64,
+    tol: &BroadnTolerances,
+    thnmx: f64,
+    round_output: bool,
 ) -> Option<ReconrResult> {
     const E6PT5: f64 = 6.5e6;
     const FACT: f64 = 0.99999;
@@ -1262,7 +1279,7 @@ pub fn broadr_joint(
                 }
                 acc
             };
-            pairs.push((e, sigfig(v, 7, 0)));
+            pairs.push((e, if round_output { sigfig(v, 7, 0) } else { v }));
         }
         out_secs.push(ReconrSection {
             lr: sec.lr,

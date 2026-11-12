@@ -80,9 +80,6 @@ use crate::material::nuclide::{Inelastic, Nuclide};
 use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
-use crate::physics::scatter::{
-    free_gas_elastic_scatter_dbrc, rotate_direction, two_body_scatter, two_body_scatter_with_mu,
-};
 use crate::geometry::distribcell::DistribcellOffsets;
 use crate::geometry::surface::BoundaryType;
 use crate::physics::track_output::{TrackEvent, TrackRecorder, TrackState};
@@ -94,6 +91,7 @@ use crate::physics::variance_reduction::{
 };
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::{future_seed, prn};
+use crate::rng::openmc_seeding::{comb_resample_openmc, OpenMcRunLayout, SeedingMode};
 use crate::tally::scoring::{
     flush_batch, flush_bins, score_fission_birth, score_scatter_matrix, ScatterEmission,
     score_track_length,
@@ -681,13 +679,8 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
 ) -> KeffResult {
     let mut seed = settings.seed;
 
-    let mut source = sample_box_source(
-        geom,
-        materials,
-        nuclides,
-        source_box,
-        settings.n_particles,
-        &mut seed,
+    let mut source = initial_source(
+        geom, materials, nuclides, source_box, settings, &mut seed,
     );
 
     let n_gen = settings.n_inactive + settings.n_active;
@@ -732,8 +725,22 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
             } else {
                 &[]
             };
-            for site in &source {
-                let outcome = transport_history_vr(
+            for (hist_idx, site) in source.iter().enumerate() {
+                // SeedingMode::OpenMc: each history on OpenMC's own tracking and
+                // URR seeds (gh:#1386); the default keeps one stream for the
+                // whole generation, copied in and out so it is bit-identical.
+                let openmc = settings.seeding.openmc_history_seeds(
+                    settings.seed,
+                    source.len(),
+                    gen,
+                    hist_idx,
+                );
+                let mut hseed = match openmc {
+                    Some((trk, _)) => trk,
+                    None => seed,
+                };
+                let urr_start = openmc.map(|(_, urr)| urr);
+                let outcome = transport_history_vr_urr(
                     *site,
                     geom,
                     materials,
@@ -741,7 +748,7 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
                     majorants,
                     k_running,
                     &mut next_bank,
-                    &mut seed,
+                    &mut hseed,
                     tally_def,
                     &mut batch,
                     leak_edges_gen,
@@ -755,8 +762,12 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
                     // Eigenvalue path: a fission source particle is born at
                     // weight 1 by definition of the normalisation.
                     1.0,
-                   &mut no_trace,
+                    urr_start,
+                    &mut no_trace,
                 );
+                if openmc.is_none() {
+                    seed = hseed;
+                }
                 production += outcome.production;
                 totals.absorb(&outcome);
             }
@@ -800,7 +811,7 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
             break;
         }
 
-        source = resample(&next_bank, settings.n_particles, &mut seed);
+        source = resample_for_generation(settings, gen, &next_bank, settings.n_particles, &mut seed);
     }
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
@@ -869,13 +880,8 @@ impl CsgPowerIteration {
         settings: &KeffSettings,
     ) -> Self {
         let mut seed = settings.seed;
-        let source = sample_box_source(
-            geom,
-            materials,
-            nuclides,
-            source_box,
-            settings.n_particles,
-            &mut seed,
+        let source = initial_source(
+            geom, materials, nuclides, source_box, settings, &mut seed,
         );
         let n_gen = settings.n_inactive + settings.n_active;
         Self {
@@ -1016,13 +1022,8 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
     let mut src_seed = settings.seed;
 
     // Initial source, as the single-thread path, on the sequential src stream.
-    let mut source = sample_box_source(
-        geom,
-        materials,
-        nuclides,
-        source_box,
-        settings.n_particles,
-        &mut src_seed,
+    let mut source = initial_source(
+        geom, materials, nuclides, source_box, settings, &mut src_seed,
     );
 
     let n_gen = settings.n_inactive + settings.n_active;
@@ -1143,7 +1144,7 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
             if keff_trigger_met(settings, active, &active_k) {
                 break;
             }
-            source = resample(&next_bank, settings.n_particles, &mut src_seed);
+            source = resample_for_generation(settings, gen, &next_bank, settings.n_particles, &mut src_seed);
         }
     });
 
@@ -1226,6 +1227,18 @@ pub(crate) fn transport_generation_par(
                     // owned locally — never shared across threads.
                     let mut seed =
                         future_seed((hist_idx as u64).wrapping_mul(HIST_STRIDE), gen_base_seed);
+                    // OpenMC-compatible layout (gh:#1386): stream 0 and the URR
+                    // stream from `init_particle_seeds`; `None` for the default.
+                    let mut urr_start: Option<u64> = None;
+                    if let Some((trk, urr)) = settings.seeding.openmc_history_seeds(
+                        run_seed,
+                        source.len(),
+                        generation,
+                        hist_idx,
+                    ) {
+                        seed = trk;
+                        urr_start = Some(urr);
+                    }
                     let mut bank: Vec<Site> = Vec::new();
                     let mut batch: Vec<f64> = if tally_def.is_some() {
                         vec![0.0; n_bins]
@@ -1242,7 +1255,7 @@ pub(crate) fn transport_generation_par(
                     // hard-coded analog~~ until 2026-09-30: survival
                     // biasing and weight windows were silently dropped
                     // under `CpuMultiThread`.
-                    let outcome = transport_history_vr(
+                    let outcome = transport_history_vr_urr(
                         source[hist_idx],
                         geom,
                         materials,
@@ -1262,6 +1275,7 @@ pub(crate) fn transport_generation_par(
                         None,
                         None,
                         1.0,
+                        urr_start,
                         &mut no_trace,
                     );
                     ParHistory {
@@ -1512,6 +1526,41 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
     geom: &Geometry,
     materials: &[Material],
     nuclides: &[Nuclide],
+    majorants: &[Majorant],
+    k_running: f64,
+    next_bank: &mut Vec<Site>,
+    seed: &mut u64,
+    tally: Option<&Tally>,
+    batch: &mut [f64],
+    leak_edges: &[f64],
+    leak_batch: &mut [f64],
+    extra: Option<&mut ExtraScoring>,
+    vr: &VarianceReduction,
+    delta_estimator: DeltaTallyEstimator,
+    tracks: Option<&mut TrackRecorder>,
+    surface_source: Option<&mut SurfaceSource>,
+    distribcell: Option<&DistribcellOffsets>,
+    birth_weight: f64,
+    observe: &mut O,
+) -> HistoryOutcome {
+    transport_history_vr_urr(
+        site, geom, materials, nuclides, majorants, k_running, next_bank, seed, tally, batch,
+        leak_edges, leak_batch, extra, vr, delta_estimator, tracks, surface_source, distribcell,
+        birth_weight, None, observe,
+    )
+}
+
+/// [`transport_history_vr`] with an explicit start of the URR probability-table
+/// stream. `urr_start = None` derives it from the tracking stream as the port
+/// always has (`future_seed(URR_STRIDE, *seed)`), so every existing caller is
+/// bit-identical; `Some(s)` is OpenMC's `seeds[STREAM_URR_PTABLE]`
+/// ([`crate::rng::openmc_seeding::SeedingMode::OpenMc`], gh:#1386).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn transport_history_vr_urr<O: FnMut(TraceEvent)>(
+    site: Site,
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
     // Majorants indexed by `TrackingMethod::Delta`. EMPTY when no region
     // declares delta tracking, which is every model predating bn:op-867c --
     // and that is what makes this change bit-identical for all of them.
@@ -1557,6 +1606,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
     // stage one, in proportion to how far the weights had drifted from 1 —
     // which under variance reduction is arbitrarily far.
     birth_weight: f64,
+    urr_start: Option<u64>,
     // Step-level events (gh:#784): every `locate`, distance-to-boundary
     // query, crossing and collision, for the rung-5 tutorial demo. Every
     // untraced caller passes `no_trace`; observing draws no random number,
@@ -1632,7 +1682,10 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
     // changed since the band was last used, which is OpenMC's
     // `advance_prn_seed(data::nuclides.size(), ..)` after a collision that
     // changed `E` (`physics.cpp`).
-    let mut urr_seed = crate::rng::lcg::future_seed(URR_STRIDE, *seed);
+    let mut urr_seed = match urr_start {
+        Some(s0) => s0,
+        None => crate::rng::lcg::future_seed(URR_STRIDE, *seed),
+    };
     // Reset for each popped particle before it is read (see the pop below).
     let mut urr_e_last: f64;
     let mut neg_dist: u64 = 0;
@@ -2073,41 +2126,62 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                 // absorption threshold, so the **same** ladder serves both
                 // paths and the fission/capture arms are simply unreachable
                 // rather than duplicated with different bounds.
-                let xi = if vr.survival_biasing {
-                    if x.nu_fission > 0.0 && x.total > 0.0 {
-                        // `create_fission_sites`: nu_t = wgt/keff * nuSigma_f/Sigma_t.
-                        let nu_t = w * x.nu_fission / (k_running * x.total);
-                        production += w * x.nu_fission / x.total;
-                        let mut n = nu_t as usize;
-                        if prn(seed) <= nu_t - n as f64 {
-                            n += 1;
-                        }
-                        for _ in 0..n {
+                // gh:#1386/#1444 (c): OpenMC `create_fission_sites` at EVERY collision with
+                // a fissionable nuclide (src/physics.cpp:120-123), before the reaction draw.
+                // Survival biasing always banks this way; analog does by default.
+                let per_collision_banking = crate::physics::scatter::fission_banking_from_env()
+                    == crate::physics::scatter::FissionBanking::PerCollision;
+                if (vr.survival_biasing || per_collision_banking) && x.nu_fission > 0.0 && x.total > 0.0 {
+                    // `create_fission_sites`: nu_t = wgt/keff * nuSigma_f/Sigma_t.
+                    let nu_t = w * x.nu_fission / (k_running * x.total);
+                    production += w * x.nu_fission / x.total;
+                    let mut n = nu_t as usize;
+                    if prn(seed) <= nu_t - n as f64 {
+                        n += 1;
+                    }
+                    for _ in 0..n {
+                        let fission_legacy = crate::physics::scatter::fission_neutron_order_from_env()
+                            == crate::physics::scatter::FissionNeutronOrder::Legacy;
+                        // OpenMC `sample_fission_neutron` order (gh:#1386/#1444 d), or the legacy
+                        // direction-then-energy order.
+                        let (g_born, e_born, u_born) = if fission_legacy {
                             let (dx, dy, dz) = isotropic_direction(seed);
                             let e_born = nuc.sample_fission_energy_below(e, e_cap_fission, seed);
-                            if let Some(t) = tally {
-                                score_fission_birth(
-                                    batch, t, cell_idx, m, leaf.universe, e, e_born, r, w,
-                                );
-                            }
-                            if let Some(x) = extra.as_deref_mut() {
-                                x.each_tally(|t, batch| {
-                                score_fission_birth(
-                                    batch, t, cell_idx, m, leaf.universe, e, e_born, r, w,
-                                );
-                            });
-                            }
-                            next_bank.push(Site {
-                                r,
-                                u: Direction::new(dx, dy, dz),
-                                e: e_born,
-                                delayed_group: nuc
-                                    .sample_delayed_group(e, &mut delayed_seed),
-                                parent_lifetime_s: time_s,
-                            });
+                            (None, e_born, Direction::new(dx, dy, dz))
+                        } else {
+                            nuc.sample_fission_neutron_openmc(e, e_cap_fission, u, seed)
+                        };
+                        if let Some(t) = tally {
+                            score_fission_birth(
+                                batch, t, cell_idx, m, leaf.universe, e, e_born, r, w,
+                            );
                         }
+                        if let Some(x) = extra.as_deref_mut() {
+                            x.each_tally(|t, batch| {
+                            score_fission_birth(
+                                batch, t, cell_idx, m, leaf.universe, e, e_born, r, w,
+                            );
+                        });
+                        }
+                        next_bank.push(Site {
+                            r,
+                            u: u_born,
+                            e: e_born,
+                            delayed_group: if !fission_legacy {
+                                g_born
+                            } else if urr_start.is_some() {
+                                // SeedingMode::OpenMc: STREAM_TRACKING, as OpenMC's
+                                // `sample_fission_neutron` (`seed = p.current_seed()`)
+                                nuc.sample_delayed_group(e, seed)
+                            } else {
+                                nuc.sample_delayed_group(e, &mut delayed_seed)
+                            },
+                            parent_lifetime_s: time_s,
+                        });
                     }
+                }
 
+                let xi = if vr.survival_biasing {
                     // `absorption()`: w -= w * Sigma_a / Sigma_t.
                     let (w_new, _absorbed) =
                         survival_bias_absorption(w, x.absorption, x.total);
@@ -2140,10 +2214,24 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     }
                     x.absorption + prn(seed) * scatter_xs
                 } else {
-                    prn(seed) * x.total
+                    // OpenMC's two-draw order: absorption check, then
+                    // `scatter()`'s own `prn * (total - absorption)`.
+                    crate::physics::scatter::scatter_ladder_xi(
+                        nuc.scatter_kernels(),
+                        prn(seed) * x.total,
+                        x.absorption,
+                        x.total,
+                        seed,
+                    )
                 };
 
-                if xi < x.fission {
+                let group = crate::physics::scatter::classify_reaction(
+                    crate::physics::scatter::reaction_order_from_env(),
+                    &x,
+                    xi,
+                );
+                use crate::physics::scatter::ReactionGroup as Rg;
+                if group == Rg::Fission {
                     let nu_bar = if x.fission > 0.0 {
                         x.nu_fission / x.fission
                     } else {
@@ -2154,11 +2242,24 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     // GitHub #461. Analog `w` is exactly 1.0, so this is
                     // bit-identical there; under weight windows the split and
                     // rouletted particles used to bank as if at weight 1.
-                    production += w * nu_bar;
-                    let n = sample_num_neutrons(w * nu_bar, k_running, seed);
+                    let n = if per_collision_banking {
+                        0 // already banked above, as OpenMC's create_fission_sites
+                    } else {
+                        production += w * nu_bar;
+                        sample_num_neutrons(w * nu_bar, k_running, seed)
+                    };
                     for _ in 0..n {
-                        let (dx, dy, dz) = isotropic_direction(seed);
-                        let e_born = nuc.sample_fission_energy_below(e, e_cap_fission, seed);
+                        let fission_legacy = crate::physics::scatter::fission_neutron_order_from_env()
+                            == crate::physics::scatter::FissionNeutronOrder::Legacy;
+                        // OpenMC `sample_fission_neutron` order (gh:#1386/#1444 d), or the legacy
+                        // direction-then-energy order.
+                        let (g_born, e_born, u_born) = if fission_legacy {
+                            let (dx, dy, dz) = isotropic_direction(seed);
+                            let e_born = nuc.sample_fission_energy_below(e, e_cap_fission, seed);
+                            (None, e_born, Direction::new(dx, dy, dz))
+                        } else {
+                            nuc.sample_fission_neutron_openmc(e, e_cap_fission, u, seed)
+                        };
                         // Fission-spectrum estimator: chi is MEASURED from the
                         // energies neutrons are actually born with, rather than
                         // assumed from an analytic Watt form.
@@ -2192,34 +2293,34 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                         }
                         next_bank.push(Site {
                             r,
-                            u: Direction::new(dx, dy, dz),
+                            u: u_born,
                             e: e_born,
-                            delayed_group: nuc
-                                .sample_delayed_group(e, &mut delayed_seed),
+                            delayed_group: if !fission_legacy {
+                                g_born
+                            } else if urr_start.is_some() {
+                                nuc.sample_delayed_group(e, seed)
+                            } else {
+                                nuc.sample_delayed_group(e, &mut delayed_seed)
+                            },
                             parent_lifetime_s: time_s,
                         });
                     }
                     ends.record_fission_end(e);
                     record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Fission, cell_idx, Some(m));
                     break 'history; // fission absorbs the incident neutron
-                } else if xi < x.absorption {
+                } else if group == Rg::Capture {
                     ends.record_capture();
                     record_track_state(&mut tracks, observe, r, u, e, time_s, w, TrackEvent::Absorption, cell_idx, Some(m));
                     break 'history; // capture
-                } else if xi < x.absorption + x.inelastic {
-                    let (e2, u2) = match nuc.sample_inelastic(e, seed) {
+                } else if let Rg::Inelastic(level_cutoff) = group {
+                    let (e2, u2) = match nuc.sample_inelastic_at(e, level_cutoff, seed) {
                         // Discrete level: the CM angular law is the level's own ENDF
                         // MF=4 (op-tm9f). Isotropic-CM only when the evaluation
                         // carries none for this level -- sampling every inelastic
                         // collision isotropically understates <mu>, inflating
                         // Sigma_tr, suppressing leakage and raising k.
                         Inelastic::Level { q, mt } => {
-                            match nuc.sample_inelastic_mu_cm(mt, e, seed) {
-                                Some(mu_cm) => {
-                                    two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, seed)
-                                }
-                                None => two_body_scatter(e, u, nuc.awr, q, seed),
-                            }
+                            nuc.sample_level_inelastic_scatter(mt, q, e, u, seed)
                         }
                         Inelastic::Continuum { q } => {
                             nuc.sample_inelastic_emission(91, e, u, q, seed)
@@ -2239,7 +2340,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     }
                     e = e2;
                     u = u2;
-                } else if xi < x.absorption + x.inelastic + x.n2n {
+                } else if group == Rg::N2n {
                     // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
                     // elastic CM energy as before. Sharing the available energy between
                     // the two emitted neutrons is a separate gap (GitHub #192).
@@ -2321,7 +2422,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     }
                     e = e2;
                     u = u2;
-                } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+                } else if group == Rg::N3n {
                     // (n,3n): yield 3 -- the primary down-scatters and TWO extra neutrons
                     // are emitted. Before 2026-09-16 there was no branch here at all:
                     // MT=17 is inside MT=1, so the collision still happened but fell
@@ -2398,7 +2499,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     }
                     e = e2;
                     u = u2;
-                } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+                } else if group == Rg::Mt5 {
                     // MT=5, "(n,anything)" -- the lumped high-energy channels,
                     // wired 2026-09-17. Same history as the (n,3n) arm above:
                     // inside MT=1, so before this the collision fell through to
@@ -2479,7 +2580,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     }
                     e = e2;
                     u = u2;
-                } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+                } else if group == Rg::Other {
                     // The other neutron-emitting reactions -- (n,n alpha),
                     // (n,np), (n,4n), ... (GitHub #365 audit). Inside MT=1, so
                     // before this they fell through to ELASTIC and lost their
@@ -2527,33 +2628,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     // outgoing energy + cosine, up-scatter allowed); otherwise the
                     // free-gas / anisotropic-elastic kernel applies as before.
                     // ANCHOR: scatter_fork (mdBook include, Monte Carlo tutorial rung 2, gh:#524)
-                    let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
-                        (e_out, rotate_direction(u, mu_lab, seed))
-                    } else {
-                        {
-                            // Free-gas: below 400 kT the target's own thermal
-                            // motion is sampled, so the neutron can gain energy
-                            // and the population has a Maxwellian fixed point
-                            // (bead op-50vu). Above it, target-at-rest as before.
-                            // kT as OpenMC: the pointwise data's own
-                            // temperature, or the collision material's for a
-                            // multipole nuclide (GitHub #313). ~~The run-wide
-                            // `settings.temperature_k`~~ until 2026-09-30.
-                            let kt = nuc.free_gas_kt(mat_temp);
-                            let mu_cm = nuc
-                                .sample_elastic_mu_cm(e, seed)
-                                .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                            free_gas_elastic_scatter_dbrc(
-                                e,
-                                u,
-                                nuc.awr,
-                                kt,
-                                mu_cm,
-                                seed,
-                                nuc.dbrc_table(),
-                            )
-                        }
-                    };
+                    let (e2, u2) = nuc.sample_elastic_collision(e, u, mat_temp, seed);
                     // ANCHOR_END: scatter_fork
                     // Scattering-matrix estimator: score the (E_in, E_out) pair
                     // BEFORE `e` is overwritten, so a tally carrying both an
@@ -2754,6 +2829,109 @@ fn resample(bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site> {
     // the `n` sites was drawn independently with replacement~~ until
     // 2026-09-30.
     crate::physics::fission::comb_resample(bank, n, seed)
+}
+
+/// The initial source of a CSG k-eigenvalue run: the synthetic box source on the
+/// run's sequential stream (default), or, under
+/// [`SeedingMode::OpenMc`], [`sample_box_source_openmc`] on OpenMC's per-particle
+/// `STREAM_SOURCE` seeds (gh:#1386).
+fn initial_source(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    seed: &mut u64,
+) -> Vec<Site> {
+    match settings.seeding {
+        SeedingMode::Outram => {
+            sample_box_source(geom, materials, nuclides, source_box, settings.n_particles, seed)
+        }
+        SeedingMode::OpenMc { total_gen } => {
+            let mut layout = OpenMcRunLayout::single_rank(
+                settings.seed as i64,
+                settings.n_particles as i64,
+                1,
+            );
+            layout.total_gen = total_gen;
+            sample_box_source_openmc(geom, materials, nuclides, source_box, &layout)
+        }
+    }
+}
+
+/// The next generation's source from the fission bank of generation `gen`
+/// (0-based): [`resample`] on the run's stream, or under
+/// [`SeedingMode::OpenMc`] `synchronize_bank`'s comb on
+/// `init_seed(total_gen + gen + 1, STREAM_TRACKING)` ([`comb_resample_openmc`]).
+pub(crate) fn resample_for_generation(
+    settings: &KeffSettings,
+    gen: usize,
+    bank: &[Site],
+    n: usize,
+    seed: &mut u64,
+) -> Vec<Site> {
+    match settings.seeding {
+        SeedingMode::Outram => resample(bank, n, seed),
+        SeedingMode::OpenMc { total_gen } => {
+            let mut layout = OpenMcRunLayout::single_rank(
+                settings.seed as i64,
+                settings.n_particles as i64,
+                1,
+            );
+            layout.total_gen = total_gen;
+            let mut s = layout.bank_comb_seed(gen as i64 + 1, 1);
+            comb_resample_openmc(bank, n, &mut s)
+        }
+    }
+}
+
+/// [`sample_box_source`] with OpenMC's streams: source particle `i` (0-based) is
+/// sampled on its own `seeds[STREAM_SOURCE]` ([`OpenMcRunLayout::source_seed`]),
+/// as `initialize_source` does (`src/eigenvalue.cpp`), `SpatialBox::sample`
+/// (x, y, z in that order), the rejection on a fissionable material
+/// (`IndependentSource::sample`, `only_fissionable`), then OpenMC's isotropic
+/// direction ([`isotropic_direction_openmc`], azimuth first). The energy is the
+/// fixed 2 MeV of the synthetic source (an OpenMC `discrete` energy draws
+/// nothing). Gives up on a site after `10 000` rejections, as
+/// [`sample_box_source`]'s whole-run guard does.
+fn sample_box_source_openmc(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    source_box: SourceBox,
+    layout: &OpenMcRunLayout,
+) -> Vec<Site> {
+    use crate::rng::distributions::isotropic_direction_openmc;
+    let n = layout.n_particles as usize;
+    let mut source: Vec<Site> = Vec::with_capacity(n);
+    for i in 0..n {
+        let mut seed = layout.source_seed(i as i64);
+        for _ in 0..10_000 {
+            let r = Position::new(
+                source_box.lower.x + prn(&mut seed) * (source_box.upper.x - source_box.lower.x),
+                source_box.lower.y + prn(&mut seed) * (source_box.upper.y - source_box.lower.y),
+                source_box.lower.z + prn(&mut seed) * (source_box.upper.z - source_box.lower.z),
+            );
+            let fissile = geom
+                .locate(r, Direction::new(0.0, 0.0, 1.0), SurfaceToken::NONE)
+                .and_then(|p| p.material)
+                .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
+                .unwrap_or(false);
+            if !fissile {
+                continue;
+            }
+            let (dx, dy, dz) = isotropic_direction_openmc(&mut seed);
+            source.push(Site {
+                r,
+                u: Direction::new(dx, dy, dz),
+                e: 2.0e6,
+                delayed_group: None,
+                parent_lifetime_s: 0.0,
+            });
+            break;
+        }
+    }
+    source
 }
 
 /// Rejection-sample the synthetic first-generation source: points uniform in
@@ -3236,7 +3414,7 @@ impl CsgPowerIteration {
         if n == 0 || self.source.is_empty() || n == self.settings.n_particles {
             return;
         }
-        self.comb_source(n);
+        self.comb_source(n, None);
         self.settings.n_particles = n;
     }
 
@@ -3524,7 +3702,21 @@ impl CsgPowerIteration {
         let mut ifp_scores = IfpTallies::default();
         for (i, site) in self.source.iter().enumerate() {
             let before = next_bank.len();
-            let outcome = transport_history_vr(
+            // SeedingMode::OpenMc: OpenMC's tracking and URR seeds for this
+            // history (gh:#1386); the default continues the iteration's stream,
+            // copied in and out so it is bit-identical.
+            let openmc = self.settings.seeding.openmc_history_seeds(
+                self.settings.seed,
+                self.source.len(),
+                self.generation,
+                i,
+            );
+            let mut hseed = match openmc {
+                Some((trk, _)) => trk,
+                None => self.seed,
+            };
+            let urr_start = openmc.map(|(_, urr)| urr);
+            let outcome = transport_history_vr_urr(
                 *site,
                 geom,
                 materials,
@@ -3532,7 +3724,7 @@ impl CsgPowerIteration {
                 &self.majorants,
                 self.k_running,
                 &mut next_bank,
-                &mut self.seed,
+                &mut hseed,
                 None,
                 &mut batch,
                 &[],
@@ -3544,8 +3736,12 @@ impl CsgPowerIteration {
                 None,
                 None,
                 1.0,
+                urr_start,
                 observe,
             );
+            if openmc.is_none() {
+                self.seed = hseed;
+            }
             production += outcome.production;
             account_history(
                 &self.ifp,
@@ -3675,7 +3871,7 @@ impl CsgPowerIteration {
             if let Some((_, l)) = self.ifp.as_mut() {
                 *l = next_lineage;
             }
-            self.comb_source(n);
+            self.comb_source(n, Some(gen));
         }
         (
             CsgGenerationReport {
@@ -3693,12 +3889,36 @@ impl CsgPowerIteration {
     /// comb draws one variate whatever it combs
     /// ([`crate::physics::fission::comb_resample`]), so combing indices and
     /// gathering is the same draw as combing the sites.
-    fn comb_source(&mut self, n: usize) {
+    ///
+    /// `completed_gen` is the 0-based generation whose bank is being combed
+    /// (`Some` from [`Self::close_generation`], `None` from
+    /// [`Self::set_population`]). Under [`SeedingMode::OpenMc`] and `Some`, the
+    /// comb uses OpenMC's own seed and tooth arithmetic
+    /// ([`comb_resample_openmc`]); otherwise this iteration's stream.
+    fn comb_source(&mut self, n: usize, completed_gen: Option<usize>) {
+        let openmc_seed = match (self.settings.seeding, completed_gen) {
+            (SeedingMode::OpenMc { total_gen }, Some(g)) => {
+                let mut layout = OpenMcRunLayout::single_rank(
+                    self.settings.seed as i64,
+                    self.settings.n_particles as i64,
+                    1,
+                );
+                layout.total_gen = total_gen;
+                Some(layout.bank_comb_seed(g as i64 + 1, 1))
+            }
+            _ => None,
+        };
         match self.ifp.as_mut() {
-            None => self.source = resample(&self.source, n, &mut self.seed),
+            None => match openmc_seed {
+                Some(mut s) => self.source = comb_resample_openmc(&self.source, n, &mut s),
+                None => self.source = resample(&self.source, n, &mut self.seed),
+            },
             Some((_, lineage)) => {
                 let idx: Vec<usize> = (0..self.source.len()).collect();
-                let picked = crate::physics::fission::comb_resample(&idx, n, &mut self.seed);
+                let picked = match openmc_seed {
+                    Some(mut s) => comb_resample_openmc(&idx, n, &mut s),
+                    None => crate::physics::fission::comb_resample(&idx, n, &mut self.seed),
+                };
                 self.source = picked.iter().map(|&i| self.source[i]).collect();
                 *lineage = picked.iter().map(|&i| lineage[i].clone()).collect();
             }

@@ -45,8 +45,10 @@ than being trusted. Measured 2026-09-15, every sampled frame compared:
 | head-on collision, Hooke | 251 | **bit-identical** |
 | wall bounce + gravity (400 000 steps) | 2001 | **bit-identical** |
 | rolling resistance, CDT (`µ_r = 0.1`) | 201 | **bit-identical** |
-| oblique + friction (shear history, slip, torque) | 251 | round-off (1-3 ulp) |
-| oblique, no-history — the stateless `contact`+`simulation` path | 251 | round-off (1-3 ulp) |
+| oblique + friction (shear history, slip, torque) | 251 | ~~round-off (1-3 ulp)~~ **bit-identical** (CORRECTED 2026-11-10) |
+| oblique, no-history — the stateless `contact`+`simulation` path | 251 | ~~round-off (1-3 ulp)~~ **bit-identical** (CORRECTED 2026-11-10) |
+| oblique Hooke + history + CDT rolling | 251 | **bit-identical** (2026-11-10) |
+| two atom types, head-on and oblique | 251 each | **bit-identical** (2026-11-10) |
 | bulk bed, 354 pebbles, `D/d = 6` | settled | packing fraction within **0.20 %** |
 | angle of repose, 656 pebbles, lifting cylinder | settled heap | `12.78°` vs `15.43°` |
 | **HTR-10 full core**, 27 554 pebbles, `D/d = 30` | settled | packing fraction to **4 decimals**; median pebble **61 µm** apart |

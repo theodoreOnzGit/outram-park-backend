@@ -154,6 +154,90 @@
 //! the point of the change; if one does not, the cause is a remaining
 //! platform call, to be found and routed, not a host line to add.
 
+//! # Re-pinned 2026-11-11 (latest): OpenMC `scatter()` reaction order and single-cutoff level pick (gh:#1386, #1444 a, b)
+//!
+//! Cause: `physics::scatter::ReactionOrder::OpenMc` is the CSG collision default.
+//! Control: `OUTRAM_MC_LEGACY_REACTION_ORDER=1` reproduces both previous pins
+//! (2 passed, 2026-11-11). sigma = quadrature of the two standard errors.
+//!
+//! | case | old pin -> new pin | old k | new k | sigma |
+//! |---|---|---|---|---|
+//! | `godiva_csg_entropy_trigger` | `0xbe7e011c738c0da1` -> `0xf767ab315e51ecef` | 0.97710 +/- 0.00960 (13 gens) | 0.99831 +/- 0.00966 (39 gens) | 1.56 |
+//! | `csg_nested_lattice_keff` | `0xab5ac3e0eb072bf8` -> `0xc79b620923731abe` | 1.72835 +/- 0.01486 | 1.71604 +/- 0.01213 | 0.64 |
+//! | `godiva_run_keff` (sphere driver, wired) | `0x60ece10b8fc3777e` -> `0x37740397665ba80b` | 1.01140 +/- 0.00568 | 1.01485 +/- 0.00533 | 0.44 |
+//! | `fhr_explicit_triso_delta` (sphere driver, wired) | `0x173834441cc42ed4` -> `0x127cc36551eda56c` | 1.52732 +/- 0.00833 | 1.53753 +/- 0.00859 | 0.85 |
+//!
+//! None exceeds 3 sigma: re-pinned, not a finding. Legacy control for the sphere
+//! rows: `OUTRAM_MC_LEGACY_REACTION_ORDER=1` reproduces `godiva_run_keff`,
+//! `fhr_explicit_triso_delta` and the three `keff_delta_*` pins (2 + 3 passed).
+//!
+//! # Re-pinned 2026-11-11 (later): OpenMC-faithful collision kernels are the transport default (gh:#1386, #1444, #1456)
+//!
+//! `physics::scatter::ScatterKernels::OpenMc` (level inelastic, CM-to-lab,
+//! `rotate_angle`, `elastic_scatter` + `sample_target_velocity`, OpenMC's two-draw
+//! reaction ladder) replaced the older kernels in transport (maintainer decision
+//! 2026-11-11); the old ones remain as `ScatterKernels::Legacy`. **Control:** with
+//! `OUTRAM_MC_LEGACY_SCATTER_KERNELS=1` every pin of this file reproduces its
+//! previous value exactly, so only the kernels moved them. Unmoved: `mg_sphere`,
+//! `pure_statistics`, `shannon_entropy`, `tally_meshes`,
+//! `csg_nested_lattice_navigation` (no collision kernel). Measured on this machine
+//! (Intel Xeon, 4 vCPU shared, rustc 1.99.1, release); sigma = difference over the
+//! quadrature of the two printed standard errors:
+//!
+//! | case | old fingerprint -> new | old k | new k | sigma |
+//! |---|---|---|---|---|
+//! | `godiva_run_keff` | `0xb525169aa6d32f38` -> `0x60ece10b8fc3777e` | 1.01064 +/- 0.00535 | 1.01140 +/- 0.00568 | +0.10 (+75 pcm) |
+//! | `fhr_explicit_triso_delta` | `0x1d7c42860b929df3` -> `0x173834441cc42ed4` | 1.52541 +/- 0.00847 | 1.52732 +/- 0.00833 | +0.16 (+191 pcm) |
+//! | `csg_nested_lattice_keff` | `0x20e5b4eeeede18f1` -> `0xab5ac3e0eb072bf8` | 1.72835 +/- 0.01486 | 1.69980 +/- 0.01402 | -1.40 (-2855 pcm) |
+//! | `godiva_csg_entropy_trigger` | `0x0f90e5295c6cbcae` -> `0xbe7e011c738c0da1` | 1.02531 +/- 0.00976 (33 gens) | 0.97710 +/- 0.00960 (13 gens) | -3.52 (-4821 pcm), 3-generation error, resolved below |
+//!
+//! **`godiva_csg_entropy_trigger` exceeded 3 sigma; RESOLVED 2026-11-11 (gh:#1457).**
+//! The case stops on a k trigger: old stop 33 generations (23 active), new stop 13
+//! (3 active), so the printed standard error came from three values. ~~What was NOT
+//! done: a paired run without the trigger under both kernel sets.~~ **Done:**
+//! `tests/godiva_csg_kernel_sets_paired.rs` runs the same model with no trigger,
+//! 100 active generations, 3 seeds, both kernel sets: d = +113, +264, +297 pcm
+//! (+0.19, +0.44, +0.58 sigma), mean +225 pcm = +0.69 sigma. The -3.5 sigma was
+//! the 3-generation standard error. The pin below stays (it pins bits, and the
+//! bits are the OpenMC-kernel ones); it is not evidence of a physics shift.
+//!
+//! # Re-pinned 2026-11-11: surface and lattice distances follow OpenMC `8f79d9d0` (gh:#1442, #1443, #701, #1386)
+//!
+//! The surface `distance` routines and `RectLattice::distance` are now
+//! line-by-line ports of OpenMC's (bit-identical to a compiled OpenMC in
+//! `surface_distance_vs_openmc_code_to_code.rs` and
+//! `lattice_distance_vs_openmc_code_to_code.rs`); the old ones differed in the
+//! last bits (cylinder `a = u^2 + v^2` against `1 - u_axis^2`) and in the
+//! coincidence band. A re-measurement, not a tuning: the new bits are the
+//! upstream-faithful ones. Intel Xeon (4 vCPU, shared), rustc 1.99.1, release.
+//!
+//! | case | old pin | new pin | detail |
+//! |---|---|---|---|
+//! | `csg_nested_lattice_navigation` | `0x713ceb92878a0977` | `0x8c30242091a4ade8` | counts unchanged (3104 of 4000 located, 17220 events); the hash includes `s.distance` of every surface |
+//! | `csg_nested_lattice_keff` | `0x9a0a134b77cc8def` | `0x8931164ebf355c38` | k 1.73360 +/- 0.01313 -> **1.72559 +/- 0.01517** (-801 pcm, 0.4 combined sigma) |
+//! | `godiva_run_keff`, `godiva_csg_entropy_trigger`, `mg_sphere`, `shannon_entropy`, `tally_meshes`, `pure_statistics`, `fhr_explicit_triso_delta` | unchanged | unchanged | spheres and planes only: already bit-identical |
+//!
+//! # Re-pinned again, 2026-11-11: virtual crossings of a union (gh:#1387, OpenMC #3934)
+//!
+//! `Cell::distance_to_boundary` now follows `Region::distance` of OpenMC
+//! `8f79d9d0`: a complex region (union or complement) skips a surface whose
+//! crossing does not change membership (`03b036aa6`, "Fix virtual surface
+//! crossing", #3934), and the nearest-surface search keeps the first of two
+//! surfaces within `FP_PRECISION` of each other. The nested-lattice model's
+//! coolant-only universe is the cell `-5 | +5` ("everywhere"), whose pebble
+//! sphere (5) is a virtual crossing in exactly upstream's sense: the old rule
+//! stopped the flight there, the faithful one does not. A re-measurement, not a
+//! tuning; the old values are the pre-#3934 behaviour. The counts are unchanged
+//! (3104 of 4000 located, 17220 events) because they do not see the distance.
+//! **Attribution is by construction, not by an A/B run**: the coolant cell is the
+//! only union in this model, and two surfaces within 1e-14 of each other along a
+//! random ray have probability ~0, so the `FP_PRECISION` rule cannot be what moved it.
+//!
+//! | case | old pin | new pin | detail |
+//! |---|---|---|---|
+//! | `csg_nested_lattice_navigation` | `0x8c30242091a4ade8` | `0x652daec672ff2e60` | counts unchanged; the hash includes `hit.distance` of every located point and flight event |
+//! | `csg_nested_lattice_keff` | `0x8931164ebf355c38` | `0x20e5b4eeeede18f1` | k 1.72559 +/- 0.01517 -> **1.72835 +/- 0.01486** (+276 pcm, 0.1 combined sigma) |
+//!
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -277,7 +361,11 @@ fn godiva_run_keff_is_bit_identical() {
         fp.0,
         // Re-pinned 2026-10-05 for gh:#527 (independent source direction);
         // was 0xe78387f55e2fa2fd.
-        0xb525169aa6d32f38,
+        // Re-pinned again 2026-11-11 (gh:#1386, OpenMC reaction order, sphere driver):
+        // was 0x60ece10b8fc3777e (k 1.01140 +/- 0.00568), now k 1.01485 +/- 0.00533, 0.44 sigma.
+        // Re-pinned 2026-11-11 (gh:#1386, #1444 d, fission-neutron order): was 0x37740397665ba80b (k 1.01485 +/- 0.00533), now k 1.01955 +/- 0.00565, 0.61 sigma. Legacy switch reproduces the old pin.
+                // Re-pinned 2026-11-11 (gh:#1386, #1444 c): was 0xf3e61ecd4157f9b6 (k 1.01955 +/- 0.00565), now k 1.00581 +/- 0.00373, -2.03 sigma (< 3, not resolved; banking at every collision changes the stream). Legacy switch reproduces the old pin (to verify).
+        0xa321f4c29fbe1d08,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),
@@ -327,7 +415,11 @@ fn godiva_csg_with_entropy_and_trigger_is_bit_identical() {
     check(
         "godiva_csg_entropy_trigger",
         fp.0,
-        0x0f90e5295c6cbcae,
+        // Re-pinned 2026-11-11 (gh:#1386, OpenMC reaction order): was 0xbe7e011c738c0da1
+        // (k 0.97710 +/- 0.00960, 13 generations), now k 0.99831 +/- 0.00966 (39 generations), 1.56 sigma.
+        // Re-pinned 2026-11-11 (gh:#1386, #1444 d, fission-neutron order): was 0xf767ab315e51ecef (k 0.99831 +/- 0.00966, 39 gen), now k 0.98928 +/- 0.00668, 12 gen, 0.77 sigma. OUTRAM_MC_LEGACY_FISSION_NEUTRON_ORDER=1 reproduces the old pin.
+                // Re-pinned 2026-11-11 (gh:#1386, #1444 c, per-collision fission banking): was 0xae082ec044405b9b (k 0.98928 +/- 0.00668, 12 gen), now k 1.00635 +/- 0.00963, 32 gen, +1.46 sigma. OUTRAM_MC_LEGACY_FISSION_BANKING=1 reproduces the old pin (to verify).
+        0xf991663cc22824ef,
         &format!(
             "k = {:#018x} +/- {:#018x}, {} generations, {} entropy values",
             r.k_mean.to_bits(),
@@ -480,7 +572,11 @@ fn fhr_explicit_triso_delta_is_bit_identical() {
         // Re-pinned 2026-10-20 (gh:#985): every transcendental on PETIR, one
         // pin for every host. Was host B 0x235271e5059e6adf, host A
         // 0x1fb06c36a096d760 (#578).
-        0x1d7c42860b929df3,
+        // Re-pinned again 2026-11-11 (gh:#1386, OpenMC reaction order, sphere driver):
+        // was 0x173834441cc42ed4 (k 1.52732 +/- 0.00833), now k 1.53753 +/- 0.00859, 0.85 sigma.
+        // Re-pinned 2026-11-11 (gh:#1386, #1444 d, fission-neutron order): was 0x127cc36551eda56c (k 1.53753 +/- 0.00859), now k 1.53072 +/- 0.00739, 0.60 sigma. Legacy switch reproduces the old pin.
+                // Re-pinned 2026-11-11 (gh:#1386, #1444 c): was 0x929a8bdd1db4f844 (k 1.53072 +/- 0.00739), now k 1.54155 +/- 0.00604, +1.13 sigma. Legacy switch reproduces the old pin (to verify).
+        0x6280ad5b7b0d0c9f,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),
@@ -856,9 +952,12 @@ fn csg_nested_lattice_navigation_is_bit_identical() {
     check(
         "csg_nested_lattice_navigation",
         fp.0,
-        // Re-pinned 2026-10-20 (gh:#985): direction sampling on PETIR trig.
-        // Was 0xa10fb6daad87f539.
-        0x713ceb92878a0977,
+        // Re-pinned 2026-11-11 (gh:#1442, #1443, #701): surface `distance` and
+        // `RectLattice::distance` follow OpenMC 8f79d9d0 bit for bit. Was
+        // 0x713ceb92878a0977 (2026-10-20, gh:#985), 0xa10fb6daad87f539 before.
+        // Re-pinned again 2026-11-11 (gh:#1387, OpenMC #3934, virtual
+        // crossings of the `-5 | +5` coolant cell): was 0x8c30242091a4ade8.
+        0x652daec672ff2e60,
         &format!("{n_located} of 4000 points located, {n_events} flight events"),
     );
 }
@@ -916,10 +1015,17 @@ fn csg_nested_lattice_keff_is_bit_identical() {
     check(
         "csg_nested_lattice_keff",
         fp.0,
-        // Re-pinned 2026-10-20 (gh:#985): every transcendental on PETIR, one
-        // pin for every host. Was host A 0x509ddd7ff08feef7, host B
-        // 0xa9f3504144099ed2 (#578).
-        0x9a0a134b77cc8def,
+        // Re-pinned 2026-11-11 (gh:#1442, #1443, #701): surface and lattice
+        // distances follow OpenMC 8f79d9d0 bit for bit. Was 0x9a0a134b77cc8def
+        // (2026-10-20, gh:#985; k 1.73360 +/- 0.01313), before that host A
+        // 0x509ddd7ff08feef7, host B 0xa9f3504144099ed2 (#578). Re-pinned
+        // again 2026-11-11 (gh:#1387, OpenMC #3934): was 0x8931164ebf355c38
+        // (k 1.72559 +/- 0.01517), now k 1.72835 +/- 0.01486.
+        // Re-pinned 2026-11-11 (gh:#1386, OpenMC reaction order): was 0xab5ac3e0eb072bf8
+        // (k 1.72835 +/- 0.01486), now k 1.71604 +/- 0.01213, 0.64 sigma.
+                // Re-pinned 2026-11-11 (gh:#1386, #1444 d, fission-neutron order): was 0xc79b620923731abe (k 1.71604 +/- 0.01213), now k 1.72254 +/- 0.01595, 0.32 sigma. Legacy switch reproduces the old pin.
+                        // Re-pinned 2026-11-11 (gh:#1386, #1444 c): was 0x216a856800b43331 (k 1.72254 +/- 0.01595), now k 1.71589 +/- 0.01110, -0.34 sigma. Legacy switch reproduces the old pin (to verify).
+        0xee7a5a97dd810edc,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),

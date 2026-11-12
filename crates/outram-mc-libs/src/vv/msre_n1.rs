@@ -988,6 +988,168 @@ pub fn geometry_with_shield(t_salt_k: f64, t_graphite_k: f64, d: Dims, ends: End
     g
 }
 
+/// Poison ceramic of the control rods: 70 wt % Gd₂O₃, 30 wt % Al₂O₃, at
+/// 5.873 g/cm³ (ORNL-TM-0728 Table 5.4, p. 102).
+pub const ROD_CERAMIC_DENSITY: f64 = 5.873;
+/// Gd₂O₃ weight fraction of the ceramic, TM-0728 Table 5.4.
+pub const ROD_GD2O3_WT: f64 = 0.70;
+/// Ceramic cylinder, 0.84 in ID × 1.08 OD × 0.4383 long, three per element
+/// (TM-0728 Table 5.4) \[cm\].
+pub const ROD_CERAMIC_R_IN: f64 = 0.84 / 2.0 * INCH;
+/// Ceramic outer radius \[cm\].
+pub const ROD_CERAMIC_R_OUT: f64 = 1.08 / 2.0 * INCH;
+/// Element shell, 0.790 in ID × 1.140 OD × 1.562 long, 0.020 in Inconel
+/// (TM-0728 Table 5.4) \[cm\].
+pub const ROD_SHELL_R_IN: f64 = 0.790 / 2.0 * INCH;
+/// Element shell outer radius \[cm\].
+pub const ROD_SHELL_R_OUT: f64 = 1.140 / 2.0 * INCH;
+/// Element cladding thickness \[cm\].
+pub const ROD_CLAD: f64 = 0.020 * INCH;
+/// Fraction of an element's length the ceramic fills: 3 × 0.4383 / 1.562.
+pub const ROD_CERAMIC_AXIAL_FRACTION: f64 = 3.0 * 0.4383 / 1.562;
+
+/// The rods' extra nuclides (ENDF/B-VIII.0), at the core temperature. O is
+/// named `O16r` so it is processed apart from the shield's cold water.
+pub const ROD_NUCLIDES: [(&str, &str); 9] = [
+    ("Gd152", "../ace/endf/endf-b-viii.0/n-064_Gd_152-ENDF8.0.endf"),
+    ("Gd154", "../ace/endf/endf-b-viii.0/n-064_Gd_154-ENDF8.0.endf"),
+    ("Gd155", "../ace/endf/endf-b-viii.0/n-064_Gd_155-ENDF8.0.endf"),
+    ("Gd156", "../ace/endf/endf-b-viii.0/n-064_Gd_156-ENDF8.0.endf"),
+    ("Gd157", "../ace/endf/endf-b-viii.0/n-064_Gd_157-ENDF8.0.endf"),
+    ("Gd158", "../ace/endf/endf-b-viii.0/n-064_Gd_158-ENDF8.0.endf"),
+    ("Gd160", "../ace/endf/endf-b-viii.0/n-064_Gd_160-ENDF8.0.endf"),
+    ("Al27", "n-013_Al_027-ENDF8.0.endf"),
+    ("O16r", "n-008_O_016-ENDF8.0.endf"),
+];
+
+/// Natural gadolinium, atom fractions (IUPAC 2013; quoted, not from an MSRE
+/// report).
+pub const GD_NATURAL: [(&str, f64); 7] = [
+    ("Gd152", 0.0020),
+    ("Gd154", 0.0218),
+    ("Gd155", 0.1480),
+    ("Gd156", 0.2047),
+    ("Gd157", 0.1565),
+    ("Gd158", 0.2484),
+    ("Gd160", 0.2186),
+];
+
+/// The poison ceramic, smeared over the element's length by
+/// [`ROD_CERAMIC_AXIAL_FRACTION`] (atoms/b-cm). Molar masses: Gd 157.25,
+/// Al 26.9815, O 15.999.
+pub fn rod_poison() -> Vec<(&'static str, f64)> {
+    let rho = ROD_CERAMIC_DENSITY * ROD_CERAMIC_AXIAL_FRACTION;
+    let (m_gd2o3, m_al2o3) = (2.0 * 157.25 + 3.0 * 15.999, 2.0 * 26.9815 + 3.0 * 15.999);
+    let n_gd2o3 = rho * ROD_GD2O3_WT * 0.602214076 / m_gd2o3;
+    let n_al2o3 = rho * (1.0 - ROD_GD2O3_WT) * 0.602214076 / m_al2o3;
+    let mut v: Vec<(&'static str, f64)> = GD_NATURAL.iter().map(|&(k, f)| (k, 2.0 * n_gd2o3 * f)).collect();
+    v.push(("Al27", 2.0 * n_al2o3));
+    v.push(("O16r", 3.0 * (n_gd2o3 + n_al2o3)));
+    v
+}
+
+/// Inconel (the element shells), nominal Inconel 600: 8.47 g/cm³, 15.5 wt %
+/// Cr, 8.0 wt % Fe, the balance Ni. TM-0728 says "Inconel" only; the grade
+/// and composition are assumed, not from the report. Uses the core's hot
+/// Cr, Fe and Ni.
+pub fn rod_inconel() -> Vec<(&'static str, f64)> {
+    let mut v = element(8.47, 0.08, 55.845, &[("Fe54", 0.05845), ("Fe56", 0.91754), ("Fe57", 0.02119), ("Fe58", 0.00282)]);
+    v.extend(element(8.47, 0.155, 51.996, &[("Cr50", 0.04345), ("Cr52", 0.83789), ("Cr53", 0.09501), ("Cr54", 0.02365)]));
+    v.extend(element(8.47, 0.765, 58.693, &[("Ni58", 0.68077), ("Ni60", 0.26223), ("Ni61", 0.011399), ("Ni62", 0.036346), ("Ni64", 0.009255)]));
+    v
+}
+
+/// The two rod materials, in the order [`geometry_with_rods`] expects.
+pub fn rod_materials() -> Vec<(&'static str, Vec<(&'static str, f64)>)> {
+    vec![("Control rod Inconel", rod_inconel()), ("Control rod poison, Gd2O3-Al2O3 (axially smeared)", rod_poison())]
+}
+
+/// Which control rods are in, by ORNL-4233's numbering (gh:#1128). Rod 2 is
+/// the thimble diagonally opposite the sample holder (ORNL-4233 Fig. 15c),
+/// so `OPENINGS[0]`; rods 1 and 3 flank the sample holder and are mirror
+/// images, so which of `OPENINGS[1]` and `[2]` is which does not matter.
+pub fn rods_inserted(spec: &str) -> [bool; 3] {
+    match spec {
+        "none" => [false; 3],
+        "2" => [true, false, false],
+        "1" => [false, true, false],
+        "3" => [false, false, true],
+        "1-2-3" => [true; 3],
+        other => panic!("rods must be none|1|2|3|1-2-3, got {other}"),
+    }
+}
+
+/// `g` (a geometry from [`geometry_with_ends`] or [`geometry_with_shield`])
+/// with control rods in the thimbles flagged by `inserted`.
+///
+/// **The rods are "inserted all the way through the core"**, the condition
+/// of ORNL-4233 Table 4's calculated worths (and TM-0730 §4): poison fills
+/// the whole thimble, through the core and the upper plenum. The real rods'
+/// 59.36 in poison section and 51 in travel are not modelled, because the
+/// axial position of either end is not given in the text read so far.
+///
+/// Each rod is concentric in its thimble, from TM-0728 Table 5.4:
+/// - void inside the element shell (the flexible hose and cables are
+///   omitted);
+/// - the shell's inner wall, Inconel, `ROD_SHELL_R_IN` + `ROD_CLAD`;
+/// - a void gap to the ceramic;
+/// - the ceramic, 0.84–1.08 in, smeared over the element length;
+/// - a void gap, then the shell's outer wall, Inconel;
+/// - the cooling-gas gap to the thimble wall, void.
+///
+/// Rod dimensions are cold (not expanded). The thimble's void cell
+/// (id 20 + i) keeps its id and becomes the outer gas gap; the new cells
+/// are numbered 200 + 10 i + k (the stringer cells are 101 and 102).
+pub fn geometry_with_rods(mut g: Geometry, d: Dims, inserted: [bool; 3], first_rod_material: usize, t_k: f64) -> Geometry {
+    let t = BoundaryType::Transmissive;
+    let radii = [
+        ROD_SHELL_R_IN,
+        ROD_SHELL_R_IN + ROD_CLAD,
+        ROD_CERAMIC_R_IN,
+        ROD_CERAMIC_R_OUT,
+        ROD_SHELL_R_OUT - ROD_CLAD,
+        ROD_SHELL_R_OUT,
+    ];
+    let (inconel, poison) = (first_rod_material, first_rod_material + 1);
+    // Ring k lies between radii[k-1] and radii[k]; ring 0 is the centre.
+    let fills = [None, Some(inconel), None, Some(poison), None, Some(inconel)];
+    let root = g.root_universe;
+    for (i, &(x, y)) in OPENINGS[..3].iter().enumerate() {
+        if !inserted[i] {
+            continue;
+        }
+        let idx = g.cells.iter().position(|c| c.id == 20 + i as i32).expect("thimble void cell");
+        let base = g.cells[idx].region.clone();
+        let s: Vec<usize> = radii
+            .iter()
+            .map(|&r| {
+                g.surfaces.push(zcyl(x * d.graphite, y * d.graphite, r, t));
+                g.surfaces.len() - 1
+            })
+            .collect();
+        g.cells[idx].region.push(hs(s[5], false));
+        g.cells[idx].region.push(RegionToken::Intersection);
+        for (k, fill) in fills.iter().enumerate() {
+            let mut region = base.clone();
+            region.push(hs(s[k], true));
+            region.push(RegionToken::Intersection);
+            if k > 0 {
+                region.push(hs(s[k - 1], false));
+                region.push(RegionToken::Intersection);
+            }
+            let id = 200 + 10 * i as i32 + k as i32;
+            let cell = match fill {
+                Some(m) => Cell::material(id, region, *m, t_k),
+                None => Cell::fill(id, region, CellFill::Void, Position::ZERO),
+            };
+            g.cells.push(cell);
+            let n = g.cells.len() - 1;
+            g.universes[root].cell_indices.push(n);
+        }
+    }
+    g
+}
+
 /// Fission source box: the graphite core.
 pub fn source_box() -> SourceBox {
     SourceBox {
@@ -1141,6 +1303,63 @@ mod tests {
         let down = salt_with_enriching_salt(&base, 0.95);
         for ((n, b), ((_, u), (_, w))) in base.iter().zip(up.iter().zip(&down)) {
             assert!(((u - b) + (w - b)).abs() <= 1e-9 * (u - b).abs() + 1e-17, "{n}");
+        }
+    }
+
+    #[test]
+    fn control_rods_fill_their_thimbles_with_tm0728_poison() {
+        // Gd2O3 per rod: 38 elements × 3 cylinders of 0.84 × 1.08 × 0.4383 in
+        // at 5.873 g/cm³ and 70 wt %; TM-0728 Table 5.4 says 1.2 kg.
+        let ring = core::f64::consts::PI * (ROD_CERAMIC_R_OUT.powi(2) - ROD_CERAMIC_R_IN.powi(2));
+        let gd2o3_kg = 114.0 * ring * 0.4383 * INCH * ROD_CERAMIC_DENSITY * ROD_GD2O3_WT / 1000.0;
+        assert!((gd2o3_kg - 1.2).abs() < 0.03, "{gd2o3_kg}");
+        // The smeared poison carries the same Gd over 38 element lengths.
+        let gd: f64 = rod_poison().iter().filter(|e| e.0.starts_with("Gd")).map(|e| e.1).sum();
+        let gd_kg = gd * ring * 38.0 * 1.562 * INCH * 157.25 / 0.602214076 / 1000.0;
+        assert!((gd_kg - gd2o3_kg * 2.0 * 157.25 / (2.0 * 157.25 + 3.0 * 15.999)).abs() < 1e-9, "{gd_kg}");
+        assert_eq!(rods_inserted("none"), [false; 3]);
+        assert_eq!(rods_inserted("1-2-3"), [true; 3]);
+        assert_eq!(rods_inserted("2"), [true, false, false]);
+        // Every rod nuclide has a tape entry, and Inconel uses the core's.
+        for (n, _) in rod_materials().iter().flat_map(|m| m.1.clone()) {
+            assert!(ROD_NUCLIDES.iter().chain(NUCLIDES.iter()).any(|(k, _)| *k == n), "{n} has no tape");
+        }
+        // Geometry: rods in, no overlap or hole, and each ring where drawn.
+        let mats = materials_with_ends(MoTreatment::Natural, 1181.0, Dims::COLD);
+        let base = geometry_with_ends(TEMPERATURE_K, TEMPERATURE_K, Dims::COLD, Ends::VolumeEquivalent);
+        let n_base = base.cells.len();
+        let g = geometry_with_rods(base, Dims::COLD, [true; 3], mats.len(), TEMPERATURE_K);
+        assert_eq!(g.cells.len(), n_base + 18);
+        for (i, &(x, y)) in OPENINGS[..3].iter().enumerate() {
+            for z in [1.0, H_CORE / 2.0, H_CORE + 2.0] {
+                let plot = SlicePlot {
+                    origin: Position::new(x, y, z),
+                    basis: PlotBasis::Xy,
+                    width: [2.0 * R_OPENING, 2.0 * R_OPENING],
+                    pixels: [200, 200],
+                    level: None,
+                    show_overlaps: true,
+                    meshlines: None,
+                };
+                let ids = plot.id_map(&g);
+                let (mut poison, mut inconel, mut bad) = (0usize, 0usize, 0usize);
+                for h in &ids.hits {
+                    match *h {
+                        SliceHit::Found { material: Some(m), .. } if m == mats.len() => inconel += 1,
+                        SliceHit::Found { material: Some(m), .. } if m == mats.len() + 1 => poison += 1,
+                        SliceHit::Overlap | SliceHit::NotFound => bad += 1,
+                        _ => {}
+                    }
+                }
+                assert_eq!(bad, 0, "rod {i} z {z}");
+                // Pixel area against the analytic ring areas, to 3 %.
+                let px = (2.0 * R_OPENING / 200.0).powi(2);
+                let shells = core::f64::consts::PI
+                    * ((ROD_SHELL_R_IN + ROD_CLAD).powi(2) - ROD_SHELL_R_IN.powi(2) + ROD_SHELL_R_OUT.powi(2)
+                        - (ROD_SHELL_R_OUT - ROD_CLAD).powi(2));
+                assert!((poison as f64 * px / ring - 1.0).abs() < 0.03, "rod {i} z {z}: {poison}");
+                assert!((inconel as f64 * px / shells - 1.0).abs() < 0.10, "rod {i} z {z}: {inconel}");
+            }
         }
     }
 

@@ -259,10 +259,31 @@ const TEMP: f64 = 293.6;
 /// The values before, measured with DBRC: k_mean
 /// 9.872_893_945_032_524_82e-1, k_std 4.034_210_549_813_215_67e-3, first
 /// generation 9.354_845_634_945_611_05e-1, last 9.831_945_442_690_159_80e-1.
-const K_MEAN_PRE_258: f64 = 9.929_367_335_926_888_58e-1;
-const K_STD_PRE_258: f64 = 4.691_511_358_454_659_82e-3;
-const K_GEN_FIRST_PRE_258: f64 = 9.354_845_634_945_611_05e-1;
-const K_GEN_LAST_PRE_258: f64 = 9.796_434_138_179_326_29e-1;
+// Re-pinned 2026-11-11 (gh:#1386): the OpenMC-faithful collision kernels are the
+// transport default. Before: k_mean 0.992937 (k_std 4.69e-3), first generation
+// 0.935485, last 0.979643. After: k_mean 0.999782 (k_std 4.41e-3), first 0.911470,
+// last 1.061531: +685 pcm, 1.07 sigma (quadrature of the two k_std), so
+// re-pinned. The old values were not re-measured under the legacy switch here.
+// Re-pinned again 2026-11-11 (gh:#1386, #1444 a, b: OpenMC scatter() reaction
+// order + single-cutoff level pick, CSG default). Before: k_mean 0.999782 (k_std
+// 4.41e-3), first 0.911470, last 1.061531. After: k_mean 0.994679 (k_std 4.92e-3),
+// first 0.947756, last 0.957608: -510 pcm, 0.77 sigma (quadrature of the two
+// k_std), so re-pinned. OUTRAM_MC_LEGACY_REACTION_ORDER=1 reproduces the old values.
+// Re-pinned again 2026-11-11 (gh:#1386, #1444 d: OpenMC sample_fission_neutron
+// order). Before: k_mean 0.994679 (k_std 4.92e-3), first 0.947756, last 0.957608.
+// After: k_mean 0.987865 (k_std 4.52e-3), first 0.889782, last 0.954621: -681 pcm,
+// 1.02 sigma (quadrature of the two k_std), so re-pinned, not a finding.
+// Verified 2026-11-11: the (d) pin above passed (6.3 min) before (c) landed.
+// Re-pinned again 2026-11-11 (gh:#1386, #1444 c: OpenMC per-collision
+// create_fission_sites banking). Before: k_mean 0.987865 (k_std 4.52e-3), first
+// 0.889782, last 0.954621. After: k_mean 0.994298 (k_std 3.73e-3), first 0.910957,
+// last 1.014228: +643 pcm, 1.10 sigma (quadrature of the two k_std), so
+// re-pinned, not a finding. OUTRAM_MC_LEGACY_FISSION_BANKING=1 reproduces the old
+// values (verified 2026-11-11, 5.9 min, passes against the previous pin).
+const K_MEAN_PRE_258: f64 = 9.942_984_087_246_982_13e-1;
+const K_STD_PRE_258: f64 = 3.728_545_886_689_060_49e-3;
+const K_GEN_FIRST_PRE_258: f64 = 9.109_570_513_333_912_21e-1;
+const K_GEN_LAST_PRE_258: f64 = 1.014_228_059_342_313_19e0;
 
 fn heu() -> Option<Vec<Nuclide>> {
     let base =

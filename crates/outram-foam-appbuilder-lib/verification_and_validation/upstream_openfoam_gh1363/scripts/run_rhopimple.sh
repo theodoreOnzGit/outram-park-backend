@@ -29,7 +29,7 @@ EXE_INC = \\
     -I\$(LIB_SRC)/thermophysicalModels/specie/lnInclude \\
     -I\$(LIB_SRC)/thermophysicalModels/thermophysicalProperties/lnInclude \\
     -I\$(LIB_SRC)/TurbulenceModels/turbulenceModels/lnInclude \\
-    -I/home/user/upstream-build/gh1363/closure/scratch/compressibleTurbulenceModels/lnInclude
+    -I\$(LIB_SRC)/TurbulenceModels/compressible/lnInclude
 
 EXE_LIBS = \\
     -lfiniteVolume \\
