@@ -56,6 +56,17 @@ assembled as a deferred correction on the upwind matrix
 (`solvers::schemes::div_vec_scheme`). The upwind default is run once as an
 ablation (De = 126, m = 3) and reported whatever it shows.
 
+> **CORRECTED 2026-11-12 (gh:#1363), not re-run.** Since dfb334c42
+> `DivScheme::GaussLinear` is upstream's fully implicit `Gauss linear`
+> (differential vs OpenFOAM-dev `icoFoam` cavity, ~1e-13). Every number in this
+> record was measured with the **deferred-correction** form, which is not an
+> OpenFOAM scheme; it survives as `DivScheme::GaussLinearDeferred`, and Foam
+> Studio's coil runs now name it explicitly. With upstream's implicit
+> `Gauss linear` the coarse Foam Studio coil at Re 200 **diverges**
+> (`headless_coil_shows_dean_flow`, `a_coarse_coil_shows_dean_flow`). Read
+> "Gauss linear" below as "Gauss linear, deferred correction". Whether this
+> study should be re-run with the upstream scheme is open (gh:#1363).
+
 **Grids:** the similar family `n = nr = 2m` (cross-section `20 m²` cells, as
 `PipeOGrid::level`), `round(m L/d)` layers (Δs = d/m):
 m = 2: 80 × 189 = 15 120 cells; **m = 3: 180 × 283 = 50 940 (the De sweep)**;
