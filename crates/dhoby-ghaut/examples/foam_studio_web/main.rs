@@ -17,7 +17,7 @@
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --render-exchanger [out-dir]
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --render-coil [out-dir]
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --headless-coil [cells] [re] [turns]
-//! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --coil-run <m> <re> [linear|upwind] [straight]
+//! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --coil-run <m> <re> [linear|upwind] [straight] [trace]
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --headless-unstructured [h_mm] [layers] [first_mm] [expansion] [re] [length_mm]
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --mesh-sweep
 //! cargo run  -p dhoby-ghaut --example foam_studio_web --release -- --render-unstructured [out-dir]
@@ -589,7 +589,7 @@ fn rebuild_with_zones(all: &outram_foam_mesh::block_mesh::PolyMesh, zones: Vec<o
     UnstructuredMesh::from_polyhedral(LengthUnit::Metre, points, faces, all.n_cells, patches, zones).map_err(|e| format!("{e:?}"))
 }
 
-/// `--coil-run <m> <re> [linear|upwind] [straight] [max_steps] [co=<Courant, 4>] [tol=<steady tolerance>] [svg=<path>]`: one run of the
+/// `--coil-run <m> <re> [linear|upwind] [straight] [trace] [max_steps] [co=<Courant, 4>] [tol=<steady tolerance>] [svg=<path>]`: one run of the
 /// coil V&V (`helical_coil_dean_gh1157.md`) on the level-`m` grid, printing
 /// progress and one result row. CLI glue; the run is the tested
 /// `coil::run_to_steady`.
@@ -599,7 +599,7 @@ fn coil_run_cli(args: &[String]) -> Result<(), String> {
     let lvl: usize = args.first().and_then(|v| v.parse().ok()).unwrap_or(3);
     let re: f64 = args.get(1).and_then(|v| v.parse().ok()).unwrap_or(200.0);
     let has = |w: &str| args.iter().any(|a| a == w);
-    let scheme = if has("upwind") { DivScheme::GaussUpwind } else { DivScheme::GaussLinearDeferred };
+    let scheme = if has("upwind") { DivScheme::GaussUpwind } else { DivScheme::GaussLinear };
     let spec = if has("straight") { coil::CoilSpec::straight_limit() } else { coil::CoilSpec::vv() };
     let max_steps = args.iter().filter_map(|a| a.parse::<usize>().ok()).nth(2).unwrap_or(20_000);
     let co: f64 = args.iter().find_map(|a| a.strip_prefix("co=")).and_then(|v| v.parse().ok()).unwrap_or(4.0);
@@ -623,6 +623,10 @@ fn coil_run_cli(args: &[String]) -> Result<(), String> {
             }
             let rr = (run.cells.n[at].powi(2) + run.cells.b[at].powi(2)).sqrt() / run.grid.radius.get::<uom::si::length::meter>();
             eprintln!("  largest change at s = {:.4} m of {:.4} (r/R {:.2}), |dU| {:.3e}", run.cells.s[at], run.grid.arc_length().get::<uom::si::length::meter>(), rr, worst);
+        }
+        if has("trace") {
+            let umax = run.solver.u.internal.as_slice().iter().map(|v| v.mag()).fold(0.0_f64, f64::max);
+            eprintln!("trace step {} change {c:.3e} max|U|/U {:.3} dt {:.3e}", run.steps, umax / coil::U_COIL, run.solver.control.delta_t);
         }
         if run.steps % 50 == 0 {
             let r = run.report();

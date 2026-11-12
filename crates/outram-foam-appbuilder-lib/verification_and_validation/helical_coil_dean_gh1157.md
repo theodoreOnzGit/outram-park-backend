@@ -359,6 +359,63 @@ animation frame. Report: `helical_coil_dean_gh1157/browser_report_20000.json`.
   roughly halves it; the 20k default stays because it is what gives the
   0.2 % agreement with the V&V grid above.
 
+## Re-run with upstream's implicit `Gauss linear` (gh:#1500, 2026-11-12)
+
+Maintainer direction, 2026-11-12: "Deprecate the old scheme, replace helical
+coil with new one." `DivScheme::GaussLinearDeferred` is deprecated; Foam
+Studio and this record now use `DivScheme::GaussLinear`, upstream's fully
+implicit form. This section is written in the order it was done: diagnosis
+hypotheses first, then results (added below, after the runs).
+
+### Diagnosis of the coarse-coil divergence: hypotheses (written BEFORE any test run)
+
+**Observation (2026-11-12, `--coil-run 2 200 linear trace`, m = 2, 15 120
+cells, Co 4, dt = 2.0 s):** step 1 completes (max |U| = 1.77 U, change
+1.7e2), step 2 returns non-finite values. The solver has no under-relaxation
+and no momentum-predictor switch (`PimpleFoam::step_flow`: Euler, one outer
+corrector, 2 pressure correctors, one non-orthogonal corrector); the knobs are
+the Courant number, the time step, the mesh and the number of outer/pressure
+correctors.
+
+**Upstream read first (OpenFOAM-dev 852527377c7e and v2506 tutorials, read
+2026-11-12).** The one laminar PISO tutorial that uses an unbounded
+`div(phi,U) Gauss linear` is `legacy/incompressible/icoFoam/cavity`: dt =
+0.005, dx = 0.1/20 = 0.005, lid U = 1, i.e. **a cell Courant number of 1**
+(the same case as the port's 1e-13 differential). Every laminar or
+unstructured tutorial that runs above Co 1 uses a bounded scheme
+(`icoFoam/elbow`, `pimpleFoam/laminar/*` and `pipeCyclic`: `limitedLinearV 1`;
+`ductSecondaryFlow`, `planarPoiseuille`: `linearUpwind`), and the steady ones
+(`moodyChart`, `ductSecondaryFlow`) use `relaxationFactors` with large
+`nOuterCorrectors`. Nothing upstream runs an unbounded implicit central
+scheme at Co 4 with PISO and no relaxation.
+
+**H1 (Courant number; the leading hypothesis).** The implicit central
+convection matrix has off-diagonals `+-phi/2` and diagonal `V/dt`
+(+ viscous); it is diagonally dominant only while the face-flux Courant
+number `phi dt / V` is at most about 1 (viscosity is small at Re 200: cell
+Peclet `U ds / nu` = Re/2 = 100). The run's `Co = 4` (on 2U, `pseudo_time_step`)
+is four times that, and the impulsive start from rest adds a large pressure
+transient. The deferred form hid this because its implicit part is upwind,
+which is always dominant. *Prediction:* the coarse coil diverges at Co 4 and
+at Co 2, and is stable at Co <= 1 (the cavity's value) and reaches the
+steady criterion; its steady f*Re/64 then lies within a few percent of the
+deferred form's (same order of accuracy, different operator), not equal.
+
+**H2 (a defect at boundaries on the swept O-grid, e.g. the implicit central
+term at the inlet fixed-value / outlet zero-gradient faces or the
+non-orthogonal correction).** *Prediction:* divergence persists at small Co
+(0.1 or less) and first appears next to the inlet/outlet or the wall. If H1's
+Co <= 1 run is stable, H2 is not needed.
+
+**H3 (nonlinear outer iterations).** More outer correctors would stabilise
+Co 4: *prediction:* nOuter = 3 at Co 4 does not cure it (no relaxation to damp
+the extra iterations), so H3 is the weakest.
+
+**Protocol rule, fixed now:** whatever the cause, the fix changes the
+Courant number / time step (the protocol), never a gate; the tests' physics
+assertions (steady criterion 1e-3, mass balance 1e-8, Dean signs) are not
+touched; any pinned number that moves is re-recorded old -> new.
+
 ## Reproduce
 
 ```bash
