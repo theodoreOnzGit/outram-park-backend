@@ -1354,3 +1354,36 @@ reference.
   no new code beyond the new `extrudeStatus`).
 - Multi-layer (expansion ratio != 1) runs, `nOuterIter != 1`, faceZones, non-adapt patch seeds.
 - `docs/outram-foam-mesh-api.md` is not regenerated (no `kovan-cli` in this environment).
+
+# Round 9 (2026-11-12): `truncateDisplacement`, `addPatchCellLayer::setRefinement`, the layer loop
+
+**Inventory first (search-before-building).** Re-grepped `polyTopoChange`, `topo_change`,
+`renumber`, `addPatchCellLayer` over the workspace including cfmesh. Present: `esi_merge::change_mesh`
+(removals and modifications only: assumes `owner < neighbour`, no added points, faces or cells) and
+`poly_dual_mesh_upstream` (meshDualiser, its own builder, adds cells and faces but not through a
+reusable change object). Neither contains `addPatchCellLayer` (cfmesh's and `layers.rs` are
+Foundation-style, not ESI's, as in round 8). So the layer-topology builder is new, written beside
+`esi_merge::change_mesh` and following `polyTopoChange::getFaceOrder` (cells in order, faces of a
+cell sorted by neighbour, then patch faces by patch and `polyTopoChange` label).
+
+**ESI side, re-run this round** (the round-8 run directory was not kept): `snappyHexMeshDict.layers`,
+same blockMesh, 18 s. Counts reproduce round 8: three layer iterations, 17 / 2 / 0 faces removed,
+final mesh 91: 31644 points, 85399 faces. **Pre-run observation, disclosed (not a prediction):**
+the first 24305 points of `86/polyMesh/points` are bit-identical to `85/polyMesh/points` (the
+shrunk mesh), i.e. `addPatchCellLayer` keeps the old point labels and appends the new points.
+The extra detail in the log: iteration 0 `Added 8743 out of 9747 cells`, 8724 faces extruded.
+
+## PREDICTIONS (committed before the round-9 port code exists)
+
+Written from reading `snappyLayerDriver::truncateDisplacement`, `getVertexString`,
+`setupLayerInfoTruncation`, `checkAndUnmark`, `getLayerCellsFaces`, `addLayers` (the loop),
+`addPatchCellLayer::setRefinement` (+ `getEdgeString`, `addSideFace`, `findDuplicatedPoints`) and
+`polyTopoChange::getFaceOrder`, v2506.
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P55 | `truncateDisplacement` after the iteration-0 medial move unmarks **0 and 0** faces (ESI log), leaving 7437 points (31742 - 24305) with `nPatchPointLayers = 1`, and `setupLayerInfoTruncation` (`nBufferCellsNoExtrude 0`) gives **8743 faces with `nPatchFaceLayers = 1`** (ESI: "Writing 8743 added cells"). | the face-layer rule for faces with a non-extruded point (`maxLevel`) |
+| P56 | `addPatchCellLayer::setRefinement` + `polyTopoChange` numbering reproduces `86/polyMesh`: **31742 points** (first 24305 unchanged, new points bit-identical), **85701 faces**, old cells + 8743 added; **all faces equal per index** (ring including start vertex, owner, neighbour, patch) on the first run. | the ring start of the side faces (edge strings), the neighbour tie order of `getFaceOrder`, the order of `addSideFace` calls |
+| P57 | `checkAndUnmark` on layer mesh 86 finds **2 non-orthogonal and 15 tet-quality faces, 17 illegal faces**, and unmarks the extrusion at **17 pp faces** (8724 extruded). | the checks are those of round 4, on a mesh with new boundary faces |
+| P58 | Layer iterations 1 and 2: the shrunk meshes `87`, `89` equal ESI bit for bit (24305 points), `truncateDisplacement` iteration 1 prints 2, 0 then 0, 0; layer meshes `88`, `90` equal per index; extruded faces 8658 and 8642. | the mover's persistent state between iterations (displacement field), `unmarkExtrusion` of faces, `growNoExtrusion` |
+| P59 | The final mesh (91, 31644 points, 85399 faces) equals `layer_mesh_91` per index and the `printLayerData` table equals ESI's. | `doLayers` does more after the loop than the outer loop shows |
