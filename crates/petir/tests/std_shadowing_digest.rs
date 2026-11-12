@@ -94,6 +94,24 @@
 //! guards is unaffected; `scripts/check-std-shadowing.sh` was run on the new
 //! pins (result in the commit that made this change).
 
+//!
+//! # Re-pinned 2026-11-12: `specfunc` (gh:#1338 case 1, d4900a0d0)
+//!
+//! A deliberate change to one routine's arithmetic, merged without the
+//! re-pin. d4900a0d0 ("specfunc sweep against compiled GSL 2.8; fix
+//! synchrotron pow_int") changed the private `specfunc::synchrotron::pow_int`
+//! from `n` plain multiplications to GSL's repeated squaring
+//! (`specfunc/pow_int.c:52`), which rounds differently and so moves `S_1` and
+//! `S_2` (by up to 1.3e-13 relative; the new form matches compiled GSL 2.8).
+//! `specfunc` moved `0x88ec94e3202a1c7e` -> `0xaea416b39f72eec7`. Proof the
+//! move is that change and nothing else (2026-11-12, on develop `8e7b07eb9`):
+//! with only `pow_int`'s body temporarily put back to the plain loop, this
+//! test printed `specfunc 0x88ec94e3202a1c7e` and passed with all seven old
+//! pins; that commit is the only change to `crates/petir/src/specfunc/` since
+//! the 2026-10-21 pin. The other six groups did not move. Not re-checked:
+//! `scripts/check-std-shadowing.sh`'s four-graph run on the new pin (the
+//! change is plain `*` on `f64`, which no build-graph switch touches).
+
 #[path = "std_shadowing/digest.rs"]
 mod digest;
 
@@ -103,7 +121,9 @@ const EXPECTED: &[(&str, u64)] = &[
     ("linalg", 0xd8c5ccef7949ea52),
     ("poly", 0x79cf17c03ec9892a),
     // Re-pinned 2026-10-21 (gh:#985 re-lift); was 0xa12b16066df916cf.
-    ("specfunc", 0x88ec94e3202a1c7e),
+    // Re-pinned 2026-11-12 (synchrotron `pow_int`, d4900a0d0, gh:#1338);
+    // was 0x88ec94e3202a1c7e. See the module docs.
+    ("specfunc", 0xaea416b39f72eec7),
     ("wgsl_mirrors", 0xea6f3ca0eb4f5ece),
     // Re-pinned 2026-10-21 (gh:#985 re-lift); was 0x142dfcde5eb88a64.
     ("transfer_fn", 0x328eb18a7aceaede),
