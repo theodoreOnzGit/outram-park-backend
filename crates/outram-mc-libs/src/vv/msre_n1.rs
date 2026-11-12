@@ -341,6 +341,37 @@ pub fn kelvin_from_f(t_f: f64) -> f64 {
     (t_f - 32.0) * 5.0 / 9.0 + 273.15
 }
 
+/// The default fuel salt: [`SALT`] (from `scripts/salt.py`) with the
+/// enriched lot's U-234 and U-236 as TM-0730 Table 3.2 assumes them
+/// ([`salt_with_tm0730_minor_uranium`]).
+///
+/// **Default since 2026-11-12** (maintainer: "More physical model is
+/// better"). Real 93 % uranium carries about 1 % U-234, so the model with it
+/// is the more physical one, though the isotopics are a design assumption,
+/// not an assay. Measured worth: −326 ± 83 pcm on N-1 (gh:#1128). Every
+/// record before this date was made without U-234/U-236; the ablation is
+/// [`salt_without_minor_uranium`] (`--minor-uranium none` in the example).
+/// Pinned by `the_default_salt_carries_u234_and_u236`.
+pub fn default_salt() -> Vec<(&'static str, f64)> {
+    salt_with_tm0730_minor_uranium(&SALT)
+}
+
+/// The ablation of [`default_salt`]'s U-234/U-236: `salt` with U-234 and
+/// U-236 removed and the U-238 and F-19 that
+/// [`salt_with_tm0730_minor_uranium`] moved put back, so that
+/// `salt_without_minor_uranium(&default_salt())` is [`SALT`] (tested).
+pub fn salt_without_minor_uranium(salt: &[(&'static str, f64)]) -> Vec<(&'static str, f64)> {
+    let with = salt_with_tm0730_minor_uranium(&SALT);
+    let get = |v: &[(&str, f64)], n: &str| v.iter().find(|e| e.0 == n).map_or(0.0, |e| e.1);
+    salt.iter()
+        .filter(|e| e.0 != "U234" && e.0 != "U236")
+        .map(|&(n, v)| match n {
+            "U238" | "F19" => (n, v - get(&with, n) + get(&SALT, n)),
+            _ => (n, v),
+        })
+        .collect()
+}
+
 /// The materials at `t_f` °F, for the isothermal coefficient (MSRE N-3,
 /// gh:#1129). Only the salt's density moves, by [`SALT_EXPANSION_PER_F`]
 /// from the reference state, in the salt and in the basket's salt share.
@@ -349,7 +380,7 @@ pub fn kelvin_from_f(t_f: f64) -> f64 {
 /// out).
 pub fn materials_at(mo: MoTreatment, t_f: f64) -> Vec<(&'static str, Vec<(&'static str, f64)>)> {
     let f = 1.0 + SALT_EXPANSION_PER_F * (t_f - REFERENCE_TEMPERATURE_F);
-    let salt: Vec<(&'static str, f64)> = SALT.iter().map(|&(n, d)| (n, d * f)).collect();
+    let salt: Vec<(&'static str, f64)> = default_salt().into_iter().map(|(n, d)| (n, d * f)).collect();
     let (fi, fg, fs) = basket_fractions();
     let mut basket: Vec<(&'static str, f64)> = Vec::new();
     let parts: [(f64, Vec<(&'static str, f64)>); 3] =
@@ -1348,6 +1379,28 @@ mod tests {
         let down = salt_with_enriching_salt(&base, 0.95);
         for ((n, b), ((_, u), (_, w))) in base.iter().zip(up.iter().zip(&down)) {
             assert!(((u - b) + (w - b)).abs() <= 1e-9 * (u - b).abs() + 1e-17, "{n}");
+        }
+    }
+
+    #[test]
+    fn the_default_salt_carries_u234_and_u236() {
+        // Pins the 2026-11-12 default (correct physics is the default).
+        let salt = &materials(MoTreatment::Natural)[SALT_IDX].1;
+        for n in ["U234", "U236"] {
+            assert!(salt.iter().any(|e| e.0 == n && e.1 > 0.0), "default salt lacks {n}");
+        }
+        assert_eq!(*salt, default_salt());
+        // The basket's salt share carries them too.
+        assert!(materials(MoTreatment::Natural)[BASKET_IDX].1.iter().any(|e| e.0 == "U234"));
+        // The ablation restores the recorded composition, to round-off.
+        let back = salt_without_minor_uranium(&default_salt());
+        assert_eq!(back.len(), SALT.len());
+        for ((a, x), (b, y)) in back.iter().zip(SALT.iter()) {
+            assert_eq!(a, b);
+            assert!((x - y).abs() <= 1e-15 * y.abs().max(1e-30) + 1e-22, "{a}: {x} vs {y}");
+        }
+        for (n, file) in MINOR_U_NUCLIDES {
+            assert!(njoy_outram_park_fork::reference_data::reference_endf(file).is_some(), "{n}: {file}");
         }
     }
 

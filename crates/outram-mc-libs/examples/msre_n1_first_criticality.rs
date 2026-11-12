@@ -8,7 +8,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
-//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730] [--shield none|tm0728|tm0728-drained|tm0728-packed] [--u235-scale X] [--rods none|1|2|3|1-2-3] [--balance-csv path] [--salt-spectrum-csv path] [--minor-uranium none|tm0730]
+//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730] [--shield none|tm0728|tm0728-drained|tm0728-packed] [--u235-scale X] [--rods none|1|2|3|1-2-3] [--balance-csv path] [--salt-spectrum-csv path] [--minor-uranium tm0730|none]
 //! ```
 //!
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
@@ -288,16 +288,18 @@ fn main() {
     if let Some(x) = u235_scale {
         mats[m::SALT_IDX].1 = m::salt_with_enriching_salt(&mats[m::SALT_IDX].1, x);
     }
-    // `--minor-uranium tm0730`: the enriched lot's non-235 uranium as
-    // TM-0730 Table 3.2 assumes it (1/93/1/5 atom % U-234/235/236/238), in
-    // place of salt.py's all-U-238 (gh:#1128). The basket keeps the default.
-    let minor_u = match flag(&args, "--minor-uranium").as_deref() {
-        None | Some("none") => false,
-        Some("tm0730") => true,
-        Some(other) => panic!("--minor-uranium must be none|tm0730, got {other}"),
+    // `--minor-uranium tm0730|none`: since 2026-11-12 the default salt
+    // carries the enriched lot's U-234/U-236 as TM-0730 Table 3.2 assumes
+    // them (`m::default_salt`; gh:#1128). `none` is the explicit ablation,
+    // back to salt.py's all-U-238 (the basket keeps the default).
+    let no_minor_u = match flag(&args, "--minor-uranium").as_deref() {
+        None | Some("tm0730") => false,
+        Some("none") => true,
+        Some(other) => panic!("--minor-uranium must be tm0730|none, got {other}"),
     };
-    if minor_u {
-        mats[m::SALT_IDX].1 = m::salt_with_tm0730_minor_uranium(&mats[m::SALT_IDX].1);
+    if no_minor_u {
+        eprintln!("  ABLATION: --minor-uranium none, the salt has no U-234/U-236");
+        mats[m::SALT_IDX].1 = m::salt_without_minor_uranium(&mats[m::SALT_IDX].1);
     }
     let mut names: Vec<&str> = Vec::new();
     for (_, comps) in &mats {
@@ -410,7 +412,7 @@ fn main() {
         m::Shield::Tm0728Cylinder => m::geometry_with_shield(t_k, t_g, dims, ends, base_materials),
     };
     let g = if rodded { m::geometry_with_rods(g, dims, rods, first_rod_material, t_k) } else { g };
-    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + u235_scale.map_or(String::new(), |x| format!("+u235x{x}")).as_str() + if minor_u { "+minorU-tm0730" } else { "" } + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" } + if shield == m::Shield::Tm0728Cylinder { "+shield-tm0728" } else { "" } + if drained { "-drained" } else { "" } + if packed { "-packed" } else { "" } + if rodded { format!("+rods-{rods_spec}") } else { String::new() }.as_str();
+    let label = format!("{}{}@salt{salt_f}F/graphite{graphite_f}F", match mo { m::MoTreatment::Omitted => "mo-omitted", m::MoTreatment::Mo95Equivalent => "mo95-equivalent", m::MoTreatment::Natural => "mo-natural" }, if sab { "" } else { "+no-sab" }) + if no_minor_u { "" } else { "+u234" } + if no_dbrc { "+no-dbrc" } else { "" } + if hot_dims { "+hot-dims" } else { "" } + if graphite_law == "30p" { String::new() } else { format!("+graphite-{graphite_law}") }.as_str() + li7_pct.map_or(String::new(), |p| format!("+li7-{p}")).as_str() + u235_scale.map_or(String::new(), |x| format!("+u235x{x}")).as_str() + if ends == m::Ends::Tm0730 { "+ends-tm0730" } else { "" } + if shield == m::Shield::Tm0728Cylinder { "+shield-tm0728" } else { "" } + if drained { "-drained" } else { "" } + if packed { "-packed" } else { "" } + if rodded { format!("+rods-{rods_spec}") } else { String::new() }.as_str();
     let new_file = !csv.is_file();
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&csv).expect("csv");
     if new_file {
