@@ -222,8 +222,13 @@ fn interp_sigma_f32(grid: &[f32], sigma: &[f32], q: f32) -> f32 {
 }
 
 /// Distance (cm) from `(px,py,pz)` along unit direction `(ux,uy,uz)` to the
-/// bounding `sphere`, in **f32**, mirroring the shader and OpenMC
-/// `src/surface.cpp:607-638` (`SurfaceSphere::distance`, coincident = false).
+/// bounding `sphere`, in **f32**, mirroring the shader ~~and OpenMC
+/// `src/surface.cpp:607-638` (`SurfaceSphere::distance`, coincident = false)~~.
+/// **CORRECTED 2026-11-12 (gh:#1506, #1507):** it does not mirror OpenMC's
+/// `SurfaceSphere::distance` (`src/surface.cpp:652-690` at 8f79d9d0): its
+/// `d > EPS` floor gives no boundary to a neutron inside within ~1e-7 cm and
+/// moving out, and it has no `Surface::sense` test for a neutron outside. The
+/// fused kernel was fixed in #1506; this one is tracked on #1507.
 /// Returns [`BIG`] when the ray misses or both roots are behind the particle.
 #[inline]
 fn sphere_distance_f32(

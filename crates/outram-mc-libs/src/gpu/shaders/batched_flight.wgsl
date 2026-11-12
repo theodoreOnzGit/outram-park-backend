@@ -97,9 +97,13 @@
 // - RNG state advance: OpenMC src/random_lcg.cpp:32-35 (prn), constants 11-12.
 // - Sigma_t grid search + linear interp: OpenMC src/nuclide.cpp:716-740
 //   (Nuclide::calculate_xs), mirrored exactly as in this crate's xs_interp.wgsl.
-// - Bounding-sphere distance: OpenMC src/surface.cpp:607-638
+// - Bounding-sphere distance: ~~OpenMC src/surface.cpp:607-638
 //   (SurfaceSphere::distance), the coincident=false path; also this crate's
-//   `src/geometry/surface.rs` Sphere::distance.
+//   `src/geometry/surface.rs` Sphere::distance.~~ CORRECTED 2026-11-12
+//   (gh:#1506, #1507): step 6 does NOT follow SurfaceSphere::distance
+//   (src/surface.cpp:652-690 at 8f79d9d0): it floors both roots at EPS and has no
+//   Surface::sense test, so a neutron on or near the surface moving out gets no
+//   boundary. Fixed in batched_event.wgsl (#1506); open here on #1507.
 //
 // PRECISION / STATUS
 // ------------------
@@ -197,8 +201,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     //    which is >= d_bound below, i.e. treated as a leak.
     let d_col = -log(xi) / sigma_t;
 
-    // 6. Distance to the bounding sphere (cm). Mirrors OpenMC
-    //    src/surface.cpp:607-638 SurfaceSphere::distance (coincident = false).
+    // 6. Distance to the bounding sphere (cm). ~~Mirrors OpenMC
+    //    src/surface.cpp:607-638 SurfaceSphere::distance (coincident = false).~~
+    //    CORRECTED 2026-11-12: it does not (EPS floor, no sense test); gh:#1507.
     //    part_in dir layout: dir(i,c) = part_in[N + 3i + c].
     let px = pos[3u * i + 0u];
     let py = pos[3u * i + 1u];

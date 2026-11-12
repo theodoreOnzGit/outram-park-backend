@@ -84,6 +84,52 @@
 //! settings: 1.01358 +/- 0.00287; new per-collision 1.01179 +/- 0.00241; change
 //! -179 pcm, 0.48 sigma of the combined SE (unresolved; same expectation as the
 //! CPU paired study in `godiva_fission_banking_paired.rs`).
+//!
+//! # gh:#1506: the fused GPU arm ran away to k = 1.78 (2026-11-12)
+//!
+//! ~~The fused GPU arm: k = 1.01179 +/- 0.00241~~ (true when written; the run
+//! could not then reach the defect below). From commit `60ffd4bd5` (gh:#1497's
+//! CPU direction-norm guard, first checkpoint) the same test gave
+//! **k = 1.78183 +/- 0.05545 (+13.9 sigma, G2 FAILED)**, deterministic.
+//!
+//! **Cause, a latent kernel defect.** The fused kernel's sphere distance was
+//! `d_near > 1e-7`, else `d_far > 1e-7`, else none, and it assumed every neutron
+//! was inside. A collision site rounded (f32) to just outside the sphere, or
+//! inside within ~1e-7 cm, with the neutron then moving outward, got no boundary
+//! distance: it collided instead of leaking, banked sites outside, and those
+//! descendants transported in an infinite medium (production per neutron about
+//! Godiva's k_inf 2.26). OpenMC (8f79d9d0) never transports a particle outside
+//! its cell: `find_cell` at birth, `reconcile_cell_after_collision`
+//! (`src/geometry.cpp:319`) after a near-surface collision, both by
+//! `Surface::sense` (`src/surface.cpp:118-132`); its `SurfaceSphere::distance`
+//! (`src/surface.cpp:652-690`) gives a neutron inside and moving out `-k +
+//! sqrt(quad)`, with no 1e-7 floor. **Fix:** the kernel and the mirror now test
+//! the sense first (outside, or coincident moving out: leaked, since outside the
+//! vacuum sphere there is no cell) and then use a translation of
+//! `SurfaceSphere::distance` (coincident = false), with OpenMC's `FP_COINCIDENT`.
+//!
+//! **Why it showed only after `60ffd4bd5`.** Bisected on llvmpipe: `8070a3e13`
+//! (its parent) passes with the recorded 1.01179, `60ffd4bd5` fails with 1.78183,
+//! and no GPU file changed in between. The guard renormalises a direction whose
+//! `| |u|^2 - 1 |` exceeds `sqrt(f64::EPSILON)` = 1.5e-8. The fused arms bank
+//! their fission neutrons on the CPU from the kernel's **f32** directions cast to
+//! f64 (`bank_event_site_records`), whose norm error is of order f32 epsilon
+//! (1e-7), so the guard renormalises them and every fission-born direction
+//! changes in its last bits. The streams of the GPU and mirror arms changed
+//! (mirror 1.01047 -> 1.01288, CPU default unchanged at 1.01060, being f64
+//! throughout) and the GPU's new stream reaches the rare boundary event, about
+//! generation 52. The #1497 guard is not wrong; it exposed the kernel defect.
+//!
+//! **Results after the fix (2026-11-12, rustc 1.99.1 release, llvmpipe LLVM
+//! 20.1.2, 4 vCPU shared container):** fused GPU **k = 1.01091 +/- 0.00240**,
+//! bank/N 0.99907 +/- 0.00412, G1 D = -238.6 (bound 2236.4); G2 GPU - CPU
+//! dk = +31 pcm (+0.09 sigma). Fused mirror 1.01288 +/- 0.00232 (+0.71 sigma),
+//! unchanged at every printed digit: none of its histories reached the case.
+//! G3 and G4 unchanged (23412 records, sites and production equal on GPU and
+//! mirror). **G5** (new, [`g5_mirror_leaks_neutrons_leaving_through_the_surface`]):
+//! 0 of 2000 surface neutrons alive after one event on both arms; on the old
+//! kernel the mirror left 838 of 2000 alive with 420 collision records, so the
+//! gate can fail.
 
 use outram_mc_libs::gpu::batched_event::{
     advance_generation_cpu_mirror_banking, EventBatch, EventFissionBanking, EventSiteRecord,
@@ -326,8 +372,9 @@ fn surface_batch() -> EventBatch {
 /// similar set) and some of the inside half too (those within ~1e-7 cm, where
 /// the old `d_far > 1e-7` rule gave no boundary); after it, 0 of 2000.
 ///
-/// Result (2026-11-12, rustc 1.99.1 release): see `G5` in the RESULT block of the
-/// module comment.
+/// Result (2026-11-12, rustc 1.99.1 release): after the fix 0 of 2000 alive, no
+/// collision; on the old kernel 838 of 2000 alive and 420 collision records.
+/// PASSED.
 #[test]
 fn g5_mirror_leaks_neutrons_leaving_through_the_surface() {
     let t = tables();
