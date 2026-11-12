@@ -8,7 +8,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- --draw <dir>
 //! cargo run --release -p outram-mc-libs --example msre_n1_first_criticality -- \
-//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730] [--shield none|tm0728|tm0728-drained|tm0728-packed] [--u235-scale X] [--rods none|1|2|3|1-2-3]
+//!     --mo omitted|mo95|natural --seeds 1-4 [--temp-f 1181 | --salt-temp-f F --graphite-temp-f F] [--particles N --inactive N --active N --threads N --csv path] [--entropy-csv path] [--hot-dims] [--graphite-law 30p|10p|crystalline] [--axial-csv path] [--li7-atom-percent X] [--ends volume|tm0730] [--shield none|tm0728|tm0728-drained|tm0728-packed] [--u235-scale X] [--rods none|1|2|3|1-2-3] [--balance-csv path]
 //! ```
 //!
 //! - `--draw <dir>`: the geometry the solver sees, from the assembled CSG, by
@@ -43,7 +43,7 @@ use outram_mc_libs::physics::keff::KeffSettings;
 use outram_mc_libs::physics::keff::KeffResult;
 use outram_mc_libs::physics::transport_csg::{run_keff_csg, run_keff_csg_hybrid};
 use outram_mc_libs::stats::convergence::SourceConvergence;
-use outram_mc_libs::tally::filter::{EnergyFilter, FilterKind, MeshFilter};
+use outram_mc_libs::tally::filter::{EnergyFilter, FilterKind, MaterialFilter, MeshFilter};
 use outram_mc_libs::tally::mesh::{CylindricalMesh, MeshKind, MeshKindExt, RegularMesh};
 use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
 use outram_mc_libs::vv::msre_n1 as m;
@@ -186,6 +186,11 @@ fn main() {
     let packed = flag(&args, "--shield").as_deref() == Some("tm0728-packed");
     let graphite_law = flag(&args, "--graphite-law").unwrap_or_else(|| "30p".to_string());
     let axial_csv: Option<PathBuf> = flag(&args, "--axial-csv").map(PathBuf::from);
+    // `--balance-csv path`: absorption and nu-fission by material, for a
+    // neutron balance against ORNL-TM-0730 Table 3.6 (gh:#1128). One tally
+    // slot, so it cannot be combined with `--axial-csv`.
+    let balance_csv: Option<PathBuf> = flag(&args, "--balance-csv").map(PathBuf::from);
+    assert!(!(balance_csv.is_some() && axial_csv.is_some()), "--balance-csv and --axial-csv share one tally slot");
     // `--rods none|1|2|3|1-2-3`: control rods inserted all the way through
     // the core (TM-0728 Table 5.4 elements; ORNL-4233 Table 4's calculated
     // case), for the rod worth (gh:#1128). Default: none, every recorded run.
@@ -412,6 +417,9 @@ fn main() {
         // lower plenum, core and upper plenum, for the N-4 line model
         // (gh:#1130). Scoring draws no random number, so k is unchanged.
         let mut axial = axial_csv.as_ref().map(|_| axial_tally());
+        if balance_csv.is_some() {
+            axial = Some(balance_tally(materials.len()));
+        }
         let r = match &entropy_csv {
             None => run_keff_csg(&g, &materials, &nuclides, m::source_box(), &s, axial.as_mut()),
             Some(_) => {
@@ -429,6 +437,9 @@ fn main() {
         }
         if let (Some(path), Some(t)) = (&axial_csv, &axial) {
             write_axial(path, &label, seed, t);
+        }
+        if let (Some(path), Some(t)) = (&balance_csv, &axial) {
+            write_balance(path, &label, seed, t, &mats);
         }
         let wall = t.elapsed().as_secs_f64();
         let pcm = 1e5 * (r.k_mean - m::REFERENCE_K) / m::REFERENCE_K;
@@ -472,6 +483,32 @@ fn axial_edges() -> Vec<f64> {
 /// Fission and flux on an R-Z mesh: r in [0, graphite radius] and
 /// [graphite radius, vessel inner radius], one azimuthal bin, [`axial_edges`],
 /// split at 0.625 eV.
+/// Absorption and nu-fission in every material, for the neutron balance.
+/// CLI glue (the workspace's exception for `main` glue); the material filter
+/// and scores are tested in the tally modules.
+fn balance_tally(n_materials: usize) -> Tally {
+    Tally {
+        id: 2,
+        name: "N-1 neutron balance by material".into(),
+        filters: vec![FilterKind::Material(MaterialFilter { material_indices: (0..n_materials).collect() })],
+        scores: vec![ScoreType::Absorption, ScoreType::NuFission],
+        bins: vec![TallyBin::default(); n_materials * 2],
+    }
+}
+
+/// Append one run's balance: per material, its absorption and nu-fission
+/// sums. Layout `[material * 2 + score]`. CLI glue, as above.
+fn write_balance(path: &std::path::Path, label: &str, seed: u64, t: &Tally, mats: &[(&str, Vec<(&str, f64)>)]) {
+    let new_file = !path.is_file();
+    let mut f = std::fs::OpenOptions::new().create(true).append(true).open(path).expect("balance csv");
+    if new_file {
+        writeln!(f, "arm,seed,material,absorption,nu_fission").expect("balance csv");
+    }
+    for (i, (name, _)) in mats.iter().enumerate() {
+        writeln!(f, "{label},{seed},\"{name}\",{:.8e},{:.8e}", t.bins[i * 2].sum, t.bins[i * 2 + 1].sum).expect("balance csv");
+    }
+}
+
 fn axial_tally() -> Tally {
     let mesh = MeshKind::Cylindrical(CylindricalMesh {
         r_grid: vec![0.0, m::R_GRAPHITE, m::R_VESSEL_IN],

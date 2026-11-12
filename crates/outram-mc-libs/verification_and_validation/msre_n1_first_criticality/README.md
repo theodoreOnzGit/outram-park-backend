@@ -584,6 +584,59 @@ Linux, CPU only).
   the model's state.
 - **The default is not changed.**
 
+### N-1: neutron balance against ORNL's design calculation (2026-11-12, gh:#1128)
+
+**Question:** where does the +801 pcm sit? Is it leakage, structure, or
+the salt?
+
+**Reference:** ORNL-TM-0730 Table 3.6, the balance for fuel C, clean and
+critical, per 10⁵ neutrons produced.
+- It is a design calculation, not a measurement.
+- Fuel C is ORNL's 35 %-enriched model salt; ours is the as-loaded salt, at
+  about 31 % by atoms.
+- So this comparison **locates** a difference. It validates nothing.
+
+**Instrument:** `--balance-csv` (opt-in), a material-filter tally of
+absorption and ν-fission, read per 10⁵ ν-fission. Leakage is
+`10⁵/k − Σ absorption`, so it also carries the Be-9 (n,2n) gain. ORNL's
+table, which closes at exactly 10⁵, folds that gain the same way.
+- k is bit-identical with the tally on: seeds 1–3 reproduce
+  `data/keff.csv`'s RVS rows to every digit.
+- Arm C, RVS, 30P, cold, seeds 1–3, at about 750 s per seed (4-core Intel
+  Xeon, 4 threads, 15.7 GiB RAM, Linux, CPU only).
+- Per-seed sums are in `data/balance.csv`.
+
+| per 10⁵ neutrons produced | this model (3 seeds) | ORNL fuel C | difference | predicted |
+|---|---|---|---|---|
+| salt (all nuclides) | 64,957 ± 19 | 65,826 | −869 | 63,000–67,000 |
+| graphite | 1,244 ± 1 | 796 | +448 | 900–1,500 |
+| INOR-8 | 8,304 ± 4 | 9,682 | −1,378 | 7,500–9,500 |
+| sample baskets | 817 ± 2 | in ORNL's main-core columns | — | — |
+| leakage, with (n,2n) gain | 23,771 ± 33 | 23,696 | +75 | 22,000–26,000 |
+| **total losses (10⁵/k)** | **99,092 ± 32** | 100,000 | **−908** | — |
+
+- **Every row is inside the prediction** posted on gh:#1128. A short
+  smoke run had been seen before the posting, and the post said so.
+- **Leakage agrees with ORNL's to 0.3 %.** The geometry's escape
+  probability, with its plenums, downcomer and cold dimensions, is not where
+  the excess is.
+- **The 908 missing losses are absorption.** Of these:
+  - the salt carries 869;
+  - graphite, INOR-8 and the baskets together carry a net 113;
+  - within that net 113, INOR-8 is 1,378 lower than ORNL's (561 lower even
+    after adding all of our basket absorption to it), and graphite is 448
+    higher.
+- **Graphite reads 56 % higher than ORNL's.** That is the boron (0.8 ppm)
+  and the 30P S(α,β), against ORNL's 1960s graphite cross section. It works
+  against the excess.
+- **The salt's deficit is the lead this gives.** Per neutron produced,
+  U-235's own absorption is fixed by η. So a salt shortfall is a shortfall
+  in its other absorbers: U-238, Li-6, F-19, Be-9 or Zr. Our salt has *more*
+  U-238 per U-235 than fuel C (31 % against 35 % enriched), so U-238 should
+  pull the other way. **This instrument cannot split the salt by nuclide**,
+  because the tally has no nuclide filter. That split is the next measurement.
+- **Not a validation, and the default is not changed.**
+
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
 Salt density follows −1.18e-4 /°F (ORNL-4233 §4.1). Runs at 1131 °F and
