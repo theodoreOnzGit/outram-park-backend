@@ -126,6 +126,15 @@
 //! 15 GiB RAM, Linux 6.18.44, CPU only: data 401.0 s, transport 6735.3 s for
 //! the 128 seeds. Log: `remeasure_logs/hst009_keff_default_s128.log`.
 //!
+//! **Legacy arm at the same 128 seeds** (`OUTRAM_MC_LEGACY_REACTION_ORDER=1
+//! OUTRAM_MC_LEGACY_SCATTER_KERNELS=1`, same code, same host): **`+89 ± 14`,
+//! sd 163** (0.7σ from route 4's `+76 ± 14`, a check on the harness).
+//! Default − legacy = **−9 ± 19 pcm (−0.5σ)**, not resolved. The seed sd
+//! falls 163 → 146 and the mean per-run `k_std` 156 → 139 pcm, the same
+//! direction as Jemima's (187 → 144) but not resolved on its own here
+//! (variance ratio 1.25, ~1.2σ). Legacy transport 5808.5 s on the same host.
+//! Log: `remeasure_logs/hst009_keff_legacy_s128.log`.
+//!
 //! ## POOLED RESULT (2026-09-18) — 32 seeds, `OUTRAM_BENCH_SEEDS=32`
 //!
 //! **Superseded twice: by the URR/DBRC defaults and U-236, and by the

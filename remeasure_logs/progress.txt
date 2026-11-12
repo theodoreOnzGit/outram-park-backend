@@ -9,3 +9,5 @@
 2026-11-12T01:47:10+00:00 start hst009_keff default
 2026-11-12T03:46:06+00:00 end hst009_keff default rc=0
 2026-11-12T03:46:06+00:00 start hst009_keff legacy
+2026-11-12T05:29:28+00:00 end hst009_keff legacy rc=0
+2026-11-12T05:29:43+00:00 start lct008_keff default 32 seeds (chain2)
