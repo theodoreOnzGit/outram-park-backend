@@ -585,3 +585,41 @@ points; 12130 are patch points.
 | P23 | `smoothDisplacement` (300 iterations): all 26662 points of the displacement equal ESI's `34/displacement` **to 1e-12 relative to the largest displacement, bit-identical on at least 90 %**; the `edgePatchDist` wave (ported as `PointEdgeWave`'s propagation with its tolerance) gives ESI's edge distances exactly. Risk: the wave's order of updates on ties. |
 | P24 | `scaleMesh` iteration 0 (full displacement) finds faces in error of the three kinds ESI reports, **4 pyramid-volume, 2 tet-quality, 2 twist**, all other checks 0, and the second iteration (scale min 0.75) is clean; the points equal ESI's time 36 to 1e-12 m. This needs the ESI face checks (`polyMeshGeometry`); if they are not all ported in this round the stage is reported as NOT DONE rather than approximated. |
 | P25 | `checkMesh` counts on the snapped mesh (9 `meshQualityControls` checks): 0 for all (ESI log, "Checking final mesh"). |
+
+### Round 3, task 2: results so far (2026-11-12, release, `tests/snappy_hex_mesh_esi_snap.rs`)
+
+Code: `src/snappy_hex_mesh/esi_snap.rs` (opt-in, the older `snapping::snap` is
+untouched). Stage table, from ESI's castellated mesh read in:
+
+| stage | compared with | port | result |
+|---|---|---|---|
+| `preSmoothPatch` iteration 1 (`smoothPatchDisplacement`, move) | ESI time-33 points of the `nSmoothPatch 1` run | 26662 points | **bit-identical, 79986 of 79986 components** |
+| iteration 2 | `nSmoothPatch 2` run | | **bit-identical, 79986 of 79986** |
+| iteration 3 | `nSmoothPatch 3` run | | **bit-identical, 79986 of 79986** |
+| `calcSnapDistance` + `calcNearestSurface` (12130 patch points, from the time-33 mesh) | patch points of `34/displacement` | | **36389 of 36390 components bit-identical, worst 2.2e-19 m**; wanted displacement min 6.548561578869996e-8 and max 7.516794439290358e-4 equal ESI's log exactly, mean 1.688540950712846e-4 equal to 1e-18 |
+| `outwardsDisplacement` | ESI warning "mesh point 16952" | | same first offender, 16952 |
+| `smoothDisplacement` (`edgePatchDist` wave + 300 `smooth` passes), from ESI's patch displacement | all of `34/displacement` | 26662 points | **bit-identical, 79986 of 79986** |
+
+**Prediction ledger.** P21 **held** (the <= 1e-12 m bound, better: 2.2e-19 m; bit identity
+was not predicted and holds for all but one component). P22 **held** (bit-identical, as
+predicted). P23 **held after a defect was found and fixed**: the first run was **47.98 %
+bit-identical with a worst difference of 4.76e-7 m (6e-4 of the largest displacement)**:
+first divergent operation, the order of the mesh edges. `primitiveMesh::calcEdges`
+creates edges face by face and then **renumbers them by lower end point and, within it,
+higher end point** (the `oldToNew` pass, `primitiveMeshEdges.C:300-440`); `avg` sums
+per point in edge-index order and 300 passes amplified the summation-order difference to
+6e-4. I had expected "round-off" and was wrong about the size: an order difference over 300
+smoothing passes is not 1e-16. With the renumbering ported (`mesh_edges`) the result is
+bit-identical, which also shows the `PointEdgeWave` port (propagation order, tolerance 0.01)
+is exact on this mesh. P24 and P25 below.
+
+**Pictures** (`images/snap_slice_z.png`, `images/snap_slice_y.png`, from
+`examples/draw_snap_differential.rs`; z = -0.013333 and y = 0 are cell-face planes of
+the castellated mesh): grey = castellated edges lying in the plane, blue = ESI's snapped
+mesh (time 36), red = the port with the full displacement (scale 1), black = the STL cut.
+**Looked at (I opened both):** the snapped edges follow the STL outline, including the
+circular bores and the slot, with the cut cells' edges pulled onto the surface and
+the grey grid showing the undisplaced position. **Not seen:** any red, because red
+is drawn under blue and the largest difference between the port at scale 1 and ESI's time-36
+mesh is 6.0e-5 m (0.9 px at 15000 px/m), which is the effect of the `errorReduction`
+scaling (below); the images cannot show it, the number does. No 3-D view.
