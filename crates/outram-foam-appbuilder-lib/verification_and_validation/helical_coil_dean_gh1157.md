@@ -398,10 +398,14 @@ balance and the inlet's normal being −T, asserted in
 `--coil-run … svg=`; **re-generated 2026-11-12 (gh:#1500)** with the implicit
 scheme, Co 1, titles say `GaussLinear`). The 2026-11-03 PNGs, which show the
 deferred-form runs, are kept under `dean_m3_re100_deferred_co4.png` and
-`dean_m3_re200_deferred_co4.png`; **new PNGs were not made** (no SVG
+`dean_m3_re200_deferred_co4.png`; ~~**new PNGs were not made** (no SVG
 rasteriser on this host: `convert` has no `rsvg-convert` delegate), so the
 SVGs are the current pictures and were **not looked at by eye** in this
-session. The mesh images above are unchanged (the mesh code was not touched;
+session.~~ **CORRECTED 2026-11-12:** `dean_m3_re100.png` and
+`dean_m3_re200.png` were rendered from the new SVGs with the host's headless
+Chromium (Playwright, device scale 2) and looked at. The Re 200 picture shows the
+two Dean cells as described below, and agrees by eye with the deferred-form
+picture (same max u_axial 1.766 U; longest arrow 0.202 U against 0.199 U). The mesh images above are unchanged (the mesh code was not touched;
 the cell counts of the new runs, 50 940 and 15 120, are the old ones): the solver's cells of one layer at s = 0.786 m, in the
 Frenet plane, coil axis left, outer wall right, fill u_t/U, arrows the
 secondary velocity. Both show the two Dean cells: the core moving outward,
