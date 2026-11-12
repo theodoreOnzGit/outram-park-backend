@@ -267,3 +267,60 @@ None moved. `read_stl_ascii_str` changed behaviour only for multi-solid files
 double precision (the single-precision upstream reader is the new
 `TriangleSoup::from_zoned`, opt-in), and the default cell removal stays centre
 parity, so the CLI and driver pins are untouched.
+
+---
+
+# Round 2 (2026-11-12): removeInsideCells(nBufferLayers), danglingCellRefine, problem cells
+
+Written from reading the ESI v2506 sources listed below; the port code for
+these stages did not exist when this section was committed, and the
+reference cells after `removeInsideCells(1)` (30264) and after the
+dangling-cell stage (30530) are the ESI intermediate meshes of the round-1 run
+(`esi_removeinside_cells.txt.gz`, `esi_dangling_cells.txt.gz`, same `level i j
+k` format as the stage-1 fixture; the conversion reproduces the committed final
+fixture exactly, checked with `diff`).
+
+Sources read (v2506, `src/mesh/snappyHexMesh`): `meshRefinementBaffles.C:4927`
+and `:5014` (`splitMesh`: face blocking, `regionSplit`/`findRegions`, then the
+`nBufferLayers` loop: cells -> points -> faces -> cells), `snappyRefineDriver.C:1002`
+(`danglingCellRefine`: candidates are cells whose number of *internal* faces is
+`nFaces`, then `hexRef8::consistentRefinement`), `:1760` (`removeInsideCells`),
+`:3560-3640` (the stage order), `meshRefinementBaffles.C:4635`
+(`baffleAndSplitMesh`) and `meshRefinementProblemCells.C:383`
+(`markFacesOnProblemCells`, `removeEdgeConnectedCells` false, `minVolCollapseRatio`
+unset so `checkCollapse` false: the log has no "Deleting all-anchor" line).
+`handleSnapProblems` runs because `refineParams.handleSnapProblems()` defaults
+true, independent of `snap`.
+
+What the sources say, which the port is to reproduce:
+
+1. `splitMesh(nBufferLayers = 1)` keeps the face-connected region holding
+   `locationInMesh` (faces cut by the surface are blocked), then ONE buffer layer:
+   every point of a face between kept and removed cells (and of a domain boundary
+   face of a kept cell) is marked; every face using a marked point is marked;
+   every removed cell owning or neighbouring a marked face is kept. In octree
+   terms: removed cells that share a mesh point (corner or hanging edge/face
+   point) with the region boundary come back.
+2. `danglingCellRefine(21)` then `(24)`: a cell is refined when exactly 21 (or 24)
+   of its faces are internal (1 + 5 x 4, or 6 x 4), then face 2:1 closure among
+   the surviving cells; repeat until none.
+3. `markFacesOnProblemCells`: marks the points/edges/faces of every face in a
+   surface patch (the baffle pairs and the faces exposed by the first removal);
+   a cell with all 8 anchor (own-level corner) points marked has all its internal
+   faces baffled and these faces are marked as boundary at once (so a LATER cell
+   in cell order can reach 8); a point with more than 3 seven-anchor cells baffles
+   those cells; every internal face whose edges are all marked is baffled. The
+   cell-order dependence is real and is a risk for the port.
+
+## PREDICTIONS (committed before the port code for these stages was run)
+
+| # | prediction | why it can fail |
+|---|---|---|
+| P10 | After the face-connected region plus the one point-connected buffer layer, the port's alive set equals ESI's mesh after `removeInsideCells(1)`: **30264 cells, 30264 of 30264 equal** (levels equal). | Hanging points: a removed cell is point-adjacent through a hanging edge point only if hexRef8 inserted that point into the cell's faces; the port derives point existence from the leaf corners of the whole octree. If that is wrong the count will be off by a few cells. |
+| P11 | Dangling-cell refinement per iteration selects **22, 4, 4, 4, 2, 0** (nFaces 21) and **2, 0** (nFaces 24), and the alive set then equals ESI's mesh at 30530 cells, **30530 of 30530 equal**. | The internal-face count of a cell next to a removed region depends on how hexRef8 splits faces (4 sub-faces per coarse face next to finer cells, also next to removed finer cells). The port counts on the full octree with alive flags. |
+| P12 | At the baffle step the number of intersected faces is **12145** (all internal, none exposed: the log says 12145 duplicate pairs). The port's count of face segments hitting the surface among alive-alive pairs is 12145 and among exposed pairs (extrapolated neighbour centre, `calcNeighbourData`) 0. | The exposed-face segment (mirror image of the owner centre) is a port reconstruction. |
+| P13 | With `markFacesOnProblemCells` (simple branch) the port marks **25295** additional internal faces, the kept region after `splitMeshRegions` is **18278 cells, 18278 of 18278 equal to ESI**, and **the two level-2 cells at x = +-0.009375, y = 0.0173438, z = -0.00958333 are gone**. | The 8-anchor loop mutates the boundary marks in cell order; the port's cell order is not OpenFOAM's. If the count or the cell set differs, the next step is to reproduce hexRef8's cell order (parent keeps its label, children 1..7 appended in hex-vertex order) and rerun. |
+| P14 | Final face count **63194** and the sum of boundary faces on the surface patches **12136** (ESI: 9310 + 1182 + 248 + 1396) once P13 holds. | Face count follows from the cell set; the surface-face count needs the exposed faces to equal ESI's. |
+
+Disclosure: P10-P14 are integers read from the round-1 ESI log and meshes; no
+port run of these stages had happened when they were written.
