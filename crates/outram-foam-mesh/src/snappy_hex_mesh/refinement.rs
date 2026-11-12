@@ -20,23 +20,35 @@
 
 //! Surface-intersection refinement: `snappyRefineDriver::surfaceOnlyRefine`.
 //!
-//! **Upstream followed:** OpenFOAM-dev (OpenFOAM Foundation) commit
-//! `852527377c7e87e33d51b19ca8974b5db60af28b`:
+//! **Upstream followed:** OpenFOAM.com ESI **v2506** (maintainer decision on
+//! gh:#1459, 2026-11-12, "ESI preferred"; the run that checks it is
+//! `verification_and_validation/snappy_hex_mesh_esi_v2506/README.md`).
+//! ~~OpenFOAM-dev (OpenFOAM Foundation) commit
+//! `852527377c7e87e33d51b19ca8974b5db60af28b`~~ **CORRECTED 2026-11-12** to
+//! ESI v2506, with the line numbers re-read from the v2506 sources (dev's in
+//! brackets, background only):
 //!
-//! - `snappyHexMeshDriver/snappyRefineDriver.C:179` `surfaceOnlyRefine`
-//!   (loop, stop rule `nCellsToRefine == 0 || (iter >= overallMaxLevel &&
-//!   nCellsToRefine <= minRefineCells)`, `maxIter` 100);
-//! - `meshRefinement/meshRefinementRefine.C:908` `markSurfaceRefinement`
-//!   (one segment per face: owner centre to neighbour centre, or, on a
-//!   non-coupled boundary face, owner centre to the face centre, from
-//!   `meshRefinement.C:97` `calcNeighbourData`; segment extended by
-//!   `rootSmall` of its length at each end; a cell is marked when the
-//!   segment hits a surface whose level exceeds the cell's level and the
-//!   face's lower cell level);
-//! - `refinementSurfaces/refinementSurfaces.C:410` `findHigherIntersection`;
-//! - `polyTopoChange/polyTopoChange/hexRef8/hexRef8.C:1426`
-//!   `faceConsistentRefinement` and `:2127` `consistentRefinement` (face 2:1,
-//!   `maxSet = true`).
+//! - `snappyHexMeshDriver/snappyRefineDriver.C:342` `surfaceOnlyRefine`
+//!   [dev :179] (loop, stop rule `nCellsToRefine == 0 || (iter >=
+//!   overallMaxLevel && nCellsToRefine <= minRefineCells)`, `maxIter` 100);
+//! - `meshRefinement/meshRefinementRefine.C:945` `markSurfaceRefinement`
+//!   [dev :908] (one segment per face from `meshRefinement.C:288`
+//!   `calcCellCellRays`: owner centre to neighbour centre, or, on a non-coupled
+//!   boundary face, owner centre to the face centre from `calcNeighbourData`;
+//!   segment extended by `rootSmall` of its length at each end; a cell is
+//!   marked when the segment hits a surface whose level exceeds the cell's);
+//! - `refinementSurfaces/refinementSurfaces.C:1265` `findHigherIntersection`
+//!   [dev :410] (`findLineAny` on the triSurfaceMesh);
+//! - `dynamicMesh/polyTopoChange/polyTopoChange/hexRef8/hexRef8.C:1567`
+//!   `faceConsistentRefinement` [dev :1426] and `:2233` `consistentRefinement`
+//!   [dev :2127] (face 2:1, `maxSet = true`);
+//! - `meshRefinement/meshRefinementBaffles.C:4927` `splitMesh` and
+//!   `snappyRefineDriver.C:2754` `baffleAndSplitMesh` for [`baffle_region`].
+//!
+//! **Checked against the ESI binary (gh:#1459, 2026-11-12):** on the flange the
+//! selected-cell counts per iteration and all 42788 cells and levels equal
+//! ESI's, when the surface is read as upstream reads it
+//! ([`TriangleSoup::from_zoned`]: every `solid`, single-precision corners).
 //!
 //! ## What is ported, and what is not
 //!
@@ -52,8 +64,11 @@
 //! `refinementRegions`, `features`, gap refinement, `maxGlobalCells` /
 //! `maxLocalCells`, `nCellsBetweenLevels > 1` (`consistentSlowRefinement`),
 //! coupled (cyclic) boundary faces, which are treated as ordinary boundary
-//! faces here. Cell *removal* after refinement stays this port's inside test,
-//! not upstream's baffle-and-split (gh:#1466).
+//! faces here. Cell *removal* after refinement is by default this port's inside test;
+//! ~~not upstream's baffle-and-split (gh:#1466)~~ **UPDATED 2026-11-12:** upstream's
+//! chain (`removeInsideCells(1)`, `danglingCellRefine`, `baffleAndSplitMesh` with
+//! `markFacesOnProblemCells`) is [`crate::snappy_hex_mesh::esi_split`], opt-in
+//! through `CastellationControls::with_esi_split_mesh_removal`.
 //!
 //! [`RefinementSelection::DistanceBand`]: crate::snappy_hex_mesh::castellation::RefinementSelection::DistanceBand
 
@@ -66,21 +81,21 @@ use crate::snappy_hex_mesh::stl::TriangleSoup;
 
 /// OpenFOAM's `rootSmall`, `sqrt(small)` with `small = 2.2204e-16` double
 /// (`doubleScalarRootSmall`, `OpenFOAM/primitives/Scalar/doubleScalar`).
-const ROOT_SMALL: f64 = 1.490_116_119_384_765_6e-8;
+pub(crate) const ROOT_SMALL: f64 = 1.490_116_119_384_765_6e-8;
 
 /// One mesh face of the current octree: an owner leaf, an optional neighbour
 /// leaf (`None` = domain boundary face) and the segment tested against the
 /// surface.
 #[derive(Debug, Clone, Copy)]
-struct FacePair {
-    own: usize,
-    nei: Option<usize>,
-    start: Vector3,
-    end: Vector3,
+pub(crate) struct FacePair {
+    pub(crate) own: usize,
+    pub(crate) nei: Option<usize>,
+    pub(crate) start: Vector3,
+    pub(crate) end: Vector3,
 }
 
 /// Centre of `leaf` `[m]` on a background of `size0` level-0 cell sizes.
-fn centre(leaf: &Leaf, origin: Vector3, size0: [f64; 3]) -> Vector3 {
+pub(crate) fn centre(leaf: &Leaf, origin: Vector3, size0: [f64; 3]) -> Vector3 {
     let f = 1.0 / (1usize << leaf.level) as f64;
     Vector3::new(
         origin.x + (leaf.i as f64 + 0.5) * size0[0] * f,
@@ -89,30 +104,33 @@ fn centre(leaf: &Leaf, origin: Vector3, size0: [f64; 3]) -> Vector3 {
     )
 }
 
-/// Enumerate the faces of the octree as owner/neighbour leaf pairs, with their
-/// `calcNeighbourData` segments (already extended by `rootSmall`).
+/// One face of the octree's split-hex mesh, by topology only: the (finer-side)
+/// owner leaf, the neighbour leaf (an equal-level leaf or the nearest coarser
+/// ancestor; `None` on the domain boundary), and which side of `own` the face
+/// lies on. The face itself is the `axis`/`positive` side of `own`, whichever of
+/// the two leaves is finer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OctFace {
+    pub(crate) own: usize,
+    pub(crate) nei: Option<usize>,
+    pub(crate) axis: usize,
+    pub(crate) positive: bool,
+}
+
+/// Enumerate the faces of the octree (topology only, see [`OctFace`]).
 ///
 /// A face between two leaves of different level is listed once per finer-side
 /// leaf, exactly as the split-hex mesh lists it. Equal-level pairs are listed
-/// from the lower-index side along the positive axis only.
-pub(crate) fn face_pairs(
-    leaves: &[Leaf],
-    n0: [usize; 3],
-    origin: Vector3,
-    size0: [f64; 3],
-) -> Vec<(usize, Option<usize>, Vector3, Vector3)> {
+/// from the lower-index side along the positive axis only. gh:#1466: split out
+/// of [`face_pairs`] (same order, same faces) so the ESI cell-removal stages can
+/// reuse the adjacency.
+pub(crate) fn octree_faces(leaves: &[Leaf], n0: [usize; 3]) -> Vec<OctFace> {
     let mut map: HashMap<(usize, usize, usize, usize), usize> = HashMap::with_capacity(leaves.len());
     for (id, l) in leaves.iter().enumerate() {
         map.insert((l.level, l.i, l.j, l.k), id);
     }
     let mut out = Vec::new();
     for (id, l) in leaves.iter().enumerate() {
-        let c = centre(l, origin, size0);
-        let half = [
-            0.5 * size0[0] / (1usize << l.level) as f64,
-            0.5 * size0[1] / (1usize << l.level) as f64,
-            0.5 * size0[2] / (1usize << l.level) as f64,
-        ];
         let ijk = [l.i, l.j, l.k];
         let extent = [n0[0] << l.level, n0[1] << l.level, n0[2] << l.level];
         for axis in 0..3 {
@@ -126,42 +144,67 @@ pub(crate) fn face_pairs(
                     ijk[axis] - 1
                 };
                 let outside = ni == usize::MAX || ni >= extent[axis];
-                let (start, end, nei) = if outside {
-                    // Non-coupled boundary face: neiCc is the face centre.
-                    let mut fc = c;
-                    let d = if positive { half[axis] } else { -half[axis] };
-                    match axis {
-                        0 => fc.x += d,
-                        1 => fc.y += d,
-                        _ => fc.z += d,
+                if outside {
+                    out.push(OctFace { own: id, nei: None, axis, positive });
+                    continue;
+                }
+                let mut q = ijk;
+                q[axis] = ni;
+                // Same level, or the nearest coarser ancestor.
+                let mut found = None;
+                for d in 0..=l.level {
+                    let key = (l.level - d, q[0] >> d, q[1] >> d, q[2] >> d);
+                    if let Some(&nid) = map.get(&key) {
+                        found = Some((nid, d));
+                        break;
                     }
-                    (c, fc, None)
-                } else {
-                    let mut q = ijk;
-                    q[axis] = ni;
-                    // Same level, or the nearest coarser ancestor.
-                    let mut found = None;
-                    for d in 0..=l.level {
-                        let key = (l.level - d, q[0] >> d, q[1] >> d, q[2] >> d);
-                        if let Some(&nid) = map.get(&key) {
-                            found = Some((nid, d));
-                            break;
-                        }
-                    }
-                    let Some((nid, d)) = found else {
-                        continue; // neighbour side is finer: listed from there
-                    };
-                    if d == 0 && !positive {
-                        continue; // equal level: positive direction only
-                    }
-                    (c, centre(&leaves[nid], origin, size0), Some(nid))
+                }
+                let Some((nid, d)) = found else {
+                    continue; // neighbour side is finer: listed from there
                 };
-                let sv = (end - start) * ROOT_SMALL;
-                out.push((id, nei, start - sv, end + sv));
+                if d == 0 && !positive {
+                    continue; // equal level: positive direction only
+                }
+                out.push(OctFace { own: id, nei: Some(nid), axis, positive });
             }
         }
     }
     out
+}
+
+/// Enumerate the faces of the octree as owner/neighbour leaf pairs, with their
+/// `calcNeighbourData` segments (already extended by `rootSmall`). See
+/// [`octree_faces`] for which faces are listed.
+pub(crate) fn face_pairs(
+    leaves: &[Leaf],
+    n0: [usize; 3],
+    origin: Vector3,
+    size0: [f64; 3],
+) -> Vec<(usize, Option<usize>, Vector3, Vector3)> {
+    octree_faces(leaves, n0)
+        .into_iter()
+        .map(|f| {
+            let l = &leaves[f.own];
+            let c = centre(l, origin, size0);
+            let (start, end) = match f.nei {
+                None => {
+                    // Non-coupled boundary face: neiCc is the face centre.
+                    let half = 0.5 * size0[f.axis] / (1usize << l.level) as f64;
+                    let d = if f.positive { half } else { -half };
+                    let mut fc = c;
+                    match f.axis {
+                        0 => fc.x += d,
+                        1 => fc.y += d,
+                        _ => fc.z += d,
+                    }
+                    (c, fc)
+                }
+                Some(n) => (c, centre(&leaves[n], origin, size0)),
+            };
+            let sv = (end - start) * ROOT_SMALL;
+            (f.own, f.nei, start - sv, end + sv)
+        })
+        .collect()
 }
 
 /// Run `surfaceOnlyRefine` on the octree `leaves` (all level 0 on entry or any
@@ -171,7 +214,7 @@ pub(crate) fn face_pairs(
 /// `surface_level` the surface's (min = max) refinement level, and
 /// `min_refine_cells` upstream's `minRefinementCells`.
 pub(crate) fn surface_only_refine(
-    mut leaves: Vec<Leaf>,
+    leaves: Vec<Leaf>,
     n0: [usize; 3],
     origin: Vector3,
     size0: [f64; 3],
@@ -179,8 +222,26 @@ pub(crate) fn surface_only_refine(
     surface: &TriangleSoup,
     min_refine_cells: usize,
 ) -> Vec<Leaf> {
-    const MAX_ITER: usize = 100;
-    for iter in 0..MAX_ITER {
+    surface_only_refine_traced(leaves, n0, origin, size0, surface_level, surface, min_refine_cells, 100).0
+}
+
+/// [`surface_only_refine`] that also returns, per iteration, the number of
+/// cells selected after the 2:1 closure: the integer upstream prints as
+/// `Selected for refinement : N cells` (`snappyRefineDriver.C`
+/// `surfaceOnlyRefine`, ESI v2506 line 342). The final entry is the iteration
+/// that stopped the loop (0 when the loop ended on "no cells selected").
+pub(crate) fn surface_only_refine_traced(
+    mut leaves: Vec<Leaf>,
+    n0: [usize; 3],
+    origin: Vector3,
+    size0: [f64; 3],
+    surface_level: usize,
+    surface: &TriangleSoup,
+    min_refine_cells: usize,
+    max_iter: usize,
+) -> (Vec<Leaf>, Vec<usize>) {
+    let mut selected = Vec::new();
+    for iter in 0..max_iter {
         let pairs: Vec<FacePair> = face_pairs(&leaves, n0, origin, size0)
             .into_iter()
             .map(|(own, nei, start, end)| FacePair { own, nei, start, end })
@@ -209,17 +270,113 @@ pub(crate) fn surface_only_refine(
         consistent_refinement(&leaves, &pairs, &mut refine);
 
         let n_refine = refine.iter().filter(|&&r| r).count();
+        selected.push(n_refine);
         if n_refine == 0 || (iter >= surface_level && n_refine <= min_refine_cells) {
             break;
         }
         leaves = split(&leaves, &refine);
     }
-    leaves
+    (leaves, selected)
+}
+
+/// The refined octree of `surface_only_refine` as `(level, centre)` pairs plus
+/// the per-iteration selected-cell counts, with no cell removal. Exists so the
+/// ESI v2506 differential can compare the refinement stage on its own
+/// (`verification_and_validation/snappy_hex_mesh_esi_v2506`).
+pub fn refined_octree(
+    surface: &TriangleSoup,
+    controls: &crate::snappy_hex_mesh::castellation::CastellationControls,
+    max_iter: usize,
+) -> (Vec<(usize, Vector3)>, Vec<usize>) {
+    let bg = &controls.background;
+    let span = bg.bounds.span();
+    let size0 = [span.x / bg.nx as f64, span.y / bg.ny as f64, span.z / bg.nz as f64];
+    let mut leaves = Vec::with_capacity(bg.n_cells());
+    for i in 0..bg.nx {
+        for j in 0..bg.ny {
+            for k in 0..bg.nz {
+                leaves.push(Leaf { level: 0, i, j, k });
+            }
+        }
+    }
+    let (leaves, selected) = surface_only_refine_traced(
+        leaves,
+        [bg.nx, bg.ny, bg.nz],
+        bg.bounds.min,
+        size0,
+        controls.surface_level,
+        surface,
+        controls.min_refine_cells,
+        max_iter,
+    );
+    let cells = leaves
+        .iter()
+        .map(|l| (l.level, centre(l, bg.bounds.min, size0)))
+        .collect();
+    (cells, selected)
+}
+
+/// Index of the leaf whose half-open box holds `p` (`findCell` for
+/// `locationInMesh`), or `None` outside every leaf.
+pub(crate) fn find_leaf(leaves: &[Leaf], origin: Vector3, size0: [f64; 3], p: Vector3) -> Option<usize> {
+    leaves.iter().position(|l| {
+        let c = centre(l, origin, size0);
+        let f = 0.5 / (1usize << l.level) as f64;
+        (p.x >= c.x - f * size0[0] && p.x < c.x + f * size0[0])
+            && (p.y >= c.y - f * size0[1] && p.y < c.y + f * size0[1])
+            && (p.z >= c.z - f * size0[2] && p.z < c.z + f * size0[2])
+    })
+}
+
+/// Keep the face-connected region of the octree that holds `keep`, where a
+/// face is a baffle (blocks the region) when its `calcCellCellRays` segment
+/// hits the surface: the cell-selection result of upstream's
+/// `meshRefinement::splitMesh` / `baffleAndSplitMesh` (ESI v2506
+/// `meshRefinementBaffles.C:4927`, `snappyRefineDriver.C:2754`): intersected
+/// faces become baffles (`getBafflePatches`), `regionSplit` labels the
+/// face-connected regions, `findRegions` keeps those holding
+/// `locationInMesh`, the rest is removed.
+///
+/// Returns `None` if `keep` is in no leaf. Not ported here: ~~the buffer layers
+/// of `removeInsideCells` (`nBufferLayers`)~~ **UPDATED 2026-11-12:** the buffer
+/// layers are in [`crate::snappy_hex_mesh::esi_split::remove_inside_cells`];
+/// still not ported: `locationsOutsideMesh`, more than one `locationsInMesh`,
+/// faceZones/cellZones (gh:#1466).
+pub(crate) fn baffle_region(
+    leaves: &[Leaf],
+    n0: [usize; 3],
+    origin: Vector3,
+    size0: [f64; 3],
+    surface: &TriangleSoup,
+    keep: Vector3,
+) -> Option<Vec<bool>> {
+    let start_leaf = find_leaf(leaves, origin, size0, keep)?;
+    let mut adjacent: Vec<Vec<usize>> = vec![Vec::new(); leaves.len()];
+    for (own, nei, a, b) in face_pairs(leaves, n0, origin, size0) {
+        if let Some(n) = nei {
+            if !surface.segment_hits(a, b) {
+                adjacent[own].push(n);
+                adjacent[n].push(own);
+            }
+        }
+    }
+    let mut reached = vec![false; leaves.len()];
+    reached[start_leaf] = true;
+    let mut stack = vec![start_leaf];
+    while let Some(c) = stack.pop() {
+        for &n in &adjacent[c] {
+            if !reached[n] {
+                reached[n] = true;
+                stack.push(n);
+            }
+        }
+    }
+    Some(reached)
 }
 
 /// `hexRef8::consistentRefinement(cells, maxSet = true)`: raise `refine` until
 /// no face joins cells whose post-refinement levels differ by more than one.
-fn consistent_refinement(leaves: &[Leaf], pairs: &[FacePair], refine: &mut [bool]) {
+pub(crate) fn consistent_refinement(leaves: &[Leaf], pairs: &[FacePair], refine: &mut [bool]) {
     loop {
         let mut changed = 0usize;
         for p in pairs {
@@ -372,5 +529,52 @@ mod tests {
         let up = band.with_surface_intersection_refinement();
         let m = castellate(&surface, &up).unwrap();
         assert_eq!(m.cells_by_level, vec![328, 728, 2304]);
+    }
+
+    /// `refined_octree` reports the same leaves as `surface_only_refine` and a
+    /// per-iteration trace that ends in 0 and sums to the cells split.
+    #[test]
+    fn refined_octree_trace_is_consistent() {
+        use crate::snappy_hex_mesh::{BackgroundMesh, Bounds, CastellationControls};
+        let surface = TriangleSoup::uv_sphere(Vector3::new(0.5, 0.5, 0.5), 0.3, 24, 24);
+        let domain = Bounds::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(1.0, 1.0, 1.0));
+        let c = CastellationControls::new(
+            BackgroundMesh::uniform(domain, 8, 8, 8),
+            2,
+            Vector3::new(0.02, 0.02, 0.02),
+        );
+        let (cells, sel) = refined_octree(&surface, &c, 100);
+        let direct = surface_only_refine(background(8), [8; 3], Vector3::new(0.0, 0.0, 0.0), [0.125; 3], 2, &surface, 0);
+        assert_eq!(cells.len(), direct.len());
+        assert_eq!(*sel.last().unwrap(), 0);
+        assert_eq!(512 + 7 * sel.iter().sum::<usize>(), cells.len());
+    }
+
+    /// gh:#1466: `baffle_region` keeps the cells reachable from the keep point
+    /// across faces the surface does not cut. A sphere in a box, keep point
+    /// outside: no kept cell has its centre inside, and cells inside are not
+    /// reached; a keep point inside keeps only the inside; a point outside the
+    /// box is `None`.
+    #[test]
+    fn baffle_region_separates_inside_from_outside() {
+        let surface = TriangleSoup::uv_sphere(Vector3::new(0.5, 0.5, 0.5), 0.3, 24, 24);
+        let n0 = [8, 8, 8];
+        let origin = Vector3::new(0.0, 0.0, 0.0);
+        let size0 = [0.125; 3];
+        let leaves = surface_only_refine(background(8), n0, origin, size0, 2, &surface, 0);
+        let outside = baffle_region(&leaves, n0, origin, size0, &surface, Vector3::new(0.02, 0.02, 0.02)).unwrap();
+        let inside = baffle_region(&leaves, n0, origin, size0, &surface, Vector3::new(0.5, 0.5, 0.5)).unwrap();
+        for (i, l) in leaves.iter().enumerate() {
+            let deep_inside = surface.contains_point(centre(l, origin, size0)) && surface.distance_to(centre(l, origin, size0)) > 0.2;
+            let deep_outside = !surface.contains_point(centre(l, origin, size0)) && surface.distance_to(centre(l, origin, size0)) > 0.2;
+            if deep_inside {
+                assert!(!outside[i] && inside[i]);
+            }
+            if deep_outside {
+                assert!(outside[i] && !inside[i]);
+            }
+            assert!(!(outside[i] && inside[i]));
+        }
+        assert!(baffle_region(&leaves, n0, origin, size0, &surface, Vector3::new(5.0, 5.0, 5.0)).is_none());
     }
 }

@@ -7901,6 +7901,8 @@ pub struct CastellationControls {
     pub cyclic_axes: [bool; 3],
     pub selection: RefinementSelection,
     pub min_refine_cells: usize,
+    pub removal: CellRemoval,
+    pub surface_regions: Option<SurfaceRegionPatches>,
 }
 ```
 
@@ -7916,6 +7918,8 @@ pub struct CastellationControls {
 | `cyclic_axes` | `[bool; 3]` | Which background-box axes are **periodic**: `cyclic_axes[a]` makes the<br>two outer patches normal to axis `a` (`0 = x → xMin/xMax`,<br>`1 = y → yMin/yMax`, `2 = z → zMin/zMax`) a<br>[`PatchKind::Cyclic`] pair instead of two independent<br>[`PatchKind::Patch`]es, with their `cyclic_partner` links resolved.<br><br>Defaults to all `false` (the historical behaviour — six plain patches).<br><br>Marking an axis cyclic only makes sense when the *geometry* is periodic<br>along it; the halves must end up conformal, which<br>[`check_conformity`](crate::snappy_hex_mesh::check_conformity) verifies. |
 | `selection` | `RefinementSelection` | How cells are selected for refinement; see [`RefinementSelection`].<br>Defaults to [`RefinementSelection::DistanceBand`] so existing callers'<br>meshes (and their pins) are unchanged. |
 | `min_refine_cells` | `usize` | `minRefinementCells` (upstream default in the tutorials: 0). Only read<br>by [`RefinementSelection::SurfaceIntersection`]. |
+| `removal` | `CellRemoval` | How cells are removed after refinement; see [`CellRemoval`]. Defaults to<br>[`CellRemoval::CentreParity`] so existing callers' meshes are unchanged. |
+| `surface_regions` | `Option<SurfaceRegionPatches>` | Named patches per surface region (ESI `patchInfo` / one `flange_patch1`<br>per STL solid); `None` puts every carved face in the single patch<br>[`Self::surface_patch_name`]. Needs [`CellRemoval::EsiSplitMesh`]. |
 
 ##### Implementations
 
@@ -7925,6 +7929,21 @@ pub struct CastellationControls {
   pub fn new(background: BackgroundMesh, surface_level: usize, keep_point: Vector3) -> Self { /* ... */ }
   ```
   Convenience constructor with the common defaults (auto band, surface
+
+- ```rust
+  pub fn with_surface_region_patches(self: Self, patch_names: Vec<String>, region_of_tri: Vec<usize>) -> Self { /* ... */ }
+  ```
+  One patch per surface region, named `patch_names[region]` (ESI's
+
+- ```rust
+  pub fn with_baffle_region_removal(self: Self) -> Self { /* ... */ }
+  ```
+  Remove cells the way OpenFOAM's `baffleAndSplitMesh` does
+
+- ```rust
+  pub fn with_esi_split_mesh_removal(self: Self) -> Self { /* ... */ }
+  ```
+  Remove cells the way ESI v2506's `doRefine` does after
 
 - ```rust
   pub fn with_surface_intersection_refinement(self: Self) -> Self { /* ... */ }
@@ -7984,6 +8003,227 @@ pub struct CastellationControls {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SurfaceRegionPatches`
+
+Which surface region each triangle belongs to and what its patch is called
+(gh:#1466). `region_of_tri[i]` indexes `patch_names`; for a surface read
+with [`crate::snappy_hex_mesh::stl::read_stl_zoned`] these are
+`StlZoned::zones` and the `<surface>_<solid>` names ESI gives its patches.
+
+```rust
+pub struct SurfaceRegionPatches {
+    pub patch_names: Vec<String>,
+    pub region_of_tri: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `patch_names` | `Vec<String>` | One patch name per region, in patch order. |
+| `region_of_tri` | `Vec<usize>` | Region index of each triangle of the surface. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `CellRemoval`
+
+How [`castellate`] decides which refined cells to keep.
+
+```rust
+pub enum CellRemoval {
+    CentreParity,
+    BaffleRegion,
+    EsiSplitMesh,
+}
+```
+
+##### Variants
+
+###### `CentreParity`
+
+Historical rule of this port: keep a cell when the ray-parity inside
+test of its centre agrees with the keep point's. NOT what OpenFOAM does.
+
+###### `BaffleRegion`
+
+OpenFOAM's `baffleAndSplitMesh` outcome: keep the face-connected region
+holding `locationInMesh`, faces cut by the surface (cell-centre
+segments) being baffles. See
+[`crate::snappy_hex_mesh::refinement::baffle_region`].
+
+###### `EsiSplitMesh`
+
+ESI v2506's whole post-refinement chain: `removeInsideCells(1)`,
+`danglingCellRefine(21)` and `(24)`, `baffleAndSplitMesh` with
+`markFacesOnProblemCells`. Needs
+[`RefinementSelection::SurfaceIntersection`]. See
+[`crate::snappy_hex_mesh::esi_split`].
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
 - **Sync**
 - **ToOwned**
   - ```rust
@@ -9152,6 +9392,276 @@ points).
 pub fn background_from_points(points: &[outram_foam_basic_lib::primitives::Vector3]) -> Result<(crate::snappy_hex_mesh::background::Bounds, [usize; 3]), crate::MeshError> { /* ... */ }
 ```
 
+## Module `esi_split`
+
+The cell-removal stages of `snappyRefineDriver::doRefine` that follow
+`surfaceOnlyRefine`, translated for the octree (gh:#1466).
+
+**Upstream: OpenFOAM.com ESI v2506**, `src/mesh/snappyHexMesh`:
+
+| stage | ESI v2506 | here |
+|---|---|---|
+| `removeInsideCells(nBufferLayers)` | `snappyRefineDriver.C:1760`, `meshRefinementBaffles.C:4927` and `:5014` (`splitMesh`) | [`remove_inside_cells`] |
+| `danglingCellRefine(nFaces)` | `snappyRefineDriver.C:1002` | [`dangling_cell_refine`] |
+| `baffleAndSplitMesh` | `snappyRefineDriver.C:2754`, `meshRefinementBaffles.C:4635` | [`baffle_and_split_mesh`] |
+| `handleSnapProblems` -> `markFacesOnProblemCells` | `meshRefinementBaffles.C:3795`, `meshRefinementProblemCells.C:383` | inside [`baffle_and_split_mesh`] |
+
+The order in `doRefine` (`snappyRefineDriver.C:3560-3690`) is
+`removeInsideCells(1)`, `danglingCellRefine(21)`, `danglingCellRefine(24)`,
+`refinementInterfaceRefine` (selected 0 cells on the flange; not ported),
+`baffleAndSplitMesh`. [`esi_stages`] runs them in that order.
+
+## How the octree stands in for the polyMesh
+
+The mesh is the full octree (every leaf ever created, dead or alive) with an
+`alive` flag per leaf: a removed cell leaves its faces behind as boundary
+faces of its alive neighbours, exactly as `removeCells` exposes them. Faces
+are enumerated by [`octree_faces`] (the split-hex faces of the finer side).
+A face's vertex ring is the finer-side quad with every lattice edge midpoint
+that exists in the octree inserted (hexRef8 inserts the mid-points of refined
+edges into every face that uses the edge, also faces of cells that are not
+refined); a mesh point exists when it is a corner of any leaf, dead or alive,
+because removal never deletes a point from the faces of a surviving cell.
+This is the assumption P10-P14 of the V&V record test.
+
+## Cell order
+
+`markFacesOnProblemCells` visits cells in order and updates its boundary
+marks as it goes, so its result can depend on cell order. The port visits
+alive leaves in leaf-vector order (the nested order of
+[`crate::snappy_hex_mesh::castellation::castellate`]), not OpenFOAM's
+(blockMesh order, a refined cell keeps its label, children 1..7 appended).
+The V&V record states whether that mattered.
+
+## Not ported
+
+`locationsOutsideMesh` and leak closure, `frozenPoints`/`frozenFaces`, more
+than one `locationInMesh`, cellZones/faceZones (`zonify`), the
+`removeEdgeConnectedCells` branch and the `minVolCollapseRatio` collapse
+check of `markFacesOnProblemCells` (both off in the flange dictionary:
+`removeEdgeConnectedCells false`, `minVolCollapseRatio` unset), and
+`refinementInterfaceRefine`.
+
+```rust
+pub mod esi_split { /* ... */ }
+```
+
+### Types
+
+#### Struct `BaffleStats`
+
+What [`baffle_and_split_mesh`] counted, to compare with the ESI log.
+
+```rust
+pub struct BaffleStats {
+    pub n_hit_internal: usize,
+    pub n_hit_boundary: usize,
+    pub n_problem_faces: usize,
+    pub n_kept: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n_hit_internal` | `usize` | Internal faces cut by the surface (ESI: "Introducing baffles for N faces"). |
+| `n_hit_boundary` | `usize` | Faces cut by the surface that are boundary faces (exposed or domain). |
+| `n_problem_faces` | `usize` | Additional internal faces baffled by `markFacesOnProblemCells`<br>(ESI: "marked N additional internal faces"). |
+| `n_kept` | `usize` | Cells kept after the final `splitMeshRegions`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `EsiStageCells`
+
+The cells after each ESI stage, for the differential against the ESI
+intermediate meshes. Each entry is `(level, centre)`.
+
+```rust
+pub struct EsiStageCells {
+    pub after_remove_inside: Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>,
+    pub dangling_selected: [Vec<usize>; 2],
+    pub after_dangling: Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>,
+    pub final_cells: Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>,
+    pub baffle: BaffleStats,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `after_remove_inside` | `Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>` | After `removeInsideCells(nBufferLayers = 1)` (ESI: "Selected for keeping"). |
+| `dangling_selected` | `[Vec<usize>; 2]` | Cells selected per iteration by `danglingCellRefine(21)`, then `(24)`. |
+| `after_dangling` | `Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>` | After both dangling-cell stages. |
+| `final_cells` | `Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>` | After `baffleAndSplitMesh` (the final castellated cells). |
+| `baffle` | `BaffleStats` | The counts of the baffle step. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `esi_stage_cells`
+
+The cells after each ESI stage for a whole case: `surfaceOnlyRefine`, then
+[`esi_stages`]. Exists for the ESI v2506 differential
+(`verification_and_validation/snappy_hex_mesh_esi_v2506`); `None` if
+`locationInMesh` is outside the mesh or removed.
+
+```rust
+pub fn esi_stage_cells(surface: &crate::snappy_hex_mesh::stl::TriangleSoup, controls: &crate::snappy_hex_mesh::castellation::CastellationControls) -> Option<EsiStageCells> { /* ... */ }
+```
+
 ## Module `layers`
 
 Layer addition — Phase 3 of `snappyHexMesh` (**implemented, restricted
@@ -9975,23 +10485,35 @@ pub fn face_area_and_centre(face: &[usize], points: &[outram_foam_basic_lib::pri
 
 Surface-intersection refinement: `snappyRefineDriver::surfaceOnlyRefine`.
 
-**Upstream followed:** OpenFOAM-dev (OpenFOAM Foundation) commit
-`852527377c7e87e33d51b19ca8974b5db60af28b`:
+**Upstream followed:** OpenFOAM.com ESI **v2506** (maintainer decision on
+gh:#1459, 2026-11-12, "ESI preferred"; the run that checks it is
+`verification_and_validation/snappy_hex_mesh_esi_v2506/README.md`).
+~~OpenFOAM-dev (OpenFOAM Foundation) commit
+`852527377c7e87e33d51b19ca8974b5db60af28b`~~ **CORRECTED 2026-11-12** to
+ESI v2506, with the line numbers re-read from the v2506 sources (dev's in
+brackets, background only):
 
-- `snappyHexMeshDriver/snappyRefineDriver.C:179` `surfaceOnlyRefine`
-  (loop, stop rule `nCellsToRefine == 0 || (iter >= overallMaxLevel &&
-  nCellsToRefine <= minRefineCells)`, `maxIter` 100);
-- `meshRefinement/meshRefinementRefine.C:908` `markSurfaceRefinement`
-  (one segment per face: owner centre to neighbour centre, or, on a
-  non-coupled boundary face, owner centre to the face centre, from
-  `meshRefinement.C:97` `calcNeighbourData`; segment extended by
-  `rootSmall` of its length at each end; a cell is marked when the
-  segment hits a surface whose level exceeds the cell's level and the
-  face's lower cell level);
-- `refinementSurfaces/refinementSurfaces.C:410` `findHigherIntersection`;
-- `polyTopoChange/polyTopoChange/hexRef8/hexRef8.C:1426`
-  `faceConsistentRefinement` and `:2127` `consistentRefinement` (face 2:1,
-  `maxSet = true`).
+- `snappyHexMeshDriver/snappyRefineDriver.C:342` `surfaceOnlyRefine`
+  [dev :179] (loop, stop rule `nCellsToRefine == 0 || (iter >=
+  overallMaxLevel && nCellsToRefine <= minRefineCells)`, `maxIter` 100);
+- `meshRefinement/meshRefinementRefine.C:945` `markSurfaceRefinement`
+  [dev :908] (one segment per face from `meshRefinement.C:288`
+  `calcCellCellRays`: owner centre to neighbour centre, or, on a non-coupled
+  boundary face, owner centre to the face centre from `calcNeighbourData`;
+  segment extended by `rootSmall` of its length at each end; a cell is
+  marked when the segment hits a surface whose level exceeds the cell's);
+- `refinementSurfaces/refinementSurfaces.C:1265` `findHigherIntersection`
+  [dev :410] (`findLineAny` on the triSurfaceMesh);
+- `dynamicMesh/polyTopoChange/polyTopoChange/hexRef8/hexRef8.C:1567`
+  `faceConsistentRefinement` [dev :1426] and `:2233` `consistentRefinement`
+  [dev :2127] (face 2:1, `maxSet = true`);
+- `meshRefinement/meshRefinementBaffles.C:4927` `splitMesh` and
+  `snappyRefineDriver.C:2754` `baffleAndSplitMesh` for [`baffle_region`].
+
+**Checked against the ESI binary (gh:#1459, 2026-11-12):** on the flange the
+selected-cell counts per iteration and all 42788 cells and levels equal
+ESI's, when the surface is read as upstream reads it
+([`TriangleSoup::from_zoned`]: every `solid`, single-precision corners).
 
 ## What is ported, and what is not
 
@@ -10007,13 +10529,29 @@ Not ported (still [`RefinementSelection::DistanceBand`] territory):
 `refinementRegions`, `features`, gap refinement, `maxGlobalCells` /
 `maxLocalCells`, `nCellsBetweenLevels > 1` (`consistentSlowRefinement`),
 coupled (cyclic) boundary faces, which are treated as ordinary boundary
-faces here. Cell *removal* after refinement stays this port's inside test,
-not upstream's baffle-and-split (gh:#1466).
+faces here. Cell *removal* after refinement is by default this port's inside test;
+~~not upstream's baffle-and-split (gh:#1466)~~ **UPDATED 2026-11-12:** upstream's
+chain (`removeInsideCells(1)`, `danglingCellRefine`, `baffleAndSplitMesh` with
+`markFacesOnProblemCells`) is [`crate::snappy_hex_mesh::esi_split`], opt-in
+through `CastellationControls::with_esi_split_mesh_removal`.
 
 [`RefinementSelection::DistanceBand`]: crate::snappy_hex_mesh::castellation::RefinementSelection::DistanceBand
 
 ```rust
 pub mod refinement { /* ... */ }
+```
+
+### Functions
+
+#### Function `refined_octree`
+
+The refined octree of `surface_only_refine` as `(level, centre)` pairs plus
+the per-iteration selected-cell counts, with no cell removal. Exists so the
+ESI v2506 differential can compare the refinement stage on its own
+(`verification_and_validation/snappy_hex_mesh_esi_v2506`).
+
+```rust
+pub fn refined_octree(surface: &crate::snappy_hex_mesh::stl::TriangleSoup, controls: &crate::snappy_hex_mesh::castellation::CastellationControls, max_iter: usize) -> (Vec<(usize, outram_foam_basic_lib::primitives::Vector3)>, Vec<usize>) { /* ... */ }
 ```
 
 ## Module `snapping`
@@ -10615,6 +11153,11 @@ pub struct TriangleSoup {
   Build a soup from an explicit list of triangles (used by tests that
 
 - ```rust
+  pub fn from_zoned(z: &StlZoned) -> Self { /* ... */ }
+  ```
+  The surface as OpenFOAM's `triSurface::readSTL` hands it to
+
+- ```rust
   pub fn uv_sphere(centre: Vector3, r: f64, n_lat: usize, n_lon: usize) -> Self { /* ... */ }
   ```
   A closed UV sphere of radius `r` `[m]` centred at `centre` `[m]`, as an
@@ -10658,6 +11201,11 @@ pub struct TriangleSoup {
   pub fn segment_hits(self: &Self, a: Vector3, b: Vector3) -> bool { /* ... */ }
   ```
   True if the closed segment `a`–`b` crosses any facet (any-hit, the
+
+- ```rust
+  pub fn segment_first_hit(self: &Self, a: Vector3, b: Vector3) -> Option<usize> { /* ... */ }
+  ```
+  Index of the facet the segment `a -> b` meets FIRST walking from `a`
 
 ###### Trait Implementations
 
@@ -10886,6 +11434,8 @@ solid <name>
   ...
 endsolid <name>
 ```
+Several such blocks in one file are all read (one soup, region boundaries
+not kept; see [`read_stl_zoned_bytes`] for the per-region reader).
 The stored `normal` is parsed but ignored (the geometric normal is used).
 
 ```rust
@@ -11138,6 +11688,12 @@ pub use castellation::CastellatedMesh;
 pub use castellation::CastellationControls;
 ```
 
+#### Re-export `CellRemoval`
+
+```rust
+pub use castellation::CellRemoval;
+```
+
 #### Re-export `RefinementSelection`
 
 ```rust
@@ -11148,6 +11704,12 @@ pub use castellation::RefinementSelection;
 
 ```rust
 pub use castellation::SurfaceFace;
+```
+
+#### Re-export `SurfaceRegionPatches`
+
+```rust
+pub use castellation::SurfaceRegionPatches;
 ```
 
 #### Re-export `check_conformity`
