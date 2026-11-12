@@ -297,7 +297,7 @@ PURR-word lines; ~~decks 37 and 63 differ upstream of VIEWR (ACE words); decks 1
 ACER `iopt = 7` variant.~~ **CORRECTED 2026-11-12:** decks 37 and 63 are identical whole-deck since
 gh:#1498, and decks 13 and 14 since section 10. Function level (against unmodified `graph.f90`), hand-written plot files
 (legend, tags, error bars, hatching, alternate axis, portrait, 3-d) and the upstream quirks found:
-`../viewr/README.md`. **The survey rows were not regenerated** (see `survey.md`).
+`../viewr/README.md`. ~~**The survey rows were not regenerated** (see `survey.md`).~~ **CORRECTED 2026-11-12:** they were, the same day (`survey.md`, "RE-RUN 2026-11-12"), and decks 14, 50-54, 62 and 71 again for gh:#1490 (section 11).
 
 ## 10. Decks 13, 14, 24 and 28 (2026-11-12, gh:#1369)
 
@@ -323,3 +323,13 @@ written, and both are now `identical`. Deck 82's first ACER table (unit 26) is i
 deck stops at `izaopt = 1` (not ported). Its tape21/22 rows compare the last material NJOY wrote
 against the first one this run wrote.
 
+## 11. The incident-charged-particle decks re-run (2026-11-12, gh:#1490)
+
+`SURVEY_CASES=14,50,51,52,53,54,62,71` (`tests/deck_driver_survey.rs`, 9 s after the build,
+NJOY2016.80 `ac5adf5`, toolchain per `rust-toolchain.toml`): **all eight `identical`**, 6 tapes
+each, every unit NJOY wrote as text compared line by line (ACE, check file, both directory
+lines, plot file and VIEWR's PostScript); tape21/22 are NJOY's blocked binary. The rows equal
+`survey.md`'s, so no row changed. The issue's last bullet (the second `acer` card, `iopt = 7`,
+and `viewr` not ported) was stale: both landed under gh:#1492 and gh:#1369 (sections 9 and 10,
+`acer_iopt7_2026_11_12.md`). The branches the issue lists are recorded in
+`../acer_charged/README.md`, "gh:#1490".

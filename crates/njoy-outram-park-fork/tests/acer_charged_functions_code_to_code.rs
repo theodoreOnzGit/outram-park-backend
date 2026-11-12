@@ -219,3 +219,79 @@ fn ptlegc_matches_njoy2016() {
     assert_eq!(idx, 9);
     assert_eq!(same, npts);
 }
+
+/// `coul` and `ptlegc` on the `LTP = 2` branch (residual cross-section
+/// expansion, `acefc.f90:8198-8213`) against NJOY2016's own routines
+/// (gh:#1490).
+///
+/// **Methodology.** No held evaluation has an `LTP = 2` record (scan of the
+/// seven charged-particle tapes, `verification_and_validation/acer_charged/
+/// README.md`), so `driver_ltp2.f90` reuses the nine `LTP = 1` records of
+/// `lists.txt` with `c(3)` set to 2: a test of the branch's arithmetic, not of
+/// physics. `coul` at the five cosines and `ptlegc`'s reconstruction are
+/// printed as IEEE-754 bits (`reference_output_ltp2.txt`, gfortran 13.3,
+/// `-O3`). The records are padded with zeros as the driver's `c(2000)` is.
+///
+/// **Prediction (posted on #1490 before the first run):** 45/45 and every
+/// point bit-identical; the two `LTP = 1` residuals came from the interference
+/// cosines, which this branch does not evaluate.
+///
+/// **Result (2026-11-12, rustc 1.99.1, first run):** `coul` 45/45 and
+/// `ptlegc` 9 records, 447/447 points bit-identical, as predicted. Pass
+/// criterion: bit-identical.
+#[test]
+fn coul_and_ptlegc_ltp2_match_njoy2016() {
+    const REF2: &str = include_str!("../verification_and_validation/acer_charged/reference_output_ltp2.txt");
+    let mut cs = cases();
+    for c in cs.iter_mut() {
+        c.c[2] = 2.0;
+    }
+    let xs = [-0.96, -0.5, 0.0, 0.5, 0.96];
+    let (mut n, mut same, mut worst) = (0, 0, 0.0f64);
+    for (j, l) in REF2.lines().filter(|l| l.starts_with("COUL2")).enumerate() {
+        let f: Vec<&str> = l.split_whitespace().collect();
+        let c = &cs[j / 5];
+        assert_eq!(c.label, f[1]);
+        let k: usize = f[2].parse().unwrap();
+        let ours = coul(xs[k - 1], &c.c, c.awp, c.izai, c.awt, c.iza, c.spi);
+        let theirs = bits(f[4]);
+        n += 1;
+        if ours.to_bits() == theirs.to_bits() {
+            same += 1;
+        } else {
+            let rel = ((ours - theirs) / theirs).abs();
+            worst = worst.max(rel);
+            println!("COUL2 {} x={}: ours {ours:e} njoy {theirs:e} rel {rel:e}", c.label, xs[k - 1]);
+        }
+    }
+    println!("coul LTP=2: {same}/{n} bit-identical, worst relative difference {worst:e}");
+    let mut lines = REF2.lines();
+    let (mut idx, mut npts, mut psame) = (0, 0, 0);
+    while let Some(l) = lines.next() {
+        if !l.starts_with("PTLEGC2") {
+            continue;
+        }
+        let f: Vec<&str> = l.split_whitespace().collect();
+        let m: usize = f[3].parse().unwrap();
+        let c = &cs[idx];
+        assert_eq!(c.label, f[1]);
+        idx += 1;
+        let ours = ptlegc(&c.c, c.awp, c.izai, c.awt, c.iza, c.spi).unwrap();
+        assert_eq!(ours.len(), m, "{}: point count", c.label);
+        for (i, pt) in ours.iter().enumerate() {
+            let g: Vec<&str> = lines.next().unwrap().split_whitespace().collect();
+            let (a, b) = (bits(g[0]), bits(g[2]));
+            npts += 1;
+            if pt.0.to_bits() == a.to_bits() && pt.1.to_bits() == b.to_bits() {
+                psame += 1;
+            } else {
+                println!("PTLEGC2 {} point {}: ours ({:e}, {:e}) njoy ({a:e}, {b:e})", c.label, i + 1, pt.0, pt.1);
+            }
+        }
+    }
+    println!("ptlegc LTP=2: {idx} records, {psame}/{npts} points bit-identical");
+    assert_eq!(n, 45);
+    assert_eq!(same, n, "worst relative difference {worst:e}");
+    assert_eq!(idx, 9);
+    assert_eq!(psame, npts);
+}

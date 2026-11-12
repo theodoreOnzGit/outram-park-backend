@@ -106,3 +106,100 @@ fn union_grid_matches_esz_of_every_charged_deck() {
     }
     println!("{decks} decks, {energies} energies identical");
 }
+
+/// Which incident-charged-particle ACER branches the held evaluations can
+/// reach (gh:#1490). A map, pinned so that a newly held tape that reaches a
+/// refused branch fails here instead of being refused silently.
+///
+/// **Methodology.** Every MF=6 subsection of the seven charged-particle
+/// evaluations in NJOY2016's `tests/resources` (`epn14`, `p-001_H_001/002/003`,
+/// `d-001_H_002`, `d-002_He_003`, `a-002_He_004`; `reference-data/endf/` holds
+/// the same alpha + He-4 tape and no other) is walked, and recorded: each
+/// LAW = 5 LIST's `LTP` (`L1`), each LAW = 5 subsection's ZAP against the
+/// projectile (`NSUB/10`), and each LAW = 4 subsection with ZAP > 2004 (the
+/// recoil-heating branch, `acefc.f90:11036-11080`). The walk knows LAW 1, 2,
+/// 4, 5 and 6, the only ones these tapes use; any other panics.
+///
+/// **Result (2026-11-12):** no `LTP = 2` record (so `coul`'s LTP = 2 branch
+/// is gated by the synthetic records of `acer_charged_functions_code_to_code`;
+/// but d + He-3's first record, 100 eV, has `LTP = 0`, which ENDF-6 does not
+/// define and which `coul`'s `if (ltp.eq.1) ... else` sends down the LTP = 2
+/// formula, at values near 1e-238: deck 62's ACE is identical with it);
+/// `LTP = 12` in `epn14`, p + H-2 and alpha + He-4 (decks 14, 51, 50: ACE
+/// identical, and `acecpe` calls `ptlegc` only for `ltp < 12`, `:6552`); no
+/// LAW = 5 product other than the projectile (upstream `acelcp` has no LAW = 5
+/// branch in its product loop, `:10318-10743`); no LAW = 4 recoil heavier
+/// than an alpha, so [`acelcp::recoil_heating_supported`] holds on every tape.
+/// The full ENDF/B-VIII.0 charged-particle sublibraries are not held (and
+/// their hosts are refused by this environment's proxy), so they are **not
+/// checked**.
+#[test]
+fn held_charged_evaluations_reach_only_ported_branches() {
+    use njoy_outram_park_fork::acer::acelcp;
+    use njoy_outram_park_fork::endf::records::SectionCursor;
+    let r = root();
+    let files = [
+        "epn14",
+        "p-001_H_001-ENDF8.0.endf",
+        "p-001_H_002-ENDF8.0.endf",
+        "p-001_H_003-ENDF8.0.endf",
+        "d-001_H_002-ENDF8.0.endf",
+        "d-002_He_003.endf",
+        "a-002_He_004-ENDF8.0.endf",
+    ];
+    let (mut tapes, mut ltp12_tapes) = (0, Vec::new());
+    for f in files {
+        let Ok(tape) = Tape::read_file(&r.join("tests/resources").join(f)) else {
+            eprintln!("skip {f}: upstream not present");
+            continue;
+        };
+        tapes += 1;
+        let mf1 = tape.sections().iter().find(|s| s.key.mf == 1 && s.key.mt == 451).unwrap();
+        let mat = mf1.key.mat;
+        let izai = (mf1.rows[2][4].round() as i32) / 10;
+        assert!(izai > 1, "{f}: not an incident charged particle");
+        let (mut ltps, mut law5_other, mut law4_heavy) = (Vec::new(), 0, 0);
+        for sec in tape.sections().iter().filter(|s| s.key.mat == mat && s.key.mf == 6) {
+            let mut cur = SectionCursor::new(&sec.rows);
+            let head = cur.read_cont().unwrap();
+            for _ in 0..head.n1 {
+                let yt = cur.read_tab1().unwrap();
+                let (izap, law) = (yt.head.c1.round() as i32, yt.head.l2);
+                match law {
+                    1 | 2 | 5 => {
+                        let t2 = cur.read_tab2().unwrap();
+                        for _ in 0..t2.head.n2 {
+                            let l = cur.read_list().unwrap();
+                            if law == 5 && !ltps.contains(&l.head.l1) {
+                                ltps.push(l.head.l1);
+                            }
+                        }
+                        if law == 5 && izap != izai {
+                            law5_other += 1;
+                        }
+                    }
+                    4 => {
+                        if izap > 2004 {
+                            law4_heavy += 1;
+                        }
+                    }
+                    6 => {
+                        cur.read_cont().unwrap();
+                    }
+                    _ => panic!("{f}: MF=6/MT={} LAW = {law} is not walked here", sec.key.mt),
+                }
+            }
+        }
+        println!("{f}: izai {izai}, LAW=5 LTP {ltps:?}, LAW=5 non-projectile {law5_other}, LAW=4 ZAP>2004 {law4_heavy}");
+        assert!(!ltps.contains(&2), "{f}: an LTP = 2 record is held now; gate coul on it directly");
+        if ltps.iter().any(|&l| l >= 12) {
+            ltp12_tapes.push(f);
+        }
+        assert_eq!(law5_other, 0, "{f}: a LAW = 5 product other than the projectile");
+        assert_eq!(law4_heavy, 0, "{f}: a LAW = 4 recoil heavier than an alpha (recoil heating is refused)");
+        assert!(acelcp::recoil_heating_supported(&tape, mat), "{f}");
+    }
+    if tapes == files.len() {
+        assert_eq!(ltp12_tapes, ["epn14", "p-001_H_002-ENDF8.0.endf", "a-002_He_004-ENDF8.0.endf"]);
+    }
+}

@@ -10,6 +10,9 @@ Output, one block per picked record:
 The records picked per tape: the first, the middle and the last incident energy;
 tapes whose LTP is 12 or more (tabulated: p + H-2, alpha + He-4) are skipped, as
 `acecpe` skips `ptlegc` for them (`ltp.lt.12`, `acefc.f90:6557`).
+With a second argument `--ltp12` only those tabulated tapes are printed
+(gh:#1490: the input of `ltp12_probe.f90`, which shows why feeding them to
+`coul` crashed a driver).
 `awp`, `izai`, `awt`, `iza`, `spi` are what `acecpe` passes (`acefc.f90:6553`):
 AWP = AWI of MF=1/MT=451 (the projectile), IZAI = NSUB/10, AWT = the MF=6 head's
 AWR, IZA = the target ZA, SPI = C1 of the LAW=5 TAB2 record.
@@ -43,7 +46,7 @@ TAPES = [
     ("deck50_a_He4", "a-002_He_004-ENDF8.0.endf"),
 ]
 
-def main(root):
+def main(root, ltp12=False):
     for label, fn in TAPES:
         lines = open(os.path.join(root, fn)).read().split('\n')
         m1 = sec(lines, 1, 451)
@@ -75,7 +78,7 @@ def main(root):
             vals = vals[:nw]
             recs.append((fl(s[k][0:11]), fl(s[k][11:22]), h[2], lidp, h[4], h[5], vals))
             k += 1 + (nw + 5) // 6
-        if recs[0][2] >= 12:
+        if (recs[0][2] >= 12) != ltp12:
             continue  # LTP >= 12 is tabulated: acecpe never calls ptlegc/coul for it
         pick = sorted(set([0, len(recs) // 2, len(recs) - 1]))
         for p in pick:
@@ -84,4 +87,4 @@ def main(root):
             print(label, repr(awi), izai, repr(awt), int(round(za)), repr(spi), len(allw))
             print(' '.join(repr(v) for v in allw))
 
-main(sys.argv[1])
+main(sys.argv[1], len(sys.argv) > 2 and sys.argv[2] == '--ltp12')

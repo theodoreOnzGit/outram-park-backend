@@ -626,8 +626,12 @@ fn rt_text(x: f64) -> f64 {
 
 /// `acecpe` (`acefc.f90:6523-6670`) for MF=6/MT=2 with `LAW = 5`. Returns the
 /// AND words of the elastic reaction and the new total and elastic columns.
-/// Only `LTP >= 12` (nuclear amplitude ratio given directly) is ported;
-/// `LTP < 12` needs `ptlegc`/`coul` and is refused by name.
+/// ~~Only `LTP >= 12` (nuclear amplitude ratio given directly) is ported;
+/// `LTP < 12` needs `ptlegc`/`coul` and is refused by name.~~ **CORRECTED
+/// 2026-11-12 (gh:#1490):** both are ported. `LTP >= 12` (tabulated) is used
+/// as given; `LTP < 12` is rebuilt by `ptlegc`/`coul` (gh:#1485), as upstream
+/// does (`if (ltp.lt.12)`, `acefc.f90:6552`). Decks 50, 51 and 14 (LTP = 12)
+/// and 52-54 and 62 (LTP = 1, and one LTP = 0 record in 62) gate it.
 fn acecpe(
     sec: &Section,
     izai: i32,

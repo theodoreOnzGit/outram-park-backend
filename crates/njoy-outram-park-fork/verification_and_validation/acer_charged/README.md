@@ -60,10 +60,12 @@ PETIR's `libm` and 0.9659188400321087 in glibc, at the exact `eta` `coul` uses
 (`identical_particle_cosine_differs_only_in_libm`); a Python transcription of
 the Fortran expression with glibc maths reproduces NJOY's bits
 (`0x3FD75F5020806155`). The workspace keeps PETIR's maths (gh:#1455), so this
-is pinned as exactly these two words, under 2e-16. Not covered: `LTP = 2`
+is pinned as exactly these two words, under 2e-16. ~~Not covered: `LTP = 2`
 (no held evaluation has one), `LTP >= 12` (tabulated; `acecpe` never calls
 `coul` for it; the driver segfaulted when fed such a record, probably through
-`coul`'s 65-word `p`, which was not investigated).
+`coul`'s 65-word `p`, which was not investigated).~~ **CORRECTED 2026-11-12
+(gh:#1490):** `LTP = 2` is now gated on synthetic records, and the `LTP >= 12`
+crash is explained; see the next section.
 
 `law6_h` (the LAW=6 heating; it never reaches the ACE for a neutron, so the
 deck cannot gate it): 119 / 119 bit-identical to NJOY2016.80 built with
@@ -74,12 +76,74 @@ deck cannot gate it): 119 / 119 bit-identical to NJOY2016.80 built with
 the ESZ energy column of the seven decks, 894 energies, 0 differing
 (`esz_energies.txt`, from NJOY2016's `tape31`).
 
+## gh:#1490: the branches left after #1485 (2026-11-12)
+
+Predictions were posted on #1490 before any of these runs.
+
+**Reachability.** `tests/acer_charged_particle.rs::held_charged_evaluations_reach_only_ported_branches`
+walks every MF=6 subsection of the seven held charged-particle evaluations
+(`epn14`, `p-001_H_001/002/003`, `d-001_H_002`, `d-002_He_003`,
+`a-002_He_004`; `reference-data/endf/` holds only the same alpha + He-4
+tape) and pins what it finds:
+
+| branch | held evaluations that reach it | status |
+|---|---|---|
+| `coul` with `LTP = 2` | none; but d + He-3's 100 eV record has `LTP = 0`, undefined in ENDF-6, which upstream's `if (ltp.eq.1) ... else` sends down the `LTP = 2` formula (values near 1e-238; deck 62's ACE is identical) | gated at function level on synthetic records, below |
+| `LTP >= 12` | `epn14`, p + H-2, alpha + He-4 | tabulated; used as given, gated by decks 14, 51, 50. Never passed to `coul` (`if (ltp.lt.12)`, `acefc.f90:6552`) |
+| LAW = 5 product other than the projectile | none | refused. ENDF-6 gives LAW = 5 to the scattered projectile only, and upstream `acelcp`'s product loop has no LAW = 5 branch (`:10318-10743`): such an item would be read past without a skip |
+| LAW = 4 recoil heating (`izap > 2004`, `:11036-11080`) | none (the heaviest LAW = 4 recoil held is ZAP 2004, which the branch excludes) | refused. The branch reads `ne` (in the interpolation header, before it is re-read), `e` (in `betasq`) and `amass`, all left over from earlier code, and adds `q` in MeV to `e` in eV; a port could only be checked on a synthetic tape |
+| elastic recoil (MT = 2) | deck 54 (p + H-3). Deck 62's recoil is never reached: its empty dictionary gives it no production | gated at function level, below |
+
+The full ENDF/B-VIII.0 charged-particle sublibraries are not held. Their
+hosts (NNDC, IAEA NDS) are refused by this environment's proxy, so whether a
+LAW = 4 recoil heavier than an alpha occurs there (likely, for p + Li-6/7
+and heavier targets) was **not checked**.
+
+**`LTP >= 12` crash: the harness, not NJOY.** `ltp12_probe.f90` feeds the
+LTP = 12 records (`lists_ltp12.txt`, `extract_lists.py --ltp12`) to `coul`.
+`coul` holds `real(kr)::p(65)` and calls `legndr(x,p,np)` with
+`np = 2*nint(c(6))`; for LTP = 12, `c(6)` is the number of tabulated
+cosines. p + H-2 has NL = 36, so `legndr` (whose `p(*)` is assumed-size and
+never bounds checked) writes `p(1..73)`. With gfortran 13.3 the next local
+is `np` itself (`&p(65) = ...8210`, `&np = ...821c`, read in gdb), so
+`p(66)`'s upper half becomes the loop bound. Measured: `-O3`, SIGSEGV on the
+first call; `-O0 -fcheck=bounds`, `Index '66' of dimension 1 of array 'p'
+above upper bound of 65` at `x = 0.5` (at `x = 0`, `P_65(0) = 0` sets
+`np = 0` and the call returns quietly). The alpha + He-4 records (NL <= 27
+in the picked records, so `np + 1 <= 65`) run without error. The prediction
+named the right overrun but expected `-fcheck=bounds` to catch it inside
+`legndr`; it cannot, and caught the read in `coul` instead. Upstream never
+makes this call, so there is nothing to port.
+
+**`coul`/`ptlegc` with `LTP = 2`** (`driver_ltp2.f90`,
+`reference_output_ltp2.txt`; the nine `lists.txt` records with `c(3) = 2`, a
+test of the arithmetic, not physics):
+`tests/acer_charged_functions_code_to_code.rs::coul_and_ptlegc_ltp2_match_njoy2016`.
+**Result: `coul` 45 / 45, `ptlegc` 9 records and 447 / 447 points
+bit-identical**, as predicted.
+
+**`elastic_recoil_angular`** (`acefc.f90:9555-9636`):
+`elastic_recoil_instrument.diff` adds `write`s to the `mt.eq.2` block;
+NJOY2016.80 built from it (gfortran 13.3, `-O3`, every file) gives deck 54's
+unit 31 byte-identical to the unpatched build's, and prints the block's
+pointers, `awr`/`awi`, its input words (the scattered particle's AND block,
+4 628 words; the ESZ energies; the production's HPD block before the
+recoil heating) and its output words (the recoil's AND block, 4 628 words,
+and the 140 heating accumulators), all as IEEE-754 bits.
+`elastic_recoil_reference.sh` rebuilds `elastic_recoil_reference.txt`. The
+unit test `acer::acelcp_ext::tests::elastic_recoil_matches_njoy2016` puts the
+inputs at the same XSS indices and calls the Rust function. **Result: 4 768 /
+4 768 words bit-identical**, as predicted (`next` and the LANDH word equal).
+The prediction also named deck 62; it does not reach this block (above).
+
 ## Not done
 
-`elastic_recoil_angular` has no separate driver: its words (AND block, the
+~~`elastic_recoil_angular` has no separate driver: its words (AND block, the
 cdf sums, the heating through `h(E)` log-log) are in every word of deck 54's
 ACE and its heating in ESZ. An instrumented NJOY was read once for it: `e` and
 `ubar` matched to 17 figures at the first five energies, and `amass` did not,
 which is how the `awr` defect above was found; it was not re-compared after
-that fix, the deck-54 identity is the evidence. LAW=5 products other than the projectile, and the LAW=4
-recoil heating of an incident charged particle, are still refused.
+that fix, the deck-54 identity is the evidence.~~ **CORRECTED 2026-11-12
+(gh:#1490):** it has a function-level gate now (above). LAW=5 products other than the projectile, and the LAW=4
+recoil heating of an incident charged particle, are still refused, and are
+not reachable from any held evaluation (above).

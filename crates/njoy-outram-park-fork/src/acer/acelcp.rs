@@ -50,6 +50,13 @@
 //!   in every word (`tests/deck_driver_tapes_vs_njoy2016.rs`). Still refused:
 //!   a LAW = 5 product other than the projectile's own, and a LAW = 4 recoil
 //!   heating of an incident charged particle (`recoil_heating_supported`).
+//!   **Neither is reachable from a held evaluation** (gh:#1490, pinned by
+//!   `tests/acer_charged_particle.rs::held_charged_evaluations_reach_only_ported_branches`).
+//!   Upstream itself has no LAW = 5 branch in `acelcp`'s product loop
+//!   (`:10318-10743`; ENDF-6 gives LAW = 5 to the scattered projectile only).
+//!   Its LAW = 4 recoil heating (`:11036-11080`) reads `ne`, `e` and `amass`
+//!   left over from earlier code and mixes `q` in MeV with `e` in eV, so a
+//!   port could be checked only on a synthetic tape; it is left refused.
 //!
 //! [`append`] returns without writing anything, rather than a partial block,
 //! when a production item needs one of these.
@@ -361,6 +368,12 @@ pub(super) struct Xss<'a> {
 }
 
 impl Xss<'_> {
+    /// The 1-based view of `t`'s XSS, for a function-level test of a branch
+    /// that takes an `Xss` (gh:#1490, `acelcp_ext`'s elastic recoil test).
+    #[cfg(test)]
+    pub(super) fn over(t: &mut AceTable) -> Xss<'_> {
+        Xss { t }
+    }
     pub(super) fn get(&self, i: usize) -> f64 {
         self.t.xss.get(i - 1).copied().unwrap_or(0.0)
     }
