@@ -133,7 +133,63 @@ pub fn sort_site_records(records: &mut [EventSiteRecord]) {
 
 // f32 sentinels/constants kept identical to the WGSL kernel.
 const BIG: f32 = 1e30;
-const EPS: f32 = 1e-7;
+/// OpenMC `FP_COINCIDENT` (`include/openmc/constants.h:55`, 8f79d9d0), kept in
+/// f32 as `outram-blender`'s `csg_trace.wgsl` keeps it. Near the surface the
+/// rounding of `f = |r - c0|^2 - R^2` in f32 is of order 1e-5 cm^2, so the band
+/// `|f| < 1e-12` is in effect `f == 0`: membership goes by the sign of `f`, and
+/// by the direction only at `f == 0` (gh:#1506).
+const FP_COINCIDENT: f32 = 1.0e-12;
+
+/// OpenMC `Surface::sense` (`src/surface.cpp:118-132`, 8f79d9d0) for the
+/// bounding sphere, in f32 as the fused kernel computes it: `true` when the
+/// neutron is on the positive (outside) side. `c = |r - c0|^2 - R^2` and
+/// `kdot = (r - c0) . u`; the sphere's normal is `2 (r - c0)`, so a coincident
+/// neutron is outside when `kdot > 0`.
+///
+/// gh:#1506: OpenMC never transports a particle outside its cell (`find_cell`
+/// at birth, `reconcile_cell_after_collision` after a near-surface collision,
+/// `src/geometry.cpp:319`). Outside the vacuum sphere there is no cell, so the
+/// fused path counts such a neutron as leaked. Without this test a collision
+/// site rounded to just outside the sphere and moving outward got no boundary
+/// distance, collided outside, and its descendants transported in an infinite
+/// medium (fused GPU Godiva k = 1.78).
+#[inline]
+pub fn sphere_sense_outside_f32(c: f32, kdot: f32) -> bool {
+    if c.abs() < FP_COINCIDENT {
+        kdot > 0.0
+    } else {
+        c > 0.0
+    }
+}
+
+/// OpenMC `SurfaceSphere::distance` (`src/surface.cpp:652-690`, 8f79d9d0) with
+/// `coincident = false`, in f32 as the fused kernel computes it; [`BIG`] stands
+/// for `INFTY`. gh:#1506: it replaced a `d_near > 1e-7`, else `d_far > 1e-7`,
+/// else no boundary rule, which gave no boundary to a neutron inside the sphere
+/// within ~1e-7 cm of it and moving outward, so that neutron collided instead
+/// of leaking.
+#[inline]
+pub fn sphere_distance_openmc_f32(c: f32, kdot: f32) -> f32 {
+    let quad = kdot * kdot - c;
+    if quad < 0.0 {
+        BIG
+    } else if c.abs() < FP_COINCIDENT {
+        if kdot >= 0.0 {
+            BIG
+        } else {
+            -kdot + quad.sqrt()
+        }
+    } else if c < 0.0 {
+        -kdot + quad.sqrt()
+    } else {
+        let d = -kdot - quad.sqrt();
+        if d < 0.0 {
+            BIG
+        } else {
+            d
+        }
+    }
+}
 
 /// A batch of neutrons resident for the fused event kernel (Structure-of-Arrays).
 ///
@@ -630,23 +686,15 @@ pub fn advance_event_cpu_mirror_banking(
         let oz = pz - sphere.z0;
         let kdot = ox * ux + oy * uy + oz * uz;
         let c = ox * ox + oy * oy + oz * oz - sphere.r * sphere.r;
-        let disc = kdot * kdot - c;
-        let d_bound = if disc < 0.0 {
-            BIG
-        } else {
-            let sq = disc.sqrt();
-            let d_near = -kdot - sq;
-            if d_near > EPS {
-                d_near
-            } else {
-                let d_far = -kdot + sq;
-                if d_far > EPS {
-                    d_far
-                } else {
-                    BIG
-                }
-            }
-        };
+        // gh:#1506: cell membership first (OpenMC `Surface::sense`), then
+        // OpenMC's sphere distance; see `sphere_sense_outside_f32`.
+        if sphere_sense_outside_f32(c, kdot) {
+            batch.alive[i] = 0; // beyond the vacuum boundary: leaked
+            batch.seed_lo[i] = lo;
+            batch.seed_hi[i] = hi;
+            continue;
+        }
+        let d_bound = sphere_distance_openmc_f32(c, kdot);
 
         if d_col >= d_bound {
             batch.alive[i] = 0; // leaked

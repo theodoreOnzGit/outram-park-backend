@@ -296,6 +296,57 @@ fn g3_mirror_banks_at_collisions_not_at_fission_events() {
     );
 }
 
+/// 2000 neutrons on the sphere, moving radially outward: 1000 at
+/// `r = R (1 + j 1e-7)` and 1000 at `r = R (1 - j 1e-7)`, `j = 1..=10`, 100 per
+/// shell, directions from the fixed hash, positions rounded to f32.
+fn surface_batch() -> EventBatch {
+    let mut b = fixed_batch(2000);
+    let n = 2000;
+    for i in 0..n {
+        let d = [b.dir[3 * i] as f64, b.dir[3 * i + 1] as f64, b.dir[3 * i + 2] as f64];
+        let j = (i % 1000) / 100 + 1;
+        let sign = if i < 1000 { 1.0 } else { -1.0 };
+        let r = RADIUS * (1.0 + sign * j as f64 * 1e-7);
+        for a in 0..3 {
+            b.pos[3 * i + a] = (r * d[a]) as f32;
+        }
+    }
+    b
+}
+
+/// G5 (gh:#1506): a neutron on the sphere, or within f32 rounding of it on
+/// either side, moving outward leaks; none collides.
+///
+/// Methodology: [`surface_batch`] (2000 neutrons at `R (1 +/- j 1e-7)`, j = 1..10,
+/// radial outward directions, fission-spectrum energies, Godiva tables), ONE
+/// event, per-collision banking at k = 1, through the CPU mirror (and the GPU in
+/// [`g2_g4_fused_gpu_banks_per_collision`]). Pass: every neutron dead and no
+/// collision record. Prediction written before the fix was run: before it,
+/// most of the outside half collides (the issue measured 823 of 1000 on a
+/// similar set) and some of the inside half too (those within ~1e-7 cm, where
+/// the old `d_far > 1e-7` rule gave no boundary); after it, 0 of 2000.
+///
+/// Result (2026-11-12, rustc 1.99.1 release): see `G5` in the RESULT block of the
+/// module comment.
+#[test]
+fn g5_mirror_leaks_neutrons_leaving_through_the_surface() {
+    let t = tables();
+    let mut b = surface_batch();
+    let mut rec = Vec::new();
+    advance_generation_cpu_mirror_banking(
+        &t,
+        &mut b,
+        sphere(),
+        1,
+        EventFissionBanking::PerCollision { keff: 1.0 },
+        &mut rec,
+    );
+    let alive = b.alive.iter().filter(|&&a| a != 0).count();
+    println!("G5 mirror: {alive} of 2000 alive after one event, {} collision records", rec.len());
+    assert_eq!(alive, 0, "neutrons leaving through the surface must leak");
+    assert!(b.production.iter().all(|&p| p == 0.0), "no collision may have happened");
+}
+
 #[cfg(not(target_os = "android"))]
 #[test]
 fn g2_g4_fused_gpu_banks_per_collision() {
@@ -352,4 +403,13 @@ fn g2_g4_fused_gpu_banks_per_collision() {
         &ctx, &t, &mut tb, sphere(), 10_000, banking, &mut trec, 8,
     );
     assert_eq!(trec, grec, "re-run with grown capacity must reproduce the same records");
+
+    // G5 on the GPU (gh:#1506): the surface batch leaks whole in one event.
+    let mut sb = surface_batch();
+    let mut srec = Vec::new();
+    advance_generation_gpu_banking(&ctx, &t, &mut sb, sphere(), 1, banking, &mut srec);
+    let alive = sb.alive.iter().filter(|&&a| a != 0).count();
+    println!("G5 GPU: {alive} of 2000 alive after one event, {} collision records", srec.len());
+    assert_eq!(alive, 0, "GPU: neutrons leaving through the surface must leak");
+    assert!(sb.production.iter().all(|&p| p == 0.0), "GPU: no collision may have happened");
 }
