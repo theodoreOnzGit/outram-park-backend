@@ -17,8 +17,8 @@
 //! | benchmark | spectrum | U-238 | `p` | result |
 //! |---|---|---|---|---|
 //! | HEU-MET-FAST-001 (Godiva) | fast | 5 % of HM | — | ~~+16 ± 11 pcm (256 seeds)~~ −6 ± 5 pcm (1024 seeds, 2026-10-05, #546) |
-//! | IEU-MET-FAST-002 (Jemima) | fast | 83 % / 99.3 % | — | +6 ± 173 pcm |
-//! | HEU-SOL-THERM-009 case 1 | thermal | 5 % of HM | ≈ 0.95 | −18 ± 171 pcm |
+//! | IEU-MET-FAST-002 (Jemima) | fast | 83 % / 99.3 % | — | ~~+6 ± 173 pcm~~ −401 ± 13 pcm (128 seeds, RE-MEASURED 2026-11-12, gh:#1386) |
+//! | HEU-SOL-THERM-009 case 1 | thermal | 5 % of HM | ≈ 0.95 | ~~−18 ± 171 pcm~~ +80 ± 13 pcm (128 seeds, RE-MEASURED 2026-11-12, gh:#1386) |
 //! | **this case** | **thermal** | **97.5 % of HM** | **≈ 0.75** | ? |
 //!
 //! Godiva and Jemima are fast — U-238 is present, in bulk, but no neutron is
@@ -461,11 +461,43 @@
 //! measured effect is in `docs/profiling/speed_tiers_2026_09_27.md`.
 
 //!
+//! ## RE-MEASURED 2026-11-12 — 32 seeds, `OUTRAM_BENCH_SEEDS=32` (gh:#1386)
+//!
+//! **Current value, case 1: `+172 pcm, sem ±22, seed-to-seed sd 124`
+//! (32 seeds)** against k = 1.0000, i.e. `k = 1.00172 ± 0.00022`, at code
+//! `49148da11`: this branch's transport defaults (OpenMC-faithful collision
+//! kernels, OpenMC reaction order with a single-cutoff level pick, OpenMC
+//! fission-neutron order, per-collision fission banking, the gh:#1497
+//! direction-norm guard). The example's defaults: full 35-nuclide model
+//! (36 tapes), 4000 × [120 + 250], speed tier `fast`, URR and DBRC on,
+//! H in H₂O from `tsl-HinH2O.endf`. Pooled active-half drift +24 ± 34 pcm
+//! (not resolved). Every history clean.
+//!
+//! **Against which record. No like-for-like record exists.** The
+//! 2026-09-18 `+165 ± 25` below predates the URR/DBRC defaults, the full
+//! nuclide tier and the gh:#931 PURR counts. The nearest record of the same
+//! 35-nuclide model is route 4 of `icsbep_five_route_keff`, **`+135 ± 23`
+//! over 32 seeds, 2026-10-18** (`verification_and_validation/route4_process_931/`),
+//! but at 10 000 × [40 + 120] with H in H₂O from the LEAPR deck. **New − that
+//! = +37 ± 32 pcm (+1.2σ)**, inside the ±2σ predicted before the run
+//! (`remeasure_logs/predictions.md`). For completeness: against route 4's
+//! 8-seed 10 000 × [250 + 400] row (2026-10-14, `+118 ± 19`) it is
+//! +54 ± 29 (1.9σ), and against the stale `+165 ± 25` it is +7 ± 33. None of
+//! these separates the transport-default change from the run-size and
+//! S(α,β)-source differences; a paired legacy arm would, and was not run
+//! (not required under 3σ). Measured on an Intel Xeon @ 2.80 GHz, 4 logical
+//! cores shared with a concurrent workspace test suite, 15 GiB RAM, Linux
+//! 6.18.44, CPU only: data 594.6 s, transport 5580.2 s for the 32 seeds.
+//! Log: `remeasure_logs/lct008_keff_default_s32.log`.
+//!
 //! ## POOLED RESULT (2026-09-18) — 32 seeds, `OUTRAM_BENCH_SEEDS=32`
+//!
+//! **Superseded: by the URR/DBRC defaults, the full nuclide tier, and the
+//! 2026-11-12 re-measure above. Quote `+172 ± 22`.**
 //!
 //! | | dk vs benchmark |
 //! |---|---|
-//! | **pooled mean, 32 seeds** | **+165 pcm, sem +/-25** |
+//! | **pooled mean, 32 seeds** | ~~**+165 pcm, sem +/-25**~~ **RE-MEASURED 2026-11-12: +172 ± 22 (32 seeds)** |
 //! | seed-to-seed sd | 143 pcm — what ONE run scatters by |
 //! | previously recorded (SINGLE seed) | `+201 +/- 63 pcm` |
 //! | one draw taken 2026-09-18 | `+89 +/- 126 pcm` |
