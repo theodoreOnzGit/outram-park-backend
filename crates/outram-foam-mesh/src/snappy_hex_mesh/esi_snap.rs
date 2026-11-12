@@ -22,8 +22,11 @@
 //! (round 3, task 2) for the stage table. **What is not:** features
 //! (`snappySnapDriverFeature.C`), `detectNearSurfaces` (ESI overrides 0 of 12130
 //! points on the flange), `freezeExposedPoints` (no frozen zone), baffles and
-//! faceZones, parallel synchronisation (serial only), `repatchToSurface`,
-//! `mergePatchFaces`, and the quality check of `scaleMesh`. Everything here is opt-in; the
+//! faceZones, parallel synchronisation (serial only). ~~`repatchToSurface`,
+//! `mergePatchFaces`, and the quality check of `scaleMesh`~~ **CORRECTED 2026-11-12:**
+//! `scaleMesh` with its checks and `repatch_to_surface` are in this file (round 4);
+//! face merging and edge removal are in [`crate::snappy_hex_mesh::esi_merge`] (round 5).
+//! Everything here is opt-in; the
 //! older [`crate::snappy_hex_mesh::snapping::snap`] is untouched.
 //!
 //! Numerics: plain IEEE `+ - * /` and `sqrt` only, in upstream's grouping, no
