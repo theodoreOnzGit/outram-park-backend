@@ -28,6 +28,19 @@ use uom::si::velocity::meter_per_second;
 /// Bulk velocity of the coil runs \[m/s\] (Re is set through ν).
 pub const U_COIL: f64 = 5.0e-3;
 
+/// Normalised-residual tolerance of the coil runs' momentum solve (the
+/// solver's default is 1e-7). **Set 2026-11-12 (gh:#1500):** with upstream's
+/// implicit `Gauss linear` the warm-started Gauss-Seidel sweeps stop just
+/// under 1e-7 and the state then wanders by ~1e-7 m/s per step (1e-5 of U),
+/// which kept the steady metric at a constant 4.68e-3 for 2 500 steps on the
+/// m = 2 coil at Re 200 against the criterion 1e-3, while f·Re/64 was fixed
+/// to five digits. At 1e-10 and 1e-12 the run reaches the unchanged
+/// criterion (351 steps) with the same f·Re/64 = 1.42097 and the same
+/// trajectory to four digits at step 300 (3.295e-3), so 1e-10 is where the
+/// metric stops depending on the tolerance. Record:
+/// `helical_coil_dean_gh1157.md`.
+pub const U_TOLERANCE: f64 = 1.0e-10;
+
 fn m(v: f64) -> Length {
     Length::new::<meter>(v)
 }
@@ -159,6 +172,7 @@ impl CoilRun {
         let mut solver = pipe.build_solver(fv, dt);
         solver.solution.pimple.n_non_orthogonal_correctors = 1;
         solver.schemes.default_div = scheme;
+        solver.u_linear_solver.tolerance = U_TOLERANCE;
         Self { grid, solver, flow, cells, ds, steps: 0 }
     }
 
@@ -214,9 +228,24 @@ impl CoilRun {
 ///
 /// # Errors
 /// Meshing or divergence, as text.
-pub fn run_to_steady(grid: HelicalPipe, reynolds: f64, scheme: DivScheme, co: f64, tol: f64, max_steps: usize, mut on_step: impl FnMut(&CoilRun, f64)) -> Result<(CoilReport, CoilRun, f64), String> {
+pub fn run_to_steady(grid: HelicalPipe, reynolds: f64, scheme: DivScheme, co: f64, tol: f64, max_steps: usize, on_step: impl FnMut(&CoilRun, f64)) -> Result<(CoilReport, CoilRun, f64), String> {
+    run_to_steady_with_u_tolerance(grid, reynolds, scheme, co, tol, max_steps, None, on_step)
+}
+
+/// [`run_to_steady`] with the momentum linear solver's tolerance set to
+/// `u_tolerance` when it is `Some` (`PimpleFoam::with_linear_solver_settings`;
+/// `None` keeps [`U_TOLERANCE`]). The gh:#1500 diagnosis ablation of the
+/// linear-solver floor in the steady metric.
+///
+/// # Errors
+/// Meshing or divergence, as text.
+#[allow(clippy::too_many_arguments)]
+pub fn run_to_steady_with_u_tolerance(grid: HelicalPipe, reynolds: f64, scheme: DivScheme, co: f64, tol: f64, max_steps: usize, u_tolerance: Option<f64>, mut on_step: impl FnMut(&CoilRun, f64)) -> Result<(CoilReport, CoilRun, f64), String> {
     let fv = Arc::new(grid.mesh().map_err(|e| e.to_string())?.to_fv_mesh().map_err(|e| e.to_string())?);
     let mut run = CoilRun::on_mesh(grid, fv, reynolds, scheme, co, crate::engine::MAX_VISCOUS_DEFAULT);
+    if let Some(t) = u_tolerance {
+        run.solver.u_linear_solver.tolerance = t;
+    }
     let t0 = bugis::web_demo::platform::now_s();
     for _ in 0..max_steps {
         let c = run.step()?;

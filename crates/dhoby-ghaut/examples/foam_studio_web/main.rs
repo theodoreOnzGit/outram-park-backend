@@ -589,7 +589,7 @@ fn rebuild_with_zones(all: &outram_foam_mesh::block_mesh::PolyMesh, zones: Vec<o
     UnstructuredMesh::from_polyhedral(LengthUnit::Metre, points, faces, all.n_cells, patches, zones).map_err(|e| format!("{e:?}"))
 }
 
-/// `--coil-run <m> <re> [linear|upwind|deferred] [straight] [trace] [max_steps] [co=<Courant, 1>] [tol=<steady tolerance>] [svg=<path>]`: one run of the
+/// `--coil-run <m> <re> [linear|upwind|deferred] [straight] [trace] [max_steps] [co=<Courant, 1>] [tol=<steady tolerance>] [utol=<momentum solver tolerance, default 1e-10 (coil::U_TOLERANCE)>] [svg=<path>]`: one run of the
 /// coil V&V (`helical_coil_dean_gh1157.md`) on the level-`m` grid, printing
 /// progress and one result row. CLI glue; the run is the tested
 /// `coil::run_to_steady`.
@@ -614,6 +614,7 @@ fn coil_run_cli(args: &[String]) -> Result<(), String> {
     let max_steps = args.iter().filter_map(|a| a.parse::<usize>().ok()).nth(2).unwrap_or(20_000);
     let co: f64 = args.iter().find_map(|a| a.strip_prefix("co=")).and_then(|v| v.parse().ok()).unwrap_or(engine::COIL_CO);
     let tol = args.iter().find_map(|a| a.strip_prefix("tol=")).and_then(|v| v.parse().ok()).unwrap_or(engine::STEADY);
+    let utol: Option<f64> = args.iter().find_map(|a| a.strip_prefix("utol=")).and_then(|v| v.parse().ok());
     let g = spec.level(lvl);
     let cells = g.n_cells();
     let t0 = bugis::web_demo::platform::now_s();
@@ -621,7 +622,7 @@ fn coil_run_cli(args: &[String]) -> Result<(), String> {
     // change of U is (arc position s, and r/R), from a snapshot one step
     // earlier.
     let mut snap: Option<Vec<outram_foam_basic_lib::primitives::Vector3>> = None;
-    let (r, run, solve_s) = coil::run_to_steady(g, re, scheme.clone(), co, tol, max_steps, |run, c| {
+    let (r, run, solve_s) = coil::run_to_steady_with_u_tolerance(g, re, scheme.clone(), co, tol, max_steps, utol, |run, c| {
         if let Some(prev) = snap.take() {
             let (mut worst, mut at) = (0.0, 0);
             for (i, (a, b)) in prev.iter().zip(run.solver.u.internal.as_slice()).enumerate() {

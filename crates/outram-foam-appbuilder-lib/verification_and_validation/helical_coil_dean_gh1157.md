@@ -416,6 +416,61 @@ Courant number / time step (the protocol), never a gate; the tests' physics
 assertions (steady criterion 1e-3, mass balance 1e-8, Dean signs) are not
 touched; any pinned number that moves is re-recorded old -> new.
 
+### Diagnosis, part 2: after Co 1 the steady criterion is still not reached (hypotheses written BEFORE the test)
+
+**Results of the H1 test (2026-11-12, m = 2, Re 200, `--coil-run 2 200 linear
+<max_steps> co=<Co> trace`; the upstream `CoNum` of `CourantNo.H` is printed
+by `engine::courant_numbers`):** Co 4 (CoNum 5.9 at step 1) diverges at step
+2; Co 2 (CoNum 2.6) at step 6; Co 1.5 (CoNum 1.8) at step 10; Co 1 (CoNum 1.07
+at step 1, 1.5 at step 40) and Co 0.5 run on. **H1 holds** (stable below, and
+only below, a Courant number of about 1 to 1.5, as predicted; and H2 is not
+needed: no defect shows at Co <= 1). H3 (outer correctors) was not tested; the
+Co result made it unnecessary.
+
+**New observation (m = 2, Re 200, Co 1, 3000 steps, 445 s):** the run does
+**not** reach the steady criterion. f·Re/64 is 1.42097 from step 250 on (the
+same five digits to step 3000), but the steady metric sits at **4.680e-3**,
+constant to four digits for 2 500 steps, with the largest one-step change
+|dU| = 6.19e-8 m/s always in the same cell (turn 1, s = 0.267 m, r/R 0.19):
+a state that is fixed, or a period-2 cycle of fixed amplitude, not a slow
+drift (the friction factor does not move). The criterion is 1e-3 and is not
+touched.
+
+**H4 (the linear-solver floor).** The momentum equation is solved by
+warm-started Gauss-Seidel to a normalised-residual tolerance of 1e-7
+(`SolverSettings::default`), and the implicit central matrix is far less
+diagonally dominant than the upwind-based one, so the sweeps stop with a
+residual just under 1e-7 and the state wanders by ~1e-7 m/s (U = 5e-3 m/s:
+1e-5 of U) from step to step: a floor set by the solver, not by the physics.
+*Prediction:* tightening the momentum tolerance to 1e-10 and 1e-12 lowers the
+plateau by roughly the same factor (it falls below 1e-3, i.e. the run stops
+on the unchanged criterion), and f·Re/64 does not change in its first four
+digits.
+
+**H5 (a real two-grid / odd-even oscillation of the central scheme at cell
+Peclet 100).** *Prediction:* the plateau amplitude does not depend on the
+linear tolerance; the change alternates sign each step.
+
+**Result of the H4/H5 test (2026-11-12, m = 2, Re 200, Co 1, same binary,
+`utol=` set on the momentum solve):**
+
+| momentum tolerance | steps to the unchanged 1e-3 criterion | steady metric at step 300 | f·Re/64 |
+|---|---|---|---|
+| 1e-7 (default) | **not reached in 3 000** (plateau 4.680e-3) | 4.680e-3 | 1.42097 |
+| 1e-10 | **351** | 3.295e-3 | 1.42097 |
+| 1e-12 | reached (stopped at 400 by the harness cap) | 3.295e-3 | 1.42097 |
+
+**H4 holds, H5 does not**: the plateau is the linear solver's floor; at 1e-10
+and 1e-12 the trajectories agree to four digits and the answer is the same to
+five. The coil runs therefore set the momentum tolerance to 1e-10
+(`coil::U_TOLERANCE`; the point where the metric stops depending on the
+tolerance, chosen from this table, not from a target value). The 1e-3
+criterion, the mass-balance gate and the Dean-sign assertions are unchanged.
+
+**The protocol that follows (gh:#1500): `Gauss linear` (upstream's), Co 1,
+momentum tolerance 1e-10.** What the earlier deferred-form record ran was
+`GaussLinearDeferred`, Co 4 (1 above Re 250), tolerance 1e-7.
+
 ## Reproduce
 
 ```bash
