@@ -36,6 +36,7 @@
 //! (an `Err` at parse time, never silently wrong): `random`, `normal`,
 //! `stagger`, `logfreq`, group/compute/fix references, atom-style variables.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 /// Run state a formula is evaluated in (`update->ntimestep`,
@@ -393,7 +394,7 @@ impl Expr {
                         if v2 == 0.0 {
                             return Err("Power by 0 in variable formula".into());
                         }
-                        v1.powf(v2)
+                        v1.r_powf(v2)
                     }
                     Op::Eq => flag(v1 == v2),
                     Op::Ne => flag(v1 != v2),
@@ -419,33 +420,33 @@ impl Expr {
                         }
                         v[0].sqrt()
                     }
-                    "exp" => v[0].exp(),
+                    "exp" => v[0].r_exp(),
                     "ln" | "log" => {
                         if v[0] <= 0.0 {
                             return Err("Log of zero/negative in variable formula".into());
                         }
                         if name == "ln" {
-                            v[0].ln()
+                            v[0].r_ln()
                         } else {
-                            v[0].log10()
+                            v[0].r_log10()
                         }
                     }
                     "abs" => v[0].abs(),
-                    "sin" => v[0].sin(),
-                    "cos" => v[0].cos(),
-                    "tan" => v[0].tan(),
+                    "sin" => v[0].r_sin(),
+                    "cos" => v[0].r_cos(),
+                    "tan" => v[0].r_tan(),
                     "asin" | "acos" => {
                         if !(-1.0..=1.0).contains(&v[0]) {
                             return Err("Arcsin/arccos of invalid value in variable formula".into());
                         }
                         if name == "asin" {
-                            v[0].asin()
+                            v[0].r_asin()
                         } else {
-                            v[0].acos()
+                            v[0].r_acos()
                         }
                     }
-                    "atan" => v[0].atan(),
-                    "atan2" => v[0].atan2(v[1]),
+                    "atan" => v[0].r_atan(),
+                    "atan2" => v[0].r_atan2(v[1]),
                     "ceil" => v[0].ceil(),
                     "floor" => v[0].floor(),
                     // MYROUND(a) = (a-floor(a) >= 0.5) ? ceil(a) : floor(a)
@@ -473,9 +474,9 @@ impl Expr {
                         }
                         let omega = 2.0 * std::f64::consts::PI / v[2];
                         if name == "swiggle" {
-                            v[0] + v[1] * (omega * delta * ctx.dt).sin()
+                            v[0] + v[1] * (omega * delta * ctx.dt).r_sin()
                         } else {
-                            v[0] + v[1] * (1.0 - (omega * delta * ctx.dt).cos())
+                            v[0] + v[1] * (1.0 - (omega * delta * ctx.dt).r_cos())
                         }
                     }
                     other => return Err(format!("unsupported function {other}")),

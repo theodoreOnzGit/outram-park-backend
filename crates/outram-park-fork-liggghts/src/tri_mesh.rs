@@ -58,6 +58,7 @@
 //! constant (`EPSILON_PRECISION = 1e-8`, `EPSILON_CURVATURE = 1e-5`,
 //! `SMALL_TRIMESH = 1e-10`, `LARGE_TRIMESH = 1e6`).
 
+use petir::mathf::RealMath;
 use crate::particle::Vec3;
 
 /// A plain 3-vector, as upstream's `double[3]`.
@@ -519,10 +520,10 @@ impl TriMeshState {
     ) {
         let axis_norm = v_div(axis, v_mag(axis));
         let dq = [
-            (d_angle * 0.5).cos(),
-            axis_norm[0] * (d_angle * 0.5).sin(),
-            axis_norm[1] * (d_angle * 0.5).sin(),
-            axis_norm[2] * (d_angle * 0.5).sin(),
+            (d_angle * 0.5).r_cos(),
+            axis_norm[0] * (d_angle * 0.5).r_sin(),
+            axis_norm[1] * (d_angle * 0.5).r_sin(),
+            axis_norm[2] * (d_angle * 0.5).r_sin(),
         ];
         let trans = v_mag_sq(origin) > 0.;
         for nd in nodes.iter_mut() {
@@ -561,16 +562,16 @@ impl TriMeshState {
         origin: &V3,
     ) {
         let total_q = [
-            (total_angle * 0.5).cos(),
-            axis[0] * (total_angle * 0.5).sin(),
-            axis[1] * (total_angle * 0.5).sin(),
-            axis[2] * (total_angle * 0.5).sin(),
+            (total_angle * 0.5).r_cos(),
+            axis[0] * (total_angle * 0.5).r_sin(),
+            axis[1] * (total_angle * 0.5).r_sin(),
+            axis[2] * (total_angle * 0.5).r_sin(),
         ];
         let dq = [
-            (d_angle * 0.5).cos(),
-            axis[0] * (d_angle * 0.5).sin(),
-            axis[1] * (d_angle * 0.5).sin(),
-            axis[2] * (d_angle * 0.5).sin(),
+            (d_angle * 0.5).r_cos(),
+            axis[0] * (d_angle * 0.5).r_sin(),
+            axis[1] * (d_angle * 0.5).r_sin(),
+            axis[2] * (d_angle * 0.5).r_sin(),
         ];
         let trans = v_mag_sq(origin) > 0.;
         for (nd, o) in nodes.iter_mut().zip(orig) {

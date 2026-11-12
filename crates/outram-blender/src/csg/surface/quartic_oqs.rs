@@ -44,6 +44,7 @@
 //!   `csqrt`/`__divdc3`, so those roots are not claimed bit-identical (and are
 //!   never used).
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 /// `pow(DBL_MAX, 1/3) / 1.618034`.
@@ -66,7 +67,7 @@ impl Cx {
         Self::new(self.re, -self.im)
     }
     fn abs(self) -> f64 {
-        self.re.hypot(self.im)
+        self.re.r_hypot(self.im)
     }
     fn mul(self, o: Self) -> Self {
         Self::new(self.re * o.re - self.im * o.im, self.re * o.im + self.im * o.re)
@@ -118,18 +119,18 @@ fn solve_cubic_analytic_depressed_handle_inf(b: f64, c: f64) -> f64 {
     }
     if kk < 0.0 {
         let sqrt_q = q.sqrt();
-        let theta = ((r / q.abs()) / sqrt_q).acos();
+        let theta = ((r / q.abs()) / sqrt_q).r_acos();
         if 2.0 * theta < PI {
-            -2.0 * sqrt_q * (theta / 3.0).cos()
+            -2.0 * sqrt_q * (theta / 3.0).r_cos()
         } else {
-            -2.0 * sqrt_q * ((theta + 2.0 * PI) / 3.0).cos()
+            -2.0 * sqrt_q * ((theta + 2.0 * PI) / 3.0).r_cos()
         }
     } else {
         let a;
         if q.abs() < r.abs() {
-            a = -1.0_f64.copysign(r) * (r.abs() * (1.0 + kk.sqrt())).cbrt();
+            a = -1.0_f64.copysign(r) * (r.abs() * (1.0 + kk.sqrt())).r_cbrt();
         } else {
-            a = -1.0_f64.copysign(r) * (r.abs() + q.abs().sqrt() * q.abs() * kk.sqrt()).cbrt();
+            a = -1.0_f64.copysign(r) * (r.abs() + q.abs().sqrt() * q.abs() * kk.sqrt()).r_cbrt();
         }
         let b2 = if a == 0.0 { 0.0 } else { q / a };
         a + b2
@@ -147,15 +148,15 @@ fn solve_cubic_analytic_depressed(b: f64, c: f64) -> f64 {
     let q3 = q * q * q;
     let r2 = r * r;
     if r2 < q3 {
-        let theta = (r / q3.sqrt()).acos();
+        let theta = (r / q3.sqrt()).r_acos();
         let sqrt_q = -2.0 * q.sqrt();
         if 2.0 * theta < PI {
-            sqrt_q * (theta / 3.0).cos()
+            sqrt_q * (theta / 3.0).r_cos()
         } else {
-            sqrt_q * ((theta + 2.0 * PI) / 3.0).cos()
+            sqrt_q * ((theta + 2.0 * PI) / 3.0).r_cos()
         }
     } else {
-        let a = -1.0_f64.copysign(r) * (r.abs() + (r2 - q3).sqrt()).powf(1.0 / 3.0);
+        let a = -1.0_f64.copysign(r) * (r.abs() + (r2 - q3).sqrt()).r_powf(1.0 / 3.0);
         let b2 = if a == 0.0 { 0.0 } else { q / a };
         a + b2 // this is always largest root even if A=B
     }
