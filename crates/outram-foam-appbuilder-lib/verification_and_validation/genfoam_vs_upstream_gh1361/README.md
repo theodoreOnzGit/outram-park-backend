@@ -536,3 +536,76 @@ as `max |a-b| / max |b|`, tight protocol, every step.
 | O6 | the first-step lazy old time of `p` (`fvc::ddt(p_)` is the first request for `p.oldTime()`, as found for twoPhase in round 3) | applies to onePhase too: `without_first_step_lazy_old_time` moves step-1 `p` or `T` by more than 1e-6 relative | |
 | O7 | `includeKineticEnergy` (default true, `EEqn_1p.H`; the twoPhase port has no such term) | upstream's `T` differs from a run without the term by about 0.5 U^2 / Cp = 3e-4 K, i.e. 5e-7 of 652 K; with the term the port is inside O1 | |
 | O8 | `structure_.correct(Hs*T.prevIter(), Hs)` uses the temperature BEFORE the energy solve | using the temperature after it (what the twoPhase port does) moves `T.fixedPower` at step 1 by more than 1e-9 relative | |
+
+## Round 4 results (measured 2026-11-12; `tests/genfoam_one_phase_vs_upstream.rs`)
+
+Real binary (tight protocol, every step, `writePrecision 17`) against `OnePhaseFcSolver` on
+`tests/data/genfoam_1d_onephase`. `deltaT` is **bit-identical at all 108 steps**. Differences are
+`max |port - upstream| / max |upstream|` per field (`contErr`, `dgdt`: scaled by `max(alpha rho)/dt` and `1/dt`,
+because they are differences of large cancelling terms).
+
+| step | p | p_rgh | T | U | T.fixedPower | htc | Re | contErr | dgdt |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 3.5e-14 | 3.5e-14 | 5.2e-16 | 4.5e-14 | 1.7e-16 | 2.5e-15 | 8.1e-13 | 1.1e-14 | 6.8e-17 |
+| 2 | 2.5e-13 | 2.5e-13 | 5.2e-16 | 6.6e-13 | 1.7e-16 | 1.7e-15 | 5.3e-13 | 8.6e-15 | 6.7e-17 |
+| 40 | 1.4e-13 | 1.4e-13 | 4.3e-14 | 2.8e-12 | 5.3e-14 | 1.9e-13 | 2.6e-12 | 2.0e-13 | 5.1e-15 |
+| 108 | 7.0e-14 | 7.0e-14 | 1.2e-13 | 5.3e-12 | 1.3e-13 | 1.8e-13 | 2.7e-12 | 1.2e-13 | 4.8e-15 |
+
+Cumulative continuity error after 108 steps: port -8.750610e-6, upstream -8.750923e-6 kg/m3 (3.1e-10 apart).
+Not bit-identical (different linear solvers: ILU-BiCGStab at 1e-13 against GAMG at 1e-14; the operation order of
+`fvMatrix::relax` and of the `ddt` correction differ by round-off); round-off level, count of bit-identical
+fields not taken. All gated at the predicted bounds (O1, O2: 1e-10 at step 1, 1e-9 after), 2 to 4 orders inside.
+
+| id | held? | what was measured |
+|---|---|---|
+| O1, O2 | held | table above; bounds in the test |
+| O3 | held | `deltaT` bit-identical at all 108 steps |
+| O4 | **missed as stated** | 3.6e-5 relative (3.1e-10 absolute), not < 1e-6. Cause: round-off. Each `contErr` is a difference of `alpha rho/dt` ~ 4e5 terms, agreeing to 1e-13 of that scale, so 20 summed contributions are 3e-10 apart. The gate is 1e-9 absolute. |
+| O5 | **WRONG** | `fvMatrix::relax(1)` is NOT neutral. Without it step-1 `p` is off by **1.5e-5** (`U` 5.6e-6, `T` 4.6e-8). First divergent operation, found by running upstream with `nOuterCorrectors 1`, `nCorrectors 1` (`scripts/onephase_protocol.sh` `NOUTER`, `NCORR`): `U` differed by 1.9e-5 after one outer iteration and one corrector while `T`, `Re`, `htc`, `T.fixedPower` agreed to 1e-13. ESI `fvMatrix::relax` adds `cmptMax(cmptMag(iCoeffs))` (a magnitude) to the diagonal before the dominance test and subtracts the signed `iCoeffs` after, so a convective INFLOW boundary face (negative `iCoeffs`, the inlet of a non-fixed `U` patch) raises the diagonal by `2 |phi_b|` in that cell; `UEqn.A()`, hence `rAUf` of the inlet face, sees it. Fixed by translating `relax`: after the fix 1.1e-14 at 1 corrector, 3.5e-14 at step 1. The prediction that both matrices are diagonally dominant everywhere was true and beside the point. |
+| O6 | held | `without_first_step_lazy_old_time`: step-1 `p` off by 1.2e-2 (`T` 5.5e-5) |
+| O7 | **WRONG in size** | `includeKineticEnergy` matters at 7e-11 (`p`), 1.8e-13 (`T`) at step 1, not 5e-7: the term enters as `ddt(alpha rho K) + div(alphaRhoPhi K) - contErr K`, which is nearly zero for a uniform `U`; I had priced `K` itself. It is in the port (default true, `without_kinetic_energy` ablation) and inside the gate. |
+| O8 | held for `p`, **missed for `T.fixedPower`** | `structure.correct` with the post-solve temperature: `p` 3.5e-9 (> 1e-9), `T.fixedPower` 6.7e-11 (predicted > 1e-9). |
+
+### Defects found and fixed (all by translating upstream)
+
+1. **`fvMatrix::relax` boundary-inflow rule** (O5 above). `relax_diag` / `convective_inflow2`.
+2. **Upstream `customPimpleControl::loop` leaves `converged_` set** when the residual criteria are first
+   met in the LAST outer iteration (`corr == nOuterCorrectors`): the `corr == nCorr + 1` branch returns
+   without clearing it, so the NEXT time step's first `loop()` prints "converged in 0 iterations" and **solves
+   nothing**. Found at step 71, where every field jumped (`T` 1.4e-4 relative, growing by 1.4e-4 every second
+   step): the upstream log shows steps 71, 73, ..., 107 with no `PIMPLE: iteration` line. This is
+   **upstream's behaviour** (a defect of GeN-Foam 652b3da, not a port defect), reproduced by default as
+   `OnePhaseFcControls::stale_pimple_converged_flag = true`; `without_stale_pimple_converged_flag()` keeps the
+   clean ending callable (it then solves the skipped steps and ends at least 1e-5 away from upstream at
+   step 108). **It applies to twoPhase too** (same control class): a twoPhase run whose criteria are first
+   met at `corr == nOuterCorrectors` skips the next step upstream. Not yet checked in the twoPhase port, whose
+   65-step and onset records never reached such a step (not re-run: noted, see "What remains").
+3. **`calcCumulContErr` runs only in the iteration flagged converged.** It sits under `if (pimple_.finalIter())`,
+   whose inherited definition (`converged_ || corr_ == nCorrPIMPLE` on the BASE class's `corr_`) is true only in
+   the flagged iteration; the custom loop keeps its own `corr_`. A step that never meets its criteria adds
+   nothing: upstream printed "Cumulative continuity error" in 20 of 108 steps. Before the fix the port added in
+   every step (-3.3e-5, a factor 3.8 off); after, -8.75061e-6.
+4. In the case reader, not a physics defect: `solvers."h.*"` is overridden by the later `".*"` (OpenFOAM matches
+   patterns last-first), so upstream solves `h` with `diagonalPBiCGStab`, not the `smoothSolver` the entry names;
+   at the tight protocol both stop at round-off, so the port keeps `smoothSolver` (unchanged from twoPhase).
+
+### Options added (ESI form is the default; the other form stays callable)
+
+`without_equation_relaxation`, `without_first_step_lazy_old_time`, `without_kinetic_energy`,
+`with_structure_after_solve_temperature`, `without_stale_pimple_converged_flag`. Their misses are pinned in
+`one_phase_channel_options_reproduce_the_recorded_misses`. No Foundation-vs-ESI divergence was found that needed
+a new option beyond these; `Time::adjustDeltaT` reuses the ESI form from round 3.
+
+### Moved numbers
+
+None recorded before this round concerned `onePhase` against the binary. The twoPhase port and the older
+`OnePhaseSolver` are untouched (`case.rs` helpers were made `pub(super)`, nothing else there changed).
+
+### What remains
+
+* The U.vapour residual noted for the 1D_boiling twoPhase run (5.7e-6 at step 2, 2.1e-5 at step 1: the absent-vapour
+  inlet cell) was **not attempted**: this round went to onePhase; it is a twoPhase item.
+* Check whether twoPhase hits the stale `converged_` flag (item 2) and add the same named option.
+* `1D_HX/onePhase` itself (heat exchangers, `fixedValue` U inlet, `slip` walls, `fixedFluxPressure`) and
+  `2D_cavityBoussinesq` (Boussinesq, closed volume) still cannot be read; each refusal is named in `OnePhaseFcCase::read`.
+* `contErr` / cumulative error are round-off limited (1e-13 of the `rho/dt` scale); bit-identity was not pursued.

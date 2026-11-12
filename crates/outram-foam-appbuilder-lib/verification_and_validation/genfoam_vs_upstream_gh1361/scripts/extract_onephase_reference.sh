@@ -29,7 +29,7 @@ for T in $SEL; do
     [ -f "$F" ] || continue
     if grep -q "^internalField *uniform" "$F"; then
       V=$(grep "^internalField *uniform" "$F" | sed -E 's/^internalField *uniform *\(?([^ ;)]+).*/\1/')
-      echo "F $T $f $(yes "$V" | head -n 40 | tr '\n' ' ')" >> "$OUT"
+      echo "F $T $f $(yes -- "$V" | head -n 40 | tr '\n' ' ')" >> "$OUT"
     else
       echo "F $T $f $(awk '/^\($/{f=1;next} /^\)$/{f=0} f{gsub(/[()]/,""); print $1}' $F | tr '\n' ' ')" >> "$OUT"
     fi

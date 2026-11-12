@@ -14,4 +14,5 @@ if [ -n "$TIGHT" ]; then
          print }' "$f" > "$f.new" && mv "$f.new" "$f"
 fi
 [ -n "$NOUTER" ] && sed -i "s/^\( *\)nOuterCorrectors .*/\1nOuterCorrectors    $NOUTER;/" "$f"
+[ -n "$NCORR" ] && sed -i "s/^\( *\)nCorrectors .*/\1nCorrectors    $NCORR;/" "$f"
 exit 0
