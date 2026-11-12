@@ -482,3 +482,57 @@ The earlier tests could only reach the ASCII write precision of the committed CS
 | Q2 | gFHR first step: each pebble stage (`keffmatrix`, `Tmout`, `Tmav`, `TfS`, `Tfav`, `Tfmax`) from upstream's `TpS`, per cell | worst relative < 1e-12 per stage (the 5e-6 of the old record is the 6-digit ASCII floor) |
 
 The mesh for gFHR is 292,500 cells; the run is one time step to bound disk.
+
+# Round 4 (gh:#1361 plan step 4, continued): the `onePhase` solver against the real binary
+
+AI-written, not human-reviewed. Research, education and V&V only. Rule: "ESI preferred"; the ESI form
+is the default and the Foundation form stays callable (maintainer, 2026-11-12).
+
+## What the port had, and what was compared
+
+Read before any run (upstream is the specification): the port's `solver::one_phase::OnePhaseSolver`
+(661 lines) is **not a translation of `solvers/onePhase`**. By its own header it runs constant fluid
+properties (`he = Cp T`), an isotropic incompressible `pEqn` built on `rho_pimple_foam`, a fixed-surface-temperature
+structure, Gauss-Seidel energy, no `faceCentered` momentum, no `contErr` compensation, no kinetic-energy term,
+no thermo package, no case reader and no PIMPLE control. It cannot read a GeN-Foam case, so a "same case files"
+comparison of it against the binary is not possible; running it on a hand-built equivalent would compare two
+different problems. It is left exactly as it is (it is the named older option; its tests pin it).
+
+What the comparison needs is a translation of `onePhase.C`, `UEqn_1p.H`, `pEqnf_1p.H` (+ `pEqnRoutines/*`),
+`EEqn_1p.H`, `FSPair::correct` and `structure::linearizedSemiImplicitHeatSource/correct`. The twoPhase port
+already holds the machinery these share (heRhoThermo packages, finite-volume operators, `fixedPower`, the
+tight-protocol reader), so the new code is `solver::two_phase::one_phase_fc` (a child module, so it reuses the
+two-phase module's private helpers; its public items are `OnePhaseFcCase` and `OnePhaseFcSolver`).
+
+**Case.** None of the shipped onePhase tutorials is small and feature-free: `1D_HX/onePhase` needs
+`heatExchangers`, `fixedValue` velocity inlets, `slip` walls and `fixedFluxPressure` (none ported in the
+twoPhase machinery either) and `2D_cavityBoussinesq` needs the Boussinesq equation of state and a pressure
+reference. The case compared first is therefore a **single-phase channel derived from the 1D_boiling mesh**
+(`tests/data/genfoam_1d_onephase`, provenance in its `PROVENANCE.md`): 1D_boiling's 40-cell mesh, boundary
+conditions (`p_rgh` 1.4e5 / 1e5 fixed, `U` zeroGradient, inlet `T` fixed 652.15 K), liquid thermophysical package
+and heater zone, with `regionSolvers fluidRegion onePhase`, the structure and fluid-structure closures in the flat form
+1D_HX/onePhase uses, and 1D_HX/onePhase's own `fvSchemes` and `fvSolution`. The heater power density is 4.5e7 W/m3
+(1D_boiling has 4.5e8 and boils; there is no phase change in onePhase). Every file is read by the real binary
+unmodified; the protocol (`scripts/onephase_protocol.sh`) only sets `writePrecision 17`, writes every step and, for
+`TIGHT=1`, sets every linear-solver tolerance in `solvers` to 1e-14 with relTol 0, as in round 3.
+
+Upstream facts measured before any port run (real binary, serial): 1 s of flow is 108 steps in 0.9 s of wall time;
+`deltaT` grows by exactly 1.2 per step to the 0.01 cap (step 13 on); at the tight protocol the cumulative continuity
+error after 108 steps is -1.2228e-4 kg/m3 (the shipped-tolerance run gave the same sign and magnitude order; not
+recorded further). The 1D_HX/onePhase tutorial itself ran to completion as shipped in 24 s.
+
+## Predictions (written BEFORE the first port run; committed first)
+
+Compared per cell on `p, p_rgh, T, U.x, T.fixedPower, htc, Re, contErr, dgdt` (the fields upstream writes),
+as `max |a-b| / max |b|`, tight protocol, every step.
+
+| id | quantity | prediction | cause if missed |
+|---|---|---|---|
+| O1 | step 1, all fields | worst relative < 1e-10 | first divergent operation: one of O5 to O8, or another |
+| O2 | steps 2 to 40 | worst relative < 1e-9 each step (round-off amplified by the outer iterations) | |
+| O3 | `deltaT` of every step | bit-identical for the 12 capped-growth steps (the 1.2 growth cap binds, so it does not depend on the Courant number), relative < 1e-12 afterwards | `maxDeltaT` or the Courant definition (`sum abs(phi) / alpha`) |
+| O4 | cumulative continuity error after 40 steps | relative difference < 1e-6 | the `contErr` call sites (constructor, start of `pEqn`, end of `correctFluidMechanics`) |
+| O5 | `UEqn.relax()` and `EEqn.relax()` (`relaxationFactors equations ".*" 1` still runs OpenFOAM's diagonal-dominance step) | **changes nothing**: both matrices are diagonally dominant everywhere here, so omitting it (`without_equation_relaxation`) leaves every field within 1e-12 of the run with it | |
+| O6 | the first-step lazy old time of `p` (`fvc::ddt(p_)` is the first request for `p.oldTime()`, as found for twoPhase in round 3) | applies to onePhase too: `without_first_step_lazy_old_time` moves step-1 `p` or `T` by more than 1e-6 relative | |
+| O7 | `includeKineticEnergy` (default true, `EEqn_1p.H`; the twoPhase port has no such term) | upstream's `T` differs from a run without the term by about 0.5 U^2 / Cp = 3e-4 K, i.e. 5e-7 of 652 K; with the term the port is inside O1 | |
+| O8 | `structure_.correct(Hs*T.prevIter(), Hs)` uses the temperature BEFORE the energy solve | using the temperature after it (what the twoPhase port does) moves `T.fixedPower` at step 1 by more than 1e-9 relative | |

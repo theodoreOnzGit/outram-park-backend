@@ -102,35 +102,35 @@ fn err(case: &Path, msg: impl Into<String>) -> AppBuilderError {
 }
 
 /// Reading context: the case root, for error messages.
-struct Ctx {
-    root: PathBuf,
+pub(super) struct Ctx {
+    pub(super) root: PathBuf,
 }
 
 impl Ctx {
-    fn read(&self, rel: &str) -> Result<FoamDict, AppBuilderError> {
+    pub(super) fn read(&self, rel: &str) -> Result<FoamDict, AppBuilderError> {
         let p = self.root.join(rel);
         FoamFile::read(&p)
             .map(|f| f.dict)
             .map_err(|e| err(&self.root, format!("{rel}: {e}")))
     }
 
-    fn e(&self, msg: impl Into<String>) -> AppBuilderError {
+    pub(super) fn e(&self, msg: impl Into<String>) -> AppBuilderError {
         err(&self.root, msg)
     }
 
-    fn sub<'a>(&self, d: &'a FoamDict, key: &str) -> Result<&'a FoamDict, AppBuilderError> {
+    pub(super) fn sub<'a>(&self, d: &'a FoamDict, key: &str) -> Result<&'a FoamDict, AppBuilderError> {
         d.get_dict(key).ok_or_else(|| self.e(format!("missing sub-dictionary `{key}`")))
     }
 
-    fn f64(&self, d: &FoamDict, key: &str) -> Result<f64, AppBuilderError> {
+    pub(super) fn f64(&self, d: &FoamDict, key: &str) -> Result<f64, AppBuilderError> {
         scalar(d, key).ok_or_else(|| self.e(format!("missing scalar `{key}`")))
     }
 
-    fn word(&self, d: &FoamDict, key: &str) -> Result<String, AppBuilderError> {
+    pub(super) fn word(&self, d: &FoamDict, key: &str) -> Result<String, AppBuilderError> {
         word(d, key).ok_or_else(|| self.e(format!("missing word `{key}`")))
     }
 
-    fn list8(&self, d: &FoamDict, key: &str) -> Result<[f64; 8], AppBuilderError> {
+    pub(super) fn list8(&self, d: &FoamDict, key: &str) -> Result<[f64; 8], AppBuilderError> {
         let v = match d.get(key) {
             Some(FoamEntry::List(v)) => v,
             _ => return Err(self.e(format!("missing list `{key}`"))),
@@ -146,7 +146,7 @@ impl Ctx {
     }
 }
 
-fn scalar(d: &FoamDict, key: &str) -> Option<f64> {
+pub(super) fn scalar(d: &FoamDict, key: &str) -> Option<f64> {
     match d.get(key)? {
         FoamEntry::Scalar(x) => Some(*x),
         FoamEntry::Dimensioned(dm) => dm.value.first().and_then(FoamValue::as_scalar),
@@ -154,20 +154,20 @@ fn scalar(d: &FoamDict, key: &str) -> Option<f64> {
     }
 }
 
-fn word(d: &FoamDict, key: &str) -> Option<String> {
+pub(super) fn word(d: &FoamDict, key: &str) -> Option<String> {
     match d.get(key)? {
         FoamEntry::Word(w) | FoamEntry::Str(w) => Some(w.clone()),
         _ => None,
     }
 }
 
-fn bool_entry(d: &FoamDict, key: &str) -> Option<bool> {
+pub(super) fn bool_entry(d: &FoamDict, key: &str) -> Option<bool> {
     word(d, key).map(|w| matches!(w.as_str(), "true" | "on" | "yes" | "1"))
 }
 
 /// OpenFOAM keyword regex, restricted to literals and `.*` (all the cases
 /// use): `alpha.*` matches `alpha.vapour`.
-fn key_matches(pattern: &str, name: &str) -> bool {
+pub(super) fn key_matches(pattern: &str, name: &str) -> bool {
     if !pattern.contains(".*") {
         return pattern == name;
     }
@@ -192,7 +192,7 @@ fn key_matches(pattern: &str, name: &str) -> bool {
 
 /// The first entry of `d` whose (regex) key matches `name`, as OpenFOAM
 /// looks up `relaxationFactors` and `solvers`.
-fn lookup_regex<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
+pub(super) fn lookup_regex<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
     if let Some(e) = d.get(name) {
         return Some(e);
     }
@@ -200,7 +200,7 @@ fn lookup_regex<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
 }
 
 /// `internalField uniform v;` (scalar) or the first component of a vector.
-fn uniform_value(ctx: &Ctx, e: Option<&FoamEntry>) -> Result<FoamValue, AppBuilderError> {
+pub(super) fn uniform_value(ctx: &Ctx, e: Option<&FoamEntry>) -> Result<FoamValue, AppBuilderError> {
     match e {
         Some(FoamEntry::Tokens(t)) if t.len() == 2 && t[0].as_word() == Some("uniform") => Ok(t[1].clone()),
         _ => Err(ctx.e("only `uniform` field values are supported")),
@@ -208,12 +208,12 @@ fn uniform_value(ctx: &Ctx, e: Option<&FoamEntry>) -> Result<FoamValue, AppBuild
 }
 
 /// A volume field file: internal value and per-patch BCs.
-struct FieldFile {
-    internal: FoamValue,
-    bcs: Vec<(String, String, Option<FoamValue>)>,
+pub(super) struct FieldFile {
+    pub(super) internal: FoamValue,
+    pub(super) bcs: Vec<(String, String, Option<FoamValue>)>,
 }
 
-fn read_field(ctx: &Ctx, rel: &str) -> Result<FieldFile, AppBuilderError> {
+pub(super) fn read_field(ctx: &Ctx, rel: &str) -> Result<FieldFile, AppBuilderError> {
     let d = ctx.read(rel)?;
     let internal = uniform_value(ctx, d.get("internalField"))?;
     let bf = ctx.sub(&d, "boundaryField")?;
@@ -233,7 +233,7 @@ fn read_field(ctx: &Ctx, rel: &str) -> Result<FieldFile, AppBuilderError> {
 }
 
 /// Map a scalar field file to [`Bc`]s on the mesh patches.
-fn scalar_bcs(ctx: &Ctx, g: &Geometry, ff: &FieldFile) -> Result<Vec<Bc>, AppBuilderError> {
+pub(super) fn scalar_bcs(ctx: &Ctx, g: &Geometry, ff: &FieldFile) -> Result<Vec<Bc>, AppBuilderError> {
     let mut out = Vec::new();
     for p in &g.mesh.patches {
         if p.kind == PatchKind::Empty {
@@ -801,7 +801,7 @@ fn read_by_regime(
     }
 }
 
-fn read_nusselt(ctx: &Ctx, md: &FoamDict) -> Result<FsForcedConvectionHtc, AppBuilderError> {
+pub(super) fn read_nusselt(ctx: &Ctx, md: &FoamDict) -> Result<FsForcedConvectionHtc, AppBuilderError> {
     match ctx.word(md, "type")?.as_str() {
         "NusseltReynoldsPrandtlPower" | "Nusselt" => Ok(FsForcedConvectionHtc::Nusselt {
             a: ctx.f64(md, "const")?,
@@ -853,7 +853,7 @@ fn read_fs_htc(ctx: &Ctx, md: &FoamDict) -> Result<FsHtcModel, AppBuilderError> 
     }
 }
 
-fn read_thermo(ctx: &Ctx, rel: &str) -> Result<PhaseThermo, AppBuilderError> {
+pub(super) fn read_thermo(ctx: &Ctx, rel: &str) -> Result<PhaseThermo, AppBuilderError> {
     let d = ctx.read(rel)?;
     let tt = ctx.sub(&d, "thermoType")?;
     if ctx.word(tt, "type")? != "heRhoThermo" || ctx.word(tt, "energy")? != "sensibleEnthalpy" {
