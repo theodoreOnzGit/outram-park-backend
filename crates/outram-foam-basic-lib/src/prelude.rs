@@ -113,7 +113,7 @@ pub use crate::fv_operators::fvc::{
     non_orth_correction_vectors, sn_grad_corrected, sn_grad_correction_with_grad,
 };
 pub use crate::fv_operators::fvm::{
-    laplacian_corrected, laplacian_corrected_face_centre, max_non_orthogonality_deg, non_ortho_geometry,
+    laplacian_corrected, laplacian_corrected_face_centre, max_non_orthogonality_deg, non_ortho_geometry, non_ortho_geometry_port_original,
     solve_laplacian_non_orthogonal, NonOrthoGeometry, NonOrthoScheme,
 };
 

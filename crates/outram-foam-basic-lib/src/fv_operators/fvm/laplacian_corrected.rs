@@ -183,6 +183,15 @@ pub struct NonOrthoGeometry {
 ///
 /// Returns `None` for a degenerate face (zero area or coincident cell centres).
 ///
+/// **Upstream form (gh:#1362, maintainer approval 2026-11-12).** The unit normal is
+/// upstream's `unitArea = Sf/magSf` (componentwise divide), so `corr_vec` is
+/// bit-identical to `fvc::non_orth_correction_vectors` and OpenFOAM's
+/// `nonOrthCorrectionVectors` (differential row `nonOrthCorrVec`). ~~The unit
+/// normal was `Sf*(1/magSf)`~~ **CHANGED 2026-11-12**: that previous form is kept as
+/// [`non_ortho_geometry_port_original`]. The change moves results at the ulp level;
+/// the moved numbers are recorded in
+/// `verification_and_validation/upstream_ops_gh1362/README.md`.
+///
 /// # Example
 ///
 /// ```rust
@@ -198,16 +207,36 @@ pub struct NonOrthoGeometry {
 /// ```
 pub fn non_ortho_geometry(sf: Vector3, d: Vector3) -> Option<NonOrthoGeometry> {
     let mag_sf = sf.mag();
-    let mag_d = d.mag();
-    if mag_sf < 1.0e-300 || mag_d < 1.0e-300 {
+    if mag_sf < 1.0e-300 {
         return None;
     }
-    // NOT upstream's `Sf/magSf` (gh:#1362): this port-original geometry keeps
-    // `Sf*(1/magSf)` because outram-foam-appbuilder-lib's own non-orthogonal solver
-    // uses it, and moving it by an ulp shifted Foam Studio's coil mass balance
-    // (out/in 0.999999996 -> 0.999999967) past that test's 1e-8 gate. The
-    // upstream-form vectors are `fvc::non_orth_correction_vectors`.
+    // upstream `unitArea = Sf/magSf` (divide, not `Sf*(1/magSf)`)
+    let n = Vector3::new(sf.x / mag_sf, sf.y / mag_sf, sf.z / mag_sf);
+    non_ortho_geometry_from_unit_normal(n, d)
+}
+
+/// The **previous** form of [`non_ortho_geometry`], kept callable (gh:#1362,
+/// maintainer decision 2026-11-12): identical except that the unit normal is
+/// `Sf*(1/magSf)` (multiply by the reciprocal) instead of upstream's `Sf/magSf`.
+/// It differs from upstream's `nonOrthCorrectionVectors` by an ulp or two on a
+/// third to a half of the faces (hex 668 / 2367, polyDual 1069 / 3708 before the
+/// switch). Not the default; use [`non_ortho_geometry`] unless reproducing a
+/// result computed with the old form.
+pub fn non_ortho_geometry_port_original(sf: Vector3, d: Vector3) -> Option<NonOrthoGeometry> {
+    let mag_sf = sf.mag();
+    if mag_sf < 1.0e-300 {
+        return None;
+    }
     let n = sf * (1.0 / mag_sf);
+    non_ortho_geometry_from_unit_normal(n, d)
+}
+
+/// Shared tail of the two geometries: everything after the unit normal.
+fn non_ortho_geometry_from_unit_normal(n: Vector3, d: Vector3) -> Option<NonOrthoGeometry> {
+    let mag_d = d.mag();
+    if mag_d < 1.0e-300 {
+        return None;
+    }
     let n_dot_d = n.dot(d);
     let cos_theta = (n_dot_d / mag_d).clamp(-1.0, 1.0);
     let angle_deg = cos_theta.r_acos().to_degrees();
@@ -663,6 +692,21 @@ mod tests {
         // Degenerate inputs return None rather than NaN.
         assert!(non_ortho_geometry(Vector3::ZERO, d).is_none());
         assert!(non_ortho_geometry(sf, Vector3::ZERO).is_none());
+    }
+
+    #[test]
+    fn port_original_geometry_agrees_with_upstream_form_to_round_off() {
+        // gh:#1362: the two unit-normal forms (`Sf/magSf` and `Sf*(1/magSf)`) differ by
+        // at most an ulp or two; both refuse degenerate input.
+        let sf = Vector3::new(0.3, -1.1, 0.7);
+        let d = Vector3::new(0.9, 0.2, -0.4);
+        let a = non_ortho_geometry(sf, d).unwrap();
+        let b = non_ortho_geometry_port_original(sf, d).unwrap();
+        assert!((a.corr_vec - b.corr_vec).mag() < 1e-14);
+        assert!((a.delta_coeff - b.delta_coeff).abs() < 1e-14 * a.delta_coeff.abs());
+        assert!((a.angle_deg - b.angle_deg).abs() < 1e-9);
+        assert!(non_ortho_geometry_port_original(Vector3::ZERO, d).is_none());
+        assert!(non_ortho_geometry_port_original(sf, Vector3::ZERO).is_none());
     }
 
     #[test]
