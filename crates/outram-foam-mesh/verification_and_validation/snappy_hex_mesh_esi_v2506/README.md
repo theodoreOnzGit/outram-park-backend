@@ -1338,3 +1338,19 @@ PETIR: `cos(degToRad(90))`, `cos(degToRad(15))`, `cos(degToRad(30))` via `r_cos`
 `addPatchCellLayer` and `checkAndUnmark` first); `nSmoothDisplacement > 0`; non-adapt patches
 with points (slip / fixedValue); `detectExtrusionIsland true` is implemented but has no ESI
 reference.
+
+## Round 8: what remains (not started, stated)
+
+- `truncateDisplacement` (+ `getVertexString`, `sameEdgeNeighbour`): 0 faces unextruded in
+  iteration 0 of the ESI log, 2 in iteration 1; not ported.
+- `setupLayerInfoTruncation` and **`addPatchCellLayer::setRefinement`** (3517 lines upstream) with
+  `polyTopoChange::makeMesh` numbering: the reference is `86/polyMesh` (31742 points, 85701 faces),
+  `88`, `90`; the layer mesh is NOT built by the port. The existing `layers.rs` and
+  `outram_park_fork_cfmesh::snappy_layers` are Foundation-style and are not ESI's topology.
+- `checkAndUnmark` and the outer loop (ESI: 17, 2, 0 faces unextruded over three iterations,
+  8642 of 9747 faces extruded at the end; `getLayerCellsFaces`, `printLayerData` table), `growNoExtrusion` between iterations (nGrow 0
+  here), the final mesh `91` (26920 cells, 85399 faces, 31644 points).
+- Layer iterations 1 and 2 of the medial mover (they start from `oldPoints`, so the mover itself needs
+  no new code beyond the new `extrudeStatus`).
+- Multi-layer (expansion ratio != 1) runs, `nOuterIter != 1`, faceZones, non-adapt patch seeds.
+- `docs/outram-foam-mesh-api.md` is not regenerated (no `kovan-cli` in this environment).

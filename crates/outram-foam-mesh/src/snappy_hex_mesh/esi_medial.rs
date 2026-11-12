@@ -863,9 +863,9 @@ mod tests {
         min_smooth_field(&points, &pp, 5, &min, &mut field);
         assert!(field[4] < 3.0 && field[4] >= 0.9);
         assert!(field.iter().all(|&f| f <= 3.0 && f >= 0.9));
-        // normals of a flat strip are +z and stay so
+        // the strip faces wind clockwise seen from +z: normals are -z and stay so
         let mut n = patch_point_normals(&pp);
-        assert!(n.iter().all(|v| (v[2] - 1.0).abs() < 1e-12));
+        assert!(n.iter().all(|v| (v[2] + 1.0).abs() < 1e-12));
         let r = smooth_patch_normals(&points, &pp, 1, &mut n);
         assert!(r.abs() < 1e-12);
         assert!(vis_normal(n[0], &pp.face_normals, &pp.point_faces[0]));
