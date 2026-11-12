@@ -224,3 +224,42 @@ both: the `long-tests` feature is on by default) gave 493 passed, 0 failed, 12 i
 3. **SP3 on the ESFR** and the transient (`step`) paths, which need the TH state of the ESFR run.
 4. **Plan steps 4 and 5** (ESI thermo/turbulence closure, the full binary): not started, as instructed.
 5. **Singular-matrix behaviour** of `lu_decompose` against ESI (noted above) if a caller ever relies on it.
+
+# Round 2 (gh:#1361, 2026-11-12): S4 iteration history, then SN (gh:#1474)
+
+AI-written, not human-reviewed. Each block of predictions below was committed BEFORE the port run it concerns.
+
+## S4: the pseudo-time eigenvalue driver
+
+Read first (upstream is the specification): `GeN-Foam.C` (loop: `runTime++`, `correctPhysics()`, `adjustDeltaT`),
+`setDeltaT.C`, `solver.C:52` (`deltaTFactor = 1.2`), `diffusionNeutronics::maxDeltaT`,
+`diffusion/include/{solveNeutronics,createFluxMatrices,fluxEq,normFluxes}.H`,
+`SP3/include/{solveNeutronicsSP3,fluxEqSP3,normFluxesSP3}.H`,
+`include/{calcKeff,precEq,initializeNeutroSource,initializeDelayedNeutroSource,calcScatteringSource}.H` and OpenFOAM-ESI
+`Time::{run,operator++,adjustDeltaT,setDeltaT}`. Findings that shape the port, none of which were in the round-1 plan:
+
+* With `eigenvalueNeutronics true` the `ddt` coefficient `(1-eigenvalueNeutronics)` is 0, so `deltaT` never enters a flux solve.
+  The time loop matters only through the NUMBER of steps (`adjustDeltaT`: growth 1.2 per step, `maxDeltaT 1`, `adjustableRunTime`
+  write alignment). The port reproduces that clock too, so the step count and the `Time` column are comparable (to the 8 digits
+  of `timePrecision 8`).
+* `fluxEq.H` calls `neutroEq.solve()` TWICE per equation (the second inside `residual_ = max(...)`); only the first call's
+  initial residual feeds `neutroResidual`. The port does both.
+* Precursors in the eigenvalue branch are a diagonal system solved as `(V S/k beta)/(V lambda)`; the port copies that order.
+* SP3 starts from `defaultFlux2 uniform 1`, so the first `flux_ = fluxStar - 2 fluxStar2` is negative, `pTot < 0`, and `keff_` is
+  clamped to 0.1 (this is why the committed SP3 history begins 0.1, 0.1). The port needs the same start: new
+  `Sp3Neutronics::set_uniform_second_moment(1.0)`.
+* This is not the algorithm of `solve_eigenvalue` (a static power iteration to a tolerance). That is kept and untouched; the driver is
+  new code (`neutronics/pseudo_time.rs`, `diffusion/pseudo_time.rs`, `sp3/pseudo_time.rs`). No kovan-reviewed function is edited
+  (`review.md` holds no `kind = "review"` block in `neutronics/`, `diffusion/`, `sp3/`, `sn/`).
+* The linear solver is basic-lib's PCG/DIC stopping on `||r||/||b||` at 1e-14, not upstream's (PCG/DIC on the OpenFOAM normalised
+  residual at 1e-14, relTol 0). Bit identity is therefore not reachable and is not predicted.
+
+| id | quantity (all steps of guided 1 and 2: diffusion 230 and 230, SP3 355 and 357) | prediction |
+|---|---|---|
+| T1 | number of steps and final `Time` | equal to the reference (230, 230, 355, 357), final time 60 |
+| T2 | `Time` of every step | relative difference below 5e-8 (the reference prints 8 significant digits) |
+| T3 | `keff_` per step, port minus upstream | `abs(dk) < 1e-12` for every step of every case, the median about 1e-14. Cause of the residual: the two linear solvers' stopping points, not the algorithm |
+| T4 | `power:` per step | relative difference below 1e-12 |
+| T5 | first-solve initial residual per step | same normalisation (`lduMatrix::solver::normFactor`): for upstream residuals at or above 1e-6 the relative difference is below 1e-6; below 1e-8 the residual is solver noise on both sides and only the absolute bound `< 1e-9` is claimed |
+| T6 | SP3 steps 1 and 2 | `keff_` equals 0.1 exactly in both codes (the clamp) |
+| T7 | final flux shape (unit sum), port vs upstream | max relative difference below 1e-10 |
