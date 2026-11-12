@@ -33,8 +33,10 @@
 //! bookkeeping, and the per-crossing log (`file`/`screen` output as a
 //! returned `Vec`), `delete_atoms yes`, `sum_property`, a moving counting mesh
 //! (`with_moving_wall`) and `fix massflow/mesh/sieve`. **Not translated:**
-//! the multisphere volume weight, restart, and a *deforming* counting mesh
-//! (no deformation exists upstream). Like upstream, only the
+//! the multisphere volume weight (this crate has no `fix multisphere`; gh:#1491),
+//! restart, and a *deforming* counting mesh (no deformation exists upstream).
+//! `point_at_outlet` / `inside_out` are cross-coded since 2026-11-12
+//! (`tests/massflow_options_cross_code.rs`, `in.massflow_outlet`). Like upstream, only the
 //! particles in the mesh's neighbour list (`createOtherNeighList`) are
 //! visited, and that list is built at neighbour-list rebuilds
 //! ([`MassFlowMesh::rebuild_lists`], called by the owning system at set-up

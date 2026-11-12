@@ -45,6 +45,7 @@
 use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial};
 use outram_park_fork_liggghts::granular_system::GranularSystem;
 use outram_park_fork_liggghts::mesh_wall::{MeshWall, MovingBoundary, WallGeometry};
+use outram_park_fork_liggghts::neighbor_list::LiggghtsNeighbor;
 use outram_park_fork_liggghts::particle::{Particle, Vec3};
 use uom::si::f64::{Length, Mass, ThermodynamicTemperature};
 use uom::si::{length::meter, mass::kilogram, thermodynamic_temperature::kelvin};
@@ -238,4 +239,151 @@ fn facet_stress_sums_to_the_total_force() {
         st.is_some() && sys.facet_stress(0, i).is_some_and(|(sn, _)| sn > 0.0)
     });
     assert!(loaded, "no facet carries a normal stress");
+}
+
+/// `wear finnie` (gh:#1491): six spheres hit the static 2-facet plate at
+/// different angles, bounce and slide (`in.mesh_wear`, 20 000 steps).
+///
+/// Upstream has no global wear output and the compiled build lacks the VTK
+/// mesh dumps, so `mesh_wear_wear.txt` comes from a scratch copy of
+/// LIGGGHTS-PUBLIC `3d5c00f2` instrumented to print the per-facet `wear`
+/// (`%.17g`) every 250 steps at the end of `MeshModuleStress::calc_total_force`
+/// (only `mesh_module_stress.o` rebuilt; that binary reproduces the committed
+/// `mesh_stress_thermo.txt` byte for byte, and the original binary gives the
+/// same thermo on this deck). `k_finnie = 1.7`.
+///
+/// **Prediction (2026-11-12, before the port's first run):** trajectory,
+/// `f_plate[1..9]` and per-facet wear bit-identical at every sample.
+///
+/// **Result (2026-11-12, Rust 1.99.1):** **5 263 / 5 263 bit-identical**
+/// (81 frames x 54 trajectory values, 81 x 9 `f_plate`, 80 x 2 per-facet wear);
+/// final wear 0.021198748500293709 and 0.037169805307640934 (upstream's
+/// `E dt / area` accumulation; its unit is set by `k_finnie`).
+#[test]
+fn mesh_wear_finnie_matches_liggghts() {
+    let (Some(csv), Some(thermo), Some(wear), Some(stl)) = (
+        read("mesh_wear.csv"),
+        read("mesh_wear_thermo.txt"),
+        read("mesh_wear_wear.txt"),
+        read("plate_square.stl"),
+    ) else {
+        eprintln!("skipping: reference-data/liggghts/ not present");
+        return;
+    };
+    let parse = |t: &str, sep: Option<char>| -> Vec<Vec<f64>> {
+        t.lines()
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| match sep {
+                Some(c) => l.split(c).map(|v| v.parse().expect("numeric")).collect(),
+                None => l.split_whitespace().map(|v| v.parse().expect("numeric")).collect(),
+            })
+            .collect()
+    };
+    let rows = parse(&csv.lines().skip(1).collect::<Vec<_>>().join("\n"), Some(','));
+    let thermo = parse(&thermo, None);
+    let wear = parse(&wear, None);
+    assert_eq!((rows.len(), thermo.len(), wear.len()), (81, 81, 80));
+    let plate = MovingBoundary::new(
+        WallGeometry::Mesh(MeshWall::from_ascii_stl(&stl).expect("valid plate stl")),
+        Vec3::zero(),
+        Vec3::zero(),
+        Vec3::zero(),
+    )
+    .with_stress(Vec3::new(0.02, -0.01, 0.03))
+    .with_wear_finnie(vec![1.7]);
+    let material = GranularMaterial::new(1.0e7, 0.3, 0.9, 0.5).expect("valid material");
+    let mut sys = GranularSystem::new(
+        (0..6).map(|k| sphere(&rows[0], k, 0.005)).collect(),
+        vec![],
+        GranularContactModel::hertz_history(material),
+        Vec3::new(0.0, 0.0, -9.81),
+        1.0e-5,
+    )
+    .expect("valid system")
+    .with_moving_walls(vec![plate])
+    .with_liggghts_neighbor_order(
+        LiggghtsNeighbor::new(Vec3::new(-0.3, -0.3, -0.5), Vec3::new(0.3, 0.3, 0.3), 0.003)
+            .expect("valid neighbour set-up"),
+    );
+    let (mut mismatched, mut total, mut first) = (0, 0, None);
+    let mut check = |step: usize, k: usize, got: f64, want: f64| {
+        total += 1;
+        if got.to_bits() != want.to_bits() {
+            mismatched += 1;
+            first.get_or_insert((step, k, got, want));
+        }
+    };
+    let mut last = 0;
+    let mut wear_rows = wear.iter().peekable();
+    for (row, th) in rows.iter().zip(&thermo) {
+        let step = row[0] as usize;
+        assert_eq!(th[0] as usize, step);
+        sys.run(step - last);
+        last = step;
+        for (i, q) in sys.particles().iter().enumerate() {
+            let got = [
+                q.position.x,
+                q.position.y,
+                q.position.z,
+                q.velocity.x,
+                q.velocity.y,
+                q.velocity.z,
+                q.angular_velocity.x,
+                q.angular_velocity.y,
+                q.angular_velocity.z,
+            ];
+            for (k, g) in got.iter().enumerate() {
+                check(step, 100 + 9 * i + k, *g, row[1 + 9 * i + k]);
+            }
+        }
+        for k in 0..9 {
+            check(step, k, sys.mesh_stress_vector(0, k).expect("stress tracked"), th[1 + k]);
+        }
+        if let Some(w) = wear_rows.next_if(|w| w[0] as usize == step) {
+            for tri in 0..2 {
+                check(step, 10 + tri, sys.facet_wear(0, tri).expect("wear tracked"), w[1 + tri]);
+            }
+        }
+    }
+    assert!(wear_rows.next().is_none(), "every wear row was compared");
+    let final_wear = [sys.facet_wear(0, 0).unwrap(), sys.facet_wear(0, 1).unwrap()];
+    eprintln!("wear finnie: {mismatched}/{total} differ, first {first:?}; final wear {final_wear:?}");
+    assert!(final_wear.iter().all(|w| *w > 0.0), "both facets wore");
+    assert_eq!(mismatched, 0, "{mismatched}/{total} differ, first {first:?}");
+}
+
+/// The Finnie branch selection and the zero-velocity and receding guards of
+/// `add_wear_contribution`, against hand values on a unit-area facet.
+#[test]
+fn wear_finnie_branches() {
+    use outram_park_fork_liggghts::mesh_stress::{MeshStress, WearContact};
+    let mut st = MeshStress::new(Vec3::zero(), vec![1.0]).with_wear_finnie(vec![2.0]);
+    let base = WearContact {
+        frc: [0.0, 0.0, 3.0],
+        x: [0.0, 0.0, 0.5],
+        v: [1.0, 0.0, 0.0],
+        delta: [0.0, 0.0, -0.5],
+        v_wall: [0.0, 0.0, 0.0],
+        tri: 0,
+        norm: [0.0, 0.0, 1.0],
+        atom_type: 0,
+        dt: 0.1,
+    };
+    // grazing (sin = 0, cos = 1): else branch, E = 0 -> no wear
+    st.add_wear_contribution(&base);
+    st.final_integrate(&[[0.0, 0.0, 1.0]]);
+    assert_eq!(st.wear(0), Some(0.0));
+    // 45 degrees into the facet: 3 sin > cos, E = 0.33333 cos^2 * 2 k |v| |f|
+    let s = std::f64::consts::FRAC_1_SQRT_2;
+    st.add_wear_contribution(&WearContact { v: [s, 0.0, -s], ..base });
+    st.final_integrate(&[[0.0, 0.0, 1.0]]);
+    let want = 0.33333 * 0.5 * 2.0 * 2.0 * 1.0 * 3.0 * 0.1;
+    assert!((st.wear(0).unwrap() - want).abs() < 1e-12);
+    // receding (c . v_rel < 0) and at rest: nothing added
+    st.add_wear_contribution(&WearContact { v: [0.0, 0.0, 1.0], ..base });
+    st.add_wear_contribution(&WearContact { v: [0.0; 3], ..base });
+    st.final_integrate(&[[0.0, 0.0, 1.0]]);
+    assert!((st.wear(0).unwrap() - want).abs() < 1e-12);
+    // no `wear finnie`: None
+    assert_eq!(MeshStress::new(Vec3::zero(), vec![1.0]).wear(0), None);
 }

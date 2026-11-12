@@ -1069,6 +1069,15 @@ impl MovingBoundary {
         self
     }
 
+    /// `wear finnie` on this wall's `fix mesh/surface/stress` (call after
+    /// [`MovingBoundary::with_stress`]; a no-op without it): `k_finnie[t]` is
+    /// the coefficient against particle type `t` (0-based). gh:#1491.
+    #[must_use]
+    pub fn with_wear_finnie(mut self, k_finnie: Vec<f64>) -> Self {
+        self.stress = self.stress.map(|s| s.with_wear_finnie(k_finnie));
+        self
+    }
+
     /// Attach `mesh_module_stress_servo` (`ctrlPV force`, PID): the mesh
     /// also tracks stress, `p_ref` at the servo centre. The mesh's current
     /// nodes are the original nodes `mesh->move` starts from. No-op for a

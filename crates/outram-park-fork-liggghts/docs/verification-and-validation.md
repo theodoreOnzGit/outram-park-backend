@@ -1460,8 +1460,8 @@ so every rolling model sees `w_r != 0`; wall decks: one spinning sphere
 | `cohesion sjkr`, `sjkr2`, `tangential_reduce` (`cohesion_model_sjkr*.h`) | `sjkr_pair`, `sjkr2_pair`, `sjkr_reduce`, `sjkr_wall`, `sjkr2_wall` | **bit-identical** (5/5) |
 | `fix move/mesh` wiggle, viblin, riggle, vibrot | `mover_wiggle`, `mover_viblin`, `mover_riggle`, `mover_vibrot` | ~~**bit-identical** (4/4, 2259 f64 each)~~ **CORRECTED 2026-11-12 (gh:#1336, #1455):** bit-identical while `mesh_wall.rs`/`tri_mesh.rs` called glibc trig; on PETIR's `RealMath` wiggle stays 2259/2259 and viblin, riggle, vibrot differ in 323, 596, 1509 of 2259 (worst normwise 1.33e-16, 3.50e-14, 7.88e-13). A/B-proven libm-only: the std-trig files restore 2259/2259. Pinned in `tests/mesh_movers_cross_code.rs` |
 | `fix move/mesh` `linear/variable`, `rotate/variable` (equal-style variables, `src/variable.rs` from `variable.cpp`) | `mover_linvar` (`0.3*sin(2*PI*time/0.08)+0.5*step*dt`, `swiggle`, `cwiggle`), `mover_rotvar` | ~~**bit-identical** (2/2, 2259 f64 each)~~ **CORRECTED 2026-11-12 (gh:#1336, #1455):** `linear/variable` stays 2259/2259; `rotate/variable` differs in 785/2259 (worst normwise 6.13e-15) on PETIR's `RealMath`, libm-only by the same A/B (written 2026-11-11, prediction: bit-identical, as for the other movers) |
-| `fix massflow/mesh` (`fix_massflow_mesh.cpp`, incl. the mesh neighbour list `resolveTriSphereNeighbuild`) | `massflow_plate` (12 spheres, floor bounce, `count multiple` and `count once`, 60 000 steps) | **bit-identical** (14 036/14 036: trajectories plus mass, count, mass rate, count rate at 121 steps; `tests/massflow_mesh_cross_code.rs`). A first version that visited every particle near a facet bounding sphere miscounted one crossing from step 36 500 (stale-counter effect); translating the neighbour list removed it. `point_at_outlet`/`inside_out`: unit-tested only, not cross-coded |
-| `fix mesh/surface/stress` totals (`mesh_module_stress.cpp`) | `mesh_stress` (2 spheres, one straddling the plate diagonal, rotating plate, `reference_point`) | **bit-identical** (3 069 values: 251 frames x 18 + 41 x 9 `f_plate[1..9]`; `tests/mesh_stress_cross_code.rs`). Per-facet `f`/`sigma_n`/`sigma_t` not cross-coded (upstream accumulates the per-facet `f` over the whole run, read from the source); `wear finnie` and the servo module are not translated |
+| `fix massflow/mesh` (`fix_massflow_mesh.cpp`, incl. the mesh neighbour list `resolveTriSphereNeighbuild`) | `massflow_plate` (12 spheres, floor bounce, `count multiple` and `count once`, 60 000 steps) | **bit-identical** (14 036/14 036: trajectories plus mass, count, mass rate, count rate at 121 steps; `tests/massflow_mesh_cross_code.rs`). A first version that visited every particle near a facet bounding sphere miscounted one crossing from step 36 500 (stale-counter effect); translating the neighbour list removed it. ~~`point_at_outlet`/`inside_out`: unit-tested only, not cross-coded~~ **CORRECTED 2026-11-12 (gh:#1491):** `point_at_outlet` and `inside_out` cross-coded on `massflow_outlet` (closed 64-facet drum as counting surface), 14 036/14 036 bit-identical, section 4.13 |
+| `fix mesh/surface/stress` totals (`mesh_module_stress.cpp`) | `mesh_stress` (2 spheres, one straddling the plate diagonal, rotating plate, `reference_point`) | **bit-identical** (3 069 values: 251 frames x 18 + 41 x 9 `f_plate[1..9]`; `tests/mesh_stress_cross_code.rs`). Per-facet `f`/`sigma_n`/`sigma_t` not cross-coded (upstream accumulates the per-facet `f` over the whole run, read from the source); ~~`wear finnie` and the servo module are not translated~~ **CORRECTED 2026-11-12:** the servo module is translated (gh:#1416) and `wear finnie` too (gh:#1491, `mesh_wear`, 5 263/5 263 bit-identical including the per-facet wear, section 4.13) |
 
 **Sensitivity controls (the decks can fail).** Each family has a control test:
 with rolling off, with the Luding tangential or rolling model replaced by the
@@ -1628,11 +1628,67 @@ facet's mesh neighbour list, whose order is bin-by-bin of the positions at the
 last rebuild. The port first summed particle-major: worst difference 1.06e-13
 of a component. Re-ordering the accumulation facet-major by upstream's local
 atom slot (the change to `compute_mesh_wall_forces` made with this test) took
-the worst to 8.46e-16 and kept bit-identity to step 2 500; the remaining few
+the worst to 8.46e-16 and kept bit-identity to step 2 500; ~~the remaining few
 ulp are the within-facet bin order, **not reproduced** (it needs the mesh
 neighbour list's bin geometry). That cause is inferred from the 100-fold drop
 under the reordering, not proved by a run that closes the gap. It is within the
-1e-8 round-off allowance; flagged for the maintainer.
+1e-8 round-off allowance; flagged for the maintainer.~~
+**CORRECTED 2026-11-12 (gh:#1491): reproduced, and the residual is gone.** The
+within-facet order is now upstream's: `FixNeighlistMesh::handleTriangle` walks
+the facet's cached bins in `generate_bin_list`'s `for ix / for iy / for iz`
+loop order (`iz` innermost, so not ascending bin index) and each bin's linked
+list in ascending local slot, binned at the last neighbour build
+(`Neighbor::bin_atoms`). The port records each particle's neighbour bin
+(`neighbor_list::BinGrid::coord2bin`) at every rebuild and sorts the stress
+contributions by `(facet, ix, iy, iz, local slot)`. Re-run (966 s): **all 21
+values bit-identical at all 41 samples**, force and torque included (worst
+difference 0); pebbles 27 554/27 554 at 2 000 and 20 000 and the mass flows
+unchanged. The bit-identical run is the proof of the cause, so no upstream
+instrumentation was needed for this item.
+
+## 4.13 gh:#1416 leftovers: exterior `wall/region`, `wear finnie`, servo variable set point, `point_at_outlet` (2026-11-12, gh:#1491)
+
+All against compiled LIGGGHTS-PUBLIC `3d5c00f2`, every value compared as IEEE-754
+bits, Rust 1.99.1. A prediction was posted on gh:#1491 before each first run.
+
+| item | deck | port | result |
+|---|---|---|---|
+| `fix wall/region` on `side out` block (lj93) and cylinder (harmonic) regions (`RegBlock/RegCylinder::surface_exterior`, `Region::match` = `!inside`) | `in.wallregion_out` (10 spheres onto a horizontal cylinder and a block shelf, floor `wall/gran`, 40 000 steps) | `ForceFix::WallRegionExterior`, `InsertRegion::surface_exterior` | **7 938 / 7 938** (81 x 90 trajectory + 81 x 8 energy/force); interior deck unchanged (66 906 + 336) |
+| mesh `wear finnie` (`MeshModuleStress::add_particle_contribution` wear branch, `calc_total_force`) | `in.mesh_wear` (6 spheres hit the static 2-facet plate, one overlapping at set-up) | `MeshStress::with_wear_finnie`, `add_wear_contribution`, `GranularSystem::facet_wear` | **5 263 / 5 263** (81 x 54 trajectory, 81 x 9 `f_plate`, 80 x 2 per-facet wear) |
+| `massflow/mesh` `point_at_outlet`, `inside_out` | `in.massflow_outlet` (closed drum mesh as counting surface, 6 particles leave, 6 enter) | existing `MassFlowMesh` | **14 036 / 14 036**; both counters end at 6 |
+| servo `target_val v_name` (equal-style set point, `sp_style_ == EQUAL`) | `in.mesh_servo_var` (`in.mesh_servo` with `tv = 0.1+0.05*sin(2*PI*step/4000)`) | `MeshServo::with_target_variable` | **9 963 / 9 990**; every `f_plate` value bit-identical; 27 trajectory values differ from step 17 360. Pinned, cause demonstrated below |
+
+**Wear reference.** Upstream has no global wear output and the compiled build
+has no VTK mesh dumps, so `mesh_wear_wear.txt` comes from a scratch copy of the
+upstream source with one `fprintf` of the per-facet `wear` (`%.17g`, every 250
+steps) at the end of `calc_total_force`; only `mesh_module_stress.o` was rebuilt.
+That binary reproduces the committed `mesh_stress_thermo.txt` byte for byte, and
+the original binary gives the same thermo on `in.mesh_wear`. The scratch copy
+was deleted afterwards. Upstream does not zero `wear_step` at set-up, so the
+set-up force evaluation's wear enters step 1; the port reproduces that
+(`MeshStress::begin_setup_wear` makes the port's repeated set-ups idempotent).
+
+**The servo residual is PETIR's `sin`, not the servo.** Over the deck's 20 000
+arguments the `libm` crate's `sin` (PETIR's `r_sin`, used by `variable.rs`)
+differs from glibc's by one ulp at 611 and the set point at 211 (the first at
+step 1 117). While the plate cruises at `vel_max` the set point does not
+reach the output; once the servo controls, it does. A/B in the port with the
+evaluator's `sin` switched to std's glibc `f64::sin`: **9 990 / 9 990
+bit-identical**; reverted per the maintainer's decision on gh:#1455 (keep
+PETIR's maths; demonstrate, count and pin such residuals). Pinned at 27 in
+`tests/mesh_servo_cross_code.rs`.
+
+**Not ported, with reasons.**
+- `fix_modify` on the servo (`integrate`, `vel_max`, `target_val`,
+  `ctrlParam`, `ratio`): it takes effect only between two `run` commands, and
+  upstream re-runs every fix's `init()` and `Verlet::setup()` (a set-up force
+  evaluation at full-step velocities) at each `run`. The port models one
+  continuous run and has no second-`run` emulation, so no deck with
+  `fix_modify` can be compared. Needs that emulation first (follow-up issue).
+- massflow/mesh multisphere volume weight (`fix_volumeweight_ms_`): this crate
+  has no `fix multisphere` (rigid clumps); there is nothing to weight. Not worth
+  porting until multispheres are.
+- Other region styles, moving/rotating regions for `wall/region`.
 
 ## 5. What is still NOT validated
 

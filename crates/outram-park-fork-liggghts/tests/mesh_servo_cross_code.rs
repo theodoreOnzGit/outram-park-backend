@@ -44,6 +44,7 @@ use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::mesh_stress::MeshServo;
 use outram_park_fork_liggghts::mesh_wall::{MeshWall, MovingBoundary, WallGeometry};
 use outram_park_fork_liggghts::particle::{Particle, Vec3};
+use outram_park_fork_liggghts::variable::VariableTable;
 use uom::si::f64::{Length, Mass, ThermodynamicTemperature};
 use uom::si::{length::meter, mass::kilogram, thermodynamic_temperature::kelvin};
 
@@ -150,6 +151,35 @@ fn mesh_servo_torque_auto_matches_liggghts() {
     run_servo(&c);
 }
 
+/// A VARIABLE set point (gh:#1491): `in.mesh_servo_var` is `in.mesh_servo`
+/// with `target_val v_tv`, `tv = 0.1+0.05*sin(2*PI*step/4000)`, evaluated at
+/// the start of every `final_integrate` (`sp_style_ == EQUAL`).
+///
+/// **Prediction (2026-11-12, before the first run):** 9 990 / 9 990 values
+/// bit-identical (the evaluator is already bit-identical on the variable
+/// movers). **Missed.**
+///
+/// **Result (2026-11-12, Rust 1.99.1):** 9 963 / 9 990 bit-identical; 27
+/// trajectory values differ, the first at step 17 360 (`vz` of sphere 1,
+/// 8.308702760360973e-6 against 8.308702760360986e-6); every `f_plate` value
+/// at every thermo row is bit-identical. **Cause, demonstrated:** the
+/// variable's `sin` is PETIR's `r_sin` (the `libm` crate, a musl port), not
+/// glibc's. Over this deck's 20 000 arguments `libm::sin` and glibc's `sin`
+/// differ by one ulp at 611, and the set point `0.1+0.05*sin(..)` at 211, the
+/// first at step 1 117 (a scratch A/B program). The servo is saturated at
+/// `vel_max` while it cruises, so the different set point shows only once it
+/// controls. A/B in the port: with the evaluator's `sin` switched to std's
+/// (glibc) `f64::sin`, **9 990 / 9 990 bit-identical**; reverted, because the
+/// maintainer kept PETIR's maths (gh:#1455, 2026-11-11: such residuals are
+/// accepted when demonstrated, counted and pinned). Pinned here at 27.
+#[test]
+fn mesh_servo_variable_target_matches_liggghts() {
+    let mut c = Case::force_pid("mesh_servo_var", "plate_servo.stl", false);
+    c.target_var = Some("0.1+0.05*sin(2*PI*step/4000)");
+    c.expected_differ = 27;
+    run_servo(&c);
+}
+
 /// One servo deck: its reference files, controller and plate.
 struct Case {
     deck: &'static str,
@@ -161,6 +191,12 @@ struct Case {
     com: [f64; 3],
     target: f64,
     gains: [f64; 3],
+    /// `target_val v_tv`: the equal-style formula of `tv`; `None` is the
+    /// constant `target`.
+    target_var: Option<&'static str>,
+    /// Values pinned as differing, with a demonstrated cause (gh:#1455
+    /// policy); 0 everywhere except the `sin` set point below.
+    expected_differ: usize,
     /// The servo must have moved the plate centre by more than this
     /// (force servo) or the torque about `z` must be non-zero (torque servo).
     expect_moved: f64,
@@ -177,6 +213,8 @@ impl Case {
             com: [0.0, 0.0, 0.0112],
             target: 0.1,
             gains: [1.0, 0.2, 0.0001],
+            target_var: None,
+            expected_differ: 0,
             expect_moved: 1.0e-3,
         }
     }
@@ -210,6 +248,10 @@ fn run_servo(case: &Case) {
     );
     if case.torque {
         servo = servo.with_torque(&mesh.nodes());
+    }
+    if let Some(formula) = case.target_var {
+        let table = VariableTable::new();
+        servo = servo.with_target_variable(table.parse(formula).expect("valid formula"));
     }
     if let Some(ratio) = case.auto_ratio {
         servo = servo.with_auto(ratio, 0.005);
@@ -249,6 +291,7 @@ fn run_servo(case: &Case) {
     };
 
     let (mut mismatched, mut total, mut first) = (0, 0, None);
+    let mut thermo_mismatched = 0_usize;
     let mut last = 0_usize;
     let mut thermo_rows = thermo.iter();
     let mut next_thermo = thermo_rows.next();
@@ -278,6 +321,7 @@ fn run_servo(case: &Case) {
                 }
                 if got.to_bits() != th[1 + k].to_bits() {
                     mismatched += 1;
+                    thermo_mismatched += 1;
                     first.get_or_insert((1000 + ts, k, got, th[1 + k]));
                 }
             }
@@ -317,7 +361,14 @@ fn run_servo(case: &Case) {
         moved > case.expect_moved,
         "the servo never moved the plate: {moved}"
     );
-    assert_eq!(mismatched, 0, "{mismatched}/{total} differ, first {first:?}");
+    eprintln!(
+        "{}: {mismatched}/{total} differ ({thermo_mismatched} of them f_plate values), first {first:?}",
+        case.deck
+    );
+    assert_eq!(
+        mismatched, case.expected_differ,
+        "{mismatched}/{total} differ, first {first:?}"
+    );
     if case.torque {
         assert!(max_op > 1.0e-3, "the torque servo never rotated the plate: {max_op}");
     }

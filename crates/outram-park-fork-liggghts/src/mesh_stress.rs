@@ -27,13 +27,16 @@
 //! `f_total`, total torque about the reference point, per-facet force `f`,
 //! `sigma_n`, `sigma_t` (both `|F.n|/A`, `|F - (F.n)n| / A`), and the
 //! `compute_vector` layout (`0..3` force, `3..6` torque, `6..9` the reference
-//! point, which moves with the mesh). **Not translated:** `wear finnie`,
-//! external (gravity) contributions to the totals. The reference point follows the mesh's
+//! point, which moves with the mesh). ~~**Not translated:** `wear finnie`,~~
+//! **`wear finnie` translated 2026-11-12 (gh:#1491)**: [`MeshStress::with_wear_finnie`],
+//! per-facet `wear`. **Not translated:** external (gravity) contributions to
+//! the totals, `store_wear_increment`. The reference point follows the mesh's
 //! translation exactly and its rotation about the world origin as upstream's
 //! `TrackingMesh::rotate` does (`move(-origin)`, rotate, `move(origin)`);
 //! a rotation about a point other than the origin is not cross-coded.
 
 use crate::particle::Vec3;
+use crate::variable::{Expr, VarContext};
 
 /// `fix mesh/surface/stress` state of one mesh.
 #[derive(Debug, Clone, PartialEq)]
@@ -49,7 +52,51 @@ pub struct MeshStress {
     sigma_n: Vec<f64>,
     sigma_t: Vec<f64>,
     area: Vec<f64>,
+    /// `wear finnie` state, when enabled.
+    wear: Option<FinnieWear>,
 }
+
+/// `wear finnie` of `MeshModuleStress`: per-facet accumulated `wear` and this
+/// step's `wear_step`.
+#[derive(Debug, Clone, PartialEq)]
+struct FinnieWear {
+    /// `k_finnie[atom_type_mesh-1][type-1]`, indexed by the particle's 0-based
+    /// atom type.
+    k_finnie: Vec<f64>,
+    wear: Vec<f64>,
+    wear_step: Vec<f64>,
+}
+
+/// One contact as `MeshModuleStress::add_particle_contribution` sees it, for
+/// the wear part: `frc` the contact force on the particle (`f_pw`), `x` and
+/// `v` the particle's centre and velocity, `delta` the already negated
+/// `-sidata.delta`, `v_wall` the mesh velocity at the contact, `norm` the
+/// facet's unit normal, `atom_type` the particle's 0-based type, `dt` the
+/// timestep.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct WearContact {
+    /// Contact force on the particle `[N]`.
+    pub frc: [f64; 3],
+    /// Particle centre `[m]`.
+    pub x: [f64; 3],
+    /// Particle velocity `[m/s]`.
+    pub v: [f64; 3],
+    /// `-sidata.delta` `[m]`.
+    pub delta: [f64; 3],
+    /// Mesh velocity at the contact `[m/s]`.
+    pub v_wall: [f64; 3],
+    /// Facet index.
+    pub tri: usize,
+    /// Facet unit normal.
+    pub norm: [f64; 3],
+    /// 0-based particle atom type.
+    pub atom_type: usize,
+    /// Timestep `[s]`.
+    pub dt: f64,
+}
+
+/// `#define EPSILON 0.0001` of `mesh_module_stress.cpp`.
+const WEAR_EPSILON: f64 = 0.0001;
 
 fn add(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
     [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
@@ -72,7 +119,79 @@ impl MeshStress {
             sigma_n: vec![0.0; n],
             sigma_t: vec![0.0; n],
             area,
+            wear: None,
         }
+    }
+
+    /// `wear finnie` (`fix mesh/surface/stress ... wear finnie` with
+    /// `fix ... property/global k_finnie peratomtypepair`): `k_finnie[t]` is the
+    /// coefficient of this mesh's wall type against particle type `t`
+    /// (0-based). `wear` starts at zero (`regWear`).
+    #[must_use]
+    pub fn with_wear_finnie(mut self, k_finnie: Vec<f64>) -> Self {
+        let n = self.area.len();
+        self.wear = Some(FinnieWear {
+            k_finnie,
+            wear: vec![0.0; n],
+            wear_step: vec![0.0; n],
+        });
+        self
+    }
+
+    /// Start a set-up force evaluation: `wear_step` is zero (upstream's is,
+    /// after `zeroizeWear` or the last `calc_total_force`), so a set-up that
+    /// the port repeats does not count twice.
+    pub fn begin_setup_wear(&mut self) {
+        if let Some(w) = self.wear.as_mut() {
+            w.wear_step.iter_mut().for_each(|x| *x = 0.0);
+        }
+    }
+
+    /// The `trackWear()` part of `add_particle_contribution`, in upstream's
+    /// operation order: `c = (x + delta) - x`, `v_rel = v - v_wall`; nothing
+    /// if `c . v_rel < 0` or `|v_rel| < 1e-7`; `sin = |v_rel . n| / |v_rel|`,
+    /// `cos = |v_rel x n| / |v_rel|` (each capped at 1);
+    /// `E = 0.33333 cos^2` if `cos < 1e-4` or `3 sin > cos`, else
+    /// `E = 2 sin cos - 3 sin^2`; `E *= 2 k |v_rel| |frc|`;
+    /// `wear_step[tri] += E dt / area`. No-op without `wear finnie`.
+    pub fn add_wear_contribution(&mut self, c: &WearContact) {
+        let Some(w) = self.wear.as_mut() else {
+            return;
+        };
+        let contact = add(c.x, c.delta);
+        let cc = [contact[0] - c.x[0], contact[1] - c.x[1], contact[2] - c.x[2]];
+        let v_rel = [c.v[0] - c.v_wall[0], c.v[1] - c.v_wall[1], c.v[2] - c.v_wall[2]];
+        if dot3(cc, v_rel) < 0.0 {
+            return;
+        }
+        let v_rel_mag = mag3(v_rel);
+        if 0.0000001 > v_rel_mag {
+            return;
+        }
+        let mut sin_gamma = dot3(v_rel, c.norm).abs() / v_rel_mag;
+        let mut cos_gamma = mag3(cross3(v_rel, c.norm)).abs() / v_rel_mag;
+        if cos_gamma > 1.0 {
+            cos_gamma = 1.0;
+        }
+        if sin_gamma > 1.0 {
+            sin_gamma = 1.0;
+        }
+        let mut e = if cos_gamma < WEAR_EPSILON || 3.0 * sin_gamma > cos_gamma {
+            0.33333 * cos_gamma * cos_gamma
+        } else {
+            let sin_2gamma = 2.0 * sin_gamma * cos_gamma;
+            sin_2gamma - 3.0 * sin_gamma * sin_gamma
+        };
+        e *= 2.0 * w.k_finnie[c.atom_type] * v_rel_mag * mag3(c.frc);
+        let part = e * c.dt / self.area[c.tri];
+        w.wear_step[c.tri] += part;
+    }
+
+    /// Accumulated Finnie wear of facet `i` (the mesh element property
+    /// `wear`), or `None` without `wear finnie`.
+    #[must_use]
+    pub fn wear(&self, i: usize) -> Option<f64> {
+        self.wear.as_ref().map(|w| w.wear[i])
     }
 
     /// `pre_force`: keep last step's totals, start a new sum.
@@ -114,6 +233,13 @@ impl MeshStress {
     /// `calc_total_force` (from `final_integrate`): mark the totals current and
     /// compute the facet stresses from the current unit normals `norms`.
     pub fn final_integrate(&mut self, norms: &[[f64; 3]]) {
+        // add wear from this step to total wear
+        if let Some(w) = self.wear.as_mut() {
+            for (acc, step) in w.wear.iter_mut().zip(w.wear_step.iter_mut()) {
+                *acc += *step;
+                *step = 0.0;
+            }
+        }
         self.updated = true;
         for i in 0..self.f_tri.len() {
             let n = norms[i];
@@ -230,8 +356,12 @@ pub enum ServoMove {
 /// by `mode auto` (a piecewise proportional gain on the number of mesh
 /// contacts). gh:#1416.
 ///
-/// **Not ported:** a variable set point (`target_val v_name`),
-/// `fix_modify integrate/vel_max/target_val/ctrlParam/ratio`.
+/// ~~**Not ported:** a variable set point (`target_val v_name`),~~
+/// **A variable set point (`target_val v_name`, an equal-style variable) is
+/// ported since 2026-11-12 (gh:#1491):** [`MeshServo::with_target_variable`].
+/// **Not ported:** `fix_modify integrate/vel_max/target_val/ctrlParam/ratio`,
+/// which only acts between two `run` commands, and the port has no emulation
+/// of a second `run`'s `init()`/`setup()` (gh:#1491).
 #[derive(Debug, Clone, PartialEq)]
 pub struct MeshServo {
     ctrl: ServoCtrl,
@@ -258,6 +388,12 @@ pub struct MeshServo {
     sum_err: f64,
     old_pv_mag: f64,
     dtv: f64,
+    /// `target_val v_name`: the equal-style set point, evaluated every
+    /// `final_integrate` (`sp_style_ == EQUAL`); `None` is a constant.
+    sp_var: Option<Expr>,
+    /// `update->ntimestep` at the last `final_integrate` (counted from 0 at
+    /// construction, one per step).
+    step: i64,
 }
 
 fn dot3(a: [f64; 3], b: [f64; 3]) -> f64 {
@@ -324,7 +460,22 @@ impl MeshServo {
             sum_err: 0.0,
             old_pv_mag: 0.0,
             dtv: dt,
+            sp_var: None,
+            step: 0,
         }
+    }
+
+    /// `target_val v_name`: the set point is the equal-style variable `expr`,
+    /// evaluated at the start of every `final_integrate` with
+    /// `sp_mag = -value` (upstream aborts on a zero value). The constant
+    /// `target_val` given to [`MeshServo::new`] is then never read (upstream's
+    /// `sp_mag_` is overwritten before its first use). `step` and `time` are
+    /// counted from the servo's construction; `ramp()` is not faithful (the
+    /// run length is not known here).
+    #[must_use]
+    pub fn with_target_variable(mut self, expr: Expr) -> Self {
+        self.sp_var = Some(expr);
+        self
     }
 
     /// `ctrlPV torque` (`init()`): the maximum angular velocity is
@@ -453,7 +604,29 @@ impl MeshServo {
     /// `vcm` (force) or `omegacm` (torque) from the process-value vector `pv`
     /// (`f_total` or `torque_total`) and the mesh's total contact count
     /// `num_contacts` (`getTotalNumContacts`, only read in `mode auto`).
+    ///
+    /// # Panics
+    ///
+    /// As upstream aborts: a variable set point that evaluates to zero or
+    /// fails to evaluate.
     pub fn final_integrate_pv(&mut self, pv: [f64; 3], num_contacts: usize) -> [f64; 3] {
+        self.step += 1;
+        if let Some(expr) = &self.sp_var {
+            // variable force, wrap with clear/add
+            let ctx = VarContext {
+                step: self.step,
+                begin_step: 0,
+                end_step: i64::MAX,
+                dt: self.dtv,
+            };
+            let v = expr.eval(&ctx).expect("servo target_val variable");
+            self.sp_mag = -v;
+            assert!(
+                self.sp_mag != 0.0,
+                "Set point (desired force/torque/shear) has to be != 0.0"
+            );
+            self.sp_mag_inv = 1. / self.sp_mag.abs();
+        }
         let pv_mag = dot3(pv, self.axis);
         let auto = self.is_auto();
         let mut ctrl_op: [f64; 3];

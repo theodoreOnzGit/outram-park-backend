@@ -490,6 +490,79 @@ impl InsertRegion {
         out
     }
 
+    /// `RegBlock::surface_exterior` / `RegCylinder::surface_exterior`
+    /// (region_block.cpp, region_cylinder.cpp, 3d5c00f2), for a `side out`
+    /// region: the single contact of an EXTERIOR point `p` with the nearest
+    /// point of the region's surface (face, edge or corner), when closer than
+    /// `cutoff`, as `(r, [delx, dely, delz])` with `del = p - nearest`
+    /// (`Region::add_contact`). Empty when `p` is strictly inside, or at or
+    /// beyond `cutoff` of the bounding slabs.
+    #[must_use]
+    pub fn surface_exterior(&self, p: Vec3, cutoff: f64) -> Vec<(f64, [f64; 3])> {
+        let clamp = |v: f64, l: f64, h: f64| {
+            if v < l {
+                l
+            } else if v > h {
+                h
+            } else {
+                v
+            }
+        };
+        let nearest = match *self {
+            Self::Block { lo, hi } => {
+                if p.x <= lo.x - cutoff
+                    || p.x >= hi.x + cutoff
+                    || p.y <= lo.y - cutoff
+                    || p.y >= hi.y + cutoff
+                    || p.z <= lo.z - cutoff
+                    || p.z >= hi.z + cutoff
+                {
+                    return Vec::new();
+                }
+                if p.x > lo.x && p.x < hi.x && p.y > lo.y && p.y < hi.y && p.z > lo.z && p.z < hi.z
+                {
+                    return Vec::new();
+                }
+                Vec3::new(clamp(p.x, lo.x, hi.x), clamp(p.y, lo.y, hi.y), clamp(p.z, lo.z, hi.z))
+            }
+            Self::Cylinder {
+                axis,
+                c1,
+                c2,
+                radius,
+                lo,
+                hi,
+            } => {
+                let (del1, del2, a) = Self::cyl_coords(axis, c1, c2, p);
+                let r = (del1 * del1 + del2 * del2).sqrt();
+                if r >= radius + cutoff || a <= lo - cutoff || a >= hi + cutoff {
+                    return Vec::new();
+                }
+                if r < radius && a > lo && a < hi {
+                    return Vec::new();
+                }
+                let na = clamp(a, lo, hi);
+                // radially projected when outside the radius, else the point's
+                // own in-plane coordinates (`yp = x[1]`, not `c1 + del1`)
+                let project = r > radius;
+                let n1 = |c: f64, d: f64, own: f64| if project { c + d * radius / r } else { own };
+                match axis {
+                    Axis::X => Vec3::new(na, n1(c1, del1, p.y), n1(c2, del2, p.z)),
+                    Axis::Y => Vec3::new(n1(c1, del1, p.x), na, n1(c2, del2, p.z)),
+                    Axis::Z => Vec3::new(n1(c1, del1, p.x), n1(c2, del2, p.y), na),
+                }
+            }
+        };
+        // Region::add_contact
+        let del = [p.x - nearest.x, p.y - nearest.y, p.z - nearest.z];
+        let r = (del[0] * del[0] + del[1] * del[1] + del[2] * del[2]).sqrt();
+        if r < cutoff {
+            vec![(r, del)]
+        } else {
+            Vec::new()
+        }
+    }
+
     fn cyl_coords(axis: Axis, c1: f64, c2: f64, p: Vec3) -> (f64, f64, f64) {
         match axis {
             Axis::X => (p.y - c1, p.z - c2, p.x),

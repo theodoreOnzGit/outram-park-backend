@@ -42,8 +42,11 @@ First run gave thermo 113/336 (worst 1.1e-14) with the trajectory already
 identical: the cause was summation order. Upstream sums `ewall` over its local
 atom order, which `Atom::sort` permutes into bin order at setup; the port
 summed in tag order. Fixed by passing `GranularSystem::local_order_indices()`
-into `ForceFix::apply`. Not ported: exterior regions, other region styles,
-moving regions.
+into `ForceFix::apply`. Not ported: ~~exterior regions,~~ other region styles,
+moving regions. **Exterior (`side out`) block and cylinder regions added
+2026-11-12 (gh:#1491):** `ForceFix::WallRegionExterior`, deck
+`in.wallregion_out`, 7 938 / 7 938 bit-identical (`docs/verification-and-validation.md`
+section 4.13).
 
 **Re-run 2026-11-12 on PETIR maths (epic gh:#1336):** the port's `pow`/`log`
 moved from `std` (glibc) to `petir::mathf::RealMath` (`r_powf`, `r_ln`). Both

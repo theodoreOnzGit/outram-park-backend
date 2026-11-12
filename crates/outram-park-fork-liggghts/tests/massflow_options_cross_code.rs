@@ -394,6 +394,70 @@ fn massflow_sieve_matches_liggghts() {
     tally.assert_clean("sieve");
 }
 
+/// `point_at_outlet` and `inside_out` on a non-planar counting mesh (gh:#1491).
+///
+/// Deck `in.massflow_outlet`: the closed 64-facet `drum_cylinder.stl`
+/// (radius 0.05 m, axis y) as a counting surface only (no `wall/gran`); six
+/// spheres start inside it moving out, six outside moving in, and a floor at
+/// `z = -0.12` sends them back up. `mfo` is `count once point_at_outlet 0 0 0`,
+/// `mfi` the same with `inside_out`. Upstream counts a particle in a facet's
+/// mesh neighbour list only when `deltan < radius`, with
+/// `dot = delta . (x - p_outlet)` (negated by `inside_out`).
+///
+/// **Prediction (2026-11-12, before the first run):** bit-identical; no sum
+/// has more than a few equal-mass terms per step.
+///
+/// **Result (2026-11-12, Rust 1.99.1, LIGGGHTS 3d5c00f2):** 121 frames x
+/// (108 trajectory + 8 counter) values bit-identical; both counters end at 6
+/// particles (`mfo` the six leaving the drum, `mfi` the six entering it).
+#[test]
+fn massflow_point_at_outlet_and_inside_out_match_liggghts() {
+    let (Some(csv), Some(thermo), Some(stl)) = (
+        read("massflow_outlet.csv"),
+        read("massflow_outlet_thermo.txt"),
+        read("drum_cylinder.stl"),
+    ) else {
+        eprintln!("skipping: reference-data/liggghts/ not present");
+        return;
+    };
+    let rows = trajectory_rows(&csv);
+    let thermo = table(&thermo);
+    assert_eq!((rows.len(), thermo.len()), (121, 121));
+    let particles: Vec<Particle> = (0..12).map(|i| sphere(&rows[0][1 + 9 * i..])).collect();
+    let mut sys = system(particles).with_neighbor_skin(0.003);
+    let mesh = || MeshWall::from_ascii_stl(&stl).expect("valid drum stl");
+    let outlet = |inside_out: bool| MassFlowConfig {
+        vec_side: Vec3::zero(),
+        once: true,
+        point_at_outlet: Some(Vec3::zero()),
+        inside_out,
+        skin: 0.003,
+    };
+    let out = sys.add_massflow_mesh(MassFlowMesh::new(mesh(), outlet(false)).expect("valid fix"));
+    let inn = sys.add_massflow_mesh(MassFlowMesh::new(mesh(), outlet(true)).expect("valid fix"));
+    let mut tally = Tally::new();
+    let mut last = 0;
+    for (row, th) in rows.iter().zip(&thermo) {
+        let step = row[0] as usize;
+        sys.run(step - last);
+        last = step;
+        compare_constant_atoms(&sys, row, step, &mut tally);
+        for k in 0..4 {
+            tally.check(step, k, sys.massflow_vector(out, k), th[1 + k]);
+        }
+        for k in 0..4 {
+            tally.check(step, 4 + k, sys.massflow_vector(inn, k), th[5 + k]);
+        }
+    }
+    eprintln!(
+        "point_at_outlet: {}/{} values differ, first {:?}",
+        tally.mismatched, tally.total, tally.first
+    );
+    tally.assert_clean("point_at_outlet / inside_out");
+    assert_eq!(sys.massflow(out).crossings().len(), 6);
+    assert_eq!(sys.massflow(inn).crossings().len(), 6);
+}
+
 /// The sieve and delete constructors keep upstream's guards.
 #[test]
 fn sieve_and_delete_guards() {

@@ -79,6 +79,7 @@ use crate::granular::{
 };
 use crate::heat_gran::HeatGranConduction;
 use crate::integrator::VelocityVerlet;
+use crate::mesh_stress::WearContact;
 use crate::mesh_wall::{MovingBoundary, WallGeometry};
 use crate::neighbor_list::{self, LiggghtsNeighbor, NeighborOrder};
 use crate::particle::{Particle, Vec3};
@@ -272,6 +273,12 @@ pub struct GranularSystem {
     /// `NeighborOrder::Liggghts` only: `perm[l]` is the particle index sitting
     /// in upstream's local atom slot `l` (the `Atom::sort` order).
     perm: Vec<usize>,
+    /// `NeighborOrder::Liggghts` only: per particle, its neighbour bin
+    /// `(ix, iy, iz)` at the last list build (`Neighbor::bin_atoms` on the
+    /// positions of that build). Fixes the order of each facet's mesh
+    /// neighbour list, which walks its bins in `ix, iy, iz` loop order
+    /// (`FixNeighlistMesh::generate_bin_list`/`handleTriangle`, gh:#1491).
+    nbin_of: Vec<(i32, i32, i32)>,
     /// Upstream's `update->ntimestep` (steps taken by this system).
     step_count: u64,
     /// `atom->nextsort`.
@@ -365,6 +372,28 @@ impl PairOutcome {
     };
 }
 
+/// One particle-facet contact's contribution to `fix mesh/surface/stress`
+/// (`add_particle_contribution(ip, f_pw, -sidata.delta, iTri, v_wall)`),
+/// staged so the totals can be summed in upstream's order.
+struct StressContribution {
+    /// Particle index.
+    i: usize,
+    /// Facet.
+    tri: usize,
+    /// `f_pw`, the contact force on the particle.
+    f_pw: [f64; 3],
+    /// Particle centre.
+    x: [f64; 3],
+    /// `-sidata.delta`.
+    delta: [f64; 3],
+    /// Particle velocity.
+    v: [f64; 3],
+    /// Mesh velocity at the contact.
+    v_wall: [f64; 3],
+    /// Unit normal of the facet (`surfaceNorm`).
+    norm: [f64; 3],
+}
+
 impl GranularSystem {
     /// Ensembles of this size or smaller use an all-pairs neighbour scan.
     ///
@@ -425,6 +454,7 @@ impl GranularSystem {
             cell_items: Vec::new(),
             neighbor_order: NeighborOrder::CellGrid,
             perm: Vec::new(),
+            nbin_of: Vec::new(),
             step_count: 0,
             next_sort: 0,
             rebuild_now: false,
@@ -478,6 +508,14 @@ impl GranularSystem {
     #[must_use]
     pub fn mesh_servo_xcm(&self, wall: usize, n: usize) -> Option<f64> {
         self.moving_walls[wall].servo.as_ref().map(|s| s.0.xcm()[n])
+    }
+
+    /// Accumulated Finnie wear of facet `tri` of moving wall `wall`
+    /// (`fix mesh/surface/stress ... wear finnie`, the element property
+    /// `wear`); `None` when that wall tracks no wear. gh:#1491.
+    #[must_use]
+    pub fn facet_wear(&self, wall: usize, tri: usize) -> Option<f64> {
+        self.moving_walls[wall].stress.as_ref().and_then(|s| s.wear(tri))
     }
 
     /// Servo velocity `vcm_` (force servo) or angular velocity `omegacm_`
@@ -1317,6 +1355,8 @@ impl GranularSystem {
                 .map(|&(a, b)| (self.perm[a as usize] as u32, self.perm[b as usize] as u32)),
         );
         self.xhold = self.particles.iter().map(|p| p.position).collect();
+        let grid = neighbor_list::BinGrid::new(&cfg, cut);
+        self.nbin_of = self.particles.iter().map(|p| grid.coord2bin(p.position)).collect();
         // `FixWallGran::pre_neighbor`: rebuild each primitive wall's list with
         // threshold = skin and the atom radius
         let skin = cfg.skin;
@@ -2518,6 +2558,14 @@ impl GranularSystem {
     /// (`FixContactHistoryMesh::handleContact`). gh:#1416.
     fn compute_mesh_wall_forces(&mut self, w: usize) {
         let setup = self.setup_phase;
+        if setup {
+            // the set-up evaluation's wear goes into step 1 (nothing zeroes
+            // `wear_step` before `final_integrate`); a repeated set-up here
+            // replaces, not adds to, it
+            if let Some(st) = self.moving_walls[w].stress.as_mut() {
+                st.begin_setup_wear();
+            }
+        }
         let n = self.particles.len();
         let nb = self.boundaries.len();
         {
@@ -2525,7 +2573,7 @@ impl GranularSystem {
                 return;
             };
             let has_stress = self.moving_walls[w].stress.is_some();
-            let mut contributions: Vec<(usize, usize, [f64; 3], [f64; 3], [f64; 3])> = Vec::new();
+            let mut contributions: Vec<StressContribution> = Vec::new();
             // markAllContacts
             for (key, slots) in self.mesh_partners.iter_mut() {
                 if key.1 == w {
@@ -2728,26 +2776,53 @@ impl GranularSystem {
                     self.torques[i] = self.torques[i].add(gf.torque_i);
                     if has_stress {
                         let f_pw = self.forces[i].sub(before);
-                        contributions.push((i, c.tri, arr(f_pw), arr(p.position), c.delta));
+                        contributions.push(StressContribution {
+                            i,
+                            tri: c.tri,
+                            f_pw: arr(f_pw),
+                            x: arr(p.position),
+                            delta: c.delta,
+                            v: arr(p.velocity),
+                            v_wall: arr(v_wall),
+                            norm: mesh.state.surface_norm(c.tri),
+                        });
                     }
                 }
             }
             if let Some(st) = &mut self.moving_walls[w].stress {
                 // Upstream's `post_force_mesh` loops facets outermost and, within a
-                // facet, the particles of that facet's mesh neighbour list, which
-                // is in ascending local (atom-sort) slot order. The totals of
-                // `fix mesh/surface/stress` are floating-point sums, so they are
-                // accumulated in that order (the per-contact forces do not depend
-                // on it). gh:#1416, `tests/htr10_conus_massflow_stress_cross_code.rs`.
+                // facet, the particles of that facet's mesh neighbour list. That
+                // list (`FixNeighlistMesh::handleTriangle`) walks the facet's bins
+                // in the `ix, iy, iz` loop order of `generate_bin_list` (`iz`
+                // innermost) and each bin's linked list in ascending local
+                // (atom-sort) slot, on the bins of the last list build. The
+                // totals of `fix mesh/surface/stress` are floating-point sums, so
+                // they are accumulated in that order (the per-contact forces do
+                // not depend on it). gh:#1416, gh:#1491,
+                // `tests/htr10_conus_massflow_stress_cross_code.rs`.
                 if self.perm.len() == n && matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
                     let mut local_of = vec![0usize; n];
                     for (l, &pi) in self.perm.iter().enumerate() {
                         local_of[pi] = l;
                     }
-                    contributions.sort_by_key(|c| (c.1, local_of[c.0]));
+                    let bins = &self.nbin_of;
+                    let bin = |i: usize| if bins.len() == n { bins[i] } else { (0, 0, 0) };
+                    contributions.sort_by_key(|c| (c.tri, bin(c.i), local_of[c.i]));
                 }
-                for (_, tri, f_pw, x, d) in contributions {
-                    st.add_particle_contribution(f_pw, x, d, tri);
+                for c in contributions {
+                    st.add_particle_contribution(c.f_pw, c.x, c.delta, c.tri);
+                    // `trackWear()`: the same call, after the stress part
+                    st.add_wear_contribution(&WearContact {
+                        frc: c.f_pw,
+                        x: c.x,
+                        v: c.v,
+                        delta: c.delta,
+                        v_wall: c.v_wall,
+                        tri: c.tri,
+                        norm: c.norm,
+                        atom_type: self.types[c.i],
+                        dt: self.dt,
+                    });
                 }
             }
             // cleanUpContacts

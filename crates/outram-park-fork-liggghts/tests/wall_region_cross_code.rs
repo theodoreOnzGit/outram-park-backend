@@ -260,3 +260,165 @@ fn wall_region_all_styles_active() {
         }
     }
 }
+
+/// `fix wall/region` on EXTERIOR (`side out`) regions (gh:#1491).
+///
+/// Deck `in.wallregion_out` (LIGGGHTS-PUBLIC `3d5c00f2`): 10 spheres
+/// (`d = 10 mm`, 2500 kg/m3) fall onto a side-out horizontal cylinder
+/// (`h`, axis y, radius 0.03, harmonic eps 200, cutoff 0.005) and a side-out
+/// block shelf (`a`, lj93 eps 1e-4, sigma 0.005, cutoff 0.0043), with a floor
+/// `wall/gran` at `z = -0.12` (Hertz/history, `E = 1e7`), `dt = 1e-5`,
+/// 40 000 steps; dump and thermo (`f_h`, `f_h[1..3]`, `f_a`, `f_a[1..3]`)
+/// every 500 steps. Every value compared as bits.
+///
+/// **Prediction (2026-11-12, before the first run):** bit-identical; one
+/// exterior contact per particle and region, `ewall` summed in local order.
+///
+/// **Result (2026-11-12, Rust 1.99.1):** **7 938 / 7 938 bit-identical**
+/// (81 frames x 90 trajectory values + 81 x 8 wall values); the cylinder
+/// wall is in contact at 6 sampled rows, the block wall at 8.
+#[test]
+fn wall_region_exterior_matches_liggghts() {
+    let (Some(traj), Some(thermo)) = (read("wallregion_out.csv"), read("wallregion_out_thermo.txt"))
+    else {
+        eprintln!("skipping: reference data not present");
+        return;
+    };
+    let rows: Vec<Vec<f64>> = traj
+        .lines()
+        .skip(1)
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| l.split(',').map(|x| x.parse().unwrap()).collect())
+        .collect();
+    let thermo_rows: Vec<Vec<f64>> = thermo
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| l.split_whitespace().map(|x| x.parse().unwrap()).collect())
+        .collect();
+    assert_eq!((rows.len(), thermo_rows.len()), (81, 81));
+    let mass = 2500.0 * 4.0 / 3.0 * std::f64::consts::PI * R_P * R_P * R_P;
+    let ps: Vec<Particle> = (0..10)
+        .map(|i| {
+            let v = &rows[0][1 + 9 * i..];
+            Particle::new(
+                Vec3::new(v[0], v[1], v[2]),
+                Vec3::new(v[3], v[4], v[5]),
+                Vec3::zero(),
+                Mass::new::<kilogram>(mass),
+                Length::new::<meter>(R_P),
+                ThermodynamicTemperature::new::<kelvin>(300.0),
+            )
+            .unwrap()
+        })
+        .collect();
+    let m = Length::new::<meter>;
+    let fixes = vec![
+        ForceFix::WallRegionExterior {
+            group: vec![true; 10],
+            region: InsertRegion::cylinder(Axis::Y, m(0.0), m(0.0), m(0.03), m(-0.1), m(0.1)).unwrap(),
+            style: WallRegionStyle::Harmonic,
+            epsilon: 200.0,
+            sigma: 0.0,
+            cutoff: 0.005,
+            ewall: [0.0; 4],
+        },
+        ForceFix::WallRegionExterior {
+            group: vec![true; 10],
+            region: InsertRegion::block(Vec3::new(-0.2, -0.1, -0.08), Vec3::new(-0.06, 0.1, -0.05))
+                .unwrap(),
+            style: WallRegionStyle::Lj93,
+            epsilon: 1.0e-4,
+            sigma: 0.005,
+            cutoff: 0.0043,
+            ewall: [0.0; 4],
+        },
+    ];
+    let floor = outram_park_fork_liggghts::boundary::Boundary::wall(
+        Vec3::new(0.0, 0.0, -0.12),
+        Vec3::new(0.0, 0.0, 1.0),
+    )
+    .unwrap();
+    let material = GranularMaterial::new(1.0e7, 0.3, 0.9, 0.5).unwrap();
+    let mut sys = GranularSystem::new(
+        ps,
+        vec![floor],
+        GranularContactModel::hertz_history(material),
+        Vec3::new(0.0, 0.0, -9.81),
+        1e-5,
+    )
+    .unwrap()
+    .with_liggghts_neighbor_order(
+        LiggghtsNeighbor::new(Vec3::new(-1.0, -0.2, -0.13), Vec3::new(1.0, 0.2, 0.3), 0.003).unwrap(),
+    )
+    .with_force_fixes(fixes);
+    let (mut same, mut total, mut first) = (0usize, 0usize, None);
+    let mut check = |step: usize, k: usize, got: f64, want: f64| {
+        total += 1;
+        if got.to_bits() == want.to_bits() {
+            same += 1;
+        } else {
+            first.get_or_insert((step, k, got, want));
+        }
+    };
+    let mut done = 0;
+    for (row, th) in rows.iter().zip(&thermo_rows) {
+        let step = row[0] as usize;
+        assert_eq!(th[0] as usize, step);
+        sys.run(step - done);
+        done = step;
+        for (i, p) in sys.particles().iter().enumerate() {
+            let ours = [
+                p.position.x,
+                p.position.y,
+                p.position.z,
+                p.velocity.x,
+                p.velocity.y,
+                p.velocity.z,
+                p.angular_velocity.x,
+                p.angular_velocity.y,
+                p.angular_velocity.z,
+            ];
+            for (k, o) in ours.iter().enumerate() {
+                check(step, 100 + 9 * i + k, *o, row[1 + 9 * i + k]);
+            }
+        }
+        let mut cols = Vec::new();
+        for fx in sys.force_fixes() {
+            if let ForceFix::WallRegionExterior { ewall, .. } = fx {
+                cols.extend_from_slice(ewall);
+            }
+        }
+        for (k, c) in cols.iter().enumerate() {
+            check(step, k, *c, th[1 + k]);
+        }
+    }
+    eprintln!("wall/region exterior: {same}/{total} bit-identical, first difference {first:?}");
+    assert_eq!(same, total, "first difference {first:?}");
+}
+
+/// `surface_exterior` geometry: face and corner contacts of a block, radial
+/// and cap contacts of a cylinder, against hand values.
+#[test]
+fn surface_exterior_contacts() {
+    let b = InsertRegion::block(Vec3::zero(), Vec3::new(1.0, 1.0, 1.0)).unwrap();
+    // inside, and beyond the cutoff: no contact
+    assert!(b.surface_exterior(Vec3::new(0.5, 0.5, 0.5), 0.1).is_empty());
+    assert!(b.surface_exterior(Vec3::new(1.2, 0.5, 0.5), 0.1).is_empty());
+    // face
+    let c = b.surface_exterior(Vec3::new(1.05, 0.5, 0.5), 0.1);
+    assert_eq!(c.len(), 1);
+    assert!((c[0].0 - 0.05).abs() < 1e-15 && c[0].1[1] == 0.0 && c[0].1[2] == 0.0);
+    // corner: nearest point (1, 1, 1)
+    let c = b.surface_exterior(Vec3::new(1.03, 1.04, 1.0), 0.1);
+    assert!((c[0].0 - 0.05).abs() < 1e-12);
+    let m = Length::new::<meter>;
+    let cy = InsertRegion::cylinder(Axis::Z, m(0.0), m(0.0), m(1.0), m(0.0), m(1.0)).unwrap();
+    // radial: (1.05, 0, 0.5) -> (1, 0, 0.5)
+    let c = cy.surface_exterior(Vec3::new(1.05, 0.0, 0.5), 0.1);
+    assert!((c[0].0 - 0.05).abs() < 1e-12 && c[0].1[2] == 0.0);
+    // above the top cap, inside the radius: straight down to z = 1
+    let c = cy.surface_exterior(Vec3::new(0.3, 0.2, 1.04), 0.1);
+    assert_eq!(c[0].1, [0.0, 0.0, 1.04 - 1.0]);
+    // inside: none
+    assert!(cy.surface_exterior(Vec3::new(0.3, 0.2, 0.5), 0.1).is_empty());
+}
