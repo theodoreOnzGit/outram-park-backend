@@ -352,3 +352,33 @@ Port: `tests/genfoam_godiva_sn_step.rs` (ignored; needs the tutorial directory).
 | G2 | the number of inner sweeps per group | identical in both codes; not measured separately (the port does not report sweeps, upstream's log has them), inferred from G1: a flipped stopping test would show as a 1e-3 or larger difference in `keff_` |
 | G3 | the step-1 `keff_` moves from the seed 0.980106 to about the shipped-tolerance value 0.938566 recorded in round 1 | within 1e-3 of it (that run used 1e-7 / 0.1 solves) |
 | G4 | wall time and memory of the port | not predicted (no basis); recorded |
+
+### SN results, small S_N slab (measured 2026-11-12, `tests/genfoam_sn_vs_upstream.rs`)
+
+Real binary vs `SnPseudoTimeSolver` on the same committed polyMesh, `nuclearData`, Godiva `quadratureSet`; port linear tolerance 1e-13.
+
+| step | upstream `keff_` | port - upstream | `pow:` relative | first residual: upstream | relative |
+|---:|---|---:|---:|---:|---:|
+| 1 | 1.1345062686135805 | +4.4e-16 | 2.1e-16 | 1 | 0 |
+| 2 | 0.9304310933743098 | -8.9e-16 | 1.3e-15 | 0.22147 | 3.1e-15 |
+| 3 | 1.3822631749216145 | +2.4e-15 | 2.7e-15 | 0.24695 | 6.7e-15 |
+| 4 | 0.6475175870102523 | -2.3e-15 | 5.3e-15 | 0.43220 | 3.1e-15 |
+| 5 | 2.8264602826244443 | +2.3e-14 | 1.2e-14 | 0.61095 | 3.8e-15 |
+| 6 | 0.1706915252753794 | -2.4e-15 | 2.2e-14 | 0.65875 | 2.4e-15 |
+
+Scalar flux at step 6 (unit-sum shape): max relative difference 1.1e-15. Ablation (N6): the same port with P0 only (`legendre_moments = 1`)
+gives step-1 `keff_` 1.1348527420932226 against upstream's 1.1345062686135805 (+3.05e-4 relative), so P1 to P3 carry a visible part of
+the step and the agreement above is not a P0 agreement.
+
+N1 to N5 and N6 held, but N1 to N5 were set 4 orders too loose: the prediction that the BiCGStab stopping rules (N7) would set the
+size of the difference was wrong. The case is small enough (151 cells) that both codes solve every direction to round-off, so the
+difference is operation-order round-off (1e-15), and the chaotic amplification of the step iteration (k swings from 0.17 to 2.8) turns that
+into 2e-14 by step 5, not into solver-level 1e-9. The bounds were not tightened afterwards: they stay at the predicted values in the test.
+
+What this does and does not verify: the `quadratureSet` reader (the 32 versors and weights enter every direction's streaming and the
+Legendre cosines), the Legendre matrices and `legendrePoly`, the anisotropic intra- and extra-group sources, `facePhis_`, the `inletOutlet`
+upwind operator, the first-step normalisation, the precursor diagonal solve, `calcKeff.H` and `normFluxesSN.H`, on one group. It does NOT
+verify the multi-group paths (`extraSources` from other groups with moments, `sigmaFromToYesNo`), which the one-group slab skips:
+Godiva (23 groups) is the only case that exercises them, see below. The synthetic P1 to P3 values mean nothing physically.
+Upstream's own behaviour on this case is unstable (single-sweep pseudo-time iteration reaches the keff clamp at step 7); the
+comparison stops at step 6, before the clamp.

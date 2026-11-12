@@ -253,3 +253,37 @@ fn sp3_history_matches_upstream_step_by_step() {
         compare(&format!("sp3 {case}"), &up, &h, &flux, n);
     }
 }
+
+/// The two refusals of the driver: a state-only SP3 scaffold has no cross
+/// sections, and circulating fuel (`precEq.H`'s transported branch) is not
+/// stepped by it.
+#[test]
+fn the_driver_refuses_what_it_does_not_implement() {
+    use outram_foam_appbuilder_lib::genfoam::neutronics::diffusion::PrecursorTransport;
+    use outram_foam_appbuilder_lib::genfoam::neutronics::pseudo_time::PseudoTimeError;
+    let s = setup("guided1");
+    let mut scaffold = Sp3Neutronics::new(s.mesh.clone(), 1, 6);
+    let err = run_pseudo_time_eigenvalue(&mut scaffold, &controls()).unwrap_err();
+    assert_eq!(err, PseudoTimeError::NoCrossSections);
+
+    let mut diffusion = DiffusionNeutronics::new(
+        s.mesh.clone(),
+        &s.xs,
+        &s.zone_map,
+        &[],
+        &s.flux_boundary,
+        DiffusionSettings::default(),
+    )
+    .expect("diffusion");
+    let n = s.mesh.n_cells;
+    let phi_boundary: Vec<Vec<f64>> = s.mesh.patches.iter().map(|p| vec![0.0; p.size]).collect();
+    diffusion.set_precursor_drift(PrecursorTransport::new(
+        &s.mesh,
+        vec![1.0; n],
+        vec![0.0; s.mesh.n_internal_faces],
+        phi_boundary,
+        vec![0.0; n],
+    ));
+    let err = run_pseudo_time_eigenvalue(&mut diffusion, &controls()).unwrap_err();
+    assert_eq!(err, PseudoTimeError::LiquidFuel);
+}

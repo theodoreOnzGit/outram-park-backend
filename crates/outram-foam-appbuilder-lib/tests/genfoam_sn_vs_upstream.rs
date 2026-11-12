@@ -133,6 +133,8 @@ fn run_port_with_flux(legendre_moments: Option<usize>) -> (Vec<PseudoTimeRecord>
     let mut controls = PseudoTimeControls::guided(1.0, 6.0, 6.0, 1.0, 0.025, 1e6);
     controls.adjust_time_step = false;
     let h = run_pseudo_time_eigenvalue(&mut solver, &controls).expect("loop");
+    assert_eq!(solver.k_eff(), h.last().expect("history").step.k_eff);
+    assert_eq!(solver.quadrature().direction_count(), 32);
     let flux = solver.flux(0).to_vec();
     (h, flux)
 }
