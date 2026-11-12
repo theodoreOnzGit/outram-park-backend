@@ -435,7 +435,7 @@ impl Graph {
             self.drawh(u2, v2, w, 0);
         } else {
             let head = ahead;
-            let r = ((u2 - u1).powi(2) + (v2 - v1).powi(2)).sqrt();
+            let r = ((u2 - u1).r_powi(2) + (v2 - v1).r_powi(2)).sqrt();
             let wx = w * (u2 - u1) / r;
             let wy = w * (v2 - v1) / r;
             let dx = head * (u2 - u1) / r;

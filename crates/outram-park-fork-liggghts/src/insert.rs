@@ -96,6 +96,7 @@
 //! trial `all_in yes` can make (an `all_in no` trial centred in the region can
 //! overlap an atom up to `r_j` outside, which `is_nearby` also keeps).
 
+use petir::mathf::RealMath;
 use crate::particle::{Particle, Vec3};
 use crate::DemError;
 use std::collections::BTreeMap;
@@ -213,7 +214,7 @@ impl RanPark {
                     break;
                 }
             }
-            let fac = (-2.0 * rsq.ln() / rsq).sqrt();
+            let fac = (-2.0 * rsq.r_ln() / rsq).sqrt();
             self.second = v1 * fac;
             self.save = true;
             v2 * fac

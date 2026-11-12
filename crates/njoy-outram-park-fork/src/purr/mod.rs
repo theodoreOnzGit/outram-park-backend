@@ -55,6 +55,7 @@
 //! detail, and caveats.
 
 pub mod ladder;
+pub(crate) mod pendf;
 pub mod tables;
 pub mod unrest;
 pub mod wfun;

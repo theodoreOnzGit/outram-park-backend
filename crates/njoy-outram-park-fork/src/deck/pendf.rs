@@ -390,3 +390,68 @@ pub fn broadr_tape(prev: &Tape, mat: i32, out: &ReconrResult, temp_k: f64) -> Re
     tape.set_raw_text(EndfKey { mat, mf: 1, mt: 451 }, raw);
     Ok(tape)
 }
+
+/// PURR's PENDF from the PENDF `prev` it reads (`purr.f90:316-570`, gh:#1498):
+/// the evaluation's MF=2/MT=151, then PURR's own MT=152 (Bondarenko table) and
+/// MT=153 (probability tables) in place of any earlier ones, and the dictionary
+/// rebuilt with them. Everything else is copied; the `TEMP` record carries
+/// `temz`, the card's temperature (`a(iscr)=temz`, `:344`).
+///
+/// The dictionary's `NC` for the two new sections is upstream's
+/// `2 + (npl - 1) / 6` (`:365-368`), which is one less than the lines the
+/// sections occupy when `npl mod 6 = 1`; see [`crate::purr::pendf::directory_nc`].
+///
+/// # Errors
+/// A tape without MF=1/MT=451 or MF=2/MT=151 for `mat`, or tables with no PURR
+/// record.
+pub fn purr_tape(prev: &Tape, mat: i32, tables: &crate::purr::UrrProbabilityTables, za: f64, awr: f64, temz: f64, sigz: f64) -> Result<Tape, NjoyError> {
+    use crate::purr::pendf::{directory_nc, mt152_rows, mt153_rows};
+    let mf1 = prev.section(mat, 1, 451).ok_or(NjoyError::SectionNotFound { mat, mf: 1, mt: 451 })?;
+    let iverf = crate::moder::layout::iverf_from_mf1(&mf1.rows);
+    let thead = match iverf {
+        4 => 1,
+        5 => 2,
+        _ => 3,
+    };
+    let mut head: Vec<[f64; 6]> = mf1.rows[..=thead].to_vec();
+    head[thead][0] = temz;
+    let ncards = nint(head[thead][4]) as usize;
+    let raw_mf1 = prev.raw_text(EndfKey { mat, mf: 1, mt: 451 }).map(<[String]>::to_vec).unwrap_or_default();
+    let text: Vec<String> = (0..ncards).map(|i| raw_mf1.get(thead + 1 + i).cloned().unwrap_or_default()).collect();
+    let bad = || NjoyError::InvalidInput("purr: the probability tables carry no PENDF record".into());
+    let r152 = mt152_rows(za, awr, temz, sigz, tables).ok_or_else(bad)?;
+    let r153 = mt153_rows(za, awr, temz, tables).ok_or_else(bad)?;
+    let (npl152, npl153) = (nint(r152[1][4]) as usize, nint(r153[1][4]) as usize);
+    let mut body: Vec<Section> = Vec::new();
+    let mut inserted = false;
+    for s in prev.sections().iter().filter(|s| s.key.mat == mat && !(s.key.mf == 1 && s.key.mt == 451)) {
+        if s.key.mf == 2 && (s.key.mt == 152 || s.key.mt == 153) {
+            continue;
+        }
+        body.push(s.clone());
+        if s.key.mf == 2 && s.key.mt == 151 {
+            body.push(Section { key: EndfKey { mat, mf: 2, mt: 152 }, rows: r152.clone() });
+            body.push(Section { key: EndfKey { mat, mf: 2, mt: 153 }, rows: r153.clone() });
+            inserted = true;
+        }
+    }
+    if !inserted {
+        return Err(NjoyError::SectionNotFound { mat, mf: 2, mt: 151 });
+    }
+    let (mut secs, raw) = with_directory(mat, iverf, head, &text, body)?;
+    // MT=451's own entry is copied from the input's dictionary (`:372-399`
+    // moves the entries as they are), so its `NC` keeps the old count.
+    let nc451 = mf1.rows.iter().skip(thead + 1 + ncards).find(|r| nint(r[2]) == 1 && nint(r[3]) == 451).map(|r| r[4]);
+    for r in secs[0].rows.iter_mut() {
+        if let (Some(nc), 1, 451) = (nc451, nint(r[2]), nint(r[3])) {
+            r[4] = nc;
+        } else if nint(r[2]) == 2 && nint(r[3]) == 152 {
+            r[4] = directory_nc(npl152) as f64;
+        } else if nint(r[2]) == 2 && nint(r[3]) == 153 {
+            r[4] = directory_nc(npl153) as f64;
+        }
+    }
+    let mut tape = Tape::from_sections(prev.tpid.clone(), secs);
+    tape.set_raw_text(EndfKey { mat, mf: 1, mt: 451 }, raw);
+    Ok(tape)
+}

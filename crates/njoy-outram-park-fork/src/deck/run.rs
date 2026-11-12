@@ -375,10 +375,13 @@ fn run_unresr(c: &UnresrCards, units: &mut TapeUnits, notes: &mut Vec<String>) -
     pass_through(c.nin, c.nout, units, |m| m.unresr = true)
 }
 
-/// PURR (`purr.f90`): **cards read, tape passed through.** The probability
-/// tables are made where ACER needs them ([`build_deck`]), from the
-/// evaluation, with PURR's random sequence from its start; PURR's own MT=153
-/// writer is not ported, so the tape carries no MT=153.
+/// PURR (`purr.f90`). The probability tables are made where ACER needs them
+/// ([`build_deck`]), from the evaluation, with PURR's random sequence from its
+/// start. ~~PURR's own MT=152/153 writer is not ported, so the tape carries no
+/// MT=153.~~ **CORRECTED 2026-11-12 (gh:#1498):** for one temperature, one
+/// `sigma_0`, `nunx = 0` and no HEATR on the input, the tape gets PURR's MT=152
+/// and MT=153 ([`crate::deck::pendf::purr_tape`]; unit 34 of upstream tests 36
+/// and 38-42 is identical). Other decks pass the tape through, as before.
 fn run_purr(c: &PurrCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Result<(), NjoyError> {
     units.openz(c.nendf, 0)?;
     units.openz(c.nin, 0)?;
@@ -387,7 +390,28 @@ fn run_purr(c: &PurrCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
         return Err(NjoyError::NotPorted("PURR with more than one material in one run"));
     }
     let m = &c.materials[0];
-    notes.push("purr: MF=2/MT=153 (probability tables) not written (tape writer not ported)".into());
+    let prev = units.get(c.nin)?.clone();
+    // PURR's MT=152/153 writer (gh:#1498) covers the common deck: one
+    // temperature, one `sigma_0`, every unresolved energy (`nunx = 0`), and no
+    // HEATR on the input (`ihave = 0`, a zero heating column). Others keep the
+    // pass-through and say so.
+    let writable = m.temps.len() == 1 && m.sigz.len() == 1 && m.nunx == 0 && !prev.meta.heatr && prev.meta.blocks.len() == 1;
+    if writable {
+        let endf = units.get(c.nendf)?.tape.clone();
+        let heating = crate::purr::PurrHeating { binary: c.nout < 0, ..Default::default() };
+        let tables = crate::purr::UrrProbabilityTables::from_endf_with_heating(&endf, m.mat, m.temps[0], m.nbin as usize, m.nladr as usize, 10_000, &heating)?;
+        if let (Some(t), Some(mf1)) = (tables, endf.section(m.mat, 1, 451)) {
+            let (za, awr) = (mf1.rows[0][0], mf1.rows[0][1]);
+            let tape = crate::deck::pendf::purr_tape(&prev.tape, m.mat, &t, za, awr, m.temps[0], m.sigz[0])?;
+            units.store(c.nout, tape, prev.pointwise.clone())?;
+            let mut meta = prev.meta.clone();
+            meta.purr = Some((m.nbin as usize, m.nladr as usize, m.temps.clone()));
+            meta.purr_binary = c.nout < 0;
+            units.set_meta(c.nout, meta);
+            return Ok(());
+        }
+    }
+    notes.push("purr: MF=2/MT=153 (probability tables) not written (tape writer not ported for this deck)".into());
     pass_through(c.nin, c.nout, units, |meta| {
         meta.purr = Some((m.nbin as usize, m.nladr as usize, m.temps.clone()));
         meta.purr_binary = c.nout < 0;

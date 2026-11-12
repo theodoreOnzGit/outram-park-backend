@@ -126,6 +126,28 @@ impl Report {
         assert_eq!(self.dist_agree(), self.total, "{kind}: distance");
         assert_eq!(self.sense_identical, self.total, "{kind}: sense");
     }
+    /// As [`Report::assert_all_identical`], except that exactly `n_libm`
+    /// distances differ in the last bits, each by at most `worst_rel`
+    /// relative, because PETIR's libm differs from glibc's there (accepted by
+    /// the 2026-11-11 PETIR-maths decision, gh:#1455). The cause must be
+    /// proven in the calling test's doc comment; a count or size that moves is
+    /// a finding, not a re-pin.
+    fn assert_identical_but_libm_ulps(&self, kind: &str, n_libm: usize, worst_rel: f64) {
+        println!("{}", self.summary(kind));
+        for l in &self.first_bad {
+            println!("  e.g. {l}");
+        }
+        assert!(self.total > 0, "no reference cases for {kind}");
+        assert_eq!(self.eval_identical, self.total, "{kind}: evaluate");
+        assert_eq!(self.sense_identical, self.total, "{kind}: sense");
+        assert_eq!(self.hit_vs_miss, 0, "{kind}: hit vs miss");
+        assert_eq!(self.total - self.dist_agree(), n_libm, "{kind}: distance, libm-ulp count");
+        assert!(
+            self.worst_rel <= worst_rel,
+            "{kind}: worst {:.3e} > pinned {worst_rel:.3e}",
+            self.worst_rel
+        );
+    }
 }
 
 /// Run every reference case of `kind` through the port.
@@ -304,9 +326,25 @@ fn ytorus_matches_openmc() {
     compare("ytorus", ytorus).assert_all_identical("ytorus");
 }
 
+/// **1 of 1596 distances differs by 1 ulp (2.618e-16 relative), from PETIR's
+/// libm vs glibc; accepted and pinned (gh:#1455, 2026-11-12).** The case:
+/// instance 33, `r = (2.5, 0.125, -0.5)`, `u = (0.6, 0.8, 0)`, distance
+/// `8.482135780838824e-1` (port) against `8.482135780838826e-1` (OpenMC);
+/// `evaluate` and `sense` stay bit-identical on all 1596.
+///
+/// Cause, proven by A/B (2026-11-12, develop `8e7b07eb9`, x86_64 Linux,
+/// glibc, Rust 1.99.1): epic gh:#1336's no-platform-libm sweep moved
+/// `outram_blender`'s `quartic_oqs.rs` (the port of OpenMC's
+/// `external/quartic_solver.cpp`) from `f64::{acos, cos, cbrt, powf, hypot}`
+/// to `petir::mathf::RealMath`. Before that sweep this test was 1596/1596.
+/// With ONLY the `r_acos`/`r_cos` calls in `quartic_oqs.rs` temporarily put
+/// back to `f64::acos`/`f64::cos` (glibc, which the upstream driver links)
+/// it is 1596/1596 again; `cbrt`/`powf`/`hypot` did not need swapping. So
+/// the difference is the last bit of `acos`/`cos` in the trigonometric cubic
+/// branch and nothing else. The swap is a diagnostic only, not committed.
 #[test]
 fn ztorus_matches_openmc() {
-    compare("ztorus", ztorus).assert_all_identical("ztorus");
+    compare("ztorus", ztorus).assert_identical_but_libm_ulps("ztorus", 1, 2.62e-16);
 }
 
 // ---- integration: ray trace through a multi-surface cell sequence ---------

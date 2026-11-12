@@ -17,6 +17,7 @@
 //! ported, in `photon_prod.rs`). `econst = 0` makes the `econst` search in `getsed` inert
 //! (`ee < econst` never holds), so it is not carried.
 
+use petir::mathf::RealMath;
 use crate::endf::records::{SectionCursor, Tab1};
 use crate::endf::tape::Tape;
 use crate::errorr::weight::terpa;
@@ -84,10 +85,10 @@ fn anased9(st: &mut AnasedState, e: f64, e1: f64, e2: f64, a: &[f64]) -> Result<
     let xhi = if e2 <= de * (1.0 + SMALL) { e2 / st.theta } else { st.xc };
     if new {
         let rc = st.xc;
-        st.bot = if rc < XMIN { rc * rc / 2.0 } else { 1.0 - (-rc).exp() * (1.0 + rc) };
+        st.bot = if rc < XMIN { rc * rc / 2.0 } else { 1.0 - (-rc).r_exp() * (1.0 + rc) };
     }
     let (r1, r2) = (xlo, xhi);
-    let top = if xhi < XMIN { (r2 * r2 - r1 * r1) / 2.0 } else { (-r1).exp() * (r1 + 1.0) - (-r2).exp() * (r2 + 1.0) };
+    let top = if xhi < XMIN { (r2 * r2 - r1 * r1) / 2.0 } else { (-r1).r_exp() * (r1 + 1.0) - (-r2).r_exp() * (r2 + 1.0) };
     Ok((top / st.bot, enext, idis))
 }
 
