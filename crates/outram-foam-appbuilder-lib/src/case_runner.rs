@@ -67,12 +67,18 @@
 use std::path::{Path, PathBuf};
 
 use outram_foam_basic_lib::io::case::{CaseField, FoamCase};
-use outram_foam_basic_lib::io::field::{write_vol_scalar_field, write_vol_vector_field};
-use outram_foam_basic_lib::prelude::{VolScalarField, VolVectorField};
+use outram_foam_basic_lib::io::dict::{FoamEntry, FoamFile, FoamValue};
+use outram_foam_basic_lib::io::esi::{write_time_file_esi, EsiWriteOptions};
+use outram_foam_basic_lib::io::field::{
+    write_surface_scalar_field_esi, write_vol_scalar_field, write_vol_scalar_field_esi,
+    write_vol_vector_field,
+    write_vol_vector_field_esi,
+};
+use outram_foam_basic_lib::prelude::{SolverSettings, VolScalarField, VolVectorField};
 
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
-use crate::io::fv_schemes::FvSchemes;
+use crate::io::fv_schemes::{DivScheme, FvSchemes};
 use crate::io::fv_solution::FvSolution;
 use crate::solvers::pimple_foam::PimpleFoam;
 use crate::solvers::rho_central_foam::RhoCentralFoam;
@@ -80,6 +86,7 @@ use crate::solvers::rho_central_foam::RhoCentralFoam;
 /// Dimension exponents `[kg, m, s, K, kmol, A, cd]`, the order OpenFOAM
 /// writes in a field file's `dimensions` entry.
 const U_DIMS: [f64; 7] = [0.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0]; // m/s
+const PHI_DIMS: [f64; 7] = [0.0, 3.0, -1.0, 0.0, 0.0, 0.0, 0.0]; // m³/s (volumetric flux)
 const P_KIN_DIMS: [f64; 7] = [0.0, 2.0, -2.0, 0.0, 0.0, 0.0, 0.0]; // m²/s² (kinematic p)
 const P_DIMS: [f64; 7] = [1.0, -1.0, -2.0, 0.0, 0.0, 0.0, 0.0]; // Pa
 const RHO_DIMS: [f64; 7] = [1.0, -3.0, 0.0, 0.0, 0.0, 0.0, 0.0]; // kg/m³
@@ -277,14 +284,27 @@ impl CaseRun {
 
         let solver = match kind {
             SolverKind::PimpleFoam => {
-                let mut s =
-                    PimpleFoam::new(mesh, control, FvSchemes::default(), FvSolution::default());
+                let mut schemes = FvSchemes::default();
+                if let Some(div) = div_scheme_from_case(&case) {
+                    schemes.default_div = div;
+                }
+                let mut s = PimpleFoam::new(mesh, control, schemes, FvSolution::default());
+                if let Some(t) = final_solver_tolerance(&case, "U") {
+                    s.u_linear_solver = SolverSettings { tolerance: t, max_iter: 20_000 };
+                }
+                if let Some(t) = final_solver_tolerance(&case, "p") {
+                    s.p_linear_solver = SolverSettings { tolerance: t, max_iter: 20_000 };
+                }
                 s.u = find_vector(&case, "U").ok_or_else(|| missing("U (velocity)"))?;
                 s.p = find_scalar(&case, "p").ok_or_else(|| missing("p (kinematic pressure)"))?;
-                // `nu` is optional: constant/transportProperties is not parsed,
-                // so the solver's constructed default stands when 0/nu is absent.
+                // `nu`: a `0/nu` field wins; else `constant/transportProperties`
+                // (`transportModel Newtonian`, gh:#1363 row 7: it was ignored
+                // before, so the shipped cavity ran at the solver's default
+                // viscosity); else the solver's constructed default stands.
                 if let Some(nu) = find_scalar(&case, "nu") {
                     s.nu = nu;
+                } else if let Some(nu) = newtonian_nu(&case_dir) {
+                    s.nu = VolScalarField::uniform("nu", s.nu.mesh.clone(), nu);
                 }
                 SolverState::PimpleFoam(s)
             }
@@ -350,6 +370,23 @@ impl CaseRun {
     /// Which fields are written depends on the solver: `p` and `U` for
     /// `pimpleFoam`; `p`, `rho`, `e` and `U` for `rhoCentralFoam`.
     pub fn write_fields(&self) -> Result<CaseSummary, AppBuilderError> {
+        self.write_fields_styled(None)
+    }
+
+    /// [`write_fields`](CaseRun::write_fields) in ESI v2506's file layout
+    /// (gh:#1363 row 7): its banner, `location "<time>"`, `%g` numbers at
+    /// `opts.precision`. Same files, same values.
+    pub fn write_fields_esi(
+        &self,
+        opts: &EsiWriteOptions,
+    ) -> Result<CaseSummary, AppBuilderError> {
+        self.write_fields_styled(Some(opts))
+    }
+
+    fn write_fields_styled(
+        &self,
+        esi: Option<&EsiWriteOptions>,
+    ) -> Result<CaseSummary, AppBuilderError> {
         let out_dir = self.case_dir.join(format_time(self.time));
         std::fs::create_dir_all(&out_dir).map_err(|e| AppBuilderError::Io {
             path: out_dir.clone(),
@@ -357,15 +394,45 @@ impl CaseRun {
         })?;
         match &self.solver {
             SolverState::PimpleFoam(s) => {
-                write_scalar(&out_dir, "p", &s.p, P_KIN_DIMS)?;
-                write_vector(&out_dir, "U", &s.u, U_DIMS)?;
+                write_scalar(&out_dir, "p", &s.p, P_KIN_DIMS, esi)?;
+                write_vector(&out_dir, "U", &s.u, U_DIMS, esi)?;
             }
             SolverState::RhoCentralFoam(s) => {
-                write_scalar(&out_dir, "p", &s.p, P_DIMS)?;
-                write_scalar(&out_dir, "rho", &s.rho, RHO_DIMS)?;
-                write_scalar(&out_dir, "e", &s.e, E_DIMS)?;
-                write_vector(&out_dir, "U", &s.u, U_DIMS)?;
+                write_scalar(&out_dir, "p", &s.p, P_DIMS, esi)?;
+                write_scalar(&out_dir, "rho", &s.rho, RHO_DIMS, esi)?;
+                write_scalar(&out_dir, "e", &s.e, E_DIMS, esi)?;
+                write_vector(&out_dir, "U", &s.u, U_DIMS, esi)?;
             }
+        }
+        if let Some(o) = esi {
+            // ESI's `icoFoam` also writes the face flux and `uniform/time`
+            // with every write; the project's own layout writes neither.
+            let io_err = |path: PathBuf, e: outram_foam_basic_lib::io::IoError| {
+                AppBuilderError::Io { path, source: std::io::Error::other(e.to_string()) }
+            };
+            if let SolverState::PimpleFoam(s) = &self.solver {
+                let mut phi = s.phi.clone();
+                phi.name = "phi".to_string();
+                let path = out_dir.join("phi");
+                write_surface_scalar_field_esi(
+                    &path,
+                    &phi,
+                    PHI_DIMS,
+                    &dir_name(&out_dir),
+                    o,
+                )
+                .map_err(|e| io_err(path, e))?;
+            }
+            write_time_file_esi(
+                &out_dir,
+                &dir_name(&out_dir),
+                self.time,
+                self.n_steps,
+                self.delta_t,
+                self.delta_t,
+                o,
+            )
+            .map_err(|e| io_err(out_dir.join("uniform/time"), e))?;
         }
         Ok(self.summary(out_dir))
     }
@@ -458,30 +525,130 @@ pub fn format_time(t: f64) -> String {
     s.to_string()
 }
 
+/// Words of a dictionary entry such as `Gauss linear` (a `Tokens` or `Word`).
+fn entry_words(e: &FoamEntry) -> Vec<String> {
+    match e {
+        FoamEntry::Word(w) => vec![w.clone()],
+        FoamEntry::Tokens(vs) => vs
+            .iter()
+            .filter_map(|v| match v {
+                FoamValue::Word(w) => Some(w.clone()),
+                _ => None,
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// `div(phi,U)` (else `default`) of `system/fvSchemes`, when it is one of the
+/// two convection schemes this port implements for `pimpleFoam`
+/// (`Gauss linear`, `Gauss upwind`); `None` leaves the solver's default.
+pub fn div_scheme_from_case(case: &FoamCase) -> Option<DivScheme> {
+    let file = case.system_dict("fvSchemes")?;
+    let div = file.dict.get_dict("divSchemes")?;
+    let entry = div.get("div(phi,U)").or_else(|| div.get("default"))?;
+    let words: Vec<String> = entry_words(entry);
+    match words.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
+        ["Gauss", "linear"] => Some(DivScheme::GaussLinear),
+        ["Gauss", "upwind"] => Some(DivScheme::GaussUpwind),
+        _ => None,
+    }
+}
+
+/// `tolerance` of the final-iteration linear solver for `field`
+/// (`<field>Final`, else `<field>`) in `system/fvSolution`, only when its
+/// `relTol` is 0 (or absent): this port's linear solvers stop on an absolute
+/// tolerance and have no relative one, so an entry with `relTol > 0` (the
+/// shipped cavity's non-final `p`) cannot be represented and yields `None`
+/// (the solver's own default stands). Partly closes gh:#1291 for `pimpleFoam`.
+pub fn final_solver_tolerance(case: &FoamCase, field: &str) -> Option<f64> {
+    let file = case.system_dict("fvSolution")?;
+    let solvers = file.dict.get_dict("solvers")?;
+    let entry = solvers
+        .get_dict(&format!("{field}Final"))
+        .or_else(|| solvers.get_dict(field))?;
+    if entry.get_scalar("relTol").unwrap_or(0.0) != 0.0 {
+        return None;
+    }
+    entry.get_scalar("tolerance")
+}
+
+/// Kinematic viscosity from `<case>/constant/transportProperties` when
+/// `transportModel Newtonian` (or absent): `nu [0 2 -1 0 0 0 0] 0.01;` or
+/// `nu 0.01;`.
+pub fn newtonian_nu(case_dir: &Path) -> Option<f64> {
+    let file = FoamFile::read(case_dir.join("constant/transportProperties")).ok()?;
+    if let Some(m) = file.dict.get_word("transportModel") {
+        if m != "Newtonian" {
+            return None;
+        }
+    }
+    match file.dict.get("nu")? {
+        FoamEntry::Scalar(x) => Some(*x),
+        FoamEntry::Dimensioned(d) => match d.value.first() {
+            Some(FoamValue::Scalar(x)) => Some(*x),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// Write one scalar field: this crate's layout, or ESI's when `esi` is given
+/// (the time directory name is taken from `dir`).
 fn write_scalar(
     dir: &Path,
     name: &str,
     field: &VolScalarField,
     dims: [f64; 7],
+    esi: Option<&EsiWriteOptions>,
 ) -> Result<(), AppBuilderError> {
     let path = dir.join(name);
-    write_vol_scalar_field(&path, field, dims).map_err(|e| AppBuilderError::Io {
+    // The file is named by `name`, not by `field.name`: a solver reassigns its
+    // fields from expressions, so `field.name` can be an intermediate such as
+    // `HbyA` (found on gh:#1363 row 7: `U` was written with `object HbyA;`).
+    let mut field = field.clone();
+    field.name = name.to_string();
+    let field = &field;
+    match esi {
+        None => write_vol_scalar_field(&path, field, dims),
+        Some(o) => write_vol_scalar_field_esi(&path, field, dims, &dir_name(dir), o),
+    }
+    .map_err(|e| AppBuilderError::Io {
         path,
         source: std::io::Error::other(e.to_string()),
     })
 }
 
+/// Write one vector field; see [`write_scalar`].
 fn write_vector(
     dir: &Path,
     name: &str,
     field: &VolVectorField,
     dims: [f64; 7],
+    esi: Option<&EsiWriteOptions>,
 ) -> Result<(), AppBuilderError> {
     let path = dir.join(name);
-    write_vol_vector_field(&path, field, dims).map_err(|e| AppBuilderError::Io {
+    // The file is named by `name`, not by `field.name`: a solver reassigns its
+    // fields from expressions, so `field.name` can be an intermediate such as
+    // `HbyA` (found on gh:#1363 row 7: `U` was written with `object HbyA;`).
+    let mut field = field.clone();
+    field.name = name.to_string();
+    let field = &field;
+    match esi {
+        None => write_vol_vector_field(&path, field, dims),
+        Some(o) => write_vol_vector_field_esi(&path, field, dims, &dir_name(dir), o),
+    }
+    .map_err(|e| AppBuilderError::Io {
         path,
         source: std::io::Error::other(e.to_string()),
     })
+}
+
+/// Last path component of `dir` (the time directory name), for `location`.
+fn dir_name(dir: &Path) -> String {
+    dir.file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
