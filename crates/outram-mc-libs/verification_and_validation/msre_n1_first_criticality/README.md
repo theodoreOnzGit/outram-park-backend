@@ -4,6 +4,40 @@
 > unreviewed. **Validation** against a measurement, on a model with stated
 > simplifications.
 
+## Numbers to quote (summary, 2026-11-12)
+
+The default model is **arm C (natural Mo), RVS, 30P graphite, cold
+dimensions, no shield, rods out**. σ comes from the seed spread. Every row
+links to the section that holds its method, data and caveats. This summary
+adds no number of its own.
+
+| quantity | this model | reference | section |
+|---|---|---|---|
+| N-1 k at 1181 °F (6 seeds) | 1.00882 ± 0.00022, **+801 ± 22 pcm** | k_ref 1.00080 (ORNL-4233); measurement ±200–270 pcm | [N-1](#n-1-2026-11-09) |
+| N-1 against the 1000 pcm band (maintainer, 2026-11-10) | **passes** | — | [Methodology](#methodology) |
+| ²³⁵U concentration coefficient | **0.231 ± 0.005** | measured 0.223; ORNL calc. 0.234–0.248 | [concentration coefficient](#n-1-the-²³⁵u-concentration-coefficient-2026-11-11-gh1128) |
+| equivalent ²³⁵U excess behind +801 pcm | about 1.14 g/L (3.5 %) | measured 32.8 ± 0.3 g/L | same |
+| α_iso (×10⁻⁵ /°F) | **−7.54 ± 0.40** | measured −7.24 | [N-3](#n-3-isothermal-temperature-coefficient-2026-11-09-gh1129) |
+| fuel coefficient | **−4.44 ± 0.40** | measured −4.7 ± 0.7 (found after the run) | same |
+| graphite coefficient | **−2.82 ± 0.43** | not measured | same |
+| T-1 natural periods, with the arm-C split | **−11 % to +8 %** of TM-1647 | — | nee_soon T-1 README |
+
+**Ablations.** None of these is in the default; each is the maintainer's
+call.
+
+| change | effect on N-1 k | N-1 against the band |
+|---|---|---|
+| hot dimensions | +193 ± 23 pcm (12 seeds, paired) | +992, inside by 8 pcm |
+| 10P / crystalline graphite law | −71 ± 32 / −70 ± 35 pcm | passes |
+| TM-0730 end regions | +20 ± 45 pcm | passes |
+| thermal shield (stated / close-packed) | +779 ± 43 / +895 ± 66 pcm | fails |
+| 99.9926 % Li-7 | +730 ± 60 pcm | fails |
+| INOR-8's Mo omitted (arm A, measured under DBRC) | +441 ± 45 pcm | +1197, fails |
+
+**Open, waiting on the maintainer:**
+- the rod worth, whose geometry is built but needs the Gd tapes;
+- the defaults in the ablation table above.
+
 ## Methodology
 
 **Reference: ORNL-4233** (Prince et al. 1968), §2, Table 1, p. 11.
