@@ -2,3 +2,6 @@
 2026-11-11T23:59:28+00:00 aborted 16-seed jemima run (15 s/seed, rerunning at 128)
 2026-11-11T23:59:28+00:00 start jemima_keff default
 2026-11-12T00:30:13+00:00 predictions.md written (resumed agent)
+2026-11-12T00:49:23+00:00 end jemima_keff default rc=0
+2026-11-12T00:49:23+00:00 start jemima_keff legacy
+2026-11-12T00:51:41+00:00 resumed agent: previous run_all.sh (SEEDS=128, CASES=jemima hst009, default+legacy arms) still running and left running; chain2.sh queues LCT-008 default 32 seeds after it
