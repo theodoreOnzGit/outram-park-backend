@@ -118,13 +118,13 @@
 //! `icsbep_five_route_keff`: **`+76 ± 14` over 96 seeds, 2026-10-18**
 //! (k 1.00076 ± 0.00014, `verification_and_validation/route4_process_931/`).
 //! **New − old = +4 ± 19 pcm (+0.2σ)**, inside the ±2σ predicted before the
-//! run (`remeasure_logs/predictions.md`). Not strictly like-for-like:
+//! run (`crates/outram-mc-libs/verification_and_validation/icsbep_remeasure_2026_11_12/predictions.md`). Not strictly like-for-like:
 //! route 4 takes H in H₂O from the embedded LEAPR deck since 2026-10-14,
 //! this example from `tsl-HinH2O.endf`; the agreement says that difference
 //! is small here too, not that it is zero. Measured on an Intel Xeon @
 //! 2.80 GHz, 4 logical cores shared with a concurrent workspace test suite,
 //! 15 GiB RAM, Linux 6.18.44, CPU only: data 401.0 s, transport 6735.3 s for
-//! the 128 seeds. Log: `remeasure_logs/hst009_keff_default_s128.log`.
+//! the 128 seeds. Log: `crates/outram-mc-libs/verification_and_validation/icsbep_remeasure_2026_11_12/hst009_keff_default_s128.log`.
 //!
 //! **Legacy arm at the same 128 seeds** (`OUTRAM_MC_LEGACY_REACTION_ORDER=1
 //! OUTRAM_MC_LEGACY_SCATTER_KERNELS=1`, same code, same host): **`+89 ± 14`,
@@ -133,7 +133,7 @@
 //! falls 163 → 146 and the mean per-run `k_std` 156 → 139 pcm, the same
 //! direction as Jemima's (187 → 144) but not resolved on its own here
 //! (variance ratio 1.25, ~1.2σ). Legacy transport 5808.5 s on the same host.
-//! Log: `remeasure_logs/hst009_keff_legacy_s128.log`.
+//! Log: `crates/outram-mc-libs/verification_and_validation/icsbep_remeasure_2026_11_12/hst009_keff_legacy_s128.log`.
 //!
 //! ## POOLED RESULT (2026-09-18) — 32 seeds, `OUTRAM_BENCH_SEEDS=32`
 //!

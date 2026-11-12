@@ -88,13 +88,13 @@
 //! through `from_endf_file_with_speed`, same run size): **`−376 ± 17` over
 //! 128 seeds, 2026-10-18** (`verification_and_validation/route4_process_931/`).
 //! **New − old = −25 ± 21 pcm (−1.2σ)**: within the ±2σ predicted before the
-//! run (`remeasure_logs/predictions.md`), so the transport-default change is
+//! run (`crates/outram-mc-libs/verification_and_validation/icsbep_remeasure_2026_11_12/predictions.md`), so the transport-default change is
 //! not resolved here. Against the stale `−253 ± 34`: −148 ± 36, which is
 //! the recorded URR-default move (−142, root `CLAUDE.md`) and not this
 //! change. Measured on an Intel Xeon @ 2.80 GHz, 4 logical cores shared with
 //! a concurrent workspace test suite, 15 GiB RAM, Linux 6.18.44, CPU only:
 //! data 294.8 s, transport 2699.9 s for the 128 seeds. Log:
-//! `remeasure_logs/jemima_keff_default_s128.log`.
+//! `crates/outram-mc-libs/verification_and_validation/icsbep_remeasure_2026_11_12/jemima_keff_default_s128.log`.
 //!
 //! **Legacy arm at the same 128 seeds** (`OUTRAM_MC_LEGACY_REACTION_ORDER=1
 //! OUTRAM_MC_LEGACY_SCATTER_KERNELS=1`, same code, same host): **`−370 ± 17`,
@@ -107,7 +107,7 @@
 //! 167 to 123 pcm. Per-collision fission banking (an expected-value bank
 //! at every collision instead of an analog bank at fission events) is the
 //! expected cause; it was not isolated by its own switch. Legacy transport
-//! 3111.2 s on the same host. Log: `remeasure_logs/jemima_keff_legacy_s128.log`.
+//! 3111.2 s on the same host. Log: `crates/outram-mc-libs/verification_and_validation/icsbep_remeasure_2026_11_12/jemima_keff_legacy_s128.log`.
 //!
 //! ## POOLED RESULT (2026-09-18) — 32 seeds, `OUTRAM_BENCH_SEEDS=32`
 //!

@@ -480,7 +480,7 @@
 //! over 32 seeds, 2026-10-18** (`verification_and_validation/route4_process_931/`),
 //! but at 10 000 × [40 + 120] with H in H₂O from the LEAPR deck. **New − that
 //! = +37 ± 32 pcm (+1.2σ)**, inside the ±2σ predicted before the run
-//! (`remeasure_logs/predictions.md`). For completeness: against route 4's
+//! (`crates/outram-mc-libs/verification_and_validation/icsbep_remeasure_2026_11_12/predictions.md`). For completeness: against route 4's
 //! 8-seed 10 000 × [250 + 400] row (2026-10-14, `+118 ± 19`) it is
 //! +54 ± 29 (1.9σ), and against the stale `+165 ± 25` it is +7 ± 33. None of
 //! these separates the transport-default change from the run-size and
@@ -488,7 +488,7 @@
 //! (not required under 3σ). Measured on an Intel Xeon @ 2.80 GHz, 4 logical
 //! cores shared with a concurrent workspace test suite, 15 GiB RAM, Linux
 //! 6.18.44, CPU only: data 594.6 s, transport 5580.2 s for the 32 seeds.
-//! Log: `remeasure_logs/lct008_keff_default_s32.log`.
+//! Log: `crates/outram-mc-libs/verification_and_validation/icsbep_remeasure_2026_11_12/lct008_keff_default_s32.log`.
 //!
 //! ## POOLED RESULT (2026-09-18) — 32 seeds, `OUTRAM_BENCH_SEEDS=32`
 //!
