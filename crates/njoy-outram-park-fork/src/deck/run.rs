@@ -129,8 +129,12 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
             }
             "errorr" => crate::deck::errorr::run_errorr(&mut r, &mut units, opts.parse_only),
             "covr" => crate::deck::covr::run_covr(&mut r, &mut units, opts.parse_only),
+            "wimsr" => {
+                let c = crate::deck::wimsr::read_wimsr(&mut r)?;
+                if opts.parse_only { Ok(()) } else { crate::deck::wimsr::run_wimsr(&c, &mut units) }
+            }
             "gaminr" | "dtfr" | "ccccr" | "matxsr" | "resxsr"
-            | "powr" | "wimsr" | "plotr" | "mixr" => {
+            | "powr" | "plotr" | "mixr" => {
                 // The card readers of these modules are a later part of gh:#1369.
                 blocked = Some((name.clone(), "card reader not yet translated".to_string()));
                 break;
@@ -347,13 +351,19 @@ fn run_broadr(c: &BroadrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
             if m.errint != 0.0 {
                 tol.errint = m.errint;
             }
-            // `tempef <= 0`: upstream only thins (`thinb`, `broadr.f90:1218-1222`),
-            // which is not ported (gh:#619); refuse rather than pass RECONR's
-            // grid through unthinned (deck 43, gh:#1369).
-            if temp - src.temperature_k <= 0.0 {
-                return Err(NjoyError::NotPorted("BROADR thinning only (tempef <= 0, thinb)"));
+            // `tempef <= 0`: upstream only thins (`thinb`, `broadr.f90:1218-1222`).
+            // ~~not ported (gh:#619); refused~~ Ported 2026-11-13 (gh:#619, deck 43):
+            // `broadr::joint::broadr_joint_thinb`.
+            let thin_only = temp - src.temperature_k <= 0.0;
+            if thin_only && m.istrap != 0 {
+                return Err(NjoyError::NotPorted("BROADR thinb with istrap (the bootstrap scratch tape of a thinned pass)"));
             }
-            let out = match broadr_joint(&src, temp, &tol, m.thnmx) {
+            let joint = if thin_only {
+                crate::broadr::joint::broadr_joint_thinb(&src, temp, &tol, m.thnmx)?
+            } else {
+                broadr_joint(&src, temp, &tol, m.thnmx)
+            };
+            let out = match joint {
                 Some(b) if text_mode => b.through_pendf_text(),
                 Some(b) => b,
                 None => src.clone(),

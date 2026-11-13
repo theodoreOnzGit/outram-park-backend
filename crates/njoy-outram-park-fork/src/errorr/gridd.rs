@@ -84,9 +84,21 @@ pub struct CovarianceReactions {
     pub mf33_present: bool,
     /// `mfcov`: the covariance file read, 31 or 33; `0` (the default) means 33.
     pub mfcov: i32,
+    /// Card 10's `mat1 mt1` pairs when `iread = 2` (`errorr.f90:907-919`), gh:#1369;
+    /// `None` for `iread = 0`. [`gridd`] appends them after the reactions it finds,
+    /// as upstream keeps them at `mts(nmt+1:nmt1)` (`:1202-1209`).
+    pub card10: Option<Vec<(i32, i32)>>,
 }
 
 impl CovarianceReactions {
+    /// `nmt`: the reactions of this material, without card 10's pairs, which
+    /// [`gridd`] keeps at the end (`nmt1 = nmt + pairs`). `covout` writes one
+    /// section per `ix <= nmt` and one subsection per `ixp <= nmt1`
+    /// (`errorr.f90:7068`, `:7225`, `:7254`), gh:#1369.
+    pub fn nmt(&self) -> usize {
+        self.mts.len() - self.card10.as_ref().map_or(0, Vec::len)
+    }
+
     /// The covariance file `gridd`, `lumpmt` and `covcal` read (`mfcov`, 33 unless set).
     pub fn mf(&self) -> i32 {
         if self.mfcov == 0 {
@@ -346,7 +358,11 @@ pub fn gridd(
                 )));
             }
             // iread=0: mat1>0 -> iok=0 (errorr.f90:1207-1208, 1224-1226).
-            let iok = mat1 <= 0;
+            // iread=2 (gh:#1369): mat1=0, or a card-10 pair (`:1213-1219`).
+            let iok = match &reactions.card10 {
+                None => mat1 <= 0,
+                Some(pairs) => mat1 == 0 || pairs.contains(&(mat1, mt1)),
+            };
             let nc = sub.n1;
             let ni = sub.n2;
 
@@ -416,6 +432,15 @@ pub fn gridd(
                     }
                 }
             }
+        }
+    }
+    // iread=2 (gh:#1369): card 10's pairs follow the reactions found
+    // (`mts(nmt+1:nmt1)`, errorr.f90:1202-1209).
+    if let Some(pairs) = reactions.card10.clone() {
+        for (mat1, mt1) in pairs {
+            reactions.mts.push(mt1);
+            reactions.mats.push(mat1);
+            reactions.mzap.push(0);
         }
     }
 

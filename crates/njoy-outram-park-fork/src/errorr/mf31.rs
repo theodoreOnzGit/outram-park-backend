@@ -118,6 +118,112 @@ pub fn run_cov_gendf(endf: &Tape, gendf: &GendfTape, cfg: &Mf33Config, mfcov: i3
     })
 }
 
+/// [`run_cov_gendf`] with `iread = 2`: card 10's cross-material `(mat1, mt1)`
+/// pairs (`errorr.f90:907-919`), gh:#1369 (deck 17).
+///
+/// What `iread = 2` changes upstream, each followed here:
+/// - `ngchk` condenses `matd` and then every card-10 material, once each
+///   (`:11113-11135`), and `colaps` collapses every material on that tape
+///   (`:9097-9532`); here `ngchk` and `colaps` run per material and the others'
+///   records join `matd`'s under [`UnionGroupXs::other_key`];
+/// - `gridd` keeps a `MAT1 > 0` subsection only for a card-10 pair, and appends
+///   the pairs after this material's reactions (`:1202-1226`);
+/// - `covcal` and `sigc` read a pair's cross section from its own material
+///   (`rdsig(mat1,…)`, `:2071`, `:7893`);
+/// - `covout` writes one section per reaction of `matd` and, in each, one
+///   subsection per reaction and pair (`:7225`, `:7254`); `sigc` writes MF=3
+///   for `matd`'s reactions only (`:7908`).
+///
+/// The flux is `matd`'s, taken before the other materials' records are added.
+/// [`run_cov_gendf`] is left as it was; this is its body with those steps.
+///
+/// # Errors
+/// As [`run_cov_gendf`], and `ngchk`'s for a card-10 material not on the GENDF.
+pub fn run_cov_gendf_card10(
+    endf: &Tape,
+    gendf: &GendfTape,
+    cfg: &Mf33Config,
+    mfcov: i32,
+    pairs: &[(i32, i32)],
+) -> Result<ErrorrResult, NjoyError> {
+    if mfcov != 31 && mfcov != 33 {
+        return Err(NjoyError::InvalidInput(format!("errorr run_cov_gendf: mfcov = {mfcov}")));
+    }
+    let matd = cfg.matd;
+    let iverf = endf_version(endf, matd)?;
+    if iverf <= 4 {
+        return Err(NjoyError::NotPorted("errorr: ENDF/B-IV covariance layout (iverf=4)"));
+    }
+    let cg = ngchk(gendf, matd, cfg.tempin)?;
+    // ngchk's `matsofar`: each card-10 material once, in card order (`:11113-11135`).
+    let mut others: Vec<i32> = Vec::new();
+    for &(m, _) in pairs {
+        if m != matd && !others.contains(&m) {
+            others.push(m);
+        }
+    }
+    let cg_others = others.iter().map(|&m| ngchk(gendf, m, cfg.tempin).map(|c| (m, c))).collect::<Result<Vec<_>, _>>()?;
+    let mut reactions = scan_reactions_mf(endf, matd, mfcov)?;
+    reactions.card10 = Some(pairs.to_vec());
+    let g = gridd(endf, matd, &mut reactions)?;
+    lumpmt(endf, matd, &mut reactions)?;
+    let raw = if cfg.ign.abs() == 1 {
+        cfg.user_egn.clone().ok_or_else(|| NjoyError::EndfParse("errorr: ign=+-1 needs the card-12 group bounds".into()))?
+    } else {
+        neutron_group_structure(cfg.ign)?
+    };
+    let mut egn: Vec<f64> = raw.iter().map(|&e| crate::mixr::mix::sigfig(e, 6, 0)).collect();
+    let un = uniong(&egn, &g.eni)?;
+    if cfg.ign == -1 {
+        egn = un.clone();
+    }
+    let none = FissionWindow { eclo: 0.0, echi: 0.0, efmean: 0.0, igflag: 0 };
+    let u = colaps(&cg, &un, 0, &none)?;
+    if (egn[0] - 1.0e-5).abs() <= 1.0e-9 {
+        egn[0] = 1.0e-5;
+    }
+    let mut groups = union_group_xs(&u, &un);
+    let flx = groups.flux_vector();
+    for (m, c) in &cg_others {
+        let uo = colaps(c, &un, 0, &none)?;
+        groups.insert_other(*m, &union_group_xs(&uo, &un));
+    }
+    let fine = covcal(endf, matd, &reactions, &groups, &flx)?;
+    let (za, awr) = endf
+        .sections()
+        .iter()
+        .filter(|s| s.key.mat == matd && s.key.mf == mfcov)
+        .find_map(|s| {
+            let r = s.rows.first()?;
+            (r[5] != 0.0).then_some((r[0], r[1]))
+        })
+        .unwrap_or((0.0, 0.0));
+    let coarse = sigc(&egn, &groups, &flx, &reactions);
+    let resonance = if mfcov == 33 && reactions.mf32_present {
+        let ctx = super::resprx::sammy::SammyContext { mts: &reactions.mts, derived: &g.derived, coarse: &coarse };
+        Some(resprx(endf, matd, &egn, &coarse.cflx, &cfg.weight, cfg.tempin, cfg.dap, &ctx)?)
+    } else {
+        None
+    };
+    let blocks = covout(&fine, &un, &egn, &reactions, &g.derived, &coarse, cfg.irelco, resonance.as_ref());
+    Ok(ErrorrResult {
+        matd,
+        za,
+        awr,
+        iverf,
+        tempin: u.tempin,
+        irelco: cfg.irelco,
+        egn,
+        un,
+        reactions,
+        derived: g.derived,
+        coarse,
+        blocks,
+        messages: groups.messages,
+        resonance,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

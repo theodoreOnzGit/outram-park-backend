@@ -87,7 +87,31 @@ The 26 words outside print precision are **all in the heating block** and all
 above 14 MeV; the worst two are at 1 472.7 MeV (8.7e-8) and 3 409.2 MeV
 (8.4e-8).
 
-## The heating residual: upstream's own quadrature, not a translation defect
+> **CORRECTED 2026-11-13 (gh:#1369): the residual was a translation defect, and
+> it is closed.** `iheat` (`acepa.f90`) tests `if (unext.lt.0.99999)` and
+> `if (unow.lt.-.9999)`. Both literals have no `_kr`, so they are **default
+> (single-precision) reals**, `0.99998998641967773…` and `-0.99989998340606689…`
+> once promoted, and NJOY2016 is built without `-fdefault-real-8` (CMake cache:
+> `-O3 -DNDEBUG`). The port compared against the double literals. So at high
+> energy, where few panels are used, the panel loop could stop one panel apart.
+> That is a **discrete** difference, which is why a routine that the conditioning
+> test shows to be stable to 1e-16 per ulp could differ by 7e-5.
+>
+> With both literals translated as gfortran promotes them
+> (`incoherent_heating::{UNEXT_LIMIT, UNOW_LIMIT}`), NJOY2016's ACE for this
+> evaluation is reproduced **line for line**: 0 of 17 964 lines differ, through
+> upstream's decks 48 and 59 (`tests/deck_driver_tapes_vs_njoy2016.rs`,
+> `test_48_photoatomic_whole_deck`, `test_59_photoatomic_whole_deck`). The
+> prediction ("identical") was posted on gh:#1369 before the change was run.
+>
+> The section below is kept as it was written. The measurements in it stand: the
+> panel rule is not converged above ~300 MeV, so **neither code** supplies photon
+> heating there to better than 1e-4. But its conclusion, that this truncation
+> explains a disagreement between two copies of the same rule, was wrong. A
+> truncation error is common to both copies; only a branch taken differently can
+> separate them.
+
+## ~~The heating residual: upstream's own quadrature, not a translation defect~~ The heating residual (superseded, see the correction above)
 
 The heating column is `(iheat_term + E·σ_pe + σ_pair·(E − 1.022)) / σ_tot`.
 Attributing word 10 423 term by term (`OUTRAM_PARK_PHOTOATOMIC_DEBUG=10423`)

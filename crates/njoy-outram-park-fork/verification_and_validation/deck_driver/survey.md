@@ -85,6 +85,14 @@ The prediction posted before the change: every COVR plot file identical, all fou
 
 Deck 30 now passes its first RECONR and stops at the photo-atomic one (the same message, a genuine `ith = 0` on MF=23). A prediction was posted before each run except deck 61's. Record: `README.md` section 23.
 
+**Re-run 2026-11-13, five one-deck blockers closed (gh:#1369):** rows 11, 17, 43, 48 and 59 were re-run alone (`SURVEY_CASES`, 230 s) on develop 16330e9f6 plus this work. Their rows are replaced; every other row is as before. **Identical: 80 of 87** (75 before). Causes:
+- 11: WIMSR's card reader, and a binary GENDF read at full precision.
+- 17: ERRORR `iread = 2` (card 10's cross-material pairs).
+- 43: BROADR `thinb` (gh:#619).
+- 48 and 59: `iheat`'s two single-precision literals. ~~The residual recorded in `../acer_photoatomic_vs_njoy2016.md`~~ was a port defect, not upstream's convergence (the notes above that call it a residual are superseded).
+
+A prediction was posted on gh:#1369 before each run, and all five held on the first run. Remaining: 02 and 76 (CCCCR), 06 and 12 (PLOTR), 03 and 30 (GAMINR, MATXSR), 80 (LEAPR, last figure). Record: `README.md` section 24.
+
 | deck | status | tapes identical | differing tapes | text tapes we did not write | binary tapes (no blocked-binary writer here) |
 |---|---|---|---|---|---|
 | 01 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
@@ -97,13 +105,13 @@ Deck 30 now passes its first RECONR and stops at the photo-atomic one (the same 
 | 08 | identical | 3 |  |  | tape21 tape22 tape23 tape24 |
 | 09 | identical | 1 |  |  | tape21 tape22 tape23 tape25 |
 | 10 | identical | 3 |  |  | tape21 tape22 tape23 tape24 tape25 |
-| 11 | NotPorted (wimsr: card reader not yet translated) | 0 |  | tape27 tape28 | tape21 tape22 tape23 tape24 tape25 tape26 |
+| 11 | identical | 2 |  |  | tape21 tape22 tape23 tape24 tape25 tape26 |
 | 12 | NotPorted (plotr: card reader not yet translated) | 2 |  | tape23 tape24 |  |
 | 13 | identical | 7 |  |  | tape21 tape22 tape23 tape24 tape25 |
 | 14 | identical | 6 |  |  |  |
 | 15 | identical | 10 |  |  | tape21 tape22 tape23 |
 | 16 | identical | 6 |  |  | tape21 tape22 tape23 |
-| 17 | NotPorted (errorr: not yet ported from NJOY2016: errorr iread = 1/2 (cards 8-10)) | 10 |  | tape26 |  |
+| 17 | identical | 11 |  |  |  |
 | 18 | identical | 4 |  |  | tape21 tape22 tape23 |
 | 19 | identical | 3 |  |  | tape21 tape22 tape23 tape24 tape25 tape26 |
 | 20 | identical | 7 |  |  |  |
@@ -129,12 +137,12 @@ Deck 30 now passes its first RECONR and stops at the photo-atomic one (the same 
 | 40 | identical | 7 |  |  | tape21 tape22 tape23 tape24 |
 | 41 | identical | 7 |  |  | tape21 tape22 tape23 tape24 |
 | 42 | identical | 7 |  |  | tape21 tape22 tape23 tape24 |
-| 43 | NotPorted (broadr: not yet ported from NJOY2016: BROADR thinning only (tempef <= 0, thinb)) | 0 |  | tape35 | tape21 tape22 tape23 |
+| 43 | identical | 1 |  |  | tape21 tape22 tape23 |
 | 44 | identical | 1 |  |  | tape21 tape22 tape23 |
 | 45 | identical | 1 |  |  | tape21 tape22 tape23 |
 | 46 | identical | 1 |  |  | tape21 tape22 tape23 |
 | 47 | identical | 8 |  |  | tape21 tape22 tape25 tape35 |
-| 48 | differs | 1 | tape27 36/17964 lines |  |  |
+| 48 | identical | 2 |  |  |  |
 | 49 | identical | 2 |  |  | tape21 tape22 tape23 tape24 tape25 tape31 |
 | 50 | identical | 6 |  |  | tape21 tape22 |
 | 51 | identical | 6 |  |  | tape21 tape22 |
@@ -145,7 +153,7 @@ Deck 30 now passes its first RECONR and stops at the photo-atomic one (the same 
 | 56 | identical | 10 |  |  | tape21 tape30 |
 | 57 | identical | 10 |  |  | tape21 tape30 |
 | 58 | identical | 11 |  |  | tape21 tape30 |
-| 59 | differs | 3 | tape27 36/17964 lines |  | tape30 tape31 |
+| 59 | identical | 4 |  |  | tape30 tape31 |
 | 60 | identical | 2 |  |  | tape21 tape22 tape23 |
 | 61 | identical | 2 |  |  |  |
 | 62 | identical | 6 |  |  | tape21 tape22 |

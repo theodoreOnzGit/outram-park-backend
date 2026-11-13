@@ -386,6 +386,34 @@ impl UnionGroupXs {
         }
         get(mt).unwrap_or_else(|| vec![0.0; n])
     }
+
+    /// `rdsig(mat, mt, …)` (`errorr.f90:2755-2786`), gh:#1369: `mat <= 0` is this
+    /// material ([`UnionGroupXs::sigma_for`]); `mat > 0` is another material of a
+    /// card-10 pair (`iread = 2`), whose records [`UnionGroupXs::insert_other`] put
+    /// under the key [`UnionGroupXs::other_key`]. A missing reaction yields zeros.
+    pub fn sigma_for_mat(&self, mat: i32, mt: i32) -> Vec<f64> {
+        if mat <= 0 {
+            return self.sigma_for(mt);
+        }
+        let n = self.nunion();
+        self.records.get(&Self::other_key(mat, mt)).map_or_else(|| vec![0.0; n], |r| r.sigma.clone())
+    }
+
+    /// The record key of reaction `mt` of another material `mat`: upstream's own
+    /// `mta = mt1 + 1000*mat1` (`errorr.f90:7255`), which no `MT` of this
+    /// material (below 1000) can equal.
+    pub fn other_key(mat: i32, mt: i32) -> i32 {
+        mt + 1000 * mat
+    }
+
+    /// Add another material's union-group records (card 10, `iread = 2`): `colaps`
+    /// writes every material of the condensed GENDF to its scratch tape, and
+    /// `rdsig` finds them there by MAT (`errorr.f90:9097-9532`, `:2755-2786`).
+    pub fn insert_other(&mut self, mat: i32, other: &UnionGroupXs) {
+        for (&mt, r) in &other.records {
+            self.records.insert(Self::other_key(mat, mt), r.clone());
+        }
+    }
 }
 
 /// Compute multigroup cross sections on the union grid for every reaction

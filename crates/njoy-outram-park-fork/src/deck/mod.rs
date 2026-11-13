@@ -35,8 +35,10 @@
 //! modules' cards are not yet read.~~ **CORRECTED 2026-11-13 (gh:#1369):**
 //! LEAPR runs from its cards ([`leapr`], through `leapr::deck::LeaprDeck`), and
 //! ACER `iopt = 4/5` (photo-atomic, photo-nuclear) runs ([`acer_photon`]). The
-//! cards of GAMINR, ~~ERRORR,~~ ~~COVR,~~ DTFR, CCCCR, MATXSR, RESXSR, POWR, WIMSR, PLOTR
+//! cards of GAMINR, ~~ERRORR,~~ ~~COVR,~~ DTFR, CCCCR, MATXSR, RESXSR, POWR, ~~WIMSR,~~ PLOTR
 //! and MIXR are still not read; a deck reaching one stops there.
+//! **CORRECTED 2026-11-13 (gh:#1369):** WIMSR's cards are read and it runs on the
+//! GENDF a previous GROUPR left ([`wimsr`]).
 //! **CORRECTED 2026-11-13 (gh:#1369):** ERRORR's cards are read ([`errorr`]) and
 //! `mfcov = 35` from an input GENDF runs (`errorr::mf35`), and since the same day
 //! `mfcov = 33` from a PENDF (`errorr::mf33`); its other options are
@@ -58,6 +60,7 @@ pub mod pendf;
 pub mod run;
 pub mod tapes;
 pub mod thermr;
+pub mod wimsr;
 
 pub use cards::{CardReader, Slot};
 pub use run::{run_deck, DeckOptions, DeckRun};

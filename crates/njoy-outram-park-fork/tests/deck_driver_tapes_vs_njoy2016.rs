@@ -1825,15 +1825,29 @@ fn test_80_leapr_whole_deck() {
 /// (U, ENDF/B-VIII.0 photo-atomic with the atomic-relaxation tape). Gated: the
 /// directory line (28, `phoout`, `acepa.f90:1023`), 0 differing lines.
 ///
-/// **Not gated: the ACE (27).** Measured 2026-11-13: 36 of 17 964 lines differ,
+/// ~~**Not gated: the ACE (27).** Measured 2026-11-13: 36 of 17 964 lines differ,
 /// 45 of 71 807 words, all in the heating block LHNM (words 65 244-70 589),
 /// worst 8.7e-8 relative at 1.47 GeV; 16 words above 1e-8. This is the
 /// residual `verification_and_validation/acer_photoatomic_vs_njoy2016.md`
 /// records for this evaluation (`iheat`'s panel rule above ~300 MeV), not a
-/// deck-driver effect: every other block is identical.
+/// deck-driver effect: every other block is identical.~~
+/// **CORRECTED 2026-11-13 (gh:#1369): the ACE (27) is gated too, and identical.**
+/// The residual was a port defect, not upstream's convergence: `iheat` compares
+/// against two **single-precision** literals (`unext.lt.0.99999`,
+/// `unow.lt.-.9999`), which the port had as doubles, so a panel loop could end
+/// one panel apart. Prediction (gh:#1369, before the change): tape27 identical.
+/// **Result: 0 differing lines of 17 964.**
 #[test]
 fn test_48_photoatomic_whole_deck() {
-    let _ = whole_deck_units("48", "photoat-092_U_000-ENDF8.0.endf", &[("atrelax-092_U_000-ENDF8.0.endf", 21)], &[28]);
+    let _ = whole_deck_units("48", "photoat-092_U_000-ENDF8.0.endf", &[("atrelax-092_U_000-ENDF8.0.endf", 21)], &[27, 28]);
+}
+
+/// **Deck 59, the whole deck**: deck 48's ACER from blocked-binary copies of the
+/// two tapes, and MODER's text copies of them (40, 41) (gh:#1369). Same fix and
+/// prediction as [`test_48_photoatomic_whole_deck`].
+#[test]
+fn test_59_photoatomic_whole_deck() {
+    let _ = whole_deck_units("59", "photoat-092_U_000-ENDF8.0.endf", &[("atrelax-092_U_000-ENDF8.0.endf", 21)], &[27, 28, 40, 41]);
 }
 
 /// **Deck 81 (Sr-88 ENDF/B-VIII.1), RECONR then MODER to text (unit 30)**
@@ -1859,13 +1873,16 @@ fn test_88_whole_deck() {
 /// **Deck 43 (H-1, BROADR at 0 K with `thnmax = -19.5 MeV`), MODER text copy
 /// of the BROADR tape (unit 35)** (gh:#1369).
 ///
-/// **Measured 2026-11-13:** 320 lines differ; NJOY's tape has 151 lines and
+/// ~~**Measured 2026-11-13:** 320 lines differ; NJOY's tape has 151 lines and
 /// ours 337. At `tempef = tempk - tempin <= 0`, BROADR only thins
 /// (`thinb`, `broadr.f90:1218-1222`, `:1677-1760`), and `thinb` is not ported
 /// (`broadr::joint::broadr_joint` returns `None` there, gh:#619), so the
-/// deck driver passes RECONR's grid through unthinned.
+/// deck driver passes RECONR's grid through unthinned.~~
+/// **CORRECTED 2026-11-13 (gh:#619):** `thinb` is ported
+/// (`broadr::joint::broadr_joint_thinb`) and the deck driver runs it at
+/// `tempef <= 0`. Prediction (gh:#1369, before the run): tape35 identical.
+/// **Result: see README §24.**
 #[test]
-#[ignore = "deck 43: BROADR thinb (tempef <= 0) not ported, gh:#619; the driver now refuses it with NotPorted"]
 fn test_43_whole_deck() {
     let _ = whole_deck_units("43", "n-001_H_001-ENDF8.0-Beta6.endf", &[], &[35]);
 }
@@ -2486,4 +2503,37 @@ fn test_60_irdff_no_mf3_whole_deck() {
 #[test]
 fn test_61_thermal_acefix_with_suffix_whole_deck() {
     let _ = whole_deck_units("61", "", &[("thermalscattering.ace", 61)], &[71, 72]);
+}
+
+/// **Deck 11 (Pu-238 ENDF/B-IV), the whole deck: the WIMS library (unit 27) and
+/// MODER's GENDF copy (unit 28)** (gh:#1369).
+///
+/// WIMSR's cards are read by `deck::wimsr::read_wimsr` (`wimsr.f90:165-268`), and
+/// the binary GENDF unit -26 by `wimsr::gendf::read_material_records` at GROUPR's
+/// full precision. The engine itself was gated before on one temperature with
+/// `ip1opt = 0`. This deck adds `ip1opt = 1` (the P0 in-group correction),
+/// `ntemp = 3` thermal blocks, `ires = 3` resonance tables over 3 temperatures and
+/// 7 sigma-zeros, and the default 69-group structure. Prediction (gh:#1369, before
+/// the run): both units identical. **Result: see README §24.**
+#[test]
+fn test_11_wimsr_whole_deck() {
+    let _ = whole_deck_units("11", "t404", &[], &[27, 28]);
+}
+
+/// **Deck 17 (JENDL-3.3 U-238 with U-235 and Pu-239), the whole deck: ERRORR
+/// `iread = 2` (unit 26) and every tape before it** (gh:#1369).
+///
+/// ERRORR on U-238 from MODER's merged GENDF (unit 99) with card 10's
+/// cross-material pairs `9228 18` and `9437 18`: `ngchk`/`colaps` per material,
+/// `gridd`'s `iread = 2` subsection rule and the pairs after U-238's reactions,
+/// `rdsig(mat1,…)` in `covcal` and `sigc`, and `covout`'s `nmt` against `nmt1`
+/// (`errorr.f90:907-919`, `:1202-1226`, `:2071`, `:7068-7254`, `:7893-7908`,
+/// `:11113-11135`). Prediction (gh:#1369, before the run): see README §24.
+/// **Result: see README §24.** NJOY2016 takes several minutes on this deck,
+/// so the case is behind `long-tests`.
+#[cfg(feature = "long-tests")]
+#[test]
+fn test_17_errorr_iread2_whole_deck() {
+    let extra = [("J33U238", 21u32), ("J33U235", 22u32), ("J33Pu239", 23u32)];
+    let _ = whole_deck_units("17", "", &extra, &[41, 42, 43, 31, 32, 33, 91, 92, 93, 99, 26]);
 }

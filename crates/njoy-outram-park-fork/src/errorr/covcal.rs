@@ -397,7 +397,8 @@ pub fn covcal(
                 if (851..=870).contains(&mt1) {
                     lumped_sigma(groups, reactions, mt1)
                 } else {
-                    groups.sigma_for(mt1)
+                    // `rdsig(mat1,mt1,…)`: another material's for a card-10 pair (gh:#1369)
+                    groups.sigma_for_mat(mat1, mt1)
                 }
             } else {
                 sig.clone()

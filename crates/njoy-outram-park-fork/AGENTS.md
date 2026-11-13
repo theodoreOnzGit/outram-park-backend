@@ -525,8 +525,9 @@ anything reading `elastic_mubar_cm` / `inelastic_mubar_cm`.
 `alax` and `phoout` from `acepa.f90`. The Type-1 output is **byte-identical**
 to NJOY2016's own file on `reference-data/endf/photoat-synthetic-Z6.endf`
 (9 950 bytes, gated by `tests/acer_photoatomic_vs_njoy2016.rs`); on U
-ENDF/B-VIII.0, **71 781 of 71 807 words** sit at the file's own print
-precision. Full record:
+ENDF/B-VIII.0, ~~**71 781 of 71 807 words** sit at the file's own print
+precision~~ **CORRECTED 2026-11-13 (gh:#1369):** every line is NJOY2016's
+(decks 48 and 59; see "A residual that was a literal's kind" below). Full record:
 [`verification_and_validation/acer_photoatomic_vs_njoy2016.md`](verification_and_validation/acer_photoatomic_vs_njoy2016.md).
 
 Three things are worth carrying forward.
@@ -572,18 +573,26 @@ a 12-digit text comparison sees nothing:
   `skip6`/`skip6a` split above: **read the upstream routine that owns the
   input format, not the one whose name matches.**
 
-### A residual that is upstream's convergence, not the port's arithmetic
+### ~~A residual that is upstream's convergence, not the port's arithmetic~~ A residual that was a literal's kind (CORRECTED 2026-11-13)
 
-The heating column disagrees with NJOY by up to 8.7e-8 at 26 of 11 942
+~~The heating column disagrees with NJOY by up to 8.7e-8 at 26 of 11 942
 energies, all above 14 MeV, and it attributes entirely to `iheat`. Three
 hypotheses were tested and killed (round-off amplification in the attribution;
 conditioning — 1.4e-16 under a 1-ulp input change; the `1 − unow`
 cancellation — worth 0.0). The cause is the fourth: **upstream's `pnow/2`
 panel rule stops converging above ~300 MeV**, carrying 4.9e-5 of its own
 truncation at 1.5 GeV and 9.9e-4 at 10 GeV, measured by refining the panel
-limit (`iheat_refined`). `iheat` keeps upstream's rule; the refined path
-exists as a control, not as the default. Above ~300 MeV *neither* code
-supplies photon heating to better than 1e-4, and that is the number to quote.
+limit (`iheat_refined`).~~ **CORRECTED 2026-11-13 (gh:#1369):** the cause was
+in the port. `iheat`'s `unext.lt.0.99999` and `unow.lt.-.9999` compare against
+**single-precision** literals (no `_kr`; NJOY2016 is built without
+`-fdefault-real-8`), which the port had as doubles. So the panel loop could end
+one panel apart. With them translated as gfortran promotes them, the U
+evaluation's ACE is NJOY2016's line for line (decks 48 and 59). The truncation
+measurement still stands: `iheat` keeps upstream's rule, the refined path is a
+control, and above ~300 MeV *neither* code supplies photon heating to better than
+1e-4. But truncation is common to two copies of one rule, so it cannot separate
+them; only a branch taken differently can. **Check the kind of every bare
+Fortran literal in a comparison.**
 
 ## Dosimetry (`acer iopt = 3`) landed too, and NJOY does not test it (2026-09-21)
 

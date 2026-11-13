@@ -87,8 +87,8 @@ pub fn sigc(
         let sig = if (851..=870).contains(&mt) {
             lumped_sigma(groups, reactions, mt)
         } else {
-            let _ = reactions.mats[ix];
-            groups.sigma_for(mt)
+            // `rdsig(mats(ix),mts(ix),…)`: a card-10 pair reads its own material (gh:#1369)
+            groups.sigma_for_mat(reactions.mats[ix], mt)
         };
         let mut row = vec![0.0; ngn];
         for (ig, c) in row.iter_mut().enumerate() {
@@ -229,10 +229,12 @@ impl ErrorrResult {
             }
         }
         let mut next_lump = 0usize;
-        let nmt = self.reactions.mts.len();
-        let nmts = nmt;
+        // nmt: this material's reactions; nmts = nmt1, with card 10's pairs
+        // (errorr.f90:7068, :7225, gh:#1369).
+        let nmt = self.reactions.nmt();
+        let nmts = self.reactions.mts.len();
         let mut block_iter = self.blocks.iter();
-        for (ix, &mt) in self.reactions.mts.iter().enumerate() {
+        for (ix, &mt) in self.reactions.mts.iter().enumerate().take(nmt) {
             while next_lump < lump_components.len() && lump_components[next_lump].0 < mt {
                 let (c, mtl) = lump_components[next_lump];
                 sections.push(Section {
@@ -405,8 +407,10 @@ pub fn covout(
     resonance: Option<&ResonanceCovariance>,
 ) -> Vec<CoarseCovariance> {
     let ngn = egn.len() - 1;
-    let nmt = reactions.mts.len();
-    let nmts = nmt;
+    // nmt: this material's reactions; nmts = nmt1, with card 10's pairs
+    // (errorr.f90:7068, :7225, :7254, gh:#1369).
+    let nmt = reactions.nmt();
+    let nmts = reactions.mts.len();
     let index_of = |mat: i32, mt: i32| {
         reactions
             .mts

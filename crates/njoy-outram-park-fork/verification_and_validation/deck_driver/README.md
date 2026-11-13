@@ -1149,11 +1149,15 @@ prediction** (recorded on the issue).
 **Not done.** The order is the ranking above:
 - CCCCR (02, 76) and PLOTR (06, 12): large ports with nothing in `src/`.
 - 03 and 30: GAMINR's driver and MATXSR. Deck 03 first needs RECONR on DLC-7e's old photon format; deck 30 needs a genuine `ith = 0` on its photo-atomic MF=23.
-- 11: WIMSR's card reader. The engine is byte-identical on U-238.
-- 17: ERRORR `iread = 2`.
-- 43: BROADR `thinb`, gh:#619.
-- 48 and 59: the photo-atomic `iheat` residual.
+- ~~11: WIMSR's card reader. The engine is byte-identical on U-238.~~
+- ~~17: ERRORR `iread = 2`.~~
+- ~~43: BROADR `thinb`, gh:#619.~~
+- ~~48 and 59: the photo-atomic `iheat` residual.~~
 - 80: LEAPR, last figure.
+
+**CORRECTED 2026-11-13:** 11, 17, 43, 48 and 59 are closed (§24). Deck 48/59's
+"residual" was a port defect (two single-precision literals), not upstream's
+convergence.
 
 **Survey.** Rows 10, 19, 21, 30, 31, 60, 61, 64, 75, 86 and 87 were re-run alone
 (`SURVEY_CASES`, 184 s) on develop a4a799b8d plus this work. **75 of 87 are identical** (65
@@ -1174,3 +1178,66 @@ below was built after those edits.
 | `pendf_stages_vs_njoy2016` | 9 of 9 passed |
 | `ace_five_route_parity` | 13 of 13 passed |
 | `--lib` | 761 of 761 passed |
+
+## 24. Decks 11, 17, 43, 48 and 59 closed: WIMSR's cards, ERRORR `iread = 2`, BROADR `thinb`, `iheat`'s literals (2026-11-13, gh:#1369)
+
+The smaller one-deck blockers of §23's ranking, in order. For each, the existing
+code was searched first, upstream was read, and a prediction was posted on gh:#1369
+**before** any new code ran. All five held on the first run. No folder touched has
+a kovan `kind = "review"` block.
+
+| deck | cause, read upstream | fix | result |
+|---|---|---|---|
+| 11 | WIMSR's engine was ported (`src/wimsr/`) but had no card reader, and read only a coded GENDF | `deck::wimsr::{read_wimsr, run_wimsr}` (`wimsr.f90:165-268`: presets, `igroup = 0` → `69 14 13 14`, `nfid = nint(rdfid)`, `nout = iabs(nout)`); `wimsr::gendf::read_material_records` and `run_gendf_records`, GROUPR's full-precision records for binary unit -26 | 27 (1 169 lines) and 28 identical; first comparison of `ntemp = 3`, `ires = 3` × 7 σ0, `ip1opt = 1`, `isof = 0`, the 69-group default |
+| 17 | ERRORR `iread = 2` refused: card 10's cross-material pairs | card 10 read (`:907-919`); `ngchk`/`colaps` per material (`:11113-11135`, `:9097-9532`); `gridd`'s `iread = 2` subsection rule and the pairs after `nmt` (`:1202-1226`); `rdsig(mat1,…)` in `covcal` and `sigc` (`:2071`, `:7893`); `covout`'s `ix <= nmt`, `ixp <= nmt1` (`:7068`, `:7225`, `:7254`). New `errorr::mf31::run_cov_gendf_card10` beside `run_cov_gendf` | every tape identical: 41-43, 31-33, 91-93, 99 and ERRORR's 26 (6 420 lines) |
+| 43 | BROADR at `tempef <= 0` only thins (`thinb`), not ported (gh:#619) | `broadr::joint::broadr_joint_thinb` (`broadr.f90:1218-1222`, `:1677-1760`), beside `broadr_joint`, which is unchanged | 35 identical (151 lines) |
+| 48, 59 | the photo-atomic heating residual: `iheat` compares against `0.99999` and `-.9999`, **default-real** literals (NJOY2016 has no `-fdefault-real-8`); the port used doubles, so a panel loop could end one panel apart | `incoherent_heating::{UNEXT_LIMIT, UNOW_LIMIT}` = the `f32` literals promoted | 27 identical (17 964 lines), and 28, 40, 41 |
+
+**Two places where upstream's behaviour is undefined (deck 43's `thinb`), refused by
+name and not guessed.** Neither occurs on deck 43:
+- `thinb`'s `tt` has no `save` (`:1691`). On every page after the first, it is read
+  before it is written (`:1712-1717`). So a table longer than one page
+  (`mpage = 1.5e7/(4(nreac+1))` points) thins from whatever that stack slot holds.
+- A walk that ends below `thnmax` never writes its last point, and `bfile3` never
+  sets `nj < 0`, so its paging does not end.
+
+`istrap` with a thinned pass is refused too; upstream's bootstrap tape for it was not
+read.
+
+**The photo-atomic residual (decks 48, 59) was misattributed.**
+`acer_photoatomic_vs_njoy2016.md` blamed the `pnow/2` panel rule's truncation above
+~300 MeV. The truncation measurement stands. But truncation is common to two copies
+of one rule, so it cannot separate them. The record's own conditioning test
+(1.4e-16 per ulp) already pointed to a **branch** taken differently. Corrected in
+place, with strike-through, in that record, AGENTS.md and the docs that quoted
+"71 781 of 71 807 words".
+
+**Gates:**
+- `tests/deck_driver_tapes_vs_njoy2016.rs`:
+  - `test_11_wimsr_whole_deck`;
+  - `test_17_errorr_iread2_whole_deck` (behind `long-tests`; 235 s with NJOY2016);
+  - `test_43_whole_deck` (no longer `#[ignore]`d);
+  - `test_48_photoatomic_whole_deck` (now including the ACE, unit 27);
+  - `test_59_photoatomic_whole_deck`;
+- unit tests in `broadr::joint::thinb` (a hand-worked line, and the refusal of a walk below `thnmax`).
+
+**Not done.** The large ports (CCCCR: 02, 76; PLOTR: 06, 12; GAMINR/MATXSR: 03, 30)
+were out of scope this round. Deck 80 (LEAPR, the last printed figure of MF=7/MT=4)
+was not attempted.
+
+**Survey.** Rows 11, 17, 43, 48 and 59 were re-run alone (`SURVEY_CASES`, 230 s) on
+develop 16330e9f6 plus this work. All five are `identical`. **80 of 87 are identical**
+(75 before). Remaining: 02, 03, 06, 12, 30, 76, 80.
+
+**Tests** (release, on develop 16330e9f6 plus this work, all run after the last code
+or test change):
+
+| suite | result |
+|---|---|
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` (`ulimit -v 12582912`) | 134 passed, 0 failed, 1 ignored (80), 1 886 s |
+| `deck_driver_covr_vs_njoy2016` | 11 of 11 passed |
+| `deck_driver_photonuclear_vs_njoy2016` | 6 of 6 passed |
+| `pendf_stages_vs_njoy2016` | 9 of 9 passed |
+| `ace_five_route_parity` | 13 of 13 passed |
+| `acer_photoatomic_vs_njoy2016` | 4 of 4 passed |
+| `--lib` | 763 of 763 passed |

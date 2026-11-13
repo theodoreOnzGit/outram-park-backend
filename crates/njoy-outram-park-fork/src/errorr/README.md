@@ -101,8 +101,10 @@ where upstream would abort on a second `allocate`.
   `NIS > 1` with an `LRF=7` range (upstream: "multiple isotopes do not work
   with sammy method"). `LCOMP=1` has an oracle for `LRF=3` (JENDL-3.3
   U-238) but not for MLBW or `LRF=7`.
-- **~~MF=31/34/~~35~~/40~~ MF=40**, `iread = 1/2` (user reaction lists, extra `MAT1/MT1`
-  pairs), `nstan` (ratio-to-standard, `LTY` 1–3, `grist`/`stand`), ~~`nin`
+- **~~MF=31/34/~~35~~/40~~ MF=40**, `iread = 1` ~~`iread = 1/2`~~ (user reaction lists~~, extra `MAT1/MT1`
+  pairs~~; **CORRECTED 2026-11-13, gh:#1369:** `iread = 2`'s card-10 pairs are ported for
+  MF=31/33 from a GENDF, `mf31::run_cov_gendf_card10`, and upstream deck 17 is NJOY2016's
+  line for line), `nstan` (ratio-to-standard, `LTY` 1–3, `grist`/`stand`), ~~`nin`
   (input covariance tape merge),~~ ~~`ngout != 0` (`colaps` from a GENDF),~~
   ~~`covadd`,~~ ENDF/B-IV (`iverf = 4`), the `-33/333` speed-up modes.
   **CORRECTED 2026-11-13 (gh:#1369):** `covadd` is ported (`covadd.rs`, in the

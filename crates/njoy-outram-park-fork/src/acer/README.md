@@ -41,8 +41,10 @@ Ported in [`crate::acer`]:
 - **4b ν̄ (NU block)** ✅ *(2026-09-20 — bit-identical to NJOY2016, 347/347 values on U-235)*, continuum correlated angle (Law 44/61) ⬜.
 - **Photoatomic class `…p`** ✅ *(2026-09-21 — `acepa`'s `acepho`, `iheat`,
   `alax` and `phoout`; the Type-1 output is **byte-identical** to NJOY2016 on
-  the synthetic Z=6 tape, and 71 781 of 71 807 words are at the file's print
-  precision on U ENDF/B-VIII.0)*. Fluorescence (JFLO) is translated but
+  the synthetic Z=6 tape, and ~~71 781 of 71 807 words are at the file's print
+  precision on U ENDF/B-VIII.0~~ **CORRECTED 2026-11-13 (gh:#1369):** identical
+  line for line on U ENDF/B-VIII.0 (upstream decks 48 and 59), once `iheat`'s two
+  single-precision literals were translated as such)*. Fluorescence (JFLO) is translated but
   unexercised — no atomic-relaxation tape is held here.
 - **Dosimetry class `…y`** ✅ *(2026-09-21 — `acedo`'s `acedos` and `dosout`;
   **byte-identical** to NJOY2016 on H-1 (2 532 words) and Mn-55 (70 440 words,
