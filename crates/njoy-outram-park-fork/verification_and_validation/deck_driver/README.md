@@ -346,7 +346,9 @@ change. Gates: `tests/deck_driver_tapes_vs_njoy2016.rs`.
 photo-nuclear ACE builders. Only the deck wiring was missing, so no second
 parser was written. ERRORR has `run_mf33` and `ErrorrResult::to_tape`, but
 every errorr deck also needs an unported piece: a GROUPR input tape (`ngout`),
-MF=31/34/35, or COVR's plot option. GAMINR's numeric engine is not ported.
+MF=31/34/35, or COVR's plot option (~~all~~ **CORRECTED 2026-11-13:** MF=35 from a GENDF,
+section 18, and COVR's plot option and MF=33 from a deck, section 19, are ported now).
+GAMINR's numeric engine is not ported.
 PLOTR is not ported at all (`src/plotr/mod.rs`). All three are left as large
 ports.
 
@@ -759,11 +761,12 @@ chi equal to GROUPR's word for word — held; the deck then stops at COVR — he
 Unit tests: `errorr::gendf::tests`, `errorr::colaps::tests`, `errorr::mf35::tests`,
 `deck::errorr::tests`.
 
-**Not done (refused by name):** ERRORR `mfcov = 31`, `33` and `34` from a deck (decks 04,
-05, 15, 16, 17, 20, 46, 65: `run_mf33` exists for MF=33 from a PENDF but is not wired to
-the deck yet), `iread = 1/2`, `nstan`, `nin`, `nendf = 999` (`covadd`), `iwt = 1`, an MF=35
+**Not done (refused by name):** ERRORR `mfcov = 31`, ~~`33`~~ and `34` from a deck (decks 04,
+05, 15, 16, 17, 20, 46, 65: ~~`run_mf33` exists for MF=33 from a PENDF but is not wired to
+the deck yet~~ **CORRECTED 2026-11-13:** MF=33 from a PENDF is wired, section 19), `iread = 1/2`, `nstan`, `nin`, `nendf = 999` (`covadd`), `iwt = 1`, an MF=35
 MT other than 18, MF=5/MT=18 with more than one subsection or `LF /= 1` in `spcint`, and
-COVR (decks 18, 27, 34, 47 now stop there).
+~~COVR (decks 18, 27, 34, 47 now stop there)~~ **CORRECTED 2026-11-13:** COVR's plot option
+runs and those four decks are identical whole, section 19.
 
 **Survey:** the ERRORR decks 04, 05, 15, 16, 18, 20, 27, 34, 46, 47 and 65 were re-run
 (`SURVEY_CASES`, 320 s) on develop cc488ffed plus this work. **49 of 87 are identical**
@@ -779,3 +782,68 @@ only doc comments and Markdown changed after these runs):**
 | `pendf_stages_vs_njoy2016` | 9 of 9 passed |
 | `ace_five_route_parity` | 13 of 13 passed |
 | `--lib` | 745 of 745 passed |
+
+## 19. COVR's plot option, ERRORR `mfcov = 33` from a deck (2026-11-13, gh:#1369)
+
+Targets: COVR, which decks 18, 27, 34 and 47 stopped at after section 18, then ERRORR
+MF=33 from a deck (deck 05 first). A prediction was posted on gh:#1369 before each change.
+
+**Search first.** `src/covr/` had the card model, the ERRORR-tape reader
+(`ErrorrTapeKind`, `read_group_structure`, `read_vector` with `einc`,
+`read_covariance_rows`, `present_mts`), `expand_mt_pairs`, `covard`'s numeric half
+(`to_dense`) and the library option, byte-identical to NJOY on nine tapes. The plot
+option was refused (`NotPorted("covr::plot")`), and the deck driver had no COVR card
+reader. VIEWR already ran (section 9). Run on NJOY's own COVR plot files, it gave
+PostScript identical to NJOY's on deck 18 and deck 47's first file. Deck 34 and deck 27's
+first file differed only in the sign of a zero in a rotated font matrix: deck 47's committed
+reference has our sign for the same plot text, so the committed reference tapes come from
+different builds. The gate is the local NJOY2016.80 binary. `errorr::run_mf33` and
+`ErrorrResult::to_tape` existed, checked by value and through COVR's BOXER library but never
+as text, and no deck called them. No `review.md` in `src/covr`, `src/deck`, `src/errorr` or
+`src/viewr` has a `kind = "review"` block.
+
+**New code.**
+- `covr::plot` (`run_plot`): the plot option of `covr` (`covr.f90:150-505`). It includes
+  `corr`'s plot branch with the `epmin` doubling search that raises the module `epmin`,
+  `covard` (keeping upstream's stale `izero` for a lumped placeholder), `truncg`, `plotit`,
+  `matshd`'s pattern flood and legend, `level` and `patlev` (whose `10./(nlev-1)` is
+  single precision, as upstream's).
+- `covr::plot_label`: `smilab`, `matmes`, `elem`, `mtno`. These include the `character`
+  cuts upstream makes: `l2 = 35` of a 36-character `str2` drops a blank.
+- `deck::covr`: COVR's cards. A binary ERRORR unit is read from ERRORR's records at full
+  precision (`tape_from_records`), a coded unit from its text. The library option is refused
+  by name from a deck.
+- `deck::errorr`: `mfcov = 33` with `ngout = 0` runs `run_mf33`. Card 13b (`iwt = 4`) is
+  kept now (it was read and dropped). `mf33_text` writes `to_tape`'s sections as `contio`
+  and `listio` records with SEND, FEND, MEND and TEND.
+
+| deck | what it exercises | result |
+|---|---|---|
+| 34 | Pu-240, binary ERRORR unit, `epmin` from the doubling search, `icolor = 1` | plot unit 33 (1 150 lines) and PostScript 43 (3 907) **identical**, first run |
+| 18 | Cf-252, text ERRORR unit 28, `epmin = 1e3`, 71 groups | 38 (8 270) and 39 (17 461) **identical**, first run |
+| 27 | Pu-239, two ERRORR/COVR/VIEWR runs; the second VIEWR inherits the first's state | 36, 37 (1 565 each), 46, 47 (4 803, 4 802) **identical**, first run |
+| 47 | Pu-239, chi from GROUPR MF=6, two runs | 46, 56 (1 565 each), 47, 57 **identical**, first run |
+| 05 | `t511` MAT 1306, ERRORR `mfcov = 33` from a PENDF, `ign = -1`, 101-group union grid; COVR over every MT pair, cross pairs included | ERRORR unit 33 (21 471 lines), plot 34 (78 796) and PostScript 35 (199 652) **identical**, first run |
+
+**Predictions** (posted before the changes). The COVR plot files would be identical, so the
+four `mfcov = 35` decks would close whole: held. Deck 05's ERRORR tape would be identical
+except for a few last-figure words in MF=33, which had only been gated by a tolerance: held
+better than predicted, with no word differing.
+
+**Gates:** `tests/deck_driver_covr_vs_njoy2016.rs`. Each test runs the whole upstream deck
+in NJOY2016.80 and here and compares every listed unit line by line:
+- `test_34_covr_plot_and_viewr_whole_deck`;
+- `test_18_...`, `test_27_...`, `test_47_...`;
+- `test_05_errorr_mf33_covr_viewr_whole_deck`.
+
+Unit tests: `covr::plot::tests`, `covr::plot_label::tests`, `deck::covr::tests`.
+
+**Not done (refused by name):** ERRORR `mfcov = 31` and `34`, MF=33 from an input GENDF
+(`colaps` for MF=33, deck 65), `nendf = 999` (deck 20) and `iread = 2` (deck 17). COVR's
+library option from a deck. The plot of an MF=40 tape. `corr`'s restart when a second
+material has more groups.
+
+**Survey:** the ERRORR decks 04, 05, 15, 16, 18, 20, 27, 34, 46, 47 and 65 were re-run
+(`SURVEY_CASES`) on develop c8bbe9dfa plus this work. **54 of 87 are identical** (49
+before): 05, 18, 27, 34 and 47 closed. Decks 04 and 16 now pass their first ERRORR
+(`mfcov = 33`, tapes 23 and 26 identical) and stop at `mfcov = 31` and `34`.

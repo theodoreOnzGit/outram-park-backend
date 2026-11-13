@@ -50,7 +50,9 @@
 //! ([`resprx`]) and [`covadd`] is ported, as the README's table says. MF=35
 //! from an input GENDF is ported: [`gendf`] (`ngchk`, GENDF records), [`colaps`]
 //! and [`mf35`] (`run_mf35`), run from a deck by `crate::deck::errorr`, and
-//! identical to NJOY2016 on test decks 18, 27, 34 and 47.
+//! identical to NJOY2016 on test decks 18, 27, 34 and 47. MF=33 from a PENDF
+//! ([`run_mf33`]) runs from a deck too, and deck 05's tape is NJOY2016's line
+//! for line.
 
 pub mod colaps;
 pub mod covadd;

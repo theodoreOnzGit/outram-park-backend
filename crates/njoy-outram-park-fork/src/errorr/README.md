@@ -111,7 +111,10 @@ where upstream would abort on a second `allocate`.
   decks 18, 27, 34 and 47 give covariance tapes identical line for line
   (`tests/deck_driver_tapes_vs_njoy2016.rs`, deck-driver README section 18).
   `colaps` serves MF=35 only so far; MF=31/33/34/40 with `ngout != 0` are not
-  wired.
+  wired. **2026-11-13 (gh:#1369):** MF=33 from a PENDF (`run_mf33`) runs from a
+  deck too, its tape written as text by `deck::errorr::mf33_text`; NJOY2016's
+  deck 05 is identical as a whole deck, ERRORR tape included
+  (`tests/deck_driver_covr_vs_njoy2016.rs`, deck-driver README section 19).
 - The listing printer (`nsyso` tables); `ErrorrResult` carries everything
   the listing prints.
 

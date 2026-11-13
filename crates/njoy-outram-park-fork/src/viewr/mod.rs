@@ -38,7 +38,7 @@
 mod axis;
 mod curves;
 mod driver;
-mod fmt;
+pub(crate) mod fmt;
 mod graph;
 mod plot2d;
 mod plot3d;

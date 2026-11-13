@@ -15,12 +15,18 @@
 //! `ign = +-1` (`egngpn`), card 13b for `iwt = 4` (`egnwtf`). `iverf` is taken from
 //! the ENDF unit before card 7, as upstream reads the tape between cards 1 and 2.
 //!
-//! What runs: `mfcov = 35` with `ngout /= 0`. Every other combination is read and
+//! What runs: `mfcov = 35` with `ngout /= 0`, and (since 2026-11-13) `mfcov = 33`
+//! from a PENDF with `ngout = 0` ([`crate::errorr::run_mf33`], its tape by
+//! [`mf33_text`]). Every other combination is read and
 //! then refused by name, so a deck stops here with its cards consumed.
 
 use crate::deck::cards::{CardReader, Slot};
 use crate::deck::tapes::TapeUnits;
+use crate::deck::groupr::GendfText;
+use crate::errorr::gendf::GendfTape;
 use crate::errorr::mf35::{run_mf35, Mf35Config};
+use crate::errorr::weight::ErrorrWeight;
+use crate::errorr::{run_mf33, Mf33Config};
 use crate::NjoyError;
 
 /// ERRORR's cards as read.
@@ -42,6 +48,8 @@ pub struct ErrorrCards {
     pub dap: f64,
     /// Card 12 bounds (`ign = +-1`).
     pub egn: Option<Vec<f64>>,
+    /// Card 13b (`iwt = 4`): `eb, tb, ec, tc`.
+    pub wght: Option<(f64, f64, f64, f64)>,
 }
 
 /// Read ERRORR's cards (`iverf > 4`), up to the point a refusal would come.
@@ -84,13 +92,14 @@ pub fn read_errorr(r: &mut CardReader, iverf: i32) -> Result<ErrorrCards, NjoyEr
     } else {
         None
     };
-    match c2[2].abs() {
+    let wght = match c2[2].abs() {
         1 => return Err(NjoyError::NotPorted("errorr iwt = 1 (card 13 TAB1)")),
         4 => {
-            r.read_reals(&[0.0; 4])?;
+            let w = r.read_reals(&[0.0; 4])?;
+            Some((w[0], w[1], w[2], w[3]))
         }
-        _ => {}
-    }
+        _ => None,
+    };
     Ok(ErrorrCards {
         units: [u[0], u[1], u[2], u[3], u[4], u[5]],
         card2: [c2[0], c2[1], c2[2], c2[3], c2[4]],
@@ -100,6 +109,7 @@ pub fn read_errorr(r: &mut CardReader, iverf: i32) -> Result<ErrorrCards, NjoyEr
         efmean: s7[5].real(),
         dap: s7[6].real(),
         egn,
+        wght,
     })
 }
 
@@ -132,8 +142,11 @@ pub fn run_errorr(r: &mut CardReader, units: &mut TapeUnits, parse_only: bool) -
     }
     let [nendf, npend, ngout, nout, nin, _] = c.units;
     let mfcov = c.card7[1];
+    if mfcov == 33 {
+        return run_errorr_mf33(&c, units);
+    }
     if mfcov != 35 {
-        return Err(NjoyError::NotPorted("errorr from a deck: mfcov other than 35"));
+        return Err(NjoyError::NotPorted("errorr from a deck: mfcov other than 33 or 35"));
     }
     if ngout == 0 {
         return Err(NjoyError::InvalidInput("errorr: ngout must be nonzero when mfcov = 35".into()));
@@ -163,6 +176,113 @@ pub fn run_errorr(r: &mut CardReader, units: &mut TapeUnits, parse_only: bool) -
         units.put_gendf(nout, text, crate::errorr::gendf::GendfTape { tpid: String::new(), records: res.tape.records.clone() });
     }
     Ok(())
+}
+
+/// ERRORR `mfcov = 33` from a PENDF ([`run_mf33`]), its tape on unit `nout`.
+///
+/// # Errors
+/// [`NjoyError::NotPorted`] for an input GENDF (`ngout /= 0`, `colaps` for MF=33),
+/// `nin /= 0`, `irespr = 0`; and whatever [`run_mf33`] refuses.
+fn run_errorr_mf33(c: &ErrorrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
+    let [nendf, npend, ngout, nout, nin, _] = c.units;
+    if ngout != 0 {
+        return Err(NjoyError::NotPorted("errorr mfcov = 33 from an input GENDF (ngout /= 0)"));
+    }
+    if nin != 0 {
+        return Err(NjoyError::NotPorted("errorr nin /= 0 (input covariance tape)"));
+    }
+    if npend == 0 {
+        return Err(NjoyError::NotPorted("errorr mfcov = 33 with npend = 0"));
+    }
+    if c.card7[2] != 1 {
+        return Err(NjoyError::NotPorted("errorr irespr = 0 (MF=32 by finite differences)"));
+    }
+    units.openz(nendf, 0)?;
+    units.openz(npend, 0)?;
+    let endf = units.get(nendf)?.tape.clone();
+    let pendf = units.get(npend)?.tape.clone();
+    let cfg = Mf33Config {
+        matd: c.card2[0],
+        ign: c.card2[1],
+        user_egn: c.egn.clone(),
+        weight: ErrorrWeight::from_iwt(c.card2[2], None, c.wght)?,
+        tempin: c.tempin,
+        irelco: c.card2[4],
+        dap: c.dap,
+    };
+    let res = run_mf33(&endf, &pendf, &cfg)?;
+    if nout != 0 {
+        units.openz(nout, 1)?;
+        let t = mf33_text(&res)?;
+        let records = GendfTape { tpid: String::new(), records: t.records.clone() };
+        units.put_gendf(nout, t.text(), records);
+    }
+    Ok(())
+}
+
+/// The `nout` tape of an MF=33 run as `covout` writes it (`errorr.f90:7812-7838,
+/// 7891-7898, 7280-7317, 7413-7431, 7488-7526`): the sections of
+/// [`crate::errorr::ErrorrResult::to_tape`] as CONT and LIST records, with
+/// SEND, FEND, MEND and TEND.
+///
+/// # Errors
+/// A section whose rows end inside a record.
+pub fn mf33_text(res: &crate::errorr::ErrorrResult) -> Result<GendfText, NjoyError> {
+    let tape = res.to_tape();
+    let mut t = GendfText::label("");
+    let secs = tape.sections();
+    for (k, sec) in secs.iter().enumerate() {
+        let key = sec.key;
+        t.begin(key.mat, key.mf, key.mt);
+        let rows = &sec.rows;
+        let mut i = 0;
+        match key.mf {
+            1 => {
+                put_cont(&mut t, rows, &mut i)?;
+                put_list(&mut t, rows, &mut i)?;
+            }
+            3 => {
+                put_list(&mut t, rows, &mut i)?;
+            }
+            _ => {
+                put_cont(&mut t, rows, &mut i)?;
+                while i < rows.len() {
+                    let kgp = put_cont(&mut t, rows, &mut i)?[5];
+                    while put_list(&mut t, rows, &mut i)?[5] < kgp {}
+                }
+            }
+        }
+        t.send();
+        if secs.get(k + 1).is_none_or(|n| n.key.mf != key.mf || n.key.mat != key.mat) {
+            t.fend();
+        }
+    }
+    t.end_tape();
+    Ok(t)
+}
+
+fn short() -> NjoyError {
+    NjoyError::EndfParse("errorr: covariance section ends inside a record".into())
+}
+
+/// `contio` of row `i`.
+fn put_cont(t: &mut GendfText, rows: &[[f64; 6]], i: &mut usize) -> Result<[f64; 6], NjoyError> {
+    let r = *rows.get(*i).ok_or_else(short)?;
+    t.cont([r[0], r[1]], [r[2] as i32, r[3] as i32, r[4] as i32, r[5] as i32]);
+    *i += 1;
+    Ok(r)
+}
+
+/// `listio` of the LIST whose head is row `i`.
+fn put_list(t: &mut GendfText, rows: &[[f64; 6]], i: &mut usize) -> Result<[f64; 6], NjoyError> {
+    let h = *rows.get(*i).ok_or_else(short)?;
+    let n = h[4].max(0.0) as usize;
+    let nrow = n.div_ceil(6);
+    let body = rows.get(*i + 1..*i + 1 + nrow).ok_or_else(short)?;
+    let data: Vec<f64> = body.iter().flatten().copied().take(n).collect();
+    t.list([h[0], h[1]], h[2] as i32, h[3] as i32, h[5] as i32, &data);
+    *i += 1 + nrow;
+    Ok(h)
 }
 
 #[cfg(test)]

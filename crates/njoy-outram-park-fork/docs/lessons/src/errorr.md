@@ -93,7 +93,9 @@ Re-measured for this page: [the re-measurement log](./remeasured.md).
 
 **Not ported, stated** (the porting plan's list): `LCOMP = 0` (no evaluation
 here has it, #171), `LRF = 1` ERRORJ sensitivities, `NRO ≠ 0`, `NLRS > 0`,
-MF=31/34/35/40, GENDF input (`colaps`), and COVR's PostScript plotting. A
+MF=31/34/~~35~~/40, GENDF input (`colaps`) ~~,~~ for anything but MF=35, ~~and COVR's PostScript plotting~~
+(**CORRECTED 2026-11-13, gh:#1369:** MF=35 from a GENDF and COVR's plot option are
+ported, and identical to NJOY2016 on whole upstream decks). A
 lesson on ν̄ or angular-distribution uncertainties cannot be written from this
 crate yet; those rows are visible in the [coverage table](./coverage.md).
 
