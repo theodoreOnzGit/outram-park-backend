@@ -50,8 +50,12 @@
 //! ~~Moltres' table interpolation is not carried at all.~~ **UPDATED
 //! 2026-11-13 (gh:#1400)** -- [`crate::tables`] reads the Moltres property
 //! files and evaluates `interp_type = none | linear` (bit-identical to
-//! MOOSE's `LinearInterpolation`); spline, monotone-cubic, bicubic and
-//! least-squares interpolation are not translated. The reduced linear
+//! MOOSE's `LinearInterpolation`); ~~spline, monotone-cubic, bicubic and
+//! least-squares interpolation are not translated~~ **CORRECTED 2026-11-13
+//! (gh:#1538)**: spline and monotone-cubic are translated
+//! ([`crate::moose_interpolation`], wired into [`crate::tables`]), bicubic and
+//! least-squares in [`crate::tables_multivar`], `MoltresJsonMaterial` as
+//! `MoltresTables::from_json`. The reduced linear
 //! removal-XS form below remains the model [`XsFields::sigma_removal_at`]
 //! applies; its distance from the full table is measured in the gh:#1400
 //! record (S4).

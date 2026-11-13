@@ -69,6 +69,16 @@ Moltres property tables within `6e-14` relative of Moltres' `k_eff`
 (`gmm_none`, `gmm_linear`); Marshak/Mark/Milne vacuum right-edge values
 within `5e-14` absolute of the FE gold values.
 
+Round 2 (gh:#1538): MOOSE `SplineInterpolation`, `MonotoneCubicInterpolation`
+and `BicubicSplineInterpolation` (`moose_interpolation`), the least-squares
+branch and bicubic tables (`tables_multivar`) and `MoltresJsonMaterial`
+(`MoltresTables::from_json`) are translated. Spline, monotone-cubic, bicubic and
+least-squares kernels are 100 % bit-identical to the C++ transcription; the
+spline and monotone-cubic `k_inf` match the `gmm_*` and `mjm_*` gold `k_eff`
+within `3.1e-14` relative. Bicubic and least-squares have no Moltres test input,
+so they are kernel-level only. The `peak_power_density` controller is not
+translated.
+
 ## Run the tests
 
 ```bash

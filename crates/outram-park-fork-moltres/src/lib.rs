@@ -97,9 +97,11 @@ pub mod circulating;
 pub mod diffusion;
 pub mod error;
 pub mod materials;
+pub mod moose_interpolation;
 pub mod precursors;
 pub mod ring_mesh;
 pub mod tables;
+pub mod tables_multivar;
 pub mod terms;
 pub mod thermal;
 

@@ -83,7 +83,7 @@ and says nothing about spatial discretisation. A spatially varying
 mesh-converged FE-vs-FV eigenvalue comparison (issue cases 1-3) was **not**
 run (needs a real Moltres run or a gmsh reader).
 
-**S3 spline / monotone-cubic** (not translated): port(linear) minus gold =
+**S3 spline / monotone-cubic** (~~not translated~~ **translated in round 2, see S5 below**): port(linear) minus gold =
 +6.3937e-5 (spline) and +1.7851e-5 (monotone cubic); identical to Moltres'
 own linear-minus-spline difference to 1e-8, as predicted. My PREDICTIONS
 quoted "about +5.9e-5" for the spline difference; that was an arithmetic
@@ -148,3 +148,103 @@ extracted from `tests/{bcs,materials}/gold/*.e` at the same commit.
 ## What remains
 
 See the gap list on gh:#1401 and the child issues filed from this work.
+
+---
+
+# Round 2 (gh:#1538, 2026-11-13): spline, monotone cubic, bicubic, LSQ, JSON material
+
+Predictions: `PREDICTIONS.md`, "Round 2" section, committed (`2730f1b9b`)
+before the new code was compiled. Pins: Moltres 3dd2ce7, MOOSE
+`d7c4bde4025537ac4574cc80e78c2407e23a42cc` (full sha resolved from the
+Moltres tree). Same route as round 1 (no MOOSE build; C++ transcription for
+kernels, committed gold `.e` files for solutions). `check_verbatim.sh`: 35
+`UPSTREAM_MOLTRES` and 153 `UPSTREAM_MOOSE` marked lines, 0 not found
+(`check_verbatim_output.txt`). `reference_kernels.txt` was regenerated; every
+round-1 record kind (`TBL`, `INSC`, `FISS`, `PSRC`, `DNS`, `DEC`) is
+byte-identical to the previous file.
+
+## Kernel level (bits; `tests/moltres_kernel_differential_gh1400.rs`)
+
+| id | what | n | identical | worst | predicted |
+|---|---|---|---|---|---|
+| K9 | `SplineInterpolation` value / slope, 12 `newt_fuel_` columns, 200 T each incl. extrapolation | 5600 / 5600 | 5600 / 5600 | 0 ulp | 100 % |
+| K10 | `MonotoneCubicInterpolation` value / slope, same grid | 5600 / 5600 | 5600 / 5600 | 0 ulp | 100 % |
+| K11 | `BicubicSplineInterpolation` value, d/dx1, d/dx2, synthetic 5x4 grid, 4096 points incl. outside | 3 x 4096 | 3 x 4096 | 0 ulp | 100 %, <= 4 ulp |
+| K12 | least-squares `c0 T + c1`, `(c0 T + c1) 1e6 1.6e-19`, slopes | 2 x 4096 | all | 0 ulp | 100 % |
+| K13 | MeV -> J through `sigma_power` (**not predicted**, see defect 1) | 4096 | 2950 before the fix, 4096 after | 1 ulp before | n/a |
+
+The `std::pow(x, 2)` -> `x * x` risk named in the prediction did not
+materialise (0 differences). Bicubic and least-squares have **no Moltres
+test input and no gold file** at 3dd2ce7, so K11 and K12 are the only
+verification they have: there is no solution-level claim for them and no
+comparison against any real Moltres input file.
+
+## Solution level (`tests/moltres_solution_differential_gh1400.rs`)
+
+Bound `<= 1e-8` relative, written before the run. Measured:
+
+| case | gold k_eff | port k_inf | relative difference |
+|---|---|---|---|
+| S5 `gmm_spline` (newt_fuel_, 922 K) | 0.99599586036298 | 0.99599586036297 | 3.3e-15 |
+| S5 `gmm_monotone_cubic` | 0.99604194590814 | 0.99604194590813 | 1.0e-14 |
+| S6 `mjm_none` (xsdata-900K.json, 900 K) | 1.14679014198082 | 1.14679014198085 | 3.1e-14 |
+| S6 `mjm_linear` (xsdata.json, 922 K) | 1.14696105184326 | 1.14696105184327 | 1.2e-14 |
+| S6 `mjm_spline` | 1.14644507369501 | 1.14644507369503 | 1.2e-14 |
+| S6 `mjm_monotone_cubic` | 1.14678314424103 | 1.14678314424104 | 1.1e-14 |
+
+Port spline-minus-linear and monotone-minus-linear on the `gmm` tables are
+-6.3937 pcm and -1.7851 pcm, equal to the gold gaps to the digits printed.
+On the three-row JSON tables the spline departs from linear by -51.6 pcm and
+monotone by -17.8 pcm, as predicted from the gold files. All predictions held.
+The round-1 assumption (natural boundaries make `k_eff = k_inf`) is carried
+over unchanged and is not independently tested here.
+S7 (not gold-backed) pins the JSON reader quirks read from
+`MoltresJsonMaterial.C`: `int` truncation of temperatures, missing `CHI_D`
+-> `[1, 0, ...]`, unlisted constants -> zeros, the error paths.
+
+## Defects and findings
+
+1. **MeV -> J rounding (port defect, fixed).** Moltres computes `X * 1e6 *
+   1.6e-19` (two roundings); the port multiplied by the folded constant
+   `1e6 * 1.6e-19`. K13: 2950 of 4096 bit-identical, worst 1 ulp. `tables::
+   material_from_samples` now applies the factors in upstream order (4096 of
+   4096). Moved numbers: `sigma_power` changes by <= 1 ulp for the table path;
+   no recorded k_eff depends on it (S1-S6 are unchanged to the digits above,
+   S4's pinned pcm values are unchanged).
+2. **Upstream MOOSE defect, reproduced, not corrected.**
+   `MonotoneCubicInterpolation::initialize_derivs` (d7c4bde) divides the
+   interior three-point numerator by `h[i-1] * h[i] * (h[i-1] * h[i])`; the
+   end-knot formulas, and the correct derivative, use `(h[i-1] + h[i])`. For
+   y = x^2 on unit spacing upstream gives interior slopes 4 and 8 (true 2 and
+   4), 3 and 8 after the limiter; at the 50 K spacing of `newt_fuel_` the
+   interior slope is about 25 x too small. The translation keeps it because
+   Moltres' gold k_eff were produced by it (S5/S6 match to 1e-14). Pinned in
+   `moose_interpolation::tests::monotone_cubic_keeps_moose_interior_slope_formula`.
+   Effect on k_eff of the bug was **not measured**. Whether to report it to
+   idaholab/moose or to Moltres is a decision for the maintainer.
+3. **Harness defects (mine, round 1), fixed:** the kernel test's `lines()`
+   used `starts_with`, so a `TBL` query would also match `TBLS`/`TBLM`; and
+   `Stat::add` computed `a - b` on `i64` bit patterns, which overflows (and
+   panics, release overflow checks being on) when values of opposite sign are
+   compared. Neither affected a round-1 result.
+
+## Deliberate deviations from upstream
+
+* `LsqTables`: a missing or short least-squares file is an error; upstream
+  leaves coefficients zero / stale.
+* `PropertyTable::parse` still rejects equal consecutive temperatures at read
+  time (round 1); upstream's spline/monotone `errorCheck` also rejects them.
+* Only `sample` and `sampleDerivative` are translated; `sample2ndDerivative`,
+  `ADReal` overloads and CSV dumps are not (Moltres calls none of them).
+* `BicubicInterpolation` (not `BicubicSplineInterpolation`) is not translated:
+  Moltres 3dd2ce7 does not use it.
+
+## Not done
+
+* `peak_power_density` controller on `remxs` (the third item of #1538): small,
+  but it is a postprocessor-coupled feedback inside the material and needs a
+  place in the port's driver to be exercised; not started.
+* `MoltresSNMaterial`, `DiffusionRodMaterial` (spline/monotone/linear copies):
+  not touched.
+* No solution-level test for bicubic or least squares: Moltres has no input
+  for them.

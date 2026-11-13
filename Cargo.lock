@@ -7603,6 +7603,7 @@ version = "0.0.2"
 dependencies = [
  "outram-foam-basic-lib",
  "petir",
+ "serde_json",
  "thiserror 2.0.21",
  "uom",
 ]
