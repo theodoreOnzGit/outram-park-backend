@@ -166,7 +166,7 @@ Predictions:
    (`T < 1073 K`) by exactly the K3 mismatch: `(nu_up + 1)/(nu_port + 1) =
    (0.88 + 0.12 exp(-phi_cm2/1e25)) / (0.88 + 0.12 exp(-phi_cm2*1e4/1e25))`, because the
    fluence factor cancels between E and G in the port but not in the upstream pair.  For
-   `phi_cm2 = 1e21` that ratio is 1.0831 (8.3 %).  Predicted: the closed form matches the
+   `phi_cm2 = 1e21` that ratio is 1.0821 (8.2 %; arithmetic slip "1.0831" corrected before any run).  Predicted: the closed form matches the
    observed ratio to <= 16 eps (condE + condG) (derived: each side's relative error is
    <= 8 eps cond), and the difference is zero (at fluence 0) in the beta phase.  The port's
    doc sentence "the choice is immaterial to nu in the alpha phase" is true only inside
