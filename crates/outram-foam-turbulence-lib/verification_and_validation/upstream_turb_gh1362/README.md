@@ -395,3 +395,29 @@ Recorded on gh:#1545; not ported.
    (`G` and `E` use the STORED `nut`, set to upstream's, so they do not inherit the `exp` ulps).
 2. The transcribed epsilon and k matrices reproduce the real matrices bit for bit.
 3. No difference is expected that `exp` does not explain.
+
+## Slice 6 results (2026-11-13, release; same duct; upstream `grad(U)`, `div(phi)`, `magSqrGradGrad(U)`, `grad(sqrt(k))` fed in)
+
+**Audit held** (epsilon and k matrices: diag/source 360/360, upper/lower 894/894), for both runs.
+
+**Every term is 360/360 bit-identical, max 0 ulp**: `fMu`, `f2`, recomputed `nut`, `E`, `D`, `G`,
+`eps_E1`, `eps_SuSp`, `eps_Sp`, `k_E`, `k_SuSp`, `k_Sp`, at both viscosities below. PETIR `exp`
+agrees with glibc `exp` on every argument that occurs here.
+
+**Disclosed field change (a second run, not a changed field).** At the shared `nu = 1e-5` the
+low-Reynolds branch is never entered: `k^2/(nu epsilon)` is large, so `fMu` lies in
+(0.972, 0.99996) and `f2` is exactly 1.0 in all 360 cells (`0.3 exp(-50)` is below half an ulp
+of 1). The identical-everywhere result at `nu = 1e-5` therefore says little about `f2`'s `exp`.
+A second case, `LaunderSharmaKE_lowRe`, differs ONLY in `nu = 1e-2` (`transportProperties`
+edited by `scripts/run.sh`; no other input changes) and gives `fMu` in (0.036, 0.128), `f2` in
+(0.767, 1.0) with 166 distinct values: both damping functions are exercised. Both runs are
+pinned (`launder_sharma_ke_vs_openfoam`, `launder_sharma_ke_low_re_vs_openfoam`).
+
+- Predictions: 1 was WRONG on the libm point: it predicted `fMu` and `f2` would differ in up to
+  10 % of cells (`exp` ulps); they are 360/360 identical at both viscosities. The structural
+  predictions (G, E, D, SuSp, Sp identical; no `exp` ulps leaking into stored-`nut` terms) held. 2
+  held. 3 held.
+- Defects: none.
+- Not covered: `correct()` (none yet; also needs the port's own `fvc::magSqrGradGrad` and
+  `grad(sqrt k)`, compared with upstream under gh:#1489), wall functions, the non-isotropic
+  `nut` boundary behaviour, `buoyantKEpsilon`.

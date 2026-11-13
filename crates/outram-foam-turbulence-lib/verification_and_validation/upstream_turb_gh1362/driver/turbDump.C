@@ -214,7 +214,7 @@ static void auditMatrix(const word& eq, const fvScalarMatrix& mIn)
 
 int main(int argc, char* argv[])
 {
-    argList::addOption("model", "name", "kEpsilon|kOmega|kOmegaSST|SpalartAllmaras|Smagorinsky|RNGkEpsilon|realizableKE|WALE|SpalartAllmarasDES|SpalartAllmarasDDES|SpalartAllmarasIDDES|kOmegaSSTDES|kEqn");
+    argList::addOption("model", "name", "kEpsilon|kOmega|kOmegaSST|SpalartAllmaras|Smagorinsky|RNGkEpsilon|realizableKE|WALE|SpalartAllmarasDES|SpalartAllmarasDDES|SpalartAllmarasIDDES|kOmegaSSTDES|kEqn|LaunderSharmaKE");
     #include "setRootCase.H"
     #include "createTime.H"
     #include "createMesh.H"
@@ -1056,6 +1056,54 @@ int main(int argc, char* argv[])
         dumpS("T_k_SuSp", SuSpK.field());
         dumpS("T_k_Sp", SpK.primitiveField());
         const volScalarField Dk("DkEff", nut + nu);
+        fvScalarMatrix kEqn
+        (
+            fvm::ddt(kP()) + fvm::div(phi, kP()) - fvm::laplacian(Dk, kP())
+         ==
+            G - fvm::SuSp(SuSpK, kP()) - fvm::Sp(SpK, kP())
+        );
+        auditMatrix("k", kEqn);
+    }
+    else if (model == "LaunderSharmaKE")
+    {
+        // RASModels/LaunderSharmaKE/LaunderSharmaKE.C, fMu(), f2(), correct()
+        const dimensionedScalar Cmu("Cmu", dimless, 0.09), C1("C1", dimless, 1.44),
+            C2("C2", dimless, 1.92), C3("C3", dimless, 0), sigmak("sk", dimless, 1.0),
+            sigmaEps("se", dimless, 1.3);
+        const volScalarField fMu(exp(-3.4/sqr(scalar(1) + sqr(k)/(nu*epsilon)/50.0)));
+        const volScalarField f2(scalar(1) - 0.3*exp(-min(sqr(sqr(k)/(nu*epsilon)), scalar(50))));
+        const volScalarField nutT(Cmu*fMu*sqr(k)/epsilon);
+        const volScalarField E(2.0*nu*nut*fvc::magSqrGradGrad(U));
+        const volScalarField D(2.0*nu*magSqr(fvc::grad(sqrt(k))));
+        const volScalarField G(nut*(gradU && devTwoSymm(gradU)));
+        const volScalarField Eeps1(C1*G*epsilon/k);
+        const volScalarField::Internal SuSpEps(((2.0/3.0)*C1 - C3)*divU);
+        const volScalarField SpEps(C2*f2*epsilon/k);
+        const volScalarField::Internal SuSpK(2.0/3.0*divU);
+        const volScalarField SpK((epsilon + D)/k);
+        dumpS("T_fMu", fMu.primitiveField());
+        dumpS("T_f2", f2.primitiveField());
+        dumpS("T_nut", nutT.primitiveField());
+        dumpS("T_E", E.primitiveField());
+        dumpS("T_D", D.primitiveField());
+        dumpS("T_G", G.primitiveField());
+        dumpS("T_eps_E1", Eeps1.primitiveField());
+        dumpS("T_eps_SuSp", SuSpEps.field());
+        dumpS("T_eps_Sp", SpEps.primitiveField());
+        dumpS("T_k_E", G.primitiveField());
+        dumpS("T_k_SuSp", SuSpK.field());
+        dumpS("T_k_Sp", SpK.primitiveField());
+        dumpS("magSqrGradGradU", fvc::magSqrGradGrad(U)().primitiveField());
+        dumpV("gradSqrtk", fvc::grad(sqrt(k))().primitiveField());
+        const volScalarField Deps("DepsilonEff", nut/sigmaEps + nu);
+        const volScalarField Dk("DkEff", nut/sigmak + nu);
+        fvScalarMatrix epsEqn
+        (
+            fvm::ddt(epsP()) + fvm::div(phi, epsP()) - fvm::laplacian(Deps, epsP())
+         ==
+            Eeps1 - fvm::SuSp(SuSpEps, epsP()) - fvm::Sp(SpEps, epsP()) + E
+        );
+        auditMatrix("epsilon", epsEqn);
         fvScalarMatrix kEqn
         (
             fvm::ddt(kP()) + fvm::div(phi, kP()) - fvm::laplacian(Dk, kP())

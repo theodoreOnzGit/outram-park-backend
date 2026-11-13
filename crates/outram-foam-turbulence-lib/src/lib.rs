@@ -64,6 +64,7 @@
 //! | [`realizable_ke`] | Realizable k-epsilon (Shih et al. 1995), gh:#1377 | AI draft; terms bit-compared with ESI v2506 (libm ulps pinned) |
 //! | [`rng_k_epsilon`] | RNG k-epsilon (Yakhot et al. 1992), gh:#1377 | AI draft; terms bit-identical to ESI v2506 |
 //! | [`les::k_eqn`] | kEqn one-equation LES, gh:#1544 | AI draft; terms bit-compared with ESI v2506 (cbrt ulps pinned) |
+//! | [`launder_sharma_ke`] | Launder-Sharma low-Re k-epsilon, gh:#1544 | AI draft; TERMS ONLY (no `correct()`), bit-identical to ESI v2506 |
 //! | [`des`] | SpalartAllmaras DES/DDES/IDDES, kOmegaSSTDES, gh:#1545 | AI draft; TERMS ONLY (no `correct()`), bit-compared with ESI v2506 (libm ulps pinned) |
 //!
 //! [`wall_functions`] provides standalone log-law helpers (`y_plus`, `u_tau`,
@@ -77,6 +78,7 @@ pub(crate) mod k_epsilon_step;
 pub mod k_omega;
 pub mod k_omega_sst;
 pub mod laminar;
+pub mod launder_sharma_ke;
 pub mod les;
 pub mod prelude;
 pub mod realizable_ke;

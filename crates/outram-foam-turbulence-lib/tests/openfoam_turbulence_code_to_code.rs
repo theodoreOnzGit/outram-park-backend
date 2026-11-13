@@ -31,6 +31,7 @@ use outram_foam_turbulence_lib::des::KOmegaSstDes;
 use outram_foam_turbulence_lib::k_epsilon::KEpsilon;
 use outram_foam_turbulence_lib::k_omega::KOmega;
 use outram_foam_turbulence_lib::k_omega_sst::KOmegaSST;
+use outram_foam_turbulence_lib::launder_sharma_ke::LaunderSharmaKe;
 use outram_foam_turbulence_lib::les::k_eqn::KEqn;
 use outram_foam_turbulence_lib::les::wale::Wale;
 use outram_foam_turbulence_lib::realizable_ke::RealizableKE;
@@ -224,6 +225,12 @@ impl Ref {
             grad_nu_tilda: self.v("gradnuTilda"),
             wall_distance: if with_y { Some(self.s("y")) } else { None },
             cell_length: if with_delta { Some(self.s("T_delta")) } else { None },
+            mag_sqr_grad_grad_u: if self.has("magSqrGradGradU") {
+                self.s("magSqrGradGradU")
+            } else {
+                vec![]
+            },
+            grad_sqrt_k: if self.has("gradSqrtk") { self.v("gradSqrtk") } else { vec![] },
         }
     }
 }
@@ -1181,4 +1188,88 @@ const PINS_KEQN: &[(&str, usize)] = &[
     ("kEqn (own delta) G", 360),
     ("kEqn (own delta) k_SuSp", 360),
     ("kEqn (own delta) k_Sp", 156),
+];
+
+// ── gh:#1544: LaunderSharmaKE (ESI arithmetic only; upstream gradients fed in) ─────────
+
+const REF_LS: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_LaunderSharmaKE.txt.gz"
+);
+
+const REF_LS_LOW: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_LaunderSharmaKE_lowRe.txt.gz"
+);
+
+#[test]
+fn launder_sharma_ke_vs_openfoam() {
+    let rows = launder_sharma_case("LaunderSharmaKE", REF_LS);
+    pin(&rows, PINS_LS);
+}
+
+/// nu = 1e-2 (README slice 6): fMu in (0.03, 0.13) and f2 in (0.76, 1), so both `exp`
+/// calls see varied arguments (at nu = 1e-5 fMu >= 0.97 and f2 is exactly 1 everywhere).
+#[test]
+fn launder_sharma_ke_low_re_vs_openfoam() {
+    let rows = launder_sharma_case("LaunderSharmaKE lowRe", REF_LS_LOW);
+    pin(&rows, PINS_LS_LOW);
+}
+
+fn launder_sharma_case(name: &str, gz: &[u8]) -> Rows {
+    let r = parse(gz);
+    check_audits(&r, 8);
+    let mesh = r.mesh();
+    let mut m = LaunderSharmaKe::new(mesh.clone());
+    m.k = r.zg(&mesh, "k", "k");
+    m.epsilon = r.zg(&mesh, "epsilon", "epsilon");
+    m.nu = r.zg(&mesh, "nu", "nu");
+    m.nu_t = r.zg(&mesh, "nut", "nut_real");
+    let pairs: Pairs = &[
+        ("nut_real", "nut"),
+        ("T_fMu", "fMu"),
+        ("T_f2", "f2"),
+        ("T_nut", "nut"),
+        ("T_E", "E"),
+        ("T_D", "D"),
+        ("T_G", "G"),
+        ("T_eps_E1", "eps_E1"),
+        ("T_eps_SuSp", "eps_SuSp"),
+        ("T_eps_Sp", "eps_Sp"),
+        ("T_k_E", "k_E"),
+        ("T_k_SuSp", "k_SuSp"),
+        ("T_k_Sp", "k_Sp"),
+    ];
+    let rows = compare(name, &r, &m.source_terms(&r.state(false, false)), pairs);
+    assert!(max_ulp(&rows) <= 3, "max ulp {}", max_ulp(&rows));
+    rows
+}
+
+const PINS_LS: &[(&str, usize)] = &[
+    ("LaunderSharmaKE nut", 360),
+    ("LaunderSharmaKE fMu", 360),
+    ("LaunderSharmaKE f2", 360),
+    ("LaunderSharmaKE nut", 360),
+    ("LaunderSharmaKE E", 360),
+    ("LaunderSharmaKE D", 360),
+    ("LaunderSharmaKE G", 360),
+    ("LaunderSharmaKE eps_E1", 360),
+    ("LaunderSharmaKE eps_SuSp", 360),
+    ("LaunderSharmaKE eps_Sp", 360),
+    ("LaunderSharmaKE k_E", 360),
+    ("LaunderSharmaKE k_SuSp", 360),
+    ("LaunderSharmaKE k_Sp", 360),
+];
+const PINS_LS_LOW: &[(&str, usize)] = &[
+    ("LaunderSharmaKE lowRe nut", 360),
+    ("LaunderSharmaKE lowRe fMu", 360),
+    ("LaunderSharmaKE lowRe f2", 360),
+    ("LaunderSharmaKE lowRe nut", 360),
+    ("LaunderSharmaKE lowRe E", 360),
+    ("LaunderSharmaKE lowRe D", 360),
+    ("LaunderSharmaKE lowRe G", 360),
+    ("LaunderSharmaKE lowRe eps_E1", 360),
+    ("LaunderSharmaKE lowRe eps_SuSp", 360),
+    ("LaunderSharmaKE lowRe eps_Sp", 360),
+    ("LaunderSharmaKE lowRe k_E", 360),
+    ("LaunderSharmaKE lowRe k_SuSp", 360),
+    ("LaunderSharmaKE lowRe k_Sp", 360),
 ];

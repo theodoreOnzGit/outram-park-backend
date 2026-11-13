@@ -73,6 +73,11 @@ pub struct FrozenState {
     /// LES filter width `delta` override [m] (Smagorinsky); `None` keeps the
     /// model's own cube-root-of-volume width.
     pub cell_length: Option<Vec<f64>>,
+    /// `fvc::magSqrGradGrad(U)` per cell (Launder-Sharma `E`), an INPUT: the sum over the
+    /// velocity components of `magSqr(grad(grad(U_i)))`.
+    pub mag_sqr_grad_grad_u: Vec<f64>,
+    /// `grad(sqrt(k))` per cell (Launder-Sharma `D`).
+    pub grad_sqrt_k: Vec<Vector3>,
 }
 
 /// Named per-cell results of a source-term evaluation.
