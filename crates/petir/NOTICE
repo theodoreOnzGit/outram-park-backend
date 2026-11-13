@@ -195,6 +195,27 @@ COPYRIGHT HOLDERS
                            1996, 1997, 1998, 1999, 2000 Gerard Jungman
       -> src/interp.rs (ported 2026-09-14; eval_integ added 2026-10-20,
          gh:#989, read at the commit above)
+      -> src/interp_cspline_poly.rs (cspline_init_periodic and the shared
+         cspline kernels; ported 2026-11-13, gh:#1341)
+    GSL interpolation/steffen.c
+                           Copyright (C) 2014 Jean-Francois Caron
+    GSL interpolation/akima.c
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000
+                           Gerard Jungman
+      -> src/interp_piecewise.rs (ported 2026-11-13, gh:#1341; this entry
+         was missing when the port landed and is added here)
+    GSL interpolation/poly.c
+                           Copyright (C) 2001 DAN, HO-JIN
+    GSL poly/dd.c (gsl_poly_dd_taylor)
+                           Copyright (C) 2001 DAN, HO-JIN;
+                           (C) 2013 Patrick Alken
+      -> src/interp_cspline_poly.rs (PolynomialInterp; ported 2026-11-13,
+         gh:#1341)
+    GSL interpolation/interp2d.c, bilinear.c, bicubic.c
+                           Copyright 2012 David Zaslavsky
+      -> src/interp2d.rs; src/interp2d_bicubic.rs is generated from bicubic.c
+         by reference-data/gsl/gen_bicubic_rs.py (ported 2026-11-13,
+         gh:#1341)
 
 ================================================================================
 DERIVED WORK — ARM optimized-routines

@@ -118,3 +118,23 @@ bit-identical (98.7 %), plus 11 `INIT` rows.
   driver, not recomputed). It fails if a generated coefficient line or the
   `zx`/`zy`/`zxy` derivative grids differ, or if `/dt` versus `*dx` is
   transcribed wrongly.
+
+### 2-D results (2026-11-13, Rust 1.99.1 release, GSL 2.8 `cf180cd7`, `gcc -O2`, glibc)
+
+`tests/gsl_interp2d_code_to_code.rs`: **13 482 of 13 482 values
+bit-identical**, 8 `ALLOC` rows (bicubic on the 2x3 grid refused, as GSL
+does) and 84 out-of-range refusals (`GSL_EDOM`).
+
+| method | E | DX | DY | DXX | DYY | DXY | extrapolated (X) |
+|---|---|---|---|---|---|---|---|
+| bilinear | 1 264 | 1 264 | 1 264 | 1 264 | 1 264 | 1 264 | 48 |
+| bicubic | 969 | 969 | 969 | 969 | 969 | 969 | 36 |
+
+(each cell is all-identical)
+
+- **P9 held, first run.** Negative control run: changing one generated
+  coefficient (`4.0*zxyminmin` to `5.0*zxyminmin`, first occurrence) makes the
+  test fail, and regenerating from `bicubic.c` reproduces the committed file
+  byte for byte.
+- Not ported: `spline.c`, `spline2d.c` (owned-copy wrappers; see above).
+  gh:#1341 has no port left open from the issue's list.
