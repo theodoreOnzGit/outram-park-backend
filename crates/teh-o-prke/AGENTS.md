@@ -122,6 +122,14 @@ delayed-neutron precursor groups, reactivity feedback, and decay heat, using
     The rod-worth map errors outside its closed range by default
     (`RodWorthOutOfRange::Error`, both ends in range); GeN-Foam's zero is
     `RodWorthOutOfRange::UpstreamZero` (maintainer decision 2026-11-10).
+    **Differential vs GeN-Foam 652b3da (gh:#1439, 2026-11-13):** bit-identical
+    on 830 fixed-input rows except one Doppler row per history (PETIR `r_ln`,
+    1 ulp in `ln`, 2 ulp in the term); see
+    `verification_and_validation/genfoam_differential/README.md`.
+    `PointKinetics::step_implicit_genfoam_form` (+ `SquareMatrix::
+    solve_gaussian_openfoam`, OpenFOAM's `solve()`) reproduces GeN-Foam's
+    `solvePointKinetics.H` step bit for bit (300/300); `step_implicit` is
+    unchanged and differs by round-off only (the solver, not the scaling).
 - `fuel_temperature_feedback`, `control_rod_feedback`, `decay_heat`.
 - `ans_decay_heat` — ANS standards enum, isotope mix incl. Pu-241, `F_gamma`,
   user-supplied coefficients, `G(t)` (gh:#1080). Only the 1978 draft set is

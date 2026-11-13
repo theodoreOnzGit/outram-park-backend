@@ -121,6 +121,70 @@ pub(crate) fn backward_euler_step(
 /// One fixed-size RKF45 step of the N-group PRKE, in place. Same layout as
 /// [`backward_euler_step`]; same arithmetic as the pre-gh:#1082 six-group
 /// explicit solver (the decay-rate sum starts from group 1, not from zero).
+/// **GeN-Foam's backward-Euler step, assembled and solved as upstream does**
+/// (gh:#1439; `solvePointKinetics.H` of GeN-Foam 652b3da, GPL-3.0, EPFL).
+///
+/// Unknowns `x = [P, C_1 .. C_N, S]` (power, precursor powers, external source
+/// power; `n = N + 2`), rows exactly as upstream writes them, unscaled:
+///
+/// ```text
+/// A[0][0] = 1/dt - (rho - zeta - beta)/Lambda     B[0] = P_old/dt
+/// A[0][i] = -lambda_i                              A[0][n-1] = -1/Lambda
+/// A[i][0] = -beta_i/Lambda    A[i][i] = 1/dt + lambda_i    B[i] = C_i_old/dt
+/// A[n-1][n-1] = 1/dt                               B[n-1] = S_old/dt
+/// ```
+///
+/// solved with OpenFOAM's `solve(x, A, B)`
+/// ([`SquareMatrix::solve_gaussian_openfoam`]), not this crate's LU. `beta` is
+/// the left-to-right sum of the `beta_i` from zero (upstream's loop). The
+/// neutron density plays the role of `P` and the density of group `i` that of
+/// `C_i`; the source row is carried so the power row sees the same `S` upstream
+/// does, and its solution is discarded.
+pub(crate) fn backward_euler_step_genfoam_form(
+    decay_constants: &[DecayConstant],
+    delayed_fractions: &[Ratio],
+    state: &mut [VolumetricNumberDensity],
+    timestep: Time,
+    reactivity: Ratio,
+    subcritical_index: Ratio,
+    neutron_generation_time: Time,
+    external_source_power: VolumetricNumberDensity,
+) -> Result<(), TehOPrkeError> {
+    let groups = decay_constants.len();
+    check_shapes(groups, delayed_fractions.len(), state.len())?;
+    let n = groups + 2;
+    let dt = timestep.get::<second>();
+    let big_lambda = neutron_generation_time.get::<second>();
+    let rho = reactivity.get::<ratio>();
+    let zeta = subcritical_index.get::<ratio>();
+    let mut beta = 0.0_f64;
+    for f in delayed_fractions {
+        beta += f.get::<ratio>();
+    }
+    let mut matrix = SquareMatrix::new(n);
+    let mut rhs = vec![0.0_f64; n];
+    matrix.set(0, 0, 1.0 / dt - (rho - zeta - beta) / big_lambda);
+    for i in 1..n - 1 {
+        matrix.set(0, i, -decay_constants[i - 1].get::<hertz>());
+        rhs[0] = state[0].get::<per_cubic_meter>() / dt;
+    }
+    matrix.set(0, n - 1, -1.0 / big_lambda);
+    matrix.set(n - 1, n - 1, 1.0 / dt);
+    rhs[n - 1] = external_source_power.get::<per_cubic_meter>() / dt;
+    for i in 1..n - 1 {
+        matrix.set(i, 0, -delayed_fractions[i - 1].get::<ratio>() / big_lambda);
+        matrix.set(i, i, 1.0 / dt + decay_constants[i - 1].get::<hertz>());
+        rhs[i] = state[i].get::<per_cubic_meter>() / dt;
+    }
+    let solution = matrix
+        .solve_gaussian_openfoam(&rhs)
+        .map_err(|e| TehOPrkeError::ShapeMismatch(e.to_string()))?;
+    for (slot, value) in state.iter_mut().zip(solution) {
+        *slot = VolumetricNumberDensity::new::<per_cubic_meter>(value);
+    }
+    Ok(())
+}
+
 pub(crate) fn rkf45_step(
     decay_constants: &[DecayConstant],
     delayed_fractions: &[Ratio],
@@ -336,6 +400,25 @@ impl PointKinetics {
         }
     }
 
+    /// Set the whole state: the neutron density and one precursor density per
+    /// group (gh:#1439: lets a differential test restart each step from an
+    /// upstream state instead of accumulating this crate's own error).
+    /// Errors if `precursor_densities` does not have one entry per group.
+    pub fn set_state(
+        &mut self,
+        neutron_density: VolumetricNumberDensity,
+        precursor_densities: &[VolumetricNumberDensity],
+    ) -> Result<(), TehOPrkeError> {
+        check_shapes(
+            self.decay_constants.len(),
+            self.delayed_fractions.len(),
+            precursor_densities.len() + 1,
+        )?;
+        self.state[0] = neutron_density;
+        self.state[1..].copy_from_slice(precursor_densities);
+        Ok(())
+    }
+
     /// Advance one step by backward Euler (unconditionally stable).
     pub fn step_implicit(
         &mut self,
@@ -352,6 +435,35 @@ impl PointKinetics {
             reactivity,
             neutron_generation_time,
             background_source_rate,
+        )
+    }
+
+    /// Advance one backward-Euler step **assembled and solved as GeN-Foam's
+    /// `solvePointKinetics.H` does** (gh:#1439), for a caller that must
+    /// reproduce GeN-Foam bit for bit. Same equations as
+    /// [`Self::step_implicit`] plus the subcritical index `zeta`
+    /// (`rho - zeta - beta`) and an external source power `S`; see
+    /// [`backward_euler_step_genfoam_form`] for the rows. `step_implicit`
+    /// stays the default: it differs from this by round-off only (row
+    /// scaling by `dt`, LU instead of OpenFOAM's elimination), measured in
+    /// `verification_and_validation/genfoam_differential/README.md`.
+    pub fn step_implicit_genfoam_form(
+        &mut self,
+        timestep: Time,
+        reactivity: Ratio,
+        subcritical_index: Ratio,
+        neutron_generation_time: Time,
+        external_source_power: VolumetricNumberDensity,
+    ) -> Result<(), TehOPrkeError> {
+        backward_euler_step_genfoam_form(
+            &self.decay_constants,
+            &self.delayed_fractions,
+            &mut self.state,
+            timestep,
+            reactivity,
+            subcritical_index,
+            neutron_generation_time,
+            external_source_power,
         )
     }
 
