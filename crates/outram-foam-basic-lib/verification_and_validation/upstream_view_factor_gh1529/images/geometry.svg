@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="560" viewBox="0 0 1100 560" font-family="sans-serif">
-<rect width="1100" height="560" fill="white"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1250" height="700" viewBox="0 -110 1250 700" font-family="sans-serif">
+<rect x="0" y="-110" width="1250" height="700" fill="white"/>
 <text x="40" y="50" font-size="13" fill="#222">cubeA: unit cube, 4x4x4 cells, 96 boundary faces</text>
 <polygon points="107.5,132.5 107.5,95.0 145.0,95.0 145.0,132.5" fill="#2f6f9f" fill-opacity="0.55" stroke="#222" stroke-width="0.6"/>
 <polygon points="107.5,95.0 107.5,57.5 145.0,57.5 145.0,95.0" fill="#2f6f9f" fill-opacity="0.55" stroke="#222" stroke-width="0.6"/>

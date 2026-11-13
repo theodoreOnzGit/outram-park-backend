@@ -136,8 +136,16 @@ from 33 % to 0.012 % at N=16.
   (or ESI's `viewFactorsGen` on the HTR-10 cavity mesh) and the coupling.
 * Geometry: `images/geometry.svg`, drawn by `scripts/draw_geometry.py` from the upstream
   polyMesh (514 polygons = 96 + 96 + 160 + 160 + 2 cylinders; count checked, XML valid).
-  **I could not render or look at the image in this environment** (no SVG rasteriser), so it is
-  unreviewed; the patch/face counts are the only check made.
+  ~~**I could not render or look at the image in this environment** (no SVG rasteriser), so it is
+  unreviewed; the patch/face counts are the only check made.~~ **CORRECTED 2026-11-13**: rendered
+  with the pre-installed Chromium (Playwright) to `images/geometry.png`. The first render showed the
+  cubes clipped above the top edge (the SVG viewBox started at y = 0 while the oblique projection
+  draws above it); the viewBox was widened to `0 -110 1250 700` and nothing else changed. Checked by
+  looking at the PNG: cubeA/cubeB show 4x4 faces on each of 6 patches (96 boundary faces), plate4 and
+  plate16 show 8x8x1 cells with the expected thickness ratio (0.25 vs 0.0625 m), and the cylinders
+  show 16 facets at radii 0.5 and 1.0 m. Not checkable from the picture: the 24-face agglomeration of
+  cubeB (drawn fine, as the label says). Known cosmetic defect: the cube and plate labels overlap the
+  drawings and each other.
 * `docs/outram-foam-basic-lib-api.md` mirror not regenerated (`kovan-cli api-docs` not run).
 
 ## Reproduce
