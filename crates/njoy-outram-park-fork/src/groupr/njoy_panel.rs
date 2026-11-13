@@ -1,13 +1,16 @@
 // Translated from NJOY2016.80 `src/groupr.f90`: `panel` (:5858-6091), `getwtf`
-// (:5115-5307, `iwt` 2 and 3), `getflx` (:6439, the `nsigz = 1` branch),
-// `getsig` (:6646, the `gety1` branch), `getff` (:7038, the `mfd = 3` vector
-// case, label 100) and the `mfd = 3` part of `displa` (:6093, label 310).
+// (:5115-5307, `iwt` 2 and 3), `getflx` (:6439, both branches since
+// 2026-11-13), `getsig` (:6646, with `getunr` for `nz > 1`), `getff` (:7038, the
+// `mfd = 3` vector case, label 100) and `displa` (:6093, labels 250, 310 and the
+// `nz = 1` matrix branch).
 // NJOY2016 is under a modified BSD 3-Clause (LANL/DOE) licence, GPL-compatible;
 // this derivative file is distributed under AGPL-3.0-only. This is a modified,
 // non-LANL version, not endorsed by LANL/DOE. See crate root LICENSE.njoy + NOTICE.
 
-//! **A faithful `panel` for the vector case** (`nl = nz = 1`, `mfd = 3`), beside
-//! the trapezoid [`super::panel::group_integral`] (kept; this does not replace it).
+//! **A faithful `panel`** (~~for the vector case, `nl = nz = 1`, `mfd = 3`~~
+//! **CORRECTED 2026-11-13, gh:#1369:** for every `nl` and `nz`; `nz > 1` takes its
+//! flux from [`FluxSource::Table`], `genflx`'s table), beside the trapezoid
+//! [`super::panel::group_integral`] (kept; this does not replace it).
 //!
 //! What `group_integral` omits and this keeps: the `rndoff = 1.000002` nudge of
 //! a panel's lower edge and the `delta = 0.999995` nudge of its upper edge (so
@@ -119,6 +122,10 @@ pub struct SigFeed {
     gety: Option<Gety1>,
     /// `mtd` of the reaction (for the thermal-group removal).
     pub mtd: i32,
+    /// `mt`, the section `getsig` read (`getunr`'s reaction).
+    mt: i32,
+    /// `stounr`'s table and the run's `sigz`, for `getunr` when `nz > 1`.
+    unr: Option<(std::sync::Arc<crate::groupr::unresolved::UnresolvedTable>, Vec<f64>)>,
 }
 
 impl SigFeed {
@@ -126,13 +133,13 @@ impl SigFeed {
     pub fn new(tab: &crate::endf::records::Tab1, mtd: i32) -> (Self, f64) {
         let mut g = Gety1::new(tab);
         let first = g.get(0.0).xnext;
-        (Self { gety: Some(g), mtd }, first)
+        (Self { gety: Some(g), mtd, mt: mtd, unr: None }, first)
     }
     /// `getsig(e = 0)` for `MT = 257` (average energy), `258` (average lethargy)
     /// or `259` (average reciprocal velocity), `groupr.f90:6684-6690`: no PENDF
     /// section is read, `enext = emin = 1e-5` and `lrflag = 0`.
     pub fn non_cross_section(mtd: i32) -> (Self, f64) {
-        (Self { gety: None, mtd }, 1.0e-5)
+        (Self { gety: None, mtd, mt: mtd, unr: None }, 1.0e-5)
     }
     /// `getsig(e)`: `(sigma, enext, idis)`.
     ///
@@ -154,6 +161,53 @@ impl SigFeed {
                 (s, STEP * e, 0)
             }
         }
+    }
+
+    /// `getsig(e)` into `sig(nz, nl)`, stored `[iz * nl + il]` (`:6777-6797`):
+    /// the `gety1` value for every `(iz, il)`, then, when `nz > 1`, `getunr` on
+    /// each `il` (MT=261 for MT=1's `il > 1`). Returns `(enext, idis)`; when the
+    /// last `getunr` finds `e` outside its range (`en < 0`) both stay as `gety1`
+    /// gave them.
+    ///
+    /// # Errors
+    /// From `getunr`.
+    pub fn get_nz(&mut self, e: f64, nl: usize, nz: usize, out: &mut [f64], xtot: &mut f64) -> Result<(f64, i32), NjoyError> {
+        let (s, mut enext, mut idis) = self.get(e);
+        for v in out.iter_mut().take(nl * nz) {
+            *v = s;
+        }
+        if nz <= 1 || self.gety.is_none() {
+            return Ok((enext, idis));
+        }
+        let mut en = enext;
+        for il in 0..nl {
+            let mtt = if il > 0 && self.mt == 1 { 261 } else { self.mt };
+            let mut col: Vec<f64> = (0..nz).map(|iz| out[iz * nl + il]).collect();
+            en = match &self.unr {
+                Some((unr, sigz)) => crate::groupr::flux_table::getunr(Some(unr.as_ref()), sigz, mtt, e, &mut col, xtot)?,
+                None => -1.0,
+            };
+            for iz in 0..nz {
+                out[iz * nl + il] = col[iz];
+            }
+        }
+        if en < 0.0 {
+            return Ok((enext, idis));
+        }
+        if en < enext {
+            idis = 0;
+            enext = en;
+        }
+        Ok((enext, idis))
+    }
+
+    /// The `stounr` table and the run's `sigz` for `getunr` (`nz > 1`), and the
+    /// MT `getsig` read (`mt`, `:6692-6713`).
+    #[must_use]
+    pub fn with_unr(mut self, unr: Option<std::sync::Arc<crate::groupr::unresolved::UnresolvedTable>>, sigz: &[f64], mt: i32) -> Self {
+        self.unr = unr.map(|u| (u, sigz.to_vec()));
+        self.mt = mt;
+        self
     }
 }
 
@@ -316,46 +370,113 @@ impl PanelFeed {
     }
 }
 
-/// `panel`'s saved state for one reaction (`ipan = 0` resets it).
+/// The weighting flux `panel` asks `getflx` for (`groupr.f90:6439-6519`):
+/// `getwtf` when `nsigz = 1`, the `genflx` table when `nsigz > 1`.
+#[derive(Debug, Clone)]
+pub enum FluxSource {
+    /// `nsigz = 1`: `getwtf(iwt, e)` for every `il`.
+    Wtf(i32),
+    /// `nsigz > 1`: interpolation in `genflx`'s table.
+    Table(crate::groupr::flux_table::FluxCursor),
+}
+
+impl FluxSource {
+    /// `getflx(e = 0)`.
+    fn init(&mut self) {
+        match self {
+            FluxSource::Wtf(_) => getwtf_init(),
+            FluxSource::Table(c) => {
+                c.init();
+            }
+        }
+    }
+
+    /// `getflx(e)`: `flux[iz * nl + il]`, `xtot` (table only); returns `(enext, idis)`.
+    fn get(&mut self, e: f64, nl: usize, nz: usize, flux: &mut [f64], xtot: &mut f64) -> Result<(f64, i32), NjoyError> {
+        match self {
+            FluxSource::Wtf(iwt) => {
+                let (wtf, en, idis) = getwtf(*iwt, e)?;
+                for v in flux.iter_mut().take(nz * nl) {
+                    *v = wtf;
+                }
+                Ok((en, idis))
+            }
+            FluxSource::Table(c) => c.get(e, nl, nz, flux, xtot),
+        }
+    }
+}
+
+/// `panel`'s saved state for one reaction (`ipan = 0` resets it). `stmp`,
+/// `slst`, `ftmp` and `flst` are `(nz, nl)` arrays stored `[iz * nl + il]`.
 #[derive(Debug, Clone, Default)]
 pub struct PanelState {
     elast: f64,
     idisc: i32,
     enext: f64,
     ehigh: f64,
-    stmp: f64,
-    slst: f64,
-    ftmp: f64,
-    flst: f64,
+    stmp: Vec<f64>,
+    slst: Vec<f64>,
+    ftmp: Vec<f64>,
+    flst: Vec<f64>,
     ff: Vec<Vec<f64>>,
     nl: usize,
+    nz: usize,
     ng1: usize,
     ig1: i32,
     nq: usize,
+    /// The module variable `xtot`, set by `getflx` and `getunr`.
+    xtot: f64,
 }
 
-/// `getflx` at `e`: `(flux, enext, idis)` for `nsigz = 1`.
-fn getflx(iwt: i32, e: f64) -> Result<(f64, f64, i32), NjoyError> {
-    getwtf(iwt, e)
+impl PanelState {
+    fn sized(nl: usize, nz: usize) -> Self {
+        let n = nl.max(1) * nz.max(1);
+        Self { nl, nz: nz.max(1), stmp: vec![0.0; n], slst: vec![0.0; n], ftmp: vec![0.0; n], flst: vec![0.0; n], ..Self::default() }
+    }
 }
 
 fn load_ff(st: &mut PanelState, f: &FeedOut) {
     st.ng1 = f.ff[0].len();
     st.ig1 = f.iglo;
     st.ff = f.ff.clone();
+    // `getff` label 100 sets `ff(il, 1) = yld` for every `il` (`:7109-7112`).
+    while st.ff.len() < st.nl {
+        let r = st.ff[0].clone();
+        st.ff.push(r);
+    }
 }
 
-/// One call of `panel` for `nl = nz = 1`. `ans[1]` is the flux integral,
-/// `ans[2..]` the rates (index 0 unused, as in the Fortran `ans(1,1,ig)`).
-/// `elo`, `ehi` are updated as upstream's by-reference arguments are.
+/// `getflx` then `getsig` at `e`, into `(flst, slst)` or (`hi`) `(ftmp, stmp)`;
+/// returns `(en, idiscf, enext, idisc)`.
+fn flux_and_sig(st: &mut PanelState, flux: &mut FluxSource, sig: &mut SigFeed, e: f64, hi: bool) -> Result<(f64, i32, f64, i32), NjoyError> {
+    let (nl, nz) = (st.nl.max(1), st.nz.max(1));
+    let mut fx = vec![0.0; nl * nz];
+    let mut sx = vec![0.0; nl * nz];
+    let (en, idiscf) = flux.get(e, nl, nz, &mut fx, &mut st.xtot)?;
+    let (enext, idisc) = sig.get_nz(e, nl, nz, &mut sx, &mut st.xtot)?;
+    if hi {
+        st.ftmp = fx;
+        st.stmp = sx;
+    } else {
+        st.flst = fx;
+        st.slst = sx;
+    }
+    Ok((en, idiscf, enext, idisc))
+}
+
+/// One call of `panel` (`groupr.f90:5858-6091`). `ans` is `ans(il, iz, ig)`
+/// stored `[(ig * nz + iz) * nl + il]` with `ig` 1-based (index 0 unused):
+/// `ig = 1` is the flux integral, `ig >= 2` the rates. `elo`, `ehi` are updated
+/// as upstream's by-reference arguments are.
 ///
 /// # Errors
-/// From `getwtf`, the feed, or a bad `nq`.
+/// From `getflx`, `getsig`, the feed, or a bad `nq`.
+#[allow(clippy::too_many_arguments)]
 pub fn panel(
     st: &mut PanelState,
     sig: &mut SigFeed,
     feed: &mut PanelFeed,
-    iwt: i32,
+    flux: &mut FluxSource,
     elo: &mut f64,
     ehi: &mut f64,
     ans: &mut [f64],
@@ -364,6 +485,8 @@ pub fn panel(
 ) -> Result<(), NjoyError> {
     let elow = *elo;
     let nl = st.nl.max(1);
+    let nz = st.nz.max(1);
+    let idx = |il: usize, iz: usize, ig: usize| (ig * nz + iz) * nl + il;
     if *elo > *ehi * (1.0 + SMALL) {
         return Err(NjoyError::InvalidInput("panel: elo.gt.ehi.".into()));
     }
@@ -378,12 +501,9 @@ pub fn panel(
             *elo *= RNDOFF;
         }
         st.elast = *elo;
-        let (f, e1, d1) = getflx(iwt, *elo)?;
-        st.flst = f;
+        let (e1, d1, e2, d2) = flux_and_sig(st, flux, sig, *elo, false)?;
         en = e1;
         idiscf = d1;
-        let (s, e2, d2) = sig.get(*elo);
-        st.slst = s;
         st.enext = e2;
         st.idisc = d2;
         if st.enext >= EMAX * (1.0 - SMALL) {
@@ -427,17 +547,15 @@ pub fn panel(
         } else {
             st.ehigh = DELTA * *ehi;
         }
-        let (f, e1, d1) = getflx(iwt, st.ehigh)?;
-        st.ftmp = f;
+        let eh = st.ehigh;
+        let (e1, d1, e2, d2) = flux_and_sig(st, flux, sig, eh, true)?;
         en = e1;
         idiscf = d1;
-        let (s, e2, d2) = sig.get(st.ehigh);
-        st.stmp = s;
         st.enext = e2;
         st.idisc = d2;
         let mut zero_panel = false;
         if st.enext > EMAX * (1.0 - SMALL) {
-            if st.stmp == 0.0 {
+            if st.stmp[0] == 0.0 {
                 zero_panel = true;
             }
         } else {
@@ -456,8 +574,11 @@ pub fn panel(
         } else {
             let aq = (*ehi + elow) / 2.0;
             let bq = (*ehi - elow) / 2.0;
-            for il in 0..nl {
-                ans[nl + il] += (st.ftmp + st.flst) * bq;
+            for iz in 0..nz {
+                for il in 0..nl {
+                    let k = iz * nl + il;
+                    ans[idx(il, iz, 1)] += (st.ftmp[k] + st.flst[k]) * bq;
+                }
             }
             let nq = st.nq;
             for iq in 1..=nq {
@@ -476,29 +597,33 @@ pub fn panel(
                     let fo = feed.at(eq)?;
                     en = fo.en;
                     if fo.idisc != IDISC_UNSET {
-                idiscf = fo.idisc;
-            }
+                        idiscf = fo.idisc;
+                    }
                     nqp = fo.nq;
                     load_ff(st, &fo);
                 }
                 if *iglo == 0 {
                     *iglo = st.ig1;
                 }
-                let a = st.stmp * st.ftmp;
-                let b = st.slst * st.flst;
-                let rr = (b + (a - b) * t1) * wq;
-                for ig in 1..=st.ng1 {
+                for iz in 0..nz {
                     for il in 0..nl {
-                        if st.ff[il][ig - 1] != 0.0 {
-                            let igt = st.ig1 + ig as i32 - *iglo + 1;
-                            if igt > 1 {
-                                let igt = igt as usize;
-                                if (igt + 1) * nl > ans.len() {
-                                    return Err(NjoyError::InvalidInput("panel: ans too short".into()));
-                                }
-                                ans[igt * nl + il] += rr * st.ff[il][ig - 1];
-                                if igt > *ng {
-                                    *ng = igt;
+                        let k = iz * nl + il;
+                        let a = st.stmp[k] * st.ftmp[k];
+                        let b = st.slst[k] * st.flst[k];
+                        let rr = (b + (a - b) * t1) * wq;
+                        for ig in 1..=st.ng1 {
+                            if st.ff[il][ig - 1] != 0.0 {
+                                let igt = st.ig1 + ig as i32 - *iglo + 1;
+                                if igt > 1 {
+                                    let igt = igt as usize;
+                                    let j = idx(il, iz, igt);
+                                    if j >= ans.len() {
+                                        return Err(NjoyError::InvalidInput("panel: ans too short".into()));
+                                    }
+                                    ans[j] += rr * st.ff[il][ig - 1];
+                                    if igt > *ng {
+                                        *ng = igt;
+                                    }
                                 }
                             }
                         }
@@ -506,9 +631,11 @@ pub fn panel(
                 }
             }
             // thermal-group removal
-            if (221..=250).contains(&sig.mtd) && *elo >= TTEST && st.stmp.abs() <= SMIN {
-                for il in 0..nl {
-                    ans[2 * nl + il] = 0.0;
+            if (221..=250).contains(&sig.mtd) && *elo >= TTEST && st.stmp[0].abs() <= SMIN {
+                for iz in 0..nz {
+                    for il in 0..nl {
+                        ans[idx(il, iz, 2)] = 0.0;
+                    }
                 }
                 *ng = 2;
             }
@@ -516,9 +643,11 @@ pub fn panel(
     }
     if skip_to_220 {
         // label 115
-        for il in 0..nl {
-            ans[nl + il] = 1.0;
-            ans[2 * nl + il] = 0.0;
+        for iz in 0..nz {
+            for il in 0..nl {
+                ans[idx(il, iz, 1)] = 1.0;
+                ans[idx(il, iz, 2)] = 0.0;
+            }
         }
         *ng = 2;
         *iglo = 1;
@@ -527,8 +656,8 @@ pub fn panel(
     }
     // label 220
     st.elast = st.ehigh;
-    st.slst = st.stmp;
-    st.flst = st.ftmp;
+    st.slst = st.stmp.clone();
+    st.flst = st.ftmp.clone();
     if (en - st.enext).abs() < st.enext * SMALL && idiscf > st.idisc {
         st.idisc = idiscf;
     }
@@ -549,51 +678,64 @@ pub fn panel(
 /// the `nl*nz*ng2` words of the record.
 pub type GroupRow = (usize, usize, i32, Vec<f64>);
 
-/// `displa`, label 310, for `nl = nz = 1` (`:6270-6345`): `ans[1..=ng2]` in,
-/// `(ng2, ig2lo, igzero, data)` out. `irat` is set for `MT = 251-253`.
-fn displa310(mut ans: Vec<f64>, mut ng2: usize, mut ig2lo: i32, irat: bool) -> (usize, i32, bool, Vec<f64>) {
+/// `displa`, label 310 (`:6292-6378`): self-shielded cross sections and
+/// matrices, and every `itr = 0` record. `ans(il, iz, ig2)` is
+/// `ans[(ig2 * nz + iz) * nl + il]`; `(ng2, ig2lo, igzero, data)` out, with
+/// `data` the `nl * nz * ng2` words. `irat` is set for `MT = 251-253, 452-456`.
+/// As upstream, `izero` is reset per `ig2`, not per `il`, and `ilo` is fixed by
+/// the first `il` with a non-zero word.
+fn displa310(mut ans: Vec<f64>, mut ng2: usize, mut ig2lo: i32, irat: bool, nl: usize, nz: usize) -> (usize, i32, bool, Vec<f64>) {
     let big = 1.0e10;
+    let idx = |il: usize, iz: usize, ig: usize| (ig * nz + iz) * nl + il;
     let mut ilo = 0usize;
     let mut ihi = ng2;
     let mut igzero = false;
+    let mut result = vec![0.0f64; nz];
     for ig2 in 2..=ng2 {
         let mut izero = 0;
-        let mut result = 0.0;
-        if ig2 == 2 {
-            ans[1] = sigfig(ans[1], 7, 0);
-            if irat {
-                ans[3] = sigfig(ans[3], 7, 0);
+        for il in 0..nl {
+            for iz in 0..nz {
+                result[iz] = 0.0;
+                if ig2 == 2 {
+                    ans[idx(il, iz, 1)] = sigfig(ans[idx(il, iz, 1)], 7, 0);
+                    if irat {
+                        ans[idx(il, iz, 3)] = sigfig(ans[idx(il, iz, 3)], 7, 0);
+                    }
+                }
+                if ans[idx(il, iz, ig2)] != 0.0 {
+                    let locd = if irat && ig2 == 2 { 3 } else { 1 };
+                    if ans[idx(il, iz, locd)] == 0.0 {
+                        ans[idx(il, iz, locd)] = big;
+                    }
+                    result[iz] = sigfig(ans[idx(il, iz, ig2)] / ans[idx(il, iz, locd)], 7, 0);
+                    izero = 1;
+                }
             }
-        }
-        if ans[ig2] != 0.0 {
-            let locd = if irat && ig2 == 2 { 3 } else { 1 };
-            if ans[locd] == 0.0 {
-                ans[locd] = big;
+            if ilo == 0 && (izero > 0 || ig2 == ng2) {
+                ilo = ig2;
             }
-            result = sigfig(ans[ig2] / ans[locd], 7, 0);
-            izero = 1;
-        }
-        if ilo == 0 && (izero > 0 || ig2 == ng2) {
-            ilo = ig2;
-        }
-        if ilo == 0 && irat {
-            ilo = ig2;
-        }
-        if ilo != 0 {
-            ans[ig2 - ilo + 2] = result;
-            if izero > 0 {
-                ihi = ig2;
+            if ilo == 0 && irat {
+                ilo = ig2;
             }
-            if izero == 1 {
-                igzero = true;
+            if ilo != 0 {
+                for iz in 0..nz {
+                    ans[idx(il, iz, ig2 - ilo + 2)] = result[iz];
+                }
+                if izero > 0 {
+                    ihi = ig2;
+                }
+                if izero == 1 {
+                    igzero = true;
+                }
             }
         }
     }
     ig2lo += ilo as i32 - 2;
     ng2 = ihi - ilo + 2;
-    let data = ans[1..1 + ng2].to_vec();
+    let data = ans[idx(0, 0, 1)..idx(0, 0, 1 + ng2)].to_vec();
     (ng2, ig2lo, igzero, data)
 }
+
 
 /// `displa`, the infinite-dilution transfer matrix branch (`:6205-6245`,
 /// `itr = 1`, `nz = 1`, `nl > 1`): `ans(il, 1, ig2)` is `ans[ig2 * nl + il]`.
@@ -676,15 +818,16 @@ fn displa_isotropic(mut ans: Vec<f64>, mut ng2: usize, mut ig2lo: i32) -> (usize
     (ng2, ig2lo, igzero, data)
 }
 
-/// The group loop of `groupr` (`:766-830`) with `displa`'s `mfd = 3` rounding
-/// for one reaction. Returns the records to write (`igzero || ig == ngn`).
+/// The group loop of `groupr` (`:766-830`) with `displa` for one reaction, at
+/// infinite dilution (`nz = 1`, `getflx` = `getwtf(iwt)`). Returns the records
+/// to write (`igzero || ig == ngn`).
 ///
 /// `egn` are the `ngn + 1` boundaries, `first` the cross section's first
-/// energy, `emaxx` the evaluation-format limit (`:425-431`). `ng_max` is
-/// upstream's `init` `ng` (2, or 3 for `MT = 251-253`).
+/// energy, `emaxx` the evaluation-format limit (`:425-431`).
 ///
 /// # Errors
 /// From [`panel`].
+#[allow(clippy::too_many_arguments)]
 pub fn group_general(
     sig: &mut SigFeed,
     feed: &mut PanelFeed,
@@ -695,10 +838,34 @@ pub fn group_general(
     irat: bool,
     nl: usize,
 ) -> Result<Vec<GroupRow>, NjoyError> {
+    group_general_nz(sig, feed, &mut FluxSource::Wtf(iwt), 1, egn, first, emaxx, irat, nl)
+}
+
+/// [`group_general`] for `nz` sigma-zeros and a given flux (`init`'s `nz`,
+/// `getflx`'s two branches). Each record's words are `ans(il, iz, ig2)` in that
+/// order (`il` fastest, `:893-916`).
+///
+/// # Errors
+/// From [`panel`].
+#[allow(clippy::too_many_arguments)]
+pub fn group_general_nz(
+    sig: &mut SigFeed,
+    feed: &mut PanelFeed,
+    flux: &mut FluxSource,
+    nz: usize,
+    egn: &[f64],
+    first: f64,
+    emaxx: f64,
+    irat: bool,
+    nl: usize,
+) -> Result<Vec<GroupRow>, NjoyError> {
     let ngn = egn.len() - 1;
-    // `getflx(ee = 0)` at the start of each reaction re-initialises `getwtf` (`:6457`).
-    getwtf_init();
-    let mut st = PanelState { nl, ..PanelState::default() };
+    let nz = nz.max(1);
+    let nlz = nl.max(1) * nz;
+    // `getflx(ee = 0)` at the start of each reaction (`:6457-6467`): `getwtf`'s
+    // reset when `nsigz = 1`, the table's first rows when `nsigz > 1`.
+    flux.init();
+    let mut st = PanelState::sized(nl, nz);
     let mut out = Vec::new();
     // `econst` constant-spectrum range (`groupr.f90:757-785`, `getff` label 300 with
     // `mfd = 16`): the spectrum is written first as the `ig = 0` record (`displa`
@@ -713,9 +880,17 @@ pub fn group_general(
         if nl != 1 {
             return Err(NjoyError::NotPorted("groupr: constant-spectrum range with nl > 1"));
         }
+        // label 505: `ans(1, iz, j) = ff(1, i)` for every `iz`; label 460 rounds
+        // `ans(1, 1, ·)` only.
         let fo = feed.at(en0)?;
-        let data: Vec<f64> = fo.ff[0].iter().map(|&v| sigfig(v, 7, 0)).collect();
-        out.push((0, data.len(), fo.iglo, data));
+        let ng2 = fo.ff[0].len();
+        let mut data = Vec::with_capacity(ng2 * nz);
+        for &v in &fo.ff[0] {
+            for iz in 0..nz {
+                data.push(if iz == 0 { sigfig(v, 7, 0) } else { v });
+            }
+        }
+        out.push((0, ng2, fo.iglo, data));
     }
     for ig in 1..=ngn {
         let (mut elo, ehi) = (egn[ig - 1], egn[ig]);
@@ -725,11 +900,11 @@ pub fn group_general(
         if elo >= emaxx && ig != ngn {
             continue;
         }
-        let mut ans = vec![0.0f64; (ngn.max(feed.ngg()) + 3) * nl.max(1)];
+        let mut ans = vec![0.0f64; (ngn.max(feed.ngg()) + 3) * nlz];
         let (mut ng, mut iglo) = (2usize, 0i32);
         let mut enext = ehi;
         loop {
-            panel(&mut st, sig, feed, iwt, &mut elo, &mut enext, &mut ans, &mut ng, &mut iglo)?;
+            panel(&mut st, sig, feed, flux, &mut elo, &mut enext, &mut ans, &mut ng, &mut iglo)?;
             if enext == ehi {
                 break;
             }
@@ -737,18 +912,23 @@ pub fn group_general(
             enext = ehi;
         }
         if jconst > 0 && ig <= jconst {
-            // `:815-826`: rate / flux, `ig2lo = 0`; `displa` label 470 only rounds `prod`.
-            ans[2 * nl] /= ans[nl];
-            out.push((ig, ng, 0, ans[nl..(1 + ng) * nl].to_vec()));
+            // `:815-826`: rate / flux for every `(il, iz)`, `ig2lo = 0`; `displa`
+            // label 470 only rounds `prod`.
+            for k in 0..nlz {
+                ans[2 * nlz + k] /= ans[nlz + k];
+            }
+            out.push((ig, ng, 0, ans[nlz..(1 + ng) * nlz].to_vec()));
             continue;
         }
+        // `displa`'s `itr = 1` families (`:6143-6146`).
         let matrix = matches!(feed, PanelFeed::TwoBodyNl(..) | PanelFeed::Continuum(..) | PanelFeed::Thermal(..) | PanelFeed::Photon(..) | PanelFeed::Mf6(..) | PanelFeed::Gam102(..));
-        let (ng2, ig2lo, igzero, data) = if nl > 1 {
-            displa_matrix(ans, ng, iglo, nl)
-        } else if matrix {
+        // `:6202-6205`: `nz > 1` or `itr = 0` → label 310; else `nl = 1` → 250.
+        let (ng2, ig2lo, igzero, data) = if nz > 1 || !matrix {
+            displa310(ans, ng, iglo, irat, nl.max(1), nz)
+        } else if nl == 1 {
             displa_isotropic(ans, ng, iglo)
         } else {
-            displa310(ans, ng, iglo, irat)
+            displa_matrix(ans, ng, iglo, nl)
         };
         if igzero || ig == ngn {
             out.push((ig, ng2, ig2lo, data));

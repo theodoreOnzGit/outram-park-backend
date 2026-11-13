@@ -154,3 +154,49 @@ pub fn lo2_converted(nend: &Tape, mat: i32, iverf: i32, emaxx: f64, text: bool) 
     }
     Ok(Some(Tape::from_sections(nend.tpid.clone(), out)))
 }
+
+/// `conver`'s File-1 pass (`groupr.f90:11473-11550`): when MF=1 has MT=452 but
+/// neither MT=455 nor MT=456, a copy of MT=452 is added as MT=456 (`L2 = LNU`,
+/// the rest of the HEAD zero), so that `getyld(.., 1, 456, ..)` finds a prompt
+/// nu. `None` when nothing is added. The HEAD's `C1`, `C2` are upstream's stale
+/// `scr` words (the next section's); GROUPR reads only `L2` of it, so they are
+/// set from MT=452's here.
+pub fn with_mt456(nend: &Tape, mat: i32) -> Option<Tape> {
+    let s452 = nend.section(mat, 1, 452)?;
+    if nend.section(mat, 1, 455).is_some() || nend.section(mat, 1, 456).is_some() {
+        return None;
+    }
+    let h = s452.rows[0];
+    let mut rows = vec![cont_row(h[0], h[1], 0, h[3].round() as i32, 0, 0)];
+    rows.extend_from_slice(&s452.rows[1..]);
+    let mut secs: Vec<Section> = Vec::new();
+    for s in nend.sections() {
+        secs.push(s.clone());
+        if s.key.mat == mat && s.key.mf == 1 && s.key.mt == 452 {
+            let mut key = s.key;
+            key.mt = 456;
+            secs.push(Section { key, rows: rows.clone() });
+        }
+    }
+    let mut t = Tape::from_sections(nend.tpid.clone(), secs);
+    t.copy_raw_mf32_from(nend);
+    Some(t)
+}
+
+#[cfg(test)]
+mod mt456_tests {
+    use super::*;
+
+    #[test]
+    fn mt452_is_copied_to_456_only_without_455_and_456() {
+        let k = |mt| crate::endf::EndfKey { mat: 1050, mf: 1, mt };
+        let s452 = Section { key: k(452), rows: vec![[94238.0, 236.0, 0.0, 1.0, 0.0, 0.0], [2.0, 0.0, 0.0, 0.0, 1.0, 0.0]] };
+        let t = Tape::from_sections(String::new(), vec![s452.clone()]);
+        let t2 = with_mt456(&t, 1050).unwrap();
+        let s456 = t2.section(1050, 1, 456).unwrap();
+        assert_eq!(s456.rows[0][3], 1.0);
+        assert_eq!(s456.rows[1], s452.rows[1]);
+        let s455 = Section { key: k(455), rows: s452.rows.clone() };
+        assert!(with_mt456(&Tape::from_sections(String::new(), vec![s452, s455]), 1050).is_none());
+    }
+}

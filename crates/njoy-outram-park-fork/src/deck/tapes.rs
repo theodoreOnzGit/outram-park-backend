@@ -42,8 +42,10 @@ use crate::NjoyError;
 /// What the modules run so far have done to a PENDF unit, beyond its MF=3
 /// content: what ACER needs to know to build the table NJOY's chain would.
 ///
-/// UNRESR's MF=2/MT=152 and PURR's MF=2/MT=153 are **not** written onto the
-/// tape here (their tape writers are not ported); PURR's probability tables
+/// ~~UNRESR's MF=2/MT=152 and PURR's MF=2/MT=153 are **not** written onto the
+/// tape here (their tape writers are not ported)~~ **CORRECTED 2026-11-13
+/// (gh:#1369):** UNRESR's MF=2/MT=152 is written (`unresr::tape`), and PURR's
+/// MT=152/153 are for the common deck (gh:#1498); PURR's probability tables
 /// are computed by ACER from the evaluation, as [`crate::acer::build_deck`]
 /// does, and these flags say that the deck asked for them.
 #[derive(Debug, Clone, Default)]
@@ -55,7 +57,7 @@ pub struct PendfMeta {
     pub heatr_partials: [bool; 3],
     /// HEATR's output unit was negative (blocked binary).
     pub heatr_binary: bool,
-    /// UNRESR ran (its MT=152 is not on the tape, see above).
+    /// UNRESR ran (~~its MT=152 is not on the tape~~ it rewrote MT=152, gh:#1369).
     pub unresr: bool,
     /// PURR ran: `(nbin, nladr, temperatures)` of its cards.
     pub purr: Option<(usize, usize, Vec<f64>)>,

@@ -252,7 +252,8 @@ impl ContinuumFeed {
         } else {
             None
         };
-        let ang = File4Angular::from_tape(tape, mat, mtd, crate::groupr::file4::NLD)?;
+        // `getfle` with `lcd = 1` (`:7152-7153`).
+        let ang = File4Angular::from_tape_lab(tape, mat, mtd, crate::groupr::file4::NLD)?;
         let en = ang.first_energy();
         if en < enext * (1.0 - SMALL) {
             enext = en;

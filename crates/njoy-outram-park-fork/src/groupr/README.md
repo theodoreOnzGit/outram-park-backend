@@ -218,7 +218,13 @@ state and the 235m isomer; see the test's doc comment for the measured
 agreement on NJOY's PENDF table (strict) and on the ENDF table (looser).
 
 Still **not** golden-validated: File-6 continuum feeds,
-`LSSF = 0` materials, and more than one temperature. GAMINR's engine now has
+`LSSF = 0` materials, and more than one temperature. **CORRECTED 2026-11-13
+(gh:#1369):** through the deck driver (`njoy_panel::group_general_nz`,
+`flux_table`), not this engine, NJOY2016's own decks are identical line for
+line with several temperatures and sigma-zeros: deck 11 (Pu-238 ENDF/B-IV,
+`LSSF = 0`, 3 temperatures x 7 sigma-zeros, MF=6 continuum MT=16/17/91) and
+deck 47's second GROUPR (Pu-239, 2 sigma-zeros). See
+`verification_and_validation/deck_driver/README.md` section 16. GAMINR's engine now has
 its own oracle (`src/gaminr/README.md`).
 
 ## Caveats

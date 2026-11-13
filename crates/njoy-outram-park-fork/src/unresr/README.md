@@ -93,11 +93,17 @@ figure at σ₀ = 10¹⁰ and 1 b (e.g. 20 keV, σ₀ = 1 b: 12.911/12.471/0.439
   U-238 with `NAPS=0`; the `NAPS=2` arm (channel radius from the header
   scalar, `unresl:977/1001`) and `NAPS=1` with a table are ported from the
   same lines but no evaluation in `reference-data/endf/` exercises them.
-- **PENDF MT=152 output-tape bookkeeping is not ported.** This crate has no
+- ~~**PENDF MT=152 output-tape bookkeeping is not ported.** This crate has no
   established "write an unresolved-region PENDF section" concept yet (unlike
   ACE); `unresolved_cross_sections` returns the computed cross sections
-  directly rather than writing them back to a tape. `run()` remains
-  `NotPorted`, matching every other module's driver-vs-typed-API split.
+  directly rather than writing them back to a tape.~~ **CORRECTED 2026-11-13
+  (gh:#1369):** `tape.rs` writes UNRESR's MF=2/MT=152 (`rdunf2`'s grid,
+  `rdunf3`'s background, the record of `unresr.f90:178-200`) onto each
+  temperature of a PENDF; the deck driver's UNRESR uses it. Deck 47's UNRESR
+  PENDF is NJOY2016's line for line (`test_47_unresr_pendf_with_mt152`, 150 428
+  lines). Not translated: a PENDF without an MT=152 yet (`new = 1`, refused).
+  `run()` remains `NotPorted`, matching every other module's driver-vs-typed-API
+  split.
 - **Sequence numbering / temperature batching:** this port evaluates one
   temperature per call rather than Fortran's `ntempu`-batched loop — a
   calling-convention simplification (call once per temperature), not a
