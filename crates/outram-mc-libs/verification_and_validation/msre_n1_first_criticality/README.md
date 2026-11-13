@@ -823,11 +823,62 @@ level; dividing again by the atom ratio removes the composition:
   cannot be read against ENDF/B-VIII.0 here. The pattern is a large gap in
   Zr and F, a small one in Be, and the opposite sign in Li-7, whose
   absorption is 1/v and so thermal. That suggests the epithermal and fast
-  data rather than the thermal. **This is a hypothesis.** The salt-spectrum
+  data rather than the thermal. **This is a hypothesis.** ~~The salt-spectrum
   instrument records totals per nuclide, not per energy band, so this page
   has not measured how much of our Zr and F absorption is epithermal. An
-  energy-banded fold of the existing tally would test that cheaply. **The maintainer supplies the literature**; this is
+  energy-banded fold of the existing tally would test that cheaply.~~
+  **MEASURED 2026-11-13**, below: most of our Zr and F absorption is above
+  thermal, and Li-7's is not. **The maintainer supplies the literature**; this is
   recorded as a request on gh:#1128.
+
+**Energy bands of the salt absorption (2026-11-13, gh:#1128).**
+
+- **Method.** `--salt-spectrum-csv` now splits each salt nuclide's
+  absorption, folded from the salt's group flux tally as before, into
+  thermal (< 0.625 eV), epithermal (0.625 eV – 100 keV) and fast
+  (> 100 keV). Each group goes whole to the band that holds its lower edge,
+  with the cross section taken at the group's geometric midpoint, as the
+  totals always were. The three bands sum to the old total exactly, by
+  construction, so that sum checks the bookkeeping and not the physics. Default model, seeds 1–3: k = 1.00498,
+  1.00600, 1.00594 (mean 1.00564, +28 pcm against the default's 1.00536,
+  within σ). About 37–41 min a seed with the tally on, same hardware.
+- **Prediction** (posted on gh:#1128 before the run), the share above
+  0.625 eV: Zr 40–70 %, F 60–90 %, Be 30–70 %, Li-7 < 10 %, U-235 15–35 %.
+
+| element | thermal | epithermal | fast | above thermal | predicted | |
+|---|---|---|---|---|---|---|
+| Zr | 0.293 | 0.672 | 0.035 | **70.7 %** | 40–70 % | just outside |
+| F | 0.406 | 0.163 | 0.431 | **59.4 %** | 60–90 % | just outside |
+| Be | 0.244 | 0.036 | 0.720 | **75.6 %** | 30–70 % | miss |
+| Li-7 | 0.871 | 0.128 | 0.000 | **12.9 %** | < 10 % | miss |
+| U-235 | 0.801 | 0.195 | 0.003 | **19.9 %** | 15–35 % | inside |
+
+  Shares are summed over the three seeds; per-seed shares agree within
+  0.1 percentage point, so the statistics do not limit them. Zr-91 is 63 %
+  of the element's absorption, 67 % of it above thermal. Data:
+  `data/salt_bands.csv`.
+- **What it says.**
+  - **Only U-235 fell inside its range.** Zr and F missed by less than one
+    point. Be and Li-7 missed by more. I under-predicted the
+    above-thermal share of Be, whose (n,α) is a fast threshold reaction,
+    and of Li-7, whose 1/v tail still takes 13 %.
+  - **The ordering supports the hypothesis, and does not prove it.** The
+    nuclides with large ORNL/ours gaps, Zr (2.50) and F (1.82), absorb
+    71 % and 59 % above thermal. Li-7, with the opposite gap (0.76),
+    absorbs 87 % thermally. **Be breaks the pattern.** It absorbs 76 %
+    above thermal yet has a small gap (1.14), so "above thermal" alone
+    does not predict a gap. What separates Zr is *epithermal resonance*
+    absorption, 67 %. F's is split between epithermal (16 %) and a fast
+    threshold (n,α) part (43 %). Be's is almost all fast.
+  - **For F, TM-0730 itself is a check.** Table 3.7 splits F into (n,α) 828
+    and (n,γ) 621. That is 57 % (n,α), against our 43 % fast. Our fast band
+    is a proxy for (n,α), since the tally does not split by reaction. So the
+    two calculations put F's absorption in similar places, and the 1.82 is
+    more likely in magnitude than in where it sits.
+  - **Still not resolved.** A 2.5× gap concentrated in Zr's epithermal
+    resonances is what a 1950s Zr resonance integral, or hafnium left in
+    the zirconium, would produce. Neither is measured here. BNL-325 and
+    CF-60-3-35 are still the request on gh:#1128.
 
 ### N-1 residual: U-234 and U-236 in the salt (2026-11-12, gh:#1128)
 
