@@ -103,7 +103,31 @@ mod qags;
 /// QAGI, QAGIU, QAGIL: infinite ranges by the QAGS transformations of GSL
 /// `integration/qags.c` (gh:#1340).
 mod qagi;
+/// QNG: non-adaptive Gauss-Kronrod-Patterson, GSL `integration/qng.c`
+/// (gh:#1340).
+#[allow(clippy::excessive_precision)]
+mod qng;
 
+/// Gauss-Legendre tables copied from GSL `integration/glfixed.c`.
+#[rustfmt::skip]
+mod glfixed_tables;
+/// Fixed-order Gauss-Legendre quadrature, GSL `integration/glfixed.c`
+/// (gh:#1340).
+mod glfixed;
+
+pub use glfixed::{glfixed, glfixed_point, glfixed_table_alloc, GlFixedTable};
+/// QAGP: break points, GSL `integration/qagp.c` (gh:#1340).
+mod qagp;
+
+/// Chebyshev approximations for QAWC/QAWS, GSL `integration/qcheb.c`.
+mod qcheb;
+/// QAWC: Cauchy principal value, GSL `integration/qawc.c` and `qc25c.c`
+/// (gh:#1340).
+mod qawc;
+
+pub use qagp::{qagp, qagp_with_status};
+pub use qawc::{qawc, qawc_with_status};
+pub use qng::{qng, qng_with_status, QngOutcome};
 pub use qagi::{qagi, qagil, qagil_with_status, qagi_with_status, qagiu, qagiu_with_status};
 pub use qags::{qags, qags_with_status, QagsOutcome};
 

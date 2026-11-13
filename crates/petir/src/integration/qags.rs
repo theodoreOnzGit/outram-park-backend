@@ -85,50 +85,50 @@ use crate::{PetirError, Result};
 const DBL_MAX: f64 = f64::MAX;
 
 /// Checked read of a `f64` slot.
-fn rd(v: &[f64], i: usize) -> Option<f64> {
+pub(super) fn rd(v: &[f64], i: usize) -> Option<f64> {
     v.get(i).copied()
 }
 
 /// Checked write of a `f64` slot.
-fn wr(v: &mut [f64], i: usize, x: f64) -> Option<()> {
+pub(super) fn wr(v: &mut [f64], i: usize, x: f64) -> Option<()> {
     *v.get_mut(i)? = x;
     Some(())
 }
 
 /// Checked read of a `usize` slot.
-fn rdu(v: &[usize], i: usize) -> Option<usize> {
+pub(super) fn rdu(v: &[usize], i: usize) -> Option<usize> {
     v.get(i).copied()
 }
 
 /// Checked write of a `usize` slot.
-fn wru(v: &mut [usize], i: usize, x: usize) -> Option<()> {
+pub(super) fn wru(v: &mut [usize], i: usize, x: usize) -> Option<()> {
     *v.get_mut(i)? = x;
     Some(())
 }
 
 /// A signed index (upstream's `int`) as a `usize`, `None` if negative.
-fn ix(i: isize) -> Option<usize> {
+pub(super) fn ix(i: isize) -> Option<usize> {
     usize::try_from(i).ok()
 }
 
 /// `gsl_integration_workspace`, allocated for one call.
-struct Workspace {
-    limit: usize,
-    size: usize,
-    nrmax: usize,
-    i: usize,
-    maximum_level: usize,
-    alist: Vec<f64>,
-    blist: Vec<f64>,
-    rlist: Vec<f64>,
-    elist: Vec<f64>,
-    order: Vec<usize>,
-    level: Vec<usize>,
+pub(super) struct Workspace {
+    pub(super) limit: usize,
+    pub(super) size: usize,
+    pub(super) nrmax: usize,
+    pub(super) i: usize,
+    pub(super) maximum_level: usize,
+    pub(super) alist: Vec<f64>,
+    pub(super) blist: Vec<f64>,
+    pub(super) rlist: Vec<f64>,
+    pub(super) elist: Vec<f64>,
+    pub(super) order: Vec<usize>,
+    pub(super) level: Vec<usize>,
 }
 
 impl Workspace {
     /// `gsl_integration_workspace_alloc` followed by `initialise.c`.
-    fn new(limit: usize, a: f64, b: f64) -> Option<Self> {
+    pub(super) fn new(limit: usize, a: f64, b: f64) -> Option<Self> {
         let mut w = Workspace {
             limit,
             size: 0,
@@ -148,14 +148,14 @@ impl Workspace {
     }
 
     /// `set_initial.c`, `set_initial_result`.
-    fn set_initial_result(&mut self, result: f64, error: f64) -> Option<()> {
+    pub(super) fn set_initial_result(&mut self, result: f64, error: f64) -> Option<()> {
         self.size = 1;
         wr(&mut self.rlist, 0, result)?;
         wr(&mut self.elist, 0, error)
     }
 
     /// `util.c`, `retrieve`: `(a, b, r, e)` of the interval `i`.
-    fn retrieve(&self) -> Option<(f64, f64, f64, f64)> {
+    pub(super) fn retrieve(&self) -> Option<(f64, f64, f64, f64)> {
         let i = self.i;
         Some((
             rd(&self.alist, i)?,
@@ -167,7 +167,7 @@ impl Workspace {
 
     /// `util.c`, `update`: store the two halves, then `qpsrt`.
     #[allow(clippy::too_many_arguments)]
-    fn update(
+    pub(super) fn update(
         &mut self,
         a1: f64,
         b1: f64,
@@ -218,7 +218,7 @@ impl Workspace {
 
     /// `qpsrt.c`: maintain the descending ordering of the error estimates and
     /// point `i` at the interval with the `nrmax`-th largest error.
-    fn qpsrt(&mut self) -> Option<()> {
+    pub(super) fn qpsrt(&mut self) -> Option<()> {
         let last = self.size.checked_sub(1)?;
         let limit = self.limit;
 
@@ -288,7 +288,7 @@ impl Workspace {
 
     /// `qpsrt2.c`, `increase_nrmax`: `Some(true)` if a larger interval with a
     /// big error was found to bisect next.
-    fn increase_nrmax(&mut self) -> Option<bool> {
+    pub(super) fn increase_nrmax(&mut self) -> Option<bool> {
         let id = self.nrmax;
         let limit = self.limit;
         let last = self.size.checked_sub(1)?;
@@ -313,19 +313,19 @@ impl Workspace {
     }
 
     /// `qpsrt2.c`, `large_interval`.
-    fn large_interval(&self) -> Option<bool> {
+    pub(super) fn large_interval(&self) -> Option<bool> {
         Some(rdu(&self.level, self.i)? < self.maximum_level)
     }
 
     /// `reset.c`, `reset_nrmax`.
-    fn reset_nrmax(&mut self) -> Option<()> {
+    pub(super) fn reset_nrmax(&mut self) -> Option<()> {
         self.nrmax = 0;
         self.i = rdu(&self.order, 0)?;
         Some(())
     }
 
     /// `util.c`, `sum_results`.
-    fn sum_results(&self) -> f64 {
+    pub(super) fn sum_results(&self) -> f64 {
         let mut result_sum = 0.0;
         for r in self.rlist.iter().take(self.size) {
             result_sum += *r;
@@ -335,7 +335,7 @@ impl Workspace {
 }
 
 /// `util.c`, `subinterval_too_small`.
-fn subinterval_too_small(a1: f64, a2: f64, b2: f64) -> bool {
+pub(super) fn subinterval_too_small(a1: f64, a2: f64, b2: f64) -> bool {
     let e = DBL_EPSILON;
     let u = DBL_MIN;
     let tmp = (1.0 + 100.0 * e) * (a2.abs() + 1000.0 * u);
@@ -343,21 +343,21 @@ fn subinterval_too_small(a1: f64, a2: f64, b2: f64) -> bool {
 }
 
 /// `positivity.c`, `test_positivity`: does `f` keep one sign?
-fn test_positivity(result: f64, resabs: f64) -> bool {
+pub(super) fn test_positivity(result: f64, resabs: f64) -> bool {
     result.abs() >= (1.0 - 50.0 * DBL_EPSILON) * resabs
 }
 
 /// `qelg.c`, `struct extrapolation_table`.
-struct ExtrapolationTable {
-    n: usize,
-    rlist2: [f64; 52],
-    nres: usize,
-    res3la: [f64; 3],
+pub(super) struct ExtrapolationTable {
+    pub(super) n: usize,
+    pub(super) rlist2: [f64; 52],
+    pub(super) nres: usize,
+    pub(super) res3la: [f64; 3],
 }
 
 impl ExtrapolationTable {
     /// `initialise_table`.
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         ExtrapolationTable {
             n: 0,
             rlist2: [0.0; 52],
@@ -367,7 +367,7 @@ impl ExtrapolationTable {
     }
 
     /// `append_table`.
-    fn append(&mut self, y: f64) -> Option<()> {
+    pub(super) fn append(&mut self, y: f64) -> Option<()> {
         wr(&mut self.rlist2, self.n, y)?;
         self.n += 1;
         Some(())
@@ -376,7 +376,7 @@ impl ExtrapolationTable {
     /// `qelg`: Wynn's epsilon algorithm on the table, returning the
     /// extrapolated `(result, abserr)`.
     #[allow(clippy::too_many_lines)]
-    fn qelg(&mut self) -> Option<(f64, f64)> {
+    pub(super) fn qelg(&mut self) -> Option<(f64, f64)> {
         let epstab = &mut self.rlist2;
         let res3la = &mut self.res3la;
         let n = self.n.checked_sub(1)?;
