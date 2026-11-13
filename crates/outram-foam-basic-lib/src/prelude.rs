@@ -77,9 +77,11 @@ pub use crate::ode::{
 pub use crate::interpolation::{interpolate_spline_xy, interpolate_xy};
 
 // --- Specie-level thermophysics (Layer 1h) ---
+pub use crate::thermophysics::constants::GasConstant;
 pub use crate::thermophysics::eos::*;
 pub use crate::thermophysics::error::ThermoError;
 pub use crate::thermophysics::quantities::Compressibility;
+pub use crate::thermophysics::table::{IntegratedNonUniformTable, NonUniformTable};
 pub use crate::thermophysics::thermo::*;
 pub use crate::thermophysics::transport::*;
 
@@ -131,7 +133,8 @@ pub use crate::fields::vol_field_algebra;
 pub use crate::fluid_thermo::{ConstSolidThermo, FluidThermo, PsiThermo, RhoThermo, SolidThermo};
 
 // --- LDU solvers ---
-pub use crate::ldu_matrix::{conjugate_gradient, gamg, gauss_seidel};
+pub use crate::ldu_matrix::{conjugate_gradient, gamg, gauss_seidel, gauss_seidel_upstream};
+pub use crate::ldu_matrix::{pbicgstab_dilu, PbicgstabDiluPerformance, PbicgstabDiluSettings};
 
 // --- FvMatrix/FvVectorMatrix bridge onto the asymmetric Krylov solvers ---
 pub use crate::ldu_matrix::{

@@ -52,6 +52,7 @@ pub struct JanafThermo<E: EquationOfState> {
     tcommon: f64,
     low: [f64; 7],
     high: [f64; 7],
+    clamp_t: bool,
 }
 
 impl<E: EquationOfState> JanafThermo<E> {
@@ -67,6 +68,27 @@ impl<E: EquationOfState> JanafThermo<E> {
             tcommon,
             low,
             high,
+            clamp_t: true,
+        }
+    }
+
+    /// Whether `cp`, `ha` and `s` clamp `T` into `[tlow, thigh]` before
+    /// evaluating the polynomials. **Default `true`**, the port's original
+    /// behaviour. ESI v2506 does **not** clamp there (`janafThermoI.H`: `Cp`,
+    /// `Ha` and `S` evaluate `coeffs(T)` at the given `T`; `limit(T)` is only
+    /// applied by the temperature inversions), so `with_temperature_clamp(false)`
+    /// is the ESI form. gh:#1362 row 4 measured 12 of 20 out-of-range
+    /// grid points differing (up to 4.5e-1 relative in `Ha`).
+    pub fn with_temperature_clamp(mut self, clamp: bool) -> Self {
+        self.clamp_t = clamp;
+        self
+    }
+
+    fn limit(&self, t: f64) -> f64 {
+        if self.clamp_t {
+            t.clamp(self.tlow, self.thigh)
+        } else {
+            t
         }
     }
 
@@ -118,14 +140,14 @@ impl<E: EquationOfState> EquationOfState for JanafThermo<E> {
 
 impl<E: EquationOfState> ThermoModel for JanafThermo<E> {
     fn cp(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
-        let tv = t.get::<kelvin>().clamp(self.tlow, self.thigh);
+        let tv = self.limit(t.get::<kelvin>());
         let a = self.coeffs(tv);
         let cp_val = (((a[4] * tv + a[3]) * tv + a[2]) * tv + a[1]) * tv + a[0];
         SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(cp_val) + self.eos.cp_eos(p, t)
     }
 
     fn ha(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
-        let tv = t.get::<kelvin>().clamp(self.tlow, self.thigh);
+        let tv = self.limit(t.get::<kelvin>());
         let a = self.coeffs(tv);
         let ha_val = ((((a[4] / 5.0 * tv + a[3] / 4.0) * tv + a[2] / 3.0) * tv + a[1] / 2.0) * tv
             + a[0])
@@ -149,7 +171,7 @@ impl<E: EquationOfState> ThermoModel for JanafThermo<E> {
     }
 
     fn s(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
-        let tv = t.get::<kelvin>().clamp(self.tlow, self.thigh);
+        let tv = self.limit(t.get::<kelvin>());
         let a = self.coeffs(tv);
         let s_val = (((a[4] / 4.0 * tv + a[3] / 3.0) * tv + a[2] / 2.0) * tv + a[1]) * tv
             + a[0] * tv.r_ln()
@@ -365,5 +387,36 @@ mod tests {
             "expected ≈1500 K, got {:.1} K",
             t_out.get::<kelvin>()
         );
+    }
+}
+
+#[cfg(test)]
+mod gh1362_tests {
+    use super::*;
+    use crate::thermophysics::eos::PerfectGas;
+    use uom::si::molar_mass::gram_per_mole;
+    use uom::si::pressure::pascal;
+    use uom::si::thermodynamic_temperature::kelvin;
+
+    #[test]
+    fn temperature_clamp_option() {
+        let eos = PerfectGas::new(MolarMass::new::<gram_per_mole>(28.96));
+        let r = eos.r().get::<joule_per_kilogram_kelvin>();
+        let a = [3.5, 1.0e-4, 0.0, 0.0, 0.0, -1000.0, 3.0].map(|x: f64| x * r);
+        let clamped = JanafThermo::new(eos, 200.0, 1000.0, 600.0, a, a);
+        let free = clamped.clone().with_temperature_clamp(false);
+        let p = Pressure::new::<pascal>(1.0e5);
+        let t_hi = ThermodynamicTemperature::new::<kelvin>(2000.0);
+        let t_in = ThermodynamicTemperature::new::<kelvin>(500.0);
+        assert_eq!(clamped.cp(p, t_in), free.cp(p, t_in));
+        assert!(
+            clamped.cp(p, t_hi).get::<joule_per_kilogram_kelvin>()
+                < free.cp(p, t_hi).get::<joule_per_kilogram_kelvin>()
+        );
+        assert!(
+            clamped.ha(p, t_hi).get::<joule_per_kilogram>()
+                < free.ha(p, t_hi).get::<joule_per_kilogram>()
+        );
+        assert!(clamped.s(p, t_hi) != free.s(p, t_hi));
     }
 }

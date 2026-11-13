@@ -213,6 +213,7 @@ pub static ARGON_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.3e-10,
             qd: 3125000000.0,
             t_ref: 301.374,
+            p_reducing: 4863000.0,
         }),
     }),
 };

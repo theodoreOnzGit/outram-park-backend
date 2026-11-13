@@ -6,6 +6,48 @@ on x86_64-unknown-linux-gnu (release). Its rule is that a golden may move
 including a migration that was expected to move them and did not. It is the
 twin of `crates/tampines-steam-tables/verification_and_validation/determinism_golden_moves.md`.
 
+## 2026-11-13: all 20 Water / Nitrogen sweep goldens MOVED (gh:#1349, #917)
+
+- **Cause, two parts.** (1) `density_pt` now picks the stable root first, so compressed-liquid
+  `(p, T)` points return the liquid density instead of the metastable vapour root (the CoolProp
+  differential counted 3 398 of 3 680 liquid-phase points wrong). Every sweep that goes through
+  `state_pt` or `state_ph` (`*_rho`, `*_h`, `*_s`, `*_cp`, `*_cv`, `*_w`, `*_ph_T`, `*_ph_rho`,
+  `*_mu`, `*_lambda`) moved. (2) The gas-branch Newton tolerance lost its absolute 1e-9 Pa floor
+  (`p * 1e-11` now), which can change the last bits of a converged gas density.
+  The two causes were not separated: only the sum was measured.
+- **Prediction, written before the run:** the 20 sweep hashes move (liquid points are in both
+  grids), the 16 `n2arr_pimple_*` hashes do not (the PIMPLE runs sit in the gas phase).
+- **Measured** (release, x86_64-linux): the 20 sweep hashes moved, the 16 PIMPLE hashes did not
+  (`cargo test ... --test cross_platform_determinism`: the sweep test failed with the old table, passes
+  with the new). Old -> new, `(576 values each)`:
+
+  | sub-hash | old | new |
+  |---|---|---|
+  | `water_rho` | `0xd6e7bdd49b514bfa` | `0x2de937f8790d710f` |
+  | `water_h` | `0x116b029de0d713fd` | `0xab533980a99a3fda` |
+  | `water_s` | `0x29cbd4815016e24f` | `0x21c709fe15ebef7c` |
+  | `water_cp` | `0xdee28b77521dd8d5` | `0xc5ffcdead2b06f53` |
+  | `water_cv` | `0xfb82eadb6e71ac38` | `0x3045d60112ec1f19` |
+  | `water_w` | `0x0077a62492027d9e` | `0x5ee2a302f6a1859c` |
+  | `water_ph_T` | `0x750f30d3065e6b85` | `0x18c000295ee0ce8f` |
+  | `water_ph_rho` | `0x55a7d705c887ce88` | `0x52ce3f4783b91511` |
+  | `water_mu` | `0x821605191e8f6344` | `0x1d4a89dc69b3cd9f` |
+  | `water_lambda` | `0x1d03bb4cc196ac86` | `0x22e98ce7194cc716` |
+  | `n2_rho` | `0xcadfff609240c746` | `0x481d4fb0073282e7` |
+  | `n2_h` | `0xbfb6f6ff6e930f05` | `0xe8d8c748b265d0b3` |
+  | `n2_s` | `0x8711f1af5c0733d1` | `0xb5e50825b228b9f9` |
+  | `n2_cp` | `0x096b5980e6508b43` | `0x1d8b220ebe7a5af2` |
+  | `n2_cv` | `0x539aa2ef45c5bd15` | `0x20d219003ad16b82` |
+  | `n2_w` | `0x86b82aac43ec6efb` | `0xc0076ee751bcaece` |
+  | `n2_ph_T` | `0xadd27a211d530ff5` | `0xe0e905eaa751439a` |
+  | `n2_ph_rho` | `0x605496e9059d6d4e` | `0x7f2368e5d71930d4` |
+  | `n2_mu` | `0x9d96a0d570808b0c` | `0xed714122666e0ff9` |
+  | `n2_lambda` | `0xb78d38d10a8db01c` | `0x04250425065a4e64` |
+
+- **What this does not say:** a hash cannot tell how many of the 576 points moved or by how much; the
+  size of the physical change is the one measured against CoolProp in
+  `coolprop_differential/RESULTS.md`.
+
 ## 2026-10-16: Part C hybrid runs REMOVED (`n2arr_hybrid_*`, `n2arr_knp_*`); nothing moved
 
 - **Cause.** Maintainer decision D7, "retire the KNP hybrid" (gh:#914), in

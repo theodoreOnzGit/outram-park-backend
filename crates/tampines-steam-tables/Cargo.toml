@@ -126,6 +126,11 @@ uom.workspace = true
 # ours, and its rayon/wgpu are optional and off. Android- and wasm-clean.
 outram-foam-basic-lib.workspace = true
 
+# gh:#1346: inflate the committed gzipped upstream reference files in
+# tests/if97_vs_coolprop_if97.rs. Pure Rust, already a workspace dependency (MIT/Zlib/Apache-2.0).
+[dev-dependencies]
+miniz_oxide.workspace = true
+
 [features]
 # `long-tests` gates the individual tests that measure over 5 minutes, and is
 # default-on, so a plain `cargo test` runs them. See the "Any test over 5

@@ -1,0 +1,33 @@
+--- a/meshLibrary/utilities/smoothers/geometry/meshOptimizer/tetMeshOptimisation/tetMeshOptimisation.C
++++ b/meshLibrary/utilities/smoothers/geometry/meshOptimizer/tetMeshOptimisation/tetMeshOptimisation.C
+@@ -25,6 +25,8 @@
+ 
+ #include "demandDrivenData.H"
+ #include "tetMeshOptimisation.H"
++#include <cstdio>
++#include <cstdlib>
+ #include "partTetMesh.H"
+ #include "meshSurfaceEngine.H"
+ #include "meshSurfaceEngineModifier.H"
+@@ -486,6 +488,12 @@
+                         }
+ 
+                         const vector ev = eigenValues(nt);
++                        if (getenv("GH1385_TRACE"))
++                        {
++                            const tensor evs = eigenVectors(nt, ev);
++                            fprintf(stderr, "BVO node %d nt %.17g %.17g %.17g %.17g %.17g %.17g ev %.17g %.17g %.17g\n", int(nodeI), nt.xx(), nt.xy(), nt.xz(), nt.yy(), nt.yz(), nt.zz(), ev[0], ev[1], ev[2]);
++                            fprintf(stderr, "BVO node %d vecs %.17g %.17g %.17g | %.17g %.17g %.17g | %.17g %.17g %.17g centre %.17g %.17g %.17g\n", int(nodeI), evs.xx(), evs.xy(), evs.xz(), evs.yx(), evs.yy(), evs.yz(), evs.zx(), evs.zy(), evs.zz(), simplex.centrePoint().x(), simplex.centrePoint().y(), simplex.centrePoint().z());
++                        }
+ 
+                         // make sure the point stays on the surface
+                         vector disp = simplex.centrePoint() - points[nodeI];
+@@ -521,6 +529,8 @@
+                         }
+ 
+                         const point newP = points[nodeI] + disp;
++                        if (getenv("GH1385_TRACE"))
++                            fprintf(stderr, "BVO node %d at %.17g %.17g %.17g disp %.17g %.17g %.17g new %.17g %.17g %.17g\n", int(nodeI), points[nodeI].x(), points[nodeI].y(), points[nodeI].z(), disp.x(), disp.y(), disp.z(), newP.x(), newP.y(), newP.z());
+                         np.append(labelledPoint(nodeI, newP));
+                     }
+                     else

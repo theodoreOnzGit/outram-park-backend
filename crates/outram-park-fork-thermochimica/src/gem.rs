@@ -208,11 +208,28 @@ pub const R: f64 = 8.314_462_618_153_24;
 /// L1 penalty weight `μ` \[-\] on the atom-balance violation in the line-search
 /// merit `Φ = G/RT + μ · Σ_k|b_k − q_k|`.
 ///
-/// Chosen a few × larger than the `O(1)` dimensionless Gibbs energy so
-/// feasibility dominates step acceptance, keeping the iterate path near the
-/// constraint manifold. The merit is monotone for **any** positive weight (the
-/// line search enforces it); this value trades iteration count against how
-/// tightly `Φ` tracks the physical `G/RT`.
+/// An L1 exact penalty only has its minimum on the constraint manifold when `μ`
+/// exceeds the magnitude of the Lagrange multipliers, which here are the
+/// element potentials `π_k`. The merit is therefore evaluated on energies
+/// referenced to a per-element shift `c_k` (`GemSystem::merit_reference`), so
+/// that the multipliers it sees are `π_k − c_k = O(1)`.
+///
+/// This is the starting weight; the solver raises it (never lowers it) to twice
+/// `max_k |π_k − c_k|` whenever the Newton multipliers show it is too small, which
+/// is Han's condition for the Newton direction to descend the L1 merit. Strongly
+/// exothermic reactions (C + ½O2 → CO at 1000 K is −24 RT per O atom) give
+/// `|π − c| > 10` even after the shift. [`GemResult::descent_merit_history`] is
+/// monotone while `μ` is constant and may step up at the iteration where `μ` is
+/// raised.
+///
+/// ~~Chosen a few × larger than the `O(1)` dimensionless Gibbs energy.~~
+/// **CORRECTED 2026-11-13 (gh:#1407, gh:#1408):** that held only for energies
+/// already referenced to the elements. ChemSage databases (Thermochimica's
+/// `dStdGibbsEnergy`) carry absolute `g°/RT` of order `-10` to `-40` per atom, so
+/// `|π_k| > 10`, the penalty was too weak, the merit preferred infeasible points
+/// and the solver stalled (`NotConverged`, 5000 iterations) on a three-species
+/// ideal-gas H2/O2/H2O problem at 3000 K. The unit test
+/// `merit_is_invariant_to_a_per_atom_energy_offset` pins the repair.
 const MERIT_PENALTY: f64 = 10.0;
 
 /// One binary Redlich-Kister interaction term between two species of a phase.
@@ -428,9 +445,14 @@ pub struct GemResult {
     /// Total Gibbs energy `G = RT · (G/RT)` \[J\], relative to the supplied
     /// `g°_ps` reference states.
     pub gibbs_energy: f64,
-    /// Line-search merit `Φ = G/RT + μ·Σ_k|b_k − q_k|` \[mol\] at each iteration
-    /// plus the final value. **Monotonically non-increasing by construction**
-    /// (the V&V monotone-descent witness); `Φ → G/RT` as the violation → 0.
+    /// Line-search merit `Φ = (G − c·q)/RT + μ·Σ_k|b_k − q_k|` \[mol\] at each
+    /// iteration plus the final value, where `c` is the per-element energy shift of
+    /// `GemSystem::merit_reference` (it changes `Φ` by the constant `c·b` on the
+    /// feasible set and does not change the solution). **Monotonically
+    /// non-increasing by construction** while the penalty `μ` is constant (the V&V
+    /// monotone-descent witness; `μ` is raised, never lowered, when the Newton
+    /// multipliers exceed it, which can step `Φ` up once at that iteration);
+    /// `Φ → G/RT − c·b/RT` as the violation → 0.
     pub descent_merit_history: Vec<f64>,
     /// Number of Newton iterations performed.
     pub iterations: usize,
@@ -770,6 +792,10 @@ impl GemSystem {
     ///   `g°_ps` of species `s` in phase `p` at the solve temperature \[J/mol\].
     ///   One slice per phase, each of that phase's species length. Only
     ///   *differences* affect equilibrium (a common additive offset cancels).
+    ///   ~~True of the solution, but the solver converged only for energies already
+    ///   referenced to the elements~~ **CORRECTED 2026-11-13 (gh:#1407)**: the
+    ///   line-search merit is now referenced to a fitted per-element shift, so
+    ///   absolute (ChemSage-style) `g°` converge too; see `MERIT_PENALTY`.
     /// - `temperature` `T` \[K\], > 0.
     /// - `feed` \[mol\]: `feed[p][s]` initial moles of species `s` in phase `p`;
     ///   sets targets `b_k = Σ a_ks feed` and seeds the iterate. May be 0. One
@@ -891,6 +917,21 @@ impl GemSystem {
 
         let b_target = self.element_abundance(feed)?;
 
+        // Merit-only energy reference (see `MERIT_PENALTY`): the Newton direction is
+        // unchanged by a per-atom shift (`δ = aπ + u − µ` is invariant), only the
+        // exact-penalty merit needs `|π − c| < μ`.
+        let indep_for_ref = self.independent_element_mask();
+        let seed: Vec<Vec<f64>> = feed
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|&v| if v > options.mole_floor { v } else { options.mole_floor })
+                    .collect()
+            })
+            .collect();
+        let c_ref = self.merit_reference(&seed, &cc, &indep_for_ref);
+        let cc_merit = self.shifted_energies(&cc, &c_ref);
+
         // Positive working estimate seeded from the feed (zeros -> mole_floor).
         let mut moles: Vec<Vec<f64>> = self
             .phases
@@ -909,6 +950,9 @@ impl GemSystem {
             })
             .collect();
 
+        // Penalty weight of the merit, raised (never lowered) when the Newton multipliers
+        // show that `MERIT_PENALTY` is below `|π − c|` (see `MERIT_PENALTY`).
+        let mut merit_mu = MERIT_PENALTY;
         let mut mu_rt: Vec<Vec<f64>> = moles.iter().map(|v| vec![0.0; v.len()]).collect();
         let mut merit_history: Vec<f64> = Vec::with_capacity(options.max_iter + 1);
         let mut last_max_delta = f64::INFINITY;
@@ -936,8 +980,8 @@ impl GemSystem {
             }
 
             // Record merit of the entering iterate.
-            let g_rt = self.total_gibbs_rt(&moles, &cc, rt);
-            merit_history.push(g_rt + MERIT_PENALTY * self.atom_violation(&moles, &b_target));
+            let g_rt_merit = self.total_gibbs_rt(&moles, &cc_merit, rt);
+            merit_history.push(g_rt_merit + merit_mu * self.atom_violation(&moles, &b_target));
 
             // ---- assemble the (M+P) saddle system  [[R,Q],[Qᵀ,0]]·[π;u]=[(b-q)+S;F] ----
             let mut mat = vec![0.0; dim * dim];
@@ -1018,6 +1062,14 @@ impl GemSystem {
             let pi = &sol[0..m];
             let u = &sol[m..m + np];
 
+            // Han's condition for the L1 merit to be decreased by the Newton direction is
+            // `μ >= |λ|∞`, with `λ` the multiplier estimate, here `π − c` in the shifted
+            // energies. Keep a 2x margin and never lower `μ`.
+            let pi_dev = (0..m).map(|k| (pi[k] - c_ref[k]).abs()).fold(0.0_f64, f64::max);
+            if 2.0 * pi_dev > merit_mu {
+                merit_mu = 2.0 * pi_dev;
+            }
+
             // δ_ps and the two magnitudes (damping vs complementarity-aware convergence).
             let mut step_max = 0.0_f64;
             let mut conv_max = 0.0_f64;
@@ -1053,7 +1105,8 @@ impl GemSystem {
             } else {
                 1.0
             };
-            let phi_current = *merit_history.last().unwrap();
+            let phi_current = self.total_gibbs_rt(&moles, &cc_merit, rt)
+                + merit_mu * self.atom_violation(&moles, &b_target);
             let slack = 1e-12 * (1.0 + phi_current.abs());
             let mut omega = omega0;
             let mut trial: Vec<Vec<f64>> = self
@@ -1072,8 +1125,8 @@ impl GemSystem {
                         };
                     }
                 }
-                let phi_trial = self.total_gibbs_rt(&trial, &cc, rt)
-                    + MERIT_PENALTY * self.atom_violation(&trial, &b_target);
+                let phi_trial = self.total_gibbs_rt(&trial, &cc_merit, rt)
+                    + merit_mu * self.atom_violation(&trial, &b_target);
                 if phi_trial.is_finite() && phi_trial <= phi_current + slack {
                     break;
                 }
@@ -1124,7 +1177,8 @@ impl GemSystem {
             }
         }
         let g_rt = self.total_gibbs_rt(&moles, &cc, rt);
-        merit_history.push(g_rt + MERIT_PENALTY * self.atom_violation(&moles, &b_target));
+        let g_rt_merit = self.total_gibbs_rt(&moles, &cc_merit, rt);
+        merit_history.push(g_rt_merit + merit_mu * self.atom_violation(&moles, &b_target));
 
         let mole_fractions: Vec<Vec<f64>> = self
             .phases
@@ -1154,6 +1208,56 @@ impl GemSystem {
             iterations,
             converged,
         })
+    }
+
+    /// Per-element energy shift `c_k` \[-\] for the line-search merit: the
+    /// mole-weighted least-squares fit `Σ_s a_ks n_s (cc_s − Σ_j a_js c_j) = 0` of
+    /// the composition-independent `µ°/RT` over the seeded species, i.e. the
+    /// element potentials of the starting point with `u = 0`. Dependent elements
+    /// (rows pinned in the Newton system) get `c = 0`. Returns zeros when the
+    /// normal equations are singular (the shift is then a no-op, the old behaviour).
+    fn merit_reference(&self, seed: &[Vec<f64>], cc: &[Vec<f64>], indep: &[bool]) -> Vec<f64> {
+        let m = self.n_elements;
+        let mut mat = vec![0.0; m * m];
+        let mut rhs = vec![0.0; m];
+        for (p, ph) in self.phases.iter().enumerate() {
+            for s in 0..ph.n_species {
+                let n = seed[p][s];
+                for k in 0..m {
+                    rhs[k] += ph.atom(k, s) * n * cc[p][s];
+                    for j in 0..m {
+                        mat[k * m + j] += ph.atom(k, s) * ph.atom(j, s) * n;
+                    }
+                }
+            }
+        }
+        for k in 0..m {
+            if !indep[k] {
+                for j in 0..m {
+                    mat[k * m + j] = 0.0;
+                }
+                mat[k * m + k] = 1.0;
+                rhs[k] = 0.0;
+            }
+        }
+        match solve_linear(&mut mat, &mut rhs, m) {
+            Some(c) if c.iter().all(|v| v.is_finite()) => c,
+            _ => vec![0.0; m],
+        }
+    }
+
+    /// `cc[p][s] − Σ_k a_ks c_k`: the composition-independent energies referenced
+    /// to the element shift `c`.
+    fn shifted_energies(&self, cc: &[Vec<f64>], c: &[f64]) -> Vec<Vec<f64>> {
+        self.phases
+            .iter()
+            .enumerate()
+            .map(|(p, ph)| {
+                (0..ph.n_species)
+                    .map(|s| cc[p][s] - (0..self.n_elements).map(|k| ph.atom(k, s) * c[k]).sum::<f64>())
+                    .collect()
+            })
+            .collect()
     }
 
     /// Dimensionless total Gibbs energy `G/RT = Σ_p Σ_s n_ps (µ_ps/RT)` \[mol\]
@@ -1643,6 +1747,59 @@ mod tests {
     /// to `< 1e-12`; mis-shaped `gibbs_formation`, non-positive `T`, all-zero
     /// feed, and an out-of-range Redlich-Kister species index each return the
     /// matching [`GemError`].
+    /// **Offset invariance of the solve (gh:#1407).** Reacting ideal gas H, H2, O,
+    /// O2, OH, H2O at 3000 K, 1 atm, with Thermochimica's absolute `g°/RT` (from
+    /// `HO.dat`, see `verification_and_validation/thermochimica_differential`):
+    /// feed 1 mol H2 + 0.5 mol O2. Adding `c_k` per atom to every `g°` must leave
+    /// the equilibrium moles unchanged. **Measured (2026-11-13):** before the merit
+    /// reference was added, the absolute set did not converge in 5000 iterations
+    /// (`max|δ| = 1.2`, atom residual 0.68) while the formation-referenced set
+    /// converged in 48; the bound asserted here is agreement `<= 1e-9` relative on
+    /// every species.
+    #[test]
+    fn merit_is_invariant_to_a_per_atom_energy_offset() {
+        let species = ["H", "H2", "O", "O2", "OH", "H2O"];
+        let atoms: [[f64; 2]; 6] = [
+            [1.0, 0.0],
+            [2.0, 0.0],
+            [0.0, 1.0],
+            [0.0, 2.0],
+            [1.0, 1.0],
+            [2.0, 1.0],
+        ];
+        let g0rt = [
+            -8.564_598_120_142_57,
+            -20.831_348_718_641_55,
+            -12.950_701_508_029_05,
+            -30.270_717_814_976_95,
+            -25.721_287_158_097_34,
+            -39.067_044_431_035_87,
+        ];
+        let phase = PhaseInput {
+            model: SolutionModel::IdealGas,
+            species_names: species.iter().map(|s| (*s).to_string()).collect(),
+            atom_matrix: vec![
+                atoms.iter().map(|a| a[0]).collect(),
+                atoms.iter().map(|a| a[1]).collect(),
+            ],
+        };
+        let sys = GemSystem::new(&["H", "O"], &[phase]).unwrap();
+        let (t, rt) = (3000.0, R * 3000.0);
+        let feed = [0.0, 1.0, 0.0, 0.5, 0.0, 0.0];
+        let solve_with = |offset: [f64; 2]| {
+            let g: Vec<f64> = (0..6)
+                .map(|i| (g0rt[i] - atoms[i][0] * offset[0] - atoms[i][1] * offset[1]) * rt)
+                .collect();
+            sys.minimize(&[&g], t, &[&feed], 1.0, 1.0, &GemOptions::default())
+        };
+        let absolute = solve_with([0.0, 0.0]).expect("absolute energies converge");
+        let referenced = solve_with([-11.4178, -16.6722]).expect("referenced energies converge");
+        for s in 0..6 {
+            let (a, b) = (absolute.moles[0][s], referenced.moles[0][s]);
+            assert!((a - b).abs() <= 1e-9 * b.abs().max(1e-300), "species {s}: {a} vs {b}");
+        }
+    }
+
     #[test]
     fn linear_solver_and_error_paths() {
         let mut mat = vec![2.0, 1.0, 1.0, 3.0];

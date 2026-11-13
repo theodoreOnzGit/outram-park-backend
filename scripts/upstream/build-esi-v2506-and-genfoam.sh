@@ -17,7 +17,9 @@
 #   scripts/upstream/build-esi-v2506-and-genfoam.sh [stage ...]
 #     (no argument = every stage, in order; finished stages are skipped)
 #   stages: prereqs fetch-esi env core prereq-libs closure meshing solvers
-#           fetch-genfoam genfoam verify
+#           fetch-genfoam genfoam fetch-cfmesh cfmesh verify
+#           (fetch-cfmesh and cfmesh: DAFoam cfMesh e944f6ba695f, gh:#1385; cfMesh
+#           was built against ESI v2506, not OpenFOAM-dev, see the V&V README)
 #   status          print which stages and libraries are done, disk, timings
 #   env-only        (re)write scripts/with-of.sh and scripts/of-env.sh and stop
 #   FORCE=1 stage   redo the named stage(s): ignores every stamp inside them
@@ -69,6 +71,15 @@ ESI_URLS=(
 )
 GF_URL=https://gitlab.com/foam-for-nuclear/GeN-Foam.git
 GF_SHA=652b3da0cc558543b89e880812d910bf122b356c   # 652b3da0cc55, "docs: Add archive banner"
+# cfMesh, DAFoam line (gh:#1385). The clone lives in the crate's gitignored
+# upstream_source/ (override with CF_SRC), next to this repository's own copy of
+# the three-part v2506 API patch.
+CF_URL=https://github.com/DAFoam/cfmesh.git
+CF_SHA=e944f6ba695fcefce73ad306074f6b3c0ea432ae   # e944f6ba695f
+REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+CFCRATE=$REPO/crates/outram-park-fork-cfmesh
+CF=${CF_SRC:-$CFCRATE/upstream_source/cfmesh_dafoam}
+CF_PATCH=$CFCRATE/verification_and_validation/upstream_cfmesh_gh1385/patches/cfmesh-e944f6ba695f-openfoam-v2506.patch
 
 # --- helpers ----------------------------------------------------------------
 log() { echo "[$(date +%H:%M:%S)] $*"; }
@@ -156,6 +167,7 @@ stage_prereqs() {
   for t in gcc g++ make flex bison curl git tar gzip; do command -v "$t" >/dev/null || missing+=("$t"); done
   [ -f /usr/include/zlib.h ] || missing+=(zlib1g-dev)
   [ -f /usr/include/FlexLexer.h ] || missing+=(libfl-dev)
+  [ -x /usr/bin/time ] || missing+=(time)   # /usr/bin/time -v in the cfMesh run scripts
   if [ "${#missing[@]}" -gt 0 ]; then
     echo "missing: ${missing[*]}"
     if [ "$(id -u)" = 0 ] && command -v apt-get >/dev/null; then
@@ -403,6 +415,53 @@ stage_genfoam() {
   run_stage gf-GeN-Foam              gf_exe_impl
 }
 
+# --- cfMesh (gh:#1385) ----------------------------------------------------------
+# Edits to upstream: only the committed v2506 API patch (is_contiguous trait, List
+# from SLList, demandDrivenData.H includes); no algorithm is touched.
+cf_fetch_impl() {
+  if [ ! -d "$CF/.git" ]; then
+    mkdir -p "$CF"; git init -q "$CF"; git -C "$CF" remote add origin "$CF_URL"
+  fi
+  if [ "$(git -C "$CF" rev-parse HEAD 2>/dev/null)" != "$CF_SHA" ]; then
+    # shallow fetch of the pinned commit; fall back to a full fetch if the host refuses by-SHA
+    retry 4 git -C "$CF" fetch -q --depth 1 origin "$CF_SHA" || retry 4 git -C "$CF" fetch -q origin
+    git -C "$CF" checkout -q -f --detach "$CF_SHA"
+  fi
+  [ "$(git -C "$CF" rev-parse HEAD)" = "$CF_SHA" ]
+  # idempotent patch: applied already when the reverse applies cleanly
+  if git -C "$CF" apply --reverse --check "$CF_PATCH" 2>/dev/null; then
+    echo "cfMesh patch already applied"
+  else
+    git -C "$CF" apply --check "$CF_PATCH"
+    git -C "$CF" apply "$CF_PATCH"
+  fi
+  git -C "$CF" log -1 --format='%H %s'
+}
+stage_fetch_cfmesh() { run_stage fetch-cfmesh cf_fetch_impl; }
+
+cf_lib_impl() {
+  cd "$CF"
+  wmake -j"$N" libso meshLibrary
+  [ -f "$FOAM_LIBBIN/libmeshLibrary.so" ] || { echo "no libmeshLibrary.so"; return 1; }
+  ls -l "$FOAM_LIBBIN/libmeshLibrary.so"
+  [ "$KEEP_OBJECTS" = 1 ] || rm -rf meshLibrary/Make/"$WM_OPTIONS"
+}
+cf_exe_impl() { # <executable>
+  cd "$CF"
+  wmake -j"$N" "executables/$1"
+  [ -x "$FOAM_APPBIN/$1" ] || { echo "no $1 binary"; return 1; }
+  ls -l "$FOAM_APPBIN/$1"
+  [ "$KEEP_OBJECTS" = 1 ] || rm -rf "executables/$1/Make/$WM_OPTIONS"
+}
+stage_cfmesh() {
+  # OMP_NUM_THREADS=1 is set by of-env.sh; meshLibrary compiles with -fopenmp, so
+  # every run of these binaries must keep it at 1 (a threaded run reorders reductions).
+  run_stage cf-meshLibrary cf_lib_impl
+  for e in cartesianMesh cartesian2DMesh tetMesh pMesh; do
+    run_stage "cf-$e" cf_exe_impl "$e"
+  done
+}
+
 # --- verification -------------------------------------------------------------
 verify_impl() {
   local V=$ROOT/runs/verify_cavity T=$OF/tutorials/incompressible/icoFoam/cavity/cavity
@@ -458,7 +517,7 @@ status() {
 }
 
 # --- main ---------------------------------------------------------------------
-STAGES=(prereqs fetch-esi env core prereq-libs closure meshing solvers fetch-genfoam genfoam verify)
+STAGES=(prereqs fetch-esi env core prereq-libs closure meshing solvers fetch-genfoam genfoam fetch-cfmesh cfmesh verify)
 [ "$#" -gt 0 ] || set -- "${STAGES[@]}"
 T0=$(date +%s)
 for s in "$@"; do
@@ -475,6 +534,8 @@ for s in "$@"; do
     solvers)      load_env; stage_solvers ;;
     fetch-genfoam) stage_fetch_genfoam ;;
     genfoam)      load_env; stage_genfoam ;;
+    fetch-cfmesh) stage_fetch_cfmesh ;;
+    cfmesh)       load_env; stage_fetch_cfmesh; stage_cfmesh ;;
     verify)       load_env; stage_verify ;;
     *) echo "unknown stage: $s"; exit 64 ;;
   esac

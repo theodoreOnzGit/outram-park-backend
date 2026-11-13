@@ -7400,6 +7400,7 @@ name = "outram-foam-basic-lib"
 version = "0.1.8"
 dependencies = [
  "approx",
+ "miniz_oxide 0.8.9",
  "ndarray",
  "ndarray-linalg",
  "petir",
@@ -7456,6 +7457,7 @@ name = "outram-foam-turbulence-lib"
 version = "0.1.5"
 dependencies = [
  "approx",
+ "miniz_oxide 0.8.9",
  "ndarray",
  "outram-foam-basic-lib",
  "petir",
@@ -7553,6 +7555,7 @@ dependencies = [
  "miniz_oxide 0.8.9",
  "outram-foam-basic-lib",
  "outram-foam-mesh",
+ "outram-park-fork-cfmesh",
  "petir",
 ]
 
@@ -7561,6 +7564,7 @@ name = "outram-park-fork-coolprop"
 version = "0.1.4"
 dependencies = [
  "approx",
+ "miniz_oxide 0.8.9",
  "outram-foam-basic-lib",
  "petir",
  "uom",
@@ -7641,6 +7645,7 @@ dependencies = [
 name = "outram-park-fork-thermochimica"
 version = "0.0.2"
 dependencies = [
+ "miniz_oxide 0.8.9",
  "petir",
  "thiserror 2.0.21",
  "uom",
@@ -9722,6 +9727,7 @@ dependencies = [
  "env_logger",
  "image",
  "local-ip-address",
+ "miniz_oxide 0.8.9",
  "ndarray",
  "outram-foam-basic-lib",
  "petir",

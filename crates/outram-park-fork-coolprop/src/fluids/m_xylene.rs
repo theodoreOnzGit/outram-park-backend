@@ -175,6 +175,7 @@ pub static M_XYLENE_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 2.35e-10,
             qd: 1402524544.179523,
             t_ref: -1.0,
+            p_reducing: 3534600.0,
         }),
     }),
 };

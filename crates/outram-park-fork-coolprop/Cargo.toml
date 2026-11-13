@@ -64,3 +64,4 @@ outram-foam-basic-lib.workspace = true
 
 [dev-dependencies]
 approx.workspace = true
+miniz_oxide.workspace = true

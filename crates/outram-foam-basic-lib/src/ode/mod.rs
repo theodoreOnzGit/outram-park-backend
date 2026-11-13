@@ -321,3 +321,43 @@ pub(crate) fn integrate_interval(
     *dx_est = dx;
     Ok(())
 }
+
+/// `Foam::ODESolver::solve(xStart, xEnd, y, dxTry)` of OpenFOAM-v2506 (ESI), line
+/// for line (gh:#1362 row 6). Differs from [`integrate_interval`] in three ways,
+/// each measured on `Test-ODE.C`:
+///
+/// * the step handed to the solver is `dxTry` itself unless `x + dxTry` passes
+///   `xEnd`, when it is `xEnd - x`; the older code formed `(x + dx).min(x_end) - x`,
+///   which is not `dx` bitwise;
+/// * the loop ends on `(x - xEnd) * (xEnd - xStart) >= 0`;
+/// * when the last step was a truncated one (and it is not the first step) the
+///   returned estimate is the suggestion made **before** the truncation,
+///   `dxTry0`, not the growth after the short step.
+pub(crate) fn integrate_interval_esi_v2506(
+    cfg: &OdeSolverConfig,
+    step_fn: &mut dyn FnMut(&mut f64, &mut Vec<f64>, &mut f64) -> Result<(), OdeError>,
+    x_start: f64,
+    x_end: f64,
+    y: &mut Vec<f64>,
+    dx_est: &mut f64,
+) -> Result<(), OdeError> {
+    let mut x = x_start;
+    let mut dx_try = *dx_est;
+    let mut last = false;
+    for n_step in 0..cfg.max_steps {
+        let dx_try0 = dx_try;
+        if (x + dx_try - x_end) * (x + dx_try - x_start) > 0.0 {
+            last = true;
+            dx_try = x_end - x;
+        }
+        step_fn(&mut x, y, &mut dx_try)?;
+        if (x - x_end) * (x_end - x_start) >= 0.0 {
+            if n_step > 0 && last {
+                dx_try = dx_try0;
+            }
+            *dx_est = dx_try;
+            return Ok(());
+        }
+    }
+    Err(OdeError::MaxStepsExceeded(cfg.max_steps))
+}

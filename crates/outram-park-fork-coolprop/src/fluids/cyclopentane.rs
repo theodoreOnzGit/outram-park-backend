@@ -118,6 +118,10 @@ pub static CYCLOPENTANE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
 pub static CYCLOPENTANE_TRANSPORT: FluidTransport = FluidTransport {
     viscosity: Some(ViscosityModel::Chung {
         dipole_moment_d: 0.0,
+        t_critical: 511.72,
+        rhomolar_critical: 3820.0,
+        acentric: 0.1521,
+        molar_mass: 0.0701329,
     }),
     conductivity: Some(ConductivityModel::Correlation {
         dilute: ConductivityDilute::RatioPolynomials {
@@ -152,6 +156,7 @@ pub static CYCLOPENTANE_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 2.16e-10,
             qd: 1602564102.5641024,
             t_ref: -1.0,
+            p_reducing: 4582761.1858461285,
         }),
     }),
 };

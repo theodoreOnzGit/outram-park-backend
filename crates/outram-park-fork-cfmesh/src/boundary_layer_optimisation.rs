@@ -911,6 +911,7 @@ pub fn add_boundary_layers_cfmesh_on_surface(
         stop_on_stall,
         boundary_moves: bmoves,
         mesh_untangler: controls.untangle_mesh_untangler,
+        boundary_calls: crate::mesh_optimizer::BoundaryMoveCalls::AsDocumented,
     };
     if controls.optimize_mesh_fv_laplace {
         MeshOptimizer::new(&m1).optimize_laplacian(&mut m1, LaplaceKind::PointCells, 5);

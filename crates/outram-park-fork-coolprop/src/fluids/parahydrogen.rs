@@ -176,6 +176,7 @@ pub static PARAHYDROGEN_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.5e-10,
             qd: 2000000000.0,
             t_ref: -1.0,
+            p_reducing: 1285800.0,
         }),
     }),
 };
