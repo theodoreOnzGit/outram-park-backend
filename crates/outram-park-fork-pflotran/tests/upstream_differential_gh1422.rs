@@ -28,6 +28,7 @@
 
 use outram_park_fork_pflotran::activity::ActivityModel;
 use outram_park_fork_pflotran::eos_real::IapwsWater;
+use outram_park_fork_pflotran::sorption::SorptionIsotherm;
 use outram_park_fork_pflotran::properties::{
     BrooksCorey, CharacteristicCurves, LiquidWaterEos, VanGenuchten,
 };
@@ -415,4 +416,72 @@ fn p13_debye_huckel_constants() {
     assert_eq!(a_up, 0.5114);
     assert_eq!(b_up, 0.3288);
     assert_eq!(bdot_up, 0.0410);
+}
+
+const ISOTHERMS: &str = include_str!(
+    "../verification_and_validation/upstream_differential_gh1422/isotherm_output.txt"
+);
+
+/// Rows `<kind> <Kd> <b|n> <molality> <res> <dres_dc>` of the transcribed
+/// upstream isotherm kernel (route 3; `check_verbatim.sh` proves the kernel
+/// statements are upstream's).
+fn iso_rows(kind: &str) -> Vec<[f64; 5]> {
+    ISOTHERMS
+        .lines()
+        .filter(|l| l.split_whitespace().next() == Some(kind))
+        .map(|l| {
+            let v: Vec<f64> = l.split_whitespace().skip(1).map(hex).collect();
+            [v[0], v[1], v[2], v[3], v[4]]
+        })
+        .collect()
+}
+
+/// P14 (linear, bit-identical) and P15 (Langmuir: `s` bit-identical, slope
+/// relative <= 1e-14).
+#[test]
+fn p14_p15_linear_and_langmuir_isotherms() {
+    let (mut lin, mut lin_d) = (Stat::default(), Stat::default());
+    for [kd, _, c, res, dres] in iso_rows("LIN") {
+        let iso = SorptionIsotherm::Linear { kd };
+        lin.push(iso.sorbed(c), res, format!("kd={kd} c={c:e}"));
+        lin_d.push(iso.d_sorbed_d_c(c), dres, format!("kd={kd} c={c:e}"));
+    }
+    let (mut l, mut ld) = (Stat::default(), Stat::default());
+    for [kd, b, c, res, dres] in iso_rows("LNG") {
+        let iso = SorptionIsotherm::new_langmuir(b, kd).unwrap();
+        l.push(iso.sorbed(c), res, format!("kd={kd} b={b} c={c:e}"));
+        ld.push(iso.d_sorbed_d_c(c), dres, format!("kd={kd} b={b} c={c:e}"));
+    }
+    lin.report("P14 linear s");
+    lin_d.report("P14 linear ds/dc");
+    l.report("P15 Langmuir s");
+    ld.report("P15 Langmuir ds/dc");
+    assert!(lin.n == 18 && l.n == 54);
+    assert_eq!(lin.identical, lin.n, "P14 s not bit-identical");
+    assert_eq!(lin_d.identical, lin_d.n, "P14 slope not bit-identical");
+    assert_eq!(l.identical, l.n, "P15 s not bit-identical");
+    assert!(ld.worst <= 1.0e-14, "P15 slope breached: {}", ld.worst);
+}
+
+/// P16: Freundlich. (a) the same number handed to both is NOT the same
+/// isotherm; (b) with the exponent inverted the two agree to libm `pow`.
+#[test]
+fn p16_freundlich_convention() {
+    let (mut same, mut inv, mut inv_d) = (Stat::default(), Stat::default(), Stat::default());
+    for [kd, n, c, res, dres] in iso_rows("FRD") {
+        // (a) naive: port exponent = PFLOTRAN's n. The checked constructor
+        // needs n <= 1, so build the variant directly.
+        let naive = SorptionIsotherm::Freundlich { kf: kd, n };
+        same.push(naive.sorbed(c), res, format!("kd={kd} n={n} c={c:e}"));
+        // (b) PFLOTRAN parameterisation.
+        let iso = SorptionIsotherm::new_freundlich_pflotran(kd, n).unwrap();
+        inv.push(iso.sorbed(c), res, format!("kd={kd} n={n} c={c:e}"));
+        inv_d.push(iso.d_sorbed_d_c(c), dres, format!("kd={kd} n={n} c={c:e}"));
+    }
+    same.report("P16a Freundlich, same number (convention mismatch)");
+    inv.report("P16b Freundlich, PFLOTRAN parameterisation s");
+    inv_d.report("P16b Freundlich ds/dc");
+    assert!(same.worst > 0.1, "convention mismatch expected to be large");
+    assert!(inv.worst <= 4.5e-16, "P16 s breached: {}", inv.worst);
+    assert!(inv_d.worst <= 1.0e-14, "P16 slope breached: {}", inv_d.worst);
 }

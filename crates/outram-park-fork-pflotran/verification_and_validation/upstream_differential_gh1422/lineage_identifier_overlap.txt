@@ -1,0 +1,44 @@
+# 2026-11-13: 5242 upstream subroutine/function names of >=9 chars (src/pflotran/*.F90 at 669fbce) searched whole-word, case-insensitive in this crate (src tests examples). count name:
+# NOTE: the SFBC/SFVG/RPF*/ReactionIsotherm*/ReactionAux*/EOSWaterViscosity1 hits are citations ADDED on 2026-11-13 by this audit (doc comments and tests naming the upstream routine compared); before it the only non-generic hits were the decay names (RRadioactiveDecay, PMUFDDecay*, LU*). kovan.toml hits are generic words.
+    131 viscosity
+      7 Viscosity
+      4 SFBCSaturation
+      4 RRadioactiveDecay
+      3 SFVGSaturation
+      3 PMUFDDecaySolveISPDIAtCell
+      3 PMUFDDecaySetup
+      3 LUDecomposition1
+      3 Arrhenius
+      2 LUBackSubstitution
+      1 ReactionIsothermTotalSorbKD
+      1 ReactionAuxCreateAux
+      1 RPFMualemVGLiqRelPerm
+      1 RPFBurdineBCLiqRelPerm
+      1 LUDecomposition2
+      1 Initialise
+      1 EOSWaterViscosity1
+# files with any hit:
+src/decay/mod.rs
+src/decay/upstream.rs
+src/decomposition/mod.rs
+src/energy/mod.rs
+src/eos_co2_brine/brine.rs
+src/eos_co2_brine/co2.rs
+src/eos_co2_brine/kovan.toml
+src/eos_co2_brine/mod.rs
+src/eos_real/kovan.toml
+src/eos_real/mod.rs
+src/flow/richards.rs
+src/general_mode/mod.rs
+src/lib.rs
+src/multiphase/mod.rs
+src/properties/curves.rs
+src/properties/eos.rs
+src/properties/kovan.toml
+src/properties/mod.rs
+src/properties/thermal.rs
+src/sorption/mod.rs
+src/thermal_convection/mod.rs
+src/units.rs
+src/wells/mod.rs
+tests/upstream_differential_gh1422.rs
