@@ -210,3 +210,30 @@ Predictions:
    port cannot reproduce that (stateless), a documented non-reproduction.
 4. No other difference; if the "intended" comparison fails, the first divergent operation is
    localised before any change.
+
+## E. Gap conductance, FRAPCON fuel-rod gap (before the driver)
+
+Upstream kernels: `fuelRodGapFvPatchScalarField::hGap` (gas, radiation, contact; scaling `F = 1`, `delta = 0`,
+`relax = 1`) and `gapFRAPCON::kappa(T)` / `::a(T)` (mixture conductivity and accommodation coefficient).
+Port: `GapConductanceModel::FuelRodFrapcon` and `GapGasMixture`.  Mixtures use dyadic mole fractions
+(sum exactly 1) from {He, Ar, Kr, Xe} in the port's species order; the upstream mole fractions `M_` are
+inputs (`correctMolFractions` not exercised).  Not compared: the gas-pressure / plenum bookkeeping
+(`correct()`), `gapWidth()` geometry, TRISO gap, `gapGasTimeTabulated`.
+
+Known interface facts before the run:
+* Radiation uses `physicoChemical::sigma`.  In OpenFOAM-ESI v2506 `sigma = (pi^2/60) k^4 / ((h/2pi)^3 c^2)` with
+  `k = 1.38065e-23`, `h = 6.62607e-34`, `c = 2.99792e8` (etc/controlDict:1098-1115), computed 5.6704085580608236e-08,
+  i.e. `+6.02e-6` relative to the CODATA 2018 value 5.670374419e-8 the port uses.  Same class as the gas-constant finding
+  of round 1.  The driver emits both (`_Foam`, `_2018`).
+* Upstream's pressure conversion is `interfaceP/1e4/9.8`, the port's `interfaceP/(1e4*9.8)`.
+
+Predictions:
+1. Gas conductivity `kappa`, accommodation `a`, `hGas`, `hContact` and `hRad_2018`: G1/G2 hold with
+   scales derived in the driver (`kappa`: 8 eps x value x 2, from ~16 elementary operations per pair term each <= 1 ulp;
+   `hGas`: `kappa` cond + `1 + (d_gap + d_eff + 1.397e-6)/den` for the `max(.., 0)` subtraction).
+2. `hRad_Foam` differs from the port by exactly `+6.02e-6` relative (bound `|dsigma/sigma|`, first order exact since
+   `h_rad` is linear in sigma): observed within 2 eps of 6.0206e-6.
+3. Contact conductance: 100 % bit-identical except through `interfaceP` conversion and `sqrt`/`pow` differences;
+   `Prel` branch edges (0.003, 9e-6, 0.0087) agree.
+4. Mixture rules: no discrepancy for species sets without Ne/Rn.  A discrepancy is expected NOT.
+5. No port defect expected.
