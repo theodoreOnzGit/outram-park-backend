@@ -14,16 +14,18 @@
 //! reproduces byte for byte on the read side, so the table is re-printed
 //! through [`super::read::RawAceTable::to_type1_string`].
 //!
-//! Not ported: the plot file (`phnplo`, `:2830-3573`), which
-//! [`phnfix_type1`] leaves as `None` and the deck driver refuses by name; a
+//! ~~Not ported: the plot file (`phnplo`, `:2830-3573`), which
+//! [`phnfix_type1`] leaves as `None` and the deck driver refuses by name;~~
+//! **CORRECTED 2026-11-13 (gh:#1369):** the plot file is [`super::phnplo`],
+//! written when `ngend != 0`. Not ported: a
 //! ZAID suffix (`suff >= 0`); `nxtra != 0`; Type 2 and mcnpx formats.
 
 use super::acefix::{AcefixOutput, AcefixRequest};
 use super::fortran_fmt::fixed;
 use crate::NjoyError;
 
-/// `phnfix` + `phnout`, Type 1, non-mcnpx. `plot` is always `None`: `phnplo`
-/// is not ported, and the caller decides what a requested plot means.
+/// `phnfix` + `phnout`, Type 1, non-mcnpx, and `phnplo` when `req.plot`
+/// (`acepn.f90:1955-1956`).
 ///
 /// # Errors
 /// [`NjoyError::NotPorted`] for a ZAID suffix or `nxtra != 0`;
@@ -43,7 +45,14 @@ pub fn phnfix_type1(text: &str, req: &AcefixRequest) -> Result<AcefixOutput, Njo
     }
     let ace = raw.to_type1_string();
     let xsdir = crate::deck::acer_photon::photon_directory_line(&ace, raw.nxs[0])?;
-    Ok(AcefixOutput { ace, xsdir, plot: None })
+    // `phnplo(nplot, hk)`: `hk` is the card's comment, or the file's when blank.
+    let plot = if req.plot {
+        let hk = if req.hk.trim().is_empty() { raw.header.comment.clone() } else { req.hk.clone() };
+        Some(super::phnplo::phnplo(&raw, hk.trim_end()))
+    } else {
+        None
+    };
+    Ok(AcefixOutput { ace, xsdir, plot })
 }
 
 #[cfg(test)]

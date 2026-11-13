@@ -21,8 +21,9 @@
 //! (`tests/deck_driver_photonuclear_vs_njoy2016.rs`).
 //!
 //! Still refused by name ([`NjoyError::NotPorted`]): an MF=3/MT=2 elastic
-//! section (`ielas = 1`), MF=4 (deck 56), an MF=5 distribution for a
-//! production reaction, and MF=6 `LAW = 4`. Refusing is the point: a table that
+//! section (`ielas = 1`), ~~MF=4 (deck 56), an MF=5 distribution for a
+//! production reaction,~~ and MF=6 `LAW = 4`. **CORRECTED 2026-11-13 (gh:#1369, deck 56):** the MF=4/MF=5
+//! neutron branches are translated in [`super::mf45`]; deck 56 is identical. Refusing is the point: a table that
 //! silently omits an emitted particle still reads and looks plausible.
 //!
 //! ## Two inputs, and why
@@ -40,6 +41,7 @@ use crate::acer::acelf6::bachaa;
 use crate::common::phys::{AMASSN_AMU, AMU_G, CLIGHT_CM_S, EV_ERG};
 use crate::endf::records::{SectionCursor, Tab1};
 use super::records::{copynubar, flat, read_mf6, terp, terp_lin, Mf6, Xss};
+use super::mf45::{law33_discrete, mf4_yields, mf5_distribution, Block, Reaction};
 use crate::endf::tape::Tape;
 use crate::mixr::mix::sigfig;
 use crate::NjoyError;
@@ -112,8 +114,9 @@ struct Rx {
 /// # Errors
 /// [`NjoyError::EndfParse`] for a tape that is not photo-nuclear or is
 /// malformed, and [`NjoyError::NotPorted`] for the branches not translated:
-/// an MF=3/MT=2 elastic section, MF=4/MF=5 distributions, MF=6 `LAW = 4`,
-/// and a polynomial nubar (which upstream refuses too).
+/// an MF=3/MT=2 elastic section and MF=6 `LAW = 4`; `EndfParse` for a
+/// polynomial nubar (which upstream refuses too). MF=4/MF=5 are translated
+/// (`super::mf45`, 2026-11-13).
 pub fn photonuclear_ace(
     endf: &Tape,
     pendf: &Tape,
@@ -182,12 +185,9 @@ pub fn photonuclear_ace(
              and its separate NON accounting are not ported",
         ));
     }
-    if mf4 {
-        return Err(NjoyError::NotPorted(
-            "acephn: MF=4 angular data -- the MF=4/MF=5 neutron-only \
-             representation (ACE laws 33 and 4) is not ported",
-        ));
-    }
+    // ~~MF=4 refused (the MF=4/MF=5 neutron-only representation was not
+    // ported)~~ **CORRECTED 2026-11-13 (gh:#1369, deck 56):** translated in
+    // `super::mf45`.
 
     // ── the nubar tabulation (`:178-205`) ──────────────────────────────────
     let mut fnubar: Option<Tab1> = None;
@@ -317,6 +317,19 @@ pub fn photonuclear_ace(
     let order = [1, 0, 1001, 1002, 1003, 2003, 2004];
     let mut count = [0usize; 7];
     let mut thr = [ETOP; 7];
+    // An MF=4 section is one neutron-producing reaction (`:348-366`).
+    let mf4_rxs: Vec<Reaction> = dict
+        .iter()
+        .filter(|d| d.0 == 4)
+        .map(|d| find_rx(d.1).map(|r| Reaction { mt: r.mt, q: r.q, k: r.k, iaa: r.iaa }))
+        .collect::<Result<_, _>>()?;
+    for rx in &mf4_rxs {
+        count[0] += 1;
+        let thresh = x.get(esz + rx.iaa - 1);
+        if thresh < thr[0] {
+            thr[0] = thresh;
+        }
+    }
     for m in &mf6s {
         let mth = m.mt;
         for sub in &m.subs {
@@ -486,8 +499,13 @@ pub fn photonuclear_ace(
         x.set(row + 7, sigp as f64);
         nex = sigp;
 
-        // MF=6 production cross sections and yields (`:830-916`).
+        let blk = Block { esz, tot, thn, nes, it, pxs, phn, mtrp, tyrp, lsigp, sigp, ldlwp: 0, dlwp: 0 };
         let mut jp = 0usize;
+        // MF=4/5 representations, neutrons only (`:742-833`).
+        if mf4 && ip == 1 {
+            mf4_yields(&mut x, &blk, &mf4_rxs, fnubar.as_ref(), &mut jp, &mut nex)?;
+        }
+        // MF=6 production cross sections and yields (`:830-916`).
         for m in &mf6s {
             let mth = m.mt;
             let rx = find_rx(mth)?;
@@ -618,13 +636,24 @@ pub fn photonuclear_ace(
         let dlwp = ldlwp + ntrp;
         x.set(row + 11, dlwp as f64);
         nex = dlwp;
+        let blk = Block { ldlwp, dlwp, ..blk };
+        let reaction = |mt: i32| find_rx(mt).map(|r| Reaction { mt: r.mt, q: r.q, k: r.k, iaa: r.iaa });
+        // ~~An MF=5 distribution refused~~ **CORRECTED 2026-11-13 (gh:#1369):**
+        // MF=4 discrete levels as ACE law 33 (`:1166-1212`), then MF=5
+        // (`:1214-1425`), in `super::mf45`.
+        for i in 1..=ntrp {
+            let mt = x.get(mtrp + i - 1).round() as i32;
+            if dict.iter().any(|d| d.0 == 4 && d.1 == mt) && (50..91).contains(&mt) {
+                law33_discrete(&mut x, &blk, reaction(mt)?, awr, i, &mut nex);
+            }
+        }
         for i in 1..=ntrp {
             let mt = x.get(mtrp + i - 1).round() as i32;
             if mfs5.contains(&mt) {
-                return Err(NjoyError::NotPorted(
-                    "acephn: an MF=5 energy distribution for a production reaction \
-                     (acepn.f90:1227-1425) is not ported",
-                ));
+                let s = endf
+                    .section(mat, 5, mt)
+                    .ok_or_else(|| NjoyError::EndfParse(format!("acephn: no MF=5/MT={mt} for MAT {mat}")))?;
+                mf5_distribution(&mut x, &blk, reaction(mt)?, &s.rows, fnubar.as_ref(), i, &mut nex)?;
             }
         }
 

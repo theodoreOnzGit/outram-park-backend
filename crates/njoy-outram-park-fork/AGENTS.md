@@ -1086,8 +1086,11 @@ that silently omits an emitted particle still reads and still looks plausible.
 translation of `acephn`, and reproduces NJOY2016's ACE line for line on
 upstream decks 57, 58, 66 and 78 (Bi-209, Co-59, Pu-239, He-3): `LCT = 2/3`,
 Kalbach-Mann, `NA > 0`, `LAW = 2`, recoil heating and the MT=18 nubar are
-translated. Still refused: `ielas = 1`, MF=4, MF=5 for a production reaction,
+translated. Still refused: `ielas = 1`, ~~MF=4, MF=5 for a production reaction,~~
 `LAW = 4`. Record: `verification_and_validation/deck_driver/README.md` §21.
+**CORRECTED 2026-11-13 (gh:#1369, deck 56):** MF=4/MF=5 (`photonuclear/mf45.rs`) and the
+`iopt = 7` plot file (`acer::phnplo`) are translated too, and decks 56, 57, 58, 66
+and 78 are NJOY2016's as whole decks (README §22).
 
 **The pair is archived, and the `hk` comment is the provenance.** Both tables
 — NJOY2016's and this port's — live in the `reference-data/ace` submodule as

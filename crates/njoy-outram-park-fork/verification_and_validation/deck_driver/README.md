@@ -362,7 +362,7 @@ ports.
 | 23 | 57 lines of MF=1/MT=451 | card-20 comments are unquoted, and `read(nsysi,*) text` is list-directed (`leapr.f90:3101`), so a card ends at the first blank (`* BEO ...` reads as `*`) | `LeaprDeck::read_comment` reads the card with `deck::cards::CardReader` | identical |
 | 81, 88 | 1 line each | LRF=7: `rdsammy` sets `ascat` to the last elastic channel's `APE` (`samm.f90:1126`), and `recout` writes it in MF=2/MT=151 (`reconr.f90:5200`); the port wrote 0 | `deck::pendf::rml_ascat` | identical |
 | 48, 59 | `NotPorted`: ACER `iopt = 4` | none | `deck::acer_photon` binds the units; the directory line follows `phoout` (`acepa.f90:1023`) | directory line identical; the ACE differs in 36 of 17 964 lines, all in the heating block (45 words, worst 8.7e-8). This is the residual already recorded in `../acer_photoatomic_vs_njoy2016.md`. |
-| 56, 57, 58, 66, 78 | `NotPorted`: ACER `iopt = 5` | none | as above | ~~the builder refuses by name: MF=4 angular data (56), MF=6 `LCT != 1` (57, 58, 78), MT=18 nubar (66)~~ **CORRECTED 2026-11-13:** 57, 58, 66 and 78 build, ACE identical; 56 still stops at MF=4 (section 21) |
+| 56, 57, 58, 66, 78 | `NotPorted`: ACER `iopt = 5` | none | as above | ~~the builder refuses by name: MF=4 angular data (56), MF=6 `LCT != 1` (57, 58, 78), MT=18 nubar (66)~~ **CORRECTED 2026-11-13:** 57, 58, 66 and 78 build, ACE identical; ~~56 still stops at MF=4 (section 21)~~ **CORRECTED 2026-11-13:** all five are identical whole decks (section 22) |
 | 43 | `differs`: tape35 320 lines | at `tempef <= 0` BROADR only thins (`thinb`, `broadr.f90:1677-1760`), which is not ported (gh:#619); the driver passed RECONR's grid through | the driver now refuses it (`NotPorted`) | `NotPorted`, honestly |
 | 80 | `leapr: card reader not yet translated` | not investigated | none | runs; 17 369 of 91 453 lines of MF=7/MT=4 differ in the last printed figure (`test_80_leapr_whole_deck`, ignored with that reason) |
 
@@ -986,7 +986,8 @@ New on the way:
 - LAW=1 recoil heating (`nr6`), MT=102 `e+q` heating (`icapt`), `copynubar` for MT=18,
   `NXS(9) = LISO`.
 
-Still refused by name: `ielas = 1`, MF=4, MF=5 for a production reaction, MF=6 `LAW = 4`.
+Still refused by name: `ielas = 1`, ~~MF=4, MF=5 for a production reaction,~~ MF=6 `LAW = 4`
+(**CORRECTED 2026-11-13:** MF=4/MF=5 translated, section 22).
 - Result: ACE unit 31 and directory 32 identical on decks 57 (57 803 lines), 58 (132 970),
   66 (259 515) and 78 (3 488). The synthetic Z6 gate still holds byte for byte.
 - One deliberate divergence: a photo-atomic tape (`NSUB = 3`) passes upstream's
@@ -994,20 +995,21 @@ Still refused by name: `ielas = 1`, MF=4, MF=5 for a production reaction, MF=6 `
 
 **3. `phnfix`** (`acer::phnfix::phnfix_type1`, `acepn.f90:1855-1959`): the table is read
 with `read::parse_type1`, `hk` replaced, and re-printed through `to_type1_string` (which is
-`phnout`'s layout); the directory line is `phnout`'s. `phnplo` (`:2830-3573`) is **not
-ported**; the deck driver writes the table and directory and then stops by name.
+`phnout`'s layout); the directory line is `phnout`'s. ~~`phnplo` (`:2830-3573`) is **not
+ported**; the deck driver writes the table and directory and then stops by name.~~
+**CORRECTED 2026-11-13:** `phnplo` is ported (section 22).
 - Result: units 34 and 35 identical on 57, 58, 66 and 78.
 
 **Gates** (`tests/deck_driver_photonuclear_vs_njoy2016.rs`, decks run as written against the
 local NJOY2016.80): units 90/31/32/34/35 have zero differing lines, and the run must stop at
-`phnplo` and nothing earlier.
+`phnplo` and nothing earlier. **SUPERSEDED 2026-11-13:** the gates are whole decks now (section 22).
 
-**Not done:**
-- `phnplo`, the `iopt = 7` plot file (units 33 and 36), so the second check pass (37, 38)
-  and VIEWR (43, 46) are not reached. It is the last step for decks 57, 58, 66 and 78.
-- Deck 56 (U-235 ENDF/B-VIII.0): MF=4/MT=18 and MF=5/MT=18, `acephn`'s MF=4/5 neutron
+**Not done:** (**CORRECTED 2026-11-13:** the first two are done, section 22)
+- ~~`phnplo`, the `iopt = 7` plot file (units 33 and 36), so the second check pass (37, 38)
+  and VIEWR (43, 46) are not reached. It is the last step for decks 57, 58, 66 and 78.~~
+- ~~Deck 56 (U-235 ENDF/B-VIII.0): MF=4/MT=18 and MF=5/MT=18, `acephn`'s MF=4/5 neutron
   branches (`:742-818`, `:1166-1425`). Their multiplicities are keyed on `mth`, a header
-  variable left over from the last record read.
+  variable left over from the last record read.~~
 - MF=6 `LAW = 4`, `ielas = 1`.
 
 **Survey:** decks 56, 57, 58, 66 and 78 were re-run alone (`SURVEY_CASES`) on develop
@@ -1026,3 +1028,68 @@ change; only Markdown changed afterwards):
 | `pendf_stages_vs_njoy2016` | 9 of 9 passed |
 | `ace_five_route_parity` | 13 of 13 passed |
 | `--lib` | 756 of 756 passed |
+
+## 22. Photo-nuclear decks whole: `phnplo`, and `acephn`'s MF=4/MF=5 neutron branches (2026-11-13, gh:#1369)
+
+Targets: decks 57, 58, 66 and 78 (the last step was `phnplo`) and deck 56 (U-235, MF=4/MF=5).
+A prediction was posted on gh:#1369 before each change; both held on the first run.
+
+**1. `phnplo`** (`acer::phnplo`, `acepn.f90:2830-3573`): the viewr input text of a
+photo-nuclear table, written to `ngend` by `phnfix_type1`. Pages in upstream's order:
+principal, partial (`NTR > 1`), heating, particle heating (when non-zero), particle
+production (photons /5), then per production type and reaction an angular page
+(`LANDP > 0`, split at 20 MeV) and a 3-D emission page (laws 4, 44, 61).
+- **Reused, not rewritten:** `aplots::fmt::{Plot, fe, fi, nint, pad70, hk_it}`,
+  `aplots::scale::{ascle, mtname}`, and `tplots`' private `ascll` (now `pub(crate)`).
+  `diff` of upstream's three copies: `acepn.f90`'s `ascle` is `acefc.f90`'s, and its `ascll`
+  is `aceth.f90`'s, both lacking `acefc`'s "make sure amin and amax differ" step.
+- **Quirks kept:** `mtname(mt,name,0)` with `name(2:2)='g'`; the partial page writes all ten
+  characters of `name` and reads `xss(iaa+j-1)` with no `ESZ` offset; the angular page's
+  `it` loop does not reset `it` and writes no title for photons; the 3-D page's
+  `zmin = zmax/10000`, `go to 100` when `zmax = 0`, discrete lines `100*pd` bracketed at
+  `ep ± 0.01`.
+- Result: unit 33 identical on 78 (5 637 lines), 57 (59 125), 66 (33 524) and 58 (59 951).
+  With it, the second check pass (36, 37, 38) and VIEWR (43, 46) are identical too.
+
+**2. `acephn`'s MF=4/MF=5 neutron branches** (`acer::photonuclear::mf45`; `build.rs` only calls
+it, in upstream's order; its MF=4 and MF=5 refusals are removed):
+- pass 1 (`:348-366`): an MF=4 section counts one neutron reaction and feeds `tneut`;
+- production (`:742-833`): MF=4 reactions first in MTRP, `TYRP = 1`, `y*sigma` into PXS,
+  `e+q` heating, an MF=12-form yield record (MT=18: the MF=1 nubar, the last of 452/456 read);
+- angular: `LANDP = 0` (isotropic, MF=4's own data never read, `:956-962`);
+- DLW: ACE law 33 for MF=4 MT=50-90 (`:1166-1212`); MF=5 `LF = 1` → law 4, `LF = 7/9` →
+  law 7/9 with `ν Ē σ` moved from the local to the neutron heating (`:1214-1425`), `Ē` through
+  `mathm`'s `erfc` (`broadr::joint::erfc`, reused) called on `x`, not `sqrt(x)`, as upstream.
+- **The leftover `mth`, upstream behaviour.** The multiplicity table is indexed by `mth`, the
+  MT of the last record read. In the MF=4 branch that is pass 1's MEND, so `mth = 0` and every
+  MF=4 reaction but MT=18 gets `y = 1`, an (n,2n) included (`MTH_AFTER_PASS_1`, unit test
+  `multiplicity_table_and_the_leftover_mth`). In the MF=5 branch `findf`/`contio` have just
+  read MF=5/MT=`mt`, so `mth = mt`. Deck 56 does not reach the MF=4 quirk: its only MF=4
+  section is MT=18, whose `y` is the nubar.
+- Result: deck 56's units 31 (36 530 lines), 32, 33-38 (32 812 / 36 530 / 1 each pass) and
+  43/46 (39 522 / 39 521) identical.
+
+**Gates:** `tests/deck_driver_photonuclear_vs_njoy2016.rs` now runs decks 56, 57, 58, 66 and
+78 **whole**, as written, and requires every text tape NJOY2016.80 writes (all but the
+unchanged input and MODER's blocked-binary unit 30) to have zero differing lines, and the run
+to reach `stop`.
+
+**Not done:** MF=6 `LAW = 4` and `ielas = 1` are still refused by name. No upstream deck
+reaches either: the five photo-nuclear decks are the only `iopt = 5` decks, and all five are
+identical.
+
+**Survey:** decks 56, 57, 58, 66 and 78 re-run alone (`SURVEY_CASES`) on develop 43eadde45 plus
+this work: all five `identical`. **65 of 87 identical** (60 before).
+
+**Tests** (release, on develop 43eadde45 plus this work, run after the last code or test
+change; only Markdown changed afterwards):
+
+| suite | result |
+|---|---|
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` (`ulimit -v 12582912`) | 124 passed, 0 failed, 2 ignored (43, 80), 1 849 s |
+| `deck_driver_photonuclear_vs_njoy2016` (whole decks 56, 57, 58, 66, 78) | 5 of 5 passed |
+| `deck_driver_covr_vs_njoy2016` | 11 of 11 passed |
+| `acer_photonuclear_vs_njoy2016` | 5 of 5 passed |
+| `pendf_stages_vs_njoy2016` | 9 of 9 passed |
+| `ace_five_route_parity` | 13 of 13 passed |
+| `--lib` | 759 of 759 passed |

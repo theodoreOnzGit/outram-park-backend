@@ -82,6 +82,7 @@
 
 pub mod acefix;
 pub mod phnfix;
+pub mod phnplo;
 pub mod thrfix;
 pub mod tplots;
 pub mod aplots;

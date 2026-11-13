@@ -541,11 +541,9 @@ fn run_acer_fix(c: &AcerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         }
     }
     // `phnfix` writes the table (`phnout`) before it plots (`phnplo`,
-    // `acepn.f90:1952-1954`); the plot is not ported, so the deck stops here,
-    // by name, after the table and directory are on their units.
-    if class == Some('u') && c.ngend != 0 {
-        return Err(NjoyError::NotPorted("ACER iopt = 7 plot file for a photo-nuclear table (phnplo, acepn.f90:2830-3573)"));
-    }
+    // `acepn.f90:1955-1956`); ~~the plot is not ported, so the deck stops here~~
+    // **CORRECTED 2026-11-13 (gh:#1369):** `phnplo` is ported
+    // (`acer::phnplo`) and its text goes to `ngend` below like the others.
     if c.ngend != 0 {
         if let Some(p) = out.plot {
             units.put_text(c.ngend, p);
