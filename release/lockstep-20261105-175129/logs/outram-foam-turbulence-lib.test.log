@@ -1,0 +1,28 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+   Compiling outram-foam-turbulence-lib v0.1.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-turbulence-lib)
+    Finished `release` profile [optimized] target(s) in 17.55s
+     Running unittests src/lib.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/outram_foam_turbulence_lib-37c0458352afde53)
+
+running 16 tests
+test k_epsilon::tests::nut_bounded_by_epsilon_floor ... ok
+test k_epsilon::tests::nut_formula ... ok
+test k_epsilon::tests::correct_keeps_k_epsilon_positive_and_finite ... ok
+test k_omega::tests::nut_equals_k_over_omega ... ok
+test k_omega::tests::correct_keeps_k_omega_positive_and_finite ... ok
+test k_omega_sst::tests::nut_stress_limiter_formula ... ok
+test k_omega_sst::tests::wall_distance_is_nearest_wall_face ... ok
+test laminar::tests::effective_properties_equal_molecular ... ok
+test k_omega_sst::tests::correct_keeps_k_omega_positive_and_finite ... ok
+test laminar::tests::nut_is_identically_zero ... ok
+test laminar::tests::shear_velocity_yields_finite_nonzero_stress ... ok
+test laminar::tests::uniform_velocity_yields_zero_stress ... ok
+test les::smagorinsky::tests::correct_gives_finite_nonneg_nut_scaling_with_strain ... ok
+test les::smagorinsky::tests::delta_is_cube_root_of_volume ... ok
+test spalart_allmaras::tests::correct_keeps_nu_tilde_nonneg_and_nut_finite ... ok
+test spalart_allmaras::tests::fv1_chi_auxiliary_functions ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

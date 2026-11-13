@@ -2,6 +2,10 @@ schema_version = 1
 kind = "code_folder"
 crate = "dhoby-ghaut"
 dir = "crates/dhoby-ghaut/tests"
+test_ids = [
+    "crates/dhoby-ghaut/tests/gpu_csg_parity.rs::dem_bed_views_gpu_match_cpu",
+    "crates/dhoby-ghaut/tests/gpu_csg_parity.rs::htr10_views_gpu_match_cpu",
+]
 
 [module."gpu_csg_parity.rs"]
 path = "test:gpu_csg_parity"
@@ -230,3 +234,13 @@ uses = [
     "fn:fe7a0a7e6b9a135b",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+]
+failed = []

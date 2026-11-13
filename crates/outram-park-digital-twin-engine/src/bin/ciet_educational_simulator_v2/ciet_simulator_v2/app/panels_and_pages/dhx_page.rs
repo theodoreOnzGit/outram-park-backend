@@ -28,15 +28,15 @@ impl CIETApp {
         // left panel
         egui::ScrollArea::both().show(ui, |ui| {
 
-            // obtain a lock for the ciet data 
-            // ptr 
-            let mut ciet_data_global_ptr_lock = 
+            // obtain a lock for the ciet data
+            // ptr
+            let mut ciet_data_global_ptr_lock =
                 self.ciet_plot_data_mutex_ptr_for_parallel_data_transfer
                 .lock().unwrap();
-            
+
             // allows user to control recording interval
             let record_interval_seconds_slider = egui::Slider::new(
-                &mut ciet_data_global_ptr_lock.graph_data_record_interval_seconds, 
+                &mut ciet_data_global_ptr_lock.graph_data_record_interval_seconds,
                 0.05..=1000.0)
                 .logarithmic(true)
                 .text("Graph Data Recording Interval (Seconds)")
@@ -44,10 +44,10 @@ impl CIETApp {
 
             ui.add(record_interval_seconds_slider);
 
-            // allows user to control csv display interval 
+            // allows user to control csv display interval
 
             let csv_display_interval_seconds_slider = egui::Slider::new(
-                &mut ciet_data_global_ptr_lock.csv_display_interval_seconds, 
+                &mut ciet_data_global_ptr_lock.csv_display_interval_seconds,
                 0.1..=1000.0)
                 .logarithmic(true)
                 .text("CSV Display Interval (Seconds)")
@@ -55,21 +55,21 @@ impl CIETApp {
 
             ui.add(csv_display_interval_seconds_slider);
 
-            let csv_display_interval_seconds = 
+            let csv_display_interval_seconds =
                 ciet_data_global_ptr_lock.csv_display_interval_seconds;
-            let graph_data_record_interval_seconds = 
+            let graph_data_record_interval_seconds =
                 ciet_data_global_ptr_lock.graph_data_record_interval_seconds;
 
-            // now, we filter data every x number of rows based on the ratio 
-            // of these two 
+            // now, we filter data every x number of rows based on the ratio
+            // of these two
 
-            let csv_data_display_interval: i32 = 
+            let csv_data_display_interval: i32 =
                 (csv_display_interval_seconds/graph_data_record_interval_seconds)
                 .ceil() as i32;
 
 
-            // now we display rows every 
-            // csv_display_interval_seconds 
+            // now we display rows every
+            // csv_display_interval_seconds
             // rows
 
             let mut display_counter: i32 = 0;
@@ -82,29 +82,29 @@ impl CIETApp {
                     dhx_shell_inlet_temp,
                     dhx_shell_outlet_temp,
                     dhx_tube_inlet_temp,
-                    dhx_tube_outlet_temp,) = 
+                    dhx_tube_outlet_temp,) =
                     data_tuple;
 
-                let time_seconds: f64 = 
+                let time_seconds: f64 =
                     (time.get::<second>()*1000.0).round()/1000.0;
 
-                let dhx_shell_side_flowrate_kg_per_s = 
+                let dhx_shell_side_flowrate_kg_per_s =
                     (dhx_shell_side_mass_flowrate.get::<kilogram_per_second>()*1000.0).round()/1000.0;
-                let dhx_tube_side_flowrate_kg_per_s = 
+                let dhx_tube_side_flowrate_kg_per_s =
                     (dhx_tube_side_mass_flowrate.get::<kilogram_per_second>()*1000.0).round()/1000.0;
-                let dhx_shell_side_inlet_temp_degc = 
+                let dhx_shell_side_inlet_temp_degc =
                     (dhx_shell_inlet_temp.get::<degree_celsius>()*1000.0).round()/1000.0;
-                let dhx_shell_side_outlet_temp_degc = 
+                let dhx_shell_side_outlet_temp_degc =
                     (dhx_shell_outlet_temp.get::<degree_celsius>()*1000.0).round()/1000.0;
-                let dhx_tube_side_inlet_temp_degc = 
+                let dhx_tube_side_inlet_temp_degc =
                     (dhx_tube_inlet_temp.get::<degree_celsius>()*1000.0).round()/1000.0;
-                let dhx_tube_side_outlet_temp_degc = 
+                let dhx_tube_side_outlet_temp_degc =
                     (dhx_tube_outlet_temp.get::<degree_celsius>()*1000.0).round()/1000.0;
 
 
 
 
-                let dhx_data_row: String = 
+                let dhx_data_row: String =
                     time_seconds.to_string() + ","
                     + &dhx_shell_side_flowrate_kg_per_s.to_string() + ","
                     + &dhx_tube_side_flowrate_kg_per_s.to_string() + ","
@@ -113,26 +113,26 @@ impl CIETApp {
                     + &dhx_tube_side_inlet_temp_degc.to_string() + ","
                     + &dhx_tube_side_outlet_temp_degc.to_string() + "," ;
 
-                let data_display_remainder = 
+                let data_display_remainder =
                     display_counter.rem_euclid(csv_data_display_interval);
 
-                let data_display_modulus_zero: bool = 
+                let data_display_modulus_zero: bool =
                     data_display_remainder == 0;
 
-                let blank_data_row = 
+                let blank_data_row =
                     time_seconds.round() as u32 != 0;
 
 
 
-                // only add the label if heater time is not equal zero 
+                // only add the label if heater time is not equal zero
                 // AND the data display remainder is = 0
                 if blank_data_row && data_display_modulus_zero {
                     ui.label(dhx_data_row);
                 }
 
                 display_counter += 1;
-                // if the remainder of the display counter is zero 
-                // then we show data 
+                // if the remainder of the display counter is zero
+                // then we show data
 
 
             });

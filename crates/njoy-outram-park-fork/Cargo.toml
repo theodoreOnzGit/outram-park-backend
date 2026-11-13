@@ -1,6 +1,6 @@
 [package]
 name = "njoy-outram-park-fork"
-version = "0.0.6"
+version = "0.0.7"
 authors.workspace = true
 edition.workspace = true
 # GPL-3.0-only for the work as a whole (matches the rest of OUTRAM PARK).
@@ -116,6 +116,13 @@ directories = { workspace = true }
 [target.'cfg(not(target_os = "android"))'.dependencies]
 wgpu = { workspace = true }
 
+# teh-o-prke carries ENDF/B-VIII.0 delayed-neutron group constants as cited
+# literals; tests/teh_o_prke_delayed_data_vs_endf8.rs re-reads the tapes and
+# asserts they are equal (gh:#1319). A dev-dependency only: teh-o-prke does
+# not depend on this crate, so the edge forms no cycle.
+[dev-dependencies]
+teh-o-prke.workspace = true
+
 [features]
 # `long-tests` is default-on so the reference-data tests run unless someone
 # deliberately opts out with `--no-default-features` (i.e. `cargo quick-test`).
@@ -190,6 +197,11 @@ path = "tests/openmc_notebooks_data/main.rs"
 [[bin]]
 name = "njoy-tui"
 path = "src/bin/njoy-tui/main.rs"
+
+# `njoy-deck <deck> [workdir]`: run an NJOY input deck (gh:#1369).
+[[bin]]
+name = "njoy-deck"
+path = "src/bin/njoy_deck.rs"
 
 # ── rayon: native + Android only ─────────────────────────────────────────────
 # rayon-core does not build for wasm32-unknown-unknown at all — it needs OS

@@ -490,6 +490,17 @@ pub fn doppler_broaden_below_with(
 /// Broaden a whole [`ReconrResult`] to `temp_k` \[K\] with the upstream default
 /// upper limit ([`broadening_limit`]). The result carries the same material
 /// header and limit, so it can be broadened again (bootstrap style) if wanted.
+///
+/// ~~That last sentence was a trap: the kernel always ran at the full
+/// `temp_k`, so broadening a 293.6 K result "to" 900 K gave about 1194 K.~~
+/// **CORRECTED 2026-11-10 (GitHub #617):** it now holds. BROADR broadens by
+/// `tempef = temp_k − result.temperature_k`, as upstream does from `tempin`
+/// (`broadr.f90:605-610`), and the output carries `temperature_k`. Free-gas
+/// broadening is a Gaussian convolution in velocity whose variances add, so
+/// 0 → 293.6 K → 900 K and 0 → 900 K agree to the thinning tolerance. When
+/// `temp_k` is not above the input's temperature (`tempef <= 0`) upstream
+/// only thins (`thinb`, `broadr.f90:1218-1222`); thinning is not ported (GitHub #619), so
+/// the input is returned unchanged, still labelled with its own temperature.
 #[must_use]
 ///
 /// Since 2026-09-26 this is upstream's own form, [`joint::broadr_joint`]. It
@@ -517,6 +528,13 @@ pub fn broaden_result(result: &ReconrResult, temp_k: f64) -> ReconrResult {
 /// joint walk only: the per-reaction fallback, taken when the result has no
 /// MT=1 section, keeps its own fixed tolerance.
 pub fn broaden_result_with_tolerance(result: &ReconrResult, temp_k: f64, errthn: f64) -> ReconrResult {
+    // `tempef=tempk-tempin` (`broadr.f90:605-610`, GitHub #617).
+    let tempef = temp_k - result.temperature_k;
+    if !(tempef > 0.0) {
+        // Upstream thins only here; not ported, so the data pass through
+        // under their own temperature (see the doc above).
+        return result.clone();
+    }
     let pendf = result.through_pendf_text();
     if let Some(r) = joint::broadr_joint(&pendf, temp_k, &BroadnTolerances::with_errthn(errthn), E6PT5) {
         // BROADR writes a PENDF: energies copied above `thnmax` have been
@@ -526,12 +544,13 @@ pub fn broaden_result_with_tolerance(result: &ReconrResult, temp_k: f64, errthn:
     let thnmax = broadening_limit(result);
     ReconrResult {
         material: result.material.clone(),
-        sections: doppler_broaden_below(&result.sections, result.material.awr, temp_k, thnmax),
+        sections: doppler_broaden_below(&result.sections, result.material.awr, tempef, thnmax),
         resonance_upper_limit: result.resonance_upper_limit,
         // BROADR does not touch MF=2, so the 0 K unresolved table rides
         // through unchanged -- matching upstream, where UNRESR/PURR are what
         // replace it with a temperature-dependent one.
         unresolved_table: result.unresolved_table.clone(),
+        temperature_k: temp_k,
     }
 }
 
@@ -855,6 +874,7 @@ mod tests {
             sections: vec![],
             resonance_upper_limit: Some(2.0e4),
             unresolved_table: None,
+            temperature_k: 0.0,
         };
         assert_eq!(broadening_limit(&r), 2.0e4);
         // Cap at e6pt5 (broadr.f90:423-425).
@@ -863,6 +883,7 @@ mod tests {
             sections: vec![],
             resonance_upper_limit: Some(2.0e7),
             unresolved_table: None,
+            temperature_k: 0.0,
         };
         assert_eq!(broadening_limit(&r), 6.5e6);
         // Never above the evaluation's emax (broadr.f90:441).
@@ -871,6 +892,7 @@ mod tests {
             sections: vec![],
             resonance_upper_limit: Some(2.0e7),
             unresolved_table: None,
+            temperature_k: 0.0,
         };
         assert_eq!(broadening_limit(&r), 1.5e6);
         // No MF=2 at all: eresh = thnmax = 0 → e6pt5 fallback (broadr.f90:562).
@@ -879,6 +901,7 @@ mod tests {
             sections: vec![],
             resonance_upper_limit: None,
             unresolved_table: None,
+            temperature_k: 0.0,
         };
         assert_eq!(broadening_limit(&r), 6.5e6);
     }
@@ -899,6 +922,7 @@ mod tests {
             sections: secs.clone(),
             resonance_upper_limit: Some(2.0e7),
             unresolved_table: None,
+            temperature_k: 0.0,
         };
         assert_eq!(broadening_limit(&r), 0.99999 * 4.5e4);
         // Same sections but lrp = 1: thresholds are not consulted at all.
@@ -907,6 +931,7 @@ mod tests {
             sections: secs,
             resonance_upper_limit: Some(2.0e7),
             unresolved_table: None,
+            temperature_k: 0.0,
         };
         assert_eq!(broadening_limit(&r), 6.5e6);
     }

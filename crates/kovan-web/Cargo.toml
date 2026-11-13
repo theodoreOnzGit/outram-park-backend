@@ -1,6 +1,6 @@
 [package]
 name = "kovan-web"
-version = "0.0.3"
+version = "0.0.4"
 authors.workspace = true
 edition.workspace = true
 # AGPL-3.0-only, like the rest of the kovan front ends (`kovan`), NOT the
@@ -48,6 +48,7 @@ kopitiam-syntax = { workspace = true }
 # model, `model` and `data`, still builds and is tested there).
 [target.'cfg(not(target_os = "android"))'.dependencies]
 egui = { workspace = true }
+bugis = { workspace = true }
 
 # Browser plumbing: fetch, the URL hash, opening a tab, the clock.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -64,8 +65,15 @@ web-sys = { workspace = true, features = [
 [target.'cfg(not(target_os = "android"))'.dev-dependencies]
 eframe = { workspace = true }
 
+# ~~`glow` (WebGL2) is added because WebGPU is still not universal; the app
+# selects it at start-up.~~ **CHANGED 2026-10-27 (maintainer: "get glow out,
+# let's use wgpu only")**: eframe's wgpu, one renderer on every target. The
+# concern glow answered still holds -- WebGPU is not universal -- and wgpu
+# answers it itself: its `webgl` backend (enabled on wasm by eframe's `wgpu`
+# feature; confirmed with `cargo tree -e features -i wgpu`) falls back to
+# WebGL2 where WebGPU is missing. Coverage is unchanged.
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-eframe = { workspace = true, features = ["glow"] }
+eframe = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 web-sys = { workspace = true, features = ["Window", "Document", "Element", "HtmlCanvasElement"] }

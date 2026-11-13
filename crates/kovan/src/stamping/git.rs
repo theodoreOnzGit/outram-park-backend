@@ -32,6 +32,19 @@ pub fn spawns() -> usize {
     SPAWNS.load(Ordering::Relaxed)
 }
 
+#[cfg(test)]
+thread_local! {
+    /// [`SPAWNS`] for this thread only, so a test's count is not moved by
+    /// the git calls of tests running beside it.
+    static THREAD_SPAWNS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// How many `git` processes this module has started on this thread (tests).
+#[cfg(test)]
+pub fn spawns_on_this_thread() -> usize {
+    THREAD_SPAWNS.with(|c| c.get())
+}
+
 /// [`spawns`] by call kind, with the time spent in them, for listing the
 /// call sites of a refresh.
 pub fn spawn_tally() -> BTreeMap<String, (usize, Duration)> {
@@ -53,6 +66,8 @@ pub fn call_kind(args: &[&str]) -> String {
 /// Count one spawn of kind `args`, which took `took`.
 pub(crate) fn count_spawn(args: &[&str], took: Duration) {
     SPAWNS.fetch_add(1, Ordering::Relaxed);
+    #[cfg(test)]
+    THREAD_SPAWNS.with(|c| c.set(c.get() + 1));
     if let Ok(mut t) = TALLY.lock() {
         let e = t.entry(call_kind(args)).or_default();
         e.0 += 1;

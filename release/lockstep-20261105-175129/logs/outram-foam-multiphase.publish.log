@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging outram-foam-multiphase v0.0.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-multiphase)
+    Updating crates.io index
+    Packaged 25 files, 657.1KiB (181.3KiB compressed)
+   Verifying outram-foam-multiphase v0.0.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-multiphase)
+   Compiling outram-foam-multiphase v0.0.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/outram-foam-multiphase-0.0.5)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.10s
+   Uploading outram-foam-multiphase v0.0.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-multiphase)
+    Uploaded outram-foam-multiphase v0.0.5 to registry `crates-io`
+note: waiting for outram-foam-multiphase v0.0.5 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-foam-multiphase v0.0.5 at registry `crates-io`

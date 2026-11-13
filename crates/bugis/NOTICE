@@ -1,0 +1,13 @@
+NOTICE -- bugis
+===============
+
+Licensed AGPL-3.0-only (the workspace default since 2026-10-20, GitHub issue
+#973); `LICENSE` is the AGPL-3.0 text.
+
+The Gruvbox colour palette is based on morhetz/gruvbox
+(https://github.com/morhetz/gruvbox), MIT License. Only the published hex
+colour values are reproduced; no source code from that project is used.
+
+`gruvbox_visuals` was moved here from this workspace's own `kovan` crate
+(`src/app/theme.rs`), itself ported from `tampines-steam-tables-gui`'s
+`theme.rs` (GitHub issue #30).

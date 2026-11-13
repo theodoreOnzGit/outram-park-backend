@@ -148,7 +148,7 @@ fn main() {
         return;
     }
     let web_options = eframe::WebOptions {
-        renderer: eframe::Renderer::Glow,
+        renderer: eframe::Renderer::Wgpu,
         ..Default::default()
     };
     wasm_bindgen_futures::spawn_local(async move {

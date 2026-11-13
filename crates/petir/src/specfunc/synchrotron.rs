@@ -146,12 +146,26 @@ fn underflow_cut() -> f64 {
 
 /// `x^n` for the small integer powers upstream takes with
 /// `gsl_sf_pow_int` — 11 for `S_1`, 5 for `S_2`.
+///
+/// **CORRECTED 2026-11-10 (gh:#1338 case 1).** This was `n` plain
+/// multiplications, which rounds differently from GSL's repeated squaring
+/// (`specfunc/pow_int.c:52`) and, through the cancellation in
+/// `px * c1 - px11 * c2 - c0 * x`, moved `S_1` and `S_2` by up to 1.3e-13
+/// relative on `[1.75, 4]` against compiled GSL 2.8. Now the repeated-squaring
+/// loop, line for line.
 fn pow_int(x: f64, n: u32) -> f64 {
-    let mut out = 1.0;
-    for _ in 0..n {
-        out *= x;
+    let (mut value, mut x, mut n) = (1.0, x, n);
+    loop {
+        if n & 1 == 1 {
+            value *= x;
+        }
+        n >>= 1;
+        x *= x;
+        if n == 0 {
+            break;
+        }
     }
-    out
+    value
 }
 
 /// `S_1(x)`, GSL's `gsl_sf_synchrotron_1`.
@@ -184,14 +198,14 @@ pub fn synchrotron_1(x: f64) -> f64 {
         let px = Real::powf(x, 1.0 / 3.0);
         let px11 = pow_int(px, 11);
         let t = x * x / 8.0 - 1.0;
-        return px * crate::cheb_slice::eval_gsl(t, &SYNCH1)
-            - px11 * crate::cheb_slice::eval_gsl(t, &SYNCH2)
+        return px * crate::specfunc::cheb_eval_e(t, &SYNCH1)
+            - px11 * crate::specfunc::cheb_eval_e(t, &SYNCH2)
             - c0 * x;
     }
     if x < underflow_cut() {
         let t = (12.0 - x) / (x + 4.0);
         return Real::sqrt(x)
-            * crate::cheb_slice::eval_gsl(t, &SYNCH1A)
+            * crate::specfunc::cheb_eval_e(t, &SYNCH1A)
             * Real::exp(LOG_SQRT_PI_2 - x);
     }
     // Upstream's UNDERFLOW_ERROR: e^{-x} has left f64's range.
@@ -214,14 +228,14 @@ pub fn synchrotron_2(x: f64) -> f64 {
         let px = Real::powf(x, 1.0 / 3.0);
         let px5 = pow_int(px, 5);
         let t = x * x / 8.0 - 1.0;
-        return px * crate::cheb_slice::eval_gsl(t, &SYNCH21)
-            - px5 * crate::cheb_slice::eval_gsl(t, &SYNCH22);
+        return px * crate::specfunc::cheb_eval_e(t, &SYNCH21)
+            - px5 * crate::specfunc::cheb_eval_e(t, &SYNCH22);
     }
     if x < underflow_cut() {
         let t = (10.0 - x) / (x + 2.0);
         return Real::sqrt(x)
             * Real::exp(LOG_SQRT_PI_2 - x)
-            * crate::cheb_slice::eval_gsl(t, &SYNCH2A);
+            * crate::specfunc::cheb_eval_e(t, &SYNCH2A);
     }
     0.0
 }
@@ -499,8 +513,8 @@ mod tests {
         let t = x * x / 8.0 - 1.0;
 
         let small1 = 2.149_528_241_534_478_636_71 * z * (1.0 - 8.438_127_628_132_05e-1 * z * z);
-        let cheb1 = px * crate::cheb_slice::eval_gsl(t, &SYNCH1)
-            - pow_int(px, 11) * crate::cheb_slice::eval_gsl(t, &SYNCH2)
+        let cheb1 = px * crate::specfunc::cheb_eval_e(t, &SYNCH1)
+            - pow_int(px, 11) * crate::specfunc::cheb_eval_e(t, &SYNCH2)
             - PI_OVER_SQRT3 * x;
         assert!(
             ((small1 - cheb1) / cheb1).abs() < 1e-8,
@@ -508,8 +522,8 @@ mod tests {
         );
 
         let small2 = 1.074_764_120_767_239_318_36 * z * (1.0 - 1.177_671_565_102_35 * z * x);
-        let cheb2 = px * crate::cheb_slice::eval_gsl(t, &SYNCH21)
-            - pow_int(px, 5) * crate::cheb_slice::eval_gsl(t, &SYNCH22);
+        let cheb2 = px * crate::specfunc::cheb_eval_e(t, &SYNCH21)
+            - pow_int(px, 5) * crate::specfunc::cheb_eval_e(t, &SYNCH22);
         assert!(
             ((small2 - cheb2) / cheb2).abs() < 1e-8,
             "S_2 small/Chebyshev join at {x:e}: {small2:e} vs {cheb2:e}"
@@ -519,22 +533,22 @@ mod tests {
         let x = 4.0_f64;
         let px = x.powf(1.0 / 3.0);
         let t = x * x / 8.0 - 1.0;
-        let a = px * crate::cheb_slice::eval_gsl(t, &SYNCH1)
-            - pow_int(px, 11) * crate::cheb_slice::eval_gsl(t, &SYNCH2)
+        let a = px * crate::specfunc::cheb_eval_e(t, &SYNCH1)
+            - pow_int(px, 11) * crate::specfunc::cheb_eval_e(t, &SYNCH2)
             - PI_OVER_SQRT3 * x;
         let b = x.sqrt()
-            * crate::cheb_slice::eval_gsl((12.0 - x) / (x + 4.0), &SYNCH1A)
+            * crate::specfunc::cheb_eval_e((12.0 - x) / (x + 4.0), &SYNCH1A)
             * (LOG_SQRT_PI_2 - x).exp();
         assert!(
             ((a - b) / b).abs() < 1e-8,
             "S_1 Chebyshev/large join at 4: {a:e} vs {b:e}"
         );
 
-        let a = px * crate::cheb_slice::eval_gsl(t, &SYNCH21)
-            - pow_int(px, 5) * crate::cheb_slice::eval_gsl(t, &SYNCH22);
+        let a = px * crate::specfunc::cheb_eval_e(t, &SYNCH21)
+            - pow_int(px, 5) * crate::specfunc::cheb_eval_e(t, &SYNCH22);
         let b = x.sqrt()
             * (LOG_SQRT_PI_2 - x).exp()
-            * crate::cheb_slice::eval_gsl((10.0 - x) / (x + 2.0), &SYNCH2A);
+            * crate::specfunc::cheb_eval_e((10.0 - x) / (x + 2.0), &SYNCH2A);
         assert!(
             ((a - b) / b).abs() < 1e-8,
             "S_2 Chebyshev/large join at 4: {a:e} vs {b:e}"

@@ -1,5 +1,5 @@
 //! **The data of the Fission products chapter 4, "TRISO layer migration and
-//! particle failure"** (lessons 29-38; maintainer direction 2026-10-22,
+//! particle failure"** (lessons 31-40; maintainer direction 2026-10-22,
 //! which merged the planned "Barriers" and "Fuel failure" chapters and
 //! added the diffusion-through-layers portion). Writes `barrier-data.js`
 //! and `failure-data.js` in `docs/site/science/fission-products/`.
@@ -13,7 +13,7 @@
 //!   the HTR-10 TRISO thicknesses (`TrisoSpec::HTR10_LI2014`).
 //! - `walk.rs`: boon-lay's multilayer Walk-on-Spheres walker on the HTR-10
 //!   particle as a cost probe, and the exact mean exit time that checks
-//!   lesson 32's walk.
+//!   lesson 34's walk.
 //! - `failure.rs`: boon-lay fuel failure on the HTR-10 particle (an
 //!   extrapolation), and TRISO-ATOPS's transient Booth for the release from
 //!   failed particles.
@@ -74,7 +74,10 @@
 //! - P1 HIT: smallest SiC/IPyC crossing-time ratio 16.7 (Cs, 800 °C).
 //! - P2 HIT: Kr IPyC crossing at 1000 °C 4.79e10 s (about 1500 years).
 //! - P3 HIT: Kr/buffer is the only walker gap among the four layers (read
-//!   from the source; never called).
+//!   from the source; never called). **Superseded 2026-11-10 (gh:#638):**
+//!   the gap is closed with a cited value (IAEA-TECDOC-978 p. 440, `1e-8
+//!   m^2/s`, `Q = 0`); `barrier-data.js` was regenerated and has no gap among
+//!   the four layers. The prediction and its result stand as recorded.
 //! - P4, P5 NOT TESTABLE: a quick run gave no release from boon-lay's walker
 //!   at all, so there was no median to compare. Replaced by P13-P15.
 //! - P6 HIT: sigma 50.2/178.5/370.3/536.5 MPa; phi_1 4.529e-9/3.103e-5/
@@ -290,7 +293,7 @@ mod native {
         let sg: Vec<(f64, f64)> = gammas.iter().map(|&g| ff::strength_at(g)).collect();
         writeln!(js, "  strengthVsFluence: {{ gamma: {}, s0: {}, m: {} }},", arr(gammas.iter().copied()), arr(sg.iter().map(|x| x.0)), arr(sg.iter().map(|x| x.1))).unwrap();
 
-        // Pressure pieces on a grid (lesson 33).
+        // Pressure pieces on a grid (lesson 35).
         let tcs: Vec<f64> = (0..=12).map(|i| 1000.0 + 100.0 * i as f64).collect();
         let hrs = [0.0, 50.0, 200.0, 500.0];
         writeln!(js, "  pressure: {{ tC: {}, hours: {}, rows: [", arr(tcs.iter().copied()), arr(hrs)).unwrap();
@@ -324,7 +327,7 @@ mod native {
         let p12 = bu[5].1;
         println!("  P12: p(0.12) / p(0.04) at 1600 C, 200 h = {:.3}", p12 / p04);
 
-        // Weibull check points (lesson 34).
+        // Weibull check points (lesson 36).
         let mut wc = Vec::new();
         for (s, s0, m) in [(s0, s0, m0), (0.5 * s0, s0, m0), (0.25 * s0, s0, m0), (1.5 * s0, s0, m0), (2e8, 6e8, 8.0), (2e8, 6e8, 4.0), (1e8, 4e8, 2.0)] {
             wc.push(format!("[{},{},{},{}]", e(s), e(s0), e(m), e(ff::weibull(s, s0, m))));
@@ -332,7 +335,7 @@ mod native {
         println!("  P7: phi_1(sigma_o) - 0.5 = {:.2e}", ff::weibull(s0, s0, m0) - 0.5);
         writeln!(js, "  weibullCheck: [{}],", wc.join(",")).unwrap();
 
-        // Thinning (lesson 35).
+        // Thinning (lesson 37).
         let hh: Vec<f64> = (0..=20).map(|i| 25.0 * i as f64).collect();
         writeln!(js, "  thinning: {{ hours: {}, rows: [", arr(hh.iter().copied())).unwrap();
         for t in [1400.0, 1600.0, 1800.0, 2000.0, 2200.0] {
@@ -349,7 +352,7 @@ mod native {
         let gg: Vec<_> = ct.iter().map(|&t| ff::grain_boundary(t, 200.0, m0)).collect();
         writeln!(js, "  grainBoundary: {{ tC: {}, rate: {}, m200: {}, m0: {} }},", arr(ct.iter().copied()), arr(gg.iter().map(|x| x.0)), arr(gg.iter().map(|x| x.1)), e(m0)).unwrap();
 
-        // Accidents (lessons 36-37): isothermal holds, GB off and on, 500 h
+        // Accidents (lessons 38-39): isothermal holds, GB off and on, 500 h
         // in 5 h steps; and the illustrative heat-ups.
         let row = |w: &ff::Row| format!("[{},{},{},{},{},{},{},{},{}]", w.hours, w.t_c, e(w.fkor), e(w.zeta), e(w.p_pa), e(w.sigma_pa), e(w.phi1), e(w.phi2), e(w.total));
         writeln!(js, "  rowFields: [\"hours\",\"tC\",\"fkor\",\"zeta\",\"p\",\"sigma\",\"phi1\",\"phi2\",\"total\"],").unwrap();

@@ -10,7 +10,9 @@
 //! directly. The UI thread only submits GPU work; it never waits for it.
 //!
 //! **The CPU plotter on the geometry engine thread stays the fallback**: no
-//! wgpu renderer (eframe on glow), a shader the adapter refuses, a geometry
+//! wgpu render state (~~eframe on glow~~ — impossible since 2026-10-27, when
+//! the workspace made wgpu the only renderer; a device that fails to create
+//! one still lands here), a shader the adapter refuses, a geometry
 //! the GPU tracer does not carry (a torus), or the moment between assembly
 //! and the flattened geometry reaching the GPU. The review gate's PNGs and
 //! `--render-review` are always drawn on the CPU, the reference.
@@ -137,8 +139,10 @@ impl GpuSlot {
 }
 
 impl Gpu {
-    /// A GPU renderer on eframe's own device, or `None` (with eframe on
-    /// glow, or a device that refuses the shader): the CPU draws then.
+    /// A GPU renderer on eframe's own device, or `None` (no wgpu render
+    /// state, or a device that refuses the shader): the CPU draws then.
+    /// ~~With eframe on glow~~ cannot happen: wgpu is the workspace's only
+    /// renderer since 2026-10-27.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Result<Self, String> {
         let rs = cc
             .wgpu_render_state

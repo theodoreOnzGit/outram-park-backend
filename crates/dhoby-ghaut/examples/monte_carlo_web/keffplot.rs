@@ -21,6 +21,11 @@
 
 use egui::{Color32, Pos2, Rect, Stroke, StrokeKind, Vec2};
 
+// The colour constants below are NAMES: callers pass them (a status line's
+// colour, a reference line's), and [`themed`] turns each into the page
+// theme's colour (`bugis::Ink`) when it is drawn, so Dark and Light both
+// read. A colour that is not one of these names is drawn as given.
+
 /// A generation's `k`, as a dot.
 pub const K_COLOUR: Color32 = Color32::from_rgb(120, 170, 255);
 /// The running mean.
@@ -88,11 +93,12 @@ impl Axes {
         Pos2::new(self.rect.left() + fx * self.rect.width(), self.rect.bottom() - fy * self.rect.height())
     }
     fn frame(&self, painter: &egui::Painter, title: &str, text: f32, fmt: impl Fn(f64) -> String) {
-        painter.rect_filled(self.rect, 4.0, Color32::from_rgb(20, 23, 30));
-        painter.rect_stroke(self.rect, 4.0, Stroke::new(1.0, Color32::from_rgb(60, 66, 80)), StrokeKind::Inside);
+        let ink = bugis::Ink::of_ctx(painter.ctx());
+        painter.rect_filled(self.rect, 4.0, ink.card);
+        painter.rect_stroke(self.rect, 4.0, Stroke::new(1.0, ink.border), StrokeKind::Inside);
         let f = egui::FontId::proportional((text * 0.85).max(8.0));
-        let c = Color32::from_rgb(170, 176, 190);
-        painter.text(self.rect.left_top() + Vec2::new(6.0, 3.0), egui::Align2::LEFT_TOP, title, egui::FontId::proportional(text * 0.92), Color32::WHITE);
+        let c = ink.muted;
+        painter.text(self.rect.left_top() + Vec2::new(6.0, 3.0), egui::Align2::LEFT_TOP, title, egui::FontId::proportional(text * 0.92), ink.text);
         painter.text(self.rect.right_top() + Vec2::new(-4.0, 3.0), egui::Align2::RIGHT_TOP, fmt(self.y.1), f.clone(), c);
         painter.text(self.rect.right_bottom() + Vec2::new(-4.0, -3.0), egui::Align2::RIGHT_BOTTOM, fmt(self.y.0), f, c);
     }
@@ -104,8 +110,9 @@ impl Axes {
         let a = self.p(0.5, self.y.1);
         let b = self.p(n_inactive as f64 + 0.5, self.y.0);
         let r = Rect::from_two_pos(a, b).intersect(self.rect);
-        painter.rect_filled(r, 0.0, Color32::from_rgba_unmultiplied(120, 120, 140, 40));
-        painter.text(r.center_bottom() + Vec2::new(0.0, -3.0), egui::Align2::CENTER_BOTTOM, "inactive", egui::FontId::proportional((text * 0.77).max(8.0)), Color32::from_rgb(150, 150, 170));
+        let ink = bugis::Ink::of_ctx(painter.ctx());
+        painter.rect_filled(r, 0.0, ink.muted.gamma_multiply(0.16));
+        painter.text(r.center_bottom() + Vec2::new(0.0, -3.0), egui::Align2::CENTER_BOTTOM, "inactive", egui::FontId::proportional((text * 0.77).max(8.0)), ink.muted);
     }
 }
 
@@ -136,19 +143,21 @@ pub fn draw_k(painter: &egui::Painter, rect: Rect, pts: &[GenPoint], shape: RunS
     let ax = Axes { rect, x: (0.5, n + 0.5), y: k_range(pts, refs) };
     ax.frame(painter, "k per generation (dots) · running mean ± σ (band)", text, |v| format!("{v:.3}"));
     ax.shade_inactive(painter, shape.n_inactive, text);
+    let ink = bugis::Ink::of_ctx(painter.ctx());
     // References: the labels alternate ends so close lines stay readable.
     for (i, r) in refs.iter().enumerate() {
+        let colour = themed(r.colour, &ink);
         if let Some(s) = r.sigma {
             let band = Rect::from_two_pos(ax.p(0.5, r.k + s), ax.p(n + 0.5, r.k - s)).intersect(rect);
-            painter.rect_filled(band, 0.0, Color32::from_rgba_unmultiplied(r.colour.r(), r.colour.g(), r.colour.b(), 24));
+            painter.rect_filled(band, 0.0, colour.gamma_multiply(0.1));
         }
-        painter.line_segment([ax.p(0.5, r.k), ax.p(n + 0.5, r.k)], Stroke::new(1.2, r.colour));
+        painter.line_segment([ax.p(0.5, r.k), ax.p(n + 0.5, r.k)], Stroke::new(1.2, colour));
         let (at, align) = if i % 2 == 0 {
             (ax.p(0.5, r.k) + Vec2::new(4.0, -2.0), egui::Align2::LEFT_BOTTOM)
         } else {
             (ax.p(n + 0.5, r.k) + Vec2::new(-4.0, 2.0), egui::Align2::RIGHT_TOP)
         };
-        painter.text(at, align, &r.label, egui::FontId::proportional((text * 0.8).max(8.0)), r.colour);
+        painter.text(at, align, &r.label, egui::FontId::proportional((text * 0.8).max(8.0)), colour);
     }
     let means: Vec<(f64, f64, f64)> = pts.iter().filter_map(|g| g.k_mean.filter(|m| m.1 > 0.0).map(|(m, e)| (g.index as f64 + 1.0, m, e))).collect();
     if means.len() > 1 {
@@ -156,17 +165,17 @@ pub fn draw_k(painter: &egui::Painter, rect: Rect, pts: &[GenPoint], shape: RunS
         let lower: Vec<Pos2> = means.iter().map(|&(x, m, e)| ax.p(x, m - e)).collect();
         for w in 0..means.len() - 1 {
             let quad = vec![upper[w], upper[w + 1], lower[w + 1], lower[w]];
-            painter.add(egui::Shape::convex_polygon(quad, Color32::from_rgba_unmultiplied(255, 200, 80, 50), Stroke::NONE));
+            painter.add(egui::Shape::convex_polygon(quad, themed(MEAN_COLOUR, &ink).gamma_multiply(0.2), Stroke::NONE));
         }
         let line: Vec<Pos2> = means.iter().map(|&(x, m, _)| ax.p(x, m)).collect();
-        painter.add(egui::Shape::line(line, Stroke::new(2.0, MEAN_COLOUR)));
+        painter.add(egui::Shape::line(line, Stroke::new(2.0, themed(MEAN_COLOUR, &ink))));
     }
     for g in pts {
-        let c = if g.active { K_COLOUR } else { Color32::from_rgb(110, 115, 130) };
+        let c = if g.active { themed(K_COLOUR, &ink) } else { ink.muted };
         painter.circle_filled(ax.p(g.index as f64 + 1.0, g.k.clamp(ax.y.0, ax.y.1)), 2.2, c);
     }
     if pts.is_empty() {
-        painter.text(rect.center(), egui::Align2::CENTER_CENTER, "k appears here once the run starts", egui::FontId::proportional(text), Color32::from_rgb(140, 146, 160));
+        painter.text(rect.center(), egui::Align2::CENTER_CENTER, "k appears here once the run starts", egui::FontId::proportional(text), ink.muted);
     }
 }
 
@@ -186,12 +195,13 @@ pub fn draw_entropy(painter: &egui::Painter, rect: Rect, pts: &[GenPoint], shape
     let ax = Axes { rect, x: (0.5, n + 0.5), y: entropy_range(pts, ceiling) };
     ax.frame(painter, "Shannon entropy of the fission source (bits)", text, |v| format!("{v:.1}"));
     ax.shade_inactive(painter, shape.n_inactive, text);
+    let entropy = themed(ENTROPY_COLOUR, &bugis::Ink::of_ctx(painter.ctx()));
     let line: Vec<Pos2> = pts.iter().filter_map(|g| g.entropy.map(|h| ax.p(g.index as f64 + 1.0, h))).collect();
     if line.len() > 1 {
-        painter.add(egui::Shape::line(line.clone(), Stroke::new(1.5, ENTROPY_COLOUR)));
+        painter.add(egui::Shape::line(line.clone(), Stroke::new(1.5, entropy)));
     }
     for p in line {
-        painter.circle_filled(p, 2.0, ENTROPY_COLOUR);
+        painter.circle_filled(p, 2.0, entropy);
     }
 }
 
@@ -226,6 +236,22 @@ pub const AMBER: Color32 = Color32::from_rgb(250, 200, 80);
 /// Failure: red.
 pub const RED: Color32 = Color32::from_rgb(255, 110, 110);
 
+/// The theme's colour for one of this module's named colours (see the note
+/// at the top of the constants); any other colour is returned unchanged.
+pub fn themed(c: Color32, ink: &bugis::Ink) -> Color32 {
+    match c {
+        // K_COLOUR and RECORD_COLOUR are the same blue.
+        K_COLOUR => ink.accent(0),
+        MEAN_COLOUR => ink.accent(4),
+        ENTROPY_COLOUR => ink.accent(2),
+        REFERENCE_COLOUR | STATUS => ink.text,
+        LIVE => ink.ok,
+        AMBER => ink.warn,
+        RED => ink.error,
+        other => other,
+    }
+}
+
 /// Where every run's bottom-dock body puts things (maintainer 2026-10-26:
 /// "all text should be in the bottom panel ... consistent for all keff
 /// simulation"): `(plots, text pane, one-line strip)`. The strip is the
@@ -253,17 +279,18 @@ pub fn body_layout(rect: Rect) -> (Rect, Rect, Rect) {
 /// would lag a phone. GUI drawing, not reached by a test (exempt); its
 /// place is [`body_layout`]'s, which is.
 pub fn draw_text_pane(ui: &mut egui::Ui, painter: &egui::Painter, rect: Rect, status: &[StatusLine], console: &[String], placeholder: &str, text: f32, id: &str) {
-    painter.rect_filled(rect, 4.0, Color32::from_rgb(8, 9, 12));
+    let ink = bugis::Ink::of_ui(ui);
+    painter.rect_filled(rect, 4.0, ink.card);
     if status.is_empty() && console.is_empty() {
-        painter.text(rect.center(), egui::Align2::CENTER_CENTER, placeholder, egui::FontId::proportional(text), Color32::from_rgb(140, 146, 160));
+        painter.text(rect.center(), egui::Align2::CENTER_CENTER, placeholder, egui::FontId::proportional(text), ink.muted);
         return;
     }
     let mono = egui::FontId::monospace(text);
-    let row_h = painter.layout_no_wrap("0".into(), mono, Color32::WHITE).size().y;
+    let row_h = painter.layout_no_wrap("0".into(), mono, ink.text).size().y;
     ui.scope_builder(egui::UiBuilder::new().max_rect(rect.shrink(6.0)), |ui| {
         egui::ScrollArea::vertical().id_salt(id).stick_to_bottom(true).auto_shrink([false, false]).show(ui, |ui| {
             for (t, c) in status {
-                ui.label(egui::RichText::new(t).size(text).color(*c));
+                ui.label(egui::RichText::new(t).size(text).color(themed(*c, &ink)));
             }
             if !console.is_empty() {
                 ui.add_space(4.0);
@@ -274,7 +301,7 @@ pub fn draw_text_pane(ui: &mut egui::Ui, painter: &egui::Painter, rect: Rect, st
                 let show = ((ui.clip_rect().height() / row_h).ceil() as usize + 2).min(console.len() - skip);
                 ui.add_space(skip as f32 * row_h);
                 for l in &console[skip..skip + show] {
-                    ui.add(egui::Label::new(egui::RichText::new(l).monospace().size(text).color(Color32::from_rgb(210, 216, 226))).extend());
+                    ui.add(egui::Label::new(egui::RichText::new(l).monospace().size(text).color(ink.text)).extend());
                 }
                 ui.add_space((console.len() - skip - show) as f32 * row_h);
             }
@@ -284,6 +311,7 @@ pub fn draw_text_pane(ui: &mut egui::Ui, painter: &egui::Painter, rect: Rect, st
 
 /// The one-line strip: wrapped to the strip's width.
 pub fn draw_strip(painter: &egui::Painter, strip: Rect, line: String, colour: Color32, text: f32) {
+    let colour = themed(colour, &bugis::Ink::of_ctx(painter.ctx()));
     let g = painter.layout(line, egui::FontId::proportional((text * 0.85).max(9.0)), colour, strip.width().max(80.0));
     painter.galley(strip.min, g, colour);
 }
@@ -335,6 +363,23 @@ mod tests {
     }
 
     /// Narrow: stacked; wide: side by side. Never overlapping.
+    #[test]
+    fn named_colours_take_the_theme() {
+        for t in bugis::Theme::ALL {
+            let ink = bugis::Ink::of(&t.visuals());
+            assert_eq!(themed(LIVE, &ink), ink.ok);
+            assert_eq!(themed(AMBER, &ink), ink.warn);
+            assert_eq!(themed(RED, &ink), ink.error);
+            assert_eq!(themed(STATUS, &ink), ink.text);
+            assert_eq!(themed(REFERENCE_COLOUR, &ink), ink.text);
+            assert_eq!(themed(RECORD_COLOUR, &ink), ink.accent(0));
+            assert_eq!(themed(MEAN_COLOUR, &ink), ink.accent(4));
+            assert_eq!(themed(ENTROPY_COLOUR, &ink), ink.accent(2));
+            // Anything else passes through.
+            assert_eq!(themed(Color32::from_rgb(1, 2, 3), &ink), Color32::from_rgb(1, 2, 3));
+        }
+    }
+
     #[test]
     fn the_pair_stacks_on_a_phone() {
         let phone = Rect::from_min_size(Pos2::ZERO, Vec2::new(380.0, 300.0));

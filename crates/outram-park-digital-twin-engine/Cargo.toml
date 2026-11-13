@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-digital-twin-engine"
-version = "0.0.3"
+version = "0.0.4"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -39,6 +39,9 @@ petir = { workspace = true }
 # Android-portability claim and GUI deps are not confined to examples/.
 tampines.workspace = true
 nee_soon.workspace = true
+# teh-o-prke: see the single entry below (shared by `msre::model`, gh:#1330,
+# which steps `zero_power_prke::circulating::CirculatingPointKinetics`, and
+# `ebr2::model`, gh:#1331).
 
 # REAL (non-dev) dependencies on the Monte Carlo stack, by maintainer direction
 # (2026-09-29: "digital twin engine can use outram-mc-libs/nee-soon as a
@@ -56,6 +59,12 @@ chem-eng-real-time-process-control-simulator.workspace = true
 # drives the blade animation. That is library code, not an example, so it
 # cannot be a dev-dependency. No new weight in the tree -- `tampines` already
 # depends on this crate transitively.
+# ~~NOTE 2026-11-02 (gh:#1112): `TurbineVisual` moved to `bugis::components`
+# (feature `widgets`, which now carries this edge for the library). Kept here
+# because the examples and binaries name the crate directly.~~
+# CORRECTED 2026-11-05 (maintainer: "bugis should be standalone"): the
+# physics half of `TurbineVisual` is back in this crate's `components`, so
+# this entry carries the library edge again.
 tampines-steam-tables.workspace = true
 
 # TUAS is a REAL (non-dev) dependency because the CIET Educational Simulator v2
@@ -64,13 +73,56 @@ tampines-steam-tables.workspace = true
 # (approx/csv/ndarray/peroxide/roots/thiserror/uom -- no BLAS, no ndarray-linalg),
 # so promoting it here does not endanger the Android build.
 #
-# NOTE: the crate LIBRARY does not use TUAS at all -- per this crate's CLAUDE.md
+# ~~NOTE: the crate LIBRARY does not use TUAS at all -- per this crate's CLAUDE.md
 # ("no new physics in this crate's library"), all CIET physics lives in the
-# binary's own module tree under src/bin/ciet_educational_simulator_v2/.
+# binary's own module tree under src/bin/ciet_educational_simulator_v2/.~~
+# CORRECTED 2026-11-10 (gh:#1331): the library does use TUAS. `multifidelity::
+# double_pipe` runs the TUAS 1-D exchanger (gh:#1178), and `ebr2::model` takes
+# its sodium properties and liquid-metal Nusselt correlations from TUAS. The
+# CIET physics itself still lives under src/bin/ciet_educational_simulator_v2/.
 tuas_boussinesq_solver.workspace = true
+
+# REAL (non-dev) dependency since 2026-11-10 (gh:#1331): `ebr2::model` runs
+# six-group point kinetics, the fast-reactor feedback set
+# (`feedback_mechanisms::fast_reactor`) and fission-product decay heat from
+# this crate. No cycle: teh-o-prke depends on petir, approx, ndarray,
+# thiserror, uom and chem-eng-real-time-process-control-simulator only
+# (checked in its Cargo.toml, 2026-11-10), and builds for wasm32. Was a
+# dev-dependency (htgr_sim_v1's kinetics); the entry below is removed.
+teh-o-prke.workspace = true
 
 # Public API primitives -- dimensioned quantities.
 uom.workspace = true
+
+# REAL (non-dev) dependencies for `multifidelity::double_pipe` (gh:#1178, rung 1
+# of the HF -> LF epic gh:#1177): the closure-extraction step runs the
+# double-pipe conjugate-heat-transfer CFD (`outram_foam_appbuilder_lib::cases::
+# double_pipe`) on meshes from `outram_foam_mesh::block_primitives::DoublePipe`,
+# and the TUAS 1-D exchanger (above) at the same design points. No cycle:
+# neither crate depends on this one (checked in their Cargo.toml, 2026-11-03).
+# Both are pure Rust and already build for wasm32 (Foam Studio runs them in the
+# browser); the library's Android build is gh:#239's, unchanged by this.
+#
+# `outram-foam-appbuilder-lib` was a dev-dependency (htgr_sim_v1's genfoam
+# placeholder); it moved here.
+outram-foam-appbuilder-lib.workspace = true
+outram-foam-mesh.workspace = true
+# Names `FvMesh` for the meshes above (was a dev-dependency, below).
+outram-foam-basic-lib.workspace = true
+
+# REAL (non-dev) dependency for `multifidelity::double_pipe::fidelity`
+# (gh:#1194): the double-pipe pair implements `raffles::fidelity`'s traits
+# (`ParametricModel`, `Quantities` via `raffles::quantities!`) and builds its
+# `Dataset`. No cycle: raffles depends only on thiserror, petir, uom, xml-rs
+# and optional burn (checked in its Cargo.toml, 2026-11-04), and it was already
+# in this crate's tree through `tampines -> raffles`, so it adds no build work.
+raffles.workspace = true
+
+# The central GUI crate (gh:#1112). Untargeted, unlike the egui stack below,
+# because `animation` (re-exported from `bugis::animation`) is this crate's
+# Android-building module; `animation` is egui-free and pulls only uom, and
+# `ascii` (re-exported from `bugis::ascii`) is std only.
+bugis = { workspace = true, features = ["animation", "ascii"] }
 
 # app_scaffold::csv_logging's CsvLogger writes real CSV files (bead
 # op-wqk.22.2) -- pulling in the `csv` crate instead of hand comma-joining
@@ -80,6 +132,9 @@ uom.workspace = true
 # Cargo.toml, consumed today by tuas_boussinesq_solver) -- no new version
 # introduced. Pure Rust, so this does not endanger the Android/Termux build
 # posture of the modules that are gated to build there.
+# NOTE 2026-11-02 (gh:#1112): `app_scaffold` moved to `bugis` (whose
+# `app_scaffold` feature now carries `csv` for it); the entry stays because
+# `htgr_sim_v1`'s tests read CSV back with it.
 csv.workspace = true
 
 # REAL (non-dev) dependency: `components::HeatExchangerVisual` draws the flow
@@ -93,6 +148,12 @@ csv.workspace = true
 # so promoting it does not endanger the Android build. The
 # examples (htgr_sim_v1's schematic, widget_studio's heat-exchanger tab) reach
 # it through this entry, so it is no longer declared as a dev-dependency.
+# ~~NOTE 2026-11-02 (gh:#1112): `HeatExchangerVisual` moved to
+# `bugis::components` (feature `widgets` carries this edge for the library);
+# the entry stays for the examples named above.~~
+# CORRECTED 2026-11-05 (maintainer: "bugis should be standalone"): the
+# physics half of `HeatExchangerVisual` (and `HeatExchangerKindArrangement`) is
+# back in this crate's `components`, so this edge is the library's again.
 outram-park-fork-dwsim-libs.workspace = true
 
 # OPC-UA (IEC 62541) interface layer for the CIET Educational Simulator v2.
@@ -126,7 +187,18 @@ thiserror.workspace = true
 # drop out on Android and the crate still `cargo check`s there. Desktop builds
 # are unchanged.
 [target.'cfg(not(target_os = "android"))'.dependencies]
+# The GUI frame timer needs a clock that exists in a browser; see the root
+# Cargo.toml's note on `web-time`.
+web-time.workspace = true
 egui.workspace = true
+# `widgets`: the widget ART, re-exported by `components` (gh:#1112).
+# CORRECTED 2026-11-05 (maintainer: "widget art can live in bugis, the
+# combination of logic and art can live inside the digital twin engine"): the
+# widgets that hold physics state (`PipeVisual`, `CondenserVisual`, ...) live
+# in this crate's `src/components/` and draw through the bugis art; bugis's
+# `widgets` feature no longer pulls any physics crate.
+# `app_scaffold`: re-exported as `app_scaffold`.
+bugis = { workspace = true, features = ["widgets", "app_scaffold"] }
 eframe.workspace = true
 egui_plot.workspace = true
 egui_extras.workspace = true
@@ -143,14 +215,16 @@ egui_extras.workspace = true
 # `tests/ci_smoke/edwards.rs` (GitHub #415) names `SlipModel`. The crate is
 # already compiled beneath `tampines`, so this adds no build work.
 outram-foam-multiphase.workspace = true
-teh-o-prke.workspace = true
+# teh-o-prke is a REAL dependency above since 2026-11-10: `ebr2::model`
+# (gh:#1331) and `msre::model` (gh:#1330) both step kinetics from the
+# library; it stays usable from the examples either way.
 # tampines-steam-tables is now a REAL dependency above (TurbineVisual renders
 # its generator model from the library, and libraries cannot see dev-deps); it
 # stays usable from examples/tests either way.
 # tuas_boussinesq_solver is now a REAL dependency above (the CIET v2 binary needs
 # it and bins cannot see dev-deps); it stays usable from examples/tests either way.
 ndarray.workspace = true
-outram-foam-basic-lib.workspace = true
+# outram-foam-basic-lib is now a REAL dependency above (gh:#1178).
 serde.workspace = true
 # env_logger is now a REAL dependency above (the CIET v2 [[bin]] needs it and
 # bins cannot see dev-deps); it stays usable from the examples either way.
@@ -250,23 +324,22 @@ buangkok = { workspace = true }
 # dependency here); nothing in sembawang depends on this crate, so no cycle.
 sembawang = { workspace = true }
 
-# htgr_sim_v1's `physics::reactor_model::coarse_mesh_genfoam` placeholder cites
-# this crate's `genfoam` module (multi-region neutronics + thermal-hydraulics)
-# as its intended real integration target, stepped by
-# `teh-o-prke::nordheim_fuchs::NordheimFuchsExactTimestepper` instead of
-# GeN-Foam's own point-kinetics coupling. Wired in here as a dev-dependency so
-# that tier can start importing real `genfoam` types -- the coupling itself
-# remains unimplemented (that placeholder still falls back to `one_node`'s
-# math); see that module's doc comment. `genfoam` (and the wider
-# `outram-foam-appbuilder-lib`) is itself flagged an AI-assisted draft with no
-# human V&V, so composing it here still needs the same scrutiny this crate's
-# own CLAUDE.md records for its other physics.
-outram-foam-appbuilder-lib.workspace = true
+# outram-foam-appbuilder-lib is now a REAL dependency above (gh:#1178's
+# `multifidelity::double_pipe` runs its double-pipe CFD from the library);
+# htgr_sim_v1's `coarse_mesh_genfoam` placeholder keeps citing its `genfoam`
+# module either way.
 
 # Widget Studio -- the gallery app for developing and quality-controlling the
 # visual component library one widget at a time (bead op-wqk.14). Not a
 # simulator: it drives a single widget across its full state range with live
 # controls so the widget's look, feel and physics coupling can be judged.
+# gh:#1190: the TUAS 1-D low-fidelity grid for the double-pipe co-kriging
+# (`multifidelity::double_pipe::lf_grid`), written to
+# verification_and_validation/double_pipe_mfk_gh1190/lf_grid.csv.
+[[example]]
+name = "double_pipe_lf_grid"
+path = "examples/double_pipe_lf_grid.rs"
+
 [[example]]
 name = "widget_studio"
 path = "examples/widget_studio/main.rs"
@@ -307,8 +380,74 @@ path = "src/bin/ciet_v2_opcua_client/main.rs"
 name = "ciet_web"
 path = "examples/ciet_web/main.rs"
 
+# The Fukushima Daiichi Unit 1 station-blackout demo (gh:#986): a GE BWR/3
+# with isolation condensers in a Mark I containment, from the scram through
+# core damage, hydrogen, venting and the reactor-building explosion. Built on
+# `bugis::web_demo` and this crate's widgets; the plant (`sembawang::
+# bwr_mark1`), core and containment step on three Web Workers
+# (web/fukushima/, published at demos/fukushima/). AI draft, not validated.
+# MOVED 2026-11-05 from dhoby-ghaut (maintainer: "if web examples live in
+# dhoby ghaut, and this causes the dependency cycle, let the web examples
+# deploy from digital twin engine instead"); it came there from the
+# outram-park repository on 2026-10-27.
+#
+#   cargo run -p outram-park-digital-twin-engine --example fukushima_web --release [-- --headless 108000 600]
+[[example]]
+name = "fukushima_web"
+path = "examples/fukushima_web/main.rs"
+
+# The double-pipe high-fidelity -> low-fidelity twin (gh:#1182, rung 5 of
+# epic gh:#1177): the TUAS 1-D double pipe evaluated live in a Web Worker
+# (this crate's `one_d::ua`), beside the committed Kennedy-O'Hagan predictive
+# (eta + delta, gh:#1180), the co-kriging sweep (gh:#1190), the 44 CFD design
+# points (gh:#1178) and gh:#1191's filtering traces (web/double_pipe_twin/,
+# published at demos/double-pipe-twin/). raffles (a normal dependency here)
+# natively, for `--generate-artefacts` only. Carries an Android stub `main`.
+# AI draft. MOVED 2026-11-05 from dhoby-ghaut, as fukushima_web above.
+#
+#   cargo run -p outram-park-digital-twin-engine --example double_pipe_twin_web --release [-- --headless]
+[[example]]
+name = "double_pipe_twin_web"
+path = "examples/double_pipe_twin_web/main.rs"
+
+# The web-demo framework the two demos above are built on (side panel, view,
+# zoom buttons, worker link), from bugis's `web_demo` feature (it is what
+# `dhoby_ghaut::web_demo` re-exports). Example-only; off Android, where the
+# engine's egui stack is off too. On wasm its wasm-bindgen family comes in
+# through bugis's own wasm32 table.
+[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+bugis = { workspace = true, features = ["web_demo"] }
+
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { workspace = true }
+# The browser demos' Web Worker plumbing (htgr_sim_v1 on the web, gh:#986).
+# Example-only: the library has no browser face, and a consumer of the crate
+# pays nothing for these.
+wasm-bindgen-futures = { workspace = true }
+js-sys = { workspace = true }
+serde_json = { workspace = true }
+postcard = { workspace = true }
+log = { workspace = true }
+# The mobile-first layer of every OUTRAM PARK browser demo: the side panel
+# that folds (opens folded under 700 px) and its "Controls »" button. Reused,
+# not copied, per dhoby-ghaut's CLAUDE.md ("Build on it; do not copy").
+# wasm32-ONLY on purpose: on wasm dhoby-ghaut is egui + petir, its heavy stack
+# (kovan, nee_soon, NJOY, outram-mc-libs, the foam crates) being gated
+# not(wasm32) in its own Cargo.toml, so this costs the native build and the
+# 290 native htgr tests nothing. No cycle: dhoby-ghaut does not depend on this
+# crate. Licence: both are AGPL-3.0-only, so nothing is inherited that this
+# crate does not already carry.
+# A PATH dependency, not `workspace = true`: dhoby-ghaut is deliberately kept
+# out of the root [workspace.dependencies] (as kovan is) so no crate picks it
+# up by accident, and this follows that boundary rather than widening it.
+dhoby-ghaut = { path = "../dhoby-ghaut" }
+web-sys = { workspace = true, features = [
+  "Window", "Document", "Element", "HtmlCanvasElement",
+  "Worker", "WorkerOptions", "WorkerType", "WorkerGlobalScope",
+  "DedicatedWorkerGlobalScope", "MessageEvent", "Performance",
+  # fukushima_web / double_pipe_twin_web (moved from dhoby-ghaut 2026-11-05).
+  "ErrorEvent",
+] }
 
 # ── The OPC-UA / mDNS / filesystem stack: everywhere EXCEPT wasm ─────────────
 # None of this can work in a browser: async-opcua and tokio want sockets,
@@ -331,3 +470,11 @@ mdns-sd.workspace = true
 directories.workspace = true
 local-ip-address.workspace = true
 env_logger.workspace = true
+
+[features]
+default = ["long-tests"]
+# Tests that take minutes rather than seconds, ON BY DEFAULT (workspace
+# `long-tests` rule, docs/claude-md/long-tests-and-ci.md): presently the
+# double-pipe co-kriging held-out report (gh:#1190), measured at 19 min on
+# 2026-11-04. `--no-default-features` skips it for the edit-compile loop.
+long-tests = []

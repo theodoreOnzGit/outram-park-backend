@@ -39,9 +39,16 @@
 //! - report the thermal time constant that balance implies
 //!   ([`GraphiteModeratorFeedback::thermal_time_constant`]).
 //!
-//! It does **not** contain point kinetics. This crate's library is deliberately
+//! It does **not** contain point kinetics. ~~This crate's library is deliberately
 //! free of [`teh_o_prke`](https://docs.rs/teh-o-prke) — that crate is only an
-//! Android-gated *dev*-dependency of `tampines`, used by examples — so the
+//! Android-gated *dev*-dependency of `tampines`, used by examples —~~
+//! ~~**CORRECTED 2026-11-03 (gh:#1151):** `teh-o-prke` is now a library
+//! dependency of `tampines` (maintainer decision D2: the HTR-10 coupled loop
+//! transient, [`crate::htr10_primary_loop`], lives here); this module still
+//! does not use it,~~ **CORRECTED again 2026-11-03: maintainer moved coupled
+//! kinetics to nee_soon** (`nee_soon::htr10_th_transient`): the library is
+//! free of `teh-o-prke` again (only an Android/wasm-gated dev-dependency, for
+//! examples), so the
 //! reactivity produced here is a plain dimensionless number for a caller to
 //! feed into a kinetics solver. **Wiring this channel into PRKE is deliberate
 //! future work** belonging in an example or in `nee_soon`, where the
@@ -455,24 +462,19 @@ mod tests {
     use uom::si::time::second;
 
     /// Asserts that `measured` matches `expected` to within `max_relative`
-    /// relative error. See the identical macro in [`super::super::triso`] for
+    /// relative error. See the identical helper in [`super::super::triso`] for
     /// why `tampines` does not use the `approx` crate here.
-    macro_rules! assert_relative_eq {
-        ($expected:expr, $measured:expr, max_relative = $tolerance:expr) => {{
-            let expected: f64 = $expected;
-            let measured: f64 = $measured;
-            let relative_error = if expected == 0.0 {
-                measured.abs()
-            } else {
-                ((measured - expected) / expected).abs()
-            };
-            assert!(
-                relative_error < $tolerance,
-                "expected {expected}, measured {measured}, relative error \
-                 {relative_error:e} exceeds {}",
-                $tolerance
-            );
-        }};
+    fn assert_relative_eq(expected: f64, measured: f64, max_relative: f64) {
+        let relative_error = if expected == 0.0 {
+            measured.abs()
+        } else {
+            ((measured - expected) / expected).abs()
+        };
+        assert!(
+            relative_error < max_relative,
+            "expected {expected}, measured {measured}, relative error \
+             {relative_error:e} exceeds {max_relative}"
+        );
     }
 
     /// Builds a test channel: 5129 kg of graphite (the HTR-10 pebble-graphite
@@ -541,7 +543,7 @@ mod tests {
             reactivity when the moderator heats up"
         );
         assert!(cold > 0.0);
-        assert_relative_eq!(-hot, cold, max_relative = 1e-12);
+        assert_relative_eq(-hot, cold, 1e-12);
 
         // (c) exact linearity
         let mut previous_pcm = 0.0;
@@ -551,19 +553,19 @@ mod tests {
             let measured_pcm = channel.reactivity_pcm();
             let hand_pcm = 1.0e5 * -5.0e-5 * excursion;
             println!("excursion +{excursion} K: {measured_pcm} pcm (hand {hand_pcm} pcm)");
-            assert_relative_eq!(hand_pcm, measured_pcm, max_relative = 1e-12);
+            assert_relative_eq(hand_pcm, measured_pcm, 1e-12);
             previous_pcm = measured_pcm;
         }
         // the 100 K value is exactly twice the 50 K value
         channel.moderator_temperature = ThermodynamicTemperature::new::<kelvin>(950.0);
         let at_fifty = channel.reactivity_pcm();
-        assert_relative_eq!(2.0 * at_fifty, previous_pcm, max_relative = 1e-12);
+        assert_relative_eq(2.0 * at_fifty, previous_pcm, 1e-12);
 
         // (d) pcm is 1e5 times the dimensionless reactivity
-        assert_relative_eq!(
+        assert_relative_eq(
             1.0e5 * channel.reactivity().get::<ratio>(),
             channel.reactivity_pcm(),
-            max_relative = 1e-12
+            1e-12
         );
     }
 
@@ -628,10 +630,10 @@ mod tests {
         let tau = channel.thermal_time_constant(conductance).unwrap();
         let tau_seconds = tau.get::<second>();
         println!("at 950 K: cp = {initial_cp} J/(kg K), tau = m cp / C = {tau_seconds} s");
-        assert_relative_eq!(
+        assert_relative_eq(
             5129.0 * initial_cp / 1.0e5,
             tau_seconds,
-            max_relative = 1e-12
+            1e-12
         );
 
         let timestep = Time::new::<second>(tau_seconds / 2000.0);
@@ -677,7 +679,7 @@ mod tests {
             measured_e_folding_time.is_finite(),
             "the excursion never reached 1/e within the integration window"
         );
-        assert_relative_eq!(tau_seconds, measured_e_folding_time, max_relative = 1e-2);
+        assert_relative_eq(tau_seconds, measured_e_folding_time, 1e-2);
     }
 
     /// V&V test: the lumped balance conserves energy, and zero net power
@@ -754,7 +756,7 @@ mod tests {
              (rise {rise} K); energy check E/(m cp_mean) = {energy_rise} K with \
              cp_mean = {mean_cp} J/(kg K) at {mean_temperature} K"
         );
-        assert_relative_eq!(energy_rise, rise, max_relative = 5e-3);
+        assert_relative_eq(energy_rise, rise, 5e-3);
     }
 
     /// V&V test: the graphite time constant of an HTR-10-sized pebble
@@ -893,10 +895,10 @@ mod tests {
             1.0e5 * inet_high
         );
 
-        assert_relative_eq!(-7.37e-5, nrg_low, max_relative = 1e-12);
-        assert_relative_eq!(-8.05e-5, nrg_high, max_relative = 1e-12);
-        assert_relative_eq!(-7.49e-5, inet_low, max_relative = 1e-12);
-        assert_relative_eq!(-9.15e-5, inet_high, max_relative = 1e-12);
+        assert_relative_eq(-7.37e-5, nrg_low, 1e-12);
+        assert_relative_eq(-8.05e-5, nrg_high, 1e-12);
+        assert_relative_eq(-7.49e-5, inet_low, 1e-12);
+        assert_relative_eq(-9.15e-5, inet_high, 1e-12);
 
         for coefficient in [nrg_low, nrg_high, inet_low, inet_high] {
             assert!(coefficient < 0.0, "all four published figures are negative");

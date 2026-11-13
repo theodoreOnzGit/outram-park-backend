@@ -145,7 +145,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
-use crate::zip::zip_flat;
+use crate::zip::{zip2, zip3};
 use crate::{PetirError, Result};
 
 /// Which SSP Runge–Kutta scheme [`ssp_step`] takes.
@@ -282,13 +282,13 @@ where
     // self.dq_dt = self.dq(state) / self.dt   (see module docs: used as L)
     rhs(t, q, k);
     // self._registers[0].q = state.q + self.dt*self.dq_dt
-    for (r, &qi, &ki) in zip_flat!(reg.iter_mut(), q.iter(), k.iter()) {
+    for (r, &qi, &ki) in zip3(reg.iter_mut(), q.iter(), k.iter()) {
         *r = qi + dt * ki;
     }
     // self._registers[0].t = state.t + self.dt
     rhs(t + dt, reg, k);
     // state.q = 0.5*(state.q + self._registers[0].q + self.dq(self._registers[0]))
-    for (qi, &r, &ki) in zip_flat!(q.iter_mut(), reg.iter(), k.iter()) {
+    for (qi, &r, &ki) in zip3(q.iter_mut(), reg.iter(), k.iter()) {
         *qi = 0.5 * (*qi + r + dt * ki);
     }
     Ok(())
@@ -315,19 +315,19 @@ where
 
     rhs(t, q, k);
     // self._registers[0].q = state.q + self.dt*self.dq_dt
-    for (r, &qi, &ki) in zip_flat!(reg.iter_mut(), q.iter(), k.iter()) {
+    for (r, &qi, &ki) in zip3(reg.iter_mut(), q.iter(), k.iter()) {
         *r = qi + dt * ki;
     }
     // self._registers[0].t = state.t + self.dt
     rhs(t + dt, reg, k);
     // self._registers[0].q = 0.75*state.q + 0.25*(self._registers[0].q + self.dq(self._registers[0]))
-    for (r, &qi, &ki) in zip_flat!(reg.iter_mut(), q.iter(), k.iter()) {
+    for (r, &qi, &ki) in zip3(reg.iter_mut(), q.iter(), k.iter()) {
         *r = 0.75 * qi + 0.25 * (*r + dt * ki);
     }
     // self._registers[0].t = state.t + 0.5*self.dt
     rhs(t + 0.5 * dt, reg, k);
     // state.q = 1./3.*state.q + 2./3.*(self._registers[0].q + self.dq(self._registers[0]))
-    for (qi, &r, &ki) in zip_flat!(q.iter_mut(), reg.iter(), k.iter()) {
+    for (qi, &r, &ki) in zip3(q.iter_mut(), reg.iter(), k.iter()) {
         *qi = 1.0 / 3.0 * *qi + 2.0 / 3.0 * (r + dt * ki);
     }
     Ok(())
@@ -355,7 +355,7 @@ where
 
     rhs(t, q, k);
     // s1.q = state.q + self.dt*self.dq_dt/6.
-    for (s, &qi, &ki) in zip_flat!(s1.iter_mut(), q.iter(), k.iter()) {
+    for (s, &qi, &ki) in zip3(s1.iter_mut(), q.iter(), k.iter()) {
         *s = qi + dt * ki / 6.0;
     }
     // s1.t = state.t + self.dt/6.
@@ -364,7 +364,7 @@ where
     for _ in 0..4 {
         rhs(ts, s1, k);
         // s1.q = s1.q + self.dq(s1)/6.
-        for (s, &ki) in zip_flat!(s1.iter_mut(), k.iter()) {
+        for (s, &ki) in zip2(s1.iter_mut(), k.iter()) {
             *s += dt * ki / 6.0;
         }
         // s1.t = s1.t + self.dt/6.
@@ -373,7 +373,7 @@ where
 
     // state.q = state.q/25. + 0.36 * s1.q
     // s1.q = 15. * state.q - 5. * s1.q
-    for (qi, s) in zip_flat!(q.iter_mut(), s1.iter_mut()) {
+    for (qi, s) in zip2(q.iter_mut(), s1.iter_mut()) {
         *qi = *qi / 25.0 + 0.36 * *s;
         *s = 15.0 * *qi - 5.0 * *s;
     }
@@ -382,7 +382,7 @@ where
 
     for _ in 0..4 {
         rhs(ts, s1, k);
-        for (s, &ki) in zip_flat!(s1.iter_mut(), k.iter()) {
+        for (s, &ki) in zip2(s1.iter_mut(), k.iter()) {
             *s += dt * ki / 6.0;
         }
         ts += dt / 6.0;
@@ -390,7 +390,7 @@ where
 
     rhs(ts, s1, k);
     // state.q += 0.6 * s1.q + 0.1 * self.dq(s1)
-    for (qi, &s, &ki) in zip_flat!(q.iter_mut(), s1.iter(), k.iter()) {
+    for (qi, &s, &ki) in zip3(q.iter_mut(), s1.iter(), k.iter()) {
         *qi += 0.6 * s + 0.1 * (dt * ki);
     }
     Ok(())

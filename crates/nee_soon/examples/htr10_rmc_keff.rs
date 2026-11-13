@@ -292,6 +292,9 @@ fn env_usize(k: &str, d: usize) -> usize {
 /// - `OUTRAM_HTR10_NI_AS_FE=1`, `OUTRAM_HTR10_FE57_AS_FE56=1` (both = the
 ///   SIMPLIFIED rod metal), `OUTRAM_HTR10_NO_WITHDRAWN_RODS=1`.
 /// - `OUTRAM_HTR10_UO2_TAPE_DIR=<dir>` reads the UO2 laws from tabulated tapes.
+/// - `OUTRAM_HTR10_TAPE_LAWS=1` reads the graphite and SiC laws from the
+///   published tapes (the pre-2026-11-03 records); default: LEAPR at the run's
+///   temperature.
 fn data_config() -> Htr10DataConfig {
     let on = |k: &str| std::env::var(k).is_ok();
     let graphite_choice = std::env::var("OUTRAM_HTR10_GRAPHITE_TSL").ok();
@@ -337,6 +340,10 @@ fn data_config() -> Htr10DataConfig {
             Ok(dir) => Uo2Laws::Tapes(dir.into()),
             Err(_) => Uo2Laws::GeneratedFromLeapr,
         },
+        // Graphite and SiC by LEAPR at the run's temperature (the default
+        // since 2026-11-03); `OUTRAM_HTR10_TAPE_LAWS=1` reads the published
+        // tapes, as every record before that date (gh:#1138).
+        thermal_laws: nee_soon::htr10_rmc::data::ThermalLawSource::from_env(),
         temperature: ThermodynamicTemperature::new::<kelvin>(TEMP_K),
         tapes: TapeSource::Workspace,
     }

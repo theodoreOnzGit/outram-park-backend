@@ -2,6 +2,22 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::example_heated_section_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_10kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_3kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_4kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_6kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_8kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::example_heated_section_regression_new_and_old",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::regression_new_and_old_nodal_conductance_steel_shell_to_ambient",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::regression_new_and_old_nodal_conductance_steel_shell_to_pipe_fluid_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::regression_new_and_old_nodal_conductance_twisted_tape_to_pipe_fluid_array",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_top_bottom_mx10_struct_supports.rs::heater_plus_mx_10_with_supports",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_with_top_bottom_heads.rs::test_inclusive_heater_top_bottom_head",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_with_top_bottom_heads_and_mx10.rs::heater_plus_mx_10_without_supports",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heater_example_with_data_record.rs::example_heater_with_struct_supports_and_mx10",
+]
 
 [module."heated_section_only.rs"]
 path = "crate::pre_built_components::non_insul_porous_media_fluid::tests::heated_section_only"
@@ -602,3 +618,25 @@ test = true
 
 [module."mod.rs"]
 path = "crate::pre_built_components::non_insul_porous_media_fluid::tests"
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+failed = []

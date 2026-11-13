@@ -416,6 +416,9 @@ mod tests {
         let r = Repo::new();
         let store = tempfile::tempdir().unwrap();
         let key = founder_key(&r, store.path());
+        // `twice` calls `leaf`: stamped on `main` first, so `twice`'s stamp
+        // is valid, not tentative (GitHub #1106), and needs no carrying.
+        r.stamp(&key, "leaf", "");
         r.git(&["checkout", "-q", "-b", "review"]);
         r.edit("    1\n", "    2\n");
         r.commit("edit other");
@@ -487,14 +490,14 @@ mod tests {
         let (s, rung, why) = state(&r);
         assert_eq!((s, rung), (Some(StateKind::Valid), 3), "{why}");
         let we = evaluate_workspace(r.path()).unwrap();
-        let fr = we.evaluation.functions.values().find(|f| !f.reviews.is_empty()).unwrap();
+        let fr = we.evaluation.functions.values().find(|f| f.location.as_ref().is_some_and(|l| l.qual == "twice")).unwrap();
         let cf = fr.reviews[0].carried_forward.as_ref().expect("carried forward");
         assert_eq!((cf.key.as_str(), cf.hops.len(), cf.stamp_arrived_in_hop), (squash.as_str(), 1, true));
         assert_eq!(fr.reviews[0].reviewed_commit_timing, ReviewedCommitTiming::NotCheckableSquashed);
         assert!(r.state("twice").unwrap().permalink.contains(&squash));
 
         let again = carry_forward(r.path(), None, None).unwrap();
-        assert!(again.written.is_empty() && again.in_history == 1, "{again:?}");
+        assert!(again.written.is_empty() && again.in_history == 2, "{again:?}"); // `twice`, and `leaf` stamped on `main`
         let (rows, bad) = check_records(r.path()).unwrap();
         assert!(bad.is_empty());
         assert_eq!(rows.len(), 1);
@@ -509,7 +512,10 @@ mod tests {
             r.git(&["clone", "-q", "--depth", depth, &url, c.path().to_str().unwrap()]);
             let states = super::super::stamp_states(c.path()).unwrap();
             let s = states.iter().find(|s| s.function.ends_with("::twice")).unwrap();
-            assert_eq!(s.state == Some(StateKind::Valid), valid, "depth {depth}: {}", s.reason);
+            // `twice`'s own stamp stands (review_holds) at depth 2; it reads
+            // tentative there, since `leaf`'s stamp commit is beyond the
+            // clone and so unverified (#1106).
+            assert_eq!(s.state.is_some_and(|k| k.review_holds()), valid, "depth {depth}: {}", s.reason);
         }
 
         // --from refs/pull/<n>/head brings the original back for #783.
@@ -517,7 +523,7 @@ mod tests {
         assert!(out.contains("0 written"), "{out}");
         assert!(in_clone(&r, &certified));
         let we = evaluate_workspace(r.path()).unwrap();
-        let fr = we.evaluation.functions.values().find(|f| !f.reviews.is_empty()).unwrap();
+        let fr = we.evaluation.functions.values().find(|f| f.location.as_ref().is_some_and(|l| l.qual == "twice")).unwrap();
         assert_eq!(fr.reviews[0].reviewed_commit_timing, ReviewedCommitTiming::Checked);
         assert_eq!(state(&r).0, Some(StateKind::Valid));
     }
@@ -637,6 +643,7 @@ mod tests {
         let r = Repo::new();
         let store = tempfile::tempdir().unwrap();
         let key = founder_key(&r, store.path());
+        r.stamp(&key, "leaf", ""); // `twice`'s callee, so it is not tentative (#1106)
         r.git(&["checkout", "-q", "-b", "develop"]);
         r.git(&["checkout", "-q", "-b", "review"]);
         r.edit("    1\n", "    2\n");
@@ -668,7 +675,7 @@ mod tests {
         let (s, rung, why) = state(&r);
         assert_eq!((s, rung), (Some(StateKind::Valid), 3), "{why}");
         let we = evaluate_workspace(r.path()).unwrap();
-        let fr = we.evaluation.functions.values().find(|f| !f.reviews.is_empty()).unwrap();
+        let fr = we.evaluation.functions.values().find(|f| f.location.as_ref().is_some_and(|l| l.qual == "twice")).unwrap();
         let cf = fr.reviews[0].carried_forward.as_ref().unwrap();
         assert_eq!((cf.key.as_str(), cf.hops.len()), (s2.as_str(), 2));
         assert!(signature_verifies(&r));
@@ -692,7 +699,7 @@ mod tests {
         delete_and_gc(&m, "review");
         assert!(in_clone(&m, &certified));
         let rep = carry_forward(m.path(), None, None).unwrap();
-        assert!(rep.written.is_empty() && rep.in_history == 1, "{rep:?}");
+        assert!(rep.written.is_empty() && rep.in_history == 2, "{rep:?}"); // `twice`, and `leaf` stamped on `main`
 
         let (b, _s2, certified_b) = reviewed_branch();
         b.git(&["checkout", "-q", "review"]);

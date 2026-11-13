@@ -1,6 +1,6 @@
 [package]
 name = "tampines"
-version = "0.0.3"
+version = "0.0.4"
 authors = [
     "Ong Kay Chen Theodore",
     "Ethan Yew Hoe, Wong",
@@ -8,7 +8,7 @@ authors = [
     "University of California, Berkeley Thermal Hydraulics Lab",
     "Singapore Nuclear Research and Safety Institute (SNRSI)",
     "National University of Singapore (NUS)",
-    "Repository Contributors",
+    "The OUTRAM PARK backend contributors",
 ]
 edition.workspace = true
 license.workspace = true
@@ -71,6 +71,12 @@ raffles.workspace = true
 # op-dt3.12 / op-dt3.13. Only the algebraic closures are consumed
 # (`SlipModel`, `DragModel`); the 3-D field equations are not.
 outram-foam-multiphase.workspace = true
+# GeN-Foam port (gh:#1060): `multiphase_1d::interfacial` reuses its
+# interfacial-area models (`closures::interfacial::area::InterfacialArea`) and
+# its one-parameter flow-regime map (`regime_map::RegimeMap1D`) rather than
+# porting them a second time. No cycle: the appbuilder depends only on petir,
+# outram-foam-{basic,turbulence,multiphase}-lib, ndarray, serde, uom, thiserror.
+outram-foam-appbuilder-lib.workspace = true
 chem-eng-real-time-process-control-simulator.workspace = true
 # DWSIM-derived equipment-model correlations (pipe/valve/heat-exchanger/
 # expander/pump) for tampines::components (op-dt3.4) to build on.
@@ -81,6 +87,18 @@ outram-park-fork-dwsim-libs.workspace = true
 # property handling only -- boon-lay's fission-product RELEASE model is NOT
 # consumed here (its CRP-6 verification test is flagged defective, op-jyyp.10).
 boon-lay.workspace = true
+# 1-D continuous-Galerkin flow (gh:#1069) takes its Gauss-Legendre line rule
+# from farrer-park's `quadrature::facet_rule(FacetType::Line2)` rather than a
+# copy. farrer-park depends only on petir, uom, thiserror and
+# outram-foam-basic-lib, all already here, so this edge adds no new crate to
+# the tree and no cycle (farrer-park does not depend on tampines).
+farrer-park.workspace = true
+# ~~teh-o-prke as a library dependency for the HTR-10 coupled transient
+# (gh:#1151, decision D2)~~ CORRECTED again 2026-11-03: maintainer moved
+# coupled kinetics to nee_soon (`nee_soon::htr10_th_transient`); tampines
+# takes heat sources as fixed or user-set inputs and is teh-o-prke-free again
+# (~~only the gated dev-dependency below, for the fhr_sim_v2 example~~ none at
+# all since 2026-11-05: that example moved to nee_soon).
 
 # Public API primitives -- dimensioned quantities and error types.
 uom.workspace = true
@@ -89,37 +107,17 @@ thiserror.workspace = true
 # No GUI dependencies here (egui/eframe/egui_plot/egui_extras etc.) -- this is
 # a headless library per the workspace's Android-portability rule. GUI deps
 # belong only under [dev-dependencies] once examples/ lands (op-dt3.7/.8).
+# (Since 2026-11-05 tampines has no GUI example; fhr_sim_v2 moved to nee_soon.)
 
-# fhr_sim_v2 (op-dt3.7, moved from tampines-steam-tables). teh-o-prke +
-# nee_soon for the Nordheim-Fuchs kinetics reconstruction; the rest mirrors
-# tampines-steam-tables's former fhr_sim_v2 dev-deps (tuas_boussinesq_solver
-# and chem-eng-real-time-process-control-simulator are already real deps
-# above, usable in examples too).
-#
-# These dev-dependencies are used ONLY by the fhr_sim_v2 GUI example, and the
-# `egui`/`eframe` stack is Android-hostile (it needs a `cc`/`ring` C toolchain).
-# Gate the whole block off Android so `cargo check --target
-# aarch64-linux-android --tests --examples` does not try to build the GUI stack.
-# The example itself carries `#![cfg(not(target_os = "android"))]`.
-# Also off wasm: eframe pulls wgpu, whose HAL is not Sync on wasm.
-# Dev-dependencies apply to TESTS as well as examples, so without this gate
-# `cargo test --target wasm32-wasip1` cannot build even a test that touches none
-# of it. The --lib compile gate is blind to this class of problem.
-[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
-teh-o-prke.workspace = true
-nee_soon.workspace = true
-ndarray.workspace = true
-egui.workspace = true
-eframe.workspace = true
-env_logger.workspace = true
-local-ip-address.workspace = true
-egui_plot.workspace = true
-egui_extras.workspace = true
-serde.workspace = true
-
-[[example]]
-name = "fhr_sim_v2"
-path = "examples/fhr_sim_v2/main.rs"
+# ~~fhr_sim_v2 (op-dt3.7, moved from tampines-steam-tables). teh-o-prke +
+# nee_soon for the Nordheim-Fuchs kinetics reconstruction; ...~~
+# MOVED 2026-11-05 (maintainer: "nee_soon depends on tampines, never the
+# reverse"): the fhr_sim_v2 example now lives at
+# `crates/nee_soon/examples/fhr_sim_v2/`, with the gated GUI dev-dependency
+# block it needed (teh-o-prke, nee_soon, ndarray, egui, bugis, eframe,
+# env_logger, local-ip-address, egui_plot, egui_extras, serde). Nothing else in
+# tampines used them, so tampines has no dev-dependency on nee_soon (a
+# publish-time cycle: `cargo publish` resolves dev-dependencies too).
 
 # ── wasm32: name getrandom's entropy backend ─────────────────────────────────
 # getrandom 0.3 will not build for wasm32-unknown-unknown without being told

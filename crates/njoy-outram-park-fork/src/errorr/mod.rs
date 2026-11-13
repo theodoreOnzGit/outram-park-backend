@@ -41,21 +41,38 @@
 //! [`covariance`] (the structural MF=31/33 reader).
 //!
 //! **Not ported** (refused with `NotPorted`, never approximated): the
-//! MF=32 branches listed in [`resprx`] (`LRF=7` SAMM, `LCOMP=0`, `LRF=1/3`
-//! sensitivities, INTG correlations, `irespr=0`), MF=31/34/35/40,
-//! `iread` 1/2, `nstan`/`nin`, GENDF input (`colaps`), `covadd`, ENDF/B-IV.
+//! MF=32 branches listed in [`resprx`] (~~`LRF=7` SAMM,~~ `LCOMP=0`, `LRF=1/3`
+//! sensitivities, INTG correlations, `irespr=0`), ~~MF=31/34/~~35~~/40~~ MF=40,
+//! `iread` 1/2, `nstan`, ~~`nin`,~~ ~~GENDF input (`colaps`), `covadd`,~~ ENDF/B-IV.
 //! See `README.md` in this directory.
+//!
+//! **CORRECTED 2026-11-13 (gh:#1369):** `LRF=7` goes through `rpxsamm`
+//! ([`resprx`]) and [`covadd`] is ported, as the README's table says. MF=35
+//! from an input GENDF is ported: [`gendf`] (`ngchk`, GENDF records), [`colaps`]
+//! and [`mf35`] (`run_mf35`), run from a deck by `crate::deck::errorr`, and
+//! identical to NJOY2016 on test decks 18, 27, 34 and 47. MF=33 from a PENDF
+//! ([`run_mf33`]) runs from a deck too, and deck 05's tape is NJOY2016's line
+//! for line. **CORRECTED again 2026-11-13:** MF=31 and MF=33 from a GENDF
+//! ([`mf31`]), MF=34 from a GENDF or a PENDF ([`mf34`], [`grpav4`]) and `nin`'s copy
+//! (in the deck driver) are ported; decks 04, 15, 16, 20, 46 and 65 are identical
+//! whole.
 
+pub mod colaps;
 pub mod covadd;
 pub mod covariance;
 pub mod covcal;
 pub mod covout;
 pub mod driver;
+pub mod gendf;
 pub mod gridd;
 pub mod groups;
 pub mod grpav;
+pub mod grpav4;
 pub mod math;
+pub mod mf31;
 pub mod mf33;
+pub mod mf34;
+pub mod mf35;
 pub mod resprx;
 pub mod weight;
 

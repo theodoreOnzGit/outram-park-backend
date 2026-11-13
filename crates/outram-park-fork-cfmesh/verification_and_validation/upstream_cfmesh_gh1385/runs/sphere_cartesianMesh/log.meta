@@ -1,0 +1,1 @@
+case sphere_cartesianMesh: app=cartesianMesh OMP_NUM_THREADS=1 2026-11-11T09:32:49+00:00

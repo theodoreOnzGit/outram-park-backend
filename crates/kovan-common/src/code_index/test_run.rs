@@ -22,7 +22,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::call_graph::{CallGraphDoc, CrateGraph, FnKind, Function, Module, Target, TargetKind};
 use crate::review::evidence::map::{restrict, to_test_run, TestIdMap, Unmapped};
 use crate::review::evidence::{NotCounted, TestEvidence};
-use crate::review::index::FolderIndex;
+use crate::review::index::{FolderIndex, Suite};
 
 fn test_fn(id: String, name: &str) -> Function {
     Function {
@@ -117,11 +117,13 @@ pub fn graph_from_folders(folders: &[FolderIndex]) -> CallGraphDoc {
 
 /// Write counted `evidence` into every folder's `[test_run]`, restricted to
 /// the tests it uses. Returns the libtest names that did not map to one
-/// test id; refuses (with the reasons) a run that does not count.
+/// test id; refuses (with the reasons) a run that does not count. A `-p`
+/// run (#1049) is written only into the folders of the crates it selected
+/// ([`in_scope`]); every other folder keeps its own `[test_run]`.
 pub fn write_counted(evidence: &TestEvidence, folders: &mut [FolderIndex]) -> Result<Vec<Unmapped>, Vec<NotCounted>> {
     let map = TestIdMap::from_graph(&graph_from_folders(folders));
     let (run, unmapped) = to_test_run(evidence, &map)?;
-    for fi in folders.iter_mut() {
+    for fi in folders.iter_mut().filter(|f| in_scope(evidence, f)) {
         let mut wanted: BTreeSet<String> = BTreeSet::new();
         for (file, f) in fi.functions() {
             wanted.extend(f.reached_by.iter().cloned());
@@ -130,10 +132,22 @@ pub fn write_counted(evidence: &TestEvidence, folders: &mut [FolderIndex]) -> Re
             }
         }
         let w: BTreeSet<&str> = wanted.iter().map(String::as_str).collect();
-        fi.test_run = Some(restrict(&run, &w));
+        // A targeted run (GitHub #1052) has its own table, so a full run's
+        // evidence for the functions it did not target stays.
+        let slot = match run.suite {
+            Suite::Targeted => &mut fi.targeted_run,
+            Suite::Full | Suite::Quick => &mut fi.test_run,
+        };
+        *slot = Some(restrict(&run, &w));
         fi.normalise();
     }
     Ok(unmapped)
+}
+
+/// Whether `evidence` speaks for `folder`: a whole-workspace run for every
+/// folder, a `-p` run (#1049) for its selected crates' folders only.
+pub fn in_scope(evidence: &TestEvidence, folder: &FolderIndex) -> bool {
+    evidence.packages.is_empty() || evidence.packages.contains(&folder.krate)
 }
 
 #[cfg(test)]
@@ -205,5 +219,41 @@ mod tests {
         let mut fresh: Vec<FolderIndex> = build(&input(C1)).folders.into_values().collect();
         assert!(write_counted(&dirty, &mut fresh).is_err());
         assert!(fresh.iter().all(|f| f.test_run.is_none()));
+
+        // #1049: a `-p` run lands only in the selected crate's folders.
+        let mut other = ev.clone();
+        other.packages = vec!["not-kern".into()];
+        let mut untouched: Vec<FolderIndex> = build(&input(C1)).folders.into_values().collect();
+        write_counted(&other, &mut untouched).unwrap();
+        assert!(untouched.iter().all(|f| f.test_run.is_none()));
+        let mut kern = ev.clone();
+        kern.packages = vec!["kern".into()];
+        let mut written: Vec<FolderIndex> = build(&input(C1)).folders.into_values().collect();
+        write_counted(&kern, &mut written).unwrap();
+        assert!(written.iter().all(|f| f.test_run.is_some()));
+        // GitHub #1052: the same run made targeted (its "filtered out"
+        // note dropped) counts, lands in `[targeted_run]` with its targets
+        // restricted per folder, and leaves the full run's `[test_run]` as
+        // it was.
+        let mut filtered = ev.clone();
+        filtered.partial_reasons.push(format!("3 tests filtered out of {LIB_RS}"));
+        let targeted = filtered.into_targeted(vec![format!("{LIB_RS}::t_twice"), format!("{LIB_RS}::t_twice")]);
+        assert_eq!(targeted.scope, Scope::Targeted);
+        assert!(targeted.counted().is_ok());
+        assert_eq!(targeted.targets, vec![format!("{LIB_RS}::t_twice")]);
+        let full_before = folders.iter().find(|f| f.dir == "crates/kern/src").unwrap().test_run.clone();
+        write_counted(&targeted, &mut folders).unwrap();
+        let src = folders.iter().find(|f| f.dir == "crates/kern/src").unwrap();
+        assert_eq!(src.test_run, full_before);
+        let t = src.targeted_run.as_ref().unwrap();
+        assert_eq!(t.suite, Suite::Targeted);
+        assert_eq!(t.targets, vec![format!("{LIB_RS}::t_twice")]);
+        assert_eq!(t.passed, vec![format!("{LIB_RS}::t_twice")]);
+        // Any other partial reason keeps a targeted run from counting.
+        let mut narrowed = ev.clone();
+        narrowed.partial_reasons.push("--skip x".into());
+        let narrowed = narrowed.into_targeted(vec![format!("{LIB_RS}::t_twice")]);
+        assert_eq!(narrowed.scope, Scope::Partial);
+        assert!(narrowed.counted().is_err());
     }
 }

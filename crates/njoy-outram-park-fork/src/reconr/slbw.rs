@@ -234,6 +234,88 @@ impl SlbwSigmas {
 /// - `ap`         — potential scattering radius \[10⁻¹² cm\].
 /// - `awri`       — atomic weight ratio (target / neutron).
 /// - `ra`         — channel radius \[10⁻¹² cm\] from `channel_radius()`.
+/// One l-state of `csslbw` in **parts**: the resonance sum of the elastic
+/// channel (without potential scattering), capture and fission in the
+/// returned [`SlbwSigmas`], and the potential-scattering term `spot` beside it.
+///
+/// `csslbw` (`reconr.f90:2692-2854`) does not simply add them: after each
+/// l-state it rounds the **running** elastic sum and `spot` to 8 figures
+/// *before* adding them (`:2849-2851`, `sigp(2)=sigfig(sigp(2),8,0);
+/// spot=sigfig(spot,8,0); sigp(2)=sigp(2)+spot`). The caller keeps the running
+/// sum and applies that, as [`csslbw_elastic_step`] does. Without it every
+/// SLBW material differs from NJOY2016 in the 7th figure of its elastic
+/// section (found 2026-11-11 on U-235 ENDF/B-V, test 07, gh:#1369).
+pub fn eval_slbw_lstate_parts(
+    e: f64,
+    resonances: &[(f64, f64, f64, f64, f64, f64)],
+    l: u32,
+    spi: f64,
+    ap: f64,
+    awri: f64,
+    ra: f64,
+) -> (SlbwSigmas, f64) {
+    if e <= 0.0 {
+        return (SlbwSigmas::default(), 0.0);
+    }
+
+    let arat = awri / (awri + 1.0);
+    let k = WAVE_K * arat * e.sqrt();
+    let pifac = PI / (k * k);
+
+    let rho = k * ra;
+    let rhoc = k * ap;
+
+    let (se, pe) = shift_and_penetrability(l, rho);
+    let phi = facphi(l, rhoc);
+    let cos2p = (2.0 * phi).r_cos();
+    let sin2p = (2.0 * phi).r_sin();
+    let sinsq = phi.r_sin().r_powi(2);
+
+    let spot = 4.0 * (2 * l + 1) as f64 * pifac * sinsq;
+    let spifac = 1.0 / (2.0 * spi + 1.0);
+
+    let mut sig_el = 0.0;
+    let mut sig_cap = 0.0;
+    let mut sig_fis = 0.0;
+
+    for &(er, aj, _gt, gn, gg, gf) in resonances {
+        let k_r = WAVE_K * arat * er.abs().sqrt();
+        let rho_r = k_r * ra;
+        let (ser, per) = shift_and_penetrability(l, rho_r);
+        let rper = if per.abs() > 1e-30 { 1.0 / per } else { 0.0 };
+
+        let gne = gn * pe * rper;
+        let erp = er + gn * (ser - se) * rper / 2.0;
+        let edelt = e - erp;
+        let gx = gg + gf;
+        let gtt = gne + gx;
+        let gj = (2.0 * aj + 1.0) * spifac / 2.0;
+
+        let comfac = pifac * gj * gne / (edelt * edelt + gtt * gtt / 4.0);
+
+        sig_el += comfac * (gne * cos2p - 2.0 * gx * sinsq + 2.0 * edelt * sin2p);
+        sig_cap += comfac * gg;
+        sig_fis += comfac * gf;
+    }
+
+    (
+        SlbwSigmas {
+            elastic: sig_el,
+            capture: sig_cap,
+            fission: sig_fis,
+        },
+        spot,
+    )
+}
+
+/// `csslbw`'s per-l-state elastic update (`reconr.f90:2849-2851`): the running
+/// elastic sum plus this l-state's resonance sum, rounded to 8 figures, plus
+/// `spot` rounded to 8 figures.
+pub fn csslbw_elastic_step(running: f64, resonance_sum: f64, spot: f64) -> f64 {
+    use crate::mixr::mix::sigfig;
+    sigfig(running + resonance_sum, 8, 0) + sigfig(spot, 8, 0)
+}
+
 pub fn eval_slbw_lstate(
     e: f64,
     resonances: &[(f64, f64, f64, f64, f64, f64)],
@@ -324,6 +406,33 @@ pub fn eval_mlbw_lstate(
     awri: f64,
     ra: f64,
 ) -> SlbwSigmas {
+    eval_mlbw_lstate_radii(e, resonances, l, spi, ap, awri, ra, ra)
+}
+
+/// [`eval_mlbw_lstate`] with the two channel radii upstream keeps apart.
+///
+/// `csmlbw` takes the penetrability and shift **at each resonance**,
+/// `ser`/`per`, from the table `rdf2bw` built once at read time with its own
+/// radius `ral` (`reconr.f90:999-1002`: the ENDF formula, or the range's
+/// constant `AP` when `NAPS = 1`). The penetrability and shift **at the
+/// energy**, `se`/`pe`, use the radius `csmlbw` picks per energy, `ra_e`
+/// (`reconr.f90:2906-2919`). The two agree unless the range carries an
+/// energy-dependent radius (`NRO ≠ 0`, GitHub #663): then `NAPS = 1` gives
+/// `ra_e = AP(E)` against `ra_res = AP`, and `NAPS = 2` gives `ra_e = AP`
+/// against `ra_res` from the formula. `ap` is the scattering radius used for
+/// the phase shift, `AP(E)` when `NRO ≠ 0`.
+#[allow(clippy::too_many_arguments)]
+pub fn eval_mlbw_lstate_radii(
+    e: f64,
+    resonances: &[(f64, f64, f64, f64, f64, f64)],
+    l: u32,
+    spi: f64,
+    ap: f64,
+    awri: f64,
+    ra_e: f64,
+    ra_res: f64,
+) -> SlbwSigmas {
+    let ra = ra_e;
     if e <= 0.0 {
         return SlbwSigmas::default();
     }
@@ -359,7 +468,7 @@ pub fn eval_mlbw_lstate(
     for &(er, aj, _gt, gn, gg, gf) in resonances {
         let j = ((aj - ajmin + 1.0).round() as usize).clamp(1, nj) - 1;
         let k_r = WAVE_K * arat * er.abs().sqrt();
-        let (ser, per) = shift_and_penetrability(l, k_r * ra);
+        let (ser, per) = shift_and_penetrability(l, k_r * ra_res);
         let rper = if per.abs() > 1e-30 { 1.0 / per } else { 0.0 };
         let erp = er + gn * (ser - se) * rper / 2.0;
         let edelt = e - erp;

@@ -472,21 +472,36 @@ impl Transfer {
             return Err("the TH polyMesh does not match Step 7's TH summary".into());
         }
         // The in-memory mesh (point location) and the polyMesh on disk must
-        // number their cells alike.
+        // number their cells alike. A numbering error moves a centre by about
+        // a cell's size; so the gap is measured against each cell's own size
+        // (`cbrt` of its volume) and must stay below 1e-3 of it.
+        //
+        // ~~`worst > 1e-6` m, absolute~~ CHANGED 2026-11-05: the absolute
+        // 1 um bound was a proxy that held while every cell was regular. Since
+        // cfMesh snaps boundary points onto feature edges (gh:#1202,
+        // `5cf5ee049`, found by `git bisect`), some faces are slightly
+        // non-planar, and the two "volume-weighted centroids" (outram-blender's
+        // and the FV mesh's face-pyramid one) differ on them by up to 1.07e-6
+        // m. Checked directly on the default HTR-10 case: the nearest
+        // in-memory centre to every polyMesh centre is the same cell for all
+        // 2203 cells (0 mismatches), and the worst gap is 7.4e-6 of the cell's
+        // size, far below this bound and far below a numbering error (~1).
         let s_cm = th_mesh.unit().cm_per_unit() / 100.0;
-        let worst = (0..th.cells)
+        let (worst, worst_rel) = (0..th.cells)
             .map(|c| {
                 let a = th_mesh.cell_centre(c);
                 let b = fv.cell_centres[c];
-                ((a[0] * s_cm - b.x).r_powi(2)
+                let gap = ((a[0] * s_cm - b.x).r_powi(2)
                     + (a[1] * s_cm - b.y).r_powi(2)
                     + (a[2] * s_cm - b.z).r_powi(2))
-                .sqrt()
+                .sqrt();
+                let size = th_mesh.cell_volume(c).abs().r_cbrt() * s_cm;
+                (gap, gap / size)
             })
-            .fold(0.0, f64::max);
-        if worst > 1e-6 {
+            .fold((0.0_f64, 0.0_f64), |(w, r), (g, q)| (w.max(g), r.max(q)));
+        if worst_rel > 1e-3 {
             return Err(format!(
-                "the TH mesh in memory and its polyMesh disagree on cell centres by up to {worst:e} m"
+                "the TH mesh in memory and its polyMesh disagree on cell centres by up to {worst:e} m, {worst_rel:e} of a cell's size: they number their cells differently"
             ));
         }
         let regions = &ms.plan.regions;

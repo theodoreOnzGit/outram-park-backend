@@ -244,13 +244,63 @@ impl TimeProfile {
     /// Returns a raw `f64` ordinate in the consumer's own units. For a table,
     /// the shifted time is clamped to the tabulated range (values before the
     /// first point return the first value; after the last, the last value).
+    ///
+    /// **ESI form (gh:#1361, 2026-11-12).** A table interpolates the way
+    /// OpenFOAM-ESI v2506's `Function1Types::Table` does, which is what
+    /// GeN-Foam calls: weights `w0 = (t1 - x) / (t1 - t0)`, `w1 = 1 - w0`,
+    /// value `w0 * y0 + w1 * y1`
+    /// (`linearInterpolationWeights::valueWeights`, `TableBase::value`).
+    /// Before this the table used the Foundation-lineage
+    /// `y0 + t * (y1 - y0)`, which differed from a run of GeN-Foam in 242 of
+    /// 667 interior values (up to 24 ulp). That form stays callable as
+    /// [`value_foundation`](Self::value_foundation).
     pub fn value(&self, t: Time) -> f64 {
+        let shifted = t.get::<second>() - self.start_time;
+        match &self.kind {
+            ProfileKind::Constant(v) => *v,
+            ProfileKind::Table { times, values } => esi_table_value(shifted, times, values),
+        }
+    }
+
+    /// As [`value`](Self::value) but a table interpolates with the OpenFOAM
+    /// Foundation-lineage `interpolateXY` (`y0 + t * (y1 - y0)`, the
+    /// basic-lib `interpolate_xy`). Kept callable, not deleted, per the
+    /// maintainer's rule of 2026-11-12; it is NOT what GeN-Foam runs.
+    pub fn value_foundation(&self, t: Time) -> f64 {
         let shifted = t.get::<second>() - self.start_time;
         match &self.kind {
             ProfileKind::Constant(v) => *v,
             ProfileKind::Table { times, values } => interpolate_xy(shifted, times, values),
         }
     }
+}
+
+/// OpenFOAM-ESI v2506 `Function1Types::Table` value with linear
+/// interpolation and `outOfBounds clamp`: `TableBase::value` clamps outside
+/// `[times[0], times[n-1]]`, then `linearInterpolationWeights::valueWeights`
+/// takes `i = findLower(times, x)` (the last sample strictly below `x`, `-1`
+/// when none): index `-1` uses the first value alone, otherwise
+/// `w0 = (t1 - x) / (t1 - t0)`, `w1 = 1 - w0`, result `w0 * y0 + w1 * y1`.
+/// `times` is strictly ascending with at least two entries (checked by
+/// [`TimeProfile::table`]).
+fn esi_table_value(x: f64, times: &[f64], values: &[f64]) -> f64 {
+    let n = times.len();
+    if x < times[0] {
+        return values[0];
+    }
+    if x > times[n - 1] {
+        return values[n - 1];
+    }
+    // Number of samples strictly below x; findLower returns that count - 1.
+    let below = times.partition_point(|&s| s < x);
+    if below == 0 {
+        return 1.0 * values[0];
+    }
+    let i = below - 1;
+    let (t0, t1) = (times[i], times[i + 1]);
+    let w0 = (t1 - x) / (t1 - t0);
+    let w1 = 1.0 - w0;
+    w0 * values[i] + w1 * values[i + 1]
 }
 
 #[cfg(test)]
@@ -298,6 +348,29 @@ mod tests {
         assert_eq!(p.value(s(100.5)), 0.5); // shifted t = 0.5
         assert_eq!(p.value(s(101.0)), 1.0); // shifted t = 1
         assert_eq!(p.value(s(200.0)), 1.0); // after -> clamp to last
+    }
+
+    #[test]
+    fn esi_and_foundation_forms_agree_to_round_off_and_at_knots() {
+        let times = vec![s(0.0), s(0.7), s(1.9), s(4.0)];
+        let values = vec![0.001, -0.002, 0.0035, 0.0007];
+        let p = TimeProfile::table(times, values.clone()).unwrap();
+        // knots and clamps are exact in both forms
+        for (t, v) in [0.0, 0.7, 1.9, 4.0].iter().zip(&values) {
+            assert_eq!(p.value(s(*t)), *v);
+            // the Foundation form `y0 + 1*(y1 - y0)` need not return y1 exactly
+            assert!((p.value_foundation(s(*t)) - *v).abs() <= 1e-18);
+        }
+        assert_eq!(p.value(s(-1.0)), 0.001);
+        assert_eq!(p.value(s(9.0)), 0.0007);
+        // interior: the two forms differ only by round-off
+        for k in 1..40 {
+            let t = 0.1 * f64::from(k);
+            let (a, b) = (p.value(s(t)), p.value_foundation(s(t)));
+            assert!((a - b).abs() <= 1e-15, "t={t}: {a} vs {b}");
+        }
+        // hand value: midpoint of [0.7, 1.9] is the mean of -0.002 and 0.0035
+        assert!((p.value(s(1.3)) - 0.00075).abs() < 1e-15);
     }
 
     #[test]

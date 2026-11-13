@@ -1,8 +1,9 @@
 [package]
 name = "outram-park-mpi"
-version = "0.0.1"
+version = "0.0.2"
 edition.workspace = true
-# GPL-3.0-only (workspace default). This crate is an independent pure-Rust
+# ~~GPL-3.0-only~~ AGPL-3.0-only (workspace default; relicensed 2026-10-20, gh:#973;
+# corrected 2026-11-13, gh:#1435). This crate is an independent pure-Rust
 # translation of a SUBSET of MPICH's semantics/algorithms — it links no MPICH C
 # code and is not endorsed by or affiliated with the MPICH project or Argonne
 # National Laboratory. "MPI" names only the standard whose API surface this

@@ -677,7 +677,8 @@ impl RodsView {
         link: Option<&dhoby_ghaut::web_demo::link::Link<crate::engine::Request, crate::engine::Event>>,
         text: f32,
     ) {
-        painter.rect_filled(body, 0.0, BG);
+        let ink = bugis::Ink::of_ui(ui);
+        painter.rect_filled(body, 0.0, ink.bg);
         if body.height() < DOCK_BOTH_PX {
             let row = Rect::from_min_size(body.min + Vec2::new(4.0, 4.0), Vec2::new(body.width() - 8.0, DOCK_TAB_PX - 6.0));
             let (a, b) = row.split_left_right_at_fraction(0.5);
@@ -702,7 +703,7 @@ impl RodsView {
             if let (Some(req), Some(l)) = (sl.pump(r), link) {
                 l.send(crate::engine::Request::Raster(req));
             }
-            painter.rect_filled(r, 4.0, Color32::from_rgb(10, 12, 16));
+            painter.rect_filled(r, 4.0, ink.bg);
             sl.draw(&painter.with_clip_rect(r), r);
             if sl.busy() || !sl.settled() {
                 ui.ctx().request_repaint_after(std::time::Duration::from_millis(80));
@@ -719,7 +720,7 @@ impl RodsView {
                     painter.text(q, egui::Align2::CENTER_CENTER, format!("{}:{:.0}%", i + 1, 100.0 * built[i]), small.clone(), if i == self.shown_rod { Color32::WHITE } else { GREY });
                 }
             }
-            painter.text(r.left_top() + Vec2::new(4.0, 2.0), egui::Align2::LEFT_TOP, "top, bed mid-height", small.clone(), Color32::WHITE);
+            painter.text(r.left_top() + Vec2::new(4.0, 2.0), egui::Align2::LEFT_TOP, "top, bed mid-height", small.clone(), ink.text);
         }
         if let Some(r) = side {
             if core.rods.selected != self.shown_rod {
@@ -737,7 +738,7 @@ impl RodsView {
             if r.contains(p) {
                 painter.add(egui::Shape::convex_polygon(vec![p + Vec2::new(-5.0, -8.0), p + Vec2::new(5.0, -8.0), p], Color32::WHITE, Stroke::NONE));
             }
-            painter.text(r.left_top() + Vec2::new(4.0, 2.0), egui::Align2::LEFT_TOP, format!("side, through {}", rod_label(self.shown_rod)), small.clone(), Color32::WHITE);
+            painter.text(r.left_top() + Vec2::new(4.0, 2.0), egui::Align2::LEFT_TOP, format!("side, through {}", rod_label(self.shown_rod)), small.clone(), ink.text);
         }
         if let Some(r) = bank {
             draw_bank(painter, r, &reader, self.shown_rod, text);
@@ -752,8 +753,8 @@ impl RodsView {
             let here = lookup(&self.curves, &reader);
             draw_curves(painter, r, &self.curves, &live, &here, text);
             if let Lookup::None(m) = &here {
-                let g = painter.layout(m.clone(), egui::FontId::proportional(text * 0.8), Color32::from_rgb(250, 200, 80), r.width() - 20.0);
-                painter.galley(Pos2::new(r.left() + 10.0, r.top() + 2.0 * text + 8.0), g, Color32::from_rgb(250, 200, 80));
+                let g = painter.layout(m.clone(), egui::FontId::proportional(text * 0.8), ink.warn, r.width() - 20.0);
+                painter.galley(Pos2::new(r.left() + 10.0, r.top() + 2.0 * text + 8.0), g, ink.warn);
             }
         }
         if let (Some(r), Some(sw)) = (kvsn, self.sweep.as_ref()) {
@@ -762,7 +763,7 @@ impl RodsView {
             let at = if n as usize == super::core::random_bed::DEM_BED { super::LADDER_N } else { n };
             crate::sweep::draw(painter, r, sw, at, text * 0.9);
             if reader != [0.0; N] {
-                painter.text(r.right_bottom() + Vec2::new(-6.0, -4.0), egui::Align2::RIGHT_BOTTOM, "recorded with every rod withdrawn", small.clone(), Color32::from_rgb(250, 200, 80));
+                painter.text(r.right_bottom() + Vec2::new(-6.0, -4.0), egui::Align2::RIGHT_BOTTOM, "recorded with every rod withdrawn", small.clone(), ink.warn);
             }
         }
     }
@@ -835,38 +836,40 @@ pub fn lookup_text(l: &Lookup) -> String {
 
 // ─── drawing (GUI drawing: exempt from the reaching-test rule) ────────────
 
-const BG: Color32 = Color32::from_rgb(18, 21, 28);
+// The rod-percentage labels drawn ON the top slice (over the reflector's
+// material colours) keep a fixed light grey; the rest takes the theme.
 const GREY: Color32 = Color32::from_rgb(170, 176, 190);
-pub const BANK_COLOUR: Color32 = Color32::from_rgb(120, 170, 255);
-pub const S3_COLOUR: Color32 = Color32::from_rgb(255, 170, 90);
-pub const LIVE_COLOUR: Color32 = Color32::from_rgb(120, 220, 140);
+// The bank schematic's encodings (its caption names them): B4C red, bed green.
+const B4C: Color32 = Color32::from_rgb(200, 60, 60);
+const BED: Color32 = Color32::from_rgb(40, 80, 50);
 
 /// The ten rods as columns: each one's B4C span against the bed's top and
 /// foot, the selected rod outlined. GUI drawing, not reached by a test (the
 /// test rule's exception); its positions are [`zt`]'s, which is tested.
 pub fn draw_bank(painter: &egui::Painter, rect: Rect, rods: &[f64; N], selected: usize, text: f32) {
-    painter.rect_filled(rect, 4.0, BG);
+    let ink = bugis::Ink::of_ctx(painter.ctx());
+    painter.rect_filled(rect, 4.0, ink.card);
     let f = egui::FontId::proportional((text * 0.8).max(8.0));
     let top = rect.top() + text + 6.0;
     let bottom = rect.bottom() - text - 4.0;
     let y = |z_t: f64| top + (bottom - top) * ((z_t - 0.0) / 450.0) as f32;
-    painter.text(rect.left_top() + Vec2::new(6.0, 3.0), egui::Align2::LEFT_TOP, "Rods (side, z_T down): B4C in red, bed in green", f.clone(), GREY);
+    painter.text(rect.left_top() + Vec2::new(6.0, 3.0), egui::Align2::LEFT_TOP, "Rods (side, z_T down): B4C in red, bed in green", f.clone(), ink.muted);
     let left = rect.left() + 34.0;
     let w = (rect.right() - 6.0 - left) / N as f32;
     let bed = Rect::from_min_max(Pos2::new(left, y(BED_TOP_ZT_CM)), Pos2::new(rect.right() - 6.0, y(BED_FOOT_ZT_CM)));
-    painter.rect_filled(bed, 0.0, Color32::from_rgb(40, 80, 50));
-    painter.text(Pos2::new(rect.left() + 4.0, bed.top()), egui::Align2::LEFT_CENTER, "bed", f.clone(), GREY);
+    painter.rect_filled(bed, 0.0, BED);
+    painter.text(Pos2::new(rect.left() + 4.0, bed.top()), egui::Align2::LEFT_CENTER, "bed", f.clone(), ink.muted);
     for (i, &fr) in rods.iter().enumerate() {
         let x0 = left + w * i as f32 + w * 0.25;
         let x1 = left + w * (i as f32 + 0.75);
         let lo = zt(fr);
         let hi = lo - nee_soon::htr10_rmc::control_rod::AXIAL_SECTIONS_CM.iter().sum::<f64>();
         let r = Rect::from_min_max(Pos2::new(x0, y(hi.max(0.0))), Pos2::new(x1, y(lo)));
-        painter.rect_filled(r, 1.0, Color32::from_rgb(200, 60, 60));
+        painter.rect_filled(r, 1.0, B4C);
         if i == selected {
-            painter.rect_stroke(r.expand(2.0), 2.0, Stroke::new(1.5, Color32::WHITE), egui::StrokeKind::Outside);
+            painter.rect_stroke(r.expand(2.0), 2.0, Stroke::new(1.5, ink.text), egui::StrokeKind::Outside);
         }
-        painter.text(Pos2::new(0.5 * (x0 + x1), bottom + 2.0), egui::Align2::CENTER_TOP, format!("{}", i + 1), f.clone(), if i == selected { Color32::WHITE } else { GREY });
+        painter.text(Pos2::new(0.5 * (x0 + x1), bottom + 2.0), egui::Align2::CENTER_TOP, format!("{}", i + 1), f.clone(), if i == selected { ink.text } else { ink.muted });
     }
 }
 
@@ -874,10 +877,11 @@ pub fn draw_bank(painter: &egui::Painter, rect: Rect, rods: &[f64; N], selected:
 /// live points, the marker for the reader's setting. GUI drawing, not
 /// reached by a test (exempt); what it shows is [`lookup`]'s, which is.
 pub fn draw_curves(painter: &egui::Painter, rect: Rect, curves: &[RecordedCurve], live: &[(Family, Point)], here: &Lookup, text: f32) {
-    painter.rect_filled(rect, 4.0, BG);
+    let ink = bugis::Ink::of_ctx(painter.ctx());
+    painter.rect_filled(rect, 4.0, ink.card);
     let f = egui::FontId::proportional(text);
     let small = egui::FontId::proportional((text * 0.82).max(8.0));
-    painter.text(rect.left_top() + Vec2::new(8.0, 4.0), egui::Align2::LEFT_TOP, "k_eff against rod lower end z_T", f, Color32::WHITE);
+    painter.text(rect.left_top() + Vec2::new(8.0, 4.0), egui::Align2::LEFT_TOP, "k_eff against rod lower end z_T", f, ink.text);
     let all: Vec<Point> = curves.iter().flat_map(|c| c.points.iter().copied()).chain(live.iter().map(|l| l.1)).collect();
     let plot = Rect::from_min_max(rect.left_top() + Vec2::new(52.0, text + 30.0), rect.right_bottom() - Vec2::new(10.0, 2.2 * text + 10.0));
     let (mut lo, mut hi) = all.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |a, p| (a.0.min(p.k - p.sigma), a.1.max(p.k + p.sigma)));
@@ -888,22 +892,22 @@ pub fn draw_curves(painter: &egui::Painter, rect: Rect, curves: &[RecordedCurve]
     let (lo, hi) = (lo - pad, hi + pad);
     let x = |z: f64| plot.left() + plot.width() * ((z - LOWER_END_WITHDRAWN_CM) / (LOWER_END_INSERTED_CM - LOWER_END_WITHDRAWN_CM)) as f32;
     let y = |k: f64| plot.bottom() - plot.height() * ((k - lo) / (hi - lo)) as f32;
-    painter.rect_stroke(plot, 0.0, Stroke::new(1.0, Color32::from_rgb(70, 76, 90)), egui::StrokeKind::Inside);
+    painter.rect_stroke(plot, 0.0, Stroke::new(1.0, ink.border), egui::StrokeKind::Inside);
     for z in [BED_TOP_ZT_CM, BED_FOOT_ZT_CM] {
-        painter.line_segment([Pos2::new(x(z), plot.top()), Pos2::new(x(z), plot.bottom())], Stroke::new(1.0, Color32::from_rgb(40, 80, 50)));
+        painter.line_segment([Pos2::new(x(z), plot.top()), Pos2::new(x(z), plot.bottom())], Stroke::new(1.0, BED));
     }
-    painter.text(Pos2::new(x(BED_TOP_ZT_CM) + 2.0, plot.bottom() - 2.0), egui::Align2::LEFT_BOTTOM, "bed top", small.clone(), GREY);
-    painter.text(Pos2::new(x(BED_FOOT_ZT_CM) + 2.0, plot.bottom() - 2.0), egui::Align2::LEFT_BOTTOM, "bed foot", small.clone(), GREY);
+    painter.text(Pos2::new(x(BED_TOP_ZT_CM) + 2.0, plot.bottom() - 2.0), egui::Align2::LEFT_BOTTOM, "bed top", small.clone(), ink.muted);
+    painter.text(Pos2::new(x(BED_FOOT_ZT_CM) + 2.0, plot.bottom() - 2.0), egui::Align2::LEFT_BOTTOM, "bed foot", small.clone(), ink.muted);
     for z in [119.2, 200.0, 300.0, 394.2] {
-        painter.text(Pos2::new(x(z), plot.bottom() + 3.0), egui::Align2::CENTER_TOP, format!("{z}"), small.clone(), GREY);
+        painter.text(Pos2::new(x(z), plot.bottom() + 3.0), egui::Align2::CENTER_TOP, format!("{z}"), small.clone(), ink.muted);
     }
-    painter.text(Pos2::new(plot.center().x, plot.bottom() + text + 4.0), egui::Align2::CENTER_TOP, "rod lower end z_T (cm): 119.2 withdrawn → 394.2 fully in", small.clone(), GREY);
+    painter.text(Pos2::new(plot.center().x, plot.bottom() + text + 4.0), egui::Align2::CENTER_TOP, "rod lower end z_T (cm): 119.2 withdrawn → 394.2 fully in", small.clone(), ink.muted);
     for k in [lo + 0.25 * (hi - lo), lo + 0.75 * (hi - lo)] {
-        painter.text(Pos2::new(plot.left() - 4.0, y(k)), egui::Align2::RIGHT_CENTER, format!("{k:.3}"), small.clone(), GREY);
+        painter.text(Pos2::new(plot.left() - 4.0, y(k)), egui::Align2::RIGHT_CENTER, format!("{k:.3}"), small.clone(), ink.muted);
     }
     let mut ly = plot.top() + 4.0;
     for c in curves {
-        let col = if c.family == Family::Bank { BANK_COLOUR } else { S3_COLOUR };
+        let col = if c.family == Family::Bank { ink.accent(0) } else { ink.accent(1) };
         let pts: Vec<Pos2> = c.points.iter().map(|p| Pos2::new(x(p.zt), y(p.k))).collect();
         for w in pts.windows(2) {
             painter.line_segment([w[0], w[1]], Stroke::new(1.0, col.gamma_multiply(0.6)));
@@ -918,19 +922,19 @@ pub fn draw_curves(painter: &egui::Painter, rect: Rect, curves: &[RecordedCurve]
     }
     if !live.is_empty() {
         for (_, p) in live {
-            painter.line_segment([Pos2::new(x(p.zt), y(p.k - p.sigma)), Pos2::new(x(p.zt), y(p.k + p.sigma))], Stroke::new(1.2, LIVE_COLOUR));
-            painter.rect_filled(Rect::from_center_size(Pos2::new(x(p.zt), y(p.k)), Vec2::splat(6.0)), 0.0, LIVE_COLOUR);
+            painter.line_segment([Pos2::new(x(p.zt), y(p.k - p.sigma)), Pos2::new(x(p.zt), y(p.k + p.sigma))], Stroke::new(1.2, ink.ok));
+            painter.rect_filled(Rect::from_center_size(Pos2::new(x(p.zt), y(p.k)), Vec2::splat(6.0)), 0.0, ink.ok);
         }
-        painter.text(Pos2::new(plot.right() - 4.0, ly), egui::Align2::RIGHT_TOP, "live in this browser (lower statistics)", small.clone(), LIVE_COLOUR);
+        painter.text(Pos2::new(plot.right() - 4.0, ly), egui::Align2::RIGHT_TOP, "live in this browser (lower statistics)", small.clone(), ink.ok);
     }
     match here {
         Lookup::Exact { point, .. } => {
-            painter.circle_stroke(Pos2::new(x(point.zt), y(point.k)), 7.0, Stroke::new(2.0, Color32::WHITE));
+            painter.circle_stroke(Pos2::new(x(point.zt), y(point.k)), 7.0, Stroke::new(2.0, ink.text));
         }
         Lookup::Interpolated { zt, k, .. } => {
             let p = Pos2::new(x(*zt), y(*k));
-            painter.circle_stroke(p, 6.0, Stroke::new(1.5, Color32::WHITE));
-            painter.text(p + Vec2::new(8.0, -8.0), egui::Align2::LEFT_BOTTOM, "interpolated", small, Color32::WHITE);
+            painter.circle_stroke(p, 6.0, Stroke::new(1.5, ink.text));
+            painter.text(p + Vec2::new(8.0, -8.0), egui::Align2::LEFT_BOTTOM, "interpolated", small, ink.text);
         }
         Lookup::None(_) => {}
     }

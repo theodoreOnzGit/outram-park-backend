@@ -3,10 +3,18 @@
 //
 // This file is part of OUTRAM PARK.
 
-//! Optional headless GPU compute for this crate's one embarrassingly-parallel
-//! kernel: the [`crate::rdf`] pair-separation histogram.
+//! Optional headless GPU compute: the [`crate::rdf`] pair-separation
+//! histogram and, since 2026-11-05 (gh:#1250), the DEM timestep of the HTR-10
+//! pour ([`dem`]).
 //!
-//! # Why only the RDF, and not the timestep
+//! # ~~Why only the RDF, and not the timestep~~ (SUPERSEDED 2026-11-05)
+//!
+//! **CHANGED 2026-11-05 (gh:#1250, maintainer: "start a wgsl option for
+//! LIGGGHTS, within the LIGGGHTS crate"):** [`dem`] now runs the timestep
+//! on the GPU, as an opt-in second backend that is **not** bit-identical to
+//! the CPU path (its own trust model; the CPU stays the reference and the
+//! default). The scope argument below was the reason not to, and is kept as
+//! it was written.
 //!
 //! This is the deliberate scope limit, and it is worth stating where someone
 //! will look for it. The DEM timestep carries a persistent per-contact
@@ -24,8 +32,11 @@
 //! # Contract
 //!
 //! 1. **Compiles always, runs on CPU when there is no GPU.** The whole module
-//!    is target-gated out on Android and `wasm32` (no system Vulkan/Metal
-//!    loader; `wgpu-hal` is not `Sync` on wasm), and [`rdf_histogram`] returns
+//!    is target-gated out on Android ~~and `wasm32` (no system Vulkan/Metal
+//!    loader; `wgpu-hal` is not `Sync` on wasm)~~ (**CHANGED 2026-11-05,
+//!    gh:#1250:** it builds for `wasm32`, where the browser's WebGPU is used
+//!    through [`probe_async`] and the async read-backs; the blocking
+//!    [`probe`], [`block_on`] and [`rdf_histogram`] stay native-only), and [`rdf_histogram`] returns
 //!    `None` whenever no usable adapter exists — a headless server, CI with no
 //!    loader. Callers **must** treat `None` as "run the CPU path", never as an
 //!    error. [`crate::rdf::radial_distribution`] does exactly that.
@@ -40,12 +51,19 @@
 //!    this module hand-rolls a tiny pure-`std` [`block_on`], the same shape
 //!    `outram-mc-libs` uses.
 
+pub mod dem;
+
 use std::future::Future;
+#[cfg(not(target_arch = "wasm32"))]
 use std::pin::pin;
-use std::sync::Arc;
-use std::task::{Context, Poll, Wake, Waker};
+use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll, Waker};
+#[cfg(not(target_arch = "wasm32"))]
+use std::task::Wake;
+#[cfg(not(target_arch = "wasm32"))]
 use std::thread;
 
+#[cfg(not(target_arch = "wasm32"))]
 use crate::particle::Vec3;
 
 /// Largest bin count the shader's workgroup-local histogram can hold; must
@@ -56,6 +74,7 @@ use crate::particle::Vec3;
 pub const MAX_BINS: usize = 1024;
 
 /// Workgroup size; must match `WG_SIZE` in the shader.
+#[cfg(not(target_arch = "wasm32"))]
 const WG_SIZE: u32 = 64;
 
 /// A live, headless GPU compute context — a [`wgpu::Device`] and
@@ -85,6 +104,7 @@ impl std::fmt::Debug for GpuContext {
 /// `None` is the *normal, expected* outcome on a headless host and is never an
 /// error.
 #[must_use]
+#[cfg(not(target_arch = "wasm32"))]
 pub fn probe() -> Option<GpuContext> {
     let instance = wgpu::Instance::default();
     let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -122,6 +142,7 @@ pub fn probe() -> Option<GpuContext> {
 /// `f32` throughout; see the module contract. Not bit-identical to the `f64`
 /// CPU reference.
 #[must_use]
+#[cfg(not(target_arch = "wasm32"))]
 pub fn rdf_histogram(
     centres: &[Vec3],
     centre_idx: &[u32],
@@ -281,6 +302,7 @@ fn slice_bytes<T: Copy>(v: &[T]) -> &[u8] {
 /// The standard `pollster::block_on` shape. It exists so this crate needs **no**
 /// async-runtime dependency to await `wgpu`'s two setup futures. Buffer
 /// read-back does not use it — that uses `Device::poll`.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn block_on<F: Future>(future: F) -> F::Output {
     struct ThreadWaker(thread::Thread);
     impl Wake for ThreadWaker {
@@ -298,6 +320,88 @@ pub fn block_on<F: Future>(future: F) -> F::Output {
         match future.as_mut().poll(&mut cx) {
             Poll::Ready(v) => return v,
             Poll::Pending => thread::park(),
+        }
+    }
+}
+
+/// **The adapter and device, without blocking** (gh:#1250): what a browser
+/// needs, where nothing may wait. In the browser only WebGPU is asked for
+/// (compute shaders; WebGL has none), and `None` means "this browser has no
+/// WebGPU". Natively it is [`probe`]'s device.
+pub async fn probe_async() -> Option<GpuContext> {
+    let backends = if cfg!(target_arch = "wasm32") {
+        wgpu::Backends::BROWSER_WEBGPU
+    } else {
+        wgpu::Backends::all()
+    };
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        backends,
+        ..wgpu::InstanceDescriptor::new_without_display_handle()
+    });
+    let adapter = instance
+        .request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            force_fallback_adapter: false,
+            compatible_surface: None,
+            apply_limit_buckets: false,
+        })
+        .await
+        .ok()?;
+    let info = adapter.get_info();
+    let (device, queue) = adapter
+        .request_device(&wgpu::DeviceDescriptor {
+            label: Some("outram-park-fork-liggghts compute device"),
+            required_features: wgpu::Features::empty(),
+            required_limits: adapter.limits(),
+            ..Default::default()
+        })
+        .await
+        .ok()?;
+    Some(GpuContext {
+        device,
+        queue,
+        info,
+    })
+}
+
+/// A one-shot completion a `map_async` callback fills and a future awaits:
+/// the read-back without `Device::poll`'s blocking wait, which a browser does
+/// not allow (the browser resolves the mapping between tasks).
+#[derive(Default)]
+pub(crate) struct Mapped {
+    done: Option<bool>,
+    waker: Option<Waker>,
+}
+
+/// Completes when the shared [`Mapped`] is filled.
+pub(crate) struct MappedFuture(pub(crate) Arc<Mutex<Mapped>>);
+
+impl Future for MappedFuture {
+    type Output = bool;
+    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<bool> {
+        let Ok(mut m) = self.0.lock() else {
+            return Poll::Ready(false);
+        };
+        match m.done {
+            Some(ok) => Poll::Ready(ok),
+            None => {
+                m.waker = Some(cx.waker().clone());
+                Poll::Pending
+            }
+        }
+    }
+}
+
+/// The callback half of [`MappedFuture`].
+pub(crate) fn mapped_callback(
+    shared: Arc<Mutex<Mapped>>,
+) -> impl FnOnce(Result<(), wgpu::BufferAsyncError>) + Send + 'static {
+    move |r| {
+        if let Ok(mut m) = shared.lock() {
+            m.done = Some(r.is_ok());
+            if let Some(w) = m.waker.take() {
+                w.wake();
+            }
         }
     }
 }

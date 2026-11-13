@@ -21,7 +21,12 @@
 //! format are the pair most likely to drift, and the round-trip test that stops
 //! them drifting has to see both. The formats in this module had no
 //! pre-existing reader, which is why their writers are here.
+//!
+//! [`collision_track`] (gh:#1392) carries its reader beside its writer for
+//! the same reason the WMP pair is kept together: the round trip of
+//! upstream's own fixtures has to see both.
 
+pub mod collision_track;
 pub mod cross_sections_xml;
 pub mod depletion_chain_xml;
 pub mod mgxs_write;

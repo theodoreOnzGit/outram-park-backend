@@ -73,7 +73,7 @@ On top of all icoFoam requirements:
 
 ## Known limitations (open defects, deliberately not fixed)
 
-### `fvc::ddt_corr` is Euler-only and inconsistent with a BDF2 ddt scheme
+### ~~`fvc::ddt_corr` is Euler-only and inconsistent with a BDF2 ddt scheme~~ — partner ported 2026-11-01 (gh:#1067)
 
 `fvc::ddt_corr` hardcodes the implicit-Euler Rhie–Chow correction `phiCorr/Δt`
 and takes no ddt-scheme argument. A BDF2 (`Backward`) ddt puts `1.5·V/Δt` on the
@@ -87,10 +87,16 @@ Measured downstream (`outram-foam-appbuilder-lib`,
 steady states differ by 1.0e-2 to 2.9e-2 m/s (1–3 % of `U_lid`), and the gap
 *grows* as `Δt` is refined.
 
-Closing it needs OpenFOAM's `backwardDdtScheme<Type>::fvcDdtPhiCorr`, which
+~~Closing it needs OpenFOAM's `backwardDdtScheme<Type>::fvcDdtPhiCorr`, which
 belongs in this crate and is **not yet ported**. Until then `Backward` must not
-be described as verified second-order time integration. The limitation is
-documented at the point of use in `ddt_corr`'s doc comment.
+be described as verified second-order time integration.~~ **CORRECTED
+2026-11-01** (gh:#1067): ported as `fvc::ddt_corr_backward` (with
+`fvc::BackwardDdtCoeffs`), and `outram-foam-appbuilder-lib`'s `PimpleFoam`
+pairs it with `Backward`. The steady Euler/BDF2 gap falls 2.7–3.6× but still
+grows as `Δt` is refined, and the temporal order could not be measured on the
+cavity (its discrete fixed point depends on `Δt`), so `Backward` is **still
+not** verified second order. Record:
+`outram-foam-appbuilder-lib/verification_and_validation/bdf2_temporal_order.md`.
 
 ---
 

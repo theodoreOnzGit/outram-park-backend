@@ -45,7 +45,8 @@ use crate::volume_mesh::{orient_ring, BoundaryPatch, VolumeMesh};
 /// hexahedral cells.
 ///
 /// The result has `nx·ny·nz` cells, internal faces first (owner < neighbour,
-/// normal pointing owner→neighbour), then six boundary patches
+/// normal pointing owner→neighbour, in OpenFOAM's upper-triangular order:
+/// by owner, then neighbour, since gh:#1285), then six boundary patches
 /// `xMin, xMax, yMin, yMax, zMin, zMax` (outward normals). Its
 /// [`VolumeMesh::total_volume`] equals the box volume and every cell passes the
 /// closure check in [`VolumeMesh::validate`].
@@ -337,14 +338,19 @@ pub fn cartesian_box(min: Vec3, max: Vec3, divisions: [usize; 3]) -> VolumeMesh 
         &points,
     );
 
-    VolumeMesh {
+    // gh:#1285: the internal faces above are built direction by direction;
+    // OpenFOAM's polyMesh wants them by owner, then neighbour. Every face
+    // already has owner < neighbour, so this only reorders the internal
+    // faces; points, cells and boundary faces are unchanged.
+    crate::renumber_mesh::upper_triangular(&VolumeMesh {
         points,
         faces,
         owner,
         neighbour,
         n_cells: nx * ny * nz,
         patches,
-    }
+        cells: None,
+    })
 }
 
 #[cfg(test)]

@@ -45,8 +45,12 @@ The pool is the defining feature. Its thermal inertia and stratification set the
 timescale of every loss-of-flow and loss-of-heat-sink transient, and it couples
 the core outlet, the IHX inlet and the shutdown coolers.
 
-Core is a **wire-wrapped hexagonal bundle** of **metallic** fuel (U-Zr and
-U-Pu-Zr), with a **sodium-bonded** fuel-cladding gap. All three of those
+Core is a **wire-wrapped hexagonal bundle** of **metallic** fuel ~~(U-Zr and
+U-Pu-Zr)~~ **CORRECTED 2026-11-10:** the MARK-II driver fuel of the SHRT-17 and
+SHRT-45R cores is **U-5Fs** (uranium with 5 wt % fissium), 67 wt % U-235
+(ANL-ARC-228 Table 3.1.1 p.17 and Table 3.2.2 p.21, transcribed in
+`reference-data/ebr2/`). The 1963 wet-critical core was also U-5Fs, at 48.4 %
+enrichment (ANL-6864 p.11). The gap is **sodium-bonded**. All three of those
 properties matter and none is currently modelled.
 
 ## 3. Capability audit
@@ -75,7 +79,11 @@ round-trip.
 
 ### SCAFFOLD — do not count as working
 
-- **Sodium is unreachable from the thermal-hydraulics stack.** `LiquidMaterial`
+- ~~**Sodium is unreachable from the thermal-hydraulics stack.**~~ **CORRECTED
+  2026-11-10 (checked in code, gh:#1331):** TUAS now has
+  `liquid_database::liquid_sodium_coolprop::liquid_sodium()` (CoolProp `LiqNa`,
+  400-1000 K, gh:#1320), used by `outram_park_digital_twin_engine::ebr2::model`.
+  The original finding follows. `LiquidMaterial`
   (`crates/tuas_boussinesq_solver/.../boussinesq_thermophysical_properties/mod.rs:126`)
   has no sodium arm, and `TampinesFluid`
   (`crates/tampines/src/fluids/mod.rs:23`) wraps only the equation-of-state
@@ -91,16 +99,24 @@ round-trip.
   constant array for U-233, U-235 and Pu-239, and says so in its own comment. The
   half-life set at `:66` carries a comment doubting its provenance. This is a
   latent correctness trap that should be fixed before any effective delayed
-  fraction is trusted.
+  fraction is trusted. **Partly fixed 2026-11-10 (gh:#1319):** U-235's set is
+  now ENDF/B-VIII.0 (`lambda_i` and `beta_i`, pinned to the tape by
+  `njoy-outram-park-fork/tests/teh_o_prke_delayed_data_vs_endf8.rs`), and an
+  ENDF/B-VIII.0 U-238 set (2 MeV) is available as `ENDF_B_VIII0_U238`.
+  U-233 and Pu-239 still share the old textbook `lambda_i`: no ENDF/B-VIII.0
+  Pu-239 or U-233 tape is in `reference-data/endf/`.
 - **Fuel temperature feedback is explicitly thermal-spectrum.** Functions at
   `crates/teh-o-prke/src/fuel_temperature_feedback.rs:213,243` are named for
-  thermal spectrum and have no fast-spectrum sibling.
+  thermal spectrum ~~and have no fast-spectrum sibling~~. **CORRECTED
+  2026-11-10 (gh:#1326):** a fast-spectrum sibling now exists,
+  `teh_o_prke::feedback_mechanisms::fast_reactor::FastDopplerTerm`
+  (`-K_D ln(T/T_ref)`, GeN-Foam's `fastNeutrons` branch).
 - **The steam side is unwired.** `crates/tampines/src/components/turbine.rs:39`,
   `condenser.rs:37` and `heat_exchanger.rs:40` all return a not-yet-implemented
   error. Their own doc comments note the underlying algebra already exists in
   `crates/outram-park-fork-dwsim-libs` — this is wiring, not derivation.
 - **Engine heat-exchanger widget is wired to a stub.**
-  `crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs:29`
+  ~~`crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs:29`~~ `crates/bugis/src/components/heat_exchanger.rs:29` (moved 2026-11-02, gh:#1112; line numbers not re-checked)
   draws a fixed-colour rectangle and its doc comment says it has no fluid state
   to colour by.
 - The low-Peclet axial-conduction correction that sodium actually depends on is
@@ -114,12 +130,18 @@ round-trip.
 EBR-II's famous behaviour *is* the expansion feedbacks. `teh-o-prke` currently
 offers a six-factor-formula feedback set, which is a thermal-reactor
 parameterisation and the wrong shape for a fast core. Four feedbacks dominate and
-none is available as a reactivity coefficient a point-kinetics model can sum:
+~~none is available as a reactivity coefficient a point-kinetics model can sum~~
+**CORRECTED 2026-11-10 (gh:#1326): all four are now available as coefficient
+terms a point-kinetics model can sum**, in
+`crates/teh-o-prke/src/feedback_mechanisms/fast_reactor.rs` (a port of GeN-Foam's
+point-kinetics feedback sum, beside the separable model). What remains open is
+the coefficients themselves (caller inputs, none built in) and the
+thermal-hydraulic side that supplies the temperatures:
 
-- axial fuel expansion — portable from the orphaned genfoam code
-- radial / grid-plate expansion — new
-- control-rod-drive-line expansion — new
-- sodium density and void worth — new
+- axial fuel expansion — portable from the orphaned genfoam code **(done: `axial_fuel_expansion`)**
+- radial / grid-plate expansion — ~~new~~ **done: `radial_expansion`, one term per structure**
+- control-rod-drive-line expansion — ~~new~~ **done: `driveline` (expansion x rod-worth map, as GeN-Foam; no thermal lag, as GeN-Foam; an expansion outside the map is an error by default, GeN-Foam's zero on request, gh:#1326)**
+- sodium density and void worth — ~~new~~ **done: `coolant_density`**
 
 Without these the simulator will not reproduce the self-shutdown at all. It will
 behave like a generic reactor with a fuel-temperature coefficient.
@@ -133,8 +155,12 @@ circulation closure once the primary pumps coast down.
 
 #### 3. Sodium properties and low-Prandtl heat transfer reaching TUAS — Small–Medium, but gates everything
 
-Ordinary Dittus-Boelter is invalid for liquid metals and no low-Prandtl
-correlation exists in the workspace. Path:
+Ordinary Dittus-Boelter is invalid for liquid metals ~~and no low-Prandtl
+correlation exists in the workspace~~. **CORRECTED 2026-11-10 (checked in code,
+gh:#1331):** TUAS has named liquid-metal correlations (Lyon-Martinelli,
+Seban-Shimazaki, Kazimi-Carelli, Schad-modified, Mikityuk) in
+`heat_transfer_correlations::nusselt_number_correlations::liquid_metal`
+(gh:#1321). Path, as originally written:
 
 1. Add a first-class sodium arm to `LiquidMaterial` delegating to the CoolProp
    incompressible, or use the `CustomLiquid` escape hatch for a same-day
@@ -206,6 +232,19 @@ criticality safety benchmark handbook. Medium-low confidence. If present, treat
 any such entry as a **criticality** benchmark only — useful for validating cross
 sections, useless for transient thermal-hydraulics.
 
+**Added 2026-11-10 (gh:#1331):** a lumped, uncalibrated SHRT-17 / SHRT-45R
+model is now in the engine library as `outram_park_digital_twin_engine::ebr2`.
+It has:
+
+- cited data;
+- Argonne's kinetics and feedback coefficients;
+- a four-node fuel / core / IHX / pool model;
+- the NATDEMO pump curve.
+
+It is NOT VALIDATED: see
+`crates/outram-park-digital-twin-engine/docs/ebr2_library.md`. It does not
+close gap 2 (a stratified pool control volume in TUAS) or gap 4.
+
 ## 5. Recommended scope for a first twin
 
 Build the **thermal-hydraulic and kinetics twin** — pool, intermediate loop, IHX,
@@ -227,7 +266,7 @@ the protected case is validated is the honest ordering.
 | Wire-wrapped bundle sodium Nusselt | New correlation variant | Sodium reachable |
 | Low-Peclet axial conduction fix | Bound or repair the flagged-buggy correction | — |
 | Stratified pool control volume | Multi-node, free surface, buoyancy exchange | — |
-| SFR feedback module in `teh-o-prke` | Axial (port from genfoam), radial/grid-plate, CRDL, sodium density | — |
+| SFR feedback module in `teh-o-prke` | Axial (port from genfoam), radial/grid-plate, CRDL, sodium density. **Built 2026-11-10 (gh:#1326), coefficients are caller inputs** | — |
 | Fast-spectrum kinetics constants | Data entry, sourced and cited | Fix the identical-decay-constant defect first |
 | Fix identical precursor decay constants | Correctness defect, affects all reactors | — |
 | Intermediate loop plus IHX | Sodium-to-sodium | Sodium reachable, pool CV |

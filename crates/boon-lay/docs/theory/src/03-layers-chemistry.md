@@ -38,8 +38,8 @@ with $R$ the gas constant, $T$ in kelvin, and $D_1, Q_1, D_2, Q_2$ per element
 and per layer. The second term matters only at high temperature. This is the
 two-term form of Jiang et al. (2023), *Fission product transport in TRISO
 particles and pebbles*, INL, which the walker uses
-([rung 4](../../tutorials/triso-atops/layers.html), table on p. 13 of the
-report). The activation energy $Q$ is the "energy cost of one hop", so a large
+(Jiang et al. 2023, INL/EXT-21-63549 Rev. 1, table on p. 13; drawn in
+[*Migration through the layers*](../../science/fission-products/barriers-migration.html)). The activation energy $Q$ is the "energy cost of one hop", so a large
 $Q$ means a strong temperature dependence. The fast-fluence factor on Cs in
 SiC is in the code but not discussed here.
 
@@ -51,7 +51,8 @@ Arrhenius diffusion in solids.]`
 ## What the numbers say (the walker's own lookup, zero fluence)
 
 Run 2026-10-04, $D$ in m²/s, from `examples/layer_diffusion_table.rs`
-([record](../../tutorials/triso-atops/layers.html)):
+(~~[record](../../science/fission-products/barriers-migration.html)~~ **CORRECTED 2026-11-04:** the
+record was the retired tutorial's rung 4, [`layers.md` at `e5ba96e`](https://github.com/theodoreOnzGit/outram-park-backend/blob/e5ba96e7b0ac71f7b1c2dd425c8555d387989f3b/crates/boon-lay/docs/tutorial/src/layers.md); gh:#1207):
 
 | Nuclide | T (°C) | kernel | buffer | PyC | SiC |
 |---|---|---|---|---|---|
@@ -75,8 +76,14 @@ independent measurements.
    $10^9$ between the kernel and the PyC. For Cs the kernel and PyC are
    comparable.
 3. **The SiC is slowest of the three solids for Cs, Sr and Ag.** Step 4 quantifies it.
-4. **Krypton in the buffer has no coefficient**: the lookup is a `todo!()`
-   (gh:#541), so a Kr-85 walker that reaches the buffer panics. Elements other
+4. ~~**Krypton in the buffer has no coefficient**: the lookup is a `todo!()`
+   (gh:#541), so a Kr-85 walker that reaches the buffer panics~~
+   ~~**CORRECTED 2026-11-10 (gh:#638):** a Kr-85 walker that reaches the buffer
+   stops with a typed "no cited coefficient" instead of panicking.~~
+   **CORRECTED AGAIN 2026-11-10 (gh:#638):** krypton in the buffer takes the
+   same $10^{-8}$ m²/s, no temperature dependence, as Ag, Cs and Sr: the
+   German value of IAEA-TECDOC-978 (1997) App. A, section A.1.2, printed p. 440; applied to fission gases by CRP-6, IAEA-TECDOC-1674 (2012) section 10.2.2, p. 538. It is a convention for a porous layer, not a
+   measured Kr coefficient. Elements other
    than Ag, Cs, Sr and Kr silently diffuse as silver, which is a placeholder
    and not a model.
 
@@ -148,7 +155,7 @@ on the pressure of step 6, not on diffusion
 **Air and steam.** Water or air entering hot graphite is a separate kind of
 chemistry: graphite oxidation and kernel hydrolysis. The crate has three
 cited rate laws and says they are not mechanistic attack models
-([rung 6](../../tutorials/triso-atops/chemistry.html)).
+([*Air on hot graphite*](../../science/fission-products/chem-air.html)).
 
 ## Interfaces: where one layer meets the next
 
@@ -167,7 +174,10 @@ repo supplies no $K$ values
 ([`transmission_probability`](../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs::transmission_probability);
 the derivation is in the module doc of
 [`interface.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs)).
-Why linear in $D$ and not $\sqrt{D}$ is explained on [rung 4](../../tutorials/triso-atops/layers.html#step-2-what-happens-at-an-interface).
+~~Why linear in $D$ and not $\sqrt{D}$ is explained on [*Migration through the layers*](../../science/fission-products/barriers-migration.html).~~
+**CORRECTED 2026-11-04:** that page does not explain it. The explanation is in the module doc of
+`interface.rs` (linked above), and it was on the retired tutorial's rung 4
+([`layers.md` at `e5ba96e`](https://github.com/theodoreOnzGit/outram-park-backend/blob/e5ba96e7b0ac71f7b1c2dd425c8555d387989f3b/crates/boon-lay/docs/tutorial/src/layers.md), gh:#1207).
 
 ## The simplification ladder for this step
 

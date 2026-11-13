@@ -85,10 +85,10 @@ Result<ThermalConductivity,TuasLibError> {
     //    temperature, 
     //    ThermodynamicTemperature::new::<degree_celsius>(39.819), 
     //    ThermodynamicTemperature::new::<degree_celsius>(9.88))?;
-    let fecral_generic_kappa_temperature_values_kelvin = c!(
-        300.0,1400.0);
-    let fecral_generic_kappa_values_watts_per_meter_kelvin = c!(
-        12.0,25.0);
+    let fecral_generic_kappa_temperature_values_kelvin = vec![
+        300.0,1400.0];
+    let fecral_generic_kappa_values_watts_per_meter_kelvin = vec![
+        12.0,25.0];
     let s = CubicSpline::from_nodes(&fecral_generic_kappa_temperature_values_kelvin, 
         &fecral_generic_kappa_values_watts_per_meter_kelvin);
     let temperature_value_degc: f64 = temperature.get::<kelvin>();

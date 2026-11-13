@@ -2,6 +2,15 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/tests_and_examples"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/tests_and_examples/air_pipe_example.rs::simple_fluid_pipe_example_1",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/tests_and_examples/collection_fluid_components_in_parallel.rs::simple_fluid_collection_example_6",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/tests_and_examples/collection_fluid_components_in_series.rs::simple_fluid_collection_example_5",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/tests_and_examples/concurrency_and_multithreading_example.rs::coriolis_flowmeter_empirical_custom_component_example_3",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/tests_and_examples/coriolis_flowmeter_example.rs::coriolis_flowmeter_empirical_custom_component_example_3",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/tests_and_examples/super_collection_fluid_components_in_parallel.rs::super_fluid_collection_example_7",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/tests_and_examples/water_pipe_example.rs::water_pipe_with_internal_pump_example_2",
+]
 
 [module."air_pipe_example.rs"]
 path = "crate::array_fluid_collections::fluid_component_collection::tests_and_examples::air_pipe_example"
@@ -185,3 +194,18 @@ uses = [
     "fn:da49a3ce55b275a6",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+failed = []

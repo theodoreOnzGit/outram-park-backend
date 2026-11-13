@@ -1,0 +1,34 @@
+# Document: Sumner, Wei (2012), ANL-ARC-226 Rev. 1, Benchmark Specifications and Data Requirements for EBR-II Shutdown Heat Removal Tests SHRT-17 and SHRT-45R (Argonne National Laboratory). PDF page = printed page + 16.
+# Table 3.1.4.2.1 "SHRT-17 Fission, Decay Heat and Total Power", printed p.19 (PDF p.35). Boundary condition for SHRT-17.
+# Fission = measured normalised fission power scaled to 53.93 MW; decay heat calculated with the ANS (LWR) standard. Units: s, MW.
+# Same data in IAEA-TECDOC-1819 Table 76 (printed p.438), which prints 0.09 MW fission at 300 s where this table prints 0.10.
+# AI transcription 2026-11-10, not yet reviewed by a human. Numbers exactly as printed.
+time_s,fission_mw,decay_heat_mw,total_mw
+0,53.93,3.36,57.29
+1,8.24,3.12,11.36
+2,6.86,2.95,9.81
+3.5,5.61,2.77,8.38
+5,4.76,2.63,7.39
+7.5,3.82,2.46,6.29
+10,3.23,2.33,5.56
+15,2.47,2.15,4.62
+22.5,1.85,1.95,3.80
+30,1.46,1.82,3.28
+40,1.10,1.70,2.79
+50,0.84,1.60,2.44
+60,0.66,1.52,2.19
+90,0.38,1.35,1.73
+120,0.25,1.24,1.49
+180,0.13,1.09,1.22
+240,0.10,1.00,1.10
+300,0.10,0.93,1.02
+360,0.08,0.88,0.96
+420,0.08,0.83,0.92
+480,0.08,0.80,0.88
+540,0.08,0.77,0.84
+600,0.08,0.74,0.82
+660,0.08,0.71,0.79
+720,0.07,0.69,0.76
+780,0.08,0.67,0.75
+840,0.07,0.65,0.72
+900,0.07,0.63,0.70

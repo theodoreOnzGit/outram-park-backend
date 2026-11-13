@@ -1,0 +1,73 @@
+    Blocking waiting for file lock on build directory
+   Compiling smallvec v1.16.3
+   Compiling polycool v0.4.0
+   Compiling bytemuck_derive v1.12.1
+   Compiling once_cell v1.21.4
+   Compiling euclid v0.22.14
+   Compiling kurbo v0.13.1
+   Compiling zerocopy v0.8.63
+   Compiling linebender_resource_handle v0.1.1
+   Compiling ahash v0.8.12
+   Compiling guillotiere v0.7.0
+   Compiling bytemuck v1.25.2
+   Compiling log v0.4.34
+   Compiling color v0.3.3
+   Compiling font-types v0.12.7
+   Compiling unicode-general-category v1.1.0
+   Compiling read-fonts v0.41.0
+   Compiling peniko v0.6.1
+   Compiling fearless_simd v0.4.1
+   Compiling hashbrown v0.17.1
+   Compiling parking_lot_core v0.9.12
+   Compiling emath v0.36.2
+   Compiling ecolor v0.36.2
+   Compiling parking_lot v0.12.5
+   Compiling vello_common v0.1.0
+   Compiling epaint_default_fonts v0.36.2
+   Compiling self_cell v1.3.0
+   Compiling nohash-hasher v0.2.0
+   Compiling uuid v1.28.0
+   Compiling accesskit v0.24.1
+   Compiling vello_cpu v0.1.0
+   Compiling itertools v0.15.0
+   Compiling harfrust v0.12.0
+   Compiling skrifa v0.44.0
+   Compiling epaint v0.36.2
+   Compiling egui v0.36.2
+   Compiling bugis v0.0.1 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/bugis)
+    Finished `release` profile [optimized] target(s) in 5m 26s
+     Running unittests src/lib.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/bugis-f7e84bb792e3a97c)
+
+running 29 tests
+test colour::tests::hex_round_trips_and_mix_hits_its_ends ... ok
+test colour_maps::color32::crameri::tests::batlow_is_monotonic_in_lightness ... ok
+test colour_maps::color32::crameri::tests::cyclic_map_wraps_without_a_seam ... ok
+test colour_maps::color32::crameri::tests::endpoints_are_exact ... ok
+test colour_maps::color32::crameri::tests::tables_are_complete ... ok
+test colour_maps::color32::crameri::tests::non_cyclic_maps_clamp ... ok
+test colour_maps::color32::crameri::tests::vik_midpoint_is_near_neutral ... ok
+test colour_maps::color32::tests::hot_to_cold_mark_1_clamps_out_of_range ... ok
+test colour_maps::color32::tests::hot_to_cold_mark_1_endpoints ... ok
+test colour_maps::color32::tests::hot_to_cold_mark_2_endpoints ... ok
+test colour_maps::color32::tests::steam_quality_mark_1_clamps_out_of_range ... ok
+test colour_maps::color32::tests::steam_quality_mark_1_endpoints ... ok
+test colour_maps::crameri::tests::batlow_is_monotonic_in_lightness ... ok
+test colour_maps::crameri::tests::cyclic_map_wraps_without_a_seam ... ok
+test colour_maps::crameri::tests::endpoints_are_exact ... ok
+test colour_maps::crameri::tests::non_cyclic_maps_clamp ... ok
+test colour_maps::crameri::tests::tables_are_complete ... ok
+test colour_maps::crameri::tests::vik_midpoint_is_near_neutral ... ok
+test colour_maps::tests::hot_to_cold_mark_1_clamps_out_of_range ... ok
+test colour_maps::tests::hot_to_cold_mark_1_endpoints ... ok
+test colour_maps::tests::hot_to_cold_mark_2_endpoints ... ok
+test colour_maps::tests::hotness_clamps_onto_the_unit_interval ... ok
+test colour_maps::tests::steam_quality_mark_1_clamps_out_of_range ... ok
+test colour_maps::tests::steam_quality_mark_1_endpoints ... ok
+test gruvbox::tests::the_dark_roles_are_auras_gruvbox_dark ... ok
+test gui::tests::accents_follow_the_theme ... ok
+test gui::tests::dark_is_the_default_and_each_theme_round_trips ... ok
+test gui::tests::ink_follows_the_theme ... ok
+test gui::tests::apply_sets_the_context_visuals ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

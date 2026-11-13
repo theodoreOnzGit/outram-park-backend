@@ -171,6 +171,7 @@ pub static N_OCTANE_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.94e-10,
             qd: 1457130000.0,
             t_ref: -1.0,
+            p_reducing: 2483591.199677694,
         }),
     }),
 };

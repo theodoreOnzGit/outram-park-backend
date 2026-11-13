@@ -26,6 +26,7 @@
 //! | Module | What it adds | Reduces to the port when |
 //! |---|---|---|
 //! | [`removal_rates`] | Plate-out and purification rates **per transport group, or per element** ([`RemovalRates`]), instead of one `k_plate` and one `k_clean` per reactor; conversions from per-cycle fractions and purification efficiencies; Liu & Cao's (2002) cited HTR-10 per-cycle data | [`RemovalRates::upstream`] |
+//! | [`multilayer_diffusion`] | (gh:#1209) A numerical solution of the diffusion equation through every layer of a particle: finite volumes, backward Euler, decay, steady R/B and the mean exit time. The reference the port's analytical formulas are measured against | not applicable: it is a check of the port's formulas, verified against Crank's series, Booth's R/B and the exact layered mean |
 //! | [`normal_operation`] | [`normal_operation_node_with_rates`]: the ported per-node normal-operation chain with the rate routing taken from a [`RemovalRates`] | given [`RemovalRates::upstream`], bit for bit for every one of the 84 supported nuclides |
 //!
 //! The leak sink and the live stepping of the pools from any state are
@@ -54,6 +55,7 @@
 //! Research, education and V&V only (`RESPONSIBLE_USE.md`): not for reactor
 //! operation, licensing, safety decisions or emergency response.
 
+pub mod multilayer_diffusion;
 pub mod normal_operation;
 pub mod removal_rates;
 

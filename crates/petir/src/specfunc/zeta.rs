@@ -71,7 +71,7 @@
 #[allow(unused_imports)]
 use crate::real::Real;
 
-use crate::cheb_slice::eval_gsl;
+use crate::specfunc::cheb_eval_e;
 use crate::specfunc::{gamma::gamma, DBL_EPSILON, LOG_DBL_MAX, LOG_DBL_MIN, ROOT5_DBL_EPSILON};
 
 use core::f64::consts::{LN_2, PI};
@@ -325,10 +325,10 @@ const ETA_NEG_INT: [f64; 50] = [
 /// `zeta(s)` for `s >= 0`, `s != 1`. Ports `riemann_zeta_sgt0`.
 fn riemann_zeta_sgt0(s: f64) -> f64 {
     if s < 1.0 {
-        return eval_gsl(2.0 * s - 1.0, &ZETA_XLT1) / (s - 1.0);
+        return cheb_eval_e(2.0 * s - 1.0, &ZETA_XLT1) / (s - 1.0);
     }
     if s <= 20.0 {
-        return eval_gsl((2.0 * s - 21.0) / 19.0, &ZETA_XGT1) / (s - 1.0);
+        return cheb_eval_e((2.0 * s - 21.0) / 19.0, &ZETA_XGT1) / (s - 1.0);
     }
     // Euler product truncated at 7: past s = 20 the neglected factors differ
     // from 1 by less than an ulp.
@@ -343,7 +343,7 @@ fn riemann_zeta_sgt0(s: f64) -> f64 {
 /// Ports `riemann_zeta1ms_slt0`.
 fn riemann_zeta_1ms_slt0(s: f64) -> f64 {
     if s > -19.0 {
-        return eval_gsl((-19.0 - 2.0 * s) / 19.0, &ZETA_XGT1) / (-s);
+        return cheb_eval_e((-19.0 - 2.0 * s) / 19.0, &ZETA_XGT1) / (-s);
     }
     let f2 = 1.0 - Real::powf(2.0_f64, -(1.0 - s));
     let f3 = 1.0 - Real::powf(3.0_f64, -(1.0 - s));
@@ -368,7 +368,7 @@ fn zetam1_intermediate(s: f64) -> f64 {
     let Some(used) = ZETAM1_INTER.get(..23) else {
         return f64::NAN;
     };
-    Real::exp(eval_gsl(t, used)) + Real::powf(2.0_f64, -s)
+    Real::exp(cheb_eval_e(t, used)) + Real::powf(2.0_f64, -s)
 }
 
 /// `zeta(s) - 1` for `s >= 15`. Ports `riemann_zeta_minus1_large_s`.
@@ -1140,8 +1140,8 @@ mod tests {
         for k in 0..=1000 {
             let s = 5.0 + 10.0 * k as f64 / 1000.0;
             let t = (s - 10.0) / 5.0;
-            let with_23 = eval_gsl(t, &ZETAM1_INTER[..23]);
-            let with_24 = eval_gsl(t, &ZETAM1_INTER);
+            let with_23 = cheb_eval_e(t, &ZETAM1_INTER[..23]);
+            let with_24 = cheb_eval_e(t, &ZETAM1_INTER);
             // UFCS, as the shipped branch (gh #1001): the method form would
             // call the platform libm in this std-linked test build.
             let pow = Real::powf(2.0_f64, -s);

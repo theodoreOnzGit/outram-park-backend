@@ -6,7 +6,7 @@
 # and `cargo install` use the long package name.
 name = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan"
 description = "KOVAN (Knowledge Oriented V&V Analysis for Nuclear Sciences): CLI (agent-facing), TUI and GUI (human-facing) front ends over the KOVAN knowledge layer."
-version = "0.0.3"
+version = "0.0.4"
 edition.workspace = true
 # AGPL-3.0-only, NOT `license.workspace = true` (GPL-3.0-only) — deliberate,
 # maintainer-directed divergence from the workspace default (2026-08-21) to
@@ -71,7 +71,7 @@ maturity = 1
 # platform-specific default feature, the same shape crates like `winit` use.
 [features]
 default = ["gui", "lookup-net"]
-gui = ["dep:eframe", "dep:egui", "dep:egui-file-dialog", "dep:kovan-web"]
+gui = ["dep:eframe", "dep:egui", "dep:bugis", "dep:egui-file-dialog", "dep:kovan-web"]
 # Identifier lookup over the network (GitHub #756): ureq with rustls (no
 # OpenSSL; ring compiles C/asm). Used only when the user runs a lookup. Off: lookups
 # fail with "not available in this build" (src/lookup_net.rs).
@@ -281,6 +281,8 @@ kopitiam-neovim = "0.2.5"
 [target.'cfg(not(target_os = "android"))'.dependencies]
 eframe = { workspace = true, optional = true }
 egui = { workspace = true, optional = true }
+# The shared Gruvbox theme (`bugis`, egui-only), part of the `gui` feature.
+bugis = { workspace = true, optional = true }
 egui-file-dialog = { workspace = true, optional = true }
 # The Code Review UI, embedded as the app's Code Review view (GitHub #820):
 # the same egui UI the site publishes, in `Mode::Desktop`, over a data

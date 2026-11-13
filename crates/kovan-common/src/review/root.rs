@@ -11,6 +11,26 @@
 //! [code_review]
 //! rust_analyzer = "0.3.2645"       # pinned version; a mismatch re-indexes
 //! founder = "github:theodoreOnzGit" # the founding maintainer (#762)
+//! # founders = ["github:a", "github:b"] # or several (#1248); `founder` reads as a one-person list
+//!
+//! [[code_review.founder_change]]    # append-only (#1248): add or retire a founder
+//! event = "add"                     # add | retire
+//! founder = "github:b"
+//! date = "2026-11-05"
+//! signer = { reviewer = "github:theodoreOnzGit", key = "k1" }  # a current founder
+//! signature = "<base64>"
+//!
+//! [[code_review.founder_ballot]]    # (#1248) only when no founder has an active key
+//! id = "ballot-2026-12-01"
+//! opened = "2026-12-01"
+//! signer = { reviewer = "github:m", key = "m1" }
+//! signature = "<base64>"
+//! [[code_review.founder_vote]]
+//! ballot = "ballot-2026-12-01"
+//! candidate = "github:m"
+//! date = "2026-12-02"
+//! signer = { reviewer = "github:m", key = "m1" }
+//! signature = "<base64>"
 //!
 //! [[code_review.rust_analyzer_used]] # append-only: the versions index runs used
 //! version = "1.98.0"
@@ -111,11 +131,22 @@ pub struct CodeReviewSettings {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rust_analyzer: Option<String>,
     /// The founding maintainer's reviewer id (#762, additive; maintainer,
-    /// 2026-10-07): the one reviewer whose first key is trusted on first
-    /// use. Absent or unknown means no founder, so nothing is trusted
-    /// ([`crate::review::signing::registry::FounderProblem`]).
+    /// 2026-10-07): ~~the one reviewer~~ a reviewer whose first key is
+    /// trusted on first use (GitHub #1248: one of [`Self::founders`]).
+    /// Absent or unknown, with no `founders`, means no founder, so nothing
+    /// is trusted ([`crate::review::signing::registry::FounderProblem`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub founder: Option<String>,
+    /// `founders = [...]` (GitHub #1248, maintainer 2026-11-05: "have
+    /// multiple founders"): the founding maintainers, each trusted on first
+    /// use as `founder` is. Additive: the old single `founder` reads as a
+    /// one-person list, and a root may carry both (then `founder` first,
+    /// then the list, each id once: [`Self::declared_founders`]). Kovan
+    /// keeps writing `founder` for the first one, so readers that predate
+    /// the list still see a founder. Later founders are added and retired
+    /// by signed [`FounderChange`]s, never by editing this list.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub founders: Vec<String>,
     /// Every rust-analyzer version an index run used, oldest first
     /// (`[[code_review.rust_analyzer_used]]`; maintainer, 2026-10-07: "just
     /// record the versions of rust analyzer that were used, never overwrite
@@ -140,6 +171,190 @@ pub struct CodeReviewSettings {
     /// roots, ignored by older readers.
     #[serde(default, rename = "roster_event", skip_serializing_if = "Vec::is_empty")]
     pub roster_events: Vec<RosterEvent>,
+    /// `[[code_review.organisation_retirement]]` (GitHub #1211, maintainer
+    /// 2026-11-04: "removal is retire"): founder-signed retirements of a
+    /// developing-organisation or reviewer-organisation record. The retired
+    /// record stays in its list, shown retired; from the retirement's date
+    /// it no longer counts ([`crate::review::ivv`]). Append-only. Additive:
+    /// absent in older roots, ignored by older readers (which therefore
+    /// still count a retired record).
+    #[serde(default, rename = "organisation_retirement", skip_serializing_if = "Vec::is_empty")]
+    pub organisation_retirements: Vec<OrganisationRetirement>,
+    /// `[[code_review.founder_change]]` (GitHub #1248): founders added and
+    /// retired after the first, append-only ([`FounderChange`]). Additive:
+    /// absent in older roots, ignored by older readers.
+    #[serde(default, rename = "founder_change", skip_serializing_if = "Vec::is_empty")]
+    pub founder_changes: Vec<FounderChange>,
+    /// `[[code_review.founder_ballot]]` (GitHub #1248): maintainer ballots
+    /// to elect a founder when no founder has an active key
+    /// ([`FounderBallot`]). Additive.
+    #[serde(default, rename = "founder_ballot", skip_serializing_if = "Vec::is_empty")]
+    pub founder_ballots: Vec<FounderBallot>,
+    /// `[[code_review.founder_vote]]` (GitHub #1248): the signed votes of
+    /// those ballots ([`FounderVote`]). Additive.
+    #[serde(default, rename = "founder_vote", skip_serializing_if = "Vec::is_empty")]
+    pub founder_votes: Vec<FounderVote>,
+}
+
+impl CodeReviewSettings {
+    /// The founders declared on first use (GitHub #1248): `founder`, then
+    /// each of `founders` not already named, in that order.
+    pub fn declared_founders(&self) -> Vec<String> {
+        let mut out: Vec<String> = self.founder.iter().cloned().collect();
+        for f in &self.founders {
+            if !out.contains(f) {
+                out.push(f.clone());
+            }
+        }
+        out
+    }
+}
+
+/// What a founder change does.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FounderChangeKind {
+    /// `founder` is a founder from `date`.
+    Add,
+    /// `founder` is no longer a founder from `date`; everything dated
+    /// before keeps their founder standing.
+    Retire,
+}
+
+impl FounderChangeKind {
+    /// The wire name.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Add => "add",
+            Self::Retire => "retire",
+        }
+    }
+}
+
+/// `[[code_review.founder_change]]` (GitHub #1248; the #1022 requirement
+/// that the old chain keeps verifying): add or retire a founder, signed by
+/// a founder in standing just before it (retiring yourself is allowed),
+/// over [`crate::review::signing::founder_change_bytes`]
+/// (`kovan-founder-change-v1`).
+///
+/// ```toml
+/// [[code_review.founder_change]]
+/// event = "add"
+/// founder = "github:b"
+/// date = "2026-11-05"
+/// signer = { reviewer = "github:a", key = "k1" }
+/// signature = "<base64>"
+/// ```
+///
+/// **The unsigned last resort** (#1022, #1248): an `add` with no signature,
+/// made by a reviewed repository commit (`reviewed_in` names it), counts
+/// only when on its date no founder and no maintainer other than the new
+/// founder has an active key; it is shown forever as "trust root replaced
+/// by repository commit". An unsigned `retire` never counts.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FounderChange {
+    pub event: FounderChangeKind,
+    pub founder: String,
+    /// `YYYY-MM-DD`.
+    pub date: String,
+    /// The reviewed commit or pull request that made an unsigned change
+    /// (display only; kovan cannot check it offline). Signed when present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reviewed_in: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer: Option<KeySigner>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
+}
+
+/// `[[code_review.founder_ballot]]` (GitHub #1248, "Design decided"
+/// 2026-11-05): a ballot to elect **one** founder from the maintainers,
+/// opened by a maintainer with an active key on `opened`, signed over
+/// [`crate::review::signing::founder_ballot_bytes`]. It runs 30 days; the
+/// electorate is every maintainer with an active key on `opened`, derived
+/// by the registry (so nobody can be added to swing it). Refused or void
+/// while any founder has an active key.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FounderBallot {
+    /// Unique among the ballots.
+    pub id: String,
+    /// `YYYY-MM-DD`.
+    pub opened: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer: Option<KeySigner>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
+}
+
+/// `[[code_review.founder_vote]]` (GitHub #1248): one maintainer's vote for
+/// `candidate` in ballot `ballot`, signed by the voter over
+/// [`crate::review::signing::founder_vote_bytes`], which binds the
+/// ballot's own signature (so a vote cannot be moved to another ballot
+/// with the same id). Voting for yourself is allowed; a voter's first
+/// counted vote stands.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FounderVote {
+    pub ballot: String,
+    pub candidate: String,
+    /// `YYYY-MM-DD`.
+    pub date: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer: Option<KeySigner>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
+}
+
+/// Which organisation list a retirement names (GitHub #1211).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OrganisationList {
+    /// `[[code_review.developing_organisation]]`.
+    DevelopingOrganisation,
+    /// `[[reviewer.organisation]]` of `reviewer`.
+    ReviewerOrganisation,
+}
+
+impl OrganisationList {
+    /// The wire name.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::DevelopingOrganisation => "developing_organisation",
+            Self::ReviewerOrganisation => "reviewer_organisation",
+        }
+    }
+}
+
+/// One `[[code_review.organisation_retirement]]` entry (GitHub #1211): from
+/// `date` on, the organisation record whose `signature` is `record` no
+/// longer counts. Signed by the **founder** over
+/// [`crate::review::signing::organisation_retirement_bytes`]
+/// (`kovan-organisation-retirement-v1`). The record is named by its own
+/// signature, which is unique to its content; an unsigned record counts for
+/// nothing already and is never retired.
+///
+/// ```toml
+/// [[code_review.organisation_retirement]]
+/// list = "reviewer_organisation"
+/// reviewer = "github:v"
+/// record = "<the retired record's signature>"
+/// date = "2026-11-04"
+/// signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+/// signature = "<base64>"
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OrganisationRetirement {
+    pub list: OrganisationList,
+    /// For [`OrganisationList::ReviewerOrganisation`]: whose record.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reviewer: Option<String>,
+    /// The retired record's `signature`.
+    pub record: String,
+    /// `YYYY-MM-DD`: the record no longer counts from this date.
+    pub date: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer: Option<KeySigner>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
 }
 
 /// What a roster event changes.
@@ -458,7 +673,12 @@ pub enum KeyEventKind {
     Reset,
     /// The reviewer's admission by a maintainer; only on the first key.
     Admitted,
-    /// Retired from `date` (unsigned: retiring only takes trust away).
+    /// Retired from `date`. ~~Unsigned: retiring only takes trust away.~~
+    /// **CORRECTED 2026-11-05 (GitHub #1249):** from
+    /// `registry::SIGNED_KEY_RETIREMENT_FROM` it counts only when signed by
+    /// the key's owner, a founder or a maintainer (the event's existing
+    /// optional `signer` and `signature`, so no schema change); an older
+    /// unsigned one still counts, flagged.
     Retired,
     /// Back from `date`; signed by **the key itself** (possession proof).
     Unretired,

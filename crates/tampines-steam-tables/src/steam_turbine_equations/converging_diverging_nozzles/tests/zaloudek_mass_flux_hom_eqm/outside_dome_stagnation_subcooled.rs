@@ -38,11 +38,22 @@ fn validate_zaloudek_curve_subcooled(
         let g_expected =
             MassRate::new::<pound_per_second>(g_expected_val) / Area::new::<square_foot>(1.0);
 
-        // throat state -> stagnation (backward map)
-        let state_t =
-            TampinesSteamTableCV::new_from_sat_pressure_quality(p_throat_ref, x_t, ref_vol);
-        let h_t = state_t.get_specific_enthalpy();
-        let (p0, h0, _g_throat) = get_stagnation_conditions_from_throat_ph(p_throat_ref, h_t);
+        // throat state -> stagnation (backward map). x_t = 0 is the
+        // saturated-liquid curve: the HEM stagnation whose isentrope has its
+        // maximum of G at the throat (gh:#1111), falling back to the old
+        // x_t = 1e-4 map where the saturated liquid is Region 3.
+        let backward_map = |x: f64| {
+            let state_t =
+                TampinesSteamTableCV::new_from_sat_pressure_quality(p_throat_ref, x, ref_vol);
+            let h_t = state_t.get_specific_enthalpy();
+            get_stagnation_conditions_from_throat_ph(p_throat_ref, h_t)
+        };
+        let (p0, h0, _g_throat) = if x_t == 0.0 {
+            super::hem_stagnation_for_saturated_liquid_throat(p_throat_ref)
+                .unwrap_or_else(|| backward_map(1e-4))
+        } else {
+            backward_map(x_t)
+        };
 
         // only test subcooled-liquid stagnation (outside dome, left side)
         let region = ph_flash_region(p0, h0);
@@ -81,7 +92,10 @@ fn validate_zaloudek_curve_subcooled(
 }
 
 /// Diagnostic sweep for the near-bubble-point (x ≈ 0) regime. NOT an assertion
-/// test — it prints a per-point table for the x_t = 1e-4 curve. It was the tool
+/// test — it prints a per-point table for the x_t = 1e-4 curve. **It uses the OLD
+/// x_t = 1e-4 fixture** (see the gh:#1111 note above
+/// `quality_bubble_point_subcooled`), kept so that fixture's numbers can be
+/// reproduced. It was the tool
 /// used to diagnose the near-saturation choked-flow artifact (now fixed in
 /// `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`); kept for future
 /// inspection of this regime.
@@ -239,12 +253,41 @@ fn diagnose_bubble_point_artifact() {
 // pressure separates the near-saturation artifact from genuine interior choking
 // (they overlap, e.g. x=1e-4 @ 200 psia vs x=0.10 @ 1500 psia).
 //
-// Fix (in `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`): route on
+// ~~Fix (in `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`): route on
 // the two-phase QUALITY at the energy-max choke. Below ~0.03 the throat is
 // effectively saturated liquid → take the bubble-point kink choke with the mass
 // flux read from a precomputed sonic map along the saturated-liquid line;
-// otherwise keep the validated golden-section energy max. All x_t = 0.0 … 1.00
+// otherwise keep the validated golden-section energy max.~~ All x_t = 0.0 … 1.00
 // Zaloudek curves now pass within tolerance.
+//
+// ── CORRECTED 2026-11-02 (gh:#1111): solver and fixture both changed ──────────
+// The overshoot / walk-off above came from the solver's stagnation state: it
+// took s0 at the backward T_ph(p0, h0) but subtracted from the given h0, an
+// error of up to ≈ 100 J/kg against a kinetic energy of ≈ 0.1–200 J/kg here.
+// The solver now uses a forward-consistent state and the continuous global
+// maximum of G (no quality switch, no sonic map).
+//
+// The FIXTURE was redefined at the same time, on HEM grounds and before
+// seeing the result: `super::hem_stagnation_for_saturated_liquid_throat`. The
+// throat now sits ON the saturated-liquid line (x_t = 0) with u_t = c_2φ(0⁺),
+// so the throat is the maximum of G along the stagnation state's own
+// isentrope, which is what the HEM reference curve means. The old fixture
+// (x_t = 1e-4, sound speed evaluated at 1e-4) did not satisfy that at low
+// pressure (ρ_t ≈ 0.69 ρ_f at 5 psia). With the new solver it measured
+// (`diagnose_bubble_point_artifact`, 2026-11-02, release):
+// dGlg +0.197 / +0.134 / +0.029 at 5 / 10 / 15 psia, and dP −2.7 / −4.0 /
+// −4.3 / −3.4 / −2.1 % at 20 / 30 / 50 / 75 / 100 psia (G within 0.017); from
+// 150 psia up within tolerance.
+//
+// New fixture, same tolerances (0.03 on p, 0.05 relative on log10 G),
+// 2026-11-02, release: every point passes. p_crit is exactly p_throat at
+// 5–75 and 500–2000 psia, and −0.02 % at 100–300 psia (a flat maximum).
+// G_calc/G_ref − 1 runs from −7.8 % (5 psia) to +6.2 % (30 psia), with
+// 1000 / 1500 / 2000 psia at −5.8 / −6.6 / −3.2 %. These are close to the old
+// fixture under the old solver (−7.7 % … +6.3 %): the HEM ρ_f c_2φ(0⁺) value
+// is nearly the same; what changed is a consistent h0. 3000 psia (Region 3
+// saturated liquid) keeps the old x_t = 1e-4 map and is skipped here (not
+// Region 1). The diagnostic below still uses the old fixture, and says so.
 #[test]
 fn quality_bubble_point_subcooled() {
     let data: Vec<(f64, f64, f64)> = vec![
@@ -266,7 +309,7 @@ fn quality_bubble_point_subcooled() {
         (2000.0, 12006.8680, 682.7586),
         (3000.0, 13820.6838, 803.9409),
     ];
-    validate_zaloudek_curve_subcooled(1e-4, &data, 0.03, 0.05);
+    validate_zaloudek_curve_subcooled(0.0, &data, 0.03, 0.05);
 }
 
 // Results (get_critical_pressure_and_mass_flux_subcooled_liquid_ph):

@@ -1,6 +1,6 @@
 [package]
 name = "outram-foam-appbuilder-lib"
-version = "0.1.6"
+version = "0.1.7"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -49,12 +49,37 @@ outram-foam-basic-lib.workspace = true
 outram-foam-turbulence-lib.workspace = true
 outram-foam-multiphase.workspace = true
 
+[features]
+default = ["long-tests"]
+# Tests over 5 minutes (root CLAUDE.md "Slow tests and CI"): on by default,
+# skipped by `cargo quick-test`. ADDED 2026-11-03 for the HTR-10 R-Z mesh
+# convergence study (gh:#1149 part B, ~7 min in release).
+long-tests = []
+
 [dev-dependencies]
 approx.workspace = true
+# gh:#1363: inflates the committed gzipped upstream reference outputs.
+miniz_oxide = { workspace = true }
 # Used only by the cavity grid-convergence tutorial, which generates its
 # 20/40/80 meshes in-process from a blockMeshDict string rather than shipping
 # three more polyMesh directories. Dev-only: no library code depends on it.
 outram-foam-mesh.workspace = true
+# PNG writer, 5x7 bitmap font and legend framing (`csg::plot::{image,
+# annotate}`) for the drawings of the solid-conduction R-Z region map and mesh
+# (gh:#1149; the "geometry is DRAWN" HARD RULE). Dev-only, ADDED 2026-11-03.
+# Workspace entry has default-features = false, so no wgpu: the crate then
+# pulls thiserror, petir and miniz_oxide only (pure Rust, Android/wasm-clean).
+# No cycle: outram-blender does not depend on this crate, even optionally.
+outram-blender.workspace = true
+# Dev-only, gh:#1148: an independent helium reference (Helmholtz EOS,
+# Hands-Arp conductivity) for verifying the KTA 3102.1 helium fits in
+# `htgr_closures::helium` and the ZBS tests moved here from `tampines`.
+# No cycle: coolprop depends on outram-foam-basic-lib, not on this crate.
+outram-park-fork-coolprop.workspace = true
+# gh:#1156: the double-pipe exchanger V&V compares the solved effectiveness
+# with this crate's epsilon-NTU (`heat_exchanger::ntu_effectiveness`).
+# Dev-only: no library code depends on it.
+outram-park-fork-dwsim-libs.workspace = true
 
 [lib]
 name = "outram_foam_appbuilder_lib"

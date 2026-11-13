@@ -2,6 +2,10 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/tests"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/tests/ciet_v2_headless_remote_control.rs::a_remote_client_can_drive_the_ciet_loop",
+    "crates/outram-park-digital-twin-engine/tests/ciet_v2_opcua_roundtrip.rs::opcua_interface_round_trips_controls_and_outputs",
+]
 
 [module."ciet_v2_headless_remote_control.rs"]
 path = "test:ciet_v2_headless_remote_control"
@@ -376,3 +380,13 @@ uses = [
     "fn:f75d3d9e360e2669",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+]
+failed = []

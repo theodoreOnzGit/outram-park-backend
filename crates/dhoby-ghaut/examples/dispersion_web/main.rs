@@ -78,7 +78,7 @@ fn main() {
     let rung: rungs::Rung =
         dhoby_ghaut::web_demo::lesson::from_query(&dhoby_ghaut::web_demo::platform::query_pairs());
     let web_options = eframe::WebOptions {
-        renderer: eframe::Renderer::Glow,
+        renderer: eframe::Renderer::Wgpu,
         ..Default::default()
     };
     wasm_bindgen_futures::spawn_local(async move {

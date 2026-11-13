@@ -1,6 +1,6 @@
 [package]
 name = "tuas_boussinesq_solver"
-version = "0.1.8"
+version = "0.1.9"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -45,6 +45,11 @@ long-tests = []
 # Every transcendental routes through PETIR for cross-platform bit identity
 # (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
 petir = { workspace = true }
+# Liquid sodium (gh:#1320, EBR-II groundwork #1312): TUAS reuses CoolProp's
+# `LiqNa` incompressible fit from the CoolProp port rather than carrying a
+# second sodium correlation. No cycle: the coolprop port depends only on
+# petir, uom and outram-foam-basic-lib, none of which depends on TUAS.
+outram-park-fork-coolprop.workspace = true
 approx.workspace = true
 csv.workspace = true
 ndarray.workspace = true
@@ -81,6 +86,7 @@ uom.workspace = true
 # scripts/check-wasm.sh is blind to this class of problem. Bead op-okqo.7.
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
 egui.workspace = true
+bugis.workspace = true
 eframe.workspace = true
 egui_extras.workspace = true
 egui_plot.workspace = true

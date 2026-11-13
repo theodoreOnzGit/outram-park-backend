@@ -96,7 +96,7 @@ const SUBREGION_3A_BACK_COEFFS_HS: [[f64; 3]; 33] = [
     [5.0, 28.0, 0.538_069_315_091_534e20],
     [6.0, 28.0, 0.143_619_827_291_346e22],
     [7.0, 24.0, 0.364_985_866_165_994e20],
-    [8.0, 1.0, -0.254_741_561_156_755e4],
+    [8.0, 1.0, -0.254_741_561_156_775e4],
     [10.0, 32.0, 0.240_120_197_096_563e28],
     [10.0, 36.0, -0.393_847_464_679_496e30],
     [14.0, 22.0, 0.147_073_407_024_852e25],
@@ -149,3 +149,25 @@ const SUBREGION_3B_BACK_COEFFS_HS: [[f64; 3]; 35] = [
     [14.0, 3.0, -0.239_234_565_822_486e8],
     [14.0, 7.0, 0.568_795_808_129_714e10],
 ];
+
+/// gh:#1346 (2026-11-13): pins coefficient digits that a differential comparison against
+/// CoolProp `IF97.h` v2.4.0 (commit 138ec05f), the `iapws` 1.5.5 Python package and
+/// `seuif97` 2.3.8, all three of which agree with each other, found transcribed wrongly
+/// here. p(h,s) 3a (8,1).
+#[cfg(test)]
+mod coefficient_pins_gh1346 {
+    use super::*;
+
+    fn coeff(table: &[[f64; 3]], i: f64, j: f64) -> f64 {
+        table
+            .iter()
+            .find(|r| r[0] == i && r[1] == j)
+            .expect("coefficient row")[2]
+    }
+
+    #[test]
+    fn corrected_coefficients_match_the_published_digits() {
+        // SR4-04 p(h,s) region 3a
+        assert_eq!(coeff(&SUBREGION_3A_BACK_COEFFS_HS, 8.0, 1.0), -0.254_741_561_156_775e4);
+    }
+}

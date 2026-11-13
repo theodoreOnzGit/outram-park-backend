@@ -44,9 +44,46 @@ temperature transient and core inventory go through `boon-lay`'s TRISO-ATOPS for
 (diffusion, release fractions, SiC breakthrough) and come out as a
 `changi::activity::source::SourceTerm`.
 
-**Does not exist:** severe-accident *progression* — no melt, relocation, vessel
+~~**Does not exist:** severe-accident *progression* — no melt, relocation, vessel
 failure, molten-core-concrete interaction, hydrogen or aerosol physics. The
-temperature transient is an **input**; nothing here computes it. Nor is the
+temperature transient is an **input**; nothing here computes it.~~
+**CORRECTED 2026-10-29 (gh:#1033)**: **a reduced progression model exists for one plant.**
+`src/bwr_mark1/` is Fukushima Daiichi Unit 1 (BWR/3, Mark I) after the scram:
+vessel, core heat-up, Zr-steam oxidation and hydrogen, relocation, a lower-head
+failure criterion, drywell, wetwell and reactor building. It was the
+`dhoby-ghaut` `fukushima_web` demo's physics and moved here (maintainer:
+"Physics libraries go to sembawang"); the demo now consumes it. ~~Lumped,~~ an AI
+draft, uncalibrated, and ~~**outside the BSAF Unit 1 bands**: lower head ~2 h
+early, in-vessel H2 ~3x low~~ **CORRECTED 2026-11-02** (checked against
+`compare::the_uncalibrated_baseline_is_pinned` and
+`the_network_baseline_is_pinned`): **outside two BSAF Unit 1 bands**, the
+lower head ~2 h early (5.48 h against 7.45-17.16 h) and the building
+explosion never happening; in-vessel H2 at 25 h is inside its band
+(`bwr_mark1::compare`; `cargo run --release -p
+~~dhoby-ghaut~~ outram-park-digital-twin-engine --example fukushima_web -- --compare`,
+the example moved there 2026-11-05). **Still does not exist:**
+~~MCCI, aerosol physics, in-plant fission-product transport,~~ (**CORRECTED
+2026-11-02**: MCCI, sectional aerosol physics and in-plant fission-product
+transport exist since 2026-10-29: `cavity`, `rn_volume`, `containment_fp`;
+**since 2026-11-11 (gh:#1335)** the MELCOR clean-room *equations*
+`aerosol`, `vapour`, `rn_volume`, `iodine` and `wire` live in
+`outram_park_fork_offbeat::melcor`, re-exported here under their old paths
+for one release, while the plant assembly stays here) a general
+(MELCOR-class) progression engine. **The containment is a control-volume
+network since 2026-11-02** (gh:#1099, maintainer: "switch it"):
+`containment_network` on `tampines`' `CvNetwork` (drywell, torus and
+building as control volumes, IF97 water, a layered torus pool, inertial and
+choked paths), the old lumped containment kept as the explicit ablation
+`Mechanisms::without_network_containment()`. Results on the network are
+**tentative** until ~~its geometry is drawn~~ a human checks its drawn
+geometry (gh:#1110, drawn 2026-11-02 in
+`verification_and_validation/bwr_mark1/geometry/`), and the vent's
+depressurisation depends on the torus pool's layer count (gh:#1108); what
+moved is in `verification_and_validation/bwr_mark1/containment_network.md`
+("gh:#1099"). The TRISO release's temperature transient
+is still an **input**; `bwr_mark1` does not feed it. Regression fixtures:
+`verification_and_validation/bwr_mark1/headless_30h.csv` (the network plant)
+and `headless_30h_lumped.csv` (the ablation). Nor is the
 core inventory computed (see `src/inventory.rs` for why `fission-yields-data`
 must not be used to build one).
 

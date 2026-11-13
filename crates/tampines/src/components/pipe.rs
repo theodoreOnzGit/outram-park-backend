@@ -104,10 +104,13 @@ impl Pipe {
     /// Note the geometry fields (`diameter`, `length`, `inclination`,
     /// `roughness`) are configuration and are not touched by stepping.
     ///
-    /// Not yet implemented -- the physics differs by [`PipeBackend`] variant
+    /// ~~Not yet implemented -- the physics differs by [`PipeBackend`] variant
     /// (each already has a working native `advance_timestep`/`step` method;
     /// this wrapper's job is dispatching between them and handling the
-    /// two-phase case, not yet wired up).
+    /// two-phase case, not yet wired up).~~ **CORRECTED 2026-11-01:** `step`
+    /// dispatches to every [`PipeBackend`] variant's own solver (the `match`
+    /// below). The drift-flux and two-fluid pipes of
+    /// [`crate::multiphase_1d`] are not `PipeBackend` variants yet.
     pub fn step(&mut self, dt: Time) -> Result<(), TampinesError> {
         let seconds = dt.get::<second>();
         if !seconds.is_finite() || seconds <= 0.0 {

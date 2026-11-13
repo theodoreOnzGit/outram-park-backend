@@ -206,7 +206,9 @@ pushed), and is `exclude`d from the package. Confirmed by the maintainer
 The GUI examples (`fhr_sim_v2`, `ciet_educational_simulator`) use the **wgpu**
 renderer (Vulkan-backed, native Wayland). The old `glow` (OpenGL/glutin) backend
 raised `glutin error: provided native window is not supported` on Wayland and was
-replaced in the workspace `Cargo.toml` (2026-06-21).
+replaced in the workspace `Cargo.toml` (2026-06-21). Since 2026-10-27 the browser
+builds use wgpu too, and **wgpu-only is a workspace hard rule** (root
+`CLAUDE.md`): no crate selects glow, natively or in the browser.
 
 If you ever need to run without Vulkan (e.g. in a VM), force XWayland instead:
 

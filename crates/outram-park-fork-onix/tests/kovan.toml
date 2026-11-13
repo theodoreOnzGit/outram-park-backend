@@ -2,6 +2,15 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-onix"
 dir = "crates/outram-park-fork-onix/tests"
+test_ids = [
+    "crates/outram-park-fork-onix/tests/vv_bateman.rs::burnup_step_transmutation",
+    "crates/outram-park-fork-onix/tests/vv_bateman.rs::cram16_stiff_diagonal",
+    "crates/outram-park-fork-onix/tests/vv_bateman.rs::decay_chain_matches_bateman",
+    "crates/outram-park-fork-onix/tests/vv_bateman.rs::fission_yield_assembly",
+    "crates/outram-park-fork-onix/tests/vv_bateman.rs::multi_step_equals_single_step",
+    "crates/outram-park-fork-onix/tests/vv_bateman.rs::secular_equilibrium",
+    "crates/outram-park-fork-onix/tests/vv_bateman.rs::total_atom_conservation",
+]
 
 [module."vv_bateman.rs"]
 path = "test:vv_bateman"
@@ -196,3 +205,18 @@ callees = [
 ]
 uses = ["fn:687e15cab095043d"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+failed = []

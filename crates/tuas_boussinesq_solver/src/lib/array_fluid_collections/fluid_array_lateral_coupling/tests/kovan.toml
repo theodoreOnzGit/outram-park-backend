@@ -2,6 +2,15 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/joint_mixing.rs::fluid_array_adiabatic_mixing_joint_test",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/parasitic_heat_loss.rs::cp_for_therminol_vp_1",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/parasitic_heat_loss.rs::parasitic_heat_loss_integration_test_with_hte_1m",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/parasitic_heat_loss.rs::parasitic_heat_loss_integration_test_with_hte_3m",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/parasitic_heat_loss.rs::parasitic_heat_loss_integration_test_with_hte_5m",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/parasitic_heat_loss.rs::parasitic_heat_loss_integration_test_with_hte_7m",
+    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/tests/parasitic_heat_loss.rs::parasitic_heat_loss_integration_test_with_hte_9m",
+]
 
 [module."joint_mixing.rs"]
 path = "crate::array_fluid_collections::fluid_array_lateral_coupling::tests::joint_mixing"
@@ -280,3 +289,18 @@ callees = [
 uses = ["fn:f811c4c8869b08b0"]
 test = true
 physical_interface = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+failed = []

@@ -24,7 +24,9 @@
 //! `ehr` (`errorr.f90:2364`) — that is what the reference code does, so it
 //! is what the port does.
 //!
-//! **Scope:** `mfcov = 33`, `nstan = 0` (an NC-type record with `LTY` 1–3
+//! **Scope:** `mfcov = 33`, and since 2026-11-13 `mfcov = 31` (`covcal` reads the file
+//! [`CovarianceReactions::mf`] names) and `mfcov = 34` ([`super::mf34`] calls
+//! [`contribution`] with `alp` in place of `sig`), `nstan = 0` (an NC-type record with `LTY` 1–3
 //! is `NotPorted`), no `matb`/`matc` standards redefinition, ENDF-5/6. The
 //! `LB = 7` law belongs to MF=35 and is rejected here as upstream does.
 
@@ -54,7 +56,7 @@ pub struct NiRecord {
 impl NiRecord {
     /// Build from a LIST head `(c1,c2,l1,l2,n1,n2)` and its data
     /// (`errorr.f90:2062-2077`).
-    fn from_list(l1: i32, l2: i32, n1: i32, n2: i32, data: &[f64]) -> Self {
+    pub(super) fn from_list(l1: i32, l2: i32, n1: i32, n2: i32, data: &[f64]) -> Self {
         let lb = l2;
         let mut lt = l1.max(0) as usize;
         if lb == 6 && n2 > 0 {
@@ -101,10 +103,13 @@ fn find_bin(x: f64, nint: usize, e: impl Fn(usize) -> f64) -> Option<usize> {
 /// The contribution of one record to `cov(jh)` for union groups `(jg, jh)`
 /// with lower bounds `(eg, ehr)` (`errorr.f90:2150-2417`).
 ///
-/// `sig`/`sig1` are the reaction / `MT1` union-group cross sections;
-/// `dun` is `un(jg+1) - un(jg)` (used by `LB = 8`).
+/// `sig`/`sig1` are the reaction / `MT1` union-group cross sections (the
+/// Legendre coefficients `alp1`/`alp2` for MF=34); `dun` is `un(jg+1) - un(jg)`
+/// (used by `LB = 8`). The products are formed left to right as upstream writes
+/// them, `F * sig(jg) * sig1(jh)` (until 2026-11-13 this was `F * (sig * sig1)`,
+/// which can differ in the last bit; gh:#1369).
 #[allow(clippy::too_many_arguments)]
-fn contribution(
+pub(super) fn contribution(
     r: &NiRecord,
     jg: usize,
     jh: usize,
@@ -115,7 +120,6 @@ fn contribution(
     sig1_jh: f64,
 ) -> f64 {
     let np = r.np;
-    let ss = sig_jg * sig1_jh;
     match r.lb {
         8 => {
             // errorr.f90:2154-2171: diagonal only, pairs (E_k,F_k) at
@@ -144,7 +148,7 @@ fn contribution(
             let Some(l) = find_bin(ehr, nl1, |l| r.d(np + l)) else {
                 return 0.0;
             };
-            r.d(np + r.lt + (k - 1) * nl1 + l) * ss
+            r.d(np + r.lt + (k - 1) * nl1 + l) * sig_jg * sig1_jh
         }
         5 => {
             // errorr.f90:2225-2255: one grid data(1..np); nk1 = np-1.
@@ -165,7 +169,7 @@ fn contribution(
             } else {
                 (k - 1) * nk1 + (l - 1)
             };
-            r.d(1 + idx + np) * ss
+            r.d(1 + idx + np) * sig_jg * sig1_jh
         }
         0..=4 => {
             // errorr.f90:2257-2417: (E,F) pairs; first table nk = np-lt pairs,
@@ -196,7 +200,7 @@ fn contribution(
                 let Some(l) = find_bin(ehr, lend, ecol) else {
                     return 0.0;
                 };
-                return f1(k) * fcol(l) * ss;
+                return f1(k) * fcol(l) * sig_jg * sig1_jh;
             }
             // lb = 0, 1, 4: ehr must fall in the same first-table bin (label 490).
             if !(ehr >= e1(k) && ehr < e1(k + 1)) {
@@ -204,7 +208,7 @@ fn contribution(
             }
             match r.lb {
                 0 => f1(k),
-                1 => f1(k) * ss,
+                1 => f1(k) * sig_jg * sig1_jh,
                 _ => {
                     // lb = 4 (labels 450/460/480/482/484): l for ehr on the
                     // second table, then m with the upstream mixed test.
@@ -214,7 +218,7 @@ fn contribution(
                     let Some(m) = (1..=nlt1).find(|&m| eg >= e2(m) && ehr < e2(m + 1)) else {
                         return 0.0;
                     };
-                    f1(k) * f2(m) * f2(l) * ss
+                    f1(k) * f2(m) * f2(l) * sig_jg * sig1_jh
                 }
             }
         }
@@ -300,14 +304,14 @@ pub fn covcal(
         nmts: 0,
         blocks: Vec::new(),
     };
-    if !reactions.mf33_present {
+    if reactions.mf() == 33 && !reactions.mf33_present {
         return Ok(out); // errorr.f90:1849-1852 "temporary patch for missing mf33"
     }
 
     for sec in endf
         .sections()
         .iter()
-        .filter(|s| s.key.mat == matd && s.key.mf == 33)
+        .filter(|s| s.key.mat == matd && s.key.mf == reactions.mf())
     {
         let mth = sec.key.mt;
         let mut cur = SectionCursor::new(&sec.rows);

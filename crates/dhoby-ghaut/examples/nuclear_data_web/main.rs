@@ -146,7 +146,7 @@ fn main() {
         dhoby_ghaut::web_demo::link::worker_main::<engine::NdEngine>();
         return;
     }
-    let web_options = eframe::WebOptions { renderer: eframe::Renderer::Glow, ..Default::default() };
+    let web_options = eframe::WebOptions { renderer: eframe::Renderer::Wgpu, ..Default::default() };
     let rung: rungs::Rung = lesson::from_query(&platform::query_pairs());
     wasm_bindgen_futures::spawn_local(async move {
         let document = web_sys::window().expect("no window").document().expect("no document");

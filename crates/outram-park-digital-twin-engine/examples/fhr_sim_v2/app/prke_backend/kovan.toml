@@ -429,3 +429,10 @@ hash = "sha256:bf62b12ba2663816a8932f5a29fa3e9709c7520535fc7faafcb10eb1390d0e92"
 doc_hash = "sha256:a1f68c53de058089e09a23b2001c7940c42abefe24d975a983fcaefc91f899bb"
 uses = ["fn:d3a8381bf2db54e8"]
 physical_interface = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = []
+failed = []

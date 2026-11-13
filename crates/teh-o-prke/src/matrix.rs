@@ -298,6 +298,76 @@ impl SquareMatrix {
         }
     }
 
+    /// Solve `A·x = b` by **OpenFOAM's `Foam::solve(List<Type>& psi, const
+    /// scalarSquareMatrix&, const List<Type>& source)`** (gh:#1439): Gaussian
+    /// elimination with partial pivoting on the largest `|a(j,i)|` (strictly
+    /// greater wins, no row scaling), and NOT the Crout LU of
+    /// [`solve`](Self::solve). It is the routine GeN-Foam's
+    /// `solvePointKinetics.H` calls (`solve(x, A, B)`), so a step that must
+    /// reproduce GeN-Foam bit for bit uses this one.
+    ///
+    /// Translated from ESI v2506
+    /// `src/OpenFOAM/matrices/scalarMatrices/scalarMatricesTemplates.C`
+    /// (`Foam::solve(scalarSquareMatrix&, List<Type>&)`, GPL-3.0, OpenCFD):
+    /// the pivot search, the swap of columns `i..m` only, the reduction
+    /// `a(j,k) -= a(i,k) * a(j,i) / a(i,i)` over `k = m-1 .. i` (so `a(j,i)`
+    /// is still the original while `k > i`), the source update
+    /// `s(j) -= s(i) * (a(j,i) / a(i,i))`, and a back-substitution that
+    /// accumulates `sum_k a(j,k) x(k)` first. Upstream stops with a fatal
+    /// error when `|a(i,i)| < 1e-20` after pivoting; this returns
+    /// [`MatrixError::Singular`] there. `rhs` shorter than `n` returns
+    /// `Singular { col: 0 }`.
+    pub fn solve_gaussian_openfoam(&self, rhs: &[f64]) -> Result<Vec<f64>, MatrixError> {
+        let m = self.n;
+        if rhs.len() < m {
+            return Err(MatrixError::Singular { col: 0 });
+        }
+        let mut a = self.clone();
+        let mut s: Vec<f64> = rhs.to_vec();
+        for i in 0..m {
+            let mut i_max = i;
+            let mut largest = a.get(i_max, i).abs();
+            for j in (i + 1)..m {
+                if a.get(j, i).abs() > largest {
+                    i_max = j;
+                    largest = a.get(i_max, i).abs();
+                }
+            }
+            if i != i_max {
+                for k in i..m {
+                    a.swap_entries(i, k, i_max, k);
+                }
+                s.swap(i, i_max);
+            }
+            if a.get(i, i).abs() < 1.0e-20 {
+                return Err(MatrixError::Singular { col: i });
+            }
+            for j in (i + 1)..m {
+                let si = s.get(i).copied().unwrap_or(f64::NAN);
+                let factor = a.get(j, i) / a.get(i, i);
+                if let Some(slot) = s.get_mut(j) {
+                    *slot -= si * factor;
+                }
+                for k in (i..m).rev() {
+                    let reduced = a.get(j, k) - a.get(i, k) * a.get(j, i) / a.get(i, i);
+                    a.set(j, k, reduced);
+                }
+            }
+        }
+        for j in (0..m).rev() {
+            let mut accumulated = 0.0_f64;
+            for k in (j + 1)..m {
+                accumulated += a.get(j, k) * s.get(k).copied().unwrap_or(f64::NAN);
+            }
+            let value = (s.get(j).copied().unwrap_or(f64::NAN) - accumulated) / a.get(j, j);
+            if let Some(slot) = s.get_mut(j) {
+                *slot = value;
+            }
+        }
+        s.truncate(m);
+        Ok(s)
+    }
+
     /// Convenience: decompose a copy and solve `A·x = b`.
     ///
     /// Returns `Err(MatrixError::Singular)` if the matrix has an exactly-zero
@@ -384,6 +454,39 @@ mod tests {
             "expected Singular, got {:?}",
             result
         );
+    }
+
+    #[test]
+    fn openfoam_elimination_solves_3x3_and_pivots() {
+        // A = [2 1 1; 1 3 1; 1 1 4], solution (1, 2, 3); and a zero leading pivot
+        let mut m = SquareMatrix::new(3);
+        for (i, row) in [[2.0, 1.0, 1.0], [1.0, 3.0, 1.0], [1.0, 1.0, 4.0]].iter().enumerate() {
+            for (j, v) in row.iter().enumerate() {
+                m.set(i, j, *v);
+            }
+        }
+        let x = m.solve_gaussian_openfoam(&[7.0, 10.0, 15.0]).unwrap();
+        assert!((x[0] - 1.0).abs() < 1e-12 && (x[1] - 2.0).abs() < 1e-12 && (x[2] - 3.0).abs() < 1e-12);
+        let mut p = SquareMatrix::new(2);
+        p.set(0, 1, 1.0);
+        p.set(1, 0, 2.0);
+        let y = p.solve_gaussian_openfoam(&[3.0, 4.0]).unwrap();
+        assert_eq!(y, vec![2.0, 3.0]);
+    }
+
+    #[test]
+    fn openfoam_elimination_reports_singular_and_short_rhs() {
+        let mut m = SquareMatrix::new(2);
+        for i in 0..2 {
+            for j in 0..2 {
+                m.set(i, j, 1.0);
+            }
+        }
+        assert!(matches!(
+            m.solve_gaussian_openfoam(&[2.0, 2.0]),
+            Err(MatrixError::Singular { col: 1 })
+        ));
+        assert!(m.solve_gaussian_openfoam(&[2.0]).is_err());
     }
 
     #[test]

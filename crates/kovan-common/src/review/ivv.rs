@@ -46,7 +46,13 @@
 //!    the developing organisation in force for the function's crate
 //!    (`[[code_review.developing_organisation]]`, a per-crate entry
 //!    overriding the workspace one; decision 3). Both are maintainer-signed,
-//!    append-only registry records. Names are compared after trimming,
+//!    append-only registry records. (GitHub #1211, 2026-11-04: kovan now
+//!    writes new ones signed by the **founder** only; a record signed by
+//!    another admitted maintainer still verifies and counts, unchanged,
+//!    until the maintainer decides otherwise.) A record the founder has
+//!    **retired** (`[[code_review.organisation_retirement]]`,
+//!    [`check_retirement`]) is skipped from the retirement's date, so the
+//!    record before it is in force again. Names are compared after trimming,
 //!    collapsing white space and ignoring case ([`same_organisation`]);
 //!    anything else is the signing maintainer's spelling.
 //! 5. **A valid signed separation attestation.** The review names one
@@ -84,11 +90,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::engine::{ConceptAreas, ReviewReport, SignaturePolicy};
-use super::root::{KeySigner, ReviewRoot, SeparationAttestation};
+use super::root::{
+    KeySigner, OrganisationList, OrganisationRetirement, ReviewRoot, SeparationAttestation,
+};
 use super::signing::registry::{find_signer, maintainers, Registry, SignerProblem};
 use super::signing::{
-    developing_organisation_bytes, is_date, reviewer_organisation_bytes,
-    separation_attestation_bytes,
+    developing_organisation_bytes, is_date, organisation_retirement_bytes,
+    reviewer_organisation_bytes, separation_attestation_bytes,
 };
 use super::state::StateKind;
 use super::wizard::{parse_answer, Effect, ReviewWizard, TestAuthorship};
@@ -363,13 +371,16 @@ pub fn developing_organisation(
         .as_ref()
         .map(|c| c.developing_organisation.as_slice())
         .unwrap_or(&[]);
+    let live = |e: &&super::root::DevelopingOrganisation| {
+        !retired(root, registry, OrganisationList::DevelopingOrganisation, None, e.signature.as_deref(), as_of, policy)
+    };
     let override_ = in_force(
-        all.iter().filter(|e| e.krate.as_deref() == Some(krate)),
+        all.iter().filter(live).filter(|e| e.krate.as_deref() == Some(krate)),
         |e| &e.date,
         as_of,
     );
     let e = override_
-        .or_else(|| in_force(all.iter().filter(|e| e.krate.is_none()), |e| &e.date, as_of))
+        .or_else(|| in_force(all.iter().filter(live).filter(|e| e.krate.is_none()), |e| &e.date, as_of))
         .ok_or(OrganisationProblem::NotRecorded)?;
     let scope = dev_scope(e);
     let msg = developing_organisation_bytes(e);
@@ -396,8 +407,10 @@ pub fn reviewer_organisation(
     let r = root
         .reviewer(reviewer)
         .ok_or(OrganisationProblem::NotRecorded)?;
-    let e = in_force(r.organisations.iter(), |e| &e.date, as_of)
-        .ok_or(OrganisationProblem::NotRecorded)?;
+    let live = r.organisations.iter().filter(|e| {
+        !retired(root, registry, OrganisationList::ReviewerOrganisation, Some(reviewer), e.signature.as_deref(), as_of, policy)
+    });
+    let e = in_force(live, |e| &e.date, as_of).ok_or(OrganisationProblem::NotRecorded)?;
     let msg = reviewer_organisation_bytes(reviewer, e);
     let scope = OrganisationScope::Reviewer(reviewer.to_string());
     judged(
@@ -410,6 +423,117 @@ pub fn reviewer_organisation(
         registry,
         policy,
     )
+}
+
+/// Why an organisation retirement has no effect (GitHub #1211).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RetirementProblem {
+    /// Its date is not `YYYY-MM-DD`.
+    BadDate(String),
+    /// A reviewer-organisation retirement names no reviewer, or a
+    /// developing-organisation one names one.
+    BadReviewer,
+    /// No signed record in its list has the signature it names.
+    UnknownRecord,
+    /// Unsigned, or its signature does not count: only a founder's (in
+    /// standing on its date, GitHub #1248), by a trusted key active at its
+    /// date while that founder is a maintainer.
+    Unverified(SignerProblem),
+}
+
+/// The founder's signature over `msg`, dated `date`: a maintainer's
+/// ([`maintainer_signature`]) whose reviewer is ~~the declared founder~~ a
+/// founder in standing on `date` (GitHub #1248: any current founder, and
+/// a retired one for records dated before the retirement).
+fn founder_signature(
+    registry: &Registry,
+    signer: Option<&KeySigner>,
+    signature: Option<&str>,
+    msg: &[u8],
+    date: &str,
+) -> Result<(String, String), SignerProblem> {
+    let (who, key) = maintainer_signature(registry, signer, signature, msg, date)?;
+    if registry.is_founder_on(&who, date) {
+        Ok((who, key))
+    } else {
+        Err(SignerProblem::NotEligible(who))
+    }
+}
+
+/// Judge one retirement: `Ok` (with the founder's reviewer and key id when
+/// signatures are checked) when it takes effect from its date. With
+/// [`SignaturePolicy::NotChecked`] only its date and the record it names
+/// are checked.
+pub fn check_retirement(
+    root: &ReviewRoot,
+    registry: &Registry,
+    r: &OrganisationRetirement,
+    policy: SignaturePolicy,
+) -> Result<Option<(String, String)>, RetirementProblem> {
+    if !is_date(&r.date) {
+        return Err(RetirementProblem::BadDate(r.date.clone()));
+    }
+    let named = |sig: Option<&String>| sig.is_some_and(|s| *s == r.record);
+    let found = match (r.list, r.reviewer.as_deref()) {
+        (OrganisationList::DevelopingOrganisation, None) => root
+            .code_review
+            .as_ref()
+            .is_some_and(|c| c.developing_organisation.iter().any(|e| named(e.signature.as_ref()))),
+        (OrganisationList::ReviewerOrganisation, Some(id)) => root
+            .reviewer(id)
+            .is_some_and(|rv| rv.organisations.iter().any(|e| named(e.signature.as_ref()))),
+        _ => return Err(RetirementProblem::BadReviewer),
+    };
+    if !found {
+        return Err(RetirementProblem::UnknownRecord);
+    }
+    match policy {
+        SignaturePolicy::NotChecked => Ok(None),
+        SignaturePolicy::Enforce => founder_signature(
+            registry,
+            r.signer.as_ref(),
+            r.signature.as_deref(),
+            &organisation_retirement_bytes(r),
+            &r.date,
+        )
+        .map(Some)
+        .map_err(RetirementProblem::Unverified),
+    }
+}
+
+/// The retirements in `root` of the record of `list` (and `reviewer`)
+/// whose signature is `signature`, each with its verdict, in file order.
+pub fn retirements_of<'r>(
+    root: &'r ReviewRoot,
+    registry: &Registry,
+    list: OrganisationList,
+    reviewer: Option<&str>,
+    signature: Option<&str>,
+    policy: SignaturePolicy,
+) -> Vec<(&'r OrganisationRetirement, Result<Option<(String, String)>, RetirementProblem>)> {
+    let Some(sig) = signature else { return Vec::new() };
+    root.code_review
+        .iter()
+        .flat_map(|c| c.organisation_retirements.iter())
+        .filter(|r| r.list == list && r.reviewer.as_deref() == reviewer && r.record == sig)
+        .map(|r| (r, check_retirement(root, registry, r, policy)))
+        .collect()
+}
+
+/// Whether that record is retired at `as_of`: a retirement of it that
+/// takes effect ([`check_retirement`]) is dated on or before `as_of`.
+fn retired(
+    root: &ReviewRoot,
+    registry: &Registry,
+    list: OrganisationList,
+    reviewer: Option<&str>,
+    signature: Option<&str>,
+    as_of: &str,
+    policy: SignaturePolicy,
+) -> bool {
+    retirements_of(root, registry, list, reviewer, signature, policy)
+        .iter()
+        .any(|(r, ok)| ok.is_ok() && r.date.as_str() <= as_of)
 }
 
 /// Why a separation attestation does not count.
@@ -812,6 +936,8 @@ pub enum RecordList {
     SeparationAttestation { reviewer: String },
     /// `[[code_review.roster_event]]` (GitHub #1019).
     RosterEvent,
+    /// `[[code_review.organisation_retirement]]` (GitHub #1211).
+    OrganisationRetirement,
 }
 
 /// What is wrong with one registry record.
@@ -819,6 +945,8 @@ pub enum RecordList {
 pub enum RecordProblem {
     Organisation(OrganisationProblem),
     Attestation(AttestationProblem),
+    /// A retirement with no effect (GitHub #1211).
+    Retirement(RetirementProblem),
 }
 
 /// A registry record that does not verify (loud, whether or not a review
@@ -904,6 +1032,20 @@ pub fn record_warnings(
                     problem: RecordProblem::Attestation(p),
                 });
             }
+        }
+    }
+    let retirements = root
+        .code_review
+        .as_ref()
+        .map(|c| c.organisation_retirements.as_slice())
+        .unwrap_or(&[]);
+    for (index, r) in retirements.iter().enumerate() {
+        if let Err(p) = check_retirement(root, registry, r, policy) {
+            out.push(RecordWarning {
+                list: RecordList::OrganisationRetirement,
+                index,
+                problem: RecordProblem::Retirement(p),
+            });
         }
     }
     out

@@ -18,6 +18,12 @@
 #    `wasm32-unknown-unknown`, the command `crates/kovan-web/web/build.sh`
 #    uses.
 #
+# The desktop job also installs `KOVAN_RUSTDOC_TOOLCHAIN` (a pinned nightly)
+# and rustdoc-md, because kovan's api_docs tests run the real nightly rustdoc
+# JSON pipeline. A SCHEDULED run uses `main`'s copy of this file against the
+# `develop` tree, so until `main` carries that install step those four tests
+# fail on every OS (gh:#1318).
+#
 # WHAT A GREEN RUN DOES NOT SHOW.
 # - That the desktop app OPENS. No job starts the window: the runners have no
 #   display and kovan has no headless start. Green means "it builds and its
@@ -36,10 +42,12 @@
 # ── When it runs ─────────────────────────────────────────────────────────────
 #
 # `schedule` and `workflow_dispatch` fire only for a workflow file on the
-# DEFAULT branch (`main`). `main` has no `.github/workflows/` (checked
-# 2026-10-11), so THE DAILY RUN DOES NOT START until this file is on `main`.
-# Until then, start it by pushing a tree to a `ci-kovan/**` branch, which
-# runs this file from the pushed ref:
+# DEFAULT branch (`main`). ~~`main` has no `.github/workflows/` (checked
+# 2026-10-11), so THE DAILY RUN DOES NOT START until this file is on `main`.~~
+# CORRECTED 2026-10-29: this file is on `main` since 2026-10-21 and the
+# schedule runs (scheduled runs 9-11, 2026-10-26 to 28). To run this file
+# from another ref, push a tree to a `ci-kovan/**` branch, which runs this
+# file from the pushed ref:
 #
 #     git push -f origin develop:ci-kovan/develop
 #
@@ -72,6 +80,8 @@ env:
   # on a fresh runner, and every rust-analyzer test failed on all three OSes
   # (run 39684921124, 2026-10-21).
   RUSTUP_TOOLCHAIN: stable
+  # The documentation test pair is pinned separately from stable/rust-analyzer.
+  KOVAN_RUSTDOC_TOOLCHAIN: nightly-2026-11-05
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -81,8 +91,10 @@ jobs:
   desktop:
     name: desktop / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    # A ceiling, not a measurement: this job has never run. Replace it with a
-    # measured figure after the first runs.
+    # A ceiling, not a measurement. ~~This job has never run.~~ CORRECTED
+    # 2026-11-10: measured on run 42743415300 (ci-kovan/fix-1317-ci, develop
+    # a836e2f07), whole job: ubuntu 13.6 min, macos 22.4 min, windows
+    # 30.5 min. The ceiling is left at 120 min.
     timeout-minutes: 120
     strategy:
       fail-fast: false # one platform's failure must not hide the others'
@@ -114,6 +126,13 @@ jobs:
         with:
           key: kovan-daily-${{ matrix.os }}
           cache-on-failure: true
+
+      # The api-docs regression tests run the real documentation pipeline.
+      - name: Install API-doc test prerequisites
+        shell: bash
+        run: |
+          rustup toolchain install "$KOVAN_RUSTDOC_TOOLCHAIN" --profile minimal
+          cargo install rustdoc-md --version 0.2.0 --locked
 
       - name: Build the desktop app, the CLI and the TUI
         shell: bash

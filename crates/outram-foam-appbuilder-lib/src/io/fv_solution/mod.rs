@@ -82,6 +82,11 @@ pub struct PimpleControl {
     pub consistent: bool,
     /// Turbulence corrector at end of each outer loop.
     pub correct_phi: bool,
+    /// Upstream `frozenFlow` (chtMultiRegionFoam `fluid/solveFluid.H`):
+    /// solve only the energy equation, keeping `U`, `p` and `phi` as they
+    /// are. Default `false`. Read by `PimpleFoam::step` and
+    /// `ChtMultiRegionFoam::step` (gh:#1156).
+    pub frozen_flow: bool,
 }
 
 impl FvSolution {
@@ -122,6 +127,7 @@ impl Default for PimpleControl {
             n_non_orthogonal_correctors: 0,
             consistent: false,
             correct_phi: false,
+            frozen_flow: false,
         }
     }
 }

@@ -1,0 +1,21 @@
+thermophysicalModels/specie rc=0 seconds=48 objects_MB=12 lib_bytes=8470048
+thermophysicalModels/thermophysicalProperties rc=0 seconds=46 objects_MB=5 lib_bytes=1227960
+transportModels/compressible rc=0 seconds=2 objects_MB=1 lib_bytes=
+thermophysicalModels/basic rc=0 seconds=101 objects_MB=27 lib_bytes=
+TurbulenceModels/turbulenceModels rc=0 seconds=131 objects_MB=18 lib_bytes=3596688
+TurbulenceModels/compressible(scratch,pruned) rc=0 seconds=47 objects_MB=6 lib_bytes=3261208
+thermophysicalModels/solidSpecie lib=libsolidSpecie rc=0 seconds=5 objects_MB=1 lib_bytes=344560 files_lines=1
+thermophysicalModels/reactionThermo lib=libreactionThermophysicalModels rc=0 seconds=176 objects_MB=35 lib_bytes=21119752 files_lines=18
+thermophysicalModels/solidThermo lib=libsolidThermo rc=0 seconds=37 objects_MB=6 lib_bytes=2713888 files_lines=5
+thermophysicalModels/SLGThermo lib=libSLGThermo rc=0 seconds=6 objects_MB=1 lib_bytes=48760 files_lines=1
+thermophysicalModels/radiation lib=libradiationModels rc=0 seconds=229 objects_MB=15 lib_bytes=2717464 files_lines=55
+transportModels/twoPhaseMixture lib=libtwoPhaseMixture rc=0 seconds=8 objects_MB=1 lib_bytes=220112 files_lines=1
+transportModels/incompressible lib=libincompressibleTransportModels rc=0 seconds=72 objects_MB=5 lib_bytes=1100136 files_lines=13
+TurbulenceModels/incompressible lib=libincompressibleTurbulenceModels rc=0 seconds=223 objects_MB=18 lib_bytes=3947720 files_lines=10
+dynamicFvMesh lib=libdynamicFvMesh rc=0 seconds=62 objects_MB=4 lib_bytes=1399392 files_lines=11
+overset lib=liboverset rc=0 seconds=140 objects_MB=11 lib_bytes=3173248 files_lines=28
+ODE lib=libODE rc=0 seconds=28 objects_MB=1 lib_bytes=288456 files_lines=18
+regionModels/regionModel lib=libregionModels rc=0 seconds=28 objects_MB=2 lib_bytes=616568 files_lines=7
+fvOptions lib=libfvOptions rc=0 seconds=308 objects_MB=24 lib_bytes=4786056 files_lines=51
+CHAIN3_DONE
+TurbulenceModels/compressible lib=libcompressibleTurbulenceModels rc=0 seconds=52 objects_MB=6 lib_bytes=3261208 files_lines=2

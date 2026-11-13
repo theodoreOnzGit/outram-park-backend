@@ -515,27 +515,57 @@ pub struct ReviewDocument {
     pub unreadable: Vec<Unreadable>,
 }
 
-/// The hybrid-id accessors shared by the function-level entries.
-macro_rules! function_ref {
-    ($ty:ty, $body:ident) => {
-        impl $ty {
-            /// The join key: `[kovan] target`, an `fn:` id on every entry
-            /// that reads (checked on parse).
-            pub fn function_id(&self) -> String {
-                self.kovan.target.clone().unwrap_or_default()
-            }
+impl ReviewEntry {
+    /// The join key: `[kovan] target`, an `fn:` id on every entry
+    /// that reads (checked on parse).
+    pub fn function_id(&self) -> String {
+        self.kovan.target.clone().unwrap_or_default()
+    }
 
-            /// The current location, `file.rs::Type::name`.
-            pub fn path(&self) -> Option<String> {
-                self.$body.path.clone()
-            }
-        }
-    };
+    /// The current location, `file.rs::Type::name`.
+    pub fn path(&self) -> Option<String> {
+        self.review.path.clone()
+    }
 }
-function_ref!(ReviewEntry, review);
-function_ref!(NeedsFixEntry, needs_fix);
-function_ref!(AnnotationEntry, annotation);
-function_ref!(JustificationEntry, justification);
+
+impl NeedsFixEntry {
+    /// The join key: `[kovan] target`, an `fn:` id on every entry
+    /// that reads (checked on parse).
+    pub fn function_id(&self) -> String {
+        self.kovan.target.clone().unwrap_or_default()
+    }
+
+    /// The current location, `file.rs::Type::name`.
+    pub fn path(&self) -> Option<String> {
+        self.needs_fix.path.clone()
+    }
+}
+
+impl AnnotationEntry {
+    /// The join key: `[kovan] target`, an `fn:` id on every entry
+    /// that reads (checked on parse).
+    pub fn function_id(&self) -> String {
+        self.kovan.target.clone().unwrap_or_default()
+    }
+
+    /// The current location, `file.rs::Type::name`.
+    pub fn path(&self) -> Option<String> {
+        self.annotation.path.clone()
+    }
+}
+
+impl JustificationEntry {
+    /// The join key: `[kovan] target`, an `fn:` id on every entry
+    /// that reads (checked on parse).
+    pub fn function_id(&self) -> String {
+        self.kovan.target.clone().unwrap_or_default()
+    }
+
+    /// The current location, `file.rs::Type::name`.
+    pub fn path(&self) -> Option<String> {
+        self.justification.path.clone()
+    }
+}
 
 impl ReviewDocument {
     /// The review entries, in file order.

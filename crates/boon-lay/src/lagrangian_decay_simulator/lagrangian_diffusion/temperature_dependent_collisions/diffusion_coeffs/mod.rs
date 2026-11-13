@@ -243,6 +243,34 @@ pub fn get_q2_for_sr(triso_layer: TrisoPebbleLayerMaterial) -> MolarEnergy {
     return MolarEnergy::new::<kilojoule_per_mole>(coeff_kj_per_mol);
 }
 
+/// Krypton diffusion coefficient in the TRISO **buffer**, m^2/s, with no
+/// temperature dependence (`Q = 0`) and no second term (gh:#638).
+///
+/// **Source (the value).** IAEA-TECDOC-978 (1997), *Fuel performance and
+/// fission product behaviour in gas cooled reactors*, Appendix A, section
+/// A.1.2 "Pyrocarbon", printed p. 440: "The carbonaceous buffer layer is
+/// assumed in the diffusion model to have no significant retention
+/// capability for fission products. In FRG calculations, a value of the
+/// diffusion coefficient of 10^-8 m^2/s with no temperature dependence
+/// (activation energy equal to zero) is used." The same appendix's FRG
+/// tables give krypton in the kernel (Table A-1, "I, Kr, Xe") and in PyC
+/// (Table A-2, "Kr, Xe"), the values this module already carries.
+///
+/// **Source (that it applies to fission gases).** IAEA-TECDOC-1674 (2012),
+/// *Advances in High Temperature Gas Cooled Reactor Fuel Technology*
+/// (the CRP-6 report), section 10.2.2 "Diffusion coefficients", printed
+/// p. 538: the diffusive transport of "fission products (caesium,
+/// strontium, silver, fission gases)" uses "the diffusion coefficients for
+/// 'Germany' as listed in [1]", where [1] is IAEA-TECDOC-978. Its Table 10.5
+/// (p. 543) asks for Kr-85 through a whole TRISO particle (cases 3e, 4d).
+///
+/// **Not a measurement.** It is a modelling convention ("no significant
+/// retention"); TECDOC-978 gives the US recommendation as `1e-10 m^2/s` in
+/// the same sentence and calls the difference negligible, because both far
+/// exceed the dense layers' coefficients. The German value is used for
+/// consistency with Ag, Cs and Sr here (`Buffer => 1e-8`) and with CRP-6.
+pub const KR_BUFFER_D_M2_PER_S: f64 = 1e-8;
+
 // from Jiang 2023
 // Jiang, W., Toptan, A., Hales, J. D., Spencer, B. W., &
 // Novascone, S. R. (2023). Fission product transport in TRISO particles
@@ -250,6 +278,17 @@ pub fn get_q2_for_sr(triso_layer: TrisoPebbleLayerMaterial) -> MolarEnergy {
 // Idaho Falls, ID (United States).
 //
 // table on page 13 of 105
+//
+// Buffer: `1e-8 m^2/s` (with `Q1 = 0`, `D2 = 0`, `Q2 = 0`), the German
+// (FRG) buffer value, cited in [`KR_BUFFER_D_M2_PER_S`] (gh:#638, maintainer
+// decision 2026-11-10 "Find a cited value"). It is NOT from Jiang et al.
+//
+// # Panics
+// ~~For the buffer and both graphite variants~~ **CORRECTED 2026-11-10
+// (gh:#638):** for both graphite variants only (`todo!()`, no cited value
+// in the German set; see [`KR_BUFFER_D_M2_PER_S`]).
+// [`super::get_diffusion_coeff_jiang`] does not call it there; it returns
+// `MissingDiffusionData` instead (gh:#638).
 #[inline]
 pub fn get_d1_for_kr(
     triso_layer: TrisoPebbleLayerMaterial,
@@ -294,7 +333,7 @@ pub fn get_d1_for_kr(
         TrisoPebbleLayerMaterial::MatrixGraphite => todo!(),
         TrisoPebbleLayerMaterial::StructuralGraphite => todo!(),
         TrisoPebbleLayerMaterial::CrackedMaterial => 1e-6,
-        TrisoPebbleLayerMaterial::Buffer => todo!(),
+        TrisoPebbleLayerMaterial::Buffer => KR_BUFFER_D_M2_PER_S,
     };
 
     return DiffusionCoefficient::new::<square_meter_per_second>(coeff_m2_per_s);
@@ -307,6 +346,9 @@ pub fn get_d1_for_kr(
 // Idaho Falls, ID (United States).
 //
 // table on page 13 of 105
+//
+// Buffer: `Q1 = 0` (no temperature dependence), from the same German
+// buffer convention as [`KR_BUFFER_D_M2_PER_S`], not from Jiang et al.
 #[inline]
 pub fn get_q1_for_kr(
     triso_layer: TrisoPebbleLayerMaterial,
@@ -360,6 +402,15 @@ pub fn get_q1_for_kr(
 // Idaho Falls, ID (United States).
 //
 // table on page 13 of 105
+//
+// Buffer: `D2 = 0`, the German buffer convention has a single,
+// temperature-independent term (see [`KR_BUFFER_D_M2_PER_S`]).
+//
+// # Panics
+// ~~For the buffer and both graphite variants~~ **CORRECTED 2026-11-10
+// (gh:#638):** for both graphite variants only (`todo!()`, no cited value).
+// [`super::get_diffusion_coeff_jiang`] does not call it there; it returns
+// `MissingDiffusionData` instead (gh:#638).
 #[inline]
 pub fn get_d2_for_kr(
     triso_layer: TrisoPebbleLayerMaterial,
@@ -388,7 +439,7 @@ pub fn get_d2_for_kr(
         TrisoPebbleLayerMaterial::MatrixGraphite => todo!(),
         TrisoPebbleLayerMaterial::StructuralGraphite => todo!(),
         TrisoPebbleLayerMaterial::CrackedMaterial => 0.0,
-        TrisoPebbleLayerMaterial::Buffer => todo!(),
+        TrisoPebbleLayerMaterial::Buffer => 0.0,
     };
 
     return DiffusionCoefficient::new::<square_meter_per_second>(coeff_m2_per_s);
@@ -401,6 +452,15 @@ pub fn get_d2_for_kr(
 // Idaho Falls, ID (United States).
 //
 // table on page 13 of 105
+//
+// Buffer: `Q2 = 0` (the second term is zero; see
+// [`KR_BUFFER_D_M2_PER_S`]).
+//
+// # Panics
+// ~~For the buffer and both graphite variants~~ **CORRECTED 2026-11-10
+// (gh:#638):** for both graphite variants only (`todo!()`, no cited value).
+// [`super::get_diffusion_coeff_jiang`] does not call it there; it returns
+// `MissingDiffusionData` instead (gh:#638).
 #[inline]
 pub fn get_q2_for_kr(
     triso_layer: TrisoPebbleLayerMaterial,
@@ -427,7 +487,7 @@ pub fn get_q2_for_kr(
         TrisoPebbleLayerMaterial::MatrixGraphite => todo!(),
         TrisoPebbleLayerMaterial::StructuralGraphite => todo!(),
         TrisoPebbleLayerMaterial::CrackedMaterial => 0.0,
-        TrisoPebbleLayerMaterial::Buffer => todo!(),
+        TrisoPebbleLayerMaterial::Buffer => 0.0,
     };
 
     return MolarEnergy::new::<kilojoule_per_mole>(coeff_kj_per_mol);

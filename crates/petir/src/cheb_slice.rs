@@ -35,7 +35,7 @@
 //! mixing them is silent — see
 //! [`ChebSeries::from_plain_coefficients`](crate::ChebSeries::from_plain_coefficients).
 
-use crate::zip::zip_flat;
+use crate::zip::zip2;
 
 /// Map `v` from `[lo, hi]` onto the Chebyshev interval `[-1, 1]`.
 ///
@@ -144,8 +144,8 @@ pub fn eval2_dense<const M: usize, const N: usize>(x: f64, y: f64, c: &[[f64; N]
     let mut out = 0.0;
     // `i` outer, `j` inner -- the same accumulation order as the subscripted
     // double loop, so the rounding is unchanged.
-    for (row, &tx_i) in zip_flat!(c.iter(), tx.iter()) {
-        for (&c_ij, &ty_j) in zip_flat!(row.iter(), ty.iter()) {
+    for (row, &tx_i) in zip2(c.iter(), tx.iter()) {
+        for (&c_ij, &ty_j) in zip2(row.iter(), ty.iter()) {
             out += c_ij * tx_i * ty_j;
         }
     }

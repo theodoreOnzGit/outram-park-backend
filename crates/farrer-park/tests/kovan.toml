@@ -2,6 +2,36 @@ schema_version = 1
 kind = "code_folder"
 crate = "farrer-park"
 dir = "crates/farrer-park/tests"
+test_ids = [
+    "crates/farrer-park/tests/analytical.rs::cantilever_tip_deflection_against_beam_theory",
+    "crates/farrer-park/tests/analytical.rs::thick_walled_cylinder_against_lame",
+    "crates/farrer-park/tests/crystal.rs::consistent_tangent_against_richardson_extrapolated_jacobian",
+    "crates/farrer-park/tests/crystal.rs::crystal_plasticity_in_the_finite_element_solver",
+    "crates/farrer-park/tests/crystal.rs::crystal_stiffness_rotation_invariants",
+    "crates/farrer-park/tests/crystal.rs::fatemi_socie_fatigue_indicator_parameter",
+    "crates/farrer-park/tests/crystal.rs::frame_indifference_under_rigid_rotation",
+    "crates/farrer-park/tests/crystal.rs::polycrystal_aggregate_approaches_isotropy",
+    "crates/farrer-park/tests/crystal.rs::schmid_factors_and_resolved_shear_identity",
+    "crates/farrer-park/tests/crystal.rs::single_crystal_single_slip_against_schmid_yield_stress",
+    "crates/farrer-park/tests/crystal.rs::slip_system_geometry_invariants",
+    "crates/farrer-park/tests/locking.rs::fully_plastic_limit_load_full_integration_over_predicts_bbar_does_not",
+    "crates/farrer-park/tests/locking.rs::nearly_incompressible_hex8_locks_under_full_integration_but_not_under_bbar",
+    "crates/farrer-park/tests/locking.rs::nearly_incompressible_quad4_locks_under_full_integration_but_not_under_bbar",
+    "crates/farrer-park/tests/locking.rs::shear_locking_in_quad4_is_measured_and_bbar_does_not_cure_it",
+    "crates/farrer-park/tests/mms.rs::mms_convergence_linear_elements",
+    "crates/farrer-park/tests/mms.rs::mms_convergence_quadratic_elements",
+    "crates/farrer-park/tests/mms.rs::mms_convergence_three_dimensional",
+    "crates/farrer-park/tests/patch.rs::patch_test_all_element_types",
+    "crates/farrer-park/tests/patch.rs::patch_test_holds_under_bbar",
+    "crates/farrer-park/tests/patch.rs::patch_test_penalty_is_limited_by_the_penalty_factor",
+    "crates/farrer-park/tests/plane_stress.rs::plane_stress_j2_equibiaxial_against_closed_form",
+    "crates/farrer-park/tests/plane_stress.rs::plane_stress_j2_uniaxial_against_closed_form",
+    "crates/farrer-park/tests/plane_stress.rs::plane_stress_matches_transformed_plane_strain",
+    "crates/farrer-park/tests/plane_stress.rs::thin_plate_uniaxial_tension_plane_stress_and_plane_strain",
+    "crates/farrer-park/tests/plasticity.rs::consistent_tangent_by_numerical_perturbation",
+    "crates/farrer-park/tests/plasticity.rs::newton_converges_quadratically_with_the_consistent_tangent",
+    "crates/farrer-park/tests/plasticity.rs::uniaxial_j2_against_closed_form",
+]
 
 [module."analytical.rs"]
 path = "test:analytical"
@@ -1886,3 +1916,39 @@ uses = [
     "fn:f3ab6285a77c327a",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+failed = []

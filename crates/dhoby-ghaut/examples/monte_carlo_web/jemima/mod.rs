@@ -24,7 +24,7 @@ use outram_mc_libs::material::material::Material;
 use outram_mc_libs::physics::transport_csg::SourceBox;
 use outram_mc_libs::vv::jemima as model;
 
-/// The marker type `rung_table!` names.
+/// The marker type `table.rs` names.
 pub struct Jemima;
 
 /// The three tapes, `(label shown while loading, file)`, in
@@ -111,13 +111,13 @@ impl McRung for Jemima {
         let o = view.to_screen(rect, 0.0, 0.0);
         painter.circle_filled(o, model::R_OUT as f32 * s, REFLECTOR);
         painter.circle_filled(o, model::R_CORE as f32 * s, CORE);
-        painter.circle_stroke(o, model::R_OUT as f32 * s, Stroke::new(1.5, Color32::from_rgb(170, 120, 255)));
+        painter.circle_stroke(o, model::R_OUT as f32 * s, Stroke::new(1.5, bugis::Ink::of_ctx(painter.ctx()).accent(3)));
         painter.text(
             o + Vec2::new(0.0, -(model::R_OUT as f32) * s - 6.0),
             egui::Align2::CENTER_BOTTOM,
             format!("core r = {} cm · natural-U reflector to r = {} cm · vacuum outside (leaks)", model::R_CORE, model::R_OUT),
             egui::FontId::proportional(12.0),
-            Color32::from_rgb(190, 170, 230),
+            bugis::Ink::of_ctx(painter.ctx()).accent(3),
         );
     }
     fn notes() -> &'static [&'static str] {
@@ -147,7 +147,7 @@ impl McRung for Jemima {
         crate::keff::five_route_reference(
             "jemima",
             "five-route study route 4, 32 seeds x 5000 x [40+120], 2026-10-15, at 093d8590cf",
-            crate::route1_label!("32 seeds x 5000 x [40+120]"),
+            crate::keff::ROUTE1_LABEL_32X5000,
             5000.0 * 120.0,
             ("ICSBEP IEU-MET-FAST-002 benchmark k, as tabulated by Mosteller (LA-UR-10-06230) and van der Marck (2006)", model::BENCHMARK_K, model::BENCHMARK_SIGMA),
         )

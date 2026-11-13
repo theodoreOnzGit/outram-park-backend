@@ -2,6 +2,25 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-offbeat"
 dir = "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic"
+test_ids = [
+    "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic/tests.rs::a_trial_stress_below_yield_is_an_elastic_step",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic/tests.rs::linear_hardening_is_affine_with_the_given_slope",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic/tests.rs::linear_hardening_return_matches_its_closed_form",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic/tests.rs::norton_hoff_at_zero_strain_is_zero_and_not_a_nan",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic/tests.rs::norton_hoff_is_linear_at_the_starting_pseudo_time",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic/tests.rs::norton_hoff_is_stateless",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic/tests.rs::norton_hoff_refuses_a_non_positive_yield_stress",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic/tests.rs::norton_hoff_stress_becomes_strain_magnitude_independent_as_t_advances",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic/tests.rs::norton_hoff_stress_scales_linearly_with_the_yield_stress",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic/tests.rs::perfect_plasticity_returns_exactly_to_the_initial_yield_stress",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic/tests.rs::softening_beyond_the_uniqueness_limit_is_rejected",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic/tests.rs::the_norton_hoff_exponent_walks_from_linear_toward_rigid_plastic",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic/tests.rs::the_power_law_curve_is_linearised_below_the_upstream_cutoff",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic/tests.rs::the_power_law_curve_is_monotone_increasing",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic/tests.rs::the_radial_return_lands_on_the_surface_for_every_curve_family",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic/tests.rs::the_returned_stress_lands_on_the_yield_surface",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/isotropic/tests.rs::unphysical_inputs_are_refused",
+]
 
 [module."tests.rs"]
 path = "crate::rheology::aster::isotropic::tests"
@@ -476,3 +495,28 @@ uses = [
     "fn:ccb95a4489b65e60",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+]
+failed = []

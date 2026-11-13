@@ -2270,6 +2270,42 @@
     "type": "paper-conference"
   },
   {
+    "DOI": "10.1155/2021/6627789",
+    "author": [
+      {
+        "family": "Fang",
+        "given": "Chao"
+      },
+      {
+        "family": "Li",
+        "given": "Chuan"
+      },
+      {
+        "family": "Cao",
+        "given": "Jianzhu"
+      },
+      {
+        "family": "Liu",
+        "given": "Ke"
+      },
+      {
+        "family": "Fang",
+        "given": "Sheng"
+      }
+    ],
+    "container-title": "Science and Technology of Nuclear Installations",
+    "id": "fang2021analysis",
+    "issued": {
+      "date-parts": [
+        [
+          2021
+        ]
+      ]
+    },
+    "title": "Analysis of Fission Products' Release in Pebble-Bed High-Temperature Gas-Cooled Reactor Fuel Elements Using a Modified FRESCO II Numerical Model",
+    "type": "article-journal"
+  },
+  {
     "author": [
       {
         "family": "Feng",
@@ -3021,6 +3057,48 @@
     "volume": "15"
   },
   {
+    "DOI": "10.1016/j.jnucmat.2013.07.070",
+    "author": [
+      {
+        "family": "Hales",
+        "given": "J. D."
+      },
+      {
+        "family": "Williamson",
+        "given": "R. L."
+      },
+      {
+        "family": "Novascone",
+        "given": "S. R."
+      },
+      {
+        "family": "Perez",
+        "given": "D. M."
+      },
+      {
+        "family": "Spencer",
+        "given": "B. W."
+      },
+      {
+        "family": "Pastore",
+        "given": "G."
+      }
+    ],
+    "container-title": "Journal of Nuclear Materials",
+    "id": "hales2013multidimensional",
+    "issue": "1–3",
+    "issued": {
+      "date-parts": [
+        [
+          2013
+        ]
+      ]
+    },
+    "title": "Multidimensional multiphysics simulation of TRISO particle fuel",
+    "type": "article-journal",
+    "volume": "443"
+  },
+  {
     "author": [
       {
         "family": "Hales",
@@ -3376,6 +3454,67 @@
     "type": "report"
   },
   {
+    "author": [
+      {
+        "literal": "International Atomic Energy Agency"
+      }
+    ],
+    "id": "iaeatecdoc1645",
+    "issued": {
+      "date-parts": [
+        [
+          2010
+        ]
+      ]
+    },
+    "number": "IAEA-TECDOC-1645",
+    "publisher": "International Atomic Energy Agency",
+    "publisher-place": "Vienna",
+    "title": "High Temperature Gas Cooled Reactor Fuels and Materials",
+    "type": "report"
+  },
+  {
+    "ISBN": "978-92-0-125310-1",
+    "author": [
+      {
+        "literal": "International Atomic Energy Agency"
+      }
+    ],
+    "id": "iaeatecdoc1674",
+    "issued": {
+      "date-parts": [
+        [
+          2012
+        ]
+      ]
+    },
+    "number": "IAEA-TECDOC-1674",
+    "publisher": "International Atomic Energy Agency",
+    "publisher-place": "Vienna",
+    "title": "Advances in High Temperature Gas Cooled Reactor Fuel Technology",
+    "type": "report"
+  },
+  {
+    "author": [
+      {
+        "literal": "International Atomic Energy Agency"
+      }
+    ],
+    "id": "iaeatecdoc978",
+    "issued": {
+      "date-parts": [
+        [
+          1997
+        ]
+      ]
+    },
+    "number": "IAEA-TECDOC-978",
+    "publisher": "International Atomic Energy Agency",
+    "publisher-place": "Vienna",
+    "title": "Fuel performance and fission product behaviour in gas cooled reactors",
+    "type": "report"
+  },
+  {
     "URL": "https://www.imda.gov.sg/resources/press-releases-factsheets-and-speeches/press-releases/2026/major-push-to-upskill-tech-professionals-and-grow-the-next-generation-of-tech-leaders",
     "accessed": {
       "date-parts": [
@@ -3506,6 +3645,60 @@
     "volume": "1"
   },
   {
+    "DOI": "10.1016/j.jnucmat.2021.152795",
+    "author": [
+      {
+        "family": "Jiang",
+        "given": "Wen"
+      },
+      {
+        "family": "Hales",
+        "given": "Jason D."
+      },
+      {
+        "family": "Spencer",
+        "given": "Benjamin W."
+      },
+      {
+        "family": "Collin",
+        "given": "Blaise P."
+      },
+      {
+        "family": "Slaughter",
+        "given": "Andrew E."
+      },
+      {
+        "family": "Novascone",
+        "given": "Stephen R."
+      },
+      {
+        "family": "Toptan",
+        "given": "Aysenur"
+      },
+      {
+        "family": "Gamble",
+        "given": "Kyle A."
+      },
+      {
+        "family": "Gardner",
+        "given": "Russell"
+      }
+    ],
+    "container-title": "Journal of Nuclear Materials",
+    "id": "jiang2021triso",
+    "issued": {
+      "date-parts": [
+        [
+          2021
+        ]
+      ]
+    },
+    "page": "152795",
+    "title": "TRISO particle fuel performance and failure analysis with BISON",
+    "type": "article-journal",
+    "volume": "548"
+  },
+  {
     "author": [
       {
         "family": "Jiang",
@@ -3597,6 +3790,47 @@
     },
     "title": "Mostly Painless Scientific Computing with Rust",
     "type": "paper-conference"
+  },
+  {
+    "author": [
+      {
+        "family": "Kasselmann",
+        "given": "S."
+      },
+      {
+        "family": "Xhonneux",
+        "given": "A."
+      },
+      {
+        "family": "Tantillo",
+        "given": "F."
+      },
+      {
+        "family": "Trabadela",
+        "given": "A."
+      },
+      {
+        "family": "Lambertz",
+        "given": "D."
+      },
+      {
+        "family": "Allelein",
+        "given": "H. J."
+      }
+    ],
+    "container-title": "Nuclear Engineering and Design",
+    "id": "kasselmann2018hcp",
+    "issued": {
+      "date-parts": [
+        [
+          2018
+        ]
+      ]
+    },
+    "page": "167–176",
+    "title": "Verification of the HTR code package (HCP) as a comprehensive HTR steady state and transient safety analysis framework",
+    "type": "article-journal",
+    "volume": "329"
   },
   {
     "author": [
@@ -3766,6 +4000,50 @@
     "publisher": "Wiley",
     "publisher-place": "New York",
     "title": "Introductory Nuclear Physics",
+    "type": "book"
+  },
+  {
+    "DOI": "10.2760/270321",
+    "author": [
+      {
+        "family": "Kugeler",
+        "given": "K."
+      },
+      {
+        "family": "Nabielek",
+        "given": "H."
+      },
+      {
+        "family": "Buckthorpe",
+        "given": "D."
+      }
+    ],
+    "collection-number": "EUR 28712 EN",
+    "editor": [
+      {
+        "family": "Scheuermann",
+        "given": "W."
+      },
+      {
+        "family": "Haneklaus",
+        "given": "N."
+      },
+      {
+        "family": "Fütterer",
+        "given": "M."
+      }
+    ],
+    "id": "kugeler2017htgr",
+    "issued": {
+      "date-parts": [
+        [
+          2017
+        ]
+      ]
+    },
+    "publisher": "Publications Office of the European Union",
+    "publisher-place": "Luxembourg",
+    "title": "The High Temperature Gas-cooled Reactor: Safety considerations of the (V)HTR-Modul",
     "type": "book"
   },
   {
@@ -4922,6 +5200,26 @@
   {
     "author": [
       {
+        "literal": "U.S. Nuclear Regulatory Commission"
+      }
+    ],
+    "id": "nuregcr6844",
+    "issued": {
+      "date-parts": [
+        [
+          2004
+        ]
+      ]
+    },
+    "number": "NUREG/CR-6844, Vol. 1",
+    "publisher": "U.S. Nuclear Regulatory Commission, Office of Nuclear Regulatory Research",
+    "publisher-place": "Washington, DC",
+    "title": "TRISO-Coated Particle Fuel Phenomenon Identification and Ranking Tables (PIRTs) for Fission Product Transport Due to Manufacturing, Operations, and Accidents, Main Report",
+    "type": "report"
+  },
+  {
+    "author": [
+      {
         "family": "Oktavian",
         "given": "M Rizki"
       },
@@ -5775,6 +6073,37 @@
     "title": "Modeling the performance of TRISO-based fully ceramic matrix (FCM) fuel in an LWR environment using BISON",
     "type": "article-journal",
     "volume": "335"
+  },
+  {
+    "DOI": "10.1080/00295639.2021.1955590",
+    "author": [
+      {
+        "family": "Schappel",
+        "given": "Daniel"
+      },
+      {
+        "family": "Pastore",
+        "given": "Giovanni"
+      },
+      {
+        "family": "Terrani",
+        "given": "Kurt A."
+      }
+    ],
+    "container-title": "Nuclear Science and Engineering",
+    "id": "schappel2021debonding",
+    "issue": "3",
+    "issued": {
+      "date-parts": [
+        [
+          2022
+        ]
+      ]
+    },
+    "page": "276–284",
+    "title": "Modeling Interface Debonding in Coated Fuel Particles with BISON",
+    "type": "article-journal",
+    "volume": "196"
   },
   {
     "DOI": "10.1016/j.ijmultiphaseflow.2009.11.012",
@@ -6859,6 +7188,35 @@
     "type": "book"
   },
   {
+    "author": [
+      {
+        "family": "Wells",
+        "given": "B. E."
+      },
+      {
+        "family": "Phillips",
+        "given": "N. R."
+      },
+      {
+        "family": "Geelhood",
+        "given": "K. J."
+      }
+    ],
+    "id": "wells2021pnnl31427",
+    "issued": {
+      "date-parts": [
+        [
+          2021
+        ]
+      ]
+    },
+    "number": "PNNL-31427",
+    "publisher": "Pacific Northwest National Laboratory",
+    "publisher-place": "Richland, WA",
+    "title": "TRISO Fuel: Properties and Failure Modes",
+    "type": "report"
+  },
+  {
     "URL": "https://github.com/openmc-dev/openmc/pull/3971",
     "author": [
       {
@@ -6877,6 +7235,27 @@
     "note": "Published: OpenMC GitHub Pull Request #3971",
     "title": "Delta tracking",
     "type": "document"
+  },
+  {
+    "author": [
+      {
+        "family": "Wichner",
+        "given": "R. P."
+      }
+    ],
+    "genre": "Report",
+    "id": "wichner1991nureg5647",
+    "issued": {
+      "date-parts": [
+        [
+          1991
+        ]
+      ]
+    },
+    "number": "NUREG/CR-5647 (ORNL/TM-11685)",
+    "publisher": "Oak Ridge National Laboratory, for the U.S. Nuclear Regulatory Commission",
+    "title": "Fission Product Plateout and Liftoff in the MHTGR Primary System: A Review",
+    "type": "report"
   },
   {
     "DOI": "10.1103/PhysRev.72.29",

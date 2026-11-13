@@ -89,30 +89,6 @@ use super::phase_base::{PhaseBase, VolumeFraction};
 #[cfg(test)]
 mod tests;
 
-/// Generate paired `field()` / `field_mut()` accessors with shared doc text.
-///
-/// Each entry `get, get_mut: Ty;` expands to an immutable `get(&self) -> &Ty`
-/// borrowing `self.get` and a mutable `get_mut(&mut self) -> &mut Ty` borrowing
-/// the same field. The macro keeps the ~24 placeholder-field accessors terse
-/// and identical in form without repeating the boilerplate two dozen times.
-macro_rules! accessors {
-    ($($(#[$m:meta])* $get:ident, $get_mut:ident : $ty:ty;)+) => {
-        $(
-            $(#[$m])*
-            #[must_use]
-            pub fn $get(&self) -> &$ty {
-                &self.$get
-            }
-            $(#[$m])*
-            ///
-            /// Mutable accessor (the physics packages write through it).
-            pub fn $get_mut(&mut self) -> &mut $ty {
-                &mut self.$get
-            }
-        )+
-    };
-}
-
 /// The physical state of matter of a [`Fluid`] phase.
 ///
 /// Closed-enum port of GeN-Foam's `fluid::stateOfMatter`. Dispatched by value
@@ -337,55 +313,316 @@ impl Fluid {
 
     // ── Field accessors (const + mut) ────────────────────────────────────
 
-    accessors! {
-        /// Velocity `U` (`m/s`, vector).
-        velocity, velocity_mut: VolVectorField;
-        /// Velocity magnitude `|U|` (`m/s`).
-        mag_velocity, mag_velocity_mut: VolScalarField;
-        /// Superficial volumetric face flux `phi` (`m^3/s`).
-        phi, phi_mut: SurfaceScalarField;
-        /// Phase volumetric face flux `alphaPhi` (`m^3/s`).
-        alpha_phi, alpha_phi_mut: SurfaceScalarField;
-        /// Phase mass face flux `alphaRhoPhi` (`kg/s`).
-        alpha_rho_phi, alpha_rho_phi_mut: SurfaceScalarField;
-        /// Cell-centred mass flux `alphaRhoMagU` (`kg/(m^2 s)`); regime-map placeholder.
-        alpha_rho_mag_u, alpha_rho_mag_u_mut: VolScalarField;
-        /// Dilation term `dgdt` (`1/s`) — the compressible part of continuity.
-        dgdt, dgdt_mut: VolScalarField;
-        /// Solver-normalised volume fraction (dimensionless).
-        normalized, normalized_mut: VolScalarField;
-        /// Density `rho` (`kg/m^3`). Placeholder updated by the thermo package.
-        density, density_mut: VolScalarField;
-        /// Temperature `T` (`K`). Placeholder updated by the thermo package.
-        temperature, temperature_mut: VolScalarField;
-        /// Specific enthalpy `h` (`J/kg`). Placeholder updated by the thermo package.
-        enthalpy, enthalpy_mut: VolScalarField;
-        /// Thermal conductivity `kappa` (`W/(m K)`). Placeholder updated by thermo.
-        kappa, kappa_mut: VolScalarField;
-        /// Specific heat `Cp` (`J/(kg K)`). Placeholder updated by thermo.
-        cp, cp_mut: VolScalarField;
-        /// Dynamic viscosity `mu` (`Pa s`). Placeholder updated by thermo.
-        mu, mu_mut: VolScalarField;
-        /// Prandtl number `Pr` (dimensionless). Placeholder updated by thermo.
-        prandtl, prandtl_mut: VolScalarField;
-        /// Characteristic (hydraulic) diameter `Dh` (`m`).
-        hydraulic_diameter, hydraulic_diameter_mut: VolScalarField;
-        /// Flow quality `X` (dimensionless); non-trivial only in two-phase.
-        flow_quality, flow_quality_mut: VolScalarField;
-        /// Lockhart–Martinelli parameter `XLM` (dimensionless).
-        lockhart_martinelli, lockhart_martinelli_mut: VolScalarField;
-        /// Dispersion marker (`0` continuous … `1` dispersed), dimensionless.
-        dispersion, dispersion_mut: VolScalarField;
-        /// Neutronics-projected power density `q'''` (`W/m^3`) deposited in the fluid.
-        power_density, power_density_mut: VolScalarField;
-        /// Continuity error `contErr` (`kg/(m^3 s)`).
-        continuity_error, continuity_error_mut: VolScalarField;
-        /// Marker: `1` where `alpha_norm > thermoResidualAlpha`, else `0`.
-        above_thermo_residual_alpha, above_thermo_residual_alpha_mut: VolScalarField;
-        /// Marker: `1` where `alpha_norm <= thermoResidualAlpha`, else `0`.
-        below_thermo_residual_alpha, below_thermo_residual_alpha_mut: VolScalarField;
-        /// Reference density `rho0` (`kg/m^3`), used only under the Boussinesq EOS.
-        reference_density, reference_density_mut: VolScalarField;
+    /// Velocity `U` (`m/s`, vector).
+    #[must_use]
+    pub fn velocity(&self) -> &VolVectorField {
+        &self.velocity
+    }
+
+    /// Velocity `U` (`m/s`, vector).
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn velocity_mut(&mut self) -> &mut VolVectorField {
+        &mut self.velocity
+    }
+
+    /// Velocity magnitude `|U|` (`m/s`).
+    #[must_use]
+    pub fn mag_velocity(&self) -> &VolScalarField {
+        &self.mag_velocity
+    }
+
+    /// Velocity magnitude `|U|` (`m/s`).
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn mag_velocity_mut(&mut self) -> &mut VolScalarField {
+        &mut self.mag_velocity
+    }
+
+    /// Superficial volumetric face flux `phi` (`m^3/s`).
+    #[must_use]
+    pub fn phi(&self) -> &SurfaceScalarField {
+        &self.phi
+    }
+
+    /// Superficial volumetric face flux `phi` (`m^3/s`).
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn phi_mut(&mut self) -> &mut SurfaceScalarField {
+        &mut self.phi
+    }
+
+    /// Phase volumetric face flux `alphaPhi` (`m^3/s`).
+    #[must_use]
+    pub fn alpha_phi(&self) -> &SurfaceScalarField {
+        &self.alpha_phi
+    }
+
+    /// Phase volumetric face flux `alphaPhi` (`m^3/s`).
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn alpha_phi_mut(&mut self) -> &mut SurfaceScalarField {
+        &mut self.alpha_phi
+    }
+
+    /// Phase mass face flux `alphaRhoPhi` (`kg/s`).
+    #[must_use]
+    pub fn alpha_rho_phi(&self) -> &SurfaceScalarField {
+        &self.alpha_rho_phi
+    }
+
+    /// Phase mass face flux `alphaRhoPhi` (`kg/s`).
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn alpha_rho_phi_mut(&mut self) -> &mut SurfaceScalarField {
+        &mut self.alpha_rho_phi
+    }
+
+    /// Cell-centred mass flux `alphaRhoMagU` (`kg/(m^2 s)`); regime-map placeholder.
+    #[must_use]
+    pub fn alpha_rho_mag_u(&self) -> &VolScalarField {
+        &self.alpha_rho_mag_u
+    }
+
+    /// Cell-centred mass flux `alphaRhoMagU` (`kg/(m^2 s)`); regime-map placeholder.
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn alpha_rho_mag_u_mut(&mut self) -> &mut VolScalarField {
+        &mut self.alpha_rho_mag_u
+    }
+
+    /// Dilation term `dgdt` (`1/s`) — the compressible part of continuity.
+    #[must_use]
+    pub fn dgdt(&self) -> &VolScalarField {
+        &self.dgdt
+    }
+
+    /// Dilation term `dgdt` (`1/s`) — the compressible part of continuity.
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn dgdt_mut(&mut self) -> &mut VolScalarField {
+        &mut self.dgdt
+    }
+
+    /// Solver-normalised volume fraction (dimensionless).
+    #[must_use]
+    pub fn normalized(&self) -> &VolScalarField {
+        &self.normalized
+    }
+
+    /// Solver-normalised volume fraction (dimensionless).
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn normalized_mut(&mut self) -> &mut VolScalarField {
+        &mut self.normalized
+    }
+
+    /// Density `rho` (`kg/m^3`). Placeholder updated by the thermo package.
+    #[must_use]
+    pub fn density(&self) -> &VolScalarField {
+        &self.density
+    }
+
+    /// Density `rho` (`kg/m^3`). Placeholder updated by the thermo package.
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn density_mut(&mut self) -> &mut VolScalarField {
+        &mut self.density
+    }
+
+    /// Temperature `T` (`K`). Placeholder updated by the thermo package.
+    #[must_use]
+    pub fn temperature(&self) -> &VolScalarField {
+        &self.temperature
+    }
+
+    /// Temperature `T` (`K`). Placeholder updated by the thermo package.
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn temperature_mut(&mut self) -> &mut VolScalarField {
+        &mut self.temperature
+    }
+
+    /// Specific enthalpy `h` (`J/kg`). Placeholder updated by the thermo package.
+    #[must_use]
+    pub fn enthalpy(&self) -> &VolScalarField {
+        &self.enthalpy
+    }
+
+    /// Specific enthalpy `h` (`J/kg`). Placeholder updated by the thermo package.
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn enthalpy_mut(&mut self) -> &mut VolScalarField {
+        &mut self.enthalpy
+    }
+
+    /// Thermal conductivity `kappa` (`W/(m K)`). Placeholder updated by thermo.
+    #[must_use]
+    pub fn kappa(&self) -> &VolScalarField {
+        &self.kappa
+    }
+
+    /// Thermal conductivity `kappa` (`W/(m K)`). Placeholder updated by thermo.
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn kappa_mut(&mut self) -> &mut VolScalarField {
+        &mut self.kappa
+    }
+
+    /// Specific heat `Cp` (`J/(kg K)`). Placeholder updated by thermo.
+    #[must_use]
+    pub fn cp(&self) -> &VolScalarField {
+        &self.cp
+    }
+
+    /// Specific heat `Cp` (`J/(kg K)`). Placeholder updated by thermo.
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn cp_mut(&mut self) -> &mut VolScalarField {
+        &mut self.cp
+    }
+
+    /// Dynamic viscosity `mu` (`Pa s`). Placeholder updated by thermo.
+    #[must_use]
+    pub fn mu(&self) -> &VolScalarField {
+        &self.mu
+    }
+
+    /// Dynamic viscosity `mu` (`Pa s`). Placeholder updated by thermo.
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn mu_mut(&mut self) -> &mut VolScalarField {
+        &mut self.mu
+    }
+
+    /// Prandtl number `Pr` (dimensionless). Placeholder updated by thermo.
+    #[must_use]
+    pub fn prandtl(&self) -> &VolScalarField {
+        &self.prandtl
+    }
+
+    /// Prandtl number `Pr` (dimensionless). Placeholder updated by thermo.
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn prandtl_mut(&mut self) -> &mut VolScalarField {
+        &mut self.prandtl
+    }
+
+    /// Characteristic (hydraulic) diameter `Dh` (`m`).
+    #[must_use]
+    pub fn hydraulic_diameter(&self) -> &VolScalarField {
+        &self.hydraulic_diameter
+    }
+
+    /// Characteristic (hydraulic) diameter `Dh` (`m`).
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn hydraulic_diameter_mut(&mut self) -> &mut VolScalarField {
+        &mut self.hydraulic_diameter
+    }
+
+    /// Flow quality `X` (dimensionless); non-trivial only in two-phase.
+    #[must_use]
+    pub fn flow_quality(&self) -> &VolScalarField {
+        &self.flow_quality
+    }
+
+    /// Flow quality `X` (dimensionless); non-trivial only in two-phase.
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn flow_quality_mut(&mut self) -> &mut VolScalarField {
+        &mut self.flow_quality
+    }
+
+    /// Lockhart–Martinelli parameter `XLM` (dimensionless).
+    #[must_use]
+    pub fn lockhart_martinelli(&self) -> &VolScalarField {
+        &self.lockhart_martinelli
+    }
+
+    /// Lockhart–Martinelli parameter `XLM` (dimensionless).
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn lockhart_martinelli_mut(&mut self) -> &mut VolScalarField {
+        &mut self.lockhart_martinelli
+    }
+
+    /// Dispersion marker (`0` continuous … `1` dispersed), dimensionless.
+    #[must_use]
+    pub fn dispersion(&self) -> &VolScalarField {
+        &self.dispersion
+    }
+
+    /// Dispersion marker (`0` continuous … `1` dispersed), dimensionless.
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn dispersion_mut(&mut self) -> &mut VolScalarField {
+        &mut self.dispersion
+    }
+
+    /// Neutronics-projected power density `q'''` (`W/m^3`) deposited in the fluid.
+    #[must_use]
+    pub fn power_density(&self) -> &VolScalarField {
+        &self.power_density
+    }
+
+    /// Neutronics-projected power density `q'''` (`W/m^3`) deposited in the fluid.
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn power_density_mut(&mut self) -> &mut VolScalarField {
+        &mut self.power_density
+    }
+
+    /// Continuity error `contErr` (`kg/(m^3 s)`).
+    #[must_use]
+    pub fn continuity_error(&self) -> &VolScalarField {
+        &self.continuity_error
+    }
+
+    /// Continuity error `contErr` (`kg/(m^3 s)`).
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn continuity_error_mut(&mut self) -> &mut VolScalarField {
+        &mut self.continuity_error
+    }
+
+    /// Marker: `1` where `alpha_norm > thermoResidualAlpha`, else `0`.
+    #[must_use]
+    pub fn above_thermo_residual_alpha(&self) -> &VolScalarField {
+        &self.above_thermo_residual_alpha
+    }
+
+    /// Marker: `1` where `alpha_norm > thermoResidualAlpha`, else `0`.
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn above_thermo_residual_alpha_mut(&mut self) -> &mut VolScalarField {
+        &mut self.above_thermo_residual_alpha
+    }
+
+    /// Marker: `1` where `alpha_norm <= thermoResidualAlpha`, else `0`.
+    #[must_use]
+    pub fn below_thermo_residual_alpha(&self) -> &VolScalarField {
+        &self.below_thermo_residual_alpha
+    }
+
+    /// Marker: `1` where `alpha_norm <= thermoResidualAlpha`, else `0`.
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn below_thermo_residual_alpha_mut(&mut self) -> &mut VolScalarField {
+        &mut self.below_thermo_residual_alpha
+    }
+
+    /// Reference density `rho0` (`kg/m^3`), used only under the Boussinesq EOS.
+    #[must_use]
+    pub fn reference_density(&self) -> &VolScalarField {
+        &self.reference_density
+    }
+
+    /// Reference density `rho0` (`kg/m^3`), used only under the Boussinesq EOS.
+    ///
+    /// Mutable accessor (the physics packages write through it).
+    pub fn reference_density_mut(&mut self) -> &mut VolScalarField {
+        &mut self.reference_density
     }
 
     /// Minimum allowable Lockhart–Martinelli parameter (dimensionless).

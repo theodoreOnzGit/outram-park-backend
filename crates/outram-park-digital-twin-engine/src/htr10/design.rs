@@ -12,7 +12,10 @@
 //!
 //! Sources (see [`super`] for the on-disk catalogue paths):
 //!
-//! - **IAEA HTGR benchmark document, Chapter 4** — Open tier. Design and
+//! - **IAEA HTGR benchmark document, Chapter 4** — ~~Open tier~~ **CORRECTED
+//!   2026-11-03:** Proprietary tier since 2026-09-22 (per this file's own
+//!   catalogue note below, `super`'s source table and
+//!   `crates/kovan-literature/CATALOGUE.md`). Design and
 //!   operating data plus the benchmark-problem definitions.
 //! - **Gao & Shi (2002), "Thermal hydraulic calculation of the HTR-10 for the
 //!   initial and equilibrium core", Nucl. Eng. Des. 218, 51-64,
@@ -33,7 +36,7 @@ use uom::si::thermodynamic_temperature::degree_celsius;
 use uom::si::volume::cubic_meter;
 
 /// The HTR-10 design point as specified in the IAEA HTGR benchmark document,
-/// Chapter 4 (Open tier; catalogued at
+/// Chapter 4 (~~Open tier~~ **CORRECTED 2026-11-03:** proprietary tier since 2026-09-22; catalogued at
 /// `iaea-tecdoc-1382-part2` (proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`); the
 /// document is IAEA-TECDOC-1382, IAEA Vienna, November 2003).
 ///
@@ -105,7 +108,8 @@ pub struct Htr10DesignPoint {
 
 impl Htr10DesignPoint {
     /// The HTR-10 design point, transcribed from the IAEA HTGR benchmark
-    /// document, Chapter 4 (Open tier). Every value is the published one; see
+    /// document, Chapter 4 (~~Open tier~~ **CORRECTED 2026-11-03:** proprietary
+    /// tier since 2026-09-22). Every value is the published one; see
     /// each field's doc comment. The unit tests in this module check the set
     /// for internal consistency and reproduce the published relations.
     pub fn iaea_benchmark() -> Self {

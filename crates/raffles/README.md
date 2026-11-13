@@ -27,10 +27,16 @@ Idaho National Laboratory.
 
 ## Ownership
 
-**This crate belongs to Adolphus Lye.** They chose the RAFFLES backronym, and
+~~**This crate belongs to Adolphus Lye.** They chose the RAFFLES backronym, and
 the direction, scope and priorities of the crate are theirs to set. Anyone else
 — human or AI assistant — working in here is a contributor, not a decision
-maker: propose changes of direction to them rather than making them.
+maker: propose changes of direction to them rather than making them.~~
+**CORRECTED 2026-11-04 (maintainer direction):** "Adolphus should be okay,
+entirety of outram park is mine also to own (bedok is Yan Ren's)." The
+workspace maintainer owns RAFFLES, as every crate in the workspace except
+`bedok` (Than Yan Ren's). Adolphus Lye chose the RAFFLES backronym and is the
+author of the Bayesian work it draws on; the maintainer's direction calls here
+stand without waiting for their review.
 
 ## Scope
 
@@ -39,7 +45,7 @@ maker: propose changes of direction to them rather than making them.
 | `distributions` | Probability distributions — densities, CDFs, inverse CDFs, analytic moments; continuous and discrete, truncated variants, multivariate. Plus `distributions::seeded` (2026-10-02, from `outram-mc-libs`): uniform, Box-Muller normal and exponential deviates drawn directly from the workspace LCG seed |
 | `samplers` | Sampling strategies — Monte Carlo, Latin hypercube (RAVEN calls it `Stratified`), grid / full-factorial |
 | `sensitivity` | Importance measures from an evaluated sample — Sobol first-order and total indices, Pearson / Spearman / partial correlation |
-| `bayesian` | Bayesian model updating — independent priors, Metropolis–Hastings and affine-invariant ensemble moves, TMCMC and TEMCMC with the log-evidence as a by-product, and both published tempering criteria |
+| `bayesian` | Bayesian model updating — independent priors, Metropolis–Hastings and affine-invariant ensemble moves, TMCMC and TEMCMC with the log-evidence as a by-product, and both published tempering criteria; and (gh:#1193) RAVEN's Metropolis and adaptive Metropolis (`raven_mcmc`), replay-tested against RAVEN step for step |
 | `distance` | Statistical distances between two sample sets — Euclidean on summaries, Bhattacharyya, Hellinger, Jensen–Shannon, Bray–Curtis, 1-Wasserstein (the area metric) |
 | `abc` | Approximate Bayesian Computation — three kernels, rejection ABC, and an approximate log-likelihood the transitional samplers consume directly |
 | `imprecise` | Imprecise probability — intervals, probability boxes, Clopper–Pearson confidence boxes, coherent-system reliability with or without a dependence assumption |
@@ -47,7 +53,10 @@ maker: propose changes of direction to them rather than making them.
 | `estimators` | Basic estimators moved from `outram-mc-libs` 2026-10-02 (GitHub #500, at the workspace maintainer's direction; owner review outstanding): sample mean and standard error, seed pooling, Shannon entropy over counts, running-sum (batch) uncertainty and batch prediction, first-order error propagation. Bit-identical to the outram-mc originals by contract |
 | `scram` | Fault trees, after [SCRAM](https://github.com/rakhimov/scram) — build a tree, generate its minimal cut sets (classical MOCUS, or a **ZBDD** for scale; coherent **and** non-coherent), derive its **prime implicants** where cut sets would be conservative, quantify the top event by rare-event, MCUB, exact inclusion-exclusion **or a BDD**, and rank the basic events by the five standard importance measures. Handles house events, **fault trees with confidence-box basic events** (`scram::pba`, `scram::pbox_tree`: gate-by-gate p-box propagation, independent or Fréchet unknown dependence chosen per gate, after Lye et al. 2024; verified against the original R scripts, `docs/computing-with-confidence-verification.md`), **common-cause-failure groups** (all four models, applied by default) **substitutions** (delete terms, recovery rules, exchange events) and **alignments** (per-phase mission time and house events) and **uncertainty analysis** (Monte Carlo over the seven MEF random deviates), and **reads SCRAM's own Model Exchange Format input models** including `<define-component>` private namespaces and `<xi:include>`; no preprocessor |
 | `gnn` | Graph neural networks for physics — message-passing topology, the physics-guided bound on message-passing iterations, and (behind `burn`) the network itself |
-| `surrogate` | Reduced-order models — polynomial regression, and a `burn`-trained neural regressor behind the `burn` feature. Gaussian processes and sparse-grid polynomial chaos are **not** implemented |
+| `surrogate` | Reduced-order models — polynomial regression (scalar, and multi-output by one fit per output), and a `burn`-trained neural regressor behind the `burn` feature. ~~Gaussian processes and sparse-grid polynomial chaos are **not** implemented~~ **CORRECTED 2026-11-04 (gh:#1193):** RAVEN's polynomial chaos (`GaussPolynomialRom`, Smolyak/tensor grids, SciPy's Gauss rules) and RAVEN's Gaussian process (its interface over scikit-learn's numerics) are ported, differential-tested against RAVEN, SciPy and scikit-learn (`verification_and_validation/raven_routes_gh1193.md`). HDMR is not |
+| `fidelity` | One typed interface from a high-fidelity model to a surrogate (gh:#1194): `uom` records (`Quantities`, derived by `quantities!`), `ParameterSpace` bounds and priors, the caller-implemented traits `HighFidelityModel` and `ParametricModel` (consumed generically, never `dyn`), `Dataset` with its held-out split fixed at construction, `SurrogateSpec` / `Surrogate<I, O>` over the polynomial and neural routes, `Prediction`, `ValidationReport` (held-out RMSE, max error, LOO RMSE, 2σ coverage), `CorrectedModel` (y_LF(x, θ) + δ(x)) and `build`. Polynomial chaos and kriging (RAVEN's route, with a σ) joined on 2026-11-04 (gh:#1193); ~~SMT kriging and co-kriging join when their port lands (gh:#1190)~~ **CORRECTED 2026-11-04:** they landed (`KrigingRoute::Smt`, `SurrogateSpec::CoKriging`, gh:#1190). Since gh:#1191 also `StateSpaceModel` and `Assimilator` (the FilterPy filters on a typed model). V&V: `verification_and_validation/fidelity_interface_gh1194.md` |
+| `filtering` | State estimation, ported from [FilterPy](https://github.com/rlabbe/filterpy) (MIT, `5df4e095fac0`, gh:#1191): the linear Kalman filter (Joseph-form update, batch filter, Rauch–Tung–Striebel smoother), the extended and unscented (Merwe sigma points) filters, the ensemble Kalman filter and the kinematic process-noise helpers. Bit-identical with FilterPy on its fixed reference cases, because `numpy_ops` reproduces numpy/OpenBLAS's measured rounding order. **Synthetic data only.** V&V: `verification_and_validation/filterpy_gh1191.md` |
+| `openda` | Data assimilation and calibration, ported from [OpenDA](https://github.com/OpenDA-Association/OpenDA) (LGPL-3.0-or-later, `e51565c2c8de`, gh:#1192): the EnKF with OpenDA's localisation options (none, Hamill, Zhang & Oliver's automatic), the ensemble square-root filter, the residual-resampling particle filter, the steady-state filter, DUD, Simplex and Powell on OpenDA's weighted least-squares cost, `StochVector` noise, and OpenDA's oscillator and Lorenz test models. Bit-identical with OpenDA on its reference cases (Java's rounding order, JAMA's SVD ported). **Synthetic data only.** V&V: `verification_and_validation/openda_gh1192.md` |
 
 **Out of scope:** physics of any kind, simulation drivers, job scheduling,
 databases, plotting. RAVEN is a whole workflow application; RAFFLES ports only
@@ -77,6 +86,8 @@ so it is visible rather than absorbed silently.
 | `LICENSE-APACHE-RAVEN` | Upstream RAVEN's `LICENSE.txt`, preserved **verbatim** (Apache-2.0) |
 | `NOTICE-RAVEN` | Upstream RAVEN's `NOTICE.txt`, preserved **verbatim** — Apache-2.0 section 4(d) requires it to travel with the derivative work |
 | `upstream_source/README.md` | Clone command, commit, and the map from RAFFLES modules to upstream paths |
+| `LICENSE-MIT-FILTERPY` | Upstream FilterPy's `LICENSE`, preserved **verbatim** (MIT), for `src/filtering/` (gh:#1191) |
+| `LICENSE-LGPL-3.0-OPENDA` | Upstream OpenDA's `license.txt`, preserved **verbatim** (GNU LGPL v3), for `src/openda/` (gh:#1192) |
 
 **Upstream:** RAVEN, <https://github.com/idaholab/raven>, branch `devel`,
 commit `01216937967c38ee287859270c035c8eca906dc6` (2026-07-14); latest release
@@ -132,6 +143,8 @@ be done:
 | Source | Licence | What that allowed |
 |---|---|---|
 | [RAVEN](https://github.com/idaholab/raven) | Apache-2.0 | Code may be ported into this ~~GPL-3.0~~ AGPL-3.0-only crate, one-way, with the attribution header in `CLAUDE.md` |
+| [FilterPy](https://github.com/rlabbe/filterpy) | MIT | Ported one-way into this AGPL-3.0-only crate (`src/filtering/`, gh:#1191), each file with FilterPy's header; `NOTICE` records the commit |
+| [OpenDA](https://github.com/OpenDA-Association/OpenDA) | LGPL-3.0-or-later | Ported into this AGPL-3.0-only crate as a combined work (`src/openda/`, gh:#1192), each file keeping OpenDA's LGPL notice in its header; `NOTICE` records the commit. JAMA's SVD (public domain) is ported with it |
 | [Physics-guided-MPNN](https://github.com/mikelunizar/Physics-guided-MPNN) | GPL-3.0 | ~~Same licence as this workspace~~ GPL-3.0, combined with this AGPL-3.0-only crate under §13 (the ported files keep GPL-3.0), so `gnn::mpnn` **is** a port and carries its attribution header |
 | [SCRAM](https://github.com/rakhimov/scram) | GPL-3.0-or-later | ~~Same licence as this crate~~ Combined under §13 (ported files keep GPL-3.0), so `scram::probability`, `scram::importance` and `scram::fault_tree`'s connective taxonomy **are** ports and carry their attribution headers. `scram::mocus` is **not** — it is the published MOCUS algorithm, verified *against* SCRAM rather than translated from it, and says so |
 | Adolphus Lye's `Bayesian-Model-Updating-Tutorials` | GPL-3.0 (LICENSE file) | Portable, same as above; `bayesian::case_studies` **is** a port and carries its header |
@@ -174,9 +187,14 @@ Rust as trait objects. Per the workspace design rules:
 ## Units
 
 RAFFLES quantities are dimensionless by nature — probabilities, quantiles,
-variance fractions, correlation coefficients, counts — so `uom` is deliberately
-not used. Sample values are plain `f64` in whatever units the caller's model
-uses; RAFFLES never interprets them physically. Probabilities and Sobol indices
+variance fractions, correlation coefficients, counts — so ~~`uom` is
+deliberately not used~~ **CORRECTED 2026-11-04 (gh:#1194)** `uom` is not used
+by the statistical modules. Their sample values are plain `f64` in whatever
+units the caller's model uses; RAFFLES never interprets them physically. The
+exception is **`fidelity`**, the interface to a caller's physical models
+(maintainer: "Integrate uom into the trait interface"): its inputs, outputs,
+parameters, bounds, predictions and errors are `uom` quantities at the API,
+stored as SI base values inside, with an exact round trip. Probabilities and Sobol indices
 lie in `[0, 1]`; correlation coefficients lie in `[-1, 1]`.
 
 ## Optional features
@@ -189,8 +207,10 @@ lie in `[0, 1]`; correlation coefficients lie in `[-1, 1]`.
 cargo build -p raffles --release --features burn
 ```
 
-Nothing in `src/surrogate.rs` consumes `burn` yet; the feature wires the
-dependency up so that work can start behind a flag. GPU backends (`wgpu`,
+~~Nothing in `src/surrogate.rs` consumes `burn` yet; the feature wires the
+dependency up so that work can start behind a flag.~~ **CORRECTED 2026-11-04**
+(checked against `src/`): `surrogate::neural`, `gnn::mpnn`, `gnn::training`
+and the `Neural` route of `fidelity::Surrogate` consume it. GPU backends (`wgpu`,
 `vulkan`, `metal`, `webgpu`) are deliberately out of scope for this first pass.
 
 ## Android / Termux
@@ -199,7 +219,8 @@ The crate is **Android-clean by construction** and must stay that way. Its
 dependencies are `thiserror`, `petir` (the RNG; ~~`outram-mc-libs`~~
 **CORRECTED 2026-10-02** — the generator moved from `outram-mc-libs` into
 `petir`, and RAFFLES no longer depends on any physics crate), `xml-rs` (the
-MEF reader, previously omitted from this list), and — only when the
+MEF reader, previously omitted from this list), `uom` (no_std, the
+`fidelity` API, since 2026-11-04), and — only when the
 optional `burn` feature is turned on — `burn` with its `ndarray` backend. Every
 one of them is pure Rust: there is no `ndarray-linalg`, no BLAS/LAPACK, no C or
 Fortran toolchain, no GUI.

@@ -3,8 +3,12 @@ kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests"
 test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/debugging_pid_controller.rs::dracs_natural_circ_thermal_hydraulics_pid_test_prototype_1",
     "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/debugging_thermal_hydraulics.rs::dracs_branch_pressure_change_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/debugging_thermal_hydraulics.rs::dracs_natural_circ_thermal_hydraulics_regression_test_prototype_2",
     "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/debugging_thermal_hydraulics.rs::dracs_natural_circ_thermal_hydraulics_test_prototype_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/misc_debugging.rs::steel_properties_debugging",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/mod.rs::dracs_natural_circ_thermal_hydraulics_pid_test_prototype_2",
 ]
 
 [module."case_a.rs"]
@@ -292,8 +296,8 @@ callees = [
 ]
 uses = ["fn:ebf3ac43832118cf"]
 reached_by = [
-    "#0",
     "#1",
+    "#3",
 ]
 physical_interface = true
 
@@ -321,8 +325,8 @@ callees = [
 ]
 uses = ["fn:ebf3ac43832118cf"]
 reached_by = [
-    "#0",
     "#1",
+    "#3",
 ]
 physical_interface = true
 
@@ -531,3 +535,17 @@ uses = [
     "fn:f340400526996cc5",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+failed = []

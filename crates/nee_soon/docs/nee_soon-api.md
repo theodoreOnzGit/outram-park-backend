@@ -1,8 +1,8 @@
 # Crate Documentation
 
-**Version:** 0.0.3
+**Version:** 0.0.4
 
-**Format Version:** 60
+**Format Version:** 61
 
 # Module `nee_soon`
 
@@ -213,15 +213,10 @@ pub struct Mk1DesignPoint {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Mk1DesignPoint { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -235,7 +230,6 @@ pub struct Mk1DesignPoint {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -248,7 +242,6 @@ pub struct Mk1DesignPoint {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -289,7 +282,7 @@ pub struct Mk1DesignPoint {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -303,11 +296,6 @@ pub struct Mk1DesignPoint {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -362,15 +350,10 @@ pub struct ControlRodRemovalTransient {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ControlRodRemovalTransient { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -384,7 +367,6 @@ pub struct ControlRodRemovalTransient {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -397,7 +379,6 @@ pub struct ControlRodRemovalTransient {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -438,7 +419,7 @@ pub struct ControlRodRemovalTransient {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -452,11 +433,6 @@ pub struct ControlRodRemovalTransient {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -499,15 +475,10 @@ pub struct Fig429Point {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Fig429Point { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -521,7 +492,6 @@ pub struct Fig429Point {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -534,7 +504,6 @@ pub struct Fig429Point {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -575,7 +544,7 @@ pub struct Fig429Point {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -589,11 +558,6 @@ pub struct Fig429Point {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -733,15 +697,10 @@ pub struct Mk1CoreGeometry {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Mk1CoreGeometry { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -755,7 +714,6 @@ pub struct Mk1CoreGeometry {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -768,7 +726,6 @@ pub struct Mk1CoreGeometry {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -809,7 +766,7 @@ pub struct Mk1CoreGeometry {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -823,11 +780,6 @@ pub struct Mk1CoreGeometry {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -895,15 +847,10 @@ pub struct MeshMonteCarloStage {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshMonteCarloStage { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -921,7 +868,6 @@ pub struct MeshMonteCarloStage {
     fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -934,7 +880,6 @@ pub struct MeshMonteCarloStage {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -975,7 +920,7 @@ pub struct MeshMonteCarloStage {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -989,11 +934,6 @@ pub struct MeshMonteCarloStage {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -1094,7 +1034,6 @@ Flibe coolant channels.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -1105,15 +1044,10 @@ Flibe coolant channels.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Mk1MaterialRegion { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1127,7 +1061,6 @@ Flibe coolant channels.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1150,7 +1083,6 @@ Flibe coolant channels.
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1160,7 +1092,7 @@ Flibe coolant channels.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Mk1MaterialRegion) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1197,7 +1129,7 @@ Flibe coolant channels.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1211,11 +1143,6 @@ Flibe coolant channels.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -1273,15 +1200,10 @@ pub struct MgxsGenerationStage {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MgxsGenerationStage { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1299,7 +1221,6 @@ pub struct MgxsGenerationStage {
     fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1312,7 +1233,6 @@ pub struct MgxsGenerationStage {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1353,7 +1273,7 @@ pub struct MgxsGenerationStage {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1367,11 +1287,6 @@ pub struct MgxsGenerationStage {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -1475,15 +1390,10 @@ pub struct PorousMediaClosures {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PorousMediaClosures { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1497,7 +1407,6 @@ pub struct PorousMediaClosures {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1510,7 +1419,6 @@ pub struct PorousMediaClosures {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1551,7 +1459,7 @@ pub struct PorousMediaClosures {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1565,11 +1473,6 @@ pub struct PorousMediaClosures {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -1647,15 +1550,10 @@ pub struct Sp3MultiphysicsStage {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Sp3MultiphysicsStage { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1673,7 +1571,6 @@ pub struct Sp3MultiphysicsStage {
     fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1686,7 +1583,6 @@ pub struct Sp3MultiphysicsStage {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1727,7 +1623,7 @@ pub struct Sp3MultiphysicsStage {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1741,11 +1637,6 @@ pub struct Sp3MultiphysicsStage {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -1849,15 +1740,10 @@ pub struct Fig429Target {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Fig429Target { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1871,7 +1757,6 @@ pub struct Fig429Target {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1884,7 +1769,6 @@ pub struct Fig429Target {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1925,7 +1809,7 @@ pub struct Fig429Target {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1939,11 +1823,6 @@ pub struct Fig429Target {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -2006,15 +1885,10 @@ pub struct Fig429ValidationStage {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Fig429ValidationStage { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2032,7 +1906,6 @@ pub struct Fig429ValidationStage {
     fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -2045,7 +1918,6 @@ pub struct Fig429ValidationStage {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2086,7 +1958,7 @@ pub struct Fig429ValidationStage {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2100,11 +1972,6 @@ pub struct Fig429ValidationStage {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -2163,7 +2030,6 @@ Stage 4 — Figure-4.29 comparison (validation target).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -2174,15 +2040,10 @@ Stage 4 — Figure-4.29 comparison (validation target).
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> WorkflowStage { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2196,7 +2057,6 @@ Stage 4 — Figure-4.29 comparison (validation target).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -2219,7 +2079,6 @@ Stage 4 — Figure-4.29 comparison (validation target).
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2229,7 +2088,7 @@ Stage 4 — Figure-4.29 comparison (validation target).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &WorkflowStage) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2266,7 +2125,7 @@ Stage 4 — Figure-4.29 comparison (validation target).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2280,11 +2139,6 @@ Stage 4 — Figure-4.29 comparison (validation target).
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -2336,11 +2190,6 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Debug**
   - ```rust
@@ -2352,7 +2201,6 @@ Fields:
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -2366,7 +2214,6 @@ Fields:
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2403,7 +2250,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2417,11 +2264,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -2519,15 +2361,10 @@ pub struct XinWangSp3Workflow {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> XinWangSp3Workflow { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2542,10 +2379,9 @@ pub struct XinWangSp3Workflow {
 
 - **Default**
   - ```rust
-    fn default() -> XinWangSp3Workflow { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -2558,7 +2394,6 @@ pub struct XinWangSp3Workflow {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2599,7 +2434,7 @@ pub struct XinWangSp3Workflow {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2613,11 +2448,6 @@ pub struct XinWangSp3Workflow {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -3104,7 +2934,6 @@ pub struct HexBedCell {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -3115,15 +2944,10 @@ pub struct HexBedCell {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HexBedCell { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3137,7 +2961,6 @@ pub struct HexBedCell {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3150,7 +2973,6 @@ pub struct HexBedCell {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3160,7 +2982,7 @@ pub struct HexBedCell {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HexBedCell) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3197,7 +3019,7 @@ pub struct HexBedCell {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3211,11 +3033,6 @@ pub struct HexBedCell {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -3255,7 +3072,6 @@ A moderator / dummy pebble (graphite only).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -3266,15 +3082,10 @@ A moderator / dummy pebble (graphite only).
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BedTile { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3288,7 +3099,6 @@ A moderator / dummy pebble (graphite only).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3311,7 +3121,6 @@ A moderator / dummy pebble (graphite only).
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3321,7 +3130,7 @@ A moderator / dummy pebble (graphite only).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BedTile) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3358,7 +3167,7 @@ A moderator / dummy pebble (graphite only).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3372,11 +3181,6 @@ A moderator / dummy pebble (graphite only).
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -3446,7 +3250,6 @@ B-layer ball at the 240 degree vertex, mid-height.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -3457,15 +3260,10 @@ B-layer ball at the 240 degree vertex, mid-height.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BallSite { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3484,7 +3282,6 @@ B-layer ball at the 240 degree vertex, mid-height.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3512,7 +3309,6 @@ B-layer ball at the 240 degree vertex, mid-height.
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3522,17 +3318,17 @@ B-layer ball at the 240 degree vertex, mid-height.
 - **IntoEither**
 - **Ord**
   - ```rust
-    fn cmp(self: &Self, other: &BallSite) -> $crate::cmp::Ordering { /* ... */ }
+    fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
     ```
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BallSite) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **PartialOrd**
   - ```rust
-    fn partial_cmp(self: &Self, other: &BallSite) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    fn partial_cmp(self: &Self, other: &Self) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
     ```
 
 - **Pointable**
@@ -3554,7 +3350,6 @@ B-layer ball at the 240 degree vertex, mid-height.
 
 - **Read**
 - **RefUnwindSafe**
-- **RuleType**
 - **Same**
 - **Send**
 - **StructuralPartialEq**
@@ -3570,7 +3365,7 @@ B-layer ball at the 240 degree vertex, mid-height.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3584,11 +3379,6 @@ B-layer ball at the 240 degree vertex, mid-height.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -3657,7 +3447,6 @@ Fields:
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -3668,15 +3457,10 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BallId { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3695,7 +3479,6 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3723,7 +3506,6 @@ Fields:
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3733,17 +3515,17 @@ Fields:
 - **IntoEither**
 - **Ord**
   - ```rust
-    fn cmp(self: &Self, other: &BallId) -> $crate::cmp::Ordering { /* ... */ }
+    fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
     ```
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BallId) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **PartialOrd**
   - ```rust
-    fn partial_cmp(self: &Self, other: &BallId) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    fn partial_cmp(self: &Self, other: &Self) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
     ```
 
 - **Pointable**
@@ -3765,7 +3547,6 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
-- **RuleType**
 - **Same**
 - **Send**
 - **StructuralPartialEq**
@@ -3781,7 +3562,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3795,11 +3576,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -3842,7 +3618,6 @@ ABLATION: every ball is fuelled (`OUTRAM_HTR10_ALLFUEL`).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -3853,15 +3628,10 @@ ABLATION: every ball is fuelled (`OUTRAM_HTR10_ALLFUEL`).
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FuelAssignment { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3875,7 +3645,6 @@ ABLATION: every ball is fuelled (`OUTRAM_HTR10_ALLFUEL`).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3898,7 +3667,6 @@ ABLATION: every ball is fuelled (`OUTRAM_HTR10_ALLFUEL`).
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3908,7 +3676,7 @@ ABLATION: every ball is fuelled (`OUTRAM_HTR10_ALLFUEL`).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FuelAssignment) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3945,7 +3713,7 @@ ABLATION: every ball is fuelled (`OUTRAM_HTR10_ALLFUEL`).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3959,11 +3727,6 @@ ABLATION: every ball is fuelled (`OUTRAM_HTR10_ALLFUEL`).
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4149,15 +3912,10 @@ pub struct TwoBallBed {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TwoBallBed { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4170,7 +3928,6 @@ pub struct TwoBallBed {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4183,7 +3940,6 @@ pub struct TwoBallBed {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4224,7 +3980,7 @@ pub struct TwoBallBed {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4238,11 +3994,6 @@ pub struct TwoBallBed {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4307,7 +4058,6 @@ pub struct DischargeTube {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -4318,15 +4068,10 @@ pub struct DischargeTube {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DischargeTube { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4340,7 +4085,6 @@ pub struct DischargeTube {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4353,7 +4097,6 @@ pub struct DischargeTube {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4363,7 +4106,7 @@ pub struct DischargeTube {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DischargeTube) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4400,7 +4143,7 @@ pub struct DischargeTube {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4414,11 +4157,6 @@ pub struct DischargeTube {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4530,7 +4268,6 @@ pub struct SekerCell {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -4541,15 +4278,10 @@ pub struct SekerCell {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SekerCell { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4563,7 +4295,6 @@ pub struct SekerCell {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4576,7 +4307,6 @@ pub struct SekerCell {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4586,7 +4316,7 @@ pub struct SekerCell {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SekerCell) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4623,7 +4353,7 @@ pub struct SekerCell {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4637,11 +4367,6 @@ pub struct SekerCell {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4735,7 +4460,6 @@ Fields:
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -4746,15 +4470,10 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SekerSite { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4773,7 +4492,6 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4801,7 +4519,6 @@ Fields:
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4811,17 +4528,17 @@ Fields:
 - **IntoEither**
 - **Ord**
   - ```rust
-    fn cmp(self: &Self, other: &SekerSite) -> $crate::cmp::Ordering { /* ... */ }
+    fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
     ```
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SekerSite) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **PartialOrd**
   - ```rust
-    fn partial_cmp(self: &Self, other: &SekerSite) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    fn partial_cmp(self: &Self, other: &Self) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
     ```
 
 - **Pointable**
@@ -4843,7 +4560,6 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
-- **RuleType**
 - **Same**
 - **Send**
 - **StructuralPartialEq**
@@ -4859,7 +4575,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4873,11 +4589,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4944,7 +4655,6 @@ Fields:
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -4955,15 +4665,10 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SekerBallId { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4982,7 +4687,6 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5010,7 +4714,6 @@ Fields:
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5020,17 +4723,17 @@ Fields:
 - **IntoEither**
 - **Ord**
   - ```rust
-    fn cmp(self: &Self, other: &SekerBallId) -> $crate::cmp::Ordering { /* ... */ }
+    fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
     ```
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SekerBallId) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **PartialOrd**
   - ```rust
-    fn partial_cmp(self: &Self, other: &SekerBallId) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    fn partial_cmp(self: &Self, other: &Self) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
     ```
 
 - **Pointable**
@@ -5052,7 +4755,6 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
-- **RuleType**
 - **Same**
 - **Send**
 - **StructuralPartialEq**
@@ -5068,7 +4770,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5082,11 +4784,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5263,15 +4960,10 @@ pub struct SekerBed {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SekerBed { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5284,7 +4976,6 @@ pub struct SekerBed {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5297,7 +4988,6 @@ pub struct SekerBed {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5338,7 +5028,7 @@ pub struct SekerBed {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5352,11 +5042,6 @@ pub struct SekerBed {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5534,15 +5219,10 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PebbleBed { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5555,7 +5235,6 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5568,7 +5247,6 @@ Fields:
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5609,7 +5287,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5623,11 +5301,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5687,7 +5360,6 @@ Fields:
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -5698,15 +5370,10 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BedBall { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5725,7 +5392,6 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5753,7 +5419,6 @@ Fields:
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5763,17 +5428,17 @@ Fields:
 - **IntoEither**
 - **Ord**
   - ```rust
-    fn cmp(self: &Self, other: &BedBall) -> $crate::cmp::Ordering { /* ... */ }
+    fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
     ```
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BedBall) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **PartialOrd**
   - ```rust
-    fn partial_cmp(self: &Self, other: &BedBall) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    fn partial_cmp(self: &Self, other: &Self) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
     ```
 
 - **Pointable**
@@ -5795,7 +5460,6 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
-- **RuleType**
 - **Same**
 - **Send**
 - **StructuralPartialEq**
@@ -5811,7 +5475,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5825,11 +5489,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -6047,7 +5706,6 @@ pub struct ZoneComposition {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -6058,15 +5716,10 @@ pub struct ZoneComposition {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ZoneComposition { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6080,7 +5733,6 @@ pub struct ZoneComposition {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -6093,7 +5745,6 @@ pub struct ZoneComposition {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6103,7 +5754,7 @@ pub struct ZoneComposition {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ZoneComposition) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6140,7 +5791,7 @@ pub struct ZoneComposition {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6154,11 +5805,6 @@ pub struct ZoneComposition {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -6299,7 +5945,11 @@ withdrawn position is given (lower end at 119.2 cm), so the rods ARE in
 their channels, in the top reflector, with their B4C, steel sleeves and
 iron joints as explicit geometry. **Since 2026-10-05 (gh:#580)** the same
 explicit rods can be built at any position of their published travel,
-all ten together (`core_design::Htr10CoreDesign::rod_insertion`; lower end
+~~all ten together (`core_design::Htr10CoreDesign::rod_insertion`;~~
+**each rod at its own position since 2026-10-23 (gh:#1025,
+`core_design::Htr10CoreDesign::rod_insertions`, one rod universe per
+distinct position; `with_bank` is the old all-ten case, cell for cell;**
+lower end
 from `z_T` 119.2 cm withdrawn to 394.2 cm fully inserted); withdrawn stays
 the default and the benchmark's state. The absorber-ball system is a reserve
 shutdown system, so its channels are empty. The irradiation channels are
@@ -6370,7 +6020,6 @@ Small-absorber-ball (KLAK) channel: empty (reserve shutdown system).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -6381,15 +6030,10 @@ Small-absorber-ball (KLAK) channel: empty (reserve shutdown system).
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ChannelKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6403,7 +6047,6 @@ Small-absorber-ball (KLAK) channel: empty (reserve shutdown system).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -6426,7 +6069,6 @@ Small-absorber-ball (KLAK) channel: empty (reserve shutdown system).
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6436,7 +6078,7 @@ Small-absorber-ball (KLAK) channel: empty (reserve shutdown system).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ChannelKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6473,7 +6115,7 @@ Small-absorber-ball (KLAK) channel: empty (reserve shutdown system).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6487,11 +6129,6 @@ Small-absorber-ball (KLAK) channel: empty (reserve shutdown system).
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -6546,7 +6183,6 @@ pub struct ReflectorChannel {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -6557,15 +6193,10 @@ pub struct ReflectorChannel {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReflectorChannel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6579,7 +6210,6 @@ pub struct ReflectorChannel {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -6592,7 +6222,6 @@ pub struct ReflectorChannel {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6602,7 +6231,7 @@ pub struct ReflectorChannel {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ReflectorChannel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6639,7 +6268,7 @@ pub struct ReflectorChannel {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6653,11 +6282,6 @@ pub struct ReflectorChannel {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -6696,7 +6320,6 @@ pub struct Fig410Box {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -6707,15 +6330,10 @@ pub struct Fig410Box {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Fig410Box { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6729,7 +6347,6 @@ pub struct Fig410Box {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -6742,7 +6359,6 @@ pub struct Fig410Box {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6752,7 +6368,7 @@ pub struct Fig410Box {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Fig410Box) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6789,7 +6405,7 @@ pub struct Fig410Box {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6803,11 +6419,6 @@ pub struct Fig410Box {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -6838,6 +6449,26 @@ Every vertical channel in the reflector: 20 coolant, 10 control-rod,
 
 ```rust
 pub fn reflector_channels() -> Vec<ReflectorChannel> { /* ... */ }
+```
+
+#### Function `control_rod_azimuths_deg`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Azimuth \[deg\] of each control rod's channel, in the order the rods are
+numbered everywhere in this model (`Htr10CoreDesign::rod_insertions`,
+`AssembledCore::rod_lower_ends_zt_cm`, the web demo's "rod 1" to "rod 10"):
+the order of [`reflector_channels`], i.e. increasing azimuth from 9°.
+
+**Not TECDOC's names.** IAEA-TECDOC-1382 Fig. 4.7 (printed p. 234) labels
+one rod, "Control Rod S3", by a leader line in a 416 x 233 px raster; no
+source in reach names the other nine or fixes which of these channels S3
+is (checked 2026-10-23, gh:#1025). Source pending.
+
+```rust
+pub fn control_rod_azimuths_deg() -> [f64; 10] { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -7382,6 +7013,7 @@ pub struct AssembledCore {
     pub bed: Option<super::bed::PebbleBed>,
     pub triso_particles: Option<usize>,
     pub rod_lower_end_zt_cm: Option<f64>,
+    pub rod_lower_ends_zt_cm: Option<[f64; 10]>,
 }
 ```
 
@@ -7403,7 +7035,8 @@ pub struct AssembledCore {
 | `refl_bottom` | `f64` | Bottom of the whole assembled model \[cm\] (negative): conus floor less<br>the fixed [`HTR10_BOTTOM_REFLECTOR_CM`]. Equals `-bed_half_height` when<br>no reflector is built.<br><br>The model is **not** symmetric about `z = 0` (the bed mid-height): see<br>[`HTR10_BOTTOM_REFLECTOR_CM`] for why the old mirrored bottom was wrong.<br>With a reflector, `refl_top - refl_bottom` is [`HTR10_MODEL_HEIGHT_CM`]<br>at every loading. |
 | `bed` | `Option<super::bed::PebbleBed>` | The ball-level description of the bed (every ball's centre, identity and<br>presence) that [`assemble_explicit_triso`] built its lattice from;<br>`None` for the one-ball [`assemble`]. Added 2026-09-26 so plots can cut<br>through ball centres chosen from the built bed rather than from constants.<br>~~`Option<TwoBallBed>`~~ **CHANGED 2026-10-01 (gh:#472):** a<br>[`PebbleBed`], Şeker's cell by default; `PebbleBed::Explicit` when<br>built by [`super::explicit_bed::assemble_explicit_triso_from_centres`]<br>(2026-10-05), whose lattice uses Şeker's tile shape purely as a<br>spatial index. |
 | `triso_particles` | `Option<usize>` | Whole TRISO particles the built lattice places in each fuel zone<br>(gh:#566): the design's `particles_per_pebble` when the pitch search<br>reaches it, else the closest count it found. `None` for the one-ball<br>[`assemble`]. |
-| `rod_lower_end_zt_cm` | `Option<f64>` | TECDOC `z_T` \[cm\] (downward from the model top) of the ten control<br>rods' lower end as built (gh:#580): 119.2 withdrawn to 394.2 fully<br>inserted. `None` when no rods are built (no reflector, the<br>`OUTRAM_HTR10_NO_WITHDRAWN_RODS` ablation, or the one-ball [`assemble`]). |
+| `rod_lower_end_zt_cm` | `Option<f64>` | TECDOC `z_T` \[cm\] (downward from the model top) of the ten control<br>rods' lower end as built (gh:#580): 119.2 withdrawn to 394.2 fully<br>inserted. `None` when no rods are built (no reflector, the<br>`OUTRAM_HTR10_NO_WITHDRAWN_RODS` ablation, or the one-ball [`assemble`])<br>**and, since 2026-10-23 (gh:#1025), when the rods are not all at one<br>position**: read [`Self::rod_lower_ends_zt_cm`] then. |
+| `rod_lower_ends_zt_cm` | `Option<[f64; 10]>` | `z_T` \[cm\] of EACH rod's lower end as built, in the order of<br>[`super::reflector_geometry::control_rod_azimuths_deg`] (gh:#1025).<br>`None` exactly when no rods are built. |
 
 ##### Implementations
 
@@ -7424,13 +7057,7 @@ pub struct AssembledCore {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -7443,7 +7070,6 @@ pub struct AssembledCore {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -7475,7 +7101,7 @@ pub struct AssembledCore {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7489,11 +7115,6 @@ pub struct AssembledCore {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -7541,7 +7162,6 @@ Helium between pebbles.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -7552,15 +7172,10 @@ Helium between pebbles.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TileCellRole { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7574,7 +7189,6 @@ Helium between pebbles.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -7597,7 +7211,6 @@ Helium between pebbles.
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -7607,7 +7220,7 @@ Helium between pebbles.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TileCellRole) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -7644,7 +7257,7 @@ Helium between pebbles.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7658,11 +7271,6 @@ Helium between pebbles.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -7724,7 +7332,7 @@ pub fn cavity_above_bed(bed_full_height_cm: f64) -> f64 { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[allow(unreachable_code, unused_variables)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"unreachable_code\", kind: Allow},\nLintCheck {lint_name: \"unused_variables\", kind: Allow}])]")`
 
 **Assemble a delta-tracked pebble bed inside a surface-tracked reflector.**
 
@@ -8231,7 +7839,7 @@ geometry fixture).
 | [`fuel_zone_radius_cm`](Htr10CoreDesign::fuel_zone_radius_cm) | the fuelled-zone sphere of every fuel ball, and the TRISO lattice clipped to it | Li (2014) Table 2, 2.5 cm |
 | [`triso_radii_cm`](Htr10CoreDesign::triso_radii_cm) | the five TRISO shells | TECDOC-1382 / Li Table 2, as adjudicated (op-867c.12) |
 | [`particles_per_pebble`](Htr10CoreDesign::particles_per_pebble) | the TRISO lattice pitch, solved so the zone holds exactly this many whole particles | Li Table 2 and Şeker & Çolak (2003) p. 266, 8335 |
-| [`rod_insertion`](Htr10CoreDesign::rod_insertion) | the axial position of the ten explicit control rods | TECDOC-1382 § 4.1.1.5: withdrawn (0) is the benchmark state |
+| [`rod_insertions`](Htr10CoreDesign::rod_insertions) | the axial position of EACH of the ten explicit control rods (since 2026-10-23, gh:#1025; one shared value before) | TECDOC-1382 § 4.1.1.5: withdrawn (0) is the benchmark state |
 
 # What it cannot change, stated plainly
 
@@ -8241,12 +7849,18 @@ geometry fixture).
 - **Fertile or poison pebbles.** Every ball is fuel or graphite (dummy).
 - **Materials** (kernel composition, enrichment, matrix, coolant): those are
   [`super::materials`]' and [`super::data`]'s, fixed to the benchmark.
-- **Rod insertion is one position for all ten rods.** A single rod (the
-  B32 / B42 problems) is not representable.
+- ~~**Rod insertion is one position for all ten rods.** A single rod (the
+  B32 / B42 problems) is not representable.~~ **CHANGED 2026-10-23
+  (gh:#1025, maintainer: "move all rods individually, or sync their
+  movements together"):** each rod has its own insertion,
+  [`Htr10CoreDesign::rod_insertions`], indexed as
+  [`super::reflector_geometry::control_rod_azimuths_deg`] orders the
+  rods; [`Htr10CoreDesign::with_bank`] puts all ten at one position and
+  builds, cell for cell, the geometry the single shared value built.
 
 # Rod insertion, defined
 
-`rod_insertion` is the fraction of the published travel, linear in the
+Each entry of `rod_insertions` is the fraction of the published travel, linear in the
 position of the rod's lower end: 0 puts it at
 [`LOWER_END_WITHDRAWN_CM`] (`z_T` = 119.2 cm, in the top reflector, the
 benchmark's state), 1 at [`LOWER_END_INSERTED_CM`] (`z_T` = 394.2 cm),
@@ -8280,7 +7894,7 @@ pub struct Htr10CoreDesign {
     pub fuel_zone_radius_cm: f64,
     pub triso_radii_cm: [f64; 5],
     pub particles_per_pebble: usize,
-    pub rod_insertion: f64,
+    pub rod_insertions: [f64; 10],
 }
 ```
 
@@ -8292,16 +7906,41 @@ pub struct Htr10CoreDesign {
 | `fuel_zone_radius_cm` | `f64` | Radius \[cm\] of a fuel ball's fuelled zone. Must be smaller than the<br>3 cm ball and larger than a TRISO particle. Default 2.5 cm. |
 | `triso_radii_cm` | `[f64; 5]` | TRISO shell radii \[cm\], kernel outward (kernel, buffer, IPyC, SiC,<br>OPyC), strictly increasing. Default [`TRISO_RADII_CM`]. |
 | `particles_per_pebble` | `usize` | Whole TRISO particles in each fuel zone; the lattice pitch is solved<br>to give exactly this count. Default [`PARTICLES_PER_PEBBLE`]. |
-| `rod_insertion` | `f64` | Control-rod insertion, fraction \[-\] of the published travel, `[0, 1]`:<br>0 withdrawn (the benchmark), 1 fully inserted. All ten rods together. |
+| `rod_insertions` | `[f64; 10]` | Control-rod insertion of each rod, fraction \[-\] of the published<br>travel, `[0, 1]`: 0 withdrawn (the benchmark), 1 fully inserted. Rod<br>`i` sits in the channel at<br>[`super::reflector_geometry::control_rod_azimuths_deg`]`()[i]`.<br>~~`rod_insertion: f64`, all ten rods together~~ **CHANGED 2026-10-23<br>(gh:#1025)**: [`Self::with_bank`] is that case. |
 
 ##### Implementations
 
 ###### Methods
 
 - ```rust
-  pub fn rod_lower_end_zt_cm(self: &Self) -> f64 { /* ... */ }
+  pub fn with_bank(self: Self, f: f64) -> Self { /* ... */ }
   ```
-  TECDOC axial coordinate `z_T` \[cm\] of the rods' lower end (it runs
+  This design with **all ten rods at insertion `f`** (the bank, synced):
+
+- ```rust
+  pub fn with_rod(self: Self, rod: usize, f: f64) -> Self { /* ... */ }
+  ```
+  This design with rod `rod` alone moved to insertion `f`, the other
+
+- ```rust
+  pub fn bank_insertion(self: &Self) -> Option<f64> { /* ... */ }
+  ```
+  The bank insertion when every rod sits at the same position, `None`
+
+- ```rust
+  pub fn lower_end_zt_cm_of(f: f64) -> f64 { /* ... */ }
+  ```
+  TECDOC axial coordinate `z_T` \[cm\] (downward from the model top)
+
+- ```rust
+  pub fn rod_lower_ends_zt_cm(self: &Self) -> [f64; 10] { /* ... */ }
+  ```
+  `z_T` \[cm\] of each rod's lower end, [`Self::lower_end_zt_cm_of`]
+
+- ```rust
+  pub fn rod_insertion_for_lower_end_zt_cm(z_t_cm: f64) -> f64 { /* ... */ }
+  ```
+  The insertion fraction that puts a rod's lower end at `z_t_cm`
 
 - ```rust
   pub fn check(self: &Self) -> Result<(), String> { /* ... */ }
@@ -8315,7 +7954,6 @@ pub struct Htr10CoreDesign {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -8326,15 +7964,10 @@ pub struct Htr10CoreDesign {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Htr10CoreDesign { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8354,7 +7987,6 @@ pub struct Htr10CoreDesign {
     ```
     The model of the RMC code-to-code record (see the module table).
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -8367,7 +7999,6 @@ pub struct Htr10CoreDesign {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -8377,7 +8008,7 @@ pub struct Htr10CoreDesign {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Htr10CoreDesign) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8414,7 +8045,7 @@ pub struct Htr10CoreDesign {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8428,11 +8059,6 @@ pub struct Htr10CoreDesign {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -8611,7 +8237,6 @@ A Şeker discharge-tube ball below the DEM column (see the module docs).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -8622,15 +8247,10 @@ A Şeker discharge-tube ball below the DEM column (see the module docs).
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ExplicitBallSource { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8644,7 +8264,6 @@ A Şeker discharge-tube ball below the DEM column (see the module docs).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -8667,7 +8286,6 @@ A Şeker discharge-tube ball below the DEM column (see the module docs).
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -8677,7 +8295,7 @@ A Şeker discharge-tube ball below the DEM column (see the module docs).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ExplicitBallSource) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8714,7 +8332,7 @@ A Şeker discharge-tube ball below the DEM column (see the module docs).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8728,11 +8346,6 @@ A Şeker discharge-tube ball below the DEM column (see the module docs).
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -8845,15 +8458,10 @@ pub struct ExplicitBed {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ExplicitBed { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8866,7 +8474,6 @@ pub struct ExplicitBed {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -8879,7 +8486,6 @@ pub struct ExplicitBed {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -8920,7 +8526,7 @@ pub struct ExplicitBed {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8934,11 +8540,6 @@ pub struct ExplicitBed {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -9017,15 +8618,10 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DemBedError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9043,7 +8639,6 @@ Fields:
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -9057,7 +8652,6 @@ Fields:
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -9067,7 +8661,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DemBedError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9109,7 +8703,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9123,11 +8717,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -9219,8 +8808,8 @@ pub fn assemble_explicit_triso_from_centres(centres: &[[uom::si::f64::Length; 3]
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_lines)]")`
 - `MustUse { reason: None }`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"too_many_lines\",\nkind: Allow}])]")`
 
 [`assemble_explicit_triso_from_centres`] built to `design` (gh:#566,
 gh:#580): its fuel-zone radius, TRISO radii and count, and rod insertion.
@@ -9403,7 +8992,6 @@ pub struct SmearedRodComposition {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -9414,15 +9002,10 @@ pub struct SmearedRodComposition {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SmearedRodComposition { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9436,7 +9019,6 @@ pub struct SmearedRodComposition {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -9449,7 +9031,6 @@ pub struct SmearedRodComposition {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -9459,7 +9040,7 @@ pub struct SmearedRodComposition {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SmearedRodComposition) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9496,7 +9077,7 @@ pub struct SmearedRodComposition {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9510,11 +9091,6 @@ pub struct SmearedRodComposition {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -9658,6 +9234,40 @@ Axial coordinate of the rod lower end when **fully inserted** \[cm\].
 pub const LOWER_END_INSERTED_CM: f64 = 394.2;
 ```
 
+#### Constant `B42_LOWER_END_ZT_CM`
+
+The rod lower-end positions `z_T` \[cm\] at which TECDOC-1382's problem
+B42 asks for the differential worth of one rod (§ 4.1.2.4, printed
+p. 243; the same list again with Table 4-9, p. 248), in increasing
+insertion. The bank curve of gh:#1025 is computed at these positions too,
+so it can be read beside any single-rod curve on the same axis; it is NOT
+a B42 result (B42 moves one rod, the bank model moves ten).
+
+```rust
+pub const B42_LOWER_END_ZT_CM: [f64; 7] = _;
+```
+
+#### Constant `EXPERIMENT_START_ZT_CM`
+
+The rod lower-end position `z_T` \[cm\] the measured rod-worth
+calibration started from: "moved from z = 1712mm to z = 3942mm"
+(TECDOC-1382 § 4.2.1.5, printed p. 252; restricted source, cited only).
+
+```rust
+pub const EXPERIMENT_START_ZT_CM: f64 = 171.2;
+```
+
+#### Constant `BANK_CURVE_ZT_CM`
+
+The bank positions of the gh:#1025 k-vs-position curve \[cm\], lower end
+`z_T`, increasing insertion: withdrawn, the experiment's start, then
+[`B42_LOWER_END_ZT_CM`]. Every entry is a position a source states;
+none was chosen from a result.
+
+```rust
+pub const BANK_CURVE_ZT_CM: [f64; 9] = _;
+```
+
 ## Module `data`
 
 **The HTR-10 nuclear-data set, in one place: which nuclides, from which
@@ -9752,7 +9362,6 @@ diagnostics).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -9763,15 +9372,10 @@ diagnostics).
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NuclearDataLibrary { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9787,10 +9391,9 @@ diagnostics).
 
 - **Default**
   - ```rust
-    fn default() -> NuclearDataLibrary { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -9813,7 +9416,6 @@ diagnostics).
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -9823,7 +9425,7 @@ diagnostics).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NuclearDataLibrary) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9860,7 +9462,7 @@ diagnostics).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9874,11 +9476,6 @@ diagnostics).
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -9921,7 +9518,6 @@ the natural-carbon atom density. This was the VIII.0 model until
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -9932,15 +9528,10 @@ the natural-carbon atom density. This was the VIII.0 model until
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CarbonTreatment { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9956,10 +9547,9 @@ the natural-carbon atom density. This was the VIII.0 model until
 
 - **Default**
   - ```rust
-    fn default() -> CarbonTreatment { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -9982,7 +9572,6 @@ the natural-carbon atom density. This was the VIII.0 model until
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -9992,7 +9581,7 @@ the natural-carbon atom density. This was the VIII.0 model until
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CarbonTreatment) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10029,7 +9618,7 @@ the natural-carbon atom density. This was the VIII.0 model until
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10043,11 +9632,6 @@ the natural-carbon atom density. This was the VIII.0 model until
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -10090,7 +9674,6 @@ performed for vacuum and helium"*, and this was the model until
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -10101,15 +9684,10 @@ performed for vacuum and helium"*, and this was the model until
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Coolant { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10125,10 +9703,9 @@ performed for vacuum and helium"*, and this was the model until
 
 - **Default**
   - ```rust
-    fn default() -> Coolant { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -10151,7 +9728,6 @@ performed for vacuum and helium"*, and this was the model until
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -10161,7 +9737,7 @@ performed for vacuum and helium"*, and this was the model until
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Coolant) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10198,7 +9774,7 @@ performed for vacuum and helium"*, and this was the model until
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10212,11 +9788,6 @@ performed for vacuum and helium"*, and this was the model until
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -10305,7 +9876,6 @@ caller strips their unloaded components and proves no cell uses them.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -10316,15 +9886,10 @@ caller strips their unloaded components and proves no cell uses them.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RodMetalTreatment { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10340,10 +9905,9 @@ caller strips their unloaded components and proves no cell uses them.
 
 - **Default**
   - ```rust
-    fn default() -> RodMetalTreatment { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -10366,7 +9930,6 @@ caller strips their unloaded components and proves no cell uses them.
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -10376,7 +9939,7 @@ caller strips their unloaded components and proves no cell uses them.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RodMetalTreatment) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10413,7 +9976,7 @@ caller strips their unloaded components and proves no cell uses them.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10427,11 +9990,6 @@ caller strips their unloaded components and proves no cell uses them.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -10470,7 +10028,6 @@ resolved amount.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -10481,15 +10038,10 @@ resolved amount.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThermalScatteringTreatment { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10505,10 +10057,9 @@ resolved amount.
 
 - **Default**
   - ```rust
-    fn default() -> ThermalScatteringTreatment { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -10531,7 +10082,6 @@ resolved amount.
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -10541,7 +10091,7 @@ resolved amount.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ThermalScatteringTreatment) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10578,7 +10128,7 @@ resolved amount.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10592,11 +10142,6 @@ resolved amount.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -10633,7 +10178,6 @@ bound on the dominant absorber, never the VII.0 offset.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -10644,15 +10188,10 @@ bound on the dominant absorber, never the VII.0 offset.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> U238Evaluation { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10668,10 +10207,9 @@ bound on the dominant absorber, never the VII.0 offset.
 
 - **Default**
   - ```rust
-    fn default() -> U238Evaluation { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -10694,7 +10232,6 @@ bound on the dominant absorber, never the VII.0 offset.
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -10704,7 +10241,7 @@ bound on the dominant absorber, never the VII.0 offset.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &U238Evaluation) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10741,7 +10278,7 @@ bound on the dominant absorber, never the VII.0 offset.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10755,11 +10292,6 @@ bound on the dominant absorber, never the VII.0 offset.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -10814,15 +10346,10 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Uo2Laws { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10837,10 +10364,9 @@ Fields:
 
 - **Default**
   - ```rust
-    fn default() -> Uo2Laws { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -10863,7 +10389,6 @@ Fields:
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -10873,7 +10398,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Uo2Laws) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10910,7 +10435,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10924,11 +10449,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -10987,15 +10507,10 @@ pub struct Htr10DataConfig {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Htr10DataConfig { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11014,7 +10529,6 @@ pub struct Htr10DataConfig {
     ```
     The correct-physics default: see the module docs.
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -11027,7 +10541,6 @@ pub struct Htr10DataConfig {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -11037,7 +10550,7 @@ pub struct Htr10DataConfig {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Htr10DataConfig) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11074,7 +10587,7 @@ pub struct Htr10DataConfig {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11088,11 +10601,6 @@ pub struct Htr10DataConfig {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -11148,15 +10656,10 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TapeSource { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11171,10 +10674,9 @@ Fields:
 
 - **Default**
   - ```rust
-    fn default() -> TapeSource { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -11197,7 +10699,6 @@ Fields:
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -11207,7 +10708,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TapeSource) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11244,7 +10745,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11258,11 +10759,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -11307,7 +10803,6 @@ up). `git submodule update --init reference-data/ace`.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -11318,15 +10813,10 @@ up). `git submodule update --init reference-data/ace`.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DataDir { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11340,7 +10830,6 @@ up). `git submodule update --init reference-data/ace`.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -11363,7 +10852,6 @@ up). `git submodule update --init reference-data/ace`.
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -11373,7 +10861,7 @@ up). `git submodule update --init reference-data/ace`.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DataDir) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11410,7 +10898,7 @@ up). `git submodule update --init reference-data/ace`.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11424,11 +10912,6 @@ up). `git submodule update --init reference-data/ace`.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -11473,7 +10956,6 @@ pub struct Tape {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -11484,15 +10966,10 @@ pub struct Tape {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Tape { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11506,7 +10983,6 @@ pub struct Tape {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -11529,7 +11005,6 @@ pub struct Tape {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -11539,7 +11014,7 @@ pub struct Tape {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Tape) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11576,7 +11051,7 @@ pub struct Tape {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11590,11 +11065,6 @@ pub struct Tape {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -11679,7 +11149,6 @@ HTTR Alloy 800H (added 2026-10-16).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -11690,15 +11159,10 @@ HTTR Alloy 800H (added 2026-10-16).
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThermalLaw { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11712,7 +11176,6 @@ HTTR Alloy 800H (added 2026-10-16).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -11735,7 +11198,6 @@ HTTR Alloy 800H (added 2026-10-16).
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -11745,7 +11207,7 @@ HTTR Alloy 800H (added 2026-10-16).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ThermalLaw) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11782,7 +11244,7 @@ HTTR Alloy 800H (added 2026-10-16).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11796,11 +11258,6 @@ HTTR Alloy 800H (added 2026-10-16).
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -11852,15 +11309,10 @@ pub struct NuclideSlot {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NuclideSlot { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11873,7 +11325,6 @@ pub struct NuclideSlot {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -11886,7 +11337,6 @@ pub struct NuclideSlot {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -11896,7 +11346,7 @@ pub struct NuclideSlot {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NuclideSlot) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11933,7 +11383,7 @@ pub struct NuclideSlot {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11947,11 +11397,6 @@ pub struct NuclideSlot {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -11997,7 +11442,6 @@ The vacuum ablation: no coolant nuclides.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -12008,15 +11452,10 @@ The vacuum ablation: no coolant nuclides.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CoolantNuclides { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12030,7 +11469,6 @@ The vacuum ablation: no coolant nuclides.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -12053,7 +11491,6 @@ The vacuum ablation: no coolant nuclides.
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -12063,7 +11500,7 @@ The vacuum ablation: no coolant nuclides.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CoolantNuclides) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12100,7 +11537,7 @@ The vacuum ablation: no coolant nuclides.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12114,11 +11551,6 @@ The vacuum ablation: no coolant nuclides.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -12202,15 +11634,10 @@ pub struct Htr10NuclideLayout {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Htr10NuclideLayout { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12223,7 +11650,6 @@ pub struct Htr10NuclideLayout {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -12236,7 +11662,6 @@ pub struct Htr10NuclideLayout {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -12277,7 +11702,7 @@ pub struct Htr10NuclideLayout {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12291,11 +11716,6 @@ pub struct Htr10NuclideLayout {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -12404,11 +11824,6 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Debug**
   - ```rust
@@ -12420,7 +11835,6 @@ Fields:
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -12434,7 +11848,6 @@ Fields:
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -12471,7 +11884,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12485,11 +11898,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -12554,15 +11962,10 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LoadProgress { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12575,7 +11978,6 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -12588,7 +11990,6 @@ Fields:
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -12598,7 +11999,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LoadProgress) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12635,7 +12036,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12649,11 +12050,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -12870,15 +12266,10 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ProcessingJob { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12891,7 +12282,6 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -12904,7 +12294,6 @@ Fields:
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -12914,7 +12303,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ProcessingJob) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12951,7 +12340,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12965,11 +12354,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -13039,15 +12423,10 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> JobProduct { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13060,7 +12439,6 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -13073,7 +12451,6 @@ Fields:
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -13114,7 +12491,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13128,11 +12505,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -13442,7 +12814,6 @@ Hawari reactor graphite, 30 % porosity, VIII.0 MAT 32. **Default.**
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -13453,15 +12824,10 @@ Hawari reactor graphite, 30 % porosity, VIII.0 MAT 32. **Default.**
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GraphiteLaw { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13477,10 +12843,9 @@ Hawari reactor graphite, 30 % porosity, VIII.0 MAT 32. **Default.**
 
 - **Default**
   - ```rust
-    fn default() -> GraphiteLaw { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -13503,7 +12868,6 @@ Hawari reactor graphite, 30 % porosity, VIII.0 MAT 32. **Default.**
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -13513,7 +12877,7 @@ Hawari reactor graphite, 30 % porosity, VIII.0 MAT 32. **Default.**
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GraphiteLaw) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -13550,7 +12914,7 @@ Hawari reactor graphite, 30 % porosity, VIII.0 MAT 32. **Default.**
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13564,11 +12928,6 @@ Hawari reactor graphite, 30 % porosity, VIII.0 MAT 32. **Default.**
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -13623,15 +12982,10 @@ pub struct Htr10MaterialConfig {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Htr10MaterialConfig { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13645,7 +12999,6 @@ pub struct Htr10MaterialConfig {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -13658,7 +13011,6 @@ pub struct Htr10MaterialConfig {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -13699,7 +13051,7 @@ pub struct Htr10MaterialConfig {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13715,11 +13067,6 @@ pub struct Htr10MaterialConfig {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -13727,7 +13074,7 @@ pub struct Htr10MaterialConfig {
 
 **Attributes:**
 
-- `Other("#[allow(missing_docs)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"missing_docs\", kind: Allow}])]")`
 
 Indices, into the caller's nuclide array, of the nuclides the withdrawn
 control rods need beyond the pebble's `Htr10Nuclides`: the sleeve steel
@@ -13812,7 +13159,6 @@ pub struct RodMetalNuclides {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -13823,15 +13169,10 @@ pub struct RodMetalNuclides {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RodMetalNuclides { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13845,7 +13186,6 @@ pub struct RodMetalNuclides {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -13868,7 +13208,6 @@ pub struct RodMetalNuclides {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -13878,7 +13217,7 @@ pub struct RodMetalNuclides {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RodMetalNuclides) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -13915,7 +13254,7 @@ pub struct RodMetalNuclides {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13929,11 +13268,6 @@ pub struct RodMetalNuclides {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -14168,15 +13502,10 @@ pub struct PlotJob {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PlotJob { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14189,7 +13518,6 @@ pub struct PlotJob {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -14202,7 +13530,6 @@ pub struct PlotJob {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -14243,7 +13570,7 @@ pub struct PlotJob {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14257,11 +13584,6 @@ pub struct PlotJob {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -14369,13 +13691,7 @@ pub struct Htr10Plotter {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -14388,7 +13704,6 @@ pub struct Htr10Plotter {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -14420,7 +13735,7 @@ pub struct Htr10Plotter {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14434,11 +13749,6 @@ pub struct Htr10Plotter {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -14576,15 +13886,10 @@ pub struct SweepProvenance {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SweepProvenance { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14597,7 +13902,6 @@ pub struct SweepProvenance {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -14620,7 +13924,6 @@ pub struct SweepProvenance {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -14630,7 +13933,7 @@ pub struct SweepProvenance {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SweepProvenance) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -14667,7 +13970,7 @@ pub struct SweepProvenance {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14681,11 +13984,6 @@ pub struct SweepProvenance {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -14788,7 +14086,6 @@ pub struct SweepStatistics {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -14799,15 +14096,10 @@ pub struct SweepStatistics {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SweepStatistics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14821,7 +14113,6 @@ pub struct SweepStatistics {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -14844,7 +14135,6 @@ pub struct SweepStatistics {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -14854,7 +14144,7 @@ pub struct SweepStatistics {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SweepStatistics) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -14891,7 +14181,7 @@ pub struct SweepStatistics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14905,11 +14195,6 @@ pub struct SweepStatistics {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -14992,15 +14277,10 @@ pub struct HeightPoint {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HeightPoint { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15013,7 +14293,6 @@ pub struct HeightPoint {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -15026,7 +14305,6 @@ pub struct HeightPoint {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -15036,7 +14314,7 @@ pub struct HeightPoint {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HeightPoint) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -15073,7 +14351,7 @@ pub struct HeightPoint {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15087,11 +14365,6 @@ pub struct HeightPoint {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -15346,15 +14619,10 @@ pub struct GeometryClosure {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GeometryClosure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15368,7 +14636,6 @@ pub struct GeometryClosure {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -15381,7 +14648,6 @@ pub struct GeometryClosure {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -15422,7 +14688,7 @@ pub struct GeometryClosure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15436,11 +14702,6 @@ pub struct GeometryClosure {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -15810,15 +15071,10 @@ pub struct AssembledHttr {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> AssembledHttr { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15831,7 +15087,6 @@ pub struct AssembledHttr {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -15844,7 +15099,6 @@ pub struct AssembledHttr {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -15885,7 +15139,7 @@ pub struct AssembledHttr {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15899,11 +15153,6 @@ pub struct AssembledHttr {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -15939,7 +15188,6 @@ ABLATION: surface tracking everywhere.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -15950,15 +15198,10 @@ ABLATION: surface tracking everywhere.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CompactTracking { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15974,10 +15217,9 @@ ABLATION: surface tracking everywhere.
 
 - **Default**
   - ```rust
-    fn default() -> CompactTracking { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -16000,7 +15242,6 @@ ABLATION: surface tracking everywhere.
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -16010,7 +15251,7 @@ ABLATION: surface tracking everywhere.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CompactTracking) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -16047,7 +15288,7 @@ ABLATION: surface tracking everywhere.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16061,11 +15302,6 @@ ABLATION: surface tracking everywhere.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -16604,7 +15840,6 @@ ABLATION: every nuclide a free gas.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -16615,15 +15850,10 @@ ABLATION: every nuclide a free gas.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HttrThermal { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16639,10 +15869,9 @@ ABLATION: every nuclide a free gas.
 
 - **Default**
   - ```rust
-    fn default() -> HttrThermal { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -16665,7 +15894,6 @@ ABLATION: every nuclide a free gas.
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -16675,7 +15903,7 @@ ABLATION: every nuclide a free gas.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HttrThermal) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -16712,7 +15940,7 @@ ABLATION: every nuclide a free gas.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16726,11 +15954,6 @@ ABLATION: every nuclide a free gas.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -16775,7 +15998,6 @@ pub struct HttrMaterialConfig {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -16786,15 +16008,10 @@ pub struct HttrMaterialConfig {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HttrMaterialConfig { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16808,7 +16025,6 @@ pub struct HttrMaterialConfig {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -16821,7 +16037,6 @@ pub struct HttrMaterialConfig {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -16831,7 +16046,7 @@ pub struct HttrMaterialConfig {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HttrMaterialConfig) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -16868,7 +16083,7 @@ pub struct HttrMaterialConfig {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16882,11 +16097,6 @@ pub struct HttrMaterialConfig {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -17040,7 +16250,6 @@ Three columns of ring E.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -17051,15 +16260,10 @@ Three columns of ring E.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RodBank { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17073,7 +16277,6 @@ Three columns of ring E.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -17101,7 +16304,6 @@ Three columns of ring E.
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -17111,7 +16313,7 @@ Three columns of ring E.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RodBank) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -17148,7 +16350,7 @@ Three columns of ring E.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17162,11 +16364,6 @@ Three columns of ring E.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -17211,7 +16408,6 @@ pub struct RodPositions {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -17222,15 +16418,10 @@ pub struct RodPositions {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RodPositions { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17244,7 +16435,6 @@ pub struct RodPositions {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -17257,7 +16447,6 @@ pub struct RodPositions {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -17267,7 +16456,7 @@ pub struct RodPositions {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RodPositions) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -17304,7 +16493,7 @@ pub struct RodPositions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17318,11 +16507,6 @@ pub struct RodPositions {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -17358,7 +16542,6 @@ pub enum BpLoading {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -17369,15 +16552,10 @@ pub enum BpLoading {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BpLoading { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17391,7 +16569,6 @@ pub enum BpLoading {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -17419,7 +16596,6 @@ pub enum BpLoading {
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -17429,7 +16605,7 @@ pub enum BpLoading {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BpLoading) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -17466,7 +16642,7 @@ pub enum BpLoading {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17480,11 +16656,6 @@ pub enum BpLoading {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -17543,7 +16714,6 @@ Fourth or fifth (same loading).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -17554,15 +16724,10 @@ Fourth or fifth (same loading).
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FuelLayer { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17576,7 +16741,6 @@ Fourth or fifth (same loading).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -17604,7 +16768,6 @@ Fourth or fifth (same loading).
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -17614,7 +16777,7 @@ Fourth or fifth (same loading).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FuelLayer) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -17651,7 +16814,7 @@ Fourth or fifth (same loading).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17665,11 +16828,6 @@ Fourth or fifth (same loading).
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -17727,7 +16885,6 @@ The six corners of ring D.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -17738,15 +16895,10 @@ The six corners of ring D.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FuelZone { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17760,7 +16912,6 @@ The six corners of ring D.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -17788,7 +16939,6 @@ The six corners of ring D.
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -17798,7 +16948,7 @@ The six corners of ring D.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FuelZone) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -17835,7 +16985,7 @@ The six corners of ring D.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17849,11 +16999,6 @@ The six corners of ring D.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -17902,7 +17047,6 @@ Solid block graphite (the centre, and in 31-hole blocks two corners).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -17913,15 +17057,10 @@ Solid block graphite (the centre, and in 31-hole blocks two corners).
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PinSlot { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17935,7 +17074,6 @@ Solid block graphite (the centre, and in 31-hole blocks two corners).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -17958,7 +17096,6 @@ Solid block graphite (the centre, and in 31-hole blocks two corners).
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -17968,7 +17105,7 @@ Solid block graphite (the centre, and in 31-hole blocks two corners).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PinSlot) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -18005,7 +17142,7 @@ Solid block graphite (the centre, and in 31-hole blocks two corners).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18019,11 +17156,6 @@ Solid block graphite (the centre, and in 31-hole blocks two corners).
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -18081,7 +17213,6 @@ A replaceable reflector column (solid graphite).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -18092,15 +17223,10 @@ A replaceable reflector column (solid graphite).
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ColumnRole { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18114,7 +17240,6 @@ A replaceable reflector column (solid graphite).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -18142,7 +17267,6 @@ A replaceable reflector column (solid graphite).
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -18152,7 +17276,7 @@ A replaceable reflector column (solid graphite).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ColumnRole) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -18189,7 +17313,7 @@ A replaceable reflector column (solid graphite).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18203,11 +17327,6 @@ A replaceable reflector column (solid graphite).
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -18254,7 +17373,6 @@ pub struct ColumnSpec {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -18265,15 +17383,10 @@ pub struct ColumnSpec {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ColumnSpec { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18287,7 +17400,6 @@ pub struct ColumnSpec {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -18300,7 +17412,6 @@ pub struct ColumnSpec {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -18310,7 +17421,7 @@ pub struct ColumnSpec {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ColumnSpec) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -18347,7 +17458,7 @@ pub struct ColumnSpec {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18361,11 +17472,6 @@ pub struct ColumnSpec {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -18809,15 +17915,10 @@ pub struct HttrDataConfig {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HttrDataConfig { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18835,7 +17936,6 @@ pub struct HttrDataConfig {
     fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -18848,7 +17948,6 @@ pub struct HttrDataConfig {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -18889,7 +17988,7 @@ pub struct HttrDataConfig {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18903,11 +18002,6 @@ pub struct HttrDataConfig {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -18944,7 +18038,6 @@ pub struct ReferenceK {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -18955,15 +18048,10 @@ pub struct ReferenceK {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReferenceK { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18977,7 +18065,6 @@ pub struct ReferenceK {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -18990,7 +18077,6 @@ pub struct ReferenceK {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -19000,7 +18086,7 @@ pub struct ReferenceK {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ReferenceK) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -19037,7 +18123,7 @@ pub struct ReferenceK {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19051,11 +18137,6 @@ pub struct ReferenceK {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -19485,11 +18566,6 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Debug**
   - ```rust
@@ -19501,7 +18577,6 @@ Fields:
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -19523,7 +18598,6 @@ Fields:
     fn from(source: MgxsError) -> Self { /* ... */ }
     ```
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -19560,7 +18634,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19574,11 +18648,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -19656,15 +18725,10 @@ pub struct GroupStructure {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GroupStructure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19679,13 +18743,12 @@ pub struct GroupStructure {
 
 - **Deserialize**
   - ```rust
-    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private229::Result<Self, <__D as >::Error>
 where
     __D: _serde::Deserializer<''de> { /* ... */ }
     ```
 
 - **DeserializeOwned**
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -19702,7 +18765,6 @@ where
     fn from(g: GroupStructure) -> Self { /* ... */ }
     ```
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -19712,7 +18774,7 @@ where
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GroupStructure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -19738,7 +18800,7 @@ where
 - **Send**
 - **Serialize**
   - ```rust
-    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private229::Result<<__S as >::Ok, <__S as >::Error>
 where
     __S: _serde::Serializer { /* ... */ }
     ```
@@ -19756,7 +18818,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
   - ```rust
@@ -19774,11 +18836,6 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -19875,15 +18932,10 @@ pub struct ZoneMgxs {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ZoneMgxs { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19898,13 +18950,12 @@ pub struct ZoneMgxs {
 
 - **Deserialize**
   - ```rust
-    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private229::Result<Self, <__D as >::Error>
 where
     __D: _serde::Deserializer<''de> { /* ... */ }
     ```
 
 - **DeserializeOwned**
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -19917,7 +18968,6 @@ where
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -19927,7 +18977,7 @@ where
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ZoneMgxs) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -19953,7 +19003,7 @@ where
 - **Send**
 - **Serialize**
   - ```rust
-    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private229::Result<<__S as >::Ok, <__S as >::Error>
 where
     __S: _serde::Serializer { /* ... */ }
     ```
@@ -19971,7 +19021,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19985,11 +19035,6 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -20078,15 +19123,10 @@ pub struct ZoneMgxsSigma {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ZoneMgxsSigma { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20101,13 +19141,12 @@ pub struct ZoneMgxsSigma {
 
 - **Deserialize**
   - ```rust
-    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private229::Result<Self, <__D as >::Error>
 where
     __D: _serde::Deserializer<''de> { /* ... */ }
     ```
 
 - **DeserializeOwned**
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -20120,7 +19159,6 @@ where
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -20130,7 +19168,7 @@ where
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ZoneMgxsSigma) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -20156,7 +19194,7 @@ where
 - **Send**
 - **Serialize**
   - ```rust
-    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private229::Result<<__S as >::Ok, <__S as >::Error>
 where
     __S: _serde::Serializer { /* ... */ }
     ```
@@ -20174,7 +19212,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20188,11 +19226,6 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -20302,15 +19335,10 @@ pub struct MgxsLibrary {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MgxsLibrary { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20325,13 +19353,12 @@ pub struct MgxsLibrary {
 
 - **Deserialize**
   - ```rust
-    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private229::Result<Self, <__D as >::Error>
 where
     __D: _serde::Deserializer<''de> { /* ... */ }
     ```
 
 - **DeserializeOwned**
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -20344,7 +19371,6 @@ where
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -20354,7 +19380,7 @@ where
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MgxsLibrary) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -20380,7 +19406,7 @@ where
 - **Send**
 - **Serialize**
   - ```rust
-    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private229::Result<<__S as >::Ok, <__S as >::Error>
 where
     __S: _serde::Serializer { /* ... */ }
     ```
@@ -20398,7 +19424,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20412,11 +19438,6 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -20683,7 +19704,6 @@ Fields:
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -20694,15 +19714,10 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CaseModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20716,7 +19731,6 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -20739,7 +19753,6 @@ Fields:
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -20749,7 +19762,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CaseModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -20786,7 +19799,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20800,11 +19813,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -20876,7 +19884,6 @@ pub struct MgxsCase {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -20887,15 +19894,10 @@ pub struct MgxsCase {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MgxsCase { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20909,7 +19911,6 @@ pub struct MgxsCase {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -20922,7 +19923,6 @@ pub struct MgxsCase {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -20932,7 +19932,7 @@ pub struct MgxsCase {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MgxsCase) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -20969,7 +19969,7 @@ pub struct MgxsCase {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20983,11 +19983,6 @@ pub struct MgxsCase {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -21204,7 +20199,6 @@ Fields:
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -21215,15 +20209,10 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CellKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21239,13 +20228,12 @@ Fields:
 
 - **Deserialize**
   - ```rust
-    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private229::Result<Self, <__D as >::Error>
 where
     __D: _serde::Deserializer<''de> { /* ... */ }
     ```
 
 - **DeserializeOwned**
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -21268,7 +20256,6 @@ where
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -21278,7 +20265,7 @@ where
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CellKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -21304,7 +20291,7 @@ where
 - **Send**
 - **Serialize**
   - ```rust
-    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private229::Result<<__S as >::Ok, <__S as >::Error>
 where
     __S: _serde::Serializer { /* ... */ }
     ```
@@ -21322,7 +20309,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21336,11 +20323,6 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -21433,15 +20415,10 @@ pub struct Htr10Cell {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Htr10Cell { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21454,7 +20431,6 @@ pub struct Htr10Cell {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -21467,7 +20443,6 @@ pub struct Htr10Cell {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -21508,7 +20483,7 @@ pub struct Htr10Cell {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21522,11 +20497,6 @@ pub struct Htr10Cell {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -21607,7 +20577,6 @@ The tally structure itself, 70 groups.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -21618,15 +20587,10 @@ The tally structure itself, 70 groups.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Collapse { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21640,7 +20604,6 @@ The tally structure itself, 70 groups.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -21663,7 +20626,6 @@ The tally structure itself, 70 groups.
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -21673,7 +20635,7 @@ The tally structure itself, 70 groups.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Collapse) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -21710,7 +20672,7 @@ The tally structure itself, 70 groups.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21724,11 +20686,6 @@ The tally structure itself, 70 groups.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -21832,15 +20789,10 @@ pub struct Provenance {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Provenance { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21855,13 +20807,12 @@ pub struct Provenance {
 
 - **Deserialize**
   - ```rust
-    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private229::Result<Self, <__D as >::Error>
 where
     __D: _serde::Deserializer<''de> { /* ... */ }
     ```
 
 - **DeserializeOwned**
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -21884,7 +20835,6 @@ where
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -21894,7 +20844,7 @@ where
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Provenance) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -21920,7 +20870,7 @@ where
 - **Send**
 - **Serialize**
   - ```rust
-    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private229::Result<<__S as >::Ok, <__S as >::Error>
 where
     __S: _serde::Serializer { /* ... */ }
     ```
@@ -21938,7 +20888,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21952,11 +20902,6 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -22011,15 +20956,10 @@ pub struct PassRecord {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PassRecord { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22034,13 +20974,12 @@ pub struct PassRecord {
 
 - **Deserialize**
   - ```rust
-    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private229::Result<Self, <__D as >::Error>
 where
     __D: _serde::Deserializer<''de> { /* ... */ }
     ```
 
 - **DeserializeOwned**
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -22053,7 +20992,6 @@ where
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -22063,7 +21001,7 @@ where
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PassRecord) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -22089,7 +21027,7 @@ where
 - **Send**
 - **Serialize**
   - ```rust
-    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private229::Result<<__S as >::Ok, <__S as >::Error>
 where
     __S: _serde::Serializer { /* ... */ }
     ```
@@ -22107,7 +21045,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22121,11 +21059,6 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -22174,15 +21107,10 @@ pub struct CollapsedSummary {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CollapsedSummary { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22197,13 +21125,12 @@ pub struct CollapsedSummary {
 
 - **Deserialize**
   - ```rust
-    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private229::Result<Self, <__D as >::Error>
 where
     __D: _serde::Deserializer<''de> { /* ... */ }
     ```
 
 - **DeserializeOwned**
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -22216,7 +21143,6 @@ where
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -22226,7 +21152,7 @@ where
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CollapsedSummary) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -22252,7 +21178,7 @@ where
 - **Send**
 - **Serialize**
   - ```rust
-    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private229::Result<<__S as >::Ok, <__S as >::Error>
 where
     __S: _serde::Serializer { /* ... */ }
     ```
@@ -22270,7 +21196,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22284,11 +21210,6 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -22333,15 +21254,10 @@ pub struct Check {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Check { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22356,13 +21272,12 @@ pub struct Check {
 
 - **Deserialize**
   - ```rust
-    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private229::Result<Self, <__D as >::Error>
 where
     __D: _serde::Deserializer<''de> { /* ... */ }
     ```
 
 - **DeserializeOwned**
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -22375,7 +21290,6 @@ where
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -22385,7 +21299,7 @@ where
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Check) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -22411,7 +21325,7 @@ where
 - **Send**
 - **Serialize**
   - ```rust
-    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private229::Result<<__S as >::Ok, <__S as >::Error>
 where
     __S: _serde::Serializer { /* ... */ }
     ```
@@ -22429,7 +21343,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22443,11 +21357,6 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -22556,15 +21465,10 @@ pub struct CaseRecord {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CaseRecord { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22579,13 +21483,12 @@ pub struct CaseRecord {
 
 - **Deserialize**
   - ```rust
-    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private229::Result<Self, <__D as >::Error>
 where
     __D: _serde::Deserializer<''de> { /* ... */ }
     ```
 
 - **DeserializeOwned**
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -22598,7 +21501,6 @@ where
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -22608,7 +21510,7 @@ where
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CaseRecord) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -22634,7 +21536,7 @@ where
 - **Send**
 - **Serialize**
   - ```rust
-    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private229::Result<<__S as >::Ok, <__S as >::Error>
 where
     __S: _serde::Serializer { /* ... */ }
     ```
@@ -22652,7 +21554,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22666,11 +21568,6 @@ where
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -22762,11 +21659,6 @@ A thread count of zero.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Debug**
   - ```rust
@@ -22778,7 +21670,6 @@ A thread count of zero.
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -22786,7 +21677,7 @@ A thread count of zero.
 
 - **Error**
   - ```rust
-    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
     ```
 
 - **Freeze**
@@ -22800,7 +21691,6 @@ A thread count of zero.
     fn from(source: MgxsError) -> Self { /* ... */ }
     ```
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -22837,7 +21727,7 @@ A thread count of zero.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22851,11 +21741,6 @@ A thread count of zero.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -23079,11 +21964,6 @@ the geometry, or the tallies were filtered to the wrong materials.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Debug**
   - ```rust
@@ -23095,7 +21975,6 @@ the geometry, or the tallies were filtered to the wrong materials.
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -23113,7 +21992,6 @@ the geometry, or the tallies were filtered to the wrong materials.
     fn from(source: GenfoamXsError) -> Self { /* ... */ }
     ```
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -23150,7 +22028,7 @@ the geometry, or the tallies were filtered to the wrong materials.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23164,11 +22042,6 @@ the geometry, or the tallies were filtered to the wrong materials.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -23326,15 +22199,10 @@ pub struct BandRates {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BandRates { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23349,10 +22217,9 @@ pub struct BandRates {
 
 - **Default**
   - ```rust
-    fn default() -> BandRates { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -23365,7 +22232,6 @@ pub struct BandRates {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -23406,7 +22272,7 @@ pub struct BandRates {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23420,11 +22286,6 @@ pub struct BandRates {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -23773,11 +22634,6 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Debug**
   - ```rust
@@ -23789,7 +22645,6 @@ Fields:
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -23797,7 +22652,7 @@ Fields:
 
 - **Error**
   - ```rust
-    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
     ```
 
 - **Freeze**
@@ -23815,7 +22670,6 @@ Fields:
     fn from(source: GenfoamXsError) -> Self { /* ... */ }
     ```
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -23852,7 +22706,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23866,11 +22720,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -23915,15 +22764,10 @@ pub struct MgxsRun {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MgxsRun { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23936,7 +22780,6 @@ pub struct MgxsRun {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -23949,7 +22792,6 @@ pub struct MgxsRun {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -23990,7 +22832,7 @@ pub struct MgxsRun {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24004,11 +22846,6 @@ pub struct MgxsRun {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -24100,13 +22937,7 @@ pub struct McToGenFoam {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -24119,7 +22950,6 @@ pub struct McToGenFoam {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -24151,7 +22981,7 @@ pub struct McToGenFoam {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24165,11 +22995,6 @@ pub struct McToGenFoam {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -24297,11 +23122,6 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Debug**
   - ```rust
@@ -24313,7 +23133,6 @@ Fields:
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -24327,7 +23146,6 @@ Fields:
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -24364,7 +23182,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24378,11 +23196,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -24427,15 +23240,10 @@ pub struct Convergence {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Convergence { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24455,7 +23263,6 @@ pub struct Convergence {
     ```
     1 K and 1e-3 in `k`, capped at 20 outer iterations.
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -24468,7 +23275,6 @@ pub struct Convergence {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -24509,7 +23315,7 @@ pub struct Convergence {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24523,11 +23329,6 @@ pub struct Convergence {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -24577,15 +23378,10 @@ pub struct CoupledIteration {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CoupledIteration { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24599,7 +23395,6 @@ pub struct CoupledIteration {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -24612,7 +23407,6 @@ pub struct CoupledIteration {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -24653,7 +23447,7 @@ pub struct CoupledIteration {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24667,11 +23461,6 @@ pub struct CoupledIteration {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -24725,15 +23514,10 @@ pub struct CoupledSteadyState {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CoupledSteadyState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24746,7 +23530,6 @@ pub struct CoupledSteadyState {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -24759,7 +23542,6 @@ pub struct CoupledSteadyState {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -24800,7 +23582,7 @@ pub struct CoupledSteadyState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24814,11 +23596,6 @@ pub struct CoupledSteadyState {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -24893,13 +23670,7 @@ pub struct McGenFoamDirect {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -24912,7 +23683,6 @@ pub struct McGenFoamDirect {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -24944,7 +23714,7 @@ pub struct McGenFoamDirect {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24960,14 +23730,689 @@ pub struct McGenFoamDirect {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
-- **VZip**
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `system_coupling`
+
+# Coupling a 1-D system code to point kinetics (gh:#1084)
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+The RELAP-7 Theory Manual §8 (Fig 7; cited, not quoted) lays out a system
+code exchanging node temperatures and powers with a kinetics code. This is
+that interface for OUTRAM PARK: a 1-D loop (`tampines`, `tuas`) on one
+side, `teh-o-prke`'s point kinetics on the other, and nothing in
+`tampines` depending on either.
+
+## What it reuses
+
+- **Feedback:** GeN-Foam's [`ReactivityFeedback`] (Doppler, expansion and
+  density terms, importance-weighted) evaluated on a [`CouplingRegion`]
+  whose cells are the loop's core nodes. The loop's node temperatures are
+  written into the region's fields and the port computes the reactivity;
+  nothing is re-implemented.
+- **Kinetics:** `teh_o_prke`'s [`PointKinetics`], advanced by its backward
+  Euler step.
+- **Outer iteration:** GeN-Foam's `MultiPhysicsSolver` loop dispatches over
+  a closed `RegionModel` enum of its own region kinds, so a system code
+  cannot be added to it without that crate depending on one; the same
+  Picard pattern (repeat the step until the inter-code residual is below a
+  tolerance) is applied here, by [`LoopKineticsCoupling::coupled_step`].
+
+## The contract
+
+The thermal-hydraulic side implements [`SystemCodeSide`], a compile-time
+contract (never used as `dyn`): it reports node fields, takes node powers,
+and advances. It must be `Clone` so a Picard pass can restart the step.
+
+Each coupled step, iteration `k`:
+1. write the side's end-of-step node fields (the start state on `k = 0`)
+   into the region and evaluate `ρ = ρ_ext + ρ_fb`;
+2. advance the kinetics from the saved start by `dt` with that `ρ`
+   (backward Euler, so `ρ` is the end-of-step reactivity);
+3. restore the side, give it `P f_i` per node, advance `dt`;
+4. stop when `|P_k − P_{k−1}|/P_k < tol`.
+
+With `max_iterations = 1` this is the loose (operator-split) coupling. At
+convergence it is the fully implicit backward-Euler solution of the joint
+system, which is what the V&V compares against a monolithic solve.
+
+```rust
+pub mod system_coupling { /* ... */ }
+```
+
+### Types
+
+#### Enum `SystemCouplingError`
+
+Errors of the system coupling.
+
+```rust
+pub enum SystemCouplingError {
+    InvalidInput(String),
+    Kinetics(String),
+    Feedback(String),
+    SystemCode(String),
+    NotConverged {
+        iterations: usize,
+        residual: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `InvalidInput`
+
+Inconsistent inputs.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Kinetics`
+
+The kinetics step failed.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Feedback`
+
+The feedback evaluation failed.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `SystemCode`
+
+The system-code side failed.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NotConverged`
+
+The Picard iteration did not converge.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `iterations` | `usize` | Iterations taken. |
+| `residual` | `f64` | Last residual. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
   - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Struct `PicardControl`
+
+Picard controls for [`LoopKineticsCoupling::coupled_step`].
+
+```rust
+pub struct PicardControl {
+    pub max_iterations: usize,
+    pub tolerance: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `max_iterations` | `usize` | Iterations per step (1 = loose coupling). |
+| `tolerance` | `f64` | Relative power change at which the step is converged. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CoupledStepReport`
+
+The report of one coupled step.
+
+```rust
+pub struct CoupledStepReport {
+    pub iterations: usize,
+    pub residual: f64,
+    pub reactivity: f64,
+    pub power: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `iterations` | `usize` | Picard iterations taken. |
+| `residual` | `f64` | Last relative power change (0 after one iteration). |
+| `reactivity` | `f64` | End-of-step reactivity. |
+| `power` | `f64` | End-of-step power, W. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `LoopKineticsCoupling`
+
+Point kinetics coupled to a system code's core nodes.
+
+```rust
+pub struct LoopKineticsCoupling {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(kinetics: PointKinetics, generation_time: Time, p0: Power, node_volumes: &[f64], power_fractions: &[f64], feedback: ReactivityFeedback) -> Result<Self, SystemCouplingError> { /* ... */ }
+  ```
+  Kinetics at critical equilibrium at power `p0`, over core nodes of
+
+- ```rust
+  pub fn set_external_reactivity(self: &mut Self, rho: Ratio) { /* ... */ }
+  ```
+  Set the external (inserted) reactivity, absolute.
+
+- ```rust
+  pub fn power(self: &Self) -> Power { /* ... */ }
+  ```
+  The current power.
+
+- ```rust
+  pub fn node_powers(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  The current node powers, W.
+
+- ```rust
+  pub fn reactivity_of<S: SystemCodeSide>(self: &mut Self, side: &S) -> Result<f64, SystemCouplingError> { /* ... */ }
+  ```
+  The reactivity for `side`'s current node fields: external plus
+
+- ```rust
+  pub fn coupled_step<S: SystemCodeSide>(self: &mut Self, side: &mut S, dt: Time, control: PicardControl) -> Result<CoupledStepReport, SystemCouplingError> { /* ... */ }
+  ```
+  One coupled step of `dt` (see the module docs).
+
+- ```rust
+  pub fn kinetics(self: &Self) -> &PointKinetics { /* ... */ }
+  ```
+  The kinetics (for its constants and state).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Traits
+
+#### Trait `SystemCodeSide`
+
+What a 1-D system code offers the coupling (a compile-time contract).
+
+```rust
+pub trait SystemCodeSide: Clone {
+    /* Associated items */
+}
+```
+
+> This trait is not object-safe and cannot be used in dynamic trait objects.
+
+##### Required Items
+
+###### Required Methods
+
+- `node_field`: The value of node field `name` (e.g. `"TFuel"`, K) at every core node,
+- `advance`: Advance `dt` with `node_powers` (W) deposited at the core nodes.
+
+### Functions
+
+#### Function `node_mesh`
+
+A 1-D line mesh of `volumes.len()` cells, for a [`CouplingRegion`] whose
+cells are loop nodes.
+
+# Errors
+
+When there are no cells or a volume is not positive.
+
+```rust
+pub fn node_mesh(volumes: &[f64]) -> Result<std::sync::Arc<outram_foam_basic_lib::mesh::fv_mesh::FvMesh>, SystemCouplingError> { /* ... */ }
+```
+
 ## Module `blender_bridge`
 
 outram-blender -> outram-mc CSG bridge (`to_mc_geometry`). Moved here from
@@ -25121,15 +24566,10 @@ pub struct MaterialSpec {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MaterialSpec { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25142,7 +24582,6 @@ pub struct MaterialSpec {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -25155,7 +24594,6 @@ pub struct MaterialSpec {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -25165,7 +24603,7 @@ pub struct MaterialSpec {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MaterialSpec) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -25202,7 +24640,7 @@ pub struct MaterialSpec {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25216,11 +24654,6 @@ pub struct MaterialSpec {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -25294,11 +24727,6 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Debug**
   - ```rust
@@ -25310,7 +24738,6 @@ Fields:
     fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -25328,7 +24755,6 @@ Fields:
     fn from(e: ExportError) -> Self { /* ... */ }
     ```
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -25365,7 +24791,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25379,11 +24805,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -25450,13 +24871,7 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -25469,7 +24884,6 @@ Fields:
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -25501,7 +24915,7 @@ Fields:
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25515,11 +24929,6 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -25577,13 +24986,7 @@ pub struct McSimSetup {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -25596,7 +24999,6 @@ pub struct McSimSetup {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -25628,7 +25030,7 @@ pub struct McSimSetup {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25642,11 +25044,6 @@ pub struct McSimSetup {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -25812,6 +25209,11 @@ pub struct NeeSoon {
   ```
   Creates a Nordheim-Fuchs exact-timestepper prompt-excursion model
 
+- ```rust
+  pub fn new_loop_kinetics_coupling(self: &Self, kinetics: teh_o_prke::zero_power_prke::n_group_prke::PointKinetics, generation_time: Time, initial_power: Power, node_volumes: &[f64], power_fractions: &[f64], feedback: outram_foam_appbuilder_lib::genfoam::multi_region::ReactivityFeedback) -> Result<system_coupling::LoopKineticsCoupling, system_coupling::SystemCouplingError> { /* ... */ }
+  ```
+  Creates the coupling between a 1-D system code's core nodes and point
+
 ##### Trait Implementations
 
 - **Any**
@@ -25829,15 +25231,10 @@ pub struct NeeSoon {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NeeSoon { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25852,10 +25249,9 @@ pub struct NeeSoon {
 
 - **Default**
   - ```rust
-    fn default() -> NeeSoon { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
-- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -25868,7 +25264,6 @@ pub struct NeeSoon {
     ```
     Returns the argument unchanged.
 
-- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -25909,7 +25304,7 @@ pub struct NeeSoon {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25923,11 +25318,6 @@ pub struct NeeSoon {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**

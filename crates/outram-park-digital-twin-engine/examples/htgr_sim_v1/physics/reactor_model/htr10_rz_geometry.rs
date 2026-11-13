@@ -8,9 +8,16 @@
 //! a mesh generator, a reflector/shield thermal model) has one place to pull
 //! the benchmark's reflector geometry from, instead of re-deriving it. The
 //! *bed's own* lumped dimensions (`core_diameter`, `average_core_height`) stay
-//! in [`super::one_node`] -- that module explicitly does not model the
+//! in [`super::one_node`] -- ~~that module explicitly does not model the
 //! reflector, core barrel or vessel at all, which is exactly the geometry
-//! this module fills in.
+//! this module fills in.~~ **CORRECTED 2026-11-03** -- since 2026-09-29
+//! (gh:#395) that module's `step` solves the reflector and RPV nodes of
+//! `decay_heat_removal::CoreToRccsPath` implicitly with the bed; those
+//! nodes' conductances cite this zone map but retype its numbers rather
+//! than reading it (checked: `decay_heat_removal.rs` does not import this
+//! module). The thermal solve still does not read this module; the
+//! thermal tab (`app/thermal_tab.rs`) draws it, and one `one_node` test
+//! reads `pebble_bed_helium_volume` as a comparison value.
 //!
 //! ## Provenance -- read this before trusting the numbers
 //!

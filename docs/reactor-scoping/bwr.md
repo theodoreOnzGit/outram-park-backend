@@ -68,8 +68,8 @@ Verified this session: `outram-foam-multiphase` 67 tests pass.
 | Three-dimensional two-phase solvers with energy and phase change | `.../solvers/reacting_two_phase_euler_foam/`, `.../solvers/hrm_foam/` | Real, verification-tested |
 | **Validated two-phase choked flow** | `crates/tampines-steam-tables/.../converging_diverging_nozzles/` | Against Moody, Zaloudek and Marviken. The only genuinely *validated* two-phase physics in the workspace. Directly reusable for main-steam-isolation and relief-valve flow |
 | **Working direct-cycle secondary, roughly 70% written** | `examples/htgr_sim_v1/physics/secondary_loop.rs` | Real isentropic expansion, exhaust quality flash, condenser balance, feed pump work, lagged feedwater control. For a BWR you delete the steam generator and feed core steam straight in |
-| Turbine widget with real rotation, and generator torque balance | `crates/outram-park-digital-twin-engine/src/components/turbine.rs`, `crates/tampines-steam-tables/.../generator.rs` | Rotor spins at real angular velocity |
-| Pipe widget with **phase shading** | `crates/outram-park-digital-twin-engine/src/components/pipe.rs:127` | Already distinguishes liquid, two-phase and gas |
+| Turbine widget with real rotation, and generator torque balance | ~~`crates/outram-park-digital-twin-engine/src/components/turbine.rs`~~ `crates/bugis/src/components/turbine.rs` (moved 2026-11-02, gh:#1112; line numbers not re-checked), `crates/tampines-steam-tables/.../generator.rs` | Rotor spins at real angular velocity |
+| Pipe widget with **phase shading** | ~~`crates/outram-park-digital-twin-engine/src/components/pipe.rs:127`~~ `crates/bugis/src/components/pipe.rs:127` (moved 2026-11-02, gh:#1112; line numbers not re-checked) | Already distinguishes liquid, two-phase and gas |
 
 ### SCAFFOLD — do not count as working
 

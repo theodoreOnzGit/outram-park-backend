@@ -26,6 +26,8 @@
 //! the primary thermodynamic closure. See [`SonicFoam`] for the pressure
 //! equation and the current explicit-convection limitation.
 
+pub mod esi;
+
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;

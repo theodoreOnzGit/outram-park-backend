@@ -42,6 +42,7 @@
 use super::position::{Direction, Position};
 
 mod quadric;
+mod quartic_oqs;
 mod torus;
 #[cfg(test)]
 mod tests;
@@ -173,10 +174,67 @@ impl SurfaceKind {
     pub fn sense(&self, r: Position, u: Direction) -> bool {
         let f = self.evaluate(r);
         if f.abs() < FP_COINCIDENT {
-            let n = self.normal(r);
-            return u.u * n.u + u.v * n.v + u.w * n.w > 0.0;
+            // Upstream dots `u` with the UNNORMALISED normal (`Surface::sense`,
+            // `src/surface.cpp:118`). Normalising first can flip the sign of a
+            // grazing dot product that is zero up to round-off (gh:#1386).
+            let n = self.normal_unnormalised(r);
+            return u.u * n[0] + u.v * n[1] + u.w * n[2] > 0.0;
         }
         f > 0.0
+    }
+
+    /// The normal exactly as OpenMC's `Surface::normal` returns it (not scaled to
+    /// unit length, except for the tori, whose upstream routine normalises):
+    /// `2 (r - centre)` for spheres and cylinders, `(A, B, C)` for a general
+    /// plane, the gradient for cones and quadrics (`src/surface.cpp`, the
+    /// `*::normal` routines). [`SurfaceKind::normal`] is this, divided by its
+    /// length, for the non-torus surfaces.
+    pub fn normal_unnormalised(&self, r: Position) -> [f64; 3] {
+        match self {
+            Self::XPlane(_) => [1.0, 0.0, 0.0],
+            Self::YPlane(_) => [0.0, 1.0, 0.0],
+            Self::ZPlane(_) => [0.0, 0.0, 1.0],
+            Self::Plane(s) => [s.a, s.b, s.c],
+            Self::Sphere(s) => [2.0 * (r.x - s.x0), 2.0 * (r.y - s.y0), 2.0 * (r.z - s.z0)],
+            Self::XCylinder(s) => [0.0, 2.0 * (r.y - s.y0), 2.0 * (r.z - s.z0)],
+            Self::YCylinder(s) => [2.0 * (r.x - s.x0), 0.0, 2.0 * (r.z - s.z0)],
+            Self::ZCylinder(s) => [2.0 * (r.x - s.x0), 2.0 * (r.y - s.y0), 0.0],
+            Self::XCone(s) => [
+                -2.0 * s.r_sq * (r.x - s.x0),
+                2.0 * (r.y - s.y0),
+                2.0 * (r.z - s.z0),
+            ],
+            Self::YCone(s) => [
+                2.0 * (r.x - s.x0),
+                -2.0 * s.r_sq * (r.y - s.y0),
+                2.0 * (r.z - s.z0),
+            ],
+            Self::ZCone(s) => [
+                2.0 * (r.x - s.x0),
+                2.0 * (r.y - s.y0),
+                -2.0 * s.r_sq * (r.z - s.z0),
+            ],
+            Self::Quadric(s) => {
+                let (x, y, z) = (r.x, r.y, r.z);
+                [
+                    2.0 * s.a * x + s.d * y + s.f * z + s.g,
+                    2.0 * s.b * y + s.d * x + s.e * z + s.h,
+                    2.0 * s.c * z + s.e * y + s.f * x + s.j,
+                ]
+            }
+            Self::XTorus(s) => {
+                let n = s.normal(r);
+                [n.u, n.v, n.w]
+            }
+            Self::YTorus(s) => {
+                let n = s.normal(r);
+                [n.u, n.v, n.w]
+            }
+            Self::ZTorus(s) => {
+                let n = s.normal(r);
+                [n.u, n.v, n.w]
+            }
+        }
     }
 
     /// Smallest positive distance along ray `(r, u)` to this surface, or

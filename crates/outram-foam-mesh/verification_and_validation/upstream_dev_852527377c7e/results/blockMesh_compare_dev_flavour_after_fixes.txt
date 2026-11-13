@@ -1,0 +1,108 @@
+=== cavity
+points fnv1a: ours bfc09ba0165b42f1 upstream bfc09ba0165b42f1
+points: ours 882 upstream 882; bit-identical 882; worst |diff| 0e0 at 0
+faces: ours 1640 upstream 1640; identical loops 1640; same point set 1640; first differing face None
+owner: ours 1640 upstream 1640; equal 1640
+neighbour: ours 760 upstream 760; equal 760
+boundary: ours [("movingWall", 760, 20), ("fixedWalls", 780, 60), ("frontAndBack", 840, 800)]
+          upstream [("movingWall", 760, 20), ("fixedWalls", 780, 60), ("frontAndBack", 840, 800)]
+          equal: true
+=== T3A
+points fnv1a: ours 457203b961769620 upstream 2cdae0205111a726
+points: ours 54496 upstream 54496; bit-identical 54416; worst |diff| 5.551115123125783e-17 at 4954
+faces: ours 107707 upstream 107707; identical loops 107707; same point set 107707; first differing face None
+owner: ours 107707 upstream 107707; equal 107707
+neighbour: ours 53213 upstream 53213; equal 53213
+boundary: ours [("above", 53213, 47), ("top", 53260, 327), ("inlet", 53587, 60), ("outlet", 53647, 80), ("plate", 53727, 340), ("defaultFaces", 54067, 53640)]
+          upstream [("above", 53213, 47), ("top", 53260, 327), ("inlet", 53587, 60), ("outlet", 53647, 80), ("plate", 53727, 340), ("defaultFaces", 54067, 53640)]
+          equal: true
+=== pitzDailySteady
+points fnv1a: ours 0ce06ce8718d0416 upstream 0ce06ce8718d0416
+points: ours 25012 upstream 25012; bit-identical 25012; worst |diff| 0e0 at 0
+faces: ours 49180 upstream 49180; identical loops 49180; same point set 49180; first differing face None
+owner: ours 49180 upstream 49180; equal 49180
+neighbour: ours 24170 upstream 24170; equal 24170
+boundary: ours [("inlet", 24170, 30), ("outlet", 24200, 57), ("upperWall", 24257, 223), ("lowerWall", 24480, 250), ("frontAndBack", 24730, 24450)]
+          upstream [("inlet", 24170, 30), ("outlet", 24200, 57), ("upperWall", 24257, 223), ("lowerWall", 24480, 250), ("frontAndBack", 24730, 24450)]
+          equal: true
+=== proj_cyl
+points fnv1a: ours d0d3cd7ad736e121 upstream d0d3cd7ad736e121
+points: ours 567 upstream 567; bit-identical 567; worst |diff| 0e0 at 0
+faces: ours 1312 upstream 1312; identical loops 1312; same point set 1312; first differing face None
+owner: ours 1312 upstream 1312; equal 1312
+neighbour: ours 992 upstream 992; equal 992
+boundary: ours [("walls", 992, 320)]
+          upstream [("walls", 992, 320)]
+          equal: true
+=== proj_edges
+points fnv1a: ours a733ce51f1d6cd0f upstream a733ce51f1d6cd0f
+points: ours 7351 upstream 7351; bit-identical 7351; worst |diff| 0e0 at 0
+faces: ours 21300 upstream 21300; identical loops 21300; same point set 21300; first differing face None
+owner: ours 21300 upstream 21300; equal 21300
+neighbour: ours 20700 upstream 20700; equal 20700
+boundary: ours [("walls", 20700, 600)]
+          upstream [("walls", 20700, 600)]
+          equal: true
+=== proj_faces
+points fnv1a: ours abb3ba6e93ca39a6 upstream abb3ba6e93ca39a6
+points: ours 7351 upstream 7351; bit-identical 7351; worst |diff| 0e0 at 0
+faces: ours 21300 upstream 21300; identical loops 21300; same point set 21300; first differing face None
+owner: ours 21300 upstream 21300; equal 21300
+neighbour: ours 20700 upstream 20700; equal 20700
+boundary: ours [("walls", 20700, 600)]
+          upstream [("walls", 20700, 600)]
+          equal: true
+=== proj_two
+points fnv1a: ours cc961f0716f02692 upstream cc961f0716f02692
+points: ours 567 upstream 567; bit-identical 567; worst |diff| 0e0 at 0
+faces: ours 1312 upstream 1312; identical loops 1312; same point set 1312; first differing face None
+owner: ours 1312 upstream 1312; equal 1312
+neighbour: ours 992 upstream 992; equal 992
+boundary: ours [("walls", 992, 320)]
+          upstream [("walls", 992, 320)]
+          equal: true
+=== proj_vertex
+points fnv1a: ours 81d60ecae0a68c88 upstream 81d60ecae0a68c88
+points: ours 210 upstream 210; bit-identical 210; worst |diff| 0e0 at 0
+faces: ours 434 upstream 434; identical loops 434; same point set 434; first differing face None
+owner: ours 434 upstream 434; equal 434
+neighbour: ours 286 upstream 286; equal 286
+boundary: ours [("walls", 286, 148)]
+          upstream [("walls", 286, 148)]
+          equal: true
+=== sweep_sphere
+points fnv1a: ours c66ce4e5f190de53 upstream b21561f6557af09b
+points: ours 1331 upstream 1331; bit-identical 1289; worst |diff| 4.440892098500626e-16 at 568
+faces: ours 3300 upstream 3300; identical loops 3300; same point set 3300; first differing face None
+owner: ours 3300 upstream 3300; equal 3300
+neighbour: ours 2700 upstream 2700; equal 2700
+boundary: ours [("walls", 2700, 600)]
+          upstream [("walls", 2700, 600)]
+          equal: true
+=== sweep_torus_major
+points fnv1a: ours beb91bc2ae7f59a7 upstream beb91bc2ae7f59a7
+points: ours 637 upstream 637; bit-identical 637; worst |diff| 0e0 at 0
+faces: ours 1476 upstream 1476; identical loops 1476; same point set 1476; first differing face None
+owner: ours 1476 upstream 1476; equal 1476
+neighbour: ours 1116 upstream 1116; equal 1116
+boundary: ours [("walls", 1116, 360)]
+          upstream [("walls", 1116, 360)]
+          equal: true
+=== sweep_torus_minor
+points fnv1a: ours 8a7758546c8ef342 upstream 4e2c8df34da90e66
+points: ours 637 upstream 637; bit-identical 633; worst |diff| 1.1102230246251565e-16 at 259
+faces: ours 1476 upstream 1476; identical loops 1476; same point set 1476; first differing face None
+owner: ours 1476 upstream 1476; equal 1476
+neighbour: ours 1116 upstream 1116; equal 1116
+boundary: ours [("walls", 1116, 360)]
+          upstream [("walls", 1116, 360)]
+          equal: true
+=== sweep_torus_minor_wrong
+points fnv1a: ours b720b2bc0527fc1f upstream b720b2bc0527fc1f
+points: ours 637 upstream 637; bit-identical 637; worst |diff| 0e0 at 0
+faces: ours 1476 upstream 1476; identical loops 1476; same point set 1476; first differing face None
+owner: ours 1476 upstream 1476; equal 1476
+neighbour: ours 1116 upstream 1116; equal 1116
+boundary: ours [("walls", 1116, 360)]
+          upstream [("walls", 1116, 360)]
+          equal: true

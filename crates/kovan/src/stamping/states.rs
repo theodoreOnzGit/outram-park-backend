@@ -12,11 +12,13 @@
 //! |---|---|
 //! | `head` | `git rev-parse HEAD` |
 //! | `cargo_lock` | `sha256:` of `Cargo.lock` in the working tree |
+//! | `lock_fingerprints` | per-crate dependency fingerprints ([`kovan_common::review::lock_scope`], #1048) of the working tree's `Cargo.lock` and of each lock a review or `[test_run]` recorded, read with `git show <commit>:Cargo.lock` and kept only when it hashes to the recorded value |
 //! | `stamps[..].added_in` | the newest commit whose diff changes the number of occurrences of the stamp's signature value in its `review.md` (`git log -1 -S<value>`), taken only when `HEAD`'s `review.md` holds it (else not committed); `after_certified` is "not the certified commit and a descendant of it" (`git merge-base --is-ancestor`); `certified_in_history` is "the certified commit is an ancestor of `HEAD`" (the same command against `HEAD`; false after a squash or rebase, and in a shallow clone, #838); the trailer check is [`agent_trailer`] on its message |
 //! | `stamps[..].hash_at_commit` | the function at the review's recorded `path`, re-hashed from `git show <commit>:<file>` with the same `syn` hasher |
 //! | `stamps[..].carried_forward` | only when the certified commit is not in `HEAD`'s history: the stamp's chain through the verified `kovan_carry_forward/` records ([`super::carry_forward`], #838, #1018), when it ends in a commit in history. Then `certified_in_history` is true, `hash_at_commit`, the permalink and (when the original commit is not in this clone) `tests_at_review` are read at that effective key, and `reviewed_commit_time` stays the original commit's (`None` when absent: the #783 check is not checkable) |
 //! | `stamps[..].tests_at_review` | `reached_by` of the function in the folder's `kovan.toml` **as committed at the review commit**, and for each test the messages of the commits up to it that touched the test's file (file-level: coarser than the function, so an agent commit anywhere in the file counts, the conservative side) |
 //! | `hashes_at_test_run` | every function of a folder with `[test_run]`, re-hashed at the run's commit |
+//! | `hashes_at_targeted_run` | the same for `[targeted_run]` (GitHub #1052) |
 //! | `code_authors` | for reviewed functions only: `git blame` author e-mails of the function's current lines, plus the reviewer ids they map to (the same e-mail, or `github:<user>` for a `users.noreply.github.com` address; matched case-insensitively against the registry) |
 //! | `previous_root` | `HEAD`'s `kovan_root.toml` when the working copy differs from it, else the version before the last commit that changed it |
 //! | `deleted_in`, `publish_records`, `tag_commits` | left empty: deleted functions show without a deleting commit, there is no #773 record yet, and tags show as unchecked (offline) |
@@ -46,14 +48,16 @@
 //! in git (unverified, "no git facts"); with signatures enforced it would be
 //! unverified anyway.
 
-use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use kovan_common::call_graph::split::{StampState as WebStamp, StampVerdict};
 use kovan_common::review::carry_forward::CarryForward;
 use kovan_common::review::engine::{
     evaluate, CarriedForward, ConceptAreas, Evaluation, FolderReviews, GitFacts, ReviewKey,
-    SignaturePolicy, StampCommit, StampFacts, StampState, TestsAtReview, UnverifiedReason,
+    same_deps, SignaturePolicy, StampCommit, StampFacts, StampState, TestsAtReview,
+    UnverifiedReason,
 };
 use kovan_common::review::hash::{hash_all, HashedFn};
 use kovan_common::review::index::FolderIndex;
@@ -93,14 +97,23 @@ pub(crate) fn fn_at(git: &mut GitBatch, rev: &str, file: &str, qual: &str) -> Op
         git.files.insert(key.clone(), parsed);
     }
     let fns = git.files.get(&key)?.as_ref()?;
+    pick(fns.iter().map(|h| h.entry.qualname()), qual).map(|i| fns[i].clone())
+}
+
+/// Which of a file's items (their qualified names, in file order) `qual`
+/// names: the one with that name, or the `#k`-th of several (the call
+/// graph's rule). Shared by [`fn_at`] and the kept test-run hashes
+/// ([`super::hash_store`]), so the two cannot choose differently.
+pub(crate) fn pick(names: impl Iterator<Item = String>, qual: &str) -> Option<usize> {
     let (base, k) = split_qual(qual);
-    let same: Vec<&HashedFn> = fns
-        .iter()
-        .filter(|h| h.entry.qualname().split_whitespace().collect::<String>() == base)
+    let same: Vec<usize> = names
+        .enumerate()
+        .filter(|(_, n)| n.split_whitespace().collect::<String>() == base)
+        .map(|(i, _)| i)
         .collect();
     match (k, same.as_slice()) {
-        (None, [one]) => Some((*one).clone()),
-        (Some(k), many) if k >= 1 && many.len() > 1 => many.get(k - 1).map(|h| (*h).clone()),
+        (None, [one]) => Some(*one),
+        (Some(k), many) if k >= 1 && many.len() > 1 => many.get(k - 1).copied(),
         _ => None,
     }
 }
@@ -119,25 +132,20 @@ fn log_messages(root: &Path, rev: &str, file: &str) -> Vec<String> {
 }
 
 /// A full commit id: what it names never changes, so what git says about
-/// it can be kept for the life of the process.
+/// it can be kept ~~for the life of the process~~ across runs
+/// ([`super::message_store`]).
 fn is_full_sha(rev: &str) -> bool {
     rev.len() == 40 && rev.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
-type KeptMessages = std::collections::HashMap<(std::path::PathBuf, String, String), Vec<String>>;
-
-/// Messages kept across calls, for full commit ids only (GitHub #856).
-fn kept_messages() -> &'static std::sync::Mutex<KeptMessages> {
-    static KEPT: std::sync::OnceLock<std::sync::Mutex<KeptMessages>> = std::sync::OnceLock::new();
-    KEPT.get_or_init(Default::default)
-}
 
 /// Fill `cache` with the messages of the commits up to `rev` that touched
 /// each of `files`. One `git log` per file, as before (the history of each
 /// file is simplified on its own, which one log over all of them would not
 /// reproduce); what is new (#856) is that the logs run side by side, two
-/// cores left free, and that the answer for a full commit id is kept for
-/// the life of the process. Measured 2026-10-13 on this workspace: the
+/// cores left free, and that the answer for a full commit id is kept ~~for
+/// the life of the process~~ on disk across runs (2026-11-03,
+/// [`super::message_store`]). Measured 2026-10-13 on this workspace: the
 /// reaching tests of one reviewed function took 1.08 s one after another.
 fn fetch_messages(cache: &mut MessageCache, root: &Path, rev: &str, files: &BTreeSet<String>) {
     let keep = is_full_sha(rev);
@@ -146,9 +154,7 @@ fn fetch_messages(cache: &mut MessageCache, root: &Path, rev: &str, files: &BTre
         if cache.contains_key(&(rev.to_string(), f.clone())) {
             continue;
         }
-        let kept = keep
-            .then(|| kept_messages().lock().ok()?.get(&(root.to_path_buf(), rev.to_string(), f.clone())).cloned())
-            .flatten();
+        let kept = keep.then(|| super::message_store::kept(root, rev, f)).flatten();
         match kept {
             Some(m) => {
                 cache.insert((rev.to_string(), f.clone()), m);
@@ -172,9 +178,7 @@ fn fetch_messages(cache: &mut MessageCache, root: &Path, rev: &str, files: &BTre
     });
     for (f, m) in got {
         if keep {
-            if let Ok(mut k) = kept_messages().lock() {
-                k.insert((root.to_path_buf(), rev.to_string(), f.clone()), m.clone());
-            }
+            super::message_store::keep(root, rev, &f, m.clone());
         }
         cache.insert((rev.to_string(), f), m);
     }
@@ -196,15 +200,13 @@ pub(crate) fn tests_at(
     id: &str,
     cache: &mut MessageCache,
 ) -> Option<TestsAtReview> {
-    let text = git.show(commit, &join(dir, KOVAN_TOML))?;
+    let reached_by = reached_by_at(git, commit, dir)?.get(id)?.clone();
     let root = git.root();
-    let idx = FolderIndex::parse(&text).ok()?;
-    let f = idx.functions().find(|(_, f)| f.id == id)?.1.clone();
     let test_files: BTreeSet<String> =
-        f.reached_by.iter().filter_map(|t| t.split_once(".rs::").map(|(file, _)| format!("{file}.rs"))).collect();
+        reached_by.iter().filter_map(|t| t.split_once(".rs::").map(|(file, _)| format!("{file}.rs"))).collect();
     fetch_messages(cache, root, commit, &test_files);
     let mut commit_messages = BTreeMap::new();
-    for t in &f.reached_by {
+    for t in &reached_by {
         if let Some((file, _)) = t.split_once(".rs::") {
             commit_messages.insert(
                 t.clone(),
@@ -213,9 +215,76 @@ pub(crate) fn tests_at(
         }
     }
     Some(TestsAtReview {
-        reached_by: f.reached_by,
+        reached_by,
         commit_messages,
     })
+}
+
+/// Each function's `reached_by` in `dir`'s `kovan.toml` as committed at
+/// `commit`; `None` when it was not committed or does not parse.
+///
+/// Parsed once per process for a full commit id (#1198: re-parsing it for
+/// every stamp was 1.55 s of each refresh, 2026-11-04), since what a fixed
+/// commit holds never changes; asked afresh for any other revision.
+/// [`prefetch_reached_by`] parses a refresh's files side by side first.
+type ReachedBy = Arc<HashMap<String, Vec<String>>>;
+type ReachedByKey = (PathBuf, String, String);
+fn kept_reached_by() -> &'static Mutex<HashMap<ReachedByKey, Option<ReachedBy>>> {
+    static KEPT: OnceLock<Mutex<HashMap<ReachedByKey, Option<ReachedBy>>>> = OnceLock::new();
+    KEPT.get_or_init(Default::default)
+}
+
+fn parse_reached_by(text: &str) -> Option<ReachedBy> {
+    let idx = FolderIndex::parse(text).ok()?;
+    let mut m = HashMap::new();
+    for (_, f) in idx.functions() {
+        // The first entry with an id, as a search through the file finds.
+        m.entry(f.id.clone()).or_insert_with(|| f.reached_by.clone());
+    }
+    Some(Arc::new(m))
+}
+
+fn reached_by_at(git: &mut GitBatch, commit: &str, dir: &str) -> Option<ReachedBy> {
+    let key = (git.root().to_path_buf(), commit.to_string(), dir.to_string());
+    let keep = is_full_sha(commit);
+    if keep {
+        if let Some(v) = kept_reached_by().lock().ok().and_then(|k| k.get(&key).cloned()) {
+            return v;
+        }
+    }
+    let parsed = git.show(commit, &join(dir, KOVAN_TOML)).and_then(|t| parse_reached_by(&t));
+    if keep {
+        if let Ok(mut k) = kept_reached_by().lock() {
+            k.insert(key, parsed.clone());
+        }
+    }
+    parsed
+}
+
+/// Parse the committed `kovan.toml`s of `pairs` (commit, folder) not yet
+/// kept, side by side, and keep them ([`reached_by_at`]): the same parse,
+/// so the same answers (#1198).
+fn prefetch_reached_by(git: &mut GitBatch, pairs: &BTreeSet<(String, String)>) {
+    let root = git.root().to_path_buf();
+    let mut todo = Vec::new();
+    for (commit, dir) in pairs.iter().filter(|(c, _)| is_full_sha(c)) {
+        let key = (root.clone(), commit.clone(), dir.clone());
+        if kept_reached_by().lock().is_ok_and(|k| k.contains_key(&key)) {
+            continue;
+        }
+        todo.push((key, git.show(commit, &join(dir, KOVAN_TOML))));
+    }
+    let parsed = super::git_batch::side_by_side(todo, |(_, text)| text.as_deref().and_then(parse_reached_by));
+    if let Ok(mut k) = kept_reached_by().lock() {
+        for ((key, _), v) in parsed {
+            k.insert(key, v);
+        }
+    }
+}
+
+/// The folder of a `<file>.rs::<qual>` path.
+fn dir_of(p: &str) -> String {
+    p.split_once(".rs::").map_or(String::new(), |(f, _)| f.rsplit_once('/').map_or(String::new(), |(d, _)| d.to_string()))
 }
 
 /// The stamp's pickaxe string: its signature value.
@@ -350,6 +419,84 @@ fn previous_root(git: &mut GitBatch) -> Option<ReviewRoot> {
     ReviewRoot::parse(&text).ok()
 }
 
+/// Lock hash -> crate -> dependency fingerprint (#1048) for the current
+/// `Cargo.lock` and every other lock a review or `[test_run]` recorded,
+/// read at that entry's commit. A commit's lock is used only when it
+/// hashes to the recorded value (a review made over an uncommitted lock
+/// does not), and each recorded hash is resolved once.
+fn lock_fingerprints(
+    git: &mut GitBatch,
+    ws: &Workspace,
+    current: &str,
+) -> BTreeMap<String, BTreeMap<String, String>> {
+    use kovan_common::review::lock_scope::crate_fingerprints;
+    let mut out = BTreeMap::new();
+    let now = std::fs::read(git.root().join("Cargo.lock")).ok();
+    if let Some(fp) = now.and_then(|b| crate_fingerprints(&String::from_utf8_lossy(&b))) {
+        out.insert(current.to_string(), fp);
+    }
+    // (recorded hash, commit) pairs, deduplicated.
+    let mut wanted: BTreeSet<(String, String)> = BTreeSet::new();
+    for idx in &ws.indexes {
+        if let Some(run) = &idx.test_run {
+            wanted.insert((run.cargo_lock.clone(), run.commit.clone()));
+        }
+    }
+    for m in ws.reviews.values() {
+        for r in m.doc.reviews() {
+            if let Some(l) = &r.review.cargo_lock {
+                wanted.insert((l.clone(), r.review.commit.clone()));
+            }
+        }
+    }
+    for (lock, commit) in wanted {
+        if out.contains_key(&lock) {
+            continue;
+        }
+        let Some(text) = git.show(&commit, "Cargo.lock") else { continue };
+        if super::lock_bytes_hash(text.as_bytes()) != lock {
+            continue;
+        }
+        if let Some(fp) = crate_fingerprints(&text) {
+            out.insert(lock, fp);
+        }
+    }
+    out
+}
+
+/// The crates a test run is due for (GitHub #1049, Code Review's "Test
+/// changed crates"): every crate with a code folder whose `[test_run]` is
+/// missing, not the full suite, or at a lock where the crate's dependency
+/// closure differs from now ([`same_deps`]). Reads git for the old locks;
+/// call it off the UI thread.
+pub fn crates_needing_test(root: &Path) -> Result<Vec<String>, String> {
+    let ws = load_workspace(root)?;
+    let mut git = GitBatch::new(root);
+    let current = cargo_lock_hash(root).unwrap_or_default();
+    let facts = GitFacts {
+        lock_fingerprints: lock_fingerprints(&mut git, &ws, &current),
+        cargo_lock: current,
+        ..GitFacts::default()
+    };
+    Ok(needing_test(&ws.indexes, &facts))
+}
+
+/// [`crates_needing_test`]'s decision over the indexes, sorted.
+pub(crate) fn needing_test(indexes: &[FolderIndex], git: &GitFacts) -> Vec<String> {
+    use kovan_common::review::index::Suite;
+    let mut out: BTreeSet<String> = BTreeSet::new();
+    for idx in indexes {
+        let due = match &idx.test_run {
+            None => true,
+            Some(r) => r.suite != Suite::Full || !same_deps(&idx.krate, &r.cargo_lock, git),
+        };
+        if due {
+            out.insert(idx.krate.clone());
+        }
+    }
+    out.into_iter().collect()
+}
+
 /// The workspace's [`GitFacts`] (module doc).
 pub fn git_facts(root: &Path, ws: &Workspace) -> GitFacts {
     git_facts_in(&mut GitBatch::new(root), ws)
@@ -367,13 +514,33 @@ pub(crate) fn git_facts_in(git: &mut GitBatch, ws: &Workspace) -> GitFacts {
         previous_root: previous_root(git),
         ..GitFacts::default()
     };
+    g.lock_fingerprints = lock_fingerprints(git, ws, &g.cargo_lock);
+    // Each function's hash at its folder's last test run, and at the
+    // targeted run (GitHub #1052) for the functions all of whose reaching
+    // tests it targeted (`targeted_verdict`): no extra work for the rest.
+    // Kept by blob and parsed in parallel (#1198, [`super::hash_store`]).
+    let covered = |run: &kovan_common::review::index::TestRun, f: &kovan_common::review::index::FunctionIndex| {
+        !f.reached_by.is_empty() && f.reached_by.iter().all(|t| run.targets.contains(t))
+    };
+    let mut wanted = BTreeSet::new();
     for idx in &ws.indexes {
-        if let Some(run) = &idx.test_run {
-            for (file, f) in idx.functions() {
-                if let Some(h) = fn_at(git, &run.commit, &idx.file_path(file), &f.qual)
-                {
-                    g.hashes_at_test_run.insert(f.id.clone(), h.hashes.hash);
-                }
+        for (file, f) in idx.functions() {
+            for run in [idx.test_run.as_ref(), idx.targeted_run.as_ref().filter(|r| covered(r, f))].into_iter().flatten() {
+                wanted.insert((run.commit.clone(), idx.file_path(file)));
+            }
+        }
+    }
+    let items = super::hash_store::items_at(git, &wanted);
+    let hash_at = |run: &kovan_common::review::index::TestRun, path: String, qual: &str| {
+        items.get(&(run.commit.clone(), path)).and_then(|i| super::hash_store::hash_of(i, qual))
+    };
+    for idx in &ws.indexes {
+        for (file, f) in idx.functions() {
+            if let Some(h) = idx.test_run.as_ref().and_then(|run| hash_at(run, idx.file_path(file), &f.qual)) {
+                g.hashes_at_test_run.insert(f.id.clone(), h);
+            }
+            if let Some(h) = idx.targeted_run.as_ref().filter(|r| covered(r, f)).and_then(|run| hash_at(run, idx.file_path(file), &f.qual)) {
+                g.hashes_at_targeted_run.insert(f.id.clone(), h);
             }
         }
     }
@@ -394,6 +561,21 @@ pub(crate) fn git_facts_in(git: &mut GitBatch, ws: &Workspace) -> GitFacts {
         .collect();
     // Reviewed function ranges by file, blamed together after the loop.
     let mut blames: BTreeMap<String, Vec<(String, [u32; 2])>> = BTreeMap::new();
+    // The logs `added_in` reads, run side by side first (#1198).
+    let signed: BTreeSet<String> = ws
+        .reviews
+        .iter()
+        .filter(|(_, m)| m.doc.reviews().any(|r| needle(r).is_some_and(|n| !n.is_empty())))
+        .map(|(dir, _)| join(dir, REVIEW_MD))
+        .collect();
+    git.prefetch_file_logs(&signed);
+    // The committed `kovan.toml`s `tests_at` reads, parsed side by side.
+    let at_review: BTreeSet<(String, String)> = ws
+        .reviews
+        .values()
+        .flat_map(|m| m.doc.reviews().map(|r| (r.review.commit.clone(), dir_of(&certified_path(r)))).collect::<Vec<_>>())
+        .collect();
+    prefetch_reached_by(git, &at_review);
     for (dir, m) in &ws.reviews {
         let review_md = join(dir, REVIEW_MD);
         for r in m.doc.reviews() {
@@ -408,10 +590,6 @@ pub(crate) fn git_facts_in(git: &mut GitBatch, ws: &Workspace) -> GitFacts {
             let at = path.split_once(".rs::").and_then(|(file, qual)| {
                 fn_at(git, &key, &format!("{file}.rs"), qual)
             });
-            let dir_of = |p: &str| {
-                p.split_once(".rs::")
-                    .map_or(String::new(), |(f, _)| f.rsplit_once('/').map_or(String::new(), |(d, _)| d.to_string()))
-            };
             // The tests at the original commit when this clone holds it,
             // else at the effective key.
             let tests_at_review =
@@ -448,8 +626,10 @@ pub(crate) fn git_facts_in(git: &mut GitBatch, ws: &Workspace) -> GitFacts {
     }
     // `git blame` author e-mails of each reviewed function's current lines:
     // one `blame` per file (#1023).
+    let ranges_of = |wanted: &Vec<(String, [u32; 2])>| -> BTreeSet<[u32; 2]> { wanted.iter().map(|(_, l)| *l).collect() };
+    git.prefetch_blames(&blames.iter().map(|(f, w)| (f.clone(), ranges_of(w))).collect());
     for (file, wanted) in &blames {
-        let ranges: BTreeSet<[u32; 2]> = wanted.iter().map(|(_, l)| *l).collect();
+        let ranges = ranges_of(wanted);
         let mails = git.blame(file, &ranges);
         for (id, lines) in wanted {
             let ids: BTreeSet<String> = mails
@@ -461,6 +641,11 @@ pub(crate) fn git_facts_in(git: &mut GitBatch, ws: &Workspace) -> GitFacts {
             g.code_authors.entry(id.clone()).or_default().extend(ids);
         }
     }
+    // Keep the new test commit messages for the next run. A failed write
+    // costs the next run time, never a different answer (module doc of
+    // `message_store`), so it is not an error of the refresh.
+    let _ = super::message_store::save(root);
+    let _ = super::hash_store::save(root);
     g
 }
 
@@ -692,7 +877,7 @@ fn describe(s: &StampState) -> String {
         StampState::Invalid(why) => format!("invalid: {why:?}"),
         StampState::Moved { to, .. } => format!("moved to {}::{}", to.file, to.qual),
         StampState::PendingWorkspaceTest { .. } => {
-            "pending a full workspace test at the new Cargo.lock".into()
+            "pending a test run: this crate's dependencies changed in Cargo.lock".into()
         }
         other => other.kind().label().to_string(),
     }
@@ -765,4 +950,85 @@ pub fn stamp_states_timed(root: &Path) -> Result<(Vec<WebStamp>, RefreshTimings)
     t.total = start.elapsed();
     t.git_spawns = super::git::spawns().saturating_sub(spawned);
     Ok((out, t))
+}
+
+#[cfg(test)]
+mod message_store_tests {
+    use super::*;
+
+    /// Methodology (2026-11-03): a throwaway repository where `t.rs` is
+    /// changed by a commit with the agent trailer and a human one. The messages
+    /// up to HEAD for `t.rs` are asked once (from git, then saved); the
+    /// process's copy is dropped, as a new kovan run starts, and they are
+    /// asked again. Pass: the second answer equals the first and equals
+    /// `git log` itself, and it starts no `git` process.
+    #[test]
+    fn kept_messages_survive_a_restart_and_match_git() {
+        let d = tempfile::tempdir().unwrap();
+        let p = d.path();
+        let run = |a: &[&str]| git::git(p, a).unwrap();
+        run(&["init", "-q", "-b", "main"]);
+        run(&["config", "user.email", "t@example.org"]);
+        run(&["config", "user.name", "T"]);
+        run(&["config", "commit.gpgsign", "false"]);
+        for (text, msg) in [("1", "add t\n\nCo-Authored-By: Claude <noreply@anthropic.com>"), ("2", "edit t by hand")] {
+            std::fs::write(p.join("t.rs"), text).unwrap();
+            run(&["add", "-A"]);
+            run(&["commit", "-q", "-m", msg]);
+        }
+        let head = run(&["rev-parse", "HEAD"]).trim().to_string();
+        let first = messages(&mut MessageCache::new(), p, &head, "t.rs");
+        assert_eq!(first, log_messages(p, &head, "t.rs"));
+        assert_eq!(first.len(), 2);
+        assert!(first.iter().any(|m| agent_trailer(m).0), "{first:?}");
+        super::super::message_store::save(p).unwrap();
+        super::super::message_store::forget(p);
+        // Counted on this thread: other tests' git calls run beside it.
+        let spawned = git::spawns_on_this_thread();
+        let again = messages(&mut MessageCache::new(), p, &head, "t.rs");
+        assert_eq!(git::spawns_on_this_thread(), spawned, "read from the kept file, not git");
+        assert_eq!(again, first);
+    }
+}
+
+#[cfg(test)]
+mod needing_test_tests {
+    use super::*;
+    use kovan_common::review::index::{Suite, TestRun};
+
+    /// Methodology (#1049): four crates — no run, a quick run, a full run
+    /// at a lock where the crate's dependencies are the same as now, and
+    /// one where they differ. Pass: all but the unchanged crate are due.
+    #[test]
+    fn crates_due_a_test_run() {
+        let h = |c: char| format!("sha256:{}", c.to_string().repeat(64));
+        let with = |krate: &str, run: Option<(Suite, char)>| {
+            let mut i = FolderIndex::new(krate, &format!("crates/{krate}/src"));
+            i.test_run = run.map(|(suite, l)| TestRun {
+                commit: "c".repeat(40),
+                cargo_lock: h(l),
+                suite,
+                passed: Vec::new(),
+                failed: Vec::new(),
+                edited: Vec::new(),
+                targets: Vec::new(),
+            });
+            i
+        };
+        let idx = [
+            with("none", None),
+            with("quick", Some((Suite::Quick, '2'))),
+            with("same", Some((Suite::Full, '1'))),
+            with("moved", Some((Suite::Full, '1'))),
+        ];
+        let fp = |same: &str, moved: &str| {
+            BTreeMap::from([("same".to_string(), same.to_string()), ("moved".to_string(), moved.to_string())])
+        };
+        let git = GitFacts {
+            cargo_lock: h('2'),
+            lock_fingerprints: BTreeMap::from([(h('1'), fp("s", "m0")), (h('2'), fp("s", "m1"))]),
+            ..GitFacts::default()
+        };
+        assert_eq!(needing_test(&idx, &git), ["moved", "none", "quick"]);
+    }
 }

@@ -128,14 +128,11 @@ impl DecayLibrary {
             109 => self.meitnerium_data.clone(),
             110 => self.darmstadtium_data.clone(),
             111 => self.roentgenium_data.clone(),
-            112 => todo!("copernicium::get_copernicium_xml_serde_data() not available yet"),
-            113 => todo!("nihonium::get_nihonium_xml_serde_data() not available yet"),
-            114 => todo!("flerovium::get_flerovium_xml_serde_data() not available yet"),
-            115 => todo!("moscovium::get_moscovium_xml_serde_data() not available yet"),
-            116 => todo!("livermorium::get_livermorium_xml_serde_data() not available yet"),
-            117 => todo!("tennessine::get_tennessine_xml_serde_data() not available yet"),
-            118 => todo!("oganesson::get_oganesson_xml_serde_data() not available yet"),
-            _ => todo!("proton number supplied is invalid or 0 (neutron)"),
+            // Copernicium (Z = 112) and heavier have no bundled decay data,
+            // and Z = 0 (a free neutron) is not an element: no data, so
+            // `None`, as the lesson page (decay-data.md) has always said.
+            // These arms were `todo!()` until 2026-11-10 (gh:#538).
+            _ => return None,
         };
 
         // from this I need to index and match the nuclide to its

@@ -33,6 +33,7 @@ fn context(answers: BTreeMap<String, String>) -> StampContext {
         restamp: false,
         previous_comments: String::new(),
         hash: String::new(),
+        tentative_on: Vec::new(),
         no_concept: None,
         suggested_architecture: None,
         concept: None,

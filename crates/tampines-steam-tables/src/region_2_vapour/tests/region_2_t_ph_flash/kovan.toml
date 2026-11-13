@@ -2,6 +2,19 @@ schema_version = 1
 kind = "code_folder"
 crate = "tampines-steam-tables"
 dir = "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_t_ph_flash"
+test_ids = [
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_t_ph_flash/boundary_tests_2b2c.rs::boundary_2b2c_enthalpy",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_t_ph_flash/boundary_tests_2b2c.rs::boundary_2b2c_pressure",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_t_ph_flash/mod.rs::subregion_2a_t_ph_test_1",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_t_ph_flash/mod.rs::subregion_2a_t_ph_test_2",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_t_ph_flash/mod.rs::subregion_2a_t_ph_test_3",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_t_ph_flash/mod.rs::subregion_2b_t_ph_test_1",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_t_ph_flash/mod.rs::subregion_2b_t_ph_test_2",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_t_ph_flash/mod.rs::subregion_2b_t_ph_test_3",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_t_ph_flash/mod.rs::subregion_2c_t_ph_test_1",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_t_ph_flash/mod.rs::subregion_2c_t_ph_test_2",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_t_ph_flash/mod.rs::subregion_2c_t_ph_test_3",
+]
 
 [module."boundary_tests_2b2c.rs"]
 path = "crate::region_2_vapour::tests::region_2_t_ph_flash::boundary_tests_2b2c"
@@ -151,3 +164,22 @@ hash = "sha256:afe0245e1595de3761fd6ae6063d507a6f6de09d3cbd075ac11f14e749697c44"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:91bd6898a9d1161d"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+]
+failed = []

@@ -26,12 +26,17 @@
 //!   **correct** Wakao-Funazkri particle-to-fluid Nusselt correlation
 //!   `Nu = 2 + 1.1 Pr^(1/3) Re^0.6` on the pebble diameter, the heat transfer
 //!   coefficient it implies, and the bed volumetric form via
-//!   `a_v = 6(1 - eps)/d`. **Warning, still current:** the TUAS `WakaoData`
+//!   `a_v = 6(1 - eps)/d`. ~~**Warning, still current:** the TUAS `WakaoData`
 //!   implementation has the Re and Pr exponents *swapped* relative to the
 //!   published correlation (bead `op-4542`), diverging by a factor of about
 //!   5.8 at Re = 1000, Pr = 0.71 — `cht` therefore implements the correlation
 //!   independently and must **not** be cross-wired to TUAS until that bead is
-//!   resolved.
+//!   resolved.~~ **CORRECTED 2026-11-03** — TUAS fixed the swap on
+//!   2026-08-11 (`op-4542`): `WakaoData::get` in
+//!   `tuas_boussinesq_solver/.../nusselt_number_correlations/input_structs.rs`
+//!   now uses `prandtl_power = 1/3`, `reynolds_power = 0.6` (verified by
+//!   reading the source). `cht` still carries its own independent copy; the
+//!   two are no longer known to disagree, but nothing here cross-checks them.
 //!
 //! ## Also present
 //!
@@ -46,6 +51,12 @@
 //!   generic-pbr 18-point reference table is *not* reproduced by ZBS with
 //!   helium in the pores — the model sits below the table at all 18 points
 //!   (ratio 0.177 at 300 K to 0.644 at 2000 K), tracked as `op-jvua`.
+//!   **UPDATED 2026-11-03 (gh:#1148):** the code now lives in
+//!   `outram_foam_appbuilder_lib::htgr_closures::zbs` and [`zbs`] re-exports
+//!   it. `op-jvua` was re-investigated there: the table is never used by the
+//!   VTB deck, and read as `k_eff/k_f` it tracks ZBS within 6-11 %. The
+//!   default bed conductivity is now the IAEA-TECDOC-1694 Breitbach fit
+//!   (`htgr_closures::BedConductivityModel`), not ZBS.
 //! - [`feedback`] — the graphite/moderator reactivity channel, held as its
 //!   **own** state with its own coefficient and its own lumped thermal-mass
 //!   ODE rather than folded into fuel Doppler, because the large graphite mass
@@ -53,9 +64,16 @@
 //!   response. **No moderator temperature coefficient is supplied** — it must
 //!   come from the caller's neutronics; the published HTR-10 *isothermal*
 //!   coefficients are provided separately and clearly labelled as not being
-//!   that quantity. Wiring the channel into point kinetics belongs in an
+//!   that quantity. ~~Wiring the channel into point kinetics belongs in an
 //!   example or in `nee_soon`, not in this library, which stays free of
-//!   `teh-o-prke`.
+//!   `teh-o-prke`.~~ ~~**CORRECTED 2026-11-03 (gh:#1151):** the library now
+//!   depends on `teh-o-prke` (decision D2); the HTR-10 coupled transient in
+//!   [`crate::htr10_primary_loop`] carries its own fuel/moderator/reflector
+//!   feedback and does not use this channel.~~ **CORRECTED again 2026-11-03:
+//!   maintainer moved coupled kinetics to nee_soon**: the original statement
+//!   holds again. The HTR-10 coupled transient is `nee_soon::htr10_th_transient`,
+//!   with its own fuel/moderator/reflector feedback; it does not use this
+//!   channel.
 //! - [`temperature_difference`] — the one shared helper, converting a pair of
 //!   absolute temperatures into the `uom` `TemperatureInterval` that `uom`
 //!   deliberately will not produce with `-`.

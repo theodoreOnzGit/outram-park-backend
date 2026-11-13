@@ -1,6 +1,6 @@
 [package]
 name = "nee_soon"
-version = "0.0.4"
+version = "0.0.5"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -59,6 +59,11 @@ outram-foam-basic-lib      = { workspace = true }   # FvMesh / fields, for the G
 # `sim` run driver moved here from outram-blender's retired `mc-export` feature
 # (GitHub #486, 2026-10-02). The edge runs coupler -> blender, never back.
 outram-blender        = { workspace = true }
+# HTR-10 coupled thermal-hydraulic transients (`htr10_th_transient`, gh:#1151):
+# the tampines primary loop and its core models, with the point kinetics here
+# (maintainer, 2026-11-03: "any neutronics and TH shld live in nee soon").
+# No cycle: tampines has nee_soon only as a target-gated dev-dependency.
+tampines              = { workspace = true }
 
 # Public API primitives — dimensioned quantities and error types for the
 # object-oriented surface.
@@ -68,3 +73,37 @@ thiserror             = { workspace = true }
 # so an expensive Monte Carlo run is reloaded rather than repeated.
 serde                 = { workspace = true }
 serde_json            = { workspace = true }
+
+[dev-dependencies]
+# Steam states of the helical-coil SG test in `htr10_th_transient` (moved
+# from tampines, gh:#1151). Pure Rust; Android- and wasm-clean.
+tampines-steam-tables = { workspace = true }
+# Also used by the fhr_sim_v2 example (steam tables, turbine generator).
+
+# The fhr_sim_v2 GUI example, MOVED 2026-11-05 from
+# `crates/tampines/examples/fhr_sim_v2/` (maintainer: "nee_soon depends on
+# tampines, never the reverse"; the tampines dev-dependency on nee_soon was a
+# publish-time cycle). Its dependencies came with it from tampines' gated
+# block: TUAS for the loop components, ndarray, and the GUI stack. teh-o-prke,
+# serde and outram-foam-basic-lib are already real dependencies above, and the
+# example reaches this crate as `nee_soon::...` (no self dev-dependency).
+# `local-ip-address`, listed for it in tampines, is not used by the example and
+# was dropped.
+#
+# The egui/eframe stack is Android-hostile and eframe pulls wgpu, whose HAL is
+# not Sync on wasm, so the block is gated off both (dev-dependencies apply to
+# tests too). The example carries `#![cfg(not(target_os = "android"))]`.
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
+tuas_boussinesq_solver.workspace = true
+ndarray.workspace = true
+egui.workspace = true
+bugis.workspace = true
+eframe.workspace = true
+env_logger.workspace = true
+egui_plot.workspace = true
+egui_extras.workspace = true
+
+# MOVED 2026-11-05 from tampines (see the dev-dependency block above).
+[[example]]
+name = "fhr_sim_v2"
+path = "examples/fhr_sim_v2/main.rs"

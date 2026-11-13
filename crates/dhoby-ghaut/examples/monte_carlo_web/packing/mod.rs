@@ -32,7 +32,7 @@ use outram_mc_libs::dh_universe::{is_whole_in_ball, pack_in_ball, BallPackingAtt
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::pebble_beds::sphere_packing::pack_spheres_observed;
 
-/// The marker type `rung_table!` names.
+/// The marker type `table.rs` names.
 pub struct Packing;
 
 /// Message codes of [`LoadedRung::walk`] for this rung.

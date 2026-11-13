@@ -317,7 +317,8 @@ mod tests {
         r.poll();
         assert_eq!(r.started, 1);
         let first = r.settle().expect("states");
-        assert!(first.iter().any(|s| s.function.ends_with("::twice") && s.state == Some(StateKind::Valid)));
+        // Tentative: `leaf` underneath is unstamped (#1106).
+        assert!(first.iter().any(|s| s.function.ends_with("::twice") && s.state == Some(StateKind::Tentative)));
         assert!(!first.iter().any(|s| s.state == Some(StateKind::Updating)), "optimistic row cleared");
         let line = r.last_timings.unwrap().line();
         for phase in ["cache check", "folder refresh", "cache copy", "git", "git processes", "engine", "permalinks", "other"] {

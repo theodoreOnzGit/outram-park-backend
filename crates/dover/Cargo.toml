@@ -1,6 +1,6 @@
 [package]
 name = "deck-based-open-source-visualisation-engine-for-reactors-dover"
-version = "0.0.1"
+version = "0.0.2"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true

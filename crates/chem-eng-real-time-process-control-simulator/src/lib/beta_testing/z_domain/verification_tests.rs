@@ -20,8 +20,11 @@
 //! **results** (the actual measured numbers, with the date and build they
 //! were taken on), per the workspace V&V documentation rule. The reference
 //! in each case is an analytic closed form or an exact algebraic identity
-//! — no Octave installation was available on the test machine, so no
-//! number below is an Octave output; where upstream Octave ships an
+//! — ~~no Octave installation was available on the test machine, so no
+//! number below is an Octave output~~ **CORRECTED 2026-11-13 (gh:#1433):** the
+//! numbers in THIS file are still analytic or algebraic, but a run of Octave 8.4.0 /
+//! control 4.0.1 is now compared in `tests/octave_differential.rs`
+//! (`verification_and_validation/octave_differential/`); where upstream Octave ships an
 //! equivalent test (`%!assert` blocks in `inst/@lti/c2d.m` / `d2c.m`,
 //! round-trip at tolerance 1e-4), the corresponding test here checks the
 //! same identity at a tighter tolerance.

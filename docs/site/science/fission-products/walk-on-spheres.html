@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Walking on spheres</title>
+<meta name="description" content="Fission products, chapter 2: why one big Gaussian step per time step jumps clean over a TRISO layer, how Walk-on-Spheres hops to a random point on the largest sphere that stays inside one layer with no time step at all, and the CRP-6 Case 1 check of boon-lay's walker against Crank's exact release fraction.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="decaywalk-data.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="decaywalk-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 2, after "Atoms swapping" (gh:#1207: the
+     TRISO-ATOPS mdBook's rung 3, walk.md, folded into the chapter).
+     Gaussian steps: boon-lay's sample_dimensioned_gaussian_vector in the
+     assembled CRP-6 TrisoCell; hops: WoSWalker::hop; release:
+     mc_kernel_release_fraction's loop and Crank's series. All recorded in
+     decaywalk-data.js by crates/dhoby-ghaut/examples/lesson_decay_walk;
+     predictions W1-W8 in its main.rs. Checked by check-decaywalk.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-11-04), not yet reviewed by a human.</p>
+<span id="dw-numbers" hidden></span>
+
+<h1>Walking on spheres</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Lessons 9 and 10 built diffusion from single hops: billions a second, each a fraction of a nanometre. Nobody can follow every one of them for hours. A simulator needs a shortcut. The obvious one fails inside a TRISO particle; this lesson shows why, and the shortcut boon-lay uses instead.</p>
+
+<h2>The obvious shortcut: one Gaussian step</h2>
+<p>Add up many small random hops and the sum is a Gaussian, whatever the hops look like (the central limit theorem, lesson 9). So jump straight to the end of a time interval &Delta;<i>t</i> with one Gaussian step: each of its three components has variance</p>
+<p class="eq-block">&sigma;<sup>2</sup> = 2&nbsp;<i>D</i>&nbsp;&Delta;<i>t</i></p>
+<p>with <i>D</i> the diffusion coefficient. The step grows as &radic;&Delta;<i>t</i>, not &Delta;<i>t</i>: the signature of diffusion. boon-lay&rsquo;s first engine did exactly this. It is exact in an infinite, uniform medium.</p>
+
+<p class="predict"><b>Predict first.</b> In the buffer, boon-lay gives caesium <i>D</i> = <span data-dw="bufD">&hellip;</span> m&sup2;/s at 1200 &deg;C. The buffer is 100 &micro;m thick, the IPyC around it 40 &micro;m. With &Delta;<i>t</i> = <span data-dw="sig141dt">&hellip;</span>, &sigma; is 141 &micro;m. What share of atoms starting in the buffer lands in the SiC or beyond in one step?</p>
+
+<section class="widget-card">
+  <h3>One Gaussian step from the buffer</h3>
+  <div class="widget" id="dw-gauss">
+    <canvas aria-label="A slice of a CRP-6 TRISO particle with its five layers; 300 grey lines from start points in the buffer to landing points coloured by the layer they land in; beside or below, bars of the share of 20 000 steps landing in each layer."></canvas>
+  </div>
+  <p class="note">Each step: boon-lay&rsquo;s <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/mod.rs::sample_dimensioned_gaussian_vector"><code>sample_<wbr>dimensioned_<wbr>gaussian_<wbr>vector</code></a> with variance 2<i>D</i>&Delta;<i>t</i>; the layer it lands in: the assembled CRP-6 <code>TrisoCell</code>&rsquo;s <code>get_<wbr>triso_<wbr>region</code>. 20 000 steps per size, uniform births in the buffer; 300 drawn.</p>
+</section>
+
+<h2>Why that fails inside a TRISO particle</h2>
+<p>At &sigma; = 141 &micro;m, <b><span data-dw="past141">&hellip;</span></b> of the steps from the buffer land in the SiC or beyond, having jumped clean over the 40 &micro;m IPyC without ever meeting the buffer/IPyC boundary; at 447 &micro;m it is <span data-dw="past447">&hellip;</span>, and <span data-dw="out447">&hellip;</span> leave the particle altogether in one step. The step only becomes safe when it is much smaller than the thinnest layer (at 14 &micro;m, <span data-dw="past14">&hellip;</span>). But then an atom in the buffer needs hundreds of steps per simulated second, while one in the kernel, with <i>D</i> about 10<sup>&minus;15</sup> m&sup2;/s, barely moves per step. No single &Delta;<i>t</i> suits both.</p>
+<p><b>The lesson that generalises:</b> the central limit theorem gives the <i>free-space</i> answer, and a bounded, layered domain is not free space. The failure is analysed in boon-lay&rsquo;s <code>docs/<wbr>buffer_<wbr>clt_<wbr>failure_<wbr>analysis.md</code>; it is a diagnosis, not a V&amp;V record.</p>
+
+<p><b>Predict.</b> If every step could somehow be sized so that it never reaches the nearest boundary, would the time each step takes still be fixed?</p>
+
+<h2>Walk-on-Spheres: hops that never cross a boundary</h2>
+<p>No. Turn the question round: fix the <b>distance</b>, and let the <b>time</b> be random. Draw the largest sphere around the atom that touches no boundary. Inside it the medium is uniform, so:</p>
+<ul>
+<li><b>where</b> the atom first reaches the sphere&rsquo;s surface is uniform over it (diffusion has no preferred direction);</li>
+<li><b>how long</b> that takes has a known distribution.</li>
+</ul>
+<p>Jump there, add that time to the atom&rsquo;s clock, and repeat. Far from a boundary the hops are big; near one they shrink, and the atom is captured once it is within 10<sup>&minus;3</sup> of the radius of the surface. <b>There is no time step anywhere</b>: simulated time is the sum of the hop times.</p>
+
+<section class="widget-card">
+  <h3>Walkers hopping on spheres in a bare kernel</h3>
+  <div class="widget" id="dw-hop">
+    <canvas aria-label="A circle, the CRP-6 kernel, with eight coloured walkers; at each step a dashed circle shows the sphere the walker will hop on, centred on it and touching the kernel surface, and the walker jumps to a point on it; captured walkers stop at the red surface."></canvas>
+  </div>
+  <p class="note">Recorded from boon-lay&rsquo;s <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::hop"><code>WoSWalker::<wbr>hop</code></a> in the assembled CRP-6 cell, Cs-137 at 1200 &deg;C, births as in the CRP-6 Case 1 check. The walk is in three dimensions; the picture is projected onto a plane, so a hop can look shorter than its sphere.</p>
+</section>
+
+<h3>How long does one hop take?</h3>
+<p>For a walker started at the centre of a sphere of radius <i>R</i>, the chance of still being inside at the dimensionless time <i>&theta;</i> = <i>Dt</i>/<i>R</i>&sup2; is</p>
+<p class="eq-block"><i>S</i>(<i>&theta;</i>) = 2&nbsp;&Sigma;<sub><i>k</i>&ge;1</sub>&nbsp;(&minus;1)<sup><i>k</i>+1</sup>&nbsp;e<sup>&minus;<i>k</i>&sup2;&pi;&sup2;<i>&theta;</i></sup>,&nbsp;&nbsp;&nbsp;&lang;<i>t</i>&rang; = <i>R</i>&sup2;/(6<i>D</i>).</p>
+<p>Because <i>&theta;</i> has no units, its distribution is the same for every hop of every walker. The code tabulates the inverse of 1&minus;<i>S</i> once (6001 points over <i>&theta;</i> from 10<sup>&minus;5</sup> to 8), draws <i>&theta;</i> from it, and turns it into a time with <i>t</i> = <i>&theta;R</i>&sup2;/<i>D</i>. The mean of 200 000 drawn <i>&theta;</i> is <span data-dw="theta">&hellip;</span>, against 1/6 = 0.1667 (predicted: within 3 standard errors). A walker in the kernel took <span data-dw="hopsMean">&hellip;</span> hops on average before it was captured (at most <span data-dw="hopsMax">&hellip;</span>), and every recorded sphere lies inside the kernel.</p>
+
+<h2>Does a crowd of walkers give the right release?</h2>
+<p>The walk is built from exact pieces. Does a crowd of walkers reproduce what the diffusion equation says? On the one case with an exact answer it can be checked: the IAEA CRP-6 benchmark&rsquo;s Case 1, a bare kernel with caesium spread evenly through it and a surface that removes every atom that reaches it. Crank&rsquo;s series gives the fraction released by time <i>t</i>:</p>
+<p class="eq-block"><i>M<sub>t</sub></i>/<i>M</i><sub>&infin;</sub> = 1 &minus; (6/&pi;&sup2;)&nbsp;&Sigma;<sub><i>n</i>&ge;1</sub>&nbsp;(1/<i>n</i>&sup2;)&nbsp;exp(&minus;<i>Dn</i>&sup2;&pi;&sup2;<i>t</i>/<i>R</i>&sup2;)</p>
+
+<section class="widget-card">
+  <h3>Released fraction against Crank</h3>
+  <div class="widget" id="dw-release">
+    <canvas aria-label="Fraction of caesium released from the kernel against time in hours: Crank's series as a black line, Walk-on-Spheres results as blue dots on it, and three dashed fixed-step Gaussian walks below it, the coarsest furthest below."></canvas>
+  </div>
+  <p class="note">Dots: the release times of 10 000 walkers, from exactly the loop of boon-lay&rsquo;s <code>mc_<wbr>kernel_<wbr>release_<wbr>fraction</code> (same births, seed and <code>walk_<wbr>to_<wbr>absorbing_<wbr>sphere</code>), counted at each time. Line: <code>calculate_<wbr>analytical_<wbr>fraction_<wbr>released</code>, 200 terms. Dashed: a fixed-step Gaussian walk out of the same kernel, checked only at the end of each step.</p>
+</section>
+
+<p><b>The check: CRP-6 Case 1, Walk-on-Spheres against Crank.</b> Cs-137 in the 212.5 &micro;m-radius UO<sub>2</sub> kernel at 200 h, 40 000 walkers, seed <code>0x0C1A5EED</code>, <i>D</i> from the Jiang et al. (2023) correlation at zero fluence <a href="#ref-jiang2023fission">(Jiang et al., 2023)</a>. Pass if |MC &minus; Crank| &lt; 0.02; one binomial standard deviation near 0.5 is about 0.0025. Run by this lesson&rsquo;s generator on 2026-11-04:</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Case</th><th>T</th><th><i>D</i></th><th>Monte Carlo</th><th>Crank</th></tr></thead>
+<tbody>
+<tr><td>1a</td><td>1200 &deg;C</td><td><span data-dw="d1a">&hellip;</span></td><td><span data-dw="c1a">&hellip;</span></td><td><span data-dw="c1aCrank">&hellip;</span></td></tr>
+<tr><td>1b</td><td>1600 &deg;C</td><td><span data-dw="d1b">&hellip;</span></td><td><span data-dw="c1b">&hellip;</span></td><td>1.0000</td></tr>
+</tbody></table></div>
+<p>The whole curve from one set of 10 000 walkers stays within <span data-dw="w1a">&hellip;</span> standard deviations of Crank at 1200 &deg;C and <span data-dw="w1b">&hellip;</span> at 1600 &deg;C. This is <b>verification</b> (the walker against an exact solution of the same equation, with the same <i>D</i>), not validation: it says the walk solves the diffusion equation, not that the diffusion equation with this <i>D</i> describes a real kernel.</p>
+<p>The fixed-step Gaussian walk out of the same kernel releases too little, because it only looks for escape at the end of each step and misses atoms that poke out and come back within one: at 200 h it falls short of Crank by <span data-dw="g10">&hellip;</span>, <span data-dw="g30">&hellip;</span> and <span data-dw="g100">&hellip;</span> for steps of <i>R</i>/10, <i>R</i>/30 and <i>R</i>/100. Walk-on-Spheres has no step to shrink. (The bias of lesson 18&rsquo;s page walk is the same effect.)</p>
+
+<h3>What the check does not cover</h3>
+<ul>
+<li><b>A disagreement it does not settle.</b> Two of boon-lay&rsquo;s tests quote Hales et al. (2021, Table 4) for Case 1a as 0.453&ndash;0.498, and 0.5337 lies outside that range; both wrap the range check so its failure is invisible. It does not touch the walker-against-Crank verification (both sides use the same <i>D</i>); it questions whether the crate&rsquo;s Case 1a inputs are the benchmark&rsquo;s. The paper is not in the open corpus, so it is not checked here: <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/537">gh:#537</a>, open.</li>
+<li><b>One uniform sphere.</b> No layer boundaries. The five-layer walk is exercised only qualitatively, and in practice it cannot get an atom through the coatings: lesson 34 shows boon-lay&rsquo;s own walker stuck at the buffer/PyC boundary (its cost probe), so it is not repeated here. There is no full multilayer CRP-6 release record.</li>
+<li><b>No decay during the walk.</b> The atom&rsquo;s clock (<a href="decay-clock.html">An atom&rsquo;s clock</a>) and its walk are separate here.</li>
+</ul>
+<p>The same Walk-on-Spheres Monte Carlo, run on the HTR-10 kernel and compared with Booth&rsquo;s series (the same series as Crank&rsquo;s), is lesson 18&rsquo;s check (<a href="kernel-booth-grain.html">Booth on one grain</a>).</p>
+
+<h2>Where it is in the code</h2>
+<ul>
+<li><b>The legacy Gaussian step:</b> <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/movement_within_triso_particle/mod.rs::scatter_within_triso_particle_gaussian_simple"><code>scatter_<wbr>within_<wbr>triso_<wbr>particle_<wbr>gaussian_<wbr>simple</code></a> looks <i>D</i> up at the atom&rsquo;s position and moves it by <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/mod.rs::sample_dimensioned_gaussian_vector"><code>sample_<wbr>dimensioned_<wbr>gaussian_<wbr>vector</code></a> once per time step. It is still in the crate, beside its replacement.</li>
+<li><b>The Case 1 check:</b> <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs::mc_kernel_release_fraction"><code>mc_<wbr>kernel_<wbr>release_<wbr>fraction</code></a>: one <i>D</i> for the kernel; per history a uniform birth (<code>sample_<wbr>uniform_<wbr>in_<wbr>ball</code>, <i>r</i> = <i>R</i>&nbsp;<i>U</i><sup>1/3</sup>), a walker with a child generator, and <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::walk_to_absorbing_sphere"><code>walk_<wbr>to_<wbr>absorbing_<wbr>sphere</code></a>: hop radius = distance to the surface, stop within 10<sup>&minus;3</sup>&nbsp;<i>R</i>.</li>
+<li><b>One hop:</b> <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs::sample_first_passage_time"><code>sample_<wbr>first_<wbr>passage_<wbr>time</code></a> &rarr; <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs::sample_dimensionless_exit_time"><code>sample_<wbr>dimensionless_<wbr>exit_<wbr>time</code></a> (the table, built once), and <code>sample_<wbr>uniform_<wbr>direction</code> for the exit point. In a layered cell, <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::hop"><code>WoSWalker::<wbr>hop</code></a> sizes the sphere to the nearest boundary of any layer.</li>
+<li><b>The reference:</b> <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_analytical_solution.rs::calculate_analytical_fraction_released"><code>calculate_<wbr>analytical_<wbr>fraction_<wbr>released</code></a>, Crank&rsquo;s series, 200 terms.</li>
+</ul>
+
+<p><b>Next:</b> real UO<sub>2</sub> is not one uniform sphere. Chapter 3 opens the kernel.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Why the fixed step misses atoms</h3>
+<p>A walk sampled only at the end of each step overshoots a boundary, on average, by about 0.583&nbsp;&sigma; (Siegmund&rsquo;s constant for a Gaussian random walk: <span class="pending">source pending</span>): it behaves as if the sink were that much further out. The atoms in that thin layer are missing from the early release, a deficit of roughly 3&times;0.583&nbsp;&sigma;/<i>R</i>. That estimate, written before the run, gave 0.12&ndash;0.22, 0.04&ndash;0.08 and 0.01&ndash;0.03 for the three steps; the measured deficits are in the paragraph above and the generator&rsquo;s Results.</p>
+<h3>The numbers to quote</h3>
+<p>The Case 1 numbers in the table are this generator&rsquo;s run of 2026-11-04. The V&amp;V record (<code>crates/<wbr>boon-lay/<wbr>verification_<wbr>and_<wbr>validation/<wbr>crp6_<wbr>case1_<wbr>kernel_<wbr>release_<wbr>vs_<wbr>crank.md</code>) has 0.5332 from 2026-07-23 and 0.5331 from its 2026-10-04 re-measurement, same <i>N</i> and seed; the July value moved because the random streams changed in between (the commit was not traced). Every one is well inside the 0.0025 standard deviation of Crank&rsquo;s 0.5337.</p>
+<h3>Try it</h3>
+<p>Run <code>cargo test --release -p boon-lay --lib crp6_case1 -- --nocapture</code>. Then lower <i>N</i> from 40 000 to 400 in <code>monte_carlo_test.rs</code>: how large is the error now, and does the 0.02 criterion still mean anything?</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-jiang2023fission" style="padding-left: 2em; text-indent: -2em;">Jiang, W., Toptan, A., Hales, J. D., Spencer, B. W., &#38; Novascone, S. R. (2023). <i>Fission product transport in TRISO particles and pebbles</i>. Idaho National Lab.(INL), Idaho Falls, ID (United States).</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

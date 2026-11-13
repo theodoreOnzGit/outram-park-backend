@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diffusion, three ways</title>
+<meta name="description" content="Fission products, chapter 5: the diffusion equation built from Fick's law and conservation, solved exactly in a sphere (Crank's and Booth's series), on a mesh (boon-lay's finite volumes) and by random walkers, all on CRP-6 Case 1.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="diffarc-data.js" defer></script>
+<script src="decaywalk-data.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="diffarc-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 5, first lesson (gh:#1209, maintainer
+     direction 2026-11-04: the diffusion equation, then its analytical
+     solution, then a numerical one, then whether TRISO-ATOPS uses the
+     analytical one conservatively). Data: diffarc-data.js, recorded by
+     crates/dhoby-ghaut/examples/lesson_diffusion_arc (predictions A1-A2 and
+     results in its main.rs); the walkers: decaywalk-data.js. Checked by
+     check-diffarc.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-11-04), not yet reviewed by a human.</p>
+<span id="da-numbers" hidden></span>
+
+<h1>The diffusion equation, three ways</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Chapters 2 to 4 met diffusion three times: atoms hopping (<a href="atoms-swap.html">Atoms swapping</a>), walkers on spheres (<a href="walk-on-spheres.html">Walking on spheres</a>) and Booth&rsquo;s formula (<a href="kernel-booth-grain.html">Booth on one grain</a>). Before TRISO-ATOPS is taken apart, this lesson puts them side by side: <b>one equation, solved exactly, on a mesh and by walkers</b>. The next lesson then asks whether TRISO-ATOPS&rsquo;s exact formulas are the safe side of the whole particle.</p>
+
+<h2>The equation</h2>
+<p>Two statements make it. <b>Fick&rsquo;s law</b>: atoms flow down the concentration gradient, <b>J</b> = &minus;<i>D</i>&nbsp;&nabla;<i>c</i>, with <i>D</i> the diffusion coefficient (m&sup2;/s) that the hop lessons built from single jumps. <b>Conservation</b>: the atoms in a small volume change only by what flows across its surface, what is born in it and what decays, &part;<i>c</i>/&part;<i>t</i> = &minus;&nabla;&middot;<b>J</b> + <i>s</i> &minus; <i>&lambda;c</i>. Together, in a sphere where nothing depends on direction:</p>
+<p class="eq-block">&part;<i>c</i>/&part;<i>t</i> = (1/<i>r</i>&sup2;)&nbsp;&part;/&part;<i>r</i>&nbsp;(<i>r</i>&sup2;&nbsp;<i>D</i>&nbsp;&part;<i>c</i>/&part;<i>r</i>) &minus; <i>&lambda;c</i> + <i>s</i></p>
+<p><i>c</i> is atoms per m&sup3;, <i>&lambda;</i> the decay constant (1/s), <i>s</i> the birth rate per m&sup3; per s. The <i>r</i>&sup2; is geometry: the shell at radius <i>r</i> has area 4&pi;<i>r</i>&sup2;, so the same flux spreads thinner further out.</p>
+<p>An equation alone is not a problem. It needs a <b>start</b> and <b>edges</b>. The case all three methods below solve is CRP-6&rsquo;s Case 1a: caesium spread evenly through a 212.5&nbsp;&micro;m kernel (<i>c</i> = <i>c</i><sub>0</sub> at <i>t</i> = 0), no birth, no decay, constant <i>D</i> = <span data-da="d1200">&hellip;</span> at 1200&nbsp;&deg;C, and a <b>perfect sink</b> at the surface (<i>c</i> = 0 at <i>r</i> = <i>a</i>: whatever arrives is gone). The centre is a symmetry point, so no flux crosses it.</p>
+
+<p class="predict"><b>Predict first.</b> A mesh of only five cells across the kernel: how far off do you expect its released fraction to be at 200&nbsp;h, when Crank&rsquo;s answer is about one half? One per cent? Ten?</p>
+
+<h2>Way 1: exactly, by separating variables</h2>
+<p>Try a solution that is a shape times a decay, <i>c</i> = <i>R</i>(<i>r</i>)&nbsp;e<sup>&minus;<i>&kappa;t</i></sup>. The equation splits into one for the shape, whose solutions that vanish at the surface and stay finite at the centre are</p>
+<p class="eq-block"><i>R</i><sub><i>n</i></sub>(<i>r</i>) = sin(<i>n&pi;r/a</i>)/<i>r</i>,&nbsp;&nbsp;&nbsp;<i>&kappa;</i><sub><i>n</i></sub> = <i>n</i>&sup2;&pi;&sup2;<i>D</i>/<i>a</i>&sup2;,&nbsp;&nbsp;<i>n</i> = 1, 2, 3, &hellip;</p>
+<p>Each is a <b>mode</b>: a fixed shape that fades at its own rate, the <i>n</i>-th <i>n</i>&sup2; times faster than the first. Adding them up to match the flat start gives the concentration (Crank 1975, eq. 6.18):</p>
+<p class="eq-block"><i>c</i>/<i>c</i><sub>0</sub> = (2<i>a</i>/&pi;<i>r</i>)&nbsp;&Sigma;<sub><i>n</i>&ge;1</sub>&nbsp;((&minus;1)<sup><i>n</i>+1</sup>/<i>n</i>)&nbsp;sin(<i>n&pi;r/a</i>)&nbsp;exp(&minus;<i>n</i>&sup2;&pi;&sup2;<i>Dt</i>/<i>a</i>&sup2;)</p>
+<p>and, counting what has crossed the surface, the fraction released:</p>
+<p class="eq-block"><i>F</i>(<i>t</i>) = 1 &minus; (6/&pi;&sup2;)&nbsp;&Sigma;<sub><i>n</i>&ge;1</sub>&nbsp;(1/<i>n</i>&sup2;)&nbsp;exp(&minus;<i>n</i>&sup2;&pi;&sup2;<i>Dt</i>/<i>a</i>&sup2;)</p>
+<p>That is <b>Booth&rsquo;s formula</b>, the one in <a href="kernel-booth-grain.html">Booth on one grain</a>. Two things to notice. Time enters only as <i>Dt</i>/<i>a</i>&sup2;: double <i>D</i> or halve the time and the answer is the same. And the modes are <b>inside the derivation</b>: the formula for <i>F</i> keeps only their sum at the surface, so a code that evaluates it, as TRISO-ATOPS does, never stores a concentration field at all.</p>
+
+<section class="widget-card">
+  <h3>Inside the sphere</h3>
+  <div class="widget" id="da-profile">
+    <canvas aria-label="Concentration against radius from centre to surface: the exact series as a line and the finite-volume cells as dots, at three times; the profile is flat in the middle and falls to zero at the surface."></canvas>
+  </div>
+  <p class="note">Line: the exact series above, 400 terms. Dots: boon-lay&rsquo;s finite volumes, 80 cells, 4000 steps. Worst gaps <span data-da="prof0">&hellip;</span>, <span data-da="prof1">&hellip;</span> and <span data-da="prof2">&hellip;</span> of <i>c</i><sub>0</sub>. Recorded by <code>lesson_<wbr>diffusion_<wbr>arc</code>.</p>
+</section>
+
+<h2>Way 2: on a mesh</h2>
+<p>The exact route needs a uniform sphere. A real particle has five layers with <i>D</i> varying over twelve orders of magnitude, and the exact route stops there. A mesh does not care. Cut the sphere into thin shells (cells); in each, keep one number, the mean concentration. Between two neighbours the flow is a <b>conductance</b> times their difference <a href="#ref-patankar1980numerical">(Patankar, 1980)</a>, where the conductance is the face area over the series resistance of the two half cells, <i>G</i> = <i>A</i>&nbsp;/&nbsp;(&Delta;<i>r</i><sub>1</sub>/2<i>D</i><sub>1</sub> + &Delta;<i>r</i><sub>2</sub>/2<i>D</i><sub>2</sub>), exact even where <i>D</i> jumps at a layer boundary. Then step in time:</p>
+<p class="eq-block"><i>V<sub>i</sub></i>&nbsp;(<i>c<sub>i</sub></i><sup>new</sup> &minus; <i>c<sub>i</sub></i>)/&Delta;<i>t</i> = &minus;&Sigma;<sub><i>j</i></sub>&nbsp;<i>G<sub>ij</sub></i>&nbsp;(<i>c<sub>i</sub></i><sup>new</sup> &minus; <i>c<sub>j</sub></i><sup>new</sup>) &minus; <i>&lambda;V<sub>i</sub>c<sub>i</sub></i><sup>new</sup></p>
+<p>Using the <i>new</i> values on the right (backward Euler) makes every step a small linear system, tridiagonal because each cell only talks to two neighbours, and stable for any &Delta;<i>t</i>. The atoms leaving through the surface are counted from the same values, so atoms are conserved to round-off.</p>
+
+<section class="widget-card">
+  <h3>One sphere, three ways</h3>
+  <div class="widget" id="da-mesh">
+    <canvas aria-label="Fraction of caesium released against time over 200 hours at 1200 degrees: Crank's series as a line, the finite-volume result as squares for a chosen number of cells, and the Walk-on-Spheres walkers as dots."></canvas>
+  </div>
+  <p class="note">Line: boon-lay&rsquo;s ported <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::booth_longlived"><code>booth_<wbr>longlived</code></a>. Squares: <a href="../../code-review/#crates/boon-lay/src/triso_atops_extensions/multilayer_diffusion.rs::step"><code>LayeredDiffusion::<wbr>step</code></a>, 2000 steps. Dots: the 10 000 walkers of <a href="walk-on-spheres.html">Walking on spheres</a>, the same case and the same <i>D</i>.</p>
+</section>
+
+<p>The answer to the prompt: five cells are off by <span data-da="fvEnd5">&hellip;</span> at 200&nbsp;h (Crank: <span data-da="crank200">&hellip;</span>), ten by <span data-da="fvEnd10">&hellip;</span>, twenty by <span data-da="fvEnd20">&hellip;</span>, eighty by <span data-da="fvEnd80">&hellip;</span>. Each halving of the cell size cuts the error about four times: the mesh is <b>second order</b> in space, as predicted before the run. The worst gap at 80 cells is early, <span data-da="fvWorst80">&hellip;</span>, where release grows as &radic;<i>t</i> from a sharp edge; it missed the 1&times;10<sup>&minus;3</sup> predicted for it.</p>
+
+<h2>Way 3: by walkers</h2>
+<p>Follow atoms instead of concentrations. Each atom does a random walk whose spread grows as 6<i>Dt</i>; the fraction of walkers that have reached the surface by time <i>t</i> is the released fraction. <a href="walk-on-spheres.html">Walking on spheres</a> does this with hops sized to the nearest boundary, and its 10 000 walkers sit on Crank&rsquo;s curve <a href="#ref-crank1975diffusion">(Crank, 1975)</a> within their binomial error. The walk solves the same equation, read backwards: the concentration is a density of walkers.</p>
+
+<h2>Which to use when</h2>
+<ul>
+<li><b>Exact series</b>: one uniform sphere (or slab), constant or time-rescaled <i>D</i>, a simple start. Cheap, exact, but the geometry is fixed. TRISO-ATOPS lives here.</li>
+<li><b>Mesh</b>: any number of layers, any <i>D</i>(<i>r</i>, <i>t</i>), births and decay, the profile itself. Its error is measurable and shrinks as the cells shrink. FRESCO-type codes live here.</li>
+<li><b>Walkers</b>: any geometry, and atoms carry their own history; but the answer has statistical noise, and very slow layers make walks very long (<a href="barriers-whole.html">Across the whole particle</a>).</li>
+</ul>
+
+<h2>Where it is in the code</h2>
+<ul>
+<li>The exact release: <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::booth_longlived"><code>booth_longlived</code></a> (long-lived), <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/transient.rs::booth_transient"><code>booth_transient</code></a> (the same series on &int;<i>D</i>&nbsp;d<i>t</i>), ported from TRISO-ATOPS.</li>
+<li>The mesh: <a href="../../code-review/#crates/boon-lay/src/triso_atops_extensions/multilayer_diffusion.rs::new"><code>LayeredSphere::new</code></a> builds cells per layer; <a href="../../code-review/#crates/boon-lay/src/triso_atops_extensions/multilayer_diffusion.rs::step"><code>LayeredDiffusion::step</code></a> takes one backward-Euler step with one <i>D</i> per layer, solved by petir&rsquo;s port of GSL&rsquo;s tridiagonal solver. It is boon-lay&rsquo;s own code, <b>not a port</b> (gh:#1209), kept apart from the TRISO-ATOPS fork.</li>
+<li>The walkers: <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs::mc_kernel_release_fraction"><code>mc_kernel_release_fraction</code></a>.</li>
+</ul>
+
+<h2>How the mesh was checked</h2>
+<p>Verification, not validation: each check compares the mesh with an exact solution of the same equation. Written down before the first run (<code>multilayer_<wbr>diffusion.rs</code>, P1&ndash;P4), results the same day:</p>
+<ul>
+<li>One sphere against Crank&rsquo;s series: within 7.9&times;10<sup>&minus;5</sup>, 3.0&times;10<sup>&minus;5</sup> and 1.1&times;10<sup>&minus;5</sup> at <i>Dt</i>/<i>a</i>&sup2; = 0.01, 0.05, 0.2 (200 cells).</li>
+<li>Five layers with <i>D</i> spread over seven orders of magnitude: the mean time to leave matches the exact layered formula of <a href="barriers-whole.html">Across the whole particle</a> to 1.4&times;10<sup>&minus;4</sup>.</li>
+<li>A decaying species born at a steady rate: the release-to-birth ratio matches Booth&rsquo;s exact <i>R/B</i> to 6.8&times;10<sup>&minus;7</sup> and 6.8&times;10<sup>&minus;4</sup> (<a href="kernel-rb.html">the R/B lesson</a>).</li>
+<li>Atoms conserved to 6.6&times;10<sup>&minus;12</sup> over 200 stiff steps. The prediction, 10<sup>&minus;12</sup>, <b>missed</b>: the solve&rsquo;s round-off grows with the buffer&rsquo;s <i>D</i>&Delta;<i>t</i>/&Delta;<i>r</i>&sup2; &asymp; 1100, which the prediction ignored. The test now gates on that derived bound.</li>
+</ul>
+
+<p><b>Next:</b> TRISO-ATOPS uses Way 1 on a sphere that is not the whole particle. Is that the safe side? <a href="atops-conservative.html">The next lesson</a> measures it with Way 2.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Why time enters only as &int;<i>D</i>&nbsp;d<i>t</i></h3>
+<p>If <i>D</i> changes with time but not with position (one temperature for the whole sphere), define a new clock <i>&theta;</i> = &int;<sub>0</sub><sup><i>t</i></sup>&nbsp;<i>D</i>(<i>t&prime;</i>)&nbsp;d<i>t&prime;</i>. Then &part;<i>c</i>/&part;<i>&theta;</i> = &nabla;&sup2;<i>c</i>, with no <i>D</i> left: the solution is Crank&rsquo;s with <i>Dt</i> replaced by <i>&theta;</i>. That is why TRISO-ATOPS can follow a whole accident with one integral and one formula, and why it is exact only when there is one <i>D</i> for the sphere, no source and no decay during the transient.</p>
+<h3>Why the mesh conserves atoms exactly</h3>
+<p>Sum the step equation over all cells: every inner flow appears twice with opposite signs and cancels, leaving the change in atoms = &minus;(flow out of the surface + decay) &times; &Delta;<i>t</i>, all from the new values. The code adds exactly those two terms to its running totals, so inside + released + decayed is 1 up to the linear solve&rsquo;s round-off.</p>
+<h3>Try it</h3>
+<p>Run <code>cargo test --release -p boon-lay --lib multilayer_diffusion -- --nocapture</code>. Then double the time step in <code>one_sphere_against_crank</code> only, and predict, before you run it, by how much the error at <i>Dt</i>/<i>a</i>&sup2; = 0.01 changes.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-crank1975diffusion" style="padding-left: 2em; text-indent: -2em;">Crank, J. (1975). <i>The Mathematics of Diffusion</i> (2nd ed.). Clarendon Press.</p>
+
+<p class="csl-entry" id="ref-patankar1980numerical" style="padding-left: 2em; text-indent: -2em;">Patankar, S. V. (1980). <i>Numerical Heat Transfer and Fluid Flow</i>. Hemisphere.</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

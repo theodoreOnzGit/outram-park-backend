@@ -117,9 +117,10 @@ tooltip over the section heading rather than in the sidebar body.
 
 The Gruvbox colour palette is based on
 [morhetz/gruvbox](https://github.com/morhetz/gruvbox), licensed under the MIT
-License. Only the published hex colour values are reproduced (in
-`examples/tampines-steam-tables-gui/theme.rs`); no source code from that
-project is used.
+License. Only the published hex colour values are reproduced (~~in
+`examples/tampines-steam-tables-gui/theme.rs`~~ **moved 2026-11-02** to the
+shared `bugis` crate's `palette`, which `theme.rs` now uses); no source code
+from that project is used.
 
 ### Custom-line physics
 

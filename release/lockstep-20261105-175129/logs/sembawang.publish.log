@@ -1,0 +1,21 @@
+    Updating crates.io index
+   Packaging sembawang v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/sembawang)
+    Updating crates.io index
+warning: package `tokio v1.54.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+    Packaged 111 files, 3.0MiB (1.1MiB compressed)
+   Verifying sembawang v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/sembawang)
+ Downloading crates ...
+  Downloaded outram-park-fork-offbeat v0.0.2
+  Downloaded buangkok v0.0.2
+   Compiling changi v0.0.3
+   Compiling outram-park-fork-offbeat v0.0.2
+   Compiling buangkok v0.0.2
+   Compiling sembawang v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/sembawang-0.0.2)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.92s
+   Uploading sembawang v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/sembawang)
+    Uploaded sembawang v0.0.2 to registry `crates-io`
+note: waiting for sembawang v0.0.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published sembawang v0.0.2 at registry `crates-io`

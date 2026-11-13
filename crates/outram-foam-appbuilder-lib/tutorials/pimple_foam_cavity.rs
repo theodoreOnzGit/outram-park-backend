@@ -21,6 +21,20 @@
 
 //! Tutorial: pimpleFoam — lid-driven cavity (Re = 100)
 //!
+//! **RE-MEASURED 2026-11-03 (gh:#1154).** `PimpleFoam` now sets the boundary
+//! flux of `phi` to the prescribed `U_b·Sf` on fixed-velocity patches (upstream
+//! `constrainHbyA`); before, the moving lid carried the zero-gradient
+//! `HbyA_P·Sf`. Every cavity number moved, toward its reference. On the 20×20
+//! Re = 100 cavity: upwind RMS against Ghia 0.0363 → **0.0207** (max 0.0634 →
+//! 0.0367); `Gauss linear` 0.0224 → **0.0057** (max 0.0426 → 0.0127). Against
+//! icoFoam at Re = 10, max |ΔU| / U_lid 0.0144 → **0.0062**. The earlier numbers
+//! here are the record of the pre-fix solver.
+//! Further moved numbers: the 41×41 Ghia comparison max/RMS 0.0194 / 0.0113
+//! → **0.0179 / 0.0095**; grid convergence RMS 0.0363 → 0.0120 → 0.00455
+//! became **0.0207 → 0.0100 → 0.00432** (observed order 1.60 / 1.40 →
+//! 1.05 / 1.21: the coarse grid gained most). The V&V CSVs this tutorial
+//! writes are generated, not committed (gitignored).
+//!
 //! Case directory: `tutorials/cases/pimple_foam_cavity/`
 //!
 //! ## Reference solver: icoFoam

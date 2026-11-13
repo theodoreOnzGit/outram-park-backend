@@ -343,8 +343,13 @@ pub enum SlipModel {
     /// (`simple.C:64`), whose diffusion-velocity coefficient carries the
     /// hindered-settling factor `pow(10, −a·max(αd,0))`. Here `u_t` `[m/s]` is
     /// the unhindered terminal (buoyant rise / settling) velocity of an
-    /// isolated inclusion — it absorbs the upstream `(ρ_c/ρ_m)·V_c·|g|`
-    /// coefficient and direction into one vector — and `a ≥ 0` `[-]` is the
+    /// isolated inclusion — ~~it absorbs the upstream `(ρ_c/ρ_m)·V_c·|g|`
+    /// coefficient and direction into one vector~~ **CORRECTED 2026-11-12
+    /// (gh:#1367 row 1):** it can absorb upstream's `(ρ_c/ρ_m)·V0` only at ONE
+    /// fixed `α`, because upstream's `ρ_m = αc·ρc + αd·ρd` varies per cell
+    /// (dahl: 996 to 1996 kg/m³). For ESI's actual `simple` model use
+    /// [`OpenFoamSimple`](Self::OpenFoamSimple); this form stays as the dev
+    /// form. `a ≥ 0` `[-]` is the
     /// hindrance exponent (`a = 0` ⇒ no hindrance). As `α → 1` the drift
     /// velocity is damped toward zero, mimicking crowding.
     TerminalVelocity {
@@ -364,6 +369,106 @@ pub enum SlipModel {
     /// `relativeVelocityModels::general` (`general.C:65`). The vector length
     /// must equal the mesh cell count.
     UserDefined(Vec<Vector3>),
+
+    /// **ESI OpenFOAM-v2506 `relativeVelocityModels::simple`** (gh:#1367 row 1;
+    /// maintainer "ESI preferred"): the upstream formula, with the per-cell
+    /// mixture density that [`TerminalVelocity`](Self::TerminalVelocity)
+    /// folds into a constant.
+    ///
+    /// ```text
+    /// Udm = (rhoc/rho)*V0*pow(10, -a*max(alphad, 0)),
+    /// rho = alphac*rhoc + alphad*rhod,   alphac = 1 - alphad
+    /// ```
+    ///
+    /// (`driftFluxFoam/relativeVelocityModels/simple/simple.C::correct`,
+    /// `relativeVelocityModel.C::rho`). Operation order follows upstream:
+    /// `((rhoc/rho)*V0_i)*pow(..)`. [`TerminalVelocity`](Self::TerminalVelocity)
+    /// stays as the dev form; on the dahl field the two differ in every cell
+    /// where `alpha > 0` (see
+    /// `verification_and_validation/upstream_comparison_gh1367.md`).
+    OpenFoamSimple {
+        /// Continuous-phase density `rhoc` `[kg/m3]`.
+        rho_c: f64,
+        /// Dispersed-phase density `rhod` `[kg/m3]`.
+        rho_d: f64,
+        /// Relative-velocity coefficient `V0` `[m/s]` (a vector in upstream).
+        v0: Vector3,
+        /// Hindrance exponent `a` `[-]`.
+        a: f64,
+    },
+
+    /// **ESI OpenFOAM-v2506 `relativeVelocityModels::general`** (gh:#1367 row
+    /// 1): the port had no counterpart (its [`UserDefined`](Self::UserDefined)
+    /// is a field, not this formula).
+    ///
+    /// ```text
+    /// Udm = (rhoc/rho)*V0*( exp(-a *max(alphad - residualAlpha, 0))
+    ///                     - exp(-a1*max(alphad - residualAlpha, 0)) )
+    /// ```
+    ///
+    /// (`general/general.C::correct`; same `rho` as
+    /// [`OpenFoamSimple`](Self::OpenFoamSimple)).
+    OpenFoamGeneral {
+        /// Continuous-phase density `rhoc` `[kg/m3]`.
+        rho_c: f64,
+        /// Dispersed-phase density `rhod` `[kg/m3]`.
+        rho_d: f64,
+        /// Relative-velocity coefficient `V0` `[m/s]`.
+        v0: Vector3,
+        /// First exponent `a` `[-]`.
+        a: f64,
+        /// Second exponent `a1` `[-]`.
+        a1: f64,
+        /// `residualAlpha` `[-]`.
+        residual_alpha: f64,
+    },
+}
+
+/// ESI `relativeVelocityModel::rho()`: `alphac*rhoc + alphad*rhod` with
+/// `alphac = 1 - alphad` (the mixture's `alpha2`). gh:#1367 row 1.
+fn openfoam_rho(alpha_d: f64, rho_c: f64, rho_d: f64) -> f64 {
+    (1.0 - alpha_d) * rho_c + alpha_d * rho_d
+}
+
+/// ESI `relativeVelocityModel::tauDm()` per cell (gh:#1367 row 1):
+///
+/// ```text
+/// betac = alphac*rhoc,  betad = alphad*rhod,  Ucm = betad*Udm/betac
+/// tauDm = betad*sqr(Udm) + betac*sqr(Ucm)
+/// ```
+///
+/// returned as `[xx, xy, xz, yy, yz, zz]` per cell (OpenFOAM `symmTensor`
+/// order), `alphac = 1 - alphad`. At `alphad = 1`, `betac = 0` and upstream
+/// divides by zero as well (and traps SIGFPE); this function returns
+/// non-finite values there.
+///
+/// # Errors
+/// [`MultiphaseError::InvalidInput`] if `alpha` and `udm` differ in length.
+pub fn tau_dm_openfoam(
+    alpha: &[f64],
+    udm: &[Vector3],
+    rho_c: f64,
+    rho_d: f64,
+) -> Result<Vec<[f64; 6]>, MultiphaseError> {
+    if alpha.len() != udm.len() {
+        return Err(MultiphaseError::InvalidInput(format!(
+            "tau_dm: {} alpha values but {} Udm vectors",
+            alpha.len(),
+            udm.len()
+        )));
+    }
+    Ok(alpha
+        .iter()
+        .zip(udm)
+        .map(|(&ad, u)| {
+            let betac = (1.0 - ad) * rho_c;
+            let betad = ad * rho_d;
+            let ud = [u.x, u.y, u.z];
+            let ucm = [betad * ud[0] / betac, betad * ud[1] / betac, betad * ud[2] / betac];
+            let t = |i: usize, j: usize| betad * (ud[i] * ud[j]) + betac * (ucm[i] * ucm[j]);
+            [t(0, 0), t(0, 1), t(0, 2), t(1, 1), t(1, 2), t(2, 2)]
+        })
+        .collect())
 }
 
 impl SlipModel {
@@ -398,6 +503,27 @@ impl SlipModel {
                     .map(|c| {
                         let factor = 10.0_f64.r_powf(-hindrance_exp * a[c].max(0.0));
                         *u_t * factor
+                    })
+                    .collect())
+            }
+            Self::OpenFoamSimple { rho_c, rho_d, v0, a } => {
+                let al = alpha.internal.as_slice();
+                Ok((0..n)
+                    .map(|c| {
+                        let k = rho_c / openfoam_rho(al[c], *rho_c, *rho_d);
+                        let p = 10.0_f64.r_powf(-a * al[c].max(0.0));
+                        Vector3::new(k * v0.x * p, k * v0.y * p, k * v0.z * p)
+                    })
+                    .collect())
+            }
+            Self::OpenFoamGeneral { rho_c, rho_d, v0, a, a1, residual_alpha } => {
+                let al = alpha.internal.as_slice();
+                Ok((0..n)
+                    .map(|c| {
+                        let k = rho_c / openfoam_rho(al[c], *rho_c, *rho_d);
+                        let x = (al[c] - residual_alpha).max(0.0);
+                        let p = (-a * x).r_exp() - (-a1 * x).r_exp();
+                        Vector3::new(k * v0.x * p, k * v0.y * p, k * v0.z * p)
                     })
                     .collect())
             }

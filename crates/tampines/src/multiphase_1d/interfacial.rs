@@ -29,9 +29,12 @@
 //!   made in the solver, not here.
 //! - **Wall heat transfer and wall friction.** Those couple a phase to the
 //!   *wall*, not to the interface.
-//! - **Interfacial-area transport and the flow-regime map.** See "Honest
+//! - ~~**Interfacial-area transport and the flow-regime map.** See "Honest
 //!   scope" below — both are absent, and their absence is the largest
-//!   modelling limitation of this layer.
+//!   modelling limitation of this layer.~~ **CORRECTED 2026-11-01 (gh:#1060):**
+//!   a one-parameter **flow-regime map** now sets the interfacial area — see
+//!   "Flow-regime interfacial area" below. Interfacial-area *transport* is
+//!   still absent.
 //! - **A second property path.** Every thermodynamic and transport number comes
 //!   from [`super::properties`]; nothing is re-derived here.
 //!
@@ -111,7 +114,11 @@
 //!   [`InterfacialHeatTransfer`](outram_foam_multiphase::heat_transfer::InterfacialHeatTransfer)
 //!   (`Q = K (T_interface − T_phase)`) and it is the sign with which `Q_k^i`
 //!   enters the phase energy equation as written in [`super::two_fluid`]
-//!   (`… = α_k ∂p/∂t + Q_k^i + Γ_k h_k^i + q_k^wall`). A **positive** `Q_g^i`
+//!   (`… = α_k ∂p/∂t + Q_k^i + Γ_k h_k^i`; ~~`+ q_k^wall`~~ **CORRECTED
+//!   2026-11-01:** the solver has no wall heat term, it is adiabatic;
+//!   **CORRECTED AGAIN 2026-11-01, gh:#1062:** it has one now,
+//!   `+ Q_k^wall` from [`super::wall_heat`], adiabatic by default). A
+//!   **positive** `Q_g^i`
 //!   heats the vapour.
 //! - **`Γ > 0` means evaporation** — liquid becoming vapour, mass leaving the
 //!   liquid equation and entering the vapour equation (`Γ_g = +Γ`,
@@ -171,17 +178,63 @@
 //! Region 1/2 validity. Nothing here has checked that number against
 //! anything.
 //!
+//! # Flow-regime interfacial area (gh:#1060)
+//!
+//! RELAP-7's two-phase closures take the interfacial area concentration
+//! `A_int` from the local flow regime (RELAP-7 Theory Manual, Eq. 117; the
+//! manual is not public, so only the equation number is cited). This layer
+//! does that through **reused** GeN-Foam closures rather than a second port:
+//!
+//! - the regime is classified on `α_g` by
+//!   [`outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::closures::interfacial::regime_map::RegimeMap1D`]
+//!   (GeN-Foam `regimeMapModels::oneParameter`), linear interpolation across
+//!   the gap between the two windows;
+//! - the area of each regime comes from
+//!   [`outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::closures::interfacial::area::InterfacialArea`]:
+//!   `Spherical` (`6 α/d_b`) for **bubbly/slug** and `Annular` (`4 α/D_h`,
+//!   vapour core of the pipe's hydraulic diameter) for **annular/mist**, both
+//!   at the upstream default `cutoff_alpha = 0.9`;
+//! - the windows are `α_g ≤ 0.5` bubbly/slug and `α_g ≥ 0.75` annular/mist
+//!   ([`BUBBLY_SLUG_UPPER_VOID`], [`ANNULAR_MIST_LOWER_VOID`]), the void-only
+//!   interfacial-drag regime map of the TRACE V5 Theory Manual. **Not
+//!   re-checked** against that manual in this session (it is not in the
+//!   repository); treat the two numbers as a cited modelling choice, not a
+//!   verified transcription.
+//!
+//! The drag and heat-transfer correlations consumed from the 3-D reference
+//! take a *diameter*, not an area, so the regime area enters them as the
+//! **Sauter-equivalent diameter** `d_eff = 6 α_g / A_int`. In the pure
+//! bubbly window `A_int = 6 α_g / d_b` exactly, so `d_eff = d_b` and the
+//! closures are **bit-identical** to the fixed-diameter set there (pinned by
+//! `regime_map_is_bit_identical_to_the_fixed_diameter_set_in_the_bubbly_window`).
+//! In the annular window below the cutoff `A_int = 4 α_g / D_h`, so
+//! `d_eff = 1.5 D_h` — sphere correlations evaluated at the equivalent
+//! diameter of the vapour core — **there is no
+//! film correlation here**, and that is stated as a limitation, not hidden.
+//!
+//! The regime map is opt-in at **this** layer
+//! ([`InterfacialExchange::with_regime_map`]) only because it needs the
+//! pipe's hydraulic diameter, which a free-standing closure set does not
+//! know. [`super::two_fluid::TwoFluid1d::new`] switches it **on** for every
+//! vapour-dispersed closure set; the ablation is
+//! [`super::two_fluid::TwoFluid1d::without_regime_map`].
+//!
 //! # Honest scope — what this layer does NOT do
 //!
-//! - **No interfacial-area transport.** The inclusion diameter `d` is
+//! - **No interfacial-area transport.** The bubble diameter `d_b` is
 //!   prescribed once at construction and never responds to breakup,
 //!   coalescence, or the local flow. Every closure here scales as `1/d²`, so
-//!   `d` is the single most influential number a caller supplies and the least
-//!   justified.
-//! - **No flow-regime map.** [`DispersedPhase`] is fixed for the whole
+//!   `d_b` is the single most influential number a caller supplies and the
+//!   least justified — in the bubbly window it is still the whole story.
+//! - ~~**No flow-regime map.** [`DispersedPhase`] is fixed for the whole
 //!   calculation. A real transient runs bubbly at low void and droplet/mist at
 //!   high void; this layer will happily evaluate bubbly closures at `α_g =
-//!   0.99`, which is wrong and will not complain.
+//!   0.99`, which is wrong and will not complain.~~ **CORRECTED 2026-11-01
+//!   (gh:#1060):** with [`InterfacialExchange::with_regime_map`] the area
+//!   follows the regime, but [`DispersedPhase`] is still fixed (vapour) — the
+//!   annular/mist area is that of a vapour core, and no droplet field exists.
+//!   The droplet closure set ([`InterfacialExchange::droplet`]) refuses the
+//!   regime map rather than evaluate a vapour-core area for dispersed liquid.
 //! - **No lift, virtual mass, wall lubrication, or turbulent dispersion.**
 //!   Upstream carries those as unported scaffolds
 //!   ([`outram_foam_multiphase::two_fluid::InterfacialForce`]); only drag is
@@ -210,6 +263,10 @@
 
 use std::sync::Arc;
 
+use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::closures::interfacial::area::InterfacialArea;
+use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::closures::interfacial::regime_map::{
+    RegimeBound, RegimeInterpolationMode, RegimeMap1D,
+};
 use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
 use outram_foam_basic_lib::mesh::FvMesh;
 use outram_foam_basic_lib::primitives::Vector3;
@@ -220,9 +277,11 @@ use uom::si::area::square_meter;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::{
-    Area, AvailableEnergy, DynamicViscosity, Length, MassDensity, Pressure,
+    Area, AvailableEnergy, DynamicViscosity, Length, MassDensity, Pressure, Ratio,
     ThermodynamicTemperature, Velocity, VolumetricPowerDensity,
 };
+use uom::si::ratio::ratio;
+use uom::si::reciprocal_length::reciprocal_meter;
 use uom::si::length::meter;
 use uom::si::mass_density::kilogram_per_cubic_meter;
 use uom::si::pressure::pascal;
@@ -276,6 +335,50 @@ pub const P_CRITICAL_WATER: f64 = 22.064e6;
 /// `latent_heat_guard_fires_only_next_to_the_critical_point` (2026-08-12) is
 /// `3.7940e5 J/kg` at `p_c`, thirty-eight times this threshold.
 pub const MIN_LATENT_HEAT_FOR_MASS_TRANSFER: f64 = 1.0e4;
+
+/// Upper void fraction of the **bubbly/slug** regime window \[-\] (gh:#1060).
+///
+/// `0.5`, from the void-only interfacial-drag regime map of the TRACE V5
+/// Theory Manual (bubbly/slug to `α_g = 0.5`, annular/mist from `0.75`, linear
+/// interpolation between). **Not re-checked** against the manual in this
+/// session; see the module docs.
+pub const BUBBLY_SLUG_UPPER_VOID: f64 = 0.5;
+
+/// Lower void fraction of the **annular/mist** regime window \[-\] (gh:#1060).
+/// See [`BUBBLY_SLUG_UPPER_VOID`] for the provenance and its caveat.
+pub const ANNULAR_MIST_LOWER_VOID: f64 = 0.75;
+
+/// `cutoff_alpha` handed to both reused GeN-Foam area models \[-\]: `0.9`, the
+/// upstream default (`closures::interfacial::area`). Above it the spherical
+/// area tapers as `(1−α)/(1−0.9)`; the annular one drops by
+/// `1/(1+√0.9) ≈ 0.513` and tapers as `(1−√α)/(1−0.9)` — a jump that is
+/// upstream's, reproduced, and documented there.
+pub const REGIME_AREA_CUTOFF_ALPHA: f64 = 0.9;
+
+/// Name of the bubbly/slug window in the regime map.
+const REGIME_BUBBLY: &str = "bubbly-slug";
+/// Name of the annular/mist window in the regime map.
+const REGIME_ANNULAR: &str = "annular-mist";
+
+/// How the interfacial area concentration `A_int` \[1/m\] is obtained.
+///
+/// Enum dispatch per the workspace rule.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum InterfacialAreaModel {
+    /// The pre-gh:#1060 behaviour: one prescribed inclusion diameter `d`
+    /// everywhere, so `A_int = 6 α_d / d` at every void fraction. The
+    /// **ablation** — what [`super::two_fluid::TwoFluid1d::without_regime_map`]
+    /// selects.
+    FixedDiameter,
+    /// `A_int` from the void-fraction regime map (module docs, "Flow-regime
+    /// interfacial area"): bubbly/slug spherical area at the bubble diameter,
+    /// annular/mist core area at the hydraulic diameter, blended across the
+    /// gap.
+    RegimeMap {
+        /// Pipe hydraulic diameter `D_h` \[m\] that sizes the annular core.
+        hydraulic_diameter: f64,
+    },
+}
 
 /// Which phase is treated as **dispersed** (bubbles or droplets) and which as
 /// **continuous** (the carrier).
@@ -476,6 +579,15 @@ pub struct InterfacialSources {
     /// the drag and the continuous-side heat-transfer correlation are
     /// evaluated at this `Re`.
     pub slip_reynolds_number: f64,
+    /// Interfacial area concentration `A_int` \[1/m\] the closures were
+    /// evaluated at (gh:#1060): `6 α_d / d` for
+    /// [`InterfacialAreaModel::FixedDiameter`], the regime-blended area for
+    /// [`InterfacialAreaModel::RegimeMap`].
+    pub interfacial_area_concentration: f64,
+    /// The inclusion diameter \[m\] the closures were evaluated at: the
+    /// prescribed `d`, or the Sauter-equivalent `6 α_d / A_int` under the
+    /// regime map.
+    pub effective_diameter: f64,
 }
 
 impl InterfacialSources {
@@ -602,6 +714,11 @@ pub struct InterfacialExchange {
     /// Residual volume-fraction floor `α_res` \[-\] handed to the heat-transfer
     /// closures.
     residual_alpha: f64,
+    /// How `A_int` is obtained (gh:#1060).
+    area_model: InterfacialAreaModel,
+    /// The reused GeN-Foam one-parameter regime map on `α_g`; read only under
+    /// [`InterfacialAreaModel::RegimeMap`].
+    regime_map: RegimeMap1D,
 }
 
 impl InterfacialExchange {
@@ -695,7 +812,147 @@ impl InterfacialExchange {
             dispersed,
             diameter: d,
             residual_alpha,
+            area_model: InterfacialAreaModel::FixedDiameter,
+            regime_map: void_regime_map(),
         })
+    }
+
+    /// Switch the interfacial area to the void-fraction **regime map**
+    /// (gh:#1060, RELAP-7 Eq. 117), sized by the pipe's hydraulic diameter.
+    ///
+    /// # Errors
+    ///
+    /// [`TampinesError::InvalidInput`] if `hydraulic_diameter` is not finite
+    /// and positive, or if this closure set disperses the **liquid**: the
+    /// annular/mist area here is a vapour core, and evaluating it for a
+    /// droplet set would be a silent role swap.
+    pub fn with_regime_map(mut self, hydraulic_diameter: Length) -> Result<Self, TampinesError> {
+        let d_h = hydraulic_diameter.get::<meter>();
+        if !(d_h > 0.0) || !d_h.is_finite() {
+            return Err(TampinesError::InvalidInput(format!(
+                "regime-map hydraulic diameter must be finite and > 0 m (got {d_h})"
+            )));
+        }
+        if self.dispersed != DispersedPhase::Vapour {
+            return Err(TampinesError::InvalidInput(
+                "the void-fraction regime map models a vapour-dispersed (bubbly) to \
+                 vapour-core (annular) progression; it is refused for a liquid-dispersed \
+                 (droplet) closure set rather than evaluated with the roles swapped"
+                    .to_string(),
+            ));
+        }
+        self.area_model = InterfacialAreaModel::RegimeMap {
+            hydraulic_diameter: d_h,
+        };
+        Ok(self)
+    }
+
+    /// Back to one prescribed diameter everywhere — the **ablation** of
+    /// [`with_regime_map`](Self::with_regime_map).
+    #[must_use]
+    pub fn without_regime_map(mut self) -> Self {
+        self.area_model = InterfacialAreaModel::FixedDiameter;
+        self
+    }
+
+    /// Which interfacial-area model is active.
+    #[must_use]
+    pub fn area_model(&self) -> InterfacialAreaModel {
+        self.area_model
+    }
+
+    /// The interfacial area concentration `A_int` \[1/m\] this closure set
+    /// assigns to vapour fraction `void` (gh:#1060's regime map, or `6 α_d / d`
+    /// without it). Public for the seven-equation relaxation coefficients
+    /// (gh:#1059, RELAP-7 Eqs 197–198).
+    ///
+    /// # Errors
+    ///
+    /// As the regime map, for a `NaN` volume fraction.
+    pub fn interfacial_area_concentration(&self, void: f64) -> Result<f64, TampinesError> {
+        Ok(self.area_and_diameter(void)?.0)
+    }
+
+    /// The interfacial area concentration `A_int` \[1/m\] and the diameter
+    /// \[m\] the closures are evaluated at, for vapour fraction `void`.
+    ///
+    /// Under the regime map, `A_int = Σ_r w_r a_r(α_g) / Σ_r w_r` with the weights from
+    /// the reused [`RegimeMap1D`] and each `a_r` from the reused
+    /// [`InterfacialArea`]; the diameter is then the Sauter-equivalent
+    /// `6 α_d / A_int` (module docs). At `α_d = 0` there is no area and no
+    /// equivalent diameter, so the bubble diameter is returned — every
+    /// closure multiplies by `α_d` and vanishes there anyway.
+    ///
+    /// # Errors
+    ///
+    /// [`TampinesError::Numerical`] if the regime weights do not cover `void`
+    /// (only a `NaN` can do that) or the equivalent diameter is not finite.
+    fn area_and_diameter(&self, void: f64) -> Result<(f64, f64), TampinesError> {
+        let alpha_d = match self.dispersed {
+            DispersedPhase::Vapour => void,
+            DispersedPhase::Liquid => 1.0 - void,
+        };
+        match self.area_model {
+            InterfacialAreaModel::FixedDiameter => {
+                Ok((6.0 * alpha_d / self.diameter, self.diameter))
+            }
+            InterfacialAreaModel::RegimeMap { hydraulic_diameter } => {
+                let a_d = Ratio::new::<ratio>(alpha_d);
+                let a_c = Ratio::new::<ratio>(1.0 - alpha_d);
+                let mut area = 0.0;
+                let mut weight_sum = 0.0;
+                let mut weights = self.regime_map.regime_weights(void);
+                // The reused map's documented dropped point: at the exact
+                // upper edge of the bubbly window neither the window nor the
+                // gap claims `void` (weights sum to 0). The area is continuous
+                // there, so the bubbly window's value is the limit from both
+                // sides.
+                if weights.is_empty() && void == BUBBLY_SLUG_UPPER_VOID {
+                    weights.push((REGIME_BUBBLY.to_string(), 1.0));
+                }
+                for (name, w) in weights {
+                    let (model, d) = if name == REGIME_BUBBLY {
+                        (
+                            InterfacialArea::Spherical {
+                                cutoff_alpha: REGIME_AREA_CUTOFF_ALPHA,
+                            },
+                            self.diameter,
+                        )
+                    } else {
+                        (
+                            InterfacialArea::Annular {
+                                cutoff_alpha: REGIME_AREA_CUTOFF_ALPHA,
+                            },
+                            hydraulic_diameter,
+                        )
+                    };
+                    let a_r = model
+                        .area_concentration(a_d, a_c, Length::new::<meter>(d))
+                        .get::<reciprocal_meter>();
+                    area += w * a_r;
+                    weight_sum += w;
+                }
+                if !(weight_sum > 0.0) {
+                    return Err(TampinesError::Numerical(format!(
+                        "regime map returned no weight at void fraction {void}"
+                    )));
+                }
+                // Normalise: upstream double-counts the regime entered at the
+                // end of a gap (weight 2 at `α_g = 0.75`), see `regime_map.rs`.
+                area /= weight_sum;
+                if !(alpha_d > 0.0) || !(area > 0.0) {
+                    return Ok((area.max(0.0), self.diameter));
+                }
+                let d_eff = 6.0 * alpha_d / area;
+                if !(d_eff > 0.0) || !d_eff.is_finite() {
+                    return Err(TampinesError::Numerical(format!(
+                        "Sauter-equivalent diameter {d_eff} m is not finite at void {void} \
+                         (A_int = {area} 1/m)"
+                    )));
+                }
+                Ok((area, d_eff))
+            }
+        }
     }
 
     /// The conventional **bubbly-flow** closure set: Schiller-Naumann drag,
@@ -909,8 +1166,11 @@ impl InterfacialExchange {
             )));
         }
 
+        // 2b. Interfacial area and the diameter the closures see (gh:#1060).
+        let (area_concentration, diameter) = self.area_and_diameter(cell.void_fraction)?;
+
         // 3. Drag and Reynolds number, from the traced-back closure.
-        let (k_d, reynolds) = self.drag_and_reynolds(dispersed, continuous)?;
+        let (k_d, reynolds) = self.drag_and_reynolds(dispersed, continuous, diameter)?;
         let drag_force_on_vapour = k_d * (cell.liquid_velocity - cell.vapour_velocity);
 
         // 4. Two-resistance heat transfer. Both calls receive the SAME
@@ -923,7 +1183,7 @@ impl InterfacialExchange {
             continuous.alpha,
             continuous.lambda,
             dispersed.lambda,
-            self.diameter,
+            diameter,
             reynolds,
             continuous.prandtl,
             self.residual_alpha,
@@ -933,7 +1193,7 @@ impl InterfacialExchange {
             continuous.alpha,
             continuous.lambda,
             dispersed.lambda,
-            self.diameter,
+            diameter,
             reynolds,
             dispersed.prandtl,
             self.residual_alpha,
@@ -970,6 +1230,8 @@ impl InterfacialExchange {
             vapour_temperature: vapour.temperature,
             liquid_temperature: liquid.temperature,
             slip_reynolds_number: reynolds,
+            interfacial_area_concentration: area_concentration,
+            effective_diameter: diameter,
         })
     }
 
@@ -983,13 +1245,14 @@ impl InterfacialExchange {
         &self,
         dispersed: PhaseRole,
         continuous: PhaseRole,
+        diameter: f64,
     ) -> Result<(f64, f64), TampinesError> {
         let dispersed_phase = Phase::new(
             self.mesh.clone(),
             dispersed.name,
             MassDensity::new::<kilogram_per_cubic_meter>(dispersed.rho),
             DynamicViscosity::new::<pascal_second>(dispersed.mu),
-            Length::new::<meter>(self.diameter),
+            Length::new::<meter>(diameter),
             dispersed.alpha,
         )?;
         let continuous_phase = Phase::new(
@@ -997,7 +1260,7 @@ impl InterfacialExchange {
             continuous.name,
             MassDensity::new::<kilogram_per_cubic_meter>(continuous.rho),
             DynamicViscosity::new::<pascal_second>(continuous.mu),
-            Length::new::<meter>(self.diameter),
+            Length::new::<meter>(diameter),
             continuous.alpha,
         )?;
 
@@ -1011,6 +1274,28 @@ impl InterfacialExchange {
         let k_d = self.drag.k_d(&system)?.internal.as_slice()[0];
         Ok((k_d, reynolds))
     }
+}
+
+/// The void-fraction regime map of gh:#1060 as a reused GeN-Foam
+/// [`RegimeMap1D`]: bubbly/slug `[0, 0.5]`, annular/mist `[0.75, 1]`, linear
+/// blend across the gap. The outer edges extend to upstream's `±1e69`
+/// sentinel, so every finite `α_g` classifies.
+fn void_regime_map() -> RegimeMap1D {
+    RegimeMap1D::new(
+        vec![
+            RegimeBound {
+                name: REGIME_BUBBLY.to_string(),
+                lower: 0.0,
+                upper: BUBBLY_SLUG_UPPER_VOID,
+            },
+            RegimeBound {
+                name: REGIME_ANNULAR.to_string(),
+                lower: ANNULAR_MIST_LOWER_VOID,
+                upper: 1.0,
+            },
+        ],
+        RegimeInterpolationMode::Linear,
+    )
 }
 
 #[cfg(test)]

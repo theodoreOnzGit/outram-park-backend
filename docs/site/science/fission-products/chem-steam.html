@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steam on graphite and kernels</title>
+<meta name="description" content="Fission products: steam gasifying IG-110 graphite (a Langmuir-Hinshelwood fit, slowed by hydrogen) and steam reaching a bare UO2 kernel, which lets go of stored noble gas in one burst; both fits against temperature and steam pressure, and how far a water-ingress accident lies outside them (gh:#418).">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="chemhand-data.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="chemhand-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, after "Air on hot graphite" (gh:#1207: the TRISO-ATOPS mdBook's rung 6,
+     steps 2-3). graphite_steam::specific_rate and kernel_hydrolysis::stored_gas_fraction on a
+     400-1600 °C grid at nine steam pressures, with and without 1 kPa H2 (chemhand-data.js,
+     lesson_chemistry_handoff). Predictions C5-C8. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-11-04), not yet reviewed by a human.</p>
+<span id="ch-numbers" hidden></span>
+
+<h1>Steam on graphite and bare kernels</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Water can get into a gas-cooled core too, from a leaking steam generator. Steam attacks the graphite, more gently than air. And where a particle&rsquo;s coatings have already failed, it reaches the kernel itself, which lets go of gas it was holding.</p>
+
+<section class="widget-card">
+  <h3>Two steam fits, and where they were measured</h3>
+  <div class="widget" id="ch-steam">
+    <canvas aria-label="Left or top: the steam gasification rate of IG-110 graphite against temperature on a log scale, dotted inside the measured 850 to 1100 degree box (shaded) and dashed outside it. Right or bottom: the fraction of a bare kernel's stored noble gas released by steam against temperature, dotted inside the fitted range, dashed outside, with red marks where the fit passes one and is clamped to the whole inventory."></canvas>
+  </div>
+  <p class="note"><code>graphite_<wbr>steam::<wbr>specific_<wbr>rate</code> (Wang &amp; Sun 2023) and <code>kernel_<wbr>hydrolysis::<wbr>stored_<wbr>gas_<wbr>fraction</code> (IAEA-TECDOC-978 Eq. 5-2), recorded on a 10 &deg;C grid at nine steam pressures.</p>
+</section>
+
+<p class="predict"><b>Predict first.</b> In a water-ingress accident the steam is at hundreds of kPa. Slide the pressure there. How much of the widget is still dotted?</p>
+
+<h2>Steam on graphite</h2>
+<p>The reaction is C + H<sub>2</sub>O &rarr; CO + H<sub>2</sub>. Unlike burning in air, it <b>absorbs</b> heat, +131.3 kJ/mol, and the hydrogen it makes slows it down. The fit is a Langmuir&ndash;Hinshelwood law: steam sits on surface sites and reacts there, and hydrogen competes for the same sites.</p>
+<p class="eq-block">R = k<sub>1</sub>e<sup>&minus;E<sub>1</sub>/RT</sup>&nbsp;p<sub>H<sub>2</sub>O</sub><sup>m(T)</sup> / [1 + k<sub>2</sub>e<sup>&minus;E<sub>2</sub>/RT</sup>&nbsp;p<sub>H<sub>2</sub></sub><sup>n</sup> + k<sub>3</sub>e<sup>&minus;E<sub>3</sub>/RT</sup>&nbsp;p<sub>H<sub>2</sub>O</sub><sup>m(T)</sup>]</p>
+<p>with m(T) a smooth step between two orders. Coefficients: Wang &amp; Sun, <i>Nucl. Eng. Des.</i> 410 (2023) 112382, Table 8 (p. 11), the &ldquo;Unknown n&rdquo; column. The paper is cited by page, not quoted. It was measured on thin IG-110 disks at <b>850&ndash;1100 &deg;C, 0.5&ndash;20 kPa of steam and up to 2 kPa of hydrogen</b>.</p>
+<p>At 1050 &deg;C and 5 kPa with no hydrogen the code gives <span data-ch="s1050">&hellip;</span>, equal to a hand evaluation to 10<sup>&minus;4</sup> (the copy is checked) and inside the 10<sup>&minus;6</sup>&ndash;10<sup>&minus;5</sup>&nbsp;/s band of the paper&rsquo;s measured points at that temperature (its Fig. 17). That band is the only contact with measured data in this lesson, and a loose one. Add 1 kPa of hydrogen and the rate drops to <span data-ch="h2ratio">&hellip;</span> of that (predicted 0.45).</p>
+
+<h2>Steam on a bare kernel</h2>
+<p>A particle whose coatings failed (lessons 35&ndash;39) exposes its UO<sub>2</sub> kernel. When steam reaches it, a fraction of the noble gas stored in the kernel comes out at once. A fit to the HFR-B1 and HRB-17 steam-injection tests gives that fraction (IAEA-TECDOC-978, &sect;5.3.1.1, Eq. 5-2, p. 223):</p>
+<p class="eq-block">f = 2.13&times;10<sup>13</sup>&nbsp;P<sup>&minus;4.353 + 6503/T</sup>&nbsp;e<sup>&minus;47&#8202;257/T</sup></p>
+<p>with P in Pa and T in K. It was fitted at <b>820&ndash;1040 &deg;C and 2.8&ndash;1051 Pa</b>. It is a one-time burst per exposure, not a rate. Because f is a fraction of an inventory, the code clamps it to 1 and says so (<code>ClampedToWholeInventory</code>). At 1000 &deg;C the fit reaches the whole inventory at <span data-ch="whole1000">&hellip;</span> of steam (predicted 5.0 kPa), and at 770 &deg;C at <span data-ch="whole770">&hellip;</span> (the TECDOC itself says &ldquo;near 2 kPa&rdquo;).</p>
+
+<h2>How far outside the fits an accident is</h2>
+<p>Now the answer to the predict prompt. At 100 or 300 kPa <b>nothing</b> is dotted: the graphite fit was measured up to 20 kPa and the kernel fit up to about 1 kPa, so a water-ingress accident sits two to three orders of magnitude above both. The kernel fit then returns the whole stored inventory at almost every temperature: every exposed kernel gives up all its stored noble gas. This is <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/418">gh:#418</a>, and callers must show the flag, not swallow it.</p>
+<p>Look at the hottest temperatures at 300 kPa. The fit drops <b>below</b> 1 again: its pressure exponent, &minus;4.353 + 6503/T, turns negative above 1494 K, so far outside the fit more steam releases less. That is not physics. It is what a fit does where it was never measured, and it is why the flags exist.</p>
+<p>Not modelled at all: the slower second stage of release under continued steam (TECDOC-978 Eq. 5-3), and iodine or metal release from hydrolysed kernels.</p>
+
+<h2>Where it is in the code</h2>
+<p><a href="../../code-review/#crates/boon-lay/src/chemistry/graphite_steam.rs::specific_rate"><code>graphite_<wbr>steam::<wbr>specific_<wbr>rate</code></a> evaluates the fit with coefficients from <code>BlhCoefficients::<wbr>wang_<wbr>sun_<wbr>2023_<wbr>ig110</code> and flags <code>InsideMeasuredRange</code> or <code>Extrapolated</code>. <a href="../../code-review/#crates/boon-lay/src/chemistry/kernel_hydrolysis.rs::stored_gas_fraction"><code>kernel_<wbr>hydrolysis::<wbr>stored_<wbr>gas_<wbr>fraction</code></a> has three exits: <code>InsideFittedRange</code>, <code>Extrapolated</code> and <code>ClampedToWholeInventory</code>. Both are called from outside the crate by <code>htgr_sim_v1</code>&rsquo;s water-ingress stage (gh:#401), which reports when it extrapolates.</p>
+
+<p><b>Next:</b> chapter 5, &ldquo;Integrating it in TRISO-ATOPS&rdquo;.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Checks still to do</h3>
+<p>The steam half of the kernel attack is unchecked against measured krypton numbers from Kugeler et al. (2017): 57 % of the stored Kr from two defective particles under intermittent steam at 800 &deg;C (AVR 89/30), and cracked kernels releasing about 2 % of Kr at 5 % FIMA and more than 17 % at 9 % FIMA (gh:#444). The air half does not exist.</p>
+<h3>Why the fits are kinetic</h3>
+<p>Both graphite fits were measured where the chemistry limits (thin disks, low pressure). In a thick graphite body at high temperature, the gas diffusing into the pores limits the rate instead, so a kinetic fit extrapolated there over-states it. The air law has the oxygen supply as a guard; the steam law has none, and its flag is the only warning.</p>
+<h3>The TRISO-ATOPS track</h3>
+<p>The <a href="../../demos/triso-atops/?rung=chemistry">demo&rsquo;s chemistry rung</a> runs the same three laws live.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

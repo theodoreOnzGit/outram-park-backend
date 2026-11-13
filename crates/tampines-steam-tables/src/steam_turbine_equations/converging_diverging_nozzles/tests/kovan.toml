@@ -2,6 +2,40 @@ schema_version = 1
 kind = "code_folder"
 crate = "tampines-steam-tables"
 dir = "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests"
+test_ids = [
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/bubble_point_saturation_validation.rs::bubble_point_matches_saturation_table",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/bubble_point_saturation_validation.rs::dew_point_matches_saturation_table",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/cd_nozzle_choked_flow_overexpanded.rs::dry_steam_test_overexpanded",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/cd_nozzle_choked_flow_overexpanded.rs::validate_against_cengel_choked_flow_nozzle",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/cd_nozzle_choked_flow_overexpanded.rs::validate_against_cengel_isentropic_steam_nozzle",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/cd_nozzle_subsonic_flow.rs::dry_steam_test",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/cd_nozzle_subsonic_flow.rs::wet_steam_test",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/diverging_nozzle_perfectly_expanded_supersonic.rs::diverging_nozzle_perfectly_expanded_subsonic_dry_steam",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/diverging_nozzle_perfectly_expanded_supersonic.rs::diverging_nozzle_perfectly_expanded_supersonic_dry_steam",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/golden_section_shared_search.rs::choke_pressures_of_the_four_solver_paths",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/golden_section_shared_search.rs::golden_section_costs_one_evaluation_per_iteration",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/golden_section_shared_search.rs::golden_section_locates_a_known_maximum",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/golden_section_shared_search.rs::probe_reuse_moves_the_choke_far_below_the_stopping_rule",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/marviken_tests.rs::characterise_hem_maximum_flux_criterion",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/marviken_tests.rs::digitised_points_agree_with_nureg_table_8_3",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/marviken_tests.rs::marviken_measured_scatter",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/marviken_tests.rs::marviken_nozzle_geometry",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/marviken_tests.rs::validate_against_marviken_test_23",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/marviken_tests.rs::validate_against_marviken_test_24",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/moody_critical_mass_flux_homogeneous_eqm.rs::isobar_pref_0_25",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/moody_critical_mass_flux_homogeneous_eqm.rs::isobar_pref_0_50",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/moody_critical_mass_flux_homogeneous_eqm.rs::isobar_pref_10_00",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/moody_critical_mass_flux_homogeneous_eqm.rs::isobar_pref_12_00",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/moody_critical_mass_flux_homogeneous_eqm.rs::isobar_pref_14_00",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/moody_critical_mass_flux_homogeneous_eqm.rs::isobar_pref_16_00",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/moody_critical_mass_flux_homogeneous_eqm.rs::isobar_pref_1_00",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/moody_critical_mass_flux_homogeneous_eqm.rs::isobar_pref_20_00",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/moody_critical_mass_flux_homogeneous_eqm.rs::isobar_pref_2_00",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/moody_critical_mass_flux_homogeneous_eqm.rs::isobar_pref_30_00",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/moody_critical_mass_flux_homogeneous_eqm.rs::isobar_pref_4_00",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/moody_critical_mass_flux_homogeneous_eqm.rs::isobar_pref_6_00",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/moody_critical_mass_flux_homogeneous_eqm.rs::isobar_pref_8_00",
+]
 
 [module."bubble_point_saturation_validation.rs"]
 path = "crate::steam_turbine_equations::converging_diverging_nozzles::tests::bubble_point_saturation_validation"
@@ -1029,3 +1063,43 @@ uses = [
     "fn:9575bb6d620c3c73",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+]
+failed = []

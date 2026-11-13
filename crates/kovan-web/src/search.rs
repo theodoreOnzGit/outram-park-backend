@@ -13,6 +13,10 @@
 //! term is a plain substring of it: "melt behaviour" finds sembawang. The
 //! backronym is kept out of the fuzzy text, because a long phrase contains
 //! almost any letter sequence and would match nearly every query.
+//!
+//! Test code is found too (GitHub #1164, 2026-11-03): a test module or
+//! function is labelled `test` and ranks below an ordinary result with the
+//! same score.
 
 use kovan_common::call_graph::split::SearchIndex;
 use kovan_common::code_map::CodeMap;
@@ -30,8 +34,10 @@ pub enum Hit {
 pub struct SearchResult {
     pub hit: Hit,
     pub score: i32,
-    /// `crate`, `module` or `fn`.
+    /// `crate`, `module`, `fn` or `test`.
     pub kind: &'static str,
+    /// Test code (#1164): choosing it shows the map's tests.
+    pub test: bool,
     /// The name shown first.
     pub label: String,
     /// Crate and path.
@@ -50,7 +56,8 @@ fn score(terms: &[String], haystack: &str, name: &str) -> Option<i32> {
     Some(total)
 }
 
-/// The best `limit` matches for `query`, best first (ties by label).
+/// The best `limit` matches for `query`, best first (ties: ordinary code
+/// before tests, then by label).
 pub fn search(query: &str, map: &CodeMap, index: Option<&SearchIndex>, limit: usize) -> Vec<SearchResult> {
     let terms: Vec<String> = query.split_whitespace().map(|t| t.to_lowercase()).collect();
     if terms.is_empty() {
@@ -69,13 +76,16 @@ pub fn search(query: &str, map: &CodeMap, index: Option<&SearchIndex>, limit: us
                 hit: Hit::Crate(c.name.clone()),
                 score: s + 100,
                 kind: "crate",
+                test: false,
                 label: c.name.clone(),
                 detail: c.backronym.clone().or_else(|| c.description.clone()).unwrap_or_default(),
             });
         }
     }
     if let Some(ix) = index {
-        for m in &ix.modules {
+        let test_modules: std::collections::BTreeSet<usize> = ix.test_modules.iter().copied().collect();
+        let test_functions: std::collections::BTreeSet<usize> = ix.test_functions.iter().copied().collect();
+        for (mi, m) in ix.modules.iter().enumerate() {
             let krate = &ix.crates[m.0];
             let name = if m.2.is_empty() { m.1.rsplit('/').next().unwrap_or(&m.1) } else { m.2.rsplit("::").next().unwrap_or(&m.2) };
             let hay = format!("{krate} {} {}", m.2, m.1);
@@ -83,13 +93,14 @@ pub fn search(query: &str, map: &CodeMap, index: Option<&SearchIndex>, limit: us
                 out.push(SearchResult {
                     hit: Hit::Module { krate: krate.clone(), file: m.1.clone() },
                     score: s + 50,
-                    kind: "module",
+                    kind: if test_modules.contains(&mi) { "test" } else { "module" },
+                    test: test_modules.contains(&mi),
                     label: if m.2.is_empty() { m.1.clone() } else { m.2.clone() },
                     detail: format!("{krate} · {}", m.1),
                 });
             }
         }
-        for f in &ix.functions {
+        for (fi, f) in ix.functions.iter().enumerate() {
             let m = &ix.modules[f.0];
             let krate = &ix.crates[m.0];
             let name = f.1.split('#').next().unwrap_or(&f.1);
@@ -98,14 +109,15 @@ pub fn search(query: &str, map: &CodeMap, index: Option<&SearchIndex>, limit: us
                 out.push(SearchResult {
                     hit: Hit::Function { krate: krate.clone(), id: format!("{}::{}", m.1, f.1) },
                     score: s,
-                    kind: "fn",
+                    kind: if test_functions.contains(&fi) { "test" } else { "fn" },
+                    test: test_functions.contains(&fi),
                     label: name.to_string(),
                     detail: format!("{krate} · {}:{}", m.1, f.2),
                 });
             }
         }
     }
-    out.sort_by(|a, b| b.score.cmp(&a.score).then_with(|| a.label.cmp(&b.label)));
+    out.sort_by(|a, b| b.score.cmp(&a.score).then(a.test.cmp(&b.test)).then_with(|| a.label.cmp(&b.label)));
     out.truncate(limit);
     out
 }
@@ -131,6 +143,8 @@ mod tests {
                 SearchFn(0, "Pool::new".into(), 20),
                 SearchFn(1, "step".into(), 3),
             ],
+            test_modules: vec![],
+            test_functions: vec![],
         };
         let r = search("live step", &map, Some(&ix), 5);
         assert_eq!(r[0].hit, Hit::Function { krate: "boon-lay".into(), id: "crates/boon-lay/src/a/live_pools.rs::step".into() });
@@ -171,5 +185,35 @@ mod tests {
         assert!(search("melt dispersion", &map, None, 5).is_empty());
         // The name still matches as before, with the backronym as detail.
         assert_eq!(search("sembawang", &map, None, 5)[0].hit, Hit::Crate("sembawang".into()));
+    }
+
+    /// Methodology (#1164): the same name in a library module and in an
+    /// integration-test module with the same path, so both score alike.
+    /// Pass: both are found; the test is labelled `test`, marked, and
+    /// ranked after the ordinary function; the test module is found and
+    /// marked too.
+    #[test]
+    fn test_code_is_found_labelled_and_ranked_after_ordinary_code() {
+        let map = CodeMap { root: "r".into(), crates: vec![], edges: vec![] };
+        let ix = SearchIndex {
+            schema: 1,
+            crates: vec!["boon-lay".into()],
+            modules: vec![
+                SearchModule(0, "crates/boon-lay/tests/mhtgr.rs".into(), "mhtgr".into()),
+                SearchModule(0, "crates/boon-lay/src/mhtgr.rs".into(), "mhtgr".into()),
+            ],
+            functions: vec![SearchFn(0, "paper_releases".into(), 9), SearchFn(1, "paper_releases".into(), 3)],
+            test_modules: vec![0],
+            test_functions: vec![0],
+        };
+        let r = search("paper releases", &map, Some(&ix), 5);
+        let fns: Vec<&SearchResult> = r.iter().filter(|x| matches!(x.hit, Hit::Function { .. })).collect();
+        assert_eq!(fns.len(), 2);
+        assert_eq!(fns[0].score, fns[1].score);
+        assert_eq!((fns[0].kind, fns[0].test), ("fn", false));
+        assert_eq!((fns[1].kind, fns[1].test), ("test", true));
+        assert!(fns[1].detail.contains("tests/mhtgr.rs"));
+        let m = search("mhtgr", &map, Some(&ix), 5);
+        assert!(m.iter().any(|x| x.test && x.kind == "test" && matches!(&x.hit, Hit::Module { file, .. } if file.contains("tests/"))));
     }
 }

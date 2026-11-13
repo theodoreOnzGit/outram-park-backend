@@ -253,8 +253,9 @@ fn erfc_consts() -> &'static ErfcConsts {
 #[allow(clippy::excessive_precision)]
 const SQRTPI: f64 = 1.772_453_850_905_516_027_298_167_483_341_15;
 
-/// SLATEC `derfc` as NJOY carries it (`mathm.f90:447-634`).
-fn erfc(x: f64) -> f64 {
+/// SLATEC `derfc` as NJOY carries it (`mathm.f90:447-634`). Also GROUPR's
+/// `anased` law 7 (`groupr::continuum`), which calls the same `mathm` routine.
+pub(crate) fn erfc(x: f64) -> f64 {
     let c = erfc_consts();
     if x <= c.xsml {
         return 2.0;
@@ -1058,18 +1059,39 @@ fn skipped(mt: i32) -> bool {
 /// Returns `None` when there is no MT=1 section to take the grid from. The
 /// caller then keeps the per-reaction form.
 #[must_use]
-#[allow(clippy::too_many_lines)]
 pub fn broadr_joint(
     result: &ReconrResult,
     temp_k: f64,
     tol: &BroadnTolerances,
     thnmx: f64,
 ) -> Option<ReconrResult> {
+    broadr_joint_rounding(result, temp_k, tol, thnmx, true)
+}
+
+/// [`broadr_joint`] with the choice of the **output `sigfig`**. `bfile3`
+/// writes every point as `sigfig(scr(k),7,0)` (`broadr.f90:980`) but the
+/// scratch tape the next temperature reads under `istrap` (`:1004-1011`) holds
+/// the values before that rounding, so a bootstrap pass starts from
+/// `round_output = false` (gh:#1369, deck test 10: 400 MT=18 lines of the
+/// second temperature differed in the 7th figure without it).
+#[must_use]
+#[allow(clippy::too_many_lines)]
+pub fn broadr_joint_rounding(
+    result: &ReconrResult,
+    temp_k: f64,
+    tol: &BroadnTolerances,
+    thnmx: f64,
+    round_output: bool,
+) -> Option<ReconrResult> {
     const E6PT5: f64 = 6.5e6;
     const FACT: f64 = 0.99999;
     let secs = &result.sections;
     let mt1 = secs.iter().find(|s| s.mt.number() == 1)?;
-    if mt1.pairs.len() < 2 || temp_k <= 0.0 {
+    // `tempef=tempk-tempin` (`broadr.f90:605-610`): broaden from the input's
+    // own temperature, not from 0 K (GitHub #617). At `tempef <= 0` upstream
+    // only thins (`thinb`, `:1218-1222`), which is not ported (#619).
+    let tempef = temp_k - result.temperature_k;
+    if mt1.pairs.len() < 2 || tempef <= 0.0 {
         return None;
     }
     let lrp = result.material.lrp;
@@ -1133,7 +1155,11 @@ pub fn broadr_joint(
     }
     let nreac = mtr.len();
     if nreac == 0 {
-        return Some(result.clone());
+        // Copied through (`broadr.f90:568-576`), and labelled with the new
+        // temperature as upstream's output MAT is.
+        let mut copy = result.clone();
+        copy.temperature_k = temp_k;
+        return Some(copy);
     }
 
     // Table of the broadened reactions on the grid (broadr.f90:540-562).
@@ -1157,7 +1183,6 @@ pub fn broadr_joint(
         })
         .collect();
 
-    let tempef = temp_k;
     let alpha = awr / (BK_EV_PER_K * tempef);
     let mut walk = Walk {
         nreac,
@@ -1255,7 +1280,7 @@ pub fn broadr_joint(
                 }
                 acc
             };
-            pairs.push((e, sigfig(v, 7, 0)));
+            pairs.push((e, if round_output { sigfig(v, 7, 0) } else { v }));
         }
         out_secs.push(ReconrSection {
             lr: sec.lr,
@@ -1270,6 +1295,7 @@ pub fn broadr_joint(
         sections: out_secs,
         resonance_upper_limit: result.resonance_upper_limit,
         unresolved_table: result.unresolved_table.clone(),
+        temperature_k: temp_k,
     })
 }
 
@@ -1311,6 +1337,7 @@ mod tests {
             sections: vec![sec(1), sec(2)],
             resonance_upper_limit: None,
             unresolved_table: None,
+            temperature_k: 0.0,
         }
     }
 

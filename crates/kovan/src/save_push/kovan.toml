@@ -107,6 +107,7 @@ test_ids = [
     "crates/kovan/src/save_push/tests.rs::save_then_push_lands_on_every_remote_corpora_first",
     "crates/kovan/src/save_push/tests.rs::the_same_remote_for_open_and_proprietary_is_refused",
     "crates/kovan/src/save_push/tests.rs::the_standard_corpus_is_never_pushed",
+    "crates/kovan/src/save_push/tests.rs::url_spellings_of_one_repository_compare_equal",
     "crates/kovan/src/stamping/need_you_tests.rs::commit_and_push_lands_on_develop_refuses_main_and_merges_a_moved_remote",
 ]
 
@@ -165,7 +166,7 @@ reached_by = [
     "#101",
     "#102",
     "#103",
-    "#104",
+    "#105",
 ]
 
 [[module."safe_push.rs".function]]
@@ -220,7 +221,7 @@ reached_by = [
     "#101",
     "#102",
     "#103",
-    "#104",
+    "#105",
 ]
 
 [[module."safe_push.rs".function]]
@@ -340,7 +341,7 @@ reached_by = [
     "#101",
     "#102",
     "#103",
-    "#104",
+    "#105",
 ]
 
 [[module."safe_push.rs".function]]
@@ -407,7 +408,7 @@ reached_by = [
     "#101",
     "#102",
     "#103",
-    "#104",
+    "#105",
 ]
 
 [[module."safe_push.rs".function]]
@@ -471,7 +472,7 @@ reached_by = [
     "#101",
     "#102",
     "#103",
-    "#104",
+    "#105",
 ]
 
 [[module."safe_push.rs".function]]
@@ -529,7 +530,7 @@ reached_by = [
     "#101",
     "#102",
     "#103",
-    "#104",
+    "#105",
 ]
 
 [[module."safe_push.rs".function]]
@@ -584,7 +585,7 @@ reached_by = [
     "#101",
     "#102",
     "#103",
-    "#104",
+    "#105",
 ]
 
 [module."tests.rs"]
@@ -1143,3 +1144,116 @@ uses = [
     "fn:e13ced436621c36f",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+]
+failed = []

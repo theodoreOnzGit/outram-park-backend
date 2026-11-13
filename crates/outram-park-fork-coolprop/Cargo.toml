@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-fork-coolprop"
-version = "0.1.3"
+version = "0.1.4"
 authors.workspace = true
 edition.workspace = true
 # GPL-3.0-only: although CoolProp itself is MIT, this crate ships GPL-3.0-only
@@ -64,3 +64,4 @@ outram-foam-basic-lib.workspace = true
 
 [dev-dependencies]
 approx.workspace = true
+miniz_oxide.workspace = true

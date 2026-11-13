@@ -27,6 +27,8 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
+pub mod cfmesh;
+
 use clap::Parser;
 
 /// Common OpenFOAM-style command-line options shared by every tool binary.
@@ -91,6 +93,86 @@ where
 /// uses in place of `clap`'s `parse()`.
 pub fn openfoam_args() -> CaseArgs {
     CaseArgs::parse_from(openfoam_argv(std::env::args_os()))
+}
+
+/// Which OpenFOAM file layout a tool writes (gh:#1363 row 7).
+///
+/// [`WriteFlavour::Default`] is this project's own form (banner naming
+/// OUTRAM PARK, shortest-round-trip numbers). [`WriteFlavour::Esi`] writes the
+/// layout of ESI OpenFOAM v2506 (`-flavour esi`): its banner, `arch` and
+/// `note` header entries, `writePrecision` `%g` numbers, `inGroups`. See
+/// [`outram_foam_basic_lib::io::esi`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum WriteFlavour {
+    /// The project's own writers (unchanged behaviour).
+    #[default]
+    Default,
+    /// ESI v2506's byte layout.
+    Esi,
+}
+
+impl WriteFlavour {
+    /// Parse the `-flavour` word: `default`/`dev`, or `esi`.
+    ///
+    /// # Errors
+    /// [`CliError::Tool`] for any other word.
+    pub fn parse(word: &str) -> Result<Self, CliError> {
+        match word {
+            "default" | "dev" => Ok(Self::Default),
+            "esi" => Ok(Self::Esi),
+            other => Err(CliError::Tool(format!(
+                "-flavour {other}: expected default, dev or esi"
+            ))),
+        }
+    }
+}
+
+/// `-case` plus `-flavour default|esi` for the solver binaries that write
+/// fields (gh:#1363 row 7).
+#[derive(Debug, Clone, Parser)]
+pub struct FlavourArgs {
+    /// `-case` directory.
+    #[command(flatten)]
+    pub case: CaseArgs,
+    /// Layout of the written field files: `default` or `esi` (v2506 bytes).
+    #[arg(long = "flavour", default_value = "default")]
+    pub flavour: String,
+}
+
+/// Parse [`FlavourArgs`] from the process arguments (single-dash options).
+pub fn flavour_args() -> FlavourArgs {
+    FlavourArgs::parse_from(openfoam_argv(std::env::args_os()))
+}
+
+/// Write a finished run's fields in the chosen layout; ESI uses the case's
+/// `writePrecision`.
+///
+/// # Errors
+/// [`CliError::Tool`] if the solver's writer fails.
+pub fn write_run_fields(
+    run: &outram_foam_appbuilder_lib::case_runner::CaseRun,
+    case: &std::path::Path,
+    flavour: WriteFlavour,
+) -> Result<outram_foam_appbuilder_lib::case_runner::CaseSummary, CliError> {
+    match flavour {
+        WriteFlavour::Default => run.write_fields(),
+        WriteFlavour::Esi => {
+            let opts = outram_foam_basic_lib::io::esi::EsiWriteOptions::default()
+                .with_precision(write_precision(case));
+            run.write_fields_esi(&opts)
+        }
+    }
+    .map_err(|e| CliError::Tool(e.to_string()))
+}
+
+/// `writePrecision` of `<case>/system/controlDict`, or ESI's default 6 when
+/// the file or the entry is absent.
+pub fn write_precision(case: &std::path::Path) -> usize {
+    let file = outram_foam_basic_lib::io::dict::FoamFile::read(case.join("system/controlDict"));
+    match file.ok().and_then(|f| f.dict.get_scalar("writePrecision")) {
+        Some(p) if p >= 1.0 => p as usize,
+        _ => 6,
+    }
 }
 
 /// Errors surfaced by the CLI tools (wrapping the library layers).

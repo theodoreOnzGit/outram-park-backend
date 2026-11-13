@@ -2,9 +2,20 @@
 # (gh:#509 epic, #518). Published at
 # https://theodoreonzgit.github.io/outram-park-backend/
 #
-# Every push to `develop` rebuilds and redeploys, so the deep dives always
-# match the code they describe (maintainer decision 2026-10-03: continuous
-# publishing, no snapshots). A failed build leaves the last good site live.
+# DEPLOYS FROM THE `web-deploy` BRANCH (gh:#1306, maintainer 2026-11-06). ~~Every
+# push to `develop` rebuilt and redeployed, so the deep dives always matched the
+# code they describe (maintainer decision 2026-10-03: continuous publishing, no
+# snapshots).~~ **CHANGED 2026-11-06:** a build took ~53 min and runs queued one
+# behind another, so on a busy day the site trailed develop by hours, and develop
+# carries half-finished web work. Deploying is now an explicit act: merge (or
+# fast-forward) develop into `web-deploy` and push it.
+#   git push origin develop:web-deploy        # when web-deploy is an ancestor
+# A failed build leaves the last good site live. `workflow_dispatch` runs the
+# build jobs on any branch (to test a change to this workflow or to the build
+# before merging) but the `deploy` job runs only from `web-deploy`, and the
+# `github-pages` environment only accepts that branch (and develop/main).
+# Breakage is caught earlier, at push to develop, by the `wasm-demos` job of
+# `fast tests` (scripts/check-wasm-demos.sh, gh:#1304).
 #
 # What it builds: `scripts/build-pages.sh`, ~~the tabbed main menu~~ the
 # landing page, its three pathways and the search index (docs/site/; the
@@ -14,13 +25,23 @@
 # browser demos (gh:#519): a wasm32 build plus the wasm-bindgen CLI, whose
 # version is read from Cargo.lock because the two must match exactly.
 #
+# PARALLEL JOBS (gh:#1305). ~~One `build` job ran the whole script serially:
+# ~53 min on one runner (run 42132691772).~~ **CHANGED 2026-11-06:** the script's
+# phases run on separate runners and `assemble` merges their partial sites:
+#   docs       static pages + checks + code map + mdBooks + rustdoc
+#   callgraph  `rust-analyzer scip` and the call-graph files (needs the RAM)
+#   demos      web-kovan's wasm page and every browser demo
+#   assemble   whole-site passes (code links, nav, link check, search text)
+#   deploy     only from web-deploy
+# Every job has its own rust-cache key. The record of timings is on #1305.
+#
 # Separate from `fast tests`: a broken page fails this workflow only.
 
 name: pages
 
 on:
   push:
-    branches: [develop]
+    branches: [web-deploy]
   workflow_dispatch:
 
 permissions:
@@ -38,17 +59,15 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  # The repo's rust-toolchain.toml (1.99.1, the workspace standard since
+  # 2026-10-20) would otherwise override the pinned 1.98.0 below; keep the
+  # Pages build on its pinned rust-analyzer until it is bumped deliberately.
+  RUSTUP_TOOLCHAIN: 1.98.0
 
 jobs:
-  build:
+  # ── docs: the static site, the mdBooks and the API reference ───────────────
+  docs:
     runs-on: ubuntu-latest
-    # The repo's rust-toolchain.toml (1.99.1, the workspace standard since
-    # 2026-10-20) would otherwise override the pinned 1.98.0 below; keep the
-    # Pages build on its pinned rust-analyzer until it is bumped deliberately.
-    env:
-      RUSTUP_TOOLCHAIN: 1.98.0
-    # 90, not 60: a cold cache now also builds the demo natively (to prepare
-    # its data) and for wasm32.
     timeout-minutes: 90
     steps:
       # Full history: a review stamp is checked against the commit it
@@ -58,26 +77,69 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      # The HTR-10 core demo (gh:#786) publishes the rod steel's nickel tapes,
-      # which live in the ACE submodule (145 MB), not reference-data/endf/.
-      - name: Fetch the reference-data/ace submodule (nickel tapes)
+      # Pinned (gh:#772): the whole Pages build uses the same toolchain.
+      # Bump it deliberately, and re-run crates/kovan/docs/call-graph-scip-vs-lsp.md.
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: pages-docs
+          cache-on-failure: true
+      # rust-cache restores `target/`, and with it the PREVIOUS run's
+      # `target/pages`. Every job starts from an empty output folder, or the
+      # stale site would be uploaded beside this run's (a warm run on
+      # 2026-11-06 put rustdoc under api/doc/ and lost api/<crate>/).
+      - name: Empty the output folder (rust-cache restores the last one)
+        run: rm -rf target/pages
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook
+      - name: Static pages, checks, code map, mdBooks
+        run: scripts/build-pages.sh target/pages static
+      - name: API reference (rustdoc)
+        run: scripts/build-pages.sh target/pages rustdoc
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-docs
+          path: target/pages
+          if-no-files-found: error
+          # mdBook's `.nojekyll` marker files are hidden files.
+          include-hidden-files: true
+
+  # ── callgraph: web-kovan's call graph ──────────────────────────────────────
+  callgraph:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # The ACE submodule is on disk for rust-analyzer exactly as it was when
+      # the whole build ran in one job.
+      - name: Fetch the reference-data/ace submodule
         run: git submodule update --init --depth 1 reference-data/ace
       # Pinned (gh:#772): web-kovan's call graph comes from `rust-analyzer
       # scip`, an unstable subcommand, and the SCIP backend was verified
       # against the LSP one with rust-analyzer 1.98.0 (88d9e12 2026-08-18)
-      # (crates/kovan/docs/call-graph-scip-vs-lsp.md). The whole Pages build
-      # uses the same toolchain, so the code walks' rust-analyzer matches too.
-      # Bump it deliberately, and re-run that comparison when you do.
+      # (crates/kovan/docs/call-graph-scip-vs-lsp.md). Bump it deliberately,
+      # and re-run that comparison when you do.
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.98.0
-          targets: wasm32-unknown-unknown
           components: rust-analyzer
       - name: rust-analyzer version (recorded in the build log)
         run: rust-analyzer --version
       - uses: Swatinem/rust-cache@v2
         with:
-          key: pages
+          key: pages-callgraph
+          cache-on-failure: true
+      # rust-cache restores `target/`, and with it the PREVIOUS run's
+      # `target/pages`. Every job starts from an empty output folder, or the
+      # stale site would be uploaded beside this run's (a warm run on
+      # 2026-11-06 put rustdoc under api/doc/ and lost api/<crate>/).
+      - name: Empty the output folder (rust-cache restores the last one)
+        run: rm -rf target/pages
       # web-kovan's per-crate call-graph cache: a crate is re-built only
       # when its key changes (kovan-cli call-graph-keys), and rust-analyzer
       # is not run at all when no key changed. Restored from the newest,
@@ -90,18 +152,6 @@ jobs:
           path: target/kovan-index
           key: kovan-index-${{ github.sha }}
           restore-keys: kovan-index-
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: mdbook
-      - name: wasm-bindgen version pinned by Cargo.lock
-        id: wb
-        run: |
-          v=$(grep -A1 '^name = "wasm-bindgen"$' Cargo.lock | sed -n 's/^version = "\(.*\)"$/\1/p')
-          test -n "$v"
-          echo "version=$v" >> "$GITHUB_OUTPUT"
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: wasm-bindgen@${{ steps.wb.outputs.version }}
       # Memory for `rust-analyzer scip` (gh:#772). Its peak resident memory
       # over this workspace was 16.4 GiB (VmHWM, 2026-10-07, rust-analyzer
       # 1.98.0, with 1 or with 8 threads alike); a 15 GiB cap killed it.
@@ -120,15 +170,15 @@ jobs:
             && sudo swapon "$dir/kovan-swap" \
             || echo "::warning title=web-kovan call graph::could not add swap; rust-analyzer scip may run out of memory"
           free -m
-      - name: Build the site
+      - name: Call graph
         # The call graph uses the SCIP backend (data.sh default, gh:#772):
-        # one `rust-analyzer scip` run (about 4 min locally; more on 4 cores)
-        # then 1-3 s a changed crate. KOVAN_INDEX_BUDGET applies only to the
-        # LSP backend (KOVAN_CALL_GRAPH_BACKEND=lsp), kept for comparison.
+        # one `rust-analyzer scip` run then 1-3 s a changed crate.
+        # KOVAN_INDEX_BUDGET applies only to the LSP backend
+        # (KOVAN_CALL_GRAPH_BACKEND=lsp), kept for comparison.
         env:
           KOVAN_CALL_GRAPH_BACKEND: scip
           KOVAN_INDEX_BUDGET: "2400"
-        run: scripts/build-pages.sh target/pages
+        run: scripts/build-pages.sh target/pages callgraph
       - name: Drop the SCIP index (not for rust-cache)
         if: always()
         run: rm -rf target/kovan-scip
@@ -137,12 +187,99 @@ jobs:
         with:
           path: target/kovan-index
           key: kovan-index-${{ github.sha }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-callgraph
+          path: target/pages
+          if-no-files-found: error
+          # mdBook's `.nojekyll` marker files are hidden files.
+          include-hidden-files: true
+
+  # ── demos: web-kovan's wasm page and the browser demos ─────────────────────
+  demos:
+    runs-on: ubuntu-latest
+    # 90, not 60: a cold cache also builds the demo natively (to prepare its
+    # data) and for wasm32.
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # The HTR-10 core demo (gh:#786) publishes the rod steel's nickel tapes,
+      # which live in the ACE submodule (145 MB), not reference-data/endf/.
+      - name: Fetch the reference-data/ace submodule (nickel tapes)
+        run: git submodule update --init --depth 1 reference-data/ace
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: pages-demos
+          cache-on-failure: true
+      # rust-cache restores `target/`, and with it the PREVIOUS run's
+      # `target/pages`. Every job starts from an empty output folder, or the
+      # stale site would be uploaded beside this run's (a warm run on
+      # 2026-11-06 put rustdoc under api/doc/ and lost api/<crate>/).
+      - name: Empty the output folder (rust-cache restores the last one)
+        run: rm -rf target/pages
+      - name: wasm-bindgen version pinned by Cargo.lock
+        id: wb
+        run: |
+          v=$(grep -A1 '^name = "wasm-bindgen"$' Cargo.lock | sed -n 's/^version = "\(.*\)"$/\1/p')
+          test -n "$v"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@${{ steps.wb.outputs.version }}
+      - name: web-kovan page and the browser demos
+        run: scripts/build-pages.sh target/pages demos
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-demos
+          path: target/pages
+          if-no-files-found: error
+          # mdBook's `.nojekyll` marker files are hidden files.
+          include-hidden-files: true
+
+  # ── assemble: merge the partial sites, run the whole-site passes ───────────
+  assemble:
+    needs: [docs, callgraph, demos]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: pages-assemble
+          cache-on-failure: true
+      # rust-cache restores `target/`, and with it the PREVIOUS run's
+      # `target/pages`. Every job starts from an empty output folder, or the
+      # stale site would be uploaded beside this run's (a warm run on
+      # 2026-11-06 put rustdoc under api/doc/ and lost api/<crate>/).
+      - name: Empty the output folder (rust-cache restores the last one)
+        run: rm -rf target/pages
+      # The three partial sites share no file; merged into one folder.
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: site-*
+          path: target/pages
+          merge-multiple: true
+      - name: Whole-site passes
+        run: scripts/build-pages.sh target/pages assemble
       - uses: actions/upload-pages-artifact@v3
         with:
           path: target/pages
 
+  # ── deploy: only from web-deploy ───────────────────────────────────────────
   deploy:
-    needs: build
+    needs: assemble
+    if: github.ref == 'refs/heads/web-deploy'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

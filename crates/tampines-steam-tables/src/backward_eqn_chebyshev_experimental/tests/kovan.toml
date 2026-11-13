@@ -2,6 +2,26 @@ schema_version = 1
 kind = "code_folder"
 crate = "tampines-steam-tables"
 dir = "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests"
+test_ids = [
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/p_rho_h.rs::diagnose_p_rho_h_error",
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/p_rho_h.rs::diagnose_p_rho_h_region_1_percentage_error",
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/p_rho_h.rs::diagnose_p_rho_h_region_4_over_the_dome",
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/p_rho_h.rs::p_rho_h_region_1_is_ill_conditioned_as_documented",
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/p_rho_h.rs::p_rho_h_round_trips_forward_equations_given_region",
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/p_rho_h.rs::p_rho_h_round_trips_over_the_two_phase_dome",
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/p_rho_h.rs::rho_h_region_classifier_agrees_with_forward_dispatcher",
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/p_rho_h.rs::rho_h_region_classifier_rejects_non_positive_density",
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/p_rho_h.rs::rho_h_region_scores_agree_with_the_classifier_decision",
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/region_4_near_critical_hs.rs::diagnose_region_4_near_critical_pressure_error",
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/region_4_near_critical_hs.rs::region_4_near_critical_float_and_uom_entry_points_agree",
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/region_4_near_critical_hs.rs::region_4_near_critical_pressure_matches_iapws",
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/region_4_near_critical_hs.rs::region_4_near_critical_saturation_enthalpies_are_physical",
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/region_5_t_ph_ps.rs::diagnose_region_5_round_trip_error",
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/region_5_t_ph_ps.rs::region_5_backward_spot_check_1500_kelvin_1_mpa",
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/region_5_t_ph_ps.rs::region_5_float_and_uom_entry_points_agree",
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/region_5_t_ph_ps.rs::region_5_t_ph_round_trips_forward_equations",
+    "crates/tampines-steam-tables/src/backward_eqn_chebyshev_experimental/tests/region_5_t_ph_ps.rs::region_5_t_ps_round_trips_forward_equations",
+]
 
 [module."mod.rs"]
 path = "crate::backward_eqn_chebyshev_experimental::tests"
@@ -935,3 +955,29 @@ lines = [
 hash = "sha256:5150c408401648a4d201c113c88e55978203e66e9d395d6686643d9d8caaa877"
 doc_hash = "sha256:b565ee6b84f8cf5f67e2ee5e233ff8362f0d3813ebe2337b1bd3a99d6e786e48"
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+failed = []

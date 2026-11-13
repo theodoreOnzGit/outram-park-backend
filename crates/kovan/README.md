@@ -571,9 +571,13 @@ stale), with the folder's `review.md` on the right: only this function's
 entries are editable, and only their comments. Line numbers select lines
 for a highlight (an annotation entry anchored with Hypothesis selectors);
 Upstream opens the ported-from file in the browser; Quick fix edits the
-function's own lines in kvim. Stamp is refused while a callee lacks a valid
-stamp (bottom-up is enforced) and when the code changed while it was
-reviewed. Save keeps what was written to `review.md`; Cancel puts it back
+function's own lines in kvim. ~~Stamp is refused while a callee lacks a valid
+stamp (bottom-up is enforced)~~ **CORRECTED 2026-11-01** (GitHub #1106,
+tentative stamps): Stamp is allowed while a callee lacks a valid stamp; the
+stamp reads **tentative: waiting on stamps underneath** and turns valid by
+itself, with no re-stamp, once everything underneath it (transitively) is
+valid; a recursion group turns valid together. It does not count until
+then. Stamp is refused when the code changed while it was reviewed. Save keeps what was written to `review.md`; Cancel puts it back
 as it was on entering. Logic: `src/stamping/review_mode/`; drawing:
 `src/app/review_mode_panel.rs`.
 
@@ -588,7 +592,8 @@ Right-click a function whose stamp is stale only because something it
 calls or uses changed (a function, a type or a constant) and choose
 **Quick stamp**: it shows what changed there and renews the stamp with the
 same answers, without the wizard. It is refused while a reaching test
-fails or while the changed item has no valid review of its own.
+fails; ~~or while the changed item has no valid review of its own~~ (since
+2026-11-01, #1106, it is then allowed and reads tentative).
 **No language server is started**: colours come from the `kopitiam-syntax`
 line lexer and completion from the cached index (`kovan.toml`), so
 completion knows names in this workspace, nearest first, but not types:
@@ -620,8 +625,9 @@ in another file. **Added 2026-10-13 (step 2):** the index run reads from
 rust-analyzer's SCIP index which workspace types and constants each
 function names and writes them as `uses` in `kovan.toml` (and in the map
 data, where a type unfolds to the functions that use it). The bottom-up
-rule covers them: a function cannot be stamped until the types it uses have
-a valid review, and a new stamp records their hashes, so a later change to
+rule covers them: ~~a function cannot be stamped until~~ a function's stamp
+is tentative until (#1106, 2026-11-01) the types it uses have a valid
+review, and a new stamp records their hashes, so a later change to
 a type asks for a re-confirm of its users. A review written before this
 keeps its state. A type's `reached_by` lists the tests that use it.
 **Added 2026-10-13 (step 3):** types and constants are stamped through the
@@ -751,8 +757,26 @@ in `kovan_root.toml` and every agent that wrote a justification.
 Every action signs with the session key, and the passphrase is asked only
 while it is locked:
 
-- **Admit:** as Reviewer, Novice reviewer or Maintainer.
+- **Admit** (validate a reviewer's own key): as Reviewer, Novice reviewer or
+  Maintainer. ~~Any admitted maintainer~~ ~~**Since 2026-11-04 (GitHub
+  #1211) the founder only**~~ **CORRECTED 2026-11-05 (GitHub #1249): a
+  founder or any admitted maintainer**; admissions signed earlier by any
+  maintainer still count.
+- **Issue a validated keyfile** (~~founder only, #1211~~ a founder or any
+  admitted maintainer, #1249): generate a key for another person, admit it
+  in the same write, and save it encrypted under a passphrase the signer
+  types (save picker), to hand over; it imports with "Import a key".
+- **Organisations & IV&V** (#1211, formerly a separate window): the
+  founder signs or retires organisation records (retire appends a signed
+  `[[code_review.organisation_retirement]]`; the record stays listed,
+  marked retired, and no longer counts); a reviewer signs their separation
+  attestation.
 - **Key actions:** endorse, retire, un-retire, revoke or mark compromised.
+  ~~Retire is unsigned~~ **Since 2026-11-05 (GitHub #1249) retire is
+  signed** by the key's owner, a founder or a maintainer. From
+  `SIGNED_KEY_RETIREMENT_FROM` (2026-11-06) an unsigned retirement has no
+  effect and shows as a warning; an older unsigned one keeps counting and
+  is flagged forever.
 - **Revoke** a reviewer.
 - **Change standing**, as signed `[[code_review.roster_event]]` entries
   (`kovan-roster-event-v1`): edit scope, make maintainer or step down, hand
@@ -766,10 +790,40 @@ reviewer"** until a trusted reviewer or a maintainer also stamps the
 function. The rules are in `kovan_common::review::signing::registry`'s module
 doc.
 
-**If no maintainer is available,** there is no bypass of the signatures. The
+~~**After a founder hands over and steps down,** nobody can admit or sign
+organisation records from kovan (#1211 makes them founder-only, and the
+founder signs as a maintainer) until founder succession (GitHub #1022).~~
+**CORRECTED 2026-11-05 (GitHub #1249):** any maintainer admits, so a
+handover no longer stops admissions; organisation records stay
+founder-only.
+
+~~**If no maintainer is available,** there is no bypass of the signatures. The
 repository owners' route is a reviewed commit declaring a new founder. That
 re-roots trust today; a founder-succession record that keeps the old chain
-valid is GitHub #1022.
+valid is GitHub #1022.~~ **CORRECTED 2026-11-05 (GitHub #1248):**
+
+- **Founders are a list** (`[code_review] founders = [...]`; the old
+  `founder = "…"` reads as a one-person list). Any current founder signs
+  organisation records.
+- **Founders & lineage** (a section of User management): a founder adds
+  another founder or retires one (themselves included), each a signed
+  `[[code_review.founder_change]]`. A retired founder keeps founder standing
+  for everything dated before the retirement, so the old chain still
+  verifies. The section shows the founders, the retired founders and the
+  **lineage fingerprint** (SHA-256 of the first founders and every founder
+  change that took effect; derived, no new file).
+- **No founder with an active key?** The maintainers with an active key on
+  the opening day elect one (`[[code_review.founder_ballot]]`,
+  `[[code_review.founder_vote]]`): more than half of them; with a single
+  maintainer only after 14 days; ballots run 30 days, and at the close the
+  earliest-admitted voter's candidate wins if it is one of the two leading.
+  A ballot is refused or void while any founder has an active key, and
+  every ballot shows in the warnings strip.
+- **Nobody at all with an active key?** Only then does an unsigned
+  `[[code_review.founder_change]]` made by a reviewed commit count, shown
+  forever as "trust root replaced by repository commit".
+- Forks, recognising other lineages and the recognised-lineages table are
+  deferred (GitHub #1248, "Scope split").
 
 ### `review justify` / `review justifications` — agents' unsigned justifications (`stamping::justify`, GitHub #1019)
 
@@ -837,9 +891,13 @@ rows of the need-you queue. It is read-only: kovan-cli has no signing
 command. The same summary is drawn in the review bar of kovan-web and of
 desktop kovan's Code Review tab.
 
-Signing happens in desktop kovan. The Code Review tab's **Organisations &
+Signing happens in desktop kovan. ~~The Code Review tab's **Organisations &
 IV&V** window lets a maintainer sign developing-organisation and
-reviewer-organisation records, and an independent reviewer sign a separation
+reviewer-organisation records~~ **CORRECTED 2026-11-04** (GitHub #1211):
+the **Organisations & IV&V** sections of Code Review ▸ User management let
+~~the **founder**~~ **any founder** (GitHub #1248) sign, and retire, developing-organisation and
+reviewer-organisation records (records signed earlier by another
+maintainer still count, and are marked so), and an independent reviewer sign a separation
 attestation naming a GitHub issue as its audit record. The stamp dialog lets
 the reviewer pick which of their own signed attestations a review relies on
 (none by default). Every record is appended to `kovan_root.toml` as text,
@@ -1206,6 +1264,15 @@ workbench" ask (epic `op-9c2e`) — the pieces landed so far:
   Light, ported from `tampines-steam-tables-gui`'s `theme.rs` (op-t5sq); see
   that crate's own attribution for the palette's MIT provenance
   ([morhetz/gruvbox](https://github.com/morhetz/gruvbox)).
+- **Bookmarks** (top bar → "Bookmarks", beside Setup; GitHub #1210) —
+  "Bookmark this page" keeps the current page (view, concept, paper), the
+  open paper's PDF at the page in view, or the function selected in the
+  Code Review; a fuzzy-find box ranks them by name and target; each can be
+  renamed and deleted, and a click jumps there as a Back/Forward step.
+  Kept in the Kovan folder as `bookmarks/<user>.toml`, one file per user:
+  the reviewer id of the first key in kovan's keystore, else
+  `login:<OS login>`. A file that cannot be read is reported and left as
+  it is. See `src/bookmarks.rs`.
 
 Still open on the `op-9c2e` epic and not implemented: the bibliography
 management window, the "kovan folder" project format (`kovan.toml`), and

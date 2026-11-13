@@ -1,0 +1,71 @@
+/*---------------------------------------------------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  dev
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+Build  : dev-852527377c7e
+Exec   : blockMesh
+Date   : Nov 11 2026
+Time   : 15:19:46
+Host   : "vm"
+PID    : 28249
+I/O    : uncollated
+Case   : /home/user/upstream-build/dev-runs/blockMesh/proj_two
+nProcs : 1
+sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 10)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Reading "blockMeshDict"
+
+Creating block mesh from
+    "system/blockMeshDict"
+Creating block edges
+No non-planar block faces defined
+Creating topology blocks
+Creating topology patches
+
+Creating block mesh topology
+
+Basic statistics
+    Number of internal faces : 0
+    Number of boundary faces : 6
+    Number of defined boundary faces : 6
+    Number of undefined boundary faces : 0
+
+Checking topology
+Creating block offsets
+Creating merge list .
+
+Creating polyMesh from blockMesh
+Creating patches
+Creating cells
+Creating points with scale 1
+    Block 0 cell size :
+        i : 0.1957942119184321 .. 0.19579421191843219 0.20481264565084314 .. 0.20481264565084309 0.1868719925171356 .. 0.18687199251713554 0.19737050208085152 .. 0.19737050208085141 
+        j : 0.19579421191843219 0.20481264565084309 0.18687199251713554 .. 0.18687199251713549 0.19737050208085161 
+        k : 0.29999999999999999 .. 0.30000000000000004 0.30074352404110338 .. 0.30074352404110327 0.30074352404110338 .. 0.30074352404110327 0.3012998577232282 .. 0.30129985772322826 
+
+No patch pairs to merge
+
+Writing polyMesh
+----------------
+Mesh Information
+----------------
+  boundingBox: (-1 -1 0) (1 1 1.8000000000000005)
+  nPoints: 567
+  nCells: 384
+  nFaces: 1312
+  nInternalFaces: 992
+----------------
+Patches
+----------------
+  patch 0 (start: 992 size: 320) name: walls
+
+End
+

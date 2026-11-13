@@ -2,6 +2,26 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-basic-lib"
 dir = "crates/outram-foam-basic-lib/src/math/minimise"
+test_ids = [
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::bitwise_identical_across_backends",
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::bracket_contracts_at_the_golden_ratio",
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::degenerate_bracket_converges_immediately",
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::dispatch_respects_the_size_floor",
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::empty_batch_is_vacuously_converged",
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::flat_minimum_exposes_the_sqrt_eps_limit",
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::golden_section_matches_analytic_minima",
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::golden_section_matches_analytic_transcendental_minimum",
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::invalid_bracket_is_reported",
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::lane_order_is_preserved",
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::max_iterations_is_reported",
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::maximise_matches_analytic_sine_peak",
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::monotone_bracket_walks_to_the_endpoint",
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::multimodal_bracket_returns_a_local_extremum_without_warning",
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::not_finite_objective_is_reported",
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::partial_failure_in_a_large_batch_is_reported",
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::public_entry_point_agrees_across_requested_backends",
+    "crates/outram-foam-basic-lib/src/math/minimise/tests.rs::reversed_bracket_is_normalised",
+]
 
 [module."tests.rs"]
 path = "crate::math::minimise::tests"
@@ -689,3 +709,29 @@ uses = [
     "fn:561d6192da26b07a",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+failed = []

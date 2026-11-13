@@ -104,35 +104,145 @@ pub trait MpiPrimitive: Copy + Send + Sync + 'static {
     }
 }
 
-/// Implement [`MpiPrimitive`] for a primitive via its `to_ne_bytes`/`from_ne_bytes`.
-macro_rules! impl_mpi_primitive {
-    ($ty:ty, $variant:expr) => {
-        impl MpiPrimitive for $ty {
-            const DATATYPE: Datatype = $variant;
+impl MpiPrimitive for i8 {
+    const DATATYPE: Datatype = Datatype::I8;
 
-            fn push_bytes(self, out: &mut Vec<u8>) {
-                out.extend_from_slice(&self.to_ne_bytes());
-            }
+    fn push_bytes(self, out: &mut Vec<u8>) {
+        out.extend_from_slice(&self.to_ne_bytes());
+    }
 
-            fn from_bytes(chunk: &[u8]) -> Self {
-                let mut buf = [0u8; core::mem::size_of::<$ty>()];
-                buf.copy_from_slice(&chunk[..core::mem::size_of::<$ty>()]);
-                <$ty>::from_ne_bytes(buf)
-            }
-        }
-    };
+    fn from_bytes(chunk: &[u8]) -> Self {
+        let mut buf = [0u8; core::mem::size_of::<i8>()];
+        buf.copy_from_slice(&chunk[..core::mem::size_of::<i8>()]);
+        i8::from_ne_bytes(buf)
+    }
 }
 
-impl_mpi_primitive!(i8, Datatype::I8);
-impl_mpi_primitive!(i16, Datatype::I16);
-impl_mpi_primitive!(i32, Datatype::I32);
-impl_mpi_primitive!(i64, Datatype::I64);
-impl_mpi_primitive!(u8, Datatype::U8);
-impl_mpi_primitive!(u16, Datatype::U16);
-impl_mpi_primitive!(u32, Datatype::U32);
-impl_mpi_primitive!(u64, Datatype::U64);
-impl_mpi_primitive!(f32, Datatype::F32);
-impl_mpi_primitive!(f64, Datatype::F64);
+impl MpiPrimitive for i16 {
+    const DATATYPE: Datatype = Datatype::I16;
+
+    fn push_bytes(self, out: &mut Vec<u8>) {
+        out.extend_from_slice(&self.to_ne_bytes());
+    }
+
+    fn from_bytes(chunk: &[u8]) -> Self {
+        let mut buf = [0u8; core::mem::size_of::<i16>()];
+        buf.copy_from_slice(&chunk[..core::mem::size_of::<i16>()]);
+        i16::from_ne_bytes(buf)
+    }
+}
+
+impl MpiPrimitive for i32 {
+    const DATATYPE: Datatype = Datatype::I32;
+
+    fn push_bytes(self, out: &mut Vec<u8>) {
+        out.extend_from_slice(&self.to_ne_bytes());
+    }
+
+    fn from_bytes(chunk: &[u8]) -> Self {
+        let mut buf = [0u8; core::mem::size_of::<i32>()];
+        buf.copy_from_slice(&chunk[..core::mem::size_of::<i32>()]);
+        i32::from_ne_bytes(buf)
+    }
+}
+
+impl MpiPrimitive for i64 {
+    const DATATYPE: Datatype = Datatype::I64;
+
+    fn push_bytes(self, out: &mut Vec<u8>) {
+        out.extend_from_slice(&self.to_ne_bytes());
+    }
+
+    fn from_bytes(chunk: &[u8]) -> Self {
+        let mut buf = [0u8; core::mem::size_of::<i64>()];
+        buf.copy_from_slice(&chunk[..core::mem::size_of::<i64>()]);
+        i64::from_ne_bytes(buf)
+    }
+}
+
+impl MpiPrimitive for u8 {
+    const DATATYPE: Datatype = Datatype::U8;
+
+    fn push_bytes(self, out: &mut Vec<u8>) {
+        out.extend_from_slice(&self.to_ne_bytes());
+    }
+
+    fn from_bytes(chunk: &[u8]) -> Self {
+        let mut buf = [0u8; core::mem::size_of::<u8>()];
+        buf.copy_from_slice(&chunk[..core::mem::size_of::<u8>()]);
+        u8::from_ne_bytes(buf)
+    }
+}
+
+impl MpiPrimitive for u16 {
+    const DATATYPE: Datatype = Datatype::U16;
+
+    fn push_bytes(self, out: &mut Vec<u8>) {
+        out.extend_from_slice(&self.to_ne_bytes());
+    }
+
+    fn from_bytes(chunk: &[u8]) -> Self {
+        let mut buf = [0u8; core::mem::size_of::<u16>()];
+        buf.copy_from_slice(&chunk[..core::mem::size_of::<u16>()]);
+        u16::from_ne_bytes(buf)
+    }
+}
+
+impl MpiPrimitive for u32 {
+    const DATATYPE: Datatype = Datatype::U32;
+
+    fn push_bytes(self, out: &mut Vec<u8>) {
+        out.extend_from_slice(&self.to_ne_bytes());
+    }
+
+    fn from_bytes(chunk: &[u8]) -> Self {
+        let mut buf = [0u8; core::mem::size_of::<u32>()];
+        buf.copy_from_slice(&chunk[..core::mem::size_of::<u32>()]);
+        u32::from_ne_bytes(buf)
+    }
+}
+
+impl MpiPrimitive for u64 {
+    const DATATYPE: Datatype = Datatype::U64;
+
+    fn push_bytes(self, out: &mut Vec<u8>) {
+        out.extend_from_slice(&self.to_ne_bytes());
+    }
+
+    fn from_bytes(chunk: &[u8]) -> Self {
+        let mut buf = [0u8; core::mem::size_of::<u64>()];
+        buf.copy_from_slice(&chunk[..core::mem::size_of::<u64>()]);
+        u64::from_ne_bytes(buf)
+    }
+}
+
+impl MpiPrimitive for f32 {
+    const DATATYPE: Datatype = Datatype::F32;
+
+    fn push_bytes(self, out: &mut Vec<u8>) {
+        out.extend_from_slice(&self.to_ne_bytes());
+    }
+
+    fn from_bytes(chunk: &[u8]) -> Self {
+        let mut buf = [0u8; core::mem::size_of::<f32>()];
+        buf.copy_from_slice(&chunk[..core::mem::size_of::<f32>()]);
+        f32::from_ne_bytes(buf)
+    }
+}
+
+impl MpiPrimitive for f64 {
+    const DATATYPE: Datatype = Datatype::F64;
+
+    fn push_bytes(self, out: &mut Vec<u8>) {
+        out.extend_from_slice(&self.to_ne_bytes());
+    }
+
+    fn from_bytes(chunk: &[u8]) -> Self {
+        let mut buf = [0u8; core::mem::size_of::<f64>()];
+        buf.copy_from_slice(&chunk[..core::mem::size_of::<f64>()]);
+        f64::from_ne_bytes(buf)
+    }
+}
 
 #[cfg(test)]
 mod tests {

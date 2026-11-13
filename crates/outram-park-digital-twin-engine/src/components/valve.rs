@@ -1,11 +1,17 @@
-//! Visual valve.
+//! Visual valve: the physics wrapper.
 //!
 //! Wraps [`tampines::components::Valve`] with screen geometry. Colours
 //! itself by opening percentage (fully closed = grey, fully open = green) --
 //! [`Valve::current_kv`] is real/working, so this is real data, not a
 //! placeholder.
+//!
+//! **Split 2026-11-05** (maintainer: "widget art can live in bugis, the
+//! combination of logic and art can live inside the digital twin engine"):
+//! the drawing is [`bugis::components::valve::ValveArt`], re-exported here;
+//! this file reads the opening from the physics and hands it over.
 
-use egui::{Color32, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
+pub use bugis::components::valve::*;
+use egui::{Pos2, Response, Ui, Vec2, Widget};
 use tampines::components::Valve;
 use uom::si::ratio::ratio;
 
@@ -28,22 +34,40 @@ impl ValveVisual {
             screen_vector,
         }
     }
+
+    /// The drawing of this valve: its opening read off the physics, as the
+    /// widget always read it (`opening_percent` in `ratio` units, over 100).
+    pub fn art(&self) -> ValveArt {
+        let opening = (self.physics.opening_percent.get::<ratio>() / 100.0) as f32;
+        ValveArt::new(opening, self.screen_position, self.screen_vector)
+    }
 }
 
 impl Widget for ValveVisual {
-    /// Minimal-static rendering: a filled rectangle, green fraction of which
-    /// scales with opening percentage (`0%` -> all grey, `100%` -> all
-    /// green).
+    /// Draws [`ValveVisual::art`].
     fn ui(self, ui: &mut Ui) -> Response {
-        let rect = Rect::from_center_size(self.screen_position, self.screen_vector);
-        let response = ui.allocate_rect(rect, Sense::hover());
-        let opening = (self.physics.opening_percent.get::<ratio>() / 100.0).clamp(0.0, 1.0) as f32;
-        let colour = Color32::from_rgb(
-            (128.0 * (1.0 - opening)) as u8,
-            (128.0 + 127.0 * opening) as u8,
-            (128.0 * (1.0 - opening)) as u8,
+        self.art().ui(ui)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use outram_park_fork_dwsim_libs::valve::iec_60534::{
+        OpeningCharacteristic, ValveFlowCoefficient,
+    };
+    use uom::si::f64::Ratio;
+
+    /// The physics opening reaches the art unchanged, and the widget draws.
+    #[test]
+    fn the_valve_opening_comes_from_the_physics() {
+        let valve = Valve::new(
+            ValveFlowCoefficient(10.0),
+            OpeningCharacteristic::Linear,
+            Ratio::new::<ratio>(50.0),
         );
-        ui.painter().rect_filled(rect, 2.0, colour);
-        response
+        let visual = ValveVisual::new(valve, Pos2::new(20.0, 20.0), Vec2::new(10.0, 10.0));
+        assert!((visual.art().opening - 0.5).abs() < 1e-6);
+        assert!(bugis::components::shapes_drawn_by(visual) > 0);
     }
 }

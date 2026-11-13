@@ -2,6 +2,27 @@ schema_version = 1
 kind = "code_folder"
 crate = "boon-lay"
 dir = "crates/boon-lay/src/lagrangian_decay_simulator/tests"
+test_ids = [
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_ba137m",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_c14",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_co60",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_cs137",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_h3",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_i131",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_k40",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_kr85",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_na22",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_po210",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_pu239",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_ra226",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_rn222",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_sr90",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_test_tritium",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_th232",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_u235",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_u238",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_xe135",
+]
 
 [module."mod.rs"]
 path = "crate::lagrangian_decay_simulator::tests"
@@ -282,3 +303,30 @@ hash = "sha256:0f5c93a7510f287ba5e53ee5b9bc196022f6c31f11de64398c964d4319885571"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:867f56ef51a8cfb1"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+failed = []

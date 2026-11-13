@@ -101,23 +101,37 @@ mod prime_pool;
 #[path = "../common/processed_cache.rs"]
 mod processed_cache;
 
-// THE RUNG TABLE, in ladder order: one line per rung, `module: MarkerType`,
-// for `examples/monte_carlo_web/<module>/mod.rs` (see `rungs.rs`). Adding a
-// rung is adding its directory and one line here; nothing else changes.
+// The rung modules, declared plainly so kovan's module walk (which reads
+// `mod` lines and does not expand macros) finds each rung's folder: the
+// workspace rule "never declare modules through a macro" (root `CLAUDE.md`).
 #[cfg(not(target_os = "android"))]
-rung_table! {
-    godiva: Godiva,
-    natu: Natu,
-    jemima: Jemima,
-    hst009: Hst009,
-    ugraphite: Ugraphite,
-    lumped: Lumped,
-    lct008: Lct008,
-    triso: Triso,
-    dhshort: DhShort,
-    packing: Packing,
-    htr10: Htr10,
-}
+mod godiva;
+#[cfg(not(target_os = "android"))]
+mod natu;
+#[cfg(not(target_os = "android"))]
+mod jemima;
+#[cfg(not(target_os = "android"))]
+mod hst009;
+#[cfg(not(target_os = "android"))]
+mod ugraphite;
+#[cfg(not(target_os = "android"))]
+mod lumped;
+#[cfg(not(target_os = "android"))]
+mod lct008;
+#[cfg(not(target_os = "android"))]
+mod triso;
+#[cfg(not(target_os = "android"))]
+mod dhshort;
+#[cfg(not(target_os = "android"))]
+mod packing;
+#[cfg(not(target_os = "android"))]
+mod htr10;
+
+// THE RUNG TABLE, in ladder order: `table.rs`, written out by hand (one
+// variant and one `match` arm per rung; see `rungs.rs` for what a new rung
+// adds). ~~It was the `rung_table!` macro until 2026-11-05.~~
+#[cfg(not(target_os = "android"))]
+mod table;
 
 /// Android stub: windowing GUIs are out of scope on Termux (the workspace
 /// example rule — a blanked file gives "main function not found").
@@ -229,6 +243,13 @@ fn main() -> Result<(), String> {
             htr10::render::render_all(dir)?;
             godiva::render::render_all(dir)
         }
+        Some("--render-pour") => {
+            let csv = std::fs::read_to_string(arg(1).ok_or("--render-pour <csv> <fuel fraction> <dir>")?).map_err(|e| e.to_string())?;
+            let f: f64 = arg(2).and_then(|v| v.parse().ok()).ok_or("--render-pour needs a fuel fraction")?;
+            let dir = std::path::Path::new(arg(3).ok_or("--render-pour needs an output directory")?);
+            println!("{}", htr10::core::pour::render_review(&csv, f, dir)?);
+            Ok(())
+        }
         Some("--bake-htr10-core") => htr10::core::bake::bake_cli(&args),
         Some("--htr10-product-shas") => htr10::core::bake::product_shas_cli(&args),
         Some("--bake-tracks") => {
@@ -331,7 +352,7 @@ fn main() {
     }
     let web_options = eframe::WebOptions {
         // WebGL2 rather than WebGPU, which is still not universal.
-        renderer: eframe::Renderer::Glow,
+        renderer: eframe::Renderer::Wgpu,
         ..Default::default()
     };
     let (rung, mode) = rungs::start(&dhoby_ghaut::web_demo::platform::query_pairs());

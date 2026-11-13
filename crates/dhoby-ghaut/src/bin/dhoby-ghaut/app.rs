@@ -116,6 +116,9 @@ pub struct McState {
 }
 
 pub struct App {
+    /// The Gruvbox theme (`bugis`), Dark by default; the Settings panel's
+    /// selector switches it.
+    pub theme: bugis::Theme,
     pub geo: Link<Req, Ev>,
     pub phys: Link<Req, Ev>,
     /// The DEM pour's own thread (minutes of work; slices stay live).
@@ -180,6 +183,8 @@ impl App {
         ui_scale: Option<f32>,
     ) -> Self {
         crate::style::apply(&cc.egui_ctx);
+        // Gruvbox Dark (the shared `bugis` theme) from the first frame.
+        bugis::Theme::default().apply(&cc.egui_ctx);
         let ui_scale = crate::style::UiScale::new(&cc.egui_ctx, ui_scale);
         let ctx = cc.egui_ctx.clone();
         let c2 = ctx.clone();
@@ -199,6 +204,7 @@ impl App {
         let recipe = recipe.unwrap_or_else(|| preset.clone());
         let endf_dir = recipe.nuclear_data.endf_dir.clone();
         let mut app = Self {
+            theme: bugis::Theme::default(),
             geo,
             phys,
             dem_link,

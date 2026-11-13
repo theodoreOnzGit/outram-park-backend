@@ -2,6 +2,22 @@ schema_version = 1
 kind = "code_folder"
 crate = "tampines-steam-tables"
 dir = "crates/tampines-steam-tables/src/interfaces/tests_and_examples/rho_h_flash_steam_table"
+test_ids = [
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/rho_h_flash_steam_table/diagnostics.rs::diagnose_saturation_fallback_against_the_root_find",
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/rho_h_flash_steam_table/diagnostics.rs::diagnose_the_40_bar_node_solution",
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/rho_h_flash_steam_table/diagnostics.rs::diagnose_the_conditioning_measure_across_regimes",
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/rho_h_flash_steam_table/diagnostics.rs::diagnose_the_cost_of_the_inversion_relative_to_a_ph_flash",
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/rho_h_flash_steam_table/diagnostics.rs::diagnose_the_full_pressure_sweep_at_the_40_bar_node",
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/rho_h_flash_steam_table/diagnostics.rs::diagnose_the_region_1_to_4_seam_at_the_worst_node",
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/rho_h_flash_steam_table/diagnostics.rs::diagnose_whether_pressure_error_is_solver_or_conditioning",
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/rho_h_flash_steam_table/mod.rs::p_rho_h_inverts_v_ph_across_the_steam_table",
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/rho_h_flash_steam_table/mod.rs::p_rho_h_reproduces_the_published_single_phase_tables",
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/rho_h_flash_steam_table/mod.rs::px_rho_h_dispatcher_across_the_whole_steam_table",
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/rho_h_flash_steam_table/mod.rs::supercritical_quality_follows_the_left_right_of_critical_convention",
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/rho_h_flash_steam_table/mod.rs::tpx_rho_h_recovers_quality_inside_the_dome",
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/rho_h_flash_steam_table/mod.rs::tpx_rho_h_reproduces_the_saturation_tables",
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/rho_h_flash_steam_table/vv_report_gen.rs::write_rho_h_flash_vv_report",
+]
 
 [module."diagnostics.rs"]
 path = "crate::interfaces::tests_and_examples::rho_h_flash_steam_table::diagnostics"
@@ -343,3 +359,25 @@ uses = [
     "fn:c222274575e8237d",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+failed = []

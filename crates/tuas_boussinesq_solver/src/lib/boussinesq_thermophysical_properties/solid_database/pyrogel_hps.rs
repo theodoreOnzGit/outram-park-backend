@@ -140,8 +140,8 @@ pub fn pryogel_hps_specific_heat_capacity_spline_low_temp(
         ThermodynamicTemperature::new::<degree_celsius>(39.819),
         ThermodynamicTemperature::new::<degree_celsius>(9.88),
     )?;
-    let pyrogel_cp_temperature_values_degc = c!(9.883, 24.019, 39.819);
-    let pyrogel_cp_values_joule_per_kg_kelvin = c!(883.261, 898.311, 983.814);
+    let pyrogel_cp_temperature_values_degc = vec![9.883, 24.019, 39.819];
+    let pyrogel_cp_values_joule_per_kg_kelvin = vec![883.261, 898.311, 983.814];
     let s = NaturalCubicSpline::new(
         &pyrogel_cp_temperature_values_degc,
         &pyrogel_cp_values_joule_per_kg_kelvin,
@@ -178,16 +178,16 @@ pub fn ground_pyrogel_hps_dsc_spline_data(
         ThermodynamicTemperature::new::<degree_celsius>(327.0),
         ThermodynamicTemperature::new::<degree_celsius>(35.0),
     )?;
-    let specific_power_temperature_values_degc = c!(
+    let specific_power_temperature_values_degc = vec![
         35.426, 42.085, 50.609, 59.132, 74.581, 88.432, 99.619, 123.592, 136.91, 151.294, 166.21,
         178.463, 190.183, 200.837, 215.221, 225.875, 234.399, 239.726, 243.455, 248.25, 251.446,
         253.577, 257.839, 259.97, 262.633, 265.83, 267.428, 271.157, 279.148, 304.186, 326.294
-    );
-    let specific_power_values_milliwatts_per_milligram = c!(
+    ];
+    let specific_power_values_milliwatts_per_milligram = vec![
         0.261, 0.274, 0.285, 0.292, 0.293, 0.291, 0.287, 0.28, 0.278, 0.277, 0.282, 0.285, 0.285,
         0.285, 0.291, 0.302, 0.32, 0.338, 0.351, 0.365, 0.373, 0.374, 0.369, 0.361, 0.345, 0.322,
         0.303, 0.296, 0.29, 0.286, 0.283
-    );
+    ];
 
     let s = NaturalCubicSpline::new(
         &specific_power_temperature_values_degc,
@@ -224,9 +224,9 @@ pub fn pyrogel_thermal_conductivity_commercial_factsheet_spline(
     // here we use a cubic spline to interpolate the values
     // it's a little calculation heavy, but don't really care now
     let thermal_cond_temperature_values_degc =
-        c!(0.0, 100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 650.0);
+        vec![0.0, 100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 650.0];
     let thermal_conductivity_values_milliwatt_per_meter_kelvin =
-        c!(20.0, 24.0, 28.0, 33.0, 40.0, 49.0, 62.0, 69.0);
+        vec![20.0, 24.0, 28.0, 33.0, 40.0, 49.0, 62.0, 69.0];
 
     let s = NaturalCubicSpline::new(
         &thermal_cond_temperature_values_degc,
@@ -255,7 +255,7 @@ pub(crate) fn pyrogel_hps_spline_temp_attempt_1_from_specific_enthalpy(
 ) -> Result<ThermodynamicTemperature, TuasLibError> {
     // the idea is basically to evaluate enthalpy at the
     // following temperatures
-    let temperature_values_kelvin: Vec<f64> = c!(200.0, 250.0, 300.0, 350.0, 400.0, 500.0, 1000.0);
+    let temperature_values_kelvin: Vec<f64> = vec![200.0, 250.0, 300.0, 350.0, 400.0, 500.0, 1000.0];
 
     // and then use that to formulate a spline,
     // with the spline, i'll evaluate enthalpy from temperature

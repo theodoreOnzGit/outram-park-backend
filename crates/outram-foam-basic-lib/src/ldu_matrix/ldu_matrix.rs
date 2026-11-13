@@ -113,6 +113,30 @@ impl LduMatrix {
             r_norm / denom
         }
     }
+
+    /// The initial residual OpenFOAM prints ("Initial residual = ..." in the
+    /// solver log): `sum|b - A x| / normFactor`, with `normFactor = sum(|A x -
+    /// xRef sumA| + |b - xRef sumA|) + 1e-20`, `xRef` the average of `x` and
+    /// `sumA` the row sums of `A` (upstream `lduMatrix::solver::normFactor`,
+    /// `lduMatrixSolver.C`; coupled-boundary interfaces do not exist in this
+    /// matrix type, so they do not enter). gh:#1363: lets a run be compared
+    /// with an upstream log, which [`Self::normalised_residual`] (a different
+    /// normalisation) cannot.
+    pub fn openfoam_initial_residual(&self, x: &[f64], b: &[f64]) -> f64 {
+        let n = self.n_cells;
+        let ax = self.multiply(x);
+        let ones = vec![1.0_f64; n];
+        let sum_a = self.multiply(&ones);
+        let x_ref = x.iter().sum::<f64>() / n as f64;
+        let mut res = 0.0_f64;
+        let mut norm = 0.0_f64;
+        for c in 0..n {
+            let pa = sum_a[c] * x_ref;
+            res += (b[c] - ax[c]).abs();
+            norm += (ax[c] - pa).abs() + (b[c] - pa).abs();
+        }
+        res / (norm + 1e-20)
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -121,6 +145,23 @@ impl LduMatrix {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+
+    /// gh:#1363: from x = 0 the residual is |b|/|b| = 1 (upstream's first-step
+    /// "Initial residual = 1"); at the exact solution it is 0.
+    #[test]
+    fn openfoam_initial_residual_is_one_from_zero_and_zero_at_solution() {
+        let mut m = LduMatrix::new(2, vec![0], vec![1]);
+        m.diag = vec![2.0, 2.0];
+        m.upper = vec![-1.0];
+        m.lower = vec![-1.0];
+        let b = [1.0, 0.0];
+        assert_relative_eq!(m.openfoam_initial_residual(&[0.0, 0.0], &b), 1.0, epsilon = 1e-12);
+        assert_relative_eq!(
+            m.openfoam_initial_residual(&[2.0 / 3.0, 1.0 / 3.0], &b),
+            0.0,
+            epsilon = 1e-12
+        );
+    }
 
     /// 2×2 identity:  diag = [1, 1], lower = upper = [] (no off-diag)
     fn identity_2x2() -> LduMatrix {

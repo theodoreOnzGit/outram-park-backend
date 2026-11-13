@@ -2,6 +2,22 @@ schema_version = 1
 kind = "code_folder"
 crate = "tampines"
 dir = "crates/tampines/src/multiphase_1d/interfacial"
+test_ids = [
+    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::a_stale_conduction_set_is_refused",
+    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::constructor_refuses_a_pair_from_the_same_resistance_side",
+    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::constructor_refuses_unusable_geometry_and_floors",
+    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::droplet_topology_exchanges_which_conductivity_closes_which_side",
+    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::finite_slip_drag_is_antisymmetric_and_opposes_the_slip",
+    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::latent_heat_guard_fires_only_next_to_the_critical_point",
+    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::mass_transfer_sign_flips_between_superheated_vapour_and_subcooled_liquid",
+    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::mass_transfer_vanishes_when_both_phases_sit_on_the_saturation_line",
+    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::out_of_range_and_non_finite_states_are_refused_not_clipped",
+    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::reference_properties_at_seven_megapascal",
+    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::the_self_evaluating_entry_point_matches_the_cached_one",
+    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::the_uom_boundary_agrees_with_the_raw_si_boundary",
+    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::two_resistance_pair_reads_one_conductivity_from_each_side",
+    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::zero_slip_drag_recovers_the_stokes_closed_form",
+]
 
 [module."tests.rs"]
 path = "crate::multiphase_1d::interfacial::tests"
@@ -412,3 +428,25 @@ uses = [
     "fn:c9f50c1073e9ddea",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+failed = []

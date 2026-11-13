@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.1.2
+**Version:** 0.1.7
 
 **Format Version:** 61
 
@@ -36,6 +36,11 @@ outram-foam-appbuilder-lib   Layer 5     ← THIS CRATE
 - [`solvers`] — one submodule per ported OpenFOAM application. Each owns its
   PISO/PIMPLE (or explicit) time loop. Construct one with `new(mesh, control,
   schemes, solution)`, set the field state, then call `step()` or `run()`.
+- [`case_runner`] — the layer above that: read an OpenFOAM case directory,
+  build the solver's initial state from it, march the loop and write the
+  fields back. `CaseRun::from_case(dir, SolverKind::PimpleFoam)` is the
+  one-line way in; the CLI binaries in `outram-foam-cli` are thin wrappers
+  over it, and it is what the Python bindings expose.
 - [`io`] — readers for `constant/polyMesh` and `0/<field>` files, plus typed
   `controlDict` / `fvSchemes` / `fvSolution` structs.
 - [`turbulence`] — pick a closure for a solver run.
@@ -65,9 +70,1916 @@ operation, control, licensing, or any safety-critical or operational use.
 
 ## Modules
 
-## Module `error`
+## Module `case_runner`
 
 The crate's single error type, [`error::AppBuilderError`].
+Driving a solver from an OpenFOAM case directory: read the case, build the
+solver's initial state, march the time loop, write the fields back.
+# `case_runner` — driving a solver from an OpenFOAM case directory
+
+[`solvers`](crate::solvers) own their time loops but know nothing about
+case *files*: each is constructed from a mesh and three dictionaries, and
+the caller is left to read `constant/polyMesh`, lift `deltaT`/`endTime`
+out of `system/controlDict`, find the `0/` fields, march the loop and
+write the results back. That glue used to live, four times over, inside
+`outram-foam-cli`'s solver binaries — which could not share it, because a
+`src/bin/*.rs` has no module to share it *through*.
+
+This module is that glue, once. [`CaseRun`] is the whole of it:
+
+```no_run
+use outram_foam_appbuilder_lib::case_runner::{CaseRun, SolverKind};
+
+let mut run = CaseRun::from_case("cavity", SolverKind::PimpleFoam)?;
+while !run.is_done() {
+    let t = run.step()?;            // one time step; returns the new time
+    println!("Time = {t}");         // ... or inspect the fields here
+}
+let summary = run.write_fields()?;
+# Ok::<(), outram_foam_appbuilder_lib::error::AppBuilderError>(())
+```
+
+[`CaseRun::run_to_end`] does the same loop in one call when nothing needs
+to happen between steps.
+
+## Dispatch is an enum, not a trait object
+
+[`SolverState`] is an enum over the concrete solver types rather than a
+`Box<dyn Solver>`, per the workspace rule against trait objects: adding a
+solver is then a compile error at every match site instead of a silent
+gap. It also keeps the solver's own fields reachable — `run.solver` hands
+back the real [`PimpleFoam`](crate::solvers::pimple_foam::PimpleFoam), so
+a caller can read `u`/`p` between steps.
+
+## Which solvers are wired
+
+Only the two whose state can be built from what the case reader actually
+parses. `rhoPimpleFoam` and `sonicFoam` need the compressibility
+`psi = rho/p` from `constant/thermophysicalProperties`, which no reader
+covers yet; they report [`AppBuilderError::SolverNotCaseWired`] rather
+than running with a default equation of state. See
+[`SolverKind::is_case_wired`].
+
+```rust
+pub mod case_runner { /* ... */ }
+```
+
+### Types
+
+#### Enum `SolverKind`
+
+Which ported solver application to run a case with.
+
+```rust
+pub enum SolverKind {
+    PimpleFoam,
+    RhoCentralFoam,
+    RhoPimpleFoam,
+    SonicFoam,
+}
+```
+
+##### Variants
+
+###### `PimpleFoam`
+
+`pimpleFoam` — incompressible transient PIMPLE.
+
+###### `RhoCentralFoam`
+
+`rhoCentralFoam` — density-based central-upwind (Kurganov-Tadmor).
+
+###### `RhoPimpleFoam`
+
+`rhoPimpleFoam` — compressible transient PIMPLE. Not case-wired.
+
+###### `SonicFoam`
+
+`sonicFoam` — transonic/supersonic compressible. Not case-wired.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn name(self: Self) -> &'static str { /* ... */ }
+  ```
+  The OpenFOAM application name, as it appears on a command line.
+
+- ```rust
+  pub fn from_name(name: &str) -> Option<SolverKind> { /* ... */ }
+  ```
+  Parse an application name. Accepts the OpenFOAM spelling
+
+- ```rust
+  pub fn is_case_wired(self: Self) -> bool { /* ... */ }
+  ```
+  Whether [`CaseRun::from_case`] can build this solver's initial state
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `SolverState`
+
+A constructed solver, dispatched by value rather than through a trait
+object so that each variant's own fields stay reachable.
+
+```rust
+pub enum SolverState {
+    PimpleFoam(crate::solvers::pimple_foam::PimpleFoam),
+    RhoCentralFoam(crate::solvers::rho_central_foam::RhoCentralFoam),
+}
+```
+
+##### Variants
+
+###### `PimpleFoam`
+
+See [`PimpleFoam`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::solvers::pimple_foam::PimpleFoam` |  |
+
+###### `RhoCentralFoam`
+
+See [`RhoCentralFoam`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::solvers::rho_central_foam::RhoCentralFoam` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn kind(self: &Self) -> SolverKind { /* ... */ }
+  ```
+  Which [`SolverKind`] this state belongs to.
+
+- ```rust
+  pub fn n_cells(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of mesh cells the solver is running on.
+
+- ```rust
+  pub fn step(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
+  ```
+  Advance the underlying solver by one time step.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CaseSummary`
+
+What a completed (or partially completed) run did.
+
+```rust
+pub struct CaseSummary {
+    pub solver: SolverKind,
+    pub n_cells: usize,
+    pub start_time: f64,
+    pub end_time: f64,
+    pub delta_t: f64,
+    pub n_steps: usize,
+    pub output_dir: std::path::PathBuf,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solver` | `SolverKind` | The solver that was run. |
+| `n_cells` | `usize` | Cell count of the case mesh. |
+| `start_time` | `f64` | Time the run started from, per `system/controlDict`. |
+| `end_time` | `f64` | Time actually reached. |
+| `delta_t` | `f64` | Time-step size used. |
+| `n_steps` | `usize` | Number of steps marched. |
+| `output_dir` | `std::path::PathBuf` | Directory the result fields were written to, once<br>[`CaseRun::write_fields`] has run. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CaseRun`
+
+A case, loaded and marched one step at a time.
+
+Construct with [`CaseRun::from_case`], then either drive the loop yourself
+(see the module example) or call [`CaseRun::run_to_end`].
+
+```rust
+pub struct CaseRun {
+    pub solver: SolverState,
+    pub case_dir: std::path::PathBuf,
+    pub time: f64,
+    pub start_time: f64,
+    pub end_time: f64,
+    pub delta_t: f64,
+    pub n_steps: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solver` | `SolverState` | The configured solver. Public so a caller can read or perturb its<br>fields between steps — `run.solver` is the real solver, not a handle. |
+| `case_dir` | `std::path::PathBuf` | The case directory this was read from. |
+| `time` | `f64` | Current simulation time. |
+| `start_time` | `f64` | Time the run started from. |
+| `end_time` | `f64` | Time the run stops at. |
+| `delta_t` | `f64` | Time-step size. |
+| `n_steps` | `usize` | Steps marched so far. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_case</* synthetic */ impl AsRef<Path>: AsRef<Path>>(case_dir: impl AsRef<Path>, kind: SolverKind) -> Result<CaseRun, AppBuilderError> { /* ... */ }
+  ```
+  Read a case directory and build the solver's initial state from it.
+
+- ```rust
+  pub fn is_done(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the run has reached its end time.
+
+- ```rust
+  pub fn step(self: &mut Self) -> Result<f64, AppBuilderError> { /* ... */ }
+  ```
+  Advance one time step, returning the new simulation time.
+
+- ```rust
+  pub fn run_to_end(self: &mut Self) -> Result<CaseSummary, AppBuilderError> { /* ... */ }
+  ```
+  March to the end time and write the result fields.
+
+- ```rust
+  pub fn write_fields(self: &Self) -> Result<CaseSummary, AppBuilderError> { /* ... */ }
+  ```
+  Write the solver's fields into `<case>/<time>/` and describe the run.
+
+- ```rust
+  pub fn write_fields_esi(self: &Self, opts: &EsiWriteOptions) -> Result<CaseSummary, AppBuilderError> { /* ... */ }
+  ```
+  [`write_fields`](CaseRun::write_fields) in ESI v2506's file layout
+
+- ```rust
+  pub fn summary(self: &Self, output_dir: PathBuf) -> CaseSummary { /* ... */ }
+  ```
+  Describe the run so far without writing anything.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `run_case`
+
+Read a case and run it to completion in one call.
+
+```rust
+pub fn run_case</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(case_dir: impl AsRef<std::path::Path>, kind: SolverKind) -> Result<CaseSummary, crate::error::AppBuilderError> { /* ... */ }
+```
+
+#### Function `control_from_case`
+
+Build a [`ControlDict`] from the case's `system/controlDict`.
+
+Lifts the three keys the time loop needs — `deltaT`, `startTime`,
+`endTime` — and leaves every other control setting at its default. The
+typed [`ControlDict::read`] is not implemented yet, so these come through
+`outram_foam_basic_lib`'s dictionary parser.
+
+```rust
+pub fn control_from_case(case: &outram_foam_basic_lib::io::case::FoamCase) -> crate::io::control_dict::ControlDict { /* ... */ }
+```
+
+#### Function `time_span`
+
+The `(start, end, deltaT)` triple a time loop needs.
+
+Control modes other than a plain start/end time fall back to `start`, so
+the loop runs zero steps rather than an unbounded number.
+
+```rust
+pub fn time_span(ctrl: &crate::io::control_dict::ControlDict) -> (f64, f64, f64) { /* ... */ }
+```
+
+#### Function `find_scalar`
+
+Find a named scalar field among the case's time-directory fields.
+
+```rust
+pub fn find_scalar(case: &outram_foam_basic_lib::io::case::FoamCase, name: &str) -> Option<outram_foam_basic_lib::prelude::VolScalarField> { /* ... */ }
+```
+
+#### Function `find_vector`
+
+Find a named vector field among the case's time-directory fields.
+
+```rust
+pub fn find_vector(case: &outram_foam_basic_lib::io::case::FoamCase, name: &str) -> Option<outram_foam_basic_lib::prelude::VolVectorField> { /* ... */ }
+```
+
+#### Function `format_time`
+
+Format a time value the way OpenFOAM names a time directory: `0.1`, not
+`0.100000000`, and `1` rather than `1.0`.
+
+```rust
+pub fn format_time(t: f64) -> String { /* ... */ }
+```
+
+#### Function `div_scheme_from_case`
+
+`div(phi,U)` (else `default`) of `system/fvSchemes`, when it is one of the
+two convection schemes this port implements for `pimpleFoam`
+(`Gauss linear`, `Gauss upwind`); `None` leaves the solver's default.
+
+```rust
+pub fn div_scheme_from_case(case: &outram_foam_basic_lib::io::case::FoamCase) -> Option<crate::io::fv_schemes::DivScheme> { /* ... */ }
+```
+
+#### Function `final_solver_tolerance`
+
+`tolerance` of the final-iteration linear solver for `field`
+(`<field>Final`, else `<field>`) in `system/fvSolution`, only when its
+`relTol` is 0 (or absent): this port's linear solvers stop on an absolute
+tolerance and have no relative one, so an entry with `relTol > 0` (the
+shipped cavity's non-final `p`) cannot be represented and yields `None`
+(the solver's own default stands). Partly closes gh:#1291 for `pimpleFoam`.
+
+```rust
+pub fn final_solver_tolerance(case: &outram_foam_basic_lib::io::case::FoamCase, field: &str) -> Option<f64> { /* ... */ }
+```
+
+#### Function `newtonian_nu`
+
+Kinematic viscosity from `<case>/constant/transportProperties` when
+`transportModel Newtonian` (or absent): `nu [0 2 -1 0 0 0 0] 0.01;` or
+`nu 0.01;`.
+
+```rust
+pub fn newtonian_nu(case_dir: &std::path::Path) -> Option<f64> { /* ... */ }
+```
+
+## Module `cases`
+
+Ready-made flow cases (boundary conditions + diagnostics) shared by V&V
+tests and demos, e.g. [`cases::laminar_pipe`].
+Ready-made cases: the boundary conditions, solver settings and
+diagnostics of a named flow, shared by V&V tests and demos.
+
+```rust
+pub mod cases { /* ... */ }
+```
+
+### Modules
+
+## Module `double_pipe`
+
+A counterflow double-pipe heat exchanger as three regions coupled by
+[`ChtMultiRegionFoam`] (gh:#1156, Foam Studio stage 2): hot fluid in the
+tube (+z), the conducting tube wall, cold fluid in the annulus (−z).
+
+The meshes come from the caller (`outram_foam_mesh::block_primitives::DoublePipe`
+builds them conformal, with the patch names used here). This module sets
+the boundary conditions, marches the two flows to steady, freezes them,
+iterates the three energy equations, and measures what an exchanger V&V
+needs: the outlet temperatures, the heat each stream exchanged, the heat
+through each interface, the effectiveness, and the **local UA** (below).
+V&V record: `verification_and_validation/cht_double_pipe_gh1156.md`.
+
+# Boundary conditions
+
+| region | patch | U, p | T |
+|---|---|---|---|
+| tube fluid | `inlet` (z-min) | uniform U, zeroGradient p | fixed `t_hot_in` |
+| tube fluid | `outlet` (z-max) | zeroGradient U, p = 0 | zeroGradient |
+| tube fluid | `tube_inner_wall` | no-slip | coupled |
+| tube wall | `tube_inner_wall`, `tube_outer_wall` | — | coupled |
+| tube wall | `tube_ends` | — | adiabatic |
+| annulus fluid | `inlet` (z-max) | uniform U, zeroGradient p | fixed `t_cold_in` |
+| annulus fluid | `outlet` (z-min) | zeroGradient U, p = 0 | zeroGradient |
+| annulus fluid | `tube_outer_wall` | no-slip | coupled |
+| annulus fluid | `shell_wall` | no-slip | adiabatic |
+
+~~The two streams carry the same volumetric flow rate and the same
+properties, so `C_hot = C_cold` (C_r = 1)~~ **CORRECTED 2026-11-04
+(gh:#1178):** by default (`annulus_flow_rate: None`, the demo) the two
+streams carry the same volumetric flow rate and the same properties, so
+`C_hot = C_cold` (C_r = 1): the stream-to-stream
+temperature difference of an ideal counterflow exchanger is then constant
+along it whatever the local U does, and ε = NTU/(1 + NTU) with NTU =
+UA/C holds for any U(z). With `annulus_flow_rate: Some(..)` C_r ≠ 1; the
+ideal exchanger's ε still depends on U(z) only through ∫ U dA, so ε-NTU
+at the local UA remains the comparison.
+
+# The local UA
+
+`UA_local = Σ_layers q_l / (T_b,hot,l − T_b,cold,l)`: per axial layer of
+cells, the heat through the tube's inner interface in the layer over the
+difference of the two streams' mixing-cup temperatures there (the upwind
+face mixing-cup at each layer's downstream face). It is the UA that
+ε-NTU's ideal exchanger assumes, measured from the field, so ε-NTU at it
+against the solved ε tests what the ideal model leaves out (axial
+conduction in the wall and the fluids, and the entrance regions' radial
+profiles), not an identity.
+
+```rust
+pub mod double_pipe { /* ... */ }
+```
+
+### Types
+
+#### Struct `DoublePipeExchanger`
+
+The physical set-up.
+
+```rust
+pub struct DoublePipeExchanger {
+    pub length: uom::si::f64::Length,
+    pub fluid: crate::solvers::energy::IncompressibleThermo,
+    pub nu: uom::si::f64::KinematicViscosity,
+    pub wall: crate::solvers::energy::IncompressibleThermo,
+    pub flow_rate: uom::si::f64::VolumeRate,
+    pub annulus_flow_rate: Option<uom::si::f64::VolumeRate>,
+    pub t_hot_in: uom::si::f64::ThermodynamicTemperature,
+    pub t_cold_in: uom::si::f64::ThermodynamicTemperature,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `length` | `uom::si::f64::Length` | Length of the exchanger. |
+| `fluid` | `crate::solvers::energy::IncompressibleThermo` | Both fluids' properties. |
+| `nu` | `uom::si::f64::KinematicViscosity` | Both fluids' kinematic viscosity. |
+| `wall` | `crate::solvers::energy::IncompressibleThermo` | The tube wall's properties. |
+| `flow_rate` | `uom::si::f64::VolumeRate` | Volumetric flow rate of the tube (hot) stream, and of the annulus<br>stream too unless [`Self::annulus_flow_rate`] is set. |
+| `annulus_flow_rate` | `Option<uom::si::f64::VolumeRate>` | Volumetric flow rate of the annulus (cold) stream. `None` (the demo)<br>gives it the tube's flow rate, so `C_hot = C_cold`; `Some` sets the<br>two Reynolds numbers independently (gh:#1178's design grid, where<br>`C_r ≠ 1`). |
+| `t_hot_in` | `uom::si::f64::ThermodynamicTemperature` | Tube (hot) inlet temperature. |
+| `t_cold_in` | `uom::si::f64::ThermodynamicTemperature` | Annulus (cold) inlet temperature. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn demo() -> Self { /* ... */ }
+  ```
+  The demo's exchanger: L = 200 mm; water-like fluids (ρ = 1000 kg/m³,
+
+- ```rust
+  pub fn capacity_rate(self: &Self) -> f64 { /* ... */ }
+  ```
+  Heat-capacity rate of the tube stream, `ρ c_p Q` \[W/K\] (of each
+
+- ```rust
+  pub fn annulus_flow(self: &Self) -> VolumeRate { /* ... */ }
+  ```
+  The annulus stream's volumetric flow rate: [`Self::annulus_flow_rate`],
+
+- ```rust
+  pub fn build(self: &Self, inner: Arc<FvMesh>, tube: Arc<FvMesh>, outer: Arc<FvMesh>, dt_inner: Time, dt_outer: Time) -> Result<ChtMultiRegionFoam, AppBuilderError> { /* ... */ }
+  ```
+  The three regions coupled: fluids from `inner` and `outer` (the tube
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ExchangerReport`
+
+What the exchanger did (all heats in W, temperatures in K).
+
+```rust
+pub struct ExchangerReport {
+    pub t_hot_out: f64,
+    pub t_cold_out: f64,
+    pub q_hot: f64,
+    pub q_cold: f64,
+    pub q_wall_in: f64,
+    pub q_wall_out: f64,
+    pub c_hot: f64,
+    pub c_cold: f64,
+    pub effectiveness: f64,
+    pub ua_local: f64,
+    pub ua_lmtd: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_hot_out` | `f64` | Mixing-cup outlet temperature of the hot (tube) stream. |
+| `t_cold_out` | `f64` | Mixing-cup outlet temperature of the cold (annulus) stream. |
+| `q_hot` | `f64` | Heat lost by the hot stream: net enthalpy in minus out, plus the axial<br>conduction in through its inlet and outlet faces. |
+| `q_cold` | `f64` | Heat gained by the cold stream (same definition, opposite sign). |
+| `q_wall_in` | `f64` | Heat into the tube wall through its inner interface (from the hot<br>fluid), as the wall's matrix saw it. |
+| `q_wall_out` | `f64` | Heat out of the tube wall through its outer interface. |
+| `c_hot` | `f64` | Heat-capacity rate of each stream \[W/K\], `ρ c_p Q` from the solved<br>inlet flux. |
+| `c_cold` | `f64` | As `c_hot`, cold stream. |
+| `effectiveness` | `f64` | ε = q_hot / (C_min (T_hot,in − T_cold,in)). |
+| `ua_local` | `f64` | The local UA \[W/K\] (module docs). |
+| `ua_lmtd` | `f64` | Q / LMTD from the four terminal temperatures \[W/K\]; reported, not a<br>check (near-identity under ε-NTU). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ExchangerProfiles`
+
+The exchanger's axial profiles (gh:#1178): per axial layer, the heat
+through each interface, its area, the two streams' mixing-cup
+temperatures and the two interface temperatures; from them the local
+Nusselt number of each side. Layers in [`axial_layers`] order (z
+increasing); the two fluids' meshes are conformal, so their layers
+coincide.
+
+The interface temperature of a face is the one the matrix saw,
+`T_f = T_P + q_f / (κ A_f / d)`, from the face conduction `q_f` and the
+same boundary distance `d` ([`LaplacianCorrection::Corrected`]) as
+[`report`]; for the mixed coupled condition it is
+`w T_ref + (1 − w) T_P`.
+
+```rust
+pub struct ExchangerProfiles {
+    pub z: Vec<f64>,
+    pub q_inner: Vec<f64>,
+    pub q_outer: Vec<f64>,
+    pub area_inner: Vec<f64>,
+    pub area_outer: Vec<f64>,
+    pub t_bulk_hot: Vec<f64>,
+    pub t_bulk_cold: Vec<f64>,
+    pub t_wall_inner: Vec<f64>,
+    pub t_wall_outer: Vec<f64>,
+    pub dh_hot: f64,
+    pub dh_cold: f64,
+    pub k_fluid: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `z` | `Vec<f64>` | Layer centre z \[m\]. |
+| `q_inner` | `Vec<f64>` | Heat from the hot fluid into the wall through the inner interface \[W\]. |
+| `q_outer` | `Vec<f64>` | Heat from the wall into the cold fluid through the outer interface \[W\]. |
+| `area_inner` | `Vec<f64>` | Inner-interface area of the layer \[m²\]. |
+| `area_outer` | `Vec<f64>` | Outer-interface area of the layer \[m²\]. |
+| `t_bulk_hot` | `Vec<f64>` | Hot (tube) stream mixing-cup temperature \[K\]. |
+| `t_bulk_cold` | `Vec<f64>` | Cold (annulus) stream mixing-cup temperature \[K\]. |
+| `t_wall_inner` | `Vec<f64>` | Area-mean inner-interface temperature \[K\]. |
+| `t_wall_outer` | `Vec<f64>` | Area-mean outer-interface temperature \[K\]. |
+| `dh_hot` | `f64` | Hydraulic diameter of the tube, `4 A / P` from the mesh (inlet area<br>over the inner interface's perimeter) \[m\]. |
+| `dh_cold` | `f64` | Hydraulic diameter of the annulus, `4 A / P` with both walls wetted<br>(inlet area over the outer interface's plus the shell's perimeter) \[m\]. |
+| `k_fluid` | `f64` | Fluid conductivity \[W/(m K)\]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn nu_hot(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  Local tube-side Nusselt number per layer,
+
+- ```rust
+  pub fn nu_cold(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  Local annulus-side Nusselt number per layer (heated inner wall),
+
+- ```rust
+  pub fn mean_nu_hot(self: &Self) -> f64 { /* ... */ }
+  ```
+  Mean tube-side Nusselt number weighted by the local temperature
+
+- ```rust
+  pub fn mean_nu_cold(self: &Self) -> f64 { /* ... */ }
+  ```
+  As [`Self::mean_nu_hot`], annulus side.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `pseudo_time_step`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+A pseudo-transient time step for a laminar internal flow: Courant number
+`co` on the cell length `dz` along the flow at velocity `2 U` (the
+developed centreline of a pipe), capped so that the viscous number
+`ν Δt / h² ≤ max_viscous` with h the mean cell size `(V/N)^(1/3)`
+(gh:#1162: `PimpleFoam` diverges at a viscous number of ≈ 8; stage 1's
+demo caps it at 0.5).
+
+```rust
+pub fn pseudo_time_step(mesh: &FvMesh, bulk: uom::si::f64::Velocity, nu: uom::si::f64::KinematicViscosity, dz: uom::si::f64::Length, co: f64, max_viscous: f64) -> uom::si::f64::Time { /* ... */ }
+```
+
+#### Function `step_flows`
+
+One flow step of both fluids (energy untouched); returns the largest of
+the two `laminar_pipe` steady metrics (max |ΔU| / U per flow-through
+time).
+
+# Errors
+Whatever `PimpleFoam::step_flow` returns.
+
+```rust
+pub fn step_flows(cht: &mut crate::solvers::cht_multi_region_foam::ChtMultiRegionFoam, length: uom::si::f64::Length) -> Result<f64, crate::error::AppBuilderError> { /* ... */ }
+```
+
+#### Function `freeze_flows_for_steady_energy`
+
+Freeze both flows and switch every energy equation to steady
+(chtMultiRegionSimpleFoam's form), ready for [`ChtMultiRegionFoam::step`]
+to iterate the temperatures.
+
+```rust
+pub fn freeze_flows_for_steady_energy(cht: &mut crate::solvers::cht_multi_region_foam::ChtMultiRegionFoam) { /* ... */ }
+```
+
+#### Function `report`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Measure the exchanger in its current state (see [`ExchangerReport`]).
+
+# Panics
+If `cht` was not built by [`DoublePipeExchanger::build`] (two fluids with
+energy, one solid, the patch names of the module docs).
+
+```rust
+pub fn report(cht: &crate::solvers::cht_multi_region_foam::ChtMultiRegionFoam, case: &DoublePipeExchanger) -> ExchangerReport { /* ... */ }
+```
+
+#### Function `layer_bulk_temperatures`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Mixing-cup temperature of every axial layer of a fluid region \[K\],
+layers in [`axial_layers`] order: the flux-weighted temperature of the
+upwind cells of the layer's downstream axial faces (internal faces, plus
+the outflow patch for the last layer), so it does not depend on the flow
+direction. `NaN` for a layer with no axial flux.
+
+```rust
+pub fn layer_bulk_temperatures(f: &crate::solvers::pimple_foam::PimpleFoam) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `profiles`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Measure the axial profiles (see [`ExchangerProfiles`]).
+
+# Panics
+If `cht` was not built by [`DoublePipeExchanger::build`].
+
+```rust
+pub fn profiles(cht: &crate::solvers::cht_multi_region_foam::ChtMultiRegionFoam) -> ExchangerProfiles { /* ... */ }
+```
+
+#### Function `pressure_drop`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Static pressure drop inlet → outlet of a fluid region \[Pa\]:
+`ρ (p̄_inlet − p̄_outlet)`, `p̄` the area mean of the kinematic pressure
+on the patch (the fixed value where the patch fixes it, else the owner
+cell's, which is the face value of zeroGradient). The flow enters with a
+uniform profile, so this is the **apparent** drop of a simultaneously
+developing flow: fully developed friction plus the entrance's momentum
+and excess-friction increment (Shah's K(∞)).
+
+# Panics
+If the region has no `inlet` or `outlet` patch.
+
+```rust
+pub fn pressure_drop(f: &crate::solvers::pimple_foam::PimpleFoam, density: f64) -> f64 { /* ... */ }
+```
+
+## Module `helical_coil`
+
+Laminar flow in a helically coiled pipe, solved by [`PimpleFoam`] with
+[`laminar_pipe`](super::laminar_pipe)'s boundary conditions, and the
+diagnostics a Dean-flow V&V needs (gh:#1157, the CFD coil section).
+
+# Set-up
+
+The mesh is `outram_foam_mesh::block_primitives::HelicalPipe` (a pipe
+O-grid swept along the helix); its patches are `inlet`, `outlet` and the
+wall, so [`PipeFlow::build_solver`] applies unchanged: a uniform inlet
+along the inlet's inward normal, p = 0 at the outlet, no-slip walls, from
+rest. Nothing here is coil-specific except where the diagnostics look.
+
+**Developing, not periodic.** A fully developed coil flow is periodic in
+the arc length, but `PimpleFoam` has no mean-pressure-gradient source
+(OpenFOAM's `meanVelocityForce`), and one turn of the coil maps onto the
+next by a translation only on the Frenet frame, which shears the cells
+(see `HelicalPipe`'s docs). So the case is a few turns with a uniform
+inlet, and the developed quantities are measured over a turn after the
+flow has developed (the V&V record measures where that is).
+
+# Coordinates
+
+This crate does not depend on the mesher, so the caller supplies each
+cell's coil coordinates ([`CoilCells`]): arc position `s`, the offsets
+`n` (towards the coil axis, the inner side of the bend) and `b` of its
+centre from the centreline, and the Frenet frame `T, N, B` there. With
+`HelicalPipe::locate` that is one call per cell.
+
+# Reference values
+
+The Dean number `De = Re √(d/D_c)`, `D_c` the curvature diameter (twice
+the radius of curvature of the centreline). The friction factor is the
+Darcy `f = (−dp/ds) d / (½ U²)` of [`PipeFlow::friction_factor`]; its
+straight-pipe value is `64/Re`. The coil correlations (Mishra & Gupta
+1979 for laminar flow) are in
+`tampines::components::helical_coil_otsg::correlations` and are called by
+the V&V runner, not here (no dependency on `tampines` from this crate).
+
+```rust
+pub mod helical_coil { /* ... */ }
+```
+
+### Types
+
+#### Struct `CoilFlow`
+
+A laminar coil flow: the pipe flow (radius, developed length, bulk
+velocity, ν) and the coil's curvature diameter.
+
+```rust
+pub struct CoilFlow {
+    pub pipe: super::laminar_pipe::PipeFlow,
+    pub curvature_diameter: uom::si::f64::Length,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pipe` | `super::laminar_pipe::PipeFlow` | The tube flow; `pipe.length` is the developed (arc) length. |
+| `curvature_diameter` | `uom::si::f64::Length` | Curvature diameter `D_c` of the centreline. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn reynolds(self: &Self) -> f64 { /* ... */ }
+  ```
+  Reynolds number `U d / ν`.
+
+- ```rust
+  pub fn curvature_ratio(self: &Self) -> f64 { /* ... */ }
+  ```
+  Curvature ratio `d / D_c`.
+
+- ```rust
+  pub fn dean_number(self: &Self) -> f64 { /* ... */ }
+  ```
+  Dean number `Re √(d / D_c)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CoilCells`
+
+Per-cell coil coordinates, in the mesh's cell order (see the module docs).
+
+```rust
+pub struct CoilCells {
+    pub s: Vec<f64>,
+    pub n: Vec<f64>,
+    pub b: Vec<f64>,
+    pub frenet: Vec<[[f64; 3]; 3]>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `s` | `Vec<f64>` | Arc position of each cell centre \[m\]. |
+| `n` | `Vec<f64>` | Offset along N (towards the coil axis) \[m\]. |
+| `b` | `Vec<f64>` | Offset along B \[m\]. |
+| `frenet` | `Vec<[[f64; 3]; 3]>` | Frenet frame `[T, N, B]` at `s`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `DeanSection`
+
+What a cross-section shows of the Dean flow, over the cells with
+`|s − s0| < half_width`; velocities over the bulk velocity U, offsets over
+the tube radius R.
+
+```rust
+pub struct DeanSection {
+    pub cells: usize,
+    pub axial_peak_n: f64,
+    pub axial_peak: f64,
+    pub max_secondary: f64,
+    pub core_u_n: f64,
+    pub vortex_pair: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cells` | `usize` | Cells used. |
+| `axial_peak_n` | `f64` | `n / R` of the cell with the largest axial velocity: negative is<br>towards the outer wall (away from the coil axis), where Dean flow<br>pushes the axial maximum; 0 in a straight pipe. |
+| `axial_peak` | `f64` | That largest axial velocity, `u_t / U` (2 for Hagen–Poiseuille). |
+| `max_secondary` | `f64` | Largest in-plane (secondary) speed `√(u_n² + u_b²) / U`. |
+| `core_u_n` | `f64` | Volume-mean `u_n / U` over the central cells (`r < R/3`): negative is<br>the core flowing outward, the Dean vortices' signature. |
+| `vortex_pair` | `f64` | Volume-mean `u_b / U` over the cells with `n > 0` and `b > 0`, minus<br>that over `n > 0`, `b < 0`. In the classic Dean pair the core flows<br>outward, the flow returns inward along the upper and lower walls, and<br>the two return flows meet at the inner wall and turn towards `b = 0`:<br>`u_b < 0` above the midplane and `> 0` below it on the inner half, so<br>this is **negative** for that pair (a sign test, not a magnitude). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `frenet_components`
+
+A velocity in a cell's Frenet frame: `[u_t, u_n, u_b]`, axial, towards
+the coil axis, and binormal.
+
+```rust
+pub fn frenet_components(u: Vector3, frenet: &[[f64; 3]; 3]) -> [f64; 3] { /* ... */ }
+```
+
+#### Function `arc_pressure_gradient`
+
+`−dp/ds` from a volume-weighted p-against-s fit over every cell with
+`s ∈ [s0, s1]` (positive for flow towards +s). In a developed coil flow p
+also varies across the section (it balances the centrifugal force); the
+fit over whole sections averages that out.
+
+```rust
+pub fn arc_pressure_gradient(sol: &crate::solvers::pimple_foam::PimpleFoam, cells: &CoilCells, s0: uom::si::f64::Length, s1: uom::si::f64::Length) -> uom::si::f64::Acceleration { /* ... */ }
+```
+
+#### Function `dean_section`
+
+The [`DeanSection`] of the cells within `half_width` of arc position `s0`
+(`radius` R and bulk velocity of `flow`).
+
+```rust
+pub fn dean_section(sol: &crate::solvers::pimple_foam::PimpleFoam, cells: &CoilCells, flow: &super::laminar_pipe::PipeFlow, s0: uom::si::f64::Length, half_width: uom::si::f64::Length) -> DeanSection { /* ... */ }
+```
+
+## Module `laminar_pipe`
+
+A laminar internal-flow case on any mesh with patches named `inlet`,
+`outlet` and walls, solved by [`PimpleFoam`], with the diagnostics a
+developing-pipe-flow V&V needs (gh:#1155, Foam Studio stage 1).
+
+Promoted from the stage 0 harness
+(`verification_and_validation/wasm_pimple_3d_pipe/src/lib.rs`, gh:#1154):
+the same boundary conditions, solver settings and fits, now shared by the
+V&V test `tests/laminar_pipe_hagen_poiseuille.rs` and the browser demo
+`dhoby-ghaut/examples/foam_studio_web`.
+
+# Boundary conditions
+
+- patch `inlet`: fixed uniform velocity `U_b` along the patch's mean
+  inward normal, zeroGradient p;
+- patch `outlet`: zeroGradient U, fixed kinematic p = 0;
+- every other patch: no-slip wall (fixed U = 0), zeroGradient p.
+
+PISO, 1 outer and 2 correctors; Euler; upwind convection; `Gauss linear
+corrected` Laplacians (the `PimpleFoam` defaults). The flow starts from rest.
+
+# Reference values
+
+For a circular pipe of diameter D, bulk velocity U and viscosity ν:
+Hagen–Poiseuille gives the developed centreline velocity `2U` and
+kinematic pressure gradient `−dp/dz = 32 ν U / D²`, i.e. the Darcy
+friction factor `f = 64/Re`. The hydrodynamic development length (to 99 %
+of the developed centreline velocity, uniform inlet) is taken from Durst
+et al. (2005), see [`PipeFlow::durst_development_length`].
+
+```rust
+pub mod laminar_pipe { /* ... */ }
+```
+
+### Types
+
+#### Struct `PipeFlow`
+
+The physical set-up of a straight circular pipe along +z.
+
+```rust
+pub struct PipeFlow {
+    pub radius: uom::si::f64::Length,
+    pub length: uom::si::f64::Length,
+    pub bulk_velocity: uom::si::f64::Velocity,
+    pub nu: uom::si::f64::KinematicViscosity,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `radius` | `uom::si::f64::Length` | Pipe radius. |
+| `length` | `uom::si::f64::Length` | Pipe length (inlet at z = 0 of the pipe). |
+| `bulk_velocity` | `uom::si::f64::Velocity` | Uniform inlet = bulk velocity. |
+| `nu` | `uom::si::f64::KinematicViscosity` | Kinematic viscosity. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn stage0() -> Self { /* ... */ }
+  ```
+  The stage 0 case: D = 20 mm, L = 200 mm, U = 5 mm/s, ν = 1e-6 m²/s
+
+- ```rust
+  pub fn reynolds(self: &Self) -> f64 { /* ... */ }
+  ```
+  Reynolds number `U D / ν`.
+
+- ```rust
+  pub fn hagen_poiseuille_gradient(self: &Self) -> Acceleration { /* ... */ }
+  ```
+  Hagen–Poiseuille developed kinematic pressure gradient, `−dp/dz =
+
+- ```rust
+  pub fn hagen_poiseuille_wall_shear(self: &Self) -> f64 { /* ... */ }
+  ```
+  Hagen–Poiseuille kinematic wall shear stress `τ_w/ρ = 4 ν U / R`
+
+- ```rust
+  pub fn friction_factor(self: &Self, gradient: Acceleration) -> f64 { /* ... */ }
+  ```
+  Darcy friction factor from a kinematic pressure gradient:
+
+- ```rust
+  pub fn durst_development_length(self: &Self) -> Length { /* ... */ }
+  ```
+  Hydrodynamic development length to 99 % of the developed centreline
+
+- ```rust
+  pub fn courant_time_step(self: &Self, dz: Length, co: f64) -> Time { /* ... */ }
+  ```
+  Time step for an axial Courant number `co` on the developed centreline
+
+- ```rust
+  pub fn build_solver(self: &Self, mesh: Arc<FvMesh>, dt: Time) -> PimpleFoam { /* ... */ }
+  ```
+  A [`PimpleFoam`] on `mesh` with this case's boundary conditions, at a
+
+- ```rust
+  pub fn step(self: &Self, s: &mut PimpleFoam) -> Result<f64, AppBuilderError> { /* ... */ }
+  ```
+  One time step; returns the steady-state metric used by stage 0: the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `fit_line`
+
+Volume-weighted least-squares fit `y ≈ a + b x`; returns `(a, b)`.
+
+```rust
+pub fn fit_line(samples: &[(f64, f64, f64)]) -> (f64, f64) { /* ... */ }
+```
+
+#### Function `centreline_velocity`
+
+Centreline axial velocity in the slab `|z − z0| < hz`: the intercept of a
+`u_z = a + b r²` fit over the cells with r < R/2 (exact for a parabola).
+The pipe axis is the z axis through `(x0, y0)`.
+
+```rust
+pub fn centreline_velocity(s: &crate::solvers::pimple_foam::PimpleFoam, flow: &PipeFlow, axis: (f64, f64), z0: f64, hz: f64) -> uom::si::f64::Velocity { /* ... */ }
+```
+
+#### Function `axial_layers`
+
+The distinct cell-centre z values (to 1e-9 m), sorted: the axial layers of
+a structured mesh.
+
+```rust
+pub fn axial_layers(mesh: &FvMesh) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `centreline_profile`
+
+Centreline velocity of every axial layer, `(z [m], u_c [m/s])`.
+
+```rust
+pub fn centreline_profile(s: &crate::solvers::pimple_foam::PimpleFoam, flow: &PipeFlow, axis: (f64, f64)) -> Vec<(f64, f64)> { /* ... */ }
+```
+
+#### Function `development_length`
+
+Development length from a centreline profile: the first z (linearly
+interpolated between layers, measured from `z_inlet`) at which `u_c`
+reaches `frac · u_dev`. `None` if it never does.
+
+```rust
+pub fn development_length(profile: &[(f64, f64)], u_dev: f64, frac: f64, z_inlet: f64) -> Option<uom::si::f64::Length> { /* ... */ }
+```
+
+#### Function `pressure_gradient`
+
+`−dp/dz` from a volume-weighted p-against-z fit over every cell with
+`z ∈ [z0, z1]` (positive for flow toward +z).
+
+```rust
+pub fn pressure_gradient(s: &crate::solvers::pimple_foam::PimpleFoam, z0: f64, z1: f64) -> uom::si::f64::Acceleration { /* ... */ }
+```
+
+#### Function `profile_rms`
+
+Volume-weighted RMS of `(u_z − 2U(1 − r²/R²)) / 2U` over the cells whose
+centres lie in `z ∈ [z0, z1]`: the developed-profile error of the gh:#1155
+record, as a function so that any mesh (O-grid or polyhedral, gh:#1202)
+is measured the same way. The axis is the z axis through `axis`.
+
+```rust
+pub fn profile_rms(s: &crate::solvers::pimple_foam::PimpleFoam, flow: &PipeFlow, axis: (f64, f64), z0: f64, z1: f64) -> f64 { /* ... */ }
+```
+
+#### Function `radial_profile_binned`
+
+The radial profile of `u_z` by **binning cell centres in r** (gh:#1202):
+the cells whose centres lie within `|z − z_mid| < hz` are put in `n_bins`
+equal bins of r/R ∈ [0, 1], and each bin gives its volume-weighted mean
+r/R and mean `u_z / U`. Empty bins are left out. This works on any mesh;
+on an unstructured one a single plane cuts cells whose centres sit off
+the plane, so a slab is used instead of interpolating to the plane.
+Returns `(r/R, u_z/U, cells in the bin)`.
+
+```rust
+pub fn radial_profile_binned(s: &crate::solvers::pimple_foam::PimpleFoam, flow: &PipeFlow, axis: (f64, f64), z_mid: f64, hz: f64, n_bins: usize) -> Vec<(f64, f64, usize)> { /* ... */ }
+```
+
+#### Function `wall_shear_stress`
+
+Mean kinematic wall shear stress `τ_w/ρ` \[m²/s²\] on the faces of every
+patch other than `inlet` and `outlet` whose centres lie in `z ∈ [z0, z1]`,
+area-weighted: per face `ν |U_P,t| / d`, the tangential velocity of the
+wall cell over the distance from its centre to the face along the face
+normal. This is OpenFOAM's `wallShearStress` with the wall's own
+`snGrad` (no non-orthogonal correction, first order in d), as its
+`wallShearStress` function object computes it for a laminar no-slip wall.
+Hagen–Poiseuille gives `4 ν U / R`; [`PipeFlow::hagen_poiseuille_wall_shear`].
+
+```rust
+pub fn wall_shear_stress(s: &crate::solvers::pimple_foam::PimpleFoam, z0: f64, z1: f64) -> f64 { /* ... */ }
+```
+
+#### Function `patch_flux`
+
+Net face flux through the named patch as stored in `phi` \[m³/s\],
+outward positive; 0 if there is no such patch.
+
+```rust
+pub fn patch_flux(s: &crate::solvers::pimple_foam::PimpleFoam, name: &str) -> f64 { /* ... */ }
+```
+
+#### Function `max_continuity_error`
+
+Worst cell continuity error `max |Σ_f φ_f|` over the inlet flow rate.
+
+```rust
+pub fn max_continuity_error(s: &crate::solvers::pimple_foam::PimpleFoam) -> f64 { /* ... */ }
+```
+
+#### Function `settling_time`
+
+Physical time after which `xs` (time, value) stays within `tol`
+(relative) of its last value; 0 if it always did.
+
+```rust
+pub fn settling_time(xs: &[(f64, f64)], tol: f64) -> f64 { /* ... */ }
+```
+
+## Module `error`
+
 # `error` — the crate's single error type
 
 Every fallible public function in `outram-foam-appbuilder-lib` returns
@@ -122,6 +2034,14 @@ pub enum AppBuilderError {
     UnsupportedScheme {
         family: &'static str,
         scheme: String,
+        reason: &'static str,
+    },
+    Case {
+        case: std::path::PathBuf,
+        msg: String,
+    },
+    SolverNotCaseWired {
+        solver: &'static str,
         reason: &'static str,
     },
 }
@@ -209,6 +2129,36 @@ Fields:
 | `scheme` | `String` |  |
 | `reason` | `&'static str` |  |
 
+###### `Case`
+
+A case directory is missing something the chosen solver needs -- no
+`constant/polyMesh`, or an absent `0/` field the solver has no default
+for. `case` is the case root and `msg` names what was wanted.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `case` | `std::path::PathBuf` |  |
+| `msg` | `String` |  |
+
+###### `SolverNotCaseWired`
+
+The solver is implemented, but its initial state cannot be built from a
+case directory yet because the case reader does not parse something it
+needs. `reason` says what is missing.
+
+Deliberately distinct from a parse failure: the case is fine and the
+solver is fine -- it is the reader between them that is incomplete, and
+running anyway would mean inventing physical properties.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solver` | `&'static str` |  |
+| `reason` | `&'static str` |  |
+
 ##### Implementations
 
 ###### Trait Implementations
@@ -240,7 +2190,7 @@ Fields:
 
 - **Error**
   - ```rust
-    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
     ```
 
 - **Freeze**
@@ -267,7 +2217,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -509,7 +2459,7 @@ Linear interpolation between adjacent knots (upstream `LINEAR`).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InterpolationMethod { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -539,7 +2489,7 @@ Linear interpolation between adjacent knots (upstream `LINEAR`).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InterpolationMethod) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -558,7 +2508,7 @@ Linear interpolation between adjacent knots (upstream `LINEAR`).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -622,7 +2572,7 @@ as [`interpolate_xy`](fn@outram_foam_basic_lib::interpolation::interpolate_xy)).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OutOfBounds { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -652,7 +2602,7 @@ as [`interpolate_xy`](fn@outram_foam_basic_lib::interpolation::interpolate_xy)).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &OutOfBounds) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -671,7 +2621,7 @@ as [`interpolate_xy`](fn@outram_foam_basic_lib::interpolation::interpolate_xy)).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -776,7 +2726,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InterpolateTableError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -814,7 +2764,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InterpolateTableError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -838,7 +2788,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -933,7 +2883,7 @@ pub struct ScalarInterpolateTable {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ScalarInterpolateTable { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -961,7 +2911,7 @@ pub struct ScalarInterpolateTable {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ScalarInterpolateTable) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -980,7 +2930,7 @@ pub struct ScalarInterpolateTable {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1072,7 +3022,30 @@ pub fn polyharmonic_spline_function(r_square: f64, mode: usize) -> f64 { /* ... 
 #### Function `solve_polyharmonic_spline`
 
 Solve for the polyharmonic-spline weights `[w | v]` of an N-dimensional data
-set.
+set, the way upstream does: form `inv(A)` (see
+[`polyharmonic_spline_inverse`]) and return `inv(A) * [sigma | 0]`, the
+product accumulated row by row (`SquareMatrix::multiply_vector`).
+
+Since gh:#1361 (2026-11-12) this is the form of upstream's
+`solvePolyharmonicSpline`; before it, this function did one direct
+back-substitution, now [`solve_polyharmonic_spline_direct`]. Against a run
+of GeN-Foam `652b3da0cc55` the old form differed in 528 of 562 weights
+(largest `|dw| / max|w|` = 6.4e-14), this one in none; see
+`verification_and_validation/genfoam_vs_upstream_gh1361/README.md`.
+
+Arguments, return layout, errors and panics are those of
+[`solve_polyharmonic_spline_direct`].
+
+```rust
+pub fn solve_polyharmonic_spline(x_list: &[Vec<f64>], v_list: &[f64], mode: usize) -> Result<Vec<f64>, outram_foam_basic_lib::matrix::MatrixError> { /* ... */ }
+```
+
+#### Function `solve_polyharmonic_spline_direct`
+
+Solve for the polyharmonic-spline weights `[w | v]` by one direct
+LU back-substitution (no inverse). Mathematically the same weights as
+[`solve_polyharmonic_spline`], different rounding: kept callable as the
+form this port used before gh:#1361.
 
 `x_list` is the transposed coordinate table: `x_list[param][data]` is the
 value of parameter `param` at data point `data`. Every inner list must have
@@ -1096,7 +3069,26 @@ Panics if `x_list` is empty or its rows have unequal length; callers
 (`nuclearDataOneEnergy::build`) guarantee a rectangular, non-empty table.
 
 ```rust
-pub fn solve_polyharmonic_spline(x_list: &[Vec<f64>], v_list: &[f64], mode: usize) -> Result<Vec<f64>, outram_foam_basic_lib::matrix::MatrixError> { /* ... */ }
+pub fn solve_polyharmonic_spline_direct(x_list: &[Vec<f64>], v_list: &[f64], mode: usize) -> Result<Vec<f64>, outram_foam_basic_lib::matrix::MatrixError> { /* ... */ }
+```
+
+#### Function `polyharmonic_spline_inverse`
+
+The inverse of the saddle-point matrix: the `invRBFmatrix` that upstream
+`solvePolyharmonicSpline` builds with `LUscalarMatrix::inv` and keeps for
+later right-hand sides (gh:#1361). Order `n + p + 1`.
+
+# Errors
+
+[`MatrixError::Singular`] under the same conditions as
+[`solve_polyharmonic_spline`].
+
+# Panics
+
+Panics if `x_list` is empty or its rows have unequal length.
+
+```rust
+pub fn polyharmonic_spline_inverse(x_list: &[Vec<f64>], mode: usize) -> Result<outram_foam_basic_lib::matrix::SquareMatrix, outram_foam_basic_lib::matrix::MatrixError> { /* ... */ }
 ```
 
 #### Function `polyharmonic_spline`
@@ -1270,7 +3262,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TimeProfileError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1304,7 +3296,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TimeProfileError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1328,7 +3320,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1397,6 +3389,11 @@ pub struct TimeProfile {
   ```
   The value of the profile at wall-clock time `t`, evaluated at the shifted
 
+- ```rust
+  pub fn value_foundation(self: &Self, t: Time) -> f64 { /* ... */ }
+  ```
+  As [`value`](Self::value) but a table interpolates with the OpenFOAM
+
 ###### Trait Implementations
 
 - **Any**
@@ -1416,7 +3413,7 @@ pub struct TimeProfile {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TimeProfile { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1444,7 +3441,7 @@ pub struct TimeProfile {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TimeProfile) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1463,7 +3460,7 @@ pub struct TimeProfile {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1700,7 +3697,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CouplingError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1735,7 +3732,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CouplingError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1759,7 +3756,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1812,7 +3809,7 @@ A [`VolVectorField`] (mesh displacement, velocity).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FieldKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1842,7 +3839,7 @@ A [`VolVectorField`] (mesh displacement, velocity).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FieldKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1861,7 +3858,7 @@ A [`VolVectorField`] (mesh displacement, velocity).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1938,7 +3935,7 @@ pub struct CouplingField {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CouplingField { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1979,7 +3976,7 @@ pub struct CouplingField {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2078,7 +4075,7 @@ pub struct CouplingRegion {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CouplingRegion { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2119,7 +4116,7 @@ pub struct CouplingRegion {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2215,7 +4212,7 @@ pub struct MeshHandler {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshHandler { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2230,7 +4227,7 @@ pub struct MeshHandler {
 
 - **Default**
   - ```rust
-    fn default() -> MeshHandler { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -2261,7 +4258,7 @@ pub struct MeshHandler {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2408,7 +4405,7 @@ pub struct MeshNeutronics {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshNeutronics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2458,7 +4455,7 @@ pub struct MeshNeutronics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2543,7 +4540,7 @@ pub struct MeshThermalHydraulics {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshThermalHydraulics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2593,7 +4590,7 @@ pub struct MeshThermalHydraulics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2717,7 +4714,7 @@ see the module docs.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MappingMethod { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2747,7 +4744,7 @@ see the module docs.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MappingMethod) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2766,7 +4763,7 @@ see the module docs.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2823,7 +4820,7 @@ Add the mapped value onto the target cell (upstream `plusEqOp`).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MapCombine { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2853,7 +4850,7 @@ Add the mapped value onto the target cell (upstream `plusEqOp`).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MapCombine) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2872,7 +4869,7 @@ Add the mapped value onto the target cell (upstream `plusEqOp`).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2967,7 +4964,7 @@ pub struct MeshToMesh {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshToMesh { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3008,7 +5005,7 @@ pub struct MeshToMesh {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3181,7 +5178,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CouplingLoopError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3219,7 +5216,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CouplingLoopError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -3243,7 +5240,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3313,7 +5310,7 @@ pub struct LumpedNeutronics {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LumpedNeutronics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3363,7 +5360,7 @@ pub struct LumpedNeutronics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3434,7 +5431,7 @@ pub struct LumpedThermal {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LumpedThermal { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3484,7 +5481,7 @@ pub struct LumpedThermal {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3541,7 +5538,7 @@ pub struct PrescribedRegion {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PrescribedRegion { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3591,7 +5588,7 @@ pub struct PrescribedRegion {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3606,7 +5603,7 @@ pub struct PrescribedRegion {
 
 **Attributes:**
 
-- `Other("#[allow(clippy::large_enum_variant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"large_enum_variant\", kind: Allow}])]")`
 
 The closed set of coupled region models (enum dispatch, no `dyn`).
 
@@ -3724,7 +5721,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RegionModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3765,7 +5762,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3844,7 +5841,7 @@ pub struct MultiPhysicsSolver {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MultiPhysicsSolver { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3885,7 +5882,7 @@ pub struct MultiPhysicsSolver {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4051,7 +6048,7 @@ pub enum PolyharmonicMode {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PolyharmonicMode { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4081,7 +6078,7 @@ pub enum PolyharmonicMode {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PolyharmonicMode) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4100,7 +6097,7 @@ pub enum PolyharmonicMode {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4163,7 +6160,7 @@ The RBF saddle-point system was singular (e.g. duplicate sample points).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RbfMapError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4202,7 +6199,7 @@ The RBF saddle-point system was singular (e.g. duplicate sample points).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RbfMapError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4226,7 +6223,7 @@ The RBF saddle-point system was singular (e.g. duplicate sample points).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4296,7 +6293,7 @@ pub struct RbfFieldMap {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RbfFieldMap { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4337,7 +6334,7 @@ pub struct RbfFieldMap {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4457,7 +6454,7 @@ resonance-integral `A + B ln T` form), scaled by `T_ref` so `α` keeps its
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DopplerLaw { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4487,7 +6484,7 @@ resonance-integral `A + B ln T` form), scaled by `T_ref` so `α` keeps its
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DopplerLaw) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4506,7 +6503,7 @@ resonance-integral `A + B ln T` form), scaled by `T_ref` so `α` keeps its
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4571,7 +6568,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ImportanceWeight { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4612,7 +6609,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4721,7 +6718,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FeedbackTerm { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4762,7 +6759,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4858,7 +6855,7 @@ pub struct ReactivityFeedback {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReactivityFeedback { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4904,7 +6901,7 @@ pub struct ReactivityFeedback {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5117,6 +7114,304 @@ pub mod neutronics { /* ... */ }
 
 ### Modules
 
+## Module `albedo`
+
+# Albedo (partial-current) boundary condition for neutron diffusion
+
+GeN-Foam's `albedoSP3` patch condition, in the form the **diffusion** solver
+uses it. Reactor cases lean on it heavily: a bare `fixedValue 0` treats the
+domain edge as a perfect absorber, which is wrong wherever a reflector,
+a vessel wall or a mirror-symmetry plane sits just outside the mesh.
+
+## The condition
+
+A partially reflecting surface returns a fraction `alpha` of the neutrons
+reaching it. In diffusion theory that is the Robin condition
+
+```text
+  -D dphi/dn = gamma phi          (n the OUTWARD normal)
+```
+
+with the albedo coefficient
+
+```text
+  gamma = (1 - alpha) / (1 + alpha) / 2
+```
+
+— GeN-Foam's own definition, stated in its tutorial dictionaries. Two limits
+fix the convention and are worth holding on to:
+
+| surface | `alpha` | `gamma` | reduces to |
+|---|---|---|---|
+| perfect reflector | 1 | 0 | zero gradient (no leakage) |
+| vacuum (Marshak) | 0 | 1/2 | `-D dphi/dn = phi/2` |
+
+`gamma = 1/2` being the vacuum value is why upstream's patch class defaults
+`gamma` to `0.5`.
+
+## Discretisation
+
+With `delta` the owner-cell-centre-to-face distance and `phi_c` the owner
+cell value, the one-sided gradient `(phi_f - phi_c)/delta` gives
+
+```text
+  -D (phi_f - phi_c)/delta = gamma phi_f
+  =>  phi_f = phi_c / (1 + gamma delta / D)
+```
+
+which is exactly a `mixed` (Robin) patch with zero references and weight
+
+```text
+  w = (gamma delta / D) / (1 + gamma delta / D),   refValue = 0, refGrad = 0
+```
+
+since `mixed` evaluates `phi_f = w refValue + (1-w)(phi_c + refGrad delta)`
+`= (1-w) phi_c`. Check the limits again on this form: `gamma = 0` gives
+`w = 0`, zero gradient; `gamma -> infinity` gives `w -> 1`, `phi_f = 0`.
+
+## Why the weight has to vary along the patch
+
+`w` carries **both** the local mesh spacing `delta` and the local diffusion
+coefficient `D`, and neither is constant: `delta` varies on a graded mesh and
+`D` varies by material zone and, strongly, by energy group. Upstream handles
+the group dependence by resetting its `Dalbedo` field to `D[energyI]` before
+each group's solve (`diffusion/include/fluxEq.H`), and the spatial dependence
+by looking `Dalbedo` up per face. This port matches that: the weight is built
+per face, per group, as a
+[`BoundaryCondition::MixedField`](outram_foam_basic_lib::fields::boundary::bc::BoundaryCondition::MixedField).
+
+For the MSFR tutorial `D` spans 1.10e-2 to 2.37e-2 m across its six groups —
+better than a factor of two — so collapsing the weight to one number per
+patch is not a rounding detail.
+
+## What is deliberately not ported
+
+Upstream's patch class also carries a `fluxStarAlbedo` term and a
+`forSecondMoment` branch, both of which belong to **SP3**: they couple the
+first and second flux moments. In the diffusion solver upstream zeroes that
+field (`fluxStarAlbedo_ *= 0.0`, `diffusion/include/fluxEq.H`), so it drops
+out entirely and the condition reduces to the Robin form above. Porting the
+SP3 branch belongs with the SP3 solver.
+
+```rust
+pub mod albedo { /* ... */ }
+```
+
+### Types
+
+#### Enum `AlbedoLinearisation`
+
+Which linearisation of the albedo condition to assemble.
+
+The condition `-D dphi/dn = gamma phi` is exact; turning it into a matrix
+coefficient requires deciding **which** `phi` the right-hand side means, and
+GeN-Foam and the textbook one-sided derivation answer differently. The
+difference is first order in the cell size, vanishes under refinement, and is
+worth several thousand pcm on a real reactor mesh — so it is a choice, made
+explicitly, rather than a detail.
+
+```rust
+pub enum AlbedoLinearisation {
+    CellValue,
+    FaceValue,
+}
+```
+
+##### Variants
+
+###### `CellValue`
+
+**GeN-Foam's**: the leakage current is evaluated at the *owner cell*
+value, `J_out = gamma phi_cell`.
+
+This is what upstream's `albedoSP3FvPatchField` assembles. Its
+`snGrad()` returns `-phi_c gamma / D` and its `gradientInternalCoeffs()`
+returns `-gamma/D`, both in terms of `patchInternalField()` — the cell
+value — with no face-value closure. Multiplied by the laplacian's own
+`D |Sf|`, that contributes exactly `gamma |Sf|` to the diagonal,
+independent of `D` and of the cell size.
+
+In this port's `mixed` form that is `w = gamma delta / D`, with zero
+references. Note `w` may exceed 1 on a coarse mesh, which a `mixed`
+weight nominally may not; that is a faithful consequence of upstream's
+linearisation, not a bug here, and it is why the weight is not clamped.
+
+**Use this to compare against GeN-Foam.** It is the default for that
+reason.
+
+###### `FaceValue`
+
+The exact one-sided closure: the leakage current is evaluated at the
+*face* value, `J_out = gamma phi_face`.
+
+Eliminating `phi_face` between `-D (phi_f - phi_c)/delta = gamma phi_f`
+gives `phi_f = phi_c/(1 + gamma delta/D)`, i.e. `w = r/(1+r)` with
+`r = gamma delta/D`. This is the form a textbook derivation reaches and
+the one that stays bounded (`w < 1` always, so it never over-drains a
+cell).
+
+It is strictly **less** leaky than [`CellValue`](Self::CellValue), since
+`r/(1+r) < r`. On the MSFR tutorial the two differ by about 2100 pcm.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `gamma_from_albedo`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The albedo coefficient `gamma` for a surface returning a fraction `alpha` of
+incident neutrons: `gamma = (1 - alpha)/(1 + alpha)/2`.
+
+`alpha` is dimensionless in `[0, 1]`; `alpha = 0` is a vacuum
+(`gamma = 1/2`) and `alpha = 1` a perfect reflector (`gamma = 0`).
+
+```
+use outram_foam_appbuilder_lib::genfoam::neutronics::albedo::gamma_from_albedo;
+
+assert!((gamma_from_albedo(0.0) - 0.5).abs() < 1e-15); // vacuum
+assert!(gamma_from_albedo(1.0).abs() < 1e-15);         // perfect reflector
+```
+
+# Panics
+
+Panics if `alpha` is outside `[0, 1]`, which is not a physical albedo. A
+caller that has a `gamma` already — as GeN-Foam case dictionaries do, since
+they state `gamma` directly — should pass it to
+[`albedo_patch_field`] without going through this function.
+
+```rust
+pub fn gamma_from_albedo(alpha: f64) -> f64 { /* ... */ }
+```
+
+#### Function `albedo_patch_field`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Build the albedo (Robin) patch condition for one patch and one energy group.
+
+# Parameters
+
+- `mesh` — the neutronics mesh.
+- `patch_index` — index into `mesh.patches`.
+- `gamma` — the albedo coefficient, dimensionless and non-negative. This is
+  the quantity GeN-Foam case dictionaries state directly; convert from a
+  reflection fraction with [`gamma_from_albedo`].
+- `diffusion_coefficient` — `D` **for this energy group** (m), the field
+  upstream copies into `Dalbedo` before each group's solve.
+
+# Returns
+
+A [`PatchField`] carrying a per-face
+[`MixedField`](outram_foam_basic_lib::fields::boundary::bc::BoundaryCondition::MixedField)
+with `refValue = 0`, `refGrad = 0` and
+`w = (gamma delta/D)/(1 + gamma delta/D)`. The stored face `values` are left
+at zero; they are recomputed from the weight whenever the flux is
+interpolated.
+
+# Panics
+
+Panics if `patch_index` is out of range, if `gamma` is negative or
+non-finite, or if `diffusion_coefficient` is not defined on `mesh`.
+
+A non-positive `D` on a boundary-adjacent cell is treated as **vacuum**
+(`w = 1`) rather than producing an infinity: `D <= 0` is unphysical, and the
+most absorbing interpretation is the one that cannot silently inflate
+`k_eff`.
+
+```rust
+pub fn albedo_patch_field(mesh: &outram_foam_basic_lib::mesh::FvMesh, patch_index: usize, gamma: f64, diffusion_coefficient: &outram_foam_basic_lib::fields::VolScalarField, linearisation: AlbedoLinearisation, delta_coeff: outram_foam_basic_lib::fv_operators::fvm::DeltaCoeff) -> outram_foam_basic_lib::fields::boundary::bc::PatchField<f64> { /* ... */ }
+```
+
 ## Module `diffusion`
 
 # Multigroup neutron-diffusion solver
@@ -5269,6 +7564,11 @@ pub struct DiffusionXsFields {
   ```
   Materialise the cross sections onto `mesh` at the feedback point
 
+- ```rust
+  pub fn materialize_per_cell(mesh: &Arc<FvMesh>, xs: &CrossSectionData, zone_of_cell: &[usize], cell_parameters: &[f64]) -> Result<Self, XsError> { /* ... */ }
+  ```
+  As [`materialize`](Self::materialize), but evaluating the cross sections
+
 ###### Trait Implementations
 
 - **Any**
@@ -5288,7 +7588,7 @@ pub struct DiffusionXsFields {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DiffusionXsFields { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5329,7 +7629,225 @@ pub struct DiffusionXsFields {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `precursor_drift`
+
+**Circulating-fuel precursor drift** — GeN-Foam's `liquidFuel true` branch.
+
+# The physics, and why it is not a detail
+
+In a molten-salt reactor the fuel *is* the coolant. A delayed-neutron
+precursor born in the core is carried away by the flow and decays wherever
+the salt has reached by then — for the shorter-lived groups that is still
+the core, but for the longer-lived ones it is the heat exchanger, the pump
+leg, or the downcomer, where its neutron is worth far less. Nothing is lost
+(the loop is closed and the precursor boundary conditions are zero-gradient,
+so the *total* delayed source is conserved exactly); what changes is **where**
+the delayed neutrons appear, and therefore their importance-weighted worth.
+
+The effect is bounded above by `beta_total` — 285 pcm for this MSFR
+evaluation — and measured at **-177.8 pcm** on the `2D_MSFR` tutorial, by
+running upstream twice with nothing but its `liquidFuel` switch changed.
+
+# The equation
+
+Upstream's `precEq.H`, with the time derivative dropped because
+`eigenvalueNeutronics` multiplies it by `(1 - 1) = 0`:
+
+```text
+  lambda_k alpha C*_k  +  div(phi, C*_k)  -  laplacian(D_C, C*_k)
+  (laplacian = OpenFOAM's NEGATIVE operator div(D grad); this workspace's
+   `fvm::laplacian` is the POSITIVE -div(D grad), so the code ADDS it --
+   CORRECTED 2026-10-18, gh:#952: it used to subtract, i.e. anti-diffusion)
+    = S_n Beta_k / k_eff
+
+  C_k = C*_k alpha                       (precursors per TOTAL volume)
+  S_delayed = sum_k lambda_k C_k
+```
+
+`C*` is the concentration per unit *fluid* volume and `C` per unit *total*
+volume; upstream solves for `C*` because `alpha` is discontinuous across a
+zone boundary and `C` would be too (its own comment says so, next to the
+commented-out `C`-form of the same equation).
+
+The flux equation then takes the delayed source **as computed**, not as a
+multiple of the fission source:
+
+```text
+  q_g = chi_p,g (1 - beta_tot) S_n / k_eff  +  chi_d,g S_delayed  +  S_scatter
+```
+
+Note the delayed term is **not** divided by `k_eff` — the division already
+happened in the precursor equation's own source. Dividing twice is the
+obvious slip and is worth checking against `diffusion/include/fluxEq.H` if
+this is ever rewritten.
+
+## What it reduces to when the fuel is stationary
+
+With `phi = 0` and `D_C = 0` the equation is algebraic,
+`C_k = alpha C*_k = S_n Beta_k / (k_eff lambda_k)`, so
+`S_delayed = S_n beta_tot / k_eff` and `q_g` collapses to
+`chi_eff,g S_n / k_eff` with
+`chi_eff = chi_p (1 - beta_tot) + chi_d beta_tot`. That is exactly the
+solid-fuel path in [`super::eigenvalue`], and
+[`tests::a_zero_velocity_field_reproduces_the_chi_eff_collapse`] asserts it —
+which is what makes this an extension rather than a second, divergent model.
+
+# Relationship to `outram-park-fork-moltres::precursors`
+
+That crate has a `PrecursorDrift` solving the same advection-decay balance,
+and it was read before this was written. It is **not** reused here, for
+reasons that are interface and lineage rather than taste:
+
+| | `outram-park-fork-moltres` | here |
+|---|---|---|
+| lineage | Moltres (MOOSE), LGPL-2.1 | GeN-Foam `precEq.H`, GPL-3.0 |
+| solved variable | `C` (per total volume) | `C* = C/alpha` (per fluid volume) |
+| fluid fraction | none | per cell; **0.4 to 1.0** on the MSFR tutorial |
+| `beta`, `lambda` | one scalar per family | per cell, from the zone's parametrised data |
+| diffusivity | one uniform scalar | a per-cell field, `(alphat + mu/ScNo)/rhoCool` |
+| linear solve | Gauss-Seidel | BiCGSTAB, matching upstream's `PBiCG` |
+
+The `alpha` split is the substantive one: upstream solves for `C*` precisely
+because `alpha` jumps across a zone boundary and `C` would jump with it (its
+own comment says so, beside a commented-out `C`-form of the same equation).
+Bending this port to the other interface would mean either dropping `alpha`
+or pushing GeN-Foam's zone model into a Moltres-lineage crate that nothing
+else depends on and that carries no human V&V.
+
+**They should not be allowed to drift apart unnoticed.** Whether to converge
+them — most plausibly by generalising the Moltres one and having both call
+it — is a maintainer decision, tracked as a bead.
+
+# Scope
+
+Steady eigenvalue only. The transient form keeps the `ddt` term and is not
+implemented here; `DiffusionNeutronics::step` still uses the `chi_eff`
+collapse.
+
+```rust
+pub mod precursor_drift { /* ... */ }
+```
+
+### Types
+
+#### Struct `PrecursorTransport`
+
+The fields a circulating-fuel precursor solve needs, on the neutronics mesh.
+
+Upstream builds all three in `diffusion/include/solveNeutronics.H` from the
+thermal-hydraulic solution mapped onto this mesh:
+
+```text
+  phi            = fvc::flux(U * alpha)
+  diffusivity    = (alphat + mu/ScNo) / rhoCool
+```
+
+This port takes them as given, because it has no coupled multi-region driver
+to produce them; hand it either upstream's own written fields (what the
+verification test does) or whatever a future driver computes.
+
+```rust
+pub struct PrecursorTransport {
+    pub alpha: outram_foam_basic_lib::prelude::VolScalarField,
+    pub phi: outram_foam_basic_lib::prelude::SurfaceScalarField,
+    pub diffusivity: outram_foam_basic_lib::prelude::VolScalarField,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `alpha` | `outram_foam_basic_lib::prelude::VolScalarField` | Fluid volume fraction `alpha` `[-]`, per cell.<br><br>`1` where the cell is entirely fuel salt, less where the zone is partly<br>structure — 0.4 in the MSFR tutorial's heat-exchanger zone. The solved<br>variable is `C* = C/alpha`, so this scales both the removal term and the<br>conversion back to per-total-volume concentrations. |
+| `phi` | `outram_foam_basic_lib::prelude::SurfaceScalarField` | Volumetric face flux `phi = fvc::flux(U alpha)` `[m^3/s]`, per face.<br><br>Positive from owner to neighbour, as everywhere else in the FV layer. |
+| `diffusivity` | `outram_foam_basic_lib::prelude::VolScalarField` | Precursor diffusivity `[m^2/s]`, per cell.<br><br>Upstream's `(alphat + mu/ScNo)/rhoCool` — turbulent plus laminar mass<br>diffusion of the precursor species. Interpolated to faces here, matching<br>the `volScalarField` upstream hands to `fvm::laplacian`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: &Arc<FvMesh>, alpha: Vec<f64>, phi_internal: Vec<f64>, phi_boundary: Vec<Vec<f64>>, diffusivity: Vec<f64>) -> Self { /* ... */ }
+  ```
+  Build from per-cell and per-face data.
+
+- ```rust
+  pub fn diffusivity_face(self: &Self) -> SurfaceScalarField { /* ... */ }
+  ```
+  The precursor diffusivity interpolated to faces, ready for
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5356,6 +7874,7 @@ pub struct DiffusionSettings {
     pub flux_tolerance: f64,
     pub max_outer_iterations: usize,
     pub linear: outram_foam_basic_lib::prelude::SolverSettings,
+    pub delta_coeff: outram_foam_basic_lib::prelude::fvm::DeltaCoeff,
 }
 ```
 
@@ -5367,6 +7886,7 @@ pub struct DiffusionSettings {
 | `flux_tolerance` | `f64` | Outer-loop convergence tolerance on the relative L2 change in the flux. |
 | `max_outer_iterations` | `usize` | Maximum number of outer power iterations. |
 | `linear` | `outram_foam_basic_lib::prelude::SolverSettings` | Inner linear-solver settings (one group solve). |
+| `delta_coeff` | `outram_foam_basic_lib::prelude::fvm::DeltaCoeff` | Which face-distance coefficient the flux Laplacian divides by.<br><br>GeN-Foam's neutronics regions ship<br>`laplacianSchemes { default Gauss linear uncorrected; }`, so the faithful<br>setting — and the default here — is<br>[`DeltaCoeff::NonOrthogonal`](outram_foam_basic_lib::prelude::fvm::DeltaCoeff::NonOrthogonal),<br>OpenFOAM's `nonOrthDeltaCoeffs`. On an orthogonal mesh the two choices<br>coincide; on the `2D_MSFR` tutorial mesh the orthogonal one under-states<br>the leakage by 580 pcm. |
 
 ##### Implementations
 
@@ -5389,7 +7909,7 @@ pub struct DiffusionSettings {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DiffusionSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5436,7 +7956,7 @@ pub struct DiffusionSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5492,7 +8012,7 @@ pub struct EigenvalueReport {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> EigenvalueReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5534,7 +8054,7 @@ pub struct EigenvalueReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5586,9 +8106,34 @@ pub struct DiffusionNeutronics {
   Build a diffusion model on `mesh` from cross sections `xs`, a
 
 - ```rust
+  pub fn new_with_cell_parameters(mesh: Arc<FvMesh>, xs: &CrossSectionData, zone_of_cell: &[usize], cell_parameters: &[f64], flux_boundary: &[BoundaryCondition<f64>], settings: DiffusionSettings) -> Result<Self, NeutronicsError> { /* ... */ }
+  ```
+  As [`new`](Self::new), but evaluating the cross sections at **each
+
+- ```rust
+  pub fn set_albedo_boundary(self: &mut Self, patch_index: usize, gamma: f64, linearisation: crate::genfoam::neutronics::albedo::AlbedoLinearisation) { /* ... */ }
+  ```
+  Impose an **albedo** (partially reflecting) boundary on one patch, for
+
+- ```rust
+  pub fn set_precursor_drift(self: &mut Self, transport: PrecursorTransport) { /* ... */ }
+  ```
+  Turn on **circulating-fuel precursor drift** — GeN-Foam's
+
+- ```rust
+  pub fn precursor_drift(self: &Self) -> Option<&PrecursorTransport> { /* ... */ }
+  ```
+  The circulating-fuel precursor transport fields, if set.
+
+- ```rust
   pub fn state(self: &Self) -> &NeutronicsState { /* ... */ }
   ```
   The shared neutronics state (flux, precursors, power density, `k_eff`).
+
+- ```rust
+  pub fn set_initial_guess(self: &mut Self, flux: &[Vec<f64>], k_eff: f64) { /* ... */ }
+  ```
+  Seed the next [`Self::solve_eigenvalue`] with a previous solution — a
 
 - ```rust
   pub fn xs_fields(self: &Self) -> &DiffusionXsFields { /* ... */ }
@@ -5629,7 +8174,7 @@ pub struct DiffusionNeutronics {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DiffusionNeutronics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5655,6 +8200,19 @@ pub struct DiffusionNeutronics {
     ```
     Calls `U::from(self)`.
 
+- **PseudoTimeEigenvalue**
+  - ```rust
+    fn pseudo_time_power(self: &Self) -> f64 { /* ... */ }
+    ```
+
+  - ```rust
+    fn pseudo_time_max_delta_t(self: &Self, controls: &PseudoTimeControls, clock: &PseudoTimeClock, p_tot: f64, p_tot_old: f64) -> f64 { /* ... */ }
+    ```
+
+  - ```rust
+    fn eigenvalue_time_step(self: &mut Self, p_target: f64, first_step: bool) -> Result<PseudoTimeStep, PseudoTimeError> { /* ... */ }
+    ```
+
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -5670,7 +8228,7 @@ pub struct DiffusionNeutronics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5687,6 +8245,12 @@ pub struct DiffusionNeutronics {
 
 ```rust
 pub use fields::DiffusionXsFields;
+```
+
+#### Re-export `PrecursorTransport`
+
+```rust
+pub use precursor_drift::PrecursorTransport;
 ```
 
 ## Module `point_kinetics`
@@ -5732,9 +8296,15 @@ previous step's values, the assembled system `A x = B` is
   row n−1 (source):   [1/Δt] S                                       = S^old / Δt
 ```
 
-The dense solve uses [`outram_foam_basic_lib::matrix::SquareMatrix`] (Crout
+~~The dense solve uses [`outram_foam_basic_lib::matrix::SquareMatrix`] (Crout
 LU with partial pivoting), the direct analogue of GeN-Foam's
-`Foam::scalarSquareMatrix` + `solve()`.
+`Foam::scalarSquareMatrix` + `solve()`.~~ **CORRECTED 2026-11-13 (gh:#1439):** not
+the same algorithm. GeN-Foam's `solvePointKinetics.H` calls `solve(x, A, B)`, which in
+ESI v2506 is Gaussian elimination with partial pivoting (no row scaling), not
+`LUsolve`. Measured against the real class over 300 steps: this assembly with an identical
+copy of this LU is bit-identical to upstream in `P` on 5 of 300 steps (worst relative 1.2e-12), while the
+same assembly with the elimination (`teh-o-prke`'s `SquareMatrix::solve_gaussian_openfoam`)
+is bit-identical on all 300. See `crates/teh-o-prke/verification_and_validation/genfoam_differential/`.
 
 ## Scope of this port
 
@@ -5747,6 +8317,12 @@ precursor-advection variant. Those all require the mesh / thermal-hydraulics /
 multi-region layers and are **deferred** (see `docs/genfoam-port-plan.md`).
 Here, the total reactivity `ρ` and the external source power `S` are inputs
 the caller supplies each step.
+
+**CORRECTED 2026-11-01:** "deferred" no longer holds for all of it. The
+feedback assembly is in [`crate::genfoam::multi_region`]
+(`reactivity_feedback.rs`), and `multi_region::outer_iteration`'s
+`LumpedNeutronics` drives this module with Doppler reactivity from a mapped
+fuel temperature. This module itself still takes `ρ` as an input.
 
 ## Example
 
@@ -5922,7 +8498,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PointKineticsError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5968,7 +8544,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PointKineticsError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -5992,7 +8568,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6093,7 +8669,7 @@ pub struct PointKineticsParameters {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PointKineticsParameters { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6121,7 +8697,7 @@ pub struct PointKineticsParameters {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PointKineticsParameters) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6140,7 +8716,7 @@ pub struct PointKineticsParameters {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6225,7 +8801,7 @@ pub struct PointKineticsState {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PointKineticsState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6253,7 +8829,7 @@ pub struct PointKineticsState {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PointKineticsState) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6272,7 +8848,7 @@ pub struct PointKineticsState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6283,6 +8859,761 @@ pub struct PointKineticsState {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+## Module `pseudo_time`
+
+GeN-Foam's pseudo-time eigenvalue driver (gh:#1361, S4).
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+GeN-Foam does not converge an eigenvalue in one call. With
+`eigenvalueNeutronics true` every **time step** of `GeN-Foam.C` does one flux
+solve per group (the time-derivative coefficient is `1 - eigenvalueNeutronics
+= 0`), then `calcKeff.H` updates `keff_ *= pTot / pTarget_` (clamped to
+`[0.1, 5]`) and `normFluxes.H` rescales the flux to `pTarget_`. The
+converged `keff_` is the eigenvalue of the discrete operator; the
+"iteration history" is `keff_` per pseudo-time step. Existing
+`solve_eigenvalue` methods are a different algorithm (a static power
+iteration to a tolerance) and are kept untouched.
+
+This module holds what is model-independent: the `Time` object of
+OpenFOAM-ESI as far as the loop uses it ([`PseudoTimeClock`]:
+`adjustableRunTime` write alignment, `run()`, `operator++`), GeN-Foam's
+`setDeltaT`/`adjustDeltaT`, the neutronics `maxDeltaT`, and the loop
+([`run_pseudo_time_eigenvalue`]). The per-step body lives with each model
+(`diffusion/pseudo_time.rs`, `sp3/pseudo_time.rs`) behind
+[`PseudoTimeEigenvalue`]. A generic bound, not a trait object.
+
+Scope: the discontinuity factors are 1 (the guided slabs; `dfAdjust` is
+gh:#1474), no `integralPredictor`/`implicitPredictor`/Aitken (they are
+transient-only upstream: `!eigenvalueNeutronics_`), and only the neutronics
+region (`regionSolvers { neutroRegion ... }`) is stepped.
+
+```rust
+pub mod pseudo_time { /* ... */ }
+```
+
+### Types
+
+#### Enum `PseudoTimeError`
+
+Why a pseudo-time step could not be taken.
+
+```rust
+pub enum PseudoTimeError {
+    NoCrossSections,
+    LiquidFuel,
+}
+```
+
+##### Variants
+
+###### `NoCrossSections`
+
+The model was built without cross sections (state-only scaffold).
+
+###### `LiquidFuel`
+
+Circulating fuel (`liquidFuel true`): `precEq.H`'s transported branch is
+not part of this driver.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PseudoTimeControls`
+
+The `controlDict` entries the loop reads (GeN-Foam `GeN-Foam.C`,
+`setDeltaT.C`, `diffusionNeutronics::maxDeltaT`) and `pTarget` from
+`0/uniform/reactorState`.
+
+```rust
+pub struct PseudoTimeControls {
+    pub delta_t: f64,
+    pub end_time: f64,
+    pub write_interval: Option<f64>,
+    pub adjust_time_step: bool,
+    pub max_delta_t: f64,
+    pub min_delta_t: f64,
+    pub max_power_variation: f64,
+    pub p_target: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `delta_t` | `f64` | `deltaT`. |
+| `end_time` | `f64` | `endTime`. |
+| `write_interval` | `Option<f64>` | `writeInterval` when `writeControl adjustableRunTime`, else `None`. |
+| `adjust_time_step` | `bool` | `adjustTimeStep`. |
+| `max_delta_t` | `f64` | `maxDeltaT` (default `GREAT`). |
+| `min_delta_t` | `f64` | `minDeltaT` (default `VSMALL`). |
+| `max_power_variation` | `f64` | `maxPowerVariation` (default 0.025). |
+| `p_target` | `f64` | `pTarget` of `reactorState`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn guided(delta_t: f64, end_time: f64, write_interval: f64, max_delta_t: f64, max_power_variation: f64, p_target: f64) -> Self { /* ... */ }
+  ```
+  The `controlDict` of the guided slab tutorials: `adjustTimeStep true`,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PseudoTimeClock`
+
+OpenFOAM's `Time`, as far as GeN-Foam's neutronics loop uses it.
+
+```rust
+pub struct PseudoTimeClock {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(controls: &PseudoTimeControls) -> Self { /* ... */ }
+  ```
+  `Time` at `startTime 0`, then GeN-Foam's `setDeltaT(runTime, solvers)`
+
+- ```rust
+  pub fn value(self: &Self) -> f64 { /* ... */ }
+  ```
+  Current time value.
+
+- ```rust
+  pub fn delta_t(self: &Self) -> f64 { /* ... */ }
+  ```
+  Current time step.
+
+- ```rust
+  pub fn time_index(self: &Self) -> usize { /* ... */ }
+  ```
+  Steps taken so far (`timeIndex`).
+
+- ```rust
+  pub fn run(self: &Self) -> bool { /* ... */ }
+  ```
+  `Time::run()`: `value() < endTime - 0.5 deltaT`.
+
+- ```rust
+  pub fn set_delta_t(self: &mut Self, delta_t: f64, adjust: bool) { /* ... */ }
+  ```
+  `Time::setDeltaT(deltaT, adjust)`.
+
+- ```rust
+  pub fn adjust_delta_t(self: &mut Self) { /* ... */ }
+  ```
+  `Time::adjustDeltaT()` for `writeControl adjustableRunTime`; a no-op
+
+- ```rust
+  pub fn advance(self: &mut Self) { /* ... */ }
+  ```
+  `Time::operator++()`: advance by `deltaT`, reset a time within
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PseudoTimeStep`
+
+What one eigenvalue time step reports (the lines the upstream log prints).
+
+```rust
+pub struct PseudoTimeStep {
+    pub power: f64,
+    pub k_eff: f64,
+    pub first_residual: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `power` | `f64` | `power: ...`, `power()` after the flux solves, before `calcKeff.H`. |
+| `k_eff` | `f64` | `keff_ = ...` after `calcKeff.H`. |
+| `first_residual` | `f64` | `neutroResidual (neutroIter: 1)`: the largest initial residual of the<br>first solve of every equation of the step. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PseudoTimeRecord`
+
+One row of the pseudo-time history.
+
+```rust
+pub struct PseudoTimeRecord {
+    pub time: f64,
+    pub delta_t: f64,
+    pub step: PseudoTimeStep,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `time` | `f64` | `Time = ` of the step (value after `runTime++`). |
+| `delta_t` | `f64` | The `deltaT` the step was taken with. |
+| `step` | `PseudoTimeStep` | The step's report. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Traits
+
+#### Trait `PseudoTimeEigenvalue`
+
+A neutronics model that can take GeN-Foam's eigenvalue time step.
+
+```rust
+pub trait PseudoTimeEigenvalue {
+    /* Associated items */
+}
+```
+
+##### Required Items
+
+###### Required Methods
+
+- `pseudo_time_power`: `power()`: the domain integral of `sum_g flux_g sigmaPow_g`.
+- `pseudo_time_max_delta_t`: The model's `maxDeltaT()` given `power()` after the step and the
+- `eigenvalue_time_step`: `correctPhysics()` for `eigenvalueNeutronics true`, after `pTotOld_` was
+
+##### Implementations
+
+This trait is implemented for the following types:
+
+- `super::DiffusionNeutronics`
+- `SnPseudoTimeSolver`
+- `super::Sp3Neutronics`
+
+### Functions
+
+#### Function `neutronics_max_delta_t`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The diffusion solver's `maxDeltaT()` (`diffusionNeutronics.C:220`): the
+largest time step the power variation of the step allows, only once the
+time exceeds the dictionary `deltaT`. (SP3 has no such guard,
+[`sp3_max_delta_t`].)
+
+`p_tot` is `power()` after the step, `p_tot_old` the `pTotOld_` taken at the
+start of `correctPhysics()`.
+
+```rust
+pub fn neutronics_max_delta_t(controls: &PseudoTimeControls, clock: &PseudoTimeClock, p_tot: f64, p_tot_old: f64) -> f64 { /* ... */ }
+```
+
+#### Function `sp3_max_delta_t`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The SP3 and SN solvers' `maxDeltaT()` (`SP3Neutronics.C:216`,
+`SNNeutronics.C:184`, identical): as
+[`neutronics_max_delta_t`] but evaluated from the first step on.
+
+```rust
+pub fn sp3_max_delta_t(controls: &PseudoTimeControls, clock: &PseudoTimeClock, p_tot: f64, p_tot_old: f64) -> f64 { /* ... */ }
+```
+
+#### Function `adjust_delta_t`
+
+GeN-Foam `adjustDeltaT(runTime, solvers)` (`setDeltaT.C`) with the one
+neutronics solver's `maxDeltaT` already evaluated.
+
+```rust
+pub fn adjust_delta_t(controls: &PseudoTimeControls, clock: &mut PseudoTimeClock, solver_max_delta_t: f64) { /* ... */ }
+```
+
+#### Function `calc_keff`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`calcKeff.H`: `keff_ *= pTot / pTarget_`, limited to `[0.1, 5]`.
+
+```rust
+pub fn calc_keff(keff: f64, p_tot: f64, p_target: f64) -> f64 { /* ... */ }
+```
+
+#### Function `run_pseudo_time_eigenvalue`
+
+GeN-Foam's main time loop for a single neutronics region.
+
+```text
+setDeltaT; while (runTime.run()) { runTime++; correctPhysics(); adjustDeltaT; }
+```
+
+# Errors
+
+The first [`PseudoTimeError`] a step reports.
+
+```rust
+pub fn run_pseudo_time_eigenvalue<S: PseudoTimeEigenvalue>(solver: &mut S, controls: &PseudoTimeControls) -> Result<Vec<PseudoTimeRecord>, PseudoTimeError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `SMALL`
+
+OpenFOAM `SMALL` (double precision).
+
+```rust
+pub const SMALL: f64 = 1e-15;
+```
+
+#### Constant `GREAT`
+
+OpenFOAM `GREAT` (double precision).
+
+```rust
+pub const GREAT: f64 = 1e15;
+```
+
+#### Constant `VSMALL`
+
+OpenFOAM `VSMALL` (double precision).
+
+```rust
+pub const VSMALL: f64 = 1e-300;
+```
+
+#### Constant `VGREAT`
+
+OpenFOAM `VGREAT` (double precision).
+
+```rust
+pub const VGREAT: f64 = 1e300;
+```
+
+#### Constant `ROOTVGREAT`
+
+OpenFOAM `ROOTVGREAT` (double precision).
+
+```rust
+pub const ROOTVGREAT: f64 = 1e150;
+```
+
+#### Constant `DELTA_T_FACTOR`
+
+`solver::deltaTFactor` (`src/classes/common/solver/solver.C:52`).
+
+```rust
+pub const DELTA_T_FACTOR: f64 = 1.2;
+```
+
 ## Module `sn`
 
 # Discrete-ordinates (S_N) transport
@@ -6337,9 +9668,13 @@ Gauss-Seidel LDU solver (not CG).
 
 ## Scope / deferrals
 
-Isotropic (P0) scattering only — the anisotropic Legendre-moment source
-(`SNNeutronics`'s `legendreMatrices_`, moments `>= 1`) is deferred, matching
-how the [`super::diffusion`] port uses only moment 0. Transients, liquid-fuel
+[`SnNeutronics`] is isotropic (P0) scattering only on the baked-in level-symmetric
+sets; ~~the anisotropic Legendre-moment source (`SNNeutronics`'s
+`legendreMatrices_`, moments `>= 1`) is deferred~~ **CORRECTED 2026-11-12**
+(gh:#1474, gh:#1361): the anisotropic source and the case's own
+`quadratureSet` are ported in [`pseudo_time::SnPseudoTimeSolver`] and
+[`quadrature_set::QuadratureSet`], as a translation of upstream's pseudo-time
+step; this type is kept unchanged as the named alternative. Transients, liquid-fuel
 precursor advection, Aitken acceleration, and live thermal-hydraulic feedback
 are likewise deferred with the coupling layer. Reflective boundaries are the
 `ZeroGradient` flux BC; a vacuum edge is `FixedValue(0)` (zero incoming
@@ -6471,7 +9806,7 @@ S6 — 48 directions (6 per octant).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> QuadratureOrder { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6501,7 +9836,7 @@ S6 — 48 directions (6 per octant).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &QuadratureOrder) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6520,7 +9855,7 @@ S6 — 48 directions (6 per octant).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6609,7 +9944,7 @@ pub struct AngularQuadrature {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> AngularQuadrature { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6650,7 +9985,448 @@ pub struct AngularQuadrature {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `quadrature_set`
+
+The `quadratureSet` of a GeN-Foam S_N case, read as upstream reads it
+(gh:#1474, gh:#1361).
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+[`AngularQuadrature::level_symmetric`](super::AngularQuadrature::level_symmetric)
+bakes the standard S2, S4, S6 sets. GeN-Foam instead reads the directions
+and weights of ONE octant from `constant/<region>/quadratureSet`
+(`discreteDirectionsOct`, `directionUxOct`, `directionUyOct`,
+`directionUzOct`, `directionWeightsOct`) and replicates them over the eight
+sign octants in a fixed order (`readQuadratureSet.H`); the weights are then
+normalised to sum to 1 (not `4 pi`) and every direction to unit length. This
+type is exactly that, so a case's own set (the Godiva tutorial ships a
+4-direction-per-octant set that is not level-symmetric S4) is used as it is.
+
+It also builds `legendreMatrices_` (`calcLegendreMatrices.H`): for each
+moment `L`, `P_L(Omega_i . Omega_j)` between every pair of directions.
+
+```rust
+pub mod quadrature_set { /* ... */ }
+```
+
+### Types
+
+#### Struct `QuadratureSet`
+
+A discrete-ordinates direction set in GeN-Foam's convention: unit versors
+and weights summing to 1.
+
+```rust
+pub struct QuadratureSet {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn read(path: &Path) -> Result<Self, AppBuilderError> { /* ... */ }
+  ```
+  Read `constant/<region>/quadratureSet`.
+
+- ```rust
+  pub fn from_octant(ux: &[f64], uy: &[f64], uz: &[f64], w: &[f64]) -> Self { /* ... */ }
+  ```
+  Build the full set from one octant's direction cosines and weights:
+
+- ```rust
+  pub fn direction_count(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of discrete directions (`8 discreteDirectionsOct`).
+
+- ```rust
+  pub fn versors(self: &Self) -> &[Vector3] { /* ... */ }
+  ```
+  The unit direction vectors.
+
+- ```rust
+  pub fn weights(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  The weights, summing to 1.
+
+- ```rust
+  pub fn legendre_matrices(self: &Self, moments: usize) -> Vec<Vec<Vec<f64>>> { /* ... */ }
+  ```
+  `legendreMatrices_[L][i][j] = P_L(Omega_i . Omega_j)` for `L` in
+
+- ```rust
+  pub fn face_phi(self: &Self, mesh: &Arc<FvMesh>, direction: usize) -> SurfaceScalarField { /* ... */ }
+  ```
+  `facePhis_[direction] = directionVersors_[direction] & mesh.Sf()`, the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `legendre_poly`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`legendrePoly(n, mu)` of `include/legendrePoly.C`, orders 0 to 7 with
+upstream's expressions; `0.0` for any other order, as upstream returns.
+
+```rust
+pub fn legendre_poly(n: usize, mu: f64) -> f64 { /* ... */ }
+```
+
+## Module `pseudo_time`
+
+GeN-Foam's S_N eigenvalue time step, with the case's own `quadratureSet` and
+anisotropic (Legendre-moment) scattering (gh:#1474, gh:#1361).
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+[`SnNeutronics`](super::SnNeutronics) keeps its own algorithm (a static
+power iteration on the baked-in level-symmetric sets with isotropic
+scattering, weights summing to `4 pi`); it is untouched. This module is the
+translation of `SNNeutronics`'s `correctPhysics()`:
+`solveNeutronicsSN.H`, `fluxEqSN.H`, `calcSourceSN.H`,
+`calcThisIntraSource.H`, `updateScalarFluxes.H`, `normFluxesSN.H`, with
+upstream's conventions (weights sum to 1, no `1/(4 pi)` in the source).
+
+## What one step does (eigenvalue branch)
+
+1. `flux_g = sum_d w_d psi_{g,d}`; `pTot = power()`; the precursors and the
+   delayed source from the fission source at the old `keff_` (stationary
+   fuel: the diagonal solve `(V S/k beta)/(V lambda)`).
+2. On the first step only: every flux scaled by `pTarget / pTot`.
+3. For each group `g`, `Gauss-Seidel` over directions, repeating (at most
+   `maxInnerIter`, until the inner residual is no more than
+   `innToOutTolerance` times the step's largest) :
+   `div(Omega_d psi) + Sp(Sigma_r + Sigma_{s0,g->g}) psi = extra_d + intra_d +
+   delayed chi_d`, where `intra_d` re-evaluates the within-group fission and
+   P0 source at the current `flux_g` plus, for moments `L >= 1`,
+   `sum_{d'} psi_{g,d'} w_{d'} sum_L P_L(Omega_d' . Omega_d)(2L+1) Sigma_{sL,g->g}`,
+   and `extra_d` the same from the other groups (fixed over the inner loop).
+4. `power()`, `calcKeff.H`, and every flux scaled by `pTarget / pTot`.
+
+The linear solver is basic-lib's ILU(0) BiCGStab (the analogue of
+`PBiCGStab`/`DILU`), stopping on `||r||/||b||`, not upstream's residual.
+
+```rust
+pub mod pseudo_time { /* ... */ }
+```
+
+### Types
+
+#### Struct `SnPseudoTimeSettings`
+
+Controls of the S_N time step: the `neutronTransport` entries of
+`fvSolution` that `solveNeutronicsSN.H` reads, plus the `legendreMoments`
+of `nuclearData` and the linear solver.
+
+```rust
+pub struct SnPseudoTimeSettings {
+    pub legendre_moments: usize,
+    pub inn_to_out_tolerance: f64,
+    pub max_inner_iter: usize,
+    pub linear: outram_foam_basic_lib::prelude::SolverSettings,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `legendre_moments` | `usize` | The number of scattering matrices used, `xs_.legendreMoments()` =<br>`1 + legendreMoments` of `nuclearData` (`XS.C:75`): the Godiva tutorial's<br>`legendreMoments 3` is 4 here (P0, P1, P2, P3). Must not exceed the stored<br>matrices. |
+| `inn_to_out_tolerance` | `f64` | `innToOutTolerance` (default 0.01). |
+| `max_inner_iter` | `usize` | `maxInnerIter` (default 3). |
+| `linear` | `outram_foam_basic_lib::prelude::SolverSettings` | Per-direction linear solve. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SnPseudoTimeSolver`
+
+An S_N model that takes GeN-Foam's eigenvalue time step. See the module doc.
+
+```rust
+pub struct SnPseudoTimeSolver {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: Arc<FvMesh>, xs: &CrossSectionData, zone_of_cell: &[usize], quadrature: QuadratureSet, flux_boundary: &[BoundaryCondition<f64>], k_eff: f64, settings: SnPseudoTimeSettings) -> Result<Self, NeutronicsError> { /* ... */ }
+  ```
+  Build the model: cross sections at the reference point, the case's
+
+- ```rust
+  pub fn k_eff(self: &Self) -> f64 { /* ... */ }
+  ```
+  The current `keff_`.
+
+- ```rust
+  pub fn flux(self: &Self, group: usize) -> &[f64] { /* ... */ }
+  ```
+  The scalar flux of group `g`, per cell.
+
+- ```rust
+  pub fn quadrature(self: &Self) -> &QuadratureSet { /* ... */ }
+  ```
+  The quadrature in use.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PseudoTimeEigenvalue**
+  - ```rust
+    fn pseudo_time_power(self: &Self) -> f64 { /* ... */ }
+    ```
+
+  - ```rust
+    fn pseudo_time_max_delta_t(self: &Self, controls: &PseudoTimeControls, clock: &PseudoTimeClock, p_tot: f64, p_tot_old: f64) -> f64 { /* ... */ }
+    ```
+
+  - ```rust
+    fn eigenvalue_time_step(self: &mut Self, p_target: f64, first_step: bool) -> Result<PseudoTimeStep, PseudoTimeError> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6715,7 +10491,7 @@ pub struct SnSettings {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SnSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6762,7 +10538,7 @@ pub struct SnSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6852,7 +10628,7 @@ pub struct SnNeutronics {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SnNeutronics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6893,7 +10669,7 @@ pub struct SnNeutronics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7086,7 +10862,7 @@ pub struct Sp3XsFields {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Sp3XsFields { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7127,7 +10903,7 @@ pub struct Sp3XsFields {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7155,6 +10931,7 @@ pub struct Sp3Settings {
     pub flux_tolerance: f64,
     pub max_outer_iterations: usize,
     pub linear: outram_foam_basic_lib::prelude::SolverSettings,
+    pub delta_coeff: outram_foam_basic_lib::prelude::fvm::DeltaCoeff,
 }
 ```
 
@@ -7166,6 +10943,7 @@ pub struct Sp3Settings {
 | `flux_tolerance` | `f64` | Outer-loop convergence tolerance on the relative L2 change in the flux. |
 | `max_outer_iterations` | `usize` | Maximum number of outer power iterations. |
 | `linear` | `outram_foam_basic_lib::prelude::SolverSettings` | Inner linear-solver settings (one moment-equation solve). |
+| `delta_coeff` | `outram_foam_basic_lib::prelude::fvm::DeltaCoeff` | Which face-distance coefficient the moment Laplacians divide by.<br><br>Same meaning and same default as<br>[`DiffusionSettings::delta_coeff`](crate::genfoam::neutronics::DiffusionSettings::delta_coeff):<br>GeN-Foam's neutronics `fvSchemes` asks for `uncorrected`, so the faithful<br>setting is [`DeltaCoeff::NonOrthogonal`]. |
 
 ##### Implementations
 
@@ -7188,7 +10966,7 @@ pub struct Sp3Settings {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Sp3Settings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7235,7 +11013,7 @@ pub struct Sp3Settings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7284,6 +11062,11 @@ pub struct Sp3Neutronics {
   pub fn solve_eigenvalue(self: &mut Self) -> Result<EigenvalueReport, NeutronicsError> { /* ... */ }
   ```
   Solve the SP3 k-eigenvalue problem by outer power iteration.
+
+- ```rust
+  pub fn set_uniform_second_moment(self: &mut Self, value: f64) { /* ... */ }
+  ```
+  Set the second moment of every group to the uniform `value`, as GeN-Foam
 
 - ```rust
   pub fn step(self: &mut Self, dt: Time) -> Result<(), NeutronicsError> { /* ... */ }
@@ -7354,7 +11137,7 @@ pub struct Sp3Neutronics {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Sp3Neutronics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7380,6 +11163,19 @@ pub struct Sp3Neutronics {
     ```
     Calls `U::from(self)`.
 
+- **PseudoTimeEigenvalue**
+  - ```rust
+    fn pseudo_time_power(self: &Self) -> f64 { /* ... */ }
+    ```
+
+  - ```rust
+    fn pseudo_time_max_delta_t(self: &Self, controls: &PseudoTimeControls, clock: &PseudoTimeClock, p_tot: f64, p_tot_old: f64) -> f64 { /* ... */ }
+    ```
+
+  - ```rust
+    fn eigenvalue_time_step(self: &mut Self, p_target: f64, first_step: bool) -> Result<PseudoTimeStep, PseudoTimeError> { /* ... */ }
+    ```
+
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -7395,7 +11191,7 @@ pub struct Sp3Neutronics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7603,7 +11399,7 @@ pub struct NeutronicsState {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NeutronicsState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7644,7 +11440,7 @@ pub struct NeutronicsState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7707,8 +11503,9 @@ multi-region layers and so are not implemented *in this module*. Mesh
 materialisation has since landed next door, in
 [`DiffusionXsFields`](crate::genfoam::neutronics::diffusion::DiffusionXsFields)
 and its SP3 counterpart. **Control-rod driveline motion and
-discontinuity-factor adjustment remain deferred** (tracked in beads under
-the `neutronics` epic). The evaluation methods below are exactly the per-cell `.get(...)` call
+discontinuity-factor adjustment remain deferred** (~~tracked in beads under
+the `neutronics` epic~~ **CORRECTED 2026-11-12**: the beads tracker is retired;
+they are gh:#1474). The evaluation methods below are exactly the per-cell `.get(...)` call
 GeN-Foam performs in `setNeutronicsVariables.H`, lifted out of the cell loop.
 
 ## Dependency on `genfoam::common`
@@ -7920,7 +11717,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8010,7 +11807,7 @@ pub struct GroupConstants {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GroupConstants { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8052,7 +11849,7 @@ pub struct GroupConstants {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8108,7 +11905,7 @@ pub struct PrecursorConstants {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PrecursorConstants { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8149,7 +11946,7 @@ pub struct PrecursorConstants {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8242,7 +12039,7 @@ pub struct NuclearDataInput {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NuclearDataInput { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8283,7 +12080,7 @@ pub struct NuclearDataInput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8335,7 +12132,7 @@ pub struct StateInput {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StateInput { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8376,7 +12173,7 @@ pub struct StateInput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8440,7 +12237,7 @@ pub struct ZoneStateInput {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ZoneStateInput { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8481,7 +12278,7 @@ pub struct ZoneStateInput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8546,7 +12343,7 @@ pub struct ZoneConstantsInput {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ZoneConstantsInput { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8593,7 +12390,7 @@ pub struct ZoneConstantsInput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8708,7 +12505,7 @@ pub struct NuclearDataOneEnergy {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NuclearDataOneEnergy { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8749,7 +12546,7 @@ pub struct NuclearDataOneEnergy {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9038,7 +12835,7 @@ pub enum VariableLaw {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> VariableLaw { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9068,7 +12865,7 @@ pub enum VariableLaw {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &VariableLaw) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -9087,7 +12884,7 @@ pub enum VariableLaw {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9148,7 +12945,7 @@ pub struct XsVariable {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> XsVariable { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9177,7 +12974,7 @@ pub struct XsVariable {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &XsVariable) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -9196,7 +12993,7 @@ pub struct XsVariable {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9393,7 +13190,7 @@ pub struct ZoneNuclearData {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ZoneNuclearData { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9434,7 +13231,7 @@ pub struct ZoneNuclearData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9571,7 +13368,7 @@ pub struct CrossSectionData {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CrossSectionData { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9612,7 +13409,7 @@ pub struct CrossSectionData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9747,7 +13544,7 @@ Discrete-ordinates (SN) transport (eigenvalue only).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NeutronicsModelKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9777,7 +13574,7 @@ Discrete-ordinates (SN) transport (eigenvalue only).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NeutronicsModelKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -9796,7 +13593,7 @@ Discrete-ordinates (SN) transport (eigenvalue only).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9937,7 +13734,7 @@ Fields:
 
 - **Error**
   - ```rust
-    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
     ```
 
 - **Freeze**
@@ -9972,7 +13769,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10048,7 +13845,7 @@ pub struct PointKineticsModel {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PointKineticsModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10076,7 +13873,7 @@ pub struct PointKineticsModel {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PointKineticsModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -10095,7 +13892,7 @@ pub struct PointKineticsModel {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10110,7 +13907,7 @@ pub struct PointKineticsModel {
 
 **Attributes:**
 
-- `Other("#[allow(clippy::large_enum_variant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"large_enum_variant\", kind: Allow}])]")`
 
 The closed set of deterministic neutronics models (enum dispatch, no
 `dyn`).
@@ -10218,7 +14015,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NeutronicsModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10259,7 +14056,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10352,6 +14149,11 @@ under "Known gaps".
   including the power/heat-exchanger/pump structure models. Implemented.
 - [`solver`] — the porous solver drivers. [`solver::one_phase`] (UEqn/pEqn/
   EEqn) is implemented; see "Known gaps" for its property limitation.
+  [`solver::two_phase`] (gh:#1218) is the two-fluid boiling solver.
+- [`solid_conduction`] — **new work, not port (gh:#1149)**: 2-D R-Z solid
+  conduction with temperature-dependent properties, radiative boundaries
+  and radiating gas gaps between homogenised regions (THERMIX-like).
+  Verified against closed forms in its `tests`.
 - [`boundary_conditions`] — `blackbody_radiation`, `velocity_rundown` and
   `time_field_table` implemented.
 - [`function_objects`] — post-processing diagnostics (mass flow, pressure
@@ -10361,18 +14163,32 @@ under "Known gaps".
 
 ## Known gaps
 
-- **The two-phase (MULES) solver is not implemented**, nor is
-  `onePhaseLegacy`. Only [`solver::one_phase`] exists.
+- ~~**The two-phase (MULES) solver is not implemented**, nor is
+  `onePhaseLegacy`. Only [`solver::one_phase`] exists.~~ **CORRECTED
+  2026-11-04 (gh:#1218):** [`solver::two_phase`] ports `twoPhase` with the
+  `implicitUpwind` alpha solver; **MULES** and `onePhaseLegacy` are still not
+  ported. Full gap list: `docs/genfoam-port-gap-audit.md`.
 - [`solver::one_phase`] runs on **constant fluid properties** (`he = Cp·T`,
   fixed-surface-temperature structure coupling): [`thermophysical`] is
-  ported but not yet wired in as the driver's fluid package.
+  ported but not yet wired in as the driver's fluid package. The one
+  exception is new work (gh:#1149): an optional
+  [`solver::PorousConductivity`] makes the energy equation's `alphaEff`
+  temperature-dependent; off by default.
 - `boundary_conditions::nusselt_baffle` is a **stub** — every method is
   `unimplemented!()` (cross-patch implicit coupling is not supported).
 - [`closures::turbulence`] ports the closure *algebra* only; the k/ε
   transport equations and `correctNut` orchestration are deferred (the
   generic single-phase machinery lives in `outram-foam-turbulence-lib`).
-- The correlation leaves are **unit-tested, not system-validated** — they
-  have not been exercised inside a converged multiphysics run.
+- The correlation leaves are **unit-tested, not system-validated** — ~~they
+  have not been exercised inside a converged multiphysics run.~~ **UPDATED
+  2026-11-04:** those `1D_boiling` selects (ReynoldsPower, SchillerNaumann,
+  Kaiser88, Nusselt, Shah, COBRA-TF, FinkLeibowitz, BrowningPotter,
+  heatDriven, oneParameter) now run inside [`solver::two_phase`]; ~~none is
+  compared with an upstream run there (upstream ships no reference).~~
+  **CORRECTED 2026-11-12** (gh:#1361 round 3): the system is compared with a run of the real binary on
+  `1D_boiling` (`tests/genfoam_two_phase_vs_upstream.rs`: 65 steps to 1e-9,
+  the single-phase run to 2.5e-11, the boiling onset to 3e-6), though not each
+  closure leaf in isolation.
 - The great majority of upstream `thermalHydraulics` (~65k LOC) is still
   unported; what exists here is the closure/field/one-phase-driver
   foundation.
@@ -10545,7 +14361,7 @@ pub struct BlackBodyRadiationBc {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BlackBodyRadiationBc { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10574,7 +14390,7 @@ pub struct BlackBodyRadiationBc {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BlackBodyRadiationBc) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -10593,7 +14409,7 @@ pub struct BlackBodyRadiationBc {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10711,7 +14527,7 @@ master).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BaffleSide { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10741,7 +14557,7 @@ master).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BaffleSide) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -10760,7 +14576,7 @@ master).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10819,7 +14635,7 @@ pub struct NusseltCorrelationCoefficients {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NusseltCorrelationCoefficients { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10848,7 +14664,7 @@ pub struct NusseltCorrelationCoefficients {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NusseltCorrelationCoefficients) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -10867,7 +14683,7 @@ pub struct NusseltCorrelationCoefficients {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10944,7 +14760,7 @@ pub struct NusseltThermalBaffle1DBc {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NusseltThermalBaffle1DBc { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10973,7 +14789,7 @@ pub struct NusseltThermalBaffle1DBc {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NusseltThermalBaffle1DBc) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -10992,7 +14808,7 @@ pub struct NusseltThermalBaffle1DBc {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11150,7 +14966,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TimeFieldTableError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11170,7 +14986,7 @@ Fields:
 
 - **Error**
   - ```rust
-    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
     ```
 
 - **Freeze**
@@ -11192,7 +15008,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TimeFieldTableError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11216,7 +15032,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11287,7 +15103,7 @@ pub struct TimeFieldTable {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TimeFieldTable { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11315,7 +15131,7 @@ pub struct TimeFieldTable {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TimeFieldTable) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11334,7 +15150,7 @@ pub struct TimeFieldTable {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11460,7 +15276,7 @@ pub struct VelocityRundownBc {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> VelocityRundownBc { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11489,7 +15305,7 @@ pub struct VelocityRundownBc {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &VelocityRundownBc) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11508,7 +15324,7 @@ pub struct VelocityRundownBc {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11844,7 +15660,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FsWallFriction { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11873,7 +15689,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FsWallFriction) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11892,7 +15708,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12188,7 +16004,7 @@ pub struct MultiRegimeBoilingInputs {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MultiRegimeBoilingInputs { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12230,7 +16046,7 @@ pub struct MultiRegimeBoilingInputs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12282,7 +16098,7 @@ pub struct MultiRegimeBoilingResult {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MultiRegimeBoilingResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12324,7 +16140,7 @@ pub struct MultiRegimeBoilingResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12509,7 +16325,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CriticalHeatFlux { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12538,7 +16354,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CriticalHeatFlux) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -12557,7 +16373,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12624,7 +16440,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LeidenfrostTemperature { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12653,7 +16469,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LeidenfrostTemperature) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -12672,7 +16488,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12741,7 +16557,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OnsetOfNucleateBoilingTemperature { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12770,7 +16586,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &OnsetOfNucleateBoilingTemperature) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -12789,7 +16605,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12895,7 +16711,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FlowEnhancementFactor { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12924,7 +16740,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FlowEnhancementFactor) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -12943,7 +16759,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12998,7 +16814,7 @@ pub struct FlowEnhancementInputs {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FlowEnhancementInputs { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13040,7 +16856,7 @@ pub struct FlowEnhancementInputs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13110,7 +16926,7 @@ COBRA-TF, a linear temperature-ratio clamp
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SuppressionFactor { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13139,7 +16955,7 @@ COBRA-TF, a linear temperature-ratio clamp
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SuppressionFactor) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13158,7 +16974,7 @@ COBRA-TF, a linear temperature-ratio clamp
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13212,7 +17028,7 @@ pub struct SuppressionInputs {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SuppressionInputs { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13254,7 +17070,7 @@ pub struct SuppressionInputs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13325,7 +17141,7 @@ Saha & Zuber (1974) point-of-net-vapour-generation correlation.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SubcooledBoilingFraction { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13354,7 +17170,7 @@ Saha & Zuber (1974) point-of-net-vapour-generation correlation.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SubcooledBoilingFraction) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13373,7 +17189,7 @@ Saha & Zuber (1974) point-of-net-vapour-generation correlation.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13390,8 +17206,8 @@ Saha & Zuber (1974) point-of-net-vapour-generation correlation.
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
 - `MustUse { reason: None }`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 Two-phase "mixture" Reynolds number shared by
 [`FlowEnhancementFactor::CobraTf`] and [`SuppressionFactor::Chen`]:
@@ -13519,7 +17335,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FfForcedConvectionHtc { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13548,7 +17364,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FfForcedConvectionHtc) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13567,7 +17383,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13717,7 +17533,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FsForcedConvectionHtc { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13746,7 +17562,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FsForcedConvectionHtc) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13765,7 +17581,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13864,7 +17680,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PoolBoilingHtc { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13893,7 +17709,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PoolBoilingHtc) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13912,7 +17728,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14203,7 +18019,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InterfacialArea { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14232,7 +18048,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InterfacialArea) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14251,7 +18067,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14358,7 +18174,7 @@ than a mesh-registry lookup).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ContactPartition { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14387,7 +18203,7 @@ than a mesh-registry lookup).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ContactPartition) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14406,7 +18222,7 @@ than a mesh-registry lookup).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14537,7 +18353,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BubbleDiameter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14566,7 +18382,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BubbleDiameter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14585,7 +18401,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14665,7 +18481,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FilmDiameter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14694,7 +18510,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FilmDiameter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14713,7 +18529,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14828,7 +18644,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TurbulentDispersion { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14857,7 +18673,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TurbulentDispersion) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14876,7 +18692,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15045,7 +18861,7 @@ reproduced bit-for-bit rather than replaced with a "cleaner" curve).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RegimeInterpolationMode { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15075,7 +18891,7 @@ reproduced bit-for-bit rather than replaced with a "cleaner" curve).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RegimeInterpolationMode) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15094,7 +18910,7 @@ reproduced bit-for-bit rather than replaced with a "cleaner" curve).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15149,7 +18965,7 @@ pub struct RegimeBound {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RegimeBound { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15177,7 +18993,7 @@ pub struct RegimeBound {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RegimeBound) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15196,7 +19012,7 @@ pub struct RegimeBound {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15262,7 +19078,7 @@ pub struct RegimeMap1D {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RegimeMap1D { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15290,7 +19106,7 @@ pub struct RegimeMap1D {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RegimeMap1D) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15309,7 +19125,7 @@ pub struct RegimeMap1D {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15509,7 +19325,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> VirtualMassCoefficient { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15538,7 +19354,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &VirtualMassCoefficient) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15557,7 +19373,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15734,7 +19550,7 @@ module has no dependency on a thermo package.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LatentHeatModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15763,7 +19579,7 @@ module has no dependency on a thermo package.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LatentHeatModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15782,7 +19598,7 @@ module has no dependency on a thermo package.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15940,7 +19756,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PhaseChangeRateModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15969,7 +19785,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PhaseChangeRateModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15988,7 +19804,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16147,7 +19963,7 @@ approximation of the inverse (round-trips to within ~0.04% — see
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SaturationModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16176,7 +19992,7 @@ approximation of the inverse (round-trips to within ~0.04% — see
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SaturationModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -16195,7 +20011,7 @@ approximation of the inverse (round-trips to within ~0.04% — see
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16537,7 +20353,7 @@ pub struct LaheyBubbleClosure {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LaheyBubbleClosure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16566,7 +20382,7 @@ pub struct LaheyBubbleClosure {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LaheyBubbleClosure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -16585,7 +20401,7 @@ pub struct LaheyBubbleClosure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16745,7 +20561,7 @@ pub struct MixtureKEpsilonClosure {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MixtureKEpsilonClosure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16774,7 +20590,7 @@ pub struct MixtureKEpsilonClosure {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MixtureKEpsilonClosure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -16793,7 +20609,7 @@ pub struct MixtureKEpsilonClosure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16930,7 +20746,7 @@ pub struct PorousKEpsilonClosure {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PorousKEpsilonClosure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16959,7 +20775,7 @@ pub struct PorousKEpsilonClosure {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PorousKEpsilonClosure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -16978,7 +20794,7 @@ pub struct PorousKEpsilonClosure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17041,7 +20857,7 @@ pub struct PorousKEpsilon2PhaseClosure {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PorousKEpsilon2PhaseClosure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17070,7 +20886,7 @@ pub struct PorousKEpsilon2PhaseClosure {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PorousKEpsilon2PhaseClosure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -17089,7 +20905,7 @@ pub struct PorousKEpsilon2PhaseClosure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17508,7 +21324,7 @@ pub struct Extents {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Extents { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17537,7 +21353,7 @@ pub struct Extents {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Extents) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -17556,7 +21372,7 @@ pub struct Extents {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17779,7 +21595,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MassFlowRegion { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17820,7 +21636,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17948,7 +21764,7 @@ Area integral: `sum(v * |Sf|)`.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PatchReduceOp { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17978,7 +21794,7 @@ Area integral: `sum(v * |Sf|)`.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PatchReduceOp) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -17997,7 +21813,7 @@ Area integral: `sum(v * |Sf|)`.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18182,7 +21998,7 @@ pub struct StopDecision {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StopDecision { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18211,7 +22027,7 @@ pub struct StopDecision {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &StopDecision) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -18230,7 +22046,7 @@ pub struct StopDecision {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18505,7 +22321,7 @@ Gas / vapour phase.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StateOfMatter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18521,7 +22337,7 @@ Gas / vapour phase.
 
 - **Default**
   - ```rust
-    fn default() -> StateOfMatter { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -18540,7 +22356,7 @@ Gas / vapour phase.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &StateOfMatter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -18559,7 +22375,7 @@ Gas / vapour phase.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18658,7 +22474,7 @@ pub struct Fluid {
 - ```rust
   pub fn velocity_mut(self: &mut Self) -> &mut VolVectorField { /* ... */ }
   ```
-   Velocity `U` (`m/s`, vector).
+  Velocity `U` (`m/s`, vector).
 
 - ```rust
   pub fn mag_velocity(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18668,7 +22484,7 @@ pub struct Fluid {
 - ```rust
   pub fn mag_velocity_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Velocity magnitude `|U|` (`m/s`).
+  Velocity magnitude `|U|` (`m/s`).
 
 - ```rust
   pub fn phi(self: &Self) -> &SurfaceScalarField { /* ... */ }
@@ -18678,7 +22494,7 @@ pub struct Fluid {
 - ```rust
   pub fn phi_mut(self: &mut Self) -> &mut SurfaceScalarField { /* ... */ }
   ```
-   Superficial volumetric face flux `phi` (`m^3/s`).
+  Superficial volumetric face flux `phi` (`m^3/s`).
 
 - ```rust
   pub fn alpha_phi(self: &Self) -> &SurfaceScalarField { /* ... */ }
@@ -18688,7 +22504,7 @@ pub struct Fluid {
 - ```rust
   pub fn alpha_phi_mut(self: &mut Self) -> &mut SurfaceScalarField { /* ... */ }
   ```
-   Phase volumetric face flux `alphaPhi` (`m^3/s`).
+  Phase volumetric face flux `alphaPhi` (`m^3/s`).
 
 - ```rust
   pub fn alpha_rho_phi(self: &Self) -> &SurfaceScalarField { /* ... */ }
@@ -18698,7 +22514,7 @@ pub struct Fluid {
 - ```rust
   pub fn alpha_rho_phi_mut(self: &mut Self) -> &mut SurfaceScalarField { /* ... */ }
   ```
-   Phase mass face flux `alphaRhoPhi` (`kg/s`).
+  Phase mass face flux `alphaRhoPhi` (`kg/s`).
 
 - ```rust
   pub fn alpha_rho_mag_u(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18708,7 +22524,7 @@ pub struct Fluid {
 - ```rust
   pub fn alpha_rho_mag_u_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Cell-centred mass flux `alphaRhoMagU` (`kg/(m^2 s)`); regime-map placeholder.
+  Cell-centred mass flux `alphaRhoMagU` (`kg/(m^2 s)`); regime-map placeholder.
 
 - ```rust
   pub fn dgdt(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18718,7 +22534,7 @@ pub struct Fluid {
 - ```rust
   pub fn dgdt_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Dilation term `dgdt` (`1/s`) — the compressible part of continuity.
+  Dilation term `dgdt` (`1/s`) — the compressible part of continuity.
 
 - ```rust
   pub fn normalized(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18728,7 +22544,7 @@ pub struct Fluid {
 - ```rust
   pub fn normalized_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Solver-normalised volume fraction (dimensionless).
+  Solver-normalised volume fraction (dimensionless).
 
 - ```rust
   pub fn density(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18738,7 +22554,7 @@ pub struct Fluid {
 - ```rust
   pub fn density_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Density `rho` (`kg/m^3`). Placeholder updated by the thermo package.
+  Density `rho` (`kg/m^3`). Placeholder updated by the thermo package.
 
 - ```rust
   pub fn temperature(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18748,7 +22564,7 @@ pub struct Fluid {
 - ```rust
   pub fn temperature_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Temperature `T` (`K`). Placeholder updated by the thermo package.
+  Temperature `T` (`K`). Placeholder updated by the thermo package.
 
 - ```rust
   pub fn enthalpy(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18758,7 +22574,7 @@ pub struct Fluid {
 - ```rust
   pub fn enthalpy_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Specific enthalpy `h` (`J/kg`). Placeholder updated by the thermo package.
+  Specific enthalpy `h` (`J/kg`). Placeholder updated by the thermo package.
 
 - ```rust
   pub fn kappa(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18768,7 +22584,7 @@ pub struct Fluid {
 - ```rust
   pub fn kappa_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Thermal conductivity `kappa` (`W/(m K)`). Placeholder updated by thermo.
+  Thermal conductivity `kappa` (`W/(m K)`). Placeholder updated by thermo.
 
 - ```rust
   pub fn cp(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18778,7 +22594,7 @@ pub struct Fluid {
 - ```rust
   pub fn cp_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Specific heat `Cp` (`J/(kg K)`). Placeholder updated by thermo.
+  Specific heat `Cp` (`J/(kg K)`). Placeholder updated by thermo.
 
 - ```rust
   pub fn mu(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18788,7 +22604,7 @@ pub struct Fluid {
 - ```rust
   pub fn mu_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Dynamic viscosity `mu` (`Pa s`). Placeholder updated by thermo.
+  Dynamic viscosity `mu` (`Pa s`). Placeholder updated by thermo.
 
 - ```rust
   pub fn prandtl(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18798,7 +22614,7 @@ pub struct Fluid {
 - ```rust
   pub fn prandtl_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Prandtl number `Pr` (dimensionless). Placeholder updated by thermo.
+  Prandtl number `Pr` (dimensionless). Placeholder updated by thermo.
 
 - ```rust
   pub fn hydraulic_diameter(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18808,7 +22624,7 @@ pub struct Fluid {
 - ```rust
   pub fn hydraulic_diameter_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Characteristic (hydraulic) diameter `Dh` (`m`).
+  Characteristic (hydraulic) diameter `Dh` (`m`).
 
 - ```rust
   pub fn flow_quality(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18818,7 +22634,7 @@ pub struct Fluid {
 - ```rust
   pub fn flow_quality_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Flow quality `X` (dimensionless); non-trivial only in two-phase.
+  Flow quality `X` (dimensionless); non-trivial only in two-phase.
 
 - ```rust
   pub fn lockhart_martinelli(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18828,7 +22644,7 @@ pub struct Fluid {
 - ```rust
   pub fn lockhart_martinelli_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Lockhart–Martinelli parameter `XLM` (dimensionless).
+  Lockhart–Martinelli parameter `XLM` (dimensionless).
 
 - ```rust
   pub fn dispersion(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18838,7 +22654,7 @@ pub struct Fluid {
 - ```rust
   pub fn dispersion_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Dispersion marker (`0` continuous … `1` dispersed), dimensionless.
+  Dispersion marker (`0` continuous … `1` dispersed), dimensionless.
 
 - ```rust
   pub fn power_density(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18848,7 +22664,7 @@ pub struct Fluid {
 - ```rust
   pub fn power_density_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Neutronics-projected power density `q'''` (`W/m^3`) deposited in the fluid.
+  Neutronics-projected power density `q'''` (`W/m^3`) deposited in the fluid.
 
 - ```rust
   pub fn continuity_error(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18858,7 +22674,7 @@ pub struct Fluid {
 - ```rust
   pub fn continuity_error_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Continuity error `contErr` (`kg/(m^3 s)`).
+  Continuity error `contErr` (`kg/(m^3 s)`).
 
 - ```rust
   pub fn above_thermo_residual_alpha(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18868,7 +22684,7 @@ pub struct Fluid {
 - ```rust
   pub fn above_thermo_residual_alpha_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Marker: `1` where `alpha_norm > thermoResidualAlpha`, else `0`.
+  Marker: `1` where `alpha_norm > thermoResidualAlpha`, else `0`.
 
 - ```rust
   pub fn below_thermo_residual_alpha(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18878,7 +22694,7 @@ pub struct Fluid {
 - ```rust
   pub fn below_thermo_residual_alpha_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Marker: `1` where `alpha_norm <= thermoResidualAlpha`, else `0`.
+  Marker: `1` where `alpha_norm <= thermoResidualAlpha`, else `0`.
 
 - ```rust
   pub fn reference_density(self: &Self) -> &VolScalarField { /* ... */ }
@@ -18888,7 +22704,7 @@ pub struct Fluid {
 - ```rust
   pub fn reference_density_mut(self: &mut Self) -> &mut VolScalarField { /* ... */ }
   ```
-   Reference density `rho0` (`kg/m^3`), used only under the Boussinesq EOS.
+  Reference density `rho0` (`kg/m^3`), used only under the Boussinesq EOS.
 
 - ```rust
   pub fn min_xlm(self: &Self) -> f64 { /* ... */ }
@@ -18974,7 +22790,7 @@ pub struct Fluid {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Fluid { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19015,7 +22831,7 @@ pub struct Fluid {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19156,7 +22972,7 @@ pub struct PhaseBase {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PhaseBase { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19197,7 +23013,7 @@ pub struct PhaseBase {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19390,6 +23206,1974 @@ pub use phase_pair::ff_reynolds;
 pub use phase_pair::fs_reynolds;
 ```
 
+## Module `solid_conduction`
+
+# `solid_conduction` — 2-D R-Z solid conduction with radiation (THERMIX-like)
+
+**New work, not port (gh:#1149, epic #1146, maintainer decision D2
+2026-11-03).** Upstream GeN-Foam has no multi-region solid conduction
+field: its structures are lumped per cell ([`super::structure::PowerModel`])
+with constant properties. This module adds, beside the port, the solid
+energy equation a THERMIX-style pebble-bed analysis solves over the bed,
+reflectors, barrel and vessel, as homogenised regions:
+
+```text
+  d H(T)/dt = div( lambda(T) grad T ) + q'''          H(T) = int rho c_p dT
+```
+
+on an axisymmetric wedge (or planar slab) [`RzMesh`], with
+
+- **temperature-dependent properties** per region, `lambda(T)` and
+  `rho c_p (T)`, by enum dispatch over [`PropertyModel`] (constant, linear,
+  polynomial, clamped table, or a `fn` pointer; gh:#1148's closures plug
+  in as new variants);
+- **Picard iteration** of the nonlinearity in every steady solve and every
+  time step (properties, radiation and gap coefficients re-evaluated at
+  the previous iterate until no cell moves more than
+  [`SolidConductionSettings::picard_tolerance`], default 1e-8 K);
+- the **enthalpy form** of storage in backward Euler,
+  `C(T^k)(T^{k+1} - T^k) + H(T^k) - H(T^n)`, which conserves energy exactly
+  at convergence for any `rho c_p (T)` (and reduces to `C (T^{k+1} - T^n)`,
+  bit for bit, for a constant one);
+- boundaries ([`SolidBoundary`]): adiabatic, fixed temperature, convective
+  `(h, T_inf)`, radiative `(eps, T_inf)`, and radiative plus enclosure
+  natural convection of air ([`EnclosureNaturalConvection`], gh:#1173);
+- **gas gaps** between regions ([`GapConductance`]): gas conduction plus
+  grey two-surface radiation (Kugeler et al. 2017 §9.4), as a series
+  resistance on the faces between the two regions.
+
+## How the nonlinear terms are linearised
+
+- A **radiative boundary** uses the tangent (Newton) form at the previous
+  surface temperature, `q ~ q(T*) + 4 eps sigma T*^3 (T - T*)`, imposed as a
+  Robin condition. The secant form `eps sigma (T*^2+Ta^2)(T*+Ta)(T - Ta)`
+  was tried first and does not converge once `T_s > ~1.5 T_a` (its
+  fixed-point slope is about `-3 (T_s - T_a)/T_s`); see test (a).
+- A **gap** uses the secant (exact-factorisation) coefficient at the
+  previous surface temperatures, because the tangent form is not a single
+  symmetric face conductance. Its fixed-point slope is about
+  `-3 dT_gap / (4 T_mean)`: it converged in 44 passes for a vacuum gap with
+  456 K across it at 1400 K mean (test `vacuum_gap_with_large_temperature_drop_converges`),
+  but a gap whose drop approaches its mean absolute temperature is outside
+  what has been tested and may need under-relaxation.
+- `lambda(T)` and `rho c_p (T)` are evaluated at cell temperatures of the
+  previous pass; face conductivities are the harmonic (series) mean of the
+  two cell values.
+
+## What is reused
+
+| piece | from |
+|---|---|
+| implicit Laplacian, Robin (`MixedField`) and fixed-value boundary arms | `outram_foam_basic_lib::fvm::laplacian` (OpenFOAM `laplacianFoam`) |
+| harmonic (series-resistance) face conductivity, `A/(d_P/k_P + d_N/k_N)` | the same construction as `outram_foam_basic_lib::steady_conduction` (OpenFOAM `harmonic`) |
+| convective weight `h d/(h d + k)` | `externalWallHeatFluxTemperature`, as in basic-lib's steady conduction |
+| DIC-preconditioned CG | `FvMatrix::solve_cg_with_guess` |
+| `sigma` | the ported `blackbody_radiation` BC |
+| mesh container | basic-lib's `ConductionMesh` (so the same mesh also runs basic-lib's steady solver, used here as a code-to-code check) |
+
+Checked and not reused: basic-lib's `steady_conduction` (steady only, no
+radiation, gaps or storage; its 1-D radial and voxel meshes have no R-Z
+form — it is extended around, not duplicated, and is the cross-check);
+the GeN-Foam `thermo_mechanics::mesh_solve` `TEqn` (constant properties,
+single region); `dhoby-ghaut`'s `porous_core.rs` (rings with no conduction
+between them, inside a GUI binary); `dhoby-ghaut`'s `RzDomain` and
+`nee_soon::htr10_rmc` (HTR-10 geometry for other codes). ~~The HTR-10
+geometry comes in a later part of gh:#1149 and lives downstream of this
+crate.~~ **CORRECTED 2026-11-03 (gh:#1149 part B):** it is in this crate,
+[`crate::htr10_rz`], built from the cited input sheet on this field.
+
+**Held cells** ([`SolidConductionField::set_fixed_temperatures`], part B):
+a Dirichlet condition on cells, for a gas side or a body whose
+temperature is imposed; verified by
+`held_cells_are_eliminated_and_their_duty_is_reported`.
+
+## Verification
+
+Analytic cases (a)–(e) of gh:#1149 are in this module's `tests.rs`, each
+with its methodology, the prediction written before the run, and the
+measured result. The R-Z region map and mesh of the test geometry are
+drawn from the assembled mesh by `tests/solid_conduction_rz_images.rs`
+into `verification_and_validation/solid_conduction_rz/`.
+
+Status: untrusted AI-generated draft (2026-11-03) per `RESPONSIBLE_USE.md`.
+For research, education and V&V only; not validated against any reactor.
+
+```rust
+pub mod solid_conduction { /* ... */ }
+```
+
+### Modules
+
+## Module `gap`
+
+Thin gas gap between two solid regions: gas conduction plus two-surface
+radiation, as one conductance on the mesh faces between the regions.
+
+**New work, not port (gh:#1149).**
+
+## The formula and its source
+
+Kugeler, Nabielek & Buckthorpe (2017), *The High Temperature Gas-cooled
+Reactor: Safety considerations of the (V)HTR-Modul*, EUR 28712 EN
+(open; `crates/kovan-literature/reactor-literature/kovan-standard-open-corpus/eu-jrc/kjna28712enn.pdf`),
+§9.4, writes the heat flux across a gap in the reactor internals as
+`q'' = (alpha_conv + alpha_rad)(T1 - T2)` (their p. 205), with the radiative
+part for parallel flat surfaces carrying the exchange factor
+`C12 = Cs / (1/eps1 + 1/eps2 - 1)` (their eq. 115). Written as a
+conductance, the net grey-body exchange between two large parallel
+surfaces is
+
+```text
+  q''_rad = sigma (T1^4 - T2^4) / (1/eps1 + 1/eps2 - 1)
+  h_rad   = sigma (T1^2 + T2^2)(T1 + T2) / (1/eps1 + 1/eps2 - 1)
+```
+
+which is exact (the factorisation `T1^4 - T2^4 = (T1^2+T2^2)(T1+T2)(T1-T2)`),
+not linearised. A stagnant gas layer of width `delta` adds
+`h_gas = lambda_gas(T_mean) / delta` (pure conduction; Kugeler's
+`alpha_conv` includes free convection, which this model does not).
+
+**Two notes on the source, for review.** (1) Kugeler quotes
+`Cs = 5.77 W/(m^2 K^4)` (in the `(T/100)^4` form, i.e. `sigma = 5.77e-8`);
+CODATA 2018 gives `sigma = 5.670374419e-8`, which is used here (the same
+constant as the ported `blackbody_radiation` BC). The 1.8 % difference
+looks like a transcription slip in the report and is **not re-checked**
+against the report's primary source (Schürenkremer 1983). (2) For
+concentric cylinders Kugeler's eq. 125 replaces the factor by
+`1/eps1 + (A1/A2)(1/eps2 - 1)`; a gap carried on one mesh face has one area,
+so `A1/A2 = 1` and the parallel-plate form applies. That is the thin-gap
+limit `delta << r`.
+
+## How the solver uses it
+
+On a face between a cell of region `a` and one of region `b` the
+conductance is the series sum
+`G = A / (d_P/lambda_P + 1/h_gap + d_N/lambda_N)`, with `h_gap` evaluated at
+the two **surface** temperatures of the previous Picard iterate; at
+convergence the radiative exchange is exact.
+
+```rust
+pub mod gap { /* ... */ }
+```
+
+### Types
+
+#### Struct `GapConductance`
+
+Gas conduction plus grey two-surface radiation across a thin gap.
+
+```rust
+pub struct GapConductance {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(emissivity_a: Ratio, emissivity_b: Ratio, gas_conductivity: ConductivityModel, width: Length) -> Result<Self, SolidConductionError> { /* ... */ }
+  ```
+  A gap of the given width filled with a gas of conductivity
+
+- ```rust
+  pub fn coefficient(self: &Self, t_a: ThermodynamicTemperature, t_b: ThermodynamicTemperature) -> HeatTransfer { /* ... */ }
+  ```
+  `h_gas + h_rad` at surface temperatures `t_a`, `t_b`.
+
+- ```rust
+  pub fn radiative_coefficient(self: &Self, t_a: ThermodynamicTemperature, t_b: ThermodynamicTemperature) -> HeatTransfer { /* ... */ }
+  ```
+  The radiative part alone, `h_rad`, at `t_a`, `t_b`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RegionGap`
+
+A [`GapConductance`] on every mesh face between a cell of `region_a` and
+a cell of `region_b` (either orientation).
+
+```rust
+pub struct RegionGap {
+    pub region_a: usize,
+    pub region_b: usize,
+    pub gap: GapConductance,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `region_a` | `usize` | One side. |
+| `region_b` | `usize` | The other side. |
+| `gap` | `GapConductance` | The gap (its `emissivity_a` belongs to `region_a`). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `properties`
+
+Temperature-dependent material properties for the solid conduction field
+(and, optionally, the porous energy equation of
+[`super::super::solver::OnePhaseSolver`]).
+
+**New work, not port (gh:#1149).** Upstream GeN-Foam's structure and
+porous energy equations carry constant `kappa`, `rho Cp`; nothing here is
+translated from it.
+
+## The model set (closed enum, no `dyn`)
+
+| [`PropertyModel`] variant | value `v(T)` | `int v dT` |
+|---|---|---|
+| `Constant(c)` | `c` | exact |
+| `Linear { v0, beta, t_ref }` | `v0 (1 + beta (T - t_ref))` | exact |
+| `Polynomial(c)` | `sum_i c_i T^i` (Horner) | exact |
+| `Tabulated(table)` | piecewise-linear, **clamped** to the end values outside the table | exact (trapezoids of the interpolant) |
+| `Function(f)` | a plain `fn(f64) -> f64` in SI | 8-point Gauss-Legendre on 16 sub-intervals |
+
+## Hook for the gh:#1148 closures
+
+The Breitbach/Barthels bed conductivity, KTA and graphite/steel fits that
+gh:#1148 adds under `closures/` depend on parameters (porosity, pebble
+diameter, emissivity, fluence), so a plain `fn` pointer cannot carry them.
+They plug in by **adding a variant** to [`PropertyModel`] that wraps the
+closure struct and calls it from [`PropertyModel::value`]; the `match`
+arms below then fail to compile until each is handled, which is the point
+of the enum. Until then a parameter-free fit can be passed through
+[`PropertyModel::Function`].
+
+Status: untrusted AI-generated draft (2026-11-03) per `RESPONSIBLE_USE.md`;
+research, education and V&V only.
+
+```rust
+pub mod properties { /* ... */ }
+```
+
+### Types
+
+#### Struct `PropertyTable`
+
+A piecewise-linear table `v(T)`, SI units, temperatures strictly
+increasing. Outside `[T_first, T_last]` the end value is held (clamped).
+
+```rust
+pub struct PropertyTable {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(points: &[(f64, f64)]) -> Result<Self, SolidConductionError> { /* ... */ }
+  ```
+  Build a table from `(T [K], v [SI])` points.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `PropertyModel`
+
+A scalar material property as a function of temperature, SI units
+(see the module docs for the variant table).
+
+```rust
+pub enum PropertyModel {
+    Constant(f64),
+    Linear {
+        value_at_reference: f64,
+        beta: f64,
+        reference_temperature: f64,
+    },
+    Polynomial(Vec<f64>),
+    Tabulated(PropertyTable),
+    Function(fn(f64) -> f64),
+}
+```
+
+##### Variants
+
+###### `Constant`
+
+Temperature-independent.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+###### `Linear`
+
+`v0 (1 + beta (T - t_ref))`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `value_at_reference` | `f64` | Value at `t_ref`. |
+| `beta` | `f64` | Relative slope, 1/K. |
+| `reference_temperature` | `f64` | Reference temperature, K. |
+
+###### `Polynomial`
+
+`sum_i c_i T^i`, `T` in K, lowest order first.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<f64>` |  |
+
+###### `Tabulated`
+
+Piecewise-linear, clamped.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `PropertyTable` |  |
+
+###### `Function`
+
+A parameter-free function of `T` [K] returning the SI value.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `fn(f64) -> f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn value(self: &Self, t: f64) -> f64 { /* ... */ }
+  ```
+  The value at temperature `t` [K].
+
+- ```rust
+  pub fn integral(self: &Self, t0: f64, t1: f64) -> f64 { /* ... */ }
+  ```
+  `int_{t0}^{t1} v(T) dT` (signed: negative when `t1 < t0`).
+
+- ```rust
+  pub fn is_constant(self: &Self) -> bool { /* ... */ }
+  ```
+  True for [`Self::Constant`]: the solver then takes the exact
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ConductivityModel`
+
+Thermal conductivity `lambda(T)` of a region.
+
+```rust
+pub struct ConductivityModel(pub PropertyModel);
+```
+
+##### Fields
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `PropertyModel` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn constant(k: ThermalConductivity) -> Self { /* ... */ }
+  ```
+  A constant conductivity.
+
+- ```rust
+  pub fn linear(at_reference: ThermalConductivity, beta: TemperatureCoefficient, reference: ThermodynamicTemperature) -> Self { /* ... */ }
+  ```
+  `lambda = lambda_ref (1 + beta (T - T_ref))`.
+
+- ```rust
+  pub fn tabulated(points: &[(ThermodynamicTemperature, ThermalConductivity)]) -> Result<Self, SolidConductionError> { /* ... */ }
+  ```
+  A clamped piecewise-linear table.
+
+- ```rust
+  pub fn at(self: &Self, t: ThermodynamicTemperature) -> ThermalConductivity { /* ... */ }
+  ```
+  `lambda` at temperature `t`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `HeatCapacityModel`
+
+Volumetric heat capacity `rho c_p (T)` of a region.
+
+```rust
+pub struct HeatCapacityModel(pub PropertyModel);
+```
+
+##### Fields
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `PropertyModel` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn constant(c: VolumetricHeatCapacity) -> Self { /* ... */ }
+  ```
+  A constant `rho c_p`.
+
+- ```rust
+  pub fn linear(at_reference: VolumetricHeatCapacity, beta: TemperatureCoefficient, reference: ThermodynamicTemperature) -> Self { /* ... */ }
+  ```
+  `rho c_p = C_ref (1 + beta (T - T_ref))`.
+
+- ```rust
+  pub fn tabulated(points: &[(ThermodynamicTemperature, VolumetricHeatCapacity)]) -> Result<Self, SolidConductionError> { /* ... */ }
+  ```
+  A clamped piecewise-linear table.
+
+- ```rust
+  pub fn at(self: &Self, t: ThermodynamicTemperature) -> VolumetricHeatCapacity { /* ... */ }
+  ```
+  `rho c_p` at temperature `t`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `rz_mesh`
+
+The structured R-Z (or planar x-z) mesh of the solid conduction field.
+
+**New work, not port (gh:#1149).** It builds an ordinary
+[`FvMesh`] (wrapped in basic-lib's [`ConductionMesh`], so the same mesh
+also feeds `outram_foam_basic_lib::steady_conduction`) from a tensor
+product of radial and axial cell edges.
+
+## Axisymmetric geometry: OpenFOAM's one-cell wedge
+
+An axisymmetric case in OpenFOAM is a one-cell-thick wedge of small angle
+`theta` with two `wedge` patches (front and back). Every cell then has the
+exact wedge volume and face areas,
+
+```text
+  V      = (theta/2) (r2^2 - r1^2) dz        (cell)
+  A_r(r) = theta r dz                        (face at radius r)
+  A_z    = (theta/2) (r2^2 - r1^2)           (axial face)
+```
+
+and the finite-volume Laplacian over them is the standard conservative
+cylindrical scheme. For a **scalar** the `wedge` condition carries no flux:
+`wedgeFvPatchField` rotates the patch-internal value onto the face, and a
+rotation is the identity on a scalar, so `snGrad = 0`. Basic-lib's
+`BoundaryCondition::Wedge` is documented as exactly that zero-gradient
+stand-in (`fields/boundary/bc.rs`), which is therefore **exact** here; no
+further port of the wedge transform is needed for conduction. (The
+OpenFOAM source is not vendored in this checkout; the statement rests on
+`wedgeFvPatchField.H` as cited in `bc.rs`, not on a fresh reading.)
+
+Lengths and positions: `x` is the radius `r`, `z` the axial height, `y`
+the azimuthal (wedge-normal) direction. Cell centres sit at the mid-radius
+`(r1 + r2)/2` and mid-height, as basic-lib's `radial_mesh` does, so the
+cell-to-face distances the Laplacian divides by are `dr/2`, `dz/2`. The
+wedge angle cancels from every temperature; it only scales volumes,
+areas and powers.
+
+The **planar** geometry (`x` the abscissa, a unit-free `depth` in `y`)
+uses the same assembly with `A_x = depth dz`, `A_z = depth dx`,
+`V = depth dx dz`; it is the slab of the transient verification.
+
+## Face and patch order
+
+Cells are numbered `c = i + n_r j` (radius fastest). Internal faces are
+stored per owner in ascending order (the `+r` face, then the `+z` face),
+so `owner < neighbour` and owners are sorted — the upper-triangular order
+basic-lib's DIC-preconditioned CG requires. Patches, in order:
+[`RzPatch::Inner`] (`r = r_min`; zero area on the axis), [`RzPatch::Outer`],
+[`RzPatch::Bottom`], [`RzPatch::Top`], then the two wedge (or `empty`)
+patches `front`, `back`.
+
+```rust
+pub mod rz_mesh { /* ... */ }
+```
+
+### Types
+
+#### Enum `RzGeometry`
+
+Axisymmetric wedge or planar slab.
+
+```rust
+pub enum RzGeometry {
+    Axisymmetric {
+        wedge_angle: uom::si::f64::Angle,
+    },
+    Planar {
+        depth: uom::si::f64::Length,
+    },
+}
+```
+
+##### Variants
+
+###### `Axisymmetric`
+
+A wedge of the given angle about the `z` axis (OpenFOAM's
+axisymmetric convention; `2 pi` gives the full cylinder's volumes).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `wedge_angle` | `uom::si::f64::Angle` | Wedge angle. |
+
+###### `Planar`
+
+A planar x-z slab of the given depth.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `depth` | `uom::si::f64::Length` | Extent normal to the x-z plane. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `AxisEdges`
+
+Cell edges along one axis, strictly increasing, in metres.
+
+```rust
+pub struct AxisEdges {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn segments(start: Length, segments: &[(Length, usize)]) -> Result<Self, SolidConductionError> { /* ... */ }
+  ```
+  Edges from `start` through consecutive segments, each `(end, cells)`
+
+- ```rust
+  pub fn uniform(start: Length, end: Length, cells: usize) -> Result<Self, SolidConductionError> { /* ... */ }
+  ```
+  `cells` equal cells from `start` to `end`.
+
+- ```rust
+  pub fn n_cells(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of cells.
+
+- ```rust
+  pub fn edge(self: &Self, i: usize) -> Length { /* ... */ }
+  ```
+  Edge `i` (0..=n_cells).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `RzPatch`
+
+The four physical boundaries of an [`RzMesh`] (the wedge front and back
+patches carry no flux and take no condition).
+
+```rust
+pub enum RzPatch {
+    Inner,
+    Outer,
+    Bottom,
+    Top,
+}
+```
+
+##### Variants
+
+###### `Inner`
+
+`r = r_min` (the axis when `r_min = 0`, with zero face area there).
+
+###### `Outer`
+
+`r = r_max`.
+
+###### `Bottom`
+
+`z = z_min`.
+
+###### `Top`
+
+`z = z_max`.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn index(self: Self) -> usize { /* ... */ }
+  ```
+  Mesh patch index.
+
+- ```rust
+  pub fn name(self: Self) -> &'static str { /* ... */ }
+  ```
+  Mesh patch name.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RzRect`
+
+One axis-aligned rectangle of a [`RegionMap`].
+
+```rust
+pub struct RzRect {
+    pub r: [uom::si::f64::Length; 2],
+    pub z: [uom::si::f64::Length; 2],
+    pub region: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r` | `[uom::si::f64::Length; 2]` | Inner and outer radius. |
+| `z` | `[uom::si::f64::Length; 2]` | Bottom and top. |
+| `region` | `usize` | Region index of the rectangle. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RegionMap`
+
+A piecewise region map: a default region, overpainted by rectangles in
+order (the **last** rectangle containing a point wins).
+
+```rust
+pub struct RegionMap {
+    pub default_region: usize,
+    pub rects: Vec<RzRect>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `default_region` | `usize` | Region of any point no rectangle covers. |
+| `rects` | `Vec<RzRect>` | Rectangles, painted in order. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn region_at(self: &Self, r: Length, z: Length) -> usize { /* ... */ }
+  ```
+  The region at `(r, z)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RzMesh`
+
+A structured R-Z (or x-z) finite-volume mesh with a region per cell.
+
+```rust
+pub struct RzMesh {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn build<F>(geometry: RzGeometry, r: AxisEdges, z: AxisEdges, n_regions: usize, region_at: F) -> Result<Self, SolidConductionError>
+where
+    F: Fn(Length, Length) -> usize { /* ... */ }
+  ```
+  Build the mesh; each cell's region is `region_at` evaluated at its
+
+- ```rust
+  pub fn from_region_map(geometry: RzGeometry, r: AxisEdges, z: AxisEdges, n_regions: usize, map: &RegionMap) -> Result<Self, SolidConductionError> { /* ... */ }
+  ```
+  Build with a [`RegionMap`].
+
+- ```rust
+  pub fn mesh(self: &Self) -> &Arc<FvMesh> { /* ... */ }
+  ```
+  The finite-volume mesh.
+
+- ```rust
+  pub fn conduction_mesh(self: &Self) -> &ConductionMesh { /* ... */ }
+  ```
+  The mesh with its cell regions, in basic-lib's form (feeds
+
+- ```rust
+  pub fn geometry(self: &Self) -> RzGeometry { /* ... */ }
+  ```
+  The geometry.
+
+- ```rust
+  pub fn r_edges(self: &Self) -> &AxisEdges { /* ... */ }
+  ```
+  Radial edges.
+
+- ```rust
+  pub fn z_edges(self: &Self) -> &AxisEdges { /* ... */ }
+  ```
+  Axial edges.
+
+- ```rust
+  pub fn n_cells(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of cells.
+
+- ```rust
+  pub fn n_regions(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of regions.
+
+- ```rust
+  pub fn cell_region(self: &Self, c: usize) -> usize { /* ... */ }
+  ```
+  Region of cell `c`.
+
+- ```rust
+  pub fn cell_index(self: &Self, i: usize, j: usize) -> usize { /* ... */ }
+  ```
+  Cell index of radial column `i`, axial row `j`.
+
+- ```rust
+  pub fn cell_centre(self: &Self, c: usize) -> (Length, Length) { /* ... */ }
+  ```
+  Centre `(r, z)` of cell `c`.
+
+- ```rust
+  pub fn cell_at(self: &Self, r: Length, z: Length) -> Option<usize> { /* ... */ }
+  ```
+  The cell containing `(r, z)`, `None` outside the mesh. This is the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Types
+
+#### Type Alias `VolumetricHeatTransferCoefficient`
+
+Volumetric heat-transfer coefficient, W/(m^3 K): a film coefficient times
+the interfacial area per unit volume (`h a_v`), as a porous region's
+solid-to-fluid exchange uses it. `uom` has no named alias for it.
+
+```rust
+pub type VolumetricHeatTransferCoefficient = uom::si::Quantity<uom::si::ISQ<uom::typenum::N1, uom::typenum::P1, uom::typenum::N3, uom::typenum::Z0, uom::typenum::N1, uom::typenum::Z0, uom::typenum::Z0>, uom::si::SI<f64>, f64>;
+```
+
+#### Enum `SolidConductionError`
+
+What can go wrong setting up or solving the solid conduction field.
+
+```rust
+pub enum SolidConductionError {
+    InvalidInput(String),
+    Mesh(String),
+    BadProperty {
+        region: usize,
+        property: &'static str,
+        temperature_kelvin: f64,
+        value: f64,
+    },
+    LinearSolveFailed {
+        residual: f64,
+        iterations: usize,
+    },
+    PicardNotConverged {
+        last_change_kelvin: f64,
+        iterations: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `InvalidInput`
+
+An input was out of range or inconsistent (the message says which).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Mesh`
+
+The mesh failed validation.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `BadProperty`
+
+A property model returned a non-positive or non-finite value.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `region` | `usize` | Region index. |
+| `property` | `&'static str` | Which property. |
+| `temperature_kelvin` | `f64` | Temperature it was asked at, K. |
+| `value` | `f64` | What it returned (SI). |
+
+###### `LinearSolveFailed`
+
+The linear solve missed its tolerance.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `residual` | `f64` | Normalised residual at exit. |
+| `iterations` | `usize` | Iterations performed. |
+
+###### `PicardNotConverged`
+
+The Picard iteration did not settle.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `last_change_kelvin` | `f64` | Largest cell change of the last pass, K. |
+| `iterations` | `usize` | Passes performed. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Re-exports
+
+#### Re-export `GapConductance`
+
+```rust
+pub use gap::GapConductance;
+```
+
+#### Re-export `RegionGap`
+
+```rust
+pub use gap::RegionGap;
+```
+
+#### Re-export `ConductivityModel`
+
+```rust
+pub use properties::ConductivityModel;
+```
+
+#### Re-export `HeatCapacityModel`
+
+```rust
+pub use properties::HeatCapacityModel;
+```
+
+#### Re-export `PropertyModel`
+
+```rust
+pub use properties::PropertyModel;
+```
+
+#### Re-export `PropertyTable`
+
+```rust
+pub use properties::PropertyTable;
+```
+
+#### Re-export `AxisEdges`
+
+```rust
+pub use rz_mesh::AxisEdges;
+```
+
+#### Re-export `RegionMap`
+
+```rust
+pub use rz_mesh::RegionMap;
+```
+
+#### Re-export `RzGeometry`
+
+```rust
+pub use rz_mesh::RzGeometry;
+```
+
+#### Re-export `RzMesh`
+
+```rust
+pub use rz_mesh::RzMesh;
+```
+
+#### Re-export `RzPatch`
+
+```rust
+pub use rz_mesh::RzPatch;
+```
+
+#### Re-export `RzRect`
+
+```rust
+pub use rz_mesh::RzRect;
+```
+
+#### Re-export `air_properties`
+
+```rust
+pub use solver::air_properties;
+```
+
+#### Re-export `EnclosureNaturalConvection`
+
+```rust
+pub use solver::EnclosureNaturalConvection;
+```
+
+#### Re-export `PicardReport`
+
+```rust
+pub use solver::PicardReport;
+```
+
+#### Re-export `RzBoundaries`
+
+```rust
+pub use solver::RzBoundaries;
+```
+
+#### Re-export `SolidBoundary`
+
+```rust
+pub use solver::SolidBoundary;
+```
+
+#### Re-export `SolidConductionField`
+
+```rust
+pub use solver::SolidConductionField;
+```
+
+#### Re-export `SolidConductionSettings`
+
+```rust
+pub use solver::SolidConductionSettings;
+```
+
+#### Re-export `SolidEnergyBalance`
+
+```rust
+pub use solver::SolidEnergyBalance;
+```
+
+#### Re-export `SolidRegion`
+
+```rust
+pub use solver::SolidRegion;
+```
+
 ## Module `solver`
 
 # `genfoam::thermal_hydraulics::solver` — porous TH equation drivers
@@ -19414,6 +25198,7 @@ Ports upstream `src/classes/thermalHydraulics/solvers/**` (the `onePhase`,
 |---|---|---|---|
 | [`porous_drag`] | [`PorousDrag`] — the isotropic `Kd` drag-coefficient assembly from the wall-friction closure | `physicsModels/dragModels/FSDragFactor` | **Ported + V&V** |
 | [`one_phase`] | [`OnePhaseSolver`] — porous `UEqn`/`pEqn`/`EEqn` driver | `solvers/onePhase/**` | **Ported + V&V** (constant-property slice; see its docs) |
+| [`two_phase`] | [`TwoPhaseSolver`] — two-fluid alpha/U/p_rgh/EEqns driver with boiling | `solvers/twoPhase/**` | **Ported, implicitUpwind alpha only** (MULES not ported); V&V `verification_and_validation/genfoam_two_phase/` |
 
 ## Dispatch: no trait objects
 
@@ -19471,6 +25256,29 @@ GeN-Foam's `fixedTemperature` structure model); driving a full
 [`super::super::structure::StructureCell`] fuel-pin conduction field is the
 next slice (bead op-p6p.7.11 follow-up).
 
+**Extension, new work and not port (gh:#1149, 2026-11-03):** the optional
+[`OnePhaseSolver::conductivity_model`] ([`PorousConductivity`]) replaces
+the constant `alphaEff` by `lambda(T)/Cp` per region before each energy
+solve. With it `None` (the default) the ported path is unchanged, bit for
+bit (`solver::tests::constant_property_energy_path_is_bit_identical`).
+
+~~**Two behaviours of the energy solve found while verifying that extension
+(2026-11-03), filed as gh:#1152 and deliberately left as they are,
+because the port path is pinned:** (1) `correct_energy` replaces `he` by
+the matrix solution, whose boundary conditions are all zero-gradient, so a
+fixed-value enthalpy boundary is applied on the first call only; (2) the
+`EEqn` is solved by Gauss-Seidel cold-started from zero and capped at
+the default 1000 sweeps (`SolverSettings::default`), which does not
+converge a near-steady diffusion-dominated matrix (a 40-cell slab at
+`dt = 1e7 s` was left 2 K from its solution).~~ **FIXED 2026-11-03
+(gh:#1152):** `correct_energy` now mirrors upstream's in-place
+`EEqn.solve()`: `he` keeps its boundary conditions (re-applied as the
+momentum path does, `bc_util::correct_bcs`) and the solve is upstream's
+`smoothSolver` + `symGaussSeidel` warm-started from the current `he`, with
+tolerance [`OnePhaseSolver::energy_solver`]. The 40-cell slab at
+`dt = 1e7 s` now lands 0.064 K from the Kirchhoff profile (its
+discretisation error); the pin was re-recorded with the old bits kept.
+
 ## Wiring of the consumed models
 
 | Consumed | Where it enters |
@@ -19509,6 +25317,8 @@ pub struct OnePhaseSolver {
     pub solve_pressure: bool,
     pub p_ref_cell: usize,
     pub p_ref_value: f64,
+    pub conductivity_model: Option<PorousConductivity>,
+    pub energy_solver: SolverSettings,
     pub n_outer: usize,
     pub n_inner: usize,
     // Some fields omitted
@@ -19532,6 +25342,8 @@ pub struct OnePhaseSolver {
 | `solve_pressure` | `bool` | Whether to run the pressure corrector. For a spatially uniform, gradient-<br>free driving (the drag/energy V&V), the pressure field is inert and this<br>can be `false` to isolate the momentum/energy physics. |
 | `p_ref_cell` | `usize` | Reference cell for the (singular, incompressible) pressure system. |
 | `p_ref_value` | `f64` | Reference pressure value [Pa] pinned at `p_ref_cell`. |
+| `conductivity_model` | `Option<PorousConductivity>` | **New work, not port (gh:#1149).** Optional temperature-dependent<br>effective conductivity of the porous energy equation. `None` (the<br>default) runs the ported constant-property path unchanged, bit for bit<br>(pinned by `solver::tests::constant_property_energy_path_is_bit_identical`).<br>`Some` overwrites [`Self::alpha_eff`] with `lambda(T)/Cp` before every<br>energy solve, so the outer correctors and time steps iterate the<br>nonlinearity (Picard, lagged one solve). |
+| `energy_solver` | `SolverSettings` | Linear-solver controls of the `EEqn` (upstream `fvSolution`<br>`solvers { "h.*" { solver smoothSolver; smoother symGaussSeidel;<br>tolerance ...; relTol 0; } }`). `tolerance` is OpenFOAM's normalised<br>residual; `max_iter` is upstream's `maxIter` (default 1000,<br>`lduMatrix.C:38`). Default `1e-7`, the value of GeN-Foam 652b3da's<br>onePhase `3D_gFHR` and `2D_MSFR` tutorials; others use 1e-5 (HTR-10)<br>to 1e-8. |
 | `n_outer` | `usize` | PIMPLE outer correctors. |
 | `n_inner` | `usize` | PISO inner (pressure) correctors. |
 | *private fields* | ... | *Some fields have been omitted* |
@@ -19606,7 +25418,113 @@ pub struct OnePhaseSolver {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PorousConductivity`
+
+**New work, not port (gh:#1149).** A temperature-dependent effective
+conductivity for the porous energy equation of [`OnePhaseSolver`]: one
+[`ConductivityModel`] per region and the region of every cell.
+
+GeN-Foam's `onePhase` carries a constant `alphaEff`; this lets a porous
+region (e.g. a stagnant pebble bed's effective conductivity, once
+gh:#1148's closures exist) vary with temperature. The models are the same
+enum the solid conduction field uses
+([`crate::genfoam::thermal_hydraulics::solid_conduction`]). The models
+must return a positive conductivity over the temperatures reached; unlike
+the solid field, the porous driver does not check it.
+
+```rust
+pub struct PorousConductivity {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(n_cells: usize, cell_region: Vec<usize>, models: Vec<ConductivityModel>) -> Result<Self, SolidConductionError> { /* ... */ }
+  ```
+  `cell_region[c]` indexes `models` for each of the mesh's `n_cells`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19725,7 +25643,7 @@ pub struct PorousDrag {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PorousDrag { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19766,7 +25684,7 @@ pub struct PorousDrag {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19777,6 +25695,2742 @@ pub struct PorousDrag {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+## Module `two_phase`
+
+# `solver::two_phase` — GeN-Foam's porous two-fluid solver (boiling)
+
+Port of GeN-Foam's `twoPhase` thermal-hydraulics region solver: two
+interpenetrating fluids (liquid and vapour) in a porous medium whose solid
+fraction is an unresolved `structure`, with
+
+- **phase fractions** by GeN-Foam's `implicitUpwind` alpha solver
+  ([`TwoPhaseSolver::correct_alpha`], `solveAlphaImplicitUpwind.H`);
+- **momentum** in the face-centred form with **implicit partial
+  elimination** of the interfacial drag ([`TwoPhaseSolver::correct_u_eqns`],
+  `UEqns_2p.H`; [`TwoPhaseSolver::correct_pressure`], `pEqnf_2p.H`);
+- a **compressible pressure equation** in `p_rgh` with the two phases'
+  compressibility, dilation (`dgdt`) and phase-change mass sources
+  (`calcComp_2p.H`, `solveP_rgh_2p.H`);
+- two **enthalpy equations** with interfacial heat transfer, the
+  energy-conservative phase-change sources of `phaseChangeModel::correct`,
+  the semi-implicit structure heat source and the low-fraction
+  stabilisation ([`TwoPhaseSolver::correct_energy`], `EEqns_2p.H`);
+- **void** (the `alpha`/`normalized` fields), the **flow-regime map**
+  (`oneParameter` + `byRegime` dispatch), and the **CHF/boiling hooks** of
+  the fluid-structure heat-transfer closures it calls.
+
+The closures are the crate's existing ports (`closures::{fs_drag, ff_drag,
+heat_transfer, phase_change, interfacial}`); this module wires them into the
+equations as upstream's `FFPair`/`FSPair`/`phaseChangeModel` do. The
+thermophysical packages are basic-lib's OpenFOAM `heRhoThermo` ports
+([`thermo`]), which is what every two-phase tutorial selects.
+
+## What this slice does NOT port (each is a recorded gap)
+
+- **MULES** (`solveAlphaMULES.H`, `myMULES`, 1,765 lines). A case that
+  selects `MULES` is run with `implicitUpwind` and the caller is told
+  ([`TwoPhaseCase::deviations`]).
+- `momentumMode cellCentered` (`pEqn_2p.H`) and partial-elimination modes
+  other than `implicit`; `porousInterfaceSharpness != 0`.
+- Turbulence other than `laminar`; structure tortuosity/anisotropy, local
+  frames, pumps, heat exchangers, passive structures; `fvOptions`.
+- Closure selections other than those listed on [`TwoPhaseModels`]; the
+  wall-boiling mass split `dmdtW` (no ported model writes it); the
+  `twoParameters` regime map; `byRegime` for anything but dispersion and
+  contact partition.
+
+## Wiring of the consumed models
+
+| Consumed | Where it enters |
+|---|---|
+| `closures::ff_drag::FfDragCoefficient` | `FFDragFactor::correctField` → `Kd12` → partial elimination in `pEqnf` |
+| `closures::fs_drag::FsWallFriction` | `FSDragFactor` → `Kd` of each fluid-structure pair → `UEqn` `Sp` |
+| `closures::ff_drag::TwoPhaseDragMultiplier` | `twoPhaseDragFactor::correct` |
+| `closures::heat_transfer::{FsForcedConvectionHtc, PoolBoilingHtc, FlowEnhancementFactor, SuppressionFactor}` | `FSPair::correct` htc → `EEqn` structure source and `structure.correct` |
+| `closures::phase_change::{SaturationModel, LatentHeatModel, PhaseChangeRateModel}` | `phaseChangeModel::correct` → `dmdt`, `T.interface`, enthalpy sources |
+| `closures::interfacial::regime_map::RegimeMap1D` | `oneParameter::correct` → `byRegime` weights |
+| `structure::power_model::FixedPower`, `structure::power_off::PowerOffCriterion` | `fixedPower::correct`, `structure::checkPowerOff` |
+
+```rust
+pub mod two_phase { /* ... */ }
+```
+
+### Modules
+
+## Module `case`
+
+Read an upstream GeN-Foam two-phase case directory into a
+[`TwoPhaseCase`], so the port runs on upstream's own input files rather
+than re-typed numbers.
+
+Reads `constant/<region>/{polyMesh, g, phaseProperties,
+thermophysicalProperties.<fluid>, turbulenceProperties.<fluid>}`,
+`system/controlDict`, `system/<region>/fvSolution` and the `0/<region>`
+fields, with basic-lib's `FoamFile` dictionary parser and this crate's
+`polyMesh` reader. **Every selection the port does not implement is a hard
+error naming it**, except the alpha solver (`MULES` → `implicitUpwind`),
+which is recorded in [`TwoPhaseCase::deviations`] because GeN-Foam ships
+the alternative and the substitution is the whole point of this slice.
+
+```rust
+pub mod case { /* ... */ }
+```
+
+### Types
+
+#### Struct `TwoPhaseCase`
+
+Everything [`super::TwoPhaseSolver::new`] needs, read from a case.
+
+```rust
+pub struct TwoPhaseCase {
+    pub mesh: std::sync::Arc<FvMesh>,
+    pub gravity: Vector3,
+    pub p: super::fv::Scalar,
+    pub p_rgh: super::fv::Scalar,
+    pub fluids: [super::Phase; 2],
+    pub structure: super::Structure,
+    pub models: super::TwoPhaseModels,
+    pub controls: super::TwoPhaseControls,
+    pub time_controls: super::TimeControls,
+    pub start_time: f64,
+    pub end_time: f64,
+    pub delta_t: f64,
+    pub deviations: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `std::sync::Arc<FvMesh>` | The fluid region mesh. |
+| `gravity` | `Vector3` | Gravity [m/s^2]. |
+| `p` | `super::fv::Scalar` | `p` [Pa]. |
+| `p_rgh` | `super::fv::Scalar` | `p_rgh` [Pa]. |
+| `fluids` | `[super::Phase; 2]` | The two fluids, `fluid1` first. |
+| `structure` | `super::Structure` | The structure. |
+| `models` | `super::TwoPhaseModels` | Closure selections. |
+| `controls` | `super::TwoPhaseControls` | Solution controls. |
+| `time_controls` | `super::TimeControls` | Time controls. |
+| `start_time` | `f64` | `startTime` [s]. |
+| `end_time` | `f64` | `endTime` [s]. |
+| `delta_t` | `f64` | Initial `deltaT` [s]. |
+| `deviations` | `Vec<String>` | Places where the port runs something other than what the case<br>selects, one sentence each. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn read(root: &Path) -> Result<Self, AppBuilderError> { /* ... */ }
+  ```
+  Read the `fluidRegion` of a GeN-Foam case at `root` (the directory
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `fv`
+
+Finite-volume field storage and operators for the two-phase driver.
+
+GeN-Foam's two-phase equations read and write **boundary-face values of
+surface fields** (`phiHbyA`, `rAUf`, `alphaRhoPhi`) and of `calculated`
+volume fields (`p = p_rgh + rho*gh` on a patch). The driver therefore keeps
+its own light field storage: a [`Scalar`] holds cell values, boundary-face
+values and one [`Bc`] per patch; a surface field is a plain `Vec<f64>` over
+**all** faces (internal then boundary), zero on `empty` patches. Matrices
+are assembled straight into basic-lib's [`LduMatrix`] layout plus a source
+vector, following OpenFOAM's sign conventions so `A()`/`H()` mean what
+upstream's `UEqn.A()`/`UEqn.H()` mean (per unit volume).
+
+Only the operators the ported equations call are here: Euler `ddt`, Gauss
+upwind `div`, Gauss linear `uncorrected` `laplacian` and `snGrad`, linear and
+upwind interpolation, `surfaceSum`, `reconstruct` and Gauss `grad`. Mesh
+geometry and topology come from basic-lib's [`FvMesh`].
+
+```rust
+pub mod fv { /* ... */ }
+```
+
+### Types
+
+#### Enum `Bc`
+
+Boundary condition of one patch of a [`Scalar`] field.
+
+```rust
+pub enum Bc {
+    ZeroGradient,
+    Fixed(Vec<f64>),
+    Calculated,
+    Empty,
+}
+```
+
+##### Variants
+
+###### `ZeroGradient`
+
+`zeroGradient`: the face value equals the owner-cell value.
+
+###### `Fixed`
+
+`fixedValue`: one value per face of the patch.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<f64>` |  |
+
+###### `Calculated`
+
+`calculated`: the face value is whatever the last field algebra set.
+
+###### `Empty`
+
+`empty`: the patch carries no values (reduced-dimension case).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Geometry`
+
+Mesh geometry the operators need, precomputed once.
+
+```rust
+pub struct Geometry {
+    pub mesh: std::sync::Arc<FvMesh>,
+    pub weights: Vec<f64>,
+    pub delta: Vec<f64>,
+    pub active: Vec<bool>,
+    pub patch_of: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `std::sync::Arc<FvMesh>` | The mesh. |
+| `weights` | `Vec<f64>` | Linear interpolation weight of the **owner** on each internal face:<br>`w = (Sf . (Cn - Cf)) / (Sf . (Cn - Co))` (OpenFOAM<br>`surfaceInterpolation::makeWeights`). |
+| `delta` | `Vec<f64>` | `nonOrthDeltaCoeffs` on every face: `1/max(n . d, 0.05 |d|)`, with `d`<br>cell-to-cell (internal) or cell-to-face (boundary). OpenFOAM<br>`surfaceInterpolation::makeNonOrthDeltaCoeffs`; this is what<br>`laplacianSchemes Gauss linear uncorrected` and `snGradSchemes<br>uncorrected` use. |
+| `active` | `Vec<bool>` | `false` for faces of `empty` patches. |
+| `patch_of` | `Vec<usize>` | Patch index of each boundary face (indexed by `face - n_internal`). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: Arc<FvMesh>) -> Self { /* ... */ }
+  ```
+  Precompute weights and delta coefficients for `mesh`.
+
+- ```rust
+  pub fn n_cells(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of cells.
+
+- ```rust
+  pub fn n_internal(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of internal faces.
+
+- ```rust
+  pub fn n_faces(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of faces.
+
+- ```rust
+  pub fn surface_zeros(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  A zero surface field.
+
+- ```rust
+  pub fn default_bcs(self: &Self) -> Vec<Bc> { /* ... */ }
+  ```
+  Per-patch `empty`/`zeroGradient` BC list (the default for a field).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Scalar`
+
+A volume scalar field: cell values, boundary-face values, per-patch BCs.
+
+```rust
+pub struct Scalar {
+    pub c: Vec<f64>,
+    pub b: Vec<f64>,
+    pub bc: Vec<Bc>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `c` | `Vec<f64>` | Cell values. |
+| `b` | `Vec<f64>` | Boundary-face values, indexed by `face - n_internal`. |
+| `bc` | `Vec<Bc>` | One boundary condition per patch. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn uniform(g: &Geometry, v: f64, bc: Vec<Bc>) -> Self { /* ... */ }
+  ```
+  A uniform field with the given BCs (boundary values set by
+
+- ```rust
+  pub fn correct_bc(self: &mut Self, g: &Geometry) { /* ... */ }
+  ```
+  Apply the BCs: `zeroGradient` copies the owner value, `fixedValue`
+
+- ```rust
+  pub fn face(self: &Self, g: &Geometry, f: usize) -> f64 { /* ... */ }
+  ```
+  Value on face `f` (internal faces are not defined for a vol field;
+
+- ```rust
+  pub fn is_fixed(self: &Self, g: &Geometry, f: usize) -> bool { /* ... */ }
+  ```
+  `true` when the patch of boundary face `f` is `fixedValue`.
+
+- ```rust
+  pub fn map</* synthetic */ impl Fn(f64) -> f64: Fn(f64) -> f64>(self: &mut Self, op: impl Fn(f64) -> f64) { /* ... */ }
+  ```
+  Cell-and-face map `self = op(self)`, BCs kept.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Vector`
+
+A volume vector field (velocity): cells and boundary faces, all patches
+`zeroGradient` (the only vector BC the two-phase tutorials use for `U`).
+
+```rust
+pub struct Vector {
+    pub c: Vec<Vector3>,
+    pub b: Vec<Vector3>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `c` | `Vec<Vector3>` | Cell values. |
+| `b` | `Vec<Vector3>` | Boundary-face values. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn uniform(g: &Geometry, v: Vector3) -> Self { /* ... */ }
+  ```
+  A uniform vector field.
+
+- ```rust
+  pub fn correct_bc(self: &mut Self, g: &Geometry) { /* ... */ }
+  ```
+  `zeroGradient` on every non-empty patch.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Eqn`
+
+An assembled scalar equation `diag x + offdiag x = source`, volume
+integrated, in OpenFOAM's convention (`fvMatrix` with `psi` on the left).
+
+```rust
+pub struct Eqn {
+    pub ldu: LduMatrix,
+    pub source: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ldu` | `LduMatrix` | LDU coefficients (basic-lib layout). |
+| `source` | `Vec<f64>` | Right-hand side. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(g: &Geometry) -> Self { /* ... */ }
+  ```
+  An empty equation on the mesh.
+
+- ```rust
+  pub fn ddt(self: &mut Self, g: &Geometry, rho: &[f64], rho0: &[f64], psi0: &[f64], dt: f64) { /* ... */ }
+  ```
+  Euler `fvm::ddt(rho, psi)` with `rho` the new and `rho0` the old
+
+- ```rust
+  pub fn div_upwind(self: &mut Self, g: &Geometry, phi: &[f64], psi: &Scalar) { /* ... */ }
+  ```
+  Gauss upwind `fvm::div(phi, psi)` (`gaussConvectionScheme::fvmDiv`
+
+- ```rust
+  pub fn neg_laplacian(self: &mut Self, g: &Geometry, gamma: &[f64], psi: &Scalar) { /* ... */ }
+  ```
+  `-fvm::laplacian(gamma, psi)` (positive definite), Gauss linear
+
+- ```rust
+  pub fn sp(self: &mut Self, g: &Geometry, coeff: &[f64]) { /* ... */ }
+  ```
+  Add the implicit term `coeff psi` to the left-hand side (`fvm::Sp`).
+
+- ```rust
+  pub fn su_sp(self: &mut Self, g: &Geometry, coeff: &[f64], psi: &[f64]) { /* ... */ }
+  ```
+  `fvm::SuSp(coeff, psi)` on the left-hand side: implicit where
+
+- ```rust
+  pub fn su(self: &mut Self, g: &Geometry, s: &[f64]) { /* ... */ }
+  ```
+  Add an explicit per-volume term `s` to the **right-hand side**.
+
+- ```rust
+  pub fn scale_rows(self: &mut Self, g: &Geometry, s: &[f64]) { /* ... */ }
+  ```
+  Scale row `c` by `s[c]` (OpenFOAM `fvMatrix::operator*=(volField)`):
+
+- ```rust
+  pub fn add(self: &mut Self, o: &Eqn) { /* ... */ }
+  ```
+  Add another equation's coefficients.
+
+- ```rust
+  pub fn a(self: &Self, g: &Geometry) -> Vec<f64> { /* ... */ }
+  ```
+  `A()` per unit volume.
+
+- ```rust
+  pub fn h(self: &Self, g: &Geometry, source: &[f64], x: &[f64]) -> Vec<f64> { /* ... */ }
+  ```
+  `H()` per unit volume for one component, `(source - offdiag x)/V`.
+
+- ```rust
+  pub fn laplacian_flux(g: &Geometry, gamma: &[f64], p: &Scalar) -> Vec<f64> { /* ... */ }
+  ```
+  The face flux of this equation's implicit off-diagonal part,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `interp_linear`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`fvc::interpolate` with the `linear` scheme; boundary faces take the
+field's boundary value.
+
+```rust
+pub fn interp_linear(g: &Geometry, s: &Scalar) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `interp_upwind`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`upwind<scalar>(mesh, phi).interpolate(s)`: the upwind cell by the sign of
+`phi` on internal faces (`pos0(phi)` picks the owner), the boundary value
+on boundary faces (OpenFOAM `upwind::weights`, `surfaceInterpolationScheme`).
+
+```rust
+pub fn interp_upwind(g: &Geometry, s: &Scalar, phi: &[f64]) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `flux`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`fvc::flux(U)` = `interpolate(U) & Sf`, linear.
+
+```rust
+pub fn flux(g: &Geometry, u: &Vector) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `div`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`fvc::div(phi)`: net outflow per unit volume.
+
+```rust
+pub fn div(g: &Geometry, phi: &[f64]) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `surface_sum_mag`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`fvc::surfaceSum(mag(phi))` per cell (not divided by volume).
+
+```rust
+pub fn surface_sum_mag(g: &Geometry, phi: &[f64]) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `sn_grad`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`fvc::snGrad(s)` with the `uncorrected` scheme.
+
+```rust
+pub fn sn_grad(g: &Geometry, s: &Scalar) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `grad`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Gauss linear gradient of a scalar, `sum(Sf s_f)/V`.
+
+```rust
+pub fn grad(g: &Geometry, s: &Scalar) -> Vec<Vector3> { /* ... */ }
+```
+
+#### Function `reconstruct`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`fvc::reconstruct(phi)`: `inv(sum(Sf Sf/|Sf|)) & sum(Sf/|Sf| phi)` over
+the non-empty faces (OpenFOAM `fvcReconstruct.C`). Directions with no
+face area (the empty directions of a 1-D/2-D case) are removed before the
+inverse and get a zero component, as OpenFOAM's `inv` of a reduced tensor
+does.
+
+```rust
+pub fn reconstruct(g: &Geometry, phi: &[f64]) -> Vec<Vector3> { /* ... */ }
+```
+
+## Module `thermo`
+
+Per-phase thermophysical packages the two-phase tutorials select.
+
+GeN-Foam's `fluid` owns an OpenFOAM `rhoThermo` (`fluid.C`, `thermo_`).
+Every two-phase feature case of `652b3da` (1D_boiling, 1D_PSBT_SC, 1D_CHF,
+2D_KNS37-L22, 2D_voidMotionNoPhaseChange) selects `heRhoThermo` with
+`energy sensibleEnthalpy` and one of two stacks, both already ported in
+`outram-foam-basic-lib::thermophysics` and reused here, not re-written:
+
+- liquid: `icoPolynomial` + `hPolynomial` + `polynomial` transport
+  ([`PhaseThermo::Polynomial`]);
+- vapour: `perfectGas` + `hConst` + `const` transport
+  ([`PhaseThermo::PerfectGasConst`]).
+
+`he` is the sensible enthalpy `hs(p, T)`; `T` is recovered from `he` by
+basic-lib's Newton `t_from_hs` (OpenFOAM `species::thermo::THs`), and the
+energy diffusivity is `alphahe = kappa/Cp` (laminar; `alphat = 0`).
+
+```rust
+pub mod thermo { /* ... */ }
+```
+
+### Types
+
+#### Type Alias `PolynomialStack`
+
+The liquid stack: `icoPolynomial` EOS, `hPolynomial` thermo,
+`polynomial` transport, eight coefficients each (the tutorials' `<8>`).
+
+```rust
+pub type PolynomialStack = PolynomialTransport<HPolynomialThermo<IcoPolynomial<8>, 8>, 8>;
+```
+
+#### Type Alias `PerfectGasConstStack`
+
+The vapour stack: `perfectGas` EOS, `hConst` thermo, `const` transport.
+
+```rust
+pub type PerfectGasConstStack = ConstTransport<HConstThermo<PerfectGas>>;
+```
+
+#### Enum `PhaseThermo`
+
+One phase's thermophysical package (closed enum, no `dyn`).
+
+```rust
+pub enum PhaseThermo {
+    Polynomial(PolynomialStack),
+    PerfectGasConst(PerfectGasConstStack),
+}
+```
+
+##### Variants
+
+###### `Polynomial`
+
+`heRhoThermo<icoPolynomial, hPolynomial, polynomial>`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `PolynomialStack` |  |
+
+###### `PerfectGasConst`
+
+`heRhoThermo<perfectGas, hConst, const>`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `PerfectGasConstStack` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn polynomial(mol_weight_g_per_mol: f64, rho_coeffs: [f64; 8], cp_coeffs: [f64; 8], hf: f64, sf: f64, mu_coeffs: [f64; 8], kappa_coeffs: [f64; 8]) -> Self { /* ... */ }
+  ```
+  The liquid stack from the dictionary coefficients: molar weight
+
+- ```rust
+  pub fn perfect_gas_const(mol_weight_g_per_mol: f64, cp: f64, hf: f64, mu: f64, pr: f64) -> Self { /* ... */ }
+  ```
+  The vapour stack: molar weight [g/mol], `Cp` [J/(kg K)], `Hf` [J/kg],
+
+- ```rust
+  pub fn he(self: &Self, p: f64, t: f64) -> f64 { /* ... */ }
+  ```
+  Sensible enthalpy `hs(p, T)` [J/kg] (`he` for `sensibleEnthalpy`).
+
+- ```rust
+  pub fn t_from_he(self: &Self, he: f64, p: f64, t0: f64) -> Option<f64> { /* ... */ }
+  ```
+  Temperature from sensible enthalpy by Newton from `t0` (OpenFOAM
+
+- ```rust
+  pub fn props(self: &Self, p: f64, t: f64) -> PointProps { /* ... */ }
+  ```
+  Density, compressibility, `Cp`, `mu`, `kappa` at `(p, T)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PointProps`
+
+Point properties at one `(p, T)`, SI base units.
+
+```rust
+pub struct PointProps {
+    pub rho: f64,
+    pub psi: f64,
+    pub cp: f64,
+    pub mu: f64,
+    pub kappa: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `rho` | `f64` | Density [kg/m^3]. |
+| `psi` | `f64` | Compressibility `psi = d rho/d p` at constant T [s^2/m^2]. |
+| `cp` | `f64` | Specific heat [J/(kg K)]. |
+| `mu` | `f64` | Dynamic viscosity [Pa s]. |
+| `kappa` | `f64` | Thermal conductivity [W/(m K)]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Types
+
+#### Enum `ByRegime`
+
+A per-cell model value that is either constant or blended by flow regime
+(`templatedModels/{constant,byRegime}`), here for scalar-valued models.
+
+```rust
+pub enum ByRegime {
+    Constant(f64),
+    PerRegime(Vec<(String, f64)>),
+}
+```
+
+##### Variants
+
+###### `Constant`
+
+`type constant; value v;`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+###### `PerRegime`
+
+`type byRegime; regimeMap ...;` with one constant sub-model per regime
+name; the value is `sum_r w_r v_r` over the cell's regime weights
+(`regimeMapModel::interpolateValue`).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<(String, f64)>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `FsHtcModel`
+
+Fluid-structure heat-transfer model of one cell zone
+(`FSHeatTransferCoefficientModels`), the selections the ported tutorials use.
+
+```rust
+pub enum FsHtcModel {
+    Nusselt(crate::genfoam::thermal_hydraulics::closures::heat_transfer::fs_htc::FsForcedConvectionHtc),
+    SuperpositionNucleateBoiling {
+        forced_convection: crate::genfoam::thermal_hydraulics::closures::heat_transfer::fs_htc::FsForcedConvectionHtc,
+        pool_boiling: crate::genfoam::thermal_hydraulics::closures::heat_transfer::fs_htc::PoolBoilingHtc,
+        flow_enhancement: crate::genfoam::thermal_hydraulics::closures::heat_transfer::chf::FlowEnhancementFactor,
+        suppression: crate::genfoam::thermal_hydraulics::closures::heat_transfer::chf::SuppressionFactor,
+    },
+}
+```
+
+##### Variants
+
+###### `Nusselt`
+
+`NusseltReynoldsPrandtlPower` (`Nusselt`).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::genfoam::thermal_hydraulics::closures::heat_transfer::fs_htc::FsForcedConvectionHtc` |  |
+
+###### `SuperpositionNucleateBoiling`
+
+`superpositionNucleateBoiling`: `htcFC F + htcPB S`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `forced_convection` | `crate::genfoam::thermal_hydraulics::closures::heat_transfer::fs_htc::FsForcedConvectionHtc` | `forcedConvection`. |
+| `pool_boiling` | `crate::genfoam::thermal_hydraulics::closures::heat_transfer::fs_htc::PoolBoilingHtc` | `poolBoiling` (`useExplicitHeatFlux false`). |
+| `flow_enhancement` | `crate::genfoam::thermal_hydraulics::closures::heat_transfer::chf::FlowEnhancementFactor` | `flowEnhancementFactor`. |
+| `suppression` | `crate::genfoam::thermal_hydraulics::closures::heat_transfer::chf::SuppressionFactor` | `suppressionFactor`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `FfHtcModel`
+
+Fluid-fluid (interfacial) heat-transfer model of one fluid
+(`FFHeatTransferCoefficientModels`).
+
+```rust
+pub enum FfHtcModel {
+    Nusselt {
+        a: f64,
+        b: f64,
+        c: f64,
+        d: f64,
+    },
+    Constant(f64),
+}
+```
+
+##### Variants
+
+###### `Nusselt`
+
+`NusseltReynoldsPrandtlPower`: `kappa/max(Dh_d, 1e-4) (A + B Re^C Pr^D)`
+with `Re` the pair Reynolds number and `Pr` the continuous-phase Prandtl
+number (`NusseltFFHeatTransferCoefficient.C`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `a` | `f64` | `const`. |
+| `b` | `f64` | `coeff`. |
+| `c` | `f64` | `expRe`. |
+| `d` | `f64` | `expPr`. |
+
+###### `Constant`
+
+`constant`: a fixed htc [W/(m^2 K)].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PhaseChangeConfig`
+
+The phase-change model (`phaseChangeModel` with `heatDriven`).
+
+```rust
+pub struct PhaseChangeConfig {
+    pub rate: crate::genfoam::thermal_hydraulics::closures::phase_change::PhaseChangeRateModel,
+    pub latent_heat: crate::genfoam::thermal_hydraulics::closures::phase_change::LatentHeatModel,
+    pub adjust_latent_heat: bool,
+    pub saturation: crate::genfoam::thermal_hydraulics::closures::phase_change::SaturationModel,
+    pub residual_interfacial_area: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `rate` | `crate::genfoam::thermal_hydraulics::closures::phase_change::PhaseChangeRateModel` | The `heatDriven` mode (`PhaseChangeRateModel` heat-driven variants). |
+| `latent_heat` | `crate::genfoam::thermal_hydraulics::closures::phase_change::LatentHeatModel` | `latentHeatModel`. |
+| `adjust_latent_heat` | `bool` | `latentHeatModel.adjust` (`latentHeatModel::adjust`). |
+| `saturation` | `crate::genfoam::thermal_hydraulics::closures::phase_change::SaturationModel` | `saturationModel`. |
+| `residual_interfacial_area` | `f64` | `residualInterfacialArea` [1/m] (default 1e-3). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `TwoPhaseModels`
+
+The closure selections of a case (closed set; see the module doc for what
+is not covered).
+
+```rust
+pub struct TwoPhaseModels {
+    pub ff_drag: crate::genfoam::thermal_hydraulics::closures::ff_drag::FfDragCoefficient,
+    pub fs_drag: [Vec<Option<crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction>>; 2],
+    pub two_phase_multiplier: Option<(crate::genfoam::thermal_hydraulics::closures::ff_drag::TwoPhaseDragMultiplier, usize, f64)>,
+    pub fs_htc: [Vec<Option<FsHtcModel>>; 2],
+    pub ff_htc: [Option<FfHtcModel>; 2],
+    pub virtual_mass: Option<f64>,
+    pub regime_map: Option<(crate::genfoam::thermal_hydraulics::closures::interfacial::regime_map::RegimeMap1D, usize)>,
+    pub dispersion_fluid1: ByRegime,
+    pub contact_partition: (usize, ByRegime),
+    pub spherical_cutoff_alpha: f64,
+    pub phase_change: Option<PhaseChangeConfig>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ff_drag` | `crate::genfoam::thermal_hydraulics::closures::ff_drag::FfDragCoefficient` | Fluid-fluid drag coefficient (`dragModels."f1.f2"`). |
+| `fs_drag` | `[Vec<Option<crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction>>; 2]` | Fluid-structure friction per fluid per cell (`dragModels."fk.structure"`). |
+| `two_phase_multiplier` | `Option<(crate::genfoam::thermal_hydraulics::closures::ff_drag::TwoPhaseDragMultiplier, usize, f64)>` | `twoPhaseDragMultiplierModel`: the model, the multiplier fluid index and<br>`maxPhi2` (default 1000). |
+| `fs_htc` | `[Vec<Option<FsHtcModel>>; 2]` | Fluid-structure htc per fluid per cell. |
+| `ff_htc` | `[Option<FfHtcModel>; 2]` | Interfacial htc per fluid. |
+| `virtual_mass` | `Option<f64>` | `virtualMassCoefficientModel constant` value, if present. |
+| `regime_map` | `Option<(crate::genfoam::thermal_hydraulics::closures::interfacial::regime_map::RegimeMap1D, usize)>` | `regimeMapModels` (one `oneParameter` map) and the index of the fluid<br>whose `normalized` phase fraction is its parameter. |
+| `dispersion_fluid1` | `ByRegime` | Dispersion of fluid 1 (`dispersionModel`: `1` = fluid 1 dispersed). |
+| `contact_partition` | `(usize, ByRegime)` | Contact partition: the fluid index the model is given for and the<br>model; the other fluid takes `1 - f` (`complementary`). |
+| `spherical_cutoff_alpha` | `f64` | `interfacialAreaDensityModel spherical` `cutoffAlpha` (default 0.9). |
+| `phase_change` | `Option<PhaseChangeConfig>` | `phaseChangeModel`, if present. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `HeStabilization`
+
+`enthalpyStabilizationMode` (`twoPhase::heStabilizationMode`).
+
+```rust
+pub enum HeStabilization {
+    Cutoff,
+    Source,
+}
+```
+
+##### Variants
+
+###### `Cutoff`
+
+`cutoff` (upstream default): below `thermoResidualAlpha`, `he` is set to
+its interface value after the solve.
+
+###### `Source`
+
+`source`: a stiff relaxation source towards the interface enthalpy.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `TwoPhaseControls`
+
+PIMPLE and solver controls (`fvSolution`).
+
+```rust
+pub struct TwoPhaseControls {
+    pub n_outer: usize,
+    pub n_corr: usize,
+    pub correct_until_convergence: bool,
+    pub p_rgh_tolerance: f64,
+    pub h_tolerance: f64,
+    pub h_min_iter: usize,
+    pub residual_control_p_rgh: Option<f64>,
+    pub residual_control_h1: Option<f64>,
+    pub mass_transfer_safety_factor: Option<f64>,
+    pub max_t_interface_ddt: Option<f64>,
+    pub he_stabilization: HeStabilization,
+    pub relax_alpha: f64,
+    pub relax_dmdt: f64,
+    pub relax_t_interface: f64,
+    pub relax_he: [f64; 2],
+    pub min_kd_ff: f64,
+    pub min_alpha_sp: f64,
+    pub solve_phase: usize,
+    pub p_min: f64,
+    pub max_dpdt: f64,
+    pub dpdt: bool,
+    pub lazy_old_time_first_step: bool,
+    pub t_interface_limiter_sees_new_value: bool,
+    pub alpha_solver_tolerance: f64,
+    pub alpha_solver_rel_tol: f64,
+    pub alpha_solver_openfoam: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n_outer` | `usize` | `nOuterCorrectors`. |
+| `n_corr` | `usize` | `nCorrectors`. |
+| `correct_until_convergence` | `bool` | `correctUntilConvergence` (`customPimpleControl`). |
+| `p_rgh_tolerance` | `f64` | `solvers.p_rgh.tolerance`. |
+| `h_tolerance` | `f64` | `solvers."h.*".tolerance`. |
+| `h_min_iter` | `usize` | `solvers."h.*".minIter`. |
+| `residual_control_p_rgh` | `Option<f64>` | `residualControl.p_rgh.tolerance` (with `useFirstPISOInitialResidual`). |
+| `residual_control_h1` | `Option<f64>` | `residualControl.h.<fluid1>.tolerance`. |
+| `mass_transfer_safety_factor` | `Option<f64>` | `massTransferSafetyFactor`. |
+| `max_t_interface_ddt` | `Option<f64>` | `maxTInterfaceDdt` [K/s]. |
+| `he_stabilization` | `HeStabilization` | `enthalpyStabilizationMode`. |
+| `relax_alpha` | `f64` | Field relaxation factor of `alpha.*`. |
+| `relax_dmdt` | `f64` | Field relaxation factor of `dmdt.*`. |
+| `relax_t_interface` | `f64` | Field relaxation factor of `T.interface`. |
+| `relax_he` | `[f64; 2]` | Field relaxation factor of `h.<fluid k>`. |
+| `min_kd_ff` | `f64` | `minKdFF` (default 1). |
+| `min_alpha_sp` | `f64` | `alpha.minAlphaSp` (default 1e-4). |
+| `solve_phase` | `usize` | `alpha.solvePhase` as a fluid index. |
+| `p_min` | `f64` | `pMin` [Pa]. |
+| `max_dpdt` | `f64` | `maxDpdt` [Pa/s] (default 1e6). |
+| `dpdt` | `bool` | Whether the thermo packages carry `dpdt` (OpenFOAM default `true`). |
+| `lazy_old_time_first_step` | `bool` | Reproduce what GeN-Foam 652b3da does in the FIRST time step because<br>OpenFOAM creates a field's old-time copy lazily (gh:#1361 round 3).<br>Default `true` (upstream is the specification); see<br>[`TwoPhaseSolver::without_first_step_lazy_old_time`] for the ablation.<br><br>1. `fvc::ddt(p_)` in the energy equation is the first request for<br>   `p.oldTime()`, so in step 1 the old-time pressure is the pressure<br>   after the first `p_rgh` solve, not the initial field (`dpdt` = 0 in<br>   the first outer iteration).<br>2. `fixedPower::correct` writes `T_[celli]` through `operator[]`, which<br>   does not call `storeOldTimes`, so the old-time copy created in outer<br>   iteration 1 carries a stale time index and is overwritten with the<br>   iteration-1 result at the start of outer iteration 2 (and only then):<br>   in step 1 the structure is advanced from its iteration-1 temperature<br>   in every iteration after the first, i.e. it receives one extra step of<br>   power, `alpha q dt / (alpha rho Cp)`. |
+| `t_interface_limiter_sees_new_value` | `bool` | Reproduce what `phaseChangeModel::correctInterfacialTemperature` really does<br>with `maxTInterfaceDdt` (gh:#1361 round 3). Default `true`.<br><br>The code reads `iT_.oldTime()[i]` AFTER `saturationPtr_->correctField(iT_)`<br>has overwritten `iT_`, and `correctField` ends with<br>`correctBoundaryConditions()`, which calls `storeOldTimes()`: the old-time<br>copy is therefore refreshed from the NEW saturation temperature (in step 1<br>the copy is first created from it), so `(iT - iT0)/dt` is 0 and the<br>`maxTInterfaceDdt` limiter never limits. Measured: after step 2 of<br>`1D_boiling` upstream's `T.interface` moved by +4.747 K from a saturation<br>jump of +37.98 K, where the limiter as documented would allow +1.375 K.<br>`false` applies the limiter against the temperature at the start of the step<br>(the documented intent; the port's behaviour before round 3). |
+| `alpha_solver_tolerance` | `f64` | `tolerance` of the linear solver selected for `alpha.<solved phase>`<br>(the catch-all `".*"` entry in `1D_boiling`). |
+| `alpha_solver_rel_tol` | `f64` | `relTol` of that solver (0 if absent). |
+| `alpha_solver_openfoam` | `bool` | `true` (default): solve the `alpha` equation with OpenFOAM's<br>`PBiCGStab`/`diagonal` and the case's tolerances, stopping where upstream<br>stops (gh:#1361 round 3: the tail of a decaying vapour front is solver<br>noise in upstream). `false`: solve it to round-off with ILU(0)-BiCGStab (the<br>port's earlier behaviour,<br>[`TwoPhaseSolver::with_exact_alpha_solve`]). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `TimeControls`
+
+Time-step control (`controlDict`).
+
+```rust
+pub struct TimeControls {
+    pub adjust_time_step: bool,
+    pub max_co: f64,
+    pub max_co_two_phase: Option<f64>,
+    pub margin_to_phase_change: Option<f64>,
+    pub max_delta_t: f64,
+    pub write_interval: Option<f64>,
+    pub start_time: f64,
+    pub esi_adjust_delta_t: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `adjust_time_step` | `bool` | `adjustTimeStep`. |
+| `max_co` | `f64` | `maxCo`. |
+| `max_co_two_phase` | `Option<f64>` | `maxCoTwoPhase`. |
+| `margin_to_phase_change` | `Option<f64>` | `marginToPhaseChange` [K]. |
+| `max_delta_t` | `f64` | `maxDeltaT` [s]. |
+| `write_interval` | `Option<f64>` | `writeInterval` [s] with `writeControl adjustableRunTime`. |
+| `start_time` | `f64` | `startTime` [s]. |
+| `esi_adjust_delta_t` | `bool` | `true` (default): snap the step to the write times exactly as ESI<br>`Time::adjustDeltaT` does (`max(1, round(nSteps))` steps, growth capped at<br>2x and shrink at 0.2x, `writeTimeIndex` from `Time::operator++`), which is<br>what GeN-Foam 652b3da on v2506 runs (gh:#1361 round 3). `false` keeps the<br>port's earlier rule (always round the step count UP, from the written<br>time): see [`TwoPhaseSolver::with_foundation_style_write_time_adjust`]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Phase`
+
+One fluid's field state (`Foam::fluid`).
+
+```rust
+pub struct Phase {
+    pub name: String,
+    pub is_liquid: bool,
+    pub thermo: PhaseThermo,
+    pub residual_alpha: f64,
+    pub thermo_residual_alpha: f64,
+    pub dispersed_diameter: f64,
+    pub alpha: fv::Scalar,
+    pub normalized: Vec<f64>,
+    pub u: fv::Vector,
+    pub phi: Vec<f64>,
+    pub alpha_phi: Vec<f64>,
+    pub alpha_rho_phi: Vec<f64>,
+    pub rho: fv::Scalar,
+    pub he: fv::Scalar,
+    pub t: fv::Scalar,
+    pub cp: fv::Scalar,
+    pub mu: fv::Scalar,
+    pub kappa: fv::Scalar,
+    pub psi: Vec<f64>,
+    pub dgdt: Vec<f64>,
+    pub cont_err: Vec<f64>,
+    pub cumul_cont_err: f64,
+    pub mag_u: Vec<f64>,
+    pub dispersion: Vec<f64>,
+    pub dh: Vec<f64>,
+    pub quality: Vec<f64>,
+    pub xlm: Vec<f64>,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Phase name (`fluid1`/`fluid2` in `phaseProperties`). |
+| `is_liquid` | `bool` | `stateOfMatter liquid`. |
+| `thermo` | `PhaseThermo` | Thermophysical package. |
+| `residual_alpha` | `f64` | `residualAlpha` (default 1e-6). |
+| `thermo_residual_alpha` | `f64` | `thermoResidualAlpha` (default 0). |
+| `dispersed_diameter` | `f64` | `dispersedDiameterModel constant` value [m]. |
+| `alpha` | `fv::Scalar` | Phase fraction (of the whole cell volume). |
+| `normalized` | `Vec<f64>` | Phase fraction normalised by the fluid (moving) fraction. |
+| `u` | `fv::Vector` | Velocity [m/s]. |
+| `phi` | `Vec<f64>` | Phase velocity flux `U_f . Sf` [m^3/s]. |
+| `alpha_phi` | `Vec<f64>` | `alphaPhi` [m^3/s]. |
+| `alpha_rho_phi` | `Vec<f64>` | `alphaRhoPhi` [kg/s]. |
+| `rho` | `fv::Scalar` | Density [kg/m^3]. |
+| `he` | `fv::Scalar` | Sensible enthalpy [J/kg]. |
+| `t` | `fv::Scalar` | Temperature [K]. |
+| `cp` | `fv::Scalar` | `Cp` [J/(kg K)]. |
+| `mu` | `fv::Scalar` | `mu` [Pa s]. |
+| `kappa` | `fv::Scalar` | `kappa` [W/(m K)]. |
+| `psi` | `Vec<f64>` | `psi` [s^2/m^2]. |
+| `dgdt` | `Vec<f64>` | Dilation `dgdt` [1/s]. |
+| `cont_err` | `Vec<f64>` | Continuity error [kg/(m^3 s)]. |
+| `cumul_cont_err` | `f64` | Time integral of the continuity error, per unit volume [kg/m^3]. |
+| `mag_u` | `Vec<f64>` | `|U|`. |
+| `dispersion` | `Vec<f64>` | `dispersion` (1 = dispersed). |
+| `dh` | `Vec<f64>` | Fluid hydraulic diameter [m] (`fluidDiameterModel::correctField`). |
+| `quality` | `Vec<f64>` | Flow quality. |
+| `xlm` | `Vec<f64>` | Lockhart-Martinelli parameter. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(g: &Geometry, name: &str, is_liquid: bool, thermo: PhaseThermo, alpha: Scalar, u: Vector, t: Scalar, he_bc: Vec<Bc>, residual_alpha: f64, thermo_residual_alpha: f64, dispersed_diameter: f64) -> Self { /* ... */ }
+  ```
+  A fluid at uniform state from its case-read fields.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Structure`
+
+The structure (`Foam::structure`) restricted to what the ported tutorials
+use: volume fraction, hydraulic diameter and `fixedPower` power models.
+
+```rust
+pub struct Structure {
+    pub alpha: fv::Scalar,
+    pub dh: Vec<f64>,
+    pub power: Vec<Option<crate::genfoam::thermal_hydraulics::structure::power_model::FixedPower>>,
+    pub ia_act: Vec<f64>,
+    pub t_act: Vec<f64>,
+    pub power_off: Option<crate::genfoam::thermal_hydraulics::structure::power_off::PowerOffCriterion>,
+    pub powered_off: bool,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `alpha` | `fv::Scalar` | Structure volume fraction `alpha_s`. |
+| `dh` | `Vec<f64>` | Structure hydraulic diameter [m] per cell. |
+| `power` | `Vec<Option<crate::genfoam::thermal_hydraulics::structure::power_model::FixedPower>>` | `fixedPower` model per cell (cells of power-model zones). |
+| `ia_act` | `Vec<f64>` | Active-structure interfacial area density [1/m] (`iAact`). |
+| `t_act` | `Vec<f64>` | Active-structure surface temperature [K] (`Tact`, `Twall`). |
+| `power_off` | `Option<crate::genfoam::thermal_hydraulics::structure::power_off::PowerOffCriterion>` | `powerOffCriterionModel`. |
+| `powered_off` | `bool` | Whether power has been switched off. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(g: &Geometry, alpha: Vec<f64>, dh: Vec<f64>, power: Vec<Option<FixedPower>>, power_off: Option<PowerOffCriterion>) -> Self { /* ... */ }
+  ```
+  A structure from per-cell volume fraction, hydraulic diameter and power
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `StepReport`
+
+Run-time diagnostics of one time step.
+
+```rust
+pub struct StepReport {
+    pub time: f64,
+    pub dt: f64,
+    pub outer_iterations: usize,
+    pub p_rgh_initial_residual: f64,
+    pub h1_initial_residual: f64,
+    pub courant: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `time` | `f64` | Time at the end of the step [s]. |
+| `dt` | `f64` | Step size [s]. |
+| `outer_iterations` | `usize` | PIMPLE outer iterations performed. |
+| `p_rgh_initial_residual` | `f64` | Initial residual of the last outer iteration's first `p_rgh` solve. |
+| `h1_initial_residual` | `f64` | Initial residual of the last `h.<fluid1>` solve. |
+| `courant` | `f64` | Courant number used to set the next step. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `TwoPhaseSolver`
+
+The two-phase solver. Build from a GeN-Foam case with
+[`TwoPhaseCase::read`] then [`TwoPhaseSolver::new`], and advance with
+[`TwoPhaseSolver::step`].
+
+```rust
+pub struct TwoPhaseSolver {
+    pub geom: fv::Geometry,
+    pub g: Vector3,
+    pub gh: fv::Scalar,
+    pub p: fv::Scalar,
+    pub p_rgh: fv::Scalar,
+    pub rho_mix: fv::Scalar,
+    pub phi: Vec<f64>,
+    pub fluids: [Phase; 2],
+    pub structure: Structure,
+    pub models: TwoPhaseModels,
+    pub controls: TwoPhaseControls,
+    pub time_controls: TimeControls,
+    pub t_interface: Vec<f64>,
+    pub interfacial_area: Vec<f64>,
+    pub dmdt: Vec<f64>,
+    pub latent_heat: Vec<f64>,
+    pub kd_ff: Vec<f64>,
+    pub htc_ff: [Vec<f64>; 2],
+    pub kd_fs: [Vec<f64>; 2],
+    pub htc_fs: [Vec<f64>; 2],
+    pub re_fs: [Vec<f64>; 2],
+    pub contact: [Vec<f64>; 2],
+    pub time: f64,
+    pub dt: f64,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `geom` | `fv::Geometry` | Mesh geometry. |
+| `g` | `Vector3` | Gravity [m/s^2]. |
+| `gh` | `fv::Scalar` | `gh` per cell and `ghf` per face [m^2/s^2]. |
+| `p` | `fv::Scalar` | Static pressure [Pa]. |
+| `p_rgh` | `fv::Scalar` | `p_rgh` [Pa]. |
+| `rho_mix` | `fv::Scalar` | Mixture density over the moving fraction [kg/m^3]. |
+| `phi` | `Vec<f64>` | Total volumetric flux [m^3/s]. |
+| `fluids` | `[Phase; 2]` | The two fluids. |
+| `structure` | `Structure` | The structure. |
+| `models` | `TwoPhaseModels` | Closure selections. |
+| `controls` | `TwoPhaseControls` | Solution controls. |
+| `time_controls` | `TimeControls` | Time controls. |
+| `t_interface` | `Vec<f64>` | Interfacial temperature [K] (`T.interface`). |
+| `interfacial_area` | `Vec<f64>` | Interfacial area density [1/m]. |
+| `dmdt` | `Vec<f64>` | Phase-change rate fluid 1 → fluid 2 [kg/(m^3 s)]. |
+| `latent_heat` | `Vec<f64>` | Latent heat [J/kg]. |
+| `kd_ff` | `Vec<f64>` | Fluid-fluid drag coefficient [kg/(m^3 s)]. |
+| `htc_ff` | `[Vec<f64>; 2]` | Interfacial htc of each fluid [W/(m^2 K)]. |
+| `kd_fs` | `[Vec<f64>; 2]` | Fluid-structure drag coefficient of each fluid [kg/(m^3 s)]. |
+| `htc_fs` | `[Vec<f64>; 2]` | Fluid-structure htc of each fluid (partition applied) [W/(m^2 K)]. |
+| `re_fs` | `[Vec<f64>; 2]` | Fluid-structure Reynolds number of each fluid. |
+| `contact` | `[Vec<f64>; 2]` | Contact partition of each fluid. |
+| `time` | `f64` | Current time [s]. |
+| `dt` | `f64` | Current step size [s]. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(case: TwoPhaseCase) -> Self { /* ... */ }
+  ```
+  Build the solver from a read case, reproducing `twoPhase`'s constructor:
+
+- ```rust
+  pub fn step(self: &mut Self) -> Result<StepReport, crate::error::AppBuilderError> { /* ... */ }
+  ```
+  Advance one time step (`twoPhase::correctPhysics` inside upstream's
+
+- ```rust
+  pub fn courant(self: &Self) -> f64 { /* ... */ }
+  ```
+  `twoPhase::correctCourant`: the larger of the mixture and the relative
+
+- ```rust
+  pub fn without_first_step_lazy_old_time(self: Self) -> Self { /* ... */ }
+  ```
+  The ablation of [`TwoPhaseControls::lazy_old_time_first_step`]: the first
+
+- ```rust
+  pub fn with_exact_alpha_solve(self: Self) -> Self { /* ... */ }
+  ```
+  Solve the `alpha` equation to round-off ([`TwoPhaseControls::alpha_solver_openfoam`]
+
+- ```rust
+  pub fn with_foundation_style_write_time_adjust(self: Self) -> Self { /* ... */ }
+  ```
+  Keep the port's earlier write-time rule instead of ESI `Time::adjustDeltaT`
+
+- ```rust
+  pub fn with_documented_t_interface_rate_limiter(self: Self) -> Self { /* ... */ }
+  ```
+  The ablation of [`TwoPhaseControls::t_interface_limiter_sees_new_value`]:
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Re-exports
+
+#### Re-export `TwoPhaseCase`
+
+```rust
+pub use case::TwoPhaseCase;
+```
+
+#### Re-export `PhaseThermo`
+
+```rust
+pub use thermo::PhaseThermo;
+```
+
 ### Types
 
 #### Enum `ThermalHydraulicsSolver`
@@ -19792,6 +28446,7 @@ it handles the new case, which is exactly why this is an enum and not a
 ```rust
 pub enum ThermalHydraulicsSolver {
     OnePhase(OnePhaseSolver),
+    TwoPhase(TwoPhaseSolver),
 }
 ```
 
@@ -19807,6 +28462,17 @@ Fields:
 | Index | Type | Documentation |
 |-------|------|---------------|
 | 0 | `OnePhaseSolver` |  |
+
+###### `TwoPhase`
+
+Two-fluid + structure solver with phase change (`solvers/twoPhase`),
+added 2026-11-04 (gh:#1218).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `TwoPhaseSolver` |  |
 
 ##### Implementations
 
@@ -19853,7 +28519,7 @@ Fields:
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19872,10 +28538,28 @@ Fields:
 pub use one_phase::OnePhaseSolver;
 ```
 
+#### Re-export `PorousConductivity`
+
+```rust
+pub use one_phase::PorousConductivity;
+```
+
 #### Re-export `PorousDrag`
 
 ```rust
 pub use porous_drag::PorousDrag;
+```
+
+#### Re-export `TwoPhaseCase`
+
+```rust
+pub use two_phase::TwoPhaseCase;
+```
+
+#### Re-export `TwoPhaseSolver`
+
+```rust
+pub use two_phase::TwoPhaseSolver;
 ```
 
 ## Module `structure`
@@ -20039,7 +28723,7 @@ pub struct HeatExchanger {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HeatExchanger { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20068,7 +28752,7 @@ pub struct HeatExchanger {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HeatExchanger) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20087,7 +28771,7 @@ pub struct HeatExchanger {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20225,7 +28909,7 @@ pub struct PassiveStructure {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PassiveStructure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20253,7 +28937,7 @@ pub struct PassiveStructure {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PassiveStructure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20272,7 +28956,7 @@ pub struct PassiveStructure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20337,6 +29021,471 @@ q'' = h_sum * T_wall - ht_sum
 pub fn wall_heat_flux(h_sum: super::units::HeatTransferCoefficient, ht_sum: super::units::HeatFlux, t_wall: uom::si::f64::ThermodynamicTemperature) -> super::units::HeatFlux { /* ... */ }
 ```
 
+## Module `nuclear_steady_state_pebble`
+
+# `nuclearSteadyStatePebble` — steady sub-scale temperatures in a fuel pebble
+
+GeN-Foam's steady-state pebble power model, as used by its `3D_gFHR`
+tutorial. Given the volumetric power a porous cell produces and the pebble's
+outer surface temperature, it returns the temperature at every interface from
+that surface down to the hottest UO2 kernel centre.
+
+**It is a closed-form chain, not an iteration.** Upstream's `correct()` walks
+it once per cell per timestep; there is no inner solve to converge, so the
+port is an exact transcription rather than a re-derivation.
+
+## The pebble
+
+A pebble-bed FHR pebble is **not** shaped like an HTR-10 one: the fuel sits in
+an *annulus* around an unfuelled graphite core, inside an unfuelled shell.
+
+```text
+  r = 0 ....... r_core ....... r_matrix ....... r_shell
+  | graphite core | fuelled matrix | graphite shell |
+    (unheated)      (N TRISO)        (unheated)
+```
+
+## The chain (upstream's own order and formulas)
+
+With `Q` the total power of one pebble, `q_m` the volumetric power in the
+fuelled annulus and `Q_t = Q/N` the power of one TRISO particle:
+
+```text
+  T_m,out = T_surf  + Q/(4 pi k_g) (1/r_m - 1/r_shell)          [unheated shell]
+  T_m,av  = T_m,out + (q_m/(6 k_eff)) [ r_m^2 - 3(r_m^5 - r_c^5)/(5(r_m^3 - r_c^3)) ]
+                    + (r_c^3 q_m)/(3 k_eff) [ 1/r_m - 3(r_m^2 - r_c^2)/(2(r_m^3 - r_c^3)) ]
+  T_f,S   = T_m,av  + Q_t/(4 pi) * R_coat
+  T_f,av  = T_f,S   + q_f r_f^2 / (15 k_f)
+  T_f,max = T_f,S   + q_f r_f^2 / (6 k_f)
+```
+
+where `R_coat` is the series resistance of the four TRISO coatings and
+`q_f = Q_t / ((4/3) pi r_f^3)`.
+
+The `T_m,av` expression is the **surface-to-volume-average** temperature of a
+uniformly heated spherical annulus whose inner face is adiabatic — adiabatic
+because the central core produces no power and symmetry puts zero flux at
+`r = 0`. Note it is an *average*, not the peak: the peak matrix temperature
+is not what the TRISO particles see on average, and upstream deliberately
+feeds the average into the particle-scale step.
+
+## Effective matrix conductivity — Maxwell
+
+The fuelled matrix is graphite with TRISO particles dispersed in it, and
+upstream homogenises the pair with the **Maxwell** (Maxwell-Garnett) mixture
+rule rather than using the bare graphite value:
+
+```text
+  k_triso = (1/r_f - 1/r_PyCout) / R_coat          [an equivalent solid sphere]
+  PF      = N (4/3) pi r_PyCout^3 / ((4/3) pi (r_m^3 - r_c^3))
+  kappa   = k_triso / k_graphite
+  beta    = (kappa - 1)/(kappa + 2)
+  k_eff   = k_graphite (1 + 2 beta PF)/(1 - beta PF)
+```
+
+This matters: for the gFHR tutorial it is a meaningfully different number from
+the bare graphite conductivity, and using graphite in its place silently
+changes the matrix temperature rise.
+
+## Power bookkeeping
+
+Upstream converts the *cell* volumetric power into a *per-pebble* power with
+the solid volume fraction `alpha`:
+
+```text
+  Q = q (4/3) pi r_shell^3 / alpha
+```
+
+— i.e. the cell's power is shared among the pebbles that occupy `alpha` of
+it. A cell with `alpha = 0` carries no pebbles and produces no power.
+
+## What is not ported here
+
+- **The convective coupling.** Upstream computes the pebble surface
+  temperature as `T_surf = (q_surf + sum h T)/sum h` from the fluid solve;
+  here it is an input, because this crate has no coupled porous
+  thermal-hydraulic driver to produce it.
+- **Temperature-dependent conductivities.** Upstream evaluates each `k` from a
+  polynomial in the local temperature. This port takes the conductivities as
+  values, which the caller may evaluate however it likes; the gFHR tutorial's
+  own coefficients are constant (only the zeroth term is non-zero), so for
+  that case the two are identical.
+- Density correlations and the min/max/average field reductions, which are
+  reporting rather than physics.
+
+```rust
+pub mod nuclear_steady_state_pebble { /* ... */ }
+```
+
+### Types
+
+#### Struct `PebbleGeometry`
+
+The radii of a pebble and of the TRISO particles dispersed in it, metres.
+
+Mirrors the `pebble*Radius` / `triso*Radius` entries of a
+`nuclearSteadyStatePebble` dictionary. All radii are outer radii and must
+increase strictly outward within each scale.
+
+```rust
+pub struct PebbleGeometry {
+    pub core_radius: f64,
+    pub matrix_radius: f64,
+    pub shell_radius: f64,
+    pub fuel_radius: f64,
+    pub buffer_radius: f64,
+    pub inner_pyc_radius: f64,
+    pub silicon_carbide_radius: f64,
+    pub outer_pyc_radius: f64,
+    pub triso_count: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `core_radius` | `f64` | Outer radius of the unfuelled central graphite core (m). gFHR: 1.38e-2. |
+| `matrix_radius` | `f64` | Outer radius of the fuelled matrix annulus (m). gFHR: 1.8e-2. |
+| `shell_radius` | `f64` | Outer radius of the pebble, i.e. of the unfuelled shell (m). gFHR: 2e-2. |
+| `fuel_radius` | `f64` | UO2 kernel radius (m). gFHR: 212.5e-6. |
+| `buffer_radius` | `f64` | Buffer outer radius (m). gFHR: 312.5e-6. |
+| `inner_pyc_radius` | `f64` | Inner-PyC outer radius (m). gFHR: 352.5e-6. |
+| `silicon_carbide_radius` | `f64` | SiC outer radius (m). gFHR: 387.5e-6. |
+| `outer_pyc_radius` | `f64` | Outer-PyC outer radius — the particle's own surface (m). gFHR: 427.5e-6. |
+| `triso_count` | `f64` | Number of TRISO particles per pebble. gFHR: 9022. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn coating_resistance(self: &Self, k: &PebbleConductivities) -> f64 { /* ... */ }
+  ```
+  Series thermal resistance of the four TRISO coatings for unit power,
+
+- ```rust
+  pub fn packing_fraction(self: &Self) -> f64 { /* ... */ }
+  ```
+  TRISO particle packing fraction within the fuelled annulus,
+
+- ```rust
+  pub fn effective_matrix_conductivity(self: &Self, k: &PebbleConductivities) -> f64 { /* ... */ }
+  ```
+  Effective conductivity of the TRISO-bearing matrix, W/(m K), by the
+
+- ```rust
+  pub fn steady_temperatures(self: &Self, surface_temperature: f64, power_density: f64, solid_fraction: f64, k: &PebbleConductivities) -> PebbleTemperatures { /* ... */ }
+  ```
+  The full steady temperature chain for one porous cell.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PebbleConductivities`
+
+Thermal conductivities, W/(m K), at the temperatures the caller chose to
+evaluate them.
+
+Upstream evaluates each from a polynomial in the local temperature (the
+`*KCoeffs` entries); this port takes the values so the caller keeps that
+choice. The gFHR tutorial's coefficients are constant.
+
+```rust
+pub struct PebbleConductivities {
+    pub fuel: f64,
+    pub buffer: f64,
+    pub pyrolytic_carbon: f64,
+    pub silicon_carbide: f64,
+    pub graphite: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `fuel` | `f64` | UO2 kernel. gFHR: 3.3073. |
+| `buffer` | `f64` | Porous carbon buffer. gFHR: 0.50. |
+| `pyrolytic_carbon` | `f64` | Both pyrolytic-carbon layers — upstream uses one value for IPyC and<br>OPyC. gFHR: 4.00. |
+| `silicon_carbide` | `f64` | Silicon carbide. gFHR: 90.3. |
+| `graphite` | `f64` | Matrix and shell graphite. gFHR: 41.68. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PebbleTemperatures`
+
+The temperature chain from the pebble surface inward, kelvin.
+
+Produced by [`PebbleGeometry::steady_temperatures`]. Every field is an
+absolute temperature.
+
+```rust
+pub struct PebbleTemperatures {
+    pub surface: f64,
+    pub matrix_outer: f64,
+    pub matrix_average: f64,
+    pub particle_surface: f64,
+    pub fuel_average: f64,
+    pub fuel_max: f64,
+    pub matrix_effective_conductivity: f64,
+    pub pebble_power: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surface` | `f64` | Pebble outer surface — the input boundary condition, returned unchanged. |
+| `matrix_outer` | `f64` | Outer face of the fuelled matrix annulus (`r = r_matrix`), i.e. the inner<br>face of the unfuelled shell. Upstream's `Tmout`. |
+| `matrix_average` | `f64` | **Volume-average** temperature of the fuelled matrix annulus. Upstream's<br>`Tmav`, and the boundary condition the particle-scale step uses. |
+| `particle_surface` | `f64` | Outer surface of a TRISO particle sitting at the matrix average<br>temperature. Upstream's `TfS`. |
+| `fuel_average` | `f64` | Volume-average UO2 kernel temperature. Upstream's `Tfav`. |
+| `fuel_max` | `f64` | UO2 kernel **centre** — the peak fuel temperature, and the quantity a<br>fuel-temperature limit applies to. Upstream's `Tfmax`. |
+| `matrix_effective_conductivity` | `f64` | Effective conductivity of the TRISO-bearing matrix from the Maxwell<br>mixture rule, W/(m K). Upstream's `keffMatrix`. |
+| `pebble_power` | `f64` | Total power of one pebble, W. Upstream's `Q_pebble_tot`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn total_rise(self: &Self) -> f64 { /* ... */ }
+  ```
+  Total rise from the pebble surface to the peak kernel centre, K.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ## Module `power_model`
 
 # `power_model` — the solid-structure energy source / surface temperature
@@ -20359,10 +29508,17 @@ The higher-fidelity pin/pebble/FMU models upstream
 (`heatedPin`, `nuclearFuelPin`, `interpolatedNuclearFuelPin`,
 `nuclearSteadyStatePebble`, `nuclearFuelFMU`, `fixedTemperatureFMU`) solve a
 **radial (1-D) conduction** problem inside the pin/pebble each timestep and
-are *not* ported here — that radial-conduction machinery is a substantial
+are *not* ported here — ~~that radial-conduction machinery is a substantial
 follow-up (its own bead) and the FMU variants couple to an external
 functional-mock-up unit that is out of scope for this crate. The two lumped
-models above are the self-contained, hand-verifiable core of the family.
+models above are the self-contained, hand-verifiable core of the family.~~
+**CORRECTED 2026-11-03** — half stale: `nuclearSteadyStatePebble` *is*
+ported, as the sibling module [`super::nuclear_steady_state_pebble`],
+checked against an upstream GeN-Foam run by
+`tests/genfoam_gfhr_pebble_vs_upstream.rs`. It is not a [`PowerModel`]
+variant, so it is still not dispatched from here. The other pin/FMU models
+listed above remain unported (verified: no module of those names under
+`structure/`).
 
 ## Lumped energy balance (the `fixedPower` core)
 
@@ -20488,7 +29644,7 @@ pub struct FixedPower {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FixedPower { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20516,7 +29672,7 @@ pub struct FixedPower {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FixedPower) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20535,7 +29691,7 @@ pub struct FixedPower {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20610,7 +29766,7 @@ pub struct FixedTemperature {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FixedTemperature { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20638,7 +29794,7 @@ pub struct FixedTemperature {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FixedTemperature) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20657,7 +29813,7 @@ pub struct FixedTemperature {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20749,7 +29905,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PowerModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20777,7 +29933,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PowerModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20796,7 +29952,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20877,7 +30033,7 @@ Use the field minimum over the domain.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FieldReduction { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20907,7 +30063,7 @@ Use the field minimum over the domain.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FieldReduction) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20926,7 +30082,7 @@ Use the field minimum over the domain.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20982,7 +30138,7 @@ Fire when the reduced value is at or below the threshold.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThresholdDirection { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21012,7 +30168,7 @@ Fire when the reduced value is at or below the threshold.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ThresholdDirection) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -21031,7 +30187,7 @@ Fire when the reduced value is at or below the threshold.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21132,7 +30288,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PowerOffCriterion { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21160,7 +30316,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PowerOffCriterion) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -21179,7 +30335,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21285,7 +30441,7 @@ pub struct Pump {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Pump { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21313,7 +30469,7 @@ pub struct Pump {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Pump) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -21332,7 +30488,7 @@ pub struct Pump {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21491,7 +30647,7 @@ pub struct StructureThermalState {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StructureThermalState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21520,7 +30676,7 @@ pub struct StructureThermalState {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &StructureThermalState) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -21539,7 +30695,7 @@ pub struct StructureThermalState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21638,7 +30794,7 @@ pub struct StructureCell {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StructureCell { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21666,7 +30822,7 @@ pub struct StructureCell {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &StructureCell) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -21685,7 +30841,7 @@ pub struct StructureCell {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21726,6 +30882,24 @@ pub use heat_source::wall_heat_flux;
 
 ```rust
 pub use heat_source::PassiveStructure;
+```
+
+#### Re-export `PebbleConductivities`
+
+```rust
+pub use nuclear_steady_state_pebble::PebbleConductivities;
+```
+
+#### Re-export `PebbleGeometry`
+
+```rust
+pub use nuclear_steady_state_pebble::PebbleGeometry;
+```
+
+#### Re-export `PebbleTemperatures`
+
+```rust
+pub use nuclear_steady_state_pebble::PebbleTemperatures;
 ```
 
 #### Re-export `FixedPower`
@@ -22071,7 +31245,7 @@ class. See [`hydrogen`] for the correlations and their provenance.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BespokeFluidPropertyModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22087,7 +31261,7 @@ class. See [`hydrogen`] for the correlations and their provenance.
 
 - **Default**
   - ```rust
-    fn default() -> BespokeFluidPropertyModel { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -22106,7 +31280,7 @@ class. See [`hydrogen`] for the correlations and their provenance.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BespokeFluidPropertyModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -22125,7 +31299,7 @@ class. See [`hydrogen`] for the correlations and their provenance.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22615,7 +31789,7 @@ Plane stress (out-of-plane stress assumed zero) — for thin bodies.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RheologyOption { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22631,7 +31805,7 @@ Plane stress (out-of-plane stress assumed zero) — for thin bodies.
 
 - **Default**
   - ```rust
-    fn default() -> RheologyOption { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -22650,7 +31824,7 @@ Plane stress (out-of-plane stress assumed zero) — for thin bodies.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RheologyOption) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -22669,7 +31843,7 @@ Plane stress (out-of-plane stress assumed zero) — for thin bodies.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22758,7 +31932,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MaterialError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22792,7 +31966,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MaterialError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -22816,7 +31990,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22936,7 +32110,7 @@ pub struct ElasticMaterial {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ElasticMaterial { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22965,7 +32139,7 @@ pub struct ElasticMaterial {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ElasticMaterial) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -22984,7 +32158,7 @@ pub struct ElasticMaterial {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23133,7 +32307,7 @@ pub struct DisplacementReport {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DisplacementReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23162,7 +32336,7 @@ pub struct DisplacementReport {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DisplacementReport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -23181,7 +32355,7 @@ pub struct DisplacementReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23327,7 +32501,7 @@ pub struct MechanicsMeshSolver {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MechanicsMeshSolver { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23368,7 +32542,7 @@ pub struct MechanicsMeshSolver {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23621,7 +32795,7 @@ pub struct LegacyThermoMechanics {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LegacyThermoMechanics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23650,7 +32824,7 @@ pub struct LegacyThermoMechanics {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LegacyThermoMechanics) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -23669,7 +32843,7 @@ pub struct LegacyThermoMechanics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23742,7 +32916,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThermoMechanicsModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23771,7 +32945,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ThermoMechanicsModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -23790,7 +32964,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23921,6 +33095,8221 @@ pub use stress::thermal_stress;
 
 ```rust
 pub use stress::von_mises_stress;
+```
+
+## Module `htgr_closures`
+
+Pebble-bed HTGR closures (original work, not a GeN-Foam port): bed
+effective conductivity (Breitbach default, ZBS comparison), KTA 3102.2 heat
+transfer, KTA 3102.3 pressure drop, and the IAEA-TECDOC-1694 HTR-10 solid
+conductivities. See [`htgr_closures`].
+# `htgr_closures` — pebble-bed HTGR thermal-hydraulic closures
+
+Algebraic closures for a helium-cooled pebble bed and the graphite and
+steel structures around it. They are the inputs a 2-D (r-z) porous or
+conduction solve, or a 0-D/1-D `tampines` model, needs.
+
+**This is original work, not a GeN-Foam port.** It sits beside
+[`crate::genfoam`] because of maintainer decision D2 (2026-11-03, gh:#1146):
+2-D, CFD-like, pure thermal-hydraulics belongs in `outram-foam`, and
+`tampines` depends on this crate, so a closure placed here reaches both.
+Nothing here is ported from GeN-Foam source.
+
+## What is here
+
+| Module | Closure | Source |
+|---|---|---|
+| [`bed_conductivity`] | Bed effective conductivity, enum [`BedConductivityModel`]. **Default: Breitbach** (D3) | IAEA-TECDOC-1694 Tab. 2.9; Kugeler et al. 2017 eq. (108)-(109) |
+| [`zbs`] | Zehner-Bauer-Schlunder bed conductivity, a comparison variant | moved from `tampines::pebble_bed::zbs` |
+| [`kta`] | KTA 3102.2 pebble-to-gas Nusselt number; KTA 3102.3 bed pressure drop | IAEA-TECDOC-1694 Tab. 2.10 |
+| [`helium`] | The KTA 3102.1 helium fits as printed in the benchmark, with the pressure unit **fixed to bar** | IAEA-TECDOC-1694 Tab. 2.8 |
+| [`structural_materials`] | Fuel-element, side/top/bottom-reflector and carbon-brick conductivity; steel conductivity digitised from a figure | IAEA-TECDOC-1694 Tab. 2.9, 2.11, 2.12, Fig. 2.8 |
+
+## Provenance and data policy
+
+IAEA-TECDOC-1694 (2013), *Evaluation of HTGR Performance: Benchmark
+Analysis Related to the PBMR-400, PBMM, GT-MHR, HTR-10 and the ASTRA
+Critical Facility*, Chapter 2, is a **proprietary-tier** document
+(an IAEA publication with no reuse licence; held in the maintainer's
+private literature repository as `iaea2013tecdoc1694`). Following
+maintainer decision D1 (2026-11-03) and the precedent of
+`docs/reactor-scoping/htr10-plant-data.md`, only **coefficients and
+formulas** enter this repository, each with its table number. No text is
+copied. Every coefficient here was re-read on 2026-11-03 from the PDF with
+`pdftotext` and checked against the page rendered at 400 dpi.
+
+Kugeler, Nabielek & Buckthorpe (2017), *The High Temperature Gas-cooled
+Reactor: Safety considerations of the (V)HTR-Modul*, EUR 28712 EN, is
+**open** (EU reuse decision 2011/833/EU) and is in
+`crates/kovan-literature/reactor-literature/kovan-standard-open-corpus/eu-jrc/kjna28712enn.pdf`.
+
+## Status
+
+**Verified, not validated.** Each closure is checked against hand
+evaluations of the printed formula, the benchmark's own consistency
+checks, or an independent source (CoolProp helium, the open Kugeler fit).
+No closure has been compared against an HTR-10 measurement here.
+AI-assisted draft pending human review per `RESPONSIBLE_USE.md`. Not for
+reactor operation, licensing or any safety-critical use. The V&V record is
+`verification_and_validation/htr10_th_closures_vs_tecdoc1694.md`.
+
+```rust
+pub mod htgr_closures { /* ... */ }
+```
+
+### Modules
+
+## Module `bed_conductivity`
+
+# Pebble-bed effective thermal conductivity — model selection
+
+[`BedConductivityModel`] chooses how the stagnant effective conductivity of
+a pebble bed is computed. **The default is [`BedConductivityModel::Breitbach`]**
+(maintainer decision D3, 2026-11-03): it is the correlation the
+IAEA-TECDOC-1694 HTR-10 benchmark specifies, and what the INET THERMIX
+reference calculation used. The default is pinned by the test
+`breitbach_is_the_physics_default`.
+
+## The variants
+
+**`Breitbach`** — IAEA-TECDOC-1694 Table 2.9, "conductivity of uniformed
+pebble bed", labelled there the German Breitbach correlation
+(proprietary tier; coefficients only, per D1):
+
+```text
+lambda = 1.1538e-6 * T1^1.6622   W/(cm K),   T1 = T + 100,   T in deg C
+if T < 250 deg C then T = 250 deg C
+```
+
+It is a fit in temperature alone. Pebble diameter (6 cm), porosity
+(about 0.39), graphite emissivity and the solid conductivity are fixed
+inside it, because it was fitted to beds of 6 cm graphite spheres. So it
+is only valid for such a bed. The fuller Breitbach-Barthels model, with
+`d`, `eps` and emissivity as inputs, is not what the benchmark prints and
+is **not implemented here** (no source for its coefficients was available
+to check; Pronghorn's `BreitbachBarthels` radiation object is closed
+source).
+
+**`Zbs(ZbsBed)`** — the analytic Zehner-Bauer-Schlunder model with
+radiation and contact, [`super::zbs`]. It takes the solid and pore-gas
+conductivities, the porosity, the diameter and the emissivity. Kept as a
+labelled comparison variant (D3). It is what KAERI's GAMMA used in the same
+benchmark.
+
+**`Kugeler2017`** — Kugeler, Nabielek & Buckthorpe (2017), EUR 28712 EN,
+eqs. (108)-(109) (**open**): a fit to the Barthels, Breitbach and Robold
+laboratory measurements on 6 cm graphite beds, irradiation included,
+stated uncertainty +/-10 % or more:
+
+```text
+lambda = 2.549e-4 T^1.545 + 1.5          W/(m K), T <= 1300 deg C
+lambda = 2e-3 (T - 135)^1.29 + 0.003     W/(m K), 1300 <= T <= 2500 deg C
+```
+
+It is the open-tier cross-check on the Breitbach fit: both describe the
+same experiments.
+
+## Verification (methodology and results)
+
+See the tests in this module and
+`verification_and_validation/htr10_th_closures_vs_tecdoc1694.md`. In
+short (measured 2026-11-03): the Breitbach implementation reproduces
+hand evaluations of the printed formula to 1e-12. Over 300-1300 K it agrees
+with the open Kugeler fit within +/-10 % from 800 K up, but Kugeler is
+27-34 % higher at 500-600 K, where Breitbach is held at its 250 deg C
+value. The analytic ZBS, with the benchmark's own helium and unirradiated
+fuel-matrix conductivity, is **32-107 % above Breitbach** over the HTR-10
+operating range (523-1273 K); the full table is in
+`breitbach_vs_zbs_over_the_htr10_range`.
+
+```rust
+pub mod bed_conductivity { /* ... */ }
+```
+
+### Types
+
+#### Struct `BedState`
+
+The local state a bed-conductivity model is evaluated at.
+
+The temperature is always needed. The solid (pebble) and pore-gas
+conductivities are needed only by [`BedConductivityModel::Zbs`]; the
+fitted models ignore them. Build with [`BedState::new`] when you have all
+three, or [`BedState::at_temperature`] for a fitted model.
+
+```rust
+pub struct BedState {
+    pub temperature: uom::si::f64::ThermodynamicTemperature,
+    pub solid_conductivity: Option<uom::si::f64::ThermalConductivity>,
+    pub fluid_conductivity: Option<uom::si::f64::ThermalConductivity>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `temperature` | `uom::si::f64::ThermodynamicTemperature` | Local bed temperature. |
+| `solid_conductivity` | `Option<uom::si::f64::ThermalConductivity>` | Conductivity of the pebble solid (graphite matrix), if known. |
+| `fluid_conductivity` | `Option<uom::si::f64::ThermalConductivity>` | Conductivity of the gas in the pores, if known. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(temperature: ThermodynamicTemperature, solid_conductivity: ThermalConductivity, fluid_conductivity: ThermalConductivity) -> Self { /* ... */ }
+  ```
+  A full state, usable by every model.
+
+- ```rust
+  pub fn at_temperature(temperature: ThermodynamicTemperature) -> Self { /* ... */ }
+  ```
+  A temperature-only state. [`BedConductivityModel::Zbs`] rejects it.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `BedConductivityModel`
+
+How the stagnant effective conductivity of a pebble bed is computed.
+
+`BedConductivityModel::default()` is [`BedConductivityModel::Breitbach`],
+the benchmark's correlation. The other variants are comparisons; choosing
+one is an explicit, visible act. See the module docs for each formula and
+its source.
+
+```rust
+pub enum BedConductivityModel {
+    Breitbach,
+    Zbs(super::zbs::ZbsBed),
+    Kugeler2017,
+}
+```
+
+##### Variants
+
+###### `Breitbach`
+
+IAEA-TECDOC-1694 Table 2.9 Breitbach fit. **The physics default.**
+
+###### `Zbs`
+
+Analytic Zehner-Bauer-Schlunder with radiation and contact. Comparison
+variant; needs the solid and gas conductivities.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::zbs::ZbsBed` |  |
+
+###### `Kugeler2017`
+
+Kugeler et al. (2017) eqs. (108)-(109), open-tier fit to the same
+laboratory data as Breitbach. Comparison variant.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn effective_conductivity(self: &Self, state: &BedState) -> Result<ThermalConductivity, HtgrClosureError> { /* ... */ }
+  ```
+  Effective bed conductivity at `state`.
+
+- ```rust
+  pub fn label(self: &Self) -> &'static str { /* ... */ }
+  ```
+  A short label for tables and logs.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `breitbach_tecdoc1694`
+
+The TECDOC-1694 Table 2.9 Breitbach fit,
+`1.1538e-6 (T + 100)^1.6622` W/(cm K) with `T` in deg C held at 250 below
+250 deg C, as printed.
+
+The low-temperature hold is the source's own rule. It means the fit
+returns 1.954 W/(m K) at any temperature up to 250 deg C.
+
+```rust
+pub fn breitbach_tecdoc1694(temperature: uom::si::f64::ThermodynamicTemperature) -> uom::si::f64::ThermalConductivity { /* ... */ }
+```
+
+#### Function `kugeler2017`
+
+Kugeler et al. (2017) eqs. (108)-(109), W/(m K), `T` in deg C, valid
+0-2500 deg C.
+
+Errors with [`HtgrClosureError::InvalidInput`] outside 0-2500 deg C
+(eq. (108) is undefined for negative Celsius temperatures, and eq. (109)
+stops at 2500 deg C).
+
+```rust
+pub fn kugeler2017(temperature: uom::si::f64::ThermodynamicTemperature) -> Result<uom::si::f64::ThermalConductivity, super::HtgrClosureError> { /* ... */ }
+```
+
+## Module `helium`
+
+# Helium property fits of the HTR-10 benchmark (KTA 3102.1 form)
+
+IAEA-TECDOC-1694 Table 2.8 gives four helium fits for the HTR-10 benchmark
+(proprietary tier; coefficients only, per maintainer decision D1). With `p`
+in **bar** and `T` in kelvin:
+
+```text
+rho    = 48.14 (p/T) / (1 + 0.4446 p / T^1.2)              kg/m^3
+c_p    = 5195,  c_v = 3117                                  J/(kg K)
+eta    = 3.674e-7 T^0.7                                     Pa s
+lambda = 2.682e-5 (1 + 1.123e-3 p) T^(0.71 (1 - 2e-4 p))    W/(cm K)
+```
+
+The table states a range of 1-10 MPa and 293-1773 K.
+
+## The pressure unit is a defect in the table (maintainer decision D5)
+
+**Table 2.8 says `P` is in Pa. It must be in bar.** With Pa, helium at
+3 MPa and 523 K would have `rho = 48.14 * 3e6/523 / (1 + ...)` and the
+`1 + 0.4446 p/T^1.2` term would be about 730, so the density comes out
+at 378 kg/m^3 instead of 2.74 (measured in the tests); and `1 - 2e-4 p` would be -599, so the
+conductivity exponent would be about -425. Neither is physical. With bar,
+at 30 bar and 523.15 K, this module gives `rho = 2.7406 kg/m^3` and
+`lambda = 0.2299 W/(m K)`; CoolProp gives 2.7400 kg/m^3 (see the tests
+for the full comparison). The bar reading is also the form of the original KTA
+3102.1 rule as the HTGR literature quotes it. The range "1-10 MPa" is
+therefore 10-100 bar.
+
+## Why this module exists
+
+The workspace already has a reference-quality helium EOS and transport
+model (`outram-park-fork-coolprop`, wrapped by
+`tampines::gas_phase::properties`). These fits are added **only** because
+the benchmark's closures were evaluated with them: the KTA 3102.2 Nusselt
+number needs `eta`, `lambda` and `Pr`, and the ZBS comparison needs a pore
+conductivity, at states where this crate cannot reach CoolProp (CoolProp
+is a dev-dependency here, used to verify these fits). A caller that has
+CoolProp should prefer it; the tests record how far apart the two are.
+
+```rust
+pub mod helium { /* ... */ }
+```
+
+### Types
+
+#### Struct `KtaHelium`
+
+Helium at one state, from the IAEA-TECDOC-1694 Table 2.8 fits with the
+pressure read in bar (see the module docs for why).
+
+Build it with [`KtaHelium::new`], which rejects states outside the
+table's 1-10 MPa, 293-1773 K range.
+
+```rust
+pub struct KtaHelium {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(pressure: Pressure, temperature: ThermodynamicTemperature) -> Result<Self, HtgrClosureError> { /* ... */ }
+  ```
+  Helium at `pressure` and `temperature`.
+
+- ```rust
+  pub fn density(self: &Self) -> MassDensity { /* ... */ }
+  ```
+  Density, `48.14 (p/T) / (1 + 0.4446 p/T^1.2)` with `p` in bar.
+
+- ```rust
+  pub fn cp(self: &Self) -> SpecificHeatCapacity { /* ... */ }
+  ```
+  Isobaric specific heat, the constant 5195 J/(kg K).
+
+- ```rust
+  pub fn viscosity(self: &Self) -> DynamicViscosity { /* ... */ }
+  ```
+  Dynamic viscosity, `3.674e-7 T^0.7` Pa s.
+
+- ```rust
+  pub fn thermal_conductivity(self: &Self) -> ThermalConductivity { /* ... */ }
+  ```
+  Thermal conductivity,
+
+- ```rust
+  pub fn prandtl(self: &Self) -> Ratio { /* ... */ }
+  ```
+  Prandtl number `c_p eta / lambda`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `kta`
+
+# KTA 3102.2 heat transfer and KTA 3102.3 pressure drop in a pebble bed
+
+Both as IAEA-TECDOC-1694 Table 2.10 gives them for the HTR-10 benchmark
+(proprietary tier; formulas and coefficients only, per D1). The KTA rules
+themselves (KTA-GS, German) are not in either literature repository.
+
+## KTA 3102.2 — pebble-surface heat transfer
+
+```text
+Nu = 1.27 Pr^(1/3) Re^0.36 / eps^1.18 + 0.033 Pr^(1/2) Re^0.86 / eps^1.07
+alpha = Nu lambda / d,     Re = (mdot/A) d / eta,     Q = alpha A_K (T_K - T_G)
+```
+
+`A` is the empty-bed flow area, so `mdot/A` is the **superficial** mass
+flux and `Re` the superficial Reynolds number (not divided by `1 - eps`).
+`A_K` is the surface of one pebble. Validity as printed: `100 <= Re <=
+1e5`, `0.36 <= eps <= 0.42`, bed-to-pebble diameter ratio `D/d >= 20`, bed
+height `H >= 4d`; deviation +/-20 % at 95 % confidence.
+[`kta_3102_2_nusselt`] evaluates the formula outside that window too (a
+natural-circulation transient passes through low `Re`) and
+[`kta_3102_2_in_validity_range`] tells the caller whether it is inside.
+
+## KTA 3102.3 — friction pressure drop
+
+```text
+dP/dH = psi (1 - eps)/eps^3 (1/d) (1/(2 rho)) (mdot/A)^2
+psi   = 320/(Re/(1 - eps)) + 6/(Re/(1 - eps))^0.1
+```
+
+Validity as printed: `1 < Re/(1 - eps) <= 1e5`, `0.36 <= eps <= 0.42`,
+`H > 5d`. **This is the one copy of the friction factor in the
+`tampines` lineage.** It moved here from `tampines::gas_phase::kta_bed` on
+2026-11-03 (gh:#1148); `tampines::gas_phase::KtaBed` now calls it. The
+`outram-park-digital-twin-engine` crate's `htr10::kta` still carries its
+own copy (not touched here; it is a separate follow-up). Re-read against
+the rendered Table 2.10 on 2026-11-03: the coefficients `320`, `6` and
+the `0.1` exponent are those the VTB generic pebble-bed tutorial uses,
+so the earlier "not checked against the standard" note in `kta_bed` is
+now answered for the benchmark's printing of it.
+
+```rust
+pub mod kta { /* ... */ }
+```
+
+### Types
+
+#### Type Alias `PressureGradient`
+
+Pressure gradient, Pa/m. `uom` has no named alias for it.
+
+```rust
+pub type PressureGradient = uom::si::Quantity<uom::si::ISQ<uom::typenum::N2, uom::typenum::P1, uom::typenum::N2, uom::typenum::Z0, uom::typenum::Z0, uom::typenum::Z0, uom::typenum::Z0>, uom::si::SI<f64>, f64>;
+```
+
+### Functions
+
+#### Function `kta_3102_2_nusselt`
+
+KTA 3102.2 Nusselt number of a pebble surface (TECDOC-1694 Tab. 2.10),
+from the superficial Reynolds number `reynolds`, the gas Prandtl number
+and the bed porosity.
+
+Errors with [`HtgrClosureError::InvalidInput`] for a non-positive `Re` or
+`Pr`, or a porosity outside (0, 1). It does **not** error outside the
+printed validity window; check [`kta_3102_2_in_validity_range`].
+
+```rust
+pub fn kta_3102_2_nusselt(reynolds: uom::si::f64::Ratio, prandtl: uom::si::f64::Ratio, porosity: uom::si::f64::Ratio) -> Result<uom::si::f64::Ratio, super::HtgrClosureError> { /* ... */ }
+```
+
+#### Function `kta_3102_2_in_validity_range`
+
+Whether `(Re, eps)` lies inside the KTA 3102.2 window printed in
+TECDOC-1694 Tab. 2.10: `100 <= Re <= 1e5` and `0.36 <= eps <= 0.42`.
+(The geometric conditions `D/d >= 20`, `H >= 4d` are the caller's.)
+
+```rust
+pub fn kta_3102_2_in_validity_range(reynolds: uom::si::f64::Ratio, porosity: uom::si::f64::Ratio) -> bool { /* ... */ }
+```
+
+#### Function `kta_3102_2_heat_transfer_coefficient`
+
+Pebble-surface heat-transfer coefficient `alpha = Nu lambda / d` from
+KTA 3102.2, with `Re = G d / eta` formed from the superficial mass flux.
+
+The gas properties are the caller's: [`super::KtaHelium`] for the
+benchmark's own fits, or CoolProp. Errors as [`kta_3102_2_nusselt`], and
+for non-positive diameter, viscosity or conductivity.
+
+```rust
+pub fn kta_3102_2_heat_transfer_coefficient(mass_flux: MassFlux, pebble_diameter: uom::si::f64::Length, porosity: uom::si::f64::Ratio, viscosity: uom::si::f64::DynamicViscosity, conductivity: uom::si::f64::ThermalConductivity, prandtl: uom::si::f64::Ratio) -> Result<uom::si::f64::HeatTransfer, super::HtgrClosureError> { /* ... */ }
+```
+
+#### Function `kta_3102_3_friction_factor`
+
+KTA 3102.3 friction factor `psi = 320/Re_m + 6/Re_m^0.1`,
+`Re_m = Re/(1 - eps)`, from the **superficial** Reynolds number (the
+`1/(1 - eps)` is applied here; do not pre-divide).
+
+Errors with [`HtgrClosureError::InvalidInput`] for a porosity outside
+(0, 1) or a non-positive or non-finite Reynolds number.
+
+```rust
+pub fn kta_3102_3_friction_factor(reynolds: uom::si::f64::Ratio, porosity: uom::si::f64::Ratio) -> Result<uom::si::f64::Ratio, super::HtgrClosureError> { /* ... */ }
+```
+
+#### Function `kta_3102_3_pressure_gradient`
+
+KTA 3102.3 pressure-drop magnitude per unit bed height, Pa/m (positive),
+`psi (1 - eps)/eps^3 G^2 / (2 d rho)`, with `Re = G d / eta`.
+
+Errors as [`kta_3102_3_friction_factor`], and for a non-positive
+diameter, density or viscosity.
+
+```rust
+pub fn kta_3102_3_pressure_gradient(mass_flux: MassFlux, pebble_diameter: uom::si::f64::Length, porosity: uom::si::f64::Ratio, density: uom::si::f64::MassDensity, viscosity: uom::si::f64::DynamicViscosity) -> Result<PressureGradient, super::HtgrClosureError> { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `MassFlux`
+
+Mass flux `G = mdot / A`, kg/(m^2 s): `uom`'s own quantity, re-exported.
+
+```rust
+pub use uom::si::f64::MassFlux;
+```
+
+## Module `structural_materials`
+
+# Conductivity of the HTR-10 solids (IAEA-TECDOC-1694 Tab. 2.9-2.12, Fig. 2.8)
+
+The benchmark's recommended conductivities for the solids of the HTR-10
+reactor unit. Proprietary tier: coefficients and formulas only, each
+cited to its table (maintainer decision D1). `T` is in deg C, the fast
+fluence `D` in units of 1e21 per cm^2 (the table writes only
+"dosage of fast neutrons [10^21]"; per cm^2 is the German convention it
+follows, and the energy threshold is not stated — **Uncertain**).
+
+| Variant | Formula as printed, W/(cm K) | Source, stated range |
+|---|---|---|
+| `FuelElement` | `((-0.3906e-4 T + 0.06829)/(D + 1.931e-4 T + 0.105) + 1.228e-4 T + 0.042) * 1.2768`; `T` held at 450 below 450; `D` held at 2.5 above 2.5 | Tab. 2.9; 450-1300 deg C |
+| `SideReflector` | `1.15 (1.5648 - 0.3162 log10(T + 100)) F`, `F = F1/(Y - F2) + F3`, `Y = D/10`, `F1 = -0.0054705 + 0.00038214 x + 0.13487 x^2`, `F2 = -0.013951 + 0.12064 x - 0.32955 x^2`, `F3 = -0.07264 + 0.41459 x + 0.23149 x^2`, `x = T/1000` | Tab. 2.11; 0-2000 deg C |
+| `TopBottomReflector` | `1.15 (1 - 1.084 x + 0.743 x^2 - 0.213 x^3)`, `x = T/1000` | Tab. 2.11; up to 1700 deg C |
+| `CarbonBrick` | `0.05 + 0.03e-3 T` | Tab. 2.12; up to 1000 deg C |
+| `Steel(..)` | digitised from Fig. 2.8 (no formula is printed) | Fig. 2.8 |
+
+## Two things a reader must know
+
+**The side-reflector `log` is read as log10.** The table writes `log`.
+With the natural log, `1.5648 - 0.3162 ln(T + 100)` is negative above
+40 deg C, so the conductivity would be negative over the whole operating
+range. With log10 the unirradiated value is 104 W/(m K) at 20 deg C, close
+to the top/bottom-reflector fit's 113 W/(m K). That inference is
+**Uncertain** and flagged for the maintainer.
+
+**The side-reflector fit breaks down below about 300 deg C, despite its
+stated 0-2000 deg C range.** At zero fluence the factor `F` should be
+about 1 (unirradiated graphite). Measured from the printed coefficients
+(test `side_reflector_dose_factor_table`): `F` = 0.987 at 300 deg C,
+0.982 at 500, 1.000 at 700 and 1.156 at 1000 deg C, but **0.742 at
+250 deg C, 0.020 at 200 deg C and -0.528 at 20 deg C** — `F2` changes sign
+near 130 deg C, so `F1/(Y - F2)` has a pole there. A negative or
+near-zero conductivity is not graphite. This module therefore refuses the
+side-reflector fit below 300 deg C with [`HtgrClosureError::Unphysical`]
+rather than return those numbers. The 300 deg C cut-off is this module's
+choice, made from the table above, not a value in the source. The HTR-10
+side reflector sees about 250 deg C at the cold inlet, so a model that
+needs it there must make an explicit choice (for example the
+top/bottom-reflector fit, which is unirradiated). **Flagged for the
+maintainer.**
+
+## Steels (Fig. 2.8) — digitised, **Uncertain**
+
+The benchmark gives steel conductivity only as a figure, two curves:
+"SA240, SS316, core barrel" (solid) and "SA508, SA516-70, RPV" (dashed).
+The brief also named SA387-11; **it does not appear in Fig. 2.8**, so no
+curve is given for it.
+
+*Digitisation protocol (2026-11-03).* Page 29 of the PDF (printed page 18)
+was rendered at 600 dpi with `pdftoppm`. The plot frame and tick marks were
+located from pixel rows and columns: x ticks every 470.4 px per 200 K
+(frame 0 K at column 27, 1200 K at 2849.6); y ticks every 162.5 px per
+5 W/(m K) (0 at row 1205.5; the 45 W/(m K) frame edge falls at 45.02,
+a calibration check). Solid-curve pixels (all channels < 100) and
+dashed-curve pixels (blue exceeding red and green by 60) were averaged per
+column and then over a +/-5 K window at each tabulated temperature. One
+pixel is 0.03 W/(m K) vertically and 0.43 K horizontally; the line is
+about 0.1 W/(m K) thick. The figure itself is coarse, so the read values
+are taken to be good to about +/-0.3 W/(m K). Between points this module
+interpolates linearly, and it refuses temperatures outside the drawn span
+(no extrapolation).
+
+```rust
+pub mod structural_materials { /* ... */ }
+```
+
+### Types
+
+#### Enum `SteelComponent`
+
+The two steel curves of IAEA-TECDOC-1694 Fig. 2.8.
+
+```rust
+pub enum SteelComponent {
+    CoreBarrelSa240Ss316,
+    RpvSa508Sa516_70,
+}
+```
+
+##### Variants
+
+###### `CoreBarrelSa240Ss316`
+
+Solid curve, "SA240, SS316, core barrel".
+
+###### `RpvSa508Sa516_70`
+
+Dashed curve, "SA508, SA516-70, RPV".
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn digitised_points(self: &Self) -> &'static [(f64, f64)] { /* ... */ }
+  ```
+  The digitised `(T [K], k [W/(m K)])` points of this curve (see the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `StructuralMaterial`
+
+A solid of the HTR-10 reactor unit whose conductivity IAEA-TECDOC-1694
+recommends. See the module docs for each formula, its table and its range.
+
+```rust
+pub enum StructuralMaterial {
+    FuelElement {
+        fast_fluence: uom::si::f64::ArealNumberDensity,
+    },
+    SideReflector {
+        fast_fluence: uom::si::f64::ArealNumberDensity,
+    },
+    TopBottomReflector,
+    CarbonBrick,
+    Steel(SteelComponent),
+}
+```
+
+##### Variants
+
+###### `FuelElement`
+
+Fuel-element (pebble) graphite matrix, Tab. 2.9, irradiation-dependent.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `fast_fluence` | `uom::si::f64::ArealNumberDensity` | Fast-neutron fluence, per cm^2. The table's `DOSIS` is this<br>divided by 1e21, held at 2.5 above 2.5. |
+
+###### `SideReflector`
+
+Side-reflector graphite, Tab. 2.11, irradiation-dependent. Refused
+below 300 deg C (see the module docs).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `fast_fluence` | `uom::si::f64::ArealNumberDensity` | Fast-neutron fluence, per cm^2 (`D` is this divided by 1e21). |
+
+###### `TopBottomReflector`
+
+Top and bottom reflector graphite, Tab. 2.11, unirradiated.
+
+###### `CarbonBrick`
+
+Carbon brick, Tab. 2.12.
+
+###### `Steel`
+
+A steel from Fig. 2.8, digitised (**Uncertain**).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `SteelComponent` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn side_reflector_dose_factor(t_celsius: f64, dose_1e21: f64) -> f64 { /* ... */ }
+  ```
+  The side-reflector dose factor `F = F1/(Y - F2) + F3` of Tab. 2.11,
+
+- ```rust
+  pub fn thermal_conductivity(self: &Self, temperature: ThermodynamicTemperature) -> Result<ThermalConductivity, HtgrClosureError> { /* ... */ }
+  ```
+  Thermal conductivity at `temperature`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `zbs`
+
+# Zehner-Bauer-Schlunder (ZBS) pebble-bed effective thermal conductivity
+
+**Moved here from `tampines::pebble_bed::zbs` on 2026-11-03 (gh:#1148,
+maintainer decision D2: pebble-bed closures live in
+`outram-foam-appbuilder-lib`, where both `tampines` and the 2-D
+outram-foam work can reach them).** This is the one copy;
+`tampines::pebble_bed::zbs` re-exports it. The code and tests moved
+unchanged apart from the error type
+([`HtgrClosureError`] in place of `TampinesError`).
+
+**Not the physics default.** Since 2026-11-03 (maintainer decision D3)
+the default bed conductivity is the Breitbach correlation the
+IAEA-TECDOC-1694 HTR-10 benchmark specifies
+([`super::bed_conductivity::BedConductivityModel::Breitbach`]). ZBS is
+kept as a labelled comparison variant
+([`super::bed_conductivity::BedConductivityModel::Zbs`]).
+
+Analytic effective thermal conductivity of a packed bed of spheres,
+summing four heat-transfer paths through a unit cell:
+
+- conduction through the stagnant gas filling the voids,
+- conduction through the touching solid spheres,
+- conduction through the finite flattened *contact areas* between
+  spheres (the `phi` term), and
+- thermal radiation between sphere surfaces (the `k_r` term, growing as
+  `T^3` — the dominant decay-heat path at loss-of-forced-cooling
+  temperatures; never drop it).
+
+## Homogenisation assumption
+
+Everything here treats the bed as a **homogeneous effective medium**: a
+single scalar conductivity that a continuum energy equation may use in
+place of resolving individual pebbles, voids and contact points. The
+correlation returns a volume-averaged quantity, so it says nothing about
+the pebble-scale temperature field — local peaking at contact points,
+the pebble-interior radial profile (that is `tampines::pebble_bed::pebble`'s job) and
+the near-wall channelling of a real bed are all averaged out. It is also
+**isotropic and stagnant**: no directional dependence, and no
+convective enhancement from through-flow.
+
+## Formulation and provenance
+
+The correlation is Bauer & Schlunder's (1978) extension of the
+Zehner-Schlunder (1970) unit-cell model, in the dimensionless form given
+in the review of van Antwerpen, du Toit & Rousseau, *Nucl. Eng. Des.*
+240 (2010) 1803-1818 (**proprietary tier** — cited and implemented from,
+not reproduced at length) and presented for gas-cooled reactors in
+IAEA-TECDOC-1163 (**Open tier**). With the Knudsen (Smoluchowski) factor
+set to one — valid for helium at reactor pressures, where the molecular
+mean free path (tens of nanometres) is vanishingly small against a 6 cm
+pebble — the equations are, with `eps` the porosity, `kappa = k_s/k_f`,
+`d` the pebble diameter, `e_r` the surface emissivity and `sigma` the
+Stefan-Boltzmann constant:
+
+```text
+B    = C * ((1 - eps)/eps)^(10/9)                    (deformation factor)
+k_r  = 4*sigma*T^3*d / ((2/e_r - 1) * k_f)           (radiation ratio)
+N    = 1 + (k_r - B)/kappa
+k_c  = (2/N) * [ B*(kappa + k_r - 1)/(N^2 * kappa) * ln((kappa + k_r)/B)
+                 + (B + 1)/(2B) * (k_r - B)
+                 - (B - 1)/N ]
+k_eff/k_f = (1 - sqrt(1-eps)) * (1 + eps*k_r)
+            + sqrt(1-eps) * ( phi*kappa + (1 - phi)*k_c )
+```
+
+`C = 1.25` is the sphere shape factor and `phi = 0.0077` the standard
+contact-area fraction, both from Bauer & Schlunder as quoted in the van
+Antwerpen review. At `k_r = 0` the unit-cell term `k_c` reduces exactly
+to the classic Zehner-Schlunder stagnant-bed form — a limit the test
+`tests::zero_radiation_degenerates_to_the_classic_zehner_schlunder_form`
+exercises. (The `tests` module is `#[cfg(test)]`, so the test names
+quoted throughout these docs are code spans rather than doc links —
+rustdoc cannot resolve into a test-only module.)
+
+## Verification status (measured 2026-08-11)
+
+**Transcription caveat (honesty per `RESPONSIBLE_USE.md`).** The
+dimensionless form above was implemented without page-level access to
+the printed originals. The analytic-limit checks in `tests` were
+written and **run** on 2026-08-11; their measured outcomes are:
+
+- **Uniform-medium collapse** (`k_s = k_f` must give `k_eff = k_f`) is
+  *exact* where the unit cell is defined — maximum relative deviation
+  `4.4e-16`, i.e. f64 roundoff, over porosities 0.6 and 0.8 at
+  `k = 0.15`, `1.0` and `26.0` W/(m K). It is **not** defined at the
+  HTR-10 porosity: `kappa = 1` requires `B < 1`, which for `C = 1.25`
+  needs `eps` above about 0.55, and at `eps = 0.39` (`B = 2.0548`) the
+  correlation correctly returns [`HtgrClosureError::Unphysical`] instead
+  of a number. An earlier revision of these docs claimed this check
+  passed unconditionally; it does not, and the qualifier above is the
+  measured behaviour.
+- **Zehner-Schlunder degeneration** at `k_r -> 0`: agrees with the
+  classic closed form to `1.398e-16` relative. This is an *algebraic*
+  cross-check — the same published expression regrouped — so it
+  verifies the limit and the arithmetic, **not** the transcription of
+  the source equations.
+- **Wiener bounds**: the conduction-only result lies strictly between
+  the series and parallel bounds over a 27-point `(eps, k_s, k_f)`
+  grid; the tightest margins measured were `k_eff/k_series = 2.3754`
+  and `k_eff/k_parallel = 0.3721`. Radiation legitimately pushes the
+  *full* result above the conduction-only parallel bound at high
+  temperature (28.9649 vs 16.0896 W/(m K) at 2000 K), so the bound
+  check deliberately covers the conduction-only regime.
+- **Radiation monotonicity and `d`-scaling**: at fixed `k_f`, `k_eff`
+  rises strictly monotonically over 1701 samples from 300 K to 2000 K
+  (2.1132 to 28.6049 W/(m K)), and `k_r` is proportional to `d` to
+  f64 exactness (measured deviation 0.0 on doubling and halving).
+
+A human should still verify the transcription against van Antwerpen et
+al. (2010) eqs. (12)-(16) before this module is promoted past Prototype
+in the V&V pipeline. **Nothing here is validated** — no comparison
+against measurement has been made, and the one reference tabulation
+available is *not* reproduced (next section).
+
+## The VTB 18-point table is NOT reproduced — measured finding
+
+The Virtual Test Bed generic pebble-bed deck
+(`reference-data/virtual_test_bed/htgr/generic-pbr/pbr.i`, block
+`keff_pebble_bed`, Open tier) carries an 18-point `k_eff` tabulation
+(300-2000 K, 11.940293-44.9504677 W/(m K)) described there as
+"calculated from the ZBS correlation". This implementation, evaluated at
+that deck's own stated inputs (eps = 0.39, d = 0.06 m, e_r = 0.8,
+graphite k_s = 26 W/(m K), helium at 6 MPa — all four read back out of
+the deck on 2026-08-11), does **not** reproduce it. Measured on
+2026-08-11: the model lies **below the table at all 18 points**, by a
+factor of **5.65** at 300 K (2.1126 vs 11.9403 W/(m K), the worst
+point) narrowing to **1.55** at 2000 K (28.9649 vs 44.9505 W/(m K), the
+best point); the model/table ratio rises monotonically from 0.17693 to
+0.64437.
+
+**UPDATED 2026-11-03 (gh:#1148, `op-jvua`) — two findings that change how
+the gap reads.** (1) The VTB `keff_pebble_bed` function is **defined but
+never referenced** in `pbr.i`: a grep of the deck for `keff_pebble_bed`
+returns only the definition at line 445. So ~~"the table remains a
+faithful transcription of what the VTB/SAM models *ran with*"~~ is
+**CORRECTED**: the deck did not run with it. (2) Read as a
+**dimensionless ratio `k_eff/k_f`** rather than W/(m K), the table tracks
+this implementation to within 6-11 % over the whole 300-2000 K range:
+`model / (table * k_f,coolprop)` = 1.106 at 300 K, 1.062 at 1000 K and
+1.095 at 2000 K (1.131 / 1.060 / 1.088 with the KTA 3102.1 helium fit at
+60 bar), against the 5.65x-to-1.55x spread when read as W/(m K). The
+remaining 6-13 % is not explained (a ZBS variant, the contact term, or a
+different helium model are candidates). This is a **hypothesis the
+numbers support, not a demonstrated provenance** — the deck says nothing
+about the table's units. (3) Independently of the table, the two
+**laboratory-data fits** for 6 cm graphite pebble beds — the TECDOC-1694
+Breitbach fit and Kugeler et al. (2017, open) eq. (108) — sit at 1.95 and
+1.54 W/(m K) at 300 K, and 8.16 and 8.22 W/(m K) at 1000 K. This analytic
+ZBS is above both (by 32-107 % against Breitbach over 523-1273 K with
+the benchmark's helium and unirradiated matrix), but the VTB table read as
+W/(m K) is far further above them: 6.1x Breitbach at 300 K and 3.3x at
+1000 K. The measured comparison is `super::bed_conductivity`'s test
+`breitbach_vs_zbs_over_the_htr10_range`. On this evidence the VTB table,
+as W/(m K), is the outlier against the laboratory data; the analytic ZBS
+is the closer of the two, though still high.
+
+The gap is not a tuning matter. Solving this implementation for the pore
+conductivity that *would* land on the table's 300 K value gives
+**k_f = 3.8367 W/(m K)** — **24.0 times** the 0.15992 W/(m K) that
+`outram-park-fork-coolprop` gives for helium at 300 K and 6 MPa — and no
+gas has such a conductivity. (An earlier revision of these docs also
+appealed to "order 1-2 W/(m K) at ambient in SANA/HTTU-class
+experiments". That is an **uncited recollection**, not checked against a
+source here; it is retained only as a hypothesis for the human reviewer,
+and none of the measured numbers above depend on it.) The full
+quantitative comparison is pinned in
+`tests::vtb_table_is_not_reproduced_by_zbs_with_helium`, and the
+finding is tracked as `op-jvua` (historical id) under gh:#1148.
+~~The table remains a faithful transcription of what the VTB/SAM models
+*ran with*;~~ **CORRECTED 2026-11-03**: the table is a faithful
+transcription of a function the deck *defines but never uses* (see the
+update above); whether it is what ZBS *produces* is the question that
+test documents.
+
+## Near-wall region
+
+Bed voidage rises toward a containing wall, which locally changes the
+effective conductivity. [`ZbsBed::wall_region_porosity`] provides an
+exponential bulk-to-wall porosity profile so callers can evaluate the
+correlation with the local voidage; its coefficients are flagged
+provisional in its own doc comment.
+
+**Belongs here:** the ZBS correlation and its unit tests. **Does not
+belong here:** graphite property data (`tuas_boussinesq_solver`'s
+solid database, and [`super::structural_materials`]), pressure drop
+([`super::kta`]), pebble-internal conduction
+(`tampines::pebble_bed::pebble`), and the choice of bed-conductivity
+model ([`super::bed_conductivity::BedConductivityModel`], whose
+physics default is Breitbach, not this correlation).
+
+```rust
+pub mod zbs { /* ... */ }
+```
+
+### Types
+
+#### Struct `ZbsBed`
+
+A packed bed of monosized spheres, described by the four geometric and
+surface parameters the Zehner-Bauer-Schlunder correlation needs. Plain
+data; the physics lives in [`ZbsBed::effective_conductivity`].
+
+Construct with [`ZbsBed::new`] (standard contact/shape factors) or
+[`ZbsBed::htr10`] (the cited HTR-10 bed).
+
+```rust
+pub struct ZbsBed {
+    pub porosity: uom::si::f64::Ratio,
+    pub pebble_diameter: uom::si::f64::Length,
+    pub emissivity: uom::si::f64::Ratio,
+    pub contact_area_fraction: uom::si::f64::Ratio,
+    pub shape_factor_c: uom::si::f64::Ratio,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `porosity` | `uom::si::f64::Ratio` | Bed porosity (void fraction), dimensionless, strictly between 0<br>and 1. Random close-packed sphere beds sit near 0.36-0.42; the<br>HTR-10 bed is 0.39 (filling fraction 0.61, IAEA HTGR benchmark<br>document, Open tier). |
+| `pebble_diameter` | `uom::si::f64::Length` | Pebble (sphere) diameter, metres. Sets the radiation length scale:<br>the `4 sigma T^3 d` radiation conductivity is proportional to it.<br>HTR-10: 0.06 m. |
+| `emissivity` | `uom::si::f64::Ratio` | Total hemispherical surface emissivity of the spheres,<br>dimensionless in (0, 1]. Graphite in the pebble-bed literature is<br>taken as 0.8 (NEA PBMR-400 benchmark assumption, as quoted in the<br>VTB generic pebble-bed deck, Open tier). |
+| `contact_area_fraction` | `uom::si::f64::Ratio` | Flattened contact-area fraction `phi` of the unit cell,<br>dimensionless. Standard value 0.0077 for spheres (Bauer &<br>Schlunder, as quoted in the van Antwerpen 2010 review). Governs the<br>solid-solid contact conduction path, which matters most when the<br>gas conducts poorly (vacuum/depressurised accident conditions). |
+| `shape_factor_c` | `uom::si::f64::Ratio` | Sphere deformation/shape factor coefficient `C` in<br>`B = C ((1-eps)/eps)^(10/9)`, dimensionless. 1.25 for spheres<br>(Zehner & Schlunder 1970). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(porosity: Ratio, pebble_diameter: Length, emissivity: Ratio) -> Self { /* ... */ }
+  ```
+  A ZBS bed with the standard sphere constants (`phi` = 0.0077,
+
+- ```rust
+  pub fn htr10() -> Self { /* ... */ }
+  ```
+  The HTR-10 pebble bed: porosity 0.39 and pebble diameter 6.0 cm from
+
+- ```rust
+  pub fn deformation_factor(self: &Self) -> Ratio { /* ... */ }
+  ```
+  Deformation factor `B = C ((1-eps)/eps)^(10/9)`, dimensionless.
+
+- ```rust
+  pub fn radiation_ratio(self: &Self, fluid_conductivity: ThermalConductivity, temperature: ThermodynamicTemperature) -> Ratio { /* ... */ }
+  ```
+  Dimensionless radiation-to-fluid-conduction ratio
+
+- ```rust
+  pub fn effective_conductivity(self: &Self, solid_conductivity: ThermalConductivity, fluid_conductivity: ThermalConductivity, temperature: ThermodynamicTemperature) -> Result<ThermalConductivity, HtgrClosureError> { /* ... */ }
+  ```
+  Effective bed thermal conductivity, W/(m K), from the full ZBS
+
+- ```rust
+  pub fn stagnant_conductivity(self: &Self, solid_conductivity: ThermalConductivity, fluid_conductivity: ThermalConductivity) -> Result<ThermalConductivity, HtgrClosureError> { /* ... */ }
+  ```
+  Stagnant-bed conductivity: the ZBS evaluation with the radiation
+
+- ```rust
+  pub fn wall_region_porosity(self: &Self, distance_from_wall: Length) -> Ratio { /* ... */ }
+  ```
+  Local porosity a distance `y` from a containing wall, rising from
+
+- ```rust
+  pub fn with_porosity(self: &Self, porosity: Ratio) -> Self { /* ... */ }
+  ```
+  A copy of this bed with a different porosity — the intended way to
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Types
+
+#### Enum `HtgrClosureError`
+
+Errors from the HTGR closures.
+
+A closure never clamps a bad input into range silently. It reports it, so a
+caller cannot get a plausible-looking number from a state the correlation
+does not describe.
+
+```rust
+pub enum HtgrClosureError {
+    InvalidInput(String),
+    Unphysical(String),
+    Numerical(String),
+}
+```
+
+##### Variants
+
+###### `InvalidInput`
+
+A caller-supplied input is outside the correlation's domain (a
+non-positive conductivity or temperature, a porosity outside (0, 1),
+a negative fluence). Caught before any physics runs.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Unphysical`
+
+The correlation left the region where it is physical: a unit-cell
+denominator crossed zero, or a printed fit returned a non-positive
+conductivity.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Numerical`
+
+Arithmetic produced a non-finite result.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Re-exports
+
+#### Re-export `BedConductivityModel`
+
+```rust
+pub use bed_conductivity::BedConductivityModel;
+```
+
+#### Re-export `BedState`
+
+```rust
+pub use bed_conductivity::BedState;
+```
+
+#### Re-export `KtaHelium`
+
+```rust
+pub use helium::KtaHelium;
+```
+
+#### Re-export `kta_3102_2_nusselt`
+
+```rust
+pub use kta::kta_3102_2_nusselt;
+```
+
+#### Re-export `kta_3102_3_friction_factor`
+
+```rust
+pub use kta::kta_3102_3_friction_factor;
+```
+
+#### Re-export `kta_3102_3_pressure_gradient`
+
+```rust
+pub use kta::kta_3102_3_pressure_gradient;
+```
+
+#### Re-export `MassFlux`
+
+```rust
+pub use kta::MassFlux;
+```
+
+#### Re-export `PressureGradient`
+
+```rust
+pub use kta::PressureGradient;
+```
+
+#### Re-export `SteelComponent`
+
+```rust
+pub use structural_materials::SteelComponent;
+```
+
+#### Re-export `StructuralMaterial`
+
+```rust
+pub use structural_materials::StructuralMaterial;
+```
+
+#### Re-export `ZbsBed`
+
+```rust
+pub use zbs::ZbsBed;
+```
+
+## Module `htr10_rz`
+
+The HTR-10 R-Z solid conduction and radiation model (original work,
+gh:#1149 part B): the TECDOC-1694 44-region THERMIX-style model built from
+the cited input sheet on the solid conduction field, with the
+[`htgr_closures`] properties. See [`htr10_rz`].
+# `htr10_rz` — the HTR-10 R-Z solid conduction and radiation model
+
+**Original work (gh:#1149 part B, epic #1146), not a GeN-Foam port.** It
+assembles the INET THERMIX-style R-Z model of IAEA-TECDOC-1694 Sec 2.2.1.2
+(44 homogenised regions, Tab 2.4, Fig 2.5) on the part-A solid conduction
+field ([`crate::genfoam::thermal_hydraulics::solid_conduction`]), with the
+gh:#1148 closures ([`crate::htgr_closures`]) for every property.
+
+Maintainer decisions (2026-11-03): D1 proprietary numbers carry their
+table; D2 this lives in outram-foam and the geometry enters as a cited
+mesh-builder input ([`geometry`]); D3 Breitbach is the default bed
+conductivity, ZBS a comparison; D4 the benchmark specification is the
+base, alternatives are named sensitivity cases; D5 known flaws are
+carried openly.
+
+| Module | What |
+|---|---|
+| [`geometry`] | Fig 2.5 mesh lines, the 30 model regions (Tab 2.4 numbers), the cited region rectangles with their confidence |
+| [`materials`] | homogenised `lambda(T)`, `rho c(T)` from the closures; gas cavities with radiation; the holds outside closure ranges |
+| [`power_map`] | the FPIC Tab 2.6 power map, volume-exact onto any mesh |
+| [`model`] | boundaries (RCCS at 50 deg C), the two gh:#1149 (a) cases, solve, report |
+| [`flow`] | gh:#1150: KONVEK-like R-Z porous helium flow over the Tab 2.5 flow regions with the bypass paths, and the gas energy equation |
+| [`pebble`] | gh:#1150: pebble-internal temperatures, the GeN-Foam pebble port adapted to the HTR-10 pebble |
+| [`fpic`] | gh:#1150: the FPIC full-power case, solid and gas coupled by outer iteration, and the 22 thermocouples |
+| [`transient`] | gh:#1151 part B: the core in time (backward-Euler solid, quasi-steady gas with buoyancy, lagged fuel zones); the power is an input |
+
+~~**Solid only.** There is no gas flow here (that is gh:#1150); the gas
+side enters as a held temperature or as stagnant cavities.~~
+**CORRECTED 2026-11-03 (gh:#1150):** the gas flow is [`flow`], coupled
+in [`fpic`]; the gh:#1149 cases above remain solid-only (stagnant).
+**V&V record of the coupled case:**
+`verification_and_validation/htr10_rz_flow_fpic/README.md`.
+
+**V&V record:** `verification_and_validation/htr10_rz_solid/README.md`
+(methodology, the predictions written before the runs, results, the
+drawings, mesh convergence, sensitivities).
+
+Status: untrusted AI-generated draft (2026-11-03) per `RESPONSIBLE_USE.md`.
+For research, education and V&V only; not for reactor operation,
+licensing or any safety-critical use. Every region extent is
+**Uncertain** (read from a figure by the input sheet).
+
+```rust
+pub mod htr10_rz { /* ... */ }
+```
+
+### Modules
+
+## Module `flow`
+
+KONVEK-like quasi-steady R-Z porous helium flow over the HTR-10 flow
+regions (TECDOC-1694 Sec 2.2.1.2, Tab 2.5, Fig 2.6), and the gas energy
+equation that couples it to the solid field (gh:#1150).
+
+**Original work, not a port.** It is built on the part-A
+[`RzMesh`](crate::genfoam::thermal_hydraulics::solid_conduction::RzMesh)
+of the gh:#1149 solid model, cell for cell: every gas cell is a solid
+cell, so the gas-solid exchange needs no interpolation.
+
+## Why not the GeN-Foam `onePhase` solver
+
+`genfoam::thermal_hydraulics::solver::OnePhaseSolver` was checked first
+(search-before-building). It does not fit this case, for three stated
+reasons: (1) it runs with **constant** `rho`, `mu`, `c_p` (its module
+docs, "Honest scope"), while the helium density here halves between the
+250 deg C inlet and the 750 deg C bed outlet, and the KTA resistance
+depends on both `rho` and `mu`; (2) its drag `Kd` is isotropic, while the
+reflector borings, risers and control-rod channels carry axial flow only;
+(3) it is a transient PIMPLE march, which would have to be driven to a
+steady state through throttles of void fraction 0.0024. The steady,
+inertia-free porous momentum balance THERMIX/KONVEK solves is a pressure
+equation, which is what this module assembles.
+
+## Equations
+
+**Momentum** (Darcy-Forchheimer, inertia and viscous diffusion dropped,
+as in a porous-medium network code), with `G` the superficial mass flux,
+`z` TECDOC's downward axis and gravity `+z`:
+
+```text
+  -grad p + rho g e_z = R(|G|, rho, mu) G        (per direction; R = infinity
+                                                  radially in channel regions)
+  div G = 0                                       (steady mass)
+```
+
+- **Pebble bed** (Tab 2.5 regions 1): KTA 3102.3 (TECDOC-1694 Tab 2.10,
+  [`kta_3102_3_pressure_gradient`]), `R = (dp/dH)/|G|`, isotropic.
+- **Channel regions** (risers, control-rod channels, reflector borings,
+  throttles, leak gaps): straight vertical channels of hydraulic
+  diameter `D_h` holding the Tab 2.5 void `eps`; channel mass flux
+  `G/eps`; Darcy friction factor from the ported GeN-Foam Churchill (1977)
+  correlation ([`FsWallFriction::Churchill`], smooth), so
+  `R_z = f |G| / (2 rho eps^2 D_h)`; no radial flow.
+- **Open volumes** (plena, cavities, the annulus): isotropic, the same
+  Churchill friction on a wide slot of hydraulic diameter `2 w` (`w` the
+  volume's width), `R = f |G| / (2 rho D_h)`. Its resistance is small
+  against the bed's; it lets pressure equalise across a plenum.
+  ~~The plane-Poiseuille laminar slot resistance `R = 12 mu/(rho w^2)`~~
+  **REPLACED 2026-11-03 before any result was recorded:** with that
+  laminar lower bound (about 20 times below the turbulent value at the
+  hot plenum's `Re ~ 1e5`), buoyancy between the 250 deg C leakage and
+  the 750 deg C core gas drove a circulation in the hot plenum that
+  flipped from one outer pass to the next, and the coupled solve fell
+  into a 15-pass limit cycle of +/-300 K (the V&V README records it).
+
+**No buoyancy in the open volumes.** On a face that touches an open
+volume the gravity term is dropped. A plenum is a turbulent mixing
+volume that a Darcy model with buoyancy does not represent. With the
+term kept, the 250 deg C leakage entering the hot plenum below the
+750 deg C core gas set up a Rayleigh-Darcy circulation. That circulation
+had no steady state: the outer iteration wandered by about 100 K in the
+plenum for 400 passes, under both the laminar and the turbulent slot
+resistance and with 0.5 under-relaxation (2026-11-03, before any result
+was recorded; the V&V README keeps the record). TECDOC-1694
+Sec 2.1.1.3 describes the hot plenum as where the streams **mix** to the
+700 deg C mean. Buoyancy stays on in the bed and in the channels.
+
+Face mass flow `F = T_f [(p_a - p_b) + rho_f g (z_b - z_a)]` with the
+series transmissibility `T_f = A_f / (d_a R_a + d_b R_b)`. The pressure
+equation is symmetric positive definite and is solved by DIC-CG
+(`outram_foam_basic_lib::ldu_matrix::conjugate_gradient`). `R` depends on
+`|G|` and on the gas temperature through `rho` and `mu`: Picard.
+
+**Gas energy** (steady, upwind, axial gas conduction neglected at Peclet
+numbers of order 1e3): per gas cell or node
+
+```text
+  c_p (sum_out F T - sum_in F T_up) = h a_v V (T_s - T)
+```
+
+with `T_s` the solid temperature of the same cell, solved by an upwind
+(topologically ordered) sweep. The same `h a_v` enters the solid field
+implicitly through `SolidConductionField::set_cell_exchange`, so the two
+sides exchange exactly the same heat.
+
+- **Bed:** KTA 3102.2 (Tab 2.10), `a_v = 6 (1 - eps)/d`. `T_s` is the
+  pebble **surface** temperature (KTA's `T_K`); the pebble interior is
+  [`super::pebble`].
+- **Channels and open volumes:** Dittus-Boelter (1930),
+  `Nu = 0.023 Re^0.8 Pr^0.4`, floored at the laminar constant-wall value
+  3.66, both through the ported GeN-Foam
+  [`FsForcedConvectionHtc::Nusselt`]; `a_v = 4 eps / D_h` (for an open
+  volume of width `w`, `D_h = 2 w` and `a_v = 2/w`, the slot's two walls).
+  In an open volume the "solid" cell is the gh:#1149 THERMIX-style
+  cavity medium (gas conduction plus wall-to-wall radiation), so this
+  exchange stands for gas-to-wall convection. **Assumption**, stated.
+
+## Flow paths and the bypass split (TECDOC-1694 Sec 2.1.1.3; input sheet Sec 3.3, Sec 10)
+
+The inlet path is a 1-D chain of gas nodes over its cells, in flow order:
+entry (Tab 2.5 region 16, one mixed node) -> annulus (17, by row,
+downward) -> RPV bottom cavity (7, one mixed node) -> bottom annular path
+(8, by row, upward) -> rounding path (9, by column, outward) -> risers
+(10, by row, upward) -> top-reflector plenum (14, one mixed node; in this
+mesh the region-43 cells). The split is **imposed** (D5: never measured,
+never tuned) through [`BypassSplit`]:
+
+- the discharge-tube fraction leaves the bottom cavity node and enters the
+  2-D domain through the bottom face of the tube throttle (11);
+- the leakage fraction leaves after the rounding cells at `r < 50 cm`
+  and enters the 2-D domain through the bottom face of the leak zone
+  (19), reaching the hot plenum without cooling the core;
+- the control-rod and bed fractions leave the top plenum node into the
+  tops of the control-rod channels (13, `z > -65 cm`) and of the
+  top-reflector flow zone (18), each spread uniformly over its face area.
+
+The 2-D domain holds regions 18, 5, 1 (core, cone and discharge tube),
+11, 2, 15, 3, 4, 13, 12 and 19. Flow crosses a face between two regions
+only where the flow path connects them (see [`connected`]); the
+discharge-tube wall, for instance, is closed. The outlet is the hot
+plenum's outer face at `r = 90 cm` (the hot-gas duct), held at the
+reference pressure.
+
+**Simplifications, stated:** the duct from the riser tops to the top
+plenum exchanges no heat; the mixed nodes (entry, bottom cavity, top
+plenum) are well mixed; flow areas of the mixed nodes are their axial
+cross-sections; region 7 (r 0-210, z 507-657) is crossed by the whole
+flow as one node. The hydraulic diameters not in the input sheet are
+**Assumed** (see [`flow_region`]).
+
+```rust
+pub mod flow { /* ... */ }
+```
+
+### Types
+
+#### Enum `FlowKind`
+
+How gas moves through, and exchanges heat in, one flow region.
+
+```rust
+pub enum FlowKind {
+    PebbleBed,
+    AxialChannels {
+        hydraulic_diameter_m: f64,
+    },
+    OpenVolume {
+        width_m: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `PebbleBed`
+
+The pebble bed: KTA 3102.3 resistance and KTA 3102.2 exchange,
+isotropic.
+
+###### `AxialChannels`
+
+Straight vertical channels: axial flow only.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `hydraulic_diameter_m` | `f64` | Hydraulic diameter of one channel, m. |
+
+###### `OpenVolume`
+
+An open gas volume (plenum, cavity, annulus) of the given width.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `width_m` | `f64` | Width across which the volume's walls face each other, m. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `FlowRegion`
+
+One Tab 2.5 flow region as this model represents it.
+
+```rust
+pub struct FlowRegion {
+    pub tab25: u8,
+    pub void_fraction: f64,
+    pub kind: FlowKind,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `tab25` | `u8` | Region number in TECDOC-1694 Tab 2.5. |
+| `void_fraction` | `f64` | Void fraction (Tab 2.5, Quoted). |
+| `kind` | `FlowKind` | Transport model. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn hydraulic_diameter_m(self: &Self) -> f64 { /* ... */ }
+  ```
+  Hydraulic diameter, m.
+
+- ```rust
+  pub fn area_density(self: &Self) -> f64 { /* ... */ }
+  ```
+  Heat-transfer area per unit volume, 1/m.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `BypassSplit`
+
+How the total helium flow divides (TECDOC-1694 Sec 2.1.1.3; input sheet
+Sec 10). **Unmeasured (D5): an input and a sensitivity, never a tuning
+knob.** The fractions must sum to 1.
+
+```rust
+pub struct BypassSplit {
+    pub bed: uom::si::f64::Ratio,
+    pub discharge_tube: uom::si::f64::Ratio,
+    pub control_rods: uom::si::f64::Ratio,
+    pub leakage: uom::si::f64::Ratio,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `bed` | `uom::si::f64::Ratio` | Through the pebble bed (the cooling flow). |
+| `discharge_tube` | `uom::si::f64::Ratio` | Up the fuel discharge tube. |
+| `control_rods` | `uom::si::f64::Ratio` | Down the control-rod channels. |
+| `leakage` | `uom::si::f64::Ratio` | Leakage through graphite gaps, cold inlet straight to the hot plenum. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn tecdoc_1694() -> Self { /* ... */ }
+  ```
+  The benchmark's assumed split, 87 / 1 / 2 / 10 % ([T1] Sec 2.1.1.3).
+
+- ```rust
+  pub fn gao_2002() -> Self { /* ... */ }
+  ```
+  `BYP-G02`: 86 % to the bed (Gao 2002 Sec 4.2), the other 14 % over
+
+- ```rust
+  pub fn no_leakage() -> Self { /* ... */ }
+  ```
+  `BYP-NOLEAK`: the 10 % leakage, which [T1] calls a maximum, set to
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `OperatingPoint`
+
+The plant state of a steady full-power case.
+
+```rust
+pub struct OperatingPoint {
+    pub power: uom::si::f64::Power,
+    pub inlet: uom::si::f64::ThermodynamicTemperature,
+    pub pressure: uom::si::f64::Pressure,
+    pub mass_flow: uom::si::f64::MassRate,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `power` | `uom::si::f64::Power` | Thermal power, distributed with the Tab 2.6 shape. |
+| `inlet` | `uom::si::f64::ThermodynamicTemperature` | Core inlet helium temperature. |
+| `pressure` | `uom::si::f64::Pressure` | Primary pressure. |
+| `mass_flow` | `uom::si::f64::MassRate` | Total helium flow. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn fpic_specification() -> Self { /* ... */ }
+  ```
+  The benchmark specification (D4 base): 10 MW, 250 deg C inlet,
+
+- ```rust
+  pub fn fpic_as_run() -> Self { /* ... */ }
+  ```
+  `SS-ASRUN` (D4 sensitivity): the 72 h run during which the
+
+- ```rust
+  pub fn fpic_energy_balance_flow() -> Self { /* ... */ }
+  ```
+  `FLOW-EB`: the specification with the energy-balance flow 4.278 kg/s
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `GasNetwork`
+
+The assembled gas network of one mesh and one split.
+
+```rust
+pub struct GasNetwork {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn build(mesh: &RzMesh, split: BypassSplit) -> Result<Self, Htr10RzError> { /* ... */ }
+  ```
+  Assemble the network on the solid model's mesh.
+
+- ```rust
+  pub fn split(self: &Self) -> BypassSplit { /* ... */ }
+  ```
+  The split it was built with.
+
+- ```rust
+  pub fn without_buoyancy(self: Self) -> Self { /* ... */ }
+  ```
+  Drop the gravity term on every face: the explicit ablation `NC-OFF`
+
+- ```rust
+  pub fn has_buoyancy(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether any face carries a gravity term.
+
+- ```rust
+  pub fn chain_nodes(self: &Self) -> Vec<(Vec<usize>, f64)> { /* ... */ }
+  ```
+  The inlet-chain nodes in flow order: their model cells and the
+
+- ```rust
+  pub fn n_gas_cells(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of 2-D gas cells.
+
+- ```rust
+  pub fn n_chain_nodes(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of inlet-chain nodes.
+
+- ```rust
+  pub fn cell_flow(self: &Self, c: usize) -> Option<(FlowRegion, bool)> { /* ... */ }
+  ```
+  The flow region of model cell `c` as the network uses it (`None`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `GasState`
+
+The gas state on a [`GasNetwork`].
+
+```rust
+pub struct GasState {
+    pub temperature: Vec<f64>,
+    pub mass_flux: Vec<(f64, f64)>,
+    pub pressure: Vec<f64>,
+    pub exchange: Vec<f64>,
+    pub outlet_temperature: f64,
+    pub bed_outlet_temperature: f64,
+    pub heat_to_gas: f64,
+    pub enthalpy_rise: f64,
+    pub flow_picard: (usize, f64),
+    pub density_iterations: (usize, f64),
+    pub core_pressure_drop: f64,
+    pub tap_temperatures: [f64; 3],
+    pub outlet_mass_flow: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `temperature` | `Vec<f64>` | Gas temperature per model cell, K (`NaN` where no gas flows). |
+| `mass_flux` | `Vec<(f64, f64)>` | Superficial mass flux per model cell `(G_r, G_z)`, kg/(m^2 s)<br>(`G_z` positive downward; zero where no gas flows). |
+| `pressure` | `Vec<f64>` | Pressure per model cell relative to the outlet, Pa (`NaN` outside<br>the 2-D domain). |
+| `exchange` | `Vec<f64>` | Volumetric exchange coefficient per model cell, W/(m^3 K). |
+| `outlet_temperature` | `f64` | Mixed outlet temperature, K. |
+| `bed_outlet_temperature` | `f64` | Bed outlet: mass-weighted temperature of the gas leaving the bed and<br>discharge tube through the cone floor into region 2, K. |
+| `heat_to_gas` | `f64` | Heat taken up by the gas, `sum h a_v V (T_s - T_g)`, W. |
+| `enthalpy_rise` | `f64` | `W c_p (T_out - T_in)`, W: equals `heat_to_gas` when the gas side<br>conserves energy. |
+| `flow_picard` | `(usize, f64)` | Picard passes of the last flow solve and its last relative change of<br>the cell resistances (`resistance_change`, gh:#1175). |
+| `density_iterations` | `(usize, f64)` | Evaluations of [`solve_gas`] in the last [`solve_gas_consistent`]<br>and its last density residual, K (`(1, NaN)` for a plain<br>[`solve_gas`]). |
+| `core_pressure_drop` | `f64` | Pressure drop inlet-of-bed-stream to outlet, Pa (mean over the<br>region-18 inflow cells). |
+| `tap_temperatures` | `[f64; 3]` | Gas temperatures of the tap nodes: bottom cavity, after the leak<br>columns, top plenum, K. |
+| `outlet_mass_flow` | `f64` | Mass leaving through the outlet, kg/s: equals the total flow when<br>the pressure solve conserves mass. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `flow_region`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The flow region of a model region (cell centre `z_cm`, TECDOC `z`), or
+`None` for a non-flowing cell (Tab 2.5 region 6 and everything not
+labelled). Void fractions are Tab 2.5 (Quoted); hydraulic diameters:
+
+| Region | `D_h` | Source |
+|---|---|---|
+| 18 top-reflector flow zone | 2.5 cm | Tab 2.3, 460 x 25 mm holes (reproduce the 0.089 void, input sheet Sec 3.4) |
+| 13 control-rod channels | 13 cm | Tab 2.3 control-rod channel diameter (the 0.207 void is not reproduced, N15) |
+| 10 risers | 8 cm | Tab 2.3, 20 x 8 cm (reproduce the 0.138 void) |
+| 2, 3 bottom-reflector borings | 1.6 cm | Tab 2.3, 640 x 16 mm core-to-hot-plenum holes; for region 2 **Assumed** the same |
+| 11, 12 throttles; 19 leak gaps | 1 cm | **Assumed** (not in the input sheet) |
+| open volumes | `2 w` | `w` the meshed width (Fig 2.5/2.6 readings, Uncertain) |
+
+The control-rod ring above `z = -65 cm` is solid model region 3 but not
+Tab 2.5 region 13 (Fig 2.6 extent -65 to 222.2), so it carries no flow.
+
+```rust
+pub fn flow_region(model_region: usize, z_cm: f64) -> Option<FlowRegion> { /* ... */ }
+```
+
+#### Function `connected`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Whether gas may cross a face between two different model regions of the
+2-D domain: the flow path of TECDOC-1694 Sec 2.1.1.3 (input sheet
+Sec 3.3). Every other pair is closed (a wall).
+
+```rust
+pub fn connected(a: usize, b: usize) -> bool { /* ... */ }
+```
+
+#### Function `solve_gas_consistent`
+
+**The gas solved consistently in its own density** (gh:#1176): the
+fixed point `T = E(T)` of [`solve_gas`], where the flow sees the
+densities (and `mu`) of `T` and the energy solve returns `E(T)`.
+
+[`solve_gas`] alone is one evaluation of that map: its flow uses the
+gas temperatures of `prev`. Where buoyancy drives the flow and a cell's
+gas temperature depends on the direction of its through-flow (a cell
+whose upwind side changes with the sign of a small flux), the map has a
+slope below -1, and repeating it oscillates. Measured on the finest
+mesh of the gh:#1176 study (`finest_mesh_gas_alone_at_fixed_solid`,
+solid held): plain repeats swing by 50-100 K at the axis cells of the
+discharge tube, with the 0.5 relaxation of the steady solve by 8.8 K
+(the axial flux there flipping sign), and with a fixed 0.2 relaxation
+they converge geometrically (factor ~0.75) to 2e-5 K. So the
+consistent state exists; the lagged map does not reach it.
+
+The iteration is relaxed with Aitken's dynamic factor (Irons & Tuck
+1969; Küttler & Wall 2008, Comput. Mech. 43, eq. 41): `x_{k+1} = x_k +
+w_k r_k`, `r_k = E(x_k) - x_k`, `w_k = -w_{k-1} r_{k-1}.(r_k -
+r_{k-1}) / |r_k - r_{k-1}|^2`, clamped to `[0.02, 1]`, `w_0 = 1`. It
+stops when `max |r_k| < tol_k` and returns the state evaluated at
+`x_k` (whose energy solution differs from its density temperatures by
+less than `tol_k`). The first evaluation is exactly [`solve_gas`].
+
+# Errors
+As [`solve_gas`]; [`Htr10RzError::Solve`] if 200 evaluations do not
+converge.
+
+```rust
+pub fn solve_gas_consistent(net: &GasNetwork, op: &OperatingPoint, t_solid: &[f64], prev: Option<&GasState>, tol_k: f64) -> Result<GasState, super::Htr10RzError> { /* ... */ }
+```
+
+#### Function `solve_gas`
+
+Solve the flow (Picard on the resistances) and the gas energy for the
+solid temperatures `t_solid` (K per model cell), starting from `prev`.
+
+# Errors
+[`Htr10RzError::Solve`] if the pressure solve or the Picard iteration
+fails; [`Htr10RzError::Property`] from a closure.
+
+```rust
+pub fn solve_gas(net: &GasNetwork, op: &OperatingPoint, t_solid: &[f64], prev: Option<&GasState>) -> Result<GasState, super::Htr10RzError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `PEBBLE_DIAMETER_M`
+
+Pebble diameter, m (TECDOC-1694 Tab 2.2 / Tab 2.3: 6.0 cm).
+
+```rust
+pub const PEBBLE_DIAMETER_M: f64 = 0.06;
+```
+
+#### Constant `HELIUM_CP`
+
+Helium `c_p`, J/(kg K) (Tab 2.8, constant).
+
+```rust
+pub const HELIUM_CP: f64 = 5195.0;
+```
+
+#### Constant `GRAVITY`
+
+Standard gravity, m/s^2.
+
+```rust
+pub const GRAVITY: f64 = 9.806_65;
+```
+
+#### Constant `GAS_DENSITY_TOLERANCE_K`
+
+Tolerance of [`solve_gas_consistent`]: the largest change of a gas
+temperature between the density the flow saw and the energy solution,
+K. The same 1e-4 K as the steady outer iteration's.
+
+```rust
+pub const GAS_DENSITY_TOLERANCE_K: f64 = 1.0e-4;
+```
+
+## Module `fpic`
+
+The FPIC full-power steady state (gh:#1150): the gh:#1149 solid field
+coupled to the [`super::flow`] gas network by outer iteration, the
+pebble interior ([`super::pebble`]) and the 22 thermocouples.
+
+**Outer iteration (block Gauss-Seidel).** Each pass: (1) solve the gas
+flow and energy for the current solid temperatures; (2) hand each cell's
+`h a_v` and gas temperature to the solid field as an implicit exchange
+(`SolidConductionField::set_cell_exchange`) and solve the solid steady
+state (its own Picard loop for `lambda(T)` and radiation). Stop when no
+solid or gas temperature moves more than [`FpicOptions::tolerance_k`].
+The coupling is causal along the gas path (a Volterra-type map), so the
+passes converge without relaxation; the history is reported.
+
+**Thermocouple instrument (fixed before the first run, see the V&V
+README).** At a thermocouple the model value is the mean over the cells
+touching the point (one cell inside a cell, two on a face, four on a
+corner). For a cell of an open gas volume (plenum or cavity, void
+>= 0.99) the **gas** temperature is used; for every other cell the
+**solid** temperature. Both raw values are kept.
+
+```rust
+pub mod fpic { /* ... */ }
+```
+
+### Types
+
+#### Struct `Thermocouple`
+
+One measured FPIC thermocouple with the benchmark results.
+
+```rust
+pub struct Thermocouple {
+    pub number: usize,
+    pub location: String,
+    pub r_cm: f64,
+    pub z_cm: f64,
+    pub measured_c: f64,
+    pub inet_c: f64,
+    pub participants: Vec<Option<f64>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `number` | `usize` | Number 1-22. |
+| `location` | `String` | Location label. |
+| `r_cm` | `f64` | Position, cm (TECDOC `z`, downward). |
+| `z_cm` | `f64` | Position, cm. |
+| `measured_c` | `f64` | Measured, deg C. |
+| `inet_c` | `f64` | INET (THERMIX-KONVEK) result, deg C (Tab 2.14). |
+| `participants` | `Vec<Option<f64>>` | Each participant's result (Tab 7.1), deg C, `None` where not<br>submitted, in [`PARTICIPANTS`] order. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn participant_range(self: &Self) -> (f64, f64) { /* ... */ }
+  ```
+  Lowest and highest participant result, deg C.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Instrument`
+
+Which temperature a thermocouple reading was formed from.
+
+```rust
+pub enum Instrument {
+    Solid,
+    Gas,
+    Mixed,
+}
+```
+
+##### Variants
+
+###### `Solid`
+
+Solid cell temperature(s).
+
+###### `Gas`
+
+Gas temperature(s) of an open volume.
+
+###### `Mixed`
+
+Both (the point lies on a face between a solid and an open volume).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ThermocoupleReading`
+
+The model at one thermocouple.
+
+```rust
+pub struct ThermocoupleReading {
+    pub tc: Thermocouple,
+    pub model_c: f64,
+    pub instrument: Instrument,
+    pub solid_c: f64,
+    pub gas_c: f64,
+    pub regions: Vec<&'static str>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `tc` | `Thermocouple` | The thermocouple. |
+| `model_c` | `f64` | Model value by the instrument rule, deg C. |
+| `instrument` | `Instrument` | Which temperature it is. |
+| `solid_c` | `f64` | Solid temperature at the point (cell mean), deg C. |
+| `gas_c` | `f64` | Gas temperature at the point (cell mean over gas cells; `NaN` where<br>no gas flows), deg C. |
+| `regions` | `Vec<&'static str>` | Model regions of the cells touching the point. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn residual(self: &Self) -> f64 { /* ... */ }
+  ```
+  `model - measured`, K.
+
+- ```rust
+  pub fn inside_participant_range(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the model lies inside the participants' range.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `FpicOptions`
+
+Modelling choices of the FPIC case, each defaulting to the base case.
+
+```rust
+pub struct FpicOptions {
+    pub solid: super::Htr10RzOptions,
+    pub operating_point: super::flow::OperatingPoint,
+    pub split: super::flow::BypassSplit,
+    pub pebble: super::pebble::PebbleMatrix,
+    pub tolerance_k: f64,
+    pub max_outer: usize,
+    pub gas_relaxation: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solid` | `super::Htr10RzOptions` | The solid model (mesh, bed closure, brick, ...). Its helium pressure<br>is overwritten by the operating point's. |
+| `operating_point` | `super::flow::OperatingPoint` | Plant state. Default: the benchmark specification (D4). |
+| `split` | `super::flow::BypassSplit` | Bypass split. Default: [T1]'s assumed 87/1/2/10 (D5). |
+| `pebble` | `super::pebble::PebbleMatrix` | Fuel-zone conductivity rule of the pebble sub-model. |
+| `tolerance_k` | `f64` | Outer-iteration tolerance on any temperature change, K. |
+| `max_outer` | `usize` | Outer-iteration cap. |
+| `gas_relaxation` | `f64` | Under-relaxation of the gas temperature between outer passes<br>(`T <- w T_new + (1 - w) T_old`), in `(0, 1]`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `FpicResult`
+
+The outcome of a coupled FPIC solve.
+
+```rust
+pub struct FpicResult {
+    pub solid: super::Htr10RzResult,
+    pub outer_iterations: usize,
+    pub outer_history: Vec<f64>,
+    pub outlet_temperature: uom::si::f64::ThermodynamicTemperature,
+    pub bed_outlet_temperature: uom::si::f64::ThermodynamicTemperature,
+    pub heat_to_rccs_and_heads: uom::si::f64::Power,
+    pub heat_to_gas: uom::si::f64::Power,
+    pub enthalpy_rise: uom::si::f64::Power,
+    pub plant_imbalance: f64,
+    pub core_pressure_drop: f64,
+    pub max_fuel_centre: (super::pebble::PebbleProfile, (f64, f64)),
+    pub max_fuel_surface: (f64, (f64, f64)),
+    pub max_side_reflector_surface: f64,
+    pub max_bottom_reflector: f64,
+    pub thermocouples: Vec<ThermocoupleReading>,
+    pub tap_temperatures: [f64; 3],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solid` | `super::Htr10RzResult` | The solid report of the last pass. |
+| `outer_iterations` | `usize` | Outer passes taken. |
+| `outer_history` | `Vec<f64>` | Largest temperature change of each pass, K. |
+| `outlet_temperature` | `uom::si::f64::ThermodynamicTemperature` | Mixed core outlet (hot plenum), K. |
+| `bed_outlet_temperature` | `uom::si::f64::ThermodynamicTemperature` | Bed outlet (cone floor), K. |
+| `heat_to_rccs_and_heads` | `uom::si::f64::Power` | RCCS side wall plus both heads. |
+| `heat_to_gas` | `uom::si::f64::Power` | Heat taken up by the gas (solid side). |
+| `enthalpy_rise` | `uom::si::f64::Power` | `W c_p (T_out - T_in)`. |
+| `plant_imbalance` | `f64` | `|P - Q_RCCS+heads - W c_p dT| / P`: the plant energy balance. |
+| `core_pressure_drop` | `f64` | Bed-stream pressure drop to the outlet, Pa. |
+| `max_fuel_centre` | `(super::pebble::PebbleProfile, (f64, f64))` | Hottest pebble by the benchmark fuel-centre definition, and its cell<br>centre `(r, z)` cm. |
+| `max_fuel_surface` | `(f64, (f64, f64))` | Hottest pebble surface, K, and where. |
+| `max_side_reflector_surface` | `f64` | Hottest side-reflector surface (inner face column of region 14), K. |
+| `max_bottom_reflector` | `f64` | Hottest bottom-reflector cell (model regions 8, 9, 31), K. |
+| `thermocouples` | `Vec<ThermocoupleReading>` | The 22 thermocouples. |
+| `tap_temperatures` | `[f64; 3]` | Gas temperatures of the tap nodes: bottom cavity, leak take-off, top<br>plenum, K. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Htr10FpicModel`
+
+The coupled model.
+
+```rust
+pub struct Htr10FpicModel {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn build(options: FpicOptions) -> Result<Self, Htr10RzError> { /* ... */ }
+  ```
+  Build the solid model (power case, FPIC shape) and the gas network.
+
+- ```rust
+  pub fn solid(self: &Self) -> &Htr10RzModel { /* ... */ }
+  ```
+  The solid model.
+
+- ```rust
+  pub fn network(self: &Self) -> &GasNetwork { /* ... */ }
+  ```
+  The gas network.
+
+- ```rust
+  pub fn gas(self: &Self) -> Option<&GasState> { /* ... */ }
+  ```
+  The gas state of the last pass.
+
+- ```rust
+  pub fn solve(self: &mut Self) -> Result<FpicResult, Htr10RzError> { /* ... */ }
+  ```
+  Run the outer iteration to convergence and report.
+
+- ```rust
+  pub fn reading(self: &Self, tc: &Thermocouple) -> ThermocoupleReading { /* ... */ }
+  ```
+  The model at a thermocouple, by the instrument rule of the module
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `thermocouples`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The 22 thermocouples.
+
+# Panics
+Never for the embedded file (its parse is pinned by a unit test).
+
+```rust
+pub fn thermocouples() -> Vec<Thermocouple> { /* ... */ }
+```
+
+#### Function `reading_at`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The model at a thermocouple by the instrument rule of the module docs,
+for any solid model, network and gas state on one mesh (shared by the
+FPIC case and the gh:#1151 part B transient core).
+
+```rust
+pub fn reading_at(solid_model: &super::Htr10RzModel, network: &super::flow::GasNetwork, gas: Option<&super::flow::GasState>, tc: &Thermocouple) -> ThermocoupleReading { /* ... */ }
+```
+
+#### Function `capacity_rate`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`W c_p`, W/K, of an operating point (reporting helper).
+
+```rust
+pub fn capacity_rate(op: &super::flow::OperatingPoint) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `PARTICIPANTS`
+
+Participant column keys of Tab 7.1, in CSV order.
+
+```rust
+pub const PARTICIPANTS: [&str; 11] = _;
+```
+
+## Module `geometry`
+
+The HTR-10 R-Z solid model as a cited mesh-builder input
+(IAEA-TECDOC-1694 Sec 2.2.1.2, Tab 2.3, Tab 2.4, Fig 2.5).
+
+**Coordinates.** As in TECDOC-1694 Sec 2.1.1.3 and the input sheet
+`docs/reactor-scoping/htr10-th-benchmark.md`: `r` from the core axis,
+`z = 0` at the upper surface of the pebble bed, **`z` positive downward**,
+cm in this file. The mesh is built in that coordinate, so the mesh's
+[`RzPatch::Bottom`](crate::genfoam::thermal_hydraulics::solid_conduction::RzPatch)
+(`z = z_min = -351 cm`) is the **physical top** (the outer surface of the
+RPV top head) and its `Top` patch (`z = 665 cm`) is the **physical
+bottom** (the outer surface of the RPV bottom head).
+
+**Domain.** `0 <= r <= 218 cm` (RPV outer surface, Tab 2.3: ID 420, wall
+8 cm), `-351 <= z <= 665 cm` (RPV top head to bottom head). The cavity
+outside the RPV and the RCCS panels are not meshed: the RPV outer surface
+radiates to them as a boundary condition (see `model.rs`).
+
+**Confidence.** Every extent below is read from Fig 2.5 in the input sheet
+and is **Uncertain** there; it stays Uncertain here. Each rectangle says
+whether its extent is the sheet's Fig 2.5 reading, a Tab 2.3 dimension
+(Quoted), arithmetic on those (Derived), or a fill this module had to
+choose because the sheet records the extent as not resolved (**Assumed**).
+The mesh lines are the Fig 2.5 printed labels (Quoted from legible
+labels), so every region boundary lies on a face.
+
+```rust
+pub mod geometry { /* ... */ }
+```
+
+### Modules
+
+## Module `idx`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"missing_docs\", kind: Allow}])]")`
+
+Model region indices (positions in [`regions`]).
+
+```rust
+pub mod idx { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `BED`
+
+```rust
+pub const BED: usize = 0;
+```
+
+#### Constant `SIDE_GRAPHITE`
+
+```rust
+pub const SIDE_GRAPHITE: usize = 1;
+```
+
+#### Constant `TOP_BOTTOM_GRAPHITE`
+
+```rust
+pub const TOP_BOTTOM_GRAPHITE: usize = 2;
+```
+
+#### Constant `CR_RING`
+
+```rust
+pub const CR_RING: usize = 3;
+```
+
+#### Constant `RISERS`
+
+```rust
+pub const RISERS: usize = 4;
+```
+
+#### Constant `CARBON_BRICK`
+
+```rust
+pub const CARBON_BRICK: usize = 5;
+```
+
+#### Constant `RPV`
+
+```rust
+pub const RPV: usize = 6;
+```
+
+#### Constant `CORE_VESSEL`
+
+```rust
+pub const CORE_VESSEL: usize = 7;
+```
+
+#### Constant `UPPER_BOTTOM_REFL`
+
+```rust
+pub const UPPER_BOTTOM_REFL: usize = 8;
+```
+
+#### Constant `LOWER_BOTTOM_REFL`
+
+```rust
+pub const LOWER_BOTTOM_REFL: usize = 9;
+```
+
+#### Constant `BOTTOM_STEEL_1`
+
+```rust
+pub const BOTTOM_STEEL_1: usize = 10;
+```
+
+#### Constant `BOTTOM_STEEL_2`
+
+```rust
+pub const BOTTOM_STEEL_2: usize = 11;
+```
+
+#### Constant `BOTTOM_ANNULAR_HE`
+
+```rust
+pub const BOTTOM_ANNULAR_HE: usize = 12;
+```
+
+#### Constant `LEAK_STEEL`
+
+```rust
+pub const LEAK_STEEL: usize = 13;
+```
+
+#### Constant `SIDE_INNER_GRAPHITE`
+
+```rust
+pub const SIDE_INNER_GRAPHITE: usize = 14;
+```
+
+#### Constant `TOP_HE_CAVITY`
+
+```rust
+pub const TOP_HE_CAVITY: usize = 15;
+```
+
+#### Constant `CORE_ENTRY_PLENUM`
+
+```rust
+pub const CORE_ENTRY_PLENUM: usize = 16;
+```
+
+#### Constant `BOTTOM_ROUNDING_HE`
+
+```rust
+pub const BOTTOM_ROUNDING_HE: usize = 17;
+```
+
+#### Constant `BOTTOM_HE_CAVITY`
+
+```rust
+pub const BOTTOM_HE_CAVITY: usize = 18;
+```
+
+#### Constant `GAP_VESSEL_RPV`
+
+```rust
+pub const GAP_VESSEL_RPV: usize = 19;
+```
+
+#### Constant `HOT_PLENUM`
+
+```rust
+pub const HOT_PLENUM: usize = 20;
+```
+
+#### Constant `SMALL_PLENUM`
+
+```rust
+pub const SMALL_PLENUM: usize = 21;
+```
+
+#### Constant `DISCHARGE_THROTTLE`
+
+```rust
+pub const DISCHARGE_THROTTLE: usize = 22;
+```
+
+#### Constant `CR_EXIT_THROTTLE`
+
+```rust
+pub const CR_EXIT_THROTTLE: usize = 23;
+```
+
+#### Constant `BOTTOM_REFL_SOLID`
+
+```rust
+pub const BOTTOM_REFL_SOLID: usize = 24;
+```
+
+#### Constant `GAP_BRICK_VESSEL`
+
+```rust
+pub const GAP_BRICK_VESSEL: usize = 25;
+```
+
+#### Constant `HE_ENTRY_PATH`
+
+```rust
+pub const HE_ENTRY_PATH: usize = 26;
+```
+
+#### Constant `ANNULAR_PATH`
+
+```rust
+pub const ANNULAR_PATH: usize = 27;
+```
+
+#### Constant `TOP_PLENUM`
+
+```rust
+pub const TOP_PLENUM: usize = 28;
+```
+
+#### Constant `TOP_FLOW_ZONE`
+
+```rust
+pub const TOP_FLOW_ZONE: usize = 29;
+```
+
+#### Constant `DISCHARGE_TUBE`
+
+```rust
+pub const DISCHARGE_TUBE: usize = 30;
+```
+
+### Types
+
+#### Enum `ExtentConfidence`
+
+How a region's extent is known (the input sheet's confidence levels,
+plus `Assumed` for fills this module chose).
+
+```rust
+pub enum ExtentConfidence {
+    Fig25Uncertain,
+    Tab23,
+    Assumed,
+}
+```
+
+##### Variants
+
+###### `Fig25Uncertain`
+
+Read from TECDOC-1694 Fig 2.5 by the input sheet: **Uncertain**.
+
+###### `Tab23`
+
+A Tab 2.3 dimension (Quoted) or arithmetic on one (Derived).
+
+###### `Assumed`
+
+Not resolved in the input sheet; this module's fill, stated.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RegionSpec`
+
+One homogenised region of the model.
+
+```rust
+pub struct RegionSpec {
+    pub tab24: u8,
+    pub name: &'static str,
+    pub material: super::materials::RegionMaterial,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `tab24` | `u8` | Region number in TECDOC-1694 Tab 2.4. |
+| `name` | `&'static str` | Short label (upper case: the drawings' bitmap font has no lower case). |
+| `material` | `super::materials::RegionMaterial` | Material and homogenisation. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CitedRect`
+
+An axis-aligned rectangle in TECDOC coordinates (cm), painted in order.
+
+```rust
+pub struct CitedRect {
+    pub region: usize,
+    pub r_cm: [f64; 2],
+    pub z_cm: [f64; 2],
+    pub confidence: ExtentConfidence,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `region` | `usize` | Index into [`regions`]. |
+| `r_cm` | `[f64; 2]` | Inner and outer radius, cm. |
+| `z_cm` | `[f64; 2]` | Upper and lower `z` (TECDOC, downward), cm. |
+| `confidence` | `ExtentConfidence` | Where the extent comes from. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `CoreVesselPlacement`
+
+Where the core vessel (barrel) sits: input-sheet conflict N5.
+
+```rust
+pub enum CoreVesselPlacement {
+    Fig25,
+    Tab23,
+}
+```
+
+##### Variants
+
+###### `Fig25`
+
+`r 194-197 cm`, the Fig 2.5 reading (implies ID 388 cm), with the
+helium gap 38 at `r 190-194`. **The default**: it is the INET model
+the benchmark's own region table describes.
+
+###### `Tab23`
+
+`r 191-194 cm`, Tab 2.3's ID 382 cm and 3 cm wall; gap 38 shrinks to
+1 cm and gap 23 widens to `r 194-210`. Sensitivity case `N5-TAB23`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `radial_lines_cm`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Radial mesh lines, cm: the Fig 2.5 labels from 0 to the RPV outer
+surface (218), as printed (input sheet Sec 3.2). The Tab 2.3 barrel
+placement adds the line at 191.
+
+```rust
+pub fn radial_lines_cm(vessel: CoreVesselPlacement) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `regions`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The 31 model regions. Tab 2.4 region 1 (pebble bed) is split into the
+core with its cone (the Tab 2.3 5 m^3 core volume, which is what a held or
+heated bed means here) and the discharge tube below it. Tab 2.4 region 2 ("graphite without flow path") is
+split into its side-reflector and top/bottom-reflector parts because
+Tab 2.11 gives the two different conductivity fits; every other model
+region is one Tab 2.4 region. Tab 2.4 regions outside the RPV (15, 16, 17,
+24, 26, 27, 35, 36, 37, 39, 42) are represented by the boundary
+conditions, and 22, 32-34 are null.
+
+The widths of the two annular gaps around the core vessel follow its
+placement (input sheet N5): 4 and 13 cm with the Fig 2.5 barrel, 1 and
+16 cm with the Tab 2.3 one, so the radiative conductivity of each gap is
+always that of the gap actually meshed.
+
+```rust
+pub fn regions(vessel: CoreVesselPlacement) -> [RegionSpec; 31] { /* ... */ }
+```
+
+#### Function `region_rects`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The region map: the default region (the top helium cavity, Tab 2.4
+region 18, which fills whatever inside the RPV no rectangle claims) and the
+rectangles in painting order (the last one containing a point wins).
+
+```rust
+pub fn region_rects(vessel: CoreVesselPlacement) -> (usize, Vec<CitedRect>) { /* ... */ }
+```
+
+#### Function `region_at_cm`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Region at `(r, z)` in cm (TECDOC coordinates), by the painting rule.
+
+```rust
+pub fn region_at_cm(rects: &[CitedRect], default_region: usize, r: f64, z: f64) -> usize { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `AXIAL_LINES_CM`
+
+Axial mesh lines, cm (TECDOC `z`, downward): the Fig 2.5 labels from the
+RPV top head (-351) to the RPV bottom head (665), as printed.
+
+```rust
+pub const AXIAL_LINES_CM: [f64; 40] = _;
+```
+
+#### Constant `N_REGIONS`
+
+Number of model regions.
+
+```rust
+pub const N_REGIONS: usize = 31;
+```
+
+## Module `materials`
+
+Homogenised region properties of the HTR-10 R-Z model, built from the
+gh:#1148 closures ([`crate::htgr_closures`]) and tabulated for the solid
+conduction field.
+
+## Homogenisation (TECDOC-1694 Sec 2.2.1.2, Tab 2.4)
+
+Tab 2.4 gives each region's **solid mass fraction** `f` and says heat
+capacity is weighted by void fraction. This module weights **both**
+properties the same way, as the brief for gh:#1149 asks:
+
+```text
+  lambda = f lambda_solid(T) + (1 - f) lambda_He(T)
+  rho c  = f (rho c)_solid(T) + (1 - f) (rho c)_He(T)
+```
+
+For conductivity this is the parallel-path (arithmetic) mean, exact for
+conduction along straight channels and an **upper bound** across them; a
+Maxwell-type mean would give `lambda_s (1 - eps)/(1 + eps)` across, 17 %
+lower in the control-rod ring (`eps = 0.207`). No radiation inside the
+channels is added.
+
+## Gas cavities (THERMIX-style homogenised media)
+
+A helium cavity of width `delta` between grey walls of emissivity `eps`
+(TECDOC-1694 Tab 2.13) is a medium of conductivity
+
+```text
+  lambda = lambda_He(T) + 4 sigma T^3 delta / (2/eps - 1)
+```
+
+The radiative term is the parallel-plate exchange written as a
+conductivity: integrated across the cavity, `int lambda_rad dT =
+sigma (T1^4 - T2^4) delta / (2/eps - 1)`, so a resolved cavity carries
+exactly the grey two-plate exchange `sigma (T1^4 - T2^4)/(2/eps - 1)` as
+its cells refine. `delta` is the width across which the cavity exchanges
+(radial for the annular gaps, axial for the plena); the medium is
+isotropic, so the other direction gets the same conductivity, an
+approximation for the two large cavities (18, 21). Natural convection in
+the cavities is **not** modelled (THERMIX includes it); that omission
+under-states heat transfer.
+
+## Properties outside a closure's range
+
+The solver needs a value at any temperature, and the closures refuse
+temperatures outside their stated range. Each property is therefore
+**tabulated** every 5 K from 273.15 to 2273.15 K, and outside a closure's
+range the value at the nearest end of the range is **held**. Every hold is
+listed in [`RegionMaterial::valid_range_kelvin`], and the model reports
+after each solve which regions reached a held temperature
+(`Htr10RzResult::range_flags`). The holds:
+
+- **Side reflector below 300 deg C** (the gh:#1148 flag): the Tab 2.11 fit
+  is refused there. TECDOC-1694 gives no other guidance (its stated range
+  is 0-2000 deg C), so the default **holds the value at 300 deg C**
+  ([`SideReflectorBelow300C::HoldAt300C`]), a named assumption; the
+  sensitivity case uses the unirradiated Tab 2.11 top/bottom-reflector fit
+  instead ([`SideReflectorBelow300C::TopBottomFit`]). At zero dose the two
+  fits agree at 300 deg C to 0.5 % (84.2 vs 84.6 W/(m K)).
+- Helium (Tab 2.8): 293-1773 K. Carbon brick (Tab 2.12): up to 1000 deg C.
+  Top/bottom graphite (Tab 2.11): up to 1700 deg C. RPV steel (Fig 2.8,
+  digitised): 290-700 K. Barrel steel: 293-1070 K. Fuel element
+  (Tab 2.9, used by ZBS only): up to 1300 deg C.
+
+**Fluence.** Zero for every graphite (the initial core; the DOSIS unit
+is Unknown in the input sheet, so a non-zero value could not be cited).
+**Steel for regions 10, 11, 13** (bottom supports): no material is given;
+the Fig 2.8 barrel curve is used (Assumed).
+
+```rust
+pub mod materials { /* ... */ }
+```
+
+### Types
+
+#### Enum `RegionMaterial`
+
+What a region is made of and how it is homogenised.
+
+```rust
+pub enum RegionMaterial {
+    PebbleBed,
+    SideReflector {
+        solid_fraction: f64,
+    },
+    TopBottomReflector {
+        solid_fraction: f64,
+    },
+    CarbonBrick,
+    RpvSteel {
+        solid_fraction: f64,
+    },
+    BarrelSteel {
+        solid_fraction: f64,
+    },
+    HeliumCavity {
+        emissivity: f64,
+        width_m: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `PebbleBed`
+
+The pebble bed: the bed effective conductivity of the chosen
+[`BedConductivityModel`] (already an effective, void-inclusive
+value), heat capacity `0.61 x` the Tab 2.9 graphite value.
+
+###### `SideReflector`
+
+Side-reflector graphite, Tab 2.11 (irradiation-dependent fit, zero
+dose), with helium in the rest.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solid_fraction` | `f64` | Tab 2.4 solid mass fraction. |
+
+###### `TopBottomReflector`
+
+Top/bottom-reflector graphite, Tab 2.11 (unirradiated fit).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solid_fraction` | `f64` | Tab 2.4 solid mass fraction. |
+
+###### `CarbonBrick`
+
+Boronated carbon brick, Tab 2.12.
+
+###### `RpvSteel`
+
+RPV steel, the Fig 2.8 "SA508, SA516-70, RPV" curve (digitised).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solid_fraction` | `f64` | Tab 2.4 solid mass fraction. |
+
+###### `BarrelSteel`
+
+Core-vessel (barrel) steel, the Fig 2.8 "SA240, SS316, core barrel"
+curve (Tab 2.3 says SA387-11, which Fig 2.8 does not show: input
+sheet N16).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solid_fraction` | `f64` | Tab 2.4 solid mass fraction. |
+
+###### `HeliumCavity`
+
+A helium cavity: gas conduction plus grey two-plate radiation across
+`width_m`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `emissivity` | `f64` | Wall emissivity, Tab 2.13 (or assumed, see `geometry.rs`). |
+| `width_m` | `f64` | Width across which the cavity exchanges, m. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn conductivity_si(self: &Self, t: f64, opts: &MaterialOptions) -> Result<f64, Htr10RzError> { /* ... */ }
+  ```
+  Conductivity at `t` K, W/(m K), with the holds of the module docs.
+
+- ```rust
+  pub fn heat_capacity_si(self: &Self, t: f64, opts: &MaterialOptions) -> Result<f64, Htr10RzError> { /* ... */ }
+  ```
+  Volumetric heat capacity at `t` K, J/(m^3 K) (only a transient solve
+
+- ```rust
+  pub fn valid_range_kelvin(self: &Self, opts: &MaterialOptions) -> (f64, f64) { /* ... */ }
+  ```
+  The temperature range, K, inside which every closure this region uses
+
+- ```rust
+  pub fn conductivity_model(self: &Self, opts: &MaterialOptions) -> Result<ConductivityModel, Htr10RzError> { /* ... */ }
+  ```
+  The tabulated conductivity model the solver uses (every 5 K,
+
+- ```rust
+  pub fn heat_capacity_model(self: &Self, opts: &MaterialOptions) -> Result<HeatCapacityModel, Htr10RzError> { /* ... */ }
+  ```
+  The tabulated heat-capacity model.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `SideReflectorBelow300C`
+
+What the side-reflector conductivity is below 300 deg C, where the
+Tab 2.11 fit is refused (gh:#1148 flag).
+
+```rust
+pub enum SideReflectorBelow300C {
+    HoldAt300C,
+    TopBottomFit,
+}
+```
+
+##### Variants
+
+###### `HoldAt300C`
+
+Hold the 300 deg C value (named assumption `SR-HOLD300`). Default.
+
+###### `TopBottomFit`
+
+Use the unirradiated Tab 2.11 top/bottom-reflector fit (sensitivity
+case `SR-TOPBOTTOM`).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `CarbonBrickConductivity`
+
+The carbon-brick conductivity (gh:#1150 ablation).
+
+```rust
+pub enum CarbonBrickConductivity {
+    Tab212,
+    Constant(uom::si::f64::ThermalConductivity),
+}
+```
+
+##### Variants
+
+###### `Tab212`
+
+TECDOC-1694 Tab 2.12, `0.05 + 0.03e-3 T` W/(cm K) (5-8 W/(m K)).
+**The default**: the only cited value.
+
+###### `Constant`
+
+A constant value. **Ablation only**: the 30 W/(m K) that
+`htgr_sim_v1`'s passive decay-heat chain assumes has no source; this
+variant exists to measure, inside this model, how much of the
+gh:#1149 gap (102.5 vs 254.0 kW) that one value carries.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `uom::si::f64::ThermalConductivity` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `MaterialOptions`
+
+Options that change material properties.
+
+```rust
+pub struct MaterialOptions {
+    pub bed: crate::htgr_closures::BedConductivityModel,
+    pub side_reflector_below_300c: SideReflectorBelow300C,
+    pub helium_pressure_bar: f64,
+    pub carbon_brick: CarbonBrickConductivity,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `bed` | `crate::htgr_closures::BedConductivityModel` | Bed effective conductivity. Default Breitbach (D3). |
+| `side_reflector_below_300c` | `SideReflectorBelow300C` | Side reflector below 300 deg C. |
+| `helium_pressure_bar` | `f64` | Helium pressure for the Tab 2.8 fits, bar. Default 30 bar (the<br>FPIC specification, Tab 2.1). |
+| `carbon_brick` | `CarbonBrickConductivity` | Carbon brick conductivity. Default Tab 2.12. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Constants and Statics
+
+#### Constant `SIGMA`
+
+Stefan-Boltzmann constant, W m^-2 K^-4 (CODATA 2018 exact).
+
+```rust
+pub const SIGMA: f64 = 5.670_374_419e-8;
+```
+
+## Module `model`
+
+Assemble the HTR-10 R-Z solid model on a [`SolidConductionField`], set the
+boundaries and the case, solve, and report.
+
+## Boundary conditions
+
+- **Axis** (`r = 0`): adiabatic (symmetry).
+- **RPV side wall to the RCCS** (`r = 218 cm`): grey radiation to the
+  water-cooling panels held at **50 deg C** (TECDOC-1694 Sec 2.1.1.4).
+  Both surfaces take the Tab 2.13 "air cavity outside the RPV" emissivity
+  0.85. The exchange is the long concentric-cylinder form (Kugeler et al.
+  2017, EUR 28712 EN, eq. 125, open):
+  `eps_eff = 1 / (1/eps_1 + (r_1/r_2)(1/eps_2 - 1))` with `r_1 = 218 cm`
+  and the panels at `r_2 = 285.4 cm` (the input sheet's reading of region
+  39, **Uncertain**): `eps_eff = 0.7626`. ~~Air conduction and natural
+  convection in the cavity are **not** modelled (under-states removal).~~
+  **CORRECTED 2026-11-03 (gh:#1173):** natural convection of the cavity
+  air runs in parallel with the radiation, **ON by default**
+  ([`Htr10RzOptions::cavity_convection`], ablation
+  [`Htr10RzOptions::without_cavity_convection`]): TECDOC-1694 Sec 2.1.1.4
+  says "the RPV transfers heat to the water cooling panels through
+  radiation and natural convection". It is the MacGregor & Emery (1969)
+  vertical-enclosure correlation ([`EnclosureNaturalConvection`]) on the
+  gap from the RPV (`r = 218 cm`) to the panels (`r = 285.4 cm`),
+  `L = 67.4 cm`, over the RPV side height `H = 10.16 m` (`z -351..665`),
+  with air at 1 atm (the cavity pressure is not stated: **Assumed**) at
+  the film temperature; derived, not fitted. It is applied to the
+  panels in both views.
+  Sensitivity `RCCS-SHIELD` puts the region-42 insulating plate at
+  `r = 283.4 cm` in the view as a thin two-sided radiation shield of the
+  same emissivity ([`RccsView::InsulatingPlateShield`]).
+- **RPV heads** (top `z = -351`, bottom `z = 665 cm`): the cavities
+  beyond them (regions 26, 36, 37), the insulation (17, properties
+  Unknown) and the concrete (15, held at 50 deg C) are not resolved in the
+  input sheet. The default radiates each head to a 50 deg C surface as two
+  parallel grey plates of 0.85, `eps_eff = 1/(2/0.85 - 1) = 0.7391`,
+  which ignores the insulation and so **over-states** that path;
+  sensitivity `HEADS-ADIABATIC` bounds it from the other side.
+
+## The cases of gh:#1149 (a)
+
+"The bed" below is the core with its cone (model region `R1 PEBBLE BED
+(CORE)`, the Tab 2.3 5 m^3 core volume); the discharge tube is a separate
+free region of the same material.
+
+- [`Htr10RzCase::BedMeanTemperature`]: the bed generates power with the
+  FPIC Tab 2.6 shape, and the power is found (secant iteration) at which
+  the bed's **volume-mean** temperature is the given value, stagnant. With
+  950 K this is the instrument of the `htgr_sim_v1` chain's 254.0 kW
+  (`decay_heat_removal.rs`, "stagnant, 950 K bed": a lumped bed node at
+  950 K behind a mean-to-surface conductance, in equilibrium). **This is
+  the like-for-like comparison.**
+- [`Htr10RzCase::HeldBed`]: the bed is **held** isothermal at a
+  temperature up to its surface. Its cells are held, and its conductivity
+  is replaced by a large constant (1e6 W/(m K)) so that the half cell
+  between a held centre and the bed surface carries no drop; without
+  that, the held boundary sits half a cell inside the bed and the duty
+  converges only at first order in an offset set by how each Fig 2.5
+  interval happens to be split (found in the first mesh study,
+  2026-11-03; see the V&V README). Upper bound of the mean-950 K duty.
+- [`Htr10RzCase::DecayPower`]: the bed generates a given power with the
+  FPIC shape, and the temperatures that reject it are solved for. At
+  steady state the duty equals the power, so the result is the
+  temperature field and the split between the RCCS and the heads.
+
+```rust
+pub mod model { /* ... */ }
+```
+
+### Types
+
+#### Enum `RccsView`
+
+What the RPV side wall sees.
+
+```rust
+pub enum RccsView {
+    DirectToPanels,
+    InsulatingPlateShield,
+}
+```
+
+##### Variants
+
+###### `DirectToPanels`
+
+The RCCS panels directly. Default (the instrument of `htgr_sim_v1`
+and of GAMMA+, Jun et al. 2009 Sec 2.4).
+
+###### `InsulatingPlateShield`
+
+The region-42 insulating plate as a thin radiation shield in front of
+the panels (sensitivity `RCCS-SHIELD`).
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn effective_emissivity(self: Self) -> f64 { /* ... */ }
+  ```
+  The effective emissivity of the RPV-to-panel exchange (per unit RPV
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `HeadBoundary`
+
+The RPV top and bottom heads.
+
+```rust
+pub enum HeadBoundary {
+    RadiateTo50C,
+    Adiabatic,
+}
+```
+
+##### Variants
+
+###### `RadiateTo50C`
+
+Radiate to 50 deg C as parallel grey plates of 0.85. Default.
+
+###### `Adiabatic`
+
+Adiabatic (sensitivity `HEADS-ADIABATIC`).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Htr10RzOptions`
+
+Everything that is a modelling choice, each defaulting to the base case.
+
+```rust
+pub struct Htr10RzOptions {
+    pub materials: super::materials::MaterialOptions,
+    pub vessel: super::geometry::CoreVesselPlacement,
+    pub heads: HeadBoundary,
+    pub rccs: RccsView,
+    pub cavity_convection: bool,
+    pub max_cell: Option<uom::si::f64::Length>,
+    pub refinement: [usize; 2],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `materials` | `super::materials::MaterialOptions` | Material choices (bed model, side reflector below 300 deg C, helium<br>pressure). |
+| `vessel` | `super::geometry::CoreVesselPlacement` | Core-vessel placement (input sheet N5). |
+| `heads` | `HeadBoundary` | RPV heads. |
+| `rccs` | `RccsView` | RPV side wall view. |
+| `cavity_convection` | `bool` | Natural convection of the cavity air beside the RPV-to-RCCS<br>radiation ([`rpv_cavity_enclosure`]). Default ON (gh:#1173);<br>`false` is the ablation `CAVITY-NC-OFF`<br>([`Self::without_cavity_convection`]). |
+| `max_cell` | `Option<uom::si::f64::Length>` | Largest cell size: every Fig 2.5 mesh interval is split into<br>`ceil(length / max_cell)` equal cells. `None` keeps the Fig 2.5 mesh<br>itself (21 x 39 cells here, THERMIX's own resolution). Default 5 cm. |
+| `refinement` | `[usize; 2]` | Uniform subdivision `[radial, axial]` applied **after**<br>[`Self::max_cell`]: every cell of that mesh is split into<br>`refinement[0] x refinement[1]` equal cells (gh:#1176). Unlike a<br>smaller `max_cell`, which re-splits each Fig 2.5 interval by<br>`ceil(length / max)` and so refines different intervals by different<br>ratios, this halves (`[2, 2]`) every cell in both directions, so a<br>`[1, 1]`, `[2, 2]`, `[4, 4]` sequence is geometric with ratio 2 and<br>every region boundary stays on a face. Default `[1, 1]` (no change). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn without_cavity_convection(self: Self) -> Self { /* ... */ }
+  ```
+  The ablation `CAVITY-NC-OFF`: the RPV side wall radiates only (the
+
+- ```rust
+  pub fn with_refinement(self: Self, radial: usize, axial: usize) -> Self { /* ... */ }
+  ```
+  Split every cell of the `max_cell` mesh uniformly, `radial x axial`
+
+- ```rust
+  pub fn rpv_side_boundary(self: &Self) -> SolidBoundary { /* ... */ }
+  ```
+  The RPV side-wall boundary these options give.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Htr10RzCase`
+
+What drives the solid.
+
+```rust
+pub enum Htr10RzCase {
+    BedMeanTemperature {
+        temperature: uom::si::f64::ThermodynamicTemperature,
+    },
+    HeldBed {
+        temperature: uom::si::f64::ThermodynamicTemperature,
+    },
+    DecayPower {
+        power: uom::si::f64::Power,
+    },
+}
+```
+
+##### Variants
+
+###### `BedMeanTemperature`
+
+The bed generates the power (FPIC shape) that makes its volume-mean
+temperature this value (stagnant).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `temperature` | `uom::si::f64::ThermodynamicTemperature` | The target volume-mean bed temperature. |
+
+###### `HeldBed`
+
+The bed held isothermal at this temperature up to its surface
+(stagnant).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `temperature` | `uom::si::f64::ThermodynamicTemperature` | The held temperature. |
+
+###### `DecayPower`
+
+The bed generates this total power with the FPIC Tab 2.6 shape.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `power` | `uom::si::f64::Power` | Total power. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RegionTemperatureRange`
+
+Temperature span of one region after a solve, and whether it left the
+range its closures cover (see `materials.rs`).
+
+```rust
+pub struct RegionTemperatureRange {
+    pub region: usize,
+    pub name: &'static str,
+    pub min: uom::si::f64::ThermodynamicTemperature,
+    pub max: uom::si::f64::ThermodynamicTemperature,
+    pub outside_closure_range: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `region` | `usize` | Model region index. |
+| `name` | `&'static str` | Its label. |
+| `min` | `uom::si::f64::ThermodynamicTemperature` | Coldest cell. |
+| `max` | `uom::si::f64::ThermodynamicTemperature` | Hottest cell. |
+| `outside_closure_range` | `bool` | True when a cell sits where a held (clamped) property value is used. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Htr10RzResult`
+
+The outcome of one solve.
+
+```rust
+pub struct Htr10RzResult {
+    pub rccs_side: uom::si::f64::Power,
+    pub top_head: uom::si::f64::Power,
+    pub bottom_head: uom::si::f64::Power,
+    pub generated: uom::si::f64::Power,
+    pub supplied_by_held_bed: uom::si::f64::Power,
+    pub relative_imbalance: f64,
+    pub bed_mean_temperature: uom::si::f64::ThermodynamicTemperature,
+    pub power_iterations: usize,
+    pub max_temperature: uom::si::f64::ThermodynamicTemperature,
+    pub max_at_cm: (f64, f64),
+    pub region_ranges: Vec<RegionTemperatureRange>,
+    pub side_reflector_cells_below_300c: usize,
+    pub picard: crate::genfoam::thermal_hydraulics::solid_conduction::PicardReport,
+    pub n_cells: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `rccs_side` | `uom::si::f64::Power` | Heat to the RCCS through the RPV side wall. |
+| `top_head` | `uom::si::f64::Power` | Heat leaving the RPV top head. |
+| `bottom_head` | `uom::si::f64::Power` | Heat leaving the RPV bottom head. |
+| `generated` | `uom::si::f64::Power` | Heat generated in free cells. |
+| `supplied_by_held_bed` | `uom::si::f64::Power` | Heat given up by the held bed cells (zero for a power case). |
+| `relative_imbalance` | `f64` | `|in - out| / in`. |
+| `bed_mean_temperature` | `uom::si::f64::ThermodynamicTemperature` | Volume-mean temperature of the bed (core and cone). |
+| `power_iterations` | `usize` | Secant iterations of a [`Htr10RzCase::BedMeanTemperature`] case<br>(0 otherwise). |
+| `max_temperature` | `uom::si::f64::ThermodynamicTemperature` | Hottest cell. |
+| `max_at_cm` | `(f64, f64)` | Its centre `(r, z)`, cm (TECDOC `z`). |
+| `region_ranges` | `Vec<RegionTemperatureRange>` | Per-region temperature spans. |
+| `side_reflector_cells_below_300c` | `usize` | Side-reflector cells (regions 2-side, 3, 4, 14, 30) below 300 deg C,<br>where the side-reflector fit is replaced (the gh:#1148 flag). |
+| `picard` | `crate::genfoam::thermal_hydraulics::solid_conduction::PicardReport` | Picard passes and the last change. |
+| `n_cells` | `usize` | Cells in the mesh. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn range_flags(self: &Self) -> Vec<&RegionTemperatureRange> { /* ... */ }
+  ```
+  Regions that reached a held property value.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Htr10RzModel`
+
+The assembled model.
+
+```rust
+pub struct Htr10RzModel {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn build(options: Htr10RzOptions, case: Htr10RzCase) -> Result<Self, Htr10RzError> { /* ... */ }
+  ```
+  Build the model for a case.
+
+- ```rust
+  pub fn cell_power_density(self: &Self, c: usize) -> VolumetricPowerDensity { /* ... */ }
+  ```
+  Power density mapped onto cell `c` (zero outside the bed and for a
+
+- ```rust
+  pub fn field(self: &Self) -> &SolidConductionField { /* ... */ }
+  ```
+  The solid conduction field (mesh, temperatures, regions).
+
+- ```rust
+  pub fn options(self: &Self) -> &Htr10RzOptions { /* ... */ }
+  ```
+  The options it was built with.
+
+- ```rust
+  pub fn regions(self: &Self) -> &[RegionSpec; 31] { /* ... */ }
+  ```
+  The region table.
+
+- ```rust
+  pub fn temperature_at_cm(self: &Self, r_cm: f64, z_cm: f64) -> Option<ThermodynamicTemperature> { /* ... */ }
+  ```
+  Temperature of the cell containing `(r, z)` in cm (TECDOC `z`).
+
+- ```rust
+  pub fn solve_steady(self: &mut Self) -> Result<Htr10RzResult, Htr10RzError> { /* ... */ }
+  ```
+  Solve the steady state and report.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `rpv_cavity_enclosure`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The air enclosure between the RPV side wall and the RCCS panels
+(gh:#1173): gap `RCCS_RADIUS_M - RPV_OUTER_RADIUS_M` = 0.674 m, height
+[`RPV_SIDE_HEIGHT_M`], radius ratio 2.18/2.854, air at
+[`CAVITY_AIR_PRESSURE_PA`].
+
+```rust
+pub fn rpv_cavity_enclosure() -> crate::genfoam::thermal_hydraulics::solid_conduction::EnclosureNaturalConvection { /* ... */ }
+```
+
+#### Function `build_mesh`
+
+Build the R-Z mesh of the model (full `2 pi` wedge, so volumes and
+powers are those of the whole reactor), each cell's region by the
+painting rule at its centre.
+
+# Errors
+[`Htr10RzError::Mesh`] if the mesh fails to assemble.
+
+```rust
+pub fn build_mesh(options: &Htr10RzOptions) -> Result<crate::genfoam::thermal_hydraulics::solid_conduction::RzMesh, super::Htr10RzError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `RCCS_TEMPERATURE_K`
+
+RCCS panel and concrete temperature, K (50 deg C, TECDOC-1694
+Sec 2.1.1.4).
+
+```rust
+pub const RCCS_TEMPERATURE_K: f64 = 323.15;
+```
+
+#### Constant `CAVITY_EMISSIVITY`
+
+Emissivity of both surfaces of the cavity outside the RPV (Tab 2.13).
+
+```rust
+pub const CAVITY_EMISSIVITY: f64 = 0.85;
+```
+
+#### Constant `RPV_OUTER_RADIUS_M`
+
+RPV outer radius, m (Tab 2.3: 420/2 + 8 cm).
+
+```rust
+pub const RPV_OUTER_RADIUS_M: f64 = 2.18;
+```
+
+#### Constant `RCCS_RADIUS_M`
+
+RCCS panel radius, m: the input sheet's region-39 reading (Uncertain).
+
+```rust
+pub const RCCS_RADIUS_M: f64 = 2.854;
+```
+
+#### Constant `INSULATING_PLATE_RADIUS_M`
+
+Region-42 insulating-plate radius, m (input sheet reading, Uncertain).
+
+```rust
+pub const INSULATING_PLATE_RADIUS_M: f64 = 2.834;
+```
+
+#### Constant `RPV_SIDE_HEIGHT_M`
+
+RPV side-wall height, m: the model's outer patch, `z = -351..665 cm`
+(Tab 2.3 via the input sheet's Fig 2.5 axial lines).
+
+```rust
+pub const RPV_SIDE_HEIGHT_M: f64 = 10.16;
+```
+
+#### Constant `CAVITY_AIR_PRESSURE_PA`
+
+Reactor-cavity air pressure, Pa: one standard atmosphere (not stated in
+any source; **Assumed**).
+
+```rust
+pub const CAVITY_AIR_PRESSURE_PA: f64 = 101_325.0;
+```
+
+## Module `pebble`
+
+Pebble-internal temperatures of the HTR-10 fuel element (gh:#1150):
+surface -> fuel-zone surface -> fuel-zone centre -> hottest kernel.
+
+**Reuses the GeN-Foam `nuclearSteadyStatePebble` port**
+([`PebbleGeometry::steady_temperatures`]), adapted to the HTR-10 pebble.
+The port's pebble is an FHR annulus (an unfuelled graphite core inside
+the fuel); the HTR-10 fuel zone is a **full sphere** of radius 2.5 cm in
+a 0.5 cm unfuelled shell (TECDOC-1694 Tab 2.2, Tab 2.3). The adaptation
+is the limit `r_core -> 0`: the port asserts `r_core > 0`, so
+[`CORE_RADIUS_LIMIT_M`] = 1 um is used, which changes the matrix terms
+by `(r_c/r_m)^3 ~ 6e-14` relative (pinned by a unit test against the
+closed-form full sphere).
+
+**HTR-10 data:**
+
+| Quantity | Value | Source |
+|---|---|---|
+| Pebble / fuel-zone radius | 3.0 / 2.5 cm | Tab 2.2, Tab 2.3 (Quoted) |
+| Kernel radius; coatings outward | 0.25 mm; buffer 0.09, IPyC 0.04, SiC 0.035, OPyC 0.04 mm | Tab 2.2 (Quoted) |
+| TRISO per pebble | 8335 | Derived: 5.0 g U (Tab 2.2) / (kernel UO2 mass 6.807e-4 g x 0.8813 U mass fraction at 17 % enrichment); Putra 2021 Tab 1 uses exactly 8335 |
+| Matrix (fuel-element) conductivity | Tab 2.9 fuel-element fit, zero dose, evaluated at the fuel-zone mean | Tab 2.9 (Quoted) |
+| Kernel, buffer, PyC, SiC conductivity | 3.3073, 0.50, 4.00, 90.3 W/(m K) | the GeN-Foam `3D_gFHR` tutorial values the port records (not HTR-10 data; TECDOC-1694 gives none). They set only the kernel step |
+
+**Fuel-centre temperature, the benchmark definition.** TECDOC-1694
+Sec 2.1.1.6 defines it as the mean of the central zone (diameter 0.3 cm)
+of the fuel sphere split in five zones. For a uniformly heated sphere of
+centre temperature `T_0` that mean is `T_0 - q b^2/(10 k)`, `b = 0.15 cm`.
+The port gives `T_m,out` (the fuel-zone surface); this module adds the
+sphere's own `q r_m^2/(6 k_eff)` to the centre and the zone mean.
+
+**Maxwell.** The port homogenises the TRISO into the matrix with the
+Maxwell rule (its default physics). Whether Tab 2.9's "fuel element"
+conductivity already contains the particles is not stated (Unknown), so
+[`PebbleMatrix`] keeps the port's default and offers the homogeneous
+benchmark reading as the comparison.
+
+```rust
+pub mod pebble { /* ... */ }
+```
+
+### Types
+
+#### Enum `PebbleMatrix`
+
+How the fuel-zone conductivity is formed.
+
+```rust
+pub enum PebbleMatrix {
+    MaxwellOnTab29,
+    Tab29Homogeneous,
+}
+```
+
+##### Variants
+
+###### `MaxwellOnTab29`
+
+The port's Maxwell homogenisation of the TRISO into the Tab 2.9
+matrix value. **Default** (the port's physics).
+
+###### `Tab29Homogeneous`
+
+Tab 2.9 used directly as the fuel-zone conductivity (the
+homogeneous THERMIX reading of the benchmark). Comparison case.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PebbleProfile`
+
+Temperatures inside one pebble, K.
+
+```rust
+pub struct PebbleProfile {
+    pub surface: f64,
+    pub fuel_zone_surface: f64,
+    pub centre: f64,
+    pub benchmark_centre: f64,
+    pub kernel_max: f64,
+    pub fuel_zone_conductivity: f64,
+    pub pebble_power: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surface` | `f64` | Pebble surface (the solid field's bed temperature). |
+| `fuel_zone_surface` | `f64` | Fuel-zone surface (`r = 2.5 cm`). |
+| `centre` | `f64` | Fuel-zone centre (`r = 0`, matrix). |
+| `benchmark_centre` | `f64` | The benchmark's "fuel-centre temperature" (Sec 2.1.1.6). |
+| `kernel_max` | `f64` | Hottest kernel centre: a TRISO at the pebble centre. |
+| `fuel_zone_conductivity` | `f64` | Fuel-zone effective conductivity used, W/(m K). |
+| `pebble_power` | `f64` | Power of the pebble, W. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `htr10_pebble`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The HTR-10 pebble as the port's geometry.
+
+```rust
+pub fn htr10_pebble() -> crate::genfoam::thermal_hydraulics::structure::nuclear_steady_state_pebble::PebbleGeometry { /* ... */ }
+```
+
+#### Function `pebble_profile`
+
+The pebble profile for a surface temperature (K) and a bed-homogenised
+power density (W/m^3) at the bed solid fraction 0.61 (Tab 2.2). The
+Tab 2.9 conductivity is evaluated at the fuel-zone mean temperature,
+iterated to 1e-6 K.
+
+# Errors
+[`Htr10RzError::Property`] if the Tab 2.9 fit fails.
+
+```rust
+pub fn pebble_profile(surface_k: f64, power_density: f64, matrix: PebbleMatrix) -> Result<PebbleProfile, super::Htr10RzError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `CORE_RADIUS_LIMIT_M`
+
+The `r_core -> 0` limit used to run the FHR-annulus port on a full
+sphere, m.
+
+```rust
+pub const CORE_RADIUS_LIMIT_M: f64 = 1.0e-6;
+```
+
+#### Constant `CENTRE_ZONE_RADIUS_M`
+
+Radius of the benchmark's central "fuel-centre" zone, m (0.3 cm diameter,
+Sec 2.1.1.6).
+
+```rust
+pub const CENTRE_ZONE_RADIUS_M: f64 = 0.0015;
+```
+
+## Module `power_map`
+
+The FPIC 10 MW power-density map, TECDOC-1694 Tab 2.6 with the
+Sec 2.1.1.6 revision, mapped onto an R-Z mesh by exact volume overlap.
+
+The data file `data/power-density-fpic-10mw-tab2-6.csv` is a copy of
+`docs/reactor-scoping/htr10-th-data/power-density-fpic-10mw-tab2-6.csv`
+(gh:#1147; the test `power_map_copy_matches_the_input_sheet` fails if they
+drift). Its layout is the input sheet's: each value applies from its
+`z_lo` to `z_hi` and `r_lo` to `r_hi` (cm), W/cm^3. Its volume integral
+is 9.984 MW (input sheet Sec 5.1, Derived).
+
+**Mapping.** A mesh cell `[r1, r2] x [z1, z2]` receives
+`sum_k q_k V(cell n map_k) / V(cell)`, with the axisymmetric overlap
+volume `pi (b^2 - a^2) dz` for the radial overlap `[a, b]`. The integral
+is therefore preserved exactly on any mesh (the map's last row ends at
+`z = 187 cm`, inside the mesh interval 180-187.5).
+
+```rust
+pub mod power_map { /* ... */ }
+```
+
+### Types
+
+#### Struct `PowerMapCell`
+
+One map cell, cm and W/cm^3.
+
+```rust
+pub struct PowerMapCell {
+    pub z_cm: [f64; 2],
+    pub r_cm: [f64; 2],
+    pub q_w_per_cm3: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `z_cm` | `[f64; 2]` | `[z_lo, z_hi]`, cm (TECDOC `z`, downward). |
+| `r_cm` | `[f64; 2]` | `[r_lo, r_hi]`, cm. |
+| `q_w_per_cm3` | `f64` | Power density, W/cm^3. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `fpic_power_map`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The parsed Tab 2.6 map (110 cells).
+
+# Panics
+Never for the embedded file (its parse is pinned by a test).
+
+```rust
+pub fn fpic_power_map() -> Vec<PowerMapCell> { /* ... */ }
+```
+
+#### Function `lofc_power_map`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+TECDOC-1694 Tab 2.56, the 3 MW map of the LOFC benchmark (gh:#1151
+part B), a copy of the input sheet's
+`power-density-3mw-lofc-tab2-56.csv` (pinned by a drift test). Same
+layout as Tab 2.6; volume integral 2.991 MW (input sheet Sec 6,
+Derived).
+
+```rust
+pub fn lofc_power_map() -> Vec<PowerMapCell> { /* ... */ }
+```
+
+#### Function `crw_power_map`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+TECDOC-1694 Tab 2.61, the 3 MW map of the CRW benchmark; differs from
+Tab 2.56 in the one cell (z 180-187, r 83.5-90), input sheet N1. Volume
+integral 2.999 MW (Derived).
+
+```rust
+pub fn crw_power_map() -> Vec<PowerMapCell> { /* ... */ }
+```
+
+#### Function `map_power_w`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Volume integral of the map, W (full cylinder).
+
+```rust
+pub fn map_power_w(map: &[PowerMapCell]) -> f64 { /* ... */ }
+```
+
+#### Function `cell_average_w_per_m3`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Power density, W/m^3, averaged over the axisymmetric cell
+`[r1, r2] x [z1, z2]` (cm).
+
+```rust
+pub fn cell_average_w_per_m3(map: &[PowerMapCell], r_cm: [f64; 2], z_cm: [f64; 2]) -> f64 { /* ... */ }
+```
+
+## Module `transient`
+
+The HTR-10 R-Z core **in time** (gh:#1151 part B): the gh:#1149 solid
+field marched by backward Euler, the gh:#1150 porous gas network solved
+quasi-steadily at every step with buoyancy in the bed and channels, and
+a lagged fuel-zone node per heated bed cell.
+
+**Original work, not a port.** The coupling is THERMIX's (Chen et al.
+2009 [C09] Sec 3.3, input sheet `docs/reactor-scoping/htr10-th-benchmark.md`):
+"a quasi-stationary gas flow model ... coupling with a given
+time-dependent temperature profile of the solid structures, this module
+solves steady-state continuity, momentum and energy equations of gas".
+The gas holds a few tens of kJ/K against the bed's ~8 MJ/K, so its own
+storage is dropped.
+
+## One step `dt`
+
+1. **Gas** ([`solve_gas`]): the flow and the gas temperatures for the
+   solid temperatures at the start of the step (explicit in the gas, as
+   THERMIX). With the loop stopped (`mass_flow = 0`) every inflow is zero
+   and only gravity drives the gas: the **in-vessel natural circulation**
+   of [C09] Sec 5 in the bed, the discharge tube, the bottom-reflector
+   borings and the control-rod channels. In the plena and cavities (open
+   volumes) the gravity term stays dropped (gh:#1150: it gave a
+   Rayleigh-Darcy limit cycle in the hot plenum), so the plena carry the
+   circulation only as low-resistance connections. The 1-D inlet chain
+   (annulus, risers, top plenum) carries only the loop flow, so **no
+   riser loop** exists here; see the V&V README for its size.
+   **The steady state (gh:#1176, 2026-11-03)** solves the gas
+   consistently in its own density
+   ([`super::flow::solve_gas_consistent`], Aitken-relaxed to 1e-4 K):
+   with the densities lagged one outer pass the steady iteration
+   wandered at 3-9 K from the axis cells of the discharge tube on the
+   4x-refined 20 cm mesh and never converged. **A step keeps the lagged
+   densities** (explicit in the gas, as THERMIX): a consistent solve per
+   step was tried and needed 15-87 evaluations per step, and failed to
+   converge at the last forced-flow step of the coastdown on the 2x mesh
+   (2026-11-03). Known limitation: on the 4x mesh at a constant state
+   the tube's axis gas alternates by 50-120 K from step to step (V&V
+   README Sec 10).
+2. **Solid** (`SolidConductionField::step`): backward Euler with
+   Picard on `lambda(T)`, `rho c(T)` and radiation; the gas exchange
+   `h a_v (T - T_gas)` implicit in `T`.
+3. **Fuel zone** (per heated bed cell, the [`FuelZoneModel::Lagged`]
+   default): a node of the fuel zones' heat capacity receiving the
+   power and conducting to the cell (the pebble surface temperature of
+   gh:#1150) through `G = 1/(R_zone + R_shell)` per fuel pebble,
+   `R_zone = 1/(20 pi k r_1)` (volume mean of a uniformly heated sphere
+   to its surface) and `R_shell = (1/r_1 - 1/r_2)/(4 pi k)`, `r_1 = 2.5`,
+   `r_2 = 3.0 cm` (Tab 2.2), `k` the Tab 2.9 fuel-element fit at the
+   fuel temperature (zero dose, the gh:#1150 reading). The node is
+   eliminated **exactly** into the solid row: with `a = C_f/dt`,
+   `h' = G a/(a + G)` to the reference `T* = T_f^n + q/a`. Its capacity
+   is the fraction `phi = x_fuel (r_1/r_2)^3` of the bed's `rho c`, and
+   the bed cell keeps `1 - phi` (`set_cell_capacity_factor`; `1 - phi -
+   phi_d` with the dummy node of item 4), so nothing is counted twice. `x_fuel` is the as-run fuel-pebble fraction of the
+   mixed zone, 13,651 / (13,651 + 10,298) ([J09] Tab 2; sheet Sec 6,
+   Derived 57:43).
+
+4. **Dummy pebbles** (gh:#1174, [`DummyPebbleModel::Lagged`], default):
+   the mixed zone holds 43 % dummies, all-graphite balls that generate
+   nothing and heat only through the bed around them. Each heated cell
+   gets a dummy node of capacity `phi_d = 1 - x_fuel` of the bed's
+   `rho c` (the cell keeps the fuel pebbles' shells, `x (1 - (r_1/r_2)^3)`),
+   coupled to the cell by [`dummy_pebble_conductance`] per dummy:
+   the sphere's mean-to-surface resistance `1/(20 pi k R)` in series with
+   `2 pi D k_bed + h A` (a sphere in a medium of the bed's effective
+   conductivity, plus the gas film of one pebble, both referenced to the
+   cell). Eliminated into the cell row exactly as the fuel node
+   (`h' = G a/(a+G)` to `T_d^n`), enthalpy-form update, counted in
+   [`Htr10RzTransientCore::stored_energy`]. Stated approximations: the
+   bed's conduction network runs through the cell, not the dummies; the
+   gas film is referenced to the cell, not the gas (a lower bound on the
+   lag in forced flow). Hand time constant ~45 s in forced flow, ~100 s
+   stagnant. Ablation `DUMMY-IN-CELL`.
+
+## Feedback temperatures (kinetics input)
+
+[T1] Sec 2.1.1.6 defines each coefficient as the change for a 1 deg C
+change of that temperature "within the whole core", split over zones by
+power fraction. Here: **fuel** = power-weighted fuel-zone node
+temperature; **moderator** = power-weighted ~~bed-cell temperature
+(pebble graphite outside the fuel zones)~~ **(gh:#1174, 2026-11-03)**
+volume mean of all pebble graphite in the cell,
+`w_f T_f + w_s T_cell + w_d T_d` with the fuel zones' matrix
+`w_f = x (r_1/r_2)^3 = 0.330`, the fuel pebbles' shells
+`w_s = x (1 - (r_1/r_2)^3) = 0.240` and the dummies `w_d = 1 - x = 0.430`
+([`ModeratorTemperature::AllPebbleGraphite`]): the moderator is the
+graphite, and a third of it is the fuel zones' matrix, which the part B
+reading left out. [T1] defines the moderator coefficient only as
+"similar" to the fuel's, so which graphite it reads is an **assumption**
+(the all-graphite reading is VSOP's fuel/moderator split, not checked
+against a source); `MOD-OUTSIDE-FZ` is the part B reading, kept as a
+sensitivity. **reflector** = volume mean of
+all graphite reflector cells ([`ReflectorAverage::AllGraphite`], a named
+assumption: any weighting reproduces the uniform-change definition;
+`SideOnly` is part A's side-reflector node, kept as a sensitivity).
+
+> Research, education and V&V only. Not for licensing, operation or
+> safety decisions. AI draft, unreviewed.
+
+```rust
+pub mod transient { /* ... */ }
+```
+
+### Types
+
+#### Enum `PowerShape`
+
+Which TECDOC-1694 power-density map shapes the power.
+
+```rust
+pub enum PowerShape {
+    FpicTab26,
+    LofcTab256,
+    CrwTab261,
+}
+```
+
+##### Variants
+
+###### `FpicTab26`
+
+Tab 2.6, the 10 MW FPIC map.
+
+###### `LofcTab256`
+
+Tab 2.56, the 3 MW LOFC map.
+
+###### `CrwTab261`
+
+Tab 2.61, the 3 MW CRW map (one cell differs from Tab 2.56, N1).
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn map(self: Self) -> Vec<PowerMapCell> { /* ... */ }
+  ```
+  The map.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `FuelZoneModel`
+
+How the fuel zones of the pebbles respond in time.
+
+```rust
+pub enum FuelZoneModel {
+    Lagged,
+    QuasiSteady,
+}
+```
+
+##### Variants
+
+###### `Lagged`
+
+A fuel-zone node with its own heat capacity (module docs). Default.
+
+###### `QuasiSteady`
+
+No fuel-zone storage: `T_f = T_s + q/G` at every instant, all the
+capacity in the bed cell (the explicit ablation `FUEL-QS`).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `ReflectorAverage`
+
+Which graphite the reflector feedback temperature averages.
+
+```rust
+pub enum ReflectorAverage {
+    AllGraphite,
+    SideOnly,
+}
+```
+
+##### Variants
+
+###### `AllGraphite`
+
+Volume mean of every graphite reflector region (side, top, bottom,
+the channel rings and the throttles). Default.
+
+###### `SideOnly`
+
+The side reflector `r 90-167.5 cm`, `z -65..325 cm`: part A's lumped
+reflector node (sensitivity `REFL-SIDE`).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `DummyPebbleModel`
+
+How the dummy (all-graphite) pebbles mixed with the fuel in the heated
+zone respond in time (gh:#1174; module docs, "Two-temperature bed").
+
+```rust
+pub enum DummyPebbleModel {
+    Lagged,
+    InBedCell,
+}
+```
+
+##### Variants
+
+###### `Lagged`
+
+A dummy-pebble node per heated bed cell with its own heat capacity,
+coupled to the bed cell through the dummy's interior and the bed
+around it ([`dummy_pebble_conductance`]). Default (gh:#1174).
+
+###### `InBedCell`
+
+The dummies are part of the bed cell's capacity, at the cell's
+temperature (the gh:#1151 part B model; ablation `DUMMY-IN-CELL`).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `ModeratorTemperature`
+
+Which pebble graphite the **moderator** temperature coefficient reads
+(gh:#1174; module docs, "Feedback temperatures").
+
+```rust
+pub enum ModeratorTemperature {
+    AllPebbleGraphite,
+    OutsideFuelZones,
+    ImportanceWeighted,
+}
+```
+
+##### Variants
+
+###### `AllPebbleGraphite`
+
+All pebble graphite of a heated cell, weighted by volume: the fuel
+zones (matrix, at the fuel-zone node), the fuel pebbles' shells (the
+bed cell) and the dummies. Default (gh:#1174).
+
+###### `OutsideFuelZones`
+
+The pebble graphite outside the fuel zones only (shells and
+dummies): the gh:#1151 part B reading (sensitivity `MOD-OUTSIDE-FZ`).
+
+###### `ImportanceWeighted`
+
+All pebble graphite, each part weighted by its volume **and its
+measured reactivity importance per unit graphite** (gh:#1174): the
+fuel pebbles' graphite (fuel-zone matrix and shell, one importance)
+against the dummies', in the ratio
+[`TransientCoreOptions::fuel_graphite_importance`] from the whole-core
+Monte Carlo worths (V&V README Sec 11). With a ratio of 1 it is
+[`Self::AllPebbleGraphite`].
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `TransientCoreOptions`
+
+Everything that defines the transient core, each defaulting to the
+gh:#1151 part B base case.
+
+```rust
+pub struct TransientCoreOptions {
+    pub solid: super::Htr10RzOptions,
+    pub split: super::flow::BypassSplit,
+    pub shape: PowerShape,
+    pub fuel_pebble_fraction: f64,
+    pub fuel_zone: FuelZoneModel,
+    pub buoyancy: bool,
+    pub reflector: ReflectorAverage,
+    pub dummy_pebbles: DummyPebbleModel,
+    pub moderator: ModeratorTemperature,
+    pub fuel_graphite_importance: f64,
+    pub steady_tolerance_k: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solid` | `super::Htr10RzOptions` | The solid model (mesh resolution, bed conductivity, heads, RCCS).<br>Its helium pressure is overwritten by the operating point's. |
+| `split` | `super::flow::BypassSplit` | The bypass split (D5: an assumption, never tuned). |
+| `shape` | `PowerShape` | The power shape. |
+| `fuel_pebble_fraction` | `f64` | Fuel pebbles over all pebbles in the heated (mixed) zone. |
+| `fuel_zone` | `FuelZoneModel` | Fuel-zone node. |
+| `buoyancy` | `bool` | Gravity in the porous bed and channels (in-vessel natural<br>circulation). Default ON; `false` is the ablation `NC-OFF`. |
+| `reflector` | `ReflectorAverage` | Reflector feedback temperature. |
+| `dummy_pebbles` | `DummyPebbleModel` | Dummy pebbles in the heated zone (gh:#1174). |
+| `moderator` | `ModeratorTemperature` | What the moderator coefficient reads (gh:#1174). |
+| `fuel_graphite_importance` | `f64` | Reactivity worth per kelvin per unit graphite of the fuel pebbles'<br>graphite over the dummies' ([`ModeratorTemperature::ImportanceWeighted`];<br>gh:#1174, measured by Monte Carlo, V&V README Sec 11). |
+| `steady_tolerance_k` | `f64` | Outer-iteration tolerance of the initial steady state, K. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn htr10_lofc() -> Self { /* ... */ }
+  ```
+  The LOFC base: Tab 2.56 shape, as-run fuel fraction, [T1] split,
+
+- ```rust
+  pub fn htr10_crw() -> Self { /* ... */ }
+  ```
+  The CRW base: as [`Self::htr10_lofc`] with the Tab 2.61 shape.
+
+- ```rust
+  pub fn without_buoyancy(self: Self) -> Self { /* ... */ }
+  ```
+  The ablation `NC-OFF`: no gravity term anywhere in the gas.
+
+- ```rust
+  pub fn with_quasi_steady_fuel(self: Self) -> Self { /* ... */ }
+  ```
+  The ablation `FUEL-QS`: no fuel-zone storage.
+
+- ```rust
+  pub fn without_dummy_pebble_lag(self: Self) -> Self { /* ... */ }
+  ```
+  The ablation `DUMMY-IN-CELL`: the dummies at the bed cell's
+
+- ```rust
+  pub fn with_moderator_outside_fuel_zones(self: Self) -> Self { /* ... */ }
+  ```
+  The sensitivity `MOD-OUTSIDE-FZ`: the moderator coefficient reads the
+
+- ```rust
+  pub fn with_importance_weighted_moderator(self: Self, ratio: f64) -> Self { /* ... */ }
+  ```
+  The moderator reading weighted by the measured importance of the
+
+- ```rust
+  pub fn with_all_pebble_graphite_moderator(self: Self) -> Self { /* ... */ }
+  ```
+  The ablation of the importance weighting: all pebble graphite by
+
+- ```rust
+  pub fn with_max_cell(self: Self, max_cell: Length) -> Self { /* ... */ }
+  ```
+  Change the largest cell size.
+
+- ```rust
+  pub fn with_refinement(self: Self, radial: usize, axial: usize) -> Self { /* ... */ }
+  ```
+  Split every cell of the mesh uniformly, `radial x axial`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CoreFeedbackTemperatures`
+
+Power-weighted fuel and moderator temperatures and the reflector's.
+
+```rust
+pub struct CoreFeedbackTemperatures {
+    pub fuel: uom::si::f64::ThermodynamicTemperature,
+    pub moderator: uom::si::f64::ThermodynamicTemperature,
+    pub reflector: uom::si::f64::ThermodynamicTemperature,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `fuel` | `uom::si::f64::ThermodynamicTemperature` | Power-weighted fuel-zone temperature. |
+| `moderator` | `uom::si::f64::ThermodynamicTemperature` | Power-weighted bed (pebble graphite) temperature. |
+| `reflector` | `uom::si::f64::ThermodynamicTemperature` | Reflector temperature ([`ReflectorAverage`]). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `NaturalCirculation`
+
+In-vessel natural-circulation measures of the last gas solve.
+
+```rust
+pub struct NaturalCirculation {
+    pub bed_upflow: uom::si::f64::MassRate,
+    pub bed_downflow: uom::si::f64::MassRate,
+    pub max_bed_mass_flux: f64,
+    pub enthalpy_up_through_bed_top: uom::si::f64::Power,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `bed_upflow` | `uom::si::f64::MassRate` | Upward mass flow across the bed row nearest `z = 90 cm` (sum over<br>cells with upward `G_z`). |
+| `bed_downflow` | `uom::si::f64::MassRate` | Downward mass flow across the same row. |
+| `max_bed_mass_flux` | `f64` | Largest superficial mass flux magnitude in the bed, kg/(m^2 s). |
+| `enthalpy_up_through_bed_top` | `uom::si::f64::Power` | Net heat the gas carries into the core-entry plenum and the top<br>reflector flow zone through the bed top (`z = 0`), W: positive<br>upward, `c_p sum F (T - T_ref)` over the faces, `T_ref` the area-mean<br>of the two sides (so a zero net mass flow carries no reference<br>enthalpy). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CoreStepReport`
+
+What a step (or the steady state) returns.
+
+```rust
+pub struct CoreStepReport {
+    pub outlet_temperature: uom::si::f64::ThermodynamicTemperature,
+    pub heat_to_gas: uom::si::f64::Power,
+    pub heat_to_rccs_and_heads: uom::si::f64::Power,
+    pub power: uom::si::f64::Power,
+    pub feedback: CoreFeedbackTemperatures,
+    pub circulation: NaturalCirculation,
+    pub solid_picard_iterations: usize,
+    pub gas_picard_iterations: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `outlet_temperature` | `uom::si::f64::ThermodynamicTemperature` | Mixed core outlet (hot plenum) gas; the area mean of the outlet<br>cells when the loop is stopped. |
+| `heat_to_gas` | `uom::si::f64::Power` | Heat taken up by the gas from the solid, `sum h a_v V (T_s - T_g)`<br>with the end-of-step solid temperatures. |
+| `heat_to_rccs_and_heads` | `uom::si::f64::Power` | Heat leaving through the RPV side wall and both heads. |
+| `power` | `uom::si::f64::Power` | Power deposited this step. |
+| `feedback` | `CoreFeedbackTemperatures` | Feedback temperatures at the end of the step. |
+| `circulation` | `NaturalCirculation` | Natural-circulation measures. |
+| `solid_picard_iterations` | `usize` | Picard passes of the solid solve. |
+| `gas_picard_iterations` | `usize` | Picard passes of the gas flow solve. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SteadyOuterPass`
+
+One pass of the steady solid-gas outer iteration
+([`Htr10RzTransientCore::solve_steady`]), kept so a stall can be told
+apart from an oscillation or a divergence (gh:#1176).
+
+```rust
+pub struct SteadyOuterPass {
+    pub solid_change_k: f64,
+    pub gas_change_k: f64,
+    pub worst_cell: usize,
+    pub solid_picard: usize,
+    pub gas_picard: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solid_change_k` | `f64` | Largest change of a solid cell temperature over the pass, K. |
+| `gas_change_k` | `f64` | Largest change of a gas cell temperature over the pass, K<br>(infinite on the first pass). |
+| `worst_cell` | `usize` | The cell that set the larger of the two. |
+| `solid_picard` | `usize` | Picard passes of the solid solve. |
+| `gas_picard` | `usize` | Picard passes of the gas flow solve. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Htr10RzTransientCore`
+
+The transient HTR-10 R-Z core.
+
+```rust
+pub struct Htr10RzTransientCore {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn build(options: TransientCoreOptions) -> Result<Self, Htr10RzError> { /* ... */ }
+  ```
+  Build the solid model, the gas network and the fuel nodes.
+
+- ```rust
+  pub fn solid(self: &Self) -> &Htr10RzModel { /* ... */ }
+  ```
+  The solid model.
+
+- ```rust
+  pub fn build_with_power_map(options: TransientCoreOptions, map: &[PowerMapCell]) -> Result<Self, Htr10RzError> { /* ... */ }
+  ```
+  **Build with a custom power-density map** (gh:#1185): as
+
+- ```rust
+  pub fn set_power_map(self: &mut Self, map: &[PowerMapCell]) -> Result<(), Htr10RzError> { /* ... */ }
+  ```
+  **Replace the power shape with a custom map** (gh:#1185), e.g. a Monte
+
+- ```rust
+  pub fn captured_power_fraction(self: &Self) -> f64 { /* ... */ }
+  ```
+  Share of the power map's integral that lands on the heated bed cells,
+
+- ```rust
+  pub fn unit_source(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  The cell power density per watt of total power, W/m^3/W, of every
+
+- ```rust
+  pub fn steady_history(self: &Self) -> &[SteadyOuterPass] { /* ... */ }
+  ```
+  The passes of the last steady outer iteration (gh:#1176).
+
+- ```rust
+  pub fn network(self: &Self) -> &GasNetwork { /* ... */ }
+  ```
+  The gas network.
+
+- ```rust
+  pub fn gas(self: &Self) -> Option<&GasState> { /* ... */ }
+  ```
+  The gas state of the last solve.
+
+- ```rust
+  pub fn options(self: &Self) -> &TransientCoreOptions { /* ... */ }
+  ```
+  The options.
+
+- ```rust
+  pub fn time(self: &Self) -> Time { /* ... */ }
+  ```
+  Time marched since the steady state, s.
+
+- ```rust
+  pub fn heated_cells(self: &Self) -> &[usize] { /* ... */ }
+  ```
+  Cells that generate power.
+
+- ```rust
+  pub fn cell_power_density(self: &Self, c: usize) -> VolumetricPowerDensity { /* ... */ }
+  ```
+  The bed-volumetric power density of cell `c` at the current power.
+
+- ```rust
+  pub fn fuel_temperature(self: &Self, c: usize) -> Option<ThermodynamicTemperature> { /* ... */ }
+  ```
+  Fuel-zone temperature of cell `c` (`None` for an unheated cell).
+
+- ```rust
+  pub fn dummy_temperature(self: &Self, c: usize) -> Option<ThermodynamicTemperature> { /* ... */ }
+  ```
+  Dummy-pebble node temperature of cell `c` (`None` for an unheated
+
+- ```rust
+  pub fn solve_steady(self: &mut Self, op: &OperatingPoint) -> Result<CoreStepReport, Htr10RzError> { /* ... */ }
+  ```
+  Solve the coupled steady state at `op` (block Gauss-Seidel as the
+
+- ```rust
+  pub fn solve_steady_with_progress</* synthetic */ impl FnMut(&SteadyOuterPass): FnMut(&SteadyOuterPass)>(self: &mut Self, op: &OperatingPoint, progress: impl FnMut(&SteadyOuterPass)) -> Result<CoreStepReport, Htr10RzError> { /* ... */ }
+  ```
+  [`Self::solve_steady`], calling `progress` after every outer pass
+
+- ```rust
+  pub fn step(self: &mut Self, dt: Time, op: &OperatingPoint) -> Result<CoreStepReport, Htr10RzError> { /* ... */ }
+  ```
+  Advance by `dt` with `op.power` deposited and the loop state of
+
+- ```rust
+  pub fn stored_energy(self: &Self, reference: ThermodynamicTemperature) -> Energy { /* ... */ }
+  ```
+  Thermal energy above `reference` in the solid, the fuel nodes and the
+
+- ```rust
+  pub fn feedback(self: &Self) -> CoreFeedbackTemperatures { /* ... */ }
+  ```
+  The feedback temperatures now.
+
+- ```rust
+  pub fn reading(self: &Self, tc: &Thermocouple) -> ThermocoupleReading { /* ... */ }
+  ```
+  The model at a thermocouple (the gh:#1150 instrument rule).
+
+- ```rust
+  pub fn forced_path_gravity_head(self: &Self, pressure: Pressure) -> Pressure { /* ... */ }
+  ```
+  Gravity head along the forced path between the RPV nozzles,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `fuel_pebble_conductance`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Fuel-zone-to-pebble-surface conductance of one fuel pebble, W/K, with
+the zone and the shell at conductivity `k` (module docs).
+
+```rust
+pub fn fuel_pebble_conductance(k: f64) -> f64 { /* ... */ }
+```
+
+#### Function `dummy_pebble_conductance`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Conductance of one dummy pebble between its mean temperature and the bed
+around it, W/K (gh:#1174): `1 / (R_int + 1/G_ext)`, with
+
+- `R_int = 1/(20 pi k_g R)`, the mean-to-surface resistance of a sphere
+  whose temperature profile is the quasi-steady parabola (the same form
+  as the fuel zone's, here for a heat sink spread over the sphere);
+- `G_ext = 2 pi D k_bed + h A`: a sphere of diameter `D` in an infinite
+  medium of the bed's effective conductivity (conduction shape factor
+  `S = 2 pi D`, Incropera & DeWitt 6th ed. Tab 4.1 case 1) in parallel
+  with the gas film `h A` of one pebble, referenced to the bed cell.
+
+`k_g` is the pebble graphite (`k_graphite`, W/(m K)), `k_bed` the bed
+(W/(m K)), `h_a` the per-pebble gas film conductance (W/K).
+
+```rust
+pub fn dummy_pebble_conductance(k_graphite: f64, k_bed: f64, h_a: f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `AS_RUN_FUEL_PEBBLES`
+
+As-run fuel pebbles and the dummies mixed with them ([J09] Tab 2;
+input sheet Sec 6, Derived 13,651 x 43/57).
+
+```rust
+pub const AS_RUN_FUEL_PEBBLES: f64 = 13_651.0;
+```
+
+#### Constant `AS_RUN_MIXED_DUMMIES`
+
+See [`AS_RUN_FUEL_PEBBLES`].
+
+```rust
+pub const AS_RUN_MIXED_DUMMIES: f64 = 10_298.0;
+```
+
+### Types
+
+#### Enum `Htr10RzError`
+
+What can go wrong building or solving the HTR-10 R-Z model.
+
+```rust
+pub enum Htr10RzError {
+    Input(String),
+    Property(String),
+    Mesh(String),
+    Solve(String),
+}
+```
+
+##### Variants
+
+###### `Input`
+
+A caller input is out of range.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Property`
+
+A property closure failed inside its range.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Mesh`
+
+The mesh failed to assemble.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Solve`
+
+The solid conduction solve failed.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Re-exports
+
+#### Re-export `CoreVesselPlacement`
+
+```rust
+pub use geometry::CoreVesselPlacement;
+```
+
+#### Re-export `ExtentConfidence`
+
+```rust
+pub use geometry::ExtentConfidence;
+```
+
+#### Re-export `RegionSpec`
+
+```rust
+pub use geometry::RegionSpec;
+```
+
+#### Re-export `CarbonBrickConductivity`
+
+```rust
+pub use materials::CarbonBrickConductivity;
+```
+
+#### Re-export `MaterialOptions`
+
+```rust
+pub use materials::MaterialOptions;
+```
+
+#### Re-export `RegionMaterial`
+
+```rust
+pub use materials::RegionMaterial;
+```
+
+#### Re-export `SideReflectorBelow300C`
+
+```rust
+pub use materials::SideReflectorBelow300C;
+```
+
+#### Re-export `BypassSplit`
+
+```rust
+pub use flow::BypassSplit;
+```
+
+#### Re-export `FlowKind`
+
+```rust
+pub use flow::FlowKind;
+```
+
+#### Re-export `FlowRegion`
+
+```rust
+pub use flow::FlowRegion;
+```
+
+#### Re-export `GasNetwork`
+
+```rust
+pub use flow::GasNetwork;
+```
+
+#### Re-export `GasState`
+
+```rust
+pub use flow::GasState;
+```
+
+#### Re-export `OperatingPoint`
+
+```rust
+pub use flow::OperatingPoint;
+```
+
+#### Re-export `reading_at`
+
+```rust
+pub use fpic::reading_at;
+```
+
+#### Re-export `FpicOptions`
+
+```rust
+pub use fpic::FpicOptions;
+```
+
+#### Re-export `FpicResult`
+
+```rust
+pub use fpic::FpicResult;
+```
+
+#### Re-export `Htr10FpicModel`
+
+```rust
+pub use fpic::Htr10FpicModel;
+```
+
+#### Re-export `Instrument`
+
+```rust
+pub use fpic::Instrument;
+```
+
+#### Re-export `Thermocouple`
+
+```rust
+pub use fpic::Thermocouple;
+```
+
+#### Re-export `ThermocoupleReading`
+
+```rust
+pub use fpic::ThermocoupleReading;
+```
+
+#### Re-export `dummy_pebble_conductance`
+
+```rust
+pub use transient::dummy_pebble_conductance;
+```
+
+#### Re-export `CoreFeedbackTemperatures`
+
+```rust
+pub use transient::CoreFeedbackTemperatures;
+```
+
+#### Re-export `CoreStepReport`
+
+```rust
+pub use transient::CoreStepReport;
+```
+
+#### Re-export `DummyPebbleModel`
+
+```rust
+pub use transient::DummyPebbleModel;
+```
+
+#### Re-export `FuelZoneModel`
+
+```rust
+pub use transient::FuelZoneModel;
+```
+
+#### Re-export `Htr10RzTransientCore`
+
+```rust
+pub use transient::Htr10RzTransientCore;
+```
+
+#### Re-export `ModeratorTemperature`
+
+```rust
+pub use transient::ModeratorTemperature;
+```
+
+#### Re-export `NaturalCirculation`
+
+```rust
+pub use transient::NaturalCirculation;
+```
+
+#### Re-export `PowerShape`
+
+```rust
+pub use transient::PowerShape;
+```
+
+#### Re-export `ReflectorAverage`
+
+```rust
+pub use transient::ReflectorAverage;
+```
+
+#### Re-export `SteadyOuterPass`
+
+```rust
+pub use transient::SteadyOuterPass;
+```
+
+#### Re-export `TransientCoreOptions`
+
+```rust
+pub use transient::TransientCoreOptions;
+```
+
+#### Re-export `PebbleMatrix`
+
+```rust
+pub use pebble::PebbleMatrix;
+```
+
+#### Re-export `PebbleProfile`
+
+```rust
+pub use pebble::PebbleProfile;
+```
+
+#### Re-export `build_mesh`
+
+```rust
+pub use model::build_mesh;
+```
+
+#### Re-export `rpv_cavity_enclosure`
+
+```rust
+pub use model::rpv_cavity_enclosure;
+```
+
+#### Re-export `HeadBoundary`
+
+```rust
+pub use model::HeadBoundary;
+```
+
+#### Re-export `Htr10RzCase`
+
+```rust
+pub use model::Htr10RzCase;
+```
+
+#### Re-export `Htr10RzModel`
+
+```rust
+pub use model::Htr10RzModel;
+```
+
+#### Re-export `Htr10RzOptions`
+
+```rust
+pub use model::Htr10RzOptions;
+```
+
+#### Re-export `Htr10RzResult`
+
+```rust
+pub use model::Htr10RzResult;
+```
+
+#### Re-export `RccsView`
+
+```rust
+pub use model::RccsView;
+```
+
+#### Re-export `RegionTemperatureRange`
+
+```rust
+pub use model::RegionTemperatureRange;
 ```
 
 ## Module `io`
@@ -24056,7 +41445,7 @@ pub struct ControlDict {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ControlDict { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24102,7 +41491,7 @@ pub struct ControlDict {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24173,7 +41562,7 @@ Begin at the earliest time directory present (`startFrom firstTime`).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StartControl { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24201,7 +41590,7 @@ Begin at the earliest time directory present (`startFrom firstTime`).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &StartControl) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -24220,7 +41609,7 @@ Begin at the earliest time directory present (`startFrom firstTime`).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24293,7 +41682,7 @@ Stop at the next scheduled write. **Runs zero steps.**
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StopControl { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24321,7 +41710,7 @@ Stop at the next scheduled write. **Runs zero steps.**
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &StopControl) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -24340,7 +41729,7 @@ Stop at the next scheduled write. **Runs zero steps.**
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24444,7 +41833,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> WriteControl { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24472,7 +41861,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &WriteControl) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -24491,7 +41880,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24545,7 +41934,7 @@ Binary (smaller and faster, not diffable).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> WriteFormat { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24573,7 +41962,7 @@ Binary (smaller and faster, not diffable).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &WriteFormat) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -24592,7 +41981,7 @@ Binary (smaller and faster, not diffable).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24676,6 +42065,7 @@ Parsed `system/fvSchemes` — numerical scheme selection for each operator.
 pub struct FvSchemes {
     pub ddt: DdtScheme,
     pub default_grad: GradScheme,
+    pub grad_u: Option<GradScheme>,
     pub default_div: DivScheme,
     pub default_laplacian: LaplacianScheme,
     pub default_sn_grad: SnGradScheme,
@@ -24689,6 +42079,7 @@ pub struct FvSchemes {
 |------|------|---------------|
 | `ddt` | `DdtScheme` |  |
 | `default_grad` | `GradScheme` |  |
+| `grad_u` | `Option<GradScheme>` | The `grad(U)` entry of `gradSchemes`, when the case gives one; `None`<br>means `default_grad` (upstream's lookup falls back to `default` the<br>same way). Read through [`FvSchemes::grad_u_scheme`]. Consulted by<br>`div(phi,U) Gauss linearUpwind grad(U)` and by the momentum<br>Laplacian's non-orthogonal correction, which upstream's<br>`correctedSnGrad::fullGradCorrection` takes from `grad(U)` (gh:#1202). |
 | `default_div` | `DivScheme` |  |
 | `default_laplacian` | `LaplacianScheme` |  |
 | `default_sn_grad` | `SnGradScheme` |  |
@@ -24697,6 +42088,11 @@ pub struct FvSchemes {
 ##### Implementations
 
 ###### Methods
+
+- ```rust
+  pub fn grad_u_scheme(self: &Self) -> &GradScheme { /* ... */ }
+  ```
+  The gradient scheme for `grad(U)`: [`FvSchemes::grad_u`] if set,
 
 - ```rust
   pub fn read(path: &Path) -> Result<Self, AppBuilderError> { /* ... */ }
@@ -24722,7 +42118,7 @@ pub struct FvSchemes {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FvSchemes { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24769,7 +42165,7 @@ pub struct FvSchemes {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24833,7 +42229,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DdtScheme { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24861,7 +42257,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DdtScheme) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -24880,7 +42276,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24898,6 +42294,7 @@ Gradient scheme (gradSchemes).
 ```rust
 pub enum GradScheme {
     GaussLinear,
+    CellLimitedGaussLinear(f64),
     LeastSquares,
     FourthOrder,
 }
@@ -24906,6 +42303,24 @@ pub enum GradScheme {
 ##### Variants
 
 ###### `GaussLinear`
+
+`Gauss linear`: `(1/V) Σ_f S_f ⊗ φ_f`, φ_f linearly interpolated.
+
+###### `CellLimitedGaussLinear`
+
+`cellLimited Gauss linear k` (gh:#1202): the Gauss linear gradient
+scaled, per component, so that extrapolating it from the cell centre
+to any face centre stays within the min/max of the cell and its face
+neighbours (minmod limiter, upstream `cellLimitedGrad<Type, minmod>`).
+`k ∈ [0, 1]`: 1 is fully limited, 0 is unlimited. Used by the
+OpenFOAM tutorials for `grad(U)` on snappy meshes (`propeller`,
+`motorBikeSteady`, `misalignedDuct`).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
 
 ###### `LeastSquares`
 
@@ -24932,7 +42347,7 @@ pub enum GradScheme {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GradScheme { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24960,7 +42375,7 @@ pub enum GradScheme {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GradScheme) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -24979,7 +42394,7 @@ pub enum GradScheme {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24998,6 +42413,7 @@ Divergence / convection scheme (divSchemes).
 pub enum DivScheme {
     GaussLinear,
     GaussUpwind,
+    GaussLinearDeferred,
     GaussLinearUpwind(String),
     GaussVanLeer,
     GaussMUSCL,
@@ -25009,7 +42425,27 @@ pub enum DivScheme {
 
 ###### `GaussLinear`
 
+`Gauss linear`: central differencing, fully implicit, as upstream's
+`gaussConvectionScheme` (since gh:#1363; see
+`fvm::div_vec_linear`). Unbounded: on a coarse convection-dominated
+mesh it can diverge, as upstream's does.
+
 ###### `GaussUpwind`
+
+###### `GaussLinearDeferred`
+
+Central differencing by **deferred correction**: implicit upwind plus
+the lagged explicit `φ (U_linear − U_upwind)` in the source, which is
+what `GaussLinear` was before gh:#1363. **NOT an OpenFOAM scheme** and
+not upstream's `Gauss linear` (it changes `A` and `H` of PISO: 1.4e-3
+of the velocity range at step 2 of the cavity differential). Kept
+explicit so an ablation can still reproduce it.
+
+**Deprecated 2026-11-12 (gh:#1500, maintainer: "Deprecate the old
+scheme"):** use [`DivScheme::GaussLinear`]. The Foam Studio coil and
+its gh:#1157 V&V record now run `GaussLinear`; the one remaining use is
+the record's deferred-form ablation row (`--coil-run ... deferred`) and
+this scheme's own unit test, each under `#[allow(deprecated)]`.
 
 ###### `GaussLinearUpwind`
 
@@ -25052,7 +42488,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DivScheme { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25080,7 +42516,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DivScheme) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -25099,7 +42535,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25117,6 +42553,7 @@ Laplacian scheme (laplacianSchemes).
 ```rust
 pub enum LaplacianScheme {
     GaussLinearCorrected,
+    GaussLinearOrthogonal,
     GaussLinearUncorrected,
     GaussLinearLimited(f64),
 }
@@ -25125,6 +42562,16 @@ pub enum LaplacianScheme {
 ##### Variants
 
 ###### `GaussLinearCorrected`
+
+`Gauss linear corrected`: `1/(n·d)` implicit coefficients plus the
+explicit non-orthogonal correction. The upstream tutorial default and
+the default here; honoured by `PimpleFoam` since gh:#1161.
+
+###### `GaussLinearOrthogonal`
+
+`Gauss linear orthogonal`: `1/|d|`, no correction. What `PimpleFoam`
+did before gh:#1161; the explicit ablation
+(`PimpleFoam::without_non_orthogonal_correction`).
 
 ###### `GaussLinearUncorrected`
 
@@ -25157,7 +42604,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LaplacianScheme { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25185,7 +42632,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LaplacianScheme) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -25204,7 +42651,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25262,7 +42709,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SnGradScheme { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25290,7 +42737,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SnGradScheme) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -25309,7 +42756,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25367,7 +42814,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InterpolationScheme { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25395,7 +42842,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InterpolationScheme) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -25414,7 +42861,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25488,7 +42935,7 @@ pub struct FvSolution {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FvSolution { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25534,7 +42981,7 @@ pub struct FvSolution {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25594,7 +43041,7 @@ pub struct LinearSolverConfig {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LinearSolverConfig { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25640,7 +43087,7 @@ pub struct LinearSolverConfig {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25713,7 +43160,7 @@ Smooth solver (iterative, for symmetric).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LinearSolverType { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25741,7 +43188,7 @@ Smooth solver (iterative, for symmetric).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LinearSolverType) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -25760,7 +43207,7 @@ Smooth solver (iterative, for symmetric).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25782,6 +43229,7 @@ pub struct PimpleControl {
     pub n_non_orthogonal_correctors: usize,
     pub consistent: bool,
     pub correct_phi: bool,
+    pub frozen_flow: bool,
 }
 ```
 
@@ -25794,6 +43242,7 @@ pub struct PimpleControl {
 | `n_non_orthogonal_correctors` | `usize` | Non-orthogonal correctors for mesh skewness compensation. |
 | `consistent` | `bool` | Use consistent formulation (avoids rAU cell-size dependency). |
 | `correct_phi` | `bool` | Turbulence corrector at end of each outer loop. |
+| `frozen_flow` | `bool` | Upstream `frozenFlow` (chtMultiRegionFoam `fluid/solveFluid.H`):<br>solve only the energy equation, keeping `U`, `p` and `phi` as they<br>are. Default `false`. Read by `PimpleFoam::step` and<br>`ChtMultiRegionFoam::step` (gh:#1156). |
 
 ##### Implementations
 
@@ -25816,7 +43265,7 @@ pub struct PimpleControl {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PimpleControl { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25862,7 +43311,7 @@ pub struct PimpleControl {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25873,6 +43322,123 @@ pub struct PimpleControl {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+## Module `nuclear_data`
+
+# Reading a GeN-Foam `constant/<region>/nuclearData` dictionary
+
+Turns the on-disk dictionary into the plain-data
+[`NuclearDataInput`](crate::genfoam::neutronics::xs::input::NuclearDataInput)
+that [`CrossSectionData::from_input`] consumes. This is the one link that was
+missing between an upstream GeN-Foam case and this port's neutronics: the
+schema mirror and the solvers both existed, but nothing read the file.
+
+```text
+  nuclearData (text)  --[this module]-->  NuclearDataInput
+      --> CrossSectionData --> DiffusionNeutronics --> k_eff
+```
+
+## The format
+
+An ordinary OpenFOAM dictionary, parsed by
+[`outram_foam_basic_lib::io::dict`]:
+
+```text
+energyGroups    6;
+precGroups      8;
+fastNeutrons    true;
+xsVariables { TFuel log; rhoCool lin; }
+states
+(
+    reference { TFuel 900; rhoCool 4125; zones ( hx { … } intermed { … } ); }
+    TFuel1200K { TFuel 1200; zones ( #include "XSTFuel1200K" ); }
+);
+```
+
+Two features of it are worth naming because they are why a plain
+`FoamFile::read` is not enough:
+
+- **Dictionaries appear inside lists.** `states ( name { … } … )` and
+  `zones ( name { … } … )` are lists whose elements alternate a name word and
+  a braced body. That is handled by
+  [`FoamValue::Dict`](outram_foam_basic_lib::io::dict::FoamValue::Dict).
+- **`#include` is used in earnest.** Upstream's ESFR case keeps each state's
+  zone data in a separate `XS…` file. This module reads through
+  [`FoamFile::read_with_includes`], so those are spliced before parsing.
+
+## Units
+
+Exactly as the file states them: MKSA throughout, so cross sections are per
+**metre** (not per centimetre), `sigmaPow` is J/m, `IV` is s/m and `lambda`
+is 1/s. Nothing is converted here — the values reach
+[`NuclearDataInput`](crate::genfoam::neutronics::xs::input::NuclearDataInput)
+as written, which is what the `xs` layer expects.
+
+## Defaults, taken from upstream
+
+| key | default | meaning |
+|---|---|---|
+| `precGroups` | `1` | delayed-neutron precursor groups (`0` allowed, as upstream) |
+| `polyharmonicSplineMode` | `1` | `phi(r) = |r|`, linear interpolation |
+| `fastNeutrons` | `false` | log vs sqrt Doppler transform (metadata only) |
+| `doNotParametrize` | empty | groups pinned to their reference values |
+| `fuelFraction` | `1.0` | fuel volume fraction per lattice volume |
+| `secondaryPowerVolumeFraction` | `1.0` | |
+| `fractionToSecondaryPower` | `0.0` | |
+| `dfAdjust` | `true` | |
+
+A perturbed state inherits any feedback parameter it does not restate from
+the reference state, which is why upstream's `TFuel1200K` lists only `TFuel`.
+
+[`CrossSectionData::from_input`]: crate::genfoam::neutronics::xs::CrossSectionData::from_input
+
+```rust
+pub mod nuclear_data { /* ... */ }
+```
+
+### Functions
+
+#### Function `read_nuclear_data`
+
+Read and parse a GeN-Foam `nuclearData` dictionary.
+
+Follows `#include` directives relative to `path`'s own directory, so a case
+that splits its per-state cross sections across `XS…` files reads as one
+dictionary.
+
+# Errors
+
+[`AppBuilderError::Io`] if the file (or an included file) cannot be read,
+and [`AppBuilderError::Parse`] for a malformed dictionary, a missing
+required key, or an array whose length disagrees with `energyGroups` /
+`precGroups`. Length disagreement is checked here, at the point where the
+file name is still known, rather than being left to surface later as a
+shape mismatch deep inside the cross-section layer.
+
+# Example
+
+```no_run
+use std::path::Path;
+use outram_foam_appbuilder_lib::io::nuclear_data::read_nuclear_data;
+use outram_foam_appbuilder_lib::genfoam::neutronics::xs::CrossSectionData;
+
+let input = read_nuclear_data(Path::new("constant/neutroRegion/nuclearData"))?;
+let xs = CrossSectionData::from_input(&input)?;
+assert_eq!(xs.energy_groups(), input.energy_groups);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+```rust
+pub fn read_nuclear_data(path: &std::path::Path) -> Result<crate::genfoam::neutronics::xs::input::NuclearDataInput, crate::error::AppBuilderError> { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `write_nuclear_data`
+
+```rust
+pub use writer::write_nuclear_data;
+```
+
 ## Module `output`
 
 Writers for simulation results — OpenFOAM ASCII field files and legacy VTK
@@ -25944,6 +43510,111 @@ Rust parser is far simpler than attempting C++ interop.
 pub mod poly_mesh { /* ... */ }
 ```
 
+### Types
+
+#### Struct `CellZone`
+
+One named cell zone: the material region a neutronics or thermal-hydraulic
+solver looks up its per-zone properties by.
+
+Mirrors one entry of `constant/<region>/polyMesh/cellZones`. Cell indices are
+the same 0-based indices an [`FvMesh`] uses, so `cells` indexes straight into
+a field's internal array.
+
+```rust
+pub struct CellZone {
+    pub name: String,
+    pub cells: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Zone name, matching a zone declared in the case's `nuclearData`. |
+| `cells` | `Vec<usize>` | The cells belonging to this zone, in file order. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ### Functions
 
 #### Function `read_poly_mesh`
@@ -25993,6 +43664,91 @@ Parse the `boundary` file into a list of `BoundaryPatch`.
 
 ```rust
 pub fn parse_boundary(text: &str, file: &str) -> Result<Vec<outram_foam_basic_lib::prelude::BoundaryPatch>, crate::error::AppBuilderError> { /* ... */ }
+```
+
+#### Function `parse_cell_zones`
+
+Parse an OpenFOAM `cellZones` file.
+
+# Format
+
+```text
+N
+(
+    zoneName
+    {
+        type cellZone;
+        cellLabels List<label> M ( 0 1 2 … );
+    }
+    …
+)
+```
+
+# Errors
+
+[`AppBuilderError::Parse`] if the list header is malformed, a zone body is
+unclosed, `cellLabels` is missing, or the declared zone count does not match
+the number parsed.
+
+# Note on overlap
+
+OpenFOAM does not forbid a cell appearing in two zones, and this function
+does not either — it reports what the file says. Use
+[`zone_of_cell`] when a single zone per cell is required; that is where the
+ambiguity is resolved and reported.
+
+```rust
+pub fn parse_cell_zones(text: &str, file: &str) -> Result<Vec<CellZone>, crate::error::AppBuilderError> { /* ... */ }
+```
+
+#### Function `read_cell_zones`
+
+Read and parse `<polyMesh>/cellZones`.
+
+# Errors
+
+[`AppBuilderError::Io`] if the file cannot be read, or
+[`AppBuilderError::Parse`] per [`parse_cell_zones`].
+
+# Note
+
+Only the uncompressed file is read. OpenFOAM commonly writes
+`cellZones.gz`; decompress it first (`gzip -d`), as one would to inspect the
+case by hand.
+
+```rust
+pub fn read_cell_zones(poly_mesh_dir: &std::path::Path) -> Result<Vec<CellZone>, crate::error::AppBuilderError> { /* ... */ }
+```
+
+#### Function `zone_of_cell`
+
+Build the per-cell zone index a neutronics solver needs, from the zone list
+and the zone ordering the cross-section data uses.
+
+Returns `zone_of_cell[c]` = the index into `zone_order` of the zone owning
+cell `c`, which is exactly the `zone_of_cell` argument of
+[`DiffusionNeutronics::new`].
+
+# Parameters
+
+- `zones` — as read by [`read_cell_zones`].
+- `zone_order` — the zone names in the order the cross-section data holds
+  them (`CrossSectionData::zone_index`). A zone present in the mesh but
+  absent here is an error, not a silent skip.
+- `n_cells` — the mesh cell count.
+
+# Errors
+
+[`AppBuilderError::Parse`] if a mesh zone is not in `zone_order`, if a cell
+index is out of range, if a cell is claimed by two zones, or if any cell is
+left unassigned. All four are conditions under which a solve would otherwise
+run and produce a quietly wrong answer: an unassigned cell would take
+whatever zone 0 happens to be.
+
+[`DiffusionNeutronics::new`]: crate::genfoam::neutronics::diffusion::DiffusionNeutronics::new
+
+```rust
+pub fn zone_of_cell(zones: &[CellZone], zone_order: &[&str], n_cells: usize) -> Result<Vec<usize>, crate::error::AppBuilderError> { /* ... */ }
 ```
 
 ## Module `prelude`
@@ -26102,16 +43858,46 @@ pub use crate::io::fv_solution::LinearSolverType;
 pub use crate::io::fv_solution::PimpleControl;
 ```
 
-#### Re-export `write_scalar_field`
+#### Re-export `read_vol_scalar_field`
 
 ```rust
-pub use crate::io::output::write_scalar_field;
+pub use crate::io::field_reader::read_vol_scalar_field;
+```
+
+#### Re-export `read_vol_scalar_field_full`
+
+```rust
+pub use crate::io::field_reader::read_vol_scalar_field_full;
+```
+
+#### Re-export `read_vol_vector_field`
+
+```rust
+pub use crate::io::field_reader::read_vol_vector_field;
+```
+
+#### Re-export `read_vol_vector_field_full`
+
+```rust
+pub use crate::io::field_reader::read_vol_vector_field_full;
 ```
 
 #### Re-export `read_poly_mesh`
 
 ```rust
 pub use crate::io::poly_mesh::read_poly_mesh;
+```
+
+#### Re-export `read_nuclear_data`
+
+```rust
+pub use crate::io::nuclear_data::read_nuclear_data;
+```
+
+#### Re-export `write_nuclear_data`
+
+```rust
+pub use crate::io::nuclear_data::write_nuclear_data;
 ```
 
 #### Re-export `DecayConstant`
@@ -26222,6 +44008,150 @@ pub use crate::genfoam::thermal_hydraulics::structure::HeatExchanger;
 pub use crate::genfoam::thermal_hydraulics::structure::PowerModel;
 ```
 
+#### Re-export `AxisEdges`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::AxisEdges;
+```
+
+#### Re-export `ConductivityModel`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::ConductivityModel;
+```
+
+#### Re-export `EnclosureNaturalConvection`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::EnclosureNaturalConvection;
+```
+
+#### Re-export `GapConductance`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::GapConductance;
+```
+
+#### Re-export `HeatCapacityModel`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::HeatCapacityModel;
+```
+
+#### Re-export `PropertyModel`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::PropertyModel;
+```
+
+#### Re-export `RegionGap`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::RegionGap;
+```
+
+#### Re-export `RegionMap`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::RegionMap;
+```
+
+#### Re-export `RzBoundaries`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::RzBoundaries;
+```
+
+#### Re-export `RzGeometry`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::RzGeometry;
+```
+
+#### Re-export `RzMesh`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::RzMesh;
+```
+
+#### Re-export `RzPatch`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::RzPatch;
+```
+
+#### Re-export `RzRect`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::RzRect;
+```
+
+#### Re-export `SolidBoundary`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::SolidBoundary;
+```
+
+#### Re-export `SolidConductionField`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::SolidConductionField;
+```
+
+#### Re-export `SolidRegion`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::SolidRegion as RzSolidRegion;
+```
+
+#### Re-export `PorousConductivity`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solver::PorousConductivity;
+```
+
+#### Re-export `ChtMultiRegionFoam`
+
+```rust
+pub use crate::solvers::cht_multi_region_foam::ChtMultiRegionFoam;
+```
+
+#### Re-export `CoupledTemperature`
+
+```rust
+pub use crate::solvers::cht_multi_region_foam::CoupledTemperature;
+```
+
+#### Re-export `InterfaceMode`
+
+```rust
+pub use crate::solvers::cht_multi_region_foam::InterfaceMode;
+```
+
+#### Re-export `RegionId`
+
+```rust
+pub use crate::solvers::cht_multi_region_foam::RegionId;
+```
+
+#### Re-export `SolidRegion`
+
+```rust
+pub use crate::solvers::cht_multi_region_foam::SolidRegion;
+```
+
+#### Re-export `EnergyEquation`
+
+```rust
+pub use crate::solvers::energy::EnergyEquation;
+```
+
+#### Re-export `IncompressibleThermo`
+
+```rust
+pub use crate::solvers::energy::IncompressibleThermo;
+```
+
 #### Re-export `HrmFoam`
 
 ```rust
@@ -26250,6 +44180,18 @@ pub use crate::solvers::pimple_foam::PimpleFoam;
 
 ```rust
 pub use crate::solvers::pimple_foam::PressureSolver;
+```
+
+#### Re-export `SolveRecord`
+
+```rust
+pub use crate::solvers::pimple_foam::SolveRecord;
+```
+
+#### Re-export `DdtCorrForm`
+
+```rust
+pub use crate::solvers::schemes::DdtCorrForm;
 ```
 
 #### Re-export `build_default`
@@ -26312,10 +44254,22 @@ pub use crate::solvers::reacting_two_phase_euler_foam::ReactionSource;
 pub use crate::solvers::rho_central_foam::RhoCentralFoam;
 ```
 
+#### Re-export `RhoPimpleFoamEsi`
+
+```rust
+pub use crate::solvers::rho_pimple_foam::esi::RhoPimpleFoamEsi;
+```
+
 #### Re-export `RhoPimpleFoam`
 
 ```rust
 pub use crate::solvers::rho_pimple_foam::RhoPimpleFoam;
+```
+
+#### Re-export `SonicFoamEsi`
+
+```rust
+pub use crate::solvers::sonic_foam::esi::SonicFoamEsi;
 ```
 
 #### Re-export `SonicFoam`
@@ -26328,6 +44282,126 @@ pub use crate::solvers::sonic_foam::SonicFoam;
 
 ```rust
 pub use crate::turbulence::TurbulenceClosure;
+```
+
+#### Re-export `BedConductivityModel`
+
+```rust
+pub use crate::htgr_closures::BedConductivityModel;
+```
+
+#### Re-export `BedState`
+
+```rust
+pub use crate::htgr_closures::BedState;
+```
+
+#### Re-export `HtgrClosureError`
+
+```rust
+pub use crate::htgr_closures::HtgrClosureError;
+```
+
+#### Re-export `KtaHelium`
+
+```rust
+pub use crate::htgr_closures::KtaHelium;
+```
+
+#### Re-export `StructuralMaterial`
+
+```rust
+pub use crate::htgr_closures::StructuralMaterial;
+```
+
+#### Re-export `SteelComponent`
+
+```rust
+pub use crate::htgr_closures::SteelComponent;
+```
+
+#### Re-export `ZbsBed`
+
+```rust
+pub use crate::htgr_closures::ZbsBed;
+```
+
+#### Re-export `Htr10RzCase`
+
+```rust
+pub use crate::htr10_rz::Htr10RzCase;
+```
+
+#### Re-export `Htr10RzError`
+
+```rust
+pub use crate::htr10_rz::Htr10RzError;
+```
+
+#### Re-export `Htr10RzModel`
+
+```rust
+pub use crate::htr10_rz::Htr10RzModel;
+```
+
+#### Re-export `Htr10RzOptions`
+
+```rust
+pub use crate::htr10_rz::Htr10RzOptions;
+```
+
+#### Re-export `Htr10RzResult`
+
+```rust
+pub use crate::htr10_rz::Htr10RzResult;
+```
+
+#### Re-export `BypassSplit`
+
+```rust
+pub use crate::htr10_rz::BypassSplit;
+```
+
+#### Re-export `FpicOptions`
+
+```rust
+pub use crate::htr10_rz::FpicOptions;
+```
+
+#### Re-export `FpicResult`
+
+```rust
+pub use crate::htr10_rz::FpicResult;
+```
+
+#### Re-export `GasNetwork`
+
+```rust
+pub use crate::htr10_rz::GasNetwork;
+```
+
+#### Re-export `Htr10FpicModel`
+
+```rust
+pub use crate::htr10_rz::Htr10FpicModel;
+```
+
+#### Re-export `OperatingPoint`
+
+```rust
+pub use crate::htr10_rz::OperatingPoint;
+```
+
+#### Re-export `PebbleMatrix`
+
+```rust
+pub use crate::htr10_rz::PebbleMatrix;
+```
+
+#### Re-export `VolumetricHeatTransferCoefficient`
+
+```rust
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::VolumetricHeatTransferCoefficient;
 ```
 
 ## Module `solvers`
@@ -26360,6 +44434,1292 @@ pub mod solvers { /* ... */ }
 
 ### Modules
 
+## Module `cht_multi_region_foam`
+
+# chtMultiRegionFoam — conjugate heat transfer between regions (gh:#1156)
+
+Fluid regions (each a [`PimpleFoam`] with an
+[`EnergyEquation`](crate::solvers::energy::EnergyEquation) attached) and
+solid regions ([`SolidRegion`]), each on its own mesh, joined at
+conformal interface patches by the coupled-temperature condition.
+
+## What upstream does (OpenFOAM-8, read 2026-11-03)
+
+**The interface condition**,
+`compressible::turbulentTemperatureCoupledBaffleMixed`, is a mixed
+(Robin) condition on the patch of each side. In `updateCoeffs()`, with
+`kδ = kappa · patch().deltaCoeffs()` on each side:
+
+```text
+if (contactRes_ == 0)
+    nbrIntFld = nbrField.patchInternalField();     // T in the cells beside the interface
+    nbrKDelta = nbrField.kappa(nbrField)*nbrPatch.deltaCoeffs();
+else
+    nbrIntFld = nbrField;                          // the neighbour's face values
+    nbrKDelta = contactRes_;                       // 1 / sum(thicknessLayers/kappaLayers)
+refValue      = nbrIntFld;
+refGrad       = 0;
+valueFraction = nbrKDelta/(nbrKDelta + myKDelta);
+```
+
+The comment in the source states the intent: both sides agree on the face
+temperature `(myKδ T_P + nbrKδ T_N)/(myKδ + nbrKδ)` and on the heat flux,
+and this choice of `refValue`/`refGrad`/`valueFraction` makes the two
+sides' equations the same. `kappa` comes from `temperatureCoupledBase`:
+`kappaEff` of the thermophysical-transport model in a fluid (laminar: the
+molecular k), the solid thermo's `kappa` in a solid.
+
+**The loop** (`chtMultiRegionFoam.C`): each time step, `while
+(pimples.loop())` — the PIMPLE outer correctors — solves every fluid
+region (`solveFluid.H`: `UEqn`, `EEqn`, the PISO loop; with
+`frozenFlow`, only `EEqn`) and then every solid region (`solveSolid.H`:
+the energy equation inside `correctNonOrthogonal()`). The interface
+conditions are re-evaluated whenever a region's matrix is assembled, from
+whatever the neighbour region holds at that moment: a block Gauss–Seidel
+across regions, converged within a step by the outer correctors.
+
+## How this port maps onto it, and where it differs
+
+| upstream | here |
+|---|---|
+| `turbulentTemperatureCoupledBaffleMixed::updateCoeffs` | [`CoupledTemperature::update_coeffs`], writing a per-face `BoundaryCondition::MixedField` |
+| `thicknessLayers` / `kappaLayers` → `contactRes_` | [`CoupledTemperature::with_layers`] |
+| `mappedPatchBase` sample patch | `outram_foam_basic_lib::mesh::RegionInterface` (face pairing by matching index or nearest face centre), reused |
+| `patch().deltaCoeffs()` = `1/(n·(Cf − C))` on a boundary | the boundary distance of the region's own Laplacian (`DeltaCoeff`): `n·d` for the default `corrected`, `|d|` for the `orthogonal` ablation, so the condition and the matrix it feeds use one distance |
+| `temperatureCoupledBase::kappa` | [`RegionId`] enum dispatch: fluid → its thermo's k (laminar `kappaEff`), solid → its k |
+| fluid then solid, every outer pass | [`ChtMultiRegionFoam::step`]: each fluid's flow step, then [`ChtMultiRegionFoam::energy_outer_correctors`] passes of (every fluid's T, then every solid's T) |
+| `frozenFlow` | `FvSolution::pimple.frozen_flow` on each fluid, as upstream |
+
+**One deliberate difference.** Upstream re-solves `UEqn`/`pEqn` in every
+outer pass; here the flow step runs once per time step (with the fluid's
+own `nOuterCorrectors`) and only the energy equations are iterated across
+regions. With constant properties and no buoyancy the flow does not
+depend on T, so the converged result is the same; the saving is the
+repeated pressure solves. A Boussinesq or variable-property flow would
+need the upstream ordering back.
+
+**And one ordering choice.** Upstream's fluid `EEqn` comes before the PISO
+loop and uses the flux of the previous corrector, which suits its
+compressible energy equation (continuity is solved alongside). This
+incompressible T equation is solved after the PISO loop with the
+corrected, divergence-free flux, as `MeltFoam` does, so `div(φ T)`
+conserves energy cell by cell.
+
+## Physics on by default; the ablation
+
+Every interface is coupled unless the caller asks otherwise:
+[`ChtMultiRegionFoam::without_interface_coupling`] turns each interface
+into an adiabatic (zeroGradient) wall on both sides. Pinned by
+`tests::interface_coupling_is_on_by_default`.
+
+```rust
+pub mod cht_multi_region_foam { /* ... */ }
+```
+
+### Types
+
+#### Struct `SolidRegion`
+
+A solid region: conduction only, `ρ c ∂T/∂t − ∇·(k ∇T) = 0`
+(`solveSolid.H`, isotropic).
+
+```rust
+pub struct SolidRegion {
+    pub name: String,
+    pub energy: crate::solvers::energy::EnergyEquation,
+    pub laplacian: crate::solvers::non_orthogonal::LaplacianCorrection,
+    pub n_non_orthogonal_correctors: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Region name (for reports). |
+| `energy` | `crate::solvers::energy::EnergyEquation` | The temperature, its properties and settings. |
+| `laplacian` | `crate::solvers::non_orthogonal::LaplacianCorrection` | Laplacian treatment; default `Gauss linear corrected`. |
+| `n_non_orthogonal_correctors` | `usize` | Non-orthogonal correctors of the solid equation (upstream<br>`nNonOrthCorr` of the solid's PIMPLE dict); default 0. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new</* synthetic */ impl Into<String>: Into<String>>(name: impl Into<String>, mesh: Arc<FvMesh>, thermo: IncompressibleThermo, t0: f64) -> Self { /* ... */ }
+  ```
+  A solid at uniform `t0` \[K\], every patch adiabatic until set.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `RegionId`
+
+Which region a side of an interface belongs to.
+
+```rust
+pub enum RegionId {
+    Fluid(usize),
+    Solid(usize),
+}
+```
+
+##### Variants
+
+###### `Fluid`
+
+Index into [`ChtMultiRegionFoam::fluids`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+###### `Solid`
+
+Index into [`ChtMultiRegionFoam::solids`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `InterfaceSide`
+
+One side of an interface: the region and the patch index in its mesh.
+
+```rust
+pub struct InterfaceSide {
+    pub region: RegionId,
+    pub patch: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `region` | `RegionId` | The region. |
+| `patch` | `usize` | Patch index in that region's mesh. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `InterfaceMode`
+
+How an interface couples its two sides.
+
+```rust
+pub enum InterfaceMode {
+    Coupled,
+    CoupledWithLayers {
+        contact_conductance: f64,
+    },
+    Adiabatic,
+}
+```
+
+##### Variants
+
+###### `Coupled`
+
+`turbulentTemperatureCoupledBaffleMixed` without layers (the default).
+
+###### `CoupledWithLayers`
+
+With `thicknessLayers`/`kappaLayers`: the contact conductance
+`contactRes_ = 1/Σ(t_i/k_i)` \[W/(m² K)\].
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `contact_conductance` | `f64` | `1/Σ(thickness/kappa)` \[W/(m² K)\]. |
+
+###### `Adiabatic`
+
+The ablation: both sides adiabatic (zeroGradient).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CoupledTemperature`
+
+A coupled-temperature interface between two regions: a port of
+`compressible::turbulentTemperatureCoupledBaffleMixed`, with the pairing
+of faces from [`RegionInterface`].
+
+```rust
+pub struct CoupledTemperature {
+    pub a: InterfaceSide,
+    pub b: InterfaceSide,
+    pub pairing: RegionInterface,
+    pub mode: InterfaceMode,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `a` | `InterfaceSide` | Side A (the pairing's mesh A). |
+| `b` | `InterfaceSide` | Side B (the pairing's mesh B). |
+| `pairing` | `RegionInterface` | `pairing.face_map[i]` is the B face beside A face `i`. |
+| `mode` | `InterfaceMode` | Coupled (default), coupled through layers, or the adiabatic ablation. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(a: RegionId, mesh_a: Arc<FvMesh>, patch_a: usize, b: RegionId, mesh_b: Arc<FvMesh>, patch_b: usize) -> Self { /* ... */ }
+  ```
+  The interface between patch `patch_a` of region `a` on `mesh_a` and
+
+- ```rust
+  pub fn with_layers(self: Self, layers: &[(Length, ThermalConductivity)]) -> Self { /* ... */ }
+  ```
+  Upstream `thicknessLayers` / `kappaLayers`: a contact layer stack
+
+- ```rust
+  pub fn max_pairing_gap(self: &Self) -> f64 { /* ... */ }
+  ```
+  Largest distance between paired face centres \[m\]: zero (round-off)
+
+- ```rust
+  pub fn update_coeffs(self: &Self, my_is_a: bool, my_t: &VolScalarField, my_k: ThermalConductivity, my_mode: fvm::DeltaCoeff, nbr_t: &VolScalarField, nbr_k: ThermalConductivity, nbr_mode: fvm::DeltaCoeff) -> BoundaryCondition<f64> { /* ... */ }
+  ```
+  `updateCoeffs()` for side `my` (`true` = A, `false` = B): the mixed
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ChtStep`
+
+What one [`ChtMultiRegionFoam::step`] did.
+
+```rust
+pub struct ChtStep {
+    pub passes: usize,
+    pub last_pass_change: f64,
+    pub step_change: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `passes` | `usize` | Energy outer passes taken. |
+| `last_pass_change` | `f64` | Largest cell |ΔT| \[K\] of the last pass, over every region. |
+| `step_change` | `f64` | Largest cell |T − T_old| \[K\] over the step, over every region. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ChtMultiRegionFoam`
+
+The multi-region solver.
+
+```rust
+pub struct ChtMultiRegionFoam {
+    pub fluids: Vec<crate::solvers::pimple_foam::PimpleFoam>,
+    pub solids: Vec<SolidRegion>,
+    pub interfaces: Vec<CoupledTemperature>,
+    pub energy_outer_correctors: usize,
+    pub energy_outer_tolerance: uom::si::f64::TemperatureInterval,
+    pub solid_delta_t: uom::si::f64::Time,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `fluids` | `Vec<crate::solvers::pimple_foam::PimpleFoam>` | Fluid regions; each must carry `energy: Some(..)`. |
+| `solids` | `Vec<SolidRegion>` | Solid regions. |
+| `interfaces` | `Vec<CoupledTemperature>` | The coupled interfaces. |
+| `energy_outer_correctors` | `usize` | Energy passes per step across all regions (upstream<br>`nOuterCorrectors`, energy part); default 1. |
+| `energy_outer_tolerance` | `uom::si::f64::TemperatureInterval` | Stop the passes early once a pass changes no cell by more than this<br>(upstream `outerCorrectorResidualControl`, here on |ΔT|); default 0<br>(never early). |
+| `solid_delta_t` | `uom::si::f64::Time` | Time step of the solid regions; each fluid's T uses its own<br>`control.delta_t`. Ignored by a `SteadyState` energy equation.<br>Default 1 s. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(fluids: Vec<PimpleFoam>, solids: Vec<SolidRegion>, interfaces: Vec<CoupledTemperature>) -> Result<Self, AppBuilderError> { /* ... */ }
+  ```
+  A solver over the given regions and interfaces, every interface
+
+- ```rust
+  pub fn without_interface_coupling(self: Self) -> Self { /* ... */ }
+  ```
+  The ablation: every interface adiabatic on both sides (no conjugate
+
+- ```rust
+  pub fn update_interfaces_of(self: &mut Self, r: RegionId) { /* ... */ }
+  ```
+  Re-evaluate every interface patch of region `r` from its neighbours'
+
+- ```rust
+  pub fn step(self: &mut Self) -> Result<ChtStep, AppBuilderError> { /* ... */ }
+  ```
+  One time step (module docs): each non-frozen fluid's flow step, then
+
+- ```rust
+  pub fn interface_heat_in(self: &Self, side: InterfaceSide) -> Power { /* ... */ }
+  ```
+  Heat into region `side.region` through the interface patch on that
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `line_mesh`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+A 1-D slab mesh for conduction checks: `n` cells along x from `x0` to
+`x0 + len`, unit cross-section (1 m × 1 m), patches `names[0]` (x-min),
+`names[1]` (x-max) and `sides` (the four lateral faces of every cell;
+leave them zeroGradient for 1-D conduction).
+
+# Panics
+If `n == 0` (no mesh), or if the mesh builder rejects the topology, which
+it cannot for `n ≥ 1`.
+
+```rust
+pub fn line_mesh(n: usize, len: uom::si::f64::Length, x0: uom::si::f64::Length, names: [&str; 2]) -> FvMesh { /* ... */ }
+```
+
+## Module `energy`
+
+# The incompressible energy equation (gh:#1156, Foam Studio stage 2)
+
+For a fluid with constant density ρ, specific heat c_p and conductivity k,
+and for a solid with the same three constants, the energy equation of
+chtMultiRegionFoam's `fluid/EEqn.H` and `solid/solveSolid.H`, divided by
+ρ c_p, is one equation for the temperature T \[K\]:
+
+`∂T/∂t + ∇·(φ T) − ∇·(α ∇T) = 0`, with `α = k / (ρ c_p)` \[m²/s\],
+
+where φ is the volumetric face flux \[m³/s\] in a fluid and zero in a solid.
+
+## What upstream has that this does not, and why that is right here
+
+Upstream's fluid `EEqn` carries the kinetic energy `ddt(ρ,K) + div(φ,K)`,
+the pressure work `−dpdt` (or `div(φ/ρ, p)` for the e-form), buoyancy work
+`ρ U·g`, radiation and reactions. For the incompressible, constant-property
+forced convection this module is for, the kinetic-energy and pressure-work
+terms are the viscous-heating order (Eckert number ~1e-9 at the demo's
+5 mm/s and 50 K), there is no gravity in the PIMPLE loop and no radiation
+or chemistry. They are therefore **not represented**, and this module does
+not claim to carry them. Viscous dissipation is likewise absent (upstream's
+`EEqn` has no explicit dissipation term either; it enters through `K`).
+
+## Discretisation
+
+- `ddt`: `Euler` or `steadyState` ([`EnergyEquation::ddt`]); the steady
+  form is chtMultiRegionSimpleFoam's.
+- `div(φ, T)`: `Gauss upwind` (the only scalar convection scheme
+  `outram-foam-basic-lib` has; bounded, first order).
+- `laplacian(α, T)`: the same `Gauss linear corrected` / `orthogonal`
+  choice as the momentum and pressure Laplacians
+  ([`crate::solvers::non_orthogonal`], gh:#1161), with the explicit
+  correction lagged and `nNonOrthogonalCorrectors` passes, as in
+  upstream's `solveSolid.H` loop. **On by default**: an `EnergyEquation`
+  attached to [`PimpleFoam`](crate::solvers::pimple_foam::PimpleFoam)
+  follows the flow's `default_laplacian`, whose default is `corrected`.
+- The linear solve is BiCGStab warm-started from the current T, at
+  tolerance 1e-12 by default: `MeltFoam` measured a 0.92 % energy leak
+  over 10 000 steps at 1e-7, and an energy-balance V&V needs the solve's
+  residual well below what it checks.
+
+## Units
+
+The matrix is per unit ρ c_p (m³/s·K per cell); [`IncompressibleThermo::rho_cp`]
+converts a matrix flux to watts, which is what the boundary diagnostics
+here return.
+
+```rust
+pub mod energy { /* ... */ }
+```
+
+### Types
+
+#### Struct `IncompressibleThermo`
+
+Constant thermophysical properties of one region (fluid or solid):
+upstream's `constant` transport + `hConst` thermo, without the equation of
+state (the flow here is incompressible).
+
+```rust
+pub struct IncompressibleThermo {
+    pub density: uom::si::f64::MassDensity,
+    pub specific_heat: uom::si::f64::SpecificHeatCapacity,
+    pub conductivity: uom::si::f64::ThermalConductivity,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `density` | `uom::si::f64::MassDensity` | Density ρ. |
+| `specific_heat` | `uom::si::f64::SpecificHeatCapacity` | Specific heat c_p (a solid's c). |
+| `conductivity` | `uom::si::f64::ThermalConductivity` | Thermal conductivity k (laminar: the molecular value, upstream's<br>`kappaEff` with no turbulent part). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(density: MassDensity, specific_heat: SpecificHeatCapacity, conductivity: ThermalConductivity) -> Self { /* ... */ }
+  ```
+  Properties from SI numbers: ρ \[kg/m³\], c_p \[J/(kg K)\], k \[W/(m K)\].
+
+- ```rust
+  pub fn si(rho: f64, cp: f64, k: f64) -> Self { /* ... */ }
+  ```
+  Properties with the given conductivity and diffusivity-defining ρ c_p:
+
+- ```rust
+  pub fn rho_cp(self: &Self) -> f64 { /* ... */ }
+  ```
+  ρ c_p \[J/(m³ K)\].
+
+- ```rust
+  pub fn kappa(self: &Self) -> f64 { /* ... */ }
+  ```
+  k \[W/(m K)\].
+
+- ```rust
+  pub fn diffusivity(self: &Self) -> f64 { /* ... */ }
+  ```
+  Thermal diffusivity α = k / (ρ c_p) \[m²/s\].
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `EnergyEquation`
+
+The temperature field of one region with its properties and solve
+settings. Attach one to
+[`PimpleFoam::energy`](crate::solvers::pimple_foam::PimpleFoam::energy)
+for forced convection, or hold one in a
+[`SolidRegion`](crate::solvers::cht_multi_region_foam::SolidRegion).
+
+```rust
+pub struct EnergyEquation {
+    pub t: VolScalarField,
+    pub thermo: IncompressibleThermo,
+    pub ddt: crate::io::fv_schemes::DdtScheme,
+    pub solver: SolverSettings,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t` | `VolScalarField` | Temperature \[K\], with its boundary conditions. |
+| `thermo` | `IncompressibleThermo` | Constant properties of the region. |
+| `ddt` | `crate::io::fv_schemes::DdtScheme` | Time scheme of the energy equation: `Euler` (default) or<br>`SteadyState` (chtMultiRegionSimpleFoam's steady form). Any other is<br>a hard error at the solve. |
+| `solver` | `SolverSettings` | Linear-solver settings; default tolerance 1e-12 (module docs). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn uniform(mesh: Arc<FvMesh>, thermo: IncompressibleThermo, t0: f64) -> Self { /* ... */ }
+  ```
+  A uniform temperature `t0` \[K\] on `mesh`, every patch zeroGradient
+
+- ```rust
+  pub fn set_patch(self: &mut Self, name: &str, bc: BoundaryCondition<f64>) { /* ... */ }
+  ```
+  Set patch `name`'s condition (no-op if there is no such patch).
+
+- ```rust
+  pub fn solve(self: &mut Self, t_old: &VolScalarField, phi: Option<&SurfaceScalarField>, dt: Time, lap: LaplacianCorrection, n_non_orth: usize) -> Result<EnergySolve, AppBuilderError> { /* ... */ }
+  ```
+  Assemble and solve the energy equation once, with old-time field
+
+- ```rust
+  pub fn conduction_in(self: &Self, pi: usize, lap: LaplacianCorrection) -> Power { /* ... */ }
+  ```
+  Conduction into the region through patch `pi` \[W\], from the same
+
+- ```rust
+  pub fn face_conduction(self: &Self, pi: usize, fi: usize, lap: LaplacianCorrection) -> Power { /* ... */ }
+  ```
+  Conduction into the region through face `fi` of patch `pi` \[W\];
+
+- ```rust
+  pub fn enthalpy_out(self: &Self, pi: usize, phi: &SurfaceScalarField) -> Power { /* ... */ }
+  ```
+  Enthalpy carried **out** through patch `pi` by flux `phi` \[W\],
+
+- ```rust
+  pub fn stored_energy(self: &Self) -> f64 { /* ... */ }
+  ```
+  Total thermal energy `ρ c_p Σ V T` \[J\] relative to 0 K.
+
+- ```rust
+  pub fn mixing_cup(self: &Self, pi: usize, phi: &SurfaceScalarField) -> Option<f64> { /* ... */ }
+  ```
+  Mixing-cup (flux-weighted) temperature over patch `pi` \[K\], the face
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `EnergySolve`
+
+What one energy solve did.
+
+```rust
+pub struct EnergySolve {
+    pub max_change: f64,
+    pub iterations: usize,
+    pub residual: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `max_change` | `f64` | Largest cell |T_new − T_before| \[K\] over the solve. |
+| `iterations` | `usize` | The linear solver's report from the last non-orthogonal pass. |
+| `residual` | `f64` | Its final residual. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ## Module `hrm_foam`
 
 # `hrm_foam` — Homogeneous Relaxation Model solver (HRMFoam)
@@ -26436,7 +45796,7 @@ pub struct HrmModelConfig {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HrmModelConfig { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -26483,7 +45843,7 @@ pub struct HrmModelConfig {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26632,7 +45992,7 @@ pub struct HrmFoam {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26894,7 +46254,7 @@ pub struct MeltFoam {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26905,6 +46265,294 @@ pub struct MeltFoam {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+## Module `non_orthogonal`
+
+# Non-orthogonal correction of the solver Laplacians (gh:#1161)
+
+The pieces of OpenFOAM's `Gauss linear corrected` Laplacian that the
+incompressible solver needs, in the form upstream applies them inside
+`pimpleFoam`.
+
+## What upstream does (read 2026-11-03)
+
+Sources: OpenFOAM-dev `gaussLaplacianSchemes.C` (the `scalar`-Γ
+specialisation used for both `fvm::laplacian(rAU, p)` and
+`fvm::laplacian(nuEff, U)`), `correctedSnGrad.C`, `surfaceInterpolation.C`
+(`makeNonOrthDeltaCoeffs`, `makeNonOrthCorrectionVectors`), and
+OpenFOAM-10 `pimpleFoam/pEqn.H` and `nonOrthogonalSolutionControl.C`.
+
+1. **Implicit part.** `fvmLaplacianUncorrected(gammaMagSf,
+   snGradScheme.deltaCoeffs(vf), vf)`. For `corrected` (and `uncorrected`)
+   `deltaCoeffs` is `nonOrthDeltaCoeffs = 1/max(n·d, 0.05|d|)` on internal
+   faces and `1/(n·d_b)` on boundary faces (`fvPatch::delta()` is the
+   patch-normal projection). Only `orthogonal` uses `1/|d|`. This port's
+   [`fvm::laplacian_with_delta`] with [`DeltaCoeff::NonOrthogonal`] already
+   implements exactly that, so it is reused.
+2. **Explicit part (`corrected` only).** `fvm.source() -= V·div(gammaMagSf ·
+   k_f·(grad vf)_f)`, with `k_f = n − d·nonOrthDeltaCoeff` and
+   `(grad vf)_f` the **linear** interpolate of the cell gradient from
+   `gradSchemes` (`Gauss linear` in every tutorial). The correction vectors
+   are **zero on non-coupled boundary patches**, so no boundary face gets an
+   explicit term. For a vector field it is done per component: `k·∇U_j`.
+3. **The flux.** `p` is `fluxRequired`, so the same face correction is
+   stored as `faceFluxCorrection` and is part of `pEqn.flux()`; `phi =
+   phiHbyA − pEqn.flux()` therefore subtracts it, which is what keeps the
+   corrected flux divergence-free.
+4. **The loop.** `while (pimple.correctNonOrthogonal())` assembles, solves
+   and (on the final pass only) updates `phi`. `nNonOrthogonalCorrectors`
+   defaults to **0**, i.e. one pass. **The explicit correction is still
+   applied with 0 correctors**: it is evaluated from the `p` the pass
+   starts with (the previous PISO corrector or time step), and it converges
+   with the PISO/time iteration rather than within the pass.
+
+## Why `fvm::laplacian_corrected` (basic-lib) is not used here
+
+Checked and rejected: it adds an explicit correction on Dirichlet boundary
+faces (upstream sets the boundary correction vectors to zero), it averages
+the two cell gradients with equal weights (upstream: `linear`), it does not
+return the face correction that `pEqn.flux()` must subtract, and it has no
+vector form for the momentum equation. Its geometry
+([`fvm::non_ortho_geometry`]) is reused.
+
+```rust
+pub mod non_orthogonal { /* ... */ }
+```
+
+### Types
+
+#### Enum `LaplacianCorrection`
+
+Which part of OpenFOAM's non-orthogonal treatment a solver Laplacian gets,
+decoded from [`LaplacianScheme`].
+
+| `laplacianSchemes` | implicit `deltaCoeffs` | explicit correction |
+|---|---|---|
+| `Gauss linear orthogonal` | `1/|d|` | none |
+| `Gauss linear uncorrected` | `1/(n·d)` | none |
+| `Gauss linear corrected` (**default**) | `1/(n·d)` | full |
+| `Gauss linear limited corrected ψ` (gh:#1202) | `1/(n·d)` | limited face by face |
+
+```rust
+pub enum LaplacianCorrection {
+    Orthogonal,
+    Uncorrected,
+    Corrected,
+    Limited(f64),
+}
+```
+
+##### Variants
+
+###### `Orthogonal`
+
+`1/|d|`, no correction: the port before gh:#1161 (OpenFOAM `orthogonal`).
+
+###### `Uncorrected`
+
+`1/(n·d)`, no explicit term (OpenFOAM `uncorrected`).
+
+###### `Corrected`
+
+`1/(n·d)` plus the explicit `k·∇φ` term (OpenFOAM `corrected`).
+
+###### `Limited`
+
+`1/(n·d)` plus the explicit term **limited** face by face (OpenFOAM
+`limited corrected ψ`, `limitedSnGrad`), `0 < ψ < 1`; see
+[`limit_scalar_correction`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_scheme(scheme: &LaplacianScheme) -> Result<Self, AppBuilderError> { /* ... */ }
+  ```
+  Decode a [`LaplacianScheme`].
+
+- ```rust
+  pub fn delta_coeff(self: Self) -> fvm::DeltaCoeff { /* ... */ }
+  ```
+  The implicit delta-coefficient mode.
+
+- ```rust
+  pub fn is_explicit(self: Self) -> bool { /* ... */ }
+  ```
+  Whether the explicit `k·∇φ` term is applied (limited or not).
+
+- ```rust
+  pub fn limit_scalar(self: Self, corr: &mut [f64], gamma: &SurfaceScalarField, phi: &VolScalarField, mesh: &FvMesh) { /* ... */ }
+  ```
+  Apply this scheme's limiter to a scalar face correction from
+
+- ```rust
+  pub fn limit_vector(self: Self, corr: &mut [Vector3], gamma: &SurfaceScalarField, u: &VolVectorField, mesh: &FvMesh) { /* ... */ }
+  ```
+  Vector counterpart of [`Self::limit_scalar`].
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `limit_scalar_correction`
+
+Scale each internal face's correction (`Γ_f |Sf| k·∇φ`, from
+[`scalar_face_correction`]) by the `limitedSnGrad` limiter ([`limiter`]).
+The limiter compares the per-unit-`Γ|Sf|` correction `k·∇φ` with the
+uncorrected snGrad, as upstream's `snGradScheme` does before
+`gaussLaplacianScheme` multiplies by `gammaMagSf`.
+
+```rust
+pub fn limit_scalar_correction(corr: &mut [f64], gamma: &SurfaceScalarField, phi: &VolScalarField, mesh: &FvMesh, psi: f64) { /* ... */ }
+```
+
+#### Function `limit_vector_correction`
+
+Vector counterpart of [`limit_scalar_correction`]: one limiter per face
+from the magnitudes of the vector snGrad and the vector correction, as
+upstream's `mag()` of a `surfaceVectorField`.
+
+```rust
+pub fn limit_vector_correction(corr: &mut [Vector3], gamma: &SurfaceScalarField, u: &VolVectorField, mesh: &FvMesh, psi: f64) { /* ... */ }
+```
+
+#### Function `scalar_face_correction`
+
+The explicit face correction of a scalar Laplacian, `Γ_f |Sf| k_f·(∇φ)_f`,
+per internal face (upstream's `faceFluxCorrection`; boundary faces carry
+none). Units: `[Γ]·m²·[φ]/m`, a volumetric flux \[m³/s\] when Γ = rAU \[s\]
+and φ = p \[m²/s²\].
+
+```rust
+pub fn scalar_face_correction(gamma: &SurfaceScalarField, grad: &VolVectorField, mesh: &FvMesh) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `vector_face_correction`
+
+Vector counterpart of [`scalar_face_correction`]: component `j` is
+`Γ_f |Sf| k_f·(∇u_j)_f` \[m⁴/s²\] for Γ = ν \[m²/s\] and u \[m/s\].
+
+```rust
+pub fn vector_face_correction(gamma: &SurfaceScalarField, grad: &VolTensorField, mesh: &FvMesh) -> Vec<Vector3> { /* ... */ }
+```
+
+#### Function `add_to_source_scalar`
+
+Add a face correction to a positive-definite (`−∇·Γ∇`) matrix source:
+`+c` on the owner, `−c` on the neighbour. This is upstream's
+`fvm.source() -= V·div(correction)` in this port's sign convention (the
+matrix is the negative of OpenFOAM's; see the `pimple_foam` module doc).
+
+```rust
+pub fn add_to_source_scalar(source: &mut [f64], corr: &[f64], mesh: &FvMesh) { /* ... */ }
+```
+
+#### Function `add_to_source_vector`
+
+Vector counterpart of [`add_to_source_scalar`].
+
+```rust
+pub fn add_to_source_vector(source: &mut [Vector3], corr: &[Vector3], mesh: &FvMesh) { /* ... */ }
+```
+
+#### Function `restamp_vector_delta`
+
+Switch the implicit coefficients of a vector Laplacian that was assembled
+with `1/|d|` (as `fvm::laplacian_vec` and the turbulence closures'
+`divDevReff` do) to `mode`'s delta coefficients, face by face, on the
+internal faces and on the Dirichlet boundary arms `laplacian_vec` stamps
+(`FixedValue`, `FixedField`, `Calculated`, `FlowRateInletVelocity`,
+`NoSlip`). Robin/gradient arms keep the orthogonal treatment.
+
+`gamma` must be the face diffusivity the matrix was built with. A no-op for
+[`fvm::DeltaCoeff::Orthogonal`].
+
+```rust
+pub fn restamp_vector_delta(mat: &mut FvVectorMatrix, gamma: &SurfaceScalarField, u: &VolVectorField, mode: fvm::DeltaCoeff) { /* ... */ }
+```
+
 ## Module `pimple_foam`
 
 # pimpleFoam / icoFoam — incompressible PISO/PIMPLE solver
@@ -27066,6 +46714,38 @@ follows from this one fact; the discretised physics is identical.
    pressure–velocity (checkerboard) decoupling. `ddtCorr` uses the time-old
    `U`/`phi` (constant across the inner correctors). See
    `outram_foam_basic_lib::fv_operators::fvc::ddt_corr`.
+   **Since 2026-11-01 (gh:#1067)** the form follows `schemes.ddt` through
+   `crate::solvers::schemes::ddt_corr_scheme`: the Euler form for `Euler`,
+   the BDF2 form (`fvc::ddt_corr_backward`, a port of
+   `backwardDdtScheme::fvcDdtPhiCorr`) for `Backward`, zero for
+   `steadyState` — previously the Euler form was used for all three.
+
+7. **Open boundaries — ported 2026-11-03 (gh:#1154).** Until then only
+   closed cavities had been run. Three upstream behaviours were missing:
+   `setReference` is applied only when `p.needReference()` (no patch fixes
+   p); `constrainHbyA` sets phiHbyA's — and so `phi`'s — boundary flux to
+   `U_b·Sf` on fixed-velocity patches, while a zeroGradient outlet keeps
+   `HbyA_P·Sf` (both feed the pressure source, as `fvc::div(phiHbyA)` does
+   upstream); and `phi = phiHbyA − pEqn.flux()` includes the boundary
+   pressure flux of fixed-p patches. Pinned by
+   `tests/pimple_foam_open_channel.rs` (plane Poiseuille). On the closed
+   cavity only the second acts (the lid's flux is now exactly 0); it moved
+   the cavity toward icoFoam, max |ΔU| / U_lid 0.0144 → 0.0062.
+
+8. **Non-orthogonal correction — ported 2026-11-03 (gh:#1161).** Until
+   then both Laplacians divided by `|d|` and had no explicit term (OpenFOAM
+   `Gauss linear orthogonal`), whatever `schemes.default_laplacian` said.
+   Now `default_laplacian` is honoured, and its default `Gauss linear
+   corrected` does what upstream does: `1/(n·d)` implicit coefficients, an
+   explicit `k·∇φ` face correction on internal faces (lagged, so it is
+   applied even with `nNonOrthogonalCorrectors = 0`, upstream's default),
+   the same correction subtracted in `phi = phiHbyA − pEqn.flux()`, and the
+   `nNonOrthogonalCorrectors` loop. Details and upstream line references:
+   [`crate::solvers::non_orthogonal`]. Ablation:
+   [`PimpleFoam::without_non_orthogonal_correction`]. On a Cartesian mesh
+   the correction vectors are zero, so the cavity and channel results move
+   by round-off only; V&V record:
+   `verification_and_validation/non_orthogonal_correction_gh1161.md`.
 
 ```rust
 pub mod pimple_foam { /* ... */ }
@@ -27123,7 +46803,7 @@ Algebraic multigrid (`FvMatrix::solve_gamg_with_guess`).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PressureSolver { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27139,7 +46819,7 @@ Algebraic multigrid (`FvMatrix::solve_gamg_with_guess`).
 
 - **Default**
   - ```rust
-    fn default() -> PressureSolver { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -27158,7 +46838,7 @@ Algebraic multigrid (`FvMatrix::solve_gamg_with_guess`).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PressureSolver) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -27177,7 +46857,7 @@ Algebraic multigrid (`FvMatrix::solve_gamg_with_guess`).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27218,7 +46898,13 @@ pub struct PimpleFoam {
     pub nu: VolScalarField,
     pub pressure_solver: PressureSolver,
     pub u_old_old: Option<VolVectorField>,
+    pub phi_old_old: Option<SurfaceScalarField>,
+    pub ddt_corr_form: crate::solvers::schemes::DdtCorrForm,
+    pub u_linear_solver: SolverSettings,
+    pub p_linear_solver: SolverSettings,
     pub turbulence: crate::turbulence::TurbulenceClosure,
+    pub energy: Option<crate::solvers::energy::EnergyEquation>,
+    pub solve_log: Option<Vec<SolveRecord>>,
 }
 ```
 
@@ -27236,7 +46922,13 @@ pub struct PimpleFoam {
 | `nu` | `VolScalarField` | Kinematic viscosity ν [m²/s] |
 | `pressure_solver` | `PressureSolver` | Linear solver for the pressure Poisson equation (default: PCG). |
 | `u_old_old` | `Option<VolVectorField>` | Velocity at the time level *before* `u_old`, i.e. U^{n−2} [m/s].<br><br>Maintained automatically by [`PimpleFoam::step`] and needed only by the<br>second-order [`crate::io::fv_schemes::DdtScheme::Backward`] time scheme.<br>`None` before the first step has completed, where backward differencing<br>degenerates to Euler. |
+| `phi_old_old` | `Option<SurfaceScalarField>` | Face flux at the time level *before* the step's old flux, i.e. φ^{n−2}<br>[m³/s].<br><br>Maintained automatically by [`PimpleFoam::step`], alongside<br>[`Self::u_old_old`]; read only by the BDF2 Rhie–Chow correction<br>(`fvc::ddt_corr_backward`) when `schemes.ddt` is<br>[`crate::io::fv_schemes::DdtScheme::Backward`]. `None` before the first<br>step has completed. |
+| `ddt_corr_form` | `crate::solvers::schemes::DdtCorrForm` | Which `ddtCorr` form is paired with the ddt scheme (default<br>[`DdtCorrForm::MatchDdtScheme`], the correct physics). Setting<br>[`DdtCorrForm::EulerOnly`] is an explicit ablation that reproduces the<br>pre-gh:#1067 Euler-only correction; see<br>`verification_and_validation/bdf2_temporal_order.md` for what it costs. |
+| `u_linear_solver` | `SolverSettings` | Momentum (U) linear-solver settings: tolerance 1e-7, 1000 iterations<br>(`SolverSettings::default()`), what this solver has always used. See<br>[`Self::with_linear_solver_settings`]. |
+| `p_linear_solver` | `SolverSettings` | Pressure (p) linear-solver settings: tolerance 1e-8, 2000 iterations,<br>what this solver has always used. See [`Self::with_linear_solver_settings`]. |
 | `turbulence` | `crate::turbulence::TurbulenceClosure` | Turbulence closure (default [`TurbulenceClosure::Laminar`]).<br><br>Selecting a RAS/LES model replaces the molecular viscous term in the<br>momentum predictor with `divDevReff(U) = −∇·(ν_eff ∇U) − ∇·(ν_eff<br>dev2(∇Uᵀ))`, ν_eff = ν + ν_t, and advances the model's transport<br>equations once per time step after the pressure correctors — OpenFOAM's<br>`turbulence->correct()` position. Set it directly, e.g.<br><br>```ignore<br>solver.turbulence = TurbulenceClosure::k_omega_sst(mesh.clone());<br>solver.turbulence.set_k_omega_uniform(1.0e-2, 100.0); // k [m²/s²], ω [1/s]<br>```<br><br>**The default is laminar and stays laminar unless you change it**, so an<br>existing run is unaffected. See [`crate::turbulence`] for the honest<br>scope limits — in particular, the closures use zero-gradient (not<br>wall-function) near-wall boundary conditions. |
+| `energy` | `Option<crate::solvers::energy::EnergyEquation>` | Temperature transport for forced convection (gh:#1156), `None` by<br>default. With `None`, [`Self::step`] is exactly [`Self::step_flow`],<br>so every pre-gh:#1156 run is bit-identical. With `Some`, the energy<br>equation of [`crate::solvers::energy`] is solved after the PISO loop<br>with the corrected flux and the same Laplacian treatment (and<br>`nNonOrthogonalCorrectors`) as the flow; the temperature is passive<br>(constant properties, no buoyancy), so `U`, `p` and `phi` are<br>unchanged by it. |
+| `solve_log` | `Option<Vec<SolveRecord>>` | Opt-in log of the initial residual of every linear solve, in upstream's<br>normalisation (gh:#1363; see [`SolveRecord`]). `None` by default, so a<br>run pays nothing; [`Self::with_solve_log`] switches it on. |
 
 ##### Implementations
 
@@ -27248,9 +46940,34 @@ pub struct PimpleFoam {
   Build an incompressible PIMPLE solver on `mesh`, with every field
 
 - ```rust
+  pub fn with_solve_log(self: Self) -> Self { /* ... */ }
+  ```
+  Record the initial residual of every linear solve in
+
+- ```rust
   pub fn step(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
   ```
-  Advance the solution by one time step using the PIMPLE algorithm.
+  Advance one time step: the flow ([`Self::step_flow`], skipped when
+
+- ```rust
+  pub fn solve_energy(self: &mut Self, t_old: &VolScalarField) -> Result<EnergySolve, AppBuilderError> { /* ... */ }
+  ```
+  Solve the attached energy equation once from old-time field `t_old`
+
+- ```rust
+  pub fn without_non_orthogonal_correction(self: Self) -> Self { /* ... */ }
+  ```
+  Ablation (gh:#1161): use OpenFOAM's `Gauss linear orthogonal` Laplacian
+
+- ```rust
+  pub fn with_linear_solver_settings(self: Self, u: SolverSettings, p: SolverSettings) -> Self { /* ... */ }
+  ```
+  Solve the momentum and pressure equations to these settings instead
+
+- ```rust
+  pub fn step_flow(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
+  ```
+  Advance the flow (U, p, phi) by one time step using the PIMPLE algorithm.
 
 - ```rust
   pub fn run(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
@@ -27274,6 +46991,11 @@ pub struct PimpleFoam {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -27293,7 +47015,107 @@ pub struct PimpleFoam {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SolveRecord`
+
+One linear solve as upstream's solver log prints it: the field name
+(`"Ux"`, `"Uy"`, `"p"`) and its `Initial residual`, computed by
+`LduMatrix::openfoam_initial_residual` on the assembled system and the
+starting guess, i.e. before the solver touches the field.
+
+```rust
+pub struct SolveRecord {
+    pub field: &'static str,
+    pub initial_residual: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `field` | `&'static str` | Solved field (`"Ux"`, `"Uy"`, `"p"`). |
+| `initial_residual` | `f64` | Initial residual, upstream normalisation. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27485,7 +47307,7 @@ pub struct PhaseThermo {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27571,7 +47393,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InterfacialHeatTransfer { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27613,7 +47435,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27685,7 +47507,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InterfacialMassTransfer { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27727,7 +47549,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27780,7 +47602,7 @@ The continuous phase `c`.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PhaseSelector { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27810,7 +47632,7 @@ The continuous phase `c`.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PhaseSelector) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -27829,7 +47651,7 @@ The continuous phase `c`.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27898,7 +47720,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReactionSource { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27940,7 +47762,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28038,7 +47860,7 @@ pub struct PhaseSpecies {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28119,7 +47941,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReactionMechanism { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -28161,7 +47983,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28299,7 +48121,7 @@ pub struct ReactingTwoPhaseEulerFoam {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28327,10 +48149,25 @@ pub fn build_default(system: outram_foam_multiphase::two_fluid::TwoFluidSystem, 
 # `rho_central_foam` — density-based compressible solver (rhoCentralFoam)
 
 Rust port of rhoCentralFoam: a density-based, explicit compressible solver
-using the Kurganov-Noelle-Petrova (KNP) central-upwind flux with 2nd-order
-van Leer MUSCL reconstruction. It advances the conserved compressible fields
+using the Kurganov central-upwind flux with 2nd-order van Leer
+reconstruction. It advances the conserved compressible fields
 (ρ, ρU, ρE) and is well suited to shock-dominated high-speed flow (the Sod
 shock-tube validation case exercises this solver). See [`RhoCentralFoam`].
+
+# Upstream (gh:#1363)
+[`RhoCentralFoam::step`] follows OpenFOAM-v2506 (ESI)
+`applications/solvers/compressible/rhoCentralFoam/rhoCentralFoam.C` in the
+inviscid case, operation by operation: directed reconstruction of `rho`,
+`rhoU` (one vector limiter per face, `vanLeerV`), `rPsi = 1/psi`, `e` and
+`c = sqrt(Cp/Cv rPsi)`; the Kurganov weights `a_pos`, `aSf`; the fluxes
+`phi`, `phiUp`, `phiEp`; `solve(fvm::ddt(X) + fvc::div(flux))` with the
+`diagonal` solver; `e = rhoE/rho - |U|^2/2`; the temperature from the
+energy by upstream's Newton iteration (`species::thermo::T`); and
+`p = rho/psi`. Boundary faces carry their own state (`rho`, `rhoU`, `T`,
+`psi`, `e`) as upstream's boundary fields do. Before gh:#1363 this was a
+different formulation (reconstructing `U` and `e`, deriving `p` and `c`
+from them, a hard-coded γ = 1.4, positivity clamps); see
+`verification_and_validation/rho_central_foam_vs_openfoam.md`.
 
 ```rust
 pub mod rho_central_foam { /* ... */ }
@@ -28338,29 +48175,163 @@ pub mod rho_central_foam { /* ... */ }
 
 ### Types
 
+#### Struct `PerfectGas`
+
+Perfect gas with constant `Cp` and the sensible internal energy as the
+energy variable: upstream's `perfectGas` + `hConstThermo` +
+`sensibleInternalEnergy` (`thermoType` of the rhoCentralFoam shockTube
+tutorial), with the same arithmetic.
+
+`Es(p, T) = Hs - p/rho`, `Hs = Cp (T - Tref)`, `rho = p/(R T)`,
+`psi = 1/(R T)`, `Cv = Cp - R`.
+
+```rust
+pub struct PerfectGas {
+    pub r: f64,
+    pub cp: f64,
+    pub t_ref: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r` | `f64` | Specific gas constant `R = RR/W` [J/(kg K)]. |
+| `cp` | `f64` | Heat capacity at constant pressure [J/(kg K)]. |
+| `t_ref` | `f64` | Reference temperature of the sensible enthalpy [K] (upstream `Tref`,<br>default `Tstd`). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_molar_weight_and_cp(molar_weight_kg_per_kmol: f64, cp: f64) -> Self { /* ... */ }
+  ```
+  Upstream's `thermodynamics { Cp; }`, `specie { molWeight; }` with the
+
+- ```rust
+  pub fn from_gamma(gamma: f64, r: f64) -> Self { /* ... */ }
+  ```
+  A calorically perfect gas of ratio of specific heats `gamma` and gas
+
+- ```rust
+  pub fn cv(self: &Self) -> f64 { /* ... */ }
+  ```
+  `Cv = Cp - R` [J/(kg K)].
+
+- ```rust
+  pub fn psi(self: &Self, t: f64) -> f64 { /* ... */ }
+  ```
+  Compressibility `psi = 1/(R T)` [s²/m²].
+
+- ```rust
+  pub fn es(self: &Self, p: f64, t: f64) -> f64 { /* ... */ }
+  ```
+  Sensible internal energy `Es(p, T)` [J/kg].
+
+- ```rust
+  pub fn the(self: &Self, e: f64, p: f64, t0: f64) -> Result<f64, AppBuilderError> { /* ... */ }
+  ```
+  Temperature from the sensible internal energy, upstream
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    Calorically perfect air, γ = 1.4, R = 287 J/(kg K), `e = Cv T`: what the
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 #### Struct `RhoCentralFoam`
 
 Density-based central-upwind compressible solver — rhoCentralFoam.
 
-Implements the **Kurganov-Noelle-Petrova (KNP)** scheme for the Euler
-equations.  All convective terms are treated **explicitly** — no matrix
-solve for transport.  Only suitable for time-accurate problems with
+Implements the **Kurganov** central-upwind scheme for the Euler
+equations (the viscous branch of upstream is not ported: `mu = 0`). All
+convective terms are explicit — no matrix solve for transport, only
+upstream's `diagonal` solver. Only suitable for time-accurate problems with
 CFL ≤ 1.
 
 Governing equations (conservation form):
   ∂W/∂t + ∇·F(W) = 0
-  W = [ρ, ρU, ρE]ᵀ,  E = e + ½|U|²,  p = (γ−1)ρe  (calorically perfect gas)
-
-KNP flux at face f (Kurganov, Noelle & Petrova, SIAM J. Sci. Comp. 2001):
-  F_KNP = (a_R·F_L − a_L·F_R + a_L·a_R·(W_R − W_L)) / (a_R − a_L)
-  a_L = min(U_n,L − c_L,  U_n,R − c_R,  0)
-  a_R = max(U_n,L + c_L,  U_n,R + c_R,  0)
-
-The left/right face states (`L`, `R`) are **2nd-order vanLeer MUSCL
-reconstructions** of ρ, U and e — the owner-biased (`pos`) and
-neighbour-biased (`neg`) face values from `fvc::reconstruct_pos_neg`,
-matching OpenFOAM rhoCentralFoam's `interpolate(field, pos/neg)`. Using the
-raw cell values instead would make the scheme first-order.
+  W = [ρ, ρU, ρE]ᵀ,  E = e + ½|U|²,  p = ρ/ψ,  ψ = 1/(R T),  e = Es(p, T)
 
 C++ solver: `applications/solvers/compressible/rhoCentralFoam/`
 
@@ -28376,6 +48347,8 @@ pub struct RhoCentralFoam {
     pub e: VolScalarField,
     pub psi_limit: f64,
     pub phi: SurfaceScalarField,
+    pub gas: PerfectGas,
+    // Some fields omitted
 }
 ```
 
@@ -28390,9 +48363,11 @@ pub struct RhoCentralFoam {
 | `u` | `VolVectorField` | Velocity field [m/s] |
 | `p` | `VolScalarField` | Pressure [Pa] |
 | `rho` | `VolScalarField` | Density [kg/m³] |
-| `e` | `VolScalarField` | Specific internal energy e [J/kg] |
-| `psi_limit` | `f64` | Co-volume limiter (unused for calorically-perfect gas; kept for API compatibility). |
+| `e` | `VolScalarField` | Specific sensible internal energy e [J/kg], in the convention of<br>[`Self::gas`] (`e = Cv T` for the default gas). |
+| `psi_limit` | `f64` | Unused; kept for API compatibility. |
 | `phi` | `SurfaceScalarField` | Mass flux output [kg/s] |
+| `gas` | `PerfectGas` | The gas: default calorically perfect air (γ = 1.4). Set it with<br>[`Self::with_gas`], e.g. from a `thermophysicalProperties`' `molWeight`<br>and `Cp`. |
+| *private fields* | ... | *Some fields have been omitted* |
 
 ##### Implementations
 
@@ -28401,12 +48376,27 @@ pub struct RhoCentralFoam {
 - ```rust
   pub fn new(mesh: Arc<FvMesh>, control: ControlDict, schemes: FvSchemes, solution: FvSolution) -> Self { /* ... */ }
   ```
-  Build a density-based central-upwind (Kurganov-Noelle-Petrova) compressible
+  Build a density-based central-upwind (Kurganov) compressible solver on
+
+- ```rust
+  pub fn with_gas(self: Self, gas: PerfectGas) -> Self { /* ... */ }
+  ```
+  Choose the gas (upstream `thermophysicalProperties`).
+
+- ```rust
+  pub fn set_initial_temperature(self: &mut Self, t: Vec<f64>) { /* ... */ }
+  ```
+  Give the initial temperature per cell (upstream's `T` file), the start
+
+- ```rust
+  pub fn temperature(self: &Self) -> Option<&[f64]> { /* ... */ }
+  ```
+  Cell temperatures [K] (`None` before the first step).
 
 - ```rust
   pub fn step(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
   ```
-  One explicit KNP time step.
+  One explicit Kurganov time step, operation for operation as upstream's
 
 - ```rust
   pub fn run(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
@@ -28430,6 +48420,11 @@ pub struct RhoCentralFoam {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -28449,7 +48444,7 @@ pub struct RhoCentralFoam {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28474,6 +48469,166 @@ loop; a companion stability primer lives in this module's `docs/`.
 pub mod rho_pimple_foam { /* ... */ }
 ```
 
+### Modules
+
+## Module `esi`
+
+# `esi` — rhoPimpleFoam as OpenFOAM-v2506 (ESI) writes it (gh:#1363, row 3a)
+
+A translation of ESI v2506 `applications/solvers/compressible/rhoPimpleFoam`
+(`rhoPimpleFoam.C`, `createFields.H`, `UEqn.H`, `EEqn.H`, `pEqn.H` -- the
+non-transonic, non-consistent branch) for the same restricted case as
+[`crate::solvers::sonic_foam::esi`]: a one-dimensional mesh along x, closed
+`zeroGradient` ends, `mu = 0`, Euler ddt, `upwind` for `U`, `limitedLinear 1`
+for `h` and `K`, `smoothSolver symGaussSeidel`, `sensibleEnthalpy`
+(`h`-form, so the `-dpdt` term runs). It reuses that module's translated
+operators and linear solver; what is new here is the energy variable `h`
+(`Hs = Cp (T - Tref)`, Newton with `dFdT = Cp`), `dpdt = fvc::ddt(p)`, the
+compressibility pressure equation
+`ddt(rho) + psi*correction(ddt(p)) + div(phiHbyA) - laplacian(rhorAUf, p)`
+(a symmetric matrix) and the end-of-`pEqn` `rho = thermo.rho()`.
+
+The existing [`super::RhoPimpleFoam::step`] is not changed and stays callable.
+Refusals are by name ([`AppBuilderError::UnsupportedScheme`]). The V&V
+record is `verification_and_validation/rho_pimple_foam_vs_openfoam.md`.
+
+```rust
+pub mod esi { /* ... */ }
+```
+
+### Types
+
+#### Struct `RhoPimpleFoamEsi`
+
+rhoPimpleFoam (ESI v2506) on a 1-D closed tube. See the module documentation.
+
+```rust
+pub struct RhoPimpleFoamEsi {
+    pub rho: Vec<f64>,
+    pub ux: Vec<f64>,
+    pub p: Vec<f64>,
+    pub t: Vec<f64>,
+    pub h: Vec<f64>,
+    pub psi: Vec<f64>,
+    pub phi: Vec<f64>,
+    pub dump_stage_steps: usize,
+    pub dump_stage_from: usize,
+    pub stages: crate::solvers::sonic_foam::esi::StageDump,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `rho` | `Vec<f64>` | Density [kg/m3]. |
+| `ux` | `Vec<f64>` | x velocity [m/s]. |
+| `p` | `Vec<f64>` | Pressure [Pa]. |
+| `t` | `Vec<f64>` | Temperature [K]. |
+| `h` | `Vec<f64>` | Specific sensible enthalpy [J/kg]. |
+| `psi` | `Vec<f64>` | Compressibility psi = 1/(R T). |
+| `phi` | `Vec<f64>` | Mass flux through the internal faces [kg/s]. |
+| `dump_stage_steps` | `usize` | Intermediate fields of the steps in `[dump_stage_from, dump_stage_steps]`. |
+| `dump_stage_from` | `usize` | First step recorded in [`Self::stages`]. |
+| `stages` | `crate::solvers::sonic_foam::esi::StageDump` | Recorded intermediate fields. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: &Arc<FvMesh>, gas: PerfectGas, mu: f64, dt: f64, p: &[f64], t: &[f64], ux: &[f64]) -> Result<Self, AppBuilderError> { /* ... */ }
+  ```
+  Upstream `createFields.H` and the `hePsiThermo` constructor from `p`,
+
+- ```rust
+  pub fn topo(self: &Self) -> &Topo { /* ... */ }
+  ```
+  The mesh data the translation uses.
+
+- ```rust
+  pub fn set_n_outer_correctors(self: &mut Self, n: usize) { /* ... */ }
+  ```
+  Set `nOuterCorrectors` (tutorial-style case: 2).
+
+- ```rust
+  pub fn step(self: &mut Self) -> Result<StepLog, AppBuilderError> { /* ... */ }
+  ```
+  Advance one time step (`while (runTime.loop())` body of `rhoPimpleFoam.C`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ### Types
 
 #### Struct `RhoPimpleFoam`
@@ -28584,7 +48739,7 @@ pub struct RhoPimpleFoam {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28622,18 +48777,183 @@ exactly the failure mode this module exists to remove.
 | Family | Implemented | Returns `UnsupportedScheme` |
 |---|---|---|
 | ddt | `Euler`, `Backward`, `SteadyState` | `CrankNicolson`, `LocalEuler` |
-| div | `GaussUpwind`, `GaussLinear` | `GaussLinearUpwind`, `GaussVanLeer`, `GaussMUSCL`, `GaussLimitedLinear` |
+| ddtCorr ([`ddt_corr_scheme`]) | `Euler`, `Backward`, `SteadyState` | `CrankNicolson`, `LocalEuler` |
+| div | `GaussUpwind`, `GaussLinear`, `GaussLinearUpwind` (gh:#1202) | `GaussVanLeer`, `GaussMUSCL`, `GaussLimitedLinear` |
+| grad of U ([`grad_vec_scheme`]) | `GaussLinear`, `CellLimitedGaussLinear` (gh:#1202) | `LeastSquares`, `FourthOrder` |
 
-The limited/TVD `div` schemes need a face limiter driven by a reconstructed
+~~The limited/TVD `div` schemes need a face limiter driven by a reconstructed
 upwind gradient; `outram-foam-basic-lib` provides the limiter functions
 (`limiters::FluxLimiter`) but not the face-`r` reconstruction for a vector
-field, so they are declared unsupported rather than approximated.
+field, so they are declared unsupported rather than approximated.~~
+**UPDATED 2026-11-04 (gh:#1202):** `Gauss linearUpwind grad(U)` is ported
+(OpenFOAM-dev `852527377c7e`, `linearUpwind.C`, the vector
+specialisation), with the `cellLimited Gauss linear k` gradient the
+tutorials pair it with (`cellLimitedGrad.C`, minmod). The TVD schemes
+(`vanLeer`, `MUSCL`, `limitedLinear`) are still unsupported.
 
 ```rust
 pub mod schemes { /* ... */ }
 ```
 
+### Types
+
+#### Enum `DdtCorrForm`
+
+Which Rhie–Chow `ddtCorr` form a PISO/PIMPLE solver pairs with its ddt
+scheme.
+
+The default, [`DdtCorrForm::MatchDdtScheme`], is the correct physics and
+what OpenFOAM does: the correction comes from the *same* ddt scheme as the
+momentum time derivative ([`ddt_corr_scheme`]). [`DdtCorrForm::EulerOnly`]
+is an explicit **ablation** that reproduces this crate's behaviour before
+gh:#1067 (Euler `ddtCorr` whatever the ddt scheme); it exists so the
+temporal-order study in `tests/bdf2_temporal_order.rs` can measure the
+mismatched pairing beside the consistent one. Do not select it for a
+production run.
+
+```rust
+pub enum DdtCorrForm {
+    MatchDdtScheme,
+    EulerOnly,
+}
+```
+
+##### Variants
+
+###### `MatchDdtScheme`
+
+Correction from the selected ddt scheme (Euler → Euler form, Backward →
+BDF2 form, steadyState → zero). **Default.**
+
+###### `EulerOnly`
+
+Ablation: always the Euler form `fvc::ddt_corr`, as before gh:#1067.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ### Functions
+
+#### Function `ddt_corr_scheme`
+
+Rhie–Chow time-derivative flux correction `fvc::ddtCorr(U, phi)` for the
+selected ddt scheme — the face-flux partner of [`ddt_vec_scheme`].
+
+Returns a face field [m³/s²] (volumetric flux per unit time); a PISO loop
+adds `interpolate(rAU) · ddtCorr` to `phiHbyA`.
+
+# Arguments
+
+* `scheme`      — the `ddtSchemes` selection; must be the one used for the
+  momentum ddt, or the correction and the `H/A` history it replaces do not
+  match.
+* `u_old`, `u_old_old` — U^{n−1}, U^{n−2} [m/s]; `u_old_old = None` on the
+  first step.
+* `phi_old`, `phi_old_old` — φ^{n−1}, φ^{n−2} [m³/s]; `phi_old_old = None`
+  on the first step.
+* `dt` — time step Δt [s] > 0, assumed constant (as in [`ddt_vec_scheme`]).
+
+# Schemes (each mirrors the upstream `fvcDdtPhiCorr(U, phi)`)
+
+* [`DdtScheme::Euler`] — `fvc::ddt_corr` (`EulerDdtScheme`).
+* [`DdtScheme::Backward`] — `fvc::ddt_corr_backward` with `Δt₀ = Δt`
+  (`backwardDdtScheme`); reduces to the Euler form exactly while
+  `u_old_old`/`phi_old_old` are `None`, matching [`ddt_vec_scheme`]'s
+  start-up.
+* [`DdtScheme::SteadyState`] — a zero field (`steadyStateDdtScheme`
+  returns zero: with no time derivative there is no history to couple to).
+
+# Errors
+
+[`AppBuilderError::UnsupportedScheme`] for `CrankNicolson` and `LocalEuler`,
+for the same reasons as [`ddt_vec_scheme`].
+
+```rust
+pub fn ddt_corr_scheme(scheme: &crate::io::fv_schemes::DdtScheme, u_old: &VolVectorField, u_old_old: Option<&VolVectorField>, phi_old: &SurfaceScalarField, phi_old_old: Option<&SurfaceScalarField>, dt: f64) -> Result<SurfaceScalarField, crate::error::AppBuilderError> { /* ... */ }
+```
 
 #### Function `ddt_vec_scheme`
 
@@ -28665,22 +48985,38 @@ The returned [`FvVectorMatrix`] is *volume-integrated*: its diagonal carries
   source `V(2U^{n−1} − 0.5U^{n−2})/Δt`. More accurate but less bounded; can
   ring on a coarse mesh at high Courant number.
 
-  **Known limitation — `Backward` is wired, not verified as second order.**
+  ~~**Known limitation — `Backward` is wired, not verified as second order.**
   [`crate::solvers::pimple_foam::PimpleFoam`]'s PISO loop adds a Rhie–Chow
   flux correction `rAU_f · fvc::ddt_corr(U_old, φ_old, Δt)`, and
   `outram-foam-basic-lib`'s `ddt_corr` implements only the **Euler** form.
   Selecting `Backward` changes `rAU = V/A` (the diagonal becomes `1.5 V/Δt`
   instead of `V/Δt`) without changing `ddt_corr`, so the two are
-  inconsistent by a ratio tending to 1.5 as Δt → 0. Measured consequence
+  inconsistent by a ratio tending to 1.5 as Δt → 0.~~ Measured consequence
   (`tests/fv_scheme_selection.rs`, 2026-08-07): the Euler and Backward
   lid-driven-cavity runs converge to steady states differing by 1.0e-2 to
   2.9e-2 m/s (1–3 % of U_lid), and that difference *grows* as Δt is
   refined — the signature of an inconsistency, not of truncation error.
-  Fixing it needs OpenFOAM's `backwardDdtScheme::fvcDdtPhiCorr`, which
+  ~~Fixing it needs OpenFOAM's `backwardDdtScheme::fvcDdtPhiCorr`, which
   belongs in `outram-foam-basic-lib`. Until then, treat `Backward` as
   available and benchmark-neutral (it scores marginally better than Euler
   against Ghia 1982 at every Δt tested), but not as a verified second-order
-  time integration.
+  time integration.~~
+
+  **CORRECTED 2026-11-01** (gh:#1067) — the partner is ported:
+  `outram_foam_basic_lib::fv_operators::fvc::ddt_corr_backward`
+  (`backwardDdtScheme::fvcDdtPhiCorr`), and `PimpleFoam` now selects it
+  through [`ddt_corr_scheme`] whenever `Backward` is chosen (the old
+  pairing survives as the [`DdtCorrForm::EulerOnly`] ablation). Measured
+  2026-11-01 (`tests/bdf2_temporal_order.rs`, record
+  `verification_and_validation/bdf2_temporal_order.md`): the steady
+  Euler/Backward gap falls 2.7–3.6× (8.04e-3 vs 2.93e-2 m/s at Δt = 1e-3)
+  but **still grows** as Δt is refined, and a Richardson temporal-order
+  study on the cavity gave order ≈ 0 for Euler and Backward alike, because
+  the discrete fixed point depends on Δt. So `Backward` is now paired
+  consistently with upstream, but it is **still not verified as second
+  order**.
+  This function assumes a **constant** Δt (weights `1.5`, `2`, `0.5`);
+  [`ddt_corr_scheme`] makes the same assumption.
 * [`DdtScheme::SteadyState`] — the term is dropped entirely (a zero matrix),
   for steady solvers.
 
@@ -28702,6 +49038,8 @@ according to `scheme`.
 # Arguments
 
 * `scheme` — the `divSchemes` selection for `div(phi,U)`.
+* `grad`   — the `grad(U)` scheme ([`crate::io::fv_schemes::FvSchemes::grad_u_scheme`]);
+  consulted only by [`DivScheme::GaussLinearUpwind`].
 * `phi`    — face flux φ = U·S_f [m³/s] (volumetric) or ρU·S_f [kg/s]
   (mass); the scheme is agnostic, the units follow `phi`.
 * `u`      — the transported velocity field [m/s].
@@ -28711,35 +49049,112 @@ according to `scheme`.
 
 * [`DivScheme::GaussUpwind`] — first-order upwind, `fvm::div_vec` unmodified.
   Unconditionally bounded, strongly diffusive on a coarse mesh.
-* [`DivScheme::GaussLinear`] — second-order central differencing, assembled
-  by **deferred correction**: the implicit matrix stays the (diagonally
-  dominant) upwind operator, and the difference between the linear and upwind
-  face values is added explicitly to the source,
+* [`DivScheme::GaussLinear`] — second-order central differencing, fully
+  IMPLICIT as upstream's `gaussConvectionScheme` with the `linear` weights
+  (`fvm::div_vec_linear`: `lower = -w φ`, `upper = lower + φ`, `negSumDiag`).
+  ~~Until gh:#1363 this was the upwind matrix plus a lagged explicit
+  (Khosla–Rubin deferred) correction, which is a different discrete operator
+  inside a time step~~ **CORRECTED 2026-11-11** (cavity differential against
+  OpenFOAM-dev icoFoam: 1.4e-3 of the velocity range at step 2 before,
+  ~1e-13 after). The matrix is no longer diagonally dominant and the scheme
+  is **not** bounded — central differencing on a convection-dominated coarse
+  mesh can produce over/undershoots.
 
-  ```text
-    D_f = φ_f (U_f^linear − U_f^upwind)
-    source[owner]     −= D_f
-    source[neighbour] += D_f
-  ```
-
-  This is the standard Khosla–Rubin treatment: it recovers second-order
-  accuracy at convergence while keeping the matrix M-like. It is **not**
-  bounded — central differencing on a convection-dominated coarse mesh can
-  produce over/undershoots.
-
-  Boundary faces are left to `fvm::div_vec`: on a zero-gradient patch the
-  linear and upwind face values coincide (both equal the owner value), and on
-  a fixed-value patch `fvm::div_vec` already uses the prescribed value, so
-  there is no correction to apply either way.
+  Boundary faces are treated as in `fvm::div_vec` (the boundary
+  coefficients do not depend on the interior weights).
+* [`DivScheme::GaussLinearUpwind`] — OpenFOAM's `linearUpwind`
+  (gh:#1202): upwind weights in the implicit matrix plus the explicit
+  correction `φ_f (C_f − C_u)·(∇U)_u` of [`linear_upwind_correction`],
+  `u` the upwind cell and `∇U` the [`grad_vec_scheme`] gradient. Second
+  order, upwind-biased; exact for a linear field when the gradient is.
+  The `String` (upstream's gradient scheme name, e.g. `grad(U)`) is not
+  looked up: the port has one velocity gradient entry, `grad`.
 
 # Errors
 
-[`AppBuilderError::UnsupportedScheme`] for the limited/TVD schemes
-(`linearUpwind`, `vanLeer`, `MUSCL`, `limitedLinear`) — see the module
-documentation.
+[`AppBuilderError::UnsupportedScheme`] for the TVD schemes (`vanLeer`,
+`MUSCL`, `limitedLinear`), and for `linearUpwind` with an unsupported
+gradient — see the module documentation.
 
 ```rust
-pub fn div_vec_scheme(scheme: &crate::io::fv_schemes::DivScheme, phi: &SurfaceScalarField, u: &VolVectorField, mesh: std::sync::Arc<FvMesh>) -> Result<FvVectorMatrix, crate::error::AppBuilderError> { /* ... */ }
+pub fn div_vec_scheme(scheme: &crate::io::fv_schemes::DivScheme, grad: &crate::io::fv_schemes::GradScheme, phi: &SurfaceScalarField, u: &VolVectorField, mesh: std::sync::Arc<FvMesh>) -> Result<FvVectorMatrix, crate::error::AppBuilderError> { /* ... */ }
+```
+
+#### Function `grad_vec_scheme`
+
+The `grad(U)` gradient of `u` by `scheme` (gh:#1202).
+
+* [`GradScheme::GaussLinear`] — `fvc::grad_vec`, unchanged (OpenFOAM
+  `gaussGrad`): `(1/V) Σ_f S_f ⊗ u_f`.
+* [`GradScheme::CellLimitedGaussLinear`]`(k)` — that gradient limited by
+  [`cell_limited_grad_vec`].
+
+Returns `∂u_j/∂x_i` in `T_ij` (the OpenFOAM index order of `grad_vec`).
+
+# Errors
+[`AppBuilderError::UnsupportedScheme`] for `leastSquares` and `fourth`
+(not ported for vector fields).
+
+```rust
+pub fn grad_vec_scheme(scheme: &crate::io::fv_schemes::GradScheme, u: &VolVectorField) -> Result<VolTensorField, crate::error::AppBuilderError> { /* ... */ }
+```
+
+#### Function `cell_limited_grad_vec`
+
+Port of OpenFOAM's `cellLimitedGrad<vector, minmod>::calcGrad`
+(OpenFOAM-dev `852527377c7e`,
+`src/finiteVolume/finiteVolume/gradSchemes/limitedGradSchemes/cellLimitedGrad/cellLimitedGrad.{C,H}`,
+limiter `gradientLimiters/minmodGradientLimiter.H`).
+
+For each cell and each velocity component `j`:
+
+1. `max_j`, `min_j`: the largest and smallest `u_j` over the cell and
+   every face neighbour; across a boundary face the neighbour is the
+   boundary face value (the paired cell's value across a cyclic seam, as
+   upstream's `patchNeighbourField`). Then `max_j −= u_j`, `min_j −= u_j`.
+2. If `k < 1`: widen both by `(1/k − 1)(max_j − min_j)`.
+3. For every face of the cell, the extrapolated change
+   `e_j = ((C_f − C)·∇u)_j`; if `e_j > small` the ratio `r = max_j/e_j`,
+   if `e_j < −small` `r = min_j/e_j`, otherwise the face is skipped; the
+   cell's limiter `l_j = min(l_j, min(r, 1))` (minmod), starting at 1.
+4. `(∇u)_ij ← l_j (∇u)_ij`: each component's gradient is scaled by its
+   own limiter (upstream's `cmptMultiply` on each row).
+
+With `k < small` (1e-15, OpenFOAM's `small`) the gradient is returned
+unlimited, as upstream.
+
+# Arguments
+* `u`    — the field whose gradient this is (cell and boundary values).
+* `grad` — its unlimited gradient (usually `fvc::grad_vec(u)`).
+* `k`    — the limiter coefficient in `[0, 1]`.
+
+# Panics
+If `k` is outside `[0, 1]` (upstream stops with a `FatalIOError`).
+
+```rust
+pub fn cell_limited_grad_vec(u: &VolVectorField, grad: VolTensorField, k: f64) -> VolTensorField { /* ... */ }
+```
+
+#### Function `linear_upwind_correction`
+
+Port of OpenFOAM's `linearUpwind<vector>::correction` (OpenFOAM-dev
+`852527377c7e`,
+`src/finiteVolume/interpolation/surfaceInterpolation/schemes/linearUpwind/linearUpwind.C`):
+on each internal face, the explicit correction to the upwind face value,
+
+```text
+  c_f = (C_f − C_u) · (∇U)_u,   u = owner if φ_f > 0, else neighbour
+```
+
+(`(d·∇U)_j = Σ_i d_i ∂U_j/∂x_i`); the face value is `U_u + c_f`.
+Non-coupled boundary faces carry no correction (upstream leaves them at
+zero); cyclic seams are not corrected here either (upstream corrects
+coupled patches; no case in this crate runs `linearUpwind` on one).
+At `φ_f = 0` upstream takes the **neighbour** while the upwind weights
+take the owner; the convective flux is zero there either way.
+
+```rust
+pub fn linear_upwind_correction(phi: &SurfaceScalarField, grad: &VolTensorField) -> Vec<Vector3> { /* ... */ }
 ```
 
 ## Module `sonic_foam`
@@ -28753,6 +49168,609 @@ equation and the current explicit-convection limitation.
 
 ```rust
 pub mod sonic_foam { /* ... */ }
+```
+
+### Modules
+
+## Module `esi`
+
+# `esi` — sonicFoam as OpenFOAM-v2506 (ESI) writes it (gh:#1363, row 3b)
+
+A translation, operation for operation, of ESI v2506
+`applications/solvers/compressible/sonicFoam` (`sonicFoam.C`,
+`createFields.H`, `UEqn.H`, `EEqn.H`, `pEqn.H`) and of the finite-volume
+machinery those files call, for the case the port can honestly claim:
+a mesh that is one-dimensional along x (`empty` y and z patches), every
+other patch `zeroGradient` for `U`, `p` and `T`, a gas with `mu = 0`.
+Anything else is **refused** by name ([`AppBuilderError::UnsupportedScheme`]).
+
+The existing [`super::SonicFoam::step`] is not changed and stays callable;
+it is a sketch of neither the ESI nor the Foundation line (no energy
+equation).
+
+## Upstream sources translated (all `OpenFOAM-v2506/src`)
+* `finiteVolume/finiteVolume/ddtSchemes/EulerDdtScheme/EulerDdtScheme.C`
+  (`fvmDdt(rho, vf)`, `fvmDdt(vf)`, `fvcDdt(rho, vf)`, `fvcDdtPhiCorr(rho, U, phi)`)
+  and `ddtSchemes/ddtScheme/ddtScheme.C` (`fvcDdtPhiCoeff`, default branch
+  because `experimentalDdtCorr 0` in `etc/controlDict`);
+* `convectionSchemes/gaussConvectionScheme` (`fvmDiv`, `fvcDiv`, `flux`);
+* `interpolation/surfaceInterpolation/limitedSchemes` (`LimitedScheme`,
+  `limitedLinear`, `NVDTVD`, `limitedSurfaceInterpolationScheme::weights`);
+* `fvMesh/fvGeometryScheme/basic/basicFvGeometryScheme.C` (weights,
+  `deltaCoeffs`), `gradSchemes/gaussGrad`, `laplacianSchemes/gaussLaplacianScheme`;
+* `fvMatrices/fvMatrix/fvMatrix.C` (`A`, `H`, `flux`, `solveSegregated`),
+  `OpenFOAM/matrices/lduMatrix` (`Amul`, `sumA`, `residual`, `H`, `faceH`,
+  `negSumDiag`, `operator+=`/`-=`, `smoothSolver`, `symGaussSeidelSmoother`,
+  `solver::normFactor`, `SolverPerformance::checkConvergence`);
+* `thermophysicalModels/basic/psiThermo/hePsiThermo.C` (`calculate`).
+
+## What was verified, and what was not
+See `verification_and_validation/sonic_foam_vs_openfoam.md`: the port is
+compared with a driver that is `sonicFoam.C` on the unmodified ESI thermo
+and turbulence libraries, per cell, bit for bit.
+
+```rust
+pub mod esi { /* ... */ }
+```
+
+### Types
+
+#### Struct `Topo`
+
+Mesh data in the order OpenFOAM's `lduAddressing` and `surfaceInterpolation`
+use it (x only: the mesh is one-dimensional along x).
+
+```rust
+pub struct Topo {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn volumes(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  Cell volumes `V`.
+
+- ```rust
+  pub fn weights(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  Interpolation weights of the internal faces (`mesh.weights()`).
+
+- ```rust
+  pub fn delta_coeffs(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  `mesh.deltaCoeffs()` of the internal faces.
+
+- ```rust
+  pub fn mag_sf(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  `mag(Sf)` of the internal faces.
+
+- ```rust
+  pub fn sf_x(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  `Sf_x` of the internal faces.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Matrix`
+
+An `fvMatrix<scalar>` (one component) with internal-face coefficients.
+
+```rust
+pub struct Matrix {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SolveLog`
+
+Outcome of one `smoothSolver` solve, the fields of upstream's
+`SolverPerformance` that are printed in its log line.
+
+```rust
+pub struct SolveLog {
+    pub initial: f64,
+    pub final_: f64,
+    pub iterations: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `initial` | `f64` | Initial residual. |
+| `final_` | `f64` | Final residual. |
+| `iterations` | `usize` | Number of iterations (sweeps). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `StepLog`
+
+Per-solve log of one time step, in the order upstream prints them.
+
+```rust
+pub struct StepLog {
+    pub solves: Vec<(&'static str, SolveLog)>,
+    pub continuity: Vec<(f64, f64)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `solves` | `Vec<(&'static str, SolveLog)>` | `(field name, performance)` per linear solve. |
+| `continuity` | `Vec<(f64, f64)>` | `(sumLocalContErr, globalContErr)` per `compressibleContinuityErrs.H` call. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Type Alias `StageDump`
+
+Dumps of intermediate fields (upstream driver's `dumpStages`): `(tag, name, values)`.
+
+```rust
+pub type StageDump = Vec<(&'static str, &'static str, Vec<f64>)>;
+```
+
+#### Struct `SonicFoamEsi`
+
+sonicFoam (ESI v2506) on a 1-D closed tube. See the module documentation.
+
+```rust
+pub struct SonicFoamEsi {
+    pub rho: Vec<f64>,
+    pub ux: Vec<f64>,
+    pub p: Vec<f64>,
+    pub t: Vec<f64>,
+    pub e: Vec<f64>,
+    pub psi: Vec<f64>,
+    pub phi: Vec<f64>,
+    pub dump_stage_steps: usize,
+    pub dump_stage_from: usize,
+    pub stages: StageDump,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `rho` | `Vec<f64>` | Density [kg/m3]. |
+| `ux` | `Vec<f64>` | x velocity [m/s]. |
+| `p` | `Vec<f64>` | Pressure [Pa]. |
+| `t` | `Vec<f64>` | Temperature [K]. |
+| `e` | `Vec<f64>` | Specific internal energy [J/kg]. |
+| `psi` | `Vec<f64>` | Compressibility psi = 1/(R T). |
+| `phi` | `Vec<f64>` | Mass flux through the internal faces [kg/s]. |
+| `dump_stage_steps` | `usize` | When set, intermediate fields of the steps up to this index are recorded. |
+| `dump_stage_from` | `usize` | First step whose intermediate fields are recorded (default 1). |
+| `stages` | `StageDump` | Recorded intermediate fields (see [`Self::dump_stage_steps`]). |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: &Arc<FvMesh>, gas: PerfectGas, mu: f64, dt: f64, p: &[f64], t: &[f64], ux: &[f64]) -> Result<Self, AppBuilderError> { /* ... */ }
+  ```
+  Upstream `createFields.H` + the `hePsiThermo` constructor: from `p`, `T`
+
+- ```rust
+  pub fn topo(self: &Self) -> &Topo { /* ... */ }
+  ```
+  The mesh data the translation uses.
+
+- ```rust
+  pub fn set_n_outer_correctors(self: &mut Self, n: usize) { /* ... */ }
+  ```
+  Set `nOuterCorrectors` (tutorial: 2).
+
+- ```rust
+  pub fn step(self: &mut Self) -> Result<StepLog, AppBuilderError> { /* ... */ }
+  ```
+  Advance one time step (`while (runTime.loop())` body of `sonicFoam.C`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `build_topo`
+
+Build [`Topo`] from `mesh`, refusing what the translation does not cover.
+
+# Errors
+[`AppBuilderError::UnsupportedScheme`] if the mesh is not one-dimensional in
+x with `empty` y/z patches, has a patch other than `Patch`/`Wall`/`Empty`,
+or its internal faces are not in upper-triangular order.
+
+```rust
+pub fn build_topo(mesh: &outram_foam_basic_lib::mesh::fv_mesh::FvMesh) -> Result<Topo, crate::error::AppBuilderError> { /* ... */ }
 ```
 
 ### Types
@@ -28859,7 +49877,7 @@ pub struct SonicFoam {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29145,7 +50163,7 @@ Fields:
 
 - **Default**
   - ```rust
-    fn default() -> TurbulenceClosure { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -29167,7 +50185,7 @@ Fields:
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**

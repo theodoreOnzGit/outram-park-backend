@@ -275,11 +275,11 @@ pub fn advance_timestep_fluid_node_array_pipe_high_peclet_number(
             // so i shouldn't double count
 
             power_source_vector[i] = solid_fluid_conductance_array[i] *
-                last_timestep_temperature_solid[i] 
-                //- mass_flowrate * h_fluid_last_timestep 
-                + last_timestep_temperature_fluid[i] * total_volume * 
-                volume_fraction_array[i] * rho_cp[i] / dt 
-                + q * q_fraction[i] 
+                last_timestep_temperature_solid[i]
+                //- mass_flowrate * h_fluid_last_timestep
+                + last_timestep_temperature_fluid[i] * total_volume *
+                volume_fraction_array[i] * rho_cp[i] / dt
+                + q * q_fraction[i]
                 + total_enthalpy_rate_change_front_node;
 
             // now advection causing heat transfer between the frontal

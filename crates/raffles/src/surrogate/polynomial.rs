@@ -327,6 +327,63 @@ impl PolynomialSurrogate {
     }
 }
 
+/// A multi-output polynomial surrogate: **one independent
+/// [`PolynomialSurrogate`] per output column**, all at the same degree and
+/// ridge (added 2026-11-04 for `crate::fidelity`, gh:#1194).
+///
+/// One fit per output, rather than a shared multi-right-hand-side solve, so
+/// each column's fit is bit-identical to the scalar fit of that column: the
+/// test `each_output_is_the_scalar_fit` pins it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MultiOutputPolynomial {
+    outputs: Vec<PolynomialSurrogate>,
+}
+
+impl MultiOutputPolynomial {
+    /// Fits one polynomial per column of `outputs` (rows of equal width).
+    ///
+    /// # Errors
+    ///
+    /// [`RafflesError::InvalidParameter`] if there are no rows or no output
+    /// columns; [`RafflesError::DimensionMismatch`] for ragged output rows;
+    /// otherwise as [`PolynomialSurrogate::fit`] for any column.
+    pub fn fit(inputs: &[Vec<f64>], outputs: &[Vec<f64>], degree: usize, ridge: f64) -> Result<Self> {
+        let width = outputs.first().map_or(0, Vec::len);
+        if width == 0 {
+            return Err(RafflesError::InvalidParameter {
+                parameter: "outputs".to_string(),
+                value: 0.0,
+                reason: "fitting needs at least one sample with at least one output".to_string(),
+            });
+        }
+        if let Some(row) = outputs.iter().find(|r| r.len() != width) {
+            return Err(RafflesError::DimensionMismatch { expected: width, found: row.len() });
+        }
+        let fits = (0..width)
+            .map(|k| {
+                let column: Vec<f64> = outputs.iter().map(|r| r[k]).collect();
+                PolynomialSurrogate::fit(inputs, &column, degree, ridge)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Self { outputs: fits })
+    }
+
+    /// Evaluates every output's polynomial at `x`.
+    ///
+    /// # Errors
+    ///
+    /// As [`PolynomialSurrogate::predict`].
+    pub fn predict(&self, x: &[f64]) -> Result<Vec<f64>> {
+        self.outputs.iter().map(|p| p.predict(x)).collect()
+    }
+
+    /// The per-output fits, in column order.
+    #[must_use]
+    pub fn outputs(&self) -> &[PolynomialSurrogate] {
+        &self.outputs
+    }
+}
+
 /// All exponent vectors of total degree at most `degree` in `d` variables,
 /// graded lexicographic, constant term first.
 fn monomial_basis(d: usize, degree: usize) -> Vec<Vec<usize>> {
@@ -667,5 +724,26 @@ mod tests {
 
         let surrogate = PolynomialSurrogate::fit(&inputs, &outputs, 2, 0.0).unwrap();
         assert!(surrogate.predict(&[1.0, 2.0]).is_err());
+    }
+    /// **Methodology.** A two-output fit must be, column for column, the
+    /// scalar fit of that column (coefficients compared with `==`), and
+    /// malformed multi-output requests are refused.
+    ///
+    /// **Result** (2026-11-04): identical; all three refusals.
+    #[test]
+    fn each_output_is_the_scalar_fit() {
+        let inputs: Vec<Vec<f64>> = (0..12).map(|i| vec![f64::from(i) * 0.3, (f64::from(i) * 0.7).r_sin()]).collect();
+        let outputs: Vec<Vec<f64>> = inputs.iter().map(|x| vec![1.0 + x[0] * x[1], x[0].r_powi(2) - 3.0 * x[1]]).collect();
+        let multi = MultiOutputPolynomial::fit(&inputs, &outputs, 2, 0.0).unwrap();
+        assert_eq!(multi.outputs().len(), 2);
+        for k in 0..2 {
+            let column: Vec<f64> = outputs.iter().map(|r| r[k]).collect();
+            let scalar = PolynomialSurrogate::fit(&inputs, &column, 2, 0.0).unwrap();
+            assert_eq!(&multi.outputs()[k], &scalar);
+            assert_eq!(multi.predict(&inputs[3]).unwrap()[k], scalar.predict(&inputs[3]).unwrap());
+        }
+        assert!(MultiOutputPolynomial::fit(&inputs, &[], 2, 0.0).is_err());
+        assert!(MultiOutputPolynomial::fit(&inputs[..2], &[vec![1.0], vec![1.0, 2.0]], 1, 0.0).is_err());
+        assert!(multi.predict(&[1.0]).is_err());
     }
 }

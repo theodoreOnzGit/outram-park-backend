@@ -2,6 +2,10 @@ schema_version = 1
 kind = "code_folder"
 crate = "njoy-outram-park-fork"
 dir = "crates/njoy-outram-park-fork/tests/u238_doppler_verification"
+test_ids = [
+    "crates/njoy-outram-park-fork/tests/u238_doppler_verification/main.rs::capture_doppler_matches_openmc",
+    "crates/njoy-outram-park-fork/tests/u238_doppler_verification/main.rs::capture_pipeline_is_physical",
+]
 
 [module."main.rs"]
 path = "test:u238_doppler_verification"
@@ -228,3 +232,13 @@ callees = [
     "fn:e04309ab272a3abb",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+]
+failed = []

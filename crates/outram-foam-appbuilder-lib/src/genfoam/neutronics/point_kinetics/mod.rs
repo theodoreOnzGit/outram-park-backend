@@ -70,9 +70,15 @@
 //!   row n−1 (source):   [1/Δt] S                                       = S^old / Δt
 //! ```
 //!
-//! The dense solve uses [`outram_foam_basic_lib::matrix::SquareMatrix`] (Crout
+//! ~~The dense solve uses [`outram_foam_basic_lib::matrix::SquareMatrix`] (Crout
 //! LU with partial pivoting), the direct analogue of GeN-Foam's
-//! `Foam::scalarSquareMatrix` + `solve()`.
+//! `Foam::scalarSquareMatrix` + `solve()`.~~ **CORRECTED 2026-11-13 (gh:#1439):** not
+//! the same algorithm. GeN-Foam's `solvePointKinetics.H` calls `solve(x, A, B)`, which in
+//! ESI v2506 is Gaussian elimination with partial pivoting (no row scaling), not
+//! `LUsolve`. Measured against the real class over 300 steps: this assembly with an identical copy of this LU
+//! is bit-identical to upstream in `P` on 5 of 300 steps (worst relative 1.2e-12), while the
+//! same assembly with the elimination (`teh-o-prke`'s `SquareMatrix::solve_gaussian_openfoam`)
+//! is bit-identical on all 300. See `crates/teh-o-prke/verification_and_validation/genfoam_differential/`.
 //!
 //! ## Scope of this port
 //!
@@ -85,6 +91,12 @@
 //! multi-region layers and are **deferred** (see `docs/genfoam-port-plan.md`).
 //! Here, the total reactivity `ρ` and the external source power `S` are inputs
 //! the caller supplies each step.
+//!
+//! **CORRECTED 2026-11-01:** "deferred" no longer holds for all of it. The
+//! feedback assembly is in [`crate::genfoam::multi_region`]
+//! (`reactivity_feedback.rs`), and `multi_region::outer_iteration`'s
+//! `LumpedNeutronics` drives this module with Doppler reactivity from a mapped
+//! fuel temperature. This module itself still takes `ρ` as an input.
 //!
 //! ## Example
 //!

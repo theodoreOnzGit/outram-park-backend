@@ -17,6 +17,13 @@ pub use crate::geometry::plot::{
 };
 pub use crate::geometry::lattice::{HexLattice, HexOrientation, Lattice, RectLattice};
 pub use crate::geometry::virtual_lattice::{BuildReport, VirtualLattice};
+// Composite surfaces (gh:#1389). `Axis` is generic, so it is exported as
+// `CompositeAxis`.
+pub use crate::geometry::composite::{
+    Axis as CompositeAxis, Composite, CompositeError, CompositeRegion, ConeOneSided,
+    ConicalFrustum, CruciformPrism, CylinderSector, IsogonalOctagon, Polygon, PolygonBasis,
+    RectangularPrism, Vessel,
+};
 pub use crate::geometry::geometry::{
     BoundaryHit, Coord, Crossing, Geometry, GeometryExt, GeometryPath, SurfaceCrossing,
 };
@@ -64,6 +71,13 @@ pub use crate::physics::reactor_physics::{
 pub use crate::physics::fixed_source::{
     run_fixed_source, FixedSource, FixedSourceResult, FixedSourceSettings,
 };
+// General external sources: OpenMC's `openmc.stats` distributions wired into
+// `IndependentSource` and `FixedSource::Independent` (gh:#1388).
+pub use crate::source::angle::AngleKind;
+pub use crate::source::distribution::{Distribution, SpatialDistribution, TabularInterp};
+pub use crate::source::energy::EnergyKind;
+pub use crate::source::source::IndependentSource;
+pub use crate::source::spatial::SpatialKind;
 pub use crate::dh_universe::{
     fit_ring_rpt_inner_radius, is_whole_in_ball, pack_in_ball, BallPacking, BallPackingAttempt,
     DhError, DhPowerIteration, DhTreatment, DhUniverse, DispersedParams, PebbleParams, RingRptFit,
@@ -75,6 +89,9 @@ pub use crate::pebble_beds::fhr_pebble::{
 };
 pub use crate::pebble_beds::keff_delta::{run_keff_delta, MaterialQuery};
 pub use crate::physics::tracking_trace::{TraceCounts, TraceEvent};
+pub use crate::physics::collision_track::{
+    CollisionTrackBank, CollisionTrackConfig, CollisionTrackFile, CollisionTrackSite,
+};
 pub use crate::pebble_beds::sphere_packing::{
     pack_spheres, pack_spheres_observed, PackedSpheres, PackingConfig, PackingMethod, RsaPlacement,
 };

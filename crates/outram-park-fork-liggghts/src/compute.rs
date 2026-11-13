@@ -78,7 +78,11 @@
 /// | [`GranularSystem::step`](crate::granular_system::GranularSystem::step) | yes | yes | falls back to CPU |
 /// | [`rdf`](crate::rdf) pair-separation histogram | yes | yes | **yes** |
 ///
-/// **The timestep has no GPU path, deliberately.** DEM's expensive inner loop
+/// ~~**The timestep has no GPU path, deliberately.**~~ **CHANGED
+/// 2026-11-05 (gh:#1250):** `gpu::dem` now runs the HTR-10 pour's timestep
+/// on the GPU, as its own opt-in driver (`htr10_fill::Htr10GpuFill`), not
+/// through this selector, and not bit-identical; the argument below is why
+/// this selector's [`Gpu`](Self::Gpu) still runs the CPU step. DEM's expensive inner loop
 /// carries a persistent per-contact tangential shear history
 /// ([`ShearHistory`](crate::granular::ShearHistory)) with contacts born and
 /// dying every step — a stateful gather/scatter structure that is the *worst*

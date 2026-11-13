@@ -141,116 +141,95 @@ const SUBDIV_ABBREVS: &str = "vrs|sv|subpara|op|subch|add|amend|annot|app|art|bi
 /// (without digits or hyphen), as the inside of a character class.
 const ROMANESQUE_RANGES: &str = r"a-zA-Z\u0e01-\u0e5b\u00c0-\u017f\u0370-\u03ff\u0400-\u052f\u0590-\u05d4\u05d6-\u05ff\u1f00-\u1fff\u0600-\u06ff\u200c\u200d\u200e\u0218\u0219\u021a\u021b\u202a-\u202e";
 
-macro_rules! static_re {
-    ($(#[$m:meta])* $name:ident, $pat:expr) => {
-        $(#[$m])*
-        pub static $name: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new(&$pat).expect("static citeproc regex"));
-    };
-}
-
-static_re!(
-    /// `CSL.LOCATOR_LABELS_REGEXP`: `^((vrs|...)\.)\s+(.*)`.
-    LOCATOR_LABELS_REGEXP,
-    format!(r"^(({SUBDIV_ABBREVS})\.){WS_CLASS}+({DOT}*)")
-);
-static_re!(
-    /// `CSL.STATUTE_SUBDIV_PLAIN_REGEX`.
-    STATUTE_SUBDIV_PLAIN_REGEX,
-    format!(r"(?:(?:^| )(?:{SUBDIV_ABBREVS})\. *)")
-);
-static_re!(
-    /// `CSL.STATUTE_SUBDIV_PLAIN_REGEX_FRONT`.
-    STATUTE_SUBDIV_PLAIN_REGEX_FRONT,
-    format!(r"(?:^{WS_CLASS}*[.,;]*{WS_CLASS}*(?:{SUBDIV_ABBREVS})\. *)")
-);
-static_re!(
-    /// `CSL.PREFIX_PUNCTUATION`: `/[.;:]\s*$/`.
-    PREFIX_PUNCTUATION,
-    format!(r"[.;:]{WS_CLASS}*$")
-);
-static_re!(
-    /// `CSL.SUFFIX_PUNCTUATION`: `/^\s*[.;:,\(\)]/`.
-    SUFFIX_PUNCTUATION,
-    format!(r"^{WS_CLASS}*[.;:,()]")
-);
-static_re!(
-    /// `CSL.NUMBER_REGEXP`: `/(?:^\d+|\d+$)/`.
-    NUMBER_REGEXP,
-    r"(?:^[0-9]+|[0-9]+$)".to_string()
-);
-static_re!(
-    /// `CSL.NAME_INITIAL_REGEXP`: a capital, the rest of the word, and any dots.
-    NAME_INITIAL_REGEXP,
-    r"^([A-Z\u0e01-\u0e5b\u00c0-\u017f\u0400-\u042f\u0590-\u05d4\u05d6-\u05ff\u0600-\u06ff\u0370\u0372\u0376\u0386\u0388-\u03ab\u03e2\u03e4\u03e6\u03e8\u03ea\u03ec\u03ee\u03f4\u03f7\u03fd-\u03ff])([a-zA-Z\u0e01-\u0e5b\u00c0-\u017f\u0400-\u052f\u0600-\u06ff\u0370-\u03ff\u1f00-\u1fff]*|)(\.)*".to_string()
-);
-static_re!(
-    /// `CSL.ROMANESQUE_REGEXP`: one romanesque character (or `-`, or a digit).
-    ROMANESQUE_REGEXP,
-    format!("[-0-9{ROMANESQUE_RANGES}]")
-);
-static_re!(
-    /// `CSL.ROMANESQUE_NOT_REGEXP` (global in JS): one non-romanesque character.
-    ROMANESQUE_NOT_REGEXP,
-    format!("[^{ROMANESQUE_RANGES}]")
-);
-static_re!(
-    /// `CSL.STARTSWITH_ROMANESQUE_REGEXP`.
-    STARTSWITH_ROMANESQUE_REGEXP,
-    format!("^[&{ROMANESQUE_RANGES}]")
-);
-static_re!(
-    /// `CSL.ENDSWITH_ROMANESQUE_REGEXP`.
-    ENDSWITH_ROMANESQUE_REGEXP,
-    format!("[.;:&{ROMANESQUE_RANGES}]$")
-);
-static_re!(
-    /// `CSL.ALL_ROMANESQUE_REGEXP`.
-    ALL_ROMANESQUE_REGEXP,
-    format!("^[{ROMANESQUE_RANGES}]+$")
-);
-static_re!(
-    /// `CSL.VIETNAMESE_SPECIALS`.
-    VIETNAMESE_SPECIALS,
-    r"[\u00c0-\u00c3\u00c8-\u00ca\u00cc\u00cd\u00d2-\u00d5\u00d9\u00da\u00dd\u00e0-\u00e3\u00e8-\u00ea\u00ec\u00ed\u00f2-\u00f5\u00f9\u00fa\u00fd\u0101\u0103\u0110\u0111\u0128\u0129\u0168\u0169\u01a0\u01a1\u01af\u01b0\u1ea0-\u1ef9]".to_string()
-);
-static_re!(
-    /// `CSL.VIETNAMESE_NAMES`.
-    VIETNAMESE_NAMES,
-    format!(r"^(?:(?:[.AaBbCcDdEeGgHhIiKkLlMmNnOoPpQqRrSsTtUuVvXxYy \u00c0-\u00c3\u00c8-\u00ca\u00cc\u00cd\u00d2-\u00d5\u00d9\u00da\u00dd\u00e0-\u00e3\u00e8-\u00ea\u00ec\u00ed\u00f2-\u00f5\u00f9\u00fa\u00fd\u0101\u0103\u0110\u0111\u0128\u0129\u0168\u0169\u01a0\u01a1\u01af\u01b0\u1ea0-\u1ef9]{{2,6}})({WS_CLASS}+|$))+$")
-);
-static_re!(
-    /// `CSL.NOTE_FIELDS_REGEXP` (global in JS): a `{{:key:value}}` field in a note.
-    NOTE_FIELDS_REGEXP,
-    r"\{:(?:[\-_a-z]+|[A-Z]+):[^\}]+\}".to_string()
-);
-static_re!(
-    /// `CSL.NOTE_FIELD_REGEXP`: a `key: value` line of a note.
-    NOTE_FIELD_REGEXP,
-    format!(r"^([\-_a-z]+|[A-Z]+):{WS_CLASS}*([^\}}]+)$")
-);
-static_re!(
-    /// `CSL.PARTICLE_GIVEN_REGEXP`.
-    PARTICLE_GIVEN_REGEXP,
-    format!(r"^([^ ]+(?:\u02bb |\u2019 | |' ) *)({DOT}+)$")
-);
-static_re!(
-    /// `CSL.PARTICLE_FAMILY_REGEXP`.
-    PARTICLE_FAMILY_REGEXP,
-    format!(r"^([^ ]+(?:\-|\u02bb|\u2019| |') *)({DOT}+)$")
-);
-static_re!(
-    /// `CSL.SUPERSCRIPTS_REGEXP` (global in JS): one of the [`SUPERSCRIPTS`] characters.
-    SUPERSCRIPTS_REGEXP,
-    {
+/// `CSL.LOCATOR_LABELS_REGEXP`: `^((vrs|...)\.)\s+(.*)`.
+pub static LOCATOR_LABELS_REGEXP: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(r"^(({SUBDIV_ABBREVS})\.){WS_CLASS}+({DOT}*)"))
+        .expect("static citeproc regex")
+});
+/// `CSL.STATUTE_SUBDIV_PLAIN_REGEX`.
+pub static STATUTE_SUBDIV_PLAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(r"(?:(?:^| )(?:{SUBDIV_ABBREVS})\. *)")).expect("static citeproc regex")
+});
+/// `CSL.STATUTE_SUBDIV_PLAIN_REGEX_FRONT`.
+pub static STATUTE_SUBDIV_PLAIN_REGEX_FRONT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(
+        r"(?:^{WS_CLASS}*[.,;]*{WS_CLASS}*(?:{SUBDIV_ABBREVS})\. *)"
+    ))
+    .expect("static citeproc regex")
+});
+/// `CSL.PREFIX_PUNCTUATION`: `/[.;:]\s*$/`.
+pub static PREFIX_PUNCTUATION: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(&format!(r"[.;:]{WS_CLASS}*$")).expect("static citeproc regex"));
+/// `CSL.SUFFIX_PUNCTUATION`: `/^\s*[.;:,\(\)]/`.
+pub static SUFFIX_PUNCTUATION: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(&format!(r"^{WS_CLASS}*[.;:,()]")).expect("static citeproc regex"));
+/// `CSL.NUMBER_REGEXP`: `/(?:^\d+|\d+$)/`.
+pub static NUMBER_REGEXP: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&r"(?:^[0-9]+|[0-9]+$)".to_string()).expect("static citeproc regex")
+});
+/// `CSL.NAME_INITIAL_REGEXP`: a capital, the rest of the word, and any dots.
+pub static NAME_INITIAL_REGEXP: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&r"^([A-Z\u0e01-\u0e5b\u00c0-\u017f\u0400-\u042f\u0590-\u05d4\u05d6-\u05ff\u0600-\u06ff\u0370\u0372\u0376\u0386\u0388-\u03ab\u03e2\u03e4\u03e6\u03e8\u03ea\u03ec\u03ee\u03f4\u03f7\u03fd-\u03ff])([a-zA-Z\u0e01-\u0e5b\u00c0-\u017f\u0400-\u052f\u0600-\u06ff\u0370-\u03ff\u1f00-\u1fff]*|)(\.)*".to_string()).expect("static citeproc regex")
+});
+/// `CSL.ROMANESQUE_REGEXP`: one romanesque character (or `-`, or a digit).
+pub static ROMANESQUE_REGEXP: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!("[-0-9{ROMANESQUE_RANGES}]")).expect("static citeproc regex")
+});
+/// `CSL.ROMANESQUE_NOT_REGEXP` (global in JS): one non-romanesque character.
+pub static ROMANESQUE_NOT_REGEXP: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!("[^{ROMANESQUE_RANGES}]")).expect("static citeproc regex")
+});
+/// `CSL.STARTSWITH_ROMANESQUE_REGEXP`.
+pub static STARTSWITH_ROMANESQUE_REGEXP: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!("^[&{ROMANESQUE_RANGES}]")).expect("static citeproc regex")
+});
+/// `CSL.ENDSWITH_ROMANESQUE_REGEXP`.
+pub static ENDSWITH_ROMANESQUE_REGEXP: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!("[.;:&{ROMANESQUE_RANGES}]$")).expect("static citeproc regex")
+});
+/// `CSL.ALL_ROMANESQUE_REGEXP`.
+pub static ALL_ROMANESQUE_REGEXP: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!("^[{ROMANESQUE_RANGES}]+$")).expect("static citeproc regex")
+});
+/// `CSL.VIETNAMESE_SPECIALS`.
+pub static VIETNAMESE_SPECIALS: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&r"[\u00c0-\u00c3\u00c8-\u00ca\u00cc\u00cd\u00d2-\u00d5\u00d9\u00da\u00dd\u00e0-\u00e3\u00e8-\u00ea\u00ec\u00ed\u00f2-\u00f5\u00f9\u00fa\u00fd\u0101\u0103\u0110\u0111\u0128\u0129\u0168\u0169\u01a0\u01a1\u01af\u01b0\u1ea0-\u1ef9]".to_string()).expect("static citeproc regex")
+});
+/// `CSL.VIETNAMESE_NAMES`.
+pub static VIETNAMESE_NAMES: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(r"^(?:(?:[.AaBbCcDdEeGgHhIiKkLlMmNnOoPpQqRrSsTtUuVvXxYy \u00c0-\u00c3\u00c8-\u00ca\u00cc\u00cd\u00d2-\u00d5\u00d9\u00da\u00dd\u00e0-\u00e3\u00e8-\u00ea\u00ec\u00ed\u00f2-\u00f5\u00f9\u00fa\u00fd\u0101\u0103\u0110\u0111\u0128\u0129\u0168\u0169\u01a0\u01a1\u01af\u01b0\u1ea0-\u1ef9]{{2,6}})({WS_CLASS}+|$))+$")).expect("static citeproc regex")
+});
+/// `CSL.NOTE_FIELDS_REGEXP` (global in JS): a `{{:key:value}}` field in a note.
+pub static NOTE_FIELDS_REGEXP: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&r"\{:(?:[\-_a-z]+|[A-Z]+):[^\}]+\}".to_string()).expect("static citeproc regex")
+});
+/// `CSL.NOTE_FIELD_REGEXP`: a `key: value` line of a note.
+pub static NOTE_FIELD_REGEXP: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(r"^([\-_a-z]+|[A-Z]+):{WS_CLASS}*([^\}}]+)$"))
+        .expect("static citeproc regex")
+});
+/// `CSL.PARTICLE_GIVEN_REGEXP`.
+pub static PARTICLE_GIVEN_REGEXP: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(r"^([^ ]+(?:\u02bb |\u2019 | |' ) *)({DOT}+)$"))
+        .expect("static citeproc regex")
+});
+/// `CSL.PARTICLE_FAMILY_REGEXP`.
+pub static PARTICLE_FAMILY_REGEXP: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(r"^([^ ]+(?:\-|\u02bb|\u2019| |') *)({DOT}+)$"))
+        .expect("static citeproc regex")
+});
+/// `CSL.SUPERSCRIPTS_REGEXP` (global in JS): one of the [`SUPERSCRIPTS`] characters.
+pub static SUPERSCRIPTS_REGEXP: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&{
         let mut class = String::from("[");
         for (c, _) in SUPERSCRIPTS {
             class.push_str(&format!("\\x{{{:x}}}", *c as u32));
         }
         class.push(']');
         class
-    }
-);
+    })
+    .expect("static citeproc regex")
+});
 
 /// `CSL.TITLE_SPLIT_REGEXP`: the three regexes built from one alternation.
 #[derive(Debug)]
@@ -1303,7 +1282,9 @@ pub fn to_locale_upper_case(state: &State, s: &str) -> String {
         return super::greek_upper::greek_upper(s);
     }
     match lang.as_deref().and_then(tailored_langid) {
-        Some(id) => icu_casemap::CaseMapper::new().uppercase_to_string(s, &id).into_owned(),
+        Some(id) => icu_casemap::CaseMapper::new()
+            .uppercase_to_string(s, &id)
+            .into_owned(),
         None => s.to_uppercase(),
     }
 }
@@ -1311,7 +1292,9 @@ pub fn to_locale_upper_case(state: &State, s: &str) -> String {
 /// `CSL.toLocaleLowerCase.call(state, str)`; see [`to_locale_upper_case`].
 pub fn to_locale_lower_case(state: &State, s: &str) -> String {
     match case_language(state).as_deref().and_then(tailored_langid) {
-        Some(id) => icu_casemap::CaseMapper::new().lowercase_to_string(s, &id).into_owned(),
+        Some(id) => icu_casemap::CaseMapper::new()
+            .lowercase_to_string(s, &id)
+            .into_owned(),
         None => s.to_lowercase(),
     }
 }
@@ -2072,7 +2055,7 @@ impl State {
                         return Err(js_type_error(&format!(
                             "Cannot read properties of undefined (reading '{}')",
                             title.short
-                        )))
+                        )));
                     }
                     Some(k) => {
                         if let Some(Value::Object(m)) = k.get(&title.short) {
@@ -2260,7 +2243,7 @@ impl State {
                         _ => {
                             return Err(js_type_error(
                                 "Cannot read properties of undefined (reading '_keys')",
-                            ))
+                            ));
                         }
                     };
                     for (key, v) in vals {
@@ -3097,10 +3080,12 @@ mod diff_tests {
             .collect();
         assert_eq!(Value::Object(sup), t["SUPERSCRIPTS"]);
         assert_eq!(
-            json!(ROMAN_NUMERALS
-                .iter()
-                .map(|r| r.to_vec())
-                .collect::<Vec<_>>()),
+            json!(
+                ROMAN_NUMERALS
+                    .iter()
+                    .map(|r| r.to_vec())
+                    .collect::<Vec<_>>()
+            ),
             t["ROMAN_NUMERALS"]
         );
         for (k, v) in t["POSITION_MAP"].as_object().unwrap() {
@@ -3234,10 +3219,16 @@ mod locale_case_tests {
                 let gu = to_locale_upper_case(&st, s);
                 let gl = to_locale_lower_case(&st, s);
                 if &gu != wu {
-                    bad.push(format!("{:?} upper {:?}: node {wu:?} port {gu:?}", st.tmp.lang_array, s));
+                    bad.push(format!(
+                        "{:?} upper {:?}: node {wu:?} port {gu:?}",
+                        st.tmp.lang_array, s
+                    ));
                 }
                 if &gl != wl {
-                    bad.push(format!("{:?} lower {:?}: node {wl:?} port {gl:?}", st.tmp.lang_array, s));
+                    bad.push(format!(
+                        "{:?} lower {:?}: node {wl:?} port {gl:?}",
+                        st.tmp.lang_array, s
+                    ));
                 }
             }
         }

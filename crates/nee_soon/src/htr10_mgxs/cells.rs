@@ -89,7 +89,7 @@ use serde::{Deserialize, Serialize};
 use crate::htr10_rmc::bed::{hex_ring, seker_tile_ball, tile_xy, SekerBallId, SekerCell, SekerSite};
 use crate::htr10_rmc::core_design::Htr10CoreDesign;
 use crate::htr10_rmc::core_model::{
-    build_tile_universes, TRISO_MATRIX_UNIVERSE, TRISO_PARTICLE_UNIVERSE,
+    build_tile_universes, mat, TRISO_MATRIX_UNIVERSE, TRISO_PARTICLE_UNIVERSE,
 };
 use crate::htr10_rmc::core_shell::{ins, out, TrisoBuild};
 
@@ -205,7 +205,15 @@ impl Htr10Cell {
         // One site, fuelled and present: the core's own pebble construction.
         let keys = [(1u32, 1u32)];
         let key_universe =
-            build_tile_universes(&keys, &[[0.0; 3]], &[(5, 6)], 0, &mut cells, &mut universes);
+            build_tile_universes(
+                &keys,
+                &[[0.0; 3]],
+                &[(5, 6)],
+                0,
+                mat::GRAPHITE,
+                &mut cells,
+                &mut universes,
+            );
         debug_assert_eq!(key_universe[&keys[0]], 3);
         let geometry = Geometry {
             surfaces,
@@ -374,6 +382,7 @@ impl Htr10Cell {
             &site_centres,
             &site_surfaces,
             1,
+            mat::GRAPHITE,
             &mut cells,
             &mut universes,
         );

@@ -1,0 +1,18 @@
+    Updating crates.io index
+   Packaging outram-park-mpi v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-mpi)
+    Updating crates.io index
+    Packaged 21 files, 238.6KiB (68.6KiB compressed)
+   Verifying outram-park-mpi v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-mpi)
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling thiserror v2.0.21
+   Compiling syn v3.0.9
+   Compiling thiserror-impl v2.0.21
+   Compiling outram-park-mpi v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/outram-park-mpi-0.0.2)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.39s
+   Uploading outram-park-mpi v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-mpi)
+    Uploaded outram-park-mpi v0.0.2 to registry `crates-io`
+note: waiting for outram-park-mpi v0.0.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-park-mpi v0.0.2 at registry `crates-io`

@@ -2,6 +2,13 @@ schema_version = 1
 kind = "code_folder"
 crate = "tampines-steam-tables"
 dir = "crates/tampines-steam-tables/src/interfaces/tests_and_examples/pt_flash_steam_table/region_determination_with_steam_quality"
+test_ids = [
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/pt_flash_steam_table/region_determination_with_steam_quality/mod.rs::region_determination_saturated_steam",
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/pt_flash_steam_table/region_determination_with_steam_quality/region_1_2_3_5_test.rs::region1_test",
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/pt_flash_steam_table/region_determination_with_steam_quality/region_1_2_3_5_test.rs::region2_test",
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/pt_flash_steam_table/region_determination_with_steam_quality/region_1_2_3_5_test.rs::region3_test",
+    "crates/tampines-steam-tables/src/interfaces/tests_and_examples/pt_flash_steam_table/region_determination_with_steam_quality/region_1_2_3_5_test.rs::region5_test",
+]
 
 [module."mod.rs"]
 path = "crate::interfaces::tests_and_examples::pt_flash_steam_table::region_determination_with_steam_quality"
@@ -107,3 +114,16 @@ callees = [
 ]
 uses = ["fn:02068af2a18e3f6a"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+failed = []

@@ -155,3 +155,60 @@ fn developing_organisation_without_code_review_table() {
     let r = ReviewRoot::parse(&t).unwrap();
     assert_eq!(r.code_review.unwrap().developing_organisation, vec![e]);
 }
+
+/// **Load-old-data test for GitHub #1211** (schemas never break).
+/// Methodology: a root written before `[[code_review.organisation_retirement]]`
+/// existed (the fixture plus a founder-signed developing organisation, no
+/// retirement table) is parsed and judged; then the founder's retirement
+/// of that record is appended as text. Pass: the old text parses, has no
+/// retirements, its record verifies with no warning and is in force; the
+/// appended file keeps every old byte as its prefix, reads back with
+/// exactly one retirement, still lists the retired record unchanged, and
+/// the registry checks find no warning (the retirement verifies). The
+/// record then is no longer in force from the retirement's date.
+///
+/// Result (2026-11-04): passes.
+#[test]
+fn old_roots_without_retirements_load_and_a_retirement_appends() {
+    use crate::review::ivv::{developing_organisation, OrganisationProblem};
+    use crate::review::root::{OrganisationList, OrganisationRetirement};
+    let (base, mk, _) = fixture();
+    let mut dev = DevelopingOrganisation {
+        krate: None,
+        name: "Outram Park project".into(),
+        date: DAY.into(),
+        signer: None,
+        signature: None,
+    };
+    mk.sign_developing_organisation(&mut dev).unwrap();
+    let old = append_developing_organisation(&base, &dev).unwrap();
+    assert!(!old.contains("organisation_retirement"));
+    let r = ReviewRoot::parse(&old).unwrap();
+    assert!(r.code_review.as_ref().unwrap().organisation_retirements.is_empty());
+    let reg = Registry::build(&r);
+    assert!(record_warnings(&r, &reg, SignaturePolicy::Enforce).is_empty());
+    assert!(developing_organisation(&r, &reg, "x", DAY, SignaturePolicy::Enforce).is_ok());
+
+    let mut ret = OrganisationRetirement {
+        list: OrganisationList::DevelopingOrganisation,
+        reviewer: None,
+        record: dev.signature.clone().unwrap(),
+        date: "2026-10-12".into(),
+        signer: None,
+        signature: None,
+    };
+    mk.sign_organisation_retirement(&mut ret).unwrap();
+    let t = append_organisation_retirement(&old, &ret).unwrap();
+    assert!(t.starts_with(&old), "every old byte kept");
+    let r2 = ReviewRoot::parse(&t).unwrap();
+    let cr = r2.code_review.as_ref().unwrap();
+    assert_eq!(cr.organisation_retirements, vec![ret]);
+    assert_eq!(cr.developing_organisation, vec![dev], "the retired record stays");
+    let reg = Registry::build(&r2);
+    assert!(record_warnings(&r2, &reg, SignaturePolicy::Enforce).is_empty());
+    assert!(developing_organisation(&r2, &reg, "x", "2026-10-11", SignaturePolicy::Enforce).is_ok());
+    assert_eq!(
+        developing_organisation(&r2, &reg, "x", "2026-10-12", SignaturePolicy::Enforce),
+        Err(OrganisationProblem::NotRecorded)
+    );
+}

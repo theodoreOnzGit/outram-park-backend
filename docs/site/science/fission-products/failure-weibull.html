@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How strong is SiC?</title>
-<meta name="description" content="Fission products, lesson 34: ceramics fail at their worst flaw, so SiC strength is a spread, not a number. The Weibull law with the median as its scale gives the fraction of particles that fail at a given wall stress, in boon-lay fuel failure.">
+<meta name="description" content="Fission products, lesson 36: ceramics fail at their worst flaw, so SiC strength is a spread, not a number. The Weibull law with the median as its scale gives the fraction of particles that fail at a given wall stress, in boon-lay fuel failure.">
 <link rel="stylesheet" href="../../style.css">
 <script src="../neutronics/lesson-kit.js" defer></script>
 <script src="barrier-data.js" defer></script>
@@ -15,7 +15,7 @@
 <script src="barrier-story.js" defer></script>
 </head>
 <body class="lesson">
-<!-- Fission products, chapter 4, lesson 34. Weibull: barrier-physics.js
+<!-- Fission products, chapter 4, lesson 36. Weibull: barrier-physics.js
      weibull(), checked against boon-lay's weibull_failure_fraction
      (failure-data.js weibullCheck). Strength and modulus after irradiation:
      irradiated_strength / irradiated_weibull_modulus on the HTR-10 stand-ins
@@ -27,7 +27,7 @@
 <h1>How strong is SiC? Weakest-link statistics</h1>
 <p class="kicker lesson-progress">Fission products</p>
 
-<p>Lesson 33 gave the stress in the wall. Does the wall break? Not all at once. SiC is a ceramic, and a ceramic breaks where its worst flaw is. Every particle has different flaws, so every particle has a different strength. We cannot say whether <i>a</i> particle fails; we can say what <i>fraction</i> of them do.</p>
+<p>Lesson 35 gave the stress in the wall. Does the wall break? Not all at once. SiC is a ceramic, and a ceramic breaks where its worst flaw is. Every particle has different flaws, so every particle has a different strength. We cannot say whether <i>a</i> particle fails; we can say what <i>fraction</i> of them do.</p>
 
 <section class="widget-card">
   <h3>The fraction that fails</h3>
@@ -48,9 +48,9 @@
 <p>After irradiation at 776 &deg;C to the stand-in fluence, the code gives &sigma;<sub>0</sub> = <span data-bd="s0">&hellip;</span> and m = <span data-bd="m0">&hellip;</span>. Irradiation weakens SiC and widens its scatter (the fluence slider), down to floors of 196 MPa and m = 2 that the report sets.</p>
 
 <h2>Where it is in the code</h2>
-<p><code>AccidentHistory::<wbr>pressure_<wbr>vessel_<wbr>failure_<wbr>at</code> chains it all: pressure (lesson 33), then stress, then <code>weibull_failure_fraction</code>. When grain-boundary attack is on (lesson 35), it lowers m first.</p>
+<p><code>AccidentHistory::<wbr>pressure_<wbr>vessel_<wbr>failure_<wbr>at</code> chains it all: pressure (lesson 35), then stress, then <code>weibull_failure_fraction</code>. When grain-boundary attack is on (lesson 37), it lowers m first.</p>
 
-<p><b>Next:</b> during an accident the wall does not stay the same. Lesson 35.</p>
+<p><b>Next:</b> during an accident the wall does not stay the same. Lesson 37.</p>
 
 <details class="optional">
 <summary>Learn more advanced stuff</summary>

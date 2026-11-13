@@ -26,8 +26,10 @@
 //! struct's derivation (why an effectiveness-NTU exponential form is exact
 //! and bounded for a single isothermal-wall node, and why an earlier
 //! arithmetic-mean version of it produced a second-law violation above
-//! `NTU = 2`) is preserved in git history and in the workspace root
-//! `CLAUDE.md`'s "Human review caught what the tests did not" section --
+//! `NTU = 2`) is preserved in git history and in ~~the workspace root
+//! `CLAUDE.md`'s~~ **(CORRECTED 2026-11-03: the root file has no such
+//! heading; it is in `crates/outram-park-digital-twin-engine/CLAUDE.md`)**
+//! the "Human review caught what the tests did not" section --
 //! nothing here still depends on it.
 //!
 //! Also the geometry/correlation home for the placeholder fidelity tiers: the
@@ -49,7 +51,7 @@
 //! | Pebble bed (all 27,000 elements) | **1** | temperature, burnup, power density, graphite properties |
 //! | Inside a single pebble | ~~**1**~~ **2** (2026-09-28) | ~~fuel kernel, graphite matrix and outer shell are one temperature~~ the TRISO particles are the **fuel node** (`physics::kinetics`); matrix and shell are this node, with the resolved profile between them |
 //! | Helium in the bed | ~~**0 (external)**~~ **1** (**CORRECTED 2026-09-29**: its own LTNE fluid node since 2026-08-17, on enthalpy since 2026-09-29) | ~~supplied by the caller as one bulk mean temperature~~ one well-mixed enthalpy state over the 197 cm bed's void; the caller supplies the inlet enthalpy |
-//! | Reflector, core barrel, vessel | **0** | not modelled at all |
+//! | Reflector, core barrel, vessel | ~~**0**~~ **2** (**CORRECTED 2026-11-03**: reflector and RPV nodes of [`CoreToRccsPath`], unknowns of [`PebbleBedPorousMediaNode::step`] since 2026-09-29, gh:#395) | ~~not modelled at all~~ each node one temperature; no separate core-barrel body (see `decay_heat_removal`'s "What is NOT modelled") |
 //!
 //! The node boundary is the **pebble surface**: everything inside it is the
 //! graphite node, everything outside is the caller's helium, and the two are
@@ -195,11 +197,17 @@
 //!   ~~The HTR-10's passive decay-heat route is not modelled.~~
 //!   **CORRECTED 2026-09-17** -- it is now modelled next door, in
 //!   [`super::super::decay_heat_removal`], as a lumped bed -> reflector ->
-//!   RPV -> RCCS chain whose heat rate [`super::super::HtgrPlant::step`]
+//!   RPV -> RCCS chain ~~whose heat rate [`super::super::HtgrPlant::step`]
 //!   subtracts from the source term handed to [`PebbleBedPorousMediaNode::step`]
 //!   before the bed is advanced. So this module sees the passive path only as
 //!   a reduced source, never as a boundary condition of its own, and its `UA`
-//!   values are placeholders.
+//!   values are placeholders.~~ **CORRECTED 2026-11-03** -- since 2026-09-29
+//!   (gh:#395) [`PebbleBedPorousMediaNode::step`] takes
+//!   `passive_path: &mut CoreToRccsPath` and solves the reflector and RPV as
+//!   unknowns of its own implicit system, with the bed-to-reflector
+//!   conductance on the bed solid row's diagonal; the legs are derived from
+//!   geometry and material data, not placeholders (verified in `step` and in
+//!   `decay_heat_removal.rs`'s module docs).
 //!
 //! It is an offline demonstration model. It is **not** a validated pebble-bed
 //! core model and must not be used for any purpose `RESPONSIBLE_USE.md`

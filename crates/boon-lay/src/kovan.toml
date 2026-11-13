@@ -847,3 +847,19 @@ lines = [
 hash = "sha256:28f732560e1fa8d5284a0d597f8ca75d675b9e79a00d6644aaba7f997fa57560"
 doc_hash = "sha256:8da1a17d0c0912f8a67ba92a8b2b10dcd5a899a5b2a1876bd7f08e8072120e5c"
 uses = ["fn:58cca58cde2189a9"]
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+failed = []

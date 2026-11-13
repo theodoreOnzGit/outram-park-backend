@@ -78,6 +78,15 @@ use crate::gap::gas::GapGasMixture;
 /// Stefan–Boltzmann constant `σ` \[W/(m²·K⁴)\], SI-2019 exact value.
 ///
 /// Upstream reads `Foam::constant::physicoChemical::sigma`.
+///
+/// **Measured 2026-11-13 (gh:#1393 round 2):** in OpenFOAM-ESI v2506 that is
+/// `(pi^2/60) k^4 / ((h/2pi)^3 c^2)` with the truncated `k = 1.38065e-23`,
+/// `h = 6.62607e-34`, `c = 2.99792e8` of `etc/controlDict`, i.e.
+/// `5.6704085580608236e-8`, `+6.02e-6` relative to this value. The radiative
+/// conductance (linear in `σ`) therefore differs from an OFFBEAT run by exactly
+/// that factor (144 transcribed rows, deviation from the predicted ratio
+/// 4.4e-16). Kept at the SI-2019 value; matching the OpenFOAM-as-built value
+/// is a maintainer decision (deferred, gh:#1394), as for the gas constant.
 pub const STEFAN_BOLTZMANN: f64 = 5.670_374_419e-8;
 
 /// Small positive length/denominator floor \[SI\] used where upstream would

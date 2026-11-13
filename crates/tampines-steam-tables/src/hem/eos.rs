@@ -26,8 +26,8 @@ use petir::mathf::RealMath;
 use petir::roots::{BracketingMethod, BracketingSolver};
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
-    AvailableEnergy, MassDensity, MassFlux, Pressure, Ratio, SpecificHeatCapacity, SpecificVolume,
-    ThermodynamicTemperature, Velocity,
+    AvailableEnergy, DynamicViscosity, MassDensity, MassFlux, Pressure, Ratio,
+    SpecificHeatCapacity, SpecificVolume, ThermodynamicTemperature, Velocity,
 };
 use uom::si::specific_volume::cubic_meter_per_kilogram;
 use uom::si::mass_density::kilogram_per_cubic_meter;
@@ -143,6 +143,25 @@ pub trait HemEquationOfState: Clone + core::fmt::Debug {
         pressure: Pressure,
         density: MassDensity,
     ) -> Result<HemThermoState, HemError>;
+
+    /// Dynamic viscosity of `state`, for wall friction (gh:#1061). `None`
+    /// (the default) means the closure supplies none, and the pipe is then
+    /// frictionless with it: the ideal gas and the reduced verification
+    /// closures. [`super::Iapws97Hem`] supplies it.
+    fn dynamic_viscosity(&self, state: &HemThermoState) -> Option<DynamicViscosity> {
+        let _ = state;
+        None
+    }
+
+    /// The saturated liquid and vapour, `(liquid, vapour)`, at the pressure of
+    /// a two-phase `state` (gh:#1073: separator and downcomer ports draw one
+    /// phase). `None` (the default) when the state is single-phase or the
+    /// closure has no phase split; [`super::Iapws97Hem`] supplies it below
+    /// the region-3 boundary (16.529 MPa).
+    fn saturated_phases(&self, state: &HemThermoState) -> Option<(HemThermoState, HemThermoState)> {
+        let _ = state;
+        None
+    }
 
     /// Mass flux through a break from stagnation `(p0, h0)` to `back_pressure`
     /// (critical if choked, isentropic-subcritical otherwise). Used by
@@ -341,6 +360,27 @@ where
             break;
         }
         factor *= factor;
+    }
+    // The doubling expansion can leap over the root into pressures the flash
+    // rejects (from a missing hint at 247 kPa its probes run 6.7 MPa, then
+    // 100 MPa, which IF97 refuses for a high-enthalpy state), and so find no
+    // sign change for a valid state (gh:#1073, a separator volume at 7 MPa,
+    // quality 0.6). Only then, scan a log grid over the whole range. A state
+    // the expansion already brackets never reaches this.
+    if bracket.is_none() {
+        const N_SCAN: usize = 240;
+        let r = (p_max / p_min).r_powf(1.0 / N_SCAN as f64);
+        for k in 0..=N_SCAN {
+            let p = if k == N_SCAN { p_max } else { p_min * r.r_powi(k as i32) };
+            if let Some(v) = g(p) {
+                probes.push((p, v));
+            }
+        }
+        probes.sort_by(|a, b| a.0.total_cmp(&b.0));
+        bracket = probes
+            .windows(2)
+            .find(|w| straddles(w[0].1, w[1].1))
+            .map(|w| (w[0].0, w[1].0));
     }
     let Some((lo, hi)) = bracket else {
         return Err(HemError::EquationOfState {

@@ -1,0 +1,101 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+dx      0.1;
+dy      $dx;
+
+lCore       1.197;
+lRefl       0.5;
+zBotCore    ${{-$lCore/2}};
+zTopCore    ${{-$zBotCore}};
+zBotRefl    ${{$zBotCore - $lRefl}};
+zTopRefl    ${{-$zBotRefl}};
+
+vertices
+(
+    (0      0       $zBotRefl)
+    ($dx    0       $zBotRefl)
+    ($dx    $dy     $zBotRefl)
+    (0      $dy     $zBotRefl)
+
+    (0      0       $zBotCore)
+    ($dx    0       $zBotCore)
+    ($dx    $dy     $zBotCore)
+    (0      $dy     $zBotCore)
+
+    (0      0       $zTopCore)
+    ($dx    0       $zTopCore)
+    ($dx    $dy     $zTopCore)
+    (0      $dy     $zTopCore)
+
+    (0      0       $zTopRefl)
+    ($dx    0       $zTopRefl)
+    ($dx    $dy     $zTopRefl)
+    (0      $dy     $zTopRefl)
+);
+
+blocks
+(
+    hex ( 0  1  2  3  4  5  6  7) reflector (1 1 150) simpleGrading (1 1 1)
+    hex ( 4  5  6  7  8  9 10 11) core      (1 1 151) simpleGrading (1 1 1)
+    hex ( 8  9 10 11 12 13 14 15) reflector (1 1 150) simpleGrading (1 1 1)
+);
+
+edges
+(
+);
+
+boundary
+(
+    walls
+    {
+        type patch;
+        faces
+        (
+            ( 0  1  5  4)
+            ( 1  2  6  5)
+            ( 2  3  7  6)
+            ( 3  0  4  7)
+            ( 4  5  9  8)
+            ( 5  6 10  9)
+            ( 6  7 11 10)
+            ( 7  4  8 11)
+            ( 8  9 13 12)
+            ( 9 10 14 13)
+            (10 11 15 14)
+            (11  8 12 15)
+        );
+    }
+    bottom
+    {
+        type patch;
+        faces
+        (
+            (0 3 2 1)
+        );
+    }
+    top
+    {
+        type patch;
+        faces
+        (
+            (12 13 14 15)
+        );
+    }
+);
+
+// ************************************************************************* //

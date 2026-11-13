@@ -120,8 +120,13 @@ struct Case {
 /// Mass ratios from hydrogen (`A = 1`, where the minimum scattered energy is
 /// zero) to U-238 (`A = 236`, where it is 98.3 % of incident). CM cosines
 /// include both endpoints, which are the two extremes of the energy relation
-/// and the ones a sign error moves. `uz` includes values near `±1`, which is
-/// where `rotate_direction` switches to its alternate basis.
+/// and the ones a sign error moves. `uz` includes values near `±1`, ~~which is
+/// where `rotate_direction` switches to its alternate basis~~ **CORRECTED
+/// 2026-11-12 (gh:#1499)**: near the pole, but not in the alternate branch.
+/// In f32, `uz = 0.999999` gives `1 - uz^2 = 2.03e-6` and `b0 = 1.42e-3`,
+/// far above the branch's `1e-10` switch, which only `|uz| = 1` exactly (or
+/// a drifted direction) reaches. `tests/gpu_direction_norm_drift_guard.rs`
+/// covers that branch (`uz = ±1`).
 fn cases() -> Vec<Case> {
     let mut v = Vec::new();
     for &awr in &[1.0f32, 2.0, 12.0, 56.0, 236.0] {
@@ -403,11 +408,15 @@ fn gpu_elastic_kinematics_match_the_closed_form() {
 /// | `dot(dir, u) == mu_lab` | **5.960e-08** |
 ///
 /// Both at the `f32` floor. **The worst case is `uz = 0.999999`** — the
-/// near-pole direction that takes `rotate_direction`'s alternate basis
+/// near-pole direction ~~that takes `rotate_direction`'s alternate basis
 /// branch. That branch is therefore not merely present but exercised and
-/// correct, which is the thing a whole-event comparison would be least likely
-/// to reach: a single mis-signed term there would perturb one collision in
-/// many thousands and vanish into the statistics.
+/// correct~~ **CORRECTED 2026-11-12 (gh:#1499)**: it takes the MAIN branch
+/// (`b0 = 1.42e-3` in f32, against the `1e-10` switch), so this test never
+/// reached the alternate branch; `tests/gpu_direction_norm_drift_guard.rs`
+/// now does (`uz = ±1`, GPU against the mirror). The point stands for the
+/// near-pole main branch, which is the thing a whole-event comparison would be
+/// least likely to reach: a single mis-signed term there would perturb one
+/// collision in many thousands and vanish into the statistics.
 #[test]
 fn gpu_rotate_direction_preserves_the_unit_norm_and_the_cosine() {
     let Some(gpu) = probe() else {

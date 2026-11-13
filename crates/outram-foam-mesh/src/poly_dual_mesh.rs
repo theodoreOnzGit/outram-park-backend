@@ -59,32 +59,77 @@
 //! each primal **boundary point** contributes a dual **boundary** face — the
 //! 2-D cell-centre dual of the surface mesh around that point.
 //!
-//! ## Feature angle
+//! ## Feature angle, feature edges and patch seams
 //!
-//! `feature_angle_deg` is the OpenFOAM-style feature angle. A boundary point is
+//! ~~`feature_angle_deg` is the OpenFOAM-style feature angle. A boundary point is
 //! kept as an explicit dual vertex (preserving a sharp edge or corner) when the
 //! surface bends across it by **more than** the feature angle; otherwise the
-//! surface is locally flat there and the point is *merged* away — its ring of
-//! boundary quads collapses to a single coplanar polygon. On a flat patch this
-//! removes the redundant vertex without changing the enclosed volume; at a sharp
-//! feature (e.g. a 90° block edge) merging it away would cut the corner and lose
-//! volume, which is exactly why the feature is preserved. See the crate tests
-//! for the numerical demonstration of both regimes.
+//! surface is locally flat there and the point is *merged* away.~~
+//! **CHANGED 2026-11-04 (gh:#1240), to upstream's rule.** Features are found on
+//! **edges** first, as OpenFOAM-dev's `polyDualMesh` utility does
+//! (`simpleMarkFeatures` in
+//! `applications/utilities/mesh/manipulation/polyDualMesh/polyDualMesh.C`,
+//! commit `852527377c7e`; the same rule as `polyDualMesh::calcFeatures` in
+//! `src/conversion/polyDualMesh/polyDualMesh.C`):
+//!
+//! - a boundary edge is a **feature edge** when its two boundary faces lie in
+//!   **different patches** (step 1, "mark all edges between patches", whatever
+//!   the angle), or when their normals differ by **more than**
+//!   `feature_angle_deg` (step 2);
+//! - every point on a feature edge is a **feature point** (upstream's
+//!   `singleCellFeaturePoints`) and is kept as an explicit dual vertex.
+//!
+//! A non-feature boundary point is merged away: its ring of boundary quads
+//! collapses to one polygon `[fc, em, fc, em, …]`. On a flat patch this
+//! removes the redundant vertex without changing the enclosed volume; at a
+//! sharp feature (e.g. a 90° block edge) merging it away would cut the corner
+//! and lose volume, which is exactly why the feature is preserved.
+//!
+//! ## Boundary faces: one per point per feature-bounded sector (gh:#1240)
+//!
+//! ~~A feature point emits one quad `[p, em, fc, em]` per incident boundary
+//! face.~~ **CHANGED 2026-11-04 (gh:#1240), to upstream's construction**
+//! (`meshDualiser::createFacesAroundBoundaryPoint`, same file set and commit):
+//! the boundary faces around a feature point are walked in order and a dual
+//! face is **closed at every feature edge**, so the point gives one face per
+//! sector between consecutive feature edges, `[p, em(feature), fc, em, fc, …,
+//! em(feature)]`. A point on a straight feature line gets two faces (one per
+//! side), a box corner three; a patch seam is a feature edge, so no face spans
+//! two patches. With fewer than two feature edges at the point the ring is
+//! kept whole (`polyDualMesh::splitFace`: "not enough feature edges, no
+//! split"). The quad-per-face construction gave a tetrahedral primal's
+//! feature points 4–8 boundary faces per dual cell, each badly
+//! non-orthogonal to its owner (gh:#1215, gh:#1240).
+//!
+//! **Deviation from upstream, kept on purpose:** upstream puts a dual vertex
+//! at the midpoint of *feature* edges only; this port puts one on **every**
+//! boundary edge, so the boundary-edge dual faces close on the surface and a
+//! flat patch is reproduced exactly (volume conserved to round-off on a
+//! block). Upstream's surface is the polygon through the boundary-face
+//! centres, which cuts every curved patch slightly.
 //!
 //! ## Scope / honesty
 //!
 //! - The interior construction (cell-centre rings around interior edges) is
-//!   general — it works for any manifold polyhedral primal mesh.
-//! - The boundary construction is implemented and verified for **manifold**
-//!   surfaces (each boundary edge shared by exactly two boundary faces). It has
-//!   been validated on structured hexahedral blocks; non-manifold surfaces and
-//!   degenerate fans are rejected with [`MeshError::Construction`] rather than
-//!   silently mis-meshed.
-//! - Feature handling implements point retention/merge. It does **not** yet
-//!   split coplanar boundary faces belonging to *different* patches that meet
-//!   below the feature angle (not needed for the block case, where patch seams
-//!   coincide with feature edges); this is the one documented boundary
-//!   limitation.
+//!   general — it works for any manifold polyhedral primal mesh,
+//!   ~~validated on structured hexahedral blocks only~~ and since gh:#1240
+//!   (2026-11-04) run on tetrahedral meshes too, through
+//!   `outram-park-fork-cfmesh`'s `DualKind::CellCentre` (its `cell-centre-dual`
+//!   feature), where it is compared differentially against the median dual
+//!   (`crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`).
+//! - The boundary construction is implemented for **manifold** surfaces (each
+//!   boundary edge shared by exactly two boundary faces); non-manifold
+//!   surfaces and degenerate fans are rejected with [`MeshError::Construction`]
+//!   rather than silently mis-meshed.
+//! - ~~It does **not** yet split coplanar boundary faces belonging to
+//!   *different* patches that meet below the feature angle~~ **DONE
+//!   2026-11-04 (gh:#1240):** patch seams are feature edges, as upstream.
+//! - ~~Not ported: upstream's `concaveMultiCells`, `splitAllFaces` and
+//!   face-zone preservation.~~ **CORRECTED 2026-11-11 (gh:#1471, gh:#1472):**
+//!   they are ported in the explicit upstream mode,
+//!   [`poly_dual_mesh_upstream`](crate::poly_dual_mesh_upstream) (a
+//!   line-for-line `polyDualMesh` + `meshDualiser`, beside this surface-
+//!   preserving default). This default still has none of the three.
 
 use petir::mathf::RealMath;
 use std::collections::HashMap;
@@ -769,19 +814,54 @@ impl DualMesh {
 
 /// Construct the polyhedral dual of `primal`.
 ///
-/// `feature_angle_deg` controls boundary-point retention (see the module docs):
-/// a boundary point is kept as an explicit dual vertex when the surface bends
-/// across it by more than this angle; otherwise it is merged into a coplanar
-/// boundary polygon.
+/// `feature_angle_deg` is the feature angle (see the module docs).
+/// ~~A boundary point is kept when the surface bends across it by more than
+/// this angle~~ **CORRECTED 2026-11-11 (gh:#1471; the rule changed in
+/// gh:#1240, 2026-11-04):** a boundary *edge* is a feature edge when its two
+/// boundary faces lie in different patches (whatever the angle) or their
+/// normals differ by more than this angle; every point on a feature edge is
+/// kept as an explicit dual vertex, and any other boundary point is merged
+/// into a coplanar boundary polygon.
 ///
 /// # Errors
 /// Returns [`MeshError::Construction`] for a non-manifold boundary or an
 /// inconsistent edge fan.
 pub fn poly_dual_mesh(primal: &PolyMesh, feature_angle_deg: f64) -> Result<DualMesh, MeshError> {
+    poly_dual_mesh_with(primal, feature_angle_deg, FeaturePoints::OnFeatureEdge)
+}
+
+/// Which boundary points keep their own dual vertex (gh:#1240). OpenFOAM's
+/// two `polyDualMesh`s differ here; both are kept callable. The same choice
+/// is `outram-park-fork-cfmesh`'s `dual::FeaturePointRule`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FeaturePoints {
+    /// Every point on a feature edge: the `polyDualMesh` **utility**
+    /// (`simpleMarkFeatures`' `singleCellFeaturePoints`, `meshDualiser`).
+    #[default]
+    OnFeatureEdge,
+    /// Only points with more than two feature edges: the `polyDualMesh`
+    /// **class** (`polyDualMesh::calcFeatures`); a point on a feature line is
+    /// dropped and its ring split along the line (`splitFace`), the sides
+    /// meeting on the chord between the two feature-edge midpoints.
+    Corners,
+}
+
+/// [`poly_dual_mesh`] with the feature-point rule named (gh:#1240).
+///
+/// # Errors
+/// As [`poly_dual_mesh`].
+pub fn poly_dual_mesh_with(primal: &PolyMesh, feature_angle_deg: f64, rule: FeaturePoints) -> Result<DualMesh, MeshError> {
     let topo = build_topo(primal)?;
 
-    // Feature classification of boundary points.
-    let is_feature_point = classify_feature_points(primal, &topo, feature_angle_deg);
+    // Feature edges (patch seams and sharp edges) and the points on them.
+    let (is_feature_edge, n_feature_edges) = classify_features(primal, &topo, feature_angle_deg);
+    let is_feature_point: Vec<bool> = n_feature_edges
+        .iter()
+        .map(|&n| match rule {
+            FeaturePoints::OnFeatureEdge => n > 0,
+            FeaturePoints::Corners => n > 2,
+        })
+        .collect();
 
     // ── Dual point layout ───────────────────────────────────────────────────
     // [0 .. n_cells)                         : cell centres
@@ -880,6 +960,7 @@ pub fn poly_dual_mesh(primal: &PolyMesh, feature_angle_deg: f64) -> Result<DualM
             &topo,
             p,
             is_feature_point[p],
+            &is_feature_edge,
             &dp_bface,
             &dp_bedge,
             &dp_bpoint,
@@ -906,34 +987,33 @@ pub fn poly_dual_mesh(primal: &PolyMesh, feature_angle_deg: f64) -> Result<DualM
     })
 }
 
-/// A boundary point is a *feature* if the boundary faces meeting there are not
-/// all coplanar within `feature_angle_deg` — i.e. the maximum angle between any
-/// two incident boundary-face outward normals exceeds the threshold. Such a
-/// point sits on a surface edge or corner and is preserved as a dual vertex.
-fn classify_feature_points(m: &PolyMesh, topo: &PrimalTopo, feature_angle_deg: f64) -> Vec<bool> {
-    let thr = feature_angle_deg.to_radians().r_cos(); // dot >= thr  ⇔  angle <= feature
-    let mut is_feature = vec![false; m.n_points()];
-    #[allow(clippy::needless_range_loop)]
-    for p in 0..m.n_points() {
-        if !topo.point_is_boundary[p] {
+/// Feature edges and feature points of the primal boundary, by upstream's
+/// rule (`simpleMarkFeatures`, OpenFOAM-dev `852527377c7e`
+/// `applications/utilities/mesh/manipulation/polyDualMesh/polyDualMesh.C`):
+/// a boundary edge is a feature when its two boundary faces are in different
+/// patches, or when their unit normals satisfy `n0 · n1 < cos(feature_angle)`;
+/// the caller decides which points are feature points from the count. Returns
+/// `(is_feature_edge per edge, number of feature edges per point)`.
+fn classify_features(m: &PolyMesh, topo: &PrimalTopo, feature_angle_deg: f64) -> (Vec<bool>, Vec<usize>) {
+    let min_cos = feature_angle_deg.to_radians().r_cos();
+    let mut is_edge = vec![false; topo.edge_pts.len()];
+    let mut is_point = vec![0usize; m.n_points()];
+    for (e, fs) in topo.edge_faces.iter().enumerate() {
+        if !topo.edge_is_boundary[e] {
             continue;
         }
-        let normals: Vec<Vector3> = topo.point_bfaces[p]
-            .iter()
-            .map(|&f| topo.face_s[f].normalise(1e-30))
-            .collect();
-        let mut feature = false;
-        'outer: for i in 0..normals.len() {
-            for j in (i + 1)..normals.len() {
-                if normals[i].dot(normals[j]) < thr {
-                    feature = true;
-                    break 'outer;
-                }
-            }
+        let bnd: Vec<usize> = fs.iter().copied().filter(|&f| !m.is_internal_face(f)).collect();
+        let seam = m.patch_of_face(bnd[0]) != m.patch_of_face(bnd[1]);
+        let n0 = topo.face_s[bnd[0]].normalise(1e-30);
+        let n1 = topo.face_s[bnd[1]].normalise(1e-30);
+        if seam || n0.dot(n1) < min_cos {
+            is_edge[e] = true;
+            let (a, b) = topo.edge_pts[e];
+            is_point[a] += 1;
+            is_point[b] += 1;
         }
-        is_feature[p] = feature;
     }
-    is_feature
+    (is_edge, is_point)
 }
 
 /// Ordered cyclic ring of cells around an **interior** edge.
@@ -1068,16 +1148,21 @@ fn push_internal(
 
 /// Emit the dual **boundary** face(s) for boundary point `p`.
 ///
-/// If `p` is a feature point, one quad `[p, em(e1), fc(bf), em(e2)]` per incident
-/// boundary face is emitted (sharp edges/corners preserved). Otherwise the
-/// surface is locally flat and the quads are merged into a single ring polygon
-/// `[fc, em, fc, em, …]` around `p`, dropping `p`.
+/// The boundary faces around `p` are ordered into a ring (consecutive faces
+/// share a boundary edge at `p`). If `p` is a feature point with two or more
+/// feature edges, one face is closed at every feature edge (upstream's
+/// `meshDualiser::createFacesAroundBoundaryPoint`): each sector between two
+/// consecutive feature edges gives `[p, em(feature), fc, em, …, fc,
+/// em(feature)]`. Otherwise the whole ring `[fc, em, fc, em, …]` is one face
+/// and `p` is dropped (`polyDualMesh::splitFace`: fewer than two feature
+/// edges, no split).
 #[allow(clippy::too_many_arguments)]
 fn build_boundary_faces_for_point(
     m: &PolyMesh,
     topo: &PrimalTopo,
     p: usize,
     feature: bool,
+    is_feature_edge: &[bool],
     dp_bface: &HashMap<usize, usize>,
     dp_bedge: &HashMap<usize, usize>,
     dp_bpoint: &HashMap<usize, usize>,
@@ -1088,63 +1173,48 @@ fn build_boundary_faces_for_point(
     face_patch: &mut Vec<Option<usize>>,
 ) -> Result<(), MeshError> {
     let bfaces = &topo.point_bfaces[p];
-    // Two boundary edges of face bf at point p → (edge_before, edge_after).
-    let edges_at = |bf: usize| -> Result<(usize, usize), MeshError> {
-        let lp = &m.faces[bf];
-        let n = lp.len();
-        let pos = lp.iter().position(|&q| q == p).ok_or_else(|| {
-            MeshError::Construction(format!("point {p} not on its boundary face {bf}"))
-        })?;
-        let prev = lp[(pos + n - 1) % n];
-        let next = lp[(pos + 1) % n];
-        Ok((topo.edge_id[&ekey(p, prev)], topo.edge_id[&ekey(p, next)]))
-    };
+    let ring = order_faces_around_point(m, topo, p, bfaces)?;
+    let k = ring.len();
+    // shared[i]: the boundary edge at p between ring[i] and ring[i + 1].
+    let mut shared = Vec::with_capacity(k);
+    for i in 0..k {
+        shared.push(shared_boundary_edge(m, topo, p, ring[i], ring[(i + 1) % k])?);
+    }
+    let cuts: Vec<usize> = (0..k).filter(|&i| is_feature_edge[shared[i]]).collect();
 
-    if feature {
-        for &bf in bfaces {
-            let (e1, e2) = edges_at(bf)?;
-            let loop_ids = vec![dp_bpoint[&p], dp_bedge[&e1], dp_bface[&bf], dp_bedge[&e2]];
-            push_boundary(
-                dual_pts,
-                topo.face_s[bf],
-                faces,
-                owner,
-                neighbour,
-                face_patch,
-                loop_ids,
-                p,
-                m.patch_of_face(bf),
-            );
+    if cuts.len() >= 2 {
+        // Through `p` at a feature point; else closed on the chord between
+        // the two feature-edge midpoints (`polyDualMesh::splitFace`).
+        for c in 0..cuts.len() {
+            let (start, end) = (cuts[c], cuts[(c + 1) % cuts.len()]);
+            // Faces ring[start + 1 ..= end] (cyclic), bounded by the feature
+            // edges shared[start] and shared[end].
+            let mut loop_ids = if feature { vec![dp_bpoint[&p], dp_bedge[&shared[start]]] } else { vec![dp_bedge[&shared[start]]] };
+            let mut nrm = Vector3::default();
+            let mut i = (start + 1) % k;
+            loop {
+                loop_ids.push(dp_bface[&ring[i]]);
+                loop_ids.push(dp_bedge[&shared[i]]);
+                nrm += topo.face_s[ring[i]];
+                if i == end {
+                    break;
+                }
+                i = (i + 1) % k;
+            }
+            push_boundary(dual_pts, nrm, faces, owner, neighbour, face_patch, loop_ids, p, m.patch_of_face(ring[end]));
         }
     } else {
-        // Walk the boundary faces around p into a single cycle through their
-        // shared boundary edges, then build the alternating ring.
-        let ring = order_faces_around_point(m, topo, p, bfaces)?;
-        let mut loop_ids = Vec::with_capacity(ring.len() * 2);
-        for i in 0..ring.len() {
-            let bf = ring[i];
-            let bf_next = ring[(i + 1) % ring.len()];
-            loop_ids.push(dp_bface[&bf]);
-            // shared boundary edge between bf and bf_next at p
-            let shared = shared_boundary_edge(m, topo, p, bf, bf_next)?;
-            loop_ids.push(dp_bedge[&shared]);
+        let mut loop_ids = Vec::with_capacity(k * 2);
+        for i in 0..k {
+            loop_ids.push(dp_bface[&ring[i]]);
+            loop_ids.push(dp_bedge[&shared[i]]);
         }
         // Use the mean incident normal for outward orientation.
         let mut nrm = Vector3::default();
         for &bf in bfaces {
             nrm += topo.face_s[bf];
         }
-        push_boundary(
-            dual_pts,
-            nrm,
-            faces,
-            owner,
-            neighbour,
-            face_patch,
-            loop_ids,
-            p,
-            m.patch_of_face(ring[0]),
-        );
+        push_boundary(dual_pts, nrm, faces, owner, neighbour, face_patch, loop_ids, p, m.patch_of_face(ring[0]));
     }
     Ok(())
 }

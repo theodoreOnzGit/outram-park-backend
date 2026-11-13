@@ -152,38 +152,59 @@ impl RectLattice {
     /// Distance \[cm\] to the next lattice-tile boundary along `(r, u)`, with `r`
     /// expressed in the current tile's local frame (tile centre at origin).
     ///
-    /// Ported from `RectLattice::distance` (`src/lattice.cpp:252`): the oncoming
-    /// tile edge is at `±½·pitch` in the sign of each direction cosine, and the
-    /// returned distance is the minimum over the active axes. Also returns the
-    /// tile-index translation `[±1,0,0]` etc. of the crossing.
+    /// Ported from `RectLattice::distance` (`src/lattice.cpp:253`, OpenMC
+    /// `8f79d9d0`): the oncoming tile edge is at `±½·pitch` in the sign of each
+    /// direction cosine; the distance to each edge is evaluated independently and
+    /// the smallest wins. Which boundaries are crossed is decided by comparing
+    /// each axis's distance with the minimum (`isclose`, relative `FP_COINCIDENT`,
+    /// absolute `FP_PRECISION`) **rather than by rebuilding the crossing position**
+    /// — upstream #3853, which removes a cancellation for large pitches.
+    /// ~~The earlier code rebuilt `r + u·d` and compared it with the edge to an
+    /// absolute 1e-12, which fails once `|r| ≳ 1e4` cm~~ **CORRECTED 2026-11-10**
+    /// (gh:#1386; measured in
+    /// `tests/lattice_distance_vs_openmc_code_to_code.rs`).
+    ///
+    /// Returns the distance (`f64::INFINITY` where upstream has `INFTY =
+    /// DBL_MAX`) and the tile-index translation `[±1,0,0]` etc. of the crossing.
     pub fn distance(&self, r: Position, u: Direction) -> (f64, [i32; 3]) {
-        const FP: f64 = 1.0e-12;
+        const INFTY: f64 = f64::MAX; // include/openmc/constants.h:103
         let x0 = (0.5 * self.pitch[0]).copysign(u.u);
         let y0 = (0.5 * self.pitch[1]).copysign(u.v);
-        let mut d = f64::INFINITY;
-        if u.u != 0.0 {
-            d = d.min((x0 - r.x) / u.u);
-        }
-        if u.v != 0.0 {
-            d = d.min((y0 - r.y) / u.v);
-        }
-        let mut z0 = 0.0;
+        let dx = if u.u != 0.0 { (x0 - r.x) / u.u } else { INFTY };
+        let dy = if u.v != 0.0 { (y0 - r.y) / u.v } else { INFTY };
+        let mut dz = INFTY;
         if self.is_3d() {
-            z0 = (0.5 * self.pitch[2]).copysign(u.w);
-            if u.w != 0.0 {
-                d = d.min((z0 - r.z) / u.w);
-            }
+            let z0 = (0.5 * self.pitch[2]).copysign(u.w);
+            dz = if u.w != 0.0 { (z0 - r.z) / u.w } else { INFTY };
+        }
+        // std::min({dx, dy, dz}): first of the equal minima (matters for -0.0 vs +0.0).
+        let mut d = dx;
+        if dy < d {
+            d = dy;
+        }
+        if dz < d {
+            d = dz;
         }
         let mut trans = [0i32; 3];
-        if u.u != 0.0 && (r.x + u.u * d - x0).abs() < FP {
+        if isclose(d, dx, FP_COINCIDENT, FP_PRECISION) {
             trans[0] = 1_f64.copysign(u.u) as i32;
         }
-        if u.v != 0.0 && (r.y + u.v * d - y0).abs() < FP {
+        if isclose(d, dy, FP_COINCIDENT, FP_PRECISION) {
             trans[1] = 1_f64.copysign(u.v) as i32;
         }
-        if self.is_3d() && u.w != 0.0 && (r.z + u.w * d - z0).abs() < FP {
+        if self.is_3d() && isclose(d, dz, FP_COINCIDENT, FP_PRECISION) {
             trans[2] = 1_f64.copysign(u.w) as i32;
         }
-        (d, trans)
+        (if d == INFTY { f64::INFINITY } else { d }, trans)
     }
 }
+
+/// `isclose(a, b, rel_tol, abs_tol)` (`src/math_functions.cpp:1015`).
+#[inline]
+fn isclose(a: f64, b: f64, rel_tol: f64, abs_tol: f64) -> bool {
+    (a - b).abs() <= (rel_tol * a.abs().max(b.abs())).max(abs_tol)
+}
+
+/// `FP_COINCIDENT` / `FP_PRECISION` (`include/openmc/constants.h:53-55`).
+const FP_COINCIDENT: f64 = 1.0e-12;
+const FP_PRECISION: f64 = 1.0e-14;

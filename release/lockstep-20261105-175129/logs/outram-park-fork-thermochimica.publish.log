@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging outram-park-fork-thermochimica v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-thermochimica)
+    Updating crates.io index
+    Packaged 17 files, 155.6KiB (49.8KiB compressed)
+   Verifying outram-park-fork-thermochimica v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-thermochimica)
+   Compiling outram-park-fork-thermochimica v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/outram-park-fork-thermochimica-0.0.2)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.55s
+   Uploading outram-park-fork-thermochimica v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-thermochimica)
+    Uploaded outram-park-fork-thermochimica v0.0.2 to registry `crates-io`
+note: waiting for outram-park-fork-thermochimica v0.0.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-park-fork-thermochimica v0.0.2 at registry `crates-io`

@@ -19,6 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use outram_foam_basic_lib::fv_operators::fvm::DeltaCoeff;
 use crate::openfoam_algorithms::openfoam_source::boundary::bc::BoundaryCondition;
 use crate::openfoam_algorithms::openfoam_source::surface_field::SurfaceScalarField;
 use crate::openfoam_algorithms::openfoam_source::vol_field::VolScalarField;
@@ -78,7 +79,11 @@ pub fn laplacian(gamma: &SurfaceScalarField, phi: &VolScalarField) -> FvMatrix {
         for fi in 0..patch.size {
             let gf = patch.start + fi;
             let owner = mesh.owner[gf];
-            let d = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+            // gh:#1494 (from gh:#1488): ~~`|Cf - C|`~~ **CORRECTED 2026-11-12** upstream's
+            // boundary `deltaCoeffs` is `1/mag(fvPatch::delta())`, `delta() = nHat*(nHat & (Cf - Cn))`
+            // (ESI v2506 `fvPatch.C:156`). basic-lib's `boundary_delta` is that, in upstream's
+            // operation order; `FvMesh` is basic-lib's, so it is called, not copied.
+            let d = DeltaCoeff::Orthogonal.boundary_delta(&mesh, gf);
             if d < 1e-300 {
                 continue;
             }
@@ -201,5 +206,67 @@ mod tests {
             "T[1] = {}",
             result.internal[1]
         );
+    }
+
+    /// Two cells like `unit_mesh`, but the RIGHT boundary face centre is shifted
+    /// transversally to `(1, 0.25, 0)`: `Cf - C = (0.25, 0.25, 0)` (|d| = 0.3536)
+    /// while the patch normal is `+x`, so `fvPatch::delta() = (0.25, 0, 0)`.
+    /// gh:#1494.
+    fn skewed_boundary_mesh() -> std::sync::Arc<crate::openfoam_algorithms::openfoam_source::FvMesh> {
+        use crate::openfoam_algorithms::openfoam_source::fv_mesh::{
+            BoundaryPatch, FvMeshBuilder, PatchKind,
+        };
+        use crate::openfoam_algorithms::openfoam_source::Vector3;
+        std::sync::Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(2)
+                .n_internal_faces(1)
+                .owner(vec![0, 1, 0])
+                .neighbour(vec![1])
+                .patches(vec![
+                    BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
+                ])
+                .cell_volumes(vec![0.5, 0.5])
+                .cell_centres(vec![
+                    Vector3::new(0.25, 0.0, 0.0),
+                    Vector3::new(0.75, 0.0, 0.0),
+                ])
+                .face_area_vectors(vec![
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(-1.0, 0.0, 0.0),
+                ])
+                .face_centres(vec![
+                    Vector3::new(0.5, 0.0, 0.0),
+                    Vector3::new(1.0, 0.25, 0.0),
+                    Vector3::new(0.0, 0.0, 0.0),
+                ])
+                .build()
+                .unwrap(),
+        )
+    }
+
+    #[test]
+    fn boundary_conductance_uses_the_patch_normal_delta_gh1494() {
+        // Right face: n.d = 0.25 (old |d| = 0.35355). gamma = 1, |Sf| = 1:
+        // coefficient 1/0.25 = 4 (old 2.828). Interior face: 1/0.5 = 2.
+        // diag[1] = 2 + 4 = 6, source[1] = 4 * T_right (= 1) = 4.
+        let m = skewed_boundary_mesh();
+        let gamma = uniform_gamma(m.clone(), 1.0);
+        let t_bc = vec![
+            PatchField {
+                bc: BoundaryCondition::FixedValue(1.0),
+                values: Field::new(vec![0.0]),
+            },
+            PatchField {
+                bc: BoundaryCondition::FixedValue(0.0),
+                values: Field::new(vec![0.0]),
+            },
+        ];
+        let phi = VolScalarField::new("T", m.clone(), Field::zeros(2), t_bc);
+        let mat = laplacian(&gamma, &phi);
+        assert!((mat.ldu.diag[1] - 6.0).abs() < 1e-12, "diag[1] = {}", mat.ldu.diag[1]);
+        assert!((mat.source[1] - 4.0).abs() < 1e-12, "source[1] = {}", mat.source[1]);
     }
 }

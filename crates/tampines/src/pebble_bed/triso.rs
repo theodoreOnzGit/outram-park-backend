@@ -1031,24 +1031,19 @@ mod tests {
     /// relative error, printing both and the residual on failure.
     ///
     /// `tampines` does not carry the `approx` crate as a dev-dependency, so
-    /// this local macro provides the same `max_relative =` comparison the rest
+    /// this local function provides the same relative-tolerance comparison the rest
     /// of the workspace's V&V tests use, with no new dependency.
-    macro_rules! assert_relative_eq {
-        ($expected:expr, $measured:expr, max_relative = $tolerance:expr) => {{
-            let expected: f64 = $expected;
-            let measured: f64 = $measured;
-            let relative_error = if expected == 0.0 {
-                measured.abs()
-            } else {
-                ((measured - expected) / expected).abs()
-            };
-            assert!(
-                relative_error < $tolerance,
-                "expected {expected}, measured {measured}, relative error \
-                 {relative_error:e} exceeds {}",
-                $tolerance
-            );
-        }};
+    fn assert_relative_eq(expected: f64, measured: f64, max_relative: f64) {
+        let relative_error = if expected == 0.0 {
+            measured.abs()
+        } else {
+            ((measured - expected) / expected).abs()
+        };
+        assert!(
+            relative_error < max_relative,
+            "expected {expected}, measured {measured}, relative error \
+             {relative_error:e} exceeds {max_relative}"
+        );
     }
 
     /// Builds a particle with the HTR-10 radii but a caller-chosen uniform
@@ -1096,7 +1091,7 @@ mod tests {
 
         for (expected, measured) in expected_micrometres.iter().zip(measured_micrometres.iter()) {
             println!("layer outer radius: measured {measured} um, expected {expected} um");
-            assert_relative_eq!(*expected, *measured, max_relative = 1e-9);
+            assert_relative_eq(*expected, *measured, 1e-9);
         }
 
         let mut fraction_sum = 0.0;
@@ -1107,7 +1102,7 @@ mod tests {
             fraction_sum += fraction;
         }
         println!("volume fraction sum: {fraction_sum}");
-        assert_relative_eq!(1.0, fraction_sum, max_relative = 1e-12);
+        assert_relative_eq(1.0, fraction_sum, 1e-12);
     }
 
     /// V&V test: with zero power, every node sits exactly at the surface
@@ -1226,7 +1221,7 @@ mod tests {
              relative difference {:e}",
             ((assembled_kelvin - hand_rise_kelvin) / hand_rise_kelvin).abs()
         );
-        assert_relative_eq!(hand_rise_kelvin, assembled_kelvin, max_relative = 1e-12);
+        assert_relative_eq(hand_rise_kelvin, assembled_kelvin, 1e-12);
 
         // (b) thin-coating limit: the layered stack becomes one solid sphere
         let thin_radii = [1.00000025, 1.0000005, 1.00000075, 1.000001].map(|scale| r0 * scale);
@@ -1247,7 +1242,7 @@ mod tests {
             analytic_kelvin,
             ((thin_rise.value - analytic_kelvin) / analytic_kelvin).abs()
         );
-        assert_relative_eq!(analytic_kelvin, thin_rise.value, max_relative = 1e-5);
+        assert_relative_eq(analytic_kelvin, thin_rise.value, 1e-5);
     }
 
     /// V&V test: the four layer conductivity correlations reproduce the
@@ -1290,7 +1285,7 @@ mod tests {
             .unwrap()
             .get::<watt_per_meter_kelvin>();
         println!("UO2 k at 1000 K: measured {uo2_measured}, hand {uo2_hand}");
-        assert_relative_eq!(uo2_hand, uo2_measured, max_relative = 1e-12);
+        assert_relative_eq(uo2_hand, uo2_measured, 1e-12);
 
         // dense pyrocarbon at 1900 kg/m^3
         let pyc_hand =
@@ -1300,7 +1295,7 @@ mod tests {
                 .unwrap()
                 .get::<watt_per_meter_kelvin>();
         println!("dense PyC k at 1000 K: measured {pyc_measured}, hand {pyc_hand}");
-        assert_relative_eq!(pyc_hand, pyc_measured, max_relative = 1e-12);
+        assert_relative_eq(pyc_hand, pyc_measured, 1e-12);
 
         // buffer at 1100 kg/m^3 — half the dense form
         let buffer_hand =
@@ -1310,7 +1305,7 @@ mod tests {
                 .unwrap()
                 .get::<watt_per_meter_kelvin>();
         println!("buffer k at 1000 K: measured {buffer_measured}, hand {buffer_hand}");
-        assert_relative_eq!(buffer_hand, buffer_measured, max_relative = 1e-12);
+        assert_relative_eq(buffer_hand, buffer_measured, 1e-12);
 
         // SiC
         let sic_hand = 17885.0 / 1000.0 + 2.0;
@@ -1318,7 +1313,7 @@ mod tests {
             .unwrap()
             .get::<watt_per_meter_kelvin>();
         println!("SiC k at 1000 K: measured {sic_measured}, hand {sic_hand}");
-        assert_relative_eq!(sic_hand, sic_measured, max_relative = 1e-12);
+        assert_relative_eq(sic_hand, sic_measured, 1e-12);
 
         // ordering
         assert!(sic_measured > pyc_measured);
@@ -1433,7 +1428,7 @@ mod tests {
         }
         let uniform_mix = 1.0 / inverse_sum;
         println!("uniform-composite mix: {uniform_mix} W/(m K) vs constituent {single_layer_k}");
-        assert_relative_eq!(single_layer_k, uniform_mix, max_relative = 1e-12);
+        assert_relative_eq(single_layer_k, uniform_mix, 1e-12);
     }
 
     /// V&V test: the HTR-10 particle's steady temperature rise at its nominal

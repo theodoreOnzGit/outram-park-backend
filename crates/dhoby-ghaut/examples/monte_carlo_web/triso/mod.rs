@@ -16,7 +16,7 @@ use crate::rungs::{LoadedRung, McRung, RungBuilder, RungInfo};
 use dhoby_ghaut::web_demo::view::View;
 use egui::{Color32, Rect, Sense, Stroke, StrokeKind, Vec2};
 
-/// The marker type `rung_table!` names.
+/// The marker type `table.rs` names.
 pub struct Triso;
 
 const HELIUM: Color32 = Color32::from_rgb(24, 28, 36);

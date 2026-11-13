@@ -1885,3 +1885,10 @@ hash = "sha256:3403f0b2b815b65f02e8b4374bbfa38cda98e9974ca76007beeb556dec47e774"
 doc_hash = "sha256:a99aa3d6179bbb428265bba35d8809ea717c2ab2a720f45a8ccee209845a543e"
 callees = ["fn:77d03481265faf4e"]
 uses = ["fn:1c13282fc8f3390b"]
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = []
+failed = []

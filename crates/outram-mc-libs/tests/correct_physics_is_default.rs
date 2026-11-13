@@ -95,6 +95,16 @@ fn from_endf_file_applies_urr_and_dbrc_by_default() {
         "U-238 URR range [{lo:.3e}, {hi:.3e}] eV is not the expected ~20-149 keV"
     );
 
+    // Resonance elastic scattering: on by default, with upstream's default
+    // method, RVS (gh:#1311, maintainer 2026-11-09: "On, upstream's rvs
+    // method"; OpenMC settings.cpp `res_scat_method {ResScatMethod::rvs}`).
+    assert!(n.has_dbrc(), "U-238 built through from_endf_file has no resonance elastic scattering");
+    assert_eq!(
+        n.dbrc_table().map(|t| t.method()),
+        Some(outram_mc_libs::physics::scatter::ResonanceScatteringMethod::Rvs),
+        "the resonance-scattering method must default to RVS, upstream's default"
+    );
+
     // Delayed-neutron spectra (GitHub #365 audit): ENDF/B-VIII.0 U-238 carries
     // MF=5/455 LF=5 with theta == 1 for all six groups, so the ordinary
     // constructor must apply them.
@@ -242,4 +252,14 @@ fn thermal_equiprobable_sampling_is_openmc_by_default() {
     } else {
         println!("{} absent: ACE half skipped", ace.display());
     }
+}
+
+/// The resonance-scattering method defaults to RVS on any 0 K table, as
+/// OpenMC's (gh:#1311). Cheap: no nuclear data needed.
+#[test]
+fn resonance_scattering_method_defaults_to_upstreams_rvs() {
+    use outram_mc_libs::physics::scatter::{DbrcTable, ResonanceScatteringMethod};
+    let t = DbrcTable::from_pairs(&[(1.0e-5, 10.0), (1.0, 12.0), (10.0, 300.0), (1.0e3, 9.0)], 1.0e3).expect("table");
+    assert_eq!(t.method(), ResonanceScatteringMethod::Rvs);
+    assert_eq!(t.with_method(ResonanceScatteringMethod::Dbrc).method(), ResonanceScatteringMethod::Dbrc);
 }

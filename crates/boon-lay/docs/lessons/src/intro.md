@@ -1,8 +1,9 @@
 # How to read this deep dive
 
 > **This site always tracks the `develop` branch, never `main`.** It is rebuilt
-> on every push to `develop`, and every code link points at the exact `develop`
-> commit it was built from,
+> when `develop` is merged into `web-deploy` (~~on every push to `develop`~~
+> **CHANGED 2026-11-06**, gh:#1306), and every code link points at the exact
+> `develop` commit it was built from,
 > [`@@COMMIT_SHORT@@`](https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@).
 > A released version on `main` may differ from what you read here.
 
@@ -19,13 +20,16 @@ The material on **all of**
 [`boon-lay`](https://github.com/theodoreOnzGit/outram-park-backend/tree/@@COMMIT@@/crates/boon-lay)
 comes in two books, kept distinct:
 
-- **The core lessons, rungs 1–8**, are a separate tutorial book:
-  [TRISO-ATOPS and fuel failure, one rung at a time](../../tutorials/triso-atops/intro.html).
-  A ladder of questions following one atom born in a TRISO particle, each
-  rung adding one piece of physics, each step built the same way (question,
-  shortest answer, formula, illustration, where it is in the code (a link into the
-  [Code Review map](../../code-review/)), check, prediction).
-  Start at [rung 1](../../tutorials/triso-atops/triso.html).
+- **The core lessons** ~~are a separate tutorial book, *TRISO-ATOPS and fuel
+  failure, one rung at a time*, rungs 1–8~~ **(since 2026-11-04, gh:#1207)**
+  are the [Fission products](../../science/index.html#fission-products)
+  science lessons, into which that tutorial book was folded: one page per
+  lesson, each with a live widget on recorded data, a prediction, a link into
+  the [Code Review map](../../code-review/) and a check. Chapters 4 and 5
+  follow a fission product through the TRISO layers and through TRISO-ATOPS;
+  start at [*Why layers?*](../../science/fission-products/barriers-why.html).
+  The [concept map](../../science/fission-products/atops-concepts.html) lists
+  every TRISO-ATOPS concept with its code, test and lesson.
 - **This book, the extended deep dive**, is the rest of the crate for someone
   who wants to read the code, change it, or check it: architecture, the
   fuel-failure equations one by one, HTR-10, run set-up, transmutation,

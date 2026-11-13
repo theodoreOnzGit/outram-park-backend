@@ -1,0 +1,53 @@
+# wasm32 compile gate for the GitHub Pages demos (gh:#1304).
+#
+# A demo that breaks only on wasm32 compiles natively, so a native compile
+# gate stays green, and the Pages build used to find the break about 50 min in
+# (`helical_sg_web` lost `tampines` on 2026-11-05; Pages was red for a day).
+# This runs `cargo check --release --target wasm32-unknown-unknown` of every
+# Pages demo example on each push to develop and each pull request into it:
+# `scripts/check-wasm-demos.sh`, which also runs locally. The demo list is read
+# from the demos' own `crates/*/web/*/build.sh` (and kovan-web's), never
+# copied here. Measured 2026-11-06 (36 threads, warm cache): 2 min.
+#
+# Its own small workflow, not a job of `fast-tests.yml`: that workflow is
+# `disabled_manually` (2026-09-29, `gh workflow list --all`), so a job there
+# would never run. Pages itself deploys from `web-deploy` (gh:#1306).
+
+name: wasm demos
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Supersede only pull-request runs; every develop push keeps its verdict.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  wasm-demos:
+    name: check / wasm32 Pages demos
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # rust-toolchain.toml (1.99.1, the workspace standard) overrides `stable`
+      # for every cargo command in the repo, so a target installed by the
+      # action above is invisible to cargo. The script's own `rustup target
+      # add` runs inside the checkout and so reaches the toolchain cargo uses.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: wasm-demos
+          cache-on-failure: true
+
+      - name: Check every Pages demo for wasm32-unknown-unknown
+        run: scripts/check-wasm-demos.sh

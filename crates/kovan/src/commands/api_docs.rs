@@ -2,12 +2,23 @@
 //! markdown mirror of its public API.
 //!
 //! A Rust port of `scripts/gen_api_docs.py`, which it **replaces** (retired
-//! 2026-08-14). The pipeline is unchanged:
+//! 2026-08-14). The pipeline is:
 //!
 //! ```text
-//! cargo +nightly doc --output-format json  ->  target/doc/<crate>.json
-//!                        rustdoc-md        ->  crates/<crate>/docs/<crate>-api.md
+//! cargo +nightly doc --release --lib …  ->  Cargo-reported library JSON path
+//!                        rustdoc-md    ->  crates/<crate>/docs/<crate>-api.md
 //! ```
+//!
+//! Cargo's artifact messages supply the JSON path, including the library name,
+//! configured target directory and any build-target subdirectory (gh:#779).
+//! `KOVAN_RUSTDOC_TOOLCHAIN` selects the nightly toolchain (default: `nightly`).
+//! CI pins it alongside rustdoc-md to keep the JSON producer and reader paired.
+//!
+//! # Credit
+//!
+//! The Cargo-artifact JSON resolution, the `KOVAN_RUSTDOC_TOOLCHAIN` pin and
+//! the end-to-end pipeline tests (gh:#779) were contributed by Curtis
+//! (KnightNiwrem on GitHub) in PR #1303, 2026-11-05.
 //!
 //! # Filename: `<crate>-api.md`, not `api.md`
 //!
@@ -60,7 +71,7 @@
 
 use std::io;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 /// Regenerate `crates/<crate_dir>/docs/<crate_dir>-api.md`.
 ///
@@ -83,52 +94,42 @@ pub fn generate(workspace_root: &Path, crate_dir: &str, private: bool) -> io::Re
         ));
     }
 
-    let manifest = std::fs::read_to_string(crate_path.join("Cargo.toml"))?;
-    let package = package_name(&manifest).ok_or_else(|| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!(
-                "could not find a [package] name in {}",
-                crate_path.join("Cargo.toml").display()
-            ),
-        )
-    })?;
-    // rustdoc names its JSON after the crate, which uses underscores where the
-    // package name may use hyphens.
-    let snake = package.replace('-', "_");
-
-    ensure_nightly()?;
+    let manifest = dunce::canonicalize(crate_path.join("Cargo.toml"))?;
+    let toolchain = std::env::var("KOVAN_RUSTDOC_TOOLCHAIN").unwrap_or_else(|_| "nightly".into());
+    ensure_nightly(&toolchain)?;
     ensure_rustdoc_md()?;
 
     let mut doc = Command::new("cargo");
-    doc.args([
-        "+nightly",
-        "doc",
-        "-p",
-        &package,
-        "--no-deps",
-        "-Z",
-        "unstable-options",
-        "--output-format",
-        "json",
-    ]);
+    doc.arg(format!("+{toolchain}"))
+        .args([
+            "doc",
+            "--release",
+            "--lib",
+            "--message-format=json-render-diagnostics",
+            "--no-deps",
+            "-Z",
+            "unstable-options",
+            "--output-format",
+            "json",
+        ])
+        .arg("--manifest-path")
+        .arg(&manifest);
     if private {
         doc.arg("--document-private-items");
     }
-    let status = doc
+    let output = doc
         .current_dir(workspace_root)
-        .status()
+        .stderr(Stdio::inherit())
+        .output()
         .map_err(|error| io::Error::new(error.kind(), format!("could not run cargo: {error}")))?;
-    if !status.success() {
+    if !output.status.success() {
         return Err(io::Error::other(format!(
-            "cargo +nightly doc failed for {package} (exit {status})"
+            "cargo +{toolchain} doc failed for {crate_dir} (exit {})",
+            output.status
         )));
     }
 
-    let json = workspace_root
-        .join("target")
-        .join("doc")
-        .join(format!("{snake}.json"));
+    let json = rustdoc_json_path(&output.stdout, &manifest)?;
     if !json.is_file() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
@@ -160,7 +161,7 @@ pub fn generate(workspace_root: &Path, crate_dir: &str, private: bool) -> io::Re
         })?;
     if !status.success() {
         return Err(io::Error::other(format!(
-            "rustdoc-md failed for {package} (exit {status})"
+            "rustdoc-md failed for {crate_dir} (exit {status})"
         )));
     }
 
@@ -181,35 +182,85 @@ pub fn generate(workspace_root: &Path, crate_dir: &str, private: bool) -> io::Re
     Ok(out_path)
 }
 
-/// Read `[package] name` from a manifest without a TOML parser.
-///
-/// Mirrors `kovan_semantics::agent_docs`'s reader: takes the first `name = ` key
-/// inside the `[package]` section and stops at the next section header. Enough
-/// for this workspace's manifests, and avoids a TOML dependency for one field.
-fn package_name(manifest: &str) -> Option<String> {
-    let mut in_package = false;
-    for line in manifest.lines() {
-        let line = line.trim();
-        if line.starts_with('[') {
-            in_package = line == "[package]";
-            continue;
-        }
-        if !in_package {
-            continue;
-        }
-        if let Some(rest) = line.strip_prefix("name") {
-            if let Some(value) = rest.trim_start().strip_prefix('=') {
-                return Some(value.trim().trim_matches('"').to_string());
-            }
-        }
-    }
-    None
+/// Cargo's structured output identifies artifacts without guessing their paths.
+#[derive(serde::Deserialize)]
+#[serde(tag = "reason")]
+enum DocMessage {
+    #[serde(rename = "compiler-artifact")]
+    Artifact {
+        manifest_path: PathBuf,
+        target: DocTarget,
+        filenames: Vec<PathBuf>,
+    },
+    #[serde(other)]
+    Other,
 }
 
-/// Fail with an actionable message if no nightly toolchain is installed.
-fn ensure_nightly() -> io::Result<()> {
+/// A target's kinds distinguish libraries from binaries and build scripts.
+#[derive(serde::Deserialize)]
+struct DocTarget {
+    kind: Vec<String>,
+}
+
+/// Select the library JSON Cargo actually produced for the requested manifest.
+/// Library kinds match the existing call-graph reader in `call_graph::members`.
+fn rustdoc_json_path(output: &[u8], manifest: &Path) -> io::Result<PathBuf> {
+    let mut paths = Vec::new();
+    for line in output.split(|byte| *byte == b'\n') {
+        // Other tools (for example procedural macros) may print ordinary text.
+        if !line.starts_with(b"{") {
+            continue;
+        }
+        let message: DocMessage = serde_json::from_slice(line).map_err(|error| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("invalid cargo artifact message: {error}"),
+            )
+        })?;
+        let DocMessage::Artifact {
+            manifest_path,
+            target,
+            filenames,
+        } = message
+        else {
+            continue;
+        };
+        if manifest_path == manifest
+            && target.kind.iter().any(|kind| {
+                matches!(
+                    kind.as_str(),
+                    "lib" | "rlib" | "cdylib" | "staticlib" | "dylib" | "proc-macro"
+                )
+            })
+        {
+            paths.extend(filenames.into_iter().filter(|path| {
+                path.extension()
+                    .is_some_and(|extension| extension == "json")
+            }));
+        }
+    }
+    paths.sort();
+    paths.dedup();
+    match paths.as_slice() {
+        [path] => Ok(path.clone()),
+        [] => Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!(
+                "cargo did not report library JSON for {}",
+                manifest.display()
+            ),
+        )),
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "cargo produced library JSON for multiple build targets; configure a single build.target for one API mirror",
+        )),
+    }
+}
+
+/// Fail with an actionable message if the selected nightly is unavailable.
+fn ensure_nightly(toolchain: &str) -> io::Result<()> {
     let output = Command::new("rustup")
-        .args(["toolchain", "list"])
+        .args(["run", toolchain, "rustdoc", "--version"])
         .output()
         .map_err(|error| {
             io::Error::new(
@@ -217,13 +268,15 @@ fn ensure_nightly() -> io::Result<()> {
                 format!("could not run rustup: {error} -- rustup is required to select nightly"),
             )
         })?;
-    if String::from_utf8_lossy(&output.stdout).contains("nightly") {
+    if output.status.success() {
         return Ok(());
     }
     Err(io::Error::new(
         io::ErrorKind::NotFound,
-        "no nightly toolchain installed -- rustdoc's JSON output is nightly-only. \
-         Run: rustup toolchain install nightly",
+        format!(
+            "documentation toolchain {toolchain} is unavailable -- rustdoc's JSON output is nightly-only. \
+             Run: rustup toolchain install {toolchain}"
+        ),
     ))
 }
 
@@ -282,7 +335,7 @@ fn crates_in_scope(workspace_root: &Path, scope: Scope) -> io::Result<Vec<String
 ///
 /// # Why one crate's failure does not stop the rest
 ///
-/// Each crate is a separate `cargo +nightly doc` invocation, and one that fails
+/// Each crate is a separate nightly `cargo doc` invocation, and one that fails
 /// to compile says nothing about the other thirty-six. Aborting on the first
 /// error would leave the suite half-regenerated with no summary of what
 /// happened. Failures are collected, reported by name at the end, and turned
@@ -371,17 +424,232 @@ pub fn run(
 mod tests {
     use super::*;
 
+    /// Serialises the tests that run the real `cargo doc` pipeline. With
+    /// `CARGO_TARGET_DIR` set in the environment every fixture shares one
+    /// target directory, so parallel runs overwrite each other's
+    /// `doc/example_package.json` and rustdoc-md reads a half-written file
+    /// (seen 2026-11-07 when reviewing PR #1303).
+    static DOC_PIPELINE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn lock_doc_pipeline() -> std::sync::MutexGuard<'static, ()> {
+        DOC_PIPELINE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    /// A dependency-free workspace whose directory, package and library names
+    /// can differ, as they do for kovan (gh:#779).
+    fn doc_workspace(lib_manifest: &str) -> tempfile::TempDir {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(
+            tmp.path().join("Cargo.toml"),
+            "[workspace]\nmembers = [\"crates/example-directory\"]\nresolver = \"2\"\n",
+        )
+        .unwrap();
+        let crate_path = tmp.path().join("crates/example-directory");
+        std::fs::create_dir_all(crate_path.join("src")).unwrap();
+        std::fs::write(
+            crate_path.join("Cargo.toml"),
+            format!(
+                "[package]\nname = \"example-package\"\nversion = \"0.1.0\"\nedition = \"2024\"\n{lib_manifest}"
+            ),
+        )
+        .unwrap();
+        std::fs::write(
+            crate_path.join("src/lib.rs"),
+            "/// The fixture's public answer.\npub fn answer() -> u8 { 42 }\n\
+             #[cfg(debug_assertions)]\npub fn debug_only() {}\n\
+             #[cfg(not(debug_assertions))]\npub fn release_only() {}\n",
+        )
+        .unwrap();
+        tmp
+    }
+
+    /// Run the real rustdoc -> rustdoc-md pipeline on a renamed library. The
+    /// old package-derived JSON path fails after rustdoc creates example_core.json.
     #[test]
-    fn package_name_is_read_from_the_package_section_only() {
+    fn generates_docs_for_a_library_named_differently_from_its_package() {
+        let _pipeline = lock_doc_pipeline();
+        let tmp = doc_workspace("\n[lib]\nname = \"example_core\"\n");
+        let path = generate(tmp.path(), "example-directory", false).unwrap();
         assert_eq!(
-            package_name("[package]\nname = \"kovan-cli\"\n").as_deref(),
-            Some("kovan-cli")
+            path,
+            tmp.path()
+                .join("crates/example-directory/docs/example-directory-api.md")
         );
-        // A `[[bin]]` name must not be mistaken for the package name -- getting
-        // this wrong would look for the wrong rustdoc JSON file.
+        let markdown = std::fs::read_to_string(path).unwrap();
+        assert!(markdown.contains("answer"), "{markdown}");
+        assert!(
+            markdown.contains("The fixture's public answer."),
+            "{markdown}"
+        );
+        // Measured 2026-11-05: --release leaves rustdoc's default cfgs intact;
+        // it does not remove cfg(debug_assertions) items from this mirror.
+        assert!(markdown.contains("debug_only"), "{markdown}");
+        assert!(!markdown.contains("release_only"), "{markdown}");
+    }
+
+    /// The same pipeline must still work when Cargo infers the library name
+    /// from a hyphenated package, with no explicit [lib] section.
+    #[test]
+    fn generates_docs_for_a_default_library_name() {
+        let _pipeline = lock_doc_pipeline();
+        let tmp = doc_workspace("");
+        // Exercise --all as well: Cargo selects the package from its manifest,
+        // with no per-crate metadata query or hand-written TOML parser.
+        run(tmp.path(), None, true, true, false).unwrap();
+        let path = tmp
+            .path()
+            .join("crates/example-directory/docs/example-directory-api.md");
+        let markdown = std::fs::read_to_string(path).unwrap();
+        assert!(markdown.contains("answer"), "{markdown}");
+        assert!(
+            markdown.contains("The fixture's public answer."),
+            "{markdown}"
+        );
+    }
+
+    #[test]
+    fn generates_docs_for_quoted_and_commented_package_names() {
+        let _pipeline = lock_doc_pipeline();
+        for name in [
+            "name = 'example-package'",
+            "name = \"example-package\" # a trailing comment",
+        ] {
+            let tmp = doc_workspace("");
+            let manifest = tmp.path().join("crates/example-directory/Cargo.toml");
+            let text = std::fs::read_to_string(&manifest).unwrap();
+            std::fs::write(&manifest, text.replace("name = \"example-package\"", name)).unwrap();
+            let path = generate(tmp.path(), "example-directory", false).unwrap();
+            let markdown = std::fs::read_to_string(path).unwrap();
+            assert!(markdown.contains("answer"), "{markdown}");
+        }
+    }
+
+    #[test]
+    fn generates_docs_with_a_configured_build_target_and_output_directory() {
+        let _pipeline = lock_doc_pipeline();
+        let tmp = doc_workspace("\n[lib]\nname = 'example_core'\n");
+        let version = Command::new("rustc").arg("-vV").output().unwrap();
+        assert!(version.status.success());
+        let version = String::from_utf8(version.stdout).unwrap();
+        let host = version
+            .lines()
+            .find_map(|line| line.strip_prefix("host: "))
+            .unwrap();
+        std::fs::create_dir(tmp.path().join(".cargo")).unwrap();
+        std::fs::write(
+            tmp.path().join(".cargo/config.toml"),
+            format!("[build]\ntarget = '{host}'\ntarget-dir = 'custom-build-output'\n"),
+        )
+        .unwrap();
+        // A stale host artifact must not be selected for this target build.
+        let stale_doc = tmp.path().join("custom-build-output/doc");
+        std::fs::create_dir_all(&stale_doc).unwrap();
+        std::fs::write(stale_doc.join("example_core.json"), "not rustdoc JSON").unwrap();
+        let path = generate(tmp.path(), "example-directory", false).unwrap();
+        let markdown = std::fs::read_to_string(path).unwrap();
+        assert!(markdown.contains("answer"), "{markdown}");
+        assert!(stale_doc.join("example_core.json").is_file());
+    }
+
+    #[test]
+    fn json_path_uses_the_reported_artifact_for_the_requested_manifest() {
+        let manifest = Path::new("workspace/crates/example/Cargo.toml");
+        let json = Path::new("custom-build-output/aarch64-linux-android/doc/example_core.json");
+        let messages = [
+            artifact_message(
+                Path::new("other/Cargo.toml"),
+                "lib",
+                Path::new("other.json"),
+            ),
+            artifact_message(manifest, "bin", Path::new("binary.json")),
+            artifact_message(manifest, "lib", Path::new("libexample_core.rmeta")),
+            artifact_message(manifest, "lib", json),
+            "ordinary output from another tool".into(),
+            serde_json::json!({"reason": "build-finished", "success": true}).to_string(),
+        ]
+        .join("\n");
         assert_eq!(
-            package_name("[package]\nversion = \"1\"\n\n[[bin]]\nname = \"kovan\"\n").as_deref(),
-            None
+            rustdoc_json_path(messages.as_bytes(), manifest).unwrap(),
+            json
+        );
+    }
+
+    /// A Cargo artifact message, containing only the fields this reader needs.
+    fn artifact_message(manifest: &Path, kind: &str, json: &Path) -> String {
+        serde_json::json!({
+            "reason": "compiler-artifact",
+            "manifest_path": manifest,
+            "target": {"kind": [kind]},
+            "filenames": [json]
+        })
+        .to_string()
+    }
+
+    #[test]
+    fn json_path_accepts_every_library_kind() {
+        let manifest = Path::new("Cargo.toml");
+        let json = Path::new("target/doc/example_package.json");
+        for kind in ["lib", "rlib", "cdylib", "staticlib", "dylib", "proc-macro"] {
+            let message = artifact_message(manifest, kind, json);
+            assert_eq!(
+                rustdoc_json_path(message.as_bytes(), manifest).unwrap(),
+                json,
+                "{kind}"
+            );
+        }
+    }
+
+    #[test]
+    fn json_path_reports_missing_library_artifacts() {
+        let manifest = Path::new("Cargo.toml");
+        let message = artifact_message(manifest, "bin", Path::new("binary.json"));
+        let error = rustdoc_json_path(message.as_bytes(), manifest).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::NotFound);
+        assert!(error.to_string().contains("Cargo.toml"));
+    }
+
+    #[test]
+    fn json_path_reports_malformed_artifact_messages() {
+        let error = rustdoc_json_path(b"{not JSON}", Path::new("Cargo.toml")).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn json_path_rejects_multiple_build_targets() {
+        let manifest = Path::new("Cargo.toml");
+        let messages = [
+            artifact_message(manifest, "lib", Path::new("target/host/doc/example.json")),
+            artifact_message(manifest, "lib", Path::new("target/other/doc/example.json")),
+        ]
+        .join("\n");
+        let error = rustdoc_json_path(messages.as_bytes(), manifest).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        assert!(error.to_string().contains("single build.target"));
+    }
+
+    #[test]
+    fn repeated_artifact_messages_identify_the_same_file() {
+        let manifest = Path::new("Cargo.toml");
+        let json = Path::new("target/doc/example.json");
+        let message = artifact_message(manifest, "lib", json);
+        let messages = format!("{message}\n{message}\n");
+        assert_eq!(
+            rustdoc_json_path(messages.as_bytes(), manifest).unwrap(),
+            json
+        );
+    }
+
+    #[test]
+    fn a_missing_selected_toolchain_reports_its_install_command() {
+        let toolchain = "nightly-2000-01-01";
+        let error = ensure_nightly(toolchain).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::NotFound);
+        assert!(
+            error
+                .to_string()
+                .contains("rustup toolchain install nightly-2000-01-01")
         );
     }
 

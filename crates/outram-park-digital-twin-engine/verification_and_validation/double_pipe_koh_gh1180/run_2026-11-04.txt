@@ -1,0 +1,112 @@
+# Output of: cargo test --release -p outram-park-digital-twin-engine --lib -j 2 koh_calibration_of_the_double_pipe -- --nocapture
+# 2026-11-04, branch claude/digital-twin-engine-vfseuf, 4 shared CPUs. Compiler warnings removed; nothing else edited.
+test multifidelity::double_pipe::koh::tests::koh_calibration_of_the_double_pipe has been running for over 60 seconds
+KOH: m = 264, n = 36, 9 stages, 714 s
+emulator plug-in: beta_u [0.04093857119202026, 0.021077577967789227, 0.06475064937897226, 0.18671371240984178, 0.05502607851925439, 0.15431023577932518, 0.010497144270557562], lam_uz 0.3130, lam_ws 12578.0, lam_wos 7370.2; y mean -0.1383 sd 0.5238
+KOH ln theta_h: mean 1.6409e-1 sd 1.1594e-1 median 1.6690e-1 95% [-6.8778e-2, 3.8340e-1]
+KOH ln theta_c: mean 3.3592e-1 sd 1.7099e-1 median 3.3084e-1 95% [2.6833e-2, 6.8261e-1]
+KOH r_f [m2 K/W]: mean 5.4283e-4 sd 2.4974e-4 median 5.5774e-4 95% [5.6932e-5, 9.6040e-4]
+KOH corr(h,c) -0.698 corr(h,r_f) 0.171 corr(c,r_f) 0.427
+KOH eps sd on ln UA: mean 0.0073 95% [0.0054, 0.0103]
+delta T01: x [10.0, 5.0, 1.0, 0.1] delta -0.0332 ± 0.0295
+delta T02: x [10.0, 5.0, 1.0, 0.3] delta -0.0300 ± 0.0305
+delta T03: x [10.0, 5.0, 100.0, 0.1] delta -0.0407 ± 0.0344
+delta T04: x [10.0, 5.0, 100.0, 0.3] delta -0.0367 ± 0.0351
+delta T05: x [10.0, 15.0, 1.0, 0.1] delta -0.0475 ± 0.0326
+delta T06: x [10.0, 15.0, 1.0, 0.3] delta -0.0413 ± 0.0320
+delta T07: x [10.0, 15.0, 100.0, 0.1] delta -0.0712 ± 0.0385
+delta T08: x [10.0, 15.0, 100.0, 0.3] delta -0.0632 ± 0.0374
+delta T09: x [10.0, 45.0, 1.0, 0.1] delta -0.0609 ± 0.0373
+delta T10: x [10.0, 45.0, 1.0, 0.3] delta -0.0426 ± 0.0347
+delta T11: x [10.0, 45.0, 100.0, 0.1] delta -0.0849 ± 0.0429
+delta T12: x [10.0, 45.0, 100.0, 0.3] delta -0.0644 ± 0.0399
+delta T13: x [30.0, 5.0, 1.0, 0.1] delta -0.0085 ± 0.0278
+delta T14: x [30.0, 5.0, 1.0, 0.3] delta +0.0092 ± 0.0287
+delta T15: x [30.0, 5.0, 100.0, 0.1] delta +0.0066 ± 0.0324
+delta T16: x [30.0, 5.0, 100.0, 0.3] delta +0.0259 ± 0.0331
+delta T17: x [30.0, 15.0, 1.0, 0.1] delta -0.0487 ± 0.0290
+delta T18: x [30.0, 15.0, 1.0, 0.3] delta -0.0388 ± 0.0296
+delta T19: x [30.0, 15.0, 100.0, 0.1] delta -0.0587 ± 0.0346
+delta T20: x [30.0, 15.0, 100.0, 0.3] delta -0.0466 ± 0.0347
+delta T21: x [30.0, 45.0, 1.0, 0.1] delta -0.0732 ± 0.0331
+delta T22: x [30.0, 45.0, 1.0, 0.3] delta -0.0605 ± 0.0318
+delta T23: x [30.0, 45.0, 100.0, 0.1] delta -0.0916 ± 0.0387
+delta T24: x [30.0, 45.0, 100.0, 0.3] delta -0.0768 ± 0.0368
+delta T25: x [90.0, 5.0, 1.0, 0.1] delta +0.0248 ± 0.0310
+delta T26: x [90.0, 5.0, 1.0, 0.3] delta +0.0552 ± 0.0272
+delta T27: x [90.0, 5.0, 100.0, 0.1] delta +0.0576 ± 0.0352
+delta T28: x [90.0, 5.0, 100.0, 0.3] delta +0.0903 ± 0.0311
+delta T29: x [90.0, 15.0, 1.0, 0.1] delta -0.0327 ± 0.0291
+delta T30: x [90.0, 15.0, 1.0, 0.3] delta -0.0206 ± 0.0275
+delta T31: x [90.0, 15.0, 100.0, 0.1] delta -0.0286 ± 0.0341
+delta T32: x [90.0, 15.0, 100.0, 0.3] delta -0.0141 ± 0.0320
+delta T33: x [90.0, 45.0, 1.0, 0.1] delta -0.0630 ± 0.0299
+delta T34: x [90.0, 45.0, 1.0, 0.3] delta -0.0596 ± 0.0286
+delta T35: x [90.0, 45.0, 100.0, 0.1] delta -0.0731 ± 0.0350
+delta T36: x [90.0, 45.0, 100.0, 0.3] delta -0.0682 ± 0.0331
+|delta| < 0.05 at 19/36
+KOH H1: CFD 1.14336 median 1.14229 (-0.09 %) 95% [1.11116, 1.17463] in z +0.06 delta -0.0371
+KOH H2: CFD 1.15001 median 1.14177 (-0.72 %) 95% [1.10951, 1.17341] in z +0.51 delta -0.0726
+KOH H3: CFD 1.29950 median 1.31644 (+1.30 %) 95% [1.28006, 1.35661] in z -0.88 delta +0.0026
+KOH H4: CFD 1.27261 median 1.27673 (+0.32 %) 95% [1.23945, 1.31250] in z -0.21 delta -0.0680
+KOH H5: CFD 0.76961 median 0.76711 (-0.32 %) 95% [0.74607, 0.78785] in z +0.24 delta -0.0620
+KOH H6: CFD 1.62369 median 1.66034 (+2.26 %) 95% [1.61566, 1.71095] in z -1.55 delta +0.0150
+KOH H7: CFD 1.19173 median 1.19626 (+0.38 %) 95% [1.16857, 1.22345] in z -0.31 delta -0.0505
+KOH H8: CFD 1.12149 median 1.11051 (-0.98 %) 95% [1.08432, 1.13613] in z +0.83 delta -0.0694
+KOH: held-out UA relative RMSE 1.28 %, 95 % coverage 8/8, 2 sigma coverage 8/8
+1-D alone: uncalibrated 8.95 %, at posterior-mean theta 6.30 % (theta [1.1862231156216758, 1.4199658771453592, 0.0005428288590767538, 1.0, 1.0])
+reset nu_mult_hot H1: CFD 1.14336 median 1.14280 (-0.05 %) 95% [1.11167, 1.17654] in z +0.02 delta +0.0542
+reset nu_mult_hot H2: CFD 1.15001 median 1.14318 (-0.59 %) 95% [1.11123, 1.17577] in z +0.42 delta +0.0229
+reset nu_mult_hot H3: CFD 1.29950 median 1.31548 (+1.23 %) 95% [1.27893, 1.35767] in z -0.81 delta +0.0844
+reset nu_mult_hot H4: CFD 1.27261 median 1.27681 (+0.33 %) 95% [1.23996, 1.31308] in z -0.22 delta +0.0178
+reset nu_mult_hot H5: CFD 0.76961 median 0.76793 (-0.22 %) 95% [0.74726, 0.78915] in z +0.16 delta +0.0229
+reset nu_mult_hot H6: CFD 1.62369 median 1.65880 (+2.16 %) 95% [1.61408, 1.71069] in z -1.46 delta +0.1032
+reset nu_mult_hot H7: CFD 1.19173 median 1.19501 (+0.28 %) 95% [1.16792, 1.22278] in z -0.23 delta +0.0373
+reset nu_mult_hot H8: CFD 1.12149 median 1.10917 (-1.10 %) 95% [1.08367, 1.13482] in z +0.94 delta +0.0086
+reset nu_mult_hot: held-out UA relative RMSE 1.22 %, 95 % coverage 8/8, 2 sigma coverage 8/8
+ablation nu_mult_hot: 1-D alone 4.90 % (-1.40 points); with delta 1.22 % (-0.05 points)
+reset nu_mult_cold H1: CFD 1.14336 median 1.14857 (+0.46 %) 95% [1.11697, 1.18887] in z -0.33 delta +0.0883
+reset nu_mult_cold H2: CFD 1.15001 median 1.14545 (-0.40 %) 95% [1.11372, 1.18153] in z +0.24 delta +0.0423
+reset nu_mult_cold H3: CFD 1.29950 median 1.32602 (+2.04 %) 95% [1.28831, 1.37753] in z -1.20 delta +0.1414
+reset nu_mult_cold H4: CFD 1.27261 median 1.28304 (+0.82 %) 95% [1.24688, 1.32377] in z -0.56 delta +0.0597
+reset nu_mult_cold H5: CFD 0.76961 median 0.76876 (-0.11 %) 95% [0.74809, 0.79043] in z +0.08 delta +0.0384
+reset nu_mult_cold H6: CFD 1.62369 median 1.67107 (+2.92 %) 95% [1.62556, 1.72741] OUT z -1.86 delta +0.1562
+reset nu_mult_cold H7: CFD 1.19173 median 1.20039 (+0.73 %) 95% [1.17358, 1.23409] in z -0.59 delta +0.0746
+reset nu_mult_cold H8: CFD 1.12149 median 1.11074 (-0.96 %) 95% [1.08542, 1.13748] in z +0.79 delta +0.0543
+reset nu_mult_cold: held-out UA relative RMSE 1.70 %, 95 % coverage 7/8, 2 sigma coverage 8/8
+ablation nu_mult_cold: 1-D alone 8.57 % (+2.27 points); with delta 1.70 % (+0.42 points)
+reset wall_resistance H1: CFD 1.14336 median 1.13398 (-0.82 %) 95% [1.09917, 1.16677] in z +0.57 delta -0.1299
+reset wall_resistance H2: CFD 1.15001 median 1.13255 (-1.52 %) 95% [1.09588, 1.16506] in z +1.01 delta -0.1700
+reset wall_resistance H3: CFD 1.29950 median 1.30530 (+0.45 %) 95% [1.26530, 1.34454] in z -0.28 delta -0.1005
+reset wall_resistance H4: CFD 1.27261 median 1.26489 (-0.61 %) 95% [1.22164, 1.30189] in z +0.42 delta -0.1759
+reset wall_resistance H5: CFD 0.76961 median 0.76328 (-0.82 %) 95% [0.74106, 0.78410] in z +0.60 delta -0.1527
+reset wall_resistance H6: CFD 1.62369 median 1.65085 (+1.67 %) 95% [1.60523, 1.69982] in z -1.15 delta -0.0879
+reset wall_resistance H7: CFD 1.19173 median 1.18817 (-0.30 %) 95% [1.15494, 1.21647] in z +0.27 delta -0.1497
+reset wall_resistance H8: CFD 1.12149 median 1.10709 (-1.28 %) 95% [1.07714, 1.13421] in z +1.00 delta -0.1810
+reset wall_resistance: held-out UA relative RMSE 1.14 %, 95 % coverage 8/8, 2 sigma coverage 8/8
+ablation wall_resistance: 1-D alone 17.33 % (+11.03 points); with delta 1.14 % (-0.14 points)
+no-delta ln theta_h: mean -2.5013e-2 sd 3.5501e-2 median -2.4494e-2 95% [-1.0040e-1, 4.5551e-2]
+no-delta ln theta_c: mean 7.7652e-1 sd 8.5987e-2 median 7.9461e-1 95% [5.7139e-1, 8.8486e-1]
+no-delta r_f [m2 K/W]: mean 8.5056e-4 sd 1.2673e-4 median 8.8328e-4 95% [5.3671e-4, 9.9303e-4]
+no-delta corr(h,c) -0.468 corr(h,r_f) 0.557 corr(c,r_f) 0.429
+no-delta eps sd on ln UA: mean 0.0297 95% [0.0224, 0.0395]
+no-delta H1: CFD 1.14336 median 1.14141 (-0.17 %) 95% [1.07178, 1.21470] in z +0.06 delta +0.0000
+no-delta H2: CFD 1.15001 median 1.16159 (+1.01 %) 95% [1.09177, 1.23768] in z -0.32 delta +0.0000
+no-delta H3: CFD 1.29950 median 1.28744 (-0.93 %) 95% [1.20902, 1.36930] in z +0.30 delta +0.0000
+no-delta H4: CFD 1.27261 median 1.31427 (+3.27 %) 95% [1.23595, 1.39955] in z -1.03 delta +0.0000
+no-delta H5: CFD 0.76961 median 0.77387 (+0.55 %) 95% [0.72753, 0.82477] in z -0.18 delta +0.0000
+no-delta H6: CFD 1.62369 median 1.59750 (-1.61 %) 95% [1.49868, 1.69964] in z +0.52 delta +0.0000
+no-delta H7: CFD 1.19173 median 1.21030 (+1.56 %) 95% [1.13769, 1.28795] in z -0.49 delta +0.0000
+no-delta H8: CFD 1.12149 median 1.14661 (+2.24 %) 95% [1.07811, 1.22348] in z -0.71 delta +0.0000
+no-delta: held-out UA relative RMSE 1.80 %, 95 % coverage 8/8, 2 sigma coverage 8/8
+CFD Nu ratio tube (0.8765875459684199, 1.0781079291955087) vs theta_h median 1.1816; annulus (1.2567820956108824, 1.5814351897874606) vs theta_c median 1.3921
+Q H1: CFD 20.6025 W, calibrated 1-D 20.9165 W (+1.52 %), uncalibrated 19.8790 W (-3.51 %)
+Q H2: CFD 22.9914 W, calibrated 1-D 23.4162 W (+1.85 %), uncalibrated 22.3988 W (-2.58 %)
+Q H3: CFD 29.5445 W, calibrated 1-D 29.8447 W (+1.02 %), uncalibrated 27.9762 W (-5.31 %)
+Q H4: CFD 38.5843 W, calibrated 1-D 40.4060 W (+4.72 %), uncalibrated 37.2257 W (-3.52 %)
+Q H5: CFD 19.5927 W, calibrated 1-D 20.1428 W (+2.81 %), uncalibrated 19.0899 W (-2.57 %)
+Q H6: CFD 32.1278 W, calibrated 1-D 32.3406 W (+0.66 %), uncalibrated 30.5514 W (-4.91 %)
+Q H7: CFD 28.9464 W, calibrated 1-D 29.8242 W (+3.03 %), uncalibrated 27.8534 W (-3.78 %)
+Q H8: CFD 42.1492 W, calibrated 1-D 44.9562 W (+6.66 %), uncalibrated 41.1459 W (-2.38 %)
+total 1160 s
+test multifidelity::double_pipe::koh::tests::koh_calibration_of_the_double_pipe ... ok

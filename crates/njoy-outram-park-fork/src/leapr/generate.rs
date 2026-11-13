@@ -56,14 +56,20 @@
 //! # What is and is not validated
 //!
 //! **This matters more than the convenience**, and it is **per material**, not
-//! a property of the code path. Only crystalline graphite has been compared
-//! against a reference tape:
+//! a property of the code path. ~~Only crystalline graphite has been compared
+//! against a reference tape:~~ **CORRECTED 2026-11-03 (GitHub #1140):** four
+//! materials have now been compared against their published tapes at the
+//! stored-value level — crystalline graphite and the two porous reactor
+//! grades (both channels) and Si/C in SiC (MT=4); Si in SiC's MT=4 had also
+//! been compared (to 1 %) since 2026-08-21, which this sentence missed:
 //!
 //! | Material / channel | Status (2026-08-13) |
 //! |---|---|
 //! | `CrystallineGraphite` MF=7/**MT=4** incoherent inelastic | **Validated** — ~~60,000 / 60,000 stored values bit-identical~~ 1.004e-13 max against ENDF/B-VIII.0 at 296 K, 6,645 / 60,000 bit-identical (CORRECTED 2026-10-14). |
 //! | `CrystallineGraphite` MF=7/**MT=2** coherent elastic | **Validated** — 221 / 221 Bragg grid points, max relative deviation ~~**0.000e0**~~ 1.001e-13 (edge energies) and 1.000e-13 (`S(E)`) at 296 K through this path (CORRECTED 2026-10-14, `examples/graphite_sab_generation.rs`, 2026-10-04). Across all ten temperatures, `tests/leapr_graphite_coherent_elastic_parity.rs` measures max **1.001e-13** on the raw kernel output (float round-trip noise on a 7-digit field). |
-//! | `ReactorGraphite10P`, `ReactorGraphite30P` (either channel) | **Not validated.** They parse and generate through the identical path, but no parity measurement has been taken. |
+//! | `ReactorGraphite10P`, `ReactorGraphite30P` (either channel) | ~~**Not validated.** They parse and generate through the identical path, but no parity measurement has been taken.~~ **Validated, CORRECTED 2026-11-03 (#1140)**, `tests/leapr_htr10_tsl_vs_endf8.rs`. **MT=4:** generated one temperature at a time (`run::run_deck_at_temperature`, the demo path) at each of the ten tabulated temperatures (296–2000 K), every one of the 60,000 stored `S` per temperature is **bit-identical** to the published tape after both are read from text, and `B(1..6)` and `T_eff` are identical. **MT=2:** the whole deck in one run (`run::run_deck`) reproduces the published section bit for bit at all ten temperatures (169 Bragg edges for 10P, 160 for 30P); a single-temperature run is bit-identical at 296 K and **within one unit in the 7th figure** at the other nine (worst 9.4e-7 relative), with fewer retained edges, because NJOY's `endout` thins the Bragg tail with the *first* temperature's `W'` and writes later temperatures with `sigfig`'d edge energies. Not a port defect: splicing the 296 K and T runs into one `endout` call reproduces the tape's row bit for bit. Record: `verification_and_validation/leapr_htr10_tsl_vs_endf8.md`. |
+//! | `SiInSiC`, `CInSiC` MF=7/**MT=4** incoherent inelastic | **Validated (2026-11-03, #1140):** at each of the eight tabulated temperatures (300–1200 K), all 60,000 stored `S` per temperature bit-identical to the published tape (Si in SiC at 1000 K: 59,999; the one difference is 1.8e-75 written where the tape has 0, below NJOY's 1e-30 floor and not root-caused), `B(1..6)` and `T_eff` identical. Si in SiC had been compared to 1 % since 2026-08-21 (`tests/leapr_temperature_block_selection.rs`). |
+//! | `SiInSiC`, `CInSiC` MF=7/**MT=2** elastic | **Not validated, and path-dependent.** The published section is coherent (LTHR=1) from an in-house routine, not LEAPR. [`generate_tape`] (this module's [`SabRequest`] path) builds coherent elastic from the 3C-SiC catalogue, −3 % at 0.0253 eV by design (`docs/leapr-sic-coherent-elastic-vv.md`); [`crate::leapr::run::run_deck_at_temperature`] follows upstream `leapr.f90:3043` (`iel = 0`, `twt = 0` → incoherent) and writes **incoherent** elastic (LTHR=2), a different law from the published one. |
 //! | `HInH2O` MF=7/**MT=4** incoherent inelastic | ~~**Not validated against the published tape** — regeneration at 293.6 K agrees with it to **~0.6 %** on σ_inel over 0.0253–8 eV and **+0.09 %** on `T_eff`~~ **CORRECTED 2026-10-14:** that 0.6 % was the block-0 (283.6 K) spectrum used for a 293.6 K request; with the 293.6 K block (2026-08-21) regeneration reproduces the published tape's σ_inel at 0.0253, 1, 4 and 8 eV to its printed precision (+0.01 % at most) and `T_eff` to +0.0028 % (`tests/leapr_h2o_secondary_scatterer.rs`). [`SabRequest::validation`] still reports it unvalidated: that is a comparison of four σ values and `T_eff`, not of the stored S(α,β). **Validated like-for-like against NJOY2016 itself** (2026-09-10): the same deck run through upstream `ac5adf5` at 293.6 K gives 44,961 `S(alpha,beta)` points identical to 1e-13 and `T_eff` 1194.341 K exactly (`tests/leapr_h2o_njoy_oracle.rs`, with `LeaprDeck::with_constants(Codata2018)`); the 0.6 % is the published tape's own build/constants. |
 //! | `DInD2O` MF=7/**MT=4** (Sköld, `nsk = 2`) | **Validated like-for-like against NJOY2016** (2026-09-10): 60,322 points at 293.6 K identical to 1e-13, `T_eff` exact (`tests/leapr_d2o_skold_njoy_oracle.rs`). Not compared with the published tape. |
 //! | `SiO2Alpha` MF=7/**MT=4** (mixed moderator, `b7 = 0`) | **Validated like-for-like against NJOY2016** (2026-09-10): 43,449 points over 5 temperatures identical to 1e-13, both `T_eff` tables exact (`tests/leapr_sio2_mixed_moderator_oracle.rs`). Not compared with the published tape. |
@@ -406,11 +412,17 @@ impl SabRequest {
     /// The validation standing of each channel for *this* request, as
     /// `(inelastic MT=4, elastic MT=2)`.
     ///
-    /// Validation is a property of the **material**, not of the code path: as of
+    /// Validation is a property of the **material**, not of the code path: ~~as of
     /// 2026-08-13 only [`SabMaterial::CrystallineGraphite`] has been compared
     /// point-by-point against a reference tape (both channels). The porous
     /// reactor grades run the identical code with a different deck and are
-    /// reported as unvalidated, because they are.
+    /// reported as unvalidated, because they are.~~ **CORRECTED 2026-11-03
+    /// (GitHub #1140):** crystalline graphite and both porous reactor grades
+    /// (`ReactorGraphite10P`, `ReactorGraphite30P`) report both channels
+    /// validated; [`SabMaterial::SiInSiC`] and [`SabMaterial::CInSiC`] report
+    /// MT=4 validated and MT=2 not (the published SiC MT=2 is not LEAPR output
+    /// and this crate misses it by -3 % by design); every other material
+    /// reports neither.
     ///
     /// A tape source reports both channels validated in the sense that matters:
     /// they are the published evaluation itself, not something this crate
@@ -422,16 +434,33 @@ impl SabRequest {
                 ChannelValidation::ValidatedAgainstReferenceTape,
             );
         }
-        // Validation is a property of the material, not of the code path: only
-        // crystalline graphite has been compared against a reference tape.
-        let status = if matches!(self.material, SabMaterial::CrystallineGraphite) {
-            ChannelValidation::ValidatedAgainstReferenceTape
-        } else {
-            ChannelValidation::NotValidatedAgainstReferenceTape
+        // Validation is a property of the material, not of the code path.
+        // ~~Only crystalline graphite has been compared against a reference
+        // tape.~~ CORRECTED 2026-11-03 (GitHub #1140): the porous graphites
+        // (both channels) and the two SiC sublattices (MT=4 only) have been
+        // too -- `tests/leapr_htr10_tsl_vs_endf8.rs`. SiC's MT=2 is NOT: the
+        // published section came from an in-house routine and this crate's
+        // 3C-SiC Bragg sum misses it by -3 % on purpose
+        // (`docs/leapr-sic-coherent-elastic-vv.md`).
+        let (status, elastic_status) = match self.material {
+            SabMaterial::CrystallineGraphite
+            | SabMaterial::ReactorGraphite10P
+            | SabMaterial::ReactorGraphite30P => (
+                ChannelValidation::ValidatedAgainstReferenceTape,
+                ChannelValidation::ValidatedAgainstReferenceTape,
+            ),
+            SabMaterial::SiInSiC | SabMaterial::CInSiC => (
+                ChannelValidation::ValidatedAgainstReferenceTape,
+                ChannelValidation::NotValidatedAgainstReferenceTape,
+            ),
+            _ => (
+                ChannelValidation::NotValidatedAgainstReferenceTape,
+                ChannelValidation::NotValidatedAgainstReferenceTape,
+            ),
         };
         let elastic = match self.elastic {
             ElasticChannel::Omit => ChannelValidation::NotEmitted,
-            ElasticChannel::Generate => status,
+            ElasticChannel::Generate => elastic_status,
             // Never validated, for any material. For a built-in monatomic
             // lattice this channel shares an arm with `Generate` and emits the
             // identical bytes, so graphite's validation would carry over on the
@@ -1504,8 +1533,10 @@ mod tests {
     /// (material, channel) pair.
     /// **Pass criterion:** crystalline graphite reports both channels validated
     /// (MT=4 by `tests/leapr_graphite_deck_parity.rs`, MT=2 by
-    /// `tests/leapr_graphite_coherent_elastic_parity.rs`); the porous grades
-    /// report neither; omitting the elastic channel reports it not emitted; a
+    /// `tests/leapr_graphite_coherent_elastic_parity.rs`); ~~the porous grades
+    /// report neither;~~ **CORRECTED 2026-11-03 (#1140):** the porous grades
+    /// report both, the SiC sublattices MT=4 only
+    /// (`tests/leapr_htr10_tsl_vs_endf8.rs`), an unmeasured material neither; omitting the elastic channel reports it not emitted; a
     /// tape source reports both validated.
     ///
     /// **Result (2026-08-13):** holds. This is the tripwire that keeps the
@@ -1523,8 +1554,10 @@ mod tests {
             "crystalline graphite: both channels measured against ENDF/B-VIII.0"
         );
 
-        // The porous grades run the same code with a different deck and have
-        // never been measured. Saying so is the whole point of this accessor.
+        // ~~The porous grades run the same code with a different deck and have
+        // never been measured.~~ CORRECTED 2026-11-03 (GitHub #1140): measured
+        // at all ten tabulated temperatures, both channels
+        // (`tests/leapr_htr10_tsl_vs_endf8.rs`).
         for m in [
             SabMaterial::ReactorGraphite10P,
             SabMaterial::ReactorGraphite30P,
@@ -1532,13 +1565,34 @@ mod tests {
             assert_eq!(
                 SabRequest::new(m, t(296.0)).validation(),
                 (
-                    ChannelValidation::NotValidatedAgainstReferenceTape,
-                    ChannelValidation::NotValidatedAgainstReferenceTape
+                    ChannelValidation::ValidatedAgainstReferenceTape,
+                    ChannelValidation::ValidatedAgainstReferenceTape
                 ),
-                "{}: no parity measurement has been taken",
+                "{}: both channels measured against ENDF/B-VIII.0",
                 m.label()
             );
         }
+        // SiC: MT=4 measured bit-identical at all eight temperatures; MT=2 is a
+        // known, characterised -3 % miss and must not read as validated.
+        for m in [SabMaterial::SiInSiC, SabMaterial::CInSiC] {
+            assert_eq!(
+                SabRequest::new(m, t(300.0)).validation(),
+                (
+                    ChannelValidation::ValidatedAgainstReferenceTape,
+                    ChannelValidation::NotValidatedAgainstReferenceTape
+                ),
+                "{}: MT=4 validated, MT=2 not",
+                m.label()
+            );
+        }
+        // A material nobody has measured stays unvalidated.
+        assert_eq!(
+            SabRequest::new(SabMaterial::BeInBeO, t(296.0)).validation(),
+            (
+                ChannelValidation::NotValidatedAgainstReferenceTape,
+                ChannelValidation::NotValidatedAgainstReferenceTape
+            )
+        );
 
         let no_elastic = gen.clone().with_elastic(ElasticChannel::Omit);
         assert_eq!(

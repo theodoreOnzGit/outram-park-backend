@@ -704,17 +704,31 @@ fn matpro_oxide_heat_capacity(
     theta: f64,
     defect_energy: f64,
 ) -> f64 {
-    let scaled = theta / temperature;
-    let exponential = scaled.r_exp();
-    let denominator = temperature * (exponential - 1.0);
-
-    let einstein = k1 * theta * theta * exponential / (denominator * denominator);
+    let einstein = matpro_einstein_heat_capacity(temperature, k1, theta);
     let anharmonic = k2 * temperature;
     let schottky = (oxygen_metal_ratio / 2.0) * k3 * defect_energy
         / (GAS_CONSTANT * temperature * temperature)
         * (-defect_energy / (GAS_CONSTANT * temperature)).r_exp();
 
     einstein + anharmonic + schottky
+}
+
+/// The Einstein (lattice-vibration) term of the MATPRO oxide heat capacity,
+/// `k1*theta^2*exp(theta/T) / (T*(exp(theta/T) - 1))^2` \[J/(kg K)\].
+///
+/// Split out of [`matpro_oxide_heat_capacity`] (same operations, same order,
+/// so that function's results are bit-for-bit unchanged) because the older
+/// MATPRO UO2 conductivity model
+/// ([`ConductivityModel::MatproFthconUo2`]) uses exactly this term as its
+/// phonon specific heat `Cv`. Sharing it keeps the two from drifting.
+///
+/// [`ConductivityModel::MatproFthconUo2`]:
+///     crate::materials::properties::conductivity::ConductivityModel::MatproFthconUo2
+pub(crate) fn matpro_einstein_heat_capacity(temperature: f64, k1: f64, theta: f64) -> f64 {
+    let scaled = theta / temperature;
+    let exponential = scaled.r_exp();
+    let denominator = temperature * (exponential - 1.0);
+    k1 * theta * theta * exponential / (denominator * denominator)
 }
 
 #[cfg(test)]

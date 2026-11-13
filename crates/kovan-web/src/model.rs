@@ -40,14 +40,15 @@ pub struct ModNode {
     pub children: Vec<usize>,
     pub functions: usize,
     /// The ids of those functions and of the module's types and constants
-    /// (#843), for the card's reviewed / to-review
+    /// (#843), for the card's valid / pending-or-tentative / unreviewed
     /// counts ([`Facts::review_split`]).
     pub fn_ids: Vec<String>,
     pub maturity: Option<u8>,
     pub test: bool,
 }
 
-/// The module tree of one crate: the library's, then each example's.
+/// The module tree of one crate: the library's, then each example's, then
+/// (when tests are shown) each integration test's (`tests/*.rs`).
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ModTree {
     pub nodes: Vec<ModNode>,
@@ -55,14 +56,20 @@ pub struct ModTree {
     pub lib_root: Option<usize>,
     /// Each example's root file, by example name.
     pub example_roots: Vec<usize>,
+    /// Each integration-test target's root file (`tests/*.rs`), only when
+    /// tests are shown (GitHub #1164: they were never in the tree, so a
+    /// test in `tests/` could not be found on the map).
+    pub test_roots: Vec<usize>,
 }
 
 impl ModTree {
-    /// Build the tree of `krate`. Modules under `#[cfg(test)]` are left out
-    /// unless `tests`.
+    /// Build the tree of `krate`. Modules under `#[cfg(test)]`, and the
+    /// integration-test targets (#1164), are left out unless `tests`.
     pub fn build(krate: &CrateGraph, tests: bool) -> ModTree {
         let mut tree = ModTree::default();
-        for t in &krate.targets {
+        let test_targets = if tests { krate.tests.as_slice() } else { &[] };
+        for t in krate.targets.iter().chain(test_targets) {
+            let test_target = t.kind == TargetKind::Test;
             let mods: Vec<&Module> = t.modules.iter().filter(|m| tests || !m.test).collect();
             let base = tree.nodes.len();
             let index: BTreeMap<&str, usize> =
@@ -84,7 +91,7 @@ impl ModTree {
                     functions: m.functions.iter().filter(|f| tests || !f.test).count(),
                     fn_ids: reviewables(m, tests).map(|f| f.id.clone()).collect(),
                     maturity: m.maturity,
-                    test: m.test,
+                    test: m.test || test_target,
                 });
             }
             for i in base..tree.nodes.len() {
@@ -101,6 +108,7 @@ impl ModTree {
             match (t.kind, root) {
                 (TargetKind::Lib, Some(r)) => tree.lib_root = Some(r),
                 (TargetKind::Example, Some(r)) => tree.example_roots.push(r),
+                (TargetKind::Test, Some(r)) => tree.test_roots.push(r),
                 _ => {}
             }
         }
@@ -128,11 +136,18 @@ impl ModTree {
     }
 
     /// Every node in display order (depth first, children by path), with
-    /// its depth: the library first, then each example.
+    /// its depth: the library first, then each example, then each
+    /// integration test.
     pub fn depth_first(&self) -> Vec<(usize, usize)> {
         let mut out = Vec::new();
-        let mut stack: Vec<(usize, usize)> =
-            self.example_roots.iter().rev().map(|&r| (r, 0)).chain(self.lib_root.map(|r| (r, 0))).collect();
+        let mut stack: Vec<(usize, usize)> = self
+            .test_roots
+            .iter()
+            .rev()
+            .chain(self.example_roots.iter().rev())
+            .map(|&r| (r, 0))
+            .chain(self.lib_root.map(|r| (r, 0)))
+            .collect();
         while let Some((n, d)) = stack.pop() {
             out.push((n, d));
             for &c in self.nodes[n].children.iter().rev() {
@@ -150,6 +165,8 @@ pub enum TreeItem {
     Crate,
     /// The "examples" group card.
     Examples,
+    /// The "tests" group card: the integration tests (#1164).
+    Tests,
     Module(usize),
 }
 
@@ -188,9 +205,13 @@ pub fn tree_layout(tree: &ModTree, collapsed: &BTreeSet<String>) -> TreeLayout {
                 if !tree.example_roots.is_empty() {
                     v.push(TreeItem::Examples);
                 }
+                if !tree.test_roots.is_empty() {
+                    v.push(TreeItem::Tests);
+                }
                 v
             }
             TreeItem::Examples => tree.example_roots.iter().map(|&r| TreeItem::Module(r)).collect(),
+            TreeItem::Tests => tree.test_roots.iter().map(|&r| TreeItem::Module(r)).collect(),
             TreeItem::Module(i) => {
                 if collapsed.contains(&tree.nodes[i].file) {
                     Vec::new()
@@ -428,6 +449,20 @@ impl Review {
     }
 }
 
+/// A card's review counts ([`Facts::review_split`]).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ReviewSplit {
+    /// A valid stamp.
+    pub valid: usize,
+    /// Pending a workspace test, or tentative (GitHub #1106): reviewed,
+    /// waiting on a test run or on the stamps underneath, not on a person
+    /// for this function.
+    pub waiting: usize,
+    /// Never stamped, or a stamp that needs a person again (stale, moved,
+    /// needs fix, unverified, ...).
+    pub unreviewed: usize,
+}
+
 /// Lookups over everything loaded so far.
 #[derive(Debug, Default, Clone)]
 pub struct Facts {
@@ -447,13 +482,24 @@ impl Facts {
         }
     }
 
-    /// How many of `ids` are reviewed (a valid stamp) and how many need a
-    /// review (no stamp, or a stamp that no longer counts): the green and red
-    /// counts on a module card (maintainer, 2026-10-12: "so I can look at one
-    /// glance what functions need to be reviewed").
-    pub fn review_split(&self, ids: &[String]) -> (usize, usize) {
-        let reviewed = ids.iter().filter(|id| self.review(id).is_valid()).count();
-        (reviewed, ids.len() - reviewed)
+    /// How many of `ids` are valid, how many are waiting on something other
+    /// than their reviewer (pending a workspace test, or tentative until the
+    /// stamps underneath are valid, GitHub #1106), and how many need a person
+    /// (no stamp, or a stamp that needs a review again): the green, blue and
+    /// red counts on a crate or module card (maintainer, 2026-10-12: "so I
+    /// can look at one glance what functions need to be reviewed"; the
+    /// middle count added 2026-11-01: "so human authors and reviewers can
+    /// see where to focus their attention").
+    pub fn review_split(&self, ids: &[String]) -> ReviewSplit {
+        let mut s = ReviewSplit::default();
+        for id in ids {
+            match self.review(id).kind() {
+                StateKind::Valid => s.valid += 1,
+                StateKind::PendingWorkspaceTest | StateKind::Tentative => s.waiting += 1,
+                _ => s.unreviewed += 1,
+            }
+        }
+        s
     }
 
     /// The distinct workspace functions `id` calls, and (schema 4, #843) the
@@ -484,11 +530,20 @@ impl Facts {
         v
     }
 
-    /// The functions `id` calls that lack a valid stamp: what blocks its own
-    /// stamp under the bottom-up rule (#740). UNRESOLVED calls are not
-    /// counted (they are not in `calls`).
+    /// The functions `id` calls whose review does not stand
+    /// ([`Review::holds`]: a callee pending only a workspace test does not
+    /// block, maintainer 2026-10-29): what blocks its own stamp under the
+    /// bottom-up rule (#740). UNRESOLVED calls are not counted (they are
+    /// not in `calls`).
     pub fn blocked_by(&self, map: &CodeMap, slice: &CrateSlice, id: &str) -> Vec<String> {
-        self.callees(map, slice, id).into_iter().filter(|c| !self.review(c).is_valid()).collect()
+        // A tentative callee (#1106) is listed: its caller would wait too.
+        self.callees(map, slice, id)
+            .into_iter()
+            .filter(|c| {
+                let r = self.review(c);
+                !r.holds() || r.kind() == StateKind::Tentative
+            })
+            .collect()
     }
 }
 
@@ -538,6 +593,21 @@ pub fn find_function<'a>(krate: &'a CrateGraph, id: &str) -> Option<(&'a Module,
     krate.targets.iter().chain(krate.tests.iter()).find_map(|t| {
         t.modules.iter().find_map(|m| m.functions.iter().chain(m.items.iter()).find(|f| f.id == id).map(|f| (m, f, t.kind)))
     })
+}
+
+/// The libtest name of test function `id` (GitHub #1165, "Run this
+/// test"): its module path from the target root, then its name, as
+/// `cargo test -- --exact` takes it (`triso_atops_fork::tests::t` in a
+/// library, `paper_reproduces` in `tests/paper.rs`). `None` unless `id` is
+/// a `#[test]` function of the library or an integration-test target.
+pub fn libtest_name(krate: &CrateGraph, id: &str) -> Option<String> {
+    let (m, f, kind) = find_function(krate, id)?;
+    if !f.test_fn || !matches!(kind, TargetKind::Lib | TargetKind::Test) {
+        return None;
+    }
+    let qual = id.strip_prefix(&format!("{}::", m.file)).unwrap_or(id);
+    let qual = qual.split('#').next().unwrap_or(qual);
+    Some(if m.path.is_empty() { qual.to_string() } else { format!("{}::{qual}", m.path) })
 }
 
 /// The module with this file (integration-test targets included).
@@ -735,7 +805,7 @@ pub fn hierarchy_layout(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use kovan_common::call_graph::{Call, CallKind, Target};
 
@@ -779,13 +849,23 @@ mod tests {
     }
 
     /// A crate shaped like boon-lay's `triso_atops_fork::activities::live_pools`.
-    fn krate() -> CrateGraph {
+    pub(crate) fn krate() -> CrateGraph {
         let d = "crates/bl/src";
         CrateGraph {
             name: "bl".into(),
             dir: "crates/bl".into(),
             maturity: Some(1),
-            tests: Vec::new(),
+            tests: vec![Target {
+                kind: TargetKind::Test,
+                name: "paper".into(),
+                root: "crates/bl/tests/paper.rs".into(),
+                modules: vec![module(
+                    "crates/bl/tests/paper.rs",
+                    "",
+                    None,
+                    vec![Function { test: true, test_fn: true, ..func("crates/bl/tests/paper.rs", "reproduces_the_paper", 5) }],
+                )],
+            }],
             targets: vec![
                 Target {
                     kind: TargetKind::Lib,
@@ -802,7 +882,18 @@ mod tests {
                             vec![func(&format!("{d}/fork/act/live_pools.rs"), "step", 10)],
                         ),
                         module(&format!("{d}/chem.rs"), "chem", Some(&format!("{d}/lib.rs")), vec![func(&format!("{d}/chem.rs"), "rate", 3)]),
-                        Module { test: true, ..module(&format!("{d}/tests.rs"), "tests", Some(&format!("{d}/lib.rs")), vec![]) },
+                        Module {
+                            test: true,
+                            ..module(
+                                &format!("{d}/tests.rs"),
+                                "tests",
+                                Some(&format!("{d}/lib.rs")),
+                                vec![
+                                    Function { test: true, test_fn: true, ..func(&format!("{d}/tests.rs"), "rate_is_positive", 4) },
+                                    Function { test: true, ..func(&format!("{d}/tests.rs"), "helper", 9) },
+                                ],
+                            )
+                        },
                     ],
                 },
                 Target {
@@ -813,6 +904,20 @@ mod tests {
                 },
             ],
         }
+    }
+
+    /// #1165: the libtest name `cargo test -- --exact` takes. A library
+    /// test is named by its module path, an integration test by its name
+    /// alone; a test helper (no `#[test]`), an ordinary function and an
+    /// unknown id have none.
+    #[test]
+    fn a_test_has_its_libtest_name() {
+        let k = krate();
+        assert_eq!(libtest_name(&k, "crates/bl/src/tests.rs::rate_is_positive").as_deref(), Some("tests::rate_is_positive"));
+        assert_eq!(libtest_name(&k, "crates/bl/tests/paper.rs::reproduces_the_paper").as_deref(), Some("reproduces_the_paper"));
+        assert_eq!(libtest_name(&k, "crates/bl/src/tests.rs::helper"), None);
+        assert_eq!(libtest_name(&k, "crates/bl/src/chem.rs::rate"), None);
+        assert_eq!(libtest_name(&k, "crates/bl/src/nowhere.rs::x"), None);
     }
 
     /// The tree follows the `parent` links, sorted by path, test modules
@@ -831,6 +936,20 @@ mod tests {
         assert!(ModTree::build(&krate(), true).find("crates/bl/src/tests.rs").is_some());
         let order: Vec<&str> = t.depth_first().iter().map(|&(i, _)| t.nodes[i].name.as_str()).collect();
         assert_eq!(order, vec!["bl", "chem", "fork", "act", "live_pools", "demo"]);
+        // #1164: an integration test (`tests/paper.rs`) is in the tree only
+        // when tests are shown, as its own root after the examples, marked
+        // as test code, with its test function counted; and it has its own
+        // "tests" group card.
+        assert!(t.find("crates/bl/tests/paper.rs").is_none() && t.test_roots.is_empty());
+        let shown = ModTree::build(&krate(), true);
+        let paper = shown.find("crates/bl/tests/paper.rs").unwrap();
+        assert_eq!(shown.test_roots, [paper]);
+        assert!(shown.nodes[paper].test);
+        assert_eq!(shown.nodes[paper].fn_ids, ["crates/bl/tests/paper.rs::reproduces_the_paper"]);
+        assert_eq!(shown.depth_first().last().map(|&(i, d)| (i, d)), Some((paper, 0)));
+        let l = tree_layout(&shown, &BTreeSet::new());
+        assert!(l.position(TreeItem::Tests).is_some() && l.position(TreeItem::Module(paper)).is_some());
+        assert!(tree_layout(&t, &BTreeSet::new()).position(TreeItem::Tests).is_none());
     }
 
     /// Every module (and the examples group) gets one card, no two cards
@@ -1019,10 +1138,19 @@ mod tests {
         };
         let facts = Facts::new(&[stamp(&a, StampVerdict::Valid), stamp("crates/other/src/lib.rs::z", StampVerdict::Stale)]);
         assert_eq!(facts.blocked_by(&map, &slice, &b), vec!["crates/other/src/lib.rs::z".to_string()]);
-        // A module card's counts: valid is reviewed; stale and unstamped are not.
+        // A module card's counts: valid; pending or tentative; and the rest
+        // (stale, unstamped) to review.
         let ids = [a.clone(), "crates/other/src/lib.rs::z".to_string(), b.clone()];
-        assert_eq!(facts.review_split(&ids), (1, 2));
-        assert_eq!(none.review_split(&ids), (0, 3));
+        let split = |valid, waiting, unreviewed| ReviewSplit { valid, waiting, unreviewed };
+        assert_eq!(facts.review_split(&ids), split(1, 0, 2));
+        assert_eq!(none.review_split(&ids), split(0, 0, 3));
+        let kinded = |f: &str, k: StateKind| StampState { state: Some(k), ..stamp(f, StampVerdict::Stale) };
+        let waiting = Facts::new(&[
+            kinded(&a, StateKind::PendingWorkspaceTest),
+            kinded("crates/other/src/lib.rs::z", StateKind::Tentative),
+            kinded(&b, StateKind::Valid),
+        ]);
+        assert_eq!(waiting.review_split(&ids), split(1, 2, 0));
         // The tree carries each module's function ids for those counts.
         let t = ModTree::build(&krate(), false);
         let live = t.find("crates/bl/src/fork/act/live_pools.rs").unwrap();

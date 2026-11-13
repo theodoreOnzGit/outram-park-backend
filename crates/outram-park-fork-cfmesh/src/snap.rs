@@ -48,6 +48,7 @@
 //! Android-safe.
 
 use crate::math::Vec3;
+use crate::mesh_octree_queries::SurfaceSearch;
 use crate::volume_mesh::VolumeMesh;
 use std::collections::HashSet;
 
@@ -103,7 +104,34 @@ pub fn snap_to_surface(mesh: &VolumeMesh, points: &[Vec3], tris: &[[usize; 3]]) 
         neighbour: mesh.neighbour.clone(),
         n_cells: mesh.n_cells,
         patches: mesh.patches.clone(),
+        cells: None,
     }
+}
+
+/// [`snap_to_surface`] with the closest-point search chosen by `search`
+/// (gh:#1263). [`SurfaceSearch::BruteForce`] is [`snap_to_surface`];
+/// [`SurfaceSearch::Octree`] asks cfMesh's surface octree
+/// ([`crate::mesh_octree`]) with the exact stopping rule and the same
+/// projection, so the snapped points are bit-identical (pinned by
+/// `patches::tests::nearest_triangle_routes_agree`).
+pub fn snap_to_surface_with(mesh: &VolumeMesh, points: &[Vec3], tris: &[[usize; 3]], search: SurfaceSearch) -> VolumeMesh {
+    let o = match search {
+        SurfaceSearch::BruteForce => return snap_to_surface(mesh, points, tris),
+        SurfaceSearch::Octree => crate::mesh_octree::MeshOctree::for_nearest_queries(points, tris),
+    };
+    let mut new_points = mesh.points.clone();
+    let mut done = vec![false; mesh.points.len()];
+    for f in 0..mesh.face_count() {
+        if mesh.neighbour[f].is_none() {
+            for &v in &mesh.faces[f] {
+                if !done[v] {
+                    done[v] = true;
+                    new_points[v] = o.closest_point_exact(mesh.points[v]).0;
+                }
+            }
+        }
+    }
+    VolumeMesh { points: new_points, ..mesh.clone() }
 }
 
 /// Closest point on the whole surface (any triangle) to `p`.
@@ -128,7 +156,7 @@ pub(crate) fn closest_point_on_surface(p: Vec3, points: &[Vec3], tris: &[[usize;
 
 /// Closest point on triangle `abc` to `p` (Ericson, *Real-Time Collision
 /// Detection*, §5.1.5) — handles the vertex, edge, and face Voronoi regions.
-fn closest_point_on_triangle(p: Vec3, a: Vec3, b: Vec3, c: Vec3) -> Vec3 {
+pub(crate) fn closest_point_on_triangle(p: Vec3, a: Vec3, b: Vec3, c: Vec3) -> Vec3 {
     let ab = b.sub(a);
     let ac = c.sub(a);
     let ap = p.sub(a);

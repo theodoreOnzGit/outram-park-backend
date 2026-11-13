@@ -11,7 +11,7 @@ use dhoby_ghaut::web_demo::link::Link;
 use dhoby_ghaut::web_demo::panel::Panel;
 use dhoby_ghaut::web_demo::platform::{query_pairs, query_value, set_query, set_title};
 use dhoby_ghaut::web_demo::view::{apply_zoom, scale_bar, zoom_buttons, View};
-use egui::{Color32, Pos2, Rect, RichText, Sense, Stroke, StrokeKind, Vec2};
+use egui::{Pos2, Rect, RichText, Sense, Stroke, StrokeKind, Vec2};
 
 type DLink = Link<Request, Event>;
 
@@ -36,9 +36,6 @@ pub const FULL_BULK_PHI: f64 = 0.6061;
 /// The lesson page for this demo, relative to [`SITE`].
 pub const LESSON: &str = "tutorials/monte-carlo/dem.html";
 
-const BG: Color32 = Color32::from_rgb(14, 16, 20);
-const PHI_COLOUR: Color32 = Color32::from_rgb(120, 200, 255);
-const KE_COLOUR: Color32 = Color32::from_rgb(255, 180, 90);
 
 /// What the main view shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -140,6 +137,9 @@ impl Pour {
 }
 
 pub struct DemApp {
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     link: Option<DLink>,
     error: Option<String>,
     panel: Panel,
@@ -166,7 +166,9 @@ pub fn from_query(q: &[(String, String)]) -> (usize, Show) {
 
 impl DemApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        cc.egui_ctx.set_theme(egui::ThemePreference::Dark);
+        // Gruvbox Dark (the shared `bugis` theme); the side panel's selector
+        // switches it.
+        bugis::Theme::default().apply(&cc.egui_ctx);
         #[cfg(not(target_arch = "wasm32"))]
         let link: Result<DLink, String> = {
             let ctx = cc.egui_ctx.clone();
@@ -190,6 +192,7 @@ impl DemApp {
         // valve (−62 cm) to above the full bed (~190 cm).
         let view = View::new(130.0).with_home([0.0, 64.0]);
         let mut app = Self {
+            theme: bugis::Theme::default(),
             link,
             error,
             panel: Panel::default(),
@@ -348,7 +351,8 @@ impl DemApp {
     fn canvas(&mut self, ui: &mut egui::Ui) {
         let (resp, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         let full = resp.rect;
-        painter.rect_filled(full, 0.0, BG);
+        let ink = bugis::Ink::of_ui(ui);
+        painter.rect_filled(full, 0.0, ink.bg);
         // Plots beside the vessel on a wide screen, under it on a phone.
         let wide = full.width() > full.height() * 1.1;
         let (vessel, plots) = if wide {
@@ -421,7 +425,7 @@ impl DemApp {
                 egui::Align2::LEFT_TOP,
                 line,
                 text.clone(),
-                Color32::from_rgb(210, 214, 222),
+                ink.text,
             );
             y += 18.0;
         }
@@ -431,7 +435,7 @@ impl DemApp {
                 egui::Align2::LEFT_TOP,
                 e,
                 text.clone(),
-                Color32::from_rgb(255, 120, 120),
+                ink.error,
             );
         }
         draw_plots(&painter, plots, self.pour.as_ref(), self.show);
@@ -468,12 +472,14 @@ fn draw_plots(p: &egui::Painter, rect: Rect, pour: Option<&Pour>, show: Show) {
     let hist: &[Sample] = pour.map_or(&[], |p| &p.history);
     let t_max = hist.last().map_or(0.1, |s| s.t).max(0.05);
     let font = egui::FontId::proportional(11.0);
+    let ink = bugis::Ink::of_ctx(p.ctx());
+    let (phi_colour, ke_colour) = (ink.accent(0), ink.accent(1));
     let frame = |r: Rect, title: &str| {
-        p.rect_filled(r, 4.0, Color32::from_rgb(20, 23, 30));
+        p.rect_filled(r, 4.0, ink.card);
         p.rect_stroke(
             r,
             4.0,
-            Stroke::new(1.0, Color32::from_rgb(60, 66, 80)),
+            Stroke::new(1.0, ink.border),
             StrokeKind::Inside,
         );
         p.text(
@@ -481,7 +487,7 @@ fn draw_plots(p: &egui::Painter, rect: Rect, pour: Option<&Pour>, show: Show) {
             egui::Align2::LEFT_TOP,
             title,
             egui::FontId::proportional(12.0),
-            Color32::WHITE,
+            ink.text,
         );
     };
     // φ against time: this pour's bulk φ (solid) and whole-core φ (thin),
@@ -506,13 +512,13 @@ fn draw_plots(p: &egui::Painter, rect: Rect, pour: Option<&Pour>, show: Show) {
         (
             FULL_BULK_PHI,
             format!("full-size bed: {FULL_BULK_PHI:.3} bulk, {FULL_PHI:.4} whole-core"),
-            Color32::from_rgb(160, 160, 170),
+            ink.muted,
             egui::Align2::RIGHT_TOP,
         ),
         (
             PUBLISHED_PHI,
             format!("{PUBLISHED_PHI} published whole-core (quoted)"),
-            Color32::from_rgb(235, 235, 235),
+            ink.text,
             egui::Align2::RIGHT_BOTTOM,
         ),
     ];
@@ -539,13 +545,13 @@ fn draw_plots(p: &egui::Painter, rect: Rect, pour: Option<&Pour>, show: Show) {
         egui::Align2::RIGHT_BOTTOM,
         format!("{lo}  ·  t = {t_max:.2} s"),
         font.clone(),
-        Color32::GRAY,
+        ink.muted,
     );
     let whole: Vec<Pos2> = hist.iter().map(|s| at(r_phi, s.t, s.phi, lo, hi)).collect();
     if whole.len() > 1 {
         p.add(egui::Shape::line(
             whole,
-            Stroke::new(1.0, Color32::from_rgb(140, 150, 175)),
+            Stroke::new(1.0, phi_colour),
         ));
     }
     let bulk: Vec<Pos2> = hist
@@ -554,14 +560,14 @@ fn draw_plots(p: &egui::Painter, rect: Rect, pour: Option<&Pour>, show: Show) {
         .map(|s| at(r_phi, s.t, s.bulk, lo, hi))
         .collect();
     if bulk.len() > 1 {
-        p.add(egui::Shape::line(bulk, Stroke::new(2.5, PHI_COLOUR)));
+        p.add(egui::Shape::line(bulk, Stroke::new(2.5, phi_colour)));
     }
     p.text(
         r_phi.left_top() + Vec2::new(6.0, 18.0),
         egui::Align2::LEFT_TOP,
         "thick: bulk φ of the filled vessel · thin: whole-core φ",
         font.clone(),
-        PHI_COLOUR,
+        phi_colour,
     );
     // KE on a log scale, 1e-4 .. 1e2, with the settle target.
     frame(r_ke, "kinetic energy per pebble / one-radius drop (log)");
@@ -569,14 +575,14 @@ fn draw_plots(p: &egui::Painter, rect: Rect, pour: Option<&Pour>, show: Show) {
     let target = at(r_ke, 0.0, lg(1e-3), -4.0, 2.0);
     p.line_segment(
         [target, Pos2::new(r_ke.right(), target.y)],
-        Stroke::new(1.0, Color32::from_rgb(160, 200, 160)),
+        Stroke::new(1.0, ink.ok),
     );
     p.text(
         target + Vec2::new(4.0, 1.0),
         egui::Align2::LEFT_TOP,
         "settled below 1e-3",
         font.clone(),
-        Color32::from_rgb(160, 200, 160),
+        ink.ok,
     );
     let line: Vec<Pos2> = hist
         .iter()
@@ -584,7 +590,7 @@ fn draw_plots(p: &egui::Painter, rect: Rect, pour: Option<&Pour>, show: Show) {
         .map(|s| at(r_ke, s.t, lg(s.ke), -4.0, 2.0))
         .collect();
     if line.len() > 1 {
-        p.add(egui::Shape::line(line, Stroke::new(2.0, KE_COLOUR)));
+        p.add(egui::Shape::line(line, Stroke::new(2.0, ke_colour)));
     }
     if let Some(s) = pour.and_then(|p| p.last.as_ref()) {
         let status = if s.settled {
@@ -601,7 +607,7 @@ fn draw_plots(p: &egui::Painter, rect: Rect, pour: Option<&Pour>, show: Show) {
             egui::Align2::RIGHT_TOP,
             status,
             font,
-            Color32::from_rgb(220, 220, 160),
+            if s.settled { ink.ok } else { ink.warn },
         );
     }
 }
@@ -632,7 +638,11 @@ impl eframe::App for DemApp {
             self.title = title;
         }
         let mut panel = std::mem::take(&mut self.panel);
-        panel.show(ui, "DEM pour", |ui| self.side_panel(ui));
+        panel.show(ui, "DEM pour", |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
+            self.side_panel(ui);
+        });
         self.panel = panel;
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE)

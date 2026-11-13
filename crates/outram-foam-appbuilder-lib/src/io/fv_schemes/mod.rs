@@ -32,6 +32,13 @@ use std::path::Path;
 pub struct FvSchemes {
     pub ddt: DdtScheme,
     pub default_grad: GradScheme,
+    /// The `grad(U)` entry of `gradSchemes`, when the case gives one; `None`
+    /// means `default_grad` (upstream's lookup falls back to `default` the
+    /// same way). Read through [`FvSchemes::grad_u_scheme`]. Consulted by
+    /// `div(phi,U) Gauss linearUpwind grad(U)` and by the momentum
+    /// Laplacian's non-orthogonal correction, which upstream's
+    /// `correctedSnGrad::fullGradCorrection` takes from `grad(U)` (gh:#1202).
+    pub grad_u: Option<GradScheme>,
     pub default_div: DivScheme,
     pub default_laplacian: LaplacianScheme,
     pub default_sn_grad: SnGradScheme,
@@ -51,7 +58,16 @@ pub enum DdtScheme {
 /// Gradient scheme (gradSchemes).
 #[derive(Debug, Clone, PartialEq)]
 pub enum GradScheme {
+    /// `Gauss linear`: `(1/V) Σ_f S_f ⊗ φ_f`, φ_f linearly interpolated.
     GaussLinear,
+    /// `cellLimited Gauss linear k` (gh:#1202): the Gauss linear gradient
+    /// scaled, per component, so that extrapolating it from the cell centre
+    /// to any face centre stays within the min/max of the cell and its face
+    /// neighbours (minmod limiter, upstream `cellLimitedGrad<Type, minmod>`).
+    /// `k ∈ [0, 1]`: 1 is fully limited, 0 is unlimited. Used by the
+    /// OpenFOAM tutorials for `grad(U)` on snappy meshes (`propeller`,
+    /// `motorBikeSteady`, `misalignedDuct`).
+    CellLimitedGaussLinear(f64),
     LeastSquares,
     FourthOrder,
 }
@@ -59,8 +75,26 @@ pub enum GradScheme {
 /// Divergence / convection scheme (divSchemes).
 #[derive(Debug, Clone, PartialEq)]
 pub enum DivScheme {
+    /// `Gauss linear`: central differencing, fully implicit, as upstream's
+    /// `gaussConvectionScheme` (since gh:#1363; see
+    /// `fvm::div_vec_linear`). Unbounded: on a coarse convection-dominated
+    /// mesh it can diverge, as upstream's does.
     GaussLinear,
     GaussUpwind,
+    /// Central differencing by **deferred correction**: implicit upwind plus
+    /// the lagged explicit `φ (U_linear − U_upwind)` in the source, which is
+    /// what `GaussLinear` was before gh:#1363. **NOT an OpenFOAM scheme** and
+    /// not upstream's `Gauss linear` (it changes `A` and `H` of PISO: 1.4e-3
+    /// of the velocity range at step 2 of the cavity differential). Kept
+    /// explicit so an ablation can still reproduce it.
+    ///
+    /// **Deprecated 2026-11-12 (gh:#1500, maintainer: "Deprecate the old
+    /// scheme"):** use [`DivScheme::GaussLinear`]. The Foam Studio coil and
+    /// its gh:#1157 V&V record now run `GaussLinear`; the one remaining use is
+    /// the record's deferred-form ablation row (`--coil-run ... deferred`) and
+    /// this scheme's own unit test, each under `#[allow(deprecated)]`.
+    #[deprecated(note = "not an OpenFOAM scheme: use `DivScheme::GaussLinear` (upstream's fully implicit Gauss linear); see gh:#1500")]
+    GaussLinearDeferred,
     GaussLinearUpwind(String), // e.g. "Gauss linearUpwind grad(U)"
     GaussVanLeer,
     GaussMUSCL,
@@ -70,7 +104,14 @@ pub enum DivScheme {
 /// Laplacian scheme (laplacianSchemes).
 #[derive(Debug, Clone, PartialEq)]
 pub enum LaplacianScheme {
+    /// `Gauss linear corrected`: `1/(n·d)` implicit coefficients plus the
+    /// explicit non-orthogonal correction. The upstream tutorial default and
+    /// the default here; honoured by `PimpleFoam` since gh:#1161.
     GaussLinearCorrected,
+    /// `Gauss linear orthogonal`: `1/|d|`, no correction. What `PimpleFoam`
+    /// did before gh:#1161; the explicit ablation
+    /// (`PimpleFoam::without_non_orthogonal_correction`).
+    GaussLinearOrthogonal,
     GaussLinearUncorrected,
     GaussLinearLimited(f64), // limiter coefficient ∈ [0,1]
 }
@@ -92,6 +133,13 @@ pub enum InterpolationScheme {
 }
 
 impl FvSchemes {
+    /// The gradient scheme for `grad(U)`: [`FvSchemes::grad_u`] if set,
+    /// otherwise [`FvSchemes::default_grad`] (upstream's
+    /// `mesh.schemes().grad("grad(U)")` falls back to `default` likewise).
+    pub fn grad_u_scheme(&self) -> &GradScheme {
+        self.grad_u.as_ref().unwrap_or(&self.default_grad)
+    }
+
     /// Parse a `system/fvSchemes` file from disk.
     ///
     /// **Not yet implemented — calling this panics (`todo!`).** No OpenFOAM
@@ -124,14 +172,25 @@ impl Default for FvSchemes {
     /// said `GaussLinear` while every solver hardwired upwind and ignored the
     /// struct entirely — the value was a claim nothing honoured.
     ///
-    /// `default_grad`, `default_laplacian`, `default_sn_grad` and
-    /// `default_interpolation` are **still not consulted by any solver**; they
-    /// are parsed and stored only. Do not read them as a statement about the
-    /// discretisation in use.
+    /// ~~`default_grad`, `default_laplacian`, `default_sn_grad` and
+    /// `default_interpolation` are **still not consulted by any solver**~~
+    /// **CORRECTED 2026-11-03 (gh:#1161):** `default_laplacian` is honoured by
+    /// `PimpleFoam` (both its pressure and its momentum Laplacian; see
+    /// `crate::solvers::non_orthogonal`), and its default
+    /// [`LaplacianScheme::GaussLinearCorrected`] is now what that solver does.
+    /// ~~`default_grad`, `default_sn_grad` and `default_interpolation` are still
+    /// stored only; the correction's gradient is always `Gauss linear`.~~
+    /// **CORRECTED 2026-11-04 (gh:#1202):** the velocity gradient
+    /// ([`FvSchemes::grad_u_scheme`], i.e. `grad_u` or else `default_grad`) is
+    /// honoured by `PimpleFoam`'s momentum Laplacian correction and by
+    /// `Gauss linearUpwind`; the pressure correction's gradient is still
+    /// always `Gauss linear`. `default_sn_grad` and `default_interpolation`
+    /// are still stored only.
     fn default() -> Self {
         Self {
             ddt: DdtScheme::Euler,
             default_grad: GradScheme::GaussLinear,
+            grad_u: None,
             default_div: DivScheme::GaussUpwind,
             default_laplacian: LaplacianScheme::GaussLinearCorrected,
             default_sn_grad: SnGradScheme::Corrected,

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Breathing</title>
+<meta name="description" content="Fission products, chapter 5: how TRISO-ATOPS moves an accident's release out of the vessel, only with the gas the heating core pushes out, and the assumption inside it, released = vented fraction × released so far, measured against a well-mixed gas volume on the same heat-up.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="breathing-data.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="breathing-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 5, after "Accidents: Booth on the integral,
+     and venting" (gh:#1207, maintainer direction 2026-11-04: "add the lesson
+     on breathing for TRISO-ATOPS and the assumption it makes"). Data:
+     breathing-data.js, recorded by crates/dhoby-ghaut/examples/lesson_breathing
+     (predictions B1-B6 and results in its main.rs). Checked by
+     check-breathing.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-11-04), not yet reviewed by a human.</p>
+<span id="br-numbers" hidden></span>
+
+<h1>Breathing: how the release leaves the vessel</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>The previous lesson released fission products from the fuel during an accident. But atoms that have left a kernel are still inside the reactor vessel. What carries them out? In TRISO-ATOPS the answer is one thing only: <b>the helium the core pushes out as it heats</b>. Stoyer et al. <a href="#ref-stoyer2026atops">(Stoyer et al., 2026)</a> call it <b>breathing</b>. This lesson writes the model out, then tests the one assumption that sets how much it lets out.</p>
+
+<h2>The physical picture</h2>
+<p>After a break in the pressure boundary, the circuit first <b>blows down</b> from operating pressure to the atmosphere&rsquo;s. TRISO-ATOPS releases the activity that was circulating in the helium, and a chosen share of what had plated out, at once (a separate term; <a href="atops-accident.html">previous lesson</a>). After that the vessel sits at atmospheric pressure, with nothing driving gas through the core. Then the core <b>heats up</b>, because decay heat is no longer removed. The gas in a fixed volume at fixed pressure must lose moles as it warms:</p>
+<p class="eq-block"><i>n</i> = <i>PV</i>/<i>RT</i>&nbsp;&nbsp;&rArr;&nbsp;&nbsp;fraction of the starting gas pushed out by <i>t</i> = 1 &minus; <i>T</i><sub>0</sub>/<i>T</i><sub>max</sub>(<i>t</i>)</p>
+<p>with <i>T</i><sub>max</sub> the highest temperature reached so far. Heating from 900 to 1600&nbsp;&deg;C pushes out 1 &minus; 1173/1873 = 37&nbsp;% of the helium. When the core <b>cools</b> the gas contracts, air is drawn in, and nothing goes out: the core <i>breathes in</i>. There is no flow through the core in this model at any time: no air or water ingress carrying the release out (gh:#446).</p>
+
+<h2>How TRISO-ATOPS writes it</h2>
+<p><a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/accident/mod.rs::coolant_release"><code>coolant_release</code></a> integrates <i>dn</i>/<i>dt</i> = &minus;(<i>P</i>/<i>R</i>)(<i>dT</i>/<i>dt</i>)/<i>T</i>&sup2; by trapezoids and divides by the starting <i>n</i><sub>0</sub>. It keeps only the samples where the core is heating (<i>dT</i>/<i>dt</i> &ge; 0, a hold included). Then <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/accident/mod.rs::accident_release_curies"><code>accident_<wbr>release_<wbr>curies</code></a> multiplies:</p>
+<p class="eq-block">released(<i>t</i>) = frac(<i>t</i>) &times; [kernel + graphite release by <i>t</i>] + circulating + <i>x</i><sub>lift-off</sub> &times; plated out</p>
+<p>The product in the first term is the <b>assumption</b> this lesson is about.</p>
+
+<p class="predict"><b>Predict first.</b> Caesium leaves the kernels mostly <i>during</i> the hold at the peak, when the temperature is constant. How much of what is released during the hold does a gas that is not moving carry out of the vessel? And how much does the product formula carry out?</p>
+
+<h2>The assumption, and what a well-mixed gas would do</h2>
+<p>The product gives <b>every</b> atom released by <i>t</i> the whole vented share frac(<i>t</i>), as if it had been in the gas from the very start. Picture the gas instead as one well-mixed volume. An atom that leaves the fuel at time <i>s</i> joins the gas present then. It can only leave with gas pushed out <i>after</i> <i>s</i>. If <i>s</i> is on the way up, that share is 1 &minus; <i>T</i>(<i>s</i>)/<i>T</i><sub>max</sub>(<i>t</i>). If it is during the hold or the cool-down, the share is zero. So</p>
+<p class="eq-block">carried out(<i>t</i>) = &int; d<i>R</i>(<i>s</i>)&nbsp;[1 &minus; <i>T</i>(<i>s</i>)/<i>T</i><sub>max</sub>(<i>t</i>)] &nbsp;&le;&nbsp; <i>R</i>(<i>t</i>)&nbsp;[1 &minus; <i>T</i><sub>0</sub>/<i>T</i><sub>max</sub>(<i>t</i>)]</p>
+<p>The right-hand side is the product. The two are equal only if everything was released at the start. Otherwise <b>the product is an upper bound</b>: conservative in this respect, by an amount set by <i>when</i> the release happens.</p>
+
+<section class="widget-card">
+  <h3>The same release, carried out two ways</h3>
+  <div class="widget" id="br-breathe">
+    <canvas aria-label="Fractions of the kernel inventory against time over a heat-up, hold and cool-down: the release from the fuel, the vented gas fraction, TRISO-ATOPS's product, and a well-mixed gas with and without decay."></canvas>
+  </div>
+  <p class="note">Black: the port&rsquo;s kernel release <i>R</i>(<i>t</i>) on one MHTGR Case A node. Red: the port&rsquo;s product, at its venting samples. Green: a well-mixed gas with the same <i>R</i>(<i>t</i>) and the same temperatures, stepped exactly by boon-lay&rsquo;s <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/activities/live_pools.rs::step"><code>live_pools::<wbr>step</code></a> (gas leaving at the ideal-gas rate (<i>dT</i>/<i>dt</i>)/<i>T</i> while the core heats, with decay). The heat-up is the illustrative one of the previous lesson. Recorded by <code>lesson_<wbr>breathing</code>.</p>
+</section>
+
+<p>The answer to the prompt: none of the release during the hold leaves in the well-mixed gas, and all of it in the product. For caesium with a peak of 1600&nbsp;&deg;C, by the end of the hold the fuel has released <span data-br="RCs1371600">&hellip;</span> of the kernel inventory. The product carries out <span data-br="ACs1371600">&hellip;</span>, the well-mixed gas <span data-br="MCs1371600">&hellip;</span>: <span data-br="xCs1371600">&hellip;</span> of it.</p>
+
+<div class="table-wrap"><table>
+<thead><tr><th>Well-mixed gas &divide; product, at 100&nbsp;h</th><th>peak 1400&nbsp;&deg;C</th><th>1600&nbsp;&deg;C</th><th>1800&nbsp;&deg;C</th></tr></thead>
+<tbody>
+<tr><td>Cs-137</td><td data-label="1400 °C"><span data-br="xCs1371400">&hellip;</span></td><td data-label="1600 °C"><span data-br="xCs1371600">&hellip;</span></td><td data-label="1800 °C"><span data-br="xCs1371800">&hellip;</span></td></tr>
+<tr><td>Sr-90</td><td data-label="1400 °C"><span data-br="xSr901400">&hellip;</span></td><td data-label="1600 °C"><span data-br="xSr901600">&hellip;</span></td><td data-label="1800 °C"><span data-br="xSr901800">&hellip;</span></td></tr>
+<tr><td>I-131</td><td data-label="1400 °C"><span data-br="xI1311400">&hellip;</span></td><td data-label="1600 °C"><span data-br="xI1311600">&hellip;</span></td><td data-label="1800 °C"><span data-br="xI1311800">&hellip;</span></td></tr>
+<tr><td>Kr-88</td><td data-label="1400 °C"><span data-br="xKr881400">&hellip;</span></td><td data-label="1600 °C"><span data-br="xKr881600">&hellip;</span></td><td data-label="1800 °C"><span data-br="xKr881800">&hellip;</span></td></tr>
+</tbody></table></div>
+<p>On this history the product carries out between <span data-br="foldLo">&hellip;</span> and <span data-br="foldHi">&hellip;</span> times more than the well-mixed gas. Strontium shows the largest gap. Its oxide kernel releases it late and slowly, mostly during the hold, so the gas has little left to give. Krypton-88 also decays in the gas while waiting (half-life 2.84&nbsp;h): with decay, the well-mixed gas carries out only <span data-br="dKr881600">&hellip;</span> of what it would without decay at a 1600&nbsp;&deg;C peak. The product counts every released atom undecayed.</p>
+
+<h2>Every assumption in the breathing model</h2>
+<ul>
+<li><b>The product</b> frac &times; <i>R</i>: an upper bound on a well-mixed gas, as measured above.</li>
+<li><b>Ideal gas at fixed pressure and volume.</b> The pressure cancels exactly: <i>P</i> appears in <i>dn</i>/<i>dt</i> and in <i>n</i><sub>0</sub> alike (verified bit for bit against upstream, 2026-09-21, in <code>coolant_release</code>&rsquo;s docs).</li>
+<li><b>One gas temperature.</b> The rate of change is averaged over the whole core (<a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/accident/mod.rs::mean_temperature_rate"><code>mean_<wbr>temperature_<wbr>rate</code></a>), but the <i>T</i> in <i>T</i>&sup2; and in <i>n</i><sub>0</sub> is the hottest node&rsquo;s. The gas is taken to be at the fuel&rsquo;s temperature.</li>
+<li><b>Nothing leaves while cooling, and nothing flows through.</b> No ingress transport (gh:#446). sembawang adds flow-through and prescribed venting as options, labelled not upstream.</li>
+<li><b>The first step.</b> The trapezoid starts from <i>dT</i>/<i>dt</i> = 0, so the port vents <span data-br="vent5">&hellip;</span> at 5&nbsp;h where the ideal gas gives <span data-br="vent5exact">&hellip;</span>, and <span data-br="vent100">&hellip;</span> against <span data-br="vent100exact">&hellip;</span> by the end of the hold. That is why, in the port&rsquo;s own numbers, the well-mixed gas edges above the product at the first one to three samples. With the ideal-gas fraction the bound holds everywhere (<code>check-breathing.js</code>).</li>
+<li><b>Upstream quirks kept:</b> the first venting sample is set to 1, and a uniform, constant temperature vents everything (<i>frac</i> = 1; that branch is in sembawang&rsquo;s orchestration, restored for gh:#446).</li>
+</ul>
+
+<h2>Upstream, extension, simulator: which is which</h2>
+<ul>
+<li><b>Upstream TRISO-ATOPS</b> (the port): <code>coolant_release</code>, <code>mean_temperature_rate</code>, <code>accident_release_curies</code>, everything in the formula above.</li>
+<li><b>boon-lay&rsquo;s extension</b>: <code>live_pools</code>, used here only to measure the product. TRISO-ATOPS does not have it.</li>
+<li><b>sembawang</b>: the venting options beyond upstream. The coupled simulator <code>htgr_sim_v1</code> has its own pool transfers, which this lesson does not examine.</li>
+</ul>
+
+<h2>Check your understanding</h2>
+<ol>
+<li>A nuclide is released entirely in the first hour of a heat-up from 900 to 1600&nbsp;&deg;C. Roughly how close are the product and the well-mixed gas, and why?</li>
+<li>Suppose the hold were twice as long. Which changes: the product, the well-mixed answer, both or neither?</li>
+<li>Why can raising the system pressure in <code>coolant_release</code> never change the answer?</li>
+</ol>
+
+<p><b>Next:</b> <a href="atops-simplifications.html">Simplifications, side by side</a>.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>The predictions, and what missed</h3>
+<p>Written before the first run (<code>lesson_<wbr>breathing/main.rs</code>, B1&ndash;B6). Held: the well-mixed run matches the written-out formula (to 4&times;10<sup>&minus;9</sup>); caesium and strontium below half the product; Kr-88 below 0.6 of its no-decay value with decay, I-131 within 5&nbsp;%; nothing leaves after the hold; converged in the substeps. Missed: &ldquo;never above the product at any venting sample&rdquo;, at the first one to three samples, for the reason above. The prediction was derived with the ideal-gas fraction, and the port&rsquo;s first step is not that.</p>
+<h3>Why the well-mixed gas is not &ldquo;the right answer&rdquo; either</h3>
+<p>A single well-mixed volume is a second idealisation. Real gas is not mixed across a whole reactor, and the release from a hot zone may be pushed out before it mixes. It is the natural reference for <i>this</i> question, because it uses the same gas and the same release and drops only the product&rsquo;s timing assumption. It is not a validated model of an HTGR&rsquo;s vessel.</p>
+<h3>Try it</h3>
+<p>In <code>lesson_<wbr>breathing/breath.rs</code>, swap <code>atops::heatup</code> for a history that holds first at 900&nbsp;&deg;C and only then climbs. Predict whether the ratio moves toward 1 or away from it.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-stoyer2026atops" style="padding-left: 2em; text-indent: -2em;">Stoyer, B., Raichart, A., &#38; Petti, D. (2026). TRISO-ATOPS: A Mechanistic Source Term Model for Gas-Cooled Reactors. <i>Nuclear Technology</i>. https://doi.org/10.1080/00295450.2026.2671624</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

@@ -19,6 +19,10 @@ use uom::si::f64::*;
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct CIETApp {
+    #[serde(skip)]
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     // Example stuff:
     label: String,
 
@@ -61,6 +65,7 @@ impl Default for CIETApp {
         let ciet_plot_data = Arc::new(Mutex::new(PagePlotData::default()));
 
         Self {
+            theme: bugis::Theme::default(),
             // Example stuff:
             label: "CIET simulator v1".to_owned(),
             value: 3.6,
@@ -78,7 +83,9 @@ impl Default for CIETApp {
 
 impl CIETApp {
     /// Called once before the first frame.
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        // Gruvbox Dark (the shared `bugis` theme) from the first frame.
+        bugis::Theme::default().apply(&cc.egui_ctx);
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
@@ -132,12 +139,6 @@ impl eframe::App for CIETApp {
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
         egui::Panel::top("top_panel").show(ui, |ui| {
-            // The top panel is often a good place for a menu bar:
-
-            egui::MenuBar::new().ui(ui, |ui| {
-                egui::widgets::global_theme_preference_buttons(ui);
-            });
-
             ui.heading("CIET Educational Simulator v1");
             ui.separator();
             // allow user to select which panel is open
@@ -168,6 +169,8 @@ impl eframe::App for CIETApp {
         });
 
         egui::Panel::right("Supplementary Info").show(ui, |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
             match self.open_panel {
                 Panel::MainPage => {
                     egui::ScrollArea::both().show(ui, |ui| {

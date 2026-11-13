@@ -68,20 +68,32 @@ number most likely to be misused
 - **No oxidation-failure model.** Measured KORA failures in air are added by
   hand downstream (`sembawang`); the mechanistic attack chain is gh:#441,
   with SiC oxidation gh:#443 and exposed-kernel air oxidation gh:#444
-  ([rung 6](../../tutorials/triso-atops/chemistry.html)).
+  ([*Air on hot graphite*](../../science/fission-products/chem-air.html)).
 - **Chemistry is three transcribed correlations**, each used outside its
   fitted range in an accident; the hydrolysis fit is clamped to the whole
   inventory at water-ingress pressures (gh:#418).
 - **The random walk's `D(T)` covers Ag, Cs, Sr and Kr**; every other element
   diffuses as silver, and the graphite materials are `todo!()` (gh:#541).
-  **Added 2026-10-18:** so is Kr in the buffer (`get_d1_for_kr`), so a Kr
-  walker that reaches the buffer panics.
-- **The decay sampler can panic** on a branch with no daughter
-  (spontaneous fission) or on branching ratios summing below 1 (gh:#538).
+  **Added 2026-10-18:** so is Kr in the buffer (`get_d1_for_kr`), so ~~a Kr
+  walker that reaches the buffer panics~~ **CORRECTED 2026-11-10 (gh:#638):**
+  ~~a Kr walker that reaches the buffer stops with a typed "no cited
+  coefficient" (`HopOutcome::NoDiffusionData`) instead of panicking; it is
+  not given an invented buffer value.~~ **CORRECTED AGAIN 2026-11-10
+  (gh:#638, maintainer: "Find a cited value"):** Kr in the buffer is the
+  German value, `1e-8 m^2/s` with no temperature dependence (IAEA-TECDOC-978 (1997) App. A, section A.1.2, printed p. 440; applied to fission gases by CRP-6, IAEA-TECDOC-1674 (2012) section 10.2.2, p. 538),
+  a "buffer is fast" convention rather than a measurement. A Kr walker now
+  crosses the buffer. Only graphite still has no Kr value.
+- ~~**The decay sampler can panic** on a branch with no daughter
+  (spontaneous fission) or on branching ratios summing below 1 (gh:#538).~~
+  **CORRECTED 2026-11-10 (gh:#538):** neither panics now. A decay with no
+  tracked daughter (spontaneous fission, He-5's alpha) ends the chain, and a
+  draw past the ratios' sum takes the largest branch, both as OpenMC's
+  depletion chain reads the data. Fission products from spontaneous fission
+  are still not produced.
 - **The decay data and TRISO-ATOPS's half-lives come from different
   sources** (ENDF/B-VIII.0 via OpenMC's chain, and the IAEA Live Chart).
 - **Accident release is venting-only**: an isothermal hold releases exactly
-  0 Bq (gh:#446; [rung 7](../../tutorials/triso-atops/coolant.html)).
+  0 Bq (gh:#446; [*Into the coolant*](../../science/fission-products/atops-coolant.html)).
 - **The GPU path is unverified**, and the CPU path is the reference
   ([compute backends](./compute-backends.md)).
 

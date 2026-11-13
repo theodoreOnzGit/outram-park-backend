@@ -893,3 +893,150 @@ fn constructor_refuses_unusable_geometry_and_floors() {
     )
     .is_ok());
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  gh:#1060 — flow-regime interfacial area
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Hydraulic diameter of the Edwards–O'Brien pipe \[m\], used to size the
+/// annular core in the regime-map tests.
+const D_H_REF: f64 = 0.073;
+
+/// **Methodology (gh:#1060).** In the bubbly/slug window (`α_g ≤ 0.5`, below
+/// the `0.9` area cutoff) the reused GeN-Foam `Spherical` area is
+/// `6 α_g / d_b`, so the Sauter-equivalent diameter is `d_b` itself and every
+/// closure output must equal the fixed-diameter set's **bit for bit**.
+/// Inputs: the 7 MPa reference properties, 1 mm bubbles, a subcooled liquid
+/// and a 1 m/s slip, at `α_g ∈ {1e-4, 0.1, 0.3, 0.5}`.
+///
+/// **Prediction (written before the run):** identical `InterfacialSources`
+/// at all four voids, including the `0.5` window edge. That edge is the
+/// reused map's documented *dropped point* (upstream's half-open windows give
+/// it to neither the bubbly window nor the gap, weights summing to `0`); the
+/// layer assigns it to the bubbly window, the limit from both sides.
+///
+/// **Result (2026-11-01, release):** see the test output; pass criterion
+/// `assert_eq!` on the whole struct except the two new diagnostic fields,
+/// which must agree too.
+#[test]
+fn regime_map_is_bit_identical_to_the_fixed_diameter_set_in_the_bubbly_window() {
+    let (sat, transport) = reference_properties();
+    let fixed = bubbly();
+    let mapped = bubbly()
+        .with_regime_map(Length::new::<meter>(D_H_REF))
+        .expect("vapour-dispersed set accepts the map");
+    assert_eq!(
+        mapped.area_model(),
+        InterfacialAreaModel::RegimeMap {
+            hydraulic_diameter: D_H_REF
+        }
+    );
+    for void in [1.0e-4, 0.1, 0.3, 0.5] {
+        let mut cell = saturated_cell(sat);
+        cell.void_fraction = void;
+        cell.liquid_enthalpy = sat.h_f - 2.0e4;
+        cell.vapour_velocity = 1.0;
+        let a = fixed
+            .sources_with_properties(cell, sat, transport)
+            .expect("fixed-diameter sources");
+        let b = mapped
+            .sources_with_properties(cell, sat, transport)
+            .expect("regime-map sources");
+        println!(
+            "alpha_g = {void:.4}: A_int fixed {:.9e} / mapped {:.9e} 1/m, d_eff {:.6e} m",
+            a.interfacial_area_concentration,
+            b.interfacial_area_concentration,
+            b.effective_diameter
+        );
+        assert_eq!(a, b, "bubbly window must reproduce the fixed set at alpha = {void}");
+    }
+}
+
+/// **Methodology (gh:#1060).** The regime-blended area against hand closed
+/// forms from the two reused GeN-Foam area models, at `d_b = 1 mm`,
+/// `D_h = 0.073 m`, cutoff `0.9`:
+///
+/// | `α_g` | regime weights | closed form `A_int` \[1/m\] |
+/// |---|---|---|
+/// | `0.625` | `½` bubbly, `½` annular | `½·6α/d_b + ½·4α/D_h = 1875 + 17.123 = 1892.123` |
+/// | `0.8` | annular | `4α/D_h = 43.836` |
+/// | `0.75` | annular (upstream counts it **twice**: weight `2`) | `4α/D_h = 41.096` |
+/// | `0.95` | annular, above cutoff | `4α/D_h·(1−√α)/(1−0.9) = 13.181` |
+///
+/// and the Sauter-equivalent diameter `6 α_g / A_int` (`1.5 D_h = 0.1095 m`
+/// at `α_g = 0.8`). The `0.75` row checks that the weights are normalised by
+/// their sum, so upstream's double-counted junction does not double the area.
+///
+/// **Prediction (written before the run):** each to `1e-12` relative.
+/// Interfacial area falls by `6/d_b ÷ 4/D_h = 109.5×` between the two pure
+/// windows — the size of the physics change this issue makes at high void.
+#[test]
+fn regime_map_area_matches_the_reused_closed_forms_and_blends_across_the_gap() {
+    let (sat, transport) = reference_properties();
+    let mapped = bubbly()
+        .with_regime_map(Length::new::<meter>(D_H_REF))
+        .expect("vapour-dispersed set accepts the map");
+    let closed_form = |a: f64| -> f64 {
+        let spherical = if a < 0.9 {
+            6.0 * a / D_REF
+        } else {
+            6.0 * a / D_REF * (1.0 - a) / 0.1
+        };
+        let annular = if a < 0.9 {
+            4.0 * a / D_H_REF
+        } else {
+            4.0 * a / D_H_REF * (1.0 - a.sqrt()) / 0.1
+        };
+        if a <= BUBBLY_SLUG_UPPER_VOID {
+            spherical
+        } else if a >= ANNULAR_MIST_LOWER_VOID {
+            annular
+        } else {
+            let w = (a - BUBBLY_SLUG_UPPER_VOID) / (ANNULAR_MIST_LOWER_VOID - BUBBLY_SLUG_UPPER_VOID);
+            (1.0 - w) * spherical + w * annular
+        }
+    };
+    for void in [0.625, 0.75, 0.8, 0.95] {
+        let mut cell = saturated_cell(sat);
+        cell.void_fraction = void;
+        cell.vapour_velocity = 1.0;
+        let s = mapped
+            .sources_with_properties(cell, sat, transport)
+            .expect("regime-map sources");
+        let expected = closed_form(void);
+        let rel = (s.interfacial_area_concentration - expected).abs() / expected;
+        println!(
+            "alpha_g = {void:.3}: A_int = {:.9e} 1/m (closed form {expected:.9e}, rel {rel:.2e}), \
+             d_eff = {:.6e} m",
+            s.interfacial_area_concentration, s.effective_diameter
+        );
+        assert!(rel < 1.0e-12, "alpha = {void}: rel {rel:e}");
+        let d_rel = (s.effective_diameter - 6.0 * void / expected).abs() / s.effective_diameter;
+        assert!(d_rel < 1.0e-12);
+    }
+    // Ablation returns to the fixed diameter.
+    let ablated = bubbly()
+        .with_regime_map(Length::new::<meter>(D_H_REF))
+        .expect("map")
+        .without_regime_map();
+    assert_eq!(ablated.area_model(), InterfacialAreaModel::FixedDiameter);
+}
+
+/// **Methodology (gh:#1060).** The map is a vapour-core progression; a
+/// droplet (liquid-dispersed) set must refuse it rather than evaluate it with
+/// the roles swapped, and a non-positive hydraulic diameter is refused.
+/// **Prediction:** three `InvalidInput` refusals.
+#[test]
+fn the_regime_map_refuses_a_droplet_set_and_a_bad_hydraulic_diameter() {
+    let droplet = InterfacialExchange::droplet(Length::new::<millimeter>(1.0)).expect("droplet");
+    assert!(matches!(
+        droplet.with_regime_map(Length::new::<meter>(D_H_REF)),
+        Err(TampinesError::InvalidInput(_))
+    ));
+    for d_h in [0.0, f64::NAN] {
+        assert!(matches!(
+            bubbly().with_regime_map(Length::new::<meter>(d_h)),
+            Err(TampinesError::InvalidInput(_))
+        ));
+    }
+}

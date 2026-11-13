@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>An accident, step by step</title>
-<meta name="description" content="Fission products, lesson 36: boon-lay fuel failure's AccidentHistory steps a heat-up hour by hour: pressure, stress, thinning and the fraction of particles failed by bursting and by decomposition. HTR-10, as an extrapolation.">
+<meta name="description" content="Fission products, lesson 38: boon-lay fuel failure's AccidentHistory steps a heat-up hour by hour: pressure, stress, thinning and the fraction of particles failed by bursting and by decomposition. HTR-10, as an extrapolation.">
 <link rel="stylesheet" href="../../style.css">
 <script src="../neutronics/lesson-kit.js" defer></script>
 <script src="barrier-data.js" defer></script>
@@ -15,7 +15,7 @@
 <script src="barrier-story.js" defer></script>
 </head>
 <body class="lesson">
-<!-- Fission products, chapter 4, lesson 36. AccidentHistory::step on
+<!-- Fission products, chapter 4, lesson 38. AccidentHistory::step on
      fuel_failure::htr10::particle (T_B 776 °C), holds of 500 h in 5 h steps
      with grain-boundary attack off and on, and four illustrative heat-ups,
      via failure-data.js (lesson_barriers). Predictions P6, P8-P10. -->
@@ -26,7 +26,7 @@
 <h1>An accident, step by step</h1>
 <p class="kicker lesson-progress">Fission products</p>
 
-<p>Now put lessons 33 to 35 together. Cooling is lost, the fuel heats up for a while, then cools. Each hour the gas pressure changes, the wall thins, the strength is compared with the stress. What fraction of the particles has failed by the end?</p>
+<p>Now put lessons 35 to 37 together. Cooling is lost, the fuel heats up for a while, then cools. Each hour the gas pressure changes, the wall thins, the strength is compared with the stress. What fraction of the particles has failed by the end?</p>
 
 <section class="widget-card">
   <h3>The failure fraction through an accident</h3>
@@ -46,9 +46,9 @@
 <p><b>These are boon-lay fuel failure&rsquo;s numbers, never PANAMA&rsquo;s.</b> PANAMA was never run on HTR-10, and nothing here is compared with measured HTR-10 failure data: the workspace has none.</p>
 
 <h2>Where it is in the code</h2>
-<p>On the Code Review map, start at <code>AccidentHistory::step</code>. For one interval it advances the thinning factor and the action integral (lesson 35), evaluates <code>pressure_<wbr>vessel_<wbr>failure_<wbr>at</code> at both ends of the interval (lessons 33 and 34) and keeps the increase, reads &phi;<sub>2</sub> off the action integral, and combines them with <a href="../../code-review/#crates/boon-lay/src/fuel_failure/mod.rs::total_failure_fraction"><code>total_failure_fraction</code></a>. <code>AccidentHistory::run</code> loops it over a history.</p>
+<p>On the Code Review map, start at <code>AccidentHistory::step</code>. For one interval it advances the thinning factor and the action integral (lesson 37), evaluates <code>pressure_<wbr>vessel_<wbr>failure_<wbr>at</code> at both ends of the interval (lessons 35 and 36) and keeps the increase, reads &phi;<sub>2</sub> off the action integral, and combines them with <a href="../../code-review/#crates/boon-lay/src/fuel_failure/mod.rs::total_failure_fraction"><code>total_failure_fraction</code></a>. <code>AccidentHistory::run</code> loops it over a history.</p>
 
-<p><b>Next:</b> a failed particle is no longer a barrier. How much gets out? Lesson 37.</p>
+<p><b>Next:</b> a failed particle is no longer a barrier. How much gets out? Lesson 39.</p>
 
 <details class="optional">
 <summary>Learn more advanced stuff</summary>
@@ -57,7 +57,7 @@
 <h3>Step size</h3>
 <p>At constant temperature the answer does not depend on how the time is cut into steps; boon-lay tests that to 2&times;10<sup>&minus;12</sup>. The 5 h steps here are for drawing.</p>
 <h3>The TRISO-ATOPS demo</h3>
-<p>The TRISO-ATOPS track has its own interactive version of this calculation, with sliders for the irradiation and hold temperatures: <a href="../../demos/triso-atops/?rung=failure">the failure rung</a> (rung 5, <a href="../../tutorials/triso-atops/failure.html">its lesson</a>).</p>
+<p>The TRISO-ATOPS track has its own interactive version of this calculation, with sliders for the irradiation and hold temperatures: <a href="../../demos/triso-atops/?rung=failure">the failure rung</a> (rung 5, <a href="../../science/fission-products/failure-accident.html">its lesson</a>).</p>
 </details>
 
 <nav class="lesson-nav" aria-label="Lessons"></nav>

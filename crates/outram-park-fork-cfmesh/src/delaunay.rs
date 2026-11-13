@@ -91,7 +91,7 @@
 
 use crate::math::Vec3;
 use crate::volume_mesh::{cells_faces, from_cell_faces, VolumeMesh};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Signed volume × 6 of the tetrahedron `(a, b, c, d)`: `(b−a)·((c−a)×(d−a))`.
 /// Strictly positive iff the tet is **positively oriented** (`d` on the
@@ -279,7 +279,7 @@ pub fn flip_to_delaunay(mesh: &VolumeMesh, max_flips: usize) -> VolumeMesh {
         }
         // Adjacency for this sweep: interior faces -> their two tets, and edges
         // -> incident tets (for 3→2), over the currently-live tets.
-        let mut fmap: HashMap<[usize; 3], Vec<(usize, usize)>> = HashMap::new();
+        let mut fmap: BTreeMap<[usize; 3], Vec<(usize, usize)>> = BTreeMap::new();
         let mut emap: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
         for (i, ot) in live.iter().enumerate() {
             let Some(t) = *ot else { continue };

@@ -1,0 +1,115 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    arch        "LSB;label=32;scalar=64";
+    class       dictionary;
+    location    "system/fluidRegion";
+    object      fvSolution;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+solvers
+{
+    p_rgh
+    {
+        solver          GAMG;
+        smoother        DIC;
+        tolerance       1e-06;
+        relTol          0;
+    }
+    p_rghFinal
+    {
+        solver          GAMG;
+        smoother        DIC;
+        tolerance       1e-06;
+        relTol          0;
+    }
+    "e.*"
+    {
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        tolerance       1e-06;
+        relTol          0;
+        minIter         1;
+    }
+    "h.*"
+    {
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        tolerance       1e-06;
+        relTol          0;
+        minIter         1;
+    }
+    ".*"
+    {
+        solver          PBiCGStab;
+        preconditioner  diagonal;
+        tolerance       1e-06;
+        relTol          0.001;
+    }
+    alpha
+    {
+        solver          "MULES";
+        adjustSubCycles true;
+        alphaMaxCo      0.25;
+    }
+}
+
+PIMPLE
+{
+    nCorrectors         12;
+    nNonOrthogonalCorrectors 0;
+    partialEliminationMode  implicit;
+    momentumMode        faceCentered;
+    oscillationLimiterFraction  0;
+    correctUntilConvergence     true;
+    massTransferSafetyFactor    0.1;
+    maxTInterfaceDdt    10000;
+    enthalpyStabilizationMode   source;
+    residualControl
+    {
+        p_rgh
+        {
+            tolerance       1e-05;
+            relTol          0;
+            useFirstPISOInitialResidual true;
+        }
+        h.liquid
+        {
+            tolerance       1e-05;
+            relTol          0;
+        }
+    }
+    solveEnergy         true;
+    solveFluidMechanics true;
+    nOuterCorrectors    24;
+}
+
+relaxationFactors
+{
+    equations
+    {
+        ".*"            1;
+    }
+    fields
+    {
+        "alpha.*"       0.5;
+        "dmdt.*"        0.125;
+        "T.interface"   0.125;
+        "T.interfaceFinal" 0.125;
+        "h.vapour"      0.0125;
+        "h.vapourFinal" 0.0125;
+    }
+}
+
+
+// ************************************************************************* //

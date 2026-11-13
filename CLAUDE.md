@@ -29,8 +29,14 @@ exactly as if it were here.
 | publishing, upgrading dependencies, or needing consolidation history | [`docs/workspace-maintenance.md`](docs/workspace-maintenance.md) |
 | wanting the reasoning and worked examples behind a rule | [`docs/claude-md-rationale/`](docs/claude-md-rationale/) |
 
-Each member crate has its own `CLAUDE.md` and, where relevant, a `docs/`
-folder. **The crate's own file is the authority for that crate.**
+Each member crate has its own agent instructions and, where relevant, a
+`docs/` folder. **The crate's own instructions are the authority for that
+crate.** Since 2026-11-05 (maintainer: "every crate should use this
+structure") they live in the crate's **`AGENTS.md`**, which binds every
+agent, Claude included; the crate's `CLAUDE.md` is a short pointer whose
+`@AGENTS.md` line imports it. **Edit a crate's rules in its `AGENTS.md`,
+never in its `CLAUDE.md`.** A link elsewhere to `crates/<crate>/CLAUDE.md`
+still reaches the rules through that pointer.
 
 ## Scope boundary: this file governs `outram-park-backend` ONLY — never a parent folder (HARD RULE)
 
@@ -238,9 +244,14 @@ radiation term on either leg**. Rebuilt as five legs derived from the R-Z zone
 map, published vessel dimensions, ZBS `k_eff(T)` and Stefan-Boltzmann on the
 two radiative legs, it gives **234.5 kW — +13.9 % against the published
 figure, derived and not fitted**. Calibrating an effective axial length until
-it matched exactly was considered and rejected by the maintainer. The +13.9 %
-is now a real gate that can fail; the previous exact agreement could not.
-See `crates/outram-park-digital-twin-engine/CLAUDE.md`.
+it matched exactly was considered and rejected by the maintainer. ~~The +13.9 %
+is now a real gate that can fail~~ **CORRECTED 2026-11-03:** the gated value
+has been **254.0 kW, +23.3 %** since 2026-09-28, after later changes to the
+chain; read from `examples/htgr_sim_v1/physics/decay_heat_removal.rs`, not
+re-run. The lesson is unchanged: it is a real gate that can fail; the previous
+exact agreement could not. Also note that Hu et al.'s 206 kW is an input to
+their pre-test analysis, cited from an unpublished 2003 INET report, not a
+measurement. See `crates/outram-park-digital-twin-engine/CLAUDE.md`.
 
 ## Debugging a port: read upstream first (HARD RULE)
 
@@ -363,7 +374,7 @@ as much as to writing it. A brief that names an approach without first
 checking what exists is the same defect one level up: the agent follows it
 competently and produces a duplicate.
 
-**Why it needs to be a rule.** This workspace is 48 crates, many of them ports
+**Why it needs to be a rule.** This workspace is ~~48~~ **49** (bugis added 2026-11-02) crates, many of them ports
 of mature codes. The prior is **"this probably exists already"**, not "this
 needs writing". On 2026-08-12 alone, five separate pieces of work were
 specified before checking, and **every one turned out to be already present** —
@@ -409,7 +420,7 @@ problem; it is a false statement that the next reader — human or agent — wil
 act on.
 
 **Why this is a hard rule and not a courtesy.** This workspace's docs are the
-primary interface to 48 crates that no one can hold in their head, and the
+primary interface to ~~48~~ **49** (bugis added 2026-11-02) crates that no one can hold in their head, and the
 search-before-building rule above *depends on them being true*. A stale
 "missing" claim is the worst kind, because it causes exactly the duplication
 this file exists to prevent: an agent reads "no model exists", believes it,
@@ -725,6 +736,102 @@ Full rules, tiers and CI triggers: [`docs/claude-md/long-tests-and-ci.md`](docs/
 
 Full text, with the enum-dispatch pattern: [`docs/claude-md/rust-design-rules.md`](docs/claude-md/rust-design-rules.md).
 
+## Kovan-reviewed functions are closed to modification (HARD RULE)
+
+**Maintainer direction, 2026-11-05:** "for functions kovan reviewed, apply O
+from SOLID as far as possible. open to extension, closed to modification.
+Cos i don't want to review them again. Refactoring should only be done if
+confirmed by human maintainer/founder/reviewer."
+
+**A function carrying a human review stamp in kovan is not edited**: not its
+body, signature, doc comment or behaviour, and not by a refactor, rename,
+reformat, macro removal or "small cleanup". Any change voids the stamp and
+puts it back in the maintainer's review queue, the scarcest resource here
+("Human review is the bottleneck").
+
+- **Extend instead.** Add a new function, a new type, a wrapper that calls the
+  reviewed one, a new module, or a `with_*` / `without_*` builder beside it.
+  New behaviour lives in new, unreviewed code that calls the reviewed code
+  unchanged.
+- **Design new code so it extends without edits.** Note that adding a variant
+  to a reviewed enum forces edits to every reviewed `match` on it: prefer a
+  new type or a new function over a new variant there. Where an edit to
+  reviewed code is genuinely unavoidable, that is the case below.
+- **Modifying a reviewed function needs explicit confirmation first,** from a
+  human maintainer, founder or reviewer, for that change. Ask before editing,
+  say which reviewed functions it touches and why extension does not work,
+  and record the confirmation in the GitHub issue. This includes fixing a
+  defect: report it and ask; do not patch it silently. Agents never decide
+  this alone, and a general instruction ("refactor X", "remove the macros",
+  #1253) does not count as confirmation for the reviewed functions inside it.
+- **How to tell whether a function is reviewed:** its folder's `review.md`
+  holds a `kind = "review"` block whose `target` is the function's `fn:` id
+  (the id is in the same folder's `kovan.toml`); kovan's Code Review shows the
+  same state. Check before editing any function, not only the ones you
+  expect to be reviewed.
+- **Unreviewed code** is outside this rule, but still change it as little as
+  the task needs.
+
+## Avoid writing macros (workspace rule, 2026-11-05)
+
+**Maintainer direction, 2026-11-05:** "the use of macros makes code more
+difficult to read/review ... avoid use of macros". Do not write new
+`macro_rules!` or proc macros in this workspace. Write functions, generics,
+enums and plain `match` arms instead, even when that repeats a few lines:
+a reviewer reads them as written, rust-analyzer resolves them, and kovan's
+call graph and stamps see every function. A macro hides its expansion from
+all three.
+
+- **Using** macros from std and dependencies (`vec!`, `format!`, `assert!`,
+  `#[derive(..)]`, `#[test]`, serde's derives) is fine; this rule is about
+  writing them.
+- ~~**Existing macros** (32 files across 16 crates on 2026-11-05) are not
+  mass-refactored. Replace one with plain code when you change the code
+  around it, and never inside a kovan-reviewed function without the
+  confirmation the rule above requires. `monte_carlo_web`'s `rung_table!` is the first candidate.~~
+  **CHANGED 2026-11-05 (maintainer: "refactor out the custom macros for me
+  workspace wide"):** every hand-written `macro_rules!` was replaced with
+  plain code that day (#1253), behaviour unchanged, including inside the
+  reviewed `outram_mc_libs::physics::transport_csg::transport_history_vr`
+  (confirmed by the maintainer for that refactor). One is left:
+  `raffles`' exported `quantities!`, used by
+  `outram-park-digital-twin-engine`; its removal is a public API change
+  awaiting the maintainer (#1253). Text inside string literals and doc
+  comments (`kovan-codegen`'s generated output) is not a macro here.
+- **If a macro seems unavoidable**, ask the maintainer first and say why
+  plain code does not work.
+
+## Never declare modules through a macro (HARD RULE)
+
+**Maintainer direction, 2026-11-04.** Every `mod` in this workspace is a
+plain `mod name;` (or `mod name { … }`) line in source, never generated by a
+`macro_rules!` (`mod $m;`), a proc macro or `include!`. A macro may still
+generate enums, dispatch and impls over modules that are declared plainly.
+
+- **Why.** kovan builds its code tree by reading `mod` lines from the source
+  text (`crates/kovan-common/src/call_graph/modules.rs`); it does not expand
+  macros. A module declared by a macro has no `kovan.toml`, no functions in
+  the review and no stamps: it is invisible to review. Found 2026-11-04,
+  when the HTR-10 web demo and nine other `monte_carlo_web` rungs were
+  missing from kovan because `rung_table!` declared them.
+- **Pinned by** `crates/kovan/tests/no_macro_declared_modules.rs`, which scans
+  every `.rs` file in the workspace and fails on a `mod $…` in a macro.
+
+## GUI rendering is wgpu only, never glow (HARD RULE)
+
+**Maintainer direction, 2026-10-27: "refactor glow out completely, just use
+WGPU in all crates at all times … this will be a hard rule for this
+workspace".** Every crate, every target, native and browser:
+
+- **No crate asks for glow**: no `features = ["glow"]` on `eframe` (or
+  anything else), no direct `glow` dependency, no `eframe::Renderer::Glow`.
+  Web demos set `renderer: eframe::Renderer::Wgpu`.
+- **Browser fallback is wgpu's own.** The `glow` crate stays in `Cargo.lock`
+  on wasm32 under `wgpu-hal`: that is how wgpu drives WebGL2 where a browser
+  has no WebGPU. It is not a crate here choosing glow; leave it.
+- **Pinned by** `crates/outram-park-digital-twin-engine/tests/wgpu_only_renderer.rs`,
+  which scans every `Cargo.toml` and `.rs` file and fails on a violation.
+
 ## Portability — three hard build rules (summary)
 
 - **Every non-GUI library must compile on Android/Termux**
@@ -765,7 +872,7 @@ Several crates that used to live as independent GitHub repositories under
 `github.com/theodoreOnzGit` are now consolidated here under `crates/` and are
 built, tested, and published from this single repository.
 
-~~**47 member crates**~~ **48 member crates** (`kovan-web` added 2026-10-06). ~~All GPL-3.0 except the whole kovan family (`kovan`, `kovan-web`, and since 2026-10-07 `kovan-common`, `kovan-literature`, `kovan-discovery`, `kovan-semantics`, `kovan-metrics`, `kovan-codegen`) and, since 2026-10-05, `dhoby-ghaut`, which depends on `kovan` (all AGPL-3.0-only).~~ **CORRECTED 2026-10-20 (gh:#973, maintainer direction): 43 of the 48 are now `AGPL-3.0-only`**, and the root `[workspace.package]` default is too. ~~**Five are HELD at `GPL-3.0-only` by an explicit `license` field** until their third-party authors' consent is recorded on gh:#973 — `bedok`, `raffles`, `tampines`, `tampines-steam-tables`, `tuas_boussinesq_solver`. **Most FILES still carry a GPL-3.0 SPDX header and must keep it**: a translation of a copyleft upstream (OpenFOAM, GSL, cfMesh, DWSIM, FLEXPART, Blender, RustBCA, PFLOTRAN, MOOSE/PRISMS, Moltres, the Octave control package) cannot be relicensed, so 18 crates — PETIR among them — convey as **AGPL combined works under GPLv3 §13 / AGPLv3 §13** and ship `LICENSE.GPL-3.0` beside `LICENSE`. The per-crate record, with the published versions each crate grandfathers, is [`docs/relicensing-agpl-2026-10-20.md`](docs/relicensing-agpl-2026-10-20.md).~~ **CORRECTED AGAIN 2026-10-20 (maintainer: "All crates AGPLv3"): all 48 are `AGPL-3.0-only`**; `tuas_boussinesq_solver`, `tampines` and `tampines-steam-tables` convey as combined works with `LICENSE.GPL-3.0`. Record: `docs/relicensing-agpl-2026-10-20.md`. The roster,
+~~**47 member crates**~~ ~~**48 member crates** (`kovan-web` added 2026-10-06).~~ **49 member crates** (bugis added 2026-11-02). ~~All GPL-3.0 except the whole kovan family (`kovan`, `kovan-web`, and since 2026-10-07 `kovan-common`, `kovan-literature`, `kovan-discovery`, `kovan-semantics`, `kovan-metrics`, `kovan-codegen`) and, since 2026-10-05, `dhoby-ghaut`, which depends on `kovan` (all AGPL-3.0-only).~~ **CORRECTED 2026-10-20 (gh:#973, maintainer direction): 43 of the 48 are now `AGPL-3.0-only`**, and the root `[workspace.package]` default is too. ~~**Five are HELD at `GPL-3.0-only` by an explicit `license` field** until their third-party authors' consent is recorded on gh:#973 — `bedok`, `raffles`, `tampines`, `tampines-steam-tables`, `tuas_boussinesq_solver`. **Most FILES still carry a GPL-3.0 SPDX header and must keep it**: a translation of a copyleft upstream (OpenFOAM, GSL, cfMesh, DWSIM, FLEXPART, Blender, RustBCA, PFLOTRAN, MOOSE/PRISMS, Moltres, the Octave control package) cannot be relicensed, so 18 crates — PETIR among them — convey as **AGPL combined works under GPLv3 §13 / AGPLv3 §13** and ship `LICENSE.GPL-3.0` beside `LICENSE`. The per-crate record, with the published versions each crate grandfathers, is [`docs/relicensing-agpl-2026-10-20.md`](docs/relicensing-agpl-2026-10-20.md).~~ **CORRECTED AGAIN 2026-10-20 (maintainer: "All crates AGPLv3"): all 48 are `AGPL-3.0-only`**; `tuas_boussinesq_solver`, `tampines` and `tampines-steam-tables` convey as combined works with `LICENSE.GPL-3.0`. Record: `docs/relicensing-agpl-2026-10-20.md`. The roster,
 maturity marks, internal dependency edges and the dependency policy (all
 versions in the root `[workspace.dependencies]`) are in
 [`docs/claude-md/members-and-dependencies.md`](docs/claude-md/members-and-dependencies.md).
@@ -786,13 +893,14 @@ README states:
 - the **research, education and V&V only** banner from `RESPONSIBLE_USE.md`;
 - the **Bookkeeping status** table (both axes unchecked).
 
-The same change also adds the crate's own `CLAUDE.md`, the member line in the
+The same change also adds the crate's own `AGENTS.md` (its rules) and the
+standard `CLAUDE.md` pointer importing it (copy any crate's), the member line in the
 root `Cargo.toml`, its row in
 [`docs/claude-md/members-and-dependencies.md`](docs/claude-md/members-and-dependencies.md),
 its row in `docs/ecosystem-naming.md` when it is a named domain, and updates
 every member **count** in this file. `crates/bishan/` is the placeholder
 pattern: `Cargo.toml`, `src/lib.rs` with a `SCOPE` constant and one test,
-`README.md` and `CLAUDE.md`.
+`README.md`, `AGENTS.md` and the `CLAUDE.md` pointer.
 
 ## Literature and the Kovan corpus (brief)
 

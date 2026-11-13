@@ -21,26 +21,45 @@
 
 use super::traits::EquationOfState;
 use crate::polynomial::Polynomial;
-use crate::thermophysics::constants::R_UNIVERSAL;
+use crate::thermophysics::constants::GasConstant;
 use crate::thermophysics::imports::*;
 
-/// Incompressible polynomial EOS: `v(T) = poly(T)`, so `ρ = 1 / poly(T)`.
+/// Incompressible polynomial EOS: `rho(T) = poly(T)`.
 ///
-/// Mirrors `Foam::icoPolynomial<Specie, PolySize>` from
-/// `src/thermophysicalModels/specie/equationOfState/icoPolynomial/`.
+/// Port of `Foam::icoPolynomial<Specie, PolySize>`, OpenFOAM v2506 (ESI)
+/// `src/thermophysicalModels/specie/equationOfState/icoPolynomial/icoPolynomialI.H`:
+/// `rho` returns `rhoCoeffs_.value(T)` (line 83), and `H`, `Cp`, `E`, `Cv`,
+/// `S`, `psi`, `Z` and `CpMCv` all return `0` (lines 94-171).
 ///
-/// The polynomial gives specific volume as a function of T.  ψ = 0 (incompressible).
-/// h_eos = p·v = p/ρ  (enthalpy departure for incompressible EOS).
+/// ~~The polynomial gives specific volume as a function of T, `ρ = 1/poly(T)`;
+/// ψ = 0; h_eos = p·v = p/ρ.~~ **CORRECTED 2026-11-04 (gh:#1218):** that was
+/// not what upstream does. The dictionary keyword is `rhoCoeffs<N>` and
+/// upstream evaluates it as the **density**, not the specific volume, and its
+/// enthalpy, entropy and compressibility-factor departures are all zero. Found
+/// while porting GeN-Foam's two-phase solver, whose sodium and water tutorials
+/// select `icoPolynomial` (1D_boiling: `rhoCoeffs<8> (1006.81 -0.217 ...)`,
+/// i.e. ~865 kg/m^3 at 650 K, which the old reading turned into 1/865).
+/// Checked against the v2506 source fetched from the OpenCFD mirror
+/// `github.com/ZhangYanTJU/OpenFOAM-ESI` at tag `OpenFOAM-v2506`.
 #[derive(Debug, Clone, Copy)]
 pub struct IcoPolynomial<const N: usize> {
     mol_weight: MolarMass,
     poly: Polynomial<N>,
+    gas_constant: GasConstant,
 }
 
 impl<const N: usize> IcoPolynomial<N> {
-    /// `poly` coefficients give specific volume `[m³/kg]` as a polynomial in T `[K]`.
+    /// `poly` coefficients give the density `[kg/m³]` as a polynomial in T `[K]`
+    /// (upstream's `rhoCoeffs<N>`).
     pub fn new(mol_weight: MolarMass, poly: Polynomial<N>) -> Self {
-        Self { mol_weight, poly }
+        Self { mol_weight, poly, gas_constant: GasConstant::Codata2019 }
+    }
+
+    /// Select the universal gas constant (default [`GasConstant::Codata2019`];
+    /// [`GasConstant::EsiV2506`] reproduces OpenFOAM-v2506 bit for bit).
+    pub fn with_gas_constant(mut self, gas_constant: GasConstant) -> Self {
+        self.gas_constant = gas_constant;
+        self
     }
 }
 
@@ -51,23 +70,21 @@ impl<const N: usize> EquationOfState for IcoPolynomial<N> {
 
     fn r(&self) -> SpecificHeatCapacity {
         let w = self.mol_weight.get::<kilogram_per_mole>();
-        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(R_UNIVERSAL / w)
+        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(self.gas_constant.specific(w))
     }
 
     fn rho(&self, _p: Pressure, t: ThermodynamicTemperature) -> MassDensity {
-        MassDensity::new::<kilogram_per_cubic_meter>(1.0 / self.poly.value(t.get::<kelvin>()))
+        MassDensity::new::<kilogram_per_cubic_meter>(self.poly.value(t.get::<kelvin>()))
     }
 
     fn psi(&self, _p: Pressure, _t: ThermodynamicTemperature) -> Compressibility {
         MassDensity::new::<kilogram_per_cubic_meter>(0.0) / Pressure::new::<pascal>(1.0)
     }
 
-    fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio {
-        // Z = p·v / (R·T) = p · poly(T) / (R·T)
+    fn z(&self, _p: Pressure, _t: ThermodynamicTemperature) -> Ratio {
+        // Upstream `icoPolynomial::Z` returns 0 (icoPolynomialI.H).
         use uom::si::ratio::ratio;
-        let p_v = p.get::<pascal>() * self.poly.value(t.get::<kelvin>());
-        let r_t = self.r().get::<joule_per_kilogram_kelvin>() * t.get::<kelvin>();
-        Ratio::new::<ratio>(p_v / r_t)
+        Ratio::new::<ratio>(0.0)
     }
 
     fn cp_m_cv(&self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity {
@@ -78,11 +95,9 @@ impl<const N: usize> EquationOfState for IcoPolynomial<N> {
         SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(0.0)
     }
 
-    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
-        // h_eos = p/ρ = p · v = p · poly(T)
-        AvailableEnergy::new::<joule_per_kilogram>(
-            p.get::<pascal>() * self.poly.value(t.get::<kelvin>()),
-        )
+    fn h_eos(&self, _p: Pressure, _t: ThermodynamicTemperature) -> AvailableEnergy {
+        // Upstream `icoPolynomial::H` returns 0 (icoPolynomialI.H:94).
+        AvailableEnergy::new::<joule_per_kilogram>(0.0)
     }
 
     fn e_eos(&self, _p: Pressure, _t: ThermodynamicTemperature) -> AvailableEnergy {
@@ -108,19 +123,18 @@ mod tests {
     /// Fit: v(T) ≈ 1/998.0 + 4e-7·(T−298.15)·(1/998.0)²  (simplified)
     /// Here we use a constant polynomial (single term) as a sanity check.
     fn water_const() -> IcoPolynomial<1> {
-        // v = 1/998.0 m³/kg  (constant density ≈ RhoConst)
+        // rho = 998.0 kg/m³  (constant density ≈ RhoConst)
         IcoPolynomial::new(
             MolarMass::new::<gram_per_mole>(18.015),
-            Polynomial::new([1.0_f64 / 998.0]),
+            Polynomial::new([998.0_f64]),
         )
     }
 
     fn water_linear() -> IcoPolynomial<2> {
-        // v(T) ≈ 1/998.0 + b·T  where b gives ~1% variation over 10 K
-        // Small slope: b = 2e-7 m³/(kg·K)
+        // rho(T) = 1100 - 0.34·T  (≈ 998 kg/m³ at 300 K, falling with T)
         IcoPolynomial::new(
             MolarMass::new::<gram_per_mole>(18.015),
-            Polynomial::new([1.0_f64 / 998.0, 2e-7]),
+            Polynomial::new([1100.0_f64, -0.34]),
         )
     }
 
@@ -142,14 +156,32 @@ mod tests {
         assert_relative_eq!(psi_times_p, 0.0, epsilon = 1e-10);
     }
 
+    /// Upstream `icoPolynomial::H` and `Z` return 0 (OpenFOAM v2506
+    /// `icoPolynomialI.H`); the earlier port returned `p/rho` (gh:#1218).
     #[test]
-    fn h_eos_equals_p_over_rho() {
+    fn h_eos_and_z_are_zero_as_upstream() {
         let w = water_linear();
         let p = Pressure::new::<pascal>(1e6);
         let t = ThermodynamicTemperature::new::<kelvin>(300.0);
-        let h_eos = w.h_eos(p, t).get::<joule_per_kilogram>();
-        let p_over_rho = p.get::<pascal>() / w.rho(p, t).get::<kilogram_per_cubic_meter>();
-        assert_relative_eq!(h_eos, p_over_rho, epsilon = 1e-6);
+        assert_eq!(w.h_eos(p, t).get::<joule_per_kilogram>(), 0.0);
+        assert_eq!(w.z(p, t).get::<uom::si::ratio::ratio>(), 0.0);
+    }
+
+    /// The 1D_boiling sodium `rhoCoeffs<8>` evaluate to a liquid-sodium
+    /// density, which only the density reading gives (gh:#1218).
+    #[test]
+    fn sodium_rho_coeffs_are_a_density() {
+        let na = IcoPolynomial::new(
+            MolarMass::new::<gram_per_mole>(22.989769),
+            Polynomial::new([1006.81, -2.17e-1, -2.83e-6, -6.54e-9, 0.0, 0.0, 0.0, 0.0]),
+        );
+        let p = Pressure::new::<pascal>(1e5);
+        let t = ThermodynamicTemperature::new::<kelvin>(652.15);
+        let rho = na.rho(p, t).get::<kilogram_per_cubic_meter>();
+        let expected = 1006.81 - 0.217 * 652.15 - 2.83e-6 * 652.15_f64.powi(2)
+            - 6.54e-9 * 652.15_f64.powi(3);
+        assert_relative_eq!(rho, expected, epsilon = 1e-9);
+        assert!((850.0..870.0).contains(&rho));
     }
 
     #[test]
@@ -164,5 +196,21 @@ mod tests {
             rho1 > rho2,
             "rho should decrease with T for positive slope poly"
         );
+    }
+}
+
+#[cfg(test)]
+mod gh1362_tests {
+    use super::*;
+    use uom::si::molar_mass::gram_per_mole;
+
+    #[test]
+    fn gas_constant_option_applies() {
+        let a = IcoPolynomial::<2>::new(
+            MolarMass::new::<gram_per_mole>(28.96),
+            Polynomial::<2>::new([1000.0, -0.5]),
+        );
+        let b = a.with_gas_constant(GasConstant::EsiV2506);
+        assert!(b.r().get::<joule_per_kilogram_kelvin>() > a.r().get::<joule_per_kilogram_kelvin>());
     }
 }

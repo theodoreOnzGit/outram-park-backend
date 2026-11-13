@@ -21,6 +21,21 @@
 //! analytic ZBS implementation must reproduce, and as an interim effective
 //! conductivity of a 6 cm-pebble helium bed. Not validated against HTR-10
 //! measurements.
+//!
+//! **UPDATED 2026-11-03 (gh:#1148, `op-jvua`) — read before using this as a
+//! conductivity.** (1) `pbr.i` defines `keff_pebble_bed` but never references
+//! it (a grep of the deck finds only the definition), so the VTB model did
+//! not run with this table. (2) Read as W/(m K) it is 6.1x the
+//! IAEA-TECDOC-1694 Breitbach bed correlation at 300 K and 3.3x at 1000 K,
+//! and similarly far above the open Kugeler (2017) eq. (108) fit to the
+//! Juelich laboratory measurements. (3) Read as a dimensionless `k_eff/k_f`,
+//! it tracks an analytic ZBS evaluation to within 6-11 % at all 18 points.
+//! The units of this table are therefore in doubt; a caller using it as
+//! W/(m K) is likely overstating the bed conductivity several-fold. The
+//! benchmark's own correlation is
+//! `outram_foam_appbuilder_lib::htgr_closures::BedConductivityModel::Breitbach`.
+//! Evidence: `outram_foam_appbuilder_lib::htgr_closures::zbs` (module docs and
+//! the test `vtb_table_tracks_zbs_when_read_as_k_eff_over_k_f`).
 
 use uom::si::f64::{Ratio, ThermalConductivity, ThermodynamicTemperature};
 use uom::si::ratio::ratio;

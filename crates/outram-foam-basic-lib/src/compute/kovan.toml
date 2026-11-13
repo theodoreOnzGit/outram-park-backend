@@ -10,6 +10,15 @@ test_ids = [
     "crates/outram-foam-basic-lib/src/compute/hybrid.rs::ratio_is_clamped_not_wrapped",
     "crates/outram-foam-basic-lib/src/compute/hybrid.rs::remainder_lane_goes_to_the_more_accurate_side",
     "crates/outram-foam-basic-lib/src/compute/hybrid.rs::split_is_exhaustive_and_deterministic",
+    "crates/outram-foam-basic-lib/src/compute/tests.rs::backend_labels_are_distinct",
+    "crates/outram-foam-basic-lib/src/compute/tests.rs::gpu_probe_is_cached_and_never_panics",
+    "crates/outram-foam-basic-lib/src/compute/tests.rs::gpu_threshold_is_above_the_cpu_multi_threshold",
+    "crates/outram-foam-basic-lib/src/compute/tests.rs::resolve_never_returns_an_unavailable_backend",
+    "crates/outram-foam-basic-lib/src/compute/tests.rs::resolve_never_upgrades_serial",
+    "crates/outram-foam-basic-lib/src/compute/tests.rs::select_backend_keeps_small_problems_serial",
+    "crates/outram-foam-basic-lib/src/compute/tests.rs::select_backend_only_returns_available_backends",
+    "crates/outram-foam-basic-lib/src/compute/tests.rs::serial_is_always_available_and_default",
+    "crates/outram-foam-basic-lib/src/compute/tests.rs::thread_count_always_resolves_to_at_least_one",
 ]
 
 [module."gpu.rs"]
@@ -758,3 +767,27 @@ doc_hash = "sha256:5c99072ce9adb772004c0fb4dcb215d17c529d83f141405b616e4138ffc14
 callees = ["fn:91eb900b2abf81f8"]
 uses = ["fn:4cc87691d59e0afc"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+failed = []

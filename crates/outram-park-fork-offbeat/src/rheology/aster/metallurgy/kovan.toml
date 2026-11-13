@@ -2,6 +2,33 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-offbeat"
 dir = "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy"
+test_ids = [
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::an_elastic_irrad3m_step_is_exactly_elastic",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::anisotropy_rotates_the_flow_direction_away_from_the_deviator",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::degenerate_meta_lema_ani_steps_produce_no_creep",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::irrad3m_state_accumulates_consistently_over_a_dose_history",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::irradiation_creep_preserves_volume_and_needs_fluence",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::irradiation_creep_waits_for_the_incubation_threshold",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::swelling_is_volumetric_and_guarded",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::the_anisotropic_return_satisfies_the_step_equation",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::the_arrhenius_exponent_cancels_in_the_rate",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::the_closed_form_return_satisfies_the_flow_rule_and_elastic_return",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::the_compliance_matches_the_upstream_expression",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::the_flow_curve_is_continuous_and_monotone",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::the_fluence_quadrature_is_first_order_and_biased_low",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::the_growth_tensor_reproduces_upstream_including_its_yy_defect",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::the_growth_variant_creeps_identically_to_the_creep_only_variant",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::the_hill_blend_is_discontinuous_at_the_snap_points",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::the_hill_contraction_is_traceless",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::the_identified_hardening_curve_passes_through_both_tensile_points",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::the_irrad3m_return_satisfies_consistency_and_the_elastic_return",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::the_isotropic_hill_coefficients_reproduce_von_mises",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::the_isotropic_limit_reproduces_an_independent_radial_return",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::the_phase_weights_partition_unity",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::the_ported_names_round_trip_against_the_catalogue",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::the_swelling_closed_form_is_the_exact_integral",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/metallurgy/tests.rs::unphysical_inputs_are_rejected",
+]
 
 [module."tests.rs"]
 path = "crate::rheology::aster::metallurgy::tests"
@@ -605,3 +632,36 @@ uses = [
     "fn:e6da8a7be0ec8f45",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+]
+failed = []

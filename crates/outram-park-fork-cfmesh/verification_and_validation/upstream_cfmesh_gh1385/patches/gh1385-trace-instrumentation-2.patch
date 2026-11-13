@@ -1,0 +1,101 @@
+--- a/meshLibrary/tetMesh/tetMeshGenerator/tetMeshGenerator.C
++++ b/meshLibrary/tetMesh/tetMeshGenerator/tetMeshGenerator.C
+@@ -45,6 +45,26 @@
+ #include "polyMeshGenGeometryModification.H"
+ #include "surfaceMeshGeometryModification.H"
+ 
++#include <cstdio>
++#include <cstdlib>
++static void gh1385DumpAll(const char* tag, const Foam::Module::pointFieldPMG& pts)
++{
++    if (!getenv("GH1385_TRACE")) return;
++    for (Foam::label i = 0; i < pts.size(); ++i)
++        fprintf(stderr, "TRACE %s 0 %d %.17g %.17g %.17g\n", tag, int(i), pts[i].x(), pts[i].y(), pts[i].z());
++}
++
++static void gh1385DumpCells(const Foam::Module::cellListPMG& cells)
++{
++    if (!getenv("GH1385_TRACE")) return;
++    for (Foam::label c = 0; c < cells.size(); ++c)
++    {
++        fprintf(stderr, "CELL %d", int(c));
++        for (Foam::label i = 0; i < cells[c].size(); ++i) fprintf(stderr, " %d", int(cells[c][i]));
++        fprintf(stderr, "\n");
++    }
++}
++
+ // * * * * * * * * * * * * Private member functions  * * * * * * * * * * * * //
+ 
+ void Foam::Module::tetMeshGenerator::createTetMesh()
+@@ -156,12 +176,18 @@
+         optimizer.enforceConstraints();
+     }
+ 
++    gh1385DumpAll("tet_in", mesh_.points());
+     optimizer.optimizeSurface(*octreePtr_);
+ 
++    gh1385DumpCells(mesh_.cells());
++    gh1385DumpAll("tet_surface", mesh_.points());
+     optimizer.optimizeMeshFV();
++    gh1385DumpAll("tet_fv", mesh_.points());
+     optimizer.optimizeLowQualityFaces();
++    gh1385DumpAll("tet_lowq", mesh_.points());
+     optimizer.optimizeBoundaryLayer(false);
+     optimizer.untangleMeshFV();
++    gh1385DumpAll("tet_untangle", mesh_.points());
+ 
+     deleteDemandDrivenData(octreePtr_);
+ 
+--- a/meshLibrary/utilities/surfaceTools/meshSurfaceMapper/meshSurfaceMapperCornersAndEdges.C
++++ b/meshLibrary/utilities/surfaceTools/meshSurfaceMapper/meshSurfaceMapperCornersAndEdges.C
+@@ -38,6 +38,8 @@
+ #include <omp.h>
+ # endif
+ 
++#include <cstdio>
++#include <cstdlib>
+ // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+ 
+ void Foam::Module::meshSurfaceMapper::findMappingDistance
+@@ -295,6 +297,8 @@
+             mapPoint = mapPointApprox;
+         }
+ 
++        if (getenv("GH1385_TRACE"))
++            fprintf(stderr, "CORNER %d %.17g %.17g %.17g maxDist %.17g approx %.17g %.17g %.17g dApprox %.17g dist %.17g map %.17g %.17g %.17g npatch %d\n", int(bpI), p.x(), p.y(), p.z(), mappingDistance[cornerI], mapPointApprox.x(), mapPointApprox.y(), mapPointApprox.z(), distSqApprox, distSq, mapPoint.x(), mapPoint.y(), mapPoint.z(), int(patches.size()));
+         // move the point to the nearest corner
+         sMod.moveBoundaryVertexNoUpdate(bpI, mapPoint);
+     }
+@@ -399,6 +403,8 @@
+             mapPoint = f*(mapPoint - p) + p;
+         }
+ 
++        if (getenv("GH1385_TRACE"))
++            fprintf(stderr, "EDGE %d %.17g %.17g %.17g maxDist %.17g approx %.17g %.17g %.17g dApprox %.17g dist %.17g map %.17g %.17g %.17g npatch %d\n", int(bpI), p.x(), p.y(), p.z(), maxDist, mapPointApprox.x(), mapPointApprox.y(), mapPointApprox.z(), distSqApprox, distSq, mapPoint.x(), mapPoint.y(), mapPoint.z(), int(patches.size()));
+         // move the point to the nearest edge vertex
+         sMod.moveBoundaryVertexNoUpdate(bpI, mapPoint);
+ 
+--- a/meshLibrary/utilities/smoothers/geometry/meshOptimizer/optimizeMeshFV.C
++++ b/meshLibrary/utilities/smoothers/geometry/meshOptimizer/optimizeMeshFV.C
+@@ -36,6 +36,8 @@
+ #include "boundaryLayerOptimisation.H"
+ #include "refineBoundaryLayers.H"
+ #include "meshSurfaceEngine.H"
++#include <cstdio>
++#include <cstdlib>
+ 
+ //#define DEBUGSmooth
+ 
+@@ -578,6 +580,12 @@
+ 
+     laplaceSmoother lps(mesh_, vertexLocation_);
+     lps.optimizeLaplacianPC(numLaplaceIterations);
++    if (getenv("GH1385_TRACE"))
++    {
++        const pointFieldPMG& pts = mesh_.points();
++        for (Foam::label i = 0; i < pts.size(); ++i)
++            fprintf(stderr, "TRACE fv_lap 0 %d %.17g %.17g %.17g\n", int(i), pts[i].x(), pts[i].y(), pts[i].z());
++    }
+ 
+     untangleMeshFV
+     (

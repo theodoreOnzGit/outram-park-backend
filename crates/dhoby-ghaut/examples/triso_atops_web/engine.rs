@@ -6,7 +6,7 @@
 //! milliseconds and the UI never waits.
 //!
 //! **No physics is written here.** Every number is a call into `boon-lay`,
-//! the crate the lessons teach (`tutorials/triso-atops/`):
+//! the crate the lessons teach (the Fission products science lessons, `science/fission-products/`, since 2026-11-04, gh:#1207):
 //!
 //! | rung | call |
 //! |---|---|
@@ -26,8 +26,11 @@
 //! such), and stepping the pools at the accident steps (rung 7).
 //!
 //! **Calls this engine must not make, because they panic** (a panic in the
-//! Web Worker aborts it): the Kr-in-buffer diffusion coefficient is a
-//! `todo!()` (gh:#541), so the layers rung omits that curve and says so; and
+//! Web Worker aborts it): ~~the Kr-in-buffer diffusion coefficient is a
+//! `todo!()` (gh:#541), so the layers rung omits that curve and says so~~
+//! (**CORRECTED 2026-11-10, gh:#638:** Kr in the buffer now has a cited
+//! value, IAEA-TECDOC-978's German `1e-8 m^2/s`, and the layers rung draws
+//! it); and
 //! `SingleNuclideSimulatorMC::advance_timestep` reads `SystemTime`, which
 //! panics on `wasm32-unknown-unknown`, so rung 2 samples the lifetimes with
 //! the same sampler directly instead of stepping a simulator.
@@ -505,6 +508,9 @@ impl KernelWalk {
                     HopOutcome::ReachedInterface | HopOutcome::Released => {
                         *a = Some(w.time.get::<second>());
                     }
+                    // Kernel-only walk: every element here has a kernel `D`,
+                    // so this cannot fire; stop rather than count it (gh:#638).
+                    HopOutcome::NoDiffusionData => break,
                 }
             }
         }
@@ -961,14 +967,11 @@ impl Engine {
                         .map(|d| d.get::<square_meter_per_second>())
                 };
                 let mut series = Vec::new();
-                let mut names = Vec::new();
+                let names: Vec<String> = Vec::new();
                 for (name, m, colour) in layers {
-                    // Kr in the buffer is a todo!() in the coefficient table
-                    // (gh:#541): a panic would abort the worker.
-                    if n == Nuclide::Kr85 && m == TrisoPebbleLayerMaterial::Buffer {
-                        names.push(format!("{label} in the {name}: no coefficient (a todo!() in the code, gh:#541)"));
-                        continue;
-                    }
+                    // Every element shown has a cited value in all four
+                    // layers since gh:#638 (Kr in the buffer); a missing one
+                    // would still read as NaN, never a panic.
                     let ys: Vec<f64> = ts.iter().map(|c| d_at(m, *c).unwrap_or(f64::NAN)).collect();
                     series.push(Series {
                         label: format!("{label} in the {name}"),
@@ -1668,8 +1671,13 @@ mod tests {
     }
 
     /// Rung 4 reproduces the lesson's recorded table row (Cs-137, 1600 C:
-    /// D_PyC 4.062e-14, D_SiC 9.228e-17, p 2.266e-3) and never asks for the
-    /// Kr-in-buffer coefficient, which panics (gh:#541).
+    /// D_PyC 4.062e-14, D_SiC 9.228e-17, p 2.266e-3) ~~and never asks for the
+    /// Kr-in-buffer coefficient, which panics (gh:#541)~~ ~~has no cited
+    /// value (since 2026-11-10 the lookup returns a typed error, gh:#638)~~.
+    /// **CORRECTED 2026-11-10 (gh:#638):** Kr in the buffer has a cited value
+    /// now (`1e-8 m^2/s`, IAEA-TECDOC-978 p. 440), so the Kr frame carries all
+    /// four curves, the buffer one flat at `1e-8`, and no "no coefficient"
+    /// note. The test keeps its old name for the history.
     #[test]
     fn layers_match_the_recorded_table_and_skip_the_todo() {
         let mut e = Engine::default();
@@ -1679,8 +1687,9 @@ mod tests {
         assert!((f.scalars[2] / 2.266e-3 - 1.0).abs() < 1e-3);
         assert_eq!(f.series.len(), 4);
         let kr = frame(&mut e, Request::Layers { id: 2, nuclide: 3, temp_c: 1600.0 });
-        assert_eq!(kr.series.len(), 3);
-        assert_eq!(kr.names.len(), 1);
+        assert_eq!(kr.series.len(), 4);
+        assert!(kr.names.is_empty());
+        assert!(kr.series[1].ys.iter().all(|&d| d == 1e-8), "Kr buffer: 1e-8 at every T");
     }
 
     /// Rung 5: the failure fractions never fall, stay in [0, 1], start at the

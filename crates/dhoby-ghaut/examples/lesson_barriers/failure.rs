@@ -1,5 +1,5 @@
 //! The calls behind chapter 4's particle-failure pages (Fission products,
-//! lessons 33-38): **boon-lay fuel failure** (`boon_lay::fuel_failure`), a
+//! lessons 35-40): **boon-lay fuel failure** (`boon_lay::fuel_failure`), a
 //! clean-room, agentic implementation of the equations published in the
 //! PANAMA-I report (Verfondern & Nabielek, HTA-IB-03/90). It is not a port:
 //! the PANAMA source code was not available. Every number here is boon-lay
@@ -12,7 +12,7 @@
 //! irradiation temperature T_B = 776 °C is the report's HTR-Module average,
 //! the value that module sweeps around; it is not HTR-10's.
 //!
-//! Release from failed particles (lesson 37) uses TRISO-ATOPS's transient
+//! Release from failed particles (lesson 39) uses TRISO-ATOPS's transient
 //! Booth (`booth_transient` on the time integral of D/a^2, a = kernel
 //! radius) with the kernel D of `diffusion_coefficient`. Public API only.
 //! Shared by `main.rs` and `tests/lesson_barriers.rs` through `#[path]`.

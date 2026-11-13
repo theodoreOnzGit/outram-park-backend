@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<!-- __BUILD__ is the commit, written by build.sh: every file URL carries it,
+     so each deploy is fetched fresh and the page, its wasm and its worker
+     always come from the same build. -->
+<html lang="en" data-build="__BUILD__">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Foam Studio · OUTRAM PARK</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1d2021; color: #ebdbb2;
+               font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #foam_canvas { display: block; width: 100%; height: 100%; outline: none; }
+  #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+             text-align: center; padding: 24px; }
+  #loading .box { max-width: 34em; }
+  #loading .spin { width: 28px; height: 28px; margin: 0 auto 16px; border-radius: 50%;
+                   border: 3px solid #504945; border-top-color: #83a598; animation: s 0.9s linear infinite; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  noscript, .err { color: #fb4934; }
+  #loading a, #refs a { color: #83a598; }
+  /* References (gh:#789): a collapsed button fixed in the corner, so the full-page main view is
+     untouched; opened, the list scrolls inside a box that never exceeds the screen width. */
+  #refs { position: fixed; right: 8px; bottom: 8px; z-index: 10; max-width: calc(100vw - 16px); font-size: 13px; }
+  #refs summary { cursor: pointer; width: max-content; margin-left: auto; padding: 6px 10px;
+                  background: #282828; border: 1px solid #504945; border-radius: 6px; }
+  #refs .refs-body { width: min(36em, calc(100vw - 16px)); max-height: 55vh; overflow: auto; margin-top: 4px;
+                     padding: 2px 12px; background: #1d2021; border: 1px solid #504945; border-radius: 6px;
+                     overflow-wrap: anywhere; }
+  #refs h2 { font-size: 14px; margin: 8px 0; }
+  #refs p.csl-entry { margin: 0 0 8px; }
+  /* Gruvbox Light when the app is (bugis sets data-theme on <html>, 2026-11-05). */
+  :root[data-theme="light"] body { background: #f9f5d7; color: #3c3836; }
+  :root[data-theme="light"] #refs summary { background: #fbf1c7; border-color: #d5c4a1; color: #3c3836; }
+  :root[data-theme="light"] #refs .refs-body { background: #f9f5d7; border-color: #d5c4a1; color: #3c3836; }
+  :root[data-theme="light"] #refs a, :root[data-theme="light"] #loading a { color: #076678; }
+</style>
+</head>
+<body>
+<canvas id="foam_canvas"></canvas>
+<div id="loading">
+  <div class="box">
+    <div class="spin"></div>
+    <p><strong>Loading the WebAssembly module…</strong></p>
+    <p>Put a pipe or a duct in a 3-D view, tag its inlet, outlet and walls, mesh it, and run OUTRAM PARK's port of
+      OpenFOAM's pimpleFoam on it, live in a background worker in this tab: velocity and pressure on two slices,
+      the residual history, a probe, and the velocity profile against Hagen–Poiseuille.</p>
+    <p>Research, education and V&amp;V only. Not for reactor operation, licensing, safety decisions or emergency response.</p>
+    <p>Methods: the solver follows OpenFOAM's pimpleFoam <a href="#ref-weller1998">(Weller et al., 1998)</a>; the pipe is checked
+      against Hagen–Poiseuille flow and the development length of <a href="#ref-durst2005">Durst et al. (2005)</a>; the helical
+      coil section's friction factor against the laminar coil correlation of <a href="#ref-mishra1979">Mishra &amp; Gupta (1979)</a>,
+      as a function of the Dean number.</p>
+    <noscript>This demo needs JavaScript and WebAssembly.</noscript>
+  </div>
+</div>
+<details id="refs">
+  <summary>References</summary>
+  <div class="refs-body">
+<!-- references:begin -->
+<h2>References</h2>
+<p class="csl-entry" id="ref-durst2005" style="padding-left: 2em; text-indent: -2em;">Durst, F., Ray, S., Ünsal, B., &#38; Bayoumi, O. A. (2005). The development lengths of laminar pipe and channel flows. <i>Journal of Fluids Engineering</i>, <i>127</i>(6), 1154–1160. https://doi.org/10.1115/1.2063088</p>
+<p class="csl-entry" id="ref-mishra1979" style="padding-left: 2em; text-indent: -2em;">Mishra, P., &#38; Gupta, S. N. (1979). Momentum transfer in curved pipes. 1. Newtonian fluids. <i>Industrial &#38; Engineering Chemistry Process Design and Development</i>, <i>18</i>(1), 130–137. https://doi.org/10.1021/i260069a017</p>
+<p class="csl-entry" id="ref-weller1998" style="padding-left: 2em; text-indent: -2em;">Weller, H. G., Tabor, G., Jasak, H., &#38; Fureby, C. (1998). A tensorial approach to computational continuum mechanics using object-oriented techniques. <i>Computers in Physics</i>, <i>12</i>(6), 620–631. https://doi.org/10.1063/1.168744</p>
+<!-- references:end -->
+  </div>
+</details>
+<script>
+  // A citation link in the loading text opens the list at its entry.
+  addEventListener("hashchange", function () {
+    var d = document.getElementById("refs");
+    if (d && location.hash.indexOf("#ref-") === 0) {
+      d.open = true;
+      var t = document.getElementById(location.hash.slice(1));
+      if (t) t.scrollIntoView();
+    }
+  });
+</script>
+<script type="module">
+  import init from "./foam_studio_web.js?v=__BUILD__";
+  init({ module_or_path: "./foam_studio_web_bg.wasm?v=__BUILD__" }).catch((e) => {
+    const el = document.getElementById("loading");
+    if (el) el.innerHTML = '<p class="err">Could not start: ' + String(e) + "</p>";
+    console.error(e);
+  });
+</script>
+</body>
+</html>

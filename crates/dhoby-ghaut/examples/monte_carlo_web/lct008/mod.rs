@@ -66,7 +66,7 @@ use crate::rungs::{LoadedRung, McRung, RungBuilder, RungInfo};
 use dhoby_ghaut::web_demo::view::View;
 use egui::{Color32, Rect, Sense, Stroke, Vec2};
 
-/// The marker type `rung_table!` names.
+/// The marker type `table.rs` names.
 pub struct Lct008;
 
 /// The recorded tracks the page ships (`--bake-tracks lct008`).
@@ -194,7 +194,7 @@ impl McRung for Lct008 {
         crate::keff::five_route_reference(
             "lct008-full",
             "five-route study route 4, 32 seeds x 10000 x [40+120], 2026-10-15, at 093d8590cf, all 35 nuclides (the model this demo runs)",
-            crate::route1_label!("32 seeds x 10000 x [40+120], all 35 nuclides"),
+            crate::keff::ROUTE1_LABEL_32X10000_ALL35,
             10_000.0 * 120.0,
             ("ICSBEP LEU-COMP-THERM-008 case 1 benchmark k, as tabulated by Mosteller (LA-UR-10-06230)", model::BENCHMARK_K, model::BENCHMARK_SIGMA),
         )

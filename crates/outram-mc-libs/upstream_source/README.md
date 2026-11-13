@@ -14,8 +14,26 @@
   defeats the strict matcher. MIT is GPLv3-compatible one-way; ported files
   must carry the MIT copyright + permission notice.
 - **Branch tracked:** `develop` (when cloned — see below)
-- **Commit at last sync:** not currently tracked — no persistent local clone (see note)
+- **Commit at last sync:** `8f79d9d02483c90e4134f03a9df4b75ce6b062bf` (2026-11-10), a shallow clone in `upstream_source/OpenMC/` made for the surface/lattice differential test (gh:#1386; `verification_and_validation/upstream_openmc_surfaces/`), accessed 2026-11-10. ~~not currently tracked — no persistent local clone~~ **CORRECTED 2026-11-10**
 - **Clone command:** `git clone --depth 1 https://github.com/openmc-dev/openmc.git upstream_source/OpenMC`
+
+### History clone and a BUILT OpenMC (2026-11-11, gh:#1386, #1387)
+
+- **`upstream_source/OpenMC-history/`**: `git clone --filter=blob:none --no-checkout
+  https://github.com/openmc-dev/openmc.git` (a blob-less clone with full history, ~14 MB
+  before blobs), used only to read the diffs of the 23 commits triaged in gh:#1387
+  (`git show <sha>` fetches the blobs it needs). Gitignored. Judged against
+  `8f79d9d02483c90e4134f03a9df4b75ce6b062bf`.
+- **`upstream_source/OpenMC-build/`**: a built OpenMC `8f79d9d0` (`bin/openmc`, `lib/libopenmc.so`),
+  gitignored. Recipe (`make -j1`, tens of minutes on one core, 18 MB of products, a few GB of build intermediates):
+  `apt-get install -y libhdf5-dev libfmt-dev libpugixml-dev hdf5-tools`, then
+  `cmake <OpenMC clone> -DCMAKE_BUILD_TYPE=Release -DOPENMC_USE_OPENMP=OFF
+  -DOPENMC_ENABLE_STRICT_FP=ON -DOPENMC_BUILD_TESTS=OFF` and `make -j1 openmc`
+  (strict FP = `-ffp-contract=off -fno-builtin`). OpenMC at this commit no longer vendors
+  its dependencies as submodules, so the system `fmt` 9.1 and `pugixml` 1.14 are found.
+  The Python package and a cross-section library are NOT here (no `openmc` Python, no
+  `h5py`), which is what blocks a run: see
+  `verification_and_validation/upstream_openmc_samplers/README.md` and the #1386 comment.
 
 ### Fork clone: `virtual_lattice`
 

@@ -11,9 +11,10 @@ use outram_park_fork_coolprop::Fluid as CoolPropFluid;
 use outram_park_fork_coolprop::FluidState;
 use tampines_steam_tables::hem::{
     pressure_from_rho_e, BreakFlow, HemEquationOfState, HemError, HemThermoState, Iapws97Hem,
-    IdealGasHem,
+    BarotropicHem, IdealGasHem, IsentropicStiffenedGasHem, LinearEosHem, StiffenedGasHem,
 };
 use uom::si::available_energy::joule_per_kilogram;
+use uom::si::f64::DynamicViscosity;
 use uom::si::f64::{
     AvailableEnergy, MassDensity, Pressure, Ratio, SpecificVolume, ThermodynamicTemperature,
     Velocity,
@@ -38,10 +39,14 @@ const P_MIN_PA: f64 = 1.0;
 /// - **Single phase:** `outram_park_fork_coolprop::flash::state_ph`, whose
 ///   EOS sound speed is the equilibrium speed there (no phase change to lag).
 ///   A result inside the saturation dome at its own temperature (a metastable
-///   or unstable root) is an error; see `close_ph`. **Known limitation,
+///   or unstable root) is an error; see `close_ph`. ~~**Known limitation,
 ///   measured 2026-10-16:** that guard fires for compressed-liquid water,
 ///   because the coolprop crate's `density_pt` returns a vapour-side or
-///   unstable root there, so this closure cannot yet run liquid water.
+///   unstable root there, so this closure cannot yet run liquid water.~~
+///   **CORRECTED 2026-11-13** (gh:#1349 fixed `density_pt`): compressed-liquid
+///   water closes; measured `state_p_t` (2 MPa, 350 K) `ρ` = 974.573279183
+///   (IF97 974.585762, `Δρ/ρ` = −1.3e-5) and (1.3 MPa, 455 K) `ρ` = 885.186131
+///   (IF97 885.172864, +1.5e-5); the guard stays, for genuinely metastable roots.
 /// - **Two-phase dome:** `vle::phase_at_ph` (Maxwell VLE at `T_sat(p)`, lever
 ///   rule on enthalpy) for the mixture density, and
 ///   `flash::hem_sound_speed_ph` for the homogeneous-**equilibrium** speed.
@@ -81,10 +86,13 @@ impl CoolPropHem {
     /// `state_pt(455 K, 1.3 MPa)` a metastable vapour (`ρ = 6.84 kg/m³`) where
     /// the stable state is compressed liquid; `state_ph` inherits both. Such a
     /// root is not the equilibrium state, so it is an error here, never a
-    /// value. Consequence: compressed-liquid water cannot be closed by this
+    /// value. ~~Consequence: compressed-liquid water cannot be closed by this
     /// closure until `density_pt` takes a liquid-side initial guess (upstream
     /// CoolProp's `solver_rho_Tp` uses the saturated-liquid ancillary density
-    /// for a liquid).
+    /// for a liquid).~~ **CORRECTED 2026-11-13** — gh:#1349 gave `density_pt` the
+    /// liquid-side start; both example states above now return the liquid
+    /// (`coolprop_closes_compressed_liquid_water_and_matches_if97`). The
+    /// measurements above are the historical defect record.
     fn close_ph(&self, p: f64, h: f64) -> Result<PhClosure, HemError> {
         if !(p.is_finite() && p > 0.0 && h.is_finite()) {
             return Err(self.eos_err(format!("(p, h) = ({p} Pa, {h} J/kg) is not a valid input")));
@@ -254,7 +262,16 @@ pub enum HemEos {
     CoolProp(CoolPropFluid),
     /// Calorically perfect gas, for verification (the Sod limit).
     IdealGas(IdealGasHem),
+    /// Stiffened gas, for verification and RELAP-7 parity (gh:#1057).
+    StiffenedGas(StiffenedGasHem),
+    /// Isentropic stiffened gas (Tait), for weak-wave verification (gh:#1057).
+    IsentropicStiffenedGas(IsentropicStiffenedGasHem),
+    /// Barotropic fluid, constant sound speed, for verification (gh:#1057).
+    Barotropic(BarotropicHem),
+    /// Linear liquid from IF97 coefficients, for verification (gh:#1057).
+    Linear(LinearEosHem),
 }
+
 
 impl HemEquationOfState for HemEos {
     fn name(&self) -> &'static str {
@@ -262,6 +279,10 @@ impl HemEquationOfState for HemEos {
             HemEos::Iapws97 => Iapws97Hem.name(),
             HemEos::CoolProp(f) => CoolPropHem { fluid: *f }.name(),
             HemEos::IdealGas(g) => g.name(),
+            HemEos::StiffenedGas(g) => g.name(),
+            HemEos::IsentropicStiffenedGas(g) => g.name(),
+            HemEos::Barotropic(g) => g.name(),
+            HemEos::Linear(g) => g.name(),
         }
     }
 
@@ -281,6 +302,10 @@ impl HemEquationOfState for HemEos {
                 pressure_hint,
             ),
             HemEos::IdealGas(g) => g.state_rho_e(density, specific_internal_energy, pressure_hint),
+            HemEos::StiffenedGas(g) => g.state_rho_e(density, specific_internal_energy, pressure_hint),
+            HemEos::IsentropicStiffenedGas(g) => g.state_rho_e(density, specific_internal_energy, pressure_hint),
+            HemEos::Barotropic(g) => g.state_rho_e(density, specific_internal_energy, pressure_hint),
+            HemEos::Linear(g) => g.state_rho_e(density, specific_internal_energy, pressure_hint),
         }
     }
 
@@ -293,6 +318,10 @@ impl HemEquationOfState for HemEos {
             HemEos::Iapws97 => Iapws97Hem.state_p_t(pressure, temperature),
             HemEos::CoolProp(f) => CoolPropHem { fluid: *f }.state_p_t(pressure, temperature),
             HemEos::IdealGas(g) => g.state_p_t(pressure, temperature),
+            HemEos::StiffenedGas(g) => g.state_p_t(pressure, temperature),
+            HemEos::IsentropicStiffenedGas(g) => g.state_p_t(pressure, temperature),
+            HemEos::Barotropic(g) => g.state_p_t(pressure, temperature),
+            HemEos::Linear(g) => g.state_p_t(pressure, temperature),
         }
     }
 
@@ -305,6 +334,10 @@ impl HemEquationOfState for HemEos {
             HemEos::Iapws97 => Iapws97Hem.state_p_h(pressure, specific_enthalpy),
             HemEos::CoolProp(f) => CoolPropHem { fluid: *f }.state_p_h(pressure, specific_enthalpy),
             HemEos::IdealGas(g) => g.state_p_h(pressure, specific_enthalpy),
+            HemEos::StiffenedGas(g) => g.state_p_h(pressure, specific_enthalpy),
+            HemEos::IsentropicStiffenedGas(g) => g.state_p_h(pressure, specific_enthalpy),
+            HemEos::Barotropic(g) => g.state_p_h(pressure, specific_enthalpy),
+            HemEos::Linear(g) => g.state_p_h(pressure, specific_enthalpy),
         }
     }
 
@@ -317,6 +350,37 @@ impl HemEquationOfState for HemEos {
             HemEos::Iapws97 => Iapws97Hem.state_p_rho(pressure, density),
             HemEos::CoolProp(f) => CoolPropHem { fluid: *f }.state_p_rho(pressure, density),
             HemEos::IdealGas(g) => g.state_p_rho(pressure, density),
+            HemEos::StiffenedGas(g) => g.state_p_rho(pressure, density),
+            HemEos::IsentropicStiffenedGas(g) => g.state_p_rho(pressure, density),
+            HemEos::Barotropic(g) => g.state_p_rho(pressure, density),
+            HemEos::Linear(g) => g.state_p_rho(pressure, density),
+        }
+    }
+
+    /// Forwarded per closure (gh:#1061): IAPWS-IF97 supplies a viscosity;
+    /// the CoolProp closure does not yet (so a CoolProp pipe is frictionless),
+    /// nor do the verification closures.
+    fn dynamic_viscosity(&self, state: &HemThermoState) -> Option<DynamicViscosity> {
+        match self {
+            HemEos::Iapws97 => Iapws97Hem.dynamic_viscosity(state),
+            HemEos::CoolProp(_) => None,
+            HemEos::IdealGas(g) => g.dynamic_viscosity(state),
+            HemEos::StiffenedGas(g) => g.dynamic_viscosity(state),
+            HemEos::IsentropicStiffenedGas(g) => g.dynamic_viscosity(state),
+            HemEos::Barotropic(g) => g.dynamic_viscosity(state),
+            HemEos::Linear(g) => g.dynamic_viscosity(state),
+        }
+    }
+
+    fn saturated_phases(&self, state: &HemThermoState) -> Option<(HemThermoState, HemThermoState)> {
+        match self {
+            HemEos::Iapws97 => Iapws97Hem.saturated_phases(state),
+            HemEos::CoolProp(_) => None,
+            HemEos::IdealGas(g) => g.saturated_phases(state),
+            HemEos::StiffenedGas(g) => g.saturated_phases(state),
+            HemEos::IsentropicStiffenedGas(g) => g.saturated_phases(state),
+            HemEos::Barotropic(g) => g.saturated_phases(state),
+            HemEos::Linear(g) => g.saturated_phases(state),
         }
     }
 
@@ -338,6 +402,10 @@ impl HemEquationOfState for HemEos {
             HemEos::IdealGas(g) => {
                 g.break_flow(stagnation_pressure, stagnation_enthalpy, back_pressure)
             }
+            HemEos::StiffenedGas(g) => g.break_flow(stagnation_pressure, stagnation_enthalpy, back_pressure),
+            HemEos::IsentropicStiffenedGas(g) => g.break_flow(stagnation_pressure, stagnation_enthalpy, back_pressure),
+            HemEos::Barotropic(g) => g.break_flow(stagnation_pressure, stagnation_enthalpy, back_pressure),
+            HemEos::Linear(g) => g.break_flow(stagnation_pressure, stagnation_enthalpy, back_pressure),
         }
     }
 }

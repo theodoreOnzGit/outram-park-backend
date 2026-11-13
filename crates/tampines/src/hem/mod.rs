@@ -50,6 +50,7 @@ pub use tampines_steam_tables::hem::{
     pressure_from_rho_e, BreakFlow, FluxLimiter, HemBoundary, HemCellState, HemEquationOfState,
     HemError, HemInitialCondition, HemNumerics, HemPipeGeometry, HemRunSummary, HemSnapshot,
     HemStepReport, HemThermoState, Iapws97Hem, IdealGasHem, PipeEnd, PrimitiveState,
+    BarotropicHem, IsentropicStiffenedGasHem, LinearEosHem, StiffenedGasHem, StiffenedGasPair,
     TimeIntegrator, TimeStepControl, FIXED_STEP_COURANT_LIMIT,
 };
 

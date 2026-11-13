@@ -37,12 +37,12 @@
 //!
 //! | Subsystem | Nodes | Consequence |
 //! |---|---|---|
-//! | Pebble bed | **1** volume, **2** temperatures (solid + helium, LTNE) | no axial or radial temperature profile, no peak fuel temperature |
-//! | Helium circuit | **1** (two boundary temperatures) | no gradient through the bed, no natural circulation |
+//! | Pebble bed | **1** volume, **2** temperatures (solid + helium, LTNE) | no axial or radial temperature profile, ~~no peak fuel temperature~~ **CORRECTED 2026-11-03** -- a core-average peak kernel temperature since 2026-09-22 (`PebbleBedPorousMediaNode::peak_kernel_temperature`), but no power peaking factor |
+//! | Helium circuit | ~~**1** (two boundary temperatures)~~ **5** enthalpy CVs + the resolved SG (**CORRECTED 2026-11-03**, per [`primary_loop`]'s nodalisation table: changed 2026-09-29, fifth CV 2026-10-01) | no gradient through the bed, no natural circulation |
 //! | Steam generator | **8 x 3** (helium / tube metal / water, counter-flow) | resolved zones and a real metal lag; 8 nodes is coarse |
 //! | Secondary water/steam, outside the SG | **1** | fixed steam pressure, no drum or inventory dynamics |
 //! | Neutronics | **1** (point kinetics) | no spatial flux shape, no rod-position-dependent worth |
-//! | Reflector, barrel, cavity | **2** (reflector, RPV) | ~~the HTR-10 passive decay-heat path is absent entirely~~ **CORRECTED 2026-09-17** -- a lumped bed -> reflector -> RPV -> RCCS chain now exists ([`decay_heat_removal`]) and is stepped every plant step; barrel, carbon brick and cavity are folded into those two nodes, and the `UA` values are placeholders |
+//! | Reflector, barrel, cavity | **2** (reflector, RPV) | ~~the HTR-10 passive decay-heat path is absent entirely~~ **CORRECTED 2026-09-17** -- a lumped bed -> reflector -> RPV -> RCCS chain now exists ([`decay_heat_removal`]) and is stepped every plant step; barrel, carbon brick and cavity are folded into those two nodes, ~~and the `UA` values are placeholders~~ **CORRECTED 2026-11-03** -- the legs are derived from geometry and material data, and the two nodes are unknowns of the bed's own implicit step (since 2026-09-29, gh:#395; see [`decay_heat_removal`]) |
 //!
 //! **The steam generator is the exception, as of 2026-08-12**, and it is the
 //! only part of this plant that is not one control volume. See
@@ -5436,8 +5436,11 @@ mod tests {
     /// and runs the transient from there.
     ///
     /// **Still not a validation.** One lumped bed node, no natural circulation
-    /// (which the real test established once the baffle closed), no xenon, no
-    /// reflector/barrel/cavity path. Reported for comparison, not gated.
+    /// (which the real test established once the baffle closed), no xenon, ~~no
+    /// reflector/barrel/cavity path~~ (**CORRECTED 2026-11-03**: the passive
+    /// bed -> reflector -> RPV -> RCCS path, `HtgrPlant::decay_heat_path`, is
+    /// solved inside every plant step, so it acts in this transient; barrel
+    /// and cavity are folded into its two nodes). Reported for comparison, not gated.
     ///
     /// **Results: printed by this test.**
     #[test]

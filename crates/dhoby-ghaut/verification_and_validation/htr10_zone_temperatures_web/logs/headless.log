@@ -1,0 +1,90 @@
+[33.2 s] [monte_carlo_web::htr10::core::pool] worker pool: C-in-SiC S(a,b) @ 1173.15 K processed now (31.4 s, worker 2)
+[190.1 s] [monte_carlo_web::processed_cache] nuclear-data cache: U238 made in 188.0 s
+[190.2 s] [monte_carlo_web::htr10::core::pool] worker pool: U238 @ 1173.15 K processed now (188.4 s, worker 3)
+[230.3 s] [monte_carlo_web::processed_cache] nuclear-data cache: U235 made in 227.9 s
+[230.5 s] [monte_carlo_web::htr10::core::pool] worker pool: U235 @ 1173.15 K processed now (228.7 s, worker 1)
+[250.4 s] [monte_carlo_web::htr10::core::pool] worker pool: U-in-UO2 S(a,b) @ 1173.15 K processed now (19.6 s, worker 1)
+[276.4 s] [monte_carlo_web::htr10::core::pool] worker pool: graphite S(a,b) @ 573.15 K processed now (45.7 s, worker 3)
+[277.8 s] [monte_carlo_web::htr10::core::pool] worker pool: graphite S(a,b) @ 1173.15 K processed now (47.1 s, worker 2)
+[281.4 s] [monte_carlo_web::processed_cache] nuclear-data cache: Si28 made in 3.6 s
+[281.4 s] [monte_carlo_web::processed_cache] nuclear-data cache: Si28 made in 3.6 s
+[281.5 s] [monte_carlo_web::htr10::core::pool] worker pool: Si28 @ 573.15 K processed now (3.7 s, worker 1)
+[281.5 s] [monte_carlo_web::htr10::core::pool] worker pool: Si28 @ 1173.15 K processed now (3.6 s, worker 3)
+[297.1 s] [monte_carlo_web::htr10::core::pool] worker pool: O-in-UO2 S(a,b) @ 1173.15 K processed now (19.3 s, worker 2)
+[300.2 s] [monte_carlo_web::processed_cache] nuclear-data cache: Si29 made in 3.0 s
+[300.2 s] [monte_carlo_web::htr10::core::pool] worker pool: Si29 @ 1173.15 K processed now (3.1 s, worker 3)
+[300.3 s] [monte_carlo_web::processed_cache] nuclear-data cache: Si29 made in 3.2 s
+[300.4 s] [monte_carlo_web::htr10::core::pool] worker pool: Si29 @ 573.15 K processed now (3.3 s, worker 1)
+[314.0 s] [monte_carlo_web::htr10::core::pool] worker pool: Si-in-SiC S(a,b) @ 1173.15 K processed now (16.9 s, worker 2)
+[323.9 s] [monte_carlo_web::processed_cache] nuclear-data cache: Ni60 made in 9.8 s
+[323.9 s] [monte_carlo_web::htr10::core::pool] worker pool: Ni60 @ 573.15 K processed now (9.9 s, worker 2)
+[329.6 s] [monte_carlo_web::processed_cache] nuclear-data cache: Fe58 made in 15.2 s
+[329.6 s] [monte_carlo_web::htr10::core::pool] worker pool: Fe58 @ 573.15 K processed now (15.6 s, worker 1)
+[330.8 s] [monte_carlo_web::processed_cache] nuclear-data cache: Fe54 made in 16.4 s
+[330.9 s] [monte_carlo_web::htr10::core::pool] worker pool: Fe54 @ 573.15 K processed now (16.9 s, worker 3)
+[337.3 s] [monte_carlo_web::processed_cache] nuclear-data cache: Cr52 made in 6.3 s
+[337.3 s] [monte_carlo_web::htr10::core::pool] worker pool: Cr52 @ 573.15 K processed now (6.4 s, worker 2)
+[353.4 s] [monte_carlo_web::processed_cache] nuclear-data cache: Fe57 made in 22.0 s
+[353.4 s] [monte_carlo_web::htr10::core::pool] worker pool: Fe57 @ 573.15 K processed now (22.5 s, worker 1)
+[355.9 s] [monte_carlo_web::processed_cache] nuclear-data cache: Fe56 made in 24.4 s
+[356.0 s] [monte_carlo_web::htr10::core::pool] worker pool: Fe56 @ 573.15 K processed now (25.0 s, worker 3)
+[361.3 s] [monte_carlo_web::processed_cache] nuclear-data cache: O16 made in 5.2 s
+[361.3 s] [monte_carlo_web::htr10::core::pool] worker pool: O16 @ 1173.15 K processed now (5.3 s, worker 2)
+[361.4 s] [monte_carlo_web::processed_cache] nuclear-data cache: Cr53 made in 5.3 s
+[361.5 s] [monte_carlo_web::htr10::core::pool] worker pool: Cr53 @ 573.15 K processed now (5.4 s, worker 1)
+[363.3 s] [monte_carlo_web::processed_cache] nuclear-data cache: Ni58 made in 7.1 s
+[363.3 s] [monte_carlo_web::htr10::core::pool] worker pool: Ni58 @ 573.15 K processed now (7.3 s, worker 3)
+[364.8 s] [monte_carlo_web::processed_cache] nuclear-data cache: C12 made in 1.4 s
+[364.8 s] [monte_carlo_web::htr10::core::pool] worker pool: C12 @ 573.15 K processed now (1.4 s, worker 1)
+[364.8 s] [monte_carlo_web::processed_cache] nuclear-data cache: C12 made in 1.4 s
+[364.9 s] [monte_carlo_web::htr10::core::pool] worker pool: C12 @ 1173.15 K processed now (1.4 s, worker 2)
+[366.5 s] [monte_carlo_web::processed_cache] nuclear-data cache: Cr50 made in 3.1 s
+[366.6 s] [monte_carlo_web::htr10::core::pool] worker pool: Cr50 @ 573.15 K processed now (3.2 s, worker 3)
+[367.0 s] [monte_carlo_web::processed_cache] nuclear-data cache: B10 made in 0.4 s
+[367.0 s] [monte_carlo_web::htr10::core::pool] worker pool: B10 @ 573.15 K processed now (0.4 s, worker 1)
+[368.9 s] [monte_carlo_web::processed_cache] nuclear-data cache: Si30 made in 2.2 s
+[368.9 s] [monte_carlo_web::htr10::core::pool] worker pool: Si30 @ 1173.15 K processed now (2.3 s, worker 2)
+[377.4 s] [monte_carlo_web::processed_cache] nuclear-data cache: Mn55 made in 10.6 s
+[377.4 s] [monte_carlo_web::htr10::core::pool] worker pool: Mn55 @ 573.15 K processed now (10.8 s, worker 3)
+[377.7 s] [monte_carlo_web::processed_cache] nuclear-data cache: C13 made in 0.3 s
+[377.7 s] [monte_carlo_web::htr10::core::pool] worker pool: C13 @ 573.15 K processed now (0.3 s, worker 2)
+[377.9 s] [monte_carlo_web::processed_cache] nuclear-data cache: B10 made in 0.5 s
+[378.0 s] [monte_carlo_web::htr10::core::pool] worker pool: B10 @ 1173.15 K processed now (0.5 s, worker 3)
+[378.6 s] [monte_carlo_web::processed_cache] nuclear-data cache: B11 made in 1.2 s
+[378.6 s] [monte_carlo_web::htr10::core::pool] worker pool: B11 @ 573.15 K processed now (1.2 s, worker 1)
+[378.7 s] [monte_carlo_web::processed_cache] nuclear-data cache: He4 made in 0.1 s
+[378.7 s] [monte_carlo_web::htr10::core::pool] worker pool: He4 @ 773.15 K processed now (0.1 s, worker 2)
+[378.8 s] [monte_carlo_web::processed_cache] nuclear-data cache: C13 made in 0.2 s
+[378.9 s] [monte_carlo_web::htr10::core::pool] worker pool: C13 @ 1173.15 K processed now (0.2 s, worker 1)
+[379.6 s] [monte_carlo_web::processed_cache] nuclear-data cache: B11 made in 1.0 s
+[379.7 s] [monte_carlo_web::htr10::core::pool] worker pool: B11 @ 1173.15 K processed now (1.0 s, worker 3)
+[379.8 s] [monte_carlo_web::processed_cache] nuclear-data cache: He3 made in 0.1 s
+[379.8 s] [monte_carlo_web::htr10::core::pool] worker pool: He3 @ 773.15 K processed now (0.1 s, worker 3)
+[382.3 s] [monte_carlo_web::processed_cache] nuclear-data cache: Cr54 made in 2.5 s
+[382.3 s] [monte_carlo_web::htr10::core::pool] worker pool: Cr54 @ 573.15 K processed now (2.6 s, worker 1)
+[383.6 s] [monte_carlo_web::processed_cache] nuclear-data cache: Ni62 made in 3.8 s
+[383.7 s] [monte_carlo_web::htr10::core::pool] worker pool: Ni62 @ 573.15 K processed now (4.0 s, worker 2)
+[384.8 s] [monte_carlo_web::processed_cache] nuclear-data cache: Ti47 made in 1.1 s
+[384.9 s] [monte_carlo_web::htr10::core::pool] worker pool: Ti47 @ 573.15 K processed now (1.2 s, worker 2)
+[386.8 s] [monte_carlo_web::processed_cache] nuclear-data cache: Ni64 made in 3.0 s
+[386.8 s] [monte_carlo_web::htr10::core::pool] worker pool: Ni64 @ 573.15 K processed now (3.1 s, worker 1)
+[387.0 s] [monte_carlo_web::processed_cache] nuclear-data cache: Ni61 made in 3.2 s
+[387.1 s] [monte_carlo_web::htr10::core::pool] worker pool: Ni61 @ 573.15 K processed now (3.4 s, worker 3)
+[387.7 s] [monte_carlo_web::processed_cache] nuclear-data cache: Ti50 made in 0.7 s
+[387.8 s] [monte_carlo_web::htr10::core::pool] worker pool: Ti50 @ 573.15 K processed now (0.7 s, worker 2)
+[388.7 s] [monte_carlo_web::processed_cache] nuclear-data cache: Ti48 made in 1.6 s
+[388.7 s] [monte_carlo_web::processed_cache] nuclear-data cache: Ti46 made in 1.6 s
+[388.7 s] [monte_carlo_web::htr10::core::pool] worker pool: Ti48 @ 573.15 K processed now (1.6 s, worker 1)
+[388.7 s] [monte_carlo_web::htr10::core::pool] worker pool: Ti46 @ 573.15 K processed now (1.6 s, worker 3)
+[389.5 s] [monte_carlo_web::processed_cache] nuclear-data cache: Ti49 made in 0.7 s
+[389.5 s] [monte_carlo_web::htr10::core::pool] worker pool: Ti49 @ 573.15 K processed now (0.8 s, worker 3)
+[390.3 s] [monte_carlo_web::processed_cache] nuclear-data cache: Si30 made in 1.5 s
+[390.3 s] [monte_carlo_web::htr10::core::pool] worker pool: Si30 @ 573.15 K processed now (1.6 s, worker 1)
+[411.3 s] [monte_carlo_web::htr10::core::pool] worker pool: worker 2 assembled N = 12 in 21.0 s (nuclides 6.2 s, geometry 0.5 s, majorant 13.9 s), wasm memory 359 MB, 410 s after the
+[411.6 s] [monte_carlo_web::htr10::core::pool] worker pool: worker 1 assembled N = 12 in 21.2 s (nuclides 5.9 s, geometry 0.6 s, majorant 14.4 s), wasm memory 511 MB, 410 s after the
+[411.8 s] [monte_carlo_web::htr10::core::pool] worker pool: worker 3 assembled N = 12 in 21.5 s (nuclides 6.4 s, geometry 0.6 s, majorant 14.2 s), wasm memory 359 MB, 411 s after the
+[415.3 s] [monte_carlo_web::htr10::core::pool] worker pool: run 1: generation 0 k = 9.108204646787256e-1 (3 workers)
+[417.8 s] [monte_carlo_web::htr10::core::pool] worker pool: run 1: generation 1 k = 7.409193292324994e-1 (3 workers)
+[421.1 s] [monte_carlo_web::htr10::core::pool] worker pool: run 1: generation 2 k = 8.382390189244358e-1 (3 workers)
+[421.1 s] [monte_carlo_web::htr10::core::pool] worker pool: run 1 done: k = 0.789579 ± 0.048660
+generations 3; records 44; sha mismatches 0; max probe 631 ms; max frame gap 217 ms

@@ -56,6 +56,9 @@ use std::sync::{Arc, Mutex};
 /// else here is presentation — which page is open, the plot history snapshot the
 /// current frame is drawing, and the two GUI-local step-response fields.
 pub struct CIETApp {
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     /// Which page the user has open. Written by the main page's shortcut
     /// button as well as by the selector row at the top.
     pub(crate) open_panel: Panel,
@@ -104,10 +107,12 @@ impl CIETApp {
     /// the shared state at the user-chosen interval so the trend plots have a
     /// history to draw.
     pub fn new(
-        _cc: &eframe::CreationContext<'_>,
+        cc: &eframe::CreationContext<'_>,
         ciet_state: SharedCietState,
         opcua_status: OpcuaStatus,
     ) -> Self {
+        // Gruvbox Dark (the shared `bugis` theme) from the first frame.
+        bugis::Theme::default().apply(&cc.egui_ctx);
         let ciet_plot_data = Arc::new(Mutex::new(PagePlotData::default()));
 
         // this is the current state of ciet for plotting
@@ -123,6 +128,7 @@ impl CIETApp {
         });
 
         Self {
+            theme: bugis::Theme::default(),
             open_panel: Panel::MainPage,
             ciet_state,
             ciet_plot_data_mutex_ptr_for_parallel_data_transfer: ciet_plot_data,
@@ -148,12 +154,6 @@ impl eframe::App for CIETApp {
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
         egui::Panel::top("top_panel").show(ui, |ui| {
-            // The top panel is often a good place for a menu bar:
-
-            egui::MenuBar::new().ui(ui, |ui| {
-                egui::widgets::global_theme_preference_buttons(ui);
-            });
-
             ui.heading("CIET Educational Simulator v2");
             ui.separator();
             // allow user to select which panel is open
@@ -184,7 +184,10 @@ impl eframe::App for CIETApp {
             ui.separator();
         });
 
-        egui::Panel::right("Supplementary Info").show(ui, |ui| match self.open_panel {
+        egui::Panel::right("Supplementary Info").show(ui, |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
+            match self.open_panel {
             Panel::MainPage => {
                 egui::ScrollArea::both().show(ui, |ui| {
                     self.ciet_main_page_side_panel(ui);
@@ -215,6 +218,7 @@ impl eframe::App for CIETApp {
             Panel::OnlineCalibration => {}
             Panel::OpcuaServer => {
                 self.ciet_sim_opcua_page_side_panel(ui);
+            }
             }
         });
 

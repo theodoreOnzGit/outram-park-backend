@@ -95,6 +95,7 @@
 //!   README — the V&V axis is not human-cleared.
 
 use petir::mathf::RealMath;
+use crate::source_terms::{FrozenState, SourceForm, SourceTerms};
 use crate::traits::TurbulenceModel;
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
 use outram_foam_basic_lib::prelude::{
@@ -245,6 +246,74 @@ fn cube_root_vol_delta(mesh: &FvMesh) -> Vec<f64> {
 }
 
 /// Build a `VolScalarField` from per-cell values with zero-gradient boundaries.
+impl Smagorinsky {
+    /// Per-cell `delta`, `k` and `nut` of the algebraic model on a given
+    /// `grad(U)`, without touching the model state (gh:#1362 row 5).
+    ///
+    /// * [`SourceForm::Port`]: exactly what `correct()` evaluates (Δ from the
+    ///   port's `V^(1/3)` with a `SMALL` floor).
+    /// * [`SourceForm::EsiV2506`]: `Smagorinsky.C` / `cubeRootVolDelta.C` v2506
+    ///   (`Δ = deltaCoeff·cbrt(V)`, `deltaCoeff = 1`, `k = sqr((−b +
+    ///   √(b²+4ac))/(2a))`, `nut = Ck Δ √k`, no clamps), `tr`, `dev` and the
+    ///   symmetric double inner product in upstream order.
+    pub fn source_terms(&self, form: SourceForm, state: &FrozenState) -> SourceTerms {
+        let n = self.mesh.n_cells;
+        let (mut dl, mut kk, mut nt) = (vec![0.0; n], vec![0.0; n], vec![0.0; n]);
+        for c in 0..n {
+            match form {
+                SourceForm::Port => {
+                    let d = state.grad_u[c].symm();
+                    let own = match &state.cell_length {
+                        Some(v) => v[c],
+                        None => self.delta[c],
+                    };
+                    let delta = own.max(SMALL);
+                    let a = self.ce / delta;
+                    let b = (2.0 / 3.0) * d.tr();
+                    let c_coef = 2.0 * self.ck * delta * d.dev().double_inner(d);
+                    let sqrt_k = ((-b + (b * b + 4.0 * a * c_coef).max(0.0).sqrt()) / (2.0 * a))
+                        .max(0.0);
+                    dl[c] = delta;
+                    kk[c] = sqrt_k * sqrt_k;
+                    nt[c] = (self.ck * delta * sqrt_k).max(0.0);
+                }
+                SourceForm::EsiV2506 => {
+                    let t = &state.grad_u[c];
+                    let (ck, ce) = (0.094_f64, 1.048_f64);
+                    let delta = match &state.cell_length {
+                        Some(v) => v[c],
+                        None => 1.0 * self.mesh.cell_volumes[c].r_cbrt(),
+                    };
+                    let sxy = 0.5 * (t.xy + t.yx);
+                    let sxz = 0.5 * (t.xz + t.zx);
+                    let syz = 0.5 * (t.yz + t.zy);
+                    let tr = t.xx + t.yy + t.zz;
+                    let sph = (1.0 / 3.0) * tr;
+                    let (dxx, dyy, dzz) = (t.xx - sph, t.yy - sph, t.zz - sph);
+                    let dd = dxx * t.xx
+                        + 2.0 * sxy * sxy
+                        + 2.0 * sxz * sxz
+                        + dyy * t.yy
+                        + 2.0 * syz * syz
+                        + dzz * t.zz;
+                    let a = ce / delta;
+                    let b = (2.0 / 3.0) * tr;
+                    let cc = 2.0 * ck * delta * dd;
+                    let q = (-b + (b * b + 4.0 * a * cc).sqrt()) / (2.0 * a);
+                    dl[c] = delta;
+                    kk[c] = q * q;
+                    nt[c] = ck * delta * kk[c].sqrt();
+                }
+            }
+        }
+        let mut out = SourceTerms::default();
+        out.push("delta", dl);
+        out.push("k", kk);
+        out.push("nut", nt);
+        out
+    }
+}
+
 fn scalar_field(name: &str, mesh: Arc<FvMesh>, vals: Vec<f64>) -> VolScalarField {
     let boundary = mesh
         .patches

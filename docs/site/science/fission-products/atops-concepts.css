@@ -1,0 +1,26 @@
+/* The TRISO-ATOPS concept map and walks (gh:#1207). Colours are the site's
+   tokens from style.css, so light and dark themes follow it. */
+.cc-cards { display: grid; gap: 14px; }
+.cc-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; scroll-margin-top: 12px; min-width: 0; }
+.cc-card:target { outline: 2px solid var(--accent); }
+.cc-card h3 { margin: 2px 0 6px; font-size: 1.08rem; }
+.cc-card h3 a { color: var(--fg); text-decoration: none; }
+.cc-stage { margin: 0; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.cc-stage.cc-extension { color: var(--warn-line); font-weight: 700; }
+.cc-eq { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 0.86rem; margin: 8px 0; }
+.cc-row { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); gap: 4px 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+.cc-label { color: var(--muted); font-size: 0.86rem; }
+.cc-val { min-width: 0; overflow-wrap: anywhere; font-size: 0.92rem; }
+.cc-val ul { margin: 0; padding-left: 1.1em; }
+.cc-val p { margin: 4px 0; }
+.cc-small { font-size: 0.86rem; color: var(--muted); }
+.cc-filter button { font: inherit; cursor: pointer; }
+.cc-filter button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+.cc-steps { padding-left: 1.3em; }
+.cc-steps > li { margin: 0 0 18px; }
+.cc-steps > li > h3 { margin: 0 0 4px; font-size: 1.05rem; }
+.cc-links { font-size: 0.9rem; overflow-wrap: anywhere; }
+.cc-walknav { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 8px; }
+@media (max-width: 560px) {
+  .cc-row { grid-template-columns: minmax(0, 1fr); }
+}

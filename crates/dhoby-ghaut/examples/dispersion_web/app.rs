@@ -19,14 +19,7 @@ type DLink = Link<Request, Event>;
 
 const CLASSES: [&str; 6] = ["A", "B", "C", "D", "E", "F"];
 /// Series colours: blue, orange, green, purple, grey, brown.
-const PALETTE: [Color32; 6] = [
-    Color32::from_rgb(110, 170, 255),
-    Color32::from_rgb(255, 170, 80),
-    Color32::from_rgb(120, 220, 140),
-    Color32::from_rgb(200, 140, 255),
-    Color32::from_rgb(200, 200, 200),
-    Color32::from_rgb(220, 150, 120),
-];
+// Series colours: `bugis::Ink::accent(s.colour)`, from the theme.
 
 /// A finished map from the engine.
 struct Field {
@@ -78,6 +71,9 @@ impl Default for Controls {
 }
 
 pub struct DispApp {
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     link: Option<DLink>,
     error: Option<String>,
     rung: Rung,
@@ -117,7 +113,9 @@ fn map_half_width(r: Rung) -> f64 {
 
 impl DispApp {
     pub fn new(cc: &eframe::CreationContext<'_>, rung: Rung) -> Self {
-        cc.egui_ctx.set_theme(egui::ThemePreference::Dark);
+        // Gruvbox Dark (the shared `bugis` theme); the side panel's selector
+        // switches it.
+        bugis::Theme::default().apply(&cc.egui_ctx);
         #[cfg(not(target_arch = "wasm32"))]
         let link: Result<DLink, String> = {
             let ctx = cc.egui_ctx.clone();
@@ -149,6 +147,7 @@ impl DispApp {
             c.wind = 1.0;
         }
         Self {
+            theme: bugis::Theme::default(),
             link,
             error,
             rung,
@@ -592,12 +591,12 @@ impl DispApp {
         if let Some(st) = self.step.filter(|s| *s != Step::SinglePuff) {
             let (resp, painter) = ui.allocate_painter(ui.available_size(), egui::Sense::click_and_drag());
             let rect = resp.rect;
-            painter.rect_filled(rect, 0.0, Color32::from_rgb(14, 16, 20));
+            painter.rect_filled(rect, 0.0, ui.visuals().extreme_bg_color);
             let below = Rect::from_min_max(rect.min + Vec2::new(0.0, 52.0), rect.max);
             if let Some(f) = &self.step_frame {
                 step_view::draw(&painter, below, st, f, &self.tracers, self.plot_text);
             } else {
-                painter.text(rect.center(), egui::Align2::CENTER_CENTER, "Computing in the background…", egui::FontId::proportional(15.0), Color32::LIGHT_GRAY);
+                painter.text(rect.center(), egui::Align2::CENTER_CENTER, "Computing in the background…", egui::FontId::proportional(15.0), ui.visuals().text_color());
             }
             self.panel.reopen_button(ui, rect);
             if let Some(z) = zoom_buttons(ui, rect) {
@@ -612,7 +611,8 @@ impl DispApp {
         let (resp, painter) =
             ui.allocate_painter(ui.available_size(), egui::Sense::click_and_drag());
         let rect = resp.rect;
-        painter.rect_filled(rect, 0.0, Color32::from_rgb(14, 16, 20));
+        let ink = bugis::Ink::of_ui(ui);
+        painter.rect_filled(rect, 0.0, ink.bg);
         if self.rung.is_map() {
             self.view.handle_input(ui, &resp);
             self.draw_map(&painter, rect);
@@ -625,7 +625,7 @@ impl DispApp {
                 egui::Align2::CENTER_CENTER,
                 e,
                 egui::FontId::proportional(14.0),
-                Color32::from_rgb(255, 130, 130),
+                ink.error,
             );
         } else if self.field.is_none() && self.curves.is_empty() {
             painter.text(
@@ -633,7 +633,7 @@ impl DispApp {
                 egui::Align2::CENTER_CENTER,
                 "Computing in the background…",
                 egui::FontId::proportional(15.0),
-                Color32::LIGHT_GRAY,
+                ink.text,
             );
         }
         self.panel.reopen_button(ui, rect);
@@ -652,6 +652,7 @@ impl DispApp {
 
     fn draw_map(&self, painter: &egui::Painter, rect: Rect) {
         let v = &self.view;
+        let ink = bugis::Ink::of_ctx(painter.ctx());
         if let Some(f) = &self.field {
             let n = f.cells.max(1);
             let step = 2.0 * f.half_width / n as f64;
@@ -676,7 +677,7 @@ impl DispApp {
                 painter.circle_stroke(
                     c,
                     (p[2] * v.scale) as f32,
-                    Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 60)),
+                    Stroke::new(1.0, ink.text.gamma_multiply(0.25)),
                 );
             }
             let what = match self.rung {
@@ -701,21 +702,21 @@ impl DispApp {
             let galley = painter.layout(
                 legend,
                 egui::FontId::proportional(12.0),
-                Color32::LIGHT_GRAY,
+                ink.text,
                 rect.width() - 24.0,
             );
             let at = rect.left_bottom() + Vec2::new(12.0, -34.0 - galley.size().y);
-            painter.galley(at, galley, Color32::LIGHT_GRAY);
+            painter.galley(at, galley, ink.text);
         }
         // The source and the wind.
         let s = v.to_screen(rect, 0.0, 0.0);
-        painter.circle_filled(s, 4.0, Color32::from_rgb(255, 90, 90));
+        painter.circle_filled(s, 4.0, ink.accent(6));
         let t = self.c.dir_deg.to_radians();
         let tip = s + Vec2::new(t.r_sin() as f32, -(t.r_cos() as f32)) * 40.0;
         painter.arrow(
             s,
             tip - s,
-            Stroke::new(2.0, Color32::from_rgb(255, 210, 120)),
+            Stroke::new(2.0, ink.accent(4)),
         );
         metre_scale_bar(painter, rect, v);
     }
@@ -742,9 +743,10 @@ fn metre_scale_bar(painter: &egui::Painter, rect: Rect, view: &View) {
     let x0 = rect.left() + 16.0;
     let y0 = rect.bottom() - 12.0;
     let x1 = x0 + (bar * view.scale) as f32;
+    let ink = bugis::Ink::of_ctx(painter.ctx());
     painter.line_segment(
         [Pos2::new(x0, y0), Pos2::new(x1, y0)],
-        Stroke::new(2.0, Color32::WHITE),
+        Stroke::new(2.0, ink.text),
     );
     let label = if bar >= 1000.0 {
         format!("{} km", bar / 1000.0)
@@ -756,7 +758,7 @@ fn metre_scale_bar(painter: &egui::Painter, rect: Rect, view: &View) {
         egui::Align2::LEFT_CENTER,
         label,
         egui::FontId::proportional(12.0),
-        Color32::WHITE,
+        ink.text,
     );
 }
 
@@ -765,6 +767,7 @@ fn metre_scale_bar(painter: &egui::Painter, rect: Rect, view: &View) {
 /// plotting convention).
 fn draw_plot(painter: &egui::Painter, rect: Rect, series: &[Series], rung: Rung, text: f32) {
     let font = egui::FontId::proportional(text);
+    let ink = bugis::Ink::of_ctx(painter.ctx());
     let small = egui::FontId::proportional((text * 0.85).max(8.0));
     let legend_h = (series.len() as f32) * (text * 1.35) * 2.0 + 8.0;
     let plot = Rect::from_min_max(
@@ -802,28 +805,28 @@ fn draw_plot(painter: &egui::Painter, rect: Rect, series: &[Series], rung: Rung,
     painter.rect_stroke(
         plot,
         0.0,
-        Stroke::new(1.0, Color32::from_gray(90)),
+        Stroke::new(1.0, ink.border),
         egui::StrokeKind::Inside,
     );
     for d in (y0 as i32)..=(y1 as i32) {
         let p = to(10f64.r_powf(x0), 10f64.r_powi(d));
         painter.line_segment(
             [Pos2::new(plot.left(), p.y), Pos2::new(plot.right(), p.y)],
-            Stroke::new(0.5, Color32::from_gray(50)),
+            Stroke::new(0.5, ink.grid),
         );
         painter.text(
             Pos2::new(plot.left() - 4.0, p.y),
             egui::Align2::RIGHT_CENTER,
             format!("1e{d}"),
             small.clone(),
-            Color32::GRAY,
+            ink.muted,
         );
     }
     for d in (x0.ceil() as i32)..=(x1.floor() as i32) {
         let p = to(10f64.r_powi(d), 10f64.r_powf(y0));
         painter.line_segment(
             [Pos2::new(p.x, plot.top()), Pos2::new(p.x, plot.bottom())],
-            Stroke::new(0.5, Color32::from_gray(50)),
+            Stroke::new(0.5, ink.grid),
         );
         let label = if d >= 3 {
             format!("{} km", 10f64.r_powi(d - 3))
@@ -835,7 +838,7 @@ fn draw_plot(painter: &egui::Painter, rect: Rect, series: &[Series], rung: Rung,
             egui::Align2::CENTER_TOP,
             label,
             small.clone(),
-            Color32::GRAY,
+            ink.muted,
         );
     }
     let (title, ylabel) = match rung {
@@ -854,14 +857,14 @@ fn draw_plot(painter: &egui::Painter, rect: Rect, series: &[Series], rung: Rung,
         egui::Align2::LEFT_TOP,
         title,
         font.clone(),
-        Color32::WHITE,
+        ink.text,
     );
     painter.text(
         Pos2::new(plot.left(), plot.top() - 4.0),
         egui::Align2::LEFT_BOTTOM,
         ylabel,
         small.clone(),
-        Color32::GRAY,
+        ink.muted,
     );
     for s in series {
         let line: Vec<Pos2> =
@@ -870,7 +873,7 @@ fn draw_plot(painter: &egui::Painter, rect: Rect, series: &[Series], rung: Rung,
                 .filter(|(x, y)| **x > 0.0 && **y >= 10f64.r_powf(y0))
                 .map(|(x, y)| to(*x, *y))
                 .collect();
-        let colour = PALETTE[(s.colour as usize) % PALETTE.len()];
+        let colour = ink.accent(s.colour as usize);
         match s.style {
             0 => {
                 painter.add(egui::Shape::line(line, Stroke::new(3.0, colour)));
@@ -891,7 +894,7 @@ fn draw_plot(painter: &egui::Painter, rect: Rect, series: &[Series], rung: Rung,
     }
     let mut y = plot.bottom() + text * 2.2;
     for s in series {
-        let colour = PALETTE[(s.colour as usize) % PALETTE.len()];
+        let colour = ink.accent(s.colour as usize);
         let style = ["solid", "dotted", "dashed", "markers"][(s.style as usize).min(3)];
         let galley = painter.layout(
             format!("{style}: {}", s.label),
@@ -924,7 +927,11 @@ impl eframe::App for DispApp {
             self.title = title;
         }
         let mut panel = std::mem::take(&mut self.panel);
-        panel.show(ui, "Dispersion", |ui| self.side_panel(ui));
+        panel.show(ui, "Dispersion", |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
+            self.side_panel(ui);
+        });
         self.panel = panel;
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE)

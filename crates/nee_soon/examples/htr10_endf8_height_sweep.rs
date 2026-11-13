@@ -189,23 +189,21 @@ struct CaseSpec {
 /// The settings every case in this sweep shares. Spelled once, but **copied
 /// into each case by value** so a case function remains a complete statement
 /// of its own run rather than a diff against a default.
-macro_rules! case {
-    ($name:literal, $n_axial:expr, $height:expr) => {
-        CaseSpec {
-            name: $name,
-            n_axial: $n_axial,
-            n_rings: 14,
-            nominal_height_cm: $height,
-            particles: 10_000,
-            inactive: 5,
-            active: 135,
-            seed: 20260917,
-            threads: 1,
-            reflector_zone: 22,
-            reflector_carbon_scale: 1.0,
-            boron: BoronReading::Natural,
-        }
-    };
+fn shared_case(name: &'static str, n_axial: usize, height: f64) -> CaseSpec {
+    CaseSpec {
+        name,
+        n_axial,
+        n_rings: 14,
+        nominal_height_cm: height,
+        particles: 10_000,
+        inactive: 5,
+        active: 135,
+        seed: 20260917,
+        threads: 1,
+        reflector_zone: 22,
+        reflector_carbon_scale: 1.0,
+        boron: BoronReading::Natural,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -219,40 +217,40 @@ macro_rules! case {
 // whole), so each case IS a tabulated row and needs no conversion or
 // interpolation (closes the gh:#427 driver defects for this bed).
 fn case_l09() -> CaseSpec {
-    case!("l09", 9, 94.182)
+    shared_case("l09", 9, 94.182)
 }
 fn case_l10() -> CaseSpec {
-    case!("l10", 10, 103.980)
+    shared_case("l10", 10, 103.980)
 }
 fn case_l11() -> CaseSpec {
-    case!("l11", 11, 113.778)
+    shared_case("l11", 11, 113.778)
 }
 fn case_l12() -> CaseSpec {
-    case!("l12", 12, 123.576)
+    shared_case("l12", 12, 123.576)
 }
 fn case_l13() -> CaseSpec {
-    case!("l13", 13, 133.374)
+    shared_case("l13", 13, 133.374)
 }
 fn case_l14() -> CaseSpec {
-    case!("l14", 14, 143.172)
+    shared_case("l14", 14, 143.172)
 }
 fn case_l15() -> CaseSpec {
-    case!("l15", 15, 152.970)
+    shared_case("l15", 15, 152.970)
 }
 fn case_l16() -> CaseSpec {
-    case!("l16", 16, 162.768)
+    shared_case("l16", 16, 162.768)
 }
 fn case_l17() -> CaseSpec {
-    case!("l17", 17, 172.566)
+    shared_case("l17", 17, 172.566)
 }
 fn case_l18() -> CaseSpec {
-    case!("l18", 18, 182.364)
+    shared_case("l18", 18, 182.364)
 }
 fn case_l19() -> CaseSpec {
-    case!("l19", 19, 192.162)
+    shared_case("l19", 19, 192.162)
 }
 fn case_l20() -> CaseSpec {
-    case!("l20", 20, 201.960)
+    shared_case("l20", 20, 201.960)
 }
 
 /// Every case, in loading order.

@@ -2,6 +2,30 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-basic-lib"
 dir = "crates/outram-foam-basic-lib/src/math/parallel"
+test_ids = [
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::bitwise_identical_across_backends",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::both_methods_agree_on_a_kinked_residual",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::bracketed_matches_analytic_cubic_roots",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::brent_matches_analytic_sqrt",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::cubic_batch_matches_analytic_construction",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::dispatch_respects_the_size_floors",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::empty_batch_is_vacuously_converged",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::invalid_bracket_is_reported",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::lane_order_is_preserved",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::linear_batch_matches_scalar_including_degenerate",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::max_iterations_is_reported",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::newton_beats_brent_on_iterations",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::newton_ignores_an_out_of_bracket_guess",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::newton_matches_analytic_roots",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::newton_survives_zero_derivative",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::not_bracketed_is_reported_and_not_clamped",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::not_finite_residual_is_reported",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::partial_failure_in_a_large_batch_is_reported",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::poly_batch_bitwise_identical_across_backends",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::public_entry_points_agree_across_requested_backends",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::quadratic_batch_residuals_are_analytic",
+    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::root_on_endpoint_converges_immediately",
+]
 
 [module."gpu.rs"]
 path = "crate::math::parallel::gpu"
@@ -972,3 +996,33 @@ uses = [
     "fn:af4471d1c70f69ba",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+failed = []

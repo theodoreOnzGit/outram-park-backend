@@ -116,12 +116,13 @@ impl Axes {
     }
     fn frame(&self, painter: &egui::Painter, title: &str, xlabel: &str, ylabel: &str, font: f32) {
         let small = egui::FontId::proportional(font * 0.85);
-        painter.rect_stroke(self.rect, 0.0, Stroke::new(1.0, Color32::from_gray(90)), egui::StrokeKind::Inside);
-        painter.text(self.rect.left_top() - Vec2::new(0.0, 4.0), egui::Align2::LEFT_BOTTOM, title, egui::FontId::proportional(font), Color32::WHITE);
-        painter.text(self.rect.right_bottom() + Vec2::new(0.0, 3.0), egui::Align2::RIGHT_TOP, xlabel, small.clone(), Color32::GRAY);
-        painter.text(self.rect.left_bottom() + Vec2::new(0.0, 3.0), egui::Align2::LEFT_TOP, format!("{:.0}", self.w[0]), small.clone(), Color32::GRAY);
-        painter.text(self.rect.left_top() + Vec2::new(4.0, 2.0), egui::Align2::LEFT_TOP, format!("{ylabel} {:.0}", self.w[3]), small.clone(), Color32::GRAY);
-        painter.text(self.rect.left_bottom() + Vec2::new(4.0, -2.0), egui::Align2::LEFT_BOTTOM, format!("{:.0}", self.w[2]), small, Color32::GRAY);
+        let ink = bugis::Ink::of_ctx(painter.ctx());
+        painter.rect_stroke(self.rect, 0.0, Stroke::new(1.0, ink.border), egui::StrokeKind::Inside);
+        painter.text(self.rect.left_top() - Vec2::new(0.0, 4.0), egui::Align2::LEFT_BOTTOM, title, egui::FontId::proportional(font), ink.text);
+        painter.text(self.rect.right_bottom() + Vec2::new(0.0, 3.0), egui::Align2::RIGHT_TOP, xlabel, small.clone(), ink.muted);
+        painter.text(self.rect.left_bottom() + Vec2::new(0.0, 3.0), egui::Align2::LEFT_TOP, format!("{:.0}", self.w[0]), small.clone(), ink.muted);
+        painter.text(self.rect.left_top() + Vec2::new(4.0, 2.0), egui::Align2::LEFT_TOP, format!("{ylabel} {:.0}", self.w[3]), small.clone(), ink.muted);
+        painter.text(self.rect.left_bottom() + Vec2::new(4.0, -2.0), egui::Align2::LEFT_BOTTOM, format!("{:.0}", self.w[2]), small, ink.muted);
     }
 }
 
@@ -173,6 +174,7 @@ fn class_name(primary: f64, second: f64) -> String {
 /// Draw one step into `rect` (below the button row).
 pub fn draw(painter: &egui::Painter, rect: Rect, step: Step, f: &StepFrame, tracers: &Tracers, font: f32) {
     let font = font.max(9.0);
+    let ink = bugis::Ink::of_ctx(painter.ctx());
     let pad = Vec2::new(16.0, font * 2.2);
     match step {
         Step::Tracers => {
@@ -192,7 +194,7 @@ pub fn draw(painter: &egui::Painter, rect: Rect, step: Step, f: &StepFrame, trac
             let env = |a: &Axes, c: &(String, Vec<f64>, Vec<f64>), centre: f64, sign: f64| -> Vec<Pos2> {
                 c.1.iter().zip(&c.2).map(|(x, s)| a.to(*x, (centre + sign * 2.0 * s).clamp(a.w[2], a.w[3]))).collect()
             };
-            let stroke = Stroke::new(1.0, Color32::from_rgb(110, 170, 255));
+            let stroke = Stroke::new(1.0, ink.accent(0));
             for sign in [-1.0, 1.0] {
                 painter.extend(egui::Shape::dashed_line(&env(&top, &f.curves[0], 0.0, sign), stroke, 6.0, 4.0));
                 painter.extend(egui::Shape::dashed_line(&env(&side, &f.curves[1], f.scalars[1], sign), stroke, 6.0, 4.0));
@@ -200,15 +202,15 @@ pub fn draw(painter: &egui::Painter, rect: Rect, step: Step, f: &StepFrame, trac
             let clip_top = painter.with_clip_rect(top.rect);
             let clip_side = painter.with_clip_rect(side.rect);
             for p in &tracers.pts {
-                clip_top.circle_filled(top.to(p[0], p[1]), 1.8, Color32::from_rgb(255, 230, 120));
-                clip_side.circle_filled(side.to(p[0], tracers.height(f, p)), 1.8, Color32::from_rgb(255, 230, 120));
+                clip_top.circle_filled(top.to(p[0], p[1]), 1.8, ink.accent(4));
+                clip_side.circle_filled(side.to(p[0], tracers.height(f, p)), 1.8, ink.accent(4));
             }
             painter.text(
                 Pos2::new(rect.left() + pad.x, rect.bottom() - 6.0),
                 egui::Align2::LEFT_BOTTOM,
                 format!("Dashed: ±2 sigma (buangkok). Wind at the release height {:.2} m/s. Dots: tracers, an illustration.", f.scalars[0]),
                 egui::FontId::proportional(font * 0.85),
-                Color32::LIGHT_GRAY,
+                ink.text,
             );
         }
         Step::Rise => {
@@ -222,35 +224,35 @@ pub fn draw(painter: &egui::Painter, rect: Rect, step: Step, f: &StepFrame, trac
             let clip = painter.with_clip_rect(a.rect);
             for sign in [-1.0, 1.0] {
                 let env: Vec<Pos2> = c.1.iter().zip(&c.2).zip(&f.curves[1].2).map(|((x, h), s)| a.to(*x, (h + sign * 2.0 * s).max(0.0))).collect();
-                clip.extend(egui::Shape::dashed_line(&env, Stroke::new(1.0, Color32::from_rgb(110, 170, 255)), 6.0, 4.0));
+                clip.extend(egui::Shape::dashed_line(&env, Stroke::new(1.0, ink.accent(0)), 6.0, 4.0));
             }
             let line: Vec<Pos2> = c.1.iter().zip(&c.2).map(|(x, h)| a.to(*x, *h)).collect();
-            clip.add(egui::Shape::line(line, Stroke::new(2.0, Color32::from_rgb(255, 170, 80))));
+            clip.add(egui::Shape::line(line, Stroke::new(2.0, ink.accent(1))));
             for p in &tracers.pts {
-                clip.circle_filled(a.to(p[0], tracers.height(f, p)), 1.8, Color32::from_rgb(255, 230, 120));
+                clip.circle_filled(a.to(p[0], tracers.height(f, p)), 1.8, ink.accent(4));
             }
             // The stack and H_e.
             let base = a.to(-RISE_REACH_M * 0.012, 0.0);
             let tip = a.to(RISE_REACH_M * 0.012, f.scalars[1]);
-            clip.rect_filled(Rect::from_two_pos(base, tip), 0.0, Color32::from_gray(150));
+            clip.rect_filled(Rect::from_two_pos(base, tip), 0.0, ink.muted);
             let y_he = a.to(0.0, f.scalars[2]).y;
-            clip.extend(egui::Shape::dashed_line(&[Pos2::new(a.rect.left(), y_he), Pos2::new(a.rect.right(), y_he)], Stroke::new(1.0, Color32::WHITE), 4.0, 4.0));
-            painter.text(Pos2::new(a.rect.right() - 4.0, y_he - 2.0), egui::Align2::RIGHT_BOTTOM, format!("H_e = {:.0} m (stack {:.0} m + rise)", f.scalars[2], f.scalars[1]), egui::FontId::proportional(font * 0.9), Color32::WHITE);
+            clip.extend(egui::Shape::dashed_line(&[Pos2::new(a.rect.left(), y_he), Pos2::new(a.rect.right(), y_he)], Stroke::new(1.0, ink.text), 4.0, 4.0));
+            painter.text(Pos2::new(a.rect.right() - 4.0, y_he - 2.0), egui::Align2::RIGHT_BOTTOM, format!("H_e = {:.0} m (stack {:.0} m + rise)", f.scalars[2], f.scalars[1]), egui::FontId::proportional(font * 0.9), ink.text);
             if f.scalars[3] > 1.5 && f.curves[2].2.first() == f.curves[2].2.last() {
                 let g = painter.layout(
                     format!("W0/U = {:.1} > 1.5: the neutral formula's downwash term -3(1.5 - W0/U) D_e turns positive and ADDS height, so the cap 3 D_i W0/U binds from the stack. Whether the reference applies that term above 1.5 U is the open question of #542. Lower W0 below {:.1} m/s to see the x^(1/3) rise.", f.scalars[3], 1.5 * f.scalars[0]),
                     egui::FontId::proportional(font * 0.85),
-                    Color32::from_rgb(255, 190, 120),
+                    ink.warn,
                     a.rect.width() - 16.0,
                 );
-                painter.galley(a.rect.left_top() + Vec2::new(8.0, font * 1.6), g, Color32::WHITE);
+                painter.galley(a.rect.left_top() + Vec2::new(8.0, font * 1.6), g, ink.text);
             }
             painter.text(
                 Pos2::new(rect.left() + pad.x, rect.bottom() - 6.0),
                 egui::Align2::LEFT_BOTTOM,
                 "Orange: centreline, stack + pyDOSEIA rise (unchecked, #542). Dashed: ±2 sigma_z.",
                 egui::FontId::proportional(font * 0.85),
-                Color32::LIGHT_GRAY,
+                ink.text,
             );
         }
         Step::Slice => {
@@ -271,9 +273,9 @@ pub fn draw(painter: &egui::Painter, rect: Rect, step: Step, f: &StepFrame, trac
             ];
             let mut y = a.rect.bottom() + pad.y;
             for l in lines {
-                let g = painter.layout(l, egui::FontId::proportional(font * 0.9), Color32::LIGHT_GRAY, rect.width() - 2.0 * pad.x);
+                let g = painter.layout(l, egui::FontId::proportional(font * 0.9), ink.text, rect.width() - 2.0 * pad.x);
                 let gh = g.size().y;
-                painter.galley(Pos2::new(rect.left() + pad.x, y), g, Color32::LIGHT_GRAY);
+                painter.galley(Pos2::new(rect.left() + pad.x, y), g, ink.text);
                 y += gh + 4.0;
             }
         }
@@ -295,17 +297,17 @@ pub fn draw(painter: &egui::Painter, rect: Rect, step: Step, f: &StepFrame, trac
             painter.line_segment([Pos2::new(a.rect.left(), g), Pos2::new(a.rect.right(), g)], Stroke::new(2.0, Color32::from_rgb(140, 110, 70)));
             let s = a.to(0.0, f.scalars[0]);
             let m = a.to(0.0, -f.scalars[0]);
-            painter.circle_filled(s, 4.0, Color32::from_rgb(255, 90, 90));
-            painter.circle_stroke(m, 4.0, Stroke::new(1.5, Color32::from_rgb(120, 160, 255)));
-            painter.text(s + Vec2::new(8.0, 0.0), egui::Align2::LEFT_CENTER, "source, +H", egui::FontId::proportional(font * 0.85), Color32::WHITE);
-            painter.text(m + Vec2::new(8.0, 0.0), egui::Align2::LEFT_CENTER, "image, −H", egui::FontId::proportional(font * 0.85), Color32::WHITE);
+            painter.circle_filled(s, 4.0, ink.accent(6));
+            painter.circle_stroke(m, 4.0, Stroke::new(1.5, ink.accent(0)));
+            painter.text(s + Vec2::new(8.0, 0.0), egui::Align2::LEFT_CENTER, "source, +H", egui::FontId::proportional(font * 0.85), ink.text);
+            painter.text(m + Vec2::new(8.0, 0.0), egui::Align2::LEFT_CENTER, "image, −H", egui::FontId::proportional(font * 0.85), ink.text);
             let g = painter.layout(
                 "Above ground: buangkok's chi/Q, which adds the image source's plume. Below ground (blue): the part of the plume without the image that would have gone underground; the image puts exactly this back above ground, mirrored. Log colour, 4 decades.".to_string(),
                 egui::FontId::proportional(font * 0.85),
-                Color32::LIGHT_GRAY,
+                ink.text,
                 rect.width() - 2.0 * pad.x,
             );
-            painter.galley(Pos2::new(rect.left() + pad.x, a.rect.bottom() + pad.y * 0.6), g, Color32::LIGHT_GRAY);
+            painter.galley(Pos2::new(rect.left() + pad.x, a.rect.bottom() + pad.y * 0.6), g, ink.text);
         }
         Step::DayNight => {
             let max = f.values.iter().chain(&f.values2).copied().fold(0.0, f64::max);
@@ -331,14 +333,14 @@ pub fn draw(painter: &egui::Painter, rect: Rect, step: Step, f: &StepFrame, trac
                 let a = Axes { rect: Rect::from_min_size(origin, Vec2::splat(side)), w: f.extent };
                 grid(painter, &a, f.nx, f.ny, |i| log_colour(values[i], max));
                 a.frame(painter, &label, "m", "m", font);
-                painter.circle_filled(a.to(0.0, 0.0), 3.0, Color32::from_rgb(255, 90, 90));
+                painter.circle_filled(a.to(0.0, 0.0), 3.0, ink.accent(6));
             }
             painter.text(
                 Pos2::new(rect.left() + pad.x, rect.bottom() - 6.0),
                 egui::Align2::LEFT_BOTTOM,
                 format!("Same wind, same stack; one colour scale (log, 4 decades below {max:.2e} s/m3). Wind blows to the right."),
                 egui::FontId::proportional(font * 0.85),
-                Color32::LIGHT_GRAY,
+                ink.text,
             );
         }
         Step::SinglePuff => {}

@@ -85,6 +85,8 @@ use kovan_common::review::wizard::{vv_case_author_prefill, Applicability, Review
 
 pub mod git;
 mod git_batch;
+mod message_store;
+mod hash_store;
 
 pub mod authorship;
 pub mod carry_forward;
@@ -114,7 +116,7 @@ mod states;
 pub mod ws_cache;
 
 pub use states::{
-    evaluate_loaded, evaluate_loaded_with, evaluate_workspace, evaluate_workspace_with, git_facts, stamp_states,
+    crates_needing_test, evaluate_loaded, evaluate_loaded_with, evaluate_workspace, evaluate_workspace_with, git_facts, stamp_states,
     stamp_states_timed, RefreshTimings, WorkspaceEvaluation,
 };
 
@@ -530,6 +532,11 @@ pub struct StampContext {
     /// the wizard opened. Signing refuses when the drafted hash differs
     /// (the code changed while it was being reviewed).
     pub hash: String,
+    /// Added 2026-11-01 (GitHub #1106): the names of the callees (and types
+    /// and constants used) without a valid stamp. Empty: the stamp will be
+    /// valid. Otherwise it is written all the same and reads tentative
+    /// until everything underneath is valid; the dialog says so.
+    pub tentative_on: Vec<String>,
     /// Added 2026-10-10 (#770, #760 q11): the starting no-concept reason,
     /// this reviewer's previous one, else "upstream control flow / solver
     /// structure" for a confirmed port
@@ -581,9 +588,14 @@ fn applicability_for(
 /// [`draft_stamp`] refuses before the answers matter (no commit, not
 /// indexed, uncommitted changes in its file, index hash not the hash at
 /// `HEAD`, index entry out of date, a callee with no hash), with the same
-/// messages, and (added 2026-10-10, #740: "bottom-up is an enforced rule")
-/// while a workspace callee has no valid stamp
-/// ([`review_mode::blockers_of`]; a recursion partner never blocks).
+/// messages. ~~and (added 2026-10-10, #740: "bottom-up is an enforced
+/// rule") while a workspace callee has no standing stamp (valid or pending
+/// a workspace test, corrected 2026-10-29)~~ **CORRECTED
+/// 2026-11-01** (GitHub #1106, maintainer: "stamp functions without
+/// reviewing the underlying functions"): a callee without a valid stamp no
+/// longer refuses the stamp; it is listed in
+/// [`StampContext::tentative_on`], and the stamp reads tentative until
+/// everything underneath is valid ([`review_mode::blockers_of`]).
 /// Reads git and runs the staleness engine; call it off the UI thread.
 pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampContext, String> {
     let ws = load_workspace(root)?;
@@ -597,15 +609,12 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
         return Err(DraftError::MissingCalleeHash(c.clone()).to_string());
     }
     let snap = review_mode::Snapshot::load(root)?;
-    let blocked = review_mode::blockers_of(&snap, &f.id);
-    if !blocked.is_empty() {
-        let names: Vec<&str> = blocked.iter().map(|(_, n)| n.as_str()).collect();
-        return Err(format!(
-            "bottom-up: {path} calls {} without a valid stamp; review {} first",
-            names.join(", "),
-            if names.len() == 1 { "it" } else { "them" }
-        ));
-    }
+    let mut tentative_on: Vec<String> = review_mode::blockers_of(&snap, &f.id)
+        .into_iter()
+        .map(|(_, n)| n)
+        .collect();
+    // By name, so the dialog's list does not follow the ids' order.
+    tentative_on.sort();
     let folder = ws.reviews.get(&idx.dir);
     let (applicability, messages) = applicability_for(root, &ws, idx, f);
     let previous = folder.and_then(|m| {
@@ -665,6 +674,7 @@ pub fn prepare_stamp(root: &Path, function: &str, by: &str) -> Result<StampConte
             .map(|s| s.comments)
             .unwrap_or_default(),
         hash: f.hash.clone(),
+        tentative_on,
         no_concept: review_mode::prefill::no_concept_prefill(
             previous.and_then(|r| r.review.no_concept.as_deref()),
             applicability.is_port,
@@ -883,8 +893,8 @@ fn read_root(root: &Path) -> Result<(PathBuf, String), String> {
 /// Register the key in `kf` in `<root>/kovan_root.toml` (appended text,
 /// comments kept: [`kovan_common::review::root_append`]). Trust on first
 /// use is given only to the first reviewer of a root with no reviewer and
-/// either no founder or `[code_review] founder` already naming this
-/// reviewer (what "Index fresh" writes when the keystore holds one
+/// either no founder or `[code_review] founder` (or, GitHub #1248,
+/// `founders`) already naming this reviewer (what "Index fresh" writes when the keystore holds one
 /// identity; added 2026-10-10 for the stamp dialog, #770). Any other root
 /// registers the reviewer as awaiting admission (conservative: a root
 /// whose founder is someone else trusts this reviewer only once a
@@ -899,7 +909,8 @@ pub fn register_key(
     let (path, text) = read_root(root)?;
     let parsed = ReviewRoot::parse(&text).map_err(|e| e.to_string())?;
     let key = kf.reviewer_key();
-    let founder = parsed.code_review.as_ref().and_then(|c| c.founder.clone());
+    // GitHub #1248: `founders = [...]` as well as `founder`.
+    let declared = parsed.code_review.as_ref().map(|c| c.declared_founders()).unwrap_or_default();
     let (new, what) = match parsed.reviewer(&kf.reviewer) {
         Some(r) => {
             let first = r.keys.is_empty();
@@ -911,14 +922,13 @@ pub fn register_key(
                 },
             )
         }
-        None if parsed.reviewers.is_empty()
-            && founder.as_ref().is_none_or(|f| *f == kf.reviewer) =>
-        {
-            let t = match founder {
+        None if parsed.reviewers.is_empty() && (declared.is_empty() || declared.contains(&kf.reviewer)) => {
+            let t = if declared.is_empty() {
+                declare_founder(&text, &kf.reviewer).map_err(|e| e.to_string())?
+            } else {
                 // Named already (by "Index fresh" from the keystore, or by
                 // hand): only the founding reviewer entry is added.
-                Some(_) => text.clone(),
-                None => declare_founder(&text, &kf.reviewer).map_err(|e| e.to_string())?,
+                text.clone()
             };
             let r = founding_reviewer(&kf.reviewer, name, key, date);
             (

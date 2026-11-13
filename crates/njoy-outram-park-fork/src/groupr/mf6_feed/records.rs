@@ -239,11 +239,17 @@ pub(super) fn law1_low_energy_patch(
 /// pre-merge record, so `NEP` over-counts the records actually present. This
 /// port reproduces that and simply never reads past the buffer
 /// ([`LabTable::stored_records`]).
+///
+/// The guard needs two records, as upstream reads none beyond them before the
+/// shift (corrected with [`ismooth_linlin`]'s, 2026-11-13, gh:#1369).
 pub(super) fn ismooth_histogram(buf: &mut Vec<f64>, messages: &mut Vec<String>) {
-    const FX: f64 = 0.8409;
+    // `fx=.8409` (`:7723`) is a default-real literal assigned to `real(kr)::fx`
+    // (`:7547`): the single-precision value widened (gh:#1517; the double 0.8409
+    // moved 28 lines of deck 08's GENDF in the 7th figure).
+    const FX: f64 = 0.8409f32 as f64;
     const EX: f64 = 40.0;
     let ncyc = (buf[3].round().max(0.0) as usize) + 2;
-    if ncyc < 2 || buf.len() < 6 + 3 * ncyc {
+    if ncyc < 2 || buf.len() < 6 + 2 * ncyc {
         return;
     }
     let mut cx = buf[6 + ncyc] * buf[7];
@@ -305,11 +311,18 @@ pub(super) fn ismooth_histogram(buf: &mut Vec<f64>, messages: &mut Vec<String>) 
 /// `:7765-7810` — `ismooth` sqrt(E) extension of a **lin-lin** (`LEP = 2`)
 /// neutron emission spectrum, with the `rn` renormalisation that conserves
 /// the original leading-panel integral (`:7797-7809`).
+///
+/// A two-point record (`NEP = 2`, e.g. the threshold table after
+/// [`law1_low_energy_patch`]) is extended too: upstream shifts the record before
+/// it reads `tmp(ilo+6+2*ncyc)`. ~~This port returned early unless three records
+/// were present~~ **CORRECTED 2026-11-13 (gh:#1369):** the guard needs two, as
+/// upstream; NJOY2016 test 46 (Fe-56 JEFF-3.3 MF=6 MT=16/22/28/91 threshold
+/// groups) differed in 157 GENDF lines until then.
 pub(super) fn ismooth_linlin(buf: &mut Vec<f64>, messages: &mut Vec<String>) {
     const EX: f64 = 40.0;
     const FX: f64 = 0.50;
     let ncyc = (buf[3].round().max(0.0) as usize) + 2;
-    if ncyc < 2 || buf.len() < 6 + 3 * ncyc {
+    if ncyc < 2 || buf.len() < 6 + 2 * ncyc {
         return;
     }
     let mut nx = buf[4].round().max(0.0) as usize;

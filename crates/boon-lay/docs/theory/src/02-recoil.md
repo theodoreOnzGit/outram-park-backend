@@ -77,7 +77,7 @@ is still open. Proprietary-folder source.
 The kernel radius is 250 µm, and the ranges above are 7 to 11 µm. Only
 fragments born within roughly a range of the kernel surface can leave it, and
 those cross into the **buffer**, a carbon layer about half voids
-([rung 1](../../tutorials/triso-atops/triso.html)). The buffer therefore does
+([*Why layers?*](../../science/fission-products/barriers-why.html)). The buffer therefore does
 two jobs the page-1 table lists: it absorbs the fragments that leave the
 kernel, so they do not damage the IPyC or SiC, and its voids give the released
 gas somewhere to go (the free volume of step 6, taken in PANAMA-I as half the

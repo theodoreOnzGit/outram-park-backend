@@ -1,0 +1,4 @@
+# Vendored upstream sources: development / porting reference only, NEVER
+# committed (workspace vendor rule; see upstream_source/README.md).
+# OpenFOAM-dev (GPL-3.0-or-later) at 852527377c7e, sparse clone for blockMesh.
+/upstream_source/OpenFOAM-dev/

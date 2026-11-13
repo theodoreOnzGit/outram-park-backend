@@ -1,0 +1,113 @@
+# Source: Chen F., Dong Y., Zhang Z., Zheng Y., Shi L., Hu S., "Post-test analysis of helium circulator trip
+# without scram at 3 MW power level on the HTR-10", Nucl. Eng. Des. 239 (2009) 1010-1018. [C09]
+# Redistribution: (c) 2009 Elsevier B.V., all rights reserved. Numbers only, cited by figure (maintainer decision D1, 2026-11-03).
+# Digitised 2026-11-03 for gh:#1151 by an AI agent (draft until human review). Method: the embedded raster figure
+# was extracted at native resolution with `pdfimages -png` (no resampling). The plot frame was located from its
+# solid axis lines; the axes were calibrated from the frame lines and the printed tick labels (and checked against
+# the dotted gridlines where present). Curve pixels were selected by colour and reduced per pixel column (scripts
+# kept in the session scratchpad, not committed). The legend box was masked. No point was interpolated or invented:
+# a column with no curve pixel (hidden behind another curve) is simply absent.
+# Content: [C09] Fig 4, curve "Blower speed_test" (MEASURED), relative helium circulator speed after the
+# circulator was switched off at t = 0 (LOFC ATWS test, 15 Oct 2003, initial 3.3 MW). Axes 0-500 s, 0-1.2.
+# Resolution: 1 px = 0.43 s and 0.0028 of relative speed. Read error: +-0.01 relative speed (line width and
+# axis calibration), +-1 s; in the first ~10 s the curve is steep and the per-column half-width (column 3) is
+# the honest error. Note: [C09] Sec 4 says the blower baffle closed at 12 s, after which the helium flow
+# "decreased rapidly to almost zero": speed and flow are proportional only BEFORE the baffle closes.
+t_s,relative_speed,halfwidth
+0.86,0.97917,0.0097
+6.02,0.87500,0.0083
+11.19,0.78472,0.0042
+16.35,0.73889,0.0028
+21.51,0.70139,0.0014
+26.68,0.67917,0.0014
+31.84,0.65972,0.0014
+37.01,0.64028,0.0014
+42.17,0.62361,0.0014
+47.33,0.60694,0.0014
+52.50,0.59028,0.0014
+57.66,0.57361,0.0014
+62.82,0.55972,0.0014
+67.99,0.54583,0.0014
+73.15,0.53194,0.0014
+78.31,0.51806,0.0014
+83.48,0.50417,0.0014
+88.64,0.49167,0.0014
+93.80,0.47917,0.0014
+98.97,0.46806,0.0014
+104.13,0.45694,0.0014
+109.29,0.44444,0.0014
+114.46,0.43333,0.0014
+119.62,0.42361,0.0014
+124.78,0.41389,0.0014
+129.95,0.40417,0.0014
+135.11,0.39583,0.0014
+140.28,0.38611,0.0014
+145.44,0.37639,0.0014
+150.60,0.36667,0.0014
+155.77,0.35833,0.0014
+160.93,0.35139,0.0014
+166.09,0.34444,0.0014
+171.26,0.33611,0.0014
+176.42,0.32778,0.0014
+181.58,0.31944,0.0014
+186.75,0.31250,0.0014
+191.91,0.30556,0.0014
+197.07,0.29861,0.0014
+202.24,0.29028,0.0014
+207.40,0.28056,0.0014
+212.56,0.27222,0.0014
+217.73,0.26667,0.0014
+222.89,0.58194,0.3236
+228.06,0.57917,0.3264
+233.22,0.57639,0.3292
+238.38,0.57222,0.3333
+243.55,0.56944,0.3361
+248.71,0.56528,0.3403
+253.87,0.56111,0.3444
+259.04,0.21111,0.0014
+264.20,0.20556,0.0014
+269.36,0.19861,0.0014
+274.53,0.19306,0.0014
+279.69,0.18889,0.0014
+284.85,0.18056,0.0014
+290.02,0.17222,0.0014
+295.18,0.16667,0.0014
+300.34,0.16111,0.0014
+305.51,0.15556,0.0014
+310.67,0.14861,0.0014
+315.83,0.14167,0.0014
+321.00,0.13611,0.0014
+326.16,0.12778,0.0014
+331.33,0.12222,0.0014
+336.49,0.11667,0.0014
+341.65,0.11111,0.0014
+346.82,0.10417,0.0014
+351.98,0.09722,0.0014
+357.14,0.09167,0.0014
+362.31,0.08472,0.0014
+367.47,0.07778,0.0014
+372.63,0.07222,0.0014
+377.80,0.06806,0.0014
+382.96,0.06111,0.0014
+388.12,0.05556,0.0014
+393.29,0.05000,0.0014
+398.45,0.04444,0.0014
+403.61,0.04028,0.0014
+408.78,0.03611,0.0014
+413.94,0.03056,0.0014
+419.10,0.02778,0.0014
+424.27,0.02222,0.0014
+429.43,0.01667,0.0014
+434.60,0.01389,0.0014
+439.76,0.00833,0.0014
+444.92,0.00556,0.0014
+450.09,0.00000,0.0014
+455.25,0.00000,0.0014
+460.41,0.00000,0.0014
+465.58,0.00000,0.0014
+470.74,0.00000,0.0014
+475.90,0.00000,0.0014
+481.07,0.00000,0.0014
+486.23,0.00000,0.0014
+491.39,0.00000,0.0014
+496.56,0.00000,0.0014

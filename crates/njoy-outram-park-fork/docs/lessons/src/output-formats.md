@@ -29,7 +29,7 @@ much of NJOY's formatter family does this crate carry?**
 | **MATXSR** | MATXS generalised material cross-section files | TRANSX → many transport codes | **`NotPorted`** stub | none |
 | **CCCCR** | CCCC files ISOTXS, BRKOXS, DLAYXS | fast-reactor codes (US FBR programme) | **`NotPorted`** stub | none |
 | **POWR** | EPRI-CELL / EPRI-CPM libraries | EPRI lattice codes | **`NotPorted`** stub | none |
-| **PLOTR** | VIEWR input describing 2-D/3-D plots of ENDF/PENDF/GENDF data | plotting | **`NotPorted`** stub | none |
+| **PLOTR** | VIEWR input describing 2-D/3-D plots of ENDF/PENDF/GENDF data | plotting | ~~**`NotPorted`** stub~~ **CORRECTED 2026-11-13:** ported (`viewr`, 2026-11-12, gh:#1369) | PostScript identical to NJOY2016's line by line on whole upstream decks (`tests/deck_driver_tapes_vs_njoy2016.rs`, `tests/deck_driver_covr_vs_njoy2016.rs`) |
 | **VIEWR** | PostScript from plot commands (also used by COVR and DTFR) | plotting | **`NotPorted`** stub | none |
 
 **A correction made while writing this page.** The crate's `lib.rs` listed

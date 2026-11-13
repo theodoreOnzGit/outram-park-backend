@@ -2,6 +2,12 @@ schema_version = 1
 kind = "code_folder"
 crate = "tampines"
 dir = "crates/tampines/tests"
+test_ids = [
+    "crates/tampines/tests/genfoam_gfhr_pebble_conduction.rs::gfhr_reference_fuel_temperature_is_consistent_with_upstream_pebble_data",
+    "crates/tampines/tests/genfoam_gfhr_pebble_conduction.rs::the_shell_conductance_matches_upstreams_lumped_structure_formula",
+    "crates/tampines/tests/wasm_smoke.rs::helium_properties_evaluate_under_wasm",
+    "crates/tampines/tests/wasm_smoke.rs::helium_steam_generator_builds_and_advances_under_wasm",
+]
 
 [module."genfoam_gfhr_pebble_conduction.rs"]
 path = "test:genfoam_gfhr_pebble_conduction"
@@ -607,3 +613,15 @@ callees = [
 ]
 uses = ["fn:65385c3115eb0f04"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+failed = []

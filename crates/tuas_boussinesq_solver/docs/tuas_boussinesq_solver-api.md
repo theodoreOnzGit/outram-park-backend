@@ -286,7 +286,6 @@ wrong heat transfer interaction type
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -319,7 +318,6 @@ wrong heat transfer interaction type
     fn into(self: Self) -> String { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -342,11 +340,6 @@ wrong heat transfer interaction type
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `matrix`
 
 Pure-Rust dense LU solver (`SquareMatrix`), inlined from `outram-foam-basic-lib`
@@ -416,7 +409,6 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -456,7 +448,6 @@ Fields:
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -489,11 +480,6 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 #### Struct `SquareMatrix`
 
 Row-major n×n dense matrix of `f64`. Maps to `Foam::scalarSquareMatrix`.
@@ -579,7 +565,6 @@ pub struct SquareMatrix {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -608,7 +593,6 @@ pub struct SquareMatrix {
     ```
     Calls `U::from(self)`.
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -635,11 +619,6 @@ pub struct SquareMatrix {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `prelude`
 
 **Attributes:**
@@ -1507,7 +1486,7 @@ get_dowtherm_a_enthalpy(temp1);
 
 
 let expected_enthalpy: f64 =
-1518_f64*30_f64 + 2.82/2.0*30_f64.powf(2_f64) - 30924_f64;
+1518_f64*30_f64 + 2.82/2.0*30_f64.r_powf(2_f64) - 30924_f64;
 
 // the expected value is about 15885 J/kg
 
@@ -2614,7 +2593,7 @@ given a temperature
 and temperature bounds
 
 ```rust
-pub fn get_custom_fluid_density(fluid_temp: ThermodynamicTemperature, density_function: fn(ThermodynamicTemperature) -> MassDensity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> anyhow::Result<MassDensity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn get_custom_fluid_density(fluid_temp: ThermodynamicTemperature, density_function: fn(ThermodynamicTemperature) -> MassDensity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> Result<MassDensity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `get_custom_fluid_viscosity`
@@ -2623,7 +2602,7 @@ function to obtain custom fluid viscosity
 given a temperature
 
 ```rust
-pub fn get_custom_fluid_viscosity(fluid_temp: ThermodynamicTemperature, viscosity_function: fn(ThermodynamicTemperature) -> DynamicViscosity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> anyhow::Result<DynamicViscosity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn get_custom_fluid_viscosity(fluid_temp: ThermodynamicTemperature, viscosity_function: fn(ThermodynamicTemperature) -> DynamicViscosity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> Result<DynamicViscosity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `get_custom_fluid_constant_pressure_specific_heat_capacity`
@@ -2632,7 +2611,7 @@ function to obtain custom fluid specific heat capacity
 given a temperature
 
 ```rust
-pub fn get_custom_fluid_constant_pressure_specific_heat_capacity(fluid_temp: ThermodynamicTemperature, cp_function: fn(ThermodynamicTemperature) -> SpecificHeatCapacity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> anyhow::Result<SpecificHeatCapacity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn get_custom_fluid_constant_pressure_specific_heat_capacity(fluid_temp: ThermodynamicTemperature, cp_function: fn(ThermodynamicTemperature) -> SpecificHeatCapacity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> Result<SpecificHeatCapacity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `get_custom_fluid_thermal_conductivity`
@@ -2641,7 +2620,7 @@ function to obtain custom fluid thermal conductivity
 given a temperature
 
 ```rust
-pub fn get_custom_fluid_thermal_conductivity(fluid_temp: ThermodynamicTemperature, conductivity_function: fn(ThermodynamicTemperature) -> ThermalConductivity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> anyhow::Result<ThermalConductivity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn get_custom_fluid_thermal_conductivity(fluid_temp: ThermodynamicTemperature, conductivity_function: fn(ThermodynamicTemperature) -> ThermalConductivity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> Result<ThermalConductivity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `get_custom_fluid_enthalpy`
@@ -2665,7 +2644,7 @@ Therefore I will just use numerical integrals, so that the user need not
 perform extra coding
 
 ```rust
-pub fn get_custom_fluid_enthalpy(fluid_temp: ThermodynamicTemperature, cp_function: fn(ThermodynamicTemperature) -> SpecificHeatCapacity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> anyhow::Result<AvailableEnergy, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn get_custom_fluid_enthalpy(fluid_temp: ThermodynamicTemperature, cp_function: fn(ThermodynamicTemperature) -> SpecificHeatCapacity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> Result<AvailableEnergy, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `get_custom_fluid_temperature_from_enthalpy`
@@ -2678,7 +2657,7 @@ wise due to its iterative nature, use sparingly and with caution
 
 
 ```rust
-pub fn get_custom_fluid_temperature_from_enthalpy(fluid_enthalpy: AvailableEnergy, cp_function: fn(ThermodynamicTemperature) -> SpecificHeatCapacity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> anyhow::Result<ThermodynamicTemperature, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn get_custom_fluid_temperature_from_enthalpy(fluid_enthalpy: AvailableEnergy, cp_function: fn(ThermodynamicTemperature) -> SpecificHeatCapacity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> Result<ThermodynamicTemperature, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `range_check_custom_fluid`
@@ -2695,7 +2674,7 @@ and returns `Err(TuasLibError::ThermophysicalPropertyTemperatureRangeError)`
 (it does not panic).
 
 ```rust
-pub fn range_check_custom_fluid(fluid_temp: ThermodynamicTemperature, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> anyhow::Result<bool, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn range_check_custom_fluid(fluid_temp: ThermodynamicTemperature, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> Result<bool, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 ## Module `solid_database`
@@ -2902,8 +2881,18 @@ validation using the compact integral effects test (CIET) experimental
 data (No. ANL/NSE-19/11). Argonne National
 Lab.(ANL), Argonne, IL (United States).
 
+# Out of the table (gh:#989, 2026-10-20)
+
+The integral runs from the 273.15 K reference to `temperature` over the
+natural cubic spline of the cp table. Both limits must lie inside the
+table: outside it this returns `TuasLibError::CorrelationRangeError`.
+Under `peroxide` it returned a bare value and could not report that.
+peroxide's `integrate` also clipped silently to the table and returned 0
+for a reversed interval spanning a knot; see
+`crate::numerical_methods::NaturalCubicSpline::integral`.
+
 ```rust
-pub fn steel_304_l_spline_specific_enthalpy_ciet_zweibaum(temperature: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+pub fn steel_304_l_spline_specific_enthalpy_ciet_zweibaum(temperature: ThermodynamicTemperature) -> Result<AvailableEnergy, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `steel_ss_304_l_ornl_specific_enthalpy_graves`
@@ -3444,8 +3433,18 @@ validation using the compact integral effects test (CIET) experimental
 data (No. ANL/NSE-19/11). Argonne National
 Lab.(ANL), Argonne, IL (United States).
 
+# Out of the table (gh:#989, 2026-10-20)
+
+The integral runs from the 273.15 K reference to `temperature` over the
+natural cubic spline of the cp table. Both limits must lie inside the
+table: outside it this returns `TuasLibError::CorrelationRangeError`.
+Under `peroxide` it returned a bare value and could not report that.
+peroxide's `integrate` also clipped silently to the table and returned 0
+for a reversed interval spanning a knot; see
+`crate::numerical_methods::NaturalCubicSpline::integral`.
+
 ```rust
-pub fn copper_specific_enthalpy(temperature: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+pub fn copper_specific_enthalpy(temperature: ThermodynamicTemperature) -> Result<AvailableEnergy, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `max_temp_copper_zou_zweibaum_spline`
@@ -3626,7 +3625,7 @@ given a temperature
 and temperature bounds
 
 ```rust
-pub fn get_custom_solid_density(solid_temp: ThermodynamicTemperature, density_function: fn(ThermodynamicTemperature) -> MassDensity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> anyhow::Result<MassDensity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn get_custom_solid_density(solid_temp: ThermodynamicTemperature, density_function: fn(ThermodynamicTemperature) -> MassDensity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> Result<MassDensity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `get_custom_solid_constant_pressure_specific_heat_capacity`
@@ -3635,7 +3634,7 @@ function to obtain custom solid specific heat capacity
 given a temperature
 
 ```rust
-pub fn get_custom_solid_constant_pressure_specific_heat_capacity(solid_temp: ThermodynamicTemperature, cp_function: fn(ThermodynamicTemperature) -> SpecificHeatCapacity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> anyhow::Result<SpecificHeatCapacity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn get_custom_solid_constant_pressure_specific_heat_capacity(solid_temp: ThermodynamicTemperature, cp_function: fn(ThermodynamicTemperature) -> SpecificHeatCapacity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> Result<SpecificHeatCapacity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `get_custom_solid_thermal_conductivity`
@@ -3644,7 +3643,7 @@ function to obtain custom solid thermal conductivity
 given a temperature
 
 ```rust
-pub fn get_custom_solid_thermal_conductivity(solid_temp: ThermodynamicTemperature, conductivity_function: fn(ThermodynamicTemperature) -> ThermalConductivity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> anyhow::Result<ThermalConductivity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn get_custom_solid_thermal_conductivity(solid_temp: ThermodynamicTemperature, conductivity_function: fn(ThermodynamicTemperature) -> ThermalConductivity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> Result<ThermalConductivity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `get_custom_solid_enthalpy`
@@ -3668,7 +3667,7 @@ Therefore I will just use numerical integrals, so that the user need not
 perform extra coding
 
 ```rust
-pub fn get_custom_solid_enthalpy(solid_temp: ThermodynamicTemperature, cp_function: fn(ThermodynamicTemperature) -> SpecificHeatCapacity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> anyhow::Result<AvailableEnergy, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn get_custom_solid_enthalpy(solid_temp: ThermodynamicTemperature, cp_function: fn(ThermodynamicTemperature) -> SpecificHeatCapacity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> Result<AvailableEnergy, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `get_custom_solid_temperature_from_enthalpy`
@@ -3681,7 +3680,7 @@ wise due to its iterative nature, use sparingly and with caution
 
 
 ```rust
-pub fn get_custom_solid_temperature_from_enthalpy(solid_enthalpy: AvailableEnergy, cp_function: fn(ThermodynamicTemperature) -> SpecificHeatCapacity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> anyhow::Result<ThermodynamicTemperature, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn get_custom_solid_temperature_from_enthalpy(solid_enthalpy: AvailableEnergy, cp_function: fn(ThermodynamicTemperature) -> SpecificHeatCapacity, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> Result<ThermodynamicTemperature, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `range_check_custom_solid`
@@ -3695,7 +3694,7 @@ message and returns `Err(TuasLibError::ThermophysicalPropertyTemperatureRangeErr
 
 
 ```rust
-pub fn range_check_custom_solid(solid_temp: ThermodynamicTemperature, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> anyhow::Result<bool, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn range_check_custom_solid(solid_temp: ThermodynamicTemperature, upper_bound_temperature: ThermodynamicTemperature, lower_bound_temperature: ThermodynamicTemperature) -> Result<bool, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 ## Module `nuclear_graphite`
@@ -4143,30 +4142,40 @@ pub fn nuclear_graphite_ig_110_thermal_conductivity_fluence_dependent(temperatur
 
 Returns the specific enthalpy, in J/kg, of nuclear graphite (both A3
 matrix and IG-110 grades, which share one cp table) at the given
-temperature, with h = 0 at 273.15 K.
+temperature, with ~~h = 0 at 273.15 K~~ **h = 0 at 300 K** (see the datum
+section below).
 
 Integrates the Butland & Maddison cp cubic spline (see
 [`nuclear_graphite_specific_heat_capacity_butland_maddison_spline`];
 VTB HTTF deck `HTTF-SS.i` lines 368-372, CC-BY-4.0, Open tier) from
-273.15 K to the given temperature, per this database's house convention
-(compare `copper_specific_enthalpy` /
-`steel_304_l_spline_specific_enthalpy_ciet_zweibaum`).
+the 300 K datum to the given temperature.
 
-**Below-table extrapolation note:** the cp table starts at 300 K but the
-integration reference is 273.15 K, so the integral's first 26.85 K uses
-the cubic spline's natural extrapolation below its lowest node. This only
-shifts the (arbitrary) enthalpy datum by a constant; enthalpy
-*differences* between any two temperatures at or above 300 K are
-unaffected. User-facing dispatch keeps `min_temperature()` at 300 K, so
-in-range calls never rely on extrapolated cp except through this shared
-datum offset.
+# Enthalpy datum: 300 K (gh:#989, maintainer decision 2026-10-20)
 
-Like its siblings this function performs no range check of its own
-(range enforcement happens in the cp/conductivity accessors and via
-`min_temperature()`/`max_temperature()`).
+The datum is [`GRAPHITE_ENTHALPY_REFERENCE_TEMPERATURE_KELVIN`], 300 K,
+the cp table's lowest knot. It is a **documented datum, not a clamp**:
+a temperature below 300 K is still refused with
+`TuasLibError::CorrelationRangeError`, as is one above 2000 K.
+
+History, so the choice can be checked. This function used to name
+273.15 K, the house convention of `copper_specific_enthalpy` and
+`steel_304_l_spline_specific_enthalpy_ciet_zweibaum`. ~~**Below-table
+extrapolation note:** the cp table starts at 300 K but the integration
+reference is 273.15 K, so the integral's first 26.85 K uses the cubic
+spline's natural extrapolation below its lowest node.~~ **CORRECTED
+2026-10-20:** that never happened. peroxide 0.41.2's
+`CubicSpline::integrate` clipped the interval to the table, so its
+integral over [273.15, 300] K was exactly 0 J/kg (measured) and the
+values it returned were already referenced to 300 K. On PETIR the
+273.15 K lower limit was refused outright. Naming 300 K reproduces what
+peroxide computed, to quadrature round-off (the spline coefficients now
+come from GSL's tridiagonal solve, not peroxide's dense inverse; see
+`docs/peroxide-roots-to-petir-989.md` for the measured difference).
+Only the datum's name changes. Enthalpy differences, and so every energy
+balance, are unaffected.
 
 ```rust
-pub fn nuclear_graphite_specific_enthalpy(temperature: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+pub fn nuclear_graphite_specific_enthalpy(temperature: ThermodynamicTemperature) -> Result<AvailableEnergy, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `min_temp_nuclear_graphite_high_temp`
@@ -4304,6 +4313,19 @@ the cp and conductivity accessors.
 
 ```rust
 pub fn nuclear_graphite_matrix_a3_high_temp_specific_enthalpy(temperature: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `GRAPHITE_ENTHALPY_REFERENCE_TEMPERATURE_KELVIN`
+
+Enthalpy datum of [`nuclear_graphite_specific_enthalpy`]: h = 0 J/kg at
+300 K, the lowest knot of the Butland & Maddison cp table. Chosen
+2026-10-20 (gh:#989, maintainer decision) because it is what the
+pre-PETIR code actually computed; see that function's docs.
+
+```rust
+pub const GRAPHITE_ENTHALPY_REFERENCE_TEMPERATURE_KELVIN: f64 = 300.0;
 ```
 
 ## Module `pyrogel_hps`
@@ -4600,7 +4622,6 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -4648,7 +4669,6 @@ Fields:
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -4684,11 +4704,6 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 #### Enum `SolidMaterial`
 
 Contains a selection of solids with predefined material properties
@@ -4867,7 +4882,6 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -4906,7 +4920,6 @@ Fields:
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -4937,11 +4950,6 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 #### Enum `LiquidMaterial`
 
 Contains a selection of liquids with predefined material properties
@@ -5096,7 +5104,6 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -5135,7 +5142,6 @@ Fields:
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -5166,11 +5172,6 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ### Functions
 
 #### Function `range_check`
@@ -5301,7 +5302,7 @@ pub mod churchill_friction_factor { /* ... */ }
 calculates darcy friction factor using churchill correlation
 
 ```rust
-pub fn darcy(reynolds_number: f64, roughness_ratio: f64) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn darcy(reynolds_number: f64, roughness_ratio: f64) -> Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `moody`
@@ -5310,7 +5311,7 @@ calculates moody friction factor using churchill correlation
 basically same as darcy
 
 ```rust
-pub fn moody(reynolds_number: f64, roughness_ratio: f64) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn moody(reynolds_number: f64, roughness_ratio: f64) -> Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `f_ldk`
@@ -5319,7 +5320,7 @@ calculates fLDK using churchill correlation
 and a user defined form loss K value
 
 ```rust
-pub fn f_ldk(reynolds_number: f64, roughness_ratio: f64, length_to_diameter_ratio: f64, k: f64) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn f_ldk(reynolds_number: f64, roughness_ratio: f64, length_to_diameter_ratio: f64, k: f64) -> Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `get_bejan_number_d`
@@ -5328,7 +5329,7 @@ calculates a nondimensional pressure loss (Be_D)
 from the nondimensionalised flowrate (Re_D)
 
 ```rust
-pub fn get_bejan_number_d(reynolds_number: f64, roughness_ratio: f64, length_to_diameter_ratio: f64, form_loss_k: f64) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn get_bejan_number_d(reynolds_number: f64, roughness_ratio: f64, length_to_diameter_ratio: f64, form_loss_k: f64) -> Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `get_reynolds_from_bejan`
@@ -5339,7 +5340,7 @@ it is basically calculating nondimensionalised
 flowrate from nondimensionalised pressure loss
 
 ```rust
-pub fn get_reynolds_from_bejan(bejan_number_d: f64, roughness_ratio: f64, length_to_diameter: f64, form_loss_k: f64) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn get_reynolds_from_bejan(bejan_number_d: f64, roughness_ratio: f64, length_to_diameter: f64, form_loss_k: f64) -> Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 ## Module `custom_fldk`
@@ -5380,7 +5381,7 @@ ie both friction factor and form loss k are user defined
 <https://stackoverflow.com/questions/36390665/how-do-you-pass-a-rust-function-as-a-parameter>
 
 ```rust
-pub fn custom_f_ldk(custom_darcy: &dyn Fn(f64, f64) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError>, reynolds_number: f64, roughness_ratio: f64, length_to_diameter_ratio: f64, custom_k: &dyn Fn(f64) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError>) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn custom_f_ldk(custom_darcy: &dyn Fn(f64, f64) -> Result<f64, crate::tuas_lib_error::TuasLibError>, reynolds_number: f64, roughness_ratio: f64, length_to_diameter_ratio: f64, custom_k: &dyn Fn(f64) -> Result<f64, crate::tuas_lib_error::TuasLibError>) -> Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `custom_kpipe`
@@ -5390,7 +5391,7 @@ where we just specify a custom K but friction factor is based
 on darcy friction factor
 
 ```rust
-pub fn custom_kpipe(reynolds_number: f64, roughness_ratio: f64, length_to_diameter_ratio: f64, custom_k: &dyn Fn(f64) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError>) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn custom_kpipe(reynolds_number: f64, roughness_ratio: f64, length_to_diameter_ratio: f64, custom_k: &dyn Fn(f64) -> Result<f64, crate::tuas_lib_error::TuasLibError>) -> Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `custom_kpipe_be_d`
@@ -5402,7 +5403,7 @@ take some functional form rather than staying constant
 
 
 ```rust
-pub fn custom_kpipe_be_d(reynolds_number: f64, roughness_ratio: f64, length_to_diameter_ratio: f64, custom_k: &dyn Fn(f64) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError>) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn custom_kpipe_be_d(reynolds_number: f64, roughness_ratio: f64, length_to_diameter_ratio: f64, custom_k: &dyn Fn(f64) -> Result<f64, crate::tuas_lib_error::TuasLibError>) -> Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `custom_f_ldk_be_d`
@@ -5411,7 +5412,7 @@ this functions calculates the bejan number using the
 custom fLDK formula
 
 ```rust
-pub fn custom_f_ldk_be_d(custom_darcy: &dyn Fn(f64, f64) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError>, reynolds_number: f64, roughness_ratio: f64, length_to_diameter_ratio: f64, custom_k: &dyn Fn(f64) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError>) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn custom_f_ldk_be_d(custom_darcy: &dyn Fn(f64, f64) -> Result<f64, crate::tuas_lib_error::TuasLibError>, reynolds_number: f64, roughness_ratio: f64, length_to_diameter_ratio: f64, custom_k: &dyn Fn(f64) -> Result<f64, crate::tuas_lib_error::TuasLibError>) -> Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 #### Function `get_reynolds`
@@ -5426,7 +5427,7 @@ that is up to the user to decide when
 customDarcy and customK is put in
 
 ```rust
-pub fn get_reynolds(custom_darcy: &'static dyn Fn(f64, f64) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError>, bejan_d: f64, roughness_ratio: f64, length_to_diameter: f64, custom_k: &'static dyn Fn(f64) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError>) -> anyhow::Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+pub fn get_reynolds(custom_darcy: &'static dyn Fn(f64, f64) -> Result<f64, crate::tuas_lib_error::TuasLibError>, bejan_d: f64, roughness_ratio: f64, length_to_diameter: f64, custom_k: &'static dyn Fn(f64) -> Result<f64, crate::tuas_lib_error::TuasLibError>) -> Result<f64, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
 ## Module `dimensionalisation`
@@ -6034,7 +6035,7 @@ pub fn nusselt_ciet_heater_v1_0(reynolds_number: f64) -> f64 { /* ... */ }
  let Re = 10000_f64;
  let Pr = 17_f64;
 
- let heating_ref_nu = 0.023 * Re.powf(0.8) * Pr.powf(0.4);
+ let heating_ref_nu = 0.023 * Re.r_powf(0.8) * Pr.r_powf(0.4);
 
  let heating_test_bool = true;
 
@@ -6047,7 +6048,7 @@ pub fn nusselt_ciet_heater_v1_0(reynolds_number: f64) -> f64 { /* ... */ }
  // here we have an example for cooling
  // Re = 10000, Pr = 17
 
- let cooling_ref_nu = 0.023 * Re.powf(0.8) * Pr.powf(0.3);
+ let cooling_ref_nu = 0.023 * Re.r_powf(0.8) * Pr.r_powf(0.3);
 
  let cooling_test_bool = false;
 
@@ -6137,9 +6138,9 @@ let Pr = 17_f64;
 
 let viscosity_ratio = 5.0_f64;
 
-let nu_f_reference = 0.027 * Re.powf(0.8)
-* Pr.powf(1.0/3.0) *
-viscosity_ratio.powf(0.14);
+let nu_f_reference = 0.027 * Re.r_powf(0.8)
+* Pr.r_powf(1.0/3.0) *
+viscosity_ratio.r_powf(0.14);
 
 let test_nu = pipe_correlations::sieder_tate_correlation(
 Re, Pr, viscosity_ratio);
@@ -6186,9 +6187,9 @@ let prandtl_ratio = Pr_fluid/Pr_wall;
 let darcy_ratio: f64 = darcy_friction_factor/8.0;
 
 let numerator: f64 = darcy_ratio * (Re - 1000_f64) * Pr_fluid *
-    prandtl_ratio.powf(0.11);
-let denominator:f64 = 1_f64 + 12.7_f64 * darcy_ratio.powf(0.5) *
-    (Pr_fluid.powf(2.0/3.0) - 1.0);
+    prandtl_ratio.r_powf(0.11);
+let denominator:f64 = 1_f64 + 12.7_f64 * darcy_ratio.r_powf(0.5) *
+    (Pr_fluid.r_powf(2.0/3.0) - 1.0);
 
 
 
@@ -6907,7 +6908,6 @@ pub struct NusseltPrandtlReynoldsData {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -6947,7 +6947,6 @@ pub struct NusseltPrandtlReynoldsData {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -6975,11 +6974,6 @@ pub struct NusseltPrandtlReynoldsData {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 #### Struct `WakaoData`
 
 Input data for the Wakao particle-to-fluid Nusselt number correlation
@@ -7044,7 +7038,6 @@ pub struct WakaoData {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -7084,7 +7077,6 @@ pub struct WakaoData {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -7112,11 +7104,6 @@ pub struct WakaoData {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 #### Struct `GnielinskiData`
 
 contains data for gnielinski
@@ -7183,7 +7170,6 @@ pub struct GnielinskiData {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -7223,7 +7209,6 @@ pub struct GnielinskiData {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -7251,11 +7236,227 @@ pub struct GnielinskiData {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
+#### Enum `FluidHeatingDirection`
+
+Whether the fluid is being heated by the wall or cooled by it; selects
+the Prandtl exponent of the Dittus–Boelter correlation (`n = 0.4` when
+the fluid is heated, `n = 0.3` when it is cooled).
+
+```rust
+pub enum FluidHeatingDirection {
+    FluidHeated,
+    FluidCooled,
+}
+```
+
+##### Variants
+
+###### `FluidHeated`
+
+Heat flows from the wall into the fluid (`T_wall > T_bulk`).
+
+###### `FluidCooled`
+
+Heat flows from the fluid into the wall (`T_wall < T_bulk`).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
   - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `DittusBoelterData`
+
+Inputs to the Dittus–Boelter correlation
+`Nu = 0.023 Re^0.8 Pr^n` (see
+[`super::pipe_correlations::dittus_boelter_correlation`] for the source
+and the original 1930 paper).
+
+Published validity (e.g. Incropera & DeWitt, Eq. 8.60): fully developed
+turbulent flow in smooth tubes, `Re ≳ 10⁴`, `0.6 ≲ Pr ≲ 160`, moderate
+wall-to-bulk temperature difference. Those bounds are documented, **not
+enforced**: RELAP5's single-phase selection (RELAP-7 Theory Manual
+§2.2.2.1, Eq. 46) evaluates the correlation at every Reynolds number and
+takes the maximum with the laminar and free-convection values.
+
+```rust
+pub struct DittusBoelterData {
+    pub reynolds: Ratio,
+    pub prandtl_bulk: Ratio,
+    pub heating_direction: FluidHeatingDirection,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reynolds` | `Ratio` | Reynolds number on the hydraulic diameter; finite, non-negative. |
+| `prandtl_bulk` | `Ratio` | Bulk-fluid Prandtl number; finite, positive. |
+| `heating_direction` | `FluidHeatingDirection` | Heating (`n = 0.4`) or cooling (`n = 0.3`) of the fluid. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn try_get_nusselt(self: &Self) -> Result<Ratio, TuasLibError> { /* ... */ }
+  ```
+  Dittus–Boelter Nusselt number, delegating to the existing
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ## Module `enums`
 
 contains nusselt number enums used for input calculation
@@ -7292,6 +7493,8 @@ pub enum NusseltCorrelation {
     CIETHeaterVersion2(super::input_structs::NusseltPrandtlReynoldsData),
     IdealNusseltOneBillion,
     FixedNusselt(Ratio),
+    DittusBoelter(super::input_structs::DittusBoelterData),
+    ChurchillChuVerticalPlate(super::free_convection_correlations::ChurchillChuData),
 }
 ```
 
@@ -7587,6 +7790,44 @@ Fields:
 |-------|------|---------------|
 | 0 | `Ratio` |  |
 
+###### `DittusBoelter`
+
+Dittus–Boelter turbulent pipe correlation,
+`Nu = 0.023 Re^0.8 Pr^n`, `n = 0.4` when the fluid is heated and
+`0.3` when it is cooled. See [`DittusBoelterData`] for the published
+validity range (documented, not enforced) and
+[`super::pipe_correlations::dittus_boelter_correlation`] for the
+source. Added 2026-11-01 (GitHub #1063); no existing variant changed.
+
+The `estimate_*` methods replace the Reynolds and bulk Prandtl
+numbers and keep the heating direction; the wall Prandtl number is
+not used (Dittus–Boelter carries no wall correction).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::input_structs::DittusBoelterData` |  |
+
+###### `ChurchillChuVerticalPlate`
+
+Churchill–Chu free convection along a vertical flat plate,
+`Nu = {0.825 + 0.387 Ra^(1/6) / [1 + (0.492/Pr)^(9/16)]^(8/27)}²`
+with `Ra = Gr Pr` (Churchill & Chu 1975; see
+[`super::free_convection_correlations`]). Added 2026-11-01
+(GitHub #1063).
+
+The `estimate_*` methods replace the Prandtl number (so `Ra` follows
+it, the Grashof number being held) and ignore the Reynolds number,
+which free convection does not depend on, and the wall Prandtl
+number.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::free_convection_correlations::ChurchillChuData` |  |
+
 ##### Implementations
 
 ###### Methods
@@ -7633,7 +7874,6 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -7673,7 +7913,6 @@ Fields:
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -7701,10 +7940,218 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
+## Module `free_convection_correlations`
+
+free (natural) convection correlations (Churchill–Chu vertical plate)
+with the Grashof and Rayleigh numbers
+Free (natural) convection Nusselt-number correlations, with the Grashof
+and Rayleigh numbers they are built on.
+
+Added for GitHub issue #1063 (the RELAP5 geometry-101/110 single-phase
+heat-transfer selection, which takes the maximum of forced-laminar,
+forced-turbulent and free-convection coefficients; RELAP-7 Theory Manual
+§2.2.2.1, Eqs 47–48). Searched before writing (2026-11-01): no
+Churchill–Chu correlation existed in the workspace; the nearest relative,
+`sembawang::bwr_mark1::pool_surface::structure_surface` (moved on
+2026-11-01 to `tampines::components::wall_condensation::structure_surface`,
+gh:#1096, and re-exported from `sembawang`), is MELCOR's
+piecewise `0.59 Ra^1/4` / `0.10 Ra^1/3` external-surface form, a
+different correlation.
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+```rust
+pub mod free_convection_correlations { /* ... */ }
+```
+
+### Types
+
+#### Struct `ChurchillChuData`
+
+Inputs to [`churchill_chu_vertical_plate_nusselt`], as dimensionless
+`uom` ratios. Holds the Grashof number rather than the Rayleigh number,
+so that replacing the Prandtl number (as
+[`super::enums::NusseltCorrelation`]'s `estimate_*` methods do) keeps
+`Ra = Gr Pr` consistent.
+
+```rust
+pub struct ChurchillChuData {
+    pub grashof: Ratio,
+    pub prandtl: Ratio,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `grashof` | `Ratio` | Grashof number on the free-convection length scale (see<br>[`grashof_number`]); must be finite and non-negative. |
+| `prandtl` | `Ratio` | Fluid Prandtl number; must be finite and positive. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn try_get_nusselt(self: &Self) -> Result<Ratio, TuasLibError> { /* ... */ }
+  ```
+  Churchill–Chu vertical-plate Nusselt number, after checking that the
+
+###### Trait Implementations
+
+- **Any**
   - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `grashof_number`
+
+Grashof number `Gr = ρ² g β |T_w − T| L³ / μ²`.
+
+The form is RELAP-7 Theory Manual §2.2.2.1, Eq. 48 (RELAP5's), which is
+the textbook definition (e.g. Incropera & DeWitt, *Fundamentals of Heat
+and Mass Transfer*, Eq. 9.12, written with `ν = μ/ρ`). The absolute value
+of the wall-to-bulk difference is taken so that the same buoyancy
+magnitude results for a heated and a cooled wall; the free-convection
+correlations here are written for `Gr ≥ 0`.
+
+Evaluated in SI floats from the `uom` inputs (so no unit can be mixed
+up), returned as a [`Ratio`].
+
+Hand check (pinned in `tests::grashof_number_matches_hand_calculation`):
+water near 20 °C, `ρ = 998.2 kg/m³`, `β = 2.07e-4 1/K`,
+`μ = 1.002e-3 Pa s`, `ΔT = 10 K`, `L = 0.1 m`, `g = 9.80665 m/s²`:
+`Gr = 998.2² × 9.80665 × 2.07e-4 × 10 × 0.1³ / (1.002e-3)² = 2.0146e7`.
+
+```rust
+pub fn grashof_number(density: MassDensity, gravity: Acceleration, thermal_expansion_coefficient: TemperatureCoefficient, wall_minus_bulk_temperature: TemperatureInterval, length_scale: Length, dynamic_viscosity: DynamicViscosity) -> Ratio { /* ... */ }
+```
+
+#### Function `rayleigh_number`
+
+Rayleigh number `Ra = Gr Pr`.
+
+```rust
+pub fn rayleigh_number(grashof: Ratio, prandtl: Ratio) -> Ratio { /* ... */ }
+```
+
+#### Function `churchill_chu_vertical_plate_nusselt`
+
+Churchill–Chu correlation for free convection along a vertical flat
+plate, valid over the whole Rayleigh range (laminar and turbulent):
+
+```text
+Nu_L = { 0.825 + 0.387 Ra^(1/6) / [1 + (0.492/Pr)^(9/16)]^(8/27) }²
+```
+
+Source: S. W. Churchill and H. H. S. Chu (1975), "Correlating equations
+for laminar and turbulent free convection from a vertical plate",
+*International Journal of Heat and Mass Transfer* **18**(11), 1323–1329,
+doi:10.1016/0017-9310(75)90243-4 (their Eq. for the whole range,
+recommended for `10⁻¹ < Ra < 10¹²`). Used by RELAP5 and RELAP-7 for the
+free-convection leg of the single-phase wall heat-transfer selection
+(RELAP-7 Theory Manual §2.2.2.1, Eq. 47).
+
+Inputs are plain floats, like the rest of
+[`super::pipe_correlations`]; the `uom` entry point is
+[`ChurchillChuData::try_get_nusselt`]. The Nusselt and Rayleigh numbers
+are on the same length scale `L` (the plate height; RELAP5 defaults it to
+the heat-transfer hydraulic diameter).
+
+Hand checks (pinned in this module's tests):
+
+- `Ra = 0`: `Nu = 0.825² = 0.680625` exactly (the conduction limit of the
+  correlation, independent of `Pr`).
+- `Ra = 1e9, Pr = 0.71` (air): `(0.492/0.71)^(9/16) = 0.81376`,
+  `ψ = 1.81376^(8/27) = 1.19290`, `Ra^(1/6) = 31.6228`,
+  `Nu = (0.825 + 0.387 × 31.6228 / 1.19290)² = (11.0841)² = 122.857`.
+- `Ra = 1e6, Pr = 7` (water): `Nu = 19.9767`.
+
+```rust
+use tuas_boussinesq_solver::heat_transfer_correlations::
+nusselt_number_correlations::free_convection_correlations::
+churchill_chu_vertical_plate_nusselt;
+
+let nu = churchill_chu_vertical_plate_nusselt(0.0, 1.0);
+approx::assert_relative_eq!(nu, 0.680625, max_relative = 1e-12);
+```
+
+```rust
+pub fn churchill_chu_vertical_plate_nusselt(rayleigh_number: f64, prandtl_number: f64) -> f64 { /* ... */ }
+```
 
 ## Module `tests`
 
@@ -7712,6 +8159,44 @@ tests to ensure correlations are working correctly
 
 ```rust
 pub mod tests { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `churchill_chu_vertical_plate_nusselt`
+
+```rust
+pub use free_convection_correlations::churchill_chu_vertical_plate_nusselt;
+```
+
+#### Re-export `grashof_number`
+
+```rust
+pub use free_convection_correlations::grashof_number;
+```
+
+#### Re-export `rayleigh_number`
+
+```rust
+pub use free_convection_correlations::rayleigh_number;
+```
+
+#### Re-export `ChurchillChuData`
+
+```rust
+pub use free_convection_correlations::ChurchillChuData;
+```
+
+#### Re-export `DittusBoelterData`
+
+```rust
+pub use input_structs::DittusBoelterData;
+```
+
+#### Re-export `FluidHeatingDirection`
+
+```rust
+pub use input_structs::FluidHeatingDirection;
 ```
 
 ## Module `thermal_resistance`
@@ -8138,8 +8623,8 @@ cold_fluid_temp_B.value;
 
 let mut LMTD_value_expected =
 (A_temperature_interval_value - B_temperature_interval_value)/
-(A_temperature_interval_value.ln() -
-B_temperature_interval_value.ln());
+(A_temperature_interval_value.r_ln() -
+B_temperature_interval_value.r_ln());
 
 let LMTD_test = log_mean_temperature_difference(
 cold_fluid_temp_A,
@@ -8155,8 +8640,8 @@ max_relative=0.001);
 
 let mut LMTD_value_expected =
 ((48_f64 - 21_f64) - (50_f64-20.0))/
-((48_f64-21_f64).ln() -
-(50_f64-20.0).ln());
+((48_f64-21_f64).r_ln() -
+(50_f64-20.0).r_ln());
 
 approx::assert_relative_eq!(LMTD_value_expected, LMTD_test.value,
 max_relative=0.001);
@@ -8491,7 +8976,6 @@ solid               ||                  fluid
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -8526,7 +9010,6 @@ solid               ||                  fluid
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -8554,11 +9037,6 @@ solid               ||                  fluid
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 #### Struct `DataDualCartesianThermalConductanceThreeDimension`
 
 here we have a struct for dual Cartesian Thermal conduction
@@ -8604,7 +9082,6 @@ pub struct DataDualCartesianThermalConductanceThreeDimension {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -8639,7 +9116,6 @@ pub struct DataDualCartesianThermalConductanceThreeDimension {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -8667,11 +9143,6 @@ pub struct DataDualCartesianThermalConductanceThreeDimension {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `heat_transfer_interaction_enums`
 
 for heat transfer interactions, there are various types,
@@ -9121,7 +9592,6 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -9160,7 +9630,6 @@ Fields:
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -9192,11 +9661,6 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 #### Struct `DataUserSpecifiedConvectionResistance`
 
 here we have a struct for simple convection resistance
@@ -9236,7 +9700,6 @@ pub struct DataUserSpecifiedConvectionResistance {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -9271,7 +9734,6 @@ pub struct DataUserSpecifiedConvectionResistance {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -9299,11 +9761,6 @@ pub struct DataUserSpecifiedConvectionResistance {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 #### Struct `DataAdvection`
 
 here we have a useful for necessary advection information
@@ -9355,7 +9812,6 @@ pub struct DataAdvection {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -9394,7 +9850,6 @@ pub struct DataAdvection {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -9426,11 +9881,6 @@ pub struct DataAdvection {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ### Re-exports
 
 #### Re-export `conductance::*`
@@ -9538,7 +9988,6 @@ pub struct XThicknessThermalConduction {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -9581,7 +10030,6 @@ pub struct XThicknessThermalConduction {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -9609,11 +10057,6 @@ pub struct XThicknessThermalConduction {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 #### Struct `RadialCylindricalThicknessThermalConduction`
 
 This represents a thickness for radial conduction for
@@ -9650,7 +10093,6 @@ pub struct RadialCylindricalThicknessThermalConduction {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -9693,7 +10135,6 @@ pub struct RadialCylindricalThicknessThermalConduction {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -9721,11 +10162,6 @@ pub struct RadialCylindricalThicknessThermalConduction {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 #### Struct `InnerDiameterThermalConduction`
 
 This represents an inner diameter  for radial conduction
@@ -9763,7 +10199,6 @@ pub struct InnerDiameterThermalConduction {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -9806,7 +10241,6 @@ pub struct InnerDiameterThermalConduction {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -9834,11 +10268,6 @@ pub struct InnerDiameterThermalConduction {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 #### Struct `OuterDiameterThermalConduction`
 
 This represents an outer diameter
@@ -9876,7 +10305,6 @@ pub struct OuterDiameterThermalConduction {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -9919,7 +10347,6 @@ pub struct OuterDiameterThermalConduction {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -9947,11 +10374,6 @@ pub struct OuterDiameterThermalConduction {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 #### Struct `CylinderLengthThermalConduction`
 
 This represents an tube length
@@ -9988,7 +10410,6 @@ pub struct CylinderLengthThermalConduction {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -10031,7 +10452,6 @@ pub struct CylinderLengthThermalConduction {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -10059,11 +10479,6 @@ pub struct CylinderLengthThermalConduction {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 #### Struct `CrossSectionalArea`
 
 This represents an Cross Sectional Area
@@ -10100,7 +10515,6 @@ pub struct CrossSectionalArea {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -10143,7 +10557,6 @@ pub struct CrossSectionalArea {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -10171,11 +10584,6 @@ pub struct CrossSectionalArea {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 #### Struct `SurfaceArea`
 
 This represents an Surface Area
@@ -10211,7 +10619,6 @@ pub struct SurfaceArea {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -10254,7 +10661,6 @@ pub struct SurfaceArea {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -10282,11 +10688,6 @@ pub struct SurfaceArea {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ### Constants and Statics
 
 #### Constant `UNIT_AREA_SQ_METER_FOR_ONE_DIMENSIONAL_CALCS`
@@ -10406,7 +10807,6 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -10445,7 +10845,6 @@ Fields:
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -10477,11 +10876,6 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `single_control_vol`
 
 **Attributes:**
@@ -10911,7 +11305,6 @@ pub struct SingleCVNode {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -10958,7 +11351,6 @@ pub struct SingleCVNode {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -10994,11 +11386,6 @@ pub struct SingleCVNode {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `array_fluid_collections`
 
 **Attributes:**
@@ -11451,7 +11838,6 @@ pub struct CartesianConduction1DArray {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -11490,7 +11876,6 @@ pub struct CartesianConduction1DArray {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -11518,11 +11903,6 @@ pub struct CartesianConduction1DArray {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `solid_array_lateral_coupling`
 
 contains a full struct which abstracts away calculation details
@@ -11898,7 +12278,6 @@ pub struct SolidColumn {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -11945,7 +12324,6 @@ pub struct SolidColumn {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -11981,11 +12359,6 @@ pub struct SolidColumn {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `fluid_array_lateral_coupling`
 
 contains a full struct which abstracts away calculation details
@@ -12286,7 +12659,6 @@ not done yet
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -12327,7 +12699,6 @@ not done yet
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -12355,11 +12726,6 @@ not done yet
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `type_conversion`
 
 type conversion
@@ -12721,7 +13087,6 @@ pub struct FluidArray {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -12772,7 +13137,6 @@ pub struct FluidArray {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -12812,11 +13176,6 @@ pub struct FluidArray {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `fluid_component_collection`
 
 contains code for calculating pressure drop and mass flowrates over
@@ -12962,7 +13321,6 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -13105,7 +13463,6 @@ Fields:
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -13137,11 +13494,6 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `fluid_component_traits`
 
 contains a trait for use in fluid components and
@@ -13810,7 +14162,6 @@ where
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -13855,7 +14206,6 @@ where
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -13883,11 +14233,6 @@ where
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 #### Enum `FluidComponentCollectionOreintation`
 
 tells you whether the components in FluidComponentCollection
@@ -13931,7 +14276,6 @@ fluid components are connected in series
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -13965,7 +14309,6 @@ fluid components are connected in series
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -13993,11 +14336,6 @@ fluid components are connected in series
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ### Traits
 
 #### Trait `FluidComponentCollectionMethods`
@@ -14134,7 +14472,6 @@ pub struct FluidComponentSuperCollection {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -14184,7 +14521,6 @@ pub struct FluidComponentSuperCollection {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -14212,11 +14548,6 @@ pub struct FluidComponentSuperCollection {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `tests_and_examples`
 
 some examples which show how to use the functionality of the fluid
@@ -14554,7 +14885,6 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -14604,7 +14934,6 @@ Fields:
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -14648,11 +14977,6 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `bc_types`
 
 converts to and from boundary conditions
@@ -15077,7 +15401,6 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -15131,7 +15454,6 @@ Fields:
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -15179,11 +15501,6 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `non_insulated_fluid_components`
 
 for fluid flow through non insulated pipes and fluid components, these pipes will
@@ -15416,7 +15733,6 @@ pub struct NonInsulatedFluidComponent {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -15539,7 +15855,6 @@ pub struct NonInsulatedFluidComponent {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -15567,11 +15882,6 @@ pub struct NonInsulatedFluidComponent {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `insulated_pipes_and_fluid_components`
 
 for fluid flow through insulated and fluid components with one layer
@@ -15828,7 +16138,6 @@ pub struct InsulatedFluidComponent {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -15951,7 +16260,6 @@ pub struct InsulatedFluidComponent {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -15979,11 +16287,6 @@ pub struct InsulatedFluidComponent {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `non_insulated_parallel_fluid_components`
 
 for fluid through through a series of parallel pipes
@@ -16213,7 +16516,6 @@ pub struct NonInsulatedParallelFluidComponent {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -16337,7 +16639,6 @@ pub struct NonInsulatedParallelFluidComponent {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -16365,11 +16666,6 @@ pub struct NonInsulatedParallelFluidComponent {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `shell_and_tube_heat_exchanger`
 
 This is code for 1D modelling of shell and tube heat exchangers
@@ -17009,7 +17305,6 @@ pub struct SimpleShellAndTubeHeatExchanger {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -17043,7 +17338,6 @@ pub struct SimpleShellAndTubeHeatExchanger {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -17071,11 +17365,6 @@ pub struct SimpleShellAndTubeHeatExchanger {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `one_d_solid_structure`
 
 represents one dimensional solid structure
@@ -17229,7 +17518,6 @@ pub struct SolidStructure {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -17263,7 +17551,6 @@ pub struct SolidStructure {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -17291,11 +17578,6 @@ pub struct SolidStructure {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `ciet_struct_supports`
 
 represents the old CIET struct support codes based on
@@ -17453,7 +17735,6 @@ pub struct StructuralSupport {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -17487,7 +17768,6 @@ pub struct StructuralSupport {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -17515,11 +17795,6 @@ pub struct StructuralSupport {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `ciet_heater_top_and_bottom_head_bare`
 
 represents the CIET heater top and bottom head codes based on
@@ -17729,7 +18004,6 @@ pub struct HeaterTopBottomHead {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -17848,7 +18122,6 @@ pub struct HeaterTopBottomHead {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -17876,11 +18149,6 @@ pub struct HeaterTopBottomHead {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `insulated_porous_media_fluid_components`
 
 insulated porous media pipes are basically insulated pipes with
@@ -18272,7 +18540,6 @@ pub struct InsulatedPorousMediaFluidComponent {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -18395,7 +18662,6 @@ pub struct InsulatedPorousMediaFluidComponent {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -18423,11 +18689,6 @@ pub struct InsulatedPorousMediaFluidComponent {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `non_insul_porous_media_fluid`
 
 non insulated porous media pipes are basically non insulated pipes with
@@ -18816,7 +19077,6 @@ pub struct NonInsulatedPorousMediaFluidComponent {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Self { /* ... */ }
@@ -18939,7 +19199,6 @@ pub struct NonInsulatedPorousMediaFluidComponent {
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -18967,11 +19226,6 @@ pub struct NonInsulatedPorousMediaFluidComponent {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
 ## Module `ciet_isothermal_test_components`
 
 ciet components for pipes and valves for use in the isothermal test

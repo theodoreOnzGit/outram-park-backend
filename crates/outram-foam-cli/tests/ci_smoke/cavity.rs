@@ -95,7 +95,9 @@
 //! (Re = U·L/ν = 1·0.1/1e-3) rather than the ν = 0.01 used by the icoFoam test.
 //! The cavity is advanced to steady state and U_x along the vertical centreline
 //! is compared to the 17 Ghia points: the profile reproduces the recirculation
-//! shape, sign, and zero-crossing, with **max |err| ≈ 0.063 and RMS ≈ 0.036**
+//! shape, sign, and zero-crossing, with ~~**max |err| ≈ 0.063 and RMS ≈ 0.036**~~ **max |err| ≈ 0.037 and RMS ≈
+//! 0.021 since 2026-11-03** (gh:#1154: `PimpleFoam` now puts the prescribed
+//! `U_b·Sf` into `phi` on fixed-velocity patches, upstream `constrainHbyA`)
 //! in U_x/U_lid. The residual is numerical diffusion from first-order upwind
 //! convection on the coarse 20×20 mesh (Ghia used 129×129) — the test asserts
 //! an RMS < 0.10 regression guard, not the 2 % a fine second-order mesh reaches.

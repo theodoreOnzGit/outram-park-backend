@@ -2,6 +2,11 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-offbeat"
 dir = "crates/outram-park-fork-offbeat/tests/astest_support"
+test_ids = [
+    "crates/outram-park-fork-offbeat/tests/astest_support/mod.rs::mixed_control_recovers_uniaxial_elasticity",
+    "crates/outram-park-fork-offbeat/tests/astest_support/mod.rs::nappe_reproduces_defi_nappe",
+    "crates/outram-park-fork-offbeat/tests/astest_support/mod.rs::piecewise_linear_reproduces_defi_fonction",
+]
 
 [module."mod.rs"]
 path = "test:astest_ssnv126a::astest_support"
@@ -257,3 +262,14 @@ uses = [
     "fn:250c638c8bd6b322",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+]
+failed = []

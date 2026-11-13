@@ -1,8 +1,9 @@
 # How to read this
 
 > **This site always tracks the `develop` branch, never `main`.** It is rebuilt
-> on every push to `develop`, and every code link points at the exact `develop`
-> commit it was built from,
+> when `develop` is merged into `web-deploy` (~~on every push to `develop`~~
+> **CHANGED 2026-11-06**, gh:#1306), and every code link points at the exact
+> `develop` commit it was built from,
 > [`@@COMMIT_SHORT@@`](https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@).
 > A released version on `main` may differ from what you read here.
 

@@ -51,7 +51,7 @@
 //! Bare dimensionless `f64` throughout; see [`crate::poly`] for why a
 //! coefficient vector cannot carry a single `uom` type.
 
-use crate::zip::zip_flat;
+use crate::zip::zip2;
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -231,7 +231,7 @@ impl DividedDifference {
             let (Some(xa_hi), Some(xa_lo)) = (xa.get(k..), xa.get(..n - k)) else {
                 return Err(crate::PetirError::Invalid);
             };
-            let mut dx_pairs = zip_flat!(xa_hi.iter(), xa_lo.iter()).rev();
+            let mut dx_pairs = zip2(xa_hi.iter(), xa_lo.iter()).rev();
             let Some(mut rest) = d.get_mut(k - 1..) else {
                 return Err(crate::PetirError::Invalid);
             };
@@ -266,7 +266,7 @@ impl DividedDifference {
         };
         let mut y = d_last;
         // Upstream's `for (i = n-2; i >= 0; i--)` over `d[i]` and `xa[i]`.
-        for (&d_i, &xa_i) in zip_flat!(d_head.iter(), self.xa.iter()).rev() {
+        for (&d_i, &xa_i) in zip2(d_head.iter(), self.xa.iter()).rev() {
             y = d_i + (x - xa_i) * y;
         }
         y
@@ -308,8 +308,8 @@ impl DividedDifference {
         if let Some(p0) = prod.first_mut() {
             *p0 = 1.0;
         }
-        for (k, (&d_k, &xa_k)) in zip_flat!(self.d.iter(), self.xa.iter()).enumerate() {
-            for (c_i, &p_i) in zip_flat!(c.iter_mut(), prod.iter()).take(k + 1) {
+        for (k, (&d_k, &xa_k)) in zip2(self.d.iter(), self.xa.iter()).enumerate() {
+            for (c_i, &p_i) in zip2(c.iter_mut(), prod.iter()).take(k + 1) {
                 *c_i += d_k * p_i;
             }
             if k + 1 < n {

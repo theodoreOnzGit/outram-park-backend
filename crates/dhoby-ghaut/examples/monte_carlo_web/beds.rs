@@ -19,7 +19,7 @@
 use petir::mathf::RealMath;
 use crate::htr10_beds::{self, draw, Bed, BedStats};
 use dhoby_ghaut::web_demo::view::View;
-use egui::{Color32, Pos2, Rect};
+use egui::{Pos2, Rect};
 
 /// Which beds the main view shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -224,7 +224,7 @@ impl BedsView {
             }
             Err(e) => {
                 ui.colored_label(
-                    Color32::from_rgb(255, 110, 110),
+                    ui.visuals().error_fg_color,
                     format!("beds unreadable: {e}"),
                 );
             }
@@ -263,17 +263,18 @@ impl BedsView {
         let view = self.view;
         let z0 = (self.plan_z_cm / 100.0) as f32;
         let font = egui::FontId::proportional(13.0);
+        let ink = bugis::Ink::of_ui(ui);
         let beds = [
             (
                 &b.lattice,
                 lat_off,
-                Color32::from_rgb(120, 150, 205),
+                ink.accent(0),
                 format!("LATTICE, N = {}: the bed of every recorded k", b.layers),
             ),
             (
                 &b.random,
                 ran_off,
-                Color32::from_rgb(200, 150, 100),
+                ink.accent(1),
                 format!(
                     "RANDOM (DEM pour): k {:.6} ± {:.6}, one pour",
                     RANDOM_K.k, RANDOM_K.sigma
@@ -347,13 +348,13 @@ impl BedsView {
         let g = painter.layout(
             summary,
             egui::FontId::proportional(12.0),
-            Color32::from_rgb(200, 206, 216),
+            ink.text,
             rect.width() - 24.0,
         );
         painter.galley(
             Pos2::new(rect.left() + 12.0, rect.bottom() - 40.0 - g.size().y),
             g,
-            Color32::WHITE,
+            ink.text,
         );
     }
 }

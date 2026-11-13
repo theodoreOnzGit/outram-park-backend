@@ -323,7 +323,7 @@ impl GnielinskiData {
         let darcy_friction_factor = self.darcy_friction_factor;
         let length_to_diameter = self.length_to_diameter;
 
-        let nusselt_value = 
+        let nusselt_value =
         gnielinski_correlation_interpolated_uniform_heat_flux_liquids_developing_bulk_fluid_prandtl(
             reynolds.get::<ratio>(),
             prandtl_bulk.get::<ratio>(),
@@ -446,5 +446,67 @@ impl GnielinskiData {
             );
 
         return Ok(Ratio::new::<ratio>(nusselt_value));
+    }
+}
+
+/// Whether the fluid is being heated by the wall or cooled by it; selects
+/// the Prandtl exponent of the Dittus–Boelter correlation (`n = 0.4` when
+/// the fluid is heated, `n = 0.3` when it is cooled).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FluidHeatingDirection {
+    /// Heat flows from the wall into the fluid (`T_wall > T_bulk`).
+    FluidHeated,
+    /// Heat flows from the fluid into the wall (`T_wall < T_bulk`).
+    FluidCooled,
+}
+
+/// Inputs to the Dittus–Boelter correlation
+/// `Nu = 0.023 Re^0.8 Pr^n` (see
+/// [`super::pipe_correlations::dittus_boelter_correlation`] for the source
+/// and the original 1930 paper).
+///
+/// Published validity (e.g. Incropera & DeWitt, Eq. 8.60): fully developed
+/// turbulent flow in smooth tubes, `Re ≳ 10⁴`, `0.6 ≲ Pr ≲ 160`, moderate
+/// wall-to-bulk temperature difference. Those bounds are documented, **not
+/// enforced**: RELAP5's single-phase selection (RELAP-7 Theory Manual
+/// §2.2.2.1, Eq. 46) evaluates the correlation at every Reynolds number and
+/// takes the maximum with the laminar and free-convection values.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DittusBoelterData {
+    /// Reynolds number on the hydraulic diameter; finite, non-negative.
+    pub reynolds: Ratio,
+    /// Bulk-fluid Prandtl number; finite, positive.
+    pub prandtl_bulk: Ratio,
+    /// Heating (`n = 0.4`) or cooling (`n = 0.3`) of the fluid.
+    pub heating_direction: FluidHeatingDirection,
+}
+
+impl DittusBoelterData {
+    /// Dittus–Boelter Nusselt number, delegating to the existing
+    /// [`dittus_boelter_correlation`] after checking the inputs are finite,
+    /// with `Re ≥ 0` and `Pr > 0`.
+    pub fn try_get_nusselt(&self) -> Result<Ratio, TuasLibError> {
+        let re = self.reynolds.get::<ratio>();
+        let pr = self.prandtl_bulk.get::<ratio>();
+        if !re.is_finite() || re < 0.0 {
+            return Err(TuasLibError::CorrelationRangeError {
+                parameter: "Reynolds number".to_string(),
+                value: re,
+                lower_bound: 0.0,
+                upper_bound: f64::INFINITY,
+                units: "dimensionless".to_string(),
+            });
+        }
+        if !pr.is_finite() || pr <= 0.0 {
+            return Err(TuasLibError::CorrelationRangeError {
+                parameter: "Prandtl number".to_string(),
+                value: pr,
+                lower_bound: 0.0,
+                upper_bound: f64::INFINITY,
+                units: "dimensionless".to_string(),
+            });
+        }
+        let heating = self.heating_direction == FluidHeatingDirection::FluidHeated;
+        Ok(Ratio::new::<ratio>(dittus_boelter_correlation(re, pr, heating)))
     }
 }

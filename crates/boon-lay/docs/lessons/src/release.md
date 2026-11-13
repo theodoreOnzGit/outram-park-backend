@@ -146,7 +146,7 @@ it.~~ **CORRECTED 2026-10-04 (gh:#531):** with the Arrhenius factors
 included, `D` in SiC is 13 to 4100 times smaller than in the pyrolytic
 carbon around it, by element and temperature (Cs: 120 at 1000 °C, 440 at
 1600 °C), as measured in
-[rung 4](../../tutorials/triso-atops/layers.html#step-1-how-fast-does-an-atom-move-in-each-layer);
+[*Migration through the layers*](../../science/fission-products/barriers-migration.html);
 the 10⁶ compared prefactors only. So an atom arriving from PyC transmits with probability of order
 `D_SiC/D_PyC` and is reflected nearly every time. That is SiC's containment
 role, coming out of one line of arithmetic.

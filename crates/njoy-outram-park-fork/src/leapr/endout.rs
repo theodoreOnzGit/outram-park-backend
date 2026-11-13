@@ -667,6 +667,11 @@ mod tests {
     /// `leapr.f90:3011`) but writes `log(...)` — Fortran's natural log
     /// (`leapr.f90:3365`). The code is the correct half: ENDF `LLN = 1` means
     /// `ln S`. This test pins the behaviour, not the comment.
+    ///
+    /// Since GitHub #629 `parse_mf7` undoes `LLN = 1` on read, as THERMR's
+    /// `calcem` does (`ilog`, `thermr.f90:1671`, `:1747-1755`), so the two
+    /// tapes must read back as the same `S`; the raw stored logarithms are
+    /// checked through the record cursor.
     #[test]
     fn ilog_stores_the_natural_log_of_the_linear_value() {
         let lin = endout(&tiny_output(ElasticOutput::None));
@@ -676,26 +681,51 @@ mod tests {
 
         let lin_ii = parse_mf7(&lin, MAT).unwrap().incoherent_inelastic.unwrap();
         let log_ii = parse_mf7(&log, MAT).unwrap().incoherent_inelastic.unwrap();
-
-        // `parse_mf7` deliberately does not undo LLN (neither does NJOY's
-        // THERMR — see the `lln_is_written_but_never_read_back` note), so these
-        // are the raw stored numbers, which is exactly what we want to check.
         assert_eq!(log_ii.lln, 1, "LLN = 1 is flagged in the B-constant record");
         assert_eq!(lin_ii.lln, 0, "the linear tape still flags LLN = 0");
 
-        for (ib, (lt, gt)) in lin_ii.s_tables.iter().zip(&log_ii.s_tables).enumerate() {
+        let raw = raw_mt4_s_tables(&log);
+        for (ib, ((lt, gt), raw_s)) in lin_ii
+            .s_tables
+            .iter()
+            .zip(&log_ii.s_tables)
+            .zip(&raw)
+            .enumerate()
+        {
             for ia in 0..lt.alpha.len() {
-                let (l, g) = (lt.s[ia], gt.s[ia]);
+                let (l, g, r) = (lt.s[ia], gt.s[ia], raw_s[ia]);
                 assert!(l > 0.0, "linear S({ia},{ib}) is positive");
-                let rel = (g.r_exp() - l).abs() / l;
+                assert!(r < 0.0, "the tape stores ln S (< 0 for this law) at ({ia},{ib})");
+                assert_eq!(g, r.r_exp(), "parse_mf7 returns exp(stored) at ({ia},{ib})");
+                let rel = (g - l).abs() / l;
                 assert!(
                     rel < 1.0e-6,
                     "exp(log-stored) != linear-stored at (a{ia}, b{ib}): \
-                     exp({g:e}) = {:e} vs {l:e}, rel {rel:e}",
-                    g.r_exp()
+                     {g:e} vs {l:e}, rel {rel:e}"
                 );
             }
         }
+    }
+
+    /// The raw `S` values of every `β` TAB1 of MF=7/MT=4, read with the record
+    /// cursor and **no** interpretation of `LLN` or `LASYM`, for the tests that
+    /// check what LEAPR wrote rather than what THERMR reads.
+    fn raw_mt4_s_tables(tape: &Tape) -> Vec<Vec<f64>> {
+        use crate::endf::records::SectionCursor;
+        let sec = tape.section(MAT, 7, 4).expect("MF=7 MT=4 written");
+        let mut cur = SectionCursor::new(&sec.rows);
+        cur.read_cont().unwrap();
+        cur.read_list().unwrap();
+        let nb = cur.read_tab2().unwrap().head.n2;
+        (0..nb)
+            .map(|_| {
+                let t = cur.read_tab1().unwrap();
+                for _ in 0..t.head.l1 {
+                    cur.read_list().unwrap();
+                }
+                t.pairs.iter().map(|&(_, s)| s).collect()
+            })
+            .collect()
     }
 
     /// `isabt = 1` (`isym = 2`) must store the **asymmetric** law — `S` itself,
@@ -704,6 +734,10 @@ mod tests {
     /// Oracle: `stored_asym * exp(-beta/2) == stored_sym`, to the 7 significant
     /// figures both are rounded to (`leapr.f90:3356-3451`, where the `isym = 0`
     /// branch multiplies by `exp(-be/2)` and the `isym >= 2` branch does not).
+    ///
+    /// THERMR refuses such a tape (`thermr.f90:1662-1667`, "isabt=1 pendf tape
+    /// found / thermr cannot process this format"), and so does `parse_mf7`
+    /// since GitHub #629, so the stored values are read through the cursor.
     #[test]
     fn isabt_stores_the_asymmetric_law() {
         let sym = endout(&tiny_output(ElasticOutput::None));
@@ -712,15 +746,18 @@ mod tests {
         let asym = endout(&o);
 
         let sym_ii = parse_mf7(&sym, MAT).unwrap().incoherent_inelastic.unwrap();
-        let asym_ii = parse_mf7(&asym, MAT).unwrap().incoherent_inelastic.unwrap();
+        let err = parse_mf7(&asym, MAT).expect_err("THERMR refuses LASYM = 2");
+        assert!(
+            err.to_string().contains("LASYM = 2"),
+            "the refusal names the flag: {err}"
+        );
+        let asym_s = raw_mt4_s_tables(&asym);
+        assert_eq!(asym_s.len(), sym_ii.beta.len(), "the beta grid is unchanged");
 
-        assert_eq!(asym_ii.lasym, 2, "LASYM = 2 is flagged");
-        assert_eq!(asym_ii.beta, sym_ii.beta, "the beta grid is unchanged");
-
-        for (ib, (st, at)) in sym_ii.s_tables.iter().zip(&asym_ii.s_tables).enumerate() {
+        for (ib, (st, at)) in sym_ii.s_tables.iter().zip(&asym_s).enumerate() {
             let be = sym_ii.beta[ib];
             for ia in 0..st.alpha.len() {
-                let (s, a) = (st.s[ia], at.s[ia]);
+                let (s, a) = (st.s[ia], at[ia]);
                 let expect = a * (-be / 2.0).r_exp();
                 let rel = (expect - s).abs() / s.max(1.0e-30);
                 assert!(
@@ -731,38 +768,42 @@ mod tests {
         }
     }
 
-    /// A deliberate limitation, recorded so it is not mistaken for an oversight:
-    /// **nothing in this crate reads `LLN = 1` back**, because nothing in NJOY
-    /// does either. `lln` appears in exactly two NJOY sources (`plotr.f90`,
-    /// `samm.f90`), neither of which is the thermal path, and LEAPR itself
-    /// warns on writing such a tape:
-    ///
-    /// ```text
-    ///   *** Warning.  isabt=1 pendf tapes CANNOT be processed ...
-    /// ```
-    ///
-    /// (`leapr.f90:262-265`). So `parse_mf7` reading the stored numbers
-    /// verbatim is *faithful* to upstream, not a gap; teaching it to
-    /// exponentiate would be an improvement beyond NJOY, which the crate's
-    /// translation policy defers. All eight TSL evaluations in
-    /// `reference-data/endf/` carry `LLN = 0`, so no data we hold is affected.
+    /// ~~A deliberate limitation, recorded so it is not mistaken for an
+    /// oversight: **nothing in this crate reads `LLN = 1` back**, because
+    /// nothing in NJOY does either.~~ **CORRECTED 2026-11-10 (GitHub #629):**
+    /// NJOY's THERMR does read it back, under the name `ilog`
+    /// (`thermr.f90:1671`, `:1747-1755`); the LEAPR warning at
+    /// `leapr.f90:262-265` is about `isabt = 1`, not `ilog`. `parse_mf7` now
+    /// does the same: an `LLN = 1` tape reads back as `S`, never as `ln S`.
     #[test]
-    fn lln_is_written_but_never_read_back() {
+    fn lln_one_is_read_back_as_s() {
         let mut o = tiny_output(ElasticOutput::None);
         o.ilog = true;
         let ii = parse_mf7(&endout(&o), MAT)
             .unwrap()
             .incoherent_inelastic
             .unwrap();
-        assert_eq!(
-            ii.lln, 1,
-            "the flag is preserved for a reader that wants it"
-        );
-        // ln S is negative for this small-S law: proof the value was not undone.
+        assert_eq!(ii.lln, 1, "the flag is preserved for a reader that wants it");
+        // ln S is negative for this small-S law, so a positive table is proof
+        // the logarithm was undone.
         assert!(
-            ii.s_tables[0].s.iter().any(|&s| s < 0.0),
-            "stored values are logs, returned verbatim"
+            ii.s_tables.iter().all(|t| t.s.iter().all(|&s| s > 0.0)),
+            "stored logs are returned as S = exp(ln S)"
         );
+        // End to end through the THERMR kernel: the LLN = 1 tape must give the
+        // LLN = 0 tape's sigma_inel, to the 7 significant figures both tapes
+        // are rounded to. Before #629 every log-stored value was <= 0, read as
+        // S <= 0 and floored, so the LLN = 1 cross section came out zero.
+        let lin = parse_mf7(&endout(&tiny_output(ElasticOutput::None)), MAT)
+            .unwrap()
+            .incoherent_inelastic
+            .unwrap();
+        for e in [1.0e-3, 2.53e-2, 0.1] {
+            let (a, b) = (lin.cross_section(e, 296.0, 1.0), ii.cross_section(e, 296.0, 1.0));
+            assert!(a > 0.0, "the linear tape scatters at {e} eV");
+            let rel = (a - b).abs() / a;
+            assert!(rel < 1.0e-5, "sigma_inel({e} eV): LLN=0 {a:e} vs LLN=1 {b:e}, rel {rel:e}");
+        }
     }
 
     #[test]

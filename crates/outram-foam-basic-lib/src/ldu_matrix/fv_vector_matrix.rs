@@ -148,10 +148,37 @@ impl FvVectorMatrix {
         VolVectorField::new("H", mesh, Field::new(h), boundary)
     }
 
-    /// Solve each component (x, y, z) as an independent scalar Gauss-Seidel problem.
+    /// Solve each component (x, y, z) as an independent scalar Gauss-Seidel
+    /// problem, **cold-started from U = 0**. A transient solver should use
+    /// [`Self::solve_with_guess`] (see there).
     pub fn solve(
         &self,
         name: &str,
+        settings: SolverSettings,
+    ) -> (VolVectorField, SolverPerformance) {
+        self.solve_gs(name, None, settings)
+    }
+
+    /// As [`Self::solve`], but the Gauss–Seidel sweeps start from `initial`
+    /// (usually the current velocity), as OpenFOAM's `fvMatrix::solve`
+    /// always does: it iterates on `psi` in place, so a time step's smoother
+    /// only removes that step's change. Added 2026-11-04 (gh:#1202): cold
+    /// starts on a pipe with three thin wall layers (aspect 5–7.5) needed
+    /// 33, then 716, then more than the 1 000-sweep cap per step, and the
+    /// run diverged; the warm start is what upstream does.
+    pub fn solve_with_guess(
+        &self,
+        name: &str,
+        initial: &VolVectorField,
+        settings: SolverSettings,
+    ) -> (VolVectorField, SolverPerformance) {
+        self.solve_gs(name, Some(initial), settings)
+    }
+
+    fn solve_gs(
+        &self,
+        name: &str,
+        initial: Option<&VolVectorField>,
         settings: SolverSettings,
     ) -> (VolVectorField, SolverPerformance) {
         let mesh = self.mesh.clone();
@@ -161,9 +188,21 @@ impl FvVectorMatrix {
         let by: Vec<f64> = (0..n).map(|c| self.source[c].y).collect();
         let bz: Vec<f64> = (0..n).map(|c| self.source[c].z).collect();
 
-        let mut xx = vec![0.0_f64; n];
-        let mut xy = vec![0.0_f64; n];
-        let mut xz = vec![0.0_f64; n];
+        let start = |k: usize| -> Vec<f64> {
+            match initial {
+                Some(u) => (0..n)
+                    .map(|c| match k {
+                        0 => u.internal[c].x,
+                        1 => u.internal[c].y,
+                        _ => u.internal[c].z,
+                    })
+                    .collect(),
+                None => vec![0.0_f64; n],
+            }
+        };
+        let mut xx = start(0);
+        let mut xy = start(1);
+        let mut xz = start(2);
 
         let (ix, rx) = gs(
             &self.ldu,

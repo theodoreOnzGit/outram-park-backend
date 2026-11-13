@@ -32,6 +32,7 @@ use crate::region_5_steam_at_800_plus_degc::InversePressure;
 // `lambda_2_crit_enhancement_term_tp_two_phase_estimate`).
 use crate::region_1_subcooled_liquid::{cp_tp_1, cv_tp_1, kappa_t_tp_1};
 use crate::region_2_vapour::{cp_tp_2, cv_tp_2, kappa_t_tp_2};
+use crate::region_4_vap_liq_equilibrium::sat_pressure::sat_pressure_4;
 use crate::region_4_vap_liq_equilibrium::sat_temp_4;
 
 const LAMBDA_0_COEFFS: [[f64; 2]; 5] = [
@@ -189,6 +190,73 @@ pub(crate) fn lambda_1(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
 
     exponent.r_exp()
 }
+/// Whether `(t, p)` lies on the saturation line (within `1e-6` of `p_sat(t)`)
+/// below 623.15 K, where the line separates IF97 Regions 1 and 2 and the
+/// `(T, p)` region test cannot tell the phase (gh:#1157).
+fn on_saturation_line_below_623_k(t: ThermodynamicTemperature, p: Pressure) -> bool {
+    use uom::si::pressure::pascal;
+    use uom::si::thermodynamic_temperature::kelvin;
+    let tk = t.get::<kelvin>();
+    if !(273.15..623.15).contains(&tk) {
+        return false;
+    }
+    let ps = sat_pressure_4(t).get::<pascal>();
+    let pp = p.get::<pascal>();
+    (pp - ps).abs() <= 1e-6 * pp
+}
+
+/// The critical-enhancement term `lambda_2` for a state the `(p,h)` flash
+/// placed in IF97 **Region 1**, evaluated with the Region 1 basic equation at
+/// `(t, p)` (gh:#904).
+///
+/// [`lambda_2_crit_enhancement_term_tp_two_phase_estimate`] re-derives the
+/// region from `(t, p)`. At the low-enthalpy edge of low isobars the Region 1
+/// backward equation `T(p,h)` returns `t` about 21 mK below 273.15 K (inside
+/// the 25 mK backward/forward consistency IAPWS-IF97 permits), the `(t, p)`
+/// router has no region for it, and it panicked. Routing by the `(p,h)`
+/// region is what this crate's `cp_ph_eqm`, `cv_ph_eqm` and `kappa_t_ph_eqm`
+/// already do. The arithmetic after the property evaluation is the same
+/// expression as the two-phase estimate's, in the same order.
+pub(crate) fn lambda_2_crit_enhancement_term_region_1(
+    t: ThermodynamicTemperature,
+    p: Pressure,
+) -> f64 {
+    use crate::region_1_subcooled_liquid::v_tp_1;
+    let rho = v_tp_1(t, p).recip();
+    let t_c = t_crit_water();
+    let theta_f64: f64 = (t / t_c).get::<ratio>();
+    let rho_c = rho_crit_water();
+    let delta_f64: f64 = (rho / rho_c).get::<ratio>();
+
+    // this is dimensionless viscosity
+    let psi = psi_0_viscosity(t) * psi_1_viscosity(t, rho);
+
+    let n1 = 0.177_851_4e3;
+    let n2 = 0.636_619_772_367_581;
+    let n3 = 0.135_882_142_589_674e1;
+    let n4 = 0.508_474_576_271;
+    let n5 = 1.5;
+
+    let mut cp = cp_tp_1(t, p);
+    let cv = cv_tp_1(t, p);
+    let kappa_t = kappa_t_tp_1(t, p);
+
+    if cp.get::<kilojoule_per_kilogram_kelvin>() < 0.0 {
+        cp = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(1.0e13);
+    } else if cp.get::<kilojoule_per_kilogram_kelvin>() > 1.0e13 {
+        cp = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(1.0e13);
+    };
+
+    let b: f64 = (cp / cv).get::<ratio>();
+    let captial_a: f64 = captial_a(n2, n3, delta_f64, theta_f64, kappa_t, n4, n5, b);
+
+    let gas_constant_r = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(0.461_518_05);
+
+    let lambda_2 = n1 * delta_f64 * theta_f64 / psi * cp / gas_constant_r * captial_a;
+
+    return lambda_2.get::<ratio>();
+}
+
 pub(crate) fn lambda_2_crit_enhancement_term_tp_two_phase_estimate(
     t: ThermodynamicTemperature,
     p: Pressure,
@@ -239,6 +307,24 @@ pub(crate) fn lambda_2_crit_enhancement_term_tp_two_phase_estimate(
             let cv = (1.0 - x) * cv_tp_1(t_sat, p) + x * cv_tp_2(t_sat, p);
             let kappa_t = (1.0 - x) * kappa_t_tp_1(t_sat, p) + x * kappa_t_tp_2(t_sat, p);
             (cp, cv, kappa_t)
+        } else if on_saturation_line_below_623_k(t, p) {
+            // A saturated END POINT: x = 0 (liquid) or x = 1 (vapour) at
+            // t = t_sat(p). There the (T, p) region test is decided by
+            // round-off: it returned Region 1, Region 2 or Region 4 for
+            // pressures 0.37 Pa apart (measured 2026-11-03 near 4.457 MPa),
+            // so the saturated-liquid conductivity took the VAPOUR c_p about
+            // half the time (lambda_f 0.6187 instead of 0.6094 W/(m K),
+            // +1.5 %; lambda_g -1.3 % the other way), and at 3.9 MPa Region 4
+            // panicked. Found by the helical-coil OTSG march (gh:#1157),
+            // whose shooting residual it made noisy. Below 623.15 K the
+            // saturation line borders Regions 1 and 2, so the caller's x
+            // picks the phase. States that are not within 1e-6 of the
+            // saturation pressure take the branch below exactly as before.
+            if x <= 0.0 {
+                (cp_tp_1(t, p), cv_tp_1(t, p), kappa_t_tp_1(t, p))
+            } else {
+                (cp_tp_2(t, p), cv_tp_2(t, p), kappa_t_tp_2(t, p))
+            }
         } else {
             (
                 cp_tp_eqm_single_phase(t, p),

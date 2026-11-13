@@ -2,6 +2,12 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-appbuilder-lib"
 dir = "crates/outram-foam-appbuilder-lib/tests/sod_shock_tube_validation"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/tests/sod_shock_tube_validation/main.rs::exact_riemann_matches_sod_table_ii",
+    "crates/outram-foam-appbuilder-lib/tests/sod_shock_tube_validation/main.rs::exact_riemann_reproduces_sod_star_state",
+    "crates/outram-foam-appbuilder-lib/tests/sod_shock_tube_validation/main.rs::rho_central_foam_matches_sod_table_ii",
+    "crates/outram-foam-appbuilder-lib/tests/sod_shock_tube_validation/main.rs::sod_shock_tube_timed_series",
+]
 
 [module."main.rs"]
 path = "test:sod_shock_tube_validation"
@@ -598,3 +604,15 @@ uses = [
     "fn:ca2b890e49c6b359",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+failed = []

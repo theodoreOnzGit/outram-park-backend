@@ -380,6 +380,93 @@ pub mod mat {
             REFLECTOR
         }
     }
+
+    // --- Temperature zones (gh:#1138) -------------------------------------
+    //
+    // A design with `temperature_zones` on places these slots as well, so
+    // that every material slot belongs to exactly one temperature zone
+    // (`super::super::zones::zone_of_slot`). Without it they are never
+    // placed and the geometry is the record's, cell for cell.
+
+    /// **The graphite (dummy) balls**: [`GRAPHITE`]'s composition in a slot
+    /// of its own, so the moderator pebbles can sit at another temperature
+    /// than the fuel pebbles' matrix and shell.
+    pub const MODERATOR_BALL: usize = COUNT;
+
+    /// The reflector composition slots that get one copy per reflector
+    /// region (top, side, bottom): [`REFLECTOR`] and every Table 4-3 zone
+    /// slot. [`BORONATED`] is not among them: the boronated bricks are a
+    /// temperature zone of their own wherever they sit.
+    pub const REGIONAL_BASES: [usize; 1 + TABLE_4_3_ZONES.len()] = regional_bases();
+
+    const fn regional_bases() -> [usize; 1 + TABLE_4_3_ZONES.len()] {
+        let mut a = [0; 1 + TABLE_4_3_ZONES.len()];
+        a[0] = REFLECTOR;
+        let mut i = 0;
+        while i < TABLE_4_3_ZONES.len() {
+            a[i + 1] = ZONE_TABLE_FIRST + i;
+            i += 1;
+        }
+        a
+    }
+
+    /// First regional copy: [`REGIONAL_BASES`] for the top reflector, then
+    /// the side, then the bottom.
+    pub const REGIONAL_FIRST: usize = MODERATOR_BALL + 1;
+
+    /// Number of material slots of a zoned design.
+    pub const ZONED_COUNT: usize = REGIONAL_FIRST + 3 * REGIONAL_BASES.len();
+
+    /// The copy of composition slot `base` for reflector region `region`
+    /// (0 top, 1 side, 2 bottom), or `None` if `base` has no regional copies.
+    #[must_use]
+    pub fn regional_slot(base: usize, region: usize) -> Option<usize> {
+        let i = REGIONAL_BASES.iter().position(|&b| b == base)?;
+        (region < 3).then(|| REGIONAL_FIRST + region * REGIONAL_BASES.len() + i)
+    }
+
+    /// The composition slot a zoned slot copies: [`GRAPHITE`] for
+    /// [`MODERATOR_BALL`], the base for a regional copy, and the slot itself
+    /// otherwise.
+    #[must_use]
+    pub fn composition_of(slot: usize) -> usize {
+        if slot == MODERATOR_BALL {
+            GRAPHITE
+        } else if (REGIONAL_FIRST..ZONED_COUNT).contains(&slot) {
+            REGIONAL_BASES[(slot - REGIONAL_FIRST) % REGIONAL_BASES.len()]
+        } else {
+            slot
+        }
+    }
+
+    /// Region (0 top, 1 side, 2 bottom) of a regional copy, if `slot` is one.
+    #[must_use]
+    pub fn region_of_regional(slot: usize) -> Option<usize> {
+        (REGIONAL_FIRST..ZONED_COUNT)
+            .contains(&slot)
+            .then(|| (slot - REGIONAL_FIRST) / REGIONAL_BASES.len())
+    }
+
+    /// **Material slot of a Fig. 4.10 zone in a zoned design**: the slot
+    /// [`for_zone_mc`] (or, under the `zone_map` ablation, [`for_zone_uniform`])
+    /// gives, moved to its copy for `region` (0 top, 1 side, 2 bottom);
+    /// [`BORONATED`] stays itself.
+    ///
+    /// # Panics
+    /// As [`for_zone_mc`], and for a region above 2.
+    #[must_use]
+    pub fn for_zone_zoned(zone: usize, region: usize, zone_map: bool) -> usize {
+        let base = if zone_map {
+            for_zone_mc(zone)
+        } else {
+            for_zone_uniform(zone)
+        };
+        if base == BORONATED {
+            return BORONATED;
+        }
+        regional_slot(base, region)
+            .unwrap_or_else(|| panic!("zone {zone}: slot {base} has no regional copy"))
+    }
 }
 
 /// A built core and the sizes that describe it.
@@ -1058,6 +1145,9 @@ pub fn assemble_explicit_triso_with(
     majorant_index: usize,
     design: &Htr10CoreDesign,
 ) -> AssembledCore {
+    // The graphite balls' slot: the record's `mat::GRAPHITE`, or their own
+    // with temperature zones (gh:#1138).
+    let moderator_slot = design.moderator_ball_slot();
     // The two-ball bed CUTS pebbles (side wall, bed top): wrong physics, never
     // to be run, not even as an ablation (maintainer, 2026-10-01). Refuse the
     // old knob loudly rather than ignore it silently.
@@ -1305,6 +1395,7 @@ pub fn assemble_explicit_triso_with(
         &site_centres,
         &site_surfaces,
         1,
+        moderator_slot,
         &mut cells,
         &mut universes,
     );
@@ -1348,7 +1439,7 @@ pub fn assemble_explicit_triso_with(
     sh.universes = universes;
     // THE REFLECTOR, explicit: see `CoreShell::add_reflector`.
     sh.add_reflector();
-    sh.finish(bed_lattice, tiles, lat_pitch, lat_height, bed)
+    sh.finish(bed_lattice, tiles, lat_pitch, lat_height, bed, Vec::new())
 }
 
 /// One universe per `(fuel mask, presence mask)` in `keys_used` (sorted): bit
@@ -1356,7 +1447,9 @@ pub fn assemble_explicit_triso_with(
 /// `site_centres[i]` (tile-local \[cm\]) with its fuel-zone and pebble
 /// spheres at `site_surfaces[i]`; a fuelled ball's fuel zone is filled with
 /// lattice `triso_lattice`, translated to the ball centre. A rejected
-/// (absent) ball's space is helium. Returns the universe index of each key.
+/// (absent) ball's space is helium. A graphite ball is filled with
+/// `moderator_slot` (`mat::GRAPHITE`, or `mat::MODERATOR_BALL` with
+/// temperature zones, gh:#1138). Returns the universe index of each key.
 ///
 /// **Extracted 2026-10-13 (gh:#849), not rewritten**, out of
 /// [`assemble_explicit_triso_with`], so the cells of
@@ -1370,6 +1463,7 @@ pub(crate) fn build_tile_universes(
     site_centres: &[[f64; 3]],
     site_surfaces: &[(usize, usize)],
     triso_lattice: usize,
+    moderator_slot: usize,
     cells: &mut Vec<Cell>,
     universes: &mut Vec<Universe>,
 ) -> std::collections::BTreeMap<(u32, u32), usize> {
@@ -1407,7 +1501,7 @@ pub(crate) fn build_tile_universes(
                 cells.push(Cell::material(
                     TILE_DUMMY_BALL_CELL_ID + id,
                     vec![ins(pb)],
-                    mat::GRAPHITE,
+                    moderator_slot,
                     293.6,
                 ));
             }

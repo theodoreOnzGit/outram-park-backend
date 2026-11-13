@@ -76,19 +76,27 @@
 #![forbid(unsafe_code)]
 
 pub mod balance_of_plant;
+pub mod closures;
 pub mod components;
+pub mod control_volume;
 pub mod compressible;
 pub mod cooling_tower;
 pub mod critical_flow;
 pub mod error;
+pub mod fem1d;
 pub mod fluids;
 pub mod gas_phase;
 pub mod heat_transfer;
 pub mod hem;
+pub mod htr10_primary_loop;
 pub mod humid_air;
 pub mod multiphase_1d;
+pub mod pcice;
 pub mod pebble_bed;
 pub mod single_phase;
+pub mod subchannel;
+pub mod flow_path;
+pub mod cv_network;
 
 pub use error::TampinesError;
 pub use fluids::TampinesFluid;

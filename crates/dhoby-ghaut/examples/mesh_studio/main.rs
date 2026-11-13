@@ -81,7 +81,12 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Mesh Studio — OUTRAM PARK (offline demo)",
         native_options,
-        Box::new(|_cc| Ok(Box::new(app::MeshStudio::default()))),
+        Box::new(|cc| {
+            let app = app::MeshStudio::default();
+            // Gruvbox Dark (the shared `bugis` theme) from the first frame.
+            app.theme.apply(&cc.egui_ctx);
+            Ok(Box::new(app))
+        }),
     )
 }
 
@@ -386,6 +391,9 @@ mod app {
     }
 
     pub struct MeshStudio {
+        /// The Gruvbox theme (`bugis`), Dark by default; the controls
+        /// panel's selector switches it.
+        pub theme: bugis::Theme,
         p: Params,
         yaw: f32,
         pitch: f32,
@@ -398,6 +406,7 @@ mod app {
     impl Default for MeshStudio {
         fn default() -> Self {
             Self {
+                theme: bugis::Theme::default(),
                 p: Params::default(),
                 yaw: 0.6,
                 pitch: 0.5,
@@ -452,7 +461,6 @@ mod app {
                 ui.horizontal(|ui| {
                     ui.heading("Mesh Studio");
                     ui.label("· blender surface → cfmesh tet→dual→layers → OpenFOAM polyMesh (offline demo)");
-                    egui::global_theme_preference_buttons(ui);
                 });
                 ui.separator();
             });
@@ -460,6 +468,8 @@ mod app {
             egui::Panel::right("ms_controls")
                 .min_size(350.0)
                 .show(ui, |ui| {
+                    // The shared Gruvbox Dark/Light selector (GUI drawing).
+                    bugis::selector(ui, &mut self.theme);
                     egui::ScrollArea::vertical().show(ui, |ui| self.controls_ui(ui, running));
                 });
 

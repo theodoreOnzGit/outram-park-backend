@@ -36,8 +36,10 @@
 //! effectiveness-NTU exponential form is exact and bounded for a single
 //! isothermal-wall node, and why an earlier arithmetic-mean version of it
 //! produced a second-law violation above `NTU = 2`) is preserved in git
-//! history, in `one_node.rs`'s own "History" note, and in the workspace root
-//! `CLAUDE.md`'s "Human review caught what the tests did not" section --
+//! history, in `one_node.rs`'s own "History" note, and in ~~the workspace root
+//! `CLAUDE.md`'s~~ **(CORRECTED 2026-11-03: the root file has no such
+//! heading; it is in `crates/outram-park-digital-twin-engine/CLAUDE.md`)**
+//! the "Human review caught what the tests did not" section --
 //! nothing here still depends on it.
 //!
 //! **`OneNodePorousMedia` is not a placeholder.** It is one spatial control

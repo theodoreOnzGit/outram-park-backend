@@ -40,7 +40,10 @@
 //! face, the **owner** cell and an optional **neighbour** cell. A face with a
 //! neighbour is *internal* (it separates two cells); a face without one is a
 //! *boundary* face belonging to a [`BoundaryPatch`]. Cells are implicit — the
-//! set of faces that reference a given cell index.
+//! set of faces that reference a given cell index — ~~and nothing more~~
+//! **UPDATED 2026-11-11 (gh:#1385):** the mesh may also carry cfMesh's own cell
+//! face lists ([`VolumeMesh::cells`], in the order upstream's history gives
+//! them; the order changes the last bit of a cell centre sum).
 //!
 //! This is exactly the connectivity OpenFOAM's `constant/polyMesh` stores
 //! (`points` / `faces` / `owner` / `neighbour` / `boundary`), and exactly what
@@ -91,9 +94,69 @@ pub struct VolumeMesh {
     pub n_cells: usize,
     /// Boundary patches (each a contiguous run of boundary faces).
     pub patches: Vec<BoundaryPatch>,
+    /// The cells' face lists as cfMesh's `polyMeshGen::cells_` holds them
+    /// (gh:#1385): for each cell, its face labels **in the order the mesh's
+    /// history gave them** (faces in discovery order, relabelled by
+    /// `reorderBoundaryFaces`, boundary faces appended by `replaceBoundary`),
+    /// not ascending. `None` = not tracked: [`VolumeMesh::cell_face_lists`]
+    /// then derives ascending lists. A carried list is used only while it is
+    /// consistent with `owner` / `neighbour` (see
+    /// [`VolumeMesh::carried_cells_are_consistent`]), so a mesh edited
+    /// without updating it falls back instead of misleading.
+    pub cells: Option<Vec<Vec<usize>>>,
+}
+
+/// Whether `cells` lists every face exactly in the cells that `owner` /
+/// `neighbour` name (twice for an internal face, once for a boundary face) and
+/// nothing else, for `n_cells` cells.
+pub fn cell_lists_are_consistent(cells: &[Vec<usize>], n_cells: usize, owner: &[usize], neighbour: &[Option<usize>]) -> bool {
+    if cells.len() != n_cells {
+        return false;
+    }
+    let mut seen = vec![0u8; owner.len()];
+    for (c, list) in cells.iter().enumerate() {
+        for &f in list {
+            if f >= owner.len() || !(owner[f] == c || neighbour[f] == Some(c)) {
+                return false;
+            }
+            seen[f] = seen[f].saturating_add(1);
+        }
+    }
+    (0..owner.len()).all(|f| usize::from(seen[f]) == 1 + usize::from(neighbour[f].is_some()))
 }
 
 impl VolumeMesh {
+    /// Ascending-face-order cell lists derived from `owner` / `neighbour`
+    /// (what a mesh without carried lists uses).
+    pub fn derived_cell_face_lists(&self) -> Vec<Vec<usize>> {
+        let mut cells: Vec<Vec<usize>> = vec![Vec::new(); self.n_cells];
+        for f in 0..self.faces.len() {
+            cells[self.owner[f]].push(f);
+            if let Some(nb) = self.neighbour[f] {
+                cells[nb].push(f);
+            }
+        }
+        cells
+    }
+
+    /// Whether [`VolumeMesh::cells`] is `Some` and lists every face exactly in
+    /// the cells that `owner` / `neighbour` name (and nothing else).
+    pub fn carried_cells_are_consistent(&self) -> bool {
+        match &self.cells {
+            Some(cells) => cell_lists_are_consistent(cells, self.n_cells, &self.owner, &self.neighbour),
+            None => false,
+        }
+    }
+
+    /// The cells' face lists: the carried ones (cfMesh's order) while they are
+    /// consistent with the mesh, else the ascending derived ones.
+    pub fn cell_face_lists(&self) -> Vec<Vec<usize>> {
+        match &self.cells {
+            Some(c) if self.carried_cells_are_consistent() => c.clone(),
+            _ => self.derived_cell_face_lists(),
+        }
+    }
+
     /// Number of points.
     pub fn point_count(&self) -> usize {
         self.points.len()
@@ -223,7 +286,25 @@ pub fn cells_faces(mesh: &VolumeMesh) -> Vec<Vec<Vec<usize>>> {
 /// such as boundary-layer insertion, where owner/neighbour are easiest to
 /// recover by matching shared faces rather than tracked directly.
 pub fn from_cell_faces(points: Vec<Vec3>, cells: &[Vec<Vec<usize>>]) -> VolumeMesh {
+    assemble_cells(points, cells, false)
+}
+
+/// As [`from_cell_faces`], but the rings are **trusted to be wound outward
+/// from their cell** and are kept as given: the owner's ring becomes the face.
+///
+/// For mesh surgery that knows its winding (boundary-layer insertion: the
+/// cells of [`cells_faces`] and prisms wound from their wall face). The
+/// orientation guess of [`from_cell_faces`] compares the face with the
+/// vertex average of its cell, which on a non-convex polyhedral (dual) cell
+/// can lie on the wrong side of a face; it flipped wall faces of thin prism
+/// stacks on a pipe and left cells open (found 2026-11-04, gh:#1202).
+pub fn from_cell_faces_wound(points: Vec<Vec3>, cells: &[Vec<Vec<usize>>]) -> VolumeMesh {
+    assemble_cells(points, cells, true)
+}
+
+fn assemble_cells(points: Vec<Vec3>, cells: &[Vec<Vec<usize>>], wound: bool) -> VolumeMesh {
     use std::collections::HashMap;
+    let orient = |ring: Vec<usize>, centre: Vec3, points: &[Vec3]| if wound { ring } else { orient_ring(ring, centre, points) };
     // Cell centroids (vertex average over the cell's faces) — used to orient
     // every emitted face outward from its owner, so callers need not wind the
     // input rings correctly.
@@ -247,7 +328,12 @@ pub fn from_cell_faces(points: Vec<Vec3>, cells: &[Vec<Vec<usize>>]) -> VolumeMe
         .collect();
 
     // First occurrence of each face (by sorted vertex key) -> (cell, ring).
-    let mut first: HashMap<Vec<usize>, (usize, Vec<usize>)> = HashMap::new();
+    // The sequence number keeps the boundary faces in first-seen order: a
+    // randomly seeded hash map's iteration order made the face numbering (and
+    // so every solver result at round-off) differ from run to run (found
+    // 2026-11-04, gh:#1202).
+    let mut first: HashMap<Vec<usize>, (usize, usize, Vec<usize>)> = HashMap::new();
+    let mut seq = 0usize;
     let mut int_faces: Vec<Vec<usize>> = Vec::new();
     let mut int_owner: Vec<usize> = Vec::new();
     let mut int_nb: Vec<usize> = Vec::new();
@@ -255,24 +341,27 @@ pub fn from_cell_faces(points: Vec<Vec3>, cells: &[Vec<Vec<usize>>]) -> VolumeMe
         for ring in faces {
             let mut key = ring.clone();
             key.sort_unstable();
-            if let Some((owner_cell, owner_ring)) = first.remove(&key) {
+            if let Some((_, owner_cell, owner_ring)) = first.remove(&key) {
                 // Second time we see this face -> internal (owner = first cell).
-                int_faces.push(orient_ring(owner_ring, centroid[owner_cell], &points));
+                int_faces.push(orient(owner_ring, centroid[owner_cell], &points));
                 int_owner.push(owner_cell);
                 int_nb.push(cid);
             } else {
-                first.insert(key, (cid, ring.clone()));
+                first.insert(key, (seq, cid, ring.clone()));
+                seq += 1;
             }
         }
     }
-    // Whatever is left unmatched is a boundary face.
+    // Whatever is left unmatched is a boundary face, in first-seen order.
+    let mut left: Vec<(usize, usize, Vec<usize>)> = first.into_values().collect();
+    left.sort_unstable_by_key(|x| x.0);
     let n_internal = int_faces.len();
     let mut faces = int_faces;
     let mut owner = int_owner;
     let mut neighbour: Vec<Option<usize>> = int_nb.into_iter().map(Some).collect();
     let mut bnd = 0usize;
-    for (_key, (cid, ring)) in first {
-        faces.push(orient_ring(ring, centroid[cid], &points));
+    for (_, cid, ring) in left {
+        faces.push(orient(ring, centroid[cid], &points));
         owner.push(cid);
         neighbour.push(None);
         bnd += 1;
@@ -289,6 +378,7 @@ pub fn from_cell_faces(points: Vec<Vec3>, cells: &[Vec<Vec<usize>>]) -> VolumeMe
         neighbour,
         n_cells: cells.len(),
         patches,
+        cells: None,
     }
 }
 

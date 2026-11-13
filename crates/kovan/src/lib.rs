@@ -53,6 +53,9 @@ pub mod advanced_git;
 pub mod app;
 pub mod artifact;
 pub mod autocomplete;
+/// Bookmarks of pages, PDF pages and functions, per user in the Kovan
+/// folder (GitHub #1210). GUI-free; see [`bookmarks`].
+pub mod bookmarks;
 /// The workspace call graph, crate → module → function, with function
 /// source (GitHub #737). Moved 2026-10-06 to the wasm-clean
 /// [`kovan_common::call_graph`] for web-kovan (#736); re-exported here.

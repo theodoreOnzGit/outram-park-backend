@@ -4,8 +4,11 @@
 //! # Why this case is verified at the closure level
 //!
 //! `Tutorials/featureCases/1D_PSBT_SC` is the OECD/NRC PSBT subchannel
-//! benchmark, and it sets `regionSolvers { fluidRegion twoPhase; }`. This crate
-//! has no two-phase Euler-Euler porous solver — `genfoam::thermal_hydraulics::
+//! benchmark, and it sets `regionSolvers { fluidRegion twoPhase; }`. ~~This crate
+//! has no two-phase Euler-Euler porous solver~~ (**CORRECTED 2026-11-04,
+//! gh:#1218:** `solver::two_phase` now exists, but it does not port PSBT's
+//! `multiRegimeBoilingTRACE`, `twoParameters` regime map or `byRegime` areas,
+//! so the statement below about PSBT's exit void still holds) — `genfoam::thermal_hydraulics::
 //! solver` has `one_phase` only — so the port **cannot** compute the case's exit
 //! void fraction, and no amount of comparison here changes that. What it *can*
 //! do is the closures, and PSBT's own `phaseProperties` names them:
@@ -228,4 +231,111 @@ fn the_two_phase_cells_show_the_multiplier_the_single_phase_relation_omits() {
          so the Lockhart-Martinelli multiplier is not present where expected — \
          which would mean the single-phase agreement proves nothing"
     );
+}
+
+// ---------------------------------------------------------------------------
+// gh:#1361 round 3: the same comparison against a FRESH run of the real binary
+// at writePrecision 17 (the committed CSV above carries 6 significant digits).
+// Method, prediction Q1 (written before the run) and results:
+// `verification_and_validation/genfoam_vs_upstream_gh1361/README.md`, "Round 3".
+// ---------------------------------------------------------------------------
+
+/// `name -> column` of a `COL` reference written by `scripts/extract_psbt_reference.sh`.
+fn fresh_columns(time: u32) -> std::collections::HashMap<String, Vec<f64>> {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
+        "verification_and_validation/genfoam_vs_upstream_gh1361/refs/psbt_psbt_ex1_t{time}.ref.txt.gz"
+    ));
+    let bytes = std::fs::read(&path).expect("reference present");
+    // gzip -n: 10-byte header, 8-byte trailer.
+    let text = String::from_utf8(
+        miniz_oxide::inflate::decompress_to_vec(&bytes[10..bytes.len() - 8]).expect("inflate"),
+    )
+    .expect("utf8");
+    let mut out = std::collections::HashMap::new();
+    for line in text.lines() {
+        let mut w = line.split_whitespace();
+        if w.next() == Some("COL") {
+            let name = w.next().expect("name").to_string();
+            out.insert(name, w.map(|x| x.parse::<f64>().expect("f64")).collect());
+        }
+    }
+    out
+}
+
+/// Distance in representable doubles.
+fn ulp_distance(a: f64, b: f64) -> u64 {
+    if a.to_bits() == b.to_bits() {
+        0
+    } else if (a < 0.0) != (b < 0.0) {
+        u64::MAX
+    } else {
+        a.to_bits().abs_diff(b.to_bits())
+    }
+}
+
+/// Result of [`friction_check`].
+struct FrictionCheck {
+    cells: usize,
+    single_phase: usize,
+    bit_identical: usize,
+    worst_rel: f64,
+    worst_ulp: u64,
+}
+
+/// The recovered hydraulic diameter against the declared one over the single-phase cells of one
+/// time of the fresh run.
+fn friction_check(time: u32) -> FrictionCheck {
+    let c = fresh_columns(time);
+    let blasius = FsWallFriction::ReynoldsPower { coeff: 0.316, exp: -0.25, constant: 0.0 };
+    let n = c["alpha.liquid"].len();
+    for (k, v) in &c {
+        assert_eq!(v.len(), n, "column {k}");
+    }
+    let mut out = FrictionCheck { cells: n, single_phase: 0, bit_identical: 0, worst_rel: 0.0, worst_ulp: 0 };
+    for i in 0..n {
+        if c["alpha.vapour"][i] != 0.0 {
+            continue;
+        }
+        let rho_mag_u = c["alphaRhoMagU.liquid"][i] / c["alpha.liquid"][i];
+        let g = 2.0 * c["Kd.liquid.structure"][i] / ((1.0 - c["alpha.structure"][i]) * rho_mag_u);
+        let f = blasius
+            .friction_factor(ReynoldsNumber::new::<ratio>(c["Re.liquid.structure"][i]))
+            .get::<ratio>();
+        let dh = f / g;
+        let nearest = DECLARED_DH
+            .iter()
+            .copied()
+            .min_by(|a, b| (a - dh).abs().partial_cmp(&(b - dh).abs()).unwrap())
+            .unwrap();
+        out.worst_rel = out.worst_rel.max((dh - nearest).abs() / nearest);
+        let u = ulp_distance(dh, nearest);
+        out.worst_ulp = out.worst_ulp.max(u);
+        if u == 0 {
+            out.bit_identical += 1;
+        }
+        out.single_phase += 1;
+    }
+    out
+}
+
+/// **V&V, round 3 — the ported `ReynoldsPower` friction against a fresh 17-digit run.**
+#[test]
+fn the_ported_wall_friction_reproduces_a_fresh_17_digit_psbt_run() {
+    for time in [1_u32, 5] {
+        let r = friction_check(time);
+        println!(
+            "t = {time} s: {} of {} cells single-phase; worst recovered-Dh deviation {:.3e}; \
+             bit-identical to the declared Dh in {} cells; worst {} ulp",
+            r.single_phase, r.cells, r.worst_rel, r.bit_identical, r.worst_ulp
+        );
+        assert_eq!(r.cells, 1170);
+        assert!(r.single_phase > 800, "expected most cells single-phase, got {}", r.single_phase);
+        // Prediction Q1 (< 1e-13) MISSED. t = 5 s (steady): 1.2e-11, i.e. the 6.15e-6 of the 6-digit CSV
+        // above WAS its write precision. t = 1 s (transient): 8.0e-6, a different thing: `Kd` and
+        // `Re` are evaluated at the start of an outer iteration, `alphaRhoMagU` at its end, and
+        // the PIMPLE residualControl is 1e-5, so the three fields are not from one state
+        // (README, Round 3). Pinned at the measurements.
+        let bound = if time == 5 { 3e-11 } else { 1.5e-5 };
+        assert!(r.worst_rel < bound, "t = {time} s: worst deviation {:.3e}", r.worst_rel);
+    }
 }

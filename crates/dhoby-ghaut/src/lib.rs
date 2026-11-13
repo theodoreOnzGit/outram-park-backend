@@ -107,11 +107,17 @@
 //! no-lagging rule needs, the loading card, the rung table and lesson links),
 //! extracted from `examples/monte_carlo_web/` so every tutorial track builds
 //! on it. Its module docs say how a new track app plugs in. Gated off Android.
+//! **Since 2026-11-02 (gh:#1112)** it lives in `bugis::web_demo`, the
+//! workspace's central GUI crate, re-exported here at the same path.
 
 #![doc(html_no_source)]
 
+// MOVED 2026-11-02 (gh:#1112): the framework now lives, byte for byte, in
+// `bugis::web_demo` (feature `web_demo`); this re-export keeps every
+// `dhoby_ghaut::web_demo::…` path. The kovan review records stay in
+// `src/web_demo/`.
 #[cfg(not(target_os = "android"))]
-pub mod web_demo;
+pub use bugis::web_demo;
 
 // The guided high-fidelity workbench's library half (gh:#561): catalogue,
 // steps and the kovan-markdown recipe. Off wasm32 because `kovan` is.

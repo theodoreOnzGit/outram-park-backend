@@ -176,24 +176,30 @@ impl Lowering {
                             bc,
                         }));
                 }
+                // ~~The two z-planes were always new surfaces~~ CHANGED
+                // 2026-11-10 (gh #1327): they are shared through
+                // [`Self::zplane`], as a finite cylinder's are, so a prism
+                // and the pins or the inner prism it holds, all one height,
+                // meet at one plane instead of two coincident ones (a hex
+                // subassembly with its pins running end to end). A model
+                // with no such coincidence gets the same surfaces as before.
                 let (lo, hi) = h.z_range();
-                self.surfaces.extend([
-                    SurfaceKind::ZPlane(ZPlane { z0: lo, bc }),
-                    SurfaceKind::ZPlane(ZPlane { z0: hi, bc }),
-                ]);
+                let (zl, zh) = (self.zplane(lo), self.zplane(hi));
                 let (o, i) = (HalfSpaceSense::Outside, HalfSpaceSense::Inside);
                 let mut inside = vec![half(i0, i), half(i0 + 1, i), RegionToken::Intersection];
                 for k in 2..6 {
                     inside.push(half(i0 + k, i));
                     inside.push(RegionToken::Intersection);
                 }
-                inside.push(half(i0 + 6, o));
+                inside.push(half(zl, o));
                 inside.push(RegionToken::Intersection);
-                inside.push(half(i0 + 7, i));
+                inside.push(half(zh, i));
                 inside.push(RegionToken::Intersection);
                 let mut outside = inside.clone();
                 outside.push(RegionToken::Complement);
-                (inside, outside, (i0..i0 + 8).collect())
+                let mut surfaces: Vec<usize> = (i0..i0 + 6).collect();
+                surfaces.extend([zl, zh]);
+                (inside, outside, surfaces)
             }
             Solid::Cylinder(c) => {
                 let ctr = c.centre_cm();

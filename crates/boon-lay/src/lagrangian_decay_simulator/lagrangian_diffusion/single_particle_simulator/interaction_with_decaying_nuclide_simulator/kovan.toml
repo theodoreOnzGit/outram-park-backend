@@ -2,6 +2,7 @@ schema_version = 1
 kind = "code_folder"
 crate = "boon-lay"
 dir = "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/interaction_with_decaying_nuclide_simulator"
+test_ids = ["crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/interaction_with_decaying_nuclide_simulator/tests_for_auto_timestepping.rs::diffusion_fourier_number_calc"]
 
 [module."mod.rs"]
 path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::interaction_with_decaying_nuclide_simulator"
@@ -92,3 +93,10 @@ doc_hash = "sha256:d1844f4c4221c0484efcaa251b8953004b213da911354ba8a2d11f2195176
 callees = ["fn:4bdea64528f551f6"]
 uses = ["fn:359972b9e99804c1"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = ["#0"]
+failed = []

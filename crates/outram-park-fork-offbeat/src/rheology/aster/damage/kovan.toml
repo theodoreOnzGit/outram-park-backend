@@ -2,6 +2,37 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-offbeat"
 dir = "crates/outram-park-fork-offbeat/src/rheology/aster/damage"
+test_ids = [
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::crit_rupt_accumulates_dissipation_and_degrades_the_modulus",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::crit_rupt_trips_on_the_max_principal_stress_and_latches",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::elasticity_round_trips_young_and_poisson",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::gtn_coalescence_map_reaches_full_damage_at_the_rupture_porosity",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::gtn_converged_step_satisfies_consistency",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::gtn_gaussian_nucleation_starts_at_zero_and_saturates",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::gtn_reports_broken_rather_than_integrating_past_the_ceiling",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::gtn_surface_has_the_two_exact_limits",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::gtn_viscous_overstress_is_rate_dependent",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::gtn_void_growth_is_driven_by_hydrostatic_stress",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::hardening_slopes_are_the_derivatives_of_the_curves",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::max_principal_stress_matches_a_hand_computed_spectrum",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::rousselier_broken_point_sheds_stress",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::rousselier_compression_takes_the_von_mises_branch",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::rousselier_converged_step_satisfies_consistency",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::rousselier_nucleation_enters_through_the_total_porosity",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::rousselier_reduces_to_von_mises_at_zero_porosity",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::rousselier_triaxiality_accelerates_void_growth",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::rousselier_viscous_overstress_is_rate_dependent",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::upstream_implicit_path_damages_elastic_steps",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::upstream_nmvexi_reads_the_wrong_material_slots",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::vendochab_coupled_solve_is_first_order_in_time",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::vendochab_damage_driver_is_the_axial_stress_in_uniaxial_tension",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::vendochab_damage_saturates_and_reports_it",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::vendochab_elastic_step_changes_nothing",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::vendochab_flow_rate_matches_the_upstream_power_law",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::vendochab_rate_guard_is_the_tangent_linearisation_at_the_switch",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::vendochab_sustained_strain_damages_and_relaxes_monotonically",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/damage/tests.rs::visc_endo_lema_drives_damage_with_the_effective_stress",
+]
 
 [module."tests.rs"]
 path = "crate::rheology::aster::damage::tests"
@@ -766,3 +797,40 @@ uses = [
     "fn:5ecea4b7c3e7c6e4",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+]
+failed = []

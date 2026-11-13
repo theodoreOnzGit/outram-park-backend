@@ -26,7 +26,7 @@ the 1a value moved by 0.0001, inside its 0.0025 standard deviation. This is a
 **single-layer** case. The multilayer release through the coatings has no
 full CRP-6 record yet. Separately, the analytical 1a value (0.5337) lies
 outside the 0.453–0.498 range the code itself cites from Hales et al. 2021,
-and two tests swallow that check (gh:#537; [rung 3](../../tutorials/triso-atops/walk.html)).
+and two tests swallow that check (gh:#537; [*Walking on spheres*](../../science/fission-products/walk-on-spheres.html)).
 
 **Interface rule gives a uniform equilibrium.** Across a tenfold diffusivity
 contrast, the time a walker spends in the inner region should equal its
@@ -40,9 +40,9 @@ the right one for this walk. Its seed-to-seed spread has not been measured.
 99 999 lifetimes at a 30 s half-life, seed 77, surviving fraction against
 $2^{-t/30}$ at 0–100 s, pass at 0.9 % relative: worst 8.43·10⁻³ at 60 s
 (1.5σ). The tail is tested at about one standard deviation
-([rung 2](../../tutorials/triso-atops/decay.html)).
+([*An atom's clock*](../../science/fission-products/decay-clock.html)).
 
-**Geometry** ([rung 1](../../tutorials/triso-atops/triso.html)): the assembled CRP-6 and HTR-10
+**Geometry** ([*Why layers?*](../../science/fission-products/barriers-why.html)): the assembled CRP-6 and HTR-10
 `TrisoCell`s are drawn from region lookups and every interface radius is
 recovered from the lookup alone (`triso_cell_slice`).
 
@@ -143,10 +143,10 @@ Stated so nobody reads silence as a pass:
 |---|---|---|
 | `chemistry` (air, steam, hydrolysis) | transcription checks only; no comparison with measured oxidation or release | gh:#457, #444, #418 |
 | `first_passage::depletion` / transmutation | unit tests only; no Bateman or capture build-up comparison | gh:#539 |
-| decay branching | chain *order* checked (Th-232 → Pb-208); branching *frequencies* never sampled; two reachable panics | gh:#538 |
+| decay branching | chain *order* checked (Th-232 → Pb-208); branching *frequencies* ~~never sampled~~ **CORRECTED 2026-11-10:** sampled for Au-172 (10 000 draws, `get_decay_info::tests::test_rng`); ~~two reachable panics~~ **fixed 2026-11-10:** no-daughter branches end the chain, the rounding gap takes the largest branch (`get_decay_info/tests.rs`) | gh:#538 |
 | the legacy Gaussian engine | one unit test; never compared with an exact release | ([legacy](./legacy-gaussian.md)) |
 | the `wgpu` GPU kernel | only the CPU fallback has run | stated in `gpu.rs` |
-| SiC thermal decomposition, Eqs (11)–(14b) | nothing in the source report checks them | ([rung 5](../../tutorials/triso-atops/failure.html)) |
+| SiC thermal decomposition, Eqs (11)–(14b) | nothing in the source report checks them | ([*An accident, step by step*](../../science/fission-products/failure-accident.html)) |
 | multilayer CRP-6 release | no record; only a qualitative transmission test | — |
 | the three `egui` examples | no `--headless` mode, so no regression test | — |
 | anything against measured HTR-10 data | none exists in the workspace's literature | gh:#383, #296 |

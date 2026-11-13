@@ -86,6 +86,13 @@
 //! This is exact for a piecewise-constant fission power, unconditionally
 //! stable at any timestep, and costs one `exp` per group per step.
 //!
+//! ## Mixed isotopes, ANS standards, `F_gamma`
+//!
+//! A fuel mix, the conservatism factor, the 1979/1994/2005 standards' isotope
+//! structure (with Pu-241) and user-supplied coefficients are in
+//! [`crate::ans_decay_heat`] (gh:#1080), which shares this module's group
+//! update and reproduces [`DecayHeat`] bit for bit for a single isotope.
+//!
 //! ## Status
 //!
 //! **AI-assisted implementation, not yet human-reviewed** — see
@@ -122,9 +129,11 @@ pub const NOMINAL_ENERGY_PER_FISSION_MEV: f64 = 200.0;
 ///
 /// The three cases tabulated by the 1978 draft ANS Standard. Real fuel is a
 /// mixture, and Tobias eq. (34) sums over nuclides weighted by their fractional
-/// fission rates; this enum selects one at a time, so a mixture must be handled
-/// by summing several [`DecayHeat`] instances (see
-/// [`DecayHeat::total_decay_heat_power`] and the module tests).
+/// fission rates; this enum selects one at a time, so with [`DecayHeat`] a
+/// mixture is handled by summing several instances (see
+/// [`DecayHeat::total_decay_heat_power`] and the module tests), or with
+/// [`crate::ans_decay_heat::AnsDecayHeat`], which carries the fission
+/// fractions itself (gh:#1080).
 ///
 /// An enum rather than a trait object, per the workspace design rules: the set
 /// of tabulated nuclides is closed and known at compile time, so adding one is
@@ -374,12 +383,13 @@ impl DecayHeat {
         let fission_rate_per_second = self.fission_rate_per_second(fission_power);
 
         for (index, (alpha, lambda)) in self.nuclide.parameters().iter().enumerate() {
-            let decay_factor = (-lambda * dt).r_exp();
-            let source_mev_per_second = alpha * fission_rate_per_second / lambda;
-            let source = Power::new::<watt>(source_mev_per_second * JOULE_PER_MEV);
-
-            self.group_power[index] =
-                self.group_power[index] * decay_factor + source * (1.0 - decay_factor);
+            self.group_power[index] = advance_group_power(
+                self.group_power[index],
+                *alpha,
+                fission_rate_per_second,
+                *lambda,
+                dt,
+            );
         }
     }
 
@@ -424,7 +434,30 @@ impl DecayHeat {
 ///
 /// The CODATA elementary charge times 1e6. Used to convert the tabulated
 /// MeV-based parameters into SI power.
-const JOULE_PER_MEV: f64 = 1.602_176_634e-13;
+pub(crate) const JOULE_PER_MEV: f64 = 1.602_176_634e-13;
+
+/// The analytic one-step update of one decay-heat group, shared by
+/// [`DecayHeat`] and [`crate::ans_decay_heat::AnsDecayHeat`]:
+///
+/// ```text
+/// H(t+dt) = H exp(-lambda dt) + (alpha F / lambda) (1 - exp(-lambda dt))
+/// ```
+///
+/// `alpha` in MeV/(fission s) (already multiplied by any `F_gamma F_a`),
+/// `fission_rate_per_second` in 1/s, `lambda` in 1/s, `dt` in s. The
+/// arithmetic is the pre-gh:#1080 inline code of `advance_timestep`, moved.
+pub(crate) fn advance_group_power(
+    group_power: Power,
+    alpha: f64,
+    fission_rate_per_second: f64,
+    lambda: f64,
+    dt: f64,
+) -> Power {
+    let decay_factor = (-lambda * dt).r_exp();
+    let source_mev_per_second = alpha * fission_rate_per_second / lambda;
+    let source = Power::new::<watt>(source_mev_per_second * JOULE_PER_MEV);
+    group_power * decay_factor + source * (1.0 - decay_factor)
+}
 
 #[cfg(test)]
 mod tests {

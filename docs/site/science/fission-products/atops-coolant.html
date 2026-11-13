@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Into the coolant</title>
-<meta name="description" content="Fission products, lesson 44: what reaches the coolant is shared between the graphite, the circulating gas, the plated-out walls and the clean-up system by first-order rates, with zeros the model sets on purpose; and why boon-lay adds extensions that are not a port.">
+<meta name="description" content="Fission products, lesson 50: what reaches the coolant is shared between the graphite, the circulating gas, the plated-out walls and the clean-up system by first-order rates, with zeros the model sets on purpose; and why boon-lay adds extensions that are not a port.">
 <link rel="stylesheet" href="../../style.css">
 <script src="../neutronics/lesson-kit.js" defer></script>
 <script src="atops-data.js" defer></script>
@@ -13,7 +13,7 @@
 <script src="atops-story.js" defer></script>
 </head>
 <body class="lesson">
-<!-- Fission products, chapter 5 "Integrating it in TRISO-ATOPS", lesson 44.
+<!-- Fission products, chapter 5 "Integrating it in TRISO-ATOPS", lesson 50.
      Pools from normal_operation_node (MHTGR Case A, 900 °C node, 40 years), with and without clean-up; live_pools::step (NOT a port) reproducing them from empty (atops-data.js, lesson_triso_atops). Prediction Q7. -->
 <main class="lesson-body">
 <p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
@@ -60,7 +60,7 @@
 <h3>The plate-out constant</h3>
 <p>The paper bases its plate-out rate on 1 % of the inventory per coolant cycle in a large gas-cooled reactor (p. 11), and the clean-up rate on a purification system taking 35 % of the coolant per hour at 90 % efficiency, after Fort St. Vrain&rsquo;s (p. 11). boon-lay&rsquo;s verification against the paper&rsquo;s printed pools found the printed plate-out constant matches only if it is ten times larger; the port keeps it as printed (theory book step 15).</p>
 <h3>The TRISO-ATOPS track</h3>
-<p>The <a href="../../tutorials/triso-atops/coolant.html">coolant rung</a> animates the same pools for HTR-10, with the gh:#583 picture.</p>
+<p>The <a href="../../science/fission-products/atops-coolant.html">coolant rung</a> animates the same pools for HTR-10, with the gh:#583 picture.</p>
 </details>
 
 <nav class="lesson-nav" aria-label="Lessons"></nav>

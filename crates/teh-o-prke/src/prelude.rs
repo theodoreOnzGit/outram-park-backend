@@ -45,6 +45,8 @@
 // Point reactor kinetics: the six-group precursor solver and its nuclide data.
 pub use crate::zero_power_prke::six_group_precursor_prke::six_group_constants::FissioningNuclideType;
 pub use crate::zero_power_prke::six_group_precursor_prke::{DecayConstant, SixGroupPRKE};
+pub use crate::zero_power_prke::n_group_prke::PointKinetics;
+pub use crate::zero_power_prke::circulating::CirculatingPointKinetics;
 
 // Delayed neutrons as a standalone layer, for coupling into an external solver.
 pub use crate::delayed_neutron_layer::{DelayedNeutronLayer, NUM_DELAYED_GROUPS};
@@ -54,6 +56,10 @@ pub use crate::delayed_neutron_layer::{DelayedNeutronLayer, NUM_DELAYED_GROUPS};
 pub use crate::control_rod_feedback::obtain_rod_worth_cylinder;
 pub use crate::feedback_mechanisms::fission_product_poisons::Xenon135Poisoning;
 pub use crate::feedback_mechanisms::SixFactorFormulaFeedback;
+pub use crate::feedback_mechanisms::separable::{
+    DensityReactivityTable, FuelHeatStructure, FuelTemperatureReactivityTable, ModeratorState,
+    ModeratorVolume, ScramReactivityCurve, SeparableFeedback, SeparableReactivity,
+};
 pub use crate::fuel_temperature_feedback::{
     obtain_fuel_temperature_feedback_coeff_thermal_spectrum,
     obtain_fuel_temperature_reactivity_feedback_thermal_spectrum, SimpleFuelTemperatureFeedback,
@@ -63,6 +69,12 @@ pub use crate::fuel_temperature_feedback::{
 pub use crate::decay_heat::{
     DecayHeat, FissioningNuclide, DECAY_HEAT_GROUPS, NOMINAL_ENERGY_PER_FISSION_MEV,
 };
+
+// ANS-5.1 decay-heat machinery and the PointReactor aggregate (gh:#1080, #1082).
+pub use crate::ans_decay_heat::{
+    neutron_capture_correction, AnsDecayHeat, AnsStandard, DecayHeatGroupSet, DecayHeatIsotope,
+};
+pub use crate::point_reactor::{ActinideDecayModel, FissionPowerConversion, PointReactor};
 
 // Prompt-critical excursions (Nordheim-Fuchs).
 pub use crate::nordheim_fuchs::NordheimFuchsExactTimestepper;

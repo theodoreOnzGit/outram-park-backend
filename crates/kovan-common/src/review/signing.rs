@@ -20,7 +20,7 @@
 //!   session::KeySession holds it: one unlock per session, auto-lock (#1020)
 //!   Keystore::export / import: the same encrypted key file on each machine (#1020)
 //!   UnlockedKey::sign_review ──> [review.signature] ──> verify_review(entry, &Registry)
-//!   UnlockedKey::endorse/admit/revoke/unretire ──> kovan_root.toml ──> Registry::build
+//!   UnlockedKey::endorse/admit/revoke/unretire/retire_key ──> kovan_root.toml ──> Registry::build
 //! ```
 //!
 //! `kovan-cli` has no signing command; `keystore` does not exist on wasm.
@@ -125,7 +125,11 @@
 //! alone). GitHub #1019 adds [`roster_event_bytes`]
 //! (`kovan-roster-event-v1`, maintainer-signed): a change of a reviewer's
 //! role or scope, a novice mark or a promotion, after the admission, which
-//! is never re-signed.
+//! is never re-signed. GitHub #1248 adds [`founder_change_bytes`]
+//! (`kovan-founder-change-v1`, signed by a founder), [`founder_ballot_bytes`]
+//! (`kovan-founder-ballot-v1`) and [`founder_vote_bytes`]
+//! (`kovan-founder-vote-v1`, bound to the ballot's signature), both signed
+//! by a maintainer; the rules are in [`founders`].
 
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine as _;
@@ -134,11 +138,14 @@ use serde::{Deserialize, Serialize};
 
 use super::review_md::{ArchitectureEntry, ReviewEntry};
 use super::root::{
-    DevelopingOrganisation, KeyEvent, KeyEventKind, KeySigner, Revocation, Reviewer, ReviewerKey,
-    ReviewerOrganisation, Role, RosterEvent, SeparationAttestation,
+    DevelopingOrganisation, FounderBallot, FounderChange, FounderVote, KeyEvent, KeyEventKind, KeySigner,
+    OrganisationRetirement, Revocation, Reviewer, ReviewerKey, ReviewerOrganisation, Role, RosterEvent,
+    SeparationAttestation,
 };
 
 pub mod registry;
+
+pub mod founders;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod keystore;
@@ -169,6 +176,14 @@ mod ivv_tests;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "signing/roster_tests.rs"]
 mod roster_tests;
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "signing/retirement_tests.rs"]
+mod retirement_tests;
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "signing/founders_tests.rs"]
+mod founders_tests;
 
 use registry::{KeyStatus, Registry};
 
@@ -298,6 +313,59 @@ pub fn separation_attestation_bytes(reviewer: &str, a: &SeparationAttestation) -
     line(&mut s, "audit_record", &[a.audit_record.as_deref().unwrap_or("")]);
     line(&mut s, "key", &[a.key.as_deref().unwrap_or("")]);
     line(&mut s, "statement", &[SEPARATION_STATEMENT]);
+    s.into_bytes()
+}
+
+/// The bytes ~~the founder~~ a founder (GitHub #1248) signs to retire an organisation record (GitHub
+/// #1211): the list, the reviewer (`""` for a developing organisation),
+/// the retired record's signature, the date and the signer. Its own first
+/// line, so no other statement's signature can be replayed as one.
+pub fn organisation_retirement_bytes(r: &OrganisationRetirement) -> Vec<u8> {
+    let mut s = String::from("kovan-organisation-retirement-v1\n");
+    line(&mut s, "list", &[r.list.as_str()]);
+    line(&mut s, "reviewer", &[r.reviewer.as_deref().unwrap_or("")]);
+    line(&mut s, "record", &[&r.record]);
+    line(&mut s, "date", &[&r.date]);
+    signer_line(&mut s, r.signer.as_ref());
+    s.into_bytes()
+}
+
+/// The bytes a founder signs to add or retire a founder (GitHub #1248):
+/// the event, the founder, the date, `reviewed_in` (`""` when absent) and
+/// the signer. Its own first line, so no other statement's signature can be
+/// replayed as one; the event is signed, so an add cannot be replayed as a
+/// retirement.
+pub fn founder_change_bytes(e: &FounderChange) -> Vec<u8> {
+    let mut s = String::from("kovan-founder-change-v1\n");
+    line(&mut s, "event", &[e.event.as_str()]);
+    line(&mut s, "founder", &[&e.founder]);
+    line(&mut s, "date", &[&e.date]);
+    line(&mut s, "reviewed_in", &[e.reviewed_in.as_deref().unwrap_or("")]);
+    signer_line(&mut s, e.signer.as_ref());
+    s.into_bytes()
+}
+
+/// The bytes a maintainer signs to open a founder ballot (GitHub #1248):
+/// its id, its opening date and the signer.
+pub fn founder_ballot_bytes(b: &FounderBallot) -> Vec<u8> {
+    let mut s = String::from("kovan-founder-ballot-v1\n");
+    line(&mut s, "id", &[&b.id]);
+    line(&mut s, "opened", &[&b.opened]);
+    signer_line(&mut s, b.signer.as_ref());
+    s.into_bytes()
+}
+
+/// The bytes a maintainer signs to vote in a founder ballot (GitHub
+/// #1248): the ballot id **and the ballot's own signature**
+/// (`ballot_signature`, `""` if it has none), so a vote is bound to that
+/// one ballot; the candidate, the date and the signer.
+pub fn founder_vote_bytes(v: &FounderVote, ballot_signature: &str) -> Vec<u8> {
+    let mut s = String::from("kovan-founder-vote-v1\n");
+    line(&mut s, "ballot", &[&v.ballot]);
+    line(&mut s, "ballot_signature", &[ballot_signature]);
+    line(&mut s, "candidate", &[&v.candidate]);
+    line(&mut s, "date", &[&v.date]);
+    signer_line(&mut s, v.signer.as_ref());
     s.into_bytes()
 }
 

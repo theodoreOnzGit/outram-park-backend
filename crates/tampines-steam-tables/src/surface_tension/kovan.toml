@@ -73,3 +73,14 @@ hash = "sha256:b7a027924b0b0a4ef30eb921baf3dc7155b175bf37c7cc5227159d3db004b6b0"
 doc_hash = "sha256:0d9f250e09b0d11441e459c0bd13044ad9fd97e7101eb5db0c9914d1edc8f31c"
 callees = ["fn:4790999216f62bb0"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+]
+failed = []

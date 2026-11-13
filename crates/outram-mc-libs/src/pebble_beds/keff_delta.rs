@@ -73,10 +73,7 @@ use crate::physics::delta_tracking::Majorant;
 use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
-use crate::physics::scatter::{
-    free_gas_elastic_scatter_dbrc, continuum_inelastic_scatter_evaluated, rotate_direction,
-    two_body_scatter, two_body_scatter_with_mu,
-};
+use crate::physics::scatter::continuum_inelastic_scatter_evaluated;
 use crate::rng::distributions::{isotropic_direction, watt};
 use crate::rng::lcg::{future_seed, prn};
 
@@ -1064,6 +1061,31 @@ where
     delta_keff_result(k_mean, k_std, k_by_generation)
 }
 
+/// One history outcome, as a track file would record it (gh:#784): a
+/// [`TraceEvent::State`] at position `r`, direction `u`, energy `e`, with unit
+/// weight, no clock and no cell (`usize::MAX`).
+///
+/// Draws no random number, so recording it leaves the history unchanged.
+fn record_outcome<O: FnMut(TraceEvent)>(
+    observe: &mut O,
+    r: Position,
+    u: Direction,
+    e: f64,
+    event: TrackEvent,
+    material: Option<usize>,
+) {
+    observe(TraceEvent::State(TrackState {
+        r,
+        u,
+        energy: e,
+        time: 0.0,
+        weight: 1.0,
+        cell: usize::MAX,
+        material,
+        event,
+    }));
+}
+
 /// Transport one source neutron (plus its same-generation `(n,2n)` secondaries) to
 /// death by delta tracking, banking fission neutrons. Returns the fission
 /// production ν̄ summed over the history's fission events.
@@ -1110,21 +1132,6 @@ where
         let mut events = 0u32;
         let mut urr_e_last = e;
         observe(TraceEvent::Start { r, u, e });
-        // An outcome, as a track file would record it (gh:#784).
-        macro_rules! outcome {
-            ($event:expr, $material:expr) => {
-                observe(TraceEvent::State(TrackState {
-                    r,
-                    u,
-                    energy: e,
-                    time: 0.0,
-                    weight: 1.0,
-                    cell: usize::MAX,
-                    material: $material,
-                    event: $event,
-                }))
-            };
-        }
 
         'history: loop {
             events += 1;
@@ -1152,14 +1159,18 @@ where
             ) else {
                 // A vacuum domain's escape is a leak; anything else is a lost
                 // history (budget exhausted, or a point the lookup could not place).
-                outcome!(
+                record_outcome(
+                    observe,
+                    r,
+                    u,
+                    e,
                     match domain {
                         DeltaDomain::SphereVacuum { .. } | DeltaDomain::CylinderVacuum { .. } => {
                             TrackEvent::Leak
                         }
                         DeltaDomain::Cube { .. } | DeltaDomain::Sphere { .. } => TrackEvent::Lost,
                     },
-                    None
+                    None,
                 );
                 break 'history; // leaked / virtual budget exhausted
             };
@@ -1192,39 +1203,65 @@ where
 
             // Reaction partition on the total: fission | capture | inelastic |
             // (n,2n) | elastic — identical to keff.rs / transport_csg.rs.
-            let xi = prn(seed) * x.total;
-            if xi < x.fission {
+            // gh:#1386/#1444 (c): OpenMC `create_fission_sites` at every collision.
+            let (pc_production, pc_n) =
+                crate::physics::scatter::per_collision_fission_count(&x, k_running, seed);
+            production += pc_production;
+            for _ in 0..pc_n {
+                let (e_born, u_born) = crate::physics::scatter::sample_fission_neutron_for_driver(
+                    nuc, e, e_cap_fission, u, seed,
+                );
+                next_bank.push(Site { r, u: u_born, e: e_born });
+            }
+            let xi = crate::physics::scatter::scatter_ladder_xi(
+                nuc.scatter_kernels(),
+                prn(seed) * x.total,
+                x.absorption,
+                x.total,
+                seed,
+            );
+            let group = crate::physics::scatter::classify_reaction(
+                crate::physics::scatter::reaction_order_from_env(),
+                &x,
+                xi,
+            );
+            if group == crate::physics::scatter::ReactionGroup::Fission {
                 let nu_bar = if x.fission > 0.0 {
                     x.nu_fission / x.fission
                 } else {
                     0.0
                 };
-                production += nu_bar;
-                let n = sample_num_neutrons(nu_bar, k_running, seed);
+                let per_collision = crate::physics::scatter::fission_banking_from_env()
+                    == crate::physics::scatter::FissionBanking::PerCollision;
+                let n = if per_collision {
+                    0 // banked before the reaction draw, as OpenMC
+                } else {
+                    production += nu_bar;
+                    sample_num_neutrons(nu_bar, k_running, seed)
+                };
                 for _ in 0..n {
-                    let (dx, dy, dz) = isotropic_direction(seed);
+                    let (e_born, u_born) = crate::physics::scatter::sample_fission_neutron_for_driver(
+                    nuc, e, e_cap_fission, u, seed,
+                );
                     next_bank.push(Site {
                         r,
-                        u: Direction::new(dx, dy, dz),
-                        e: nuc.sample_fission_energy_below(e, e_cap_fission, seed),
+                        u: u_born,
+                        e: e_born,
                     });
                 }
-                outcome!(TrackEvent::Fission, Some(m));
+                record_outcome(observe, r, u, e, TrackEvent::Fission, Some(m));
                 break 'history; // fission absorbs the incident neutron
-            } else if xi < x.absorption {
-                outcome!(TrackEvent::Absorption, Some(m));
+            } else if group == crate::physics::scatter::ReactionGroup::Capture {
+                record_outcome(observe, r, u, e, TrackEvent::Absorption, Some(m));
                 break 'history; // radiative capture
-            } else if xi < x.absorption + x.inelastic {
-                let (e2, u2) = match nuc.sample_inelastic(e, seed) {
+            } else if let crate::physics::scatter::ReactionGroup::Inelastic(level_cutoff) = group {
+                let (e2, u2) = match nuc.sample_inelastic_at(e, level_cutoff, seed) {
                     // Discrete level: the CM angular law is the level's own ENDF
                     // MF=4 (op-tm9f). Isotropic-CM only when the evaluation
                     // carries none for this level -- sampling every inelastic
                     // collision isotropically understates <mu>, inflating
                     // Sigma_tr, suppressing leakage and raising k.
-                    Inelastic::Level { q, mt } => match nuc.sample_inelastic_mu_cm(mt, e, seed) {
-                        Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, seed),
-                        None => two_body_scatter(e, u, nuc.awr, q, seed),
-                    },
+                    Inelastic::Level { q, mt } => nuc.sample_level_inelastic_scatter(mt, q, e, u, seed),
                     Inelastic::Continuum { q } => continuum_inelastic_scatter_evaluated(
                         e,
                         u,
@@ -1236,7 +1273,7 @@ where
                 };
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n {
+            } else if group == crate::physics::scatter::ReactionGroup::N2n {
                 // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
                 // elastic CM energy as before. Sharing the available energy between
                 // the two emitted neutrons is a separate gap (GitHub #192).
@@ -1268,7 +1305,7 @@ where
                 }
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+            } else if group == crate::physics::scatter::ReactionGroup::N3n {
                 // (n,3n): yield 3 -- the primary down-scatters and TWO extra neutrons
                 // are emitted. Before 2026-09-16 there was no branch here at all:
                 // MT=17 is inside MT=1, so the collision still happened but fell
@@ -1296,7 +1333,7 @@ where
                 }
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+            } else if group == crate::physics::scatter::ReactionGroup::Mt5 {
                 // MT=5, "(n,anything)" -- GitHub #365 audit: this delta-tracking
                 // kernel had no MT=5 arm, so those collisions fell through to
                 // ELASTIC here while every other kernel in the crate has handled
@@ -1308,7 +1345,7 @@ where
                     nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
                 ];
                 if n_emit == 0 {
-                    outcome!(TrackEvent::Absorption, Some(m));
+                    record_outcome(observe, r, u, e, TrackEvent::Absorption, Some(m));
                     break 'history;
                 }
                 for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
@@ -1316,11 +1353,11 @@ where
                 }
                 e = e2;
                 u = u2;
-            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+            } else if group == crate::physics::scatter::ReactionGroup::Other {
                 // The other neutron-emitting reactions (GitHub #365 audit).
                 let o = nuc.sample_other_emission(e, u, seed);
                 if o.n_emit == 0 {
-                    outcome!(TrackEvent::Absorption, Some(m));
+                    record_outcome(observe, r, u, e, TrackEvent::Absorption, Some(m));
                     break 'history;
                 }
                 for (se, su) in o.extras.iter().take(o.n_emit.saturating_sub(1).min(3)) {
@@ -1340,35 +1377,13 @@ where
                 // secondary energy is still drawn free-gas — internally
                 // inconsistent, and it suppresses the up-scatter that lets a
                 // graphite-moderated spectrum equilibrate.
-                let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
-                    (e_out, rotate_direction(u, mu_lab, seed))
-                } else {
-                    {
-                        // Free-gas: below 400 kT the target's own thermal motion
-                        // is sampled, so the neutron can gain energy and the
-                        // population has a Maxwellian fixed point (bead op-50vu).
-                        // Above it this is the old target-at-rest kinematics.
-                        let kt = nuc.free_gas_kt(temp);
-                        let mu_cm = nuc
-                            .sample_elastic_mu_cm(e, seed)
-                            .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                        free_gas_elastic_scatter_dbrc(
-                            e,
-                            u,
-                            nuc.awr,
-                            kt,
-                            mu_cm,
-                            seed,
-                            nuc.dbrc_table(),
-                        )
-                    }
-                };
+                let (e2, u2) = nuc.sample_elastic_collision(e, u, temp, seed);
                 e = e2;
                 u = u2;
             }
             // Every branch that does not end the history scatters: the
             // outgoing state is the one the next flight starts from.
-            outcome!(TrackEvent::Scatter, Some(m));
+            record_outcome(observe, r, u, e, TrackEvent::Scatter, Some(m));
         }
     }
     production

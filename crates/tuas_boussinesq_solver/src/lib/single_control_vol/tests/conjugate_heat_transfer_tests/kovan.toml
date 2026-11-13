@@ -2,6 +2,16 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests/ciet_heater_v2_single_cv.rs::ciet_heater_v_2_0_test_steady_state_functional_test_v_1_0",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests/ciet_heater_v2_single_cv.rs::ciet_heater_v_2_0_test_steady_state_v_1_0",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests/ciet_heater_v2_single_cv_speedup_multithreading.rs::ciet_heater_v_2_0_test_steady_state_functional_test_v_1_1",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests/ciet_heater_v2_single_cv_speedup_multithreading.rs::ciet_heater_v_2_0_test_steady_state_v_1_1_speedup_threads",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests/ciet_heater_v2_single_cv_speedup_one_radial_steel_shell_node.rs::ciet_heater_v_2_0_test_steady_state_functional_test_v_1_2_one_steel_node",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests/ciet_heater_v2_single_cv_speedup_three_axial_nodes.rs::ciet_heater_v_2_0_test_steady_state_v_1_2_three_nodes",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests/one_dimension_heater.rs::one_dimension_ciet_heater_v_1_0_auto_timestep_test",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/conjugate_heat_transfer_tests/one_dimension_heater.rs::one_dimension_ciet_heater_v_1_0_functional_test",
+]
 
 [module."ciet_heater_v2_single_cv.rs"]
 path = "crate::single_control_vol::tests::conjugate_heat_transfer_tests::ciet_heater_v2_single_cv"
@@ -853,3 +863,19 @@ lines = [
 hash = "sha256:67fcd93fd1f25a7063fdf9ec56b8d8250719ea7efc53ad992130b0be6346cb6f"
 doc_hash = "sha256:50c7405190e2772fcf1c075ff983fe4eac4f33efb91c2ba7cc766b2ac54672cc"
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+failed = []

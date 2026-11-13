@@ -10,7 +10,10 @@
 //! - **Does NOT belong:** the bed's *conduction* physics — the
 //!   Zehner-Bauer-Schlunder effective conductivity lives in
 //!   [`crate::pebble_bed::zbs`]. Nor particle-to-fluid heat transfer
-//!   (Wakao), which is still unimplemented anywhere in the workspace.
+//!   (Wakao), ~~which is still unimplemented anywhere in the workspace.~~
+//!   **CORRECTED 2026-11-03** — which lives in
+//!   [`crate::pebble_bed::cht`] (`PackedBedConvection::nusselt_number`);
+//!   TUAS also carries `WakaoData` (verified by reading both sources).
 //!
 //! ## Formulation
 //!
@@ -47,16 +50,29 @@
 //! re-evaluated per slice rather than applying it once with a single mean
 //! density.
 //!
+//! ## One copy (moved 2026-11-03, gh:#1148)
+//!
+//! The friction factor and the gradient formula now live in
+//! `outram_foam_appbuilder_lib::htgr_closures::kta` (maintainer decision D2),
+//! where the 2-D outram-foam work can reach them too. [`kta_friction_factor`]
+//! and [`KtaBed`] here call that code; this module keeps the bed geometry,
+//! the detailed result and the helium-marched drop, which need
+//! [`crate::gas_phase::properties`]. The coefficients were re-read against
+//! IAEA-TECDOC-1694 Table 2.10 on 2026-11-03 and match the `320/6/0.1` form
+//! below.
+//!
 //! ## Provenance, and why this is a reimplementation
 //!
 //! The workspace already carries a verified implementation of this
 //! correlation in **`crates/outram-park-digital-twin-engine/src/htr10/kta.rs`**
 //! (read on 2026-08-11). TAMPINES **cannot depend on that crate** — it is a
 //! downstream GUI/digital-twin crate, so the edge would invert the
-//! dependency graph. This module is therefore a deliberate, faithful
+//! dependency graph. ~~This module is therefore a deliberate, faithful
 //! **reimplementation** of the same formulation, verified against the same
 //! gold values, rather than a shared type. The two are independent code
-//! paths that must agree.
+//! paths that must agree.~~ **UPDATED 2026-11-03:** the formula now lives in
+//! `outram-foam-appbuilder-lib` (see above) and this module calls it; the
+//! digital-twin copy is still independent.
 //!
 //! The upstream implementation's stated source is the **Virtual Test Bed
 //! generic pebble-bed tutorial, step 2** (Open tier;
@@ -91,7 +107,6 @@
 //! made, and none is claimed. AI-assisted draft pending human review per
 //! `RESPONSIBLE_USE.md`.
 
-use petir::mathf::RealMath;
 use super::{MassFlux, PressureGradient};
 use crate::gas_phase::properties::helium_state;
 use crate::TampinesError;
@@ -139,22 +154,10 @@ pub fn packed_bed_reynolds(
 /// report, so the caller must handle that case rather than receive an
 /// infinity).
 pub fn kta_friction_factor(reynolds: Ratio, porosity: Ratio) -> Result<Ratio, TampinesError> {
-    let eps = porosity.get::<ratio>();
-    let re = reynolds.get::<ratio>();
-    if !(0.0..1.0).contains(&eps) || eps <= 0.0 {
-        return Err(TampinesError::InvalidInput(format!(
-            "KTA friction factor: porosity {eps} must lie strictly in (0, 1)"
-        )));
-    }
-    if !re.is_finite() || re <= 0.0 {
-        return Err(TampinesError::InvalidInput(format!(
-            "KTA friction factor: Reynolds number {re} must be finite and positive"
-        )));
-    }
-    let re_modified = re / (1.0 - eps);
-    Ok(Ratio::new::<ratio>(
-        320.0 / re_modified + 6.0 / re_modified.r_powf(0.1),
-    ))
+    // One copy (gh:#1148): the correlation lives in outram-foam-appbuilder-lib.
+    Ok(outram_foam_appbuilder_lib::htgr_closures::kta_3102_3_friction_factor(
+        reynolds, porosity,
+    )?)
 }
 
 /// A packed bed of monosized spheres, described by the three parameters the
@@ -276,12 +279,17 @@ impl KtaBed {
         let re = packed_bed_reynolds(g, self.pebble_diameter, dynamic_viscosity);
         let psi = kta_friction_factor(re, self.porosity)?;
         let eps = self.porosity.get::<ratio>();
-        let geometry_factor = Ratio::new::<ratio>((1.0 - eps) / (eps * eps * eps));
 
-        // psi * (1-eps)/eps^3 * G^2 / (2 D_h rho); uom carries the algebra,
-        // so the result is Pa/m by construction.
-        let gradient: PressureGradient = psi * geometry_factor * g * g
-            / (Ratio::new::<ratio>(2.0) * self.pebble_diameter * density);
+        // psi * (1-eps)/eps^3 * G^2 / (2 D_h rho), from the one copy in
+        // outram-foam-appbuilder-lib (gh:#1148).
+        let gradient: PressureGradient =
+            outram_foam_appbuilder_lib::htgr_closures::kta_3102_3_pressure_gradient(
+                g,
+                self.pebble_diameter,
+                self.porosity,
+                density,
+                dynamic_viscosity,
+            )?;
 
         Ok(KtaBedResult {
             mass_flux: g,
@@ -382,6 +390,7 @@ impl KtaBed {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use crate::gas_phase::properties::htr10_design_point;
     use uom::si::dynamic_viscosity::pascal_second;
     use uom::si::mass_density::kilogram_per_cubic_meter;

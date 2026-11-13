@@ -236,6 +236,8 @@ fn contributes_to_total(mt: i32, present: &[i32]) -> bool {
 fn role_of(mt: i32, mt4_has_mf12: bool, mt19: bool, has_partial_fission: bool) -> Role {
     match mt {
         2 => Role::Elastic,
+        // `unionx` includes MT=444 (`acefc.f90:1743-1782`), skips 443.
+        444 => Role::Partial,
         1 | 3 | 27 | 101 => Role::Redundant,
         4 if !mt4_has_mf12 => Role::Redundant,
         18 if mt19 && has_partial_fission => Role::Redundant,
@@ -549,11 +551,21 @@ impl AceTable {
         // The ACE grid is the union of the elastic grid and every stored
         // partial's grid (acelod builds this with `unionx`).
         let mut egrid: Vec<f64> = Vec::new();
-        if let Some(e) = elastic {
-            egrid.extend(e.pairs.iter().map(|&(x, _)| x));
-        }
-        for sec in &partials {
-            egrid.extend(sec.pairs.iter().map(|&(x, _)| x));
+        // `unionx` walks the PENDF's MT=1 with `gety1` and takes ITS energies
+        // (`acefc.f90:1236-1300`), so the bits of the grid are MT=1's. Taking
+        // the union of the sections' energies let a bare 742925.0 from another
+        // section displace MT=2's 742925.0000000001, and the elastic read one
+        // ulp below its own point (Ni-61: 3.900002e-8 against 3.9e-8, gh:#1449).
+        let total_sec = result.sections.iter().find(|s| i32::from(s.mt) == 1);
+        if let Some(t) = total_sec {
+            egrid.extend(t.pairs.iter().map(|&(x, _)| x));
+        } else {
+            if let Some(e) = elastic {
+                egrid.extend(e.pairs.iter().map(|&(x, _)| x));
+            }
+            for sec in &partials {
+                egrid.extend(sec.pairs.iter().map(|&(x, _)| x));
+            }
         }
         egrid.retain(|&x| x > 0.0);
         egrid.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -575,7 +587,14 @@ impl AceTable {
             .map(|sec| {
                 egrid
                     .iter()
-                    .map(|&e| sigfig(eval_partial(sec, e), 7))
+                    .map(|&e| {
+                        // MT=444 is stored as `sigfig(s/emev,7,0)` (`acefc.f90:5664`).
+                        if i32::from(sec.mt) == 444 {
+                            sigfig(eval_partial(sec, e) / EMEV, 7)
+                        } else {
+                            sigfig(eval_partial(sec, e), 7)
+                        }
+                    })
                     .collect()
             })
             .collect();
@@ -637,7 +656,10 @@ impl AceTable {
                 total_at_301 = Some(total.clone());
             }
             let disap = is_disappearance(mt, &present);
-            let in_total = contributes_to_total(mt, &present);
+            // `acelod` adds to the total only `mth <= 200` or `>= 600`
+            // (`acefc.f90:5655-5663`), so 444 does not, nor GASPR's 203-207
+            // (gh:#1369, test 13).
+            let in_total = !(201..=599).contains(&mt) && contributes_to_total(mt, &present);
             for j in 0..nes {
                 if in_total {
                     total[j] += partial_xs[k][j];
@@ -966,6 +988,7 @@ impl AceTable {
             awr,
             kt_mev,
             iz: [0; 16],
+            aw: [0.0; 16],
             date: "  njoy-rust".to_string(),
             // Provenance, written into the ACE `hk` field (70 chars) so it
             // travels with the table rather than beside it: which crate
@@ -993,13 +1016,13 @@ impl AceTable {
 /// Accumulates the ACE [`xss`](super::AceTable::xss) data block together with the
 /// parallel integer/real type mask, so blocks can be appended in order while the
 /// 1-based locators that JXS needs are read off with [`next_locator`][Self::next_locator].
-struct XssBuilder {
+pub(super) struct XssBuilder {
     xss: Vec<f64>,
     is_int: Vec<bool>,
 }
 
 impl XssBuilder {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         XssBuilder {
             xss: Vec::new(),
             is_int: Vec::new(),
@@ -1007,31 +1030,31 @@ impl XssBuilder {
     }
 
     /// Append a real-valued word (written `1pE20.11`).
-    fn real(&mut self, v: f64) {
+    pub(super) fn real(&mut self, v: f64) {
         self.xss.push(v);
         self.is_int.push(false);
     }
 
     /// Append an integer-valued word (written `i20`).
-    fn int(&mut self, v: i32) {
+    pub(super) fn int(&mut self, v: i32) {
         self.xss.push(v as f64);
         self.is_int.push(true);
     }
 
     /// Append a pre-serialised `(value, is_integer)` word.
-    fn word(&mut self, v: f64, is_int: bool) {
+    pub(super) fn word(&mut self, v: f64, is_int: bool) {
         self.xss.push(v);
         self.is_int.push(is_int);
     }
 
     /// The 1-based XSS index the *next* appended word will occupy — i.e. the JXS
     /// locator for a block about to be written.
-    fn next_locator(&self) -> i32 {
+    pub(super) fn next_locator(&self) -> i32 {
         self.xss.len() as i32 + 1
     }
 
     /// Consume the builder, returning the data block and its type mask.
-    fn finish(self) -> (Vec<f64>, Vec<bool>) {
+    pub(super) fn finish(self) -> (Vec<f64>, Vec<bool>) {
         (self.xss, self.is_int)
     }
 }
@@ -1058,7 +1081,7 @@ fn append_angular_blocks(
                     .energies
                     .iter()
                     .filter(|e| !e.is_isotropic())
-                    .map(|e| 2 + 3 * e.cosines.len() as i32)
+                    .map(|e| if e.is_equiprobable() { e.cosines.len() as i32 } else { 2 + 3 * e.cosines.len() as i32 })
                     .sum();
                 1 + ne + ne + dists // NE + E(NE) + L(NE) + dists
             }
@@ -1106,6 +1129,10 @@ fn write_angular_segment(b: &mut XssBuilder, a: &ElasticAngular, s: i32) {
     for e in energies {
         if e.is_isotropic() {
             locs.push(0);
+        } else if e.is_equiprobable() {
+            // old format (`newfor = 0`): positive locator, the bin edges only
+            locs.push(dist_base);
+            dist_base += e.cosines.len() as i32;
         } else {
             locs.push(-dist_base);
             dist_base += 2 + 3 * e.cosines.len() as i32;
@@ -1121,6 +1148,10 @@ fn write_angular_segment(b: &mut XssBuilder, a: &ElasticAngular, s: i32) {
     }
     for e in energies {
         if e.is_isotropic() {
+            continue;
+        }
+        if e.is_equiprobable() {
+            e.cosines.iter().for_each(|&m| b.real(m));
             continue;
         }
         b.int(2); // JJ = 2 (lin-lin)
@@ -1215,7 +1246,7 @@ fn append_dlw(b: &mut XssBuilder, producers: &[&Emission], law3_lo: &[f64], e_hi
 /// 8214-9014). `ANDP` is returned equal to `LDLWP` when every photon is
 /// isotropic — which is what NJOY writes, and what makes an all-zero `LANDP`
 /// unambiguous.
-fn append_photon_blocks(
+pub(super) fn append_photon_blocks(
     b: &mut XssBuilder,
     entries: &[super::photon_blocks::PhotonEntry],
     egrid: &[f64],
@@ -1263,7 +1294,7 @@ fn append_photon_blocks(
     // non-zero value. ~~The window used to stop at the table's last energy~~
     // (CORRECTED 2026-10-14, GitHub #872): O-16's MT=4 tables run to 150 MeV
     // with zeros above 30 MeV, which NJOY2016 does not store.
-    let xs_window = |interp: &[(u32, u32)], pairs: &[(f64, f64)]| -> (i32, Vec<f64>) {
+    let xs_window = |text: bool, interp: &[(u32, u32)], pairs: &[(f64, f64)]| -> (i32, Vec<f64>) {
         const EPS: f64 = 1.0e-10;
         let Some(&(thresh, _)) = pairs.first() else {
             return (1, Vec::new());
@@ -1297,7 +1328,13 @@ fn append_photon_blocks(
                 // reads back, so each value carries `a11`'s rounding (6
                 // figures for a two-digit exponent).
                 let y = sigfig(y, 7);
-                crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(y)).unwrap_or(y)
+                // A binary PENDF unit makes the scratch tape binary: no `a11`
+                // (gh:#1492, deck 24).
+                if text {
+                    crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(y)).unwrap_or(y)
+                } else {
+                    y
+                }
             })
             .collect();
         // `acelpp`'s jfirst / jlast over those values.
@@ -1329,7 +1366,7 @@ fn append_photon_blocks(
             // [12, MTMULT, NR, NBT(NR), INT(NR), NE, E(NE), y(NE)]
             SigP::Yield { e_mev, interp, .. } => 4 + 2 * e_mev.len() as i32 + 2 * yield_nr(interp) as i32,
             // [13, IE, NE, sigma(NE)]
-            SigP::Xs { interp, pairs } => 3 + xs_window(interp, pairs).1.len() as i32,
+            SigP::Xs { text, interp, pairs } => 3 + xs_window(*text, interp, pairs).1.len() as i32,
         }
     };
     let mut sig_off = Vec::with_capacity(n);
@@ -1376,8 +1413,8 @@ fn append_photon_blocks(
                     b.real(v);
                 }
             }
-            SigP::Xs { interp, pairs } => {
-                let (ie, sig) = xs_window(interp, pairs);
+            SigP::Xs { text, interp, pairs } => {
+                let (ie, sig) = xs_window(*text, interp, pairs);
                 b.int(13);
                 b.int(ie);
                 b.int(sig.len() as i32);
@@ -1457,8 +1494,8 @@ fn append_photon_blocks(
         // with zeros from 1e-5 eV, and its header read 1e-11 MeV where NJOY
         // writes 4.518e-2.
         let (e_lo, e_hi) = match &e.sigp {
-            SigP::Xs { interp, pairs } => {
-                let (ie, sig) = xs_window(interp, pairs);
+            SigP::Xs { text, interp, pairs } => {
+                let (ie, sig) = xs_window(*text, interp, pairs);
                 let lo = (ie - 1) as usize;
                 let hi = lo + sig.len().max(1) - 1;
                 match (egrid.get(lo), egrid.get(hi)) {
@@ -1666,6 +1703,20 @@ fn yield_nr(interp: &[(u32, u32)]) -> usize {
     } else {
         interp.len()
     }
+}
+
+/// The ACE energy grid [eV] when the PENDF has an MT=1: its energies, with the
+/// photon-production discontinuities put in by `unionx` (`acefc.f90:1236-1300`).
+/// `gamsum` evaluates GPD on this grid, so `photon_blocks::gpd` must use it and not
+/// the PENDF's own MT=1 energies (test 07: PENDF 1.090001e6 is replaced by 1.1e6 here
+/// because the discontinuity pair straddles it; gh:#1481).
+pub(crate) fn esz_grid(result: &crate::reconr::ReconrResult, gamma_disc: &[f64]) -> Option<Vec<f64>> {
+    let total = result.sections.iter().find(|s| i32::from(s.mt) == 1)?;
+    let mut egrid: Vec<f64> = total.pairs.iter().map(|&(x, _)| x).collect();
+    egrid.retain(|&x| x > 0.0);
+    egrid.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    egrid.dedup_by(|a, b| (*a - *b).abs() <= 1e-10 * b.abs().max(1.0));
+    Some(unionx_discontinuities(&egrid, gamma_disc))
 }
 
 /// `unionx`'s treatment of the photon-production discontinuities on the

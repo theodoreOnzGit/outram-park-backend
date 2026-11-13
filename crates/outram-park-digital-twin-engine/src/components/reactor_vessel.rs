@@ -1,12 +1,17 @@
-//! Visual reactor vessel.
+//! Visual reactor vessel: the physics wrapper.
 //!
 //! Wraps [`nee_soon::NordheimFuchsExactTimestepper`] (the prompt-excursion
 //! "Prompt Excursion Layer" model) with screen geometry and a temperature
 //! range for colour mapping, the same pattern
 //! [`crate::components::pipe::PipeVisual`] uses for [`tampines::components::Pipe`].
+//!
+//! **Split 2026-11-05** (maintainer: "widget art can live in bugis, the
+//! combination of logic and art can live inside the digital twin engine"):
+//! the drawing is [`bugis::components::reactor_vessel::ReactorVesselArt`],
+//! re-exported here; this file reads the fuel temperature off the model.
 
-use crate::components::temperature_colour;
-use egui::{Color32, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
+pub use bugis::components::reactor_vessel::*;
+use egui::{Pos2, Response, Ui, Vec2, Widget};
 use nee_soon::NordheimFuchsExactTimestepper;
 use uom::si::f64::ThermodynamicTemperature;
 
@@ -54,28 +59,25 @@ impl ReactorVesselVisual {
             max_temp,
         }
     }
+
+    /// The drawing of this vessel: the model's lumped fuel temperature.
+    pub fn art(&self) -> ReactorVesselArt {
+        ReactorVesselArt::new(
+            self.physics.fuel_temperature,
+            self.screen_position,
+            self.screen_vector,
+            self.min_temp,
+            self.max_temp,
+        )
+    }
 }
 
 impl Widget for ReactorVesselVisual {
-    /// Renders the vessel as a rectangle filled by the lumped fuel
-    /// temperature (via [`crate::components::temperature_colour`]), outlined in
-    /// a neutral stroke so the vessel boundary stays readable at every fill
-    /// colour.
+    /// Draws [`ReactorVesselVisual::art`]: a rectangle filled by the lumped
+    /// fuel temperature (via [`crate::components::temperature_colour`]),
+    /// outlined in a neutral stroke.
     fn ui(self, ui: &mut Ui) -> Response {
-        let rect = Rect::from_center_size(self.screen_position, self.screen_vector);
-        let response = ui.allocate_rect(rect, Sense::hover());
-
-        let colour =
-            temperature_colour(self.physics.fuel_temperature, self.min_temp, self.max_temp);
-        let painter = ui.painter();
-        painter.rect_filled(rect, 2.0, colour);
-        painter.rect_stroke(
-            rect,
-            2.0,
-            egui::Stroke::new(2.0_f32, Color32::DARK_GRAY),
-            egui::StrokeKind::Middle,
-        );
-        response
+        self.art().ui(ui)
     }
 }
 
@@ -107,5 +109,8 @@ mod tests {
             ),
             0.5
         );
+        // The art carries the physics' fuel temperature, and the widget draws.
+        assert_eq!(visual.art().fuel_temperature, visual.physics.fuel_temperature);
+        assert!(bugis::components::shapes_drawn_by(visual) > 0);
     }
 }

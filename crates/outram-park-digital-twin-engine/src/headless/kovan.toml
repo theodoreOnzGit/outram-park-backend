@@ -10,6 +10,7 @@ test_ids = [
     "crates/outram-park-digital-twin-engine/src/headless/mod.rs::csv_has_a_header_and_one_row_per_sample",
     "crates/outram-park-digital-twin-engine/src/headless/mod.rs::determinism_helper_passes_for_a_deterministic_model",
     "crates/outram-park-digital-twin-engine/src/headless/mod.rs::samples_at_the_requested_interval_and_always_the_last_step",
+    "crates/outram-park-digital-twin-engine/src/headless/mod.rs::tick_advances_exactly_once_per_call",
 ]
 
 [module."mod.rs"]
@@ -332,3 +333,15 @@ uses = [
     "fn:d593ab0fbe705ff5",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+failed = []

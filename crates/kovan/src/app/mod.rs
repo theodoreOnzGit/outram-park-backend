@@ -13,6 +13,7 @@ use petir::mathf::RealMath;
 
 mod advanced_git_view;
 mod bibliography;
+mod bookmarks_menu;
 mod code_map_view;
 mod code_review_view;
 mod code_sync;
@@ -32,10 +33,13 @@ mod literature_list;
 mod nav;
 mod organisations_view;
 mod user_management_view;
+mod workspace_test;
+mod single_test;
 #[cfg(test)]
 mod headless_shot;
 mod page_canvas;
 mod pdf_reader;
+mod pdf_search;
 mod plot_setup;
 mod repo_management_view;
 mod review_mode_panel;
@@ -378,6 +382,9 @@ pub struct DigitiseApp {
     repo_management: repo_management_view::RepoManagementView,
     /// The first-run setup dialog (#255) -- see [`setup`].
     setup: setup::SetupDialog,
+    /// The top bar's Bookmarks menu and the open folder's bookmarks
+    /// (#1210) -- see [`bookmarks_menu`].
+    bookmarks: bookmarks_menu::BookmarksMenu,
     /// The "where should the standard corpus go?" window (2026-10-06) -- see
     /// [`corpus_folder`].
     corpus_folder: corpus_folder::CorpusFolderDialog,
@@ -655,6 +662,7 @@ impl Default for DigitiseApp {
             repo_management: repo_management_view::RepoManagementView::default(),
             setup: setup::SetupDialog::default(),
             corpus_folder: corpus_folder::CorpusFolderDialog::default(),
+            bookmarks: bookmarks_menu::BookmarksMenu::default(),
             background_jobs: Vec::new(),
             downloads: Vec::new(),
             library_clone: None,
@@ -3060,7 +3068,8 @@ impl DigitiseApp {
     /// Markdown Editor (op-wr08) panels~~ **CHANGED 2026-10-12**
     /// (maintainer): three major tabs (Mindmap, Code Map, Code Review) on
     /// the top row and the selected one's tabs on a second row
-    /// ([`tab_groups`]); and the Gruvbox theme selector (op-t5sq). GUI
+    /// ([`tab_groups`]); the Gruvbox theme selector (op-t5sq); Setup; and
+    /// the Bookmarks button (#1210, [`bookmarks_menu`]). GUI
     /// drawing code (exempt from the test rule; the layout is
     /// `tab_groups`, tested there).
     fn top_bar(&mut self, ui: &mut egui::Ui) {
@@ -3069,7 +3078,9 @@ impl DigitiseApp {
         theme::navigation_style(ui);
         // The page may have changed outside the bar (a paper opened, Back).
         self.reconcile_tabs();
-        ui.horizontal(|ui| {
+        // Wrapped, so Setup and Bookmarks stay on screen at phone width
+        // (#1210; the mobile-first rule).
+        ui.horizontal_wrapped(|ui| {
             self.nav_buttons(ui);
             ui.separator();
             for g in tab_groups::Group::ALL {
@@ -3096,6 +3107,7 @@ impl DigitiseApp {
             {
                 self.setup.show_for(self.home.root());
             }
+            self.bookmarks_button(ui);
         });
         // The second row: the tabs under the selected major tab.
         ui.horizontal_wrapped(|ui| {
@@ -3602,6 +3614,7 @@ impl eframe::App for DigitiseApp {
         if let Some(request) = self.setup.ui(ui.ctx()) {
             self.handle_setup(request);
         }
+        self.bookmarks_window(ui);
 
         self.file_dialog.update(ui.ctx());
         if let Some(path) = self.file_dialog.take_picked() {

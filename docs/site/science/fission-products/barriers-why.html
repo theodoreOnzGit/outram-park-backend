@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Why layers?</title>
-<meta name="description" content="Fission products, lesson 29: defence in depth inside one particle. From a bare kernel to BISO to TRISO, with the job of each layer and the iodine each configuration let out in 1600 °C heating tests, all cited.">
+<meta name="description" content="Fission products, lesson 31: defence in depth inside one particle. From a bare kernel to BISO to TRISO, with the job of each layer and the iodine each configuration let out in 1600 °C heating tests, all cited.">
 <link rel="stylesheet" href="../../style.css">
 <script src="../neutronics/lesson-kit.js" defer></script>
 <script src="barrier-data.js" defer></script>
@@ -16,7 +16,7 @@
 </head>
 <body class="lesson">
 <!-- Fission products, chapter 4 "TRISO layer migration and particle
-     failure", lesson 29. Radii: TrisoSpec::HTR10_LI2014 (barrier-data.js,
+     failure", lesson 31. Radii: TrisoSpec::HTR10_LI2014 (barrier-data.js,
      lesson_barriers generator). History and layer jobs: barrier-recorded.js
      (Kugeler 2017, Fang 2021, read 2026-10-22). -->
 <main class="lesson-body">
@@ -53,14 +53,25 @@
 </ul>
 <p>The bars show the result. In 1600 &deg;C heating tests, a bare kernel let out about all its <sup>131</sup>I; TRISO fuel contaminated by older BISO fuel in the AVR reactor let out about 10<sup>&minus;5</sup>; modern TRISO fuel 10<sup>&minus;9</sup> to 10<sup>&minus;8</sup>, &ldquo;nine orders of magnitude&rdquo; apart (Kugeler et al. 2017, pp. 42&ndash;43).</p>
 
-<p><b>Next:</b> why does each layer hold some fission products and not others? Lesson 30 measures how fast each element moves in each layer.</p>
+<p><b>Next:</b> why does each layer hold some fission products and not others? Lesson 32 measures how fast each element moves in each layer.</p>
 
 <details class="optional">
 <summary>Learn more advanced stuff</summary>
 <h3>The same idea, at plant scale</h3>
 <p>A reactor plant stacks barriers too: fuel, cladding or coatings, the coolant boundary, the building. That comparison belongs to a later capstone chapter and is not drawn here. This chapter stays inside the TRISO particle.</p>
+<h3>Given a point, which layer is it in?</h3>
+<p>A random walk (lesson 34) moves an atom to a new point, and the code then needs that point&rsquo;s layer to know how fast the atom diffuses there. boon-lay&rsquo;s <code>TrisoCell</code> builds the particle as five nested spheres. It takes the distance from the centre, r = &radic;(x&sup2;+y&sup2;+z&sup2;), and compares it with the five radii, innermost first; a point exactly on an interface belongs to the <b>outer</b> layer, within a tolerance of 1 pm for particles this size. Two lookups use that rule: <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs::get_triso_region"><code>get_<wbr>triso_<wbr>region</code></a> (&ldquo;which layer?&rdquo;) and <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs::try_get_diffusion_coefficient"><code>try_<wbr>get_<wbr>diffusion_<wbr>coefficient</code></a> (&ldquo;what is D here?&rdquo;).</p>
+<p>The workspace rule is that a geometry is <b>drawn from what the solver sees</b>, never from the constants that built it. The example <code>triso_<wbr>cell_<wbr>slice</code> colours every pixel of a slice by asking <code>get_<wbr>triso_<wbr>region</code>, and recovers each interface radius from the lookup alone, by bisection. Run 2026-10-04 (<code>cargo run --release -p boon-lay --example triso_cell_slice</code>): every interface of both particles was recovered at the stated radius less 10<sup>&minus;3</sup> nm, the lookup&rsquo;s own tolerance (pass criterion 1 nm).</p>
+<figure><img src="triso-htr10-slice.svg" alt="Slice through boon-lay's HTR-10 TrisoCell, coloured by the region lookup at every pixel: kernel, buffer, inner PyC, SiC, outer PyC." width="320"><figcaption>HTR-10 particle, drawn from region lookups (radii 250, 340, 380, 415 and 455 &micro;m). The CRP-6 particle: <a href="triso-crp6-slice.svg">its slice</a> (212.5 to 427.5 &micro;m).</figcaption></figure>
+<h3>One particle, three descriptions</h3>
+<p>boon-lay describes the same particle in three ways, because each model needs a different amount of it, and detail a model does not use is only another place to be wrong:</p>
+<ul>
+<li><b>The random walk</b> keeps all five spheres, each with its temperature and diffusion coefficient (<code>TrisoCell</code>).</li>
+<li><b>Fuel failure</b> keeps only the SiC shell&rsquo;s inner and outer radius, as a thin shell (<code>SicLayer</code>, lessons 35&ndash;37).</li>
+<li><b>TRISO-ATOPS</b> keeps no layers at all: each group diffuses out of one equivalent sphere (lesson 18, chapter 5).</li>
+</ul>
 <h3>Where the theory book goes deeper</h3>
-<p>The fission-product transport theory book covers the layers and their chemistry, with what the workspace can and cannot support (<a href="../../tutorials/fp-transport-theory/03-layers-chemistry.html">step 3, &ldquo;Through the layers&rdquo;</a>), and why SiC gets the credit (<a href="../../tutorials/fp-transport-theory/04-sic.html">step 4</a>). The TRISO-ATOPS track&rsquo;s <a href="../../tutorials/triso-atops/triso.html">rung 1</a> builds the particle geometry in boon-lay.</p>
+<p>The fission-product transport theory book covers the layers and their chemistry, with what the workspace can and cannot support (<a href="../../tutorials/fp-transport-theory/03-layers-chemistry.html">step 3, &ldquo;Through the layers&rdquo;</a>), and why SiC gets the credit (<a href="../../tutorials/fp-transport-theory/04-sic.html">step 4</a>). The TRISO-ATOPS demo&rsquo;s <a href="../../demos/triso-atops/?rung=triso">particle rung</a> draws the same lookup live; tap a layer to name it.</p>
 <h3>Sources</h3>
 <ul>
 <li>Kugeler, K., Nabielek, H. &amp; Buckthorpe, D. (2017), <i>The High Temperature Gas-cooled Reactor: Safety considerations of the (V)HTR-Modul</i>, EUR 28712 EN, JRC, doi:10.2760/270321 (open corpus).</li>

@@ -174,6 +174,8 @@ pub fn fresh_root_text(
             rust_analyzer_used: used.cloned().into_iter().collect(),
             developing_organisation: Vec::new(),
             roster_events: Vec::new(),
+            organisation_retirements: Vec::new(),
+            ..Default::default()
         }),
         reviewers: Vec::new(),
         deleted_crates: Vec::new(),

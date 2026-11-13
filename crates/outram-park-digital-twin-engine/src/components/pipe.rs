@@ -1,11 +1,4 @@
-//! Visual pipe.
-//!
-//! Renders a pipe run as a coloured line whose colour comes from the fluid
-//! temperature and whose optional tracer marks come from the mass flow --
-//! the crate's core "rendering derives directly from physics state" idea,
-//! applied to the component that carries most of a plant schematic's flow.
-//!
-//! ## Two ways to supply the state
+//! Visual pipe: the physics wrapper.
 //!
 //! [`PipeVisualState`] is an enum (not a trait object, per the workspace's
 //! mandatory design rules) with two variants, because digital-twin
@@ -14,62 +7,23 @@
 //! - [`PipeVisualState::Physics`] wraps a full
 //!   [`tampines::components::Pipe`]. The pipe's per-cell temperature profile
 //!   is read straight off its flow backend, so the run is drawn as one
-//!   coloured segment **per finite-volume cell** -- cell count drives
-//!   displayed cells, cell temperature drives cell colour.
+//!   coloured segment **per finite-volume cell**.
 //! - [`PipeVisualState::Scalars`] takes a [`PipeScalars`] triple
-//!   (temperature, mass flow, residence time) directly. A
-//!   `tampines::components::Pipe` can only be built around a
-//!   `SinglePhaseFluidArray` or `CompressibleFluidArray`, which is a heavy
-//!   object to stand up for what may be a short connector line between two
-//!   pieces of equipment. Simulators whose loop physics is their own lumped
-//!   model (rather than a TAMPINES fluid array) supply that model's scalars
-//!   here and still get correct colour and tracer motion.
+//!   (temperature, mass flow, residence time) directly; see
+//!   [`bugis::components::pipe`] for why that narrower interface exists.
 //!
-//! The scalar variant is *not* a placeholder for missing physics: the caller
-//! is expected to pass real state from its own model. It is a narrower
-//! interface, not a fabricated one.
+//! **Split 2026-11-05** (maintainer: "widget art can live in bugis, the
+//! combination of logic and art can live inside the digital twin engine"):
+//! the drawing, [`PipeArt`], the scales and shades, and the coaxial duct are
+//! [`bugis::components::pipe`], re-exported here. This file reads a TAMPINES
+//! pipe into [`PipeCells`] and draws through [`PipeArt`].
 
-use petir::mathf::RealMath;
-
-use crate::animation::TracerTrain;
-use crate::components::temperature_colour;
-use egui::{Color32, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget};
+pub use bugis::components::pipe::*;
+use bugis::animation::TracerTrain;
+use egui::{Pos2, Response, Ui, Vec2, Widget};
 use tampines::components::{Pipe, PipeBackend};
-use uom::si::angle::radian;
-use uom::si::area::square_meter;
-use uom::si::f64::{Angle, Area, Length, MassRate, ThermodynamicTemperature, Time};
-use uom::si::length::meter;
+use uom::si::f64::{Angle, Area, Length, ThermodynamicTemperature};
 use uom::si::thermodynamic_temperature::kelvin;
-
-/// Width of the pipe wall outline, in screen points.
-///
-/// Deliberately heavy: the wall is a structural element carrying its own metal
-/// temperature, not a hairline border on the fluid.
-const PIPE_WALL_WIDTH: f32 = 5.0;
-
-/// Axial length of a tracer mark, as a fraction of the run length.
-///
-/// The mark is drawn as a rectangle spanning the pipe's full cross-section, so
-/// it reads as a plug of fluid moving down the run rather than a dot floating
-/// in it.
-const TRACER_LENGTH_FRACTION: f32 = 0.06;
-
-/// Scalar fluid state for a pipe run whose physics is not a
-/// [`tampines::components::Pipe`].
-///
-/// Every field is the caller's own real model state -- see
-/// [`PipeVisualState::Scalars`] for why this narrower interface exists.
-#[derive(Debug, Clone, Copy)]
-pub struct PipeScalars {
-    /// Bulk fluid temperature of the run, used for the colour map.
-    pub temperature: ThermodynamicTemperature,
-    /// Mass flow through the run. Positive is `screen_position` ->
-    /// `screen_position + screen_vector`; negative runs tracers in reverse.
-    pub mass_flow: MassRate,
-    /// End-to-end residence time, setting how long a tracer mark takes to
-    /// cross the run (see [`crate::animation::residence_time_from_flow`]).
-    pub residence_time: Time,
-}
 
 /// Where a [`PipeVisual`] gets the physics it renders.
 ///
@@ -82,81 +36,6 @@ pub enum PipeVisualState {
     Physics(Pipe),
     /// Backed by caller-supplied scalars, drawn as a single coloured run.
     Scalars(PipeScalars),
-}
-
-/// How plant-space metres map to screen points.
-///
-/// The two scales are deliberately **separate**. A pipe run is metres long and
-/// its bore is millimetres across; a single scale would render every pipe as an
-/// invisible hairline. Keeping them apart lets length stay a true scale drawing
-/// while the cross-section is exaggerated enough to see.
-///
-/// That exaggeration is honest but must be stated: two pipes drawn side by side
-/// have *lengths* in true proportion to each other and *cross-sections* in true
-/// proportion to each other, but thickness is not on the same scale as length.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct PipeScale {
-    /// Screen points per metre of pipe length.
-    pub points_per_metre: f32,
-    /// Screen points of drawn thickness per square metre of flow
-    /// cross-sectional area.
-    ///
-    /// Thickness is proportional to **area**, not diameter, so a pipe carrying
-    /// four times the flow area draws four times as thick.
-    pub points_per_square_metre: f32,
-    /// Floor on drawn thickness, in points, so a small-bore pipe stays visible
-    /// rather than vanishing.
-    pub min_thickness_points: f32,
-}
-
-impl Default for PipeScale {
-    /// Chosen so a 3 m run of 50 mm bore draws about 240 points long and
-    /// 20 points thick — legible at gallery size.
-    fn default() -> Self {
-        Self {
-            points_per_metre: 80.0,
-            points_per_square_metre: 10_000.0,
-            min_thickness_points: 6.0,
-        }
-    }
-}
-
-/// How the working fluid's phase is reflected in the drawing.
-///
-/// Enum dispatch per the workspace's "no trait objects" rule.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PipePhaseShade {
-    /// Liquid: full-strength colour.
-    Liquid,
-    /// Gas or vapour: lightened. A gas is orders of magnitude less dense than
-    /// the liquid at the same temperature, and washing the colour out is the
-    /// cheapest way to make that legible at a glance without adding a second
-    /// colour axis the reader has to learn.
-    Gas,
-    /// Two-phase, where the backend carries phase information but this widget
-    /// is not yet reading a per-cell quality from it: drawn between the two.
-    TwoPhase,
-}
-
-impl PipePhaseShade {
-    /// Fraction of the way towards white, 0.0 = untouched.
-    fn lightening(self) -> f32 {
-        match self {
-            Self::Liquid => 0.0,
-            Self::TwoPhase => 0.25,
-            Self::Gas => 0.55,
-        }
-    }
-
-    /// Apply this shade's lightening to a colour.
-    ///
-    /// Public so a bend can shade itself identically to the runs it joins —
-    /// a joint that did not match its pipes would read as a different fluid.
-    pub fn apply(self, c: Color32) -> Color32 {
-        let f = self.lightening();
-        let mix = |v: u8| -> u8 { (v as f32 + (255.0 - v as f32) * f).round() as u8 };
-        Color32::from_rgb(mix(c.r()), mix(c.g()), mix(c.b()))
-    }
 }
 
 /// Visual representation of a pipe run.
@@ -331,34 +210,9 @@ impl PipeVisual {
         }
     }
 
-    /// Metal wall temperature at fluid cell `i` of `n`.
-    ///
-    /// The solid shell array need not have the same node count as the fluid
-    /// array, so the fluid cell is mapped proportionally onto the shell rather
-    /// than assumed index-for-index. Returns `None` when the backend reports no
-    /// wall at all.
-    fn wall_temperature_at(
-        walls: &[ThermodynamicTemperature],
-        i: usize,
-        n: usize,
-    ) -> Option<ThermodynamicTemperature> {
-        if walls.is_empty() || n == 0 {
-            return None;
-        }
-        let f = (i as f32 + 0.5) / n as f32;
-        let idx = ((f * walls.len() as f32) as usize).min(walls.len() - 1);
-        Some(walls[idx])
-    }
-
     /// Hottest metal wall temperature on the run, if the backend reports one.
     pub fn peak_wall_temperature(&self) -> Option<ThermodynamicTemperature> {
-        self.wall_temperatures()?.into_iter().reduce(|a, b| {
-            if b.get::<kelvin>() > a.get::<kelvin>() {
-                b
-            } else {
-                a
-            }
-        })
+        self.art().peak_wall_temperature()
     }
 
     /// How this backend's fluid phase is shaded.
@@ -380,23 +234,10 @@ impl PipeVisual {
         }
     }
 
-    /// Drawn size in screen points: `(length, thickness)`.
-    ///
-    /// Length is proportional to the real run length and thickness to the real
-    /// flow cross-sectional area, both through [`PipeScale`]. A scalar-backed
-    /// run has no geometry, so it falls back to the caller's `screen_vector`
-    /// length and the minimum thickness.
+    /// Drawn size in screen points: `(length, thickness)`, as
+    /// [`PipeArt::drawn_size`] computes it for [`Self::art`].
     pub fn drawn_size(&self) -> (f32, f32) {
-        let length = match self.run_length() {
-            Some(l) => l.get::<meter>() as f32 * self.scale.points_per_metre,
-            None => self.screen_vector.length(),
-        };
-        let thickness = match self.cross_sectional_area() {
-            Some(a) => (a.get::<square_meter>() as f32 * self.scale.points_per_square_metre)
-                .max(self.scale.min_thickness_points),
-            None => self.scale.min_thickness_points,
-        };
-        (length.max(1.0), thickness)
+        self.art().drawn_size()
     }
 
     /// Per-cell fluid temperatures along the run, inlet -> outlet.
@@ -437,560 +278,56 @@ impl PipeVisual {
             },
         }
     }
+
+    /// The drawing of this run: the pipe's cells, wall, phase and geometry
+    /// read off the physics ([`PipeCells`]), or the caller's scalars, with
+    /// this visual's screen geometry, scale, alarm and tracers.
+    pub fn art(&self) -> PipeArt {
+        let base = match &self.state {
+            PipeVisualState::Scalars(s) => PipeArt::from_scalars(
+                *s,
+                self.screen_position,
+                self.screen_vector,
+                self.min_temp,
+                self.max_temp,
+            ),
+            PipeVisualState::Physics(pipe) => PipeArt::from_cells(
+                PipeCells {
+                    cell_temperatures: self.cell_temperatures(),
+                    wall_temperatures: self.wall_temperatures(),
+                    phase_shade: self.phase_shade(),
+                    cross_sectional_area: std::f64::consts::FRAC_PI_4 * pipe.diameter * pipe.diameter,
+                    run_length: pipe.length,
+                    inclination: pipe.inclination,
+                },
+                self.screen_position,
+                self.screen_vector,
+                self.min_temp,
+                self.max_temp,
+            ),
+        };
+        PipeArt {
+            scale: self.scale,
+            wall_alarm_temp: self.wall_alarm_temp,
+            mark_at: self.mark_at,
+            tracer: self.tracer.clone(),
+            ..base
+        }
+    }
 }
 
 impl Widget for PipeVisual {
-    /// Draws the run as a rectangle divided into one box per finite-volume
-    /// cell (see [`PipeVisual::cell_temperatures`]), then any tracer marks.
-    ///
-    /// Length and thickness both come from the real pipe geometry via
-    /// [`PipeScale`] — length from the run length, thickness from the flow
-    /// cross-sectional area — and the run is drawn at the pipe's inclination.
-    /// Each cell box is filled by its own temperature, then lightened
-    /// according to [`PipeVisual::phase_shade`] so a gas-filled pipe reads
-    /// paler than a liquid one at the same temperature.
-    ///
-    /// Cell colours come from [`crate::components::temperature_colour`] over the
-    /// `[min_temp, max_temp]` range. If the backend reports no cells the run
-    /// is drawn in a neutral grey rather than a made-up temperature colour,
-    /// so an unpopulated pipe is visibly distinct from a cold one.
+    /// Draws [`PipeVisual::art`]: one box per finite-volume cell, the wall,
+    /// then any tracer marks (see [`PipeArt`]).
     fn ui(self, ui: &mut Ui) -> Response {
-        let (length_pts, thickness_pts) = self.drawn_size();
-        let half_t = 0.5 * thickness_pts;
-
-        // Run direction. A physics-backed pipe knows its inclination, so the
-        // run is drawn at that slope -- this is what lets a natural-circulation
-        // loop read correctly, with hot legs rising and cold legs falling.
-        // Screen y grows downwards, so a positive (uphill) inclination must
-        // take the run UP the screen.
-        let direction = match self.inclination() {
-            Some(incline) => {
-                let a = incline.get::<radian>() as f32;
-                Vec2::new(a.r_cos(), -a.r_sin())
-            }
-            None => {
-                let v = self.screen_vector;
-                if v.length() > f32::EPSILON {
-                    v.normalized()
-                } else {
-                    Vec2::new(1.0, 0.0)
-                }
-            }
-        };
-        let normal = Vec2::new(-direction.y, direction.x);
-
-        let start = self.screen_position;
-        let end = start + direction * length_pts;
-        let rect = Rect::from_two_pos(start, end).expand(half_t.max(1.0));
-        let response = ui.allocate_rect(rect, Sense::hover());
-        let painter = ui.painter();
-
-        let temperatures = self.cell_temperatures();
-        let shade = self.phase_shade();
-
-        // A rectangle spanning the run, divided into one box per cell.
-        let quad = |p0: Pos2, p1: Pos2| -> Vec<Pos2> {
-            vec![
-                p0 + normal * half_t,
-                p1 + normal * half_t,
-                p1 - normal * half_t,
-                p0 - normal * half_t,
-            ]
-        };
-
-        if temperatures.is_empty() {
-            // No cells reported: neutral grey, never a made-up temperature
-            // colour, so an unpopulated pipe stays distinct from a cold one.
-            painter.add(egui::Shape::convex_polygon(
-                quad(start, end),
-                Color32::GRAY,
-                Stroke::NONE,
-            ));
-            return response;
-        }
-
-        // One box per finite-volume cell, inlet -> outlet, each filled by its
-        // own cell temperature. Drawn WITHOUT an outline: the divisions between
-        // cells are wall structure and are stroked separately below, in the
-        // wall's own colour and weight.
-        let n = temperatures.len();
-        for (i, t) in temperatures.iter().enumerate() {
-            let f0 = i as f32 / n as f32;
-            let f1 = (i + 1) as f32 / n as f32;
-            let p0 = start + direction * (length_pts * f0);
-            let p1 = start + direction * (length_pts * f1);
-            let fill = shade.apply(temperature_colour(*t, self.min_temp, self.max_temp));
-            painter.add(egui::Shape::convex_polygon(
-                quad(p0, p1),
-                fill,
-                Stroke::NONE,
-            ));
-        }
-
-        // Cell dividers: same grey and same weight as the pipe wall, because
-        // they represent the same metal. Each reddens on the MEAN of the two
-        // solid cells it sits between -- a divider is shared by both, so
-        // keying it to either one alone would misreport which side is hot.
-        let walls = self.wall_temperatures().unwrap_or_default();
-        for i in 1..n {
-            let mean_wall = match (
-                Self::wall_temperature_at(&walls, i - 1, n),
-                Self::wall_temperature_at(&walls, i, n),
-            ) {
-                (Some(a), Some(b)) => Some(ThermodynamicTemperature::new::<kelvin>(
-                    0.5 * (a.get::<kelvin>() + b.get::<kelvin>()),
-                )),
-                _ => None,
-            };
-            let colour = match (mean_wall, self.wall_alarm_temp) {
-                (Some(m), Some(alarm)) if m.get::<kelvin>() >= alarm.get::<kelvin>() => {
-                    Color32::from_rgb(220, 50, 40)
-                }
-                _ => Color32::from_gray(110),
-            };
-            let at = start + direction * (length_pts * (i as f32 / n as f32));
-            painter.line_segment(
-                [at + normal * half_t, at - normal * half_t],
-                Stroke::new(PIPE_WALL_WIDTH, colour),
-            );
-        }
-
-        // Pipe wall, drawn over the cell boxes so the run reads as one pipe.
-        // Grey by default; RED once the metal reaches the caller's alarm
-        // temperature. A backend with no solid structure reports no wall
-        // temperature and stays grey — unknown is drawn as unknown, never as
-        // safe.
-        let wall_colour = match (self.peak_wall_temperature(), self.wall_alarm_temp) {
-            (Some(peak), Some(alarm)) if peak.get::<kelvin>() >= alarm.get::<kelvin>() => {
-                Color32::from_rgb(220, 50, 40)
-            }
-            _ => Color32::from_gray(110),
-        };
-        painter.add(egui::Shape::convex_polygon(
-            quad(start, end),
-            Color32::TRANSPARENT,
-            Stroke::new(PIPE_WALL_WIDTH, wall_colour),
-        ));
-
-        // Tracer marks: white rectangles spanning the bore, each travelling
-        // the full run in exactly one residence time (the train is advanced by
-        // the application -- see the field docs). Direction of travel is the
-        // train's, so a reversed flow runs them backwards.
-        // Explicit single mark (from a TracerPulse), plus any train marks.
-        let marks: Vec<f64> = self
-            .mark_at
-            .into_iter()
-            .chain(self.tracer.iter().flat_map(|t| t.positions()))
-            .collect();
-        if !marks.is_empty() {
-            let mark_len = (length_pts * TRACER_LENGTH_FRACTION).max(2.0);
-            for position in marks {
-                let centre = length_pts * position as f32;
-                // Clipped to the run so a mark straddling the outlet does not
-                // spill out of the pipe.
-                let a = (centre - 0.5 * mark_len).clamp(0.0, length_pts);
-                let b = (centre + 0.5 * mark_len).clamp(0.0, length_pts);
-                if b - a < 0.5 {
-                    continue;
-                }
-                painter.add(egui::Shape::convex_polygon(
-                    quad(start + direction * a, start + direction * b),
-                    Color32::WHITE,
-                    Stroke::NONE,
-                ));
-            }
-        }
-
-        response
-    }
-}
-
-/// Bore geometry of a **coaxial** run — a duct inside a duct, the two annular
-/// spaces carrying different streams in opposite directions.
-///
-/// All lengths are real plant dimensions. The drawn picture is a longitudinal
-/// section, so the radii below set the band proportions across the run.
-///
-/// The radial layout, axis outward:
-///
-/// ```text
-///   ┌──────────────────────────  outer tube wall
-///   │ ← ← ← annulus              (return stream)
-///   │ ▒▒▒▒▒ insulation
-///   │ ───── inner tube wall
-///   │ → → → inner bore           (supply stream)
-///   │ ───── inner tube wall
-///   │ ▒▒▒▒▒ insulation
-///   │ ← ← ← annulus
-///   └──────────────────────────  outer tube wall
-/// ```
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct CoaxialDuctGeometry {
-    /// Inside diameter of the **inner** tube — the bore of the supply stream.
-    pub inner_bore: Length,
-    /// Inside diameter of the **outer** tube. The annulus is the space between
-    /// this and [`Self::inner_bore`].
-    pub outer_bore: Length,
-    /// Share of the **radial annulus gap** taken up by thermal insulation,
-    /// dimensionless in `[0, 1)`, measured outward from the inner tube.
-    ///
-    /// Insulation thickness is a *drawing* parameter, not a plant dimension:
-    /// see [`Self::htr10_hot_gas_duct`], where the source establishes that
-    /// insulation is present but never states how thick it is.
-    pub insulation_fraction: f32,
-}
-
-impl CoaxialDuctGeometry {
-    /// The HTR-10 hot gas duct: the horizontal coaxial duct inside the
-    /// connecting cross-vessel that ties the reactor pressure vessel to the
-    /// steam-generator pressure vessel.
-    ///
-    /// | Quantity | Value |
-    /// |---|---|
-    /// | Inner (hot helium) tube diameter | 300 mm |
-    /// | Outer (cold helium) tube diameter | 900 mm |
-    /// | Annulus radial gap | 300 mm |
-    /// | Orientation | horizontal |
-    ///
-    /// Hot helium runs core-to-SG in the centre tube; cold helium runs
-    /// circulator-to-core in the annulus, so the two streams are
-    /// counter-current. Thermal insulation is installed between the inner and
-    /// outer tubes, and the inner tube runs at high temperature but **low
-    /// pressure differential** — the cold annulus carries the pressure.
-    ///
-    /// Source: `docs/reactor-scoping/htr10-plant-data.md` section 4.1, which
-    /// records these as *Quoted* from its [S2] and cross-checked against [S5].
-    ///
-    /// **Two things that table marks as unknown, and this constructor
-    /// therefore does not invent:**
-    ///
-    /// - The duct **length** is not stated in any source that document
-    ///   reviews. This type carries no length: the caller sets the drawn run
-    ///   length through `screen_vector`, and a schematic using it should say
-    ///   that the length shown is a layout choice rather than a dimension.
-    /// - The insulation **thickness** is not stated either. The default
-    ///   [`Self::insulation_fraction`] here is an indicative 0.2 of the radial
-    ///   gap, chosen only so the layer is visible. Do not quote it as a plant
-    ///   dimension or derive a heat loss from it.
-    pub fn htr10_hot_gas_duct() -> Self {
-        Self {
-            inner_bore: Length::new::<meter>(0.300),
-            outer_bore: Length::new::<meter>(0.900),
-            insulation_fraction: 0.2,
-        }
-    }
-
-    /// Radial gap between the inner tube's outside and the outer tube's
-    /// inside: `(outer_bore - inner_bore) / 2`.
-    ///
-    /// For the HTR-10 duct this is 300 mm, matching the value the plant-data
-    /// sheet derives the same way.
-    pub fn annulus_radial_gap(&self) -> Length {
-        (self.outer_bore - self.inner_bore) * 0.5
-    }
-
-    /// Flow area of the inner bore, `pi d^2 / 4`.
-    pub fn inner_flow_area(&self) -> Area {
-        let d = self.inner_bore.get::<meter>();
-        Area::new::<square_meter>(std::f64::consts::PI * d * d * 0.25)
-    }
-
-    /// Flow area of the annulus, `pi (D^2 - d^2) / 4`.
-    ///
-    /// Ignores the insulation and the inner tube's wall thickness, neither of
-    /// which is a stated dimension, so this is the **gross** annular area
-    /// rather than a net flow area.
-    pub fn annulus_flow_area(&self) -> Area {
-        let d = self.inner_bore.get::<meter>();
-        let big = self.outer_bore.get::<meter>();
-        Area::new::<square_meter>(std::f64::consts::PI * (big * big - d * d) * 0.25)
-    }
-
-    /// Inner bore as a fraction of the outer bore, which is what sets the band
-    /// proportions in the drawing. `0.333` for the HTR-10 duct.
-    pub fn inner_radius_fraction(&self) -> f32 {
-        let outer = self.outer_bore.get::<meter>();
-        if outer <= 0.0 {
-            return 0.0;
-        }
-        (self.inner_bore.get::<meter>() / outer).clamp(0.0, 1.0) as f32
-    }
-}
-
-/// Visual representation of a **coaxial duct** run: two streams, one inside
-/// the other, drawn as a longitudinal section.
-///
-/// The counterpart of [`PipeVisual`] for the case a single-bore pipe cannot
-/// represent — a supply and a return sharing one duct body. Both streams take
-/// [`PipeScalars`], the same narrow interface [`PipeVisualState::Scalars`]
-/// uses, so a simulator whose loop physics is its own lumped model supplies
-/// that model's real state and gets correct colour and tracer motion.
-///
-/// **Direction comes from the physics, not from an assumption.**
-/// `screen_vector` is the duct **axis**, not a flow direction. Each stream's
-/// tracers travel the way its own [`PipeScalars::mass_flow`] points: positive
-/// runs along `screen_vector`, negative runs against it. So the
-/// counter-current arrangement a coaxial duct is usually built for is a
-/// *consequence* of the state the caller supplies — pass a positive inner
-/// flow and a negative annulus flow — rather than something this widget
-/// imposes. A co-current duct, or a duct with one stream stalled, draws
-/// correctly for the same reason, and **a flow that reverses in a transient
-/// reverses its tracers** instead of continuing to animate a direction the
-/// model no longer has.
-///
-/// **Scale.** Unlike [`PipeVisual`], drawn thickness is **not** derived from
-/// flow area through a [`PipeScale`]: a coaxial duct's whole readability
-/// depends on the *ratio* of its two bores, which a per-stream area scale
-/// would destroy. Thickness is set directly by
-/// [`Self::drawn_outer_thickness`], and the bands within it are in true
-/// proportion to the real bores through
-/// [`CoaxialDuctGeometry::inner_radius_fraction`]. The run **length** is the
-/// caller's `screen_vector` — see [`CoaxialDuctGeometry::htr10_hot_gas_duct`]
-/// on why no real length is carried.
-pub struct CoaxialDuctVisual {
-    /// Bore geometry, setting the band proportions.
-    pub geometry: CoaxialDuctGeometry,
-    /// On-screen anchor: the inner stream's inlet endpoint.
-    pub screen_position: Pos2,
-    /// On-screen direction and length, the inner stream's inlet to outlet.
-    pub screen_vector: Vec2,
-    /// Fluid state of the **inner** bore.
-    pub core: PipeScalars,
-    /// Fluid state of the **annulus**, flowing the opposite way.
-    pub annulus: PipeScalars,
-    /// Temperature drawn in the coldest displayable colour.
-    pub min_temp: ThermodynamicTemperature,
-    /// Temperature drawn in the hottest displayable colour.
-    pub max_temp: ThermodynamicTemperature,
-    /// Total drawn thickness of the duct across the run, in screen points —
-    /// the outer tube's outside, wall to wall.
-    pub drawn_outer_thickness: f32,
-    /// Tracer marks for the inner stream. Advanced by the application, once
-    /// per frame; see [`crate::animation`].
-    pub core_tracer: Option<TracerTrain>,
-    /// Tracer marks for the annulus stream.
-    pub annulus_tracer: Option<TracerTrain>,
-    /// Whether to draw the stream labels.
-    pub show_labels: bool,
-}
-
-impl CoaxialDuctVisual {
-    /// Build a coaxial duct run.
-    ///
-    /// `core` is the inner bore's state and `annulus` the annulus's; the
-    /// annulus is drawn flowing against `screen_vector`.
-    pub fn new(
-        geometry: CoaxialDuctGeometry,
-        screen_position: Pos2,
-        screen_vector: Vec2,
-        core: PipeScalars,
-        annulus: PipeScalars,
-        min_temp: ThermodynamicTemperature,
-        max_temp: ThermodynamicTemperature,
-    ) -> Self {
-        Self {
-            geometry,
-            screen_position,
-            screen_vector,
-            core,
-            annulus,
-            min_temp,
-            max_temp,
-            drawn_outer_thickness: 46.0,
-            core_tracer: None,
-            annulus_tracer: None,
-            show_labels: true,
-        }
-    }
-
-    /// Set the total drawn thickness, in screen points. Builder-style.
-    pub fn with_drawn_thickness(mut self, points: f32) -> Self {
-        self.drawn_outer_thickness = points.max(6.0);
-        self
-    }
-
-    /// Attach the inner-stream tracer train. Builder-style.
-    pub fn with_core_tracer(mut self, tracer: TracerTrain) -> Self {
-        self.core_tracer = Some(tracer);
-        self
-    }
-
-    /// Attach the annulus tracer train. Builder-style.
-    pub fn with_annulus_tracer(mut self, tracer: TracerTrain) -> Self {
-        self.annulus_tracer = Some(tracer);
-        self
-    }
-
-    /// Turn the stream labels off — for thumbnails. Builder-style.
-    pub fn without_labels(mut self) -> Self {
-        self.show_labels = false;
-        self
-    }
-}
-
-impl Widget for CoaxialDuctVisual {
-    /// Draws the duct as a longitudinal section: the annulus as the outer
-    /// body, an insulation layer inside it, and the inner bore on the axis,
-    /// each filled by its own stream's temperature through the shared
-    /// [`crate::components::temperature_colour`] map.
-    ///
-    /// Each stream's tracer marks travel **in the direction that stream is
-    /// actually flowing**: [`crate::animation::TracerTrain`] takes the
-    /// direction from the sign of the mass flow it is advanced with, so this
-    /// widget applies none of its own. In the usual counter-current duct the
-    /// two sets of marks visibly run opposite ways, and a stream that reverses
-    /// or stalls reverses or freezes on screen. Annulus marks are drawn in
-    /// both the upper and lower annular bands, since a longitudinal section
-    /// cuts the annulus twice.
-    fn ui(self, ui: &mut Ui) -> Response {
-        let direction = if self.screen_vector.length() > f32::EPSILON {
-            self.screen_vector.normalized()
-        } else {
-            Vec2::new(1.0, 0.0)
-        };
-        let normal = Vec2::new(-direction.y, direction.x);
-        let length_pts = self.screen_vector.length().max(1.0);
-        let half = 0.5 * self.drawn_outer_thickness;
-
-        let start = self.screen_position;
-        let end = start + direction * length_pts;
-        let rect = Rect::from_two_pos(start, end).expand(half.max(1.0));
-        let response = ui.allocate_rect(rect, Sense::hover());
-        let painter = ui.painter();
-
-        // A band of the section, given signed offsets from the axis.
-        let band = |a: f32, b: f32| -> Vec<Pos2> {
-            vec![
-                start + normal * a,
-                end + normal * a,
-                end + normal * b,
-                start + normal * b,
-            ]
-        };
-
-        let r_inner = self.geometry.inner_radius_fraction() * half;
-        let gap = half - r_inner;
-        let r_insulation = r_inner + gap * self.geometry.insulation_fraction.clamp(0.0, 0.95);
-
-        let cold = temperature_colour(self.annulus.temperature, self.min_temp, self.max_temp);
-        let hot = temperature_colour(self.core.temperature, self.min_temp, self.max_temp);
-
-        // Annulus: the full outer body, drawn first so the inner layers sit
-        // on top of it.
-        painter.add(egui::Shape::convex_polygon(
-            band(-half, half),
-            cold,
-            Stroke::NONE,
-        ));
-        // Insulation, hugging the inner tube on both sides.
-        for sign in [-1.0_f32, 1.0] {
-            painter.add(egui::Shape::convex_polygon(
-                band(sign * r_inner, sign * r_insulation),
-                Color32::from_gray(155),
-                Stroke::NONE,
-            ));
-        }
-        // Inner bore.
-        painter.add(egui::Shape::convex_polygon(
-            band(-r_inner, r_inner),
-            hot,
-            Stroke::NONE,
-        ));
-
-        // Tube walls: the inner tube and the outer tube, same weight and grey
-        // as a single-bore pipe's wall, because they are the same metal.
-        let wall = Color32::from_gray(110);
-        painter.add(egui::Shape::convex_polygon(
-            band(-half, half),
-            Color32::TRANSPARENT,
-            Stroke::new(PIPE_WALL_WIDTH, wall),
-        ));
-        painter.add(egui::Shape::convex_polygon(
-            band(-r_inner, r_inner),
-            Color32::TRANSPARENT,
-            Stroke::new(PIPE_WALL_WIDTH * 0.7, wall),
-        ));
-
-        // Tracer marks.
-        //
-        // Direction is NOT applied here, and deliberately so: `TracerTrain`
-        // already derives it from the sign of the mass flow it is advanced
-        // with, decrementing its phase for a reverse flow. Mirroring the
-        // position here as well would flip it a second time and animate a
-        // reversed stream *forwards* — a hardcoded direction cancelling a
-        // derived one. Each stream therefore runs whichever way the caller's
-        // own mass flow says, and the usual counter-current duct falls out of
-        // advancing the annulus train with a negative flow.
-        let mark_len = (length_pts * TRACER_LENGTH_FRACTION).max(2.0);
-        let plug = |position: f64, a: f32, b: f32| {
-            let centre = length_pts * position as f32;
-            let p0 = (centre - 0.5 * mark_len).clamp(0.0, length_pts);
-            let p1 = (centre + 0.5 * mark_len).clamp(0.0, length_pts);
-            if p1 - p0 < 0.5 {
-                return;
-            }
-            let s = start + direction * p0;
-            let e = start + direction * p1;
-            painter.add(egui::Shape::convex_polygon(
-                vec![
-                    s + normal * a,
-                    e + normal * a,
-                    e + normal * b,
-                    s + normal * b,
-                ],
-                Color32::WHITE,
-                Stroke::NONE,
-            ));
-        };
-
-        if let Some(train) = &self.core_tracer {
-            for position in train.positions() {
-                plug(position, -r_inner, r_inner);
-            }
-        }
-        if let Some(train) = &self.annulus_tracer {
-            for position in train.positions() {
-                plug(position, r_insulation, half);
-                plug(position, -half, -r_insulation);
-            }
-        }
-
-        if self.show_labels {
-            let mid = start + direction * (length_pts * 0.5);
-            painter.text(
-                mid - normal * (half + 9.0),
-                egui::Align2::CENTER_CENTER,
-                "cold annulus",
-                egui::FontId::proportional(9.0),
-                Color32::from_gray(150),
-            );
-            painter.text(
-                mid + normal * (half + 9.0),
-                egui::Align2::CENTER_CENTER,
-                "hot inner tube",
-                egui::FontId::proportional(9.0),
-                Color32::from_gray(150),
-            );
-        }
-
-        response
+        self.art().ui(ui)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::components::hotness_from_temperature;
-    use uom::si::mass_rate::kilogram_per_second;
-    use uom::si::time::second;
-
-    fn scalars(t_k: f64) -> PipeScalars {
-        PipeScalars {
-            temperature: ThermodynamicTemperature::new::<kelvin>(t_k),
-            mass_flow: MassRate::new::<kilogram_per_second>(1.0),
-            residence_time: Time::new::<second>(5.0),
-        }
-    }
+    use uom::si::length::meter;
 
     /// A physics-backed pipe of the given bore (mm), length (m) and
     /// inclination (degrees), on the default scale.
@@ -1037,48 +374,6 @@ mod tests {
         )
     }
 
-    fn visual(state: PipeVisualState) -> PipeVisual {
-        PipeVisual {
-            state,
-            screen_position: Pos2::ZERO,
-            screen_vector: Vec2::new(100.0, 0.0),
-            min_temp: ThermodynamicTemperature::new::<kelvin>(300.0),
-            max_temp: ThermodynamicTemperature::new::<kelvin>(400.0),
-            scale: PipeScale::default(),
-            wall_alarm_temp: None,
-            mark_at: None,
-            tracer: None,
-        }
-    }
-
-    #[test]
-    fn scalar_state_reports_its_single_temperature() {
-        let v = visual(PipeVisualState::Scalars(scalars(350.0)));
-        let temps = v.cell_temperatures();
-        assert_eq!(temps.len(), 1);
-        assert_eq!(temps[0].get::<kelvin>(), 350.0);
-    }
-
-    #[test]
-    fn from_scalars_builds_a_scalar_backed_run() {
-        let v = PipeVisual::from_scalars(
-            scalars(360.0),
-            Pos2::ZERO,
-            Vec2::new(10.0, 0.0),
-            ThermodynamicTemperature::new::<kelvin>(300.0),
-            ThermodynamicTemperature::new::<kelvin>(400.0),
-        );
-        assert!(matches!(v.state, PipeVisualState::Scalars(_)));
-        assert!(v.tracer.is_none());
-    }
-
-    #[test]
-    fn with_tracer_attaches_an_application_owned_train() {
-        let v = visual(PipeVisualState::Scalars(scalars(350.0))).with_tracer(TracerTrain::new(3));
-        let tracer = v.tracer.expect("tracer should be attached");
-        assert_eq!(tracer.count(), 3);
-    }
-
     /// Drawn thickness must be proportional to the flow CROSS-SECTIONAL AREA,
     /// not the diameter — doubling the bore quadruples the area, so the pipe
     /// must draw four times as thick, not twice.
@@ -1114,80 +409,16 @@ mod tests {
         assert!((len(6.0) / len(3.0) - 2.0).abs() < 1e-3);
     }
 
-    /// A divider sits between two solid cells and must key off their MEAN,
-    /// not either one alone — otherwise it misreports which side is hot.
-    ///
-    /// **Methodology:** map a 4-entry wall array onto 4 fluid cells and check
-    /// the proportional mapping picks each cell's own wall node, then verify
-    /// the mean of two adjacent nodes is what a divider would use.
-    ///
-    /// **Result (2026-08-05):** cells 0..3 map to wall nodes 0..3; the mean of
-    /// nodes 1 and 2 (600 K and 900 K) is 750 K, which is below an 800 K alarm
-    /// even though one side is above it. Keying to the hotter side alone would
-    /// have raised a false alarm on that divider.
+    /// The physics path hands the pipe's cells to the art unchanged.
     #[test]
-    fn divider_uses_the_mean_of_its_two_solid_cells() {
-        let k = |v: f64| ThermodynamicTemperature::new::<kelvin>(v);
-        let walls = vec![k(300.0), k(600.0), k(900.0), k(1000.0)];
-        let n = 4;
-        let a = PipeVisual::wall_temperature_at(&walls, 1, n).unwrap();
-        let b = PipeVisual::wall_temperature_at(&walls, 2, n).unwrap();
-        assert_eq!(a.get::<kelvin>(), 600.0);
-        assert_eq!(b.get::<kelvin>(), 900.0);
-        let mean = 0.5 * (a.get::<kelvin>() + b.get::<kelvin>());
-        assert_eq!(mean, 750.0);
-        assert!(mean < 800.0, "mean must not trip an 800 K alarm");
-        assert!(b.get::<kelvin>() > 800.0, "but one side alone would have");
-    }
-
-    /// The solid shell need not have the same node count as the fluid array,
-    /// so the mapping must be proportional rather than index-for-index.
-    #[test]
-    fn wall_mapping_is_proportional_not_index_for_index() {
-        let k = |v: f64| ThermodynamicTemperature::new::<kelvin>(v);
-        // 2 wall nodes spread over 8 fluid cells: first half cold, second hot.
-        let walls = vec![k(300.0), k(900.0)];
-        assert_eq!(
-            PipeVisual::wall_temperature_at(&walls, 0, 8)
-                .unwrap()
-                .get::<kelvin>(),
-            300.0
-        );
-        assert_eq!(
-            PipeVisual::wall_temperature_at(&walls, 7, 8)
-                .unwrap()
-                .get::<kelvin>(),
-            900.0
-        );
-    }
-
-    /// A backend with no solid structure reports no wall, and must not be
-    /// given a fabricated one.
-    #[test]
-    fn no_wall_array_reports_none() {
-        assert!(PipeVisual::wall_temperature_at(&[], 0, 4).is_none());
-    }
-
-    /// Phase shading must lighten a gas relative to a liquid at the same
-    /// temperature, and must never darken it.
-    #[test]
-    fn gas_is_lighter_than_liquid() {
-        let base = crate::color_maps::crameri::vik(0.5);
-        let liquid = PipePhaseShade::Liquid.apply(base);
-        let gas = PipePhaseShade::Gas.apply(base);
-        let two_phase = PipePhaseShade::TwoPhase.apply(base);
-        assert_eq!(liquid, base, "liquid must be untouched");
-        assert!(gas.r() >= two_phase.r() && two_phase.r() >= liquid.r());
-        assert!(gas.g() >= two_phase.g() && two_phase.g() >= liquid.g());
-        assert!(gas.b() >= two_phase.b() && two_phase.b() >= liquid.b());
-    }
-
-    /// The colour map must key off the *cell* temperature, so a mid-range
-    /// cell maps to hotness 0.5 over a [300, 400] K display range.
-    #[test]
-    fn cell_temperature_drives_hotness() {
-        let v = visual(PipeVisualState::Scalars(scalars(350.0)));
-        let t = v.cell_temperatures()[0];
-        assert_eq!(hotness_from_temperature(t, v.min_temp, v.max_temp), 0.5);
+    fn the_art_carries_the_pipes_cells_and_draws() {
+        let v = physics_pipe(50.0, 3.0, 10.0);
+        let art = v.art();
+        assert_eq!(art.cell_temperatures(), v.cell_temperatures());
+        assert_eq!(art.inclination(), v.inclination());
+        assert_eq!(art.wall_temperatures(), None);
+        assert_eq!(v.peak_wall_temperature(), None);
+        assert_eq!(art.phase_shade(), PipePhaseShade::Liquid);
+        assert!(bugis::components::shapes_drawn_by(v) > 0);
     }
 }

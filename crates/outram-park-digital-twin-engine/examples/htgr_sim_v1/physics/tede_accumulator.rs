@@ -105,6 +105,7 @@ impl Default for TedeAccumulator {
 /// The accumulator's published state, one entry per receptor in the
 /// dispersion channel's order (distance-major, then sector) -- the same order
 /// as `HtgrSnapshot::receptors`, whose distance and bearing it is read with.
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TedeSnapshot {
     /// Plant time integrated \[s\] (since plant start).

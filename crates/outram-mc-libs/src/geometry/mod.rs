@@ -10,3 +10,4 @@ pub mod crossing;
 pub mod triso_particle;
 pub mod plot;
 pub mod volume_calc;
+pub mod composite;

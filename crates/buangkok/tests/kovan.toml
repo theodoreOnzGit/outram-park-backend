@@ -2,6 +2,35 @@ schema_version = 1
 kind = "code_folder"
 crate = "buangkok"
 dir = "crates/buangkok/tests"
+test_ids = [
+    "crates/buangkok/tests/changi_puff_train_vs_plume.rs::chi_over_q_is_independent_of_puff_spacing",
+    "crates/buangkok/tests/changi_puff_train_vs_plume.rs::gate_1_changi_train_equals_the_independent_age_sum",
+    "crates/buangkok/tests/changi_puff_train_vs_plume.rs::gate_2_train_vs_plume_matches_the_derived_residual",
+    "crates/buangkok/tests/changi_puff_train_vs_plume.rs::report_the_sigma_fit_difference",
+    "crates/buangkok/tests/liu_cao_external_dose_cross_check.rs::accident_external_band_against_table_9_whole_body",
+    "crates/buangkok/tests/liu_cao_external_dose_cross_check.rs::normal_operation_external_band_against_table_7",
+    "crates/buangkok/tests/liu_cao_external_dose_cross_check.rs::the_ba137m_branching_agrees_with_the_decay_library",
+    "crates/buangkok/tests/liu_cao_external_dose_cross_check.rs::the_external_dose_is_linear_in_the_release",
+    "crates/buangkok/tests/plume_mass_flux_conservation.rs::every_crosswind_plane_carries_the_whole_release",
+    "crates/buangkok/tests/plume_mass_flux_conservation.rs::the_image_is_present_whole_line_carries_twice_the_release",
+    "crates/buangkok/tests/plume_shine_petir_vs_quadpack.rs::petir_qags_matches_the_quadpack_reference_within_the_requested_tolerance",
+    "crates/buangkok/tests/plume_shine_petir_vs_quadpack.rs::plain_qag_measurement_on_the_fixture_cases",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::decay_constants_match_the_fixture_half_life_rows",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::every_fixture_value_is_reproduced_within_its_group_tolerance",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_age_bracket_shift_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_corrected_calm_correction_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_corrected_ingestion_driver_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_exact_daughter_lookup_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_exact_gamma_line_lookup_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_exact_sector_width_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_intended_zeroing_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_petir_qag_instead_of_dqagse_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_single_counted_summary_ingestion_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_true_ln2_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::petir_plume_shine_also_reproduces_the_fixture",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::the_fixture_contains_nan_cases",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::upstream_hukkoo_self_test_table_is_reproduced_exactly",
+]
 
 [module."changi_puff_train_vs_plume.rs"]
 path = "test:changi_puff_train_vs_plume"
@@ -1777,3 +1806,38 @@ uses = [
     "fn:b97cbee887f6a998",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+]
+failed = []

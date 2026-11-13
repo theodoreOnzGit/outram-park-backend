@@ -217,7 +217,9 @@ pub fn relevant_warnings(warnings: &[RecordWarning], reviewers: &BTreeSet<String
     warnings
         .iter()
         .filter(|w| match &w.list {
-            RecordList::DevelopingOrganisation => true,
+            // A retirement with no effect leaves a record counting: shown
+            // everywhere, as a developing-organisation record is.
+            RecordList::DevelopingOrganisation | RecordList::OrganisationRetirement => true,
             RecordList::ReviewerOrganisation { reviewer }
             | RecordList::SeparationAttestation { reviewer } => reviewers.contains(reviewer),
             RecordList::RosterEvent => false,
@@ -330,11 +332,14 @@ pub fn next_step(m: &Rung5Miss) -> &'static str {
         Rung5Miss::NotQualified { .. } => {
             "a maintainer records the reviewer's qualification in these areas"
         }
+        // ~~"a maintainer signs … (Code Review > Organisations & IV&V)"~~
+        // CORRECTED 2026-11-04 (#1211): the founder signs, in User management.
+        // CORRECTED 2026-11-05 (#1248): ~~the founder~~ a founder (several).
         Rung5Miss::ReviewerOrganisation(_) => {
-            "a maintainer signs the reviewer's organisation (Code Review > Organisations & IV&V)"
+            "a founder signs the reviewer's organisation (Code Review > User management)"
         }
         Rung5Miss::DevelopingOrganisation(_) => {
-            "a maintainer signs the developing organisation (Code Review > Organisations & IV&V)"
+            "a founder signs the developing organisation (Code Review > User management)"
         }
         Rung5Miss::SameOrganisation { .. } => {
             "IV&V must come from an organisation separate from the developing one"
@@ -344,7 +349,7 @@ pub fn next_step(m: &Rung5Miss) -> &'static str {
         }
         Rung5Miss::Attestation(_) => {
             "the reviewer signs a new separation attestation with a GitHub issue audit record \
-             (Organisations & IV&V) and re-stamps naming it"
+             (Code Review > User management) and re-stamps naming it"
         }
     }
 }
@@ -387,15 +392,23 @@ pub fn ivv_queue(ev: &Evaluation) -> Vec<IvvQueueRow> {
     }
     for w in &ev.ivv_warnings {
         let reviewer = match &w.list {
-            RecordList::DevelopingOrganisation | RecordList::RosterEvent => None,
+            RecordList::DevelopingOrganisation
+            | RecordList::RosterEvent
+            | RecordList::OrganisationRetirement => None,
             RecordList::ReviewerOrganisation { reviewer }
             | RecordList::SeparationAttestation { reviewer } => Some(reviewer.clone()),
         };
+        // ~~"a maintainer signs a new entry"~~ CORRECTED 2026-11-04 (#1211):
+        // kovan writes organisation records and retirements founder-signed.
         let action = match &w.list {
             RecordList::SeparationAttestation { .. } => {
                 "the reviewer signs a new attestation (append-only: the old entry stays)"
             }
-            _ => "a maintainer signs a new entry (append-only: the old entry stays)",
+            RecordList::RosterEvent => {
+                "a maintainer signs a new entry (append-only: the old entry stays)"
+            }
+            // ~~the founder~~ a founder (GitHub #1248).
+            _ => "a founder signs a new entry (append-only: the old entry stays)",
         };
         out.push(IvvQueueRow {
             function: None,

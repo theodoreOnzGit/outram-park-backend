@@ -1,0 +1,26 @@
+    Updating crates.io index
+   Packaging nee_soon v0.0.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/nee_soon)
+    Updating crates.io index
+warning: package `async-executor v1.14.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+warning: package `clipboard-win v5.4.1` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+warning: package `tokio v1.54.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+    Packaged 188 files, 3.4MiB (961.0KiB compressed)
+   Verifying nee_soon v0.0.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/nee_soon)
+ Downloading crates ...
+  Downloaded teh-o-prke v0.1.8
+  Downloaded tampines v0.0.4
+   Compiling teh-o-prke v0.1.8
+   Compiling tampines v0.0.4
+   Compiling nee_soon v0.0.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/nee_soon-0.0.5)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 13.38s
+   Uploading nee_soon v0.0.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/nee_soon)
+    Uploaded nee_soon v0.0.5 to registry `crates-io`
+note: waiting for nee_soon v0.0.5 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published nee_soon v0.0.5 at registry `crates-io`

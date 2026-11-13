@@ -1,0 +1,29 @@
+    Blocking waiting for file lock on build directory
+   Compiling outram-park-fork-moltres v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-moltres)
+    Finished `release` profile [optimized] target(s) in 2m 29s
+     Running unittests src/lib.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/outram_park_fork_moltres-ff4b43ba6f86ac29)
+
+running 20 tests
+test diffusion::tests::one_group_bare_slab_matches_analytic ... ok
+test diffusion::tests::beta_split_is_invisible_when_spectra_match ... ok
+test materials::tests::keepin_beta_total ... ok
+test materials::tests::materialize_broadcasts_zones ... ok
+test materials::tests::temperature_feedback_shifts_removal ... ok
+test materials::tests::validate_catches_bad_spectrum ... ok
+test materials::tests::validate_catches_scattering_diagonal ... ok
+test precursors::tests::flow_depletes_in_core_precursors ... ok
+test precursors::tests::steady_flow_conserves_production_vs_decay ... ok
+test diffusion::tests::two_group_bare_slab_matches_analytic ... ok
+test precursors::tests::zero_flow_matches_algebraic_equilibrium ... ok
+test ring_mesh::tests::adjacent_cell_distances_are_uniform_including_wrap ... ok
+test ring_mesh::tests::rejects_degenerate_inputs ... ok
+test ring_mesh::tests::ring_topology_and_volume ... ok
+test ring_mesh::tests::uniform_flux_and_zone_map ... ok
+test thermal::tests::steady_loop_energy_balance ... ok
+test precursors::tests::transient_relaxes_to_steady ... ok
+test circulating::tests::zero_flow_matches_static_solver ... ok
+test circulating::tests::flow_reduces_reactivity_monotonically ... ok
+test thermal::tests::temperature_feedback_reduces_k_with_power ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.54s
+

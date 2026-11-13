@@ -45,10 +45,13 @@ separate rendering model that must be kept in sync by hand.
 
 | Module | Status |
 |---|---|
-| `color_maps/` | **Real.** Hot/cold and steam-quality colour functions, ported from the existing validated FHR/CIET simulator examples. |
+| `color_maps/` | **Real.** Hot/cold and steam-quality colour functions, ported from the existing validated FHR/CIET simulator examples, and Crameri's Scientific colour maps. **Since 2026-11-02 thin `egui::Color32` wrappers over `bugis::colour_maps`**, where the maps and tables now live byte for byte. |
 | `components/` | **Real wrappers.** Ten visual process objects, each composing its `tampines` (or `nee_soon`) physics counterpart. `instrumentation` is a deliberate visual-only label/value placeholder — `nee_soon` exposes no instrumentation-readout type to wrap yet. |
 | `animation/` | **Real.** Flow-tracer kinematics: `TracerTrain`, `residence_time_from_flow`, and the `FlowTracer`/`TravelTime` trait contracts. |
 | `app_scaffold/` | **Real.** `Arc<Mutex<_>>` physics-thread + panel-dispatch pattern, plus the thread-panic "please restart" modal. |
+| `ebr2/` | **AI draft, not validated (gh:#1331).** EBR-II for web simulations: cited SHRT-17 / SHRT-45R data (`design`, `shrt`, `kinetics`, `pump`; AI transcriptions of ANL-ARC-226/228 and IAEA-TECDOC-1819, unreviewed) and a GUI-free, wasm-compilable stepping model (`model::Ebr2Model`: point kinetics, fast-reactor feedback, lumped fuel / core / IHX / pool with TUAS sodium). The IHX thermal-centre height is a required input (not in the sources). Record: `docs/ebr2_library.md`. |
+| `msre/` | **AI draft, not validated (gh:#1330).** MSRE in one place for web simulations: cited plant constants (`design`), a GUI-free, wasm-compilable stepping simulator (`model::MsreModel`: circulating-fuel kinetics with fuel and graphite feedback, heat exchanger, coolant loop, radiator, piping lags, from ORNL-TM-1070 and ~~`teh-o-prke`~~ `msre::circulation` (bit-identical to `teh-o-prke`'s kinetics at full flow; **CORRECTED 2026-11-10, gh:#1332**); since gh:#1332 fuel- and coolant-pump trips and start-ups, checked against ORNL-4233 Fig. 24), and re-exports of the workspace's MSRE V&V pieces. ~~Reproduces TM-1647's measured natural period at 7.3 MW to +0.2 %; circulation loss +16 % against TM-1626's measurement.~~ **CHANGED 2026-11-11 (gh:#1330, maintainer: "Let's use ORNL more correct physics"):** the default kinetics are ORNL-TM-1626's importance-weighted line model; TM-1070's well-stirred model is the ablation `MsreConfig::without_line_model()`. With the default, the circulation loss is +8.1 % against TM-1626's measurement (well-stirred +16 %), and TM-1647's natural period is +5.0 % at 7.3 MW and +2.0 % at 1.0 MW (well-stirred +0.2 % and −5.4 %). It costs about 40-60 µs per 0.01 s step (well-stirred about 1 µs). Record: `docs/msre_library.md`. |
+| `multifidelity/` | **AI draft, rung 1 of gh:#1177 (gh:#1178).** `double_pipe`: runs the double-pipe conjugate-heat-transfer CFD (`outram-foam-appbuilder-lib`) and the TUAS 1-D shell-and-tube exchanger (one tube) at the same design points, reads Nusselt and friction closures off the CFD, and interpolates them. The committed dataset and the rung-3 interface (`one_d::evaluate(&x, &θ)`) are documented in the module. Infrastructure: no correlation of its own. V&V record: `verification_and_validation/hf_lf_double_pipe_gh1178.md`. |
 
 ### Flow tracers
 
@@ -244,6 +247,21 @@ which the desktop thread and `examples/ciet_web` both call. Build with
 ```bash
 cargo run --release --example ciet_web -- --headless 600 10 8   # CSV trace, 8 kW
 crates/outram-park-digital-twin-engine/web/ciet/build.sh        # the browser demo
+```
+
+### Two more browser demos, moved from `dhoby-ghaut` (2026-11-05)
+
+`fukushima_web` (the Fukushima Daiichi Unit 1 station blackout, plant model
+`sembawang::bwr_mark1`, published password-gated at `demos/fukushima/`) and
+`double_pipe_twin_web` (the double-pipe high-to-low-fidelity twin, gh:#1182,
+`demos/double-pipe-twin/`, record
+[`verification_and_validation/double_pipe_twin_web_gh1182/`](verification_and_validation/double_pipe_twin_web_gh1182/README.md))
+moved here with their `web/` pages (maintainer, 2026-11-05: "if web examples live in dhoby ghaut, and this causes the dependency cycle, let the web examples deploy from digital twin engine instead"). Both are
+built on `bugis::web_demo`; the published URLs are unchanged.
+
+```bash
+crates/outram-park-digital-twin-engine/web/fukushima/build.sh
+crates/outram-park-digital-twin-engine/web/double_pipe_twin/build.sh
 ```
 
 Documentation:

@@ -20,7 +20,7 @@ use crate::ugraphite::{self, sim, Loaded, GRAPHITE, OUTSIDE, URANIUM};
 use dhoby_ghaut::web_demo::view::View;
 use egui::{Color32, Rect, Sense, Stroke, Vec2};
 
-/// The marker type `rung_table!` names.
+/// The marker type `table.rs` names.
 pub struct Lumped;
 
 impl McRung for Lumped {

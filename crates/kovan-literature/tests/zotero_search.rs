@@ -268,48 +268,170 @@ fn check_case(name: &str) {
     }
 }
 
-macro_rules! cases {
-    ($($name:ident),* $(,)?) => {
-        $(
-            #[test]
-            fn $name() {
-                check_case(stringify!($name));
-            }
-        )*
-        const CASES: &[&str] = &[$(stringify!($name)),*];
-    };
+#[test]
+fn doi_crossref() {
+    check_case("doi_crossref");
 }
 
-cases!(
-    doi_crossref,
-    doi_datacite,
-    doi_other_ra,
-    arxiv_new,
-    arxiv_old,
-    arxiv_with_doi,
-    isbn_loc,
-    pmid,
-    eidr,
-    crossref_rest_article,
-    crossref_rest_book,
-    crossref_rest_preprint,
-    bnf_isbn,
-    k10plus_isbn,
-    nlp_isbn,
-    libris_isbn,
-    who_isbn,
-    eric_journal,
-    eric_report,
-    openalex,
-    // Synthetic (kovan-authored responses; services not contacted).
-    synthetic_ads_bibcode,
-    synthetic_camara_isbn,
-    synthetic_libris_isbn,
-    synthetic_who_isbn,
-    synthetic_open_worldcat,
-    synthetic_medra,
-    synthetic_lulu,
-);
+#[test]
+fn doi_datacite() {
+    check_case("doi_datacite");
+}
+
+#[test]
+fn doi_other_ra() {
+    check_case("doi_other_ra");
+}
+
+#[test]
+fn arxiv_new() {
+    check_case("arxiv_new");
+}
+
+#[test]
+fn arxiv_old() {
+    check_case("arxiv_old");
+}
+
+#[test]
+fn arxiv_with_doi() {
+    check_case("arxiv_with_doi");
+}
+
+#[test]
+fn isbn_loc() {
+    check_case("isbn_loc");
+}
+
+#[test]
+fn pmid() {
+    check_case("pmid");
+}
+
+#[test]
+fn eidr() {
+    check_case("eidr");
+}
+
+#[test]
+fn crossref_rest_article() {
+    check_case("crossref_rest_article");
+}
+
+#[test]
+fn crossref_rest_book() {
+    check_case("crossref_rest_book");
+}
+
+#[test]
+fn crossref_rest_preprint() {
+    check_case("crossref_rest_preprint");
+}
+
+#[test]
+fn bnf_isbn() {
+    check_case("bnf_isbn");
+}
+
+#[test]
+fn k10plus_isbn() {
+    check_case("k10plus_isbn");
+}
+
+#[test]
+fn nlp_isbn() {
+    check_case("nlp_isbn");
+}
+
+#[test]
+fn libris_isbn() {
+    check_case("libris_isbn");
+}
+
+#[test]
+fn who_isbn() {
+    check_case("who_isbn");
+}
+
+#[test]
+fn eric_journal() {
+    check_case("eric_journal");
+}
+
+#[test]
+fn eric_report() {
+    check_case("eric_report");
+}
+
+#[test]
+fn openalex() {
+    check_case("openalex");
+}
+
+#[test]
+fn synthetic_ads_bibcode() {
+    check_case("synthetic_ads_bibcode");
+}
+
+#[test]
+fn synthetic_camara_isbn() {
+    check_case("synthetic_camara_isbn");
+}
+
+#[test]
+fn synthetic_libris_isbn() {
+    check_case("synthetic_libris_isbn");
+}
+
+#[test]
+fn synthetic_who_isbn() {
+    check_case("synthetic_who_isbn");
+}
+
+#[test]
+fn synthetic_open_worldcat() {
+    check_case("synthetic_open_worldcat");
+}
+
+#[test]
+fn synthetic_medra() {
+    check_case("synthetic_medra");
+}
+
+#[test]
+fn synthetic_lulu() {
+    check_case("synthetic_lulu");
+}
+
+const CASES: &[&str] = &[
+    "doi_crossref",
+    "doi_datacite",
+    "doi_other_ra",
+    "arxiv_new",
+    "arxiv_old",
+    "arxiv_with_doi",
+    "isbn_loc",
+    "pmid",
+    "eidr",
+    "crossref_rest_article",
+    "crossref_rest_book",
+    "crossref_rest_preprint",
+    "bnf_isbn",
+    "k10plus_isbn",
+    "nlp_isbn",
+    "libris_isbn",
+    "who_isbn",
+    "eric_journal",
+    "eric_report",
+    "openalex",
+    "synthetic_ads_bibcode",
+    "synthetic_camara_isbn",
+    "synthetic_libris_isbn",
+    "synthetic_who_isbn",
+    "synthetic_open_worldcat",
+    "synthetic_medra",
+    "synthetic_lulu",
+];
 
 /// Every reference case has a test above (a new fixture cannot go
 /// unchecked).

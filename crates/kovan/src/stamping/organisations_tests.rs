@@ -17,8 +17,10 @@ use kovan_common::review::signing::keystore::{generate, Keystore, UnlockedKey};
 use kovan_common::review::signing::registry::SignerProblem;
 use kovan_common::review::state::StateKind;
 
-use super::panel::{Action, OrgPanel};
+use kovan_common::review::signing::session::SharedKeySession;
+
 use crate::stamping::concepts::ConceptChoice;
+use crate::stamping::user_management::{UserAction, UserPanel};
 use super::*;
 use crate::stamping::tests::{clean, founder_key, today, Repo, BY, DIR, LIB, PASS};
 use crate::stamping::{
@@ -250,58 +252,63 @@ fn ivv_end_to_end_signs_records_stamps_and_judges() {
     add_reaching_test(&r);
     let vk = register_verifier(&r, store.path(), &mk, "concept:thermal-hydraulics");
 
-    // The maintainer's records, through the library.
+    // The founder's records, through the library. ~~"not a maintainer"~~
+    // (#1211): only the founder signs them.
     let refused = add_developing_organisation(r.path(), &vk, DEV, None, &today()).unwrap_err();
-    assert!(refused.contains("not a maintainer"), "{refused}");
+    // GitHub #1248: ~~"not the founder"~~ "not a founder".
+    assert!(refused.contains("is not a founder"), "{refused}");
     add_developing_organisation(r.path(), &mk, DEV, None, &today()).unwrap();
     add_reviewer_organisation(r.path(), &mk, V, IVV, &today()).unwrap();
     assert!(r.read(ROOT_FILE).starts_with("# The workspace root"));
 
-    // The attestation, through the panel (workers, passphrase).
-    let mut p = OrgPanel::new(r.path().to_path_buf(), Keystore::at(store.path()));
+    // The attestation, through the User management tab's panel (workers,
+    // passphrase; #1211: the separate window's panel is gone).
+    let mut p = UserPanel::new(r.path().to_path_buf(), Keystore::at(store.path()), SharedKeySession::default());
     p.wait();
-    let o = p.overview.clone().unwrap().unwrap();
+    let o = p.ivv().cloned().unwrap();
     assert_eq!((o.developing.len(), o.reviewer_organisations.len()), (1, 1));
     assert!(o.warnings.is_empty(), "{:?}", o.warnings);
+    assert_eq!(o.developing[0].note, None, "founder-signed: no note");
+    assert!(p.is_founder(), "the founder's key is chosen first");
     p.chosen = p.keys.iter().position(|k| k.reviewer == V).unwrap();
-    p.forms.attestation = Default::default();
+    p.orgs.attestation = Default::default();
     p.prefill_attestation();
-    assert!(!p.is_maintainer());
-    assert_eq!(p.forms.attestation.organisation, IVV);
-    assert_eq!(p.forms.attestation.developing_organisation, DEV);
-    let id = p.forms.attestation.id.clone();
+    assert!(!p.is_founder());
+    assert_eq!(p.orgs.attestation.organisation, IVV);
+    assert_eq!(p.orgs.attestation.developing_organisation, DEV);
+    let id = p.orgs.attestation.id.clone();
     assert_eq!(id, format!("sep-{}", today()));
-    p.forms.attestation.audit_record = "https://github.com/o/r/pull/1".into();
-    p.forms.passphrase = PASS.into();
+    p.orgs.attestation.audit_record = "https://github.com/o/r/pull/1".into();
+    p.passphrase = PASS.into();
     assert!(p
-        .problems(Action::Attestation)
+        .problems(&p.attestation_action())
         .iter()
         .any(|e| e.contains("GitHub issue")));
-    assert!(p
-        .problems(Action::DevelopingOrganisation)
-        .iter()
-        .any(|e| e.contains("Only a maintainer")));
-    assert!(!p.submit(Action::Attestation));
-    p.forms.attestation.audit_record = URL.into();
-    p.forms.passphrase = "wrong passphrase".into();
-    assert!(p.submit(Action::Attestation));
+    p.orgs.dev_name = "Another".into();
+    let dev_problems = p.problems(&p.developing_action());
+    assert!(dev_problems.iter().any(|e| e.contains("Only a founder (github:")), "{dev_problems:?}");
+    assert!(!p.submit(p.attestation_action()));
+    p.orgs.attestation.audit_record = URL.into();
+    p.passphrase = "wrong passphrase".into();
+    assert!(p.submit(p.attestation_action()));
     p.wait();
     assert!(p.error.as_deref().unwrap().contains("Wrong passphrase"));
-    assert_eq!(p.forms.attestation.id, id, "kept after a failure");
-    p.forms.passphrase = PASS.into();
-    assert!(p.submit(Action::Attestation));
+    assert_eq!(p.orgs.attestation.id, id, "kept after a failure");
+    p.passphrase = PASS.into();
+    assert!(p.submit(p.attestation_action()));
     p.wait();
     assert_eq!(p.error, None);
     assert!(p.notices.last().unwrap().contains(&id));
-    let o = p.overview.clone().unwrap().unwrap();
+    let o = p.ivv().cloned().unwrap();
     assert_eq!(o.attestations.len(), 1);
     assert_eq!(o.attestations[0].audit_record.as_deref(), Some(URL));
     assert!(o.warnings.is_empty(), "{:?}", o.warnings);
     assert_eq!(
-        p.forms.attestation.id,
+        p.orgs.attestation.id,
         format!("sep-{}-2", today()),
         "a fresh id next"
     );
+    assert!(p.take_changed(), "the host recomputes rung 5");
     r.commit("organisations and the attestation");
     let choices = attestation_choices_in(r.path(), V);
     assert_eq!(
@@ -570,9 +577,134 @@ fn audit_record_ids_and_missing_root() {
     let d = tempfile::tempdir().unwrap();
     assert!(overview(d.path()).unwrap_err().contains("Index fresh"));
     assert!(attestation_choices_in(d.path(), V).is_empty());
-    let mut p = OrgPanel::new(d.path().to_path_buf(), Keystore::at(d.path().join("keys")));
+    let mut p = UserPanel::new(d.path().to_path_buf(), Keystore::at(d.path().join("keys")), SharedKeySession::default());
     p.wait();
-    assert!(matches!(&p.overview, Some(Err(e)) if e.contains("kovan_root.toml")));
-    assert!(p.key().is_none() && !p.is_maintainer());
-    assert!(!p.submit(Action::ReviewerOrganisation));
+    assert!(matches!(&p.data, Some(Err(e)) if e.contains("kovan_root.toml")));
+    assert!(p.key().is_none() && !p.is_founder() && p.ivv().is_none());
+    assert!(!p.submit(p.reviewer_org_action()));
+    p.prefill_attestation();
+    assert_eq!(p.orgs.attestation, AttestationInput::default(), "nothing to fill from");
+}
+
+/// A second, **non-founder** maintainer `github:mai` (key `m2`), admitted
+/// by the founder, registered and committed.
+fn register_second_maintainer(r: &Repo, store: &std::path::Path, mk: &UnlockedKey) -> UnlockedKey {
+    let (f, k) = generate("github:mai", "m2", &today(), PASS).unwrap();
+    Keystore::at(store).save(&f).unwrap();
+    let mut m = unadmitted_reviewer("github:mai", Some("Mai"), f.reviewer_key());
+    m.role = kovan_common::review::root::Role::Maintainer;
+    m.admitted = Some(today());
+    mk.admit(&mut m).unwrap();
+    register_reviewer(r.path(), &m).unwrap();
+    r.commit("admit a second maintainer");
+    k
+}
+
+/// **Founder-only organisation records and retire (GitHub #1211).**
+/// Methodology: on the stamping fixture, the founder `BY` (key `k1`), a
+/// second admitted maintainer `github:mai` (key `m2`) and the verifier `V`.
+/// A developing-organisation record signed by `github:mai` is appended the
+/// way kovan wrote them before #1211 (signed with the library key, appended
+/// as text), committed. Then, through the library and the User management
+/// tab's panel (workers, passphrase):
+///
+/// Pass:
+/// 1. kovan now refuses `github:mai` signing a new record (library and
+///    panel), naming the founder;
+/// 2. the pre-#1211 record **still counts** (rung 5's developing
+///    organisation in force is it, signature by `github:mai`), no warning,
+///    and the overview marks it: ~~"not the founder: still counts"~~
+///    "not a founder on <date>: still counts" (GitHub #1248);
+/// 3. retiring it is refused for `github:mai` and allowed for the founder;
+///    after it, the record is still listed, marked retired "by github:… ✔",
+///    offers no Retire button, no longer counts (nothing in force), a
+///    second retirement is refused ("retired already"), and a record that
+///    does not exist cannot be retired;
+/// 4. a reviewer-organisation record signed and retired by the founder:
+///    the verifier has no organisation in force afterwards.
+///
+/// Result (2026-11-04): passes.
+#[test]
+fn founder_only_records_retire_and_old_non_founder_records_still_count() {
+    use kovan_common::review::ivv::{developing_organisation, reviewer_organisation, OrganisationProblem};
+    use kovan_common::review::root::{DevelopingOrganisation, OrganisationList, ReviewRoot};
+    use kovan_common::review::root_append::append_developing_organisation;
+    use kovan_common::review::signing::registry::Registry;
+    let r = Repo::new();
+    let store = tempfile::tempdir().unwrap();
+    let mk = founder_key(&r, store.path());
+    let m2 = register_second_maintainer(&r, store.path(), &mk);
+    register_verifier(&r, store.path(), &mk, "concept:thermal-hydraulics");
+
+    // 1. New writes: founder only.
+    let refused = add_developing_organisation(r.path(), &m2, DEV, None, &today()).unwrap_err();
+    // GitHub #1248: ~~"Only the founder"~~ any current founder.
+    assert!(refused.contains(&format!("Only a founder ({BY})")) && refused.contains("github:mai is not a founder"), "{refused}");
+    assert!(add_reviewer_organisation(r.path(), &m2, V, IVV, &today()).unwrap_err().contains("not a founder"));
+
+    // 2. A record as kovan wrote it before #1211, by a non-founder maintainer.
+    let mut old = DevelopingOrganisation { krate: None, name: DEV.into(), date: today(), signer: None, signature: None };
+    m2.sign_developing_organisation(&mut old).unwrap();
+    let t = append_developing_organisation(&r.read(ROOT_FILE), &old).unwrap();
+    r.write(ROOT_FILE, &t);
+    r.commit("a developing organisation signed by a non-founder maintainer (before #1211)");
+    let judge = |date: &str| {
+        let root = ReviewRoot::parse(&r.read(ROOT_FILE)).unwrap();
+        let reg = Registry::build(&root);
+        developing_organisation(&root, &reg, "demo", date, kovan_common::review::engine::SignaturePolicy::Enforce)
+    };
+    assert_eq!(judge(&today()).unwrap().signed_by, Some(("github:mai".into(), "m2".into())), "still counts");
+    let o = overview(r.path()).unwrap();
+    assert!(o.warnings.is_empty(), "{:?}", o.warnings);
+    let note = o.developing[0].note.clone().unwrap();
+    // ~~"not the founder"~~ GitHub #1248: not a founder on its date.
+    assert!(note.contains("github:mai, not a founder on") && note.contains("still counts"), "{note}");
+    let target = o.developing[0].retire.clone().expect("signed, not retired: retirable");
+
+    // 3. Retire, through the panel.
+    let mut p = UserPanel::new(r.path().to_path_buf(), Keystore::at(store.path()), SharedKeySession::default());
+    p.wait();
+    let retire = UserAction::RetireOrganisation(target.clone());
+    p.chosen = p.keys.iter().position(|k| k.reviewer == "github:mai").unwrap();
+    p.passphrase = PASS.into();
+    assert!(p.problems(&retire).iter().any(|e| e.contains("Only a founder")), "{:?}", p.problems(&retire));
+    assert!(!p.submit(retire.clone()));
+    p.chosen = p.keys.iter().position(|k| k.reviewer == BY).unwrap();
+    assert_eq!(p.problems(&retire), Vec::<String>::new());
+    assert!(p.submit(retire.clone()));
+    p.wait();
+    assert_eq!(p.error, None);
+    assert!(p.notices.last().unwrap().contains("no longer counts"), "{:?}", p.notices);
+    let row = &p.ivv().unwrap().developing[0];
+    assert!(row.is_retired && row.retire.is_none());
+    assert_eq!(row.retired, vec![format!("retired from {} by {BY} (key k1) \u{2714}", today())]);
+    assert!(p.ivv().unwrap().warnings.is_empty(), "{:?}", p.ivv().unwrap().warnings);
+    assert_eq!(judge(&today()), Err(OrganisationProblem::NotRecorded), "retired: no longer counts");
+    assert!(p.problems(&retire).iter().any(|e| e.contains("retired already")));
+    let nothing = OrgRecordRef { record: "bm8gc3VjaCByZWNvcmQ".into(), ..target };
+    assert!(retire_problems(&ReviewRoot::parse(&r.read(ROOT_FILE)).unwrap(), &nothing)[0].contains("no signed record"));
+    r.commit("retire");
+
+    // 4. A reviewer's organisation, retired.
+    let e = add_reviewer_organisation(r.path(), &mk, V, IVV, &today()).unwrap();
+    let rev = OrgRecordRef {
+        list: OrganisationList::ReviewerOrganisation,
+        reviewer: Some(V.into()),
+        record: e.signature.unwrap(),
+        name: IVV.into(),
+    };
+    assert!(retire_organisation(r.path(), &m2, &rev, &today()).unwrap_err().contains("not a founder"));
+    retire_organisation(r.path(), &mk, &rev, &today()).unwrap();
+    let root = ReviewRoot::parse(&r.read(ROOT_FILE)).unwrap();
+    let reg = Registry::build(&root);
+    assert_eq!(
+        reviewer_organisation(&root, &reg, V, &today(), kovan_common::review::engine::SignaturePolicy::Enforce),
+        Err(OrganisationProblem::NotRecorded)
+    );
+    let o = overview(r.path()).unwrap();
+    assert!(o.reviewer_organisations[0].is_retired && o.warnings.is_empty(), "{o:?}");
+    // The attestation form skips retired records when it fills itself.
+    let mut a = AttestationInput::default();
+    prefill_attestation(&mut a, &o, &root, V, &today());
+    assert_eq!((a.organisation.as_str(), a.developing_organisation.as_str()), ("", ""));
 }

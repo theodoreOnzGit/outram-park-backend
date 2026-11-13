@@ -126,6 +126,7 @@ pub static R1234YF_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.94e-10,
             qd: 1713796058.2,
             t_ref: -1.0,
+            p_reducing: 3384400.0,
         }),
     }),
 };

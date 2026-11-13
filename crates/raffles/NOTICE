@@ -370,6 +370,217 @@ file comes from before writing its attribution header.
    Status:           AI-assisted draft, not reviewed by a human or the crate owner.
 
 
+SECOND REFERENCE POINT FOR THE gh:#1193 PORTS (2026-11-04)
+==========================================================
+
+src/bayesian/raven_mcmc.rs, src/surrogate/polynomial_chaos/{mod,grid}.rs and
+the RAVEN half of src/surrogate/gaussian_process.rs were read from a newer
+RAVEN than the reference point above:
+
+  Branch:            devel
+  Commit:            8baaae3a97f1392318074ad6d3f8efc26ca81c7e
+  Commit date:       2026-11-03T12:58:18-07:00
+  Date accessed:     2026-11-04
+  LICENSE.txt and NOTICE.txt at that commit: byte-identical to the files
+  preserved here (sha256 49bbe911... and e53e0d10..., as above).
+
+The files ported earlier keep the commit their headers name.
+
+Note on RAVEN's own NOTICE.txt: RAVEN vendors scikit-optimize's GP kernels
+(ravenframework/contrib/SKOpt/GPKernels.py, BSD-3-Clause, Copyright (c)
+2016-2020 The scikit-optimize developers) without a NOTICE.txt entry. None of
+that file is ported here: the kernel values come from scikit-learn (below),
+and RAVEN's `gradient_x` additions are not ported.
+
+
+BSD-3-CLAUSE UPSTREAMS — SCIPY, NUMPY, SCIKIT-LEARN (gh:#1193, 2026-11-04)
+=========================================================================
+
+RAVEN delegates numerics to these libraries; where the RAVEN route needs them,
+the delegated routine is ported too, so the comparison with RAVEN can be
+exact. BSD-3-Clause is compatible with (A)GPLv3; the code flows ONE WAY into
+RAFFLES. Each licence text is preserved verbatim (copied from the installed
+packages' dist-info) and must travel with every distribution:
+
+  SciPy 1.14.1          LICENSE-BSD-SCIPY
+    Copyright (c) 2001-2002 Enthought, Inc. 2003-2024, SciPy Developers.
+    Ported: special/_orthogonal.py (_gen_roots_and_weights, roots_legendre,
+    roots_hermitenorm), special/orthogonal_eval.pxd (eval_legendre_l,
+    eval_hermitenorm), special/special/cephes/{gamma,beta,polevl}.h (the
+    branches eval_legendre reaches).
+    Into: src/surrogate/polynomial_chaos/special.rs.
+
+  NumPy 1.26.4          LICENSE-BSD-NUMPY
+    Copyright (c) 2005-2023, NumPy Developers.
+    Ported: the float64 add reduction's pairwise summation and
+    np.around(x, decimals > 0).
+    Into: src/surrogate/polynomial_chaos/special.rs.
+
+  scikit-learn 1.3.2    LICENSE-BSD-SKLEARN
+    Copyright (c) 2007-2023 The scikit-learn developers.
+    Ported: gaussian_process/_gpr.py (fit, predict, log_marginal_likelihood),
+    gaussian_process/kernels.py (ConstantKernel, RBF, Matern nu 0.5/1.5/2.5,
+    WhiteKernel, Sum, Product), preprocessing/_data.py
+    (_handle_zeros_in_scale).
+    Into: src/surrogate/gaussian_process.rs.
+    NOT ported: scipy's L-BFGS-B (the hyperparameter optimiser is this
+    crate's own bounded BFGS).
+
+Verification of all three: verification_and_validation/raven_routes_gh1193.md.
+Status: AI-assisted draft, not reviewed by a human.
+
+
+SMT, THE SURROGATE MODELING TOOLBOX — BSD-3-CLAUSE (gh:#1190, 2026-11-04)
+=======================================================================
+
+  Project:     SMT (Surrogate Modeling Toolbox), "SMT developers" (the
+               copyright holder named in LICENSE.txt)
+  Repository:  https://github.com/SMTorg/smt
+  Commit:      151a3ff3c13733d168b0ca8844ff0a4ff072252a (master,
+               2026-11-03T17:39:02+01:00), accessed 2026-11-04
+  License:     BSD 3-Clause, "Copyright (c) 2017, SMT developers. All rights
+               reserved." Upstream LICENSE.txt preserved verbatim as
+               LICENSE-BSD-SMT (sha256
+               091e8e50d498577a281e312eccc5f72afdc3319a72ee6c781956e96d393e107c);
+               pyproject.toml declares license = "BSD-3-Clause".
+  Ported:      smt/surrogate_models/krg_based/{krg_based,likelihood_eval,
+               distances,hyperparam_optim}.py, smt/kernels/kernels.py
+               (PowExp, Matern52, Matern32), smt/utils/misc.py
+               (standardization), smt/surrogate_models/{krg,kpls,kplsk}.py,
+               smt/applications/mfk.py.
+  Into:        src/surrogate/smt/{mod,core,krg,mfk}.rs (each with its own
+               header). src/surrogate/smt/linalg.rs is NOT a port (plain
+               loops standing in for LAPACK).
+  NOT ported:  SMT's TNC / COBYLA optimisers (scipy): the hyperparameters are
+               fitted by this crate's bounded BFGS on SMT's objective.
+
+  scikit-learn 1.9.1 (BSD-3-Clause), the routine SMT's KPLS calls:
+    Copyright (c) 2007-2026 The scikit-learn developers.
+    The licence text is that of LICENSE-BSD-SKLEARN (above) with the year
+    range 2007-2026; terms identical.
+    Ported: cross_decomposition/_pls.py (PLSRegression.fit, x_rotations_,
+    one target).
+    Into: src/surrogate/smt/pls.rs.
+
+BSD-3-Clause is compatible with (A)GPLv3; the code flows ONE WAY into
+RAFFLES and may not be contributed back to SMT or scikit-learn, or
+redistributed under BSD terms. Verification:
+verification_and_validation/smt_kriging_gh1190.md.
+Status: AI-assisted draft, not reviewed by a human.
+
+
+SEPIA (LANL) — BSD-3-CLAUSE (gh:#1180, 2026-11-04)
+=================================================
+
+  Project:     SEPIA, Simulation-Enabled Prediction, Inference, and Analysis
+               (Los Alamos National Laboratory), the Python successor of
+               GPMSA (Higdon et al. 2004, 2008)
+  Repository:  https://github.com/lanl/SEPIA
+  Commit:      309890423a121919dc09a678c65a21748bbefb4b (master,
+               2023-10-02), accessed 2026-11-04
+  License:     BSD 3-Clause, "(c) 2020. Triad National Security, LLC. All
+               rights reserved." Upstream License-BSD-3 preserved verbatim as
+               LICENSE-BSD-SEPIA (sha256
+               041d7b8a1cf4e1934af86c65a7a27968f05ea9cf1443be5e4e3a38f7047ec151);
+               setup.py declares license = 'BSD'.
+  Ported:      sepia/SepiaData.py (transform_xt, standardize_y, scalar
+               output), sepia/SepiaDistCov.py (compute_cov_mat),
+               sepia/SepiaLogLik.py (compute_log_lik, scalar branch with and
+               without discrepancy, simulation only), sepia/SepiaPrior.py
+               (compute_log_prior, is_in_bounds), sepia/SepiaModel.py (the
+               default priors of set_params_sim_only / _noD / _full),
+               sepia/SepiaPredict.py (uvPred, scalar branch).
+  Into:        src/bayesian/koh/{mod,data,model}.rs (each with its own
+               header). src/bayesian/koh/sample.rs is NOT a port (raffles'
+               TMCMC drives SEPIA's posterior; SEPIA's own MCMC is not
+               ported).
+
+BSD-3-Clause is compatible with (A)GPLv3; the code flows ONE WAY into
+RAFFLES and may not be contributed back to SEPIA, or redistributed under BSD
+terms. Verification: verification_and_validation/koh_calibration_gh1180.md.
+Status: AI-assisted draft, not reviewed by a human.
+
+
+FILTERPY (Roger R. Labbe Jr) — MIT (gh:#1191, 2026-11-04)
+===========================================================
+
+  Project:     FilterPy, Kalman filtering and optimal estimation library
+               (companion to "Kalman and Bayesian Filters in Python")
+  Repository:  https://github.com/rlabbe/filterpy
+  Commit:      5df4e095fac07684a05c495bd72d3424f7c68c9c (master,
+               2026-10-26, __version__ 2.0.0), accessed 2026-11-04
+  License:     MIT, "Copyright (c) 2015 Roger R. Labbe Jr". Upstream LICENSE
+               preserved verbatim as LICENSE-MIT-FILTERPY (sha256
+               8ffce1097f1b1c0fba42e4449ef49aa05cb7b45566dd0989407839dba07af99c);
+               setup.py declares license='MIT'.
+  Ported:      filterpy/kalman/kalman_filter.py (KalmanFilter predict,
+               Joseph-form update, batch_filter, rts_smoother),
+               filterpy/kalman/EKF.py, filterpy/kalman/sigma_points.py
+               (MerweScaledSigmaPoints), filterpy/kalman/UKF.py and
+               unscented_transform.py, filterpy/kalman/ensemble_kalman_filter.py,
+               filterpy/common/helpers.py (outer_product_sum),
+               filterpy/common/discretization.py (Q_discrete_white_noise,
+               Q_continuous_white_noise, order_by_derivative).
+  Into:        src/filtering/{kalman,ekf,sigma_points,ukf,enkf,discretization}.rs
+               (each with its own header). src/filtering/numpy_ops.rs,
+               consistency.rs and src/fidelity/state_space.rs are NOT ports:
+               numpy_ops reproduces numpy/OpenBLAS rounding orders that were
+               measured (no OpenBLAS source was read or copied).
+
+MIT is compatible with (A)GPLv3; the code flows ONE WAY into RAFFLES and may
+not be contributed back to FilterPy, or redistributed under MIT terms.
+Verification: verification_and_validation/filterpy_gh1191.md.
+Status: AI-assisted draft, not reviewed by a human.
+
+
+OPENDA (OpenDA Association) — LGPL-3.0-or-later (gh:#1192, 2026-11-04)
+=======================================================================
+
+  Project:     OpenDA, open data assimilation toolbox (openda.org)
+  Repository:  https://github.com/OpenDA-Association/OpenDA
+  Commit:      e51565c2c8def7d35f8b378a9ac118edbd98a94d (2026-10-23),
+               accessed 2026-11-04
+  License:     GNU Lesser General Public License v3, "or (at your option)
+               any later version" (each file's header), "Copyright (c) 2012
+               OpenDA Association" (some files 2008/2014/2018). Upstream
+               license.txt preserved verbatim as LICENSE-LGPL-3.0-OPENDA
+               (sha256
+               97628afebc60f026f5c2b25d7491c46a5c4ee61f693e7cfa07fbd2c03605979b).
+  Ported:      algorithms/.../kalmanFilter/{EnKF, EnsembleVectors,
+               AutoLocalizationZhang2011, EnSR, ParticleFilter,
+               SteadyStateFilter, AbstractSequentialAlgorithm,
+               AbstractSequentialEnsembleAlgorithm}.java;
+               algorithms/{BaseDudCoreOptimizer, DudCoreOptimizer,
+               SimplexCoreOptimizer, PowellCoreOptimizer,
+               SimulationKwadraticCostFunction, SimpleCostFunction,
+               RosenbrockCostFunction, SimpleLeastSquaresCostFunction}.java;
+               core/.../utils/{Matrix, VectorDouble, StochVector,
+               SqrtCovariance, Time}.java; models/.../{simpleModel/
+               SimpleStochModelInstance, oscillator/OscillatorStochModelInstance,
+               lorenz/LorenzStochModelInstance}.java; observers/
+               CsvStochObserver.java (subset).
+  Into:        src/openda/{enkf,ensr,sequential,dud,simplex,powell,cost,
+               noise,models,linalg}.rs, each with its own header.
+               src/openda/mod.rs and noise.rs's DrawSource are NOT ports.
+
+  LGPL-3.0 is GPL-3.0 plus additional permissions, so this code is conveyed
+  inside the AGPL-3.0-only crate as a combined work (GPLv3 section 13 /
+  AGPLv3 section 13); the ported files keep OpenDA's LGPL notice.
+
+JAMA (NIST and The MathWorks) — public domain (gh:#1192, 2026-11-04)
+===================================================================
+
+  JAMA 1.0.2, Jama/SingularValueDecomposition.java, Jama/util/Maths.java,
+  Jama/Matrix.java (times, transpose), as vendored by OpenDA
+  (core/java/resources/jama/Jama-1.0.2.jar; sources from Maven Central
+  gov.nist.math:jama:1.0.2, bytecode checked identical in arithmetic).
+  "This software is a cooperative product of The MathWorks and the National
+  Institute of Standards and Technology (NIST) which has been released to the
+  public domain." Into src/openda/jama.rs.
+
+Verification: verification_and_validation/openda_gh1192.md.
+Status: AI-assisted draft, not reviewed by a human.
+
 INDEPENDENCE / TRADEMARK
 ========================
 

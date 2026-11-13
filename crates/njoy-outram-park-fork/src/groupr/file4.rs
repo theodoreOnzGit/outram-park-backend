@@ -194,13 +194,17 @@ pub struct File4Options {
     pub lab_as_cm: bool,
     /// `hgtfle`'s log-law sign fallback (see the field of the same name).
     pub log_sign_fallback: bool,
+    /// `getco` with `lcd = 1` (lab wanted) on CM data (`LCT = 2`): every record
+    /// goes through the 64-point quadrature with `xn = (1+awr x)/sqrt(1+awr^2+2 awr x)`
+    /// (`groupr.f90:10550`, `:10686`). `getff` label 200 asks for this.
+    pub cm_to_lab: bool,
 }
 
 impl File4Options {
     /// GROUPR's `getfle`.
-    pub const GROUPR: File4Options = File4Options { toler: TOLER, lab_as_cm: false, log_sign_fallback: false };
+    pub const GROUPR: File4Options = File4Options { toler: TOLER, lab_as_cm: false, log_sign_fallback: false, cm_to_lab: false };
     /// HEATR's `hgtfle`, with lab data refused (set `lab_as_cm` per reaction).
-    pub const HEATR: File4Options = File4Options { toler: 1.0e-6, lab_as_cm: false, log_sign_fallback: true };
+    pub const HEATR: File4Options = File4Options { toler: 1.0e-6, lab_as_cm: false, log_sign_fallback: true, cm_to_lab: false };
 }
 
 /// `getfle`'s answer at one energy.
@@ -244,6 +248,7 @@ fn getco_tabulated(
     pairs: &[(f64, f64)],
     nl_max: usize,
     toler: f64,
+    awr_lab: Option<f64>,
 ) -> Result<Vec<f64>, NjoyError> {
     let l = nl_max - 1;
     let mut fl = vec![0.0f64; nl_max];
@@ -254,7 +259,7 @@ fn getco_tabulated(
         } else {
             eval_tab1(x, interp, pairs)?
         };
-        let p = legndr(x, l);
+        let p = legndr(cm_to_lab_cosine(x, awr_lab), l);
         let yw = y * w;
         for il in 0..nl_max {
             fl[il] += yw * p[il];
@@ -272,13 +277,57 @@ fn getco_tabulated(
     Ok(fl)
 }
 
+/// `getco` label 370 (`groupr.f90:10684-10686`): the cosine the Legendre
+/// polynomials are taken at, `x` itself, or for CM data wanted in the lab
+/// (`awr_lab = Some(awr)`) `(1 + awr x) / sqrt(1 + awr^2 + 2 awr x)`.
+fn cm_to_lab_cosine(x: f64, awr_lab: Option<f64>) -> f64 {
+    match awr_lab {
+        Some(awr) => (1.0 + awr * x) / (1.0 + awr * awr + 2.0 * awr * x).sqrt(),
+        None => x,
+    }
+}
+
+/// `getco` label 300 for Legendre data (`LTT = 1`) wanted in another frame
+/// (`groupr.f90:10603-10612`, `:10684-10700`): `y = 1/2 + sum (2l+1)/2 a_l P_l(x)`
+/// at the 64 Gauss points, projected on `P_l(xn)`, `toler` rounding, trimmed.
+fn getco_legendre_converted(a: &[f64], nl_max: usize, toler: f64, awr: f64) -> Vec<f64> {
+    let l = nl_max - 1;
+    let np = a.len();
+    let mut fl = vec![0.0f64; nl_max];
+    for (x, w) in gauss64() {
+        let pr = legndr(x, np);
+        let mut y = 1.0;
+        y /= 2.0;
+        for ip in 1..=np {
+            y += (2 * ip + 1) as f64 * pr[ip] * a[ip - 1] / 2.0;
+        }
+        let p = legndr(cm_to_lab_cosine(x, Some(awr)), l);
+        let yw = y * w;
+        for il in 0..nl_max {
+            fl[il] += yw * p[il];
+        }
+    }
+    let mut nlz = 1;
+    for il in 2..=nl_max {
+        let j = (fl[il - 1] / toler).round();
+        fl[il - 1] = j * toler;
+        if j != 0.0 {
+            nlz = il;
+        }
+    }
+    fl.truncate(nlz);
+    fl
+}
+
 /// Read one TAB2's worth of angular records (`ne` of them, each a LIST for
-/// `ltt = 1` or a TAB1 for `ltt = 2`) into [`EnergyPoint`]s.
+/// `ltt = 1` or a TAB1 for `ltt = 2`) into [`EnergyPoint`]s. `awr_lab` is
+/// `Some(awr)` when CM data is wanted in the lab ([`File4Options::cm_to_lab`]).
 fn read_records(
     cur: &mut SectionCursor<'_>,
     ltt: i32,
     nl_max: usize,
     toler: f64,
+    awr_lab: Option<f64>,
     out: &mut Vec<EnergyPoint>,
 ) -> Result<(), NjoyError> {
     let tab2 = cur.read_tab2()?;
@@ -296,7 +345,10 @@ fn read_records(
                 let list = cur.read_list()?;
                 EnergyPoint {
                     energy: list.head.c2,
-                    fl: getco_legendre(&list.data, nl_max),
+                    fl: match awr_lab {
+                        Some(awr) => getco_legendre_converted(&list.data, nl_max, toler, awr),
+                        None => getco_legendre(&list.data, nl_max),
+                    },
                     law,
                 }
             }
@@ -304,7 +356,7 @@ fn read_records(
                 let t = cur.read_tab1()?;
                 EnergyPoint {
                     energy: t.head.c2,
-                    fl: getco_tabulated(&t.interp, &t.pairs, nl_max, toler)?,
+                    fl: getco_tabulated(&t.interp, &t.pairs, nl_max, toler, awr_lab)?,
                     law,
                 }
             }
@@ -355,6 +407,19 @@ impl File4Angular {
         Self::from_tape_with(tape, mat, mt, nl_max, &File4Options::GROUPR)
     }
 
+    /// `getfle` with `lcd = 1` (the lab frame), as `getff` label 200 asks for it
+    /// (`groupr.f90:7152-7153`): lab data (`LCT = 1`) is read as it is, CM data
+    /// (`LCT = 2`, unless `LI = 1`) goes through `getco`'s 64-point quadrature
+    /// with the CM-to-lab cosine (`:10550`, `:10686`), so a CM-isotropic table
+    /// gains lab moments.
+    ///
+    /// # Errors
+    /// As [`File4Angular::from_tape_with`].
+    pub fn from_tape_lab(tape: &Tape, mat: i32, mt: i32, nl_max: usize) -> Result<Self, NjoyError> {
+        let opts = File4Options { lab_as_cm: true, cm_to_lab: true, ..File4Options::GROUPR };
+        Self::from_tape_with(tape, mat, mt, nl_max, &opts)
+    }
+
     /// [`File4Angular::from_tape`] with the reading rules of `opts`, so
     /// HEATR's `hgtfle` reuses this port instead of a second one.
     ///
@@ -384,6 +449,8 @@ impl File4Angular {
         let li = second.l1;
         let lct = second.l2;
         let mut points = Vec::new();
+        // `getco` with `lcd = 1` on CM data: `xn` from `awr = fls(2)`, the HEAD's C2 (`:9713`).
+        let awr_lab = (opts.cm_to_lab && lct == 2).then_some(head.c2);
         if li != 1 {
             if lct == 1 && !opts.lab_as_cm {
                 // getco:10685 — "lab to cm conversion not coded".
@@ -393,10 +460,10 @@ impl File4Angular {
                 )));
             }
             match ltt {
-                1 | 2 => read_records(&mut cur, ltt, nl_max, toler, &mut points)?,
+                1 | 2 => read_records(&mut cur, ltt, nl_max, toler, awr_lab, &mut points)?,
                 3 => {
-                    read_records(&mut cur, 1, nl_max, toler, &mut points)?;
-                    read_records(&mut cur, 2, nl_max, toler, &mut points)?;
+                    read_records(&mut cur, 1, nl_max, toler, awr_lab, &mut points)?;
+                    read_records(&mut cur, 2, nl_max, toler, awr_lab, &mut points)?;
                 }
                 other => {
                     return Err(NjoyError::EndfParse(format!(
@@ -415,6 +482,13 @@ impl File4Angular {
             lo_fl,
             log_sign_fallback: opts.log_sign_fallback,
         })
+    }
+
+    /// An isotropic centre-of-mass distribution with no records: what `getfle`
+    /// gives for File-6 two-body data with `|law| = 3` or `law = -4` (`mfd = 8`,
+    /// `iso = 1`, `groupr.f90:9733-9737`, then label 440 on every call).
+    pub fn isotropic_cm() -> Self {
+        Self { lct: 2, isotropic: true, points: Vec::new(), lo_fl: Vec::new(), log_sign_fallback: false }
     }
 
     /// Number of tabulated incident energies.
@@ -583,7 +657,7 @@ mod tests {
     /// `fl(2)` within 2e-8 of 1/3, `nlz = 2`.
     #[test]
     fn tabulated_linear_distribution_gives_one_third() {
-        let fl = getco_tabulated(&[(2, 2)], &[(-1.0, 0.0), (1.0, 1.0)], NLD, TOLER).unwrap();
+        let fl = getco_tabulated(&[(2, 2)], &[(-1.0, 0.0), (1.0, 1.0)], NLD, TOLER, None).unwrap();
         assert!((fl[0] - 1.0).abs() < 2e-8, "fl(1) = {}", fl[0]);
         assert_eq!(fl.len(), 2, "nlz: {fl:?}");
         assert!((fl[1] - 1.0 / 3.0).abs() < 2e-8, "fl(2) = {}", fl[1]);
@@ -639,6 +713,20 @@ mod tests {
     /// Methodology: NJOY's 64-point table must integrate `1` and `mu^2`
     /// (`2` and `2/3`) — a sanity check on the transcription of `qp`/`qw`.
     /// Result (2026-09-10): both within 1e-8.
+    /// `getco` label 300 to the lab: CM-isotropic data given as Legendre
+    /// (no coefficients) and as a flat table give the same lab moments, and the
+    /// first one is positive (forward peaking, `awr = 2`).
+    #[test]
+    fn cm_isotropic_converts_to_forward_lab_moments() {
+        let a = getco_legendre_converted(&[], NLD, TOLER, 2.0);
+        let t = getco_tabulated(&[(2, 2)], &[(-1.0, 0.5), (1.0, 0.5)], NLD, TOLER, Some(2.0)).unwrap();
+        assert!(a.len() > 1 && a[1] > 0.0, "{a:?}");
+        assert_eq!(a.len(), t.len());
+        for (x, y) in a.iter().zip(&t) {
+            assert!((x - y).abs() <= 1e-12, "{a:?} {t:?}");
+        }
+    }
+
     #[test]
     fn gauss64_table_integrates_polynomials() {
         let s0: f64 = gauss64().map(|(_, w)| w).sum();

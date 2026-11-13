@@ -1,6 +1,6 @@
 [package]
 name = "tampines-steam-tables"
-version = "0.3.0"
+version = "0.3.1"
 authors = [
     "Ong Kay Chen Theodore",
     "Ethan Yew Hoe, Wong",
@@ -8,7 +8,7 @@ authors = [
     "University of California, Berkeley Thermal Hydraulics Lab",
     "Singapore Nuclear Research and Safety Institute (SNRSI)",
     "National University of Singapore (NUS)",
-    "Repository Contributors",
+    "The OUTRAM PARK backend contributors",
 ]
 edition.workspace = true
 license.workspace = true
@@ -126,6 +126,11 @@ uom.workspace = true
 # ours, and its rayon/wgpu are optional and off. Android- and wasm-clean.
 outram-foam-basic-lib.workspace = true
 
+# gh:#1346: inflate the committed gzipped upstream reference files in
+# tests/if97_vs_coolprop_if97.rs. Pure Rust, already a workspace dependency (MIT/Zlib/Apache-2.0).
+[dev-dependencies]
+miniz_oxide.workspace = true
+
 [features]
 # `long-tests` gates the individual tests that measure over 5 minutes, and is
 # default-on, so a plain `cargo test` runs them. See the "Any test over 5
@@ -166,6 +171,7 @@ tuas_boussinesq_solver.workspace = true
 teh-o-prke.workspace = true
 chem-eng-real-time-process-control-simulator.workspace = true
 egui.workspace = true
+bugis.workspace = true
 eframe.workspace = true
 env_logger.workspace = true
 local-ip-address.workspace = true
@@ -198,8 +204,9 @@ path = "examples/fhr_sim_v1/main.rs"
 name = "depressurisation"
 path = "examples/depressurisation/main.rs"
 
-# fhr_sim_v2 moved to crates/tampines/examples/fhr_sim_v2/ (op-dt3.7) -- its
-# Nordheim-Fuchs kinetics reconstruction lives there.
+# fhr_sim_v2 moved to ~~crates/tampines/examples/fhr_sim_v2/ (op-dt3.7)~~
+# crates/nee_soon/examples/fhr_sim_v2/ (CORRECTED 2026-11-05, moved again
+# (maintainer, 2026-11-05: "nee_soon depends on tampines, never the reverse")) -- its Nordheim-Fuchs kinetics reconstruction lives there.
 
 [[example]]
 name = "rankine_cycle"

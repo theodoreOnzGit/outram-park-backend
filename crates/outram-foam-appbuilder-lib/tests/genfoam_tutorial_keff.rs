@@ -435,21 +435,13 @@ fn report(name: &str, s: &Solved, expected: f64) -> f64 {
 }
 
 /// Skip with a clear reason rather than failing when upstream is absent.
-macro_rules! require_upstream {
-    () => {
-        match upstream_root() {
-            Some(r) => r,
-            None => {
-                println!(
-                    "SKIP: upstream GeN-Foam not found. Clone it with\n  \
-                     git clone --depth 1 \
-                     https://gitlab.com/foam-for-nuclear/GeN-Foam.git /workspace/GeN-Foam\n\
-                     or set GENFOAM_UPSTREAM."
-                );
-                return;
-            }
-        }
-    };
+fn skip_message_no_upstream() {
+    println!(
+        "SKIP: upstream GeN-Foam not found. Clone it with\n  \
+         git clone --depth 1 \
+         https://gitlab.com/foam-for-nuclear/GeN-Foam.git /workspace/GeN-Foam\n\
+         or set GENFOAM_UPSTREAM."
+    );
 }
 
 /// **V&V — ESFR: reference-state k_eff against upstream's `expectedKeff`.**
@@ -509,7 +501,10 @@ macro_rules! require_upstream {
 /// "consistent" into "verified". Tracked under `op-2df1`.
 #[test]
 fn esfr_reference_state_keff_against_upstream() {
-    let root = require_upstream!();
+    let Some(root) = upstream_root() else {
+        skip_message_no_upstream();
+        return;
+    };
     let case = root.join("Tutorials/reactorCases/3D_SmallESFR_NewSolverVerification/newSolver");
     let Some(region) = stage_region(&case, "neutroRegion", "esfr") else {
         println!("SKIP: could not stage the ESFR case (is `gzip` available?)");
@@ -586,7 +581,10 @@ fn esfr_reference_state_keff_against_upstream() {
 /// blanket default.
 #[test]
 fn msfr_reference_state_keff_brackets_upstream() {
-    let root = require_upstream!();
+    let Some(root) = upstream_root() else {
+        skip_message_no_upstream();
+        return;
+    };
     let case = root.join("Tutorials/reactorCases/2D_MSFR/rootCase");
     let Some(region) = stage_region(&case, "neutroRegion", "msfr") else {
         println!("SKIP: could not stage the MSFR case (is `gzip` available?)");
@@ -711,7 +709,10 @@ fn msfr_reference_state_keff_brackets_upstream() {
 /// because nothing makes them keep agreeing.
 #[test]
 fn msfr_keff_with_upstreams_albedo_boundary() {
-    let root = require_upstream!();
+    let Some(root) = upstream_root() else {
+        skip_message_no_upstream();
+        return;
+    };
     let case = root.join("Tutorials/reactorCases/2D_MSFR/rootCase");
     let Some(region) = stage_region(&case, "neutroRegion", "msfr_albedo") else {
         println!("SKIP: could not stage the MSFR case (is `gzip` available?)");
@@ -757,7 +758,10 @@ fn msfr_keff_with_upstreams_albedo_boundary() {
 /// the port's reference-state `k_eff` and upstream's coupled one would need.
 #[test]
 fn msfr_reactivity_coefficients_from_upstreams_perturbed_states() {
-    let root = require_upstream!();
+    let Some(root) = upstream_root() else {
+        skip_message_no_upstream();
+        return;
+    };
     let case = root.join("Tutorials/reactorCases/2D_MSFR/rootCase");
     let Some(region) = stage_region(&case, "neutroRegion", "msfr_coeff") else {
         println!("SKIP");
@@ -854,7 +858,10 @@ fn msfr_reactivity_coefficients_from_upstreams_perturbed_states() {
 /// See the printed report.
 #[test]
 fn msfr_keff_against_upstream_run_at_its_converged_state() {
-    let root = require_upstream!();
+    let Some(root) = upstream_root() else {
+        skip_message_no_upstream();
+        return;
+    };
     let case = root.join("Tutorials/reactorCases/2D_MSFR/rootCase");
     let Some(region) = stage_region(&case, "neutroRegion", "msfr_converged") else {
         println!("SKIP: could not stage the MSFR case (is `gzip` available?)");
@@ -965,7 +972,10 @@ fn msfr_keff_against_upstream_run_at_its_converged_state() {
 /// `TFuel` spans 668–1949 K under a logarithmic parametrisation.
 #[test]
 fn esfr_keff_against_upstream_run_at_its_converged_state() {
-    let root = require_upstream!();
+    let Some(root) = upstream_root() else {
+        skip_message_no_upstream();
+        return;
+    };
     let case = root.join("Tutorials/reactorCases/3D_SmallESFR_NewSolverVerification/newSolver");
     let Some(region) = stage_region(&case, "neutroRegion", "esfr_converged") else {
         println!("SKIP: could not stage the ESFR case (is `gzip` available?)");
@@ -1112,7 +1122,10 @@ fn esfr_keff_against_upstream_run_at_its_converged_state() {
 /// flipped, not an inference.
 #[test]
 fn msfr_keff_against_upstream_with_per_cell_cross_sections() {
-    let root = require_upstream!();
+    let Some(root) = upstream_root() else {
+        skip_message_no_upstream();
+        return;
+    };
     let case = root.join("Tutorials/reactorCases/2D_MSFR/rootCase");
     let Some(region) = stage_region(&case, "neutroRegion", "msfr_percell") else {
         println!("SKIP: could not stage the MSFR case (is `gzip` available?)");
@@ -1274,7 +1287,10 @@ fn msfr_keff_against_upstream_with_per_cell_cross_sections() {
 /// benchmark with a published reference `k_eff`.
 #[test]
 fn msfr_keff_against_upstream_with_precursor_drift() {
-    let root = require_upstream!();
+    let Some(root) = upstream_root() else {
+        skip_message_no_upstream();
+        return;
+    };
     let case = root.join("Tutorials/reactorCases/2D_MSFR/rootCase");
     let Some(region) = stage_region(&case, "neutroRegion", "msfr_drift") else {
         println!("SKIP: could not stage the MSFR case (is `gzip` available?)");

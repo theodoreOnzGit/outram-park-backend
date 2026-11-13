@@ -98,13 +98,20 @@ impl CovarianceForm {
         }
     }
 
-    /// Parse the upstream `irelco` code (anything != 0 is relative, matching
-    /// `if (irelco.ne.1)` at `covr.f90:929`).
+    /// Parse the upstream `irelco` code. Only `1` is relative: `covr.f90:929`
+    /// divides by the cross sections `if (irelco.ne.1)`, so `0` and every other
+    /// value are absolute.
+    ///
+    /// ~~anything != 0 is relative~~ **CORRECTED 2026-11-13 (gh:#1369)**: the
+    /// old mapping disagreed with `covr.f90:929` for codes other than 0 and 1
+    /// (e.g. `2` was read as relative where upstream divides). No caller passed
+    /// such a code (the deck reader refuses them; the library path forces 1),
+    /// so no output moved.
     pub fn from_irelco(irelco: i32) -> Self {
-        if irelco == 0 {
-            CovarianceForm::Absolute
-        } else {
+        if irelco == 1 {
             CovarianceForm::Relative
+        } else {
+            CovarianceForm::Absolute
         }
     }
 }
@@ -513,10 +520,10 @@ mod tests {
         }
         assert_eq!(ColorStyle::from_icolor(7), None);
 
-        // covr.f90:98-99, :929 (anything != 0 is relative)
+        // covr.f90:98-99, :929 (only 1 is relative; `irelco.ne.1` divides)
         assert_eq!(CovarianceForm::from_irelco(0), CovarianceForm::Absolute);
         assert_eq!(CovarianceForm::from_irelco(1), CovarianceForm::Relative);
-        assert_eq!(CovarianceForm::from_irelco(7), CovarianceForm::Relative);
+        assert_eq!(CovarianceForm::from_irelco(7), CovarianceForm::Absolute);
 
         // covr.f90:104-106
         for (l, code) in [

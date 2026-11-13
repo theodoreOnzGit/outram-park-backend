@@ -667,10 +667,15 @@ fn apply_hanging_constraints(points: &mut [Vector3], constraints: &[HangingConst
 }
 
 /// A detected STL feature edge: the two endpoints (metres) of a crease.
+///
+/// Public since 2026-11-05 (gh:#1276) so that `outram-park-fork-cfmesh`'s
+/// port of cfMesh's `triSurfaceDetectFeatureEdges` can be tested against it.
 #[derive(Debug, Clone, Copy)]
-struct FeatureEdge {
-    a: Vector3,
-    b: Vector3,
+pub struct FeatureEdge {
+    /// One endpoint `[m]`.
+    pub a: Vector3,
+    /// The other endpoint `[m]`.
+    pub b: Vector3,
 }
 
 /// Detect feature edges of a triangle soup: edges shared by two triangles whose
@@ -681,7 +686,12 @@ struct FeatureEdge {
 /// angle between the two facet normals; a shared edge is a feature edge when
 /// that angle exceeds the threshold. Restricted port of the feature-edge
 /// extraction underlying `snappySnapDriverFeature.C`.
-fn detect_feature_edges(surface: &TriangleSoup, angle_deg: f64) -> Vec<FeatureEdge> {
+///
+/// The output order follows a `HashMap` and is not deterministic; compare
+/// it as a set. Open and non-manifold edges are never reported, and the
+/// facets' relative orientation is not checked. Public since 2026-11-05
+/// (gh:#1276), for the cfMesh differential.
+pub fn detect_feature_edges(surface: &TriangleSoup, angle_deg: f64) -> Vec<FeatureEdge> {
     let cos_thresh = angle_deg.to_radians().r_cos();
     // Quantise vertices to merge coincident endpoints (STL soups are unshared).
     let quant = 1e-6_f64; // 1 micron grid — adequate for metre-scale test geometry.

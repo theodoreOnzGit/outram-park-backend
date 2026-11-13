@@ -13,7 +13,7 @@
 ///    This file is part of tuas_boussinesq_solver, a partial library of the
 ///    thermal hydraulics library written in rust meant to help with the
 ///    fluid mechanics and heat transfer aspects of the calculations
-///     
+///
 ///    Copyright (C) 2022-2023  Theodore Kay Chen Ong, Singapore Nuclear
 ///    Research and Safety Initiative, Per F. Peterson, University of
 ///    California, Berkeley Thermal Hydraulics Laboratory
@@ -547,8 +547,8 @@ pub trait FluidComponentCollectionParallelAssociatedFunctions {
 
             return <Self as FluidComponentCollectionParallelAssociatedFunctions>::
                 calculate_pressure_change_using_guessed_branch_mass_flowrate(
-                    guess_average_mass_flowrate, 
-                    user_requested_mass_flowrate, 
+                    guess_average_mass_flowrate,
+                    user_requested_mass_flowrate,
                     fluid_component_vector);
         }
 
@@ -582,18 +582,18 @@ pub trait FluidComponentCollectionParallelAssociatedFunctions {
         // mass flowrate = 0.0
         //
 
-        let zero_flow_pressure_change_est_vector = 
+        let zero_flow_pressure_change_est_vector =
             <Self as FluidComponentCollectionParallelAssociatedFunctions>::
             obtain_pressure_estimate_vector(
-                zero_mass_flowrate, 
+                zero_mass_flowrate,
                 fluid_component_vector);
 
-        let max_pressure_change_at_zero_flow = 
+        let max_pressure_change_at_zero_flow =
             <Self as FluidComponentCollectionParallelAssociatedFunctions>::
             obtain_maximum_pressure_from_vector(
                 &zero_flow_pressure_change_est_vector);
 
-        let min_pressure_change_at_zero_flow = 
+        let min_pressure_change_at_zero_flow =
             <Self as FluidComponentCollectionParallelAssociatedFunctions>::
             obtain_minimum_pressure_from_vector(
                 &zero_flow_pressure_change_est_vector);
@@ -604,10 +604,10 @@ pub trait FluidComponentCollectionParallelAssociatedFunctions {
         // step 2: now i'll apply the user_specified flowrate to all the branches
         // and calculate pressure loss
 
-        let user_specified_flow_pressure_loss_est_vector = 
+        let user_specified_flow_pressure_loss_est_vector =
             <Self as FluidComponentCollectionParallelAssociatedFunctions>::
             obtain_pressure_loss_estimate_vector(
-                user_requested_mass_flowrate, 
+                user_requested_mass_flowrate,
                 fluid_component_vector);
 
         // note that these pressure loss values are likely positive
@@ -641,8 +641,8 @@ pub trait FluidComponentCollectionParallelAssociatedFunctions {
 
             return <Self as FluidComponentCollectionParallelAssociatedFunctions>::
                 calculate_pressure_change_using_guessed_branch_mass_flowrate(
-                    guess_average_mass_flowrate, 
-                    user_requested_mass_flowrate, 
+                    guess_average_mass_flowrate,
+                    user_requested_mass_flowrate,
                     fluid_component_vector);
         }
 
@@ -668,8 +668,8 @@ pub trait FluidComponentCollectionParallelAssociatedFunctions {
 
             return <Self as FluidComponentCollectionParallelAssociatedFunctions>::
                 calculate_pressure_change_using_guessed_branch_mass_flowrate(
-                    guess_average_mass_flowrate, 
-                    user_requested_mass_flowrate, 
+                    guess_average_mass_flowrate,
+                    user_requested_mass_flowrate,
                     fluid_component_vector);
         }
 
@@ -713,8 +713,8 @@ pub trait FluidComponentCollectionParallelAssociatedFunctions {
 
             return <Self as FluidComponentCollectionParallelAssociatedFunctions>::
                 calculate_pressure_change_using_guessed_branch_mass_flowrate(
-                    guess_average_mass_flowrate, 
-                    user_requested_mass_flowrate, 
+                    guess_average_mass_flowrate,
+                    user_requested_mass_flowrate,
                     fluid_component_vector);
         }
 
@@ -731,8 +731,8 @@ pub trait FluidComponentCollectionParallelAssociatedFunctions {
 
         return <Self as FluidComponentCollectionParallelAssociatedFunctions>::
             calculate_pressure_change_using_guessed_branch_mass_flowrate(
-                guess_average_mass_flowrate, 
-                user_requested_mass_flowrate, 
+                guess_average_mass_flowrate,
+                user_requested_mass_flowrate,
                 fluid_component_vector);
     }
 
@@ -750,23 +750,23 @@ pub trait FluidComponentCollectionParallelAssociatedFunctions {
         // this is the trivial solution
         //
 
-        let pressure_change_est_vector = 
+        let pressure_change_est_vector =
             <Self as FluidComponentCollectionParallelAssociatedFunctions>::
             obtain_pressure_estimate_vector(
-                guess_average_mass_flowrate, 
+                guess_average_mass_flowrate,
                 fluid_component_vector);
 
-        let average_pressure_at_guessed_average_flow = 
+        let average_pressure_at_guessed_average_flow =
             <Self as FluidComponentCollectionParallelAssociatedFunctions>::
             obtain_average_pressure_from_vector(
                 &pressure_change_est_vector);
 
-        let max_pressure_change_at_guessed_average_flow = 
+        let max_pressure_change_at_guessed_average_flow =
             <Self as FluidComponentCollectionParallelAssociatedFunctions>::
             obtain_maximum_pressure_from_vector(
                 &pressure_change_est_vector);
 
-        let min_pressure_change_at_guessed_average_flow = 
+        let min_pressure_change_at_guessed_average_flow =
             <Self as FluidComponentCollectionParallelAssociatedFunctions>::
             obtain_minimum_pressure_from_vector(
                 &pressure_change_est_vector);
@@ -793,7 +793,7 @@ pub trait FluidComponentCollectionParallelAssociatedFunctions {
             let iterated_mass_flowrate =
                     <Self as FluidComponentCollectionParallelAssociatedFunctions>::
                     calculate_mass_flowrate_from_pressure_change(
-                        iterated_pressure, 
+                        iterated_pressure,
                         fluid_component_vector);
 
             let mass_flowrate_error = iterated_mass_flowrate - user_specified_mass_flowrate;

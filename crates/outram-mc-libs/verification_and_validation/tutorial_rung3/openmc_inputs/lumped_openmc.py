@@ -103,8 +103,8 @@ def main():
         constraints={"fissionable": True})
     s.temperature = {"default": T, "method": "nearest", "tolerance": 10.0}
     s.ptables = True
-    s.resonance_scattering = {"enable": True, "method": "dbrc",
-                              "energy_min": 1.0e-5, "energy_max": 1000.0}
+    s.resonance_scattering = {"enable": True, "method": "rvs",
+                              "energy_min": 0.01, "energy_max": 1000.0}
     s.output = {"tallies": False, "summary": False}
 
     ef = openmc.EnergyFilter(E_EDGES)

@@ -68,7 +68,7 @@
 
 use crate::math::Vec3;
 use crate::volume_mesh::{cells_faces, VolumeMesh};
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 /// Smart-Laplacian-smooth `mesh` for `passes` sweeps, returning the relaxed
 /// mesh. Interior vertices move toward their neighbour centroid only when the
@@ -102,7 +102,7 @@ pub fn laplacian_smooth(mesh: &VolumeMesh, passes: usize) -> VolumeMesh {
     }
 
     // Edge-connected neighbours of each vertex (union over all face rings).
-    let mut nbrs: Vec<HashSet<usize>> = vec![HashSet::new(); np];
+    let mut nbrs: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); np];
     for ring in &mesh.faces {
         let k = ring.len();
         for i in 0..k {
@@ -182,6 +182,7 @@ pub fn laplacian_smooth(mesh: &VolumeMesh, passes: usize) -> VolumeMesh {
         neighbour: mesh.neighbour.clone(),
         n_cells: mesh.n_cells,
         patches: mesh.patches.clone(),
+        cells: None,
     }
 }
 

@@ -26,9 +26,6 @@ impl eframe::App for FHRSimulatorApp {
         egui::Panel::top("top_panel").show(ui, |ui| {
             ui.heading("FHR Educational Simulator v1");
             ui.separator();
-            egui::MenuBar::new().ui(ui, |ui| {
-                egui::widgets::global_theme_preference_buttons(ui);
-            });
             // allow user to select which panel is open
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.open_panel, Panel::MainPage, "Main Page");
@@ -47,6 +44,8 @@ impl eframe::App for FHRSimulatorApp {
         });
 
         egui::Panel::right("Supplementary Info").show(ui, |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
             self.side_panel(ui);
         });
 

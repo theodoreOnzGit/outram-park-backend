@@ -56,7 +56,7 @@ excluded** — `kovan`, `kovan-discovery`, `kovan-metrics`, `kovan-semantics`,
 ~~**42 of the 47 members are in scope** (updated 2026-10-06, `pasir-ris` added; the script picks it up unedited)~~ ~~**43 of the 48 members are in scope** (updated 2026-10-06, `kovan-web` added; the script picks it up unedited); **5 are
 excluded** — `kovan`, `kovan-discovery`, `kovan-metrics`, `kovan-semantics` and
 `bedok`, each with its reason in the script.~~ **CORRECTED 2026-10-20 (gh
-#994): 44 of the 48 members are in scope; 4 are excluded** — `kovan`,
+#994): ~~44 of the 48~~ **45 of the 49** (bugis added 2026-11-02) members are in scope; 4 are excluded** — `kovan`,
 `kovan-discovery`, `kovan-metrics`, `kovan-semantics`. `bedok` came off the
 list when it dropped faer for `petir::sparse` (its `--lib` wasm check passes). `outram-blender` came off the list
 because `outram-mc-libs` takes its CSG description from it; its faer dependency

@@ -116,13 +116,24 @@ explicit, density-based path used by rhoCentralFoam. Remaining:
   `outram-foam-turbulence-lib::wall_functions` has `y_plus`/`u_tau`/`nu_t_wall`
   as standalone helpers, but they are not wired in as patch boundary conditions;
   doing so is a Layer-4 change in that crate.
-- [ ] **Rhie–Chow `ddtCorr` for non-Euler time schemes.** `DdtScheme::Backward`
+- [x] ~~**Rhie–Chow `ddtCorr` for non-Euler time schemes.** `DdtScheme::Backward`
   is now honoured by `PimpleFoam`, but `outram-foam-basic-lib`'s
   `fvc::ddt_corr` implements only the Euler form while `rAU` picks up BDF2's
-  `1.5 V/Δt` diagonal. Measured consequence (`tests/fv_scheme_selection.rs`):
+  `1.5 V/Δt` diagonal.~~ Measured consequence (`tests/fv_scheme_selection.rs`):
   the Euler and Backward cavity runs converge to steady states differing by
-  1.0e-2 to 2.9e-2 m/s, and the gap *grows* as Δt is refined. Needs OpenFOAM's
-  `backwardDdtScheme::fvcDdtPhiCorr` in `outram-foam-basic-lib`.
+  1.0e-2 to 2.9e-2 m/s, and the gap *grows* as Δt is refined. ~~Needs OpenFOAM's
+  `backwardDdtScheme::fvcDdtPhiCorr` in `outram-foam-basic-lib`.~~
+  **CORRECTED 2026-11-01** (gh:#1067): ported as `fvc::ddt_corr_backward` and
+  selected by `PimpleFoam` for `Backward` (`schemes::ddt_corr_scheme`). The
+  steady gap falls 2.7–3.6× (8.04e-3 vs 2.93e-2 m/s at Δt = 1e-3) but still
+  grows as Δt shrinks; see `verification_and_validation/bdf2_temporal_order.md`.
+- [ ] **A temporal-order instrument for `Backward` that a Rhie–Chow fixed point
+  cannot fool.** The 2026-11-01 Richardson study on the cavity measured order
+  ≈ 0 for Euler and BDF2 alike, because the discrete steady state depends on
+  Δt (gh:#1067 record). Needs a case whose Rhie–Chow residual is controlled —
+  e.g. a periodic Taylor–Green vortex, once `PimpleFoam` handles cyclic
+  patches in its pressure-flux correction — before `Backward` can be called
+  second order.
 - [ ] **Limited/TVD `div` schemes.** `crate::solvers::schemes::div_vec_scheme`
   implements `Gauss upwind` and `Gauss linear`; `linearUpwind`, `vanLeer`,
   `MUSCL` and `limitedLinear` return `AppBuilderError::UnsupportedScheme` (never

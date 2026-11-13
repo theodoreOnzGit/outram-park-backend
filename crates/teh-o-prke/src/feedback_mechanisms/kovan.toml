@@ -3,10 +3,10 @@ kind = "code_folder"
 crate = "teh-o-prke"
 dir = "crates/teh-o-prke/src/feedback_mechanisms"
 test_ids = [
+    "crates/nee_soon/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
+    "crates/nee_soon/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
     "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
     "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
-    "crates/tampines/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
-    "crates/tampines/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
 ]
 
 [module."mod.rs"]
@@ -210,3 +210,10 @@ reached_by = [
     "#2",
     "#3",
 ]
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = []
+failed = []

@@ -114,7 +114,7 @@ use alloc::vec::Vec;
 use crate::real::Real;
 
 use crate::linalg::solve_symm_tridiag;
-use crate::zip::zip_flat;
+use crate::zip::{zip2, zip6};
 use crate::{PetirError, Result};
 
 /// Which interpolation scheme an [`Interp`] uses.
@@ -193,7 +193,7 @@ impl Interp {
         if xa.len() < method.min_size() {
             return Err(PetirError::Invalid);
         }
-        for (&lo, &hi) in zip_flat!(xa.iter(), xa.iter().skip(1)) {
+        for (&lo, &hi) in zip2(xa.iter(), xa.iter().skip(1)) {
             if !(lo < hi) {
                 return Err(PetirError::Domain);
             }
@@ -235,13 +235,13 @@ impl Interp {
         // Upstream's `for (i = 0; i < sys_size; i++)` over `xa[i]`, `xa[i+1]`,
         // `xa[i+2]` and the matching `ya`. The shortest input is the
         // `skip(2)` pair, so the zip runs exactly `sys_size` times.
-        for (&x_i, &x_ip1, &x_ip2, &y_i, &y_ip1, &y_ip2) in zip_flat!(
+        for (&x_i, &x_ip1, &x_ip2, &y_i, &y_ip1, &y_ip2) in zip6(
             xa.iter(),
             xa.iter().skip(1),
             xa.iter().skip(2),
             ya.iter(),
             ya.iter().skip(1),
-            ya.iter().skip(2)
+            ya.iter().skip(2),
         ) {
             let h_i = x_ip1 - x_i;
             let h_ip1 = x_ip2 - x_ip1;
@@ -278,7 +278,7 @@ impl Interp {
         // `copy_from_slice`, which panics on a length mismatch -- the lengths
         // do agree, but "they agree" is a fact about the solver, not something
         // the compiler checks here.
-        for (slot, &v) in zip_flat!(c.iter_mut().skip(1), solution.iter()) {
+        for (slot, &v) in zip2(c.iter_mut().skip(1), solution.iter()) {
             *slot = v;
         }
         Ok(c)

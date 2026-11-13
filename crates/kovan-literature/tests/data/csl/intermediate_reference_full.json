@@ -1,7 +1,7 @@
 {
  "meta": {
   "engine": "citeproc-js 2.4.63",
-  "node": "v26.12.0",
+  "node": "v22.22.0",
   "generator": "scripts/csl-intermediate-reference.cjs",
   "sections": [
    "style",
@@ -46159,6 +46159,38 @@
      "title": "Escaping dependency hell: finding build dependency errors with the unified dependency graph",
      "type": "paper-conference"
     },
+    "fang2021analysis": {
+     "DOI": "10.1155/2021/6627789",
+     "author": [
+      {
+       "family": "Fang",
+       "given": "Chao"
+      },
+      {
+       "family": "Li",
+       "given": "Chuan"
+      },
+      {
+       "family": "Cao",
+       "given": "Jianzhu"
+      },
+      {
+       "family": "Liu",
+       "given": "Ke"
+      },
+      {
+       "family": "Fang",
+       "given": "Sheng"
+      }
+     ],
+     "container-title": "Science and Technology of Nuclear Installations",
+     "id": "fang2021analysis",
+     "issued": {
+      "year": 2021
+     },
+     "title": "Analysis of Fission Products' Release in Pebble-Bed High-Temperature Gas-Cooled Reactor Fuel Elements Using a Modified FRESCO II Numerical Model",
+     "type": "article-journal"
+    },
     "feng2024far": {
      "author": [
       {
@@ -46843,6 +46875,44 @@
      "type": "article-journal",
      "volume": "15"
     },
+    "hales2013multidimensional": {
+     "DOI": "10.1016/j.jnucmat.2013.07.070",
+     "author": [
+      {
+       "family": "Hales",
+       "given": "J. D."
+      },
+      {
+       "family": "Williamson",
+       "given": "R. L."
+      },
+      {
+       "family": "Novascone",
+       "given": "S. R."
+      },
+      {
+       "family": "Perez",
+       "given": "D. M."
+      },
+      {
+       "family": "Spencer",
+       "given": "B. W."
+      },
+      {
+       "family": "Pastore",
+       "given": "G."
+      }
+     ],
+     "container-title": "Journal of Nuclear Materials",
+     "id": "hales2013multidimensional",
+     "issue": "1–3",
+     "issued": {
+      "year": 2013
+     },
+     "title": "Multidimensional multiphysics simulation of TRISO particle fuel",
+     "type": "article-journal",
+     "volume": "443"
+    },
     "hales2020bison": {
      "author": [
       {
@@ -47158,6 +47228,55 @@
      "title": "Evaluation of High Temperature Gas Cooled Reactor Performance",
      "type": "report"
     },
+    "iaeatecdoc1645": {
+     "author": [
+      {
+       "literal": "International Atomic Energy Agency"
+      }
+     ],
+     "id": "iaeatecdoc1645",
+     "issued": {
+      "year": 2010
+     },
+     "number": "IAEA-TECDOC-1645",
+     "publisher": "International Atomic Energy Agency",
+     "publisher-place": "Vienna",
+     "title": "High Temperature Gas Cooled Reactor Fuels and Materials",
+     "type": "report"
+    },
+    "iaeatecdoc1674": {
+     "ISBN": "978-92-0-125310-1",
+     "author": [
+      {
+       "literal": "International Atomic Energy Agency"
+      }
+     ],
+     "id": "iaeatecdoc1674",
+     "issued": {
+      "year": 2012
+     },
+     "number": "IAEA-TECDOC-1674",
+     "publisher": "International Atomic Energy Agency",
+     "publisher-place": "Vienna",
+     "title": "Advances in High Temperature Gas Cooled Reactor Fuel Technology",
+     "type": "report"
+    },
+    "iaeatecdoc978": {
+     "author": [
+      {
+       "literal": "International Atomic Energy Agency"
+      }
+     ],
+     "id": "iaeatecdoc978",
+     "issued": {
+      "year": 1997
+     },
+     "number": "IAEA-TECDOC-978",
+     "publisher": "International Atomic Energy Agency",
+     "publisher-place": "Vienna",
+     "title": "Fuel performance and fission product behaviour in gas cooled reactors",
+     "type": "report"
+    },
     "imda_aixtech_2026": {
      "URL": "https://www.imda.gov.sg/resources/press-releases-factsheets-and-speeches/press-releases/2026/major-push-to-upskill-tech-professionals-and-grow-the-next-generation-of-tech-leaders",
      "accessed": {
@@ -47261,6 +47380,57 @@
      "type": "article-journal",
      "volume": "1"
     },
+    "jiang2021triso": {
+     "DOI": "10.1016/j.jnucmat.2021.152795",
+     "author": [
+      {
+       "family": "Jiang",
+       "given": "Wen"
+      },
+      {
+       "family": "Hales",
+       "given": "Jason D."
+      },
+      {
+       "family": "Spencer",
+       "given": "Benjamin W."
+      },
+      {
+       "family": "Collin",
+       "given": "Blaise P."
+      },
+      {
+       "family": "Slaughter",
+       "given": "Andrew E."
+      },
+      {
+       "family": "Novascone",
+       "given": "Stephen R."
+      },
+      {
+       "family": "Toptan",
+       "given": "Aysenur"
+      },
+      {
+       "family": "Gamble",
+       "given": "Kyle A."
+      },
+      {
+       "family": "Gardner",
+       "given": "Russell"
+      }
+     ],
+     "container-title": "Journal of Nuclear Materials",
+     "id": "jiang2021triso",
+     "issued": {
+      "year": 2021
+     },
+     "page": "152795",
+     "page-first": "152795",
+     "title": "TRISO particle fuel performance and failure analysis with BISON",
+     "type": "article-journal",
+     "volume": "548"
+    },
     "jiang2023fission": {
      "author": [
       {
@@ -47342,6 +47512,44 @@
      },
      "title": "Mostly Painless Scientific Computing with Rust",
      "type": "paper-conference"
+    },
+    "kasselmann2018hcp": {
+     "author": [
+      {
+       "family": "Kasselmann",
+       "given": "S."
+      },
+      {
+       "family": "Xhonneux",
+       "given": "A."
+      },
+      {
+       "family": "Tantillo",
+       "given": "F."
+      },
+      {
+       "family": "Trabadela",
+       "given": "A."
+      },
+      {
+       "family": "Lambertz",
+       "given": "D."
+      },
+      {
+       "family": "Allelein",
+       "given": "H. J."
+      }
+     ],
+     "container-title": "Nuclear Engineering and Design",
+     "id": "kasselmann2018hcp",
+     "issued": {
+      "year": 2018
+     },
+     "page": "167–176",
+     "page-first": "167",
+     "title": "Verification of the HTR code package (HCP) as a comprehensive HTR steady state and transient safety analysis framework",
+     "type": "article-journal",
+     "volume": "329"
     },
     "kieffer1977sound": {
      "author": [
@@ -47490,6 +47698,46 @@
      "publisher": "Wiley",
      "publisher-place": "New York",
      "title": "Introductory Nuclear Physics",
+     "type": "book"
+    },
+    "kugeler2017htgr": {
+     "DOI": "10.2760/270321",
+     "author": [
+      {
+       "family": "Kugeler",
+       "given": "K."
+      },
+      {
+       "family": "Nabielek",
+       "given": "H."
+      },
+      {
+       "family": "Buckthorpe",
+       "given": "D."
+      }
+     ],
+     "collection-number": "EUR 28712 EN",
+     "editor": [
+      {
+       "family": "Scheuermann",
+       "given": "W."
+      },
+      {
+       "family": "Haneklaus",
+       "given": "N."
+      },
+      {
+       "family": "Fütterer",
+       "given": "M."
+      }
+     ],
+     "id": "kugeler2017htgr",
+     "issued": {
+      "year": 2017
+     },
+     "publisher": "Publications Office of the European Union",
+     "publisher-place": "Luxembourg",
+     "title": "The High Temperature Gas-cooled Reactor: Safety considerations of the (V)HTR-Modul",
      "type": "book"
     },
     "lane1958rmatrix": {
@@ -48503,6 +48751,22 @@
      "title": "Advancing the Use of Artificial Intelligence at the U.S. Nuclear Regulatory Commission",
      "type": "report"
     },
+    "nuregcr6844": {
+     "author": [
+      {
+       "literal": "U.S. Nuclear Regulatory Commission"
+      }
+     ],
+     "id": "nuregcr6844",
+     "issued": {
+      "year": 2004
+     },
+     "number": "NUREG/CR-6844, Vol. 1",
+     "publisher": "U.S. Nuclear Regulatory Commission, Office of Nuclear Regulatory Research",
+     "publisher-place": "Washington, DC",
+     "title": "TRISO-Coated Particle Fuel Phenomenon Identification and Ranking Tables (PIRTs) for Fission Product Transport Due to Manufacturing, Operations, and Accidents, Main Report",
+     "type": "report"
+    },
     "oktavian2025optimization": {
      "author": [
       {
@@ -49231,6 +49495,34 @@
      "title": "Modeling the performance of TRISO-based fully ceramic matrix (FCM) fuel in an LWR environment using BISON",
      "type": "article-journal",
      "volume": "335"
+    },
+    "schappel2021debonding": {
+     "DOI": "10.1080/00295639.2021.1955590",
+     "author": [
+      {
+       "family": "Schappel",
+       "given": "Daniel"
+      },
+      {
+       "family": "Pastore",
+       "given": "Giovanni"
+      },
+      {
+       "family": "Terrani",
+       "given": "Kurt A."
+      }
+     ],
+     "container-title": "Nuclear Science and Engineering",
+     "id": "schappel2021debonding",
+     "issue": "3",
+     "issued": {
+      "year": 2022
+     },
+     "page": "276–284",
+     "page-first": "276",
+     "title": "Modeling Interface Debonding in Coated Fuel Particles with BISON",
+     "type": "article-journal",
+     "volume": "196"
     },
     "schmidt2010hrmfoam": {
      "DOI": "10.1016/j.ijmultiphaseflow.2009.11.012",
@@ -50175,6 +50467,31 @@
      "title": "Coupled neutronics and thermal-hydraulics modeling for pebble-bed Fluoride-Salt-Cooled, High-Temperature Reactor (FHR)",
      "type": "book"
     },
+    "wells2021pnnl31427": {
+     "author": [
+      {
+       "family": "Wells",
+       "given": "B. E."
+      },
+      {
+       "family": "Phillips",
+       "given": "N. R."
+      },
+      {
+       "family": "Geelhood",
+       "given": "K. J."
+      }
+     ],
+     "id": "wells2021pnnl31427",
+     "issued": {
+      "year": 2021
+     },
+     "number": "PNNL-31427",
+     "publisher": "Pacific Northwest National Laboratory",
+     "publisher-place": "Richland, WA",
+     "title": "TRISO Fuel: Properties and Failure Modes",
+     "type": "report"
+    },
     "wendt2026delta": {
      "URL": "https://github.com/openmc-dev/openmc/pull/3971",
      "author": [
@@ -50190,6 +50507,23 @@
      "note": "Published: OpenMC GitHub Pull Request #3971",
      "title": "Delta tracking",
      "type": "document"
+    },
+    "wichner1991nureg5647": {
+     "author": [
+      {
+       "family": "Wichner",
+       "given": "R. P."
+      }
+     ],
+     "genre": "Report",
+     "id": "wichner1991nureg5647",
+     "issued": {
+      "year": 1991
+     },
+     "number": "NUREG/CR-5647 (ORNL/TM-11685)",
+     "publisher": "Oak Ridge National Laboratory, for the U.S. Nuclear Regulatory Commission",
+     "title": "Fission Product Plateout and Liftoff in the MHTGR Primary System: A Review",
+     "type": "report"
     },
     "wigner1947higher": {
      "DOI": "10.1103/PhysRev.72.29",
@@ -52797,6 +53131,50 @@
       }
      ]
     },
+    "fang2021analysis": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Fang",
+        "given": "Chao"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Li",
+        "given": "Chuan"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Cao",
+        "given": "Jianzhu"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Liu",
+        "given": "Ke"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Fang",
+        "given": "Sheng"
+       }
+      }
+     ]
+    },
     "feng2024far": {
      "author": [
       {
@@ -53660,6 +54038,58 @@
       }
      ]
     },
+    "hales2013multidimensional": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Hales",
+        "given": "J. D."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Williamson",
+        "given": "R. L."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Novascone",
+        "given": "S. R."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Perez",
+        "given": "D. M."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Spencer",
+        "given": "B. W."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Pastore",
+        "given": "G."
+       }
+      }
+     ]
+    },
     "hales2020bison": {
      "author": [
       {
@@ -54053,6 +54483,39 @@
       }
      ]
     },
+    "iaeatecdoc1645": {
+     "author": [
+      {
+       "static_ordering": true,
+       "name": {
+        "comma-dropping-particle": "",
+        "literal": "International Atomic Energy Agency"
+       }
+      }
+     ]
+    },
+    "iaeatecdoc1674": {
+     "author": [
+      {
+       "static_ordering": true,
+       "name": {
+        "comma-dropping-particle": "",
+        "literal": "International Atomic Energy Agency"
+       }
+      }
+     ]
+    },
+    "iaeatecdoc978": {
+     "author": [
+      {
+       "static_ordering": true,
+       "name": {
+        "comma-dropping-particle": "",
+        "literal": "International Atomic Energy Agency"
+       }
+      }
+     ]
+    },
     "imda_aixtech_2026": {
      "author": [
       {
@@ -54123,6 +54586,82 @@
         "comma-dropping-particle": "",
         "family": "Jasak",
         "given": "Hrvoje"
+       }
+      }
+     ]
+    },
+    "jiang2021triso": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Jiang",
+        "given": "Wen"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Hales",
+        "given": "Jason D."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Spencer",
+        "given": "Benjamin W."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Collin",
+        "given": "Blaise P."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Slaughter",
+        "given": "Andrew E."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Novascone",
+        "given": "Stephen R."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Toptan",
+        "given": "Aysenur"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Gamble",
+        "given": "Kyle A."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Gardner",
+        "given": "Russell"
        }
       }
      ]
@@ -54223,6 +54762,58 @@
         "comma-dropping-particle": "",
         "family": "Betcke",
         "given": "Timo"
+       }
+      }
+     ]
+    },
+    "kasselmann2018hcp": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Kasselmann",
+        "given": "S."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Xhonneux",
+        "given": "A."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Tantillo",
+        "given": "F."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Trabadela",
+        "given": "A."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Lambertz",
+        "given": "D."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Allelein",
+        "given": "H. J."
        }
       }
      ]
@@ -54375,6 +54966,60 @@
         "comma-dropping-particle": "",
         "family": "Krane",
         "given": "Kenneth S."
+       }
+      }
+     ]
+    },
+    "kugeler2017htgr": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Kugeler",
+        "given": "K."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Nabielek",
+        "given": "H."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Buckthorpe",
+        "given": "D."
+       }
+      }
+     ],
+     "editor": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Scheuermann",
+        "given": "W."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Haneklaus",
+        "given": "N."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Fütterer",
+        "given": "M."
        }
       }
      ]
@@ -55464,6 +56109,17 @@
       }
      ]
     },
+    "nuregcr6844": {
+     "author": [
+      {
+       "static_ordering": true,
+       "name": {
+        "comma-dropping-particle": "",
+        "literal": "U.S. Nuclear Regulatory Commission"
+       }
+      }
+     ]
+    },
     "oktavian2025optimization": {
      "author": [
       {
@@ -56218,6 +56874,34 @@
         "comma-dropping-particle": "",
         "family": "Wirth",
         "given": "BD"
+       }
+      }
+     ]
+    },
+    "schappel2021debonding": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Schappel",
+        "given": "Daniel"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Pastore",
+        "given": "Giovanni"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Terrani",
+        "given": "Kurt A."
        }
       }
      ]
@@ -57235,6 +57919,34 @@
       }
      ]
     },
+    "wells2021pnnl31427": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Wells",
+        "given": "B. E."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Phillips",
+        "given": "N. R."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Geelhood",
+        "given": "K. J."
+       }
+      }
+     ]
+    },
     "wendt2026delta": {
      "author": [
       {
@@ -57243,6 +57955,18 @@
         "comma-dropping-particle": "",
         "family": "Wendt",
         "given": "Kevin"
+       }
+      }
+     ]
+    },
+    "wichner1991nureg5647": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Wichner",
+        "given": "R. P."
        }
       }
      ]
@@ -62513,6 +63237,7 @@
       }
      }
     },
+    "fang2021analysis": {},
     "feng2024far": {},
     "ferreira2021femfvm": {
      "page": {
@@ -63724,6 +64449,64 @@
       }
      }
     },
+    "hales2013multidimensional": {
+     "issue": {
+      "issue": {
+       "collapsible": true,
+       "label": "issue",
+       "numeric": true,
+       "plural": 1,
+       "values": [
+        {
+         "collapsible": true,
+         "joiningSuffix": "–",
+         "label": "no.",
+         "labelSuffix": " ",
+         "labelVisibility": false,
+         "numeric": true,
+         "origLabel": "",
+         "particle": "",
+         "plural": 1,
+         "value": "1"
+        },
+        {
+         "collapsible": true,
+         "joiningSuffix": "",
+         "label": "no.",
+         "labelSuffix": " ",
+         "labelVisibility": false,
+         "numeric": true,
+         "origLabel": "",
+         "particle": "",
+         "plural": 1,
+         "value": "3"
+        }
+       ]
+      }
+     },
+     "volume": {
+      "volume": {
+       "collapsible": true,
+       "label": "volume",
+       "numeric": true,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": true,
+         "joiningSuffix": "",
+         "label": "vol.",
+         "labelSuffix": " ",
+         "labelVisibility": false,
+         "numeric": true,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "443"
+        }
+       ]
+      }
+     }
+    },
     "hales2020bison": {},
     "hall1978marviken": {},
     "ham1958": {},
@@ -64151,6 +64934,147 @@
       }
      }
     },
+    "iaeatecdoc1645": {
+     "number": {
+      "number": {
+       "collapsible": false,
+       "numeric": false,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "IAEA"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "TECDOC"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "1645"
+        }
+       ]
+      }
+     }
+    },
+    "iaeatecdoc1674": {
+     "number": {
+      "number": {
+       "collapsible": false,
+       "numeric": false,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "IAEA"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "TECDOC"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "1674"
+        }
+       ]
+      }
+     }
+    },
+    "iaeatecdoc978": {
+     "number": {
+      "number": {
+       "collapsible": false,
+       "numeric": false,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "IAEA"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "TECDOC"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "978"
+        }
+       ]
+      }
+     }
+    },
     "imda_aixtech_2026": {},
     "infographics_show_ai_bill_2026": {},
     "jasak1996openfoamthesisphd": {},
@@ -64252,6 +65176,74 @@
          "particle": "",
          "plural": 0,
          "value": "89"
+        }
+       ]
+      }
+     }
+    },
+    "jiang2021triso": {
+     "page": {
+      "page": {
+       "collapsible": true,
+       "label": "page",
+       "numeric": true,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": true,
+         "joiningSuffix": "",
+         "label": "p.",
+         "labelSuffix": " ",
+         "labelVisibility": false,
+         "numeric": true,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "152795"
+        }
+       ]
+      }
+     },
+     "volume": {
+      "volume": {
+       "collapsible": true,
+       "label": "volume",
+       "numeric": true,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": true,
+         "joiningSuffix": "",
+         "label": "vol.",
+         "labelSuffix": " ",
+         "labelVisibility": false,
+         "numeric": true,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "548"
+        }
+       ]
+      }
+     },
+     "page-first": {
+      "page-first": {
+       "collapsible": true,
+       "label": "page",
+       "numeric": true,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": true,
+         "joiningSuffix": "",
+         "label": "p.",
+         "labelSuffix": " ",
+         "labelVisibility": false,
+         "numeric": true,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "152795"
         }
        ]
       }
@@ -64361,6 +65353,86 @@
      }
     },
     "kailasa2022mostly": {},
+    "kasselmann2018hcp": {
+     "page": {
+      "page": {
+       "collapsible": true,
+       "label": "page",
+       "numeric": true,
+       "plural": 1,
+       "values": [
+        {
+         "collapsible": true,
+         "joiningSuffix": "-",
+         "label": "p.",
+         "labelSuffix": " ",
+         "labelVisibility": false,
+         "numeric": true,
+         "origLabel": "",
+         "particle": "",
+         "plural": 1,
+         "value": "167"
+        },
+        {
+         "collapsible": true,
+         "joiningSuffix": "",
+         "label": "p.",
+         "labelSuffix": " ",
+         "labelVisibility": false,
+         "numeric": true,
+         "origLabel": "",
+         "particle": "",
+         "plural": 1,
+         "value": "176"
+        }
+       ]
+      }
+     },
+     "volume": {
+      "volume": {
+       "collapsible": true,
+       "label": "volume",
+       "numeric": true,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": true,
+         "joiningSuffix": "",
+         "label": "vol.",
+         "labelSuffix": " ",
+         "labelVisibility": false,
+         "numeric": true,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "329"
+        }
+       ]
+      }
+     },
+     "page-first": {
+      "page-first": {
+       "collapsible": true,
+       "label": "page",
+       "numeric": true,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": true,
+         "joiningSuffix": "",
+         "label": "p.",
+         "labelSuffix": " ",
+         "labelVisibility": false,
+         "numeric": true,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "167"
+        }
+       ]
+      }
+     }
+    },
     "kieffer1977sound": {
      "page": {
       "page": {
@@ -64704,6 +65776,29 @@
      }
     },
     "krane1987introductory": {},
+    "kugeler2017htgr": {
+     "collection-number": {
+      "collection-number": {
+       "collapsible": false,
+       "numeric": false,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": false,
+         "joiningSuffix": "",
+         "label": "var:collection-number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "EUR 28712 EN"
+        }
+       ]
+      }
+     }
+    },
     "lane1958rmatrix": {
      "page": {
       "page": {
@@ -66526,6 +67621,53 @@
       }
      }
     },
+    "nuregcr6844": {
+     "number": {
+      "number": {
+       "collapsible": false,
+       "numeric": false,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "NUREG/CR"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": ", ",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "6844"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "Vol. 1"
+        }
+       ]
+      }
+     }
+    },
     "oktavian2025optimization": {},
     "ong2023masters": {},
     "ong2024chemengprocesscontrol": {},
@@ -67321,6 +68463,108 @@
          "particle": "",
          "plural": 0,
          "value": "116"
+        }
+       ]
+      }
+     }
+    },
+    "schappel2021debonding": {
+     "page": {
+      "page": {
+       "collapsible": true,
+       "label": "page",
+       "numeric": true,
+       "plural": 1,
+       "values": [
+        {
+         "collapsible": true,
+         "joiningSuffix": "-",
+         "label": "p.",
+         "labelSuffix": " ",
+         "labelVisibility": false,
+         "numeric": true,
+         "origLabel": "",
+         "particle": "",
+         "plural": 1,
+         "value": "276"
+        },
+        {
+         "collapsible": true,
+         "joiningSuffix": "",
+         "label": "p.",
+         "labelSuffix": " ",
+         "labelVisibility": false,
+         "numeric": true,
+         "origLabel": "",
+         "particle": "",
+         "plural": 1,
+         "value": "284"
+        }
+       ]
+      }
+     },
+     "issue": {
+      "issue": {
+       "collapsible": true,
+       "label": "issue",
+       "numeric": true,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": true,
+         "joiningSuffix": "",
+         "label": "no.",
+         "labelSuffix": " ",
+         "labelVisibility": false,
+         "numeric": true,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "3"
+        }
+       ]
+      }
+     },
+     "volume": {
+      "volume": {
+       "collapsible": true,
+       "label": "volume",
+       "numeric": true,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": true,
+         "joiningSuffix": "",
+         "label": "vol.",
+         "labelSuffix": " ",
+         "labelVisibility": false,
+         "numeric": true,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "196"
+        }
+       ]
+      }
+     },
+     "page-first": {
+      "page-first": {
+       "collapsible": true,
+       "label": "page",
+       "numeric": true,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": true,
+         "joiningSuffix": "",
+         "label": "p.",
+         "labelSuffix": " ",
+         "labelVisibility": false,
+         "numeric": true,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "276"
         }
        ]
       }
@@ -69047,7 +70291,89 @@
      }
     },
     "wang2018coupled": {},
+    "wells2021pnnl31427": {
+     "number": {
+      "number": {
+       "collapsible": false,
+       "numeric": false,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "PNNL"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "31427"
+        }
+       ]
+      }
+     }
+    },
     "wendt2026delta": {},
+    "wichner1991nureg5647": {
+     "number": {
+      "number": {
+       "collapsible": false,
+       "numeric": false,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "NUREG/CR"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "5647 (ORNL/TM"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "11685)"
+        }
+       ]
+      }
+     }
+    },
     "wigner1947higher": {
      "page": {
       "page": {

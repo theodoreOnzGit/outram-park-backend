@@ -1,4 +1,4 @@
-// Fission products, lessons 8-9: the Web Worker that runs the kinetic Monte
+// Fission products, lessons 9-10: the Web Worker that runs the kinetic Monte
 // Carlo of hop-physics.js off the UI thread (no-lag rule,
 // docs/claude-md/mobile-first-tutorials-and-demos.md). Messages in:
 //   { id, cmd: "cloud", p, n, t, seed }       -> { id, cmd, xs, ys, msd, D, hops }

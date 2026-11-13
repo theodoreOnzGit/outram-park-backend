@@ -12,6 +12,12 @@
 #   develop   fast-tests.yml   cargo quick-test         long tests OFF
 #   main      THIS FILE        cargo test ... release   long tests ON
 #
+# ONE JOB PER CRATE since 2026-11-10 (gh:#1337; maintainer: "each crate
+# should have its own runner, it's running out on 6 hrs"). ~~The whole
+# workspace ran in one job.~~ That job was cancelled by GitHub's 6-hour job
+# limit (run 42136324698). The jobs themselves live in per-crate-tests.yml,
+# shared with manual-tests.yml and kovan-nightly-tests.yml.
+#
 # So a merge to `main` is the point at which the reference-data tier and the
 # long-running physics regressions actually have to pass.
 #
@@ -55,10 +61,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
-env:
-  CARGO_TERM_COLOR: always
-  CARGO_NET_RETRY: 2
-  RUST_BACKTRACE: short
+# ~~env: CARGO_TERM_COLOR, CARGO_NET_RETRY, RUST_BACKTRACE,
+# KOVAN_RUSTDOC_TOOLCHAIN~~ MOVED 2026-11-10 (gh:#1337) to per-crate-tests.yml:
+# a called workflow does not see its caller's `env`.
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -66,29 +71,16 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  full:
-    name: full suite (long tests included)
-    runs-on: ubuntu-latest
-    # The long tier is minutes-per-test by construction. 90 minutes is the fast
-    # job's budget and is not enough here.
-    timeout-minutes: 360
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: full-ubuntu-latest
-          cache-on-failure: true
-
-      # DO NOT add `--test-threads=1`. The TUAS natural-circulation cases are a
-      # workspace HARD RULE: they must run in parallel, and serialising them
-      # turns a long job into an impossible one.
-      # --no-fail-fast: without it cargo stops at the first failing test binary
-      # and every later crate is never run (run 39549698983 stopped at
-      # dhoby-ghaut and reported one failure for a suite of ~48 crates).
-      - name: Full suite
-        run: cargo test --workspace --lib --tests --release --no-fail-fast
+  # ~~One job, `cargo test --workspace --lib --tests --release --no-fail-fast`,
+  # `timeout-minutes: 360`.~~ CHANGED 2026-11-10 (gh:#1337): that job hit
+  # GitHub's 6-hour limit (run 42136324698, cancelled inside outram-mc-libs).
+  # Every crate now runs in its own job, each with its own 6 hours; see
+  # per-crate-tests.yml for the layout. The command per crate is the same
+  # `cargo test -p <crate> --lib --tests --release --no-fail-fast`, long tests
+  # ON. --no-fail-fast is kept (run 39549698983 stopped at dhoby-ghaut
+  # without it), and `fail-fast: false` does the same across crates.
+  tests:
+    uses: ./.github/workflows/per-crate-tests.yml
+    with:
+      scope: full
+      cache-prefix: full

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Air on hot graphite</title>
+<meta name="description" content="Fission products: how fast IG-110 graphite burns in air against temperature, the measured range against the extrapolation, why at core temperatures the oxygen supply and not the chemistry sets the rate, and what is missing: oxidation-driven particle failure and air attack on a bare kernel.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="chemhand-data.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="chemhand-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, after chapter 4's "What the model leaves out" (gh:#1207: the TRISO-ATOPS
+     mdBook's rung 6, step 1). graphite_air::kinetic_specific_rate and gasification_rate on a
+     400-1600 °C grid at six O2 pressures (chemhand-data.js, lesson_chemistry_handoff). Predictions C1-C4. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-11-04), not yet reviewed by a human.</p>
+<span id="ch-numbers" hidden></span>
+
+<h1>Air on hot graphite</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>So far the particles sat in helium, which does nothing to them. If a pipe breaks and air gets into a hot core, the graphite around the fuel starts to burn. How fast? And what does the code actually know about it?</p>
+
+<section class="widget-card">
+  <h3>Graphite in air: the rate, and what limits it</h3>
+  <div class="widget" id="ch-air">
+    <canvas aria-label="Left or top: the oxidation rate of IG-110 graphite against temperature on a log scale, dotted inside the measured 597 to 694 degree range (shaded) and dashed where extrapolated. Right or bottom: carbon gasified from 5000 kg of graphite, the kinetic rate climbing past a flat 1 mol per second oxygen supply line, and the code's answer following whichever is lower, with a red dot where they cross."></canvas>
+  </div>
+  <p class="note"><code>graphite_<wbr>air::<wbr>kinetic_<wbr>specific_<wbr>rate</code> and <code>gasification_<wbr>rate</code>, recorded on a 10 &deg;C grid at six O<sub>2</sub> pressures. The 5000 kg and 1 mol/s are boon-lay&rsquo;s own check values, not a plant&rsquo;s.</p>
+</section>
+
+<p class="predict"><b>Predict first</b> (we did, before running the code): in air, from what temperature does the oxygen supply, not the chemistry, set the rate? We said about 612 &deg;C, still inside the measured range.</p>
+
+<h2>Two limits, and the lower one wins</h2>
+<p>Burning graphite needs two things: the chemistry at the surface, and oxygen arriving. The rate is whichever is slower. The chemistry speeds up very steeply with temperature, so at reactor temperatures every oxygen molecule that arrives reacts at once. Then the <b>supply</b> sets the rate, and making the graphite hotter changes nothing.</p>
+<p>The chemistry part is an Arrhenius law, first order in oxygen:</p>
+<p class="eq-block">k = A&nbsp;e<sup>&minus;E<sub>a</sub>/RT</sup>&nbsp;p<sub>O<sub>2</sub></sub>/p<sub>O<sub>2</sub>,ref</sub>, &nbsp; E<sub>a</sub> = 191 kJ/mol, ln&nbsp;A = 13.0 (A in 1/s)</p>
+<p>with k the fraction of the graphite&rsquo;s mass lost per second, and p<sub>O<sub>2</sub>,ref</sub> air&rsquo;s 21 % of 1 atm. Then the carbon burned is</p>
+<p class="eq-block">n&#775;<sub>C</sub> = min( k&nbsp;m<sub>graphite</sub>/M<sub>C</sub>, &nbsp;n&#775;<sub>O<sub>2</sub></sub> )</p>
+<p>The numbers are from one row of a review: Contescu et al., ORNL/TM-2022/1839, Table 3 (p. 39), row Contescu (2011), IG-110 graphite in air at 597&ndash;694 &deg;C. At 650 &deg;C the code gives <span data-ch="r650">&hellip;</span>, the same as a hand evaluation to 10<sup>&minus;4</sup>. That is a check of the <b>copy</b> (verification of the transcription), not of the physics.</p>
+<p>With the illustrative 5000 kg and 1 mol/s, the supply binds from <span data-ch="crossAir">&hellip;</span> in air (predicted about 612 &deg;C) and from <span data-ch="cross1">&hellip;</span> at 1 kPa of O<sub>2</sub> (predicted about 731 &deg;C). At 900 &deg;C the chemistry alone would burn <span data-ch="ratio900">&hellip;</span> times what the supply allows (predicted about 580). The heat follows the supply too: at the CO<sub>2</sub> enthalpy, 1 mol/s of O<sub>2</sub> releases <span data-ch="heatSupply">&hellip;</span>.</p>
+
+<h2>The measured range and the extrapolation</h2>
+<p>The law was measured at 597&ndash;694 &deg;C (the shaded band, dotted line). Everything else is extrapolated (dashed). Above the band, real graphite is limited by oxygen diffusing into its pores and through the gas film at its surface (the review&rsquo;s regimes 2 and 3), so the extrapolated Arrhenius line <b>over-states</b> the chemistry there. The code does not model those regimes; the supply limit is its guard. It says so: every call returns a <code>Validity</code> flag, <code>InsideMeasuredRange</code> or <code>Extrapolated</code>.</p>
+<p>Two more assumptions, labelled in the code. <b>First order in oxygen</b> (the review gives no order for IG-110), which is why every curve in the widget has the same shape, shifted. And the reaction enthalpies are at 298 K.</p>
+
+<h2>Where it is in the code</h2>
+<p><a href="../../code-review/#crates/boon-lay/src/chemistry/graphite_air.rs::gasification_rate"><code>graphite_<wbr>air::<wbr>gasification_<wbr>rate</code></a> branches: kinetic &le; supply gives <code>Limit::Kinetic</code>, otherwise <code>Limit::<wbr>OxygenSupply</code>. It calls <a href="../../code-review/#crates/boon-lay/src/chemistry/graphite_air.rs::kinetic_specific_rate"><code>kinetic_<wbr>specific_<wbr>rate</code></a>, the Arrhenius rate with its flag. Nothing in boon-lay calls them; the <code>htgr_sim_v1</code> digital twin&rsquo;s depressurisation model does. Its oxygen supply is an <b>assumed</b> exchange at the reactor cavity&rsquo;s ventilation rate (gh:#420): no core air-ingress rate is published for HTR-10.</p>
+
+<h2>What is missing</h2>
+<p>A rate of graphite loss is not yet a release. Between the two is a chain of attacks on a pebble, layer by layer, and almost none of it exists (epic <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/441">gh:#441</a>):</p>
+<ul>
+<li>The fuel-free graphite shell recedes: <b>rate only</b>, this law.</li>
+<li>The fuelled matrix recedes and exposes particles; the outer PyC burns off: <b>not modelled</b>.</li>
+<li>The SiC oxidises and thins, until it fails under pressure: <b>not wired</b>. Lesson 37&rsquo;s thinning factor could take it (gh:#443).</li>
+<li>An exposed kernel is attacked. In steam, a fit exists (next lesson). In air, UO<sub>2</sub> oxidising to U<sub>3</sub>O<sub>8</sub>, which swells and lets go of what the lattice held, is <b>missing</b> (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/444">gh:#444</a>).</li>
+</ul>
+<p>So no particle in this workspace fails because of oxidation. Where a source term needs that, sembawang adds measured failures by hand (the last lesson of chapter 5).</p>
+
+<p><b>Next:</b> steam instead of air: it gasifies the graphite more slowly, and it does something to a bare kernel that air (in this code) does not.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>The one contact with measured data this law could have</h3>
+<p>The only check so far is the transcription. A first comparison with measured data would be IAEA-TECDOC-978&rsquo;s Fig. 5-18, fuel-compact weight loss in air at 1400 &deg;C (gh:#457). It is not done.</p>
+<h3>Why first order matters only sometimes</h3>
+<p>The assumed oxygen order changes the kinetic rate, so it matters only where the kinetics limit: below the crossover. Above it the supply sets the answer whatever the order. Move the O<sub>2</sub> slider and watch the crossover move while the right-hand answer above it stays put.</p>
+<h3>The TRISO-ATOPS track</h3>
+<p>The <a href="../../demos/triso-atops/?rung=chemistry">demo&rsquo;s chemistry rung</a> runs the same three laws live.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

@@ -3,8 +3,15 @@ kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests"
 test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/basic_postprocessing.rs::overall_htc_postprocessing_basic_test_shell_and_tube_heat_exchanger",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/basic_postprocessing.rs::shell_side_tube_bundle_area_basic_test_shell_and_tube_heat_exchanger",
     "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/calibration_functions.rs::calibration_regression_set_c9_no_heat_loss",
     "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/calibration_functions.rs::calibration_regression_set_c9_no_heat_loss_mesh_refined",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/constructor_tests.rs::du_heat_exchanger_constructor_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/constructor_tests.rs::insulated_sthe_constructor_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/heat_transfer_verification.rs::basic_test_shell_and_tube_heat_exchanger",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/heat_transfer_verification.rs::basic_test_shell_and_tube_heat_exchanger_set_three",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/heat_transfer_verification.rs::basic_test_shell_and_tube_heat_exchanger_set_two",
 ]
 
 [module."basic_postprocessing.rs"]
@@ -146,8 +153,8 @@ uses = [
     "fn:f811c4c8869b08b0",
 ]
 reached_by = [
-    "#0",
-    "#1",
+    "#2",
+    "#3",
 ]
 
 [[module."calibration_functions.rs".function]]
@@ -402,3 +409,20 @@ test = true
 
 [module."mod.rs"]
 path = "crate::pre_built_components::shell_and_tube_heat_exchanger::tests"
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+failed = []

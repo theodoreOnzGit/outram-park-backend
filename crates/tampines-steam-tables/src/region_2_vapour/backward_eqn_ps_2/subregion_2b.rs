@@ -22,7 +22,7 @@ const SUBREGION_2B_BACK_COEFFS_PS: [[f64; 3]; 44] = [
     [-1.0, 8.0, 0.410_785_804_921_96],
     [-1.0, 9.0, -0.334_653_781_720_97],
     [0.0, 0.0, 0.138_700_347_775_05e4],
-    [0.0, 1.0, -0.406_633_261_952_38e3],
+    [0.0, 1.0, -0.406_633_261_958_38e3],
     [0.0, 2.0, 0.417_273_471_596_10e2],
     [0.0, 4.0, 0.219_325_494_345_32e1],
     [0.0, 5.0, -0.103_200_500_090_77e1],
@@ -70,4 +70,26 @@ pub(crate) fn t_ps_2b(p: Pressure, s: SpecificHeatCapacity) -> ThermodynamicTemp
     }
 
     return theta * t_ref;
+}
+
+/// gh:#1346 (2026-11-13): pins coefficient digits that a differential comparison against
+/// CoolProp `IF97.h` v2.4.0 (commit 138ec05f), the `iapws` 1.5.5 Python package and
+/// `seuif97` 2.3.8, all three of which agree with each other, found transcribed wrongly
+/// here. Table 10 (T(p,s), 2b), I=0 J=1.
+#[cfg(test)]
+mod coefficient_pins_gh1346 {
+    use super::*;
+
+    fn coeff(table: &[[f64; 3]], i: f64, j: f64) -> f64 {
+        table
+            .iter()
+            .find(|r| r[0] == i && r[1] == j)
+            .expect("coefficient row")[2]
+    }
+
+    #[test]
+    fn corrected_coefficients_match_the_published_digits() {
+        // IAPWS-IF97 (R7-97) Table 10, i = 16: was ...195238, correct ...195838 (1.5e-11 rel)
+        assert_eq!(coeff(&SUBREGION_2B_BACK_COEFFS_PS, 0.0, 1.0), -0.406_633_261_958_38e3);
+    }
 }

@@ -1,52 +1,36 @@
-//! The **Organisations & IV&V** window (GitHub #810), opened from the Code
-//! Review tab, and the stamp dialog's separation-attestation picker. Every
-//! decision (forms, checks, the signing jobs) is
-//! [`crate::stamping::organisations::panel::OrgPanel`]'s, tested in
-//! `stamping/organisations_tests.rs`; this file only draws and turns clicks
-//! into its calls.
+//! The **organisation and IV&V sections** of Code Review ▸ User management
+//! (GitHub #810, #1211), and the stamp dialog's separation-attestation
+//! picker. ~~The Organisations & IV&V window, opened from the Code Review
+//! tab, over its own `OrgPanel`~~ **CORRECTED 2026-11-04** (#1211,
+//! maintainer: "move the IV&V window into the User management tab"): the
+//! window and its button are gone; these are collapsing sections of the
+//! tab, signed through its [`UserPanel`] (one key, one passphrase, one
+//! worker). Every decision (forms, checks, the signing jobs) is
+//! `UserPanel`'s and [`crate::stamping::organisations`]'s, tested in
+//! `stamping/organisations_tests.rs`; this file only draws and turns
+//! clicks into their calls.
 //!
-//! **No lag (root `CLAUDE.md`, HARD RULE).** The keystore read, the KDF and
-//! the write run on worker threads; drawing calls only `OrgPanel::poll`,
-//! which never blocks.
+//! **No lag (root `CLAUDE.md`, HARD RULE).** The KDF and the write run on
+//! the panel's worker; drawing never blocks.
 //!
-//! **Mobile-first.** The window is resizable and scrolls; every section is
-//! a collapsing header, folded except the one that applies to the key in
-//! use, so it fits a phone-width window.
+//! **Mobile-first.** One scrolling column (the tab's); every row wraps;
+//! every section is a collapsing header, folded except the one that
+//! applies to the key in use.
 
 use egui::RichText;
 use kovan_common::review::ivv::AUDIT_RECORD_LABEL;
 
+use super::user_management_view::action_button;
 use crate::stamping::flow::WizardForm;
-use crate::stamping::organisations::panel::{Action, OrgPanel};
 use crate::stamping::organisations::RecordRow;
+use crate::stamping::user_management::{UserAction, UserPanel};
 
-/// Draw the window; returns whether it was closed. GUI drawing code
-/// (exempt from the test rule): the logic is `OrgPanel`, and
-/// `code_review_view`'s headless test draws it.
-pub(crate) fn show(ctx: &egui::Context, p: &mut OrgPanel) -> bool {
-    p.poll();
-    if p.busy() {
-        ctx.request_repaint_after(std::time::Duration::from_millis(150));
-    }
-    let mut open = true;
-    let screen = ctx.content_rect().size();
-    egui::Window::new("Organisations & IV&V")
-        .open(&mut open)
-        .resizable(true)
-        .default_width(560.0_f32.min(screen.x - 32.0).max(240.0))
-        .max_height((screen.y - 80.0).max(200.0))
-        .show(ctx, |ui| {
-            egui::ScrollArea::vertical()
-                .auto_shrink([false, true])
-                .show(ui, |ui| body(ui, p));
-        });
-    !open && !p.busy()
-}
-
-/// One record line. GUI drawing code (exempt).
-fn row(ui: &mut egui::Ui, r: &RecordRow) {
+/// One record line, retired ones marked, with its Retire button (founder).
+/// GUI drawing code (exempt; what Retire does is `UserPanel`'s, tested).
+fn row(ui: &mut egui::Ui, p: &mut UserPanel, r: &RecordRow) {
     ui.horizontal_wrapped(|ui| {
-        ui.label(RichText::new(&r.name).strong());
+        let name = RichText::new(&r.name).strong();
+        ui.label(if r.is_retired { name.strikethrough() } else { name });
         ui.weak(format!(
             "{} \u{b7} from {} \u{b7} signed: {}",
             r.scope, r.date, r.signed_by
@@ -54,7 +38,18 @@ fn row(ui: &mut egui::Ui, r: &RecordRow) {
         if !r.detail.is_empty() {
             ui.weak(&r.detail);
         }
+        if let Some(t) = &r.retire {
+            if p.is_founder() {
+                action_button(ui, p, UserAction::RetireOrganisation(t.clone()));
+            }
+        }
     });
+    for l in &r.retired {
+        ui.weak(format!("    {l}"));
+    }
+    if let Some(n) = &r.note {
+        ui.colored_label(ui.visuals().warn_fg_color, format!("    \u{26a0} {n}"));
+    }
     if let Some(u) = &r.audit_record {
         audit_link(ui, u);
     }
@@ -68,170 +63,109 @@ fn audit_link(ui: &mut egui::Ui, url: &str) {
     });
 }
 
-/// Problems and the action button. GUI drawing code (exempt).
-fn submit(ui: &mut egui::Ui, p: &mut OrgPanel, action: Action, label: &str) {
-    let problems = p.problems(action);
-    for e in problems.iter().filter(|e| !e.contains("passphrase")) {
-        ui.weak(e);
-    }
-    let can = problems.is_empty() && !p.busy();
-    if ui
-        .add_enabled(can, egui::Button::new(label))
-        .on_disabled_hover_text(problems.join("\n"))
-        .clicked()
-    {
-        p.submit(action);
-    }
-}
-
-/// GUI drawing code (exempt).
-fn body(ui: &mut egui::Ui, p: &mut OrgPanel) {
-    ui.label(
-        "Rung 5 is independent V&V by an organisation technically and managerially separate \
-         from the developing one (NUREG/BR-0167 \u{a7}3.1). A maintainer signs which \
-         organisation develops the code and which each reviewer belongs to; the independent \
-         reviewer signs that the two are separate, naming a public GitHub issue as the audit \
-         record. Kovan checks the link's form only: it never fetches it.",
-    );
-    ui.separator();
-    let overview = match &p.overview {
-        None => {
-            ui.horizontal(|ui| {
-                ui.spinner();
-                ui.label("Reading kovan_root.toml and the keystore\u{2026}");
+/// The organisation and attestation sections, inside the User management
+/// tab's scrolling column. GUI drawing code (exempt; the logic is
+/// `UserPanel` over `stamping::organisations`, and `code_review_view`'s
+/// headless test draws it).
+pub(crate) fn sections(ui: &mut egui::Ui, p: &mut UserPanel) {
+    let Some(overview) = p.ivv().cloned() else { return };
+    let founder = p.is_founder();
+    egui::CollapsingHeader::new(RichText::new("Organisations & IV&V (rung 5)").strong())
+        .id_salt("users-ivv")
+        .default_open(false)
+        .show(ui, |ui| {
+            ui.label(
+                "Rung 5 is independent V&V by an organisation technically and managerially \
+                 separate from the developing one (NUREG/BR-0167 \u{a7}3.1). A founder signs \
+                 which organisation develops the code and which each reviewer belongs to; the \
+                 independent reviewer signs that the two are separate, naming a public GitHub \
+                 issue as the audit record. Kovan checks the link's form only: it never fetches \
+                 it. Removal is retire: the record stays, marked retired.",
+            );
+            ui.weak(if overview.founders.is_empty() {
+                "No founder is in standing: no organisation record can be signed.".to_string()
+            } else {
+                format!("Founders (any one signs): {}", overview.founders.join(", "))
             });
-            return;
-        }
-        Some(Err(e)) => {
-            ui.colored_label(ui.visuals().error_fg_color, e);
-            return;
-        }
-        Some(Ok(o)) => o.clone(),
-    };
-    // The key that signs.
-    ui.horizontal_wrapped(|ui| {
-        ui.label("Signing key");
-        if p.keys.is_empty() {
-            ui.weak("none in the keystore: set one up from a Stamp first");
-        } else {
-            let text = p
-                .key()
-                .map(|k| format!("{} ({})", k.reviewer, k.key))
-                .unwrap_or_default();
-            egui::ComboBox::from_id_salt("orgs-key")
-                .selected_text(text)
-                .show_ui(ui, |ui| {
-                    for (i, k) in p.keys.iter().enumerate() {
-                        let label = format!(
-                            "{} ({}){}",
-                            k.reviewer,
-                            k.key,
-                            if k.registered {
-                                ""
-                            } else {
-                                " \u{2014} not registered"
-                            }
-                        );
-                        ui.selectable_value(&mut p.chosen, i, label);
-                    }
-                });
-        }
-        ui.weak(if p.is_maintainer() {
-            "maintainer"
-        } else {
-            "reviewer"
+            if !overview.warnings.is_empty() {
+                ui.colored_label(
+                    ui.visuals().warn_fg_color,
+                    "Records that do not verify (they count for nothing):",
+                );
+                for w in &overview.warnings {
+                    ui.colored_label(ui.visuals().warn_fg_color, format!("- {w}"));
+                }
+            }
         });
-    });
-    let unlocked = p.unlocked();
-    super::key_window::passphrase_row(ui, unlocked, &mut p.forms.passphrase);
-    if p.busy() {
-        ui.horizontal(|ui| {
-            ui.spinner();
-            ui.weak("Signing in the background; kovan stays responsive.");
-        });
-    }
-    if let Some(e) = &p.error {
-        ui.colored_label(ui.visuals().error_fg_color, e);
-    }
-    for n in &p.notices {
-        ui.colored_label(ui.visuals().hyperlink_color, n);
-    }
-    if !overview.warnings.is_empty() {
-        ui.separator();
-        ui.colored_label(
-            ui.visuals().warn_fg_color,
-            "Records that do not verify (they count for nothing):",
-        );
-        for w in &overview.warnings {
-            ui.colored_label(ui.visuals().warn_fg_color, format!("- {w}"));
-        }
-    }
-    ui.separator();
-    let maintainer = p.is_maintainer();
     egui::CollapsingHeader::new(format!(
         "Developing organisation ({})",
         overview.developing.len()
     ))
-    .default_open(maintainer)
+    .id_salt("users-ivv-dev")
+    .default_open(founder)
     .show(ui, |ui| {
         for r in &overview.developing {
-            row(ui, r);
+            row(ui, p, r);
         }
         ui.label(
-            "Add (maintainer): in force from today; leave the crate empty for the whole workspace.",
+            "Add (founder): in force from today; leave the crate empty for the whole workspace.",
         );
         ui.horizontal_wrapped(|ui| {
             ui.label("Organisation");
-            ui.text_edit_singleline(&mut p.forms.dev_name);
+            ui.text_edit_singleline(&mut p.orgs.dev_name);
             ui.label("Crate (optional)");
-            ui.add(egui::TextEdit::singleline(&mut p.forms.dev_crate).desired_width(120.0));
+            ui.add(egui::TextEdit::singleline(&mut p.orgs.dev_crate).desired_width(120.0));
         });
-        submit(ui, p, Action::DevelopingOrganisation, "Sign and record");
+        let a = p.developing_action();
+        action_button(ui, p, a);
     });
     egui::CollapsingHeader::new(format!(
         "Reviewers' organisations ({})",
         overview.reviewer_organisations.len()
     ))
-    .default_open(maintainer)
+    .id_salt("users-ivv-rev")
+    .default_open(founder)
     .show(ui, |ui| {
         for r in &overview.reviewer_organisations {
-            row(ui, r);
+            row(ui, p, r);
         }
-        ui.label("Add (maintainer): the reviewer's organisation from today.");
+        ui.label("Add (founder): the reviewer's organisation from today.");
         ui.horizontal_wrapped(|ui| {
             ui.label("Reviewer");
-            let shown = if p.forms.rev_reviewer.is_empty() {
+            let shown = if p.orgs.rev_reviewer.is_empty() {
                 "choose\u{2026}".to_string()
             } else {
-                p.forms.rev_reviewer.clone()
+                p.orgs.rev_reviewer.clone()
             };
             egui::ComboBox::from_id_salt("orgs-reviewer")
                 .selected_text(shown)
                 .show_ui(ui, |ui| {
                     for (id, _) in &overview.reviewers {
-                        ui.selectable_value(&mut p.forms.rev_reviewer, id.clone(), id);
+                        ui.selectable_value(&mut p.orgs.rev_reviewer, id.clone(), id);
                     }
                 });
             ui.label("Organisation");
-            ui.text_edit_singleline(&mut p.forms.rev_name);
+            ui.text_edit_singleline(&mut p.orgs.rev_name);
         });
-        submit(ui, p, Action::ReviewerOrganisation, "Sign and record");
+        let a = p.reviewer_org_action();
+        action_button(ui, p, a);
     });
     egui::CollapsingHeader::new(format!(
         "Separation attestations ({})",
         overview.attestations.len()
     ))
-    .default_open(!maintainer)
+    .id_salt("users-ivv-att")
+    .default_open(!founder)
     .show(ui, |ui| {
         for r in &overview.attestations {
-            row(ui, r);
+            row(ui, p, r);
         }
         ui.label(
             "Sign (as the independent reviewer, with your own key): your organisation is \
              technically and managerially separate from the developing organisation. Name a \
              public GitHub issue (open or closed) as the audit record.",
         );
-        let a = &mut p.forms.attestation;
+        let a = &mut p.orgs.attestation;
         egui::Grid::new("orgs-attest")
             .num_columns(2)
             .show(ui, |ui| {
@@ -254,7 +188,8 @@ fn body(ui: &mut egui::Ui, p: &mut OrgPanel) {
         if ui.small_button("Fill from the records").clicked() {
             p.prefill_attestation();
         }
-        submit(ui, p, Action::Attestation, "Sign attestation");
+        let a = p.attestation_action();
+        action_button(ui, p, a);
     });
 }
 
@@ -268,7 +203,7 @@ pub(crate) fn attestation_picker(ui: &mut egui::Ui, w: &mut WizardForm) {
     if w.attestations.is_empty() {
         ui.weak(
             "You have no signed separation attestation: this review claims no IV&V. Sign one in \
-             Code Review > Organisations & IV&V.",
+             Code Review > User management > Separation attestations.",
         );
         w.separation_attestation = None;
         return;

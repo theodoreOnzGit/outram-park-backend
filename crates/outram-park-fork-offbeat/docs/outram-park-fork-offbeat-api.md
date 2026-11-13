@@ -91,17 +91,17 @@ that looks plausible and is meaningless. This crate reports that as
 ```rust
 pub enum OffbeatError {
     OutOfRange {
-        quantity: &''static str,
+        quantity: &'static str,
         value: f64,
         low: f64,
         high: f64,
-        unit: &''static str,
+        unit: &'static str,
     },
     Unphysical {
-        quantity: &''static str,
+        quantity: &'static str,
         value: f64,
-        unit: &''static str,
-        reason: &''static str,
+        unit: &'static str,
+        reason: &'static str,
     },
     MechanicsNotConverged {
         residual: f64,
@@ -114,11 +114,11 @@ pub enum OffbeatError {
         iterations: usize,
     },
     UnknownModel {
-        category: &''static str,
+        category: &'static str,
         name: String,
     },
     Mesh(String),
-    NotImplemented(&''static str),
+    NotImplemented(&'static str),
 }
 ```
 
@@ -137,11 +137,11 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `quantity` | `&''static str` | What was being evaluated. |
+| `quantity` | `&'static str` | What was being evaluated. |
 | `value` | `f64` | The offending input value. |
 | `low` | `f64` | Lower bound of validity. |
 | `high` | `f64` | Upper bound of validity. |
-| `unit` | `&''static str` | SI unit of `value`, `low` and `high`. |
+| `unit` | `&'static str` | SI unit of `value`, `low` and `high`. |
 
 ###### `Unphysical`
 
@@ -152,10 +152,10 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `quantity` | `&''static str` | What was being evaluated. |
+| `quantity` | `&'static str` | What was being evaluated. |
 | `value` | `f64` | The offending input value. |
-| `unit` | `&''static str` | SI unit of `value`. |
-| `reason` | `&''static str` | Why the value is impossible. |
+| `unit` | `&'static str` | SI unit of `value`. |
+| `reason` | `&'static str` | Why the value is impossible. |
 
 ###### `MechanicsNotConverged`
 
@@ -195,7 +195,7 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `category` | `&''static str` | The family the model was looked up in (e.g. `"conductivity"`). |
+| `category` | `&'static str` | The family the model was looked up in (e.g. `"conductivity"`). |
 | `name` | `String` | The name that was not found. |
 
 ###### `Mesh`
@@ -220,7 +220,7 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `&''static str` |  |
+| 0 | `&'static str` |  |
 
 ##### Implementations
 
@@ -2093,6 +2093,10 @@ Seven families, one module each, mirroring upstream's
 | [`poisson_ratio`] | Poisson's ratio | - |
 | [`thermal_expansion`] | thermal expansion strain / coefficient | - and 1/K |
 
+Plus one named selection across families, not a family of its own:
+[`relap7_heat_structure`], the RELAP-7 heat-structure property set (UO2,
+Zircaloy and gap gas, MATPRO correlations; gh:#1070).
+
 Every family is an enum over the published correlations for it, evaluated
 against a [`MaterialState`](crate::materials::MaterialState). See the
 [module-level documentation](crate::materials) for why enums rather than
@@ -2235,6 +2239,9 @@ pub enum ConductivityModel {
     MatproUo2,
     NfirUo2,
     Ifa601Uo2,
+    MatproFthconUo2 {
+        porosity_slope: f64,
+    },
     BrancheriaMox,
     KatoMox {
         americium_atom_fraction: f64,
@@ -2247,6 +2254,7 @@ pub enum ConductivityModel {
     },
     PhilipponneauMox,
     RelapZircaloy,
+    MatproCthconZircaloy,
     Molybdenum,
     SwindemanHastelloyN,
     Tobbe1515Ti,
@@ -2419,6 +2427,94 @@ range of the IFA-601 experiment it was fitted to.
 
 Fit to the Halden IFA-601 instrumented fuel rod, as implemented in
 upstream `conductivityUO2IFA601.C`.
+
+###### `MatproFthconUo2`
+
+UO2, the **older MATPRO form** (MATPRO subcode FTHCON, NUREG/CR-6150
+§2.3) \[W/(m K)\]. Not an OFFBEAT upstream class: added for gh:#1070
+as the UO2 conductivity of the RELAP-7 heat-structure property set
+([`Relap7HeatStructure`]).
+
+**This is a different correlation from [`MatproUo2`](Self::MatproUo2)**,
+which despite its name is OFFBEAT's modified-NFI (FRAPCON-era) form.
+This one has a phonon term whose numerator is the Einstein specific
+heat, a thermal-strain factor, a temperature-dependent porosity factor
+and an electronic term:
+
+```text
+k = D / (1 + beta(T)*(1 - D)) * Cv(T) / ((A + B*T'') * (1 + 3*e_th(T)))
+  + 5.2997e-3 * T * exp(-13358/T) * (1 + 0.169*(13358/T + 2)^2)
+
+Cv(T)   = 296.7 * 535.285^2 * exp(535.285/T) / (T^2 * (exp(535.285/T) - 1)^2)
+e_th(T) = 1.0e-5*T - 3.0e-3 + 4.0e-2*exp(-6.9e-20/(1.38e-23*T))
+beta(T) = 6.5 - porosity_slope*T          for T < 1364 K
+        = linear between beta(1364) and -1 for 1364 <= T <= 1834 K
+        = -1                               for T > 1834 K
+A = 0.339, B = 0.06867   (O/M = 2.0, no Pu)
+```
+
+`Cv` is the Einstein term of [`HeatCapacityModel::MatproUo2`] (shared
+code, so they cannot drift) and `e_th` is
+[`ThermalExpansionModel::MatproFthconUO2`] (shared code too).
+
+# Inputs used
+
+[`temperature`](MaterialState::temperature) \[K\] and the fraction of
+theoretical density `D`, taken as
+[`density_fraction`](MaterialState::density_fraction) divided by the
+same swelling/densification volume correction
+[`MatproUo2`](Self::MatproUo2) uses (so a fresh pellet gives
+`D = 1 - porosity`). The RELAP-7 set fixes `D = 0.95`, i.e.
+`porosity = 0.05`. Burnup, Pu content, O/M and gadolinia are **not**
+read: `A` and `B` are the O/M = 2.0, Pu-free constants.
+
+# Two points the published text leaves open — read before quoting a number
+
+1. **The porosity slope.** The RELAP-7 Theory Manual (§4.2.1, checked
+   against the rendered PDF on 2026-11-01) prints
+   `T' = 6.5 - 0.00649*T`. Taken literally, `beta` falls below `-1`
+   above 1156 K, so the porosity factor exceeds 1 (porous fuel
+   conducting *better* than dense fuel) between 1156 and 1834 K, and
+   `beta` jumps from `-2.35` back up towards `-1` across the
+   interpolation band. A slope of `0.00469` instead gives `beta(1364)
+   = +0.103`, a monotone `beta`, a porosity factor `<= 1` everywhere
+   and continuity at both band edges — which suggests a digit
+   transposition in the manual. **Not re-checked against MATPRO
+   itself** (NUREG/CR-6150 was not available to this session), so the
+   slope is a field: [`MATPRO_FTHCON_POROSITY_SLOPE_AS_PRINTED`] is
+   what the cited source prints and what
+   [`matpro_fthcon_uo2`](Self::matpro_fthcon_uo2) and the RELAP-7 set
+   use; [`MATPRO_FTHCON_POROSITY_SLOPE_TRANSPOSED`] is the alternative.
+   At 95 % TD they differ by 2 % at 300 K and by 12 % at 1364 K, and
+   agree exactly at and above 1834 K.
+2. **`T''`.** The phonon denominator is written `A + B*T''` and `T''`
+   is not defined in the cited text. This port takes `T'' = T`, an
+   assumption **not re-checked against MATPRO**.
+
+# Validity range
+
+**300–3113 K**, the same port-chosen UO2 window as
+[`MatproUo2`](Self::MatproUo2) (the melting point of unirradiated UO2
+as used by MATPRO). The RELAP-7 manual states that properties are held
+constant outside their ranges, which is what [`value`](Self::value)'s
+clamp does.
+
+# Source
+
+MATPRO, NUREG/CR-6150 (SCDAP/RELAP5/MOD3.3 MATPRO), §2.3 UO2 thermal
+conductivity; the form and constants as reproduced in the RELAP-7
+Theory Manual (INL/EXT-14-31366) §4.2.1, Eqs 228–230. Hand-checked
+values: unit test `matpro_fthcon_uo2_matches_hand_values`.
+
+[`Relap7HeatStructure`]: crate::materials::properties::relap7_heat_structure::Relap7HeatStructure
+[`HeatCapacityModel::MatproUo2`]: crate::materials::properties::heat_capacity::HeatCapacityModel::MatproUo2
+[`ThermalExpansionModel::MatproFthconUO2`]: crate::materials::properties::thermal_expansion::ThermalExpansionModel::MatproFthconUO2
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `porosity_slope` | `f64` | Slope of the low-temperature porosity factor, `beta = 6.5 -<br>porosity_slope*T` \[1/K\]. See the variant doc: the published<br>text prints `6.49e-3`<br>([`MATPRO_FTHCON_POROSITY_SLOPE_AS_PRINTED`]). |
 
 ###### `BrancheriaMox`
 
@@ -2686,6 +2782,41 @@ extrapolates anyway. This port clamps in [`value`] and reports
 RELAP Zircaloy thermal conductivity, as implemented in upstream
 `conductivityRelapZy.C`.
 
+###### `MatproCthconZircaloy`
+
+Zircaloy cladding, MATPRO CTHCON form with its full range \[W/(m K)\].
+Not an OFFBEAT upstream class: added for gh:#1070 as the cladding
+conductivity of the RELAP-7 heat-structure set.
+
+```text
+k = 7.51 + 2.09e-2*T - 1.45e-5*T^2 + 7.67e-9*T^3   for T < 2098 K
+  = 36                                              for T >= 2098 K
+```
+
+The cubic is **the same four coefficients** as
+[`RelapZircaloy`](Self::RelapZircaloy) (shared code); what differs is
+the range. `RelapZircaloy` clamps at OFFBEAT's 290–1800 K; this variant
+follows the cubic up to 2098 K (the Zircaloy melting point) and then
+holds the constant 36 W/(m K). The step at 2098 K is real in the source
+and is reproduced: the cubic gives 58.36 W/(m K) just below, the
+constant 36 just above.
+
+# Validity range
+
+**300–5000 K**. 300 K is the lower bound the source states for the
+cubic; 5000 K is the RELAP-7 manual's arbitrary upper guard (§4.2,
+"5 and 5000 K"), above which nothing is defined. Below 300 K
+[`value`](Self::value) clamps, i.e. holds the 300 K value, which is the
+manual's "constant beyond the range" rule.
+
+# Source
+
+MATPRO, NUREG/CR-6150, §4.4 Zircaloy thermal conductivity (CTHCON);
+the coefficients and the 2098 K / 36 W/(m K) cut as reproduced in the
+RELAP-7 Theory Manual (INL/EXT-14-31366) §4.2.2, Eq 231 and Table 8.
+Hand-checked values: unit test
+`matpro_cthcon_zircaloy_matches_hand_values`.
+
 ###### `Molybdenum`
 
 Molybdenum \[W/(m K)\].
@@ -2846,12 +2977,17 @@ ones — the header text appears to be a copy-paste slip.)
 ###### Methods
 
 - ```rust
+  pub const fn matpro_fthcon_uo2() -> Self { /* ... */ }
+  ```
+  [`MatproFthconUo2`](Self::MatproFthconUo2) with the porosity slope the
+
+- ```rust
   pub const fn parfume_buffer_default() -> Self { /* ... */ }
   ```
   [`ParfumeBuffer`](Self::ParfumeBuffer) with upstream's default
 
 - ```rust
-  pub const fn name(self: &Self) -> &''static str { /* ... */ }
+  pub const fn name(self: &Self) -> &'static str { /* ... */ }
   ```
   Short human-readable name of the correlation, for error messages and
 
@@ -2948,6 +3084,39 @@ ones — the header text appears to be a copy-paste slip.)
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+### Constants and Statics
+
+#### Constant `MATPRO_FTHCON_POROSITY_SLOPE_AS_PRINTED`
+
+Porosity-factor slope \[1/K\] of [`ConductivityModel::MatproFthconUo2`]
+**as printed** in the RELAP-7 Theory Manual §4.2.1 (`T' = 6.5 -
+0.00649 T`, confirmed on the rendered PDF 2026-11-01): `6.49e-3`.
+
+Used by [`ConductivityModel::matpro_fthcon_uo2`] and the RELAP-7
+heat-structure set. See the variant doc for why it is suspected to be a
+transposition of [`MATPRO_FTHCON_POROSITY_SLOPE_TRANSPOSED`]. **Not
+re-checked against MATPRO (NUREG/CR-6150) itself.**
+
+```rust
+pub const MATPRO_FTHCON_POROSITY_SLOPE_AS_PRINTED: f64 = 6.49e-3;
+```
+
+#### Constant `MATPRO_FTHCON_POROSITY_SLOPE_TRANSPOSED`
+
+Alternative porosity-factor slope \[1/K\] for
+[`ConductivityModel::MatproFthconUo2`]: `4.69e-3`, the digit transposition
+of [`MATPRO_FTHCON_POROSITY_SLOPE_AS_PRINTED`].
+
+With it the porosity factor stays `<= 1` and is continuous and monotone
+across 1364–1834 K; with the printed value it does not. That is a
+physical-consistency argument, **not** a check against MATPRO — **not
+re-checked** because NUREG/CR-6150 was not available. Provided so the
+question can be ablated explicitly rather than silently decided.
+
+```rust
+pub const MATPRO_FTHCON_POROSITY_SLOPE_TRANSPOSED: f64 = 4.69e-3;
+```
+
 ## Module `density`
 
 Density correlations \[kg/m^3\].
@@ -3223,7 +3392,7 @@ Fields:
 ###### Methods
 
 - ```rust
-  pub fn name(self: &Self) -> &''static str { /* ... */ }
+  pub fn name(self: &Self) -> &'static str { /* ... */ }
   ```
   Human-readable name of the correlation, used in error messages.
 
@@ -3386,6 +3555,38 @@ Reference density of 15-15Ti austenitic stainless steel at 20 °C
 
 ```rust
 pub const SCHUMANN_1515TI_REFERENCE_DENSITY: f64 = 7900.0;
+```
+
+#### Constant `RELAP7_UO2_REFERENCE_DENSITY`
+
+RELAP-7 heat-structure reference density of UO2 \[kg/m^3\]: `10980.0`
+(RELAP-7 Theory Manual, INL/EXT-14-31366, §4.2.1). Not an OFFBEAT upstream
+default: added for gh:#1070.
+
+RELAP-7 multiplies this constant room-temperature density directly by the
+MATPRO heat capacity to form `rho*Cp`; it applies **no** porosity factor to
+it, even though the same set evaluates the conductivity at 95 % of
+theoretical density. It is therefore close to, and 20 kg/m^3 above,
+OFFBEAT's [`UO2_THEORETICAL_DENSITY`] (10 960). Use it through
+[`DensityModel::Constant`] (or the
+[`Relap7HeatStructure`](crate::materials::properties::relap7_heat_structure::Relap7HeatStructure)
+set), not as the `theoretical_density` of [`DensityModel::UO2`], which
+would apply the porosity a second time.
+
+```rust
+pub const RELAP7_UO2_REFERENCE_DENSITY: f64 = 10980.0;
+```
+
+#### Constant `RELAP7_ZIRCALOY_REFERENCE_DENSITY`
+
+RELAP-7 heat-structure reference density of Zircaloy \[kg/m^3\]: `6551.0`
+(RELAP-7 Theory Manual, INL/EXT-14-31366, §4.2.2). Not an OFFBEAT upstream
+default: added for gh:#1070. A constant room-temperature value; compare
+[`DensityModel::IAEAZy`], which gives `6595.2 - 0.1477*T`
+(6550.9 kg/m^3 at 300 K).
+
+```rust
+pub const RELAP7_ZIRCALOY_REFERENCE_DENSITY: f64 = 6551.0;
 ```
 
 ## Module `emissivity`
@@ -3556,7 +3757,7 @@ Fields:
 ###### Methods
 
 - ```rust
-  pub fn name(self: &Self) -> &''static str { /* ... */ }
+  pub fn name(self: &Self) -> &'static str { /* ... */ }
   ```
   Human-readable name of the correlation, used in error messages.
 
@@ -4119,7 +4320,7 @@ modeling*, Journal of Nuclear Materials (2007), as cited by upstream
 ###### Methods
 
 - ```rust
-  pub const fn name(self: &Self) -> &''static str { /* ... */ }
+  pub const fn name(self: &Self) -> &'static str { /* ... */ }
   ```
   Short human-readable name of the correlation, for error messages and
 
@@ -4574,7 +4775,7 @@ two come from the same 1975 correlation set.
 ###### Methods
 
 - ```rust
-  pub fn name(self: &Self) -> &''static str { /* ... */ }
+  pub fn name(self: &Self) -> &'static str { /* ... */ }
   ```
   Human-readable name of the correlation, used in error messages.
 
@@ -4762,6 +4963,329 @@ changes sign.
 pub const POISSON_RATIO_MAX: f64 = 0.5;
 ```
 
+## Module `relap7_heat_structure`
+
+The **RELAP-7 heat-structure property set**: UO2 fuel, Zircaloy cladding
+and the fuel-rod gap gas, as one named bundle (gh:#1070).
+
+> Research, education and V&V only. AI draft, unreviewed.
+
+# What this is
+
+RELAP-7's heat-conduction model (Theory Manual §4.1) needs `k`, `rho` and
+`Cp` for three materials, and §4.2 says which: MATPRO's correlations, with
+a constant reference density multiplied by a temperature-dependent `Cp`.
+[`Relap7HeatStructure`] collects exactly that choice, built from this
+crate's own correlation enums so that nothing is implemented twice:
+
+| Material | Property | Model here | Source |
+|---|---|---|---|
+| UO2 | `k` | [`ConductivityModel::MatproFthconUo2`] at `D = 0.95` | MATPRO §2.3; manual Eqs 228–230 |
+| UO2 | `Cp` | [`HeatCapacityModel::MatproUo2`], O/M = 2 | MATPRO §2.2 |
+| UO2 | `rho` | [`RELAP7_UO2_REFERENCE_DENSITY`] = 10 980 kg/m³ | manual §4.2.1 |
+| Zircaloy | `k` | [`ConductivityModel::MatproCthconZircaloy`] | MATPRO §4.4; manual Eq 231, Table 8 |
+| Zircaloy | `Cp` | [`HeatCapacityModel::MatproZircaloy`], held constant below 300 K | MATPRO Table 4-2 |
+| Zircaloy | `rho` | [`RELAP7_ZIRCALOY_REFERENCE_DENSITY`] = 6 551 kg/m³ | manual §4.2.2 |
+| gap gas | `k` | [`GapGasMixture::conductivity_with_fit`] with [`GasConductivityFit::Matpro`] | MATPRO §12.1.1; manual Eqs 232–234 |
+| gap gas | `rho`, `Cp` | ideal gas, [`GapGasMixture::density`], [`GapGasMixture::specific_heat_capacity`] | manual §4.2.3 |
+
+**OFFBEAT's own defaults are untouched.** Nothing in this module changes
+what any existing variant returns; it only selects.
+
+# Ranges
+
+The manual holds every property constant outside its stated range. Each
+accessor here does the same, by the correlation's own clamp
+([`ConductivityModel::value`], [`HeatCapacityModel::value`]) or, where the
+correlation's window is wider than RELAP-7's, by an explicit clamp that
+the accessor's doc names.
+
+# Known departures and open questions
+
+- **UO2 porosity slope.** The manual prints `0.00649`; there is reason to
+  suspect `0.00469`. This set uses the printed value. See
+  [`ConductivityModel::MatproFthconUo2`] — up to 12 % at 1364 K.
+- **`T''`** in the UO2 phonon term is undefined in the cited text; `T'' =
+  T` is assumed.
+- **Gap-gas mixing rule.** The manual's Eq 233 prints `(M_i − M_j)²`; this
+  crate uses the standard `(M_i + M_j)²`. See the [`crate::gap::gas`]
+  module doc.
+- **Gas constant in the UO2 `Cp` defect term.** The manual prints
+  `8.3143`; [`HeatCapacityModel::MatproUo2`] uses the CODATA value
+  `8.314 462…`. The difference is about `1e-4` relative in the defect term
+  alone (which vanishes below ~1500 K), and is left as is.
+- **Zircaloy `Cp` at 1093 K** carries the upstream OFFBEAT table step
+  documented on [`HeatCapacityModel::MatproZircaloy`].
+- **Density consistency.** RELAP-7 forms `rho*Cp` from the reference
+  densities with no porosity factor while evaluating UO2 `k` at 95 % TD.
+  Reproduced, not reconciled.
+
+# Units
+
+Raw `f64` in strict SI, per the crate's units policy: K, W/(m K),
+J/(kg K), kg/m³, J/(m³ K), Pa.
+
+```rust
+pub mod relap7_heat_structure { /* ... */ }
+```
+
+### Types
+
+#### Struct `Relap7HeatStructure`
+
+The RELAP-7 heat-structure property set: one named bundle of MATPRO
+correlations for UO2 fuel, Zircaloy cladding and the gap gas.
+
+See the [module documentation](self) for which correlation fills which
+slot, and for the open questions. Fields are public so that any one
+choice can be ablated explicitly (for example, swap
+`fuel_conductivity` to the transposed porosity slope) while the rest of
+the set stays as published.
+
+```
+use outram_park_fork_offbeat::materials::properties::relap7_heat_structure::Relap7HeatStructure;
+
+let set = Relap7HeatStructure::new().unwrap();
+// UO2 near 1000 K: a few W/(m K).
+assert!((set.fuel_conductivity(1000.0) - 3.9016).abs() < 1e-3);
+// Zircaloy above its melting point: the constant 36 W/(m K).
+assert_eq!(set.cladding_conductivity(2500.0), 36.0);
+// Gap gas, Xe-rich: about 0.0104 W/(m K) at 300 K.
+assert!((set.gap_gas_conductivity(300.0).unwrap() - 0.010392).abs() < 1e-5);
+```
+
+```rust
+pub struct Relap7HeatStructure {
+    pub fuel_conductivity: crate::materials::properties::conductivity::ConductivityModel,
+    pub fuel_heat_capacity: crate::materials::properties::heat_capacity::HeatCapacityModel,
+    pub fuel_reference_density: f64,
+    pub fuel_density_fraction: f64,
+    pub cladding_conductivity: crate::materials::properties::conductivity::ConductivityModel,
+    pub cladding_heat_capacity: crate::materials::properties::heat_capacity::HeatCapacityModel,
+    pub cladding_reference_density: f64,
+    pub gap_gas: crate::gap::gas::GapGasMixture,
+    pub gap_gas_conductivity_fit: crate::gap::gas::GasConductivityFit,
+    pub gap_gas_pressure: f64,
+    pub gap_gas_reference_temperature: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `fuel_conductivity` | `crate::materials::properties::conductivity::ConductivityModel` | UO2 conductivity model; [`ConductivityModel::matpro_fthcon_uo2`]. |
+| `fuel_heat_capacity` | `crate::materials::properties::heat_capacity::HeatCapacityModel` | UO2 specific heat model; [`HeatCapacityModel::MatproUo2`]. |
+| `fuel_reference_density` | `f64` | UO2 reference density \[kg/m³\]; [`RELAP7_UO2_REFERENCE_DENSITY`]. |
+| `fuel_density_fraction` | `f64` | Fraction of theoretical density \[-\] at which the UO2 conductivity is<br>evaluated; [`RELAP7_FUEL_DENSITY_FRACTION`]. |
+| `cladding_conductivity` | `crate::materials::properties::conductivity::ConductivityModel` | Zircaloy conductivity model; [`ConductivityModel::MatproCthconZircaloy`]. |
+| `cladding_heat_capacity` | `crate::materials::properties::heat_capacity::HeatCapacityModel` | Zircaloy specific heat model; [`HeatCapacityModel::MatproZircaloy`]. |
+| `cladding_reference_density` | `f64` | Zircaloy reference density \[kg/m³\];<br>[`RELAP7_ZIRCALOY_REFERENCE_DENSITY`]. |
+| `gap_gas` | `crate::gap::gas::GapGasMixture` | Gap-gas composition; [`RELAP7_GAP_GAS_MOLE_FRACTIONS`]. Its stored<br>mass is irrelevant to every property here (all intensive). |
+| `gap_gas_conductivity_fit` | `crate::gap::gas::GasConductivityFit` | Which pure-gas conductivity fits the gap gas uses;<br>[`GasConductivityFit::Matpro`]. |
+| `gap_gas_pressure` | `f64` | Pressure \[Pa\] fixing the gap-gas density; [`RELAP7_GAP_GAS_PRESSURE`]. |
+| `gap_gas_reference_temperature` | `f64` | Temperature \[K\] fixing the gap-gas density;<br>[`RELAP7_GAP_GAS_REFERENCE_TEMPERATURE`]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new() -> Result<Self> { /* ... */ }
+  ```
+  The set as the RELAP-7 Theory Manual §4.2 describes it.
+
+- ```rust
+  pub fn fuel_state(self: &Self, t: f64) -> MaterialState { /* ... */ }
+  ```
+  The [`MaterialState`] at which the fuel properties are evaluated:
+
+- ```rust
+  pub fn fuel_conductivity(self: &Self, t: f64) -> f64 { /* ... */ }
+  ```
+  UO2 thermal conductivity \[W/(m K)\] at `t` \[K\], clamped into the
+
+- ```rust
+  pub fn fuel_specific_heat(self: &Self, t: f64) -> f64 { /* ... */ }
+  ```
+  UO2 specific heat \[J/(kg K)\] at `t` \[K\], clamped into the model's
+
+- ```rust
+  pub fn fuel_volumetric_heat_capacity(self: &Self, t: f64) -> f64 { /* ... */ }
+  ```
+  UO2 volumetric heat capacity `rho*Cp` \[J/(m³ K)\] at `t` \[K\]: the
+
+- ```rust
+  pub fn cladding_conductivity(self: &Self, t: f64) -> f64 { /* ... */ }
+  ```
+  Zircaloy thermal conductivity \[W/(m K)\] at `t` \[K\]: the cubic to
+
+- ```rust
+  pub fn cladding_specific_heat(self: &Self, t: f64) -> f64 { /* ... */ }
+  ```
+  Zircaloy specific heat \[J/(kg K)\] at `t` \[K\]. The temperature is
+
+- ```rust
+  pub fn cladding_volumetric_heat_capacity(self: &Self, t: f64) -> f64 { /* ... */ }
+  ```
+  Zircaloy volumetric heat capacity `rho*Cp` \[J/(m³ K)\] at `t` \[K\].
+
+- ```rust
+  pub fn gap_gas_conductivity(self: &Self, t: f64) -> Result<f64> { /* ... */ }
+  ```
+  Gap-gas mixture conductivity \[W/(m K)\] at `t` \[K\], with `t` clamped
+
+- ```rust
+  pub fn gap_gas_density(self: &Self) -> f64 { /* ... */ }
+  ```
+  Gap-gas density \[kg/m³\]: ideal gas at [`Self::gap_gas_pressure`] and
+
+- ```rust
+  pub fn gap_gas_specific_heat(self: &Self) -> f64 { /* ... */ }
+  ```
+  Gap-gas specific heat \[J/(kg K)\]: ideal monatomic gas, `5/2 R_mix`.
+
+- ```rust
+  pub fn gap_gas_volumetric_heat_capacity(self: &Self) -> f64 { /* ... */ }
+  ```
+  Gap-gas volumetric heat capacity `rho*Cp` \[J/(m³ K)\].
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Constants and Statics
+
+#### Constant `RELAP7_FUEL_DENSITY_FRACTION`
+
+Fraction of theoretical density \[-\] RELAP-7 assumes for the UO2
+conductivity: `0.95` (manual §4.2.1).
+
+```rust
+pub const RELAP7_FUEL_DENSITY_FRACTION: f64 = 0.95;
+```
+
+#### Constant `RELAP7_GAP_GAS_MOLE_FRACTIONS`
+
+RELAP-7 gap-gas mole fractions \[-\]: He 0.1066, Kr 0.1340, Xe 0.7594
+(manual §4.2.3), indexed by [`GapGasSpecies::index`]. A representative
+fill-plus-fission-gas mixture.
+
+```rust
+pub const RELAP7_GAP_GAS_MOLE_FRACTIONS: [f64; 6] = _;
+```
+
+#### Constant `RELAP7_GAP_GAS_PRESSURE`
+
+Representative fuel-rod internal pressure \[Pa\] RELAP-7 uses to fix the
+gap-gas density: 4.1 MPa (manual §4.2.3).
+
+```rust
+pub const RELAP7_GAP_GAS_PRESSURE: f64 = 4.1e6;
+```
+
+#### Constant `RELAP7_GAP_GAS_REFERENCE_TEMPERATURE`
+
+Temperature \[K\] at which RELAP-7 evaluates the (then constant) gap-gas
+density: 300 K (manual §4.2.3).
+
+```rust
+pub const RELAP7_GAP_GAS_REFERENCE_TEMPERATURE: f64 = 300.0;
+```
+
+#### Constant `RELAP7_GAP_GAS_CONDUCTIVITY_RANGE`
+
+Temperature window \[K\] over which RELAP-7 tabulates the gap-gas
+conductivity, `(300, 3000)` (manual §4.2.3). Held constant outside.
+
+```rust
+pub const RELAP7_GAP_GAS_CONDUCTIVITY_RANGE: (f64, f64) = _;
+```
+
+#### Constant `RELAP7_ZIRCALOY_CP_T_LOW`
+
+Lower end \[K\] of RELAP-7's Zircaloy `Cp` table range (300–1248 K, manual
+§4.2.2). [`HeatCapacityModel::MatproZircaloy`] itself extends down to
+273 K by linear extrapolation; RELAP-7 instead holds the 300 K value.
+
+```rust
+pub const RELAP7_ZIRCALOY_CP_T_LOW: f64 = 300.0;
+```
+
 ## Module `thermal_expansion`
 
 Thermal expansion correlations — **strain** \[-\] and **coefficient**
@@ -4869,6 +5393,7 @@ of the model, not a footnote.
 |---|---|---|
 | [`Constant`](Self::Constant) | any | caller-supplied |
 | [`RelapUO2`](Self::RelapUO2) | UO2 | caller-supplied |
+| [`MatproFthconUO2`](Self::MatproFthconUO2) | UO2 | fixed by the fit (~300 K) |
 | [`MatproUPuO2`](Self::MatproUPuO2) | (U,Pu)O2 | fixed by the fit (~341 K) |
 | [`MartinUPuO2`](Self::MartinUPuO2) | (U,Pu)O2 | caller-supplied |
 | [`LemehovUPuO2`](Self::LemehovUPuO2) | (U,Pu)O2 | fixed by the fit |
@@ -4911,6 +5436,7 @@ pub enum ThermalExpansionModel {
     RelapUO2 {
         t_ref: f64,
     },
+    MatproFthconUO2,
     MatproUPuO2,
     MartinUPuO2 {
         t_ref: f64,
@@ -4996,6 +5522,52 @@ Fields:
 | Name | Type | Documentation |
 |------|------|---------------|
 | `t_ref` | `f64` | Reference (stress-free) temperature \[K\]. |
+
+###### `MatproFthconUO2`
+
+UO2 fuel, the linear strain used *inside* the older MATPRO UO2
+thermal-conductivity model (MATPRO FTHCON, the `3*e_th` term).
+
+```text
+eps_th = 1.0e-5*T - 3.0e-3 + 4.0e-2*exp(-6.9e-20 / (1.38e-23*T))
+```
+
+**Not an OFFBEAT upstream class** — added for gh:#1070 so that
+[`ConductivityModel::MatproFthconUo2`] carries its own expansion, and
+exposed here so the strain can be inspected and tested on its own. It
+is a *different fit* from [`RelapUO2`](Self::RelapUO2): `K1 = 1.0e-5`
+vs `9.8e-6 1/K`, `K2 = 3.0e-3` vs `2.61e-3`, `K3 = 4.0e-2` vs `3.16e-1`
+and a defect energy of `6.9e-20 J` vs `1.32e-19 J`. Do not substitute
+one for the other.
+
+# The reference temperature is baked into the fit
+
+The strain is returned as the formula gives it, with nothing
+subtracted, exactly as the conductivity model consumes it. The linear
+part vanishes at exactly 300 K, where the defect term is `2.3e-9` —
+below the `1e-7` dead zone, so [`strain`](Self::strain) returns `0.0`
+there. [`reference_temperature`](Self::reference_temperature) returns
+`None`, as for the other baked-in fits.
+
+# Inputs used from [`MaterialState`]
+
+[`temperature`](MaterialState::temperature) only.
+
+# Validity
+
+Lower bound **300 K**, stated by the source ("for temperatures above
+300 K"); no upper bound is stated and none is enforced. Below 300 K the
+plain methods clamp to the 300 K value.
+
+# Source
+
+MATPRO, NUREG/CR-6150 (SCDAP/RELAP5 MATPRO), §2.3 UO2 thermal
+conductivity, as reproduced in the RELAP-7 Theory Manual
+(INL/EXT-14-31366) §4.2.1, Eq 230. Hand-checked values are pinned in
+the unit test `matpro_fthcon_uo2_strain_matches_hand_values`.
+
+[`ConductivityModel::MatproFthconUo2`]:
+    crate::materials::properties::conductivity::ConductivityModel::MatproFthconUo2
 
 ###### `MatproUPuO2`
 
@@ -5379,7 +5951,7 @@ Fields:
 ###### Methods
 
 - ```rust
-  pub fn name(self: &Self) -> &''static str { /* ... */ }
+  pub fn name(self: &Self) -> &'static str { /* ... */ }
   ```
   Human-readable name of the correlation, used in error messages.
 
@@ -6081,7 +6653,7 @@ as transcribed in OFFBEAT.
 ###### Methods
 
 - ```rust
-  pub fn name(self: &Self) -> &''static str { /* ... */ }
+  pub fn name(self: &Self) -> &'static str { /* ... */ }
   ```
   Human-readable name of the correlation, used in error messages.
 
@@ -7341,7 +7913,7 @@ Fields:
   Rod-average fast flux \[n/(m²·s)\] at time `t` \[s\].
 
 - ```rust
-  pub fn upstream_name(self: &Self) -> &''static str { /* ... */ }
+  pub fn upstream_name(self: &Self) -> &'static str { /* ... */ }
   ```
   Upstream's runtime-selection typename for this model, for logging and
 
@@ -7602,7 +8174,12 @@ Zr + 2 H2O  ->  ZrO2 + 2 H2
 
 A layer of zirconia (ZrO2) therefore grows on the outer surface over the
 rod's four-to-six-year life. It is not a cosmetic effect; it matters for
-three separate reasons, and this module computes all three.
+~~three separate reasons, and this module computes all three.~~
+**CORRECTED 2026-10-27 — four, and the fourth was added here, not ported:**
+upstream OFFBEAT computes the first three, which are the ones that matter
+to a fuel-performance calculation at operating temperature. The reaction's
+own **heat** (reason 4) is negligible there and dominant in an accident, so
+this port adds it; see [`exotherm`].
 
 1. **The oxide is a thermal insulator.** ZrO2 conducts about 2 W/(m·K)
    against Zircaloy's ~15 W/(m·K), so every micron of oxide adds thermal
@@ -7621,6 +8198,13 @@ three separate reasons, and this module computes all three.
    zirconium hydride platelets. Hydrides are brittle, so hydrogen pickup is
    the mechanism by which corrosion turns into a **cladding-failure**
    problem rather than merely a heat-transfer one. See [`hydrogen`].
+4. **The reaction releases heat** — 6.76 MJ per kg of zirconium consumed.
+   At 600 K that is 3.8e-9 of a rod's decay heat and rightly ignored; by
+   1500 K it is 2.25 times it, and because the rate rises with temperature
+   and the heat raises the temperature, it runs away. This is the term that
+   turns a loss of cooling into a melt, and the reason this module is of
+   any use outside normal operation. **Not from upstream** — see
+   [`exotherm`] for why upstream is right not to have it.
 
 # Sub-transition and post-transition kinetics
 
@@ -8385,6 +8969,292 @@ default `1.0` (use the newer iterate of each pair).
 
 ```rust
 pub const DEFAULT_ALPHA: f64 = 1.0;
+```
+
+## Module `exotherm`
+
+Heat released by the zirconium-steam reaction \[J/m^2 of clad surface\].
+
+```text
+Zr + 2 H2O  ->  ZrO2 + 2 H2        dH < 0
+```
+
+The same reaction [`super::kinetics`] grows oxide with and
+[`super::hydrogen`] liberates hydrogen from. This module answers the third
+question those two do not: **how much energy does it release?**
+
+# Why upstream does not have this, and why this port needs it
+
+OFFBEAT is a fuel-performance code. At normal-operation cladding
+temperatures — 560 to 620 K — the oxide grows microns per *year* and the
+exotherm is utterly negligible beside the fission power a few millimetres
+away. Leaving it out is the right call for the problem upstream solves, and
+[`super`]'s own module documentation says as much when it lists the three
+reasons the oxide matters: insulation, metal loss, hydrogen pickup. Energy
+is not among them.
+
+Above roughly 1200 K that judgement inverts. The reaction becomes the
+dominant heat source in the core — larger than decay heat — and because it
+is faster the hotter it gets, and it heats what drives it, it is
+**self-accelerating**. A heat-up calculation that omits it does not merely
+run a little cool: it cannot produce the runaway at all, and it produces no
+hydrogen.
+
+**Measured** with this module, 2026-10-27, by
+`oxidation_overtakes_decay_heat_between_1300_and_1500k`: Cathcart-Pawel for
+one second from a 10 um oxide, against the decay-heat flux of a 17x17 PWR
+rod at 1 % of a 20 kW/m rating (`200 W/m / (2*pi*4.75 mm) = 6.70e3 W/m^2`).
+
+| Clad temperature | Oxidation \[W/m^2\] | Ratio to decay heat |
+|---|---|---|
+| 600 K | 2.57e-5 | 3.8e-9 |
+| 900 K | 1.94e0 | 2.9e-4 |
+| 1200 K | 5.32e2 | 0.079 |
+| 1300 K | 1.94e3 | 0.289 |
+| 1500 K | 1.51e4 | 2.25 |
+| 1700 K | 6.75e4 | 10.1 |
+
+**The crossover is between 1300 and 1500 K.** So this term is worth nothing
+at operating temperature and worth more than decay heat in an accident,
+which is exactly why a fuel-performance code can omit it and an accident
+calculation cannot.
+
+# Inherited validity: this module is only as good as the kinetics
+
+Every number here is `oxide growth x chemistry`. The chemistry is a mass
+balance and cannot be wrong; **the growth can**, and this module applies no
+validity check of its own. In particular
+[`super::kinetics::OxidationKinetics::CathcartPawel`] carries a documented
+**upstream defect in the 1800-1900 K window**, reproduced deliberately,
+where the rate constant comes out about nine orders of magnitude too large.
+Feed that growth in here and you get a heat flux to match: at 1800 K this
+module returns `1.96e12 W/m^2`, which is nonsense, because its input was.
+
+The table above stops at 1700 K for that reason. A caller near or above
+1800 K must obtain growth from
+[`growth_checked`](super::kinetics::OxidationKinetics::growth_checked),
+which refuses the window, rather than from the unchecked path.
+
+# What this module is NOT
+
+It is the reaction *enthalpy*, nothing more. It does **not** make this crate
+a severe-accident code: there is still no phase change, no melting, no
+candling, no relocation of molten material, and every material correlation
+in [`crate::materials`] is still bounded at the melting point. See the crate
+documentation. This module lets a caller's own heat-conduction solve see the
+oxidation energy; it does not model anything that happens after the metal
+melts.
+
+It also assumes **steam is available**. The reaction is limited by whichever
+is scarcer, zirconium or steam, and nothing here knows about steam supply:
+in a steam-starved node the real release is smaller than this returns. A
+caller that cannot guarantee steam must apply its own limit.
+
+# Provenance of the enthalpy
+
+Derived from standard enthalpies of formation at 298.15 K, not fitted and
+not taken from any severe-accident code:
+
+```text
+dH = dHf(ZrO2, monoclinic) - 2 * dHf(H2O, gas)
+   = -1100.6 - 2*(-241.826)  kJ/mol
+   = -616.95 kJ/mol Zr
+```
+
+giving **6.763 MJ per kg of zirconium consumed**.
+
+Published values used by accident codes sit a little below this — Baker-Just
+is commonly quoted at 6.45 MJ/kg, and values from 5.8 to 6.5 MJ/kg appear in
+the literature depending on the water phase assumed (liquid or vapour), the
+ZrO2 polymorph, and the temperature the enthalpy is evaluated at. The spread
+is about 5 %. **This module reports the derived value and does not tune it
+toward any of them**; [`REACTION_ENTHALPY_PER_MOL_ZR`] is public so a caller
+who needs a specific published basis can scale, and say that they did.
+
+The derivation is temperature-independent, which is an approximation: the
+reaction enthalpy drifts by a few per cent over 300-2000 K as the heat
+capacities of reactants and products differ. That drift is well inside the
+5 % spread above and is not modelled.
+
+```rust
+pub mod exotherm { /* ... */ }
+```
+
+### Functions
+
+#### Function `zirconium_consumed`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Mass of zirconium consumed \[kg/m^2 of outer surface\] in growing
+`oxide_growth` \[m\] of oxide, on cladding of density `zircaloy_density`
+\[kg/m^3\].
+
+The metal consumed is thinner than the oxide produced, by the
+Pilling-Bedworth ratio — [`super::CorrosionModel::metal_loss`] is the same
+division, and this function exists so the two cannot drift.
+
+# Choosing a density
+
+Zircaloy density falls with temperature and jumps across the alpha-beta
+transition, so at accident temperatures a constant is a poor choice. Use
+[`crate::materials::properties::density::DensityModel::IAEAZy`], which carries the
+transition. A caller that genuinely wants a constant should say which one
+and why.
+
+Returns `0.0` for non-positive growth or non-positive density.
+
+```
+use outram_park_fork_offbeat::corrosion::exotherm::zirconium_consumed;
+
+// 100 um of oxide, Zircaloy near 6500 kg/m^3.
+let m = zirconium_consumed(1.0e-4, 6500.0);
+assert!((m - 0.4167).abs() < 1.0e-3);
+```
+
+```rust
+pub fn zirconium_consumed(oxide_growth: f64, zircaloy_density: f64) -> f64 { /* ... */ }
+```
+
+#### Function `heat_released`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Heat released \[J/m^2 of outer surface\] in growing `oxide_growth` \[m\] of
+oxide, on cladding of density `zircaloy_density` \[kg/m^3\].
+
+A **surface** quantity, because the reaction happens at the metal/oxide
+interface rather than through the wall. That is the opposite convention to
+[`super::hydrogen::hydrogen_liberated`], which returns a wall-average
+concentration because hydrogen *diffuses into* the metal while this energy
+does not: it conducts away from the surface it was released on. Use
+[`wall_volumetric_heat`] if a volumetric source in the metal is what your
+discretisation wants.
+
+Positive (a heat source). Returns `0.0` for degenerate input.
+
+```
+use outram_park_fork_offbeat::corrosion::exotherm::heat_released;
+
+// 100 um of oxide releases about 2.8 MJ per square metre of clad.
+let q = heat_released(1.0e-4, 6500.0);
+assert!((q - 2.818e6).abs() < 1.0e4);
+// Nothing from nothing.
+assert_eq!(heat_released(0.0, 6500.0), 0.0);
+```
+
+```rust
+pub fn heat_released(oxide_growth: f64, zircaloy_density: f64) -> f64 { /* ... */ }
+```
+
+#### Function `heat_flux`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Mean heat flux \[W/m^2\] over a step that grew `oxide_growth` \[m\] of oxide
+in `time_step` \[s\].
+
+The **mean** over the step, not the instantaneous value at either end — the
+same convention as [`super::kinetics::OxidationKinetics::growth_rate`],
+because it is that growth divided by that step.
+
+Returns `0.0` for a non-positive step.
+
+```
+use outram_park_fork_offbeat::corrosion::exotherm::heat_flux;
+
+// 1 um in 10 s.
+let q = heat_flux(1.0e-6, 6500.0, 10.0);
+assert!((q - 2818.0).abs() < 10.0);
+```
+
+```rust
+pub fn heat_flux(oxide_growth: f64, zircaloy_density: f64, time_step: f64) -> f64 { /* ... */ }
+```
+
+#### Function `wall_volumetric_heat`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Heat released as a volumetric source in the cladding metal \[J/m^3\].
+
+[`heat_released`] spread over the wall with the same surface-to-volume
+factor [`super::hydrogen`] uses, for a discretisation that wants a
+volumetric source rather than a surface flux.
+
+**This smears a surface release through the wall.** It is the right thing
+for a thin wall resolved by one cell and the wrong thing for a wall resolved
+by many, where the outermost cell should carry it. Prefer [`heat_released`]
+as a boundary flux where the discretisation allows.
+
+Returns `0.0` for degenerate input.
+
+```rust
+pub fn wall_volumetric_heat(oxide_growth: f64, inner_radius: f64, outer_radius: f64, zircaloy_density: f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `ZIRCONIA_FORMATION_ENTHALPY`
+
+Standard enthalpy of formation of monoclinic ZrO2 at 298.15 K \[J/mol\].
+
+```rust
+pub const ZIRCONIA_FORMATION_ENTHALPY: f64 = -1_100_600.0;
+```
+
+#### Constant `WATER_VAPOUR_FORMATION_ENTHALPY`
+
+Standard enthalpy of formation of gaseous water at 298.15 K \[J/mol\].
+
+```rust
+pub const WATER_VAPOUR_FORMATION_ENTHALPY: f64 = -241_826.0;
+```
+
+#### Constant `WATER_MOLES_PER_ZIRCONIUM`
+
+Moles of water consumed per mole of zirconium \[-\], from
+`Zr + 2 H2O -> ZrO2 + 2 H2`.
+
+Two. [`super::hydrogen::HYDROGEN_ATOMS_PER_ZIRCONIUM`] is the same
+stoichiometry counted in atoms rather than molecules (four atoms, two
+molecules); the two constants must stay consistent and a test asserts it.
+
+```rust
+pub const WATER_MOLES_PER_ZIRCONIUM: f64 = 2.0;
+```
+
+#### Constant `REACTION_ENTHALPY_PER_MOL_ZR`
+
+Enthalpy of `Zr + 2 H2O -> ZrO2 + 2 H2` at 298.15 K \[J/mol of Zr\].
+
+**Negative**, because the reaction is exothermic. Roughly `-6.17e5` J/mol.
+Derived from the two formation enthalpies above; see the
+[module documentation](self) for why it is not tuned to a published
+accident-code value.
+
+```rust
+pub const REACTION_ENTHALPY_PER_MOL_ZR: f64 = _;
+```
+
+#### Constant `ENERGY_PER_KG_ZIRCONIUM`
+
+Energy released per kilogram of zirconium consumed \[J/kg\], positive.
+
+`|dH| / M_Zr`, about `6.76e6` J/kg. The sign is flipped from
+[`REACTION_ENTHALPY_PER_MOL_ZR`] so that callers adding a heat source do not
+have to remember to negate it.
+
+```rust
+pub const ENERGY_PER_KG_ZIRCONIUM: f64 = _;
 ```
 
 ## Module `hydrogen`
@@ -11109,7 +11979,7 @@ silently selecting something else.
 ###### Methods
 
 - ```rust
-  pub fn upstream_name(self: &Self) -> &''static str { /* ... */ }
+  pub fn upstream_name(self: &Self) -> &'static str { /* ... */ }
   ```
   Upstream's runtime-selection typename for this model, for logging and
 
@@ -13092,22 +13962,22 @@ pub struct FreeVolumeRegion {
 ###### Methods
 
 - ```rust
-  pub fn uniform(name: &''static str, volume: f64, temperature: f64) -> Result<Self> { /* ... */ }
+  pub fn uniform(name: &'static str, volume: f64, temperature: f64) -> Result<Self> { /* ... */ }
   ```
   An **isothermal** region: volume `volume` \[m³\] all at temperature
 
 - ```rust
-  pub fn distributed(name: &''static str, volume: f64, v_over_t: f64) -> Result<Self> { /* ... */ }
+  pub fn distributed(name: &'static str, volume: f64, v_over_t: f64) -> Result<Self> { /* ... */ }
   ```
   A region with a **non-uniform** temperature, given its volume \[m³\] and
 
 - ```rust
-  pub fn empty(name: &''static str) -> Self { /* ... */ }
+  pub fn empty(name: &'static str) -> Self { /* ... */ }
   ```
   An empty region — zero volume, zero `V/T`. Contributes nothing.
 
 - ```rust
-  pub fn name(self: &Self) -> &''static str { /* ... */ }
+  pub fn name(self: &Self) -> &'static str { /* ... */ }
   ```
   The region's name, for diagnostics.
 
@@ -13646,7 +14516,24 @@ k_mix = Σ_i  k_i x_i / ( x_i + Σ_{j≠i} ψ_ij x_j )
 ```
 
 with `x` mole fractions and `M` molar masses. Upstream (`gapFRAPCON::kappa`)
-attributes this to the FRAPCON-4.0 manual. Its one structural property worth
+attributes this to the FRAPCON-4.0 manual. MATPRO (NUREG/CR-6150 §12.1.1,
+subcode GTHCON) uses the same rule.
+
+**On the `(M_i + M_j)²` denominator (gh:#1070).** The RELAP-7 Theory Manual
+(INL/EXT-14-31366, §4.2.3), which cites MATPRO §12.1.1 for this rule,
+prints Eq 233 with `(M_i − M_j)²` in the denominator. That was checked on
+the rendered PDF on 2026-11-01, not only on extracted text: the PDF really
+does print a minus. This port keeps OFFBEAT's `(M_i + M_j)²`, for three
+reasons: it is the published Brokaw/Lindsay–Bromley form; with a minus the
+factor collapses to `(M_i − 0.142 M_j)/(M_i − M_j)`, which is singular for
+two species of equal molar mass; and on the RELAP-7 He/Kr/Xe composition
+the minus form gives 0.00647 W/m/K at 300 K, barely above pure xenon
+(0.00593), against 0.01039 with the plus. The same page of the manual also
+departs from the standard form in Eq 232 (`ψ_ij x_i` where the sum needs
+`ψ_ij x_j`) and Eq 234 (`2^(2/3)` where the form has `2^(3/2)`, and the
+`1 +` placed inside the square root), so Eq 233's minus reads as one of
+several typesetting slips. **Not re-checked against MATPRO's own text**,
+which was not available to this session. Its one structural property worth
 knowing: **it reduces exactly to `k_i` at `x_i = 1`**, because the inner sum
 is then empty and the term is `k_i · 1 / 1`. That exactness is asserted in
 the tests.
@@ -13754,7 +14641,7 @@ Discriminant value: `5`
   Array index of this species — its discriminant.
 
 - ```rust
-  pub const fn symbol(self: Self) -> &''static str { /* ... */ }
+  pub const fn symbol(self: Self) -> &'static str { /* ... */ }
   ```
   Chemical symbol, matching upstream's dictionary keys (`"He"`, `"Xe"`, …).
 
@@ -13772,6 +14659,16 @@ Discriminant value: `5`
   pub const fn conductivity_coefficients(self: Self) -> (f64, f64) { /* ... */ }
   ```
   Coefficients `(A, B)` of the pure-gas conductivity fit
+
+- ```rust
+  pub const fn matpro_conductivity_coefficients(self: Self) -> Option<(f64, f64)> { /* ... */ }
+  ```
+  Coefficients `(A, B)` of the **MATPRO** pure-gas conductivity fit
+
+- ```rust
+  pub const fn conductivity_coefficients_for(self: Self, fit: GasConductivityFit) -> Option<(f64, f64)> { /* ... */ }
+  ```
+  Coefficients `(A, B)` from the chosen [`GasConductivityFit`], or `None`
 
 - ```rust
   pub const fn has_placeholder_conductivity(self: Self) -> bool { /* ... */ }
@@ -13867,6 +14764,122 @@ Discriminant value: `5`
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+#### Enum `GasConductivityFit`
+
+Which set of pure-gas conductivity fits `k = A·T^B` to use.
+
+[`Frapcon`](Self::Frapcon) is OFFBEAT's default and what every existing
+method in this module uses; nothing about it changes. [`Matpro`](Self::Matpro)
+is the MATPRO set the RELAP-7 heat-structure properties use (gh:#1070).
+Only the coefficients differ; the mixing rule is the same.
+
+```rust
+pub enum GasConductivityFit {
+    Frapcon,
+    Matpro,
+}
+```
+
+##### Variants
+
+###### `Frapcon`
+
+Upstream `gapFRAPCON`'s default `conductivity_A` / `conductivity_B`
+tables — [`GapGasSpecies::conductivity_coefficients`]. The default.
+
+###### `Matpro`
+
+MATPRO (NUREG/CR-6150 §12.1.1) fits for helium, krypton and xenon, as
+reproduced in the RELAP-7 Theory Manual §4.2.3 —
+[`GapGasSpecies::matpro_conductivity_coefficients`]. **Only those three
+species have a fit**; a mixture holding any other species is refused.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 #### Struct `GapGasMixture`
 
 The gap gas: what it is made of, and how much of it there is.
@@ -13906,6 +14919,11 @@ pub struct GapGasMixture {
   pub fn from_mass_fractions(mass_fractions: [f64; 6], mass: f64) -> Result<Self> { /* ... */ }
   ```
   Build from **mass** fractions \[-\] and a total mass \[kg\].
+
+- ```rust
+  pub fn from_mole_fractions(mole_fractions: [f64; 6], mass: f64) -> Result<Self> { /* ... */ }
+  ```
+  Build from **mole** fractions \[-\] and a total mass \[kg\].
 
 - ```rust
   pub fn pure(species: GapGasSpecies, mass: f64) -> Result<Self> { /* ... */ }
@@ -13953,9 +14971,19 @@ pub struct GapGasMixture {
   Ideal-gas mixture density \[kg/m³\] at pressure `p` \[Pa\] and
 
 - ```rust
+  pub fn specific_heat_capacity(self: &Self) -> f64 { /* ... */ }
+  ```
+  Specific heat capacity at constant pressure \[J/(kg·K)\] of the mixture
+
+- ```rust
   pub fn conductivity(self: &Self, t: f64) -> f64 { /* ... */ }
   ```
   Mixture thermal conductivity \[W/m/K\] at temperature `t` \[K\] —
+
+- ```rust
+  pub fn conductivity_with_fit(self: &Self, fit: GasConductivityFit, t: f64) -> Result<f64> { /* ... */ }
+  ```
+  Mixture conductivity \[W/m/K\] at `t` \[K\] from a chosen set of
 
 - ```rust
   pub fn conductivity_checked(self: &Self, t: f64) -> Result<f64> { /* ... */ }
@@ -17613,7 +18641,7 @@ Upstream declaration: `code_aster/Behaviours/kit_ddi.py`.
 ###### Methods
 
 - ```rust
-  pub const fn aster_name(self: Self) -> &''static str { /* ... */ }
+  pub const fn aster_name(self: Self) -> &'static str { /* ... */ }
   ```
   The ASTER behaviour name, verbatim (e.g. `"VISC_CIN2_CHAB"`).
 
@@ -17628,32 +18656,32 @@ Upstream declaration: `code_aster/Behaviours/kit_ddi.py`.
   Number of internal state variables the law carries per integration point.
 
 - ```rust
-  pub const fn state_variable_names(self: Self) -> &''static [&''static str] { /* ... */ }
+  pub const fn state_variable_names(self: Self) -> &'static [&'static str] { /* ... */ }
   ```
   Names of the internal state variables, in upstream's order.
 
 - ```rust
-  pub const fn lc_types(self: Self) -> &''static [&''static str] { /* ... */ }
+  pub const fn lc_types(self: Self) -> &'static [&'static str] { /* ... */ }
   ```
   `lc_type` classification (`MECANIQUE`, `KIT_THM`, ...).
 
 - ```rust
-  pub const fn deformations(self: Self) -> &''static [&''static str] { /* ... */ }
+  pub const fn deformations(self: Self) -> &'static [&'static str] { /* ... */ }
   ```
   Strain measures the law supports (`PETIT`, `PETIT_REAC`, `GDEF_LOG`, ...).
 
 - ```rust
-  pub const fn integration_algorithms(self: Self) -> &''static [&''static str] { /* ... */ }
+  pub const fn integration_algorithms(self: Self) -> &'static [&'static str] { /* ... */ }
   ```
   Integration algorithms upstream offers for this law.
 
 - ```rust
-  pub const fn modelisations(self: Self) -> &''static [&''static str] { /* ... */ }
+  pub const fn modelisations(self: Self) -> &'static [&'static str] { /* ... */ }
   ```
   Modelisations the law supports (`3D`, `AXIS`, `D_PLAN`, ...).
 
 - ```rust
-  pub const fn material_keywords(self: Self) -> &''static [&''static str] { /* ... */ }
+  pub const fn material_keywords(self: Self) -> &'static [&'static str] { /* ... */ }
   ```
   Material-property keywords the law reads (`ELAS`, `LEMAITRE`, ...).
 
@@ -18931,7 +19959,7 @@ Fields:
   The corresponding entry in the generated behaviour catalogue.
 
 - ```rust
-  pub const fn aster_name(self: Self) -> &''static str { /* ... */ }
+  pub const fn aster_name(self: Self) -> &'static str { /* ... */ }
   ```
   The upstream ASTER behaviour name, verbatim.
 
@@ -20248,7 +21276,7 @@ Fields:
 ###### Methods
 
 - ```rust
-  pub const fn aster_name(self: Self) -> &''static str { /* ... */ }
+  pub const fn aster_name(self: Self) -> &'static str { /* ... */ }
   ```
   The upstream ASTER behaviour name.
 
@@ -21053,7 +22081,7 @@ Fields:
 ###### Methods
 
 - ```rust
-  pub const fn aster_name(self: Self) -> &''static str { /* ... */ }
+  pub const fn aster_name(self: Self) -> &'static str { /* ... */ }
   ```
   The upstream ASTER behaviour name.
 
@@ -22001,7 +23029,7 @@ Fields:
 ###### Methods
 
 - ```rust
-  pub const fn aster_name(self: Self) -> &''static str { /* ... */ }
+  pub const fn aster_name(self: Self) -> &'static str { /* ... */ }
   ```
   The upstream ASTER behaviour name.
 
@@ -22140,7 +23168,7 @@ pub struct RuptureCriterion {
 ###### Methods
 
 - ```rust
-  pub const fn aster_name(self: Self) -> &''static str { /* ... */ }
+  pub const fn aster_name(self: Self) -> &'static str { /* ... */ }
   ```
   The upstream ASTER behaviour name.
 
@@ -22693,7 +23721,7 @@ crack front. Plane-strain-like there.
 ###### Methods
 
 - ```rust
-  pub const fn aster_name(self: Self) -> &''static str { /* ... */ }
+  pub const fn aster_name(self: Self) -> &'static str { /* ... */ }
   ```
   The upstream `MODELISATION` token this corresponds to.
 
@@ -24410,7 +25438,7 @@ Fields:
   The initial yield stress `R(0)` \[Pa\].
 
 - ```rust
-  pub fn aster_name_suffix(self: Self) -> Option<&''static str> { /* ... */ }
+  pub fn aster_name_suffix(self: Self) -> Option<&'static str> { /* ... */ }
   ```
   The ASTER behaviour-name suffix this curve corresponds to, where one
 
@@ -24890,7 +25918,7 @@ interpolation combined.
 ###### Methods
 
 - ```rust
-  pub const fn aster_name(self: Self) -> &''static str { /* ... */ }
+  pub const fn aster_name(self: Self) -> &'static str { /* ... */ }
   ```
   The upstream `algo_inte` token this corresponds to.
 
@@ -25232,7 +26260,7 @@ pub struct NortonHoffLimitAnalysis {
   Build the law from its single material parameter.
 
 - ```rust
-  pub fn aster_name(self: &Self) -> &''static str { /* ... */ }
+  pub fn aster_name(self: &Self) -> &'static str { /* ... */ }
   ```
   The ASTER behaviour name, verbatim.
 
@@ -26376,7 +27404,7 @@ Fields:
 ###### Methods
 
 - ```rust
-  pub const fn aster_name(self: Self) -> &''static str { /* ... */ }
+  pub const fn aster_name(self: Self) -> &'static str { /* ... */ }
   ```
   The upstream ASTER behaviour name.
 
@@ -26930,7 +27958,7 @@ pub struct Irrad3m {
   Build the law, identifying the hardening curve once.
 
 - ```rust
-  pub const fn aster_name(self: Self) -> &''static str { /* ... */ }
+  pub const fn aster_name(self: Self) -> &'static str { /* ... */ }
   ```
   The upstream ASTER behaviour name.
 
@@ -27535,7 +28563,7 @@ pub struct MetaLemaAni {
 ###### Methods
 
 - ```rust
-  pub const fn aster_name(self: Self) -> &''static str { /* ... */ }
+  pub const fn aster_name(self: Self) -> &'static str { /* ... */ }
   ```
   The upstream ASTER behaviour name.
 
@@ -28368,7 +29396,7 @@ pub struct ViscoplasticChabocheWithMemory {
   Build the law from its coefficients, validating them.
 
 - ```rust
-  pub const fn aster_name(self: Self) -> &''static str { /* ... */ }
+  pub const fn aster_name(self: Self) -> &'static str { /* ... */ }
   ```
   The upstream ASTER behaviour name, `"VISCOCHAB"`.
 
@@ -29157,7 +30185,7 @@ Fields:
 ###### Methods
 
 - ```rust
-  pub const fn aster_name(self: Self) -> &''static str { /* ... */ }
+  pub const fn aster_name(self: Self) -> &'static str { /* ... */ }
   ```
   The upstream ASTER behaviour name.
 

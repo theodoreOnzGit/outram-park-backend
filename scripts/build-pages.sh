@@ -7,6 +7,25 @@
 # the browser demos (gh:#519, #521, #530, #529, #540). The demos need the
 # wasm32-unknown-unknown target and the wasm-bindgen CLI at the Cargo.lock
 # version; the demo's own build script checks the latter. Run by .github/workflows/pages.yml; runnable locally:
+# Phases (gh:#1305). The Pages workflow runs them on separate runners; with no
+# phase named, the whole site is built end to end, as before:
+#   scripts/build-pages.sh <out-dir> [static] [rustdoc] [callgraph] [demos] [assemble]
+#     static     landing page, pathways, search index, lesson checks, code map,
+#                ICSBEP page, citation check, mdBook deep dives and tutorials
+#     rustdoc    API reference (-> api/)
+#     callgraph  web-kovan's data: code map + call graph (-> code-review/data/;
+#                needs rust-analyzer and the RAM for it)
+#     demos      web-kovan's wasm page (-> code-review/) and every browser demo
+#                (-> demos/); needs wasm-bindgen at the Cargo.lock version
+#     assemble   needs the output of ALL the others already in <out-dir>: the
+#                api lists of web-kovan, then the whole-site passes (@@L: code
+#                links, commit stamps, navigation, existence and rung-table
+#                checks, search text, link check, asset manifest)
+# Dependencies between phases: assemble reads everything the others wrote;
+# callgraph no longer reads rustdoc (its api/<crate>.json lists are written by
+# assemble, `data.sh --api-lists`); demos' tapes are copied by the demo scripts
+# themselves. A phased run does NOT empty <out-dir> first (start from an empty
+# one); a run with no phase does.
 #   scripts/build-pages.sh target/pages
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -15,8 +34,19 @@ COMMIT="${GITHUB_SHA:-$(git rev-parse HEAD)}"
 SHORT="${COMMIT:0:10}"
 DATE="$(date -u +%Y-%m-%d)"
 
-rm -rf "$OUT"
+ALL_PHASES=(static rustdoc callgraph demos assemble)
+FULL=0
+PHASES=("${@:2}")
+if (( ${#PHASES[@]} == 0 )); then FULL=1; PHASES=("${ALL_PHASES[@]}"); fi
+for ph in "${PHASES[@]}"; do
+  case " ${ALL_PHASES[*]} " in *" $ph "*) ;; *) echo "build-pages.sh: unknown phase '$ph' (${ALL_PHASES[*]})" >&2; exit 2 ;; esac
+done
+(( FULL )) && rm -rf "$OUT"
 mkdir -p "$OUT/deep-dives"
+
+
+# ── phase static: the pages, checks, code map, ICSBEP page, citations and mdBooks ──
+phase_static() {
 cp docs/site/index.html docs/site/style.css docs/site/site-nav.js docs/site/code-map-bar.js docs/site/search.js docs/site/sw.js "$OUT/"
 # The three pathways of the landing page (gh:#906, #909): Learn the science,
 # Learn to code (the old front page, with the code map by domain) and the demo
@@ -29,6 +59,8 @@ cp docs/site/science/transport/*.html docs/site/science/transport/*.js "$OUT/sci
 # The Fission products track (2026-10-20); check-fission.js is a node check, not
 # a page, but is copied like the other tracks' checks.
 cp docs/site/science/fission-products/*.html docs/site/science/fission-products/*.js "$OUT/science/fission-products/"
+# The particle slices and the concept map's stylesheet (gh:#1207).
+cp docs/site/science/fission-products/*.svg docs/site/science/fission-products/*.css "$OUT/science/fission-products/"
 cp docs/site/demos/index.html "$OUT/demos/"
 bash scripts/build-search-index.sh "$OUT"
 
@@ -38,6 +70,13 @@ bash scripts/build-search-index.sh "$OUT"
 node docs/site/science/neutronics/check-physics.js
 node docs/site/science/transport/check-transport.js
 node docs/site/science/fission-products/check-fission.js
+# gh:#1207 / #1209: the lessons folded in from the TRISO-ATOPS mdBook, the
+# concept map and walks, the diffusion arc and breathing.
+node docs/site/science/fission-products/check-decaywalk.js
+node docs/site/science/fission-products/check-chemhand.js
+node docs/site/science/fission-products/check-concepts.js
+node docs/site/science/fission-products/check-diffarc.js
+node docs/site/science/fission-products/check-breathing.js
 
 # The code map (gh:#734): every crate placed by its [package.metadata.kovan]
 # tag, drawn from `cargo metadata` of THIS checkout by kovan-cli (no
@@ -91,47 +130,6 @@ books_json() {
   printf ']}\n'
 } > "$OUT/code-map/site_links.json"
 
-# Rustdoc, release profile (root CLAUDE.md), no dependencies' docs. Source
-# pages are not published: lessons show anchored snippets and link to GitHub.
-pkgs=()
-while read -r c; do
-  [[ -z "$c" || "$c" == \#* ]] && continue
-  pkgs+=(-p "$c")
-done < docs/site/lesson-crates.txt
-# Own target dir, so only these crates' pages (and search index) are published,
-# never whatever else a local `target/doc` happens to hold.
-DOC_TARGET=target/site-doc
-# Memory cap: the default `-j 12` OOMs the 16 GB dev box. Jobs default to 3,
-# and where a systemd user session exists (locally, not on CI runners) cargo
-# runs in a scope that is killed past PAGES_MEM_MAX of RAM, swap disallowed,
-# so the build fails instead of the machine. Override either via env.
-JOBS="${PAGES_JOBS:-3}"
-MEM_MAX="${PAGES_MEM_MAX:-12G}"
-cap=()
-if [[ -z "${CI:-}" ]] && systemd-run --user --scope -q true 2>/dev/null; then
-  cap=(systemd-run --user --scope -q -p "MemoryMax=$MEM_MAX" -p MemorySwapMax=0)
-  echo "cargo doc capped at $MEM_MAX RAM, -j $JOBS"
-fi
-"${cap[@]}" cargo doc --release --no-deps --lib -j "$JOBS" --target-dir "$DOC_TARGET" "${pkgs[@]}"
-cp -r "$DOC_TARGET/doc" "$OUT/api"
-rm -rf "$OUT/api/src" "$OUT/api/.lock"
-
-# web-kovan (gh:#736, #745, #772): the read-only Code Review UI at
-# code-review/, egui built for wasm32. data.sh writes its data (code map; the
-# call graph of every crate from one `rust-analyzer scip` index, incremental
-# through target/kovan-index; a crate it cannot rebuild keeps its last cached
-# graph and is named in the log and on the page; and the rustdoc pages above,
-# so it only links to pages that exist). Source text is not copied: the page fetches it
-# from the repository at $COMMIT. The JS code-map/ page stays for now.
-PAGES_COMMIT="$COMMIT" bash crates/kovan-web/web/data.sh "$OUT/code-review/data" "$OUT/api"
-bash crates/kovan-web/web/build.sh "$OUT/code-review"
-# The navbar's list of deep dives: a crate on web-kovan's map offers its deep
-# dive from it (2026-10-06).
-cp "$OUT/code-map/site_links.json" "$OUT/code-review/data/site_links.json"
-for f in index.html kovan_web_bg.wasm data/build.json data/code_map.json; do
-  [[ -f "$OUT/code-review/$f" ]] || { echo "missing $OUT/code-review/$f" >&2; exit 1; }
-done
-
 # ~~Code walks (gh:#523): every `<!-- code-walk: ... -->` block regenerated
 # with rust-analyzer and its snippets checked here.~~ CHANGED 2026-10-14
 # (maintainer direction): the lessons no longer carry code walks; they link
@@ -167,13 +165,82 @@ while read -r name dir; do
   [[ -z "$name" || "$name" == \#* ]] && continue
   mdbook build "$dir" -d "$PWD/$OUT/tutorials/$name"
 done < docs/site/tutorials.txt
-# mdBook (0.5) publishes `additional-css`/`additional-js` under hashed names
-# (anim/boonlay-anim-6e39ad35.css), but the theory book's 15-dlofc.md reuses
-# the TRISO tutorial's animation by its plain name. Publish the plain names
-# too, so that link holds whatever the hash is. Its absence failed every
-# Pages build from 2026-10-19 (broken-link check).
-cp crates/boon-lay/docs/tutorial/anim/boonlay-anim.{css,js} "$OUT/tutorials/triso-atops/anim/"
+# ~~The theory book's 15-dlofc.md reused the TRISO tutorial's animation by its
+# plain name, so it was copied here.~~ Since 2026-11-04 (gh:#1207) the
+# animation lives in the theory book's own src/anim/, which mdBook copies.
 
+# The TRISO-ATOPS tutorial mdBook was folded into the Fission products science
+# lessons (gh:#1207, maintainer direction 2026-11-04). Its URLs stay valid: each
+# old page redirects to the lesson that now carries its content.
+mkdir -p "$OUT/tutorials/triso-atops"
+while read -r old new; do
+  printf '%s\n' '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' \
+    "<meta http-equiv=\"refresh\" content=\"0; url=../../$new\"><title>Moved</title></head>" \
+    "<body><p>This lesson moved to <a href=\"../../$new\">the Fission products lessons</a>.</p></body></html>" \
+    > "$OUT/tutorials/triso-atops/$old"
+  [[ "$new" == science/index.html* ]] || [[ -f "docs/site/${new%%#*}" ]] || { echo "TRISO-ATOPS redirect target missing: $new" >&2; exit 1; }
+done <<'REDIRECTS'
+index.html science/index.html#fission-products
+intro.html science/index.html#fission-products
+triso.html science/fission-products/barriers-why.html
+decay.html science/fission-products/decay-clock.html
+walk.html science/fission-products/walk-on-spheres.html
+layers.html science/fission-products/barriers-migration.html
+failure.html science/fission-products/failure-accident.html
+chemistry.html science/fission-products/chem-air.html
+coolant.html science/fission-products/atops-coolant.html
+handoff.html science/fission-products/atops-source-term.html
+REDIRECTS
+
+}
+
+# ── phase rustdoc: the API reference ──
+phase_rustdoc() {
+# Rustdoc, release profile (root CLAUDE.md), no dependencies' docs. Source
+# pages are not published: lessons show anchored snippets and link to GitHub.
+pkgs=()
+while read -r c; do
+  [[ -z "$c" || "$c" == \#* ]] && continue
+  pkgs+=(-p "$c")
+done < docs/site/lesson-crates.txt
+# Own target dir, so only these crates' pages (and search index) are published,
+# never whatever else a local `target/doc` happens to hold.
+DOC_TARGET=target/site-doc
+# Memory cap: the default `-j 12` OOMs the 16 GB dev box. Jobs default to 3,
+# and where a systemd user session exists (locally, not on CI runners) cargo
+# runs in a scope that is killed past PAGES_MEM_MAX of RAM, swap disallowed,
+# so the build fails instead of the machine. Override either via env.
+JOBS="${PAGES_JOBS:-3}"
+MEM_MAX="${PAGES_MEM_MAX:-12G}"
+cap=()
+if [[ -z "${CI:-}" ]] && systemd-run --user --scope -q true 2>/dev/null; then
+  cap=(systemd-run --user --scope -q -p "MemoryMax=$MEM_MAX" -p MemorySwapMax=0)
+  echo "cargo doc capped at $MEM_MAX RAM, -j $JOBS"
+fi
+"${cap[@]}" cargo doc --release --no-deps --lib -j "$JOBS" --target-dir "$DOC_TARGET" "${pkgs[@]}"
+rm -rf "$OUT/api"   # cp -r into an existing folder would nest it as api/doc
+cp -r "$DOC_TARGET/doc" "$OUT/api"
+rm -rf "$OUT/api/src" "$OUT/api/.lock"
+}
+
+# ── phase callgraph: web-kovan data: code map and call graph ──
+phase_callgraph() {
+# web-kovan (gh:#736, #745, #772): the read-only Code Review UI at
+# code-review/, egui built for wasm32. data.sh writes its data (code map; the
+# call graph of every crate from one `rust-analyzer scip` index, incremental
+# through target/kovan-index; a crate it cannot rebuild keeps its last cached
+# graph and is named in the log and on the page; and the rustdoc pages above,
+# so it only links to pages that exist). Source text is not copied: the page fetches it
+# from the repository at $COMMIT. The JS code-map/ page stays for now.
+# The rustdoc lists (api/<crate>.json) are written by the assemble phase, so this
+# phase does not wait for rustdoc (gh:#1305).
+PAGES_COMMIT="$COMMIT" bash crates/kovan-web/web/data.sh "$OUT/code-review/data"
+}
+
+# ── phase demos: web-kovan page and the browser demos ──
+phase_demos() {
+# web-kovan's page (gh:#736): the wasm32 build of the Code Review UI.
+bash crates/kovan-web/web/build.sh "$OUT/code-review"
 # Browser demos (gh:#519, #521): ONE Monte Carlo demo with a rung table
 # (crates/dhoby-ghaut/examples/monte_carlo_web/rungs.rs): wasm build, its JS
 # glue, the ENDF tapes it processes in the browser, and its geometry review
@@ -194,6 +261,29 @@ bash crates/dhoby-ghaut/web/triso_atops/build.sh "$OUT/demos/triso-atops"
 # The DEM pour demo (gh:#787): HTR-10 pebbles poured and settled in the
 # browser by the LIGGGHTS port; the full-size gh:#216 bed is compiled in.
 bash crates/dhoby-ghaut/web/dem/build.sh "$OUT/demos/dem"
+# The helical-coil steam generator demo (gh:#1157): tampines' 1-D helical-coil
+# once-through steam generator march (IF97 water, coil and boiling closures)
+# in a Web Worker, one shooting march per message; no data files.
+bash crates/dhoby-ghaut/web/helical_sg/build.sh "$OUT/demos/helical-sg"
+for f in index.html worker.js helical_sg_web.js helical_sg_web_bg.wasm; do
+  [[ -f "$OUT/demos/helical-sg/$f" ]] || { echo "missing demos/helical-sg/$f" >&2; exit 1; }
+done
+# The double-pipe high-fidelity -> low-fidelity twin (gh:#1182): the TUAS
+# 1-D double pipe evaluated live in a Web Worker, beside the committed
+# Kennedy-O'Hagan, co-kriging, CFD and filtering artefacts compiled into the
+# wasm; no data files. Built from the digital-twin engine since 2026-11-05
+# (moved from dhoby-ghaut to break a dependency cycle); same URL.
+bash crates/outram-park-digital-twin-engine/web/double_pipe_twin/build.sh "$OUT/demos/double-pipe-twin"
+for f in index.html worker.js double_pipe_twin_web.js double_pipe_twin_web_bg.wasm; do
+  [[ -f "$OUT/demos/double-pipe-twin/$f" ]] || { echo "missing demos/double-pipe-twin/$f" >&2; exit 1; }
+done
+# Foam Studio (gh:#1155): a pipe or duct meshed (O-grid / box blockMesh) and
+# solved by the pimpleFoam port in a Web Worker, one chunk of time steps per
+# message; no data files.
+bash crates/dhoby-ghaut/web/foam_studio/build.sh "$OUT/demos/foam-studio"
+for f in index.html worker.js foam_studio_web.js foam_studio_web_bg.wasm; do
+  [[ -f "$OUT/demos/foam-studio/$f" ]] || { echo "missing demos/foam-studio/$f" >&2; exit 1; }
+done
 # Delta vs surface tracking, step by step (gh:#784): reads the Monte Carlo
 # demo's tapes from ../monte-carlo/data/, so it is built after that one.
 bash crates/dhoby-ghaut/web/delta_tracking/build.sh "$OUT/demos/delta-tracking"
@@ -207,12 +297,44 @@ bash crates/outram-park-digital-twin-engine/web/ciet/build.sh "$OUT/demos/ciet"
 for f in index.html app.js plant-worker.js flow-worker.js ciet_web.js ciet_web_bg.wasm; do
   [[ -f "$OUT/demos/ciet/$f" ]] || { echo "missing demos/ciet/$f" >&2; exit 1; }
 done
+# The HTGR simulator in the browser (gh:#986): htgr_sim_v1's own widgets as
+# wasm, the plant on a Web Worker. PASSWORD-GATED by web/gate.js, which is a
+# sign and not a lock -- everything published here is readable by anyone who
+# loads it, and gate.js says so. ~~Not linked from any index page, so the only
+# way in is to be given the URL~~ CHANGED 2026-10-27 (maintainer: "Can I have
+# the demos on the demos page"): listed under Plant simulators on demos/;
+# `noindex` still keeps it out of search.
+bash crates/outram-park-digital-twin-engine/web/htgr/build.sh "$OUT/demos/htgr"
+for f in index.html htgr_worker.js gate.js htgr_sim_v1.js htgr_sim_v1_bg.wasm; do
+  [[ -f "$OUT/demos/htgr/$f" ]] || { echo "missing demos/htgr/$f" >&2; exit 1; }
+done
+# The Fukushima Daiichi Unit 1 station-blackout demo (gh:#986), moved here
+# from the outram-park repository on 2026-10-27: ~~dhoby-ghaut's~~ the
+# digital-twin engine's (since 2026-11-05) fukushima_web example, the plant on
+# three Web Workers. Gated and listed exactly like the HTGR demo above, by the
+# same gate.js. Same URL as before the move.
+bash crates/outram-park-digital-twin-engine/web/fukushima/build.sh "$OUT/demos/fukushima"
+for f in index.html fukushima_worker.js gate.js fukushima_web.js fukushima_web_bg.wasm; do
+  [[ -f "$OUT/demos/fukushima/$f" ]] || { echo "missing demos/fukushima/$f" >&2; exit 1; }
+done
 mkdir -p "$OUT/demos/triso-pebble/geometry"
 cp crates/dhoby-ghaut/web/monte_carlo/triso-pebble-redirect.html "$OUT/demos/triso-pebble/index.html"
 printf '%s\n' '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' \
   '<meta http-equiv="refresh" content="0; url=../../monte-carlo/geometry/"><title>Moved</title></head>' \
   '<body><p>Moved to <a href="../../monte-carlo/geometry/">the Monte Carlo demo geometry page</a>.</p></body></html>' \
   > "$OUT/demos/triso-pebble/geometry/index.html"
+}
+
+# ── phase assemble: the whole-site passes over the finished site ──
+phase_assemble() {
+# web-kovan's data (callgraph phase) and page (demos phase) are in place; now the
+# rustdoc page lists it links to, and the navbar's list of deep dives (2026-10-06).
+bash crates/kovan-web/web/data.sh --api-lists "$OUT/code-review/data" "$OUT/api"
+cp "$OUT/code-map/site_links.json" "$OUT/code-review/data/site_links.json"
+for f in index.html kovan_web_bg.wasm data/build.json data/code_map.json; do
+  [[ -f "$OUT/code-review/$f" ]] || { echo "missing $OUT/code-review/$f" >&2; exit 1; }
+done
+
 # Code links that cannot go stale (gh:#521): a page writes
 #   .../blob/@@COMMIT@@/<file>#@@L:<file>:<selector>@@
 # and the build replaces the token with the line range at THIS commit, so a
@@ -302,6 +424,14 @@ for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/cod
   science/fission-products/{barrier-data,failure-data,barrier-recorded,barrier-physics,barrier-worker,barrier-story,plot-kit}.js \
   science/fission-products/atops-{big-picture,groups,diffusion,release-models,normal-operation,coolant,accident,simplifications}.html \
   science/fission-products/{atops-data,atops-physics,atops-story}.js \
+  science/fission-products/{decay-clock,walk-on-spheres,chem-air,chem-steam,atops-source-term}.html \
+  science/fission-products/{decaywalk-data,decaywalk-story,chemhand-data,chemhand-story}.js \
+  science/fission-products/{diffusion-three-ways,atops-conservative,atops-breathing}.html \
+  science/fission-products/{diffarc-data,diffarc-story,breathing-data,breathing-story}.js \
+  science/fission-products/{atops-concepts,atops-walk-cs137,atops-walk-accident,atops-walk-silver}.html \
+  science/fission-products/{atops-concepts-data,atops-concepts,atops-walk-numbers,atops-walk-recorded}.js \
+  science/fission-products/atops-concepts.css \
+  science/fission-products/{triso-htr10-slice,triso-crp6-slice}.svg \
   kovan-schema/index.html \
   code-map/code_map.json code-map/site_links.json \
   api/outram_mc_libs/index.html api/changi/index.html \
@@ -313,6 +443,8 @@ for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/cod
   tutorials/monte-carlo/index.html tutorials/monte-carlo/godiva.html \
   tutorials/monte-carlo/ugraphite.html tutorials/monte-carlo/lumped.html \
   demos/dispersion/index.html demos/dispersion/dispersion_web_bg.wasm \
+  demos/htgr/index.html demos/htgr/htgr_sim_v1_bg.wasm \
+  demos/fukushima/index.html demos/fukushima/fukushima_web_bg.wasm \
   api/sembawang/index.html \
   deep-dives/nuclear-data/index.html api/njoy_outram_park_fork/index.html \
   demos/nuclear-data/index.html demos/nuclear-data/nuclear_data_web_bg.wasm \
@@ -329,13 +461,15 @@ for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/cod
 done
 
 # The demo's rung table drives the links both ways (gh:#520): every rung's
-# lesson page must exist, and every page link into the demo must name a rung
-# the table has. The table is the `rung_table!` invocation in main.rs (one
-# `module: Marker,` line per rung); each rung's `name:` and `lesson:` lines are
-# in its `<module>/mod.rs`, read as written.
+# lesson page must exist, and every page link into the demo must name a rung the
+# table has. The table is `table.rs`, written out by hand since 2026-11-05
+# (gh:#1253; it was the `rung_table!` macro in main.rs, and this script kept
+# reading the macro, which found no rungs and would have failed the build): each
+# rung's `Rung::X => &<crate::MODULE::X as McRung>::INFO,` arm names its module.
+# Each rung's `name:` and `lesson:` lines are in its `<module>/mod.rs`, read as written.
 mc=crates/dhoby-ghaut/examples/monte_carlo_web
-rung_mods="$(sed -n '/^rung_table! {/,/^}/s/^ *\([a-z0-9_]*\): *[A-Z][A-Za-z0-9]*,$/\1/p' "$mc/main.rs")"
-[[ -n "$rung_mods" ]] || { echo "no rungs read from $mc/main.rs" >&2; exit 1; }
+rung_mods="$(grep -oE '&<crate::[a-z0-9_]+::[A-Za-z0-9]+ as McRung>::INFO' "$mc/table.rs" | sed -E 's/^&<crate::([a-z0-9_]+)::.*/\1/' | awk '!seen[$0]++')"
+[[ -n "$rung_mods" ]] || { echo "no rungs read from $mc/table.rs" >&2; exit 1; }
 rung_names=""
 for m in $rung_mods; do
   n="$(sed -n 's/^ *name: "\([a-z0-9_-]*\)",$/\1/p' "$mc/$m/mod.rs")"
@@ -436,3 +570,9 @@ node docs/site/check-sw.js --manifest "$OUT"
 [[ -s "$OUT/asset-manifest.json" ]] || { echo "asset-manifest.json was not written" >&2; exit 1; }
 
 echo "site built in $OUT ($(du -sh "$OUT" | cut -f1)), commit $SHORT"
+
+}
+
+for ph in "${PHASES[@]}"; do
+ echo "build-pages.sh: phase $ph"; "phase_$ph"
+done

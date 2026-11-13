@@ -2,6 +2,16 @@ schema_version = 1
 kind = "code_folder"
 crate = "tampines-steam-tables"
 dir = "crates/tampines-steam-tables/src/fhr_sim_debugging_tests"
+test_ids = [
+    "crates/tampines-steam-tables/src/fhr_sim_debugging_tests/pool_boiling.rs::pool_boiling_assert_test_1",
+    "crates/tampines-steam-tables/src/fhr_sim_debugging_tests/pool_boiling.rs::pool_boiling_assert_test_2",
+    "crates/tampines-steam-tables/src/fhr_sim_debugging_tests/pool_boiling.rs::pool_boiling_assert_test_3",
+    "crates/tampines-steam-tables/src/fhr_sim_debugging_tests/pool_boiling.rs::pool_boiling_assert_test_4",
+    "crates/tampines-steam-tables/src/fhr_sim_debugging_tests/pool_boiling.rs::pool_boiling_assert_test_5",
+    "crates/tampines-steam-tables/src/fhr_sim_debugging_tests/pool_boiling.rs::pool_boiling_assert_test_6",
+    "crates/tampines-steam-tables/src/fhr_sim_debugging_tests/pool_boiling.rs::pool_boiling_assert_test_7",
+    "crates/tampines-steam-tables/src/fhr_sim_debugging_tests/pool_boiling.rs::pool_boiling_assert_test_8",
+]
 
 [module."mod.rs"]
 path = "crate::fhr_sim_debugging_tests"
@@ -129,3 +139,19 @@ hash = "sha256:2fecebcf0925fe6347f2d5578759853d107ceca5f057d7d804458fdac5ac3e8f"
 doc_hash = "sha256:0dd6ead1768da585ead442f822be4edff7ccb596c04bcf3453fefda5ddae79a6"
 callees = ["fn:6def6d1af132c709"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+failed = []

@@ -349,6 +349,18 @@ fn wizard(ui: &mut egui::Ui, f: &mut StampFlow) {
             ""
         }
     ));
+    // Tentative stamps (GitHub #1106): written now, counted once
+    // everything underneath has a valid stamp.
+    if !w.ctx.tentative_on.is_empty() {
+        ui.colored_label(
+            ui.visuals().warn_fg_color,
+            format!(
+                "Tentative: this stamp will count only once {} {} a valid stamp.",
+                w.ctx.tentative_on.join(", "),
+                if w.ctx.tentative_on.len() == 1 { "has" } else { "have" }
+            ),
+        );
+    }
     ui.add_space(4.0);
     questions(ui, w);
     ui.separator();

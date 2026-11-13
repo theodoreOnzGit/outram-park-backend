@@ -6,8 +6,10 @@ workspace `CLAUDE.md` rule that a V&V document must state both.
 Summary of what changed on this date: the crate gained a **cross-code
 verification leg against upstream LIGGGHTS-PUBLIC**, which its 2026-09-06
 maturity declaration explicitly recorded as missing. **Four of six**
-deterministic cases are **bit-identical** to upstream; the two oblique cases
-agree to floating-point round-off (1-3 ulp). A bulk pebble-bed settling case
+deterministic cases are **bit-identical** to upstream; ~~the two oblique cases
+agree to floating-point round-off (1-3 ulp)~~ **CORRECTED 2026-11-10 (gh:#1406):
+the two oblique cases are now bit-identical too, as are three new cases (see
+`cross-code-summary.md`)**. A bulk pebble-bed settling case
 agrees on packing fraction to **0.2 %**. **Three** defects in the pre-existing
 code were found and are documented below.
 
@@ -67,11 +69,25 @@ Every **sampled frame** is compared, not just the endpoint.
 | head-on, Hooke | linearised normal model, `v_char = 2 m/s` | 251 | `0` | `0` | `0` |
 | wall bounce + gravity | primitive wall branch (`R* = r`, `m* = m`), contact make/break over 400 000 steps | 2001 | `0` | `0` | — |
 | rolling, counter-spinning pair | **CDT rolling resistance** (`µ_r = 0.1`) | 201 | `0` | `0` | `0` |
-| oblique + friction | **tangential shear-history spring**, Coulomb slip, contact torque / spin-up | 251 | `0` | `1.11e-16` | `5.68e-14` |
-| oblique, **no-history** (stateless path) | `contact` + `simulation` vs `tangential no_history` | 251 | `0` | `1.11e-16` | `1.42e-14` |
+| oblique + friction | **tangential shear-history spring**, Coulomb slip, contact torque / spin-up | 251 | `0` | ~~`1.11e-16`~~ **`0`** | ~~`5.68e-14`~~ **`0`** |
+| oblique, **no-history** (stateless path) | `contact` + `simulation` vs `tangential no_history` | 251 | `0` | ~~`1.11e-16`~~ **`0`** | ~~`1.42e-14`~~ **`0`** |
+| oblique Hooke + history + CDT rolling (2026-11-10) | Hooke normal, shear history, CDT rolling together | 251 | `0` | `0` | `0` |
+| two atom types, head-on (2026-11-10) | `createYeff`, `createBetaEff` mixing, unequal `R*`, `m*` | 251 | `0` | `0` | `0` |
+| two atom types, oblique (2026-11-10) | adds `createGeff`, 1-2 friction entry | 251 | `0` | `0` | `0` |
+| head-on + oblique, Edinburgh (linear, Hertzian, `fixKc on`) (2026-11-11) | `edinburgh/stiffness`, `edinburgh`: adhesive `k_adh`, pull-off | 251 each | `0` | `0` | `0` |
+| head-on + oblique, SJKR / SJKR2 / `tangential_reduce` (2026-11-11) | cohesion area and force, cohesion in `Fn` | 251 each | `0` | `0` | `0` |
+| head-on + oblique, `hooke/hysteresis` fast and slow (2026-11-11) | `deltaMax` branches, `k2` interpolation, cohesion branch | 251 each | `0` | `0` | `0` |
+| head-on + oblique, `hertz/stiffness` and `hooke/stiffness` (2026-11-11) | given `k_n`, `k_t`, `gamma_n`, `gamma_t` | 251 each | `0` | `0` | `0` |
 
-**Four of the six are bit-identical to upstream over the whole trajectory**;
-the two oblique cases agree to round-off (1–3 ulp). The last row verifies the
+Upstream oddity (2026-11-11): `in.headon_tn_plastic` gives `nan` in every
+position and velocity from step 2310 (`headon_tn_plastic.csv`, 20 nan rows).
+The port's test compares the 231 finite frames bit for bit and asserts the
+onset; the port does not reproduce the NaN. Not yet traced in upstream source.
+
+~~**Four of the six are bit-identical to upstream over the whole trajectory**;
+the two oblique cases agree to round-off (1–3 ulp).~~ **CORRECTED 2026-11-10
+(gh:#1406): all nine rows are bit-identical (4518 of 4518 `f64` per case);
+the operation-order fixes are tabulated in `cross-code-summary.md`.** The last row verifies the
 *other* engine — the stateless `contact` + `simulation` path — against the
 upstream model it actually implements; see § 4.2.
 
@@ -1340,6 +1356,984 @@ processes, in all four settings.** This is a far stronger check than the
 the neighbour-grid fix — the committed reference beds can now be regenerated
 exactly. The regression test independently reproduced `φ 0.5766 → 0.5732` to
 four decimals on two separate runs.
+
+## 4.10 Pair-order translation, friction cells in both codes, heat conduction, stiffness and hysteresis models (2026-11-11, gh:#1406, #1410, #1412, #1418)
+
+**Per-contact forces beyond step 0 (gh:#1418).** `neighbor_list.rs` translates
+LIGGGHTS' atom sort and `bin` half neighbour list; with
+`GranularSystem::with_liggghts_neighbor_order` the per-contact dump of the
+settled `D/d = 6` bed is **bit-identical at steps 0, 1, 10 and 100** (793 / 793 /
+793 / 792 contacts, all 23 fields). Ablations: default cell grid 3440 / 3799 /
+6266 values differ at steps 1 / 10 / 100; LIGGGHTS list without the atom sort
+4442 / 4923 / 6831. Prediction (written first): bit-identical. Met. Test
+`pair_gran_local_cross_code.rs`. The option is named, not the default: the order
+needs the deck's box and skin.
+
+**Friction cells run in BOTH codes (gh:#1406 prio 2).** Cell-by-cell check of
+`reference-data/liggghts/htr10_*_mu*_mur*.csv`: all are **port output**
+(`reference-data/liggghts/README.md`); the HTR-10 cells `mu10_mur00`,
+`mu10_mur10`, `mu40_mur00` and the `mu125`..`mu200` sweep were **never run in
+LIGGGHTS**; only `mu40_mur10` has a LIGGGHTS run (`in.htr10_conus`). An HTR-10
+cell costs ~10 min of port time and more in LIGGGHTS on one core, so the
+ablation was run on the **`D/d = 6` bed instead**, from the same inserted state
+(`pebble_bed_init.csv`), 400 000 steps (2 s), `mu in {0.1, 0.4}` x
+`mu_r in {0, 0.1}` (CDT), decks `in.ablate`, `in.ablate_cdt`, `run_ablate.sh`,
+output `ablate_<cell>.csv` (9 frames, every 50 000 steps, x, v, omega of every
+pebble). Prediction: bit-identical, because the mechanical path and the sum order
+are. **Result (`friction_ablation_cross_code.rs`, Rust 1.99.1):**
+
+| cell | values bit-identical / total (9 frames) | final `phi` ours / LIGGGHTS |
+|---|---|---|
+| `mu = 0.1`, `mu_r = 0` | **28 674 / 28 674** | 0.584154 / 0.584154 |
+| `mu = 0.1`, `mu_r = 0.1` | **28 674 / 28 674** | 0.568520 / 0.568520 |
+| `mu = 0.4`, `mu_r = 0` | **28 674 / 28 674** | 0.545985 / 0.545985 |
+| `mu = 0.4`, `mu_r = 0.1` | **28 674 / 28 674** | 0.526996 / 0.526996 |
+
+So `mu` moves `phi` by `-0.038` (`mu_r = 0`) and `-0.042` (`mu_r = 0.1`), and
+`mu_r` by `-0.016` / `-0.019` at this `D/d`, identically in both codes. (Absolute
+`phi` here is a `D/d = 6` slab number and is not comparable to the whole-core
+HTR-10 `phi`.) **The HTR-10 conus cells `mu10_mur00`, `mu10_mur10` and
+`mu40_mur00` remain port-only**; the V&V 4.9 numbers carry no LIGGGHTS
+counterpart except `mu40_mur10`.
+
+**The run found two defects the shorter tests could not** (first first-written
+version of the test diverged at step 19 117 and at step 18 433):
+1. gh:#1451, pair shear history life cycle: upstream keeps a pair's shear
+   history through separation for the whole neighbour-list life (`surfacesClose`
+   never runs at contact distance factor 1) and drops it at a rebuild only if the
+   pair does not overlap then; the port dropped it on separation. Fixed in the
+   LIGGGHTS-order mode.
+2. gh:#1452, CDT rolling torque operation order and the wall-branch `w_r`.
+   Fixed.
+
+**`fix heat/gran/conduction` (gh:#1412).** `heat_gran.rs`; two spheres at
+`DeltaT`: 1004 / 1004 values bit-identical over 251 frames; the 354-pebble bed
+(initial `T = 300 + 200 z/0.35`): 0 of 708 values differ at steps 0, 1, 10, 100
+with the LIGGGHTS order (default cell-grid order: 63 / 61 / 63 differ, worst
+relative `1.1e-13`). Clean-room `thermal.rs` against the translation: flux ratio
+2.4813 at `delta = 0.4 mm`, `r = 5 mm`; closed form
+`sqrt(2 pi (1 - delta/(4 r))) = 2.4815`. The first-written prediction
+(`sqrt(2 pi) = 2.507` within 1 %) was wrong by 1.01 % (omitted the
+`delta/(4r)` term of the chord radius) and is corrected in the test header.
+`test: heat_conduction_cross_code.rs`.
+
+**Contact sub-models (gh:#1410), oblique pair, 251 frames, bit patterns.**
+
+| model | deck | result |
+|---|---|---|
+| `hertz/stiffness` | `in.stiff_hertz` | **4518 / 4518** (bit-identical) |
+| `hooke/stiffness` (relative damping) | `in.stiff_hooke` | bit-identical |
+| `hooke/stiffness absolute_damping on tangential_damping off` | `in.stiff_hooke_abs` | bit-identical |
+| `hooke/hysteresis`, fast impact (plastic loading past `deltaMaxLim`, cohesion on unloading) | `in.hyst_fast` | bit-identical |
+| `hooke/hysteresis`, slow impact (interpolated `k2`, no adhesion) | `in.hyst_slow` | bit-identical |
+
+(`liggghts_cross_code.rs`; every prediction written first was bit-identical.)
+~~Not translated yet: `epsd`, `epsd2`, `epsd3` rolling, Luding (normal, tangential,
+rolling), Thornton-Ning, Edinburgh (+ stiffness), multicontact.~~ **CORRECTED
+2026-11-11 (gh:#1410): all but multicontact are translated and bit-identical,
+see section 4.11.** The hysteresis
+model resolves contacts serially (no rayon staging; its per-contact `deltaMax` is
+held in the shear store under `ContactKey::Aux`) and is wall-capable only through
+the same store; wall and mesh hysteresis contacts have no cross-code deck.
+
+## 4.11 EPSD rolling, Luding, Thornton-Ning, Edinburgh, SJKR cohesion, time-dependent mesh movers (2026-11-11, gh:#1410, #1411, #1416)
+
+**Method (all rows).** Each model was translated from the upstream header
+(LIGGGHTS-PUBLIC `3d5c00f2`, recipe in `upstream_source/README.md`), a deck was
+run through the compiled upstream (`reference-data/liggghts/in.<name>`,
+generated CSV beside it, converted by `dump2traj.sh`), and the port replays the
+same deck. Every x, v and omega of every frame is compared on its IEEE-754 bit
+pattern. Pair decks: the standard oblique pair (`v = +-(1, 0.5)`, 2500 steps,
+251 frames, 4518 `f64`) with initial relative spins `omega_z = +40 / -20 rad/s`
+so every rolling model sees `w_r != 0`; wall decks: one spinning sphere
+(`v = (0.6, 0.2, -0.8)`, `omega_y = 30`) on a z-plane. Tests:
+`tests/liggghts_contact_models_cross_code.rs`, `tests/mesh_movers_cross_code.rs`.
+**Predictions (written before the first run of each):** bit-identical for all.
+
+| model (upstream file) | decks | result |
+|---|---|---|
+| `rolling_friction epsd`, `epsd2`, `epsd3` (`rolling_model_epsd*.h`) | `epsd_pair`, `epsd2_pair`, `epsd3_pair`, `wall_epsd` | **bit-identical** (4518/4518 each; wall 2259/2259) |
+| `hooke/hysteresis` against a wall | `wall_hyst` | **bit-identical** |
+| `model luding` + `tangential tan_luding` + `rolling_friction luding` (`normal_model_luding.h`, `tangential_model_luding_tn.h`, `rolling_model_luding.h`) | `luding_full`, `luding_plastic` (cohesion branch), `luding_nocoh` (`limitForce`), `luding_wall` | **bit-identical** |
+| `model thornton_ning` (`normal_model_thornton_ning.h`) | `tn_plastic`, `tn_elastic`, `tn_nocoh`, `tn_wall` | **bit-identical** |
+| `model edinburgh`, `edinburgh/stiffness`, `fixKc` (`normal_model_edinburgh*.h`) | `edi_stiff_lin`, `edi_nonlin`, `edi_fixkc` | **bit-identical** (3/3). `edi_long_stiff_lin`, `edi_long_nonlin` (20 000 steps, exercise the `goto temp_calc` re-entry): **bit-identical** (2/2; the first run failed on a test-side error, wrong initial velocities, fixed; the re-entry ablation fails these decks) |
+| `cohesion sjkr`, `sjkr2`, `tangential_reduce` (`cohesion_model_sjkr*.h`) | `sjkr_pair`, `sjkr2_pair`, `sjkr_reduce`, `sjkr_wall`, `sjkr2_wall` | **bit-identical** (5/5) |
+| `fix move/mesh` wiggle, viblin, riggle, vibrot | `mover_wiggle`, `mover_viblin`, `mover_riggle`, `mover_vibrot` | ~~**bit-identical** (4/4, 2259 f64 each)~~ **CORRECTED 2026-11-12 (gh:#1336, #1455):** bit-identical while `mesh_wall.rs`/`tri_mesh.rs` called glibc trig; on PETIR's `RealMath` wiggle stays 2259/2259 and viblin, riggle, vibrot differ in 323, 596, 1509 of 2259 (worst normwise 1.33e-16, 3.50e-14, 7.88e-13). A/B-proven libm-only: the std-trig files restore 2259/2259. Pinned in `tests/mesh_movers_cross_code.rs` |
+| `fix move/mesh` `linear/variable`, `rotate/variable` (equal-style variables, `src/variable.rs` from `variable.cpp`) | `mover_linvar` (`0.3*sin(2*PI*time/0.08)+0.5*step*dt`, `swiggle`, `cwiggle`), `mover_rotvar` | ~~**bit-identical** (2/2, 2259 f64 each)~~ **CORRECTED 2026-11-12 (gh:#1336, #1455):** `linear/variable` stays 2259/2259; `rotate/variable` differs in 785/2259 (worst normwise 6.13e-15) on PETIR's `RealMath`, libm-only by the same A/B (written 2026-11-11, prediction: bit-identical, as for the other movers) |
+| `fix massflow/mesh` (`fix_massflow_mesh.cpp`, incl. the mesh neighbour list `resolveTriSphereNeighbuild`) | `massflow_plate` (12 spheres, floor bounce, `count multiple` and `count once`, 60 000 steps) | **bit-identical** (14 036/14 036: trajectories plus mass, count, mass rate, count rate at 121 steps; `tests/massflow_mesh_cross_code.rs`). A first version that visited every particle near a facet bounding sphere miscounted one crossing from step 36 500 (stale-counter effect); translating the neighbour list removed it. ~~`point_at_outlet`/`inside_out`: unit-tested only, not cross-coded~~ **CORRECTED 2026-11-12 (gh:#1491):** `point_at_outlet` and `inside_out` cross-coded on `massflow_outlet` (closed 64-facet drum as counting surface), 14 036/14 036 bit-identical, section 4.13 |
+| `fix mesh/surface/stress` totals (`mesh_module_stress.cpp`) | `mesh_stress` (2 spheres, one straddling the plate diagonal, rotating plate, `reference_point`) | **bit-identical** (3 069 values: 251 frames x 18 + 41 x 9 `f_plate[1..9]`; `tests/mesh_stress_cross_code.rs`). ~~Per-facet `f`/`sigma_n`/`sigma_t` not cross-coded (upstream accumulates the per-facet `f` over the whole run, read from the source);~~ **CORRECTED 2026-11-13 (gh:#1512):** upstream zeroes the per-facet `f` every step (`FixMesh::pre_force` -> `clearReverse`; the claim read `mesh_module_stress.cpp` alone), the port now does too, and per-facet `sigma_n`/`sigma_t` are cross-coded bit-identical on a rotating mesh (section 4.15); ~~`wear finnie` and the servo module are not translated~~ **CORRECTED 2026-11-12:** the servo module is translated (gh:#1416) and `wear finnie` too (gh:#1491, `mesh_wear`, 5 263/5 263 bit-identical including the per-facet wear, section 4.13) |
+
+**Sensitivity controls (the decks can fail).** Each family has a control test:
+with rolling off, with the Luding tangential or rolling model replaced by the
+ordinary one, with a different yield ratio or surface energy, with cohesion
+off, the same reference is NOT reproduced (more than 100 of 4518 values
+differ). An ablation of the Edinburgh `goto temp_calc` re-entry (disabled in
+the port) showed that the four short Edinburgh decks do **not** reach it (all
+still passed) and that the two 20 000-step `edi_long_*` decks do (they fail
+without it), which is why those were added.
+
+**Finding about an existing test.** `in.oblique_hooke_rolling` is symmetric
+(both spheres spin up identically), so `w_r = omega_i - omega_j = 0` and the CDT
+torque was never applied: its bit-identity said nothing about CDT. `in.cdt_pair`
+adds the relative spin; CDT is bit-identical there too, and its model-off
+control differs.
+
+**Upstream oddities kept for parity (not fixed).**
+- `thornton_ning`: `gammat = 2 sqrt(5/6) beta_eff sqrt(k_t m_eff)` has no
+  leading minus sign (the Hertz model has `-2 sqrt(5/6) ...`), and `beta_eff` is
+  negative, so the tangential dashpot adds force; `sidata.kn` is never set
+  (the port returns 0).
+- `edinburgh` with `fixKc on`: the inner `const double k_adh` shadows the outer
+  one, so the `limitForce` test `k_adh == 0` is always true.
+- `luding` rolling: `torsion on` aliases the torsion history onto the rolling
+  one in upstream; ~~not ported (default is off)~~ **CORRECTED 2026-11-11**:
+  ported and bit-identical (pair deck `in.luding_torsion`, wall deck
+  `in.luding_torsion_wall`; in the pair branch `calcTorTorque` also overwrites
+  `r_torque`, in the wall branch it adds a separate torque). The Luding
+  rolling spring is written unconditionally, also at set-up.
+- History values declared `"1"` (sign-flipping) in TN and Edinburgh would
+  corrupt (`virgin_loading_flag = -1`) if a pair were stored in the opposite
+  orientation; the port does not flip them (the decks never flip). Only the
+  EPSD rolling torque is flipped.
+
+**Regression runs (2026-11-11).** `htr10_conus_cross_code` passed (1244 s): step 2000 phi 0.5646 vs 0.5646, median 11.05 um, 27 554/27 554 within 1 mm; step 20000 phi 0.5767 vs 0.5769 (-0.04 %), surface +1.2 mm, median 3.2 mm, 1456/27 554 within 1 mm (chaotic divergence). `angle_of_repose`: 15.66 deg vs 15.43 deg.
+
+**Two-type tables (added 2026-11-11, gh:#1410).** `PairModelTable` carries
+per-`(itype, jtype)` coefficients of the normal, tangential, rolling and
+cohesion models (upstream `MatrixProperty` lookups); `E, nu, e, mu` come from
+`MaterialTable`. Eight two-type decks (`in.mt_epsd`, `mt_epsd2`, `mt_epsd3`,
+`mt_luding`, `mt_tn`, `mt_edi`, `mt_sjkr`, `mt_sjkr2`, generated by
+`make_multitype_decks.sh`: type 1 d 10 mm rho 2500, type 2 d 12 mm rho 4000,
+distinct E/nu/e/mu and model coefficients) are bit-identical, 4518/4518 `f64`
+each, first run (`liggghts_contact_models_cross_code`, `two_type_*`).
+
+**Liquid-bridge cohesion (gh:#1411, 2026-11-11).** ~~The liquid-bridge cohesion
+models `easo/capillary/viscous` and `washino/capillary/viscous` are not
+translated.~~ **CORRECTED 2026-11-11:** both are translated
+(`src/capillary.rs`, `GranularCohesion::Capillary`,
+`GranularSystem::with_capillary`: per-particle `surfaceLiquidContent`,
+`liquidFlux` and the `liquidtransfer` integration, per-pair bridge flags, bridges
+out of contact via `register_contact_dist_factor`, Washino `limitLiquidContent`
+/ `modifyLbVolume`, `tangential_reduce`, per-type contact angles). Six decks
+(`in.cap_*`, upstream `3d5c00f2`), every sampled frame, all 14 columns
+(`x v omega f L flux`), `tests/capillary_cross_code.rs`:
+
+| Case | values bit-identical | worst ulp |
+|---|---|---|
+| Easo pair (formation, rebound, stretch, rupture) | 5628 / 5628 | 0 |
+| Easo, 2 types, hard-limit rupture, `tangential_reduce` | 5628 / 5628 | 0 |
+| Easo, 84-pebble bed | 19992 / 19992 | 0 |
+| Washino pair (bridge out of contact) | 5620 / 5628 | 4 |
+| Washino, `limitLiquidContent` + `modifyLbVolume`, 2 types | 5606 / 5628 | 2 |
+| Washino, 84-pebble bed | 19601 / 19992 | 1118 (rel. 1.3e-15) |
+
+Easo is bit-identical. The Washino residue is PETIR libm vs glibc only, proved by
+swapping `r_sin`/`r_cos`/`r_cbrt` for `f64::sin/cos/cbrt` (glibc): then all three
+Washino decks are 100 % bit-identical (accepted and pinned, gh:#1455). The first
+run missed by 0.24 % at first contact; cause was the test feeding the deck's
+`contactAngle` (degrees) as radians, found by instrumenting a copy of the
+upstream header. ~~**Not ported:** particle-wall bridges (Easo dry walls, Washino
+mesh liquid content); `with_capillary` refuses a system with walls.~~
+**CORRECTED 2026-11-12 (gh:#1487):** ported, see the next paragraph. No
+control run without the model was made for the six pair decks.
+
+**Particle-wall liquid bridges (gh:#1487, 2026-11-12).** The `is_wall` branches
+of both headers are translated (`CapillaryParams::intersect`/`close`), with the
+wall data `FixWallGranBase::compute_force` gives them (`radsum = radi`,
+`r = radi - deltan`, `area_ratio = 1`, and `sidata.radj` never set, so `0`),
+the primitive-wall close range and history zeroing of
+`FixWallGran::post_force_primitive`
+(`GranularSystem::primitive_wall_forces_capillary`), the mesh close facets and
+per-facet bridge flags (cleaned up with `cleanUpContacts`, copied by
+`checkCoplanarContactHistory`), and `MeshModuleLiquidTransfer`
+(`fix mesh/surface/liquidtransfer`, `capillary::MeshLiquid`,
+`GranularSystem::with_mesh_liquid_transfer`). Two upstream facts the decks
+exercise. First, Washino's wall `surfacesIntersect` reads `radj = 0`, so the
+capillary and viscous wall forces in contact are signed zeros, and the bridge
+acts only out of contact. Second, a wall contact is visited only while
+`deltan < (cdf - 1) r`; beyond that the flag is zeroed with no rupture flux. So
+the decks use `maxSeparationDistanceRatio 2.0`, which puts `d_max` inside that
+range.
+
+Prediction, written on #1487 before the first run: all four decks
+bit-identical, with any residue Washino-only, last-ulp and libm. Four decks
+(`in.cap_{easo,washino}_{plane,mesh}`), each with two d = 10 mm spheres: a fast
+one that bridges, rebounds and ruptures, and a slow one that stays bridged.
+Each runs 40 000 steps and is compared every 200 steps on all 14 columns:
+
+| Case | values bit-identical | worst ulp |
+|---|---|---|
+| Easo, `zplane` primitive wall (dry) | 5628 / 5628 | 0 |
+| Easo, `plate_square.stl` mesh (dry) | 5628 / 5628 | 0 |
+| Washino, `zplane` primitive wall (dry) | 5624 / 5628 | 8 (rel. 1.7e-19, first at step 3800) |
+| Washino, mesh with `liquidtransfer` (t = 1 mm, LC0 = 0.1) | 5622 / 5628 | 2 (rel. 1.7e-19, first at step 4000) |
+
+Easo is bit-identical on the first run. The Washino residue is PETIR libm vs
+glibc only, by the #1411 A/B. With `r_sin`/`r_cos`/`r_cbrt` swapped for glibc
+`f64::sin/cos/cbrt`, all ten capillary decks are 100 % bit-identical: both
+Washino wall decks, the three Washino pair decks and the five others. The swap
+was reverted and the counts above are pinned (gh:#1455). Ablations
+(`wall_bridge_ablations_miss_upstream`, judged on `x v omega f` only): dry
+spheres on the Easo plane deck miss by 8.9e-2 of scale, and the Washino mesh
+without `liquidtransfer` misses by 5.1e-3. The wall bridges and the facet film
+carry the agreement. In the liquid-mesh deck the fast sphere's content drops
+from 0.2 to 0.195375 at rupture, moved to the facet. **Not representable,
+refused by `with_capillary`:** a wall
+atom type different from the particles' (the crate resolves every wall contact
+with the particle's type), one-sided or non-axis-aligned primitive walls, and
+moving analytic walls. Facet liquid flux from 3+ ruptures on one facet in one
+step is summed in particle order, not upstream's neighbour-list order (no deck
+has it).
+
+**Not translated.** `surface_model multicontact` (~~needs `fix
+multicontact/halfspace`~~ done, gh:#1410), multi-type material tables for the
+new models (~~single type pair only~~ **CORRECTED 2026-11-11**: done, see
+above), ~~the Luding `torsion` option~~ (done 2026-11-11).
+
+## 4.12 `massflow/mesh` and `mesh/surface/stress` on the HTR-10 conus (2026-11-11, gh:#1416)
+
+**Method.** `reference-data/liggghts/in.htr10_conus_massflow` is `in.htr10_conus`
+(27 554 pebbles from `htr10_settled.csv` with velocities, `htr10_discharge.stl`,
+`E = 5e8`, `mu = 0.4`, CDT `0.1`, `dt = 3.5e-5`, 20 000 steps) with the conus as
+`mesh/surface/stress ... reference_point 0.1 -0.05 -0.2` and three
+`massflow/mesh` planes (`vec_side 0 0 -1`, `count once`) at `z = -0.02`, `-0.10`
+(over the conus) and `-0.50` (in the tube), `thermo 500` of the 21 values,
+`%.17g`. Run with `lmp_serial` (3d5c00f2, 257 s). The upstream positions at
+2 000 and 20 000 are bit-identical to the plain conus deck's frames
+(27 554 / 27 554 twice): the fixes do not touch the dynamics. The port runs
+under `with_liggghts_neighbor_order` (box of the data file, skin 18 mm) so
+contact forces are summed in upstream's order. Test:
+`tests/htr10_conus_massflow_stress_cross_code.rs` (19 min; `long-tests`).
+
+**Prediction (before the first run).** Counts identical; force and torque
+bit-identical while the configurations are; divergence at the chaos horizon
+(1.1 mm median at step 6 000 in section 4.8).
+
+**Result.**
+
+| quantity | result |
+|---|---|
+| pebbles at 2 000 and 20 000 (x y z vx vy vz) | **27 554 / 27 554** bit-identical at both |
+| mass-flow count/mass/rates, 3 planes x 4 x 41 samples; reference point 3 x 41 | **all bit-identical** (final a 2001, b 1239, c 103 pebbles; c first crossed near step 7 000) |
+| force and torque on the conus, 6 x 41 | bit-identical through step 2 500 (6 of 41 rows); after that 1-5 values per row differ by at most **8.46e-16** of the vector norm |
+
+**Two predictions missed, both explained.** (1) The beds did **not** diverge:
+with upstream's neighbour order the port tracks LIGGGHTS bit for bit through the
+whole slump, so section 4.8's divergence (11 µm at 2 000, 1.10 mm at 6 000) comes
+from the port's default linked-cell summation order (and that test starting
+from zero velocities), not from chaos intrinsic to two correct codes.
+(2) The totals are not bit-identical after step 2 500. The total is a sum over
+every particle-facet contact. Upstream accumulates facet-major, particles in the
+facet's mesh neighbour list, whose order is bin-by-bin of the positions at the
+last rebuild. The port first summed particle-major: worst difference 1.06e-13
+of a component. Re-ordering the accumulation facet-major by upstream's local
+atom slot (the change to `compute_mesh_wall_forces` made with this test) took
+the worst to 8.46e-16 and kept bit-identity to step 2 500; ~~the remaining few
+ulp are the within-facet bin order, **not reproduced** (it needs the mesh
+neighbour list's bin geometry). That cause is inferred from the 100-fold drop
+under the reordering, not proved by a run that closes the gap. It is within the
+1e-8 round-off allowance; flagged for the maintainer.~~
+**CORRECTED 2026-11-12 (gh:#1491): reproduced, and the residual is gone.** The
+within-facet order is now upstream's: `FixNeighlistMesh::handleTriangle` walks
+the facet's cached bins in `generate_bin_list`'s `for ix / for iy / for iz`
+loop order (`iz` innermost, so not ascending bin index) and each bin's linked
+list in ascending local slot, binned at the last neighbour build
+(`Neighbor::bin_atoms`). The port records each particle's neighbour bin
+(`neighbor_list::BinGrid::coord2bin`) at every rebuild and sorts the stress
+contributions by `(facet, ix, iy, iz, local slot)`. Re-run (966 s): **all 21
+values bit-identical at all 41 samples**, force and torque included (worst
+difference 0); pebbles 27 554/27 554 at 2 000 and 20 000 and the mass flows
+unchanged. The bit-identical run is the proof of the cause, so no upstream
+instrumentation was needed for this item.
+
+## 4.13 gh:#1416 leftovers: exterior `wall/region`, `wear finnie`, servo variable set point, `point_at_outlet` (2026-11-12, gh:#1491)
+
+All against compiled LIGGGHTS-PUBLIC `3d5c00f2`, every value compared as IEEE-754
+bits, Rust 1.99.1. A prediction was posted on gh:#1491 before each first run.
+
+| item | deck | port | result |
+|---|---|---|---|
+| `fix wall/region` on `side out` block (lj93) and cylinder (harmonic) regions (`RegBlock/RegCylinder::surface_exterior`, `Region::match` = `!inside`) | `in.wallregion_out` (10 spheres onto a horizontal cylinder and a block shelf, floor `wall/gran`, 40 000 steps) | `ForceFix::WallRegionExterior`, `InsertRegion::surface_exterior` | **7 938 / 7 938** (81 x 90 trajectory + 81 x 8 energy/force); interior deck unchanged (66 906 + 336) |
+| mesh `wear finnie` (`MeshModuleStress::add_particle_contribution` wear branch, `calc_total_force`) | `in.mesh_wear` (6 spheres hit the static 2-facet plate, one overlapping at set-up) | `MeshStress::with_wear_finnie`, `add_wear_contribution`, `GranularSystem::facet_wear` | **5 263 / 5 263** (81 x 54 trajectory, 81 x 9 `f_plate`, 80 x 2 per-facet wear) |
+| `massflow/mesh` `point_at_outlet`, `inside_out` | `in.massflow_outlet` (closed drum mesh as counting surface, 6 particles leave, 6 enter) | existing `MassFlowMesh` | **14 036 / 14 036**; both counters end at 6 |
+| servo `target_val v_name` (equal-style set point, `sp_style_ == EQUAL`) | `in.mesh_servo_var` (`in.mesh_servo` with `tv = 0.1+0.05*sin(2*PI*step/4000)`) | `MeshServo::with_target_variable` | **9 963 / 9 990**; every `f_plate` value bit-identical; 27 trajectory values differ from step 17 360. Pinned, cause demonstrated below |
+
+**Wear reference.** Upstream has no global wear output and the compiled build
+has no VTK mesh dumps, so `mesh_wear_wear.txt` comes from a scratch copy of the
+upstream source with one `fprintf` of the per-facet `wear` (`%.17g`, every 250
+steps) at the end of `calc_total_force`; only `mesh_module_stress.o` was rebuilt.
+That binary reproduces the committed `mesh_stress_thermo.txt` byte for byte, and
+the original binary gives the same thermo on `in.mesh_wear`. The scratch copy
+was deleted afterwards. Upstream does not zero `wear_step` at set-up, so the
+set-up force evaluation's wear enters step 1; the port reproduces that
+(`MeshStress::begin_setup_wear` makes the port's repeated set-ups idempotent).
+
+**The servo residual is PETIR's `sin`, not the servo.** Over the deck's 20 000
+arguments the `libm` crate's `sin` (PETIR's `r_sin`, used by `variable.rs`)
+differs from glibc's by one ulp at 611 and the set point at 211 (the first at
+step 1 117). While the plate cruises at `vel_max` the set point does not
+reach the output; once the servo controls, it does. A/B in the port with the
+evaluator's `sin` switched to std's glibc `f64::sin`: **9 990 / 9 990
+bit-identical**; reverted per the maintainer's decision on gh:#1455 (keep
+PETIR's maths; demonstrate, count and pin such residuals). Pinned at 27 in
+`tests/mesh_servo_cross_code.rs`.
+
+**Not ported, with reasons.**
+- ~~`fix_modify` on the servo (`integrate`, `vel_max`, `target_val`,
+  `ctrlParam`, `ratio`): it takes effect only between two `run` commands, and
+  upstream re-runs every fix's `init()` and `Verlet::setup()` (a set-up force
+  evaluation at full-step velocities) at each `run`. The port models one
+  continuous run and has no second-`run` emulation, so no deck with
+  `fix_modify` can be compared. Needs that emulation first (follow-up issue).~~
+  **CORRECTED 2026-11-13 (gh:#1510):** the second-`run` emulation
+  (`GranularSystem::begin_run`) and the servo `fix_modify` keywords are ported
+  and cross-coded bit-identical; see 4.14.
+- ~~massflow/mesh multisphere volume weight (`fix_volumeweight_ms_`): this crate
+  has no `fix multisphere` (rigid clumps); there is nothing to weight. Not worth
+  porting until multispheres are.~~ **CORRECTED 2026-11-13 (gh:#1415):**
+  `fix multisphere` is ported. The volume weight is applied and cross-coded
+  bit-identical (`in.ms_massflow`; see 4.16).
+- Other region styles, moving/rotating regions for `wall/region`.
+
+## 4.14 Multi-`run` decks and servo `fix_modify` (2026-11-13, gh:#1510)
+
+**What upstream does at every `run`** (read from LIGGGHTS-PUBLIC `3d5c00f2`,
+`run.cpp`, `lammps.cpp`, `verlet.cpp`, `modify.cpp` and the fixes'
+`init`/`setup`). `Run::command` calls `lmp->init()` then `Verlet::setup()`
+(skipped by `run N pre no`). `init()` calls every fix's `init()`; only the
+servo's changes state the port holds (`MeshModuleStressServo::init`:
+`p_ref = xcm`, `vel_min_ = ratio * r_min / dt` over the present atoms, the
+torque servo's `rPaMax` over the present nodes, the `vel_max < skin/(2 dt)`
+check). `Verlet::setup()` sorts the atoms (`nextsort` re-based), builds the
+neighbour list (`xhold`), runs `setup_pre_force` (`FixMesh`:
+`pbcExchangeBorders(1)` -> `refreshOwned(1)`: edge vectors, normals and areas
+recomputed from the nodes, `node_orig` and `nodesLastRe` set to the present
+nodes; `FixNeighlistMesh`: mesh lists rebuilt; the servo: `xcm_orig = xcm`,
+`totalPhi = 0`), evaluates the pair forces and calls every fix's `setup` with
+`shearupdate = 0` (`wall/gran` and `gravity` `post_force`; `FixMoveMesh::setup`
+zeroes the node velocities after the wall's evaluation when it is declared
+after the wall).
+
+**What persists**: pair, wall and mesh contact history; the servo's
+`sum_err_`, `old_pv_mag_`, velocity and node velocities; the stress totals
+(no `pre_force` at set-up, so the set-up contributions are added to the last
+step's: the thermo line printed at set-up shows the sum); `wear_step`; the
+insertion schedule and counters (`FixInsert::setup` returns after the first
+run); massflow counters; a mesh's `next_reneighbor`; the mover's `time_`.
+
+**Port.** `GranularSystem::begin_run` (does the above; construction already
+performs the first run's set-up), `MovingBoundary::begin_run`,
+`MovingBoundary::move_mesh_setup`, `MeshServo::init_run`,
+`MeshServo::setup_pre_force`, `MeshStress::refresh_area`. `fix_modify`:
+`MeshServo::modify_param(ServoModify)` / `GranularSystem::fix_modify_servo`
+(`integrate start|stop`, `vel_max`, `target_val` constant or `v_name`,
+`ctrlParam`, `ratio`; `target_val` and `ctrlParam` zero the integral term,
+`resetIntegrator`).
+
+**Decks** (`reference-data/liggghts/make_multirun_decks.sh`), each a split of
+a single-run deck already bit-identical. Predictions were posted on gh:#1510
+before each first run. Every value is compared as IEEE-754 bits, Rust 1.99.1.
+
+| deck | what it exercises | result | control (must differ) |
+|---|---|---|---|
+| `in.mesh_servo_2run` (`run 10000` x 2) | servo `init`/`setup_pre_force`, set-up force at full-step velocities, set-up thermo line | **10 002 / 10 002** | continuous run: 1 914 / 10 002 differ |
+| `in.mesh_servo_torque_2run` | torque servo: `rPaMax` and `node_orig` from the rotated nodes, `totalPhi = 0` | **10 002 / 10 002** | |
+| `in.pour_pack_runs` (`in.pour_pack` with plain `run` at all 9 frames) | 8 set-ups: atom sort, list build, pair and primitive-wall history, insertion schedule, contacts at the last 3 | **9 / 9 frames**, every particle | continuous run: 3 / 9 frames differ |
+| `in.rotating_plate_2run` (`run 5000` x 2) | `refreshOwned(1)` of a rotating mesh, re-based rebuild schedule (upstream rebuilds at 5000, 5058, ... instead of 5046, 5104, ...), `FixMoveMesh::setup` | **2 259 / 2 259** | continuous run: 619 / 2 259 differ |
+| `in.mover_wiggle_2run` (`run 5000` x 2) | mover phase (`time_`) across a set-up | **2 259 / 2 259** | none possible: LIGGGHTS' two-run dump is byte-identical to its one-run dump on this deck |
+| `in.mesh_servo_modify` (`run 8000`; `servo/target_val 0.15 servo/ctrlParam 0.5 0.4 0.0002 servo/vel_max 0.03`; `run 6000`; `servo/integrate stop`; `run 6000`) | `modify_param` + `init` | **10 014 / 10 014** | same runs without `fix_modify`: 2 394 / 10 014 differ |
+| `in.mesh_servo_auto_modify` (`run 10000`; `servo/ratio 0.0001`; `run 10000`) | `ratio` -> `vel_min_` at `init` | **10 002 / 10 002** | without the new ratio: 1 608 / 10 002 differ |
+
+All predictions were met. One first result was a miss: `in.rotating_plate_2run`
+gave 619 / 2 259. It was a defect in the new test's replay loop, not in the
+port: the run boundary fell on a sampled frame and the loop never called
+`begin_run`. A scratch copy of upstream with one `fprintf` in
+`Neighbor::build` showed the shifted rebuild schedule; the binary reproduced
+the committed `rotating_plate.csv` byte for byte, and the copy was deleted.
+With the loop fixed, the result is 2 259 / 2 259.
+
+**Not modelled** (no deck here exercises them): `ramp()` and other quantities
+bounded by the run in variables (the variable contexts take `begin_step = 0`);
+`FixMoveMesh::reset_reference_point` for superposed movers; a `move/mesh`
+declared before its `wall/gran` (the set-up evaluation would see zero node
+velocities); the slot compaction of the mesh contact history
+(`FixContactHistoryMesh::sort_contacts`), which the port does not model at
+re-neighbouring either. ~~`MeshStress`'s facet areas are refreshed at
+`begin_run` (as `refreshOwned` does) but, as before, not at the re-neighbouring
+of a moving mesh, which upstream also refreshes. Neither the servo nor the
+`wear` decks expose that difference.~~ **CORRECTED 2026-11-13 (gh:#1512):** the
+areas are now refreshed at every re-neighbouring of a moving mesh too; see 4.15.
+
+## 4.15 Stress and wear on a moving mesh: area refresh and `clearReverse` (2026-11-13, gh:#1512)
+
+**Upstream read** (LIGGGHTS-PUBLIC `3d5c00f2`). On a re-neighbour step,
+`FixMesh::pre_exchange` sets `pOpFlag_`. `FixMesh::pre_force` (called by
+`FixMeshSurface::pre_force` before its modules' `pre_force`) then calls
+`pbcExchangeBorders(0)`, which for a moving mesh reaches
+`SurfaceMesh::refreshOwned` -> `recalcLocalSurfProperties`. That recomputes
+`edgeLen`, `edgeVec`, `surfaceNorm`, `edgeNorm`, the obtuse index, **`area`**
+and `areaAcc` from the nodes. `MeshModuleStress` divides by `areaElem` in the
+Finnie wear increment and in `sigma_n`/`sigma_t`. The port already refreshed
+the geometry there (`MeshWall::refresh_geometry`), but not `MeshStress`'s copy
+of the areas. `areaAcc` serves only insertion faces, which may not move (in
+either code). `center`/`rBound` are refreshed only `if(isDeforming())`, and
+`isDeforming()` is hard-wired `false` in 3d5c00f2: every `move/mesh` style is
+rigid, so **no deforming mover exists to cross-code**.
+
+The same `FixMesh::pre_force` ends with `mesh_->clearReverse()`, which zeroes
+every `comm_reverse` element property each step (also in `setup_pre_force`).
+For this module those are the per-facet force `f` and `wear_step`. The port
+never zeroed `f`, so its per-facet `sigma_n`/`sigma_t` were cumulative over the
+run; a doc comment claimed that was upstream's behaviour, from reading
+`mesh_module_stress.cpp` alone. It also carried a set-up evaluation's
+`wear_step` into step 1, which upstream discards. Neither was visible before:
+no deck compared per-facet stress, and on `in.mesh_wear` the one set-up
+contact slides parallel to the plate, which gives zero Finnie wear.
+
+**Ported.** `MovingBoundary::refresh_mesh` (geometry + stress areas) on every
+mesh refresh (re-neighbouring, and `begin_run`); `MeshStress::clear_reverse`
+(zero `f` and `wear_step`) every step before `MeshStress::pre_force`.
+
+**Deck** `in.mesh_wear_rot`: `in.mesh_wear` with the plate rotating about `z`
+(period 0.5 s, corners at 2.7 m/s, so the mesh triggers a rebuild about every
+57 steps), and sphere 5, touching at step 0, moving into the plate
+(`vz = -0.1`) so the set-up carries a non-zero `wear_step`. The trajectories
+and `f_plate[1..9]` come from the stock `lmp_serial`. The per-facet `areaElem`,
+`sigma_n`, `sigma_t` and `wear` every 250 steps (`mesh_wear_rot_facets.txt`)
+come from a scratch copy instrumented at the end of `calc_total_force`, whose
+dump and thermo are byte-identical to the stock binary's. The same copy showed
+the set-up increment (`2.90e-6`) absent from step 1's wear, and the per-facet
+`f` equal to that step's total; the copy was deleted afterwards.
+
+**Prediction** (gh:#1512, before the first run): bit-identical; a rigid
+rotation changes the area by round-off only.
+
+**Results** (Rust 1.99.1, `tests/mesh_stress_cross_code.rs`,
+`mesh_wear_rotating_matches_liggghts`):
+
+| port | differ / compared |
+|---|---|
+| with both changes | **0 / 5 743** (81 frames x 54, 81 x 9 `f_plate`, 80 x 2 x (area, `sigma_n`, `sigma_t`, wear)) |
+| before gh:#1512 (neither change) | 637 / 5 743 |
+| area refresh only (no `clear_reverse`) | 398 / 5 743 |
+| control in the test: `clear_reverse` on, areas reset to the import value after every step | 217 / 5 583 (first: wear at step 250, `0.0011192484535403131` vs `0.0011192484535403147`) |
+
+**The area drift was larger than predicted, but it is still round-off.** The
+prediction said "a few ulp". Upstream's refreshed area leaves the import value
+`0.045` at once (`0.044999999999998555` at step 250) and drifts to
+`0.044999999999872309` by step 20 000, i.e. `2.8e-12` relative. The cause is
+that the rotation is applied to the nodes incrementally, one quaternion step at
+a time, so the triangle's shape accumulates rounding. The port moves its nodes
+the same way and reproduces the drift bit for bit. The trajectories and
+`f_plate` do not depend on the area, and were bit-identical before the change
+as well. The per-facet stress was wrong by orders of magnitude before the
+change (cumulative `f`), and the wear differed from step 1 on because of the
+carried set-up increment.
+
+## 4.16 Multisphere rigid clumps (2026-11-13, gh:#1415)
+
+**What is computed.** The port covers:
+- `fix multisphere`: the rigid-body integration of a clump of overlapping
+  spheres. The steps are `initial_integrate`, `richardson`, `set_xv`,
+  `calc_force` (the member atoms' forces and torques summed in local atom
+  order, plus `m g`), `final_integrate` and `set_v`.
+- `fix particletemplate/multisphere`: the clump template. Its bounding
+  sphere, Monte-Carlo volume, centre of mass, inertia tensor (`ntry` points
+  from the template's own `random_mc` stream), Jacobi eigensystem, body-frame
+  displacements and volume weights are all computed.
+- Insertion of clumps by `fix insert/pack`, through the existing insertion
+  port with an `orientation constant` quaternion.
+- `neigh_modify exclude molecule`: intra-clump pairs are dropped.
+- `fix gravity` skipping member atoms.
+- The `massflow/mesh` volume weight (`fix_volumeweight_ms_`).
+
+Code: `src/multisphere.rs`, plus hooks in `insert.rs`, `granular_system.rs`
+and `massflow.rs`. Every hook is a no-op without clumps.
+
+**Reference and inputs.** The reference is LIGGGHTS-PUBLIC `3d5c00f2`. The
+existing `lmp_serial` already contains the multisphere package (its fix style
+list shows `multisphere` and `particletemplate/multisphere`), so no rebuild
+was needed. The decks come from `reference-data/liggghts/make_multisphere_decks.sh`.
+
+Common settings for all three decks:
+- `atom_modify sort 0 0`, `f f f` boundaries;
+- Hertz with `tangential history`: `E = 1e7`, `nu = 0.3`, `e = 0.5`,
+  `mu = 0.4`;
+- `dt = 1e-5`;
+- the dumps are `%.17g`.
+
+Templates:
+- type 1: 3 spheres, `rho = 2500`;
+- type 2: 4 spheres, `rho = 1500`.
+- Both use `ntry 100000`.
+
+| deck | what it exercises |
+|---|---|
+| `ms_drop` | one clump inserted with `vel`, `omega`, `orientation constant 0.5 0.5 0.5 0.5` and `all_in yes`. It falls onto a `zplane` wall, bounces, rolls and slides (15 000 steps, 9 frames). |
+| `ms_collide` | the two templates, each from its own `insert/pack` (one with a non-identity orientation). They fly at each other at +-0.6 m/s, collide obliquely at about step 4 700, then fall (15 000 steps, 10 frames). |
+| `ms_massflow` | four clumps from one mass-based two-template distribution fall through `plate_square.stl`, counted by `massflow/mesh count once` (12 000 steps). The counted mass and count at 25 thermo steps, and every atom at 7 frames, are compared. |
+
+**Pass criterion:** bit-identical, every field, every frame. The prediction
+was posted on gh:#1415 before the first run.
+
+**Results** (Rust 1.99.1, 2026-11-13; `tests/multisphere_cross_code.rs`):
+
+| deck | result |
+|---|---|
+| `ms_drop` | **27 / 27** atom-frames bit-identical (243 values) |
+| `ms_collide` | **70 / 70** atom-frames bit-identical (630 values) |
+| `ms_massflow` | **98 / 98** atom-frames and **25 / 25** massflow totals bit-identical; final mass `0.0034334348125000013` kg, count `4.0000000000000009` |
+
+The prediction was met on the first run, so no change to the arithmetic was
+needed.
+
+**Interpretation.** The ported clump dynamics reproduce upstream exactly in
+these cases. That covers the template's Monte-Carlo mass properties, the
+insertion, the clump-wall and clump-clump contacts with history, and the
+rigid-body integration.
+
+The fractional count is upstream behaviour, not a defect. A clump that is
+partly across the plate counts as the volume-weight share of its member atoms
+(upstream prints `1.684...` at step 4 500). The total reaches
+`4.0000000000000009`, not 4, because the weights are Monte-Carlo fractions.
+
+**Not ported** (each rejected with an error or documented in
+`multisphere.rs`):
+- `spheres file`, `spheres_different_types`, `bonded`;
+- `mass`/`inertia_tensor`/`use_volume`/`use_density`;
+- `fflag`/`tflag` off, `multisphere/nointegration`, `concave`,
+  `CAddRhoFluid`;
+- periodic images of bodies (`remap_bodies`) and lost-atom/body deletion. The
+  decks end before a clump leaves the box, and removing particles from a
+  system with clumps panics;
+- `fix multisphere/break`;
+- clumps from `insert/stream`;
+- heat transfer with clumps;
+- restart;
+- a second `run` set-up with clumps (`begin_run` refuses it);
+- `orientation random`;
+- `sieveMultiSphereCanPass` of the sieve;
+- `compute ke/multisphere` and `erotate/multisphere`.
+
+~~**Not started (rest of gh:#1415):** superquadric (`atom_vec_superquadric`,
+`surface_model_superquadric`, `fix nve/superquadric`,
+`fix particletemplate/superquadric`), convex hull, ellipsoid, line and tri
+particles with their `nve/asphere*` and `nve/line` integrators.~~
+**CORRECTED 2026-11-13 (gh:#1415):** superquadric particles are ported, with
+primitive walls and pair contacts; see 4.17 for what is ported and what is not.
+Convex hull, ellipsoid, line and tri particles with their `nve/asphere*` and
+`nve/line` integrators are still not started.
+
+## 4.17 Superquadric particles (2026-11-13, gh:#1415)
+
+**What is computed.** `atom_style superquadric` particles (half-axes `a, b, c`,
+blockiness `n1, n2`), in `src/superquadric.rs`, a driver of its own
+(`SuperquadricSystem`) beside `GranularSystem`. No sphere or multisphere type
+gained a variant, so those paths are unchanged. Translated from upstream:
+
+- the particle set-up of `create_atoms single` + `set shape / blockiness /
+  density / quat_direct / v / omega`: `bounding_sphere_radius_superquadric`,
+  `volume_superquadric` and `inertia_superquadric` (libstdc++'s `std::beta` =
+  `exp(lgamma(x) + lgamma(y) - lgamma(x + y))`), and `omega_to_angmom`;
+- `fix nve/superquadric`, integration scheme 1 (the default): `calc_conjqm`,
+  the `no_squish_rotate` sequence 3-2-1-2-3, `invquatvec`;
+- primitive `wall/gran ... surface superquadric` plane walls:
+  `plane_intersection` and `point_wall_projection`, Hertz with the
+  volume-equivalent radius, tangential history, and both forces applied at
+  the contact point;
+- `pair gran ... surface superquadric`:
+  - the OBB separating-axis test (`obb_intersect`, 15 inequalities, restarted
+    from the last separating one);
+  - the contact point (`calc_contact_point`: Newton on the 4x4 system, by the
+    explicit inverse when `|det J| > 1` and `GMRES<4,4>` otherwise, with a
+    golden-section line search; with no previous point, the 10-step walk from
+    equal-volume spheres to the real shapes);
+  - the overlap (`extended_overlap_algorithm` -> `surface_line_intersection`);
+  - the contact-history life cycle under `neigh_modify every 1 check no`.
+
+**Upstream build.** The default `make serial` `lmp_serial` does **not**
+contain superquadrics: every superquadric source and branch sits behind
+`SUPERQUADRIC_ACTIVE_FLAG`. The reference came from a scratch rebuild with
+`make serial LMP_INC="-DSUPERQUADRIC_ACTIVE_FLAG -DNONSPHERICAL_ACTIVE_FLAG"`
+(recipe in `upstream_source/README.md`; deleted afterwards).
+
+**Decks** (`reference-data/liggghts/make_superquadric_decks.sh`, converted by
+`sq2csv.sh`). Common settings: `atom_modify sort 0 0`, `f f f`, neighbour list
+rebuilt every step, Hertz + history with `E = 1e7`, `nu = 0.3`, `e = 0.5`,
+`mu = 0.4`, `dt = 1e-5`, `%.17g` dumps of `x v omega quat`.
+
+| deck | what it exercises |
+|---|---|
+| `in.sq_drop` | one cube-like blob (`n1 = n2 = 6`, half-axes 4, 3, 2.5 mm, `rho = 2500`, `quat_direct 0.9 0.3 0.2 0.1`), `v = (0.1, 0, -0.5)`, `omega = (3, -2, 5)`, falls onto a `zplane` wall under gravity, bounces, rocks and slides; 10 frames to step 10 000 |
+| `in.sq_collide` | that blob and a `n1 = 4, n2 = 3` blob (half-axes 3.5, 3, 4 mm, `rho = 1500`, `quat_direct 0.7 -0.2 0.5 0.4`), both spinning, meet obliquely; no gravity, no walls; 10 frames to step 3 000 |
+
+**Prediction** (posted on gh:#1415 before the first run): free flight
+bit-identical; after contact, bit-identical only if PETIR's libm agrees with
+glibc on every call, and bit-identical under a glibc swap.
+
+**Results** (2026-11-13, Rust 1.99.1, `tests/superquadric_cross_code.rs`):
+
+| deck | PETIR `RealMath` (committed) | glibc swap | worst relative difference (PETIR) |
+|---|---|---|---|
+| `sq_drop` | **36 / 130** values bit-identical; frames 1 and 500 whole, the first differing frame is step 1000 (first wall contact at step 734) | **130 / 130** | `3.50e-12` |
+| `sq_collide` | **116 / 260**; frames 1, 200 and 400 whole, the first differing frame is step 600 | **260 / 260** | `2.39e-10` |
+
+**The translation is exact; the residue is ~~`cbrt`~~ `cbrt` and `pow`
+(CORRECTED 2026-11-13, see the second bullet).**
+- With `pow`, `sin`, `cos`, `exp` and `lgamma` routed to glibc by
+  `extern "C"`, and `cbrt` to glibc's `cbrtf64` alias, both decks are
+  bit-identical in every value. Rust's std `cbrt` resolves to
+  compiler-builtins' libm, not glibc, so it cannot be used for the swap.
+- With glibc for every call except `cbrt`, the counts equal the PETIR counts.
+  ~~The whole residue therefore enters through `cbrt`~~ **CORRECTED
+  2026-11-13:** `cbrt` is *necessary* but not the whole residue. With glibc
+  `cbrt` and libm `pow`, `sq_drop` gets 83 / 130, not 130 / 130 (`sq_collide`
+  does get 260 / 260). Only `pow` and `cbrt` together are needed: with both
+  routed to glibc every deck is bit-identical (§ 4.17.1). The `pow` ulp was
+  hidden behind the earlier `cbrt` one. The `cbrt` enters in the
+  volume-equivalent radius `cbrt(3V / 4 pi)` that the wall and pair Hertz
+  use: libm gives `3.72342409315634237e-3`, glibc `3.72342409315634280e-3`
+  (1 ulp) for the `n = 6` blob.
+- The first effect is in the last bits of the wall force (`fz`) and torque at
+  the first contact step (734), where the state is still bit-identical. This
+  was found by per-step dumps of both codes, with upstream's `Hertz` inputs
+  printed from an instrumented scratch copy (`reff` was the one input that
+  differed). The difference then grows through the contact.
+- Both worst differences are below the 1e-8 round-off allowance, and the
+  cause is understood. The counts are pinned per the gh:#1455 decision (keep
+  PETIR's maths).
+
+**Interpretation.** The superquadric set-up, integrator, wall contact and the
+iterative pair contact detection reproduce upstream to the bit when they are
+given the same maths library. The iterative contact point converges to
+`merit < 1e-10`, not to a fixed point, so a libm difference changes the
+iterates by more than an ulp (the `sq_collide` worst is `2.4e-10`). Whether a
+longer or denser deck would amplify this into a visibly different trajectory
+was not tested.
+
+**Not ported** (refused or absent) — **SUPERSEDED 2026-11-13** by the list at
+the end of § 4.17.1. The curvature-limited radius, mesh and cylinder walls,
+rebuild intervals and the binned pair order are now ported; they are struck
+through below.
+- ~~`fix particletemplate/superquadric` and insertion of superquadrics
+  (`particleToInsertSuperquadric`)~~ (ported 2026-11-13, § 4.17.2);
+- ~~the curvature-limited radius (`curvatureLimitFactor`, `meanCurvature`,
+  `gaussianCurvature`; the default 0 is what is ported)~~;
+- ~~rolling-friction models with superquadrics~~ (CDT ported 2026-11-13, § 4.17.3; EPSD, EPSD2, EPSD3 and Luding are not);
+- ~~mesh walls (`resolveTriSuperquadricContact`, `tri_mesh_I_superquadric.h`)
+  and cylinder primitive walls~~;
+- `area_superquadric` (not used by the dynamics) and
+  `compute erotate/superquadric`;
+- integration schemes 0, 2, 3 and 4, and the CFD-coupling torque terms;
+- `common_normal` / `minimal_distance` (not called by the surface model);
+- ~~neighbour-list rebuild intervals other than every step (the contact history
+  of a pair is dropped exactly when its bounding spheres separate), and pair
+  orders other than `i < j` (upstream's binned order coincides for the two
+  particles here)~~ (the parenthesis holds for `every 1 check no` only:
+  between rebuilds upstream keeps the history through separations);
+- other normal and tangential models with superquadrics (only Hertz +
+  tangential history);
+- convex hull, ellipsoid, line and tri particles.
+
+### 4.17.1 Mesh and cylinder walls, curvature-limited radius, neighbour list (2026-11-13, gh:#1415)
+
+**What is computed.** Three extensions of `SuperquadricSystem`, each a new
+builder; without them the decks above run exactly as before.
+
+- **Cylinder walls.** `with_cylinder_wall`, i.e. `fix wall/gran ... surface
+  superquadric primitive type T x|y|zcylinder r c1 c2`. Upstream has no
+  cylinder-specific superquadric code: `Cylinder<dim>::resolveContact` gives
+  the radial `delta` from the bounding radius, and the particle is cut by the
+  tangent plane through `x + delta`, as for a plane.
+- **STL mesh walls.** `with_mesh_wall` (`fix mesh/surface` + `wall/gran ...
+  mesh`). This is `post_force_mesh`'s superquadric branch: facets in order, a
+  bounding-sphere test against each facet (`sphereTriangleIntersection`, i.e.
+  `pointToTriangleDistance` without active flags), then
+  `resolveTriSuperquadricContact` (`tri_mesh_I_superquadric.h`). That routine
+  runs `plane_intersection` on the facet plane, then
+  `superquadricTriangleIntersection` (`isInElement`, the node test,
+  golden-section `edge_intersection`). It takes the face overlap
+  (`point_wall_projection`), or, when the face test is not decisive, an edge
+  or corner contact: `line_intersection` on the three edges, the
+  `edgeActive`/`cornerActive` check, the gradient normal made orthogonal to
+  the edge, and `surface_line_intersection1`. The history is kept per
+  (particle, facet) while `deltan <= 0` (`handleContact(..., faceflag =
+  false)`). Facet geometry and edge and corner activity are reused from
+  `tri_mesh.rs` (`TriMeshState`).
+- **Curvature-limited radius.** `with_curvature_limit(f, Mean | Gaussian)`
+  (`surface superquadric curvatureLimitFactor f meanCurvature|gaussianCurvature
+  yes`). `calc_curvature_coefficient` at the two surface points of
+  `extended_overlap_algorithm` (pair) or at the contact point (wall), then
+  `get_effective_radius` / `get_effective_radius_wall`. Upstream's default is
+  off, and so is this builder's.
+- **Neighbour list.** `with_neighbor_list(LiggghtsNeighbor, every, check)`.
+  It runs `Neighbor::decide` and `granular_bin_no_newton` on the bounding
+  radii (reusing `neighbor_list.rs`), and visits pairs in the binned list
+  order. Contact history follows upstream:
+  - Between rebuilds a pair's history persists whatever the separation. Only
+    the tangential spring is zeroed, by `surfacesClose`.
+  - A rebuild keeps a history only where the bounding spheres overlap
+    (`neigh_gran.cpp`). The contact flag that also gates this is always set
+    for a superquadric pair once its bounding spheres have overlapped, because
+    Hertz's `surfacesClose` sets it.
+
+  It refuses an atom sort (`sort_every != 0`, not ported for superquadrics)
+  and a contact distance factor other than 1.
+
+**Decks** (same build, settings as above unless stated; `make_superquadric_decks.sh`):
+
+| deck | what it exercises |
+|---|---|
+| `in.sq_cyl` | the `n1 = 4, n2 = 3` blob thrown, spinning, inside a `zcylinder` (r = 12 mm) above a `zplane` floor; 10 frames to step 15 000 |
+| `in.sq_mesh` | the `n = 6` blob falls onto one flank of a 4-facet V-groove (`sq_vgroove.stl`), slides into the crease and touches both flanks: face contacts and the inactive coplanar diagonal (counted: 4 397 face resolutions, 201 inactive-edge returns) |
+| `in.sq_ridge` | the `n = 6` blob lands across the ridge of `sq_roof.stl` and tips off: **edge contacts** (counted: 386 edge resolutions chosen over the face, 146 face resolutions with flag 2, 672 inactive-edge returns) |
+| `in.sq_curv_mean`, `in.sq_curv_gauss` | `sq_collide`'s two blobs under gravity above a `zplane` 1 cm below, `curvatureLimitFactor 1.5` with mean or Gaussian curvature on the pair and the wall; 10 frames to step 8 000 |
+| `in.sq_pile_check`, `in.sq_pile_every` | twelve blobs (both shapes, alternately) stacked with offsets fall into a `zcylinder` (r = 10 mm) and pile two to three bodies deep; `neigh_modify delay 0 every 1 check yes` (128 builds) and `every 4 check no` (12 500 builds); 10 frames to step 50 000 |
+
+The branch counts come from temporary counters in a scratch copy, which were
+not committed.
+
+**Predictions** were posted on gh:#1415 before each target's first run. For
+every deck: bit-identical under a glibc swap; with PETIR's maths, pinned
+counts, with the residue in the libm calls.
+
+**Results** (2026-11-13, Rust 1.99.1, `tests/superquadric_cross_code.rs`; values
+bit-identical / total; worst relative difference with PETIR's maths):
+
+| deck | PETIR `RealMath` (committed) | glibc swap (all six calls) | glibc `pow` + `cbrt` only | worst relative (PETIR) |
+|---|---|---|---|---|
+| `sq_cyl` | **91 / 130** | **130 / 130** | 130 / 130 | `3.27e-12` |
+| `sq_mesh` | **41 / 130** | **130 / 130** | 130 / 130 | `4.27e-8` (step 15 000 only; `1.5e-10` at step 10 000) |
+| `sq_ridge` | **44 / 130** | **130 / 130** | 130 / 130 | `7.62e-5` (`4e-12` at step 4 000, `3.2e-9` at 6 000, `7.5e-8` at 8 000) |
+| `sq_curv_mean` | **65 / 260** | **260 / 260** | 260 / 260 | `2.19e-11` |
+| `sq_curv_gauss` | **63 / 260** | **260 / 260** | 260 / 260 | `1.63e-11` |
+| `sq_pile_check` | **379 / 1 560** | **1 560 / 1 560** | 1 560 / 1 560 | `1.9e3` (`2.0e-12` at step 5 000, `2.5e-6` at 10 000, O(1) from 15 000) |
+| `sq_pile_every` | **379 / 1 560** | **1 560 / 1 560** | 1 560 / 1 560 | `1.9e3` (as above) |
+
+**Every deck is bit-identical under the glibc swap on its first run.** No
+arithmetic was changed after a comparison. That includes the edge-contact path
+of the mesh and the binned order with history kept across separations.
+
+**The swap discriminates the new list.** With glibc maths the pile run through
+the *default* list (every pair `i < j`, history dropped as the bounding spheres
+part) gets only **624 / 1 560** against `sq_pile_check.csv`, with a worst
+relative difference of `2.3`. Through `with_neighbor_list` it gets
+**1 560 / 1 560**. With PETIR's maths both give 379, because the libm seed
+dominates.
+
+**The residue is `pow` and `cbrt`, and it is amplified by the dynamics.**
+- Routing only `pow` and `cbrt` to glibc makes every deck bit-identical.
+- `cbrt` alone is not enough for most decks. With glibc `cbrt` but libm
+  `pow`: `sq_drop` 83 / 130, `sq_collide` 260 / 260, `sq_cyl` 91 / 130,
+  `sq_mesh` 96 / 130, `sq_ridge` 96 / 130, `sq_curv_mean` 77 / 260,
+  `sq_curv_gauss` 247 / 260.
+- `pow` enters wherever `pow_abs` has a fractional exponent: the `n1 = 4,
+  n2 = 3` blob's shape function and every `plane_intersection`.
+
+**The 1e-8 allowance is exceeded on three decks, and this needs a maintainer
+decision.**
+- **What happens.** `sq_mesh`'s last frame, `sq_ridge` from step 8 000, and
+  both piles from step 10 000 go past 1e-8. A ridge tip-over and a settling
+  pile are unstable, so the 1-ulp seed grows exponentially, as the per-frame
+  worst values above show.
+- **Why this is not a translation error.** The cause is understood and proved
+  by the swap, and the translation is bit-identical with the same maths.
+- **What the tests assert.** They pin these decks' counts and their worst
+  relative difference *exactly* (`to_bits`), as regression pins. They do not
+  claim agreement within 1e-8.
+- **What the PETIR-maths decks verify.** Only the early frames, before the
+  growth. The bit-identity evidence for the late frames is the glibc swap,
+  which is not part of the committed suite.
+- **Options for the maintainer:**
+  - accept these pins under gh:#1455;
+  - add a test-only glibc maths seam, so the swap result is gated;
+  - shorten the decks. This was not done: it would choose the instrument
+    after seeing the result.
+
+**Not ported** (refused or absent), replacing the list above:
+- ~~`fix particletemplate/superquadric` and insertion of superquadrics
+  (`particleToInsertSuperquadric`)~~ (ported 2026-11-13, § 4.17.2);
+- ~~rolling-friction models with superquadrics~~ (CDT ported 2026-11-13, § 4.17.3; EPSD, EPSD2, EPSD3 and Luding are not);
+- moving meshes with superquadrics (the barycentric wall velocity is not
+  computed: `with_mesh_wall` takes a static `MeshWall`), `fix
+  mesh/surface/stress` force accounting on the mesh, and coplanar history
+  copying (not used by `faceflag = false`);
+- the superquadric atom sort (`atom_modify sort` other than `0 0` is refused by
+  `with_neighbor_list`), `neigh_modify delay > 0`, a contact distance factor
+  other than 1, and fix-requested rebuilds;
+- `area_superquadric` (not used by the dynamics) and `compute
+  erotate/superquadric`;
+- integration schemes 0, 2, 3 and 4, and the CFD-coupling torque terms;
+- `common_normal` / `minimal_distance` (not called by the surface model);
+- other normal and tangential models with superquadrics;
+- convex hull, ellipsoid, line and tri particles.
+
+**Maintainer decision (2026-11-13, gh:#1415):** the pins above that exceed the
+1e-8 allowance are **accepted under gh:#1455** (option 1). No glibc test seam
+is added and no deck is shortened; the late frames rest on the recorded glibc
+swap.
+
+### 4.17.2 Superquadric insertion: `particletemplate/superquadric` + `insert/pack` (2026-11-13, gh:#1415)
+
+**Methodology.** Upstream LIGGGHTS-PUBLIC 3d5c00f2 was rebuilt in scratch with
+`-DSUPERQUADRIC_ACTIVE_FLAG -DNONSPHERICAL_ACTIVE_FLAG`
+(`upstream_source/README.md`). Two new decks from
+`reference-data/liggghts/make_superquadric_decks.sh` were run with it, and
+`sq2csv.sh` converted their `%.17g` dumps. `tests/superquadric_cross_code.rs`
+builds the same set-up through `SuperquadricSystem::without_particles`,
+`with_neighbor_list` and `with_insertion`. It compares every value (`x v omega
+quat`) of every atom at every frame on its IEEE-754 bits, and requires each
+frame's atom count to equal upstream's. The prediction was posted on gh:#1415
+before the first Rust run.
+
+**What upstream does, as ported:**
+- **Template.** `FixTemplateSuperquadric::randomize_ptilist` with `constant`
+  shape, blockiness and density, which draw nothing. Per entry it computes the
+  bounding radius, `volume_superquadric`, `mass = density * volume` and
+  `inertia_superquadric`. The expectancies come from the same functions, and
+  `max_rad` is the bounding radius.
+- **Overlap test.** The default is `check_obb yes` (`FixInsert`, under the
+  flag). `load_xnear` loads every body with its quaternion, shape and
+  blockiness. `hasOverlap_superquadric` reports an overlap only if all three
+  hold:
+  - the bounding spheres overlap;
+  - `capsules_intersect` holds (main-axis segments, capsule radius
+    `sqrt(r1^2 + r2^2)`, `line_segments_distance`);
+  - `obb_intersect` holds, starting from inequality 0.
+
+  The answer is a boolean, so a uniform grid replaces upstream's bins.
+- **Orientation.**
+  - `orientation random`: `random_unit_quat` (three `uniform()` draws, then
+    `sqrt`, `sin` and `cos`) on the insert fix's stream, once per trial and
+    after that trial's velocity. The quaternion is not normalised, and the atom
+    takes it as it is.
+  - `orientation constant`: a fixed quaternion.
+- **`ParticleToInsertSuperquadric::insert`.** `angmom = omega_to_angmom`.
+- **`calc_ninsert_this`.** Counts each body as its bounding sphere.
+- **Insertion step.** `Neighbor::decide` returns before `ago++`, `pre_exchange`
+  appends the bodies, and the list is rebuilt. The neighbour cut includes the
+  fix's `max_rad`. The pair and wall histories grow, with new slots zeroed.
+
+**Decks** (common settings: Hertz + history, `E = 1e7`, `nu = 0.3`, `e = 0.5`,
+`mu = 0.4`, `dt = 1e-5`, sort off, `neighbor 0.002 bin`):
+- `in.sq_pour`:
+  - templates: the `n = 6` blob (4, 3, 2.5 mm, 2500 kg/m^3) and the
+    `n1 = 4, n2 = 3` blob (3.5, 3, 4 mm, 1500 kg/m^3), 50/50 by mass;
+  - insertion: `orientation random`, `all_in yes`, `particles_in_region 6` in
+    a cylinder region (r = 11 mm, z 30 to 60 mm), `insert_every 4000`;
+  - walls: a `zcylinder` (r = 15 mm) above a `zplane`; `every 1 check yes`;
+  - upstream inserts 6, 4, 3, 5 and 4 bodies at steps 1, 4001, 8001, 12001 and
+    16001;
+  - 11 frames to step 20 000: 127 atom-frames, 1651 values.
+- `in.sq_pour_mesh`:
+  - five `n = 6` blobs, `orientation constant 0.5 0.5 0.5 0.5`,
+    `insert_every once`;
+  - inserted into a block (+-8 x +-12 x 15 to 35 mm) above the V-groove
+    `sq_vgroove.stl`; `every 1 check no`;
+  - 9 frames to step 15 000: 45 atom-frames, 585 values.
+
+**Results** (2026-11-13, Rust 1.99.1):
+
+| deck | PETIR `RealMath` (committed, pinned) | glibc swap | worst relative (PETIR) |
+|---|---|---|---|
+| `sq_pour` | **732 / 1651** | **1651 / 1651** | `1.57e1` at step 20 000 |
+| `sq_pour_mesh` | **245 / 585** | **585 / 585** | `1.77e-6` at step 15 000 |
+
+- **Atom counts.** Every frame of both decks has upstream's atom count, under
+  both maths libraries. So every batch size agrees, and so does every
+  accept/reject of the overlap test.
+- **The glibc swap.** All six transcendental calls go to glibc, as in 4.17.
+- **`sin`/`cos` are part of the residue.** With `sin` and `cos` left on libm
+  and the rest on glibc:
+  - `sq_pour` drops to **839 / 1651**;
+  - `sq_pour_mesh` stays at **585 / 585**, because `orientation constant`
+    calls neither.
+
+  `random_unit_quat` puts a 1-ulp difference into the first body's quaternion
+  at step 1 (`quat1 = 9.04964129337928e-2` against `9.049641293379279e-2`).
+  `omega`, recomputed from `angmom` through that quaternion, differs by up to
+  `8.9e-16` relative.
+- **How the PETIR residue grows.**
+  - `sq_pour`: within `9e-14` to step 4 001; `3.7e-10` at steps 8 000 and
+    8 001; `1.3e-7` at 10 000; `2.2e-5` at 12 000; `0.16` at 15 000; O(10) at
+    20 000, in the growing pile.
+  - `sq_pour_mesh`: frames 1, 1 000 and 2 000 whole; `1.9e-13` at 4 000;
+    `1.9e-8` at 12 000; `1.8e-6` at 15 000.
+- **What is pinned.** Both decks are within the 1e-8 allowance only in their
+  early frames. Their counts and worst values are pinned exactly and accepted
+  under gh:#1455 (maintainer decision 2026-11-13). The late frames rest on the
+  recorded glibc swap.
+
+**Interpretation.** Given the same maths library, superquadric insertion
+reproduces upstream to the bit. That covers the template, the expectancies that
+set the batch size, the `check_obb` overlap test, the per-trial random
+orientation, the insertion-step reneighbour and the growth of the history
+arrays.
+
+A unit test (`insertion_templates_overlap_list_and_refusals`) shows a case
+where `check_obb` changes the decision. Two boxes side by side have overlapping
+bounding spheres but separate boxes: the sphere-only test rejects the
+placement, and `check_obb` accepts it. How often this happens in the two decks
+was not counted.
+
+**Not ported** (refused or absent):
+- `shape` distributions other than `constant` (`gaussian`, `uniform`);
+- the template keywords `size`, `volume_limit`, `region`, `relative` and
+  `region_variable`;
+- superquadric insertion through `insert/stream`. `insert/rate/region` uses
+  the same `InsertFix`, but no deck exercises it;
+- `orientation random` for sphere and multisphere templates (refused);
+- distributions that mix superquadric and other templates (refused);
+- `area_superquadric` (stored by upstream, unused by the dynamics);
+- particle deletion with superquadrics.
+
+### 4.17.3 Rolling friction CDT with superquadrics (2026-11-13, gh:#1415)
+
+**Methodology.** The build, conversion and bit-pattern comparison are the same
+as in 4.17.2, and the prediction was posted on gh:#1415 before the first Rust
+run.
+
+The upstream behaviour ported is `rolling_model_cdt.h`, with
+`torsionTorque off` (the default):
+- For a superquadric contact, `reff` is the superquadric `sidata.reff`. That is
+  the volume-equivalent `r_i r_j / (r_i + r_j)`, or the curvature-limited
+  radius when the curvature limit is on.
+- **Wall.** `r_torque = mu_r (deltan kn) wr / |wr| reff`, where
+  `wr = omega_i`.
+- **Pair.** `r_torque = wr (mu_r kn deltan reff / |wr|)`, where
+  `wr = omega_i - omega_j`.
+- In both cases the normal part of the torque is removed. `i` loses the torque
+  and `j` gains it, after the tangential model.
+
+On the Rust side, `SuperquadricSystem::with_rolling_cdt(coeffRollFrict)`
+applies it. It is off by default, as upstream is.
+
+**Decks.** Both use `sq_collide`'s two blobs under gravity above a `zplane` at
+4 cm, with `rolling_friction cdt` and `coefficientRollingFriction 0.1` on the
+pair and the wall. Each has 10 frames to step 8 000 (260 values).
+- `in.sq_cdt`: as above.
+- `in.sq_cdt_curv`: adds `curvatureLimitFactor 1.5 meanCurvature yes` on both
+  the pair and the wall.
+
+**Results** (2026-11-13, Rust 1.99.1):
+
+| deck | PETIR (pinned) | glibc swap | worst relative (PETIR) |
+|---|---|---|---|
+| `sq_cdt` | **63 / 260** | **260 / 260** | `5.8e-12` |
+| `sq_cdt_curv` | **61 / 260** | **260 / 260** | `2.2e-10` |
+
+Both decks stay inside the 1e-8 allowance with PETIR maths.
+
+**Ablation.** The run was repeated once with `mu_r = 0`; this run is not
+committed. Against the same references, both decks fall to 26 / 260 (the first
+frame only), with worst differences of `9.2e1` and `4.3e3`. The decks therefore
+depend on the rolling torque, on the pair and on the wall.
+
+**Not ported:**
+- `torsionTorque on`;
+- the EPSD, EPSD2, EPSD3 and Luding rolling models with superquadrics;
+- CDT at mesh walls. The code path is shared with the primitive walls, but no
+  deck checks it.
 
 ## 5. What is still NOT validated
 

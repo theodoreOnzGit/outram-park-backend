@@ -168,20 +168,22 @@ fn card_text(painter: &egui::Painter, r: Rect, lines: &[(&str, f32, Color32)], s
     drawn
 }
 
-/// Green for reviewed, red for to review: the module cards' counts and the
-/// unreviewed function cards (maintainer, 2026-10-12).
+/// Green for valid, blue for pending or tentative, red for unreviewed: the
+/// module cards' counts and the unreviewed function cards (maintainer,
+/// 2026-10-12; blue added 2026-11-01, the blue of a pending stamp).
 const REVIEWED: Color32 = Color32::from_rgb(90, 190, 110);
+const WAITING: Color32 = Color32::from_rgb(90, 150, 220);
 const TO_REVIEW: Color32 = Color32::from_rgb(220, 80, 80);
 
-/// Continue the line drawn at `after` with "· N reviewed" in green and
-/// "· M to review" in red (each only when non-zero), clipped to the card.
-/// GUI drawing code (exempt from the test rule; the counts are
-/// [`model::Facts::review_split`], tested).
-fn review_counts(painter: &egui::Painter, pal: &Palette, card: Rect, after: Option<Rect>, size: f32, (done, todo): (usize, usize)) {
+/// Continue the line drawn at `after` with "· N valid" in green,
+/// "· N pending/tentative" in blue and "· N unreviewed" in red (each only
+/// when non-zero), clipped to the card. GUI drawing code (exempt from the
+/// test rule; the counts are [`model::Facts::review_split`], tested).
+fn review_counts(painter: &egui::Painter, pal: &Palette, card: Rect, after: Option<Rect>, size: f32, s: model::ReviewSplit) {
     let Some(after) = after else { return };
     let p = painter.with_clip_rect(card.shrink(1.0));
     let mut x = after.right();
-    for (n, what, colour) in [(done, "reviewed", REVIEWED), (todo, "to review", TO_REVIEW)] {
+    for (n, what, colour) in [(s.valid, "valid", REVIEWED), (s.waiting, "pending/tentative", WAITING), (s.unreviewed, "unreviewed", TO_REVIEW)] {
         if n > 0 {
             x = p.text(Pos2::new(x, after.center().y), Align2::LEFT_CENTER, format!(" \u{b7} {n} {what}"), font(size), pal.on_card(colour)).right();
         }
@@ -666,11 +668,15 @@ impl CodeReview {
                         hits.push((r, Hit::TreeModule(f)));
                     }
                 }
-                TreeItem::Examples => {
+                TreeItem::Examples | TreeItem::Tests => {
+                    // The "tests" card (#1164) is drawn as the "examples" one.
+                    let (group, n) = match item {
+                        TreeItem::Tests => ("tests", format!("{} integration tests", tree.test_roots.len())),
+                        _ => ("examples", format!("{} examples", tree.example_roots.len())),
+                    };
                     painter.rect(r, 8.0 * z, pal.examples, Stroke::new(1.5, if pal.dark { Color32::from_gray(140) } else { pal.outline }), StrokeKind::Inside);
-                    let n = format!("{} examples", tree.example_roots.len());
                     let (title, sub) = if pal.dark { (Color32::from_gray(230), Color32::from_gray(180)) } else { (pal.strong, pal.text) };
-                    card_text(painter, r, &[("examples", 14.0, title), (n.as_str(), 11.0, sub)], z);
+                    card_text(painter, r, &[(group, 14.0, title), (n.as_str(), 11.0, sub)], z);
                 }
                 TreeItem::Module(i) => {
                     let node = &tree.nodes[*i];
@@ -819,7 +825,7 @@ fn selected_hint(item: &TreeItem, tree: &ModTree, sel: &Option<String>) -> bool 
     let file = match item {
         TreeItem::Crate => tree.lib_root.map(|i| tree.nodes[i].file.as_str()),
         TreeItem::Module(i) => Some(tree.nodes[*i].file.as_str()),
-        TreeItem::Examples => None,
+        TreeItem::Examples | TreeItem::Tests => None,
     };
     file.is_some() && file == sel.as_deref()
 }
@@ -866,14 +872,11 @@ mod tests {
         assert_eq!(p.on_card(topic), topic);
     }
 
-    /// Under a light theme (desktop kovan's Gruvbox light, or egui's light)
+    /// Under a light theme (the shared `bugis` Gruvbox light, or egui's light)
     /// the cards are light and their text is readable on them.
     #[test]
     fn under_a_light_theme_the_cards_are_light_and_readable() {
-        let mut gruvbox_light = egui::Visuals::light();
-        gruvbox_light.panel_fill = Color32::from_rgb(0xf9, 0xf5, 0xd7);
-        gruvbox_light.faint_bg_color = Color32::from_rgb(0xeb, 0xdb, 0xb2);
-        gruvbox_light.widgets.inactive.bg_fill = Color32::from_rgb(0xeb, 0xdb, 0xb2);
+        let gruvbox_light = bugis::gruvbox_visuals(false);
         for v in [egui::Visuals::light(), gruvbox_light] {
             let p = Palette::of(&v);
             let topic = Color32::from_rgb(69, 133, 136);

@@ -3,7 +3,7 @@
 // RustBCA copy — provenance
 // -------------------------
 // Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
-// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream version : main, 17 commits AFTER the v3.0.0 tag (673bd3f), commit a356280d564bbdfbe74b97f32db0776444da58a5 (corrected 2026-11-13, gh:#1426)
 // Upstream source  : src/lib.rs (crate attributes, imports, module list and
 //                    re-exports only; the C/Fortran/Python entry points are
 //                    not carried) — the rest of this file is boon-lay's
@@ -26,7 +26,7 @@
 //! | | |
 //! |---|---|
 //! | Upstream | `lcpp-org/RustBCA`, <https://github.com/lcpp-org/RustBCA> |
-//! | Version, commit | v3.0.0, `a356280d564bbdfbe74b97f32db0776444da58a5` (2026-10-02) |
+//! | Version, commit | ~~v3.0.0, `a356280d564bbdfbe74b97f32db0776444da58a5` (2026-10-02)~~ **CORRECTED 2026-11-13 (gh:#1426)** — `a356280d` is a commit on upstream `main` **17 commits after** the `v3.0.0` tag (`673bd3f2b907b14517a6b3cafa1c5372a5eb4ae2`; verified `git merge-base --is-ancestor v3.0.0 a356280d`). The two differ in `src/` only in `consts.rs`/`geometry.rs`/`sphere.rs`/`parry.rs` (a `MAX_DENSITY` check the copy has and the tag lacks) and `input.rs` (the tag multiplies sampled direction cosines by `length_unit`, upstream PR #345 removes that); `bca.rs`, `interactions.rs`, `material.rs`, `particle.rs`, `physics.rs`, `math.rs`, `structs.rs` and `enums.rs` are byte-identical. The copy is `a356280d564bbdfbe74b97f32db0776444da58a5` (2026-10-02), i.e. v3.0.0 plus 17 commits. |
 //! | Authors | "Jon Drobny <drobny2@illinois.edu>", "Jon Drobny <jdrobny@tae.com>" (upstream `Cargo.toml` `authors`). The JOSS paper's authors are Jon T. Drobny and Davide Curreli. Upstream states no copyright line. |
 //! | Paper | J. T. Drobny and D. Curreli, "RustBCA: A High-Performance Binary-Collision-Approximation Code for Ion-Material Interactions", *Journal of Open Source Software* **6**(64), 3298 (2021), doi:10.21105/joss.03298 |
 //! | Licence | GNU GPL v3; upstream's `LICENSE` is copied as `src/rustbca/LICENSE`. Upstream does not say "-only" or "-or-later"; either is compatible with boon-lay's ~~GPL-3.0~~ **AGPL-3.0-only** combined work. |
@@ -129,8 +129,14 @@
 //! 7. **`libm` routing** of the 177 transcendental call sites (163 in the
 //!    library, 14 in upstream's tests) through
 //!    `petir::real::Real` (fully qualified, see above).
-//!    Not bit-identical to upstream on glibc: musl-derived
-//!    `libm` differs from glibc in the last ulp on a few per cent of calls.
+//!    Not bit-identical to upstream on glibc: ~~musl-derived
+//!    `libm` differs from glibc in the last ulp on a few per cent of calls.~~
+//!    **CORRECTED 2026-11-13 (gh:#1426), measured** (2e6 random arguments, glibc 2.39,
+//!    `verification_and_validation/rustbca_differential/`): the `libm` crate differs from glibc by
+//!    exactly 1 ulp on 9.8 % of `exp`, 7.2 % of `ln`, 9.6 % of `powf`, 3.1 % of `sin`/`cos`,
+//!    23 % of `atan2` and 7.6 % of `acos` calls (0 of `cbrt`). With every such call routed to
+//!    glibc the copy reproduces upstream's output bit for bit (691 277 lines), so this is the ONLY
+//!    difference (`tests/rustbca_upstream_differential.rs`).
 //! 8. **Gated behind boon-lay's `rustbca-std` feature:** `InputFile::new` and
 //!    its impls (TOML parsing, `toml` 0.8 from the workspace instead of
 //!    upstream's 1.1 — same `from_str` call), `read_input_file`, `input`,

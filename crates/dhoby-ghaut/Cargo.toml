@@ -24,6 +24,10 @@ exclude = ["/verification_and_validation/**/*.png", "/verification_and_validatio
 # with the rest of the windowing stack) and, on wasm32 only, on the
 # wasm-bindgen family for the Web Worker plumbing. The studios and the demos
 # themselves are still examples, carried by the dev-dependencies below.
+# NOTE 2026-11-02 (gh:#1112): `src/web_demo/` moved into `bugis` (feature
+# `web_demo`, which now carries egui, sha2 and the wasm-bindgen family for
+# it); `dhoby_ghaut::web_demo` re-exports it. The wasm32 entries below stay
+# because the browser-demo examples name those crates directly.
 # ---------------------------------------------------------------------------
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
@@ -62,7 +66,7 @@ path = "src/bin/dhoby-ghaut/main.rs"
 # Gated off wasm32: kovan carries gix, directories and the kopitiam crates,
 # none of which belong in the browser demos that build this library for wasm.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-kovan = { package = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan", path = "../kovan", version = "0.0.3", default-features = false }
+kovan = { package = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan", path = "../kovan", version = "0.0.4", default-features = false }
 # The recipe schema (`src/workbench/recipe.rs`): serde for the settings
 # tables, toml to read/write them, uom for the quantities that leave it.
 serde = { workspace = true }
@@ -76,6 +80,11 @@ sha2 = { workspace = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 egui = { workspace = true }
+# `web_demo`: the web-demo framework, re-exported as `dhoby_ghaut::web_demo`
+# (moved into bugis 2026-11-02, gh:#1112).
+bugis = { workspace = true, features = ["web_demo"] }
+# (2026-11-02, gh:#1112: `web_demo` is now bugis's; the examples and the
+# binary still call petir directly, so this entry stays.)
 # `web_demo::view` routes its transcendentals through PETIR (gh:#985), and the
 # web demos build this library for wasm32, where the `petir` entry above (in
 # the not-wasm32 table) does not reach. petir is no_std, so it is wasm-safe.
@@ -125,7 +134,8 @@ outram-foam-basic-lib = { workspace = true }
 kopitiam-pdf = { version = "0.4.3", default-features = false, features = ["egui"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-# `web_demo::data_cache` (gh:#818): SHA-256 of tapes (the cache key) and of
+# ~~`web_demo::data_cache` (gh:#818)~~ (moved to bugis 2026-11-02, gh:#1112;
+# the examples still use sha2 and the crates below directly): SHA-256 of tapes (the cache key) and of
 # cached products (corruption check). Pure Rust; natively it comes from the
 # section above.
 sha2 = { workspace = true }
@@ -177,14 +187,48 @@ nee_soon = { workspace = true }
 # the browser's worker, and the `htr10` rung's baked DEM bed. A wasm in-scope
 # crate (its `wasm_par` shim stands in for rayon).
 outram-park-fork-liggghts = { workspace = true }
+# ~~The Fukushima Daiichi Unit 1 demo (gh:#986): the digital-twin engine's
+# widget library, tampines' valve, sembawang's `bwr_mark1` and egui_plot ...
+# "no cycle: none of them depends on dhoby-ghaut".~~ CORRECTED 2026-11-05
+# (maintainer: "if web examples live in dhoby ghaut, and this causes the
+# dependency cycle, let the web examples deploy from digital twin engine
+# instead"): the engine DOES depend on dhoby-ghaut (a wasm dev-dependency),
+# and `cargo publish` resolves dev-dependencies, so this was a cycle. The
+# `fukushima_web` and `double_pipe_twin_web` examples, their `web/` pages and
+# the gh:#1182 V&V record moved to `outram-park-digital-twin-engine`, and the
+# dev-dependencies only they used went with them: the engine, sembawang,
+# tampines (still a normal dependency below for the studios), egui_plot (the
+# wasm entry; native egui_plot is a normal dependency) and, in the native
+# table, raffles.
+# The DWSIM port's heat-exchanger correlations, for Foam Studio's 1-D
+# comparison (`foam_studio_web/engine.rs`).
+outram-park-fork-dwsim-libs = { workspace = true }
+# Foam Studio (`foam_studio_web`, gh:#1155): the O-grid / box meshers and
+# the pimpleFoam port, run in the page's worker too. All wasm in-scope (the
+# stage 0 gate, gh:#1154, ran them in a Worker with no host imports).
+outram-foam-appbuilder-lib = { workspace = true }
+outram-foam-basic-lib = { workspace = true }
+outram-foam-mesh = { workspace = true }
+# Foam Studio's unstructured pipe (gh:#1202): outram-blender's cylinder and
+# its cfMesh bridge (`foam-mesh`), and the neutral -> polyMesh converter
+# (`foam-export`), in the worker too. Both features are wasm in-scope
+# (cfMesh and outram-foam-basic-lib are pure Rust); `gpu` stays native only,
+# in the table below, so the browser build pulls no wgpu from here.
+outram-blender = { workspace = true, features = ["foam-mesh", "foam-export"] }
+# gh:#1240: the cfMesh port's dual kinds (`dual::DualKind`), the cell-centre
+# one through outram-foam-mesh's polyDualMesh (`cell-centre-dual`, pure Rust,
+# wasm in-scope); the same crate outram-blender's `foam-mesh` pulls.
+outram-park-fork-cfmesh = { workspace = true, features = ["foam-export", "cell-centre-dual"] }
 
 # Native only: the two studios' stacks. Gated off wasm32 because dev-deps
 # resolve for EVERY example in the package, and outram-blender's `gpu` feature
 # has no business in the browser build of the pebble demo. (~~and nee_soon~~:
 # moved to the shared table 2026-10-05 for the `htr10` rung, gh:#528.)
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
-egui_plot = { workspace = true }
 env_logger = { workspace = true }
+# ~~raffles, for the double-pipe twin demo's `--generate-artefacts`
+# (gh:#1182)~~ MOVED 2026-11-05 with that example to
+# outram-park-digital-twin-engine (where raffles is a normal dependency).
 # Authoring frontend (math/mesh/primitives) plus its volume-meshing bridge.
 #
 # ~~The `mc-export` feature is still required here because `outram_blender::sim`
@@ -193,7 +237,7 @@ env_logger = { workspace = true }
 # `nee_soon`, outram-blender's `mc-export` feature is retired, and MC Studio
 # drives `nee_soon::sim`. The volume-meshing bridge (`foam-mesh`) is LIBRARY
 # code and stays in outram-blender; this crate only hosts the GUI that drives it.
-outram-blender = { workspace = true, features = ["foam-mesh", "gpu"] }
+outram-blender = { workspace = true, features = ["foam-mesh", "foam-export", "gpu"] }
 # MC Studio's backend (`nee_soon::sim`, `nee_soon::blender_bridge`) is now in
 # the table above: `nee_soon` also builds for wasm32 since the Monte Carlo
 # demo's `htr10` rung (gh:#528) rasterises its assembled core in the browser.
@@ -216,10 +260,20 @@ path = "examples/mc_studio/main.rs"
 name = "mesh_studio"
 path = "examples/mesh_studio/main.rs"
 
-# Browser-side extras for the Monte Carlo web demo. `glow` (WebGL2) is added
-# because WebGPU is still not universal; the app selects it at start-up.
+# Browser-side extras for the Monte Carlo web demo. ~~`glow` (WebGL2) is added because WebGPU is still not universal; the app
+# selects it at start-up.~~ **CHANGED 2026-10-27 (maintainer: "get glow out,
+# let's use wgpu only")**: eframe's wgpu, one renderer on every target. The
+# concern glow answered still holds -- WebGPU is not universal -- and wgpu
+# answers it itself: its `webgl` backend (enabled on wasm by eframe's `wgpu`
+# feature; confirmed with `cargo tree -e features -i wgpu`) falls back to
+# WebGL2 where WebGPU is missing. Coverage is unchanged.
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-eframe = { workspace = true, features = ["glow"] }
+eframe = { workspace = true }
+# helical_sg_web's march (`tampines::components::helical_coil_otsg`) in the
+# browser. Natively tampines is a normal dependency (the studios), but that
+# section is off on wasm32; dropping the dev-dependency on 2026-11-05
+# (a2be2b83f) broke the Pages build of this demo.
+tampines = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 js-sys = { workspace = true }
@@ -228,6 +282,9 @@ web-sys = { workspace = true, features = [
     # The physics Web Worker that keeps the page live while ENDF data process.
     "Worker", "WorkerOptions", "WorkerType", "WorkerGlobalScope",
     "DedicatedWorkerGlobalScope", "MessageEvent", "ErrorEvent", "console",
+    # ~~The Fukushima demo's solver workers time each step (gh:#986).~~
+    # "Performance" removed 2026-11-05: that demo moved to the digital-twin
+    # engine, and nothing left here uses it.
 ] }
 
 # The Monte Carlo demo -- one app, a rung of the tutorial ladder at a time
@@ -307,3 +364,24 @@ path = "examples/nuclear_data_web/main.rs"
 [[example]]
 name = "dem_web"
 path = "examples/dem_web/main.rs"
+
+# The helical-coil steam generator demo (gh:#1157, epic gh:#1153): one tube
+# of a helical-coil once-through steam generator, solved by tampines'
+# `components::helical_coil_otsg` 1-D march (IF97 water, coil and boiling
+# correlations) in a Web Worker, one march per message (web/helical_sg/).
+# Uses the dev-dependencies already present: tampines and uom (shared
+# table), outram-blender natively for the geometry review image. Carries an
+# Android stub `main`. AI draft, not validated.
+[[example]]
+name = "helical_sg_web"
+path = "examples/helical_sg_web/main.rs"
+
+# ~~fukushima_web~~ MOVED 2026-11-05 to outram-park-digital-twin-engine
+# (see the dev-dependency note above).
+
+[[example]]
+name = "foam_studio_web"
+path = "examples/foam_studio_web/main.rs"
+
+# ~~double_pipe_twin_web~~ MOVED 2026-11-05 to
+# outram-park-digital-twin-engine (see the dev-dependency note above).

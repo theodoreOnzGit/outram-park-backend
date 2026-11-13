@@ -31,11 +31,13 @@
 pub mod h_const;
 pub mod h_polynomial;
 pub mod h_tabulated;
+pub mod h_tabulated_esi;
 pub mod janaf;
 pub(crate) mod traits;
 
 pub use h_const::*;
 pub use h_polynomial::*;
 pub use h_tabulated::*;
+pub use h_tabulated_esi::*;
 pub use janaf::*;
 pub use traits::*;

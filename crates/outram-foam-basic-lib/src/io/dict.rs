@@ -55,8 +55,12 @@ use super::IoError;
 // ───────────────────────────────────────────────────────────────────────────
 
 /// One lexical token from an OpenFOAM dictionary.
+///
+/// Public since gh:#1476 so that readers of OpenFOAM **stream** files that
+/// are not dictionaries (cfMesh's `.fms`/`.ftr` surfaces: bare `N ( … )`
+/// lists) reuse this tokeniser instead of writing another.
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Token {
+pub struct Token {
     /// The token text. For a quoted string this is the inner content (quotes
     /// stripped) and `quoted` is set.
     pub text: String,
@@ -69,7 +73,17 @@ pub(crate) struct Token {
 /// Split dictionary `text` into [`Token`]s, stripping `//` line comments and
 /// `/* … */` block comments. The delimiters `( ) { } ; [ ]` are always their
 /// own single-character tokens.
-pub(crate) fn tokenize(text: &str) -> Vec<Token> {
+///
+/// # Examples
+///
+/// ```
+/// use outram_foam_basic_lib::io::dict::tokenize;
+///
+/// let t = tokenize("2 ((0 1 2) 0) // comment");
+/// let texts: Vec<&str> = t.iter().map(|x| x.text.as_str()).collect();
+/// assert_eq!(texts, ["2", "(", "(", "0", "1", "2", ")", "0", ")"]);
+/// ```
+pub fn tokenize(text: &str) -> Vec<Token> {
     let bytes = text.as_bytes();
     let n = bytes.len();
     let mut i = 0;
@@ -82,28 +96,27 @@ pub(crate) fn tokenize(text: &str) -> Vec<Token> {
 
     let is_delim = |c: u8| matches!(c, b'(' | b')' | b'{' | b'}' | b';' | b'[' | b']');
 
-    macro_rules! flush_word {
-        () => {
-            if !word.is_empty() {
-                tokens.push(Token {
-                    text: std::mem::take(&mut word),
-                    glued: word_glued,
-                    quoted: false,
-                });
-            }
-        };
+    // Emits the pending word (if any) as an unquoted token.
+    fn flush_word(word: &mut String, word_glued: bool, tokens: &mut Vec<Token>) {
+        if !word.is_empty() {
+            tokens.push(Token {
+                text: std::mem::take(word),
+                glued: word_glued,
+                quoted: false,
+            });
+        }
     }
 
     while i < n {
         let c = bytes[i];
         if i + 1 < n && c == b'/' && bytes[i + 1] == b'/' {
-            flush_word!();
+            flush_word(&mut word, word_glued, &mut tokens);
             while i < n && bytes[i] != b'\n' {
                 i += 1;
             }
             pending_ws = true;
         } else if i + 1 < n && c == b'/' && bytes[i + 1] == b'*' {
-            flush_word!();
+            flush_word(&mut word, word_glued, &mut tokens);
             i += 2;
             while i + 1 < n && !(bytes[i] == b'*' && bytes[i + 1] == b'/') {
                 i += 1;
@@ -111,7 +124,7 @@ pub(crate) fn tokenize(text: &str) -> Vec<Token> {
             i += 2;
             pending_ws = true;
         } else if c == b'"' {
-            flush_word!();
+            flush_word(&mut word, word_glued, &mut tokens);
             i += 1;
             let mut s = String::new();
             while i < n && bytes[i] != b'"' {
@@ -126,7 +139,7 @@ pub(crate) fn tokenize(text: &str) -> Vec<Token> {
             });
             pending_ws = false;
         } else if is_delim(c) {
-            flush_word!();
+            flush_word(&mut word, word_glued, &mut tokens);
             tokens.push(Token {
                 text: (c as char).to_string(),
                 glued: !pending_ws,
@@ -135,7 +148,7 @@ pub(crate) fn tokenize(text: &str) -> Vec<Token> {
             pending_ws = false;
             i += 1;
         } else if (c as char).is_whitespace() {
-            flush_word!();
+            flush_word(&mut word, word_glued, &mut tokens);
             pending_ws = true;
             i += 1;
         } else {
@@ -147,7 +160,7 @@ pub(crate) fn tokenize(text: &str) -> Vec<Token> {
             i += 1;
         }
     }
-    flush_word!();
+    flush_word(&mut word, word_glued, &mut tokens);
     tokens
 }
 
@@ -413,6 +426,8 @@ struct Parser {
     tokens: Vec<Token>,
     pos: usize,
     context: String,
+    /// Dictionaries under construction, innermost last (for `$name;` macros).
+    scopes: Vec<FoamDict>,
 }
 
 impl Parser {
@@ -421,6 +436,7 @@ impl Parser {
             tokens,
             pos: 0,
             context: context.into(),
+            scopes: Vec::new(),
         }
     }
 
@@ -496,8 +512,19 @@ impl Parser {
 
     /// Parse the body of a dictionary up to (and consuming) a closing `}`, or
     /// to end-of-input at the top level.
+    ///
+    /// The dictionary under construction is kept on `self.scopes` so that a
+    /// macro entry `$name;` (gh:#1363: the shipped tutorials' `fvSolution`
+    /// writes `pFinal { $p; relTol 0; }`) can find `name` in this or an
+    /// enclosing dictionary.
     fn parse_dict_body(&mut self, top_level: bool) -> Result<FoamDict, IoError> {
-        let mut dict = FoamDict::new();
+        self.scopes.push(FoamDict::new());
+        let result = self.parse_dict_entries(top_level);
+        let dict = self.scopes.pop().unwrap_or_default();
+        result.map(|()| dict)
+    }
+
+    fn parse_dict_entries(&mut self, top_level: bool) -> Result<(), IoError> {
         loop {
             match self.peek_text() {
                 None => {
@@ -516,13 +543,46 @@ impl Parser {
                 Some(";") => {
                     self.advance(); // stray semicolon
                 }
+                Some(t) if t.starts_with('$') && self.next_text_is(";") => {
+                    self.expand_macro_entry()?;
+                }
                 _ => {
                     let (kw, entry) = self.parse_entry()?;
-                    dict.insert(kw, entry);
+                    if let Some(d) = self.scopes.last_mut() {
+                        d.insert(kw, entry);
+                    }
                 }
             }
         }
-        Ok(dict)
+        Ok(())
+    }
+
+    fn next_text_is(&self, text: &str) -> bool {
+        self.tokens.get(self.pos + 1).map(|t| t.text.as_str()) == Some(text)
+    }
+
+    /// `$name;`: merge the entries of the sub-dictionary `name` (this
+    /// dictionary first, then each enclosing one, as OpenFOAM's scoping does)
+    /// into the dictionary being built; later entries override them.
+    fn expand_macro_entry(&mut self) -> Result<(), IoError> {
+        let token = self.advance().map(|t| t.text).unwrap_or_default();
+        self.advance(); // the `;`
+        let name = token.trim_start_matches('$').trim_start_matches([':', '.']);
+        let found = self
+            .scopes
+            .iter()
+            .rev()
+            .find_map(|d| match d.get(name) {
+                Some(FoamEntry::SubDict(sub)) => Some(sub.clone()),
+                _ => None,
+            })
+            .ok_or_else(|| self.err(format!("`${name};` names no sub-dictionary in scope")))?;
+        if let Some(d) = self.scopes.last_mut() {
+            for (k, e) in found.iter() {
+                d.insert(k.to_string(), e.clone());
+            }
+        }
+        Ok(())
     }
 
     /// Parse one `keyword … ;` (or `keyword { … }`) entry.
@@ -985,6 +1045,23 @@ fn resolve_includes(path: &Path, depth: usize) -> Result<String, IoError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// gh:#1363: the shipped cavity `fvSolution` uses `pFinal { $p; relTol 0; }`.
+    #[test]
+    fn a_macro_entry_merges_the_named_subdictionary_and_later_entries_override() {
+        let f = FoamFile::parse(
+            "solvers { p { solver PCG; relTol 0.05; tolerance 1e-06; } \
+             pFinal { $p; relTol 0; } U { $p; } }",
+        )
+        .unwrap();
+        let solvers = f.dict.get_dict("solvers").unwrap();
+        let p_final = solvers.get_dict("pFinal").unwrap();
+        assert_eq!(p_final.get_scalar("relTol"), Some(0.0));
+        assert_eq!(p_final.get_scalar("tolerance"), Some(1e-6));
+        assert_eq!(p_final.get_word("solver"), Some("PCG"));
+        assert_eq!(solvers.get_dict("U").unwrap().get_scalar("relTol"), Some(0.05));
+        assert!(FoamFile::parse("a { $missing; }").is_err());
+    }
 
     #[test]
     fn tokenize_glued_flag() {

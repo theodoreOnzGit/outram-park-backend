@@ -1,0 +1,31 @@
+    Updating crates.io index
+   Packaging outram-foam-cli v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-cli)
+    Updating crates.io index
+    Packaged 38 files, 367.9KiB (116.4KiB compressed)
+   Verifying outram-foam-cli v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-cli)
+ Downloading crates ...
+  Downloaded outram-foam-mesh v0.1.3
+  Downloaded outram-foam-appbuilder-lib v0.1.7
+   Compiling syn v3.0.9
+   Compiling anstream v1.0.0
+   Compiling clap_lex v1.1.1
+   Compiling strsim v0.11.1
+   Compiling clap_builder v4.6.7
+   Compiling thiserror-impl v2.0.21
+   Compiling serde_derive v1.0.229
+   Compiling clap_derive v4.6.7
+   Compiling thiserror v2.0.21
+   Compiling outram-foam-basic-lib v0.1.8
+   Compiling clap v4.6.7
+   Compiling serde v1.0.229
+   Compiling outram-foam-turbulence-lib v0.1.5
+   Compiling outram-foam-multiphase v0.0.5
+   Compiling outram-foam-mesh v0.1.3
+   Compiling outram-foam-appbuilder-lib v0.1.7
+   Compiling outram-foam-cli v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/outram-foam-cli-0.0.2)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 26.78s
+   Uploading outram-foam-cli v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-foam-cli)
+    Uploaded outram-foam-cli v0.0.2 to registry `crates-io`
+note: waiting for outram-foam-cli v0.0.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-foam-cli v0.0.2 at registry `crates-io`

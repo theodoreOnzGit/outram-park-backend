@@ -1,0 +1,9 @@
+feature,elevation_ft_in,elevation_in_above_shield_cylinder_bottom,uncertainty_in,kind,source
+reactor cell bottom (hemispherical head low point),819-0,-72,0,text,TM-0728 §4.3.1 (cell 819 to 852 ft)
+support platform top = thermal-shield base bottom,823-6,-18,0,text,TM-0728 §4.3.1 (platform 823-1/2 ft at top); base rests on it per Fig. 5.2
+thermal-shield base top = cylinder bottom,825-0,0,0,text + arithmetic,base 18 in deep (TM-0728 5.3.10.1)
+thermal-shield cylinder top,837-7,151,0,reconstructed; callout partly illegible,823-6 + 18 in + 151 in (TM-0728 5.3.10.1); Fig. 5.2 callout reads 8?1-7
+reactor vessel inlet distributor,832-9,93,0,callout (middle digit blurred),Fig. 5.2 reads 8?2-9; 3 is the only digit consistent with the scaled 93 in
+reactor vessel bottom (outside of lower head),,23,3,scaled from Fig. 5.2,vessel OD 59-1/8 in = scale (about 6.9 px/in at 110 dpi)
+reactor vessel top head (outside apex),,114,3,scaled from Fig. 5.2,as above; overall height to top nozzle CL is 100-3/4 in (TM-0728 Table 5.2)
+thermal-shield cover,,135 to 151,0,text,16 in thick inside the cylinder top (TM-0728 5.3.10.1)

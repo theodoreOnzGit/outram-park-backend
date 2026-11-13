@@ -2,6 +2,47 @@ schema_version = 1
 kind = "code_folder"
 crate = "tampines-steam-tables"
 dir = "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests"
+test_ids = [
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/region_1_t_hs_flash.rs::p_hs_flash_test_1",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/region_1_t_hs_flash.rs::p_hs_flash_test_2",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/region_1_t_hs_flash.rs::p_hs_flash_test_3",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/region_1_t_ph_flash.rs::t_ph_flash_3_mpa_500_kj_per_kg_enthalpy",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/region_1_t_ph_flash.rs::t_ph_flash_80_mpa_1500_kj_per_kg_enthalpy",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/region_1_t_ph_flash.rs::t_ph_flash_80_mpa_500_kj_per_kg_enthalpy",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/region_1_t_ps_flash.rs::t_ph_flash_3_mpa_0_5_kj_per_kg_k_entropy",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/region_1_t_ps_flash.rs::t_ph_flash_80_mpa_0_5_kj_per_kg_k_entropy",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/region_1_t_ps_flash.rs::t_ph_flash_80_mpa_3_kj_per_kg_k_entropy",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_a_region_1_300_kelvin_3_mpa.rs::cp_regression_set_a",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_a_region_1_300_kelvin_3_mpa.rs::cv_regression_set_a",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_a_region_1_300_kelvin_3_mpa.rs::isentropic_exponent_regression_set_a",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_a_region_1_300_kelvin_3_mpa.rs::isobaric_cubic_expansion_coeff_regression_set_a",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_a_region_1_300_kelvin_3_mpa.rs::isothermal_compressibility_coeff_regression_set_a",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_a_region_1_300_kelvin_3_mpa.rs::specific_enthalpy_regression_set_a",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_a_region_1_300_kelvin_3_mpa.rs::specific_entropy_regression_set_a",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_a_region_1_300_kelvin_3_mpa.rs::specific_internal_energy_regression_set_a",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_a_region_1_300_kelvin_3_mpa.rs::specific_vol_regression_set_a",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_a_region_1_300_kelvin_3_mpa.rs::speed_of_sound_regression_set_a",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_b_region_1_300_kelvin_80_mpa.rs::cp_regression_set_b",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_b_region_1_300_kelvin_80_mpa.rs::cv_regression_set_b",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_b_region_1_300_kelvin_80_mpa.rs::isentropic_exponent_regression_set_b",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_b_region_1_300_kelvin_80_mpa.rs::isobaric_cubic_expansion_coeff_regression_set_b",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_b_region_1_300_kelvin_80_mpa.rs::isothermal_compressibility_coeff_regression_set_b",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_b_region_1_300_kelvin_80_mpa.rs::specific_enthalpy_regression_set_b",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_b_region_1_300_kelvin_80_mpa.rs::specific_entropy_regression_set_b",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_b_region_1_300_kelvin_80_mpa.rs::specific_internal_energy_regression_set_b",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_b_region_1_300_kelvin_80_mpa.rs::specific_vol_regression_set_b",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_b_region_1_300_kelvin_80_mpa.rs::speed_of_sound_regression_set_b",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_c_region_1_500_kelvin_3_mpa.rs::cp_regression_set_c",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_c_region_1_500_kelvin_3_mpa.rs::cv_regression_set_c",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_c_region_1_500_kelvin_3_mpa.rs::isentropic_exponent_regression_set_c",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_c_region_1_500_kelvin_3_mpa.rs::isobaric_cubic_expansion_coeff_regression_set_c",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_c_region_1_500_kelvin_3_mpa.rs::isothermal_compressibility_coeff_regression_set_c",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_c_region_1_500_kelvin_3_mpa.rs::specific_enthalpy_regression_set_c",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_c_region_1_500_kelvin_3_mpa.rs::specific_entropy_regression_set_c",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_c_region_1_500_kelvin_3_mpa.rs::specific_internal_energy_regression_set_c",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_c_region_1_500_kelvin_3_mpa.rs::specific_vol_regression_set_c",
+    "crates/tampines-steam-tables/src/region_1_subcooled_liquid/tests/set_c_region_1_500_kelvin_3_mpa.rs::speed_of_sound_regression_set_c",
+]
 
 [module."mod.rs"]
 path = "crate::region_1_subcooled_liquid::tests"
@@ -530,3 +571,50 @@ hash = "sha256:6ab3156699d1b75754d64bdb2149ec55badcc2c0ca602267a28f623116a58d0b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:8fffcfdc0ebfdd2e"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+]
+failed = []

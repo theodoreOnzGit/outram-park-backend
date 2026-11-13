@@ -2470,7 +2470,8 @@ citations, history), `mindmap_view`, `fuzzy`, and `Point`/`Bounds` (now
 changed for callers. ~~kovan-common is GPL-3.0-only while kovan is
 AGPL-3.0-only;~~ (**2026-10-07:** both are AGPL-3.0-only now, see "All of kovan
 is AGPL-3.0-only" below;) the maintainer holds the copyright of the moved code
-(flagged in the #736 hand-off).
+(flagged in the #736 hand-off; **UPDATED 2026-11-05:** true at the time; since
+then contributors keep the copyright in their own contributions, root `NOTICE`).
 
 **Why not reuse `dhoby_ghaut::web_demo`.** dhoby-ghaut depends on kovan and
 desktop kovan will embed kovan-web, so a dependency would be a cycle. The

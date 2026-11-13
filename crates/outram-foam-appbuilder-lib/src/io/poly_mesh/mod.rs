@@ -465,6 +465,7 @@ pub(crate) fn compute_face_geometry(
     let mut face_centres = Vec::with_capacity(n_faces);
     let mut face_area_vectors = Vec::with_capacity(n_faces);
     let mut face_areas = Vec::with_capacity(n_faces);
+    let pts: Vec<Vector3> = points.iter().map(|p| Vector3::new(p[0], p[1], p[2])).collect();
 
     for (fi, verts) in faces.iter().enumerate() {
         if verts.len() < 3 {
@@ -474,43 +475,11 @@ pub(crate) fn compute_face_geometry(
                 msg: format!("face {fi} has {} vertices, need ≥ 3", verts.len()),
             });
         }
-
-        // Step 1: average of vertices as initial face-centre estimate.
-        let mut fc_est = [0.0f64; 3];
-        for &vi in verts {
-            let p = points[vi];
-            fc_est[0] += p[0];
-            fc_est[1] += p[1];
-            fc_est[2] += p[2];
-        }
-        let inv_n = 1.0 / verts.len() as f64;
-        let fc_est = Vector3::new(fc_est[0] * inv_n, fc_est[1] * inv_n, fc_est[2] * inv_n);
-
-        // Step 2: triangle fan.
-        let mut sf = Vector3::ZERO;
-        let mut centre_num = Vector3::ZERO;
-        let mut area_sum = 0.0f64;
-        let nv = verts.len();
-
-        for i in 0..nv {
-            let a = pt(points, verts[i]);
-            let b = pt(points, verts[(i + 1) % nv]);
-            let tri_sf = (a - fc_est).cross(b - fc_est) * 0.5;
-            let tri_area = tri_sf.mag();
-            let tri_centre = (fc_est + a + b) * (1.0 / 3.0);
-            sf = sf + tri_sf;
-            centre_num = centre_num + tri_centre * tri_area;
-            area_sum += tri_area;
-        }
-
-        // Step 3: corrected face centre.
-        let face_centre = if area_sum > f64::MIN_POSITIVE {
-            centre_num * (1.0 / area_sum)
-        } else {
-            fc_est
-        };
-
-        face_centres.push(face_centre);
+        // gh:#1363: basic-lib's `face_centre_and_area`, upstream's
+        // `makeFaceCentresAndAreas` operation for operation (this function
+        // had an older private copy of the fan decomposition).
+        let (centre, sf) = outram_foam_basic_lib::io::face_centre_and_area(&pts, verts);
+        face_centres.push(centre);
         face_area_vectors.push(sf);
         face_areas.push(sf.mag());
     }
@@ -518,16 +487,15 @@ pub(crate) fn compute_face_geometry(
     Ok((face_centres, face_area_vectors, face_areas))
 }
 
-/// Compute cell volumes and cell centres via pyramid decomposition.
+/// Compute cell volumes and cell centres via pyramid decomposition,
+/// upstream's `primitiveMeshTools::makeCellCentresAndVols`.
 ///
-/// Algorithm (mirrors `primitiveMesh::makeCellCentresAndVols`):
-///   For each cell C with bounding faces fᵢ:
-///   1. Estimate cell centre as the average of the bounding face centres.
-///   2. For each face, form a pyramid with apex at the estimate:
-///      - signed volume = (1/3) · sign · Sf · (fc − cc_est)
-///        (sign = +1 if cell is owner, −1 if neighbour — Sf points owner→neighbour)
-///      - pyramid centroid = (3/4) · fc + (1/4) · cc_est
-///   3. Sum signed volumes → cell volume; weighted centroid sum → cell centre.
+/// gh:#1363: delegates to
+/// [`outram_foam_basic_lib::io::cell_geometry_from_faces`], which follows
+/// upstream's operation order (owner faces then neighbour faces, `* (1/3)`
+/// last). The private implementation this replaced summed face by face with
+/// `/ 3.0`, which left cell volumes up to 14 ulp from upstream's on the
+/// shockTube blockMesh mesh.
 pub(crate) fn compute_cell_geometry(
     face_centres: &[Vector3],
     face_area_vectors: &[Vector3],
@@ -535,64 +503,7 @@ pub(crate) fn compute_cell_geometry(
     neighbour: &[usize],
     n_cells: usize,
 ) -> (Vec<f64>, Vec<Vector3>) {
-    // Build cell→face adjacency.
-    let mut cell_faces: Vec<Vec<(usize, bool)>> = vec![Vec::new(); n_cells];
-    for (f, &o) in owner.iter().enumerate() {
-        cell_faces[o].push((f, true));
-    }
-    for (f, &nb) in neighbour.iter().enumerate() {
-        cell_faces[nb].push((f, false));
-    }
-
-    let mut cell_volumes = vec![0.0f64; n_cells];
-    let mut cell_centres = vec![Vector3::ZERO; n_cells];
-
-    for c in 0..n_cells {
-        let faces = &cell_faces[c];
-        if faces.is_empty() {
-            continue;
-        }
-
-        // Step 1: estimated centre.
-        let mut cc_est = Vector3::ZERO;
-        for &(f, _) in faces {
-            cc_est = cc_est + face_centres[f];
-        }
-        cc_est = cc_est * (1.0 / faces.len() as f64);
-
-        // Step 2: pyramid summation.
-        let mut vol = 0.0f64;
-        let mut centre_num = Vector3::ZERO;
-
-        for &(f, is_owner) in faces {
-            let sf = if is_owner {
-                face_area_vectors[f]
-            } else {
-                -face_area_vectors[f]
-            };
-            let fc = face_centres[f];
-            // Signed pyramid volume: (1/3) · Sf · (fc − cc_est)
-            let pv = sf.dot(fc - cc_est) / 3.0;
-            // Pyramid centroid: 3/4 of face centre + 1/4 of apex.
-            let pc = fc * 0.75 + cc_est * 0.25;
-            vol += pv;
-            centre_num = centre_num + pc * pv;
-        }
-
-        cell_volumes[c] = vol.abs();
-        cell_centres[c] = if vol.abs() > f64::MIN_POSITIVE {
-            centre_num * (1.0 / vol)
-        } else {
-            cc_est
-        };
-    }
-
-    (cell_volumes, cell_centres)
-}
-
-#[inline]
-fn pt(points: &[[f64; 3]], i: usize) -> Vector3 {
-    Vector3::new(points[i][0], points[i][1], points[i][2])
+    outram_foam_basic_lib::io::cell_geometry_from_faces(face_centres, face_area_vectors, owner, neighbour, n_cells)
 }
 
 // ── cellZones ────────────────────────────────────────────────────────────────

@@ -44,6 +44,7 @@ test_ids = [
     "crates/njoy-outram-park-fork/src/hdf5/statepoint_write.rs::a_summary_writes",
     "crates/njoy-outram-park-fork/src/hdf5/statepoint_write.rs::a_tally_with_scores_and_no_realisations_is_refused",
     "crates/njoy-outram-park-fork/src/hdf5/statepoint_write.rs::mismatched_moments_are_refused",
+    "crates/njoy-outram-park-fork/src/hdf5/statepoint_write.rs::the_seed_is_not_truncated",
     "crates/njoy-outram-park-fork/src/hdf5/xml_scan.rs::a_longer_name_does_not_close_a_shorter_one",
     "crates/njoy-outram-park-fork/src/hdf5/xml_scan.rs::a_truncated_document_stops_rather_than_panics",
     "crates/njoy-outram-park-fork/src/hdf5/xml_scan.rs::multibyte_text_is_sliced_correctly",
@@ -384,13 +385,13 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -412,13 +413,13 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -440,13 +441,13 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -468,13 +469,13 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -515,13 +516,13 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -554,10 +555,10 @@ uses = [
 reached_by = [
     "#8",
     "#10",
-    "#54",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -580,13 +581,13 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -629,13 +630,13 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -655,13 +656,13 @@ uses = [
 ]
 reached_by = [
     "#9",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -685,13 +686,13 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -715,13 +716,13 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -745,13 +746,13 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -775,13 +776,13 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -848,7 +849,7 @@ uses = ["fn:e85e822f4ff675b8"]
 reached_by = [
     "#9",
     "#10",
-    "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -869,13 +870,13 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -897,13 +898,13 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -925,13 +926,13 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -959,13 +960,13 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -993,13 +994,13 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -1021,13 +1022,13 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."depletion_chain_xml.rs".function]]
@@ -1172,7 +1173,7 @@ lines = [
 ]
 hash = "sha256:c46a55410793febfb9d871be50792d29cc381a12476cdc83bfb105099f203e06"
 doc_hash = "sha256:f4573650e3e230291a613384a99a0a92fe3d6d7b848c547fa52a8b8e69842540"
-reached_by = ["#48"]
+reached_by = ["#49"]
 
 [[module."mgxs_write.rs".function]]
 id = "fn:cba00c03aebd1778"
@@ -1188,7 +1189,7 @@ uses = [
     "fn:6259477047d9c3f5",
     "fn:fedfdbf7bfe57f84",
 ]
-reached_by = ["#48"]
+reached_by = ["#49"]
 
 [module."mod.rs"]
 path = "crate::hdf5"
@@ -1224,7 +1225,7 @@ reached_by = [
     "#32",
     "#34",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1253,7 +1254,7 @@ reached_by = [
     "#32",
     "#34",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1283,7 +1284,7 @@ reached_by = [
     "#32",
     "#34",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1311,7 +1312,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1339,7 +1340,7 @@ reached_by = [
     "#32",
     "#34",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1364,7 +1365,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1396,7 +1397,7 @@ reached_by = [
     "#32",
     "#34",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1425,7 +1426,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1457,7 +1458,7 @@ reached_by = [
     "#33",
     "#34",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1483,7 +1484,7 @@ reached_by = [
     "#32",
     "#33",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1515,7 +1516,7 @@ reached_by = [
     "#32",
     "#33",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1546,7 +1547,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1581,7 +1582,7 @@ reached_by = [
     "#32",
     "#34",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1615,7 +1616,7 @@ reached_by = [
     "#32",
     "#34",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1650,7 +1651,7 @@ reached_by = [
     "#32",
     "#34",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1683,7 +1684,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1730,7 +1731,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1765,7 +1766,7 @@ reached_by = [
     "#32",
     "#34",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1793,7 +1794,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1831,7 +1832,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1862,7 +1863,7 @@ reached_by = [
     "#32",
     "#34",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1893,7 +1894,7 @@ reached_by = [
     "#32",
     "#34",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1929,7 +1930,7 @@ reached_by = [
     "#32",
     "#34",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1956,7 +1957,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -1994,7 +1995,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -2022,7 +2023,7 @@ reached_by = [
     "#32",
     "#34",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -2047,7 +2048,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -2081,7 +2082,7 @@ reached_by = [
     "#32",
     "#34",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -2114,7 +2115,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -2148,7 +2149,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -2175,7 +2176,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -2204,7 +2205,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -2229,7 +2230,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_laws.rs".function]]
@@ -2396,10 +2397,10 @@ reached_by = [
     "#21",
     "#22",
     "#23",
-    "#50",
     "#51",
     "#52",
     "#53",
+    "#54",
 ]
 
 [[module."nuclide_read.rs".function]]
@@ -2415,7 +2416,7 @@ doc_hash = "sha256:c24962ccf3a65bef4303f341dafee16949604b2bf352f11f289f452a34e93
 uses = ["fn:1e8c7fcd5de9811a"]
 reached_by = [
     "#22",
-    "#50",
+    "#51",
 ]
 
 [[module."nuclide_read.rs".function]]
@@ -2436,10 +2437,10 @@ reached_by = [
     "#21",
     "#22",
     "#23",
-    "#50",
     "#51",
     "#52",
     "#53",
+    "#54",
 ]
 
 [[module."nuclide_read.rs".function]]
@@ -2455,8 +2456,8 @@ doc_hash = "sha256:29f02246a9e5ac7b21e866e52aab60ae3b5707080797c882887ecea3f0d84
 uses = ["fn:aae5d7f570f9696b"]
 reached_by = [
     "#21",
-    "#50",
-    "#52",
+    "#51",
+    "#53",
 ]
 
 [[module."nuclide_read.rs".function]]
@@ -2472,8 +2473,8 @@ doc_hash = "sha256:001c3014e64914f8f8c85f45674fe3632f6bdb62200576593821b4caa4070
 uses = ["fn:aae5d7f570f9696b"]
 reached_by = [
     "#23",
-    "#50",
-    "#52",
+    "#51",
+    "#53",
 ]
 
 [[module."nuclide_read.rs".function]]
@@ -2489,9 +2490,9 @@ doc_hash = "sha256:69c6334d72691eecaed0d10268ade291ed46444413c07fa973d6408e73add
 uses = ["fn:aae5d7f570f9696b"]
 reached_by = [
     "#21",
-    "#50",
-    "#52",
+    "#51",
     "#53",
+    "#54",
 ]
 
 [[module."nuclide_read.rs".function]]
@@ -2509,10 +2510,10 @@ reached_by = [
     "#20",
     "#21",
     "#22",
-    "#50",
     "#51",
     "#52",
     "#53",
+    "#54",
 ]
 
 [[module."nuclide_read.rs".function]]
@@ -2529,10 +2530,10 @@ reached_by = [
     "#20",
     "#21",
     "#22",
-    "#50",
     "#51",
     "#52",
     "#53",
+    "#54",
 ]
 
 [[module."nuclide_read.rs".function]]
@@ -2549,10 +2550,10 @@ reached_by = [
     "#20",
     "#21",
     "#22",
-    "#50",
     "#51",
     "#52",
     "#53",
+    "#54",
 ]
 
 [[module."nuclide_read.rs".function]]
@@ -2569,10 +2570,10 @@ reached_by = [
     "#20",
     "#21",
     "#22",
-    "#50",
     "#51",
     "#52",
     "#53",
+    "#54",
 ]
 
 [[module."nuclide_read.rs".function]]
@@ -2589,10 +2590,10 @@ reached_by = [
     "#20",
     "#21",
     "#22",
-    "#50",
     "#51",
     "#52",
     "#53",
+    "#54",
 ]
 
 [[module."nuclide_read.rs".function]]
@@ -2621,10 +2622,10 @@ reached_by = [
     "#20",
     "#21",
     "#22",
-    "#50",
     "#51",
     "#52",
     "#53",
+    "#54",
 ]
 
 [[module."nuclide_read.rs".function]]
@@ -2731,7 +2732,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_write.rs".function]]
@@ -2760,7 +2761,7 @@ reached_by = [
     "#32",
     "#34",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_write.rs".function]]
@@ -2792,7 +2793,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_write.rs".function]]
@@ -2816,7 +2817,7 @@ reached_by = [
     "#26",
     "#31",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_write.rs".function]]
@@ -2840,7 +2841,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_write.rs".function]]
@@ -2866,7 +2867,7 @@ reached_by = [
     "#32",
     "#34",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_write.rs".function]]
@@ -2897,7 +2898,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_write.rs".function]]
@@ -2936,7 +2937,7 @@ reached_by = [
     "#30",
     "#32",
     "#35",
-    "#49",
+    "#50",
 ]
 
 [[module."nuclide_write.rs".function]]
@@ -3539,17 +3540,17 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#41",
     "#42",
     "#43",
     "#44",
     "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."xml_scan.rs".function]]
@@ -3570,15 +3571,15 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#43",
     "#44",
     "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."xml_scan.rs".function]]
@@ -3609,17 +3610,17 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#41",
     "#42",
     "#43",
     "#44",
     "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."xml_scan.rs".function]]
@@ -3645,17 +3646,17 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#41",
     "#42",
     "#43",
     "#44",
     "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."xml_scan.rs".function]]
@@ -3681,17 +3682,17 @@ reached_by = [
     "#9",
     "#10",
     "#11",
-    "#41",
     "#42",
     "#43",
     "#44",
     "#45",
     "#46",
     "#47",
-    "#54",
+    "#48",
     "#55",
     "#56",
     "#57",
+    "#58",
 ]
 
 [[module."xml_scan.rs".function]]
@@ -3751,3 +3752,69 @@ hash = "sha256:7dcfbc7b024518cf7bf65f47b37538b6ea373fcca2ab79ba3367c1b541fc98c2"
 doc_hash = "sha256:632f5b5ee001adc769c45fe81ec70a134ff1b5f87dd7db851160b598ef63de3a"
 callees = ["fn:004485f5e3a1adb4"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+]
+failed = []

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>A tiny pressure vessel</title>
-<meta name="description" content="Fission products, lesson 33: fission gas and CO collect in the buffer's pores and press on the SiC shell. Pressure p = nRT/V_f and wall stress sigma = pR/(2t), computed by boon-lay fuel failure for the HTR-10 particle, an extrapolation.">
+<meta name="description" content="Fission products, lesson 35: fission gas and CO collect in the buffer's pores and press on the SiC shell. Pressure p = nRT/V_f and wall stress sigma = pR/(2t), computed by boon-lay fuel failure for the HTR-10 particle, an extrapolation.">
 <link rel="stylesheet" href="../../style.css">
 <script src="../neutronics/lesson-kit.js" defer></script>
 <script src="barrier-data.js" defer></script>
@@ -15,7 +15,7 @@
 <script src="barrier-story.js" defer></script>
 </head>
 <body class="lesson">
-<!-- Fission products, chapter 4, lesson 33. Pressure: boon-lay fuel failure
+<!-- Fission products, chapter 4, lesson 35. Pressure: boon-lay fuel failure
      (AccidentHistory::pressure_at, internal_gas_pressure) on
      fuel_failure::htr10::particle at T_B 776 °C, via failure-data.js
      (lesson_barriers). Stress: barrier-physics.js stress(), checked against
@@ -27,7 +27,7 @@
 <h1>A tiny pressure vessel</h1>
 <p class="kicker lesson-progress">Fission products</p>
 
-<p>Not everything that leaves the kernel is held in a layer. The noble gases xenon and krypton collect in the buffer&rsquo;s pores, and so does carbon monoxide made from the oxygen that fission frees in a UO<sub>2</sub> kernel (lesson 25). The gas presses outward. The SiC shell holds it in. A TRISO particle is a pressure vessel half a millimetre across.</p>
+<p>Not everything that leaves the kernel is held in a layer. The noble gases xenon and krypton collect in the buffer&rsquo;s pores, and so does carbon monoxide made from the oxygen that fission frees in a UO<sub>2</sub> kernel (lesson 27). The gas presses outward. The SiC shell holds it in. A TRISO particle is a pressure vessel half a millimetre across.</p>
 
 <p class="note"><b>The model on this and the next five pages is boon-lay fuel failure.</b> boon-lay fuel failure is inspired by PANAMA: a clean-room, agentic implementation of the equations published in the PANAMA-I report (Verfondern &amp; Nabielek, HTA-IB-03/90). It is not a port: the PANAMA source code was not available. Every number here is computed by boon-lay fuel failure, not by PANAMA. The report is restricted literature, so only its equations and constants appear, with their numbers.</p>
 
@@ -42,7 +42,7 @@
 <p class="predict"><b>Predict first.</b> Heat the particle from 1000 to 2000 &deg;C. The ideal-gas law alone would raise the pressure by the ratio of absolute temperatures, about 1.8. Will the code&rsquo;s pressure rise more or less than that?</p>
 
 <h2>Pressure: count the gas, use the ideal-gas law</h2>
-<p>The code counts the moles of gas in the pores and uses <span class="eq">p = nRT / V<sub>f</sub></span>, with V<sub>f</sub> half the buffer&rsquo;s volume (the report&rsquo;s choice). The gas is the stable xenon and krypton that has left the kernel (0.31 atoms per fission, a fraction found by a Booth calculation like lesson 16&rsquo;s), plus CO. That is PANAMA-I&rsquo;s Eq (3).</p>
+<p>The code counts the moles of gas in the pores and uses <span class="eq">p = nRT / V<sub>f</sub></span>, with V<sub>f</sub> half the buffer&rsquo;s volume (the report&rsquo;s choice). The gas is the stable xenon and krypton that has left the kernel (0.31 atoms per fission, a fraction found by a Booth calculation like lesson 18&rsquo;s), plus CO. That is PANAMA-I&rsquo;s Eq (3).</p>
 <p>At 1600 &deg;C, 200 h into an accident, the code gives <span data-bd="p1600">&hellip;</span>, of which <span data-bd="pGas1600">&hellip;</span> is fission gas. The pressure rises much faster than the 1.8 of the predict prompt, because a hotter kernel also lets out more gas, and more oxygen becomes CO.</p>
 
 <h2>Stress: cut the sphere in half</h2>
@@ -53,7 +53,7 @@
 <h2>Where it is in the code</h2>
 <p>On the Code Review map, start at <code>AccidentHistory::<wbr>pressure_<wbr>at</code>. It calls <code>reduced_<wbr>diffusion_<wbr>coefficient</code> and <code>released_gas_fraction</code> (how much gas has left the kernel), <code>oxygen_per_fission</code> (the CO), <code>molar_volume</code>, and then <a href="../../code-review/#crates/boon-lay/src/fuel_failure/pressure.rs::internal_gas_pressure"><code>internal_gas_pressure</code></a>. The stress is <a href="../../code-review/#crates/boon-lay/src/fuel_failure/stress.rs::induced_stress_with_thinning_factor"><code>induced_<wbr>stress_<wbr>with_<wbr>thinning_<wbr>factor</code></a>.</p>
 
-<p><b>Next:</b> a stress is only dangerous compared with a strength. How strong is SiC? Lesson 34.</p>
+<p><b>Next:</b> a stress is only dangerous compared with a strength. How strong is SiC? Lesson 36.</p>
 
 <details class="optional">
 <summary>Learn more advanced stuff</summary>

@@ -2,6 +2,11 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-appbuilder-lib"
 dir = "crates/outram-foam-appbuilder-lib/tests/foam_vv_cases"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/tests/foam_vv_cases/main.rs::drift_flux_dahl_settling_column",
+    "crates/outram-foam-appbuilder-lib/tests/foam_vv_cases/main.rs::genfoam_slab_1g_diffusion_is_critical",
+    "crates/outram-foam-appbuilder-lib/tests/foam_vv_cases/main.rs::two_fluid_bubble_column_terminal_slip",
+]
 
 [module."main.rs"]
 path = "test:foam_vv_cases"
@@ -142,3 +147,14 @@ uses = [
     "fn:ef05859ef19acee7",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+]
+failed = []

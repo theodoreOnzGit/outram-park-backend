@@ -71,18 +71,50 @@ pub use crate::genfoam::multi_region::{MeshHandler, MultiPhysicsSolver};
 pub use crate::genfoam::thermal_hydraulics::phase::{Fluid, StateOfMatter};
 pub use crate::genfoam::thermal_hydraulics::structure::{HeatExchanger, PowerModel};
 
+// R-Z solid conduction with radiation (new work, gh:#1149)
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::{
+    AxisEdges, ConductivityModel, EnclosureNaturalConvection, GapConductance, HeatCapacityModel, PropertyModel, RegionGap,
+    RegionMap, RzBoundaries, RzGeometry, RzMesh, RzPatch, RzRect, SolidBoundary,
+    SolidConductionField, SolidRegion as RzSolidRegion,
+};
+// `RzSolidRegion`: renamed in the prelude on the 2026-11-03 merge with develop,
+// where gh:#1156 exported chtMultiRegionFoam's own `SolidRegion` (a different type).
+pub use crate::genfoam::thermal_hydraulics::solver::PorousConductivity;
+
 // Solvers
+pub use crate::solvers::cht_multi_region_foam::{ChtMultiRegionFoam, CoupledTemperature, InterfaceMode, RegionId, SolidRegion};
+pub use crate::solvers::energy::{EnergyEquation, IncompressibleThermo};
 pub use crate::solvers::hrm_foam::{HrmFoam, HrmModelConfig};
 pub use crate::solvers::melt_foam::MeltFoam;
-pub use crate::solvers::pimple_foam::{PimpleFoam, PressureSolver};
+pub use crate::solvers::pimple_foam::{PimpleFoam, PressureSolver, SolveRecord};
+pub use crate::solvers::schemes::DdtCorrForm;
 pub use crate::solvers::reacting_two_phase_euler_foam::{
     build_default as build_reacting_two_phase_euler, InterfacialHeatTransfer,
     InterfacialMassTransfer, PhaseSelector, PhaseSpecies, PhaseThermo, ReactingTwoPhaseEulerFoam,
     ReactionMechanism, ReactionSource,
 };
 pub use crate::solvers::rho_central_foam::RhoCentralFoam;
+pub use crate::solvers::rho_pimple_foam::esi::RhoPimpleFoamEsi;
 pub use crate::solvers::rho_pimple_foam::RhoPimpleFoam;
+pub use crate::solvers::sonic_foam::esi::SonicFoamEsi;
 pub use crate::solvers::sonic_foam::SonicFoam;
 
 // Turbulence-closure selection (Layer-5 adapter over outram-foam-turbulence-lib)
 pub use crate::turbulence::TurbulenceClosure;
+
+// Pebble-bed HTGR closures (original work, not a GeN-Foam port; gh:#1148)
+pub use crate::htgr_closures::{
+    BedConductivityModel, BedState, HtgrClosureError, KtaHelium, StructuralMaterial,
+    SteelComponent, ZbsBed,
+};
+
+// HTR-10 R-Z solid conduction and radiation model (original work; gh:#1149 part B)
+pub use crate::htr10_rz::{
+    Htr10RzCase, Htr10RzError, Htr10RzModel, Htr10RzOptions, Htr10RzResult,
+};
+
+// HTR-10 FPIC: R-Z porous gas flow coupled to the solid (original work; gh:#1150)
+pub use crate::htr10_rz::{
+    BypassSplit, FpicOptions, FpicResult, GasNetwork, Htr10FpicModel, OperatingPoint, PebbleMatrix,
+};
+pub use crate::genfoam::thermal_hydraulics::solid_conduction::VolumetricHeatTransferCoefficient;

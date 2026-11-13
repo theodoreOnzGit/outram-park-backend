@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Is ATOPS conservative?</title>
+<meta name="description" content="Fission products, chapter 5: TRISO-ATOPS's three analytical release formulas (Booth on a failed kernel, zero from intact particles, silver's planar breakthrough) measured against boon-lay's finite-volume solution through all five layers of the HTR-10 particle, with the same diffusion coefficients, at 1200-1800 °C.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="diffarc-data.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="diffarc-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 5, after "The diffusion equation, three ways"
+     (gh:#1209). TRISO-ATOPS's formulas: boon-lay's port (booth_transient,
+     breakthrough_model_transient, as release_fraction_transient and
+     release_activity call them). Reference: boon-lay's multilayer finite
+     volumes (NOT a port). All recorded in diffarc-data.js by
+     crates/dhoby-ghaut/examples/lesson_diffusion_arc; predictions B1-B4, the
+     first run's misses, the corrected protocol and its results in its
+     main.rs. Checked by check-diffarc.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-11-04), not yet reviewed by a human.</p>
+<span id="da-numbers" hidden></span>
+
+<h1>Is TRISO-ATOPS&rsquo;s analytical solution conservative?</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>TRISO-ATOPS never solves the diffusion equation through a particle. It evaluates exact formulas on simpler shapes (<a href="diffusion-three-ways.html">Way 1</a>). It is often said that this is done <b>conservatively</b>: that the simple shapes release at least as much as the real particle would. That is a claim that can be checked. This lesson checks it with <a href="diffusion-three-ways.html">Way 2</a>: boon-lay&rsquo;s mesh through all five layers of the HTR-10 particle, with <b>the same diffusion coefficients</b> the formulas use, so that any difference is the formulas&rsquo; assumptions and nothing else.</p>
+
+<h2>What TRISO-ATOPS actually computes in an accident</h2>
+<p>Read from the port (<a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/accident/mod.rs::release_activity"><code>release_activity</code></a> and <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/mod.rs::release_fraction_transient"><code>release_<wbr>fraction_<wbr>transient</code></a>, upstream readings), for the kernel&rsquo;s inventory:</p>
+<ul>
+<li><b>Caesium, strontium</b> (and the other special metals): released = inventory &times; <b>failed fraction</b> &times; Booth&rsquo;s <i>F</i> on the bare kernel with &int;<i>D</i>&nbsp;d<i>t</i>. So a failed particle is a bare kernel, and an <b>intact particle releases exactly zero</b>.</li>
+<li><b>Silver</b>: released = inventory &times; <b>1</b> (every particle) &times; a planar time-lag formula <a href="#ref-crank1975diffusion">(Crank, 1975)</a> through the SiC, the &ldquo;breakthrough&rdquo; model: steady flow through a flat SiC layer fed at the kernel&rsquo;s concentration over the kernel&rsquo;s area, never depleted.</li>
+<li>Krypton and the other noble gases use an empirical fit, not a diffusion solution, so there is nothing here to compare it with <del>(and boon-lay has no Kr <i>D</i> in the buffer, gh:#541)</del> (<b>CORRECTED 2026-11-10, gh:#638:</b> boon-lay now has one, 10<sup>&minus;8</sup>&nbsp;m&sup2;/s from IAEA-TECDOC-978; the empirical fit is the reason).</li>
+</ul>
+
+<p class="predict"><b>Predict first.</b> At 1600&nbsp;&deg;C for 500&nbsp;h, which releases more caesium per particle on average in a fuel load where one particle in 10&nbsp;000 has failed: the failed ones, or the intact ones that TRISO-ATOPS counts as zero?</p>
+
+<section class="widget-card">
+  <h3>The formula against the whole particle</h3>
+  <div class="widget" id="da-compare">
+    <canvas aria-label="Released fraction on a log scale against time over a 500-hour hold, for a chosen element and temperature: TRISO-ATOPS's formula as a red line, and the finite-volume solution for a bare kernel or a well-mixed interior and for the intact five-layer particle."></canvas>
+  </div>
+  <p class="note">Red: TRISO-ATOPS&rsquo;s own formula, from the port. Others: <a href="../../code-review/#crates/boon-lay/src/triso_atops_extensions/multilayer_diffusion.rs::step"><code>LayeredDiffusion::<wbr>step</code></a> on the HTR-10 particle (radii 250, 340, 380, 415, 455&nbsp;&micro;m), the whole inventory starting evenly in the kernel, held at one temperature for 500&nbsp;h, no decay, sink at the outer surface. Recorded by <code>lesson_<wbr>diffusion_<wbr>arc</code>.</p>
+</section>
+
+<h2>Which <i>D</i>, and why it matters</h2>
+<p>Kernel: TRISO-ATOPS&rsquo;s own correlations. Silver in SiC: TRISO-ATOPS&rsquo;s own, the one its breakthrough formula uses. Every other coating: boon-lay&rsquo;s walker table (<a href="#ref-jiang2023fission">Jiang et al., 2023</a>, as boon-lay cites it, no fluence), because <b>TRISO-ATOPS has no coefficient for caesium or strontium in a coating at all</b>: it never moves them through one. The intact-particle numbers below therefore rest on that table. For example, Cs in SiC at 1600&nbsp;&deg;C is <span data-da="dCsSic1600">&hellip;</span>. That table&rsquo;s own uncertainty is not assessed here.</p>
+
+<h2>Finding 1: on a failed particle, Booth is exact</h2>
+<p>For caesium and strontium the mesh on the bare kernel reproduces TRISO-ATOPS&rsquo;s Booth to <span data-da="bareWorst">&hellip;</span> at every hold and time. That is expected: with one <i>D</i> for the whole sphere, Booth on &int;<i>D</i>&nbsp;d<i>t</i> <i>is</i> the solution (<a href="diffusion-three-ways.html">why</a>). At 1600&nbsp;&deg;C, 500&nbsp;h: Cs <span data-da="atopsCs1600">&hellip;</span>, Sr <span data-da="atopsSr1600">&hellip;</span> (mesh: <span data-da="bareSr1600">&hellip;</span>). So the formula is not an approximation. Whatever is conservative about it lies in the assumption <b>failed = bare kernel</b>: no coating left to slow anything.</p>
+<p>Getting this right took two runs. On the first, strontium at 1200&nbsp;&deg;C disagreed tenfold, because Sr moves only 0.14&nbsp;&micro;m into the kernel in 500&nbsp;h and the cells were 2.5&nbsp;&micro;m. The mesh was wrong, not Booth. The protocol was fixed (a finely meshed shell at the kernel surface); the criterion was not moved. Both runs are recorded in the generator.</p>
+
+<h2>Finding 2: intact particles are not zero</h2>
+<p>Through all five layers, at 500&nbsp;h the intact particle releases:</p>
+<div class="table-wrap"><table>
+<thead><tr><th></th><th>1200&nbsp;&deg;C</th><th>1400&nbsp;&deg;C</th><th>1600&nbsp;&deg;C</th><th>1800&nbsp;&deg;C</th></tr></thead>
+<tbody>
+<tr><td>Cs, intact</td><td data-label="1200 °C"><span data-da="intactCs1200">&hellip;</span></td><td data-label="1400 °C"><span data-da="intactCs1400">&hellip;</span></td><td data-label="1600 °C"><span data-da="intactCs1600">&hellip;</span></td><td data-label="1800 °C"><span data-da="intactCs1800">&hellip;</span></td></tr>
+<tr><td>Sr, intact</td><td data-label="1200 °C"><span data-da="intactSr1200">&hellip;</span></td><td data-label="1400 °C"><span data-da="intactSr1400">&hellip;</span></td><td data-label="1600 °C"><span data-da="intactSr1600">&hellip;</span></td><td data-label="1800 °C"><span data-da="intactSr1800">&hellip;</span></td></tr>
+<tr><td>TRISO-ATOPS, intact</td><td data-label="1200 °C">0</td><td data-label="1400 °C">0</td><td data-label="1600 °C">0</td><td data-label="1800 °C">0</td></tr>
+</tbody></table></div>
+<p>The answer to the prompt: at 1600&nbsp;&deg;C an intact particle releases <span data-da="intactCs1600">&hellip;</span> of its caesium. A failed fraction of 10<sup>&minus;4</sup> (the TRISO-ATOPS demo&rsquo;s default heavy-metal contamination) releases 10<sup>&minus;4</sup> &times; 1. The intact particles release about <span data-da="csOver1e4">&hellip;</span> times more, and TRISO-ATOPS counts them as zero. For strontium the gap opens already at 1400&nbsp;&deg;C. The oxide kernel holds Sr (<i>D</i> = <span data-da="dSrK1400">&hellip;</span>), but whatever leaves it crosses the coatings quickly (Sr in SiC <span data-da="dSrSic1400">&hellip;</span> in the walker table). The intact particle&rsquo;s <span data-da="intactSr1400">&hellip;</span> dwarfs 10<sup>&minus;4</sup> &times; <span data-da="atopsSr1400">&hellip;</span>.</p>
+<p>At 1200 and 1400&nbsp;&deg;C caesium through intact SiC is negligible (10<sup>&minus;13</sup> and below), and there the zero is a fair simplification. <b>So &ldquo;zero from intact particles&rdquo; is not conservative at 1600&nbsp;&deg;C and above for Cs, or from 1400&nbsp;&deg;C for Sr, with these coefficients.</b> It is a modelling choice, not the analytical solution, and the result stands or falls with the coating <i>D</i> values. The first job, before anyone relies on it, is to check those <i>D</i> values against the literature.</p>
+
+<h2>Finding 3: for silver the formula is conservative</h2>
+<p>The breakthrough formula assumes three things in silver&rsquo;s favour: the SiC is fed at the <b>kernel&rsquo;s</b> concentration over the <b>kernel&rsquo;s</b> area, nothing in the kernel or PyC slows silver on its way, and the source is <b>never depleted</b>. A second mesh run puts just those assumptions on the real geometry (kernel, buffer and IPyC well mixed, then the SiC): it releases less than the formula, and the intact five-layer particle releases less again:</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Ag, 500&nbsp;h</th><th>TRISO-ATOPS</th><th>well mixed inside SiC</th><th>intact particle</th><th>ratio</th></tr></thead>
+<tbody>
+<tr><td>1200&nbsp;&deg;C</td><td data-label="TRISO-ATOPS"><span data-da="atopsAg1200">&hellip;</span></td><td data-label="well mixed"><span data-da="mixedAg1200">&hellip;</span></td><td data-label="intact"><span data-da="intactAg1200">&hellip;</span></td><td data-label="ratio"><span data-da="ratioAg1200">&hellip;</span></td></tr>
+<tr><td>1400&nbsp;&deg;C</td><td data-label="TRISO-ATOPS"><span data-da="atopsAg1400">&hellip;</span></td><td data-label="well mixed"><span data-da="mixedAg1400">&hellip;</span></td><td data-label="intact"><span data-da="intactAg1400">&hellip;</span></td><td data-label="ratio"><span data-da="ratioAg1400">&hellip;</span></td></tr>
+<tr><td>1600&nbsp;&deg;C</td><td data-label="TRISO-ATOPS"><span data-da="atopsAg1600">&hellip;</span></td><td data-label="well mixed"><span data-da="mixedAg1600">&hellip;</span></td><td data-label="intact"><span data-da="intactAg1600">&hellip;</span></td><td data-label="ratio"><span data-da="ratioAg1600">&hellip;</span></td></tr>
+<tr><td>1800&nbsp;&deg;C</td><td data-label="TRISO-ATOPS"><span data-da="atopsAg1800">&hellip;</span></td><td data-label="well mixed"><span data-da="mixedAg1800">&hellip;</span></td><td data-label="intact"><span data-da="intactAg1800">&hellip;</span></td><td data-label="ratio"><span data-da="ratioAg1800">&hellip;</span></td></tr>
+</tbody></table></div>
+<p>The ratio is TRISO-ATOPS over the intact particle. The formula is above the intact particle at every hold and every time, by less as the temperature rises: at 1600&nbsp;&deg;C and above the formula clamps at 1. One early point at 1400&nbsp;&deg;C (10&nbsp;h, release 10<sup>&minus;8</sup>) first looked like an exception. Refining the time step showed it was the mesh&rsquo;s coarse early steps, and the converged value is below the formula.</p>
+
+<h2>So: conservative?</h2>
+<ul>
+<li><b>The analytical solutions themselves</b> are exact (Booth on the integral of <i>D</i>, for a sphere with one <i>D</i>) or conservative (silver&rsquo;s breakthrough), as measured here.</li>
+<li><b>The modelling choice around them</b>, that an intact particle releases no caesium or strontium, is <b>not</b> conservative at the temperatures where it matters most, with these coating coefficients.</li>
+</ul>
+<p>This page does not check what TRISO-ATOPS&rsquo;s own documents claim about conservatism. It measures the formulas, and both directions are reported.</p>
+
+<h2>What this comparison leaves out</h2>
+<ul>
+<li><b>One temperature</b> for 500&nbsp;h, not an accident history. Both sides take any history the same way (&int;<i>D</i>&nbsp;d<i>t</i> for the formula, a <i>D</i> per step for the mesh), but the intact particle has a different <i>D</i> per layer, so its answer is not a function of one integral.</li>
+<li><b>A clean start</b>: everything in the kernel, nothing in the coatings. After years of normal operation the coatings already hold some inventory, which would raise the intact release.</li>
+<li><b>No decay</b> (Ag-110m loses about 6&nbsp;% in 500&nbsp;h), <b>partition ratio 1</b> at every boundary, <b>no fluence</b>, no chemistry, no graphite matrix (TRISO-ATOPS treats the matrix separately, on top of both).</li>
+<li><b>Numerical uncertainty</b>: doubling the cells and the steps changes every 500&nbsp;h value quoted by at most <span data-da="refineEnd">&hellip;</span> relative. Early points on the rising edge move by up to 13&nbsp;% and are not quoted.</li>
+<li><b>This is verification of formulas against a solver, not validation.</b> No measured release is compared.</li>
+</ul>
+
+<h2>Where it is in the code</h2>
+<ul>
+<li>Failed kernel: <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/transient.rs::booth_transient"><code>booth_transient</code></a>; silver: <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/transient.rs::breakthrough_model_transient"><code>breakthrough_<wbr>model_<wbr>transient</code></a>; who gets which, and the zero for intact Cs and Sr: <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/accident/mod.rs::release_activity"><code>release_activity</code></a>.</li>
+<li>The reference: <a href="../../code-review/#crates/boon-lay/src/triso_atops_extensions/multilayer_diffusion.rs::uniform_in_first_layers"><code>LayeredDiffusion::<wbr>uniform_<wbr>in_<wbr>first_<wbr>layers</code></a> and <a href="../../code-review/#crates/boon-lay/src/triso_atops_extensions/multilayer_diffusion.rs::step"><code>step</code></a>, boon-lay&rsquo;s own, not a port (gh:#1209).</li>
+</ul>
+
+<p><b>Next:</b> with that in mind, <a href="atops-big-picture.html">TRISO-ATOPS: the big picture</a> follows its whole calculation from inventory to source term.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>The predictions, and what missed</h3>
+<p>Written from the inputs alone, before any result (<code>lesson_<wbr>diffusion_<wbr>arc/main.rs</code>). Held: the ratio band for silver, intact Cs at 1200&ndash;1600&nbsp;&deg;C, strontium never above its bare kernel, the order of magnitude at 1600&nbsp;&deg;C. Missed:</p>
+<ul>
+<li>Cs at 1800&nbsp;&deg;C came in at 0.49, just under the 0.5&ndash;0.95 band.</li>
+<li>The bare-kernel agreement for Cs at 1600&nbsp;&deg;C is 1.1&times;10<sup>&minus;3</sup>, just over the 10<sup>&minus;3</sup> predicted.</li>
+<li>The first run&rsquo;s strontium and early silver points, explained above.</li>
+</ul>
+<h3>Why the breakthrough formula clamps</h3>
+<p>Its steady part grows as 3<i>Dt</i>/(<i>r</i>&nbsp;<i>a</i>) without limit, because the source never runs out; the port clamps the result to [0, 1], as upstream does. Once the clamp is reached the formula says &ldquo;everything&rdquo;, which is why the ratio tends to 1 at high temperature: the real particle has nearly emptied too.</p>
+<h3>Try it</h3>
+<p>Change <code>WELL_MIXED_D</code> in <code>lesson_<wbr>diffusion_<wbr>arc/arc.rs</code> from 10<sup>&minus;6</sup> to 10<sup>&minus;9</sup>&nbsp;m&sup2;/s and decide first whether the well-mixed silver run should move toward the formula or toward the intact particle.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-crank1975diffusion" style="padding-left: 2em; text-indent: -2em;">Crank, J. (1975). <i>The Mathematics of Diffusion</i> (2nd ed.). Clarendon Press.</p>
+
+<p class="csl-entry" id="ref-jiang2023fission" style="padding-left: 2em; text-indent: -2em;">Jiang, W., Toptan, A., Hales, J. D., Spencer, B. W., &#38; Novascone, S. R. (2023). <i>Fission product transport in TRISO particles and pebbles</i>. Idaho National Lab.(INL), Idaho Falls, ID (United States).</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

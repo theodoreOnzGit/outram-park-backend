@@ -6,7 +6,7 @@
 **Extended deep dive.** Covers
 [`nuclide_reaction_and_decay_data`](../../api/boon_lay/nuclide_reaction_and_decay_data/index.html),
 [`decay_xml_info_serde`](../../api/boon_lay/decay_xml_info_serde/index.html)
-and [`prelude`](../../api/boon_lay/prelude/index.html). [Rung 2](../../tutorials/triso-atops/decay.html)
+and [`prelude`](../../api/boon_lay/prelude/index.html). [*An atom's clock*](../../science/fission-products/decay-clock.html)
 used this data; this page shows where it comes from and what can go wrong.
 
 ## Where the numbers live
@@ -38,6 +38,8 @@ used this data; this page shows where it comes from and what can go wrong.
 Lookup afterwards is
 [`DecayLibrary::try_match_nuclides_to_decay_data`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs#@@L:crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs:fn=try_match_nuclides_to_decay_data@@),
 which returns `None` for an element with no data (copernicium and heavier).
+(**CORRECTED 2026-11-10, gh:#538:** until then those arms were `todo!()`,
+so the lookup panicked for Z ≥ 112 instead; it now returns `None` as stated.)
 [`computationally_expensive_parse_nuclide_to_decay_data`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/parse_nuclides_to_decay_data.rs#@@L:crates/boon-lay/src/nuclide_reaction_and_decay_data/parse_nuclides_to_decay_data.rs:fn=computationally_expensive_parse_nuclide_to_decay_data@@)
 builds a whole library for one lookup, and is named for it.
 
@@ -46,9 +48,9 @@ builds a whole library for one lookup, and is named for it.
 | Item | What happens | Status |
 |---|---|---|
 | the library's generator | seeded with the constant **77** in `new` | reproducible; two libraries replay the same stream |
-| a branch with no daughter (spontaneous fission) | `get_next_target_nuclide_with_float` calls `target.unwrap()` | **panics**; gh:#538 |
-| branching ratios summing below 1 | ξ beyond the sum reaches `todo!("code is buggy!")` | **panics**; gh:#538 |
-| [`get_decay_branch_info`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs#@@L:crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs:fn=get_decay_branch_info@@) | public, body is `todo!()` | **panics if called**; nothing in the crate calls it |
+| a branch with no daughter (spontaneous fission) | ~~`get_next_target_nuclide_with_float` calls `target.unwrap()`~~ **CORRECTED 2026-11-10:** the panic was at He-5 (an alpha branch with no `target`); spontaneous fission names the parent as its own target and was silently followed as a "daughter". Both now end the chain, as OpenMC's depletion matrix does (`sample_decay_with_float` returns `NoTrackedDaughter`) | ~~**panics**~~ fixed; gh:#538 |
+| branching ratios summing below 1 | ~~ξ beyond the sum reaches `todo!("code is buggy!")`~~ **CORRECTED 2026-11-10:** ξ beyond the sum selects the largest branch, where OpenMC's `from_endf` puts the residual. The bundled data has no such nuclide: all 1367 multi-branch nuclides sum to 1 exactly in `f64` | ~~**panics**~~ fixed; gh:#538 |
+| [`get_decay_branch_info`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs#@@L:crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs:fn=get_decay_branch_info@@) | ~~public, body is `todo!()`~~ **CORRECTED 2026-11-10:** returns every branch, target as an `Option` | ~~**panics if called**~~ fixed; gh:#538 |
 | branches with ratio 0.0 | present in the data (e.g. Ba-114's α branch) | harmless: never selected |
 
 ## The checks

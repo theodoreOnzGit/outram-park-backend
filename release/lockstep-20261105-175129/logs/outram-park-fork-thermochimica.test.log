@@ -1,0 +1,19 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+   Compiling outram-park-fork-thermochimica v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-thermochimica)
+    Finished `release` profile [optimized] target(s) in 1m 24s
+     Running unittests src/lib.rs (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/release/deps/outram_park_fork_thermochimica-1cc2e7656b299374)
+
+running 6 tests
+test gem::tests::linear_solver_and_error_paths ... ok
+test gem::tests::pure_component_trivial_limit ... ok
+test gem::tests::molten_fluoride_flibe_ideal_mixing ... ok
+test gem::tests::redlich_kister_activity_coefficient_identity ... ok
+test gem::tests::ideal_binary_nernst_partition ... ok
+test gem::tests::regular_solution_partition_in_solver ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

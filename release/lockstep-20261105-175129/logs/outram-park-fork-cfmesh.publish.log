@@ -1,0 +1,21 @@
+    Updating crates.io index
+   Packaging outram-park-fork-cfmesh v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-cfmesh)
+    Updating crates.io index
+warning: package `tokio v1.54.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+warning: package `clipboard-win v5.4.1` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+warning: package `async-executor v1.14.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+    Packaged 207 files, 13.2MiB (2.4MiB compressed)
+   Verifying outram-park-fork-cfmesh v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-cfmesh)
+   Compiling outram-park-fork-cfmesh v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/outram-park-fork-cfmesh-0.0.4)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 13.37s
+   Uploading outram-park-fork-cfmesh v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/outram-park-fork-cfmesh)
+    Uploaded outram-park-fork-cfmesh v0.0.4 to registry `crates-io`
+note: waiting for outram-park-fork-cfmesh v0.0.4 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-park-fork-cfmesh v0.0.4 at registry `crates-io`

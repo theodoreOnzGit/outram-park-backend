@@ -22,6 +22,17 @@
 //! Non-orthogonality-corrected Laplacian — `Foam::gaussLaplacianScheme` with a
 //! `corrected` / `limited` surface-normal-gradient scheme.
 //!
+//! **Two operators live here (gh:#1362, 2026-11-11).** [`laplacian_corrected`] is
+//! upstream's `corrected` / `limited corrected` scheme, bit-identical to ESI
+//! v2506 on two meshes. [`laplacian_corrected_face_centre`] is the port's
+//! original formulation described in the rest of this module doc (0.5-weighted
+//! face gradient, Dirichlet boundary correction, `Limited(w)` = scale by `w`):
+//! it is NOT upstream's scheme, but recovers a linear field exactly on any mesh,
+//! so [`solve_laplacian_non_orthogonal`] and `tests/non_orthogonal_laplacian.rs`
+//! use it. Where the text below says `Limited` or "OpenFOAM's `limited`", it
+//! describes the face-centre operator; ~~"OpenFOAM's `limited <coeff>`"~~
+//! **CORRECTED**: upstream's limiter is `min(w|snGrad|/((1-w)|corr| + SMALL), 1)`.
+//!
 //! Translated from
 //! `src/finiteVolume/finiteVolume/laplacianSchemes/gaussLaplacianScheme/`,
 //! `.../snGradSchemes/correctedSnGrad/`, and the non-orthogonal geometry in
@@ -96,10 +107,10 @@
 use petir::mathf::RealMath;
 use crate::fields::boundary::bc::BoundaryCondition;
 use crate::fields::surface_field::SurfaceScalarField;
-use crate::fields::vol_field::{VolScalarField, VolVectorField};
-use crate::fv_operators::fvc::grad_least_squares;
-use crate::ldu_matrix::fv_matrix::FvMatrix;
 use crate::mesh::fv_mesh::PatchKind;
+use crate::fields::vol_field::{VolScalarField, VolVectorField};
+use crate::fv_operators::fvc::grad_least_squares_face_centre;
+use crate::ldu_matrix::fv_matrix::FvMatrix;
 use crate::primitives::Vector3;
 
 /// OpenFOAM's floor on `n . d` as a fraction of `|d|`, guarding the division at
@@ -172,6 +183,15 @@ pub struct NonOrthoGeometry {
 ///
 /// Returns `None` for a degenerate face (zero area or coincident cell centres).
 ///
+/// **Upstream form (gh:#1362, maintainer approval 2026-11-12).** The unit normal is
+/// upstream's `unitArea = Sf/magSf` (componentwise divide), so `corr_vec` is
+/// bit-identical to `fvc::non_orth_correction_vectors` and OpenFOAM's
+/// `nonOrthCorrectionVectors` (differential row `nonOrthCorrVec`). ~~The unit
+/// normal was `Sf*(1/magSf)`~~ **CHANGED 2026-11-12**: that previous form is kept as
+/// [`non_ortho_geometry_port_original`]. The change moves results at the ulp level;
+/// the moved numbers are recorded in
+/// `verification_and_validation/upstream_ops_gh1362/README.md`.
+///
 /// # Example
 ///
 /// ```rust
@@ -187,11 +207,36 @@ pub struct NonOrthoGeometry {
 /// ```
 pub fn non_ortho_geometry(sf: Vector3, d: Vector3) -> Option<NonOrthoGeometry> {
     let mag_sf = sf.mag();
-    let mag_d = d.mag();
-    if mag_sf < 1.0e-300 || mag_d < 1.0e-300 {
+    if mag_sf < 1.0e-300 {
+        return None;
+    }
+    // upstream `unitArea = Sf/magSf` (divide, not `Sf*(1/magSf)`)
+    let n = Vector3::new(sf.x / mag_sf, sf.y / mag_sf, sf.z / mag_sf);
+    non_ortho_geometry_from_unit_normal(n, d)
+}
+
+/// The **previous** form of [`non_ortho_geometry`], kept callable (gh:#1362,
+/// maintainer decision 2026-11-12): identical except that the unit normal is
+/// `Sf*(1/magSf)` (multiply by the reciprocal) instead of upstream's `Sf/magSf`.
+/// It differs from upstream's `nonOrthCorrectionVectors` by an ulp or two on a
+/// third to a half of the faces (hex 668 / 2367, polyDual 1069 / 3708 before the
+/// switch). Not the default; use [`non_ortho_geometry`] unless reproducing a
+/// result computed with the old form.
+pub fn non_ortho_geometry_port_original(sf: Vector3, d: Vector3) -> Option<NonOrthoGeometry> {
+    let mag_sf = sf.mag();
+    if mag_sf < 1.0e-300 {
         return None;
     }
     let n = sf * (1.0 / mag_sf);
+    non_ortho_geometry_from_unit_normal(n, d)
+}
+
+/// Shared tail of the two geometries: everything after the unit normal.
+fn non_ortho_geometry_from_unit_normal(n: Vector3, d: Vector3) -> Option<NonOrthoGeometry> {
+    let mag_d = d.mag();
+    if mag_d < 1.0e-300 {
+        return None;
+    }
     let n_dot_d = n.dot(d);
     let cos_theta = (n_dot_d / mag_d).clamp(-1.0, 1.0);
     let angle_deg = cos_theta.r_acos().to_degrees();
@@ -235,6 +280,127 @@ pub fn max_non_orthogonality_deg(mesh: &crate::mesh::fv_mesh::FvMesh) -> f64 {
 /// `fvm::laplacian`. With `scheme = NonOrthoScheme::Orthogonal` the result is
 /// identical to [`fvm::laplacian`](super::laplacian) for every mesh.
 ///
+/// # Which Laplacian: this one or the face-centre one (maintainer decision 2026-11-12, gh:#1336 / gh:#1362)
+///
+/// Both operators are kept; the choice between them is **left open for a
+/// future study**.
+///
+/// - **This function is the upstream translation: the default, and
+///   bit-identical to OpenFOAM** (ESI v2506 `gaussLaplacianScheme` with
+///   `corrected` / `limited corrected`, on two meshes; differential rows in
+///   `tests/operators_vs_openfoam.rs`).
+/// - **[`laplacian_corrected_face_centre`] (port-original) is the more accurate
+///   one**, because it also corrects the non-coupled boundary faces (a
+///   Dirichlet boundary correction) and so recovers a linear field exactly at
+///   non-orthogonal boundary cells. Upstream's corrected Laplacian does not
+///   correct those faces. On the wavy mesh at `amp = 0.3` (10.5 deg) this one
+///   reaches **1.264e-3** where the face-centre form, driven by
+///   [`grad_least_squares_face_centre`](crate::fv_operators::fvc::grad_least_squares_face_centre),
+///   reaches **~7e-12** (`tests/non_orthogonal_laplacian.rs`, 6.981e-12 in
+///   its recorded table; upstream figure in
+///   `verification_and_validation/upstream_ops_gh1362/README.md`). The upstream
+///   figure is OpenFOAM's faithful behaviour, not a defect of this port.
+///
+/// # Arguments
+/// - `gamma` — face diffusivity `[m^2/s]` for scalar transport, or thermal
+///   conductivity `[W/(m.K)]` for conduction; whatever units make
+///   `Gamma * grad(phi) * area` the flux the caller wants.
+/// - `phi` — the transported scalar; its boundary conditions set the matrix's
+///   boundary contributions exactly as in [`fvm::laplacian`](super::laplacian).
+/// - `grad_phi` — the **current** cell gradient of `phi` `[phi/m]`, used only
+///   for the explicit correction. Pass a least-squares gradient
+///   ([`fvc::grad_least_squares`](crate::fv_operators::fvc::grad_least_squares))
+///   on a non-orthogonal mesh: a Gauss gradient is itself inconsistent there, so
+///   feeding it in caps the achievable accuracy.
+/// - `scheme` — how much correction to apply.
+///
+/// # Face-gradient interpolation
+///
+/// ~~`(grad phi)_f` is the arithmetic mean of the two adjacent cell gradients on
+/// an internal face, and the owner's gradient on a boundary face.~~ **CORRECTED
+/// 2026-11-12** (that is [`laplacian_corrected_face_centre`]; this function is
+/// upstream's `correctedSnGrad::fullGradCorrection`): internal faces use the
+/// linear-weighted gradient `w (g_P - g_N) + g_N` dotted into the non-orthogonal
+/// correction vector, and non-coupled boundary faces carry **no** correction
+/// (upstream's correction vectors there are zero). Read from
+/// `fvc::sn_grad_correction_with_grad`, which this calls.
+///
+/// # Iteration
+///
+/// This applies the correction **once**, from the gradient you pass in. To
+/// actually converge the correction, loop: solve, recompute `grad_phi` from the
+/// new solution, re-assemble, solve again. See
+/// [`solve_laplacian_non_orthogonal`] for that loop packaged up.
+pub fn laplacian_corrected(
+    gamma: &SurfaceScalarField,
+    phi: &VolScalarField,
+    grad_phi: &VolVectorField,
+    scheme: NonOrthoScheme,
+) -> FvMatrix {
+    let mesh = phi.mesh.clone();
+    // Upstream `gaussLaplacianScheme::fvmLaplacian` (ESI v2506), `corrected` /
+    // `limited corrected`: the implicit part is `fvmLaplacianUncorrected` with
+    // `nonOrthDeltaCoeffs`; the explicit part is the face flux
+    // `faceFluxCorrection = gamma*magSf*snGradCorrection` and its divergence goes
+    // to the source, `source_ = -V*div(faceFluxCorrection)` (this matrix has the
+    // opposite sign, so `+V*div`), BEFORE the boundary coefficients are added.
+    // ~~Delta-coefficient increments on a matrix built with `1/|d|`, a
+    // 0.5-weighted face gradient, the correction added face by face to the
+    // source, and a Dirichlet boundary correction upstream does not have
+    // (its non-coupled `nonOrthCorrectionVectors` are zero)~~ **CHANGED
+    // 2026-11-11 (gh:#1362)**: bit-identical to upstream on the #1362 meshes.
+    if scheme == NonOrthoScheme::Orthogonal {
+        return super::laplacian(gamma, phi);
+    }
+    let corr = crate::fv_operators::fvc::sn_grad_correction_with_grad(phi, grad_phi, scheme);
+    let mut sum = vec![0.0_f64; mesh.n_cells];
+    for f in 0..mesh.n_internal_faces {
+        let ffc = (gamma.internal[f] * mesh.face_areas[f]) * corr[f];
+        sum[mesh.owner[f]] += ffc;
+        sum[mesh.neighbour[f]] -= ffc;
+    }
+    // non-coupled boundary faces: the correction vector is zero, so the flux is 0
+    let source0: Vec<f64> = (0..mesh.n_cells)
+        .map(|c| mesh.cell_volumes[c] * (sum[c] / mesh.cell_volumes[c]))
+        .collect();
+    super::laplacian_with_delta_and_source(gamma, phi, super::DeltaCoeff::NonOrthogonal, Some(&source0))
+}
+
+/// **Port-original** corrected Laplacian (NOT upstream's `gaussLaplacianScheme`
+/// `corrected`; see [`laplacian_corrected`] for that), kept because it recovers a
+/// linear field exactly on any mesh when driven by
+/// [`grad_least_squares_face_centre`](crate::fv_operators::fvc::grad_least_squares_face_centre),
+/// the property `tests/non_orthogonal_laplacian.rs` verifies and
+/// [`solve_laplacian_non_orthogonal`] uses (gh:#1362).
+///
+/// Differences from upstream: a 0.5-weighted mean face gradient, the explicit term
+/// added face by face to the source, a Dirichlet boundary correction (upstream's
+/// non-coupled correction vectors are zero), and `Limited(w)` scaling the
+/// correction by `w` (upstream's `limited corrected w` uses the limiter
+/// `min(w|snGrad|/((1-w)|corr| + SMALL), 1)`).
+///
+/// **Which one to use (maintainer decision 2026-11-12, gh:#1336 / gh:#1362):** both
+/// are kept and the choice is left open for a future study. This is the **more
+/// accurate** of the pair at non-orthogonal boundary cells (~7e-12 against
+/// 1.264e-3 for [`laplacian_corrected`] on the `amp = 0.3` wavy mesh) because it
+/// corrects the non-coupled boundary faces, which upstream does not. It is NOT
+/// the default and NOT bit-identical to OpenFOAM; [`laplacian_corrected`] is the
+/// upstream translation and the default. Measured in
+/// `tests/non_orthogonal_laplacian.rs` and
+/// `verification_and_validation/upstream_ops_gh1362/README.md`.
+///
+/// Original description follows.
+///
+/// Implicit Laplacian with an explicit non-orthogonal correction, using a
+/// caller-supplied cell gradient — `fvm::laplacian(Gamma, phi)` with a
+/// `corrected` snGrad scheme.
+///
+/// Sign convention matches [`fvm::laplacian`](super::laplacian): the returned
+/// matrix is the **positive-definite** operator `-div(Gamma grad phi)` (positive
+/// diagonal, negative off-diagonals), which is the opposite sign to OpenFOAM's
+/// `fvm::laplacian`. With `scheme = NonOrthoScheme::Orthogonal` the result is
+/// identical to [`fvm::laplacian`](super::laplacian) for every mesh.
+///
 /// # Arguments
 /// - `gamma` — face diffusivity `[m^2/s]` for scalar transport, or thermal
 ///   conductivity `[W/(m.K)]` for conduction; whatever units make
@@ -262,7 +428,7 @@ pub fn max_non_orthogonality_deg(mesh: &crate::mesh::fv_mesh::FvMesh) -> f64 {
 /// actually converge the correction, loop: solve, recompute `grad_phi` from the
 /// new solution, re-assemble, solve again. See
 /// [`solve_laplacian_non_orthogonal`] for that loop packaged up.
-pub fn laplacian_corrected(
+pub fn laplacian_corrected_face_centre(
     gamma: &SurfaceScalarField,
     phi: &VolScalarField,
     grad_phi: &VolVectorField,
@@ -337,7 +503,7 @@ pub fn laplacian_corrected(
                     continue;
                 };
                 let gamma_a = gamma.boundary[pi].values[fi] * mesh.face_areas[gf];
-                let coeff_orth = gamma_a / d_b.mag();
+                let coeff_orth = gamma_a / super::DeltaCoeff::Orthogonal.boundary_delta(&mesh, gf); // gh:#1488: the distance the uncorrected Laplacian used
                 let coeff_corr = gamma_a * g.delta_coeff;
                 let delta = coeff_corr - coeff_orth;
 
@@ -410,8 +576,8 @@ pub fn solve_laplacian_non_orthogonal(
     current.boundary = phi.boundary.clone();
 
     for _ in 0..n_correctors {
-        let g = grad_least_squares(&current);
-        let mat = laplacian_corrected(gamma, &current, &g, scheme);
+        let g = grad_least_squares_face_centre(&current);
+        let mat = laplacian_corrected_face_centre(gamma, &current, &g, scheme);
         let (next, p) = mat.solve_bicgstab(phi.name.as_str(), KrylovOptions::default(), settings);
         current.internal = next.internal;
         perf = p;
@@ -422,6 +588,7 @@ pub fn solve_laplacian_non_orthogonal(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fv_operators::fvc::grad_least_squares;
     use crate::fields::field::Field;
     use crate::mesh::fv_mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
     use std::sync::Arc;
@@ -525,6 +692,21 @@ mod tests {
         // Degenerate inputs return None rather than NaN.
         assert!(non_ortho_geometry(Vector3::ZERO, d).is_none());
         assert!(non_ortho_geometry(sf, Vector3::ZERO).is_none());
+    }
+
+    #[test]
+    fn port_original_geometry_agrees_with_upstream_form_to_round_off() {
+        // gh:#1362: the two unit-normal forms (`Sf/magSf` and `Sf*(1/magSf)`) differ by
+        // at most an ulp or two; both refuse degenerate input.
+        let sf = Vector3::new(0.3, -1.1, 0.7);
+        let d = Vector3::new(0.9, 0.2, -0.4);
+        let a = non_ortho_geometry(sf, d).unwrap();
+        let b = non_ortho_geometry_port_original(sf, d).unwrap();
+        assert!((a.corr_vec - b.corr_vec).mag() < 1e-14);
+        assert!((a.delta_coeff - b.delta_coeff).abs() < 1e-14 * a.delta_coeff.abs());
+        assert!((a.angle_deg - b.angle_deg).abs() < 1e-9);
+        assert!(non_ortho_geometry_port_original(Vector3::ZERO, d).is_none());
+        assert!(non_ortho_geometry_port_original(sf, Vector3::ZERO).is_none());
     }
 
     #[test]

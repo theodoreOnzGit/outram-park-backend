@@ -198,3 +198,42 @@ pub fn dew_point_pressure_ph(p0: Pressure, h0: AvailableEnergy) -> Pressure {
     let s0 = s_ph_eqm(p0, h0);
     dew_point_pressure_from_entropy(s0)
 }
+
+/// The temperature of a Region 1 (subcooled liquid) state `(p0, h0)` from the
+/// **forward** Gibbs equation: Newton on `h_1(T, p0) = h0` with
+/// `∂h/∂T|_p = c_p`, started from the IF97 backward `T_ph(p0, h0)` and
+/// converged to `|ΔT| ≤ 1e-12 T` (gh:#1111, 2026-11-02).
+///
+/// Why: the backward `T(p, h)` equation is consistent with the forward one
+/// only to |ΔT| ≤ 25 mK (IAPWS-IF97 §5.2.1), i.e. up to ≈ 100 J/kg of
+/// enthalpy. A critical-flow objective that takes `s0` at the backward `T0`
+/// and subtracts from the given `h0` carries that error into a kinetic energy
+/// that, near saturation or in cold liquid, is itself only 0.1–200 J/kg.
+/// With this `T0`, `h_1(T0, p0) = h0` to round-off and `s0 = s_1(T0, p0)` is
+/// the entropy of the given state.
+///
+/// Returns `None` when `(p0, h0)` is not Region 1, when the backward start is
+/// above 623.15 K, or when Newton has not converged in 50 steps (the caller
+/// then keeps its general route; no default is substituted).
+pub(crate) fn t_ph_region_1_forward(p0: Pressure, h0: AvailableEnergy) -> Option<ThermodynamicTemperature> {
+    use crate::interfaces::functional_programming::ph_flash_eqm::{ph_flash_region, t_ph_eqm};
+    use crate::interfaces::functional_programming::pt_flash_eqm::FwdEqnRegion;
+    use crate::region_1_subcooled_liquid::{cp_tp_1, h_tp_1};
+    use uom::si::thermodynamic_temperature::kelvin;
+    if ph_flash_region(p0, h0) != FwdEqnRegion::Region1 {
+        return None;
+    }
+    let mut t = t_ph_eqm(p0, h0).get::<kelvin>();
+    if t > 623.15 {
+        return None;
+    }
+    for _ in 0..50 {
+        let tk = ThermodynamicTemperature::new::<kelvin>(t);
+        let dt = (h_tp_1(tk, p0) - h0).value / cp_tp_1(tk, p0).value;
+        t -= dt;
+        if dt.abs() <= 1e-12 * t {
+            return Some(ThermodynamicTemperature::new::<kelvin>(t));
+        }
+    }
+    None
+}

@@ -2,6 +2,17 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-basic-lib"
 dir = "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity"
+test_ids = [
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::a_cell_zone_restricts_the_drag_to_its_own_cells",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::density_weighted_form_scales_the_drag_by_rho",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::drag_table_clamps_at_both_ends_instead_of_extrapolating",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::drag_table_is_linear_between_the_knots",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::drag_table_rejects_descending_temperatures",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::force_diagonal_matches_the_assembled_momentum_diagonal",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::fully_molten_cells_gain_exactly_no_drag",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::kinematic_drag_adds_volume_times_d_to_the_diagonal",
+    "crates/outram-foam-basic-lib/src/fv_options/solidification_porosity/tests.rs::phase_fraction_scales_the_drag_linearly",
+]
 
 [module."tests.rs"]
 path = "crate::fv_options::solidification_porosity::tests"
@@ -360,3 +371,20 @@ uses = [
     "fn:d8d0a640a6ad062e",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+failed = []

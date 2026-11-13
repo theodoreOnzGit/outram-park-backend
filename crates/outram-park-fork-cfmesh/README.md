@@ -132,10 +132,22 @@ a graded mesh),
 `delaunay::flip_to_delaunay` (bistellar 2→3 / 3→2 flips with Shewchuk
 predicates, improve-or-noop), `dual::polyhedral_dual` /
 `dual::polyhedral_dual_min_faces` (median dual, robust
-quad-fan or face-minimal), `smooth::laplacian_smooth` (smart-Laplacian quality
+quad-fan or face-minimal; since gh:#1240 also `dual::polyhedral_dual_per_point`,
+one boundary face per point per sector as OpenFOAM's `polyDualMesh`, and the
+cell-centre dual through `outram-foam-mesh` with the `cell-centre-dual`
+feature, chosen by `TetDualOptions::dual_kind`; the default is unchanged), `smooth::laplacian_smooth` (smart-Laplacian quality
 smoothing), and `layers::add_boundary_layers` / `add_boundary_layers_adaptive`
 (graded prism wall layers — flat walls, and curved/polyhedral walls with
 per-point thickness limiting).
+
+**Upstream cases (gh:#1476).** `mesh_dict` reads an upstream `system/meshDict`
+(every entry honoured or reported) with `checkMeshDict`'s validation;
+`tri_surf_io` reads the `surfaceFile` (`.fms`, `.ftr`, and STL with the
+`surface-file` feature); `poly_mesh_gen_io` (`foam-export`) writes
+`constant/polyMesh` with subsets and `meshMetaDict`. The executables are
+`outram-foam-cli`'s `cartesianMesh`, `tetMesh`, `pMesh` and `cartesian2DMesh`
+(`cartesianMesh -case <dir>`). Record:
+`verification_and_validation/case_reading_gh1476/`.
 
 ### Honest scope: what "verified" covers, and what is unmeasured
 
@@ -153,7 +165,13 @@ cells are well *shaped*. Two specific gaps to know before citing this crate:
   non-orthogonality; the dual of a uniform hex block measures exactly 0° and 0
   skewness"* — is a statement about **that** algorithm and **must not be
   transferred to this one**. No test in `dual` calls `checks::check_quality`, so
-  this dual's orthogonality and skewness are **unmeasured**.
+  this dual's orthogonality and skewness are **unmeasured** at the module
+  level. **UPDATED 2026-11-04 (gh:#1240):** the pipeline's differential
+  (`pipeline::tests::diagnose_dual_kinds_differential`, ignored, not a gate)
+  measures them on the pipe and duct for every dual kind (h 5 mm pipe:
+  internal non-orthogonality 16.3° mean, 47.0° max; wall face-to-owner
+  median 69° per corner, 26° per point); see the gh:#1240 section of
+  `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
 - **The tet primal's quality is unmeasured**, and is the *suspected* dominant
   source of the non-orthogonality reported downstream. `tet::tetrahedralize` is
   centroid subdivision; its two tests assert only tet count, positive volume,
@@ -248,9 +266,32 @@ including prism layers: contiguous patches with correct counts and start offsets
 and geometrically correct membership. The single-patch
 `surface_to_tet_dual_mesh` is unchanged.
 
-Known limitation: because classification runs last, prism layers are grown over
+~~Known limitation: because classification runs last, prism layers are grown over
 the **whole** boundary, `inlet`/`outlet` included — snappyHexMesh's per-patch
-`nSurfaceLayers` selection is future work.
+`nSurfaceLayers` selection is future work.~~ **CORRECTED 2026-11-04
+(gh:#1202):** set `TetDualOptions::layer_patches` (e.g. `["walls"]`) and the
+boundary is named before the layer stage and prisms grow on those patches only
+(`layers::add_boundary_layers_adaptive_on_patches`, a port of cfMesh's
+per-patch `boundaryLayers` border rules). Empty keeps the old whole-boundary
+behaviour. ~~Still missing: **feature-edge capture** (cfMesh's
+`meshSurfaceEdgeExtractor`), so on a pipe the dual's boundary faces wrap round
+the rim and the "flat" ends reach about a quarter cell up the wall.~~
+**UPDATED 2026-11-04 (gh:#1202):** feature-edge capture is ported
+(`surface_mapper`, cfMesh's `meshSurfaceMapper::mapVerticesOntoSurfacePatches`
+with edge and corner nodes) and runs in the multipatch pipeline after the dual
+(`TetDualOptions::feature_edges`, on by default): the Foam Studio pipe's rim is
+square and its inlet spans 0.9936 πR² (was 0.9396). ~~Not ported:
+`correctEdgesBetweenPatches`;~~ **CORRECTED 2026-11-05:** `correctEdgesBetweenPatches`
+is ported (`correct_edges`, gh:#1241), opt-in through
+`TetDualOptions::correct_edges`. Where mapping would leave a face on a feature
+edge, those points stay unmapped and the pipeline notes how many. Also since
+2026-11-04: `checks::QualityReport::max_skewness` is OpenFOAM's
+`faceSkewness` (it divided by the centre distance before), and the layer
+back-off applies upstream's layer limits (`maxInternalSkewness 4`, no
+non-positive face pyramid, `minDeterminant 0.001`).
+
+What of upstream cfMesh is ported, partly ported or not, and the porting plan
+for the rest (gh:#1251): [`docs/upstream_coverage.md`](docs/upstream_coverage.md).
 
 Remaining roadmap (beads under the `op-hzs` epic):
 
@@ -265,8 +306,31 @@ Remaining roadmap (beads under the `op-hzs` epic):
 9. named boundary patches carried through to the output polyMesh
    (`surface_to_tet_dual_mesh_multipatch`) ✅
 10. exact/adaptive predicates + size-driven point insertion (rest of `op-38z`)
-11. **patch-selective** layer insertion (layers currently grow over the whole
-    boundary, because patch classification runs last) and feature-aware layers
+11. ~~**patch-selective** layer insertion (layers currently grow over the whole
+    boundary, because patch classification runs last) and~~ **patch-selective
+    layers done 2026-11-04 (gh:#1202)**; ~~still to do: feature-edge capture~~
+    feature-edge capture done 2026-11-04 (without `correctEdgesBetweenPatches`,
+    which followed 2026-11-05 in `correct_edges`, gh:#1241);
+    ~~still to do: feature-aware layers and **local layer collapse** (three
+    layers on the pipe diverge in the solver; the interface to the dual sits
+    at 75–84°, and only a local collapse, snappy-style, can meet upstream's
+    relaxed `maxNonOrtho 75`)~~ **UPDATED 2026-11-04 (gh:#1215):** both
+    upstream repairs are ported beside the crate's own back-off and
+    selectable by `TetDualOptions::layer_strategy`
+    (`layers::LayerQualityStrategy`): `BackOffOnly` (default, unchanged),
+    `CfMeshOptimise` (cfMesh v1.1 `boundaryLayerOptimisation` +
+    `meshOptimizer::untangleMeshFV` / `optimizeLowQualityFaces`, modules
+    `boundary_layer_optimisation`, `mesh_optimizer`) and `SnappyCollapse`
+    (snappyHexMesh's per-point `extrudeMode` and `checkAndUnmark` loop with
+    `meshQualityDict`'s limits, modules `snappy_layers`,
+    `checks::faces_failing_mesh_quality`); the layer builder takes a
+    per-point layer count (`layers::build_layered_variable`). The
+    differential results are in
+    `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`
+    (gh:#1215 section). Also found: the tet-dual pipeline was not
+    reproducible between processes (the Delaunay flipper swept a
+    `HashMap`); fixed, pinned by
+    `pipeline::tests::back_off_only_layers_are_pinned_bit_for_bit`
 12. make the adaptive layerer work on graded near-wall meshes — it currently
     backs off to zero thickness there, which the pipeline now *reports* in
     `TetDualReport::stage_notes` rather than failing silently

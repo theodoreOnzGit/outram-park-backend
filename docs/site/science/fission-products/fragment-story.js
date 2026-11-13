@@ -1,4 +1,4 @@
-// Fission products, chapter 2 "A fragment's story" (lessons 4-9): the
+// Fission products, chapter 2 "A fragment's story" (lessons 4-10): the
 // widgets. Each registers with Lesson.widget(id, make) and runs only on the
 // page that has its element:
 //   #flight   (fragment-flight.html)  two fragments' flight, a cartoon at the

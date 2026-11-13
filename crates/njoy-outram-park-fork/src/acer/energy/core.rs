@@ -7,7 +7,7 @@
 //! parsers that build these types.
 
 use crate::endf::tape::Tape;
-use crate::acer::angular::{parse_elastic_angular, ElasticAngular};
+use crate::acer::angular::{parse_elastic_angular_newfor, ElasticAngular};
 
 /// eV → MeV.
 pub(super) const EMEV: f64 = 1.0e6;
@@ -185,6 +185,18 @@ pub fn law3_discrete_level(qi_ev: f64, awr: f64) -> EnergyLaw {
     }
 }
 
+/// The angular distribution of a fission reaction when the evaluation gives one
+/// in MF=4 (`acelod`'s angular loop reads MF=4 for MT=18 as for any other
+/// reaction, `acefc.f90:5782-5791`; an all-isotropic one writes LAND `0`).
+/// ENDF/B-VIII evaluations carry none, so nothing changes for them; Pu-238
+/// ENDF/B-IV (deck test 10) gives MT=18 a two-energy table that NJOY stores as
+/// a 21-word AND segment (gh:#1369).
+fn fission_angular(tape: &Tape, mat: i32, mt: i32, newfor: i32) -> Option<ElasticAngular> {
+    tape.section(mat, 4, mt)
+        .and_then(|s| parse_elastic_angular_newfor(s, newfor).ok())
+        .filter(|a| !a.is_all_isotropic())
+}
+
 /// The base neutron multiplicity of a producing reaction, or `None` if the
 /// reaction emits no neutron (capture, charged-particle absorption, …).
 ///
@@ -243,6 +255,26 @@ fn neutron_yield(mt: i32) -> Option<u32> {
 ///
 /// `partials` are `(MT, Q [eV])` pairs, in MTR order.
 pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)]) -> Vec<Emission> {
+    build_emissions_newfor(tape, mat, awr, partials, 1)
+}
+
+/// [`build_emissions`] for ACER's `newfor`: `0` stores every angular
+/// distribution as the old format's 32 equally probable bins (gh:#1449).
+pub fn build_emissions_newfor(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)], newfor: i32) -> Vec<Emission> {
+    build_emissions_mode(tape, mat, awr, partials, newfor, true)
+}
+
+/// [`build_emissions_newfor`] with `topfil`'s scratch tape coded (`text`) or
+/// binary, as the sign of ACER's PENDF unit sets it (gh:#1492).
+pub fn build_emissions_mode(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)], newfor: i32, text: bool) -> Vec<Emission> {
+    build_emissions_smooth(tape, mat, awr, partials, newfor, text, true)
+}
+
+/// [`build_emissions_mode`] with ACER card 6's `ismooth` (`acer.f90:163-171`):
+/// `acelod` passes it to `acelf5` (the MT=18 tail above 10 MeV,
+/// `acefc.f90:6816`) and `acelf6` (the LANG=2 low-energy `sqrt(E)`
+/// extensions, `:7555`, `:7596`) (upstream test 28's third ACER, gh:#1369).
+pub fn build_emissions_smooth(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)], newfor: i32, text: bool, ismooth: bool) -> Vec<Emission> {
     let mut out = Vec::new();
     for &(mt, qi) in partials {
         // FISSION FIRST, and deliberately from MF=5 rather than MF=6.
@@ -262,12 +294,12 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
                 // outgoing energies, and the MT=18 tail supplement. See
                 // `crate::acer::acelf5`.
                 let q_mev = crate::mixr::mix::sigfig(qi / EMEV, 7, 0);
-                if let Ok(Some(entry)) = crate::acer::acelf5::acelf5(sec, mt, q_mev, TYR_FISSION, true) {
+                if let Ok(Some(entry)) = crate::acer::acelf5::acelf5(sec, mt, q_mev, TYR_FISSION, ismooth) {
                     out.push(Emission {
                         mt,
                         tyr: TYR_FISSION,
                         law: EnergyLaw::Acelf6(entry),
-                        angular: None,
+                        angular: fission_angular(tape, mat, mt, newfor),
                     });
                     continue;
                 }
@@ -276,7 +308,7 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
                         mt,
                         tyr: TYR_FISSION,
                         law: EnergyLaw::Law4(law4),
-                        angular: None,
+                        angular: fission_angular(tape, mat, mt, newfor),
                     });
                 }
             }
@@ -291,7 +323,7 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
             // regular angular distribution (`acefc.f90:5851-5876`). GitHub
             // #872: Al-27 and Si-28/29/30 give every level this way.
             let angular = match tape.section(mat, 4, mt) {
-                Some(s) => parse_elastic_angular(s).ok().filter(|a| !a.is_all_isotropic()),
+                Some(s) => parse_elastic_angular_newfor(s, newfor).ok().filter(|a| !a.is_all_isotropic()),
                 None => tape
                     .section(mat, 6, mt)
                     .and_then(|s| crate::acer::acensd::parse_mf6_law2_for_acer(s).ok().flatten()),
@@ -309,7 +341,18 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
             // comes off the section's own HEAD record.
             let iza = sec.rows.first().map_or(0, |r| r[0].round() as i32);
             let q_mev = crate::mixr::mix::sigfig(qi / EMEV, 7, 0);
-            if let Ok(Some(entry)) = crate::acer::acelf6::acelf6(sec, mt, q_mev, iza, true) {
+            if newfor == 0 {
+                // Old format: `topfil` converts LAW=1 lab/CM to law 7 (gh:#1449).
+                if let Ok(Some(o)) = crate::acer::acelf6::acelf6_old_format(sec, mt, q_mev, iza, ismooth) {
+                    let tyr = match o.entry.tyr {
+                        crate::acer::acelf6::Acelf6Tyr::Fixed(t) => t,
+                        crate::acer::acelf6::Acelf6Tyr::Generalized { sign } => sign,
+                    };
+                    out.push(Emission { mt, tyr, law: EnergyLaw::Acelf6(o.entry), angular: Some(o.angular) });
+                    continue;
+                }
+            }
+            if let Ok(Some(entry)) = crate::acer::acelf6::acelf6_mode(sec, mt, q_mev, iza, ismooth, text) {
                 let tyr = match entry.tyr {
                     crate::acer::acelf6::Acelf6Tyr::Fixed(t) => t,
                     // Placeholder sign; the builder fills in `100 + L` once
@@ -324,8 +367,9 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
                 });
                 continue;
             }
-            // Fallback for what `acelf6` refuses (a LAW=7 neutron subsection):
-            // the previous energy-only Law 4.
+            // Fallback when `acelf6` returns nothing: the previous
+            // energy-only Law 4. (~~a LAW=7 neutron subsection~~: read by
+            // `acelf6` since 2026-11-09, gh:#1309.)
             if let Ok(n) = super::mf6::parse_mf6_law1_neutron(sec) {
                 // A negative ACE TYR marks a centre-of-mass distribution.
                 // `>= 2` because ENDF-6's LCT = 3 (first two particles in the
@@ -353,11 +397,11 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
             // **ADDED 2026-10-14:** before this they were skipped, written
             // with TYR = 0, so the table emitted no neutron from them and
             // OpenMC crashed on its DLW layout.
-            let ang = parse_elastic_angular(s4).ok();
+            let ang = parse_elastic_angular_newfor(s4, newfor).ok();
             let lct = ang.as_ref().map_or(1, |a| a.lct);
             let tyr = if lct >= 2 { -(y as i32) } else { y as i32 };
             let q_mev = crate::mixr::mix::sigfig(qi / EMEV, 7, 0);
-            if let Ok(Some(entry)) = crate::acer::acelf5::acelf5(s5, mt, q_mev, tyr, true) {
+            if let Ok(Some(entry)) = crate::acer::acelf5::acelf5(s5, mt, q_mev, tyr, ismooth) {
                 out.push(Emission {
                     mt,
                     tyr,

@@ -43,7 +43,9 @@ fn evidence(text: &str, extra: &[&str]) -> TestEvidence {
     let (run, _) = parse(text);
     let mut command = vec!["cargo".to_string()];
     command.extend(pl.args);
-    TestEvidence::new(
+    // As `kovan-cli test` records it (#1049).
+    let packages = pl.packages;
+    let mut e = TestEvidence::new(
         COMMIT.into(),
         Vec::new(),
         lock(),
@@ -55,7 +57,9 @@ fn evidence(text: &str, extra: &[&str]) -> TestEvidence {
         Some(101),
         run.build_ok,
         run.binaries,
-    )
+    );
+    e.packages = packages;
+    e
 }
 
 /// Methodology: the captured full output parses into its three binaries
@@ -182,10 +186,13 @@ fn a_complete_full_run_with_failures_counts_and_round_trips() {
 }
 
 /// Methodology: a filter passed after `--` is caught twice: by the argument
-/// plan and by libtest's own `filtered out` counts; a `-p` run of this
-/// workspace's `bishan` (captured) is partial. Neither counts.
+/// plan and by libtest's own `filtered out` counts, and does not count.
+/// ~~A `-p` run of this workspace's `bishan` (captured) is partial.~~
+/// **CORRECTED 2026-10-29** (#1049, maintainer): it is the full suite of
+/// `bishan` and counts for that crate only (`packages`); a `-p` run that
+/// also filters stays partial.
 ///
-/// Result (2026-10-07): passes.
+/// Result (2026-10-07): passes. (2026-10-29, the new `-p` rule): passes.
 #[test]
 fn filtered_and_package_runs_are_partial() {
     let e = evidence(FILTERED, &["--", "area"]);
@@ -218,12 +225,15 @@ fn filtered_and_package_runs_are_partial() {
     assert_eq!(e2.scope, Scope::Partial);
 
     let b = evidence(BISHAN, &["-p", "bishan", "-j", "1"]);
-    assert_eq!(b.scope, Scope::Partial);
-    assert_eq!(b.partial_reasons, vec!["-p bishan"]);
+    assert_eq!(b.scope, Scope::Full);
+    assert!(b.partial_reasons.is_empty());
+    assert_eq!(b.packages, vec!["bishan"]);
     assert_eq!(b.binaries.len(), 1);
     assert_eq!(b.binaries[0].src, "crates/bishan/src/lib.rs");
     assert_eq!(b.binaries[0].passed.len(), 3);
-    assert!(matches!(b.counted(), Err(v) if matches!(v[0], NotCounted::Partial(_))));
+    assert_eq!(b.counted(), Ok(()));
+    let filtered = evidence(BISHAN, &["-p", "bishan", "--", "--skip", "x"]);
+    assert!(matches!(filtered.counted(), Err(v) if matches!(v[0], NotCounted::Partial(_))));
 }
 
 fn func(file: &str, name: &str, id_suffix: &str) -> Function {
@@ -404,8 +414,10 @@ fn libtest_names_map_to_call_graph_test_ids() {
         }
     );
 
-    // Partial evidence never projects.
-    assert!(to_test_run(&evidence(BISHAN, &["-p", "bishan"]), &m).is_err());
+    // Partial evidence never projects (~~a `-p` run~~, corrected
+    // 2026-10-29, #1049: a `-p` run is full for its crate; a filter is
+    // partial).
+    assert!(to_test_run(&evidence(BISHAN, &["--", "--skip", "x"]), &m).is_err());
 }
 
 /// Methodology: of a `git status --porcelain` listing, only build inputs

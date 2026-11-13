@@ -9,7 +9,13 @@ test_ids = [
     "crates/kovan-codegen/src/lib.rs::generate_dispatches_to_each_family",
     "crates/kovan-codegen/src/lib.rs::generate_is_deterministic_across_families",
     "crates/kovan-codegen/src/lib.rs::unimplemented_catalogue_entries_report_the_method",
+    "crates/kovan-codegen/src/root_finding/mod.rs::bad_bracket_returns_none",
+    "crates/kovan-codegen/src/root_finding/mod.rs::bisection_finds_sqrt2",
+    "crates/kovan-codegen/src/root_finding/mod.rs::brent_finds_sqrt2",
     "crates/kovan-codegen/src/root_finding/mod.rs::generate_is_deterministic",
+    "crates/kovan-codegen/src/root_finding/mod.rs::newton_finds_sqrt2",
+    "crates/kovan-codegen/src/root_finding/mod.rs::regula_falsi_finds_sqrt2",
+    "crates/kovan-codegen/src/root_finding/mod.rs::secant_finds_sqrt2",
     "crates/kovan-codegen/src/root_finding/mod.rs::unimplemented_variants_error",
     "crates/kovan/src/commands/gen.rs::every_root_finder_arg_maps_and_generates_or_reports_unimplemented",
     "crates/kovan/src/commands/gen.rs::gmres_is_unimplemented",
@@ -59,13 +65,7 @@ reached_by = [
     "#3",
     "#4",
     "#5",
-    "#6",
-    "#7",
-    "#8",
     "#9",
-    "#10",
-    "#11",
-    "#12",
     "#13",
     "#14",
     "#15",
@@ -83,6 +83,12 @@ reached_by = [
     "#27",
     "#28",
     "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
 ]
 
 [[module."mod.rs".function]]
@@ -236,3 +242,47 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 callees = ["fn:43c0c8c4932854b9"]
 uses = ["fn:d07b9a3fbb1a4247"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+]
+failed = []

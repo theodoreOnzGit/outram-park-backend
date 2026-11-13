@@ -84,7 +84,10 @@ pub fn run(image_arg: Option<String>, startup: Startup) -> Result<(), String> {
     eframe::run_native(
         "kovan",
         options,
-        Box::new(move |_cc| {
+        Box::new(move |cc| {
+            // Gruvbox Dark (the workspace's shared `bugis` theme) from the
+            // first frame; the app re-applies its own selection every frame.
+            bugis::Theme::default().apply(&cc.egui_ctx);
             let mut app = crate::app::DigitiseApp::default();
             app.start_up(startup.root.is_some());
             if let Some(path) = image_arg {

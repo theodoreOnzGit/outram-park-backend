@@ -1,0 +1,7 @@
+arm,seed,k,k_std,particles,inactive,active,threads,wall_s,load_s,hardware
+mo-omitted@salt1181F/graphite1181F,1,1.013391,0.000669,20000,100,200,32,244.5,234.6,"llvmpipe (LLVM 15.0.7, 256 bits) / Vulkan, 36 cores, linux, Intel(R) Xeon(R) W-2195 CPU @ 2.30GHz, 62.5 GiB RAM"
+mo-omitted@salt1181F/graphite1181F,2,1.012406,0.000672,20000,100,200,32,268.6,234.6,"llvmpipe (LLVM 15.0.7, 256 bits) / Vulkan, 36 cores, linux, Intel(R) Xeon(R) W-2195 CPU @ 2.30GHz, 62.5 GiB RAM"
+mo-omitted@salt1181F/graphite1181F,3,1.013545,0.000681,20000,100,200,32,266.4,234.6,"llvmpipe (LLVM 15.0.7, 256 bits) / Vulkan, 36 cores, linux, Intel(R) Xeon(R) W-2195 CPU @ 2.30GHz, 62.5 GiB RAM"
+mo-omitted@salt1181F/graphite1181F+no-dbrc,1,1.013243,0.000636,20000,100,200,32,242.0,267.8,"llvmpipe (LLVM 15.0.7, 256 bits) / Vulkan, 36 cores, linux, Intel(R) Xeon(R) W-2195 CPU @ 2.30GHz, 62.5 GiB RAM"
+mo-omitted@salt1181F/graphite1181F+no-dbrc,2,1.012697,0.000645,20000,100,200,32,295.8,267.8,"llvmpipe (LLVM 15.0.7, 256 bits) / Vulkan, 36 cores, linux, Intel(R) Xeon(R) W-2195 CPU @ 2.30GHz, 62.5 GiB RAM"
+mo-omitted@salt1181F/graphite1181F+no-dbrc,3,1.013960,0.000688,20000,100,200,32,302.0,267.8,"llvmpipe (LLVM 15.0.7, 256 bits) / Vulkan, 36 cores, linux, Intel(R) Xeon(R) W-2195 CPU @ 2.30GHz, 62.5 GiB RAM"

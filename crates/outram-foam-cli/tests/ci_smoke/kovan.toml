@@ -2,6 +2,16 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-cli"
 dir = "crates/outram-foam-cli/tests/ci_smoke"
+test_ids = [
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_benchmark_re100",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_benchmark_re100_fine_mesh",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_mesh_loads",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_velocity_matches_icofoam",
+    "crates/outram-foam-cli/tests/ci_smoke/sod.rs::exact_riemann_matches_sod_table_ii",
+    "crates/outram-foam-cli/tests/ci_smoke/sod.rs::exact_riemann_reproduces_sod_star_state",
+    "crates/outram-foam-cli/tests/ci_smoke/sod.rs::rho_central_foam_matches_sod_table_ii",
+    "crates/outram-foam-cli/tests/ci_smoke/sod.rs::sod_shock_tube_timed_series",
+]
 
 [module."cavity.rs"]
 path = "test:ci_smoke::cavity"
@@ -1095,3 +1105,19 @@ uses = [
     "fn:e70df882a4fb357d",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+failed = []

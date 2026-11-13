@@ -1,0 +1,19 @@
+# Document: Fei, Mohamed, Kim (2013), ANL-ARC-228 Rev. 1, Neutronics Benchmark Specifications for EBR-II SHRT-45R (Argonne National Laboratory)
+# Table 3.1.1 "Design Parameters of EBR-II Subassembly Elements at 20 C", printed p.17 (PDF p.17)
+# Units as in the row label. Values in parentheses in the source (MARK-IIA, or with top instrument adapter) are in the *_alt columns.
+# AI transcription 2026-11-10, not yet reviewed by a human. Numbers exactly as printed.
+item,unit,mark_ii_a,mark_ii_a_alt,mark_iis_c,mark_iis_c_alt,xx09,xx09_alt,xx10,xx10_alt,outer_blanket
+fuel_alloy,wt%,U-5Fs,,U-5Fs,,U-5Fs,,Stainless Steel,,Depleted Uranium
+enrichment,wt% U235,67,,67,,67,,N/A,,~ 0.0
+number_of_elements,-,91,91,61,,59 of 61,,18 of 19,,19
+fuel_slug_length,m,0.3429,,0.3429,,0.3429,,N/A,,1.3970
+fuel_slug_diameter,mm,3.3655,,3.3655,,3.3655,,N/A,,11.0998
+cladding_wall_thickness,mm,0.305,,0.305,,0.305,,Solid rod,,0.4570
+cladding_wall_od,mm,4.4196,,4.4196,,4.4196,,8.81,,12.5222
+element_length,m,0.6108,0.6362,0.5334,0.6108,0.6108,0.6494,0.6108,0.6951,1.575
+restrainer_height_above_fuel,mm,12.7,,12.7,,None,,None,,N/A
+sodium_level_above_fuel,mm,31.75,6.35,6.35,,6.35,,6.35,,30.48
+plenum_gas,-,Inert gas,,Inert gas,,Inert gas,,Inert gas,,N/A
+cladding_material,-,316SS,,316SS,,316SS,,316SS,,304SS
+spacer_wire_diameter,mm,1.24,,1.24,,1.24,,1.24,,None
+spacer_wire_material,-,316SS,,316SS,,316SS,,316SS,,N/A

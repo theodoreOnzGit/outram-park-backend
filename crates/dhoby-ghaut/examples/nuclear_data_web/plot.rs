@@ -77,8 +77,8 @@ pub fn bounds(sets: &[&[[f64; 2]]]) -> Option<(f64, f64, f64, f64)> {
 pub fn axes(painter: &egui::Painter, rect: Rect, view: &View, frame: &Frame, xname: &str, yname: &str) {
     let lo = frame.to_data(view, rect, rect.left_bottom());
     let hi = frame.to_data(view, rect, rect.right_top());
-    let grid = Color32::from_rgb(38, 44, 56);
-    let label = Color32::from_rgb(150, 158, 175);
+    let ink = bugis::Ink::of_ctx(painter.ctx());
+    let (grid, label) = (ink.grid, ink.muted);
     let font = egui::FontId::proportional(11.0);
     let (kx0, kx1) = (lo[0].r_log10().floor() as i32, hi[0].r_log10().ceil() as i32);
     let step_x = ((kx1 - kx0) as f32 / (rect.width() / 46.0)).ceil().max(1.0) as i32;
@@ -96,8 +96,8 @@ pub fn axes(painter: &egui::Painter, rect: Rect, view: &View, frame: &Frame, xna
             painter.text(Pos2::new(rect.left() + 4.0, p.y - 1.0), egui::Align2::LEFT_BOTTOM, format!("1e{k}"), font.clone(), label);
         }
     }
-    painter.text(Pos2::new(rect.right() - 8.0, rect.bottom() - 28.0), egui::Align2::RIGHT_BOTTOM, xname, egui::FontId::proportional(12.0), Color32::WHITE);
-    painter.text(Pos2::new(rect.left() + 4.0, rect.top() + 52.0), egui::Align2::LEFT_TOP, yname, egui::FontId::proportional(12.0), Color32::WHITE);
+    painter.text(Pos2::new(rect.right() - 8.0, rect.bottom() - 28.0), egui::Align2::RIGHT_BOTTOM, xname, egui::FontId::proportional(12.0), ink.text);
+    painter.text(Pos2::new(rect.left() + 4.0, rect.top() + 52.0), egui::Align2::LEFT_TOP, yname, egui::FontId::proportional(12.0), ink.text);
 }
 
 /// Stroke a curve, reduced per pixel column. Non-positive values break it.
@@ -168,10 +168,11 @@ pub fn dots(painter: &egui::Painter, rect: Rect, view: &View, frame: &Frame, pts
 /// A legend in the top-left corner, under where the "Controls »" button goes.
 pub fn legend(painter: &egui::Painter, rect: Rect, items: &[(Color32, &str)]) {
     let mut y = rect.top() + 52.0 + 18.0;
+    let text = bugis::Ink::of_ctx(painter.ctx()).text;
     for (c, name) in items {
         let x = rect.left() + 12.0;
         painter.line_segment([Pos2::new(x, y), Pos2::new(x + 18.0, y)], Stroke::new(3.0, *c));
-        painter.text(Pos2::new(x + 24.0, y), egui::Align2::LEFT_CENTER, *name, egui::FontId::proportional(12.0), Color32::WHITE);
+        painter.text(Pos2::new(x + 24.0, y), egui::Align2::LEFT_CENTER, *name, egui::FontId::proportional(12.0), text);
         y += 18.0;
     }
 }

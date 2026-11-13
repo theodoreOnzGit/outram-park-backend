@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.1.4
+**Version:** 0.1.8
 
 **Format Version:** 61
 
@@ -4560,7 +4560,7 @@ surface-normal gradient
 (`sn_grad`), linear face interpolation (`interpolate`) and flux assembly
 (`flux`, `buoyancy_flux`), least-squares velocity reconstruction
 (`reconstruct`), the Rhie–Chow time-derivative flux correction
-(`ddt_corr`), MUSCL / TVD limited face reconstruction
+(`ddt_corr`, Euler; `ddt_corr_backward`, BDF2), MUSCL / TVD limited face reconstruction
 (`reconstruct_pos_neg`, `Limiter`), and the EOS-free
 Kurganov–Noelle–Petrova central-upwind face flux (`central_upwind`). Field values carry raw
 `f64` / `Vector3` / `Tensor` element data (no `uom`), consistent with the
@@ -5127,6 +5127,18 @@ pub const KNP_MIN_WAVE_SPEED_SPAN: f64 = 1e-10;
 pub use ddt_corr::ddt_corr;
 ```
 
+#### Re-export `ddt_corr_backward`
+
+```rust
+pub use ddt_corr::ddt_corr_backward;
+```
+
+#### Re-export `BackwardDdtCoeffs`
+
+```rust
+pub use ddt_corr::BackwardDdtCoeffs;
+```
+
 #### Re-export `div`
 
 ```rust
@@ -5181,6 +5193,12 @@ pub use grad::grad;
 pub use grad_least_squares::grad_least_squares;
 ```
 
+#### Re-export `grad_least_squares_face_centre`
+
+```rust
+pub use grad_least_squares::grad_least_squares_face_centre;
+```
+
 #### Re-export `grad_vec`
 
 ```rust
@@ -5193,10 +5211,22 @@ pub use grad_vec::grad_vec;
 pub use interpolate::interpolate;
 ```
 
+#### Re-export `linear_weight`
+
+```rust
+pub use interpolate::linear_weight;
+```
+
 #### Re-export `reconstruct_pos_neg`
 
 ```rust
 pub use muscl::reconstruct_pos_neg;
+```
+
+#### Re-export `reconstruct_pos_neg_vector`
+
+```rust
+pub use muscl::reconstruct_pos_neg_vector;
 ```
 
 #### Re-export `Limiter`
@@ -5211,10 +5241,46 @@ pub use muscl::Limiter;
 pub use reconstruct::reconstruct;
 ```
 
+#### Re-export `linear_upwind`
+
+```rust
+pub use linear_upwind::linear_upwind;
+```
+
+#### Re-export `linear_upwind_with_grad`
+
+```rust
+pub use linear_upwind::linear_upwind_with_grad;
+```
+
 #### Re-export `sn_grad`
 
 ```rust
 pub use sn_grad::sn_grad;
+```
+
+#### Re-export `sn_grad_with_delta`
+
+```rust
+pub use sn_grad::sn_grad_with_delta;
+```
+
+#### Re-export `non_orth_correction_vectors`
+
+```rust
+pub use sn_grad_corrected::non_orth_correction_vectors;
+```
+
+#### Re-export `sn_grad_corrected`
+
+```rust
+pub use sn_grad_corrected::sn_grad_corrected;
+```
+
+#### Re-export `sn_grad_correction_with_grad`
+
+```rust
+pub use sn_grad_corrected::sn_grad_correction_with_grad;
 ```
 
 ## Module `fvm`
@@ -5293,6 +5359,12 @@ pub use div::div;
 pub use div_vec::div_vec;
 ```
 
+#### Re-export `div_vec_linear`
+
+```rust
+pub use div_vec::div_vec_linear;
+```
+
 #### Re-export `laplacian`
 
 ```rust
@@ -5303,6 +5375,12 @@ pub use laplacian::laplacian;
 
 ```rust
 pub use laplacian::laplacian_with_delta;
+```
+
+#### Re-export `laplacian_with_delta_and_source`
+
+```rust
+pub use laplacian::laplacian_with_delta_and_source;
 ```
 
 #### Re-export `DeltaCoeff`
@@ -5317,6 +5395,12 @@ pub use laplacian::DeltaCoeff;
 pub use laplacian_corrected::laplacian_corrected;
 ```
 
+#### Re-export `laplacian_corrected_face_centre`
+
+```rust
+pub use laplacian_corrected::laplacian_corrected_face_centre;
+```
+
 #### Re-export `max_non_orthogonality_deg`
 
 ```rust
@@ -5327,6 +5411,12 @@ pub use laplacian_corrected::max_non_orthogonality_deg;
 
 ```rust
 pub use laplacian_corrected::non_ortho_geometry;
+```
+
+#### Re-export `non_ortho_geometry_port_original`
+
+```rust
+pub use laplacian_corrected::non_ortho_geometry_port_original;
 ```
 
 #### Re-export `solve_laplacian_non_orthogonal`
@@ -6473,6 +6563,109 @@ pub mod dict { /* ... */ }
 
 ### Types
 
+#### Struct `Token`
+
+One lexical token from an OpenFOAM dictionary.
+
+Public since gh:#1476 so that readers of OpenFOAM **stream** files that
+are not dictionaries (cfMesh's `.fms`/`.ftr` surfaces: bare `N ( … )`
+lists) reuse this tokeniser instead of writing another.
+
+```rust
+pub struct Token {
+    pub text: String,
+    pub glued: bool,
+    pub quoted: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `text` | `String` | The token text. For a quoted string this is the inner content (quotes<br>stripped) and `quoted` is set. |
+| `glued` | `bool` | True if no whitespace separated this token from the previous one. |
+| `quoted` | `bool` | True if this token came from a `"…"` quoted string literal. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 #### Struct `Dimensioned`
 
 A dimensioned quantity: seven SI dimension exponents plus zero or more
@@ -7342,6 +7535,28 @@ pub struct FoamFile {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+### Functions
+
+#### Function `tokenize`
+
+Split dictionary `text` into [`Token`]s, stripping `//` line comments and
+`/* … */` block comments. The delimiters `( ) { } ; [ ]` are always their
+own single-character tokens.
+
+# Examples
+
+```
+use outram_foam_basic_lib::io::dict::tokenize;
+
+let t = tokenize("2 ((0 1 2) 0) // comment");
+let texts: Vec<&str> = t.iter().map(|x| x.text.as_str()).collect();
+assert_eq!(texts, ["2", "(", "(", "0", "1", "2", ")", "0", ")"]);
+```
+
+```rust
+pub fn tokenize(text: &str) -> Vec<Token> { /* ... */ }
+```
+
 ### Constants and Statics
 
 #### Constant `MAX_INCLUDE_DEPTH`
@@ -7640,6 +7855,11 @@ pub struct PolyMesh {
   ```
   Write the `polyMesh` files into `dir`, creating it if necessary.
 
+- ```rust
+  pub fn write_cell_zones</* synthetic */ impl AsRef<Path>: AsRef<Path>>(dir: impl AsRef<Path>, zones: &[(String, Vec<usize>)]) -> Result<(), IoError> { /* ... */ }
+  ```
+  Write `dir/cellZones` (OpenFOAM `cellZoneMesh`, gh:#1463): for each
+
 ###### Trait Implementations
 
 - **Any**
@@ -7717,6 +7937,39 @@ pub struct PolyMesh {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+### Functions
+
+#### Function `cell_geometry_from_faces`
+
+Cell volumes and centres from the face geometry, upstream's
+`primitiveMeshTools::makeCellCentresAndVols` operation for operation (the
+body of [`PolyMesh::cell_geometry`], factored out in gh:#1363 so the
+appbuilder's own mesh reader uses it instead of an older duplicate whose
+summation order differed, giving cell volumes up to 14 ulp off upstream on
+the shockTube mesh). `owner` has one entry per face (internal first),
+`neighbour` one per internal face.
+
+```rust
+pub fn cell_geometry_from_faces(face_ctr: &[crate::primitives::Vector3], face_sf: &[crate::primitives::Vector3], owner: &[usize], neighbour: &[usize], n_cells: usize) -> (Vec<f64>, Vec<crate::primitives::Vector3>) { /* ... */ }
+```
+
+#### Function `face_centre_and_area`
+
+Face centre `[m]` and area vector `Sf` `[m^2]` from a vertex loop, using the
+OpenFOAM decomposition of the polygon into triangles about its centroid.
+
+Same operation order as OpenFOAM-v2506 `primitiveMeshTools::
+makeFaceCentresAndAreas`, so the result is bit-identical (gh:#1489): a
+triangle is `(1/3)*(a+b+c)` and `0.5*((b-a)^(c-a))`; a polygon is
+`(1/3)*sumAc/sumA` with `c = p + p_next + centroid`, area `0.5*sumN`; a
+zero-area face (`sumA < ROOTVSMALL = 1e-150`) takes the vertex mean and a
+zero area. ~~Each triangle centre was divided by 3 before the area
+weighting; threshold `EPSILON`.~~ **CORRECTED 2026-11-11 (gh:#1489).**
+
+```rust
+pub fn face_centre_and_area(points: &[crate::primitives::Vector3], verts: &[usize]) -> (crate::primitives::Vector3, crate::primitives::Vector3) { /* ... */ }
+```
+
 ### Types
 
 #### Enum `IoError`
@@ -7820,7 +8073,7 @@ Fields:
 
 - **Error**
   - ```rust
-    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
     ```
 
 - **Freeze**
@@ -7918,6 +8171,18 @@ pub use field::write_vol_scalar_field;
 
 ```rust
 pub use field::write_vol_vector_field;
+```
+
+#### Re-export `cell_geometry_from_faces`
+
+```rust
+pub use poly_mesh::cell_geometry_from_faces;
+```
+
+#### Re-export `face_centre_and_area`
+
+```rust
+pub use poly_mesh::face_centre_and_area;
 ```
 
 #### Re-export `MeshFace`
@@ -8621,6 +8886,11 @@ pub struct FvMatrix {
   Pin one cell to a reference value — fixes the singular pressure matrix
 
 - ```rust
+  pub fn set_reference_openfoam(self: &mut Self, cell: usize, value: f64) { /* ... */ }
+  ```
+  Pin one cell exactly as upstream `fvMatrix::setReference` does
+
+- ```rust
   pub fn a_field(self: &Self) -> VolScalarField { /* ... */ }
   ```
   Diagonal coefficient per cell: `A[c] = diag[c]`.
@@ -8965,7 +9235,12 @@ pub struct FvVectorMatrix {
 - ```rust
   pub fn solve(self: &Self, name: &str, settings: SolverSettings) -> (VolVectorField, SolverPerformance) { /* ... */ }
   ```
-  Solve each component (x, y, z) as an independent scalar Gauss-Seidel problem.
+  Solve each component (x, y, z) as an independent scalar Gauss-Seidel
+
+- ```rust
+  pub fn solve_with_guess(self: &Self, name: &str, initial: &VolVectorField, settings: SolverSettings) -> (VolVectorField, SolverPerformance) { /* ... */ }
+  ```
+  As [`Self::solve`], but the Gauss–Seidel sweeps start from `initial`
 
 - ```rust
   pub fn solve_bicgstab(self: &Self, name: &str, options: KrylovOptions, settings: SolverSettings) -> (VolVectorField, SolverPerformance) { /* ... */ }
@@ -9148,6 +9423,11 @@ pub struct LduMatrix {
   pub fn normalised_residual(self: &Self, x: &[f64], b: &[f64]) -> f64 { /* ... */ }
   ```
   L1-scaled norm of residual: `||r||₁ / (||A·x||₁ + ε)`.
+
+- ```rust
+  pub fn openfoam_initial_residual(self: &Self, x: &[f64], b: &[f64]) -> f64 { /* ... */ }
+  ```
+  The initial residual OpenFOAM prints ("Initial residual = ..." in the
 
 ###### Trait Implementations
 
@@ -11806,7 +12086,8 @@ pub mod limiters { /* ... */ }
 
 A TVD flux limiter `psi(r)`, translated from OpenFOAM's r-based
 `limitedSchemes`. `psi = 0` is first-order upwind, `psi = 1` is second-order
-linear; the TVD variants clip extrema (`psi(r) = 0` for `r <= 0`).
+linear; most TVD variants clip extrema (`psi(r) = 0` for `r <= 0`); `vanAlbada` and `OSPRE` do
+not, as upstream.
 
 ```rust
 pub enum FluxLimiter {
@@ -11839,7 +12120,10 @@ Unlimited `linear` (central) differencing: `psi = 1` (2nd order, not TVD).
 
 ###### `VanAlbada`
 
-`vanAlbada`: upstream `r*(r + 1)/(sqr(r) + 1)` with `r = max(0, r)`. Symmetric.
+`vanAlbada`: upstream `r*(r + 1)/(sqr(r) + 1)` (OpenFOAM-v2506 `vanAlbada.H`), with NO
+`max(0, r)` and no clip: it is negative for `-1 < r < 0`. ~~This port clamped `r` at 0~~
+**CHANGED 2026-11-11 (gh:#1362, maintainer: upstream is the specification)**: now exactly
+upstream for every `r` (bit-identical, 314/314 differential values). Symmetric.
 
 ###### `Minmod`
 
@@ -11860,7 +12144,9 @@ Third-order biased (not symmetric).
 
 ###### `Ospre`
 
-`OSPRE`: upstream `1.5 r (r + 1)/(r (r + 1) + 1)` with `r = max(0, r)`. Symmetric.
+`OSPRE`: upstream `rrp1 = r*(r + 1); 1.5*rrp1/(rrp1 + 1)` (`OSPRE.H`), with NO `max(0, r)`
+and no clip: negative for `-1 < r < 0`. ~~This port clamped `r` at 0~~ **CHANGED
+2026-11-11 (gh:#1362)**: now exactly upstream for every `r`. Symmetric.
 
 ###### `LimitedLinear`
 
@@ -18857,6 +19143,16 @@ pub struct SquareMatrix {
   pub fn solve(self: &Self, rhs: &[f64]) -> Result<Vec<f64>, MatrixError> { /* ... */ }
   ```
   Convenience: decompose a copy and solve `A·x = b`.
+
+- ```rust
+  pub fn inverse(self: &Self) -> Result<SquareMatrix, MatrixError> { /* ... */ }
+  ```
+  The inverse, built the way `Foam::LUscalarMatrix::inv` builds it
+
+- ```rust
+  pub fn multiply_vector(self: &Self, x: &[f64]) -> Vec<f64> { /* ... */ }
+  ```
+  Matrix-vector product `self * x`, accumulated row by row in column
 
 ###### Trait Implementations
 
@@ -26862,10 +27158,52 @@ pub use crate::fv_operators::fvc::central_upwind::KnpWaveSpeeds;
 pub use crate::fv_operators::fvc::grad_least_squares;
 ```
 
+#### Re-export `grad_least_squares_face_centre`
+
+```rust
+pub use crate::fv_operators::fvc::grad_least_squares_face_centre;
+```
+
+#### Re-export `linear_upwind`
+
+```rust
+pub use crate::fv_operators::fvc::linear_upwind;
+```
+
+#### Re-export `linear_upwind_with_grad`
+
+```rust
+pub use crate::fv_operators::fvc::linear_upwind_with_grad;
+```
+
+#### Re-export `non_orth_correction_vectors`
+
+```rust
+pub use crate::fv_operators::fvc::non_orth_correction_vectors;
+```
+
+#### Re-export `sn_grad_corrected`
+
+```rust
+pub use crate::fv_operators::fvc::sn_grad_corrected;
+```
+
+#### Re-export `sn_grad_correction_with_grad`
+
+```rust
+pub use crate::fv_operators::fvc::sn_grad_correction_with_grad;
+```
+
 #### Re-export `laplacian_corrected`
 
 ```rust
 pub use crate::fv_operators::fvm::laplacian_corrected;
+```
+
+#### Re-export `laplacian_corrected_face_centre`
+
+```rust
+pub use crate::fv_operators::fvm::laplacian_corrected_face_centre;
 ```
 
 #### Re-export `max_non_orthogonality_deg`
@@ -26878,6 +27216,12 @@ pub use crate::fv_operators::fvm::max_non_orthogonality_deg;
 
 ```rust
 pub use crate::fv_operators::fvm::non_ortho_geometry;
+```
+
+#### Re-export `non_ortho_geometry_port_original`
+
+```rust
+pub use crate::fv_operators::fvm::non_ortho_geometry_port_original;
 ```
 
 #### Re-export `solve_laplacian_non_orthogonal`
@@ -27130,6 +27474,102 @@ pub use crate::krylov::Preconditioner;
 
 ```rust
 pub use crate::interface;
+```
+
+#### Re-export `radial_mesh`
+
+```rust
+pub use crate::steady_conduction::radial_mesh;
+```
+
+#### Re-export `voxel_mesh`
+
+```rust
+pub use crate::steady_conduction::voxel_mesh;
+```
+
+#### Re-export `ConductionMesh`
+
+```rust
+pub use crate::steady_conduction::ConductionMesh;
+```
+
+#### Re-export `EnergyBalance`
+
+```rust
+pub use crate::steady_conduction::EnergyBalance;
+```
+
+#### Re-export `PatchCondition`
+
+```rust
+pub use crate::steady_conduction::PatchCondition;
+```
+
+#### Re-export `RadialClosedForm`
+
+```rust
+pub use crate::steady_conduction::RadialClosedForm;
+```
+
+#### Re-export `RadialGeometry`
+
+```rust
+pub use crate::steady_conduction::RadialGeometry;
+```
+
+#### Re-export `RadialLayer`
+
+```rust
+pub use crate::steady_conduction::RadialLayer;
+```
+
+#### Re-export `RadialShell`
+
+```rust
+pub use crate::steady_conduction::RadialShell;
+```
+
+#### Re-export `SteadyConductionError`
+
+```rust
+pub use crate::steady_conduction::SteadyConductionError;
+```
+
+#### Re-export `SteadyConductionProblem`
+
+```rust
+pub use crate::steady_conduction::SteadyConductionProblem;
+```
+
+#### Re-export `SteadyConductionSettings`
+
+```rust
+pub use crate::steady_conduction::SteadyConductionSettings;
+```
+
+#### Re-export `SteadyConductionSolution`
+
+```rust
+pub use crate::steady_conduction::SteadyConductionSolution;
+```
+
+#### Re-export `ThermalBoundary`
+
+```rust
+pub use crate::steady_conduction::ThermalBoundary;
+```
+
+#### Re-export `VoxelGrid`
+
+```rust
+pub use crate::steady_conduction::VoxelGrid;
+```
+
+#### Re-export `VoxelMesh`
+
+```rust
+pub use crate::steady_conduction::VoxelMesh;
 ```
 
 #### Re-export `FluxLimiter`
@@ -27849,6 +28289,37 @@ Eigenvalues of a symmetric 3x3 tensor, ascending.
 A real symmetric tensor is guaranteed a real spectrum, so unlike
 [`eigen_values`] there is no complex case to report — any complex root here
 would be round-off in the cubic solve, not physics.
+
+# Upstream: the effectively-diagonal shortcut (gh:#1288)
+
+Port of OpenFOAM (ESI, www.openfoam.com) v2306
+`src/OpenFOAM/primitives/SymmTensor/symmTensor/symmTensor.C`,
+`Foam::eigenValues(const symmTensor&)`, lines 97-149: **when
+`xy² + xz² + yz² < ROOTSMALL` (`√SMALL` ≈ 3.16e-8) upstream returns the
+diagonal, sorted, without solving the cubic.** The port had the cubic
+path only, so a diagonal tensor with a repeated root went through the
+ill-conditioned double-root solve. The threshold is upstream's and is
+**absolute**, not relative to the tensor's size: every off-diagonal
+below about 1.8e-4 in magnitude is treated as zero. That is upstream's
+behaviour and is kept; a caller whose tensors are small, or that needs
+a small shear on a near-identity tensor, should know it.
+
+OpenFOAM-dev (Foundation, `tensor.C`) reaches the same answer on a
+diagonal tensor by a different route: `cubicEqn::roots(true)`
+short-circuits `d == 0` and clamps a positive discriminant to zero for
+a known-real spectrum. That cubic is not the one this crate ports (it
+ports ESI's, with the Kahan `p` and the `VSMALL` discriminant clamp).
+
+**V&V (gh:#1288, 2026-11-05).** *Methodology:* the cubic coefficients
+for `diag(4, 4, 0)` are `b = -8`, `c = 16`, `d = 0`; upstream ESI v2306
+takes the diagonal branch (all off-diagonals zero), so it returns
+`(0, 4, 4)` exactly; OpenFOAM-dev takes `d == 0` then a zero
+discriminant in `quadraticEqn(1, -8, 16)`, also `(0, 4, 4)` exactly.
+*Prediction, written before the fix was run:* the port then returns
+`(0, 4, 4)` bit for bit, as do `diag(2, 2, 5)`, `diag(0, 0, 3)` and
+`diag(-1, 3, 3)`; a tensor with any off-diagonal above the threshold is
+unchanged bit for bit. *Result:* see
+`tests::diagonal_repeated_roots_take_upstreams_diagonal_branch`.
 
 ```rust
 pub fn eigen_values_symm(t: crate::primitives::SymmTensor) -> crate::primitives::Vector3 { /* ... */ }
@@ -29818,6 +30289,1238 @@ pub use tensor::Tensor;
 pub use vector::Vector3;
 ```
 
+## Module `steady_conduction`
+
+Layer 5 (small solver) — steady heat conduction with a volumetric source,
+the steady form of `laplacianFoam`, with radial and voxel meshers, a
+closed-form verification reference and an energy balance (gh:#949).
+# Steady heat conduction with a volumetric source (gh:#949)
+
+A small steady conduction solver: the steady form of OpenFOAM's
+`laplacianFoam`,
+
+```text
+  -div( k(T) grad T ) = q'''          in the solid
+```
+
+with a per-zone uniform heat source `q'''` (W/m^3), a per-zone
+conductivity `k(T)` (W/(m K)) supplied by the caller, and one thermal
+condition per boundary patch: adiabatic, fixed temperature, or convective
+(`-k dT/dn = h (T - T_ambient)`).
+
+It exists for the **beginner thermal profile** of `outram-mc-libs`
+(gh:#949, under #945): a coarse temperature field for any shape, with an
+**energy balance** (heat generated against heat leaving through the
+boundary) reported beside it. Serious thermal-hydraulics is `nee_soon`'s.
+
+## What is ported, and what is new
+
+| piece | source |
+|---|---|
+| the equation, `fvm::laplacian(k, T) == source` | `laplacianFoam.C` (`TEqn`), run steady (`ddt` dropped, as with `ddtSchemes steadyState`) |
+| the convective boundary as a mixed (Robin) condition, `valueFraction = h/(h + k/d)`, `refValue = T_a` | `externalWallHeatFluxTemperatureFvPatchScalarField.C` (`hp` without radiation or solid layers) |
+| `k(T)` re-evaluated between outer passes (Picard) | the outer `simple.loop()` of `laplacianFoam`, here with `k` updated each pass (upstream's `DT` is constant) |
+| **face conductivity as series resistance**, `A / (d_P/k_P + d_N/k_N)` | OpenFOAM's `harmonic` interpolation (`schemes/harmonic/harmonic.H`: `1/reverseLinear(1/k)`), chosen over the default `Gauss linear`, which averages `k` linearly and is wrong at a material interface |
+| **energy balance** from the boundary condition definitions, not from the matrix | new here |
+| radial (slab / cylinder / sphere) and voxel meshers | new here ([`mesh`]) |
+
+## The energy balance, and what it can catch
+
+The heat leaving each boundary face is recomputed from that face's own
+condition (`h`, `T_a`, `k` of its cell, the face distance) and the solved
+cell temperature, independently of the assembled matrix. In a correct
+finite-volume solve the interior fluxes cancel pairwise, so generated minus
+removed equals the sum of the linear-solver residuals: it is small by
+construction. Its job is to catch an assembly that drops or doubles a
+boundary contribution (a zero boundary conductivity was such a defect
+elsewhere in this workspace; see `outram-foam-appbuilder-lib`'s
+`thermo_mechanics::mesh_solve`) and an unconverged solve. It does **not**
+measure discretisation error; the closed-form tests in this module do.
+
+## Verification
+
+[`closed_form`] is the exact solution for uniform `q'''` in nested slab,
+cylinder and sphere shells with a fixed-temperature or convective surface.
+The tests in `tests.rs` compare the solve against it and measure the
+convergence order; the methodology and results are in their doc comments.
+
+Status: untrusted AI-generated draft (2026-10-17) per `RESPONSIBLE_USE.md`.
+For research, education and V&V only.
+
+```rust
+pub mod steady_conduction { /* ... */ }
+```
+
+### Modules
+
+## Module `closed_form`
+
+Exact steady temperature for uniform heat generation in nested slab,
+cylinder and sphere shells: the verification reference for the
+finite-volume solve (gh:#949).
+
+## Derivation
+
+Write the geometry with an exponent `m`: slab `m = 0` (`r` is the distance
+from the mid-plane), cylinder `m = 1`, sphere `m = 2`. In steady state the
+heat crossing radius `r` outwards, per unit of the geometry's measure
+(`r^m` times `1`, `2 pi H` or `4 pi`), is everything generated inside it:
+
+```text
+  Q(r) = int_0^r q'''(s) s^m ds,         -k dT/dr = Q(r) / r^m
+```
+
+Layer `j` spans `r_j <= r <= r_{j+1}` (with `r_0 = 0`) and carries a
+constant `k_j` and `q_j`. Inside it `Q(r) = q_j r^(m+1)/(m+1) + C_j` with
+`C_j = Q(r_j) - q_j r_j^(m+1)/(m+1)`, and integrating `dT/dr` gives
+
+```text
+  T(r) = T(r_{j+1}) + [ q_j (r_{j+1}^2 - r^2) / (2(m+1)) + C_j G_m(r, r_{j+1}) ] / k_j
+  G_0 = R - r,   G_1 = ln(R/r),   G_2 = 1/r - 1/R
+```
+
+`C_0 = 0`, so the centre is regular. The surface `R = r_N` is either held at
+a fixed temperature or cooled convectively, `T(R) = T_a + Q(R) / (R^m h)`.
+
+For one layer this is the textbook result, e.g. a sphere's
+`T(r) = T_s + q (R^2 - r^2) / (6 k)`. **Citation status:** derived here
+from the energy balance above; no textbook page from the literature corpus
+is cited yet (UNCITED: maintainer to supply a heat-conduction text from the
+corpus if a citation is wanted).
+
+```rust
+pub mod closed_form { /* ... */ }
+```
+
+### Types
+
+#### Struct `RadialLayer`
+
+One layer of a nested radial body, from the previous layer's outer radius
+(or the centre) out to [`Self::outer_radius`].
+
+```rust
+pub struct RadialLayer {
+    pub outer_radius: uom::si::f64::Length,
+    pub conductivity: uom::si::f64::ThermalConductivity,
+    pub heat_source: uom::si::f64::VolumetricPowerDensity,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `outer_radius` | `uom::si::f64::Length` | Outer radius of the layer (half-thickness for a slab). |
+| `conductivity` | `uom::si::f64::ThermalConductivity` | Constant thermal conductivity of the layer. |
+| `heat_source` | `uom::si::f64::VolumetricPowerDensity` | Uniform volumetric heat generation in the layer (zero for a cladding). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RadialClosedForm`
+
+The exact steady temperature of a nested radial body (see module docs).
+
+```rust
+pub struct RadialClosedForm {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(geometry: RadialGeometry, layers: &[RadialLayer], surface: ThermalBoundary) -> Result<Self, SteadyConductionError> { /* ... */ }
+  ```
+  Build the solution for `layers` (innermost first) with the surface
+
+- ```rust
+  pub fn temperature_at(self: &Self, r: Length) -> Result<ThermodynamicTemperature, SteadyConductionError> { /* ... */ }
+  ```
+  The exact temperature at radius `r` (distance from the mid-plane for a
+
+- ```rust
+  pub fn surface_temperature(self: &Self) -> ThermodynamicTemperature { /* ... */ }
+  ```
+  The exact surface temperature.
+
+- ```rust
+  pub fn centre_temperature(self: &Self) -> ThermodynamicTemperature { /* ... */ }
+  ```
+  The exact temperature at the centre (`r = 0`), the peak when the heat
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `mesh`
+
+Meshes for the steady conduction solver (gh:#949).
+
+- [`radial_mesh`]: a one-dimensional slab, cylinder or sphere in nested
+  shells, with the true face areas (`A`, `2 pi r H`, `4 pi r^2`) and shell
+  volumes. The verification mesh: [`super::closed_form`] is exact on it.
+- [`voxel_mesh`]: cubic voxels over a box, keeping the voxels whose centre
+  a caller-supplied function puts inside the body. Any shape, at the cost
+  of a staircase surface. This is the beginner thermal profile's mesh.
+
+Both put faces in OpenFOAM's upper-triangular order (`owner < neighbour`,
+sorted by owner), which the DIC-preconditioned conjugate gradient needs.
+
+**Mesh-nexus note (gh:#492).** `outram_blender::unstructured` is the
+workspace's neutral FV/FE/MC mesh, but this crate may not depend on
+`outram-blender` (#486 rule 1), and a structured voxel grid needs only the
+[`FvMesh`] built here directly. Exporting a [`VoxelMesh`] to the neutral
+mesh is left to the crate that owns that dependency.
+
+```rust
+pub mod mesh { /* ... */ }
+```
+
+### Types
+
+#### Struct `ConductionMesh`
+
+A mesh plus the zone (material region) of every cell.
+
+```rust
+pub struct ConductionMesh {
+    pub mesh: std::sync::Arc<crate::mesh::fv_mesh::FvMesh>,
+    pub cell_zone: Vec<usize>,
+    pub n_zones: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `std::sync::Arc<crate::mesh::fv_mesh::FvMesh>` | The finite-volume mesh, lengths in metres. |
+| `cell_zone` | `Vec<usize>` | Zone index of each cell; zones carry the heat source and conductivity. |
+| `n_zones` | `usize` | Number of zones (`max(cell_zone) + 1`, or more if a zone has no cell). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `RadialGeometry`
+
+The shape of a one-dimensional radial body.
+
+```rust
+pub enum RadialGeometry {
+    Slab {
+        area: uom::si::f64::Area,
+    },
+    Cylinder {
+        height: uom::si::f64::Length,
+    },
+    Sphere,
+}
+```
+
+##### Variants
+
+###### `Slab`
+
+A plate, symmetric about its mid-plane; the radius is the distance from
+the mid-plane, and `area` is the plate's face area.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `area` | `uom::si::f64::Area` | Face area of the plate. |
+
+###### `Cylinder`
+
+A cylinder of the given height, insulated at its ends.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `height` | `uom::si::f64::Length` | Height (axial length). |
+
+###### `Sphere`
+
+A sphere.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn exponent(self: Self) -> i32 { /* ... */ }
+  ```
+  The exponent `m` of the measure `r^m`: slab 0, cylinder 1, sphere 2.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RadialShell`
+
+One shell of a radial mesh: out to `outer_radius`, in `cells` equal steps.
+
+```rust
+pub struct RadialShell {
+    pub outer_radius: uom::si::f64::Length,
+    pub cells: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `outer_radius` | `uom::si::f64::Length` | Outer radius of the shell. |
+| `cells` | `usize` | Number of equal-thickness cells across the shell (at least 1). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `VoxelGrid`
+
+A box of cubic voxels.
+
+```rust
+pub struct VoxelGrid {
+    pub origin: [uom::si::f64::Length; 3],
+    pub spacing: uom::si::f64::Length,
+    pub counts: [usize; 3],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `origin` | `[uom::si::f64::Length; 3]` | Lowest corner of the box (x, y, z). |
+| `spacing` | `uom::si::f64::Length` | Edge length of every voxel. |
+| `counts` | `[usize; 3]` | Voxel counts along x, y and z. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn flat(self: &Self, ijk: [usize; 3]) -> usize { /* ... */ }
+  ```
+  Flat index of voxel `(i, j, k)`, x fastest.
+
+- ```rust
+  pub fn centre(self: &Self, ijk: [usize; 3]) -> [Length; 3] { /* ... */ }
+  ```
+  Centre of voxel `(i, j, k)`.
+
+- ```rust
+  pub fn voxel_of(self: &Self, p: [Length; 3]) -> Option<[usize; 3]> { /* ... */ }
+  ```
+  The voxel containing point `p`, or `None` outside the box.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `VoxelMesh`
+
+A voxel mesh: the conduction mesh plus the map between voxels and cells.
+
+All boundary faces (body to outside, and body to box edge) form one patch,
+index 0, named [`VOXEL_SURFACE_PATCH`].
+
+```rust
+pub struct VoxelMesh {
+    pub conduction: ConductionMesh,
+    pub grid: VoxelGrid,
+    pub voxel_cell: Vec<Option<usize>>,
+    pub cell_voxel: Vec<[usize; 3]>,
+    pub surface_normal: Vec<[f64; 3]>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `conduction` | `ConductionMesh` | The mesh and the zone of each cell. |
+| `grid` | `VoxelGrid` | The grid it was cut from. |
+| `voxel_cell` | `Vec<Option<usize>>` | Mesh cell of each voxel (flat index, x fastest), `None` outside the body. |
+| `cell_voxel` | `Vec<[usize; 3]>` | Voxel `(i, j, k)` of each mesh cell. |
+| `surface_normal` | `Vec<[f64; 3]>` | Outward unit axis normal of each surface face (patch order). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn cell_at(self: &Self, p: [Length; 3]) -> Option<usize> { /* ... */ }
+  ```
+  The mesh cell containing point `p`, or `None` outside the body.
+
+- ```rust
+  pub fn n_surface_faces(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of surface faces (the size of patch 0).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `radial_mesh`
+
+Build a one-dimensional radial mesh of nested shells (innermost first).
+
+Shell `j` becomes zone `j`. Cell centres sit at the mid-radius of each cell,
+laid along the x axis; faces carry the true area at their radius and cells
+the true shell volume, so the finite-volume Laplacian is the standard
+conservative curvilinear scheme. Patches: index 0 [`RADIAL_SURFACE_PATCH`]
+(outer face), index 1 [`RADIAL_CENTRE_PATCH`] (`r = 0`).
+
+# Errors
+[`SteadyConductionError::InvalidInput`] for no shells, a shell with zero
+cells, or radii not strictly increasing; [`SteadyConductionError::Mesh`]
+if the assembled mesh fails validation.
+
+```rust
+pub fn radial_mesh(geometry: RadialGeometry, shells: &[RadialShell]) -> Result<ConductionMesh, super::SteadyConductionError> { /* ... */ }
+```
+
+#### Function `voxel_mesh`
+
+Cut a voxel mesh of a body out of `grid`.
+
+`zone_at(p)` returns the zone of the body at point `p` (a voxel centre), or
+`None` where there is no conducting body (coolant, void, outside). Every
+voxel with a zone becomes a cell; every face between a cell and a non-cell
+(or the box edge) is a surface face.
+
+The surface is a **staircase**: its area does not converge to the true
+area under refinement (a voxelised sphere's tends to 3/2 of it). A caller
+that cools the surface convectively should pass the per-face
+film-area fraction `|n_axis . n_true|` to the solver (see
+[`super::PatchCondition::with_film_area_fraction`]); the sum of
+`area x fraction` then converges to the true area.
+
+# Errors
+[`SteadyConductionError::InvalidInput`] for a zero count or non-positive
+spacing, or when no voxel is inside the body;
+[`SteadyConductionError::Mesh`] if the mesh fails validation.
+
+```rust
+pub fn voxel_mesh<F>(grid: &VoxelGrid, zone_at: F) -> Result<VoxelMesh, super::SteadyConductionError>
+where
+    F: Fn([uom::si::f64::Length; 3]) -> Option<usize> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `RADIAL_SURFACE_PATCH`
+
+Name of the outer-surface patch of a [`radial_mesh`] (patch index 0).
+
+```rust
+pub const RADIAL_SURFACE_PATCH: &str = "surface";
+```
+
+#### Constant `RADIAL_CENTRE_PATCH`
+
+Name of the centre (symmetry) patch of a [`radial_mesh`] (patch index 1).
+Its face has zero area for a cylinder or sphere.
+
+```rust
+pub const RADIAL_CENTRE_PATCH: &str = "centre";
+```
+
+#### Constant `VOXEL_SURFACE_PATCH`
+
+Name of the single boundary patch of a [`voxel_mesh`].
+
+```rust
+pub const VOXEL_SURFACE_PATCH: &str = "surface";
+```
+
+### Types
+
+#### Enum `SteadyConductionError`
+
+What can go wrong setting up or solving a steady conduction problem.
+
+```rust
+pub enum SteadyConductionError {
+    InvalidInput(String),
+    Mesh(String),
+    LinearSolveFailed {
+        residual: f64,
+        iterations: usize,
+    },
+    PicardNotConverged {
+        last_change_kelvin: f64,
+        iterations: usize,
+    },
+    BadConductivity {
+        zone: usize,
+        temperature_kelvin: f64,
+        value: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `InvalidInput`
+
+An input was out of range or inconsistent (the message says which).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Mesh`
+
+The mesh could not be assembled.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `LinearSolveFailed`
+
+The linear solve missed its tolerance.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `residual` | `f64` | Normalised residual at exit. |
+| `iterations` | `usize` | Iterations performed. |
+
+###### `PicardNotConverged`
+
+The outer (Picard) iteration on `k(T)` did not settle.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `last_change_kelvin` | `f64` | Largest cell temperature change of the last pass, K. |
+| `iterations` | `usize` | Passes performed. |
+
+###### `BadConductivity`
+
+The caller's conductivity returned a non-positive or non-finite value.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `zone` | `usize` | Zone index. |
+| `temperature_kelvin` | `f64` | Temperature it was asked at, K. |
+| `value` | `f64` | What it returned, W/(m K). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Re-exports
+
+#### Re-export `RadialClosedForm`
+
+```rust
+pub use closed_form::RadialClosedForm;
+```
+
+#### Re-export `RadialLayer`
+
+```rust
+pub use closed_form::RadialLayer;
+```
+
+#### Re-export `radial_mesh`
+
+```rust
+pub use mesh::radial_mesh;
+```
+
+#### Re-export `voxel_mesh`
+
+```rust
+pub use mesh::voxel_mesh;
+```
+
+#### Re-export `ConductionMesh`
+
+```rust
+pub use mesh::ConductionMesh;
+```
+
+#### Re-export `RadialGeometry`
+
+```rust
+pub use mesh::RadialGeometry;
+```
+
+#### Re-export `RadialShell`
+
+```rust
+pub use mesh::RadialShell;
+```
+
+#### Re-export `VoxelGrid`
+
+```rust
+pub use mesh::VoxelGrid;
+```
+
+#### Re-export `VoxelMesh`
+
+```rust
+pub use mesh::VoxelMesh;
+```
+
+#### Re-export `EnergyBalance`
+
+```rust
+pub use solve::EnergyBalance;
+```
+
+#### Re-export `PatchCondition`
+
+```rust
+pub use solve::PatchCondition;
+```
+
+#### Re-export `SteadyConductionProblem`
+
+```rust
+pub use solve::SteadyConductionProblem;
+```
+
+#### Re-export `SteadyConductionSettings`
+
+```rust
+pub use solve::SteadyConductionSettings;
+```
+
+#### Re-export `SteadyConductionSolution`
+
+```rust
+pub use solve::SteadyConductionSolution;
+```
+
+#### Re-export `ThermalBoundary`
+
+```rust
+pub use solve::ThermalBoundary;
+```
+
 ## Module `thermophysics`
 
 Layer 1h — specie-level thermophysics: equations of state, thermo, and
@@ -29919,13 +31622,23 @@ pub mod ico_polynomial { /* ... */ }
 
 #### Struct `IcoPolynomial`
 
-Incompressible polynomial EOS: `v(T) = poly(T)`, so `ρ = 1 / poly(T)`.
+Incompressible polynomial EOS: `rho(T) = poly(T)`.
 
-Mirrors `Foam::icoPolynomial<Specie, PolySize>` from
-`src/thermophysicalModels/specie/equationOfState/icoPolynomial/`.
+Port of `Foam::icoPolynomial<Specie, PolySize>`, OpenFOAM v2506 (ESI)
+`src/thermophysicalModels/specie/equationOfState/icoPolynomial/icoPolynomialI.H`:
+`rho` returns `rhoCoeffs_.value(T)` (line 83), and `H`, `Cp`, `E`, `Cv`,
+`S`, `psi`, `Z` and `CpMCv` all return `0` (lines 94-171).
 
-The polynomial gives specific volume as a function of T.  ψ = 0 (incompressible).
-h_eos = p·v = p/ρ  (enthalpy departure for incompressible EOS).
+~~The polynomial gives specific volume as a function of T, `ρ = 1/poly(T)`;
+ψ = 0; h_eos = p·v = p/ρ.~~ **CORRECTED 2026-11-04 (gh:#1218):** that was
+not what upstream does. The dictionary keyword is `rhoCoeffs<N>` and
+upstream evaluates it as the **density**, not the specific volume, and its
+enthalpy, entropy and compressibility-factor departures are all zero. Found
+while porting GeN-Foam's two-phase solver, whose sodium and water tutorials
+select `icoPolynomial` (1D_boiling: `rhoCoeffs<8> (1006.81 -0.217 ...)`,
+i.e. ~865 kg/m^3 at 650 K, which the old reading turned into 1/865).
+Checked against the v2506 source fetched from the OpenCFD mirror
+`github.com/ZhangYanTJU/OpenFOAM-ESI` at tag `OpenFOAM-v2506`.
 
 ```rust
 pub struct IcoPolynomial<const N: usize> {
@@ -29946,7 +31659,7 @@ pub struct IcoPolynomial<const N: usize> {
 - ```rust
   pub fn new(mol_weight: MolarMass, poly: Polynomial<N>) -> Self { /* ... */ }
   ```
-  `poly` coefficients give specific volume `[m³/kg]` as a polynomial in T `[K]`.
+  `poly` coefficients give the density `[kg/m³]` as a polynomial in T `[K]`
 
 ###### Trait Implementations
 
@@ -29999,7 +31712,7 @@ pub struct IcoPolynomial<const N: usize> {
     ```
 
   - ```rust
-    fn z(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> Ratio { /* ... */ }
+    fn z(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> Ratio { /* ... */ }
     ```
 
   - ```rust
@@ -30011,7 +31724,7 @@ pub struct IcoPolynomial<const N: usize> {
     ```
 
   - ```rust
-    fn h_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    fn h_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
     ```
 
   - ```rust

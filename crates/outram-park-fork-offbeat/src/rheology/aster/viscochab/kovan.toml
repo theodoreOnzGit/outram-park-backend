@@ -2,6 +2,19 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-offbeat"
 dir = "crates/outram-park-fork-offbeat/src/rheology/aster/viscochab"
+test_ids = [
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscochab/tests.rs::aster_coefficient_map_matches_cvmmat",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscochab/tests.rs::elastic_branch_zeroes_every_rate",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscochab/tests.rs::first_back_stress_saturates_at_c_over_gamma",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscochab/tests.rs::flow_is_deviatoric_and_its_equivalent_rate_is_p_dot",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscochab/tests.rs::flow_rate_matches_the_closed_form_power_law",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscochab/tests.rs::rkdcha_alpha2_reuses_d1_upstream_typo",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscochab/tests.rs::state_round_trips_through_the_ode_vector",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscochab/tests.rs::strain_controlled_relaxation_runs_through_the_ode_wrapper",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscochab/tests.rs::stress_reduces_to_hooke_and_interpolates_linearly",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscochab/tests.rs::system_construction_rejects_impossible_geometry",
+    "crates/outram-park-fork-offbeat/src/rheology/aster/viscochab/tests.rs::validate_rejects_the_coefficients_that_break_the_arithmetic",
+]
 
 [module."tests.rs"]
 path = "crate::rheology::aster::viscochab::tests"
@@ -424,3 +437,22 @@ uses = [
     "fn:9c527bd050357ae5",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+]
+failed = []

@@ -2,6 +2,15 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/single_branch.rs::ihx_branch_test_get_mass_flowrate_from_pressure_change",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/single_branch.rs::ihx_branch_test_get_pressure_change_from_mass_flowrate",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/single_branch.rs::reactor_branch_test_get_mass_flowrate_from_pressure_change",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/single_branch.rs::reactor_branch_test_get_pressure_change_from_mass_flowrate",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/single_pipe_tests.rs::single_pipe_flibe_internal_pressure_change_check",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/single_pipe_tests.rs::single_pipe_flibe_mass_flow_1200_kg_per_s",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/single_pipe_tests.rs::single_pipe_flibe_pressure_drop_for_mass_flow_1200_kg_per_s",
+]
 
 [module."components.rs"]
 path = "crate::pre_built_components::gfhr_pipe_tests::components"
@@ -583,3 +592,18 @@ callees = [
     "fn:ae2a995dbdd5c923",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+failed = []

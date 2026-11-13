@@ -11,6 +11,7 @@ use crate::region_5_steam_at_800_plus_degc::*;
 use crate::backward_eqn_chebyshev_experimental::region_5_t_ph_ps::t_ph_5;
 use crate::thermal_conductivity::lambda_0;
 use crate::thermal_conductivity::lambda_1;
+use crate::thermal_conductivity::lambda_2_crit_enhancement_term_region_1;
 use crate::thermal_conductivity::lambda_2_crit_enhancement_term_tp_two_phase_estimate;
 
 use super::pt_flash_eqm::FwdEqnRegion;
@@ -1056,7 +1057,13 @@ pub fn lambda_ph_eqm(p: Pressure, h: AvailableEnergy) -> ThermalConductivity {
 
     let lambda_0 = lambda_0(t);
     let lambda_1 = lambda_1(rho, t);
-    let lambda_2 = lambda_2_crit_enhancement_term_tp_two_phase_estimate(t, p, x);
+    // Region 1 by the (p,h) flash: evaluate the enhancement term with the
+    // Region 1 equation at the backward T, as cp/cv/kappa_t_ph_eqm do. The
+    // (T, p) route panicked where that T is a few mK below 273.15 K (gh:#904).
+    let lambda_2 = match ph_flash_region(p, h) {
+        FwdEqnRegion::Region1 => lambda_2_crit_enhancement_term_region_1(t, p),
+        _ => lambda_2_crit_enhancement_term_tp_two_phase_estimate(t, p, x),
+    };
     let lambda_star = ThermalConductivity::new::<watt_per_meter_kelvin>(1.0e-3);
 
     let dimensionless_lambda = lambda_0 * lambda_1 + lambda_2;

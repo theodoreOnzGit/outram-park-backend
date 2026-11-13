@@ -63177,7 +63177,7 @@ fields:
 - `XCylinder→[y0,z0,r]`, `YCylinder→[x0,z0,r]`, `ZCylinder→[x0,y0,r]`
 - cones `{X,Y,Z}Cone→[x0,y0,z0,r_sq]`
 - `Quadric→[a,b,c,d,e,f,g,h,j,k]`
-- tori `{X,Y,Z}Torus→[x0,y0,z0,a,b,c]`
+- tori `{X,Y,Z}Torus→[x0,y0,z0,a,c,b]` (radial minor radius first: the shader's `b` is the CPU struct's `c`, gh:#701)
 
 The `bc` (boundary condition) field is intentionally not encoded — this kernel
 computes geometric distance only.

@@ -2,6 +2,25 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-appbuilder-lib"
 dir = "crates/outram-foam-appbuilder-lib/tests"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::backward_ddt_selection_is_live_and_not_worse_against_ghia",
+    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::gauss_linear_convection_beats_upwind_against_ghia_1982",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_gfhr_pebble_vs_upstream.rs::the_ported_pebble_chain_reproduces_upstreams_gfhr_fields",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_point_kinetics_inhour.rs::asymptotic_period_matches_inhour_equation",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_point_kinetics_inhour.rs::null_transient_control",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_psbt_closures.rs::the_ported_wall_friction_reproduces_upstreams_psbt_drag",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_psbt_closures.rs::the_two_phase_cells_show_the_multiplier_the_single_phase_relation_omits",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_reference_state_keff_against_upstream",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_per_cell_cross_sections",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_precursor_drift",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_with_upstreams_albedo_boundary",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reactivity_coefficients_from_upstreams_perturbed_states",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reference_state_keff_brackets_upstream",
+    "crates/outram-foam-appbuilder-lib/tests/turbulence_coupling.rs::attaching_a_closure_changes_the_momentum_solution",
+    "crates/outram-foam-appbuilder-lib/tests/turbulence_coupling.rs::homogeneous_decay_matches_analytic_k_omega_solution",
+]
 
 [module."fv_scheme_selection.rs"]
 path = "test:fv_scheme_selection"
@@ -1015,3 +1034,28 @@ uses = [
     "fn:f11bcf88c9cf8afa",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+]
+failed = []

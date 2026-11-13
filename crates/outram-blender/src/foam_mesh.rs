@@ -102,6 +102,7 @@ use crate::mesh::Mesh;
 // Re-export the backend types callers need, so a user of this bridge does not
 // have to name the `outram-park-fork-cfmesh` crate directly for the common path.
 pub use outram_park_fork_cfmesh::math::Vec3;
+pub use outram_park_fork_cfmesh::layers::{LayerOutcome, LayerQualityStrategy};
 pub use outram_park_fork_cfmesh::pipeline::{TetDualOptions, TetDualReport};
 pub use outram_park_fork_cfmesh::volume_mesh::VolumeMesh;
 
@@ -532,6 +533,49 @@ pub fn mesh_to_tet_dual(
 ) -> Result<(VolumeMesh, TetDualReport), String> {
     let (points, tris) = mesh_to_surface(mesh).map_err(|e| e.to_string())?;
     outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh(&points, &tris, opts)
+}
+
+/// [`mesh_to_tet_dual`] with **named boundary patches** (gh:#1202): each
+/// triangle of the checked, triangulated surface is given a patch name by
+/// `label(corners)` (metres), and the backend's multipatch pipeline
+/// ([`surface_to_tet_dual_mesh_multipatch`](outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh_multipatch))
+/// carries the names to the volume mesh's boundary, so a solver case can put
+/// its inlet, outlet and wall conditions on them. With
+/// [`TetDualOptions::layer_patches`] set (e.g. `["walls"]`) the prism layers
+/// grow on those patches only.
+///
+/// # Errors
+/// As [`mesh_to_tet_dual`].
+///
+/// # Examples
+///
+/// ```
+/// use outram_blender::{primitives, foam_mesh};
+/// use outram_blender::foam_mesh::TetDualOptions;
+///
+/// // A cylinder about the z axis (centred on z = 0): flat ends are inlet
+/// // (z < 0) and outlet, the side is the wall.
+/// let cyl = primitives::cylinder(16, 1.0, 4.0);
+/// let label = |t: [foam_mesh::Vec3; 3]| -> String {
+///     let flat = (t[0].z - t[1].z).abs() < 1e-12 && (t[1].z - t[2].z).abs() < 1e-12;
+///     match (flat, t[0].z < 0.0) { (true, true) => "inlet", (true, false) => "outlet", _ => "walls" }.into()
+/// };
+/// let opts = TetDualOptions { cell_size: 0.5, n_layers: 0, ..Default::default() };
+/// let (vm, _) = foam_mesh::mesh_to_tet_dual_multipatch(&cyl, label, &opts).unwrap();
+/// let mut names: Vec<&str> = vm.patches.iter().map(|p| p.name.as_str()).collect();
+/// names.sort();
+/// assert_eq!(names, ["inlet", "outlet", "walls"]);
+/// ```
+pub fn mesh_to_tet_dual_multipatch<F: Fn([Vec3; 3]) -> String>(
+    mesh: &Mesh,
+    label: F,
+    opts: &TetDualOptions,
+) -> Result<(VolumeMesh, TetDualReport), String> {
+    let (points, tris) = mesh_to_surface(mesh).map_err(|e| e.to_string())?;
+    let names: Vec<String> = tris.iter().map(|t| label([points[t[0]], points[t[1]], points[t[2]]])).collect();
+    let refs: Vec<&str> = names.iter().map(String::as_str).collect();
+    let regions = outram_park_fork_cfmesh::patches::SurfaceRegions::from_labels(&refs);
+    outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh_multipatch(&points, &tris, &regions, opts)
 }
 
 /// Write a generated [`VolumeMesh`] to an OpenFOAM `polyMesh` directory.

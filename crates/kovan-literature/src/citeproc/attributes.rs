@@ -336,7 +336,7 @@ fn variable_check_output(
                 Some(Value::Null) => {
                     return Err(EngineError::BadInput(format!(
                         "Cannot read properties of undefined (reading '{variable}')"
-                    )))
+                    )));
                 }
                 Some(k) => k.get(variable.as_str()).filter(|v| js::truthy(v)).cloned(),
                 None => None,
@@ -421,7 +421,7 @@ fn variable_check_output(
                     _ => {
                         return Err(EngineError::BadInput(
                             "Cannot read properties of undefined (reading 'indexOf')".into(),
-                        ))
+                        ));
                     }
                 };
                 if let Value::Object(o) = d {
@@ -521,7 +521,7 @@ fn variable_check_output(
                     None => {
                         return Err(EngineError::Csl(
                             "TypeError: Cannot read properties of false (reading 'push')".into(),
-                        ))
+                        ));
                     }
                 }
             }
@@ -1095,7 +1095,7 @@ impl AttributesTest {
                         return Err(EngineError::Csl(
                             "TypeError: cannot read properties of undefined (reading 'split')"
                                 .into(),
-                        ))
+                        ));
                     }
                     _ => Vec::new(),
                 };
@@ -2190,42 +2190,37 @@ mod tests {
     }
 
     fn dispatch_build(state: &mut State, token: Token, target: &mut Vec<Token>) -> CslResult<()> {
-        macro_rules! go {
-            ($m:ident) => {
-                $m::build(state, token, target, Some(true))
-            };
-        }
         match token.name.clone().as_str() {
-            "alternative" => go!(node_alternative),
-            "alternative-text" => go!(node_alternativetext),
-            "bibliography" => go!(node_bibliography),
-            "choose" => go!(node_choose),
-            "citation" => go!(node_citation),
-            "#comment" => go!(node_comment),
-            "condition" => go!(node_condition),
-            "conditions" => go!(node_conditions),
-            "date" => go!(node_date),
-            "date-part" => go!(node_datepart),
-            "else" => go!(node_else),
-            "else-if" => go!(node_elseif),
-            "et-al" => go!(node_etal),
-            "group" => go!(node_group),
-            "if" => go!(node_if),
-            "info" => go!(node_info),
-            "institution" => go!(node_institution),
-            "institution-part" => go!(node_institutionpart),
-            "intext" => go!(node_intext),
-            "key" => go!(node_key),
-            "label" => go!(node_label),
-            "layout" => go!(node_layout),
-            "macro" => go!(node_macro),
-            "name" => go!(node_name),
-            "name-part" => go!(node_namepart),
-            "names" => go!(node_names),
-            "number" => go!(node_number),
-            "sort" => go!(node_sort),
-            "substitute" => go!(node_substitute),
-            "text" => go!(node_text),
+            "alternative" => node_alternative::build(state, token, target, Some(true)),
+            "alternative-text" => node_alternativetext::build(state, token, target, Some(true)),
+            "bibliography" => node_bibliography::build(state, token, target, Some(true)),
+            "choose" => node_choose::build(state, token, target, Some(true)),
+            "citation" => node_citation::build(state, token, target, Some(true)),
+            "#comment" => node_comment::build(state, token, target, Some(true)),
+            "condition" => node_condition::build(state, token, target, Some(true)),
+            "conditions" => node_conditions::build(state, token, target, Some(true)),
+            "date" => node_date::build(state, token, target, Some(true)),
+            "date-part" => node_datepart::build(state, token, target, Some(true)),
+            "else" => node_else::build(state, token, target, Some(true)),
+            "else-if" => node_elseif::build(state, token, target, Some(true)),
+            "et-al" => node_etal::build(state, token, target, Some(true)),
+            "group" => node_group::build(state, token, target, Some(true)),
+            "if" => node_if::build(state, token, target, Some(true)),
+            "info" => node_info::build(state, token, target, Some(true)),
+            "institution" => node_institution::build(state, token, target, Some(true)),
+            "institution-part" => node_institutionpart::build(state, token, target, Some(true)),
+            "intext" => node_intext::build(state, token, target, Some(true)),
+            "key" => node_key::build(state, token, target, Some(true)),
+            "label" => node_label::build(state, token, target, Some(true)),
+            "layout" => node_layout::build(state, token, target, Some(true)),
+            "macro" => node_macro::build(state, token, target, Some(true)),
+            "name" => node_name::build(state, token, target, Some(true)),
+            "name-part" => node_namepart::build(state, token, target, Some(true)),
+            "names" => node_names::build(state, token, target, Some(true)),
+            "number" => node_number::build(state, token, target, Some(true)),
+            "sort" => node_sort::build(state, token, target, Some(true)),
+            "substitute" => node_substitute::build(state, token, target, Some(true)),
+            "text" => node_text::build(state, token, target, Some(true)),
             other => Err(EngineError::Csl(format!(
                 "Undefined node name \"{other}\"."
             ))),

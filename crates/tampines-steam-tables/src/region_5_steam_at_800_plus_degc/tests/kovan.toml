@@ -2,6 +2,38 @@ schema_version = 1
 kind = "code_folder"
 crate = "tampines-steam-tables"
 dir = "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests"
+test_ids = [
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_a_1500_kelvin_0_5_mpa.rs::cp_regression_set_a",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_a_1500_kelvin_0_5_mpa.rs::cv_regression_set_a",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_a_1500_kelvin_0_5_mpa.rs::isentropic_exponent_regression_set_a",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_a_1500_kelvin_0_5_mpa.rs::isobaric_cubic_expansion_coeff_regression_set_a",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_a_1500_kelvin_0_5_mpa.rs::isothermal_compressibility_coeff_regression_set_a",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_a_1500_kelvin_0_5_mpa.rs::specific_enthalpy_regression_set_a",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_a_1500_kelvin_0_5_mpa.rs::specific_entropy_regression_set_a",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_a_1500_kelvin_0_5_mpa.rs::specific_internal_energy_regression_set_a",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_a_1500_kelvin_0_5_mpa.rs::specific_vol_regression_set_a",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_a_1500_kelvin_0_5_mpa.rs::speed_of_sound_regression_set_a",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_b_1500_kelvin_30_mpa.rs::cp_regression_set_b",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_b_1500_kelvin_30_mpa.rs::cv_regression_set_b",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_b_1500_kelvin_30_mpa.rs::isentropic_exponent_regression_set_b",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_b_1500_kelvin_30_mpa.rs::isobaric_cubic_expansion_coeff_regression_set_b",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_b_1500_kelvin_30_mpa.rs::isothermal_compressibility_coeff_regression_set_b",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_b_1500_kelvin_30_mpa.rs::specific_enthalpy_regression_set_b",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_b_1500_kelvin_30_mpa.rs::specific_entropy_regression_set_b",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_b_1500_kelvin_30_mpa.rs::specific_internal_energy_regression_set_b",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_b_1500_kelvin_30_mpa.rs::specific_vol_regression_set_b",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_b_1500_kelvin_30_mpa.rs::speed_of_sound_regression_set_b",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_c_2000_kelvin_30_mpa.rs::cp_regression_set_c",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_c_2000_kelvin_30_mpa.rs::cv_regression_set_c",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_c_2000_kelvin_30_mpa.rs::isentropic_exponent_regression_set_c",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_c_2000_kelvin_30_mpa.rs::isobaric_cubic_expansion_coeff_regression_set_c",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_c_2000_kelvin_30_mpa.rs::isothermal_compressibility_coeff_regression_set_c",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_c_2000_kelvin_30_mpa.rs::specific_enthalpy_regression_set_c",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_c_2000_kelvin_30_mpa.rs::specific_entropy_regression_set_c",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_c_2000_kelvin_30_mpa.rs::specific_internal_energy_regression_set_c",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_c_2000_kelvin_30_mpa.rs::specific_vol_regression_set_c",
+    "crates/tampines-steam-tables/src/region_5_steam_at_800_plus_degc/tests/set_c_2000_kelvin_30_mpa.rs::speed_of_sound_regression_set_c",
+]
 
 [module."mod.rs"]
 path = "crate::region_5_steam_at_800_plus_degc::tests"
@@ -404,3 +436,41 @@ hash = "sha256:665975e0462d86f781fd51de24304d24afdaca1273346f0705e56137724c8e78"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:8d731b4d4c5e2c6c"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+failed = []

@@ -77,12 +77,12 @@
 use crate::math::Vec3;
 use crate::snap::closest_point_on_surface;
 use crate::volume_mesh::{orient_ring, BoundaryPatch, VolumeMesh};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 /// A leaf cell: `(level, i, j, k)`. A level-`L` cell has edge `base / 2^L` and
 /// occupies finest-resolution integer coordinates `[i·m, (i+1)·m]` per axis,
 /// with `m = 2^(MAX_LEVEL − L)`.
-type Cell = (u8, i64, i64, i64);
+pub(crate) type Cell = (u8, i64, i64, i64);
 
 /// Carve the closed surface (`points`, `tris`) at `base_cell_size`, then refine
 /// the near-surface cells up to `max_level` levels finer, returning the graded
@@ -258,8 +258,10 @@ fn refine_with(
     let cell_inside =
         |lvl: u8, i: i64, j: i64, k: i64| inside(cell_centre(lvl, i, j, k), points, tris);
 
-    // Level-0 kept cells.
-    let mut leaves: HashSet<Cell> = HashSet::new();
+    // Level-0 kept cells. Ordered sets (gh:#1241): the cells are numbered in
+    // iteration order, and a `HashSet` (seeded per process) numbered them
+    // differently in every process.
+    let mut leaves: BTreeSet<Cell> = BTreeSet::new();
     for k in 0..nz {
         for j in 0..ny {
             for i in 0..nx {
@@ -343,7 +345,7 @@ fn children(c: Cell) -> [Cell; 8] {
 
 /// Refine any leaf coarser than a face-neighbour by more than one level, until
 /// the leaf set is 2:1-balanced (neighbour levels differ by at most one).
-fn balance_2to1(leaves: &mut HashSet<Cell>) {
+fn balance_2to1(leaves: &mut BTreeSet<Cell>) {
     const D: [(usize, i64); 6] = [(0, 1), (0, -1), (1, 1), (1, -1), (2, 1), (2, -1)];
     loop {
         let mut to_split: Vec<Cell> = Vec::new();
@@ -396,6 +398,7 @@ fn empty() -> VolumeMesh {
         neighbour: vec![],
         n_cells: 0,
         patches: vec![],
+        cells: None,
     }
 }
 
@@ -409,12 +412,12 @@ fn empty() -> VolumeMesh {
 /// recorded face edge is inserted into that face's ring — and only then
 /// allocates point indices and orients the rings. Splitting the pass this way is
 /// what makes the hanging-node set knowable before any ring is finalised.
-fn build_mesh(leaves: &HashSet<Cell>, origin: Vec3, base_cs: f64, max_level: u8) -> VolumeMesh {
+pub(crate) fn build_mesh(leaves: &BTreeSet<Cell>, origin: Vec3, base_cs: f64, max_level: u8) -> VolumeMesh {
     let h_fine = base_cs / (1u32 << max_level) as f64; // finest cell edge
     let span = |level: u8| 1i64 << (max_level - level); // finest units per cell edge
 
     // Compact cell ids.
-    let cell_id: HashMap<Cell, usize> = leaves.iter().enumerate().map(|(n, &c)| (c, n)).collect();
+    let cell_id: BTreeMap<Cell, usize> = leaves.iter().enumerate().map(|(n, &c)| (c, n)).collect();
 
     // Cell centre (physical) and the 4 finest-coord corners of a face.
     let center = |c: Cell| {
@@ -456,7 +459,7 @@ fn build_mesh(leaves: &HashSet<Cell>, origin: Vec3, base_cs: f64, max_level: u8)
     // one level finer (even if the neighbour's *other* children are refined
     // deeper), so checking that specific child is correct — checking a fixed
     // corner is not.
-    let refined_toward = |nc: Cell, axis: usize, sign: i64, leaves: &HashSet<Cell>| -> bool {
+    let refined_toward = |nc: Cell, axis: usize, sign: i64, leaves: &BTreeSet<Cell>| -> bool {
         if nc.0 >= max_level {
             return false;
         }
@@ -464,7 +467,7 @@ fn build_mesh(leaves: &HashSet<Cell>, origin: Vec3, base_cs: f64, max_level: u8)
         ch[axis] += if sign > 0 { 0 } else { 1 };
         leaves.contains(&(nc.0 + 1, ch[0], ch[1], ch[2]))
     };
-    let coarser_leaf = |nc: Cell, leaves: &HashSet<Cell>| -> Option<Cell> {
+    let coarser_leaf = |nc: Cell, leaves: &BTreeSet<Cell>| -> Option<Cell> {
         if nc.0 == 0 {
             return None;
         }
@@ -581,6 +584,7 @@ fn build_mesh(leaves: &HashSet<Cell>, origin: Vec3, base_cs: f64, max_level: u8)
         neighbour,
         n_cells: leaves.len(),
         patches,
+        cells: None,
     }
 }
 
@@ -625,7 +629,7 @@ fn conforming_ring(
 }
 
 /// Point-in-closed-surface test by ray parity (Möller–Trumbore).
-fn inside(p: Vec3, points: &[Vec3], tris: &[[usize; 3]]) -> bool {
+pub(crate) fn inside(p: Vec3, points: &[Vec3], tris: &[[usize; 3]]) -> bool {
     let dir = Vec3::new(0.131_537, 0.755_605, 0.642_020);
     let mut crossings = 0usize;
     for t in tris {

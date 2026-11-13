@@ -1,0 +1,18 @@
+    Updating crates.io index
+   Packaging buangkok v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/buangkok)
+    Updating crates.io index
+warning: package `tokio v1.54.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+    Packaged 84 files, 1.3MiB (340.9KiB compressed)
+   Verifying buangkok v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/buangkok)
+ Downloading crates ...
+  Downloaded changi v0.0.3
+   Compiling changi v0.0.3
+   Compiling buangkok v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/buangkok-0.0.2)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.06s
+   Uploading buangkok v0.0.2 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/buangkok)
+    Uploaded buangkok v0.0.2 to registry `crates-io`
+note: waiting for buangkok v0.0.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published buangkok v0.0.2 at registry `crates-io`

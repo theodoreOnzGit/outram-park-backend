@@ -1,0 +1,22 @@
+    Updating crates.io index
+   Packaging raffles v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/raffles)
+    Updating crates.io index
+warning: package `tokio v1.54.0` in Cargo.lock is yanked in registry `crates-io`
+  |
+  = help: consider updating to a version that is not yanked
+    Packaged 187 files, 6.7MiB (1.9MiB compressed)
+   Verifying raffles v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/raffles)
+   Compiling autocfg v1.5.1
+   Compiling libm v0.2.16
+   Compiling typenum v1.20.1
+   Compiling xml-rs v0.8.29
+   Compiling num-traits v0.2.19
+   Compiling uom v0.38.0
+   Compiling petir v0.0.4
+   Compiling raffles v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/raffles-0.0.4)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 24.77s
+   Uploading raffles v0.0.4 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/raffles)
+    Uploaded raffles v0.0.4 to registry `crates-io`
+note: waiting for raffles v0.0.4 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published raffles v0.0.4 at registry `crates-io`

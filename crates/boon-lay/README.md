@@ -69,7 +69,7 @@ are not validated against any accident.
 
 **`rustbca` is a copy of RustBCA, not boon-lay's own code, and boon-lay
 re-exports it** as `boon_lay::rustbca`. It is copied from `lcpp-org/RustBCA`
-v3.0.0 (`a356280d`, GPL-3.0, Jon Drobny and Davide Curreli) and made `no_std` +
+~~v3.0.0~~ (`a356280d`, which is v3.0.0 plus 17 upstream commits, corrected 2026-11-13 gh:#1426; GPL-3.0, Jon Drobny and Davide Curreli) and made `no_std` +
 `alloc`. Attribution and every local change are listed in
 [`src/rustbca/README.md`](src/rustbca/README.md) and in the module docs.
 

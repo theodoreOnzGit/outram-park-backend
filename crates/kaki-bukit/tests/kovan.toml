@@ -2,6 +2,20 @@ schema_version = 1
 kind = "code_folder"
 crate = "kaki-bukit"
 dir = "crates/kaki-bukit/tests"
+test_ids = [
+    "crates/kaki-bukit/tests/dependency_policy.rs::every_source_file_carries_a_provenance_or_licence_header",
+    "crates/kaki-bukit/tests/dependency_policy.rs::petir_is_a_path_dependency_on_the_in_workspace_crate",
+    "crates/kaki-bukit/tests/dependency_policy.rs::petir_is_taken_without_default_features",
+    "crates/kaki-bukit/tests/dependency_policy.rs::petir_is_the_only_dependency",
+    "crates/kaki-bukit/tests/dependency_policy.rs::the_library_declares_no_std",
+    "crates/kaki-bukit/tests/dependency_policy.rs::the_std_feature_is_additive_only",
+    "crates/kaki-bukit/tests/fuel_cycle.rs::a_malformed_hierarchy_is_rejected",
+    "crates/kaki-bukit/tests/fuel_cycle.rs::a_simulation_with_no_requests_is_a_no_op",
+    "crates/kaki-bukit/tests/fuel_cycle.rs::an_exhausted_source_stops_trading_and_retires",
+    "crates/kaki-bukit/tests/fuel_cycle.rs::mine_to_repository",
+    "crates/kaki-bukit/tests/fuel_cycle.rs::summaries_dispatch_through_the_enum",
+    "crates/kaki-bukit/tests/fuel_cycle.rs::the_tighter_constraint_is_the_one_that_binds",
+]
 
 [module."dependency_policy.rs"]
 path = "test:dependency_policy"
@@ -345,3 +359,23 @@ uses = [
     "fn:e8a9c8e7005de09f",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+failed = []

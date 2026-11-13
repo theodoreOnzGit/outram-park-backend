@@ -301,3 +301,10 @@ lines = [
 hash = "sha256:b1ed3b4b23a335af0b7c7858b10569c40a89a5740944c3862a8b43483824eae1"
 doc_hash = "sha256:0dd5432b10f4421aade953f91bda4bb7364040fb959e1084411da010f4fd6a81"
 uses = ["fn:16732cbca27a157e"]
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = []
+failed = []

@@ -1,0 +1,13 @@
+arm,seed,material,absorption,nu_fission
+mo-natural@salt1181F/graphite1181F,1,"MSRE fuel salt, first criticality",2.62404289e6,4.01491227e6
+mo-natural@salt1181F/graphite1181F,1,"MSRE CGB graphite",5.02407872e4,0.00000000e0
+mo-natural@salt1181F/graphite1181F,1,"INOR-8",3.35226162e5,0.00000000e0
+mo-natural@salt1181F/graphite1181F,1,"Sample baskets (homogenised)",3.30081183e4,2.29523281e4
+mo-natural@salt1181F/graphite1181F,2,"MSRE fuel salt, first criticality",2.61969266e6,4.00965226e6
+mo-natural@salt1181F/graphite1181F,2,"MSRE CGB graphite",5.01169793e4,0.00000000e0
+mo-natural@salt1181F/graphite1181F,2,"INOR-8",3.35130962e5,0.00000000e0
+mo-natural@salt1181F/graphite1181F,2,"Sample baskets (homogenised)",3.27658691e4,2.27930869e4
+mo-natural@salt1181F/graphite1181F,3,"MSRE fuel salt, first criticality",2.62500518e6,4.02034851e6
+mo-natural@salt1181F/graphite1181F,3,"MSRE CGB graphite",5.03225536e4,0.00000000e0
+mo-natural@salt1181F/graphite1181F,3,"INOR-8",3.35537537e5,0.00000000e0
+mo-natural@salt1181F/graphite1181F,3,"Sample baskets (homogenised)",3.31423407e4,2.30400138e4

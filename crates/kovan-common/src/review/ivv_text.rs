@@ -11,7 +11,7 @@
 
 use super::ivv::{
     AttestationProblem, AuditRecordProblem, OrganisationProblem, RecordList, RecordProblem,
-    RecordWarning, VvCaseProblem,
+    RecordWarning, RetirementProblem, VvCaseProblem,
 };
 use super::signing::registry::SignerProblem;
 
@@ -127,6 +127,23 @@ pub fn record_list(l: &RecordList) -> String {
             format!("{reviewer}'s separation attestation")
         }
         RecordList::RosterEvent => "roster event".into(),
+        RecordList::OrganisationRetirement => "organisation retirement".into(),
+    }
+}
+
+/// Why an organisation retirement has no effect, in words (GitHub #1211).
+pub fn retirement_problem(p: &RetirementProblem) -> String {
+    match p {
+        RetirementProblem::BadDate(d) => format!("its date {d:?} is not YYYY-MM-DD"),
+        RetirementProblem::BadReviewer => {
+            "it names a reviewer for a developing organisation, or none for a reviewer's".into()
+        }
+        RetirementProblem::UnknownRecord => "it names no signed organisation record".into(),
+        RetirementProblem::Unverified(s) => format!(
+            // ~~by the founder~~ GitHub #1248: by a founder on its date.
+            "it has no valid signature by a founder on its date, so the record still counts: {}",
+            signer_problem(s)
+        ),
     }
 }
 
@@ -136,6 +153,7 @@ pub fn record_warning(w: &RecordWarning) -> String {
     let what = match &w.problem {
         RecordProblem::Organisation(p) => organisation_problem(p),
         RecordProblem::Attestation(p) => attestation_problem(p),
+        RecordProblem::Retirement(p) => retirement_problem(p),
     };
     format!("{} record {}: {what}", record_list(&w.list), w.index + 1)
 }
@@ -236,6 +254,19 @@ mod tests {
         all.push(record_list(&RecordList::ReviewerOrganisation {
             reviewer: "github:v".into(),
         }));
+        all.push(record_list(&RecordList::OrganisationRetirement));
+        for p in [
+            RetirementProblem::BadDate("x".into()),
+            RetirementProblem::BadReviewer,
+            RetirementProblem::UnknownRecord,
+            RetirementProblem::Unverified(SignerProblem::NotEligible("github:m".into())),
+        ] {
+            all.push(record_warning(&RecordWarning {
+                list: RecordList::OrganisationRetirement,
+                index: 0,
+                problem: RecordProblem::Retirement(p),
+            }));
+        }
         for s in &all {
             assert!(!s.trim().is_empty());
             assert!(!s.contains('{') && !s.contains("::"), "debug text: {s}");

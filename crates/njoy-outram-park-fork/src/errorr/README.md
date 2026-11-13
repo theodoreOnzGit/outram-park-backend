@@ -101,10 +101,26 @@ where upstream would abort on a second `allocate`.
   `NIS > 1` with an `LRF=7` range (upstream: "multiple isotopes do not work
   with sammy method"). `LCOMP=1` has an oracle for `LRF=3` (JENDL-3.3
   U-238) but not for MLBW or `LRF=7`.
-- **MF=31/34/35/40**, `iread = 1/2` (user reaction lists, extra `MAT1/MT1`
-  pairs), `nstan` (ratio-to-standard, `LTY` 1–3, `grist`/`stand`), `nin`
-  (input covariance tape merge), `ngout != 0` (`colaps` from a GENDF),
-  `covadd`, ENDF/B-IV (`iverf = 4`), the `-33/333` speed-up modes.
+- **~~MF=31/34/~~35~~/40~~ MF=40**, `iread = 1/2` (user reaction lists, extra `MAT1/MT1`
+  pairs), `nstan` (ratio-to-standard, `LTY` 1–3, `grist`/`stand`), ~~`nin`
+  (input covariance tape merge),~~ ~~`ngout != 0` (`colaps` from a GENDF),~~
+  ~~`covadd`,~~ ENDF/B-IV (`iverf = 4`), the `-33/333` speed-up modes.
+  **CORRECTED 2026-11-13 (gh:#1369):** `covadd` is ported (`covadd.rs`, in the
+  table above); MF=35 from an input GENDF is ported (`mf35.rs`, `colaps.rs`,
+  `gendf.rs` for `ngchk`) and runs from a deck (`deck::errorr`): NJOY2016 test
+  decks 18, 27, 34 and 47 give covariance tapes identical line for line
+  (`tests/deck_driver_tapes_vs_njoy2016.rs`, deck-driver README section 18).
+  ~~`colaps` serves MF=35 only so far; MF=31/33/34/40 with `ngout != 0` are not
+  wired.~~ **CORRECTED again 2026-11-13 (gh:#1369):** MF=31 and MF=33 from a GENDF
+  run through `colaps` (`mf31.rs`, `run_cov_gendf`), MF=34 from a GENDF or a PENDF
+  (`mf34.rs`; `grpav4.rs` for `grpav4`'s ENDF branch, `egtlgc`, `matrixej`'s row 2),
+  and `nin /= 0` copies the input tape ahead of the output in a deck
+  (`deck::errorr::copy_nin_ahead`). NJOY2016's decks 04, 15, 16, 20, 46 and 65 are
+  identical as whole decks (deck-driver README section 20). MF=40 is still not
+  ported. **2026-11-13 (gh:#1369):** MF=33 from a PENDF (`run_mf33`) runs from a
+  deck too, its tape written as text by `deck::errorr::mf33_text`; NJOY2016's
+  deck 05 is identical as a whole deck, ERRORR tape included
+  (`tests/deck_driver_covr_vs_njoy2016.rs`, deck-driver README section 19).
 - The listing printer (`nsyso` tables); `ErrorrResult` carries everything
   the listing prints.
 

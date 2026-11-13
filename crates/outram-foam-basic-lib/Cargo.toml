@@ -1,6 +1,6 @@
 [package]
 name = "outram-foam-basic-lib"
-version = "0.1.7"
+version = "0.1.8"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -63,6 +63,7 @@ petir.workspace = true
 thiserror.workspace = true
 uom.workspace = true
 ndarray.workspace = true
+miniz_oxide.workspace = true
 rayon = { workspace = true, optional = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
@@ -71,6 +72,7 @@ wgpu = { workspace = true, optional = true }
 [dev-dependencies]
 approx.workspace = true
 ndarray.workspace = true
+miniz_oxide.workspace = true
 
 # `ndarray-linalg` is OPT-IN, behind `blas-bench`, and is NOT a dev-dependency.
 #

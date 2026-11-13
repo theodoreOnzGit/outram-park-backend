@@ -20,14 +20,14 @@
 //!   penetrability/interpolation helpers (`penetrability_factor`/`intrf`/`intr`).
 //!
 //! **Status:** the physics kernel is ported (ENDF parsing, the W-function
-//! library, and `unresl` itself); the NJOY card-input driver (`run()`) and
-//! the PENDF MT=152 output-tape bookkeeping remain
-//! [`crate::NjoyError::NotPorted`] — this crate has no established "write an
-//! unresolved-region PENDF section" concept yet (unlike ACE, which does), and
-//! that bookkeeping is pure tape plumbing, not physics; see `README.md` for
-//! the full status and caveats.
+//! library, and `unresl` itself); the NJOY card-input driver (`run()`)
+//! remains [`crate::NjoyError::NotPorted`]. ~~The PENDF MT=152 output-tape
+//! bookkeeping is not ported either.~~ **CORRECTED 2026-11-13 (gh:#1369):** it
+//! is [`tape`], used by the deck driver. See `README.md` for the full status
+//! and caveats.
 
 pub mod mf2;
+pub mod tape;
 pub mod wfun;
 
 use petir::mathf::RealMath;
@@ -573,8 +573,8 @@ pub fn unresolved_cross_sections(
 
 /// Run the UNRESR card-input driver. Placeholder — the ENDF parsing and
 /// physics kernel are reached directly through [`mf2::parse_lru2_ranges`] and
-/// [`unresolved_cross_sections`]; the PENDF MT=152 output-tape bookkeeping is
-/// not ported (see the module docs and `README.md`).
+/// [`unresolved_cross_sections`]; the PENDF MT=152 record is [`tape`]
+/// (~~not ported~~ **CORRECTED 2026-11-13**, gh:#1369).
 pub fn run() -> Result<(), NjoyError> {
     Err(NjoyError::NotPorted(
         "unresr driver (physics: crate::unresr::unresolved_cross_sections)",

@@ -2,6 +2,39 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-mc-libs"
 dir = "crates/outram-mc-libs/tests/openmc_notebooks"
+test_ids = [
+    "crates/outram-mc-libs/tests/openmc_notebooks/candu.rs::candu_cluster_per_pin_flux_tally",
+    "crates/outram-mc-libs/tests/openmc_notebooks/capi.rs::capi_in_memory_build_run_edit_rerun",
+    "crates/outram-mc-libs/tests/openmc_notebooks/depletion.rs::depletion_burnup",
+    "crates/outram-mc-libs/tests/openmc_notebooks/depletion.rs::depletion_mc_transport_coupling",
+    "crates/outram-mc-libs/tests/openmc_notebooks/expansion_filters.rs::expansion_moment_filters",
+    "crates/outram-mc-libs/tests/openmc_notebooks/flux_spectrum.rs::flux_energy_spectrum",
+    "crates/outram-mc-libs/tests/openmc_notebooks/hexagonal_lattice.rs::hexagonal_lattice_geometry",
+    "crates/outram-mc-libs/tests/openmc_notebooks/hexagonal_lattice.rs::hexagonal_lattice_keff_smoke",
+    "crates/outram-mc-libs/tests/openmc_notebooks/mg_mode_part_i.rs::mg_mode_leakage_smoke",
+    "crates/outram-mc-libs/tests/openmc_notebooks/mg_mode_part_i.rs::mg_mode_run",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::csg_multithread_agrees_with_single_thread",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::pincell_criticality_eigenvalue_via_godiva_bare_sphere",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::pincell_heterogeneous_csg_with_cell_flux_tally",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::pincell_leakage_reduces_reactivity",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::pincell_lwr_thermal_pin_benchmark",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::pincell_reflective_cell_suppresses_leakage",
+    "crates/outram-mc-libs/tests/openmc_notebooks/post_processing.rs::post_processing_statepoint",
+    "crates/outram-mc-libs/tests/openmc_notebooks/search.rs::search_for_critical_radius_godiva_bisection",
+    "crates/outram-mc-libs/tests/openmc_notebooks/search.rs::search_for_critical_radius_godiva_secant",
+    "crates/outram-mc-libs/tests/openmc_notebooks/shielded_room_weight_window.rs::shielded_room_weight_window",
+    "crates/outram-mc-libs/tests/openmc_notebooks/tally_arithmetic.rs::tally_arithmetic_derived",
+    "crates/outram-mc-libs/tests/openmc_notebooks/tally_power_normalization.rs::tally_power_normalization",
+    "crates/outram-mc-libs/tests/openmc_notebooks/triso.rs::corner_grazing_history_terminates_without_pingpong",
+    "crates/outram-mc-libs/tests/openmc_notebooks/triso.rs::corner_reflection_composes_at_exact_corner",
+    "crates/outram-mc-libs/tests/openmc_notebooks/triso.rs::corner_reflective_cube_surface_tracking_unbiased",
+    "crates/outram-mc-libs/tests/openmc_notebooks/triso.rs::triso_delta_flight_reaches_collision_in_packed_medium",
+    "crates/outram-mc-libs/tests/openmc_notebooks/triso.rs::triso_delta_tracking_unbiased_vs_surface_tracking",
+    "crates/outram-mc-libs/tests/openmc_notebooks/triso.rs::triso_nested_lattice_geometry_navigation",
+    "crates/outram-mc-libs/tests/openmc_notebooks/triso.rs::triso_nested_lattice_surface_vs_delta_keff",
+    "crates/outram-mc-libs/tests/openmc_notebooks/triso.rs::triso_random_packed_doubly_heterogeneous_keff",
+    "crates/outram-mc-libs/tests/openmc_notebooks/triso.rs::triso_random_packing_is_valid",
+]
 
 [module."cad_based_geometry.rs"]
 path = "test:openmc_notebooks::cad_based_geometry"
@@ -2909,3 +2942,42 @@ lines = [
 hash = "sha256:c67243d7673e41da304fdbd930b2d202023f0bf830f41eb5dd445f8486ed8509"
 doc_hash = "sha256:0d9f08accbd76f37dbf24442ca480133abdea9d045254e36d78ceb54ddbbec04"
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+]
+failed = []

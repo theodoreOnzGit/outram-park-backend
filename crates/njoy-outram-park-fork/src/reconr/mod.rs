@@ -34,6 +34,7 @@
 //! ```
 
 pub mod aa;
+pub mod csunr;
 pub mod linearize;
 pub mod lunion;
 pub mod mf1;
@@ -41,6 +42,7 @@ pub mod mf2;
 pub mod rm;
 pub mod urr;
 pub mod rml;
+mod seam;
 pub mod slbw;
 
 pub use mf1::MaterialInfo;
@@ -54,8 +56,7 @@ use crate::{
     mixr::mix::sigfig,
     NjoyError,
 };
-use rm::RmSigmas;
-use slbw::{channel_radius, eval_mlbw_lstate, eval_slbw_lstate};
+use slbw::{channel_radius, csslbw_elastic_step, eval_mlbw_lstate, eval_mlbw_lstate_radii, eval_slbw_lstate_parts};
 
 // ── Public configuration and result types ─────────────────────────────────────
 
@@ -70,6 +71,17 @@ pub struct ReconrConfig {
     /// below this fraction of the local value. NJOY default: `0.001` (0.1%).
     pub tolerance: f64,
     /// Reconstruction temperature \[K\]. `0.0` = 0 K (no Doppler shift).
+    ///
+    /// ~~(Read nowhere: any value returned 0 K data.)~~ **CHANGED 2026-11-10
+    /// (GitHub #662):** only `0.0` is accepted; [`reconr`] refuses anything
+    /// else. Upstream RECONR's `tempr > 0` Doppler-broadens SLBW and
+    /// Adler-Adler through the ψ/χ line shapes and switches MLBW to
+    /// `csmlbw2` (`reconr.f90:2613-2618, 2775, 3167, 4352`), none of which is
+    /// ported; for Reich-Moore and R-Matrix Limited it reaches `cssammy`,
+    /// which never reads `tempr`, so NJOY2016 itself returns 0 K resonances
+    /// under a `tempr` label there (`csrmat`'s refusal, `:3232`, is reached
+    /// only when the SAMMY method is off). Reconstruct at 0 K and broaden
+    /// with [`crate::broadr`], as every caller in this workspace does.
     pub temperature: f64,
 }
 
@@ -164,6 +176,17 @@ pub struct ReconrResult {
     /// result therefore still carries the 0 K table, which is what upstream
     /// produces — not an oversight.
     pub unresolved_table: Option<Vec<[f64; 6]>>,
+    /// The temperature \[K\] these cross sections represent: `0.0` from
+    /// RECONR, the broadening temperature after [`crate::broadr`].
+    ///
+    /// It is the PENDF's own temperature (MF=1/MT=451's `TEMP`, which BROADR
+    /// reads as `temp`, `broadr.f90:381`), and BROADR broadens by the
+    /// difference `T − tempin` from it (`tempef=tempk-tempin`,
+    /// `broadr.f90:605-610`). Before 2026-11-10 (GitHub #617) the port had no
+    /// such field and always broadened by the full `T`, which over-broadens an
+    /// already-broadened input (293.6 K data taken "to" 900 K came out at
+    /// about 1194 K).
+    pub temperature_k: f64,
 }
 
 impl ReconrResult {
@@ -308,10 +331,34 @@ pub fn eval_lin_lin(pairs: &[(f64, f64)], x: f64) -> f64 {
 /// # Errors
 ///
 /// - [`NjoyError::SectionNotFound`] — MF=1/MT=451 or MF=3 sections absent.
-/// - [`NjoyError::NotPorted`] — MF=2 contains LRF=4 (Adler-Adler).
+/// - ~~[`NjoyError::NotPorted`] — MF=2 contains LRF=4 (Adler-Adler).~~
+///   **CORRECTED 2026-11-10:** Adler-Adler is reconstructed
+///   ([`aa`]). [`NjoyError::NotPorted`] is returned for
+///   `config.temperature > 0` (GitHub #662, see
+///   [`ReconrConfig::temperature`]) and for a multi-isotope (`NIS > 1`)
+///   MF=2: the resolved ranges are rebuilt one at a time on the tape's own
+///   background, so overlapping isotopes would replace rather than add to
+///   each other, and the unresolved walk reads the first isotope only.
+/// - [`NjoyError::InvalidInput`] — a negative or non-finite temperature, or
+///   an MF=2 `NRO ≠ 0` range upstream refuses
+///   ([`mf2::parse_resonance_info`]).
 pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyError> {
     let mat = config.mat;
     let eps = config.tolerance;
+    // GitHub #662: the temperature was read nowhere, so T > 0 silently gave
+    // 0 K data.
+    if config.temperature != 0.0 {
+        if config.temperature > 0.0 && config.temperature.is_finite() {
+            return Err(NjoyError::NotPorted(
+                "RECONR at temperature > 0 (the psi/chi line shapes of csslbw/csaa and \
+                 csmlbw2); reconstruct at 0 K and broaden with BROADR",
+            ));
+        }
+        return Err(NjoyError::InvalidInput(format!(
+            "RECONR temperature must be 0 K, got {} K",
+            config.temperature
+        )));
+    }
 
     // MF=1/MT=451 — material header
     let mf1_sec = tape
@@ -329,10 +376,24 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
     } else {
         ResonanceInfo::default()
     };
+    if res_info.ranges.iter().any(|r| r.isotope > 0) {
+        return Err(NjoyError::NotPorted(
+            "RECONR on a multi-isotope (NIS > 1) MF=2: upstream sigma sums every \
+             isotope's sections at each energy; the port rebuilds ranges one at a time",
+        ));
+    }
 
     // AWI, the incident particle's mass ratio (MF=1/MT=451, third record);
     // `lunion`'s `awin`. 1 for a neutron sublibrary.
-    let awin = mf1_sec.rows.get(2).map_or(1.0, |r| r[0]);
+    //
+    // ~~`rows.get(2)` for every format version~~ **CORRECTED 2026-11-11
+    // (gh:#1369)**: upstream reads AWI only `if (iverf.ge.6)`
+    // (`reconr.f90:247-256`) and keeps `awin = 1` below that. For ENDF/B-V
+    // (`iverf = 5`) the third record is `hdatio`'s `(TEMP, 0, ...)`, so this
+    // took the temperature (0) for AWI, which switched off `lunion`'s
+    // kinematic threshold raise: C-nat (tape 511) lost 4 points in MT=1/2/102
+    // and every inelastic threshold (4 812 000 eV against NJOY's 4 812 123).
+    let awin = lunion_awin(mf1_sec);
 
     // MF=3 — background cross sections, as tabulated (after `lunion`'s
     // threshold raise). Every section is evaluated on RECONR's union grid
@@ -358,33 +419,34 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
 
     let union = union_grid(tape, mat, &raw_mf3, &res_info, &urr_ranges, eps, awin, material.lrp)?;
     // `lunion` builds the grid from its in-memory TAB1s, but writes them to
-    // a formatted scratch tape (`tab1io(0,nout,...)`, `reconr.f90:1940`),
-    // and `emerge` reads that tape. So `emerge` sees a raised threshold as
-    // printed: `sigfig(thr,7,+1)` carries sigfig's 1e-13 bias, which the
-    // 11-column field drops. Sr-88 (ENDF/B-VIII.1) MT=63/66/72 were one
-    // unit off in the 7th figure at the point above the threshold before
-    // this (2026-09-26).
-    let raw_mf3: Vec<(i32, crate::endf::records::Tab1)> = {
-        use crate::endf::parse::{format_endf_float, parse_endf_float};
-        let rt = |x: f64| parse_endf_float(&format_endf_float(x)).unwrap_or(x);
-        raw_mf3
-            .into_iter()
-            .map(|(mt, mut t)| {
-                for p in &mut t.pairs {
-                    *p = (rt(p.0), rt(p.1));
-                }
-                (mt, t)
-            })
-            .collect()
-    };
+    // its scratch tape `nscr1` (`tab1io(0,nout,...)`, `reconr.f90:1940`),
+    // and `emerge` reads that tape. ~~So `emerge` sees a raised threshold as
+    // printed~~ **CORRECTED 2026-11-12 (gh:#1496)**: `nscr1` is coded only
+    // when `npend > 0` (`reconr.f90:155,193`); then `emerge` sees a raised
+    // threshold as printed: `sigfig(thr,7,+1)` carries sigfig's 1e-13 bias,
+    // which the 11-column field drops. Sr-88 (ENDF/B-VIII.1, `reconr 20 22`)
+    // MT=63/66/72 were one unit off in the 7th figure at the point above the
+    // threshold before this (2026-09-26). With `npend < 0` the scratch is
+    // binary and the bias survives: Zr-90's MT=52/53/58 on decks 32/49/69
+    // (`reconr -21 -22`) were one unit off the other way when this round
+    // trip was unconditional. See [`reconr_for_deck`].
+    let raw_mf3: Vec<(i32, crate::endf::records::Tab1)> = raw_mf3
+        .into_iter()
+        .map(|(mt, mut t)| {
+            as_emerge_reads(&mut t);
+            (mt, t)
+        })
+        .collect();
     // `emerge`'s resonance reactions (`itype != 0`) and the first resonance
     // point (`reconr.f90:4755-4775`).
     // `nrtot = 0` for LRP != 1 (`reconr.f90:304`): no resonance reactions.
     let res_mts = if material.lrp == 1 { resonance_mts(&res_info) } else { Vec::new() };
     let first_res = rdfil2_nodes(&res_info, &urr_ranges).first().copied();
     let first_res_for = |mt: i32| first_res.filter(|_| res_mts.contains(&mt));
+    let iverf_out = tape.section(mat, 1, 451).map_or(6, |s| crate::moder::layout::iverf_from_mf1(&s.rows));
     let mut sections: Vec<ReconrSection> = raw_mf3
         .iter()
+        .filter(|(mt, _)| !not_on_pendf(*mt, iverf_out))
         .map(|(mt, t)| ReconrSection {
             lr: t.head.l2,
             mt: MtReaction::from_any(*mt),
@@ -436,6 +498,9 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
 
     // Phase 2b: add SLBW/MLBW resonance contributions
     add_resonance_contributions(&mut sections, &res_info, eps, &raw_mf3);
+    // `resxs` walks every resolved range in one pass, so the panel across a
+    // boundary between two of them is tested too (gh:#1369 round 5, deck 17).
+    seam::refine_resolved_seams(&mut sections, &res_info, eps, &raw_mf3);
 
     // Phase 2c: add the infinitely-dilute unresolved (LRU=2) contribution for
     // LSSF=0 ranges. Without this those ranges come back at ZERO cross
@@ -476,6 +541,7 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
             sec.pairs = evaluate_on_union(t, &final_grid, first_res_for(sec.mt.number()));
         }
     }
+    seed_redundant_total(&mut sections, &final_grid);
     rebuild_total_as_sum_of_parts(&mut sections, &final_grid);
 
     // `emerge` writes each section from its last zero before the first
@@ -490,7 +556,7 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
 
     // Phase 2d: rebuild the lumped charged-particle channels MT=103-107 from
     // the discrete MT=600-849 levels, as the redundant reactions they are.
-    synthesise_lumped_particle_channels(&mut sections);
+    synthesise_lumped_particle_channels(&mut sections, &final_grid);
 
     // MT=3 is written only as a redundant sum, and only when MF=12 carries
     // an MT=3 section (`anlyzd`, `reconr.f90:589-591`). Otherwise `lunion`
@@ -503,7 +569,7 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
     }
 
     if mtr18 {
-        synthesise_total_fission(&mut sections);
+        synthesise_total_fission(&mut sections, &final_grid);
     }
 
     let lrp = material.lrp;
@@ -520,6 +586,7 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
             Some(20.0e6)
         },
         unresolved_table,
+        temperature_k: 0.0,
     })
 }
 
@@ -635,6 +702,7 @@ fn union_grid(
     let nodes = rdfil2_nodes(res_info, urr_ranges);
     let mts: Vec<i32> = raw_mf3.iter().map(|(mt, _)| *mt).collect();
     let has = |lo: i32, hi: i32| mts.iter().any(|&m| (lo..=hi).contains(&m));
+    let iverf = tape.section(mat, 1, 451).map_or(6, |s| crate::moder::layout::iverf_from_mf1(&s.rows));
     let skip = |mt: i32| -> bool {
         matches!(mt, 1 | 3 | 101 | 120 | 151)
             || (mt == 4 && has(51, 91))
@@ -643,11 +711,8 @@ fn union_grid(
             || (mt == 105 && has(700, 749))
             || (mt == 106 && has(750, 799))
             || (mt == 107 && has(800, 849))
-            || ((251..=300).contains(&mt) && mt != 261)
             || (mt == 18 && mts.contains(&19))
-            || (451..600).contains(&mt)
-            || (851..=870).contains(&mt)
-            || mt > 891
+            || not_on_pendf(mt, iverf)
     };
     let mut inputs: Vec<lunion::UnionInput> = raw_mf3
         .iter()
@@ -808,6 +873,26 @@ fn trim_leading_zeros_to_ith(pairs: &mut Vec<(f64, f64)>) {
     }
 }
 
+/// MF=3 sections `lunion` leaves off the PENDF altogether (`reconr.f90:1875-1900`,
+/// the `go to 150` skips that do not depend on other sections): MT=101, 120,
+/// 151, 460, 501, MT=251-300 except 261 (`mubar`, `xi`, `gamma` ... that ENDF/B-V and
+/// older tapes carry in MF=3), and the non-cross-section ranges: for `iverf < 6`
+/// MT=451-699 and MT>=800, else 451-599, 851-870 and above 891.
+///
+/// ~~Only the union grid honoured these skips; the sections list was built from
+/// every MF=3 section on the tape~~ **CORRECTED 2026-11-11 (gh:#1369)**: C-nat
+/// (ENDF/B-V tape 511) carried MT=251-253 onto the PENDF, which NJOY's does not.
+fn not_on_pendf(mt: i32, iverf: i32) -> bool {
+    if matches!(mt, 101 | 120 | 151 | 460 | 501) || ((251..=300).contains(&mt) && mt != 261) {
+        return true;
+    }
+    if iverf < 6 {
+        (451..700).contains(&mt) || mt >= 800
+    } else {
+        (451..600).contains(&mt) || (mt > 850 && mt <= 870) || mt > 891
+    }
+}
+
 /// `lunion`'s threshold check (`reconr.f90:1913-1938`): a section whose first
 /// tabulated energy lies below the kinematic threshold
 /// `-Q (A+1)/A`, rounded **up** at 7 figures, has that first energy raised to
@@ -853,7 +938,7 @@ fn raise_threshold_to_kinematic(
 /// (`reconr.f90:4886-4893`), on the union of the parts' grids, with MT=19's Q
 /// (`q18`, `:1916`, written at `:5281`). Only called when MT=19 is present,
 /// after the tape's own MT=18 was dropped as `lunion` drops it (`:1893`).
-fn synthesise_total_fission(sections: &mut Vec<ReconrSection>) {
+fn synthesise_total_fission(sections: &mut Vec<ReconrSection>, final_grid: &[f64]) {
     let parts: Vec<&ReconrSection> = sections
         .iter()
         .filter(|s| matches!(s.mt.number(), 19 | 20 | 21 | 38))
@@ -875,6 +960,7 @@ fn synthesise_total_fission(sections: &mut Vec<ReconrSection>) {
             (e, sigfig(sum, 7, 0))
         })
         .collect();
+    let pairs = start_at_mtrt(pairs, final_grid);
     let qi = parts
         .iter()
         .find(|s| s.mt.number() == 19)
@@ -888,6 +974,32 @@ fn synthesise_total_fission(sections: &mut Vec<ReconrSection>) {
         pairs,
     });
     sections.sort_by_key(|s| i32::from(s.mt));
+}
+
+/// Where `recout` starts a redundant sum: `mtrt`, the index on the **final
+/// grid** of its first non-zero point, less one (`emerge`, `reconr.f90:4888-4891`:
+/// `if (it.lt.mtrt(imtr)) then; mtrt(imtr)=it; if (mtrt(imtr).gt.1)
+/// mtrt(imtr)=mtrt(imtr)-1`). The parts are stored from their own first
+/// non-zero point (a section below its threshold has no stored points), so the
+/// point before it on the final grid belongs to no part: the sum gets it, with
+/// value 0. Pu-241 ENDF/B-VI.3 (deck test 19): NJOY's MT=4 has 115 points from
+/// 4.019999e4 eV, the port had 114 from 4.020001e4 (gh:#1369).
+fn start_at_mtrt(mut pairs: Vec<(f64, f64)>, final_grid: &[f64]) -> Vec<(f64, f64)> {
+    let Some(first_nz) = pairs.iter().position(|p| p.1 != 0.0) else {
+        return pairs;
+    };
+    let e = pairs[first_nz].0;
+    let idx = final_grid.partition_point(|&g| g < e - 1.0e-10 * e.abs().max(1.0));
+    if idx == 0 {
+        pairs.drain(..first_nz);
+        return pairs;
+    }
+    let prev = final_grid[idx - 1];
+    pairs.retain(|p| p.0 >= prev);
+    if pairs.first().is_none_or(|p| p.0 > prev) {
+        pairs.insert(0, (prev, 0.0));
+    }
+    pairs
 }
 
 /// The five lumped charged-particle channels and the discrete MF=3 level
@@ -944,7 +1056,7 @@ const LUMPED_PARTICLE_CHANNELS: [(i32, i32, i32); 6] = [
 /// and MT=107 where this crate stored -0.8199998 and 11.1165 MeV. The
 /// synthesised case was wrong the same way -- it took the ground-state
 /// level's Q. Both now follow upstream.
-fn synthesise_lumped_particle_channels(sections: &mut Vec<ReconrSection>) {
+fn synthesise_lumped_particle_channels(sections: &mut Vec<ReconrSection>, final_grid: &[f64]) {
     for (lumped, lo, hi) in LUMPED_PARTICLE_CHANNELS {
         if !sections.iter().any(|s| (lo..=hi).contains(&s.mt.number())) {
             continue;
@@ -973,6 +1085,7 @@ fn synthesise_lumped_particle_channels(sections: &mut Vec<ReconrSection>) {
                 (e, sigfig(sum, 7, 0))
             })
             .collect();
+        let pairs = start_at_mtrt(pairs, final_grid);
 
         // A redundant reaction is written with Q = 0 (`recout`,
         // `reconr.f90:5280`). ~~The ground-state level's Q.~~
@@ -1114,6 +1227,7 @@ pub fn reconr_background(tape: &Tape, mat: i32, tolerance: f64) -> Result<Reconr
         // Background-only: no resonance reconstruction ran, so there is no
         // unresolved table to store either.
         unresolved_table: None,
+        temperature_k: 0.0,
     })
 }
 
@@ -1166,7 +1280,7 @@ fn add_aa_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64
     let mut halo = Vec::new();
     add_aa_halo_energies(&mut halo, &aa.l_states, range.el, range.eh);
 
-    rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, |e| {
+    rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, range.abn, |e| {
         let s = aa::eval_aa_range(e, aa, range.ap);
         RangeDelta {
             total: s.total,
@@ -1237,6 +1351,18 @@ impl RangeDelta {
         self
     }
 // ANCHOR_END: lesson_clamp
+
+    /// Every slot multiplied by the isotope abundance `abn`, the `*abn` of
+    /// `sig(j)=sig(j)+sigp(j)*abn` (`reconr.f90:2645`), applied after
+    /// [`Self::clamp_negative_to_zero`] as upstream orders it. GitHub #664.
+    pub(crate) fn times_abundance(mut self, abn: f64) -> Self {
+        self.total *= abn;
+        self.elastic *= abn;
+        self.fission *= abn;
+        self.capture *= abn;
+        self.other.iter_mut().for_each(|v| *v *= abn);
+        self
+    }
 }
 
 fn add_slbw_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64, raw: &RawMf3) {
@@ -1245,37 +1371,16 @@ fn add_slbw_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f
     }
 
     // Hoist the per-l-state channel radius and resonance tuples out of the
-    // energy loop — they do not depend on energy.
-    let prepared: Vec<(u32, f64, f64, Vec<_>)> = range
-        .l_states
-        .iter()
-        .map(|ls| {
-            let ra = channel_radius(ls.awri, range.naps, range.ap);
-            let tuples: Vec<_> = ls.resonances.iter().map(|r| r.as_tuple()).collect();
-            (ls.l, ls.awri, ra, tuples)
-        })
-        .collect();
+    // energy loop — they do not depend on energy. (Moved to `seam::slbw_prepare`
+    // and `seam::slbw_delta` 2026-11-13, unchanged, so the seam pass and the
+    // range rebuild evaluate one function.)
+    let prepared = seam::slbw_prepare(range);
 
     let mut halo = Vec::new();
     add_resonance_halo_energies(&mut halo, &range.l_states, range.el, range.eh);
 
     // LRF=1 -> csslbw, LRF=2 -> csmlbw (upstream `sigma`, reconr.f90:2610-2616)
-    let mlbw = matches!(range.formalism, Some(ResonanceFormalism::Mlbw));
-    rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, |e| {
-        let mut d = RangeDelta::default();
-        for (l, awri, ra, tuples) in &prepared {
-            let s = if mlbw {
-                eval_mlbw_lstate(e, tuples, *l, range.spi, range.ap, *awri, *ra)
-            } else {
-                eval_slbw_lstate(e, tuples, *l, range.spi, range.ap, *awri, *ra)
-            };
-            d.elastic += s.elastic;
-            d.capture += s.capture;
-            d.fission += s.fission;
-        }
-        d.total = d.elastic + d.capture + d.fission;
-        d
-    });
+    rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, range.abn, |e| seam::slbw_delta(range, &prepared, e));
 }
 
 fn add_rm_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64, raw: &RawMf3) {
@@ -1286,18 +1391,10 @@ fn add_rm_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64
     let mut halo = Vec::new();
     add_rm_halo_energies(&mut halo, &range.rm_l_states, range.el, range.eh);
 
-    rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, |e| {
-        // One call over the whole range: `csrmat` sums every l before
-        // applying `pifac`, and its `gf` flag spans the l-states.
-        let s: RmSigmas = rm::eval_rm_range(e, &range.rm_l_states, range.ap, range.spi, range.naps);
-        RangeDelta {
-            total: s.total,
-            elastic: s.elastic,
-            fission: s.fission,
-            capture: s.capture,
-            ..RangeDelta::default()
-        }
-    });
+    // One call over the whole range: `csrmat` sums every l before applying
+    // `pifac`, and its `gf` flag spans the l-states (`seam::rm_delta`, shared with
+    // the seam pass since 2026-11-13).
+    rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, range.abn, |e| seam::rm_delta(range, e));
 }
 
 /// Rebuild the elastic/capture/fission/total sections over a resonance range.
@@ -1326,6 +1423,13 @@ fn add_rm_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64
 /// upstream `sigma` clamps every resolved section's `sigp`
 /// (`reconr.f90:2641-2645`). The unresolved range calls
 /// [`rebuild_range_with`] directly and is not clamped, as upstream.
+///
+/// `abn` is the isotope's abundance ([`EnergyRange::abn`]): the clamped
+/// contribution is multiplied by it, `sig(j)=sig(j)+sigp(j)*abn`
+/// (`reconr.f90:2641-2645`). It was dropped until 2026-11-10 (GitHub #664).
+/// With `abn = 1.0`, the value on every evaluation held here, the product is
+/// exact, so no reconstructed number moves.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn rebuild_range(
     sections: &mut Vec<ReconrSection>,
     el: f64,
@@ -1334,10 +1438,11 @@ pub(crate) fn rebuild_range(
     eps: f64,
     other_mts: &[i32],
     raw: &RawMf3,
+    abn: f64,
     delta_at: impl Fn(f64) -> RangeDelta + Sync,
 ) {
     rebuild_range_with(sections, el, eh, halo, eps, other_mts, raw, RebuildOpts::default(), |e| {
-        delta_at(e).clamp_negative_to_zero()
+        delta_at(e).clamp_negative_to_zero().times_abundance(abn)
     });
 }
 
@@ -1381,10 +1486,10 @@ pub(crate) fn rebuild_range_with(
     // at `sigfig(eh,7,-1)` (with resonances) and the first point beyond it at
     // `sigfig(eh,7,+1)` (background only). Likewise at `el`, unless `el` is the
     // grid floor `elow` (`if (abs(el-elow).le.small)` — nothing below it).
+    // Those nodes reach the table only through `lunion`'s union grid, which can
+    // drop one (gh:#1498; see below), so nothing here adds them.
     let eh_lo = sigfig(eh, 7, -1);
-    let eh_hi = sigfig(eh, 7, 1);
     let shade_el = (el - ELOW).abs() > SAME_ENERGY_REL * ELOW;
-    let el_lo = sigfig(el, 7, -1);
     let el_hi = sigfig(el, 7, 1);
     let same = |a: f64, b: f64| (a - b).abs() <= SAME_ENERGY_REL * b.abs();
 
@@ -1415,7 +1520,14 @@ pub(crate) fn rebuild_range_with(
     if shade_el {
         egrid.push(el_hi);
     }
-    egrid.extend(halo.into_iter().filter(|&e| e > el && e < eh && e > 0.0));
+    // ~~`egrid.extend(halo ∩ (el, eh))`~~ **REMOVED 2026-11-11 (gh:#1449)**:
+    // `resxs` walks `lunion`'s grid and nothing else (`reconr.f90:2240-2569`);
+    // `rdfil2`'s nodes (including 0.0253 eV) reach it only through `lunion`,
+    // which may replace a node (Ni-61 ENDF/B-VI.1: the MT=102 histogram point
+    // at 0.0253 eV becomes the pair 2.529999e-2/2.530001e-2). Adding the nodes
+    // again put 2.53e-2 and 2.530004e-2 into the table (4 827 points against
+    // NJOY's 4 825). `union_grid` already folds the nodes in as upstream does.
+    let _ = halo;
     egrid.sort_by(|a, b| a.partial_cmp(b).unwrap());
     egrid.dedup_by(|a, b| (*a - *b).abs() < 1e-10 * b.abs().max(1.0));
     if egrid.is_empty() {
@@ -1465,17 +1577,20 @@ pub(crate) fn rebuild_range_with(
             .filter(|&(e, _)| e < el || e > eh)
             .collect();
 
-        // Background-only shaded nodes just outside the range (`eh_hi`, and
+        // ~~Background-only shaded nodes just outside the range (`eh_hi`, and
         // `el_lo` when `el` is shaded), unless the background already carries
-        // a point there — as it does when an MF=3 discontinuity at the
-        // boundary was itself shaded by `shade_discontinuities`.
-        let has_point_near = |e: f64| bg.iter().any(|&(x, _)| same(x, e));
-        if !has_point_near(eh_hi) {
-            new_pairs.push((eh_hi, eval_lin_lin(&bg, eh_hi)));
-        }
-        if shade_el && !has_point_near(el_lo) {
-            new_pairs.push((el_lo, eval_lin_lin(&bg, el_lo)));
-        }
+        // a point there.~~ **REMOVED 2026-11-12 (gh:#1498):** `emerge` writes
+        // `lunion`'s union grid and nothing else (`reconr.f90:4646-4982`).
+        // `rdfil2` puts `sigfig(eh,7,+1)` and `sigfig(el,7,-1)` among the nodes
+        // (`:751-767`), and when `lunion` keeps them the background `bg`
+        // (on that grid) already carries them, outside `[el, eh]`, so the
+        // filter above keeps them. `lunion` can drop one: Co-58 ENDF/B-VIII.0
+        // (upstream test 37) has MF=3 steps `(24900, 0) -> (24900, 15.11)` on a
+        // region boundary at the URR top, the look-ahead shading
+        // (`if (ir.lt.nbta)`, `:2021`) does not fire, and the node
+        // `24900.01` is not carried (measured with an instrumented NJOY2016.80).
+        // Pushing it here put a point NJOY does not have, at a lin-lin
+        // background of 6.19e-4 b (MT=2), into every resonance reaction.
 
         // Add background + resonance for every in-range grid energy, as
         // `emerge` does: the background is `gety1` of the tape's own TAB1 at
@@ -1509,7 +1624,29 @@ pub(crate) fn rebuild_range_with(
                 (MtReaction::Mt102Capture, _) => deltas[i].capture,
                 _ => 0.0,
             };
-            new_pairs.push((e, sigfig(base + add, 7, 0)));
+            let mut sn = base + add;
+            // `emerge`: a non-positive or tiny elastic cross section of a
+            // resonance material is replaced by the lower limit before it is
+            // rounded and summed into the total (`reconr.f90:4838-4851`:
+            // `if (itype.eq.2.and.sn.le.small) ... sn=small`, `small = 1e-8`).
+            // Missing until 2026-11-11: Pu-238 ENDF/B-IV (deck test 10) has
+            // elastic dips to zero where NJOY writes 1.000000-8 (gh:#1369).
+            if mt == MtReaction::Mt2Elastic && sn <= 1.0e-8 {
+                sn = 1.0e-8;
+            }
+            new_pairs.push((e, sigfig(sn, 7, 0)));
+        }
+
+        // The same lower limit applies at EVERY point `emerge` writes for
+        // MT=2, not only inside the range: the background-only point above
+        // `eh` (Ni-61 ENDF/B-VI.1: 7.43547e5 eV, 0 from the tape, NJOY
+        // 1.000000-8; gh:#1449).
+        if mt == MtReaction::Mt2Elastic {
+            for p in &mut new_pairs {
+                if p.1 <= 1.0e-8 {
+                    p.1 = 1.0e-8;
+                }
+            }
         }
 
         new_pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
@@ -1519,6 +1656,9 @@ pub(crate) fn rebuild_range_with(
 
     rebuild_total_as_sum_of_parts(sections, &egrid);
 }
+
+/// `test = 1.e-10_kr` of `emerge` (`reconr.f90:4665`): the relative window of a threshold.
+const SUM_THRESHOLD_TEST: f64 = 1.0e-10;
 
 /// Rebuild MF=3 MT=1 as the **sum of its parts**, which is what RECONR means by
 /// a redundant reaction: *"Redundant reactions are reconstructed to be the sum
@@ -1566,6 +1706,19 @@ pub(crate) fn rebuild_range_with(
 /// RECONR oracle: Si-30 (where it changes nothing) and Sr-88 (where it
 /// restores the missing 2.1629e-2 b). See
 /// `tests/reconr_mt1_is_the_sum_of_its_parts.rs`.
+/// `anlyzd` makes MT=1 a redundant reaction as soon as the tape has any MF=3
+/// section (`reconr.f90:550-556`), whether or not it carries an MT=1 of its
+/// own, and `emerge` sums it from the first grid point (`mtrt = 1`, `:624`).
+/// A photo-nuclear evaluation (He-3, Bi-209, Pu-239: MF=3 MT=5 and 18 only)
+/// has none, so seed an MT=1 on `egrid` for [`rebuild_total_as_sum_of_parts`]
+/// to fill. Nothing changes for a tape that has MT=1.
+fn seed_redundant_total(sections: &mut Vec<ReconrSection>, egrid: &[f64]) {
+    if sections.is_empty() || sections.iter().any(|s| s.mt == MtReaction::Mt1Total) {
+        return;
+    }
+    sections.insert(0, ReconrSection { lr: 0, mt: MtReaction::Mt1Total, qi: 0.0, pairs: egrid.iter().map(|&e| (e, 0.0)).collect() });
+}
+
 fn rebuild_total_as_sum_of_parts(sections: &mut [ReconrSection], egrid: &[f64]) {
     if egrid.is_empty() || !sections.iter().any(|s| s.mt == MtReaction::Mt1Total) {
         return;
@@ -1623,6 +1776,13 @@ fn rebuild_total_as_sum_of_parts(sections: &mut [ReconrSection], egrid: &[f64]) 
             let total = sections
                 .iter()
                 .filter(|s| is_part(s.mt.number()))
+                // `emerge`: `if (thresh-eg.gt.test*thresh.and.itype.eq.0) go to 370`
+                // -- below its threshold a non-resonance section adds nothing
+                // to the redundant sums (`reconr.f90:4786`, `:4872`). Its first
+                // pair is that threshold; `eval_lin_lin` would return the first
+                // value for any lower energy (2.08e-7 b of Pu-241 MT=51 at
+                // 2.5e4 eV, one unit in the 7th figure of MT=1; gh:#1448).
+                .filter(|s| s.pairs.first().is_none_or(|&(t, _)| t - e <= SUM_THRESHOLD_TEST * t))
                 .map(|s| eval_lin_lin(&s.pairs, e))
                 .sum();
             (e, total)
@@ -1689,6 +1849,113 @@ struct RefineTolerances {
     /// `errint` — the maximum resonance-integral error per grid point \[b\]
     /// (card 4, default `err/20000`, `reconr.f90:430`).
     errint: f64,
+}
+
+thread_local! {
+    /// Whether `lunion`'s scratch tape `nscr1` is coded (formatted) on this
+    /// thread: `nscr1 = -10` (binary) unless `npend > 0`, then `10`
+    /// (`reconr.f90:155,193`). `true` (coded, as before gh:#1496) unless
+    /// [`reconr_for_deck`] set it from a deck's `npend`. A direct [`reconr`]
+    /// call therefore models `npend > 0`; some committed goldens compared that
+    /// way were made with `reconr -21 -22` (`reference-data/{gaspr,heatr}`,
+    /// Ca-40), which is the binary mode. Not re-checked whether any of them
+    /// has a raised threshold where the mode matters (2026-11-12).
+    static CODED_SCRATCH: std::cell::Cell<bool> = const { std::cell::Cell::new(true) };
+}
+
+/// [`reconr_with_errtol`] for a deck's `reconr nendf npend` card: `npend`'s
+/// sign picks the mode of `lunion`'s scratch tape `nscr1`, which `emerge`
+/// reads back (`reconr.f90:155` `nscr1=-10`, `:193` `if (npend.gt.0)
+/// nscr1=10`). On a binary scratch a threshold `lunion` raised to
+/// `sigfig(thr,7,+1)` (`:1925-1936`) keeps sigfig's `1.0000000000001` bias
+/// (`util.f90:372,390`); on a coded one the 11-column field drops it. The
+/// bias moves the first interpolated point above the threshold by one unit
+/// in the 7th figure: Zr-90 MT=52/53/58 on NJOY2016 decks 32, 49 and 69
+/// (`npend = -22`), gh:#1496.
+///
+/// # Errors
+/// As [`reconr`].
+pub fn reconr_for_deck(tape: &Tape, config: &ReconrConfig, errmax: f64, errint: f64, npend: i32) -> Result<ReconrResult, NjoyError> {
+    struct Reset;
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            CODED_SCRATCH.with(|c| c.set(true));
+        }
+    }
+    CODED_SCRATCH.with(|c| c.set(npend > 0));
+    let _reset = Reset;
+    reconr_with_errtol(tape, config, errmax, errint)
+}
+
+/// A TAB1 as `emerge` reads it back from `lunion`'s scratch tape `nscr1`:
+/// rounded to the 11-column ENDF field when the scratch is coded
+/// (`npend > 0`), untouched when it is binary. See [`reconr_for_deck`].
+pub(crate) fn as_emerge_reads_scratch(t: &mut crate::endf::records::Tab1, coded: bool) {
+    use crate::endf::parse::{format_endf_float, parse_endf_float};
+    if !coded {
+        return;
+    }
+    let rt = |x: f64| parse_endf_float(&format_endf_float(x)).unwrap_or(x);
+    for p in &mut t.pairs {
+        *p = (rt(p.0), rt(p.1));
+    }
+}
+
+/// [`as_emerge_reads_scratch`] in the scratch mode of the RECONR call running
+/// on this thread.
+fn as_emerge_reads(t: &mut crate::endf::records::Tab1) {
+    as_emerge_reads_scratch(t, CODED_SCRATCH.with(|c| c.get()));
+}
+
+/// `lunion`'s TAB1 of one MF=3 section or MF=10 subsection as `emerge` reads it
+/// back (`reconr.f90:1913-1940`): first energy raised to the kinematic
+/// threshold from the TAB1's own `QI` ([`raise_threshold_to_kinematic`]),
+/// then through the scratch tape in mode `coded`
+/// ([`as_emerge_reads_scratch`]). `awr` is the section head's `AWR`, `awin`
+/// MF=1's `AWI`.
+///
+/// # Errors
+/// `lunion`'s `ill-behaved threshold`.
+pub(crate) fn lunion_tab1_for_emerge(t: &mut crate::endf::records::Tab1, awr: f64, awin: f64, coded: bool) -> Result<(), NjoyError> {
+    raise_threshold_to_kinematic(&mut t.pairs, t.head.c2, awr, awin)?;
+    as_emerge_reads_scratch(t, coded);
+    Ok(())
+}
+
+/// `lunion`'s `awin` (`reconr.f90:247-256`): MF=1's `AWI` for `iverf >= 6`,
+/// else 1.
+pub(crate) fn lunion_awin(mf1: &crate::endf::tape::Section) -> f64 {
+    if crate::moder::layout::iverf_from_mf1(&mf1.rows) >= 6 {
+        mf1.rows.get(2).map_or(1.0, |r| r[0])
+    } else {
+        1.0
+    }
+}
+
+thread_local! {
+    /// Card-3 `errmax`/`errint` of the RECONR call running on this thread
+    /// (`None`: upstream's defaults). Set only by [`reconr_with_errtol`].
+    static ERRTOL_OVERRIDE: std::cell::Cell<Option<(f64, f64)>> = const { std::cell::Cell::new(None) };
+}
+
+/// [`reconr`] with the card-3 `errmax` and `errint` of the NJOY deck
+/// (`reconr.f90:428-430`: `errmax` defaults to `10*err` and is raised to at
+/// least `err`, `errint` to `err/20000`; pass those values for the defaults).
+///
+/// Both enter only the resonance-grid refinement (`resxs`, `reconr.f90:2388-2407`).
+///
+/// # Errors
+/// As [`reconr`].
+pub fn reconr_with_errtol(tape: &Tape, config: &ReconrConfig, errmax: f64, errint: f64) -> Result<ReconrResult, NjoyError> {
+    struct Reset;
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            ERRTOL_OVERRIDE.with(|c| c.set(None));
+        }
+    }
+    ERRTOL_OVERRIDE.with(|c| c.set(Some((errmax, errint))));
+    let _reset = Reset;
+    reconr(tape, config)
 }
 
 impl RefineTolerances {
@@ -1914,7 +2181,11 @@ fn refine_resonance_grid(
     #[cfg(target_arch = "wasm32")]
     use crate::wasm_par::*;
 
-    let tol = RefineTolerances::defaults(eps);
+    let mut tol = RefineTolerances::defaults(eps);
+    if let Some((errmax, errint)) = ERRTOL_OVERRIDE.with(|c| c.get()) {
+        tol.errmax = errmax;
+        tol.errint = errint;
+    }
     let n = seed_grid.len();
 
     // Phase 1: every seed window independently (`delta_at` is a pure function

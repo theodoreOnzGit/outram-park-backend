@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>An atom's clock</title>
+<meta name="description" content="Fission products, chapter 2: one atom's lifetime sampled from an exponential, its daughter picked from the branching ratios, the ENDF/B-VIII.0 decay data compiled into boon-lay, one atom carried through a whole chain, and many atoms reproducing the decay law without it ever being written down.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="decaywalk-data.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="decaywalk-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 2, after "Then it decays" (gh:#1207: the
+     TRISO-ATOPS mdBook's rung 2, decay.md, folded into the chapter).
+     Populations, branches, half-lives: boon-lay's SingleNuclideSimulatorMC
+     on its DecayLibrary; expected inventories: boon-lay's CRAM48
+     (expected_inventory). All recorded in decaywalk-data.js by
+     crates/dhoby-ghaut/examples/lesson_decay_walk; predictions D1-D6 in its
+     main.rs. Checked by check-decaywalk.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-11-04), not yet reviewed by a human.</p>
+<span id="dw-numbers" hidden></span>
+
+<h1>An atom&rsquo;s clock: sampling a decay</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Lesson 6 followed one fragment down its decay chain. But nobody can say <i>when</i> a particular atom of I-131 will decay, or, for an atom with a choice, <i>what</i> it will become. So how does a computer give it a history? And if it gives a million atoms one history each, does the familiar decay law come out, without anyone writing it down?</p>
+
+<section class="widget-card">
+  <h3>Three hundred atoms, each with its own clock</h3>
+  <div class="widget" id="dw-clock">
+    <canvas aria-label="A grid of 300 dots, each one atom, changing colour as each decays into its daughter at its own sampled time; beside or below it, the fraction of each species against time in parent half-lives, with the curve 2 to the minus t over the half-life dashed."></canvas>
+  </div>
+  <p class="note">Every atom&rsquo;s branch and lifetimes were sampled at birth by boon-lay&rsquo;s decay Monte Carlo (<a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs::new_decay_chain_simulation"><code>new_<wbr>decay_<wbr>chain_<wbr>simulation</code></a>), from its ENDF/B-VIII.0 decay library. Solid lines: <span data-dw="nBig">&hellip;</span> more atoms, stepped through time by the same simulator and counted. Dotted: the expected inventory by CRAM48. All recorded by <code>lesson_<wbr>decay_<wbr>walk</code>; the page only reads each atom&rsquo;s clock.</p>
+</section>
+
+<p class="predict"><b>Predict first.</b> Pick Kr-88 and then Cs-137: their half-lives differ by a factor of about 90 000. On the plot, whose axis is time in half-lives, does the shape of the parent&rsquo;s curve change?</p>
+
+<h2>When does one atom decay?</h2>
+<p>Every atom of a nuclide has the same chance per second of decaying, <i>&lambda;</i>, however long it has already existed. That makes its lifetime an <b>exponential</b> random number. The chance of surviving to <i>t</i> is e<sup>&minus;<i>&lambda;t</i></sup>; set it equal to a uniform random number <i>&xi;</i> between 0 and 1, and solve:</p>
+<p class="eq-block"><i>t</i> = &minus;ln&nbsp;<i>&xi;</i>&nbsp;/&nbsp;<i>&lambda;</i> = <i>T</i><sub>&frac12;</sub>&nbsp;|ln&nbsp;<i>&xi;</i>|&nbsp;/&nbsp;ln&nbsp;2,&nbsp;&nbsp;&nbsp;<i>&lambda;</i> = ln&nbsp;2&nbsp;/&nbsp;<i>T</i><sub>&frac12;</sub></p>
+<p>It is the same trick the Monte Carlo track uses for how far a neutron flies before it collides (<a href="../transport/free-flight.html">How far to the next collision?</a>), with <i>&lambda;</i> in place of &Sigma;<sub>t</sub>. Measured in half-lives, the lifetime is |ln&nbsp;<i>&xi;</i>|/ln&nbsp;2 whatever the nuclide: so the answer to the prompt is <b>no</b>, only the time axis changes.</p>
+
+<h2>What does it become?</h2>
+<p>Many nuclides can decay in more than one way. A second random number picks which: lay the branching ratios end to end on a bar from 0 to 1, and the slot <i>&xi;</i> lands in is the branch.</p>
+
+<section class="widget-card">
+  <h3>The bar of branching ratios</h3>
+  <div class="widget short" id="dw-branch">
+    <canvas aria-label="For each of five parent nuclides, two bars: the library's branching ratios end to end, and where the sampled atoms actually went first."></canvas>
+  </div>
+  <p class="note">Ratios: boon-lay&rsquo;s decay library. Sampled shares: the first daughters of the <span data-dw="nBig">&hellip;</span> atoms of each parent.</p>
+</section>
+
+<p>Bi-212 decays by beta to Po-212 <span data-dw="biPo">&hellip;</span> of the time and by alpha to Tl-208 <span data-dw="biTl">&hellip;</span>; of the sampled atoms, <span data-dw="biTlMc">&hellip;</span> went to Tl-208. Cs-137 goes to the metastable Ba-137m <span data-dw="csM">&hellip;</span> of the time (sampled: <span data-dw="csMMc">&hellip;</span>), and Ba-137m, a few minutes later, gives off the 662 keV gamma ray Cs-137 is known for. Every sampled share is within 4 binomial standard deviations of its ratio (<code>check-decaywalk.js</code>).</p>
+
+<h3>Two forks that are not physics</h3>
+<p>The routine that walks the bar has four exits: no branch (stable), one branch, the slot found, and <i>&xi;</i> landing past the end of the bar. That last one <b>panics</b>; it can happen when an evaluation&rsquo;s ratios add up to slightly less than 1. A branch with no daughter (spontaneous fission) panics too. Both are filed as <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/538">gh:#538</a>. For the five parents here the ratios add up to 1 within 10<sup>&minus;6</sup> (checked). Fission products of a fission branch are not followed: that would need fission yields.</p>
+
+<h2>Where the half-lives come from</h2>
+<p>From the ENDF/B-VIII.0 evaluation <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>, as OpenMC&rsquo;s depletion chain, shipped inside the crate <code>openmc-endf-8-depletion-lib-b</code> and read into boon-lay&rsquo;s <code>DecayLibrary</code> when one is made: for each nuclide, its half-life (none means stable), its decay energy, and each branch&rsquo;s mode, daughter and ratio. About 70 unit tests compare parsed half-lives with handbook values at 1 % or better (for example H-3 12.32 y, I-131 8.02 d, Cs-137 30.17 y). Those check that the data were <i>read</i> right; they are not Monte Carlo checks.</p>
+<p>Two things worth knowing. <b>The library&rsquo;s random generator is seeded with a constant, 77</b>, so every new library replays the same sequence: runs are reproducible, but two libraries are not independent. And <b>TRISO-ATOPS uses different half-lives</b>: its 84-nuclide table comes from the IAEA Live Chart (chapter 5), so the two halves of boon-lay do not share one decay-data source.</p>
+
+<h2>One atom through a whole chain</h2>
+<p>A time step in a simulation may be long enough for an atom to decay several times. So at birth the simulator samples the atom&rsquo;s <b>whole future</b>: a branch at every step and a lifetime for every nuclide on the way. A time step then spends those lifetimes in order until it runs out. That is allowed because decay has no memory: sampling a lifetime at birth or when the nuclide is reached gives the same distribution.</p>
+<p>Kr-88 shows it: its daughter Rb-88 lives only about a tenth as long, so in the widget&rsquo;s steps of 0.05 Kr-88 half-lives many atoms pass through Rb-88 and on to stable Sr-88 within one step. The tutorial noted that no test checked this against the coupled decay law; here every species of all five chains, stepped 100 times, stays within <span data-dw="worstAll">&hellip;</span> standard deviations of the CRAM48 expected inventory built from the same library (predicted: within 4).</p>
+
+<h2>Many atoms make the decay law</h2>
+<p>Where is <i>N</i>(<i>t</i>) = <i>N</i><sub>0</sub>&nbsp;e<sup>&minus;<i>&lambda;t</i></sup> in this code? <b>Nowhere. There is no function for it.</b> It emerges when many independent atoms are counted. The surviving fraction of <span data-dw="nBig">&hellip;</span> atoms stays within <span data-dw="survAll">&hellip;</span> standard deviations of 2<sup>&minus;<i>t</i>/<i>T</i>&frac12;</sup> for every parent (predicted: within 4, worst about 2 to 3). For a chain the coupled decay laws of parents and daughters (the Bateman equations) emerge the same way, with no matrix: the code just counts identities across an ensemble.</p>
+<p>That is the point of the Lagrangian approach. A burnup code solves d<b>N</b>/d<i>t</i> = <b>A</b><b>N</b> with a large, stiff matrix. Here each atom samples waiting times, and the population is a histogram. The price is statistics: a fraction counted from <i>N</i> atoms has a binomial error &radic;(<i>p</i>(1&minus;<i>p</i>)/<i>N</i>), and a nuclide present at one atom in a million needs millions of histories to be seen at all. A matrix method has no such floor. That is why boon-lay keeps CRAM48 beside the Monte Carlo as its deterministic check, not as its simulator.</p>
+
+<h3>The crate&rsquo;s own check, and what a pass means</h3>
+<p>boon-lay&rsquo;s test <code>stochastic_<wbr>half_<wbr>life_<wbr>calculator</code> draws 99 999 lifetimes for a 30 s half-life (seed 77) and compares the fraction alive at every second from 0 to 100 s with 2<sup>&minus;<i>t</i>/30</sup>, at 0.9 % relative. Its record (boon-lay&rsquo;s <code>CLAUDE.md</code>, re-measured 2026-10-04): worst point <b>8.43&times;10<sup>&minus;3</sup> relative at 60 s, 1.5 &sigma;</b>. At 100 s only about 10 % survive and one standard deviation is about 0.95 % relative, larger than the tolerance: on another seed some point would quite likely fail <i>with nothing wrong in the code</i>. That is a reason to state what a pass means (within about one standard deviation, for this seed), not to widen the tolerance silently. It is verification against an analytic law, not validation.</p>
+
+<h2>Where it is in the code</h2>
+<ul>
+<li><b>One lifetime:</b> <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs::get_time_to_decay_stochastic"><code>get_<wbr>time_<wbr>to_<wbr>decay_<wbr>stochastic</code></a>, three lines: |ln&nbsp;<i>&xi;</i>|/ln&nbsp;2 &times; <i>T</i><sub>&frac12;</sub>, with <i>&xi;</i> from the workspace&rsquo;s generator (<code>Lcg64::<wbr>rand_<wbr>float</code> in PETIR, which the transport track explains).</li>
+<li><b>One branch:</b> <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs::new_single_stochastic_chain_from_nuclide"><code>StochasticDecayChain::<wbr>new_<wbr>single_<wbr>stochastic_<wbr>chain_<wbr>from_<wbr>nuclide</code></a> looks the nuclide up, draws one <i>&xi;</i> from the library&rsquo;s generator, and calls <a href="../../code-review/#crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs::get_next_target_nuclide_with_float"><code>get_<wbr>next_<wbr>target_<wbr>nuclide_<wbr>with_<wbr>float</code></a>, the bar, until it reaches a stable nuclide.</li>
+<li><b>The data:</b> <a href="../../code-review/#crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/mod.rs::new"><code>DecayLibrary::<wbr>new</code></a>, one call per element, through <code>parse_<wbr>nuclides_<wbr>to_<wbr>decay_<wbr>data_<wbr>vec_<wbr>by_<wbr>element</code> to <a href="../../code-review/#crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs::from"><code>From&lt;SerdeNuclideData&gt;</code></a>.</li>
+<li><b>The whole future and the stepping:</b> <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs::new_decay_chain_simulation"><code>new_<wbr>decay_<wbr>chain_<wbr>simulation</code></a> and <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs::advance_timestep"><code>advance_<wbr>timestep</code></a> (three cases per nuclide: the step ends before the decay, exactly at it, or after it, carrying the remainder on).</li>
+<li><b>Counting:</b> <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/postprocessing.rs::count_nuclides_in_sims_linear"><code>count_<wbr>nuclides_<wbr>in_<wbr>sims_<wbr>linear</code></a>; and the deterministic check, <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/expected_inventory.rs::from_library"><code>ExpectedInventory::<wbr>from_<wbr>library</code></a> (CRAM48 on the matrix the sampler implies).</li>
+</ul>
+
+<p><b>Next:</b> the atom does not sit still while its clock runs. Lesson 8 asks which wins, decay or moving.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>How the page&rsquo;s numbers were checked</h3>
+<p>The generator wrote its predictions down before its first run (<code>crates/<wbr>dhoby-ghaut/<wbr>examples/<wbr>lesson_<wbr>decay_<wbr>walk/<wbr>main.rs</code>, D1&ndash;D6) and the results below them, unedited. The yardstick &sigma; = &radic;(<i>p</i>(1&minus;<i>p</i>)/<i>N</i>) is used only where at least 10 atoms are expected on each side; Ba-137m, which lives a few minutes beside a 30-year parent, is present at about one atom in ten million, so its count is shown but not scored.</p>
+<h3>The CRAM48 check is the sampler&rsquo;s own expectation</h3>
+<p><code>ExpectedInventory</code> builds its matrix from the branch the sampler would pick, not from the tabulated ratio: the bar is walked in order, so if the ratios added to more than 1 the later branches would be cut short in both. It is a check that the sampler and the stepping do what the data say, not a second evaluation.</p>
+<h3>Try it</h3>
+<p>Run <code>cargo test --release -p boon-lay --lib stochastic_half_life_calculator -- --nocapture</code>; change its seed from 77 to 78 and decide, before you run it, whether it should still pass.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

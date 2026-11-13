@@ -1,0 +1,55 @@
+   Compiling num-traits v0.2.19
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+   Compiling bitflags v2.13.2
+   Compiling spirv v0.4.0+sdk-1.4.341.0
+   Compiling ordered-float v5.5.0
+   Compiling uom v0.38.0
+   Compiling thiserror-impl v2.0.21
+   Compiling bytemuck_derive v1.12.1
+   Compiling zerocopy-derive v0.8.63
+   Compiling thiserror v2.0.21
+   Compiling bytemuck v1.25.2
+   Compiling naga-types v30.0.1
+   Compiling gpu-allocator v0.28.0
+   Compiling wgpu-types v30.0.1
+   Compiling zerocopy v0.8.63
+   Compiling either v1.19.0
+   Compiling rayon v1.12.0
+   Compiling approx v0.5.1
+   Compiling half v2.7.1
+   Compiling naga v30.0.1
+   Compiling petir v0.0.3 (/home/user/outram-park-backend/crates/petir)
+   Compiling wgpu-naga-bridge v30.0.1
+   Compiling wgpu-hal v30.0.1
+   Compiling raffles v0.0.3 (/home/user/outram-park-backend/crates/raffles)
+   Compiling wgpu-core-deps-windows-linux-android v30.0.1
+   Compiling wgpu-core v30.0.1
+   Compiling wgpu v30.0.1
+   Compiling outram-park-fork-liggghts v0.0.2 (/home/user/outram-park-backend/crates/outram-park-fork-liggghts)
+    Finished `release` profile [optimized] target(s) in 1m 15s
+     Running `target/release/examples/htr10_fresh_fill --n 30687 --threads 3 --chunk 2000 --out target/pour_30687.csv`
+# HTR-10 fresh pour: 30687 pebbles, mu 0.1 mu_r 0, 3 threads
+# step  t[s]  KE/E_drop(core)  phi_whole_core  surface[cm]  in_core  wall[s]
+  2000  0.070     8.011e-1     0.2992    440.97   29682    36.4
+  4000  0.140      3.191e0     0.2998    433.82   29260    71.5
+  6000  0.210      7.071e0     0.3024    421.89   28704   109.1
+  8000  0.280      1.185e1     0.3103    405.09   28287   151.4
+ 10000  0.350      1.655e1     0.3270    383.46   28217   199.4
+ 12000  0.420      2.025e1     0.3511    357.02   28204   254.6
+ 14000  0.490      2.186e1     0.3846    325.79   28195   319.3
+ 16000  0.560      1.992e1     0.4325    289.74   28192   401.5
+ 18000  0.630      1.288e1     0.5034    248.88   28191   483.9
+ 20000  0.700     2.917e-1     0.6022    208.04   28188   567.7
+ 22000  0.770     3.228e-2     0.5956    210.57   28218   646.8
+ 24000  0.840     1.533e-1     0.5957    210.40   28202   726.6
+ 26000  0.910     2.527e-2     0.6033    207.74   28200   823.2
+ 28000  0.980     9.995e-3     0.6057    206.95   28202   924.4
+ 30000  1.050     1.981e-3     0.6066    206.62   28202  1031.7
+ 32000  1.120     9.226e-4     0.6074    206.37   28202  1145.3
+# settled
+# wrote target/pour_30687.csv
+
+real	20m20.852s
+user	19m15.515s
+sys	0m23.571s

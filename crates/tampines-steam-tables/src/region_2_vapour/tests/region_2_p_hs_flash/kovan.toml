@@ -2,6 +2,26 @@ schema_version = 1
 kind = "code_folder"
 crate = "tampines-steam-tables"
 dir = "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash"
+test_ids = [
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::region_2_p_hs_test_1",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::region_2_p_hs_test_2",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::region_2_p_hs_test_3",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::region_2_p_hs_test_4",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::region_2_p_hs_test_5",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::region_2_p_hs_test_6",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::region_2_p_hs_test_7",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::region_2_p_hs_test_8",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::region_2_p_hs_test_9",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::subregion_2a_p_hs_test_1",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::subregion_2a_p_hs_test_2",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::subregion_2a_p_hs_test_3",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::subregion_2b_p_hs_test_1",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::subregion_2b_p_hs_test_2",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::subregion_2b_p_hs_test_3",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::subregion_2c_p_hs_test_1",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::subregion_2c_p_hs_test_2",
+    "crates/tampines-steam-tables/src/region_2_vapour/tests/region_2_p_hs_flash/mod.rs::subregion_2c_p_hs_test_3",
+]
 
 [module."mod.rs"]
 path = "crate::region_2_vapour::tests::region_2_p_hs_flash"
@@ -239,3 +259,29 @@ hash = "sha256:c7598f72b25a963e89da90750cf5ee37f1c87ecc54c54345c7fe3020941cd7a5"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:e0c09e9444a3450e"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+failed = []

@@ -21,13 +21,11 @@ use dhoby_ghaut::web_demo::platform::{now_s, set_query, set_title};
 use dhoby_ghaut::web_demo::view::{apply_zoom, zoom_buttons, View};
 use egui::{Color32, Pos2, RichText, Sense, Stroke};
 
-const BG: Color32 = Color32::from_rgb(14, 16, 20);
-const TOTAL: Color32 = Color32::from_rgb(120, 170, 255);
-const ELASTIC: Color32 = Color32::from_rgb(120, 210, 150);
-const CAPTURE: Color32 = Color32::from_rgb(255, 150, 80);
-const FAINT: Color32 = Color32::from_rgb(90, 96, 110);
-const BANDS: Color32 = Color32::from_rgba_premultiplied(230, 200, 90, 200);
-const FREE: Color32 = Color32::from_rgb(200, 200, 200);
+/// The plot's series colours, from the theme (`bugis::Ink`): total,
+/// elastic, capture, faint (0 K, dilute groups), bands, free atom / unity.
+fn series(ink: &bugis::Ink) -> [Color32; 6] {
+    [ink.accent(0), ink.accent(2), ink.accent(1), ink.muted, ink.accent(4).gamma_multiply(0.8), ink.text]
+}
 
 /// What the native file dialog was opened for.
 #[cfg(not(target_arch = "wasm32"))]
@@ -44,6 +42,9 @@ enum Phase {
 }
 
 pub struct NdApp {
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     link: Option<Link<Request, Event>>,
     panel: Panel,
     view: View,
@@ -93,7 +94,9 @@ pub struct NdApp {
 
 impl NdApp {
     pub fn new(cc: &eframe::CreationContext<'_>, rung: Rung) -> Self {
-        cc.egui_ctx.set_theme(egui::ThemePreference::Dark);
+        // Gruvbox Dark (the shared `bugis` theme); the side panel's selector
+        // switches it.
+        bugis::Theme::default().apply(&cc.egui_ctx);
         #[cfg(not(target_arch = "wasm32"))]
         let link = {
             let ctx = cc.egui_ctx.clone();
@@ -102,6 +105,7 @@ impl NdApp {
         #[cfg(target_arch = "wasm32")]
         let link = dhoby_ghaut::web_demo::link::start_web(cc.egui_ctx.clone(), "./worker.js", Event::Error);
         let mut app = Self {
+            theme: bugis::Theme::default(),
             link: None,
             panel: Panel::default(),
             view: View::new(6.0),
@@ -417,7 +421,11 @@ impl eframe::App for NdApp {
         }
         self.title_now(&ctx);
         let mut panel = std::mem::take(&mut self.panel);
-        panel.show(ui, "Nuclear data", |ui| self.side_panel(ui));
+        panel.show(ui, "Nuclear data", |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
+            self.side_panel(ui);
+        });
         self.panel = panel;
         egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| self.main_view(ui));
     }
@@ -444,7 +452,7 @@ impl NdApp {
                 ui.weak("Real ENDF/B-VIII.0 tapes, covariances removed before download, read by this workspace's NJOY port in a background worker; the page stays live.");
             }
             Phase::Failed(e) => {
-                ui.colored_label(Color32::from_rgb(255, 110, 110), format!("Failed: {e}"));
+                ui.colored_label(ui.visuals().error_fg_color, format!("Failed: {e}"));
             }
             Phase::Ready => self.controls(ui),
         }
@@ -653,7 +661,7 @@ impl NdApp {
             Rung::ThermalAceMake => "Your files stay in this tab. With the incident-neutron tape and the same name, tol, natom, bins, form and emax as the NJOY deck (text units), the table is NJOY2016's in every word: checked 2026-10-14 on Al-27 at 20 K (tol 0.05 and 0.001; iwt 0, 1 and 2), H in H2O at 283.6 K (iwt 0, 1, 2) and crystalline graphite at 296 K. Without the incident tape, the inelastic cross section (ITIX) and the header's MAT and AWR differ. Only the evaluation's base temperature is built.",
             Rung::AceCompare => "Both files stay in this tab. Blocks are named for continuous-energy (c) and thermal (t) tables; other classes are compared as a whole. Equal means the same parsed value: from Type-1 text, the same printed value to 12 figures, with no tolerance. The date and comment are shown, not judged.",
         };
-        ui.label(RichText::new(text).size(12.0).color(Color32::from_rgb(170, 176, 190)));
+        ui.label(RichText::new(text).size(12.0).color(bugis::Ink::of_ui(ui).muted));
     }
 }
 
@@ -664,7 +672,7 @@ impl NdApp {
         let rect = ui.available_rect_before_wrap();
         let table_rung = matches!(self.rung, Rung::Endf | Rung::Acer) || self.is_ace_tool();
         if table_rung && matches!(self.phase, Phase::Ready) {
-            ui.painter().rect_filled(rect, 0.0, BG);
+            ui.painter().rect_filled(rect, 0.0, ui.visuals().extreme_bg_color);
             let inner = rect.shrink2(egui::vec2(12.0, 52.0));
             ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| {
                 egui::ScrollArea::both().auto_shrink([false, false]).show(ui, |ui| match self.rung {
@@ -685,7 +693,8 @@ impl NdApp {
         }
         let (resp, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         let rect = resp.rect;
-        painter.rect_filled(rect, 0.0, BG);
+        let ink = bugis::Ink::of_ui(ui);
+        painter.rect_filled(rect, 0.0, ink.bg);
         if !self.framed && !self.curves.is_empty() {
             self.reframe(rect.width() as f64, rect.height() as f64);
         }
@@ -693,7 +702,7 @@ impl NdApp {
         match &self.phase {
             Phase::Loading(l) => l.card(&painter, rect, "Processing ENDF data…", None),
             Phase::Failed(e) => {
-                painter.text(rect.center(), egui::Align2::CENTER_CENTER, format!("Failed: {e}"), egui::FontId::proportional(14.0), Color32::from_rgb(255, 110, 110));
+                painter.text(rect.center(), egui::Align2::CENTER_CENTER, format!("Failed: {e}"), egui::FontId::proportional(14.0), ink.error);
             }
             Phase::Ready => self.draw_plot(&painter, rect),
         }
@@ -703,7 +712,7 @@ impl NdApp {
                 egui::Align2::CENTER_BOTTOM,
                 format!("computing in the background… {:.0} s (pan and zoom freely)", now_s() - t0),
                 egui::FontId::proportional(13.0),
-                Color32::from_rgb(250, 200, 80),
+                ink.warn,
             );
         }
         if let Some(z) = zoom_buttons(ui, rect) {
@@ -719,87 +728,89 @@ impl NdApp {
             _ => ("E (eV)", "σ (barn)"),
         };
         plot::axes(painter, rect, v, f, xname, yname);
+        let ink = bugis::Ink::of_ctx(painter.ctx());
+        let [total, elastic, capture, faint, bands, free] = series(&ink);
         let thin = |c: Color32| Stroke::new(1.2, c);
         let mut legend: Vec<(Color32, &str)> = Vec::new();
         for c in &self.curves {
             match (self.rung, c.tag) {
                 (Rung::Reconr, 1) => {
-                    plot::line(painter, rect, v, f, &c.pts, thin(TOTAL));
+                    plot::line(painter, rect, v, f, &c.pts, thin(total));
                     // The grid itself, once zoomed in enough to resolve points.
                     if c.pts.len() < 2_000_000 && self.view.scale > 2.0 * self.view.fit_scale(rect) {
-                        plot::dots(painter, rect, v, f, &c.pts, &[], Color32::from_rgba_premultiplied(120, 170, 255, 160));
+                        plot::dots(painter, rect, v, f, &c.pts, &[], total.gamma_multiply(0.63));
                     }
-                    legend.push((TOTAL, "total (MT=1) and its grid points"));
+                    legend.push((total, "total (MT=1) and its grid points"));
                 }
                 (Rung::Reconr, 2) => {
-                    plot::line(painter, rect, v, f, &c.pts, thin(ELASTIC));
-                    legend.push((ELASTIC, "elastic (MT=2)"));
+                    plot::line(painter, rect, v, f, &c.pts, thin(elastic));
+                    legend.push((elastic, "elastic (MT=2)"));
                 }
                 (Rung::Reconr, 102) => {
-                    plot::line(painter, rect, v, f, &c.pts, thin(CAPTURE));
-                    legend.push((CAPTURE, "capture (MT=102)"));
+                    plot::line(painter, rect, v, f, &c.pts, thin(capture));
+                    legend.push((capture, "capture (MT=102)"));
                 }
-                (Rung::Broadr, 1001) | (Rung::Broadr, 1102) => plot::line(painter, rect, v, f, &c.pts, thin(FAINT)),
+                (Rung::Broadr, 1001) | (Rung::Broadr, 1102) => plot::line(painter, rect, v, f, &c.pts, thin(faint)),
                 (Rung::Broadr, 1) => {
-                    plot::line(painter, rect, v, f, &c.pts, Stroke::new(1.6, TOTAL));
-                    legend.push((TOTAL, "total at T"));
+                    plot::line(painter, rect, v, f, &c.pts, Stroke::new(1.6, total));
+                    legend.push((total, "total at T"));
                 }
                 (Rung::Broadr, 102) => {
-                    plot::line(painter, rect, v, f, &c.pts, Stroke::new(1.6, CAPTURE));
-                    legend.push((CAPTURE, "capture at T"));
-                    legend.push((FAINT, "0 K"));
+                    plot::line(painter, rect, v, f, &c.pts, Stroke::new(1.6, capture));
+                    legend.push((capture, "capture at T"));
+                    legend.push((faint, "0 K"));
                 }
                 (Rung::Purr, 1) => {
-                    plot::dots(painter, rect, v, f, &c.pts, &c.w, BANDS);
+                    plot::dots(painter, rect, v, f, &c.pts, &c.w, bands);
                     if let (Some(a), Some(b)) = (f.to_screen(v, rect, 2.0e4, 1.0), f.to_screen(v, rect, 1.49e5, 1.0)) {
-                        painter.line_segment([a, b], Stroke::new(1.0, FREE));
+                        painter.line_segment([a, b], Stroke::new(1.0, free));
                     }
-                    legend.push((BANDS, "bands (dot size = probability)"));
-                    legend.push((FREE, "1 = the dilute cross section"));
+                    legend.push((bands, "bands (dot size = probability)"));
+                    legend.push((free, "1 = the dilute cross section"));
                 }
                 (Rung::Thermr, 1) => {
-                    plot::line(painter, rect, v, f, &c.pts, Stroke::new(1.8, TOTAL));
-                    legend.push((TOTAL, "inelastic, bound atom"));
+                    plot::line(painter, rect, v, f, &c.pts, Stroke::new(1.8, total));
+                    legend.push((total, "inelastic, bound atom"));
                 }
                 (Rung::Thermr, 2) => {
-                    plot::line(painter, rect, v, f, &c.pts, Stroke::new(1.4, ELASTIC));
-                    legend.push((ELASTIC, "coherent elastic (Bragg)"));
+                    plot::line(painter, rect, v, f, &c.pts, Stroke::new(1.4, elastic));
+                    legend.push((elastic, "coherent elastic (Bragg)"));
                 }
                 (Rung::Thermr, 3) => {
-                    plot::line(painter, rect, v, f, &c.pts, Stroke::new(1.0, FREE));
-                    legend.push((FREE, "free atom"));
+                    plot::line(painter, rect, v, f, &c.pts, Stroke::new(1.0, free));
+                    legend.push((free, "free atom"));
                 }
                 (Rung::Thermr, 10) => {
                     for &[e, _] in &c.pts {
                         if let Some(p) = f.to_screen(v, rect, e, 1.0) {
-                            painter.line_segment([Pos2::new(p.x, rect.top() + 48.0), Pos2::new(p.x, rect.top() + 62.0)], Stroke::new(1.5, CAPTURE));
+                            painter.line_segment([Pos2::new(p.x, rect.top() + 48.0), Pos2::new(p.x, rect.top() + 62.0)], Stroke::new(1.5, capture));
                         }
                     }
                     if let Some(p) = f.to_screen(v, rect, self.thermr_e, 1.0) {
-                        painter.circle_filled(Pos2::new(p.x, rect.top() + 55.0), 4.0, Color32::WHITE);
+                        painter.circle_filled(Pos2::new(p.x, rect.top() + 55.0), 4.0, ink.text);
                     }
-                    legend.push((CAPTURE, "where it goes (white: from)"));
+                    legend.push((capture, "where it goes (dot: from)"));
                 }
-                (Rung::Groupr, 102) => plot::line(painter, rect, v, f, &c.pts, thin(CAPTURE)),
-                (Rung::Groupr, 1) => plot::line(painter, rect, v, f, &c.pts, Stroke::new(1.5, FAINT)),
+                (Rung::Groupr, 102) => plot::line(painter, rect, v, f, &c.pts, thin(capture)),
+                (Rung::Groupr, 1) => plot::line(painter, rect, v, f, &c.pts, Stroke::new(1.5, faint)),
                 (Rung::Groupr, 2) => {
-                    plot::line(painter, rect, v, f, &c.pts, Stroke::new(2.0, TOTAL));
-                    legend.push((CAPTURE, "capture, pointwise"));
-                    legend.push((FAINT, "group averages, infinitely dilute"));
-                    legend.push((TOTAL, "group averages at σ0"));
+                    plot::line(painter, rect, v, f, &c.pts, Stroke::new(2.0, total));
+                    legend.push((capture, "capture, pointwise"));
+                    legend.push((faint, "group averages, infinitely dilute"));
+                    legend.push((total, "group averages at σ0"));
                 }
                 _ => {}
             }
         }
         if self.rung == Rung::Broadr {
             if let (Some(a), Some(b)) = (f.to_screen(v, rect, 5.0, 1.0), f.to_screen(v, rect, 200.0, 1.0)) {
-                painter.text(Pos2::new(a.x, rect.bottom() - 44.0), egui::Align2::LEFT_BOTTOM, "area check: 5-200 eV", egui::FontId::proportional(11.0), FAINT);
+                painter.text(Pos2::new(a.x, rect.bottom() - 44.0), egui::Align2::LEFT_BOTTOM, "area check: 5-200 eV", egui::FontId::proportional(11.0), faint);
                 let _ = b;
             }
         }
         plot::legend(painter, rect, &legend);
         if self.curves.is_empty() && self.rung != Rung::Acer {
-            painter.text(rect.center(), egui::Align2::CENTER_CENTER, "waiting for the first result…", egui::FontId::proportional(14.0), FAINT);
+            painter.text(rect.center(), egui::Align2::CENTER_CENTER, "waiting for the first result…", egui::FontId::proportional(14.0), faint);
         }
     }
 
@@ -822,12 +833,13 @@ impl NdApp {
             ui.label(RichText::new(hint).size(s).weak());
         }
         for l in self.note.lines() {
+            let ink = bugis::Ink::of_ui(ui);
             let colour = if l.contains("DIFFERENT") || l.contains("MISSING") || l.starts_with("Failed") {
-                Color32::from_rgb(255, 150, 120)
+                ink.error
             } else if l.contains("SAME") || l.contains("identical") {
-                Color32::from_rgb(140, 220, 160)
+                ink.ok
             } else {
-                Color32::from_rgb(210, 214, 222)
+                ink.text
             };
             ui.label(RichText::new(l).size(s).monospace().color(colour));
         }

@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-fork-thermochimica"
-version = "0.0.1"
+version = "0.0.2"
 edition.workspace = true
 license.workspace = true
 description = "Independent pure-Rust fork/translation of ORNL Thermochimica (BSD-3) — molten-salt Gibbs-energy-minimisation thermochemistry (fission-product speciation, redox, solubility) for the MSRE digital twin. SCAFFOLD: no human V&V. Not affiliated with ORNL or the Thermochimica project."
@@ -36,4 +36,10 @@ maturity = 1
 petir = { workspace = true }
 uom.workspace = true
 thiserror.workspace = true
+
+# tests/thermochimica_differential.rs inflates the gzipped Thermochimica reference run
+# (verification_and_validation/thermochimica_differential/). Pure Rust, already a
+# workspace dependency.
+[dev-dependencies]
+miniz_oxide.workspace = true
 

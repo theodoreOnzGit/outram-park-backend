@@ -66,6 +66,10 @@ pub struct CietOpcUaClientApp {
 
     /// Pending slider / numeric-box values per control.
     drafts: ControlDrafts,
+
+    /// The Gruvbox theme (`bugis`), Dark by default; the top bar's selector
+    /// switches it (this client has no side panel).
+    theme: bugis::Theme,
 }
 
 impl CietOpcUaClientApp {
@@ -78,10 +82,13 @@ impl CietOpcUaClientApp {
     ///
     /// # Arguments
     ///
-    /// * `context` — the egui context, used only to make the default font a
-    ///   little larger; no state is stored in it.
+    /// * `context` — the egui context, used to make the default font a
+    ///   little larger and to apply the Gruvbox Dark theme; no state is
+    ///   stored in it.
     pub fn new(context: &egui::Context) -> Self {
         context.set_pixels_per_point(1.1);
+        // Gruvbox Dark (the shared `bugis` theme) from the first frame.
+        bugis::Theme::default().apply(context);
 
         let shared = crate::shared_state::new_shared_client_state();
         let worker = crate::worker::spawn_client_worker(Arc::clone(&shared));
@@ -94,6 +101,7 @@ impl CietOpcUaClientApp {
             manual_entry: String::new(),
             manual_error: None,
             drafts: ControlDrafts::new(),
+            theme: bugis::Theme::default(),
         }
     }
 
@@ -161,6 +169,9 @@ impl eframe::App for CietOpcUaClientApp {
                 for panel in Panel::ALL {
                     ui.selectable_value(&mut selected_panel, *panel, panel.label());
                 }
+                ui.separator();
+                // The shared Gruvbox Dark/Light selector (GUI drawing).
+                bugis::selector(ui, &mut self.theme);
             });
         });
 

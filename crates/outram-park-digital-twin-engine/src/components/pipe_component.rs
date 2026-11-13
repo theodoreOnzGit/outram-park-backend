@@ -6,7 +6,7 @@
 //! value and rebuilt every repaint**. Anything stateful stored inside one is
 //! therefore reset every frame: a physics array would be re-initialised sixty
 //! times a second and never advance, and a tracer would sit permanently at
-//! phase zero. That is why [`crate::animation::TracerTrain`] has always been
+//! phase zero. That is why [`bugis::animation::TracerTrain`] has always been
 //! application-owned.
 //!
 //! [`PipeComponent`] is the persistent half. The application holds it across
@@ -34,7 +34,7 @@
 //! dispatches to the backend's own solver. What lives here is ownership and
 //! presentation, not equations.
 
-use crate::animation::{residence_time_from_velocity, TracerPulse};
+use bugis::animation::{residence_time_from_velocity, TracerPulse};
 use crate::components::{PipeScale, PipeVisual};
 use egui::{Pos2, Vec2};
 use tampines::components::Pipe;

@@ -29,6 +29,15 @@
 //! Stage 4 — **Critical-heat-flux (CHF / DNB / dryout) correlations**
 //! (bead `op-2kk.4`).
 //!
+//! **Lineage: original work, not a port (checked gh:#1367, 2026-11-12).** No
+//! upstream OpenFOAM counterpart exists: a search of ESI OpenFOAM-v2506 and
+//! OpenFOAM Foundation OpenFOAM-dev (`src/`, `applications/`) for `Biasi`,
+//! `Bowring`, `Groeneveld`, `Tong` and `criticalHeatFlux` found no CHF
+//! correlation (the one `Bowring(1962)` hit, in `alphatWallBoilingWallFunction`,
+//! is a bubble-departure correlation, not CHF). Every correlation here is
+//! implemented from the published paper it cites, so there is no upstream
+//! to compare against; verification is against the papers' own tabulated values.
+//!
 //! Point (0-D) engineering correlations that predict the **critical heat flux**
 //! `q''_c` `[W/m²]` — the wall heat flux at which the boiling-heat-transfer
 //! mode degrades (departure from nucleate boiling at low quality, dryout at

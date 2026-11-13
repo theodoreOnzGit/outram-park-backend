@@ -267,7 +267,7 @@ for (const [name, P] of Object.entries(SD)) {
   check("bracket of 1 MeV in (0.0253 eV, 500 keV, 14 MeV)", Math.abs(b[0] - 1) + Math.abs(b[2] - 5e5 / 1.35e7), 1e-15);
 }
 
-// ─── Chapter 2, "A fragment's story" (lessons 4-9) ───────────────────────
+// ─── Chapter 2, "A fragment's story" (lessons 4-10) ───────────────────────
 // Data from crates/dhoby-ghaut/examples/lesson_fission_cascades
 // (cascade-data.js), the cited records (cascade-recorded.js) and the kinetic
 // Monte Carlo (hop-physics.js).
@@ -392,7 +392,7 @@ for (const [f, html] of ch2) {
 }
 check("cascade-recorded.js: the RustBCA record carries its date", CR.rustbca.date === "2026-10-16" ? 0 : 1, 0);
 
-// ─── Chapter 3, "TRISO kernel" (lessons 10-28) ───────────────────────────
+// ─── Chapter 3, "TRISO kernel" (lessons 12-30) ───────────────────────────
 // Data: kernel-data.js (crates/dhoby-ghaut/examples/lesson_triso_kernel),
 // kernel-recorded.js (cited / pending), kernel-physics.js (the page models).
 // PREDICTIONS, written 2026-10-20 BEFORE the first run of 26-34:
@@ -484,12 +484,16 @@ for (const f of ["barrier-data.js", "failure-data.js", "barrier-recorded.js", "b
 const BD = window.BARRIER_DATA, FD = window.FAILURE_DATA, BR = window.BARRIER_RECORDED, BP = window.BarrierPhysics;
 const wrow = (el, ly) => BD.walker.find((w) => w.el === el && w.layer === ly);
 const wD = (el, ly, t) => BP.dAt(t, BD.tC, wrow(el, ly).d);
-// 36. The gaps are where the code has todo!(): Kr in the buffer only, and
-//     every other (element, layer) pair has a full curve.
+// 36. The gaps are where the code has todo!(): ~~Kr in the buffer only~~
+//     none among the four layers since 2026-11-10 (gh:#638: Kr in the
+//     buffer is the cited 1e-8 m^2/s of IAEA-TECDOC-978), and every
+//     (element, layer) pair has a full curve.
 {
   let bad = 0;
-  BD.walker.forEach((w) => { const gap = w.el === "Kr" && w.layer === "buffer"; if (gap !== (w.d === null)) bad++; if (w.d && w.d.some((x) => !(x > 0))) bad++; });
-  check("36: walker gaps exactly at Kr/buffer, every other curve positive", bad, 0);
+  BD.walker.forEach((w) => { if (w.d === null) bad++; if (w.d && w.d.some((x) => !(x > 0))) bad++; });
+  const kb = wrow("Kr", "buffer");
+  if (!kb || !kb.d || kb.d.some((x) => x !== 1e-8)) bad++;
+  check("36: no walker gaps, every curve positive, Kr/buffer flat at 1e-8", bad, 0);
 }
 // 37. P1, P2. 2026-10-22: SiC/IPyC crossing-time ratio >= 16.7 (Cs, 800 °C)
 //     for Ag, Cs, Sr over 800-1600 °C; Kr IPyC at 1000 °C 4.79e10 s.
@@ -594,7 +598,7 @@ for (const el of ["Cs", "Ag", "Sr"]) for (const t of [1200, 1400, 1600, 1800]) {
   report("43 P12 (MISSED: predicted 3 < ratio < 6)", `p(0.12 FIMA) / p(0.04 FIMA) = ${ratio.toFixed(6)}: pressure is linear in burnup in this model`);
 }
 // 44. The chapter's pages: banner, folded section, nav entry; the required
-//     boon-lay fuel failure wording on lessons 33 and 38; no page attributes a
+//     boon-lay fuel failure wording on lessons 35 and 40; no page attributes a
 //     number to PANAMA.
 {
   const kit = fs.readFileSync(path.join(__dirname, "../neutronics/lesson-kit.js"), "utf8");
@@ -610,7 +614,7 @@ for (const el of ["Cs", "Ag", "Sr"]) for (const t of [1200, 1400, 1600, 1800]) {
   check("44: barrier-recorded.js cites Kugeler Table 5 on pp. 32-33", BR.layerJobs.page === "32-33" && BR.layerJobs.sic.length === 2 ? 0 : 1, 0);
 }
 
-// ─── Chapter 5, "Integrating it in TRISO-ATOPS" (lessons 39-46) ──────────
+// ─── Chapter 5, "Integrating it in TRISO-ATOPS" (lessons 45-53) ──────────
 // Data: atops-data.js (crates/dhoby-ghaut/examples/lesson_triso_atops),
 // atops-physics.js. Predictions Q1-Q9 written in the generator's docs
 // before the first run. Results 2026-10-22 in the comments.
@@ -705,6 +709,23 @@ AT.nodes.forEach((n) => check(`50 Q7 ${n.name}: |live circulating − node| / no
   const html = fs.readFileSync(path.join(__dirname, f), "utf8");
   check(`53 ${f}: atops2026paper option, Upstream default, tutorial link`, html.includes("ATOPS2026PAPER") && html.includes("TrisoAtopsVariant::<wbr>Upstream") && html.includes("../../deep-dives/triso-atops/atops2026-paper.html") ? 0 : 1, 0);
 });
+
+// 54. gh:#1307 (maintainer, 2026-11-06): U-238 is not fissile, so no lesson
+//     shows it fissioning on a thermal or slow neutron. Lesson 3's slider,
+//     strip, mean-vs-energy curve and table all start U-238 at
+//     FPEnergy.lowest("U-238"), which must be fast, must be the first energy
+//     of U-238's yields (where lessons 1 and 2 start it), and must be a row
+//     lesson 3 can show. The fissile parents keep thermal. The page says why.
+{
+  const FE = window.FPEnergy, lo = FE.lowest("U-238");
+  const firstYield = YD["U-238"].tables.map((t) => t.e).filter((e) => e > 0).sort((a, b) => a - b)[0];
+  check("54 U-238 lowest shown energy is fast (>= 100 keV)", lo >= 1e5 ? 0 : 1, 0);
+  check("54 U-238 lowest shown energy = its first yield table (lessons 1-2)", Math.abs(lo - firstYield), 0);
+  check("54 lesson 3 has a U-238 spectrum row at that energy", SD["U-238"].grid.some((g) => Math.abs(g.e - lo) <= 1e-9 * lo) ? 0 : 1, 0);
+  check("54 fissile parents start at thermal (lowest 0)", Object.keys(SD).filter((k) => k !== "U-238").reduce((a, k) => a + FE.lowest(k), 0), 0);
+  const ps = pages.find(([f]) => f === "prompt-spectrum.html")[1];
+  check("54 prompt-spectrum.html says U-238 is fissionable but not fissile", ps.includes("fissionable but not fissile") ? 0 : 1, 0);
+}
 
 if (failed) { console.log(`${failed} check(s) failed`); process.exit(1); }
 console.log("all fission-products checks passed");

@@ -4,10 +4,12 @@
 ## Android build for `fhr_sim_v2` (feasibility confirmed 2026-07-04)
 
 > **`fhr_sim_v2` no longer lives in this crate.** It moved to
-> `crates/tampines/examples/fhr_sim_v2/` (bead `op-dt3.7`), so this item now
-> belongs to the `tampines` crate — it is kept here only because the feasibility
+> ~~`crates/tampines/examples/fhr_sim_v2/` (bead `op-dt3.7`)~~
+> `crates/nee_soon/examples/fhr_sim_v2/` (**CORRECTED 2026-11-05**, moved again
+> (maintainer, 2026-11-05: "nee_soon depends on tampines, never the reverse")), so this item now
+> belongs to the ~~`tampines`~~ `nee_soon` crate — it is kept here only because the feasibility
 > investigation below was done from here. The commands below are written against
-> the old in-crate path and must be re-pointed at `-p tampines` before they will
+> the old in-crate path and must be re-pointed at ~~`-p tampines`~~ `-p nee_soon` before they will
 > run. Only `fhr_sim_v1`, `depressurisation` and `rankine_cycle` remain under
 > this crate's `examples/`.
 
@@ -61,6 +63,10 @@ ring ← rustls ← ureq ← ehttp ← egui_extras (all_loaders feature)
   1920×1080 viewport and mouse-oriented layout; it will *run* on a phone but be
   unusable until the layout is made responsive. Separate follow-up.
 
-Consider `wgpu` vs `glow`: `wgpu` (current) targets Vulkan on Android and
+~~Consider `wgpu` vs `glow`: `wgpu` (current) targets Vulkan on Android and
 compiles fine; `glow` (GLES) is sometimes more robust on older devices. Revisit
-only if runtime surface/resume issues appear.
+only if runtime surface/resume issues appear.~~ **DECIDED 2026-10-27 — wgpu
+only.** The workspace has a hard rule (root `CLAUDE.md`, "wgpu only, never
+glow"): no crate selects glow, on any target. A runtime surface or resume
+problem on an older device is now a wgpu issue to fix or report, not a reason
+to switch renderer.

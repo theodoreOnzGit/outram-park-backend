@@ -1,4 +1,4 @@
-// Fission products, chapter 4: the Web Worker for lesson 32 (no-lag rule).
+// Fission products, chapter 4: the Web Worker for lesson 34 (no-lag rule).
 // The layered walks run here and stream back, one temperature at a time.
 // Messages in:
 //   { id, cmd: "sweep", radii, temps: [tC...], D: [[5 D]...], n, seed, maxHops }

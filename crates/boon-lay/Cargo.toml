@@ -1,6 +1,6 @@
 [package]
 name = "boon-lay"
-version = "0.2.1"
+version = "0.2.2"
 edition.workspace = true
 license.workspace = true
 description = "BOmbardment of neutrons On Nuclides with Lagrangian transport and transmutation Yields — Lagrangian radionuclide transport, decay, fission, and diffusion for TRISO/HTGR/FHR"
@@ -92,6 +92,9 @@ approx          = { workspace = true }
 # assertions, geo because they build Mesh2D geometries (compiled under
 # cfg(test) as well as under `rustbca-std`).
 float-cmp       = { workspace = true }
+# tests/rustbca_upstream_differential.rs inflates the gzipped RustBCA v3.0.0 reference run
+# (verification_and_validation/rustbca_differential/). Pure Rust, a workspace dependency.
+miniz_oxide     = { workspace = true }
 geo             = { workspace = true }
 # ~~JSON only for the run-file round-trip test; the library stays
 # format-agnostic.~~ UPDATED 2026-09-30 (#449): serde_json is now a library
@@ -113,6 +116,7 @@ csv             = { workspace = true }
 # scripts/check-wasm.sh is blind to this class of problem. Bead op-okqo.7.
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
 egui            = { workspace = true }
+bugis           = { workspace = true }
 eframe          = { workspace = true }
 egui_plot       = { workspace = true }
 egui_extras     = { workspace = true }

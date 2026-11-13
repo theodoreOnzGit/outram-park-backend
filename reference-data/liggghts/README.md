@@ -74,7 +74,14 @@ each input file states its own. Common to all: SI units, `fix nve/sphere`,
 | `wall_bounce.csv` | `in.wall_bounce` | primitive `zplane` wall contact + gravity, repeated bounces | `1 µs` | 400 000 | every 200 |
 | `rolling_pair.csv` | `in.rolling_pair` | **CDT rolling resistance** (`µ_r = 0.1`), counter-spinning pair | `1 µs` | 2000 | every 10 |
 | `oblique_nohist.csv` | `in.oblique_nohist` | `tangential **no_history**` — the model the stateless `contact`+`simulation` path implements | `1 µs` | 2500 | every 10 |
+| `oblique_hooke_rolling.csv` | `in.oblique_hooke_rolling` | **Hooke** normal (`v_char = 2 m/s`) + tangential **history** + **CDT rolling** (`µ_r = 0.1`), same oblique geometry as `oblique_hertz` (gh:#1406, 2026-11-10) | `1 µs` | 2500 | every 10 |
+| `twotype_headon.csv`, `twotype_oblique.csv` | `in.twotype_headon`, `in.twotype_oblique` | **two atom types** (type 1: `d = 10 mm`, `ρ = 2500`, `E = 1e7`, `ν = 0.3`; type 2: `d = 12 mm`, `ρ = 4000`, `E = 3e7`, `ν = 0.2`), `e` matrix `[[0.9, 0.7], [0.7, 0.5]]`, `µ` matrix `[[0.5, 0.3], [0.3, 0.2]]` — the `global_properties` mixing rules (gh:#1406, 2026-11-10) | `1 µs` | 2500 | every 10 |
+| `rotating_plate.csv`, `plate_square.stl` | `in.rotating_plate` | **rotating mesh wall** (`fix move/mesh rotate`, `period 0.5 s`): one `d = 10 mm` sphere bouncing three times on a `0.3 m` square plate (2 facets) rotating about `z`; Hertz + history, gravity (gh:#1406 prio 2, 2026-11-10) | `10 µs` | 10 000 | every 40 |
 | `pebble_bed_init.csv`, `pebble_bed_settled.csv` | `in.pebble_bed` | bulk settling in a cylinder, 354 pebbles, packing fraction | `5 µs` | 400 000 | first + final state |
+| `ablate_<cell>.csv` (`mu10_mur00`, `mu10_mur10`, `mu40_mur00`, `mu40_mur10`) | `in.ablate`, `in.ablate_cdt`, `run_ablate.sh` | **friction-ablation cells run in LIGGGHTS**: the 354-pebble bed from `pebble_bed_init.csv` settled 400 000 steps at the cell's `mu`, `mu_r` (CDT when > 0); gh:#1406, 2026-11-11 | `5 µs` | 400 000 | every 50 000 |
+| `heat_pair.csv`, `heat_bed.csv` | `in.heat_pair`, `in.heat_bed`, `dump2heat.sh` | `fix heat/gran/conduction` (gh:#1412): two spheres at `DeltaT`; the settled bed with a `T(z)` gradient (steps 0, 1, 10, 100) | `1 µs` / `5 µs` | 2500 / 100 | every 10 / see file |
+| `stiff_hertz.csv`, `stiff_hooke.csv`, `stiff_hooke_abs.csv` | `in.stiff_*` | `hertz/stiffness`, `hooke/stiffness` (relative and absolute damping), oblique collision (gh:#1410) | `1 µs` | 2500 | every 10 |
+| `hyst_fast.csv`, `hyst_slow.csv` | `in.hyst_*` | `hooke/hysteresis`, oblique collision (gh:#1410) | `1 µs` | 2500 / 5000 | every 10 / 20 |
 | `lift_init.csv`, `lift_heap.csv` | `in.repose_lift` | **angle of repose** by the lifting-cylinder method, 656 pebbles | `5 µs` | 1 700 000 | post-settle + final |
 | `lift_cylinder.stl` | — | the cylinder geometry **both codes read**: `R = 0.050 m`, 1280 facets, inward normals | — | — | — |
 | `htr10_init.csv`, `htr10_settled.csv` | `in.htr10` | **HTR-10 full core**: 27 000 pebbles at the published reactor geometry (`D/d = 30`), Hertz + history + CDT rolling | `35 µs` | 60 000 insert + 50 000 settle | post-insertion + final |
@@ -88,6 +95,7 @@ each input file states its own. Common to all: SI units, `fix nve/sphere`,
 | `htr10_recirc_<label>_s8k.csv` | — | **this port's own output**: the **rate-independence control** — the same recirculation at a **4x longer settle window** (8 000 steps), which is the run that is genuinely quasi-static (worst core `KE/E_drop` 2.2e-4 / 4.8e-4). Its final beds and seeded pre-settle copies are gitignored as reproducible derived data | — | 10 batches | per batch |
 | `htr10_recirc_<label>.csv`, `htr10_recirc_<label>_bed.csv` | — | **this port's own output**: per-batch solid fraction during slow defuelling at one friction setting, and the final bed. Written by `examples/htr10_recirculation_sweep.rs` | — | — | per batch / final |
 | `htr10_rdf.csv` | — | **analysis output** (this port's `src/rdf.rs`, CPU path): radial distribution function `g(r)` vs pair separation for every HTR-10 bed above, one tidy row per (case, bin). Written by `tests/htr10_rdf.rs` | — | — | 250 bins to `5 d` |
+| `ms_drop.csv`, `ms_collide.csv`, `ms_massflow.csv`, `ms_massflow_thermo.txt` | `in.ms_drop`, `in.ms_collide`, `in.ms_massflow` (from `make_multisphere_decks.sh`) | **multisphere rigid clumps** (gh:#1415). One clump drops onto a plane; two clumps collide; four clumps fall through `plate_square.stl`, counted by `massflow/mesh`. Long layout of `pour2csv.sh` (`step,id,x,y,z,vx,vy,vz,omegax,omegay,omegaz`); the thermo file holds the first line per step of `step atoms f_mf[1..4]` (`%.17g`) | `10 µs` | 15 000 / 15 000 / 12 000 | 9 / 10 / 7 frames, thermo every 500 |
 
 **Two column layouts, by case type.** The deterministic trajectory cases
 (`headon_*`, `oblique_*`, `wall_bounce`, `rolling_pair`) are one row per
@@ -114,6 +122,11 @@ read by **both** codes: LIGGGHTS via `fix mesh/surface file`, this crate via
 `MeshWall::from_ascii_stl`.
 
 ## Regenerating
+
+The build recipe, with the commit, access date and a record that it reproduces
+the committed trajectories byte for byte, is in
+`crates/outram-park-fork-liggghts/upstream_source/README.md`. `run_deck.sh`
+runs one small deck and writes its CSV.
 
 ```bash
 git clone https://github.com/CFDEMproject/LIGGGHTS-PUBLIC.git

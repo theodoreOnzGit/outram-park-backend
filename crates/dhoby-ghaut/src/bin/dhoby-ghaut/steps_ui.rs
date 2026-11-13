@@ -298,7 +298,11 @@ pub fn panes(app: &mut App, ui: &mut egui::Ui) {
         .size_range(crate::style::em(12.0)..=side_max)
         .resizable(true)
         .show_collapsible(ui, &mut settings_open, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| settings(app, ui));
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                // The shared Gruvbox Dark/Light selector (GUI drawing).
+                bugis::selector(ui, &mut app.theme);
+                settings(app, ui);
+            });
         });
     app.settings_open = settings_open;
     // Step 5's results, bottom.

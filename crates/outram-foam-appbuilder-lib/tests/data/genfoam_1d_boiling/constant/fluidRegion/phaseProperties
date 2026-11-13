@@ -1,0 +1,767 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      phaseProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// ------------------------------------------------------------------------- //
+// --- FLUID PROPERTIES ---------------------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+//- These entries could be anything you want, as long as fields in 0/fluidRegion/ have
+//  these in their name (after the dot) and everything else is re-named accordingly in this
+//  dictionary. For the sake of the comments in this dictionary, I will refer
+//  to these names as fluid1Name and fluid2Name
+fluid1 "liquid";
+fluid2 "vapour";
+
+//- These dictionaries should always be named fluid1NameProperties and
+//  fluid2NameProperties. The presence of these dictionaries IS MANDATORY
+//  for two-phase simulations
+//  They only support 4 entries:
+//  -   stateOfMatter ->    supported entries are either "gas" or "liquid";
+//                          This entry is used by some drag, heat or mass
+//                          transfer models as knowledge of which phase is
+//                          gaseous(/vapourous) and which phase is liquid
+//                          is necessary sometimes. This entry IS NOT
+//                          MANDATORY in principle but might be REQUIRED
+//                          by specific choices of models;
+//
+//  -   residualAlpha ->    residual fluid volumeFraction used to stabilize
+//                          equations when/if its volumeFraction tends to 0. This
+//                          defaults to 1e-9 and IS NOT a mandatory entry;
+//
+//  -   thermoResidualAlpha ->  residual fluid volumeFraction below which the
+//                              fluid temperature is not obtained from the
+//                              enthalpy equation solution, but is set to
+//                              the fluid1-fluid2 interfacial temperature. This
+//                              is applied on a cell-by-cell basis (e.g. only
+//                              in those cells whose volumeFraction of this
+//                              fluid is below thermoResidualAlpha). This
+//                              is meant to be used to stabilize the
+//                              temperature field of a fluid being produced
+//                              during phase change (either boiling or
+//                              condensation). In fact, small inaccuracies in
+//                              the calculation of the absolute enthalpy of
+//                              a phase with a small volumeFraction will
+//                              translate into large inaccuracies in the
+//                              temperature. Note that thermoResidualAlpha is
+//                              expressed relatively to the available volume
+//                              for fluid flow, thus accounting for possible
+//                              structures. This entry IS NOT MANDATORY and
+//                              defaults to 0;
+//
+//  -   writeRestartFields  ->  if true, write additional fields to disk that
+//                              quickly allow residuals to converge to their
+//                              pre-restart values if restarting the simulation
+//                              from a certain time-step. This entry IS NOT
+//                              MANDATORY and defaults to false to save disk
+//                              space;
+liquidProperties
+{
+    // residualAlpha 1e-9;
+    // thermoResidualAlpha 0;
+    stateOfMatter   liquid;
+    dispersedDiameterModel
+    {
+        type    constant;
+        value   0.01;
+    }
+}
+
+vapourProperties
+{
+    stateOfMatter       gas;
+
+    //- I.e. the vapour temperature is set at saturation temperature in those
+    //  cells where the vapour volumeFraction is below 10% (with respect to
+    //  the volume available to fluid flow, accounting for structure)
+    thermoResidualAlpha 0.1;
+    dispersedDiameterModel
+    {
+        type    constant;
+        value   0.01;
+    }
+}
+
+// ------------------------------------------------------------------------- //
+// --- STRUCTURES PROPERTIES ----------------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+//- Dictionary where porous (sub-scale) structure properties are specified.
+//  Unlike fluids, the structure cannot be named, and this dictionary is always
+//  called structureProperties
+structureProperties
+{
+    //- The rest of the structureProperties consists of a series of subDicts
+    //  whose properties are applied to the cellZones that have their name
+    //  in the subDict keys. Please note that the presence of any of these
+    //  subDicts IS NOT MANDATORY, and the structure defaults, globally, to
+    //  having a null volumeFraction and infinite (1e6m) hydraulic diameter.
+    //  For convenience, if multiple cellZones share the
+    //  same exact properties, these names can be grouped by using a colon as
+    //  separator. For this case, three cellZones are present in the system,
+    //  low, mid and top. Low and mid share the same properties, so their
+    //  subDict key is low:top. These subDicts support many options, yet only
+    //  some are mandatory. The whole list of possible options is discussed
+    //  below, before the REGIME MAP MODEL section
+
+    "low:top"
+    {
+        volumeFraction      0.5;
+        Dh                  0.01;
+    }
+
+    "mid"
+    {
+        volumeFraction      0.5;
+        Dh                  0.005;
+
+        powerModel
+        {
+            type                fixedPower;
+            volumetricArea      100;
+            T                   652.15;
+            Cp                  500;
+            rho                 7700;
+            powerDensity        4.5e8;
+        }
+    }
+
+/*
+    Example cellZone(s) subDict for three postulated cellZones, zone0, zone1
+    and zone2 that share the same properties
+
+    "zone0:zone1:zone2"
+    {
+        //--Needless to say, entries within this subDict that are marked as
+        //  MANDATORY are such only if this subDict ("zone0:zone1:zone2")
+        //  exists
+
+        //- This is the volumeFraction occupied by the structure.
+        //  This entry IS MANDATORY
+        volumeFraction      0.5;
+
+        //- Hydraulic diameter. This entry IS MANDATORY and represents the
+	//- hydraulic diameter for a fluid flowing through the sub-structure
+        Dh                  0.01;
+
+        //- Local x, y axes of the reference frame in this cellZone. These
+        //  entries ARE NOT MANDATORY and default to (1 0 0), (0 0 1). If they
+        //  are provided, localY is computed accordingly. localY CANNOT be
+        //  be provided. The purpose of a local reference frame is to more
+        //  easily describe anisotropic drag and porous medium tortuosity.
+        localX       (1 0 0);
+        localZ       (0 0 1);
+
+        //- Used to compute a "directional hydraulic diameter". It builds upon
+        //  the initial idea of GeN-Foam to use a directional Reyonlds number
+        //  (i.e. different for reference frame direction). In particular, the
+        //  i-th directional Reynolds will "see" a hydraulic diameter of
+        //  Dh*localDhAnisotropy[i]. localDhAnisotropy is rotated to the local
+        //  reference frame. This entry IS NOT MANDATORY and defaults to
+        //  (1 1 1)
+        localDhAnisotropy     (1 1 1);
+
+        //- Tortuosity of the porous structure (in this cellZone) expressed in
+        //  the local reference frame. This vector quantifies the deformation
+        //  of diffusion lines (i.e. the path along which a quantity diffues)
+        //  for each of the tree local reference frame axes. To provide an
+        //  example, for a fluid in a bundle of pins, the tortuosity will be 1
+        //  along the bundle axis and < 1 for directions transversal to the
+        //  bundle axis. Components greater than 1 (not physical) mean that
+        //  diffusion is easier along said direction. For components smaller
+        //  than 1, the opposite holds.
+        //  It is important to state that this ONLY IMPACTS THE DIFFUSION of
+        //  fluid heat and momentum, not their advection. This entry
+        //  IS NOT REQUIRED and deafults to (1 1 1)
+        localTortuosity     (1 1 1);
+
+        //- Properties of the power-producing part of the structure. This
+        //  subDict IS NOT MANDATORY and the structure defaults to not
+        //  contributing to the fluids energy equation in any way
+        powerModel
+        {
+            //--Needless to say, entries within this subDict that are marked
+            //  as MANDATORY are such only if the powerModel dict exists
+
+            //- This entry IS MANDATORY and currently supports three models:
+            //  -   fixedTemperature
+            //  -   fixedPower
+            //  -   nuclearFuelPin
+            type    model;
+
+            //- The dict entries that are common to all of these models
+            //  are commented first. Then, the model-specific ones are presented
+
+            //- Used to compute the VOLUMETRIC heat capacity of the
+            //  structure as volumeFraction*rho*Cp. This entry IS NOT MANDATORY
+            //  and defaults to the overall structure volumeFraction defined at
+            //  the start of the cellZone subDict. What is the point of this?
+            //  Well, what if this cellZone represent a structure that is not
+            //  producing power in its entirety, yet only in a portion of it?
+            //  This is what it is for
+            volumeFraction  0.5;
+
+            //- Structure surface area per unit volume in m2/m3
+            volumetricArea  100;
+
+            //--Start of fixedTemperature entries. The fixedTemperature
+            //  model models a structure with a surface temperature that is
+            //  constant in TIME
+
+                //- Surface temperature. This entry IS MANDATORY ONLY IF a
+                //  field called T.fixedTemperature does not exist in the
+                //  start time folder
+                T   293.15;
+
+                // This shows how to provide a linear variation of temperature
+                // from 300 to 600 in 1 sec
+                temperatureTimeProfile
+                {
+                    type                            table;
+
+                    //- Time after which the time table is applied
+                    startTime                       0;
+
+                    //- Left column is time elapsed since the startTime defined
+                    //  above
+                    table       table
+                    (
+                        (   0   300  )
+                        (   1   600   )
+
+                    );
+                }
+
+            //--End of fixedTemperature entries
+
+            //--Start of nuclearFuelPin entries. The nuclearFuelPin model
+            //  is used to compute representative nuclear pin temperatures
+            //  (fuel and cladding) that a pin would have if placed in each
+            //  mesh cell of the cellZones where this model is defined. Pins
+            //  in each mesh cell are effectively independent, i.e. there is
+            //  no thermal diffusion of fuel or cladding temperatures within
+            //  adjacent mesh cell. The radial temperature profiles of the
+            //  nuclearFuelPin within each mesh cell are solved over a 1-D
+            //  radial SUB-mesh that spans the fuel and the cladding. The
+            //  pin temperatures are coupled to the fluid ones through
+            //  the fluid heat transfer coefficients and temperatures in
+            //  each mesh cell where the nuclearFuelPin is defined. The power
+            //  density of the fuel can be either provided here or computed
+            //  by the neutronics subSolver of GeN-Foam.
+
+                //- Power density in W/m3(fuel) of the fuel. This entry IS
+                //  MANDATORY ONLY IF the powerDensity.nuclearFuelPin field
+                //  is not found in the starting time folder. If it is found
+                //  said field takes priority over the value set here
+                powerDensity        0;
+
+                //- Inner radius of the fuel pellet, can be 0 if the fuel
+                //  pellet is not hollow. This entry IS MANDATORY
+                fuelInnerRadius     0.0012;
+
+                //- Outer radius of the fuel pellet. This entry IS MANDATORY
+                fuelOuterRadius     0.004715;
+
+                //- Inner radius of the cladding. The difference between this
+                //  and fuelOuterRadius determines the gap width. This entry
+                //  IS MANDATORY
+                cladInnerRadius     0.004865;
+
+                //- Outer radius of the cladding. This entry IS MANDATORY
+                cladOuterRadius     0.005365;
+
+                //- Number of SUB-mesh nodes to be used to discretize the
+                //  fuel pellet radially. This entry IS MANDATORY
+                fuelMeshSize        30;
+
+                //- Number of SUB-mesh nodes to be used to discretize the
+                //  cladding radially. This entry IS MANDATORY
+                cladMeshSize        5;
+
+                //- Density of the fuel. This entry IS MANDATORY
+                fuelRho             10480;
+
+                //- Specific heat capacity (J/kg/K) of the fuel. This entry IS
+                //  MANDATORY
+                fuelCp              250;
+
+                //- Density of the cladding. This entry IS MANDATORY
+                cladRho             7500;
+
+                //- Specific heat capacity of the cladding. This entry IS
+                //  MANDATORY
+                cladCp              500;
+
+                //- Gap thermal conductance (W/m2/K). This entry IS MANDATORY
+                gapH                3000;
+
+                //- Fuel thermal conductivity. This entry IS MANDATORY
+                fuelK               3;
+
+                //- Cladding thermal conductivity. This entry IS MANDATORY
+                cladK               20;
+
+                //- Initial fuel temperature. This entry IS MANDATORY ONLY IF
+                //  the fuel inner/outer temperature fields
+                //  (Tfi.nuclearFuelPin, Tfo.nuclearFuelPin) do not exist in
+                //  the starting time folder OR IF the whole pin temperature
+                //  field (Trad.nuclearFuelPin) does not exist in the start
+                //  time folder, in which case this entry is not read
+                fuelT               668;
+
+                //- Initial cladding temperature. This entry IS MANDATORY ONLY
+                //  IF the cladding inner/outer temperature fields
+                //  (Tci.nuclearFuelPin, Tco.nuclearFuelPin) do not exist in
+                //  the starting time folder OR IF the whole pin temperature
+                //  field (Trad.nuclearFuelPin) does not exist in the start
+                //  time folder, in which case this entry is not read
+                cladT               668;
+
+            //--End of nuclearFuelPin entries
+
+            //--Start of fixedPower entries. A fixedPower model represent
+            //  a structure with a power density that is constant in TIME. The
+            //  structure is characterized by an average temperature, which is
+            //  also the temperature at which it exchanges heat with the fluid.
+            //  Like the nuclearFuelPin model, the structure temperature does
+            //  not currently diffuse within the structure
+
+                //- Initial structure temperature. This entry IS MANDATORY ONLY
+                //  IF the T.fixedPower field does not exist in the start
+                //  time folder, in which case this entry is not read
+                T                   652.15;
+
+                //- The volumetric heat capacity can be provided EITHER
+                //  by providing BOTH Cp and rho OR by providing rhoCp.
+                //  AT LEAST ONE OF THESE TWO IS MANDATORY. The actual
+                //  volumetric heat capacity is automatically computed
+                //  by scaling rho*Cp (or rhoCp) by the volumeFraction
+                //  of the powerModel (which defaults to the structure
+                //  volumeFraction if not provided)
+                Cp                  500;
+                rho                 7700;
+
+                //- Power density of the structure (intrinsic, i.e. independent
+                //  of the volumeFraction) in W/m3. This entry IS MANDATORY
+                //  ONLY IF the powerDensity.fixedPower field is not found
+                //  in the start time folder, in which case this entry is not
+                //  read
+                powerDensity        1e9;
+
+                // This shows how to provide a linear variation of power
+                // from 1e9 to 2e9 in 100 sec
+                powerTimeProfile
+                {
+                    type                            table;
+
+                    //- Time after which the time table is applied
+                    startTime                       0;
+
+                    //- Left column is time elapsed since the startTime defined
+                    //  above
+                    table       table
+                    (
+                        (   1   1e9  )
+                        (   100   2e9   )
+
+                    );
+                }
+
+            //--End of fixedPower entries
+        }
+
+        //--End of powerModel subDict
+
+        //- Properties of the passive structure, i.e. anything that does not
+        //  produce power. The temperature of the passive structure (i.e. the
+        //  T.passiveStructure field) is solved for ONLY IF this dict is
+        //  present. This subDict IS NOT MANDATORY and thus the structure
+        //  defaults to not having any passive properties, not even a
+        //  T.passiveStructure field
+        passiveProperties
+        {
+            //- Volumetric area of the passive structure
+            volumetricArea      100;
+
+            //- Density of the passive structure. This entry IS MANDATORY ONLY
+            //  if the rhoCp entry is not provided
+            rho     7000;
+
+            //- Specific heat capacity of the passive structure. This entry IS
+            //  MANDATORY ONLY IF the rhoCp entry is not provided
+            Cp      500;
+
+            //- Volumetric (intrinsic) heat capacity of the passive structure.
+            //  Can be provided AS AN ALTERNATIVE to providing separate rho and
+            //  Cp. If all among rho, Cp and rhoCp are provided by mistake, an
+            //  error is returned
+            rhoCp   3500000;
+
+            //- Same purpose as the powerModel volumeFraction, i.e. provided
+            //  a different volumeFraction for the purpose of computing the
+            //  extrinsic volumetric heat capacity of the passive structure,
+            //  i.e. volumeFraction*rho*Cp (or rhoCp). This entry IS NOT
+            //  MANDATORY and defaults to the structure volumeFraction defined
+            //  at the start of this subDict
+            volumeFraction  0.01;
+
+            //- Initial temperature of the sub-structure. This IS MANDATORY
+            //  ONLY IF the initial temperature field (i.e. T.passiveStructure)
+            //  is not found in the start time folder, in which case this entry
+            //  is not read
+            T       600;
+        }
+
+        //--End of passiveProperties
+    }
+
+    //--End of "zone0:zone1:zone2" subDict
+
+*/
+
+    //- Start of powerOffCriterionModel subDict
+
+/*
+    Used to turn off structure power sources (of all powerModels in all
+    cellZones) if a certain criterion is met. The following will turn all
+    power sources off after normalized.alpha.vapour exceeds 0.957 in any
+    cell of the mesh at any given point. Power sources can't currently be
+    turned on again after they are turned off. This feature was added
+    specifically to model pin bundle boiling experiments
+*/
+    powerOffCriterionModel
+    {
+        /*
+        //- Only type currently available is fieldValue
+        type            fieldValue;
+
+        //- Name of the volScalarField used for the criterion evaluation.
+        fieldName       "normalized.alpha.vapour";
+
+        //- Field operation performed to obtain value for comparison against
+        //  a threshold. Currently, only min and max are available
+        fieldOperation  max;
+
+        //- Criterion to be applied. Currently, only valueAboveThreshold and
+        //  valueBelowThresholdAreAvailable
+        criterion       valueAboveThreshold;
+
+        //-
+        threshold       0.957;
+
+        //- Time delay between the satifaction of the criterion and the moment
+        //  power is actually turned off
+        timeDelay       0.0;
+        */
+
+        //-
+        type            timer;
+
+        //-
+        time            7;
+    }
+}
+
+// ------------------------------------------------------------------------- //
+// --- REGIME MAP MODEL ---------------------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+//- This entry specifies which regimeMaps to use, i.e. how to tell which
+//  flow regime exists in which mesh cells at a given time. This can be a list
+//  of any number of flow regime maps, with custom names. These CAN be used by
+//  interaction models of type "byRegime".
+regimeMapModels
+{
+    //- Custom name of this regimeMap
+    "slugMist"
+    {
+        //- This entry IS MANDATORY and currently supports two models:
+        //  -   none            ->  no flow regime maps, i.e. only one set
+        //                          of interaction models needs to be specified
+        //                          in physicsModelsByRegime. This model
+        //                          takes no further options
+        //  -   oneParameter    ->  the flow regime depends on the value of a
+        //                          scalar parameter, cell-by-cell (a field).
+        //                          any number of regimes can be constructed
+        //                          and managed
+        type                oneParameter;
+
+        //--Start of oneParameter entries
+
+        //- Name of the field to be used for parametrization. Technically, this
+        //  can consists of any volScalarField registered within the mesh
+        //  objectRegistry. A list of the the possible fields depends on the
+        //  thermalHydrauliuc model type (whether twoPhase or onePhase).
+        //  A meaningful choice for the twoPhase is "normalized.alpha.fluidName"
+        //  with fluidName being the name of one of the two fluids. This field
+        //  consists of the fluid volumeFraction normalized with respect to the
+        //  total volumeFraction available for fluid flow. A meaningful choice
+        //  for the onePhase type is the fluid-structure Reynolds field, simply
+        //  called "Re"
+        parameter           "normalized.alpha.vapour";
+
+        //- This dict contains a series of user selected regime names (i.e.
+        //  "bubbly-slug" and "mist" in this case) and to each of them a pair
+        //  of numbers is associated. These represents the uppwer and lower bound
+        //  of the parameter value for that regime to be present in a mesh cell.
+        //  Just to be as thorough as it gets, in this example, if a cell has a
+        //  normalized.alpha.vapour of 0.34 in a certain cell, the regime that
+        //  exists in that cell will be "bubbly-slug", and the interaction models
+        //  specified in the "bubbly-slug" subDict in physicsModelsByRegime
+        //  will apply (in that cell). The uppwer and lower bounds of consecutive
+        //  regimes DO NOT NEED TO MATCH. If the bounds do not match, additional
+        //  interpolation regimes are created at runTime. These regimes are
+        //  (linearly) interpolated between the specified interaction models so
+        //  to avoid harsh discontinuities in time and space of these model, which
+        //  would lead to sever numerical stability problems. In the case below,
+        //  an interpolation regime exists between parameter values 0.6 and 0.95.
+        //  It is important to note that the lowest and highest bounds among all
+        //  regimes are automatically extended to -infinity and +infinity to avoid
+        //  out-of-bounds parameter issues.
+        //  At an input level, the order in which the regimes are provided DOES NOT
+        //  MATTER, this is determined automatically by the parameter bounds.
+        //  The order in which the bounds are provided in the list also DOES NOT
+        //  MATTER as it is automatically adjusted. However, please note that
+        //  regime overlap checks ARE NOT PERFORMED (yet), and that the behaviour
+        //  is such scenarios is undefined
+        regimeBounds
+        {
+            "slug"              (0      0.85);
+            "mist"              (0.95     1);
+        }
+    }
+    //--End of the slugMist flow regime map
+}
+
+// ------------------------------------------------------------------------- //
+// --- REGIME PHYSICS FOR EACH REGIME -------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+//- See section at the end of the physicsModelsByRegime dictionary for further
+//  info on its setup
+
+physicsModels
+{
+    dragModels
+    {
+        "liquid.vapour"
+        {
+            type    SchillerNaumann;
+        }
+
+        "liquid.structure"
+        {
+            "low:mid:top"
+            {
+                type    ReynoldsPower;
+                coeff   2; // coeff A in A*Re^b
+                exp     -0.125; // coeff b in A*Re^b
+            }
+        }
+    }
+
+    twoPhaseDragMultiplierModel
+    {
+        type                Kaiser88;
+        multiplierFluid     liquid;
+    }
+
+    heatTransferModels
+    {
+        "liquid.vapour"
+        {
+            "liquid"
+            {
+                type    NusseltReynoldsPrandtlPower;
+                const   10;
+                coeff   0;
+                expRe   0;
+                expPr   0;
+            }
+            "vapour"
+            {
+                type    NusseltReynoldsPrandtlPower;
+                const   10;
+                coeff   0;
+                expRe   0;
+                expPr   0;
+            }
+        }
+
+        "liquid.structure"
+        {
+            "mid"
+            {
+                type                superpositionNucleateBoiling;
+                forcedConvection
+                {
+                    type            NusseltReynoldsPrandtlPower;
+                    const           7.48467;
+                    coeff           0.02994;
+                    expRe           0.77;
+                    expPr           0.77;
+                }
+                poolBoiling
+                {
+                    type                    Shah;
+                    useExplicitHeatFlux     false;
+                }
+                flowEnhancementFactor
+                {
+                    type            COBRA-TF;
+                }
+                suppressionFactor
+                {
+                    type            COBRA-TF;
+                }
+            }
+        }
+    }
+
+    virtualMassCoefficientModel
+    {
+        type    constant;
+        value   0.1;
+    }
+
+    pairGeometryModels
+    {
+        "liquid.vapour"
+        {
+            dispersionModel
+            {
+                type        byRegime;
+                regimeMap   "slugMist";
+                "slug"
+                {
+                    type            constant;
+                    dispersedPhase  "vapour";
+                }
+                "mist"
+                {
+                    type            constant;
+                    dispersedPhase  "liquid";
+                }
+            }
+
+            interfacialAreaDensityModel
+            {
+                type        spherical;
+            }
+        }
+
+        "liquid.structure"
+        {
+            contactPartitionModel
+            {
+                type        byRegime;
+                regimeMap   "slugMist";
+                "slug"
+                {
+                    type        constant;
+                    value       1.0;
+                }
+                "mist"
+                {
+                    type        constant;
+                    value       0.1;
+                }
+            }
+        }
+    }
+
+    phaseChangeModel
+    {
+        type                heatDriven;
+        mode                conductionLimited;
+        correctLatentHeat   false;
+
+        latentHeatModel
+        {
+            type        FinkLeibowitz;
+            adjust      true;
+        }
+
+        saturationModel
+        {
+            type        BrowningPotter;
+        }
+    }
+}
+
+/*
+dragModel ->    With regards to the momentum equation for a fluid, the role
+                of the dragModel is to return a drag coefficient between
+                fluid and fluid (twoPhase only) or fluid and structure (both
+                twoPhase and onePhase). The drag term is modelled as
+                Kd*deltaU with Kd being the actual coefficient being computed
+                by the dragModel and deltaU being the velocity difference
+                between the phase pair under exam (either fluid-fluid velocity
+                difference for fluid-fluid drag or just fluid velocity for
+                fluid-structure drag). This is exactly how the drag term
+                enters the momentum equation, e.g.
+                ddt(fluidVolFrac*fluidRho*fluidU) + ... = Kd*deltaU + ...
+
+twoPhaseDragMultiplierModel ->      More on this at a future update
+
+heatTransferModel ->    With regards to the energy equation for a fluid, the
+                heatTransferModel returns a heat transfer coefficient
+                between fluid and fluid (twoPhase only) or fluid and structure
+                (both twoPhase and onePhase). The heat transfer term is
+                modelled as f*vA*htc*deltaT with:
+                -   vA being either the volumetricArea of the structure
+                    (for fluid-structure heat transfer) or the interfacial area
+                    density between the two fluids (for fluid-fluid heat
+                    transfer);
+                -   f being a factor field relevant only for fluid-structure
+                    heat transfer in twoPhase, it quantifies the amount of
+                    volumetricArea of the structure that is in contact with the
+                    fluid under consideration;
+                -   deltaT being the temperature difference between either the
+                    fluid temperature and the fluid-fluid interface temperature
+                    (for fluid-fluid heat transfer) or between the fluid
+                    temperature and the structure temperature;
+                -   htc is the actually heat transfer coefficient (W/m2/K) that
+                    is modelled by the heatTransferModel, similarly to Kd with
+                    the dragModel!
+                So, what about the other terms, the fluid-fluid vA and f? Well,
+                that is what fluidGeometry is for (and why it is relevant only
+                in twoPhase)
+
+fluidGeometry ->    This is ONLY required by twoPhase and served the following
+                purposes:
+                -   keeping track of which phase is dispersed and which pase is
+                    continuous in a certain regime;
+                -   computing the characteristic dimension of the dispersed
+                    fluid (e.g. a bubble diameter);
+                -   computing the interfacial area density between the two
+                    fluids (the same that figures in the fluid-fluid heat
+                    transfer as vA);
+                -   computing the structure volumetric area partition
+                    fractions, i.e. the f terms for fluid-structure heat
+                    transfer seen above
+*/
+
+// ------------------------------------------------------------------------- //
+// --- MISCELLANEA --------------------------------------------------------- //
+// ------------------------------------------------------------------------- //
+
+pMin                    10000;
+pRefCell                0;
+pRefValue               100000;
+residualKd              10;
+
+// ************************************************************************* //

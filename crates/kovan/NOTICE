@@ -19,6 +19,9 @@ from this point on is AGPL-3.0-only.
 Authority to relicense: the maintainer is the sole copyright holder of this
 crate's own code (consolidated 2026-08-21 from the former `kovan-cli` and
 `kovan-tui` crates, both also solely maintainer-authored).
+UPDATED 2026-11-05: that was true at the relicense. The project now has
+open-source contributors, who keep the copyright in their own contributions
+(root NOTICE), so a future relicence of their code needs their consent.
 
 Why AGPL-3.0-only specifically
 -------------------------------

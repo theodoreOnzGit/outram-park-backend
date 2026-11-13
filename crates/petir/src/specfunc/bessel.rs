@@ -105,7 +105,7 @@
 #[allow(unused_imports)]
 use crate::real::Real;
 
-use crate::cheb_slice::eval_gsl;
+use crate::specfunc::cheb_eval_e;
 use crate::specfunc::{
     exp_mult, DBL_EPSILON, DBL_MIN, LOG_DBL_MAX, ROOT5_DBL_EPSILON, SQRT_DBL_EPSILON,
 };
@@ -683,11 +683,11 @@ pub fn bessel_j0(x: f64) -> f64 {
         return 1.0;
     }
     if y <= 4.0 {
-        return eval_gsl(0.125 * y * y - 1.0, &BJ0);
+        return cheb_eval_e(0.125 * y * y - 1.0, &BJ0);
     }
     let z = 32.0 / (y * y) - 1.0;
-    let ca = eval_gsl(z, &BM0);
-    let ct = eval_gsl(z, &BTH0);
+    let ca = cheb_eval_e(z, &BM0);
+    let ct = cheb_eval_e(z, &BTH0);
     let cp = cos_pi4(y, ct / y);
     let ampl = (0.75 + ca) / Real::sqrt(y);
     ampl * cp
@@ -736,12 +736,12 @@ pub fn bessel_j1(x: f64) -> f64 {
         return 0.5 * x;
     }
     if y < 4.0 {
-        let c = eval_gsl(0.125 * y * y - 1.0, &BJ1);
+        let c = cheb_eval_e(0.125 * y * y - 1.0, &BJ1);
         return x * (0.25 + c);
     }
     let z = 32.0 / (y * y) - 1.0;
-    let ca = eval_gsl(z, &BM1);
-    let ct = eval_gsl(z, &BTH1);
+    let ca = cheb_eval_e(z, &BM1);
+    let ct = cheb_eval_e(z, &BTH1);
     let sp = sin_pi4(y, ct / y);
     let ampl = (0.75 + ca) / Real::sqrt(y);
     (if x < 0.0 { -ampl } else { ampl }) * sp
@@ -790,13 +790,13 @@ pub fn bessel_y0(x: f64) -> f64 {
     }
     if x < 4.0 {
         let j0 = bessel_j0(x);
-        let c = eval_gsl(0.125 * x * x - 1.0, &BY0);
+        let c = cheb_eval_e(0.125 * x * x - 1.0, &BY0);
         return TWO_OVER_PI * (-LN2 + Real::ln(x)) * j0 + 0.375 + c;
     }
     if x < xmax {
         let z = 32.0 / (x * x) - 1.0;
-        let c1 = eval_gsl(z, &BM0);
-        let c2 = eval_gsl(z, &BTH0);
+        let c1 = cheb_eval_e(z, &BM0);
+        let c2 = cheb_eval_e(z, &BTH0);
         let sp = sin_pi4(x, c2 / x);
         let ampl = (0.75 + c1) / Real::sqrt(x);
         return ampl * sp;
@@ -854,19 +854,19 @@ pub fn bessel_y1(x: f64) -> f64 {
         // Upstream evaluates the series at the left endpoint of its interval
         // rather than at 0.125 x^2 - 1, which for x this small differs from
         // -1.0 by less than an ulp but is written out explicitly there.
-        let c = eval_gsl(-1.0, &BY1);
+        let c = cheb_eval_e(-1.0, &BY1);
         return TWO_OVER_PI * lnterm * j1 + (0.5 + c) / x;
     }
     if x < 4.0 {
         let lnterm = Real::ln(0.5 * x);
-        let c = eval_gsl(0.125 * x * x - 1.0, &BY1);
+        let c = cheb_eval_e(0.125 * x * x - 1.0, &BY1);
         let j1 = bessel_j1(x);
         return TWO_OVER_PI * lnterm * j1 + (0.5 + c) / x;
     }
     if x < xmax {
         let z = 32.0 / (x * x) - 1.0;
-        let ca = eval_gsl(z, &BM1);
-        let ct = eval_gsl(z, &BTH1);
+        let ca = cheb_eval_e(z, &BM1);
+        let ct = cheb_eval_e(z, &BTH1);
         let cp = cos_pi4(x, ct / x);
         let ampl = (0.75 + ca) / Real::sqrt(x);
         return -ampl * cp;
@@ -913,14 +913,14 @@ pub fn bessel_i0_scaled(x: f64) -> f64 {
     }
     if y <= 3.0 {
         let ey = Real::exp(-y);
-        let c = eval_gsl(y * y / 4.5 - 1.0, &BI0);
+        let c = cheb_eval_e(y * y / 4.5 - 1.0, &BI0);
         return ey * (2.75 + c);
     }
     if y <= 8.0 {
-        let c = eval_gsl((48.0 / y - 11.0) / 5.0, &AI0);
+        let c = cheb_eval_e((48.0 / y - 11.0) / 5.0, &AI0);
         return (0.375 + c) / Real::sqrt(y);
     }
-    let c = eval_gsl(16.0 / y - 1.0, &AI02);
+    let c = cheb_eval_e(16.0 / y - 1.0, &AI02);
     (0.375 + c) / Real::sqrt(y)
 }
 
@@ -955,7 +955,7 @@ pub fn bessel_i0(x: f64) -> f64 {
         return 1.0;
     }
     if y <= 3.0 {
-        let c = eval_gsl(y * y / 4.5 - 1.0, &BI0);
+        let c = cheb_eval_e(y * y / 4.5 - 1.0, &BI0);
         return 2.75 + c;
     }
     if y < LOG_DBL_MAX - 1.0 {
@@ -999,13 +999,13 @@ pub fn bessel_i1_scaled(x: f64) -> f64 {
     }
     if y <= 3.0 {
         let ey = Real::exp(-y);
-        let c = eval_gsl(y * y / 4.5 - 1.0, &BI1);
+        let c = cheb_eval_e(y * y / 4.5 - 1.0, &BI1);
         return x * ey * (0.875 + c);
     }
     let c = if y <= 8.0 {
-        eval_gsl((48.0 / y - 11.0) / 5.0, &AI1)
+        cheb_eval_e((48.0 / y - 11.0) / 5.0, &AI1)
     } else {
-        eval_gsl(16.0 / y - 1.0, &AI12)
+        cheb_eval_e(16.0 / y - 1.0, &AI12)
     };
     let b = (0.375 + c) / Real::sqrt(y);
     let s = if x > 0.0 { 1.0 } else { -1.0 };
@@ -1059,7 +1059,7 @@ pub fn bessel_i1(x: f64) -> f64 {
         return 0.5 * x;
     }
     if y <= 3.0 {
-        let c = eval_gsl(y * y / 4.5 - 1.0, &BI1);
+        let c = cheb_eval_e(y * y / 4.5 - 1.0, &BI1);
         return x * (0.875 + c);
     }
     if y < LOG_DBL_MAX {
@@ -1115,11 +1115,11 @@ pub fn bessel_k0_scaled(x: f64) -> f64 {
             * (poly_eval(&K0_POLY, x2) - lx * (1.0 + 0.25 * x2 * poly_eval(&I0_POLY, 0.25 * x2)));
     }
     if x <= 8.0 {
-        let c = eval_gsl((16.0 / x - 9.0) / 7.0, &AK0);
+        let c = cheb_eval_e((16.0 / x - 9.0) / 7.0, &AK0);
         // 1.203125 = 77/64, upstream's own note.
         return (1.203125 + c) / Real::sqrt(x);
     }
-    let c = eval_gsl(16.0 / x - 1.0, &AK02);
+    let c = cheb_eval_e(16.0 / x - 1.0, &AK02);
     (1.25 + c) / Real::sqrt(x)
 }
 
@@ -1196,11 +1196,11 @@ pub fn bessel_k1_scaled(x: f64) -> f64 {
         return ex * (x2 * poly_eval(&K1_POLY, x2) + x * lx * i1 + 1.0) / x;
     }
     if x <= 8.0 {
-        let c = eval_gsl((16.0 / x - 9.0) / 7.0, &AK1);
+        let c = cheb_eval_e((16.0 / x - 9.0) / 7.0, &AK1);
         // 1.375 = 11/8, upstream's own note.
         return (1.375 + c) / Real::sqrt(x);
     }
-    let c = eval_gsl(16.0 / x - 1.0, &AK12);
+    let c = cheb_eval_e(16.0 / x - 1.0, &AK12);
     (1.25 + c) / Real::sqrt(x)
 }
 

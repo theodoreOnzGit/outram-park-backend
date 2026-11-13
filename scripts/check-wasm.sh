@@ -40,7 +40,9 @@
 # terminal binaries that legitimately cannot build for wasm, so --all-targets
 # would be permanently red and would therefore be ignored. This gate is --lib,
 # and that limitation is stated here rather than papered over: a broken
-# wasm-facing example will NOT be caught by this script.
+# wasm-facing example will NOT be caught by this script. (The GitHub Pages
+# demos' examples are gated separately, 2026-11-06, gh:#1304:
+# scripts/check-wasm-demos.sh, run by .github/workflows/wasm-demos.yml.)
 #
 # Usage:
 #   scripts/check-wasm.sh            # gate every in-scope crate
@@ -64,6 +66,13 @@ VERBOSE=0
 #       to language servers. kovan alone has 36 files using std::fs. "Compiles
 #       for wasm" would be close to meaningless. Bead op-okqo.4 (cancelled).
 #
+#       CORRECTED 2026-10-30 (gh #1055): kovan's package has been named
+#       `knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan` since
+#       2026-10-07 (commit 5d716aa93, crates.io's `kovan` is another crate), and
+#       this list matches package names, so the bare `kovan` entry no longer
+#       matched: the gate checked an excluded crate and reported gix-sec's
+#       Unix-only code as a failure. The entry now carries the package name.
+#
 #       NOTE the other three kovan crates — kovan-codegen, kovan-common,
 #       kovan-literature — are deliberately NOT excluded. They already pass, so
 #       gating them costs nothing and protects the pure-data half of the kovan
@@ -86,7 +95,7 @@ VERBOSE=0
 #       still takes faer's full default set and stays excluded above.~~ bedok
 #       has no faer since 2026-10-20 (gh #994) and is no longer excluded.
 EXCLUDED=(
-  kovan
+  knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan
   kovan-discovery
   kovan-metrics
   kovan-semantics

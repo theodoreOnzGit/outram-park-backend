@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Into the source term</title>
+<meta name="description" content="Fission products: what crosses the seam from boon-lay's TRISO-ATOPS port into sembawang's source term and on to changi's dispersion, the recorded HTR-10 air-ingress bounding release per nuclide, and the gaps that travel downstream with it.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="chemhand-data.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="chemhand-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 5 "Integrating it in TRISO-ATOPS", after "Simplifications, side by
+     side" (gh:#1207: the TRISO-ATOPS mdBook's rung 8). The widget draws the dispersion demo's
+     recorded source term (crates/dhoby-ghaut/examples/dispersion_web/recorded.rs, the sembawang
+     example htr10_air_ingress_kora_bound re-run 2026-10-04), copied into chemhand-data.js by
+     lesson_chemistry_handoff, not recomputed. Predictions S1-S2. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. No number on this page is a source term for any facility, and none is for emergency planning. <strong>Review status:</strong> AI-assisted first draft (2026-11-04), not yet reviewed by a human.</p>
+<span id="ch-numbers" hidden></span>
+
+<h1>Into the source term</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>This is where boon-lay stops. What leaves it is a release per nuclide over time: how much activity gets out of the fuel and the core, and when. Another crate turns that into a <b>source term</b>, and a third carries it downwind. What exactly crosses each seam, and what does it carry along that nobody asked for?</p>
+
+<section class="widget-card">
+  <h3>One recorded release, per nuclide</h3>
+  <div class="widget" id="ch-source">
+    <canvas aria-label="Bars on a log scale for Xe-133, I-131, I-133, Cs-137, Cs-134 and Ag-110m: the activity released in 96 hours beside the much larger core inventory, or, switched, the released fraction of the inventory, from about two in ten thousand for the gases and iodine to about two in a hundred for silver."></canvas>
+  </div>
+  <p class="note">Recorded, not recomputed: the sembawang example <code>htr10_<wbr>air_<wbr>ingress_<wbr>kora_<wbr>bound</code>, re-run 2026-10-04, as the dispersion demo shows it (<code>dispersion_<wbr>web/<wbr>recorded.rs</code>). HTR-10 air ingress, a deliberately pessimistic <b>bounding</b> case.</p>
+</section>
+
+<p class="predict"><b>Predict first</b> (we did, before running the code): xenon and iodine leave in the same fraction, about 1.9&times;10<sup>&minus;4</sup>. Which leaves in the largest fraction, and why?</p>
+
+<h2>The chain</h2>
+<p class="eq-block">boon-lay (failure, release) &rarr; sembawang (source term) &rarr; changi (dispersion)</p>
+<ul>
+<li><b>sembawang</b> orchestrates. It takes a core inventory, the failure fractions in TRISO-ATOPS&rsquo;s classes, and a temperature history, runs the port&rsquo;s release pieces (lessons 39 and 51) for every nuclide and every node, and assembles the result. None of the release physics is in sembawang; every piece is a call into boon-lay&rsquo;s <code>triso_<wbr>atops_<wbr>fork</code>.</li>
+<li><b>changi</b> carries the release downwind: plume, puff, deposition. Its own track is the <a href="../../deep-dives/dispersion/">dispersion deep dive</a>.</li>
+</ul>
+
+<h2>What crosses each seam</h2>
+<p><b>boon-lay to sembawang:</b></p>
+<ul>
+<li><b>The failed fractions</b> from an accident history, &phi;<sub>1</sub> and &phi;<sub>2</sub> (<code>FailureProgress</code>), into TRISO-ATOPS&rsquo;s full-failure class through <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs::with_fuel_failure_incremental"><code>with_<wbr>fuel_<wbr>failure_<wbr>incremental</code></a> (lesson 49).</li>
+<li><b>Per-nuclide release fractions and activities</b>, as <code>uom</code> quantities.</li>
+<li><b>The 84-nuclide table</b>: which nuclides the release can carry at all (lesson 46). A nuclide not in it is an <b>error</b>, not a silent zero (gh:#449).</li>
+</ul>
+<p><b>sembawang to changi:</b> a <code>SourceTerm</code>: contiguous release windows, and for each nuclide the activity released during each window. TRISO-ATOPS gives cumulative releases; sembawang takes first differences, so the windows add up to the last cumulative value exactly. A window that would come out negative is reported (<code>negative_<wbr>atom_<wbr>count_<wbr>seen</code>), then floored to zero at the boundary, because <code>SourceTerm</code> rejects negative activity. In this record that caveat is on, for silver and Cs-137.</p>
+<p><b>What does not cross:</b> anything from the random walk of chapter 2 and lesson 34. It is verified against exact solutions, but no source-term path uses it.</p>
+
+<h2>The recorded release</h2>
+<p>The widget shows one recorded run: the whole HTR-10 core held at 1400 &deg;C, every particle exposed, the full-failure fraction raised by the <b>measured</b> KORA failures (an irradiated sphere heated in air, IAEA-TECDOC-978 Table 5-7) added by hand, because no model in the workspace makes a particle fail by oxidation (previous lessons). Over 96 h it releases <span data-ch="srcTotal">&hellip;</span> in all; the six nuclides drawn carry <span data-ch="srcSix">&hellip;</span> of it (predicted 65 %).</p>
+<p>The fractions answer the predict prompt. Xe-133 and I-131 leave in the same fraction, <span data-ch="fXe">&hellip;</span> and <span data-ch="fI131">&hellip;</span>: both are released through failed particles only, and neither is held in the graphite. Cs-137 leaves in <span data-ch="fCs137">&hellip;</span>, and <b>silver</b> in the largest, <span data-ch="fAg">&hellip;</span>, because it diffuses through intact SiC (lesson 33) and so does not need a failed particle at all.</p>
+
+<h2>The gaps that travel downstream</h2>
+<p>A source term inherits every gap above it. From these chapters:</p>
+<ul>
+<li><b>Transport out of the core</b> (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/446">gh:#446</a>, closed). TRISO-ATOPS moves release out only by heat-up venting (lesson 51). An isothermal air-ingress hold once released 0 Bq in the port; reading upstream showed that was a porting defect, now fixed: upstream vents fully when the temperature is uniform and constant, which is what this record ran. A real ingress flow is not upstream physics at all: sembawang adds it (<code>Venting::<wbr>Ventilation</code>, <code>FullFlowThrough</code>, <code>Prescribed</code>), each labelled <b>not upstream</b>, and a non-uniform hold held constant is now an error rather than a silent zero (gh:#447). With HTR-10&rsquo;s cavity ventilation instead of full venting this release is 0.950 of what is drawn.</li>
+<li><b>No oxidation failure, no air attack on a kernel</b> (gh:#441, #444): the KORA failures stand in, by hand.</li>
+<li><b>The free-heavy-metal fraction</b> (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/383">gh:#383</a>). German fuel-qualification data give a band of 7.8&ndash;50.7&times;10<sup>&minus;6</sup>, stored and unchecked. Noble-gas and halogen release is linear in it, so the band alone is a factor of 6.5 on those bars.</li>
+<li><b>What boon-lay fuel failure can say for HTR-10</b> (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/296">gh:#296</a>): almost nothing at normal operating temperature, and its inputs are stand-ins. In this record its own increment is 3.8&times;10<sup>&minus;7</sup> beside the 1.2&times;10<sup>&minus;3</sup> of KORA.</li>
+<li><b>Atoms that leave the books</b> (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/588">gh:#588</a>). The TRISO-ATOPS demo recomputes the graphite hold-up at each step, so on heating the metals held in the graphite vanish instead of being released. Upstream&rsquo;s accident path, which sembawang uses, releases them; the demo does not yet.</li>
+<li><b>The Booth floor</b> (gh:#385, lesson 48): over-states some metal releases at low temperature.</li>
+</ul>
+
+<h2>Where it is in the code</h2>
+<p><a href="../../code-review/#crates/sembawang/src/accident/release.rs::accident_release_with_venting"><code>sembawang::<wbr>accident::<wbr>release::<wbr>accident_<wbr>release_<wbr>with_<wbr>venting</code></a> is the driver: the node loops, the venting choice and the windows. <a href="../../code-review/#crates/sembawang/src/accident/release.rs::bridge_node"><code>bridge_<wbr>node</code></a> is the one place normal operation&rsquo;s six pools become the accident&rsquo;s seven fields (the seventh is the node&rsquo;s inventory in atoms). The result, an <code>AccidentRelease</code>, carries the <code>SourceTerm</code> for changi and the caveats, the nuclides screened out by half-life, and the unfloored cumulative release to compare with upstream.</p>
+
+<p><b>Next:</b> this is the end of the TRISO chapters for now; the <a href="atops-concepts.html">concept map</a> and its walks go back through them. The dispersion deep dive picks the release up where this page leaves it.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>What the record leaves out</h3>
+<p>The half-life screen drops nuclides with a half-life below 4 % of the transient: here Kr-83m, Kr-87, Kr-88, I-132 and I-134. H-3, Xe-135m and Rb-88 are not in TRISO-ATOPS&rsquo;s table. The failure fractions stay at their 140 h values over the 96 h window. All of this is in the example&rsquo;s own doc comment.</p>
+<h3>Not a comparison</h3>
+<p>Liu &amp; Cao (2002) give doses for different HTR-10 accidents with different codes and measured weather. They are context, not a check of this number, and this page compares nothing against them.</p>
+<h3>The TRISO-ATOPS track</h3>
+<p>The <a href="../../demos/triso-atops/?rung=source-term">demo&rsquo;s source-term rung</a> shows this record and links on to the dispersion demo.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

@@ -2,6 +2,43 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-mesh"
 dir = "crates/outram-foam-mesh/tests"
+test_ids = [
+    "crates/outram-foam-mesh/tests/block_mesh.rs::cavity_dict_parse_fields",
+    "crates/outram-foam-mesh/tests/block_mesh.rs::cavity_from_file_matches_from_str",
+    "crates/outram-foam-mesh/tests/block_mesh.rs::cavity_fv_mesh_valid_and_closed",
+    "crates/outram-foam-mesh/tests/block_mesh.rs::cavity_patch_names_and_sizes",
+    "crates/outram-foam-mesh/tests/block_mesh.rs::cavity_poly_mesh_round_trips_and_is_cartesian",
+    "crates/outram-foam-mesh/tests/block_mesh.rs::cavity_topology_counts",
+    "crates/outram-foam-mesh/tests/block_mesh.rs::cavity_total_volume",
+    "crates/outram-foam-mesh/tests/block_mesh.rs::graded_block_volume_conserved",
+    "crates/outram-foam-mesh/tests/block_mesh.rs::two_block_face_merge",
+    "crates/outram-foam-mesh/tests/cyclic_snapping.rs::castellation_emits_conformal_cyclic_pair",
+    "crates/outram-foam-mesh/tests/cyclic_snapping.rs::conformity_check_catches_a_broken_seam",
+    "crates/outram-foam-mesh/tests/cyclic_snapping.rs::snapping_preserves_cyclic_conformity_and_moves_the_seam",
+    "crates/outram-foam-mesh/tests/cyclic_snapping.rs::without_cyclic_declaration_the_seam_is_frozen_as_before",
+    "crates/outram-foam-mesh/tests/ideas_unv_to_foam.rs::scale_factor_applies",
+    "crates/outram-foam-mesh/tests/ideas_unv_to_foam.rs::single_tet_volume_and_faces",
+    "crates/outram-foam-mesh/tests/ideas_unv_to_foam.rs::two_hex_counts_patches_and_volume",
+    "crates/outram-foam-mesh/tests/poly_dual_mesh.rs::dual_of_2x2x2_block_is_valid",
+    "crates/outram-foam-mesh/tests/poly_dual_mesh.rs::dual_of_3x3x3_block_is_valid_and_volume_preserving",
+    "crates/outram-foam-mesh/tests/poly_dual_mesh.rs::dual_of_non_cubic_block_is_valid",
+    "crates/outram-foam-mesh/tests/poly_dual_mesh.rs::dual_quality_is_exactly_orthogonal_on_a_uniform_block",
+    "crates/outram-foam-mesh/tests/poly_dual_mesh.rs::emitted_fvmesh_is_valid_and_conserves_volume",
+    "crates/outram-foam-mesh/tests/poly_dual_mesh.rs::interior_dual_cells_are_unit_cubes",
+    "crates/outram-foam-mesh/tests/poly_dual_mesh.rs::large_feature_angle_cuts_corners_and_loses_volume",
+    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::ascii_stl_parses_all_facets",
+    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::binary_stl_roundtrips_one_triangle",
+    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::castellate_box_around_sphere",
+    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::castellate_keep_inside_carves_external",
+    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::closest_point_on_triangle_regions",
+    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::full_pipeline_castellate_snap_layers",
+    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::inside_outside_of_sphere",
+    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::layer_addition_extrudes_valid_prisms",
+    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::layer_grading_arithmetic",
+    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::nearest_surface_point_lands_on_sphere",
+    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::snapping_morphs_boundary_onto_sphere",
+    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::topology_rebuild_reproduces_castellation_geometry",
+]
 
 [module."block_mesh.rs"]
 path = "test:block_mesh"
@@ -1055,3 +1092,46 @@ uses = [
     "fn:ef05859ef19acee7",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+]
+failed = []

@@ -243,13 +243,16 @@ const BIP2: [f64; 29] = [
 
 /// `ln(f64::MAX)`, upstream's `GSL_LOG_DBL_MAX`. `Bi` overflows when
 /// `(2/3) x^{3/2}` exceeds this less one.
+use crate::specfunc::trig::TrigKernel;
 use crate::specfunc::LOG_DBL_MAX;
 
-/// Clenshaw in GSL's convention, on `[-1, 1]`. Every series in this module is
-/// declared on that interval, so no argument rescaling is needed — the branch
-/// formulae below map `x` into it themselves.
+/// GSL's `cheb_eval_e` on `[-1, 1]`. ~~Every series in this module is declared
+/// on that interval, so no argument rescaling is needed~~ **CORRECTED
+/// 2026-11-12 (gh:#1421):** `cheb_eval_e` still maps its argument,
+/// `((2x + 1) - 1)/2`, which rounds; see [`crate::specfunc::cheb_eval_e`]. The
+/// branch formulae below build `x` on `[-1, 1]` and this applies that mapping.
 fn cheb(x: f64, c: &[f64]) -> f64 {
-    crate::cheb_slice::eval_gsl(x, c)
+    crate::specfunc::cheb_eval_e(x, c)
 }
 
 /// The Airy modulus and phase, upstream's `airy_mod_phase`, valid for
@@ -331,20 +334,31 @@ fn bie(x: f64) -> f64 {
 /// assert!(airy_ai(5.0) > 0.0 && airy_ai(5.0) < 1e-3);
 /// ```
 pub fn airy_ai(x: f64) -> f64 {
+    airy_ai_with(x, TrigKernel::Petir)
+}
+
+/// [`airy_ai`] with the `cos` of the oscillatory branch (`x < -1`) taken from
+/// the chosen [`TrigKernel`] (gh:#1421).
+///
+/// `TrigKernel::Petir` is exactly [`airy_ai`]. `TrigKernel::Gsl` evaluates
+/// `cos(theta)` with GSL's own `gsl_sf_cos_e` (`specfunc/trig.c`, ported as
+/// [`crate::specfunc::trig::cos_gsl`]), which is what upstream's
+/// `gsl_sf_airy_*_e` calls through `gsl_sf_cos_err_e` (`specfunc/airy.c`).
+/// Only `x < -1` is affected; for `x >= -1` the two kernels are the same code.
+pub fn airy_ai_with(x: f64, trig: TrigKernel) -> f64 {
     if x.is_nan() {
         return f64::NAN;
     }
     if x < -1.0 {
         let (m, theta) = mod_phase(x);
-        m * Real::cos(theta)
+        m * trig.cos(theta)
     } else if x <= 1.0 {
         let z = x * x * x;
         0.375 + (cheb(z, &AIF) - x * (0.25 + cheb(z, &AIG)))
     } else {
         let x32 = x * Real::sqrt(x);
         aie(x) * Real::exp(-2.0 * x32 / 3.0)
-    }
-}
+    }}
 
 /// The exponentially scaled Airy function, GSL's `gsl_sf_airy_Ai_scaled`.
 ///
@@ -357,12 +371,24 @@ pub fn airy_ai(x: f64) -> f64 {
 /// only algebraically and stays representable far past where [`airy_ai`] has
 /// underflowed. `NaN` propagates.
 pub fn airy_ai_scaled(x: f64) -> f64 {
+    airy_ai_scaled_with(x, TrigKernel::Petir)
+}
+
+/// [`airy_ai_scaled`] with the `cos` of the oscillatory branch (`x < -1`) taken from
+/// the chosen [`TrigKernel`] (gh:#1421).
+///
+/// `TrigKernel::Petir` is exactly [`airy_ai_scaled`]. `TrigKernel::Gsl` evaluates
+/// `cos(theta)` with GSL's own `gsl_sf_cos_e` (`specfunc/trig.c`, ported as
+/// [`crate::specfunc::trig::cos_gsl`]), which is what upstream's
+/// `gsl_sf_airy_*_e` calls through `gsl_sf_cos_err_e` (`specfunc/airy.c`).
+/// Only `x < -1` is affected; for `x >= -1` the two kernels are the same code.
+pub fn airy_ai_scaled_with(x: f64, trig: TrigKernel) -> f64 {
     if x.is_nan() {
         return f64::NAN;
     }
     if x < -1.0 {
         let (m, theta) = mod_phase(x);
-        m * Real::cos(theta)
+        m * trig.cos(theta)
     } else if x <= 1.0 {
         let z = x * x * x;
         let v = 0.375 + (cheb(z, &AIF) - x * (0.25 + cheb(z, &AIG)));
@@ -373,8 +399,7 @@ pub fn airy_ai_scaled(x: f64) -> f64 {
         }
     } else {
         aie(x)
-    }
-}
+    }}
 
 /// The Airy function `Bi(x)`, GSL's `gsl_sf_airy_Bi`.
 ///
@@ -395,12 +420,24 @@ pub fn airy_ai_scaled(x: f64) -> f64 {
 /// assert!(airy_bi_scaled(200.0).is_finite());
 /// ```
 pub fn airy_bi(x: f64) -> f64 {
+    airy_bi_with(x, TrigKernel::Petir)
+}
+
+/// [`airy_bi`] with the `sin` of the oscillatory branch (`x < -1`) taken from
+/// the chosen [`TrigKernel`] (gh:#1421).
+///
+/// `TrigKernel::Petir` is exactly [`airy_bi`]. `TrigKernel::Gsl` evaluates
+/// `sin(theta)` with GSL's own `gsl_sf_sin_e` (`specfunc/trig.c`, ported as
+/// [`crate::specfunc::trig::sin_gsl`]), which is what upstream's
+/// `gsl_sf_airy_*_e` calls through `gsl_sf_sin_err_e` (`specfunc/airy.c`).
+/// Only `x < -1` is affected; for `x >= -1` the two kernels are the same code.
+pub fn airy_bi_with(x: f64, trig: TrigKernel) -> f64 {
     if x.is_nan() {
         return f64::NAN;
     }
     if x < -1.0 {
         let (m, theta) = mod_phase(x);
-        m * Real::sin(theta)
+        m * trig.sin(theta)
     } else if x < 1.0 {
         let z = x * x * x;
         0.625 + cheb(z, &BIF) + x * (0.4375 + cheb(z, &BIG))
@@ -415,8 +452,7 @@ pub fn airy_bi(x: f64) -> f64 {
         } else {
             bie(x) * Real::exp(y)
         }
-    }
-}
+    }}
 
 /// The exponentially scaled Airy function, GSL's `gsl_sf_airy_Bi_scaled`.
 ///
@@ -427,12 +463,24 @@ pub fn airy_bi(x: f64) -> f64 {
 /// Tends to `1 / (sqrt(pi) x^{1/4})` for large positive `x`, so unlike
 /// [`airy_bi`] it never overflows. `NaN` propagates.
 pub fn airy_bi_scaled(x: f64) -> f64 {
+    airy_bi_scaled_with(x, TrigKernel::Petir)
+}
+
+/// [`airy_bi_scaled`] with the `sin` of the oscillatory branch (`x < -1`) taken from
+/// the chosen [`TrigKernel`] (gh:#1421).
+///
+/// `TrigKernel::Petir` is exactly [`airy_bi_scaled`]. `TrigKernel::Gsl` evaluates
+/// `sin(theta)` with GSL's own `gsl_sf_sin_e` (`specfunc/trig.c`, ported as
+/// [`crate::specfunc::trig::sin_gsl`]), which is what upstream's
+/// `gsl_sf_airy_*_e` calls through `gsl_sf_sin_err_e` (`specfunc/airy.c`).
+/// Only `x < -1` is affected; for `x >= -1` the two kernels are the same code.
+pub fn airy_bi_scaled_with(x: f64, trig: TrigKernel) -> f64 {
     if x.is_nan() {
         return f64::NAN;
     }
     if x < -1.0 {
         let (m, theta) = mod_phase(x);
-        m * Real::sin(theta)
+        m * trig.sin(theta)
     } else if x < 1.0 {
         let z = x * x * x;
         let v = 0.625 + cheb(z, &BIF) + x * (0.4375 + cheb(z, &BIG));
@@ -448,8 +496,7 @@ pub fn airy_bi_scaled(x: f64) -> f64 {
         s * (1.125 + cheb(z, &BIF2) + x * (0.625 + cheb(z, &BIG2)))
     } else {
         bie(x)
-    }
-}
+    }}
 
 #[cfg(test)]
 mod tests {

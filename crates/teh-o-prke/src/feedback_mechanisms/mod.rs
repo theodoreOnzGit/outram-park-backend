@@ -281,3 +281,14 @@ impl Default for SixFactorFormulaFeedback {
 /// includes but not limited to xenon-iodine 135 poisoning
 ///
 pub mod fission_product_poisons;
+
+/// RELAP5-style separable reactivity feedback (RELAP-7 Eq 443, gh:#1083):
+/// scram curves, tabulated moderator-density and fuel-temperature
+/// reactivity with weights, and linear temperature terms.
+pub mod separable;
+
+/// Fast-reactor reactivity feedback beside the separable model (gh:#1326):
+/// fast-spectrum Doppler, axial fuel, cladding, coolant temperature and
+/// density (sodium void), radial core expansion and control-rod driveline
+/// expansion, ported from GeN-Foam's point-kinetics feedback sum.
+pub mod fast_reactor;

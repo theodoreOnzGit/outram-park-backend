@@ -24,6 +24,10 @@
 //! | [`poisson_ratio`] | Poisson's ratio | - |
 //! | [`thermal_expansion`] | thermal expansion strain / coefficient | - and 1/K |
 //!
+//! Plus one named selection across families, not a family of its own:
+//! [`relap7_heat_structure`], the RELAP-7 heat-structure property set (UO2,
+//! Zircaloy and gap gas, MATPRO correlations; gh:#1070).
+//!
 //! Every family is an enum over the published correlations for it, evaluated
 //! against a [`MaterialState`](crate::materials::MaterialState). See the
 //! [module-level documentation](crate::materials) for why enums rather than
@@ -34,5 +38,6 @@ pub mod density;
 pub mod emissivity;
 pub mod heat_capacity;
 pub mod poisson_ratio;
+pub mod relap7_heat_structure;
 pub mod thermal_expansion;
 pub mod young_modulus;

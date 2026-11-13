@@ -199,6 +199,7 @@ pub static N_HEPTANE_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 2.45e-10,
             qd: 1250000000.0,
             t_ref: -1.0,
+            p_reducing: 2736000.0,
         }),
     }),
 };

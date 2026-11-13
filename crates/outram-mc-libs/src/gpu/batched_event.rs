@@ -56,9 +56,140 @@ use crate::gpu::collision_grid::CollisionTables;
 /// Sentinel in [`EventBatch::fiss_nuc`] meaning "this neutron did not fission".
 pub const FISS_NONE: u32 = 0xFFFF_FFFF;
 
+/// Words per fission-site record in the GPU `ctrl` buffer (see the CTRL LAYOUT in
+/// `batched_event.wgsl`).
+#[cfg(not(target_os = "android"))]
+const RECORD_WORDS: usize = 12;
+/// Header words of the GPU `ctrl` buffer before the first record.
+#[cfg(not(target_os = "android"))]
+const CTRL_HEADER_WORDS: usize = 4;
+
+/// Where the fused event path banks fission sites (gh:#1444 e, 2026-11-11).
+///
+/// The event-path twin of [`crate::physics::scatter::FissionBanking`], with the
+/// `keff` the per-collision count needs.
+/// [`EventFissionBanking::from_env`] follows the CPU default and its legacy switch
+/// `OUTRAM_MC_LEGACY_FISSION_BANKING` (via
+/// [`crate::physics::scatter::fission_banking_from_env`]).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum EventFissionBanking {
+    /// Bank only when the sampled reaction is fission (the earlier behaviour).
+    AtFission,
+    /// OpenMC `create_fission_sites` at every collision with `nu_sigma_f > 0`,
+    /// with `nu_t = nu_sigma_f / (keff * sigma_t)`.
+    PerCollision {
+        /// The generation's `k_eff` estimate (the previous generation's).
+        keff: f32,
+    },
+}
+
+impl EventFissionBanking {
+    /// The mode the CPU default selects (`keff` guarded to 1 when not finite and
+    /// positive, as [`crate::physics::scatter::per_collision_fission_count`]).
+    pub fn from_env(keff: f64) -> Self {
+        match crate::physics::scatter::fission_banking_from_env() {
+            crate::physics::scatter::FissionBanking::AtFission => Self::AtFission,
+            crate::physics::scatter::FissionBanking::PerCollision => Self::PerCollision {
+                keff: if keff.is_finite() && keff > 0.0 { keff as f32 } else { 1.0 },
+            },
+        }
+    }
+
+    /// The `Params.keff_bits` word: the f32 bits of `keff`, or 0 for at-fission.
+    fn keff_bits(self) -> u32 {
+        match self {
+            Self::AtFission => 0,
+            Self::PerCollision { keff } => keff.to_bits(),
+        }
+    }
+}
+
+/// One per-collision fission-site record: `n_sites` neutrons to be born at `pos`,
+/// by a neutron of energy `e_in` and direction `dir` that collided with
+/// `components[nuclide]`. `seed` is the collision's LCG state after the count
+/// draw; the CPU decorrelates it (it is NOT the stream the history continues on)
+/// to sample the daughters' energy and direction.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EventSiteRecord {
+    /// Collision position \[cm\].
+    pub pos: [f32; 3],
+    /// Incident direction (unit).
+    pub dir: [f32; 3],
+    /// Incident energy \[eV\].
+    pub e_in: f32,
+    /// Number of sites to bank.
+    pub n_sites: u32,
+    /// Index of the collision nuclide in the material's component list.
+    pub nuclide: u32,
+    /// LCG state at the collision (see above).
+    pub seed: u64,
+}
+
+/// Sort records into a deterministic order (the GPU appends them in atomic
+/// completion order). Seeds are distinct per collision, so this is a total order.
+pub fn sort_site_records(records: &mut [EventSiteRecord]) {
+    records.sort_by_key(|r| r.seed);
+}
+
 // f32 sentinels/constants kept identical to the WGSL kernel.
 const BIG: f32 = 1e30;
-const EPS: f32 = 1e-7;
+/// OpenMC `FP_COINCIDENT` (`include/openmc/constants.h:55`, 8f79d9d0), kept in
+/// f32 as `outram-blender`'s `csg_trace.wgsl` keeps it. Near the surface the
+/// rounding of `f = |r - c0|^2 - R^2` in f32 is of order 1e-5 cm^2, so the band
+/// `|f| < 1e-12` is in effect `f == 0`: membership goes by the sign of `f`, and
+/// by the direction only at `f == 0` (gh:#1506).
+const FP_COINCIDENT: f32 = 1.0e-12;
+
+/// OpenMC `Surface::sense` (`src/surface.cpp:118-132`, 8f79d9d0) for the
+/// bounding sphere, in f32 as the fused kernel computes it: `true` when the
+/// neutron is on the positive (outside) side. `c = |r - c0|^2 - R^2` and
+/// `kdot = (r - c0) . u`; the sphere's normal is `2 (r - c0)`, so a coincident
+/// neutron is outside when `kdot > 0`.
+///
+/// gh:#1506: OpenMC never transports a particle outside its cell (`find_cell`
+/// at birth, `reconcile_cell_after_collision` after a near-surface collision,
+/// `src/geometry.cpp:319`). Outside the vacuum sphere there is no cell, so the
+/// fused path counts such a neutron as leaked. Without this test a collision
+/// site rounded to just outside the sphere and moving outward got no boundary
+/// distance, collided outside, and its descendants transported in an infinite
+/// medium (fused GPU Godiva k = 1.78).
+#[inline]
+pub fn sphere_sense_outside_f32(c: f32, kdot: f32) -> bool {
+    if c.abs() < FP_COINCIDENT {
+        kdot > 0.0
+    } else {
+        c > 0.0
+    }
+}
+
+/// OpenMC `SurfaceSphere::distance` (`src/surface.cpp:652-690`, 8f79d9d0) with
+/// `coincident = false`, in f32 as the fused kernel computes it; [`BIG`] stands
+/// for `INFTY`. gh:#1506: it replaced a `d_near > 1e-7`, else `d_far > 1e-7`,
+/// else no boundary rule, which gave no boundary to a neutron inside the sphere
+/// within ~1e-7 cm of it and moving outward, so that neutron collided instead
+/// of leaking.
+#[inline]
+pub fn sphere_distance_openmc_f32(c: f32, kdot: f32) -> f32 {
+    let quad = kdot * kdot - c;
+    if quad < 0.0 {
+        BIG
+    } else if c.abs() < FP_COINCIDENT {
+        if kdot >= 0.0 {
+            BIG
+        } else {
+            -kdot + quad.sqrt()
+        }
+    } else if c < 0.0 {
+        -kdot + quad.sqrt()
+    } else {
+        let d = -kdot - quad.sqrt();
+        if d < 0.0 {
+            BIG
+        } else {
+            d
+        }
+    }
+}
 
 /// A batch of neutrons resident for the fused event kernel (Structure-of-Arrays).
 ///
@@ -282,10 +413,58 @@ fn rng_next(lo: u32, hi: u32) -> (u32, u32, f32) {
     petir::wgsl::mirror_lcg::lcg_next(lo, hi)
 }
 
-/// Rotate unit direction `u` by cosine `mu` and a sampled azimuth (one draw).
-/// Mirrors `rotate_direction` (scatter.rs) in f32. Returns `(dir, new_lo, new_hi)`.
+/// How far `|u|^2` may drift from 1 before the fused path renormalises a
+/// direction: `sqrt(f32::EPSILON)` = 2^-11.5 = 3.4526698e-4, the f32 analogue
+/// of the CPU's [`crate::physics::scatter::DIRECTION_NORM_DRIFT_TOL`]
+/// (`sqrt(f64::EPSILON)`, half the stored mantissa lost). Fixed from that
+/// definition, not from any run (gh:#1499). The WGSL kernel declares the same
+/// value as `DIRECTION_NORM_DRIFT_TOL`;
+/// `tests/gpu_direction_norm_drift_guard.rs` pins both.
+pub const DIRECTION_NORM_DRIFT_TOL_F32: f32 = f32::from_bits(0x39B5_04F3);
+
+/// `u` unchanged (bit for bit) when `| |u|^2 - 1 | <= DIRECTION_NORM_DRIFT_TOL_F32`,
+/// otherwise `u / |u|`; a NaN norm is returned unchanged. Mirrors
+/// `renormalise_if_drifted` in `batched_event.wgsl`.
+///
+/// **New work, not a port (gh:#1499)**: the f32 twin of
+/// [`crate::physics::scatter::renormalise_if_drifted`] (gh:#1497). OpenMC never
+/// renormalises; the rotation multiplies a norm error by about `1 + a^2/b^2`,
+/// unbounded near the `w` pole, and the fused path never rebuilds a direction
+/// within a generation.
 #[inline]
-fn rotate_direction(u: [f32; 3], mu: f32, lo: u32, hi: u32) -> ([f32; 3], u32, u32) {
+pub fn renormalise_if_drifted_f32(u: [f32; 3]) -> [f32; 3] {
+    let n2 = u[0] * u[0] + u[1] * u[1] + u[2] * u[2];
+    if (n2 - 1.0).abs() > DIRECTION_NORM_DRIFT_TOL_F32 {
+        let n = n2.sqrt();
+        [u[0] / n, u[1] / n, u[2] / n]
+    } else {
+        u
+    }
+}
+
+/// The rotation every mirrored collision calls: [`rotate_direction_f32_unguarded`]
+/// with its input and output passed through [`renormalise_if_drifted_f32`]
+/// (gh:#1499). Bit-identical to it whenever neither is outside
+/// [`DIRECTION_NORM_DRIFT_TOL_F32`]. Mirrors `rotate_direction` in
+/// `batched_event.wgsl`. Returns `(dir, new_lo, new_hi)`.
+#[inline]
+pub fn rotate_direction_f32(u: [f32; 3], mu: f32, lo: u32, hi: u32) -> ([f32; 3], u32, u32) {
+    let (dir, lo, hi) = rotate_direction_f32_unguarded(renormalise_if_drifted_f32(u), mu, lo, hi);
+    (renormalise_if_drifted_f32(dir), lo, hi)
+}
+
+/// Rotate unit direction `u` by cosine `mu` and a sampled azimuth (one draw),
+/// without the norm guard: the mirror's rotation before gh:#1499, kept
+/// callable as the reference for the guarded one. Mirrors `rotate_direction`
+/// (scatter.rs) in f32, and `rotate_direction_unguarded` in
+/// `batched_event.wgsl`. Returns `(dir, new_lo, new_hi)`.
+#[inline]
+pub fn rotate_direction_f32_unguarded(
+    u: [f32; 3],
+    mu: f32,
+    lo: u32,
+    hi: u32,
+) -> ([f32; 3], u32, u32) {
     let (lo, hi, xi) = rng_next(lo, hi);
     let phi = 2.0 * std::f32::consts::PI * xi;
     let (sinphi, cosphi) = phi.r_sin_cos();
@@ -338,7 +517,7 @@ fn two_body_with_mu(
     let ap1 = a + 1.0;
     let e_cm_out = (e * (a / ap1) * (a / ap1) + q * a / ap1).max(0.0);
     let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu_cm.clamp(-1.0, 1.0), a);
-    let (dir, lo, hi) = rotate_direction(u, mu_lab, lo, hi);
+    let (dir, lo, hi) = rotate_direction_f32(u, mu_lab, lo, hi);
     (e_out, dir, lo, hi)
 }
 
@@ -424,7 +603,7 @@ fn continuum_inelastic(
     hi = hm;
     let mu_cm = 2.0 * xim - 1.0;
     let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu_cm, a);
-    let (dir, lo, hi) = rotate_direction(u, mu_lab, lo, hi);
+    let (dir, lo, hi) = rotate_direction_f32(u, mu_lab, lo, hi);
     (e_out, dir, lo, hi)
 }
 
@@ -445,6 +624,29 @@ pub fn advance_event_cpu_mirror(
     tables: &EventTablesF32,
     batch: &mut EventBatch,
     sphere: EventSphere,
+) -> usize {
+    let mut unused = Vec::new();
+    advance_event_cpu_mirror_banking(
+        tables,
+        batch,
+        sphere,
+        EventFissionBanking::AtFission,
+        &mut unused,
+    )
+}
+
+/// [`advance_event_cpu_mirror`] with a fission-banking mode (gh:#1444 e): in
+/// [`EventFissionBanking::PerCollision`] every collision with a fissionable nuclide
+/// draws the OpenMC site count (after the nuclide pick, before the reaction draw),
+/// accumulates `nu_sigma_f/sigma_t` into `batch.production[i]` and pushes an
+/// [`EventSiteRecord`] when it banks sites; a fission event then only ends the
+/// history. Mirrors `batched_event.wgsl` line for line.
+pub fn advance_event_cpu_mirror_banking(
+    tables: &EventTablesF32,
+    batch: &mut EventBatch,
+    sphere: EventSphere,
+    banking: EventFissionBanking,
+    records: &mut Vec<EventSiteRecord>,
 ) -> usize {
     let n = batch.len();
     let nn = tables.n_nuclide;
@@ -484,23 +686,15 @@ pub fn advance_event_cpu_mirror(
         let oz = pz - sphere.z0;
         let kdot = ox * ux + oy * uy + oz * uz;
         let c = ox * ox + oy * oy + oz * oz - sphere.r * sphere.r;
-        let disc = kdot * kdot - c;
-        let d_bound = if disc < 0.0 {
-            BIG
-        } else {
-            let sq = disc.sqrt();
-            let d_near = -kdot - sq;
-            if d_near > EPS {
-                d_near
-            } else {
-                let d_far = -kdot + sq;
-                if d_far > EPS {
-                    d_far
-                } else {
-                    BIG
-                }
-            }
-        };
+        // gh:#1506: cell membership first (OpenMC `Surface::sense`), then
+        // OpenMC's sphere distance; see `sphere_sense_outside_f32`.
+        if sphere_sense_outside_f32(c, kdot) {
+            batch.alive[i] = 0; // beyond the vacuum boundary: leaked
+            batch.seed_lo[i] = lo;
+            batch.seed_hi[i] = hi;
+            continue;
+        }
+        let d_bound = sphere_distance_openmc_f32(c, kdot);
 
         if d_col >= d_bound {
             batch.alive[i] = 0; // leaked
@@ -546,6 +740,31 @@ pub fn advance_event_cpu_mirror(
         let awr_j = tables.awr(jsel);
         let emax_j = tables.e_max(jsel);
 
+        // (c0) per-collision fission banking, before the reaction draw.
+        if let EventFissionBanking::PerCollision { keff } = banking {
+            if x_nufis > 0.0 && x_tot > 0.0 {
+                let nu_t = x_nufis / (keff * x_tot);
+                let mut n_sites = nu_t as u32;
+                let (l, h, xic) = rng_next(lo, hi);
+                lo = l;
+                hi = h;
+                if xic <= nu_t - n_sites as f32 {
+                    n_sites += 1;
+                }
+                batch.production[i] += x_nufis / x_tot;
+                if n_sites > 0 {
+                    records.push(EventSiteRecord {
+                        pos: [px, py, pz],
+                        dir: [ux, uy, uz],
+                        e_in: e,
+                        n_sites,
+                        nuclide: jsel as u32,
+                        seed: ((hi as u64) << 32) | lo as u64,
+                    });
+                }
+            }
+        }
+
         // (c) reaction partition on the micro total.
         let (l, h, xir) = rng_next(lo, hi);
         lo = l;
@@ -553,7 +772,13 @@ pub fn advance_event_cpu_mirror(
         let xi_r = xir * x_tot;
         let u_in = [ux, uy, uz];
 
-        if xi_r < x_fis {
+        if xi_r < x_fis && banking != EventFissionBanking::AtFission {
+            // Per-collision mode: sites already banked; the history ends.
+            batch.alive[i] = 0;
+            batch.seed_lo[i] = lo;
+            batch.seed_hi[i] = hi;
+            continue;
+        } else if xi_r < x_fis {
             let nu_bar = if x_fis > 0.0 { x_nufis / x_fis } else { 0.0 };
             batch.production[i] = nu_bar;
             batch.fiss_nuc[i] = jsel as u32;
@@ -610,14 +835,37 @@ pub fn advance_generation_cpu_mirror(
     sphere: EventSphere,
     max_events: usize,
 ) -> usize {
+    let mut unused = Vec::new();
+    advance_generation_cpu_mirror_banking(
+        tables,
+        batch,
+        sphere,
+        max_events,
+        EventFissionBanking::AtFission,
+        &mut unused,
+    )
+}
+
+/// [`advance_generation_cpu_mirror`] with a fission-banking mode and the
+/// per-collision site records it produces (gh:#1444 e). Records are returned in
+/// [`sort_site_records`] order.
+pub fn advance_generation_cpu_mirror_banking(
+    tables: &EventTablesF32,
+    batch: &mut EventBatch,
+    sphere: EventSphere,
+    max_events: usize,
+    banking: EventFissionBanking,
+    records: &mut Vec<EventSiteRecord>,
+) -> usize {
     let mut events = 0usize;
     while events < max_events {
-        let alive = advance_event_cpu_mirror(tables, batch, sphere);
+        let alive = advance_event_cpu_mirror_banking(tables, batch, sphere, banking, records);
         events += 1;
         if alive == 0 {
             break;
         }
     }
+    sort_site_records(records);
     events
 }
 
@@ -662,14 +910,20 @@ fn bytes_to_u32(bytes: &[u8], n: usize) -> Vec<u32> {
 }
 
 /// Pack the 32-byte `Params` uniform: `n_grid, n_particle, n_nuclide, pad` (16 B)
-/// then the sphere `vec4<f32>` (16 B), native-endian, matching the WGSL `Params`.
+/// (`pad` = the `keff_bits` word) then the sphere `vec4<f32>` (16 B), native-endian, matching the WGSL `Params`.
 #[cfg(not(target_os = "android"))]
-fn pack_params(n_grid: u32, n_particle: u32, n_nuclide: u32, sphere: EventSphere) -> Vec<u8> {
+fn pack_params(
+    n_grid: u32,
+    n_particle: u32,
+    n_nuclide: u32,
+    keff_bits: u32,
+    sphere: EventSphere,
+) -> Vec<u8> {
     let mut b = Vec::with_capacity(32);
     b.extend_from_slice(&n_grid.to_ne_bytes());
     b.extend_from_slice(&n_particle.to_ne_bytes());
     b.extend_from_slice(&n_nuclide.to_ne_bytes());
-    b.extend_from_slice(&0u32.to_ne_bytes());
+    b.extend_from_slice(&keff_bits.to_ne_bytes());
     b.extend_from_slice(&sphere.x0.to_ne_bytes());
     b.extend_from_slice(&sphere.y0.to_ne_bytes());
     b.extend_from_slice(&sphere.z0.to_ne_bytes());
@@ -698,11 +952,89 @@ pub fn advance_generation_gpu(
     sphere: EventSphere,
     max_events: usize,
 ) -> usize {
+    let mut unused = Vec::new();
+    advance_generation_gpu_banking(
+        ctx,
+        tables,
+        batch,
+        sphere,
+        max_events,
+        EventFissionBanking::AtFission,
+        &mut unused,
+    )
+}
+
+/// [`advance_generation_gpu`] with a fission-banking mode (gh:#1444 e): the
+/// per-collision [`EventSiteRecord`]s the kernel appends are read back once with
+/// the final state, sorted ([`sort_site_records`]) and pushed to `records`. The
+/// record buffer starts at `2N + 1024` and the generation is re-run from the
+/// untouched initial batch with a doubled capacity if the kernel reports more
+/// records than fit, so no record is ever dropped.
+#[cfg(not(target_os = "android"))]
+pub fn advance_generation_gpu_banking(
+    ctx: &crate::gpu::GpuContext,
+    tables: &EventTablesF32,
+    batch: &mut EventBatch,
+    sphere: EventSphere,
+    max_events: usize,
+    banking: EventFissionBanking,
+    records: &mut Vec<EventSiteRecord>,
+) -> usize {
+    advance_generation_gpu_banking_with_capacity(
+        ctx,
+        tables,
+        batch,
+        sphere,
+        max_events,
+        banking,
+        records,
+        2 * batch.len() + 1024,
+    )
+}
+
+/// [`advance_generation_gpu_banking`] with an explicit initial record capacity
+/// (tests pass a tiny one to exercise the grow-and-rerun path).
+#[cfg(not(target_os = "android"))]
+#[allow(clippy::too_many_arguments)]
+pub fn advance_generation_gpu_banking_with_capacity(
+    ctx: &crate::gpu::GpuContext,
+    tables: &EventTablesF32,
+    batch: &mut EventBatch,
+    sphere: EventSphere,
+    max_events: usize,
+    banking: EventFissionBanking,
+    records: &mut Vec<EventSiteRecord>,
+    initial_capacity: usize,
+) -> usize {
+    let mut cap = initial_capacity.max(1);
+    loop {
+        match advance_generation_gpu_inner(ctx, tables, batch, sphere, max_events, banking, cap) {
+            Ok((events, recs)) => {
+                records.extend(recs);
+                return events;
+            }
+            Err(needed) => cap = (needed as usize).max(2 * cap),
+        }
+    }
+}
+
+/// One attempt at [`advance_generation_gpu_banking`] with a fixed record capacity.
+/// `Err(total_records)` (batch untouched) when the kernel wrote more than `cap`.
+#[cfg(not(target_os = "android"))]
+fn advance_generation_gpu_inner(
+    ctx: &crate::gpu::GpuContext,
+    tables: &EventTablesF32,
+    batch: &mut EventBatch,
+    sphere: EventSphere,
+    max_events: usize,
+    banking: EventFissionBanking,
+    cap: usize,
+) -> Result<(usize, Vec<EventSiteRecord>), u32> {
     use wgpu::util::DeviceExt;
 
     let n = batch.len();
     if n == 0 {
-        return 0;
+        return Ok((0, Vec::new()));
     }
     let device = &ctx.device;
     let queue = &ctx.queue;
@@ -736,13 +1068,16 @@ pub fn advance_generation_gpu(
         usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
     });
     // Control atomic (live count) — read back (tiny) each event; written to reset.
-    let ctrl_buf = device.create_buffer(&wgpu::BufferDescriptor {
+    // ctrl = header (live count, record count, record capacity, unused) ++ records.
+    let ctrl_words = CTRL_HEADER_WORDS + RECORD_WORDS * cap;
+    let mut ctrl_init = vec![0u32; ctrl_words];
+    ctrl_init[2] = cap as u32;
+    let ctrl_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("batched_event.ctrl"),
-        size: 4,
+        contents: &u32_bytes(&ctrl_init),
         usage: wgpu::BufferUsages::STORAGE
             | wgpu::BufferUsages::COPY_SRC
             | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
     });
     let params_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("batched_event.params"),
@@ -750,6 +1085,7 @@ pub fn advance_generation_gpu(
             tables.n_grid as u32,
             n as u32,
             tables.n_nuclide as u32,
+            banking.keff_bits(),
             sphere,
         ),
         usage: wgpu::BufferUsages::UNIFORM,
@@ -897,6 +1233,14 @@ pub fn advance_generation_gpu(
     });
     enc.copy_buffer_to_buffer(&istate_buf, 0, &istate_staging, 0, istate_size);
     enc.copy_buffer_to_buffer(&fstate_buf, 0, &fstate_staging, 0, fstate_size);
+    let ctrl_full_size = (ctrl_words * 4) as wgpu::BufferAddress;
+    let ctrl_full_staging = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("batched_event.ctrl_full_staging"),
+        size: ctrl_full_size,
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    enc.copy_buffer_to_buffer(&ctrl_buf, 0, &ctrl_full_staging, 0, ctrl_full_size);
     queue.submit(Some(enc.finish()));
 
     istate_staging
@@ -905,7 +1249,22 @@ pub fn advance_generation_gpu(
     fstate_staging
         .slice(..)
         .map_async(wgpu::MapMode::Read, |r| r.unwrap());
+    ctrl_full_staging
+        .slice(..)
+        .map_async(wgpu::MapMode::Read, |r| r.unwrap());
     device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
+    let ctrl_out = {
+        let view = ctrl_full_staging
+            .slice(..)
+            .get_mapped_range()
+            .expect("staging buffer mapping failed after a completed poll");
+        bytes_to_u32(&view, ctrl_words)
+    };
+    ctrl_full_staging.unmap();
+    let n_records_total = ctrl_out[1];
+    if n_records_total as usize > cap {
+        return Err(n_records_total);
+    }
 
     let istate_out = {
         let view = istate_staging
@@ -933,7 +1292,23 @@ pub fn advance_generation_gpu(
     batch.energy = fstate_out[6 * n..7 * n].to_vec();
     batch.production = fstate_out[7 * n..8 * n].to_vec();
 
-    events
+    let mut recs: Vec<EventSiteRecord> = (0..n_records_total as usize)
+        .map(|r| {
+            let w = &ctrl_out[CTRL_HEADER_WORDS + RECORD_WORDS * r..][..RECORD_WORDS];
+            let f = |k: usize| f32::from_bits(w[k]);
+            EventSiteRecord {
+                pos: [f(0), f(1), f(2)],
+                dir: [f(3), f(4), f(5)],
+                e_in: f(6),
+                n_sites: w[7],
+                nuclide: w[8],
+                seed: ((w[10] as u64) << 32) | w[9] as u64,
+            }
+        })
+        .collect();
+    sort_site_records(&mut recs);
+
+    Ok((events, recs))
 }
 
 #[cfg(test)]

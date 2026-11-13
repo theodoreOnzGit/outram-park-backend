@@ -1,5 +1,5 @@
-//! The egui front end: one app, a rung at a time (the table is `rung_table!`
-//! in `main.rs`; the contract each rung meets is in [`crate::rungs`]).
+//! The egui front end: one app, a rung at a time (the table is `table.rs`
+//! (written by hand); the contract each rung meets is in [`crate::rungs`]).
 //!
 //! Built on the library's web-demo framework ([`dhoby_ghaut::web_demo`]): its
 //! [`Panel`], [`View`] and zoom buttons give the mobile-first layout, and its
@@ -37,7 +37,6 @@ use std::collections::VecDeque;
 
 type McLink = Link<Request, Event>;
 
-const BG: Color32 = Color32::from_rgb(14, 16, 20);
 
 // ─── Loading ─────────────────────────────────────────────────────────────────
 
@@ -709,6 +708,9 @@ fn run_in_progress(phase: &Phase) -> bool {
 }
 
 pub struct McApp {
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
     /// A switch held for "Sure anot?" (gh:#876 item 2).
     guard: SwitchGuard,
     /// The start-up link's query, kept for the k∞ and whole-core views,
@@ -783,9 +785,13 @@ pub struct McApp {
 
 impl McApp {
     pub fn new(cc: &eframe::CreationContext<'_>, rung: Rung, mode: Mode) -> Self {
-        // The energy colours are chosen against a dark ground; keep the panel
-        // dark too rather than follow a light system theme.
-        cc.egui_ctx.set_theme(egui::ThemePreference::Dark);
+        // The energy colours are chosen against a dark ground, so the page
+        // ~~stays dark rather than following a light system theme~~ opens in
+        // Gruvbox Dark (the shared `bugis` theme, 2026-11-02); Light is the
+        // reader's choice in the side panel's selector.
+        // Gruvbox Dark (the shared `bugis` theme); the side panel's selector
+        // switches it.
+        bugis::Theme::default().apply(&cc.egui_ctx);
         #[cfg(not(target_arch = "wasm32"))]
         let link = {
             let ctx = cc.egui_ctx.clone();
@@ -796,6 +802,7 @@ impl McApp {
         // `?workers=` (gh:#786), read before `switch` rewrites the URL.
         let _ = crate::htr10::core::screen::remember_query();
         let mut app = Self {
+            theme: bugis::Theme::default(),
             guard: SwitchGuard::default(),
             startup_query: dhoby_ghaut::web_demo::platform::query_pairs(),
             link: None,
@@ -894,7 +901,7 @@ impl McApp {
                 keep = true;
             }
             ui.add_space(16.0);
-            if ui.add(egui::Button::new(RichText::new("Cancel run and switch").size(16.0).color(Color32::from_rgb(255, 120, 120))).min_size(size)).clicked() {
+            if ui.add(egui::Button::new(RichText::new("Cancel run and switch").size(16.0).color(ui.visuals().error_fg_color)).min_size(size)).clicked() {
                 go = true;
             }
         });
@@ -1203,6 +1210,11 @@ impl McApp {
                     let mut c = crate::htr10::core::screen::CoreScreen::new(info.clone(), self.speed_at_1ev, self.autostart);
                     c.cfg = run_cfg_from_query(c.cfg, &self.startup_query);
                     c.rods = crate::htr10::rods::RodControls::from_query(&self.startup_query);
+                    // gh:#1142: `?temps=fuel:900,...` (°C) sets the zone
+                    // temperatures the pool starts at.
+                    c.temps = crate::htr10::core::screen::temperatures_from_query(&self.startup_query);
+                    c.temps_c = nee_soon::htr10_rmc::zones::Htr10Zone::ALL
+                        .map(|z| crate::htr10::core::screen::celsius(c.temps.get(z)));
                     self.core = Some(c);
                 }
                 let sel = self.core.as_ref().map_or(crate::htr10::rods::S3_ROD, |c| c.rods.selected);
@@ -1272,6 +1284,18 @@ impl McApp {
                     Some(c) if c.slicer.awaits(&req) => c.slicer.receive(ctx, req, map, secs),
                     _ => v.receive(ctx, req, map, secs),
                 },
+                // The reader's DEM pour (gh:#1244) runs in this page's own
+                // worker, whatever is on screen.
+                (_, Event::Core(crate::htr10::core::CoreEv::Pour(e))) => {
+                    if let Some(c) = self.core.as_mut() {
+                        c.pour.on_event(e, now_s());
+                    }
+                }
+                (_, Event::Core(crate::htr10::core::CoreEv::PourDiagnostics(w))) => {
+                    if let Some(c) = self.core.as_mut() {
+                        c.pour.on_diagnostics(&w);
+                    }
+                }
                 (_, Event::XsCurves(c)) => {
                     self.xs_shown = vec![true; c.len()];
                     self.xs = c;
@@ -1409,6 +1433,11 @@ impl eframe::App for McApp {
         // relays, generations and runs go on behind another view or rung.
         if let Some(c) = self.core.as_mut() {
             c.pump(&ctx);
+            for r in c.take_pour_out() {
+                if let Some(link) = &self.link {
+                    link.send(Request::Core(r));
+                }
+            }
         }
         if matches!(self.phase, Phase::Loading(_)) {
             // Elapsed time and the progress bar keep moving between events.
@@ -1416,7 +1445,11 @@ impl eframe::App for McApp {
         }
         self.title_now(&ctx);
         let mut panel = std::mem::take(&mut self.panel);
-        panel.show(ui, "Monte Carlo", |ui| self.side_panel(ui));
+        panel.show(ui, "Monte Carlo", |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
+            self.side_panel(ui);
+        });
         self.panel = panel;
         self.confirm_dialog(&ctx);
         egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| self.canvas(ui));
@@ -1459,7 +1492,7 @@ impl McApp {
         match &mut self.phase {
             Phase::Loading(l) => Self::loading_panel(ui, l),
             Phase::Failed(e) => {
-                ui.colored_label(Color32::from_rgb(255, 90, 90), format!("Failed: {e}"));
+                ui.colored_label(ui.visuals().error_fg_color, format!("Failed: {e}"));
             }
             Phase::Ready(Screen::Tracks(t)) => {
                 Self::tracks_panel(ui, t, link, rung, &mut self.speed_at_1ev);
@@ -1535,7 +1568,7 @@ impl McApp {
         if !self.data_notes.is_empty() {
             egui::CollapsingHeader::new(format!("Cache notes ({})", self.data_notes.len())).default_open(true).show(ui, |ui| {
                 for n in self.data_notes.iter().rev().take(12) {
-                    ui.colored_label(Color32::from_rgb(250, 200, 80), n);
+                    ui.colored_label(ui.visuals().warn_fg_color, n);
                 }
             });
         }
@@ -1614,7 +1647,7 @@ impl McApp {
             for (c, s) in curves.iter().zip(shown.iter_mut()) {
                 ui.horizontal(|ui| {
                     let (r, _) = ui.allocate_exact_size(Vec2::new(14.0, 12.0), Sense::hover());
-                    ui.painter().line_segment([r.left_center(), r.right_center()], Stroke::new(2.0, xs::colour(c.channel)));
+                    ui.painter().line_segment([r.left_center(), r.right_center()], Stroke::new(2.0, xs::colour(c.channel, &bugis::Ink::of_ui(ui))));
                     ui.checkbox(s, c.label.as_str());
                 });
             }
@@ -1753,7 +1786,7 @@ impl McApp {
             l.tolerance()
         ));
         if let Some(note) = l.rung.loading_note(l.tier) {
-            ui.colored_label(Color32::from_rgb(250, 200, 80), note);
+            ui.colored_label(ui.visuals().warn_fg_color, note);
         }
         ui.add_space(6.0);
         l.loading.grid(ui);
@@ -1905,7 +1938,7 @@ impl McApp {
             ui.label(pct(c.fissions()));
             ui.end_row();
             if other > 0 {
-                ui.colored_label(Color32::from_rgb(255, 90, 90), "other (a defect)");
+                ui.colored_label(ui.visuals().error_fg_color, "other (a defect)");
                 ui.label(other.to_string());
                 ui.end_row();
             }
@@ -2163,7 +2196,8 @@ impl McApp {
     fn canvas(&mut self, ui: &mut egui::Ui) {
         let (resp, full_painter) = ui.allocate_painter(ui.available_size(), Sense::hover());
         let full = resp.rect;
-        full_painter.rect_filled(full, 0.0, BG);
+        let ink = bugis::Ink::of_ui(ui);
+        full_painter.rect_filled(full, 0.0, ink.bg);
         let is_run = matches!(self.phase, Phase::Ready(Screen::Run(_)));
         let is_kinf = matches!(self.phase, Phase::Ready(Screen::Kinf(_)));
         // The σ(E) panel (gh:#549) beside the geometry on a wide screen,
@@ -2234,7 +2268,7 @@ impl McApp {
                             egui::Align2::LEFT_BOTTOM,
                             "recorded tracks, shipped with the page · live ones start when the data are ready",
                             egui::FontId::proportional(12.0),
-                            Color32::from_rgb(250, 200, 80),
+                            ink.warn,
                         );
                         let band = Rect::from_min_max(rect.min, Pos2::new(rect.right(), (rect.top() + 240.0).min(rect.bottom())));
                         l.loading.card(&painter, band, title, note.as_deref());
@@ -2243,11 +2277,11 @@ impl McApp {
                 }
             }
             Phase::Failed(e) => {
-                painter.text(rect.center(), egui::Align2::CENTER_CENTER, format!("Failed: {e}"), egui::FontId::proportional(15.0), Color32::from_rgb(255, 110, 110));
+                painter.text(rect.center(), egui::Align2::CENTER_CENTER, format!("Failed: {e}"), egui::FontId::proportional(15.0), ink.error);
             }
             Phase::Ready(Screen::Tracks(r)) => {
                 play_tracks(ui, &painter, r, speed, to_screen);
-                painter.text(rect.left_bottom() + Vec2::new(16.0, -40.0), egui::Align2::LEFT_BOTTOM, "illustration: real histories, chained by hand", egui::FontId::proportional(12.0), Color32::from_rgb(170, 176, 190));
+                painter.text(rect.left_bottom() + Vec2::new(16.0, -40.0), egui::Align2::LEFT_BOTTOM, "illustration: real histories, chained by hand", egui::FontId::proportional(12.0), ink.muted);
                 if let Some(xr) = xs_rect {
                     // The marker rides the animated neutron; once it is
                     // absorbed it leaves both views and a cross marks where.
@@ -2268,7 +2302,7 @@ impl McApp {
                     Some(g) => format!("generation {} of {} · {} source neutrons shown (of {})", g.index + 1, it.total_gens(), it.sites.len(), it.cfg.n_particles),
                     None => format!("generation 0 · all {} neutrons start at the centre", it.cfg.n_particles),
                 };
-                painter.text(Pos2::new(rect.left() + 12.0, plot.top() - 6.0), egui::Align2::LEFT_BOTTOM, label, egui::FontId::proportional(12.0), Color32::WHITE);
+                painter.text(Pos2::new(rect.left() + 12.0, plot.top() - 6.0), egui::Align2::LEFT_BOTTOM, label, egui::FontId::proportional(12.0), ink.text);
             }
             Phase::Ready(Screen::Run(it)) => {
                 let experiment = rung.reference().and_then(|r| r.experiment).map(|(_, k, s)| (k, s));
@@ -2313,7 +2347,7 @@ impl McApp {
                 let mut go = None;
                 // A dark strip, so unselected (transparent) buttons read over the slice.
                 let strip = Rect::from_min_max(Pos2::new(rect.left() + 4.0, rect.bottom() - 80.0), Pos2::new(rect.left() + 16.0 + n as f32 * (bw + 6.0), rect.bottom() - 36.0));
-                painter.rect_filled(strip, 6.0, Color32::from_rgba_unmultiplied(14, 16, 20, 215));
+                painter.rect_filled(strip, 6.0, bugis::Ink::of_ui(ui).backing);
                 for (i, p) in sl.info.ladder.iter().enumerate() {
                     // Above the scale bar.
                     let b = Rect::from_min_size(Pos2::new(rect.left() + 10.0 + i as f32 * (bw + 6.0), rect.bottom() - 76.0), Vec2::new(bw, 36.0));
@@ -2365,17 +2399,17 @@ impl McApp {
                     let rows: Vec<String> = ly.sweep.details(ly.n).iter().rev().map(|d| d.split(';').next().unwrap_or("").to_string()).collect();
                     let mut shown = 0;
                     for d in &rows {
-                        let g = full_painter.layout(d.clone(), egui::FontId::proportional(12.0), Color32::from_rgb(210, 216, 226), pr.width() - 12.0);
+                        let g = full_painter.layout(d.clone(), egui::FontId::proportional(12.0), ink.text, pr.width() - 12.0);
                         let h = g.size().y;
                         if pr.bottom() - (y + h + 18.0) < plot_needs {
                             break;
                         }
-                        full_painter.galley(Pos2::new(pr.left() + 6.0, y), g, Color32::from_rgb(210, 216, 226));
+                        full_painter.galley(Pos2::new(pr.left() + 6.0, y), g, ink.text);
                         y += h + 2.0;
                         shown += 1;
                     }
                     if shown < rows.len() {
-                        full_painter.text(Pos2::new(pr.left() + 6.0, y), egui::Align2::LEFT_TOP, format!("+{} more at this N under Controls", rows.len() - shown), egui::FontId::proportional(11.0), Color32::from_rgb(150, 156, 170));
+                        full_painter.text(Pos2::new(pr.left() + 6.0, y), egui::Align2::LEFT_TOP, format!("+{} more at this N under Controls", rows.len() - shown), egui::FontId::proportional(11.0), ink.muted);
                         y += 16.0;
                     }
                     let plot = Rect::from_min_max(Pos2::new(pr.left(), y + 2.0), pr.right_bottom());
@@ -2454,7 +2488,7 @@ impl McApp {
             ui.ctx().request_repaint_after(std::time::Duration::from_millis(80));
         }
         if sl.busy() {
-            painter.text(rect.left_bottom() + Vec2::new(16.0, -88.0), egui::Align2::LEFT_BOTTOM, "slicing the assembled core in the worker…", egui::FontId::proportional(12.0), Color32::from_rgb(250, 200, 80));
+            painter.text(rect.left_bottom() + Vec2::new(16.0, -88.0), egui::Align2::LEFT_BOTTOM, "slicing the assembled core in the worker…", egui::FontId::proportional(12.0), ui.visuals().warn_fg_color);
         }
     }
 
@@ -2499,7 +2533,7 @@ impl McApp {
         };
         let mut top = brow.bottom() + 10.0;
         if let Some(note) = note {
-            let colour = if note.starts_with('⚠') { Color32::from_rgb(250, 200, 80) } else { Color32::from_rgb(170, 176, 190) };
+            let colour = if note.starts_with('⚠') { ui.visuals().warn_fg_color } else { bugis::Ink::of_ui(ui).muted };
             let galley = painter.layout(note, egui::FontId::proportional(12.0), colour, row.width());
             let h = galley.size().y;
             painter.galley(Pos2::new(row.left(), brow.bottom() + 4.0), galley, colour);
@@ -2589,15 +2623,15 @@ impl McApp {
         } else {
             crate::keff::plan_line(next, it.measured_rate().or(it.rate))
         };
-        let colour = if note.starts_with('⚠') { keffplot::AMBER } else { Color32::from_rgb(170, 176, 190) };
+        let colour = if note.starts_with('⚠') { keffplot::AMBER } else { bugis::Ink::of_ui(ui).muted };
         keffplot::draw_strip(painter, strip, note, colour, 13.0);
         keffplot::draw_pair(painter, plots, &it.points(), it.shape(), &experiment_refs(experiment), Some(run_entropy_ceiling()), 12.0);
         let mut status: Vec<keffplot::StatusLine> = Vec::new();
         if it.pooled && !it.pool_line.is_empty() {
-            status.push((it.pool_line.clone(), Color32::from_rgb(200, 206, 120)));
+            status.push((it.pool_line.clone(), bugis::Ink::of_ui(ui).ok));
         }
         if let Some(d) = drawn {
-            status.push((d.to_string(), Color32::from_rgb(170, 176, 190)));
+            status.push((d.to_string(), bugis::Ink::of_ui(ui).muted));
         }
         keffplot::draw_text_pane(ui, painter, pane, &status, &it.lines, "openmc.run()-style output appears here", text, "run-console");
     }
@@ -2611,13 +2645,14 @@ impl McApp {
 fn draw_kinf(painter: &egui::Painter, rect: Rect, k: &KinfRun, done: &[KinfPoint], text: f32) {
     let f = egui::FontId::proportional(text);
     let small = egui::FontId::proportional((text * 0.85).max(8.0));
-    let grey = Color32::from_rgb(170, 176, 190);
-    painter.rect_filled(rect, 4.0, Color32::from_rgb(18, 21, 28));
-    painter.text(rect.left_top() + Vec2::new(8.0, 5.0), egui::Align2::LEFT_TOP, k.case.title, f.clone(), Color32::WHITE);
-    let ours = Color32::from_rgb(120, 170, 255);
-    let reference = Color32::from_rgb(200, 200, 200);
-    let mine = Color32::from_rgb(120, 230, 150);
-    let live = Color32::from_rgb(255, 200, 80);
+    let ink = bugis::Ink::of_ctx(painter.ctx());
+    let grey = ink.muted;
+    painter.rect_filled(rect, 4.0, ink.card);
+    painter.text(rect.left_top() + Vec2::new(8.0, 5.0), egui::Align2::LEFT_TOP, k.case.title, f.clone(), ink.text);
+    let ours = ink.accent(0);
+    let reference = ink.text;
+    let mine = ink.accent(5);
+    let live = ink.accent(4);
     // Ranges: the case's parameter range; k from the curves and the runs.
     let categorical = !k.case.choices.is_empty();
     let (x0, x1) = if categorical { (k.case.range.0 - 0.6, k.case.range.1 + 0.6) } else { (k.case.range.0 - 0.05, k.case.range.1 + 0.05) };
@@ -2650,7 +2685,7 @@ fn draw_kinf(painter: &egui::Painter, rect: Rect, k: &KinfRun, done: &[KinfPoint
             plot.bottom() - ((y - y0) / (y1 - y0)) as f32 * plot.height(),
         )
     };
-    let gridc = Color32::from_rgb(40, 45, 56);
+    let gridc = ink.grid;
     // Ticks at least ~48 px apart; a categorical case labels its cases.
     let px_per = plot.width() as f64 / (x1 - x0);
     let xstep = [0.25, 0.5, 1.0].into_iter().find(|s| s * px_per >= 48.0).unwrap_or(1.0);
@@ -2679,8 +2714,8 @@ fn draw_kinf(painter: &egui::Painter, rect: Rect, k: &KinfRun, done: &[KinfPoint
     let clip = painter.with_clip_rect(plot.expand(4.0));
     for (v, name) in &k.case.marks {
         let a = p(*v, y1);
-        clip.extend(egui::Shape::dashed_line(&[a, p(*v, y0)], Stroke::new(1.0, Color32::from_rgb(190, 170, 230)), 4.0, 4.0));
-        clip.text(a + Vec2::new(3.0, 2.0), egui::Align2::LEFT_TOP, *name, small.clone(), Color32::from_rgb(190, 170, 230));
+        clip.extend(egui::Shape::dashed_line(&[a, p(*v, y0)], Stroke::new(1.0, ink.accent(3)), 4.0, 4.0));
+        clip.text(a + Vec2::new(3.0, 2.0), egui::Align2::LEFT_TOP, *name, small.clone(), ink.accent(3));
     }
     // The slider's position.
     let s = p(k.param, y1);
@@ -2743,7 +2778,7 @@ fn draw_kinf(painter: &egui::Painter, rect: Rect, k: &KinfRun, done: &[KinfPoint
                 egui::Align2::LEFT_TOP,
                 format!("your runs: {} − {} = {d:+.0} ± {e:.0} pcm", k.case.choices[0].1, k.case.choices[1].1),
                 egui::FontId::proportional(text),
-                Color32::from_rgb(120, 230, 150),
+                mine,
             );
         }
     }
@@ -2752,7 +2787,7 @@ fn draw_kinf(painter: &egui::Painter, rect: Rect, k: &KinfRun, done: &[KinfPoint
     let mut line = |draw: &dyn Fn(Pos2), label: &str| {
         let a = Pos2::new(rect.left() + 12.0, ly + text * 0.55);
         draw(a);
-        painter.text(a + Vec2::new(30.0, 0.0), egui::Align2::LEFT_CENTER, label, small.clone(), Color32::from_rgb(210, 216, 226));
+        painter.text(a + Vec2::new(30.0, 0.0), egui::Align2::LEFT_CENTER, label, small.clone(), ink.text);
         ly += text * 1.3;
     };
     for c in &k.case.curves {

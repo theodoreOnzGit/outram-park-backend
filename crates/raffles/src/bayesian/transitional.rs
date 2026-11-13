@@ -950,7 +950,7 @@ fn cholesky_scaled(
 ///
 /// Returns `None` if the matrix is not positive definite, which is what the
 /// caller uses to decide to regularise.
-fn cholesky(matrix: &[Vec<f64>], jitter: f64) -> Option<Vec<Vec<f64>>> {
+pub(crate) fn cholesky(matrix: &[Vec<f64>], jitter: f64) -> Option<Vec<Vec<f64>>> {
     let d = matrix.len();
     let mut l = vec![vec![0.0; d]; d];
     for i in 0..d {

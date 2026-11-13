@@ -170,6 +170,121 @@ fn organisation_records_verify_and_need_a_maintainer() {
     );
 }
 
+/// **Organisation retirements (GitHub #1211).** Methodology: the founder
+/// `FOUNDER` (`k1`) and `ALICE` re-admitted as a **non-founder
+/// maintainer** (`a1`). Workspace developing organisations "Old" (from
+/// 2026-10-01) and "New" (from 2026-10-08), both founder-signed, a third
+/// signed by Alice, and Alice's own organisation signed by the founder.
+/// Pass criterion, each as the rule predicts:
+/// - Alice's record (a non-founder maintainer's, written before #1211)
+///   still verifies and counts: existing records are read unchanged;
+/// - the founder's retirement of "New" from 2026-10-10 leaves it in force
+///   on 2026-10-09 and puts "Old" back in force from 2026-10-10;
+/// - the same retirement signed by Alice has no effect and is warned as
+///   `NotEligible(ALICE)`; a tampered date is `BadSignature`; one naming
+///   no record is `UnknownRecord`; a developing-organisation retirement
+///   naming a reviewer is `BadReviewer`;
+/// - retiring Alice's organisation record leaves her none in force;
+/// - with `NotChecked`, an unsigned retirement takes effect;
+/// - removing a retirement from the file is an append-only violation.
+///
+/// Result (2026-11-04): passes.
+#[test]
+fn organisation_retirements_need_the_founder_and_take_effect_from_their_date() {
+    use crate::review::engine::{history_append_only, HistoryWarning};
+    use crate::review::ivv::{record_warnings, RecordList, RecordProblem, RetirementProblem};
+    use crate::review::root::{OrganisationList, OrganisationRetirement};
+    let (founder, f, mut alice, a) = founder_and_alice();
+    alice.role = Role::Maintainer;
+    alice.scope = vec![];
+    alice.keys[0].history.truncate(1);
+    f.admit(&mut alice).unwrap();
+    let named = |name: &str, date: &str, k: &keystore::UnlockedKey| {
+        let mut d = DevelopingOrganisation { name: name.into(), date: date.into(), ..dev(None) };
+        k.sign_developing_organisation(&mut d).unwrap();
+        d
+    };
+    let (old, new) = (named("Old", "2026-10-01", &f), named("New", "2026-10-08", &f));
+    let by_alice = DevelopingOrganisation { krate: Some("c".into()), ..named("Alice's", "2026-10-08", &a) };
+    let by_alice = {
+        let mut d = by_alice;
+        a.sign_developing_organisation(&mut d).unwrap();
+        d
+    };
+    let mut o = org();
+    f.sign_reviewer_organisation(ALICE, &mut o).unwrap();
+    alice.organisations = vec![o.clone()];
+    let mut rt = root(vec![founder, alice]);
+    rt.code_review.as_mut().unwrap().developing_organisation = vec![old, new.clone(), by_alice];
+    let reg = Registry::build(&rt);
+    assert_eq!(developing_organisation(&rt, &reg, "c", "2026-10-09", E).unwrap().signed_by, Some((ALICE.into(), "a1".into())));
+    assert!(record_warnings(&rt, &reg, E).is_empty(), "{:?}", record_warnings(&rt, &reg, E));
+
+    let retire = |list, reviewer: Option<&str>, record: &str, k: &keystore::UnlockedKey| {
+        let mut r = OrganisationRetirement {
+            list,
+            reviewer: reviewer.map(str::to_string),
+            record: record.into(),
+            date: "2026-10-10".into(),
+            signer: None,
+            signature: None,
+        };
+        k.sign_organisation_retirement(&mut r).unwrap();
+        r
+    };
+    let dev_list = OrganisationList::DevelopingOrganisation;
+    let good = retire(dev_list, None, new.signature.as_deref().unwrap(), &f);
+    let with = |rs: Vec<OrganisationRetirement>| {
+        let mut t = rt.clone();
+        t.code_review.as_mut().unwrap().organisation_retirements = rs;
+        t
+    };
+    let t = with(vec![good.clone()]);
+    let reg = Registry::build(&t);
+    assert_eq!(developing_organisation(&t, &reg, "x", "2026-10-09", E).unwrap().name, "New");
+    assert_eq!(developing_organisation(&t, &reg, "x", "2026-10-10", E).unwrap().name, "Old");
+    assert!(record_warnings(&t, &reg, E).is_empty());
+
+    let problem = |r: OrganisationRetirement| {
+        let t = with(vec![r]);
+        let reg = Registry::build(&t);
+        assert_eq!(developing_organisation(&t, &reg, "x", "2026-10-10", E).unwrap().name, "New", "no effect");
+        let w = record_warnings(&t, &reg, E);
+        assert_eq!(w.len(), 1, "{w:?}");
+        assert_eq!(w[0].list, RecordList::OrganisationRetirement);
+        match &w[0].problem {
+            RecordProblem::Retirement(p) => p.clone(),
+            p => panic!("{p:?}"),
+        }
+    };
+    let new_sig = new.signature.as_deref().unwrap();
+    assert_eq!(
+        problem(retire(dev_list, None, new_sig, &a)),
+        RetirementProblem::Unverified(SignerProblem::NotEligible(ALICE.into()))
+    );
+    let tampered = OrganisationRetirement { date: "2026-10-09".into(), ..good.clone() };
+    assert_eq!(problem(tampered), RetirementProblem::Unverified(SignerProblem::BadSignature));
+    assert_eq!(problem(retire(dev_list, None, "bm90IGEgcmVjb3Jk", &f)), RetirementProblem::UnknownRecord);
+    assert_eq!(problem(retire(dev_list, Some(ALICE), new_sig, &f)), RetirementProblem::BadReviewer);
+
+    let rev = retire(OrganisationList::ReviewerOrganisation, Some(ALICE), o.signature.as_deref().unwrap(), &f);
+    let t = with(vec![rev]);
+    let reg = Registry::build(&t);
+    assert!(reviewer_organisation(&t, &reg, ALICE, "2026-10-09", E).is_ok());
+    assert_eq!(reviewer_organisation(&t, &reg, ALICE, "2026-10-10", E), Err(OrganisationProblem::NotRecorded));
+
+    let unsigned = OrganisationRetirement { signer: None, signature: None, ..good.clone() };
+    let t = with(vec![unsigned]);
+    let nc = SignaturePolicy::NotChecked;
+    assert_eq!(developing_organisation(&t, &Registry::build(&t), "x", "2026-10-10", nc).unwrap().name, "Old");
+
+    let before = with(vec![good]);
+    assert_eq!(
+        history_append_only(&before, &rt),
+        vec![HistoryWarning::RecordRemoved { list: RecordList::OrganisationRetirement, index: 0 }]
+    );
+}
+
 /// A signature over one kind of statement never verifies as another: a
 /// reviewer-organisation signature reused on a developing-organisation
 /// record with the same name, date and signer; a workspace developing

@@ -73,7 +73,12 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "MC Studio — OUTRAM PARK (offline demo)",
         native_options,
-        Box::new(|_cc| Ok(Box::new(app::McStudio::default()))),
+        Box::new(|cc| {
+            let app = app::McStudio::default();
+            // Gruvbox Dark (the shared `bugis` theme) from the first frame.
+            app.theme.apply(&cc.egui_ctx);
+            Ok(Box::new(app))
+        }),
     )
 }
 
@@ -358,6 +363,9 @@ mod app {
 
     /// The app.
     pub struct McStudio {
+        /// The Gruvbox theme (`bugis`), Dark by default; the controls
+        /// panel's selector switches it.
+        pub theme: bugis::Theme,
         // Geometry.
         kind: GeomKind,
         radius: f64,
@@ -384,6 +392,7 @@ mod app {
         fn default() -> Self {
             let p = &PRESETS[0];
             Self {
+                theme: bugis::Theme::default(),
                 kind: GeomKind::BareSphere,
                 radius: 8.7407,
                 box_dims: [10.0, 10.0, 10.0],
@@ -467,7 +476,6 @@ mod app {
                 ui.horizontal(|ui| {
                     ui.heading("MC Studio");
                     ui.label("· author geometry → set up → run a basic outram-mc criticality (offline demo)");
-                    egui::global_theme_preference_buttons(ui);
                 });
                 ui.separator();
             });
@@ -475,6 +483,8 @@ mod app {
             egui::Panel::right("mc_controls")
                 .min_size(320.0)
                 .show(ui, |ui| {
+                    // The shared Gruvbox Dark/Light selector (GUI drawing).
+                    bugis::selector(ui, &mut self.theme);
                     egui::ScrollArea::vertical().show(ui, |ui| {
                         self.controls_ui(ui, running);
                     });

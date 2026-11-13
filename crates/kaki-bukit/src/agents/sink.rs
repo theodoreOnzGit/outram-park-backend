@@ -46,6 +46,9 @@ pub struct Sink {
     inrecipe: Option<String>,
     capacity: f64,
     inventory: ResBuf,
+    /// One preference per entry of `in_commods`; empty means every request
+    /// carries the default preference. Upstream `in_commod_prefs`.
+    prefs: Vec<f64>,
 }
 
 impl Sink {
@@ -67,6 +70,7 @@ impl Sink {
             inrecipe: None,
             capacity: UNLIMITED,
             inventory: ResBuf::new(),
+            prefs: Vec::new(),
         })
     }
 
@@ -90,6 +94,32 @@ impl Sink {
     /// [`CyclusError::Value`] if negative.
     pub fn with_max_inventory(mut self, kg: f64) -> Result<Self> {
         self.inventory = ResBuf::with_capacity(kg)?;
+        Ok(self)
+    }
+
+    /// Sets one request preference per accepted commodity, in the order given
+    /// to [`Sink::new`]. Larger is more preferred; dimensionless.
+    ///
+    /// Upstream `Sink::in_commod_prefs` (`cycamore/src/sink.cc`, `EnterNotify`
+    /// requires one preference per commodity), passed to
+    /// `RequestPortfolio::AddRequest`.
+    ///
+    /// # Errors
+    ///
+    /// [`CyclusError::Value`] if the count differs from the number of
+    /// commodities, or a preference is not finite and strictly positive.
+    pub fn with_preferences(mut self, prefs: &[f64]) -> Result<Self> {
+        if prefs.len() != self.in_commods.len() {
+            return Err(CyclusError::Value(
+                "a sink needs exactly one preference per in-commodity",
+            ));
+        }
+        if prefs.iter().any(|p| !(*p > 0.0) || !p.is_finite()) {
+            return Err(CyclusError::Value(
+                "a preference must be finite and strictly positive",
+            ));
+        }
+        self.prefs = prefs.to_vec();
         Ok(self)
     }
 
@@ -166,9 +196,14 @@ impl Facility for Sink {
         // has to be *a* composition; MassNumber is adequate and needs no data.
         let comp = self.request_comp(ctx, &AtomicMasses::MassNumber)?;
         let mut port = RequestPortfolio::new();
-        for commod in &self.in_commods {
+        for (i, commod) in self.in_commods.iter().enumerate() {
             let target = Resource::from(Material::new(amt, comp.clone())?);
-            port.request(target, me, commod, crate::exchange::DEFAULT_PREF, false)?;
+            let pref = self
+                .prefs
+                .get(i)
+                .copied()
+                .unwrap_or(crate::exchange::DEFAULT_PREF);
+            port.request(target, me, commod, pref, false)?;
         }
         port.add_constraint(CapacityConstraint::new(amt)?);
         Ok(alloc::vec![port])
@@ -362,6 +397,22 @@ mod tests {
         let ports = s.material_requests(&ctx(), AgentId(0)).unwrap();
         let target = ports[0].requests()[0].target().as_material().unwrap();
         assert!((target.comp().mass_frac(nuc::U235) - 0.00711).abs() < 1e-12);
+    }
+
+    #[test]
+    fn preferences_are_carried_onto_the_requests_and_validated() {
+        let mut s = Sink::new(&["a", "b"])
+            .unwrap()
+            .with_capacity(10.0)
+            .unwrap()
+            .with_preferences(&[1.0, 2.5])
+            .unwrap();
+        let ports = s.material_requests(&ctx(), AgentId(0)).unwrap();
+        let prefs: Vec<f64> = ports[0].requests().iter().map(|r| r.preference()).collect();
+        assert_eq!(prefs, vec![1.0, 2.5]);
+        assert!(Sink::new(&["a"]).unwrap().with_preferences(&[]).is_err());
+        assert!(Sink::new(&["a"]).unwrap().with_preferences(&[0.0]).is_err());
+        assert!(Sink::new(&["a"]).unwrap().with_preferences(&[f64::NAN]).is_err());
     }
 
     #[test]

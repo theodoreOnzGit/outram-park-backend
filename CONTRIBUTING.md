@@ -301,6 +301,26 @@ full of hidden assumptions, inconsistent with module ownership.
 
 ---
 
+## Copyright of contributions
+
+**You keep the copyright in what you contribute.** By opening a pull request
+you license your contribution to everyone under the project's licence,
+**AGPL-3.0-only** (see [`LICENSE`](./LICENSE)), the same terms as the rest of
+the project ("inbound = outbound"). Nothing transfers your copyright to the
+maintainer or anyone else. The project is AGPL because it incorporates AGPL
+code; see [`NOTICE`](./NOTICE).
+
+- Only contribute code you have the right to contribute: your own work, or
+  code under a licence compatible with the AGPL-3.0, with its upstream
+  copyright and licence header kept intact (see "Responsible use & data
+  policy" and `RESEARCH_INTEGRITY_AND_PROVENANCE.md`).
+- New files you write may carry `Copyright (C) <year> OUTRAM PARK
+  contributors` and the `SPDX-License-Identifier: AGPL-3.0-only` line, as the
+  rest of the workspace does.
+- The git history is the record of who contributed what.
+
+---
+
 ## Contributor expectations
 
 Contributors are expected to communicate clearly, respect maintainer time,

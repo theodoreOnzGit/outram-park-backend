@@ -2,6 +2,17 @@ schema_version = 1
 kind = "code_folder"
 crate = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan"
 dir = "crates/kovan/src/corpus_tiers"
+test_ids = [
+    "crates/kovan/src/corpus_tiers/multi_repo_tests.rs::a_proprietary_repository_is_never_pushed_to_a_public_remote",
+    "crates/kovan/src/corpus_tiers/multi_repo_tests.rs::a_repository_near_the_size_limit_is_warned_about",
+    "crates/kovan/src/corpus_tiers/multi_repo_tests.rs::a_single_repository_layout_is_unchanged_and_unsafe_layouts_are_refused",
+    "crates/kovan/src/corpus_tiers/multi_repo_tests.rs::a_writable_standard_repository_is_committed_and_pushed",
+    "crates/kovan/src/corpus_tiers/multi_repo_tests.rs::duplicates_are_found_across_every_repository",
+    "crates/kovan/src/corpus_tiers/multi_repo_tests.rs::every_repository_of_every_tier_is_set_up_and_discovered",
+    "crates/kovan/src/corpus_tiers/multi_repo_tests.rs::ingest_goes_to_the_chosen_repository_and_records_it",
+    "crates/kovan/src/corpus_tiers/multi_repo_tests.rs::pulling_follows_every_repository",
+    "crates/kovan/src/corpus_tiers/multi_repo_tests.rs::save_and_push_each_repository_independently",
+]
 
 [module."multi_repo_tests.rs"]
 path = "crate::corpus_tiers::multi_repo_tests"
@@ -394,3 +405,20 @@ uses = [
     "fn:eb8df24db49a8c70",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+failed = []

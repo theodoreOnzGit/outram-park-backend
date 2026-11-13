@@ -53,7 +53,7 @@ use uom::si::time::second;
 use uom::ConstZero;
 
 use crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::{
-    try_get_diffusion_coeff_jiang, TrisoPebbleLayerMaterial,
+    get_diffusion_coeff_jiang, MissingDiffusionData, TrisoPebbleLayerMaterial,
 };
 use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::chatgpt_vibe_coded_sphere_crossing::{sphere_first_crossing_uom, SphereCrossing};
 
@@ -211,62 +211,82 @@ impl TrisoCell {
 
     /// checks the diffusion coefficient based on coordinates of the
     /// triso particle
+    ///
+    /// `None` outside every region, and (since 2026-11-10, gh:#638) also
+    /// where no cited coefficient exists; use
+    /// [`TrisoCell::get_diffusion_coefficient`] to tell the two apart.
     pub fn try_get_diffusion_coefficient(
         &self,
         coordinates: [Length; 3],
         nuclide: Nuclide,
     ) -> Option<DiffusionCoefficient> {
+        self.get_diffusion_coefficient(coordinates, nuclide)
+            .ok()
+            .flatten()
+    }
+
+    /// The diffusion coefficient at `coordinates`, telling "outside every
+    /// region" (`Ok(None)`) apart from "no cited coefficient for this element
+    /// in this layer" (`Err`, gh:#638: ~~krypton in the buffer~~ **CORRECTED 2026-11-10:** no layer of a `TrisoCell` today; Kr in the buffer now has a cited value, and only graphite, which a `TrisoCell` has none of, still lacks one).
+    ///
+    /// [`TrisoCell::try_get_diffusion_coefficient`] is this with both cases
+    /// folded into `None`.
+    pub fn get_diffusion_coefficient(
+        &self,
+        coordinates: [Length; 3],
+        nuclide: Nuclide,
+    ) -> Result<Option<DiffusionCoefficient>, MissingDiffusionData> {
         if self.fuel_region.is_within_region(coordinates) {
             // obtain diffusion coeff for kernel
             let triso_layer = TrisoPebbleLayerMaterial::KernelUO2;
-            let diffusion_coeff = try_get_diffusion_coeff_jiang(
+            let diffusion_coeff = get_diffusion_coeff_jiang(
                 triso_layer,
                 nuclide,
                 self.fuel_region_temp,
                 Some(self.gamma_neutron_fluence),
             );
-            return diffusion_coeff;
+            return diffusion_coeff.map(Some);
         } else if self.buffer_region.is_within_region(coordinates) {
             let triso_layer = TrisoPebbleLayerMaterial::Buffer;
-            let diffusion_coeff = try_get_diffusion_coeff_jiang(
+            let diffusion_coeff = get_diffusion_coeff_jiang(
                 triso_layer,
                 nuclide,
                 self.buffer_region_temp,
                 Some(self.gamma_neutron_fluence),
             );
-            return diffusion_coeff;
+            return diffusion_coeff.map(Some);
         } else if self.ipyc_region.is_within_region(coordinates) {
             let triso_layer = TrisoPebbleLayerMaterial::PyC;
-            let diffusion_coeff = try_get_diffusion_coeff_jiang(
+            let diffusion_coeff = get_diffusion_coeff_jiang(
                 triso_layer,
                 nuclide,
                 self.ipyc_region_temp,
                 Some(self.gamma_neutron_fluence),
             );
-            return diffusion_coeff;
+            return diffusion_coeff.map(Some);
         } else if self.sic_region.is_within_region(coordinates) {
             let triso_layer = TrisoPebbleLayerMaterial::SiC;
-            let diffusion_coeff = try_get_diffusion_coeff_jiang(
+            let diffusion_coeff = get_diffusion_coeff_jiang(
                 triso_layer,
                 nuclide,
                 self.sic_region_temp,
                 Some(self.gamma_neutron_fluence),
             );
-            return diffusion_coeff;
+            return diffusion_coeff.map(Some);
         } else if self.opyc_region.is_within_region(coordinates) {
             let triso_layer = TrisoPebbleLayerMaterial::PyC;
-            let diffusion_coeff = try_get_diffusion_coeff_jiang(
+            let diffusion_coeff = get_diffusion_coeff_jiang(
                 triso_layer,
                 nuclide,
                 self.opyc_region_temp,
                 Some(self.gamma_neutron_fluence),
             );
-            return diffusion_coeff;
+            return diffusion_coeff.map(Some);
         }
 
         // if it is not within any of these regions
 
-        return None;
+        return Ok(None);
     }
 
     /// for the outside region, i just get opyc radius, not going to

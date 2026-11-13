@@ -26,18 +26,25 @@
 //!   defaults to [`Iapws97Hem`], so `HemPipe` alone means water.
 //! - Closures: [`Iapws97Hem`] (IAPWS-IF97 water/steam) and [`IdealGasHem`]
 //!   (the Sod limit), both implementing the compile-time trait
-//!   [`HemEquationOfState`].
+//!   [`HemEquationOfState`]; and, for verification only (gh:#1057), the reduced
+//!   forms of [`reduced_eos`]: [`StiffenedGasHem`] (with [`StiffenedGasPair`]'s
+//!   saturation curve), [`IsentropicStiffenedGasHem`], [`BarotropicHem`] and
+//!   [`LinearEosHem`].
 //! - Configuration: [`HemPipeGeometry`], [`HemInitialCondition`] /
 //!   [`PrimitiveState`], [`HemBoundary`] / [`PipeEnd`], [`HemNumerics`]
 //!   (with [`TimeStepControl`], [`TimeIntegrator`] and the basic-lib
 //!   [`FluxLimiter`]).
+//! - Networks (gh:#1071): [`HemNetwork`] joins pipes with [`HemJunction`]s,
+//!   a zero-volume flow junction or a 0-D [`VolumeBranch`].
 //! - Errors: [`HemError`]. Nothing is clamped: a negative density or pressure
 //!   is an error and the step is undone.
 //!
 //! # Physics, and what is not here
 //!
 //! Inviscid, adiabatic, frictionless, horizontal, equilibrium two-phase (both
-//! phases at `T_sat(p)` inside the dome, no slip). The sound speed is the
+//! phases at `T_sat(p)` inside the dome, no slip). The flow area may vary
+//! along the pipe ([`AreaProfile`], gh:#1058; quasi-1-D, with the wall
+//! pressure force). The sound speed is the
 //! homogeneous-**equilibrium** one throughout ([`eos`] module doc). Not here:
 //! wall friction, gravity, heat transfer, slip, metastable liquid.
 //!
@@ -55,7 +62,10 @@
 pub mod eos;
 mod error;
 mod iapws97;
+mod network;
 mod pipe;
+pub mod reduced_eos;
+pub mod wall_friction;
 
 #[cfg(test)]
 mod tests;
@@ -64,8 +74,14 @@ pub use eos::{pressure_from_rho_e, BreakFlow, HemEquationOfState, HemThermoState
 pub use error::HemError;
 pub use iapws97::{Iapws97Hem, P_RHO_E_REL_TOL};
 pub use outram_foam_basic_lib::limiters::FluxLimiter;
+pub use reduced_eos::{
+    BarotropicHem, IsentropicStiffenedGasHem, LinearEosHem, StiffenedGasHem, StiffenedGasPair,
+};
+pub use network::{
+    HemJunction, HemNetwork, PipeEndRef, PortDraw, PumpHead, TdvThermo, TurbineParams, TimeDependentBoundary, TimeTable, VolumeBranch, VolumePort,
+};
 pub use pipe::{
-    HemBoundary, HemCellState, HemInitialCondition, HemNumerics, HemPipe, HemPipeGeometry,
+    AreaProfile, WallHeat, HemBoundary, HemCellState, HemInitialCondition, HemNumerics, HemPipe, HemPipeGeometry,
     HemRunSummary, HemSnapshot, HemStepReport, PipeEnd, PrimitiveState, TimeIntegrator,
     TimeStepControl, FIXED_STEP_COURANT_LIMIT,
 };

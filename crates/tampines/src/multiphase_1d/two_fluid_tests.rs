@@ -640,9 +640,23 @@ fn the_coupling_block_refuses_malformed_inputs() {
 /// pressures that need it. `SaturatedProperties::at` is unaffected because it
 /// never routes through the classifier.
 ///
-/// **This test pins a workaround, not a fix.** The defect — a panic where an
+/// ~~**This test pins a workaround, not a fix.** The defect — a panic where an
 /// error belongs, on an exact float comparison at a region boundary — is in
-/// `tampines-steam-tables` and belongs there.
+/// `tampines-steam-tables` and belongs there.~~ **CORRECTED 2026-11-03
+/// (gh:#1157): fixed upstream below 623.15 K.** The conductivity's
+/// critical-enhancement term now takes the phase from `x` on the saturation
+/// line below 623.15 K (`p_sat(623.15 K) = 16.53 MPa`), which also removed a
+/// worse, silent defect at the same point: the region test put `(T_sat, p)`
+/// in Region 1 or 2 by round-off, so `λ_f` and `λ_g` used the other phase's
+/// `c_p` about half the time (+1.5 % / −1.3 %). Above 16.53 MPa the
+/// saturation line borders Region 3 and the panic remains, so the guard is
+/// still needed there. The test now asserts zero unguarded panics below that
+/// pressure and an exact predicate above it. Before the fix this sweep
+/// recorded the 105 panics in the table above, at pressures across the whole
+/// range. **Measured after it (2026-11-03, release, same sweep):** 1 unguarded
+/// panic, at a pressure above 16.53 MPa (predicted there by the round-trip
+/// predicate: 1 of 1); 0 below; the guard still nudges the 105 round-trip
+/// pressures and leaves 0 panics.
 #[test]
 fn region_4_safe_pressure_removes_the_upstream_classifier_panic() {
     use tampines_steam_tables::region_4_vap_liq_equilibrium::sat_pressure::sat_pressure_4;
@@ -653,6 +667,8 @@ fn region_4_safe_pressure_removes_the_upstream_classifier_panic() {
     let mut worst_alteration: f64 = 0.0;
     let mut count = 0usize;
 
+    let p_split = sat_pressure_4(ThermodynamicTemperature::new::<kelvin>(623.15)).get::<pascal>();
+    let (mut panics_below, mut predicted_above, mut panics_above) = (0usize, 0usize, 0usize);
     let mut p = 1.0e5_f64;
     while p < 2.2e7 {
         count += 1;
@@ -666,8 +682,14 @@ fn region_4_safe_pressure_removes_the_upstream_classifier_panic() {
         if unguarded {
             panics += 1;
         }
-        if unguarded != flagged {
-            mispredictions += 1;
+        if p < p_split {
+            panics_below += usize::from(unguarded);
+        } else {
+            panics_above += usize::from(unguarded);
+            predicted_above += usize::from(flagged);
+            if unguarded != flagged {
+                mispredictions += 1;
+            }
         }
         if std::panic::catch_unwind(|| super::properties::SaturatedProperties::at(p)).is_err() {
             sat_panics += 1;
@@ -693,17 +715,17 @@ fn region_4_safe_pressure_removes_the_upstream_classifier_panic() {
     println!("  pressures altered by the guard           : {altered}");
     println!("  largest relative alteration              : {worst_alteration:.6e}");
 
-    assert_eq!(mispredictions, 0, "the round-trip predicate is not exact");
+    println!("  below p_sat(623.15 K) = {p_split:.0} Pa: unguarded panics {panics_below}");
+    println!("  above it: unguarded panics {panics_above}, predicted {predicted_above}");
+    assert_eq!(panics_below, 0, "the upstream fix (gh:#1157) no longer holds below 623.15 K");
+    assert_eq!(mispredictions, 0, "the round-trip predicate is not exact above 623.15 K");
     assert_eq!(guarded_panics, 0, "the guard did not remove every panic");
-    assert_eq!(
-        altered, panics,
-        "the guard altered a different set of pressures than the ones that panic"
-    );
+    assert_eq!(altered, predicted, "the guard nudges exactly the round-trip pressures");
     assert!(worst_alteration <= MAX_REGION_4_NUDGE * 4.0);
     assert!(
-        panics > 0,
-        "no pressure panicked -- the upstream defect may have been fixed; re-check \
-         region_4_safe_pressure and this test before deleting either"
+        panics_above > 0,
+        "no pressure above 16.53 MPa panicked -- the upstream defect may be fixed there too; \
+         re-check region_4_safe_pressure and this test before deleting either"
     );
 }
 
@@ -1204,6 +1226,20 @@ fn run_blowdown(
     end_time_s: f64,
     c_vm: f64,
 ) -> (usize, String, Option<TwoFluidReport>) {
+    run_blowdown_with(n_cells, void_fraction, diameter_m, dt_s, end_time_s, c_vm, |s| s)
+}
+
+/// [`run_blowdown`] with a hook that reconfigures the freshly built solver —
+/// the gh:#1060 ablation tests pass the `without_*` builders through it.
+fn run_blowdown_with(
+    n_cells: usize,
+    void_fraction: f64,
+    diameter_m: f64,
+    dt_s: f64,
+    end_time_s: f64,
+    c_vm: f64,
+    configure: fn(TwoFluid1d) -> TwoFluid1d,
+) -> (usize, String, Option<TwoFluidReport>) {
     let pipe = Pipe1d::circular(
         Length::new::<meter>(4.096),
         Length::new::<meter>(0.073),
@@ -1214,7 +1250,7 @@ fn run_blowdown(
     let exchange =
         InterfacialExchange::bubbly(Length::new::<meter>(diameter_m)).expect("well-posed closures");
     let sat = SaturatedProperties::at(7.0e6).expect("inside IF97");
-    let mut solver = TwoFluid1d::new(
+    let solver = TwoFluid1d::new(
         pipe,
         exchange,
         Pressure::new::<pascal>(7.0e6),
@@ -1222,6 +1258,7 @@ fn run_blowdown(
         Time::new::<second>(dt_s),
     )
     .expect("well-posed initial state");
+    let mut solver = configure(solver);
     solver
         .set_initial_void_fraction(void_fraction)
         .expect("in (0, 1)");
@@ -1303,6 +1340,20 @@ fn run_blowdown(
 /// | max volume residual | `7.995498e-10` |
 /// | outer correctors used (final step) | `10` |
 /// | rate-limiter / floor activations | `0` / `0` |
+///
+/// **CORRECTED 2026-11-01 (gh:#1060).** The table above was already stale
+/// before gh:#1060: re-run on commit 43cb3eb5d (the pre-gh:#1060 solver,
+/// after the gh:#1061 wall-friction change) it gives max `α_g`
+/// ~~`3.523131e-1`~~ `3.525260e-1`, min `α_g` `1.271343e-1`, max
+/// `|T_g − T_l|` ~~`1.929268e1`~~ `1.932487e1 K`, max slip ~~`1.455331e0`~~
+/// `1.463255e0 m/s`, outlet ~~`6.624528e1`~~ `6.622370e1 kg/s`, inventory
+/// `1.024518e1 kg`, volume residual `8.002351e-10`, 10 correctors. With the
+/// gh:#1060 physics on (the default now) it gives max `α_g` `3.522415e-1`,
+/// max `|T_g − T_l|` `1.925544e1 K`, max slip `1.462384e0 m/s`, outlet
+/// `6.624491e1 kg/s`, inventory `1.024528e1 kg`, max Courant `1.880414e-3`,
+/// volume residual `7.916195e-10`; limiter/floor activations still `0 / 0`.
+/// The share of each gh:#1060 term is measured in
+/// `each_1060_term_ablated_one_at_a_time_on_the_demonstrator_blowdown`.
 ///
 /// Both quantities a six-equation model exists for are substantial: **19.3 K**
 /// of thermal non-equilibrium and **1.46 m/s** of slip, neither of which HEM or
@@ -1397,6 +1448,22 @@ fn a_two_phase_blowdown_marches_without_refusing() {
 /// | max slip | `1.060353e-2` |
 /// | max `|T_g − T_l|` | `8.432810e-2` |
 /// | outlet mass flow | `1.575266e-3` |
+///
+/// **CORRECTED 2026-11-01 (gh:#1060)** — re-measured; the first table is the
+/// pre-gh:#1060 solver at commit 43cb3eb5d (it had already moved from the
+/// 2026-08-12 table through gh:#1061), the second the gh:#1060 default:
+///
+/// | `C_vm` | pre-#1060 max `α_g` | slip | `ΔT` \[K\] | outlet | #1060 max `α_g` | slip | `ΔT` \[K\] | outlet |
+/// |---|---|---|---|---|---|---|---|---|
+/// | `0.00` | `3.528613e-1` | `1.474931` | `20.75378` | `66.12699` | `3.526203e-1` | `1.476189` | `20.11702` | `66.13545` |
+/// | `0.25` | `3.524806e-1` | `1.463489` | `20.49479` | `66.20238` | `3.527532e-1` | `1.465333` | `20.38561` | `66.18824` |
+/// | `0.50` | `3.525260e-1` | `1.463255` | `19.32487` | `66.22370` | `3.522415e-1` | `1.462384` | `19.25544` | `66.24491` |
+///
+/// Spread over `C_vm ∈ [0, 0.5]` with gh:#1060 on: `α_g` `1.450660e-3`, slip
+/// `9.351429e-3`, `ΔT` `5.543990e-2`, outlet `1.652342e-3` (pre-gh:#1060:
+/// `1.079035e-3`, `7.916662e-3`, `6.885055e-2`, `1.460415e-3`). The
+/// interpretation below still holds: the thermal non-equilibrium is the
+/// quantity `C_vm` moves most (5.5 % now, 6.9 % before).
 ///
 /// **Interpretation, stated as an interpretation.** On this case the
 /// regularisation moves the integral quantities very little — the outlet mass
@@ -1521,6 +1588,19 @@ fn the_answer_moves_with_c_vm_and_the_sensitivity_is_reported() {
 /// outer-corrector loop failing to converge the volume constraint once the
 /// interfacial exchange is stiff enough to dominate it. **That second failure
 /// is not diagnosed**, and it is stated as unresolved rather than guessed at.
+///
+/// **Re-measured 2026-11-01 with the gh:#1060 physics on (regime-map area,
+/// `u_int`, `H_int`).** The gh:#1060 brief expected the low-void starts to
+/// become runnable; the prediction written in the V&V record before the run
+/// was that they would **not**, because every one of them stays far inside
+/// the bubbly window (`α_g < 0.02`), where the regime-map area is exactly the
+/// fixed-diameter `6 α_g / d_b`, and the `u_int`/`H_int` terms carry ~1 J/kg
+/// against a 30 K (~1e5 J/kg) metastable excursion. Result: **the prediction
+/// held** — `0.1`: 667 steps (end time); `0.01`: 23; `1e-3`: 15; `1e-4`: 15
+/// steps, every stop still the liquid's 30 K superheat bound, at the same
+/// step as on the pre-gh:#1060 solver (commit 43cb3eb5d; stop pressures agree
+/// to `1e-5`). Lifting this needs low-void interfacial area — a wall
+/// nucleation source or interfacial-area transport — not a regime map.
 #[test]
 fn six_equation_march_refuses_where_a_phase_cannot_shed_its_expansion_work() {
     let cases: &[(&str, f64, f64)] = &[
@@ -1977,4 +2057,229 @@ fn the_solver_refuses_inputs_it_cannot_represent() {
         bad_break,
         Err(crate::TampinesError::InvalidInput(_))
     ));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  6. gh:#1060 — regime-map area, interface velocity, total-enthalpy transfer
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// **Methodology (gh:#1060).** The three gh:#1060 terms are physics a
+/// closure supplies, so they are ON through the ordinary constructor
+/// (workspace rule "correct physics is the default"); each ablation is an
+/// explicit `without_*` call. Pass criterion: `TwoFluid1d::bubbly` reports
+/// the regime-map area model with the pipe's hydraulic diameter and both
+/// interface terms on; each `without_*` clears exactly its own flag.
+#[test]
+fn the_1060_physics_is_on_by_default_and_each_ablation_is_explicit() {
+    let pipe = Pipe1d::circular(
+        Length::new::<meter>(1.0),
+        Length::new::<meter>(0.05),
+        Angle::new::<radian>(0.0),
+        4,
+    )
+    .expect("pipe");
+    let sat = SaturatedProperties::at(7.0e6).expect("IF97");
+    let build = || {
+        TwoFluid1d::bubbly(
+            pipe.clone(),
+            Pressure::new::<pascal>(7.0e6),
+            ThermodynamicTemperature::new::<kelvin>(sat.t_sat),
+            Time::new::<second>(1.0e-4),
+        )
+        .expect("solver")
+    };
+    let s = build();
+    assert_eq!(
+        s.interfacial_exchange().area_model(),
+        super::interfacial::InterfacialAreaModel::RegimeMap {
+            hydraulic_diameter: 0.05
+        }
+    );
+    assert!(s.uses_interface_velocity());
+    assert!(s.uses_total_enthalpy_mass_transfer());
+    let a = build().without_regime_map();
+    assert_eq!(
+        a.interfacial_exchange().area_model(),
+        super::interfacial::InterfacialAreaModel::FixedDiameter
+    );
+    assert!(a.uses_interface_velocity() && a.uses_total_enthalpy_mass_transfer());
+    let b = build().without_interface_velocity();
+    assert!(!b.uses_interface_velocity() && b.uses_total_enthalpy_mass_transfer());
+    let c = build().without_total_enthalpy_mass_transfer();
+    assert!(c.uses_interface_velocity() && !c.uses_total_enthalpy_mass_transfer());
+}
+
+/// **Methodology (gh:#1060).** The static-enthalpy sources that Eqs. 200 and
+/// 208 add, against hand closed forms at `m_g = 10`, `m_l = 700 kg/m³`,
+/// `u_g = 3`, `u_l = 1 m/s`, `K_d = 1e4 kg/(m³·s)`, `Γ = 5 kg/(m³·s)`:
+/// `u_int = (30 + 700)/710 = 1.028169 m/s`.
+///
+/// - friction: `F_g = K_d (u_l − u_g) = −2e4 N/m³`; the vapour gets
+///   `F_g (u_int − u_g)` and the liquid `−F_g (u_int − u_l)`; their sum must
+///   be the drag dissipation `K_d (u_g − u_l)² = 4e4 W/m³` **exactly**;
+/// - mass transfer: `+Γ ½ (u_int − u_g)²` and `−Γ ½ (u_int − u_l)²`;
+/// - both ablated: `(0, 0)`, the pre-gh:#1060 energy equation.
+///
+/// **Prediction:** each to `1e-12` relative; the dissipation sum is
+/// non-negative for either slip sign.
+#[test]
+fn interface_work_matches_the_closed_forms_and_dissipates_the_drag() {
+    let (m_g, m_l, u_g, u_l, k_d, gamma) = (10.0, 700.0, 3.0, 1.0, 1.0e4, 5.0);
+    let u_int = (m_g * u_g + m_l * u_l) / (m_g + m_l);
+    let f_g = k_d * (u_l - u_g);
+    let (fg, fl) = interface_work(true, false, gamma, k_d, m_g, m_l, u_g, u_l);
+    assert!((fg - f_g * (u_int - u_g)).abs() <= 1e-12 * fg.abs());
+    assert!((fl + f_g * (u_int - u_l)).abs() <= 1e-12 * fl.abs());
+    let dissipation = k_d * (u_g - u_l) * (u_g - u_l);
+    assert!(((fg + fl) - dissipation).abs() <= 1e-12 * dissipation);
+    let (fg2, fl2) = interface_work(true, false, gamma, k_d, m_g, m_l, u_l, u_g);
+    assert!(fg2 + fl2 >= 0.0, "dissipation must not change sign with the slip");
+    let (hg, hl) = interface_work(false, true, gamma, k_d, m_g, m_l, u_g, u_l);
+    // Ablated u_int: the donor (liquid, evaporating) velocity.
+    assert!((hg - gamma * 0.5 * (u_l - u_g) * (u_l - u_g)).abs() < 1e-12);
+    assert_eq!(hl, 0.0);
+    let (bg, bl) = interface_work(true, true, gamma, k_d, m_g, m_l, u_g, u_l);
+    let eg = f_g * (u_int - u_g) + gamma * 0.5 * (u_int - u_g) * (u_int - u_g);
+    let el = -f_g * (u_int - u_l) - gamma * 0.5 * (u_int - u_l) * (u_int - u_l);
+    assert!((bg - eg).abs() <= 1e-12 * eg.abs() && (bl - el).abs() <= 1e-12 * el.abs());
+    assert_eq!(interface_work(false, false, gamma, k_d, m_g, m_l, u_g, u_l), (0.0, 0.0));
+    println!("u_int = {u_int:.9} m/s; friction (g, l) = ({fg:.6e}, {fl:.6e}) W/m^3, sum {:.6e}", fg + fl);
+}
+
+/// The end report of the demonstrator blowdown (8 cells, `α_g⁰ = 0.1`,
+/// 1 mm, 30 µs, 20 ms, `C_vm = 0.5`) with all three gh:#1060 terms ablated,
+/// as raw IEEE-754 bit patterns:
+/// `[max α_g, min α_g, max |T_g − T_l|, max slip, outlet kg/s, inventory kg]`.
+///
+/// ~~Measured on the **pre-gh:#1060 solver** (commit 43cb3eb5d, 2026-11-01,
+/// release): `0x3fd6_8fc9_3bc4_e5f7, 0x3fc0_45ef_cc69_c732,
+/// 0x4033_532a_98fd_ace0, 0x3ff7_697d_ce22_df00, 0x4050_8e51_188f_4128,
+/// 0x4024_7d87_9d78_440a`.~~ **MOVED 2026-11-03 (gh:#1157)** by a steam-table
+/// fix, not by this solver: `SaturatedTransport`'s `λ_f`/`λ_g` had taken the
+/// other phase's `c_p` in the critical-enhancement term at about half of all
+/// pressures (round-off in the `(T, p)` region test at `T_sat`), +1.5 % /
+/// −1.3 %. Evidence that the move is that fix and nothing else: with only
+/// `tampines-steam-tables/src/thermal_conductivity/mod.rs` restored to its
+/// pre-fix content, the current code reproduced the old bits exactly
+/// (2026-11-03), which also keeps the "ablated = pre-gh:#1060" claim
+/// evidenced. Re-measured on the current code with the fix (2026-11-03,
+/// release): max α_g 0.352526 → 0.351356 (−0.33 %), min α_g +0.13 %,
+/// max |T_g − T_l| 19.3249 → 19.5144 K (+0.98 %), max slip −0.26 %, outlet
+/// flow −0.12 %, inventory +0.014 %. The pin now guards against drift from
+/// that state; flagged for the maintainer on gh:#1157.
+const PRE_1060_DEMONSTRATOR_BITS: [u64; 6] = [
+    0x3fd6_7c9f_6af0_92bf,
+    0x3fc0_4b56_b8b5_c669,
+    0x4033_83ad_ce7b_e340,
+    0x3ff7_59b7_9631_6220,
+    0x4050_891c_ed25_bc44,
+    0x4024_7e43_4e80_409e,
+];
+
+/// **Methodology (gh:#1060).** With all three gh:#1060 terms ablated the
+/// solver must be the pre-change solver, bit for bit. Reference: the
+/// demonstrator end report measured on commit 43cb3eb5d before any gh:#1060
+/// code existed ([`PRE_1060_DEMONSTRATOR_BITS`]). **Prediction:** identical
+/// bits for all six quantities (the ablated paths re-order no floating-point
+/// operation; the only new arithmetic is `+ 0.0` in the energy sum).
+#[test]
+fn all_three_ablations_reproduce_the_pre_1060_march_bit_for_bit() {
+    let (completed, stop, report) = run_blowdown_with(8, 0.1, 1.0e-3, 3.0e-5, 0.02, 0.5, |s| {
+        s.without_regime_map()
+            .without_interface_velocity()
+            .without_total_enthalpy_mass_transfer()
+    });
+    assert_eq!(stop, "reached the end time", "after {completed} steps");
+    let r = report.expect("ran");
+    let got = [
+        r.max_void_fraction.to_bits(),
+        r.min_void_fraction.to_bits(),
+        r.max_thermal_nonequilibrium.to_bits(),
+        r.max_slip.to_bits(),
+        r.outlet_mass_flow.to_bits(),
+        r.inventory.to_bits(),
+    ];
+    assert_eq!(got, PRE_1060_DEMONSTRATOR_BITS);
+}
+
+/// **Methodology (gh:#1060).** The demonstrator blowdown with the gh:#1060
+/// physics on (the default) and with each term ablated one at a time, so the
+/// share of every term is measured rather than asserted.
+///
+/// **Predictions (written 2026-11-01, before the first run):**
+///
+/// - The demonstrator's void stays below `0.36` (recorded `3.52e-1`), inside
+///   the bubbly window, so **the regime map changes nothing**: the
+///   `without_regime_map` row is bit-identical to the default row.
+/// - `u_int` momentum: the donor (liquid) velocity and `u_int` differ by
+///   `x_g (u_g − u_l)` with mass fraction `x_g ≈ 0.02`, i.e. ~0.03 m/s on a
+///   1.5 m/s slip, on a momentum source that is itself small: void and
+///   outlet flow move by **< 1e-3 relative**.
+/// - Friction work: drag dissipation `K_d (Δu)²` ≈ 1e5 kg/(m³·s) × 2 m²/s²
+///   ≈ 2e5 W/m³, almost all of it into the **vapour** (`u_int ≈ u_l`), whose
+///   mass concentration is ~10 kg/m³: over 20 ms that is ~0.4 kJ/kg, ~0.1 K —
+///   so `max |T_g − T_l|` moves by **≲ 1 %** and nothing else visibly.
+/// - The kinetic part of `H_int`, `½ (u_int − u_g)² ≈ 1 J/kg`, against
+///   `h_fg ≈ 1.5 MJ/kg`: **below 1e-5 relative** on every quantity.
+///
+/// **Results (2026-11-01, release), end of the 20 ms run:**
+///
+/// | row | max `α_g` | max `|T_g − T_l|` \[K\] | max slip \[m/s\] | outlet \[kg/s\] |
+/// |---|---|---|---|---|
+/// | default (all on) | `3.522414827e-1` | `19.25543766` | `1.462384376` | `66.24490572` |
+/// | `without_regime_map` | identical bits | identical | identical | identical |
+/// | `without_interface_velocity` | `3.525335972e-1` | `19.26807736` | `1.471956737` | `66.17511961` |
+/// | `without_total_enthalpy_mass_transfer` | `3.527205177e-1` | `19.30502080` | `1.462971028` | `66.22340877` |
+///
+/// Relative moves against the default: `u_int` ablation `α_g 8.3e-4`,
+/// `ΔT 6.6e-4`, slip `6.5e-3`, outlet `1.05e-3`; `H_int` ablation `α_g
+/// 1.36e-3`, `ΔT 2.6e-3`, slip `4.0e-4`, outlet `3.2e-4`.
+///
+/// **Against the predictions.** Regime map inert: **held** (bit-identical).
+/// `u_int`: void held (`8.3e-4 < 1e-3`), outlet **missed narrowly**
+/// (`1.05e-3`), and the slip moved `6.5e-3`, more than anticipated. Friction
+/// work `≲ 1 %` on `ΔT`: held (`6.6e-4`). `H_int`: **missed by two orders of
+/// magnitude** — predicted `< 1e-5`, measured up to `2.6e-3`. The local
+/// source is ~1 J/kg per kg transferred, so the size of the response is not
+/// explained by the term's magnitude; a candidate, **not checked**, is that
+/// the outer-corrector loop terminates on tolerances (`1 Pa`, `1e-9`) and a
+/// small perturbation changes the corrector count and hence the path of a
+/// 667-step march. The miss is recorded, not tuned away.
+#[test]
+fn each_1060_term_ablated_one_at_a_time_on_the_demonstrator_blowdown() {
+    let rows: [(&str, fn(TwoFluid1d) -> TwoFluid1d); 4] = [
+        ("default (all gh:#1060 terms on)", |s| s),
+        ("without_regime_map", |s| s.without_regime_map()),
+        ("without_interface_velocity", |s| s.without_interface_velocity()),
+        ("without_total_enthalpy_mass_transfer", |s| {
+            s.without_total_enthalpy_mass_transfer()
+        }),
+    ];
+    let mut reports = Vec::new();
+    for (label, configure) in rows {
+        let (completed, stop, report) =
+            run_blowdown_with(8, 0.1, 1.0e-3, 3.0e-5, 0.02, 0.5, configure);
+        assert_eq!(stop, "reached the end time", "{label}: after {completed} steps");
+        let r = report.expect("ran");
+        println!(
+            "{label:38} max_alpha {:.9e} dT {:.9e} K slip {:.9e} m/s outlet {:.9e} kg/s inv {:.9e} kg",
+            r.max_void_fraction, r.max_thermal_nonequilibrium, r.max_slip, r.outlet_mass_flow, r.inventory
+        );
+        reports.push(r);
+    }
+    let base = reports[0];
+    // The prediction that the regime map is inert while the void stays in the
+    // bubbly window, asserted (it was written before the run).
+    assert!(base.max_void_fraction < super::interfacial::BUBBLY_SLUG_UPPER_VOID);
+    assert_eq!(reports[1], base, "regime map moved a bubbly-window run");
+    for (k, r) in reports.iter().enumerate().skip(1) {
+        let rel = |a: f64, b: f64| (a - b).abs() / b.abs();
+        println!(
+            "row {k}: rel. move vs default: alpha {:.3e}, dT {:.3e}, slip {:.3e}, outlet {:.3e}",
+            rel(r.max_void_fraction, base.max_void_fraction),
+            rel(r.max_thermal_nonequilibrium, base.max_thermal_nonequilibrium),
+            rel(r.max_slip, base.max_slip),
+            rel(r.outlet_mass_flow, base.outlet_mass_flow)
+        );
+    }
 }

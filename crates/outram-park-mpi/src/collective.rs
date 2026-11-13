@@ -18,18 +18,37 @@
 //! [broadcast](Communicator::broadcast) and [reduce](Communicator::reduce) use
 //! **binomial trees** (`O(log P)` rounds), translated from MPICH's
 //! `MPIR_Bcast_intra_binomial` / `MPIR_Reduce_intra_binomial`.
-//! [all_reduce](Communicator::all_reduce) is reduce-then-broadcast (`2 log P`);
+//! ~~[all_reduce](Communicator::all_reduce) is reduce-then-broadcast (`2 log P`);~~
+//! **CORRECTED 2026-11-13 (gh:#1435):** [all_reduce](Communicator::all_reduce) is
+//! MPICH's recursive doubling (`MPIR_Allreduce_intra_recursive_doubling`), and
+//! [reduce](Communicator::reduce) switches, as MPICH does above 2048 bytes with at least
+//! `pof2` elements, to Rabenseifner's reduce-scatter + gather
+//! (`MPIR_Reduce_intra_reduce_scatter_gather`). The earlier schedules associated
+//! floating-point sums differently from MPICH (5 ranks and above, and every non-zero
+//! root for long messages), so the last bit differed; see
+//! `verification_and_validation/mpich_differential/README.md`.
 //! [all_gather](Communicator::all_gather) is gather-then-broadcast;
 //! [scatter](Communicator::scatter), [gather](Communicator::gather), and the
 //! [barrier](Communicator::barrier) use linear (`O(P)`) root-centred schedules.
-//! MPICH's fully-optimised variants — recursive-doubling all-reduce, ring
+//! ~~MPICH's fully-optimised variants — recursive-doubling all-reduce, ring
 //! all-gather, dissemination barrier — are a documented follow-up (epic op-erl);
-//! the versions here are correctness-first and give identical results.
+//! the versions here are correctness-first and give identical results.~~ The ring
+//! all-gather, dissemination barrier and the other MPICH algorithms (Brucks,
+//! scatter-allgather broadcast, ...) are not translated; they move data or carry no
+//! data, so they cannot change a result, only the message pattern.
+//!
+//! # Upstream version
+//!
+//! The MPICH version the original translation was written from was not recorded and
+//! cannot be determined (`NOTICE`, "UPSTREAM VERSION"): the routines exist, with the
+//! same algorithm, in every tag from v3.3 to v4.3.2. The algorithms translated on
+//! 2026-11-13 were read from v4.2.0.
 //!
 //! # Untrusted AI draft
 //!
-//! Verification-only, per the workspace `RESPONSIBLE_USE.md`; not checked against
-//! MPICH's own collective test suite.
+//! Verification-only, per the workspace `RESPONSIBLE_USE.md`. Compared bit for bit
+//! against MPICH 4.2.0 (not against MPICH's own collective test suite):
+//! `tests/mpich_differential.rs`.
 
 use crate::communicator::Communicator;
 use crate::datatype::MpiPrimitive;
@@ -42,6 +61,42 @@ const TAG_BCAST: i32 = 1;
 const TAG_REDUCE: i32 = 2;
 const TAG_SCATTER: i32 = 3;
 const TAG_GATHER: i32 = 4;
+const TAG_ALLREDUCE: i32 = 5;
+
+/// MPICH's `MPIR_CVAR_REDUCE_SHORT_MSG_SIZE` default (bytes): at or below it `reduce`
+/// uses the binomial tree, above it (with at least `pof2` elements) Rabenseifner's
+/// reduce-scatter + gather.
+const REDUCE_SHORT_MSG_SIZE: usize = 2048;
+
+/// The largest power of two that is `<= n` (MPICH's `MPL_pof2`), for `n >= 1`.
+fn largest_power_of_two_le(n: i32) -> i32 {
+    let mut p = 1;
+    while p * 2 <= n {
+        p *= 2;
+    }
+    p
+}
+
+/// `acc[i] = combine(op, acc[i], incoming[i])` for every element: the accumulator is
+/// the first operand, as in MPICH's `MPIR_Reduce_local(in = incoming, inout = acc)`,
+/// whose built-in ops compute `op(inout, in)`. The order is observable on ties
+/// (`+0.0` against `-0.0`) and NaN for `Max`/`Min`.
+///
+/// # Errors
+/// [`MpiError::InvalidArgument`] if the lengths differ.
+fn combine_into<T: Reducible>(op: ReduceOp, acc: &mut [T], incoming: &[T]) -> MpiResult<()> {
+    if incoming.len() != acc.len() {
+        return Err(MpiError::InvalidArgument(format!(
+            "reduce: length mismatch (have {}, got {})",
+            acc.len(),
+            incoming.len()
+        )));
+    }
+    for (a, b) in acc.iter_mut().zip(incoming.iter()) {
+        *a = T::combine(op, *a, *b);
+    }
+    Ok(())
+}
 
 /// A predefined reduction operation (mirrors the MPI predefined `MPI_Op`s).
 ///
@@ -70,43 +125,91 @@ pub trait Reducible: MpiPrimitive {
     fn combine(op: ReduceOp, a: Self, b: Self) -> Self;
 }
 
-macro_rules! impl_reducible {
-    ($ty:ty) => {
-        impl Reducible for $ty {
-            fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
-                match op {
-                    ReduceOp::Sum => a + b,
-                    ReduceOp::Product => a * b,
-                    ReduceOp::Max => {
-                        if a > b {
-                            a
-                        } else {
-                            b
-                        }
-                    }
-                    ReduceOp::Min => {
-                        if a < b {
-                            a
-                        } else {
-                            b
-                        }
-                    }
-                }
+/// Shared reduction body for every numeric primitive (same arithmetic the
+/// per-type impls below delegate to, so overflow behaviour is unchanged).
+fn combine_ordered<T>(op: ReduceOp, a: T, b: T) -> T
+where
+    T: PartialOrd + core::ops::Add<Output = T> + core::ops::Mul<Output = T>,
+{
+    match op {
+        ReduceOp::Sum => a + b,
+        ReduceOp::Product => a * b,
+        ReduceOp::Max => {
+            if a > b {
+                a
+            } else {
+                b
             }
         }
-    };
+        ReduceOp::Min => {
+            if a < b {
+                a
+            } else {
+                b
+            }
+        }
+    }
 }
 
-impl_reducible!(i8);
-impl_reducible!(i16);
-impl_reducible!(i32);
-impl_reducible!(i64);
-impl_reducible!(u8);
-impl_reducible!(u16);
-impl_reducible!(u32);
-impl_reducible!(u64);
-impl_reducible!(f32);
-impl_reducible!(f64);
+impl Reducible for i8 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for i16 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for i32 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for i64 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for u8 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for u16 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for u32 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for u64 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for f32 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
+
+impl Reducible for f64 {
+    fn combine(op: ReduceOp, a: Self, b: Self) -> Self {
+        combine_ordered(op, a, b)
+    }
+}
 
 impl Communicator {
     /// Validate a `root` rank against the communicator size.
@@ -215,6 +318,26 @@ impl Communicator {
         root: i32,
     ) -> MpiResult<Option<Vec<T>>> {
         self.check_root(root)?;
+        // MPICH's selection (`MPIR_Reduce_intra_auto`, the 2 KiB `REDUCE_SHORT_MSG_SIZE`
+        // default): long messages with at least `pof2` elements go to Rabenseifner's
+        // reduce-scatter + gather, everything else to the binomial tree. Measured on
+        // MPICH 4.2.0: 256 doubles take the binomial, 257 the reduce-scatter-gather.
+        let pof2 = largest_power_of_two_le(self.size()) as usize;
+        let bytes = sendbuf.len() * T::DATATYPE.size();
+        if bytes > REDUCE_SHORT_MSG_SIZE && sendbuf.len() >= pof2 {
+            return self.reduce_scatter_gather(sendbuf, op, root);
+        }
+        self.reduce_binomial(sendbuf, op, root)
+    }
+
+    /// Binomial-tree reduce onto `root`: a translation of MPICH's
+    /// `MPIR_Reduce_intra_binomial` for a commutative op (see the module header).
+    fn reduce_binomial<T: Reducible>(
+        &self,
+        sendbuf: &[T],
+        op: ReduceOp,
+        root: i32,
+    ) -> MpiResult<Option<Vec<T>>> {
         let ctx = self.coll_ctx();
         let size = self.size();
         let rel = (self.rank() - root).rem_euclid(size);
@@ -250,19 +373,249 @@ impl Communicator {
         Ok(Some(acc))
     }
 
+    /// Rabenseifner's reduce (recursive-halving reduce-scatter, then a binomial gather
+    /// to `root`): a translation of MPICH's `MPIR_Reduce_intra_reduce_scatter_gather`
+    /// (`src/mpi/coll/reduce/reduce_intra_reduce_scatter_gather.c`, v4.2.0) for a
+    /// predefined (commutative) op. Requires `sendbuf.len() >= pof2`.
+    ///
+    /// The association order of every element is the fold-then-butterfly of the
+    /// reduce-scatter and does **not** depend on `root`, which is why floating-point
+    /// sums of long messages differ from the rooted binomial tree.
+    fn reduce_scatter_gather<T: Reducible>(
+        &self,
+        sendbuf: &[T],
+        op: ReduceOp,
+        root: i32,
+    ) -> MpiResult<Option<Vec<T>>> {
+        let ctx = self.coll_ctx();
+        let size = self.size();
+        let rank = self.rank();
+        let count = sendbuf.len();
+        let mut recvbuf = sendbuf.to_vec();
+
+        let pof2 = largest_power_of_two_le(size);
+        let rem = size - pof2;
+        let p = pof2 as usize;
+
+        // Fold the odd ranks below 2*rem onto their left neighbours.
+        let mut newrank: i32;
+        if rank < 2 * rem {
+            if rank % 2 != 0 {
+                self.send_ctx(&recvbuf, rank - 1, TAG_REDUCE, ctx)?;
+                newrank = -1;
+            } else {
+                let (tmp, _status) = self.recv_ctx::<T>(rank + 1, TAG_REDUCE, ctx)?;
+                combine_into(op, &mut recvbuf, &tmp)?;
+                newrank = rank / 2;
+            }
+        } else {
+            newrank = rank - rem;
+        }
+
+        // Segment sizes and displacements (computed on every rank: an excluded root
+        // needs them later, as in upstream).
+        let mut cnts = vec![count / p; p];
+        for c in cnts.iter_mut().take(count % p) {
+            *c += 1;
+        }
+        let mut disps = vec![0usize; p];
+        for i in 1..p {
+            disps[i] = disps[i - 1] + cnts[i - 1];
+        }
+        let seg_len = |lo: usize, hi: usize| -> usize { cnts[lo..hi].iter().sum() };
+
+        let mut send_idx = 0usize;
+        let mut recv_idx = 0usize;
+        let mut last_idx = 0usize;
+
+        if newrank != -1 {
+            let mut mask: i32 = 1;
+            last_idx = p;
+            while mask < pof2 {
+                let newdst = newrank ^ mask;
+                let dst = if newdst < rem {
+                    newdst * 2
+                } else {
+                    newdst + rem
+                };
+                let half = p / (mask as usize * 2);
+                let (send_cnt, recv_cnt);
+                if newrank < newdst {
+                    send_idx = recv_idx + half;
+                    send_cnt = seg_len(send_idx, last_idx);
+                    recv_cnt = seg_len(recv_idx, send_idx);
+                } else {
+                    recv_idx = send_idx + half;
+                    send_cnt = seg_len(send_idx, recv_idx);
+                    recv_cnt = seg_len(recv_idx, last_idx);
+                }
+                let s0 = disps[send_idx];
+                self.send_ctx(&recvbuf[s0..s0 + send_cnt], dst, TAG_REDUCE, ctx)?;
+                let (tmp, _status) = self.recv_ctx::<T>(dst, TAG_REDUCE, ctx)?;
+                let r0 = disps[recv_idx];
+                combine_into(op, &mut recvbuf[r0..r0 + recv_cnt], &tmp)?;
+                send_idx = recv_idx;
+                mask <<= 1;
+                if mask < pof2 {
+                    last_idx = recv_idx + p / mask as usize;
+                }
+            }
+        }
+
+        // Gather to the root. If the root was folded away (odd and below 2*rem),
+        // rank 0 hands its segment to the root, which then plays newrank 0.
+        let newroot: i32;
+        if root < 2 * rem {
+            if root % 2 != 0 {
+                if rank == root {
+                    let (seg, _status) = self.recv_ctx::<T>(0, TAG_REDUCE, ctx)?;
+                    recvbuf[..seg.len()].copy_from_slice(&seg);
+                    newrank = 0;
+                    send_idx = 0;
+                    last_idx = 2;
+                } else if newrank == 0 {
+                    self.send_ctx(&recvbuf[..cnts[0]], root, TAG_REDUCE, ctx)?;
+                    newrank = -1;
+                }
+                newroot = 0;
+            } else {
+                newroot = root / 2;
+            }
+        } else {
+            newroot = root - rem;
+        }
+
+        if newrank != -1 {
+            let mut j: i32 = 0;
+            let mut mask: i32 = 1;
+            while mask < pof2 {
+                mask <<= 1;
+                j += 1;
+            }
+            mask >>= 1;
+            j -= 1;
+            while mask > 0 {
+                let newdst = newrank ^ mask;
+                let mut dst = if newdst < rem {
+                    newdst * 2
+                } else {
+                    newdst + rem
+                };
+                if newdst == 0 && root < 2 * rem && root % 2 != 0 {
+                    dst = root;
+                }
+                let newdst_tree_root = (newdst >> j) << j;
+                let newroot_tree_root = (newroot >> j) << j;
+                let half = p / (mask as usize * 2);
+                let (send_cnt, recv_cnt);
+                if newrank < newdst {
+                    if mask != pof2 / 2 {
+                        last_idx += half;
+                    }
+                    recv_idx = send_idx + half;
+                    send_cnt = seg_len(send_idx, recv_idx);
+                    recv_cnt = seg_len(recv_idx, last_idx);
+                } else {
+                    recv_idx = send_idx - half;
+                    send_cnt = seg_len(send_idx, last_idx);
+                    recv_cnt = seg_len(recv_idx, send_idx);
+                }
+                if newdst_tree_root == newroot_tree_root {
+                    let s0 = disps[send_idx];
+                    self.send_ctx(&recvbuf[s0..s0 + send_cnt], dst, TAG_REDUCE, ctx)?;
+                    break;
+                }
+                let (seg, _status) = self.recv_ctx::<T>(dst, TAG_REDUCE, ctx)?;
+                let r0 = disps[recv_idx];
+                recvbuf[r0..r0 + recv_cnt].copy_from_slice(&seg);
+                if newrank > newdst {
+                    send_idx = recv_idx;
+                }
+                mask >>= 1;
+                j -= 1;
+            }
+        }
+
+        if rank == root {
+            Ok(Some(recvbuf))
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Element-wise reduce onto every rank (mirrors `MPI_Allreduce`).
     ///
-    /// Implemented as [`reduce`](Communicator::reduce) onto rank 0 followed by a
-    /// [`broadcast`](Communicator::broadcast); every rank returns the result.
+    /// Recursive doubling, a translation of MPICH's
+    /// `MPIR_Allreduce_intra_recursive_doubling`
+    /// (`src/mpi/coll/allreduce/allreduce_intra_recursive_doubling.c`, identical
+    /// algorithm in v3.3 through v4.3.2): a non-power-of-two communicator first folds
+    /// its even ranks below `2 * rem` onto their odd neighbours, the remaining
+    /// power-of-two ranks exchange and combine with partners at distance 1, 2, 4, ...,
+    /// and the folded ranks receive the result at the end. Every rank returns the
+    /// result.
+    ///
+    /// ~~Reduce onto rank 0 followed by a broadcast.~~ **CORRECTED 2026-11-13
+    /// (gh:#1435):** that tree associates floating-point sums differently from MPICH
+    /// at 5 ranks (and, by the same fold, at larger non-power-of-two sizes), so the
+    /// sums differed in the last bit; measured against MPICH 4.2.0 in
+    /// `tests/mpich_differential.rs`.
+    ///
+    /// MPICH's default for long messages (`reduce_scatter_allgather`) has the same
+    /// per-element association as recursive doubling (it halves with `mask = 1`
+    /// first), so the bits agree with MPICH for every size measured (n = 2..=8);
+    /// only the communication volume differs.
     ///
     /// # Errors
-    /// As [`Communicator::reduce`].
+    /// [`MpiError::InvalidArgument`] if a partner's buffer length disagrees with this
+    /// rank's.
     pub fn all_reduce<T: Reducible>(&self, sendbuf: &[T], op: ReduceOp) -> MpiResult<Vec<T>> {
-        let reduced = self.reduce(sendbuf, op, 0)?;
-        match reduced {
-            Some(r) => self.broadcast(Some(&r), 0),
-            None => self.broadcast(None, 0),
+        let ctx = self.coll_ctx();
+        let size = self.size();
+        let rank = self.rank();
+        let mut acc = sendbuf.to_vec();
+
+        let pof2 = largest_power_of_two_le(size);
+        let rem = size - pof2;
+
+        let newrank: i32;
+        if rank < 2 * rem {
+            if rank % 2 == 0 {
+                self.send_ctx(&acc, rank + 1, TAG_ALLREDUCE, ctx)?;
+                newrank = -1;
+            } else {
+                let (tmp, _status) = self.recv_ctx::<T>(rank - 1, TAG_ALLREDUCE, ctx)?;
+                combine_into(op, &mut acc, &tmp)?;
+                newrank = rank / 2;
+            }
+        } else {
+            newrank = rank - rem;
         }
+
+        if newrank != -1 {
+            let mut mask = 1;
+            while mask < pof2 {
+                let newdst = newrank ^ mask;
+                let dst = if newdst < rem {
+                    newdst * 2 + 1
+                } else {
+                    newdst + rem
+                };
+                self.send_ctx(&acc, dst, TAG_ALLREDUCE, ctx)?;
+                let (tmp, _status) = self.recv_ctx::<T>(dst, TAG_ALLREDUCE, ctx)?;
+                combine_into(op, &mut acc, &tmp)?;
+                mask <<= 1;
+            }
+        }
+
+        if rank < 2 * rem {
+            if rank % 2 != 0 {
+                self.send_ctx(&acc, rank - 1, TAG_ALLREDUCE, ctx)?;
+            } else {
+                let (res, _status) = self.recv_ctx::<T>(rank + 1, TAG_ALLREDUCE, ctx)?;
+                acc = res;
+            }
+        }
+        Ok(acc)
     }
 
     /// Scatter equal-sized `count`-element chunks of `root`'s buffer to each rank

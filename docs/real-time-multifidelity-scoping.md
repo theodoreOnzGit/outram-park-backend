@@ -113,8 +113,11 @@ things that actually run.
   absent from the reactor slate. It is nonetheless the only genuinely real-time,
   operator-in-the-loop, experimentally-validated model in the workspace, and
   every real-time claim below is anchored to it.
-- **`htgr_sim_v1` is a prismatic HTGR**, distinct from the pebble-bed HTR-10 it
-  is filed under. `docs/reactor-scoping/htr10.md:19-25` says so; the README's
+- ~~**`htgr_sim_v1` is a prismatic HTGR**, distinct from the pebble-bed HTR-10 it
+  is filed under.~~ **CORRECTED 2026-11-03** — `htgr_sim_v1` was retargeted
+  in place to the pebble-bed HTR-10 on 2026-08-12 (its
+  `physics/mod.rs` "This core used to be prismatic" section); the rest of this
+  bullet describes the earlier state. `docs/reactor-scoping/htr10.md:19-25` says so; the README's
   readiness table does not, and reads as though HTR-10 has an app shell.
 
 Full inventory of simulator-shaped targets found:
@@ -133,7 +136,7 @@ Full inventory of simulator-shaped targets found:
 | `triso_simulator`, `boon_lay_decay_simulator`, `first_passage_realtime` | `crates/boon-lay/examples/` | fuel/source-term, GUI |
 
 **Four near-clone FHR simulators exist across four crates.** `fhr.md:19-32`
-records three; the fourth (`crates/tampines/examples/fhr_sim_v2`) is a second
+records three; the fourth (~~`crates/tampines/examples/fhr_sim_v2`~~ `crates/nee_soon/examples/fhr_sim_v2`, moved 2026-11-05) is a second
 copy of the canonical one. This is a maintenance liability and a real-time
 liability both — see §5.4.
 
@@ -147,8 +150,8 @@ however much code sits either side of it.
 |---|---|---|---|---|
 | **CIET** (facility, not in the slate) | Not scoped as a reactor | **Full plant, GUI + headless + OPC-UA.** Coupled DRACS + primary natural circulation on `tuas` CIET components; user-settable Courant-clamped timestep; wall-clock-paced physics thread at `crates/outram-park-digital-twin-engine/src/bin/ciet_educational_simulator_v2/ciet_simulator_v2/app/panels_and_pages/full_simulation/mod.rs:546` | **1 — lumped/system TH.** Plus a runtime mesh-fidelity switch (`HeaterType`, 8 vs 15 axial nodes, `src/ciet_opcua/state.rs:68`) | **Yes, measured** [M] |
 | **FHR** (gFHR / Mk1 PB-FHR) | Three-loop plant, PRKE + TH + Rankine secondary | `fhr_sim_v2` runs: 3 wall-paced threads (PRKE 1 ms, TH 0.1 s, plots). Four-branch primary + two-branch intermediate solved by root-finding; 15-cell compressible SG tube | **2 — point kinetics (`nordheim_fuchs` + 5-group delayed) and lumped TH.** No spatial neutronics | **Yes by construction; three live `todo!()` panic paths in the flow solver** (`examples/fhr_sim_v2/app/thermal_hydraulics_backend/.../parallel_branch_flow_calculator.rs:411,454,470`) |
-| **HTGR (prismatic)** — the thing filed under HTR-10 | Pebble-bed HTR-10 | `htgr_sim_v1` runs: prismatic core, CoolProp helium EOS, IF97 Rankine secondary, 12/12 tests pass. **Open-loop pacing** — fixed 10 ms sleep, no drift correction (`examples/htgr_sim_v1/app/mod.rs:42-49,100`) | **2 — prompt excursion + delayed layer, lumped TH** | **Approximately, but uncompensated** — drifts by the compute cost each tick |
-| **HTR-10** (pebble bed) | Pebble bed, helical-coil SG, cavity cooling | **Nothing.** Core model is a rewrite. Packed-bed friction is `todo!()`; bed conductivity is zero code; no graphite properties anywhere | **0** | No |
+| **HTGR (prismatic)** — the thing filed under HTR-10 (**CORRECTED 2026-11-03**: retargeted to the HTR-10 pebble bed on 2026-08-12, see the next row; the other cells of this row are **Not re-checked**) | Pebble-bed HTR-10 | `htgr_sim_v1` runs: ~~prismatic core~~ pebble-bed core, CoolProp helium EOS, IF97 Rankine secondary, 12/12 tests pass. **Open-loop pacing** — fixed 10 ms sleep, no drift correction (`examples/htgr_sim_v1/app/mod.rs:42-49,100`) | **2 — prompt excursion + delayed layer, lumped TH** | **Approximately, but uncompensated** — drifts by the compute cost each tick |
+| **HTR-10** (pebble bed) | Pebble bed, helical-coil SG, cavity cooling | ~~**Nothing.** Core model is a rewrite. Packed-bed friction is `todo!()`; bed conductivity is zero code; no graphite properties anywhere~~ **CORRECTED 2026-11-03** — `htgr_sim_v1` *is* this target since 2026-08-12 (`physics/mod.rs`, "This core used to be prismatic"). Packed-bed friction: `outram-park-digital-twin-engine/src/htr10/kta.rs` (KTA) and `tampines/src/gas_phase/kta_bed.rs`; bed conductivity: `tampines/src/pebble_bed/zbs.rs` and the VTB table `dt-engine/src/htr10/zbs.rs`; graphite: `tuas_boussinesq_solver/.../solid_database/nuclear_graphite.rs`; passive cavity path: `htgr_sim_v1/physics/decay_heat_removal.rs`. Fidelity level and real-time columns **Not re-checked** (no timing run made for this correction) | ~~**0**~~ Not re-checked | No |
 | **MSRE** | Circulating fuel, salt-to-air radiator | `outram-park-fork-moltres` runs standalone: 20 tests pass, coupled circulating-fuel eigenvalue + precursor drift + Picard salt-thermal coupling. **Zero dependents** — wired into nothing | **1 — spatial (1-D ring) steady eigenvalue only.** No coupled flux transient; no reduced circulating-fuel PRKE | **No — 1.14 s per solve** [M] |
 | **BWR** (natural circulation) | Direct cycle, chimney, separator, void feedback | **Closures only.** `outram-foam-multiphase` 67 tests of real drift-flux / RPI wall boiling / CHF; `tampines/src/multiphase_1d/drift_flux.rs` 1-D marcher. **No heated channel, no separator, no loop closure, no void reactivity in any kinetics path** | **0 as an integrated plant** | No |
 | **iPWR** | Integral PWR, helical-coil once-through SG, pressuriser | **Nothing assembled.** IF97 is the workspace's strongest asset (937 tests, tested at 100–220 bar); TUAS has no water arm and is pressure-blind; no pressuriser code exists anywhere | **0** | No |
@@ -281,7 +284,7 @@ valve and cooling tower all return not-implemented; only `Pipe::step` is real.
 Five of its 26 files (`single_phase/`, `compressible/`, `heat_transfer/`,
 `hem/`, `critical_flow/`) are **pure `pub use` re-export files** and say so. The
 engine widgets that wrap the stubs therefore render as flat rectangles by design
-(`crates/outram-park-digital-twin-engine/src/components/condenser.rs:34-38`).
+(~~`crates/outram-park-digital-twin-engine/src/components/condenser.rs:34-38`~~ `crates/bugis/src/components/condenser.rs:34-38` (moved 2026-11-02, gh:#1112; line numbers not re-checked)).
 
 **The one exception is worth flagging as a risk, not an asset.** `DriftFlux1d`
 (`crates/tampines/src/multiphase_1d/drift_flux.rs:232`, `step()` at `:569`) is a

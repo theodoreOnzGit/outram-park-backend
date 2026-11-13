@@ -2,6 +2,16 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/automatic_timestep_using_lumped_capacitance.rs::lumped_capacitance_timestep_adjustment",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/automatic_timestep_using_lumped_capacitance.rs::lumped_capacitance_timestep_adjustment_improved_api",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/automatic_timestep_using_lumped_capacitance.rs::short_version_lumped_capacitance_timestep_adjustment_improved_api",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/lumped_heat_capacitance.rs::lumped_heat_capacitance_steel_ball_in_air",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/lumped_heat_capacitance.rs::lumped_heat_capacitance_steel_ball_in_air_improved_api",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/mixing_joint.rs::adiabatic_mixing_joint_test_single_cv_only",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/semi_infinite_one_dimension_transient_conduction.rs::arraycv_transient_conduction_copper_medium",
+    "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests/semi_infinite_one_dimension_transient_conduction.rs::transient_conduction_semi_infinite_copper_medium",
+]
 
 [module."automatic_timestep_using_lumped_capacitance.rs"]
 path = "crate::single_control_vol::tests::automatic_timestep_using_lumped_capacitance"
@@ -298,3 +308,19 @@ uses = [
     "fn:a6efe5f766b47fef",
 ]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+failed = []

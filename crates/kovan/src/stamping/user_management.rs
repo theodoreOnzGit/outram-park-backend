@@ -20,7 +20,9 @@
 //! **Nothing here invents a trust rule.** Every status is read from the
 //! #762 [`Registry`]; every action is a registry signature
 //! (`UnlockedKey::{admit, endorse, unretire, revoke, revoke_key,
-//! sign_roster_event}`, or the unsigned [`retire_key`]) written by the
+//! sign_roster_event, retire_key}`; ~~or the unsigned `registry::retire_key`~~
+//! **CORRECTED 2026-11-05 (GitHub #1249):** a key retirement is signed too,
+//! by the key's owner, a founder or a maintainer) written by the
 //! `kovan_common::review::root_append` text appenders, which keep every
 //! byte and read the result back.
 //!
@@ -34,12 +36,41 @@
 //! the registry already replays; a dedicated two-party event would need its
 //! own rules for the same outcome).
 //!
-//! **No maintainer left?** There is no bypass of the signature rules. The
-//! repository owners' route is an ordinary reviewed commit: they declare a
-//! new founder (`[code_review] founder`, a maintainer entry with no
-//! admission, trusted on first use). Until a founder-succession record
+//! **No maintainer left?** There is no bypass of the signature rules.
+//! ~~The repository owners' route is an ordinary reviewed commit: they
+//! declare a new founder (`[code_review] founder`, a maintainer entry with
+//! no admission, trusted on first use). Until a founder-succession record
 //! exists (GitHub #1022), that re-roots trust, and admissions signed by the
-//! old founder's chain then need re-signing by the new one.
+//! old founder's chain then need re-signing by the new one.~~ **CORRECTED
+//! 2026-11-05 (GitHub #1248, [`founders`]):** founders are a list; a
+//! founder adds another and retires themselves (a retired founder keeps
+//! standing for everything dated before, so the old chain still verifies);
+//! when no founder has an active key the maintainers elect one by signed
+//! ballot; only when nobody at all has an active key does an unsigned
+//! `[[code_review.founder_change]]` by a reviewed commit count, shown
+//! forever as "trust root replaced by repository commit".
+//!
+//! **Organisations & IV&V live here too (GitHub #1211, maintainer
+//! 2026-11-04).** The separate "Organisations & IV&V" window is gone; its
+//! forms are this tab's collapsing sections and its signings are
+//! [`UserAction`]s ([`UserAction::DevelopingOrganisation`],
+//! [`UserAction::ReviewerOrganisation`], [`UserAction::Attestation`],
+//! [`UserAction::RetireOrganisation`]) over
+//! [`super::organisations`]. Organisation records and their retirements
+//! are signed by the **founder** only; the separation attestation by the
+//! reviewer alone.
+//!
+//! **The two key pathways (#1211):** (a) *validate an existing key*:
+//! [`UserAction::Admit`], the existing admission flow; (b) *issue a
+//! validated keyfile*: [`issue::issue_keyfile`] generates a key pair for
+//! another person, admits it in the same write and saves it encrypted under
+//! a passphrase the signer types, to hand over. ~~Any admitted maintainer
+//! admits~~ **CORRECTED 2026-11-04**: kovan writes new admissions
+//! founder-signed only. ~~Founder-only~~ **CORRECTED AGAIN 2026-11-05
+//! (GitHub #1249, maintainer: "founder and other maintainers should be able
+//! to validate reviewers"):** both pathways are open to any admitted
+//! maintainer (a founder is one), [`maintainer_signer`]. Organisation
+//! records and their retirements stay founder-only ([`founder_signer`]).
 //!
 //! **No lag** (root `CLAUDE.md`, HARD RULE): loading (git facts, the
 //! engine) and acting (the KDF, signing, the write) run on [`Worker`]s;
@@ -55,7 +86,7 @@ use kovan_common::review::scope::in_scope;
 use kovan_common::review::signed_at::{date_of, now_local};
 use kovan_common::review::signing::keystore::{fingerprint, Keystore, UnlockedKey};
 use kovan_common::review::signing::registry::{
-    retire_key, Admission, AdmissionProblem, FounderProblem, HistoryProblem, InactiveKind, KeyProblem,
+    Admission, AdmissionProblem, FounderProblem, HistoryProblem, InactiveKind, KeyProblem,
     KeyStatus, KeyTrust, Registry, ReviewerTrust, RosterChange, RosterProblem, SignerProblem, Warning,
 };
 use kovan_common::review::signing::session::{with_session_key, SharedKeySession};
@@ -64,7 +95,18 @@ use kovan_common::review::types::AGENT_ID_PREFIX;
 use zeroize::Zeroize;
 
 use super::flow::{find_keys, session_holds, sign_failure, KeyInfo, SignFailure, Worker};
+use super::organisations::{
+    add_developing_organisation, add_reviewer_organisation, add_separation_attestation,
+    attestation_problems, overview_of, prefill_attestation, retire_organisation, retire_problems,
+    AttestationInput, OrgForms, OrgRecordRef, Overview,
+};
 use super::{write_text, Workspace, ROOT_FILE};
+
+#[path = "user_management_issue.rs"]
+pub mod issue;
+
+#[path = "user_management_founders.rs"]
+pub mod founders;
 
 /// The issue for what the registry cannot express yet.
 /// Today, `YYYY-MM-DD`, local.
@@ -155,6 +197,13 @@ fn admission_problem_text(p: &AdmissionProblem) -> String {
 
 fn history_problem_text(p: &HistoryProblem) -> String {
     match p {
+        HistoryProblem::UnsignedRetirementLegacy { index } => {
+            format!("entry {index}: unsigned retirement from before signed retirements (still counts; shown forever)")
+        }
+        HistoryProblem::RetirementNoEffect { index, problem } => format!(
+            "entry {index}: retirement has NO effect (the key stays active): {}; it needs the owner's, a founder's or a maintainer's signature",
+            signer_text(problem)
+        ),
         HistoryProblem::MissingCreated => "history does not start with `created`".into(),
         HistoryProblem::CreatedNotFirst { index } => format!("entry {index}: a second `created`"),
         HistoryProblem::BadDate { index, date } => format!("entry {index}: bad date {date:?}"),
@@ -199,6 +248,28 @@ pub fn warning_text(w: &Warning) -> String {
         Warning::RosterEvent { index, reviewer, problem } => {
             format!("Roster event {} about {reviewer} has no effect: {}.", index + 1, roster_problem_text(problem))
         }
+        Warning::FounderListed(p) => match p {
+            FounderProblem::NotDeclared => "No founder is declared.".into(),
+            FounderProblem::Unknown(id) => format!("Listed founder {id} is not a listed reviewer: not a founder."),
+            FounderProblem::NotMaintainer(id) => format!("Listed founder {id} is not a maintainer: not a founder."),
+            FounderProblem::HasAdmission(id) => format!("Listed founder {id} carries an admission: not a founder."),
+        },
+        Warning::FounderChange { index, founder, problem } => format!(
+            "Founder change {} about {founder} has no effect: {}.",
+            index + 1,
+            founders::change_problem_text(problem)
+        ),
+        Warning::TrustRootReplacedByCommit { founder, date, reviewed_in } => format!(
+            "Trust root replaced by repository commit: {founder} is a founder from {date} by an unsigned entry{} (shown forever).",
+            reviewed_in.as_deref().map(|r| format!(" ({r})")).unwrap_or_default()
+        ),
+        Warning::FounderBallot(b) => format!("Founder {}.", founders::ballot_line(b)),
+        Warning::FounderVote { index, voter, problem } => format!(
+            "Founder vote {} by {} does not count: {}.",
+            index + 1,
+            if voter.is_empty() { "(no signer)" } else { voter },
+            founders::vote_problem_text(problem)
+        ),
     }
 }
 
@@ -414,6 +485,9 @@ pub struct Roster {
     pub agents: Vec<AgentRow>,
     /// [`Registry::warnings`], in plain words.
     pub warnings: Vec<String>,
+    /// GitHub #1248: the founders, retired founders, ballots and the
+    /// lineage fingerprint, as of today.
+    pub lineage: founders::LineageView,
 }
 
 impl Roster {
@@ -429,10 +503,11 @@ pub fn build_roster(root: &ReviewRoot, eval: Option<&Evaluation>, ws: Option<&Wo
     let registry = Registry::build(root);
     let mut migrated = root.clone();
     migrated.migrate_key_history();
-    let founder = registry.founder.as_ref().ok();
+    // GitHub #1248: ~~the founder~~ the founders in standing now.
+    let current_founders = registry.current_founders();
     let mut reviewers = Vec::new();
     for (r, t) in migrated.reviewers.iter().zip(&registry.reviewers) {
-        let is_founder = founder == Some(&r.id);
+        let is_founder = current_founders.contains(&r.id);
         let (role, scope) = (t.current_role(), t.current_scope().to_vec());
         let novice = t.novice_now().map(|(at, except)| {
             let mut s = format!("novice {}", where_(&at));
@@ -447,6 +522,11 @@ pub fn build_roster(root: &ReviewRoot, eval: Option<&Evaluation>, ws: Option<&Wo
             (Role::Reviewer, true) => "Reviewer \u{b7} founder (stepped down)".to_string(),
             (Role::Reviewer, false) => "Reviewer".to_string(),
         };
+        if !is_founder {
+            if let Some(to) = registry.lineage.retired().iter().filter(|s| s.id == r.id).filter_map(|s| s.to.clone()).last() {
+                role_label.push_str(&format!(" \u{b7} founder until {to}"));
+            }
+        }
         if let Some(n) = &novice {
             role_label.push_str(&format!(" \u{b7} {n}"));
         }
@@ -561,10 +641,11 @@ pub fn build_roster(root: &ReviewRoot, eval: Option<&Evaluation>, ws: Option<&Wo
             .map(|(id, justifications)| AgentRow { id, justifications })
             .collect(),
         warnings: registry.warnings().iter().map(warning_text).collect(),
+        lineage: founders::lineage_view(&registry, &today()),
     }
 }
 
-/// What the tab can sign (or, for retirement, write unsigned).
+/// What the tab can sign (~~or, for retirement, write unsigned~~ every action is signed since GitHub #1249).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UserAction {
     /// Admit a registered reviewer with a role (and scope, for a
@@ -573,7 +654,8 @@ pub enum UserAction {
     Admit { reviewer: String, role: Role, scope: Vec<String>, novice: bool },
     /// Endorse a reviewer's new key with another of their own trusted keys.
     Endorse { reviewer: String, key: String },
-    /// Retire a key (unsigned: it only takes trust away).
+    /// Retire a key, signed by its owner, a founder or a maintainer
+    /// (GitHub #1249; ~~unsigned: it only takes trust away~~).
     RetireKey { reviewer: String, key: String },
     /// Un-retire a key: signed by that very key.
     UnretireKey { reviewer: String, key: String },
@@ -596,6 +678,26 @@ pub enum UserAction {
     /// Promote a novice to trusted from today where `scope` covers (empty:
     /// everywhere).
     Promote { reviewer: String, scope: Vec<String> },
+    /// Sign a developing-organisation record from today (founder only,
+    /// #1211); `krate` empty: workspace-wide.
+    DevelopingOrganisation { name: String, krate: String },
+    /// Sign `reviewer`'s organisation from today (founder only, #1211).
+    ReviewerOrganisation { reviewer: String, name: String },
+    /// Sign a separation attestation as the key's own reviewer (#810).
+    Attestation(AttestationInput),
+    /// Retire an organisation record from today (founder only, #1211).
+    RetireOrganisation(OrgRecordRef),
+    /// GitHub #1248: make an admitted maintainer a founder from today
+    /// (signed by a founder).
+    AddFounder { reviewer: String },
+    /// GitHub #1248: `founder` is no longer a founder from today (signed by
+    /// a founder; retiring yourself is allowed).
+    RetireFounder { founder: String },
+    /// GitHub #1248: open a founder ballot today (`id` empty:
+    /// `ballot-<today>`), only while no founder has an active key.
+    OpenBallot { id: String },
+    /// GitHub #1248: vote for `candidate` in ballot `ballot`.
+    Vote { ballot: String, candidate: String },
 }
 
 impl UserAction {
@@ -615,7 +717,35 @@ impl UserAction {
             Self::HandOver { .. } => "Hand over maintainer",
             Self::MarkNovice { .. } => "Mark novice",
             Self::Promote { .. } => "Promote to trusted",
+            Self::DevelopingOrganisation { .. } | Self::ReviewerOrganisation { .. } => "Sign and record",
+            Self::Attestation(_) => "Sign attestation",
+            Self::RetireOrganisation(_) => "Retire record",
+            Self::AddFounder { .. } => "Add founder",
+            Self::RetireFounder { .. } => "Retire founder",
+            Self::OpenBallot { .. } => "Open ballot",
+            Self::Vote { .. } => "Vote",
         }
+    }
+}
+
+/// Whether `signer` (reviewer, key) may sign as **a founder** on `date`
+/// (GitHub #1211; GitHub #1248: ~~the declared `[code_review] founder`~~
+/// any founder in standing on `date`), a maintainer then, with that key
+/// trusted and active ([`maintainer_signer`]). `Err` says why not, naming
+/// the founders.
+pub fn founder_signer(registry: &Registry, signer: (&str, &str), date: &str) -> Result<(), String> {
+    if registry.is_founder_on(signer.0, date) {
+        return maintainer_signer(registry, signer, date);
+    }
+    let now: Vec<String> = registry.lineage.founders_on(date).map(|s| s.id.clone()).collect();
+    if now.is_empty() {
+        let why = match &registry.founder {
+            Err(p) => format!(" {}", warning_text(&Warning::NoFounder(p.clone()))),
+            Ok(_) => String::new(),
+        };
+        Err(format!("Only a founder may do this, and nobody is a founder now.{why}"))
+    } else {
+        Err(format!("Only a founder ({}) may do this; {} is not a founder.", now.join(", "), signer.0))
     }
 }
 
@@ -667,6 +797,9 @@ pub fn action_problems(root: &ReviewRoot, signer: Option<(&str, &str)>, action: 
             if *novice && *role == Role::Maintainer {
                 need(Err("A maintainer is never a novice.".into()));
             }
+            // ~~maintainer_signer~~ (GitHub #1211): validating a key is the
+            // founder's alone. ~~founder_signer~~ CORRECTED 2026-11-05
+            // (GitHub #1249): any admitted maintainer validates a key.
             need(maintainer_signer(&registry, signer, date));
             match target_of(reviewer) {
                 None => need(Err(format!("{reviewer} is not registered: they register their key from a Stamp first."))),
@@ -701,9 +834,15 @@ pub fn action_problems(root: &ReviewRoot, signer: Option<(&str, &str)>, action: 
             }
         }
         UserAction::RetireKey { reviewer, key } => {
-            if signer.0 != reviewer {
+            // Signed (GitHub #1249): the owner with any trusted, active key
+            // of theirs, or a founder or maintainer.
+            if signer.0 == reviewer {
+                if let Some(r) = target_of(reviewer) {
+                    need(own_key_active(r, signer.1, date));
+                }
+            } else {
                 need(maintainer_signer(&registry, signer, date).map_err(|_| {
-                    format!("Only {reviewer} or an admitted maintainer retires this key.")
+                    format!("Only {reviewer}, a founder or an admitted maintainer retires this key.")
                 }));
             }
             match key_of(reviewer, key) {
@@ -794,6 +933,43 @@ pub fn action_problems(root: &ReviewRoot, signer: Option<(&str, &str)>, action: 
                 need(Err(format!("{reviewer} is not a novice anywhere.")));
             }
         }
+        UserAction::DevelopingOrganisation { name, .. } => {
+            need(founder_signer(&registry, signer, date));
+            if name.trim().is_empty() {
+                need(Err("Enter the developing organisation.".into()));
+            }
+        }
+        UserAction::ReviewerOrganisation { reviewer, name } => {
+            need(founder_signer(&registry, signer, date));
+            if reviewer.trim().is_empty() {
+                need(Err("Choose the reviewer.".into()));
+            } else if root.reviewer(reviewer.trim()).is_none() {
+                need(Err(format!("{reviewer} is not in kovan_root.toml.")));
+            }
+            if name.trim().is_empty() {
+                need(Err("Enter the reviewer's organisation.".into()));
+            }
+        }
+        UserAction::Attestation(input) => {
+            // Signed by the reviewer alone, with their own key (#809).
+            for e in attestation_problems(root, signer.0, input) {
+                need(Err(e));
+            }
+        }
+        UserAction::RetireOrganisation(target) => {
+            need(founder_signer(&registry, signer, date));
+            for e in retire_problems(root, target) {
+                need(Err(e));
+            }
+        }
+        UserAction::AddFounder { .. }
+        | UserAction::RetireFounder { .. }
+        | UserAction::OpenBallot { .. }
+        | UserAction::Vote { .. } => {
+            for e in founders::founder_action_problems(root, &registry, signer, action, date) {
+                need(Err(e));
+            }
+        }
     }
     p
 }
@@ -874,9 +1050,9 @@ pub fn apply_action(root: &Path, key: &UnlockedKey, action: &UserAction, date: &
         }
         UserAction::RetireKey { reviewer, key: kid } => {
             let mut k = stored_key(reviewer, kid)?;
-            retire_key(&mut k, date).map_err(|e| err(&e))?;
+            key.retire_key(reviewer, &mut k, date).map_err(|e| err(&e))?;
             let t = append_key_event(&text, reviewer, kid, k.history.last().ok_or("no event")?).map_err(|e| err(&e))?;
-            (t, format!("Retired {reviewer}'s key {kid} from {date} (unsigned: retiring only takes trust away)."))
+            (t, format!("Retired {reviewer}'s key {kid} from {date}, signed with your key {}.", key.key_id()))
         }
         UserAction::UnretireKey { reviewer, key: kid } => {
             let mut k = stored_key(reviewer, kid)?;
@@ -936,9 +1112,53 @@ pub fn apply_action(root: &Path, key: &UnlockedKey, action: &UserAction, date: &
             let t = append_roster_event(&text, &e).map_err(|x| err(&x))?;
             (t, format!("{reviewer} is trusted ({}) from {date}: their later stamps there count alone.", where_(&e.scope)))
         }
+        UserAction::DevelopingOrganisation { .. }
+        | UserAction::ReviewerOrganisation { .. }
+        | UserAction::Attestation(_)
+        | UserAction::RetireOrganisation(_) => return apply_organisation_action(root, key, action, date),
+        UserAction::AddFounder { .. }
+        | UserAction::RetireFounder { .. }
+        | UserAction::OpenBallot { .. }
+        | UserAction::Vote { .. } => founders::apply_founder_action(&text, &parsed, key, action, date)?,
     };
     write_text(&path, &new)?;
     Ok(notice)
+}
+
+/// The organisation actions (#810, #1211): each [`super::organisations`]
+/// function re-reads, re-checks, signs and appends; the notice to show.
+fn apply_organisation_action(root: &Path, key: &UnlockedKey, action: &UserAction, date: &str) -> Result<String, String> {
+    match action {
+        UserAction::DevelopingOrganisation { name, krate } => {
+            let krate = Some(krate.trim()).filter(|c| !c.is_empty());
+            add_developing_organisation(root, key, name, krate, date).map(|e| {
+                format!(
+                    "Signed and recorded the developing organisation {} ({}) from {}.",
+                    e.name,
+                    e.krate.map_or("workspace".into(), |c| format!("crate {c}")),
+                    e.date
+                )
+            })
+        }
+        UserAction::ReviewerOrganisation { reviewer, name } => add_reviewer_organisation(root, key, reviewer, name, date)
+            .map(|e| format!("Signed and recorded {}'s organisation {} from {}.", reviewer.trim(), e.name, e.date)),
+        UserAction::Attestation(input) => {
+            let input = AttestationInput { date: date.to_string(), ..input.clone() };
+            add_separation_attestation(root, key, &input).map(|a| {
+                format!(
+                    "Signed and recorded separation attestation {}: {} is separate from {}.",
+                    a.id, a.organisation, a.developing_organisation
+                )
+            })
+        }
+        UserAction::RetireOrganisation(target) => retire_organisation(root, key, target, date).map(|r| {
+            format!(
+                "Retired {} from {}: it stays listed, marked retired, and no longer counts.",
+                target.name, r.date
+            )
+        }),
+        other => Err(format!("{} is not an organisation action.", other.label())),
+    }
 }
 
 /// What the load worker reads.
@@ -948,6 +1168,8 @@ pub struct Loaded {
     pub roster: Roster,
     /// Why stamps and coverage are missing, if they are.
     pub note: Option<String>,
+    /// The organisation records and attestations (#810, #1211).
+    pub ivv: Overview,
 }
 
 type LoadResult = Result<(Vec<KeyInfo>, Loaded), String>;
@@ -1008,7 +1230,20 @@ pub struct UserPanel {
     pub passphrase: String,
     pub notices: Vec<String>,
     pub error: Option<String>,
+    /// The organisation sections' forms (#810, #1211).
+    pub orgs: OrgForms,
+    /// "Issue a validated keyfile" (#1211, pathway b).
+    pub issue: issue::IssueForm,
+    /// "Founders & lineage" (GitHub #1248).
+    pub founder_forms: founders::FounderForms,
+    /// The keyfile's default name, while the host should open a save
+    /// picker for it ([`Self::take_issue_pick`]).
+    issue_pick: Option<String>,
     job: Option<Job>,
+    /// The action of the job running (or last run).
+    acting: Option<UserAction>,
+    /// The job running issues a keyfile.
+    issuing: bool,
     /// An action wrote `kovan_root.toml` since the host last asked
     /// ([`Self::take_changed`]).
     changed: bool,
@@ -1041,7 +1276,13 @@ impl UserPanel {
             passphrase: String::new(),
             notices: Vec::new(),
             error: None,
+            orgs: OrgForms::default(),
+            issue: issue::IssueForm::default(),
+            founder_forms: founders::FounderForms::default(),
+            issue_pick: None,
             job: None,
+            acting: None,
+            issuing: false,
             changed: false,
         };
         p.load();
@@ -1102,17 +1343,30 @@ impl UserPanel {
                         .or_else(|| self.keys.iter().position(|k| k.registered))
                         .unwrap_or(0);
                     self.data = Some(Ok(loaded));
+                    self.prefill_attestation();
                 }
             },
             Job::Act(w) => match w.try_take() {
                 None => self.job = Some(Job::Act(w)),
                 Some(Err(SignFailure::WrongPassphrase)) => {
+                    self.issuing = false;
                     self.error = Some("Wrong passphrase (or the key file was altered). Nothing was written.".into());
                 }
-                Some(Err(SignFailure::Other(e))) => self.error = Some(format!("{e} Nothing was written.")),
+                Some(Err(SignFailure::Other(e))) => {
+                    self.issuing = false;
+                    self.error = Some(format!("{e} Nothing was written."));
+                }
                 Some(Ok(n)) => {
                     self.notices.push(n);
                     self.changed = true;
+                    if std::mem::take(&mut self.issuing) {
+                        // Issued: the form (and its passphrases, zeroised
+                        // on drop) starts afresh.
+                        self.issue = issue::IssueForm::default();
+                    } else if matches!(self.acting, Some(UserAction::Attestation(_))) {
+                        // Written: start the next one afresh (a new id).
+                        self.orgs.attestation = AttestationInput::default();
+                    }
                     self.load();
                 }
             },
@@ -1154,11 +1408,136 @@ impl UserPanel {
         let (root, ks, session) = (self.root.clone(), self.keystore.clone(), self.session.clone());
         self.error = None;
         let date = today();
+        self.acting = Some(action.clone());
         self.job = Some(Job::Act(Worker::spawn(move || {
             let kf = ks.load(&k.reviewer, &k.key).map_err(|e| SignFailure::Other(e.to_string()))?;
             let done = with_session_key(&session, &kf, &pass, |key| apply_action(&root, key, &action, &date));
             pass.zeroize();
             done.map_err(sign_failure)?.map_err(SignFailure::Other)
+        })));
+        true
+    }
+
+    /// The loaded organisation records, if any.
+    pub fn ivv(&self) -> Option<&Overview> {
+        match &self.data {
+            Some(Ok(l)) => Some(&l.ivv),
+            _ => None,
+        }
+    }
+
+    /// Whether the signing key is ~~the founder's~~ a current founder's
+    /// (GitHub #1248; organisation records are a founder's, #1211).
+    pub fn is_founder(&self) -> bool {
+        match (&self.data, self.key()) {
+            (Some(Ok(l)), Some(k)) => k.registered && l.ivv.founders.iter().any(|f| *f == k.reviewer),
+            _ => false,
+        }
+    }
+
+    /// Whether the signing key is an admitted maintainer's now, a founder
+    /// included (GitHub #1249: who validates keys and issues keyfiles); the
+    /// action's own check ([`maintainer_signer`]) is the rule, this only
+    /// opens the sections.
+    pub fn is_maintainer(&self) -> bool {
+        match (self.roster(), self.key()) {
+            (Some(ro), Some(k)) => {
+                k.registered
+                    && ro.reviewer(&k.reviewer).is_some_and(|r| {
+                        r.role == Role::Maintainer && !r.admitted.starts_with("not admitted")
+                    })
+            }
+            _ => false,
+        }
+    }
+
+    /// Start the attestation form from what the root records for the
+    /// signing reviewer ([`prefill_attestation`]); fields already typed are
+    /// kept.
+    pub fn prefill_attestation(&mut self) {
+        let (Some(Ok(l)), Some(k)) = (&self.data, self.keys.get(self.chosen)) else { return };
+        prefill_attestation(&mut self.orgs.attestation, &l.ivv, &l.root, &k.reviewer, &today());
+    }
+
+    /// The developing-organisation form as an action.
+    pub fn developing_action(&self) -> UserAction {
+        UserAction::DevelopingOrganisation { name: self.orgs.dev_name.clone(), krate: self.orgs.dev_crate.clone() }
+    }
+
+    /// The reviewer-organisation form as an action.
+    pub fn reviewer_org_action(&self) -> UserAction {
+        UserAction::ReviewerOrganisation { reviewer: self.orgs.rev_reviewer.clone(), name: self.orgs.rev_name.clone() }
+    }
+
+    /// The attestation form as an action.
+    pub fn attestation_action(&self) -> UserAction {
+        UserAction::Attestation(self.orgs.attestation.clone())
+    }
+
+    /// Ask the host for a save picker for the keyfile to issue (the crate's
+    /// file-picker HARD RULE).
+    pub fn request_issue_destination(&mut self) {
+        self.issue_pick = Some(self.issue.default_file_name());
+    }
+
+    /// The keyfile's default name, once, when a save picker was asked for.
+    pub fn take_issue_pick(&mut self) -> Option<String> {
+        self.issue_pick.take()
+    }
+
+    /// The picked destination of the keyfile to issue.
+    pub fn issue_destination(&mut self, path: PathBuf) {
+        self.issue.dest = Some(path);
+        self.error = None;
+    }
+
+    /// What stops "Issue keyfile" now (empty: the button is enabled): the
+    /// form's own checks, the maintainer-only (GitHub #1249; ~~founder-only~~)
+    /// and registry checks ([`issue::issue_problems`]) and the signer's
+    /// passphrase while the session is locked.
+    pub fn issue_problems(&self) -> Vec<String> {
+        let Some(Ok(l)) = &self.data else {
+            return vec!["Still reading kovan_root.toml.".into()];
+        };
+        let k = self.key();
+        let mut p = issue::issue_problems(&l.root, k.map(|k| (k.reviewer.as_str(), k.key.as_str())), &self.issue.request(), &today());
+        p.extend(self.issue.problems());
+        if k.is_some_and(|k| !k.registered) {
+            p.push("This key is not registered in kovan_root.toml.".into());
+        }
+        if self.passphrase.is_empty() && !self.unlocked() {
+            p.push("Type your own (the signing maintainer's) passphrase (asked once per session).".into());
+        }
+        p
+    }
+
+    /// Issue the keyfile (worker): unlock the founder's key through the
+    /// session, generate the new key, admit it, save it encrypted to the
+    /// picked file ([`issue::issue_keyfile`]). Both passphrases leave the
+    /// form and are zeroised on the worker. Refused (nothing starts) while
+    /// it has problems or a job runs.
+    pub fn submit_issue(&mut self) -> bool {
+        if self.job.is_some() || !self.issue_problems().is_empty() {
+            return false;
+        }
+        let (Some(k), Some(dest)) = (self.key().cloned(), self.issue.dest.clone()) else { return false };
+        let mut pass = std::mem::take(&mut self.passphrase);
+        let mut new_pass = std::mem::take(&mut self.issue.passphrase);
+        self.issue.confirm.zeroize();
+        let req = self.issue.request();
+        let (root, ks, session) = (self.root.clone(), self.keystore.clone(), self.session.clone());
+        self.error = None;
+        let date = today();
+        self.acting = None;
+        self.issuing = true;
+        self.job = Some(Job::Act(Worker::spawn(move || {
+            let loaded = ks.load(&k.reviewer, &k.key).map_err(|e| SignFailure::Other(e.to_string()));
+            let done = loaded.map(|kf| {
+                with_session_key(&session, &kf, &pass, |key| issue::issue_keyfile(&root, key, &req, &new_pass, &dest, &date))
+            });
+            pass.zeroize();
+            new_pass.zeroize();
+            done?.map_err(sign_failure)?.map(|i| i.notice()).map_err(SignFailure::Other)
         })));
         true
     }
@@ -1193,7 +1572,8 @@ fn load(root: &Path, ks: &Keystore) -> LoadResult {
             Some(format!("Stamps and coverage not computed: {e}")),
         ),
     };
-    Ok((found.keys, Loaded { root: parsed, roster, note }))
+    let ivv = overview_of(&parsed);
+    Ok((found.keys, Loaded { root: parsed, roster, note, ivv }))
 }
 
 #[cfg(test)]

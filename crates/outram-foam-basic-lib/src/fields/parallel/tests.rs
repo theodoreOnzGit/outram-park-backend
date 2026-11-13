@@ -939,31 +939,30 @@ fn measure_kernel_timings() {
     let a = sample(N);
     let b = sample_shift(N);
 
-    macro_rules! bench {
-        ($label:expr, $body:expr) => {{
-            let mut best = f64::INFINITY;
-            let _warm = $body;
-            for _ in 0..5 {
-                let t = Instant::now();
-                let out = $body;
-                let dt = t.elapsed().as_secs_f64() * 1.0e6;
-                std::hint::black_box(&out);
-                best = best.min(dt);
-            }
-            println!("{:<24} {:>12.2} us", $label, best);
-            best
-        }};
+    // Best-of-5 wall time of `body` in microseconds, after one warm-up run.
+    fn bench<T>(label: &str, mut body: impl FnMut() -> T) -> f64 {
+        let mut best = f64::INFINITY;
+        let _warm = body();
+        for _ in 0..5 {
+            let t = Instant::now();
+            let out = body();
+            let dt = t.elapsed().as_secs_f64() * 1.0e6;
+            std::hint::black_box(&out);
+            best = best.min(dt);
+        }
+        println!("{:<24} {:>12.2} us", label, best);
+        best
     }
 
     for backend in [ComputeBackend::Serial, ComputeBackend::CpuMulti] {
         println!("--- backend {backend:?} ---");
-        bench!("add", add(backend, &a, &b));
-        bench!("axpy", axpy(backend, &a, 0.5, &b));
-        bench!("pointwise_mul", pointwise_mul(backend, &a, &b));
-        bench!("sum", sum(backend, &a));
-        bench!("l2_norm", l2_norm(backend, &a));
-        bench!("dot", dot(backend, &a, &b));
+        bench("add", || add(backend, &a, &b));
+        bench("axpy", || axpy(backend, &a, 0.5, &b));
+        bench("pointwise_mul", || pointwise_mul(backend, &a, &b));
+        bench("sum", || sum(backend, &a));
+        bench("l2_norm", || l2_norm(backend, &a));
+        bench("dot", || dot(backend, &a, &b));
         let mut y = a.clone();
-        bench!("axpy_assign", axpy_assign(backend, &mut y, 1.0e-9, &b));
+        bench("axpy_assign", || axpy_assign(backend, &mut y, 1.0e-9, &b));
     }
 }

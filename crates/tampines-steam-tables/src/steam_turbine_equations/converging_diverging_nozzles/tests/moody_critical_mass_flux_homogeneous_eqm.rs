@@ -23,12 +23,39 @@ const MOODY_LOG10_TOL: f64 = 0.06;
 /// - graph-read uncertainty from Moody's digitised log–log chart (≈ ±15% in G)
 /// - known HEM variability for deeply-subcooled states where the energy-balance
 ///   choke imperfectly approximates the Bernoulli limit
-///   (worst observed: 0.069 for the isobar 0.50 DEEP point)
+///   (worst observed: 0.069 for the isobar 0.50 DEEP point). **Note
+///   2026-11-02 (gh:#1111):** that 0.069 is not HEM variability. It is the
+///   subcooled solver's given-`h0` / backward-`T0` mismatch, and with a
+///   consistent stagnation enthalpy it measured 0.003. ~~That patch is not
+///   applied~~ **Applied 2026-11-02** (V&V §12); the worst asserted deep
+///   point is now listed in that record, and 0.50 / 2.2549 is excluded by
+///   name in [`MOODY_KNOWN_MISSES`].
 ///
 /// `isobar_pref_0_25` runs in-dome-only (`validate_moody_isobar_in_dome_only`)
 /// and skips its sole DEEP point, which far exceeds this bound (err = 0.170); see
 /// that test's OPEN QUESTION block for the physical explanation.
 const MOODY_DEEP_LOG10_TOL: f64 = 0.08;
+
+/// **Known equilibrium-HEM misses, excluded by name — not by a wider tolerance**
+/// (gh:#1111, maintainer decision 2026-11-02). Each entry is
+/// `(p0/p_ref, h0/h_ref, measured |Δlog10 G|)`. An excluded point is still
+/// computed and printed, and it is **asserted to remain outside** the
+/// tolerance, so if it ever starts agreeing the exclusion has to be revisited.
+///
+/// - **0.50 / 2.2549, measured 0.120 against 0.08 (2026-11-02, release).**
+///   This is the steep, near-saturation end of the deep branch: about 13 K
+///   subcooling at 3.45 bar, with ≈ 121 J/kg available to the bubble point.
+///   The consistent HEM choke here is the Bernoulli discharge,
+///   `ρ_f √(2 v Δp)` = 14 606 kg/(m² s), log10 4.165; Moody's graph reads
+///   4.044.
+///   - The old solver's err of 0.005 was a compensating error: its given-`h0` /
+///     backward-`T0` mismatch removed 53 J/kg of the 121.
+///   - On a graph-read curve falling at ≈ 1.8 decades per unit `h/h_ref`, a
+///     0.12 miss is ≈ 0.067 in `h/h_ref` (15.6 kJ/kg).
+///   - It is recorded as a known equilibrium-HEM miss against Moody's chart.
+///     See `verification_and_validation/hem_pipe_vs_exact_riemann_and_edwards.md`
+///     §12.
+const MOODY_KNOWN_MISSES: &[(f64, f64, f64)] = &[(0.50, 2.2549, 0.120)];
 
 // please note for the test:
 // For p0/p_ref = 0.25
@@ -178,12 +205,29 @@ const MOODY_DEEP_LOG10_TOL: f64 = 0.08;
 //   incompressible-Bernoulli formula give ~18 840 / 18 340 kg/(m²s). That is a
 //   |Δ log10 G| = 0.170 miss — far beyond any graph-read tolerance.
 //
-//   Apparent root cause: the IAPWS-IF97 isentrope delivers only 82 J/kg of
+//   ~~Apparent root cause: the IAPWS-IF97 isentrope delivers only 82 J/kg of
 //   kinetic energy at the bubble point, while the pressure integral v_f·(p₀−p_b)
 //   gives 169 J/kg — a factor-of-2 divergence at this extreme pressure ratio
-//   (p_b/p₀ ≈ 0.021). The deeply-subcooled escape was validated against higher-
-//   pressure isobars (0.50 – 30.0 × p_ref), where the two formulations agree to
-//   within 0.08 in log10 G; it does NOT reproduce this very-low-pressure branch.
+//   (p_b/p₀ ≈ 0.021).~~ **CORRECTED 2026-11-02 (gh:#1111)**: the IF97
+//   isentrope does not diverge from Bernoulli. The 82 J/kg is a numerical
+//   defect in the solver. It takes s0 at T0 = T_ph(p0, h0) (backward
+//   equation) but subtracts from the given h0, which is ~90 J/kg below
+//   h_1(T0, p0) in cold liquid. With the consistent h_1(T0, p0) the solver
+//   gives G = 18 628.8 kg/(m²s) here, against Moody's 18 842.8 (err 0.005),
+//   measured 2026-11-02 with an unapplied patch. ~~The patch is held back
+//   because it breaks the 0.50 isobar's h/h_ref = 2.2549 point~~ **Applied
+//   2026-11-02** (gh:#1111, V&V §12). ~~The deeply-subcooled escape was
+//   validated against higher-pressure isobars (0.50 – 30.0 × p_ref), where the
+//   two formulations agree to within 0.08 in log10 G; it does NOT reproduce
+//   this very-low-pressure branch with the solver as it stands.~~
+//
+//   **Deep branch of THIS isobar with the applied solver (2026-11-02, release,
+//   measured by running this isobar in full mode once):** h/h_ref = 0.4902,
+//   0.8039, 1.1961, 1.4314, 1.6275, 1.7647 → err 0.012, 0.006, 0.002, 0.013,
+//   0.022, 0.039 (all inside 0.08); 1.8627 → 0.156 and 1.9020 → 0.252 (the
+//   steep, near-saturation end, the same signature as the 0.50 isobar's
+//   recorded miss at 2.2549). The isobar was kept in-dome-only rather than
+//   adding two more named exclusions; the 0.170 reason given above is gone.
 //
 // WHY IT'S OK TO SKIP THE SUBCOOLED PART FOR NOW: the in-dome (Region 4) points
 // on this isobar are independently covered by its neighbours (0.50, 1.00, …), so
@@ -413,6 +457,23 @@ fn validate_moody_isobar_inner(
              sub_ratio={sub_ratio:.2} lg_ref={g_ref_log:.3} lg_test={g_test_log:.3} \
              err={err:.3} tol={tol:.3}"
         );
+
+        if let Some(&(_, _, recorded)) = MOODY_KNOWN_MISSES.iter().find(|(pr, hr, _)| {
+            (*pr - dimensionless_stagnation_pressure).abs() < 1e-9
+                && (*hr - *h_dimensionless_ptr).abs() < 1e-9
+        }) {
+            eprintln!(
+                "KNOWN MISS (excluded by name, gh:#1111) h/h_ref={h_dimensionless_ptr:.4}: \
+                 err={err:.3}, recorded {recorded:.3}, tol={tol:.3}"
+            );
+            assert!(
+                err > tol,
+                "known-miss point p0/p_ref = {dimensionless_stagnation_pressure}, h/h_ref = \
+                 {h_dimensionless_ptr} now agrees (err {err:.3} <= {tol:.3}); revisit \
+                 MOODY_KNOWN_MISSES and its V&V record"
+            );
+            continue;
+        }
 
         // Absolute bound on the log10 mass flux (graph-read reference).
         approx::assert_abs_diff_eq!(g_ref_log, g_test_log, epsilon = tol);

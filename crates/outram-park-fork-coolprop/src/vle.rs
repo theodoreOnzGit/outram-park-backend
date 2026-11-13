@@ -97,6 +97,15 @@ pub fn saturation_at_temperature(fluid: Fluid, t: f64) -> Option<SaturationState
             return None;
         }
         if dl.abs() <= 1e-12 * delta_l && dv.abs() <= 1e-12 * delta_v {
+            // The Newton iteration is symmetric in the two roots: close to `T_c` it can
+            // converge with the labels swapped (found by the CoolProp differential,
+            // gh:#1349: Cyclopentane at 1 mK below its critical temperature came back with
+            // `rho_liquid < rho_vapour`). The pair is the right one, so order it.
+            let (delta_l, delta_v) = if delta_l < delta_v {
+                (delta_v, delta_l)
+            } else {
+                (delta_l, delta_v)
+            };
             let (_, ad_l2, _) = residual_at(fluid, delta_l, tau);
             let p = delta_l * (1.0 + delta_l * ad_l2) * rho_r * r * t;
             if !(p.is_finite() && p > 0.0) {

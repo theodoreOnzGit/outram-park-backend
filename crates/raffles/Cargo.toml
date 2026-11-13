@@ -1,6 +1,6 @@
 [package]
 name = "raffles"
-version = "0.0.3"
+version = "0.0.4"
 edition.workspace = true
 # AGPL-3.0-only since 2026-10-20 (gh:#973; was GPL-3.0-only), a combined work:
 # its SCRAM / MPNN / pba.r ports keep GPL-3.0 (LICENSE.GPL-3.0). Upstream RAVEN
@@ -77,8 +77,9 @@ thiserror.workspace = true
 #
 # Default features, i.e. petir's `transfer-fn` and the no_std `uom` it pulls,
 # are inherited because the root entry carries them and workspace inheritance
-# cannot remove a default feature. raffles does not use `uom`; it costs one
-# small pure-Rust crate already in every workspace build.
+# cannot remove a default feature. ~~raffles does not use `uom`~~ CORRECTED
+# 2026-11-04: raffles uses `uom` directly since gh:#1194 (`fidelity`), entry
+# below.
 #
 # ANDROID: petir is `no_std` and has no GPU dependency unless its off-by-default
 # `wgpu` feature is enabled, so `cargo check -p raffles --all-targets --target
@@ -86,6 +87,12 @@ thiserror.workspace = true
 # gating convention if it ever needs something Android-hostile — see this
 # crate's CLAUDE.md.
 petir.workspace = true
+# DIMENSIONED QUANTITIES at the `fidelity` API edge (gh:#1194, maintainer:
+# "Integrate uom into the trait interface"). The root entry is no_std
+# (`default-features = false`, `si` + `f64`), pure Rust, and already in this
+# crate's tree through petir, so it adds no build work and no Android or wasm
+# hazard. The numerics inside stay on SI f64.
+uom.workspace = true
 # SURROGATE MODELS (src/surrogate.rs) — OPTIONAL, off by default. burn is this
 # workspace's replacement for PyTorch (maintainer direction, 2026-09-16):
 # upstream RAVEN's machine-learning surrogates are PyTorch-backed, so the port
@@ -127,6 +134,14 @@ burn ={ workspace = true, optional = true }
 # it is pure Rust — no libxml2, unlike upstream — so Android and wasm stay
 # clean.
 xml-rs.workspace = true
+
+[dev-dependencies]
+# Reads the committed upstream reference outputs in
+# verification_and_validation/raven_routes_gh1193/references/ (gh:#1193).
+# `float_roundtrip` parses every decimal to the nearest f64 exactly, which the
+# bit-identity comparisons need. Pure Rust; dev-only, so the library's
+# Android and wasm builds are untouched.
+serde_json = { workspace = true, features = ["float_roundtrip"] }
 
 [features]
 default = ["long-tests"]

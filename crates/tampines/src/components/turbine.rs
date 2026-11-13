@@ -3,6 +3,12 @@
 //! Composes [`crate::hem::HemSteamCv`] (the inlet/outlet steam state) with
 //! [`outram_park_fork_dwsim_libs::expander::isentropic`]'s adiabatic/Schultz
 //! polytropic turbine model.
+//!
+//! **For a transient pipe network, use [`super::junction::HemJunction::Turbine`]
+//! (gh:#1072, RELAP-7 parity epic gh:#1056)**, which runs inside a
+//! [`super::junction::HemNetwork`] with its own V&V
+//! (`tampines-steam-tables/verification_and_validation/hem_network_junctions.md`).
+//! This struct is the steady turbine sizing/rating wrapper and is separate from it.
 
 use crate::hem::HemSteamCv;
 use crate::TampinesError;

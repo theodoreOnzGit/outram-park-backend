@@ -2,6 +2,11 @@ schema_version = 1
 kind = "code_folder"
 crate = "tampines-steam-tables"
 dir = "crates/tampines-steam-tables/src/backward_eqn_ps_region_1_to_4/tests"
+test_ids = [
+    "crates/tampines-steam-tables/src/backward_eqn_ps_region_1_to_4/tests/mod.rs::boundary_eqn_ps3_test_1",
+    "crates/tampines-steam-tables/src/backward_eqn_ps_region_1_to_4/tests/mod.rs::boundary_eqn_ps3_test_2",
+    "crates/tampines-steam-tables/src/backward_eqn_ps_region_1_to_4/tests/mod.rs::boundary_eqn_ps3_test_3",
+]
 
 [module."mod.rs"]
 path = "crate::backward_eqn_ps_region_1_to_4::tests"
@@ -44,3 +49,14 @@ hash = "sha256:14ba7bf309bced90f4eed299a453c1043e3ae5005191e5af6b8c081389d94bdc"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 callees = ["fn:6931f9c265b5ebce"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+]
+failed = []

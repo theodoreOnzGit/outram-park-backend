@@ -52,7 +52,12 @@ pub fn from_volume_mesh(vm: &VolumeMesh) -> Result<UnstructuredMesh, ConvertErro
         .iter()
         .map(|p| Patch {
             name: p.name.clone(),
-            kind: PatchKind::Patch,
+            // The cfMesh port's own polyMesh writer's rule
+            // (`outram_park_fork_cfmesh::foam`): a name containing "wall" is
+            // a `wall`, anything else a generic `patch`. Was always `Patch`
+            // until 2026-11-04 (gh:#1202), so a cfMesh pipe's walls reached
+            // the solver typed as plain patches.
+            kind: if p.name.to_lowercase().contains("wall") { PatchKind::Wall } else { PatchKind::Patch },
             faces: (p.start_face..p.start_face + p.n_faces).collect(),
         })
         .collect();
@@ -91,6 +96,8 @@ mod tests {
         let (vm, report) = crate::foam_mesh::mesh_to_tet_dual(&primitives::cube(2.0), &opts).unwrap();
         let m = from_volume_mesh(&vm).unwrap();
         assert_eq!(m.n_cells(), vm.n_cells);
+        // cfMesh's single `walls` patch arrives typed as a wall (gh:#1202).
+        assert!(m.patches().iter().all(|p| p.name == "walls" && p.kind == PatchKind::Wall));
         assert!((m.total_volume() - report.total_volume).abs() < 1e-6 * report.total_volume);
     }
 }

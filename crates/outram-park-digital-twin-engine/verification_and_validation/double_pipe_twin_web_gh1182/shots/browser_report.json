@@ -1,0 +1,116 @@
+{
+ "phone": {
+  "shots": [
+   "/home/user/outram-park-backend/crates/dhoby-ghaut/verification_and_validation/double_pipe_twin_web_gh1182/shots/phone_390x844_twin.png",
+   "/home/user/outram-park-backend/crates/dhoby-ghaut/verification_and_validation/double_pipe_twin_web_gh1182/shots/phone_390x844_twin_calibrated.png",
+   "/home/user/outram-park-backend/crates/dhoby-ghaut/verification_and_validation/double_pipe_twin_web_gh1182/shots/phone_390x844_panel_open_playing.png",
+   "/home/user/outram-park-backend/crates/dhoby-ghaut/verification_and_validation/double_pipe_twin_web_gh1182/shots/phone_390x844_delta.png",
+   "/home/user/outram-park-backend/crates/dhoby-ghaut/verification_and_validation/double_pipe_twin_web_gh1182/shots/phone_390x844_sweep.png",
+   "/home/user/outram-park-backend/crates/dhoby-ghaut/verification_and_validation/double_pipe_twin_web_gh1182/shots/phone_390x844_filter.png"
+  ],
+  "errors": [
+   "twin warning: No available adapters.",
+   "twin warning: [egui_wgpu] egui-wgpu-0.36.2/src/lib.rs:461: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+   "twin warning: [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: SetTheme(Dark) - not implemented in web backend",
+   "twin warning: No available adapters.",
+   "twin warning: [egui_wgpu] egui-wgpu-0.36.2/src/lib.rs:461: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+   "twin warning: [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: SetTheme(Dark) - not implemented in web backend",
+   "twin warning: No available adapters.",
+   "twin warning: [egui_wgpu] egui-wgpu-0.36.2/src/lib.rs:461: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+   "twin warning: [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: SetTheme(Dark) - not implemented in web backend",
+   "twin warning: No available adapters.",
+   "twin warning: [egui_wgpu] egui-wgpu-0.36.2/src/lib.rs:461: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+   "twin warning: [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: SetTheme(Dark) - not implemented in web backend",
+   "delta warning: No available adapters.",
+   "delta warning: [egui_wgpu] egui-wgpu-0.36.2/src/lib.rs:461: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+   "delta warning: [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: SetTheme(Dark) - not implemented in web backend",
+   "sweep warning: No available adapters.",
+   "sweep warning: [egui_wgpu] egui-wgpu-0.36.2/src/lib.rs:461: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+   "sweep warning: [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: SetTheme(Dark) - not implemented in web backend",
+   "filter warning: No available adapters.",
+   "filter warning: [egui_wgpu] egui-wgpu-0.36.2/src/lib.rs:461: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+   "filter warning: [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: SetTheme(Dark) - not implemented in web backend"
+  ],
+  "twin_ready_s": 0.738,
+  "title": "Double-pipe twin · Twin · UA 1.1037 W/K · ready",
+  "frames_spin_worker_idle_ms": {
+   "n": 90,
+   "median": 50,
+   "p95": 83.3,
+   "max": 1033.3
+  },
+  "frames_while_playing_ms": {
+   "n": 118,
+   "median": 66.6,
+   "p95": 83.4,
+   "max": 150
+  },
+  "input_round_ms": [
+   523,
+   537,
+   560,
+   553
+  ],
+  "title_playing": "Double-pipe twin · evaluating",
+  "delta_ready_s": 0.887,
+  "sweep_ready_s": 0.701,
+  "filter_ready_s": 0.697
+ },
+ "desktop": {
+  "shots": [
+   "/home/user/outram-park-backend/crates/dhoby-ghaut/verification_and_validation/double_pipe_twin_web_gh1182/shots/desktop_1280x800_twin.png",
+   "/home/user/outram-park-backend/crates/dhoby-ghaut/verification_and_validation/double_pipe_twin_web_gh1182/shots/desktop_1280x800_twin_calibrated.png",
+   "/home/user/outram-park-backend/crates/dhoby-ghaut/verification_and_validation/double_pipe_twin_web_gh1182/shots/desktop_1280x800_playing_zoomed.png",
+   "/home/user/outram-park-backend/crates/dhoby-ghaut/verification_and_validation/double_pipe_twin_web_gh1182/shots/desktop_1280x800_delta.png",
+   "/home/user/outram-park-backend/crates/dhoby-ghaut/verification_and_validation/double_pipe_twin_web_gh1182/shots/desktop_1280x800_sweep.png",
+   "/home/user/outram-park-backend/crates/dhoby-ghaut/verification_and_validation/double_pipe_twin_web_gh1182/shots/desktop_1280x800_filter.png"
+  ],
+  "errors": [
+   "twin warning: No available adapters.",
+   "twin warning: [egui_wgpu] egui-wgpu-0.36.2/src/lib.rs:461: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+   "twin warning: [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: SetTheme(Dark) - not implemented in web backend",
+   "twin warning: No available adapters.",
+   "twin warning: [egui_wgpu] egui-wgpu-0.36.2/src/lib.rs:461: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+   "twin warning: [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: SetTheme(Dark) - not implemented in web backend",
+   "twin warning: No available adapters.",
+   "twin warning: [egui_wgpu] egui-wgpu-0.36.2/src/lib.rs:461: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+   "twin warning: [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: SetTheme(Dark) - not implemented in web backend",
+   "twin warning: No available adapters.",
+   "twin warning: [egui_wgpu] egui-wgpu-0.36.2/src/lib.rs:461: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+   "twin warning: [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: SetTheme(Dark) - not implemented in web backend",
+   "delta warning: No available adapters.",
+   "delta warning: [egui_wgpu] egui-wgpu-0.36.2/src/lib.rs:461: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+   "delta warning: [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: SetTheme(Dark) - not implemented in web backend",
+   "sweep warning: No available adapters.",
+   "sweep warning: [egui_wgpu] egui-wgpu-0.36.2/src/lib.rs:461: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+   "sweep warning: [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: SetTheme(Dark) - not implemented in web backend",
+   "filter warning: No available adapters.",
+   "filter warning: [egui_wgpu] egui-wgpu-0.36.2/src/lib.rs:461: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+   "filter warning: [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: SetTheme(Dark) - not implemented in web backend"
+  ],
+  "twin_ready_s": 0.834,
+  "title": "Double-pipe twin · Twin · UA 1.1037 W/K · ready",
+  "frames_spin_worker_idle_ms": {
+   "n": 109,
+   "median": 50,
+   "p95": 66.6,
+   "max": 849.8
+  },
+  "frames_while_playing_ms": {
+   "n": 94,
+   "median": 66.6,
+   "p95": 83.3,
+   "max": 116.7
+  },
+  "input_round_ms": [
+   401,
+   389,
+   420,
+   423
+  ],
+  "title_playing": "Double-pipe twin · evaluating",
+  "delta_ready_s": 0.852,
+  "sweep_ready_s": 0.833,
+  "filter_ready_s": 0.696
+ }
+}

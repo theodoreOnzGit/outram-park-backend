@@ -117,9 +117,21 @@
 //! 3. **Fast fluence is in n/m^2.** Upstream's Young's-modulus Zircaloy model
 //!    scales the fluence field by `1e4` and its Poisson counterpart does not —
 //!    an internal inconsistency. This port uses
-//!    [`MaterialState::fast_fluence`] in n/m^2 in both. In the alpha phase the
+//!    [`MaterialState::fast_fluence`] in n/m^2 in both. ~~In the alpha phase the
 //!    choice is immaterial to `nu` anyway: the fluence factor cancels exactly
-//!    between `E` and `G` (there is a test for this).
+//!    between `E` and `G` (there is a test for this).~~ **QUALIFIED
+//!    2026-11-13 (gh:#1393 round 2):** it cancels inside this port's own
+//!    consistent convention, but *against upstream as compiled* it is not
+//!    immaterial: with `E` from the `1e4`-scaled Young's model and `G` from the
+//!    raw field, `(nu_up + 1)/(nu_port + 1) = K3(phi_cm2/1e25)/K3(phi_cm2*1e4/1e25)`
+//!    with `K3(x) = 0.88 + 0.12 exp(-x)`, i.e. `+8.2 %` on `nu + 1` at
+//!    `1e21` n/cm^2 and `+13.5 %` at `5e21` n/cm^2 in the alpha phase (also
+//!    `+13.5 %` in the blend band at that fluence; none in the beta phase or at
+//!    zero fluence). Measured by `tests/offbeat_differential_zy_parfume.rs`
+//!    against the transcribed `PoissonRatioMatproZy.C`/`YoungModulusMatproZy.C`
+//!    (84 alpha-phase rows, closed form reproduced to 2.2e-16). This port's
+//!    value is the unit-consistent one; whether to add a bug-compatible switch
+//!    is a maintainer decision (deferred, gh:#1394).
 //! 4. **`ConstantMolybdenum` returns 0.31.** Upstream's
 //!    `constantPoissonRatioMolybdenum` initialises the member to `0.31` but
 //!    declares the *dictionary* default as `0.316`, so a case with no

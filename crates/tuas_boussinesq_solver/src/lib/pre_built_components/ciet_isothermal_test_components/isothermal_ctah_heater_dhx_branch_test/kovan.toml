@@ -2,6 +2,7 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_isothermal_test_components/isothermal_ctah_heater_dhx_branch_test"
+test_ids = ["crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_isothermal_test_components/isothermal_ctah_heater_dhx_branch_test/debugging_tests.rs::dhx_branch_pressure_change_regression_test"]
 
 [module."debugging_tests.rs"]
 path = "crate::pre_built_components::ciet_isothermal_test_components::isothermal_ctah_heater_dhx_branch_test::debugging_tests"
@@ -22,3 +23,10 @@ callees = [
 ]
 uses = ["fn:f340400526996cc5"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = ["#0"]
+failed = []

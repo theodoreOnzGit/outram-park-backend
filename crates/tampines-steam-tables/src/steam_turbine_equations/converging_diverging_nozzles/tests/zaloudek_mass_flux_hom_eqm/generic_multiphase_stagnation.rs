@@ -47,16 +47,25 @@ fn validate_zaloudek_curve_using_stagnation_conditions(
         let g_expected =
             MassRate::new::<pound_per_second>(g_expected_val) / Area::new::<square_foot>(1.0);
 
-        let state_t = TampinesSteamTableCV::new_from_sat_pressure_quality(
-            p_throat_critical_ref,
-            x_t,
-            ref_vol,
-        );
-        let h_t = state_t.get_specific_enthalpy();
-
-        // backward map throat -> stagnation (p0, h0_calc)
-        let (p0, h0_calc, _g_calc_throat) =
-            get_stagnation_conditions_from_throat_ph(p_throat_critical_ref, h_t);
+        // backward map throat -> stagnation (p0, h0_calc). x_t = 0 is the
+        // saturated-liquid curve: the HEM stagnation whose isentrope has its
+        // maximum of G at the throat (gh:#1111), falling back to the old
+        // x_t = 1e-4 map where the saturated liquid is Region 3.
+        let backward_map = |x: f64| {
+            let state_t = TampinesSteamTableCV::new_from_sat_pressure_quality(
+                p_throat_critical_ref,
+                x,
+                ref_vol,
+            );
+            let h_t = state_t.get_specific_enthalpy();
+            get_stagnation_conditions_from_throat_ph(p_throat_critical_ref, h_t)
+        };
+        let (p0, h0_calc, _g_calc_throat) = if x_t == 0.0 {
+            super::hem_stagnation_for_saturated_liquid_throat(p_throat_critical_ref)
+                .unwrap_or_else(|| backward_map(1e-4))
+        } else {
+            backward_map(x_t)
+        };
 
         // forward: drive the unified dispatcher from the stagnation state
         let state_0 = TampinesSteamTableCV::new_from_ph(p0, h0_calc, ref_vol);
@@ -71,6 +80,14 @@ fn validate_zaloudek_curve_using_stagnation_conditions(
             _ => 0.05,                                     // superheated / supercritical test
         };
 
+        println!(
+            "x_t={x_t} p_throat={p_psia} psia | p0={:.3} kPa | region={region:?} | \
+             p_crit_calc={:.3} kPa | G_calc={:.2} | G_ref={:.2} kg/m2s",
+            p0.get::<kilopascal>(),
+            p_throat_calc.get::<kilopascal>(),
+            g_calc_stagnation.get::<kilogram_per_square_meter_second>(),
+            g_expected.get::<kilogram_per_square_meter_second>(),
+        );
         approx::assert_relative_eq!(
             p_throat_calc.get::<kilopascal>(),
             p_throat_critical_ref.get::<kilopascal>(),
@@ -98,6 +115,12 @@ fn validate_zaloudek_curve_using_stagnation_conditions(
 // Dispatcher get_crit_pressure_and_massflux driven from the backward-mapped
 // stagnation state. p_crit_lit = Zaloudek throat pressure; G in kg/m²s;
 // p_rel_err = |Δp_crit|/p_crit_lit; G_log10_err = |log10 G_lit − log10 G_solver|.
+// **The table below is the OLD x_t = 1e-4 fixture with the old solver**
+// (kept as run). Since 2026-11-02 (gh:#1111) `quality_bubble_point_stagnation`
+// uses the HEM saturated-liquid fixture (x_t = 0,
+// `super::hem_stagnation_for_saturated_liquid_throat`) and the global-maximum
+// solver. All 17 points pass; p_crit equals p_throat at all but 100–300 psia
+// (−0.02 %), and 3000 psia (Region 3, old map) is −0.29 %.
 // x_t,p_throat_psia,p0_kPa,h0_calc_kJkg,p_crit_lit_kPa,p_crit_solver_kPa,G_lit_kgm2s,G_solver_kgm2s,region,p_rel_err,G_log10_err
 // 0.0001,5.0,34.820,302.99,34.474,34.556,457.22,421.99,Region1,0.0024,0.0348
 // 0.0001,10.0,69.627,375.23,68.948,69.088,748.12,771.94,Region1,0.0020,0.0136
@@ -137,7 +160,7 @@ fn quality_bubble_point_stagnation() {
         (2000.0, 12006.8680, 682.7586),
         (3000.0, 13820.6838, 803.9409),
     ];
-    validate_zaloudek_curve_using_stagnation_conditions(1e-4, &data, 0.03, 0.05);
+    validate_zaloudek_curve_using_stagnation_conditions(0.0, &data, 0.03, 0.05);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

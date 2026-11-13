@@ -161,7 +161,7 @@
 #[allow(unused_imports)]
 use crate::real::Real;
 
-use crate::cheb_slice::eval_gsl as cheb;
+use crate::specfunc::cheb_eval_e as cheb;
 use crate::specfunc::{DBL_EPSILON, LOG_DBL_MIN, SQRT_DBL_EPSILON, SQRT_DBL_MAX};
 
 /// `GSL_ROOT3_DBL_EPSILON`, the cube root of [`DBL_EPSILON`]. Mirrors

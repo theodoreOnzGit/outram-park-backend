@@ -74,6 +74,7 @@ the status warning above.
 | `burnup` | 1,437 | 12 | Burnup accumulation and fast-neutron flux |
 | `fgr` | 1,553 | 12 | Fission-gas release models and OFFBEAT's SCIANTIX coupling shim |
 | `error` | — | — | `OffbeatError` enum; unfinished paths return `NotImplemented` |
+| `melcor` | 1,781 | 13 | **Added 2026-11-11 (gh:#1335), not part of the 2026-08-05 count above.** MELCOR-class severe-accident equations, clean-room from the public manuals: sectional aerosol (MAEROS kernels, deposition), fission-product vapours, one RN control volume, SPARC-90 pool iodine. See below |
 
 ### The code_aster port (`rheology::aster`)
 
@@ -143,6 +144,44 @@ than a library of fuel-performance pieces:
   code_aster `astest` cases below are a *different* oracle and cover only
   `rheology::aster`.
 
+## The MELCOR clean-room module (`melcor`)
+
+**Maintainer direction, 2026-11-10** (gh:#1335): "the MELCOR equations clean
+room should live as an offbeat module rather than in sembawang"; with gh:#977
+the same day, this crate becomes the workspace's **materials and
+fuel-behaviour crate** (the GPUMD-derived molecular dynamics is to land here
+too). `melcor` holds the *equations*; the plant that assembles them, the
+Fukushima Daiichi Unit 1 model, stays in `sembawang::bwr_mark1` and calls this
+module. The old paths `sembawang::bwr_mark1::{aerosol, iodine, rn_volume,
+vapour, wire}` are deprecated re-exports of these modules for one release.
+
+| Module | Content | Source cited |
+|---|---|---|
+| `melcor::aerosol` | Sectional aerosol for one well-mixed volume: Brownian, gravitational and turbulent agglomeration; settling, diffusion, thermo- and diffusiophoresis to surfaces | MELCOR 2.2 Vol. 2 (SAND2023-10994 O) RN §2.4, App. B; Jacobson et al. (1994) |
+| `melcor::vapour` | Fission-product vapour pressures and condensation onto surfaces | MELCOR Vol. 1 (SAND2017-0455 O) RN 7110/7120; RN §2.5.2 |
+| `melcor::rn_volume` | One control volume's aerosol and Cs, I, Te classes, stepped in MELCOR's order | RN §2.4, §2.5.2 |
+| `melcor::iodine` | SPARC-90 pool iodine equilibrium and partition limit | RN §2.7.1, App. D, F |
+| `melcor::wire` | Exact-`f64` wire format the volumes cross Web Worker boundaries in | — |
+| `melcor::params` | The generic constants these read (`R_GAS`) | — |
+
+**Clean room (HARD RULE):** public manuals and literature only, never MELCOR,
+MAAP, ASTEC, RELAP5, SCDAP or FRAPCON source, "including just to check an
+equation" (`docs/melcor-scoping.md` §1, §8). It is not a port and carries no
+upstream attribution header; each module cites its manual section by section.
+
+**What did not move, and why** (per-file `use` scan, 2026-11-11, recorded on
+gh:#1335): core degradation (`core`) needs `tuas_boussinesq_solver` (SS304L)
+and the plant; the H2/CO burn (`reaction`) needs `tampines`' control
+volume, and `cavity` and `fdi` read `tampines`' steam conductivity and
+viscosity through `pool_surface`; decay heat (`decay`) needs
+`teh-o-prke`, and `fp_decay` the ENDF decay libraries; `containment_fp` needs
+the lumped containment; `units23` is the Units 2 and 3 plant sequence. This
+crate takes **no new dependency** for `melcor`: it needs only `petir`.
+
+**Status:** AI draft, unreviewed, not validated; behaviour bit-identical to the
+code before the move (the BSAF comparison re-run before and after). Research,
+education and V&V only.
+
 ## Units
 
 Public constructors and results are typed with `uom` where a caller supplies or
@@ -188,7 +227,13 @@ an AI assistant's.
 That is **verification** in this workspace's sense — "is the equation
 implemented correctly?" It is **not validation** — "does it represent physical
 reality well enough for its intended purpose?" No test in this crate may be
-cited as evidence that the port reproduces experiment or reproduces OFFBEAT.
+cited as evidence that the port reproduces experiment. ~~Nor that it reproduces OFFBEAT.~~
+**CORRECTED 2026-11-13 (gh:#1393)** - the material-correlation tests
+`tests/offbeat_differential_{conductivity,properties}.rs` do compare the port with
+OFFBEAT `80e84450`, but against C++ kernels *transcribed* from OFFBEAT's `.C` files,
+not against a run of the compiled OFFBEAT library, and only for the correlations listed in
+`verification_and_validation/{conductivity,properties}_vs_offbeat.md` (cite those, with
+that qualification).
 See `VERIFICATION_AND_VALIDATION.md`.
 
 ## Android / Termux
@@ -214,8 +259,11 @@ cargo test  -p outram-park-fork-offbeat --release --lib
 ## Provenance
 
 The upstream tree is **not** vendored here — porting is done from a read-only
-clone kept outside this working tree, and no OFFBEAT or OpenFOAM C++ source is
-copied into the repository. Every derived Rust file carries an attribution
+clone kept outside this working tree, and ~~no OFFBEAT or OpenFOAM C++ source is
+copied into the repository.~~ **CORRECTED 2026-11-13** - the differential dump drivers
+`verification_and_validation/offbeat_differential_gh1393/dump_*.cpp` copy the arithmetic
+statements of OFFBEAT's material-correlation `.C` kernels (GPL-3.0, headers kept);
+no other upstream source is copied. Every derived Rust file carries an attribution
 header naming its upstream source file, project, commit, copyright holder and
 license. Full detail, including the SCIANTIX license lineage, is in `NOTICE`.
 

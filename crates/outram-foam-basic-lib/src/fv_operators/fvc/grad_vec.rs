@@ -78,6 +78,10 @@ pub fn grad_vec(vol: &VolVectorField) -> VolTensorField {
     }
 
     for (pi, patch) in mesh.patches.iter().enumerate() {
+        // upstream: an `empty` patch contributes nothing (gh:#1363).
+        if patch.kind == crate::mesh::fv_mesh::PatchKind::Empty {
+            continue;
+        }
         for fi in 0..patch.size {
             let gf = patch.start + fi;
             let owner = mesh.owner[gf];

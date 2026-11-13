@@ -2,6 +2,14 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch/debug.rs::test_fhr_four_branch_solver_debug",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch/isothermal_flow.rs::test_fhr_four_branch_solver_pri_and_intrmd_loop_isothermal_check",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch/isothermal_flow.rs::test_fhr_four_branch_solver_pri_and_intrmd_loop_zero_flow",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch/mod.rs::test_fhr_four_branch_full_th_long_regression",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch/regression.rs::isothermal_test_fhr_four_branch_solver_regression_library",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch/regression.rs::test_fhr_four_branch_solver_pri_and_intrmd_loop_full_th_short_regression",
+]
 
 [module."debug.rs"]
 path = "crate::pre_built_components::gfhr_pipe_tests::multi_branch::debug"
@@ -503,3 +511,17 @@ uses = [
 ]
 test = true
 physical_interface = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+failed = []

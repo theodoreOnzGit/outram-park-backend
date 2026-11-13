@@ -725,6 +725,16 @@ impl ThermalScattering {
     /// `tsl-HinH2O.endf` in all 70 374 values
     /// (`tests/thermal_h2o_leapr_vs_tsl.rs`, 2026-10-14).
     ///
+    /// For the HTR-10 laws (GitHub #1140, 2026-11-03), the same path gives
+    /// MF=7/MT=4 bit-identical to the published tapes at every tabulated
+    /// temperature of reactor graphite 10P/30P, C in SiC and Si in SiC, and
+    /// graphite's MT=2 to within one unit in the 7th figure. **SiC's elastic
+    /// channel differs:** these decks have `iel = 0` and no translational
+    /// term, so LEAPR writes *incoherent* elastic (`leapr.f90:3043`), where the
+    /// published tape is coherent (and [`from_leapr`](Self::from_leapr) builds
+    /// coherent from the 3C-SiC catalogue). Record:
+    /// `crates/njoy-outram-park-fork/verification_and_validation/leapr_htr10_tsl_vs_endf8.md`.
+    ///
     /// # Errors
     ///
     /// The deck is not embedded, does not parse, has no block LEAPR can run at
@@ -779,9 +789,20 @@ impl ThermalScattering {
         table: &njoy_outram_park_fork::acer::read::RawAceTable,
         name: &str,
     ) -> Result<Self, NjoyError> {
-        use njoy_outram_park_fork::acer::thermal_read::{decode_thermal, AceThermalElastic};
+        let t = njoy_outram_park_fork::acer::thermal_read::decode_thermal(table)?;
+        Ok(Self::from_ace_thermal(t, name))
+    }
 
-        let t = decode_thermal(table)?;
+    /// Build from an already-decoded ACE thermal table
+    /// ([`AceThermal`](njoy_outram_park_fork::acer::thermal_read::AceThermal)):
+    /// the second half of [`Self::from_ace`]. Public so a differential test can
+    /// hand the sampler the same arrays an OpenMC `ThermalData` is built from
+    /// (`tests/thermal_samplers_vs_openmc_code_to_code.rs`, gh:#1444).
+    pub fn from_ace_thermal(
+        t: njoy_outram_park_fork::acer::thermal_read::AceThermal,
+        name: &str,
+    ) -> Self {
+        use njoy_outram_park_fork::acer::thermal_read::AceThermalElastic;
         // IFENG = 1 (skewed bins): ~~refused~~ since the second #365 audit
         // chunk, sampled by `sample_discrete` (OpenMC's discrete scheme with the
         // skewed bin weights). It was once accepted and sampled as if its bins
@@ -826,7 +847,7 @@ impl ThermalScattering {
                 },
             ),
         };
-        Ok(Self {
+        Self {
             name: name.to_string(),
             cutoff_ev,
             // The table IS its temperature -- there is no request to match
@@ -860,7 +881,7 @@ impl ThermalScattering {
             skewed: t.ifeng == 1,
             legacy_equiprobable: false,
             elastic,
-        })
+        }
     }
 
     pub fn from_tape(

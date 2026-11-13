@@ -134,6 +134,10 @@ members = [
     # slides made visible in the workspace; no code, no deps. Boundary with
     # SEMBAWANG's severe-accident scope is an open maintainer decision.
     "crates/bishan",
+    # bugis — BUGIS (Branding, User-interface and Graphics for Interactive
+    # Simulators): the shared Gruvbox Dark/Light egui theme every simulator
+    # uses (maintainer, 2026-11-02). egui only, never eframe.
+    "crates/bugis",
     # pasir-ris — PASIR RIS (Probabilistic Assessment of Safety In
     # Reactors: Risk & Reliability Integrated Studio): the reserved
     # integrated risk and reliability GUI over raffles, bishan, sembawang,
@@ -164,7 +168,7 @@ authors = [
     "University of California, Berkeley Thermal Hydraulics Lab",
     "Singapore Nuclear Research and Safety Institute (SNRSI)",
     "National University of Singapore (NUS)",
-    "Repository Contributors",
+    "The OUTRAM PARK backend contributors",
 ]
 # Relicensed GPL-3.0-only -> AGPL-3.0-only on 2026-10-20 (gh:#973), at the
 # maintainer's direction. Crates whose own code is a translation of a COPYLEFT
@@ -344,6 +348,11 @@ rust-mqtt = "0.5.1"
 # KOVAN knowledge-layer stack — all pure-Rust and Android-friendly (no system
 # libs), matching KOVAN's offline/Android-first mandate. See docs/kovan.md.
 serde_json = "1.0"           # KovanDocument (de)serialisation, generated artifacts
+# Worker wire format for the browser demos (gh:#986). JSON cannot carry a
+# non-finite f64 -- it writes NaN as `null`, which will not read back as f64 --
+# and `HtgrSnapshot` uses NaN deliberately, in a dozen fields, to mean "not
+# available". postcard writes the bits, so NaN survives the trip.
+postcard = { version = "1.1", default-features = false, features = ["alloc"] }
 # CSL citation formatting (kovan-literature `csl`, GitHub #789): Typst's CSL
 # engine, MIT OR Apache-2.0, pure Rust. Default features (BibLaTeX input,
 # bundled style archive) off; the items come from our own Zotero import as
@@ -502,6 +511,11 @@ egui_extras = { version = "0.36.1", features = ["all_loaders"] }
 wasm-bindgen = "0.2.127"
 wasm-bindgen-futures = "0.4.77"
 web-sys = "0.3.104"
+# `std::time::Instant` PANICS on wasm32-unknown-unknown ("time not implemented
+# on this platform"), and the GUI's own frame timer calls it every frame. This
+# is the drop-in that reads `performance.now()` there and `Instant` everywhere
+# else. Already in Cargo.lock beneath eframe, so declaring it moves nothing.
+web-time = "1.1"
 js-sys = "0.3.104"
 # In-app file/directory picker widget (pure egui, no GTK/native-dialog
 # backend). 0.15.0 is the first version pinned to egui 0.36.
@@ -561,66 +575,67 @@ tokio = { version = "1.53", features = [
 
 # internal workspace crates — depend on these by path so members use the
 # in-tree copy rather than a crates.io release.
-chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-time-process-control-simulator", version = "0.2.4" }
-outram-park-fork-offbeat = { path = "crates/outram-park-fork-offbeat", version = "0.0.1" }
-teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.7" }
-tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.8" }
-tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.3.0" }
-outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.7" }
-raffles                      = { path = "crates/raffles",                      version = "0.0.3" }
-petir                        = { path = "crates/petir",                        version = "0.0.3" }
-changi                       = { path = "crates/changi",                       version = "0.0.2" }
-bishan                       = { path = "crates/bishan",                       version = "0.0.2" }
-buangkok                     = { path = "crates/buangkok",                     version = "0.0.1" }
-sembawang                    = { path = "crates/sembawang",                    version = "0.0.1" }
-redhill                      = { path = "crates/redhill",                      version = "0.0.2" }
-outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.4" }
-outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.6" }
-outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.4" }
-outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.2" }
+chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-time-process-control-simulator", version = "0.2.5" }
+outram-park-fork-offbeat = { path = "crates/outram-park-fork-offbeat", version = "0.0.2" }
+teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.8" }
+tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.9" }
+tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.3.1" }
+outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.8" }
+raffles                      = { path = "crates/raffles",                      version = "0.0.4" }
+petir                        = { path = "crates/petir",                        version = "0.0.4" }
+changi                       = { path = "crates/changi",                       version = "0.0.3" }
+bishan                       = { path = "crates/bishan",                       version = "0.0.3" }
+bugis                        = { path = "crates/bugis",                        version = "0.0.1" }
+buangkok                     = { path = "crates/buangkok",                     version = "0.0.2" }
+sembawang                    = { path = "crates/sembawang",                    version = "0.0.2" }
+redhill                      = { path = "crates/redhill",                      version = "0.0.3" }
+outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.5" }
+outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.7" }
+outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.5" }
+outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.3" }
 # FEM structural mechanics; first workspace-dep consumer: outram-blender's
 # optional `fem-export` bridge (GitHub #492).
-farrer-park                  = { path = "crates/farrer-park",                  version = "0.0.3" }
-outram-foam-cli              = { path = "crates/outram-foam-cli",              version = "0.0.1" }
-outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.0.6" }
+farrer-park                  = { path = "crates/farrer-park",                  version = "0.0.4" }
+outram-foam-cli              = { path = "crates/outram-foam-cli",              version = "0.0.2" }
+outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.0.7" }
 # Granular DEM. `default-features = false` HERE, at the root, because workspace
 # inheritance can only ADD features: a member writing `default-features = false`
 # against a default-on root entry is silently ignored. Its defaults are
 # `long-tests` (its own slow tests -- meaningless to a dependent) and `gnn`
 # (pulls `raffles`); a member that wants either names it. First consumer:
 # outram-mc-libs (2026-10-02), for DEM-settled pebble beds.
-outram-park-fork-liggghts = { path = "crates/outram-park-fork-liggghts", version = "0.0.2", default-features = false }
-outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", version = "0.0.4" }
-boon-lay            = { path = "crates/boon-lay",            version = "0.2.1" }
+outram-park-fork-liggghts = { path = "crates/outram-park-fork-liggghts", version = "0.0.3", default-features = false }
+outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", version = "0.0.5" }
+boon-lay            = { path = "crates/boon-lay",            version = "0.2.2" }
 # All nuclear-data representation (ENDF processing, WMP + Faddeeva, lean ACE)
 # lives here; outram-mc-libs and nee_soon pull cross sections from it.
-njoy-outram-park-fork = { path = "crates/njoy-outram-park-fork", version = "0.0.6" }
+njoy-outram-park-fork = { path = "crates/njoy-outram-park-fork", version = "0.0.7" }
 # Coupling / integration layer — composes njoy-outram-park-fork, outram-mc-libs and
 # teh-o-prke behind one object-oriented facade (scaffold).
-nee_soon            = { path = "crates/nee_soon",            version = "0.0.4" }
-outram-park-fork-coolprop = { path = "crates/outram-park-fork-coolprop", version = "0.1.3" }
+nee_soon            = { path = "crates/nee_soon",            version = "0.0.5" }
+outram-park-fork-coolprop = { path = "crates/outram-park-fork-coolprop", version = "0.1.4" }
 # Central thermal-hydraulic framework — composes tuas_boussinesq_solver,
 # outram-park-fork-coolprop, tampines-steam-tables, outram-foam-basic-lib and
 # chem-eng-real-time-process-control-simulator (scaffold).
-tampines            = { path = "crates/tampines",            version = "0.0.3" }
+tampines            = { path = "crates/tampines",            version = "0.0.4" }
 # Reusable visualization framework — visual process objects whose rendering
 # derives directly from tampines/nee_soon physics state (scaffold).
-outram-park-digital-twin-engine = { path = "crates/outram-park-digital-twin-engine", version = "0.0.3" }
+outram-park-digital-twin-engine = { path = "crates/outram-park-digital-twin-engine", version = "0.0.4" }
 
 # KOVAN knowledge-layer crates — depend on these by path (in-tree).
 # Publish batch 1 (op-3b7h, crates.io "burst of ~5 new names" limit):
 # common/discovery/codegen/literature/semantics bumped to 0.0.1 together —
 # keep each pin here in sync with that crate's own `version` (workspace-
 # maintenance.md's "drift" warning) whenever one changes.
-kovan-common     = { path = "crates/kovan-common",     version = "0.0.4" }
-kovan-discovery  = { path = "crates/kovan-discovery",  version = "0.0.4" }
-kovan-literature = { path = "crates/kovan-literature", version = "0.0.3" }
-kovan-semantics  = { path = "crates/kovan-semantics",  version = "0.0.3" }
-kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.4" }
+kovan-common     = { path = "crates/kovan-common",     version = "0.0.5" }
+kovan-discovery  = { path = "crates/kovan-discovery",  version = "0.0.5" }
+kovan-literature = { path = "crates/kovan-literature", version = "0.0.4" }
+kovan-semantics  = { path = "crates/kovan-semantics",  version = "0.0.4" }
+kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.5" }
 # Batch 2 (after batch 1 is live + the rate-limit cooldown) — not bumped yet.
-kovan-metrics    = { path = "crates/kovan-metrics",    version = "0.0.3" }
+kovan-metrics    = { path = "crates/kovan-metrics",    version = "0.0.4" }
 # The Code Review UI (egui). Desktop kovan embeds it (GitHub #820).
-kovan-web        = { path = "crates/kovan-web",        version = "0.0.3" }
+kovan-web        = { path = "crates/kovan-web",        version = "0.0.4" }
 # The line lexer kopitiam-neovim highlights with (pure Rust, no dependencies,
 # already in Cargo.lock through kopitiam-neovim). Used directly since
 # 2026-10-13 (#857) to colour source in kovan's review views and its kvim
@@ -637,7 +652,7 @@ kopitiam-syntax  = "0.2.5"
 # blender's geometry description without blender's default-on `gpu` feature
 # (wgpu); outram-mc has its own GPU path. A member that wants blender's GPU
 # vertex transform names `features = ["gpu"]`.
-outram-blender   = { path = "crates/outram-blender",   version = "0.0.6", default-features = false }
+outram-blender   = { path = "crates/outram-blender",   version = "0.0.7", default-features = false }
 
 # outram-park-fork-cfmesh — Rust port of cfMesh (GPL-3.0): the volume-mesh
 # generation layer (tet / polyhedral cells + boundary layers) that sits between
@@ -645,7 +660,7 @@ outram-blender   = { path = "crates/outram-blender",   version = "0.0.6", defaul
 # Android-safe by default; its `foam-export` feature adds the (BLAS-free)
 # outram-foam-basic-lib polyMesh writer. Consumed by outram-blender's optional
 # `foam-mesh` bridge.
-outram-park-fork-cfmesh = { path = "crates/outram-park-fork-cfmesh", version = "0.0.3" }
+outram-park-fork-cfmesh = { path = "crates/outram-park-fork-cfmesh", version = "0.0.4" }
 
 # Optimize all dependencies even in debug builds — the thermal-hydraulic
 # solvers are expensive, so unoptimized deps make tests painfully slow.

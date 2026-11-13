@@ -3525,7 +3525,7 @@ status = "proposed"
 
 [[implementation]]
 concept = "10-human-resource-development/knowledge-management-and-education/education-and-outreach"
-crate = "dhoby-ghaut"
+crate = "bugis"
 module = "web_demo"
 title = "Web-demo framework"
 what = "The track-independent half of every browser tutorial demo."
@@ -3865,7 +3865,7 @@ status = "proposed"
 
 [[implementation]]
 concept = "10-human-resource-development/knowledge-management-and-education/education-and-outreach"
-crate = "outram-park-digital-twin-engine"
+crate = "bugis"
 module = "app_scaffold"
 title = "Digital-twin engine: offline educational plant simulators"
 what = "The egui simulator framework behind htgr_sim_v1, fhr_sim_v2 and distillation_sim_v1: offline demonstrations only (RESPONSIBLE_USE.md)."

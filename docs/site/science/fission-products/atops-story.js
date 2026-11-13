@@ -19,12 +19,12 @@
   // ─── 39: the big picture ──────────────────────────────────────────────
   var BOXES = [
     ["Inventory", "Each node's inventory of each nuclide, from a depletion code (an input).", null, "—"],
-    ["D(T) per group", "diffusion_coefficient: one Arrhenius law per group, with lower clamps.", "crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::diffusion_coefficient", "lessons 15, 30"],
-    ["<R/B> per group", "rb_fail: R/B correlation, Booth sphere, silver breakthrough or a fixed 1e-5.", "crates/boon-lay/src/triso_atops_fork/release_models/mod.rs::rb_fail", "lessons 16-19, 31"],
-    ["× failed fraction", "release_rate: R/B × birth rate × the failure fractions the group sees.", "crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs::release_rate", "lessons 33-37"],
+    ["D(T) per group", "diffusion_coefficient: one Arrhenius law per group, with lower clamps.", "crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::diffusion_coefficient", "lessons 17, 32"],
+    ["<R/B> per group", "rb_fail: R/B correlation, Booth sphere, silver breakthrough or a fixed 1e-5.", "crates/boon-lay/src/triso_atops_fork/release_models/mod.rs::rb_fail", "lessons 18-21, 33"],
+    ["× failed fraction", "release_rate: R/B × birth rate × the failure fractions the group sees.", "crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs::release_rate", "lessons 35-39"],
     ["Graphite hold-up", "attenuation_factor: metals are delayed by the graphite; gases pass.", "crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::attenuation_factor", "—"],
     ["Coolant pools", "circulating, plate-out, clean-up: first-order removal rates.", "crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs::normal_operation_node", "—"],
-    ["Accident: ∫D dt", "integrate_diffusion_over_time, then Booth or breakthrough on the integral.", "crates/boon-lay/src/triso_atops_fork/release_models/mod.rs::release_fraction_transient", "lesson 37"],
+    ["Accident: ∫D dt", "integrate_diffusion_over_time, then Booth or breakthrough on the integral.", "crates/boon-lay/src/triso_atops_fork/release_models/mod.rs::release_fraction_transient", "lesson 39"],
     ["Venting", "coolant_release: gas leaves while the core heats; nothing once it cools.", "crates/boon-lay/src/triso_atops_fork/accident/mod.rs::coolant_release", "—"]
   ];
   function bigPicture(root) {
@@ -191,7 +191,7 @@
         var r900 = n.base[0] * scale; ctx.fillStyle = GCOL[n.group]; ctx.beginPath(); ctx.arc(B.X(900), B.Y(r900), 4, 0, 2 * Math.PI); ctx.fill();
         legend(ctx, [["MHTGR Case A fractions", "#999", [4, 3]], ["your fractions", GCOL[n.group]]], B.x0 + 4, B.y0 + 14, B.x1 - B.x0 - 8);
         var which = n.group === "NobleGas" || n.group === "Halogen" ? "f_HM + f_inc" : n.group === "Silver" ? "no failure fraction at all" : "f_HM + f_SiC + f_inc + f_inc,SiC";
-        return st.name + " (" + GNAME[n.group] + ") uses " + which + ". At 900 °C: " + sci(r900) + " atoms/s per Ci, × " + scale.toPrecision(3) + " of Case A." + (st.src === "ff" ? " f_inc = " + sci(A.phi1Eoi776) + " from boon-lay fuel failure (lesson 36): far below Case A's 2.3e-5." : "");
+        return st.name + " (" + GNAME[n.group] + ") uses " + which + ". At 900 °C: " + sci(r900) + " atoms/s per Ci, × " + scale.toPrecision(3) + " of Case A." + (st.src === "ff" ? " f_inc = " + sci(A.phi1Eoi776) + " from boon-lay fuel failure (lesson 38): far below Case A's 2.3e-5." : "");
       },
       panel: function (body, redraw) {
         L.buttons(body, "Nuclide", AD().nodes.map(function (n) { return [n.name, n.name]; }), st.name, function (v) { st.name = v; redraw(); });
@@ -255,7 +255,7 @@
       panel: function (body, redraw) {
         L.buttons(body, "Peak temperature", AD().accidents.map(function (a, k) { return [k, a.peak + " °C"]; }), st.pi, function (v) { st.pi = v; redraw(); });
         L.buttons(body, "Nuclide", AD().accidents[0].nuclides.map(function (n) { return [n.name, n.name]; }), st.name, function (v) { st.name = v; redraw(); });
-        body.append(el("p", { "class": "w-note" }, "The heat-up is the same prescribed shape as lesson 36 (50 h up, 50 h held, 200 h down), from 900 °C. One node; MHTGR Case A geometry."));
+        body.append(el("p", { "class": "w-note" }, "The heat-up is the same prescribed shape as lesson 38 (50 h up, 50 h held, 200 h down), from 900 °C. One node; MHTGR Case A geometry."));
       }
     });
     return frame;
@@ -265,12 +265,12 @@
   function ladder(root) {
     var RUNGS = [
       ["Finite-element particle (BISON-style)", "not built", "theory step 5"],
-      ["Multilayer diffusion on a mesh (FRESCO-style)", "not built", "lesson 32"],
-      ["Random walk through every layer", "boon-lay; impractical for a whole particle", "lesson 32"],
-      ["Layered walk / exact mean exit time", "this site's teaching models", "lesson 32"],
-      ["Booth equivalent sphere per group", "TRISO-ATOPS", "lessons 16-18, 42"],
-      ["Empirical R/B correlation", "TRISO-ATOPS (gases, halogens)", "lesson 42"],
-      ["Fixed nominal value", "TRISO-ATOPS ('other')", "lesson 42"]
+      ["Multilayer diffusion on a mesh (FRESCO-style)", "not built", "lesson 34"],
+      ["Random walk through every layer", "boon-lay; impractical for a whole particle", "lesson 34"],
+      ["Layered walk / exact mean exit time", "this site's teaching models", "lesson 34"],
+      ["Booth equivalent sphere per group", "TRISO-ATOPS", "lessons 18-20, 48"],
+      ["Empirical R/B correlation", "TRISO-ATOPS (gases, halogens)", "lesson 48"],
+      ["Fixed nominal value", "TRISO-ATOPS ('other')", "lesson 48"]
     ];
     var st = { pick: 4 };
     var frame = new L.Frame(root, {

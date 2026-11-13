@@ -2,6 +2,25 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-foam-basic-lib"
 dir = "crates/outram-foam-basic-lib/src/fields/parallel"
+test_ids = [
+    "crates/outram-foam-basic-lib/src/fields/parallel/tests.rs::dispatch_policy_is_the_single_decision_point",
+    "crates/outram-foam-basic-lib/src/fields/parallel/tests.rs::edge_cases_empty_and_single_element",
+    "crates/outram-foam-basic-lib/src/fields/parallel/tests.rs::mismatched_lengths_panic",
+    "crates/outram-foam-basic-lib/src/fields/parallel/tests.rs::name_does_not_grow_under_in_place_updates",
+    "crates/outram-foam-basic-lib/src/fields/parallel/tests.rs::name_does_not_grow_under_self_referential_reassignment_surface",
+    "crates/outram-foam-basic-lib/src/fields/parallel/tests.rs::name_does_not_grow_under_self_referential_reassignment_vol",
+    "crates/outram-foam-basic-lib/src/fields/parallel/tests.rs::vol_vector_field_axpy",
+    "crates/outram-foam-basic-lib/src/fields/parallel/tests.rs::vv_elementwise_scalar_kernels_are_bit_identical_to_serial",
+    "crates/outram-foam-basic-lib/src/fields/parallel/tests.rs::vv_elementwise_vector_kernels_are_bit_identical_to_serial",
+    "crates/outram-foam-basic-lib/src/fields/parallel/tests.rs::vv_in_place_kernels_match_out_of_place",
+    "crates/outram-foam-basic-lib/src/fields/parallel/tests.rs::vv_min_max_are_bit_identical_to_serial",
+    "crates/outram-foam-basic-lib/src/fields/parallel/tests.rs::vv_parallel_sum_matches_serial_within_tolerance",
+    "crates/outram-foam-basic-lib/src/fields/parallel/tests.rs::vv_reduction_against_analytic_reference",
+    "crates/outram-foam-basic-lib/src/fields/parallel/tests.rs::vv_reduction_is_bit_reproducible_run_to_run",
+    "crates/outram-foam-basic-lib/src/fields/parallel/tests.rs::vv_surface_wrappers_cover_internal_and_boundary",
+    "crates/outram-foam-basic-lib/src/fields/parallel/tests.rs::vv_vol_integral_against_analytic_reference",
+    "crates/outram-foam-basic-lib/src/fields/parallel/tests.rs::vv_vol_wrappers_cover_internal_and_boundary",
+]
 
 [module."tests.rs"]
 path = "crate::fields::parallel::tests"
@@ -661,3 +680,28 @@ callees = [
 ]
 uses = ["fn:4cc87691d59e0afc"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+]
+failed = []

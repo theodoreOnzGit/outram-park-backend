@@ -128,6 +128,9 @@ pub mod steam_turbine_equations;
 /// which adds a CoolProp closure. See the module documentation.
 pub mod hem;
 
+/// Steam + non-condensable gas mixtures by Dalton's law (gh:#1093).
+pub mod gas_mixture;
+
 /// reference openfoam algorithms which will be combined with steam
 /// tables for solving simple two phase flow problems
 pub mod openfoam_algorithms;

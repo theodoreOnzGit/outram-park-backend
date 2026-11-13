@@ -9,6 +9,12 @@ Companion to [`htr10.md`](./htr10.md) (capability audit and scoping) and
 IAEA-TECDOC-1382 is a **neutronics** benchmark and carries almost no plant
 detail, so the simulator was inventing its piping and secondary-loop geometry.
 
+**Added 2026-11-03:** the reactor-unit thermal-hydraulic inputs from the IAEA
+CRP-5 benchmark (IAEA-TECDOC-1694) and the HTR-10 safety-test papers are in
+[`htr10-th-benchmark.md`](./htr10-th-benchmark.md), which follows this sheet's
+Quoted / Derived / Uncertain convention. It closes several of the Section 9
+unknowns below; each is annotated in place.
+
 > **Intended use.** Education, research, capability building, and V&V only. This
 > is an offline demonstration with no connection to any operational system. See
 > `RESPONSIBLE_USE.md`.
@@ -699,7 +705,13 @@ not present a value for them as sourced.
 - Wall thicknesses of the RPV, SG vessel and hot gas duct vessel.
 - Exact RPV and SG vessel heights and diameters — [S2] gives only bounds ("more
   than 11 m", "more than 4 m").
-- Core barrel dimensions and the RPV-to-core-barrel annulus gap.
+- ~~Core barrel dimensions and the RPV-to-core-barrel annulus gap.~~
+  **CLOSED 2026-11-03 from a sixth source**: IAEA-TECDOC-1694 Tab 2.3 gives
+  the core vessel as 382 cm ID, 3 cm thick, 737 cm high, SA387-11, and the RPV
+  shell as 420 cm ID, 8 cm thick. See
+  [`htr10-th-benchmark.md`](./htr10-th-benchmark.md) Sec 3.1. It also notes a
+  model-against-table discrepancy in the vessel radius (N5). Still unknown from
+  the five sources above.
 - Elevation differences between components, needed for any natural-circulation
   or buoyancy modelling.
 
@@ -725,14 +737,24 @@ documents.
 
 **Thermal-hydraulic detail**
 
-- The KTA 3102.3 **pressure-drop assembly equation** that consumes the friction
+- ~~The KTA 3102.3 **pressure-drop assembly equation** that consumes the friction
   factor. The friction factor itself is recovered; the equation it feeds was too
-  OCR-degraded to transcribe and was deliberately not guessed.
-- The KTA 3102.1 **helium thermal conductivity** fit — the extracted form is
-  internally inconsistent.
-- Pressure units for the KTA 3102.1 density fit.
-- Reflector graphite and carbon brick property fits — present in [S5] section
-  3.3.6-3.3.7 but not transcribed here because extraction quality was too poor.
+  OCR-degraded to transcribe and was deliberately not guessed.~~ **CLOSED
+  2026-11-03**: transcribed from IAEA-TECDOC-1694 Tab 2.10 (rendered page) in
+  [`htr10-th-benchmark.md`](./htr10-th-benchmark.md) Sec 4.3.
+- ~~The KTA 3102.1 **helium thermal conductivity** fit — the extracted form is
+  internally inconsistent.~~ **CLOSED 2026-11-03**: TECDOC-1694 Tab 2.8 prints
+  it as `2.682e-5 (1 + 1.123e-3 P) T^(0.71 (1 - 2e-4 P))` W/(cm K). See
+  `htr10-th-benchmark.md` Sec 4.1.
+- ~~Pressure units for the KTA 3102.1 density fit.~~ **CLOSED 2026-11-03**:
+  TECDOC-1694 Tab 2.8 *prints* Pa, but the fits only work in **bar**. The
+  density coefficient 48.14 equals 1e5 / R_He. The Derived evidence is in
+  `htr10-th-benchmark.md` Sec 4.1 (maintainer decision D5).
+- ~~Reflector graphite and carbon brick property fits — present in [S5] section
+  3.3.6-3.3.7 but not transcribed here because extraction quality was too poor.~~
+  **CLOSED 2026-11-03** from TECDOC-1694 Tabs 2.11–2.12, read on the rendered
+  page. See `htr10-th-benchmark.md` Secs 4.4–4.5. They were not cross-checked
+  against [S5] Sec 3.3.6–3.3.7.
 - Cavity cooling system geometry. It appears as a modelled region in [S5]
   section 3.2.1 but is never dimensioned.
 

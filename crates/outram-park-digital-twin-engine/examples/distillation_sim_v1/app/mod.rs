@@ -65,6 +65,9 @@ pub struct DistColSimApp {
     thread_health: ThreadHealth,
     /// Which central-panel tab is open.
     open_panel: Panel,
+    /// The Gruvbox theme (`bugis`), Dark by default; the side panel's
+    /// selector switches it.
+    theme: bugis::Theme,
 }
 
 /// The three handles one simulation run owns -- bundled so
@@ -128,14 +131,18 @@ fn start_simulation() -> SimulationRun {
 
 impl DistColSimApp {
     /// Build the app and launch its first simulation run.
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let run = start_simulation();
-        Self {
+        let app = Self {
             physics: run.physics,
             plots: run.plots,
             thread_health: run.thread_health,
             open_panel: Panel::Schematic,
-        }
+            theme: bugis::Theme::default(),
+        };
+        // Gruvbox Dark from the first frame.
+        app.theme.apply(&cc.egui_ctx);
+        app
     }
 
     /// Tear down the current run and start a brand-new one at the default
@@ -177,14 +184,14 @@ impl eframe::App for DistColSimApp {
         egui::Panel::top("dist_top").show(ui, |ui| {
             ui.heading("Distillation Column Simulator v1 -- OUTRAM PARK digital-twin engine");
             ui.horizontal(|ui| {
-                egui::global_theme_preference_buttons(ui);
-                ui.separator();
                 panel_selector_ui(ui, &mut self.open_panel);
             });
             ui.separator();
         });
 
         egui::Panel::right("dist_controls").show(ui, |ui| {
+            // The shared Gruvbox Dark/Light selector (GUI drawing).
+            bugis::selector(ui, &mut self.theme);
             draw_controls(ui, &self.physics, &snapshot);
         });
 
@@ -241,6 +248,7 @@ mod tests {
             plots: run.plots,
             thread_health: run.thread_health,
             open_panel: Panel::Schematic,
+            theme: bugis::Theme::default(),
         };
 
         // Give the physics thread several ticks to advance well past one

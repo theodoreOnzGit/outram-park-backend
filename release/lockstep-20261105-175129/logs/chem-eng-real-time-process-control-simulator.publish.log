@@ -1,0 +1,21 @@
+    Blocking waiting for file lock on package cache
+    Updating crates.io index
+    Blocking waiting for file lock on package cache
+   Packaging chem-eng-real-time-process-control-simulator v0.2.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/chem-eng-real-time-process-control-simulator)
+    Updating crates.io index
+    Packaged 100 files, 1.2MiB (254.7KiB compressed)
+   Verifying chem-eng-real-time-process-control-simulator v0.2.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/chem-eng-real-time-process-control-simulator)
+   Compiling serde_core v1.0.229
+   Compiling memchr v2.8.3
+   Compiling ryu v1.0.23
+   Compiling itoa v1.0.18
+   Compiling approx v0.5.1
+   Compiling csv-core v0.1.13
+   Compiling csv v1.4.0
+   Compiling chem-eng-real-time-process-control-simulator v0.2.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/target-lockstep/package/chem-eng-real-time-process-control-simulator-0.2.5)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.66s
+   Uploading chem-eng-real-time-process-control-simulator v0.2.5 (/tmp/claude-1000/-home-snrsi-user-Documents-outram-park-backend/bf03f3e1-4977-4b3d-b534-0683096c04bc/scratchpad/rel-v004/crates/chem-eng-real-time-process-control-simulator)
+    Uploaded chem-eng-real-time-process-control-simulator v0.2.5 to registry `crates-io`
+note: waiting for chem-eng-real-time-process-control-simulator v0.2.5 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published chem-eng-real-time-process-control-simulator v0.2.5 at registry `crates-io`

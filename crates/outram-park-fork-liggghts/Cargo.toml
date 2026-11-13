@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-fork-liggghts"
-version = "0.0.2"
+version = "0.0.3"
 edition.workspace = true
 # LICENSING NOTE (see NOTICE): LIGGGHTS-PUBLIC's source headers declare "GNU
 # Public License, version 2 OR LATER", which IS compatible with GPL-3.0 (the
@@ -14,7 +14,7 @@ homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 categories.workspace = true
-exclude = ["docs", "examples/data"]
+exclude = ["docs", "examples/data", "upstream_source"]
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and
@@ -95,19 +95,21 @@ rayon = { workspace = true }
 # Optional GPU compute (headless, no window) for the embarrassingly-parallel
 # analysis kernels — see `src/gpu/`. Exactly the gate `outram-mc-libs` uses, for
 # the same reasons: wgpu is target-gated OFF Android (no system Vulkan/Metal
-# loader, no easy toolchain there) and off wasm (wgpu-hal is not Sync there), so
-# the library still builds for `aarch64-linux-android` and `wasm32` via the
-# CPU-only shim. Desktop targets get the real wgpu path; the CPU stays the
+# loader, no easy toolchain there) ~~and off wasm (wgpu-hal is not Sync there)~~
+# (on wasm since 2026-11-05, see below), so the library still builds for
+# `aarch64-linux-android` via the CPU-only shim. Desktop targets get the real wgpu path; the CPU stays the
 # trusted, deterministic reference — GPU is acceleration only.
 #
-# The DEM TIMESTEP has no GPU path and is not expected to gain one; see
-# `ComputeType`'s docs for why (persistent per-contact shear history). The RDF
-# pair-separation histogram does, because it is stateless and all-pairs.
+# ~~The DEM TIMESTEP has no GPU path and is not expected to gain one~~
+# CHANGED 2026-11-05 (gh:#1250): `gpu::dem` runs the HTR-10 pour's timestep
+# (opt-in, not bit-identical), also on wasm32 through the browser's WebGPU,
+# which is why wgpu is no longer gated off wasm. The RDF histogram stays
+# native-only (it blocks on the device).
 #
 # NOTE: no `pollster`/executor dependency — `src/gpu/mod.rs` hand-rolls a tiny
 # pure-std `block_on` to drive the two `request_adapter`/`request_device`
 # futures, keeping this crate's third-party surface unchanged.
-[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dependencies]
+[target.'cfg(not(target_os = "android"))'.dependencies]
 wgpu = { workspace = true }
 
 [dev-dependencies]

@@ -537,7 +537,11 @@ impl Filter for SpatialLegendreFilter {
 /// Ports `calc_pn_c` (`src/math_functions.cpp:105-116`). Valid for any real `x`;
 /// the spatial Legendre filter calls it with `x = ξ ∈ [−1, 1]`, where every
 /// `|P_n(ξ)| ≤ 1`.
-fn legendre_pn(order: usize, x: f64) -> Vec<f64> {
+///
+/// **Public since 2026-11-03 (gh:#1184)**, so a caller reconstructing a
+/// tallied expansion (`nee_soon::power_shape`) evaluates the very basis the
+/// filter scored with rather than a re-derivation that could drift.
+pub fn legendre_pn(order: usize, x: f64) -> Vec<f64> {
     let mut pnx = vec![0.0; order + 1];
     pnx[0] = 1.0;
     if order >= 1 {
@@ -889,7 +893,11 @@ fn bin_in_edges(edges: &[f64], x: f64) -> Option<usize> {
 /// which is exact in `f64` for the orders a tally uses (factorials stay well
 /// inside the integer range until `n` is far larger than any expansion anyone
 /// reconstructs from).
-fn zernike_zn(order: usize, rho: f64, theta: f64) -> Vec<f64> {
+///
+/// **Public since 2026-11-03 (gh:#1184)**, so a caller reconstructing a
+/// tallied expansion (`nee_soon::power_shape`) evaluates the very basis the
+/// filter scored with rather than a re-derivation that could drift.
+pub fn zernike_zn(order: usize, rho: f64, theta: f64) -> Vec<f64> {
     let mut out = Vec::with_capacity((order + 1) * (order + 2) / 2);
     for n in 0..=order {
         let mut m = -(n as i32);
@@ -944,7 +952,11 @@ fn factorial(k: usize) -> f64 {
 /// Y_l^-m = sqrt(2) N_l^m P_l^m(cos theta) sin(m phi)      m > 0
 /// N_l^m  = sqrt( (2l+1)/(4 pi) * (l-m)!/(l+m)! )
 /// ```
-fn real_spherical_harmonics(order: usize, cos_theta: f64, phi: f64) -> Vec<f64> {
+///
+/// **Public since 2026-11-03 (gh:#1184)**, so a caller reconstructing a
+/// tallied expansion (`nee_soon::power_shape`) evaluates the very basis the
+/// filter scored with rather than a re-derivation that could drift.
+pub fn real_spherical_harmonics(order: usize, cos_theta: f64, phi: f64) -> Vec<f64> {
     let mut out = Vec::with_capacity((order + 1) * (order + 1));
     let four_pi = 4.0 * std::f64::consts::PI;
     for l in 0..=order {

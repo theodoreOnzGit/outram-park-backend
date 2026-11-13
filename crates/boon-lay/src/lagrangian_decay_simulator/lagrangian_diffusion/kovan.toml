@@ -2,6 +2,13 @@ schema_version = 1
 kind = "code_folder"
 crate = "boon-lay"
 dir = "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion"
+test_ids = [
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator.rs::diffusion_gaussian_sum",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator_time_based.rs::isotropic_scattering_time_summation",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/chatgpt_5_diffusion_simulator.rs::chat_gpt_sim",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/chatgpt_5_list_of_vectors_uniformly_distributed_on_spherical_shell.rs::rng_test",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/chatgpt_5_list_of_vectors_uniformly_distributed_on_spherical_shell.rs::test_for_filtering",
+]
 
 [module."chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator.rs"]
 path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator"
@@ -645,3 +652,16 @@ hash = "sha256:21d53cf9563920b1fb349a5f4436a1f9c711f153c780e77d8ce25f34728c295e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 uses = ["fn:a928241d46af030b"]
 test = true
+
+[test_run]
+commit = "13e891e5b491e162abaf022ef19097f07222b12e"
+cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+failed = []

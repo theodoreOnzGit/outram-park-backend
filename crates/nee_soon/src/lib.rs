@@ -62,6 +62,9 @@
 //! | [`genfoam_xs`] | hands those constants to GeN-Foam through its own `nuclearData` input path |
 //! | [`coupling`] | [`coupling::McToGenFoam`], the facade: construct, `generate_mgxs()`, `solve_infinite_medium()` |
 //! | [`direct_coupling`] | [`direct_coupling::McGenFoamDirect`], Monte Carlo iterated directly against GeN-Foam's lumped thermal region |
+//! | [`power_shape`] | power shapes (lumps, cosine/sine, `J0 x cos`, Legendre-z, Zernike(-Legendre), Fourier-Bessel, spatial spherical harmonics, R-Z tables), read from Monte Carlo tallies and put on TH cells conserving the power; the HTR-10 frames (gh:#1184) |
+//! | [`htr10_coupling`] | [`htr10_coupling::Htr10DirectCoupling`]: the whole-core HTR-10 Monte Carlo (`ParametricStudy`) iterated against a lumped node or the `htr10_rz` R-Z core, reprocessing the data exactly at each zone temperature (gh:#1186) |
+//! | [`mgxs_genfoam`] | four isothermal Monte Carlo MGXS records stacked with `TFuel` into a GeN-Foam R-Z diffusion core on the `htr10_rz` mesh (gh:#1187) |
 //!
 //! [`NeeSoon::new_prompt_excursion_model`] remains real, wired code exposing
 //! `teh-o-prke`'s Nordheim-Fuchs exact timestepper.
@@ -87,6 +90,11 @@ pub use teh_o_prke::teh_o_prke_error::TehOPrkeError;
 
 use uom::si::f64::{HeatCapacity, Power, Ratio, TemperatureCoefficient, ThermodynamicTemperature, Time};
 
+/// HTR-10 coupled thermal-hydraulic transients: point kinetics with the
+/// `tampines` primary loop (gh:#1151; moved from `tampines` 2026-11-03).
+pub mod htr10_th_transient;
+/// MSRE power-to-reactivity frequency response (MSRE T-1, gh:#1132).
+pub mod msre_frequency_response;
 pub mod htr10_rmc;
 pub mod httr;
 pub mod mgxs;
@@ -98,6 +106,16 @@ pub mod det_six_factor;
 pub mod rod_insertion;
 pub mod coupling;
 pub mod direct_coupling;
+/// Power shapes and their mapping from Monte Carlo tallies onto thermal-hydraulic
+/// cells, with the HTR-10 frames (gh:#1184).
+pub mod power_shape;
+/// HTR-10 Monte Carlo iterated directly against a thermal-hydraulic target
+/// (lumped node or the `htr10_rz` R-Z core), with exact reprocessing (gh:#1186).
+pub mod htr10_coupling;
+/// HTR-10 Monte Carlo MGXS state points into a GeN-Foam R-Z diffusion core with
+/// `TFuel` feedback (gh:#1187).
+pub mod mgxs_genfoam;
+pub mod system_coupling;
 /// outram-blender -> outram-mc CSG bridge (`to_mc_geometry`). Moved here from
 /// outram-blender's retired `mc-export` feature on 2026-10-02 (GitHub #486).
 pub mod blender_bridge;
@@ -166,6 +184,34 @@ impl NeeSoon {
             fuel_reference_temperature,
             initial_fuel_temperature,
             initial_power,
+        )
+    }
+
+    /// Creates the coupling between a 1-D system code's core nodes and point
+    /// kinetics ([`system_coupling::LoopKineticsCoupling`], gh:#1084): node
+    /// fields to reactivity through GeN-Foam's `ReactivityFeedback`, power to
+    /// the nodes by `power_fractions`, advanced by Picard coupled steps. A
+    /// thin pass-through to that type's constructor.
+    ///
+    /// # Errors
+    ///
+    /// As [`system_coupling::LoopKineticsCoupling::new`].
+    pub fn new_loop_kinetics_coupling(
+        &self,
+        kinetics: teh_o_prke::zero_power_prke::n_group_prke::PointKinetics,
+        generation_time: Time,
+        initial_power: Power,
+        node_volumes: &[f64],
+        power_fractions: &[f64],
+        feedback: outram_foam_appbuilder_lib::genfoam::multi_region::ReactivityFeedback,
+    ) -> Result<system_coupling::LoopKineticsCoupling, system_coupling::SystemCouplingError> {
+        system_coupling::LoopKineticsCoupling::new(
+            kinetics,
+            generation_time,
+            initial_power,
+            node_volumes,
+            power_fractions,
+            feedback,
         )
     }
 }
