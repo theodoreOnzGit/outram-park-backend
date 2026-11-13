@@ -204,6 +204,9 @@ pub fn optimise_final_mesh(mesh: &mut VolumeMesh, points: &[Vec3], tris: &[[usiz
         stop_on_stall: controls.stop_untangling_on_stall,
         boundary_moves: controls.untangle_boundary_moves,
         mesh_untangler: controls.untangle_mesh_untangler,
+        // the tet-dual pipeline's opt-in keeps the pre-round-5 calls: Foam
+        // Studio's pins (not run in this gate) depend on them
+        boundary_calls: crate::mesh_optimizer::BoundaryMoveCalls::AsDocumented,
     };
     let (r, pr) = untangle_on_surface(mesh, &none, &c, controls.boundary_projection, Some(&projector));
     notes.push(format!(

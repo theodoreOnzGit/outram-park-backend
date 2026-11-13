@@ -374,6 +374,11 @@ pub struct BackScalingReport {
 /// (bit-identical to the brute-force nearest point, gh:#1263). The caller
 /// then runs its `optimiseFinalMesh` again on the original surface.
 ///
+/// **gh:#1385 round 5:** `cartesianMesh` no longer calls this; it uses
+/// [`revert_and_project_octree`] (upstream's new octree and
+/// `findNearestSurfacePoint`). `tetMesh` and `pMesh` still do (not yet compared
+/// with a staged upstream anisotropic run).
+///
 /// [`SurfaceSearch::Octree`]: crate::mesh_octree_queries::SurfaceSearch::Octree
 pub fn revert_and_project(m: &mut crate::volume_mesh::VolumeMesh, cm: &CoordinateModifier, points: &[Vec3], tris: &[[usize; 3]]) -> BackScalingReport {
     revert_points(&mut m.points, cm);
