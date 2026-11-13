@@ -21,6 +21,7 @@
 //! snappy_hex_mesh_esi_v2506/README.md`, "Round 10".
 
 use outram_foam_mesh::check_mesh::EsiQualityControls;
+use outram_foam_mesh::snappy_hex_mesh::esi_layer_final::{final_check_mesh, layer_data_fields, layer_field_bytes, remove_empty_patches};
 use outram_foam_mesh::snappy_hex_mesh::esi_layer_loop::{add_layers_loop, layer_data_table, LayerIteration, LayerLoopInput};
 use outram_foam_mesh::snappy_hex_mesh::esi_layers::{
     calculate_layer_thickness, set_point_num_layers, ExtrudeState, LayerDict, LayerNumbers, LayerParameters, LayerPatch,
@@ -279,6 +280,37 @@ fn compare(c: &Case, run: &Run, refs: &[Ref], final_faces: u64) -> Vec<String> {
     bad
 }
 
+/// P66-P68: the tail after the loop. `final_faces` is ESI's digest of the final mesh,
+/// `fields` the digest of its `writeLayerData` fields (`None` where no run wrote them),
+/// `wrong` its `wrongFaces` set.
+fn tail(c: &Case, run: &Run, final_faces: u64, fields: Option<u64>, wrong: &[usize]) {
+    let last = run.its.last().unwrap();
+    // ESI's layer mesh still has the empty `allBoundary` as patch 0: restore it, then remove it for real
+    let mut with_empty = last.layers.mesh.clone();
+    for p in with_empty.face_patch.iter_mut() {
+        if *p != usize::MAX {
+            *p += 1;
+        }
+    }
+    with_empty.n_patches += 1;
+    with_empty.constraint.insert(0, false);
+    let (fin, new_to_old) = remove_empty_patches(&with_empty);
+    assert_eq!(new_to_old, vec![1, 2, 3, 4], "P66 newToOld");
+    assert_eq!(fnv1a(&face_bytes(&fin, 0)), final_faces, "P66 {} final mesh equals ESI", c.tag);
+    let check = final_check_mesh(&fin, &EsiQualityControls::default());
+    eprintln!("{}: final checkMesh wrongFaces {:?} (ESI {:?}), per check {:?}", c.tag, check.wrong_faces, wrong, check.new_faces);
+    assert_eq!(check.wrong_faces, wrong, "P67 {} wrongFaces", c.tag);
+    if let Some(want) = fields {
+        let patch_ids: Vec<usize> = (0..4).collect();
+        let f = layer_data_fields(last, &run.pp, &run.lt.thickness, &patch_ids);
+        let bytes = layer_field_bytes(&f);
+        dump(c.tag, "fields", None, &bytes);
+        let got = fnv1a(&bytes);
+        eprintln!("{}: layer fields: {} bytes, port {got:016x} ESI {want:016x}", c.tag, bytes.len());
+        assert_eq!(got, want, "P68 {} layer fields", c.tag);
+    }
+}
+
 /// P60: the round-9 case from the rebuilt ESI's snapped mesh.
 #[test]
 fn base_case_from_rebuilt_esi() {
@@ -295,6 +327,7 @@ fn base_case_from_rebuilt_esi() {
     assert!(bad.is_empty(), "{bad:?}");
     // the final mesh points are those of the last layer mesh
     assert_eq!(fnv1a(&point_bytes(&run.its[2].layers.mesh.mesh.points)), 0xfcc9d627e5f1201f);
+    tail(&c, &run, 0x915ab24c5e104db8, None, &[]);
 }
 
 /// P61-P64: three layers, expansion ratio 1.2.
@@ -334,6 +367,7 @@ fn three_layers_expansion_1p2_against_esi() {
         (117798, 43968),
         "ESI: faces 117798, points 43968"
     );
+    tail(&c, &run, 0xfe3b90ebac36bf2c, Some(0x01c12c5a53e2769e), &[]);
     // P64: printLayerData
     let patch_ids: Vec<usize> = (0..4).collect();
     let rows = layer_data_table(last, &run.pp, &run.lt.thickness, &patch_ids, &[3, 3, 3, 3]);
@@ -365,4 +399,5 @@ fn relaxed_quality_path_against_esi() {
     ];
     let bad = compare(&c, &run, &refs, 0x1fa36a7e47db0a38);
     assert!(bad.is_empty(), "{bad:?}");
+    tail(&c, &run, 0x1fa36a7e47db0a38, Some(0xdb8997693ba42b73), &[20914, 44803]);
 }
