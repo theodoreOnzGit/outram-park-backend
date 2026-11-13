@@ -32,3 +32,14 @@ Parent: gh:#1341, epic gh:#1336. Research, education and V&V only
   wrap especially) or the integration weights is mis-transcribed.
 - **P2.** Steffen never leaves the data range on the step table (monotone),
   checked by a property test independent of GSL.
+
+## Results (2026-11-13, Rust 1.99.1 release, GSL 2.8 `cf180cd7`, `gcc -O2`)
+
+- **P1 held, first run.** 10 812 of 10 812 rows bit-identical: Steffen
+  eval/deriv/deriv2 1 252 each and integ 1 155; Akima the same; periodic Akima
+  253 each and integ 231 (periodic table only). Worst difference 0.
+- **P2 held** (`steffen_is_monotone_on_a_monotone_table`, 9 001 points).
+- The tolerance was never in play: the criterion is bit equality.
+- Not ported from gh:#1341 (still open): `cspline_periodic`, `polynomial`,
+  `spline.c` convenience wrapper, and the 2-D family (`interp2d`, `bilinear`,
+  `bicubic`, `spline2d`).
