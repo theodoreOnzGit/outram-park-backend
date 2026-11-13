@@ -1461,7 +1461,7 @@ so every rolling model sees `w_r != 0`; wall decks: one spinning sphere
 | `fix move/mesh` wiggle, viblin, riggle, vibrot | `mover_wiggle`, `mover_viblin`, `mover_riggle`, `mover_vibrot` | ~~**bit-identical** (4/4, 2259 f64 each)~~ **CORRECTED 2026-11-12 (gh:#1336, #1455):** bit-identical while `mesh_wall.rs`/`tri_mesh.rs` called glibc trig; on PETIR's `RealMath` wiggle stays 2259/2259 and viblin, riggle, vibrot differ in 323, 596, 1509 of 2259 (worst normwise 1.33e-16, 3.50e-14, 7.88e-13). A/B-proven libm-only: the std-trig files restore 2259/2259. Pinned in `tests/mesh_movers_cross_code.rs` |
 | `fix move/mesh` `linear/variable`, `rotate/variable` (equal-style variables, `src/variable.rs` from `variable.cpp`) | `mover_linvar` (`0.3*sin(2*PI*time/0.08)+0.5*step*dt`, `swiggle`, `cwiggle`), `mover_rotvar` | ~~**bit-identical** (2/2, 2259 f64 each)~~ **CORRECTED 2026-11-12 (gh:#1336, #1455):** `linear/variable` stays 2259/2259; `rotate/variable` differs in 785/2259 (worst normwise 6.13e-15) on PETIR's `RealMath`, libm-only by the same A/B (written 2026-11-11, prediction: bit-identical, as for the other movers) |
 | `fix massflow/mesh` (`fix_massflow_mesh.cpp`, incl. the mesh neighbour list `resolveTriSphereNeighbuild`) | `massflow_plate` (12 spheres, floor bounce, `count multiple` and `count once`, 60 000 steps) | **bit-identical** (14 036/14 036: trajectories plus mass, count, mass rate, count rate at 121 steps; `tests/massflow_mesh_cross_code.rs`). A first version that visited every particle near a facet bounding sphere miscounted one crossing from step 36 500 (stale-counter effect); translating the neighbour list removed it. ~~`point_at_outlet`/`inside_out`: unit-tested only, not cross-coded~~ **CORRECTED 2026-11-12 (gh:#1491):** `point_at_outlet` and `inside_out` cross-coded on `massflow_outlet` (closed 64-facet drum as counting surface), 14 036/14 036 bit-identical, section 4.13 |
-| `fix mesh/surface/stress` totals (`mesh_module_stress.cpp`) | `mesh_stress` (2 spheres, one straddling the plate diagonal, rotating plate, `reference_point`) | **bit-identical** (3 069 values: 251 frames x 18 + 41 x 9 `f_plate[1..9]`; `tests/mesh_stress_cross_code.rs`). Per-facet `f`/`sigma_n`/`sigma_t` not cross-coded (upstream accumulates the per-facet `f` over the whole run, read from the source); ~~`wear finnie` and the servo module are not translated~~ **CORRECTED 2026-11-12:** the servo module is translated (gh:#1416) and `wear finnie` too (gh:#1491, `mesh_wear`, 5 263/5 263 bit-identical including the per-facet wear, section 4.13) |
+| `fix mesh/surface/stress` totals (`mesh_module_stress.cpp`) | `mesh_stress` (2 spheres, one straddling the plate diagonal, rotating plate, `reference_point`) | **bit-identical** (3 069 values: 251 frames x 18 + 41 x 9 `f_plate[1..9]`; `tests/mesh_stress_cross_code.rs`). ~~Per-facet `f`/`sigma_n`/`sigma_t` not cross-coded (upstream accumulates the per-facet `f` over the whole run, read from the source);~~ **CORRECTED 2026-11-13 (gh:#1512):** upstream zeroes the per-facet `f` every step (`FixMesh::pre_force` -> `clearReverse`; the claim read `mesh_module_stress.cpp` alone), the port now does too, and per-facet `sigma_n`/`sigma_t` are cross-coded bit-identical on a rotating mesh (section 4.15); ~~`wear finnie` and the servo module are not translated~~ **CORRECTED 2026-11-12:** the servo module is translated (gh:#1416) and `wear finnie` too (gh:#1491, `mesh_wear`, 5 263/5 263 bit-identical including the per-facet wear, section 4.13) |
 
 **Sensitivity controls (the decks can fail).** Each family has a control test:
 with rolling off, with the Luding tangential or rolling model replaced by the
@@ -1756,10 +1756,77 @@ bounded by the run in variables (the variable contexts take `begin_step = 0`);
 declared before its `wall/gran` (the set-up evaluation would see zero node
 velocities); the slot compaction of the mesh contact history
 (`FixContactHistoryMesh::sort_contacts`), which the port does not model at
-re-neighbouring either. `MeshStress`'s facet areas are refreshed at
+re-neighbouring either. ~~`MeshStress`'s facet areas are refreshed at
 `begin_run` (as `refreshOwned` does) but, as before, not at the re-neighbouring
 of a moving mesh, which upstream also refreshes. Neither the servo nor the
-`wear` decks expose that difference.
+`wear` decks expose that difference.~~ **CORRECTED 2026-11-13 (gh:#1512):** the
+areas are now refreshed at every re-neighbouring of a moving mesh too; see 4.15.
+
+## 4.15 Stress and wear on a moving mesh: area refresh and `clearReverse` (2026-11-13, gh:#1512)
+
+**Upstream read** (LIGGGHTS-PUBLIC `3d5c00f2`). On a re-neighbour step,
+`FixMesh::pre_exchange` sets `pOpFlag_`. `FixMesh::pre_force` (called by
+`FixMeshSurface::pre_force` before its modules' `pre_force`) then calls
+`pbcExchangeBorders(0)`, which for a moving mesh reaches
+`SurfaceMesh::refreshOwned` -> `recalcLocalSurfProperties`. That recomputes
+`edgeLen`, `edgeVec`, `surfaceNorm`, `edgeNorm`, the obtuse index, **`area`**
+and `areaAcc` from the nodes. `MeshModuleStress` divides by `areaElem` in the
+Finnie wear increment and in `sigma_n`/`sigma_t`. The port already refreshed
+the geometry there (`MeshWall::refresh_geometry`), but not `MeshStress`'s copy
+of the areas. `areaAcc` serves only insertion faces, which may not move (in
+either code). `center`/`rBound` are refreshed only `if(isDeforming())`, and
+`isDeforming()` is hard-wired `false` in 3d5c00f2: every `move/mesh` style is
+rigid, so **no deforming mover exists to cross-code**.
+
+The same `FixMesh::pre_force` ends with `mesh_->clearReverse()`, which zeroes
+every `comm_reverse` element property each step (also in `setup_pre_force`).
+For this module those are the per-facet force `f` and `wear_step`. The port
+never zeroed `f`, so its per-facet `sigma_n`/`sigma_t` were cumulative over the
+run; a doc comment claimed that was upstream's behaviour, from reading
+`mesh_module_stress.cpp` alone. It also carried a set-up evaluation's
+`wear_step` into step 1, which upstream discards. Neither was visible before:
+no deck compared per-facet stress, and on `in.mesh_wear` the one set-up
+contact slides parallel to the plate, which gives zero Finnie wear.
+
+**Ported.** `MovingBoundary::refresh_mesh` (geometry + stress areas) on every
+mesh refresh (re-neighbouring, and `begin_run`); `MeshStress::clear_reverse`
+(zero `f` and `wear_step`) every step before `MeshStress::pre_force`.
+
+**Deck** `in.mesh_wear_rot`: `in.mesh_wear` with the plate rotating about `z`
+(period 0.5 s, corners at 2.7 m/s, so the mesh triggers a rebuild about every
+57 steps), and sphere 5, touching at step 0, moving into the plate
+(`vz = -0.1`) so the set-up carries a non-zero `wear_step`. The trajectories
+and `f_plate[1..9]` come from the stock `lmp_serial`. The per-facet `areaElem`,
+`sigma_n`, `sigma_t` and `wear` every 250 steps (`mesh_wear_rot_facets.txt`)
+come from a scratch copy instrumented at the end of `calc_total_force`, whose
+dump and thermo are byte-identical to the stock binary's. The same copy showed
+the set-up increment (`2.90e-6`) absent from step 1's wear, and the per-facet
+`f` equal to that step's total; the copy was deleted afterwards.
+
+**Prediction** (gh:#1512, before the first run): bit-identical; a rigid
+rotation changes the area by round-off only.
+
+**Results** (Rust 1.99.1, `tests/mesh_stress_cross_code.rs`,
+`mesh_wear_rotating_matches_liggghts`):
+
+| port | differ / compared |
+|---|---|
+| with both changes | **0 / 5 743** (81 frames x 54, 81 x 9 `f_plate`, 80 x 2 x (area, `sigma_n`, `sigma_t`, wear)) |
+| before gh:#1512 (neither change) | 637 / 5 743 |
+| area refresh only (no `clear_reverse`) | 398 / 5 743 |
+| control in the test: `clear_reverse` on, areas reset to the import value after every step | 217 / 5 583 (first: wear at step 250, `0.0011192484535403131` vs `0.0011192484535403147`) |
+
+**The area drift was larger than predicted, but it is still round-off.** The
+prediction said "a few ulp". Upstream's refreshed area leaves the import value
+`0.045` at once (`0.044999999999998555` at step 250) and drifts to
+`0.044999999999872309` by step 20 000, i.e. `2.8e-12` relative. The cause is
+that the rotation is applied to the nodes incrementally, one quaternion step at
+a time, so the triangle's shape accumulates rounding. The port moves its nodes
+the same way and reproduces the drift bit for bit. The trajectories and
+`f_plate` do not depend on the area, and were bit-identical before the change
+as well. The per-facet stress was wrong by orders of magnitude before the
+change (cumulative `f`), and the wear differed from step 1 on because of the
+carried set-up increment.
 
 ## 5. What is still NOT validated
 

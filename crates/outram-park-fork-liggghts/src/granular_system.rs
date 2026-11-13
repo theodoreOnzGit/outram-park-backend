@@ -757,15 +757,15 @@ impl GranularSystem {
     }
 
     /// The neighbour-rebuild decision and mesh refresh that follow the walls'
-    /// move in a step (`Neighbor::decide`, `FixMesh::pre_force`).
+    /// move in a step (`Neighbor::decide`, `FixMesh::pre_force`). The refresh
+    /// includes the stress module's facet areas, as upstream's
+    /// `recalcLocalSurfProperties` does (gh:#1512).
     fn refresh_moving_meshes(&mut self) {
         let skin = self.neigh_skin;
         if skin <= 0.0 {
             for w in &mut self.moving_walls {
                 if w.is_rotating() {
-                    if let WallGeometry::Mesh(m) = &mut w.geometry {
-                        m.refresh_geometry();
-                    }
+                    w.refresh_mesh();
                 }
             }
             return;
@@ -784,9 +784,7 @@ impl GranularSystem {
         self.rebuild_now = rebuild;
         if rebuild {
             for w in &mut self.moving_walls {
-                if let WallGeometry::Mesh(m) = &mut w.geometry {
-                    m.refresh_geometry();
-                }
+                w.refresh_mesh();
             }
             self.xhold = self.particles.iter().map(|p| p.position).collect();
             self.mesh_rebuild_pending = false;
@@ -2132,9 +2130,11 @@ impl GranularSystem {
             self.update_servo_contacts();
             self.rebuild_massflow_lists();
         }
-        // `MeshModuleStress::pre_force`
+        // `FixMesh::pre_force` -> `clearReverse` (per-facet `f`, `wear_step`;
+        // gh:#1512), then `MeshModuleStress::pre_force`
         for w in &mut self.moving_walls {
             if let Some(st) = &mut w.stress {
+                st.clear_reverse();
                 st.pre_force();
             }
         }
@@ -2650,8 +2650,10 @@ impl GranularSystem {
     fn compute_mesh_wall_forces(&mut self, w: usize) {
         let setup = self.setup_phase;
         if setup {
-            // the set-up evaluation's wear goes into step 1 (nothing zeroes
-            // `wear_step` before `final_integrate`); a repeated set-up here
+            // ~~the set-up evaluation's wear goes into step 1 (nothing zeroes
+            // `wear_step` before `final_integrate`)~~ CORRECTED 2026-11-13
+            // (gh:#1512): step 1's `FixMesh::pre_force` -> `clearReverse`
+            // discards it (`MeshStress::clear_reverse`); a repeated set-up here
             // replaces, not adds to, it
             if let Some(st) = self.moving_walls[w].stress.as_mut() {
                 st.begin_setup_wear();
