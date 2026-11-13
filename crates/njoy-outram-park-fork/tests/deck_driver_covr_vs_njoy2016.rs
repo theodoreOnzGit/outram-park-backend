@@ -22,6 +22,22 @@
 //! # Results (2026-11-13, NJOY2016.80 `ac5adf5`, gfortran 13.3, release)
 //!
 //! See each test. All four decks: every compared unit identical, first run.
+//!
+//! # ERRORR `mfcov = 34`, `31`, `33` from a GENDF, and `covadd` (2026-11-13)
+//!
+//! Decks 46, 65, 16, 04, 15 and 20 are run whole the same way. Predictions were
+//! posted on gh:#1369 before each change, except deck 04's (MF=31), which was run
+//! before its prediction was written; that is recorded there.
+//! - 46 (MF=34 from a binary GENDF), 65 (MF=34 with six sub-subsections, COVR,
+//!   VIEWR), 16 (MF=34 from a PENDF through `grpav4`'s ENDF branch) and 15 (MF=31,
+//!   33 and 34 from a text GENDF): every unit identical on the first run.
+//! - 04 (MF=31 with `nin` copied ahead): identical on the first run.
+//! - 20 (`covadd`, Cl-35 R-matrix limited): the first run differed in two places,
+//!   both fixed from upstream. RECONR's MF=2/MT=151 stub took `spin` 0 where
+//!   `rdsammy` sets the elastic pair's `IB` (1.5, `samm.f90:1084`). MF=33's first
+//!   section's sequence numbers start at 324 because `rdumrd2` copies MF=2/MT=151's
+//!   323 lines to a coded scratch unit and NJOY's `nsh` counter is shared by all
+//!   units. After both, every unit is identical.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -124,4 +140,49 @@ fn test_47_covr_plot_and_viewr_whole_deck() {
 #[test]
 fn test_05_errorr_mf33_covr_viewr_whole_deck() {
     assert_identical("05", whole_deck_on("05", "t511", 30, &[33, 34, 35]));
+}
+
+/// **Deck 46 (Fe-56 JEFF-3.3, 238 groups): ERRORR `mfcov = 34` from a binary GENDF
+/// (unit 34: MF=1, MF=3/MT=251 mubar, MF=34/MT=251), whole deck.**
+#[test]
+fn test_46_errorr_mf34_whole_deck() {
+    assert_identical("46", whole_deck("46", "n-026_Fe_056-JEFF3.3.endf", &[34]));
+}
+
+/// **Deck 65 (U-235 ENDF/B-VIII.0, MF=34/MT=2 with six sub-subsections): ERRORR
+/// `mfcov = 34` from a text GENDF (unit 41), COVR (51) and VIEWR (61), whole deck.**
+#[test]
+fn test_65_errorr_mf34_covr_viewr_whole_deck() {
+    assert_identical("65", whole_deck("65", "n-092_U_235-ENDF8.0.endf", &[41, 51, 61]));
+}
+
+/// **Deck 16 (U-238 JENDL-3.3, from a PENDF): ERRORR `mfcov = 33` (26) and `34`
+/// (27, `grpav4` from MF=4 LTT=1), their COVR plots (36, 37) and VIEWR (46, 47),
+/// whole deck.**
+#[test]
+fn test_16_errorr_mf33_mf34_covr_viewr_whole_deck() {
+    assert_identical("16", whole_deck("16", "J33U238", &[26, 27, 36, 37, 46, 47]));
+}
+
+/// **Deck 04 (`t511` U-235): ERRORR `mfcov = 33` from a PENDF (23), GROUPR nubar
+/// (24), then ERRORR `mfcov = 31` from that GENDF with `nin = 23` copied ahead
+/// (25), whole deck.**
+#[test]
+fn test_04_errorr_mf31_whole_deck() {
+    assert_identical("04", whole_deck("04", "t511", &[23, 24, 25]));
+}
+
+/// **Deck 15 (U-238 JENDL-3.3, text GENDF unit 91): ERRORR `mfcov = 31`, `33` and
+/// `34` from the GENDF (25-27), three COVR plots (35-37) and VIEWR (45-47), whole deck.**
+#[test]
+fn test_15_errorr_mf31_mf33_mf34_from_gendf_whole_deck() {
+    assert_identical("15", whole_deck("15", "J33U238", &[25, 26, 27, 35, 36, 37, 45, 46, 47, 91]));
+}
+
+/// **Deck 20 (Cl-35 R-matrix limited): ERRORR `nendf = 999` (`covadd`, unit 21), then
+/// RECONR, BROADR, GROUPR, ERRORR `mfcov = 33` from the GENDF with MF=32, COVR and
+/// VIEWR, whole deck.**
+#[test]
+fn test_20_covadd_errorr_covr_viewr_whole_deck() {
+    assert_identical("20", whole_deck("20", "cl35rml", &[21, 22, 23, 91, 25, 26, 27]));
 }

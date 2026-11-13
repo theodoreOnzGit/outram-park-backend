@@ -82,6 +82,19 @@ pub struct CovarianceReactions {
     pub mf32_present: bool,
     /// `mf33 == 1` — the dictionary lists an MF=33 file.
     pub mf33_present: bool,
+    /// `mfcov`: the covariance file read, 31 or 33; `0` (the default) means 33.
+    pub mfcov: i32,
+}
+
+impl CovarianceReactions {
+    /// The covariance file `gridd`, `lumpmt` and `covcal` read (`mfcov`, 33 unless set).
+    pub fn mf(&self) -> i32 {
+        if self.mfcov == 0 {
+            33
+        } else {
+            self.mfcov
+        }
+    }
 }
 
 /// Scan the material's dictionary for the covariance reactions
@@ -96,7 +109,16 @@ pub struct CovarianceReactions {
 /// [`NjoyError::EndfParse`] if the dictionary lists no MF=32/33 file
 /// (`icov == 0`, upstream's "no data on file for mfcov" termination).
 pub fn scan_reactions(tape: &Tape, matd: i32) -> Result<CovarianceReactions, NjoyError> {
-    let mut r = CovarianceReactions::default();
+    scan_reactions_mf(tape, matd, 33)
+}
+
+/// [`scan_reactions`] for `mfcov = 31` (nubar covariances, `errorr.f90:757`) or 33.
+/// For 31, `icov` counts MF=31 sections and the reactions are MF=31's.
+///
+/// # Errors
+/// As [`scan_reactions`], for the file `mfcov`.
+pub fn scan_reactions_mf(tape: &Tape, matd: i32, mfcov: i32) -> Result<CovarianceReactions, NjoyError> {
+    let mut r = CovarianceReactions { mfcov, ..CovarianceReactions::default() };
     let mut icov = 0;
     for sec in tape.sections().iter().filter(|s| s.key.mat == matd) {
         let (mf, mt) = (sec.key.mf, sec.key.mt);
@@ -106,10 +128,10 @@ pub fn scan_reactions(tape: &Tape, matd: i32) -> Result<CovarianceReactions, Njo
         if mf == 33 {
             r.mf33_present = true;
         }
-        if mf == 32 || mf == 33 {
+        if (mfcov == 33 && (mf == 32 || mf == 33)) || (mfcov == 31 && mf == 31) {
             icov += 1;
         }
-        if mf != 33 {
+        if mf != mfcov {
             continue;
         }
         // errorr.f90:750-754 — unknown MTs are ignored with a message.
@@ -127,7 +149,7 @@ pub fn scan_reactions(tape: &Tape, matd: i32) -> Result<CovarianceReactions, Njo
     }
     if icov == 0 {
         return Err(NjoyError::EndfParse(format!(
-            "errorr: no data on file for mfcov=33 (mat {matd})"
+            "errorr: no data on file for mfcov={mfcov} (mat {matd})"
         )));
     }
     Ok(r)
@@ -295,10 +317,11 @@ pub fn gridd(
     let mut ek: Vec<f64> = Vec::new();
     let mut formulas: Vec<Formula> = Vec::new();
 
+    let mfcov = reactions.mf();
     for sec in tape
         .sections()
         .iter()
-        .filter(|s| s.key.mat == matd && s.key.mf == 33)
+        .filter(|s| s.key.mat == matd && s.key.mf == mfcov)
     {
         let mth = sec.key.mt;
         let mut cur = SectionCursor::new(&sec.rows);
@@ -535,10 +558,11 @@ pub fn lumpmt(
     if reactions.lumps.is_empty() {
         return Ok(());
     }
+    let mfcov = reactions.mf();
     for sec in tape
         .sections()
         .iter()
-        .filter(|s| s.key.mat == matd && s.key.mf == 33)
+        .filter(|s| s.key.mat == matd && s.key.mf == mfcov)
     {
         let mth = sec.key.mt;
         let mut cur = SectionCursor::new(&sec.rows);

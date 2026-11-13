@@ -761,9 +761,11 @@ chi equal to GROUPR's word for word — held; the deck then stops at COVR — he
 Unit tests: `errorr::gendf::tests`, `errorr::colaps::tests`, `errorr::mf35::tests`,
 `deck::errorr::tests`.
 
-**Not done (refused by name):** ERRORR `mfcov = 31`, ~~`33`~~ and `34` from a deck (decks 04,
+**Not done (refused by name):** ERRORR ~~`mfcov = 31`, ~~`33`~~ and `34`~~ from a deck (decks 04,
 05, 15, 16, 17, 20, 46, 65: ~~`run_mf33` exists for MF=33 from a PENDF but is not wired to
-the deck yet~~ **CORRECTED 2026-11-13:** MF=33 from a PENDF is wired, section 19), `iread = 1/2`, `nstan`, `nin`, `nendf = 999` (`covadd`), `iwt = 1`, an MF=35
+the deck yet~~ **CORRECTED 2026-11-13:** MF=33 from a PENDF is wired, section 19; MF=31 and
+MF=34 are wired, section 20), `iread = 1/2`, `nstan`, ~~`nin`, `nendf = 999` (`covadd`)~~ (wired,
+section 20), `iwt = 1`, an MF=35
 MT other than 18, MF=5/MT=18 with more than one subsection or `LF /= 1` in `spcint`, and
 ~~COVR (decks 18, 27, 34, 47 now stop there)~~ **CORRECTED 2026-11-13:** COVR's plot option
 runs and those four decks are identical whole, section 19.
@@ -838,8 +840,10 @@ in NJOY2016.80 and here and compares every listed unit line by line:
 
 Unit tests: `covr::plot::tests`, `covr::plot_label::tests`, `deck::covr::tests`.
 
-**Not done (refused by name):** ERRORR `mfcov = 31` and `34`, MF=33 from an input GENDF
-(`colaps` for MF=33, deck 65), `nendf = 999` (deck 20) and `iread = 2` (deck 17). COVR's
+**Not done (refused by name):** ERRORR ~~`mfcov = 31` and `34`, MF=33 from an input GENDF
+(`colaps` for MF=33, deck 65), `nendf = 999` (deck 20) and~~ `iread = 2` (deck 17).
+**CORRECTED 2026-11-13:** MF=31, MF=34, MF=33 from a GENDF and `nendf = 999` run, section
+20. (Deck 65 needed MF=34 from a GENDF, not MF=33.) COVR's
 library option from a deck. The plot of an MF=40 tape. `corr`'s restart when a second
 material has more groups.
 
@@ -847,3 +851,100 @@ material has more groups.
 (`SURVEY_CASES`) on develop c8bbe9dfa plus this work. **54 of 87 are identical** (49
 before): 05, 18, 27, 34 and 47 closed. Decks 04 and 16 now pass their first ERRORR
 (`mfcov = 33`, tapes 23 and 26 identical) and stop at `mfcov = 31` and `34`.
+
+## 20. ERRORR `mfcov = 34`, `mfcov = 31`, MF=33 from a GENDF, `covadd` (2026-11-13, gh:#1369)
+
+Targets, in order: MF=34 (decks 46, 65, 16, 15), MF=31 (decks 04, 15), then `covadd` with
+`nendf = 999` (deck 20). A prediction was posted on gh:#1369 before each change, with one
+exception: **deck 04 (MF=31) was coded and run before its prediction was posted.** That is
+recorded on the issue. Deck 04's result is therefore not a tested prediction.
+
+**Search first.** `src/errorr/` had nothing for MF=34 (`grpav4`, `egtlgc`, `musigc`, `rdlgnd`,
+`alsigc`, `matrixej`) and nothing for MF=31. It did have the MF=33 chain (`gridd`, `lumpmt`,
+`covcal`, `sigc`, `covout`), and `ngchk`/`colaps` from the MF=35 path. `errorr::covadd` existed,
+but it works on a parsed `Tape`; upstream's `covadd` is a line-by-line text copy. No `review.md`
+in `src/errorr`, `src/deck` or `src/covr` has a `kind = "review"` block.
+
+**New and changed code.**
+- `errorr::mf34` translates the MF=34 path:
+  - `gridd`'s MF=34 branch: `ltt4`/`lct4`/`eltt4`, and energies from sub-subsections with
+    `L, L1 <= legord`;
+  - `grpav4`'s GENDF branch, which collapses MT=251 mubar weighted by `dE*sigma_el` and
+    applies the `oneeps` tests;
+  - `covcal` for the `(legord, ifissp)` sub-subsection, as `F*alp1*alp2`, with rows times
+    `(sig flx)(sig flx)`;
+  - `musigc`, `rdlgnd`, `alsigc`, and `covout`'s MF=34 form.
+
+  It has two entry points: `run_mf34_gendf` and `run_mf34_pendf`.
+- `errorr::grpav4` translates `grpav4`'s ENDF branch:
+  - `egtlgc`, which steps one Legendre record per call and returns zeros past the last;
+  - `epanel` with `mfcov = 34`;
+  - row 2 of `matrixej` (`u1lele`), which is all upstream uses;
+  - `plele`, and the `lct4 = 2` scaling.
+- `errorr::mf31::run_cov_gendf` runs MF=31 and MF=33 from a GENDF. It reuses the MF=33 chain:
+  `CovarianceReactions::mf()` selects MF=31 in `gridd`, `lumpmt` and `covcal`, and
+  `scan_reactions_mf` builds the reaction list. `union_group_xs` reads `colaps`'s tape the way
+  `rdsig` does: word 2, which is the nubar for MT 452/455/456.
+- `covcal::contribution` now multiplies left to right, `F*sig(jg)*sig1(jh)`, as upstream
+  writes it. Before, it computed `F*(sig*sig1)`.
+- `deck::errorr` gained:
+  - the MF=31, MF=34 and MF=33-from-GENDF runs;
+  - `copy_nin_ahead`, which copies `nin` ahead of the output (`covout`, `:7144-7158`); every
+    copied line is renumbered, and the next MF=1 continues the count;
+  - `covadd_text` for `nendf = 999` (`:6907-6967`), whose text goes on the unit through
+    `TapeUnits::put_endf_text` so that MF=32 is not re-rendered;
+  - `covout_first_seq` (see deck 20 below).
+- `deck::pendf` (RECONR's MF=2/MT=151 stub) now takes `spin` for an LRF=7 range as
+  `rdsammy` does: the `IB` of the last particle pair with MT=2 (`samm.f90:1084`).
+
+| deck | what it exercises | result |
+|---|---|---|
+| 46 | Fe-56 JEFF-3.3, 238 groups, MF=34 LB=5/1/5, binary GENDF | unit 34 (8 002 lines) identical, first run |
+| 65 | U-235 B-VIII.0, MF=34 with six sub-subsections (only `(1,1)` kept), COVR, VIEWR | 41, 51, 61 identical, first run |
+| 16 | U-238 JENDL-3.3, MF=33 and MF=34 from a PENDF (`grpav4` from MF=4 LTT=1, `u1lele`), two COVR/VIEWR | 26, 27, 36, 37, 46, 47 identical, first run |
+| 04 | `t511` U-235: MF=33 from a PENDF, GROUPR nubar, MF=31 from the GENDF with `nin = 23` copied ahead | 23, 24, 25 identical, first run (no prediction posted first) |
+| 15 | U-238 JENDL-3.3, text GENDF: MF=31, MF=33 (with MF=32 `resprx`) and MF=34 from the GENDF, three COVR/VIEWR | 25-27, 35-37, 45-47, 91 identical, first run |
+| 20 | Cl-35 R-matrix limited: `covadd`, RECONR, BROADR, GROUPR, MF=33 from the GENDF with LRF=7 `resprx`, COVR, VIEWR | first run: 22 and 23 differed in 1 line, 25 in 13; after two fixes, 21-23, 91, 25-27 identical |
+
+**Deck 20's two differences were both upstream behaviour, read from the source.**
+- **PENDF line 177 (MF=2/MT=151, record 4):** NJOY wrote `spin = 1.5`, and we wrote 0.
+  `recout` writes RECONR's module `spin` (`reconr.f90:5199`). For LRF=7, `rdsammy` sets that
+  variable to the elastic pair's target spin (`samm.f90:1084`). Decks 81 and 88 have a target
+  spin of 0, so they could not show this.
+- **Unit 25, MF=33/MT=1:** that section's sequence numbers start at 324 rather than 1. The
+  cause:
+  - With `nendf > 0`, `resprx` opens a **coded** scratch unit `nscr6` and `rdumrd2` copies
+    MF=2/MT=151 there, 323 lines (`errorr.f90:3062-3066`, `:5091-5225`).
+  - NJOY's `nsh` sequence counter is one variable shared by every unit, and nothing resets it
+    before `covout`'s first `contio`.
+  - The count was checked against the tape's MF=2 section, which has 323 lines.
+  - Decks 15 and 16 have `nendf < 0` (a binary scratch unit), so the counter does not move
+    there.
+
+**Gates** (`tests/deck_driver_covr_vs_njoy2016.rs`, whole decks against the local NJOY2016.80):
+`test_46_...`, `test_65_...`, `test_16_...`, `test_04_...`, `test_15_...`, `test_20_...`.
+Unit tests are in `errorr::mf34::tests`, `errorr::grpav4::tests` and `errorr::mf31::tests`.
+
+**Not done (refused by name):**
+- MF=34 with more than one MT=2 subsection, `MAT1 /= 0` or `MT1 /= 2`, a sub-subsection with
+  `NI = 0`, or `legord > 9`;
+- `grpav4` with `LVT = 1`, or with a second Legendre energy above the union grid;
+- MF=40;
+- `iread = 1/2` (deck 17);
+- `nstan`.
+
+**Survey:** the ERRORR decks 04, 05, 15, 16, 17, 18, 20, 27, 34, 46, 47 and 65 were re-run
+(`SURVEY_CASES`) on develop 588aef22e plus this work. **60 of 87 are identical** (54 before):
+04, 15, 16, 20, 46 and 65 closed. Deck 17 still stops at `iread = 2`.
+
+**Tests (release, on develop 588aef22e plus this work; only doc comments in `src/errorr/mod.rs`
+and Markdown changed after the deck suite was built):**
+
+| suite | result |
+|---|---|
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` (`ulimit -v 12582912`) | 124 passed, 0 failed, 2 ignored (43, 80), 1 862 s |
+| `deck_driver_covr_vs_njoy2016 --test-threads=2` | 11 of 11 passed |
+| `pendf_stages_vs_njoy2016` | 9 of 9 passed |
+| `ace_five_route_parity` | 13 of 13 passed |
+| `errorr_mf33_golden`, `errorr_mf32_ar37_golden`, `covr_boxer_golden` | 12, 4, 18 passed |
+| `--lib` | 755 of 755 passed |

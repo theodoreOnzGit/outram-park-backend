@@ -104,6 +104,15 @@ impl GendfText {
         self.seq = 1;
     }
 
+    /// Start section `(mat, mf, mt)` with sequence number `seq` on its first line:
+    /// NJOY's `nsh` is one counter for every coded unit, so text written to a
+    /// scratch unit since the last SEND/FEND carries over (ERRORR's `rdumrd2`,
+    /// gh:#1369).
+    pub fn begin_at(&mut self, mat: i32, mf: i32, mt: i32, seq: usize) {
+        self.begin(mat, mf, mt);
+        self.seq = i32::try_from(seq).unwrap_or(1);
+    }
+
     fn push_body(&mut self, body: String) {
         self.lines.push(format!("{body:<66.66}{:4}{:2}{:3}{:5}", self.mat, self.mf, self.mt, self.seq));
         self.seq += 1;

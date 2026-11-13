@@ -54,6 +54,15 @@ impl UnionGendf {
         Ok((0..nunion).map(|i| recs.get(i).copied().flatten().map_or(0.0, |r| r[0])).collect())
     }
 
+    /// `rdsig(mat, mt)` (`:2755-2786`, `rdgout` `:2900-2930`): word `nl*nz + 1 = 2`
+    /// of each record of MF=3/`mt`, that is `sigb/flxb` (or `xnub/sigb` for MT
+    /// 452/455/456, whose second word is the nubar); 0 where no record was written
+    /// and for an MT not on the tape (upstream: "calculation continued with sigma=0").
+    pub fn sigma(&self, mt: i32, nunion: usize) -> Vec<f64> {
+        let recs = self.mf3.iter().find(|(m, _)| *m == mt).map(|(_, r)| r.as_slice()).unwrap_or(&[]);
+        (0..nunion).map(|i| recs.get(i).copied().flatten().map_or(0.0, |r| r[1])).collect()
+    }
+
     /// `rdchi` (`:6195-6225`): chi per union group from the MF=5/MT=18 records.
     ///
     /// # Errors

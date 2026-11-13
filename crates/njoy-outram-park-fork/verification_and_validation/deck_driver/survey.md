@@ -68,12 +68,14 @@ The prediction posted before the change was: deck 34's covariance tape identical
 
 The prediction posted before the change: every COVR plot file identical, all four `mfcov = 35` decks closed; for deck 05, unit 33 identical but for a few last-figure words in MF=33. The first held. The second held better than predicted: no word differed. Record: `README.md` section 19.
 
+**Re-run 2026-11-13, ERRORR `mfcov = 34`, `31`, MF=33 from a GENDF and `covadd` (gh:#1369):** the ERRORR decks 04, 05, 15, 16, 17, 18, 20, 27, 34, 46, 47 and 65 were re-run alone (`SURVEY_CASES`) on develop 588aef22e plus this work. Their rows are replaced; every other row is as before. **Identical: 60 of 87** (54 before). Decks 04 (MF=31 with `nin` copied ahead), 15 (MF=31, 33 and 34 from a text GENDF), 16 (MF=34 from a PENDF), 20 (`covadd`, then MF=33 from a GENDF with LRF=7 `resprx`), 46 and 65 (MF=34 from a GENDF) now run to the end `identical`; each is gated whole in `tests/deck_driver_covr_vs_njoy2016.rs`. Decks 05, 18, 27, 34 and 47 stay `identical`. Deck 17 stops at ERRORR `iread = 2`, as before. Predictions were posted before each change except deck 04's (recorded on the issue). Record: `README.md` section 20.
+
 | deck | status | tapes identical | differing tapes | text tapes we did not write | binary tapes (no blocked-binary writer here) |
 |---|---|---|---|---|---|
 | 01 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
 | 02 | NotPorted (ccccr: card reader not yet translated) | 1 |  | tape28 tape29 | tape21 tape22 tape23 tape24 tape25 tape26 tape27 |
 | 03 | NotPorted (gaminr: card reader not yet translated) | 0 | tape31 2180/2180 lines | tape33 tape34 tape35 tape36 tape37 |  |
-| 04 | NotPorted (errorr: not yet ported from NJOY2016: errorr from a deck: mfcov other than 33 or 35) | 2 |  | tape25 | tape21 tape22 |
+| 04 | identical | 3 |  |  | tape21 tape22 |
 | 05 | identical | 3 |  |  | tape31 tape32 |
 | 06 | NotPorted (plotr: card reader not yet translated) | 0 |  | tape31 tape32 |  |
 | 07 | identical | 3 |  |  | tape21 tape22 tape23 tape24 tape25 |
@@ -84,12 +86,12 @@ The prediction posted before the change: every COVR plot file identical, all fou
 | 12 | NotPorted (plotr: card reader not yet translated) | 2 |  | tape23 tape24 |  |
 | 13 | identical | 7 |  |  | tape21 tape22 tape23 tape24 tape25 |
 | 14 | identical | 6 |  |  |  |
-| 15 | NotPorted (errorr: not yet ported from NJOY2016: errorr from a deck: mfcov other than 33 or 35) | 1 |  | tape25 tape26 tape27 tape35 tape36 tape37 tape45 tape46 tape47 | tape21 tape22 tape23 |
-| 16 | NotPorted (errorr: not yet ported from NJOY2016: errorr from a deck: mfcov other than 33 or 35) | 1 |  | tape27 tape36 tape37 tape46 tape47 | tape21 tape22 tape23 |
-| 17 | NotPorted (errorr: card reader not yet translated) | 10 |  | tape26 |  |
+| 15 | identical | 10 |  |  | tape21 tape22 tape23 |
+| 16 | identical | 6 |  |  | tape21 tape22 tape23 |
+| 17 | NotPorted (errorr: not yet ported from NJOY2016: errorr iread = 1/2 (cards 8-10)) | 10 |  | tape26 |  |
 | 18 | identical | 4 |  |  | tape21 tape22 tape23 |
 | 19 | differs | 2 | tape29 44559/44568 lines |  | tape21 tape22 tape23 tape24 tape25 tape26 |
-| 20 | NotPorted (errorr: not yet ported from NJOY2016: errorr nendf = 999 (covadd) from a deck) | 0 |  | tape21 tape22 tape23 tape25 tape26 tape27 tape91 |  |
+| 20 | identical | 7 |  |  |  |
 | 21 | differs | 2 | tape22 10609/34851 lines; tape23 66506/66600 lines; tape24 66859/66867 lines | tape26 |  |
 | 22 | identical | 1 |  |  |  |
 | 23 | identical | 1 |  |  |  |
@@ -115,7 +117,7 @@ The prediction posted before the change: every COVR plot file identical, all fou
 | 43 | NotPorted (broadr: not yet ported from NJOY2016: BROADR thinning only (tempef <= 0, thinb)) | 0 |  | tape35 | tape21 tape22 tape23 |
 | 44 | identical | 1 |  |  | tape21 tape22 tape23 |
 | 45 | identical | 1 |  |  | tape21 tape22 tape23 |
-| 46 | NotPorted (errorr: not yet ported from NJOY2016: errorr from a deck: mfcov other than 33 or 35) | 0 |  | tape34 | tape21 tape22 tape23 |
+| 46 | identical | 1 |  |  | tape21 tape22 tape23 |
 | 47 | identical | 8 |  |  | tape21 tape22 tape25 tape35 |
 | 48 | differs | 1 | tape27 36/17964 lines |  |  |
 | 49 | identical | 2 |  |  | tape21 tape22 tape23 tape24 tape25 tape31 |
@@ -134,7 +136,7 @@ The prediction posted before the change: every COVR plot file identical, all fou
 | 62 | identical | 6 |  |  | tape21 tape22 |
 | 63 | identical | 7 |  |  | tape21 tape22 tape23 tape24 |
 | 64 | NotPorted (reconr: not yet ported from NJOY2016: deck PENDF: MF=10-23 section with no positive point) | 0 |  | tape31 tape32 tape33 tape34 tape35 tape36 tape37 tape38 tape43 tape46 | tape21 tape30 |
-| 65 | NotPorted (errorr: not yet ported from NJOY2016: errorr from a deck: mfcov other than 33 or 35) | 1 |  | tape41 tape51 tape61 | tape21 tape22 tape23 |
+| 65 | identical | 4 |  |  | tape21 tape22 tape23 |
 | 66 | NotPorted (acer: not yet ported from NJOY2016: acephn: MF=1/MT=452 or /456 nubar -- the MT=18 fission yield substitution (acepn.f90:178-205, 469-475) is not ported) | 0 | tape90 119/124 lines | tape31 tape32 tape33 tape34 tape35 tape36 tape37 tape38 tape43 tape46 | tape21 tape30 |
 | 67 | identical | 7 |  |  | tape30 tape31 tape32 tape40 tape50 |
 | 68 | identical | 7 |  |  | tape30 tape31 tape32 tape40 tape50 |

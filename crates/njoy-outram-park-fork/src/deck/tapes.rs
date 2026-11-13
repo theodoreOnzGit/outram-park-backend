@@ -244,6 +244,22 @@ impl TapeUnits {
         Ok(())
     }
 
+    /// Put an ENDF tape on coded unit `lun` as the text a module wrote, line for
+    /// line (ERRORR's `covadd`, gh:#1369): the unit's tape is that text parsed, not
+    /// re-rendered through [`Tape::write`], so records `Tape::write` does not lay
+    /// out (MF=32) reach the next reader as written, and the file is the text.
+    ///
+    /// # Errors
+    /// Those of [`Tape::read`].
+    pub fn put_endf_text(&mut self, lun: i32, text: String) -> Result<(), NjoyError> {
+        let nun = lun.abs();
+        let tape = Tape::read(text.as_bytes())?;
+        self.units.insert(nun, Unit { meta: PendfMeta::default(), tape, binary: lun < 0, pointwise: None });
+        self.written.insert(nun);
+        self.put_text(lun, text);
+        Ok(())
+    }
+
     /// Replace unit `lun`'s [`PendfMeta`] (after a [`TapeUnits::store`]).
     pub fn set_meta(&mut self, lun: i32, meta: PendfMeta) {
         if let Some(u) = self.units.get_mut(&lun.abs()) {
