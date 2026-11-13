@@ -13,13 +13,15 @@ cp -r $SOLV $W/lib/dumpSolver
 rm -rf $W/src/turbDump
 cp -r $HERE/driver $W/src/turbDump
 (cd $W/src/turbDump && WM_NCOMPPROCS=1 $WITH wmake)
-for M in ${MODELS:-kEpsilon kOmega kOmegaSST SpalartAllmaras Smagorinsky RNGkEpsilon realizableKE WALE}; do
+for M in ${MODELS:-kEpsilon kOmega kOmegaSST SpalartAllmaras Smagorinsky RNGkEpsilon realizableKE WALE SpalartAllmarasDES SpalartAllmarasDDES SpalartAllmarasIDDES kOmegaSSTDES}; do
   C=$W/case_$M
   rm -rf $C
   mkdir -p $C/system $C/constant $C/0
   cp $HERE/inputs/controlDict $HERE/inputs/fvSchemes $HERE/inputs/fvSolution $HERE/inputs/blockMeshDict $C/system/
   cp $HERE/inputs/transportProperties $C/constant/
-  if [ $M = Smagorinsky ] || [ $M = WALE ]; then
+  if [ $M = SpalartAllmarasIDDES ]; then
+    printf 'FoamFile { version 2.0; format ascii; class dictionary; object turbulenceProperties; }\nsimulationType LES;\nLES { model %s; turbulence on; printCoeffs on; delta IDDESDelta; }\n' $M > $C/constant/turbulenceProperties
+  elif [ $M = Smagorinsky ] || [ $M = WALE ] || [ $M = SpalartAllmarasDES ] || [ $M = SpalartAllmarasDDES ] || [ $M = kOmegaSSTDES ]; then
     printf 'FoamFile { version 2.0; format ascii; class dictionary; object turbulenceProperties; }\nsimulationType LES;\nLES { model %s; turbulence on; printCoeffs on; delta cubeRootVol; cubeRootVolCoeffs { deltaCoeff 1; } }\n' $M > $C/constant/turbulenceProperties
   else
     printf 'FoamFile { version 2.0; format ascii; class dictionary; object turbulenceProperties; }\nsimulationType RAS;\nRAS { model %s; turbulence on; printCoeffs on; }\n' $M > $C/constant/turbulenceProperties

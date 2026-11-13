@@ -275,3 +275,56 @@ this slice). `useSigma true` (the `Ssigma` invariants branch) is NOT ported in t
    bit (diag, source, upper, lower); a failure is a transcription error, not a model result.
 6. No difference not explained by `tanh`, `exp` or `pow` is expected; any such difference is
    a defect in the port, localised and fixed by translating upstream, not by a tolerance.
+
+## Slice 4 results (2026-11-13, release; same 360-cell duct; upstream `grad(U)`, `grad(nuTilda)`, `grad(k)`, `grad(omega)`, `div(phi)`, `y` (meshWave), `delta`, `hmax` fed in)
+
+**Audit of the transcription: held** for all four models (SA family: `nuTilda` diag/source 360/360,
+upper/lower 894/894; kOmegaSSTDES: omega and k, same counts). **Regime coverage** of the frozen
+field (counted from the dump, not tuned: the field was NOT changed for this slice): LES region
+(`dTilda < y`) in 72 (DES, DDES), 48 (IDDES), 162 (kOmegaSSTDES) of 360 cells; DDES `fd` in
+(0.01, 0.99) in 72 cells, <= 0.01 in 8, >= 0.99 in 280; IDDES `fe > 0` in 312 cells; SST-DES `F1` in
+(0.01, 0.99) in 138 cells. Both sides of every switch are exercised.
+
+| model / term (upstream y, delta) | identical / 360 | max ulp | note |
+|---|---|---|---|
+| SA-DES: every term (`psi`, `lLES`, `dTilda`, `Stilda`, `r`, `fw`, `nuTilda_E`, `nuTilda_Sp`, `LESRegion`, `nut`) | 360 each | 0 | |
+| SA-DDES: `r_fd`, `lLES`, `dTilda`, `Stilda`, `r`, `fw`, `nuTilda_Sp`, `LESRegion` | 360 each | 0 | |
+| SA-DDES: `fd` (`pow`, `tanh`) | 355 | 4 | PETIR against glibc; a glibc replay of `1 - tanh(pow(8 r, 3))` on the dumped `r` reproduces upstream 360/360 |
+| SA-IDDES: `alpha`, `fB`, `ft`, `fl`, `fe1`, `fe`, `lLES`, `dTilda`, `fw`, `nuTilda_Sp` | 360 each | 0 | |
+| SA-IDDES: `fdt` (`pow`, `tanh`) | 343 | 2 | does not reach `fdTilda = max(1 - fdt, fB)` or `dTilda` |
+| kOmegaSSTDES: `S2`, `CDkOmega`, `nut`, `lRAS`, `GbyNu0`, `GbyNu`, `G`, `Pk`, `LESRegion`, `k_E`, `k_SuSp` | 360 each | 0 | |
+| kOmegaSSTDES: `F1` / `F23` (`tanh`) | 334 / 339 | 2 / 1 | same counts as plain SST (slice 2) |
+| kOmegaSSTDES: `CDES` / `lLES` / `dTilda` / `epsByk` = `k_Sp` | 356 / 357 / 359 / 359 | 1 / 2 / 1 / 1 | inherited from `F1` |
+| kOmegaSSTDES: `gamma` / `beta` / `omega_E` / `omega_Sp` / `omega_SuSp1` / `omega_SuSp2` | 356 / 358 / 357 / 358 / 358 / 343 | 1 / 1 / 1 / 1 / 3 / 3 | inherited from `F1` |
+| own `cbrt` delta (SA-DES / SA-DDES): `delta` | 156 | 2 | same `cbrt` as Smagorinsky/WALE |
+| own `cbrt` delta: `lLES` / `r` / `fw` / `nuTilda_Sp` (DES) | 186 / 336 / 337 / 335 | 3 / 4 / 6 / 10 | the `delta` ulps amplify through `r^6` in `fw` |
+| own `cbrt` delta: `lLES` / `r` / `fw` / `nuTilda_Sp` (DDES) | 186 / 341 / 341 / 341 | 3 / 7 / 9 / 14 | |
+
+All counts are pinned (both directions) in `tests/openfoam_turbulence_code_to_code.rs`
+(`sa_des_vs_openfoam`, `sa_ddes_vs_openfoam`, `sa_iddes_vs_openfoam`,
+`k_omega_sst_des_vs_openfoam`) with ulp ceilings 10 (SA-DES own delta; 0 with upstream delta),
+14 (SA-DDES own delta), 2 (IDDES), 3 (kOmegaSSTDES).
+
+### Predictions against results
+
+- Held: 1 (SA-DES 360/360 everywhere, including `fw`: >= 98 % predicted), 3 for the libm-free terms,
+  4 (kOmegaSSTDES: terms inherit the SST `F1` cells only; `nut` 360/360), 5 (audits), 6 (every
+  difference is `pow`/`tanh` or, with the port's own delta, `cbrt`).
+- Better than predicted: 2 and 3 said >= 90 % / 85 % of cells identical in `fd` / `dTilda`; `fd` is
+  355/360 and every downstream DDES term is 360/360 (not localised cell by cell why the 5 differing
+  `fd` cells do not reach `dTilda`; the likely reason is that `max(y - lLES, 0)` is 0 there).
+  IDDES `fdt` is 343/360 but `dTilda` 360/360.
+- Off: 2 said "at most 2 ulp" for `fd`; it is 4 ulp (`pow(x, 3)` then `tanh` compound).
+
+### Defects found
+
+None in the formulas (no difference that a libm function does not explain).
+
+### Honest scope
+
+Terms only: no `correct()`, no `TurbulenceModel` impl for the DES family (the SA transport
+solve and SST step exist for the plain models; wiring `dTilda` into them is the next step).
+Not ported: `useSigma true` (`Ssigma`: needs `acos`/`cos` and tensor invariants), `shielding
+ZDES2020`, `ft2 true`, `kOmegaSSTDDES` / `kOmegaSSTIDDES`, and the `IDDESDelta` / `maxDeltaxyz`
+classes (`delta` and `hmax` are fed from the dump; `hmax` was 0.3333 in every cell of this duct, so
+the `hmax` formula is not exercised by its own geometry). Foundation (dev) not read or run.

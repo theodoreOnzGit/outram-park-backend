@@ -26,6 +26,8 @@ use outram_foam_basic_lib::fields::surface_field::SurfaceScalarField;
 use outram_foam_basic_lib::fields::vol_field::{VolScalarField, VolVectorField};
 use outram_foam_basic_lib::mesh::fv_mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
 use outram_foam_basic_lib::primitives::{Tensor, Vector3};
+use outram_foam_turbulence_lib::des::spalart_allmaras_des::{SaDesVariant, SpalartAllmarasDes};
+use outram_foam_turbulence_lib::des::KOmegaSstDes;
 use outram_foam_turbulence_lib::k_epsilon::KEpsilon;
 use outram_foam_turbulence_lib::k_omega::KOmega;
 use outram_foam_turbulence_lib::k_omega_sst::KOmegaSST;
@@ -270,7 +272,7 @@ type Pairs = &'static [(&'static str, &'static str)];
 
 type Rows = Vec<(String, Stat)>;
 
-fn compare(label: &str, r: &Ref, st: &SourceTerms, pairs: Pairs) -> Rows {
+fn compare(label: &str, r: &Ref, st: &SourceTerms, pairs: &[(&str, &str)]) -> Rows {
     pairs
         .iter()
         .map(|(rk, term)| {
@@ -839,4 +841,292 @@ const PINS_WALE: &[(&str, usize)] = &[
     ("WALE (esi delta) pow54", 358),
     ("WALE (esi delta) k", 360),
     ("WALE (esi delta) nut", 360),
+];
+
+// ── gh:#1545: DES family (ESI arithmetic only; upstream y, delta, hmax fed in) ─────────
+
+const REF_SA_DES: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_SpalartAllmarasDES.txt.gz"
+);
+const REF_SA_DDES: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_SpalartAllmarasDDES.txt.gz"
+);
+const REF_SA_IDDES: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_SpalartAllmarasIDDES.txt.gz"
+);
+const REF_SST_DES: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_kOmegaSSTDES.txt.gz"
+);
+
+const SA_DES_COMMON: Pairs = &[
+    ("nut_real", "nut"),
+    ("T_nut", "nut"),
+    ("T_delta", "delta"),
+    ("T_chi", "chi"),
+    ("T_fv1", "fv1"),
+    ("T_fv2", "fv2"),
+    ("T_psi", "psi"),
+    ("T_lLES", "lLES"),
+    ("T_fd", "fd"),
+    ("T_dTilda", "dTilda"),
+    ("T_Omega", "Omega"),
+    ("T_Stilda", "Stilda"),
+    ("T_r", "r"),
+    ("T_fw", "fw"),
+    ("T_gradSqr", "gradSqr"),
+    ("T_nuTilda_E", "nuTilda_E"),
+    ("T_nuTilda_Sp", "nuTilda_Sp"),
+    ("T_LESRegion", "LESRegion"),
+];
+const SA_DDES_EXTRA: Pairs = &[("T_r_fd", "r_fd")];
+const SA_IDDES_EXTRA: Pairs = &[
+    ("T_alpha", "alpha"),
+    ("T_fB", "fB"),
+    ("T_fdt", "fdt"),
+    ("T_ft", "ft"),
+    ("T_fl", "fl"),
+    ("T_fe1", "fe1"),
+    ("T_fe", "fe"),
+];
+
+fn sa_des_case(
+    name: &str,
+    gz: &[u8],
+    variant: SaDesVariant,
+    extra: Pairs,
+    own_delta: bool,
+) -> Rows {
+    let r = parse(gz);
+    check_audits(&r, 4);
+    assert!(r.has("delta_real") && (variant != SaDesVariant::Iddes || r.has("hmax_real")));
+    let mesh = r.mesh();
+    let mut m = SpalartAllmarasDes::new(mesh.clone(), variant);
+    m.nu_tilde = r.zg(&mesh, "nuTilda", "nuTilda");
+    m.nu = r.zg(&mesh, "nu", "nu");
+    m.nu_t = r.zg(&mesh, "nut", "nut_real");
+    if variant == SaDesVariant::Iddes {
+        m.h_max = Some(r.s("hmax_real"));
+    }
+    let mut pairs: Vec<(&str, &str)> = SA_DES_COMMON.to_vec();
+    pairs.extend_from_slice(extra);
+    let mut rows = compare(
+        &format!("{name} (esi y, esi delta)"),
+        &r,
+        &m.source_terms(&r.state(true, true)),
+        &pairs,
+    );
+    if own_delta {
+        rows.extend(compare(
+            &format!("{name} (esi y, own delta)"),
+            &r,
+            &m.source_terms(&r.state(true, false)),
+            &pairs,
+        ));
+    }
+    rows
+}
+
+#[test]
+fn sa_des_vs_openfoam() {
+    let rows = sa_des_case("SA-DES", REF_SA_DES, SaDesVariant::Des, &[], true);
+    // no libm before fw's pow(x, 1/6): every term is identical with upstream y and delta
+    for (l, st) in rows.iter().filter(|(l, _)| l.contains("esi delta")) {
+        assert_eq!(st.identical, st.n, "{l}");
+    }
+    assert!(max_ulp(&rows) <= 10, "max ulp {}", max_ulp(&rows)); // own cbrt delta
+    pin(&rows, PINS_SA_DES);
+}
+
+#[test]
+fn sa_ddes_vs_openfoam() {
+    let rows = sa_des_case("SA-DDES", REF_SA_DDES, SaDesVariant::Ddes, SA_DDES_EXTRA, true);
+    // pow and tanh in fd (a glibc replay reproduces upstream fd 360/360, README)
+    assert!(max_ulp(&rows) <= 14, "max ulp {}", max_ulp(&rows));
+    pin(&rows, PINS_SA_DDES);
+}
+
+#[test]
+fn sa_iddes_vs_openfoam() {
+    let rows = sa_des_case("SA-IDDES", REF_SA_IDDES, SaDesVariant::Iddes, SA_IDDES_EXTRA, false);
+    assert!(max_ulp(&rows) <= 2, "max ulp {}", max_ulp(&rows));
+    pin(&rows, PINS_SA_IDDES);
+}
+
+#[test]
+fn k_omega_sst_des_vs_openfoam() {
+    let r = parse(REF_SST_DES);
+    check_audits(&r, 8);
+    let mesh = r.mesh();
+    let mut m = KOmegaSstDes::new(mesh.clone());
+    m.sst.k = r.zg(&mesh, "k", "k");
+    m.sst.omega = r.zg(&mesh, "omega", "omega");
+    m.sst.nu = r.zg(&mesh, "nu", "nu");
+    m.sst.nu_t = r.zg(&mesh, "nut", "nut_real");
+    m.sst.u = r.velocity(&mesh);
+    m.sst.phi = r.flux(&mesh);
+    let pairs: Pairs = &[
+        ("nut_real", "nut"),
+        ("T_delta", "delta"),
+        ("T_S2", "S2"),
+        ("T_CDkOmega", "CDkOmega"),
+        ("T_F1", "F1"),
+        ("T_F23", "F23"),
+        ("T_nut", "nut"),
+        ("T_CDES", "CDES"),
+        ("T_lRAS", "lRAS"),
+        ("T_lLES", "lLES"),
+        ("T_dTilda", "dTilda"),
+        ("T_epsByk", "epsByk"),
+        ("T_LESRegion", "LESRegion"),
+        ("T_GbyNu0", "GbyNu0"),
+        ("T_G", "G"),
+        ("T_gamma", "gamma"),
+        ("T_beta", "beta"),
+        ("T_GbyNu", "GbyNu"),
+        ("T_Pk", "Pk"),
+        ("T_omega_E", "omega_E"),
+        ("T_omega_SuSp1", "omega_SuSp1"),
+        ("T_omega_Sp", "omega_Sp"),
+        ("T_omega_SuSp2", "omega_SuSp2"),
+        ("T_k_E", "k_E"),
+        ("T_k_SuSp", "k_SuSp"),
+        ("T_k_Sp", "k_Sp"),
+    ];
+    let rows = compare("kOmegaSSTDES (esi y, esi delta)", &r, &m.source_terms(&r.state(true, true)), pairs);
+    assert!(max_ulp(&rows) <= 3, "max ulp {}", max_ulp(&rows));
+    pin(&rows, PINS_SST_DES);
+}
+
+const PINS_SA_DES: &[(&str, usize)] = &[
+    ("SA-DES (esi y, esi delta) nut", 360),
+    ("SA-DES (esi y, esi delta) nut", 360),
+    ("SA-DES (esi y, esi delta) delta", 360),
+    ("SA-DES (esi y, esi delta) chi", 360),
+    ("SA-DES (esi y, esi delta) fv1", 360),
+    ("SA-DES (esi y, esi delta) fv2", 360),
+    ("SA-DES (esi y, esi delta) psi", 360),
+    ("SA-DES (esi y, esi delta) lLES", 360),
+    ("SA-DES (esi y, esi delta) fd", 360),
+    ("SA-DES (esi y, esi delta) dTilda", 360),
+    ("SA-DES (esi y, esi delta) Omega", 360),
+    ("SA-DES (esi y, esi delta) Stilda", 360),
+    ("SA-DES (esi y, esi delta) r", 360),
+    ("SA-DES (esi y, esi delta) fw", 360),
+    ("SA-DES (esi y, esi delta) gradSqr", 360),
+    ("SA-DES (esi y, esi delta) nuTilda_E", 360),
+    ("SA-DES (esi y, esi delta) nuTilda_Sp", 360),
+    ("SA-DES (esi y, esi delta) LESRegion", 360),
+    ("SA-DES (esi y, own delta) nut", 360),
+    ("SA-DES (esi y, own delta) nut", 360),
+    ("SA-DES (esi y, own delta) delta", 156),
+    ("SA-DES (esi y, own delta) chi", 360),
+    ("SA-DES (esi y, own delta) fv1", 360),
+    ("SA-DES (esi y, own delta) fv2", 360),
+    ("SA-DES (esi y, own delta) psi", 360),
+    ("SA-DES (esi y, own delta) lLES", 186),
+    ("SA-DES (esi y, own delta) fd", 360),
+    ("SA-DES (esi y, own delta) dTilda", 335),
+    ("SA-DES (esi y, own delta) Omega", 360),
+    ("SA-DES (esi y, own delta) Stilda", 360),
+    ("SA-DES (esi y, own delta) r", 336),
+    ("SA-DES (esi y, own delta) fw", 337),
+    ("SA-DES (esi y, own delta) gradSqr", 360),
+    ("SA-DES (esi y, own delta) nuTilda_E", 360),
+    ("SA-DES (esi y, own delta) nuTilda_Sp", 335),
+    ("SA-DES (esi y, own delta) LESRegion", 360),
+];
+const PINS_SA_DDES: &[(&str, usize)] = &[
+    ("SA-DDES (esi y, esi delta) nut", 360),
+    ("SA-DDES (esi y, esi delta) nut", 360),
+    ("SA-DDES (esi y, esi delta) delta", 360),
+    ("SA-DDES (esi y, esi delta) chi", 360),
+    ("SA-DDES (esi y, esi delta) fv1", 360),
+    ("SA-DDES (esi y, esi delta) fv2", 360),
+    ("SA-DDES (esi y, esi delta) psi", 360),
+    ("SA-DDES (esi y, esi delta) lLES", 360),
+    ("SA-DDES (esi y, esi delta) fd", 355),
+    ("SA-DDES (esi y, esi delta) dTilda", 360),
+    ("SA-DDES (esi y, esi delta) Omega", 360),
+    ("SA-DDES (esi y, esi delta) Stilda", 360),
+    ("SA-DDES (esi y, esi delta) r", 360),
+    ("SA-DDES (esi y, esi delta) fw", 360),
+    ("SA-DDES (esi y, esi delta) gradSqr", 360),
+    ("SA-DDES (esi y, esi delta) nuTilda_E", 360),
+    ("SA-DDES (esi y, esi delta) nuTilda_Sp", 360),
+    ("SA-DDES (esi y, esi delta) LESRegion", 360),
+    ("SA-DDES (esi y, esi delta) r_fd", 360),
+    ("SA-DDES (esi y, own delta) nut", 360),
+    ("SA-DDES (esi y, own delta) nut", 360),
+    ("SA-DDES (esi y, own delta) delta", 156),
+    ("SA-DDES (esi y, own delta) chi", 360),
+    ("SA-DDES (esi y, own delta) fv1", 360),
+    ("SA-DDES (esi y, own delta) fv2", 360),
+    ("SA-DDES (esi y, own delta) psi", 360),
+    ("SA-DDES (esi y, own delta) lLES", 186),
+    ("SA-DDES (esi y, own delta) fd", 355),
+    ("SA-DDES (esi y, own delta) dTilda", 341),
+    ("SA-DDES (esi y, own delta) Omega", 360),
+    ("SA-DDES (esi y, own delta) Stilda", 360),
+    ("SA-DDES (esi y, own delta) r", 341),
+    ("SA-DDES (esi y, own delta) fw", 341),
+    ("SA-DDES (esi y, own delta) gradSqr", 360),
+    ("SA-DDES (esi y, own delta) nuTilda_E", 360),
+    ("SA-DDES (esi y, own delta) nuTilda_Sp", 341),
+    ("SA-DDES (esi y, own delta) LESRegion", 360),
+    ("SA-DDES (esi y, own delta) r_fd", 360),
+];
+const PINS_SA_IDDES: &[(&str, usize)] = &[
+    ("SA-IDDES (esi y, esi delta) nut", 360),
+    ("SA-IDDES (esi y, esi delta) nut", 360),
+    ("SA-IDDES (esi y, esi delta) delta", 360),
+    ("SA-IDDES (esi y, esi delta) chi", 360),
+    ("SA-IDDES (esi y, esi delta) fv1", 360),
+    ("SA-IDDES (esi y, esi delta) fv2", 360),
+    ("SA-IDDES (esi y, esi delta) psi", 360),
+    ("SA-IDDES (esi y, esi delta) lLES", 360),
+    ("SA-IDDES (esi y, esi delta) fd", 360),
+    ("SA-IDDES (esi y, esi delta) dTilda", 360),
+    ("SA-IDDES (esi y, esi delta) Omega", 360),
+    ("SA-IDDES (esi y, esi delta) Stilda", 360),
+    ("SA-IDDES (esi y, esi delta) r", 360),
+    ("SA-IDDES (esi y, esi delta) fw", 360),
+    ("SA-IDDES (esi y, esi delta) gradSqr", 360),
+    ("SA-IDDES (esi y, esi delta) nuTilda_E", 360),
+    ("SA-IDDES (esi y, esi delta) nuTilda_Sp", 360),
+    ("SA-IDDES (esi y, esi delta) LESRegion", 360),
+    ("SA-IDDES (esi y, esi delta) alpha", 360),
+    ("SA-IDDES (esi y, esi delta) fB", 360),
+    ("SA-IDDES (esi y, esi delta) fdt", 343),
+    ("SA-IDDES (esi y, esi delta) ft", 360),
+    ("SA-IDDES (esi y, esi delta) fl", 360),
+    ("SA-IDDES (esi y, esi delta) fe1", 360),
+    ("SA-IDDES (esi y, esi delta) fe", 360),
+];
+const PINS_SST_DES: &[(&str, usize)] = &[
+    ("kOmegaSSTDES (esi y, esi delta) nut", 360),
+    ("kOmegaSSTDES (esi y, esi delta) delta", 360),
+    ("kOmegaSSTDES (esi y, esi delta) S2", 360),
+    ("kOmegaSSTDES (esi y, esi delta) CDkOmega", 360),
+    ("kOmegaSSTDES (esi y, esi delta) F1", 334),
+    ("kOmegaSSTDES (esi y, esi delta) F23", 339),
+    ("kOmegaSSTDES (esi y, esi delta) nut", 360),
+    ("kOmegaSSTDES (esi y, esi delta) CDES", 356),
+    ("kOmegaSSTDES (esi y, esi delta) lRAS", 360),
+    ("kOmegaSSTDES (esi y, esi delta) lLES", 357),
+    ("kOmegaSSTDES (esi y, esi delta) dTilda", 359),
+    ("kOmegaSSTDES (esi y, esi delta) epsByk", 359),
+    ("kOmegaSSTDES (esi y, esi delta) LESRegion", 360),
+    ("kOmegaSSTDES (esi y, esi delta) GbyNu0", 360),
+    ("kOmegaSSTDES (esi y, esi delta) G", 360),
+    ("kOmegaSSTDES (esi y, esi delta) gamma", 356),
+    ("kOmegaSSTDES (esi y, esi delta) beta", 358),
+    ("kOmegaSSTDES (esi y, esi delta) GbyNu", 360),
+    ("kOmegaSSTDES (esi y, esi delta) Pk", 360),
+    ("kOmegaSSTDES (esi y, esi delta) omega_E", 357),
+    ("kOmegaSSTDES (esi y, esi delta) omega_SuSp1", 358),
+    ("kOmegaSSTDES (esi y, esi delta) omega_Sp", 358),
+    ("kOmegaSSTDES (esi y, esi delta) omega_SuSp2", 343),
+    ("kOmegaSSTDES (esi y, esi delta) k_E", 360),
+    ("kOmegaSSTDES (esi y, esi delta) k_SuSp", 360),
+    ("kOmegaSSTDES (esi y, esi delta) k_Sp", 359),
 ];

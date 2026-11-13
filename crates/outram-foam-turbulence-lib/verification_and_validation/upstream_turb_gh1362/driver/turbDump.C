@@ -214,7 +214,7 @@ static void auditMatrix(const word& eq, const fvScalarMatrix& mIn)
 
 int main(int argc, char* argv[])
 {
-    argList::addOption("model", "name", "kEpsilon|kOmega|kOmegaSST|SpalartAllmaras|Smagorinsky|RNGkEpsilon|realizableKE|WALE");
+    argList::addOption("model", "name", "kEpsilon|kOmega|kOmegaSST|SpalartAllmaras|Smagorinsky|RNGkEpsilon|realizableKE|WALE|SpalartAllmarasDES|SpalartAllmarasDDES|SpalartAllmarasIDDES|kOmegaSSTDES");
     #include "setRootCase.H"
     #include "createTime.H"
     #include "createMesh.H"
@@ -339,6 +339,14 @@ int main(int argc, char* argv[])
     const volScalarField& nu = tnu();
     dumpS("nu", nu.primitiveField());
     dumpS("nut_real", nut.primitiveField());
+    if (mesh.foundObject<volScalarField>("delta"))
+    {
+        dumpS("delta_real", mesh.lookupObject<volScalarField>("delta").primitiveField());
+    }
+    if (mesh.foundObject<volScalarField>("hmax"))
+    {
+        dumpS("hmax_real", mesh.lookupObject<volScalarField>("hmax").primitiveField());
+    }
     {
         const volScalarField& y = wallDist::New(mesh).y();
         dumpS("y", y.primitiveField());
@@ -764,6 +772,272 @@ int main(int argc, char* argv[])
         dumpS("T_pow54", pw2.primitiveField());
         dumpS("T_k", kk.primitiveField());
         dumpS("T_nut", nutT.primitiveField());
+    }
+    else if
+    (
+        model == "SpalartAllmarasDES" || model == "SpalartAllmarasDDES"
+     || model == "SpalartAllmarasIDDES"
+    )
+    {
+        // DES/SpalartAllmarasDES, SpalartAllmarasDDES, SpalartAllmarasIDDES on
+        // Base/SpalartAllmaras/SpalartAllmarasBase.C (useSigma false, ft2 off,
+        // lowReCorrection on, standard shielding, fe on)
+        const bool ddes = (model == "SpalartAllmarasDDES");
+        const bool iddes = (model == "SpalartAllmarasIDDES");
+        const dimensionedScalar sigmaNut("sigmaNut", dimless, 0.66666),
+            kappa("kappa", dimless, 0.41), Cb1("Cb1", dimless, 0.1355),
+            Cb2("Cb2", dimless, 0.622), Cw2("Cw2", dimless, 0.3),
+            Cw3("Cw3", dimless, 2.0), Cv1("Cv1", dimless, 7.1), Cs("Cs", dimless, 0.3),
+            CDES("CDES", dimless, 0.65), fwStar("fwStar", dimless, 0.424),
+            Cd1("Cd1", dimless, 8), Cd2("Cd2", dimless, 3),
+            Cdt1("Cdt1", dimless, 8), Cdt2("Cdt2", dimless, 3),
+            Cl("Cl", dimless, 3.55), Ct("Ct", dimless, 1.63);
+        const dimensionedScalar Cw1(Cb1/sqr(kappa) + (1.0 + Cb2)/sigmaNut);
+        const volScalarField& y = wallDist::New(mesh).y();
+        const volScalarField& delta = mesh.lookupObject<volScalarField>("delta");
+        const volScalarField ft2
+        (
+            IOobject("ft2", runTime.timeName(), mesh, IOobject::NO_READ, IOobject::NO_WRITE, IOobject::NO_REGISTER),
+            mesh, dimensionedScalar(dimless, 0)
+        );
+        const volScalarField chi(nuTilda/nu);
+        const volScalarField chi3("chi3", pow3(chi));
+        const volScalarField fv1(chi3/(chi3 + pow3(Cv1)));
+        const volScalarField fv2(scalar(1) - chi/(scalar(1) + chi*fv1));
+        const volScalarField psi
+        (
+            sqrt
+            (
+                min
+                (
+                    scalar(100),
+                    (1 - Cb1/(Cw1*sqr(kappa)*fwStar)*(ft2 + (1 - ft2)*fv2))
+                   /max(SMALL, (fv1*max(scalar(1e-10), 1 - ft2)))
+                )
+            )
+        );
+        const volScalarField lLES(psi*CDES*delta);
+        const volScalarField magGradU(mag(gradU));
+        const dimensionedScalar epsG(dimless, SMALL);
+        auto rOf = [&](const volScalarField& nur)
+        {
+            return volScalarField
+            (
+                min(nur/(max(magGradU, epsG)*sqr(kappa*y)), scalar(10))
+            );
+        };
+        const volScalarField nuEff(nut + nu);
+        const dimensionedScalar l0(dimLength, Zero);
+        const dimensionedScalar small("small", dimLength, SMALL);
+        volScalarField dTilda(lLES);
+        volScalarField fdOut(0*lLES);
+        if (ddes)
+        {
+            const volScalarField r(rOf(nuEff));
+            const volScalarField fd(1 - tanh(pow(Cd1*r, Cd2)));
+            fdOut = fd;
+            dTilda = max(y - fd*max(y - lLES, l0), small);
+            dumpS("T_r_fd", r.primitiveField());
+        }
+        else if (iddes)
+        {
+            const volScalarField& hmax = mesh.lookupObject<volScalarField>("hmax");
+            const volScalarField alpha(max(0.25 - y/hmax, scalar(-5)));
+            const volScalarField expTerm(exp(sqr(alpha)));
+            const volScalarField fB(min(2*pow(expTerm, -9.0), scalar(1)));
+            const volScalarField rt(rOf(nut));
+            const volScalarField rl(rOf(nu));
+            const volScalarField fdt(1 - tanh(pow(Cdt1*rt, Cdt2)));
+            const volScalarField fdTilda(max(1 - fdt, fB));
+            const volScalarField ft(tanh(pow3(sqr(Ct)*rt)));
+            const volScalarField fl(tanh(pow(sqr(Cl)*rl, 10)));
+            const volScalarField fe1(2*lerp(pow(expTerm, -9.), pow(expTerm, -11.09), pos0(alpha)));
+            const volScalarField fe2(1 - max(ft, fl));
+            const volScalarField fe(max(fe1 - 1, scalar(0))*psi*fe2);
+            fdOut = fdTilda;
+            dTilda = max(fdTilda*(1 + fe)*y + (1 - fdTilda)*lLES, small);
+            dumpS("T_alpha", alpha.primitiveField());
+            dumpS("T_fB", fB.primitiveField());
+            dumpS("T_fdt", fdt.primitiveField());
+            dumpS("T_ft", ft.primitiveField());
+            dumpS("T_fl", fl.primitiveField());
+            dumpS("T_fe1", fe1.primitiveField());
+            dumpS("T_fe", fe.primitiveField());
+        }
+        else
+        {
+            dTilda = min(lLES, y);
+        }
+        const volScalarField Omega(std::sqrt(2.0)*mag(skew(gradU)));
+        const volScalarField Stilda
+        (
+            max(Omega + fv2*nuTilda/sqr(kappa*dTilda), Cs*Omega)
+        );
+        const dimensionedScalar epsS(Stilda.dimensions(), SMALL);
+        volScalarField r
+        (
+            min(nuTilda/(max(Stilda, epsS)*sqr(kappa*dTilda)), scalar(10))
+        );
+        const volScalarField::Internal rI(r());
+        const volScalarField::Internal g(rI + Cw2*(pow6(rI) - rI));
+        const volScalarField::Internal fw
+        (
+            g*pow((1 + pow6(Cw3))/(pow6(g) + pow6(Cw3)), 1.0/6.0)
+        );
+        const volScalarField::Internal gradSqr(magSqr(fvc::grad(nuTilda)()()));
+        const volScalarField::Internal prod(Cb1*Stilda()*nuTilda()*(scalar(1) - scalar(0)));
+        const volScalarField::Internal spC
+        (
+            (Cw1*fw - Cb1/sqr(kappa)*scalar(0))*nuTilda()/sqr(dTilda())
+        );
+        const volScalarField LESRegion(neg(dTilda - y));
+        dumpS("T_delta", delta.primitiveField());
+        dumpS("T_chi", chi.primitiveField());
+        dumpS("T_fv1", fv1.primitiveField());
+        dumpS("T_fv2", fv2.primitiveField());
+        dumpS("T_psi", psi.primitiveField());
+        dumpS("T_lLES", lLES.primitiveField());
+        dumpS("T_fd", fdOut.primitiveField());
+        dumpS("T_dTilda", dTilda.primitiveField());
+        dumpS("T_Omega", Omega.primitiveField());
+        dumpS("T_Stilda", Stilda.primitiveField());
+        dumpS("T_r", rI.field());
+        dumpS("T_fw", fw.field());
+        dumpS("T_gradSqr", gradSqr.field());
+        dumpS("T_nuTilda_E", prod.field());
+        dumpS("T_nuTilda_Sp", spC.field());
+        dumpS("T_LESRegion", LESRegion.primitiveField());
+        const volScalarField nutSA(nuTilda*fv1);
+        dumpS("T_nut", nutSA.primitiveField());
+        const volScalarField Dnt("DnuTildaEff", (nuTilda + nu)/sigmaNut);
+        fvScalarMatrix ntEqn
+        (
+            fvm::ddt(ntP()) + fvm::div(phi, ntP()) - fvm::laplacian(Dnt, ntP())
+          - Cb2/sigmaNut*gradSqr
+         ==
+            prod - fvm::Sp(spC, ntP())
+        );
+        auditMatrix("nuTilda", ntEqn);
+    }
+    else if (model == "kOmegaSSTDES")
+    {
+        // DES/kOmegaSSTDES on Base/kOmegaSST/kOmegaSSTBase.C (useSigma false)
+        const dimensionedScalar alphaK1("aK1", dimless, 0.85), alphaK2("aK2", dimless, 1.0),
+            alphaOmega1("aO1", dimless, 0.5), alphaOmega2("aO2", dimless, 0.856),
+            gamma1("g1", dimless, 5.0/9.0), gamma2("g2", dimless, 0.44),
+            beta1("b1", dimless, 0.075), beta2("b2", dimless, 0.0828),
+            betaStar("bs", dimless, 0.09), a1("a1", dimless, 0.31),
+            b1("bb1", dimless, 1.0), c1("c1", dimless, 10.0),
+            CDESkom("CDESkom", dimless, 0.82), CDESkeps("CDESkeps", dimless, 0.60);
+        const volScalarField& y = wallDist::New(mesh).y();
+        const volScalarField& delta = mesh.lookupObject<volScalarField>("delta");
+
+        const volScalarField S2(2*magSqr(symm(gradU)));
+        volScalarField::Internal GbyNu0(gradU && devTwoSymm(gradU));
+        const volScalarField::Internal G(nut*GbyNu0);
+        const volScalarField CDkOmega
+        (
+            (2*alphaOmega2)*(fvc::grad(k) & fvc::grad(omega))/omega
+        );
+        const volScalarField CDkOmegaPlus
+        (
+            max(CDkOmega, dimensionedScalar(dimless/sqr(dimTime), 1.0e-10))
+        );
+        const volScalarField arg1
+        (
+            min
+            (
+                min
+                (
+                    max
+                    (
+                        (scalar(1)/betaStar)*sqrt(k)/(omega*y),
+                        scalar(500)*nu/(sqr(y)*omega)
+                    ),
+                    (4*alphaOmega2)*k/(CDkOmegaPlus*sqr(y))
+                ),
+                scalar(10)
+            )
+        );
+        const volScalarField F1(tanh(pow4(arg1)));
+        const volScalarField arg2
+        (
+            min
+            (
+                max
+                (
+                    (scalar(2)/betaStar)*sqrt(k)/(omega*y),
+                    scalar(500)*nu/(sqr(y)*omega)
+                ),
+                scalar(100)
+            )
+        );
+        const volScalarField F23(tanh(sqr(arg2)));
+        const volScalarField nutT(a1*k/max(a1*omega, b1*F23*sqrt(S2)));
+
+        const volScalarField CDES(F1*(CDESkom - CDESkeps) + CDESkeps);
+        const volScalarField lRAS(sqrt(k)/(betaStar*omega));
+        const volScalarField lLES(CDES*delta);
+        const volScalarField dTilda(min(lLES, lRAS));
+        const volScalarField::Internal epsByk(sqrt(k())/dTilda());
+        const volScalarField LESRegion(neg(dTilda - lRAS));
+
+        const volScalarField::Internal gamma(F1()*(gamma1 - gamma2) + gamma2);
+        const volScalarField::Internal beta(F1()*(beta1 - beta2) + beta2);
+        const volScalarField::Internal Pk(min(G, (c1*betaStar)*k()*omega()));
+        const volScalarField::Internal GbyNu(GbyNu0);
+        const volScalarField::Internal Eom(gamma*GbyNu);
+        const volScalarField::Internal SuSpOm1(((2.0/3.0)*gamma)*divU);
+        const volScalarField::Internal SpOm(beta*omega());
+        const volScalarField::Internal SuSpOm2((F1() - scalar(1))*CDkOmega()/omega());
+        const volScalarField::Internal SuSpK((2.0/3.0)*divU);
+        dumpS("T_delta", delta.primitiveField());
+        dumpS("T_S2", S2.primitiveField());
+        dumpS("T_CDkOmega", CDkOmega.primitiveField());
+        dumpS("T_F1", F1.primitiveField());
+        dumpS("T_F23", F23.primitiveField());
+        dumpS("T_nut", nutT.primitiveField());
+        dumpS("T_CDES", CDES.primitiveField());
+        dumpS("T_lRAS", lRAS.primitiveField());
+        dumpS("T_lLES", lLES.primitiveField());
+        dumpS("T_dTilda", dTilda.primitiveField());
+        dumpS("T_epsByk", epsByk.field());
+        dumpS("T_LESRegion", LESRegion.primitiveField());
+        dumpS("T_GbyNu0", GbyNu0.field());
+        dumpS("T_G", G.field());
+        dumpS("T_gamma", gamma.field());
+        dumpS("T_beta", beta.field());
+        dumpS("T_GbyNu", GbyNu.field());
+        dumpS("T_Pk", Pk.field());
+        dumpS("T_omega_E", Eom.field());
+        dumpS("T_omega_SuSp1", SuSpOm1.field());
+        dumpS("T_omega_Sp", SpOm.field());
+        dumpS("T_omega_SuSp2", SuSpOm2.field());
+        dumpS("T_k_E", Pk.field());
+        dumpS("T_k_SuSp", SuSpK.field());
+        dumpS("T_k_Sp", epsByk.field());
+
+        const volScalarField alphaKF(F1*(alphaK1 - alphaK2) + alphaK2);
+        const volScalarField alphaOF(F1*(alphaOmega1 - alphaOmega2) + alphaOmega2);
+        const volScalarField Dk("DkEff", alphaKF*nut + nu);
+        const volScalarField Dom("DomegaEff", alphaOF*nut + nu);
+        fvScalarMatrix omEqn
+        (
+            fvm::ddt(omP()) + fvm::div(phi, omP()) - fvm::laplacian(Dom, omP())
+         ==
+            Eom
+          - fvm::SuSp(SuSpOm1, omP())
+          - fvm::Sp(SpOm, omP())
+          - fvm::SuSp(SuSpOm2, omP())
+        );
+        auditMatrix("omega", omEqn);
+        fvScalarMatrix kEqn
+        (
+            fvm::ddt(kP()) + fvm::div(phi, kP()) - fvm::laplacian(Dk, kP())
+         ==
+            Pk - fvm::SuSp(SuSpK, kP()) - fvm::Sp(epsByk, kP())
+        );
+        auditMatrix("k", kEqn);
     }
     else if (model == "Smagorinsky")
     {

@@ -153,6 +153,45 @@ pub fn mag_skew(t: &Tensor) -> f64 {
     ms.sqrt()
 }
 
+/// Upstream `mag(gradU)` for a tensor: `sqrt(magSqr(T))`, the nine squared components
+/// summed in row order (`xx, xy, xz, yx, ...`).
+pub fn mag_tensor(t: &Tensor) -> f64 {
+    let mut ms = 0.0_f64;
+    ms += t.xx * t.xx;
+    ms += t.xy * t.xy;
+    ms += t.xz * t.xz;
+    ms += t.yx * t.yx;
+    ms += t.yy * t.yy;
+    ms += t.yz * t.yz;
+    ms += t.zx * t.zx;
+    ms += t.zy * t.zy;
+    ms += t.zz * t.zz;
+    ms.sqrt()
+}
+
+/// Upstream `neg(s)`: 1 if `s < 0`, else 0.
+pub fn neg(s: f64) -> f64 {
+    if s < 0.0 {
+        1.0
+    } else {
+        0.0
+    }
+}
+
+/// Upstream `pos0(s)`: 1 if `s >= 0`, else 0.
+pub fn pos0(s: f64) -> f64 {
+    if s >= 0.0 {
+        1.0
+    } else {
+        0.0
+    }
+}
+
+/// Upstream `lerp(a, b, t) = (1 - t) a + t b` (explicit form, `scalarImpl.H`).
+pub fn lerp(a: f64, b: f64, t: f64) -> f64 {
+    (1.0 - t) * a + t * b
+}
+
 /// Upstream vector `a & b` (`x*x + y*y + z*z` order).
 pub fn dot(a: Vector3, b: Vector3) -> f64 {
     a.x * b.x + a.y * b.y + a.z * b.z

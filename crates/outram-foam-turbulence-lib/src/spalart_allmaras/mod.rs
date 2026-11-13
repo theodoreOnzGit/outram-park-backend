@@ -396,7 +396,7 @@ fn scalar_field(name: &str, mesh: Arc<FvMesh>, vals: Vec<f64>) -> VolScalarField
 
 /// Per-cell distance to the nearest `Wall`-patch face centre [m] (brute force).
 /// Returns a large value everywhere if the mesh has no wall patches.
-fn compute_wall_distance(mesh: &FvMesh) -> Vec<f64> {
+pub(crate) fn compute_wall_distance(mesh: &FvMesh) -> Vec<f64> {
     const BIG: f64 = 1.0e10;
     let mut wall_faces: Vec<Vector3> = Vec::new();
     for patch in mesh.patches.iter() {
