@@ -60,9 +60,13 @@ validation, no human V&V**:
 | Reactive transport | `reactive_transport` | **real (verif-only)** — SNIA transport↔geochemistry coupling |
 | GENERAL multiphase | `multiphase` | **real (verif-only)** — two-phase air–water on the block solver (2 unknowns/cell) |
 
-**Test suite:** 105 unit + 5 integration + 1 regression + 3 verification (114
+**Test suite:** ~~105 unit + 5 integration + 1 regression + 3 verification (114
 total; MMS 2nd-order, hydrostatic gravity, closed-form advection–diffusion, TVD
-error reduction), all green in release mode; both crates cross-compile to
+error reduction), all green in release mode;~~ **CORRECTED 2026-11-13** (counted
+from `cargo test --release -p outram-park-fork-pflotran --lib --tests`): 287
+unit + 5 integration + 1 regression (+1 ignored) + 3 verification + 11 upstream
+differential (gh:#1422) + 1 MPI sensitivity (gh:#1435) = 308 passed, all green
+in release mode; both crates cross-compile to
 `aarch64-linux-android`. The `outram-foam-basic-lib` `krylov`, `limiters` (OpenFOAM
 TVD, translated from upstream), and `solver::block` machinery back all of this.
 

@@ -233,14 +233,27 @@ impl VanGenuchten {
     }
 }
 
+/// Upstream PFLOTRAN's near-saturation guard in `SFVGSaturation`
+/// (`characteristic_curves_common.F90`, commit 669fbce): when
+/// `(alpha*pc)^n < 1e-15` the cell is treated as exactly saturated with zero
+/// slope, because `1 + (alpha*pc)^n` cannot resolve the perturbation. Added
+/// 2026-11-13 (gh:#1422) after the differential found the port returning
+/// `1 - m*x` and a non-zero slope of order 1e-12 there.
+const VG_PC_ALPHA_N_EPSILON: f64 = 1.0e-15;
+
 impl CharacteristicCurveModel for VanGenuchten {
     fn effective_saturation(&self, pc_pa: f64) -> f64 {
         if pc_pa <= 0.0 {
             return 1.0;
         }
         let ap = self.alpha * pc_pa; // > 0
-        let f = 1.0 + ap.r_powf(self.n);
-        f.r_powf(-self.m)
+        let ap_n = ap.r_powf(self.n);
+        // Upstream SFVGSaturation (669fbce): `pc_alpha_n < 1.d-15` returns
+        // exactly saturated (gh:#1422).
+        if ap_n < VG_PC_ALPHA_N_EPSILON {
+            return 1.0;
+        }
+        (1.0 + ap_n).r_powf(-self.m)
     }
 
     fn d_se_d_pc(&self, pc_pa: f64) -> f64 {
@@ -248,7 +261,12 @@ impl CharacteristicCurveModel for VanGenuchten {
             return 0.0;
         }
         let ap = self.alpha * pc_pa; // > 0
-        let f = 1.0 + ap.r_powf(self.n);
+        let ap_n = ap.r_powf(self.n);
+        // Same upstream guard as `effective_saturation`: slope 0 below it.
+        if ap_n < VG_PC_ALPHA_N_EPSILON {
+            return 0.0;
+        }
+        let f = 1.0 + ap_n;
         // dSe/dpc = -m * n * alpha * ap^(n-1) * f^(-m-1)
         -self.m * self.n * self.alpha * ap.r_powf(self.n - 1.0) * f.r_powf(-self.m - 1.0)
     }
@@ -301,10 +319,16 @@ impl CharacteristicCurveModel for VanGenuchten {
 ///
 /// $$ \frac{dS_e}{dp_c} = -\lambda \, \alpha \, (\alpha p_c)^{-\lambda - 1} \le 0, $$
 ///
-/// and `0` for `p_c <= 1/alpha`. **Note:** the curve has a *kink* at the
+/// and `0` for `p_c < 1/alpha`. **Note:** the curve has a *kink* at the
 /// air-entry pressure `p_c = 1/alpha` — `dS_e/dp_c` jumps from `0` (saturated
-/// side) to `-lambda*alpha` (unsaturated side). At exactly `p_c = 1/alpha` this
-/// implementation returns the saturated-side value `0`.
+/// side) to `-lambda*alpha` (unsaturated side). ~~At exactly `p_c = 1/alpha`
+/// this implementation returns the saturated-side value `0`.~~ **CORRECTED
+/// 2026-11-13 (gh:#1422)** — at exactly `p_c = 1/alpha` it returns the
+/// unsaturated-side slope `-lambda*alpha`, as upstream PFLOTRAN's
+/// `SFBCSaturation` does (`characteristic_curves_common.F90`, test
+/// `if (capillary_pressure < 1.d0/this%alpha)` at commit 669fbce). The
+/// differential against the linked upstream found the old branch returning `0`
+/// where upstream returns `-0.5e-4` (set 1, `pc = 1e4`, relative difference 1).
 ///
 /// # Relative permeability (Burdine)
 ///
@@ -363,21 +387,22 @@ impl BrooksCorey {
 
 impl CharacteristicCurveModel for BrooksCorey {
     fn effective_saturation(&self, pc_pa: f64) -> f64 {
-        let ap = self.alpha * pc_pa;
-        if ap <= 1.0 {
-            // At or below air-entry pressure (includes pc <= 0): saturated.
+        // Upstream SFBCSaturation: `capillary_pressure < 1.d0/this%alpha` is
+        // saturated (strict), so pc == 1/alpha takes the power-law branch.
+        if pc_pa < 1.0 / self.alpha {
+            // Below air-entry pressure (includes pc <= 0): saturated.
             1.0
         } else {
-            ap.r_powf(-self.lambda)
+            (self.alpha * pc_pa).r_powf(-self.lambda)
         }
     }
 
     fn d_se_d_pc(&self, pc_pa: f64) -> f64 {
-        let ap = self.alpha * pc_pa;
-        if ap <= 1.0 {
+        if pc_pa < 1.0 / self.alpha {
             0.0
         } else {
             // dSe/dpc = -lambda * alpha * (alpha pc)^(-lambda-1)
+            let ap = self.alpha * pc_pa;
             -self.lambda * self.alpha * ap.r_powf(-self.lambda - 1.0)
         }
     }
@@ -726,6 +751,31 @@ mod tests {
             let p = k as f64 * 1.0e3;
             assert!(c.d_se_d_pc(pc(p)) <= 0.0);
         }
+    }
+
+    #[test]
+    fn vg_near_saturation_guard_matches_upstream_gh1422() {
+        // Explicit curve, alpha = 1e-4, n = 2:
+        // (alpha*pc)^n = (1e-4*1e-4)^2 = 1e-16 < 1e-15 -> exactly saturated.
+        let c = CharacteristicCurves::VanGenuchten(VanGenuchten::new(1.0e-4, 2.0, 0.1).unwrap());
+        assert_eq!(se_val(&c, 1.0e-4), 1.0);
+        assert_eq!(c.d_se_d_pc(pc(1.0e-4)), 0.0);
+        // Just above the guard the curve is no longer exactly saturated.
+        assert!(se_val(&c, 1.0) < 1.0);
+        assert!(c.d_se_d_pc(pc(1.0)) < 0.0);
+    }
+
+    #[test]
+    fn bc_slope_at_exact_air_entry_matches_upstream_gh1422() {
+        // Upstream SFBCSaturation uses a strict `pc < 1/alpha` test, so at
+        // pc == 1/alpha the slope is -lambda*alpha, not 0. alpha = 1e-4 here,
+        // so 1/alpha = 1e4 Pa exactly representable as 1.0/1e-4.
+        let c = bc();
+        let a = 1.0e-4_f64;
+        let pc_exact = 1.0 / a;
+        let d = c.d_se_d_pc(pc(pc_exact));
+        assert!(d < 0.0, "slope at air entry must be the unsaturated-side value, got {d}");
+        assert_eq!(c.d_se_d_pc(pc(pc_exact * (1.0 - 1e-12))), 0.0);
     }
 
     #[test]

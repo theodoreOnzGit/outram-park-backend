@@ -153,3 +153,39 @@ limitations in `crates/farrer-park/CLAUDE.md`), not left to be discovered.
 | ...`:210-213` | the defaults `k = 10.0` and `sigma_y` = the macroscopic yield stress | `FatemiSocie::with_default_weight` |
 | `src/volume_average_FIPs.py`, `Al7075_band_averaging` | average **within** a region, then take the maximum over slip systems and regions as the grain's value — the order is not interchangeable | `fatigue::region_fip`, `rank_regions` |
 | `src/generate_microstructures.py` (band construction) | how a grain is partitioned into slip bands | **not ported** — bead `op-9jo0` |
+
+## Differential comparison and gap survey (gh:#1434, 2026-11-13)
+
+Record: `verification_and_validation/prisms_moose_differential_gh1434/`
+(`PREDICTIONS.md` committed first, `RESULTS.md`); tests
+`tests/prisms_differential*.rs`.  Re-fetched all three trees at the pins above
+and confirmed each commit hash with `git log`.
+
+**What was compared.** PRISMS-Fatigue: the real Python run, bit-identical after
+one fix.  PRISMS-Plasticity and MOOSE: verbatim-transcribed kernels (146 and 110
+grep-checked lines), not compiled upstream builds.
+
+**Two port defects found and fixed by translating upstream** (both are
+operation order, 1-4 ulp, not physics):
+`FatemiSocie::fip` now divides before weighting, `k * (n / sigma_y)`
+(`calculate_FIPs.py:97`; 289 -> 324 of 324 bit-identical); and
+`SaturatingHardening::advance` now accumulates `s = s + h_ab |dgamma|` one
+system at a time (`calculatePlasticity.cc:698`; 1868 -> 4800 of 4800).
+
+~~**Claim above ("Contracting either with a symmetric Cauchy stress gives the
+same resolved shear")**~~ **CHECKED 2026-11-13:** true to 5.0e-16 of the
+largest stress component over 2400 resolved shears (30 % bit-identical); the
+statement stands, now with a measurement.  ~~"Full fourth-order contraction
+instead of a Voigt Bond matrix"~~ **MEASURED 2026-11-13:** agrees with
+upstream's Bond-matrix `elasticmoduli` to 5.1e-16 of C11 over 7200 entries (20 %
+bit-identical), convention confirmed.
+
+| upstream piece | status, 2026-11-13 |
+|---|---|
+| PRISMS-Plasticity slip tables, `q`, Rodrigues `odfpoint`, stiffness rotation, resolved shear, power-law increment, saturating hardening and clamp | ported, **kernel-level differential done** (bit-identical or <= 4 ulp; `RESULTS.md`) |
+| PRISMS-Plasticity full single-crystal material point | **not compared**; not comparable below an O(strain) bound (small-strain, no backstress, start-of-step hardening) |
+| sub-stepping (`numberOfCuts`), cubic `lnsrch`, finite-deformation kinematics, Ohno-Wang backstress, lattice spin | not ported (the first two and the last three are separate pieces; see the child issues linked on gh:#1434) |
+| PRISMS-Fatigue `calculate_FIPs.py` FS FIP, `volume_average_FIPs.py` band reduction | ported, **run against the real Python**, bit-identical (band reduction: unit weights; volume weighting is a pinned generalisation) |
+| PRISMS-Fatigue `generate_microstructures.py` band construction | not ported |
+| MOOSE `IsotropicPlasticityStressUpdate` / `RadialReturnStressUpdate` (J2, linear hardening) | **converted from "conventions only" to a kernel differential**: 5.8e-16 stress, 4.1e-16 plastic strain over 60 steps against a verbatim transcription |
+| the rest of MOOSE (contact, other stress updates, creep, finite strain) | not taken |
