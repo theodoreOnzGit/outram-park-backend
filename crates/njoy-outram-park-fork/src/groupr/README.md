@@ -77,7 +77,7 @@ end-to-end pipeline is not wired together.
 
 The numeric engine and its dependencies return `NjoyError::NotPorted`:
 
-- reaction retrieval & feed functions: `getmf6`, `getff`, `getfwt`, `getflx`,
+- reaction retrieval & feed functions: ~~`getmf6`~~ (**CORRECTED 2026-11-13, gh:#1369:** `getmf6` is `mf6_feed.rs`, wired into the deck driver's `panel` for `mfd = 8/18`; `gam102` LAW=2 is `njoy_panel::Gam102`; `conver`'s lists, `nextr` and `getyld`'s MF=6/9 product yields are `deck/groupr_auto.rs`), `getff`, `getfwt`, `getflx`,
   `getyld`, `getsig` (MF=10 photon-production + `MT=257/258/259` derived
   quantities only — the ordinary MF=3/MF=13 case is ported, see
   `pendf_feed.rs`), `getdis` (ported for neutron File-4 two-body channels
@@ -93,7 +93,7 @@ The numeric engine and its dependencies return `NjoyError::NotPorted`:
   `genflx` (`nflmax > 0`) — the Bondarenko branch and `getunr`/`stounr` are
   ported, see `unresolved.rs`/`urr_pendf.rs`;
 - kinematics / matrix machinery: `cm2lab`, `f6cm`, `f6lab`, `ll2lab`, `getaed`,
-  `aedi`, ~~`getaed`~~, ~~`aedi`~~ (ported 2026-11-11 in `thermal.rs`: inelastic, incoherent and coherent elastic; test 01 MT 221/229/230 identical), `getco`, `gam102`, `conver`, `hnab`;
+  `aedi`, ~~`getaed`~~, ~~`aedi`~~ (ported 2026-11-11 in `thermal.rs`: inelastic, incoherent and coherent elastic; test 01 MT 221/229/230 identical), `getco`, ~~`gam102`~~ (LAW=2 ported 2026-11-13; LAW=4 recoil not), ~~`conver`~~ (the reaction lists only, 2026-11-13; its MF=12 LO=2 conversion and MT=456 insertion are not), `hnab`;
 - the GENDF matrix-record writer is ported (see `matrix.rs`/`gendf.rs`); the
   vector-record writer was already ported before this note.
 

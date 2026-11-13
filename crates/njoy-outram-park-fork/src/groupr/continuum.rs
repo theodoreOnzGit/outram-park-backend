@@ -16,11 +16,17 @@
 //! translated here (the `econst` branch of the MF=12 photon feed, `MT = 102`, IS
 //! ported, in `photon_prod.rs`). `econst = 0` makes the `econst` search in `getsed` inert
 //! (`ee < econst` never holds), so it is not carried.
+//!
+//! **CORRECTED 2026-11-13 (gh:#1369):** the tabulated law 1 branch and analytic law 5
+//! are ported in [`PhotonSed`] (MF=15 and MF=5), used by the photon feed and the
+//! `mfd = 5` spectra (`groupr::spectrum`); [`ContinuumFeed`] (MF=6 continuum,
+//! `mfd = 6`) still reads law 9 only through [`SedFeed`].
 
 use petir::mathf::RealMath;
 use crate::endf::records::{SectionCursor, Tab1};
 use crate::endf::tape::Tape;
 use crate::errorr::weight::terpa;
+use crate::mixr::mix::sigfig;
 use crate::groupr::file4::File4Angular;
 use crate::NjoyError;
 
@@ -31,7 +37,7 @@ const XMIN: f64 = 1.0e-3;
 const ETEST: f64 = 1.1e-5;
 
 /// A TAB1 packed as ENDF words `c1 c2 l1 l2 nr np (nbt int)*nr (x y)*np`.
-fn pack(t: &Tab1) -> Vec<f64> {
+pub(crate) fn pack(t: &Tab1) -> Vec<f64> {
     let mut v = vec![t.head.c1, t.head.c2, f64::from(t.head.l1), f64::from(t.head.l2), t.interp.len() as f64, t.pairs.len() as f64];
     for &(n, i) in &t.interp {
         v.push(f64::from(n));
@@ -268,6 +274,52 @@ struct TabSub {
     prob: Vec<(f64, f64)>,
     e_interp: Vec<(u32, u32)>,
     energies: Vec<TabEnergy>,
+    /// For an analytic `LF = 5` subsection (general evaporation) in place of the
+    /// tabulated part (`e_interp`, `energies` then empty).
+    lf5: Option<Lf5>,
+}
+
+/// The analytic `LF = 5` part of a subsection (`anased` law 5, `:12355-12363`):
+/// `U` (the probability TAB1's C1), the packed `theta(E)` TAB1 and `g(x)`.
+#[derive(Debug, Clone)]
+struct Lf5 {
+    u: f64,
+    theta: Vec<f64>,
+    g_interp: Vec<(u32, u32)>,
+    g_pairs: Vec<(f64, f64)>,
+}
+
+/// `anased`'s saved `theta`, `xc` (`save new,theta,xc,...`).
+#[derive(Debug, Clone, Copy, Default)]
+struct Lf5State {
+    theta: f64,
+    xc: f64,
+}
+
+impl Lf5 {
+    /// `anased` for law 5 at incident `e` over `[e1, e2]`: `(g, enext, idis)`.
+    /// `new` (`e1 < etest`) re-interpolates `theta` (`:12318-12331`).
+    fn anased(&self, st: &mut Lf5State, e: f64, e1: f64, e2: f64) -> Result<(f64, f64, i32), NjoyError> {
+        let new = e1 < ETEST;
+        let (mut enext, mut idis) = (EMAX, 0);
+        let de = e - self.u;
+        if e1 > de * (1.0 + SMALL) || de <= 0.0 {
+            return Ok((0.0, enext, idis));
+        }
+        if new {
+            let (th, en, idisc) = terpa(&self.theta, e, &mut 2, &mut 1)?;
+            st.theta = th;
+            st.xc = de / st.theta;
+            if en < enext * (1.0 - SMALL) {
+                idis = idisc;
+                enext = en;
+            }
+        }
+        let xlo = e1 / st.theta;
+        let xhi = if e2 <= de * (1.0 + SMALL) { e2 / st.theta } else { st.xc };
+        let g = crate::endf::interp::intega(&self.g_interp, &self.g_pairs, xlo, xhi)?;
+        Ok((g * st.theta, enext, idis))
+    }
 }
 
 /// `getsed` for tabulated File-15 (`LF = 1`) subsections, summed (`nk = 1`), with the
@@ -276,14 +328,52 @@ struct TabSub {
 /// Translated from NJOY2016.80 `groupr.f90` `getsed` (:11829-12279): the `lf <= 1`
 /// initialisation branch (`tab2io`, `intega` per group, `econst` determination) and the
 /// normal-entry tabulated branch (Cartesian, and unit-base for `INT >= 21`;
-/// "corresponding points" `INT 11-15` return zeros as upstream). Not translated: analytic
+/// "corresponding points" `INT 11-15` return zeros as upstream). ~~Not translated: analytic
 /// `LF > 1` subsections here (the neutron `LF = 9` path is [`SedFeed`]), the `mt = 455`
-/// `sqrt(E)` extension of the lowest delayed bin, and an incident energy above the last
-/// table energy, where upstream reads past its stored table.
+/// `sqrt(E)` extension of the lowest delayed bin,~~ **CORRECTED 2026-11-13 (gh:#1369):**
+/// the analytic `LF = 5` subsection (`anased` law 5), the `mt = 455` `sqrt(E)` extension,
+/// separate subsections (`nk > 1`), the upscatter fold and file 5 (`mfd = 5`,
+/// [`PhotonSed::from_tape_mf`]) are translated. Not translated: analytic `LF = 7, 9, 11,
+/// 12` here (the neutron `LF = 9` path is [`SedFeed`]), and an incident energy above the
+/// last table energy, where upstream reads past its stored table.
 #[derive(Debug, Clone)]
 pub struct PhotonSed {
     subs: Vec<TabSub>,
     eg: Vec<f64>,
+    /// The file read: 15 (photons) or 5 (neutrons, `mfd = 5` spectra).
+    mf: i32,
+    /// The section's MT (the upscatter fold and the delayed-bin extension test it).
+    mt: i32,
+}
+
+/// `getsed`'s `ismooth` extension of the lowest delayed bin (`groupr.f90:11971-11994`,
+/// `mtd = 455`, a TAB1 whose first INT is 1): while the second energy is above
+/// `ex = 40` eV, split the first bin at `fx x2`. `fx = .8409` is a default-real
+/// (single-precision) literal assigned to a `real(kr)`, so it is `0.8409f32` widened.
+///
+/// # Errors
+/// [`NjoyError::NotPorted`] for a TAB1 with more than one interpolation range: upstream
+/// addresses the pairs as `tmp(m1+8..)`, which assumes `NR = 1`.
+fn extend_lowest_delayed_bin(interp: &mut Vec<(u32, u32)>, pairs: &mut Vec<(f64, f64)>) -> Result<(), NjoyError> {
+    if interp.first().map(|r| r.1) != Some(1) {
+        return Ok(());
+    }
+    if interp.len() != 1 {
+        return Err(NjoyError::NotPorted("groupr getsed: delayed-bin sqrt(E) extension of a TAB1 with NR > 1"));
+    }
+    let ex = 40.0f64;
+    let fx = f64::from(0.8409f32);
+    while pairs.len() >= 2 && pairs[1].0 > ex {
+        let val = pairs[0].1;
+        let y1 = sigfig(fx.sqrt() * val, 7, 0);
+        let y2 = sigfig((1.0 - fx * fx.sqrt()) * val / (1.0 - fx), 7, 0);
+        let x2 = fx * pairs[1].0;
+        pairs[0].1 = y1;
+        pairs.insert(1, (x2, y2));
+    }
+    // `tmp(m1+5) = mm`, `tmp(m1+6) = mm`: one range, NBT = NP.
+    interp[0].0 = pairs.len() as u32;
+    Ok(())
 }
 
 impl PhotonSed {
@@ -293,9 +383,19 @@ impl PhotonSed {
     ///
     /// # Errors
     /// [`NjoyError::SectionNotFound`], [`NjoyError::NotPorted`] for `LF > 1`.
-    pub fn from_tape(tape: &Tape, mat: i32, mt: i32, eg: &[f64], mut econst: f64) -> Result<(Self, f64, f64), NjoyError> {
+    pub fn from_tape(tape: &Tape, mat: i32, mt: i32, eg: &[f64], econst: f64) -> Result<(Self, f64, f64), NjoyError> {
+        Self::from_tape_mf(tape, mat, 15, mt, eg, econst, false)
+    }
+
+    /// `getsed(e = 0)` on file `mf` (15, or 5 for the `mfd = 5` spectra): as
+    /// [`PhotonSed::from_tape`], with `ismooth` switching on the lowest-delayed-bin
+    /// extension for `mt = 455` ([`extend_lowest_delayed_bin`]).
+    ///
+    /// # Errors
+    /// [`NjoyError::SectionNotFound`], [`NjoyError::NotPorted`] for `LF > 1`.
+    pub fn from_tape_mf(tape: &Tape, mat: i32, mf: i32, mt: i32, eg: &[f64], mut econst: f64, ismooth: bool) -> Result<(Self, f64, f64), NjoyError> {
         const EPS: f64 = 1.0e-3;
-        let sec = tape.section(mat, 15, mt).ok_or(NjoyError::SectionNotFound { mat, mf: 15, mt })?;
+        let sec = tape.section(mat, mf, mt).ok_or(NjoyError::SectionNotFound { mat, mf, mt })?;
         let mut cur = SectionCursor::new(&sec.rows);
         let head = cur.read_cont()?;
         let nk = head.n1 as usize;
@@ -307,17 +407,42 @@ impl PhotonSed {
         let mut subs = Vec::new();
         for _ in 0..nk {
             let p = cur.read_tab1()?;
-            if p.head.l2 != 1 {
-                return Err(NjoyError::NotPorted("groupr getsed: only tabulated LF = 1 photon spectra are translated"));
+            if p.head.l2 != 1 && p.head.l2 != 5 {
+                return Err(NjoyError::NotPorted("groupr getsed: only tabulated LF = 1 and general-evaporation LF = 5 spectra are translated here"));
             }
             if p.pairs[0].0 < enext {
                 enext = p.pairs[0].0;
+            }
+            if p.head.l2 == 5 {
+                // `:11902-11968`: `theta(E)` (its `econst` scan), then `g(x)`, whose
+                // lowest delayed bin `ismooth` extends; no `econst` scan on `g` for LF = 5.
+                let th = cur.read_tab1()?;
+                for ip in 1..th.pairs.len() {
+                    let ((x0, y0), (x1, y1)) = (th.pairs[ip - 1], th.pairs[ip]);
+                    let delta = (y1 - y0).abs();
+                    if delta >= EPS * y0 {
+                        let ee = x0 + EPS * y0 * (x1 - x0) / delta;
+                        if ee < econst {
+                            econst = ee;
+                        }
+                    }
+                }
+                let mut gt = cur.read_tab1()?;
+                if ismooth && mt == 455 {
+                    extend_lowest_delayed_bin(&mut gt.interp, &mut gt.pairs)?;
+                }
+                let lf5 = Lf5 { u: p.head.c1, theta: pack(&th), g_interp: gt.interp, g_pairs: gt.pairs };
+                subs.push(TabSub { prob_interp: p.interp, prob: p.pairs, e_interp: Vec::new(), energies: Vec::new(), lf5: Some(lf5) });
+                continue;
             }
             let t2 = cur.read_tab2()?;
             let ne = t2.head.n2 as usize;
             let mut energies = Vec::with_capacity(ne);
             for _ in 0..ne {
-                let t = cur.read_tab1()?;
+                let mut t = cur.read_tab1()?;
+                if ismooth && mt == 455 {
+                    extend_lowest_delayed_bin(&mut t.interp, &mut t.pairs)?;
+                }
                 let mut raw = Vec::with_capacity(ng);
                 for ig in 0..ng {
                     let e1 = if ig == 0 { 0.0 } else { eg[ig] };
@@ -359,9 +484,14 @@ impl PhotonSed {
                     }
                 }
             }
-            subs.push(TabSub { prob_interp: p.interp, prob: p.pairs, e_interp: t2.interp, energies });
+            subs.push(TabSub { prob_interp: p.interp, prob: p.pairs, e_interp: t2.interp, energies, lf5: None });
         }
-        Ok((Self { subs, eg: eg.to_vec() }, enext, econst))
+        Ok((Self { subs, eg: eg.to_vec(), mf, mt }, enext, econst))
+    }
+
+    /// `nktot`: the number of subsections.
+    pub fn nk(&self) -> usize {
+        self.subs.len()
     }
 
     /// `getsed(e > 0)` with `nk = 1`: `(sed(1..ng), enext, idis)`.
@@ -369,12 +499,28 @@ impl PhotonSed {
     /// # Errors
     /// From `terp1`, or an energy above the last table energy.
     pub fn get(&self, ed: f64) -> Result<(Vec<f64>, f64, i32), NjoyError> {
+        let (mut rows, enext, idis) = self.get_nk(ed, false)?;
+        Ok((rows.swap_remove(0), enext, idis))
+    }
+
+    /// `getsed(e > 0)`: with `separate` (`nk > 1`) one row per subsection
+    /// (`sed(ik, ig)`), else the one summed row (`ikt = 1`). Applies the upscatter
+    /// fold (`:12225-12236`) for neutron spectra other than fission (`MT = 18-21,
+    /// 38`) and delayed neutrons (`MT = 455`).
+    ///
+    /// # Errors
+    /// From `terp1`, or an energy above the last table energy.
+    pub fn get_nk(&self, ed: f64, separate: bool) -> Result<(Vec<Vec<f64>>, f64, i32), NjoyError> {
         use crate::endf::interp::{terp1, terpa as terpa_st, IntLaw};
+        const EPS: f64 = 1.0e-3;
         let eg = &self.eg;
         let ng = eg.len() - 1;
-        let mut sed = vec![0.0f64; ng];
+        let nrow = if separate { self.subs.len() } else { 1 };
+        let mut rows = vec![vec![0.0f64; ng]; nrow];
         let (mut enext, mut idis) = (EMAX, 0i32);
-        for sub in &self.subs {
+        let fold = self.mf != 15 && self.mt != 455 && (self.mt < 18 || (self.mt > 21 && self.mt != 38));
+        for (ik, sub) in self.subs.iter().enumerate() {
+            let sed = &mut rows[if separate { ik } else { 0 }];
             let (pe, eihi, d) = terpa_st(&sub.prob_interp, &sub.prob, ed);
             let idisc = i32::from(d);
             if (eihi - enext).abs() < enext * SMALL && idisc > idis {
@@ -385,6 +531,28 @@ impl PhotonSed {
                 enext = eihi;
             }
             if pe <= 0.0 {
+                continue;
+            }
+            if let Some(a) = &sub.lf5 {
+                // analytic subsection (`:12124-12141`): `anased` per group, times `pe`;
+                // `enext` from the last group's call. No upscatter fold here.
+                let mut st = Lf5State::default();
+                let (mut ethi, mut idisc) = (EMAX, 0);
+                for ig in 0..ng {
+                    let e1 = if ig == 0 { 0.0 } else { eg[ig] };
+                    let e2 = if ig == ng - 1 { EBIG } else { eg[ig + 1] };
+                    let (s, en, id) = a.anased(&mut st, ed, e1, e2)?;
+                    ethi = en;
+                    idisc = id;
+                    sed[ig] += s * pe;
+                }
+                if (ethi - enext).abs() < enext * SMALL && idisc > idis {
+                    idis = idisc;
+                }
+                if ethi < enext * (1.0 - SMALL) {
+                    idis = idisc;
+                    enext = ethi;
+                }
                 continue;
             }
             let ne = sub.energies.len();
@@ -454,10 +622,19 @@ impl PhotonSed {
                     sed[ig] += s * pe;
                 }
             }
+            if fold {
+                // upscatter is put into the in-group (`ed <= eg(ig) (1 + eps)`).
+                let mut ig = ng;
+                while ig > 1 && ed <= eg[ig - 1] * (1.0 + EPS) {
+                    sed[ig - 2] += sed[ig - 1];
+                    sed[ig - 1] = 0.0;
+                    ig -= 1;
+                }
+            }
             if ehi < enext * (1.0 - SMALL) {
                 enext = ehi;
             }
         }
-        Ok((sed, enext, idis))
+        Ok((rows, enext, idis))
     }
 }

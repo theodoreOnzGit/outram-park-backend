@@ -490,6 +490,60 @@ impl Boundary {
         Some((deltan, Vec3::new(delta[0], delta[1], delta[2])))
     }
 
+    /// Whether this boundary is one of upstream's primitive walls the
+    /// capillary wall bridges can be resolved on exactly: a two-sided
+    /// axis-aligned [`Boundary::Plane`] or an axis-aligned
+    /// [`Boundary::Cylinder`] (gh:#1487).
+    #[must_use]
+    pub fn is_upstream_primitive(&self) -> bool {
+        match *self {
+            Self::Plane { .. } => self.plane_axis_and_param().is_some(),
+            Self::Cylinder { axis_dir, .. } => {
+                let c = [axis_dir.x, axis_dir.y, axis_dir.z];
+                (0..3).any(|a| c[(a + 1) % 3] == 0.0 && c[(a + 2) % 3] == 0.0 && c[a].abs() == 1.0)
+            }
+            _ => false,
+        }
+    }
+
+    /// `PrimitiveWall::resolveContact` for a two-sided axis-aligned plane
+    /// ([`Boundary::Plane`]) or an axis-aligned [`Boundary::Cylinder`],
+    /// whatever the gap (`primitive_wall_definitions.h`, LIGGGHTS-PUBLIC
+    /// `3d5c00f2`): `(deltan, delta)` with `deltan` the signed gap (negative =
+    /// overlap) and `delta = -delta_upstream`, signs included. Upstream writes
+    /// `0.` into the components off the wall normal and
+    /// `FixWallGran::post_force_primitive` negates every component, so they are
+    /// `-0.0` here. The capillary wall bridges read the out-of-contact
+    /// geometry (`surfacesClose`, gh:#1487). `None` for any other boundary and
+    /// on the cylinder's zero-distance guard.
+    #[must_use]
+    pub fn upstream_resolve(&self, p: &Particle) -> Option<(f64, Vec3)> {
+        match *self {
+            Self::Plane { .. } => {
+                let (a, param) = self.plane_axis_and_param()?;
+                let pos = [p.position.x, p.position.y, p.position.z];
+                let r = p.radius;
+                let deltan = if pos[a] > param {
+                    pos[a] - param - r
+                } else {
+                    param - pos[a] - r
+                };
+                let mut up = [0.0; 3];
+                up[a] = param - pos[a];
+                Some((deltan, Vec3::new(-up[0], -up[1], -up[2])))
+            }
+            Self::Cylinder { axis_dir, .. } => {
+                let (deltan, d) = self.cylinder_resolve(p)?;
+                let c = [axis_dir.x, axis_dir.y, axis_dir.z];
+                let a = (0..3).find(|&a| c[(a + 1) % 3] == 0.0 && c[(a + 2) % 3] == 0.0 && c[a].abs() == 1.0)?;
+                let mut v = [d.x, d.y, d.z];
+                v[a] = -0.0;
+                Some((deltan, Vec3::new(v[0], v[1], v[2])))
+            }
+            _ => None,
+        }
+    }
+
     /// Upstream's primitive-wall resolution (`PrimitiveWall::resolveContact`,
     /// LIGGGHTS-PUBLIC `3d5c00f2`, `primitive_wall_definitions.h`:
     /// `Plane<dim>` and `Cylinder<dim>`) for the axis-aligned cases, as the

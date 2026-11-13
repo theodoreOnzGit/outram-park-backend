@@ -51,7 +51,8 @@ use std::path::Path;
 use clap::Parser;
 use outram_foam_basic_lib::io::poly_mesh::{MeshFace as IoMeshFace, PolyMesh as IoPolyMesh};
 use outram_foam_basic_lib::mesh::{BoundaryPatch, PatchKind};
-use outram_foam_cli::{CaseArgs, CliError};
+use outram_foam_basic_lib::io::esi::EsiWriteOptions;
+use outram_foam_cli::{CaseArgs, CliError, WriteFlavour};
 use outram_foam_mesh::poly_dual_mesh::{self, DualMesh, PolyMesh as PrimalPolyMesh};
 use outram_foam_mesh::poly_dual_mesh_upstream::{
     poly_dual_mesh_upstream, FaceZoneInput, UpstreamOptions,
@@ -96,6 +97,23 @@ pub struct PolyDualArgs {
     /// Which OpenFOAM line the upstream mode follows where they differ: `dev` (default) or `esi` (v2506).
     #[arg(long = "flavour", default_value = "dev")]
     pub flavour: String,
+    /// File layout of the written `polyMesh`: `default` or `esi` (v2506 bytes,
+    /// gh:#1363 row 7). Unset: follows `-flavour` (`esi` writes ESI's layout).
+    #[arg(long = "writeFlavour")]
+    pub write_flavour: Option<String>,
+}
+
+/// The file layout to write: `-writeFlavour` if given, else `esi` when
+/// `-flavour esi` and the project's own layout otherwise.
+///
+/// # Errors
+/// [`CliError::Tool`] for an unknown word.
+pub fn write_flavour(args: &PolyDualArgs) -> Result<WriteFlavour, CliError> {
+    match &args.write_flavour {
+        Some(w) => WriteFlavour::parse(w),
+        None if args.flavour == "esi" => Ok(WriteFlavour::Esi),
+        None => Ok(WriteFlavour::Default),
+    }
 }
 
 fn main() {
@@ -178,9 +196,20 @@ pub fn run_with(args: &PolyDualArgs) -> Result<(), CliError> {
         }
         d.join("polyMesh")
     };
-    io_dual
-        .write(&out_dir)
-        .map_err(|e| CliError::Io(e.to_string()))?;
+    match write_flavour(args)? {
+        WriteFlavour::Default => io_dual.write(&out_dir),
+        WriteFlavour::Esi => {
+            let location = out_dir
+                .strip_prefix(&case)
+                .unwrap_or(&out_dir)
+                .to_string_lossy()
+                .replace('\\', "/");
+            let opts =
+                EsiWriteOptions::default().with_precision(outram_foam_cli::write_precision(&case));
+            io_dual.write_esi(&out_dir, &location, &opts)
+        }
+    }
+    .map_err(|e| CliError::Io(e.to_string()))?;
     if args.overwrite {
         for z in ["cellZones", "pointZones", "faceZones"] {
             let p = out_dir.join(z);

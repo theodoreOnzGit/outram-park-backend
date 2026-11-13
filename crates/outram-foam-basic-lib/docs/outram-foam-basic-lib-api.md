@@ -5413,6 +5413,12 @@ pub use laplacian_corrected::max_non_orthogonality_deg;
 pub use laplacian_corrected::non_ortho_geometry;
 ```
 
+#### Re-export `non_ortho_geometry_port_original`
+
+```rust
+pub use laplacian_corrected::non_ortho_geometry_port_original;
+```
+
 #### Re-export `solve_laplacian_non_orthogonal`
 
 ```rust
@@ -27210,6 +27216,12 @@ pub use crate::fv_operators::fvm::max_non_orthogonality_deg;
 
 ```rust
 pub use crate::fv_operators::fvm::non_ortho_geometry;
+```
+
+#### Re-export `non_ortho_geometry_port_original`
+
+```rust
+pub use crate::fv_operators::fvm::non_ortho_geometry_port_original;
 ```
 
 #### Re-export `solve_laplacian_non_orthogonal`

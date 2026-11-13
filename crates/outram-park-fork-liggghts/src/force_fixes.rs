@@ -31,8 +31,10 @@
 //! `colloid` and `harmonic` styles, the energy scalar and the three force
 //! components on the wall, for an INTERIOR `block` or `cylinder` region
 //! (`units box`, not dynamic): contacts from
-//! [`InsertRegion::surface_interior`]. Not ported: exterior regions, other
-//! region styles, `side out`, moving/rotating regions. `pow` and `log` are
+//! [`InsertRegion::surface_interior`]; and, since gh:#1491, an EXTERIOR
+//! (`side out`) block or cylinder, [`ForceFix::WallRegionExterior`] with
+//! [`InsertRegion::surface_exterior`]. Not ported: other region styles,
+//! moving/rotating regions. `pow` and `log` are
 //! the platform libm (`f64::powf`, `f64::ln`), the same glibc as upstream.
 //!
 //! ## Scope, stated plainly
@@ -211,6 +213,82 @@ fn wall_region_pair(
     }
 }
 
+/// The fixed inputs of one `fix wall/region` (see [`ForceFix::WallRegion`]).
+struct WallRegionSite<'a> {
+    /// `side out` region (`interior = 0`).
+    exterior: bool,
+    group: &'a [bool],
+    region: &'a InsertRegion,
+    style: WallRegionStyle,
+    epsilon: f64,
+    sigma: f64,
+    cutoff: f64,
+}
+
+/// `FixWallRegion::post_force` over the local atoms in `order`: `Region::match`
+/// (inside for an interior region, outside for `side out`), then
+/// `Region::surface` (`surface_interior` / `surface_exterior`) and the wall
+/// potential of each contact; `ewall` is rebuilt.
+///
+/// # Errors
+/// A particle on the wrong side of the surface, or closer than `tooclose`
+/// (upstream `error->one`).
+fn wall_region_post_force(
+    site: &WallRegionSite,
+    order: &[usize],
+    positions: &[Vec3],
+    radii: &[f64],
+    forces: &mut [Vec3],
+    ewall: &mut [f64; 4],
+) -> Result<(), String> {
+    *ewall = [0.0; 4];
+    let mut onflag = false;
+    for &i in order {
+        let f = &mut forces[i];
+        if !site.group[i] {
+            continue;
+        }
+        // `Region::match`: `!(inside ^ interior)`
+        if site.region.contains(positions[i]) == site.exterior {
+            onflag = true;
+            continue;
+        }
+        let tooclose = if site.style == WallRegionStyle::Colloid {
+            radii[i]
+        } else {
+            0.0
+        };
+        let contacts = if site.exterior {
+            site.region.surface_exterior(positions[i], site.cutoff)
+        } else {
+            site.region.surface_interior(positions[i], site.cutoff)
+        };
+        for (r, del) in contacts {
+            if r <= tooclose {
+                onflag = true;
+                continue;
+            }
+            let rinv = 1.0 / r;
+            let (fwall, eng) =
+                wall_region_pair(site.style, site.epsilon, site.sigma, site.cutoff, r, radii[i]);
+            ewall[0] += eng;
+            let fx = fwall * del[0] * rinv;
+            let fy = fwall * del[1] * rinv;
+            let fz = fwall * del[2] * rinv;
+            f.x += fx;
+            f.y += fy;
+            f.z += fz;
+            ewall[1] -= fx;
+            ewall[2] -= fy;
+            ewall[3] -= fz;
+        }
+    }
+    if onflag {
+        return Err("Particle on or inside surface of region used in fix wall/region".into());
+    }
+    Ok(())
+}
+
 /// A force fix applied at `post_force`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ForceFix {
@@ -237,6 +315,29 @@ pub enum ForceFix {
         /// Group membership per particle.
         group: Vec<bool>,
         /// The interior region.
+        region: InsertRegion,
+        /// Wall potential.
+        style: WallRegionStyle,
+        /// `epsilon`.
+        epsilon: f64,
+        /// `sigma`.
+        sigma: f64,
+        /// `cutoff` (> 0).
+        cutoff: f64,
+        /// `ewall[0..4]`: energy, then minus the summed force on the particles
+        /// (the force on the wall), rebuilt every step.
+        ewall: [f64; 4],
+    },
+    /// `fix ID group wall/region region ...` on a region defined with
+    /// `side out` (`interior = 0`): the particles live OUTSIDE the region and
+    /// are pushed away from its outer surface, contacts from
+    /// [`InsertRegion::surface_exterior`] (gh:#1491). Same fields and the same
+    /// `FixWallRegion::post_force` as [`ForceFix::WallRegion`].
+    WallRegionExterior {
+        /// Group membership per particle.
+        group: Vec<bool>,
+        /// The region; particles must stay outside it (`Region::match` of a
+        /// `side out` region is `!inside`).
         region: InsertRegion,
         /// Wall potential.
         style: WallRegionStyle,
@@ -321,49 +422,46 @@ impl ForceFix {
                 sigma,
                 cutoff,
                 ewall,
-            } => {
-                *ewall = [0.0; 4];
-                let mut onflag = false;
-                for &i in order {
-                    let f = &mut forces[i];
-                    if !group[i] {
-                        continue;
-                    }
-                    if !region.contains(positions[i]) {
-                        onflag = true;
-                        continue;
-                    }
-                    let tooclose = if *style == WallRegionStyle::Colloid {
-                        radii[i]
-                    } else {
-                        0.0
-                    };
-                    for (r, del) in region.surface_interior(positions[i], *cutoff) {
-                        if r <= tooclose {
-                            onflag = true;
-                            continue;
-                        }
-                        let rinv = 1.0 / r;
-                        let (fwall, eng) =
-                            wall_region_pair(*style, *epsilon, *sigma, *cutoff, r, radii[i]);
-                        ewall[0] += eng;
-                        let fx = fwall * del[0] * rinv;
-                        let fy = fwall * del[1] * rinv;
-                        let fz = fwall * del[2] * rinv;
-                        f.x += fx;
-                        f.y += fy;
-                        f.z += fz;
-                        ewall[1] -= fx;
-                        ewall[2] -= fy;
-                        ewall[3] -= fz;
-                    }
-                }
-                if onflag {
-                    return Err(
-                        "Particle on or inside surface of region used in fix wall/region".into(),
-                    );
-                }
-            }
+            } => wall_region_post_force(
+                &WallRegionSite {
+                    exterior: false,
+                    group,
+                    region,
+                    style: *style,
+                    epsilon: *epsilon,
+                    sigma: *sigma,
+                    cutoff: *cutoff,
+                },
+                order,
+                positions,
+                radii,
+                forces,
+                ewall,
+            )?,
+            Self::WallRegionExterior {
+                group,
+                region,
+                style,
+                epsilon,
+                sigma,
+                cutoff,
+                ewall,
+            } => wall_region_post_force(
+                &WallRegionSite {
+                    exterior: true,
+                    group,
+                    region,
+                    style: *style,
+                    epsilon: *epsilon,
+                    sigma: *sigma,
+                    cutoff: *cutoff,
+                },
+                order,
+                positions,
+                radii,
+                forces,
+                ewall,
+            )?,
             Self::Freeze { group, foriginal } => {
                 *foriginal = [0.0; 3];
                 for (i, f) in forces.iter_mut().enumerate() {

@@ -23,11 +23,16 @@ This crate provides:
    GeN-Foam's `twoPhase` boiling solver (implicitUpwind alpha; **MULES is not
    ported**) and runs upstream's `1D_boiling` case files end to end; its V&V
    record is `verification_and_validation/genfoam_two_phase/README.md`, and it
-   is **not** compared with an upstream run (~~none is shipped or runnable
-   here~~ **CORRECTED 2026-11-12** (gh:#1361): none is shipped, and the
-   thermal-hydraulics stack it needs is not built yet; what IS built and run
-   is the neutronics path of the real GeN-Foam binary, see
-   `verification_and_validation/genfoam_vs_upstream_gh1361/README.md`).
+   ~~is **not** compared with an upstream run (none is shipped or runnable
+   here; the thermal-hydraulics stack it needs is not built yet)~~ **CORRECTED 2026-11-12** (gh:#1361 round 3):
+   it IS compared, step by step, with the real unmodified GeN-Foam binary
+   (652b3da on ESI v2506, built here with `libFFSSrc2`/`libFFSSolvers2`) on `1D_boiling`
+   with `implicitUpwind` in both: 65 steps agree to <= 1e-9 (p to 5e-12), the single-phase
+   run to t = 6.0 s to <= 2.5e-11, the boiling onset to 3e-6 of the vapour fraction; after
+   the onset the flow excursion amplifies a 1e-6 difference to O(1) within 0.5 s, so only
+   the span up to and through the onset is gated. Record, and the six upstream behaviours the
+   port now reproduces (each with its earlier form kept callable):
+   `verification_and_validation/genfoam_vs_upstream_gh1361/README.md`, "Round 3".
    `TwoPhaseCase::read` refuses, by name, every case selection the port does
    not implement: extend the port, never the refusal.
 

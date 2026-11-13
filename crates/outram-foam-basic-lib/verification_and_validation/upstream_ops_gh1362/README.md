@@ -297,9 +297,9 @@ that is residual-based; confirmed by reverting only that line (0.999999996 again
 relaxed and nothing was retuned: `non_ortho_geometry` keeps `Sf*(1/magSf)` (documented in its source),
 the differential row `nonOrthCorrVec (port-original non_ortho_geometry)` pins the 668 / 1069 faces
 (hex / polyDual) that differ from upstream by an ulp or two, and the upstream-form vectors are
-`fvc::non_orth_correction_vectors` (2367/2367, 3708/3708 identical). Left for the maintainer: whether
+`fvc::non_orth_correction_vectors` (2367/2367, 3708/3708 identical). ~~Left for the maintainer: whether
 appbuilder's non-orthogonal solver should move to the upstream form and the Foam Studio coil gate be
-re-baselined.
+re-baselined.~~ **DECIDED 2026-11-12 (gh:#1336): switch to the upstream form; re-baselining approved.** Done, results below.
 
 ## Maintainer decision 2026-11-12 (gh:#1336): keep both operator pairs, and which is which
 
@@ -355,3 +355,15 @@ Predictions:
 3. **Everything else** that depends on `non_ortho_geometry` (appbuilder's non-orthogonal solver,
    `laplacian_corrected_face_centre`, `max_non_orthogonality_deg`) moves at the ulp level only. I expect
    no other test to cross a gate; any that does is reported, not loosened.
+
+### `non_ortho_geometry` upstream-form change: results (2026-11-12, release) against the prediction above
+
+| Prediction | Result |
+|---|---|
+| Row through `fvm::non_ortho_geometry` becomes bit-identical | **Confirmed.** `nonOrthCorrVec (non_ortho_geometry)`: hex ~~1699 / 2367~~ -> **2367 / 2367, 0 ulp**; polyDual ~~2639 / 3708~~ -> **3708 / 3708, 0 ulp** (`operators_match_upstream_as_pinned` green). The old form's rows are now `nonOrthCorrVec (non_ortho_geometry_port_original)` with the unchanged pins 1699 / 2367 (max 4375247037990436864 ulp, values near 0) and 2639 / 3708 (16777216 ulp). |
+| Foam Studio `headless_coil_shows_dean_flow` out/in -> ~0.999999967, fails its 1e-8 gate | **Wrong: it does not fail.** The 0.999999996 -> 0.999999967 figures came from the coil run as it was on 2026-11-11 (deferred form, Co 4). Since gh:#1500 the coil runs on upstream's implicit `Gauss linear` at Co 1 (148 steps), and on that setup the same swap gives ~~0.999999992~~ (old `Sf*(1/magSf)`, residual 4.3e-10) -> **0.999999991** (upstream `Sf/magSf`, residual 5.2e-10), both iteration 148, both inside the 1e-8 gate (|1 - out/in| 8e-9 and 9e-9, so the margin is thin). Measured by temporarily printing `out_in` in the test and swapping appbuilder's one call to `non_ortho_geometry_port_original`; both temporary edits reverted. |
+| No other test crosses a gate | **Confirmed.** All pass (release): basic-lib `--lib --tests`; appbuilder `--lib --tests` (430 lib tests among them); Foam Studio example (19 passed, 7 ignored); multiphase; turbulence; moltres; offbeat; farrer-park; tampines; dhoby-ghaut `--lib --tests`; digital-twin `double_pipe` (22 passed). |
+
+**Re-baselined tests: none.** The maintainer approved re-baselining the Foam Studio coil out/in, but
+the test moved by 1e-9 and stays inside its 1e-8 gate, so its bound was left alone (nothing loosened,
+nothing struck). If a later change moves it past 1e-8, the old -> new record above is the baseline.

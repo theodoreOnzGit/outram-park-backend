@@ -1,0 +1,44 @@
+# fix mesh/surface/stress wear finnie (gh:#1491): six spheres (d = 10 mm) hit the
+# static 0.3 m square plate_square.stl (z = 0) at different angles, bounce and slide.
+# The Finnie wear of each facet is not a thermo quantity upstream; the reference
+# values come from an instrumented scratch build that prints the per-facet `wear`
+# every 250 steps in MeshModuleStress::calc_total_force (mesh_wear_wear.txt).
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+region		reg block -0.3 0.3 -0.3 0.3 -0.5 0.3 units box
+create_box	1 reg
+neighbor	0.003 bin
+neigh_modify	delay 0
+fix 		m1 all property/global youngsModulus peratomtype 1.0e7
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.9
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.5
+fix 		m5 all property/global k_finnie peratomtypepair 1 1.7
+pair_style	gran model hertz tangential history
+pair_coeff	* *
+timestep	1e-5
+fix		plate all mesh/surface/stress file plate_square.stl type 1 reference_point 0.02 -0.01 0.03 wear finnie
+fix		pwall all wall/gran model hertz tangential history mesh n_meshes 1 meshes plate
+create_atoms	1 single -0.10 -0.08 0.020 units box
+create_atoms	1 single -0.05 -0.03 0.030 units box
+create_atoms	1 single 0.00 0.02 0.010 units box
+create_atoms	1 single 0.05 0.07 0.040 units box
+create_atoms	1 single 0.08 -0.06 0.00499 units box
+create_atoms	1 single -0.08 0.05 0.015 units box
+set		atom 1 diameter 0.01 density 2500 vx 0.80 vy 0.10 vz -0.30
+set		atom 2 diameter 0.01 density 2500 vx -0.20 vy 0.40 vz -0.90
+set		atom 3 diameter 0.01 density 2500 vx 0.05 vy -0.05 vz -1.20
+set		atom 4 diameter 0.01 density 2500 vx -0.60 vy -0.60 vz -0.50
+set		atom 5 diameter 0.01 density 2500 vx 0.30 vy 0.00 vz 0.00
+set		atom 6 diameter 0.01 density 2500 vx 0.00 vy -0.60 vz -0.10
+fix		grav all gravity 9.81 vector 0 0 -1
+fix		integr all nve/sphere
+thermo_style	custom step f_plate[1] f_plate[2] f_plate[3] f_plate[4] f_plate[5] f_plate[6] f_plate[7] f_plate[8] f_plate[9]
+thermo		250
+thermo_modify	lost ignore norm no format float %.17g
+dump		d1 all custom 250 dump.mesh_wear id x y z vx vy vz omegax omegay omegaz fx fy fz
+run		20000

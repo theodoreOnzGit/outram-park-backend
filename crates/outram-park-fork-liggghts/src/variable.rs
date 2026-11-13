@@ -35,6 +35,12 @@
 //! swiggle cwiggle vdisplace` with upstream's argument guards. Not supported
 //! (an `Err` at parse time, never silently wrong): `random`, `normal`,
 //! `stagger`, `logfreq`, group/compute/fix references, atom-style variables.
+//!
+//! The transcendental functions go through PETIR's `RealMath` (the `libm`
+//! crate), not glibc as upstream does. They can differ from upstream by one
+//! ulp: `sin` at 611 of the 20 000 arguments `2*PI*step/4000` (gh:#1491,
+//! `tests/mesh_servo_cross_code.rs`; maintainer decision on gh:#1455: keep
+//! PETIR's maths, pin such residuals).
 
 use petir::mathf::RealMath;
 use std::collections::HashMap;

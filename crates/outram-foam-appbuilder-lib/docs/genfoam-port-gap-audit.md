@@ -8,7 +8,7 @@ side: `crates/outram-foam-appbuilder-lib/src/genfoam/` at branch
 
 > **Update, same day, after gh:#1218.** The tables below are the state
 > *before* the two-phase port, kept as audited. `solver/two_phase/` now
-> covers, for the selections `1D_boiling` makes: `twoPhase.{C,H}`,
+> covers, for the selections `1D_boiling` makes (compared with the real binary since 2026-11-12, gh:#1361 round 3: `verification_and_validation/genfoam_vs_upstream_gh1361/README.md`): `twoPhase.{C,H}`,
 > `alphaEqns_2p.H` + `solveAlphaImplicitUpwind.H`, `UEqns_2p.H`, `pEqnf_2p.H`
 > with the implicit partial-elimination branch and its `pEqnRoutines`,
 > `EEqns_2p.H` (both stabilisation modes), the field orchestration of
@@ -95,7 +95,7 @@ Counts are of rows in the tables below (one row per upstream model or class).
 | upstream | lines | port | status | tests / V&V |
 |---|---:|---|---|---|
 | `thermalHydraulicsModel.{C,H}` (region base: PIMPLE, `p`/`p_rgh`, `g`, `hRef`, power coupling fields) | 745 | `solver/mod.rs` (`ThermalHydraulicsSolver` enum), fields inlined in `one_phase.rs` | partial | none of its own |
-| `onePhase/` (`onePhase.{C,H}`, `UEqn_1p`, `pEqn_1p`, `pEqnf_1p`, `EEqn_1p`, 7 `pEqnRoutines`) | 1,022 | `solver/one_phase.rs` (661), `solver/porous_drag.rs` (230) | partial: constant properties (`he = Cp T`), isotropic `Kd` only, no `p_rgh`/gravity split, no `pEqnf` face-centred momentum, no `fvOptions` | unit: `solver/tests.rs` (6), Darcy/drag/energy closed forms |
+| `onePhase/` (`onePhase.{C,H}`, `UEqn_1p`, `pEqn_1p`, `pEqnf_1p`, `EEqn_1p`, 7 `pEqnRoutines`) | 1,022 | `solver/one_phase.rs` (661), `solver/porous_drag.rs` (230) | partial: `one_phase.rs` is the older constant-property driver (`he = Cp T`, isotropic `Kd`, no `p_rgh`/gravity split, no `pEqnf`, no `fvOptions`), kept as it was. ~~no `pEqnf` face-centred momentum~~ **CORRECTED 2026-11-12 (gh:#1361 round 4):** `solver/two_phase/one_phase_fc.rs` (translation of `onePhase.C`, `UEqn_1p`, `pEqnf_1p` + routines, `EEqn_1p`, `FSPair::correct`, `customPimpleControl::loop`; heRhoThermo packages, `p_rgh`/gravity, `contErr`, kinetic energy; NOT ported: other momentum modes, turbulence, heat exchangers, pumps, tortuosity, non-`zeroGradient` U, closed volumes) runs the 40-cell channel derived from 1D_boiling against the real binary to 1e-13 over 108 steps | unit: `solver/tests.rs` (6); `tests/genfoam_one_phase_vs_upstream.rs` (vs the real binary) |
 | `onePhaseLegacy/` | 985 | — | missing | — |
 | `twoPhase/` (`twoPhase.{C,H}`, `UEqns_2p`, `pEqn_2p`, `pEqnf_2p`, `EEqns_2p`, `alphaEqns_2p`, 9 `pEqnRoutines`) | 2,654 | none before gh:#1218 | missing | — |
 | `twoPhase/.../solveAlphaImplicitUpwind.H` | 148 | none before gh:#1218 | missing | — |

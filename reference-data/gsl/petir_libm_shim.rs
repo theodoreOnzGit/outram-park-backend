@@ -71,3 +71,15 @@ pub extern "C" fn log1p(x: f64) -> f64 {
 pub extern "C" fn hypot(x: f64, y: f64) -> f64 {
     petir::hypot::hypot(x, y)
 }
+// Added 2026-11-12 (gh:#1421). `gcc -O2` rewrites a `sin(y)` and `cos(y)` of
+// the same argument into ONE call to glibc's `sincos`, which GSL's libgsl.a
+// references 17 times (`nm libgsl.a | grep ' U sincos'`) and which this shim did
+// not export, so those calls still reached glibc: bessel J/Y's `cos_pi4` /
+// `sin_pi4` differed by an ulp for that reason alone.
+/// # Safety
+/// `s` and `c` must be valid for writes, as for C's `sincos`.
+#[no_mangle]
+pub unsafe extern "C" fn sincos(x: f64, s: *mut f64, c: *mut f64) {
+    *s = Real::sin(x);
+    *c = Real::cos(x);
+}

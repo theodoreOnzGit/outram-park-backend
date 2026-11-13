@@ -89,6 +89,9 @@ pub use crate::pebble_beds::fhr_pebble::{
 };
 pub use crate::pebble_beds::keff_delta::{run_keff_delta, MaterialQuery};
 pub use crate::physics::tracking_trace::{TraceCounts, TraceEvent};
+pub use crate::physics::collision_track::{
+    CollisionTrackBank, CollisionTrackConfig, CollisionTrackFile, CollisionTrackSite,
+};
 pub use crate::pebble_beds::sphere_packing::{
     pack_spheres, pack_spheres_observed, PackedSpheres, PackingConfig, PackingMethod, RsaPlacement,
 };

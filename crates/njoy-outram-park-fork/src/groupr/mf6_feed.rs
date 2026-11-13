@@ -40,8 +40,8 @@
 //! | discrete lab lines | 8052-8082 | **ported** |
 //! | normalisation / upscatter fold-back | 8108-8133 | **ported** |
 //! | LAW = 6 (n-body phase space) | 7823-7875 | [`NjoyError::NotPorted`] — needs `f6psp` (LANG = 0) |
-//! | LAW = 2,3,4,5 and LAW = -4 (`getdis`, `:7936-7940`) | 7634-7656, 7936-7940 | [`NjoyError::NotPorted`] — File-6 two-body (`getdis` `mft = 8`) |
-//! | `disc102` relativistic capture gamma (`gam102`, `:8102-8105`) | 7620-7623, 8102-8105 | [`NjoyError::NotPorted`] |
+//! | LAW = 2,3,4,5 and LAW = -4 (`getdis`, `:7936-7940`) | 7634-7656, 7936-7940 | [`NjoyError::NotPorted`] here — File-6 two-body (`getdis` `mft = 8`); **2026-11-13 (gh:#1369):** LAW=3 is the isotropic `getdis` the deck driver builds from `groupr::two_body::TwoBodyFeed` with `File4Angular::isotropic_cm`, in place of this feed |
+//! | `disc102` relativistic capture gamma (`gam102`, `:8102-8105`) | 7620-7623, 8102-8105 | [`NjoyError::NotPorted`] here; ~~not ported~~ **CORRECTED 2026-11-13 (gh:#1369):** `gam102` LAW=2 is `groupr::njoy_panel::Gam102`, which the deck driver uses in place of this feed |
 //!
 //! # Upstream defects reproduced (reported, deliberately not fixed)
 //!
@@ -186,7 +186,7 @@ pub struct Mf6Feed {
     /// `jzap` — emitted-particle `ZA` of the matched subsection (`:7615`).
     jzap: i32,
     /// `disc102` (`:7621`) — non-zero marks the discrete relativistic capture
-    /// gamma path (`gam102`, not ported).
+    /// gamma path (`gam102`, not taken here: `groupr::njoy_panel::Gam102`).
     disc102: f64,
     /// The matched subsections, `nss` of them (`:7929-7933`).
     subs: Vec<Mf6Sub>,

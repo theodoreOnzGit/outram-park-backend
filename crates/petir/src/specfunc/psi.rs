@@ -75,7 +75,7 @@
 #[allow(unused_imports)]
 use crate::real::Real;
 
-use crate::cheb_slice::eval_gsl;
+use crate::specfunc::cheb_eval_e;
 use crate::specfunc::{exp_mult, gamma::ln_factorial, zeta::hzeta, EULER, SQRT_DBL_MIN};
 
 use core::f64::consts::PI;
@@ -228,7 +228,7 @@ fn psi_x(x: f64) -> f64 {
     }
     if y >= 2.0 {
         let t = 8.0 / (y * y) - 1.0;
-        let c = eval_gsl(t, &APSI_CS);
+        let c = cheb_eval_e(t, &APSI_CS);
         if x < 0.0 {
             let s = Real::sin(PI * x);
             let co = Real::cos(PI * x);
@@ -246,21 +246,21 @@ fn psi_x(x: f64) -> f64 {
         let t1 = 1.0 / x;
         let t2 = 1.0 / (x + 1.0);
         let t3 = 1.0 / v;
-        return -(t1 + t2 + t3) + eval_gsl(2.0 * v - 1.0, &PSI_CS);
+        return -(t1 + t2 + t3) + cheb_eval_e(2.0 * v - 1.0, &PSI_CS);
     }
     if x < 0.0 {
         // x = -1 + v
         let v = x + 1.0;
         let t1 = 1.0 / x;
         let t2 = 1.0 / v;
-        return -(t1 + t2) + eval_gsl(2.0 * v - 1.0, &PSI_CS);
+        return -(t1 + t2) + cheb_eval_e(2.0 * v - 1.0, &PSI_CS);
     }
     if x < 1.0 {
         // x = v
-        return -1.0 / x + eval_gsl(2.0 * x - 1.0, &PSI_CS);
+        return -1.0 / x + cheb_eval_e(2.0 * x - 1.0, &PSI_CS);
     }
     // x = 1 + v
-    eval_gsl(2.0 * (x - 1.0) - 1.0, &PSI_CS)
+    cheb_eval_e(2.0 * (x - 1.0) - 1.0, &PSI_CS)
 }
 
 /// `psi_n(n, x)` for `n >= 1` and `x > 0`, via Abramowitz & Stegun 6.4.10:
@@ -431,7 +431,7 @@ pub fn psi_1piy(y: f64) -> f64 {
         let y2 = ay * ay;
         let t = (2.0 * ay - 11.0) / 9.0;
         let v = y2 * (1.0 / (1.0 + y2) + 0.5 / (4.0 + y2));
-        return eval_gsl(t, &R1PY) - EULER + v;
+        return cheb_eval_e(t, &R1PY) - EULER + v;
     }
     // Abramowitz & Stegun 6.3.17, summed to M = 50 with the tail as a
     // polynomial in y^2. Upstream's comment: M = 50 gives at least 15 digits.
@@ -951,7 +951,7 @@ mod tests {
         let chebyshev = {
             let t = (2.0 * y - 11.0) / 9.0;
             let v = y2 * (1.0 / (1.0 + y2) + 0.5 / (4.0 + y2));
-            eval_gsl(t, &R1PY) - EULER + v
+            cheb_eval_e(t, &R1PY) - EULER + v
         };
         let gap = (series - chebyshev).abs();
         assert!(

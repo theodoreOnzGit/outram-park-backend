@@ -294,6 +294,103 @@ mod tests {
         assert_eq!(same, n, "worst relative difference {worst:e}");
     }
 
+    /// [`elastic_recoil_angular`] against NJOY2016's own `mt.eq.2` block of
+    /// `acelcp` (`acefc.f90:9555-9636`), on the same input words (gh:#1490).
+    ///
+    /// **Methodology.** `verification_and_validation/acer_charged/
+    /// elastic_recoil_instrument.diff` adds `write`s to that block; NJOY2016.80
+    /// built from the patched source (gfortran 13.3, `-O3`, every file) was run
+    /// on test deck 54 (p + H-3, the only held deck whose ACE has an elastic
+    /// recoil: deck 62's empty dictionary gives it no production at all), and
+    /// its unit 31 is byte-identical to the unpatched build's. It printed, as
+    /// IEEE-754 bits (`elastic_recoil_reference.txt`): the block's pointers
+    /// (`HEAD`), `awr` and `awi`, the scattered particle's AND words it reads
+    /// (`IN`, 4 628 words), the ESZ energies, the production's HPD block
+    /// before the recoil heating (`HPD`), and after it the recoil's AND words
+    /// (`OUT`, 4 628) and the heating accumulators (`HOUT`, 140). The test puts
+    /// the input words at the same 1-based XSS indices and calls this function.
+    ///
+    /// **Prediction (posted on #1490 before the run):** every output word bit-
+    /// identical. **Pass criterion:** the same `next`, the same LANDH word and
+    /// every `OUT` and `HOUT` word bit-identical. **Result (2026-11-12, rustc
+    /// 1.99.1, first run):** 4 768 / 4 768 words bit-identical. The `UBAR`
+    /// lines (each recoil energy's `e`, `ubar` and heating point) are kept
+    /// for diagnosis only; the heating points reach `HOUT` through `h * sigma`.
+    #[test]
+    fn elastic_recoil_matches_njoy2016() {
+        use super::super::acelcp::Xss;
+        use super::super::AceTable;
+        const REF: &str = include_str!("../../verification_and_validation/acer_charged/elastic_recoil_reference.txt");
+        let hex = |s: &str| f64::from_bits(u64::from_str_radix(s, 16).unwrap());
+        let mut head: Vec<usize> = Vec::new();
+        let (mut awr, mut awi) = (0.0, 0.0);
+        let mut regions: Vec<(String, usize, Vec<f64>)> = Vec::new();
+        let mut lines = REF.lines();
+        while let Some(l) = lines.next() {
+            let f: Vec<&str> = l.split_whitespace().collect();
+            match f[0] {
+                "HEAD" => head = f[1..].iter().map(|v| v.parse().unwrap()).collect(),
+                "AWR" => (awr, awi) = (hex(f[1]), hex(f[2])),
+                "UBAR" => {}
+                name => {
+                    let (start, n): (usize, usize) = (f[1].parse().unwrap(), f[2].parse().unwrap());
+                    let mut w = Vec::with_capacity(n);
+                    while w.len() < n {
+                        w.extend(lines.next().unwrap().split_whitespace().map(hex));
+                    }
+                    regions.push((name.to_string(), start, w));
+                }
+            }
+        }
+        let region = |name: &str| regions.iter().find(|r| r.0 == name).unwrap();
+        let (land, and, slot, andh, hpd, it, nes, esz, next0, land_word) =
+            (head[0], head[1], head[2], head[3], head[4], head[5], head[6], head[7], head[8], head[9]);
+        let len = regions.iter().map(|r| r.1 + r.2.len()).max().unwrap() + 8;
+        let mut table = AceTable {
+            zaid: String::new(),
+            awr,
+            kt_mev: 0.0,
+            date: String::new(),
+            comment: String::new(),
+            mat_id: String::new(),
+            iz: [0; 16],
+            aw: [0.0; 16],
+            nxs: [0; 16],
+            jxs: [0; 32],
+            xss: vec![0.0; len],
+            xss_is_int: vec![false; len],
+        };
+        table.xss[land - 1] = land_word as f64;
+        for name in ["IN", "ESZ", "HPD"] {
+            let (_, start, w) = region(name);
+            table.xss[start - 1..start - 1 + w.len()].copy_from_slice(w);
+        }
+        let mut x = Xss::over(&mut table);
+        let mut next = next0;
+        elastic_recoil_angular(&mut x, &mut next, slot, andh, land, and, hpd, it, nes, esz, awr / awi);
+        let out = region("OUT");
+        assert_eq!(next, out.1 + out.2.len(), "next after the block");
+        assert_eq!(x.get(slot), (next0 - andh + 1) as f64, "LANDH word");
+        let (mut n, mut same, mut worst) = (0, 0, 0.0f64);
+        for name in ["OUT", "HOUT"] {
+            let (_, start, w) = region(name);
+            for (i, &theirs) in w.iter().enumerate() {
+                let ours = x.get(start + i);
+                n += 1;
+                if ours.to_bits() == theirs.to_bits() {
+                    same += 1;
+                } else {
+                    let rel = if theirs == 0.0 { ours.abs() } else { ((ours - theirs) / theirs).abs() };
+                    worst = worst.max(rel);
+                    println!("{name} word {}: ours {ours:e} njoy {theirs:e}", start + i);
+                }
+            }
+        }
+        println!("elastic recoil: {same}/{n} words bit-identical, worst relative difference {worst:e}");
+        assert_eq!(n, 4628 + 140);
+        assert_eq!(same, n, "worst relative difference {worst:e}");
+    }
+
     /// `law6_grid`: 3 * nn points, strictly increasing abscissae from 0 to 1,
     /// the cdf ending at 1 (to the 9 figures it is stored in) and the pdf non-negative (the shape
     /// `sqrt(x)(1-x)^(3 npsx/2-4)`); its words are gated by test 51's ACE.

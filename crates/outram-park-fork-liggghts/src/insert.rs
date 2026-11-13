@@ -79,8 +79,21 @@
 //! region's random stream** so the first insertion position is the same.
 //!
 //! Single process, orthogonal fixed box: `distribute_ninsert_this` reduces to
-//! "all of them here" and the sub-domain is the box. Not translated:
-//! multi-sphere/superquadric templates, `orientation random` (it draws a
+//! "all of them here" and the sub-domain is the box.
+//!
+//! **Multisphere clumps (gh:#1415):** a distribution of
+//! `particletemplate/multisphere` templates
+//! ([`ParticleDistributionDiscrete::new_multisphere`]) is placed by the same
+//! code: `all_in` and the border distance use the bounding radius, the overlap
+//! test checks every member sphere after rotating the template axes by
+//! `orientation constant` ([`InsertFix::with_orientation`];
+//! `ParticleToInsertMultisphere::check_near_set_x_v_omega`), and
+//! `calc_ninsert_this` skips clump atoms and counts each body once at its
+//! bounding-sphere centre ([`ClumpCensus`]). [`InsertFix::pre_exchange_any`]
+//! returns the clumps; [`crate::granular_system::GranularSystem`] adds their
+//! atoms and bodies. ~~Not translated: multi-sphere/superquadric templates~~
+//! **CORRECTED 2026-11-13** (multisphere ported, gh:#1415). Not translated:
+//! superquadric templates, `orientation random` (it draws a
 //! quaternion per trial, so it would need `random_unit_quat`; rejected with an
 //! error rather than silently skipping the draw), `set_property`, dynamic
 //! regions, `side out`, `insert/stream/predefined` (`insert/stream` is [`crate::insert_stream`]).
@@ -490,6 +503,79 @@ impl InsertRegion {
         out
     }
 
+    /// `RegBlock::surface_exterior` / `RegCylinder::surface_exterior`
+    /// (region_block.cpp, region_cylinder.cpp, 3d5c00f2), for a `side out`
+    /// region: the single contact of an EXTERIOR point `p` with the nearest
+    /// point of the region's surface (face, edge or corner), when closer than
+    /// `cutoff`, as `(r, [delx, dely, delz])` with `del = p - nearest`
+    /// (`Region::add_contact`). Empty when `p` is strictly inside, or at or
+    /// beyond `cutoff` of the bounding slabs.
+    #[must_use]
+    pub fn surface_exterior(&self, p: Vec3, cutoff: f64) -> Vec<(f64, [f64; 3])> {
+        let clamp = |v: f64, l: f64, h: f64| {
+            if v < l {
+                l
+            } else if v > h {
+                h
+            } else {
+                v
+            }
+        };
+        let nearest = match *self {
+            Self::Block { lo, hi } => {
+                if p.x <= lo.x - cutoff
+                    || p.x >= hi.x + cutoff
+                    || p.y <= lo.y - cutoff
+                    || p.y >= hi.y + cutoff
+                    || p.z <= lo.z - cutoff
+                    || p.z >= hi.z + cutoff
+                {
+                    return Vec::new();
+                }
+                if p.x > lo.x && p.x < hi.x && p.y > lo.y && p.y < hi.y && p.z > lo.z && p.z < hi.z
+                {
+                    return Vec::new();
+                }
+                Vec3::new(clamp(p.x, lo.x, hi.x), clamp(p.y, lo.y, hi.y), clamp(p.z, lo.z, hi.z))
+            }
+            Self::Cylinder {
+                axis,
+                c1,
+                c2,
+                radius,
+                lo,
+                hi,
+            } => {
+                let (del1, del2, a) = Self::cyl_coords(axis, c1, c2, p);
+                let r = (del1 * del1 + del2 * del2).sqrt();
+                if r >= radius + cutoff || a <= lo - cutoff || a >= hi + cutoff {
+                    return Vec::new();
+                }
+                if r < radius && a > lo && a < hi {
+                    return Vec::new();
+                }
+                let na = clamp(a, lo, hi);
+                // radially projected when outside the radius, else the point's
+                // own in-plane coordinates (`yp = x[1]`, not `c1 + del1`)
+                let project = r > radius;
+                let n1 = |c: f64, d: f64, own: f64| if project { c + d * radius / r } else { own };
+                match axis {
+                    Axis::X => Vec3::new(na, n1(c1, del1, p.y), n1(c2, del2, p.z)),
+                    Axis::Y => Vec3::new(n1(c1, del1, p.x), na, n1(c2, del2, p.z)),
+                    Axis::Z => Vec3::new(n1(c1, del1, p.x), n1(c2, del2, p.y), na),
+                }
+            }
+        };
+        // Region::add_contact
+        let del = [p.x - nearest.x, p.y - nearest.y, p.z - nearest.z];
+        let r = (del[0] * del[0] + del[1] * del[1] + del[2] * del[2]).sqrt();
+        if r < cutoff {
+            vec![(r, del)]
+        } else {
+            Vec::new()
+        }
+    }
+
     fn cyl_coords(axis: Axis, c1: f64, c2: f64, p: Vec3) -> (f64, f64, f64) {
         match axis {
             Axis::X => (p.y - c1, p.z - c2, p.x),
@@ -596,12 +682,98 @@ impl ParticleTemplateSphere {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParticleDistributionDiscrete {
     random: RanPark,
-    templates: Vec<ParticleTemplateSphere>,
+    templates: Vec<ParticleTemplate>,
     distweight: Vec<f64>,
     distorder: Vec<usize>,
     volexpect: f64,
     massexpect: f64,
     maxrad: f64,
+    maxrbound: f64,
+}
+
+/// A template of a [`ParticleDistributionDiscrete`]: a sphere, or a
+/// multisphere clump (gh:#1415).
+#[derive(Debug, Clone, PartialEq)]
+pub enum ParticleTemplate {
+    /// `fix particletemplate/sphere`.
+    Sphere(ParticleTemplateSphere),
+    /// `fix particletemplate/multisphere`.
+    Multisphere(crate::multisphere::ParticleTemplateMultisphere),
+}
+
+impl ParticleTemplate {
+    /// `volexpect()` `[m^3]`.
+    #[must_use]
+    pub fn volexpect(&self) -> f64 {
+        match self {
+            Self::Sphere(t) => t.volexpect(),
+            Self::Multisphere(t) => t.volexpect(),
+        }
+    }
+
+    /// `massexpect()` `[kg]`.
+    #[must_use]
+    pub fn massexpect(&self) -> f64 {
+        match self {
+            Self::Sphere(t) => t.massexpect(),
+            Self::Multisphere(t) => t.massexpect(),
+        }
+    }
+
+    /// `max_rad()`: the largest sphere radius `[m]`.
+    #[must_use]
+    pub fn max_rad(&self) -> f64 {
+        match self {
+            Self::Sphere(t) => t.radius,
+            Self::Multisphere(t) => t.max_rad(),
+        }
+    }
+
+    /// `max_r_bound()`: the bounding radius `[m]`.
+    #[must_use]
+    pub fn max_r_bound(&self) -> f64 {
+        match self {
+            Self::Sphere(t) => t.radius,
+            Self::Multisphere(t) => t.r_bound(),
+        }
+    }
+
+    fn seed_state(&self) -> i32 {
+        match self {
+            Self::Sphere(t) => t.random_insertion.state(),
+            Self::Multisphere(t) => t.seed_state(),
+        }
+    }
+
+    fn randomize_one(&self) -> Pti {
+        match self {
+            Self::Sphere(t) => Pti::Sphere(t.randomize_one()),
+            Self::Multisphere(t) => Pti::Clump(t.to_insert()),
+        }
+    }
+}
+
+/// One entry of the list to insert: a sphere or a clump.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum Pti {
+    Sphere(ParticleToInsert),
+    Clump(crate::multisphere::ClumpToInsert),
+}
+
+impl Pti {
+    fn mass(&self) -> f64 {
+        match self {
+            Self::Sphere(p) => p.mass,
+            Self::Clump(c) => c.mass,
+        }
+    }
+
+    fn rbound(&self) -> f64 {
+        match self {
+            Self::Sphere(p) => p.radius,
+            Self::Clump(c) => c.r_bound,
+        }
+    }
 }
 
 impl ParticleDistributionDiscrete {
@@ -616,6 +788,49 @@ impl ParticleDistributionDiscrete {
         seed: i32,
         mass_based: bool,
         templates: Vec<(ParticleTemplateSphere, f64)>,
+    ) -> Result<Self, DemError> {
+        Self::from_templates(
+            seed,
+            mass_based,
+            templates
+                .into_iter()
+                .map(|(t, w)| (ParticleTemplate::Sphere(t), w))
+                .collect(),
+        )
+    }
+
+    /// A distribution of multisphere templates
+    /// (`fix particledistribution/discrete` over `particletemplate/multisphere`,
+    /// gh:#1415); otherwise as [`ParticleDistributionDiscrete::new`].
+    ///
+    /// # Errors
+    ///
+    /// As [`ParticleDistributionDiscrete::new`].
+    pub fn new_multisphere(
+        seed: i32,
+        mass_based: bool,
+        templates: Vec<(crate::multisphere::ParticleTemplateMultisphere, f64)>,
+    ) -> Result<Self, DemError> {
+        Self::from_templates(
+            seed,
+            mass_based,
+            templates
+                .into_iter()
+                .map(|(t, w)| (ParticleTemplate::Multisphere(t), w))
+                .collect(),
+        )
+    }
+
+    /// The shared constructor of [`ParticleDistributionDiscrete::new`] and
+    /// [`ParticleDistributionDiscrete::new_multisphere`].
+    ///
+    /// # Errors
+    ///
+    /// As [`ParticleDistributionDiscrete::new`].
+    pub fn from_templates(
+        seed: i32,
+        mass_based: bool,
+        templates: Vec<(ParticleTemplate, f64)>,
     ) -> Result<Self, DemError> {
         let random = RanPark::checked(seed)?;
         let nt = templates.len();
@@ -676,7 +891,10 @@ impl ParticleDistributionDiscrete {
         }
         let maxrad = templates
             .iter()
-            .fold(0.0_f64, |m, t| if t.radius > m { t.radius } else { m });
+            .fold(0.0_f64, |m, t| if t.max_rad() > m { t.max_rad() } else { m });
+        let maxrbound = templates
+            .iter()
+            .fold(0.0_f64, |m, t| if t.max_r_bound() > m { t.max_r_bound() } else { m });
         Ok(Self {
             random,
             templates,
@@ -685,6 +903,7 @@ impl ParticleDistributionDiscrete {
             volexpect,
             massexpect,
             maxrad,
+            maxrbound,
         })
     }
 
@@ -713,15 +932,23 @@ impl ParticleDistributionDiscrete {
         self.massexpect
     }
 
-    /// Largest radius over the templates (`max_r_bound()` for spheres) `[m]`.
+    /// Largest bounding radius over the templates (`max_r_bound()`; the
+    /// radius for spheres) `[m]`.
     #[must_use]
     pub fn max_r_bound(&self) -> f64 {
+        self.maxrbound
+    }
+
+    /// Largest sphere radius over the templates (`max_rad()`; for a clump,
+    /// its largest member sphere) `[m]`.
+    #[must_use]
+    pub fn max_rad(&self) -> f64 {
         self.maxrad
     }
 
     fn seeds(&self) -> Vec<i32> {
         let mut s = vec![self.random.state()];
-        s.extend(self.templates.iter().map(|t| t.random_insertion.state()));
+        s.extend(self.templates.iter().map(ParticleTemplate::seed_state));
         s
     }
 
@@ -731,7 +958,23 @@ impl ParticleDistributionDiscrete {
     /// `exact_number`: truncate the distribution so exactly `ntotal` are
     /// generated, spreading the remainder by `random->uniform()` draws;
     /// otherwise each template gets `int(ntotal * w + uniform())`.
+    ///
+    /// # Panics
+    ///
+    /// On a multisphere distribution (its clumps are placed by
+    /// [`InsertFix::pre_exchange_any`]).
     pub fn randomize_list(&mut self, ntotal: usize, exact_number: bool) -> Vec<ParticleToInsert> {
+        self.randomize_list_any(ntotal, exact_number)
+            .into_iter()
+            .map(|p| match p {
+                Pti::Sphere(s) => s,
+                Pti::Clump(_) => panic!("randomize_list: multisphere template; use InsertFix"),
+            })
+            .collect()
+    }
+
+    /// `randomize_list` for spheres and clumps.
+    pub(crate) fn randomize_list_any(&mut self, ntotal: usize, exact_number: bool) -> Vec<Pti> {
         let nt = self.templates.len();
         let ninsert = ntotal as f64;
         let mut parttogen = vec![0_usize; nt];
@@ -846,6 +1089,27 @@ pub struct InsertedParticle {
     pub density: f64,
 }
 
+/// What [`InsertFix::pre_exchange_any`] inserts: a sphere, or a clump whose
+/// member atoms and body the caller adds (gh:#1415).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Inserted {
+    /// A sphere.
+    Sphere(InsertedParticle),
+    /// A multisphere clump, placed (`ParticleToInsertMultisphere`).
+    Clump(crate::multisphere::ClumpToInsert),
+}
+
+/// The clumps already present, as `FixInsertPack::calc_ninsert_this` sees
+/// them: per atom whether it belongs to a body, and per body
+/// `(x_bound, mass, density)`.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ClumpCensus {
+    /// Per atom (indexed like the ensemble): member of a body.
+    pub in_body: Vec<bool>,
+    /// Per body: bounding-sphere centre `[m]`, mass `[kg]`, density `[kg/m^3]`.
+    pub bodies: Vec<(Vec3, f64, f64)>,
+}
+
 /// A `fix insert/pack` or `fix insert/rate/region`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct InsertFix {
@@ -864,6 +1128,9 @@ pub struct InsertFix {
     all_in: bool,
     velocity: InsertVelocity,
     omega: Vec3,
+    /// `orientation constant q0 q1 q2 q3` (default identity): rotates a
+    /// clump's template axes (`quat_insert`).
+    quat: [f64; 4],
     exact_number: bool,
     maxattempt: i64,
     ntry_mc: usize,
@@ -934,6 +1201,7 @@ impl InsertFix {
             all_in: false,
             velocity: InsertVelocity::Constant(Vec3::zero()),
             omega: Vec3::zero(),
+            quat: [1.0, 0.0, 0.0, 0.0],
             exact_number: true,
             maxattempt: 50,
             ntry_mc: 100_000,
@@ -990,6 +1258,22 @@ impl InsertFix {
     pub fn with_omega(mut self, w: Vec3) -> Self {
         self.omega = w;
         self
+    }
+
+    /// `orientation constant q0 q1 q2 q3` (default `template`, the identity):
+    /// the orientation a clump is inserted with (gh:#1415). Spheres ignore it.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if `|q|^2` differs from 1 by more than
+    /// `1e-10` (`FixInsert::sanity_check`: "quaternion not valid").
+    pub fn with_orientation(mut self, q: [f64; 4]) -> Result<Self, DemError> {
+        let m2 = q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3];
+        if (m2 - 1.0).abs() > 1e-10 {
+            return Err(DemError::InvalidInput("quaternion not valid".into()));
+        }
+        self.quat = q;
+        Ok(self)
     }
 
     /// `start N`: the first insertion step (default 1).
@@ -1188,11 +1472,12 @@ impl InsertFix {
         self.region_volume
     }
 
-    /// Largest radius this fix can insert `[m]` (`max_rad`): the neighbour cut
-    /// uses it before any such particle exists.
+    /// Largest sphere radius this fix can insert `[m]` (`max_rad`): the
+    /// neighbour cut uses it before any such particle exists. For a clump it
+    /// is its largest member sphere, not the bounding radius.
     #[must_use]
     pub fn max_rad(&self) -> f64 {
-        self.distribution.max_r_bound()
+        self.distribution.max_rad()
     }
 
     /// Particles inserted so far (`ninserted`).
@@ -1299,16 +1584,28 @@ impl InsertFix {
     }
 
     /// The number of particles to try this step (`calc_ninsert_this`).
-    fn calc_ninsert_this(&mut self, atoms: &[Particle]) -> i64 {
+    fn calc_ninsert_this(&mut self, atoms: &[Particle], census: &ClumpCensus) -> i64 {
         match self.mode {
             InsertMode::Pack(target) => {
                 let four_pi_3 = 4.0 * std::f64::consts::PI / 3.0;
                 let (mut np_region, mut vol_region, mut mass_region) = (0_i64, 0.0, 0.0);
-                for a in atoms {
+                for (i, a) in atoms.iter().enumerate() {
+                    // `if(fix_multisphere && fix_multisphere->belongs_to(i) >= 0) continue;`
+                    if census.in_body.get(i).copied().unwrap_or(false) {
+                        continue;
+                    }
                     if self.region.contains(a.position) {
                         np_region += 1;
                         vol_region += four_pi_3 * a.radius * a.radius * a.radius;
                         mass_region += a.mass;
+                    }
+                }
+                // each body counts once, at its bounding-sphere centre
+                for &(x_bound, mass_body, density_body) in &census.bodies {
+                    if self.region.contains(x_bound) {
+                        np_region += 1;
+                        vol_region += mass_body / density_body;
+                        mass_region += mass_body;
                     }
                 }
                 let mut n = match target {
@@ -1378,11 +1675,36 @@ impl InsertFix {
         step: u64,
         atoms: &[Particle],
     ) -> Result<Vec<InsertedParticle>, DemError> {
+        self.pre_exchange_any(step, atoms, &ClumpCensus::default())?
+            .into_iter()
+            .map(|i| match i {
+                Inserted::Sphere(p) => Ok(p),
+                Inserted::Clump(_) => Err(DemError::InvalidInput(
+                    "a multisphere insertion needs GranularSystem (fix multisphere)".into(),
+                )),
+            })
+            .collect()
+    }
+
+    /// [`InsertFix::pre_exchange`] for spheres and clumps (gh:#1415).
+    /// `census` describes the clumps already present: which atoms belong to a
+    /// body (skipped by the region count) and each body's bounding-sphere
+    /// centre, mass and density (counted once each).
+    ///
+    /// # Errors
+    ///
+    /// As [`InsertFix::pre_exchange`].
+    pub fn pre_exchange_any(
+        &mut self,
+        step: u64,
+        atoms: &[Particle],
+        census: &ClumpCensus,
+    ) -> Result<Vec<Inserted>, DemError> {
         if self.next_reneighbor != Some(step) || self.most_recent_ins_step == Some(step) {
             return Ok(Vec::new());
         }
         self.most_recent_ins_step = Some(step);
-        let mut ninsert_this = self.calc_ninsert_this(atoms);
+        let mut ninsert_this = self.calc_ninsert_this(atoms, census);
         if ninsert_this < -200_000 {
             return Err(DemError::InvalidInput(
                 "overflow in particle number calculation: inserting too many particles in one step"
@@ -1406,9 +1728,9 @@ impl InsertFix {
             }
             ((fraction_local / fraction_local) * ninsert_this as f64) as i64
         };
-        let list = self
+        let mut list = self
             .distribution
-            .randomize_list(ninsert_this_local.max(0) as usize, exact_number);
+            .randomize_list_any(ninsert_this_local.max(0) as usize, exact_number);
         let ninsert_this = list.len() as i64;
         if ninsert_this == 0 {
             if self.insert_every != 0 && (!self.ninsert_exists || self.ninserted < self.ninsert) {
@@ -1418,23 +1740,26 @@ impl InsertFix {
             }
             return Ok(Vec::new());
         }
-        let (inserted, ninserted_this_local) = self.x_v_omega(&list, atoms)?;
+        let (inserted, ninserted_this_local) = self.x_v_omega(&mut list, atoms)?;
         let mut out = Vec::with_capacity(inserted.len());
         let mut mass_inserted_this = 0.0;
-        for (pti, (pos, vel)) in list.iter().zip(&inserted) {
-            mass_inserted_this += pti.mass;
-            out.push(InsertedParticle {
-                particle: Particle {
-                    position: *pos,
-                    velocity: *vel,
-                    angular_velocity: self.omega,
-                    mass: pti.mass,
-                    radius: pti.radius,
-                    temperature: 300.0,
-                },
-                atom_type: pti.atom_type,
-                density: pti.density,
-            });
+        for (pti, (pos, vel)) in list.into_iter().zip(&inserted) {
+            mass_inserted_this += pti.mass();
+            match pti {
+                Pti::Sphere(pti) => out.push(Inserted::Sphere(InsertedParticle {
+                    particle: Particle {
+                        position: *pos,
+                        velocity: *vel,
+                        angular_velocity: self.omega,
+                        mass: pti.mass,
+                        radius: pti.radius,
+                        temperature: 300.0,
+                    },
+                    atom_type: pti.atom_type,
+                    density: pti.density,
+                })),
+                Pti::Clump(c) => out.push(Inserted::Clump(c)),
+            }
         }
         self.ninserted += ninserted_this_local as i64;
         self.massinserted += mass_inserted_this;
@@ -1450,15 +1775,15 @@ impl InsertFix {
     /// `(position, velocity)` of the ones that fitted and their count.
     fn x_v_omega(
         &mut self,
-        list: &[ParticleToInsert],
+        list: &mut [Pti],
         atoms: &[Particle],
     ) -> Result<(Vec<(Vec3, Vec3)>, usize), DemError> {
         let ninsert_this_local = list.len();
         let mut placed: Vec<(Vec3, Vec3)> = Vec::with_capacity(ninsert_this_local);
         if !self.overlap_check {
-            for pti in list {
+            for pti in list.iter_mut() {
                 let pos = if self.all_in {
-                    self.generate_random(Some(pti.radius))?
+                    self.generate_random(Some(pti.rbound()))?
                 } else {
                     self.generate_random(None)?
                 };
@@ -1467,6 +1792,9 @@ impl InsertFix {
                     return Err(DemError::InvalidInput(
                         "FixInsertPack::x_v_omega() illegal position".into(),
                     ));
+                }
+                if let Pti::Clump(c) = pti {
+                    c.set_x_v_omega(pos, v, self.omega, self.quat);
                 }
                 placed.push((pos, v));
             }
@@ -1484,8 +1812,8 @@ impl InsertFix {
         let maxtry = self.calc_maxtry(ninsert_this_local as i64);
         let mut ntry: i64 = 0;
         while ntry < maxtry && placed.len() < ninsert_this_local {
-            let pti = list[placed.len()];
-            let rbound = pti.radius;
+            let ip = placed.len();
+            let rbound = list[ip].rbound();
             let mut nins = 0;
             while nins == 0 && ntry < maxtry {
                 let pos = loop {
@@ -1506,10 +1834,26 @@ impl InsertFix {
                     break;
                 }
                 let v = self.generate_random_velocity();
-                if !grid.has_overlap(pos, pti.radius) {
-                    grid.insert(pos, pti.radius);
-                    placed.push((pos, v));
-                    nins = 1;
+                match &mut list[ip] {
+                    Pti::Sphere(pti) => {
+                        if !grid.has_overlap(pos, pti.radius) {
+                            grid.insert(pos, pti.radius);
+                            placed.push((pos, v));
+                            nins = 1;
+                        }
+                    }
+                    Pti::Clump(c) => {
+                        let (omega, quat) = (self.omega, self.quat);
+                        if let Some(spheres) = c.check_near_set_x_v_omega(pos, v, omega, quat, |p, r| {
+                            grid.has_overlap(p, r)
+                        }) {
+                            for (p, r) in spheres {
+                                grid.insert(p, r);
+                            }
+                            placed.push((pos, v));
+                            nins = 1;
+                        }
+                    }
                 }
             }
         }
@@ -1664,6 +2008,66 @@ mod tests {
         let mut bad =
             InsertFix::new(mode, 32_452_843, one_template_dist(), far, 10, lo, hi).unwrap();
         assert!(bad.setup().is_err());
+    }
+
+    /// gh:#1415: a multisphere distribution through `InsertFix`, with and
+    /// without the overlap check; the sphere-only API refuses clumps.
+    #[test]
+    fn multisphere_insertion_paths() {
+        let clump = || {
+            crate::multisphere::ParticleTemplateMultisphere::new(
+                15_485_863,
+                1,
+                MassDensity::new::<kilogram_per_cubic_meter>(2500.0),
+                5000,
+                &[
+                    (Vec3::zero(), Length::new::<meter>(0.004)),
+                    (Vec3::new(0.005, 0.0, 0.0), Length::new::<meter>(0.003)),
+                ],
+                1,
+            )
+            .unwrap()
+        };
+        let dist = || {
+            ParticleDistributionDiscrete::new_multisphere(15_485_867, true, vec![(clump(), 1.0)])
+                .unwrap()
+        };
+        assert_eq!(dist().max_rad(), 0.004);
+        assert!(dist().max_r_bound() > 0.004);
+        let reg =
+            InsertRegion::block(Vec3::new(-0.02, -0.02, 0.0), Vec3::new(0.02, 0.02, 0.05)).unwrap();
+        let (lo, hi) = (Vec3::new(-0.1, -0.1, -0.1), Vec3::new(0.1, 0.1, 0.1));
+        let mode = InsertMode::Pack(PackTarget::Particles(2));
+        assert!(InsertFix::new(mode, 32_452_843, dist(), reg, 0, lo, hi)
+            .unwrap()
+            .with_orientation([1.0, 1.0, 0.0, 0.0])
+            .is_err());
+        for check in [true, false] {
+            let mut fix = InsertFix::new(mode, 32_452_843, dist(), reg, 0, lo, hi)
+                .unwrap()
+                .with_overlap_check(check)
+                .with_orientation([0.5, 0.5, 0.5, 0.5])
+                .unwrap();
+            fix.setup().unwrap();
+            let got = fix.pre_exchange_any(1, &[], &ClumpCensus::default()).unwrap();
+            assert_eq!(got.len(), 2);
+            assert!(got.iter().all(|g| matches!(g, Inserted::Clump(_))));
+            if let Inserted::Clump(c) = &got[0] {
+                assert_eq!(c.atoms().len(), 2);
+            }
+            // a body already in the region counts toward the target
+            let census = ClumpCensus {
+                in_body: vec![true; 4],
+                bodies: vec![(Vec3::new(0.0, 0.0, 0.01), 1e-3, 2500.0); 2],
+            };
+            let atoms = vec![Particle { position: Vec3::new(0.0, 0.0, 0.01), velocity: Vec3::zero(), angular_velocity: Vec3::zero(), mass: 1e-3, radius: 0.004, temperature: 300.0 }; 4];
+            let mut again = InsertFix::new(mode, 32_452_843, dist(), reg, 10, lo, hi).unwrap();
+            again.setup().unwrap();
+            assert!(again.pre_exchange_any(1, &atoms, &census).unwrap().is_empty());
+        }
+        let mut fix = InsertFix::new(mode, 32_452_843, dist(), reg, 0, lo, hi).unwrap();
+        fix.setup().unwrap();
+        assert!(fix.pre_exchange(1, &[]).is_err());
     }
 
     #[test]

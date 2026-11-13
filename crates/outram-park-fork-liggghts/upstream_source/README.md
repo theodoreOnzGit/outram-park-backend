@@ -27,3 +27,38 @@ Verified 2026-11-10: re-running `in.oblique_hertz`, `in.oblique_nohist` and
 `in.headon_hertz` with this build and converting with `dump2traj.sh` gives
 files **byte-identical** to the committed `oblique_hertz.csv`,
 `oblique_nohist.csv` and `headon_hertz.csv`.
+
+**Multisphere package (gh:#1415, checked 2026-11-13).** The default
+`make serial` build above already compiles the multisphere sources:
+`fix_multisphere*.cpp`, `multisphere*.cpp`, `fix_template_multisphere.cpp`,
+`fix_template_multiplespheres.cpp`, `input_multisphere.cpp` and
+`particleToInsert_multisphere.cpp`. `lmp_serial -h` lists `multisphere`,
+`particletemplate/multisphere` and `particletemplate/multiplespheres` among
+its fix styles. No package switch and no rebuild are needed for `in.ms_drop`,
+`in.ms_collide` and `in.ms_massflow`
+(`reference-data/liggghts/make_multisphere_decks.sh`).
+
+**Superquadric package (gh:#1415, checked 2026-11-13).** The default
+`make serial` build does **not** compile superquadrics. `atom_vec_superquadric.cpp`,
+`superquadric.cpp`, `fix_nve_superquadric.cpp`, `fix_template_superquadric.cpp`,
+`math_extra_liggghts_superquadric.cpp` and the superquadric branches of
+`fix_wall_gran.cpp`, `pair_gran_base.h` and the contact models all sit behind
+`SUPERQUADRIC_ACTIVE_FLAG`: `lmp_serial -h` lists the `superquadric` atom style
+(an empty shell) but no `nve/superquadric` fix. The references for
+`in.sq_drop` and `in.sq_collide`
+(`reference-data/liggghts/make_superquadric_decks.sh`) came from a separate
+scratch build, so the sphere references above are untouched:
+
+```bash
+cp -a upstream_source/LIGGGHTS-PUBLIC/src upstream_source/LIGGGHTS-PUBLIC/lib <scratch>/
+cd <scratch>/src                       # dump_custom.cpp already carries the %.17g patch
+rm -f Obj_serial/*.o Obj_serial/*.d    # every object must see the flags
+make -j3 serial LMP_INC="-DSUPERQUADRIC_ACTIVE_FLAG -DNONSPHERICAL_ACTIVE_FLAG"
+```
+
+The `rm` matters: with the objects of the default build left in
+`Obj_serial`, make relinks them without the flags. g++ 13.3 (C++17) provides
+`std::beta` (`__STDCPP_MATH_SPEC_FUNCS__ = 201003`), so boost is not needed.
+The build takes about 10 minutes on 3 cores, and the result lists
+`nve/superquadric`, `particletemplate/superquadric` and `erotate/superquadric`.
+The scratch copy was deleted once the references were committed.

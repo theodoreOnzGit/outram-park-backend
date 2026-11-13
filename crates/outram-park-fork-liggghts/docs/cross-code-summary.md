@@ -383,9 +383,16 @@ in `verification-and-validation.md` section 4.2.
   those unit systems is out of scope and would be silently wrong.
 - **Not every upstream model.** Ported and compared: Hertz, Hooke, tangential
   history and no-history, CDT rolling, the default surface model, primitive and
-  mesh walls, `fix nve/sphere`, `fix check/timestep/gran`. Everything else in
+  mesh walls, `fix nve/sphere`, `fix check/timestep/gran`. ~~Everything else in
   LIGGGHTS' granular package — cohesion models, liquid bridges, superquadrics,
-  fibres, CFD-DEM coupling — is neither ported nor compared.
+  fibres, CFD-DEM coupling — is neither ported nor compared.~~ **CORRECTED
+  2026-11-12 (gh:#1487):** the SJKR/SJKR2 cohesion and the Easo/Washino
+  liquid-bridge models (pairs, and since gh:#1487 walls) are ported and
+  cross-coded (`docs/verification-and-validation.md` § 4.11). ~~Superquadrics,
+  fibres and CFD-DEM coupling are neither ported nor compared.~~ **CORRECTED
+  2026-11-13 (gh:#1415):** superquadrics (plane walls, pairs, `nve/superquadric`)
+  are ported and compared (§ 4.17); fibres and CFD-DEM coupling are neither
+  ported nor compared.
 - **Bookkeeping axes unsigned.** Both axes of the crate README's
   `## Bookkeeping status` block remain **not yet manually checked**. Nothing in
   this document flips them; only the maintainer does.
@@ -432,7 +439,16 @@ test's `///` doc):
 | `mesh_module_stress_servo` `ctrlPV torque`, `mode auto` (gh:#1416) | `mesh_stress.rs`, `mesh_wall.rs` | `mesh_servo_cross_code.rs` (`in.mesh_servo_{torque,auto,torque_auto}`) | 3 x **9 990 / 9 990** (501 frames x 18 + 81 x 12) bit-identical; the auto deck covers cruise (0 mesh contacts) and contact phases, the torque deck a rotating plate (torque is friction-saturated, so insensitive to the set point: the test checks the code path, not control quality) |
 | `dump mesh/stl` ascii, binary, `region` (gh:#1416) | `mesh_dump.rs` | `mesh_dump_cross_code.rs` (`in.mesh_dump_stl`) | 3 ascii + 2 region + 1 binary file of a rotating drum identical to upstream (text / bytes) |
 | `fix massflow/mesh` moving mesh, `delete_atoms yes`, `sum_property`, `massflow/mesh/sieve` (gh:#1416) | `massflow.rs`, `granular_system.rs` | `massflow_options_cross_code.rs` (`in.massflow_{move,delete,sieve}`) | 3 decks x 121 frames bit-identical (positions, velocities, `f_<fix>[1..7]`; delete: atom count 12 -> 5 matched by id) |
-| `fix massflow/mesh` x3 and `fix mesh/surface/stress` on the HTR-10 conus, 27 554 pebbles, 20 000 steps (gh:#1416) | `massflow.rs`, `mesh_stress.rs`, `granular_system.rs` | `htr10_conus_massflow_stress_cross_code.rs` (`in.htr10_conus_massflow`) | pebbles **27 554 / 27 554** bit-identical at steps 2 000 and 20 000; all mass-flow values and the reference point bit-identical (41 samples); conus force/torque bit-identical to step 2 500, then worst 8.46e-16 of the norm (summation order; V&V 4.12) |
+| `fix massflow/mesh` x3 and `fix mesh/surface/stress` on the HTR-10 conus, 27 554 pebbles, 20 000 steps (gh:#1416) | `massflow.rs`, `mesh_stress.rs`, `granular_system.rs` | `htr10_conus_massflow_stress_cross_code.rs` (`in.htr10_conus_massflow`) | pebbles **27 554 / 27 554** bit-identical at steps 2 000 and 20 000; all mass-flow values and the reference point bit-identical (41 samples); ~~conus force/torque bit-identical to step 2 500, then worst 8.46e-16 of the norm (summation order; V&V 4.12)~~ **CORRECTED 2026-11-12 (gh:#1491):** conus force/torque bit-identical at all 41 samples once summed in the mesh neighbour list's within-facet bin order (V&V 4.12) |
+| exterior (`side out`) `fix wall/region`, block + cylinder (gh:#1491) | `force_fixes.rs`, `insert.rs` | `wall_region_cross_code.rs` (`in.wallregion_out`) | **7 938 / 7 938** bit-identical |
+| `wear finnie` of `fix mesh/surface/stress` (gh:#1491) | `mesh_stress.rs` | `mesh_stress_cross_code.rs` (`in.mesh_wear`; wear from an instrumented scratch build) | **5 263 / 5 263** bit-identical, per-facet wear included |
+| `fix massflow/mesh point_at_outlet`, `inside_out` (gh:#1491) | `massflow.rs` | `massflow_options_cross_code.rs` (`in.massflow_outlet`) | **14 036 / 14 036** bit-identical |
+| servo `target_val v_name` (gh:#1491) | `mesh_stress.rs` | `mesh_servo_cross_code.rs` (`in.mesh_servo_var`) | 9 963 / 9 990; 27 trajectory values differ, cause PETIR `sin` vs glibc (A/B: 9 990 / 9 990 with glibc `sin`), pinned (V&V 4.13) |
+| multi-`run` decks: `init()` + `Verlet::setup()` at each `run` (`GranularSystem::begin_run`, gh:#1510) | `granular_system.rs`, `mesh_wall.rs`, `mesh_stress.rs` | `mesh_servo_cross_code.rs` (`in.mesh_servo_2run`, `in.mesh_servo_torque_2run`), `insertion_cross_code.rs` (`in.pour_pack_runs`), `rotating_mesh_cross_code.rs` (`in.rotating_plate_2run`), `mesh_movers_cross_code.rs` (`in.mover_wiggle_2run`) | all bit-identical: 2 x **10 002 / 10 002**, **9 / 9** frames, 2 x **2 259 / 2 259**; a continuous run misses each reference that can tell them apart (V&V 4.14) |
+| servo `fix_modify` `integrate`, `vel_max`, `target_val`, `ctrlParam`, `ratio` (gh:#1510) | `mesh_stress.rs` (`MeshServo::modify_param`) | `mesh_servo_cross_code.rs` (`in.mesh_servo_modify`, `in.mesh_servo_auto_modify`) | **10 014 / 10 014** and **10 002 / 10 002** bit-identical; without the `fix_modify` 2 394 and 1 608 values differ (V&V 4.14) |
+| `wear finnie` and per-facet `sigma_n`/`sigma_t` on a ROTATING mesh: area refresh at re-neighbouring, per-step `clearReverse` of `f`/`wear_step` (gh:#1512) | `mesh_wall.rs` (`MovingBoundary::refresh_mesh`), `mesh_stress.rs` (`MeshStress::clear_reverse`) | `mesh_stress_cross_code.rs` (`in.mesh_wear_rot`; per-facet values from an instrumented scratch build) | **5 743 / 5 743** bit-identical, facet areas included; before the change 637 differ; control (stale areas) 217 / 5 583 differ (V&V 4.15) |
+| `fix multisphere` + `particletemplate/multisphere` rigid clumps (MC template, insertion, clump-wall and clump-clump contact, rigid-body integration) and the `massflow/mesh` volume weight (gh:#1415) | `multisphere.rs`, `insert.rs`, `granular_system.rs`, `massflow.rs` | `multisphere_cross_code.rs` (`in.ms_drop`, `in.ms_collide`, `in.ms_massflow`) | **27 / 27**, **70 / 70**, **98 / 98** atom-frames and **25 / 25** massflow totals bit-identical (V&V 4.16) |
+| superquadric particles: `set` mass properties, `nve/superquadric` (scheme 1), plane-wall and pair contact detection (OBB, Newton contact point, line-surface overlap), Hertz + history at the contact point (gh:#1415; upstream rebuilt with `-DSUPERQUADRIC_ACTIVE_FLAG`) | `superquadric.rs` | `superquadric_cross_code.rs` (`in.sq_drop`, `in.sq_collide`) | **36 / 130** and **116 / 260** values bit-identical, worst relative `3.5e-12` and `2.4e-10`; cause libm vs glibc `cbrt` (A/B: **130 / 130** and **260 / 260** with glibc maths), pinned (V&V 4.17) |
 
 `tri_mesh_deform` has nothing to translate: upstream's `tri_mesh_deform.h` is
 the single line `typedef TriMesh TriMeshDeformable;` (style

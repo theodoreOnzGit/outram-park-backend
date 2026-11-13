@@ -14,6 +14,8 @@
 //! - [`modules`] — each module's card reader, translated from that module's
 //!   own input block; they build the crate's existing typed inputs.
 //! - [`run`] — `program njoy`'s loop: [`run_deck`].
+//! - [`leapr`] — LEAPR's cards and run, its tape on `nout` (gh:#1369).
+//! - [`acer_photon`] — ACER `iopt = 4` and `5` and their directory line.
 //!
 //! - [`pendf`] — the PENDF tape as NJOY writes it (MF=1 text and dictionary,
 //!   MF=2, MF=3 heads, MF=10/12/13/23), so tapes compare line for line.
@@ -28,12 +30,19 @@
 //! GROUPR and GASPR read their cards but have no tape driver, so a deck
 //! reaching them (or THERMR with `iinc = 2`, an elastic option or `iform = 1`)
 //! stops with [`DeckRun::blocked`] set. VIEWR runs from its card on the plot
-//! file the previous module left ([`crate::viewr`], gh:#1369). The other
-//! modules' cards are not yet read.
+//! file the previous module left ([`crate::viewr`], gh:#1369). ~~The other
+//! modules' cards are not yet read.~~ **CORRECTED 2026-11-13 (gh:#1369):**
+//! LEAPR runs from its cards ([`leapr`], through `leapr::deck::LeaprDeck`), and
+//! ACER `iopt = 4/5` (photo-atomic, photo-nuclear) runs ([`acer_photon`]). The
+//! cards of GAMINR, ERRORR, COVR, DTFR, CCCCR, MATXSR, RESXSR, POWR, WIMSR, PLOTR
+//! and MIXR are still not read; a deck reaching one stops there.
 
+pub mod acer_photon;
 pub mod acer_thermal;
 pub mod cards;
 pub mod groupr;
+pub mod groupr_auto;
+pub mod leapr;
 pub mod modules;
 pub mod pendf;
 pub mod run;

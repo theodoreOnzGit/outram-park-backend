@@ -21,6 +21,14 @@ use petir::mathf::RealMath;
 /// from the LIST record `c` (`c[0]` is Fortran's `c(1)`: the record's six head
 /// words, then the data), for a projectile `izap`/`awp` on a target
 /// `izat`/`awt` with spin `spi`.
+///
+/// Every `LTP` other than 1 takes the residual-expansion (`LTP = 2`) formula,
+/// as upstream's `if (ltp.eq.1) ... else` does (d + He-3 has one `LTP = 0`
+/// record). An `LTP >= 12` record is never passed here: `acecpe` calls
+/// `ptlegc` only `if (ltp.lt.12)` (`acefc.f90:6552`). Upstream's `coul` would
+/// overrun its 65-word `p` on such a record with `NL > 32`; this port's
+/// `legndr` allocates, so it returns a meaningless number instead (gh:#1490,
+/// `verification_and_validation/acer_charged/ltp12_probe.f90`).
 pub fn coul(x: f64, c: &[f64], awp: f64, izap: i32, awt: f64, izat: i32, spi: f64) -> f64 {
     let cf = |i: usize| c[i - 1];
     let fm = 1.0e-12;

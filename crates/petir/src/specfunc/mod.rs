@@ -81,6 +81,22 @@ pub(crate) const DBL_MIN: f64 = f64::MIN_POSITIVE;
 /// `M_EULER`, the Euler-Mascheroni constant.
 pub(crate) const EULER: f64 = 0.577_215_664_901_532_9;
 
+/// GSL's `cheb_eval_e` value (`specfunc/cheb_eval.c`) for a series declared on
+/// `[-1, 1]`, which is every `cheb_series` in `specfunc/*.c` (121 of 121,
+/// checked by script 2026-11-12).
+///
+/// `cheb_eval_e` does not use its argument as given: it first maps it,
+/// `y = (2.0*x - a - b)/(b - a)`, which for `a = -1, b = 1` is
+/// `((2x + 1) - 1)/2` and is NOT `x` whenever `2x + 1` rounds. The module-level
+/// evaluators that passed `x` straight to `cheb_slice::eval_gsl` (which expects
+/// an argument already on `[-1, 1]`) therefore differed from GSL in the last
+/// bit on a share of inputs (gh:#1421). `cheb_slice::scale` is that exact
+/// expression.
+#[inline]
+pub(crate) fn cheb_eval_e(x: f64, c: &[f64]) -> f64 {
+    crate::cheb_slice::eval_gsl(crate::cheb_slice::scale(x, -1.0, 1.0), c)
+}
+
 /// `y * exp(x)`, computed as GSL's `gsl_sf_exp_mult_err_e` (`specfunc/exp.c`)
 /// computes its value: directly where both factors are comfortably in range,
 /// and otherwise by splitting each exponent into its integer and fractional
@@ -165,6 +181,7 @@ pub mod erf_inv;
 pub mod expint3;
 pub mod fermi_dirac;
 pub mod gamma;
+mod gamma_data;
 pub mod gegenbauer;
 /// Regularised and unnormalised incomplete gamma functions, lifted verbatim
 /// from outram-foam-basic-lib (DiDonato & Morris, ACM TOMS 1986).

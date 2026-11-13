@@ -1093,6 +1093,23 @@ constructor (`from_rows_top_down` vs `from_natural_order`).
   2 z-planes, 6 before). Pictures:
   `verification_and_validation/hex_subassembly/`.
 
+### Collision tracks and MCPL files (2026-11-12, gh:#1392)
+
+- **`physics::collision_track`** ports OpenMC's `<collision_track>`. The bank
+  rides in `ExtraScoring::with_collision_track`, so only
+  `CsgPowerIteration::step_scored`/`step_par` record; the CSG kernel builds a
+  record only when a bank is attached and draws no random number, so every
+  `k` and pin is unchanged (`tests/collision_track_output.rs`). Files are
+  written at the run boundary (`write_collision_track_file`): HDF5 through
+  `njoy_outram_park_fork::hdf5::collision_track` in OpenMC's layout (read back
+  by `openmc.read_collision_track_hdf5`), or MCPL.
+- **`source::mcpl`** is the MCPL format ported from `mcpl.c` (Apache-2.0) in
+  pure Rust, no `libmcpl`, plus OpenMC's `mcpl_interface.cpp` uses. It
+  round-trips upstream's `surface_source_true.mcpl` byte for byte.
+- The record's `event_mt`, `n_collision` and `progeny_id` follow this
+  kernel's reaction groups, not OpenMC's MT walk; differences listed in
+  `verification_and_validation/collision_track_mcpl/README.md`.
+
 ### DEM pebble beds: `pebble_beds::dem_bed` (2026-10-02)
 
 `outram-park-fork-liggghts` is a dependency (with none of its default

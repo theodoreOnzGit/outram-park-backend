@@ -123,7 +123,24 @@ const EXPECTED: &[(&str, u64)] = &[
     // Re-pinned 2026-10-21 (gh:#985 re-lift); was 0xa12b16066df916cf.
     // Re-pinned 2026-11-12 (synchrotron `pow_int`, d4900a0d0, gh:#1338);
     // was 0x88ec94e3202a1c7e. See the module docs.
-    ("specfunc", 0xaea416b39f72eec7),
+    // Re-pinned 2026-11-12 (gh:#1419/#1420: `ln_gamma`/`gamma` follow GSL's
+    // dispatch near poles, `factorial`/`ln_factorial`/`choose` read GSL's
+    // fact_table, `beta` is GSL's `lnbeta_sgn`; `LogRootTwoPi_` corrected by
+    // one ulp); was 0x88ec94e3202a1c7e. Moved on purpose: every route that
+    // changed is compared with compiled GSL 2.8 in
+    // `gsl_specfunc_code_to_code.rs`.
+    // Re-pinned again 2026-11-12 (gh:#1421: GSL's `cheb_eval_e` argument
+    // mapping applied in every specfunc module); was 0x3d124b25beabb7e5.
+    // And a third time, same day (gh:#1421: `debye_1..6` and the Chebyshev
+    // multiplier of `transport` written as GSL writes them, `dilog_series_2`
+    // adds `s + (1.0 + t)`); was 0x18bf982163cead28. Each move is a route
+    // that now matches compiled GSL 2.8 more closely, measured in
+    // `gsl_specfunc_code_to_code.rs` and the V&V record in
+    // `verification_and_validation/specfunc_gsl_gh1419_1420_1421.md`.
+    // Merge of develop 2026-11-12: the synchrotron `pow_int` change above is
+    // already contained in the gh:#1419-#1421 value; re-measured on the merged
+    // tree, 0xe50d01159d15e0be.
+    ("specfunc", 0xe50d01159d15e0be),
     ("wgsl_mirrors", 0xea6f3ca0eb4f5ece),
     // Re-pinned 2026-10-21 (gh:#985 re-lift); was 0x142dfcde5eb88a64.
     ("transfer_fn", 0x328eb18a7aceaede),

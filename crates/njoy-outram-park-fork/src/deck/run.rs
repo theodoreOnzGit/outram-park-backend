@@ -119,12 +119,16 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
                 let c = read_acer(&mut r)?;
                 if opts.parse_only { Ok(()) } else { run_acer(&c, &mut units, &mut notes) }
             }
+            "leapr" => {
+                let c = crate::deck::leapr::read_leapr(&mut r)?;
+                if opts.parse_only { Ok(()) } else { crate::deck::leapr::run_leapr(&c, &mut units) }
+            }
             "viewr" => {
                 let c = read_viewr(&mut r)?;
                 if opts.parse_only { Ok(()) } else { run_viewr(c, &mut units, &mut viewr_state) }
             }
             "gaminr" | "errorr" | "covr" | "dtfr" | "ccccr" | "matxsr" | "resxsr"
-            | "powr" | "wimsr" | "plotr" | "mixr" | "leapr" => {
+            | "powr" | "wimsr" | "plotr" | "mixr" => {
                 // The card readers of these modules are a later part of gh:#1369.
                 blocked = Some((name.clone(), "card reader not yet translated".to_string()));
                 break;
@@ -278,6 +282,12 @@ fn run_broadr(c: &BroadrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
             if m.errint != 0.0 {
                 tol.errint = m.errint;
             }
+            // `tempef <= 0`: upstream only thins (`thinb`, `broadr.f90:1218-1222`),
+            // which is not ported (gh:#619); refuse rather than pass RECONR's
+            // grid through unthinned (deck 43, gh:#1369).
+            if temp - src.temperature_k <= 0.0 {
+                return Err(NjoyError::NotPorted("BROADR thinning only (tempef <= 0, thinb)"));
+            }
             let out = match broadr_joint(&src, temp, &tol, m.thnmx) {
                 Some(b) if text_mode => b.through_pendf_text(),
                 Some(b) => b,
@@ -295,6 +305,8 @@ fn run_broadr(c: &BroadrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         }
         let mut tape = Tape::from_sections(input.tape.tpid.clone(), all);
         tape.copy_raw_mf32_from(&input.tape);
+        let copied = crate::deck::pendf::broadr_copied_closers(&tape, m.mat);
+        tape.set_copied_closers(copied);
         units.store(c.nout, tape, final_out.map(|o| (m.mat, o)))?;
         units.set_meta(c.nout, meta);
         return Ok(());
@@ -498,14 +510,20 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     if c.iopt == 2 {
         return crate::deck::acer_thermal::run_acer_thermal(c, units, dater());
     }
+    if c.iopt == 4 || c.iopt == 5 {
+        return crate::deck::acer_photon::run_acer_photon(c, units, dater());
+    }
     if c.iopt != 1 {
-        return Err(NjoyError::NotPorted("ACER iopt other than 1, 2 and 7 from a deck (typed APIs exist: acer::thermal, dosimetry, photoatomic, photonuclear)"));
+        return Err(NjoyError::NotPorted("ACER iopt 3 or 8 from a deck (typed API exists: acer::dosimetry)"));
     }
     if c.newfor != 1 && c.newfor != 0 {
         return Err(NjoyError::InvalidInput(format!("acer: newfor = {} is not 0 or 1", c.newfor)));
     }
-    if c.thin != [0.0; 3] || c.izaopt != 0 || c.mcnpx || c.itype != 1 || c.nxtra != 0 {
-        return Err(NjoyError::NotPorted("ACER thin/izaopt/mcnpx/itype/nxtra other than the defaults"));
+    if c.izaopt != 0 && c.izaopt != 1 {
+        return Err(NjoyError::InvalidInput("acer: illegal izaopt.".into()));
+    }
+    if c.thin != [0.0; 3] || c.mcnpx || c.itype != 1 || c.nxtra != 0 {
+        return Err(NjoyError::NotPorted("ACER thin/mcnpx/itype/nxtra other than the defaults"));
     }
     units.openz(c.nendf, 0)?;
     units.openz(c.npend, 0)?;
@@ -527,6 +545,7 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
         let mut table = crate::acer::charged::build_charged(&endf, c.matd, kt_mev, suffix, c.npend > 0, c.nendf > 0)?;
         table.comment = c.hk.clone();
         table.date = dater();
+        apply_acelod_isomer(&mut table, c, &endf, &pend.tape);
         // `aceout` prints XSS through `change` (`acefc.f90:13024`) for a
         // charged-particle table too; `acelcp`'s rewrite before an HPD block
         // (`acefc.f90:9376-9384`) leaves integer words the builder flagged as
@@ -596,11 +615,59 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     let mut table = build_deck(&endf, c.matd, res, kt_mev, suffix, &deck)?;
     table.comment = c.hk.clone();
     table.date = dater();
+    apply_acelod_isomer(&mut table, c, &endf, &pend.tape);
     // `aceout` prints XSS through `change` (`acefc.f90:13024`), gh:#1498.
     let ace = crate::acer::acefix_change::type1_text(&table)?;
     write_directory(c, &ace, units, notes);
     units.put_text(c.nace, ace);
     Ok(())
+}
+
+/// `acelod`'s ZAID under card 2's `izaoption` (`acefc.f90:4951-4961`):
+/// `izaid + suff`, or with `izaopt = 1` and a metastable target (`is > 0`)
+/// `izaid + 300 + 100 is + suff`; Am-242 (`95242`) swaps the two, its ground
+/// state taking `+400` and its first isomer the plain ZA.
+pub(crate) fn izaopt_zaid(izaid: i32, is: i32, suff: f64, izaopt: i32) -> f64 {
+    let mut zaid = f64::from(izaid) + suff;
+    if izaopt == 1 && is > 0 {
+        zaid = f64::from(izaid + 300 + 100 * is) + suff;
+    }
+    if izaopt == 1 && izaid == 95242 {
+        if is == 0 {
+            zaid = f64::from(izaid + 400) + suff;
+        } else if is == 1 {
+            zaid = f64::from(izaid) + suff;
+        }
+    }
+    zaid
+}
+
+/// `is` as `first` reads it (`acefc.f90:304-309`): LISO, the `L2` of the
+/// second record of the PENDF's MF=1/MT=451, when the ENDF tape's format
+/// (`iverf`, from its first material, `:155-167`) is 5 or 6; else 0.
+fn liso(endf: &Tape, pendf: &Tape, matd: i32) -> i32 {
+    let first = endf.sections().iter().find(|s| s.key.mf == 1 && s.key.mt == 451);
+    let iverf = first.map_or(6, |s| crate::moder::layout::iverf_from_mf1(&s.rows));
+    if iverf < 5 {
+        return 0;
+    }
+    pendf.section(matd, 1, 451).and_then(|s| s.rows.get(1)).map_or(0, |r| r[3].round() as i32)
+}
+
+/// What `acelod` takes from `first`'s `is` (LISO): `NXS(9)`, which `aceout`
+/// writes as `is` (`acefc.f90:13019`) and the builder leaves 0, and, under
+/// card 2's `izaopt = 1`, the `f9.2` ZAID field (the class letter after it is
+/// kept).
+fn apply_acelod_isomer(table: &mut crate::acer::AceTable, c: &AcerCards, endf: &Tape, pendf: &Tape) {
+    let is = liso(endf, pendf, c.matd);
+    table.nxs[crate::acer::nxs::S] = is;
+    if c.izaopt != 1 || table.zaid.len() < 9 {
+        return;
+    }
+    let Ok(num) = table.zaid[..9].trim().parse::<f64>() else { return };
+    let izaid = (num - c.suff).round() as i32;
+    let z = izaopt_zaid(izaid, is, c.suff, c.izaopt);
+    table.zaid = format!("{z:9.2}{}", &table.zaid[9..]);
 }
 
 /// `aceout`'s directory line on `ndir` for the Type 1 table just written
@@ -614,5 +681,22 @@ fn write_directory(c: &AcerCards, ace: &str, units: &mut TapeUnits, notes: &mut 
     match crate::acer::acefix::acefix_type1(ace, &keep) {
         Ok(out) if c.itype == 1 && !c.mcnpx => units.put_text(c.ndir, out.xsdir),
         _ => notes.push("acer: directory unit not written".into()),
+    }
+}
+
+#[cfg(test)]
+mod izaopt_tests {
+    use super::izaopt_zaid;
+
+    /// `acelod`'s four cases (`acefc.f90:4951-4961`), the ZAIDs upstream test
+    /// 82's comments name.
+    #[test]
+    fn izaopt_follows_acelod() {
+        assert_eq!(format!("{:9.2}", izaopt_zaid(27058, 1, 0.01, 0)), " 27058.01");
+        assert_eq!(format!("{:9.2}", izaopt_zaid(27058, 1, 0.01, 1)), " 27458.01");
+        assert_eq!(format!("{:9.2}", izaopt_zaid(27058, 0, 0.01, 1)), " 27058.01");
+        assert_eq!(format!("{:9.2}", izaopt_zaid(95242, 0, 0.01, 1)), " 95642.01");
+        assert_eq!(format!("{:9.2}", izaopt_zaid(95242, 1, 0.01, 1)), " 95242.01");
+        assert_eq!(format!("{:9.2}", izaopt_zaid(95242, 1, 0.01, 0)), " 95242.01");
     }
 }

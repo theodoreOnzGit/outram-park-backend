@@ -79,6 +79,7 @@ use crate::granular::{
 };
 use crate::heat_gran::HeatGranConduction;
 use crate::integrator::VelocityVerlet;
+use crate::mesh_stress::WearContact;
 use crate::mesh_wall::{MovingBoundary, WallGeometry};
 use crate::neighbor_list::{self, LiggghtsNeighbor, NeighborOrder};
 use crate::particle::{Particle, Vec3};
@@ -272,6 +273,12 @@ pub struct GranularSystem {
     /// `NeighborOrder::Liggghts` only: `perm[l]` is the particle index sitting
     /// in upstream's local atom slot `l` (the `Atom::sort` order).
     perm: Vec<usize>,
+    /// `NeighborOrder::Liggghts` only: per particle, its neighbour bin
+    /// `(ix, iy, iz)` at the last list build (`Neighbor::bin_atoms` on the
+    /// positions of that build). Fixes the order of each facet's mesh
+    /// neighbour list, which walks its bins in `ix, iy, iz` loop order
+    /// (`FixNeighlistMesh::generate_bin_list`/`handleTriangle`, gh:#1491).
+    nbin_of: Vec<(i32, i32, i32)>,
     /// Upstream's `update->ntimestep` (steps taken by this system).
     step_count: u64,
     /// `atom->nextsort`.
@@ -298,6 +305,22 @@ pub struct GranularSystem {
     /// The `liquidtransfer` state of a capillary cohesion model, if attached
     /// ([`GranularSystem::with_capillary`], gh:#1411).
     capillary: Option<crate::capillary::CapillaryState>,
+    /// `fix multisphere`: created when the first clump is inserted (gh:#1415).
+    multisphere: Option<crate::multisphere::Multisphere>,
+}
+
+/// Where a capillary mesh-facet `surfacesClose` happens (gh:#1487): the
+/// moving-wall index, the bridge key `(tag, wall id, facet)`, the particle
+/// index and type, the facet velocity at the contact and the facet area.
+#[derive(Debug, Clone, Copy)]
+struct MeshCloseSite {
+    wall: usize,
+    key: (u64, usize, usize),
+    i: usize,
+    atype: usize,
+    v_wall: Vec3,
+    area: f64,
+    dt: f64,
 }
 
 /// One candidate pair's resolved contact, staged by the parallel force loop so
@@ -349,6 +372,28 @@ impl PairOutcome {
             z: 0.0,
         },
     };
+}
+
+/// One particle-facet contact's contribution to `fix mesh/surface/stress`
+/// (`add_particle_contribution(ip, f_pw, -sidata.delta, iTri, v_wall)`),
+/// staged so the totals can be summed in upstream's order.
+struct StressContribution {
+    /// Particle index.
+    i: usize,
+    /// Facet.
+    tri: usize,
+    /// `f_pw`, the contact force on the particle.
+    f_pw: [f64; 3],
+    /// Particle centre.
+    x: [f64; 3],
+    /// `-sidata.delta`.
+    delta: [f64; 3],
+    /// Particle velocity.
+    v: [f64; 3],
+    /// Mesh velocity at the contact.
+    v_wall: [f64; 3],
+    /// Unit normal of the facet (`surfaceNorm`).
+    norm: [f64; 3],
 }
 
 impl GranularSystem {
@@ -411,6 +456,7 @@ impl GranularSystem {
             cell_items: Vec::new(),
             neighbor_order: NeighborOrder::CellGrid,
             perm: Vec::new(),
+            nbin_of: Vec::new(),
             step_count: 0,
             next_sort: 0,
             rebuild_now: false,
@@ -422,6 +468,7 @@ impl GranularSystem {
             heat_flux: Vec::new(),
             massflow: Vec::new(),
             capillary: None,
+            multisphere: None,
         };
         s.compute_forces_setup();
         Ok(s)
@@ -464,6 +511,14 @@ impl GranularSystem {
     #[must_use]
     pub fn mesh_servo_xcm(&self, wall: usize, n: usize) -> Option<f64> {
         self.moving_walls[wall].servo.as_ref().map(|s| s.0.xcm()[n])
+    }
+
+    /// Accumulated Finnie wear of facet `tri` of moving wall `wall`
+    /// (`fix mesh/surface/stress ... wear finnie`, the element property
+    /// `wear`); `None` when that wall tracks no wear. gh:#1491.
+    #[must_use]
+    pub fn facet_wear(&self, wall: usize, tri: usize) -> Option<f64> {
+        self.moving_walls[wall].stress.as_ref().and_then(|s| s.wear(tri))
     }
 
     /// Servo velocity `vcm_` (force servo) or angular velocity `omegacm_`
@@ -603,6 +658,104 @@ impl GranularSystem {
         self.setup_phase = false;
     }
 
+    /// **Begin a new `run`**, as every `run` command of a LIGGGHTS deck does
+    /// (`Run::command` -> `lmp->init()` -> `Verlet::setup()`; gh:#1510).
+    /// [`GranularSystem::run`] continues the current run; a deck with two
+    /// `run` commands is reproduced by `run(n1); begin_run()?; run(n2)`, and
+    /// differs from one continuous run even with nothing changed in between,
+    /// because the set-up evaluates the forces again at the full-step
+    /// velocities. A `run N pre no` is a plain [`GranularSystem::run`] (no
+    /// `init`, no set-up). Construction already performs the first run's
+    /// set-up.
+    ///
+    /// What is reset, read from LIGGGHTS-PUBLIC `3d5c00f2`:
+    ///
+    /// * **`init()`** of every fix (`Modify::init`): the servo re-sets
+    ///   `p_ref = xcm`, `vel_min_` from the present smallest radius and the
+    ///   torque servo's `rPaMax` from the present nodes, and re-checks its
+    ///   aborts ([`MovingBoundary::begin_run`]). The other fixes' `init()`
+    ///   only look up variables, properties and pointers.
+    /// * **`Verlet::setup()`**: the atom sort and neighbour build (under
+    ///   [`NeighborOrder::Liggghts`]: `nextsort` re-based, the half list,
+    ///   the primitive-wall lists, `xhold`); `FixMesh::setup_pre_force`
+    ///   (each mesh's geometry and original nodes from its present nodes);
+    ///   `FixNeighlistMesh::setup_pre_force` (the servo contact count and the
+    ///   massflow lists); the servo's `setup_pre_force` (`xcm_orig = xcm`,
+    ///   `totalPhi = 0`); the pair compute and every fix's `setup` with
+    ///   `shearupdate = 0` (the same evaluation construction does); and
+    ///   `FixMoveMesh::setup`, which zeroes a moved mesh's node velocities
+    ///   ([`MovingBoundary::move_mesh_setup`]).
+    ///
+    /// What **persists**, as upstream: pair, wall and mesh contact history;
+    /// the servo's integral term, last process value, velocity and node
+    /// velocities; the stress totals (`MeshModuleStress::pre_force` does not
+    /// run at set-up, so the set-up contributions add to the last step's,
+    /// which is what a `thermo` line printed at set-up shows); the wear
+    /// (`wear_step` is zero after the last step, so the set-up's wear enters
+    /// the next step); insertion schedules and counters
+    /// (`FixInsert::setup` acts on the first run only); massflow counters;
+    /// heat and liquid content; a mesh's pending re-neighbour request
+    /// (`next_reneighbor`); `step` and `time`.
+    ///
+    /// **Not modelled:** `ramp()` and other run-bounded quantities in
+    /// variables (the crate's variable contexts take `begin_step = 0`), the
+    /// reference point a superposed `move/mesh` resets
+    /// (`FixMoveMesh::reset_reference_point`), and the slot compaction of the
+    /// mesh contact history (`FixContactHistoryMesh::sort_contacts`), which
+    /// the port does not model at re-neighbouring either.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] where a fix's `init()` aborts (see
+    /// [`crate::mesh_stress::MeshServo::init_run`]).
+    pub fn begin_run(&mut self) -> Result<(), DemError> {
+        if self.multisphere.is_some() {
+            // `FixMultisphere::setup` (`calc_force(true)` at the set-up) is
+            // not ported (gh:#1415)
+            return Err(DemError::InvalidInput(
+                "a second run set-up with multisphere clumps is not ported".into(),
+            ));
+        }
+        // lmp->init(): Modify::init -> fix->init(); then Verlet::setup's
+        // setup_pre_force of the meshes (no fix reads another in between)
+        for w in &mut self.moving_walls {
+            w.begin_run(&self.particles)?;
+        }
+        // neighbor->build (the LIGGGHTS-order rebuild in the set-up
+        // evaluation also does this) and the mesh neighbour lists
+        self.xhold = self.particles.iter().map(|p| p.position).collect();
+        self.update_servo_contacts();
+        self.rebuild_massflow_lists();
+        // pair compute and modify->setup (wall/gran, gravity, force fixes)
+        self.compute_forces_setup();
+        // FixMoveMesh::setup, declared after its wall/gran
+        for w in &mut self.moving_walls {
+            w.move_mesh_setup();
+        }
+        Ok(())
+    }
+
+    /// `fix_modify <mesh> servo/<keyword> ...` on the servo of moving wall
+    /// `wall` (`MeshModuleStressServo::modify_param`, gh:#1510). Upstream
+    /// issues it between two `run` commands, and the values reach the
+    /// controller through the next `init()`, so call
+    /// [`GranularSystem::begin_run`] afterwards.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if `wall` has no servo, or where upstream
+    /// aborts (see [`crate::mesh_stress::MeshServo::modify_param`]).
+    pub fn fix_modify_servo(
+        &mut self,
+        wall: usize,
+        m: crate::mesh_stress::ServoModify,
+    ) -> Result<(), DemError> {
+        match self.moving_walls.get_mut(wall).and_then(|w| w.servo.as_mut()) {
+            Some((servo, _)) => servo.modify_param(m),
+            None => Err(DemError::InvalidInput(format!("moving wall {wall} has no servo"))),
+        }
+    }
+
     /// Recount the servo meshes' neighbour-list contacts
     /// (`getTotalNumContacts`, read by `mode auto`); done where upstream
     /// rebuilds its neighbour list.
@@ -614,15 +767,15 @@ impl GranularSystem {
     }
 
     /// The neighbour-rebuild decision and mesh refresh that follow the walls'
-    /// move in a step (`Neighbor::decide`, `FixMesh::pre_force`).
+    /// move in a step (`Neighbor::decide`, `FixMesh::pre_force`). The refresh
+    /// includes the stress module's facet areas, as upstream's
+    /// `recalcLocalSurfProperties` does (gh:#1512).
     fn refresh_moving_meshes(&mut self) {
         let skin = self.neigh_skin;
         if skin <= 0.0 {
             for w in &mut self.moving_walls {
                 if w.is_rotating() {
-                    if let WallGeometry::Mesh(m) = &mut w.geometry {
-                        m.refresh_geometry();
-                    }
+                    w.refresh_mesh();
                 }
             }
             return;
@@ -641,9 +794,7 @@ impl GranularSystem {
         self.rebuild_now = rebuild;
         if rebuild {
             for w in &mut self.moving_walls {
-                if let WallGeometry::Mesh(m) = &mut w.geometry {
-                    m.refresh_geometry();
-                }
+                w.refresh_mesh();
             }
             self.xhold = self.particles.iter().map(|p| p.position).collect();
             self.mesh_rebuild_pending = false;
@@ -877,8 +1028,16 @@ impl GranularSystem {
     ///
     /// [`DemError::InvalidInput`] unless the model's cohesion is
     /// `Capillary`, the system uses [`NeighborOrder::Liggghts`] (bridges live
-    /// on upstream's list), has no walls (particle-wall bridges are not
-    /// ported) and no per-pair coefficient table.
+    /// on upstream's list) and no per-pair coefficient table. ~~has no walls
+    /// (particle-wall bridges are not ported)~~ **CORRECTED 2026-11-12
+    /// (gh:#1487):** particle-wall bridges are ported (Easo dry walls, Washino
+    /// with [`GranularSystem::with_mesh_liquid_transfer`]). Attach the walls
+    /// first. Refused, because the crate cannot represent them exactly: a
+    /// static boundary other than a two-sided axis-aligned
+    /// [`Boundary::Plane`] or axis-aligned [`Boundary::Cylinder`], a moving wall
+    /// that is not a mesh, and walls together with more than one particle type
+    /// (every wall contact here is resolved with the particle's own type, so
+    /// the deck's wall `type` must be the particles').
     pub fn with_capillary(mut self) -> Result<Self, DemError> {
         let GranularCohesion::Capillary(mut p) = self.model.cohesion else {
             return Err(DemError::InvalidInput(
@@ -890,13 +1049,7 @@ impl GranularSystem {
                 "capillary bridges need the LIGGGHTS neighbour order (with_liggghts_neighbor_order)".into(),
             ));
         };
-        if !self.boundaries.is_empty() || !self.moving_walls.is_empty() {
-            return Err(DemError::InvalidInput(
-                "capillary bridges to walls are not ported (upstream: Easo dry walls, Washino mesh \
-                 liquid content); use a system without walls"
-                    .into(),
-            ));
-        }
+        self.check_capillary_walls()?;
         if self.model.pair_models.is_some() {
             return Err(DemError::InvalidInput(
                 "capillary cohesion with a per-pair coefficient table is not supported".into(),
@@ -922,6 +1075,88 @@ impl GranularSystem {
         ));
         self.compute_forces_setup();
         Ok(self)
+    }
+
+    /// The walls a capillary model can bridge to exactly (gh:#1487); see
+    /// [`GranularSystem::with_capillary`].
+    fn check_capillary_walls(&self) -> Result<(), DemError> {
+        if let Some(b) = self.boundaries.iter().find(|b| !b.is_upstream_primitive()) {
+            return Err(DemError::InvalidInput(format!(
+                "capillary wall bridges need a two-sided axis-aligned plane or an axis-aligned \
+                 cylinder (upstream's primitive walls); got {b:?}"
+            )));
+        }
+        if self
+            .moving_walls
+            .iter()
+            .any(|m| !m.contactless && !matches!(m.geometry, WallGeometry::Mesh(_)))
+        {
+            return Err(DemError::InvalidInput(
+                "capillary wall bridges on a moving analytic wall are not ported; use a mesh".into(),
+            ));
+        }
+        let has_walls = !self.boundaries.is_empty() || self.moving_walls.iter().any(|m| !m.contactless);
+        if has_walls && self.types.iter().any(|&t| t != self.types[0]) {
+            return Err(DemError::InvalidInput(
+                "capillary wall bridges with more than one particle type: the wall's atom type \
+                 (its contactAngle) is not represented here"
+                    .into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Declare moving wall `wall` (a mesh) as `fix mesh/surface/liquidtransfer
+    /// ... wall_thickness t initial_liquid_content c`
+    /// (`MeshModuleLiquidTransfer`, [`crate::capillary::MeshLiquid`], gh:#1487):
+    /// every facet carries a liquid film the Washino model bridges to and
+    /// exchanges liquid with at rupture. The Easo model ignores it (dry
+    /// walls). The set-up evaluation is re-done.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] without a capillary model, for a wall that
+    /// is not a mesh, or a thickness or initial content below `1e-12`
+    /// (upstream's "have to define").
+    pub fn with_mesh_liquid_transfer(
+        mut self,
+        wall: usize,
+        wall_thickness: f64,
+        initial_liquid_content: f64,
+    ) -> Result<Self, DemError> {
+        let n_tri = match self.moving_walls.get(wall).map(|m| &m.geometry) {
+            Some(WallGeometry::Mesh(mesh)) => mesh.triangles.len(),
+            _ => {
+                return Err(DemError::InvalidInput(format!(
+                    "liquidtransfer needs moving wall {wall} to be a mesh"
+                )))
+            }
+        };
+        let module = crate::capillary::MeshLiquid::new(n_tri, wall_thickness, initial_liquid_content)?;
+        let Some(c) = self.capillary.as_mut() else {
+            return Err(DemError::InvalidInput(
+                "with_mesh_liquid_transfer needs with_capillary first".into(),
+            ));
+        };
+        c.mesh_liquid.insert(wall, module);
+        self.compute_forces_setup();
+        Ok(self)
+    }
+
+    /// `LiquidContent` of each facet of moving wall `wall` (empty unless it
+    /// carries [`GranularSystem::with_mesh_liquid_transfer`]).
+    #[must_use]
+    pub fn mesh_liquid_content(&self, wall: usize) -> &[f64] {
+        self.capillary
+            .as_ref()
+            .and_then(|c| c.mesh_liquid.get(&wall))
+            .map_or(&[], |m| &m.content)
+    }
+
+    /// Number of particle-wall liquid bridges (`contflag == 1`, gh:#1487).
+    #[must_use]
+    pub fn wall_bridge_count(&self) -> usize {
+        self.capillary.as_ref().map_or(0, |c| c.wall_bridges.len())
     }
 
     /// `surfaceLiquidContent` of each particle (empty without a capillary model).
@@ -1076,6 +1311,8 @@ impl GranularSystem {
                     liquid_j: cap.content[j],
                     bridge: cap.bridges.contains(&pair_key),
                     dt: self.dt,
+                    is_wall: false,
+                    wall_liquid_vol1000: None,
                 });
                 match outcome {
                     CloseOutcome::NoBridge => {}
@@ -1098,6 +1335,10 @@ impl GranularSystem {
                         cap.bridges.remove(&pair_key);
                         cap.flux[i] += flux_i;
                         cap.flux[j] += flux_j;
+                    }
+                    // a pair never returns the wall outcome
+                    CloseOutcome::WallBreaks { .. } => {
+                        cap.bridges.remove(&pair_key);
                     }
                 }
             }
@@ -1213,6 +1454,8 @@ impl GranularSystem {
                 .map(|&(a, b)| (self.perm[a as usize] as u32, self.perm[b as usize] as u32)),
         );
         self.xhold = self.particles.iter().map(|p| p.position).collect();
+        let grid = neighbor_list::BinGrid::new(&cfg, cut);
+        self.nbin_of = self.particles.iter().map(|p| grid.coord2bin(p.position)).collect();
         // `FixWallGran::pre_neighbor`: rebuild each primitive wall's list with
         // threshold = skin and the atom radius
         let skin = cfg.skin;
@@ -1575,20 +1818,88 @@ impl GranularSystem {
             return;
         }
         for k in 0..self.inserters.len() {
-            let new = match self.inserters[k].pre_exchange(step, &self.particles) {
+            let census = self.clump_census();
+            let new = match self.inserters[k].pre_exchange_any(step, &self.particles, &census) {
                 Ok(v) => v,
                 Err(e) => panic!("fix insert: {e}"),
             };
-            for ip in new {
-                let tag = self.next_tag;
-                self.next_tag += 1;
-                self.note_inserted();
-                self.particles.push(ip.particle);
-                self.tags.push(tag);
-                self.types.push(ip.atom_type - 1);
-                self.forces.push(Vec3::zero());
-                self.torques.push(Vec3::zero());
+            let mut clumps_added = false;
+            for item in new {
+                match item {
+                    crate::insert::Inserted::Sphere(ip) => {
+                        self.push_inserted_atom(ip.particle, ip.atom_type);
+                    }
+                    crate::insert::Inserted::Clump(c) => {
+                        // `ParticleToInsertMultisphere::insert`: the member atoms
+                        // first, then `Multisphere::add_body`
+                        let first = self.particles.len();
+                        for p in c.atoms() {
+                            self.push_inserted_atom(p, c.atom_type());
+                        }
+                        let dt = self.dt;
+                        self.multisphere
+                            .get_or_insert_with(|| crate::multisphere::Multisphere::new(dt))
+                            .add_body(&c, first);
+                        clumps_added = true;
+                    }
+                }
             }
+            // `FixTemplateMultisphere::finalize_insertion` -> `add_body_finalize`
+            if clumps_added {
+                if let Some(ms) = self.multisphere.as_mut() {
+                    ms.add_body_finalize(&mut self.particles);
+                }
+            }
+        }
+    }
+
+    /// Append one inserted atom (new tag, last local slot).
+    fn push_inserted_atom(&mut self, p: Particle, atom_type: usize) {
+        let tag = self.next_tag;
+        self.next_tag += 1;
+        self.note_inserted();
+        self.particles.push(p);
+        self.tags.push(tag);
+        self.types.push(atom_type - 1);
+        self.forces.push(Vec3::zero());
+        self.torques.push(Vec3::zero());
+    }
+
+    /// The clumps present, as an insertion fix counts them (gh:#1415).
+    fn clump_census(&self) -> crate::insert::ClumpCensus {
+        match &self.multisphere {
+            None => crate::insert::ClumpCensus::default(),
+            Some(ms) => crate::insert::ClumpCensus {
+                in_body: (0..self.particles.len()).map(|i| ms.body_of(i).is_some()).collect(),
+                bodies: ms
+                    .bodies()
+                    .iter()
+                    .map(|b| (b.x_bound(), b.mass, b.density))
+                    .collect(),
+            },
+        }
+    }
+
+    /// The `fix multisphere` state, once a clump has been inserted (gh:#1415).
+    #[must_use]
+    pub fn multisphere(&self) -> Option<&crate::multisphere::Multisphere> {
+        self.multisphere.as_ref()
+    }
+
+    /// Whether particle `i` is a member of a clump.
+    fn in_body(&self, i: usize) -> bool {
+        self.multisphere.as_ref().is_some_and(|m| m.body_of(i).is_some())
+    }
+
+    /// `neigh_modify exclude molecule`: drop the pairs of two atoms of the same
+    /// clump from the pair list, keeping the order of the rest
+    /// (`Neighbor::exclusion`, gh:#1415). No-op without clumps.
+    fn exclude_body_pairs(&mut self) {
+        if let Some(ms) = &self.multisphere {
+            self.pairs.retain(|&(i, j)| {
+                let (bi, bj) = (ms.body_of(i as usize), ms.body_of(j as usize));
+                !(bi.is_some() && bi == bj)
+            });
         }
     }
 
@@ -1606,6 +1917,12 @@ impl GranularSystem {
     /// the hole (`AtomVec::copy(nlocal-1, i)`), and the particle array's own
     /// `swap_remove` moves its last particle into slot `i`.
     fn note_removed(&mut self, i: usize) {
+        // the per-atom body arrays of `fix multisphere` are not compacted
+        // (lost-atom/body deletion is not ported, gh:#1415)
+        assert!(
+            self.multisphere.is_none(),
+            "removing particles from a system with multisphere clumps is not ported"
+        );
         if let Some(c) = self.capillary.as_mut() {
             // the removed atom's liquid and bridges leave with it; the last
             // atom takes its slot (`swap_remove`, as the particle array does)
@@ -1615,6 +1932,7 @@ impl GranularSystem {
             }
             let tag = self.tags[i];
             c.bridges.retain(|&(a, b)| a != tag && b != tag);
+            c.wall_bridges.retain(|&(t, _, _)| t != tag);
         }
         if matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
             let last = self.particles.len() - 1;
@@ -1863,6 +2181,11 @@ impl GranularSystem {
         let (f, t) = (self.forces.clone(), self.torques.clone());
         self.integrator
             .initial_integrate(&mut self.particles, &f, &t);
+        // `FixMultisphere::initial_integrate`: the bodies move and `set_xv`
+        // overwrites their member atoms' x, v, omega (gh:#1415)
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.initial_integrate(&mut self.particles);
+        }
         // Walls drift with the particles (upstream advances mesh nodes in the
         // same half-step as the particle positions).
         for w in &mut self.moving_walls {
@@ -1871,6 +2194,13 @@ impl GranularSystem {
         // `post_integrate` of `fix massflow/mesh`: after the move, before the
         // neighbour decision and the force evaluation.
         for k in 0..self.massflow.len() {
+            // `fix_volumeweight_ms_` exists once a `fix multisphere` does
+            if let Some(ms) = &self.multisphere {
+                let w: Vec<f64> = (0..self.particles.len()).map(|i| ms.volume_weight(i)).collect();
+                if let Err(e) = self.massflow[k].set_volume_weights(w) {
+                    panic!("{e}");
+                }
+            }
             match self.massflow[k].wall() {
                 Some(w) => {
                     if let WallGeometry::Mesh(mesh) = &self.moving_walls[w].geometry {
@@ -1896,9 +2226,11 @@ impl GranularSystem {
             self.update_servo_contacts();
             self.rebuild_massflow_lists();
         }
-        // `MeshModuleStress::pre_force`
+        // `FixMesh::pre_force` -> `clearReverse` (per-facet `f`, `wear_step`;
+        // gh:#1512), then `MeshModuleStress::pre_force`
         for w in &mut self.moving_walls {
             if let Some(st) = &mut w.stress {
+                st.clear_reverse();
                 st.pre_force();
             }
         }
@@ -1918,6 +2250,19 @@ impl GranularSystem {
         let (f2, t2) = (self.forces.clone(), self.torques.clone());
         self.integrator
             .final_integrate(&mut self.particles, &f2, &t2);
+        // `FixMultisphere::final_integrate`: sum the member atoms' forces in
+        // local order, then the body half-kick and `set_v` (gh:#1415)
+        if self.multisphere.is_some() {
+            let order = self.local_order_indices();
+            let gravity = self.gravity;
+            if let Some(ms) = self.multisphere.as_mut() {
+                // `FixMultisphere::pre_force` -> `reset_forces(false)`; nothing
+                // adds to a body's force between it and `calc_force` here
+                ms.reset_forces(false);
+                ms.calc_force(&self.particles, &self.forces, &self.torques, &order, gravity);
+                ms.final_integrate(&mut self.particles);
+            }
+        }
         // `MeshModuleStress::final_integrate` (calc_total_force)
         for w in &mut self.moving_walls {
             if let (Some(st), WallGeometry::Mesh(m)) = (&mut w.stress, &w.geometry) {
@@ -1938,6 +2283,10 @@ impl GranularSystem {
         if let Some(c) = self.capillary.as_mut() {
             // final_integrate of `liquidtransfer`: L += flux * dt
             c.advance(self.dt);
+            // `MeshModuleLiquidTransfer::final_integrate`
+            for m in c.mesh_liquid.values_mut() {
+                m.advance(self.dt);
+            }
         }
         self.stream_end_of_step();
         self.time += self.dt;
@@ -1999,6 +2348,12 @@ impl GranularSystem {
         self.mc_pre_force();
 
         self.sync_capillary();
+        // `MeshModuleLiquidTransfer::pre_force` (and `setup_pre_force`)
+        if let Some(c) = self.capillary.as_mut() {
+            for m in c.mesh_liquid.values_mut() {
+                m.reset_flux();
+            }
+        }
 
         // --- particle-particle ---
         // Both paths accumulate in the SAME order (ascending candidate-pair
@@ -2037,7 +2392,13 @@ impl GranularSystem {
         };
         for slot in order {
             match slot {
-                FixSlot::PrimitiveWall(w) => self.primitive_wall_forces(w),
+                FixSlot::PrimitiveWall(w) => {
+                    if self.capillary.is_some() {
+                        self.primitive_wall_forces_capillary(w);
+                    } else {
+                        self.primitive_wall_forces(w);
+                    }
+                }
                 FixSlot::MovingWall(w) => {
                     if self.moving_walls[w].contactless {
                         // `fix mesh/surface` with no `fix wall/gran`: moves, never touches
@@ -2049,6 +2410,11 @@ impl GranularSystem {
                 }
                 FixSlot::Gravity => {
                     for i in 0..n {
+                        // `FixGravity::post_force` skips clump members; the body
+                        // gets `m g` in `calc_force` (gh:#1415)
+                        if self.in_body(i) {
+                            continue;
+                        }
                         let m = self.particles[i].mass;
                         self.forces[i] = self.forces[i].add(self.gravity.scale(m));
                     }
@@ -2236,6 +2602,100 @@ impl GranularSystem {
         }
     }
 
+    /// One primitive wall's contacts with a capillary cohesion model attached
+    /// (gh:#1487): `FixWallGran::post_force_primitive` (LIGGGHTS-PUBLIC
+    /// `3d5c00f2`). A particle in the wall's neighbour list (rebuilt with the
+    /// skin) is resolved by `PrimitiveWall::resolveContact`; an overlap goes
+    /// through the contact law with the bridge's `surfacesIntersect` (flag set,
+    /// liquid limited), a gap `deltan < (cdf - 1) radius` through the
+    /// capillary `surfacesClose` (`r = radi - sidata.deltan`, `radsum = radi`,
+    /// wall velocity 0), and anything farther zeroes the contact history, the
+    /// bridge flag included, with no rupture flux. A primitive wall is dry.
+    fn primitive_wall_forces_capillary(&mut self, w: usize) {
+        use crate::capillary::{CloseInput, CloseOutcome};
+        let setup = self.setup_phase;
+        let GranularCohesion::Capillary(p) = self.model.cohesion else {
+            return;
+        };
+        let cdf = match self.neighbor_order {
+            NeighborOrder::Liggghts(cfg) => cfg.contact_distance_factor,
+            NeighborOrder::CellGrid => 1.0,
+        };
+        let contact_distance_multiplier = cdf - 1.0;
+        let mut cap = self.capillary.take().expect("capillary state");
+        for i in 0..self.particles.len() {
+            if !self.wall_near.get(w).is_none_or(|v| v.get(i).copied().unwrap_or(true)) {
+                continue;
+            }
+            let part = self.particles[i];
+            let Some((deltan, delta)) = self.boundaries[w].upstream_resolve(&part) else {
+                continue;
+            };
+            let tag = self.tags[i];
+            let key = (tag, w, 0_usize);
+            let t = self.types[i];
+            if deltan <= 0.0 {
+                // surfacesIntersect: contflag = 1, limit the liquid, bridge force
+                cap.wall_bridges.insert(key);
+                cap.content[i] = p.limit_content(cap.content[i], t);
+                let k = ContactKinematics::mesh_wall(&part, delta, -deltan, Vec3::zero())
+                    .with_types(t, t)
+                    .with_liquid(cap.content[i], 0.0);
+                let gf = resolve_c(
+                    &self.model,
+                    setup,
+                    ContactKey::wall(tag as usize, w),
+                    &k,
+                    &mut self.history,
+                    self.dt,
+                );
+                self.forces[i] = self.forces[i].add(gf.force_i);
+                self.torques[i] = self.torques[i].add(gf.torque_i);
+            } else if deltan < contact_distance_multiplier * part.radius {
+                cap.content[i] = p.limit_content(cap.content[i], t);
+                // `sidata.r = sidata.radi - sidata.deltan`, `sidata.deltan = -deltan`
+                let r = part.radius - (-deltan);
+                let outcome = p.close(&CloseInput {
+                    delta,
+                    rsq: r * r,
+                    rad_i: part.radius,
+                    rad_j: part.radius,
+                    radsum: part.radius,
+                    itype: t,
+                    jtype: t,
+                    v_i: part.velocity,
+                    v_j: Vec3::zero(),
+                    omega_i: part.angular_velocity,
+                    omega_j: Vec3::zero(),
+                    liquid_i: cap.content[i],
+                    liquid_j: 0.0,
+                    bridge: cap.wall_bridges.contains(&key),
+                    dt: self.dt,
+                    is_wall: true,
+                    wall_liquid_vol1000: None,
+                });
+                match outcome {
+                    CloseOutcome::NoBridge => {}
+                    CloseOutcome::ActiveNoForce => {
+                        cap.wall_bridges.insert(key);
+                    }
+                    CloseOutcome::Force { force_i, torque_i, .. } => {
+                        cap.wall_bridges.insert(key);
+                        self.forces[i] = self.forces[i].add(force_i);
+                        self.torques[i] = self.torques[i].add(torque_i);
+                    }
+                    CloseOutcome::Breaks { .. } | CloseOutcome::WallBreaks { .. } => {
+                        cap.wall_bridges.remove(&key);
+                    }
+                }
+            } else {
+                // `vectorZeroizeN(c_history[iPart], dnum_)`
+                cap.wall_bridges.remove(&key);
+            }
+        }
+        self.capillary = Some(cap);
+    }
+
     /// One non-mesh moving wall's contacts for every particle.
     fn moving_primitive_wall_forces(&mut self, w: usize) {
         let setup = self.setup_phase;
@@ -2303,6 +2763,16 @@ impl GranularSystem {
     /// (`FixContactHistoryMesh::handleContact`). gh:#1416.
     fn compute_mesh_wall_forces(&mut self, w: usize) {
         let setup = self.setup_phase;
+        if setup {
+            // ~~the set-up evaluation's wear goes into step 1 (nothing zeroes
+            // `wear_step` before `final_integrate`)~~ CORRECTED 2026-11-13
+            // (gh:#1512): step 1's `FixMesh::pre_force` -> `clearReverse`
+            // discards it (`MeshStress::clear_reverse`); a repeated set-up here
+            // replaces, not adds to, it
+            if let Some(st) = self.moving_walls[w].stress.as_mut() {
+                st.begin_setup_wear();
+            }
+        }
         let n = self.particles.len();
         let nb = self.boundaries.len();
         {
@@ -2310,7 +2780,7 @@ impl GranularSystem {
                 return;
             };
             let has_stress = self.moving_walls[w].stress.is_some();
-            let mut contributions: Vec<(usize, usize, [f64; 3], [f64; 3], [f64; 3])> = Vec::new();
+            let mut contributions: Vec<StressContribution> = Vec::new();
             // markAllContacts
             for (key, slots) in self.mesh_partners.iter_mut() {
                 if key.1 == w {
@@ -2344,6 +2814,13 @@ impl GranularSystem {
                             (c1.deltan <= 0.0 || c1.deltan < margin).then_some(c1)
                         })
                         .collect::<Vec<_>>()
+                } else if self.capillary.is_some() {
+                    // capillary bridges: `deltan < (cdf - 1) * radius` too (gh:#1487)
+                    let cdf = match self.neighbor_order {
+                        NeighborOrder::Liggghts(cfg) => cfg.contact_distance_factor,
+                        NeighborOrder::CellGrid => 1.0,
+                    };
+                    mesh.sphere_contacts_within(p.position, p.radius, (cdf - 1.0) * p.radius)
                 } else {
                     mesh.sphere_contacts(p.position, p.radius)
                 };
@@ -2376,7 +2853,10 @@ impl GranularSystem {
                                 continue;
                             }
                         }
-                        // addNewTriContactToExistingParticle
+                        // addNewTriContactToExistingParticle (history zeroed)
+                        if let Some(cap) = self.capillary.as_mut() {
+                            cap.wall_bridges.remove(&(tag as u64, nb + w, c.tri));
+                        }
                         let new = Some((id, true));
                         if let Some(slot) = slots.iter_mut().find(|s| s.is_none()) {
                             *slot = new;
@@ -2396,6 +2876,19 @@ impl GranularSystem {
                             }
                             if let Some(h) = inherit {
                                 self.history.seed(ContactKey::tri(tag, nb + w, c.tri), h);
+                            }
+                            // the capillary bridge flag is in the same history
+                            // array (`checkCoplanarContactHistory`, gh:#1487)
+                            if let Some(cap) = self.capillary.as_mut() {
+                                let mut flag = None;
+                                for s in slots.iter().flatten() {
+                                    if s.0 != id && mesh.coplanar_node_neighs(s.0 as usize, c.tri) {
+                                        flag = Some(cap.wall_bridges.contains(&(tag as u64, nb + w, s.0 as usize)));
+                                    }
+                                }
+                                if flag == Some(true) {
+                                    cap.wall_bridges.insert((tag as u64, nb + w, c.tri));
+                                }
                             }
                             // the multicontact history lives in the same
                             // contact history, so it is inherited too
@@ -2417,6 +2910,31 @@ impl GranularSystem {
                     if let Some(mc) = &self.mc {
                         p.radius += mc.data.wall_expansion(nb + w, mc.local_of[i], c.tri);
                     }
+                    if c.deltan > 0.0 && self.capillary.is_some() {
+                        // capillary `surfacesClose` on a facet (gh:#1487)
+                        if let (Some(cap), GranularCohesion::Capillary(cp)) =
+                            (self.capillary.as_mut(), self.model.cohesion)
+                        {
+                            Self::mesh_close_capillary(
+                                &cp,
+                                cap,
+                                MeshCloseSite {
+                                    wall: w,
+                                    key: (tag as u64, nb + w, c.tri),
+                                    i,
+                                    atype: self.types[i],
+                                    v_wall: mesh.wall_velocity(c.tri, &c.bary),
+                                    area: mesh.state.area(c.tri),
+                                    dt: self.dt,
+                                },
+                                &p,
+                                &c,
+                                &mut self.forces[i],
+                                &mut self.torques[i],
+                            );
+                        }
+                        continue;
+                    }
                     if c.deltan > 0.0 {
                         // `surfacesClose`: history only, no force
                         if let Some(mc) = self.mc.as_mut().filter(|_| !setup) {
@@ -2429,8 +2947,21 @@ impl GranularSystem {
                     let v_wall = mesh.wall_velocity(c.tri, &c.bary);
                     let delta = Vec3::new(-c.delta[0], -c.delta[1], -c.delta[2]);
                     let overlap = -c.deltan;
-                    let k = ContactKinematics::mesh_wall(&p, delta, overlap, v_wall)
+                    let mut k = ContactKinematics::mesh_wall(&p, delta, overlap, v_wall)
                         .with_types(self.types[i], self.types[i]);
+                    if let (Some(cap), GranularCohesion::Capillary(cp)) =
+                        (self.capillary.as_mut(), self.model.cohesion)
+                    {
+                        // capillary `surfacesIntersect`: contflag = 1, limit
+                        // the particle's liquid, the facet's film (gh:#1487)
+                        cap.wall_bridges.insert((tag as u64, nb + w, c.tri));
+                        cap.content[i] = cp.limit_content(cap.content[i], self.types[i]);
+                        let vol = cap
+                            .mesh_liquid
+                            .get(&w)
+                            .map_or(0.0, |m| m.wall_volume1000(c.tri, p.radius, mesh.state.area(c.tri)));
+                        k = k.with_liquid(cap.content[i], 0.0).with_wall_liquid(vol);
+                    }
                     let gf = resolve_c(
                         &self.model,
                         setup,
@@ -2452,26 +2983,53 @@ impl GranularSystem {
                     self.torques[i] = self.torques[i].add(gf.torque_i);
                     if has_stress {
                         let f_pw = self.forces[i].sub(before);
-                        contributions.push((i, c.tri, arr(f_pw), arr(p.position), c.delta));
+                        contributions.push(StressContribution {
+                            i,
+                            tri: c.tri,
+                            f_pw: arr(f_pw),
+                            x: arr(p.position),
+                            delta: c.delta,
+                            v: arr(p.velocity),
+                            v_wall: arr(v_wall),
+                            norm: mesh.state.surface_norm(c.tri),
+                        });
                     }
                 }
             }
             if let Some(st) = &mut self.moving_walls[w].stress {
                 // Upstream's `post_force_mesh` loops facets outermost and, within a
-                // facet, the particles of that facet's mesh neighbour list, which
-                // is in ascending local (atom-sort) slot order. The totals of
-                // `fix mesh/surface/stress` are floating-point sums, so they are
-                // accumulated in that order (the per-contact forces do not depend
-                // on it). gh:#1416, `tests/htr10_conus_massflow_stress_cross_code.rs`.
+                // facet, the particles of that facet's mesh neighbour list. That
+                // list (`FixNeighlistMesh::handleTriangle`) walks the facet's bins
+                // in the `ix, iy, iz` loop order of `generate_bin_list` (`iz`
+                // innermost) and each bin's linked list in ascending local
+                // (atom-sort) slot, on the bins of the last list build. The
+                // totals of `fix mesh/surface/stress` are floating-point sums, so
+                // they are accumulated in that order (the per-contact forces do
+                // not depend on it). gh:#1416, gh:#1491,
+                // `tests/htr10_conus_massflow_stress_cross_code.rs`.
                 if self.perm.len() == n && matches!(self.neighbor_order, NeighborOrder::Liggghts(_)) {
                     let mut local_of = vec![0usize; n];
                     for (l, &pi) in self.perm.iter().enumerate() {
                         local_of[pi] = l;
                     }
-                    contributions.sort_by_key(|c| (c.1, local_of[c.0]));
+                    let bins = &self.nbin_of;
+                    let bin = |i: usize| if bins.len() == n { bins[i] } else { (0, 0, 0) };
+                    contributions.sort_by_key(|c| (c.tri, bin(c.i), local_of[c.i]));
                 }
-                for (_, tri, f_pw, x, d) in contributions {
-                    st.add_particle_contribution(f_pw, x, d, tri);
+                for c in contributions {
+                    st.add_particle_contribution(c.f_pw, c.x, c.delta, c.tri);
+                    // `trackWear()`: the same call, after the stress part
+                    st.add_wear_contribution(&WearContact {
+                        frc: c.f_pw,
+                        x: c.x,
+                        v: c.v,
+                        delta: c.delta,
+                        v_wall: c.v_wall,
+                        tri: c.tri,
+                        norm: c.norm,
+                        atom_type: self.types[c.i],
+                        dt: self.dt,
+                    });
                 }
             }
             // cleanUpContacts
@@ -2486,12 +3044,93 @@ impl GranularSystem {
             }
             self.mesh_partners
                 .retain(|_, v| v.iter().any(Option::is_some));
+            if let Some(cap) = self.capillary.as_mut() {
+                // cleanUpContacts zeroes the history of a facet no longer in
+                // contact, the bridge flag included (gh:#1487)
+                let mp = &self.mesh_partners;
+                cap.wall_bridges.retain(|&(t, ww, tri)| {
+                    ww != nb + w
+                        || mp
+                            .get(&(t as usize, w))
+                            .is_some_and(|sl| sl.iter().flatten().any(|s| s.0 as usize == tri))
+                });
+            }
             if let Some(mc) = self.mc.as_mut() {
                 let mp = &self.mesh_partners;
                 mc.mesh_hist.retain(|&(t, ww, id), _| {
                     ww != nb + w
                         || mp.get(&(t, w)).is_some_and(|sl| sl.iter().flatten().any(|s| s.0 == id))
                 });
+            }
+        }
+    }
+
+    /// The capillary `surfacesClose` of particle `i` with facet `c.tri` of
+    /// mesh wall `w` (`FixWallGran::post_force_mesh` -> `compute_force` ->
+    /// `surfacesClose`, gh:#1487): `sidata.delta = -delta`,
+    /// `r = radi - sidata.deltan`, `radsum = radi`, `v_j` the facet velocity
+    /// at the contact; Washino reads the facet's film when the mesh carries
+    /// `liquidtransfer` and, at rupture, moves liquid between the particle and
+    /// the facet (`add_liquid_flux`).
+    fn mesh_close_capillary(
+        cp: &crate::capillary::CapillaryParams,
+        cap: &mut crate::capillary::CapillaryState,
+        site: MeshCloseSite,
+        p: &Particle,
+        c: &crate::mesh_wall::MeshContact,
+        force: &mut Vec3,
+        torque: &mut Vec3,
+    ) {
+        use crate::capillary::{CloseInput, CloseOutcome};
+        let MeshCloseSite { wall: w, key, i, atype: t, v_wall, area, dt } = site;
+        cap.content[i] = cp.limit_content(cap.content[i], t);
+        let wall_vol = cap.mesh_liquid.get(&w).map(|m| m.wall_volume1000(c.tri, p.radius, area));
+        let r = p.radius - (-c.deltan);
+        let outcome = cp.close(&CloseInput {
+            delta: Vec3::new(-c.delta[0], -c.delta[1], -c.delta[2]),
+            rsq: r * r,
+            rad_i: p.radius,
+            rad_j: p.radius,
+            radsum: p.radius,
+            itype: t,
+            jtype: t,
+            v_i: p.velocity,
+            v_j: v_wall,
+            omega_i: p.angular_velocity,
+            omega_j: Vec3::zero(),
+            liquid_i: cap.content[i],
+            liquid_j: 0.0,
+            bridge: cap.wall_bridges.contains(&key),
+            dt,
+            is_wall: true,
+            wall_liquid_vol1000: wall_vol,
+        });
+        match outcome {
+            CloseOutcome::NoBridge => {}
+            CloseOutcome::ActiveNoForce => {
+                cap.wall_bridges.insert(key);
+            }
+            CloseOutcome::Force { force_i, torque_i, .. } => {
+                cap.wall_bridges.insert(key);
+                *force = force.add(force_i);
+                *torque = torque.add(torque_i);
+            }
+            CloseOutcome::Breaks { .. } => {
+                cap.wall_bridges.remove(&key);
+            }
+            CloseOutcome::WallBreaks { transfer } => {
+                cap.wall_bridges.remove(&key);
+                if let Some(tr) = transfer {
+                    cap.flux[i] += tr.flux_i;
+                    let (limit, max) = if cp.limit_liquid_content {
+                        (true, cp.max_liquid_content[t])
+                    } else {
+                        (false, 0.0)
+                    };
+                    if let Some(m) = cap.mesh_liquid.get_mut(&w) {
+                        m.add_liquid_flux(c.tri, tr.vol_flux, area, limit, max);
+                    }
+                }
             }
         }
     }
@@ -2693,6 +3332,7 @@ impl GranularSystem {
         if let NeighborOrder::Liggghts(cfg) = self.neighbor_order {
             if self.setup_phase || self.rebuild_now || self.perm.len() != self.particles.len() {
                 self.rebuild_liggghts_list(cfg);
+                self.exclude_body_pairs();
                 self.rebuild_now = false;
             }
             return;
@@ -2704,6 +3344,7 @@ impl GranularSystem {
         self.pairs = pairs;
         self.cell_offsets = offsets;
         self.cell_items = items;
+        self.exclude_body_pairs();
     }
 
     /// Above this many grid cells, the dense flat grid is abandoned for the

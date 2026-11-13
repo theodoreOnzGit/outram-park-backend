@@ -92,6 +92,7 @@ pub mod photon_prod;
 pub mod photon_groups;
 pub mod self_shielded;
 pub mod slowing_down;
+pub mod spectrum;
 pub mod thermal;
 pub mod two_body;
 pub mod unresolved;

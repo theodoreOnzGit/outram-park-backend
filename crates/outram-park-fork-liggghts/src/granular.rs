@@ -108,7 +108,8 @@
 //!   `easo`/`washino` capillary cohesion models, the EPSD family and
 //!   multicontact are translated (checked: `GranularCohesion`,
 //!   `crate::capillary`, `tests/*_cross_code.rs`)**;
-//!   superquadrics,
+//!   ~~superquadrics,~~ (**CORRECTED 2026-11-13, gh:#1415:** superquadrics
+//!   are in [`crate::superquadric`], a separate driver),
 //!   the `limitForce`/`viscous`/`heating`/elastic-potential switches, and
 //!   ~~mixed-material property matrices~~ **(`MaterialTable` exists)**.
 //! - **Verified against upstream** — see `docs/verification-and-validation.md`
@@ -462,6 +463,10 @@ pub struct ContactKinematics {
     pub liquid_i: f64,
     /// `surfaceLiquidContent` of `j`.
     pub liquid_j: f64,
+    /// A wall contact's liquid volume `* 1000` (Washino's `volLj1000` on a
+    /// `fix mesh/surface/liquidtransfer` facet, gh:#1487); zero otherwise and
+    /// unless set by [`ContactKinematics::with_wall_liquid`].
+    pub wall_liquid_vol1000: f64,
 }
 
 impl ContactKinematics {
@@ -556,6 +561,7 @@ impl ContactKinematics {
             mass_j: j.mass,
             liquid_i: 0.0,
             liquid_j: 0.0,
+            wall_liquid_vol1000: 0.0,
         })
     }
 
@@ -577,6 +583,17 @@ impl ContactKinematics {
         Self {
             liquid_i,
             liquid_j,
+            ..self
+        }
+    }
+
+    /// The same wall contact with the facet's liquid volume `* 1000`
+    /// attached (Washino on a `liquidtransfer` mesh, [`crate::capillary`],
+    /// gh:#1487).
+    #[must_use]
+    pub fn with_wall_liquid(self, wall_liquid_vol1000: f64) -> Self {
+        Self {
+            wall_liquid_vol1000,
             ..self
         }
     }
@@ -639,6 +656,7 @@ impl ContactKinematics {
             mass_j: 0.0,
             liquid_i: 0.0,
             liquid_j: 0.0,
+            wall_liquid_vol1000: 0.0,
         })
     }
 }
@@ -706,6 +724,7 @@ impl ContactKinematics {
             mass_j: 0.0,
             liquid_i: 0.0,
             liquid_j: 0.0,
+            wall_liquid_vol1000: 0.0,
         }
     }
 }

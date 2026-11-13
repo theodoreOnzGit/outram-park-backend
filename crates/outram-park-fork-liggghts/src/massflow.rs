@@ -33,8 +33,14 @@
 //! bookkeeping, and the per-crossing log (`file`/`screen` output as a
 //! returned `Vec`), `delete_atoms yes`, `sum_property`, a moving counting mesh
 //! (`with_moving_wall`) and `fix massflow/mesh/sieve`. **Not translated:**
-//! the multisphere volume weight, restart, and a *deforming* counting mesh
-//! (no deformation exists upstream). Like upstream, only the
+//! ~~the multisphere volume weight (this crate has no `fix multisphere`; gh:#1491)~~
+//! **CORRECTED 2026-11-13** (gh:#1415): `fix multisphere` is ported, and the
+//! volume weight is applied ([`MassFlowMesh::set_volume_weights`], cross-coded
+//! by `in.ms_massflow` in `tests/multisphere_cross_code.rs`);
+//! `sieveMultiSphereCanPass` is still not translated. Also not translated:
+//! restart, and a *deforming* counting mesh (no deformation exists upstream).
+//! `point_at_outlet` / `inside_out` are cross-coded since 2026-11-12
+//! (`tests/massflow_options_cross_code.rs`, `in.massflow_outlet`). Like upstream, only the
 //! particles in the mesh's neighbour list (`createOtherNeighList`) are
 //! visited, and that list is built at neighbour-list rebuilds
 //! ([`MassFlowMesh::rebuild_lists`], called by the owning system at set-up
@@ -131,6 +137,9 @@ pub struct MassFlowMesh {
     nvec: [f64; 3],
     pref: [f64; 3],
     counter: HashMap<u64, f64>,
+    /// `volumeweight_ms` per particle index, present when a `fix multisphere`
+    /// exists (gh:#1415, #1491 item 4).
+    volume_weight: Option<Vec<f64>>,
     mass: f64,
     nparticles: f64,
     mass_last: f64,
@@ -210,6 +219,7 @@ impl MassFlowMesh {
             nvec,
             pref,
             counter: HashMap::new(),
+            volume_weight: None,
             mass: 0.0,
             nparticles: 0.0,
             mass_last: 0.0,
@@ -417,6 +427,32 @@ impl MassFlowMesh {
         }
     }
 
+    /// Set the per-particle multisphere volume weights (`volumeweight_ms`,
+    /// indexed like the particles; 1 for a free sphere), as the owning
+    /// [`GranularSystem`](crate::granular_system::GranularSystem) does each
+    /// step once it holds clumps (gh:#1415, #1491 item 4). A counted atom then
+    /// adds `w * rmass` to the mass and `w` to the count, so a clump counts its
+    /// mass once in total.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] as `FixMassflowMesh::post_create` with a
+    /// `fix multisphere`: `delete_atoms` is refused and `count once` required.
+    pub fn set_volume_weights(&mut self, w: Vec<f64>) -> Result<(), DemError> {
+        if self.delete_atoms {
+            return Err(DemError::InvalidInput(
+                "fix massflow/mesh: can not use 'delete_atoms' with fix multisphere/*".into(),
+            ));
+        }
+        if !self.cfg.once {
+            return Err(DemError::InvalidInput(
+                "fix massflow/mesh: must use 'count once' with fix multisphere/*".into(),
+            ));
+        }
+        self.volume_weight = Some(w);
+        Ok(())
+    }
+
     /// `FixMassflowMesh::post_integrate`: one invocation per step, after the
     /// particles have moved. `tags[i]` is particle `i`'s tag, `dt` the
     /// timestep.
@@ -481,8 +517,15 @@ impl MassFlowMesh {
                 }
                 if d > 0.0 && bary_sign == 7 {
                     if c == 0.0 {
-                        mass_this += 1.0 * p.mass;
-                        n_this += 1.0;
+                        // `(fix_volumeweight_ms_ ? vector_atom[iPart] : 1.)`:
+                        // a clump's member atoms each carry the clump mass and
+                        // their share of its volume
+                        let w = self
+                            .volume_weight
+                            .as_ref()
+                            .map_or(1.0, |v| v.get(ip).copied().unwrap_or(1.0));
+                        mass_this += w * p.mass;
+                        n_this += w;
                         if let Some(prop) = &self.property {
                             prop_this += prop.get(&tag).copied().unwrap_or(0.0);
                         }
