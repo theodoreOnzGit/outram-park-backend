@@ -39,3 +39,36 @@ different water formulations (as the steam sibling's 5 % is), not the expected v
 
 If any of L1-L5 misses, the finding is the miss: investigate `density_pt`/`state_ph` and the
 closure, do not move the bound.
+
+## Results (measured 2026-11-13, `cargo test --release -p tampines --test hem_coolprop`, 1 build job, shared machine)
+
+| # | predicted | measured | verdict |
+|---|---|---|---|
+| L1 | `Ok`, single phase, rho = 974.573 to 1e-9 | rho = 974.573279183 kg/m3 (CoolProp reference 974.573279182652), T = 350.000000 K | held |
+| L2 | `Δρ/ρ ≤ 1e-4`, `Δh ≤ 0.5 kJ/kg`, expected ~3e-5, ~0.2 kJ/kg | 2 MPa / 350 K: IF97 974.585762, **Δρ/ρ = −1.281e-5, Δh = +59.5 J/kg**, c 1558.670 vs 1561.140 m/s (−0.16 %) | held, better than expected |
+| L3 | `Ok`, liquid, ~900 kg/m3, IF97 as L2 | 1.3 MPa / 455 K: rho = 885.186131 (not 6.84), IF97 885.172864, **Δρ/ρ = +1.499e-5, Δh = −135.2 J/kg**, c 1387.353 vs 1386.909 m/s (+0.03 %) | held (my 900 estimate was 1.7 % high; the bound was on agreement, not on the number) |
+| L4 | `HemPipe::new` `Ok` | `Ok` | held |
+| L5 | star p ~1.5 MPa; max abs dp ≤ 1 % of jump, expected ~0.1 %; step counts within 10 % | 32 steps each; star p 1.499970 (IF97) vs 1.499951 MPa (CoolProp); **max abs dp = 1464.6 Pa = 0.1465 % of the 1 MPa jump** | held |
+| L6 | CoolProp > 10x slower than IF97; liquid no slower than steam | liquid: IF97 0.17 s, CoolProp 83.6 s (about 490x). Steam in the same run: 78.95 s. The liquid run was about 6 % slower than steam, while the two ran concurrently on a shared machine | first half held; **second half missed by a small margin** (not investigated: concurrent timing on a shared box; the 400-step bisection is gone, the per-step cost is the `(rho, e)` Brent root over the Helmholtz `(p, h)` flash) |
+
+Interpretation: the corrected `density_pt` makes the CoolProp HEM closure usable for compressed liquid, and the
+two water formulations agree on the liquid to ~1.5e-5 in density and 0.15 % of the jump in a shock tube, in line
+with IF97 Region 1 being a fit to IAPWS-95. The acoustic star pressure is the same to 2e-5 relative. The IF97 vs
+IAPWS-95 consistency figures used for the L2 bound were not re-checked against the IAPWS R7-97 table (see above).
+
+### Moved numbers (old to new)
+
+| quantity | old (2026-10-16 record) | new (2026-11-13) |
+|---|---|---|
+| `CoolPropHem::state_p_t(2 MPa, 350 K)` | `EquationOfState` error (coolprop root rho = 322.0, h about −6.4e18) | Ok, rho = 974.573279183 kg/m3 |
+| `CoolPropHem::state_p_t(1.3 MPa, 455 K)` | `EquationOfState` error (metastable vapour, rho = 6.84) | Ok, rho = 885.186131 kg/m3 |
+| steam shock tube (500 K, 0.2 / 0.1 MPa, 0.5 ms) star p, IF97 | 0.139940 MPa | **0.140066 MPa** |
+| same, CoolProp | 0.139938 MPa | 0.139938 MPa (unchanged) |
+| same, max abs dp | 8.7 Pa = 0.009 % of the jump | **290.2 Pa = 0.290 %** |
+| same, CoolProp wall time | 28 s | 79 s (concurrent run on a shared machine) |
+
+The steam-tube movement is on the **IF97** side; CoolProp's star pressure is unchanged to the digits recorded. It
+is not caused by this change (the steam test and the solver were not touched). `tampines-steam-tables/src/hem`
+took many commits after 2026-10-16 (variable area, friction and gravity, networks, PETIR transcendentals,
+gh:#1102/#1111 choke work); the responsible one was not bisected. The steam test's 5 % bound still holds with
+a factor of 17 of margin; the 0.29 % figure is the one to quote now.
