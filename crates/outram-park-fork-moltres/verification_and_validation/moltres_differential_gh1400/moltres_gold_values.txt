@@ -61,3 +61,51 @@ GOLD materials/gold/gmm_monotone_cubic_out.e nod group2 0 0 0 8.2714480571404927
 GOLD materials/gold/gmm_monotone_cubic_out.e nod group2 1 1 0 8.2714480571404962
 GOLD materials/gold/gmm_monotone_cubic_out.e nod group2 2 1 1 8.2714480571404962
 GOLD materials/gold/gmm_monotone_cubic_out.e nod group2 3 0 1 8.2714480571404962
+GOLD materials/gold/mjm_none_out.e glo fiss_neutrons 2.2935802839616306
+GOLD materials/gold/mjm_none_out.e glo group1diff 277.03087379998721
+GOLD materials/gold/mjm_none_out.e glo k_eff 1.1467901419808177
+GOLD materials/gold/mjm_none_out.e glo tot_fissions 0.94079626670153704
+GOLD materials/gold/mjm_none_out.e nod group1 0 0 0 318.01893197758653
+GOLD materials/gold/mjm_none_out.e nod group1 1 1 0 318.01893197758653
+GOLD materials/gold/mjm_none_out.e nod group1 2 1 1 318.01893197758642
+GOLD materials/gold/mjm_none_out.e nod group1 3 0 1 318.01893197758653
+GOLD materials/gold/mjm_none_out.e nod group2 0 0 0 29.707588867733609
+GOLD materials/gold/mjm_none_out.e nod group2 1 1 0 29.707588867733612
+GOLD materials/gold/mjm_none_out.e nod group2 2 1 1 29.70758886773362
+GOLD materials/gold/mjm_none_out.e nod group2 3 0 1 29.707588867733623
+GOLD materials/gold/mjm_linear_out.e glo fiss_neutrons 2.2939221036865121
+GOLD materials/gold/mjm_linear_out.e glo group1diff 277.03750429755053
+GOLD materials/gold/mjm_linear_out.e glo k_eff 1.1469610518432585
+GOLD materials/gold/mjm_linear_out.e glo tot_fissions 0.94093789758272151
+GOLD materials/gold/mjm_linear_out.e nod group1 0 0 0 318.4788353512713
+GOLD materials/gold/mjm_linear_out.e nod group1 1 1 0 318.4788353512713
+GOLD materials/gold/mjm_linear_out.e nod group1 2 1 1 318.47883535127124
+GOLD materials/gold/mjm_linear_out.e nod group1 3 0 1 318.4788353512713
+GOLD materials/gold/mjm_linear_out.e nod group2 0 0 0 30.110546525051024
+GOLD materials/gold/mjm_linear_out.e nod group2 1 1 0 30.110546525051024
+GOLD materials/gold/mjm_linear_out.e nod group2 2 1 1 30.110546525051024
+GOLD materials/gold/mjm_linear_out.e nod group2 3 0 1 30.110546525051024
+GOLD materials/gold/mjm_spline_out.e glo fiss_neutrons 2.2928901473900178
+GOLD materials/gold/mjm_spline_out.e glo group1diff 276.54670722604931
+GOLD materials/gold/mjm_spline_out.e glo k_eff 1.1464450736950114
+GOLD materials/gold/mjm_spline_out.e glo tot_fissions 0.94051435007694251
+GOLD materials/gold/mjm_spline_out.e nod group1 0 0 0 317.96218682327543
+GOLD materials/gold/mjm_spline_out.e nod group1 1 1 0 317.96218682327543
+GOLD materials/gold/mjm_spline_out.e nod group1 2 1 1 317.96218682327537
+GOLD materials/gold/mjm_spline_out.e nod group1 3 0 1 317.96218682327543
+GOLD materials/gold/mjm_spline_out.e nod group2 0 0 0 30.064713090231557
+GOLD materials/gold/mjm_spline_out.e nod group2 1 1 0 30.064713090231557
+GOLD materials/gold/mjm_spline_out.e nod group2 2 1 1 30.06471309023155
+GOLD materials/gold/mjm_spline_out.e nod group2 3 0 1 30.06471309023155
+GOLD materials/gold/mjm_monotone_cubic_out.e glo fiss_neutrons 2.2935662884820576
+GOLD materials/gold/mjm_monotone_cubic_out.e glo group1diff 276.99309436304128
+GOLD materials/gold/mjm_monotone_cubic_out.e glo k_eff 1.1467831442410312
+GOLD materials/gold/mjm_monotone_cubic_out.e glo tot_fissions 0.94079070995440306
+GOLD materials/gold/mjm_monotone_cubic_out.e nod group1 0 0 0 318.04504565444671
+GOLD materials/gold/mjm_monotone_cubic_out.e nod group1 1 1 0 318.04504565444671
+GOLD materials/gold/mjm_monotone_cubic_out.e nod group1 2 1 1 318.04504565444671
+GOLD materials/gold/mjm_monotone_cubic_out.e nod group1 3 0 1 318.04504565444671
+GOLD materials/gold/mjm_monotone_cubic_out.e nod group2 0 0 0 29.762681532832683
+GOLD materials/gold/mjm_monotone_cubic_out.e nod group2 1 1 0 29.762681532832687
+GOLD materials/gold/mjm_monotone_cubic_out.e nod group2 2 1 1 29.762681532832683
+GOLD materials/gold/mjm_monotone_cubic_out.e nod group2 3 0 1 29.762681532832683
