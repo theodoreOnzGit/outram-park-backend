@@ -37,6 +37,9 @@ static void history
     std::FILE* f,
     const word& fieldName,
     const lduMatrix& matrix,
+    const FieldField<Field, scalar>& bou,
+    const FieldField<Field, scalar>& intc,
+    const lduInterfaceFieldPtrsList& interfaces,
     const scalarField& source,
     const scalarField& psi0,
     const std::string& solverName,
@@ -44,8 +47,13 @@ static void history
     label nIter
 )
 {
-    const FieldField<Field, scalar> bou(0), intc(0);
-    const lduInterfaceFieldPtrsList interfaces;
+    // PBiCGStab is registered for asymmetric matrices only: hand it an
+    // asymmetric-flagged copy (lower = upper) of the symmetric pressure matrix
+    lduMatrix asym(matrix.mesh());
+    asym.diag() = matrix.diag();
+    asym.upper() = matrix.upper();
+    asym.lower();
+    const lduMatrix& mat = (solverName == "PBiCGStab" && matrix.symmetric()) ? asym : matrix;
     for (label n = 1; n <= nIter; ++n)
     {
         dictionary d;
@@ -65,7 +73,7 @@ static void history
         d.add("maxIter", n);
         autoPtr<lduMatrix::solver> s = lduMatrix::solver::New
         (
-            fieldName, matrix, bou, intc, interfaces, d
+            fieldName, mat, bou, intc, interfaces, d
         );
         scalarField psi(psi0);
         solverPerformance perf = s->solve(psi, source);
@@ -113,6 +121,14 @@ Foam::solverPerformance Foam::dumpSolver::solve
     dumpField(f, "eq_" + n + "_upper", upper);
     dumpField(f, "eq_" + n + "_lower", lower);
     dumpField(f, "eq_" + n + "_psi", psi);
+    {
+        const lduAddressing& addr = matrix_.lduAddr();
+        forAll(addr.lowerAddr(), i)
+        {
+            std::fprintf(f, "addr_lower %d %d\n", int(i), int(addr.lowerAddr()[i]));
+            std::fprintf(f, "addr_upper %d %d\n", int(i), int(addr.upperAddr()[i]));
+        }
+    }
     List<scalarField> keep(4);
     keep[0] = diag;
     keep[1] = upper;
@@ -156,7 +172,7 @@ Foam::solverPerformance Foam::dumpSolver::solve
             {
                 history
                 (
-                    f, n, matrix_, source, psi, item.substr(0, c),
+                    f, n, matrix_, interfaceBouCoeffs_, interfaceIntCoeffs_, interfaces_, source, psi, item.substr(0, c),
                     c == std::string::npos ? "" : item.substr(c + 1), nIter
                 );
             }
