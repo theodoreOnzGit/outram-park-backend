@@ -436,6 +436,9 @@ impl ChtMultiRegionFoam {
         let t_old_f: Vec<VolScalarField> = self.fluids.iter().map(|f| f.energy.as_ref().expect("checked in new").t.clone()).collect();
         let t_old_s: Vec<VolScalarField> = self.solids.iter().map(|s| s.energy.t.clone()).collect();
         for f in &mut self.fluids {
+            if let Some(e) = f.energy.as_mut() {
+                e.begin_time_step();
+            }
             if !f.solution.pimple.frozen_flow {
                 f.step_flow()?;
             }
