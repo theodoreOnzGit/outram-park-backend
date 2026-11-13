@@ -48,7 +48,7 @@ closure, do not move the bound.
 | L2 | `Δρ/ρ ≤ 1e-4`, `Δh ≤ 0.5 kJ/kg`, expected ~3e-5, ~0.2 kJ/kg | 2 MPa / 350 K: IF97 974.585762, **Δρ/ρ = −1.281e-5, Δh = +59.5 J/kg**, c 1558.670 vs 1561.140 m/s (−0.16 %) | held, better than expected |
 | L3 | `Ok`, liquid, ~900 kg/m3, IF97 as L2 | 1.3 MPa / 455 K: rho = 885.186131 (not 6.84), IF97 885.172864, **Δρ/ρ = +1.499e-5, Δh = −135.2 J/kg**, c 1387.353 vs 1386.909 m/s (+0.03 %) | held (my 900 estimate was 1.7 % high; the bound was on agreement, not on the number) |
 | L4 | `HemPipe::new` `Ok` | `Ok` | held |
-| L5 | star p ~1.5 MPa; max abs dp ≤ 1 % of jump, expected ~0.1 %; step counts within 10 % | 32 steps each; star p 1.499970 (IF97) vs 1.499951 MPa (CoolProp); **max abs dp = 1464.6 Pa = 0.1465 % of the 1 MPa jump** | held |
+| L5 | star p ~1.5 MPa; max abs dp ≤ 1 % of jump, expected ~0.1 %; step counts within 10 % | 32 steps each; star p 1.499970 (IF97) vs 1.499951 MPa (CoolProp); **max abs dp = ~~1464.6 Pa~~ 1465.3 Pa = 0.1465 % of the 1 MPa jump** (2026-11-13, gh:#1346: now with the IF97 pipe ablated of wall friction, like for like; 1464.6 Pa was with friction) | held |
 | L6 | CoolProp > 10x slower than IF97; liquid no slower than steam | liquid: IF97 0.17 s, CoolProp 83.6 s (about 490x). Steam in the same run: 78.95 s. The liquid run was about 6 % slower than steam, while the two ran concurrently on a shared machine | first half held; **second half missed by a small margin** (not investigated: concurrent timing on a shared box; the 400-step bisection is gone, the per-step cost is the `(rho, e)` Brent root over the Helmholtz `(p, h)` flash) |
 
 Interpretation: the corrected `density_pt` makes the CoolProp HEM closure usable for compressed liquid, and the
@@ -67,8 +67,27 @@ IAPWS-95 consistency figures used for the L2 bound were not re-checked against t
 | same, max abs dp | 8.7 Pa = 0.009 % of the jump | **290.2 Pa = 0.290 %** |
 | same, CoolProp wall time | 28 s | 79 s (concurrent run on a shared machine) |
 
-The steam-tube movement is on the **IF97** side; CoolProp's star pressure is unchanged to the digits recorded. It
+~~The steam-tube movement is on the **IF97** side; CoolProp's star pressure is unchanged to the digits recorded. It
 is not caused by this change (the steam test and the solver were not touched). `tampines-steam-tables/src/hem`
 took many commits after 2026-10-16 (variable area, friction and gravity, networks, PETIR transcendentals,
 gh:#1102/#1111 choke work); the responsible one was not bisected. The steam test's 5 % bound still holds with
-a factor of 17 of margin; the 0.29 % figure is the one to quote now.
+a factor of 17 of margin; the 0.29 % figure is the one to quote now.~~
+**EXPLAINED 2026-11-13 (gh:#1346, bisected):** the first bad commit is **1211cc9de** (2026-11-01, gh:#1061, wall
+friction in `HemPipe`), not the IF97 backward-equation fix 7be8a7d24 (this state is Region 2a, which that fix does
+not touch) and not the PETIR, variable-area, network or choke commits. `git bisect` over
+`crates/tampines-steam-tables/src` from 3037f2036 (0.139940) found 2c9b7a02e good and 1211cc9de, c8182db14,
+3008d6027, 831b1ae1a and HEAD bad (0.140066). That commit made wall friction a DEFAULT of `HemPipe`, acting whenever
+the closure supplies a viscosity. `Iapws97Hem` does; `HemEos::CoolProp` returns `None`, so the CoolProp pipe is
+frictionless and the two default pipes stopped being like for like. With `HemPipe::without_wall_friction` the IF97
+tube gives **0.139940 MPa and max |dp| = 8.7 Pa = 0.009 %, identical to the 2026-10-16 record**, so the 7 corrected
+transposed coefficients moved nothing here. Quote **8.7 Pa (0.009 %)** for IF97 vs CoolProp like for like; **290.2 Pa
+(0.290 %)** is IF97 with friction against a frictionless CoolProp, which compares two different models. The
+test now gates both (see `coolprop_and_if97_agree_on_a_single_phase_water_shock_tube`). Wall friction is physics
+IF97 supplies and stays ON by default; CoolProp's missing viscosity is the gap (gh:#1346 follow-up), not the IF97 side.
+
+| quantity | 2026-11-13 first record | after ablation (like for like) |
+|---|---|---|
+| steam tube star p, IF97 | 0.140066 MPa (friction) | 0.139940 MPa (same as 2026-10-16) |
+| steam tube max abs dp vs CoolProp | 290.2 Pa | 8.7 Pa |
+| liquid tube star p, IF97 | 1.499970 MPa | 1.499970 MPa (friction does not move it at 7 digits) |
+| liquid tube max abs dp vs CoolProp (L5) | 1464.6 Pa (friction) | 1465.3 Pa (IF97 ablated; the L5 test now ablates) |

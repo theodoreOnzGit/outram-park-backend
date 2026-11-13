@@ -37,3 +37,16 @@ CoolProp side unchanged at 0.139938 MPa.
    side should then sit 290 Pa from CoolProp, i.e. the agreement got WORSE,
    so unless the cause is a correction it should be examined as a possible
    regression.
+
+## Result (2026-11-13, measured after the prediction commit 6ca8d79dc)
+
+- 7be8a7d24 is not the culprit (predicted about 10 %: held). The first bad
+  commit is **1211cc9de**, wall friction made a HemPipe default (gh:#1061),
+  i.e. item 2 of the prediction (60 %: a changed pipe default, not the steam
+  tables), though I named variable area / friction / networks and the sign was
+  right (+126 Pa, a step change at one commit). Item 4 was half wrong in
+  reading: the "agreement got worse" is not a regression of IF97, it is
+  friction acting on one side only; ablated, the agreement is the old 8.7 Pa.
+- The prediction did not anticipate that the cause is an asymmetry between
+  closures (IF97 supplies a viscosity, CoolProp does not), which is why it
+  looked like an unexplained IF97 move.
