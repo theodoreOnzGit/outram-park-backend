@@ -133,7 +133,8 @@ pub use crate::fields::vol_field_algebra;
 pub use crate::fluid_thermo::{ConstSolidThermo, FluidThermo, PsiThermo, RhoThermo, SolidThermo};
 
 // --- LDU solvers ---
-pub use crate::ldu_matrix::{conjugate_gradient, gamg, gauss_seidel};
+pub use crate::ldu_matrix::{conjugate_gradient, gamg, gauss_seidel, gauss_seidel_upstream};
+pub use crate::ldu_matrix::{pbicgstab_dilu, PbicgstabDiluPerformance, PbicgstabDiluSettings};
 
 // --- FvMatrix/FvVectorMatrix bridge onto the asymmetric Krylov solvers ---
 pub use crate::ldu_matrix::{

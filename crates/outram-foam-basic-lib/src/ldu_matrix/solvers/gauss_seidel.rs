@@ -75,6 +75,53 @@ pub fn gauss_seidel(
     (max_iter, res)
 }
 
+/// `n_sweeps` Gauss-Seidel sweeps in OpenFOAM-v2506 arithmetic.
+///
+/// Mirrors `Foam::GaussSeidelSmoother::smooth` (`GaussSeidelSmoother.C`, ESI v2506) line
+/// for line: per sweep `bPrime = b`; for each cell in order `psii = bPrime[c] - sum
+/// upper*psi[u]` over the faces the cell owns, `psii /= diag[c]` (a DIVISION, where
+/// [`gauss_seidel`] multiplies by `1/diag`), then `bPrime[u] -= lower*psii` over the same
+/// faces. Requires faces sorted by owner (upper-triangular order, as OpenFOAM writes
+/// them). No convergence test: exactly `n_sweeps` sweeps, as `smoothSolver` with a fixed
+/// iteration count. gh:#1362 row 3: [`gauss_seidel`] agrees with upstream only to ~1e-13
+/// after 30 sweeps because of the `/diag` against `*inv_diag` rounding; this is
+/// bit-identical.
+///
+/// # Arguments
+/// * `mat` - matrix (`lower` used as stored).
+/// * `b` - right-hand side.
+/// * `x` - iterate, updated in place.
+/// * `n_sweeps` - number of sweeps.
+pub fn gauss_seidel_upstream(mat: &LduMatrix, b: &[f64], x: &mut [f64], n_sweeps: usize) {
+    let n = mat.n_cells;
+    debug_assert_eq!(b.len(), n);
+    debug_assert_eq!(x.len(), n);
+    // ownerStartAddr: first face owned by each cell (faces sorted by owner)
+    let mut own_start = vec![0usize; n + 1];
+    for f in 0..mat.n_internal_faces {
+        own_start[mat.owner[f] + 1] += 1;
+    }
+    for c in 0..n {
+        own_start[c + 1] += own_start[c];
+    }
+    let mut b_prime = vec![0.0_f64; n];
+    for _ in 0..n_sweeps {
+        b_prime.copy_from_slice(b);
+        for c in 0..n {
+            let (f_start, f_end) = (own_start[c], own_start[c + 1]);
+            let mut psii = b_prime[c];
+            for f in f_start..f_end {
+                psii -= mat.upper[f] * x[mat.neighbour[f]];
+            }
+            psii /= mat.diag[c];
+            for f in f_start..f_end {
+                b_prime[mat.neighbour[f]] -= mat.lower[f] * psii;
+            }
+            x[c] = psii;
+        }
+    }
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -115,5 +162,18 @@ mod tests {
         assert_relative_eq!(x[0], 2.0, epsilon = 1e-12);
         assert_relative_eq!(x[1], 3.0, epsilon = 1e-12);
         assert_relative_eq!(x[2], 3.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn upstream_form_matches_the_reference_form_to_rounding() {
+        let mat = tridiag_3x3();
+        let b = vec![3.0, 2.0, 3.0];
+        let mut x1 = vec![0.0; 3];
+        gauss_seidel(&mat, &b, &mut x1, 0.0, 7);
+        let mut x2 = vec![0.0; 3];
+        gauss_seidel_upstream(&mat, &b, &mut x2, 7);
+        for i in 0..3 {
+            assert_relative_eq!(x1[i], x2[i], epsilon = 1e-14);
+        }
     }
 }
