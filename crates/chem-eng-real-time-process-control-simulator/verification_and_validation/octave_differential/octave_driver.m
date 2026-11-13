@@ -10,6 +10,10 @@
 % No input is a hidden random draw: the inputs are PRINTED (tag `sysd`, `u`, `sysc`)
 % and the Rust test reads them back, so the Rust side never re-generates them.
 pkg load control
+% Optional: OCTAVE_OVERRIDE_DIR holds an @tf/ with __c2d__.m / __d2c__.m taken from
+% pkg-control 4.3.0 (7773b7b1); addpath-ed so those two methods shadow the installed 4.0.1.
+ovr = getenv('OCTAVE_OVERRIDE_DIR');
+if ~isempty(ovr), addpath(ovr); end
 rand('twister', 1433);
 randn('twister', 1433);
 

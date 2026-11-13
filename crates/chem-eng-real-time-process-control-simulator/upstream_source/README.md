@@ -17,3 +17,8 @@ If a genuinely reusable upstream reference implementation is identified later
 (e.g. a specific open-source process-control library this crate is modelled
 on), document it here with the same fields the other crates' `upstream_source/README.md`
 files use (repository URL, license, commit, provenance, licensing note).
+
+**Differential run (2026-11-13, gh:#1433):** `z_domain` was compared against a run of
+Octave 8.4.0 with control 4.0.1 (the version `apt` provides; the cited 4.2.2+ commit
+`f39e2625` could not be installed). See
+`verification_and_validation/octave_differential/`.

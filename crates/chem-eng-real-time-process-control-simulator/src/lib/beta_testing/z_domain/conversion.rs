@@ -618,9 +618,12 @@ fn c2d_matched(
 /// branch of upstream `inst/@tf/__d2c__.m` (GPL-3.0-or-later, Lukas F.
 /// Reichlin), restricted to order <= 2.
 ///
-/// Deviation from upstream, documented: upstream's frequency-avoidance
+/// Deviation from upstream, documented: ~~upstream's frequency-avoidance
 /// loop tests `abs([p_d; z_d_orig] - w_d) < tol` but never updates `w_d`
-/// inside the loop, which cannot terminate once entered; this port
+/// inside the loop, which cannot terminate once entered~~ **CORRECTED
+/// 2026-11-13 (gh:#1433):** true of control 4.0.1 `@tf/__d2c__.m`, but
+/// pkg-control 4.3.0 updates `w_d = exp (1j * w_c * tsam)` inside the loop
+/// (diffed against the installed 4.0.1); this port
 /// recomputes `w_d = exp(w_c T)` on every iteration, which is the evident
 /// intent. Additionally, where a lone negative-real discrete pole maps to
 /// a genuinely complex continuous pole (principal-branch logarithm), the
