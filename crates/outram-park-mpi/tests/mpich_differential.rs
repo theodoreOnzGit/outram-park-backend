@@ -4,18 +4,20 @@
 //!
 //! `verification_and_validation/mpich_differential/upstream_driver/mpich_driver.c`
 //! is compiled against an unmodified MPICH 4.2.0 (Ubuntu 24.04 `mpich
-//! 4.2.0-5build3`, device `ch4:ucx`) and run with 2..=8 ranks. Every rank prints one
+//! 4.2.0-5build3`, device `ch4:ucx`) and run with 2..=12 ranks. Every rank prints one
 //! line per case; floating-point values are printed as the hex of their IEEE-754 bit
 //! pattern. The output is stored in
-//! `verification_and_validation/mpich_differential/refs/mpich_4.2.0_default.txt`
+//! `verification_and_validation/mpich_differential/refs/mpich_4.2.0_default_{wide,narrow}.txt`
 //! (regenerate with `scripts/run_mpich.sh`). This test runs the same cases with
 //! [`outram_park_mpi::run`] and compares the lines **string for string**, i.e. bit for
 //! bit for every floating-point value. Cases: point-to-point (wildcard status,
 //! non-overtaking, selective matching), `reduce` (sum f64 at three roots, max/min/prod),
-//! `all_reduce` (sum f64/f32, max/min f64), bcast/scatter/gather/allgather, group
+//! `all_reduce` (sum f64/f32, max/min f64; recursive doubling), long `reduce`
+//! (Rabenseifner), +-0.0/NaN max/min operand order, bcast/scatter/gather/allgather, group
 //! algebra, `create_from_group`, `split`, `dup`, and 2-D Cartesian topologies. The test
-//! values have exponents spread over 2^-78..2^78 so every floating-point sum rounds and
-//! its association order is visible in the bits.
+//! values come in two sets: `wide` (exponents 2^-78..2^78, insensitive to association
+//! order) and `narrow` (exponents within +-3, where the order shows in the bits); both
+//! are compared.
 //!
 //! Predictions were committed before the recorded runs:
 //! `verification_and_validation/mpich_differential/PREDICTIONS.md`.
@@ -80,7 +82,10 @@ fn fnv(v: &[f64]) -> u64 {
 }
 
 fn join<T: ToString>(v: &[T]) -> String {
-    v.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(",")
+    v.iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 fn opt(x: Option<i32>) -> i32 {
@@ -225,10 +230,7 @@ fn case_special(comm: &Communicator, nw: bool, out: &mut Slots) {
         }
         aout.push(comm.all_reduce(&[input[k]], ops[k]).unwrap()[0]);
     }
-    out.push((
-        "reduce_special_f64",
-        root_has.then(|| special_line(&rout)),
-    ));
+    out.push(("reduce_special_f64", root_has.then(|| special_line(&rout))));
     // 8 KiB messages (above MPICH's 2 KiB short-message limit)
     let sb: Vec<f64> = (0..1024).map(|j| mk(nw, me, j)).collect();
     let r = comm.reduce(&sb, ReduceOp::Sum, 0).unwrap();
@@ -242,7 +244,12 @@ fn case_special(comm: &Communicator, nw: bool, out: &mut Slots) {
         Some(format!("count=1024 fnv={:016x}", fnv(&r))),
     ));
     let n = comm.size();
-    let spec = [(256usize, n - 1), (257, n - 1), (1024, n - 1), (1024, n / 2)];
+    let spec = [
+        (256usize, n - 1),
+        (257, n - 1),
+        (1024, n - 1),
+        (1024, n / 2),
+    ];
     for (cnt, root) in spec {
         let sb: Vec<f64> = (0..cnt).map(|j| mk(nw, me, j as i32)).collect();
         let r = comm.reduce(&sb, ReduceOp::Sum, root).unwrap();
@@ -435,6 +442,84 @@ fn port_lines(n: i32, nw: bool) -> Vec<String> {
     lines
 }
 
+/// MPICH 4.2.0 with `MPIR_CVAR_ALLREDUCE_INTRA_ALGORITHM=recursive_doubling`.
+const REF_NARROW_FORCED_RD: &str = include_str!(
+    "../verification_and_validation/mpich_differential/refs/mpich_4.2.0_narrow_allreduce_recursive_doubling.txt"
+);
+
+/// MPICH 4.2.0 with `..ALLREDUCE_INTRA_ALGORITHM=reduce_scatter_allgather` and
+/// `..REDUCE_INTRA_ALGORITHM=reduce_scatter_gather`.
+const REF_NARROW_FORCED_RSAG: &str = include_str!(
+    "../verification_and_validation/mpich_differential/refs/mpich_4.2.0_narrow_allreduce_reduce_scatter_allgather.txt"
+);
+
+/// MPICH 4.2.0 with `MPIR_CVAR_REDUCE_INTRA_ALGORITHM=binomial`.
+const REF_NARROW_FORCED_BINOMIAL: &str = include_str!(
+    "../verification_and_validation/mpich_differential/refs/mpich_4.2.0_narrow_reduce_binomial.txt"
+);
+
+fn lines_of_case<'a>(text: &'a str, case: &str) -> Vec<&'a str> {
+    let prefix = format!("{case} ");
+    text.lines().filter(|l| l.starts_with(&prefix)).collect()
+}
+
+/// The MPICH references with a forced algorithm establish which algorithm MPICH's
+/// default runs: this is the evidence the port's algorithm choice rests on.
+#[test]
+fn forced_mpich_algorithms_identify_the_default_ones() {
+    // allreduce: the default IS recursive doubling (every line of the whole run equal),
+    // and reduce_scatter_allgather has the same per-element association.
+    assert_eq!(REF_NARROW, REF_NARROW_FORCED_RD);
+    for case in [
+        "allreduce_sum_f64",
+        "allreduce_sum_f64_c40",
+        "allreduce_sum_f64_c1024",
+    ] {
+        assert_eq!(
+            lines_of_case(REF_NARROW, case),
+            lines_of_case(REF_NARROW_FORCED_RSAG, case),
+            "{case}"
+        );
+    }
+    // reduce, short messages: the default IS the binomial tree.
+    for case in ["reduce_sum_f64", "reduce_sum_f64_c40"] {
+        assert_eq!(
+            lines_of_case(REF_NARROW, case),
+            lines_of_case(REF_NARROW_FORCED_BINOMIAL, case),
+            "{case}"
+        );
+    }
+    // reduce, long messages: the default is reduce_scatter_gather for 257 and 1024
+    // doubles and the binomial tree for 256 (the 2048-byte threshold).
+    let split = |text: &'static str| -> (Vec<&str>, Vec<&str>) {
+        let all = lines_of_case(text, "reduce_sum_f64_long");
+        let short: Vec<&str> = all
+            .iter()
+            .copied()
+            .filter(|l| l.contains(" count=256 "))
+            .collect();
+        let long: Vec<&str> = all
+            .iter()
+            .copied()
+            .filter(|l| !l.contains(" count=256 "))
+            .collect();
+        (short, long)
+    };
+    let (d_short, d_long) = split(REF_NARROW);
+    let (r_short, r_long) = split(REF_NARROW_FORCED_RSAG);
+    let (b_short, b_long) = split(REF_NARROW_FORCED_BINOMIAL);
+    assert_eq!(d_long, r_long);
+    assert_eq!(d_short, b_short);
+    assert_ne!(
+        d_long, b_long,
+        "the long-message data must be able to tell the algorithms apart"
+    );
+    assert_ne!(
+        d_short, r_short,
+        "the short-message data must be able to tell the algorithms apart"
+    );
+}
+
 fn ref_lines(text: &str, n: i32) -> Vec<String> {
     let tag = format!(" n={n} ");
     text.lines()
@@ -451,7 +536,7 @@ fn case_of(line: &str) -> &str {
 /// Returns `(identical, total, differing lines)` for every case name.
 fn compare(text: &str, nw: bool) -> Vec<(String, usize, usize, Vec<String>)> {
     let mut table: Vec<(String, usize, usize, Vec<String>)> = Vec::new();
-    for n in 2..=8 {
+    for n in 2..=12 {
         let port = port_lines(n, nw);
         let up = ref_lines(text, n);
         assert_eq!(
@@ -493,7 +578,10 @@ fn assert_port_matches(text: &str, nw: bool) {
             }
         }
     }
-    assert!(!failed, "the port differs from MPICH 4.2.0; see the table above");
+    assert!(
+        !failed,
+        "the port differs from MPICH 4.2.0; see the table above"
+    );
 }
 
 #[test]
@@ -535,7 +623,11 @@ fn model_recursive_doubling_sum(x: &[f64]) -> Vec<f64> {
         for rank in 0..n {
             if newrank[rank] >= 0 {
                 let newdst = (newrank[rank] as usize) ^ mask;
-                let dst = if newdst < rem { newdst * 2 + 1 } else { newdst + rem };
+                let dst = if newdst < rem {
+                    newdst * 2 + 1
+                } else {
+                    newdst + rem
+                };
                 val[rank] = before[dst] + before[rank];
             }
         }
@@ -553,7 +645,7 @@ fn model_recursive_doubling_sum(x: &[f64]) -> Vec<f64> {
 fn recursive_doubling_model_reproduces_mpich_allreduce_bits() {
     // The cause of any all_reduce difference is the association order: this model of
     // MPICH's recursive doubling must reproduce MPICH's own bits for every rank.
-    for n in 2..=8usize {
+    for n in 2..=12usize {
         for j in [0i32, 1, 2] {
             let x: Vec<f64> = (0..n).map(|r| mk(true, r as i32, j)).collect();
             let model = model_recursive_doubling_sum(&x);
@@ -592,7 +684,8 @@ fn model_binomial_sum(x: &[f64]) -> f64 {
 fn recursive_doubling_model_reproduces_mpich_40_lane_hash_and_orders_differ() {
     let mut differing_orders = 0;
     let mut total = 0;
-    for n in 2..=8usize {
+    let mut per_n = [0usize; 13];
+    for n in 2..=12usize {
         let up = ref_lines(REF_NARROW, n as i32);
         let mut rd_lanes = vec![0.0; 40];
         for (j, lane) in rd_lanes.iter_mut().enumerate() {
@@ -603,6 +696,7 @@ fn recursive_doubling_model_reproduces_mpich_40_lane_hash_and_orders_differ() {
             total += 1;
             if model_binomial_sum(&x).to_bits() != rd[0].to_bits() {
                 differing_orders += 1;
+                per_n[n] += 1;
             }
         }
         let want = format!("fnv={:016x}", fnv(&rd_lanes));
@@ -613,7 +707,11 @@ fn recursive_doubling_model_reproduces_mpich_40_lane_hash_and_orders_differ() {
         }
     }
     println!(
-        "binomial vs recursive-doubling association: {differing_orders} of {total} (n, lane) sums differ in the bits"
+        "binomial vs recursive-doubling association: {differing_orders} of {total} (n, lane) sums differ in the bits; per n (lanes of 40): {:?}",
+        &per_n[2..]
     );
-    assert!(differing_orders > 0, "the test values must be able to expose the order");
+    assert!(
+        differing_orders > 0,
+        "the test values must be able to expose the order"
+    );
 }

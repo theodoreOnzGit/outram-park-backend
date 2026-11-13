@@ -20,10 +20,12 @@ for kv in "$@"; do export "$kv"; done
 tmp="$(mktemp -d)"
 mpicc.mpich -O1 -o "$tmp/mpich_driver" "$here/../upstream_driver/mpich_driver.c" -lm
 : > "$out"
-for n in 2 3 4 5 6 7 8; do
-  # One launch of the n=4 job hung once at 100 % of a core while the machine was
-  # shared with other builds (not reproduced); a 60 s timeout and one retry keep
-  # the script from blocking. A retry writes the whole n-block again.
+for n in 2 3 4 5 6 7 8 9 10 11 12; do
+  # Launches hung twice (n=4, n=8) before the driver had a barrier after its
+  # ANY_SOURCE ring: a wildcard receive of rank 0 could take rank 1's next message
+  # (a race in the TEST, found by attaching gdb: rank 0 in MPI_Recv, the rest in
+  # collectives). The timeout stays as a guard so that a hang cannot block the
+  # script; each attempt rewrites its whole n-block.
   ok=0
   for attempt in 1 2 3; do
     if timeout 60 mpirun.openmpi --allow-run-as-root --oversubscribe -n "$n" "$tmp/mpich_driver" "$mode" >"$tmp/out_$n.txt"; then
