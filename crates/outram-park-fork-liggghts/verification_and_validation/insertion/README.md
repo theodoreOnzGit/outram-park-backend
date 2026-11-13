@@ -65,7 +65,10 @@ insertions (up to 12 per step) into a pile already falling. The prediction is me
   R = 30 mm wall lost one atom upstream and was redesigned, not worked around).
 * **Not translated**: ~~`fix insert/stream`~~ **CORRECTED 2026-11-11: translated, see below** (`/predefined` is not), multi-sphere and
   superquadric templates, `orientation random` (rejected: it would need
-  `random_unit_quat`), `set_property`, `side out`/dynamic regions, radius/density
+  `random_unit_quat`) (**CORRECTED 2026-11-13, gh:#1415:** multisphere and
+  superquadric templates are translated, and `orientation random` for
+  superquadrics; see `docs/verification-and-validation.md` §§ 4.16 and
+  4.17.2), `set_property`, `side out`/dynamic regions, radius/density
   distributions other than `constant` (upstream's `particletemplate/sphere`
   accepts only `constant` at this commit), multi-process
   `distribute_ninsert_this`, `region` types other than `block` and `cylinder`.

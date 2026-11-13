@@ -314,6 +314,15 @@ impl Tape {
         }
     }
 
+    /// Replace the rows of the section at position `i` of [`Tape::sections`]
+    /// (a module rewriting one section in place, as UNRESR rewrites MF=2/MT=152,
+    /// gh:#1369). Out-of-range `i` does nothing.
+    pub fn set_section_rows(&mut self, i: usize, rows: Vec<[f64; 6]>) {
+        if let Some(s) = self.sections.get_mut(i) {
+            s.rows = rows;
+        }
+    }
+
     /// Set the raw text (columns 1-66, one entry per row) of a section whose
     /// lines the six-float rows cannot carry: MF=1/MT=451's description, for a
     /// PENDF a deck driver builds (gh:#1369, `deck::pendf`).

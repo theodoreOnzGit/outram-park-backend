@@ -576,12 +576,15 @@ fields not taken. All gated at the predicted bounds (O1, O2: 1e-10 at step 1, 1e
    without clearing it, so the NEXT time step's first `loop()` prints "converged in 0 iterations" and **solves
    nothing**. Found at step 71, where every field jumped (`T` 1.4e-4 relative, growing by 1.4e-4 every second
    step): the upstream log shows steps 71, 73, ..., 107 with no `PIMPLE: iteration` line. This is
-   **upstream's behaviour** (a defect of GeN-Foam 652b3da, not a port defect), reproduced by default as
+   **upstream's behaviour** (a defect of GeN-Foam 652b3da, not a port defect), ~~reproduced by default as
    `OnePhaseFcControls::stale_pimple_converged_flag = true`; `without_stale_pimple_converged_flag()` keeps the
-   clean ending callable (it then solves the skipped steps and ends at least 1e-5 away from upstream at
-   step 108). **It applies to twoPhase too** (same control class): a twoPhase run whose criteria are first
-   met at `corr == nOuterCorrectors` skips the next step upstream. Not yet checked in the twoPhase port, whose
-   65-step and onset records never reached such a step (not re-run: noted, see "What remains").
+   clean ending callable~~ **CHANGED 2026-11-12 (maintainer decision, "yes", gh:#1361): the default is now the
+   corrected clean ending** (`stale_pimple_converged_flag = false`); upstream's defect is the explicit
+   `with_upstream_stale_pimple_converged_flag()`, which the upstream comparison test sets. The clean ending
+   solves the skipped steps and ends 2.6e-3 (`T`) from upstream's defective run at step 108 (see "Round 4
+   follow-up"). **It applies to twoPhase too** (same control class upstream): a twoPhase run whose criteria are
+   first met at `corr == nOuterCorrectors` skips the next step upstream. ~~Not yet checked in the twoPhase
+   port~~ **CHECKED 2026-11-12:** see "Round 4 follow-up".
 3. **`calcCumulContErr` runs only in the iteration flagged converged.** It sits under `if (pimple_.finalIter())`,
    whose inherited definition (`converged_ || corr_ == nCorrPIMPLE` on the BASE class's `corr_`) is true only in
    the flagged iteration; the custom loop keeps its own `corr_`. A step that never meets its criteria adds
@@ -594,7 +597,7 @@ fields not taken. All gated at the predicted bounds (O1, O2: 1e-10 at step 1, 1e
 ### Options added (ESI form is the default; the other form stays callable)
 
 `without_equation_relaxation`, `without_first_step_lazy_old_time`, `without_kinetic_energy`,
-`with_structure_after_solve_temperature`, `without_stale_pimple_converged_flag`. Their misses are pinned in
+`with_structure_after_solve_temperature`, ~~`without_stale_pimple_converged_flag`~~ `with_upstream_stale_pimple_converged_flag` (renamed 2026-11-12: the upstream defect is now the explicit option). Their misses are pinned in
 `one_phase_channel_options_reproduce_the_recorded_misses`. No Foundation-vs-ESI divergence was found that needed
 a new option beyond these; `Time::adjustDeltaT` reuses the ESI form from round 3.
 
@@ -606,8 +609,9 @@ None recorded before this round concerned `onePhase` against the binary. The two
 ### What remains
 
 * The U.vapour residual noted for the 1D_boiling twoPhase run (5.7e-6 at step 2, 2.1e-5 at step 1: the absent-vapour
-  inlet cell) was **not attempted**: this round went to onePhase; it is a twoPhase item.
-* Check whether twoPhase hits the stale `converged_` flag (item 2) and add the same named option.
+  inlet cell) ~~was **not attempted**: this round went to onePhase; it is a twoPhase item.~~ **DONE 2026-11-13 (round 5, "Item 4"):** localised to
+  the first divergent operation and fixed.
+* ~~Check whether twoPhase hits the stale `converged_` flag (item 2) and add the same named option.~~ **DONE 2026-11-12**, see "Round 4 follow-up".
 * `1D_HX/onePhase` itself (heat exchangers, `fixedValue` U inlet, `slip` walls, `fixedFluxPressure`) and
   `2D_cavityBoussinesq` (Boussinesq, closed volume) still cannot be read; each refusal is named in `OnePhaseFcCase::read`.
 * `contErr` / cumulative error are round-off limited (1e-13 of the `rho/dt` scale); bit-identity was not pursued.
@@ -653,7 +657,7 @@ alpha.vapour, dmdt, each as worst |port - upstream| / max |upstream| over the 40
 | | T.vapour, T.interface, U.vapour | <= 2.3e-10, 7.6e-10, 7.0e-10 |
 | | alpha.vapour, dmdt | exactly 0 in both (no vapour) |
 | steps 1-2 | everything except U.vapour | <= 1e-10 |
-| steps 1-2 | U.vapour | 2.1e-5 (step 1), 5.7e-6 (step 2): **a known, unexplained residual** (below) |
+| steps 1-2 | U.vapour | 2.1e-5 (step 1), 5.7e-6 (step 2): ~~**a known, unexplained residual** (below)~~ **CORRECTED 2026-11-13:** explained and fixed in round 5 (the construction-time `p` patch, "Item 4"): 1.35e-11 and 1.96e-11 now |
 | t = 0.5 ... 6.0 s of the full 12 s (12 reference times) | every field | <= 2.5e-11 (the vapour is absent); before D4 the same times were off by 1e-6 to 1e-4 (the port took 77 steps to t = 0.5 s, 66 after) |
 | step 616 (t = 6.0 s) | every field | <= 5.5e-12 |
 | steps 617-627 (boiling onset) | p, p_rgh | <= 3.6e-10 |
@@ -755,10 +759,290 @@ No ESFR, MSFR, albedo, Godiva number was re-run or moved by this round (their co
 - onePhase TH against the binary: `featureCases/2D_cavityBoussinesq` runs on the real binary after the build here (not run
   in this round), but the port's `OnePhaseSolver` has no case reader, so the comparison needs a harness that builds the
   mesh, boundary conditions and Boussinesq thermo in Rust. Not started.
-- The U.vapour residual at steps 1-2 (absent vapour, inlet cell): after D5 the vapour inlet-face flux differs by 4e-6
-  relative; it is consistent with the old-time vapour `rho` patch value being about 0.57 % lower in upstream, cause not found.
+- ~~The U.vapour residual at steps 1-2 (absent vapour, inlet cell): after D5 the vapour inlet-face flux differs by 4e-6
+  relative; it is consistent with the old-time vapour `rho` patch value being about 0.57 % lower in upstream, cause not found.~~
+  **CORRECTED 2026-11-13:** cause found and fixed (round 5, "Item 4"): it was the construction-time patch of `p` (the case file's 1e5, not
+  `p_rgh`'s 1.4e5), which sets the patch densities of the absent phase and their lazily stored old-time copies. The "0.57 % lower" guess was not
+  the mechanism (the patch densities differ by 40 %, 0.7462 against 0.5330; the flux effect is 4e-6 because the liquid dominates the partial elimination).
 - PSBT beyond the closure: the port refuses the case (`multiRegimeBoilingTRACE`, `twoParameters`, `byRegime`), so only the
   `ReynoldsPower` relation is compared. `1D_CHF`, `2D_KNS37-L22` (MULES) and PSBT Ex2/Ex3 stay port gaps.
 - Coupled transients (MSFR, ESFR) with the TH region kernel (#1475), thermoMechanics (offbeat stubbed), and the full-binary
   runs that need `thermoTools` (not built here, and not needed for any case run in this round).
 - Bit-identity of the alpha tail at the onset needs bit-identical p_rgh solves (GAMG).
+
+
+## Round 4 follow-up (2026-11-12): corrected convergence flag becomes the default
+
+**Maintainer decision, 2026-11-12 ("yes"), recorded on gh:#1361:** GeN-Foam ports default to the CORRECTED
+behaviour; upstream's defect is the explicit, named option. Applied to `onePhase` (faceCentered) as
+`OnePhaseFcControls::stale_pimple_converged_flag` default **`false`** and
+`OnePhaseFcSolver::with_upstream_stale_pimple_converged_flag()` (replacing `without_stale_pimple_converged_flag`).
+`tests/genfoam_one_phase_vs_upstream.rs` sets the upstream option in every comparison against the binary.
+
+**Predictions, written before the re-run (the upstream binary is not available, so only committed references are used):**
+
+* P1. The upstream comparisons (first 40 steps, full 108 steps) with the upstream option are unchanged to the
+  last digit: the flag first matters at step 71 and the option restores the old code path exactly (bit-identical
+  to the previous default run).
+* P2. Default (corrected) vs upstream-bug run at step 108: `T` differs by between 1e-4 and 1e-2 relative (the
+  skipped steps accumulated 1.4e-4 per second step in the earlier record, over 19 skipped steps, but the
+  corrected run catches up partly); `p` and `U` by less than `T`; `T.fixedPower` follows `T`. Cause: the
+  18 or so steps upstream skips (every second step from 71) are solved in the corrected run.
+* P3. twoPhase: the port's own loop keeps `converged` local to the step (`two_phase/mod.rs`), so it never
+  carries the flag across steps and is already the corrected form. Whether 1D_boiling ever first meets its
+  criteria in the last outer iteration (the case in which upstream would skip the next step) is predicted
+  to be: no, in the 65-step and onset records.
+
+**P3 (above) was WRONG, and the twoPhase comparison needs the option.** Before the option existed, the twoPhase
+port was instrumented (`StepReport::upstream_would_skip_next_step`) and the whole 12 s run printed the steps
+whose criteria were first met in the last outer iteration: **1D_boiling does hit the condition**, tight protocol
+at steps 751, 1763, 2421, 3309, 5248, 5254, 5273, 5274, 5403, 6033, 6037, 6523, 6615, 6660, 6662, 6664, 6666,
+6668, and at the shipped tolerances at 735, 1108, 4848, 4849, 4889, 4997, 5171, 5287, 5288. Every one is after the
+boiling onset (step 618, 6.02 s), so the gated pre-onset and onset comparisons are untouched. Upstream skips the
+step after each of these; the port (clean ending, the port's old behaviour and the new default) did not.
+Added `TwoPhaseControls::stale_pimple_converged_flag` (default `false`) and
+`TwoPhaseSolver::with_upstream_stale_pimple_converged_flag()`; the upstream comparison tests set it.
+
+**Predictions for the twoPhase option, written before its first run:**
+
+* P4. The first 65 steps and the onset window (steps 1-627) are unchanged with the option (first hit is step 735
+  or later): same bounds hold, bit-identical numbers.
+* P5. Pre-onset full-run rows (t <= 6 s) unchanged. Post-onset rows (t >= 6.5 s) move, because the skipped steps
+  now exist; the port's earlier O(1) post-onset disagreement (alpha.vapour, dmdt) is mostly flow sensitivity and
+  I predict the option does NOT bring it to round-off; I predict `p` and `T.liquid` at t = 12 s move by more
+  than 1e-4 and get closer to upstream by less than a factor of ten. The cumulative continuity errors stay far
+  from upstream's (-0.4466, 2.0e-4 shipped) because the port adds them every step, not only in the iteration
+  flagged converged (the onePhase finding 3); that is a separate, unported item for twoPhase.
+
+### Results (measured 2026-11-12, release, `genfoam_one_phase_vs_upstream`, `genfoam_two_phase_vs_upstream`, `genfoam_two_phase_1d_boiling`)
+
+**onePhase, upstream comparison (P1 held).** With `with_upstream_stale_pimple_converged_flag()` set, the first 40
+steps and the full 108-step comparison pass at the same unchanged bounds, and the cumulative continuity error is
+the same to 16 digits as before the change (port -8.750609708659356e-6 vs upstream -8.750922625618369e-6 kg/m3).
+The flag first bites at step 71, so steps 1-70 could not move.
+
+**onePhase, MOVED NUMBER: default (corrected) vs the upstream-defect run, step 108 (P2 held).** The corrected run
+solves all 108 steps; the upstream-option run skips 19 (every second step from 71, as upstream's log shows).
+Worst relative difference between the two end states (relative to the field maximum; `contErr` scaled by
+`max(alpha rho)/dt`, `dgdt` by `1/dt`, as in `compare`):
+
+| field | p | p_rgh | T | U | T.fixedPower | htc | Re | contErr | dgdt |
+|---|---|---|---|---|---|---|---|---|---|
+| corrected vs upstream-bug | 4.2e-5 | 2.0e-5 | 2.6e-3 | 3.9e-4 | 2.6e-3 | 1.3e-3 | 3.1e-3 | 3.0e-2 | 1.2e-1 |
+
+Cause: the skipped steps advance time and the structure power but solve nothing, so the upstream run lags the
+corrected one by up to 19 solves. Gated by `one_phase_default_is_the_corrected_pimple_ending` (default is `false`,
+the default run skips 0 steps, the option skips 19) and by `one_phase_channel_options_reproduce_the_recorded_misses`
+(the default end state differs from upstream's by more than 1e-5 in `T`). **Quote the option's numbers when the
+claim is "agrees with upstream"; quote the default's when the claim is "is correct".**
+
+**twoPhase: 1D_boiling DOES hit the condition (P3 wrong, above).** The port's own loop was always the clean ending, so
+nothing moved in its default behaviour; the option reproduces upstream's skip. Results:
+
+* P4 held: with the option, steps 1-65 and 616-627 pass at their unchanged bounds (first hit is step 735/751).
+* Full tight run, rows t <= 6 s (P5, pre-onset part, held): identical to the digit to the default's rows (worst
+  2.5e-11 at 6 s, the 1e-10 gate).
+* Full tight run, post-onset, default (old) -> with the upstream option (new), worst relative difference at t = 12 s:
+  `p` 1.7e-5 -> 4.8e-4, `T.liquid` 4.9e-4 -> 1.5e-2, `T.fixedPower` 4.6e-4 -> 1.6e-2, `U.liquid` 1.1e-4 -> 3.2e-3,
+  `T.interface` 2.6e-6 -> 7.0e-5. Steps: default 7454, option 5569, **upstream 6157** (|diff| 1297 -> 588).
+  Cumulative continuity error (liquid, vapour) kg/m3: default (-4.407, 3.89e-5), option (-7.521, 5.86e-3), upstream
+  (-2.296, 1.155e-3). The option skips steps after 751, 1766, 2033, 2969 (the trajectory differs from the default's
+  list 751, 1763, 2421, ...). **P5's last clause was WRONG:** the option did not bring the t = 12 s fields closer to
+  upstream, it moved them away (and the step count nearer). The post-onset run is chaotic
+  (`one_d_boiling_post_onset_sensitivity_of_the_port_to_the_alpha_solve` shows an O(1) change from a 1e-6
+  perturbation), so neither post-onset figure is evidence about the flag; the gated, quotable numbers are the
+  pre-onset ones. I did not use the post-onset closeness to choose the default (the maintainer's decision fixes it).
+* Full run at the shipped tolerances, default: hits at steps 735, 1108, 4848, 4849, 4889, 4997, 5171, 5287, 5288.
+  ~~**With the option this run stalls after t = 9.5 s** (step 4903, over 20 min of CPU with no further reference time
+  reached; stopped by hand; cause not investigated: a stalled solve or a collapsing step, not looked at). Because a
+  hang cannot be a test, `one_d_boiling_full_shipped_vs_upstream` runs the default and says so in its comment; its
+  gated part (t <= 6 s) cannot differ, the first hit being after the onset. **Open item** for the maintainer.~~
+  **CORRECTED 2026-11-13 (round 5, "Item 2"):** it was a collapsing time step in the port's own post-onset trajectory,
+  not a stalled solve and not the control flow; explained, guarded, and no longer reproduced by the default construction.
+  `one_d_boiling_full_shipped_vs_upstream` now sets the option.
+* ~~Not ported for twoPhase, still open: `calcCumulContErrs` only in the iteration flagged converged (onePhase
+  finding 3; the twoPhase port adds it every step), which is part of why the cumulative errors above are far off.~~
+  **DONE 2026-11-13 (round 5, "Item 3").**
+* `one_d_boiling_default_is_the_corrected_pimple_ending` pins the twoPhase default (flag `false`, default run skips 0
+  steps, upstream option skips 4, 1D_boiling reaches the condition 18 times).
+
+
+# Round 5 (gh:#1361, 2026-11-13): twoPhase PIMPLE control flow against the real binary, step by step
+
+AI-written, not human-reviewed. Research, education and V&V only. Upstream rebuilt (ESI v2506 and GeN-Foam 652b3da,
+`scripts/upstream/build-esi-v2506-and-genfoam.sh`); the numbers below are from that build. Predictions are committed
+BEFORE the port runs they concern.
+
+## What upstream's `customPimpleControl` does, read before any run (the specification)
+
+Read: `customPimpleControl.{C,H}`, `customPimpleControlI.H`, ESI `pimpleControl.{C,H}`, `pimpleControlI.H`,
+`solutionControl.H`, and every GeN-Foam call site of `finalIter`/`firstIter`/`isFinalIteration`.
+
+* `customPimpleControl` declares its OWN `int corr_` (public). `loop()` and `criteriaSatisfied()` advance and read
+  that one. The inline, NON-virtual `pimpleControl::finalIter()`, `firstIter()` and `storeInitialResiduals()` read
+  the BASE `solutionControl::corr_`, which is never advanced, so it stays 0. Consequences (all verified in the
+  upstream log, which prints `ini res = 0` in every "PIMPLE loop:" line):
+  1. `finalIter()` is `converged_` only. At `corr == nOuterCorrectors` without convergence it is false, so the
+     data flag `finalIteration` is NOT set for the last iteration (only the flagged iteration is "final").
+  2. `storeInitialResiduals()` is always false, so `residualControl_[f].initialResidual` stays 0, `relative =
+     last/(0 + SMALL)` is huge and `relCheck` is false for any `relTol` in these cases: the criterion is the
+     ABSOLUTE one, `residuals.last() < tolerance`, only.
+  3. `calcCumulContErrs` is under `if (pimple_.finalIter())` -> only in the iteration flagged converged.
+* The criteria use `previousPIMPLEFirstPISORes_.last()` for `p_rgh` (`useFirstPISOInitialResidual true`: the initial
+  residual of the first PISO corrector of the last outer iteration, stored by `updateFirstPISOPrevPIMPLE()` after each
+  `p_rgh` solve with `corrPISO_ == 1`) and `maxResidual().last()` for `h.liquid` (the last `h.liquid` initial residual).
+* Flag then run: criteria met at the START of outer iteration c (c >= 2) sets `converged_`, runs iteration c as the
+  final one; the next `loop()` prints "converged in c iterations" and clears it, EXCEPT c == nOuterCorrectors, where the
+  `corr == nCorr + 1` branch returns first and leaves `converged_` set (the stale flag, round 4).
+
+Where the port stood before this round (read, not run): the loop is the same call sequence; the cumulative continuity
+error was added after the loop in EVERY step, including a skipped one (item 3 of the task; the onePhase port had
+already moved it into the iteration flagged converged).
+
+## Predictions (written BEFORE the port flow run)
+
+The reference is a fresh upstream run: 1D_boiling, tight protocol, 12 s, default write control, `scripts/extract_pimple_flow.sh`
+on its log: one line per step with the iterations run, the ending (`conv<N>`, `notconv`, or `conv0` = skipped step) and the
+`p_rgh`/`h.liquid` residuals the criteria printed. Upstream: 6157 steps, 8 skipped steps (conv0), each preceded by a step
+flagged in its last iteration. The port is run with `with_upstream_stale_pimple_converged_flag()`.
+
+| id | prediction | reason |
+|---|---|---|
+| F1 | steps 1-617 (single phase): the port's iteration count and ending equal upstream's at EVERY step | the fields agree to 1e-10 there (round 3), so the criteria see the same numbers |
+| F2 | the residuals in the lists of F1 agree to better than 1e-6 relative wherever they exceed 1e-8 | same state; the first-PISO `p_rgh` initial residual and the `h.liquid` initial residual are computed on the same matrices. Entries at the 1e-14 noise floor are not compared |
+| F3 | the first step with a different iteration count is after the onset (> 618), and at that step the deciding residual (the one that crossed 1e-5 in one code and not in the other) is within a factor 2 of 1e-5 in BOTH codes | the two post-onset trajectories differ by 1e-6 in alpha at the onset and amplify (round 3 noise floor): a threshold crossing, not a control-flow difference |
+| F4 | step 751, flagged in the last iteration by the port, is not flagged by upstream: upstream's last printed `p_rgh` residual is 1.5264e-5 (read from the log), above 1e-5. I predict the port's value is also within a factor 2 of 1e-5 | same as F3 |
+| F5 | no code defect is found in the loop's control flow itself. The explanation of "the option moves the run away from upstream" is that after the onset a single threshold crossing changes the trajectory, not that the translation differs | the call sequence of `step()` equals `customPimpleControl::loop()` line by line (see above) |
+
+A control experiment that removes the chaos (the port's only possible failing is then the loop): the same case with
+`nOuterCorrectors 5` (upstream's `NOUTER` hook of `boiling_protocol.sh`), stopped before the onset (t <= 3 s, every step written).
+At 5 outer iterations many steps meet the criteria exactly at iteration 5 (stale flag, skipped next step) and others never meet
+them (`notconv`), so both branches of the loop are exercised on a single-phase flow whose fields agree to 1e-10.
+
+| id | prediction |
+|---|---|
+| C1 | at `nOuterCorrectors 5` the port with the upstream option and upstream skip THE SAME steps (the same list of step numbers), at least 5 of them |
+| C2 | every field of every step, including the skipped ones, agrees as in round 3 (`p`, `p_rgh`, `T.liquid`, `U.liquid` <= 1e-9; `T.vapour`, `T.interface`, `U.vapour` <= 1e-7), with no growth across skipped steps |
+| C3 | the cumulative continuity errors, which the port now adds only in the iteration flagged converged, agree with upstream's final value to 1e-4 relative (round-off of the 1e-13 scale cancelling, as for onePhase 3e-10 absolute), where before this round they were a factor of a few off |
+
+### Item 4 (the `U.vapour` residual): localised before any fix, hypothesis committed before the fix
+
+`nOuterCorrectors 1`, `nCorrectors 1` (new `NCORR` knob of `boiling_protocol.sh`), step 1, port against the real binary,
+tight protocol (measured 2026-11-13): `U.liquid` agrees to 1.1e-13, `p` to 2e-7 of 1.4e5, `T.liquid` to 1e-13 and `U.vapour` in
+cells 1-39 to 9.4e-12, but **`U.vapour` in cell 0 (the inlet cell) is off by 2.07e-6** (relative 2.1e-6); the same cell with
+`nOuterCorrectors 2` (one corrector) is off by 8.2e-5 and cell 1 by 6.1e-6. Upstream's `phi.vapour` is uniform to 1e-15
+over all 39 internal faces AND the inlet face (-9.8058157811760707e-4), i.e. the vapour flux at the inlet face follows the same
+relation as at the interior faces. The port's inlet-cell velocity implies an inlet-face flux 4.2e-6 (relative) larger.
+
+Read: `alphaRhof2byDt = interpolate(max(alpha2, residualAlpha) rho2)/dt` and `alphaRhof20byDt` (same with the old
+time) enter `rAUf2` and `phiS2`; for an absent phase (alpha = 0) they are `residualAlpha rho2`, so the BOUNDARY value of `rho2` at the
+inlet decides the inlet-face flux. The port printed (temporary diagnostic, removed): at step 1, outer iteration 1,
+`p.b[inlet] = 1.4e5` (cell 1.0e5), vapour `rho.b = 0.7462` against the cell's `0.5330`, `rho_old_b = 0.7462`. Upstream: `p_` is
+`READ_IF_PRESENT` from `0/fluidRegion/p`, whose inlet patch is `calculated; value uniform 1e5`, and the thermo packages are
+constructed from it, so the vapour patch density is `rho(1e5, 652.15) = 0.5330` (equal to the cell) at construction, and the
+patch of `p` becomes `p_rgh + rho gh = 1.4e5` only at the first `p_ = max(p_rgh_ + rho_*gh_, pMin_)` (`updatePP_rghRho_2p.H`, after the first
+`p_rgh` solve). The port set `p`'s patches to `p_rgh`'s (`case.rs`) and again to `p_rgh + rho gh` after the thermo construction
+(`TwoPhaseSolver::new`), so its construction-time patch densities, and the old-time copies of them that `oldTime()` stores
+lazily, belong to 1.4e5.
+
+| id | prediction (committed before the fix) |
+|---|---|
+| U1 | `p`'s patch values are read from the case file (`calculated` + `value`) and NOT overwritten at construction; the first update is the existing one after the first `p_rgh` solve. `U.vapour` cell 0 at (1 outer, 1 corrector) moves from 2.07e-6 to below 1e-10, and the whole `U.vapour` field of steps 1 and 2 at the 24-outer-iteration protocol moves from 2.1e-5 and 5.7e-6 to below 1e-9 |
+| U2 | the other fields at steps 1 to 65 move by less than 1e-11 relative (they are insensitive to an absent phase's inlet density), so no recorded bound of the first-65-step gate needs touching; the `U.vapour` bound of steps 1-2 then tightens to the common one (the bound is tightened, never relaxed) |
+| U3 | onset window (steps 616-627) and the nOuter-6 control (item C2) keep passing at their bounds; the cumulative continuity errors of the control move by less than 1e-6 relative |
+| U4 | the old form stays callable: `TwoPhaseCase::without_p_patch_from_file()` reproduces 2.07e-6 / 2.1e-5 / 5.7e-6 |
+
+
+## Round 5 results (measured 2026-11-13, release; tests in `tests/genfoam_two_phase_vs_upstream.rs`)
+
+Upstream reference runs (real binary, serial, tight protocol unless said): 1D_boiling to 12 s: 6157 steps, 254 s wall; its log gives, per step,
+the iterations run and how the loop ended. Endings over the 6157 steps: conv6 952, conv10 811, conv11 799, conv12 739, conv9 550, conv13 474,
+notconv 421, conv14 272, conv15 220, conv16 188, conv8 176, conv17 166, conv18 80, conv19 62, conv5 55, conv7 50, conv20 46, conv21 34, conv23 23,
+conv22 19. **Skipped steps (`converged in 0 iterations`): 8, at steps 1811, 1813, 3005, 3678, 5648, 5650, 5652, 6012** (t = 6.92 s to 10.55 s), each
+preceded by a step whose criteria were first met in the 24th iteration. At the shipped tolerances (4401 steps): 8 skips at 729, 731, 733, 753, 1140, 1150, 1322, 1969.
+
+### Items 1 and 3 (control flow, `calcCumulContErrs`): the predictions
+
+| id | held? | measured |
+|---|---|---|
+| F1 | **held, and by more than predicted** | with the upstream option, the port's iteration count and ending equal upstream's at **every one of the first 723 steps**, The informative part is steps 1-636 (iteration counts 5 to 23 and 24, many different endings). In steps 637-723, where the two trajectories have already separated, all 87 steps are `notconv` in both codes, so equality there is weak evidence. First difference: step 724 (`tests: one_d_boiling_pimple_flow_tight_matches_upstream_until_the_trajectories_split`). Before the item-4 fix the first difference was step 752 |
+| F2 | **MISSED in size** | the criteria residuals do not agree to 1e-6: over steps 1-617 the worst relative differences of entries above 1e-8 are 1.7e-4 (`p_rgh` first-PISO) and 3.7e-4 (`h.liquid`); by magnitude (`p_rgh`): 1.1e-5 at 1e-6..1e-5, 1.3e-5 at 1e-4..1e-3, 1.7e-4 at 1e-7..1e-6. Cause: the OpenFOAM-normalised initial residual divides by a norm built from `A x - A xRef` that is small for a near-uniform field, so field differences of 1e-11 (the linear-solver stopping difference, GAMG against the port's ILU-BiCGStab at 1e-14) show up at 1e-5..1e-4 in a residual of 1e-6..1e-4. No decision flipped: all 723 endings are equal |
+| F3 | **held in kind, missed in detail** | the first differing step (724) is after the onset (618). The deciding residual is NOT within a factor 2 of 1e-5 in both codes: at step 724 upstream's last printed `p_rgh` residual is 2.2e-4 and the port met the criteria. The reason is that the trajectories had already separated (residual lists first differ by 17 % at step 637, the clocks by 0.03 s at step 700: upstream 6.28394, port 6.33092), so the two codes are no longer at the same state, which is what the noise-floor section of round 3 predicts |
+| F4 | **held, for the pre-fix run** | step 751 of the first run (before the item-4 fix; after it the corresponding steps are 723/724): upstream's last `p_rgh` residual 1.5264e-5, the port's 9.737e-6, both within a factor 2 of 1e-5 |
+| F5 | **held** | no difference in the loop's control flow was found; the option "moving the run away from upstream" in round 4 was a trajectory effect (see "Moved numbers") |
+| C1 | **held** | `nOuterCorrectors 6`, tight, 115 steps (to t = 1 s): upstream skips **55 steps** (every second step from step 4), the port skips the same 55, every iteration count and ending equal |
+| C2 | **held after item 4, missed before it** | fields per step, port vs upstream, 115 steps including the 55 skipped ones, worst relative difference: `p` 4.2e-12 (step 1; 9.8e-13 on a skipped step), `p_rgh` 4.2e-12, `T.liquid` 2.5e-13, `T.fixedPower` 1.4e-13, `U.liquid` 9.3e-12, `T.vapour` 1.3e-10, `T.interface` 4.5e-10, `U.vapour` 2.5e-11, `alpha.vapour` and `dmdt` exactly 0 in both. The first run of this test failed at step 1 on `U.vapour` (8.9e-5, bound 5e-5): that was item 4. No growth across skipped steps |
+| C3 | **held** | cumulative continuity error liquid: port -5.040486e-5, upstream -5.040441e-5 kg/m3 (relative 9e-6, absolute 4.5e-10, the onePhase size); vapour 0 in both |
+| extra | held | `nOuterCorrectors 7`, 3 s, 315 steps (309 `conv6`, 2 skipped, 4 `notconv`): iteration count and ending identical at every step |
+
+**What the port's loop was and is.** `step()` was already the same call sequence as `customPimpleControl::loop()` (read in full above), so no control-flow
+change was needed for item 1. The one translation defect in this part of the code was item 3. Not ported, recorded (none occurs in this case): the
+`*Final` variants of `fvSolution` entries (`p_rghFinal`, `h.vapourFinal`, `T.interfaceFinal`; upstream sets `finalIteration` only in the flagged
+iteration, so for a case whose Final settings differ the last unflagged iteration would use the non-Final ones), `useFirstPISOInitialResidual false`
+(the port always uses the first-PISO residual for `p_rgh`) and `stopIfFirstResRelChangeAboveRelTol`. 1D_boiling's `p_rgh`/`p_rghFinal`, `h.vapour`/`h.vapourFinal` and
+`T.interface`/`T.interfaceFinal` entries are pairwise equal.
+
+### Item 3: `calcCumulContErrs`
+
+Now called in the iteration flagged converged (`if (pimple_.finalIter())` is `converged_` only, see above), as for onePhase; a step that never meets its
+criteria and a skipped step add nothing. It applies to both modes (it is upstream's behaviour, not a defect of the flag; the diagnostic does not feed the physics).
+`StepReport::converged_at` and `TwoPhaseSolver::pimple_trace` record where it happened. **Decision deferred to the maintainer:** whether the corrected default
+should also accumulate in every step (the evident intent of `finalIter()`), which would make the number independent of the flag bug; it is a diagnostic
+only and I kept upstream's behaviour in both modes, as round 4 did for onePhase.
+
+### Item 2: the shipped-tolerance "stall"
+
+Reproduced with the round-4 code (earlier `p` patch, the upstream option; `GH1361_ABL_PPATCH=1`): the run reaches step 5035 at t = 9.949786 s with `dt = 1.9e-3`,
+then `dt` is 2.4e-7 at step 5036 (a factor 8000 down in one step, so the Courant number of step 5035 was about 8000 times the controller's target), and from step 5037 `dt` is below the resolution of t (9.95 has ulp 1.8e-15): the clock stops,
+`maxDeltaT` can only grow a zero step by a factor of zero, and the loop runs for ever (13804 steps and counting after 400 s, all at t = 9.949786127634228).
+It is **a collapsing time step in the port's own post-onset trajectory, not a stalled solve and not the loop**; the last reference time written was t = 9.5 s, as
+round 4 saw. It does not occur with the corrected `p` patch (item 4): the run with the option completes, 5292 steps (upstream 4401), 6 skipped steps (1716, 1779,
+2438, 4727, 4787, 4833; upstream 729, 731, 733, 753, 1140, 1150, 1322, 1969), 6.8 s of CPU. A zero or collapsed step is now an error
+(`AppBuilderError::Diverged`, `one_d_boiling_a_collapsed_time_step_is_an_error`); upstream has no such guard and would spin the same way from such a state.
+The first count difference at the shipped tolerances is step 729 (upstream skips, the port had not been flagged at 728); the loose solvers have already moved the
+residual lists by 1 % at step 282.
+
+### Item 4: the `U.vapour` residual, first divergent operation
+
+Localised by `nOuterCorrectors 1`, `nCorrectors 1` (above): cell 0 only. Cause, read in `thermalHydraulicsModel.C` (`p_` is `READ_IF_PRESENT` from
+`0/fluidRegion/p`, whose inlet patch is `calculated; value uniform 1e5`) and `pEqnf_2p.H`/`updatePP_rghRho_2p.H` (`p_` patches are assigned only after the first `p_rgh` solve):
+the port set the patches of `p` to `p_rgh`'s 1.4e5 at read time and again to `p_rgh + rho gh` after the thermo construction, so the vapour patch density (and its `oldTime()`
+copy) was 0.7462 instead of 0.5330. Fix: `TwoPhaseCase::read` takes the patch values from the file (`p_patch_from_file`, default `true`), the construction-time reset
+is kept only for the ablation `TwoPhaseCase::without_p_patch_from_file()`. Not a kovan-reviewed function.
+
+| quantity | before | after | prediction |
+|---|---|---|---|
+| `U.vapour`, cell 0, 1 outer iteration, 1 corrector | 2.07e-6 | 9.3e-12 | U1 held (below 1e-10) |
+| `U.vapour`, step 1 / step 2, 24 outer iterations (full protocol) | 2.06e-5 / 5.66e-6 | 1.35e-11 / 1.96e-11 | U1 held (below 1e-9) |
+| `U.vapour`, cell 0, 2 outer iterations, 1 corrector | 8.2e-5 | 1.0e-13 | |
+| other fields, steps 1-65 | within the round-3 bounds (`p`, `p_rgh` 1e-11, `T.liquid` 1e-12, `U.liquid` 1e-10, `T.vapour` 1e-9, `T.interface` 5e-9) | within the same bounds (e.g. step 1: `p` 4.0e-14, `T.liquid` 5.2e-16, `T.vapour` 1.2e-12, `T.interface` 5.5e-12; step 65: `p` 9.6e-13, `T.liquid` 2.5e-13) | U2 held: the gate passes at its unchanged bounds, which was the prediction; the per-step maxima were not re-tabulated |
+| onset window, steps 616-627 | `alpha.vapour` 3.4e-6, `dmdt` 3.1e-6 | 3.42e-6, 3.08e-6 | U3 held: bounds unchanged |
+| ablation `without_p_patch_from_file()` | | 2.06e-5, 5.66e-6 | U4 held (`one_d_boiling_p_patch_ablation_reproduces_the_recorded_u_vapour_miss`) |
+
+The gate bound for steps 1-2 of `one_d_boiling_first_steps_tight_vs_upstream` was tightened from 5e-5 (`U.vapour`) to the common 1e-10; no bound was relaxed.
+
+### Moved numbers (old to new, with cause)
+
+| number | old | new | cause |
+|---|---|---|---|
+| full tight run, port steps, default ending | 7454 | 6548 | item 4 (trajectory) |
+| same, upstream option (upstream: 6157) | 5569 (diff 588) | 6555 (diff 398) | item 4 |
+| steps flagged in the last iteration, option | after 751, 1766, 2033, 2969 | 16 steps (723, 725, 773, 1146, 1392, 1394, 1396, 1398, 1861, 1867, 3202, 3772, 4326, 6160, 6364, 6413); upstream skips 8 | item 4; chaotic after the onset |
+| cumulative continuity error, tight, option (liquid, vapour, kg/m3; upstream -2.296, 1.155e-3) | (-7.521, 5.86e-3) | (-1.821, 8.15e-4) | item 3 and item 4 together (not separated) |
+| same, default ending | (-4.407, 3.89e-5) | (-1.446, 6.93e-4) | same |
+| cumulative continuity error, shipped (upstream -0.4466, 2.00e-4) | default (round 3) -1.860, 8.51e-4 | option (new) -0.5570, 2.77e-4 | same; the old figure is the default run's, the new one the option's: not the same run |
+| t = 12 s fields, option, worst relative: `p`, `T.liquid`, `T.fixedPower`, `U.liquid` | 4.8e-4, 1.5e-2, 1.6e-2, 3.2e-3 | 6.1e-4, 2.1e-2, 2.2e-2, 4.4e-3 | post-onset sensitivity |
+| same, default ending | 1.7e-5, 4.9e-4, 4.6e-4, 1.1e-4 | 4.5e-4, 1.5e-2, 1.6e-2, 3.3e-3 | post-onset sensitivity |
+| shipped-tolerance run with the option | stalled at step ~5036, t = 9.9498 s | completes, 5292 steps | item 4, plus the new guard |
+
+**On the 12 s numbers.** The default ending was the closer one to upstream at t = 12 s before this round (`p` 1.7e-5), and is 4.5e-4 now; the option's closeness flipped
+the other way. A fix confined to two steps at the inlet moved every post-onset number by up to two orders of magnitude, which is what the round-3 noise floor says: **no post-onset
+figure here is evidence about the flag or about the loop**, in either direction. The gated and quotable comparisons are the pre-onset rows, the onset window, and the
+control-flow comparisons above (steps 1-723 identical; the `nOuterCorrectors 6` and `7` controls on single-phase flow, where the trajectories do not separate).
+
+### What remains (round 5)
+
+* The post-onset trajectory cannot be reproduced point-wise (round 3); the control-flow claim is therefore bounded by step 723 (tight) and by the controls.
+* `*Final` fvSolution variants, `useFirstPISOInitialResidual false` and `stopIfFirstResRelChangeAboveRelTol` are not read (none is exercised by 1D_boiling).
+* Decision for the maintainer: should the corrected-ending default also make `calcCumulContErrs` run in every step? (see Item 3).
+* The cumulative continuity error is still a factor 1.25 (shipped) to 1.3 (tight) from upstream's after the onset: it integrates a cancelling quantity along a chaotic trajectory, so it is not expected to close.

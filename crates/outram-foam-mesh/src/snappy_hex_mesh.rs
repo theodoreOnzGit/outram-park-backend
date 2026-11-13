@@ -94,6 +94,7 @@ pub mod castellation;
 pub mod cyclic;
 pub mod dict;
 pub mod esi_feature;
+pub mod esi_layer_final;
 pub mod esi_layer_loop;
 pub mod esi_layer_topo;
 pub mod esi_layers;

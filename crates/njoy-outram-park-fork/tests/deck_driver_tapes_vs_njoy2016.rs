@@ -2016,12 +2016,118 @@ fn test_15_groupr_gendf_whole_tape() {
     assert!(n > 1_000 && d == 0);
 }
 
+/// **Deck 76 (U-235 ENDF/B-VIII.0), the GROUPR GENDF (unit 25, text) as written,
+/// `6 /` included** (gh:#1369, round 3): the deck up to CCCCR (not ported).
+///
+/// `6 /` reaches MF=4/MT=18: `getff` label 200 with `econst` (`groupr.f90:7132-7232`),
+/// prompt nu from `getyld` on MF=1/MT=456, `getsed` on the tabulated `LF = 1`
+/// spectrum, the `ig = 0` spectrum record and the `ig <= jconst` yield records
+/// (`:755-826`). Prediction (gh:#1369, before the change): identical. **Result
+/// (2026-11-13): 0 differing lines of 10 012.** Before: refused at `6 /` MT=18.
+#[test]
+fn test_76_groupr_gendf_whole_tape() {
+    let Some((d, n)) = groupr_gendf("76", "n-092_U_235-ENDF8.0.endf", "'ccccr'", "", 25) else { return };
+    assert!(n > 7_000 && d == 0);
+}
+
+/// **Deck 47 (Pu-239 ENDF/B-VIII.0 beta 6), both GROUPR GENDFs through MODER
+/// copies (units 45 and 55)**, the deck up to ERRORR (gh:#1369, rounds 3 and 4).
+/// The first GROUPR runs `3/`, `5 18` and `6/`, whose MF=4 list reaches MT=18
+/// (`getff` label 200 with `econst`). The second has two sigma-zeros (`1e+10 1`,
+/// `lord = 1`): `genflx`'s Bondarenko table, `getflx`, `getsig`'s `getunr` on
+/// UNRESR's MT=152, and `nz = 2` in `panel`/`displa` (MF=3 MT=1/2/18/102, MF=6
+/// MT=2/18).
+/// ~~`DECK47_BOTH` opts into unit 55; the second GROUPR is refused~~ **CHANGED
+/// 2026-11-13 (round 4):** both units are always compared.
+///
+/// Predictions (gh:#1369, before each change): unit 45 identical; unit 55
+/// identical. **Results (2026-11-13): unit 45, 0 differing lines of 2 820; unit
+/// 55, 0 of 2 980.** The first run of unit 55 differed in 65 lines, all in the
+/// four URR groups (2.1-43 keV): the deck's UNRESR passed RECONR's one-sigma-zero
+/// MT=152 through, so `getunr` returned at `nsig0 <= 1`. UNRESR's MT=152 writer
+/// closed it (`test_47_unresr_pendf_with_mt152`).
+#[test]
+fn test_47_groupr_gendfs_moder_copies() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "47", Some("errorr"), "") else { return };
+    let units: &[u32] = &[45, 55];
+    let Some((ours, njoy)) = run_pair(&root, "t47g", "n-094_Pu_239-ENDF8.0-Beta6.endf", &deck) else { return };
+    let mut bad = Vec::new();
+    for &u in units {
+        let name = format!("tape{u}");
+        let d = differing_lines(&ours.join(&name), &njoy.join(&name));
+        let n = std::fs::read_to_string(njoy.join(&name)).unwrap().lines().count();
+        println!("deck 47 unit {u}: {} differing lines of {n}; first {:?}", d.len(), &d[..d.len().min(5)]);
+        if n < 1_000 || !d.is_empty() {
+            bad.push(u);
+        }
+    }
+    if std::env::var_os("DECK_KEEP").is_none() {
+        let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    }
+    assert!(bad.is_empty(), "units differing: {bad:?}");
+}
+
+/// Run `deck` on both sides and count the differing lines of text unit `unit`:
+/// `(differing, lines in NJOY's)`.
+fn whole_unit(tag: &str, resource: &str, deck: &str, unit: u32) -> Option<(usize, usize)> {
+    let root = njoy_root();
+    let (ours, njoy) = run_pair(&root, tag, resource, deck)?;
+    let name = format!("tape{unit}");
+    let d = differing_lines(&ours.join(&name), &njoy.join(&name));
+    let n = std::fs::read_to_string(njoy.join(&name)).unwrap().lines().count();
+    println!("{tag} unit {unit}: {} differing lines of {n}; first {:?}", d.len(), &d[..d.len().min(5)]);
+    if std::env::var_os("DECK_KEEP").is_none() {
+        let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    }
+    Some((d.len(), n))
+}
+
+/// **Deck 47, UNRESR's PENDF with its MF=2/MT=152 (unit 60, a MODER copy of
+/// unit -22)** (gh:#1369 round 4). Before this round the deck driver passed
+/// UNRESR's input through, so MT=152 was RECONR's (one sigma-zero, 72 energies).
+/// Now `unresr::tape` writes UNRESR's: `rdunf2`'s grid (1 MeV primer, `egridu`
+/// with `1.01 et`, the `sigfig(.,7,2)` pass), `rdunf3`'s background and
+/// `unresl` at each sigma-zero, `sigfig(.,7,0)`. Prediction (before the change):
+/// identical, 71 energies. **Result (2026-11-13): 0 differing lines** of the
+/// whole tape (MT=152: 71 energies x 2 sigma-zeros x 5 reactions).
+#[test]
+fn test_47_unresr_pendf_with_mt152() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "47", Some("groupr"), "moder\n-22 60\n") else { return };
+    let Some((d, n)) = whole_unit("t47u", "n-094_Pu_239-ENDF8.0-Beta6.endf", &deck, 60) else { return };
+    assert!(n > 10_000 && d == 0);
+}
+
+/// **Deck 11 (Pu-238 ENDF/B-IV), the GROUPR GENDF through a MODER copy (unit 28)
+/// with `6 18` removed on both sides** (gh:#1369 round 4): three temperatures
+/// (300, 900, 2100 K) and seven sigma-zeros, `iwt = 5`, `lord = 3`, MF=3 and MF=6
+/// with the THERMR free-gas MT=221. Exercises the temperature loop (one MF=1 head,
+/// card-9 list and MEND per temperature), `genflx`/`getflx`/`getunr` per
+/// temperature on UNRESR's MT=152, `conver`'s added MT=456, and `getfle` with
+/// `lcd = 1` on CM data (MF=4 MT=91, `getco`'s CM-to-lab quadrature). `6 18` is
+/// removed because its MF=5 spectrum is analytic `LF = 7` (`anased`, not
+/// translated; refused by name). Predictions (before the changes): identical.
+/// **Result (2026-11-13): 0 differing lines of 10 019.** The first run differed
+/// in 31 lines (MF=6 MT=91, written isotropic where NJOY has four Legendre
+/// orders: the CM-isotropic table converted to the lab).
+#[test]
+fn test_11_groupr_gendf_without_mf6_mt18() {
+    let root = njoy_root();
+    let Some(full) = deck_text(&root, "11", Some("wimsr"), "moder\n-26 28\n") else { return };
+    let deck: String = full.lines().filter(|l| l.trim() != "6 18 'fission'/").map(|l| format!("{l}\n")).collect();
+    let Some((d, n)) = whole_unit("t11g", "t404", &deck, 28) else { return };
+    assert!(n > 10_000 && d == 0);
+}
+
 /// **Deck 76 (U-235 ENDF/B-VIII.0), the GROUPR GENDF (unit 25, text) with the
 /// automatic `6 /` card removed on both sides** (gh:#1369): the deck up to CCCCR
 /// (not ported).
 ///
 /// `6 /` reaches MF=4/MT=18, `getff` label 200 with `econst` (fission, `getyld`
-/// on MT=456), which is not translated, so the deck as written stops there. With
+/// on MT=456), ~~which is not translated, so the deck as written stops there~~
+/// (**CORRECTED 2026-11-13:** translated; `test_76_groupr_gendf_whole_tape` gates
+/// the deck as written). With
 /// it removed on both sides the GENDF holds `3/`, `3 452/455/456`, `5 18` and
 /// `5 455`, whose first word per family is `dntc` left by `3 455`'s `getyld`.
 /// Prediction (gh:#1369, before the change): identical. **Result (2026-11-13): 0
@@ -2056,8 +2162,13 @@ fn test_76_groupr_gendf_without_auto_mf6() {
 /// transfer-matrix words near 1e-8 (`8.830207-9` against NJOY's `8.830209-9`).
 /// Those subsections are `LANG = 1`, `LEP = 1` with an incident-energy `INT = 12`
 /// (corresponding points), which the deck-46 gate (lin-lin) does not reach. The
-/// cause was not examined (gh:#1517). So this gate
-/// holds every line outside MF=6 MT=16/28/91 to identity, and prints the rest.
+/// cause was not examined (gh:#1517). ~~So this gate
+/// holds every line outside MF=6 MT=16/28/91 to identity, and prints the rest.~~
+///
+/// **CORRECTED 2026-11-13 (gh:#1517): 0 differing lines of 2 272; the gate is the
+/// whole tape.** The cause was not `INT = 12` (`f6lab`'s corresponding-point branch
+/// matches upstream) but `getmf6`'s `ismooth` histogram extension (`:7722-7763`):
+/// `fx=.8409` is a single-precision literal (`:7723`), and the port used the double.
 #[test]
 fn test_08_groupr_gendf_without_auto_mf16() {
     let root = njoy_root();
@@ -2070,10 +2181,22 @@ fn test_08_groupr_gendf_without_auto_mf16() {
     if std::env::var_os("DECK_KEEP").is_none() {
         let _ = std::fs::remove_dir_all(ours.parent().unwrap());
     }
-    let law1 = ["2834 6 16", "2834 6 28", "2834 6 91"];
-    let other: Vec<_> = d.iter().filter(|(_, k)| !law1.contains(&k.as_str())).collect();
-    println!("deck 08 GENDF: {} differing lines outside MF=6 MT=16/28/91", other.len());
-    assert!(n > 2_000 && other.is_empty());
+    assert!(n > 2_000 && d.is_empty());
+}
+
+/// **Deck 08 (Ni-61 ENDF/B-VI.1), the GROUPR GENDF as written (`16/` included),
+/// through MODER to text** (gh:#1517): the deck up to ACER.
+///
+/// `16/` reaches MF=12 `LO = 2`. GROUPR's `getgyl`/`getgfl` read `nend2`, on which
+/// `conver` has made each transition array into `LO = 1` yields and the level
+/// MF=14 sections isotropic (`groupr.f90:11188-11470`;
+/// `groupr::conver::lo2_converted`). Prediction (gh:#1517, before the run): identical.
+/// **Result (2026-11-13): 0 differing lines of 2 972**, MF=16 MT=51-58 included.
+/// Before: refused at MF=12 `LO = 2`.
+#[test]
+fn test_08_groupr_gendf_whole_tape() {
+    let Some((d, n)) = groupr_gendf("08", "eni61", "acer", "moder\n -22 60/\n", 60) else { return };
+    assert!(n > 2_000 && d == 0);
 }
 
 /// **Deck 34 (Pu-240 ENDF/B-VIII.0), the GROUPR GENDF through MODER to text**:

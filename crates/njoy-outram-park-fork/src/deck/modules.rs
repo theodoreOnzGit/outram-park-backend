@@ -370,6 +370,11 @@ pub struct GrouprJob {
     pub weight_cards: Vec<Vec<f64>>,
     /// Card 9a extended requests `(mfd, mtd, izar, lfs)`.
     pub extended: Vec<[i32; 4]>,
+    /// Card 9 (and 9a) lists for the second and later temperatures: upstream reads
+    /// one list, ended by `mfd = 0`, per temperature (`groupr.f90:586-630`,
+    /// label 590 loops back to label 360). The first temperature's list is
+    /// [`GrouprInput::reactions`] and [`GrouprJob::extended`].
+    pub later_temperatures: Vec<(Vec<ReactionRequest>, Vec<[i32; 4]>)>,
     /// Further materials requested by card 10, each with its own sign
     /// (negative = add/replace); the terminating `0` is not stored.
     pub more_materials: Vec<i32>,
@@ -462,7 +467,30 @@ pub fn read_groupr(r: &mut CardReader) -> Result<GrouprJob, NjoyError> {
         }
         _ => {}
     }
-    // card 9
+    // card 9, once per temperature (`:586-630`)
+    let (reactions, extended) = read_groupr_card9(r)?;
+    input.reactions = reactions;
+    let mut later_temperatures = Vec::new();
+    for _ in 1..input.temperatures.len() {
+        later_temperatures.push(read_groupr_card9(r)?);
+    }
+    // card 10
+    let mut more = Vec::new();
+    loop {
+        let m = ints(r, &[0])?[0];
+        if m == 0 {
+            break;
+        }
+        more.push(m);
+    }
+    input.next_material = more.first().copied();
+    Ok(GrouprJob { input, weight_cards, extended, later_temperatures, more_materials: more })
+}
+
+/// One GROUPR card-9 list, until `mfd = 0` (`groupr.f90:365-383`): the plain
+/// requests and the card-9a extended ones (`mfd = -1`).
+fn read_groupr_card9(r: &mut CardReader) -> Result<(Vec<ReactionRequest>, Vec<[i32; 4]>), NjoyError> {
+    let mut reactions = Vec::new();
     let mut extended = Vec::new();
     loop {
         let mut c = [Slot::Int(0), Slot::Int(-1000), Slot::string(60, "")];
@@ -476,19 +504,9 @@ pub fn read_groupr(r: &mut CardReader) -> Result<GrouprJob, NjoyError> {
             extended.push([e[0], e[1], e[2], e[3]]);
             continue;
         }
-        input.reactions.push(ReactionRequest { mfd, mtd: c[1].int(), name: c[2].text().to_string() });
+        reactions.push(ReactionRequest { mfd, mtd: c[1].int(), name: c[2].text().to_string() });
     }
-    // card 10
-    let mut more = Vec::new();
-    loop {
-        let m = ints(r, &[0])?[0];
-        if m == 0 {
-            break;
-        }
-        more.push(m);
-    }
-    input.next_material = more.first().copied();
-    Ok(GrouprJob { input, weight_cards, extended, more_materials: more })
+    Ok((reactions, extended))
 }
 
 // ── UNRESR ──────────────────────────────────────────────────────────────
@@ -749,4 +767,29 @@ pub fn read_acer(r: &mut CardReader) -> Result<AcerCards, NjoyError> {
         _ => {}
     }
     Ok(a)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Upstream deck 02's GROUPR cards, shortened (`ntemp = 3`): one card-9 list
+    /// per temperature, then card 10 (`groupr.f90:586-630`, `:993`). Before
+    /// gh:#1369 round 3 the second list's first card was read as card 10.
+    #[test]
+    fn groupr_reads_one_card9_list_per_temperature() {
+        let deck = " -21 -24 0 -25/\n 1050 5 0 4 3 3 7 1/\n '94-pu-238'/\n 300. 900. 2100./\n \
+            1.e10 1.e5 1.e4 1000. 100. 10. 1/\n .1 0.025 0.8208e06 1.4e06/\n 3 1 'total'/\n 6 -59 'c'/\n 0/\n \
+            3 1 'total'/\n 3 2 'elastic'/\n 0/\n 3 1 'total'/\n 6 2 'elastic'/\n 0/\n 0/\nccccr\n";
+        let mut r = CardReader::new(deck);
+        let job = read_groupr(&mut r).unwrap();
+        assert_eq!(job.input.reactions.len(), 2);
+        assert_eq!(job.input.reactions[1].mtd, -59);
+        assert_eq!(job.later_temperatures.len(), 2);
+        let pairs = |v: &[ReactionRequest]| v.iter().map(|q| (q.mfd, q.mtd)).collect::<Vec<_>>();
+        assert_eq!(pairs(&job.later_temperatures[0].0), vec![(3, 1), (3, 2)]);
+        assert_eq!(pairs(&job.later_temperatures[1].0), vec![(3, 1), (6, 2)]);
+        assert!(job.more_materials.is_empty());
+        assert_eq!(job.input.sigma_zeros.len(), 7);
+    }
 }

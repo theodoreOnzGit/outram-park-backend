@@ -23,9 +23,10 @@
 //! **Status (part 2):** MODER, RECONR, BROADR (several temperatures,
 //! bootstrap), HEATR and ACER `iopt = 1` (`newfor = 1` and, for MF=4 angular
 //! distributions, `newfor = 0`), `iopt = 2` ([`acer_thermal`]) and `iopt = 7` run
-//! from cards; UNRESR
+//! from cards; ~~UNRESR
 //! and PURR read their cards and pass the tape through (their MT=152/153 are
-//! not written; see [`DeckRun::notes`]); THERMR runs the free-gas case
+//! not written; see [`DeckRun::notes`])~~ **CORRECTED 2026-11-13 (gh:#1369):**
+//! UNRESR writes its MT=152 and PURR its MT=152/153 (gh:#1498); THERMR runs the free-gas case
 //! (`iinc = 1`, [`thermr`]; **CORRECTED 2026-11-11**, was "no tape driver"),
 //! GROUPR and GASPR read their cards but have no tape driver, so a deck
 //! reaching them (or THERMR with `iinc = 2`, an elastic option or `iform = 1`)

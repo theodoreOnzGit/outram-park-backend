@@ -320,6 +320,24 @@ pub struct TwoPhaseControls {
     ///    in every iteration after the first, i.e. it receives one extra step of
     ///    power, `alpha q dt / (alpha rho Cp)`.
     pub lazy_old_time_first_step: bool,
+    /// Reproduce UPSTREAM's `customPimpleControl::loop` defect (GeN-Foam 652b3da, gh:#1361 round 4).
+    /// **Default `false`: the corrected, clean ending** (maintainer decision 2026-11-12: ports
+    /// default to correct behaviour, the upstream defect is the explicit act). When the residual
+    /// criteria are first met in the LAST outer iteration, upstream leaves `converged_` set and the
+    /// NEXT time step solves nothing. `true` reproduces that
+    /// ([`TwoPhaseSolver::with_upstream_stale_pimple_converged_flag`]); the upstream comparison tests
+    /// set it. The skipped step still advances time and runs the courant/`maxDeltaT` update; it adds
+    /// nothing to the cumulative continuity errors (~~"and the port's unconditional `calcCumulContErrs`"~~
+    /// **CORRECTED 2026-11-13:** `calcCumulContErrs` now runs only in the iteration flagged converged,
+    /// as upstream's does; checked against the real binary in the `nOuterCorrectors 6` control).
+    pub stale_pimple_converged_flag: bool,
+    /// The patch values of `p` are the case file's (`READ_IF_PRESENT`, `calculated`, `value`) until the first
+    /// `p_ = max(p_rgh_ + rho_*gh_, pMin_)`, as in GeN-Foam 652b3da (gh:#1361 round 5). **Default `true`.**
+    /// The thermo packages are constructed from `p`, so for an inlet whose `p_rgh` is fixed at 1.4e5 and whose
+    /// `p` file says 1e5, the construction-time patch densities (and their lazily stored old-time copies) belong
+    /// to 1e5, not 1.4e5; for an absent phase (`alpha = 0`, `alphaRhof = residualAlpha rho`) that sets the
+    /// inlet-face flux in steps 1 and 2. `false` ([`TwoPhaseCase::without_p_patch_from_file`]) is the earlier form.
+    pub p_patch_from_file: bool,
     /// Reproduce what `phaseChangeModel::correctInterfacialTemperature` really does
     /// with `maxTInterfaceDdt` (gh:#1361 round 3). Default `true`.
     ///
@@ -480,6 +498,15 @@ pub struct StepReport {
     pub h1_initial_residual: f64,
     /// Courant number used to set the next step.
     pub courant: f64,
+    /// The residual criteria were first met in the LAST outer iteration (`corr == nOuterCorrectors`).
+    /// Upstream's `customPimpleControl::loop` then leaves `converged_` set and the NEXT step solves
+    /// nothing (gh:#1361 round 4). By default this port ends the loop cleanly and never skips the
+    /// next step (the corrected behaviour, the default since the maintainer decision of 2026-11-12);
+    /// this flag records where upstream would have, and is the same in both modes.
+    pub upstream_would_skip_next_step: bool,
+    /// Outer iteration (1-based) at whose START the residual criteria were met, so that iteration
+    /// ran as the "final" one (`converged_` set); 0 when they were never met in this step.
+    pub converged_at: usize,
 }
 
 /// The two-phase solver. Build from a GeN-Foam case with
@@ -532,6 +559,14 @@ pub struct TwoPhaseSolver {
     t_interface_raw0: Vec<f64>,
     /// Outer iteration (1-based) in progress.
     corr_in_step: usize,
+    /// `customPimpleControl::converged_`, kept across steps only when
+    /// [`TwoPhaseControls::stale_pimple_converged_flag`] is set.
+    pimple_converged: bool,
+    /// Per outer iteration of the LAST step: (first-PISO `p_rgh` initial residual, last `h.<fluid1>`
+    /// initial residual) at the end of that iteration, i.e. the two numbers
+    /// `customPimpleControl::criteriaSatisfied` prints as "abs tol" at the start of the next one
+    /// (diagnostic; gh:#1361 round 5).
+    pub pimple_trace: Vec<(f64, f64)>,
     /// ESI `Time::writeTimeIndex_` (`adjustableRunTime` only).
     write_time_index: i64,
     /// Interfacial area density [1/m].
@@ -623,6 +658,8 @@ impl TwoPhaseSolver {
             t_interface_old: vec![0.0; n],
             t_interface_raw0: vec![0.0; n],
             corr_in_step: 0,
+            pimple_converged: false,
+            pimple_trace: Vec::new(),
             write_time_index: 0,
             interfacial_area: vec![0.0; n],
             dmdt: vec![0.0; n],
@@ -674,10 +711,13 @@ impl TwoPhaseSolver {
             .map(|f| s.fluids[0].alpha_phi[f] + s.fluids[1].alpha_phi[f])
             .collect();
         s.update_mixture_density();
-        // p on patches is `calculated`: p = p_rgh + rho gh.
-        for f in ni..nf {
-            if s.geom.active[f] {
-                s.p.b[f - ni] = s.p_rgh.b[f - ni] + s.rho_mix.b[f - ni] * s.ghf[f];
+        // p on patches is `calculated`. Upstream keeps the file's patch values until the first
+        // `p_ = max(p_rgh_ + rho_*gh_, pMin_)`; the earlier form set `p = p_rgh + rho gh` here.
+        if !s.controls.p_patch_from_file {
+            for f in ni..nf {
+                if s.geom.active[f] {
+                    s.p.b[f - ni] = s.p_rgh.b[f - ni] + s.rho_mix.b[f - ni] * s.ghf[f];
+                }
             }
         }
         // Structure surface temperature starts at the power models' T.
@@ -741,8 +781,18 @@ impl TwoPhaseSolver {
     ///
     /// # Errors
     /// [`crate::error::AppBuilderError::Diverged`] when a field turns
-    /// non-finite.
+    /// non-finite, or when the step size is not positive or has collapsed below the resolution of
+    /// the time (`time + dt == time`).
     pub fn step(&mut self) -> Result<StepReport, crate::error::AppBuilderError> {
+        // A step that cannot advance the clock (`dt` collapsed below the resolution of `time`, or is not
+        // positive) would let the caller loop forever: `maxDeltaT` can only grow a zero step by a factor
+        // of zero. Measured (gh:#1361 round 5): the shipped-tolerance 1D_boiling run with the upstream
+        // PIMPLE option and the earlier construction-time `p` patch reached a Courant number that took
+        // `dt` from 1.9e-3 to 2.4e-7 and then below the ulp of t = 9.9498 s, where it spun with `dt`
+        // effectively 0. Upstream has no such guard (it would spin too); this is a port-side guard.
+        if self.dt.is_nan() || self.dt <= 0.0 || self.time + self.dt == self.time {
+            return Err(crate::error::AppBuilderError::Diverged { iter: 0, residual: f64::NAN });
+        }
         let n = self.geom.n_cells();
         for k in 0..2 {
             let f = &mut self.fluids[k];
@@ -774,23 +824,44 @@ impl TwoPhaseSolver {
             ..StepReport::default()
         };
         let n_outer = self.controls.n_outer.max(1);
-        let mut converged = false;
         let mut corr = 0;
+        self.pimple_trace.clear();
+        // customPimpleControl::loop(), call by call (as `OnePhaseFcSolver::step`)
         loop {
             corr += 1;
-            if corr > n_outer || converged {
+            if corr == n_outer + 1 {
+                // Upstream leaves `converged_` set here (the defect); the default clears it.
+                if !self.controls.stale_pimple_converged_flag {
+                    self.pimple_converged = false;
+                }
+                break;
+            }
+            if self.pimple_converged {
+                self.pimple_converged = false;
                 break;
             }
             if corr > 1 && self.criteria_satisfied(&report) {
-                converged = true;
+                self.pimple_converged = true;
+                report.upstream_would_skip_next_step = corr == n_outer;
+                report.converged_at = corr;
             }
             self.corr_in_step = corr;
             self.correct_models();
             let (p_res, n_piso) = self.correct_fluid_mechanics()?;
             let _ = n_piso;
             report.p_rgh_initial_residual = p_res;
+            // `twoPhase::calcCumulContErrs` is the last line of `correctFluidMechanics` and runs
+            // `if (pimple_.finalIter())`. That inherited `finalIter()` is `converged_ || corr_ ==
+            // nCorrPIMPLE` on the BASE class's `corr_`, which `customPimpleControl::loop` never
+            // advances (its own `corr_` shadows it), so it is true only in the iteration flagged as
+            // converged: a step that never meets its criteria, and a skipped step, add nothing.
+            // (Round 5; the port added in every step before. Same as `OnePhaseFcSolver::step`.)
+            if self.pimple_converged {
+                self.calc_cumul_cont_errs();
+            }
             report.h1_initial_residual = self.correct_energy();
             report.outer_iterations = corr;
+            self.pimple_trace.push((report.p_rgh_initial_residual, report.h1_initial_residual));
         }
         for k in 0..2 {
             if self.fluids[k].alpha.c.iter().any(|v| !v.is_finite())
@@ -802,7 +873,6 @@ impl TwoPhaseSolver {
                 });
             }
         }
-        self.calc_cumul_cont_errs();
         let _ = n;
         report.courant = self.courant();
         if self.time_controls.adjust_time_step {
@@ -1959,8 +2029,9 @@ impl TwoPhaseSolver {
         }
     }
 
-    /// `twoPhase::calcCumulContErrs` (final iteration): the volume-weighted
-    /// time integral of each fluid's continuity error [kg/m^3].
+    /// `twoPhase::calcCumulContErrs`, called in the iteration flagged converged (its `if (pimple_.finalIter())`
+    /// is true only there, see `step`): the volume-weighted time integral of each fluid's continuity error
+    /// [kg/m^3] over the step just taken.
     fn calc_cumul_cont_errs(&mut self) {
         let m = &self.geom.mesh;
         let tot_v: f64 = m.cell_volumes.iter().sum();
@@ -2066,6 +2137,17 @@ impl TwoPhaseSolver {
         self.controls.lazy_old_time_first_step = false;
         self.p_old_stored = true;
         self.structure_old_time_stale = false;
+        self
+    }
+
+    /// Reproduce upstream GeN-Foam 652b3da's `customPimpleControl::loop` DEFECT
+    /// ([`TwoPhaseControls::stale_pimple_converged_flag`] `= true`): a step whose criteria were first
+    /// met in the last outer iteration leaves `converged_` set and the NEXT step solves nothing.
+    /// The explicit deviation from correct behaviour, for comparison against the upstream binary
+    /// only; the default ends the loop cleanly.
+    #[must_use]
+    pub fn with_upstream_stale_pimple_converged_flag(mut self) -> Self {
+        self.controls.stale_pimple_converged_flag = true;
         self
     }
 }

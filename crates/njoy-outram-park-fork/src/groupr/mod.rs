@@ -75,9 +75,11 @@
 //! `README.md` in this directory for the full theory summary and gap list.
 
 pub mod continuum;
+pub mod conver;
 pub mod file4;
 pub mod fission_matrix;
 pub mod gaminr_matrix;
+pub mod flux_table;
 pub mod gendf;
 pub mod input;
 pub mod kinematics;

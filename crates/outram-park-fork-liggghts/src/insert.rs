@@ -92,10 +92,18 @@
 //! bounding-sphere centre ([`ClumpCensus`]). [`InsertFix::pre_exchange_any`]
 //! returns the clumps; [`crate::granular_system::GranularSystem`] adds their
 //! atoms and bodies. ~~Not translated: multi-sphere/superquadric templates~~
-//! **CORRECTED 2026-11-13** (multisphere ported, gh:#1415). Not translated:
-//! superquadric templates, `orientation random` (it draws a
-//! quaternion per trial, so it would need `random_unit_quat`; rejected with an
-//! error rather than silently skipping the draw), `set_property`, dynamic
+//! **CORRECTED 2026-11-13** (multisphere ported, gh:#1415). ~~Not translated:
+//! superquadric templates, `orientation random`~~ **CORRECTED 2026-11-13
+//! (gh:#1415, third pass):** superquadric templates
+//! ([`ParticleDistributionDiscrete::new_superquadric`]) and `orientation
+//! random` ([`InsertFix::with_random_orientation`], `random_unit_quat` per
+//! trial on the fix's stream) are translated; their bodies are placed by
+//! [`crate::superquadric::SuperquadricSystem::with_insertion`] with
+//! upstream's `check_obb` overlap test ([`InsertFix::with_check_obb`]).
+//! `orientation random` is refused for sphere and clump distributions (there
+//! it would only consume the stream, which is not checked against upstream),
+//! and a distribution mixing superquadric and other templates is refused.
+//! Not translated: `set_property`, dynamic
 //! regions, `side out`, `insert/stream/predefined` (`insert/stream` is [`crate::insert_stream`]).
 //!
 //! ## The overlap test
@@ -699,6 +707,9 @@ pub enum ParticleTemplate {
     Sphere(ParticleTemplateSphere),
     /// `fix particletemplate/multisphere`.
     Multisphere(crate::multisphere::ParticleTemplateMultisphere),
+    /// `fix particletemplate/superquadric` (gh:#1415); placed only by
+    /// [`crate::superquadric::SuperquadricSystem::with_insertion`].
+    Superquadric(crate::superquadric::ParticleTemplateSuperquadric),
 }
 
 impl ParticleTemplate {
@@ -708,6 +719,7 @@ impl ParticleTemplate {
         match self {
             Self::Sphere(t) => t.volexpect(),
             Self::Multisphere(t) => t.volexpect(),
+            Self::Superquadric(t) => t.volexpect(),
         }
     }
 
@@ -717,6 +729,7 @@ impl ParticleTemplate {
         match self {
             Self::Sphere(t) => t.massexpect(),
             Self::Multisphere(t) => t.massexpect(),
+            Self::Superquadric(t) => t.massexpect(),
         }
     }
 
@@ -726,6 +739,7 @@ impl ParticleTemplate {
         match self {
             Self::Sphere(t) => t.radius,
             Self::Multisphere(t) => t.max_rad(),
+            Self::Superquadric(t) => t.r_bound(),
         }
     }
 
@@ -735,6 +749,7 @@ impl ParticleTemplate {
         match self {
             Self::Sphere(t) => t.radius,
             Self::Multisphere(t) => t.r_bound(),
+            Self::Superquadric(t) => t.r_bound(),
         }
     }
 
@@ -742,6 +757,7 @@ impl ParticleTemplate {
         match self {
             Self::Sphere(t) => t.random_insertion.state(),
             Self::Multisphere(t) => t.seed_state(),
+            Self::Superquadric(t) => t.seed_state(),
         }
     }
 
@@ -749,6 +765,7 @@ impl ParticleTemplate {
         match self {
             Self::Sphere(t) => Pti::Sphere(t.randomize_one()),
             Self::Multisphere(t) => Pti::Clump(t.to_insert()),
+            Self::Superquadric(t) => Pti::Superquadric(t.to_insert()),
         }
     }
 }
@@ -758,6 +775,7 @@ impl ParticleTemplate {
 pub(crate) enum Pti {
     Sphere(ParticleToInsert),
     Clump(crate::multisphere::ClumpToInsert),
+    Superquadric(crate::superquadric::SuperquadricToInsert),
 }
 
 impl Pti {
@@ -765,6 +783,7 @@ impl Pti {
         match self {
             Self::Sphere(p) => p.mass,
             Self::Clump(c) => c.mass,
+            Self::Superquadric(q) => q.mass,
         }
     }
 
@@ -772,6 +791,7 @@ impl Pti {
         match self {
             Self::Sphere(p) => p.radius,
             Self::Clump(c) => c.r_bound,
+            Self::Superquadric(q) => q.radius,
         }
     }
 }
@@ -821,6 +841,35 @@ impl ParticleDistributionDiscrete {
         )
     }
 
+    /// A distribution of superquadric templates
+    /// (`fix particledistribution/discrete` over
+    /// `particletemplate/superquadric`, gh:#1415); otherwise as
+    /// [`ParticleDistributionDiscrete::new`]. Its bodies are placed by
+    /// [`crate::superquadric::SuperquadricSystem::with_insertion`].
+    ///
+    /// # Errors
+    ///
+    /// As [`ParticleDistributionDiscrete::new`].
+    pub fn new_superquadric(
+        seed: i32,
+        mass_based: bool,
+        templates: Vec<(crate::superquadric::ParticleTemplateSuperquadric, f64)>,
+    ) -> Result<Self, DemError> {
+        Self::from_templates(
+            seed,
+            mass_based,
+            templates
+                .into_iter()
+                .map(|(t, w)| (ParticleTemplate::Superquadric(t), w))
+                .collect(),
+        )
+    }
+
+    /// Whether the templates are superquadrics (a distribution never mixes).
+    fn is_superquadric(&self) -> bool {
+        matches!(self.templates.first(), Some(ParticleTemplate::Superquadric(_)))
+    }
+
     /// The shared constructor of [`ParticleDistributionDiscrete::new`] and
     /// [`ParticleDistributionDiscrete::new_multisphere`].
     ///
@@ -838,6 +887,15 @@ impl ParticleDistributionDiscrete {
             return Err(DemError::InvalidInput("illegal number of templates".into()));
         }
         let (templates, mut distweight): (Vec<_>, Vec<_>) = templates.into_iter().unzip();
+        let n_sq = templates
+            .iter()
+            .filter(|t| matches!(t, ParticleTemplate::Superquadric(_)))
+            .count();
+        if n_sq != 0 && n_sq != nt {
+            return Err(DemError::InvalidInput(
+                "a distribution mixes superquadric and sphere/multisphere templates (not ported)".into(),
+            ));
+        }
         if distweight.iter().any(|w| *w < 0.0) {
             return Err(DemError::InvalidInput("invalid weight".into()));
         }
@@ -969,6 +1027,9 @@ impl ParticleDistributionDiscrete {
             .map(|p| match p {
                 Pti::Sphere(s) => s,
                 Pti::Clump(_) => panic!("randomize_list: multisphere template; use InsertFix"),
+                Pti::Superquadric(_) => {
+                    panic!("randomize_list: superquadric template; use SuperquadricSystem")
+                }
             })
             .collect()
     }
@@ -1131,6 +1192,10 @@ pub struct InsertFix {
     /// `orientation constant q0 q1 q2 q3` (default identity): rotates a
     /// clump's template axes (`quat_insert`).
     quat: [f64; 4],
+    /// `orientation random`: a new `quat` per trial (`random_unit_quat`).
+    quat_random: bool,
+    /// `check_obb yes|no` (default yes with superquadrics).
+    check_obb: bool,
     exact_number: bool,
     maxattempt: i64,
     ntry_mc: usize,
@@ -1202,6 +1267,8 @@ impl InsertFix {
             velocity: InsertVelocity::Constant(Vec3::zero()),
             omega: Vec3::zero(),
             quat: [1.0, 0.0, 0.0, 0.0],
+            quat_random: false,
+            check_obb: true,
             exact_number: true,
             maxattempt: 50,
             ntry_mc: 100_000,
@@ -1274,6 +1341,52 @@ impl InsertFix {
         }
         self.quat = q;
         Ok(self)
+    }
+
+    /// `orientation random` (gh:#1415): each trial position gets a quaternion
+    /// from `random_unit_quat` on this fix's own stream, drawn after the
+    /// trial's velocity. The last one drawn stays in `quat_insert`.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] unless the distribution is superquadric:
+    /// only that combination is checked against upstream.
+    pub fn with_random_orientation(mut self) -> Result<Self, DemError> {
+        if !self.distribution.is_superquadric() {
+            return Err(DemError::InvalidInput(
+                "orientation random is ported for superquadric templates only".into(),
+            ));
+        }
+        self.quat_random = true;
+        Ok(self)
+    }
+
+    /// `check_obb yes|no` (default yes): with superquadrics, the insertion
+    /// overlap test adds `capsules_intersect` and `obb_intersect` to the
+    /// bounding-sphere test.
+    #[must_use]
+    pub fn with_check_obb(mut self, on: bool) -> Self {
+        self.check_obb = on;
+        self
+    }
+
+    /// Whether this fix inserts superquadrics.
+    pub(crate) fn is_superquadric(&self) -> bool {
+        self.distribution.is_superquadric()
+    }
+
+    /// The largest template `atom_type` (1-based).
+    pub(crate) fn max_atom_type(&self) -> usize {
+        self.distribution
+            .templates
+            .iter()
+            .map(|t| match t {
+                ParticleTemplate::Sphere(t) => t.atom_type,
+                ParticleTemplate::Multisphere(t) => t.atom_type,
+                ParticleTemplate::Superquadric(t) => t.atom_type,
+            })
+            .max()
+            .unwrap_or(1)
     }
 
     /// `start N`: the first insertion step (default 1).
@@ -1700,6 +1813,79 @@ impl InsertFix {
         atoms: &[Particle],
         census: &ClumpCensus,
     ) -> Result<Vec<Inserted>, DemError> {
+        if self.distribution.is_superquadric() {
+            return Err(DemError::InvalidInput(
+                "a superquadric insertion needs SuperquadricSystem (with_insertion)".into(),
+            ));
+        }
+        let placed = self.pre_exchange_impl(step, atoms, census, &[])?;
+        let mut out = Vec::with_capacity(placed.len());
+        for (pti, pos, vel) in placed {
+            match pti {
+                Pti::Sphere(pti) => out.push(Inserted::Sphere(InsertedParticle {
+                    particle: Particle {
+                        position: pos,
+                        velocity: vel,
+                        angular_velocity: self.omega,
+                        mass: pti.mass,
+                        radius: pti.radius,
+                        temperature: 300.0,
+                    },
+                    atom_type: pti.atom_type,
+                    density: pti.density,
+                })),
+                Pti::Clump(c) => out.push(Inserted::Clump(c)),
+                Pti::Superquadric(_) => {
+                    return Err(DemError::InvalidInput(
+                        "a superquadric insertion needs SuperquadricSystem (with_insertion)".into(),
+                    ))
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    /// [`InsertFix::pre_exchange`] for superquadric templates (gh:#1415):
+    /// `atoms` are the bodies present as the region count sees them (centre,
+    /// bounding radius, mass), `bodies` the same bodies for the overlap test
+    /// (`load_xnear` with `insert_superquadric`). Returns the placed bodies
+    /// in insertion order.
+    ///
+    /// # Errors
+    ///
+    /// As [`InsertFix::pre_exchange`], and for a distribution that is not
+    /// superquadric.
+    pub(crate) fn pre_exchange_superquadric(
+        &mut self,
+        step: u64,
+        atoms: &[Particle],
+        bodies: &[crate::superquadric::SqOverlapBody],
+    ) -> Result<Vec<crate::superquadric::SuperquadricToInsert>, DemError> {
+        if !self.distribution.is_superquadric() {
+            return Err(DemError::InvalidInput(
+                "not a superquadric distribution".into(),
+            ));
+        }
+        let placed = self.pre_exchange_impl(step, atoms, &ClumpCensus::default(), bodies)?;
+        Ok(placed
+            .into_iter()
+            .filter_map(|(pti, _, _)| match pti {
+                Pti::Superquadric(q) => Some(q),
+                Pti::Sphere(_) | Pti::Clump(_) => None,
+            })
+            .collect())
+    }
+
+    /// The body of `FixInsert::pre_exchange`, shared by the sphere, clump and
+    /// superquadric entry points: the placed entries with their position and
+    /// velocity.
+    fn pre_exchange_impl(
+        &mut self,
+        step: u64,
+        atoms: &[Particle],
+        census: &ClumpCensus,
+        sq_bodies: &[crate::superquadric::SqOverlapBody],
+    ) -> Result<Vec<(Pti, Vec3, Vec3)>, DemError> {
         if self.next_reneighbor != Some(step) || self.most_recent_ins_step == Some(step) {
             return Ok(Vec::new());
         }
@@ -1740,26 +1926,12 @@ impl InsertFix {
             }
             return Ok(Vec::new());
         }
-        let (inserted, ninserted_this_local) = self.x_v_omega(&mut list, atoms)?;
+        let (inserted, ninserted_this_local) = self.x_v_omega(&mut list, atoms, sq_bodies)?;
         let mut out = Vec::with_capacity(inserted.len());
         let mut mass_inserted_this = 0.0;
         for (pti, (pos, vel)) in list.into_iter().zip(&inserted) {
             mass_inserted_this += pti.mass();
-            match pti {
-                Pti::Sphere(pti) => out.push(Inserted::Sphere(InsertedParticle {
-                    particle: Particle {
-                        position: *pos,
-                        velocity: *vel,
-                        angular_velocity: self.omega,
-                        mass: pti.mass,
-                        radius: pti.radius,
-                        temperature: 300.0,
-                    },
-                    atom_type: pti.atom_type,
-                    density: pti.density,
-                })),
-                Pti::Clump(c) => out.push(Inserted::Clump(c)),
-            }
+            out.push((pti, *pos, *vel));
         }
         self.ninserted += ninserted_this_local as i64;
         self.massinserted += mass_inserted_this;
@@ -1777,6 +1949,7 @@ impl InsertFix {
         &mut self,
         list: &mut [Pti],
         atoms: &[Particle],
+        sq_bodies: &[crate::superquadric::SqOverlapBody],
     ) -> Result<(Vec<(Vec3, Vec3)>, usize), DemError> {
         let ninsert_this_local = list.len();
         let mut placed: Vec<(Vec3, Vec3)> = Vec::with_capacity(ninsert_this_local);
@@ -1788,13 +1961,18 @@ impl InsertFix {
                     self.generate_random(None)?
                 };
                 let v = self.generate_random_velocity();
+                if self.quat_random {
+                    self.quat = crate::superquadric::random_unit_quat(&mut self.random);
+                }
                 if pos.x == 0.0 && pos.y == 0.0 && pos.z == 0.0 {
                     return Err(DemError::InvalidInput(
                         "FixInsertPack::x_v_omega() illegal position".into(),
                     ));
                 }
-                if let Pti::Clump(c) = pti {
-                    c.set_x_v_omega(pos, v, self.omega, self.quat);
+                match pti {
+                    Pti::Clump(c) => c.set_x_v_omega(pos, v, self.omega, self.quat),
+                    Pti::Superquadric(q) => q.set_x_v_omega(pos, v, self.omega, self.quat),
+                    Pti::Sphere(_) => {}
                 }
                 placed.push((pos, v));
             }
@@ -1808,6 +1986,17 @@ impl InsertFix {
         );
         for a in atoms {
             grid.insert(a.position, a.radius);
+        }
+        // superquadrics: `load_xnear` with `insert_superquadric`
+        let mut sq_list = crate::superquadric::SqOverlapList::new(
+            2.0 * self
+                .distribution
+                .max_r_bound()
+                .max(atoms.iter().fold(0.0, |m, a| a.radius.max(m))),
+            self.check_obb,
+        );
+        for b in sq_bodies {
+            sq_list.insert(*b);
         }
         let maxtry = self.calc_maxtry(ninsert_this_local as i64);
         let mut ntry: i64 = 0;
@@ -1834,6 +2023,9 @@ impl InsertFix {
                     break;
                 }
                 let v = self.generate_random_velocity();
+                if self.quat_random {
+                    self.quat = crate::superquadric::random_unit_quat(&mut self.random);
+                }
                 match &mut list[ip] {
                     Pti::Sphere(pti) => {
                         if !grid.has_overlap(pos, pti.radius) {
@@ -1850,6 +2042,12 @@ impl InsertFix {
                             for (p, r) in spheres {
                                 grid.insert(p, r);
                             }
+                            placed.push((pos, v));
+                            nins = 1;
+                        }
+                    }
+                    Pti::Superquadric(q) => {
+                        if q.check_near_set_x_v_omega(pos, v, self.omega, self.quat, &mut sq_list) {
                             placed.push((pos, v));
                             nins = 1;
                         }

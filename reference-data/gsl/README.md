@@ -476,7 +476,7 @@ kept (7 MB); the command above regenerates it.
 | difference | cause | status |
 |---|---|---|
 | `synchrotron_1/2`, up to 1.3e-13 (87 % identical) | **port defect, fixed**: `pow_int` multiplied `n` times; GSL's `gsl_sf_pow_int` squares repeatedly (pow_int.c:52). Cancellation in `px*c1 - px11*c2 - c0*x` amplified the rounding. After the fix 407/407 identical in `synchrotron_2` with the shim. | fixed |
-| `airy_*` for x < -1e8, `ci` for x > 1e10: up to 1.0 relative, GSL values garbage beyond 1e15 | **upstream accuracy limit, not copied**: GSL calls its own `gsl_sf_cos_e`/`sin_e` (trig.c), whose reduction loses accuracy as `|x|` grows (`trig-vs-libm-probe-gsl-2.8.txt`: abs error 4.6e-7 at 1e10, 1.1e-5 at 6.7e11, 3.4e-2 at 1e15, against a long-double reference), PETIR calls libm's exact `cos`/`sin`. Every such row lies inside GSL's own `err`; PETIR is the more accurate. 4 rows each in airy_ai, airy_ai_scaled, airy_bi, airy_bi_scaled, ci. | recorded, not changed |
+| `airy_*` for x < -1e8, `ci` for x > 1e10: up to 1.0 relative, GSL values garbage beyond 1e15 | **upstream accuracy limit, not copied** (**OPTION ADDED 2026-11-12, gh:#1421**: `TrigKernel::Gsl` / `airy_*_with` / `ci_with` reproduce it bit for bit, 100 % of the 468 + 468 + 468 + 468 + 239 trig-affected rows, against stock GSL; the default stays PETIR's libm): GSL calls its own `gsl_sf_cos_e`/`sin_e` (trig.c), whose reduction loses accuracy as `|x|` grows (`trig-vs-libm-probe-gsl-2.8.txt`: abs error 4.6e-7 at 1e10, 1.1e-5 at 6.7e11, 3.4e-2 at 1e15, against a long-double reference), PETIR calls libm's exact `cos`/`sin`. Every such row lies inside GSL's own `err`; PETIR is the more accurate. 4 rows each in airy_ai, airy_ai_scaled, airy_bi, airy_bi_scaled, ci. | recorded, not changed |
 | GSL returns status 0 with NaN: any NaN argument (`dilog(NaN) = 0`, `expint_3(NaN) = 0.89`), `erf/erfc` at \|x\| >= 1e100 and inf, `airy` at \|x\| >= 1e50, `bessel`/`debye`/... at infinity | upstream oddity, PETIR returns NaN or the correct limit; 130 rows skipped and counted | recorded |
 | `ln_gamma(1e-310)`: GSL inf (err inf), PETIR 713.80 | upstream returns inf for subnormal x; PETIR is right | recorded |
 | ~~`ln_gamma`/`gamma`/`ln_gamma_sgn` within 0.02 of a negative integer, up to 15 % in Gamma~~ | ~~`lngamma_sgn_sing` not ported~~ | **FIXED 2026-11-12 (gh:#1419)**: `lngamma_sgn_0`, `lngamma_sgn_sing`, `gsl_sf_lngamma(_sgn)_e` and `gsl_sf_gamma_e` ported. Near-pole rows: worst 2.3e-16 (`ln_gamma`) / 8.6e-16 (`gamma`) against stock GSL; 100 % bit-identical against GSL linked to PETIR's libm. Test un-ignored. |
@@ -525,7 +525,9 @@ sin/cos; adding it made `bessel_j0/j1/y0/y1`, `elljac`, `psi` (x < -30) and
 
 Still open (878 values against the libm-linked GSL): `airy_*` and `ci`, where
 GSL uses its own `gsl_sf_cos_e`/`sin_e` (trig.c) and PETIR calls libm
-(the decision recorded above); `erf`/`erfc` (not ports); signed zeros in `eta`
+(the decision recorded above; ~~still open~~ **CLOSED 2026-11-12 as an opt-in**,
+gh:#1421: 418 of these 878 rows are bit-identical with `TrigKernel::Gsl`, see
+`trig-sincos-gsl-2.8-reference.txt` and `trig_sincos_reference_driver.c`); `erf`/`erfc` (not ports); signed zeros in `eta`
 and `transport_4`; three `fd_2`/`fd_3half` rows at x >= 1e15; and `ln_gamma`
 at +-1e-310, 5e-324 (DEVIATION in `lngamma_sgn_0`).
 
