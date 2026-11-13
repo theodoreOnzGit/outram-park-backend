@@ -105,6 +105,16 @@ fn run_case(
     csv: &str,
     plate: impl Fn(WallGeometry) -> MovingBoundary,
 ) -> Option<CaseResult> {
+    run_case_runs(csv, None, plate)
+}
+
+/// [`run_case`] for a deck whose second `run` starts at `second_run`
+/// (`GranularSystem::begin_run` there, gh:#1510).
+fn run_case_runs(
+    csv: &str,
+    second_run: Option<usize>,
+    plate: impl Fn(WallGeometry) -> MovingBoundary,
+) -> Option<CaseResult> {
     let (Some(csv), Some(stl)) = (read(csv), read("plate_square.stl")) else {
         eprintln!("skipping: reference-data/liggghts/ not present");
         return None;
@@ -150,6 +160,13 @@ fn run_case(
     let mut last = 0_usize;
     for row in &rows {
         let step = row[0] as usize;
+        if let Some(b) = second_run {
+            if last <= b && b < step {
+                sys.run(b - last);
+                last = b;
+                sys.begin_run().expect("run set-up");
+            }
+        }
         sys.run(step - last);
         last = step;
         let q = sys.particles()[0];
@@ -238,6 +255,27 @@ fn wiggle_matches_liggghts() {
     assert_identical(
         "wiggle",
         run_case("mover_wiggle.csv", |g| {
+            MovingBoundary::wiggle(g, Vec3::new(0.004, 0.002, 0.002), 0.08)
+        }),
+    );
+}
+
+/// **Two runs** (gh:#1510): `in.mover_wiggle_2run` is the wiggle deck as
+/// `run 5000` + `run 5000`. Across the set-up the mover's `time_` (and so its
+/// phase) persists and `FixMoveMesh::setup` zeroes the node velocities after
+/// the wall's set-up `post_force`. LIGGGHTS' own two-run trajectory is
+/// byte-identical to its one-run trajectory on this deck (checked with `cmp`
+/// on the two dumps, 2026-11-13; the cause was not investigated), so this
+/// case cannot tell `begin_run` from a continuous run: it only pins that the
+/// set-up leaves the wiggle mesh's motion and phase unchanged. The rotating
+/// plate's two-run test is the one that discriminates.
+///
+/// **Prediction (2026-11-13, before the first run):** bit-identical.
+#[test]
+fn wiggle_two_runs_match_liggghts() {
+    assert_identical(
+        "wiggle_2run",
+        run_case_runs("mover_wiggle_2run.csv", Some(5_000), |g| {
             MovingBoundary::wiggle(g, Vec3::new(0.004, 0.002, 0.002), 0.08)
         }),
     );

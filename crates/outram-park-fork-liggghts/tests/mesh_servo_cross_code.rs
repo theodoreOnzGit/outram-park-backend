@@ -41,7 +41,7 @@
 use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial};
 use outram_park_fork_liggghts::granular_system::{FixSlot, GranularSystem};
 use outram_park_fork_liggghts::boundary::Boundary;
-use outram_park_fork_liggghts::mesh_stress::MeshServo;
+use outram_park_fork_liggghts::mesh_stress::{MeshServo, ServoModify};
 use outram_park_fork_liggghts::mesh_wall::{MeshWall, MovingBoundary, WallGeometry};
 use outram_park_fork_liggghts::particle::{Particle, Vec3};
 use outram_park_fork_liggghts::variable::VariableTable;
@@ -180,6 +180,157 @@ fn mesh_servo_variable_target_matches_liggghts() {
     run_servo(&c);
 }
 
+/// **Two `run` commands, no `fix_modify`** (gh:#1510): `in.mesh_servo_2run`
+/// is `in.mesh_servo` as `run 10000` + `run 10000`. At the second `run`
+/// LIGGGHTS re-runs every fix's `init()` and `Verlet::setup()`; the port does
+/// the same with `GranularSystem::begin_run`. Compared as the single-run
+/// deck, plus the thermo line printed at the second run's set-up (its
+/// `f_plate[1..6]` are the last step's totals plus the set-up contributions).
+///
+/// **Prediction (2026-11-13, before the first run):** bit-identical.
+/// **Result:** see the assertion message and `run_servo`'s print.
+#[test]
+fn mesh_servo_two_runs_match_liggghts() {
+    let mut c = Case::force_pid("mesh_servo_2run", "plate_servo.stl", false);
+    c.runs = vec![(10_000, Vec::new())];
+    run_servo(&c);
+}
+
+/// Control for [`mesh_servo_two_runs_match_liggghts`]: one continuous run
+/// (no `begin_run`) against the two-run reference must differ, or the
+/// two-run deck tests nothing.
+#[test]
+fn continuous_run_differs_from_two_runs() {
+    let mut c = Case::force_pid("mesh_servo_2run", "plate_servo.stl", false);
+    c.runs = vec![(10_000, Vec::new())];
+    c.continuous_control = true;
+    run_servo(&c);
+}
+
+/// The torque servo over two runs (`in.mesh_servo_torque_2run`, gh:#1510):
+/// the second `init()` recomputes `rPaMax` from the rotated nodes and the
+/// set-up restarts the total rotation from them (`node_orig` = present
+/// nodes, `totalPhi = 0`).
+#[test]
+fn mesh_servo_torque_two_runs_match_liggghts() {
+    let mut c = Case::force_pid("mesh_servo_torque_2run", "plate_torque.stl", false);
+    c.torque = true;
+    c.com = [0.0, 0.0, 0.0099];
+    c.target = 0.0001;
+    c.expect_moved = 1.0e-5;
+    c.runs = vec![(10_000, Vec::new())];
+    run_servo(&c);
+}
+
+/// The `fix_modify` of `in.mesh_servo_modify` (gh:#1510): at 8000 a new
+/// constant set point, new gains and a lower `vel_max`; at 14000 the servo
+/// stops.
+fn modify_runs() -> Vec<(usize, Vec<ServoModify>)> {
+    vec![
+        (
+            8_000,
+            vec![
+                ServoModify::TargetVal(0.15),
+                ServoModify::CtrlParam([0.5, 0.4, 0.0002]),
+                ServoModify::VelMax(0.03),
+            ],
+        ),
+        (14_000, vec![ServoModify::Integrate(false)]),
+    ]
+}
+
+/// **Servo `fix_modify` between runs** (gh:#1510): `in.mesh_servo_modify` is
+/// `in.mesh_servo` as `run 8000`; `fix_modify plate servo/target_val 0.15
+/// servo/ctrlParam 0.5 0.4 0.0002 servo/vel_max 0.03`; `run 6000`;
+/// `fix_modify plate servo/integrate stop`; `run 6000`
+/// (`MeshModuleStressServo::modify_param`, then `init()` at the next run).
+///
+/// **Prediction (2026-11-13, before the first run):** bit-identical.
+/// **Result:** see the assertion message and `run_servo`'s print.
+#[test]
+fn mesh_servo_fix_modify_matches_liggghts() {
+    let mut c = Case::force_pid("mesh_servo_modify", "plate_servo.stl", false);
+    c.runs = modify_runs();
+    run_servo(&c);
+}
+
+/// Control for [`mesh_servo_fix_modify_matches_liggghts`]: the same three
+/// runs WITHOUT the `fix_modify` must miss the reference.
+#[test]
+fn servo_runs_without_fix_modify_differ() {
+    let mut c = Case::force_pid("mesh_servo_modify", "plate_servo.stl", false);
+    c.runs = modify_runs().into_iter().map(|(b, _)| (b, Vec::new())).collect();
+    c.continuous_control = true;
+    let mut c2 = Case::force_pid("mesh_servo_modify", "plate_servo.stl", false);
+    c2.runs = c.runs.clone();
+    // begin_run at the boundaries but no fix_modify: still must differ
+    c2.must_differ = true;
+    run_servo(&c);
+    run_servo(&c2);
+}
+
+/// `fix_modify plate servo/ratio 0.0001` between two runs of the `mode auto`
+/// deck (`in.mesh_servo_auto_modify`, gh:#1510): the new `ratio` enters
+/// `vel_min_ = ratio r_min / dt` at the second `init()`.
+#[test]
+fn mesh_servo_auto_ratio_modify_matches_liggghts() {
+    let mut c = Case::force_pid("mesh_servo_auto_modify", "plate_auto.stl", false);
+    c.auto_ratio = Some(0.00005);
+    c.gains = [0.01, 0.0, 0.0];
+    c.com = [0.0, 0.0, 0.015];
+    c.target = -0.1;
+    c.runs = vec![(10_000, vec![ServoModify::Ratio(0.0001)])];
+    run_servo(&c);
+    // control: the second run without the new ratio misses the reference
+    c.runs = vec![(10_000, Vec::new())];
+    c.must_differ = true;
+    run_servo(&c);
+}
+
+/// `ServoModify` and `begin_run` refuse what upstream aborts on, and a
+/// `fix_modify` on a wall without a servo is an error (gh:#1510).
+#[test]
+fn servo_fix_modify_rejects_upstream_errors() {
+    let mut s = MeshServo::new([0.0; 3], [0.0, 0.0, 1.0], 0.1, 0.05, [1.0, 0.0, 0.0], 1.0e-5, 0.003);
+    assert!(s.modify_param(ServoModify::VelMax(0.0)).is_err());
+    assert!(s.modify_param(ServoModify::TargetVal(0.0)).is_err());
+    let nodes = [[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]]];
+    // all gains zero: init() aborts
+    s.modify_param(ServoModify::CtrlParam([0.0, 0.0, 0.0])).expect("accepted by modify_param");
+    assert!(s.init_run(0.005, &nodes).is_err());
+    s.modify_param(ServoModify::CtrlParam([1.0, 0.0, 0.0])).expect("valid gains");
+    // vel_max >= skin / (2 dt) = 150: init() aborts
+    s.modify_param(ServoModify::VelMax(200.0)).expect("accepted by modify_param");
+    assert!(s.init_run(0.005, &nodes).is_err());
+    s.modify_param(ServoModify::VelMax(0.05)).expect("valid vel_max");
+    assert!(s.init_run(0.005, &nodes).is_ok());
+    // auto mode needs a ratio
+    let mut a = MeshServo::new([0.0; 3], [0.0, 0.0, 1.0], 0.1, 0.05, [1.0, 0.0, 0.0], 1.0e-5, 0.003)
+        .with_auto(0.0001, 0.005);
+    a.modify_param(ServoModify::Ratio(0.0)).expect("accepted by modify_param");
+    assert!(a.init_run(0.005, &nodes).is_err());
+    // a stopped servo neither moves nor changes its velocity
+    let mut st = MeshServo::new([0.0; 3], [0.0, 0.0, 1.0], 0.1, 0.05, [1.0, 0.0, 0.0], 1.0e-5, 0.003);
+    let v = st.final_integrate([0.0; 3]);
+    st.modify_param(ServoModify::Integrate(false)).expect("stop");
+    assert!(!st.is_integrating());
+    assert_eq!(st.final_integrate([0.0, 0.0, 5.0]), v);
+    assert_eq!(st.vcm(), v);
+    let floor =
+        Boundary::wall(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 1.0)).expect("valid wall");
+    let material = GranularMaterial::new(1.0e7, 0.3, 0.9, 0.5).expect("valid material");
+    let mut sys = GranularSystem::new(
+        Vec::new(),
+        vec![floor],
+        GranularContactModel::hertz_history(material),
+        Vec3::zero(),
+        1.0e-5,
+    )
+    .expect("valid system");
+    assert!(sys.fix_modify_servo(0, ServoModify::Ratio(1.0)).is_err());
+    assert!(sys.begin_run().is_ok());
+}
+
 /// One servo deck: its reference files, controller and plate.
 struct Case {
     deck: &'static str,
@@ -200,6 +351,16 @@ struct Case {
     /// The servo must have moved the plate centre by more than this
     /// (force servo) or the torque about `z` must be non-zero (torque servo).
     expect_moved: f64,
+    /// The deck's later `run` commands: the step each starts at and the
+    /// `fix_modify plate servo/...` keywords issued before it (gh:#1510).
+    /// Empty: one continuous run.
+    runs: Vec<(usize, Vec<ServoModify>)>,
+    /// Control: skip `begin_run` at the run boundaries (one continuous run
+    /// against a multi-run reference) and require a difference.
+    continuous_control: bool,
+    /// Control: require a difference from the reference (a run that leaves
+    /// out something the deck does).
+    must_differ: bool,
 }
 
 impl Case {
@@ -216,7 +377,49 @@ impl Case {
             target_var: None,
             expected_differ: 0,
             expect_moved: 1.0e-3,
+            runs: Vec::new(),
+            continuous_control: false,
+            must_differ: false,
         }
+    }
+}
+
+/// Run `sys` from `*last` to `target`, beginning each pending run whose
+/// start step lies strictly before `target` (a boundary AT `target` is left
+/// pending: the reference prints its end-of-run line there first).
+fn advance(
+    sys: &mut GranularSystem,
+    last: &mut usize,
+    target: usize,
+    pending: &mut std::collections::VecDeque<(usize, Vec<ServoModify>)>,
+    control: bool,
+) {
+    while let Some((b, _)) = pending.front() {
+        if *b >= target {
+            break;
+        }
+        let b = *b;
+        sys.run(b - *last);
+        *last = b;
+        begin(sys, pending, control);
+    }
+    sys.run(target - *last);
+    *last = target;
+}
+
+/// The next `run` command: its `fix_modify` keywords, then `begin_run`
+/// (unless this is the continuous control).
+fn begin(
+    sys: &mut GranularSystem,
+    pending: &mut std::collections::VecDeque<(usize, Vec<ServoModify>)>,
+    control: bool,
+) {
+    let (_, mods) = pending.pop_front().expect("a pending run");
+    for m in mods {
+        sys.fix_modify_servo(0, m).expect("valid fix_modify");
+    }
+    if !control {
+        sys.begin_run().expect("run set-up");
     }
 }
 
@@ -235,7 +438,9 @@ fn run_servo(case: &Case) {
     let rows = table(&csv, true, 1);
     let thermo = table(&thermo, false, 0);
     assert_eq!(rows.len(), 501);
-    assert_eq!(thermo.len(), 81);
+    // one more thermo line per extra run: the set-up print
+    assert_eq!(thermo.len(), 81 + case.runs.len());
+    let mut pending: std::collections::VecDeque<_> = case.runs.clone().into();
     let mesh = MeshWall::from_ascii_stl(&stl).expect("valid plate stl");
     let mut servo = MeshServo::new(
         case.com,
@@ -304,8 +509,12 @@ fn run_servo(case: &Case) {
             if ts > step {
                 break;
             }
-            sys.run(ts - last);
-            last = ts;
+            if ts == last && pending.front().is_some_and(|(b, _)| *b == ts) {
+                // the second line at a run boundary: printed after set-up
+                begin(&mut sys, &mut pending, case.continuous_control);
+            } else {
+                advance(&mut sys, &mut last, ts, &mut pending, case.continuous_control);
+            }
             for k in 0..12 {
                 total += 1;
                 let got = if k < 9 {
@@ -334,8 +543,7 @@ fn run_servo(case: &Case) {
                 some_contacts = true;
             }
         }
-        sys.run(step - last);
-        last = step;
+        advance(&mut sys, &mut last, step, &mut pending, case.continuous_control);
         for (i, q) in sys.particles().iter().enumerate() {
             let got = [
                 q.position.x,
@@ -362,9 +570,21 @@ fn run_servo(case: &Case) {
         "the servo never moved the plate: {moved}"
     );
     eprintln!(
-        "{}: {mismatched}/{total} differ ({thermo_mismatched} of them f_plate values), first {first:?}",
-        case.deck
+        "{}{}: {mismatched}/{total} differ ({thermo_mismatched} of them f_plate values), first {first:?}",
+        case.deck,
+        if case.continuous_control {
+            " (continuous control)"
+        } else if case.must_differ {
+            " (control)"
+        } else {
+            ""
+        }
     );
+    assert!(pending.is_empty(), "runs left unbegun: {pending:?}");
+    if case.continuous_control || case.must_differ {
+        assert!(mismatched > 0, "a control run reproduced the reference");
+        return;
+    }
     assert_eq!(
         mismatched, case.expected_differ,
         "{mismatched}/{total} differ, first {first:?}"

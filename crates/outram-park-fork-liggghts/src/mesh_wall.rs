@@ -1397,6 +1397,10 @@ impl MovingBoundary {
         let Some((servo, orig)) = &mut self.servo else {
             return;
         };
+        // only if the wall should move (`integrate stop`, gh:#1510)
+        if !servo.is_integrating() {
+            return;
+        }
         let mv = servo.initial_integrate();
         let WallGeometry::Mesh(m) = &mut self.geometry else {
             return;
@@ -1451,6 +1455,11 @@ impl MovingBoundary {
             ServoCtrl::Torque => st.torque_total(),
         };
         let v = servo.final_integrate_pv(pv, self.servo_contacts);
+        // `integrate stop`: `set_v_node` is not called, the nodes keep their
+        // velocities (gh:#1510)
+        if !servo.is_integrating() {
+            return;
+        }
         if let WallGeometry::Mesh(m) = &mut self.geometry {
             match servo.ctrl() {
                 ServoCtrl::Force => {
@@ -1467,6 +1476,73 @@ impl MovingBoundary {
                     }
                 }
             }
+        }
+    }
+
+    /// The `init()` and `setup_pre_force()` of a new `run` for this wall
+    /// (gh:#1510); a no-op for an analytic wall.
+    ///
+    /// * `MeshModuleStressServo::init`: [`MeshServo::init_run`] with `r_min`
+    ///   the smallest radius of `particles` (upstream `BIG = 1e6` if none) and
+    ///   the current nodes; `p_ref = xcm` on the stress module.
+    /// * `MeshModuleStressServo::setup_pre_force` ([`MeshServo::setup_pre_force`])
+    ///   and `FixMesh::setup_pre_force` -> `pbcExchangeBorders(1)` ->
+    ///   `refreshOwned(1)`: the current nodes become the original nodes the
+    ///   servo moves from (`storeNodePosOrig`), and the facet geometry, the
+    ///   rebuild reference nodes and the stress module's facet areas are
+    ///   recomputed from the nodes (`recalcLocalSurfProperties`,
+    ///   `storeNodePosRebuild`).
+    ///
+    /// Everything else persists: the servo's integral and derivative state,
+    /// its velocity and the node velocities, the stress totals, the wear, the
+    /// mover's time.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`MeshServo::init_run`] reports (upstream's `init()` aborts).
+    pub fn begin_run(&mut self, particles: &[Particle]) -> Result<(), DemError> {
+        let WallGeometry::Mesh(m) = &mut self.geometry else {
+            return Ok(());
+        };
+        if let Some((servo, orig)) = &mut self.servo {
+            // r = r_min = BIG; r_min = MIN(r_min, r) over the atoms
+            let r_min = particles
+                .iter()
+                .fold(1.0e6_f64, |r_min, p| if r_min < p.radius { r_min } else { p.radius });
+            servo.init_run(r_min, &m.nodes())?;
+            if let Some(st) = &mut self.stress {
+                st.p_ref = vec3(servo.xcm());
+            }
+            servo.setup_pre_force();
+            *orig = m.nodes();
+        }
+        m.refresh_geometry();
+        if let Some(st) = &mut self.stress {
+            st.refresh_area((0..m.triangles.len()).map(|i| m.state.area(i)).collect());
+        }
+        Ok(())
+    }
+
+    /// `FixMoveMesh::setup` of a new `run`: the node velocities of a mesh
+    /// moved by a `fix move/mesh` are zeroed (`v->setAll(0.)` when the mover
+    /// is the first on the mesh). Upstream does this in the fix's own
+    /// `setup`, i.e. after the `fix wall/gran` set-up evaluation when the
+    /// `move/mesh` is declared after the wall, which is the order this
+    /// crate's fix order assumes. A no-op for a servo mesh, a static mesh and
+    /// an analytic wall (gh:#1510).
+    pub fn move_mesh_setup(&mut self) {
+        if self.servo.is_some() {
+            return;
+        }
+        let moved = !matches!(self.motion, MeshMotion::None)
+            || self.rotation.is_some()
+            || self.velocity != Vec3::zero()
+            || self.angular_velocity != Vec3::zero();
+        if !moved {
+            return;
+        }
+        if let WallGeometry::Mesh(m) = &mut self.geometry {
+            m.state.node_velocity.fill([[0.0; 3]; 3]);
         }
     }
 

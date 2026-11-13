@@ -1679,16 +1679,87 @@ PETIR's maths; demonstrate, count and pin such residuals). Pinned at 27 in
 `tests/mesh_servo_cross_code.rs`.
 
 **Not ported, with reasons.**
-- `fix_modify` on the servo (`integrate`, `vel_max`, `target_val`,
+- ~~`fix_modify` on the servo (`integrate`, `vel_max`, `target_val`,
   `ctrlParam`, `ratio`): it takes effect only between two `run` commands, and
   upstream re-runs every fix's `init()` and `Verlet::setup()` (a set-up force
   evaluation at full-step velocities) at each `run`. The port models one
   continuous run and has no second-`run` emulation, so no deck with
-  `fix_modify` can be compared. Needs that emulation first (follow-up issue).
+  `fix_modify` can be compared. Needs that emulation first (follow-up issue).~~
+  **CORRECTED 2026-11-13 (gh:#1510):** the second-`run` emulation
+  (`GranularSystem::begin_run`) and the servo `fix_modify` keywords are ported
+  and cross-coded bit-identical; see 4.14.
 - massflow/mesh multisphere volume weight (`fix_volumeweight_ms_`): this crate
   has no `fix multisphere` (rigid clumps); there is nothing to weight. Not worth
   porting until multispheres are.
 - Other region styles, moving/rotating regions for `wall/region`.
+
+## 4.14 Multi-`run` decks and servo `fix_modify` (2026-11-13, gh:#1510)
+
+**What upstream does at every `run`** (read from LIGGGHTS-PUBLIC `3d5c00f2`,
+`run.cpp`, `lammps.cpp`, `verlet.cpp`, `modify.cpp` and the fixes'
+`init`/`setup`). `Run::command` calls `lmp->init()` then `Verlet::setup()`
+(skipped by `run N pre no`). `init()` calls every fix's `init()`; only the
+servo's changes state the port holds (`MeshModuleStressServo::init`:
+`p_ref = xcm`, `vel_min_ = ratio * r_min / dt` over the present atoms, the
+torque servo's `rPaMax` over the present nodes, the `vel_max < skin/(2 dt)`
+check). `Verlet::setup()` sorts the atoms (`nextsort` re-based), builds the
+neighbour list (`xhold`), runs `setup_pre_force` (`FixMesh`:
+`pbcExchangeBorders(1)` -> `refreshOwned(1)`: edge vectors, normals and areas
+recomputed from the nodes, `node_orig` and `nodesLastRe` set to the present
+nodes; `FixNeighlistMesh`: mesh lists rebuilt; the servo: `xcm_orig = xcm`,
+`totalPhi = 0`), evaluates the pair forces and calls every fix's `setup` with
+`shearupdate = 0` (`wall/gran` and `gravity` `post_force`; `FixMoveMesh::setup`
+zeroes the node velocities after the wall's evaluation when it is declared
+after the wall).
+
+**What persists**: pair, wall and mesh contact history; the servo's
+`sum_err_`, `old_pv_mag_`, velocity and node velocities; the stress totals
+(no `pre_force` at set-up, so the set-up contributions are added to the last
+step's: the thermo line printed at set-up shows the sum); `wear_step`; the
+insertion schedule and counters (`FixInsert::setup` returns after the first
+run); massflow counters; a mesh's `next_reneighbor`; the mover's `time_`.
+
+**Port.** `GranularSystem::begin_run` (does the above; construction already
+performs the first run's set-up), `MovingBoundary::begin_run`,
+`MovingBoundary::move_mesh_setup`, `MeshServo::init_run`,
+`MeshServo::setup_pre_force`, `MeshStress::refresh_area`. `fix_modify`:
+`MeshServo::modify_param(ServoModify)` / `GranularSystem::fix_modify_servo`
+(`integrate start|stop`, `vel_max`, `target_val` constant or `v_name`,
+`ctrlParam`, `ratio`; `target_val` and `ctrlParam` zero the integral term,
+`resetIntegrator`).
+
+**Decks** (`reference-data/liggghts/make_multirun_decks.sh`), each a split of
+a single-run deck already bit-identical. Predictions were posted on gh:#1510
+before each first run. Every value is compared as IEEE-754 bits, Rust 1.99.1.
+
+| deck | what it exercises | result | control (must differ) |
+|---|---|---|---|
+| `in.mesh_servo_2run` (`run 10000` x 2) | servo `init`/`setup_pre_force`, set-up force at full-step velocities, set-up thermo line | **10 002 / 10 002** | continuous run: 1 914 / 10 002 differ |
+| `in.mesh_servo_torque_2run` | torque servo: `rPaMax` and `node_orig` from the rotated nodes, `totalPhi = 0` | **10 002 / 10 002** | |
+| `in.pour_pack_runs` (`in.pour_pack` with plain `run` at all 9 frames) | 8 set-ups: atom sort, list build, pair and primitive-wall history, insertion schedule, contacts at the last 3 | **9 / 9 frames**, every particle | continuous run: 3 / 9 frames differ |
+| `in.rotating_plate_2run` (`run 5000` x 2) | `refreshOwned(1)` of a rotating mesh, re-based rebuild schedule (upstream rebuilds at 5000, 5058, ... instead of 5046, 5104, ...), `FixMoveMesh::setup` | **2 259 / 2 259** | continuous run: 619 / 2 259 differ |
+| `in.mover_wiggle_2run` (`run 5000` x 2) | mover phase (`time_`) across a set-up | **2 259 / 2 259** | none possible: LIGGGHTS' two-run dump is byte-identical to its one-run dump on this deck |
+| `in.mesh_servo_modify` (`run 8000`; `servo/target_val 0.15 servo/ctrlParam 0.5 0.4 0.0002 servo/vel_max 0.03`; `run 6000`; `servo/integrate stop`; `run 6000`) | `modify_param` + `init` | **10 014 / 10 014** | same runs without `fix_modify`: 2 394 / 10 014 differ |
+| `in.mesh_servo_auto_modify` (`run 10000`; `servo/ratio 0.0001`; `run 10000`) | `ratio` -> `vel_min_` at `init` | **10 002 / 10 002** | without the new ratio: 1 608 / 10 002 differ |
+
+All predictions were met. One first result was a miss: `in.rotating_plate_2run`
+gave 619 / 2 259. It was a defect in the new test's replay loop, not in the
+port: the run boundary fell on a sampled frame and the loop never called
+`begin_run`. A scratch copy of upstream with one `fprintf` in
+`Neighbor::build` showed the shifted rebuild schedule; the binary reproduced
+the committed `rotating_plate.csv` byte for byte, and the copy was deleted.
+With the loop fixed, the result is 2 259 / 2 259.
+
+**Not modelled** (no deck here exercises them): `ramp()` and other quantities
+bounded by the run in variables (the variable contexts take `begin_step = 0`);
+`FixMoveMesh::reset_reference_point` for superposed movers; a `move/mesh`
+declared before its `wall/gran` (the set-up evaluation would see zero node
+velocities); the slot compaction of the mesh contact history
+(`FixContactHistoryMesh::sort_contacts`), which the port does not model at
+re-neighbouring either. `MeshStress`'s facet areas are refreshed at
+`begin_run` (as `refreshOwned` does) but, as before, not at the re-neighbouring
+of a moving mesh, which upstream also refreshes. Neither the servo nor the
+`wear` decks expose that difference.
 
 ## 5. What is still NOT validated
 
