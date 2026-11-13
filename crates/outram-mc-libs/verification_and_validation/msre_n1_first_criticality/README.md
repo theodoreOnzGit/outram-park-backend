@@ -9,32 +9,35 @@
 > realism without crippling the simulation."** The model now expands each
 > solid to its own temperature (`Dims::at`) and carries the whole TM-0728
 > shield (`Shield::Tm0728Full`). `--cold-dims` and `--shield none` are the
-> ablations. **Every number in the summary below was measured on the
-> previous default (cold, no shield)** and is being re-measured; the plan and
-> predictions are posted on gh:#1128. Until the new rows land, quote these as
-> the previous default's.
+> ablations. ~~Every number in the summary below was measured on the
+> previous default (cold, no shield) and is being re-measured.~~ **Re-measured
+> 2026-11-13**: the summary below is the new default, with the previous
+> default's values struck beside them. The ablation table further down was
+> measured on the previous default; its re-run on the new one is in
+> progress (predictions on gh:#1128).
 
-## Numbers to quote (summary, 2026-11-12)
+## Numbers to quote (summary, 2026-11-13)
 
-The default model is **arm C (natural Mo), RVS, 30P graphite, cold
-dimensions, no shield, rods out, and since 2026-11-12 U-234/U-236 in the
-salt** (TM-0730's 93 % uranium; maintainer: "More physical model is
+The default model is **arm C (natural Mo), RVS, 30P graphite, ~~cold
+dimensions, no shield,~~ dimensions following temperature and the whole
+TM-0728 shield (since 2026-11-13), rods out, and since 2026-11-12
+U-234/U-236 in the salt** (TM-0730's 93 % uranium; maintainer: "More physical model is
 better"). σ is the larger of the seed sem and the internal σ/√n. Every row
 links to the section that holds its method, data and caveats. This summary
 adds no number of its own.
 
 | quantity | this model | reference | section |
 |---|---|---|---|
-| N-1 k at 1181 °F (6 seeds) | 1.00536 ± 0.00023, **+455 ± 23 pcm** (~~1.00882, +801 ± 22~~ before U-234) | k_ref 1.00080 (ORNL-4233); measurement ±200–270 pcm | [re-measured](#re-measured-on-the-2026-11-12-default-salt-with-u-234-and-u-236-gh1128-gh1129) |
-| N-1 against the 1000 pcm band (maintainer, 2026-11-10) | **passes** | — | [Methodology](#methodology) |
-| ²³⁵U concentration coefficient | **0.235 ± 0.006** (~~0.231 ± 0.005~~) | measured 0.223; ORNL calc. 0.234–0.248 | re-measured |
-| equivalent ²³⁵U excess behind +455 pcm | about 0.63 g/L (1.9 %) | measured 32.8 ± 0.3 g/L | same |
-| α_iso (×10⁻⁵ /°F) | **−7.69 ± 0.35** (~~−7.54 ± 0.40~~) | measured −7.24 | same |
-| fuel coefficient | **−4.18 ± 0.35** (~~−4.44 ± 0.40~~) | measured −4.7 ± 0.7 (found after the arm-C run) | same |
-| graphite coefficient | **−3.08 ± 0.35** (~~−2.82 ± 0.43~~) | not measured | same |
-| T-1 natural periods, with this split | **−11 % to +12 %** of TM-1647 (~~−11 % to +8 %~~) | — | nee_soon T-1 README |
+| N-1 k at 1181 °F (6 seeds) | **1.01807 ± 0.00023, +1726 ± 23 pcm** (~~1.00536, +455 ± 23~~ previous default; ~~1.00882, +801 ± 22~~ before U-234) | k_ref 1.00080 (ORNL-4233); measurement ±200–270 pcm | [new default](#re-measured-on-the-2026-11-13-default-dimensions-at-temperature-and-the-whole-shield-gh1128-gh1129) |
+| N-1 against the 1000 pcm band (maintainer, 2026-11-10) | **fails, by 726 pcm** (~~passes~~ on the previous default) | — | [Methodology](#methodology) |
+| ²³⁵U concentration coefficient | **0.208 ± 0.004** (~~0.235 ± 0.006~~) | measured 0.223; ORNL calc. 0.234–0.248 | new default |
+| equivalent ²³⁵U excess behind the N-1 residual | **about 2.7 g/L (8.3 %)** (~~0.63 g/L, 1.9 %~~) | measured 32.8 ± 0.3 g/L | same |
+| α_iso (×10⁻⁵ /°F) | **−7.17 ± 0.42** (~~−7.69 ± 0.35~~) | measured −7.24 | same |
+| fuel coefficient | **−3.79 ± 0.37** (~~−4.18 ± 0.35~~) | measured −4.7 ± 0.7 | same |
+| graphite coefficient | **−3.26 ± 0.33** (~~−3.08 ± 0.35~~) | not measured | same |
+| T-1 natural periods, with this split | **−9 % to +21 %** of TM-1647 (~~−11 % to +12 %~~) | — | nee_soon T-1 README |
 
-**Ablations.** None of these is in the default; each is the maintainer's
+**Ablations** (~~None of these is in the default~~ hot dimensions and the whole shield became the default on 2026-11-13; the rest remain ablations). Each is the maintainer's
 call. ~~Measured on the previous default salt (without U-234/U-236); the
 shifts are differences and were not re-run. The last column adds each
 shift to the current +455 pcm, an estimate, not a run.~~ **RE-MEASURED
@@ -977,6 +980,60 @@ estimated at about −240.
   model is better"): `default_salt()` now carries U-234 and U-236, and
   `--minor-uranium none` is the ablation. Re-measured below.
 
+
+### Re-measured on the 2026-11-13 default: dimensions at temperature and the whole shield (gh:#1128, gh:#1129)
+
+**What changed** (maintainer, 2026-11-13): "Have a dimension dynamically
+shifting with temp. Shields all in shld be default … physical realism
+without crippling the simulation."
+- `Dims::at(salt_f, graphite_f)`: graphite expands from 70 °F to its own
+  temperature, and INOR-8 to the salt's (TM-0728 §5.3 coefficients).
+- `Shield::default()` is `Tm0728Full`.
+- Both are pinned by `defaults_are_the_whole_shield_and_dims_at_temperature`.
+- Ablations: `--cold-dims`, `--shield none`.
+- **Cost:** about 875 s a seed against 790 s, **+11 %** (llvmpipe/Vulkan,
+  4 cores, Intel Xeon, 15.7 GiB, 4 threads).
+- **Bit-identity check:** seeds 1–3 reproduce the earlier
+  `--hot-dims --shield tm0728-full` runs digit for digit, as predicted. So
+  the isothermal `Dims::at` is the old `--hot-dims` exactly, and the develop
+  merges did not change the CPU transport path.
+
+**Predictions** posted on gh:#1128 before the runs, and the results
+(binary built from 0dd316cb9; data: `data/keff.csv`, `data/n3.csv`, rows
+`+u234+hot-dims+shield-tm0728-full`):
+
+| quantity | seeds | result | prediction | |
+|---|---|---|---|---|
+| N-1 k, 1181 °F | 6 | **1.01807 ± 0.00023, +1726 ± 23 pcm** | +1600 to +1850 | inside; **fails the band** |
+| concentration coefficient (×0.95 / ×1.05) | 3 + 3 | 1.00736 / 1.02889, **0.208 ± 0.004** | 0.225–0.245 | **miss** |
+| N-3: 1131 / 1231 °F | 6 + 6 | 1.02232 ± 0.00026 / 1.01488 ± 0.00035, **α_iso −7.17 ± 0.42** | −7.6 to −6.4 | inside; 0.2σ from the measured −7.24 |
+| split: salt 1231 / graphite 1131 (C) | 6 | 1.01837 ± 0.00029, **fuel −3.79 ± 0.37** | −4.6 to −3.4 | inside; 1.1σ from the measured −4.7 ± 0.7 |
+| split: salt 1131 / graphite 1231 (D) | 6 | 1.01892 ± 0.00022, **graphite −3.26 ± 0.33** | −3.6 to −2.4 | inside |
+
+- **N-1 fails the 1000 pcm band, by 726 pcm.** The more physical model
+  raises k. The combined run measured the two changes as additive: the
+  interaction is −24 ± 63 pcm. The residual is now about 8.3 % too much
+  ²³⁵U, **about 2.7 g/L**, against the measured 32.8 ± 0.3 g/L. Since the
+  spectrum agrees with ORNL's (ORNL-4449 Table 2.1, salt-absorption
+  section), the leading open candidate is the absorption data: the Zr and F
+  gap against TM-0730, which awaits BNL-325 / CF-60-3-35.
+- **The concentration coefficient missed low.** The formula reproduces the
+  previous default's 0.234 from its stored rows. On the overlapping k range
+  (about 1.006–1.017), the previous default's upper half-interval gives
+  0.229 and this default's lower half 0.209. **So the drop is the model
+  change, not the higher k.** Its mechanism is not identified. Against the
+  measured 0.223, the model went from 0.012 high to 0.015 low.
+- **N-3 improved:** α_iso is now 0.07 from the measurement, where it was
+  0.45. The fuel term moved from −4.18 to −3.79, further from the measured
+  −4.7 ± 0.7, though still inside 1.1σ.
+- **The split is self-consistent.** Fuel plus graphite is −7.05, against
+  α_iso −7.17, so the non-additivity is −0.12 ± 0.6. The other pairing,
+  from 1231 °F, gives fuel −3.91 and graphite −3.38. This is the first
+  split in which graphite expands with its own temperature, so its
+  expansion now counts in the graphite term.
+- **T-1 with this split:** −9 % to +21 % of TM-1647, worse at high power
+  than the previous −11 % to +12 % (nee_soon T-1 README). **No T-1
+  prediction was posted before that run.**
 
 ### Re-measured on the 2026-11-12 default salt, with U-234 and U-236 (gh:#1128, gh:#1129)
 
