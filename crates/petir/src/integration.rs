@@ -125,10 +125,14 @@ mod qcheb;
 /// (gh:#1340).
 mod qawc;
 
+/// QAWS: algebraic-logarithmic end-point weights, GSL `integration/qaws.c`,
+/// `qc25s.c`, `qmomo.c` (gh:#1340).
+mod qaws;
 /// Romberg integration, GSL `integration/romberg.c` (gh:#1340).
 mod romberg;
 
 pub use qagp::{qagp, qagp_with_status};
+pub use qaws::{qaws, qaws_with_status, QawsTable};
 pub use romberg::{romberg, romberg_with_status, RombergOutcome};
 pub use qawc::{qawc, qawc_with_status};
 pub use qng::{qng, qng_with_status, QngOutcome};

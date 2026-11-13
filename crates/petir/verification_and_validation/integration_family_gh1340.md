@@ -155,3 +155,21 @@ Replay tests: `tests/gsl_qng_code_to_code.rs` (27 cases),
 the integrand call count identical, and 20 of 20 results bit-identical
 (`tests/gsl_romberg_code_to_code.rs`; includes five non-converging runs, a
 reversed interval, a zero-width interval and the four argument errors).
+
+## QAWS (written 2026-11-13, prediction committed BEFORE the port is run)
+
+- **Port:** `src/integration/qaws.rs` (`QawsTable`, `qaws`) from `qaws.c`,
+  `qc25s.c` and `qmomo.c`; re-uses `qcheb.rs`, the QAGS `Workspace`, and
+  `append_interval` from `qagp.rs` (made `pub(super)`).
+  **Reference:** `reference-data/gsl/qaws_reference_driver.c` (12 table
+  allocations, 16 integrations). **Replay:** `tests/gsl_qaws_code_to_code.rs`.
+- **P10.** (a) `QawsTable::new` accepts or refuses all 12 parameter sets as
+  `gsl_integration_qaws_table_alloc` does (PETIR also refuses `alpha = -1`,
+  which GSL accepts and then divides by zero; no such set is in the reference).
+  (b) GSL's integer status, workspace size and `neval` identical in 16 of 16.
+  (c) The Chebyshev moment arrays: bit-identical for the table with
+  `alpha = beta = 0` (powers of two are exact), at least 50 % of all 4 x 25 x
+  8 entries overall; the rest differ by `pow(2, alpha+1)` (glibc against
+  PETIR's). (d) Results bit-identical in at least 8 of 16 (every integrand
+  path calls `pow` or `log`), and where not, within 1e-12 relative; abserr
+  within 1e-6 relative.

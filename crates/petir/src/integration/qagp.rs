@@ -47,7 +47,7 @@ use super::qags::{
 use super::{kronrod, Integral, QkRule};
 
 /// `append.c`, `append_interval`.
-fn append_interval(w: &mut Workspace, a1: f64, b1: f64, area1: f64, error1: f64) -> Option<()> {
+pub(super) fn append_interval(w: &mut Workspace, a1: f64, b1: f64, area1: f64, error1: f64) -> Option<()> {
     let i_new = w.size;
     wr(&mut w.alist, i_new, a1)?;
     wr(&mut w.blist, i_new, b1)?;
