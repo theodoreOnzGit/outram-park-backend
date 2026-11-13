@@ -615,8 +615,89 @@ Unit tests:
 | `--lib` | 736 of 736 passed |
 
 **Still refused at GROUPR:**
-- `getsed` analytic spectra (`anased`/`hnab`, `LF = 7` here): decks 02, 11 (`6 18`);
-- `getwtf` `iwt = 4`: deck 02;
+- ~~`getsed` analytic spectra (`anased`/`hnab`, `LF = 7` here): decks 02, 11 (`6 18`);~~ **CORRECTED 2026-11-13:** laws 7 and 9 translated (section 17); laws 11 and 12 remain, no deck seen;
+- ~~`getwtf` `iwt = 4`: deck 02;~~ **CORRECTED 2026-11-13:** translated (section 17);
 - `genflx`'s slowing-down branch (`iwt < 0`) and `iwt = 0` (`getfwt`): no deck seen;
 - UNRESR on a PENDF with no MT=152 (`new = 1`): no deck seen;
-- deck 17's earlier RECONR/BROADR differences and `iwt = 6`.
+- ~~deck 17's earlier RECONR/BROADR differences and `iwt = 6`.~~ **CORRECTED 2026-11-13:** both closed (section 17).
+
+## 17. GROUPR `anased` laws 7 and 9, `getwtf` `iwt = 4` and `6`, RECONR's seam between resolved ranges, MODER `nin = 2` (2026-11-13, gh:#1369)
+
+The targets were the ones section 16 left: `anased` `LF = 7` (decks 02 and 11 at `6 18`),
+`getwtf` `iwt = 4` (deck 02), then deck 17 (RECONR/BROADR, then `iwt = 6`), then ERRORR
+if time remained. A prediction was posted on gh:#1369 before each change.
+
+**Search first.**
+- `groupr::continuum::PhotonSed` was already `getsed` on MF=5/15 with the `econst`
+  search and an analytic `LF = 5` subsection. It was generalised to `anased`'s laws 5, 7
+  and 9 (the `theta` TAB1 alone for 7 and 9). `SedFeed` (`anased9`) stays the
+  non-fission `mfd = 6` route. A unit test pins that the two give the same law-9 values,
+  bit for bit.
+- `erfc` (SLATEC `derfc`, `mathm.f90:447-634`) was already ported in `broadr::joint`. It
+  was made `pub(crate)` and reused rather than copied.
+- `groupr::weights::ThermalFissionParams` (`genwtf`'s `ab`, `ac`) and
+  `thermal_fission_fusion` (the `iwt = 6` value) were reused. Only `getwtf`'s `enext`
+  ladders were new.
+- `reconr`'s `refine_panel`/`test_panel` (`resxs`'s panel test and step-increase rule)
+  were reused for the seam. The SLBW/MLBW and RM per-energy closures moved, unchanged,
+  into `reconr::seam::{slbw_delta, rm_delta}`, so the range rebuild and the seam call one
+  function.
+
+| deck(s) | was | cause (upstream) | fix | result |
+|---|---|---|---|---|
+| 11, 02 | `6 18` refused: `getsed` `LF = 7` | `getsed` reads `theta` and lowers `econst` (`:11902-11924`). `anased` law 7 (`:12364-12374`): `bot = rp4 (1-erfc(sqrt xc)) - sqrt(xc) exp(-xc)` on a `new` call, `top = rl e^-xlo - rh e^-xhi - rp4 (erfc rh - erfc rl)`. Pu-238 B-IV MT=18: `U = -3e7`, constant `theta = 1.3333e6`. | `PhotonSed` analytic laws 7 and 9 (`continuum::anased7`); fission law 9 goes through `PhotonSed` too | **deck 11's GENDF as written identical, 10 379 lines** (`test_11_groupr_gendf_whole_tape`, which replaces `test_11_groupr_gendf_without_mf6_mt18`) |
+| 02 | `genflx` refused: `getwtf iwt = 4` | `genwtf` stores `eb, tb, ab, ec, tc, ac` (`:5036-5052`); `getwtf` (`:5206-5220`): three branches, `enext = 1.01 e` stopped at `eb` and `ec` | `njoy_panel::genwtf_iwt4`, `weights::getwtf_iwt4` | **GENDF identical, 6 213 lines, and UNRESR's PENDF, 13 873** (`test_02_groupr_gendf_and_unresr_pendf`); deck stops at CCCCR |
+| 17 | RECONR: U-238 (tape41) 12 lines short, Pu-239 (tape43) 60 | `resxs` (`:2240-2569`) walks every resolved range in one pass, and `sigma` takes each on `[el, eh)`. The panel from `sigfig(eh,7,-1)` to `sigfig(el,7,+1)` at a boundary between two resolved ranges (JENDL-3.3 U-238 has 11, Pu-239 three) is tested, and its midpoint belongs to the upper range. The port refined each range on its own grid. | `reconr::seam::refine_resolved_seams` | first run: Pu-239 +48 of 60 lines, U-238 +0 |
+| 17 | same | `resxs`'s step-increase state (`in`, `res(1)`, `:2419-2421`) carries over the boundary, so the upper range's first panels can be split (NJOY: 1000.003 … 1000.019 eV on Pu-239). The port restarted it in each range (`in = 0`). | `seam::rewalk_from` re-tests the upper range's first panels with the carried state, until it coincides with the per-range walk's | **tape41 (497 335 lines) and tape43 (303 613) byte-identical**; BROADR's 31 and 33 follow |
+| 17 | GROUPR refused: `iwt = 6` | `getwtf` (`:5222-5245`): `enext = 1.01 e`, `1.005 e` within 1.6 MeV and `1.002 e` within 0.33 MeV of 14.07 MeV | `weights::getwtf_iwt6` | **tapes 91-93 identical** |
+| 17 | MODER `2 99`: label only | `nin = 2` (`moder.f90:110-205`, `:289-330`): the card-2 label with `MAT = 1`, each pick's GENDF records through MEND (every temperature), TEND | `deck::run::select_gendf_text` on the deck driver's text GENDF units | **tape99 identical, 3 548 lines**; the deck stops at ERRORR (`test_17_through_moder_merge`, ten tapes) |
+
+**Predictions.**
+- `LF = 7`, deck 11 identical with `6 18`: held. So did deck 02 identical through GROUPR,
+  the risk named being MT 251-253/259 under `nsigz = 7`.
+- Deck 17 RECONR: "the seam adds the 1e3 points, the step-increase state is the next
+  suspect". Both held, in that order. U-238's line count did not move with the seam
+  alone, because its missing points were all step-increase splits.
+- `iwt = 6`: tapes 91-93 identical. This held. The prediction named MODER's merge or
+  ERRORR as the next stop: MODER's `nin = 2` was refused first (it wrote the label alone),
+  and once it was translated the deck stops at ERRORR.
+
+**ERRORR (target 4) was not started.** Each candidate deck's ERRORR card was read:
+- 15: `ngout = 91`, MF=31 (`ifissp = -1`), then MF=34;
+- 18: MF=35 with a 71-group user structure and `efmean`;
+- 27 and 47: MF=35 twice;
+- 34: MF=35;
+- 46: MF=34 with a 238-group structure.
+
+All read an input GENDF (`ngout`). None is the plain MF=33-from-PENDF path that
+`errorr::driver`/`run_mf33` cover. The cheapest is deck 34 (one ERRORR, MF=35, binary
+`ngout`): it needs the deck-driver card reader, `ngout` input, and the MF=35 (`covcal`
+for spectra) path.
+
+**Survey:** the 21 GROUPR decks were re-run (`SURVEY_CASES`, 649 s) on develop 6834385cb
+plus this work. **49 of 87 are identical** (unchanged): no whole deck closed, because each
+deck now stops at a module that has no driver. Rows 02, 11 and 17 changed:
+- 02 stops at CCCCR;
+- 11 stops at WIMSR;
+- 17 has ten identical tapes (four of them differed before) and stops at ERRORR.
+
+**Tests (release, on develop 6834385cb plus this work, after the last code or test change):**
+
+| suite | result |
+|---|---|
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` (`ulimit -v 12582912`) | 122 passed, 0 failed, 2 ignored (43, 80), 1 651 s |
+| `pendf_stages_vs_njoy2016` | 9 of 9 passed |
+| `ace_five_route_parity` | 13 of 13 passed |
+| `--lib` | 741 of 741 passed |
+
+**Gates** (`tests/deck_driver_tapes_vs_njoy2016.rs`):
+- `test_11_groupr_gendf_whole_tape` (replaces the `6 18` exemption);
+- `test_02_groupr_gendf_and_unresr_pendf`;
+- `test_17_through_moder_merge`.
+
+Unit tests:
+- `groupr::continuum::analytic_tests`: law 9 through `PhotonSed` against `SedFeed`, bit
+  for bit; law 7 against a 20 000-panel Simpson integral of the Maxwellian, `1e-10`;
+  `getwtf` `iwt = 4`;
+- `reconr::seam::tests` (`sigma`'s `[el, eh)`);
+- `deck::run::moder_gendf_tests`.

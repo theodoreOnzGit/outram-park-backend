@@ -42,6 +42,7 @@ pub mod mf2;
 pub mod rm;
 pub mod urr;
 pub mod rml;
+mod seam;
 pub mod slbw;
 
 pub use mf1::MaterialInfo;
@@ -55,7 +56,6 @@ use crate::{
     mixr::mix::sigfig,
     NjoyError,
 };
-use rm::RmSigmas;
 use slbw::{channel_radius, csslbw_elastic_step, eval_mlbw_lstate, eval_mlbw_lstate_radii, eval_slbw_lstate_parts};
 
 // ── Public configuration and result types ─────────────────────────────────────
@@ -498,6 +498,9 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
 
     // Phase 2b: add SLBW/MLBW resonance contributions
     add_resonance_contributions(&mut sections, &res_info, eps, &raw_mf3);
+    // `resxs` walks every resolved range in one pass, so the panel across a
+    // boundary between two of them is tested too (gh:#1369 round 5, deck 17).
+    seam::refine_resolved_seams(&mut sections, &res_info, eps, &raw_mf3);
 
     // Phase 2c: add the infinitely-dilute unresolved (LRU=2) contribution for
     // LSSF=0 ranges. Without this those ranges come back at ZERO cross
@@ -1367,57 +1370,16 @@ fn add_slbw_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f
     }
 
     // Hoist the per-l-state channel radius and resonance tuples out of the
-    // energy loop — they do not depend on energy.
-    let prepared: Vec<(u32, f64, f64, Vec<_>)> = range
-        .l_states
-        .iter()
-        .map(|ls| {
-            let ra = channel_radius(ls.awri, range.naps, range.ap);
-            let tuples: Vec<_> = ls.resonances.iter().map(|r| r.as_tuple()).collect();
-            (ls.l, ls.awri, ra, tuples)
-        })
-        .collect();
+    // energy loop — they do not depend on energy. (Moved to `seam::slbw_prepare`
+    // and `seam::slbw_delta` 2026-11-13, unchanged, so the seam pass and the
+    // range rebuild evaluate one function.)
+    let prepared = seam::slbw_prepare(range);
 
     let mut halo = Vec::new();
     add_resonance_halo_energies(&mut halo, &range.l_states, range.el, range.eh);
 
     // LRF=1 -> csslbw, LRF=2 -> csmlbw (upstream `sigma`, reconr.f90:2610-2616)
-    let mlbw = matches!(range.formalism, Some(ResonanceFormalism::Mlbw));
-    rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, range.abn, |e| {
-        let mut d = RangeDelta::default();
-        for (l, awri, ra, tuples) in &prepared {
-            if !mlbw {
-                // `csslbw`: the running elastic sum is rounded to 8 figures
-                // after every l-state (`reconr.f90:2849-2851`).
-                let (s, spot) = eval_slbw_lstate_parts(e, tuples, *l, range.spi, range.ap, *awri, *ra);
-                d.elastic = csslbw_elastic_step(d.elastic, s.elastic, spot);
-                d.capture += s.capture;
-                d.fission += s.fission;
-                continue;
-            }
-            let s = if let (true, Some(table)) = (mlbw, &range.ap_table) {
-                // NRO != 0 (GitHub #663), `csmlbw` at `reconr.f90:2893-2916`:
-                // the phase shift takes AP(E); the radius at the energy is
-                // the formula (NAPS=0), AP(E) (NAPS=1) or the constant AP
-                // (NAPS=2). `ra` stays `rdf2bw`'s radius for the resonance
-                // energies. `read_ap_table` guarantees `at` cannot fail here.
-                let ape = table.at(e).unwrap_or(range.ap);
-                let ra_e = match range.naps {
-                    0 => channel_radius(*awri, 0, 0.0),
-                    1 => ape,
-                    _ => range.ap,
-                };
-                eval_mlbw_lstate_radii(e, tuples, *l, range.spi, ape, *awri, ra_e, *ra)
-            } else {
-                eval_mlbw_lstate(e, tuples, *l, range.spi, range.ap, *awri, *ra)
-            };
-            d.elastic += s.elastic;
-            d.capture += s.capture;
-            d.fission += s.fission;
-        }
-        d.total = d.elastic + d.capture + d.fission;
-        d
-    });
+    rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, range.abn, |e| seam::slbw_delta(range, &prepared, e));
 }
 
 fn add_rm_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64, raw: &RawMf3) {
@@ -1428,18 +1390,10 @@ fn add_rm_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64
     let mut halo = Vec::new();
     add_rm_halo_energies(&mut halo, &range.rm_l_states, range.el, range.eh);
 
-    rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, range.abn, |e| {
-        // One call over the whole range: `csrmat` sums every l before
-        // applying `pifac`, and its `gf` flag spans the l-states.
-        let s: RmSigmas = rm::eval_rm_range(e, &range.rm_l_states, range.ap, range.spi, range.naps);
-        RangeDelta {
-            total: s.total,
-            elastic: s.elastic,
-            fission: s.fission,
-            capture: s.capture,
-            ..RangeDelta::default()
-        }
-    });
+    // One call over the whole range: `csrmat` sums every l before applying
+    // `pifac`, and its `gf` flag spans the l-states (`seam::rm_delta`, shared with
+    // the seam pass since 2026-11-13).
+    rebuild_range(sections, range.el, range.eh, halo, eps, &[], raw, range.abn, |e| seam::rm_delta(range, e));
 }
 
 /// Rebuild the elastic/capture/fission/total sections over a resonance range.

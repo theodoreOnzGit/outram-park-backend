@@ -285,6 +285,11 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     // `nsigz > 1` (`genflx`, `getflx`, `getsig`'s `getunr`, `nz > 1` in `panel` and
     // `displa`) are translated; see `groupr::flux_table`.
     // `ruinb` (`:1111`): `sigz(1) = 1e10` whatever card 6 says.
+    // `genwtf` (`:4865-5113`): only `iwt = 4` stores parameters `getwtf` reads (card 8c).
+    if inp.weight.iwt().abs() == 4 {
+        let p = inp.thermal_fission_params.ok_or_else(|| NjoyError::InvalidInput("groupr: iwt = 4 without card 8c".into()))?;
+        crate::groupr::njoy_panel::genwtf_iwt4(&p);
+    }
     let mut sigz: Vec<f64> = inp.sigma_zeros.clone();
     if let Some(s) = sigz.first_mut() {
         *s = 1.0e10;

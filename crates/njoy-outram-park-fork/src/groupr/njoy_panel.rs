@@ -57,16 +57,35 @@ thread_local! {
     static WTF: std::cell::RefCell<WtfState> = const { std::cell::RefCell::new(WtfState { ip: 2, ir: 1, ipl: 0, step: 1.10 }) };
 }
 
+thread_local! {
+    /// `wght(1..6)` as `genwtf` sets it for `iwt = 4` (`:5036-5052`): `eb, tb, ab, ec, tc,
+    /// ac`. `None` until [`genwtf_iwt4`] runs.
+    static WGHT4: std::cell::Cell<Option<[f64; 6]>> = const { std::cell::Cell::new(None) };
+}
+
+/// `genwtf` for `iwt = 4` (`groupr.f90:5036-5052`): store `wght(1..6) = eb, tb, ab, ec,
+/// tc, ac` for [`getwtf`], with `ab, ac` from
+/// [`crate::groupr::weights::ThermalFissionParams::normalisation`] (`ab = 1, ac = 0`
+/// when `eb > 50 tb`).
+pub fn genwtf_iwt4(p: &crate::groupr::weights::ThermalFissionParams) {
+    let (ab, ac) = p.normalisation();
+    WGHT4.with(|w| w.set(Some([p.thermal_break_ev, p.thermal_temp_ev, ab, p.fission_break_ev, p.fission_temp_ev, ac])));
+}
+
 /// `getwtf(e = 0)`: reset the saved tabulated-weight state (`:5177-5184`).
 pub fn getwtf_init() {
     WTF.with(|w| *w.borrow_mut() = WtfState { ip: 2, ir: 1, ipl: 0, step: 1.10 });
 }
 
-/// `getwtf` for `iwt = 2` (constant), `iwt = 3` (`1/E`) and the built-in tabulated
-/// weights `iwt = 5, 8, 9` (`terpa` over `wght`, `:5186-5196`): `(wtf, enext, idis)`.
+/// `getwtf` for `iwt = 2` (constant), `iwt = 3` (`1/E`), `iwt = 4` (thermal + `1/E` +
+/// fission, after [`genwtf_iwt4`]), `iwt = 6` (thermal -- `1/E` -- fission + fusion;
+/// both since 2026-11-13, gh:#1369 round 5) and the built-in
+/// tabulated weights `iwt = 5, 8, 9` (`terpa` over `wght`, `:5186-5196`):
+/// `(wtf, enext, idis)`.
 ///
 /// # Errors
-/// [`NjoyError::NotPorted`] for the other `iwt`.
+/// [`NjoyError::NotPorted`] for the other `iwt`; [`NjoyError::InvalidInput`] for
+/// `iwt = 4` before [`genwtf_iwt4`].
 pub fn getwtf(iwt: i32, e: f64) -> Result<(f64, f64, i32), NjoyError> {
     if e == 0.0 {
         getwtf_init();
@@ -106,7 +125,12 @@ pub fn getwtf(iwt: i32, e: f64) -> Result<(f64, f64, i32), NjoyError> {
                 Ok((wtf, enext))
             })?
         }
-        _ => return Err(NjoyError::NotPorted("groupr getwtf for iwt other than 2, 3, 5, 8 and 9 in the tape driver")),
+        4 => match WGHT4.with(std::cell::Cell::get) {
+            Some(w) => crate::groupr::weights::getwtf_iwt4(&w, e),
+            None => return Err(NjoyError::InvalidInput("groupr getwtf: iwt = 4 without genwtf's card 8c (eb, tb, ec, tc)".into())),
+        },
+        6 => crate::groupr::weights::getwtf_iwt6(e),
+        _ => return Err(NjoyError::NotPorted("groupr getwtf for iwt other than 2, 3, 4, 5, 6, 8 and 9 in the tape driver")),
     };
     if matches!(iwt.abs(), 2 | 3) {
         enext = 1.01 * e;

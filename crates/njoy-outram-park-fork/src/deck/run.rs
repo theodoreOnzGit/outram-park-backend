@@ -184,6 +184,14 @@ fn run_moder(c: &ModerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
             units.set_meta(*nout, u.meta);
             Ok(())
         }
+        ModerCards::Select { nout, nin_flag, tpid, picks } if nin_flag.abs() == 2 && picks.iter().all(|(n, _)| units.text(*n).is_some()) => {
+            // GENDF units are kept as text here (`deck::groupr`); `nin = 2` copies each
+            // material's records as read (`moder.f90:289-330`, labels 700-750).
+            let texts: Vec<(&str, i32)> = picks.iter().map(|&(n, m)| (units.text(n).unwrap_or(""), m)).collect();
+            let out = select_gendf_text(tpid, &texts);
+            units.put_text(*nout, out);
+            Ok(())
+        }
         ModerCards::Select { nout, tpid, picks, .. } => {
             units.openz(*nout, 1)?;
             let mut order: Vec<i32> = Vec::new();
@@ -205,6 +213,32 @@ fn run_moder(c: &ModerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
             units.store(*nout, out, None)
         }
     }
+}
+
+/// MODER's selection loop on text GENDF tapes (`nin = 2`, `moder.f90:110-205`,
+/// `:289-330`): the tape label (`tpidio`, the card-2 text with `MAT = 1`), then for
+/// each `(text, matd)` pick, in deck order, the material's records from its first
+/// MF=1/MT=451 head through its MEND, every temperature of it (label 740 goes on
+/// while the next head is `matd` or a MEND), copied as read; then TEND. A `matd` not
+/// on its tape is skipped, as upstream's "not found on gendf tape" message does.
+fn select_gendf_text(tpid: &str, picks: &[(&str, i32)]) -> String {
+    let mat_of = |l: &str| l.get(66..70).and_then(|s| s.trim().parse::<i32>().ok());
+    let mut out = format!("{:<66}{:>4}{:>2}{:>3}{:>5}\n", tpid.get(..tpid.len().min(66)).unwrap_or(tpid), 1, 0, 0, 0);
+    for &(text, matd) in picks {
+        let lines: Vec<&str> = text.lines().collect();
+        let Some(start) = lines.iter().position(|l| mat_of(l) == Some(matd)) else { continue };
+        for l in &lines[start..] {
+            match mat_of(l) {
+                Some(m) if m == matd || m == 0 => {
+                    out.push_str(l);
+                    out.push('\n');
+                }
+                _ => break,
+            }
+        }
+    }
+    out.push_str(&format!("{:>66}{:>4}{:>2}{:>3}{:>5}\n", "", -1, 0, 0, 0));
+    out
 }
 
 /// RECONR (`reconr.f90`): one pointwise PENDF per material.
@@ -708,5 +742,31 @@ mod izaopt_tests {
         assert_eq!(format!("{:9.2}", izaopt_zaid(95242, 0, 0.01, 1)), " 95642.01");
         assert_eq!(format!("{:9.2}", izaopt_zaid(95242, 1, 0.01, 1)), " 95242.01");
         assert_eq!(format!("{:9.2}", izaopt_zaid(95242, 1, 0.01, 0)), " 95242.01");
+    }
+}
+
+#[cfg(test)]
+mod moder_gendf_tests {
+    use super::select_gendf_text;
+
+    fn line(mat: i32, mf: i32, mt: i32) -> String {
+        format!("{:>66}{:>4}{:>2}{:>3}{:>5}", "x", mat, mf, mt, 1)
+    }
+
+    /// MODER `nin = 2`: the label with `MAT = 1`, each pick's records (both
+    /// temperatures of MAT 9237, MENDs kept), the next material excluded, then TEND;
+    /// a material not on its tape is skipped.
+    #[test]
+    fn gendf_selection_copies_each_material_through_its_mend() {
+        let mend = format!("{:>66}{:>4}{:>2}{:>3}{:>5}", "", 0, 0, 0, 0);
+        let a = [line(9237, 1, 451), line(9237, 3, 1), mend.clone(), line(9237, 1, 451), mend.clone(), line(9999, 1, 451)].join("\n");
+        let b = [line(9228, 1, 451), mend.clone()].join("\n");
+        let out = select_gendf_text("merged", &[(&b, 9228), (&a, 9237), (&a, 1111)]);
+        let l: Vec<&str> = out.lines().collect();
+        assert_eq!(l.len(), 1 + 2 + 5 + 1);
+        assert!(l[0].starts_with("merged") && l[0].ends_with("   1 0  0    0"));
+        assert_eq!(l[1], line(9228, 1, 451));
+        assert_eq!(l[7], mend);
+        assert!(l[8].ends_with("  -1 0  0    0"));
     }
 }

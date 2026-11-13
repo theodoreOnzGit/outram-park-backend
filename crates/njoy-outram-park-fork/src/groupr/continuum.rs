@@ -1,5 +1,5 @@
 // Translated from NJOY2016.80 `src/groupr.f90`: `getsed` (:11829-12279, the
-// analytic-subsection branch), `anased` (:12281-12502, law 9) and `getff`
+// analytic-subsection branch), `anased` (:12281-12502, laws 5, 7 and 9) and `getff`
 // label 200 (:7108-7236, neutron continuum transfer matrices, `mfd = 6`).
 // NJOY2016 is under a modified BSD 3-Clause (LANL/DOE) licence, GPL-compatible;
 // this derivative file is distributed under AGPL-3.0-only. This is a modified,
@@ -26,7 +26,12 @@
 //! through [`SedFeed`] and `LF = 1/5` through [`PhotonSed`] on MF=5. It also carries
 //! fission (`MT = 18-21, 38`): `getyld`'s prompt nu (MF=1/MT=456) and the `econst`
 //! branch with `jconst`, its spectrum call and its yield-only calls. Still refused:
-//! `mfd = 6` for `MT = 102, 452, 455, 456`, and a fission spectrum given by law 9.
+//! `mfd = 6` for `MT = 102, 452, 455, 456`~~, and a fission spectrum given by law 9~~.
+//!
+//! **CHANGED 2026-11-13 (gh:#1369, round 5):** [`PhotonSed`]'s analytic subsection
+//! carries `anased` laws 5, 7 (simple fission spectrum, with `mathm`'s `erfc`) and 9,
+//! so a fission spectrum given by law 7 or 9 is read with its `econst` search. Laws 11
+//! (`hnab`) and 12 (`e1`, `gami`) and `LF = 3` are still refused by name.
 
 use petir::mathf::RealMath;
 use crate::endf::records::{SectionCursor, Tab1};
@@ -230,9 +235,10 @@ impl ContinuumFeed {
     /// `ismooth` is passed to `getsed` (it acts on `MT = 455` only).
     ///
     /// # Errors
-    /// [`NjoyError::NotPorted`] for `MT = 102, 452, 455, 456` with `mfd = 6`, for a
-    /// fission reaction given by analytic law 9, and for laws `getsed` does not
-    /// translate; reading errors otherwise.
+    /// [`NjoyError::NotPorted`] for `MT = 102, 452, 455, 456` with `mfd = 6`
+    /// ~~, for a fission reaction given by analytic law 9,~~ (**CHANGED 2026-11-13,
+    /// round 5:** law 9 fission goes through [`PhotonSed`]) and for laws `getsed` does
+    /// not translate (`LF = 3, 11, 12`); reading errors otherwise.
     pub fn new(tape: &Tape, mat: i32, mtd: i32, egn: &[f64], nl_req: usize, ismooth: bool) -> Result<Self, NjoyError> {
         if matches!(mtd, 102 | 452 | 455 | 456) {
             return Err(NjoyError::NotPorted("groupr getff label 200: mfd = 6 for MT = 102, 452, 455 or 456"));
@@ -258,17 +264,18 @@ impl ContinuumFeed {
         if en < enext * (1.0 - SMALL) {
             enext = en;
         }
-        // `getsed(e = 0)`: law 9 through `SedFeed`, `LF = 1/5` through `PhotonSed`.
+        // `getsed(e = 0)`: non-fission law 9 through `SedFeed`, `LF = 1/5/7/9` through
+        // `PhotonSed`.
         let lf = {
             let sec = tape.section(mat, 5, mtd).ok_or(NjoyError::SectionNotFound { mat, mf: 5, mt: mtd })?;
             let mut cur = SectionCursor::new(&sec.rows);
             let _ = cur.read_cont()?;
             cur.read_tab1()?.head.l2
         };
-        let (sed, en) = if lf == 9 {
-            if fission {
-                return Err(NjoyError::NotPorted("groupr getsed: fission spectrum given by analytic law 9 (its econst search)"));
-            }
+        // ~~A fission spectrum given by law 9 was refused~~ **CHANGED 2026-11-13 (gh:#1369
+        // round 5):** it goes through `PhotonSed`, which carries the `econst` search and
+        // now `anased` laws 7 and 9; non-fission law 9 stays on `SedFeed`.
+        let (sed, en) = if lf == 9 && !fission {
             let (s, en) = SedFeed::from_tape(tape, mat, mtd)?;
             (ContinuumSed::Law9(s), en)
         } else {
@@ -410,26 +417,34 @@ struct TabSub {
     lf5: Option<Lf5>,
 }
 
-/// The analytic `LF = 5` part of a subsection (`anased` law 5, `:12355-12363`):
-/// `U` (the probability TAB1's C1), the packed `theta(E)` TAB1 and `g(x)`.
+/// The analytic part of a subsection (`anased`, `groupr.f90:12281-12502`): the law
+/// `lf` (5, 7 or 9), `U` (the probability TAB1's C1), the packed `theta(E)` TAB1 and,
+/// for law 5 only, `g(x)`.
+///
+/// ~~`LF = 5` only~~ **CHANGED 2026-11-13 (gh:#1369 round 5):** laws 7 (simple fission
+/// spectrum, `:12364-12374`) and 9 (evaporation, `:12376-12387`) as well. Laws 11 and
+/// 12 (`hnab`, `e1`, `gami`) are refused when the section is read.
 #[derive(Debug, Clone)]
 struct Lf5 {
+    lf: i32,
     u: f64,
     theta: Vec<f64>,
     g_interp: Vec<(u32, u32)>,
     g_pairs: Vec<(f64, f64)>,
 }
 
-/// `anased`'s saved `theta`, `xc` (`save new,theta,xc,...`).
+/// `anased`'s saved `theta`, `xc`, `bot` (`save new,theta,xc,rc,bot,ca,loct`).
 #[derive(Debug, Clone, Copy, Default)]
 struct Lf5State {
     theta: f64,
     xc: f64,
+    bot: f64,
 }
 
 impl Lf5 {
-    /// `anased` for law 5 at incident `e` over `[e1, e2]`: `(g, enext, idis)`.
-    /// `new` (`e1 < etest`) re-interpolates `theta` (`:12318-12331`).
+    /// `anased` at incident `e` over `[e1, e2]`: `(g, enext, idis)`.
+    /// `new` (`e1 < etest`) re-interpolates `theta` (`:12318-12331`) and, for laws 7
+    /// and 9, recomputes `bot`.
     fn anased(&self, st: &mut Lf5State, e: f64, e1: f64, e2: f64) -> Result<(f64, f64, i32), NjoyError> {
         let new = e1 < ETEST;
         let (mut enext, mut idis) = (EMAX, 0);
@@ -448,9 +463,42 @@ impl Lf5 {
         }
         let xlo = e1 / st.theta;
         let xhi = if e2 <= de * (1.0 + SMALL) { e2 / st.theta } else { st.xc };
-        let g = crate::endf::interp::intega(&self.g_interp, &self.g_pairs, xlo, xhi)?;
-        Ok((g * st.theta, enext, idis))
+        let g = match self.lf {
+            5 => crate::endf::interp::intega(&self.g_interp, &self.g_pairs, xlo, xhi)? * st.theta,
+            7 => anased7(st, new, xlo, xhi),
+            _ => {
+                // law 9 (`:12376-12387`), as `anased9`.
+                let rc = st.xc;
+                if new {
+                    st.bot = if st.xc < XMIN { rc * rc / 2.0 } else { 1.0 - (-rc).r_exp() * (1.0 + rc) };
+                }
+                let top = if xhi < XMIN { (xhi * xhi - xlo * xlo) / 2.0 } else { (-xlo).r_exp() * (xlo + 1.0) - (-xhi).r_exp() * (xhi + 1.0) };
+                top / st.bot
+            }
+        };
+        Ok((g, enext, idis))
     }
+}
+
+/// `anased` law 7, the simple fission spectrum (`groupr.f90:12364-12374`):
+/// `bot = rp4 (1 - erfc(sqrt xc)) - sqrt(xc) exp(-xc)` on a `new` call, and
+/// `g = (rl exp(-xlo) - rh exp(-xhi) - rp4 (erfc(rh) - erfc(rl))) / bot` with
+/// `rl = sqrt(xlo)`, `rh = sqrt(xhi)`, `rp4 = sqrt(pi/4)`. `erfc` is `mathm`'s
+/// SLATEC `derfc`, the one BROADR uses ([`crate::broadr::joint::erfc`]).
+fn anased7(st: &mut Lf5State, new: bool, xlo: f64, xhi: f64) -> f64 {
+    use crate::broadr::joint::erfc;
+    let rp4 = (std::f64::consts::PI / 4.0).sqrt();
+    if new {
+        let rc = st.xc.sqrt();
+        let r4 = -st.xc;
+        st.bot = rp4 * (1.0 - erfc(rc)) - rc * r4.r_exp();
+    }
+    let rl = xlo.sqrt();
+    let rh = xhi.sqrt();
+    let r3 = -xlo;
+    let r4 = -xhi;
+    let top = rl * r3.r_exp() - rh * r4.r_exp() - rp4 * (erfc(rh) - erfc(rl));
+    top / st.bot
 }
 
 /// `getsed` for tabulated File-15 (`LF = 1`) subsections, summed (`nk = 1`), with the
@@ -464,9 +512,10 @@ impl Lf5 {
 /// `sqrt(E)` extension of the lowest delayed bin,~~ **CORRECTED 2026-11-13 (gh:#1369):**
 /// the analytic `LF = 5` subsection (`anased` law 5), the `mt = 455` `sqrt(E)` extension,
 /// separate subsections (`nk > 1`), the upscatter fold and file 5 (`mfd = 5`,
-/// [`PhotonSed::from_tape_mf`]) are translated. Not translated: analytic `LF = 7, 9, 11,
-/// 12` here (the neutron `LF = 9` path is [`SedFeed`]), and an incident energy above the
-/// last table energy, where upstream reads past its stored table.
+/// [`PhotonSed::from_tape_mf`]) are translated. Not translated: analytic ~~`LF = 7, 9, 11,
+/// 12`~~ `LF = 11, 12` here (**CHANGED 2026-11-13, round 5:** laws 7 and 9 are
+/// translated; non-fission `mfd = 6` law 9 still uses [`SedFeed`]), and an incident
+/// energy above the last table energy, where upstream reads past its stored table.
 #[derive(Debug, Clone)]
 pub struct PhotonSed {
     subs: Vec<TabSub>,
@@ -538,15 +587,18 @@ impl PhotonSed {
         let mut subs = Vec::new();
         for _ in 0..nk {
             let p = cur.read_tab1()?;
-            if p.head.l2 != 1 && p.head.l2 != 5 {
-                return Err(NjoyError::NotPorted("groupr getsed: only tabulated LF = 1 and general-evaporation LF = 5 spectra are translated here"));
+            // ~~LF = 1 and 5 only~~ **CHANGED 2026-11-13 (gh:#1369 round 5):** analytic
+            // laws 7 and 9 too. `LF = 3` (discrete) and laws 11, 12 are still refused.
+            if !matches!(p.head.l2, 1 | 5 | 7 | 9) {
+                return Err(NjoyError::NotPorted("groupr getsed: only tabulated LF = 1 and analytic LF = 5, 7 and 9 spectra are translated here (LF = 11 needs hnab, LF = 12 mathm's e1 and gami)"));
             }
             if p.pairs[0].0 < enext {
                 enext = p.pairs[0].0;
             }
-            if p.head.l2 == 5 {
-                // `:11902-11968`: `theta(E)` (its `econst` scan), then `g(x)`, whose
-                // lowest delayed bin `ismooth` extends; no `econst` scan on `g` for LF = 5.
+            if p.head.l2 > 1 {
+                // `:11902-11968`: `theta(E)` (its `econst` scan), then for LF = 5 `g(x)`,
+                // whose lowest delayed bin `ismooth` extends; no `econst` scan on `g` for
+                // LF = 5. Laws 7 and 9 have `theta` alone.
                 let th = cur.read_tab1()?;
                 for ip in 1..th.pairs.len() {
                     let ((x0, y0), (x1, y1)) = (th.pairs[ip - 1], th.pairs[ip]);
@@ -558,11 +610,16 @@ impl PhotonSed {
                         }
                     }
                 }
-                let mut gt = cur.read_tab1()?;
-                if ismooth && mt == 455 {
-                    extend_lowest_delayed_bin(&mut gt.interp, &mut gt.pairs)?;
-                }
-                let lf5 = Lf5 { u: p.head.c1, theta: pack(&th), g_interp: gt.interp, g_pairs: gt.pairs };
+                let (g_interp, g_pairs) = if p.head.l2 == 5 {
+                    let mut gt = cur.read_tab1()?;
+                    if ismooth && mt == 455 {
+                        extend_lowest_delayed_bin(&mut gt.interp, &mut gt.pairs)?;
+                    }
+                    (gt.interp, gt.pairs)
+                } else {
+                    (Vec::new(), Vec::new())
+                };
+                let lf5 = Lf5 { lf: p.head.l2, u: p.head.c1, theta: pack(&th), g_interp, g_pairs };
                 subs.push(TabSub { prob_interp: p.interp, prob: p.pairs, e_interp: Vec::new(), energies: Vec::new(), lf5: Some(lf5) });
                 continue;
             }
@@ -767,5 +824,126 @@ impl PhotonSed {
             }
         }
         Ok((rows, enext, idis))
+    }
+}
+
+#[cfg(test)]
+mod analytic_tests {
+    use super::*;
+
+    /// Pu-238 ENDF/B-IV (NJOY2016's `tests/resources/t404`, MAT 1050) MF=5/MT=18
+    /// (`LF = 7`, `U = -3e7`, `theta = 1.3333e6` constant) and MT=91 (`LF = 9`), as on
+    /// the tape.
+    const T404_MF5: &str = "\
+ test tape                                                           1 0  0    0
+ 9.42380+ 4 2.36167+ 2          0          0          1          01050 5 18  992
+-3.00000+ 7 0.00000+ 0          0          7          1          21050 5 18  993
+          2          2                                            1050 5 18  994
+ 1.00000- 5 1.00000+ 0 2.00000+ 7 1.00000+ 0                      1050 5 18  995
+ 0.00000+ 0 0.00000+ 0          0          0          1          31050 5 18  996
+          3          5                                            1050 5 18  997
+ 1.00000- 5 1.33330+ 6 1.50000+ 7 1.33330+ 6 2.00000+ 7 1.33330+ 61050 5 18  998
+                                                                  1050 5  0  999
+ 9.42380+ 4 2.36167+ 2          0          0          1          01050 5 91 1000
+ 1.49000+ 5 0.00000+ 0          0          9          1          21050 5 91 1001
+          2          2                                            1050 5 91 1002
+ 1.20000+ 6 1.00000+ 0 2.00000+ 7 1.00000+ 0                      1050 5 91 1003
+ 0.00000+ 0 0.00000+ 0          0          0          1          41050 5 91 1004
+          4          2                                            1050 5 91 1005
+ 1.20000+ 6 2.25289+ 5 2.00000+ 6 2.79436+ 5 1.50000+ 7 7.65267+ 51050 5 91 1006
+ 2.00000+ 7 9.52125+ 5                                            1050 5 91 1007
+                                                                  1050 5  0 1008
+                                                                  1050 0  0    0
+                                                                     0 0  0    0
+                                                                    -1 0  0    0
+";
+
+    fn tape() -> Tape {
+        Tape::read(T404_MF5.as_bytes()).unwrap()
+    }
+
+    /// A 12-group structure from 1e-5 eV to 2e7 eV.
+    fn groups() -> Vec<f64> {
+        vec![1.0e-5, 1.0, 1.0e2, 1.0e4, 1.0e5, 3.0e5, 6.0e5, 1.0e6, 2.0e6, 4.0e6, 8.0e6, 1.4e7, 2.0e7]
+    }
+
+    /// `anased` law 9 through [`PhotonSed`] is [`SedFeed`]'s `anased9`, bit for bit, on
+    /// MT=91 at five incident energies: the two routes `ContinuumFeed` now chooses
+    /// between (fission law 9 on `PhotonSed`, the rest on `SedFeed`) cannot disagree.
+    #[test]
+    fn law9_through_photon_sed_is_sed_feed_bit_for_bit() {
+        let (t, eg) = (tape(), groups());
+        let (sf, en1) = SedFeed::from_tape(&t, 1050, 91).unwrap();
+        let (ps, en2, _) = PhotonSed::from_tape_mf(&t, 1050, 5, 91, &eg, 0.0, false).unwrap();
+        assert_eq!(en1, en2);
+        for e in [1.3e6, 2.0e6, 5.5e6, 1.4e7, 2.0e7] {
+            let (a, ea, ia) = sf.get(e, &eg).unwrap();
+            let (b, eb, ib) = ps.get(e).unwrap();
+            assert_eq!((ea, ia), (eb, ib), "enext at {e}");
+            for (x, y) in a.iter().zip(&b) {
+                assert_eq!(x.to_bits(), y.to_bits(), "group value at {e}: {x} vs {y}");
+            }
+        }
+    }
+
+    /// `anased` law 7 on MT=18: the group integrals sum to 1 (`top` telescopes to
+    /// `bot` when the last group reaches `de`), and each equals the integral of the
+    /// normalised Maxwellian `sqrt(E') exp(-E'/theta)` over its group, by a
+    /// 20 000-panel Simpson rule in `x = sqrt(E'/theta)` (an independent quadrature,
+    /// so a sign or a factor in `top` would show). `econst` stays where it was:
+    /// `theta` is constant, so the scan finds no change.
+    #[test]
+    fn law7_groups_are_the_maxwellian_integrals() {
+        let (t, eg) = (tape(), groups());
+        let (ps, en, econst) = PhotonSed::from_tape_mf(&t, 1050, 5, 18, &eg, EBIG, false).unwrap();
+        assert_eq!((en, econst), (1.0e-5, EBIG));
+        let theta = 1.3333e6;
+        // E' = theta x^2: sqrt(E') exp(-E'/theta) dE' is proportional to x^2 exp(-x^2) dx.
+        let simpson = |a: f64, b: f64| {
+            let n = 20_000usize;
+            let h = (b - a) / n as f64;
+            let f = |x: f64| x * x * (-x * x).r_exp();
+            let mut s = f(a) + f(b);
+            for k in 1..n {
+                s += f(a + k as f64 * h) * if k % 2 == 1 { 4.0 } else { 2.0 };
+            }
+            s * h / 3.0
+        };
+        for e in [1.0, 1.0e6, 1.4e7] {
+            let (sed, _, _) = ps.get(e).unwrap();
+            let sum: f64 = sed.iter().sum();
+            assert!((sum - 1.0).abs() < 1.0e-12, "sum at {e}: {sum}");
+            let de = e + 3.0e7;
+            let bot = simpson(0.0, (de / theta).sqrt());
+            for ig in 0..sed.len() {
+                let e1 = if ig == 0 { 0.0 } else { eg[ig] };
+                let e2 = if ig == sed.len() - 1 { de } else { eg[ig + 1] };
+                let exact = simpson((e1 / theta).sqrt(), (e2 / theta).sqrt()) / bot;
+                assert!((sed[ig] - exact).abs() < 1.0e-10, "group {ig} at {e}: {} vs {exact}", sed[ig]);
+            }
+        }
+    }
+
+    /// `getwtf` `iwt = 4` after `genwtf` (deck 02's card 8c): the three branches, their
+    /// `ab`/`ac` normalisation (continuous at `eb` and `ec`), and `enext` stopped at
+    /// the breakpoints before `sigfig(., 6, 1)`.
+    #[test]
+    fn getwtf_iwt4_is_thermal_one_over_e_fission() {
+        use crate::groupr::njoy_panel::{genwtf_iwt4, getwtf};
+        let p = crate::groupr::weights::ThermalFissionParams { thermal_break_ev: 0.1, thermal_temp_ev: 0.025, fission_break_ev: 0.8208e6, fission_temp_ev: 1.4e6 };
+        genwtf_iwt4(&p);
+        // At `eb` the thermal branch (`e <= eb`) equals `1/eb`: `ab = 1/(exp(-eb/tb) eb^2)`.
+        let (at_eb, _, _) = getwtf(4, 0.1).unwrap();
+        assert!((at_eb * 0.1 - 1.0).abs() < 1.0e-14, "{at_eb}");
+        let (_, en_lo, _) = getwtf(4, 0.0999).unwrap();
+        assert_eq!(en_lo, sigfig(0.1, 6, 1));
+        let (w, _, _) = getwtf(4, 10.0).unwrap();
+        assert_eq!(w, 0.1);
+        let (_, en_c, _) = getwtf(4, 0.8208e6 / 1.005).unwrap();
+        assert_eq!(en_c, sigfig(0.8208e6, 6, 1));
+        let (below, _, _) = getwtf(4, 0.8208e6).unwrap();
+        let (above, en, _) = getwtf(4, 0.8208e6 * 1.0000001).unwrap();
+        assert!((below / above - 1.0).abs() < 1.0e-6, "{below} vs {above}");
+        assert_eq!(en, sigfig(1.01 * 0.8208e6 * 1.0000001, 6, 1));
     }
 }

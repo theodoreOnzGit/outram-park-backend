@@ -46,10 +46,18 @@ Gated by `test_{35..42,63}_acer_check_unit_and_directory`, which now compare uni
 
 The prediction posted before the run was: 47 identical through GROUPR, 02 stops at `iwt = 4`, and 11 identical through GROUPR. The deck-11 part did not hold, because of `anased`. Record: `README.md` section 16.
 
+**Re-run 2026-11-13, GROUPR round 5 (gh:#1369: `anased` laws 7/9, `getwtf` `iwt = 4/6`, RECONR's seam between resolved ranges, MODER `nin = 2`):** the same 21 decks were re-run alone (`SURVEY_CASES`, 649 s) on develop 6834385cb plus this work. Their rows are replaced; every other row is as before. **Identical: 49 of 87** (unchanged): no whole deck closed. Rows 02, 11 and 17 changed.
+- Deck 02 now runs GROUPR (`iwt = 4`, `6 18` with `LF = 7`) and stops at CCCCR. Its GENDF (unit 29) and UNRESR PENDF (unit 28) are MODER copies written after CCCCR, so the survey lists them as not written. Both are identical (`test_02_groupr_gendf_and_unresr_pendf`).
+- Deck 11 runs GROUPR as written, `6 18` included, and stops at WIMSR. Its GENDF copy (unit 28) comes after WIMSR, so the survey lists it as not written. It is identical (`test_11_groupr_gendf_whole_tape`).
+- Deck 17: ten tapes are identical (RECONR 41-43, BROADR 31-33, GROUPR 91-93 and MODER's merge 99, where four of them differed). It stops at ERRORR. Tape26 is ERRORR's.
+- Deck 86's tape25 is unchanged (27 of 52 lines).
+
+The predictions posted before each change held (11 and 02 identical through GROUPR; deck 17's seam, then the step-increase state; tapes 91-93 identical). Record: `README.md` section 17.
+
 | deck | status | tapes identical | differing tapes | text tapes we did not write | binary tapes (no blocked-binary writer here) |
 |---|---|---|---|---|---|
 | 01 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
-| 02 | NotPorted (groupr: not yet ported from NJOY2016: groupr getwtf for iwt other than 2, 3, 5, 8 and 9 in the tape driver) | 1 |  | tape28 tape29 | tape21 tape22 tape23 tape24 tape25 tape26 tape27 |
+| 02 | NotPorted (ccccr: card reader not yet translated) | 1 |  | tape28 tape29 | tape21 tape22 tape23 tape24 tape25 tape26 tape27 |
 | 03 | NotPorted (gaminr: card reader not yet translated) | 0 | tape31 2180/2180 lines | tape33 tape34 tape35 tape36 tape37 |  |
 | 04 | NotPorted (errorr: card reader not yet translated) | 0 |  | tape23 tape24 tape25 | tape21 tape22 |
 | 05 | NotPorted (errorr: card reader not yet translated) | 0 |  | tape33 tape34 tape35 | tape31 tape32 |
@@ -58,13 +66,13 @@ The prediction posted before the run was: 47 identical through GROUPR, 02 stops 
 | 08 | identical | 3 |  |  | tape21 tape22 tape23 tape24 |
 | 09 | identical | 1 |  |  | tape21 tape22 tape23 tape25 |
 | 10 | differs | 2 | tape28 15270/15277 lines |  | tape21 tape22 tape23 tape24 tape25 |
-| 11 | NotPorted (groupr: not yet ported from NJOY2016: groupr getsed: only tabulated LF = 1 and general-evaporation LF = 5 spectra are translated here) | 0 |  | tape27 tape28 | tape21 tape22 tape23 tape24 tape25 tape26 |
+| 11 | NotPorted (wimsr: card reader not yet translated) | 0 |  | tape27 tape28 | tape21 tape22 tape23 tape24 tape25 tape26 |
 | 12 | NotPorted (plotr: card reader not yet translated) | 2 |  | tape23 tape24 |  |
 | 13 | identical | 7 |  |  | tape21 tape22 tape23 tape24 tape25 |
 | 14 | identical | 6 |  |  |  |
 | 15 | NotPorted (errorr: card reader not yet translated) | 1 |  | tape25 tape26 tape27 tape35 tape36 tape37 tape45 tape46 tape47 | tape21 tape22 tape23 |
 | 16 | NotPorted (errorr: card reader not yet translated) | 0 |  | tape26 tape27 tape36 tape37 tape46 tape47 | tape21 tape22 tape23 |
-| 17 | NotPorted (groupr: not yet ported from NJOY2016: groupr getwtf for iwt other than 2, 3, 5, 8 and 9 in the tape driver) | 2 | tape31 298349/305355 lines; tape33 119274/198701 lines; tape41 485226/497335 lines; tape43 279882/303613 lines; tape91 1342/1342 lines | tape26 tape92 tape93 tape99 |  |
+| 17 | NotPorted (errorr: card reader not yet translated) | 10 |  | tape26 |  |
 | 18 | NotPorted (errorr: card reader not yet translated) | 1 |  | tape28 tape38 tape39 | tape21 tape22 tape23 |
 | 19 | differs | 2 | tape29 44559/44568 lines |  | tape21 tape22 tape23 tape24 tape25 tape26 |
 | 20 | NotPorted (errorr: card reader not yet translated) | 0 |  | tape21 tape22 tape23 tape25 tape26 tape27 tape91 |  |
