@@ -1584,3 +1584,11 @@ shift is **not** this build against the old build; it is round 10's run against 
 |---|---|---|
 | P69 | Round 10's run used a **binary** `controlDict` when `blockMesh` ran (exact-double background points; round 3's note says this shifts every point by up to 7e-16). Running `blockMesh` with `writeFormat binary` on this build and then `snappyHexMesh` reproduces `layer_points_81_r10.bin.gz` in 72933 of 72933 components (differ count 0). | the shift has another cause (e.g. a different build then) |
 | P70 | Consequently the port, fed the 16-digit ASCII background (as in rounds 3-9), equals this build's time-81 points; fed exact-double background it equals `_r10`. The port is not at fault in either case. | the port's background construction is the same in both |
+
+**P69 REFUTED (run).** With a binary `controlDict` at `blockMesh` time the snapped mesh has **24312
+points** (round 10's has 24311), so a different topology, not a 1-ulp shift: this is not how round 10's
+points arose. P70 is moot. **Next prediction, committed before the run.**
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P71 | Round 10's run was made under a different `libm` code path (glibc selects FMA/AVX2 ifunc variants of `exp`, `log`, `pow`, `sin`, `cos`, `atan2` on a CPU with FMA; a host without them, or `GLIBC_TUNABLES=glibc.cpu.hwcaps=-FMA,-AVX2`, takes the non-FMA path). Running the ASCII-`blockMesh` base case on this build with FMA ifuncs disabled gives time-81 points that **differ from this build's default run** (and so from the old fixture) in some of the 72933 components. It need not equal `_r10`. | `libm` is not reached by the snap stage on the flange, so the points are identical with and without FMA |
