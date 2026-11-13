@@ -328,3 +328,20 @@ Not ported: `useSigma true` (`Ssigma`: needs `acos`/`cos` and tensor invariants)
 ZDES2020`, `ft2 true`, `kOmegaSSTDDES` / `kOmegaSSTIDDES`, and the `IDDESDelta` / `maxDeltaxyz`
 classes (`delta` and `hmax` are fed from the dump; `hmax` was 0.3333 in every cell of this duct, so
 the `hmax` formula is not exercised by its own geometry). Foundation (dev) not read or run.
+
+---
+
+# Slice 5 (gh:#1544 under gh:#1377): kEqn
+
+## Predictions (written and committed BEFORE the driver was extended or run)
+
+1. **kEqn** (`Ck 0.094`, `Ce 1.048` from `LESModel`, `cubeRootVol` delta): arithmetic only
+   (`sqrt`, `*`, `/`), no other libm function. With upstream's `delta` fed in, **every** term is
+   360/360 bit-identical: `nut = Ck sqrt(k) delta`, `GbyNu`, `G = nut GbyNu`, `k_SuSp = (2/3) divU`,
+   `k_Sp = Ce sqrt(k)/delta`. With the port's own `cbrt` delta: `delta` 156/360 (as Smagorinsky and
+   WALE), and `nut`, `k_Sp`, `G` differ in a subset of those cells only, by at most 7 ulp.
+2. The transcribed `k` matrix reproduces the matrix the REAL model assembled, bit for bit.
+3. `dynamicKEqn` is attempted after kEqn; it needs the `LESfilter` classes (`simpleFilter`,
+   interpolate-and-sum over faces) on scalar, vector and symmetric-tensor fields, which the crate
+   does not have. Prediction: not reachable cheaply in this slice; if it is not, that is recorded as
+   deferred on gh:#1544 rather than approximated.
