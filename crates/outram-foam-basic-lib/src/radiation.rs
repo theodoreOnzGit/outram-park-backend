@@ -179,6 +179,18 @@ impl P1Model {
     /// If `self.patches.len()` differs from the number of mesh patches.
     #[must_use]
     pub fn solve(&self, t: &VolScalarField, settings: SolverSettings) -> P1Solution {
+        self.solve_from(t, None, settings)
+    }
+
+    /// [`Self::solve`] warm-started from `g_init` (one `G` per cell), as upstream's
+    /// `P1::calculate` solves from the current `G_` field (gh:#1531). `None` is the
+    /// cold start from `G = 0` of [`Self::solve`], bit for bit.
+    ///
+    /// # Panics
+    /// If `self.patches.len()` differs from the number of mesh patches, or `g_init`
+    /// is not one value per cell.
+    #[must_use]
+    pub fn solve_from(&self, t: &VolScalarField, g_init: Option<&[f64]>, settings: SolverSettings) -> P1Solution {
         let mesh = t.mesh.clone();
         assert_eq!(self.patches.len(), mesh.patches.len(), "one P1PatchModel per mesh patch");
         let n = mesh.n_cells;
@@ -243,7 +255,14 @@ impl P1Model {
                 }
             }
         }
-        let g0 = VolScalarField::new("G", mesh.clone(), Field::new(vec![0.0; n]), bcs);
+        let g_start = match g_init {
+            Some(g) => {
+                assert_eq!(g.len(), n, "one initial G per cell");
+                g.to_vec()
+            }
+            None => vec![0.0; n],
+        };
+        let g0 = VolScalarField::new("G", mesh.clone(), Field::new(g_start), bcs);
 
         // Matrix: upstream `laplacian(gamma, G) - Sp(a, G) == -4 (e sigma T^4) - E`,
         // negated into this crate's convention.
@@ -258,7 +277,10 @@ impl P1Model {
             Some(&sp),
             Some(&rhs),
         );
-        let (solved, performance) = mat.solve_cg("G", settings);
+        let (solved, performance) = match g_init {
+            Some(_) => mat.solve_cg_with_guess("G", &g0, settings),
+            None => mat.solve_cg("G", settings),
+        };
 
         // correctBoundaryConditions and qr.
         let mut boundary = Vec::with_capacity(mesh.patches.len());
@@ -291,6 +313,29 @@ impl P1Model {
         }
         let g = VolScalarField::new("G", mesh.clone(), solved.internal.clone(), boundary);
         P1Solution { g, qr, performance, a, e, emission: big_e, t: t.clone() }
+    }
+}
+
+impl P1Model {
+    /// The state of a `P1` radiation field before its first solve: uniform incident radiation
+    /// `g` [W/m2] (the `internalField` of upstream's `0/G`), no wall flux, the model's `a`,
+    /// `e`, `E`, for the energy source of the first time step, which upstream evaluates
+    /// from the read `G` before `radiation->correct()` has run (gh:#1531).
+    #[must_use]
+    pub fn initial_solution(&self, t: &VolScalarField, g: f64) -> P1Solution {
+        let mesh = t.mesh.clone();
+        let n = mesh.n_cells;
+        let ae = &self.absorption_emission;
+        let boundary = mesh.patches.iter().map(|p| PatchField::zero_gradient(p.size)).collect();
+        P1Solution {
+            g: VolScalarField::new("G", mesh.clone(), Field::new(vec![g; n]), boundary),
+            qr: mesh.patches.iter().map(|p| Field::new(vec![0.0; p.size])).collect(),
+            performance: SolverPerformance { n_iterations: 0, final_residual: 0.0, converged: true },
+            a: vec![0.0 + ae.absorptivity; n],
+            e: vec![0.0 + ae.emissivity; n],
+            emission: vec![0.0 + ae.emission_source; n],
+            t: t.clone(),
+        }
     }
 }
 
@@ -494,5 +539,56 @@ mod tests {
         let sol = model.solve(&t, SolverSettings { tolerance: 1e-13, max_iter: 200 });
         assert_eq!(sol.qr[0][0], 0.0);
         assert_eq!(sol.g.boundary[0].values[0], sol.g.internal[0]);
+    }
+
+    /// `solve_from(None)` is `solve`, and a warm start from the converged field stops at once
+    /// on the same answer (gh:#1531).
+    #[test]
+    fn warm_start_and_initial_solution() {
+        let mesh = slab(12, 0.1);
+        let t = t_field(&mesh, 900.0, [1200.0, 600.0]);
+        let model = P1Model::new(
+            ConstantAbsorptionEmission { absorptivity: 1.5, emissivity: 1.2, emission_source: 10.0 },
+            vec![P1PatchModel::Marshak { emissivity: 0.8 }, P1PatchModel::Marshak { emissivity: 0.5 }],
+        );
+        let settings = SolverSettings { tolerance: 1e-14, max_iter: 500 };
+        let cold = model.solve(&t, settings);
+        let none = model.solve_from(&t, None, settings);
+        for c in 0..12 {
+            assert_eq!(cold.g.internal[c].to_bits(), none.g.internal[c].to_bits());
+        }
+        let warm = model.solve_from(&t, Some(cold.g.internal.as_slice()), settings);
+        assert!(warm.performance.n_iterations <= 1, "{}", warm.performance.n_iterations);
+        for c in 0..12 {
+            assert!((warm.g.internal[c] / cold.g.internal[c] - 1.0).abs() < 1e-12);
+        }
+        let init = model.initial_solution(&t, 123.0);
+        assert!(init.g.internal.as_slice().iter().all(|&g| g == 123.0));
+        assert_eq!(init.ru()[0], 1.5 * 123.0 - 10.0);
+        assert_eq!(init.qr[0][0], 0.0);
+    }
+
+    /// The transparent limit (a -> 0) of P1 with Marshak walls between parallel plates is the grey
+    /// diffuse two-plate exchange `sigma (T1^4 - T2^4)/(1/e1 + 1/e2 - 1)`: derived by hand (the
+    /// wall condition gives `q = 4 sigma (T1^4 - T2^4)/(1/Ep1 + 1/Ep2)` with `1/Ep = 4/e - 2`),
+    /// bound `1e-3` relative from the absorption `a L G` that is not zero at `a = 1e-5 /m`.
+    /// Context: the htr10_rz cavity radiation (gh:#1531, gh:#1529).
+    #[test]
+    fn transparent_gap_recovers_the_grey_two_plate_exchange() {
+        let mesh = slab(20, 1.0);
+        let t = t_field(&mesh, 800.0, [1000.0, 500.0]);
+        let model = P1Model::new(
+            ConstantAbsorptionEmission { absorptivity: 1e-5, emissivity: 1e-5, emission_source: 0.0 },
+            vec![P1PatchModel::Marshak { emissivity: 0.8 }, P1PatchModel::Marshak { emissivity: 0.5 }],
+        );
+        let sol = model.solve(&t, SolverSettings { tolerance: 1e-13, max_iter: 2000 });
+        let sigma = stefan_boltzmann_esi_v2506();
+        let want = sigma * (pow4(1000.0) - pow4(500.0)) / (1.0 / 0.8 + 1.0 / 0.5 - 1.0);
+        // qr is the outward flux: at the hot x-min wall the radiation leaves the medium into... the
+        // wall flux magnitude is the exchange rate.
+        let q_hot = sol.qr[0][0].abs();
+        let q_cold = sol.qr[1][0].abs();
+        assert!((q_hot / want - 1.0).abs() < 1e-3, "hot wall {q_hot} vs {want}");
+        assert!((q_cold / want - 1.0).abs() < 1e-3, "cold wall {q_cold} vs {want}");
     }
 }

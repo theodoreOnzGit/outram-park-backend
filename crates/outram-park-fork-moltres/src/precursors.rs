@@ -78,6 +78,7 @@ use outram_foam_basic_lib::prelude::{
     fvm, Field, FvMesh, SolverSettings, SurfaceScalarField, VolScalarField,
 };
 
+use crate::terms::precursor_production;
 use crate::error::MoltresError;
 use crate::materials::{scalar_field, DelayedFamily, FaceFluxField, PrecursorField};
 
@@ -289,7 +290,7 @@ impl PrecursorDrift {
             .internal
             .as_slice()
             .iter()
-            .map(|s| fam.beta / k_eff * s)
+            .map(|s| precursor_production(fam.beta, k_eff, *s))
             .collect();
         scalar_field(&self.mesh, "precProduction", vals)
     }

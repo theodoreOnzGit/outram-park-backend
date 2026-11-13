@@ -387,10 +387,23 @@ rad_driver_impl() {
   [ -x "$ROOT/gh1379/bin/radDump" ] || { echo "no radDump binary"; return 1; }
   ls -l "$ROOT/gh1379/bin/radDump"
 }
+# gh:#1531: the coupled CHT + P1 driver (the gh:#1363 chtDump transcription with P1 dumps). It
+# links the closure libraries; running it also needs libchtBCs (gh:#1363 scripts/build_cht_bcs.sh).
+RADCHT=$REPO/crates/outram-foam-appbuilder-lib/verification_and_validation/upstream_radiation_gh1531/driver
+rad_cht_driver_impl() {
+  mkdir -p "$ROOT/gh1531/bin" "$ROOT/gh1531/src"
+  rm -rf "$ROOT/gh1531/src/chtRadDump"; mkdir -p "$ROOT/gh1531/src/chtRadDump/Make"
+  cp "$RADCHT/chtRadDump.C" "$ROOT/gh1531/src/chtRadDump/"
+  cp "$RADCHT/Make/options" "$ROOT/gh1531/src/chtRadDump/Make/options"
+  printf 'chtRadDump.C\n\nEXE = %s/gh1531/bin/chtRadDump\n' "$ROOT" > "$ROOT/gh1531/src/chtRadDump/Make/files"
+  ( cd "$ROOT/gh1531/src/chtRadDump" && wmake -j"$N" . )
+  [ -x "$ROOT/gh1531/bin/chtRadDump" ] || { echo "no chtRadDump binary"; return 1; }
+}
 stage_radiation() {
   ( cd "$OF/src/thermophysicalModels/radiation" && wmakeLnInclude -u . ) >>"$LOGS/radiation.log" 2>&1
   wm_lib thermophysicalModels/radiation
   run_stage rad-driver rad_driver_impl
+  run_stage rad-cht-driver rad_cht_driver_impl
 }
 
 # --- view factors (gh:#1529) ----------------------------------------------------

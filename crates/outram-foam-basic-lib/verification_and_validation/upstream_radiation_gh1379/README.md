@@ -132,9 +132,9 @@ participating medium. Children are filed on the issue (see its comments).
 
 ## Remaining / deferred
 
-- Coupling of `P1Solution::st_matrix`/`sh_matrix` into `outram-foam-appbuilder-lib` (`solvers::energy`,
+- ~~Coupling of `P1Solution::st_matrix`/`sh_matrix` into `outram-foam-appbuilder-lib` (`solvers::energy`,
   `cht_multi_region_foam`, `htr10_rz`) is NOT done: wiring touches solver loops and needs its own
-  V&V against a radiation tutorial (`buoyantSimpleFoam/hotRadiationRoom`). Deferred, recorded on the issue.
+  V&V against a radiation tutorial (`buoyantSimpleFoam/hotRadiationRoom`). Deferred, recorded on the issue.~~ **DONE 2026-11-13 (gh:#1531):** `solvers::energy` and the fluid regions of `cht_multi_region_foam` carry opt-in P1 (`EnergyEquation::with_radiation`), compared with ESI `chtMultiRegionFoam` + P1 on the gh:#1363 two-region case (a reduced coupled case, not `hotRadiationRoom`): `outram-foam-appbuilder-lib/verification_and_validation/upstream_radiation_gh1531/README.md`. `htr10_rz` is not coupled (same record, section "htr10_rz").
 - Coupled (cyclic/AMI/processor) and wedge patches are not exercised: upstream skips `qr` on `coupled()` patches; the port's `P1Model` has no coupled-patch variant and treats every non-Marshak patch via `ZeroGradient` only when asked.
 - Non-orthogonal correction (`corrected`) of the G Laplacian is not used; `uncorrected` was the
   scheme compared.
