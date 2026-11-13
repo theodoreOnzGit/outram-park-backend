@@ -177,3 +177,36 @@ Predictions:
    bit-identical, within 8 eps.  Buffer: same order, 100 %.  SiC: identical operations,
    100 %.  Snead SiC: 100 % except `exp`.
 5. No port defect expected.
+
+## D. Yield stress `yieldStressFRAPTRAN` (before the driver)
+
+Compared: the yield stress `sigmaY = max((K/E^n (rate/1e-3)^m)^(1/(1-n)), K eps_old^n (rate/1e-3)^m)`
+against the port's `YieldStressModel::Fraptran.yield_stress(eps, inputs)` with `eps = eps_old`.  Not
+compared: `Hp_` (depends on the current stress `sigmaEq`, a tensor state the port passes differently;
+the port's `hardening_modulus` is the derivative of the flow curve, a different quantity).
+
+Reading of the upstream before the run (stated so the prediction can fail):
+* The fluence-factor chain is `if (phi < 0.1e25) {..} else if (phi <= 0.1e25 && phi < 2e25) {..}
+  else if (phi <= 2e25 && phi < 12e25) {..}`.  Evaluated literally: for `phi` in `(0.1e25, 2e25]`
+  the THIRD branch fires (`Kphi = 0.53236 + 2.6618e-27 phi`); for `(2e25, 12e25)` none fires;
+  at exactly `0.1e25` the second fires; for `phi >= 12e25` none fires.  The port's code comment
+  says that "for any fluence in (0.1e25, 12e25) no fluence factor is applied at all", which this
+  reading contradicts for `(0.1e25, 2e25]`.
+* `correctYieldStress` executes `phiValue_ *= 1e25;` on a member, i.e. the fluence is multiplied by
+  1e25 on EVERY call, not once: the n-multiplier saturates at 1.608953 and the K factor is skipped
+  from the second call on.  The driver emits `call = 1` (literal first call) and `call = 2`.
+* The port implements the evidently intended `>=` chain (documented deviation) and, above 12e25,
+  holds `Kphi` at its 12e25 value (upstream applies none).
+
+Predictions:
+1. The port equals the **intended** chain (driver variant `intended`) within G1/G2 on the whole grid
+   (scales derived in the driver from the sensitivity `d ln sigma/dn = (ln K - ln E + m ln r)/(1-n)^2`).
+2. The port differs from the literal first call for exactly the fluences where the chains differ:
+   `phi` in `(0.1e25, 12e25]` and `phi >= 12e25` (K), with relative differences of K of up to
+   `+0.7` (`(0.1e25, 2e25]`: literal applies `0.5324..0.5856`, intended `0.0029..0.0586`) and
+   `0.5857..0.8518` for `(2e25, 12e25)` (literal: none).  For `phi < 0.1e25` and `phi = 0` literal first call
+   and port agree within the gates (`n`-multiplier chain is not affected by the typo).
+3. From the second call on the literal upstream is independent of the input fluence (saturated); the
+   port cannot reproduce that (stateless), a documented non-reproduction.
+4. No other difference; if the "intended" comparison fails, the first divergent operation is
+   localised before any change.
