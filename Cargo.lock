@@ -7645,6 +7645,7 @@ dependencies = [
 name = "outram-park-fork-thermochimica"
 version = "0.0.2"
 dependencies = [
+ "miniz_oxide 0.8.9",
  "petir",
  "thiserror 2.0.21",
  "uom",

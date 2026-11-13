@@ -20,6 +20,7 @@ cp $HERE/inputs/transportProperties $HERE/inputs/turbulenceProperties $C/constan
 cp $HERE/inputs/U $HERE/inputs/p $C/0/
 cd $C
 $WITH blockMesh > log.blockMesh
+mkdir -p $HERE/reference
 rm -f $HERE/reference/ref_cavity_p.txt.gz
 DUMP_FILE=$C/dump.txt DUMP_NITER=$NITER DUMP_SOLVERS="PCG:DIC,PBiCGStab:DILU,smoothSolver:GaussSeidel,GAMG:GaussSeidel" \
   $WITH /home/user/upstream-build/gh1363/bin/pimpleFoam > log.pimpleFoam 2> log.err || true
