@@ -25,21 +25,34 @@ adds no number of its own.
 | T-1 natural periods, with this split | **−11 % to +12 %** of TM-1647 (~~−11 % to +8 %~~) | — | nee_soon T-1 README |
 
 **Ablations.** None of these is in the default; each is the maintainer's
-call. **Measured on the previous default salt** (without U-234/U-236); the
+call. ~~Measured on the previous default salt (without U-234/U-236); the
 shifts are differences and were not re-run. The last column adds each
-shift to the current +455 pcm, an estimate, not a run; ~~the column added it
-to the old +801~~ (corrected 2026-11-12, when the default changed).
+shift to the current +455 pcm, an estimate, not a run.~~ **RE-MEASURED
+2026-11-13 on the current default (U-234/U-236 salt, arm C, RVS)**, three
+seeds per arm (six for hot dimensions), each against the default's
+1.00536 ± 0.00023. The shift's σ is the arm's (the larger of seed sem and
+internal σ/√n) combined in quadrature with the default's. The last column
+is now the arm's own N-1, a run, not an estimate. Every shift fell inside
+the range posted on gh:#1128 before the runs.
 
-| change | effect on N-1 k | estimated N-1 against the band |
-|---|---|---|
-| hot dimensions | +193 ± 23 pcm (12 seeds, paired) | about +648, passes (~~+992, inside by 8 pcm~~) |
-| 10P / crystalline graphite law | −71 ± 32 / −70 ± 35 pcm | passes |
-| TM-0730 end regions | +20 ± 45 pcm | passes |
-| thermal shield cylinder (stated / close-packed) | +779 ± 43 / +895 ± 66 pcm | about +1234 / +1350, fails |
-| **whole thermal shield, TM-0728 Fig. 5.2** (measured on the current default) | **+1063 ± 39 pcm** | **+1519 ± 31, fails** |
-| 99.9926 % Li-7 | +730 ± 60 pcm | about +1185, fails |
-| INOR-8's Mo omitted (arm A, measured under DBRC) | +441 ± 45 pcm | about +896, passes (~~+1197, fails~~) |
-| ~~U-234/U-236 per TM-0730's 93 % uranium~~ now the default; `--minor-uranium none` removes them | −326 ± 83 pcm | (the default) |
+| change | effect on N-1 k | predicted (posted) | N-1 against the band |
+|---|---|---|---|
+| hot dimensions | **+224 ± 32 pcm** (6 seeds; ~~+193 ± 23, 12 seeds paired, old salt~~) | +120 to +270 | **+679 ± 22, passes** (~~about +648~~) |
+| 10P graphite law | **−52 ± 48 pcm** (~~−71 ± 32~~) | −150 to +10 | **+404 ± 42, passes** |
+| crystalline graphite law | −70 ± 35 pcm (old salt, not re-run) | — | passes |
+| TM-0730 end regions | **+36 ± 46 pcm** (~~+20 ± 45~~) | −70 to +110 | **+491 ± 40, passes** |
+| thermal shield cylinder, stated (`--shield tm0728`) | **+818 ± 52 pcm** (~~+779 ± 43~~) | +690 to +870 | **+1273 ± 47, fails** (~~about +1234~~) |
+| thermal shield cylinder, close-packed | +895 ± 66 pcm (old salt, not re-run) | — | about +1350, fails |
+| **whole thermal shield, TM-0728 Fig. 5.2** (measured on the current default) | **+1063 ± 39 pcm** | +850 to +1200 | **+1519 ± 31, fails** |
+| 99.9926 % Li-7 | **+714 ± 39 pcm** (~~+730 ± 60~~) | +600 to +860 | **+1169 ± 32, fails** (~~about +1185~~) |
+| INOR-8's Mo omitted (arm A) | **+418 ± 39 pcm** (~~+441 ± 45, under DBRC~~) | +350 to +530 | **+874 ± 32, passes** (~~about +896~~) |
+| ~~U-234/U-236 per TM-0730's 93 % uranium~~ now the default; `--minor-uranium none` removes them | −326 ± 83 pcm | — | (the default) |
+
+Every re-measured shift is within 1σ of its old-salt value, as expected
+for a difference: the U-234/U-236 change does not move them. Hardware:
+llvmpipe / Vulkan, 4 cores, Intel Xeon, 15.7 GiB RAM, 4 threads, about
+13 min a seed plus 145 s of data loading. Data: `data/keff.csv`, labels
+`+u234+<ablation>` (Mo omitted: `mo-omitted@…+u234`).
 
 **Open, waiting on the maintainer:**
 - the rod worth, whose geometry is built but needs the Gd tapes;
@@ -52,7 +65,7 @@ to the old +801~~ (corrected 2026-11-12, when the default changed).
 - **State:** 1181 °F, pump off, rod poisoning 0.08 % δk/k.
 - **Critical ²³⁵U concentration:** 32.8 ± 0.3 g/L (book, corrected for flush-salt dilution) or 32.4 ± 0.3 g/L (analytical).
 - **Concentration coefficient:** (δk/k)/(δC/C) = 0.223, measured, p. 19. So ±0.3 g/L is worth ±200 pcm.
-- **Pass criterion:** ~~none is set. This is a validation, and the finding is the disagreement.~~ **SET 2026-11-10 by the maintainer (gh:#1128): |Δρ| ≤ 1000 pcm is the acceptable band for a full-core model.** The maintainer set it after the results below were known. So it judges these numbers and does not pre-register them, and it was not chosen by fitting any input. Against it:
+- **Pass criterion:** ~~none is set. This is a validation, and the finding is the disagreement.~~ **SET 2026-11-10 by the maintainer (gh:#1128): |Δρ| ≤ 1000 pcm is the acceptable band for a full-core model.** The maintainer set it after the results below were known. So it judges these numbers and does not pre-register them, and it was not chosen by fitting any input. Against it: *(the list below is the record at the time the band was set, on the old default; the current numbers are the ablation table at the top, re-measured 2026-11-13: the same three ablations fail)*
   - the default model (arm C, RVS, +801 ± 22 pcm) **passes**;
   - these pass:
     - hot dimensions, +959 ± 45 pcm, with 41 pcm of margin;
@@ -923,10 +936,11 @@ defaults make no visible difference on this model.**
   32.8 ± 0.3 g/L; the model would go critical at about 32.2 g/L. That is
   about twice the measurement's own ±0.3 g/L.
 
-**Quote these numbers for the default model.** The ablation rows in the
+**Quote these numbers for the default model.** ~~The ablation rows in the
 summary table were measured on the previous default salt; their shifts are
 differences, which the U-234 change should move by much less than their σ,
-but they were not re-run.
+but they were not re-run.~~ **2026-11-13:** the ablation rows were re-run on
+this default; each moved by less than 1σ.
 
 ### N-3: isothermal temperature coefficient (2026-11-09, gh:#1129)
 
