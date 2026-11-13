@@ -30,9 +30,19 @@
 //!
 //! Every line of unit 24 identical in all seven decks.
 //!
-//! # Results
+//! One more deck, `MF2` (Pu-240, below), gates `mfchk`, the card-9 switch of
+//! `mfd = 16` to 17 for an MT in MF=13.
 //!
-//! See the gh:#1370 comment of 2026-11-13 and the deck-driver README §28.
+//! # Results (2026-11-13, NJOY2016.80 `ac5adf5`, release)
+//!
+//! - All seven weight decks: unit 24 identical, 321 of 321 lines each. Control:
+//!   NJOY's GENDFs for these decks differ from each other (3 090 bytes between
+//!   `iwt = 7` and `8`, 59 between 11 and 12).
+//! - `MF2`: identical, 170 of 170 lines. Ablation: with `mfchk` returning its
+//!   input, 96 of 170 lines differ (MF=16 MT=3 is written from MF=12 instead of
+//!   MF=13), so the deck does exercise it.
+//!
+//! Record: deck-driver README §28; predictions and results on gh:#1370.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -62,12 +72,17 @@ fn deck(iwt: i32, weight: &str) -> String {
     )
 }
 
-/// Run `deck` in NJOY2016.80 and here and compare unit 24 line for line.
+/// Run `deck` in NJOY2016.80 and here on H-2 and compare unit 24 line for line.
 /// `None`: skipped.
 fn compare(tag: &str, deck: &str) -> Option<()> {
+    compare_on(tag, deck, "n-001_H_002-ENDF8.0.endf")
+}
+
+/// [`compare`] on the resource `tape` (mounted as unit 20).
+fn compare_on(tag: &str, deck: &str, tape: &str) -> Option<()> {
     let root = njoy_root();
     let bin = root.join("build/njoy");
-    let res = root.join("tests/resources/n-001_H_002-ENDF8.0.endf");
+    let res = root.join("tests/resources").join(tape);
     if !bin.exists() || !res.exists() {
         eprintln!("skip: {} or {} not present (set NJOY2016_ROOT)", bin.display(), res.display());
         return None;
@@ -137,4 +152,20 @@ fn w12_groupr_vitamin_e_temperature_dependent() {
 #[test]
 fn wm3_groupr_flux_calculator_card_with_one_sigma_zero() {
     let _ = compare("wm3", &deck(-3, "1.e4 11.29 0 -30/\n"));
+}
+
+/// `MF2`: GROUPR's `mfchk` (`groupr.f90:1526-1573`, gh:#1370) on Pu-240
+/// ENDF/B-VIII.0 (MAT 9440), whose only MF=13 section is MT=3 (`NK = 1`). Card 9
+/// asks `16 3` and `16 102`: upstream switches `16 3` to `mfd = 17` (MF=13) and
+/// keeps `16 102`. RECONR at `err = 0.01`, GROUPR at 0 K, LANL-30, LANL 12 photon
+/// groups (`igg = 3`), `iwt = 3`, `lord = 0`.
+///
+/// (`MF1`, on B-10, was dropped before any comparison: its MF=13 MT=4 and 103 have
+/// 16 and 9 photons, which `getgyl` refuses by name.)
+#[test]
+fn mf2_groupr_mfchk_switches_16_to_17_on_mf13() {
+    let deck = "moder\n20 -21/\nreconr\n-21 -22/\n'pu240'/\n9440/\n0.01/\n0/\n\
+                groupr\n-21 -22 0 24/\n9440 3 3 3 0 1 1 1/\n'pu240 mfchk'/\n0.0/\n1.0e10/\n\
+                3 1/\n16 3/\n16 102/\n0/\n0/\nstop\n";
+    let _ = compare_on("mf2", deck, "n-094_Pu_240-ENDF8.0.endf");
 }

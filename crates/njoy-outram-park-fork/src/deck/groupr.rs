@@ -426,10 +426,14 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         let items: Vec<crate::deck::groupr_auto::AutoReaction> = if req0.mtd == crate::groupr::input::MTD_AUTO {
             crate::deck::groupr_auto::nextr_all(req0.mfd, &lists, &pend, inp.matb, &mut mtd_run)?
         } else if req0.mtd < 0 {
+            // `mfchk` (`:716`) rewrites `mfd` in place, so once a range switches
+            // (16 to 17, 13 to 12) its later MTs keep the new file (gh:#1370).
+            let mut mfd_run = req0.mfd;
             let mut v = Vec::new();
             loop {
                 mtd_run += 1;
-                v.push(crate::deck::groupr_auto::AutoReaction::plain(req0.mfd, mtd_run));
+                mfd_run = crate::deck::groupr_auto::mfchk(mfd_run, mtd_run, &lists);
+                v.push(crate::deck::groupr_auto::AutoReaction::plain(mfd_run, mtd_run));
                 if mtd_run + req0.mtd >= 0 {
                     break;
                 }
@@ -437,7 +441,8 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             v
         } else {
             mtd_run = req0.mtd;
-            vec![crate::deck::groupr_auto::AutoReaction::plain(req0.mfd, req0.mtd)]
+            let mfd = crate::deck::groupr_auto::mfchk(req0.mfd, req0.mtd, &lists);
+            vec![crate::deck::groupr_auto::AutoReaction::plain(mfd, req0.mtd)]
         };
         for item in items {
             let mtd = item.mtd;

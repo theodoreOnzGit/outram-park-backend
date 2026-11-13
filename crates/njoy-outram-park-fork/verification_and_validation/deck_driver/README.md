@@ -1497,7 +1497,7 @@ identical** (85 before). Remaining: none.
 | `deck_driver_survey` (`SURVEY_CASES=03,30`, `--ignored`) | 03 and 30 `identical` |
 | `--lib` | 774 of 774 passed |
 
-## 28. GROUPR `getwtf` for `iwt = 1, 7, 10, 11, 12` (2026-11-13, gh:#1370)
+## 28. GROUPR `getwtf` for `iwt = 1, 7, 10, 11, 12`, and `mfchk` (2026-11-13, gh:#1370)
 
 No upstream deck uses these weights (the 87 decks use `iwt` 2-6 and 9), so the tape
 driver refused them. Translated from `groupr.f90:5011-5025` (`genwtf`, card 8b) and
@@ -1521,3 +1521,16 @@ compared as strings,** for `iwt = 1` (a two-region TAB1), 7, 8, 10, 11, 12, and
 `iwt = -3` with one sigma-zero (upstream then takes `getwtf` with `|iwt|`,
 `:6505-6512`). Control: NJOY's own GENDFs for these decks differ from one another
 (3 090 bytes between `iwt = 7` and `8`, 59 between 11 and 12), so the gate can fail.
+
+**`mfchk`** (`groupr.f90:1526-1573`): `deck::groupr_auto::mfchk` now runs on every
+non-automatic card-9 request, as `:716` does. `16 mt` with `mt` in MF=13 becomes
+`mfd = 17`, and `13 mt` with `mt` in MF=12 becomes 12. In a `-m` range the switched
+`mfd` carries on to the range's later MTs, because upstream rewrites `mfd` in place.
+`mfchk2` (`:1575-1597`, `mfd = 21-26`) is not translated, because the tape driver
+refuses `mfd = 21-36`.
+- The first deck, on B-10, stopped at `getgyl`'s refusal of several MF=13 photons
+  (`NK = 16` and 9), the refusal its prediction named. It was replaced by `MF2`.
+- `MF2`: Pu-240 ENDF/B-VIII.0, card 9 `16 3`, `16 102`. **The GENDF is identical,
+  170 of 170 lines.**
+- Ablation (`mfchk` made to return its input): 96 of 170 lines differ, so the deck
+  does exercise `mfchk`.
