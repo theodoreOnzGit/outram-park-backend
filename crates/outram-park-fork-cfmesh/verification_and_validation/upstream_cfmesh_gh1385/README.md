@@ -1286,3 +1286,38 @@ against upstream:
   asmoOctree; **it is counted and pinned from above, not relaxed**.
 * Prediction 75: after `renameBoundary` (final mesh) patch names, types and
   sizes equal upstream's.
+
+### Results of P70-P75 so far, and predictions 76-78 (written before the fix, committed first)
+
+Pin re-confirmation (P70) **held**: on the rebuilt ESI v2506 and the rebuilt cfMesh (`scripts/upstream/build-esi-v2506-and-genfoam.sh cfmesh`, 2 jobs, `nice`, 339 s for the library and four executables) the three recorded sphere runs (`cartesianMesh`, `tetMesh`, `pMesh`) reproduce the committed `polyMesh.sha256` of `points`, `faces`, `owner`, `neighbour` and `boundary` bit for bit. So the rebuilt upstream (SourceForge tarball, this container's compiler and libm) equals the earlier one on these cases, and no pin is re-taken.
+
+`singleOrifice`, port (PETIR `pow`) against upstream, stopped after each step (points bit-identical / total; faces index-identical with owner and neighbour / total), measured before any fix:
+
+| step | points | faces |
+|---|---|---|
+| templateGeneration | 29274/29274 | 65621/65621 |
+| surfaceTopology, surfaceProjection | 29173/29173 | 65413/65413 |
+| patchAssignment | 29173/29173 | 65413/65413 |
+| edgeExtraction | 29691/29691 | 72272/72272 |
+| boundaryLayerGeneration | 43283/43283 | 111722/111722 |
+| meshOptimisation | **1420/43283, worst 6.9e-2 m** | not matched |
+| boundaryLayerRefinement | 2050/82961 | 227372/227372 |
+
+P71, P72 held (identical through `edgeExtraction`); **P73 was wrong**: `patchBoundaryLayers` with `allowDiscontinuity 0` and per-patch thickness is bit-identical, the first miss is `meshOptimisation`. Localising it (instrumented upstream, `patches/gh1385-trace-instrumentation-6.patch`, `GH1385_DUMP`; the port writes the same dumps) with the same case and the `anisotropicSources` block removed from the `meshDict` on both sides: `meshOptimisation` is **43 283/43 283 bit-identical, no pow ulp**, so the cause is the anisotropic back-scaling, not the optimiser. With the sources:
+
+| point set | differing points (of 43283) | worst |
+|---|---|---|
+| after the first `optimiseFinalMesh` (modified space) | 32 | 4.6e-14 m |
+| after `revertGeometryModification` | 32 | 9.2e-14 m |
+| after `mapVerticesOntoSurface` of `projectSurfaceAfterBackScaling` | **8921** | 3.4e-11 m |
+| after the second `optimiseFinalMesh` | 41863 | 6.9e-2 m |
+
+Cause 1 (found by reading `cartesianMeshGenerator::projectSurfaceAfterBackScaling`): upstream builds a **new octree on the original surface** (`createOctreeWithRefinedBoundary(20, 30)`) and maps through `findNearestSurfacePoint`, then runs `optimiseFinalMesh` with that octree; the port mapped to the exact nearest point (`snap_to_surface_with`) and optimised with brute-force searches (`octree: None`). Fixed in the same change (`anisotropic::revert_and_project_octree`; `tetMesh` and `pMesh` still call `revert_and_project`, see "What remains"): after it the mapped points are the same 32 as before the revert.
+
+Prediction 76 (formed before the experiment but not committed before it; stated here after the fact): the 32 first-pass differences are the pow ulp. Swapping the platform `pow` in (experiment, **not committed**, PETIR's gate forbids it) must make the first optimisation, the revert and the map **identical in all 43283 points**. If 32 remain, they are not the pow.
+
+Result of P76: **held** (0 of 43283 differ after the first optimisation, the revert and the map, with the platform `pow`). After the second `optimiseFinalMesh` with the platform `pow`, **2** points still differ, by 6.9e-2 m (points 32452, 32455), identical to each other's cause: after `optimizeSurface` the mesh is identical (pass 2), `optimizeMeshFV` is where it parts. The traced `partTetMesh` states (`in`, `knupp`, `untangler`, `vopt`) of all six `untangleMeshFV` iterations are bit-identical, so the difference is in the boundary-move loop that follows them.
+
+Reading `tetMeshOptimisation.H`: `optimiseBoundaryVolumeOptimizer(const label nIterations = 3, const bool nonShrinking = false)`. `meshOptimizer::untangleMeshFV` calls **`tmo.optimiseBoundaryVolumeOptimizer(true)`** while `nGlobalIter < 2` and **`(false)`** from `nGlobalIter >= 5`. In C++ `true` binds to `nIterations` (`label`), so the first call is **one iteration, not non-shrinking**, and the last is **zero iterations** (nothing happens). The upstream comments ("the point stays in the plane determined by the point normal", "move boundary points without any constraints") describe an intent the code does not carry out. The port reads the booleans as the second argument and runs 3 iterations (`optimise_boundary_volume_optimizer(3, true)` / `(3, false)`).
+
+Prediction 77: with the boundary-move loop as upstream **calls** it (`(1, false)` for `nGlobalIter < 2`, `(0, false)` from 5), singleOrifice `meshOptimisation` with the platform `pow` is **43283/43283 bit-identical**, and with PETIR's `pow` the points that differ are only the pow cascade of the first pass: **at most 1313 points and worst below 1e-10 m** (the two 6.9e-2 m points are gone). Prediction 78: no existing bit-identical comparison moves (the sphere, asmoOctree, elbow, cutCube, hatOctree records and every committed pin), because none of them entered the boundary-move loop (they matched upstream before this change); a pin that does move is a case that did enter it, and is recorded old to new. The old form (3 iterations, `true`/`false` as documented) stays callable as `BoundaryMoveCalls::AsDocumented`; `Upstream` is the default, as upstream.

@@ -167,6 +167,7 @@ stage_prereqs() {
   for t in gcc g++ make flex bison curl git tar gzip; do command -v "$t" >/dev/null || missing+=("$t"); done
   [ -f /usr/include/zlib.h ] || missing+=(zlib1g-dev)
   [ -f /usr/include/FlexLexer.h ] || missing+=(libfl-dev)
+  [ -x /usr/bin/time ] || missing+=(time)   # /usr/bin/time -v in the cfMesh run scripts
   if [ "${#missing[@]}" -gt 0 ]; then
     echo "missing: ${missing[*]}"
     if [ "$(id -u)" = 0 ] && command -v apt-get >/dev/null; then

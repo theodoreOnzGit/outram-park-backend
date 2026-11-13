@@ -377,13 +377,19 @@ pub(crate) fn cartesian_optimise_final_mesh(
         opt.set_enforce_constraints("badPoints");
     }
     trace_points("fm_surface", m);
+    let pass = FINAL_MESH_PASS.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+    dump_points(&format!("pass{pass}_surface"), m);
     let r1 = opt.optimize_mesh_fv(m, 5, controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
     trace_points("fm_fv", m);
+    dump_points(&format!("pass{pass}_fv"), m);
     let r2 = opt.optimize_low_quality_faces(m, 10);
     trace_points("fm_lowq", m);
+    dump_points(&format!("pass{pass}_lowq"), m);
     let bl = optimize_boundary_layer_step(m, optimise_layer, add_buffer_layer, controls, "optimizeBoundaryLayer: optimiseLayer off (upstream default), nothing to do");
+    dump_points(&format!("pass{pass}_bl"), m);
     let r3 = opt.untangle_mesh_fv(m, controls).map_err(|e| format!("Cannot untangle mesh!! ({} bad points)", e.points.len()))?;
     trace_points("fm_untangle", m);
+    dump_points(&format!("pass{pass}_untangle"), m);
     Ok((
         (r1.flagged_before, r3.flagged_after),
         format!(
@@ -404,6 +410,34 @@ pub(crate) fn trace_points(tag: &str, m: &VolumeMesh) {
     for (i, p) in m.points.iter().enumerate() {
         eprintln!("TRACE {tag} 0 {i} {:?} {:?} {:?}", p.x, p.y, p.z);
     }
+}
+
+/// `projectSurfaceAfterBackScaling`'s octree: `meshOctree(*surfacePtr_)` and
+/// `meshOctreeCreator(octree, meshDict).createOctreeWithRefinedBoundary(20, 30)`
+/// (gh:#1385 round 5).
+pub(crate) fn create_octree_with_refined_boundary_for(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceRegions>, dict: &MeshDict) -> MeshOctree {
+    let surf = crate::mesh_octree::TriSurf::new(points.to_vec(), tris.to_vec(), regions.map(|r| r.region_of_tri.clone()));
+    let mut o = MeshOctree::new(std::sync::Arc::new(surf));
+    let c = crate::mesh_octree_creator::MeshOctreeCreator::new(&o, Some(dict.clone()));
+    c.create_octree_with_refined_boundary(&mut o, 20, 30);
+    o
+}
+
+/// Which `optimiseFinalMesh` call this is, for the `pass<N>_*` dump tags
+/// (only used when `GH1385_DUMP` is set).
+static FINAL_MESH_PASS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// With `GH1385_DUMP=<dir>` set, write every point (`{:?}`, shortest
+/// round-trip) to `<dir>/<tag>_0.txt`, as the instrumented upstream run does
+/// at the same places of `meshOptimisation`
+/// (`patches/gh1385-trace-instrumentation-6.patch`). Off unless set.
+pub(crate) fn dump_points(tag: &str, m: &VolumeMesh) {
+    let Ok(dir) = std::env::var("GH1385_DUMP") else { return };
+    let mut text = String::new();
+    for p in &m.points {
+        text += &format!("{:?} {:?} {:?}\n", p.x, p.y, p.z);
+    }
+    let _ = std::fs::write(format!("{dir}/{tag}_0.txt"), text);
 }
 
 /// `meshOptimizer::optimizeBoundaryLayer(addBufferLayer)` inside
@@ -565,14 +599,19 @@ fn run_cartesian(points: &[Vec3], tris: &[[usize; 3]], regions: Option<&SurfaceR
                 // one with anisotropicSources)
                 let (bad, line) = cartesian_optimise_final_mesh(m, spts, tris, reg, opts.enforce_geometry_constraints, &controls, opts.optimise_layer.as_ref(), !mod_active, Some(&o))?;
                 rep.bad_faces_mesh_optimisation = bad;
+                dump_points("A1_before_revert", m);
                 rep.notes.push(format!("meshOptimisation: {line}"));
                 // its end: revertGeometryModification while modSurfacePtr_
                 // is set (always, with anisotropicSources: the constructor
                 // sets it), then projectSurfaceAfterBackScaling
                 if let (true, Some(cm)) = (mod_active, opts.dict.anisotropic_sources.as_ref()) {
                     mod_active = false;
-                    let b = crate::anisotropic::revert_and_project(m, cm, points, tris);
-                    let (bad2, line2) = cartesian_optimise_final_mesh(m, points, tris, reg, opts.enforce_geometry_constraints, &controls, opts.optimise_layer.as_ref(), true, None)?;
+                    // gh:#1385 round 5: upstream builds a new octree on the
+                    // original surface and maps and optimises through it
+                    let orig = create_octree_with_refined_boundary_for(points, tris, regions, &opts.dict);
+                    let b = crate::anisotropic::revert_and_project_octree(m, cm, &orig, points, tris, reg);
+                    let (bad2, line2) = cartesian_optimise_final_mesh(m, points, tris, reg, opts.enforce_geometry_constraints, &controls, opts.optimise_layer.as_ref(), true, Some(&orig))?;
+                    dump_points("A2_second_optimisation", m);
                     rep.back_scaling = Some(b);
                     rep.bad_faces_after_back_scaling = Some(bad2);
                     rep.notes.push(format!(

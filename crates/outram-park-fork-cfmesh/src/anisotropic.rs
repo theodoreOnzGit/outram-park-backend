@@ -377,11 +377,37 @@ pub struct BackScalingReport {
 /// [`SurfaceSearch::Octree`]: crate::mesh_octree_queries::SurfaceSearch::Octree
 pub fn revert_and_project(m: &mut crate::volume_mesh::VolumeMesh, cm: &CoordinateModifier, points: &[Vec3], tris: &[[usize; 3]]) -> BackScalingReport {
     revert_points(&mut m.points, cm);
+    crate::pipeline::cartesian_mesh::dump_points("B_after_revert", m);
     let mapped = crate::snap::snap_to_surface_with(m, points, tris, crate::mesh_octree_queries::SurfaceSearch::Octree);
     let max_projection_move = mapped.points.iter().zip(&m.points).map(|(a, b)| a.sub(*b).length()).fold(0.0, f64::max);
     let n_points_reverted = m.points.len();
     *m = mapped;
+    crate::pipeline::cartesian_mesh::dump_points("C_after_map", m);
     BackScalingReport { n_points_reverted, max_projection_move }
+}
+
+/// [`revert_and_project`] as `cartesianMeshGenerator::projectSurfaceAfterBackScaling`
+/// does it (gh:#1385 round 5): `revertGeometryModification`, then
+/// `meshSurfaceMapper(mse, octree).mapVerticesOntoSurface()` with a **new
+/// octree on the original surface** (`meshOctree(*surfacePtr_)` +
+/// `createOctreeWithRefinedBoundary(20, 30)`, built by the caller and passed
+/// as `octree`): every boundary point to the octree's `findNearestSurfacePoint`
+/// (not an exact nearest point, so not [`crate::snap`]'s), with no
+/// untangling. The caller then runs its `optimiseFinalMesh` again with the
+/// same octree, as upstream does. [`revert_and_project`] is the earlier
+/// route (exact nearest point) that `tetMesh` and `pMesh` still call.
+pub fn revert_and_project_octree(m: &mut crate::volume_mesh::VolumeMesh, cm: &CoordinateModifier, octree: &crate::mesh_octree::MeshOctree, points: &[Vec3], tris: &[[usize; 3]], regions: &crate::patches::SurfaceRegions) -> BackScalingReport {
+    revert_points(&mut m.points, cm);
+    crate::pipeline::cartesian_mesh::dump_points("B_after_revert", m);
+    let q = crate::surface_mapper::SurfaceQueries::new(points, tris, regions).with_octree(std::sync::Arc::new(octree.clone()));
+    let engine = crate::surface_engine::SurfaceEngine::new(m);
+    let before = m.points.clone();
+    for &v in &engine.boundary_points {
+        m.points[v] = q.nearest(before[v]);
+    }
+    let max_projection_move = m.points.iter().zip(&before).map(|(a, b)| a.sub(*b).length()).fold(0.0, f64::max);
+    crate::pipeline::cartesian_mesh::dump_points("C_after_map", m);
+    BackScalingReport { n_points_reverted: m.points.len(), max_projection_move }
 }
 
 /// `scaleMesh` / `scaleSurfaceMesh`: every point times `factor`.
