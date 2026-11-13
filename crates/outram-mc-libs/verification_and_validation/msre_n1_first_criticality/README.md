@@ -29,7 +29,7 @@ call. ~~Measured on the previous default salt (without U-234/U-236); the
 shifts are differences and were not re-run. The last column adds each
 shift to the current +455 pcm, an estimate, not a run.~~ **RE-MEASURED
 2026-11-13 on the current default (U-234/U-236 salt, arm C, RVS)**, three
-seeds per arm (six for hot dimensions), each against the default's
+seeds per arm (six for hot dimensions; crystalline and close-packed re-run the same day as a second batch), each against the default's
 1.00536 ± 0.00023. The shift's σ is the arm's (the larger of seed sem and
 internal σ/√n) combined in quadrature with the default's. The last column
 is now the arm's own N-1, a run, not an estimate. Every shift fell inside
@@ -39,10 +39,10 @@ the range posted on gh:#1128 before the runs.
 |---|---|---|---|
 | hot dimensions | **+224 ± 32 pcm** (6 seeds; ~~+193 ± 23, 12 seeds paired, old salt~~) | +120 to +270 | **+679 ± 22, passes** (~~about +648~~) |
 | 10P graphite law | **−52 ± 48 pcm** (~~−71 ± 32~~) | −150 to +10 | **+404 ± 42, passes** |
-| crystalline graphite law | −70 ± 35 pcm (old salt, not re-run) | — | passes |
+| crystalline graphite law | **−58 ± 38 pcm** (~~−70 ± 35, old salt~~) | −160 to +20 | **+397 ± 30, passes** |
 | TM-0730 end regions | **+36 ± 46 pcm** (~~+20 ± 45~~) | −70 to +110 | **+491 ± 40, passes** |
 | thermal shield cylinder, stated (`--shield tm0728`) | **+818 ± 52 pcm** (~~+779 ± 43~~) | +690 to +870 | **+1273 ± 47, fails** (~~about +1234~~) |
-| thermal shield cylinder, close-packed | +895 ± 66 pcm (old salt, not re-run) | — | about +1350, fails |
+| thermal shield cylinder, close-packed (`--shield tm0728-packed`) | **+928 ± 48 pcm** (~~+895 ± 66, old salt~~) | +760 to +1030 | **+1383 ± 42, fails** (~~about +1350~~) |
 | **whole thermal shield, TM-0728 Fig. 5.2** (measured on the current default) | **+1063 ± 39 pcm** | +850 to +1200 | **+1519 ± 31, fails** |
 | 99.9926 % Li-7 | **+714 ± 39 pcm** (~~+730 ± 60~~) | +600 to +860 | **+1169 ± 32, fails** (~~about +1185~~) |
 | INOR-8's Mo omitted (arm A) | **+418 ± 39 pcm** (~~+441 ± 45, under DBRC~~) | +350 to +530 | **+874 ± 32, passes** (~~about +896~~) |
@@ -260,7 +260,10 @@ Prediction posted on gh:#1128 before the run: k up by +50 to +300 pcm.
   ignore expansion over their ±50 °F swing (~~not measured~~ **measured 2026-11-11 as an ablation, N-3 section: −0.69 ± 0.54, not resolved**). If the +158 pcm over 1111 °F
   is linear, expansion adds about **+0.14 × 10⁻⁵ /°F** (14 pcm over the
   100 °F swing): about 2 % of α_iso, positive, and inside N-3's ±0.5–0.7
-  σ. Not measured at N-3's temperatures.
+  σ. ~~Not measured at N-3's temperatures.~~ **CORRECTED 2026-11-13:**
+  measured at 1131/1231 °F on 2026-11-11 (N-3 section, hot-dims
+  ablation): −0.69 ± 0.54 × 10⁻⁵ /°F, the opposite sign to this
+  estimate, but not resolved from zero.
 
 ### N-1 residual: graphite thermal-scattering law (2026-11-10, gh:#1128)
 
@@ -458,7 +461,9 @@ Linux, CPU only).
     implied by its 70 tons of balls);
   - the insulation, modelled as void;
   - the cylinder's elevation;
-  - the missing base and cover, which would add to the worth, not subtract.
+  - ~~the missing base and cover, which would add to the worth, not subtract.~~
+    **MEASURED 2026-11-12:** the whole shield (base, cylinder and cover, TM-0728
+    Fig. 5.2) is worth +1063 ± 39 pcm on the current default (section below).
 - **The default is not changed.** Whether the comparison should carry the
   shield is the maintainer's call. A real reactor had it, so the model
   without it is missing a positive term of this size.
