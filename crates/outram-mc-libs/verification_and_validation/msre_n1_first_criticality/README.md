@@ -816,6 +816,32 @@ level; dividing again by the atom ratio removes the composition:
 - **Caveat on the instrument.** The last column assumes both calculations
   give U-235 the same spectrum-averaged cross section. A harder or softer
   spectrum moves every row together; it cannot make Zr 2.5 and Li-7 0.76.
+  **Tested 2026-11-13 against ORNL-4449 (Prince, Table 2.1, p. 23).** That
+  table gives ORNL's reactor-averaged cross sections in the MSRE at minimum
+  critical loading (1200 °F, rods out), defined as total reaction rate per
+  atom over the salt's thermal flux (E_c = 0.876 eV, GAM-II + THERMOS +
+  EXTERMINATOR). Its ratios to U-235 absorption are therefore the same
+  quantity as ours, per-atom absorption relative to U-235, from the
+  energy-band run (`data/salt_bands.csv`, three seeds, current default):
+
+  | nuclide | ours | ORNL pre-1965 data | ORNL ENDF/B (1969) |
+  |---|---|---|---|
+  | Li-6 (1/v) | 1.3588 | 1.3538 (ours +0.4 %) | 1.4073 (−3.4 %) |
+  | U-234 | 0.3924 | 0.4058 (−3.3 %) | 0.3934 (−0.3 %) |
+  | U-236 | 0.1612 | 0.1549 (+4.0 %) | 0.1542 (+4.5 %) |
+  | U-238 | 0.0863 | 0.0773 (+11.7 %) | 0.0835 (+3.4 %) |
+
+  **Our salt spectrum matches ORNL's to within a few percent.** Li-6, a
+  nearly pure 1/v absorber and so a direct spectrum probe, agrees to 0.4 %
+  with ORNL's own pre-1965 set. The resonance absorbers agree to 0.3–4.5 %
+  with ORNL's ENDF/B set. **So the Zr 2.5× and F 1.8× gaps are not a
+  spectrum difference**; they are in the Zr and F data or in how TM-0730
+  treated them. The same argument makes Li-7's 0.76 a Li-7 cross-section
+  difference, since Li-6 shows the 1/v spectrum agrees. That is consistent with an older
+  2200 m/s Li-7 capture value about a quarter below ENDF/B-VIII.0's, but
+  both values here are from memory, **not checked against BNL-325**.
+  Table 2.1 lists no Zr, F or Be, so it cannot close the gap itself.
+  It is a later ORNL calculation than TM-0730, with the same codes.
 - **Where TM-0730's cross sections came from** (§3.4, pp. 20–23; refs. 2, 3,
   10, 11): BNL-325 (2nd ed., 1958) for the early GNU runs; the GAM-1 library
   for 32 fast groups, which **lacked Li-6, Li-7 and F-19**, so their fast
