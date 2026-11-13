@@ -121,7 +121,7 @@ fn dump(tag: &str, time: &str, faces: Option<&[u8]>, points: &[u8]) {
 
 /// ESI's snapped mesh of the rebuilt environment (time 81): faces as in round 9 (unchanged),
 /// points from `layer_points_81_r10.bin.gz`.
-fn mesh81() -> MergeMesh {
+fn mesh81(start: &str) -> MergeMesh {
     let mut faces = Vec::new();
     let mut owner = Vec::new();
     let mut neighbour = Vec::new();
@@ -132,7 +132,7 @@ fn mesh81() -> MergeMesh {
         }
         faces.push(v[2..].iter().map(|&p| p as usize).collect());
     }
-    let mesh = SnapMesh { points: vectors("layer_points_81_r10.bin.gz"), faces, owner, neighbour };
+    let mesh = SnapMesh { points: vectors(start), faces, owner, neighbour };
     MergeMesh::from_patch_starts(mesh, &[51058, 58275, 59449, 59689, 60813])
 }
 
@@ -141,8 +141,8 @@ fn feature_cos() -> f64 {
 }
 
 /// `doLayers`: `mergePatchFacesUndo` (concave limit 90 deg) then `mergeEdgesUndo`.
-fn mesh83() -> MergeMesh {
-    let m = mesh81();
+fn mesh83(start: &str) -> MergeMesh {
+    let m = mesh81(start);
     let controls = EsiQualityControls::default();
     let preserve = vec![false; m.mesh.faces.len()];
     let patches: Vec<usize> = (0..4).collect();
@@ -152,12 +152,18 @@ fn mesh83() -> MergeMesh {
     m2
 }
 
+const R10_START: &str = "layer_points_81_r10.bin.gz";
+/// Time-81 points of the rounds 3-9 fixtures; the round-11 ESI build reproduces them bit for bit.
+const OLD_START: &str = "layer_points_81.bin.gz";
+
 /// What differs between the three cases.
 struct Case {
     tag: &'static str,
     n_layers: i64,
     expansion: f64,
     n_relaxed_iter: usize,
+    /// fixture of the time-81 points: `layer_points_81_r10.bin.gz` (round 10) or `layer_points_81.bin.gz` (rounds 3-9, and the build of round 11)
+    start: &'static str,
 }
 
 struct Run {
@@ -168,7 +174,7 @@ struct Run {
 }
 
 fn run_case(c: &Case) -> Run {
-    let m = mesh83();
+    let m = mesh83(c.start);
     let cell_level: Vec<usize> = lines("layer_cell_level_81.txt.gz").iter().map(|v| v[0] as usize).collect();
     let patch_ids: Vec<usize> = (0..4).collect();
     let dict = LayerDict {
@@ -314,7 +320,7 @@ fn tail(c: &Case, run: &Run, final_faces: u64, fields: Option<u64>, wrong: &[usi
 /// P60: the round-9 case from the rebuilt ESI's snapped mesh.
 #[test]
 fn base_case_from_rebuilt_esi() {
-    let c = Case { tag: "base", n_layers: 1, expansion: 1.0, n_relaxed_iter: 20 };
+    let c = Case { tag: "base", n_layers: 1, expansion: 1.0, n_relaxed_iter: 20, start: R10_START };
     let run = run_case(&c);
     assert_eq!(run.n_layers_total, 8521);
     let refs = [
@@ -333,7 +339,7 @@ fn base_case_from_rebuilt_esi() {
 /// P61-P64: three layers, expansion ratio 1.2.
 #[test]
 fn three_layers_expansion_1p2_against_esi() {
-    let c = Case { tag: "layers3", n_layers: 3, expansion: 1.2, n_relaxed_iter: 20 };
+    let c = Case { tag: "layers3", n_layers: 3, expansion: 1.2, n_relaxed_iter: 20, start: R10_START };
     let run = run_case(&c);
     // P61: "Layers to add in current iteration : 25563" and the thickness table
     assert_eq!(run.n_layers_total, 25563, "P61 ESI: Layers to add in current iteration");
@@ -386,7 +392,7 @@ fn three_layers_expansion_1p2_against_esi() {
 /// P65: `nRelaxedIter 1`, iterations from 1 use `meshQualityControls.relaxed`.
 #[test]
 fn relaxed_quality_path_against_esi() {
-    let c = Case { tag: "relaxed", n_layers: 1, expansion: 1.0, n_relaxed_iter: 1 };
+    let c = Case { tag: "relaxed", n_layers: 1, expansion: 1.0, n_relaxed_iter: 1, start: R10_START };
     let run = run_case(&c);
     let removed: Vec<usize> = run.its.iter().map(|i| i.n_changed).collect();
     let extruded: Vec<usize> = run.its.iter().map(|i| i.n_extruded_faces).collect();
@@ -400,4 +406,256 @@ fn relaxed_quality_path_against_esi() {
     let bad = compare(&c, &run, &refs, 0x1fa36a7e47db0a38);
     assert!(bad.is_empty(), "{bad:?}");
     tail(&c, &run, 0x1fa36a7e47db0a38, Some(0xdb8997693ba42b73), &[20914, 44803]);
+}
+
+// ---- round 11 (P72): the same three cases from the rounds 3-9 time-81 points (`OLD_START`). The ESI
+// build of round 11 reproduces those points bit for bit, so these digests come from that build.
+// Faces digests equal round 10's; shrunk-points, layer-points and field digests are the moved ones
+// (round 10 -> round 11 in `verification_and_validation/snappy_hex_mesh_esi_v2506/README.md`).
+
+/// P72, base case from the old start.
+#[test]
+fn base_case_from_old_start() {
+    let c = Case { tag: "base_old", n_layers: 1, expansion: 1.0, n_relaxed_iter: 20, start: OLD_START };
+    let run = run_case(&c);
+    assert_eq!(run.n_layers_total, 8521);
+    let refs = [
+        Ref { shrunk_points: 0xab189caffc5da830, layer_faces: 0x8dcf90c292fdaf51, layer_points: 0x4fe8fe98546696cb },
+        Ref { shrunk_points: 0xe0ac6c3665d116c4, layer_faces: 0x0c7c2aa6517ef763, layer_points: 0xed45b0e95cae29d1 },
+        Ref { shrunk_points: 0x69c9d9df92f90df2, layer_faces: 0xb74d31243d7a99e7, layer_points: 0xedc9b810677dddf9 },
+    ];
+    assert_eq!(run.its.len(), 3);
+    let bad = compare(&c, &run, &refs, 0x915ab24c5e104db8);
+    assert!(bad.is_empty(), "{bad:?}");
+    tail(&c, &run, 0x915ab24c5e104db8, None, &[]);
+}
+
+/// P72, three layers with expansion 1.2 from the old start.
+#[test]
+fn three_layers_from_old_start() {
+    let c = Case { tag: "layers3_old", n_layers: 3, expansion: 1.2, n_relaxed_iter: 20, start: OLD_START };
+    let run = run_case(&c);
+    assert_eq!(run.n_layers_total, 25563);
+    let refs = [
+        Ref { shrunk_points: 0x88bd2e5b7c03e477, layer_faces: 0xd59160e6823bdfaf, layer_points: 0x8c5dcb8a687cd671 },
+        Ref { shrunk_points: 0x91aa2fd70cd6c175, layer_faces: 0x6657d6c941e7b8e4, layer_points: 0x31a702daf1396917 },
+        Ref { shrunk_points: 0xe9f410626cb3bf42, layer_faces: 0x98941e07d1293cbc, layer_points: 0x8ccc40d0d9f7fc9b },
+        Ref { shrunk_points: 0x577c09fe0be76503, layer_faces: 0x607c348fa0cb407d, layer_points: 0xf71d2d7581b8d8f5 },
+    ];
+    let bad = compare(&c, &run, &refs, 0xfe3b90ebac36bf2c);
+    assert!(bad.is_empty(), "{bad:?}");
+    tail(&c, &run, 0xfe3b90ebac36bf2c, Some(0xe1ee47ca2800ad5a), &[]);
+}
+
+/// P72, `nRelaxedIter 1` from the old start.
+#[test]
+fn relaxed_from_old_start() {
+    let c = Case { tag: "relaxed_old", n_layers: 1, expansion: 1.0, n_relaxed_iter: 1, start: OLD_START };
+    let run = run_case(&c);
+    let refs = [
+        Ref { shrunk_points: 0xab189caffc5da830, layer_faces: 0x8dcf90c292fdaf51, layer_points: 0x4fe8fe98546696cb },
+        Ref { shrunk_points: 0xe0ac6c3665d116c4, layer_faces: 0x0c7c2aa6517ef763, layer_points: 0xed45b0e95cae29d1 },
+    ];
+    let bad = compare(&c, &run, &refs, 0x1fa36a7e47db0a38);
+    assert!(bad.is_empty(), "{bad:?}");
+    tail(&c, &run, 0x1fa36a7e47db0a38, Some(0x4d6282e59593ad13), &[20914, 44803]);
+}
+
+// ---- round 11: `nOuterIter 2` (README "Task 2"). Digests are those of the ESI build of round 11.
+
+use outram_foam_mesh::snappy_hex_mesh::esi_layer_outer::{add_layers_outer, layer_data_fields_accumulated, OuterInput, OuterRun};
+
+/// Everything `add_layers_outer` needs for the flange with `n_layers`, `expansion`, `n_outer`.
+fn run_outer(n_layers: i64, expansion: f64, n_outer: usize) -> (OuterRun, MergeMesh) {
+    let m = mesh83(OLD_START);
+    let cell_level: Vec<usize> = lines("layer_cell_level_81.txt.gz").iter().map(|v| v[0] as usize).collect();
+    let patch_ids: Vec<usize> = (0..4).collect();
+    let dict = LayerDict {
+        relative_sizes: true,
+        numbers: LayerNumbers { first: -123.0, final_: 0.3, total: -123.0, expansion },
+        model: ThicknessModel::FinalAndExpansion,
+        min_thickness: 0.25,
+        feature_angle: 30.0,
+        n_grow: 0,
+        max_face_thickness_ratio: 0.5,
+        n_buffer_cells_no_extrude: 0,
+        n_layer_iter: 50,
+        n_relaxed_iter: 20,
+        n_outer_iter: n_outer,
+    };
+    let overrides: Vec<(usize, PatchLayerDict)> =
+        patch_ids.iter().map(|&p| (p, PatchLayerDict { n_surface_layers: n_layers, ..Default::default() })).collect();
+    let params = LayerParameters::new(&dict, 4, &overrides);
+    let pp = LayerPatch::new(&m, &patch_ids);
+    let (st, _) = set_point_num_layers(&m, &params, &patch_ids, &pp, feature_cos(), EDGE0_LEN, &cell_level);
+    let lt = calculate_layer_thickness(&m, &pp, &patch_ids, &params, &cell_level, &st.n_layers, EDGE0_LEN);
+    let n_points = m.mesh.points.len();
+    let inp = OuterInput {
+        m: m.clone(),
+        patch_ids: patch_ids.clone(),
+        target_layers: vec![n_layers; 4],
+        base_state: st,
+        base_thickness: lt.thickness.clone(),
+        base_min_thickness: lt.min_thickness.clone(),
+        base_expansion: lt.expansion_ratio.clone(),
+        n_outer_iter: n_outer,
+        medial: MedialParams {
+            n_smooth_surface_normals: 1,
+            min_medial_axis_angle_cos: rad(90.0).r_cos(),
+            n_smooth_normals: 3,
+            n_medial_axis_iter: n_points,
+            disable_wall_edges: false,
+        },
+        disp_params: DisplacementParams {
+            max_thickness_to_medial_ratio: 0.3,
+            min_cos_layer_termination: rad(0.5 * 30.0).r_cos(),
+            n_smooth_thickness: 10,
+            n_medial_axis_iter: n_points,
+            detect_extrusion_island: false,
+            n_smooth_displacement: 0,
+        },
+        quality: EsiQualityControls::default(),
+        relaxed_quality: EsiQualityControls { max_non_ortho: 75.0, ..EsiQualityControls::default() },
+        n_layer_iter: 50,
+        n_relaxed_iter: 20,
+        n_grow: 0,
+        n_buffer_cells_no_extrude: 0,
+        n_relax_iter: 5,
+        n_allowable_errors: 0,
+    };
+    (add_layers_outer(&inp), m)
+}
+
+/// Compare the inner iterations of all outer iterations (in order) with `refs`.
+fn compare_outer(tag: &str, run: &OuterRun, refs: &[Ref]) -> Vec<String> {
+    let mut bad = Vec::new();
+    let its: Vec<_> = run.outer.iter().flat_map(|o| o.inner.iter()).collect();
+    eprintln!("{tag}: {} inner iterations (ESI {})", its.len(), refs.len());
+    if its.len() != refs.len() {
+        bad.push(format!("{tag} inner iteration count {} vs {}", its.len(), refs.len()));
+    }
+    for (k, (it, want)) in its.iter().zip(refs).enumerate() {
+        let sp = point_bytes(&it.shrunk.points);
+        let lp = point_bytes(&it.layers.mesh.mesh.points);
+        let lf = face_bytes(&it.layers.mesh, 1);
+        for (what, got, exp) in [("shrunk points", fnv1a(&sp), want.shrunk_points), ("layer faces", fnv1a(&lf), want.layer_faces), ("layer points", fnv1a(&lp), want.layer_points)] {
+            if got != exp {
+                eprintln!("{tag}: inner iteration {k} {what}: port {got:016x} ESI {exp:016x} DIFFERENT");
+                bad.push(format!("{tag} inner {k} {what}"));
+            }
+        }
+    }
+    bad
+}
+
+fn check_table(rows: &[outram_foam_mesh::snappy_hex_mesh::esi_layer_loop::LayerDataRow], esi: &[(usize, &str, &str, &str)]) {
+    let sig3 = |x: f64| format!("{:.2e}", x);
+    let sig3s = |s: &str| format!("{:.2e}", s.parse::<f64>().unwrap());
+    for (r, e) in rows.iter().zip(esi) {
+        eprintln!("patch {}: {} faces, layers {:.4}, thickness {:.4e}, {:.3} %", r.patch, r.n_faces, r.avg_layers, r.avg_real, r.avg_fraction_percent);
+        assert_eq!(r.n_faces, e.0);
+        assert_eq!(sig3(r.avg_layers), sig3s(e.1), "layers");
+        assert_eq!(sig3(r.avg_real), sig3s(e.2), "thickness");
+        assert_eq!(sig3(r.avg_fraction_percent), sig3s(e.3), "percent");
+    }
+}
+
+/// The tail: restore ESI's empty patch 0, remove it, return the final mesh.
+fn final_mesh(run: &OuterRun) -> MergeMesh {
+    let mut with_empty = run.mesh.clone();
+    for p in with_empty.face_patch.iter_mut() {
+        if *p != usize::MAX {
+            *p += 1;
+        }
+    }
+    with_empty.n_patches += 1;
+    with_empty.constraint.insert(0, false);
+    let (fin, new_to_old) = remove_empty_patches(&with_empty);
+    assert_eq!(new_to_old, vec![1, 2, 3, 4]);
+    fin
+}
+
+/// P74/P75/P76: two outer iterations, a real second slice (2 layers, expansion 1).
+#[test]
+fn outer2_two_layers_second_slice_extruded() {
+    let (run, _m) = run_outer(2, 1.0, 2);
+    let to_add: Vec<i64> = run.outer.iter().map(|o| o.n_to_add).collect();
+    let added: Vec<i64> = run.outer.iter().map(|o| o.n_total_added).collect();
+    eprintln!("p2: layers to add {to_add:?}, added {added:?}");
+    assert_eq!(to_add, vec![8521, 7339], "ESI: Layers to add");
+    assert_eq!(added, vec![7339, 5666], "ESI: Added in current iteration");
+    let extruded: Vec<usize> = run.outer[1].inner.iter().map(|i| i.n_extruded_faces).collect();
+    assert_eq!(extruded, vec![7892, 7391, 7133, 7015, 6931, 6882, 6838, 6776, 6750, 6734, 6716, 6694, 6678, 6670, 6666, 6662]);
+    let refs = [
+        Ref { shrunk_points: 0xab189caffc5da830, layer_faces: 0x8dcf90c292fdaf51, layer_points: 0x4fe8fe98546696cb },
+        Ref { shrunk_points: 0xe0ac6c3665d116c4, layer_faces: 0x0c7c2aa6517ef763, layer_points: 0xed45b0e95cae29d1 },
+        Ref { shrunk_points: 0x69c9d9df92f90df2, layer_faces: 0xb74d31243d7a99e7, layer_points: 0xedc9b810677dddf9 },
+        Ref { shrunk_points: 0xc5de0bd82b60c9d4, layer_faces: 0x7211fc28ad5c6e63, layer_points: 0x8a2f9e409df9445b },
+        Ref { shrunk_points: 0xfb280ff5ef64425e, layer_faces: 0x597a561d2e24a755, layer_points: 0xa631e494c9a79af9 },
+        Ref { shrunk_points: 0x0e4d62a6083b75a8, layer_faces: 0xe65f64322f3e8700, layer_points: 0x0910ab65bcba1158 },
+        Ref { shrunk_points: 0x6281305bcdcb692d, layer_faces: 0x5d3f0bd6705d5f8c, layer_points: 0x068c54260cab7317 },
+        Ref { shrunk_points: 0x96f1f3cf80f68e4b, layer_faces: 0x3839338432b7846c, layer_points: 0xeec9c7a956910796 },
+        Ref { shrunk_points: 0xd72e66292b39c80c, layer_faces: 0xb02963a62222bd9f, layer_points: 0x5cb3b75e4d4c652d },
+        Ref { shrunk_points: 0xc2170a87867717bb, layer_faces: 0xee62f7c6e63eb69f, layer_points: 0x3e46963752a270f1 },
+        Ref { shrunk_points: 0x374a9da0675468ee, layer_faces: 0xb52f7273875c7978, layer_points: 0x98d5be30310d6d05 },
+        Ref { shrunk_points: 0x82b8a87ca7ee7dd8, layer_faces: 0xa2c4ddbd1bd706cb, layer_points: 0xcb5c4e04b8dbbd6e },
+        Ref { shrunk_points: 0x4b161fe78e02e025, layer_faces: 0xa19f0d6ed713713b, layer_points: 0xbd2d442a5769fdc5 },
+        Ref { shrunk_points: 0xabd8bef28f4939d0, layer_faces: 0x2bf12cee2180f7fa, layer_points: 0xb1c833bc810372b2 },
+        Ref { shrunk_points: 0x3ab1b13c421ccb44, layer_faces: 0xace1aa4b9b3349b4, layer_points: 0xf432e39f9bd8c20e },
+        Ref { shrunk_points: 0x568702d2df5c6297, layer_faces: 0x5b74ef0c74db5dce, layer_points: 0x57b40c27b853c686 },
+        Ref { shrunk_points: 0x0b83e270cf1d38e1, layer_faces: 0xf3e6ad6867b38155, layer_points: 0x6affc9c1b658e7df },
+        Ref { shrunk_points: 0xc147fba7d4ba2804, layer_faces: 0x468e30aefc450d20, layer_points: 0x02d797a1d2227138 },
+        Ref { shrunk_points: 0x901922c04b9538de, layer_faces: 0xe5df91e24cb88eca, layer_points: 0x6bbdcca29ee1abde }
+    ];
+    let bad = compare_outer("p2", &run, &refs);
+    assert!(bad.is_empty(), "{bad:?}");
+    assert_eq!((run.mesh.mesh.faces.len(), run.mesh.mesh.points.len()), (104369, 37310), "ESI: faces 104369, points 37310");
+    check_table(
+        &run.outer[1].table,
+        &[(7209, "1.51", "0.000269", "66.4"), (1174, "1.88", "0.000337", "86.5"), (240, "1.71", "0.000284", "70.3"), (1124, "1.61", "0.000323", "75")],
+    );
+    let fin = final_mesh(&run);
+    assert_eq!(fnv1a(&face_bytes(&fin, 0)), 0x936f440a7e533447, "final faces");
+    assert_eq!(fnv1a(&point_bytes(&fin.mesh.points)), 0x6bbdcca29ee1abde, "final points");
+    let f = layer_data_fields_accumulated(&run.mesh, &run.cell_n_layers, &run.face_wanted, &run.face_real, &[0, 1, 2, 3]);
+    let got = fnv1a(&layer_field_bytes(&f));
+    eprintln!("p2: layer fields port {got:016x} ESI a2ad801613f6c5db");
+    assert_eq!(got, 0xa2ad801613f6c5db, "P76 fields");
+}
+
+/// P73/P76: the case round 10 measured, 3 layers expansion 1.2, `nOuterIter 2`: the second slice is
+/// truncated away entirely.
+#[test]
+fn outer2_three_layers_second_slice_truncated() {
+    let (run, _m) = run_outer(3, 1.2, 2);
+    let to_add: Vec<i64> = run.outer.iter().map(|o| o.n_to_add).collect();
+    let added: Vec<i64> = run.outer.iter().map(|o| o.n_total_added).collect();
+    eprintln!("o2: layers to add {to_add:?}, added {added:?}");
+    assert_eq!(to_add, vec![17042, 7364]);
+    assert_eq!(added, vec![14728, 0]);
+    let extruded: Vec<usize> = run.outer.iter().flat_map(|o| o.inner.iter()).map(|i| i.n_extruded_faces).collect();
+    assert_eq!(extruded, vec![8732, 8668, 8660, 0]);
+    let h = |s: u64, f: u64, p: u64| Ref { shrunk_points: s, layer_faces: f, layer_points: p };
+    let refs = [
+        h(0xb73c962d084c008f, 0x4f13f8826eeba4d8, 0xf4fd2e1d71dd3613),
+        h(0x4ce6eb68ea282744, 0xcda38f3098a96e2c, 0xd6f6c4f591116492),
+        h(0x031bc1267168751c, 0x956438d57a0bc7ee, 0x4ccdfe0327eae64e),
+        // ESI's time 92 (shrunk); its layer mesh at 93 is overwritten by the final write, whose
+        // content equals the outer-0 layer mesh (faces digest of time 91, points of 92)
+        h(0x4ccdfe0327eae64e, 0x956438d57a0bc7ee, 0x4ccdfe0327eae64e),
+    ];
+    let bad = compare_outer("o2", &run, &refs);
+    assert!(bad.is_empty(), "{bad:?}");
+    assert_eq!((run.mesh.mesh.faces.len(), run.mesh.mesh.points.len(), run.mesh.mesh.owner.iter().max().unwrap() + 1), (104885, 39033, 32984));
+    check_table(
+        &run.outer[0].table,
+        &[(7209, "1.47", "0.00021", "40.7"), (1174, "1.66", "0.000255", "50"), (240, "1.6", "0.000229", "44.6"), (1124, "1.59", "0.00022", "40.5")],
+    );
+    let fin = final_mesh(&run);
+    assert_eq!(fnv1a(&face_bytes(&fin, 0)), 0x5e366de6f45a10ed, "final faces");
+    assert_eq!(fnv1a(&point_bytes(&fin.mesh.points)), 0x4ccdfe0327eae64e, "final points");
+    let f = layer_data_fields_accumulated(&run.mesh, &run.cell_n_layers, &run.face_wanted, &run.face_real, &[0, 1, 2, 3]);
+    let got = fnv1a(&layer_field_bytes(&f));
+    eprintln!("o2: layer fields port {got:016x} ESI 10ac833310ebb486");
+    assert_eq!(got, 0x10ac833310ebb486, "P76 fields");
 }

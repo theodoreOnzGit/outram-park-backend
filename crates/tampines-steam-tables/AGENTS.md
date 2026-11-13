@@ -44,7 +44,7 @@ maturity gate in that file for what this means and how the bar is revised.
   - `hs` flash at the **triple point** — not supported yet.
   - `pt`/`ps` flash over **240–1000 bar** — "to implement in next major
     version".
-  - **Metastable region 2** regressions — outstanding TODO.
+  - ~~**Metastable region 2** regressions — outstanding TODO.~~ **CORRECTED 2026-11-13 (gh:#1346):** no such gap is open. The three R7-97 metastable-vapour sets (A 450 K / 1 MPa, B 440 K / 1 MPa, C 450 K / 1.5 MPa) are active, not ignored (their `#[ignore]` lines are commented out), and `cargo test --release -p tampines-steam-tables --lib metastable` reports `30 passed; 0 failed; 0 ignored`.
   - The **Peng-Robinson EOS** under `openfoam_algorithms/` shows **7%, 17% and
     26% errors vs NIST** at various states. **Out of scope, and not a defect in
     anything this crate delivers:** that vendored OpenFOAM thermophysics tree
@@ -525,9 +525,17 @@ corrected above, gh:#1111).
     the 1073.15 K isotherm): measured `try_t_ph_eqm` → `Err(OutOfRange {
     quantity: "specific enthalpy", value: 5218862.9, max: 4156132.3, .. })`.
     The checked and unchecked APIs therefore differ by the whole of Region 5.
-- **Transport near saturation:** the IAPWS R12-08 / R15-11 critical-enhancement
+- **Transport near saturation:** ~~the IAPWS R12-08 / R15-11 critical-enhancement
   terms for μ and λ are intentionally omitted in the fast path; enable them
-  when accuracy very close to Tc matters.
+  when accuracy very close to Tc matters.~~ **CORRECTED 2026-11-13 (gh:#1346):**
+  only the viscosity enhancement μ₂ is omitted (set to 1, as IAPWS R12-08 permits for
+  industrial use, and as CoolProp `IF97.h` does; μ agrees with it to 1e-14 in Regions 1, 2
+  and 5). The thermal-conductivity enhancement λ₂ **is** included
+  (`thermal_conductivity::lambda_2_crit_enhancement_term_*`, summed into
+  `lambda_tp_eqm_single_phase`); there is nothing to enable. Near the critical point the
+  Region 3 inputs to λ₂ (cp, cv, κT from the unrefined SR5 v(p,T)) make λ differ from
+  `IF97.h` by up to 0.85 at exactly Tc, pc and 2.9e-3 at (647.0 K, 22.0 MPa)
+  (`verification_and_validation/if97_differential/RESULTS.md`).
 
 ## Workspace notes (read on demand)
 

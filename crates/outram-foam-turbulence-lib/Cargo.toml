@@ -41,6 +41,7 @@ outram-foam-basic-lib.workspace = true
 
 [dev-dependencies]
 approx.workspace = true
+miniz_oxide.workspace = true
 
 [lib]
 name = "outram_foam_turbulence_lib"

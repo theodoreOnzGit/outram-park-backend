@@ -290,6 +290,7 @@ pub static METHANOL_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.487e-10,
             qd: 1428571428.5714285,
             t_ref: -1.0,
+            p_reducing: 8215925.544252989,
         }),
     }),
 };

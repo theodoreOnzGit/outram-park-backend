@@ -258,6 +258,28 @@ impl OdeSolver {
             Self::Rosenbrock23(s) => s.integrate(ode, x_start, x_end, y, dx_est),
         }
     }
+
+    /// [`Self::integrate`] with OpenFOAM-v2506's `ODESolver::solve(xStart, xEnd, y,
+    /// dxTry)` loop: bit-identical to ESI on `Test-ODE.C` (gh:#1362 row 6).
+    /// `integrate` is kept unchanged.
+    ///
+    /// # Errors
+    ///
+    /// [`OdeError::StepSizeUnderflow`] or [`OdeError::MaxStepsExceeded`].
+    pub fn integrate_esi_v2506<Sys: OdeSystem + ?Sized>(
+        &mut self,
+        ode: &Sys,
+        x_start: f64,
+        x_end: f64,
+        y: &mut Vec<f64>,
+        dx_est: &mut f64,
+    ) -> Result<(), OdeError> {
+        match self {
+            Self::Euler(s) => s.integrate_esi_v2506(ode, x_start, x_end, y, dx_est),
+            Self::Rkf45(s) => s.integrate_esi_v2506(ode, x_start, x_end, y, dx_est),
+            Self::Rosenbrock23(s) => s.integrate_esi_v2506(ode, x_start, x_end, y, dx_est),
+        }
+    }
 }
 
 // ── The placeholder system type ──────────────────────────────────────────────

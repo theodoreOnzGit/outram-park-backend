@@ -42,7 +42,7 @@ const T_PS_SUBREGION_3A_COEFFS: [[f64; 3]; 33] = [
     [-6.0, 2.0, 0.137_837_838_635_464e-2],
     [-6.0, 6.0, -0.297_478_527_157_462e1],
     [-6.0, 32.0, 0.971_777_947_349_413e13],
-    [-5.0, 0.0, -0.571_527_767_052_397e-4],
+    [-5.0, 0.0, -0.571_527_767_052_398e-4],
     [-5.0, 14.0, 0.288_307_949_778_420e5],
     [-5.0, 32.0, -0.744_428_289_262_703e14],
     [-4.0, 6.0, 0.128_017_324_848_921e2],
@@ -55,7 +55,7 @@ const T_PS_SUBREGION_3A_COEFFS: [[f64; 3]; 33] = [
     [0.0, 0.0, 0.724_093_999_126_110],
     [0.0, 1.0, 0.923_874_349_695_897],
     [0.0, 4.0, 0.399_043_655_281_015e1],
-    [1.0, 0.0, 0.384_066_651_868_099e-1],
+    [1.0, 0.0, 0.384_066_651_868_009e-1],
     [2.0, 0.0, -0.359_344_365_571_848e-2],
     [2.0, 3.0, -0.735_196_448_821_653],
     [3.0, 2.0, 0.188_367_048_396_131],
@@ -117,3 +117,26 @@ const T_PS_SUBREGION_3B_COEFFS: [[f64; 3]; 28] = [
     [12.0, 1.0, 0.193_848_122_022_095e-4],
     [14.0, 2.0, -0.215_095_749_182_309e-4],
 ];
+
+/// gh:#1346 (2026-11-13): pins coefficient digits that a differential comparison against
+/// CoolProp `IF97.h` v2.4.0 (commit 138ec05f), the `iapws` 1.5.5 Python package and
+/// `seuif97` 2.3.8, all three of which agree with each other, found transcribed wrongly
+/// here. T(p,s) 3a (-5,0) and (1,0).
+#[cfg(test)]
+mod coefficient_pins_gh1346 {
+    use super::*;
+
+    fn coeff(table: &[[f64; 3]], i: f64, j: f64) -> f64 {
+        table
+            .iter()
+            .find(|r| r[0] == i && r[1] == j)
+            .expect("coefficient row")[2]
+    }
+
+    #[test]
+    fn corrected_coefficients_match_the_published_digits() {
+        // SR3-03 T(p,s) region 3a
+        assert_eq!(coeff(&T_PS_SUBREGION_3A_COEFFS, -5.0, 0.0), -0.571_527_767_052_398e-4);
+        assert_eq!(coeff(&T_PS_SUBREGION_3A_COEFFS, 1.0, 0.0), 0.384_066_651_868_009e-1);
+    }
+}

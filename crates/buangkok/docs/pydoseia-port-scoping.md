@@ -198,7 +198,7 @@ under their parent.
 | Function | Status | Rust |
 |---|---|---|
 | `__init__` | logging **not ported**; checks in `config` | — |
-| `output_to_txt` | the plant-boundary totals ported (`boundary_totals_text`, read back from the text at its printed precision); the text formatting **not ported** | `assessment::plant_boundary_totals` |
+| `output_to_txt` | the plant-boundary totals ported (`boundary_totals`, upstream's frames captured in memory at full precision, 89 of 90 values bit-identical, gh:#1429; ~~`boundary_totals_text`, read back from the text at its printed precision~~ kept as the printed-route record); the text formatting **not ported** | `assessment::plant_boundary_totals` |
 | `agewise_dcfs_inh_gs_submersion` | ported with D7, D22 (`driver_dcf_report`) | `assessment::dcf_report` |
 | `agewise_dose_inh_gs_submersion` | ported (`driver`) | `assessment::pathway_doses` |
 | `agewise_ingestion_dose` | ported with D13 (`driver`, `driver_raises`) | `ingestion::Receiver::from_driver_age`, `assessment::run_assessment` |

@@ -203,6 +203,7 @@ pub static NITROGEN_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.7e-10,
             qd: 2500000000.0,
             t_ref: 252.384,
+            p_reducing: 3395800.0,
         }),
     }),
 };

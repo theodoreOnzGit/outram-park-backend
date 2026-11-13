@@ -139,7 +139,7 @@ const SUBREGION_2A_BACK_COEFFS_HS: [[f64; 3]; 29] = [
 
 /// based on table 2.83
 const SUBREGION_2B_BACK_COEFFS_HS: [[f64; 3]; 33] = [
-    [0.0, 0.0, 0.801_496_989_929_459e-1],
+    [0.0, 0.0, 0.801_496_989_929_495e-1],
     [0.0, 1.0, -0.543_862_807_146_111],
     [0.0, 2.0, 0.337_455_597_421_283],
     [0.0, 4.0, 0.890_555_451_157_450e1],
@@ -148,7 +148,7 @@ const SUBREGION_2B_BACK_COEFFS_HS: [[f64; 3]; 33] = [
     [1.0, 1.0, -0.121_616_973_556_240e1],
     [1.0, 2.0, 0.872_803_386_937_477e1],
     [1.0, 3.0, -0.169_769_781_757_602e2],
-    [1.0, 5.0, -0.186_552_827_328_146e3],
+    [1.0, 5.0, -0.186_552_827_328_416e3],
     [1.0, 12.0, 0.951_159_274_344_237e5],
     [2.0, 1.0, -0.189_168_510_120_494e2],
     [2.0, 6.0, -0.433_407_037_194_840e4],
@@ -202,9 +202,33 @@ const SUBREGION_2C_BACK_COEFFS_HS: [[f64; 3]; 31] = [
     [5.0, 4.0, -0.553_089_094_625_169e5],
     [5.0, 6.0, -0.102_861_522_421_405e7],
     [5.0, 14.0, 0.204_249_418_756_234e13],
-    [6.0, 8.0, 0.273_918_446_626_997e9],
+    [6.0, 8.0, 0.273_918_446_626_977e9],
     [6.0, 18.0, -0.263_963_146_312_685e16],
     [10.0, 7.0, -0.107_890_854_108_088e10],
     [12.0, 7.0, -0.296_492_620_980_124e11],
     [16.0, 10.0, -0.111_754_907_323_424e16],
 ];
+
+/// gh:#1346 (2026-11-13): pins coefficient digits that a differential comparison against
+/// CoolProp `IF97.h` v2.4.0 (commit 138ec05f), the `iapws` 1.5.5 Python package and
+/// `seuif97` 2.3.8, all three of which agree with each other, found transcribed wrongly
+/// here. T(h,s) 2b (0,0) and (1,5), 2c (6,8).
+#[cfg(test)]
+mod coefficient_pins_gh1346 {
+    use super::*;
+
+    fn coeff(table: &[[f64; 3]], i: f64, j: f64) -> f64 {
+        table
+            .iter()
+            .find(|r| r[0] == i && r[1] == j)
+            .expect("coefficient row")[2]
+    }
+
+    #[test]
+    fn corrected_coefficients_match_the_published_digits() {
+        // SR4-04 tables (T(h,s) 2b, 2c): digit transpositions, each fixed to the 3-way consensus
+        assert_eq!(coeff(&SUBREGION_2B_BACK_COEFFS_HS, 0.0, 0.0), 0.801_496_989_929_495e-1);
+        assert_eq!(coeff(&SUBREGION_2B_BACK_COEFFS_HS, 1.0, 5.0), -0.186_552_827_328_416e3);
+        assert_eq!(coeff(&SUBREGION_2C_BACK_COEFFS_HS, 6.0, 8.0), 0.273_918_446_626_977e9);
+    }
+}

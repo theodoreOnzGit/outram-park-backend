@@ -72,6 +72,7 @@
 //!   external source/constraint hooks (`kEpsilon.C:227-229,248-249`) are not
 //!   reproduced; the equations are solved as assembled.
 
+use crate::source_terms::{self, FrozenState, SourceForm, SourceTerms};
 use crate::traits::TurbulenceModel;
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
 use outram_foam_basic_lib::prelude::{
@@ -233,6 +234,75 @@ impl KEpsilon {
             .map(|c| cmu * k[c].max(0.0) * k[c].max(0.0) / eps[c].max(SMALL))
             .collect();
         self.nu_t.internal = Field::new(vals);
+    }
+}
+
+impl KEpsilon {
+    /// Per-cell source terms of the ε and k equations on the CURRENT fields,
+    /// without solving (gh:#1362 row 5). `state` carries `grad_u` and `div_u`.
+    ///
+    /// Terms (per unit volume): `nut`, `GbyNu`, `G`, and for each equation the
+    /// explicit source `E`, the implicit `Sp` coefficient and the `SuSp`
+    /// coefficient: `eps_E`, `eps_Sp`, `eps_SuSp`, `k_E`, `k_Sp`, `k_SuSp`.
+    ///
+    /// * [`SourceForm::Port`]: what [`TurbulenceModel::correct`] assembles: ε
+    ///   bounded at `C_μ k²/(1e5 ν)`, `G = ν_t·2 S:S`, `E = C1 (ε/k) G`, no `SuSp`
+    ///   (`SuSp` terms are returned as zeros, `GbyNu` as `2 S:S`).
+    /// * [`SourceForm::EsiV2506`]: `kEpsilon.C` v2506: `ν_t = C_μ k²/ε` (no
+    ///   bound; upstream bounds ε only after its solve, at `epsilonMin = small`),
+    ///   `GbyNu = ∇U && devTwoSymm(∇U)`, `E = C1·GbyNu·C_μ·k`,
+    ///   `SuSp = ((2/3) C1 − C3) div U` (C3 = 0), `Sp = C2 ε/k`; k equation
+    ///   `E = G`, `SuSp = (2/3) div U`, `Sp = ε/k`.
+    pub fn source_terms(&self, form: SourceForm, state: &FrozenState) -> SourceTerms {
+        let n = self.mesh.n_cells;
+        let k = self.k.internal.as_slice();
+        let eps_raw = self.epsilon.internal.as_slice();
+        let nu = self.nu.internal.as_slice();
+        let mut out = SourceTerms::default();
+        let (mut nut, mut gbn, mut g) = (vec![0.0; n], vec![0.0; n], vec![0.0; n]);
+        let (mut ee, mut esp, mut esu) = (vec![0.0; n], vec![0.0; n], vec![0.0; n]);
+        let (mut ke, mut ksp, mut ksu) = (vec![0.0; n], vec![0.0; n], vec![0.0; n]);
+        for c in 0..n {
+            match form {
+                SourceForm::Port => {
+                    let s = state.grad_u[c].symm();
+                    let s2 = 2.0 * s.double_inner(s);
+                    let lower = self.c_mu * k[c] * k[c] / (NUT_MAX_COEFF * nu[c].max(SMALL));
+                    let eps_b = if eps_raw[c] < lower { lower } else { eps_raw[c] };
+                    nut[c] = self.c_mu * k[c].max(0.0) * k[c].max(0.0) / eps_b.max(SMALL);
+                    gbn[c] = s2;
+                    g[c] = nut[c] * s2;
+                    let k_c = k[c].max(SMALL);
+                    let eps_c = eps_b.max(SMALL);
+                    ee[c] = self.c1_eps * (eps_c / k_c) * g[c];
+                    esp[c] = self.c2_eps * (eps_c / k_c);
+                    ke[c] = g[c];
+                    ksp[c] = eps_b.max(SMALL) / k_c;
+                }
+                SourceForm::EsiV2506 => {
+                    let c3 = 0.0;
+                    nut[c] = self.c_mu * (k[c] * k[c]) / eps_raw[c];
+                    gbn[c] = source_terms::g_by_nu(&state.grad_u[c]);
+                    g[c] = nut[c] * gbn[c];
+                    ee[c] = self.c1_eps * gbn[c] * self.c_mu * k[c];
+                    esu[c] = ((2.0 / 3.0) * self.c1_eps - c3) * state.div_u[c];
+                    esp[c] = self.c2_eps * eps_raw[c] / k[c];
+                    ke[c] = g[c];
+                    ksu[c] = (2.0 / 3.0) * state.div_u[c];
+                    ksp[c] = eps_raw[c] / k[c];
+                }
+            }
+        }
+        out.push("nut", nut);
+        out.push("GbyNu", gbn);
+        out.push("G", g);
+        out.push("eps_E", ee);
+        out.push("eps_SuSp", esu);
+        out.push("eps_Sp", esp);
+        out.push("k_E", ke);
+        out.push("k_SuSp", ksu);
+        out.push("k_Sp", ksp);
+        out
     }
 }
 

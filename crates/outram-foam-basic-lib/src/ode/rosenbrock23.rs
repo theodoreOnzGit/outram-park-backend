@@ -20,7 +20,7 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 use petir::mathf::RealMath;
-use super::{integrate_interval, normalize_error, OdeError, OdeSolverConfig, OdeSystem};
+use super::{integrate_interval, integrate_interval_esi_v2506, normalize_error, OdeError, OdeSolverConfig, OdeSystem};
 use crate::matrix::SquareMatrix;
 
 // Rosenbrock23 coefficients — Foam::Rosenbrock23 constants
@@ -233,6 +233,29 @@ impl Rosenbrock23 {
     ) -> Result<(), OdeError> {
         let cfg = self.config.clone();
         integrate_interval(
+            &cfg,
+            &mut |x, y, dx| self.solve_step(ode, x, y, dx),
+            x_start,
+            x_end,
+            y,
+            dx_est,
+        )
+    }
+
+    /// [`Self::integrate`] with OpenFOAM-v2506's `ODESolver::solve(xStart, xEnd, y, dxTry)`
+    /// loop (see `integrate_interval_esi_v2506`): bit-identical to upstream on
+    /// `Test-ODE.C` where `integrate` differs in the last bits and in the final
+    /// step-size estimate. `integrate` is kept unchanged (gh:#1362 row 6).
+    pub fn integrate_esi_v2506<Sys: OdeSystem + ?Sized>(
+        &mut self,
+        ode: &Sys,
+        x_start: f64,
+        x_end: f64,
+        y: &mut Vec<f64>,
+        dx_est: &mut f64,
+    ) -> Result<(), OdeError> {
+        let cfg = self.config.clone();
+        integrate_interval_esi_v2506(
             &cfg,
             &mut |x, y, dx| self.solve_step(ode, x, y, dx),
             x_start,

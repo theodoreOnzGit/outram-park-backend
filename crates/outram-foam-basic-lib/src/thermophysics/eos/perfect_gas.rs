@@ -21,7 +21,7 @@
 
 use petir::mathf::RealMath;
 use super::traits::EquationOfState;
-use crate::thermophysics::constants::{P_REF, R_UNIVERSAL};
+use crate::thermophysics::constants::{GasConstant, P_REF};
 use crate::thermophysics::imports::*;
 
 /// Ideal perfect gas: p = ρ·R·T.
@@ -31,12 +31,20 @@ use crate::thermophysics::imports::*;
 #[derive(Debug, Clone, Copy)]
 pub struct PerfectGas {
     mol_weight: MolarMass,
+    gas_constant: GasConstant,
 }
 
 impl PerfectGas {
     /// Construct an ideal perfect-gas EOS from the species molar mass W `[kg/mol]`.
     pub fn new(mol_weight: MolarMass) -> Self {
-        Self { mol_weight }
+        Self { mol_weight, gas_constant: GasConstant::Codata2019 }
+    }
+
+    /// Select the universal gas constant (default [`GasConstant::Codata2019`];
+    /// [`GasConstant::EsiV2506`] reproduces OpenFOAM-v2506 bit for bit).
+    pub fn with_gas_constant(mut self, gas_constant: GasConstant) -> Self {
+        self.gas_constant = gas_constant;
+        self
     }
 }
 
@@ -47,7 +55,7 @@ impl EquationOfState for PerfectGas {
 
     fn r(&self) -> SpecificHeatCapacity {
         let w = self.mol_weight.get::<kilogram_per_mole>();
-        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(R_UNIVERSAL / w)
+        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(self.gas_constant.specific(w))
     }
 
     fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity {
@@ -55,9 +63,13 @@ impl EquationOfState for PerfectGas {
         p / (self.r() * t)
     }
 
-    fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility {
-        // ψ = ρ / p  (same as 1/(R·T) for perfect gas; computed via uom for consistency)
-        self.rho(p, t) / p
+    fn psi(&self, _p: Pressure, t: ThermodynamicTemperature) -> Compressibility {
+        // ψ = 1/(R·T), exactly upstream's `1.0/(this->R()*T)` (v2506 perfectGasI.H).
+        // ~~`self.rho(p, t) / p`~~ **CORRECTED 2026-11-13 (gh:#1362 row 4):** the
+        // old form is mathematically equal but rounds differently (27/40 of the
+        // grid was 1 ulp off upstream).
+        let rt = self.r().get::<joule_per_kilogram_kelvin>() * t.get::<kelvin>();
+        MassDensity::new::<kilogram_per_cubic_meter>(1.0 / rt) / Pressure::new::<pascal>(1.0)
     }
 
     fn z(&self, _p: Pressure, _t: ThermodynamicTemperature) -> Ratio {
@@ -135,5 +147,27 @@ mod tests {
         let rho_direct = a.rho(p, t).get::<kilogram_per_cubic_meter>();
         let rho_via_psi = (a.psi(p, t) * p).get::<kilogram_per_cubic_meter>();
         assert_relative_eq!(rho_direct, rho_via_psi, epsilon = 1e-10);
+    }
+}
+
+#[cfg(test)]
+mod gh1362_tests {
+    use super::*;
+    use uom::si::molar_mass::gram_per_mole;
+    use uom::si::pressure::pascal;
+    use uom::si::thermodynamic_temperature::kelvin;
+
+    #[test]
+    fn psi_is_one_over_rt_and_gas_constant_option_scales_r() {
+        let a = PerfectGas::new(MolarMass::new::<gram_per_mole>(28.96));
+        let b = a.with_gas_constant(GasConstant::EsiV2506);
+        let p = Pressure::new::<pascal>(1.0e5);
+        let t = ThermodynamicTemperature::new::<kelvin>(300.0);
+        let r = a.r().get::<joule_per_kilogram_kelvin>();
+        assert_eq!(a.psi(p, t).value, 1.0 / (r * 300.0));
+        let ratio_r = b.r().get::<joule_per_kilogram_kelvin>() / r;
+        assert!((ratio_r - 1.0 - 9.0e-7).abs() < 2e-8);
+        // entropy reference pressure is 1e5 Pa: S_eos vanishes there
+        assert_eq!(a.s_eos(p, t).get::<joule_per_kilogram_kelvin>(), 0.0);
     }
 }

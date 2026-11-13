@@ -85,3 +85,48 @@ pub fn nu_t_wall(y_p: f64, nu: f64) -> f64 {
         nu * (KAPPA * y_p / (E * y_p).r_ln() - 1.0).max(0.0)
     }
 }
+
+/// `wallFunctionCoefficients::calcYPlusLam` of OpenFOAM-v2506 (ESI): the
+/// laminar / inertial crossover `y+` by ten fixed-point iterations of
+/// `y+ = ln(max(E y+, 1)) / kappa` from 11 (gh:#1362 row 5). For the default
+/// `kappa = 0.41`, `E = 9.8` it is 11.5301, not the 11.0 that [`nu_t_wall`] uses.
+pub fn y_plus_lam(kappa: f64, e: f64) -> f64 {
+    let mut ypl = 11.0_f64;
+    for _ in 0..10 {
+        ypl = (e * ypl).max(1.0).r_ln() / kappa;
+    }
+    ypl
+}
+
+/// Wall `nut` of `nutkWallFunction` (v2506, `blenderType::STEPWISE`, the
+/// default) for one face, given its `y+`, `nu`, `kappa` and `E`, in upstream's
+/// arithmetic: above `y_plus_lam` it is
+/// `nu y+ kappa / ln(max(E y+, 1 + 1e-4)) - nu`, else `nu - nu = 0`.
+/// [`nu_t_wall`] is the same law written `nu (kappa y+ / ln(E y+) - 1)` with a
+/// clamp at zero and a fixed threshold of 11; this is the ESI form, kept beside
+/// it (gh:#1362 row 5).
+pub fn nu_t_wall_esi_v2506(y_p: f64, nu: f64, kappa: f64, e: f64) -> f64 {
+    let nut_log = nu * y_p * kappa / (e * y_p).max(1.0 + 1e-4).r_ln();
+    let nutw = if y_p > y_plus_lam(kappa, e) { nut_log } else { nu };
+    nutw - nu
+}
+
+#[cfg(test)]
+mod gh1362_tests {
+    use super::*;
+
+    #[test]
+    fn esi_form_matches_the_port_form_above_the_crossover() {
+        let (k, e) = (0.41, 9.8);
+        assert!((y_plus_lam(k, e) - 11.5301).abs() < 1e-3);
+        for yp in [12.0, 30.0, 300.0] {
+            let a = nu_t_wall(yp, 1e-5);
+            let b = nu_t_wall_esi_v2506(yp, 1e-5, k, e);
+            assert!((a - b).abs() <= 1e-9 * a.abs().max(1e-30), "{yp}: {a} {b}");
+        }
+        assert_eq!(nu_t_wall_esi_v2506(5.0, 1e-5, k, e), 0.0);
+        // between 11 and 11.5301 both are zero (the port clamps at 0)
+        assert_eq!(nu_t_wall_esi_v2506(11.4, 1e-5, k, e), 0.0);
+        assert_eq!(nu_t_wall(11.4, 1e-5), 0.0);
+    }
+}

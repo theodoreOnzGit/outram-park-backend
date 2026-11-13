@@ -230,6 +230,7 @@ pub static CARBONDIOXIDE_TRANSPORT: FluidTransport = FluidTransport {
             zeta0: 1.5e-10,
             qd: 2500000000.0,
             t_ref: 456.19,
+            p_reducing: 7377300.0,
         }),
     }),
 };

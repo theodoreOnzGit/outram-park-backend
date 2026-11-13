@@ -1566,3 +1566,173 @@ committed round 3-7 tests keep passing against their own fixtures).
 - A stricter `meshQualityControls` case: the base quality also drives the snap stage, so changing it
   moves the snapped mesh (a new 500 KB start fixture per case); not built.
 PETIR: the new code adds no transcendental function; 0 libm-dependent values.
+
+# Round 11 (2026-11-13): provenance of the 1-ulp shift, `nOuterIter > 1`
+
+## Task 1: provenance of the round-10 1-ulp shift (disclosed observation, then predictions)
+
+**Disclosed before any prediction (not a blind guess).** The ESI tree was rebuilt again for this round
+(`scripts/upstream/build-esi-v2506-and-genfoam.sh`; gcc 13.3.0 Ubuntu 24.04, glibc 2.39, `-O3`, no
+`-march`, so no FMA contraction in compiled code; CPU has FMA, so glibc's ifunc FMA `libm` variants are
+selected on this host). The base case `snappyHexMeshDict.layers` was run once on this build exactly as
+the round-8/9 recipe says (`blockMesh` with the **ASCII** `controlDict`, `writePrecision 16`, then
+`writeFormat binary`). Result: the time-81 points equal the **OLD** `layer_points_81.bin.gz`
+in 72933 of 72933 components, and differ from round 10's `layer_points_81_r10.bin.gz` in 16613. So the
+shift is **not** this build against the old build; it is round 10's run against this one.
+
+| # | prediction (written before the run) | how it can fail |
+|---|---|---|
+| P69 | Round 10's run used a **binary** `controlDict` when `blockMesh` ran (exact-double background points; round 3's note says this shifts every point by up to 7e-16). Running `blockMesh` with `writeFormat binary` on this build and then `snappyHexMesh` reproduces `layer_points_81_r10.bin.gz` in 72933 of 72933 components (differ count 0). | the shift has another cause (e.g. a different build then) |
+| P70 | Consequently the port, fed the 16-digit ASCII background (as in rounds 3-9), equals this build's time-81 points; fed exact-double background it equals `_r10`. The port is not at fault in either case. | the port's background construction is the same in both |
+
+**P69 REFUTED (run).** With a binary `controlDict` at `blockMesh` time the snapped mesh has **24312
+points** (round 10's has 24311), so a different topology, not a 1-ulp shift: this is not how round 10's
+points arose. P70 is moot. **Next prediction, committed before the run.**
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P71 | Round 10's run was made under a different `libm` code path (glibc selects FMA/AVX2 ifunc variants of `exp`, `log`, `pow`, `sin`, `cos`, `atan2` on a CPU with FMA; a host without them, or `GLIBC_TUNABLES=glibc.cpu.hwcaps=-FMA,-AVX2`, takes the non-FMA path). Running the ASCII-`blockMesh` base case on this build with FMA ifuncs disabled gives time-81 points that **differ from this build's default run** (and so from the old fixture) in some of the 72933 components. It need not equal `_r10`. | `libm` is not reached by the snap stage on the flange, so the points are identical with and without FMA |
+
+**P71 REFUTED (run).** With `GLIBC_TUNABLES=glibc.cpu.hwcaps=-FMA,-AVX2,-AVX2_Usable,-FMA_Usable` the
+ASCII-`blockMesh` base case gives time-81 points **identical** to the default run (0 of 72933 differ) and to
+the OLD fixture. The tunable does take effect on this host (a small `libm` hash program, `exp`, `pow`,
+`sin`, `atan2` over 2e6 arguments, gives `696b3a29...` with and `162b201c...` without it), so the
+flange snap path is insensitive to glibc's FMA `libm` variants: the 1-ulp shift is **not** a libm
+difference either.
+
+**Finding of task 1 (measured, 2026-11-13, this build).** The ESI built for this round reproduces the
+rounds 3-9 fixtures **bit for bit in every stage compared**, so the "rebuilt ESI" of round 10 was not
+this build; round 10's `layer_points_81_r10.bin.gz` is not reproduced by the recorded recipe here. What
+was run (ASCII `blockMesh`, `writePrecision 16`, then `writeFormat binary`, `-noFunctionObjects`):
+
+| stage (dictionary) | compared with the committed fixture | result |
+|---|---|---|
+| castellation (`.reduced`) | `esi_final_faces`, `esi_final_cells_ordered`, `esi_final_points`, `esi_final_boundary`, `esi_baffle_cell_order`, `esi_problem_faces` | all 6 byte-equal |
+| snap (`.snap`) | `snap_points_32`, `_33_n3`, `snap_disp_34`, `_35`, `_36` | 0 of 79986 components differ, each |
+| feature snap (`.feature`, 10 iterations) | `feat_disp_34`, `feat_points_35, 37, 39, 41, 43, 45` | 0 of 79986 differ, each |
+| layers (`.layers`) | `layer_points_81, 85, 86, 87, 88, 89, 90` (72933 / 72915 / 95226 / 72915 / 94974 / 72915 / 94932 values), `layer_mesh_83, 86, 88, 90, 91` faces | 0 differ; all 5 face files byte-equal |
+
+Because the committed port tests (rounds 1-9) are pinned to those fixtures and pass, **the port equals
+this build in each of those stages** (transitively; the tests are re-run in this round, see the results
+below). The cause of round 10's shift is **not identified**: it was not the ASCII/binary `controlDict`
+(P69), not glibc's FMA `libm` (P71), and not `-O` or `-march` (no `-march` appears in
+`wmake/rules/linux64Gcc`, `c++OPT = -O3`, gcc 13.3.0, glibc 2.39). The round-10 build is gone and nothing
+in the repository records its compiler.
+**Decision (nothing needs the maintainer, nothing re-pinned):** the round 3-9 fixtures stay as they are
+(this build confirms them); round 10's `_r10` start stays documented as the output of a build that is not
+reproducible, and its tests keep passing against their own digests; round 11 adds the same three cases
+started from the old (= this build's) time-81 points, with this build's digests (old -> new below).
+
+| # | prediction (committed before the new tests are run; the ESI digests were read first, disclosed) | how it can fail |
+|---|---|---|
+| P72 | The port started from `layer_points_81.bin.gz` equals this build's ESI in base, `layers3` (3 layers, expansion 1.2) and `relaxed`: every shrunk-points, layer-faces, layer-points and final-faces digest, and the `writeLayerData` fields of the last two. The **faces** digests equal round 10's (topology does not see 1 ulp); only point and field digests move. | the layer stage is sensitive to a 1-ulp start in a way round 10's own run hid |
+
+## Task 2: `nOuterIter > 1` (reference runs and predictions, committed before the port code exists)
+
+Upstream read first (`snappyLayerDriver::addLayers`, the outer overload, v2506 lines 4692-5372; the
+inner overload 3922-4690; `updatePatch`, `unmarkExtrusion`; `layerParameters::layerThickness`): per outer
+iteration it (1) breaks if `sum(deltaNLayers) == 0`, (2) takes `patchNLayers = deltaNLayers`,
+`extrudeStatus = baseExtrudeStatus`, `patchDisp = basePatchDisp`, and the slice thickness
+`layerThickness(basePatchNLayers, baseThickness, baseExpansionRatio, basePatchNLayers - nAddedLayers -
+patchNLayers, patchNLayers)`; (3) runs the inner loop (round 9) on the CURRENT mesh with a medial axis
+rebuilt on it; (4) breaks if nothing was added; (5) `nAddedLayers += patchNLayers`, points that got no
+layer are `unmarkExtrusion`-ed in the base arrays and `basePatchNLayers = nAddedLayers`, the others
+get `deltaNLayers = max(0, min(deltaNLayers, basePatchNLayers - nAddedLayers))`; (6) applies the layer
+mesh, accumulates `cellNLayers` / `faceRealThickness` through the face and cell maps (`+=` the slice's
+values), maps `faceWantedThickness`, prints the layer table; (7) `updatePatch` re-makes the layer
+patch from the new mesh and maps every per-point array through `newToOldPatchPoints`.
+`deltaNLayers = (basePatchNLayers + nOuterIter - 1) / nOuterIter`. Nothing else differs from the
+`nOuterIter 1` path, so the inner loop of round 9 is reused unchanged.
+
+**ESI reference runs** (this build, `snappyHexMeshDict.layers3` and a 2-layer variant with
+`nOuterIter` added, `debugFlags (mesh)`; the logs were read BEFORE the predictions, so the numbers are
+targets the port is held to):
+
+| case | dictionary change | ESI log |
+|---|---|---|
+| `o2` | `layers3` (3 layers, expansion 1.2) + `nOuterIter 2` | outer 0: "Layers to add 17042", 3 inner iterations, extruding 8732 / 8668 / 8660, removed 15 / 4 / 0, "Added 14728 out of 17042", `Mesh with layers : cells:32984 faces:104885 points:39033`, table layers 1.47 / 1.66 / 1.6 / 1.59, thickness 2.1e-4 / 2.55e-4 / 2.29e-4 / 2.2e-4 m, 40.7 / 50 / 44.6 / 40.5 %. Outer 1: "Layers to add 7364", **extruding 0 of 9747**, "Added 0 out of 7364", break. |
+| `p2` | `nSurfaceLayers 2`, `expansionRatio 1.0`, `nOuterIter 2` | outer 0: "Layers to add 8521", extruding 8724 / 8658 / 8642 (as the 1-layer case), "Added 7339 out of 8521". Outer 1: "Layers to add 7339", **16** inner iterations extruding 7892 / 7391 / 7133 / 7015 / 6931 / 6882 / 6838 / 6776 / 6750 / 6734 / 6716 / 6694 / 6678 / 6670 / 6666 / 6662 faces (removed 60 / 213 / 98 / 72 / 44 / 42 / 30 / 26 / 20 / 16 / 16 / 12 / 6 / 4 / 4 / 0), "Added 5666 out of 7339", `Mesh with layers : cells:33582 faces:104369 points:37310`, table 1.51 / 1.88 / 1.71 / 1.61, 2.69e-4 / 3.37e-4 / 2.84e-4 / 3.23e-4 m, 66.4 / 86.5 / 70.3 / 75 %. |
+
+`p2` is the real test of the outer loop (a second slice is extruded on a mesh that already has
+layers); `o2` is the case round 10 measured (the second slice is truncated away entirely). ESI times
+`o2`: 85-90 outer 0, 91 the layer mesh again (digest-equal to 90), 92 shrunk, 93 final (equal to 91 minus
+the empty patch). ESI times `p2`: 85-90 outer 0 (digest-equal to the 1-layer base case's 85-90),
+92-123 outer 1 (even = shrunk, odd = layer mesh), 124 final. References are FNV-1a digests as in round 10.
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P73 | **`o2`**: the port started from the old time-81 points reproduces the log counts above (17042; removed 15/4/0; extruded 8732/8668/8660; 14728 added; 32984 cells / 104885 faces / 39033 points; the table), meshes 85-90 digest-equal ESI, and outer 1 extrudes 0 of 9747 faces with its shrunk points digest-equal to the layer mesh's (the mover moves nothing), final mesh = the outer-0 layer mesh (faces digest `5e366de6f45a10ed` once the empty patch is removed, points `4ccdfe0327eae64e`). | slice thickness (`layer_thickness_slice` uses `pow`; PETIR vs glibc may differ by 1 ulp, which would move every later digest); the log of ESI shows the extrusion truncated to 0 by `minThickness`, which the port must reach by the same road |
+| P74 | **`p2`**, outer 0: meshes 85-90 digest-equal ESI's (they equal the 1-layer base case), "Layers to add 8521", 7339 added, per-point `deltaNLayers`/`nAddedLayers` after the update: 7339 points with `deltaNLayers 1`. | the base-case equality is only a prediction because the 2-layer slice thickness differs |
+| P75 | **`p2`**, outer 1: **I expect this to fail on the first run**, in the first inner iteration: it is the first time the medial axis, `getPatchDisplacement`, `determineSidePatches`, `truncateDisplacement` and `addPatchCellLayer` run on a mesh that already has layers, a patch whose points are the added points of the previous slice, and a non-trivial `newToOldPatchPoints`. If it does not fail: 16 inner iterations, removed/extruded as in the table, shrunk and layer meshes 92-123 digest-equal, final 124 (faces 936f440a7e533447 with patch offset 0, points 6bbdcca29ee1abde), 33582 cells / 104369 faces / 37310 points, the table equal to 3 figures. | any of those, or the cell/face map bookkeeping of `cellNLayers`/`faceRealThickness` (affects only the table and the fields, not the mesh) |
+| P76 | The accumulated `writeLayerData` fields (`nSurfaceLayers`, `thickness`, `thicknessFraction`) of `p2` and `o2` equal ESI's bit for bit. | accumulation order through the face map; `thickness` of faces that were boundary in slice 0 and are internal in slice 1 |
+
+## Round 11: results (2026-11-13, release, `tests/snappy_hex_mesh_esi_layers_multi.rs`)
+
+### Task 1: provenance (P69-P72)
+
+The finding is in the table above: the ESI build of this round reproduces the round 3-9 fixtures bit for
+bit in castellation, snap, feature snap and layers; the round-10 time-81 points are the odd one out and
+were not reproduced by the recorded recipe. P69 (binary `controlDict`) and P71 (glibc FMA `libm`)
+**refuted**; the cause is **not identified** (the round-10 build is gone, its compiler is unrecorded).
+**P72 held on the first run**: the port started from the old points equals this build's ESI in all three
+cases (base, `layers3`, `relaxed`): every shrunk-points, layer-faces, layer-points and final-faces digest and
+both `writeLayerData` field digests. Moved digests, round 10 start -> old (= round 11 ESI) start:
+
+| item | round 10 (`_r10` start) | round 11 (old start) |
+|---|---|---|
+| base 85 shrunk / 86 layer points / 90 layer points | `b4fd754f...` / `52cf490a...` / `fcc9d627...` | `ab189caf...` / `4fe8fe98...` / `edc9b810...` |
+| `layers3` 85 shrunk / 92 layer points | `f7f8ffcc...` / `454f4928...` | `88bd2e5b...` / `f71d2d75...` |
+| `layers3` fields | `01c12c5a53e2769e` | `e1ee47ca2800ad5a` |
+| `relaxed` fields | `db8997693ba42b73` | `4d6282e59593ad13` |
+| every layer / final **faces** digest, all three cases | unchanged | unchanged (a 1-ulp start does not touch topology) |
+
+Both starts stay pinned; the old fixtures are kept (this build confirms them) and `_r10` is kept because
+its tests pass. Nothing was re-pinned. ~~Round 10: "it is not the build the round 3-9 fixtures came from
+(a libm or compiler difference in the snap stage)"~~ **CORRECTED 2026-11-13**: not a libm difference
+(P71, measured); the snap stage of this build is insensitive to glibc's FMA variants, and this build equals
+the old fixtures. Also ~~"whether the round 7 feature snap is still bit-identical to the REBUILT ESI is
+not measured"~~ **measured**: `feat_disp_34`, `feat_points_35..45` equal this build's, 0 of 79986 differ.
+
+### Task 2: `nOuterIter 2` (P73-P76)
+
+Code: new `src/snappy_hex_mesh/esi_layer_outer.rs` (`add_layers_outer`, `slice_thickness`,
+`layer_data_table_accumulated`, `layer_data_fields_accumulated`; private maps `point_master`,
+`new_to_old_patch_points`, `cell_and_face_maps`). **No existing function was changed**: the inner loop of
+round 9 ran unchanged per outer iteration. Tests `outer2_two_layers_second_slice_extruded` (`p2`) and
+`outer2_three_layers_second_slice_truncated` (`o2`).
+
+| case | quantity | ESI v2506 | port |
+|---|---|---|---|
+| `o2` (3 layers, 1.2, outer 2) | layers to add; added; extruded faces per inner iteration | 17042 / 7364; 14728 / 0; 8732, 8668, 8660, 0 | equal |
+| | shrunk 85/87/89, layer 86/88/90 (faces and points), outer-1 shrunk 92 | digests | all equal |
+| | table after outer 0 (layers, thickness, %) | 1.47 2.1e-4 40.7 / 1.66 2.55e-4 50 / 1.6 2.29e-4 44.6 / 1.59 2.2e-4 40.5 | equal to 3 figures |
+| | final mesh (32984 cells, 104885 faces, 39033 points), faces digest after `remove_empty_patches`, points | `5e366de6f45a10ed`, `4ccdfe0327eae64e` | equal |
+| | accumulated `writeLayerData` fields | `10ac833310ebb486` | equal |
+| `p2` (2 layers, 1.0, outer 2) | layers to add; added | 8521 / 7339; 7339 / 5666 | equal |
+| | 19 inner iterations (3 + 16): extruded faces; shrunk points, layer faces, layer points of each | 8724, 8658, 8642, then 7892 ... 6662; 57 digests | all equal |
+| | table after outer 1 | 1.51 2.69e-4 66.4 / 1.88 3.37e-4 86.5 / 1.71 2.84e-4 70.3 / 1.61 3.23e-4 75 | equal to 3 figures |
+| | final mesh (33582 cells, 104369 faces, 37310 points), faces, points | `936f440a7e533447`, `6bbdcca29ee1abde` | equal |
+| | accumulated fields | `a2ad801613f6c5db` | equal |
+
+**Ledger.** P73, P74, P76 held, **and P75 was WRONG in the pessimistic direction**: I expected the first
+extrusion on a mesh that already has layers to fail, and all 57 digests of the 19 inner iterations, the table,
+the final mesh and the fields were equal on the first run. This says my expectation was too gloomy, not
+that the corners are covered (see limits). Nothing was tuned; no tolerance exists in these tests except
+the 3-figure table comparison, which round 9 already used. One defect of mine was caught by the first run
+(not by the comparison): the initial `cellNLayers` was sized from the owner maximum, which misses a last
+cell that owns no face (the same slip as round 9's `n_cells_of`).
+
+**Honest limits.**
+- Closed layer patches only (asserted): ESI's `inflateFaceID` of boundary side faces is not tracked, so
+  the face map of such faces would be a guess; both cases here have no patch boundary edge.
+- Two outer iterations only; a third (`nOuterIter 3`, 3 layers) was run in ESI (second slice also
+  truncated to 0 extruded faces, 7339 to add) but not compared.
+- `unmarkExtrusion` on the base arrays at a point that got no layer in a slice was exercised by `p2`
+  (5666 of 7339 layers added), but I did not tabulate how many points hit it.
+- `pow` in `layer_thickness_slice` is PETIR's; the slices here matched bit for bit, so no 1-ulp libm
+  difference showed. PETIR (`no_platform_libm`): 4 passed; the new code adds no transcendental of its own.
+- The ESI run directory for `p2` (about 540 MB with `debugFlags (mesh)`) is not committed; digests only.
+
+~~`nOuterIter > 1`: ... not cheap, not started.~~ **CORRECTED 2026-11-13 (round 11): done for closed patches,
+see above.** Still open: `nBufferCellsNoExtrude > 0` on ESI data, face zones, non-adapt patch seeds, open
+layer patches with `nOuterIter > 1`, `layerSets`.

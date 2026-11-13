@@ -1,0 +1,8 @@
+FoamFile { version 2.0; format ascii; class dictionary; object fvSchemes; }
+ddtSchemes{default Euler;}
+gradSchemes{default Gauss linear;}
+divSchemes{default Gauss upwind;}
+laplacianSchemes{default Gauss linear uncorrected;}
+interpolationSchemes{default linear;}
+snGradSchemes{default uncorrected;}
+wallDist{method meshWave;}

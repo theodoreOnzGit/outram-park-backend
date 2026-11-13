@@ -51,6 +51,17 @@ ratio 1.000001), a transmutation burnup step (9.1e-15), fission-yield split
 These verify implementation-correctness only; physical validation against
 measured inventories is out of scope for this draft.
 
+**Differential against ONIX (gh:#1404, 2026-11-13).** The upstream Python was run and
+compared: `verification_and_validation/onix_differential/` (`RESULTS.md`). `CRAM16`
+differs from numpy's LAPACK-based `CRAM16` by at most 3e-14 normwise (6 of 96 entries
+bit-identical; a Python replica of this crate's pole solve inside the upstream source is
+96 of 96 bit-identical, so the difference is LAPACK against the textbook elimination). The
+burnup matrix matched on 99 of 99 synthetic and 36143 of 36143 entries built from ONIX's
+own libraries (88 and 19184 bit-identical, the rest within 4 ulp) **after** fixing two
+defects the comparison found: no ground-to-isomer channels, and daughters of excited
+parents keeping `m`. Before the fix 403 of 36143 entries were missing and 31 in the wrong
+row.
+
 **Not yet ported:** OpenMC coupling, ONIX's bundled nuclide-data libraries
 (caller supplies data), predictor-corrector flux schemes, order-48 CRAM (ONIX
 ships only order-16), and the input/sequence/reporting machinery.

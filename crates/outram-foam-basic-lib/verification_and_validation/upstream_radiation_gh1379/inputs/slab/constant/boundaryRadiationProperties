@@ -1,0 +1,4 @@
+FoamFile { version 2.0; format ascii; class dictionary; object boundaryRadiationProperties; }
+xmin  { type lookup; emissivity 0.8; absorptivity 0.8; }
+xmax  { type lookup; emissivity 0.5; absorptivity 0.5; }
+sides { type lookup; emissivity 1.0; absorptivity 1.0; }

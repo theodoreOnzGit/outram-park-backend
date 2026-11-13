@@ -1,0 +1,17 @@
+[package]
+name = "rbca_driver"
+version = "0.0.0"
+edition = "2024"
+
+[[bin]]
+name = "rbca_driver"
+path = "src/main.rs"
+
+[dependencies]
+libRustBCA = { package = "RustBCA", path = "../up" }
+rand = { version = "0.10.2", features = ["chacha"] }
+
+[workspace]
+
+[profile.release]
+opt-level = 3

@@ -14,7 +14,7 @@ molten fluoride salts: fission-product speciation, UF3/UF4 redox partitioning
 and solubility, for MSRE fission-product migration.
 
 **Status: SCAFFOLD, no human V&V.** Checked 2026-10-20:
-- the whole port is `src/gem.rs`, with 6 unit tests;
+- the whole port is `src/gem.rs`, with ~~6~~ **7** unit tests (**CORRECTED 2026-11-13**, gh:#1407: one added for the merit-offset repair) and, since 2026-11-13, `tests/thermochimica_differential.rs`, a comparison against a run of Thermochimica `0c35c8d` (`verification_and_validation/thermochimica_differential/`);
 - `src/lib.rs` only re-exports;
 - no other crate depends on it (no consumer in any `crates/*/Cargo.toml`).
 

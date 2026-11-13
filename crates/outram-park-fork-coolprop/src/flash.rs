@@ -14,8 +14,13 @@
 //! # Scope / limitations
 //!
 //! These are **single-phase** solvers: they assume the target state is a single
-//! stable phase and return the branch reached from an ideal-gas / supercritical
-//! initial guess (the vapour / supercritical root). CoolProp's saturation-dome /
+//! stable phase. ~~and return the branch reached from an ideal-gas / supercritical
+//! initial guess (the vapour / supercritical root)~~ **CORRECTED 2026-11-13
+//! (gh:#917, #1349)**: that was true and was a defect, since compressed liquids came back
+//! as the metastable vapour root (3398 of 3680 liquid-phase differential points); `(p, T)`
+//! now picks the stable root first (see [`density_pt`]). Re-checked against CoolProp: 12 of
+//! 3680 liquid and 29 of 3546 gas points still differ (pseudo-pure fluids, and `p_sat` below
+//! ~1e-3 Pa). CoolProp's saturation-dome /
 //! two-phase quality flash is **not** modelled here (bead op-kbc) — inside the
 //! two-phase dome `(∂p/∂ρ)_T` changes sign and these solves will return
 //! [`FlashError::NonConvergent`] rather than a wrong number. All quantities are
@@ -60,31 +65,179 @@ fn pressure_and_dpdrho(fluid: Fluid, t: f64, rho: f64) -> (f64, f64) {
     (p, dpdrho)
 }
 
+/// Which root of `p(ρ) = p` at fixed `T` is the stable single phase.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum PtBranch {
+    /// Gas, or supercritical at or above `T_c`: the lowest-density root.
+    LowDensity,
+    /// Liquid or supercritical liquid: the dense root, started from this mass
+    /// density \[kg/m³\].
+    Dense(f64),
+}
+
+/// Reduced residual Gibbs energy `ln δ + αʳ + δ αʳ_δ` at `(T, ρ)`. At one `T` the ideal-gas
+/// part is `ln δ + f(τ)`, so the difference of this between two roots is their difference
+/// in `g/(R T)`: the lower one is the stable phase.
+fn reduced_gibbs(fluid: Fluid, t: f64, rho: f64) -> f64 {
+    let eos = fluid.eos();
+    let delta = rho / eos.molar_mass / eos.rho_reducing;
+    let res = eos.residual_derivs(delta, eos.t_reducing / t);
+    delta.r_ln() + res.a + delta * res.ad
+}
+
+/// Decide the branch. CoolProp's `T_phase_determination_pure_or_pseudopure` compares `p`
+/// with the saturation pressure from its 1e-12 superancillary: `p > p_sat` is liquid,
+/// `p > p_c` below `T_c` is supercritical liquid. This port has only the ancillary FIT of
+/// `p_sat`, which is not good enough to decide with (the differential, gh:#1349, measured
+/// 47 % error for R1234yf at 192 K, and 1 % for Propylene glycol). So the comparison is
+/// made with the Maxwell saturation pressure of [`crate::vle`] (accurate to rounding above
+/// ~100 Pa). Where that solve has no answer (the pseudo-pure Air, R404A, R407C, R410A, R507A
+/// and SES36 have no ancillary to start it, and it fails within ~1 K of `T_c`), both roots
+/// are solved and the one of lower Gibbs energy is taken, the stable phase; that is the
+/// thermodynamic statement of the same comparison, not CoolProp's route, and on a wiggly
+/// EOS (Air near its triple point) it can pick a spurious root. The ancillary liquid density
+/// is the dense root's starting guess, as in CoolProp.
+fn pt_branch(fluid: Fluid, t: f64, p: f64) -> PtBranch {
+    use crate::ancillaries::saturated_liquid_density_ancillary;
+    let eos = fluid.eos();
+    let rho_c = eos.rho_critical * eos.molar_mass;
+    if t >= eos.t_critical {
+        // Above the critical pressure the root is a dense one: Newton from the ideal-gas
+        // density starts far above it (Methane, 513 K, 0.9 GPa landed on a different, denser
+        // monotone branch of the wiggly EOS). Below it the ideal-gas start is fine.
+        return if p > eos.p_critical { PtBranch::Dense(2.0 * rho_c) } else { PtBranch::LowDensity };
+    }
+    let rho_l_guess = saturated_liquid_density_ancillary(fluid, t).unwrap_or(2.5 * rho_c);
+    if p > eos.p_critical {
+        return PtBranch::Dense(rho_l_guess);
+    }
+    // The Maxwell saturation solve (accurate to rounding wherever `p_sat` is above ~100 Pa;
+    // see `crate::vle`) is the stand-in for CoolProp's superancillary.
+    if let Some(sat) = saturation_at_temperature(fluid, t) {
+        return if p > sat.pressure { PtBranch::Dense(sat.rho_liquid) } else { PtBranch::LowDensity };
+    }
+    // No saturation solve (pseudo-pure fluids, or too close to `T_c` for the Newton): Gibbs.
+    let low = low_branch_newton(fluid, t, p);
+    let dense = density_pt_dense_branch(fluid, t, p, rho_l_guess);
+    match (low, dense) {
+        // No vapour root on the first continuous branch: liquid.
+        (None, Ok(rd)) => PtBranch::Dense(rd),
+        (Some(Ok(rl)), Ok(rd)) if reduced_gibbs(fluid, t, rd) < reduced_gibbs(fluid, t, rl) => {
+            PtBranch::Dense(rd)
+        }
+        _ => PtBranch::LowDensity,
+    }
+}
+
+/// Dense-branch (liquid) root of `p(ρ) = p` at `t`, started at `rho_start`: Newton with
+/// positivity damping (CoolProp starts Halley at the saturated-liquid ancillary), falling
+/// back to a bracketing bisection (CoolProp: Brent on `[0.9, 1.3] ρ'`) that walks the upper
+/// bound up until `p(ρ)` exceeds the target and the lower bound down until it is below.
+/// Only a root with `(∂p/∂ρ)_T > 0` is accepted.
+fn density_pt_dense_branch(fluid: Fluid, t: f64, p: f64, rho_start: f64) -> Result<f64, FlashError> {
+    let tol = p * 1e-11 + 1e-9;
+    let mut rho = rho_start;
+    for _ in 0..100 {
+        let (p_cur, dpdrho) = pressure_and_dpdrho(fluid, t, rho);
+        if !(p_cur.is_finite() && dpdrho.is_finite()) || dpdrho <= 0.0 {
+            break;
+        }
+        if (p_cur - p).abs() <= tol {
+            return Ok(rho);
+        }
+        let mut step = (p_cur - p) / dpdrho;
+        while rho - step <= 0.0 {
+            step *= 0.5;
+        }
+        let next = rho - step;
+        if (next - rho).abs() <= 1e-13 * rho {
+            // The Newton step is at the density's rounding level: the root. (The pressure
+            // residual cannot always reach `tol`: on a stiff liquid `p(ρ)` is a difference
+            // of terms of order 1e8 Pa.)
+            return Ok(next);
+        }
+        rho = next;
+    }
+    // Bracket on the dense branch.
+    let mut hi = rho_start;
+    for _ in 0..60 {
+        let (ph, _) = pressure_and_dpdrho(fluid, t, hi);
+        if ph.is_finite() && ph >= p {
+            break;
+        }
+        hi *= 1.5;
+    }
+    let mut lo = hi;
+    let mut found = false;
+    for _ in 0..400 {
+        lo /= 1.02;
+        let (pl, dl) = pressure_and_dpdrho(fluid, t, lo);
+        if dl <= 0.0 {
+            break; // reached the spinodal: no dense root with positive slope below here
+        }
+        if pl < p {
+            found = true;
+            break;
+        }
+    }
+    if !found {
+        return Err(FlashError::NonConvergent);
+    }
+    for _ in 0..200 {
+        let mid = 0.5 * (lo + hi);
+        let (pm, _) = pressure_and_dpdrho(fluid, t, mid);
+        if (pm - p).abs() <= tol {
+            return Ok(mid);
+        }
+        if pm < p {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    Ok(0.5 * (lo + hi))
+}
+
 /// Solve for the single-phase mass density `ρ` \[kg/m³\] at temperature `t`
-/// \[K\] and pressure `p` \[Pa\].
+/// \[K\] and pressure `p` \[Pa\], on the **stable** branch.
 ///
-/// Newton from the ideal-gas guess `ρ₀ = p·M/(R·T)` (which lands on the vapour /
-/// supercritical branch), with damping to keep `ρ > 0`, and a bracketing
-/// bisection fallback. Returns [`FlashError::NonConvergent`] if no single-phase
-/// root with `(∂p/∂ρ)_T > 0` is found (e.g. a two-phase target).
+/// The branch is chosen first ([`pt_branch`], after CoolProp's
+/// `T_phase_determination_pure_or_pseudopure`): gas and supercritical states take the
+/// lowest-density root, liquid and supercritical-liquid states the dense root. Before this
+/// was added (gh:#917, #1349) every state was solved from the ideal-gas guess, which lands
+/// on the vapour root, so compressed liquids came back as (metastable) vapour. Returns
+/// [`FlashError::NonConvergent`] if no single-phase root with `(∂p/∂ρ)_T > 0` is found
+/// (e.g. a two-phase target on a fluid without a saturation ancillary).
 pub fn density_pt(fluid: Fluid, t: f64, p: f64) -> Result<f64, FlashError> {
     let inputs_ok = t.is_finite() && t > 0.0 && p.is_finite() && p > 0.0;
     if !inputs_ok {
         return Err(FlashError::NonPhysicalInput);
     }
+    match pt_branch(fluid, t, p) {
+        PtBranch::LowDensity => density_pt_low_branch(fluid, t, p),
+        PtBranch::Dense(start) => density_pt_dense_branch(fluid, t, p, start),
+    }
+}
+
+/// Newton with positivity damping from the ideal-gas density along the first
+/// continuous branch. `None` when the iteration meets `(∂p/∂ρ)_T <= 0` first: no vapour or
+/// supercritical root exists on this branch (a root found beyond that point would be a
+/// spurious one on an EOS wiggle inside the dome).
+fn low_branch_newton(fluid: Fluid, t: f64, p: f64) -> Option<Result<f64, FlashError>> {
     let eos = fluid.eos();
     let rho_ideal = p * eos.molar_mass / (eos.gas_constant * t);
-    let tol = p * 1e-11 + 1e-9;
-
-    // Newton with positivity damping.
+    // Purely relative: the former absolute floor of 1e-9 Pa left a 1e-6 relative error at
+    // p ~ 1e-3 Pa (D5 at 226 K; found by the CoolProp differential, gh:#1349). A gas isotherm
+    // has no cancellation, so a relative 1e-11 is reachable.
+    let tol = p * 1e-11;
     let mut rho = rho_ideal;
     for _ in 0..100 {
         let (p_cur, dpdrho) = pressure_and_dpdrho(fluid, t, rho);
         if (p_cur - p).abs() <= tol && dpdrho > 0.0 {
-            return Ok(rho);
+            return Some(Ok(rho));
         }
         if dpdrho <= 0.0 {
-            break; // entered the non-monotonic (two-phase) region — bisect instead
+            return None; // entered the non-monotonic (two-phase) region
         }
         let mut step = (p_cur - p) / dpdrho;
         // Limit the step so density stays positive and does not jump too far.
@@ -93,14 +246,25 @@ pub fn density_pt(fluid: Fluid, t: f64, p: f64) -> Result<f64, FlashError> {
         }
         let next = rho - step;
         if (next - rho).abs() <= 1e-14 * rho {
-            return if (p_cur - p).abs() <= tol {
+            return Some(if (p_cur - p).abs() <= tol {
                 Ok(next)
             } else {
                 Err(FlashError::NonConvergent)
-            };
+            });
         }
         rho = next;
     }
+    None
+}
+
+/// Lowest-density root of `p(ρ) = p`: Newton from the ideal-gas guess
+/// `ρ₀ = p·M/(R·T)`, with damping to keep `ρ > 0`, and a bracketing bisection fallback.
+fn density_pt_low_branch(fluid: Fluid, t: f64, p: f64) -> Result<f64, FlashError> {
+    if let Some(result) = low_branch_newton(fluid, t, p) {
+        return result;
+    }
+    let eos = fluid.eos();
+    let tol = p * 1e-11 + 1e-9;
 
     // Bisection fallback: scan geometrically for the lowest-density bracket where
     // p(ρ) crosses the target on a branch with (∂p/∂ρ)_T > 0.

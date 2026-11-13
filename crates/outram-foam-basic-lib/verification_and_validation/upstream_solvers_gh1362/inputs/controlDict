@@ -1,0 +1,4 @@
+FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }
+libs ("libdumpSolver.so");
+application pimpleFoam; startFrom startTime; startTime 0; stopAt endTime; endTime 0.005;
+deltaT 0.005; writeControl timeStep; writeInterval 1000; writePrecision 17;

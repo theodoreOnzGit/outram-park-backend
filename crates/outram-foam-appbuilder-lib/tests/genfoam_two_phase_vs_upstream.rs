@@ -748,12 +748,27 @@ fn one_d_boiling_a_collapsed_time_step_is_an_error() {
 
 /// Round 5, item 1: the port's PIMPLE control flow of the whole tight 12 s run against upstream's, step by step
 /// (iterations run and how the loop ended, from `refs/boiling_tight_full_flow`, written by
-/// `scripts/extract_pimple_flow.sh` from the upstream log). Every one of the first 723 steps is identical, the
-/// criteria being met (or not) in the same outer iteration and the same steps skipped. The first difference is
-/// at step 724: by then the two trajectories have separated (the residual lists first differ by 17 % at step 637
-/// and the clocks differ by 0.03 s at step 700, measured 2026-11-13), and at step 724 upstream's last `p_rgh`
-/// residual is 2.2e-4 against the port's below 1e-5. That is the flow's sensitivity after the boiling onset
-/// (round 3 "noise floor"), not a different loop.
+/// `scripts/extract_pimple_flow.sh` from the upstream log). Every one of the first 758 steps is identical, the
+/// criteria being met (or not) in the same outer iteration. The first difference is at step 759: upstream meets
+/// its criteria at the start of iteration 23 (`conv23`), the port runs all 24 (`notconv`; its last `p_rgh`
+/// residual is 2.73e-4). By then the two trajectories have separated (the clocks differ by 0.054 s at step 700:
+/// upstream 6.28394, port 6.33825), which is the flow's sensitivity after the boiling onset (round 3 "noise
+/// floor"), not a different loop. Informative equality is steps 1-636 (iteration counts 5 to 24, many different
+/// endings); in steps 637-758 all 122 steps are `notconv` in both codes.
+///
+/// ~~724~~ **MOVED 2026-11-13 to 759** (gh:#1361, gh:#1362 row 4). Cause, proven by reverting one piece at a time
+/// in a scratch build: commit 9db557a69 changed `PerfectGas::psi` from `rho(p, T) / p` to upstream's
+/// `1.0 / (R T)` (ESI v2506 `perfectGasI.H`), 1 ulp in the vapour `psi` the twoPhase solver reads
+/// (`two_phase/thermo.rs`, `props`). Reverting only that restores 724; reverting only `P_REF` (entropy, never
+/// called by twoPhase) or only `ConstTransport::alpha_h` (never called; `kappa` is used) leaves 759; the other
+/// changes of the commit (PengRobinson, `rhoConst`, ESI `hPolynomial`, `GasConstant::EsiV2506`) are opt-in or
+/// not selected by any two-phase case. Before the onset the change is invisible (no vapour, `alpha.vapour = 0`:
+/// steps 1-65, the onset window and every 0.5 s comparison to 6 s are identical to the printed digits); after it
+/// the 1-ulp difference is amplified like any other perturbation (a 1e-6 tail difference grows to O(1) in 0.5 s,
+/// `one_d_boiling_post_onset_sensitivity_of_the_port_to_the_alpha_solve`), so the step is a different draw of
+/// the same noise: the new operation matches upstream's, the new step number is not evidence of being closer.
+/// The upstream reference itself was not reproduced by the current upstream build after step 639 (README
+/// "Round 5 addendum"), so the pinned value is a statement about the committed reference.
 #[test]
 fn one_d_boiling_pimple_flow_tight_matches_upstream_until_the_trajectories_split() {
     let flow = load_flow("boiling_tight_full_flow");
@@ -770,7 +785,7 @@ fn one_d_boiling_pimple_flow_tight_matches_upstream_until_the_trajectories_split
         }
     }
     eprintln!("first step whose iteration count or ending differs from upstream: {first_diff:?}");
-    assert_eq!(first_diff, Some(724));
+    assert_eq!(first_diff, Some(759));
 }
 
 /// Diagnostic (not a gate), round 5: the whole tight run with the corrected default ending, for the moved-numbers table.

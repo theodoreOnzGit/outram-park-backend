@@ -20,6 +20,9 @@ CRAM**, using the same algorithm and coefficients as ONIX
   against closed-form Bateman solutions. The README records the measured
   errors (2026-08-04), from 3.8e-15 for a three-member chain to 1.8e-14 for
   atom conservation.
+- **Differential run against ONIX 7328dc6 (2026-11-13, gh:#1404):** see
+  `verification_and_validation/onix_differential/`. `tests/onix_differential.rs` pins it.
+  It found and fixed two port defects (isomer channels, state of excited-parent daughters).
 - **Not yet ported:** OpenMC coupling, ONIX's nuclide-data libraries,
   predictor-corrector schemes, order-48 CRAM, and the input and reporting
   machinery.

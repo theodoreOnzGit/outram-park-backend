@@ -1410,6 +1410,28 @@ pub fn untangle_mesh_fv_bounded(
     untangle_mesh_fv_with(mesh, locked, &c)
 }
 
+/// How `untangleMeshFV`'s boundary loop calls `tetMeshOptimisation::
+/// optimiseBoundaryVolumeOptimizer` (gh:#1385 round 5).
+///
+/// Upstream declares `optimiseBoundaryVolumeOptimizer(const label nIterations
+/// = 3, const bool nonShrinking = false)` and calls it as
+/// `optimiseBoundaryVolumeOptimizer(true)` while `nGlobalIter < 2` and
+/// `optimiseBoundaryVolumeOptimizer(false)` from `nGlobalIter >= 5`. In C++ the
+/// boolean binds to `nIterations`: the first call is **one** unconstrained
+/// iteration (not a non-shrinking one) and the last is **zero** iterations.
+/// The comments beside upstream's calls describe the intent, not the code.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BoundaryMoveCalls {
+    /// The calls as the C++ binds them: `(1, false)` below 2 global
+    /// iterations, nothing from 5 (default; follows upstream).
+    #[default]
+    Upstream,
+    /// The calls as upstream's comments describe them: three iterations,
+    /// `nonShrinking` true below 2 and false from 5 (this port before
+    /// gh:#1385 round 5; kept callable for the differential).
+    AsDocumented,
+}
+
 /// The arguments of `meshOptimizer::untangleMeshFV`, and this port's
 /// switches beside them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1430,7 +1452,9 @@ pub struct UntangleControls {
     /// Run upstream's boundary loop between global iterations (gh:#1255):
     /// `optimiseBoundaryVolumeOptimizer(true)` while `nGlobalIter < 2`,
     /// `optimiseBoundarySurfaceLaplace` while `< 5`, then
-    /// `optimiseBoundaryVolumeOptimizer(false)`, on the cells around the bad
+    /// `optimiseBoundaryVolumeOptimizer(false)` (~~read as `nonShrinking`, three
+    /// iterations~~ **CORRECTED 2026-11-13, gh:#1385 round 5:** the `bool` binds to
+    /// `nIterations`; see [`BoundaryMoveCalls`]), on the cells around the bad
     /// faces (no extra layer), up to `max_surface_iterations` passes. `false`
     /// is this port's behaviour before gh:#1255 (boundary points never
     /// move) and keeps every recorded result; upstream always runs it.
@@ -1439,12 +1463,15 @@ pub struct UntangleControls {
     /// optimiser (`tmo.optimiseUsingMeshUntangler()`, gh:#1260). `false`
     /// is this port's behaviour before gh:#1260; upstream always runs it.
     pub mesh_untangler: bool,
+    /// How the boundary loop calls `optimiseBoundaryVolumeOptimizer`, see
+    /// [`BoundaryMoveCalls`]. Used only with [`Self::boundary_moves`].
+    pub boundary_calls: BoundaryMoveCalls,
 }
 
 impl Default for UntangleControls {
     /// Upstream's defaults, with this port's switches off.
     fn default() -> Self {
-        UntangleControls { max_global_iterations: 10, max_iterations: 50, max_surface_iterations: 2, relaxed: false, stop_on_stall: false, boundary_moves: false, mesh_untangler: false }
+        UntangleControls { max_global_iterations: 10, max_iterations: 50, max_surface_iterations: 2, relaxed: false, stop_on_stall: false, boundary_moves: false, mesh_untangler: false, boundary_calls: BoundaryMoveCalls::Upstream }
     }
 }
 
@@ -1571,15 +1598,21 @@ fn untangle_impl<P: FnMut(&mut VolumeMesh, &[bool])>(mesh: &mut VolumeMesh, lock
                 rep.seconds_build += since(t);
                 rep.boundary_nodes_smoothed += tm.n_boundary_nodes();
                 let t = stamp();
+                // upstream's calls pass a `bool` where the first parameter is
+                // `nIterations` (see `BoundaryMoveCalls`)
+                let (iters_a, non_shrinking_a, iters_c) = match c.boundary_calls {
+                    BoundaryMoveCalls::Upstream => (1, false, 0),
+                    BoundaryMoveCalls::AsDocumented => (3, true, 3),
+                };
                 if n_global < 2 {
-                    // the point stays in the plane determined by the point normal
-                    tm.optimise_boundary_volume_optimizer(3, true);
+                    // upstream's comment: the point stays in the plane determined by the point normal
+                    tm.optimise_boundary_volume_optimizer(iters_a, non_shrinking_a);
                 } else if n_global < 5 {
                     // move points without any constraints on the movement
                     tm.optimise_boundary_surface_laplace(3);
                 } else {
-                    // move boundary points without any constraints
-                    tm.optimise_boundary_volume_optimizer(3, false);
+                    // upstream's comment: move boundary points without any constraints
+                    tm.optimise_boundary_volume_optimizer(iters_c, false);
                 }
                 rep.seconds_smooth += since(t);
                 let before = mesh.points.clone();
@@ -2369,7 +2402,9 @@ mod tests {
 
         // (B) one global iteration's non-shrinking boundary moves.
         let mut b = m0.clone();
-        let cb = UntangleControls { max_global_iterations: 2, boundary_moves: true, ..UntangleControls::default() };
+        // gh:#1385 round 5: the non-shrinking call is what upstream's comments
+        // describe; the default now follows the C++ (`BoundaryMoveCalls::Upstream`)
+        let cb = UntangleControls { max_global_iterations: 2, boundary_moves: true, boundary_calls: BoundaryMoveCalls::AsDocumented, ..UntangleControls::default() };
         let rb = untangle_mesh_fv_with(&mut b, &locked, &cb);
         println!("(B) 2 global, non-shrinking: {bad0} -> {} bad faces; {rb:?}", count(&find_bad_faces(&b)));
         assert!(rb.surface_iterations >= 1, "the boundary loop ran");
@@ -2388,6 +2423,15 @@ mod tests {
         }
         println!("(B) largest departure of a flat-side point from its plane: {worst:.3e}");
         assert!(worst <= 1e-12, "{worst}");
+
+        // (B') the same with upstream's calls as the C++ binds them (one
+        // unconstrained iteration): the loop runs, and its moves are not held
+        // to the plane (measured below, printed)
+        let mut b2 = m0.clone();
+        let cb2 = UntangleControls { max_global_iterations: 2, boundary_moves: true, ..UntangleControls::default() };
+        let rb2 = untangle_mesh_fv_with(&mut b2, &locked, &cb2);
+        println!("(B') 2 global, upstream calls (1 iteration, unconstrained): {bad0} -> {} bad faces; {rb2:?}", count(&find_bad_faces(&b2)));
+        assert!(rb2.surface_iterations >= 1, "the boundary loop ran with upstream's calls");
 
         // (C) upstream's defaults with the boundary loop.
         let mut c = m0.clone();
