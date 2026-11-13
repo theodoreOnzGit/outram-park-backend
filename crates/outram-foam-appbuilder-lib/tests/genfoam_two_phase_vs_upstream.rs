@@ -182,7 +182,7 @@ fn port_fields(s: &TwoPhaseSolver) -> Vec<(&'static str, Vec<f64>)> {
 /// Step-by-step comparison of the first `n_steps` steps (every step written).
 /// Returns the per-step worst relative difference per field.
 fn run_steps(test: &str, refname: &str, tight: bool, n_steps: usize) -> Vec<(usize, f64, Vec<(&'static str, f64)>)> {
-    run_steps_with(test, refname, tight, n_steps, |s| s)
+    run_steps_with(test, refname, tight, n_steps, |s| s.with_upstream_stale_pimple_converged_flag())
 }
 
 /// [`run_steps`] with the solver transformed first (an ablation builder).
@@ -379,7 +379,7 @@ fn one_d_boiling_post_onset_sensitivity_of_the_port_to_the_alpha_solve() {
 #[test]
 fn one_d_boiling_full_tight_vs_upstream() {
     // Measured 2026-11-12: worst 2.5e-11 (t = 6 s), vapour absent.
-    full("full_tight", "boiling_tight_full", true, 1e-10);
+    full("full_tight", "boiling_tight_full", true, 1e-10, true);
 }
 
 /// Same at the case's shipped tolerances (1e-6, relTol 0.001 on the generic solver).
@@ -387,20 +387,67 @@ fn one_d_boiling_full_tight_vs_upstream() {
 fn one_d_boiling_full_shipped_vs_upstream() {
     // Measured 2026-11-12: worst 3.0e-5 (T.liquid, t = 6 s): the two codes' loose linear
     // solvers (GAMG 1e-6 vs ILU-BiCGStab for p_rgh, relTol 0.001) stop at different residuals.
-    full("full_shipped", "boiling_shipped_full", false, 1e-4);
+    // The upstream option is NOT set here: with it, this run stalls after t = 9.5 s (step 4903, over 20
+    // minutes of CPU with no further reference time reached; cause not investigated, README "Round 4
+    // follow-up"). The gated comparison (t <= 6 s) is identical either way: the first step whose
+    // criteria are first met in the last outer iteration is 735, after the onset at step 618.
+    full("full_shipped", "boiling_shipped_full", false, 1e-4, false);
 }
 
-fn full(test: &str, refname: &str, tight: bool, pre_onset_bound: f64) {
+/// Default (corrected) vs upstream-defect option on the whole tight run (gh:#1361 round 4 follow-up,
+/// maintainer decision 2026-11-12): the default solves every step, the upstream option skips the
+/// step after each one whose criteria were first met in the last outer iteration. Pins the default
+/// (pattern of `outram-mc-libs/tests/correct_physics_is_default.rs`).
+#[test]
+fn one_d_boiling_default_is_the_corrected_pimple_ending() {
+    let dir = protocol_copy("def_ending", true, false);
+    let case = TwoPhaseCase::read(&dir).expect("read 1D_boiling");
+    let _ = std::fs::remove_dir_all(&dir);
+    let end = case.end_time;
+    let fresh = TwoPhaseSolver::new(case);
+    assert!(!fresh.controls.stale_pimple_converged_flag, "the default must be the corrected ending");
+    let run = |mut s: TwoPhaseSolver| {
+        let (mut skipped, mut would) = (Vec::new(), Vec::new());
+        let mut n = 0usize;
+        while s.time < end - 1e-9 {
+            let rep = s.step().expect("step");
+            n += 1;
+            if rep.outer_iterations == 0 {
+                skipped.push(n);
+            }
+            if rep.upstream_would_skip_next_step {
+                would.push(n);
+            }
+        }
+        (n, skipped, would)
+    };
+    let (n_c, skipped_c, would_c) = run(fresh.clone());
+    let (n_u, skipped_u, would_u) = run(fresh.with_upstream_stale_pimple_converged_flag());
+    eprintln!("default: {n_c} steps, skipped {skipped_c:?}, criteria first met in last iteration after {would_c:?}");
+    eprintln!("upstream option: {n_u} steps, skipped {skipped_u:?}, flagged {would_u:?}");
+    assert!(skipped_c.is_empty(), "the corrected default solves every step");
+    assert!(!would_c.is_empty(), "1D_boiling does reach the last-iteration convergence");
+    assert!(!skipped_u.is_empty(), "the upstream option skips steps");
+}
+
+fn full(test: &str, refname: &str, tight: bool, pre_onset_bound: f64, stale: bool) {
     let r = load_reference(refname);
     let dir = protocol_copy(test, tight, false);
     let case = TwoPhaseCase::read(&dir).expect("read 1D_boiling");
     let end = case.end_time;
     let mut s = TwoPhaseSolver::new(case);
+    if stale {
+        s = s.with_upstream_stale_pimple_converged_flag();
+    }
     let mut steps = 0usize;
+    let mut would_skip = Vec::new();
     let mut done: Vec<String> = Vec::new();
     while s.time < end - 1e-9 {
-        s.step().expect("step");
+        let rep = s.step().expect("step");
         steps += 1;
+        if rep.upstream_would_skip_next_step {
+            would_skip.push(steps);
+        }
         for t in &r.times {
             let tv: f64 = t.parse().expect("time");
             if (s.time - tv).abs() < 1e-9 && !done.contains(t) {
@@ -430,6 +477,7 @@ fn full(test: &str, refname: &str, tight: bool, pre_onset_bound: f64) {
         r.cum_err.0,
         r.cum_err.1
     );
+    eprintln!("{test}: steps whose criteria were first met in the last outer iteration: {would_skip:?}");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
