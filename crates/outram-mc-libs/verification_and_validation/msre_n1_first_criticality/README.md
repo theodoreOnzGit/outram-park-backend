@@ -838,8 +838,12 @@ level; dividing again by the atom ratio removes the composition:
   spectrum difference**; they are in the Zr and F data or in how TM-0730
   treated them. The same argument makes Li-7's 0.76 a Li-7 cross-section
   difference, since Li-6 shows the 1/v spectrum agrees. That is consistent with an older
-  2200 m/s Li-7 capture value about a quarter below ENDF/B-VIII.0's, but
-  both values here are from memory, **not checked against BNL-325**.
+  2200 m/s Li-7 capture value about a quarter below ENDF/B-VIII.0's.
+  ~~both values here are from memory~~ **ENDF/B-VIII.0's is read from
+  `reference-data/endf/n-003_Li_007-ENDF8.0.endf`** (MF3 MT102 at
+  0.0253 eV: 45.4 mb; Be-9 10.0 mb and F-19 9.58 mb on the same read,
+  log-log interpolation). The older value, about 33 mb, is still from memory
+  and **not checked against BNL-325**.
   Table 2.1 lists no Zr, F or Be, so it cannot close the gap itself.
   It is a later ORNL calculation than TM-0730, with the same codes.
 - **Where TM-0730's cross sections came from** (§3.4, pp. 20–23; refs. 2, 3,
