@@ -8,7 +8,7 @@
 - **Repository:** <https://github.com/marciorvneto/rusteam>
 - **License:** MIT
 - **Branch tracked:** `main` (when cloned — see below)
-- **Commit at last sync:** not currently tracked — no persistent local clone (see note)
+- **Commit at last sync:** ~~not currently tracked — no persistent local clone (see note)~~ **CORRECTED 2026-11-13 (gh:#1346):** the code was copied early in the crate's history at an unrecorded commit, so no "last sync" exists; the differential comparison of 2026-11-13 ran **`main` at `2b1f74dbed98bcfeaae2d68fa8ebd9d5b4e080b8`** (v0.2.0, 2025-07-24). Results: `verification_and_validation/if97_differential/RESULTS.md` (forward Regions 1, 2, 5: v and w bit-identical, the rest within 1.1e-15)
 - **Clone command:** `git clone --depth 1 https://github.com/marciorvneto/rusteam.git upstream_source/rusteam`
 
 ## Provenance
