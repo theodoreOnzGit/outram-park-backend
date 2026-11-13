@@ -460,3 +460,33 @@ per cell AND per boundary face against the real filter classes on the frozen 360
    cells touching a wall; since the duct is only 3 cells thick in z and the `Ck` expression chains three
    filter passes, predicted: `Ck` differs in more than 300 of 360 cells with the extrapolated boundary.
 7. **dynamicKEqn matrix**: the transcribed k equation reproduces the real matrix bit for bit (audit).
+
+## Slice 7 results, part 1: the LESfilter family (2026-11-13, release; same duct)
+
+Driver: `-model LESfilters` applies the REAL `simpleFilter`, `laplaceFilter(mesh, 2)` and
+`anisotropicFilter(mesh, 2)` of ESI v2506 to `k` (zeroGradient), `magSqr(U)`, `U` (fixedValue),
+`sqr(U)`, `symm(grad U)` (calculated) and `grad U` (tensor), and dumps cells AND boundary faces.
+Port: `outram_foam_basic_lib::fv_operators::les_filter` (new; `fvc::surfaceSum` and
+`surfaceIntegrate` did not exist in the workspace; a workspace search for another LES filter found
+none).
+
+**Every row is 360/360 (cells) and 372/372 (boundary faces), bit-identical, max 0 ulp**, for all
+three filters on all six fields (scalar, vector, symmTensor, tensor), also the two coefficient
+fields: `laplace` `V^(2/3)/2` (PETIR `r_powf` against glibc `pow`: 360/360 identical) and the
+anisotropic per-direction coefficient (1080/1080). 50 rows pinned (`PINS_LES_FILTERS`).
+
+- Prediction 1 (simple identical): held. Prediction 2 (anisotropic identical, boundary = input
+  boundary): held; the contraction order was right first time. Prediction 3: the structure held (zero
+  boundary `gamma`, identical when fed the upstream coefficient) but the libm half was WRONG: PETIR
+  `pow` agrees with glibc on all ten distinct cell volumes, so "own coeff" and "esi coeff" rows are
+  the same.
+- **Error in my own first run (disclosed).** The first comparison of the tensor `grad U` row was
+  1840/3240 (`simple`), max relative difference 0.156, not ulp-sized. Cause: my test fed the dumped
+  `gradU_b` (the wall-normal-corrected boundary), but `grad U` is `extrapolatedCalculated` and the
+  filter's own `correctBoundaryConditions` re-extrapolates it to the owner-cell value before use.
+  The real filter sees the extrapolated boundary; the test now feeds that and all rows are 0 ulp.
+  No port change was needed. Consequence for any caller: a filter applied to a freshly computed
+  `fvc::grad` field sees an extrapolated boundary, not the corrected one.
+- Not covered: coupled (cyclic/AMI) patches, `Mixed`/`fixedGradient` boundary conditions on the
+  filtered field, non-orthogonal meshes (the duct is orthogonal; the uncorrected `snGrad` uses
+  `nonOrthDeltaCoeffs` as upstream, but only the orthogonal case was compared).

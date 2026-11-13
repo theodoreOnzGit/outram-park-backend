@@ -13,7 +13,7 @@ cp -r $SOLV $W/lib/dumpSolver
 rm -rf $W/src/turbDump
 cp -r $HERE/driver $W/src/turbDump
 (cd $W/src/turbDump && WM_NCOMPPROCS=1 $WITH wmake)
-for M in ${MODELS:-kEpsilon kOmega kOmegaSST SpalartAllmaras Smagorinsky RNGkEpsilon realizableKE WALE SpalartAllmarasDES SpalartAllmarasDDES SpalartAllmarasIDDES kOmegaSSTDES kEqn LaunderSharmaKE LaunderSharmaKE_lowRe}; do
+for M in ${MODELS:-kEpsilon kOmega kOmegaSST SpalartAllmaras Smagorinsky RNGkEpsilon realizableKE WALE SpalartAllmarasDES SpalartAllmarasDDES SpalartAllmarasIDDES kOmegaSSTDES kEqn LaunderSharmaKE LaunderSharmaKE_lowRe LESfilters}; do
   C=$W/case_$M
   MODEL=${M%_lowRe}
   rm -rf $C
@@ -24,8 +24,8 @@ for M in ${MODELS:-kEpsilon kOmega kOmegaSST SpalartAllmaras Smagorinsky RNGkEps
   if [ "$M" != "$MODEL" ]; then sed -i "s/^nu .*/nu 1e-02;/" $C/constant/transportProperties; fi
   if [ $MODEL = SpalartAllmarasIDDES ]; then
     printf 'FoamFile { version 2.0; format ascii; class dictionary; object turbulenceProperties; }\nsimulationType LES;\nLES { model %s; turbulence on; printCoeffs on; delta IDDESDelta; }\n' $MODEL > $C/constant/turbulenceProperties
-  elif [ $MODEL = Smagorinsky ] || [ $MODEL = WALE ] || [ $MODEL = SpalartAllmarasDES ] || [ $MODEL = SpalartAllmarasDDES ] || [ $MODEL = kOmegaSSTDES ] || [ $MODEL = kEqn ]; then
-    printf 'FoamFile { version 2.0; format ascii; class dictionary; object turbulenceProperties; }\nsimulationType LES;\nLES { model %s; turbulence on; printCoeffs on; delta cubeRootVol; cubeRootVolCoeffs { deltaCoeff 1; } }\n' $MODEL > $C/constant/turbulenceProperties
+  elif [ $MODEL = Smagorinsky ] || [ $MODEL = WALE ] || [ $MODEL = SpalartAllmarasDES ] || [ $MODEL = SpalartAllmarasDDES ] || [ $MODEL = kOmegaSSTDES ] || [ $MODEL = kEqn ] || [ $MODEL = LESfilters ]; then
+    printf 'FoamFile { version 2.0; format ascii; class dictionary; object turbulenceProperties; }\nsimulationType LES;\nLES { model %s; turbulence on; printCoeffs on; delta cubeRootVol; cubeRootVolCoeffs { deltaCoeff 1; } }\n' ${MODEL/LESfilters/kEqn} > $C/constant/turbulenceProperties
   else
     printf 'FoamFile { version 2.0; format ascii; class dictionary; object turbulenceProperties; }\nsimulationType RAS;\nRAS { model %s; turbulence on; printCoeffs on; }\n' $MODEL > $C/constant/turbulenceProperties
   fi

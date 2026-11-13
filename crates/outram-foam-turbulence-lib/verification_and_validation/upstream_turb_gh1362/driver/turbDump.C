@@ -33,6 +33,9 @@
 #include "fixedValueFvPatchFields.H"
 #include "zeroGradientFvPatchFields.H"
 #include "calculatedFvPatchFields.H"
+#include "simpleFilter.H"
+#include "laplaceFilter.H"
+#include "anisotropicFilter.H"
 #include <cstdio>
 #include <cstring>
 #include <cstdint>
@@ -84,6 +87,35 @@ static void dumpV(const std::string& key, const vectorField& s)
 static void dumpT(const std::string& key, const tensorField& s)
 {
     forAll(s, i) H9(key, i, s[i]);
+}
+
+
+// symmTensor: xx xy xz yy yz zz
+static void H6(const std::string& key, label i, const symmTensor& t)
+{
+    uint64_t u[6];
+    scalar c[6] = {t.xx(), t.xy(), t.xz(), t.yy(), t.yz(), t.zz()};
+    std::memcpy(u, c, 48);
+    std::printf("%s %d", key.c_str(), int(i));
+    for (int k = 0; k < 6; ++k) std::printf(" %016llx", static_cast<unsigned long long>(u[k]));
+    std::printf("\n");
+}
+
+static void P(const std::string& k, label i, scalar a) { H(k, i, a); }
+static void P(const std::string& k, label i, const vector& a) { H3(k, i, a); }
+static void P(const std::string& k, label i, const symmTensor& a) { H6(k, i, a); }
+static void P(const std::string& k, label i, const tensor& a) { H9(k, i, a); }
+
+// A volume field: cell values under `key`, boundary-face values (patch order) under `key`_b.
+template<class T>
+static void dumpVF(const std::string& key, const GeometricField<T, fvPatchField, volMesh>& f)
+{
+    forAll(f.primitiveField(), i) P(key, i, f.primitiveField()[i]);
+    label kb = 0;
+    forAll(f.boundaryField(), pi)
+    {
+        forAll(f.boundaryField()[pi], fi) P(key + "_b", kb++, f.boundaryField()[pi][fi]);
+    }
 }
 
 // ---- analytic inputs: polynomials only (no transcendental functions) --------
@@ -214,7 +246,7 @@ static void auditMatrix(const word& eq, const fvScalarMatrix& mIn)
 
 int main(int argc, char* argv[])
 {
-    argList::addOption("model", "name", "kEpsilon|kOmega|kOmegaSST|SpalartAllmaras|Smagorinsky|RNGkEpsilon|realizableKE|WALE|SpalartAllmarasDES|SpalartAllmarasDDES|SpalartAllmarasIDDES|kOmegaSSTDES|kEqn|LaunderSharmaKE");
+    argList::addOption("model", "name", "kEpsilon|kOmega|kOmegaSST|SpalartAllmaras|Smagorinsky|RNGkEpsilon|realizableKE|WALE|SpalartAllmarasDES|SpalartAllmarasDDES|SpalartAllmarasIDDES|kOmegaSSTDES|kEqn|LaunderSharmaKE|LESfilters|dynamicKEqn|dynamicLagrangian");
     #include "setRootCase.H"
     #include "createTime.H"
     #include "createMesh.H"
@@ -357,6 +389,13 @@ int main(int argc, char* argv[])
     const volTensorField& gradU = tgradU();
     const volScalarField::Internal divU(fvc::div(fvc::absolute(phi, U))().v());
     dumpT("gradU", gradU.primitiveField());
+    {
+        label kb = 0;
+        forAll(gradU.boundaryField(), pi)
+        {
+            forAll(gradU.boundaryField()[pi], fi) H9("gradU_b", kb++, gradU.boundaryField()[pi][fi]);
+        }
+    }
     dumpS("divU", divU.field());
     tmp<volVectorField> tgradk = fvc::grad(k);
     tmp<volVectorField> tgradom = fvc::grad(omega);
@@ -367,7 +406,7 @@ int main(int argc, char* argv[])
 
     // ---- the REAL correct(): matrices and local fields are printed by the
     //      dumpSolver instead of being solved ------------------------------
-    if (model != "Smagorinsky" && model != "WALE")
+    if (model != "Smagorinsky" && model != "WALE" && model != "LESfilters")
     {
         turbulence->correct();
     }
@@ -1111,6 +1150,85 @@ int main(int argc, char* argv[])
             G - fvm::SuSp(SuSpK, kP()) - fvm::Sp(SpK, kP())
         );
         auditMatrix("k", kEqn);
+    }
+    else if (model == "LESfilters")
+    {
+        // LESfilters/{simpleFilter,laplaceFilter,anisotropicFilter}: the REAL filter classes
+        // applied to scalar (k, zeroGradient; magSqr(U), calculated), vector (U, fixedValue),
+        // symmTensor (sqr(U), symm(gradU), calculated) and tensor (gradU) fields.
+        const scalar widthCoeff = 2.0;
+        simpleFilter sf(mesh);
+        laplaceFilter lf(mesh, widthCoeff);
+        anisotropicFilter af(mesh, widthCoeff);
+        // coefficient fields transcribed from the constructors (the classes keep them private)
+        {
+            const scalarField lc(pow(mesh.V().field(), 2.0/3.0)/widthCoeff);
+            dumpS("T_laplaceCoeff", lc);
+            vectorField ac(mesh.nCells());
+            for (direction d = 0; d < vector::nComponents; d++)
+            {
+                ac.replace
+                (
+                    d,
+                    (1/widthCoeff)*
+                    sqr
+                    (
+                        2.0*mesh.V().field()
+                       /fvc::surfaceSum(mag(mesh.Sf().component(d)))().primitiveField()
+                    )
+                );
+            }
+            dumpV("T_anisoCoeff", ac);
+        }
+        const volScalarField magSqrU(magSqr(U));
+        const volSymmTensorField sqrU(sqr(U));
+        const volSymmTensorField Dsym(symm(gradU));
+        const volTensorField gU(gradU);
+        dumpVF("in_magSqrU", magSqrU);
+        dumpVF("in_sqrU", sqrU);
+        dumpVF("in_Dsym", Dsym);
+        {
+            tmp<volScalarField> a = sf(k);
+            dumpVF("F_simple_k", a());
+            tmp<volScalarField> a2 = sf(magSqrU);
+            dumpVF("F_simple_magSqrU", a2());
+            tmp<volVectorField> b = sf(U);
+            dumpVF("F_simple_U", b());
+            tmp<volSymmTensorField> c = sf(sqrU);
+            dumpVF("F_simple_sqrU", c());
+            tmp<volSymmTensorField> c2 = sf(Dsym);
+            dumpVF("F_simple_Dsym", c2());
+            tmp<volTensorField> d = sf(gU);
+            dumpVF("F_simple_gradU", d());
+        }
+        {
+            tmp<volScalarField> a = lf(k);
+            dumpVF("F_laplace_k", a());
+            tmp<volScalarField> a2 = lf(magSqrU);
+            dumpVF("F_laplace_magSqrU", a2());
+            tmp<volVectorField> b = lf(U);
+            dumpVF("F_laplace_U", b());
+            tmp<volSymmTensorField> c = lf(sqrU);
+            dumpVF("F_laplace_sqrU", c());
+            tmp<volSymmTensorField> c2 = lf(Dsym);
+            dumpVF("F_laplace_Dsym", c2());
+            tmp<volTensorField> d = lf(gU);
+            dumpVF("F_laplace_gradU", d());
+        }
+        {
+            tmp<volScalarField> a = af(k);
+            dumpVF("F_aniso_k", a());
+            tmp<volScalarField> a2 = af(magSqrU);
+            dumpVF("F_aniso_magSqrU", a2());
+            tmp<volVectorField> b = af(U);
+            dumpVF("F_aniso_U", b());
+            tmp<volSymmTensorField> c = af(sqrU);
+            dumpVF("F_aniso_sqrU", c());
+            tmp<volSymmTensorField> c2 = af(Dsym);
+            dumpVF("F_aniso_Dsym", c2());
+            tmp<volTensorField> d = af(gU);
+            dumpVF("F_aniso_gradU", d());
+        }
     }
     else if (model == "Smagorinsky")
     {

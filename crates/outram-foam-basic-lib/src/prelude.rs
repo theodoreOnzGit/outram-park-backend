@@ -105,6 +105,10 @@ pub use crate::ldu_matrix::{FvMatrix, FvVectorMatrix, LduMatrix, SolverPerforman
 
 // --- FV operators (Layer 3) ---
 pub use crate::fv_operators::{adjust_phi, fvc, fvm};
+pub use crate::fv_operators::les_filter::{
+    simple_filter, surface_integrate, surface_sum, AnisotropicFilter, FilterValue, LaplaceFilter,
+    LesFilter,
+};
 
 // --- KNP central-upwind face flux (rhoCentralFoam kernel, Layer 3) ---
 pub use crate::fv_operators::fvc::central_upwind::{KnpFaceFlux, KnpFaceState, KnpWaveSpeeds};

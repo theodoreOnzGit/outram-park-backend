@@ -1273,3 +1273,212 @@ const PINS_LS_LOW: &[(&str, usize)] = &[
     ("LaunderSharmaKE lowRe k_SuSp", 360),
     ("LaunderSharmaKE lowRe k_Sp", 360),
 ];
+
+// ── gh:#1544 slice 7: the LESfilter family (basic-lib) against the real ESI classes ───
+
+use outram_foam_basic_lib::fields::vol_field::VolField;
+use outram_foam_basic_lib::fv_operators::les_filter::{
+    AnisotropicFilter, FilterValue, LaplaceFilter, LesFilter,
+};
+use outram_foam_basic_lib::primitives::SymmTensor;
+
+const REF_LESFILTERS: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_LESfilters.txt.gz"
+);
+
+/// Component access for flattening and for building fields from the dump.
+trait Comps: FilterValue {
+    fn comps(&self) -> Vec<f64>;
+    fn make(a: &[f64]) -> Self;
+}
+
+impl Comps for f64 {
+    fn comps(&self) -> Vec<f64> {
+        vec![*self]
+    }
+    fn make(a: &[f64]) -> Self {
+        a[0]
+    }
+}
+
+impl Comps for Vector3 {
+    fn comps(&self) -> Vec<f64> {
+        vec![self.x, self.y, self.z]
+    }
+    fn make(a: &[f64]) -> Self {
+        Vector3::new(a[0], a[1], a[2])
+    }
+}
+
+impl Comps for SymmTensor {
+    fn comps(&self) -> Vec<f64> {
+        vec![self.xx, self.xy, self.xz, self.yy, self.yz, self.zz]
+    }
+    fn make(a: &[f64]) -> Self {
+        SymmTensor::new(a[0], a[1], a[2], a[3], a[4], a[5])
+    }
+}
+
+impl Comps for Tensor {
+    fn comps(&self) -> Vec<f64> {
+        vec![self.xx, self.xy, self.xz, self.yx, self.yy, self.yz, self.zx, self.zy, self.zz]
+    }
+    fn make(a: &[f64]) -> Self {
+        Tensor::new(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8])
+    }
+}
+
+/// A field from the dump: cell values under `cell_key`, boundary faces (patch order) under
+/// `bnd_key`; `zero_gradient` gives the patches the ZeroGradient BC (upstream's `k`).
+fn ref_field<T: Comps>(
+    r: &Ref,
+    mesh: &Arc<FvMesh>,
+    cell_key: &str,
+    bnd_key: Option<&str>,
+    zero_gradient: bool,
+) -> VolField<T> {
+    let cells: Vec<T> = r.cols[cell_key].iter().map(|v| T::make(v)).collect();
+    let faces: Vec<T> = match bnd_key {
+        Some(k) => r.cols[k].iter().map(|v| T::make(v)).collect(),
+        None => mesh
+            .patches
+            .iter()
+            .flat_map(|p| (p.start..p.start + p.size).map(|f| cells[mesh.owner[f]].clone()))
+            .collect(),
+    };
+    let boundary = mesh
+        .patches
+        .iter()
+        .map(|p| {
+            let b0 = p.start - mesh.n_internal_faces;
+            let vals = Field::new(faces[b0..b0 + p.size].to_vec());
+            PatchField {
+                bc: if zero_gradient {
+                    BoundaryCondition::ZeroGradient
+                } else {
+                    BoundaryCondition::Calculated(vals.clone())
+                },
+                values: vals,
+            }
+        })
+        .collect();
+    VolField::new(cell_key, mesh.clone(), Field::new(cells), boundary)
+}
+
+fn flat<T: Comps>(v: &[T]) -> Vec<f64> {
+    v.iter().flat_map(|x| x.comps()).collect()
+}
+
+fn ref_flat(r: &Ref, key: &str) -> Vec<f64> {
+    r.cols[key].iter().flatten().copied().collect()
+}
+
+/// Cell and boundary-face rows of one filtered field against the dump.
+fn compare_filtered<T: Comps>(label: &str, r: &Ref, out: &VolField<T>, key: &str) -> Rows {
+    let l = format!("{label} {key} cells");
+    let a = cmp(&l, &flat(out.internal.as_slice()), &ref_flat(r, key));
+    let bnd: Vec<T> = out.boundary.iter().flat_map(|p| p.values.iter().cloned()).collect();
+    let lb = format!("{label} {key} faces");
+    let b = cmp(&lb, &flat(&bnd), &ref_flat(r, &format!("{key}_b")));
+    vec![(l, a), (lb, b)]
+}
+
+fn filter_rows(label: &str, r: &Ref, mesh: &Arc<FvMesh>, f: &LesFilter, tag: &str) -> Rows {
+    let k: VolScalarField = ref_field(r, mesh, "k", None, true);
+    let mag: VolScalarField = ref_field(r, mesh, "in_magSqrU", Some("in_magSqrU_b"), false);
+    let u: VolVectorField = ref_field(r, mesh, "U", Some("Ub"), false);
+    let sqr_u: VolField<SymmTensor> = ref_field(r, mesh, "in_sqrU", Some("in_sqrU_b"), false);
+    let dsym: VolField<SymmTensor> = ref_field(r, mesh, "in_Dsym", Some("in_Dsym_b"), false);
+    // `gradU` is extrapolatedCalculated: the filter's `correctBoundaryConditions` re-extrapolates
+    // its boundary to the owner-cell value, so THAT is what the real filter sees (the dumped
+    // `gradU_b` is the corrected-normal boundary before that call; using it was this test's
+    // first-run error, README slice 7).
+    let gu: VolField<Tensor> = ref_field(r, mesh, "gradU", None, false);
+    let mut rows = Rows::new();
+    rows.extend(compare_filtered(label, r, &f.apply(&k), &format!("F_{tag}_k")));
+    rows.extend(compare_filtered(label, r, &f.apply(&mag), &format!("F_{tag}_magSqrU")));
+    rows.extend(compare_filtered(label, r, &f.apply(&u), &format!("F_{tag}_U")));
+    rows.extend(compare_filtered(label, r, &f.apply(&sqr_u), &format!("F_{tag}_sqrU")));
+    rows.extend(compare_filtered(label, r, &f.apply(&dsym), &format!("F_{tag}_Dsym")));
+    rows.extend(compare_filtered(label, r, &f.apply(&gu), &format!("F_{tag}_gradU")));
+    rows
+}
+
+#[test]
+fn les_filters_vs_openfoam() {
+    let r = parse(REF_LESFILTERS);
+    let mesh = r.mesh();
+    let mut rows = Rows::new();
+    rows.extend(filter_rows("simple", &r, &mesh, &LesFilter::Simple, "simple"));
+    let lap = LaplaceFilter::new(mesh.clone(), 2.0);
+    let c = cmp("laplace coeff (PETIR pow)", lap.coeff(), &r.s("T_laplaceCoeff"));
+    rows.push(("laplace coeff (PETIR pow)".to_string(), c));
+    rows.extend(filter_rows("laplace (own coeff)", &r, &mesh, &LesFilter::Laplace(lap), "laplace"));
+    let lap_up = LaplaceFilter::with_coeff(mesh.clone(), 2.0, r.s("T_laplaceCoeff"));
+    rows.extend(filter_rows(
+        "laplace (esi coeff)",
+        &r,
+        &mesh,
+        &LesFilter::Laplace(lap_up),
+        "laplace",
+    ));
+    let an = AnisotropicFilter::new(mesh.clone(), 2.0);
+    let c = cmp("aniso coeff", &flat(an.coeff()), &ref_flat(&r, "T_anisoCoeff"));
+    rows.push(("aniso coeff".to_string(), c));
+    rows.extend(filter_rows("aniso", &r, &mesh, &LesFilter::Anisotropic(an), "aniso"));
+    all_identical(&rows);
+    pin(&rows, PINS_LES_FILTERS);
+}
+
+const PINS_LES_FILTERS: &[(&str, usize)] = &[
+    ("simple F_simple_k cells", 360),
+    ("simple F_simple_k faces", 372),
+    ("simple F_simple_magSqrU cells", 360),
+    ("simple F_simple_magSqrU faces", 372),
+    ("simple F_simple_U cells", 1080),
+    ("simple F_simple_U faces", 1116),
+    ("simple F_simple_sqrU cells", 2160),
+    ("simple F_simple_sqrU faces", 2232),
+    ("simple F_simple_Dsym cells", 2160),
+    ("simple F_simple_Dsym faces", 2232),
+    ("simple F_simple_gradU cells", 3240),
+    ("simple F_simple_gradU faces", 3348),
+    ("laplace coeff (PETIR pow)", 360),
+    ("laplace (own coeff) F_laplace_k cells", 360),
+    ("laplace (own coeff) F_laplace_k faces", 372),
+    ("laplace (own coeff) F_laplace_magSqrU cells", 360),
+    ("laplace (own coeff) F_laplace_magSqrU faces", 372),
+    ("laplace (own coeff) F_laplace_U cells", 1080),
+    ("laplace (own coeff) F_laplace_U faces", 1116),
+    ("laplace (own coeff) F_laplace_sqrU cells", 2160),
+    ("laplace (own coeff) F_laplace_sqrU faces", 2232),
+    ("laplace (own coeff) F_laplace_Dsym cells", 2160),
+    ("laplace (own coeff) F_laplace_Dsym faces", 2232),
+    ("laplace (own coeff) F_laplace_gradU cells", 3240),
+    ("laplace (own coeff) F_laplace_gradU faces", 3348),
+    ("laplace (esi coeff) F_laplace_k cells", 360),
+    ("laplace (esi coeff) F_laplace_k faces", 372),
+    ("laplace (esi coeff) F_laplace_magSqrU cells", 360),
+    ("laplace (esi coeff) F_laplace_magSqrU faces", 372),
+    ("laplace (esi coeff) F_laplace_U cells", 1080),
+    ("laplace (esi coeff) F_laplace_U faces", 1116),
+    ("laplace (esi coeff) F_laplace_sqrU cells", 2160),
+    ("laplace (esi coeff) F_laplace_sqrU faces", 2232),
+    ("laplace (esi coeff) F_laplace_Dsym cells", 2160),
+    ("laplace (esi coeff) F_laplace_Dsym faces", 2232),
+    ("laplace (esi coeff) F_laplace_gradU cells", 3240),
+    ("laplace (esi coeff) F_laplace_gradU faces", 3348),
+    ("aniso coeff", 1080),
+    ("aniso F_aniso_k cells", 360),
+    ("aniso F_aniso_k faces", 372),
+    ("aniso F_aniso_magSqrU cells", 360),
+    ("aniso F_aniso_magSqrU faces", 372),
+    ("aniso F_aniso_U cells", 1080),
+    ("aniso F_aniso_U faces", 1116),
+    ("aniso F_aniso_sqrU cells", 2160),
+    ("aniso F_aniso_sqrU faces", 2232),
+    ("aniso F_aniso_Dsym cells", 2160),
+    ("aniso F_aniso_Dsym faces", 2232),
+    ("aniso F_aniso_gradU cells", 3240),
+    ("aniso F_aniso_gradU faces", 3348),
+];
