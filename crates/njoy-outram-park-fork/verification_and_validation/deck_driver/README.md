@@ -1496,3 +1496,28 @@ identical** (85 before). Remaining: none.
 | `gaminr_vs_njoy2016` | 2 of 2 passed |
 | `deck_driver_survey` (`SURVEY_CASES=03,30`, `--ignored`) | 03 and 30 `identical` |
 | `--lib` | 774 of 774 passed |
+
+## 28. GROUPR `getwtf` for `iwt = 1, 7, 10, 11, 12` (2026-11-13, gh:#1370)
+
+No upstream deck uses these weights (the 87 decks use `iwt` 2-6 and 9), so the tape
+driver refused them. Translated from `groupr.f90:5011-5025` (`genwtf`, card 8b) and
+`:5186-5300` (`getwtf`):
+- `groupr::genwtf`: card 8b's TAB1 (`genwtf_iwt1`), `temp(jtemp)`
+  (`getwtf_set_temperature`, set per temperature from `jtemp = itemp`, `:497`), the
+  tabulated branch with its saved `ip, ir, ipl, step`, and `iwt = 10`;
+- `groupr::weights::getwtf_iwt67` and `getwtf_iwt1112`, beside `getwtf_iwt6` and
+  `vitamin_e` (kept), because upstream writes `exp(two)` and `e**half` (a real
+  power) where those take `e**2` and `sqrt`.
+
+**Refused by name:** a card 8b that gives fewer words than its own `6 + 2 nr + 2 np`
+(upstream reads unset words of an `allocate`d `tmp`; the deck reader marks unread
+words `NaN`); `iwt = 0` in `getwtf` (no branch sets `wtf`).
+
+**Gates** (`tests/deck_driver_groupr_weights_vs_njoy2016.rs`): decks of our own on
+H-2 ENDF/B-VIII.0 (MODER, RECONR, BROADR to 293.6 K, GROUPR LANL-30 with `3/` and
+`6 2/`). The prediction was posted on gh:#1370 before the first run: every line of
+the GENDF identical. **Result: identical in all seven, 321 of 321 lines each,
+compared as strings,** for `iwt = 1` (a two-region TAB1), 7, 8, 10, 11, 12, and
+`iwt = -3` with one sigma-zero (upstream then takes `getwtf` with `|iwt|`,
+`:6505-6512`). Control: NJOY's own GENDFs for these decks differ from one another
+(3 090 bytes between `iwt = 7` and `8`, 59 between 11 and 12), so the gate can fail.

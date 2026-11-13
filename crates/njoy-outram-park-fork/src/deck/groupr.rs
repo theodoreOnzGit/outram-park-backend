@@ -317,6 +317,12 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
         let p = inp.thermal_fission_params.ok_or_else(|| NjoyError::InvalidInput("groupr: iwt = 4 without card 8c".into()))?;
         crate::groupr::njoy_panel::genwtf_iwt4(&p);
     }
+    // `iwt = 1` stores card 8b's TAB1 (`:5011-5025`, gh:#1370); it is the last card
+    // `read_groupr` keeps (after card 8a for `iwt = -1`).
+    if inp.weight.iwt().abs() == 1 {
+        let tab = job.weight_cards.last().ok_or_else(|| NjoyError::InvalidInput("groupr: iwt = 1 without card 8b".into()))?;
+        crate::groupr::genwtf::genwtf_iwt1(tab)?;
+    }
     let mut sigz: Vec<f64> = inp.sigma_zeros.clone();
     if let Some(s) = sigz.first_mut() {
         *s = 1.0e10;
@@ -379,6 +385,8 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     let iblock = &mut 0usize;
     for itemp in 0..inp.temperatures.len() {
     let tempin = inp.temperatures[itemp];
+    // `jtemp = itemp` (`:497`): `getwtf` reads `temp(jtemp)` for `iwt = 7, 10, 12`.
+    crate::groupr::genwtf::getwtf_set_temperature(tempin);
     let pend = find_temperature_block(&blocks, iblock, inp.matb, tempin)?;
     let mf1 = pend
         .section(inp.matb, 1, 451)

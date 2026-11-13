@@ -366,7 +366,8 @@ pub struct GrouprJob {
     /// Card 8a/8b/8d extras that [`GrouprInput`] does not carry: the raw
     /// values read (flux calculator `fehi, sigpot, nflmax, ninwt, jsigz,
     /// alpha2, sam, beta, alpha3, gamma`, or the TAB1 weight values, or
-    /// `ninwt`), in card order.
+    /// `ninwt`), in card order. Card 8b's 10 000 words are `NaN` past the
+    /// last one the card gives (gh:#1370).
     pub weight_cards: Vec<Vec<f64>>,
     /// Card 9a extended requests `(mfd, mtd, izar, lfs)`, each with its
     /// position in the card-9 list: the number of plain requests
@@ -458,7 +459,9 @@ pub fn read_groupr(r: &mut CardReader) -> Result<GrouprJob, NjoyError> {
             let ninwt = r.read_ints(&[0])?[0];
             input.weight = WeightSelection::ReadResonanceFlux { ninwt: ninwt.abs() };
         }
-        1 => weight_cards.push(r.read_reals(&vec![0.0; 10000])?),
+        // `NaN` marks a word the card does not give: upstream's `tmp` is
+        // `allocate`d, not set, so `genwtf_iwt1` refuses to read one (gh:#1370).
+        1 => weight_cards.push(r.read_reals(&vec![f64::NAN; 10000])?),
         4 => {
             let v = r.read_reals(&[0.0, 0.0, 0.0, 0.0])?;
             input.thermal_fission_params = Some(crate::groupr::ThermalFissionParams {
