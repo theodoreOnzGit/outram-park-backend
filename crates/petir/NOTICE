@@ -85,6 +85,13 @@ COPYRIGHT HOLDERS
                            (contributors Konstantin Holoborodko, Rhys Ulerich)
       -> src/integration/glfixed.rs, glfixed_tables.rs (ported 2026-11-13,
          gh:#1340; the 27 tables and `ltbl` copied by script)
+    GSL integration/qaws.c, qc25s.c
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007
+                           Brian Gough
+    GSL integration/qmomo.c
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007,
+                           2009 Brian Gough
+      -> src/integration/qaws.rs (ported 2026-11-13, gh:#1340)
     GSL integration/romberg.c
                            Copyright (C) 2018 Patrick Alken
       -> src/integration/romberg.rs (ported 2026-11-13, gh:#1340)

@@ -173,3 +173,32 @@ reversed interval, a zero-width interval and the four argument errors).
   PETIR's). (d) Results bit-identical in at least 8 of 16 (every integrand
   path calls `pow` or `log`), and where not, within 1e-12 relative; abserr
   within 1e-6 relative.
+
+### QAWS results (2026-11-13, Rust 1.99.1 release, GSL 2.8 `cf180cd7`, `gcc -O2`, glibc)
+
+`tests/gsl_qaws_code_to_code.rs`: 12 `TERR` rows, 8 tables, 17 integrations.
+
+| item | identical |
+|---|---|
+| table accepted / refused (12) | 12/12 |
+| status, workspace size, `neval` (17) | 17/17 |
+| Chebyshev moments (8 tables x 100) | **675/800** (6 tables 100 %; `(0.5, 0.5, 1, 1)` 16 %; `(1.5, -0.3, 1, 0)` 59 %) |
+| results (17) | **13/17** bit-identical, the other 4 within 1e-12 |
+| abserr (17) | **9/17** bit-identical |
+
+- **P10 (a), (b), (c) held; (d) half failed.** Moments 84 % (>= 50 % predicted)
+  and results 13/17 (>= 8 predicted) held. The prediction that abserr agrees
+  to 1e-6 **failed**: `both_log` differs by 8.9e-6 and `mix` by 4.7 %
+  (`mix`'s abserr is 8e-16, at the rounding floor, so a last-bit change in a
+  moment moves it by percents). The test therefore checks abserr only to a
+  factor of two for the non-identical cases, and says why.
+- **Cause demonstrated, not assumed**: GSL's driver relinked with PETIR's
+  `pow` and `log` (diagnostic shim, not committed) gives **800/800 moments,
+  17/17 results and 17/17 abserr bit-identical** to this port. Everything
+  that differs from stock GSL is glibc's `pow`/`log` against PETIR's; the
+  logic, including `qc25s`'s three branches, is faithful.
+- **GSL defect found, not copied**: with `limit = 2` GSL's `qaws` appends a
+  third interval to a workspace of two (size 3, status 5 observed): an
+  out-of-bounds write. PETIR returns `Invalid` for `limit < 2` and, for
+  `limit = 2`, when the third write fails. `limit = 3` and above are
+  compared.

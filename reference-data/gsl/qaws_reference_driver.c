@@ -90,7 +90,11 @@ int main(void)
   run("plain", sin5, 0.0, 2.0, 0.0, 0.0, 0, 0, 0.0, 1e-10, 100);
   run("mix", expmx, -1.0, 1.0, 1.5, -0.3, 1, 0, 0.0, 1e-10, 100);
   run("hard", quad, 0.0, 1.0, -0.9, -0.9, 0, 0, 0.0, 1e-12, 200);
-  run("limit2", cos10, 0.0, 1.0, -0.5, -0.5, 0, 0, 0.0, 1e-12, 2);
+  /* limit 2 is omitted on purpose: after the two initial intervals the first
+     bisection appends a third, writing past a workspace of two (GSL bug, seen
+     as size 3 and status 5 with limit 2); PETIR refuses it as Invalid. */
+  run("limit3", cos10, 0.0, 1.0, -0.5, -0.5, 0, 0, 0.0, 1e-12, 3);
+  run("limit4", cos10, 0.0, 1.0, -0.5, -0.5, 0, 0, 0.0, 1e-12, 4);
   run("limit5", cos10, 0.0, 1.0, -0.5, -0.5, 0, 0, 0.0, 1e-12, 5);
   run("abs_only", expx, 0.0, 1.0, -0.5, 0.0, 0, 0, 1e-8, 0.0, 100);
   run("b_lt_a", one, 1.0, 0.0, 0.0, 0.0, 0, 0, 0.0, 1e-8, 10);

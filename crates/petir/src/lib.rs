@@ -119,7 +119,7 @@
 //! | [`gamma_inc`] | ported | Regularised lower incomplete gamma, GSL's branch structure (see also the OpenFOAM-lifted `specfunc::inc_gamma`) |
 //! | [`depletion`] | ported (OpenMC, not GSL) | OpenMC's eight depletion time integrators, IPF CRAM and the dense burnup matrix; CRAM and the matrix moved here from `outram-mc-libs` 2026-10-17 |
 //! | [`deriv`] | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
-//! | [`integration`] | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, `qag` adaptive driver, extrapolating `qags`, `qagi`/`qagiu`/`qagil` for infinite ranges, `qagp` (break points), `qawc` (Cauchy principal value), non-adaptive `qng`, Romberg, and fixed-order Gauss-Legendre (`glfixed`) (gh:#1340) |
+//! | [`integration`] | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, `qag` adaptive driver, extrapolating `qags`, `qagi`/`qagiu`/`qagil` for infinite ranges, `qagp` (break points), `qawc` (Cauchy principal value), `qaws` (algebraic-logarithmic weights), non-adaptive `qng`, Romberg, and fixed-order Gauss-Legendre (`glfixed`) (gh:#1340) |
 //! | [`interp`] | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |
 //! | [`interp2d`] | ported | Bilinear and bicubic interpolation on a rectangular grid with first and second partial derivatives (gh:#1341) |
 //! | [`interp_cspline_poly`] | ported | Periodic cubic spline and the single interpolating polynomial, with first and second derivative and integral (gh:#1341) |
