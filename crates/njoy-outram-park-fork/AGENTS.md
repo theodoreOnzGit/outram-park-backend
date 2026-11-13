@@ -1091,6 +1091,11 @@ translated. Still refused: `ielas = 1`, ~~MF=4, MF=5 for a production reaction,~
 **CORRECTED 2026-11-13 (gh:#1369, deck 56):** MF=4/MF=5 (`photonuclear/mf45.rs`) and the
 `iopt = 7` plot file (`acer::phnplo`) are translated too, and decks 56, 57, 58, 66
 and 78 are NJOY2016's as whole decks (README §22).
+**CORRECTED 2026-11-13 (gh:#1369, deck 64):** "`LAW = 4`" is refused only in part
+now. Its recoil heating (`acepn.f90:507-584`) is translated, and deck 64 (Ra-226
+TENDL-2019) is NJOY2016's as a whole deck. Still refused by name: `LAW = 4` for a
+recoil that is itself an emitted light particle (ANDP `:975-990`, DLWP
+`:1774-1790`), and `ielas = 1`. README §23.
 
 **The pair is archived, and the `hk` comment is the provenance.** Both tables
 — NJOY2016's and this port's — live in the `reference-data/ace` submodule as

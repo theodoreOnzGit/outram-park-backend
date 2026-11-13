@@ -158,6 +158,10 @@ production reaction,~~ MF=6 `LAW = 4`. ~~`phnplo` (the `iopt = 7` plot file) is 
 ported.~~ **CORRECTED 2026-11-13 (gh:#1369, deck 56):** MF=4/MF=5 (`photonuclear/mf45.rs`) and `phnplo`
 (`acer::phnplo`) are translated; decks 56, 57, 58, 66 and 78 match NJOY2016.80 as whole
 decks, every text tape (`deck_driver/README.md` section 22).
+**CORRECTED 2026-11-13 (gh:#1369, deck 64):** MF=6 `LAW = 4`'s recoil heating
+(`acepn.f90:507-584`) is translated and deck 64 (Ra-226 TENDL-2019) is identical as a
+whole deck. `LAW = 4` for an emitted light particle (`:975-990`, `:1774-1790`) and
+`ielas = 1` are still refused (`deck_driver/README.md` section 23).
 
 ## What is ported, and what refuses (as of 2026-09-22; see above)
 

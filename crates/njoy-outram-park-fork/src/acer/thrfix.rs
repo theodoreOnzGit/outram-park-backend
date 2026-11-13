@@ -15,11 +15,14 @@
 //! the table's own layout: the same walk [`super::read::RawAceTable::derive_xss_is_int`]
 //! makes for the thermal class, so the file is re-printed through it.
 //!
-//! Not ported (`NotPorted`): a ZAID suffix (`suff >= 0`: `newsuff` on a thermal
-//! name), `nxtra != 0`, the Type 2 container and mcnpx formats.
+//! Not ported (`NotPorted`): ~~a ZAID suffix (`suff >= 0`: `newsuff` on a thermal
+//! name),~~ `nxtra != 0`, the Type 2 container and mcnpx formats.
+//! **CORRECTED 2026-11-13 (gh:#1369):** `suff >= 0` is applied by
+//! [`super::newsuff::newsuff`] (upstream test 61).
 
 use super::acefix::{AcefixOutput, AcefixRequest};
 use super::fortran_fmt::fixed;
+use super::newsuff::newsuff;
 use crate::deck::acer_thermal::thermal_directory_line;
 use crate::NjoyError;
 
@@ -29,13 +32,16 @@ use crate::NjoyError;
 /// [`NjoyError::NotPorted`] for the options listed in the module docs;
 /// [`NjoyError::EndfParse`] when the text is not a Type 1 thermal table.
 pub fn thrfix_type1(text: &str, req: &AcefixRequest) -> Result<AcefixOutput, NjoyError> {
-    if req.suff >= 0.0 {
-        return Err(NjoyError::NotPorted("ACER iopt = 7 on a thermal file with a ZAID suffix (newsuff)"));
-    }
     if req.nxtra != 0 {
         return Err(NjoyError::NotPorted("ACER iopt = 7 on a thermal file with nxtra != 0"));
     }
     let mut raw = super::read::parse_type1(text)?;
+    // `if (suff.ge. 0._kr) call newsuff(mcnpx,suff,hz)` (`aceth.f90:618`).
+    if req.suff >= 0.0 {
+        let hz = newsuff(false, req.suff, &String::from_utf8_lossy(&raw.header.raw_text[0]));
+        raw.header.zaid = hz.trim().to_string();
+        raw.header.raw_text[0] = hz.into_bytes();
+    }
     // `if (len_trim(hk).eq.0) hk=hko`.
     if !req.hk.trim().is_empty() {
         raw.header.raw_text[2] = fixed(&req.hk, 70).into_bytes();

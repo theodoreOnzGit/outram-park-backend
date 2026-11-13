@@ -40,6 +40,9 @@ use crate::NjoyError;
 use super::wfun::DopplerTable;
 use super::{infinite_dilution_reference, probability_table, Rng};
 
+/// PURR's PENDF words at several temperatures and sigma-zeros (gh:#1369).
+pub(crate) mod multi;
+
 /// NJOY's PURR seed (`purr.f90:166`), reproduced so a table built here matches
 /// one built by the reference path.
 pub const PURR_SEED: i32 = -101;

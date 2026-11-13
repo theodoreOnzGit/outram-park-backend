@@ -368,13 +368,16 @@ pub struct GrouprJob {
     /// alpha2, sam, beta, alpha3, gamma`, or the TAB1 weight values, or
     /// `ninwt`), in card order.
     pub weight_cards: Vec<Vec<f64>>,
-    /// Card 9a extended requests `(mfd, mtd, izar, lfs)`.
-    pub extended: Vec<[i32; 4]>,
+    /// Card 9a extended requests `(mfd, mtd, izar, lfs)`, each with its
+    /// position in the card-9 list: the number of plain requests
+    /// ([`GrouprInput::reactions`]) read before it. GROUPR processes the list
+    /// in card order (`groupr.f90:655-676`, gh:#1369, upstream test 86).
+    pub extended: Vec<(usize, [i32; 4])>,
     /// Card 9 (and 9a) lists for the second and later temperatures: upstream reads
     /// one list, ended by `mfd = 0`, per temperature (`groupr.f90:586-630`,
     /// label 590 loops back to label 360). The first temperature's list is
     /// [`GrouprInput::reactions`] and [`GrouprJob::extended`].
-    pub later_temperatures: Vec<(Vec<ReactionRequest>, Vec<[i32; 4]>)>,
+    pub later_temperatures: Vec<(Vec<ReactionRequest>, Vec<(usize, [i32; 4])>)>,
     /// Further materials requested by card 10, each with its own sign
     /// (negative = add/replace); the terminating `0` is not stored.
     pub more_materials: Vec<i32>,
@@ -489,7 +492,7 @@ pub fn read_groupr(r: &mut CardReader) -> Result<GrouprJob, NjoyError> {
 
 /// One GROUPR card-9 list, until `mfd = 0` (`groupr.f90:365-383`): the plain
 /// requests and the card-9a extended ones (`mfd = -1`).
-fn read_groupr_card9(r: &mut CardReader) -> Result<(Vec<ReactionRequest>, Vec<[i32; 4]>), NjoyError> {
+fn read_groupr_card9(r: &mut CardReader) -> Result<(Vec<ReactionRequest>, Vec<(usize, [i32; 4])>), NjoyError> {
     let mut reactions = Vec::new();
     let mut extended = Vec::new();
     loop {
@@ -501,7 +504,7 @@ fn read_groupr_card9(r: &mut CardReader) -> Result<(Vec<ReactionRequest>, Vec<[i
         }
         if mfd == -1 {
             let e = ints(r, &[0, 0, 0, 0])?;
-            extended.push([e[0], e[1], e[2], e[3]]);
+            extended.push((reactions.len(), [e[0], e[1], e[2], e[3]]));
             continue;
         }
         reactions.push(ReactionRequest { mfd, mtd: c[1].int(), name: c[2].text().to_string() });

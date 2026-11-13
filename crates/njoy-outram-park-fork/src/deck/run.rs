@@ -294,8 +294,29 @@ fn run_broadr(c: &BroadrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         return Err(NjoyError::NotPorted("BROADR with more than one material in one run"));
     }
     for m in &c.materials {
-        if m.istart != 0 || m.temp1 != 0.0 {
-            return Err(NjoyError::NotPorted("BROADR restart / starting temperature (cards 2)"));
+        if m.istart != 0 {
+            return Err(NjoyError::NotPorted("BROADR restart (card 2 istart = 1)"));
+        }
+        // `temp1` (card 2): BROADR takes the block of `mat1` at `temp1`, within
+        // `1 + temp1/1000` K (`broadr.f90:334-412`), and broadens it by
+        // `tempef = temp - temp1` (`:605-610`). Upstream test 60: RECONR wrote
+        // the evaluation's 293.6 K and the card says `temp1 = 293.6`.
+        let tape_temp = input
+            .tape
+            .section(m.mat, 1, 451)
+            .and_then(|s| {
+                let thead = match crate::moder::layout::iverf_from_mf1(&s.rows) {
+                    4 => 1,
+                    5 => 2,
+                    _ => 3,
+                };
+                s.rows.get(thead).map(|r| r[0])
+            })
+            .unwrap_or(0.0);
+        // Only for a non-zero `temp1`: the default 0 keeps this driver's
+        // earlier behaviour (broaden from the input result's own temperature).
+        if m.temp1 != 0.0 && (tape_temp - m.temp1).abs() > 1.0 + m.temp1 / 1000.0 {
+            return Err(NjoyError::InvalidInput("broadr: desired mat and temp not on tape".into()));
         }
         let Some((mat, res)) = &input.pointwise else {
             return Err(NjoyError::NotPorted(
@@ -307,6 +328,10 @@ fn run_broadr(c: &BroadrCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         }
         let text_mode = c.nin > 0;
         let mut src = if text_mode { res.through_pendf_text() } else { res.clone() };
+        // `tempin = temp1` (`broadr.f90:605`).
+        if m.temp1 != 0.0 {
+            src.temperature_k = m.temp1;
+        }
         let mut all: Vec<Section> = Vec::new();
         let mut final_out = None;
         let mut meta = input.meta.clone();
@@ -376,8 +401,14 @@ fn run_heatr(input: &HeatrInput, units: &mut TapeUnits, listing: &mut String) ->
         }
     }
     // HEATR leaves the pointwise cross sections as they were; MF=3 additions
-    // ride on the tape only.
-    units.store(u.nout, out.tape, pendf.pointwise)?;
+    // ride on the tape only. On a coded unit every closer is a copy and keeps
+    // the running count (gh:#1369, upstream test 21).
+    let mut tape = out.tape;
+    if u.nout > 0 {
+        let copied = crate::deck::pendf::heatr_copied_closers(&tape);
+        tape.set_copied_closers(copied);
+    }
+    units.store(u.nout, tape, pendf.pointwise)?;
     let mut meta = pendf.meta;
     meta.heatr = true;
     meta.heatr_binary = u.nout < 0;
@@ -452,8 +483,16 @@ fn run_unresr(c: &UnresrCards, units: &mut TapeUnits, _notes: &mut Vec<String>) 
 /// `sigma_0` and no HEATR on the input, the tape gets PURR's MT=152 and MT=153
 /// ([`crate::deck::pendf::purr_tape`]; unit 34 of upstream tests 35, 36 and
 /// 38-42 is identical), on the `nunx` energies card 2 asks for (`purr.f90:283-292`;
-/// ~~`nunx = 0` only~~ any `nunx` since 2026-11-12, test 63). Other decks pass
-/// the tape through, as before.
+/// ~~`nunx = 0` only~~ any `nunx` since 2026-11-12, test 63). ~~Other decks pass
+/// the tape through, as before.~~ **EXTENDED 2026-11-13 (gh:#1369):** with HEATR
+/// on the input too (one temperature: [`purr_tables_after_heatr`], test 21),
+/// and for several temperatures or sigma-zeros
+/// ([`crate::purr::tables::multi`], [`crate::deck::pendf::purr_tape_multi`],
+/// with `rdheat`'s heating per temperature: tests 10 and 19). A coded output
+/// unit keeps PURR's running sequence numbers
+/// ([`crate::deck::pendf::purr_copied_closers`]). Only a material whose
+/// PENDF has fewer blocks than temperatures, or no unresolved range, still
+/// passes the tape through with a note.
 fn run_purr(c: &PurrCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Result<(), NjoyError> {
     units.openz(c.nendf, 0)?;
     units.openz(c.nin, 0)?;
@@ -467,14 +506,47 @@ fn run_purr(c: &PurrCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     // temperature, one `sigma_0`, the `nunx` energies PURR keeps, and no
     // HEATR on the input (`ihave = 0`, a zero heating column). Others keep the
     // pass-through and say so.
-    let writable = m.temps.len() == 1 && m.sigz.len() == 1 && !prev.meta.heatr && prev.meta.blocks.len() == 1;
+    // **EXTENDED 2026-11-13 (gh:#1369, upstream test 21):** HEATR on the input
+    // (`ihave = 1/2`) too; the heating column comes from [`purr_tables_after_heatr`].
+    let writable = m.temps.len() == 1 && m.sigz.len() == 1 && prev.meta.blocks.len() == 1;
     if writable {
         let endf = units.get(c.nendf)?.tape.clone();
-        let heating = crate::purr::PurrHeating { binary: c.nout < 0, ..Default::default() };
-        let tables = crate::purr::UrrProbabilityTables::from_endf_with_heating_nunx(&endf, m.mat, m.temps[0], m.nbin as usize, m.nladr as usize, 10_000, &heating, m.nunx.max(0) as usize)?;
+        let tables = if prev.meta.heatr {
+            purr_tables_after_heatr(&endf, &prev.meta, c, m)?
+        } else {
+            let heating = crate::purr::PurrHeating { binary: c.nout < 0, ..Default::default() };
+            crate::purr::UrrProbabilityTables::from_endf_with_heating_nunx(&endf, m.mat, m.temps[0], m.nbin as usize, m.nladr as usize, 10_000, &heating, m.nunx.max(0) as usize)?
+        };
         if let (Some(t), Some(mf1)) = (tables, endf.section(m.mat, 1, 451)) {
             let (za, awr) = (mf1.rows[0][0], mf1.rows[0][1]);
-            let tape = crate::deck::pendf::purr_tape(&prev.tape, m.mat, &t, za, awr, m.temps[0], m.sigz[0])?;
+            let mut tape = crate::deck::pendf::purr_tape(&prev.tape, m.mat, &t, za, awr, m.temps[0], m.sigz[0])?;
+            if c.nout > 0 {
+                tape.set_copied_closers(crate::deck::pendf::purr_copied_closers(&tape, m.mat));
+            }
+            units.store(c.nout, tape, prev.pointwise.clone())?;
+            let mut meta = prev.meta.clone();
+            meta.purr = Some((m.nbin as usize, m.nladr as usize, m.temps.clone()));
+            meta.purr_binary = c.nout < 0;
+            meta.purr_nunx = m.nunx.max(0) as usize;
+            units.set_meta(c.nout, meta);
+            return Ok(());
+        }
+    }
+    // Several temperatures or sigma-zeros, no HEATR on the input (gh:#1369,
+    // upstream test 10): every temperature's MT=152/153 from one `unrest` run
+    // per energy over all of them ([`crate::purr::tables::multi`]).
+    // With HEATR on the input too (upstream test 19): `rdheat` reads each
+    // temperature's MT=301/302/318/402 from PURR's input tape.
+    if !writable && prev.meta.blocks.len() >= m.temps.len() {
+        let endf = units.get(c.nendf)?.tape.clone();
+        let heat = heating_per_temperature(&prev.tape, m.mat, m.temps.len())?;
+        let multi = crate::purr::tables::multi::purr_pendf_multi(&endf, m.mat, &m.temps, &m.sigz, m.nbin as usize, m.nladr as usize, 10_000, m.nunx.max(0) as usize, &heat)?;
+        if let (Some(p), Some(mf1)) = (multi, endf.section(m.mat, 1, 451)) {
+            let (za, awr) = (mf1.rows[0][0], mf1.rows[0][1]);
+            let mut tape = crate::deck::pendf::purr_tape_multi(&prev.tape, m.mat, &p, za, awr, &m.temps, &m.sigz)?;
+            if c.nout > 0 {
+                tape.set_copied_closers(crate::deck::pendf::purr_copied_closers(&tape, m.mat));
+            }
             units.store(c.nout, tape, prev.pointwise.clone())?;
             let mut meta = prev.meta.clone();
             meta.purr = Some((m.nbin as usize, m.nladr as usize, m.temps.clone()));
@@ -490,6 +562,103 @@ fn run_purr(c: &PurrCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
         meta.purr_binary = c.nout < 0;
         meta.purr_nunx = m.nunx.max(0) as usize;
     })
+}
+
+/// `rdheat`'s reads (`purr.f90:1237-1289`): for each of the first `ntemp`
+/// occurrences of `mat` on PURR's input tape, the MF=3 TAB1 of MT=301, 302, 318
+/// and 402 (`None` when absent). Empty sections everywhere is `ihave = 0`.
+///
+/// # Errors
+/// A malformed MF=3 section.
+fn heating_per_temperature(tape: &Tape, mat: i32, ntemp: usize) -> Result<Vec<[Option<crate::endf::records::Tab1>; 4]>, NjoyError> {
+    let mut out: Vec<[Option<crate::endf::records::Tab1>; 4]> = Vec::new();
+    for s in tape.sections().iter().filter(|s| s.key.mat == mat) {
+        if s.key.mf == 1 && s.key.mt == 451 {
+            if out.len() == ntemp {
+                break;
+            }
+            out.push([None, None, None, None]);
+            continue;
+        }
+        let ix = match (s.key.mf, s.key.mt) {
+            (3, 301) => 0,
+            (3, 302) => 1,
+            (3, 318) => 2,
+            (3, 402) => 3,
+            _ => continue,
+        };
+        if let Some(slot) = out.last_mut() {
+            let mut cur = crate::endf::records::SectionCursor::new(&s.rows);
+            let _ = cur.read_cont()?;
+            slot[ix] = Some(cur.read_tab1()?);
+        }
+    }
+    Ok(out)
+}
+
+/// PURR's tables when HEATR ran on its input PENDF (`rdheat`, `purr.f90:267-279`:
+/// `ihave = 1` with MT=301 alone, `2` with the partials 302/318/402). They are
+/// the tables ACER builds for the same chain ([`crate::acer::deck_modules`]: HEATR
+/// on the PENDF block, then PURR with its MT=301 and partials), so the PENDF's
+/// MT=153 and the ACE's UNR block come from one computation. `rdheat` reads
+/// MT=301 from PURR's input unit: text rounding when it is coded.
+fn purr_tables_after_heatr(
+    endf: &Tape,
+    meta: &PendfMeta,
+    c: &PurrCards,
+    m: &crate::deck::modules::PurrMaterial,
+) -> Result<Option<crate::purr::UrrProbabilityTables>, NjoyError> {
+    let Some((_, res)) = meta.blocks.first() else {
+        return Ok(None);
+    };
+    let deck = AceDeck::default()
+        .with_heatr_partials(meta.heatr_partials)
+        .with_heatr_binary(meta.heatr_binary)
+        .with_purr_binary(c.nout < 0)
+        .with_endf_binary(c.nendf < 0)
+        .with_pendf_binary(c.nin < 0)
+        .with_purr(m.nbin as usize, m.nladr as usize, 10_000)
+        .with_purr_nunx(m.nunx.max(0) as usize)
+        .with_temperature(m.temps[0]);
+    let kt_mev = 8.617_333_262e-11 * m.temps[0];
+    Ok(crate::acer::deck_modules(endf, m.mat, res, kt_mev, &deck)?.urr)
+}
+
+/// The PENDF block whose MF=3 `gamsum` multiplies into GPD, when it is not the
+/// table's own (gh:#1369, upstream test 75).
+///
+/// `gamsum` finds each MF=3 section on `npend` with `findf`
+/// (`acefc.f90:3652`) from where `unionx` left the tape: just past MF=3's FEND
+/// of the block `first` selected (`:1720-1840`). When MF=3 is that block's last
+/// file, the next record is its MEND; `findf` skips it (`math = 0`,
+/// `endf.f90:1504`), reads the next temperature's MF=1 (`mfh < 3`, so it searches
+/// **forward**, `:1516-1517`) and finds the section in that block. With a file
+/// after MF=3 it searches backward into its own block, and with no block after
+/// (`math = -1`) backward too. `None` keeps the table's own block.
+///
+/// Measured on upstream test 75 (Ag-109, BROADR at 293.6 and 600 K, MF=1-3
+/// only): NJOY2016's 293.6 K GPD differs from its own one-temperature run in all
+/// 50 590 GPD words and equals this port's with the 600 K block's MF=3.
+fn gamsum_block(meta: &PendfMeta, tape: &Tape, mat: i32, tempd: f64) -> Option<ReconrResult> {
+    let sel = meta.blocks.iter().position(|(t, _)| (t - tempd).abs() < 1.0)?;
+    let next = meta.blocks.get(sel + 1).map(|(_, r)| r.clone())?;
+    // The selected occurrence of `mat` on the tape: the sections from its
+    // `sel`-th MF=1/MT=451 to the next one.
+    let mut occurrence = 0usize;
+    let mut after_mf3 = false;
+    for s in tape.sections().iter().filter(|s| s.key.mat == mat) {
+        if s.key.mf == 1 && s.key.mt == 451 {
+            if occurrence == sel + 1 {
+                break;
+            }
+            occurrence += 1;
+            continue;
+        }
+        if occurrence == sel + 1 && s.key.mf > 3 {
+            after_mf3 = true;
+        }
+    }
+    (!after_mf3).then_some(next)
 }
 
 /// `dater` (`util.f90:72-94`): `' mm/dd/yy'` of today (UTC).
@@ -522,10 +691,12 @@ fn run_acer_fix(c: &AcerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
     if c.mcnpx || c.iopt - 6 != 1 {
         return Err(NjoyError::NotPorted("ACER iopt = 8 (Type-2 input) or mcnpx formats"));
     }
+    // The ACE file is a module's text output in this run, or an input file
+    // `tape<npend>` in the work directory (upstream test 61 checks a thermal
+    // ACE file supplied as `tape61`).
     let text = units
-        .text(c.npend)
-        .ok_or_else(|| NjoyError::InvalidInput(format!("acer: unit {} holds no ACE file", c.npend)))?
-        .to_string();
+        .text_or_file(c.npend)
+        .ok_or_else(|| NjoyError::InvalidInput(format!("acer: unit {} holds no ACE file", c.npend)))?;
     let req = crate::acer::acefix::AcefixRequest { suff: c.suff, hk: c.hk.clone(), nxtra: c.nxtra, plot: c.ngend != 0 };
     // `acer.f90:508-535`: the class letter of the ZAID picks the fix routine.
     let class = text.lines().next().and_then(|l| l.chars().nth(9));
@@ -670,7 +841,17 @@ fn run_acer(c: &AcerCards, units: &mut TapeUnits, notes: &mut Vec<String>) -> Re
     }
     let kt_mev = 8.617_333_262e-11 * c.tempd;
     let suffix = (c.suff * 100.0).round() as u32;
-    let mut table = build_deck(&endf, c.matd, res, kt_mev, suffix, &deck)?;
+    let mut table = match gamsum_block(&pend.meta, &pend.tape, c.matd, c.tempd) {
+        None => build_deck(&endf, c.matd, res, kt_mev, suffix, &deck)?,
+        Some(other) => {
+            // `build_deck`'s two steps, with GPD's MF=3 from the block `gamsum` reads.
+            let text = c.npend > 0;
+            let pendf = if text { res.through_pendf_text() } else { res.clone() };
+            let mut modules = crate::acer::deck_modules(&endf, c.matd, &pendf, kt_mev, &deck)?;
+            modules.gamsum_pendf = Some(if text { other.through_pendf_text() } else { other });
+            crate::acer::assemble(&endf, c.matd, &pendf, kt_mev, suffix, &modules)?
+        }
+    };
     table.comment = c.hk.clone();
     table.date = dater();
     apply_acelod_isomer(&mut table, c, &endf, &pend.tape);

@@ -2374,3 +2374,116 @@ fn test_18_27_47_errorr_mf35_covariance_tapes() {
         }
     }
 }
+
+/// **Deck 86 (Hf-177 TENDL-2021, GROUPR card 9a), the whole deck** (gh:#1369):
+/// MODER's text copy (unit 25) of GROUPR's GENDF: one MF=3 request, three
+/// card-9a extended requests (`mfd = -1`, then `10 4 72177 lfs` with `lfs` =
+/// 0, 29, 30) and one plain `40721770` between them.
+///
+/// The deck driver read card 9a and then dropped it, so unit 25 lacked three of
+/// its five sections (27 of 52 lines differed). GROUPR down-converts card 9a
+/// to `mfd = 40000000 + 10*izar` with the card's `lfs`, processes it where it
+/// stands in the list, and writes `fzam = izar + lfs/1000` in the head's C2
+/// (`groupr.f90:655-676`, `:871-878`). Prediction (posted on gh:#1369 before the
+/// run): unit 25 identical, C2 `72177.0290` included. **Result (2026-11-13): 0
+/// differing lines of 52.**
+#[test]
+fn test_86_groupr_card9a_whole_deck() {
+    let _ = whole_deck_units("86", "n-072_Hf_177-TENDL2021.endf", &[], &[25]);
+}
+
+/// **Deck 61 (H in H2O thermal ACE, `iopt = 7` with a suffix), the whole deck**
+/// (gh:#1369): the input is an ACE file staged as `tape61`, not a module's
+/// output, and card 2 asks for the suffix `.90` (`suff = 0.90`).
+///
+/// Two refusals stood in the way: ACER `iopt = 7` looked only at text written
+/// earlier in the run ("unit 61 holds no ACE file"), and `thrfix` refused
+/// `suff >= 0`. The fix reads `tape61` from the work directory and ports
+/// `newsuff` (`acecm.f90:619-684`). This ran before a prediction was posted
+/// (recorded on gh:#1369). **Result (2026-11-13): units 71 (ACE) and 72
+/// (directory) have 0 differing lines.**
+/// **Deck 21 (Fe-58 ENDF/B-VIII.0 Beta4, every unit coded), the whole deck**
+/// (gh:#1369): RECONR 21, BROADR 22, HEATR 23 (partials 302, 402), PURR 24, and
+/// ACER's ACE 25 and directory 26.
+///
+/// Two causes, both upstream's numbering of a coded tape: HEATR's `hout`
+/// copies every closer (`tofend`/`tosend`/`tomend`, `heatr.f90:5961-6029`), so
+/// its tape counts from 1 to the MEND unbroken (tape23 differed only in columns
+/// 76-80, 66 506 lines); PURR copies all but MT=152/153's SENDs and MF=2's FEND
+/// (`purr.f90:327-570`). And PURR's MT=152/153 writer was refused with HEATR on
+/// its input; its tables now come from the computation that already gives
+/// this deck's ACE (`acer::deck_modules`). Prediction (posted on gh:#1369
+/// before the run): units 23 and 24 identical, the deck closes. **Result
+/// (2026-11-13): 0 differing lines on all six units.**
+#[test]
+fn test_21_heatr_purr_coded_whole_deck() {
+    let _ = whole_deck_units("21", "n-026_Fe_058-ENDF8.0-Beta4.endf", &[], &[21, 22, 23, 24, 25, 26]);
+}
+
+/// **Deck 75 (Ag-109 ENDF/B-VII.1), the whole deck** (gh:#1369): RECONR 21,
+/// BROADR at 293.6 and 600 K on coded unit 22, ACER at 293.6 K (26 ACE, 27
+/// directory).
+///
+/// Two causes. (1) After the first temperature's MEND, which BROADR copies
+/// (`tomend`, seq 1), the second temperature's MF=1 continues the count at 2;
+/// the writer restarted at 1 (15 229 lines differed in columns 76-80 alone).
+/// A different material still restarts at 1 (RECONR, upstream test 03).
+/// (2) The ACE's GPD block (50 590 words, ~1.3e-4): `gamsum` finds MF=3 with
+/// `findf` from where `unionx` left `npend`, past MF=3's FEND; the block ends at
+/// MF=3, so `findf` skips the MEND and searches forward into the 600 K block.
+/// NJOY2016 run with BROADR at 293.6 K only gives this port's old GPD word for
+/// word. Predictions (posted on gh:#1369 before each run): unit 22 identical;
+/// then, with GPD's MF=3 from the next block, unit 26 identical. **Result
+/// (2026-11-13): 0 differing lines on all four units.** Upstream test 19
+/// (Pu-241, three temperatures, MF=12/13 after MF=3) keeps its own block and
+/// stays identical.
+#[test]
+fn test_75_broadr_two_temperatures_gamsum_whole_deck() {
+    let _ = whole_deck_units("75", "n-047_Ag_109-ENDF7.1.endf", &[], &[21, 22, 26, 27]);
+}
+
+/// **Decks 10 and 19, the whole decks** (gh:#1369): PURR at three
+/// temperatures and seven sigma-zeros. Deck 10 is Pu-238 ENDF/B-IV (`t404`,
+/// no HEATR); deck 19 is Pu-241 ENDF/B-VI.3 (`e6pu241c`, HEATR with partials
+/// 302/318/402 before PURR). Units: ACE and directory (26/27, 27/28) and MODER's
+/// text copy of PURR's binary PENDF (28, 29).
+///
+/// The deck driver passed PURR's input through for more than one temperature
+/// or sigma-zero, so MT=152 was UNRESR's and MT=153 was missing.
+/// `purr::tables::multi` runs `unrest` once per energy over every temperature
+/// and sigma-zero (`purr.f90:300-302`) and writes each temperature's
+/// MT=152/153 (`:415-570`), dividing by the first temperature's `sigu(·,1,1)`
+/// as upstream does, with `rdheat`'s per-temperature heating (`:1237-1289`)
+/// for deck 19. Predictions (posted on gh:#1369 before each run): both
+/// identical. Deck 10's first run differed in 3 lines (ENDF-4 TEMP record
+/// `N2`, `:343-349`), fixed. **Result (2026-11-13): 0 differing lines on
+/// all six units.**
+#[test]
+fn test_10_19_purr_several_temperatures_whole_decks() {
+    let _ = whole_deck_units("10", "t404", &[], &[26, 27, 28]);
+    let _ = whole_deck_units("19", "e6pu241c", &[], &[27, 28, 29]);
+}
+
+/// **Deck 60 (Fe IRDFF-II, no MF=3), the whole deck** (gh:#1369): RECONR,
+/// BROADR from `temp1 = 293.6` to 300 K, and two GROUPRs to 60 MeV (unit 31:
+/// MF=10 automatic; unit 32: four `4zzzaaa0` production requests).
+///
+/// The tape carries MF=1, 2, 8, 10 and 40 only. Three causes, each read
+/// upstream: the deck PENDF evaluated MF=10 on MT=1's energies, which do not
+/// exist here, where `emerge` uses `lunion`'s union grid
+/// (`reconr::union_grid_without_mf3`); `recout` writes a dummy MF=3/MT=1
+/// (`L2 = 99`) and its dictionary drops the last real entry
+/// (`reconr.f90:5017-5026`, `:5091-5169`, `:5231-5255`); and BROADR's card-2
+/// `temp1` (`broadr.f90:334-412`, `:605-610`) was refused. Prediction (posted
+/// on gh:#1369 before the deck ran): units 31 and 32 identical, deck closes;
+/// the BROADR refusal was not foreseen. **Result (2026-11-13): 0 differing
+/// lines on both units.**
+#[test]
+fn test_60_irdff_no_mf3_whole_deck() {
+    let _ = whole_deck_units("60", "n-026_Fe_000-IRDFF-II.endf", &[], &[31, 32]);
+}
+
+#[test]
+fn test_61_thermal_acefix_with_suffix_whole_deck() {
+    let _ = whole_deck_units("61", "", &[("thermalscattering.ace", 61)], &[71, 72]);
+}

@@ -987,7 +987,8 @@ New on the way:
   `NXS(9) = LISO`.
 
 Still refused by name: `ielas = 1`, ~~MF=4, MF=5 for a production reaction,~~ MF=6 `LAW = 4`
-(**CORRECTED 2026-11-13:** MF=4/MF=5 translated, section 22).
+(**CORRECTED 2026-11-13:** MF=4/MF=5 translated, section 22; `LAW = 4`'s recoil heating,
+section 23).
 - Result: ACE unit 31 and directory 32 identical on decks 57 (57 803 lines), 58 (132 970),
   66 (259 515) and 78 (3 488). The synthetic Z6 gate still holds byte for byte.
 - One deliberate divergence: a photo-atomic tape (`NSUB = 3`) passes upstream's
@@ -1010,7 +1011,8 @@ local NJOY2016.80): units 90/31/32/34/35 have zero differing lines, and the run 
 - ~~Deck 56 (U-235 ENDF/B-VIII.0): MF=4/MT=18 and MF=5/MT=18, `acephn`'s MF=4/5 neutron
   branches (`:742-818`, `:1166-1425`). Their multiplicities are keyed on `mth`, a header
   variable left over from the last record read.~~
-- MF=6 `LAW = 4`, `ielas = 1`.
+- MF=6 `LAW = 4` (**CORRECTED 2026-11-13:** its recoil heating is translated, section 23),
+  `ielas = 1`.
 
 **Survey:** decks 56, 57, 58, 66 and 78 were re-run alone (`SURVEY_CASES`) on develop
 7a3fd98b1 plus this work. **60 of 87 are identical** (unchanged): no whole deck closed.
@@ -1074,9 +1076,12 @@ it, in upstream's order; its MF=4 and MF=5 refusals are removed):
 unchanged input and MODER's blocked-binary unit 30) to have zero differing lines, and the run
 to reach `stop`.
 
-**Not done:** MF=6 `LAW = 4` and `ielas = 1` are still refused by name. No upstream deck
+**Not done:** MF=6 `LAW = 4` and `ielas = 1` are still refused by name. ~~No upstream deck
 reaches either: the five photo-nuclear decks are the only `iopt = 5` decks, and all five are
-identical.
+identical.~~ **CORRECTED 2026-11-13 (gh:#1369):** deck 64 (Ra-226 TENDL-2019) is a sixth
+`iopt = 5` deck, and it reaches `LAW = 4`. That recoil heating is translated now and deck 64 is
+identical (section 23). `LAW = 4` for an emitted light particle and `ielas = 1` are still
+refused, and no upstream deck reaches them.
 
 **Survey:** decks 56, 57, 58, 66 and 78 re-run alone (`SURVEY_CASES`) on develop 43eadde45 plus
 this work: all five `identical`. **65 of 87 identical** (60 before).
@@ -1093,3 +1098,79 @@ change; only Markdown changed afterwards):
 | `pendf_stages_vs_njoy2016` | 9 of 9 passed |
 | `ace_five_route_parity` | 13 of 13 passed |
 | `--lib` | 759 of 759 passed |
+
+## 23. The remaining decks ranked; 61, 86, 21, 75, 10, 19, 60 and 64 closed (2026-11-13, gh:#1369)
+
+**Re-run first.** The 22 rows that were not `identical` were re-run alone (`SURVEY_CASES`) on
+develop `fe6a8230d`. Decks **31 and 87 were already `identical`**: their rows predated
+recent merges. That made 67 of 87.
+
+**The ranking.** It was posted on gh:#1369 before any new code. Each deck's first blocker
+was found by running NJOY2016.80 and `njoy-deck` side by side and diffing tapes.
+- PURR's writer for several T/σ0 and for HEATR input: 10, 19, 21.
+- CCCCR: 02, 76.
+- PLOTR: 06, 12.
+- Photo-atomic heating residual: 48, 59.
+- GAMINR + MATXSR: 03, 30.
+- One deck each: 86 (GROUPR card 9a), 61 (`newsuff`), 75 (coded numbering, then GPD), 60
+  (RECONR), 11 (WIMSR cards), 17 (ERRORR `iread = 2`), 43 (`thinb`), 64 (`acephn`) and
+  80 (LEAPR).
+
+A prediction was posted before each run, with one exception: **deck 61 ran before its
+prediction** (recorded on the issue).
+
+| deck | cause, read upstream | fix | result |
+|---|---|---|---|
+| 61 | ACER `iopt = 7` read only text written earlier in the run; `thrfix` refused `suff >= 0` | `run_acer_fix` reads `tape61` (`text_or_file`); `acer::newsuff` (`acecm.f90:619-684`) | 71, 72 identical; whole deck |
+| 86 | card 9a (`mfd = -1`) was read, then dropped | down-converted as `groupr.f90:655-676`, processed in card order, C2 = `fzam` (`:871-878`): `Card9Item`, `card9a_reaction`, `AutoReaction::head_c2` | 25 identical (52 lines); whole deck |
+| 21 | HEATR's coded tape counts 1 to its MEND unbroken (`hout` copies every closer, `heatr.f90:5961-6029`); PURR's breaks only at MT=152/153's SENDs and MF=2's FEND (`purr.f90:327-570`); PURR's writer refused HEATR input | `heatr_copied_closers`, `purr_copied_closers`; PURR's tables from `acer::deck_modules` (`purr_tables_after_heatr`) | 21-26 identical; whole deck |
+| 75 | BROADR's second temperature goes on counting after its copied MEND; GPD's MF=3 comes from the **next** temperature block | `Tape::write`: same MAT after a copied MEND keeps the count (a new MAT restarts: RECONR, test 03); `gamsum_block` (below) | 21, 22, 26, 27 identical; whole deck |
+| 10 | PURR at 3 T and 7 σ0 passed the tape through | `purr::tables::multi`: one `unrest` call per energy over every T and σ0 (`purr.f90:300-302`), MT=152 with every `sigu(ix,is,it)`, MT=153 divided by temperature 1's `sigu(·,1,1)` (`:516-523`); `purr_tape_multi`; ENDF-4 TEMP `N2` copied (`:343-349`) | first run: 3 lines (that `N2`); then 26-28 identical |
+| 19 | as 10, with HEATR's partials on the input | `rdheat` per temperature (`:1237-1289`; `ihave` from the last temperature), the `ihave = 1/2` heating column (`:525-560`) | 27-29 identical, first run |
+| 60 | IRDFF-II has **no MF=3**: MF=10 was evaluated on MT=1's (empty) energies; `recout`'s dummy MF=3/MT=1 (`L2 = 99`) and its dictionary, which drops the last real entry (`reconr.f90:5017-5026`, `:5091-5169`, `:5231-5255`); BROADR's `temp1` (`broadr.f90:334-412`, `:605-610`) | `reconr::union_grid_without_mf3`, `dummy_mt1_directory`, BROADR `temp1 != 0` | 31, 32 identical; the BROADR step was not foreseen |
+| 64 | MF=6/MT=11's photon yield is zero everywhere; MF=6 `LAW = 4` recoil heating refused | `LAW = 4` heating `awp*(e+q)/(awr-awp)` on the first subsection's LISTs (`acepn.f90:507-584`); an all-zero yield gives no threshold (below) | 31-38, 43, 46 identical; the `LAW = 4` step was not foreseen |
+
+**`gamsum`'s block (deck 75), established by measurement and then traced.**
+- NJOY2016's 293.6 K GPD differed from ours in all 50 590 words, by about 1.3e-4.
+- With BROADR at 293.6 K **only**, NJOY2016's ACE equals ours word for word (612 558 words).
+- The mechanism: `unionx` leaves `npend` just past MF=3's FEND. Ag-109's blocks end at MF=3, so `gamsum`'s first `findf` (`acefc.f90:3652`) reads the MEND, skips it (`math = 0`, `endf.f90:1504`), meets the next block's MF=1 and searches forward (`:1516`).
+- With a file after MF=3, or no further block, it searches backward into its own block.
+- `deck::run::gamsum_block` codes exactly that. Both branches are checked:
+  - deck 75 (forward);
+  - deck 19, whose blocks carry MF=12/13 after MF=3 (backward). An unconditional "next block" broke deck 19's ACE, which is how the condition was found.
+
+**Deliberate divergence on undefined behaviour (deck 64).** `acephn`'s scan for the first positive yield (`acepn.f90:417-424`) has no bound. On an all-zero yield it reads stale `scr` words. Its result only enters a `min()` of thresholds, so an all-zero yield is taken as giving none. The deck matches NJOY2016.80 on every unit. The divergence is commented at the site.
+
+**Gates:**
+- `tests/deck_driver_tapes_vs_njoy2016.rs`: `test_61_...`, `test_86_...`, `test_21_heatr_purr_coded_whole_deck`, `test_75_broadr_two_temperatures_gamsum_whole_deck`, `test_10_19_purr_several_temperatures_whole_decks`, `test_60_irdff_no_mf3_whole_deck`;
+- `tests/deck_driver_photonuclear_vs_njoy2016.rs`: `test_64_photonuclear_whole_deck`;
+- unit tests in `acer::newsuff`.
+
+**Not done.** The order is the ranking above:
+- CCCCR (02, 76) and PLOTR (06, 12): large ports with nothing in `src/`.
+- 03 and 30: GAMINR's driver and MATXSR. Deck 03 first needs RECONR on DLC-7e's old photon format; deck 30 needs a genuine `ith = 0` on its photo-atomic MF=23.
+- 11: WIMSR's card reader. The engine is byte-identical on U-238.
+- 17: ERRORR `iread = 2`.
+- 43: BROADR `thinb`, gh:#619.
+- 48 and 59: the photo-atomic `iheat` residual.
+- 80: LEAPR, last figure.
+
+**Survey.** Rows 10, 19, 21, 30, 31, 60, 61, 64, 75, 86 and 87 were re-run alone
+(`SURVEY_CASES`, 184 s) on develop a4a799b8d plus this work. **75 of 87 are identical** (65
+before; 67 once the stale rows of 31 and 87 were re-run). Remaining: 02, 03, 06, 11, 12, 17,
+30, 43, 48, 59, 76, 80.
+
+**Tests** (release, on develop a4a799b8d plus this work). Run after the last code or test
+change, with one exception: doc comments in `src/acer/photonuclear/{build,mod}.rs` and
+`src/deck/run.rs`, and Markdown, changed while the deck suite was running. Every other suite
+below was built after those edits.
+
+| suite | result |
+|---|---|
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` (`ulimit -v 12582912`) | 130 passed, 0 failed, 2 ignored (43, 80), 1 642 s |
+| `deck_driver_photonuclear_vs_njoy2016` (whole decks 56, 57, 58, 64, 66, 78) | 6 of 6 passed |
+| `deck_driver_covr_vs_njoy2016` | 11 of 11 passed |
+| `acer_photonuclear_vs_njoy2016` | 5 of 5 passed |
+| `pendf_stages_vs_njoy2016` | 9 of 9 passed |
+| `ace_five_route_parity` | 13 of 13 passed |
+| `--lib` | 761 of 761 passed |

@@ -25,7 +25,7 @@ use crate::acer::build::sigfig;
 
 /// Rows of a LIST section body: the CONT head, the LIST head, then `words`
 /// six to a row, the last row padded with zeros (what `listio` writes).
-fn list_rows(cont: [f64; 6], list_head: [f64; 6], words: &[f64]) -> Vec<[f64; 6]> {
+pub(crate) fn list_rows(cont: [f64; 6], list_head: [f64; 6], words: &[f64]) -> Vec<[f64; 6]> {
     let mut rows = vec![cont, list_head];
     for chunk in words.chunks(6) {
         let mut r = [0.0f64; 6];

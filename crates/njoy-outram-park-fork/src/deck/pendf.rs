@@ -172,6 +172,30 @@ fn other_files(endf: &Tape, mat: i32, grid: &[f64], mtr522: bool, coded_scratch:
     Ok(out)
 }
 
+/// `recout`'s dictionary when it inserts the dummy MF=3/MT=1
+/// (`reconr.f90:5017-5026`, `:5091-5169`), applied to MF=1/MT=451's rows as
+/// [`with_directory`] built them (the dummy included).
+///
+/// `nxc` counts the dummy, but only `nxcc = nxc - 1` entries are written: the
+/// loop over `nxcc` real entries inserts the dummy before the first one with
+/// `MF > 3`, so the **last** real entry falls off the end, and the entry count
+/// in the TEMP record (or the head, ENDF-4) is `nxcc`. MT=451's own `NC`
+/// (`ncards + 2 + nxc`) counts the dummy. On upstream test 60 (IRDFF-II Fe) the
+/// lost entry is MF=10/MT=5.
+fn dummy_mt1_directory(mf1: &mut Section, iverf: i32) {
+    // [`with_directory`] puts the dictionary last, in body order.
+    mf1.rows.pop();
+    let thead = match iverf {
+        4 => 1,
+        5 => 2,
+        _ => 3,
+    };
+    let at = if iverf == 4 { 0 } else { thead };
+    if let Some(r) = mf1.rows.get_mut(at) {
+        r[5] -= 1.0;
+    }
+}
+
 /// The tape label line `tlabel` as `Tape::write` prints a first line:
 /// 66 columns then `MAT=1, MF=0, MT=0, seq 0` (`   1 0  0    0`).
 fn tpid_line(label: &str) -> String {
@@ -336,17 +360,41 @@ pub fn reconr_tape(
         // `spin = ascat = 0` and `EH = eresh = ehigh` (`:301-317`, `:5179-5202`).
         body.push(default_mf2_stub(mat, za, awr, res.resonance_upper_limit.unwrap_or(2.0e7)));
     }
-    let grid: Vec<f64> = res
+    let mut grid: Vec<f64> = res
         .sections
         .iter()
         .find(|s| s.mt.number() == 1)
         .map(|s| s.pairs.iter().map(|p| p.0).collect())
         .unwrap_or_default();
+    // No MF=3 on the tape (IRDFF-II, upstream test 60): `emerge` still runs on
+    // `lunion`'s grid, which MF=10/12/13 built (gh:#1369).
+    if grid.is_empty() && !endf.sections().iter().any(|s| s.key.mat == mat && s.key.mf == 3) {
+        grid = crate::reconr::union_grid_without_mf3(endf, mat, err)?;
+    }
+    // An incident-neutron tape with no MF=3 at all (IRDFF-II, upstream test 60):
+    // `recout` writes a dummy MF=3/MT=1, `L2 = 99`, two zero points from
+    // `emin` to `eresh`, closed by `asend`/`afend` (`reconr.f90:5231-5255`).
+    let dummy_mt1 = nint(zain) == 1 && mf3.is_empty();
     body.extend(mf3);
+    if dummy_mt1 {
+        let eresh = res.resonance_upper_limit.unwrap_or(2.0e7);
+        body.push(Section {
+            key: EndfKey { mat, mf: 3, mt: 1 },
+            rows: vec![
+                [za, awr, 0.0, 99.0, 0.0, 0.0],
+                [tempr, 0.0, 0.0, 0.0, 1.0, 2.0],
+                [2.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                [1.0e-5, 0.0, eresh, 0.0, 0.0, 0.0],
+            ],
+        });
+    }
     let _ = skipped_in_mf3;
     body.extend(other_files(endf, mat, &grid, false, npend > 0)?);
     let text: Vec<String> = cards.to_vec();
-    let (secs, raw) = with_directory(mat, iverf, head, &text, body)?;
+    let (mut secs, raw) = with_directory(mat, iverf, head, &text, body)?;
+    if dummy_mt1 {
+        dummy_mt1_directory(&mut secs[0], iverf);
+    }
     let mut tape = Tape::from_sections(tpid_line(label), secs);
     tape.set_raw_text(EndfKey { mat, mf: 1, mt: 451 }, raw);
     // `recout` copies (tosend/tofend/tomend) every non-redundant MF=3 section
@@ -356,6 +404,10 @@ pub fn reconr_tape(
     let mut copied: Vec<EndfKey> = Vec::new();
     for s in tape.sections() {
         let k = s.key;
+        // The dummy MT=1 is written with `asend`/`afend`.
+        if dummy_mt1 && k.mf == 3 {
+            continue;
+        }
         if k.mf >= 3 && !(k.mf == 3 && redundant.contains(&k.mt)) {
             copied.push(k);
         }
@@ -476,6 +528,44 @@ pub fn broadr_copied_closers(tape: &Tape, mat: i32) -> Vec<EndfKey> {
     out
 }
 
+/// The closing records HEATR *copies* on a coded output unit: every one but
+/// the TEND (gh:#1369, upstream test 21). `hout` (`heatr.f90:5961-6029`)
+/// copies MF=1's SEND and FEND and all of MF=2 with `tofend`, each MF=3
+/// section's SEND with `tosend` (the input's and the new ones from its scratch
+/// unit alike), MF=3's FEND through `contio`, and every later file with
+/// `tomend`; nothing calls `asend`/`afend`/`amend`, so NJOY2016's tape counts
+/// from 1 to its MEND without a break.
+pub fn heatr_copied_closers(tape: &Tape) -> Vec<EndfKey> {
+    let mut out = Vec::new();
+    for s in tape.sections() {
+        let k = s.key;
+        out.push(k);
+        out.push(EndfKey { mat: k.mat, mf: k.mf, mt: 0 });
+        out.push(EndfKey { mat: k.mat, mf: 0, mt: 0 });
+    }
+    out
+}
+
+/// The closing records PURR *copies* on a coded output unit
+/// (`purr.f90:327-570`): all but its own two sections' SENDs (`asend` after
+/// MT=152 and MT=153) and MF=2's FEND (`afend`). MF=1 and MF=2/MT=151 come
+/// through `tofend`/`tosend`, everything after MF=2 through `tomend`
+/// (gh:#1369, upstream test 21: the tape's count breaks only at those three).
+pub fn purr_copied_closers(tape: &Tape, mat: i32) -> Vec<EndfKey> {
+    let mut out = Vec::new();
+    for s in tape.sections().iter().filter(|s| s.key.mat == mat) {
+        let k = s.key;
+        if !(k.mf == 2 && (k.mt == 152 || k.mt == 153)) {
+            out.push(k);
+        }
+        if k.mf != 2 {
+            out.push(EndfKey { mat, mf: k.mf, mt: 0 });
+        }
+    }
+    out.push(EndfKey { mat, mf: 0, mt: 0 });
+    out
+}
+
 /// BROADR's PENDF at one temperature from RECONR's tape `prev` and the
 /// broadened result: MF=3 replaced, `TEMP` set, the dictionary's `NC`s
 /// recounted; everything else copied (`broadr.f90`'s `tosend`/`tofend`).
@@ -552,7 +642,54 @@ pub fn broadr_tape(prev: &Tape, mat: i32, out: &ReconrResult, temp_k: f64) -> Re
 /// A tape without MF=1/MT=451 or MF=2/MT=151 for `mat`, or tables with no PURR
 /// record.
 pub fn purr_tape(prev: &Tape, mat: i32, tables: &crate::purr::UrrProbabilityTables, za: f64, awr: f64, temz: f64, sigz: f64) -> Result<Tape, NjoyError> {
-    use crate::purr::pendf::{directory_nc, mt152_rows, mt153_rows};
+    use crate::purr::pendf::{mt152_rows, mt153_rows};
+    let bad = || NjoyError::InvalidInput("purr: the probability tables carry no PENDF record".into());
+    let r152 = mt152_rows(za, awr, temz, sigz, tables).ok_or_else(bad)?;
+    let r153 = mt153_rows(za, awr, temz, tables).ok_or_else(bad)?;
+    purr_tape_rows(prev, mat, r152, r153, temz)
+}
+
+/// PURR's PENDF for several temperatures (gh:#1369, upstream test 10): the
+/// input's `mat` occurrences, one per temperature in order, each rewritten by
+/// [`purr_tape_rows`] with that temperature's MT=152/153
+/// ([`crate::purr::tables::multi`]); `purr.f90:327-570` loops `it = 1, ntemp`
+/// over the input's materials the same way.
+///
+/// # Errors
+/// Fewer occurrences of `mat` than temperatures, or those of [`purr_tape_rows`].
+pub(crate) fn purr_tape_multi(prev: &Tape, mat: i32, p: &crate::purr::tables::multi::PurrPendfMulti, za: f64, awr: f64, temps: &[f64], sigz: &[f64]) -> Result<Tape, NjoyError> {
+    let mut occ: Vec<Vec<Section>> = Vec::new();
+    for s in prev.sections().iter().filter(|s| s.key.mat == mat) {
+        if s.key.mf == 1 && s.key.mt == 451 {
+            occ.push(Vec::new());
+        }
+        if let Some(o) = occ.last_mut() {
+            o.push(s.clone());
+        }
+    }
+    if occ.len() < temps.len() {
+        return Err(NjoyError::InvalidInput(format!("purr: {} temperatures but {} PENDF blocks for mat {mat}", temps.len(), occ.len())));
+    }
+    let key451 = EndfKey { mat, mf: 1, mt: 451 };
+    let mut all: Vec<Section> = Vec::new();
+    for (it, &temz) in temps.iter().enumerate() {
+        let mut sub = Tape::from_sections(prev.tpid.clone(), occ[it].clone());
+        if let Some(raw) = prev.raw_text(key451) {
+            sub.set_raw_text(key451, raw.to_vec());
+        }
+        let t = purr_tape_rows(&sub, mat, p.mt152_rows(it, za, awr, temz, sigz), p.mt153_rows(it, za, awr, temz), temz)?;
+        all.extend(t.sections().iter().cloned());
+    }
+    let mut tape = Tape::from_sections(prev.tpid.clone(), all);
+    if let Some(raw) = prev.raw_text(key451) {
+        tape.set_raw_text(key451, raw.to_vec());
+    }
+    Ok(tape)
+}
+
+/// [`purr_tape`] with MT=152 and MT=153 already laid out (`r152`, `r153`).
+fn purr_tape_rows(prev: &Tape, mat: i32, r152: Vec<[f64; 6]>, r153: Vec<[f64; 6]>, temz: f64) -> Result<Tape, NjoyError> {
+    use crate::purr::pendf::directory_nc;
     let mf1 = prev.section(mat, 1, 451).ok_or(NjoyError::SectionNotFound { mat, mf: 1, mt: 451 })?;
     let iverf = crate::moder::layout::iverf_from_mf1(&mf1.rows);
     let thead = match iverf {
@@ -565,9 +702,6 @@ pub fn purr_tape(prev: &Tape, mat: i32, tables: &crate::purr::UrrProbabilityTabl
     let ncards = nint(head[thead][4]) as usize;
     let raw_mf1 = prev.raw_text(EndfKey { mat, mf: 1, mt: 451 }).map(<[String]>::to_vec).unwrap_or_default();
     let text: Vec<String> = (0..ncards).map(|i| raw_mf1.get(thead + 1 + i).cloned().unwrap_or_default()).collect();
-    let bad = || NjoyError::InvalidInput("purr: the probability tables carry no PENDF record".into());
-    let r152 = mt152_rows(za, awr, temz, sigz, tables).ok_or_else(bad)?;
-    let r153 = mt153_rows(za, awr, temz, tables).ok_or_else(bad)?;
     let (npl152, npl153) = (nint(r152[1][4]) as usize, nint(r153[1][4]) as usize);
     let mut body: Vec<Section> = Vec::new();
     let mut inserted = false;
@@ -596,6 +730,15 @@ pub fn purr_tape(prev: &Tape, mat: i32, tables: &crate::purr::UrrProbabilityTabl
             r[4] = directory_nc(npl152) as f64;
         } else if nint(r[2]) == 2 && nint(r[3]) == 153 {
             r[4] = directory_nc(npl153) as f64;
+        }
+    }
+    // ENDF-4: `hdatio` reads the TEMP record (`purr.f90:343`) and only its
+    // `temz` changes for `iverf < 5` (`:344-349` raise `N2` for `iverf >= 5`), so
+    // its `N2` keeps the input's entry count; the head's is raised instead
+    // (`:334-339`). Upstream test 10.
+    if iverf == 4 {
+        if let (Some(r), Some(src)) = (secs[0].rows.get_mut(thead), mf1.rows.get(thead)) {
+            r[5] = src[5];
         }
     }
     let mut tape = Tape::from_sections(prev.tpid.clone(), secs);

@@ -74,6 +74,17 @@ The prediction posted before the change: every COVR plot file identical, all fou
 
 **Re-run 2026-11-13, `phnplo` and `acephn`'s MF=4/MF=5 neutron branches (gh:#1369):** decks 56, 57, 58, 66 and 78 were re-run alone (`SURVEY_CASES`, 27 s) on develop 43eadde45 plus this work. Their rows are replaced; every other row is as before. **Identical: 65 of 87** (60 before). ~~Each stops by name at `phnplo`~~ (the note above): `phnplo` is ported (`acer::phnplo`), so decks 57, 58, 66 and 78 run to the end, both `iopt = 7` check passes and VIEWR included. Deck 56 (U-235) passes the MF=4/MF=5 neutron representation (`acer::photonuclear::mf45`) and is identical too. Both predictions were posted before the runs and held on the first run. Gate: `tests/deck_driver_photonuclear_vs_njoy2016.rs`, now whole decks. Record: `README.md` section 22.
 
+**Re-run 2026-11-13, the remaining decks ranked and eight closed (gh:#1369):** first, the 22 rows that were not `identical` were re-run alone (`SURVEY_CASES`) on develop `fe6a8230d`. Decks 31 and 87 were already `identical`; their rows predated recent merges. That made **67 of 87**, not the 65 the note above gives. The other twenty rows were unchanged except 10, 21, 64 and 75, which are replaced below anyway. After this work, rows 10, 19, 21, 30, 31, 60, 61, 64, 75, 86 and 87 were re-run alone (`SURVEY_CASES`, 184 s) on develop a4a799b8d plus this work. Their rows are replaced; every other row is as before. **Identical: 75 of 87.** The newly identical decks:
+- 61: ACER `iopt = 7` on an input ACE file, `newsuff`.
+- 86: GROUPR card 9a.
+- 21: HEATR's and PURR's coded-tape numbering, and PURR's writer after HEATR.
+- 75: BROADR's second temperature numbering, and `gamsum`'s MF=3 from the next block.
+- 10 and 19: PURR's MT=152/153 at several temperatures and sigma-zeros, with `rdheat`.
+- 60: RECONR on a tape with no MF=3, and BROADR `temp1`.
+- 64: `acephn`'s `LAW = 4` recoil heating.
+
+Deck 30 now passes its first RECONR and stops at the photo-atomic one (the same message, a genuine `ith = 0` on MF=23). A prediction was posted before each run except deck 61's. Record: `README.md` section 23.
+
 | deck | status | tapes identical | differing tapes | text tapes we did not write | binary tapes (no blocked-binary writer here) |
 |---|---|---|---|---|---|
 | 01 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
@@ -85,7 +96,7 @@ The prediction posted before the change: every COVR plot file identical, all fou
 | 07 | identical | 3 |  |  | tape21 tape22 tape23 tape24 tape25 |
 | 08 | identical | 3 |  |  | tape21 tape22 tape23 tape24 |
 | 09 | identical | 1 |  |  | tape21 tape22 tape23 tape25 |
-| 10 | differs | 2 | tape28 15270/15277 lines |  | tape21 tape22 tape23 tape24 tape25 |
+| 10 | identical | 3 |  |  | tape21 tape22 tape23 tape24 tape25 |
 | 11 | NotPorted (wimsr: card reader not yet translated) | 0 |  | tape27 tape28 | tape21 tape22 tape23 tape24 tape25 tape26 |
 | 12 | NotPorted (plotr: card reader not yet translated) | 2 |  | tape23 tape24 |  |
 | 13 | identical | 7 |  |  | tape21 tape22 tape23 tape24 tape25 |
@@ -94,9 +105,9 @@ The prediction posted before the change: every COVR plot file identical, all fou
 | 16 | identical | 6 |  |  | tape21 tape22 tape23 |
 | 17 | NotPorted (errorr: not yet ported from NJOY2016: errorr iread = 1/2 (cards 8-10)) | 10 |  | tape26 |  |
 | 18 | identical | 4 |  |  | tape21 tape22 tape23 |
-| 19 | differs | 2 | tape29 44559/44568 lines |  | tape21 tape22 tape23 tape24 tape25 tape26 |
+| 19 | identical | 3 |  |  | tape21 tape22 tape23 tape24 tape25 tape26 |
 | 20 | identical | 7 |  |  |  |
-| 21 | differs | 2 | tape22 10609/34851 lines; tape23 66506/66600 lines; tape24 66859/66867 lines | tape26 |  |
+| 21 | identical | 6 |  |  |  |
 | 22 | identical | 1 |  |  |  |
 | 23 | identical | 1 |  |  |  |
 | 24 | identical | 9 |  |  | tape21 tape22 tape23 tape24 tape25 tape27 tape28 |
@@ -106,7 +117,7 @@ The prediction posted before the change: every COVR plot file identical, all fou
 | 28 | identical | 18 |  |  | tape21 tape22 tape23 |
 | 29 | identical | 3 |  |  | tape21 tape22 tape23 tape25 |
 | 30 | NotPorted (reconr: not yet ported from NJOY2016: deck PENDF: MF=10-23 section with no positive point) | 1 |  | tape43 tape44 tape45 | tape21 tape22 tape23 tape41 tape42 |
-| 31 | differs | 0 | tape30 221729/221737 lines |  | tape21 tape22 tape23 tape24 |
+| 31 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
 | 32 | identical | 2 |  |  | tape21 tape22 tape23 tape24 tape25 tape31 |
 | 33 | identical | 2 |  |  |  |
 | 34 | identical | 2 |  |  | tape21 tape22 tape30 tape31 |
@@ -135,11 +146,11 @@ The prediction posted before the change: every COVR plot file identical, all fou
 | 57 | identical | 10 |  |  | tape21 tape30 |
 | 58 | identical | 11 |  |  | tape21 tape30 |
 | 59 | differs | 3 | tape27 36/17964 lines |  | tape30 tape31 |
-| 60 | NotPorted (reconr: not yet ported from NJOY2016: deck PENDF: MF=10-23 section with no positive point) | 0 |  | tape31 tape32 | tape21 tape22 tape23 |
-| 61 | Err: invalid input: acer: unit 61 holds no ACE file | 0 |  | tape71 tape72 |  |
+| 60 | identical | 2 |  |  | tape21 tape22 tape23 |
+| 61 | identical | 2 |  |  |  |
 | 62 | identical | 6 |  |  | tape21 tape22 |
 | 63 | identical | 7 |  |  | tape21 tape22 tape23 tape24 |
-| 64 | NotPorted (reconr: not yet ported from NJOY2016: deck PENDF: MF=10-23 section with no positive point) | 0 |  | tape31 tape32 tape33 tape34 tape35 tape36 tape37 tape38 tape43 tape46 | tape21 tape30 |
+| 64 | identical | 10 |  |  | tape21 tape30 |
 | 65 | identical | 4 |  |  | tape21 tape22 tape23 |
 | 66 | identical | 11 |  |  | tape21 tape30 |
 | 67 | identical | 7 |  |  | tape30 tape31 tape32 tape40 tape50 |
@@ -150,7 +161,7 @@ The prediction posted before the change: every COVR plot file identical, all fou
 | 72 | identical | 8 |  |  | tape21 tape22 tape23 tape24 tape25 tape27 tape28 |
 | 73 | identical | 1 |  |  | tape21 tape22 tape23 |
 | 74 | identical | 7 |  |  | tape30 tape31 tape32 tape40 tape50 |
-| 75 | differs | 1 | tape22 32176/98721 lines; tape26 12648/153152 lines | tape27 |  |
+| 75 | identical | 4 |  |  |  |
 | 76 | NotPorted (ccccr: card reader not yet translated) | 1 |  |  | tape21 tape22 tape23 tape24 tape30 |
 | 78 | identical | 7 |  |  | tape21 tape30 |
 | 79 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
@@ -160,6 +171,6 @@ The prediction posted before the change: every COVR plot file identical, all fou
 | 83 | identical | 1 |  |  | tape21 tape30 |
 | 84 | identical | 1 |  |  |  |
 | 85 | identical | 1 |  |  | tape21 tape30 |
-| 86 | differs | 0 | tape25 27/52 lines |  | tape21 tape22 tape24 |
-| 87 | differs | 0 | tape34 130347/130372 lines; tape41 99988/272570 lines | tape42 | tape21 tape22 tape23 tape24 |
+| 86 | identical | 1 |  |  | tape21 tape22 tape24 |
+| 87 | identical | 3 |  |  | tape21 tape22 tape23 tape24 |
 | 88 | identical | 1 |  |  | tape21 tape22 |

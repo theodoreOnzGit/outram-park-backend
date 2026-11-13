@@ -23,7 +23,9 @@
 //! Still refused by name ([`NjoyError::NotPorted`]): an MF=3/MT=2 elastic
 //! section (`ielas = 1`), ~~MF=4 (deck 56), an MF=5 distribution for a
 //! production reaction,~~ and MF=6 `LAW = 4`. **CORRECTED 2026-11-13 (gh:#1369, deck 56):** the MF=4/MF=5
-//! neutron branches are translated in [`super::mf45`]; deck 56 is identical. Refusing is the point: a table that
+//! neutron branches are translated in [`super::mf45`]; deck 56 is identical. **CORRECTED 2026-11-13
+//! (gh:#1369, deck 64):** `LAW = 4`'s recoil heating (`acepn.f90:507-584`) is translated; `LAW = 4`
+//! for an emitted light particle (`:975-990`, `:1774-1790`) is still refused. Refusing is the point: a table that
 //! silently omits an emitted particle still reads and looks plausible.
 //!
 //! ## Two inputs, and why
@@ -114,7 +116,8 @@ struct Rx {
 /// # Errors
 /// [`NjoyError::EndfParse`] for a tape that is not photo-nuclear or is
 /// malformed, and [`NjoyError::NotPorted`] for the branches not translated:
-/// an MF=3/MT=2 elastic section and MF=6 `LAW = 4`; `EndfParse` for a
+/// an MF=3/MT=2 elastic section and MF=6 `LAW = 4` for an emitted light
+/// particle (its recoil heating is translated, 2026-11-13); `EndfParse` for a
 /// polynomial nubar (which upstream refuses too). MF=4/MF=5 are translated
 /// (`super::mf45`, 2026-11-13).
 pub fn photonuclear_ace(
@@ -358,9 +361,13 @@ pub fn photonuclear_ace(
                     }
                 }
                 if !found {
-                    return Err(NjoyError::EndfParse(format!(
-                        "acephn: MF=6/MT={mth} ZAP={izap} has no positive yield"
-                    )));
+                    // **Deliberate divergence on undefined behaviour** (gh:#1369,
+                    // upstream test 64, Ra-226 MT=11 photons): upstream's
+                    // `do while (ynext.le.zero)` has no bound and, on an all-zero
+                    // yield, reads past the TAB1 into stale `scr` words. Its `e`
+                    // only enters the `min` below, so an all-zero yield is taken
+                    // as giving no production threshold.
+                    continue;
                 }
                 if e < thresh {
                     e = thresh;
@@ -407,9 +414,37 @@ pub fn photonuclear_ace(
                     d.2 += 1;
                 }
             } else if law == 4 {
-                return Err(NjoyError::NotPorted(
-                    "acephn: MF=6 LAW=4 two-body recoil heating (acepn.f90:507-584) is not ported",
-                ));
+                // Heating from a discrete recoil (`acepn.f90:507-584`, gh:#1369,
+                // upstream test 64): upstream backs up to the section's
+                // **first** subsection (`findf`, its TAB1 gives `awp`, its TAB2
+                // and LISTs the incident energies, read as a LAW=2 two-body
+                // distribution) and tabulates `awp*(e+q*emev)/(awr-awp)` at each
+                // LIST's `e`; `q` is this reaction's LQR (MeV).
+                let first = m.subs.first().ok_or_else(|| NjoyError::EndfParse(format!("acephn: MF=6/MT={mth} has no subsection")))?;
+                let awp = first.y.head.c2;
+                let ne = first.tab2.as_ref().map_or(0, |t| t.head.n2.max(0) as usize);
+                let htab: Vec<(f64, f64)> = first
+                    .lists
+                    .iter()
+                    .take(ne)
+                    .map(|l| {
+                        let e = l.head.c2;
+                        (e, awp * (e + rx.q * EMEV) / (awr - awp))
+                    })
+                    .collect();
+                for ie in rx.iaa..=nes {
+                    let e = x.get(esz + ie - 1);
+                    let mut h = terp_lin(&htab, e);
+                    h = (h / EMEV) * x.get(2 + rx.k + ie - rx.iaa);
+                    if x.get(tot + ie - 1) != 0.0 {
+                        h /= x.get(tot + ie - 1);
+                    }
+                    let v = sigfig(x.get(thn + ie - 1) + h, 7, 0);
+                    x.set(thn + ie - 1, v);
+                }
+                for d in dict.iter_mut().filter(|d| d.0 == 6 && d.1 == mth) {
+                    d.2 += 1;
+                }
             }
             // Law 0 and the rest: upstream only prints a message (`:586-595`).
         }
