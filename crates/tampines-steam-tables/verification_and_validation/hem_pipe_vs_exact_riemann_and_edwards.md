@@ -364,7 +364,7 @@ t_s,hem_pipe,data
 - Cost: 40–75 ms per `(ρ, e)` closure; one hinted call took 3.5 s because its
   hint sat in the liquid region the flash refuses.
 
-**Compressed-liquid water: does NOT work, a pre-existing coolprop defect.**
+~~**Compressed-liquid water: does NOT work, a pre-existing coolprop defect.**~~ **CORRECTED 2026-11-13** (gh:#1349 fixed `density_pt`; measured results in `crates/tampines/verification_and_validation/hem_coolprop_liquid_water_gh1349.md`: 2 MPa / 350 K and 1.3 MPa / 455 K now close to the liquid and agree with IF97 to 1.3e-5 and 1.5e-5 in density; the liquid shock tube agrees to 0.15 % of the jump). The 2026-10-16 record of the defect follows, struck through:
 - `outram_park_fork_coolprop::flash::density_pt` starts its Newton from the
   ideal-gas density.
 - `state_pt(350 K, 2 MPa)` returns ρ = 322.0 kg/m³ (the critical density) with
@@ -376,13 +376,13 @@ t_s,hem_pipe,data
   (`coolprop_refuses_compressed_liquid_water_instead_of_returning_a_wrong_root`).
 - Upstream CoolProp's `solver_rho_Tp` starts a liquid from the
   saturated-liquid ancillary density. This was **not verified** against the
-  upstream source in this change.
+  upstream source in this change. **CORRECTED 2026-11-13:** gh:#1349's fix does this (RESULTS.md defect 1 there).
 
 **Single-phase water shock tube, IF97 vs CoolProp (cross-code, not
-validation).** Because of the liquid defect this is run in superheated steam:
+validation).** ~~Because of the liquid defect this is run in superheated steam~~ (the liquid case is now restored, see above; the steam case stays):
 - 500 K, 0.2 | 0.1 MPa, 40 cells, t = 0.5 ms;
-- 36 steps each; star pressure 0.139940 MPa (IF97) vs 0.139938 (CoolProp);
-- max |Δp| = 8.7 Pa = **0.009 %** of the jump;
+- 36 steps each; star pressure ~~0.139940 MPa (IF97) vs 0.139938 (CoolProp)~~ **re-measured 2026-11-13: 0.140066 MPa (IF97) vs 0.139938 (CoolProp)**;
+- max |Δp| = ~~8.7 Pa = **0.009 %**~~ **290.2 Pa = 0.290 %** of the jump (the CoolProp side did not move; the IF97 side did, from a change to the IF97 solver since 2026-10-16 that this change did not investigate, still inside the test's 5 % bound);
 - CoolProp took 28 s, IF97 0.12 s.
 
 ### 9. `Iapws97Hem::break_flow` for subcooled liquid at low Δp (gh:#1102, 2026-11-02)

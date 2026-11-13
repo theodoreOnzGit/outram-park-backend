@@ -9892,6 +9892,11 @@ pub struct GridSampler {
   Builds a grid with the same equally spaced levels on every dimension —
 
 - ```rust
+  pub fn equally_spaced_as_raven(dimensions: usize, steps: usize, lower: f64, upper: f64) -> Result<Self> { /* ... */ }
+  ```
+  Builds the same grid as [`equally_spaced`](Self::equally_spaced) but
+
+- ```rust
   pub fn levels(self: &Self) -> &[Vec<f64>] { /* ... */ }
   ```
   The cumulative-probability levels along each dimension, as supplied.

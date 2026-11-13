@@ -17,7 +17,9 @@
 #   scripts/upstream/build-esi-v2506-and-genfoam.sh [stage ...]
 #     (no argument = every stage, in order; finished stages are skipped)
 #   stages: prereqs fetch-esi env core prereq-libs closure meshing solvers
-#           fetch-genfoam genfoam fetch-cfmesh cfmesh verify
+#           radiation fetch-genfoam genfoam fetch-cfmesh cfmesh verify
+#           (radiation, gh:#1379: libradiationModels, built by `closure` as well, plus
+#           the P1 differential driver radDump from the outram-foam-basic-lib V&V dir)
 #           (fetch-cfmesh and cfmesh: DAFoam cfMesh e944f6ba695f, gh:#1385; cfMesh
 #           was built against ESI v2506, not OpenFOAM-dev, see the V&V README)
 #   status          print which stages and libraries are done, disk, timings
@@ -373,6 +375,24 @@ stage_solvers() {
   run_stage solver-pimpleFoam     scratch_solver_impl pimpleFoam incompressible/pimpleFoam
 }
 
+# --- radiation (gh:#1379) -------------------------------------------------------
+# libradiationModels is part of the `closure` stage (thermophysicalModels/radiation);
+# this stage makes sure of it (a no-op when stamped) and builds the P1 differential
+# driver from the repository's V&V directory into $ROOT/gh1379/bin/radDump.
+RADDRV=$REPO/crates/outram-foam-basic-lib/verification_and_validation/upstream_radiation_gh1379/driver
+rad_driver_impl() {
+  mkdir -p "$ROOT/gh1379/bin" "$ROOT/gh1379/src"
+  rm -rf "$ROOT/gh1379/src/radDump"; cp -r "$RADDRV" "$ROOT/gh1379/src/radDump"
+  ( cd "$ROOT/gh1379/src/radDump" && wmake -j"$N" . )
+  [ -x "$ROOT/gh1379/bin/radDump" ] || { echo "no radDump binary"; return 1; }
+  ls -l "$ROOT/gh1379/bin/radDump"
+}
+stage_radiation() {
+  ( cd "$OF/src/thermophysicalModels/radiation" && wmakeLnInclude -u . ) >>"$LOGS/radiation.log" 2>&1
+  wm_lib thermophysicalModels/radiation
+  run_stage rad-driver rad_driver_impl
+}
+
 # --- GeN-Foam -----------------------------------------------------------------
 gf_fetch_impl() {
   if [ "$(git -C "$GF" rev-parse HEAD 2>/dev/null)" = "$GF_SHA" ]; then echo "GeN-Foam already at $GF_SHA"; return 0; fi
@@ -517,7 +537,7 @@ status() {
 }
 
 # --- main ---------------------------------------------------------------------
-STAGES=(prereqs fetch-esi env core prereq-libs closure meshing solvers fetch-genfoam genfoam fetch-cfmesh cfmesh verify)
+STAGES=(prereqs fetch-esi env core prereq-libs closure meshing solvers radiation fetch-genfoam genfoam fetch-cfmesh cfmesh verify)
 [ "$#" -gt 0 ] || set -- "${STAGES[@]}"
 T0=$(date +%s)
 for s in "$@"; do
@@ -532,6 +552,7 @@ for s in "$@"; do
     closure)      load_env; stage_closure ;;
     meshing)      load_env; stage_meshing ;;
     solvers)      load_env; stage_solvers ;;
+    radiation)    load_env; stage_radiation ;;
     fetch-genfoam) stage_fetch_genfoam ;;
     genfoam)      load_env; stage_genfoam ;;
     fetch-cfmesh) stage_fetch_cfmesh ;;
