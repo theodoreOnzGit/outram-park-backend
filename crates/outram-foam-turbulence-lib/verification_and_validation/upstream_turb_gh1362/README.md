@@ -151,3 +151,38 @@ The matrix totals of the port (its `fvm::ddt/div/laplacian` assembly) were not c
 the real matrices: the port assembles them inside `correct()`. A bit-level comparison of the
 solved fields would need a transient comparison with matching linear-solver settings.
 Foundation (dev) was not read or run. Periodic and AMI patches are not covered.
+
+---
+
+# Slice 3 (gh:#1377): realizableKE, RNGkEpsilon, WALE
+
+Models picked from the gh:#1377 list by size and use: `realizableKE.C` 340 lines,
+`RNGkEpsilon.C` 331, `WALE.C` 191 (the smallest in each family, and the ones the issue
+names as priority for HX/pipe demos and LES). Not reached in this slice (filed as
+children of gh:#1377): `LaunderSharmaKE`, `kOmegaSSTLM`, `kEqn`, `dynamicKEqn`, the DES
+family, `LRR`/`SSG`, `v2f`, `kOmega2006`.
+
+Same frozen duct, same fields, same driver (`turbDump.C`, models `realizableKE`,
+`RNGkEpsilon`, `WALE` added). The new Rust models have ONE arithmetic: the upstream one
+(there is no pre-existing "port form" to keep), so the comparison is ESI-form only, and
+the table below counts identical cells per term.
+
+## Predictions (written and committed BEFORE the driver was extended or run)
+
+1. **RNGkEpsilon**: uses only `+ - * / sqrt mag` (no transcendental function). Every
+   term (nut, GbyNu, G, eta, R, eps E/SuSp/Sp, k E/SuSp/Sp) is **360/360 bit-identical**
+   when fed upstream's `grad(U)` and `div(phi)`.
+2. **realizableKE**: `S2`, `magS`, `GbyNu`, `G`, `eta`, `C1`, eps `E`, eps `Sp`, k terms:
+   **360/360 bit-identical** (only `+ - * / sqrt`). The chain `W -> phis -> As -> rCmu ->
+   nut` goes through `acos` and `cos`: PETIR against glibc libm will differ in a minority
+   of cells; predicted at most 3 ulp and at least 70 % of cells identical in `rCmu`
+   (the `acos` argument is clamped to [-1,1]; the test field may saturate it, which would
+   make `phis` exactly 0 or pi/3 and identical).
+3. **WALE** (upstream `delta` fed in): `Sd`-chain terms (`magSqrSd`, `magSqr(symm)`) are
+   bit-identical (no libm). `pow(x, 5/2)` and `pow(x, 5/4)` differ in a minority of cells
+   by at most 2 ulp (PETIR `powf` against glibc `pow`), so `k` and `nut` differ in the
+   same cells by at most 3 ulp; at least 70 % of cells identical. With the port's own
+   `cbrt` delta, the delta/k/nut differences are those of Smagorinsky (delta 156/360).
+4. No cell is expected to differ by a formula error; any difference that is not
+   explained by a libm function is a defect in the port, to be localised and fixed by
+   translating upstream, not by a tolerance.
