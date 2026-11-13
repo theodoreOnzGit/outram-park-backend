@@ -18,7 +18,7 @@
 //! `ac5adf5f33d893e42f2eed7fb286b0d51c7580da`). **Manual:** LA-UR-17-20093
 //! §COVR.
 //!
-//! # Port status — library option PORTED and oracle-verified; plotting out of scope
+//! # Port status — library and plot options PORTED and oracle-verified
 //!
 //! ## Ported
 //!
@@ -47,15 +47,25 @@
 //!   in, BOXER text out, byte-identical to NJOY2016 on the nine
 //!   `reference-data/errorr/` tapes for both `matype = 3` and `4`
 //!   (`tests/covr_boxer_golden.rs`).
+//! - [`plot`] / [`plot_label`] — the **plot option** (`nout <= 0`, gh:#1369):
+//!   `corr`'s plot branch with its `epmin` reset, `truncg`, `plotit`, `matshd`,
+//!   `level`, `patlev`, `smilab`, `matmes`, `elem`, `mtno`
+//!   (`covr.f90:578-718, 939-1890`). Its output is VIEWR's plot-command text,
+//!   identical to NJOY2016.80's on decks 18, 27, 34 and 47
+//!   (`tests/deck_driver_tapes_vs_njoy2016.rs`). The deck driver runs it
+//!   (`deck::covr`), reading a binary ERRORR unit at full precision.
 //!
-//! ## NOT ported (out of scope)
+//! ## NOT ported
 //!
-//! - **All PostScript plotting** (`plotit`, `matshd`, `patlev`, `smilab`,
+//! - ~~**All PostScript plotting** (`plotit`, `matshd`, `patlev`, `smilab`,
 //!   `matmes`, `elem`, `mtno`, `truncg`, `covr.f90:939-1599,1649-1890`) — VIEWR
 //!   figure generation, which OUTRAM PARK does not target; the plot option
-//!   of [`run_with_deck`] returns [`NjoyError::NotPorted`]. The `epmin`
-//!   reset of `corr` (`covr.f90:628-643`) belongs to that path too.
-//! - Binary (`nin < 0`) tapes: the crate's ENDF reader is ASCII-only.
+//!   of [`run_with_deck`] returns [`NjoyError::NotPorted`].~~ **CORRECTED
+//!   2026-11-13 (gh:#1369):** ported, see [`plot`]. Still not: the plot of an
+//!   MF=40 tape (`mfflg = -14`, `izap`) and `corr`'s restart when a second
+//!   material has more groups, both refused by name.
+//! - Binary (`nin < 0`) tapes from a file: the crate's ENDF reader is
+//!   ASCII-only. (The deck driver keeps a binary ERRORR unit as records.)
 //!
 //! See `README.md` in this directory for theory, the full ported-vs-NotPorted
 //! table, and the recorded test results.
@@ -66,6 +76,8 @@ pub mod correlation;
 pub mod covard;
 pub mod input;
 pub mod library;
+pub mod plot;
+pub mod plot_label;
 pub mod tape;
 
 pub use boxer::{
@@ -111,19 +123,29 @@ pub fn run() -> Result<(), NjoyError> {
 /// from `tape<nin>` and the BOXER library written to `tape<nout>` in the
 /// current directory.
 ///
-/// Only the **library option** (`nout > 0`) is ported — see [`run_library`]
-/// for the tape-in / text-out form that needs no files. The **plot option**
-/// (`nout <= 0`, VIEWR PostScript) is out of scope and returns
-/// [`NjoyError::NotPorted`] rather than fabricating a result.
+/// ~~Only the **library option** (`nout > 0`) is ported~~ **CORRECTED
+/// 2026-11-13 (gh:#1369):** both options run. The library option
+/// ([`run_library`]) writes `tape<nout>`; the plot option ([`plot::run_plot`])
+/// writes VIEWR's plot-command text to `tape<nplot>`.
 ///
 /// # Errors
 /// [`NjoyError::EndfParse`] if the deck fails [`CovrInput::validate`];
-/// [`NjoyError::NotPorted`] (`"covr::plot"`) for the plot option; otherwise
-/// whatever [`run_library`], the tape reader, or the file I/O reports.
+/// otherwise whatever [`run_library`], [`plot::run_plot`], the tape reader, or
+/// the file I/O reports.
 pub fn run_with_deck(input: &CovrInput) -> Result<(), NjoyError> {
     input.validate()?;
     match &input.mode {
-        CovrMode::Plot(_) => Err(NjoyError::NotPorted("covr::plot")),
+        CovrMode::Plot(opts) => {
+            let tape = crate::endf::tape::Tape::read_file(std::path::Path::new(&format!(
+                "tape{}",
+                input.nin.abs()
+            )))?;
+            let out = plot::run_plot(&tape, opts, &input.cases)?;
+            if input.nplot != 0 {
+                std::fs::write(format!("tape{}", input.nplot), out.text).map_err(NjoyError::Io)?;
+            }
+            Ok(())
+        }
         CovrMode::Library(opts) => {
             let tape = crate::endf::tape::Tape::read_file(std::path::Path::new(&format!(
                 "tape{}",
@@ -140,22 +162,23 @@ pub fn run_with_deck(input: &CovrInput) -> Result<(), NjoyError> {
 mod tests {
     use super::*;
 
-    /// Methodology: the plot option is out of scope and must report
-    /// `NotPorted`, never a fabricated figure. Feed a minimal valid
-    /// plot-option deck and assert the exact tag. Result (2026-09-10):
-    /// `NotPorted("covr::plot")`.
+    /// ~~Methodology: the plot option is out of scope and must report
+    /// `NotPorted`, never a fabricated figure.~~ **CORRECTED 2026-11-13
+    /// (gh:#1369):** the plot option runs ([`plot`]); with no input tape in the
+    /// working directory it reports the missing tape, not `NotPorted`.
     #[test]
     fn run_reports_not_ported() {
         let input = CovrInput {
-            nin: 20,
+            nin: 98_765,
             nout: 0,
             nplot: 0,
             mode: CovrMode::Plot(PlotOptions::default()),
             cases: vec![ReactionSelector::auto(9228, 102)],
         };
         match run_with_deck(&input) {
-            Err(NjoyError::NotPorted(tag)) => assert_eq!(tag, "covr::plot"),
-            other => panic!("expected NotPorted(\"covr::plot\"), got {other:?}"),
+            Err(NjoyError::NotPorted(tag)) => panic!("plot option refused: {tag}"),
+            Err(_) => {}
+            Ok(()) => panic!("there is no tape98765 to read"),
         }
         // The registry no-arg form reports the module-level NotPorted tag.
         assert!(matches!(run(), Err(NjoyError::NotPorted("covr"))));

@@ -46,42 +46,66 @@ Gated by `test_{35..42,63}_acer_check_unit_and_directory`, which now compare uni
 
 The prediction posted before the run was: 47 identical through GROUPR, 02 stops at `iwt = 4`, and 11 identical through GROUPR. The deck-11 part did not hold, because of `anased`. Record: `README.md` section 16.
 
+**Re-run 2026-11-13, GROUPR round 5 (gh:#1369: `anased` laws 7/9, `getwtf` `iwt = 4/6`, RECONR's seam between resolved ranges, MODER `nin = 2`):** the same 21 decks were re-run alone (`SURVEY_CASES`, 649 s) on develop 6834385cb plus this work. Their rows are replaced; every other row is as before. **Identical: 49 of 87** (unchanged): no whole deck closed. Rows 02, 11 and 17 changed.
+- Deck 02 now runs GROUPR (`iwt = 4`, `6 18` with `LF = 7`) and stops at CCCCR. Its GENDF (unit 29) and UNRESR PENDF (unit 28) are MODER copies written after CCCCR, so the survey lists them as not written. Both are identical (`test_02_groupr_gendf_and_unresr_pendf`).
+- Deck 11 runs GROUPR as written, `6 18` included, and stops at WIMSR. Its GENDF copy (unit 28) comes after WIMSR, so the survey lists it as not written. It is identical (`test_11_groupr_gendf_whole_tape`).
+- Deck 17: ten tapes are identical (RECONR 41-43, BROADR 31-33, GROUPR 91-93 and MODER's merge 99, where four of them differed). It stops at ERRORR. Tape26 is ERRORR's.
+- Deck 86's tape25 is unchanged (27 of 52 lines).
+
+The predictions posted before each change held (11 and 02 identical through GROUPR; deck 17's seam, then the step-increase state; tapes 91-93 identical). Record: `README.md` section 17.
+
+**Re-run 2026-11-13, ERRORR round 1 (gh:#1369: ERRORR's cards, `mfcov = 35` from an input GENDF):** the ERRORR decks 04, 05, 15, 16, 18, 20, 27, 34, 46, 47 and 65 were re-run alone (`SURVEY_CASES`, 320 s) on develop cc488ffed plus this work. Their rows are replaced; every other row is as before (deck 17, which also stops at ERRORR with `iread = 2`, was not re-run). **Identical: 49 of 87** (unchanged): no whole deck closed.
+- Decks 18, 27, 34 and 47 now run ERRORR and stop at COVR (no card reader). Their ERRORR tapes are identical: deck 18's tape28 here (961 lines); deck 34's binary unit 21 through a MODER copy (175 lines, `test_34_errorr_mf35_covariance_tape`); decks 27 and 47 through the decks' own MODER copies 56/57 and 48/58 (199 lines each), which come after COVR, so the survey lists them as not written. They are gated with COVR and VIEWR removed (`test_18_27_47_errorr_mf35_covariance_tapes`).
+- Decks 04, 05, 15, 16, 46 and 65 read ERRORR's cards and stop at the named refusal `mfcov other than 35` (MF=31, 33 or 34 from a deck); deck 20 stops at `nendf = 999` (`covadd` from a deck).
+
+The prediction posted before the change was: deck 34's covariance tape identical, chi equal to GROUPR's, the deck stopping at COVR. All three held. Record: `README.md` section 18.
+
+**Re-run 2026-11-13, COVR's plot option and ERRORR `mfcov = 33` from a deck (gh:#1369):** the ERRORR decks 04, 05, 15, 16, 18, 20, 27, 34, 46, 47 and 65 were re-run alone (`SURVEY_CASES`) on develop c8bbe9dfa plus this work. Their rows are replaced; every other row is as before. **Identical: 54 of 87** (49 before).
+- Decks 18, 27, 34 and 47 now run to the end `identical`: COVR's plot files and VIEWR's PostScript match NJOY2016.80 line for line (`tests/deck_driver_covr_vs_njoy2016.rs`).
+- Deck 05 is `identical` as a whole deck: ERRORR `mfcov = 33` from a PENDF (unit 33, 21 471 lines), COVR's plot of every MT pair (unit 34, 78 796 lines) and VIEWR (unit 35, 199 652 lines).
+- Decks 04 and 16 run their first ERRORR (`mfcov = 33`), whose tapes (23 and 26) are identical, and stop at the next one (`mfcov = 31` and `34`). Deck 04's GROUPR tape 24 is identical too.
+- Decks 15, 46 and 65 stop at the named refusal (`mfcov = 31` or `34`, or `33` from a GENDF), deck 20 at `nendf = 999`.
+
+The prediction posted before the change: every COVR plot file identical, all four `mfcov = 35` decks closed; for deck 05, unit 33 identical but for a few last-figure words in MF=33. The first held. The second held better than predicted: no word differed. Record: `README.md` section 19.
+
+**Re-run 2026-11-13, ERRORR `mfcov = 34`, `31`, MF=33 from a GENDF and `covadd` (gh:#1369):** the ERRORR decks 04, 05, 15, 16, 17, 18, 20, 27, 34, 46, 47 and 65 were re-run alone (`SURVEY_CASES`) on develop 588aef22e plus this work. Their rows are replaced; every other row is as before. **Identical: 60 of 87** (54 before). Decks 04 (MF=31 with `nin` copied ahead), 15 (MF=31, 33 and 34 from a text GENDF), 16 (MF=34 from a PENDF), 20 (`covadd`, then MF=33 from a GENDF with LRF=7 `resprx`), 46 and 65 (MF=34 from a GENDF) now run to the end `identical`; each is gated whole in `tests/deck_driver_covr_vs_njoy2016.rs`. Decks 05, 18, 27, 34 and 47 stay `identical`. Deck 17 stops at ERRORR `iread = 2`, as before. Predictions were posted before each change except deck 04's (recorded on the issue). Record: `README.md` section 20.
+
 | deck | status | tapes identical | differing tapes | text tapes we did not write | binary tapes (no blocked-binary writer here) |
 |---|---|---|---|---|---|
 | 01 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
-| 02 | NotPorted (groupr: not yet ported from NJOY2016: groupr getwtf for iwt other than 2, 3, 5, 8 and 9 in the tape driver) | 1 |  | tape28 tape29 | tape21 tape22 tape23 tape24 tape25 tape26 tape27 |
+| 02 | NotPorted (ccccr: card reader not yet translated) | 1 |  | tape28 tape29 | tape21 tape22 tape23 tape24 tape25 tape26 tape27 |
 | 03 | NotPorted (gaminr: card reader not yet translated) | 0 | tape31 2180/2180 lines | tape33 tape34 tape35 tape36 tape37 |  |
-| 04 | NotPorted (errorr: card reader not yet translated) | 0 |  | tape23 tape24 tape25 | tape21 tape22 |
-| 05 | NotPorted (errorr: card reader not yet translated) | 0 |  | tape33 tape34 tape35 | tape31 tape32 |
+| 04 | identical | 3 |  |  | tape21 tape22 |
+| 05 | identical | 3 |  |  | tape31 tape32 |
 | 06 | NotPorted (plotr: card reader not yet translated) | 0 |  | tape31 tape32 |  |
 | 07 | identical | 3 |  |  | tape21 tape22 tape23 tape24 tape25 |
 | 08 | identical | 3 |  |  | tape21 tape22 tape23 tape24 |
 | 09 | identical | 1 |  |  | tape21 tape22 tape23 tape25 |
 | 10 | differs | 2 | tape28 15270/15277 lines |  | tape21 tape22 tape23 tape24 tape25 |
-| 11 | NotPorted (groupr: not yet ported from NJOY2016: groupr getsed: only tabulated LF = 1 and general-evaporation LF = 5 spectra are translated here) | 0 |  | tape27 tape28 | tape21 tape22 tape23 tape24 tape25 tape26 |
+| 11 | NotPorted (wimsr: card reader not yet translated) | 0 |  | tape27 tape28 | tape21 tape22 tape23 tape24 tape25 tape26 |
 | 12 | NotPorted (plotr: card reader not yet translated) | 2 |  | tape23 tape24 |  |
 | 13 | identical | 7 |  |  | tape21 tape22 tape23 tape24 tape25 |
 | 14 | identical | 6 |  |  |  |
-| 15 | NotPorted (errorr: card reader not yet translated) | 1 |  | tape25 tape26 tape27 tape35 tape36 tape37 tape45 tape46 tape47 | tape21 tape22 tape23 |
-| 16 | NotPorted (errorr: card reader not yet translated) | 0 |  | tape26 tape27 tape36 tape37 tape46 tape47 | tape21 tape22 tape23 |
-| 17 | NotPorted (groupr: not yet ported from NJOY2016: groupr getwtf for iwt other than 2, 3, 5, 8 and 9 in the tape driver) | 2 | tape31 298349/305355 lines; tape33 119274/198701 lines; tape41 485226/497335 lines; tape43 279882/303613 lines; tape91 1342/1342 lines | tape26 tape92 tape93 tape99 |  |
-| 18 | NotPorted (errorr: card reader not yet translated) | 1 |  | tape28 tape38 tape39 | tape21 tape22 tape23 |
+| 15 | identical | 10 |  |  | tape21 tape22 tape23 |
+| 16 | identical | 6 |  |  | tape21 tape22 tape23 |
+| 17 | NotPorted (errorr: not yet ported from NJOY2016: errorr iread = 1/2 (cards 8-10)) | 10 |  | tape26 |  |
+| 18 | identical | 4 |  |  | tape21 tape22 tape23 |
 | 19 | differs | 2 | tape29 44559/44568 lines |  | tape21 tape22 tape23 tape24 tape25 tape26 |
-| 20 | NotPorted (errorr: card reader not yet translated) | 0 |  | tape21 tape22 tape23 tape25 tape26 tape27 tape91 |  |
+| 20 | identical | 7 |  |  |  |
 | 21 | differs | 2 | tape22 10609/34851 lines; tape23 66506/66600 lines; tape24 66859/66867 lines | tape26 |  |
 | 22 | identical | 1 |  |  |  |
 | 23 | identical | 1 |  |  |  |
 | 24 | identical | 9 |  |  | tape21 tape22 tape23 tape24 tape25 tape27 tape28 |
 | 25 | identical | 4 |  |  | tape30 tape31 tape32 tape33 tape40 tape50 |
 | 26 | identical | 2 |  |  | tape30 tape31 tape32 |
-| 27 | NotPorted (errorr: card reader not yet translated) | 0 |  | tape36 tape37 tape46 tape47 tape56 tape57 | tape21 tape22 tape23 tape25 |
+| 27 | identical | 6 |  |  | tape21 tape22 tape23 tape25 |
 | 28 | identical | 18 |  |  | tape21 tape22 tape23 |
 | 29 | identical | 3 |  |  | tape21 tape22 tape23 tape25 |
 | 30 | NotPorted (reconr: not yet ported from NJOY2016: deck PENDF: MF=10-23 section with no positive point) | 1 |  | tape43 tape44 tape45 | tape21 tape22 tape23 tape41 tape42 |
 | 31 | differs | 0 | tape30 221729/221737 lines |  | tape21 tape22 tape23 tape24 |
 | 32 | identical | 2 |  |  | tape21 tape22 tape23 tape24 tape25 tape31 |
 | 33 | identical | 2 |  |  |  |
-| 34 | NotPorted (errorr: card reader not yet translated) | 0 |  | tape33 tape43 | tape21 tape22 tape30 tape31 |
+| 34 | identical | 2 |  |  | tape21 tape22 tape30 tape31 |
 | 35 | identical | 7 |  |  | tape21 tape22 tape23 tape24 |
 | 36 | identical | 7 |  |  | tape21 tape22 tape23 tape24 |
 | 37 | identical | 7 |  |  | tape21 tape22 tape23 tape24 |
@@ -93,8 +117,8 @@ The prediction posted before the run was: 47 identical through GROUPR, 02 stops 
 | 43 | NotPorted (broadr: not yet ported from NJOY2016: BROADR thinning only (tempef <= 0, thinb)) | 0 |  | tape35 | tape21 tape22 tape23 |
 | 44 | identical | 1 |  |  | tape21 tape22 tape23 |
 | 45 | identical | 1 |  |  | tape21 tape22 tape23 |
-| 46 | NotPorted (errorr: card reader not yet translated) | 0 |  | tape34 | tape21 tape22 tape23 |
-| 47 | NotPorted (errorr: card reader not yet translated) | 2 |  | tape46 tape47 tape48 tape56 tape57 tape58 | tape21 tape22 tape25 tape35 |
+| 46 | identical | 1 |  |  | tape21 tape22 tape23 |
+| 47 | identical | 8 |  |  | tape21 tape22 tape25 tape35 |
 | 48 | differs | 1 | tape27 36/17964 lines |  |  |
 | 49 | identical | 2 |  |  | tape21 tape22 tape23 tape24 tape25 tape31 |
 | 50 | identical | 6 |  |  | tape21 tape22 |
@@ -112,7 +136,7 @@ The prediction posted before the run was: 47 identical through GROUPR, 02 stops 
 | 62 | identical | 6 |  |  | tape21 tape22 |
 | 63 | identical | 7 |  |  | tape21 tape22 tape23 tape24 |
 | 64 | NotPorted (reconr: not yet ported from NJOY2016: deck PENDF: MF=10-23 section with no positive point) | 0 |  | tape31 tape32 tape33 tape34 tape35 tape36 tape37 tape38 tape43 tape46 | tape21 tape30 |
-| 65 | NotPorted (errorr: card reader not yet translated) | 1 |  | tape41 tape51 tape61 | tape21 tape22 tape23 |
+| 65 | identical | 4 |  |  | tape21 tape22 tape23 |
 | 66 | NotPorted (acer: not yet ported from NJOY2016: acephn: MF=1/MT=452 or /456 nubar -- the MT=18 fission yield substitution (acepn.f90:178-205, 469-475) is not ported) | 0 | tape90 119/124 lines | tape31 tape32 tape33 tape34 tape35 tape36 tape37 tape38 tape43 tape46 | tape21 tape30 |
 | 67 | identical | 7 |  |  | tape30 tape31 tape32 tape40 tape50 |
 | 68 | identical | 7 |  |  | tape30 tape31 tape32 tape40 tape50 |

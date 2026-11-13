@@ -104,6 +104,9 @@ pub struct Unit {
 pub struct TapeUnits {
     units: BTreeMap<i32, Unit>,
     texts: BTreeMap<i32, String>,
+    /// GENDF records at full precision for a text unit written as blocked binary
+    /// (a negative unit number), gh:#1369: what NJOY's ERRORR reads back.
+    gendf: BTreeMap<i32, crate::errorr::gendf::GendfTape>,
     /// Units a module opened new or stored a tape on (its outputs), gh:#1508.
     written: BTreeSet<i32>,
     workdir: Option<PathBuf>,
@@ -116,7 +119,7 @@ fn unit_err(msg: String) -> NjoyError {
 impl TapeUnits {
     /// Units backed by files `tape<n>` in `workdir` (`None`: memory only).
     pub fn new(workdir: Option<PathBuf>) -> Self {
-        Self { units: BTreeMap::new(), texts: BTreeMap::new(), written: BTreeSet::new(), workdir }
+        Self { units: BTreeMap::new(), texts: BTreeMap::new(), gendf: BTreeMap::new(), written: BTreeSet::new(), workdir }
     }
 
     /// `openz(lun, new)`: open unit `lun`; with `new == 1` destroy any previous
@@ -241,6 +244,22 @@ impl TapeUnits {
         Ok(())
     }
 
+    /// Put an ENDF tape on coded unit `lun` as the text a module wrote, line for
+    /// line (ERRORR's `covadd`, gh:#1369): the unit's tape is that text parsed, not
+    /// re-rendered through [`Tape::write`], so records `Tape::write` does not lay
+    /// out (MF=32) reach the next reader as written, and the file is the text.
+    ///
+    /// # Errors
+    /// Those of [`Tape::read`].
+    pub fn put_endf_text(&mut self, lun: i32, text: String) -> Result<(), NjoyError> {
+        let nun = lun.abs();
+        let tape = Tape::read(text.as_bytes())?;
+        self.units.insert(nun, Unit { meta: PendfMeta::default(), tape, binary: lun < 0, pointwise: None });
+        self.written.insert(nun);
+        self.put_text(lun, text);
+        Ok(())
+    }
+
     /// Replace unit `lun`'s [`PendfMeta`] (after a [`TapeUnits::store`]).
     pub fn set_meta(&mut self, lun: i32, meta: PendfMeta) {
         if let Some(u) = self.units.get_mut(&lun.abs()) {
@@ -250,7 +269,39 @@ impl TapeUnits {
 
     /// Put a non-ENDF text file on unit `lun` (an ACE file, a directory line).
     pub fn put_text(&mut self, lun: i32, text: String) {
+        self.gendf.remove(&lun.abs());
         self.texts.insert(lun.abs(), text);
+    }
+
+    /// Put a GENDF on unit `lun`: its text, and for a negative (blocked-binary)
+    /// unit its records at the precision they were written with.
+    pub fn put_gendf(&mut self, lun: i32, text: String, records: crate::errorr::gendf::GendfTape) {
+        self.put_text(lun, text);
+        if lun < 0 {
+            self.gendf.insert(lun.abs(), records);
+        }
+    }
+
+    /// The full-precision GENDF records kept for binary unit `lun`, if any.
+    pub fn binary_gendf(&self, lun: i32) -> Option<crate::errorr::gendf::GendfTape> {
+        if lun < 0 { self.gendf.get(&lun.abs()).cloned() } else { None }
+    }
+
+    /// The GENDF on unit `lun` as NJOY reads it back: the full-precision records
+    /// of a binary unit, else its text parsed (`None`: no text on the unit).
+    ///
+    /// # Errors
+    /// A text GENDF that does not parse.
+    pub fn gendf(&self, lun: i32) -> Result<Option<crate::errorr::gendf::GendfTape>, NjoyError> {
+        if lun < 0 {
+            if let Some(g) = self.gendf.get(&lun.abs()) {
+                return Ok(Some(g.clone()));
+            }
+        }
+        match self.text(lun) {
+            Some(t) => crate::errorr::gendf::parse_gendf_text(t).map(Some),
+            None => Ok(None),
+        }
     }
 
     /// The text file on unit `lun`, if one was put there.

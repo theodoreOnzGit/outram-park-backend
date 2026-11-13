@@ -87,19 +87,25 @@ clamps to $[-1, 1]$ (`covr.f90:1371-1372`), reproduced by
 | **BOXER `press` RLE** (encode + decode) | `covr.f90:2085-2196` | `boxer::compress` / `boxer::decompress` |
 | **BOXER `setfor`** format selection | `covr.f90:2220-2247` | `boxer::setfor` |
 | **BOXER `press` text layout** (byte-exact `1pEw.d`/`Fw.d`/`Iw` records) | `covr.f90:2199-2207` | `boxer_text::press_text` (+ `parse_boxer_text`, a reader for V&V) |
+| **Plot option** (2026-11-13, gh:#1369): `corr`'s plot branch with the `epmin` reset, `covard` with upstream's stale `izero`, `truncg`, `plotit`, `matshd`, `level`, `patlev` | `covr.f90:150-505, 578-1647` | `plot::run_plot` |
+| Plot labels: `smilab`, `matmes`, `elem`, `mtno` | `covr.f90:1649-1890` | `plot_label` |
+| COVR's cards from a deck, a binary ERRORR unit at full precision | `covr.f90:168-260` | `deck::covr::{read_covr, run_covr, tape_from_records}` |
 
-### NOT ported (out of scope)
+### NOT ported
 
 | Piece | Upstream | Reason |
 |---|---|---|
-| **All PostScript plotting** (`plotit`, `matshd`, `patlev`, `smilab`, `matmes`, `elem`, `mtno`, `truncg`, `copyst`) and the plot-option `epmin` reset in `corr` | `covr.f90:628-643, 939-1599, 1649-1910` | VIEWR figure generation — graphics for a target OUTRAM PARK does not support. Only the self-contained numeric pieces used *by* the plot path (`level`, the shade array) are ported. `run_with_deck` returns `NotPorted("covr::plot")` for `nout <= 0`. |
-| Binary (`nin < 0`) input tapes | `covr.f90:307` | The crate's ENDF reader is ASCII-only. |
+| ~~**All PostScript plotting** (`plotit`, `matshd`, `patlev`, `smilab`, `matmes`, `elem`, `mtno`, `truncg`, `copyst`) and the plot-option `epmin` reset in `corr`~~ **CORRECTED 2026-11-13 (gh:#1369): ported** (table above); only `copyst` (the omitted-plot listing on `nsyso`) is not, and `run_plot` returns that table as data | `covr.f90:628-643, 939-1599, 1649-1910` | ~~VIEWR figure generation — graphics for a target OUTRAM PARK does not support. `run_with_deck` returns `NotPorted("covr::plot")` for `nout <= 0`.~~ |
+| Plot of an MF=40 tape (`mfflg = -14`, `izap` labels) | `covr.f90:832-836, 1700-1706` | No deck exercises it; refused by name. |
+| `corr`'s `icall` restart when a second material has more groups | `covr.f90:755-765` | Refused by name. |
+| Binary (`nin < 0`) input tapes from a file | `covr.f90:307` | The crate's ENDF reader is ASCII-only. The deck driver keeps a binary ERRORR unit as records (`deck::covr::tape_from_records`). |
 
 Two upstream quirks are deliberately not reproduced: `covard` returns from
 a lumped-component placeholder (`nmt = 0`, `covr.f90:820`) without updating
 `izero`, and the library path takes `sqrt` of a diagonal without a sign guard
 (`covr.f90:645-648`). The port treats a placeholder as a null matrix and a
 negative diagonal as `rsd = 0`; neither case occurs on an ERRORR tape.
+The plot path (`plot.rs`) reproduces both quirks as upstream has them.
 
 ## Testing — status and results
 
@@ -128,10 +134,18 @@ encodes each such value as a distinct run. Removing the zeroing made the
 tapes identical — an ERRORR-writer defect that only a downstream consumer
 exposed.
 
+**Plot option, measured 2026-11-13 (gh:#1369).** NJOY2016.80 and the deck
+driver run upstream decks 05, 18, 27, 34 and 47 whole, and every COVR plot
+unit is identical line for line: deck 05's unit 34 (78 796 lines, MF=33 with
+cross pairs), 18's 38 (8 270), 27's 36 and 37, 34's 33 (1 150), and 47's 46
+and 56 (1 565 each). The VIEWR PostScript after each is identical too
+(`tests/deck_driver_covr_vs_njoy2016.rs`). All matched on the first run.
+
 ## What a human must verify
 
-1. **Scope** — the plot option is intentionally absent; confirm no OUTRAM
-   PARK workflow needs the VIEWR figures.
+1. ~~**Scope** — the plot option is intentionally absent; confirm no OUTRAM
+   PARK workflow needs the VIEWR figures.~~ **CORRECTED 2026-11-13:** the plot
+   option is ported (gh:#1369).
 2. **Multi-material cases** (`mat1 != mat`) — the oracle runs use one
    material per tape; the `mat1` path is exercised only by the unit tests.
 

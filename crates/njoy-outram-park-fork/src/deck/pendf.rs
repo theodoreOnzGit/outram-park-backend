@@ -301,9 +301,10 @@ pub fn reconr_tape(
     let mut body: Vec<Section> = Vec::new();
     if let Some(m2) = endf.section(mat, 2, 151) {
         let info = parse_resonance_info(m2)?;
-        let (spin, mut ascat) = info.ranges.last().map_or((0.0, 0.0), |r| (r.spi, r.ap));
+        let (mut spin, mut ascat) = info.ranges.last().map_or((0.0, 0.0), |r| (r.spi, r.ap));
         if let Some(rml) = info.ranges.last().and_then(|r| r.rml.as_ref()) {
             ascat = rml_ascat(&rml.section, ascat);
+            spin = rml_spin(&rml.section, spin);
         }
         let eh = res.resonance_upper_limit.unwrap_or(2.0e7);
         body.push(Section {
@@ -368,6 +369,14 @@ fn rml_ascat(sec: &crate::samm::mf2::RmlSection, init: f64) -> f64 {
         }
     }
     ascat
+}
+
+/// `spin` after an LRF=7 range (`rdsammy`, `samm.f90:1073-1085`): the target spin
+/// `IB` of the last particle pair whose MT is 2, else the range CONT's `c1`;
+/// `recout` writes it as MF=2/MT=151's fourth record's first word
+/// (`reconr.f90:5199`). Cl-35's (deck 20) is 1.5; it was 0 here until 2026-11-13.
+fn rml_spin(sec: &crate::samm::mf2::RmlSection, init: f64) -> f64 {
+    sec.particle_pairs.iter().filter(|p| p.mt == 2).last().map_or(init, |p| p.spin_b)
 }
 
 /// The MF=3 HEAD records as `recout` writes them (`reconr.f90:5222-5365`):

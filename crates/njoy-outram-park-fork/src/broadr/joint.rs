@@ -253,8 +253,9 @@ fn erfc_consts() -> &'static ErfcConsts {
 #[allow(clippy::excessive_precision)]
 const SQRTPI: f64 = 1.772_453_850_905_516_027_298_167_483_341_15;
 
-/// SLATEC `derfc` as NJOY carries it (`mathm.f90:447-634`).
-fn erfc(x: f64) -> f64 {
+/// SLATEC `derfc` as NJOY carries it (`mathm.f90:447-634`). Also GROUPR's
+/// `anased` law 7 (`groupr::continuum`), which calls the same `mathm` routine.
+pub(crate) fn erfc(x: f64) -> f64 {
     let c = erfc_consts();
     if x <= c.xsml {
         return 2.0;

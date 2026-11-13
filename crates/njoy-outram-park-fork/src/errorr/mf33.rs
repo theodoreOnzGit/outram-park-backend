@@ -36,7 +36,12 @@
 //! branches [`super::resprx`] lists (`LCOMP=0`, `LRF=1/3` sensitivities,
 //! INTG correlations in the ERRORJ branch), ENDF/B-IV tapes,
 //! ratio-to-standard NC-type records (`LTY` 1–3), MF=31/34/35/40, `iread`
-//! 1/2, GENDF input (`colaps`).
+//! 1/2, GENDF input (`colaps`). (~~MF=35 from a GENDF is a separate path,
+//! [`super::mf35::run_mf35`], gh:#1369; `colaps` is not wired into this one.~~
+//! **CORRECTED 2026-11-13, gh:#1369:** this function still takes a PENDF only, but
+//! the other files have their own paths: MF=31 and MF=33 from a GENDF through
+//! `colaps` ([`super::mf31::run_cov_gendf`]), MF=34 ([`super::mf34`]) and MF=35
+//! ([`super::mf35::run_mf35`]). MF=40 is not ported.)
 
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
@@ -80,7 +85,7 @@ pub struct Mf33Config {
 
 /// `iverf` of a material from its MF=1/MT=451 header
 /// (`errorr.f90:456-466`).
-fn endf_version(tape: &Tape, mat: i32) -> Result<i32, NjoyError> {
+pub(crate) fn endf_version(tape: &Tape, mat: i32) -> Result<i32, NjoyError> {
     let sec = tape
         .section(mat, 1, 451)
         .ok_or(NjoyError::SectionNotFound {
@@ -102,7 +107,7 @@ fn endf_version(tape: &Tape, mat: i32) -> Result<i32, NjoyError> {
 
 /// The temperature carried by a PENDF material's MF=1/MT=451 `hdatio`
 /// record (`grpav`, `errorr.f90:8919-8931`).
-fn pendf_temperature(pendf: &Tape, mat: i32, iverf: i32) -> Result<f64, NjoyError> {
+pub(crate) fn pendf_temperature(pendf: &Tape, mat: i32, iverf: i32) -> Result<f64, NjoyError> {
     let sec = pendf
         .section(mat, 1, 451)
         .ok_or(NjoyError::SectionNotFound {

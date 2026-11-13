@@ -234,6 +234,52 @@ fn thermal_fission_fusion(e: f64, t_dependent: bool, temperature_kelvin: f64) ->
     }
 }
 
+/// `getwtf`'s `iwt = 4` branch (`groupr.f90:5206-5220`) on `genwtf`'s `wght(1..6) = eb,
+/// tb, ab, ec, tc, ac`: thermal Maxwellian below `eb`, `1/E` to `ec`, fission Maxwellian
+/// above; `enext = 1.01 e`, stopped at `eb` and at `ec`. Returns `(wtf, enext)` before
+/// `getwtf`'s final `sigfig(enext, 6, 1)` (gh:#1369 round 5, deck 02).
+pub(crate) fn getwtf_iwt4(w: &[f64; 6], e: f64) -> (f64, f64) {
+    const S101: f64 = 1.01;
+    if e <= w[0] {
+        let wtf = w[2] * e * (-e / w[1]).r_exp();
+        let mut enext = S101 * e;
+        if e < w[0] && enext > w[0] {
+            enext = w[0];
+        }
+        (wtf, enext)
+    } else if e <= w[3] {
+        let wtf = 1.0 / e;
+        let mut enext = S101 * e;
+        if e < w[3] && enext > w[3] {
+            enext = w[3];
+        }
+        (wtf, enext)
+    } else {
+        (w[5] * e.sqrt() * (-e / w[4]).r_exp(), S101 * e)
+    }
+}
+
+/// `getwtf`'s `iwt = 6` branch (`groupr.f90:5222-5245`): the value is
+/// [`thermal_fission_fusion`]; `enext = 1.01 e`, `1.005 e` within `wt6i = 1.6e6` eV of
+/// the fusion peak `wt6g = 1.407e7` eV and `1.002 e` within `wt6j = 3.3e5` eV of it (the
+/// fast branch only, `e > wt6c`). Returns `(wtf, enext)` before `getwtf`'s final
+/// `sigfig(enext, 6, 1)` (gh:#1369 round 5, deck 17).
+pub(crate) fn getwtf_iwt6(e: f64) -> (f64, f64) {
+    const WT6C: f64 = 2.1e6;
+    const WT6G: f64 = 1.407e7;
+    let wtf = thermal_fission_fusion(e, false, 0.0);
+    let mut enext = 1.01 * e;
+    if e > 2.0 * 0.054 && e > WT6C {
+        if (e - WT6G).abs() <= 1.6e6 {
+            enext = 1.005 * e;
+        }
+        if (e - WT6G).abs() <= 3.3e5 {
+            enext = 1.002 * e;
+        }
+    }
+    (wtf, enext)
+}
+
 // ---------------------------------------------------------------------------
 // iwt = 11 / 12: VITAMIN-E weight function (ORNL-5505/5510)
 // getwtf constants at groupr.f90:5136-5147.
