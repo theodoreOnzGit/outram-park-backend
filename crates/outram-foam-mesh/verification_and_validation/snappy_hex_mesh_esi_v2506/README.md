@@ -1479,3 +1479,22 @@ Written from reading `layerParameters` (`FINAL_AND_EXPANSION`), `setupLayerInfoT
 | P63 | Layer meshes 86/88/90/92 equal ESI per index (points bit-identical, ring, owner, neighbour, patch). **My expectation is that this FAILS on the first run**: the `offset` branches of `getEdgeString` and `addSideFace` (faces at the boundary of the extruded region, where adjacent points carry 1, 2 or 3 layers) and `getLayerCellsFaces` multi-layer cell/face bookkeeping have never met ESI data. | any of those |
 | P64 | Final mesh 93 and the `printLayerData` table (mesh layers 1.86 / 2.03 / 1.93 / 2.21; thickness 2.56e-4 / 3.08e-4 / 2.96e-4 / 2.72e-4 m; 49 / 59.7 / 57.8 / 49.9 %) equal ESI's. | as P63 |
 | P65 | `snappyHexMeshDict.layers_relaxed` (`nRelaxedIter 1`, base case otherwise): iteration 0 is unchanged from the base case (17 removed, `meshQualityControls` used) and iterations >= 1 use `relaxed { maxNonOrtho 75; }` for the mover AND `checkAndUnmark`, so the 2 non-orthogonal faces of base iteration 0 (> 65 deg) count as failures only if above 75 deg; the port equals ESI per index at every iteration. | the port passes the relaxed controls to only one of the two users; `relaxed` merges over the base keys, it does not replace them |
+
+## Round 10, task 3: the tail after the layer loop (predictions, committed before the code is run)
+
+ESI does three things after `addLayers`: the application's `fvMeshTools::removeEmptyPatches`, the
+"Checking final mesh ..." step (`motionSmoother::checkMesh(false, mesh, motionDict, wrongFaces)` with
+the BASE `meshQualityControls`, never the relaxed ones; a non-empty `wrongFaces` is written as a faceSet
+and the log says "Finished meshing with N illegal faces"), and `writeLayerData` (inside `addLayers`,
+before the empty patch goes; `writeFlags (layerFields)` writes `nSurfaceLayers`, `thickness`,
+`thicknessFraction`, `layerSets` the cell/face sets). Reference runs with `layerFields` added to
+`writeFlags` (`l3lf`, `r1lf`) leave the final meshes byte-identical (faces compared). Observed in the
+ESI logs before this prediction (disclosed): the relaxed case ends with "Finished meshing with 2 illegal
+faces" (the 2 faces above 65 degrees that the relaxed iteration accepted), `wrongFaces` = {20914, 44803};
+the base and 3-layer cases end "without any errors".
+
+| # | prediction | how it can fail |
+|---|---|---|
+| P66 | `remove_empty_patches` on the final layer mesh with ESI's empty `allBoundary` restored as patch 0 returns `newToOld = [1,2,3,4]` and a mesh whose face digest equals ESI's final mesh (base 91, 3-layer 93, relaxed 89). | none expected: it renumbers 4 labels |
+| P67 | `final_check_mesh` with the base controls: relaxed case **2 faces, both non-orthogonality, labels {20914, 44803}**; base and 3-layer cases 0 faces. | the check set on a mesh with partially extruded layers differs from the one in the loop |
+| P68 | `layer_data_fields`: `nSurfaceLayers` (cells and patches, integers) equal bit for bit in the 3-layer and relaxed cases; `thickness` and `thicknessFraction` patch values: **not necessarily bit-identical** (round 9 matched them only to 3 figures); I expect most values bit-identical with a minority differing by an ulp from the operation order of the `faceRealThickness` sums, and will count them. | either direction |

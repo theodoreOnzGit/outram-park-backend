@@ -29,6 +29,12 @@ def fnv1a(data):
 def main():
     out = sys.argv[1]
     for t in sys.argv[2:]:
+        if t.startswith("fields:"):
+            # `layer_fields_TIME.bin` of extract_layer_fields.py
+            t = t[7:]
+            p = open(f"{out}/layer_fields_{t}.bin", "rb").read()
+            print(t, "fields", "%016x" % fnv1a(p), str(len(p)))
+            continue
         res = [t]
         try:
             f = open(f"{out}/layer_mesh_{t}.txt", "rb").read()
