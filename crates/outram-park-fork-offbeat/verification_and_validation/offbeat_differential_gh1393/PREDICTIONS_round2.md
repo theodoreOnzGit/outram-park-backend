@@ -19,16 +19,18 @@ Each section below is committed before the corresponding driver is compiled.
 The issue says 15 models: the port enum has 15 variants, one of which
 (`MatproFthconUO2`, gh:#1070) has no OFFBEAT class.  Compared: 14.
 
-Derived gate (written before measuring).  Most strains are a *difference*
-`a(T) - a(Tref)`.  If the port evaluates each operand within 4 ulp of the
-upstream operand (round 1's observed worst for the same operations,
-`pow(T,3)` vs `t*t*t`, Horner vs expanded sum), then
-`|port - upstream| <= 4 * eps * (|a| + |b|)` with `eps = 2^-52`, where
-`|a|+|b|` is the *operand scale* the driver emits.  Gate G1: that bound at
-every compared point.  Gate G2: relative difference < 1e-14 at every point
-where `|result| >= 0.1 * scale` (there the condition number is <= 10, so
-G1 implies `4*eps*10 = 8.9e-15 < 1e-14`).  Near `T = Tref` the relative
-difference is expected to be large and is reported, not gated.
+Derived gate (written before measuring; revised once, before any run, when
+the first draft's "4 eps" could not be derived).  Most strains are a
+*difference* `a(T) - a(Tref)` of polynomial-like operands.  A degree-3
+polynomial evaluated by Horner has forward error <= gamma_6 * S ~ 6u, where
+`u = 2^-53` and `S = sum |terms|`; the expanded `pow` form is bounded the same
+way, so the two differ by <= 12u*S per operand, plus <= 2u for the outer
+multiply/subtract.  Gate G1: `|port - upstream| <= 16u * scale = 8 eps * scale`
+(`eps = 2^-52`) where `scale` is the sum of absolute values of all additive
+terms of both operands, emitted by the driver.  Gate G2: relative difference
+< 1e-14 wherever `|result| >= 0.2 * scale` (condition number <= 5, so G1
+implies `8 eps * 5 = 8.9e-15 < 1e-14`).  Near `T = Tref` the relative
+difference is expected to be large; it is reported, not gated by G2.
 
 Predictions:
 1. G1 and G2 hold for every model.
