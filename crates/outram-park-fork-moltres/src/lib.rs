@@ -60,6 +60,12 @@
 //!   ring of internal faces; no cyclic boundary machinery needed).
 //! - [`materials`] — SI multigroup cross-section records and their
 //!   materialisation to per-cell fields.
+//! - [`tables`] — Moltres temperature-table reader and linear interpolation
+//!   (`GenericMoltresMaterial`, `none`/`linear`), cm -> m conversion.
+//! - [`terms`] — pointwise source terms in Moltres' own operation order.
+//! - [`diffusion`] also carries Moltres' Marshak/Mark/Milne vacuum boundary
+//!   ([`diffusion::VacuumBoundary`]); before gh:#1400 the only "vacuum" was
+//!   zero flux at the face.
 //!
 //! **Prescribed flow only:** the salt velocity is an input (rigid loop
 //! circulation), not solved — full CFD coupling is the appbuilder/GeN-Foam
@@ -93,6 +99,8 @@ pub mod error;
 pub mod materials;
 pub mod precursors;
 pub mod ring_mesh;
+pub mod tables;
+pub mod terms;
 pub mod thermal;
 
 /// Convenience re-exports of the crate's main types.

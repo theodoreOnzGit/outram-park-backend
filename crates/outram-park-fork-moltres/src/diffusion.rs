@@ -64,7 +64,7 @@
 use std::sync::Arc;
 
 use outram_foam_basic_lib::prelude::{
-    fvm, BoundaryCondition, Field, FvMesh, SolverSettings, VolScalarField,
+    fvm, BoundaryCondition, Field, FvMesh, PatchField, SolverSettings, VolScalarField,
 };
 
 use crate::error::MoltresError;
@@ -285,10 +285,93 @@ impl StaticDiffusion {
         }
     }
 
+    /// Replace patch `patch_index`'s condition, in every group, by a Moltres
+    /// vacuum condition (see [`VacuumBoundary`]). Call before
+    /// [`Self::solve`]. Panics if `patch_index` is out of range.
+    pub fn set_vacuum_boundary(&mut self, patch_index: usize, kind: VacuumBoundary) {
+        for g in 0..self.xs.energy_groups {
+            let pf = vacuum_patch_field(&self.mesh, patch_index, kind, &self.xs.diffusion_cell[g]);
+            self.flux[g].boundary[patch_index] = pf;
+        }
+    }
+
     /// The materialised cross sections this model was built from.
     #[must_use]
     pub fn xs(&self) -> &XsFields {
         &self.xs
+    }
+}
+
+
+// ── Vacuum boundary conditions (Moltres `VacuumConcBC`) ─────────────────────
+
+/// Which vacuum condition Moltres' `VacuumConcBC` applies
+/// (`vacuum_bc_type`). The integrated BC adds `int v phi / alpha dS` to the
+/// weak form, i.e. an outgoing partial current `J = phi_b / alpha` with
+/// `alpha` taken from the table below.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VacuumBoundary {
+    /// `marshak`, `alpha = 2` (the Moltres default).
+    Marshak,
+    /// `mark`, `alpha = sqrt(3)`.
+    Mark,
+    /// `milne`, `alpha = 3 * 0.710446` (`_milne_extrapolation_coefficient`
+    /// in `include/bcs/VacuumConcBC.h`).
+    Milne,
+}
+
+impl VacuumBoundary {
+    /// The `alpha` of `VacuumConcBC` for this condition.
+    #[must_use]
+    pub fn alpha(self) -> f64 {
+        match self {
+            Self::Marshak => 2.0,
+            Self::Mark => 3.0_f64.sqrt(),
+            Self::Milne => 3.0 * 0.710446,
+        }
+    }
+}
+
+/// Dirichlet weight `w` of the finite-volume form of `J = phi_b / alpha`:
+/// with `D (phi_c - phi_b)/delta = phi_b/alpha`, `phi_b = (1 - w) phi_c`,
+/// `w = x/(1 + x)`, `x = delta/(alpha D)`. `delta` is the owner-cell to
+/// face distance the Laplacian divides by, `d` the diffusion coefficient.
+#[must_use]
+pub fn vacuum_value_fraction(alpha: f64, delta: f64, d: f64) -> f64 {
+    let x = delta / (alpha * d);
+    x / (1.0 + x)
+}
+
+/// The Robin patch field for a vacuum boundary on `patch_index`, for a group
+/// whose cell diffusion coefficient is `diffusion_cell`. The weight uses the
+/// same `delta` as `fvm::laplacian` (`DeltaCoeff::Orthogonal`), so the
+/// boundary conductance matches the matrix the solver assembles. The
+/// finite-volume form follows the sibling albedo patch in
+/// `outram-foam-appbuilder-lib` (`albedo_patch_field`).
+#[must_use]
+pub fn vacuum_patch_field(
+    mesh: &FvMesh,
+    patch_index: usize,
+    kind: VacuumBoundary,
+    diffusion_cell: &VolScalarField,
+) -> PatchField<f64> {
+    let patch = &mesh.patches[patch_index];
+    let alpha = kind.alpha();
+    let weights: Vec<f64> = (0..patch.size)
+        .map(|fi| {
+            let gf = patch.start + fi;
+            let owner = mesh.owner[gf];
+            let delta = fvm::DeltaCoeff::Orthogonal.boundary_delta(mesh, gf);
+            vacuum_value_fraction(alpha, delta, diffusion_cell.internal[owner])
+        })
+        .collect();
+    PatchField {
+        bc: BoundaryCondition::MixedField {
+            value_fraction: Field::new(weights),
+            ref_value: Field::new(vec![0.0; patch.size]),
+            ref_grad: Field::new(vec![0.0; patch.size]),
+        },
+        values: Field::new(vec![0.0; patch.size]),
     }
 }
 
@@ -323,7 +406,7 @@ pub(crate) fn seeded_flux(
 
 /// Fission-neutron production `S_f[c] = sum_g nuSigma_{f,g}[c] phi_g[c]`,
 /// `1/(m^3 s)` (Moltres `CoupledFissionKernel` / `PrecursorSource` sum).
-pub(crate) fn fission_source(xs: &XsFields, flux: &[NeutronFluxField]) -> VolScalarField {
+pub fn fission_source(xs: &XsFields, flux: &[NeutronFluxField]) -> VolScalarField {
     let n = xs.mesh.n_cells;
     let mut s = vec![0.0; n];
     for (g, f) in flux.iter().enumerate() {
@@ -351,7 +434,7 @@ pub(crate) fn fission_integral(mesh: &FvMesh, s_fis: &VolScalarField) -> f64 {
 /// In-scatter source into group `into`:
 /// `S_s[c] = sum_{g' != into} Sigma_{g'->into}[c] phi_{g'}[c]`, `1/(m^3 s)`
 /// (Moltres `InScatter`).
-pub(crate) fn scattering_source(xs: &XsFields, flux: &[NeutronFluxField], into: usize) -> Vec<f64> {
+pub fn scattering_source(xs: &XsFields, flux: &[NeutronFluxField], into: usize) -> Vec<f64> {
     let n = xs.mesh.n_cells;
     let mut s = vec![0.0; n];
     for (from, f) in flux.iter().enumerate() {
@@ -575,5 +658,63 @@ mod tests {
         let ka = a.solve().unwrap().k_eff;
         let kb = b.solve().unwrap().k_eff;
         assert!((ka - kb).abs() < 1e-10, "ka = {ka}, kb = {kb}");
+    }
+
+    /// V&V (verification, analytic reference) -- Marshak vacuum slab.
+    ///
+    /// **Methodology.** One-group slab of the `one_group_bare_slab` data
+    /// (`L = 1 m`, `D = 0.009`, `Sigma_a = 0.2`, `nuSigma_f = 0.3`, 200
+    /// cells) with both ends set by [`StaticDiffusion::set_vacuum_boundary`]
+    /// (Marshak, `J = phi_b/2`). The exact fundamental mode `cos(B x)` about
+    /// the centre satisfies `B tan(B L/2) = 1/(alpha D)`; `B` is found by
+    /// bisection and `k = nuSigma_f/(Sigma_a + D B^2)`. Pass: relative error
+    /// `< 2e-4`, and `k` above the zero-flux-face value (less leakage).
+    ///
+    /// **Result (measured 2026-11-13, release build):** printed by the test;
+    /// recorded in `moltres_differential_gh1400/RESULTS.md`.
+    #[test]
+    fn marshak_vacuum_slab_matches_analytic_robin_mode() {
+        let l = 1.0;
+        let mesh = slab_mesh(l, 200);
+        let fuel = MsrMaterial {
+            name: "fuel".into(),
+            diffusion: vec![0.009],
+            sigma_removal: vec![0.2],
+            nu_sigma_f: vec![0.3],
+            chi_prompt: vec![1.0],
+            chi_delayed: vec![1.0],
+            scattering: vec![vec![0.0]],
+            sigma_power: vec![0.0],
+            d_sigma_removal_d_temp: vec![0.0],
+        };
+        let zones = vec![0usize; mesh.n_cells];
+        let xs = XsFields::materialize(mesh, &zones, &[fuel]).unwrap();
+        let zero_flux = {
+            let mut s =
+                StaticDiffusion::new(xs.clone(), &[], &vacuum(), EigenSettings::default()).unwrap();
+            s.solve().unwrap().k_eff
+        };
+        let none = [BoundaryCondition::ZeroGradient, BoundaryCondition::ZeroGradient];
+        let mut s = StaticDiffusion::new(xs, &[], &none, EigenSettings::default()).unwrap();
+        s.set_vacuum_boundary(0, VacuumBoundary::Marshak);
+        s.set_vacuum_boundary(1, VacuumBoundary::Marshak);
+        let k = s.solve().unwrap().k_eff;
+
+        let target = 1.0 / (2.0 * 0.009);
+        let (mut lo, mut hi) = (1e-6, PI / l - 1e-9);
+        for _ in 0..200 {
+            let mid = 0.5 * (lo + hi);
+            if mid * (mid * l / 2.0).r_tan() < target {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+        let b = 0.5 * (lo + hi);
+        let k_exact = 0.3 / (0.2 + 0.009 * b * b);
+        let rel = (k - k_exact).abs() / k_exact;
+        println!("[V&V Marshak slab] k = {k:.8}, exact = {k_exact:.8}, rel = {rel:.3e}, zero-flux k = {zero_flux:.8}");
+        assert!(rel < 2e-4, "rel {rel}");
+        assert!(k > zero_flux);
     }
 }
