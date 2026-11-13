@@ -45,8 +45,10 @@
 //! `ρ U·g`, radiation and reactions. For the incompressible, constant-property
 //! forced convection this module is for, the kinetic-energy and pressure-work
 //! terms are the viscous-heating order (Eckert number ~1e-9 at the demo's
-//! 5 mm/s and 50 K), there is no gravity in the PIMPLE loop and no radiation
-//! or chemistry. They are therefore **not represented**, and this module does
+//! 5 mm/s and 50 K), there is no gravity in the PIMPLE loop and no chemistry, and
+//! radiation is opt-in (~~absent~~ **CHANGED 2026-11-13, gh:#1531:**
+//! [`EnergyEquation::with_radiation`], module [`crate::solvers::energy_radiation`]).
+//! The kinetic-energy and pressure-work terms are therefore **not represented**, and this module does
 //! not claim to carry them. Viscous dissipation is likewise absent (upstream's
 //! `EEqn` has no explicit dissipation term either; it enters through `K`).
 //!
@@ -249,6 +251,8 @@ impl EnergyEquation {
         // `rad.Sh(thermo, he)`: assembled once, from the lagged G and the T at entry, as in EEqn.H.
         // FvMatrix is not Clone, so it is rebuilt per pass from the entry temperature.
         let t_entry = self.radiation.as_ref().map(|_| self.t.clone());
+        let pre_boundary: Option<Vec<Field<f64>>> =
+            self.radiation.as_ref().map(|_| self.t.boundary.iter().map(|p| p.values.clone()).collect());
         for _ in 0..=n_non_orth {
             let mut eqn = fvm::laplacian_with_delta(&alpha_f, &self.t, lap.delta_coeff());
             if lap.is_explicit() {
@@ -283,9 +287,18 @@ impl EnergyEquation {
             evaluate_boundary_values(&mut t_new);
             self.t = t_new;
         }
-        // `rad.correct()`, after `thermo.correct()`.
-        if let Some(r) = self.radiation.as_mut() {
-            r.correct(&self.t);
+        // `rad.correct()`, after `thermo.correct()`. The wall temperature P1 reads is the stored
+        // T boundary value, which on a mixed (coupled) patch is the one the condition gave at
+        // assembly, from this step's coefficients and the OLD cell, not re-evaluated after the
+        // solve (gh:#1531, measured against ESI's dumped `Tb`).
+        if let (Some(r), Some(pre)) = (self.radiation.as_mut(), pre_boundary) {
+            let mut t_rad = self.t.clone();
+            for (pf, old) in t_rad.boundary.iter_mut().zip(pre) {
+                if matches!(pf.bc, BoundaryCondition::Mixed { .. } | BoundaryCondition::MixedField { .. }) {
+                    pf.values = old;
+                }
+            }
+            r.correct(&t_rad);
         }
         let max_change = before.iter().zip(self.t.internal.as_slice()).fold(0.0_f64, |a, (b, c)| a.max((c - b).abs()));
         Ok(EnergySolve { max_change, iterations: perf.n_iterations, residual: perf.final_residual })

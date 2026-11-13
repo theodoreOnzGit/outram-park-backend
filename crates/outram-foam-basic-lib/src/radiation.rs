@@ -566,4 +566,28 @@ mod tests {
         assert_eq!(init.ru()[0], 1.5 * 123.0 - 10.0);
         assert_eq!(init.qr[0][0], 0.0);
     }
+
+    /// The transparent limit (a -> 0) of P1 with Marshak walls between parallel plates is the grey
+    /// diffuse two-plate exchange `sigma (T1^4 - T2^4)/(1/e1 + 1/e2 - 1)`: derived by hand (the
+    /// wall condition gives `q = 4 sigma (T1^4 - T2^4)/(1/Ep1 + 1/Ep2)` with `1/Ep = 4/e - 2`),
+    /// bound `1e-3` relative from the absorption `a L G` that is not zero at `a = 1e-5 /m`.
+    /// Context: the htr10_rz cavity radiation (gh:#1531, gh:#1529).
+    #[test]
+    fn transparent_gap_recovers_the_grey_two_plate_exchange() {
+        let mesh = slab(20, 1.0);
+        let t = t_field(&mesh, 800.0, [1000.0, 500.0]);
+        let model = P1Model::new(
+            ConstantAbsorptionEmission { absorptivity: 1e-5, emissivity: 1e-5, emission_source: 0.0 },
+            vec![P1PatchModel::Marshak { emissivity: 0.8 }, P1PatchModel::Marshak { emissivity: 0.5 }],
+        );
+        let sol = model.solve(&t, SolverSettings { tolerance: 1e-13, max_iter: 2000 });
+        let sigma = stefan_boltzmann_esi_v2506();
+        let want = sigma * (pow4(1000.0) - pow4(500.0)) / (1.0 / 0.8 + 1.0 / 0.5 - 1.0);
+        // qr is the outward flux: at the hot x-min wall the radiation leaves the medium into... the
+        // wall flux magnitude is the exchange rate.
+        let q_hot = sol.qr[0][0].abs();
+        let q_cold = sol.qr[1][0].abs();
+        assert!((q_hot / want - 1.0).abs() < 1e-3, "hot wall {q_hot} vs {want}");
+        assert!((q_cold / want - 1.0).abs() < 1e-3, "cold wall {q_cold} vs {want}");
+    }
 }
