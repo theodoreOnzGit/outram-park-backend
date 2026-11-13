@@ -9723,6 +9723,7 @@ dependencies = [
  "env_logger",
  "image",
  "local-ip-address",
+ "miniz_oxide 0.8.9",
  "ndarray",
  "outram-foam-basic-lib",
  "petir",
