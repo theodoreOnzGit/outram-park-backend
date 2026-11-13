@@ -95,3 +95,26 @@ bit-identical (98.7 %), plus 11 `INIT` rows.
 - `spline.c` not ported, for the reason above (checked, not skipped).
 - Still open in gh:#1341: the 2-D family (`interp2d`, `bilinear`, `bicubic`,
   `spline2d`).
+
+## 2-D interpolation: bilinear and bicubic (written 2026-11-13, prediction committed BEFORE the port is run)
+
+- **Port:** `src/interp2d.rs` (`Interp2d`, kinds `Bilinear` and `Bicubic`) from
+  GSL 2.8 `interpolation/interp2d.c`, `bilinear.c`, `bicubic.c`. The six
+  bicubic polynomial sums are in `src/interp2d_bicubic.rs`, **generated** from
+  `bicubic.c` by `reference-data/gsl/gen_bicubic_rs.py` (only integer literals
+  became floats and `*z += e` became `z += e`; the coefficients are not
+  typed). `bicubic_init`'s row/column splines use the existing
+  `Interp` natural cubic spline (already bit-identical to GSL's
+  `gsl_interp_cspline`). `spline2d.c` is not ported: `gsl_spline2d` is
+  `gsl_interp2d` plus owned copies of the arrays (checked against the file).
+- **Reference:** `reference-data/gsl/interp2d_reference_driver.c`; four grids
+  (2x3, 4x4, 5x6, 8x7), both methods, value and five partials on a 17 x 17
+  grid plus every node, 12 extrapolation points, 12 out-of-range refusals and
+  the `alloc` outcome. **Replay:** `tests/gsl_interp2d_code_to_code.rs`.
+- **P9.** `alloc` accepts or refuses each (method, grid) exactly as GSL does
+  (bicubic on the 2x3 grid is refused); all out-of-range points are refused
+  (`GSL_EDOM`); and **every value is bit-identical** for both methods: no
+  libm function is involved (the grids' `z` values are printed by the C
+  driver, not recomputed). It fails if a generated coefficient line or the
+  `zx`/`zy`/`zxy` derivative grids differ, or if `/dt` versus `*dx` is
+  transcribed wrongly.
