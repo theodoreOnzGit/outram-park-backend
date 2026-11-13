@@ -1240,6 +1240,46 @@ cold and hot. The prediction posted before the run: seeds 7–12 alone give
   0.32**, hot **−8.04 ± 0.33**, shift **−0.52 ± 0.46 (1.1σ)**. The cold value
   agrees with the six-seed −7.54 ± 0.40, which stays the quoted number.
 
+**N-3 with hot dimensions on the current default (2026-11-13, gh:#1129).**
+The hot-dims ablation above was measured on the old salt. This re-measures
+it on the default salt with U-234/U-236 (arm C, RVS, 30P), as evidence for the open
+hot-dims default question.
+
+- **Runs:** `--hot-dims --temp-f 1131` and `--temp-f 1231`, seeds 1–6 each.
+  A container restart killed the 1231 °F run after seed 2. Seeds 3–6
+  were resumed with `--seeds 3-6`, and each seed is an independent stream.
+  About 790 s a seed plus 145 s of data loading, on llvmpipe/Vulkan,
+  4 cores, Intel Xeon, 15.7 GiB.
+- **Prediction** (posted on gh:#1129 before the runs): α_iso(hot) **−9.2 to
+  −7.6** × 10⁻⁵ /°F, and hot − cold −1.5 to +0.1. Both were centred on the
+  old-salt shift of −0.69.
+
+| default salt | 1131 °F k | 1231 °F k | α_iso (×10⁻⁵ /°F) |
+|---|---|---|---|
+| cold dimensions (the default) | 1.00917 ± 0.00027 | 1.00140 ± 0.00022 | −7.69 ± 0.35 |
+| **hot dimensions** | **1.01133 ± 0.00023** | **1.00425 ± 0.00022** | **−6.97 ± 0.31** |
+| hot − cold | +216 ± 40 pcm (paired) | +285 ± 16 pcm (paired) | **+0.72 ± 0.47** (paired +0.72 ± 0.42) |
+
+- **Missed the prediction.** α_iso(hot) is outside the posted range, and the
+  shift has the opposite sign to the old-salt −0.69 ± 0.54. The two shifts
+  differ by 1.41 ± 0.72 (2.0σ). Neither is resolved from zero on its own:
+  1.5σ here and 1.3σ there. Pooled by inverse variance, assuming the salt
+  change does not alter the expansion effect, they give **+0.11 ± 0.35**:
+  hot dimensions do not move α_iso at this precision. The prediction was
+  wrong because it was centred on one unresolved number.
+- **Same pattern in the pairs.** On the old salt, hot − cold fell from
+  +262 (1131 °F) to +210 (1231 °F). Here it rises from +216 to +285. The
+  slope of the hot − cold pair is the α shift, and it has flipped with the
+  same σ. That is noise at about 2σ, not a physical effect anyone has
+  identified.
+- **Against the measured −7.24:** hot dimensions give −6.97, 0.27 above it
+  (0.9σ on the model's σ). Cold dimensions give −7.69, 0.45 below (1.3σ).
+  Both are inside the measurement's own comparison band. **N-3 does not
+  discriminate between hot and cold dimensions.** N-1 moves +224 pcm,
+  still inside its band. The default is not changed: that is the
+  maintainer's call.
+- Data: `data/n3.csv`, rows `+u234+hot-dims`.
+
 ### A finding about the statistics
 
 At 1131 °F (N-3, gh:#1129) three seeds spread 133 pcm (sd), against an
