@@ -53,6 +53,10 @@ git -C upstream_source/cfmesh_dafoam apply \
 scripts/build-cfmesh.sh   # meshLibrary + cartesianMesh, cartesian2DMesh, tetMesh, pMesh
 ```
 
+**Since 2026-11-13 (gh:#1385 round 5)** the whole rebuild (ESI v2506, then this clone, the
+patch and the build) is one idempotent command, `scripts/upstream/build-esi-v2506-and-genfoam.sh
+cfmesh` (`nice`, 2 jobs; documented in `scripts/upstream/README.md`).
+
 See the crate `NOTICE` for the full provenance and licensing statement. Any file
 ported into `src/` carries an upstream provenance header block per the workspace
 provenance rule.

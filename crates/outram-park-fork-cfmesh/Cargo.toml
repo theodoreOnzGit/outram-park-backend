@@ -75,6 +75,11 @@ outram-foam-mesh = { workspace = true }
 # gh:#1385: the upstream-differential tests inflate the committed `.gz`
 # polyMesh files (pure-Rust DEFLATE, already a workspace dependency).
 miniz_oxide = { workspace = true }
+# gh:#1385 round 5: `tests/cfmesh_vs_upstream_single_orifice.rs` reads the
+# tutorial's STL through `tri_surf_io::read_surface_bytes`, which needs the
+# `surface-file` feature; a self dev-dependency turns it on for this crate's own
+# tests, so `cargo test -p outram-park-fork-cfmesh --lib --tests` runs them.
+outram-park-fork-cfmesh = { path = ".", features = ["surface-file"] }
 
 # GUI example stack — the `mesh_studio` egui app (author a surface → generate a
 # polyhedral volume mesh with prism boundary layers → export OpenFOAM/outram-foam

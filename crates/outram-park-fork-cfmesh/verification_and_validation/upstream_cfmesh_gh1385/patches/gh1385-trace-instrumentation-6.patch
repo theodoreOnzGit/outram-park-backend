@@ -1,0 +1,93 @@
+--- a/meshLibrary/cartesianMesh/cartesianMeshGenerator/cartesianMeshGenerator.C
++++ b/meshLibrary/cartesianMesh/cartesianMeshGenerator/cartesianMeshGenerator.C
+@@ -47,6 +47,9 @@
+ #include "triSurfaceMetaData.H"
+ #include "polyMeshGenGeometryModification.H"
+ #include "surfaceMeshGeometryModification.H"
++#include <cstdio>
++#include <cstdlib>
++#include <string>
+ 
+ //#define DEBUG
+ 
+@@ -168,6 +171,32 @@
+ }
+ 
+ 
++
++// gh:#1385 round 5 trace: GH1385_DUMP=<dir> writes the mesh points (17 digits) at the
++// named places of the meshOptimisation step
++static void gh1385Dump(const Foam::Module::polyMeshGen& mesh, const char* tag)
++{
++    const char* dir = getenv("GH1385_DUMP");
++    if (!dir) return;
++    const int call = 0;
++    char name[512];
++    snprintf(name, sizeof(name), "%s/%s_%d.txt", dir, tag, call);
++    if (getenv("GH1385_PASS_TAGS") == nullptr && tag[0] == 'p') return;
++    FILE* f = fopen(name, "w");
++    const auto& pts = mesh.points();
++    for (Foam::label i = 0; i < pts.size(); ++i)
++        fprintf(f, "%.17g %.17g %.17g\n", pts[i].x(), pts[i].y(), pts[i].z());
++    fclose(f);
++}
++
++static int gh1385PassNow = 0;
++static void gh1385DumpPass(const Foam::Module::polyMeshGen& mesh, const char* what)
++{
++    char tag[128];
++    snprintf(tag, sizeof(tag), "pass%d_%s", gh1385PassNow, what);
++    gh1385Dump(mesh, tag);
++}
++
+ void Foam::Module::cartesianMeshGenerator::optimiseFinalMesh()
+ {
+     // untangle the surface if needed
+@@ -190,6 +219,11 @@
+ 
+         surfOpt.optimizeSurface();
+     }
++    {
++        static int gh1385Pass = 0;
++        gh1385PassNow = ++gh1385Pass;
++    }
++    gh1385DumpPass(mesh_, "surface");
+ 
+     deleteDemandDrivenData(octreePtr_);
+ 
+@@ -201,11 +235,16 @@
+     }
+ 
+     optimizer.optimizeMeshFV();
++    gh1385DumpPass(mesh_, "fv");
+     optimizer.optimizeLowQualityFaces();
++    gh1385DumpPass(mesh_, "lowq");
+     optimizer.optimizeBoundaryLayer(modSurfacePtr_ == nullptr);
++    gh1385DumpPass(mesh_, "bl");
+     optimizer.untangleMeshFV();
++    gh1385DumpPass(mesh_, "untangle");
+ 
+     mesh_.clearAddressingData();
++    gh1385Dump(mesh_, modSurfacePtr_ ? "A1_before_revert" : "A2_second_optimisation");
+ 
+     if (modSurfacePtr_)
+     {
+@@ -213,6 +252,7 @@
+ 
+         // revert the mesh into the original space
+         meshMod.revertGeometryModification();
++        gh1385Dump(mesh_, "B_after_revert");
+ 
+         // delete modified surface mesh
+         deleteDemandDrivenData(modSurfacePtr_);
+@@ -242,8 +282,10 @@
+ 
+     // map mesh surface on the geometry surface
+     mapper.mapVerticesOntoSurface();
++    gh1385Dump(mesh_, "C_after_map");
+ 
+     optimiseFinalMesh();
++    gh1385Dump(mesh_, "D_end");
+ }
+ 
+ 

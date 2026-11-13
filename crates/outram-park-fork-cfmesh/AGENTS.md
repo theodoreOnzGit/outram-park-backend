@@ -310,6 +310,16 @@ pre-wiring fingerprints
 
 **Accepted by the maintainer 2026-11-12 (gh:#1336):** every move of this pin (round 2 cartesian/tet, round 4 2D and pMesh; fingerprints only, cell counts unchanged) is accepted; the pin may still not move except for a fix that follows upstream.
 
+**UPDATED 2026-11-13 (gh:#1385 round 5, `cartesianMesh` only):** the back-scaling's
+`projectSurfaceAfterBackScaling` builds a **new octree on the original surface**
+(`createOctreeWithRefinedBoundary(20, 30)`), maps every boundary point with its
+`findNearestSurfacePoint` and runs the second `optimiseFinalMesh` with that octree
+(`anisotropic::revert_and_project_octree`); ~~the port mapped to the exact nearest point
+and optimised with brute-force searches~~ (`anisotropic::revert_and_project`, which
+`tetMesh`, `pMesh` and the 2D generator still call: not yet compared with a staged
+upstream run). Pinned by `tests/cfmesh_vs_upstream_single_orifice.rs`
+(`cartesianMesh/singleOrifice`, final mesh equal to upstream's up to the pow ulp).
+
 Record and images: `verification_and_validation/anisotropic_gh1279/`.
 
 ## cfMesh's `cartesian2DMesh` and the quadtree (gh:#1275, 2026-11-05)
@@ -452,6 +462,13 @@ Rules this taught:
   `asmo_octree_mesh_optimisation_is_within_one_pow_ulp` pins it from above.
   A difference **bigger** than a last-bit cascade is not this: look at the
   traces (`GH1385_TRACE`, patches `gh1385-trace-instrumentation-*.patch`).
+- **C++ default arguments bind a `bool` to the first parameter (gh:#1385 round 5).**
+  `untangleMeshFV` calls `tmo.optimiseBoundaryVolumeOptimizer(true)` and `(false)` against
+  `(const label nIterations = 3, const bool nonShrinking = false)`: one unconstrained
+  iteration below two global iterations, zero from five on. Upstream's comments describe an
+  intent the code does not carry out; `mesh_optimizer::BoundaryMoveCalls::Upstream`
+  (default) follows the code, `AsDocumented` the comments. Read the **signature**, not the
+  comment, before porting a call.
 - **Two face-geometry formulas.** `foam_face_centre` / `ring_area_vector` are
   `face::centre` / `face::areaNormal` (the surface engine, the optimisers);
   `checks::pmg_face_centre_and_area` is the polyMeshGen addressing's own
