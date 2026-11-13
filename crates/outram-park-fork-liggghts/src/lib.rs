@@ -122,6 +122,7 @@ pub mod integrator;
 pub mod massflow;
 pub mod mesh_dump;
 pub mod multicontact;
+pub mod multisphere;
 pub mod mesh_stress;
 pub mod mesh_wall;
 pub mod neighbor_list;

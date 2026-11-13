@@ -333,7 +333,7 @@ are different claims and this entry keeps them apart.
 
 Modules: `bonded`, `boundary`, `capillary` (liquid-bridge cohesion, gh:#1411), `compute`, `contact`, `coupling`, `gnn_bridge`
 (feature `gnn`), `gpu` (non-Android; ~~non-wasm~~ wasm since 2026-11-05), `granular`, `granular_system`,
-`htr10_fill`, `integrator`, `mesh_wall`, `particle`, `rdf`, `rolling`,
+`htr10_fill`, `integrator`, `mesh_wall`, `multisphere` (rigid clumps, gh:#1415), `particle`, `rdf`, `rolling`,
 `simulation`, `thermal`, `thermal_radiation`, `timestep`.
 
 **`htr10_fill` (2026-10-05, gh:#561)** pours `N` pebbles into the HTR-10 vessel

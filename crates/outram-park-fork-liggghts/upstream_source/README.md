@@ -27,3 +27,13 @@ Verified 2026-11-10: re-running `in.oblique_hertz`, `in.oblique_nohist` and
 `in.headon_hertz` with this build and converting with `dump2traj.sh` gives
 files **byte-identical** to the committed `oblique_hertz.csv`,
 `oblique_nohist.csv` and `headon_hertz.csv`.
+
+**Multisphere package (gh:#1415, checked 2026-11-13).** The default
+`make serial` build above already compiles the multisphere sources:
+`fix_multisphere*.cpp`, `multisphere*.cpp`, `fix_template_multisphere.cpp`,
+`fix_template_multiplespheres.cpp`, `input_multisphere.cpp` and
+`particleToInsert_multisphere.cpp`. `lmp_serial -h` lists `multisphere`,
+`particletemplate/multisphere` and `particletemplate/multiplespheres` among
+its fix styles. No package switch and no rebuild are needed for `in.ms_drop`,
+`in.ms_collide` and `in.ms_massflow`
+(`reference-data/liggghts/make_multisphere_decks.sh`).

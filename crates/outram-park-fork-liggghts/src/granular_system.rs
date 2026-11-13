@@ -305,6 +305,8 @@ pub struct GranularSystem {
     /// The `liquidtransfer` state of a capillary cohesion model, if attached
     /// ([`GranularSystem::with_capillary`], gh:#1411).
     capillary: Option<crate::capillary::CapillaryState>,
+    /// `fix multisphere`: created when the first clump is inserted (gh:#1415).
+    multisphere: Option<crate::multisphere::Multisphere>,
 }
 
 /// Where a capillary mesh-facet `surfacesClose` happens (gh:#1487): the
@@ -466,6 +468,7 @@ impl GranularSystem {
             heat_flux: Vec::new(),
             massflow: Vec::new(),
             capillary: None,
+            multisphere: None,
         };
         s.compute_forces_setup();
         Ok(s)
@@ -706,6 +709,13 @@ impl GranularSystem {
     /// [`DemError::InvalidInput`] where a fix's `init()` aborts (see
     /// [`crate::mesh_stress::MeshServo::init_run`]).
     pub fn begin_run(&mut self) -> Result<(), DemError> {
+        if self.multisphere.is_some() {
+            // `FixMultisphere::setup` (`calc_force(true)` at the set-up) is
+            // not ported (gh:#1415)
+            return Err(DemError::InvalidInput(
+                "a second run set-up with multisphere clumps is not ported".into(),
+            ));
+        }
         // lmp->init(): Modify::init -> fix->init(); then Verlet::setup's
         // setup_pre_force of the meshes (no fix reads another in between)
         for w in &mut self.moving_walls {
@@ -1808,20 +1818,88 @@ impl GranularSystem {
             return;
         }
         for k in 0..self.inserters.len() {
-            let new = match self.inserters[k].pre_exchange(step, &self.particles) {
+            let census = self.clump_census();
+            let new = match self.inserters[k].pre_exchange_any(step, &self.particles, &census) {
                 Ok(v) => v,
                 Err(e) => panic!("fix insert: {e}"),
             };
-            for ip in new {
-                let tag = self.next_tag;
-                self.next_tag += 1;
-                self.note_inserted();
-                self.particles.push(ip.particle);
-                self.tags.push(tag);
-                self.types.push(ip.atom_type - 1);
-                self.forces.push(Vec3::zero());
-                self.torques.push(Vec3::zero());
+            let mut clumps_added = false;
+            for item in new {
+                match item {
+                    crate::insert::Inserted::Sphere(ip) => {
+                        self.push_inserted_atom(ip.particle, ip.atom_type);
+                    }
+                    crate::insert::Inserted::Clump(c) => {
+                        // `ParticleToInsertMultisphere::insert`: the member atoms
+                        // first, then `Multisphere::add_body`
+                        let first = self.particles.len();
+                        for p in c.atoms() {
+                            self.push_inserted_atom(p, c.atom_type());
+                        }
+                        let dt = self.dt;
+                        self.multisphere
+                            .get_or_insert_with(|| crate::multisphere::Multisphere::new(dt))
+                            .add_body(&c, first);
+                        clumps_added = true;
+                    }
+                }
             }
+            // `FixTemplateMultisphere::finalize_insertion` -> `add_body_finalize`
+            if clumps_added {
+                if let Some(ms) = self.multisphere.as_mut() {
+                    ms.add_body_finalize(&mut self.particles);
+                }
+            }
+        }
+    }
+
+    /// Append one inserted atom (new tag, last local slot).
+    fn push_inserted_atom(&mut self, p: Particle, atom_type: usize) {
+        let tag = self.next_tag;
+        self.next_tag += 1;
+        self.note_inserted();
+        self.particles.push(p);
+        self.tags.push(tag);
+        self.types.push(atom_type - 1);
+        self.forces.push(Vec3::zero());
+        self.torques.push(Vec3::zero());
+    }
+
+    /// The clumps present, as an insertion fix counts them (gh:#1415).
+    fn clump_census(&self) -> crate::insert::ClumpCensus {
+        match &self.multisphere {
+            None => crate::insert::ClumpCensus::default(),
+            Some(ms) => crate::insert::ClumpCensus {
+                in_body: (0..self.particles.len()).map(|i| ms.body_of(i).is_some()).collect(),
+                bodies: ms
+                    .bodies()
+                    .iter()
+                    .map(|b| (b.x_bound(), b.mass, b.density))
+                    .collect(),
+            },
+        }
+    }
+
+    /// The `fix multisphere` state, once a clump has been inserted (gh:#1415).
+    #[must_use]
+    pub fn multisphere(&self) -> Option<&crate::multisphere::Multisphere> {
+        self.multisphere.as_ref()
+    }
+
+    /// Whether particle `i` is a member of a clump.
+    fn in_body(&self, i: usize) -> bool {
+        self.multisphere.as_ref().is_some_and(|m| m.body_of(i).is_some())
+    }
+
+    /// `neigh_modify exclude molecule`: drop the pairs of two atoms of the same
+    /// clump from the pair list, keeping the order of the rest
+    /// (`Neighbor::exclusion`, gh:#1415). No-op without clumps.
+    fn exclude_body_pairs(&mut self) {
+        if let Some(ms) = &self.multisphere {
+            self.pairs.retain(|&(i, j)| {
+                let (bi, bj) = (ms.body_of(i as usize), ms.body_of(j as usize));
+                !(bi.is_some() && bi == bj)
+            });
         }
     }
 
@@ -1839,6 +1917,12 @@ impl GranularSystem {
     /// the hole (`AtomVec::copy(nlocal-1, i)`), and the particle array's own
     /// `swap_remove` moves its last particle into slot `i`.
     fn note_removed(&mut self, i: usize) {
+        // the per-atom body arrays of `fix multisphere` are not compacted
+        // (lost-atom/body deletion is not ported, gh:#1415)
+        assert!(
+            self.multisphere.is_none(),
+            "removing particles from a system with multisphere clumps is not ported"
+        );
         if let Some(c) = self.capillary.as_mut() {
             // the removed atom's liquid and bridges leave with it; the last
             // atom takes its slot (`swap_remove`, as the particle array does)
@@ -2097,6 +2181,11 @@ impl GranularSystem {
         let (f, t) = (self.forces.clone(), self.torques.clone());
         self.integrator
             .initial_integrate(&mut self.particles, &f, &t);
+        // `FixMultisphere::initial_integrate`: the bodies move and `set_xv`
+        // overwrites their member atoms' x, v, omega (gh:#1415)
+        if let Some(ms) = self.multisphere.as_mut() {
+            ms.initial_integrate(&mut self.particles);
+        }
         // Walls drift with the particles (upstream advances mesh nodes in the
         // same half-step as the particle positions).
         for w in &mut self.moving_walls {
@@ -2105,6 +2194,13 @@ impl GranularSystem {
         // `post_integrate` of `fix massflow/mesh`: after the move, before the
         // neighbour decision and the force evaluation.
         for k in 0..self.massflow.len() {
+            // `fix_volumeweight_ms_` exists once a `fix multisphere` does
+            if let Some(ms) = &self.multisphere {
+                let w: Vec<f64> = (0..self.particles.len()).map(|i| ms.volume_weight(i)).collect();
+                if let Err(e) = self.massflow[k].set_volume_weights(w) {
+                    panic!("{e}");
+                }
+            }
             match self.massflow[k].wall() {
                 Some(w) => {
                     if let WallGeometry::Mesh(mesh) = &self.moving_walls[w].geometry {
@@ -2154,6 +2250,19 @@ impl GranularSystem {
         let (f2, t2) = (self.forces.clone(), self.torques.clone());
         self.integrator
             .final_integrate(&mut self.particles, &f2, &t2);
+        // `FixMultisphere::final_integrate`: sum the member atoms' forces in
+        // local order, then the body half-kick and `set_v` (gh:#1415)
+        if self.multisphere.is_some() {
+            let order = self.local_order_indices();
+            let gravity = self.gravity;
+            if let Some(ms) = self.multisphere.as_mut() {
+                // `FixMultisphere::pre_force` -> `reset_forces(false)`; nothing
+                // adds to a body's force between it and `calc_force` here
+                ms.reset_forces(false);
+                ms.calc_force(&self.particles, &self.forces, &self.torques, &order, gravity);
+                ms.final_integrate(&mut self.particles);
+            }
+        }
         // `MeshModuleStress::final_integrate` (calc_total_force)
         for w in &mut self.moving_walls {
             if let (Some(st), WallGeometry::Mesh(m)) = (&mut w.stress, &w.geometry) {
@@ -2301,6 +2410,11 @@ impl GranularSystem {
                 }
                 FixSlot::Gravity => {
                     for i in 0..n {
+                        // `FixGravity::post_force` skips clump members; the body
+                        // gets `m g` in `calc_force` (gh:#1415)
+                        if self.in_body(i) {
+                            continue;
+                        }
                         let m = self.particles[i].mass;
                         self.forces[i] = self.forces[i].add(self.gravity.scale(m));
                     }
@@ -3218,6 +3332,7 @@ impl GranularSystem {
         if let NeighborOrder::Liggghts(cfg) = self.neighbor_order {
             if self.setup_phase || self.rebuild_now || self.perm.len() != self.particles.len() {
                 self.rebuild_liggghts_list(cfg);
+                self.exclude_body_pairs();
                 self.rebuild_now = false;
             }
             return;
@@ -3229,6 +3344,7 @@ impl GranularSystem {
         self.pairs = pairs;
         self.cell_offsets = offsets;
         self.cell_items = items;
+        self.exclude_body_pairs();
     }
 
     /// Above this many grid cells, the dense flat grid is abandoned for the

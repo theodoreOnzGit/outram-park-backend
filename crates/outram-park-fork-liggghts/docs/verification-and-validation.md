@@ -1688,9 +1688,11 @@ PETIR's maths; demonstrate, count and pin such residuals). Pinned at 27 in
   **CORRECTED 2026-11-13 (gh:#1510):** the second-`run` emulation
   (`GranularSystem::begin_run`) and the servo `fix_modify` keywords are ported
   and cross-coded bit-identical; see 4.14.
-- massflow/mesh multisphere volume weight (`fix_volumeweight_ms_`): this crate
+- ~~massflow/mesh multisphere volume weight (`fix_volumeweight_ms_`): this crate
   has no `fix multisphere` (rigid clumps); there is nothing to weight. Not worth
-  porting until multispheres are.
+  porting until multispheres are.~~ **CORRECTED 2026-11-13 (gh:#1415):**
+  `fix multisphere` is ported. The volume weight is applied and cross-coded
+  bit-identical (`in.ms_massflow`; see 4.16).
 - Other region styles, moving/rotating regions for `wall/region`.
 
 ## 4.14 Multi-`run` decks and servo `fix_modify` (2026-11-13, gh:#1510)
@@ -1827,6 +1829,96 @@ the same way and reproduces the drift bit for bit. The trajectories and
 as well. The per-facet stress was wrong by orders of magnitude before the
 change (cumulative `f`), and the wear differed from step 1 on because of the
 carried set-up increment.
+
+## 4.16 Multisphere rigid clumps (2026-11-13, gh:#1415)
+
+**What is computed.** The port covers:
+- `fix multisphere`: the rigid-body integration of a clump of overlapping
+  spheres. The steps are `initial_integrate`, `richardson`, `set_xv`,
+  `calc_force` (the member atoms' forces and torques summed in local atom
+  order, plus `m g`), `final_integrate` and `set_v`.
+- `fix particletemplate/multisphere`: the clump template. Its bounding
+  sphere, Monte-Carlo volume, centre of mass, inertia tensor (`ntry` points
+  from the template's own `random_mc` stream), Jacobi eigensystem, body-frame
+  displacements and volume weights are all computed.
+- Insertion of clumps by `fix insert/pack`, through the existing insertion
+  port with an `orientation constant` quaternion.
+- `neigh_modify exclude molecule`: intra-clump pairs are dropped.
+- `fix gravity` skipping member atoms.
+- The `massflow/mesh` volume weight (`fix_volumeweight_ms_`).
+
+Code: `src/multisphere.rs`, plus hooks in `insert.rs`, `granular_system.rs`
+and `massflow.rs`. Every hook is a no-op without clumps.
+
+**Reference and inputs.** The reference is LIGGGHTS-PUBLIC `3d5c00f2`. The
+existing `lmp_serial` already contains the multisphere package (its fix style
+list shows `multisphere` and `particletemplate/multisphere`), so no rebuild
+was needed. The decks come from `reference-data/liggghts/make_multisphere_decks.sh`.
+
+Common settings for all three decks:
+- `atom_modify sort 0 0`, `f f f` boundaries;
+- Hertz with `tangential history`: `E = 1e7`, `nu = 0.3`, `e = 0.5`,
+  `mu = 0.4`;
+- `dt = 1e-5`;
+- the dumps are `%.17g`.
+
+Templates:
+- type 1: 3 spheres, `rho = 2500`;
+- type 2: 4 spheres, `rho = 1500`.
+- Both use `ntry 100000`.
+
+| deck | what it exercises |
+|---|---|
+| `ms_drop` | one clump inserted with `vel`, `omega`, `orientation constant 0.5 0.5 0.5 0.5` and `all_in yes`. It falls onto a `zplane` wall, bounces, rolls and slides (15 000 steps, 9 frames). |
+| `ms_collide` | the two templates, each from its own `insert/pack` (one with a non-identity orientation). They fly at each other at +-0.6 m/s, collide obliquely at about step 4 700, then fall (15 000 steps, 10 frames). |
+| `ms_massflow` | four clumps from one mass-based two-template distribution fall through `plate_square.stl`, counted by `massflow/mesh count once` (12 000 steps). The counted mass and count at 25 thermo steps, and every atom at 7 frames, are compared. |
+
+**Pass criterion:** bit-identical, every field, every frame. The prediction
+was posted on gh:#1415 before the first run.
+
+**Results** (Rust 1.99.1, 2026-11-13; `tests/multisphere_cross_code.rs`):
+
+| deck | result |
+|---|---|
+| `ms_drop` | **27 / 27** atom-frames bit-identical (243 values) |
+| `ms_collide` | **70 / 70** atom-frames bit-identical (630 values) |
+| `ms_massflow` | **98 / 98** atom-frames and **25 / 25** massflow totals bit-identical; final mass `0.0034334348125000013` kg, count `4.0000000000000009` |
+
+The prediction was met on the first run, so no change to the arithmetic was
+needed.
+
+**Interpretation.** The ported clump dynamics reproduce upstream exactly in
+these cases. That covers the template's Monte-Carlo mass properties, the
+insertion, the clump-wall and clump-clump contacts with history, and the
+rigid-body integration.
+
+The fractional count is upstream behaviour, not a defect. A clump that is
+partly across the plate counts as the volume-weight share of its member atoms
+(upstream prints `1.684...` at step 4 500). The total reaches
+`4.0000000000000009`, not 4, because the weights are Monte-Carlo fractions.
+
+**Not ported** (each rejected with an error or documented in
+`multisphere.rs`):
+- `spheres file`, `spheres_different_types`, `bonded`;
+- `mass`/`inertia_tensor`/`use_volume`/`use_density`;
+- `fflag`/`tflag` off, `multisphere/nointegration`, `concave`,
+  `CAddRhoFluid`;
+- periodic images of bodies (`remap_bodies`) and lost-atom/body deletion. The
+  decks end before a clump leaves the box, and removing particles from a
+  system with clumps panics;
+- `fix multisphere/break`;
+- clumps from `insert/stream`;
+- heat transfer with clumps;
+- restart;
+- a second `run` set-up with clumps (`begin_run` refuses it);
+- `orientation random`;
+- `sieveMultiSphereCanPass` of the sieve;
+- `compute ke/multisphere` and `erotate/multisphere`.
+
+**Not started (rest of gh:#1415):** superquadric (`atom_vec_superquadric`,
+`surface_model_superquadric`, `fix nve/superquadric`,
+`fix particletemplate/superquadric`), convex hull, ellipsoid, line and tri
+particles with their `nve/asphere*` and `nve/line` integrators.
 
 ## 5. What is still NOT validated
 
