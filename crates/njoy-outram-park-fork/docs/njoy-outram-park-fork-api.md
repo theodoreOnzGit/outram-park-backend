@@ -87520,7 +87520,12 @@ lin/log axes, ranges, labels) and 3-D plots, which VIEWR then renders to
 PostScript. PLOTR chooses *what* to plot; VIEWR draws it.
 
 **Upstream:** `plotr.f90`. **Manual:** LA-UR-17-20093 §PLOTR.
-**Status:** not yet ported — [`crate::NjoyError::NotPorted`] placeholder.
+~~**Status:** not yet ported — [`crate::NjoyError::NotPorted`] placeholder.~~
+**CORRECTED 2026-11-13 (gh:#1369):** translated (`cards`, `stream`, `run`, `mf7`,
+`gendf`, `plot3d`, `getters`, `rname`) and run from a deck (`deck::plotr`); see
+the module's own doc comment. **Not re-generated:** `kovan-cli` was not available
+in the session that ported PLOTR, so this mirror lists only the module header
+and `run`; regenerate with `kovan-cli api-docs njoy-outram-park-fork`.
 See `README.md` in this directory for theory, plan, and caveats.
 
 ```rust
@@ -87531,7 +87536,10 @@ pub mod plotr { /* ... */ }
 
 #### Function `run`
 
-Run PLOTR. Placeholder until ported (Phase 6; see `docs/porting-plan.md`).
+Run PLOTR. ~~Placeholder until ported (Phase 6; see `docs/porting-plan.md`).~~
+**CORRECTED 2026-11-13 (gh:#1369):** PLOTR is ported and runs from a deck
+(`Plotr::run` on `read_plotr`'s cards); this card-less entry point
+still returns `NotPorted`.
 
 ```rust
 pub fn run() -> Result<(), crate::NjoyError> { /* ... */ }

@@ -97,7 +97,9 @@ A prediction was posted on gh:#1369 before each run, and all five held on the fi
 - 80: LEAPR `trans` keeps `sb` across its loops, and a `sbfill` that stops one entry short reads an earlier call's value. The port padded with zero. ~~"last figure"~~: most of its 24 264 differing values were off by more than 3e-5.
 - 02 and 76: CCCCR translated (`src/ccccr/`). ISOTXS (02 unit 26), BRKOXS (02 unit 27) and DLAYXS (76 unit 30) are byte-identical, and are counted in "tapes identical".
 
-From this run on, the survey counts a binary file of ours that differs from NJOY's as `differs`. Before, it was listed in the last column and could not fail. Remaining: 06 and 12 (PLOTR), 03 and 30 (GAMINR, MATXSR). Record: `README.md` section 25.
+From this run on, the survey counts a binary file of ours that differs from NJOY's as `differs`. Before, it was listed in the last column and could not fail. Remaining: ~~06 and 12 (PLOTR),~~ 03 and 30 (GAMINR, MATXSR). Record: `README.md` section 25.
+
+**Re-run 2026-11-13, decks 06 and 12 closed (gh:#1369):** rows 06 and 12 were re-run alone (`SURVEY_CASES=06,12`, 1.3 s) on develop 0ad98bc5d plus this work. Their rows are replaced; every other row is as before. **Identical: 85 of 87** (83 before). PLOTR is translated (`src/plotr/`): deck 06's plot file and PostScript (31, 32) and deck 12's 21-24 are NJOY2016.80's line for line. Remaining: 03 and 30 (GAMINR, MATXSR). Record: `README.md` section 26.
 
 | deck | status | tapes identical | differing tapes | text tapes we did not write | binary tapes (no blocked-binary writer here) |
 |---|---|---|---|---|---|
@@ -106,13 +108,13 @@ From this run on, the survey counts a binary file of ours that differs from NJOY
 | 03 | NotPorted (gaminr: card reader not yet translated) | 0 | tape31 2180/2180 lines | tape33 tape34 tape35 tape36 tape37 |  |
 | 04 | identical | 3 |  |  | tape21 tape22 |
 | 05 | identical | 3 |  |  | tape31 tape32 |
-| 06 | NotPorted (plotr: card reader not yet translated) | 0 |  | tape31 tape32 |  |
+| 06 | identical | 2 |  |  |  |
 | 07 | identical | 3 |  |  | tape21 tape22 tape23 tape24 tape25 |
 | 08 | identical | 3 |  |  | tape21 tape22 tape23 tape24 |
 | 09 | identical | 1 |  |  | tape21 tape22 tape23 tape25 |
 | 10 | identical | 3 |  |  | tape21 tape22 tape23 tape24 tape25 |
 | 11 | identical | 2 |  |  | tape21 tape22 tape23 tape24 tape25 tape26 |
-| 12 | NotPorted (plotr: card reader not yet translated) | 2 |  | tape23 tape24 |  |
+| 12 | identical | 4 |  |  |  |
 | 13 | identical | 7 |  |  | tape21 tape22 tape23 tape24 tape25 |
 | 14 | identical | 6 |  |  |  |
 | 15 | identical | 10 |  |  | tape21 tape22 tape23 |

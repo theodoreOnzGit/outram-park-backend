@@ -349,8 +349,9 @@ every errorr deck also needs an unported piece: a GROUPR input tape (`ngout`),
 MF=31/34/35, or COVR's plot option (~~all~~ **CORRECTED 2026-11-13:** MF=35 from a GENDF,
 section 18, and COVR's plot option and MF=33 from a deck, section 19, are ported now).
 GAMINR's numeric engine is not ported.
-PLOTR is not ported at all (`src/plotr/mod.rs`). All three are left as large
-ports.
+~~PLOTR is not ported at all (`src/plotr/mod.rs`).~~ **CORRECTED 2026-11-13 (§26):**
+PLOTR is translated (`src/plotr/`) and decks 06 and 12 are identical. ~~All three are left as large
+ports.~~
 
 | deck(s) | was | cause (upstream) | fix | result |
 |---|---|---|---|---|
@@ -1147,7 +1148,8 @@ prediction** (recorded on the issue).
 - unit tests in `acer::newsuff`.
 
 **Not done.** The order is the ranking above:
-- CCCCR (02, 76) and PLOTR (06, 12): large ports with nothing in `src/`.
+- ~~CCCCR (02, 76) and PLOTR (06, 12): large ports with nothing in `src/`.~~ **CORRECTED
+  2026-11-13:** both translated and closed (§25, §26).
 - 03 and 30: GAMINR's driver and MATXSR. Deck 03 first needs RECONR on DLC-7e's old photon format; deck 30 needs a genuine `ith = 0` on its photo-atomic MF=23.
 - ~~11: WIMSR's card reader. The engine is byte-identical on U-238.~~
 - ~~17: ERRORR `iread = 2`.~~
@@ -1222,7 +1224,7 @@ place, with strike-through, in that record, AGENTS.md and the docs that quoted
 - unit tests in `broadr::joint::thinb` (a hand-worked line, and the refusal of a walk below `thnmax`).
 
 **Not done.** The large ports (CCCCR: 02, 76; PLOTR: 06, 12; GAMINR/MATXSR: 03, 30)
-were out of scope this round. Deck 80 (LEAPR, the last printed figure of MF=7/MT=4)
+were out of scope this round. **UPDATE 2026-11-13 (§26):** PLOTR (06, 12) is closed. Deck 80 (LEAPR, the last printed figure of MF=7/MT=4)
 was not attempted. **UPDATE 2026-11-13 (§25):** CCCCR (02, 76) and deck 80 are closed; ~~"the last printed figure"~~ was a mis-description (most values differed by more than 3e-5).
 
 **Survey.** Rows 11, 17, 43, 48 and 59 were re-run alone (`SURVEY_CASES`, 230 s) on
@@ -1303,7 +1305,8 @@ as `differs`. Before, it was listed as "binary" and could not fail.
 
 **Survey.** Rows 02, 76 and 80 were re-run alone (`SURVEY_CASES`, 537 s) on
 develop 60675b0f0 plus this work, and all three are `identical`. **83 of 87 are
-identical** (80 before). Remaining: 06 and 12 (PLOTR), 03 and 30 (GAMINR, MATXSR).
+identical** (80 before). Remaining: ~~06 and 12 (PLOTR),~~ 03 and 30 (GAMINR, MATXSR).
+**UPDATE 2026-11-13:** 06 and 12 are closed in §26.
 
 **Tests** (release, on develop 60675b0f0 plus this work, all run after the last
 code or test change):
@@ -1318,3 +1321,76 @@ code or test change):
 | `acer_photoatomic_vs_njoy2016` | 4 of 4 passed |
 | the 14 `leapr_*` oracle test files | 48 passed, 0 failed, 1 ignored (`leapr_coher_general_self_consistency`, ignored before this work) |
 | `--lib` | 764 of 764 passed |
+
+## 26. Decks 06 and 12 closed: PLOTR translated (2026-11-13, gh:#1369)
+
+PLOTR was a stub (`src/plotr/mod.rs`). It is now translated line for line from
+`plotr.f90` (3 149 lines) into `src/plotr/`, and wired into the deck driver
+(`deck::plotr`). Record of the translation, its reuse and its divergences:
+`src/plotr/README.md`.
+
+**What I checked first.** VIEWR (`src/viewr/`) was already translated, and on
+NJOY2016.80's own plot files of decks 06 (tape31) and 12 (tape23) it gives
+NJOY's PostScript byte for byte. So the decks only needed PLOTR's plot-command
+file. I reused, rather than wrote: `endf::gety1::Gety1`, `endf::interp::terp1`,
+`errorr::weight::terpa` (flat, stateful), `acer::fortran_fmt::fortran_e`,
+`viewr::fmt`, `deck::cards::CardReader` and `deck::covr::tape_from_records`.
+PLOTR walks its tapes card by card and positions them with `findf`, which reads
+up as well as down. No line-level ENDF reader existed in the crate (the `Tape`
+type is parsed sections), so `plotr::stream` holds a tape as its lines rebuilt
+from `Tape` with SEND/FEND/MEND/TEND, and translates `contio` ... `findf` with
+`npage` paging. No folder I touched has a kovan `kind = "review"` block (`src/plotr`,
+`src/deck`, `src/endf`, `src/errorr`, `src/acer`, `src/viewr`, `src/lib.rs`'s folder).
+
+**Prediction** (posted on gh:#1369 before the first run): both decks identical;
+the named risk was a 1-ulp step in the walk's thinning, or a last figure of
+`1p,2e16.8`.
+
+| deck | first run | cause, read upstream | fix | result |
+|---|---|---|---|---|
+| 12 | identical | — | — | units 21, 22, 23 (5 278 lines), 24 (6 467) identical; 22 and 24 are upstream's `referenceTape22`/`referenceTape24` |
+| 06 | stopped at curve 2 (MT=107, "illegal TAB1, nr<=0") | after the frame search (x axis automatic), `findf` searches up from the SEND. At its label 300 it backs up a card at a time until the card before the HEAD (`if (mth.gt.0) go to 300`, `endf.f90:1575-1577`). The port backed up once | `stream::EndfStream::found` loops as upstream | units 31 (17 344 lines) and 32 (22 422) identical; 32 is `referenceTape32` |
+
+So the prediction held for 12 and not for 06. The miss was control flow (a missing
+loop in a positioning routine), not arithmetic.
+
+**Branches the two decks do not reach.** Upstream has no other PLOTR deck, so I
+wrote five more and judged them against NJOY2016.80 run on the same deck. **They
+were run before a prediction was posted for them**; that is said on gh:#1369.
+
+| deck (in `tests/deck_driver_plotr_vs_njoy2016.rs`) | reaches | result |
+|---|---|---|
+| `DECK_GETY4_GETZ` (Fe-56 JEFF-3.3) | `gety4`; ratio plot from two units (`getz`) | plot 9 241 lines, PostScript 10 275: identical |
+| `DECK_AUTO` (C-12 ENDF/B-V, `mtd = 0`) | automatic loop, passes, `rname`, `findf` up | plot 6 591, PostScript 28 075: identical |
+| `DECK_MF7` (H in H2O) | MF=7 against alpha and beta | plot 153: identical. VIEWR not compared: this port's VIEWR panics on NJOY's own plot file of it, gh:#1543 |
+| deck 01 + `DECK_GENDF_TAIL` | GENDF MF=3 (coded and binary unit), flux per lethargy, MF=6 spectrum, `gg3d` | plot 172, MODER copy 1 330: identical |
+| `DECK_MF6` (Al-27 ENDF/B-VIII.0 MT=16) | `gety6` | **refused**: undefined upstream (below) |
+
+**Undefined upstream, refused by name.** `gety6`'s `ylast` is not in its `save`
+list (`plotr.f90:2803`), and the first interpolation of every MF=6 curve reads it
+unset. NJOY2016.80 plots `8.245559e-8` there, a value of an earlier LIST, where
+the panel's own value is `5.462661e-8`. The port stops at PLOTR with the reason.
+The other refusals (reads of `lf`, `lep`, `l2`, `iauto`, `nr`, card 7, `sigig`
+before anything set them; `rname` past its table, MT=229-236 among them;
+`egrid(200)`/`ex3(200)` overflows; `ad3d`'s `intmu` on MF=6) are listed in
+`src/plotr/README.md`.
+
+**Not written:** PLOTR's listing (`nsyso`) and `mess` lines.
+
+**Gates:** `tests/deck_driver_plotr_vs_njoy2016.rs` (7 tests); unit tests in
+`plotr::{stream, cards, getters, rname}`.
+
+**Survey.** Rows 06 and 12 were re-run alone (`SURVEY_CASES=06,12`) on develop
+0ad98bc5d plus this work: both `identical` (06: 2 tapes, 12: 4). **85 of 87 are
+identical** (83 before). Remaining: 03 and 30 (GAMINR, MATXSR).
+
+**Tests** (release, `ulimit -v 12582912`, all run after the last code change):
+
+| suite | result |
+|---|---|
+| `deck_driver_plotr_vs_njoy2016 --test-threads=2` | 7 of 7 passed, 3.2 s |
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` | 137 passed, 0 failed, 0 ignored, 2 134 s |
+| `deck_driver_covr_vs_njoy2016` | 11 of 11 passed |
+| `deck_driver_photonuclear_vs_njoy2016` | 6 of 6 passed |
+| `deck_driver_survey` (`SURVEY_CASES=06,12`, `--ignored`) | 06 and 12 `identical` |
+| `--lib` | 772 of 772 passed |

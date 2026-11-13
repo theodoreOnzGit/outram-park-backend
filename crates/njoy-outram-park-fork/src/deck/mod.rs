@@ -35,7 +35,7 @@
 //! modules' cards are not yet read.~~ **CORRECTED 2026-11-13 (gh:#1369):**
 //! LEAPR runs from its cards ([`leapr`], through `leapr::deck::LeaprDeck`), and
 //! ACER `iopt = 4/5` (photo-atomic, photo-nuclear) runs ([`acer_photon`]). The
-//! cards of GAMINR, ~~ERRORR,~~ ~~COVR,~~ DTFR, ~~CCCCR,~~ MATXSR, RESXSR, POWR, ~~WIMSR,~~ PLOTR
+//! cards of GAMINR, ~~ERRORR,~~ ~~COVR,~~ DTFR, ~~CCCCR,~~ MATXSR, RESXSR, POWR, ~~WIMSR,~~ ~~PLOTR~~
 //! and MIXR are still not read; a deck reaching one stops there.
 //! **CORRECTED 2026-11-13 (gh:#1369):** WIMSR's cards are read and it runs on the
 //! GENDF a previous GROUPR left ([`wimsr`]).
@@ -49,6 +49,8 @@
 //! **CORRECTED 2026-11-13 (gh:#1369):** CCCCR's cards are read ([`ccccr`]) and
 //! ISOTXS, BRKOXS and DLAYXS are written as raw bytes on their units
 //! (`crate::ccccr`).
+//! **CORRECTED 2026-11-13 (gh:#1369):** PLOTR's cards are read and it runs
+//! ([`plotr`], `crate::plotr`), writing the plot-command file VIEWR reads.
 
 pub mod acer_photon;
 pub mod acer_thermal;
@@ -61,6 +63,7 @@ pub mod groupr_auto;
 pub mod leapr;
 pub mod modules;
 pub mod pendf;
+pub mod plotr;
 pub mod run;
 pub mod tapes;
 pub mod thermr;
