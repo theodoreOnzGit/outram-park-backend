@@ -1592,3 +1592,37 @@ points arose. P70 is moot. **Next prediction, committed before the run.**
 | # | prediction | how it can fail |
 |---|---|---|
 | P71 | Round 10's run was made under a different `libm` code path (glibc selects FMA/AVX2 ifunc variants of `exp`, `log`, `pow`, `sin`, `cos`, `atan2` on a CPU with FMA; a host without them, or `GLIBC_TUNABLES=glibc.cpu.hwcaps=-FMA,-AVX2`, takes the non-FMA path). Running the ASCII-`blockMesh` base case on this build with FMA ifuncs disabled gives time-81 points that **differ from this build's default run** (and so from the old fixture) in some of the 72933 components. It need not equal `_r10`. | `libm` is not reached by the snap stage on the flange, so the points are identical with and without FMA |
+
+**P71 REFUTED (run).** With `GLIBC_TUNABLES=glibc.cpu.hwcaps=-FMA,-AVX2,-AVX2_Usable,-FMA_Usable` the
+ASCII-`blockMesh` base case gives time-81 points **identical** to the default run (0 of 72933 differ) and to
+the OLD fixture. The tunable does take effect on this host (a small `libm` hash program, `exp`, `pow`,
+`sin`, `atan2` over 2e6 arguments, gives `696b3a29...` with and `162b201c...` without it), so the
+flange snap path is insensitive to glibc's FMA `libm` variants: the 1-ulp shift is **not** a libm
+difference either.
+
+**Finding of task 1 (measured, 2026-11-13, this build).** The ESI built for this round reproduces the
+rounds 3-9 fixtures **bit for bit in every stage compared**, so the "rebuilt ESI" of round 10 was not
+this build; round 10's `layer_points_81_r10.bin.gz` is not reproduced by the recorded recipe here. What
+was run (ASCII `blockMesh`, `writePrecision 16`, then `writeFormat binary`, `-noFunctionObjects`):
+
+| stage (dictionary) | compared with the committed fixture | result |
+|---|---|---|
+| castellation (`.reduced`) | `esi_final_faces`, `esi_final_cells_ordered`, `esi_final_points`, `esi_final_boundary`, `esi_baffle_cell_order`, `esi_problem_faces` | all 6 byte-equal |
+| snap (`.snap`) | `snap_points_32`, `_33_n3`, `snap_disp_34`, `_35`, `_36` | 0 of 79986 components differ, each |
+| feature snap (`.feature`, 10 iterations) | `feat_disp_34`, `feat_points_35, 37, 39, 41, 43, 45` | 0 of 79986 differ, each |
+| layers (`.layers`) | `layer_points_81, 85, 86, 87, 88, 89, 90` (72933 / 72915 / 95226 / 72915 / 94974 / 72915 / 94932 values), `layer_mesh_83, 86, 88, 90, 91` faces | 0 differ; all 5 face files byte-equal |
+
+Because the committed port tests (rounds 1-9) are pinned to those fixtures and pass, **the port equals
+this build in each of those stages** (transitively; the tests are re-run in this round, see the results
+below). The cause of round 10's shift is **not identified**: it was not the ASCII/binary `controlDict`
+(P69), not glibc's FMA `libm` (P71), and not `-O` or `-march` (no `-march` appears in
+`wmake/rules/linux64Gcc`, `c++OPT = -O3`, gcc 13.3.0, glibc 2.39). The round-10 build is gone and nothing
+in the repository records its compiler.
+**Decision (nothing needs the maintainer, nothing re-pinned):** the round 3-9 fixtures stay as they are
+(this build confirms them); round 10's `_r10` start stays documented as the output of a build that is not
+reproducible, and its tests keep passing against their own digests; round 11 adds the same three cases
+started from the old (= this build's) time-81 points, with this build's digests (old -> new below).
+
+| # | prediction (committed before the new tests are run; the ESI digests were read first, disclosed) | how it can fail |
+|---|---|---|
+| P72 | The port started from `layer_points_81.bin.gz` equals this build's ESI in base, `layers3` (3 layers, expansion 1.2) and `relaxed`: every shrunk-points, layer-faces, layer-points and final-faces digest, and the `writeLayerData` fields of the last two. The **faces** digests equal round 10's (topology does not see 1 ulp); only point and field digests move. | the layer stage is sensitive to a 1-ulp start in a way round 10's own run hid |
