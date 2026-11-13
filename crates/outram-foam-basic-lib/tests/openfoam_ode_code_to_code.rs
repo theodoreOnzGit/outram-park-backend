@@ -125,8 +125,9 @@ impl Tally {
     }
 }
 
-/// (steps tally over x - xStart, dxNext, y0..y3; final tally over y0..y3, dxEst)
-fn run_solver(name: &str, refs: &Rows) -> (Tally, Tally, Tally, Tally) {
+/// (steps tally over x - xStart, dxNext, y0..y3; final tally over y0..y3, dxEst);
+/// `esi` selects `integrate_esi_v2506` for the final solve.
+fn run_solver(name: &str, refs: &Rows, esi: bool) -> (Tally, Tally, Tally, Tally) {
     let ode = TestOde;
     let y_start = refs[&(name.to_string(), "ystart".to_string(), 0)].clone();
     let (mut t_x, mut t_dx, mut t_y, mut t_final) =
@@ -149,7 +150,11 @@ fn run_solver(name: &str, refs: &Rows) -> (Tally, Tally, Tally, Tally) {
     let mut s = make(name, 1e-4);
     let mut y = y_start;
     let mut dx = 0.5;
-    s.integrate(&ode, 1.0, 2.0, &mut y, &mut dx).expect("integrate");
+    if esi {
+        s.integrate_esi_v2506(&ode, 1.0, 2.0, &mut y, &mut dx).expect("integrate");
+    } else {
+        s.integrate(&ode, 1.0, 2.0, &mut y, &mut dx).expect("integrate");
+    }
     for k in 0..4 {
         t_final.add(y[k], fin[k]);
     }
@@ -160,12 +165,15 @@ fn run_solver(name: &str, refs: &Rows) -> (Tally, Tally, Tally, Tally) {
 #[test]
 fn ode_vs_openfoam_report() {
     let refs = reference();
-    for name in ["Euler", "RKF45", "Rosenbrock23"] {
-        let (a, b, c, d) = run_solver(name, &refs);
-        println!("{name:13} x-xStart {a:?}");
-        println!("{name:13} dxNext   {b:?}");
-        println!("{name:13} y        {c:?}");
-        println!("{name:13} final    {d:?}");
+    for esi in [false, true] {
+        println!("=== integrate{}", if esi { "_esi_v2506" } else { "" });
+        for name in ["Euler", "RKF45", "Rosenbrock23"] {
+            let (a, b, c, d) = run_solver(name, &refs, esi);
+            println!("{name:13} x-xStart {a:?}");
+            println!("{name:13} dxNext   {b:?}");
+            println!("{name:13} y        {c:?}");
+            println!("{name:13} final    {d:?}");
+        }
     }
 }
 
@@ -180,4 +188,27 @@ fn euler_default_max_steps_fails_like_upstream() {
     let mut dx = 0.5;
     let r = s.integrate(&TestOde, 1.0, 2.0, &mut y, &mut dx);
     assert!(matches!(r, Err(OdeError::MaxStepsExceeded { .. })), "{r:?}");
+}
+
+/// Pins (measured 2026-11-13, release). The 15 single adaptive steps are
+/// bit-identical for all three solvers (x advanced, dxNext, y0..y3: 15 + 15 + 60
+/// values each). The final solve to x = 2 is bit-identical (5/5 values) only
+/// through `integrate_esi_v2506`; the older `integrate` forms the truncated step
+/// as `(x + dx).min(x_end) - x` and returns the post-truncation suggestion, and
+/// differs (Euler 0/5, RKF45 3/5, Rosenbrock23 0/5).
+#[test]
+fn ode_vs_openfoam_pins() {
+    let refs = reference();
+    for name in ["Euler", "RKF45", "Rosenbrock23"] {
+        let (a, b, c, d) = run_solver(name, &refs, true);
+        assert_eq!((a.identical, a.total), (15, 15), "{name}");
+        assert_eq!((b.identical, b.total), (15, 15), "{name}");
+        assert_eq!((c.identical, c.total), (60, 60), "{name}");
+        assert_eq!((d.identical, d.total), (5, 5), "{name} esi final");
+    }
+    for (name, expect) in [("Euler", 0usize), ("RKF45", 3), ("Rosenbrock23", 0)] {
+        let (a, b, c, d) = run_solver(name, &refs, false);
+        assert_eq!((a.identical, b.identical, c.identical), (15, 15, 60), "{name}");
+        assert_eq!((d.identical, d.total), (expect, 5), "{name} old final");
+    }
 }
