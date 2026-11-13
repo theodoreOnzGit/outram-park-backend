@@ -373,3 +373,25 @@ Pinned in `k_eqn_vs_openfoam` (ceiling 7 ulp).
   (shared with `dynamicLagrangian`) rather than inside this crate.
 - `kEqn::correct()` is not compared with upstream (own solver settings, plain floor for `bound`,
   no `fvOptions`), as for the slice-3 models.
+
+---
+
+# Slice 6 (gh:#1544 under gh:#1377): LaunderSharmaKE
+
+`kOmega2006` and `v2f` (named in gh:#1545) do NOT exist in ESI v2506: `find` over
+`OpenFOAM-v2506/src` for `*kOmega2006*` and `*v2f*` returns nothing (grep over all `.C`/`.H` under `src/` for `v2f` and `kOmega2006` finds nothing). The
+incompressible RAS list of v2506 is SpalartAllmaras, kEpsilon, RNGkEpsilon, realizableKE,
+LaunderSharmaKE, kEpsilonPhitF, kOmega, kOmegaSST, kOmegaSSTSAS, kOmegaSSTLM, LRR, SSG, EBRSM.
+Recorded on gh:#1545; not ported.
+
+## Predictions (written and committed BEFORE the driver was extended or run)
+
+1. **LaunderSharmaKE** (`Cmu 0.09`, `C1 1.44`, `C2 1.92`, `C3 0`, `sigmak 1`, `sigmaEps 1.3`):
+   inputs fed from upstream: `grad(U)`, `div(phi)`, `fvc::magSqrGradGrad(U)` and
+   `fvc::grad(sqrt(k))` (the port does not own these operators; gh:#1489). The libm functions are
+   `exp` (in `fMu` and `f2`). Predicted: `fMu`, `f2` at least 90 % identical, at most 3 ulp;
+   recomputed `nut` and the eps `Sp` coefficient (contains `f2`) differ only in the same cells;
+   `G`, `E`, `D`, eps explicit `C1 G eps/k`, eps `SuSp`, k `SuSp`, k `Sp` are 360/360 identical
+   (`G` and `E` use the STORED `nut`, set to upstream's, so they do not inherit the `exp` ulps).
+2. The transcribed epsilon and k matrices reproduce the real matrices bit for bit.
+3. No difference is expected that `exp` does not explain.
