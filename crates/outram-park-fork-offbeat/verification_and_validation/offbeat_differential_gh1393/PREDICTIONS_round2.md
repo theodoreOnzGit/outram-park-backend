@@ -259,3 +259,29 @@ Predictions:
    in the port; `-Q/R/T` vs `-q/(R t)`) give 1-3 ulp on a fraction of rows: bit-identity < 100 %, > 40 %.
 3. Power law: `pow(sigma*1e-6/sigmaC, n)` against `x.r_powf(n)` with the same `x`: >= 90 % bit-identical.
 4. No port defect expected.
+
+## G. Corrosion: oxidation kinetics EPRI_KWU_CE, CathcartPawel and their low/high combination (before the driver)
+
+Compared: `correctOxideThickness(S, S0, Ti, phi, dt)` of `EPRI_KWU_CE`, `CathcartPawel` and the
+`lowHighOxidationKineticsModel<EPRI_KWU_CE, CathcartPawel>` switch at `upperLimit() = 673 K`, against
+`OxidationKinetics::{EpriKwuCe, CathcartPawel, EpriKwuCeCathcartPawel}.thickness`.  Not compared: the interface-temperature
+update and the metal-thickness update of `zircaloyOuterCorrosion` (mesh patch fields), hydrogen pick-up and thermal
+corrosion/exotherm models (no upstream counterpart in this tree).
+
+Reading before the run.  `EPRI_KWU_CE::correctOxideThickness` branches on the INPUT/OUTPUT variable `S`
+(`if (S <= S_trans)`), not on `S0`; the caller passes the oxide thickness field, whose value on entry is `Sold` at the
+first nonlinear iteration of a step and the previous call's result afterwards.  So for a step that crosses
+`S_trans`, the first call returns the cubic overshoot `S_pre > S_trans` and the later calls the crossing result.  The
+driver emits `mode 1` (`S = S0` on entry, the first call) and `mode 2` (`S` = the first call's result, the converged
+value of the later calls).  The port is stateless; predicted equal to `mode 2`, and different from `mode 1` exactly on
+the rows that cross the transition (`S0 < S_trans < S_pre`).  Without a crossing both modes coincide.
+
+Predictions:
+1. Port == `mode 2` within `8 eps x scale` with `scale = 4 x value` (the arguments of every `exp` are the same bits in
+   both, so only libm differences enter; the association differences are `C2 = (a + b x)1e-6` vs `a 1e-6 + (b 1e-6) x`,
+   `.. dt_post/3600/24` vs `.. (dt_post/86400)`, the flux unit conversion).
+2. Port != `mode 1` exactly for crossing rows (`S0 < 2e-6 < S_pre`): count predicted from the grid after the run
+   from the same rule.
+3. CathcartPawel: the Schanz window (1800 <= T < 1900 K) is reproduced with upstream's broken interpolation (negative
+   Q/R, as the port documents); port == upstream there within the gate.
+4. No port defect expected.
