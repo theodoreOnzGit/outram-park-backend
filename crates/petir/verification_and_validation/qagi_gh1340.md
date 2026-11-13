@@ -33,3 +33,21 @@ Parent: gh:#1340, epic gh:#1336. Research, education and V&V only
 - **P3.** Error estimates bit-identical in at least 16 of 18; any miss is in an
   `exp`/`pow`/`ln` case and is the libm effect documented for QAGS
   (`abserr` is a difference of large numbers), not a port difference.
+
+## Results (2026-11-13, Rust 1.99.1 release, GSL 2.8 `cf180cd7`, `gcc -O2`, glibc)
+
+- **P1 held**: status, workspace size and evaluation count identical in
+  18 of 18 cases (statuses 0, 11, 13 all reached).
+- **P2 held**: results **18 of 18 bit-identical**.
+- **P3 held**: error estimates **17 of 18 bit-identical**. The one miss is
+  `gauss` (`exp(-x*x)`): 1.0306660836945013e-12 against GSL's
+  1.0306660836946047e-12, relative 1.0e-13. As for QAGS, `abserr` is a running
+  difference of larger numbers amplifying a last-ulp difference in
+  `rescale_error`'s `pow(200 err / resasc, 1.5)`, which the engine evaluates
+  with PETIR's `libm` and GSL with glibc. That is the mechanism measured for
+  QAGS (gsl_qags_code_to_code.rs); I did **not** re-test it for this case (by
+  nudging GSL's `pow`), so it is the likely cause, not a demonstrated one.
+  The result and evaluation count are identical, and the value is inside the
+  1e-3 bar the QAGS test uses.
+- Still open in gh:#1340: `qng`, `qagp`, `qawc`, `qaws`, `qawo`, `qawf`,
+  `cquad`, `romberg`, `fixed`/`glfixed`.

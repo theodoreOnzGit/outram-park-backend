@@ -616,7 +616,7 @@ where
 /// `qags.c`, static `qags` (lines 194-570). `None` only on an internal
 /// indexing failure.
 #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
-fn qags_core<F>(
+pub(super) fn qags_core<F>(
     q: QkRule,
     f: &F,
     a: f64,

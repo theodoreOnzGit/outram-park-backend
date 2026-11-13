@@ -100,7 +100,11 @@ pub mod gauss_legendre_tables;
 /// QAGS: adaptive Gauss-Kronrod with Wynn epsilon extrapolation, ported from
 /// GSL `integration/qags.c` and its helpers.
 mod qags;
+/// QAGI, QAGIU, QAGIL: infinite ranges by the QAGS transformations of GSL
+/// `integration/qags.c` (gh:#1340).
+mod qagi;
 
+pub use qagi::{qagi, qagil, qagil_with_status, qagi_with_status, qagiu, qagiu_with_status};
 pub use qags::{qags, qags_with_status, QagsOutcome};
 
 use alloc::vec;
