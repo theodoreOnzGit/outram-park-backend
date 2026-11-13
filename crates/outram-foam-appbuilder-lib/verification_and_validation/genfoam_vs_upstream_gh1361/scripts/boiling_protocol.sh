@@ -22,4 +22,6 @@ if [ -n "$TIGHT" ]; then
 fi
 # NOUTER=k: PIMPLE nOuterCorrectors k (fields after k outer iterations of step 1; diagnostic for the first divergent operation)
 [ -n "$NOUTER" ] && sed -i "s/^\( *\)nOuterCorrectors .*/\1nOuterCorrectors    $NOUTER;/" system/fluidRegion/fvSolution
+# NCORR=k: PIMPLE nCorrectors k (the PISO correctors per outer iteration; same purpose)
+[ -n "$NCORR" ] && sed -i "s/^\( *\)nCorrectors .*/\1nCorrectors         $NCORR;/" system/fluidRegion/fvSolution
 sed -i 's/calulated/calculated/' 0/fluidRegion/* # upstream typo: ESI rejects 'calulated' (alpha.liquid), the port ignores patch types it does not need
