@@ -17,7 +17,7 @@
 #   scripts/upstream/build-esi-v2506-and-genfoam.sh [stage ...]
 #     (no argument = every stage, in order; finished stages are skipped)
 #   stages: prereqs fetch-esi env core prereq-libs closure meshing solvers
-#           radiation fetch-genfoam genfoam fetch-cfmesh cfmesh polydual verify
+#           radiation viewfactors fetch-genfoam genfoam fetch-cfmesh cfmesh polydual verify
 #           (radiation, gh:#1379: libradiationModels, built by `closure` as well, plus
 #           the P1 differential driver radDump from the outram-foam-basic-lib V&V dir)
 #           (fetch-cfmesh and cfmesh: DAFoam cfMesh e944f6ba695f, gh:#1385; cfMesh
@@ -406,6 +406,26 @@ stage_radiation() {
   run_stage rad-cht-driver rad_cht_driver_impl
 }
 
+# --- view factors (gh:#1529) ----------------------------------------------------
+# ESI's view-factor generator chain: faceAgglomerate (needs libpairPatchAgglomeration)
+# and viewFactorsGen (needs libdistributed, already built, and libradiationModels).
+# viewFactorsGen's CGAL path is optional: CGAL is not installed here, so it is built
+# with -DNO_CGAL (upstream's own Allwmake does the same when have_cgal fails; the
+# fallback is the in-tree searching engine). createViewFactors (voxel ray engine)
+# is NOT built here.
+vf_viewfactorsgen_impl() {
+  cd "$OF/applications/utilities/preProcessing/viewFactorsGen"
+  COMP_FLAGS="-DNO_CGAL" wmake -j"$N" .
+  [ -x "$FOAM_APPBIN/viewFactorsGen" ] || { echo "no viewFactorsGen"; return 1; }
+  ls -l "$FOAM_APPBIN/viewFactorsGen"
+}
+stage_viewfactors() {
+  ( cd "$OF/src/fvAgglomerationMethods/pairPatchAgglomeration" && wmakeLnInclude -u . ) >>"$LOGS/viewfactors.log" 2>&1
+  wm_lib fvAgglomerationMethods/pairPatchAgglomeration
+  wm_app utilities/preProcessing/faceAgglomerate faceAgglomerate
+  run_stage app-viewFactorsGen vf_viewfactorsgen_impl
+}
+
 # --- GeN-Foam -----------------------------------------------------------------
 gf_fetch_impl() {
   if [ "$(git -C "$GF" rev-parse HEAD 2>/dev/null)" = "$GF_SHA" ]; then echo "GeN-Foam already at $GF_SHA"; return 0; fi
@@ -580,7 +600,7 @@ status() {
 }
 
 # --- main ---------------------------------------------------------------------
-STAGES=(prereqs fetch-esi env core prereq-libs closure meshing solvers radiation fetch-genfoam genfoam fetch-cfmesh cfmesh verify)
+STAGES=(prereqs fetch-esi env core prereq-libs closure meshing solvers radiation viewfactors fetch-genfoam genfoam fetch-cfmesh cfmesh verify)
 [ "$#" -gt 0 ] || set -- "${STAGES[@]}"
 T0=$(date +%s)
 for s in "$@"; do
@@ -596,6 +616,7 @@ for s in "$@"; do
     meshing)      load_env; stage_meshing ;;
     solvers)      load_env; stage_solvers ;;
     radiation)    load_env; stage_radiation ;;
+    viewfactors)  load_env; stage_viewfactors ;;
     fetch-genfoam) stage_fetch_genfoam ;;
     genfoam)      load_env; stage_genfoam ;;
     fetch-cfmesh) stage_fetch_cfmesh ;;

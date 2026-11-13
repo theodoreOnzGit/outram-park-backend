@@ -222,7 +222,8 @@ impl NrtlParams {
         let mut g = zero_matrix(n);
         for i in 0..n {
             for j in 0..n {
-                let a = self.a[i][j] + self.b[i][j] * t + self.c[i][j] * t * t;
+                // Upstream `A + B*T + C*T^2` is `C*(T^2)` (NRTL.vb:321): group the square first.
+                let a = self.a[i][j] + self.b[i][j] * t + self.c[i][j] * (t * t);
                 tau[i][j] = a / (R_CAL * t);
             }
         }
@@ -248,11 +249,15 @@ impl NrtlParams {
 
         // ln gamma_i (NRTL.vb:395-405)
         let mut gamma = vec![0.0_f64; n];
+        // Upstream forms the j-sum first (`SumY`) and only then adds it to C/S
+        // (`lnVg(i) += ...SumY`, NRTL.vb:401); adding term by term differs in the
+        // last bit (gh:#1356: 100 of 966 gammas, worst 2 ulp, before this change).
         for i in 0..n {
-            let mut ln_g = c[i] / s[i];
+            let mut sum = 0.0;
             for j in 0..n {
-                ln_g += x[j] * g[i][j] * (tau[i][j] - c[j] / s[j]) / s[j];
+                sum += x[j] * g[i][j] * (tau[i][j] - c[j] / s[j]) / s[j];
             }
+            let ln_g = c[i] / s[i] + sum;
             gamma[i] = ln_g.r_exp();
         }
         gamma
@@ -342,7 +347,9 @@ impl UniquacParams {
     /// ```
     ///
     /// (UNIQUAC.vb:402-433, with `phi_i = x_i r_i / sum`, `theta_i = x_i q_i / sum`).
-    /// Panics if `x.len() != n`.
+    /// The arithmetic follows upstream's operation order exactly (reciprocal
+    /// multiplies, `SumY` grouping), so results are bit-identical to DWSIM up to
+    /// the `exp`/`ln` implementation (gh:#1356). Panics if `x.len() != n`.
     // Explicit `usize` indexing (not iterators) keeps the cross-indexed matrix
     // math — `tau[l][i]`, `tau[i][j]`, `s[j]`, `theta[l]` — readable and faithful
     // to the ported DWSIM loops, so `needless_range_loop` does not apply.
@@ -352,12 +359,16 @@ impl UniquacParams {
         assert_eq!(x.len(), n, "UNIQUAC: x length {} != n {}", x.len(), n);
         let z = Self::Z;
 
-        // tau[i][j] = exp((-a_ij + b_ij T + c_ij T^2)/(R_CAL T))  (UNIQUAC.vb:394)
+        // tau[i][j] in upstream's operation order (UNIQUAC.vb:394-395): the
+        // exponent is `(-a) + ((b*T) + (c*T^2))`, multiplied by the reciprocal
+        // `1/(R_CAL*T)` (not divided by it).
+        let k = 1.0 / (R_CAL * t);
+        let t2 = t * t;
         let mut tau = zero_matrix(n);
         for i in 0..n {
             for j in 0..n {
-                let e = -self.a[i][j] + self.b[i][j] * t + self.c[i][j] * t * t;
-                tau[i][j] = (e / (R_CAL * t)).r_exp();
+                let e = -self.a[i][j] + (self.b[i][j] * t + self.c[i][j] * t2);
+                tau[i][j] = (e * k).r_exp();
             }
         }
 
@@ -369,10 +380,14 @@ impl UniquacParams {
             q_mix += x[j] * self.q[j];
         }
 
-        // theta_i = x_i Q_i / q  (UNIQUAC.vb:406)
+        // theta_i = (x_i Q_i) * (1/q), phi_i = (x_i R_i) * (1/r)  (UNIQUAC.vb:407-408)
+        let inv_r = 1.0 / r_mix;
+        let inv_q = 1.0 / q_mix;
         let mut theta = vec![0.0_f64; n];
+        let mut phi = vec![0.0_f64; n];
         for i in 0..n {
-            theta[i] = x[i] * self.q[i] / q_mix;
+            theta[i] = x[i] * self.q[i] * inv_q;
+            phi[i] = x[i] * self.r[i] * inv_r;
         }
 
         // s_i = sum_l theta_l tau_li  (UNIQUAC.vb:411)
@@ -387,18 +402,28 @@ impl UniquacParams {
 
         let mut gamma = vec![0.0_f64; n];
         for i in 0..n {
-            // Combinatorial part (UNIQUAC.vb:431).
-            let j_i = self.r[i] / r_mix; // = phi_i / x_i
-            let l_i = self.q[i] / q_mix; // = theta_i / x_i
-            let jl = j_i / l_i;
-            let ln_gc = 1.0 - j_i + j_i.r_ln() - (z / 2.0) * self.q[i] * (1.0 - jl + jl.r_ln());
+            // phi_i/theta_i as upstream forms it. For x_i = 0 upstream divides
+            // 0/0 and returns NaN; this port keeps the algebraically equal
+            // x-free ratio (r_i/r)/(q_i/q) there, so a component at infinite
+            // dilution still gets its finite gamma (deliberate deviation).
+            let ratio = if x[i] != 0.0 {
+                phi[i] / theta[i]
+            } else {
+                (self.r[i] * inv_r) / (self.q[i] * inv_q)
+            };
+            // Combinatorial part, UNIQUAC.vb:431 term by term:
+            // ((R_i*(-1/r)) + 1) + (ln(R_i*(1/r)) + (Q_i*(-z/2)) * (((-ratio) + 1) + ln(ratio)))
+            let ln_gc = (self.r[i] * (-1.0 / r_mix) + 1.0)
+                + ((self.r[i] * inv_r).r_ln()
+                    + (self.q[i] * (-z / 2.0)) * ((-ratio + 1.0) + ratio.r_ln()));
 
-            // Residual part (UNIQUAC.vb:432): q_i (1 - ln s_i - sum_j theta_j tau_ij / s_j)
+            // Residual part (UNIQUAC.vb:432): Q_i * (((-ln S_i) - sum1_i) + 1), with
+            // sum1_i = sum_j theta_j * (tau_ij / S_j).
             let mut sum1 = 0.0;
             for j in 0..n {
-                sum1 += theta[j] * tau[i][j] / s[j];
+                sum1 += theta[j] * (tau[i][j] / s[j]);
             }
-            let ln_gr = self.q[i] * (1.0 - s[i].r_ln() - sum1);
+            let ln_gr = self.q[i] * ((-s[i].r_ln() - sum1) + 1.0);
 
             gamma[i] = (ln_gc + ln_gr).r_exp();
         }

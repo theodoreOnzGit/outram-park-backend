@@ -56,3 +56,7 @@ interpretation of what the numbers mean and whether the pass criterion was met.
 See `outram-park-fork-coolprop/verification_and_validation/` for a worked
 example (`water_critical_point_iapws95.md`).
 
+
+## gh:#1356 differential records
+
+- [`upstream_differential_gh1356/`](upstream_differential_gh1356/README.md): predictions (committed before any run), NRTL/UNIQUAC, petroleum correlations and shortcut-column (FUG) comparisons against verbatim transcriptions of DWSIM `1abf72d1`, with results, localisation and `check_verbatim.sh`.
