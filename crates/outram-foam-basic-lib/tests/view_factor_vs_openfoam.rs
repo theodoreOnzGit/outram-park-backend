@@ -265,12 +265,17 @@ fn radiosity_identity_and_cube_view_factors() {
         let bal: f64 = (0..n).map(|i| s.areas[i] * s.q[i]).sum();
         let mag: f64 = (0..n).map(|i| (s.areas[i] * s.q[i]).abs()).sum();
         println!("RESULT {name} radiosity residual {worst:e} balance {:e}", bal / mag);
+        assert!(worst < 1e-12, "radiosity identity residual {worst}");
+        // F row sums are ~1.01 and F is not exactly reciprocal: the balance is limited by that
+        assert!((bal / mag).abs() < 0.03, "balance {}", bal / mag);
         if name == "cubeD" {
             // patch 0 = xmin; xmax = 1 opposite; ymin = 2 adjacent
             let opp = patch_f(&s, 0, 1);
             let adj = patch_f(&s, 0, 2);
             let rowsum: f64 = (0..6).map(|b| patch_f(&s, 0, b)).sum();
             println!("RESULT exact opposite check {:.6}", parallel_squares_f(1.0, 1.0));
+            assert!((opp / 0.19982 - 1.0).abs() < 0.05 && (adj / 0.200045 - 1.0).abs() < 0.05);
+            assert!((rowsum - 1.0).abs() < 0.05);
             println!("RESULT cube F opposite {opp:.6} (exact 0.19982) adjacent {adj:.6} (exact 0.200045) rowsum {rowsum:.6}");
         }
     }
@@ -294,6 +299,7 @@ fn parallel_squares_f(x: f64, y: f64) -> f64 {
 fn parallel_plates() {
     let sg = outram_foam_basic_lib::radiation::stefan_boltzmann_esi_v2506();
     let q_inf = sg * (1000f64.powi(4) - 500f64.powi(4)) / (1.0 / 0.8 + 1.0 / 0.5 - 1.0);
+    let mut ratios: Vec<(f64, f64)> = Vec::new();
     for (name, bytes, r) in [("plate4", REF_P4, 4.0), ("plate8", REF_P8, 8.0), ("plate16", REF_P16, 16.0)] {
         let c = case(bytes, None, false, false, 0.0);
         let s = solve_plain(&c);
@@ -320,8 +326,14 @@ fn parallel_plates() {
         let f_esi = patch_f(&s, 4, 5);
         let f_exact = parallel_squares_f(1.0 / (1.0 / r), 1.0 / (1.0 / r));
         println!("RESULT {name} F12 ESI {f_esi:.6} exact {f_exact:.6} err {:.3}% cold centre q {qcold:.1} cold/inf {:.4}", 100.0 * (f_esi / f_exact - 1.0), qcold / q_inf);
+        assert!((f_esi / f_exact - 1.0).abs() < 0.005, "{name} F12 error");
+        ratios.push((qc / q_inf, qcold / q_inf));
         println!("RESULT {name} L/d {r} centre q {qc:.1} mean q {tot:.1} q_inf {q_inf:.1} centre/inf {:.4} mean/inf {:.4}", qc / q_inf, tot / q_inf);
     }
+    // hot centre flux above, cold below, both converging to the infinite-plate value
+    assert!(ratios[0].0 > ratios[1].0 && ratios[1].0 > ratios[2].0 && ratios[2].0 > 1.0);
+    assert!(ratios[0].1 < ratios[1].1 && ratios[1].1 < ratios[2].1 && ratios[2].1 < 1.0);
+    assert!(ratios[1].0 - 1.0 < 0.15, "L/d = 8 centre error");
 }
 
 #[test]
@@ -332,9 +344,29 @@ fn qr_matches_openfoam_viewfactor() {
         ("cubeB", case(REF_B, Some(agg), true, true, 1000.0)),
         ("cubeC", case(REF_C, None, false, true, 1000.0)),
         ("cubeD", case(REF_D, None, false, false, 0.0)),
+        ("plate4", case(REF_P4, None, false, false, 0.0)),
+        ("plate8", case(REF_P8, None, false, false, 0.0)),
+        ("plate16", case(REF_P16, None, false, false, 0.0)),
     ];
+    let mut total = 0;
     for (name, c) in &cases {
         let r = run(c);
         println!("RESULT {name} call1 {:?} call2 {:?}", r[0], r[1]);
+        for call in r {
+            // PINNED: every fine-face qr bit-identical to ESI v2506 (2026-11-13)
+            assert_eq!(call.0, call.1, "{name}: {} of {} identical", call.0, call.1);
+            assert_eq!(call.2, 0.0);
+            total += call.0;
+        }
+    }
+    // 4 cube cases x 96 faces x 2 calls + 3 plate cases x 160 faces x 2 calls
+    assert_eq!(total, 4 * 96 * 2 + 3 * 160 * 2);
+    // prediction 4: constantEmissivity (cached LU) and the variable path agree to the bit
+    let a = parse(&gunzip(REF_A));
+    let cc = parse(&gunzip(REF_C));
+    for key in ["qr1", "qr2"] {
+        for (x, y) in a.cols[key].iter().zip(&cc.cols[key]) {
+            assert_eq!(x.to_bits(), y.to_bits());
+        }
     }
 }
