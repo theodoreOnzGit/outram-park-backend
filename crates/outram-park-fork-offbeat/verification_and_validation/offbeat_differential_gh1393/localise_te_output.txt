@@ -1,0 +1,9 @@
+grid points 30
+pow(T,2)!=T*T: 0   pow(T,3)!=T*T*T: 1   (kelvin)
+pow(Tc,2)!=Tc*Tc: 0   pow(Tc,3)!=Tc*Tc*Tc: 7   (celsius)
+Martin low  explicit-with-pow != Horner: 14 / 30
+Martin high explicit-with-pow != Horner: 12 / 30
+Snead       explicit-with-pow != Horner: 26 / 30
+MatproUPuO2 PuO2 explicit-with-pow != Horner (celsius): 18 / 30
+Gehr p3*pow(Tc,2) != p3*Tc*Tc: 1 / 30
+PARFUME buffer (T-273.15)-(Tref-273.15) != T-Tref: 4 / 90 (T,Tref) pairs

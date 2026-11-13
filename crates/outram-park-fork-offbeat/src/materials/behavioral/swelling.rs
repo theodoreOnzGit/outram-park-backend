@@ -48,11 +48,18 @@
 //! produces a fuel/cladding gap that closes at the wrong time. Be certain which
 //! one you are holding.
 //!
-//! The one documented exception is
+//! ~~The one documented exception is
 //! [`WrightShamHastelloyN`](SwellingModel::WrightShamHastelloyN), whose
 //! upstream correlation is *negative below its incubation dose* (about 0.99
 //! dpa). That is upstream's behaviour, reproduced faithfully; it is a defect of
-//! the fit, not a sign-convention change. See that variant's documentation.
+//! the fit, not a sign-convention change.~~ **CORRECTED 2026-11-13 (gh:#1393
+//! round 2):** there is no exception. Upstream's `correct()` accumulates only
+//! the increment `f(new) - f(old)`, in which the fit's constant offset
+//! cancels, so the swelling grown from zero fluence is never negative; the
+//! earlier "negative below incubation" behaviour was this port's cumulative
+//! form keeping the offset. Verified against the transcribed kernel
+//! (`tests/offbeat_differential_behavioral.rs`). See the variant's
+//! documentation.
 //!
 //! # Units, and the volumetric/linear factor of three
 //!
@@ -532,21 +539,31 @@ pub enum SwellingModel {
     /// damage rather than raw fluence:
     ///
     /// - `dpa = φ / 1e26 · 5` — upstream's conversion, 5 dpa per `1e22` n/cm².
-    /// - `f(dpa) = 0.9845 · dpa^0.4385 − 0.981`
+    /// - `f(dpa) = 0.9845 · dpa^0.4385 − 0.981` (the fit)
     /// - `g(T) = exp(−((T_C − 490)/100)²)`
-    /// - `ΔV/V [%] = g(T) · f(dpa)`, divided by 100 here to give a strain.
+    /// - upstream adds, per step, `0.01/3 · g(T) · (f(dpa_new) − f(dpa_old))`
+    ///   to each diagonal component; the `−0.981` cancels in the difference,
+    ///   so the strain accumulated from zero fluence at temperature `T` is
+    ///   `ε = 0.01 · g(T) · 0.9845 · dpa^0.4385` (volumetric; one third per
+    ///   component).
     ///
-    /// # This variant can return a NEGATIVE value — and that is upstream
+    /// # Correction, 2026-11-13 (gh:#1393 round 2)
     ///
-    /// `f(dpa)` is negative below `dpa ≈ 0.992` (a fast fluence of about
-    /// `1.98e25` n/m²), so the correlation reports
-    /// *shrinkage* below its incubation dose. That is an artefact of fitting a
-    /// power law with an offset to data that has an incubation period; it is
-    /// not a sign-convention change and not densification. Upstream does not
-    /// clamp it and neither does this port, because clamping would silently
-    /// change the numbers an OFFBEAT comparison is judged against. **If you are
-    /// summing this with a densification model, be aware you may be adding two
-    /// negative numbers below 1 dpa.**
+    /// ~~# This variant can return a NEGATIVE value — and that is upstream.
+    /// `f(dpa)` is negative below `dpa ≈ 0.992` (about `1.98e25` n/m²), so the
+    /// correlation reports shrinkage below its incubation dose.~~
+    /// **CORRECTED:** that was this port keeping the fit's offset in a
+    /// cumulative form. Upstream's `correct()` only ever adds the increment
+    /// `f(new) − f(old)` and the offset cancels, so no OFFBEAT history gives a
+    /// negative value. Volumetric strain at the 490 °C peak, old → new:
+    /// `−2.545e-3 → +7.265e-3` at `1e25` n/m², `−8.29e-6 → +9.802e-3` at
+    /// `1.98e25`, `+1.338e-5 → +9.823e-3` at `1.99e25`, `+1.013e-2 →
+    /// +1.994e-2` at `1e26`, `+2.681e-2 → +3.662e-2` at `4e26` (computed
+    /// from the two closed forms, not a re-run of the old code); the new form
+    /// is monotone from zero (see the test
+    /// `wright_sham_is_zero_at_zero_dose_and_never_negative`). The temperature
+    /// is held fixed over the history in this stateless form, as for the other
+    /// growth models.
     ///
     /// Valid range: fast fluence `0` to `4e26` n/m² (about 20 dpa);
     /// temperature `573.15` to `1073.15` K (300–800 °C).
@@ -756,13 +773,19 @@ impl SwellingModel {
             Self::WrightShamHastelloyN => {
                 const A: f64 = 9.845e-1;
                 const N: f64 = 4.385e-1;
-                const OFFSET: f64 = -9.81e-1;
+                // CORRECTED 2026-11-13 (gh:#1393 round 2): upstream's fit has an
+                // offset (par3 = -9.81e-1) but its `correct()` adds only the
+                // INCREMENT `f(dpa_new) - f(dpa_old)`, in which the offset
+                // cancels, so the swelling accumulated from zero fluence is
+                // `A dpa^N` with no offset.  The previous cumulative form here
+                // kept the offset and returned a negative "swelling" below
+                // 0.99 dpa that no OFFBEAT history produces.
                 const T_PEAK_CELSIUS: f64 = 490.0;
                 // dpa per 1e22 n/cm^2, i.e. per 1e26 n/m^2.
                 const DPA_PER_1E26: f64 = 5.0;
 
                 let dpa = state.fast_fluence / 1.0e26 * DPA_PER_1E26;
-                let dose_factor = A * dpa.r_powf(N) + OFFSET;
+                let dose_factor = A * dpa.r_powf(N);
                 let x = (state.temperature - 273.15 - T_PEAK_CELSIUS) / 100.0;
                 let temperature_factor = (-(x * x)).r_exp();
                 // Upstream's result is a percentage.
@@ -1008,8 +1031,11 @@ mod tests {
     /// report exactly zero swelling. No published reference is involved — this
     /// establishes only that no variant carries a spurious constant offset.
     ///
-    /// [`SwellingModel::WrightShamHastelloyN`] is excluded and tested
-    /// separately: its correlation is deliberately *not* zero at zero dose.
+    /// ~~[`SwellingModel::WrightShamHastelloyN`] is excluded and tested
+    /// separately: its correlation is deliberately *not* zero at zero dose.~~
+    /// **CORRECTED 2026-11-13 (gh:#1393 round 2):** Wright-Sham is zero at
+    /// zero dose too (upstream's offset cancels in its increments) and is in
+    /// the list below.
     #[test]
     fn every_model_is_zero_in_the_unirradiated_state() {
         let fresh = MaterialState::fresh(900.0);
@@ -1032,6 +1058,7 @@ mod tests {
             },
             SwellingModel::GrowthAim11515Ti,
             SwellingModel::GrowthGeneralized1515Ti,
+            SwellingModel::WrightShamHastelloyN,
             SwellingModel::PyroCarbonCorrelation {
                 radial_coefficients: [-1.2, 0.1, 0.05, -0.01, 0.0, 0.0],
                 tangential_coefficients: [-1.2, 0.05, 0.08, -0.012, 0.0, 0.0],
@@ -1039,6 +1066,7 @@ mod tests {
             },
         ];
         for model in models {
+            // Wright-Sham's temperature window starts at 573.15 K; 900 K is inside.
             let value = model.value(&fresh);
             assert!(
                 value.abs() < 1.0e-15,
@@ -1390,33 +1418,45 @@ mod tests {
         }
     }
 
-    /// Documents — rather than hides — the Wright-Sham correlation's negative
-    /// branch below its incubation dose. Self-consistency check against the
-    /// algebra of upstream's fit, not a validation of Hastelloy N behaviour.
-    ///
-    /// `0.9845·dpa^0.4385 = 0.981` at `dpa ≈ 0.9919`, i.e. at a fast fluence of
-    /// about `1.98e25` n/m² with upstream's 5 dpa per 1e26 n/m². Below that the
-    /// correlation returns a negative "swelling"; above it, positive.
-    ///
-    /// Measured 2026-07-29, this port, at the 490 °C swelling peak:
-    /// `−8.29e-6` at `1.98e25` n/m² and `+1.34e-5` at `1.99e25` n/m², so the
-    /// crossing is bracketed to better than 1% in fluence.
+    /// ~~Documents the Wright-Sham correlation's negative branch below its
+    /// incubation dose (measured 2026-07-29: `-8.29e-6` at `1.98e25` n/m²,
+    /// `+1.34e-5` at `1.99e25`).~~ **CORRECTED 2026-11-13 (gh:#1393 round 2):**
+    /// upstream accumulates the increment `f(new) - f(old)`, so the fit's
+    /// offset cancels and the swelling from zero fluence is `0.01 g(T) A dpa^N`:
+    /// zero at zero dose, never negative, monotone in dose. Found by the
+    /// differential test `offbeat_differential_behavioral` (18 of 18 compared
+    /// rows failed before the fix: the port returned the offset-carrying form).
+    /// Also checks the equivalence directly: the sum of `N` upstream-style
+    /// increments `f(k dpa/N) - f((k-1) dpa/N)` equals the closed form.
     #[test]
-    fn wright_sham_hastelloy_n_is_negative_below_its_incubation_dose() {
+    fn wright_sham_is_zero_at_zero_dose_and_never_negative() {
         let model = SwellingModel::WrightShamHastelloyN;
         let at = |fluence: f64| {
             let mut state = MaterialState::fresh(490.0 + 273.15);
             state.fast_fluence = fluence;
             model.value(&state)
         };
-        assert!(
-            at(1.0e25) < 0.0,
-            "below incubation the upstream fit is negative"
-        );
-        assert!(at(4.0e26) > 0.0, "above incubation it swells");
-        // Crossing point, bracketed to better than 1% in fluence.
-        assert!(at(1.98e25) < 0.0);
-        assert!(at(1.99e25) > 0.0);
+        assert_eq!(at(0.0), 0.0);
+        let mut previous = 0.0;
+        for fluence in [1.0e24, 1.0e25, 1.98e25, 1.99e25, 1.0e26, 4.0e26] {
+            let v = at(fluence);
+            assert!(v > previous, "swelling must grow monotonically from zero: {v} after {previous}");
+            previous = v;
+        }
+        // Telescoping of upstream's increments: the offset cancels.
+        let (a, n, offset) = (9.845e-1_f64, 4.385e-1_f64, -9.81e-1_f64);
+        let f = |dpa: f64| a * dpa.powf(n) + offset;
+        let total_dpa = 20.0;
+        let steps = 50;
+        let summed: f64 = (1..=steps)
+            .map(|k| f(total_dpa * k as f64 / steps as f64) - f(total_dpa * (k - 1) as f64 / steps as f64))
+            .sum();
+        let closed = a * total_dpa.powf(n);
+        assert!((summed - closed).abs() < 1.0e-12 * closed, "{summed} vs {closed}");
+        // peak temperature: g = 1, volumetric strain = 0.01 * A * dpa^N
+        let v = at(4.0e26);
+        let expected = 0.01 * closed;
+        assert!((v - expected).abs() < 1.0e-12 * expected, "{v} vs {expected}");
     }
 
     /// Self-consistency check, not external validation: the pyrolytic-carbon

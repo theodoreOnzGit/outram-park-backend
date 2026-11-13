@@ -160,12 +160,15 @@ and exact mass conservation for the resource operations. Each test states its
 methodology and its measured numbers in its doc comment, per the workspace
 V&V-documentation rule.
 
-**The missing leg is cross-code comparison.** There is no comparison against
-an actual Cyclus run. Building upstream Cyclus and diffing a simple
-simulation's trade schedule against this port is the highest-value next step,
-and is exactly how `petir` and `outram-park-fork-liggghts` earned their
-evidence: build the upstream, run it, commit its output under
-`reference-data/`, and regenerate the comparison rather than trusting it.
+~~**The missing leg is cross-code comparison.** There is no comparison against
+an actual Cyclus run.~~ **CORRECTED 2026-11-13 (gh:#1431):** a first comparison
+against a CYCLUS 1.6.0 binary exists (`verification_and_validation/cyclus_differential_gh1431/`), covering Source/Sink
+exchange and the enrichment, Kahan, `comp_math` and decay kernels; it is not
+against the pinned commits (README there, "Route"). Still missing: every
+facility archetype beyond Source and Sink. ~~Building upstream Cyclus and
+diffing a simple simulation's trade schedule against this port is the
+highest-value next step.~~ The remaining step is the same method on the
+archetypes that do not exist yet (gh:#1431 child issues).
 
 Proposing maturity is allowed; **declaring it is the maintainer's call alone.**
 
