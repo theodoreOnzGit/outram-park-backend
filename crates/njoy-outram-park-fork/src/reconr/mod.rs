@@ -541,6 +541,7 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
             sec.pairs = evaluate_on_union(t, &final_grid, first_res_for(sec.mt.number()));
         }
     }
+    seed_redundant_total(&mut sections, &final_grid);
     rebuild_total_as_sum_of_parts(&mut sections, &final_grid);
 
     // `emerge` writes each section from its last zero before the first
@@ -1705,6 +1706,19 @@ const SUM_THRESHOLD_TEST: f64 = 1.0e-10;
 /// RECONR oracle: Si-30 (where it changes nothing) and Sr-88 (where it
 /// restores the missing 2.1629e-2 b). See
 /// `tests/reconr_mt1_is_the_sum_of_its_parts.rs`.
+/// `anlyzd` makes MT=1 a redundant reaction as soon as the tape has any MF=3
+/// section (`reconr.f90:550-556`), whether or not it carries an MT=1 of its
+/// own, and `emerge` sums it from the first grid point (`mtrt = 1`, `:624`).
+/// A photo-nuclear evaluation (He-3, Bi-209, Pu-239: MF=3 MT=5 and 18 only)
+/// has none, so seed an MT=1 on `egrid` for [`rebuild_total_as_sum_of_parts`]
+/// to fill. Nothing changes for a tape that has MT=1.
+fn seed_redundant_total(sections: &mut Vec<ReconrSection>, egrid: &[f64]) {
+    if sections.is_empty() || sections.iter().any(|s| s.mt == MtReaction::Mt1Total) {
+        return;
+    }
+    sections.insert(0, ReconrSection { lr: 0, mt: MtReaction::Mt1Total, qi: 0.0, pairs: egrid.iter().map(|&e| (e, 0.0)).collect() });
+}
+
 fn rebuild_total_as_sum_of_parts(sections: &mut [ReconrSection], egrid: &[f64]) {
     if egrid.is_empty() || !sections.iter().any(|s| s.mt == MtReaction::Mt1Total) {
         return;

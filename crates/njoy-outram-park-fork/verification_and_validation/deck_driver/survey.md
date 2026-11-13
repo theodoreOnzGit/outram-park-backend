@@ -70,6 +70,8 @@ The prediction posted before the change: every COVR plot file identical, all fou
 
 **Re-run 2026-11-13, ERRORR `mfcov = 34`, `31`, MF=33 from a GENDF and `covadd` (gh:#1369):** the ERRORR decks 04, 05, 15, 16, 17, 18, 20, 27, 34, 46, 47 and 65 were re-run alone (`SURVEY_CASES`) on develop 588aef22e plus this work. Their rows are replaced; every other row is as before. **Identical: 60 of 87** (54 before). Decks 04 (MF=31 with `nin` copied ahead), 15 (MF=31, 33 and 34 from a text GENDF), 16 (MF=34 from a PENDF), 20 (`covadd`, then MF=33 from a GENDF with LRF=7 `resprx`), 46 and 65 (MF=34 from a GENDF) now run to the end `identical`; each is gated whole in `tests/deck_driver_covr_vs_njoy2016.rs`. Decks 05, 18, 27, 34 and 47 stay `identical`. Deck 17 stops at ERRORR `iread = 2`, as before. Predictions were posted before each change except deck 04's (recorded on the issue). Record: `README.md` section 20.
 
+**Re-run 2026-11-13, photo-nuclear (gh:#1369: RECONR on a tape with no MF=2 and no MT=1, `acephn` translated line for line, `phnfix`):** decks 56, 57, 58, 66 and 78 were re-run alone (`SURVEY_CASES`, 20 s) on develop 7a3fd98b1 plus this work. Their rows are replaced; every other row is as before. **Identical: 60 of 87** (unchanged): no whole deck closed. Decks 57, 58, 66 and 78 now run RECONR, ACER `iopt = 5` and the first `iopt = 7` pass. Tape90 (58, 66, 78), the ACE and directory (31, 32) and the rewritten table and directory (34, 35) are identical, 4-5 tapes per deck. Each stops by name at `phnplo` (the `iopt = 7` plot file, unit 33), which is not ported, so 33, 36-38 and VIEWR's 43/46 are listed as not written. Deck 56 (U-235) still stops at MF=4. Three predictions were posted before the changes and all held on the first run. Gate: `tests/deck_driver_photonuclear_vs_njoy2016.rs`. Record: `README.md` section 21.
+
 | deck | status | tapes identical | differing tapes | text tapes we did not write | binary tapes (no blocked-binary writer here) |
 |---|---|---|---|---|---|
 | 01 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
@@ -128,8 +130,8 @@ The prediction posted before the change: every COVR plot file identical, all fou
 | 54 | identical | 6 |  |  | tape21 tape22 |
 | 55 | identical | 9 |  |  | tape21 tape22 tape23 |
 | 56 | NotPorted (acer: not yet ported from NJOY2016: acephn: MF=4 angular data -- the MF=4/MF=5 neutron-only representation (ACE laws 33 and 4) is not ported) | 0 |  | tape31 tape32 tape33 tape34 tape35 tape36 tape37 tape38 tape43 tape46 | tape21 tape30 |
-| 57 | NotPorted (acer: not yet ported from NJOY2016: acephn: MF=6 with LCT /= 1 -- only the laboratory frame is ported) | 0 |  | tape31 tape32 tape33 tape34 tape35 tape36 tape37 tape38 tape43 tape46 | tape21 tape30 |
-| 58 | NotPorted (acer: not yet ported from NJOY2016: acephn: MF=6 with LCT /= 1 -- only the laboratory frame is ported) | 0 | tape90 4663/4668 lines | tape31 tape32 tape33 tape34 tape35 tape36 tape37 tape38 tape43 tape46 | tape21 tape30 |
+| 57 | NotPorted (acer: not yet ported from NJOY2016: ACER iopt = 7 plot file for a photo-nuclear table (phnplo, acepn.f90:2830-3573)) | 4 |  | tape33 tape36 tape37 tape38 tape43 tape46 | tape21 tape30 |
+| 58 | NotPorted (acer: not yet ported from NJOY2016: ACER iopt = 7 plot file for a photo-nuclear table (phnplo, acepn.f90:2830-3573)) | 5 |  | tape33 tape36 tape37 tape38 tape43 tape46 | tape21 tape30 |
 | 59 | differs | 3 | tape27 36/17964 lines |  | tape30 tape31 |
 | 60 | NotPorted (reconr: not yet ported from NJOY2016: deck PENDF: MF=10-23 section with no positive point) | 0 |  | tape31 tape32 | tape21 tape22 tape23 |
 | 61 | Err: invalid input: acer: unit 61 holds no ACE file | 0 |  | tape71 tape72 |  |
@@ -137,7 +139,7 @@ The prediction posted before the change: every COVR plot file identical, all fou
 | 63 | identical | 7 |  |  | tape21 tape22 tape23 tape24 |
 | 64 | NotPorted (reconr: not yet ported from NJOY2016: deck PENDF: MF=10-23 section with no positive point) | 0 |  | tape31 tape32 tape33 tape34 tape35 tape36 tape37 tape38 tape43 tape46 | tape21 tape30 |
 | 65 | identical | 4 |  |  | tape21 tape22 tape23 |
-| 66 | NotPorted (acer: not yet ported from NJOY2016: acephn: MF=1/MT=452 or /456 nubar -- the MT=18 fission yield substitution (acepn.f90:178-205, 469-475) is not ported) | 0 | tape90 119/124 lines | tape31 tape32 tape33 tape34 tape35 tape36 tape37 tape38 tape43 tape46 | tape21 tape30 |
+| 66 | NotPorted (acer: not yet ported from NJOY2016: ACER iopt = 7 plot file for a photo-nuclear table (phnplo, acepn.f90:2830-3573)) | 5 |  | tape33 tape36 tape37 tape38 tape43 tape46 | tape21 tape30 |
 | 67 | identical | 7 |  |  | tape30 tape31 tape32 tape40 tape50 |
 | 68 | identical | 7 |  |  | tape30 tape31 tape32 tape40 tape50 |
 | 69 | identical | 7 |  |  | tape30 tape31 tape32 tape40 tape50 |
@@ -148,7 +150,7 @@ The prediction posted before the change: every COVR plot file identical, all fou
 | 74 | identical | 7 |  |  | tape30 tape31 tape32 tape40 tape50 |
 | 75 | differs | 1 | tape22 32176/98721 lines; tape26 12648/153152 lines | tape27 |  |
 | 76 | NotPorted (ccccr: card reader not yet translated) | 1 |  |  | tape21 tape22 tape23 tape24 tape30 |
-| 78 | NotPorted (acer: not yet ported from NJOY2016: acephn: MF=6 with LCT /= 1 -- only the laboratory frame is ported) | 0 | tape90 52/57 lines | tape31 tape32 tape33 tape34 tape35 tape43 | tape21 tape30 |
+| 78 | NotPorted (acer: not yet ported from NJOY2016: ACER iopt = 7 plot file for a photo-nuclear table (phnplo, acepn.f90:2830-3573)) | 5 |  | tape33 tape43 | tape21 tape30 |
 | 79 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
 | 80 | differs | 0 | tape24 17369/91453 lines |  |  |
 | 81 | identical | 1 |  |  | tape21 tape22 |
