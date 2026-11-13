@@ -214,7 +214,7 @@ static void auditMatrix(const word& eq, const fvScalarMatrix& mIn)
 
 int main(int argc, char* argv[])
 {
-    argList::addOption("model", "name", "kEpsilon|kOmega|kOmegaSST|SpalartAllmaras|Smagorinsky|RNGkEpsilon|realizableKE|WALE|SpalartAllmarasDES|SpalartAllmarasDDES|SpalartAllmarasIDDES|kOmegaSSTDES");
+    argList::addOption("model", "name", "kEpsilon|kOmega|kOmegaSST|SpalartAllmaras|Smagorinsky|RNGkEpsilon|realizableKE|WALE|SpalartAllmarasDES|SpalartAllmarasDDES|SpalartAllmarasIDDES|kOmegaSSTDES|kEqn");
     #include "setRootCase.H"
     #include "createTime.H"
     #include "createMesh.H"
@@ -1036,6 +1036,31 @@ int main(int argc, char* argv[])
             fvm::ddt(kP()) + fvm::div(phi, kP()) - fvm::laplacian(Dk, kP())
          ==
             Pk - fvm::SuSp(SuSpK, kP()) - fvm::Sp(epsByk, kP())
+        );
+        auditMatrix("k", kEqn);
+    }
+    else if (model == "kEqn")
+    {
+        // LESModels/kEqn/kEqn.C correct(), correctNut(); delta cubeRootVol; Ce from LESModel
+        const dimensionedScalar Ck("Ck", dimless, 0.094), Ce("Ce", dimless, 1.048);
+        const volScalarField& delta = mesh.lookupObject<volScalarField>("delta");
+        const volScalarField nutT(Ck*sqrt(k)*delta);
+        const volScalarField GbyNu(gradU && devTwoSymm(gradU));
+        const volScalarField G(nut*GbyNu);
+        const volScalarField::Internal SuSpK((2.0/3.0)*divU);
+        const volScalarField SpK(Ce*sqrt(k)/delta);
+        dumpS("T_delta", delta.primitiveField());
+        dumpS("T_nut", nutT.primitiveField());
+        dumpS("T_GbyNu", GbyNu.primitiveField());
+        dumpS("T_G", G.primitiveField());
+        dumpS("T_k_SuSp", SuSpK.field());
+        dumpS("T_k_Sp", SpK.primitiveField());
+        const volScalarField Dk("DkEff", nut + nu);
+        fvScalarMatrix kEqn
+        (
+            fvm::ddt(kP()) + fvm::div(phi, kP()) - fvm::laplacian(Dk, kP())
+         ==
+            G - fvm::SuSp(SuSpK, kP()) - fvm::Sp(SpK, kP())
         );
         auditMatrix("k", kEqn);
     }

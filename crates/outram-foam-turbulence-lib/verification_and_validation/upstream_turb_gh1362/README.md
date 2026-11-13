@@ -345,3 +345,31 @@ the `hmax` formula is not exercised by its own geometry). Foundation (dev) not r
    interpolate-and-sum over faces) on scalar, vector and symmetric-tensor fields, which the crate
    does not have. Prediction: not reachable cheaply in this slice; if it is not, that is recorded as
    deferred on gh:#1544 rather than approximated.
+
+## Slice 5 results (2026-11-13, release; same duct; upstream `grad(U)`, `div(phi)`, `delta`)
+
+**Audit held**: the transcribed `k` matrix reproduces the real model's (diag/source 360/360,
+upper/lower 894/894).
+
+| kEqn term | upstream delta: identical / 360 | own `cbrt` delta: identical / 360 (max ulp) |
+|---|---|---|
+| `delta` | 360 | 156 (2) |
+| `nut` (real `validate()` and transcribed) | 360 | 158 (3) |
+| `GbyNu`, `G`, `k_SuSp` | 360 | 360 |
+| `k_Sp = Ce sqrt(k)/delta` | 360 | 156 (3) |
+
+Pinned in `k_eqn_vs_openfoam` (ceiling 7 ulp).
+
+- Predictions: 1 held for upstream delta (360/360 everywhere, no libm); wrong in detail for own
+  delta: `G` does not differ, because `G` uses the STORED `nut` (upstream `G = nut GbyNu`, `nut_`
+  being the field the model holds), which the test sets to upstream's. 2 held.
+  3 (dynamicKEqn) held: not reachable in this slice, see below.
+- Defects: none in the formulas.
+- `dynamicKEqn`: DEFERRED. It needs `LESfilter` (`simpleFilter`, `laplaceFilter`,
+  `anisotropicFilter`) acting on scalar, vector and symmetric-tensor fields (face interpolation
+  and `surfaceSum` with boundary values), `fvc::grad` into a `devSymm` tensor, and several
+  `filter_(...)` calls per cell whose arithmetic must be reproduced bit for bit; the crate has
+  none of those. A decision for the maintainer: build the filters in `outram-foam-basic-lib`
+  (shared with `dynamicLagrangian`) rather than inside this crate.
+- `kEqn::correct()` is not compared with upstream (own solver settings, plain floor for `bound`,
+  no `fvOptions`), as for the slice-3 models.

@@ -29,6 +29,8 @@
 //! `TurbulenceModel` method and has unit tests and a code-to-code test
 //! (`tests/openfoam_turbulence_code_to_code.rs`).
 
+pub mod k_eqn;
 pub mod smagorinsky;
 pub mod wale;
+pub use k_eqn::KEqn;
 pub use smagorinsky::Smagorinsky;

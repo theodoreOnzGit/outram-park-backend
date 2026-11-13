@@ -63,6 +63,7 @@
 //! | [`les::wale`] | WALE (Nicoud & Ducros 1999) LES, gh:#1377 | AI draft; terms bit-compared with ESI v2506 (libm ulps pinned) |
 //! | [`realizable_ke`] | Realizable k-epsilon (Shih et al. 1995), gh:#1377 | AI draft; terms bit-compared with ESI v2506 (libm ulps pinned) |
 //! | [`rng_k_epsilon`] | RNG k-epsilon (Yakhot et al. 1992), gh:#1377 | AI draft; terms bit-identical to ESI v2506 |
+//! | [`les::k_eqn`] | kEqn one-equation LES, gh:#1544 | AI draft; terms bit-compared with ESI v2506 (cbrt ulps pinned) |
 //! | [`des`] | SpalartAllmaras DES/DDES/IDDES, kOmegaSSTDES, gh:#1545 | AI draft; TERMS ONLY (no `correct()`), bit-compared with ESI v2506 (libm ulps pinned) |
 //!
 //! [`wall_functions`] provides standalone log-law helpers (`y_plus`, `u_tau`,

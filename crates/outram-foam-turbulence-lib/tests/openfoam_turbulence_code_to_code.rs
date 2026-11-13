@@ -31,6 +31,7 @@ use outram_foam_turbulence_lib::des::KOmegaSstDes;
 use outram_foam_turbulence_lib::k_epsilon::KEpsilon;
 use outram_foam_turbulence_lib::k_omega::KOmega;
 use outram_foam_turbulence_lib::k_omega_sst::KOmegaSST;
+use outram_foam_turbulence_lib::les::k_eqn::KEqn;
 use outram_foam_turbulence_lib::les::wale::Wale;
 use outram_foam_turbulence_lib::realizable_ke::RealizableKE;
 use outram_foam_turbulence_lib::rng_k_epsilon::RngKEpsilon;
@@ -1129,4 +1130,55 @@ const PINS_SST_DES: &[(&str, usize)] = &[
     ("kOmegaSSTDES (esi y, esi delta) k_E", 360),
     ("kOmegaSSTDES (esi y, esi delta) k_SuSp", 360),
     ("kOmegaSSTDES (esi y, esi delta) k_Sp", 359),
+];
+
+// ── gh:#1544: kEqn (ESI arithmetic only; upstream delta fed in for the bit-identical rows) ──
+
+const REF_KEQN: &[u8] = include_bytes!(
+    "../verification_and_validation/upstream_turb_gh1362/reference/ref_kEqn.txt.gz"
+);
+
+#[test]
+fn k_eqn_vs_openfoam() {
+    let r = parse(REF_KEQN);
+    check_audits(&r, 4);
+    let mesh = r.mesh();
+    let mut m = KEqn::new(mesh.clone());
+    m.k = r.zg(&mesh, "k", "k");
+    m.nu = r.zg(&mesh, "nu", "nu");
+    m.nu_t = r.zg(&mesh, "nut", "nut_real");
+    m.u = r.velocity(&mesh);
+    m.phi = r.flux(&mesh);
+    let pairs: Pairs = &[
+        ("nut_real", "nut"),
+        ("T_delta", "delta"),
+        ("T_nut", "nut"),
+        ("T_GbyNu", "GbyNu"),
+        ("T_G", "G"),
+        ("T_k_SuSp", "k_SuSp"),
+        ("T_k_Sp", "k_Sp"),
+    ];
+    let esi = compare("kEqn (esi delta)", &r, &m.source_terms(&r.state(false, true)), pairs);
+    all_identical(&esi);
+    let mut rows = esi;
+    rows.extend(compare("kEqn (own delta)", &r, &m.source_terms(&r.state(false, false)), pairs));
+    assert!(max_ulp(&rows) <= 7, "max ulp {}", max_ulp(&rows));
+    pin(&rows, PINS_KEQN);
+}
+
+const PINS_KEQN: &[(&str, usize)] = &[
+    ("kEqn (esi delta) nut", 360),
+    ("kEqn (esi delta) delta", 360),
+    ("kEqn (esi delta) nut", 360),
+    ("kEqn (esi delta) GbyNu", 360),
+    ("kEqn (esi delta) G", 360),
+    ("kEqn (esi delta) k_SuSp", 360),
+    ("kEqn (esi delta) k_Sp", 360),
+    ("kEqn (own delta) nut", 158),
+    ("kEqn (own delta) delta", 156),
+    ("kEqn (own delta) nut", 158),
+    ("kEqn (own delta) GbyNu", 360),
+    ("kEqn (own delta) G", 360),
+    ("kEqn (own delta) k_SuSp", 360),
+    ("kEqn (own delta) k_Sp", 156),
 ];
