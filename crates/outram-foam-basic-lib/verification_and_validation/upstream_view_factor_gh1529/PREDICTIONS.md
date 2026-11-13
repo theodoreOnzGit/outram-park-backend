@@ -32,3 +32,17 @@ emissivities (one wall black, E = 1). Hoi (`qro`) = 0 on five walls and 1000 W/m
    are black at 0 K, plates 8x8 faces): the centre-face net flux approaches
    sigma (T1^4 - T2^4)/(1/E1 + 1/E2 - 1) from below as d/L falls, error below 15 % at L/d = 8 and
    monotonically decreasing for L/d = 4, 8, 16. Reported, not tuned.
+
+## Added 2026-11-13, AFTER the cube and plate differentials had run, BEFORE the cylinder test
+
+(The first six predictions above were scored against the runs; see README.md. Prediction 7
+had the DIRECTION wrong: the hot plate also loses to the cold sides, so its centre flux is
+ABOVE the infinite-plate value and the cold plate's is below; both converge to it.)
+
+8. Concentric cylinders, grey, diffuse, infinite length, modelled as N-facet inscribed polygons
+   (inner radius 0.5, outer radius 1.0, 2-D view factors by midpoint quadrature with
+   visibility, then the Rust `ViewFactorModel` with one coarse face per facet): the inner-surface
+   net flux per area matches the closed form of Siegel & Howell / Modest,
+   q = sigma (T1^4 - T2^4) / (1/E1 + (r1/r2)(1/E2 - 1)) (r by polygon perimeter / 2 pi), within
+   2 % at N = 32 and shrinking when N doubles (16 -> 32 -> 64). Energy balance (sum of A q over
+   all facets) below 1e-3 of sum A |q| at N = 32 (reciprocity is limited by the quadrature).
