@@ -882,8 +882,24 @@ level; dividing again by the atom ratio removes the composition:
     more likely in magnitude than in where it sits.
   - **Still not resolved.** A 2.5× gap concentrated in Zr's epithermal
     resonances is what a 1950s Zr resonance integral, or hafnium left in
-    the zirconium, would produce. Neither is measured here. BNL-325 and
+    the zirconium, would produce. ~~Neither is measured here.~~ BNL-325 and
     CF-60-3-35 are still the request on gh:#1128.
+  - **Hafnium, bounded (2026-11-13).** ORNL-4616 (Shaffer 1971, p. 4)
+    says the MSRE's ZrF₄ was bought "essentially 'hafnium free' (<50 ppm
+    Hf)". It also says commercial grades carry 1–3 % hafnium, which "would invoke a severe penalty in
+    neutron economy". Taking 50 ppm by weight of ZrF₄ gives 4.7 × 10⁻⁵
+    Hf atoms per Zr atom. With the standard natural-element values (Hf: 104 b at
+    2200 m/s, resonance integral about 1990 b; Zr: 0.185 b and about
+    0.95 b; quoted from memory of Mughabghab's *Atlas*, not read from a tape
+    here, since no Hf evaluation is in `reference-data/`) and our Zr band
+    split, hafnium at the specification limit adds **about 7 %** to the Zr
+    absorption: 2.6 % thermal and 9.8 % epithermal, weighted 29/67.
+    The gap needs **+150 %**. **Hafnium in the as-built salt is ruled out as
+    the cause, by a factor of about 20**, even at the limit. TM-0730 does
+    not mention hafnium, so there is no sign that its design calculation
+    carried any. This is an estimate, not a run. A Hf ablation would need
+    the Hf tapes, which wait on the maintainer like the Gd ones. What is
+    left is the 1960s Zr and F cross sections themselves.
 
 ### N-1 residual: U-234 and U-236 in the salt (2026-11-12, gh:#1128)
 
