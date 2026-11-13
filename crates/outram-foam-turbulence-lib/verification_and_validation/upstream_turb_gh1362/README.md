@@ -233,3 +233,45 @@ place): `src/prelude.rs` said only `KOmegaSST` works and the others `todo!()`-pa
 floor at `small` (upstream averages neighbouring cells below the limit), no `fvOptions`,
 no relaxation, the port's own `SolverSettings`. The new models have a single arithmetic
 (upstream's); the older models' `SourceForm::Port` split is not repeated for them.
+
+---
+
+# Slice 4 (gh:#1545, gh:#1544 under gh:#1377): DES family
+
+Models in this slice, in the order given by the maintainer: `SpalartAllmarasDES`,
+`SpalartAllmarasDDES`, `SpalartAllmarasIDDES`, `kOmegaSSTDES`. Same frozen duct, fields and
+driver; wall distance is ESI's `meshWave` (`wallDist::y()`), the LES width is ESI's
+`cubeRootVol` (`delta`, `deltaCoeff 1`), both read from the dump and fed to the port, as in
+slice 3. SA-IDDES additionally needs `hmax` (from `IDDESDelta`'s `maxDeltaxyz`) and the
+`IDDESDelta` width: both fed from the dump (the delta classes themselves are NOT ported in
+this slice). `useSigma true` (the `Ssigma` invariants branch) is NOT ported in this slice.
+
+## Predictions (written and committed BEFORE the driver was extended or run)
+
+1. **SpalartAllmarasDES** (`useSigma false`, `lowReCorrection true`, `CDES 0.65`,
+   `fwStar 0.424`): `chi`, `fv1`, `fv2`, `psi` (`sqrt` only), `lLES`, `dTilda` (`min`),
+   `Omega`, `Stilda`, `r`, `gradSqr`, `nuTilda_E`: **360/360 bit-identical** when fed
+   upstream's `grad(U)`, `grad(nuTilda)`, `y`, `delta`. `fw` (one `pow(x, 1/6)`) and the `Sp`
+   coefficient that contains it: at least 98 % identical, at most 1 ulp.
+2. **SpalartAllmarasDDES** (standard shielding, `Cd1 8`, `Cd2 3`): `fd = 1 - tanh(pow(Cd1 r, Cd2))`
+   goes through libm `pow` and `tanh`: at least 90 % of cells identical in `fd`, at most 2 ulp.
+   `dTilda`, `Stilda`, `r`, `fw` and the equation terms differ only in cells where `fd`
+   differs (a cell where `fd` is bit-identical must be bit-identical downstream).
+   The test field must put cells on both sides of the switch (`lRAS - lLES` of both signs;
+   `fd` strictly between 0 and 1 in a minority of cells); if it does not, the field is
+   changed (and disclosed here) to exercise the branch, never to hit a value.
+3. **SpalartAllmarasIDDES** (`fe true`, `Cdt1 8`, `Cdt2 3`, `Cl 3.55`, `Ct 1.63`): adds `exp`,
+   `pow(.., -9)`, `pow(.., -11.09)`, `pow(.., 10)`, `tanh`: at least 85 % of cells identical in
+   `fdTilda`/`dTilda`, at most 3 ulp. `alpha`, `lLES`, `fB`-independent algebra with no libm
+   (`r`, `psi`, `alpha`): 360/360.
+4. **kOmegaSSTDES** (`useSigma false`): `F1` and `F23` reuse the SST arithmetic whose `tanh`
+   difference against glibc is already pinned (SST: F1 334/360, F23 339/360, at most 3 ulp,
+   with upstream `y`); the DES terms inherit those cells only: `CDES = F1 (0.82 - 0.6) + 0.6`,
+   `lLES`, `dTilda = min(lLES, lRAS)`, `epsilonByk = sqrt(k)/dTilda` are bit-identical in every
+   cell where `F1` is, and `lRAS = sqrt(k)/(betaStar omega)`, `GbyNu0`, `GbyNu` (= `GbyNu0`,
+   unlimited), `G`, `Pk`, `S2`, `CDkOmega` are 360/360. `nut`: 360/360 as in SST (`F23` ulps
+   do not reach `nut` there).
+5. **Audit**: every transcribed matrix reproduces the matrix the REAL model assembled, bit for
+   bit (diag, source, upper, lower); a failure is a transcription error, not a model result.
+6. No difference not explained by `tanh`, `exp` or `pow` is expected; any such difference is
+   a defect in the port, localised and fixed by translating upstream, not by a tolerance.
