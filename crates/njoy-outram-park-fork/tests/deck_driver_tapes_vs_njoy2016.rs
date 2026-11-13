@@ -1869,3 +1869,72 @@ fn test_88_whole_deck() {
 fn test_43_whole_deck() {
     let _ = whole_deck_units("43", "n-001_H_001-ENDF8.0-Beta6.endf", &[], &[35]);
 }
+
+/// **Deck 73 (Pb-208 TENDL-2021, GROUPR `10/`: MF=8 nuclide production, 2
+/// groups), the whole deck: the GENDF (unit 30)** (gh:#1369).
+///
+/// Every reaction is an automatic `mfd = 10` entry of `conver`'s MF=8 list
+/// (`groupr.f90:11733-11766`): MT=5's 154 products from MF=6 yields (`getyld`,
+/// LMF 6) and MT=16-105's from the PENDF's MF=10 (LMF 10), each written as
+/// MF=3 with `izam` in the head (`deck::groupr_auto`). Prediction (gh:#1369,
+/// before the change): identical. **Result (2026-11-13): 0 differing lines of
+/// 1 009.**
+#[test]
+fn test_73_whole_deck() {
+    let _ = whole_deck_units("73", "n-082_Pb_208-TENDL2021.endf", &[], &[30]);
+}
+
+/// **Deck 30 (H-1 ENDF/B-VIII.0), the GROUPR GENDF (unit 31, text)**: the deck
+/// up to the photo-atomic RECONR, which feeds GAMINR and MATXSR (not ported)
+/// (gh:#1369).
+///
+/// Exercises `3 259` (`getsig`'s average inverse velocity, `:6762-6766`), the
+/// automatic `6/` (`conver`'s MF=4 list: MT=2) and `16/` (`mf18`: MF=6 MT=102's
+/// photon, a LAW=2 line, `gam102`). Before: `259` was skipped, so every later
+/// line moved (21 249 of 21 249 differed). Prediction (before the change):
+/// MF=3 identical; `16/` refused (`gam102` not ported). `gam102` was then
+/// translated. **Result (2026-11-13): 0 differing lines of 21 249.**
+#[test]
+fn test_30_groupr_gendf_whole_tape() {
+    let root = njoy_root();
+    let Ok(input) = std::fs::read_to_string(root.join("tests/30/input")) else { return };
+    let mut deck = String::new();
+    for line in input.lines() {
+        if line.starts_with("reconr / Reconstruct photo") {
+            break;
+        }
+        deck.push_str(line);
+        deck.push('\n');
+    }
+    deck.push_str("stop\n");
+    let extra = [("photoat-001_H_000-ENDF8.0.endf", 40)];
+    let Some((ours, njoy)) = run_pair_decks_extra(&root, "t30g", "n-001_H_001-ENDF8.0-Beta6.endf", &extra, &deck, &deck) else { return };
+    let d = differing_lines(&ours.join("tape31"), &njoy.join("tape31"));
+    let n = std::fs::read_to_string(njoy.join("tape31")).unwrap().lines().count();
+    println!("deck 30 GENDF: {} differing lines of {n}; first {:?}", d.len(), &d[..d.len().min(5)]);
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    assert!(n > 20_000 && d.is_empty());
+}
+
+/// **Deck 46 (Fe-56 JEFF-3.3, 238 groups), the GROUPR GENDF through MODER to
+/// text (unit 60)**: the deck up to ERRORR (which reads the GENDF, not
+/// ported) (gh:#1369).
+///
+/// Exercises the automatic `6/`: `conver`'s MF=4 list (MT=2, 51-82, cut at
+/// MT=600 > 91) then `mfd = 8` over the MF=6 neutron list (MT=5, 16, 22, 28,
+/// 91), `getmf6` LAW=1 with `ismooth`. **Measured 2026-11-13:** 157 of 8 281
+/// lines differed, all in the threshold groups of MF=6 MT=16/22/28/91, and
+/// none with `ismooth = 0`: `ismooth_linlin` returned early on a two-point
+/// record, where upstream extends it (`groupr.f90:7765-7810`). After the fix:
+/// **0 differing lines of 8 281.**
+#[test]
+fn test_46_groupr_gendf_moder_copy() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "46", Some("errorr"), "moder\n -22 60/\n") else { return };
+    let Some((ours, njoy)) = run_pair(&root, "t46g", "n-026_Fe_056-JEFF3.3.endf", &deck) else { return };
+    let d = differing_lines(&ours.join("tape60"), &njoy.join("tape60"));
+    let n = std::fs::read_to_string(njoy.join("tape60")).unwrap().lines().count();
+    println!("deck 46 GENDF: {} differing lines of {n}; first {:?}", d.len(), &d[..d.len().min(5)]);
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    assert!(n > 8_000 && d.is_empty());
+}

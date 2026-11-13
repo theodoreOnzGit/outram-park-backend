@@ -363,3 +363,63 @@ ports.
 | 56, 57, 58, 66, 78 | `NotPorted`: ACER `iopt = 5` | none | as above | the builder refuses by name: MF=4 angular data (56), MF=6 `LCT != 1` (57, 58, 78), MT=18 nubar (66) |
 | 43 | `differs`: tape35 320 lines | at `tempef <= 0` BROADR only thins (`thinb`, `broadr.f90:1677-1760`), which is not ported (gh:#619); the driver passed RECONR's grid through | the driver now refuses it (`NotPorted`) | `NotPorted`, honestly |
 | 80 | `leapr: card reader not yet translated` | not investigated | none | runs; 17 369 of 91 453 lines of MF=7/MT=4 differ in the last printed figure (`test_80_leapr_whole_deck`, ignored with that reason) |
+
+## 13. GROUPR automatic lists, nuclide production, `getmf6` and `gam102` (2026-11-13, gh:#1369)
+
+The target was the GROUPR blockers of decks 02, 08, 11, 17, 30, 46, 47, 73 and 76.
+For each deck the survey row was re-run first, to find its real first blocker.
+A prediction was posted on gh:#1369 before the changes.
+
+**Search first.** The search covered `src/groupr/`, `src/deck/groupr.rs` and
+`src/deck/modules.rs`. It found:
+- `deck::groupr::auto_reactions`, which covered `nextr` only for `mfd <= 3` and
+  in part for 16/17.
+  - Its MF=18 check read a file 18, which ENDF-6 does not have. Upstream's `mf18`
+    is the MF=6 photon list.
+- `groupr::mf6_feed::Mf6Feed`, a full `getmf6` for LAW 1/7 that nothing called.
+
+Nothing had ported the following:
+- `conver`'s MF=4/MF=6/MF=8 lists;
+- the production path (`mfd >= 10 000 000`);
+- `getyld` for MF=6/9;
+- `gam102`;
+- `ngout1`;
+- `genflx` with `nsigz > 1`;
+- a temperature loop;
+- `mfd = 5`.
+
+`MT = 257-259` and `452-456` were dropped silently with a note.
+
+| deck(s) | was | cause (upstream) | fix | result |
+|---|---|---|---|---|
+| 30 | 21 249 of 21 249 GENDF lines differ | `3 259` was skipped. `getsig` (`groupr.f90:6684-6690`, `:6762-6776`) has no PENDF section for 257-259 (`first = 1e-5`, `enext = 1.01 e`, `lrflag = 0`). | `SigFeed::non_cross_section` | MF=3 part identical (2 505 lines) |
+| 30, 08, 46, 47, 76 | `groupr auto mode for this mfd` | `conver` (`:10920-11827`) records MF=4 MTs range-compressed (MT=18 never merged; 19 replaces it), and MF=6 MTs with a neutron (`mf6`) or photon (`mf18`) subsection. `nextr` (`:1132-1317`) takes `mf4` while `\|mt\| <= 91`, then `mfd = 8` over `mf6`. `16/` takes `mf12`, `mf13`, then `mfd = 18` over `mf18`. | `deck::groupr_auto::{conver_lists, nextr_all}`. `mfd = 8/18` now use `Mf6Feed` (`PanelFeed::Mf6`). | see below |
+| 30 | `getmf6` refuses `disc102` | H-1 MF=6/MT=102's photon is a LAW=2 line. `getmf6` hands it to `gam102` (`:7618-7623`, `:7977`, `:10866-10918`). `gam102` puts the whole photon in the group of `disc102 + E awr/(awr+1)` and leaves `idisc` unassigned. | `njoy_panel::Gam102`; `IDISC_UNSET` keeps `panel`'s `idiscf` | **GENDF identical, 21 249 lines** (`test_30_groupr_gendf_whole_tape`) |
+| 46 | 157 of 8 281 lines, threshold groups of MF=6 MT=16/22/28/91; none with `ismooth = 0` | `getmf6`'s `ismooth` lin-lin extension (`:7765-7810`) shifts the record before it reads `tmp(ilo+6+2*ncyc)`, so a two-point record (the threshold table) is extended. `ismooth_linlin`, and `ismooth_histogram` with it, returned early unless three records were present. | guard `6 + 2 ncyc` | **GENDF identical, 8 281 lines** (`test_46_groupr_gendf_moder_copy`). ERRORR follows (not ported). |
+| 73 | `auto mode for this mfd` (`10/`) | `conver` label 820 lists MF=8 `(LMF, MT, 10 ZAP, LFS, isomer count)`. `nextr` gives `mfd = 10^7 k + 10 ZAP`. `getsig` reads MF=3 (LMF 3/6/9), or the last PENDF MF=10 subsection with `IZAP, LFS` (LMF 10). `getff` label 100 multiplies by `getyld`'s MF=6 (`ZAP`, `LIP = isom`) or MF=9 yield (`terpa`). The head's C2 is `izam` (`:688-711`, `:843-855`). | `write_production`, `groupr_auto::product_yield`, `PanelFeed::Yield` | **whole deck identical, 1 009 lines** (`test_73_whole_deck`) |
+| 08 | `auto mode` | Ni-61 MF=6 MT=51-58 are LAW=3. `getmf6` sends them to `getdis` with `mft = 8` (`:7936-7940`), which is not ported. | none | `NotPorted` (`getmf6` LAW=2..5) |
+| 47, 29 | `auto mode` (47); 29 `differs` | `5 18` / `5 455`: `mfd = 5` spectra (`getff` label 200 with `econst`, `getsed`, `dntc`). | none; `mfd = 5` is refused by name instead of skipped | `NotPorted`. Deck 29 was `differs` because its `5 455` section was skipped without a word. |
+| 76 | `auto mode` | `3 452/455/456` (`getyld` on MF=1) | none; refused by name instead of skipped | `NotPorted` |
+| 02, 11 | `several temperatures or sigma-zeros` | `ntemp = 3`, `nsigz = 7`. Needs the temperature loop (`:586-630`, one card-9 list per temperature, which `read_groupr` does not yet read), `genflx` and `getunr`. | none | unchanged |
+| 17 | `iwt = 6` | Before GROUPR, its JENDL-3.3 RECONR/BROADR tapes already differ (tape31 298 349 of 305 355 lines) | none | unchanged |
+
+Each fix was found by reading the routine that owns the line, except the
+`ismooth` guard. For that one, an ablation (`ismooth = 0` on both sides) showed
+which branch carried the whole difference.
+
+**Rows that moved earlier.** Decks 15, 18, 27, 29, 34, 47 and 76 now stop at
+GROUPR with a named refusal (`mfd = 5`, or MT=452/455/456). Before, GROUPR skipped
+those sections with a note and wrote a GENDF that was missing them, and the
+deck carried on (18, 27 and 34 to ERRORR, 29 to a `differs`). The survey count is
+**47 of 87 identical**, up from 45. Deck 73 is new. Deck 07's row was stale; it is
+identical on this tree, and which change closed it was not examined.
+
+**Tests (release, on develop a704d47c5 plus this work):**
+
+| suite | result |
+|---|---|
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` | 108 passed, 2 ignored (43, 80), 1 395 s |
+| `pendf_stages_vs_njoy2016` | 9 of 9 passed |
+| `ace_five_route_parity` | 13 of 13 passed |
+| `acelf6_ismooth_vs_njoy2016_units`, `delayed_blocks_write_vs_njoy2016` | 3 of 3 and 1 of 1 passed |
+| `--lib` | 729 of 729 passed |

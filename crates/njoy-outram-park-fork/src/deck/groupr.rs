@@ -20,9 +20,19 @@
 //! lists, `iwt = 9`, MF=15 continuum photons) is also identical, 467 of 467 lines
 //! (2026-11-11, `test_07_groupr_gendf_whole_tape`; gh:#1481).** Still `NotPorted` here:
 //! several temperatures, sigma-zeros or materials, an input GENDF (`ngout1`), MF=3
-//! `MT = 257-259, 452-456`, analytic `LF > 1` photon spectra, and the automatic lists
-//! for `mfd` other than 3 and 16/17 (and MF=18).
+//! ~~`MT = 257-259, 452-456`~~ `MT = 452-456` (**CORRECTED 2026-11-13**: 257-259 are
+//! written; 452-456 used to be skipped silently and are now refused by name), `mfd = 5`,
+//! analytic `LF > 1` photon spectra, ~~and the automatic lists for `mfd` other than 3 and
+//! 16/17 (and MF=18)~~ the charged-particle automatic lists (`mfd = 21-26`), `getdis`
+//! with `mft = 8` (MF=6 LAW 2-5) and `getmf6` for fission.
 //! ~~the automatic reaction lists (`mtd = 0`, `nextr`)~~ **CORRECTED 2026-11-11**: `auto_reactions`.
+//! **CORRECTED 2026-11-13 (gh:#1369):** `auto_reactions` is replaced by
+//! [`crate::deck::groupr_auto`], `conver`'s lists and `nextr` translated whole
+//! (MF=4 then `mfd = 8`, MF=12/13 and the MF=6 photon list `mf18`, MF=8 production);
+//! `mfd = 8`/`18` go to [`crate::groupr::mf6_feed::Mf6Feed`] (or `gam102`) and
+//! production reactions (`mfd >= 10 000 000`) to `write_production`. Decks 30
+//! (GENDF, 21 249 lines), 46 (GENDF, 8 281) and 73 (whole deck, 1 009) are
+//! identical (`tests/deck_driver_tapes_vs_njoy2016.rs`).
 //!
 //! Ported so far: the tape label, the MF=1/MT=451 head record of a material
 //! (`ZA, AWR, 0, nz, -1, ntw`; LIST `temp, 0, ngn, ngg, np, 0` with the title
@@ -181,42 +191,77 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             if c2 > 0.0 { c2 } else { 2.0e7 }
         }
     };
-    let mut mtd_prev = 0;
+    // The main loop's running `mtd` (`:619`, `mtd = 1`): a negative card-9 or
+    // list entry `-m` visits `mtd + 1 ..= m` (`:640-646`, `:731-732`).
+    let mut mtd_run = 1;
     let nend_tape = units.get(u.nendf)?.tape.clone();
+    let lists = crate::deck::groupr_auto::conver_lists(&nend_tape, inp.matb)?;
     for req0 in &inp.reactions {
         // `mtd = -1000` (no `mtd` on card 9): `iauto = 1`, the lists of `nextr`.
-        let items: Vec<(i32, i32)> = if req0.mtd == crate::groupr::input::MTD_AUTO {
-            auto_reactions(req0.mfd, &nend_tape, &pend, inp.matb)?
+        let items: Vec<crate::deck::groupr_auto::AutoReaction> = if req0.mtd == crate::groupr::input::MTD_AUTO {
+            crate::deck::groupr_auto::nextr_all(req0.mfd, &lists, &pend, inp.matb, &mut mtd_run)?
         } else if req0.mtd < 0 {
-            (mtd_prev + 1..=-req0.mtd).map(|m| (req0.mfd, m)).collect()
+            let mut v = Vec::new();
+            loop {
+                mtd_run += 1;
+                v.push(crate::deck::groupr_auto::AutoReaction::plain(req0.mfd, mtd_run));
+                if mtd_run + req0.mtd >= 0 {
+                    break;
+                }
+            }
+            v
         } else {
-            vec![(req0.mfd, req0.mtd)]
+            mtd_run = req0.mtd;
+            vec![crate::deck::groupr_auto::AutoReaction::plain(req0.mfd, req0.mtd)]
         };
-        mtd_prev = req0.mtd.abs();
-        for (mfd_i, mtd) in items {
-            let req = &crate::groupr::input::ReactionRequest { mfd: mfd_i, mtd, name: String::new() };
+        for item in items {
+            let mtd = item.mtd;
+            let req = &crate::groupr::input::ReactionRequest { mfd: item.mfd, mtd, name: String::new() };
+            if req.mfd >= 10_000_000 {
+                write_production(&mut g, inp, &nend_tape, &pend, za, &egn, emaxx, &item)?;
+                continue;
+            }
+            // `getff`'s dispatch (`:7061-7073`).
             if req.mfd == 6 && (mtd == 2 || (51..=90).contains(&mtd)) {
                 write_mf6_two_body(&mut g, inp, units, &pend, za, &egn, emaxx, mtd)?;
                 continue;
             }
-            if req.mfd == 6 && mtd == 91 {
-                write_mf6_continuum(&mut g, inp, units, &pend, za, &egn, emaxx, mtd)?;
-                continue;
+            if req.mfd == 6 && (6..=9).contains(&mtd) {
+                return Err(NjoyError::NotPorted("groupr getff label 400 for mfd = 6, MT = 6-9"));
             }
             if req.mfd == 6 && (221..=250).contains(&mtd) {
                 write_mf6_thermal(&mut g, inp, &pend, za, &egn, emaxx, mtd)?;
+                continue;
+            }
+            if req.mfd == 6 {
+                // label 200: `getfle` x `getsed` (`ContinuumFeed` refuses what it lacks by name).
+                write_mf6_continuum(&mut g, inp, units, &pend, za, &egn, emaxx, mtd)?;
                 continue;
             }
             if req.mfd == 17 || req.mfd == 16 {
                 write_mf16_photon(&mut g, inp, units, &pend, za, &egn, &egg, emaxx, mtd, req.mfd)?;
                 continue;
             }
-            if req.mfd != 3 {
-                notes.push(format!("groupr: mf {} mt {} not written (matrix and photon-production sections are not ported)", req.mfd, mtd));
+            if req.mfd == 8 || req.mfd == 18 {
+                write_getmf6(&mut g, inp, &nend_tape, &pend, za, &egn, &egg, emaxx, mtd, req.mfd)?;
                 continue;
             }
-            if matches!(mtd, 257..=259 | 452 | 455 | 456) {
-                notes.push(format!("groupr: mf 3 mt {mtd} not written (thermal, mubar/xi/gamma and nu sections are not ported)"));
+            if req.mfd == 5 {
+                return Err(NjoyError::NotPorted("groupr mfd = 5 (spectrum calculation) in the tape driver"));
+            }
+            if req.mfd != 3 {
+                notes.push(format!("groupr: mf {} mt {} not written (matrix and photon-production sections are not ported)", req.mfd, mtd));
+                return Err(NjoyError::NotPorted("groupr: this mfd in the tape driver"));
+            }
+            if matches!(mtd, 452 | 455 | 456) {
+                return Err(NjoyError::NotPorted("groupr: mf 3 mt 452/455/456 (nu, getyld on MF=1)"));
+            }
+            if (257..=259).contains(&mtd) {
+                // `getsig` init (`:6684-6690`): no PENDF section, `lrflag = 0`.
+                let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::non_cross_section(mtd);
+                let mut pf = crate::groupr::njoy_panel::PanelFeed::Vector;
+                let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), &egn, first, emaxx, false, 1)?;
+                write_vector_section(&mut g, inp, za, &egn, mtd, 0, rows);
                 continue;
             }
             // `getsig` reads MT 2 for the ratio reactions (`:6705`).
@@ -237,16 +282,7 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
                 crate::groupr::njoy_panel::PanelFeed::Vector
             };
             let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, iwt, &egn, first, emaxx, ratio, 1)?;
-            if rows.is_empty() {
-                // threshold above the top group: `ig1 = 0`, nothing written (`:566-578`, `asend` needs `ig1 /= 0`).
-                continue;
-            }
-            g.begin(inp.matb, 3, mtd);
-            g.cont([za, 0.0], [1, 1, lrflag, (egn.len() - 1) as i32]);
-            for (ig, ng2, ig2lo, data) in rows {
-                g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
-            }
-            g.send();
+            write_vector_section(&mut g, inp, za, &egn, mtd, lrflag, rows);
         }
     }
     g.end_tape();
@@ -254,39 +290,162 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     Ok(())
 }
 
-/// `nextr` (`groupr.f90:1132-1317`) for an automatic card 9 (`mtd` absent): the
-/// `(mfd, mtd)` it returns in turn.
-///
-/// `mfd <= 3`: the PENDF's own MF=3 sections, skipping `MT = 201-202, 208-300`
-/// (`:1155-1161`). `mfd = 16`: the `conver` list of MF=12 sections (written as MF=16,
-/// `mfd = 16`), then MF=13 (`mfd = 17`), then MF=18; consecutive MTs are stored as a
-/// negative range end in upstream and visited ascending, which is the same order as
-/// listing every MT. `conver` drops MF=12 `MT = 460` (`:11010`).
-fn auto_reactions(mfd: i32, nend: &crate::endf::tape::Tape, pend: &crate::endf::tape::Tape, mat: i32) -> Result<Vec<(i32, i32)>, NjoyError> {
-    let mts = |t: &crate::endf::tape::Tape, mf: i32| -> Vec<i32> {
-        t.sections().iter().filter(|s| s.key.mat == mat && s.key.mf == mf).map(|s| s.key.mt).collect()
-    };
-    match mfd {
-        ..=3 => Ok(mts(pend, 3)
-            .into_iter()
-            .filter(|&m| m <= 200 || (203..=207).contains(&m) || m > 300)
-            .map(|m| (3, m))
-            .collect()),
-        16 | 17 | 18 => {
-            if !mts(nend, 18).is_empty() && mfd != 17 {
-                return Err(NjoyError::NotPorted("groupr auto mode: MF=18 fission photon lists"));
-            }
-            let mut out = Vec::new();
-            if mfd == 16 {
-                out.extend(mts(nend, 12).into_iter().filter(|&m| m != 460).map(|m| (16, m)));
-            }
-            if mfd <= 17 {
-                out.extend(mts(nend, 13).into_iter().map(|m| (17, m)));
-            }
-            Ok(out)
-        }
-        _ => Err(NjoyError::NotPorted("groupr auto mode for this mfd")),
+/// One MF=3 vector section (`groupr.f90:840-905`): the head `za, 0, 1, 1, lrflag,
+/// ngn`, one LIST per written group, `asend`. Nothing is written when no group was
+/// (threshold above the top group: `ig1 = 0`, `asend` needs `ig1 /= 0`).
+fn write_vector_section(
+    g: &mut GendfText,
+    inp: &crate::groupr::input::GrouprInput,
+    za: f64,
+    egn: &[f64],
+    mtd: i32,
+    lrflag: i32,
+    rows: Vec<crate::groupr::njoy_panel::GroupRow>,
+) {
+    if rows.is_empty() {
+        return;
     }
+    g.begin(inp.matb, 3, mtd);
+    g.cont([za, 0.0], [1, 1, lrflag, (egn.len() - 1) as i32]);
+    for (ig, ng2, ig2lo, data) in rows {
+        g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
+    }
+    g.send();
+}
+
+/// A production reaction, `mfd >= 10 000 000` (`groupr.f90:688-711`, `getsig`
+/// `:6676-6748`, `getff` label 100): the PENDF MF=3 cross section (LMF 3, 6, 9)
+/// or the MF=10 subsection with `IZAP = izar`, `LFS = lfs` (LMF 10), times the
+/// MF=6/MF=9 product yield (`getyld`) for LMF 6/9. The section is MF=3/MT=`mtd`
+/// with `izam` in the head's C2 (`:843-855`).
+#[allow(clippy::too_many_arguments)]
+fn write_production(
+    g: &mut GendfText,
+    inp: &crate::groupr::input::GrouprInput,
+    nend: &crate::endf::tape::Tape,
+    pend: &crate::endf::tape::Tape,
+    za: f64,
+    egn: &[f64],
+    emaxx: f64,
+    r: &crate::deck::groupr_auto::AutoReaction,
+) -> Result<(), NjoyError> {
+    let mf = if r.mfd >= 40_000_000 { 10 } else { 3 };
+    let sec = pend
+        .section(inp.matb, mf, r.mtd)
+        .ok_or(NjoyError::SectionNotFound { mat: inp.matb, mf, mt: r.mtd })?;
+    let mut cur = crate::endf::records::SectionCursor::new(&sec.rows);
+    let head = cur.read_cont()?;
+    let tab = if mf == 10 {
+        let (izar, lfs) = (r.izar(), r.lfs);
+        let mut found = None;
+        for _ in 0..head.n1.max(0) {
+            let t = cur.read_tab1()?;
+            if t.head.l1 == izar && t.head.l2 == lfs {
+                found = Some(t);
+            }
+        }
+        found.ok_or_else(|| NjoyError::InvalidInput(format!("getsig: can't find mf,mt,izar,lfs = {mf} {} {izar} {lfs}", r.mtd)))?
+    } else {
+        cur.read_tab1()?
+    };
+    let lrflag = if mf == 3 { tab.head.l2 } else { 0 };
+    let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, r.mtd);
+    let mut pf = if (20_000_000..40_000_000).contains(&r.mfd) {
+        // `getyld` gets `isom` for MF=6 and `lfs` for MF=9 (`:7085-7088`).
+        let l = if r.mfd < 30_000_000 { r.isom } else { r.lfs };
+        crate::groupr::njoy_panel::PanelFeed::Yield(crate::deck::groupr_auto::product_yield(nend, inp.matb, r.mfd, r.mtd, l)?, 2, 1)
+    } else {
+        crate::groupr::njoy_panel::PanelFeed::Vector
+    };
+    let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, 1)?;
+    if rows.is_empty() {
+        return Ok(());
+    }
+    g.begin(inp.matb, 3, r.mtd);
+    g.cont([za, f64::from(r.izam())], [1, 1, lrflag, (egn.len() - 1) as i32]);
+    for (ig, ng2, ig2lo, data) in rows {
+        g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
+    }
+    g.send();
+    Ok(())
+}
+
+/// `mfd = 8` (MF=6 neutrons, `getff` label 800) or `mfd = 18` (MF=6 photons,
+/// label 810): `getmf6` times the PENDF MF=3 cross section, written as MF=6 or
+/// MF=16 (`:843-848`). `nl = lord + 1` (`init`). `getsig` gives `awr` (the MF=3
+/// head's C2) and `q` (the TAB1's C2), `:6716-6748`. Fission and its chances
+/// (`MT = 18-21, 38`, label 800's `getyld` on MT=456 and `nl = 1`) are refused by
+/// name. A photon request with no MF=6 photons ("no photons in mf6", `:7957-7961`)
+/// writes nothing.
+#[allow(clippy::too_many_arguments)]
+fn write_getmf6(
+    g: &mut GendfText,
+    inp: &crate::groupr::input::GrouprInput,
+    nend: &crate::endf::tape::Tape,
+    pend: &crate::endf::tape::Tape,
+    za: f64,
+    egn: &[f64],
+    egg: &[f64],
+    emaxx: f64,
+    mtd: i32,
+    mfd: i32,
+) -> Result<(), NjoyError> {
+    if (18..=21).contains(&mtd) || mtd == 38 {
+        return Err(NjoyError::NotPorted("groupr getff label 800 for fission (getyld on MT=456, nl = 1)"));
+    }
+    let Some(sec) = pend.section(inp.matb, 3, mtd) else { return Ok(()) };
+    let mut cur = crate::endf::records::SectionCursor::new(&sec.rows);
+    let head = cur.read_cont()?;
+    let tab = cur.read_tab1()?;
+    let lrflag = tab.head.l2;
+    let nl = inp.lord.max(0) as usize + 1;
+    let cfg = crate::groupr::mf6_feed::Mf6FeedConfig {
+        awr: head.c2,
+        awrp: 1.0,
+        izap: 1,
+        q: tab.head.c2,
+        ismooth: inp.ismooth == crate::groupr::input::SmoothingOption::On,
+        nl,
+    };
+    let disc102 = if mfd == 18 { photon_line_awp(nend, inp.matb, mtd)? } else { None };
+    let mut pf = if let Some(d) = disc102 {
+        crate::groupr::njoy_panel::PanelFeed::Gam102(crate::groupr::njoy_panel::Gam102 { disc102: d, awr: head.c2, egg: egg.to_vec(), nl, iglo: 0 })
+    } else {
+        let f = crate::groupr::mf6_feed::Mf6Feed::new(nend, inp.matb, mfd, mtd, cfg)?;
+        if f.no_gammas() {
+            return Ok(());
+        }
+        let eg = if mfd == 18 { egg.to_vec() } else { egn.to_vec() };
+        crate::groupr::njoy_panel::PanelFeed::Mf6(f, eg, nl)
+    };
+    let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
+    let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), egn, first, emaxx, false, nl)?;
+    if rows.is_empty() {
+        return Ok(());
+    }
+    g.begin(inp.matb, if mfd == 18 { 16 } else { 6 }, mtd);
+    g.cont([za, 0.0], [nl as i32, 1, lrflag, (egn.len() - 1) as i32]);
+    for (ig, ng2, ig2lo, data) in rows {
+        g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
+    }
+    g.send();
+    Ok(())
+}
+
+/// `getmf6`'s `disc102` test (`:7603-7623`): the `AWP` of the first MF=6
+/// subsection with `ZAP = 0`, when it is a LAW=2 photon (a discrete line).
+fn photon_line_awp(nend: &crate::endf::tape::Tape, mat: i32, mtd: i32) -> Result<Option<f64>, NjoyError> {
+    let Some(sec) = nend.section(mat, 6, mtd) else { return Ok(None) };
+    let mut cur = crate::endf::records::SectionCursor::new(&sec.rows);
+    let head = cur.read_cont()?;
+    for _ in 0..head.n1.max(0) {
+        let t = cur.read_tab1()?;
+        if t.head.c1.round() as i32 == 0 {
+            return Ok((t.head.l2 == 2).then_some(t.head.c2));
+        }
+        crate::acer::energy::mf6::skip_mf6_subsection(&mut cur, t.head.l2)?;
+    }
+    Ok(None)
 }
 
 /// `mfd = 6` for `MT = 2` and `51-90` (`getff` label 400 = `getdis`, `nl = lord + 1`):

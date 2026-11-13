@@ -31,7 +31,7 @@ const XMIN: f64 = 1.0e-3;
 const ETEST: f64 = 1.1e-5;
 
 /// A TAB1 packed as ENDF words `c1 c2 l1 l2 nr np (nbt int)*nr (x y)*np`.
-fn pack(t: &Tab1) -> Vec<f64> {
+pub(crate) fn pack(t: &Tab1) -> Vec<f64> {
     let mut v = vec![t.head.c1, t.head.c2, f64::from(t.head.l1), f64::from(t.head.l2), t.interp.len() as f64, t.pairs.len() as f64];
     for &(n, i) in &t.interp {
         v.push(f64::from(n));

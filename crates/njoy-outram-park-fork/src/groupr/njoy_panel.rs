@@ -114,7 +114,9 @@ pub fn getwtf(iwt: i32, e: f64) -> Result<(f64, f64, i32), NjoyError> {
 /// The cross-section feeder, `getsig` on a PENDF MF=3 TAB1 (`gety1`).
 #[derive(Debug, Clone)]
 pub struct SigFeed {
-    gety: Gety1,
+    /// The PENDF TAB1 being read; `None` for the non-cross-section quantities
+    /// `MT = 257-259` (`getsig` `:6684-6690`), which have no section.
+    gety: Option<Gety1>,
     /// `mtd` of the reaction (for the thermal-group removal).
     pub mtd: i32,
 }
@@ -124,14 +126,40 @@ impl SigFeed {
     pub fn new(tab: &crate::endf::records::Tab1, mtd: i32) -> (Self, f64) {
         let mut g = Gety1::new(tab);
         let first = g.get(0.0).xnext;
-        (Self { gety: g, mtd }, first)
+        (Self { gety: Some(g), mtd }, first)
+    }
+    /// `getsig(e = 0)` for `MT = 257` (average energy), `258` (average lethargy)
+    /// or `259` (average reciprocal velocity), `groupr.f90:6684-6690`: no PENDF
+    /// section is read, `enext = emin = 1e-5` and `lrflag = 0`.
+    pub fn non_cross_section(mtd: i32) -> (Self, f64) {
+        (Self { gety: None, mtd }, 1.0e-5)
     }
     /// `getsig(e)`: `(sigma, enext, idis)`.
+    ///
+    /// For `MT = 257-259` (`:6762-6776`): `idis = 0`, `enext = 1.01 e`, and
+    /// `e`, `log(1e7/e)` or `1/sqrt(1.919e8 e)` in place of a cross section.
     pub fn get(&mut self, e: f64) -> (f64, f64, i32) {
-        let v = self.gety.get(e);
-        (v.y, v.xnext, i32::from(v.idis))
+        match &mut self.gety {
+            Some(g) => {
+                let v = g.get(e);
+                (v.y, v.xnext, i32::from(v.idis))
+            }
+            None => {
+                const STEP: f64 = 1.01;
+                let s = match self.mtd {
+                    259 => 1.0 / (1.919e8 * e).sqrt(),
+                    258 => petir::mathf::RealMath::r_ln(1.0e7 / e),
+                    _ => e,
+                };
+                (s, STEP * e, 0)
+            }
+        }
     }
 }
+
+/// [`FeedOut::idisc`] when `getff` does not assign its `idisc` argument
+/// (`gam102`, `:10866-10918`): `panel`'s `idiscf` keeps `getflx`'s value.
+pub const IDISC_UNSET: i32 = i32::MIN;
 
 /// What `getff` hands `panel` at one energy (`nl = 1`).
 #[derive(Debug, Clone)]
@@ -165,6 +193,61 @@ pub enum PanelFeed {
     Thermal(crate::groupr::thermal::ThermalFeed),
     /// `getff` label 300: photon production (`mfd = 16/17`).
     Photon(crate::groupr::photon_prod::PhotonFeed),
+    /// `getff` label 100 for a production reaction (`mfd` in `[20 000 000,
+    /// 40 000 000)`): `ff = yld`, the product yield `getyld` interpolates with
+    /// `terpa` in its packed TAB1 (`:7083-7090`, `:6625-6629`). Holds the
+    /// packed TAB1 and `terpa`'s saved `ip`, `ir`.
+    Yield(Vec<f64>, usize, usize),
+    /// `getff` labels 800/810: `getmf6` on the MF=6 subsections of one emitted
+    /// particle (`mfd = 8` neutrons, `mfd = 18` photons), over the secondary
+    /// group boundaries `eg` (`egn` or `egg`) for `nl` Legendre orders.
+    Mf6(crate::groupr::mf6_feed::Mf6Feed, Vec<f64>, usize),
+    /// `getff` label 810 when the MF=6 photon is a LAW=2 line (`disc102`,
+    /// `getmf6` `:7618-7623`, `:7977`): `gam102`.
+    Gam102(Gam102),
+}
+
+/// `gam102` (`groupr.f90:10866-10918`), `law = 2`: the relativistic discrete
+/// capture gamma of ENDF/B-VII+ H-1 MF=6/MT=102, put whole in the gamma group
+/// holding `edis = disc102 + ed awr/(awr+1)`.
+#[derive(Debug, Clone)]
+pub struct Gam102 {
+    /// `disc102`, the photon subsection's `AWP` (the line energy) \[eV\].
+    pub disc102: f64,
+    /// `awr` (`getsig`: the MF=3 head's C2 over `awrp`).
+    pub awr: f64,
+    /// `egg(1..ngg+1)`.
+    pub egg: Vec<f64>,
+    /// `nl`.
+    pub nl: usize,
+    /// `iglo`, which `gam102` assigns only when `edis` falls in a group;
+    /// otherwise the caller's value stands.
+    pub iglo: usize,
+}
+
+impl Gam102 {
+    fn at(&mut self, ed: f64) -> FeedOut {
+        const BIG: f64 = 1.0e10;
+        let ngg = self.egg.len() - 1;
+        let edis = self.disc102 + ed * self.awr / (self.awr + 1.0);
+        for i in 1..=ngg {
+            if edis >= self.egg[i - 1] && edis < self.egg[i] {
+                self.iglo = i;
+            }
+        }
+        let mut ff = vec![vec![0.0]; self.nl];
+        ff[0][0] = 1.0;
+        let il = self.iglo;
+        // `ed < egg(iglo+1)` etc., with `iglo` 1-based (`egg(iglo)` is `self.egg[il-1]`).
+        let en = if il >= 1 && ed < self.egg[il] {
+            self.egg[il]
+        } else if il >= 1 && ed < self.egg[il - 1] {
+            self.egg[il - 1]
+        } else {
+            BIG
+        };
+        FeedOut { en, idisc: IDISC_UNSET, nq: 0, ff, iglo: il as i32 }
+    }
 }
 
 impl PanelFeed {
@@ -172,6 +255,8 @@ impl PanelFeed {
     fn ngg(&self) -> usize {
         match self {
             PanelFeed::Photon(f) => f.ngg(),
+            PanelFeed::Mf6(_, eg, _) => eg.len() - 1,
+            PanelFeed::Gam102(g) => g.egg.len() - 1,
             _ => 0,
         }
     }
@@ -192,6 +277,23 @@ impl PanelFeed {
             PanelFeed::Continuum(f) => f.at(e),
             PanelFeed::Thermal(f) => f.at(e),
             PanelFeed::Photon(f) => f.at(e),
+            PanelFeed::Mf6(f, eg, nl) => {
+                // `getmf6` fills every secondary group from `iglo = 1` (`:8084-8086`).
+                let a = f.feed(e, eg, *nl)?;
+                let ff: Vec<Vec<f64>> = a.ans.iter().map(|r| r[..a.ng2].to_vec()).collect();
+                Ok(FeedOut { en: a.enext, idisc: a.idisc, nq: a.nq, ff, iglo: a.iglo as i32 })
+            }
+            PanelFeed::Gam102(g) => Ok(g.at(e)),
+            PanelFeed::Yield(t, ip, ir) => {
+                // label 100: `enext = emax`, `idisc = 0`, then `getyld`'s break.
+                let (yld, en, idis) = crate::errorr::weight::terpa(t, e, ip, ir)?;
+                let (mut enext, mut idisc) = (EMAX, 0);
+                if en < enext * (1.0 - SMALL) {
+                    idisc = idis;
+                    enext = en;
+                }
+                Ok(FeedOut { en: enext, idisc, nq: 0, ff: vec![vec![yld]], iglo: 1 })
+            }
             PanelFeed::TwoBodyNl(f, nl) => {
                 let a = f.feed(e, *nl)?;
                 let ff: Vec<Vec<f64>> = a.ff.iter().take(*nl).map(|r| r[..a.ng].to_vec()).collect();
@@ -285,7 +387,9 @@ pub fn panel(
             }
             let fo = feed.at(*elo)?;
             en = fo.en;
-            idiscf = fo.idisc;
+            if fo.idisc != IDISC_UNSET {
+                idiscf = fo.idisc;
+            }
             load_ff(st, &fo);
             if (en - st.enext).abs() < st.enext * SMALL && idiscf > st.idisc {
                 st.idisc = idiscf;
@@ -358,7 +462,9 @@ pub fn panel(
                     }
                     let fo = feed.at(eq)?;
                     en = fo.en;
-                    idiscf = fo.idisc;
+                    if fo.idisc != IDISC_UNSET {
+                idiscf = fo.idisc;
+            }
                     nqp = fo.nq;
                     load_ff(st, &fo);
                 }
@@ -623,7 +729,7 @@ pub fn group_general(
             out.push((ig, ng, 0, ans[nl..(1 + ng) * nl].to_vec()));
             continue;
         }
-        let matrix = matches!(feed, PanelFeed::TwoBodyNl(..) | PanelFeed::Continuum(..) | PanelFeed::Thermal(..) | PanelFeed::Photon(..));
+        let matrix = matches!(feed, PanelFeed::TwoBodyNl(..) | PanelFeed::Continuum(..) | PanelFeed::Thermal(..) | PanelFeed::Photon(..) | PanelFeed::Mf6(..) | PanelFeed::Gam102(..));
         let (ng2, ig2lo, igzero, data) = if nl > 1 {
             displa_matrix(ans, ng, iglo, nl)
         } else if matrix {

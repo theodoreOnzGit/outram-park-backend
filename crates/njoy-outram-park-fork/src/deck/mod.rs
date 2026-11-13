@@ -41,6 +41,7 @@ pub mod acer_photon;
 pub mod acer_thermal;
 pub mod cards;
 pub mod groupr;
+pub mod groupr_auto;
 pub mod leapr;
 pub mod modules;
 pub mod pendf;
