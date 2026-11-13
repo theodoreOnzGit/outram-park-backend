@@ -277,3 +277,22 @@ fn esi_form_refuses_unsupported_patches() {
     core.mesh = std::sync::Arc::new(mesh);
     assert!(TwoFluidPimpleEsi::new(core, 0.0).is_err());
 }
+
+/// Constant virtual-mass coefficient (`Cvm = 0.5`, the tutorial value): the
+/// ESI-form step with `virtual_mass_coeff` against the same case run with
+/// `virtualMass ( (air in water) { type constantCoefficient; Cvm 0.5; } ... )`
+/// (`CVM=1 scripts/run_bubble.sh`). The dev form has no virtual mass.
+#[test]
+fn esi_form_virtual_mass_matches_esi_bubble_column() {
+    let rows = run_esi("dt1e-3_vm", 1e-3, 10, |s| s.virtual_mass_coeff = Some(0.5));
+    show("esi-form Cvm 0.5 dt1e-3", &rows);
+    for (step, (m, _)) in rows.iter().enumerate() {
+        assert!(m[0] < 1e-12, "step {}: alpha {:e}", step + 1, m[0]);
+        assert!(m[1] < 1e-10 && m[2] < 1e-10, "step {}: U {:e} {:e}", step + 1, m[1], m[2]);
+        assert!(m[3] < 1e-10, "step {}: p {:e}", step + 1, m[3]);
+    }
+    // ablation: the same reference with the term switched off must disagree
+    let off = run_esi("dt1e-3_vm", 1e-3, 1, |_| {});
+    show("esi-form Cvm 0 vs Cvm 0.5 reference", &off);
+    assert!(off[0].0[1] > 0.05, "U.air without Vm {:e}", off[0].0[1]);
+}

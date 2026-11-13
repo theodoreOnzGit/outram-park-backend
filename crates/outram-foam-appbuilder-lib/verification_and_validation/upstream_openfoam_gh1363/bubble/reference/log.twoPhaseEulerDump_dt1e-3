@@ -9,9 +9,9 @@ Build  : _615aae61d7-20250627 OPENFOAM=2506 version=v2506
 Arch   : "LSB;label=32;scalar=64"
 Exec   : twoPhaseEulerDump
 Date   : Nov 13 2026
-Time   : 20:44:36
+Time   : 20:47:28
 Host   : vm
-PID    : 12738
+PID    : 14395
 I/O    : uncollated
 Case   : /home/user/upstream-build/gh1363/bubble
 nProcs : 1
@@ -110,7 +110,7 @@ MULES: Solving for alpha.air
 alpha.air volume fraction = 0.11856613569403862  Min(alpha.air) = 0.10000000005640243  Max(alpha.air) = 0.22603724331171321
 Constructing momentum equations
 diagonalPCG:  Solving for p_rgh, Initial residual = 0.066789223945958542, Final residual = 1.7998189684603754e-13, No Iterations 32
-ExecutionTime = 0.02 s  ClockTime = 0 s
+ExecutionTime = 0.01 s  ClockTime = 0 s
 
 Courant Number mean: 6.6461489916394318e-05 max: 0.00020674646301491208
 Max Ur Courant Number = 0.006253714237124757
@@ -121,7 +121,7 @@ MULES: Solving for alpha.air
 alpha.air volume fraction = 0.11856613569403861  Min(alpha.air) = 0.10000000728536888  Max(alpha.air) = 0.22592764056703599
 Constructing momentum equations
 diagonalPCG:  Solving for p_rgh, Initial residual = 0.067451768486214772, Final residual = 2.2110861054697693e-13, No Iterations 32
-ExecutionTime = 0.02 s  ClockTime = 0 s
+ExecutionTime = 0.01 s  ClockTime = 0 s
 
 Courant Number mean: 9.2211037473124527e-05 max: 0.00028425676972163543
 Max Ur Courant Number = 0.0081134091618596527
@@ -132,7 +132,7 @@ MULES: Solving for alpha.air
 alpha.air volume fraction = 0.11856613569403865  Min(alpha.air) = 0.10000046991477254  Max(alpha.air) = 0.22577090050517448
 Constructing momentum equations
 diagonalPCG:  Solving for p_rgh, Initial residual = 0.078622860161722583, Final residual = 3.0356294767309662e-13, No Iterations 32
-ExecutionTime = 0.02 s  ClockTime = 0 s
+ExecutionTime = 0.02 s  ClockTime = 1 s
 
 Courant Number mean: 0.00011418284235180777 max: 0.00035270946756961328
 Max Ur Courant Number = 0.0093497054562829106
@@ -143,7 +143,7 @@ MULES: Solving for alpha.air
 alpha.air volume fraction = 0.11856613569403858  Min(alpha.air) = 0.10007566545115912  Max(alpha.air) = 0.22557091457443004
 Constructing momentum equations
 diagonalPCG:  Solving for p_rgh, Initial residual = 0.091706099978798972, Final residual = 3.1788822628075221e-13, No Iterations 32
-ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+ExecutionTime = 0.02 s  ClockTime = 1 s
 
 Courant Number mean: 0.00013183927225210874 max: 0.0004063874226451793
 Max Ur Courant Number = 0.010266229326385733
@@ -154,7 +154,7 @@ MULES: Solving for alpha.air
 alpha.air volume fraction = 0.11856613569403862  Min(alpha.air) = 0.10008605612264877  Max(alpha.air) = 0.22533312650947512
 Constructing momentum equations
 diagonalPCG:  Solving for p_rgh, Initial residual = 0.10478688991665978, Final residual = 3.1318484214688066e-13, No Iterations 32
-ExecutionTime = 0.029999999999999999 s  ClockTime = 0 s
+ExecutionTime = 0.029999999999999999 s  ClockTime = 1 s
 
 Courant Number mean: 0.00014636532867039708 max: 0.00045084106610775068
 Max Ur Courant Number = 0.010899687802519238
@@ -165,7 +165,7 @@ MULES: Solving for alpha.air
 alpha.air volume fraction = 0.11856613569403855  Min(alpha.air) = 0.1000990565588218  Max(alpha.air) = 0.22506179164260179
 Constructing momentum equations
 diagonalPCG:  Solving for p_rgh, Initial residual = 0.11474778651897545, Final residual = 2.1168608621438404e-13, No Iterations 32
-ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+ExecutionTime = 0.029999999999999999 s  ClockTime = 1 s
 
 Courant Number mean: 0.0001583775142748623 max: 0.00048709105704646395
 Max Ur Courant Number = 0.011336867910287452
@@ -176,7 +176,7 @@ MULES: Solving for alpha.air
 alpha.air volume fraction = 0.11856613569403861  Min(alpha.air) = 0.10011425643969334  Max(alpha.air) = 0.22476060457909086
 Constructing momentum equations
 diagonalPCG:  Solving for p_rgh, Initial residual = 0.1104197743588986, Final residual = 5.4868548028584554e-13, No Iterations 31
-ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+ExecutionTime = 0.029999999999999999 s  ClockTime = 1 s
 
 Courant Number mean: 0.00016851210800451516 max: 0.00051759625983694845
 Max Ur Courant Number = 0.011629520374614444
@@ -187,7 +187,7 @@ MULES: Solving for alpha.air
 alpha.air volume fraction = 0.11856613569403858  Min(alpha.air) = 0.10013183530386896  Max(alpha.air) = 0.224432376338419
 Constructing momentum equations
 diagonalPCG:  Solving for p_rgh, Initial residual = 0.091757693123734232, Final residual = 1.7444340756068205e-13, No Iterations 32
-ExecutionTime = 0.040000000000000001 s  ClockTime = 0 s
+ExecutionTime = 0.040000000000000001 s  ClockTime = 1 s
 
 Courant Number mean: 0.00017737012767669074 max: 0.00054397708634556206
 Max Ur Courant Number = 0.011917118956624053
@@ -198,7 +198,7 @@ MULES: Solving for alpha.air
 alpha.air volume fraction = 0.11856613569403861  Min(alpha.air) = 0.10014988184386658  Max(alpha.air) = 0.22407924172007349
 Constructing momentum equations
 diagonalPCG:  Solving for p_rgh, Initial residual = 0.074070973276090052, Final residual = 1.8693604962738207e-13, No Iterations 32
-ExecutionTime = 0.050000000000000003 s  ClockTime = 0 s
+ExecutionTime = 0.040000000000000001 s  ClockTime = 1 s
 
 End
 

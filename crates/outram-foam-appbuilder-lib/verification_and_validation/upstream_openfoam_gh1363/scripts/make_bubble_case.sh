@@ -136,6 +136,9 @@ turbulentDispersion ( );
 pMin -1e9;
 EOF
 } > $C/constant/phaseProperties
+# virtual-mass variant (constant Cvm 0.5, the tutorial value): the same file
+# with the empty virtualMass list replaced; run_bubble.sh CVM=1 copies it over
+sed 's#^virtualMass ( );#virtualMass ( (air in water) { type constantCoefficient; Cvm 0.5; } (water in air) { type constantCoefficient; Cvm 0.5; } );#' $C/constant/phaseProperties > $C/constant/phaseProperties.virtualMass
 
 # alpha.air: a uniform 0.10 background plus a Gaussian blob of +0.15 at (0.075, 0.075),
 # sigma 0.03 m. Everywhere 0.10 <= alpha.air <= 0.25 < maxFullyDispersedAlpha 0.3, so

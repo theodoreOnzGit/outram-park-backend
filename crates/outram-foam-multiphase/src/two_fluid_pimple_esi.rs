@@ -34,6 +34,9 @@
 //! | momentum matrices `U1Eqn`, `U2Eqn` (not solved) | `.../twoPhaseEulerFoam/pU/UEqns.H` |
 //! | `rAU`, `HbyA`, `phig`, `phiHbyA`, pressure equation, partial elimination of the drag | `.../twoPhaseEulerFoam/pU/pEqn.H` |
 //! | `p = p_rgh + rho*gh` | `.../twoPhaseEulerFoam/pU/pEqn.H`, `gh.H` |
+//! | MULES limiter (`limiter`, `limit`) | `src/finiteVolume/fvMatrices/solvers/MULES/MULESTemplates.C` |
+//! | explicit `dev2(T(grad(U)))` stress | `src/TurbulenceModels/.../laminar` (`Stokes::divDevTau`), via `phaseCompressible` |
+//! | constant virtual mass (`Vm`, `DDtU`) | `.../pU/UEqns.H`, `.../pU/DDtU.H`, `virtualMassModels/virtualMassModel.C` (`K() = alpha_d * Cvm * rho_c`) |
 //!
 //! ## What differs from the dev form (and why the dev form cannot match ESI)
 //!
@@ -55,9 +58,12 @@
 //! Translated: constant-density phases (`rhoConst`), two phases, drag as the
 //! only interfacial force (`Vm = 0`, `F = 0`, `D = 0`), laminar phases,
 //! upwind convection, one outer and one pressure corrector, walls with a
-//! zero-valued velocity as the only boundaries (plus `empty`), the
-//! `ddtPhiCorr` filter, `residualAlpha`, the `dgdt` feedback. Refused by
-//! name: any other boundary kind.
+//! zero-valued velocity as the only boundaries (plus `empty`), the MULES
+//! limiter, the explicit stress term, constant virtual mass
+//! ([`TwoFluidPimpleEsi::virtual_mass_coeff`]), the `ddtPhiCorr` filter,
+//! `residualAlpha`, the `dgdt` feedback. Refused by name: any other boundary
+//! kind. Verified against the real ESI solver on a reduced bubbleColumn to
+//! about 1e-12 of the field peak for 10 steps (record above).
 //!
 //! Not translated (gaps, recorded in
 //! `outram-foam-appbuilder-lib/verification_and_validation/reacting_two_phase_euler_foam_vs_openfoam.md`):
@@ -105,6 +111,13 @@ pub struct TwoFluidPimpleEsi {
     pub p_tolerance: f64,
     /// Iteration cap of the pressure solve.
     pub p_max_iter: usize,
+    /// Constant virtual-mass coefficient `Cvm` (`constantCoefficient`), or
+    /// `None` for no virtual mass. `Vm = alpha_d * Cvm * rho_c`; the momentum
+    /// equations gain `Vm (ddt(U) + div(phi, U) - Sp(div(phi), U) - DDtU_other)`
+    /// (`pU/UEqns.H`) and the end of the step stores `DDtU` (`pU/DDtU.H`).
+    pub virtual_mass_coeff: Option<f64>,
+    /// `DDtU1`, `DDtU2` of the previous step (zero at the start).
+    pub ddt_u: [Vec<Vector3>; 2],
     /// Include the explicit `dev2(T(grad(U)))` part of `divDevRhoReff` in the
     /// momentum source (upstream always does; `false` is the ablation).
     pub explicit_stress: bool,
@@ -332,6 +345,8 @@ impl TwoFluidPimpleEsi {
             p_min: ESI_P_MIN,
             p_tolerance: 1.0e-14,
             p_max_iter: 100_000,
+            virtual_mass_coeff: None,
+            ddt_u: [vec![Vector3::ZERO; n], vec![Vector3::ZERO; n]],
             explicit_stress: true,
             record_trace: false,
             trace: Vec::new(),
@@ -454,6 +469,9 @@ impl TwoFluidPimpleEsi {
             arp1.internal[f] = alpha_rho_phi1[f];
             arp2.internal[f] = alpha_rho_phi2[f];
         }
+        let vm_cell: Option<Vec<f64>> = self
+            .virtual_mass_coeff
+            .map(|cvm| (0..n).map(|c| a1[c] * (cvm * rho2)).collect());
         let build = |a_new: &[f64],
                      a_old: &[f64],
                      rho: f64,
@@ -461,7 +479,9 @@ impl TwoFluidPimpleEsi {
                      arp: &SurfaceScalarField,
                      cont_err: &[f64],
                      u: &VolVectorField,
-                     u_old: &VolVectorField| {
+                     u_old: &VolVectorField,
+                     phi_k: &SurfaceScalarField,
+                     ddt_other: &[Vector3]| {
             let stress = if self.explicit_stress {
                 let am: Vec<f64> = (0..n).map(|c| a_new[c] * mu).collect();
                 explicit_stress_div(&mesh, u, &am)
@@ -484,10 +504,32 @@ impl TwoFluidPimpleEsi {
                 // + divDevRhoReff explicit part: - fvc::div(...) on the left
                 m.source[c] = m.source[c] + stress[c] * v;
             }
+            if let Some(vm) = vm_cell.as_ref() {
+                // Vm*fvm::ddt(U) + Vm*fvm::div(phi_k, U) - Vm*fvm::Sp(div(phi_k), U)
+                // - Vm*DDtU_other (field on the left: added to the source)
+                let mut dv = fvm::div_vec(phi_k, u, mesh.clone());
+                for f in 0..nf {
+                    dv.ldu.upper[f] *= vm[mesh.owner[f]];
+                    dv.ldu.lower[f] *= vm[mesh.neighbour[f]];
+                }
+                for c in 0..n {
+                    dv.ldu.diag[c] *= vm[c];
+                    dv.source[c] = dv.source[c] * vm[c];
+                }
+                m = m + dv;
+                let div_phik = surface_integrate(&mesh, phi_k.internal.as_slice());
+                for c in 0..n {
+                    let v = mesh.cell_volumes[c];
+                    m.ldu.diag[c] += vm[c] * r_delta_t * v;
+                    m.source[c] = m.source[c] + u_old.internal[c] * (vm[c] * r_delta_t * v);
+                    m.ldu.diag[c] -= vm[c] * div_phik[c] * v;
+                    m.source[c] = m.source[c] + ddt_other[c] * (vm[c] * v);
+                }
+            }
             m
         };
-        let m1 = build(&a1, &a1_old, rho1, mu1, &arp1, &cont_err1, self.core.system.dispersed.u(), &u1_old);
-        let m2 = build(&a2, &a2_old, rho2, mu2, &arp2, &cont_err2, self.core.system.continuous.u(), &u2_old);
+        let m1 = build(&a1, &a1_old, rho1, mu1, &arp1, &cont_err1, self.core.system.dispersed.u(), &u1_old, &self.core.phi_d, &self.ddt_u[1]);
+        let m2 = build(&a2, &a2_old, rho2, mu2, &arp2, &cont_err2, self.core.system.continuous.u(), &u2_old, &self.core.phi_c, &self.ddt_u[0]);
 
         // ---- pU/pEqn.H ------------------------------------------------------------
         let vol = |c: usize| mesh.cell_volumes[c];
@@ -757,6 +799,28 @@ impl TwoFluidPimpleEsi {
             self.core.p.internal[c] = p_new[c];
         }
         self.p_rgh = p_rgh_final;
+        // pU/DDtU.H: DDtU = ddt(U) + div(phi, U) - div(phi)*U with the new U, phi
+        for (k, (u_new, u_prev, phi_k)) in [(&u1_new, &u1_old, &phi1_new), (&u2_new, &u2_old, &phi2_new)]
+            .into_iter()
+            .enumerate()
+        {
+            let mut conv = vec![Vector3::ZERO; n];
+            for f in 0..nf {
+                let (o, nb) = (mesh.owner[f], mesh.neighbour[f]);
+                let w = if phi_k[f] >= 0.0 { 1.0 } else { 0.0 };
+                let face = (u_new[o] - u_new[nb]) * w + u_new[nb];
+                let flux = face * phi_k[f];
+                conv[o] += flux;
+                conv[nb] -= flux;
+            }
+            let div_phi = surface_integrate(&mesh, phi_k);
+            self.ddt_u[k] = (0..n)
+                .map(|c| {
+                    let ddt = (u_new[c] - u_prev.internal[c]) * r_delta_t;
+                    ddt + conv[c] * (1.0 / mesh.cell_volumes[c]) - u_new[c] * div_phi[c]
+                })
+                .collect();
+        }
         for f in 0..nf {
             self.phi.internal[f] = phi_new[f];
             self.core.phi_d.internal[f] = phi1_new[f];

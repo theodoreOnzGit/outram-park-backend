@@ -31,6 +31,8 @@ fi
 rm -rf $W/bubble; mkdir -p $W/bubble
 cp -r $HERE/bubble/system $HERE/bubble/constant $HERE/bubble/0 $W/bubble/
 rm -rf $W/bubble/constant/polyMesh
+# CVM=1: the constant-Cvm virtual-mass variant (reference tag gets _vm)
+if [ "${CVM:-0}" = 1 ]; then cp $HERE/bubble/constant/phaseProperties.virtualMass $W/bubble/constant/phaseProperties; TAG=${TAG}_vm; fi
 (cd $W/bubble && $WITH blockMesh > blockMesh.log 2>&1 && $WITH twoPhaseEulerDump > log.run 2>&1)
 mkdir -p $HERE/bubble/reference
 gzip -9 -n -c < $W/bubble/dump.txt > $HERE/bubble/reference/bubble_v2506_$TAG.txt.gz
