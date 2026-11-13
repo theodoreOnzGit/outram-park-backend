@@ -203,10 +203,15 @@ fn s2_k_inf_matches_moltres_gmm_none_and_linear() {
     }
 }
 
-/// S3: the port is linear-only; its distance to the spline / monotone-cubic
-/// gold values must equal the linear-vs-spline distance inside Moltres.
+/// S3 (round 1, gh:#1400): ~~the port is linear-only; its distance to the
+/// spline / monotone-cubic gold values must equal the linear-vs-spline
+/// distance inside Moltres~~ **SUPERSEDED 2026-11-13 by S5 (gh:#1538)**, which
+/// evaluates the real spline and monotone-cubic tables. What S3 pinned, and
+/// still holds as a cross-check: the linear port sits on the Moltres linear
+/// gold, so the linear-to-spline and linear-to-monotone gold gaps are the
+/// size of the omission that S5 closes.
 #[test]
-fn s3_spline_and_monotone_cubic_are_model_differences() {
+fn s3_linear_port_to_spline_and_monotone_gold_gap_is_the_omission() {
     let lin = MoltresTables::load(
         &format!("{DIR}newt_fuel_"),
         2,
@@ -231,6 +236,199 @@ fn s3_spline_and_monotone_cubic_are_model_differences() {
         );
         assert!((port_minus - moltres_minus).abs() <= 1e-8);
     }
+}
+
+/// S5 (gh:#1538): `gmm_spline` and `gmm_monotone_cubic` k_eff against the
+/// Moltres gold values, with the port's own spline / monotone-cubic tables.
+///
+/// **Pass criterion** (predicted in PREDICTIONS.md before the code was run):
+/// relative difference <= 1e-8 each, and the port's spline-minus-linear
+/// and monotone-minus-linear k_inf equal the gold gaps to 1e-8 absolute.
+#[test]
+fn s5_spline_and_monotone_cubic_k_inf_match_moltres_gold() {
+    let load = |interp| {
+        MoltresTables::load(
+            &format!("{DIR}newt_fuel_"),
+            2,
+            6,
+            TableLayout::Legacy,
+            interp,
+        )
+        .unwrap()
+    };
+    let k_lin = k_inf(&load(InterpType::Linear), 922.0);
+    let g_lin = gold_glo("materials/gold/gmm_linear_out.e", "k_eff");
+    for (name, interp, file) in [
+        (
+            "spline",
+            InterpType::Spline,
+            "materials/gold/gmm_spline_out.e",
+        ),
+        (
+            "monotone_cubic",
+            InterpType::MonotoneCubic,
+            "materials/gold/gmm_monotone_cubic_out.e",
+        ),
+    ] {
+        let gold = gold_glo(file, "k_eff");
+        let k = k_inf(&load(interp), 922.0);
+        let rel = (k - gold).abs() / gold;
+        println!(
+            "[S5 {name}] gold {gold:.14} port {k:.14} rel {rel:.3e}; port-minus-linear {:.4} pcm, \
+             gold-minus-linear {:.4} pcm",
+            (k - k_lin) * 1e5,
+            (gold - g_lin) * 1e5
+        );
+        assert!(rel <= 1e-8, "{name}: rel {rel:e}");
+        assert!(((k - k_lin) - (gold - g_lin)).abs() <= 1e-8);
+    }
+}
+
+const XSDATA: &str = include_str!(
+    "../verification_and_validation/moltres_differential_gh1400/data/xsdata.json"
+);
+const XSDATA_900K: &str = include_str!(
+    "../verification_and_validation/moltres_differential_gh1400/data/xsdata-900K.json"
+);
+
+/// S6 (gh:#1538): `MoltresJsonMaterial` cases `mjm_{none,linear,spline,
+/// monotone_cubic}` against the Moltres gold k_eff (`sss2_input = true`,
+/// 2 groups, 6 precursor groups; `none` reads `xsdata-900K.json` at 900 K,
+/// the others `xsdata.json` (600/900/1200 K) at 922 K).
+///
+/// **Pass criterion** (predicted): relative difference <= 1e-8 each.
+#[test]
+fn s6_json_material_k_inf_matches_moltres_gold() {
+    for (name, text, interp, t, file) in [
+        (
+            "none",
+            XSDATA_900K,
+            InterpType::None,
+            900.0,
+            "materials/gold/mjm_none_out.e",
+        ),
+        (
+            "linear",
+            XSDATA,
+            InterpType::Linear,
+            922.0,
+            "materials/gold/mjm_linear_out.e",
+        ),
+        (
+            "spline",
+            XSDATA,
+            InterpType::Spline,
+            922.0,
+            "materials/gold/mjm_spline_out.e",
+        ),
+        (
+            "monotone_cubic",
+            XSDATA,
+            InterpType::MonotoneCubic,
+            922.0,
+            "materials/gold/mjm_monotone_cubic_out.e",
+        ),
+    ] {
+        let tabs =
+            MoltresTables::from_json(text, "fuel", 2, 6, TableLayout::Serpent2, interp, None)
+                .unwrap();
+        let gold = gold_glo(file, "k_eff");
+        let k = k_inf(&tabs, t);
+        let rel = (k - gold).abs() / gold;
+        println!("[S6 mjm_{name}] gold {gold:.14} port {k:.14} rel {rel:.3e}");
+        assert!(rel <= 1e-8, "mjm_{name}: rel {rel:e}");
+    }
+}
+
+/// S7 (gh:#1538): the `MoltresJsonMaterial` behaviours that the gold cases do
+/// not reach. Not Moltres-gold-backed; each is read from
+/// `MoltresJsonMaterial.C` (3dd2ce7).
+#[test]
+fn s7_json_reader_follows_upstream_quirks() {
+    // temperatures are truncated through `get<int>()`; the block is keyed by
+    // the truncated integer
+    let one = |temp: &str, extra: &str| {
+        format!(
+            r#"{{"m":{{"temp":[{temp}],"900":{{"REMXS":[0.5],"NSF":[0.1],"DIFFCOEF":[1.0],
+            "BETA_EFF":[0.0065],"FISSXS":[0.01],"FISSE":[190.0],"CHI_T":[1.0],"CHI_P":[1.0],
+            {extra}"GTRANSFXS":[0.0],"DECAY_CONSTANT":[0.08]}}}}}}"#
+        )
+    };
+    let tabs = MoltresTables::from_json(
+        &one("900.9", ""),
+        "m",
+        1,
+        1,
+        TableLayout::Serpent2,
+        InterpType::None,
+        None,
+    )
+    .unwrap();
+    // CHI_D missing -> delayed neutrons born in the top group
+    assert_eq!(tabs.material_at("m", 900.0).chi_delayed, vec![1.0]);
+    // a constant not named in group_constants is all zeros
+    let only_remxs = MoltresTables::from_json(
+        &one("900", r#""CHI_D":[1.0],"#),
+        "m",
+        1,
+        1,
+        TableLayout::Serpent2,
+        InterpType::None,
+        Some(&["REMXS", "CHI_D"]),
+    )
+    .unwrap();
+    let m = only_remxs.material_at("m", 900.0);
+    assert_eq!(m.sigma_removal, vec![50.0]);
+    assert_eq!(m.nu_sigma_f, vec![0.0]);
+    // errors upstream raises
+    for (txt, key, interp) in [
+        ("{", "m", InterpType::Linear),
+        (r#"{"m":{"temp":[900]}}"#, "x", InterpType::Linear),
+        (r#"{"m":{"temp":[900]}}"#, "m", InterpType::Linear),
+        (r#"{"m":{"temp":"no"}}"#, "m", InterpType::Linear),
+        (r#"{"m":{"temp":["a"]}}"#, "m", InterpType::Linear),
+        (r#"{"m":{"temp":[900,950]}}"#, "m", InterpType::None),
+        (
+            r#"{"m":{"temp":[900],"900":{"REMXS":[0.5,0.5]}}}"#,
+            "m",
+            InterpType::Linear,
+        ),
+        (
+            r#"{"m":{"temp":[900],"900":{"REMXS":["x"]}}}"#,
+            "m",
+            InterpType::Linear,
+        ),
+    ] {
+        assert!(
+            MoltresTables::from_json(txt, key, 1, 1, TableLayout::Serpent2, interp, None).is_err(),
+            "{txt} {key}"
+        );
+    }
+    // monotone cubic needs three rows (two rows given)
+    let blk = r#"{"REMXS":[0.5],"NSF":[0.1],"DIFFCOEF":[1.0],"BETA_EFF":[0.0065],"FISSXS":[0.01],
+        "FISSE":[190.0],"CHI_T":[1.0],"CHI_P":[1.0],"CHI_D":[1.0],"GTRANSFXS":[0.0],
+        "DECAY_CONSTANT":[0.08]}"#;
+    let two = format!(r#"{{"m":{{"temp":[900,950],"900":{blk},"950":{blk}}}}}"#);
+    assert!(MoltresTables::from_json(
+        &two,
+        "m",
+        1,
+        1,
+        TableLayout::Serpent2,
+        InterpType::MonotoneCubic,
+        None
+    )
+    .is_err());
+    assert!(MoltresTables::from_json(
+        &two,
+        "m",
+        1,
+        1,
+        TableLayout::Serpent2,
+        InterpType::Spline,
+        None
+    )
+    .is_ok());
 }
 
 /// S4: table interpolation against the port's reduced linear removal-XS

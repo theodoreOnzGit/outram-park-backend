@@ -42,5 +42,10 @@ for rel in [
     "materials/gold/gmm_linear_out.e",
     "materials/gold/gmm_spline_out.e",
     "materials/gold/gmm_monotone_cubic_out.e",
+    # gh:#1538: MoltresJsonMaterial cases
+    "materials/gold/mjm_none_out.e",
+    "materials/gold/mjm_linear_out.e",
+    "materials/gold/mjm_spline_out.e",
+    "materials/gold/mjm_monotone_cubic_out.e",
 ]:
     dump(root, rel)

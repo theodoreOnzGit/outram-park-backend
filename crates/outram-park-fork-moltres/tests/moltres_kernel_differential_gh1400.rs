@@ -31,9 +31,11 @@ use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh
 use outram_foam_basic_lib::prelude::{FvMesh, VolScalarField};
 use outram_park_fork_moltres::diffusion::{fission_source, scattering_source};
 use outram_park_fork_moltres::materials::{DelayedFamily, MsrMaterial, XsFields};
+use outram_park_fork_moltres::moose_interpolation::BicubicSplineInterpolation;
 use outram_park_fork_moltres::precursors::PrecursorDrift;
 use outram_park_fork_moltres::ring_mesh::RingMesh;
 use outram_park_fork_moltres::tables::{InterpType, MoltresTables, TableLayout};
+use outram_park_fork_moltres::tables_multivar::LsqTables;
 use outram_park_fork_moltres::terms::{precursor_production, prompt_fission_source};
 use uom::si::area::square_meter;
 use uom::si::f64::{Area, Length};
@@ -68,13 +70,13 @@ impl Stat {
         }
         let a = port.to_bits() as i64;
         let b = up.to_bits() as i64;
-        self.worst_ulp = self.worst_ulp.max((a - b).unsigned_abs());
+        self.worst_ulp = self.worst_ulp.max(a.abs_diff(b));
     }
 }
 
 fn lines(tag: &str) -> Vec<Vec<&'static str>> {
     REF.lines()
-        .filter(|l| l.starts_with(tag))
+        .filter(|l| l.split_whitespace().next() == Some(tag))
         .map(|l| l.split_whitespace().skip(1).collect())
         .collect()
 }
@@ -346,4 +348,138 @@ fn reference_file_has_expected_record_counts() {
     assert_eq!(counts["DNS"], 4096);
     assert_eq!(counts["DEC"], 4096);
     assert_eq!(counts["TBL"], 30 * 200);
+    assert_eq!(counts["TBLS"], 30 * 200);
+    assert_eq!(counts["TBLM"], 30 * 200);
+    assert_eq!(counts["BIGRID"], 1);
+    assert_eq!(counts["BICUB"], 4096);
+    assert_eq!(counts["LSQ"], 4096);
+}
+
+/// K9 / K10 (gh:#1538): MOOSE `SplineInterpolation` and
+/// `MonotoneCubicInterpolation` value and slope on the 12 `newt_fuel_*`
+/// Moltres files, 200 temperatures per column (below range, on nodes, in
+/// range and above range, so the end-cell extrapolation is exercised).
+///
+/// **Pass criterion** (PREDICTIONS.md K9/K10): 100 % bit-identical.
+fn table_kind(tag: &str, interp: InterpType) -> (Stat, Stat, usize) {
+    let tabs = MoltresTables::load(DATA, 2, 6, TableLayout::Legacy, interp).unwrap();
+    let mut v = Stat::default();
+    let mut d = Stat::default();
+    let mut seen = 0usize;
+    for l in lines(tag) {
+        let name = match l[0] {
+            "CHI" => "CHI_T",
+            "RECIPVEL" => continue,
+            n => n,
+        };
+        let k: usize = l[1].parse().unwrap();
+        let (pv, ps) = tabs.raw_sample(name, k, f(l[2])).unwrap();
+        v.add(pv, f(l[3]));
+        d.add(ps, f(l[4]));
+        seen += 1;
+    }
+    (v, d, seen)
+}
+
+#[test]
+fn k9_spline_interpolation_is_bit_identical() {
+    let (v, d, seen) = table_kind("TBLS", InterpType::Spline);
+    println!("[K9 spline] value {v:?} slope {d:?}");
+    assert!(seen > 1500, "only {seen} samples");
+    assert_eq!(v.identical, v.n);
+    assert_eq!(d.identical, d.n);
+}
+
+#[test]
+fn k10_monotone_cubic_interpolation_is_bit_identical() {
+    let (v, d, seen) = table_kind("TBLM", InterpType::MonotoneCubic);
+    println!("[K10 monotone] value {v:?} slope {d:?}");
+    assert!(seen > 1500, "only {seen} samples");
+    assert_eq!(v.identical, v.n);
+    assert_eq!(d.identical, d.n);
+}
+
+/// K11 (gh:#1538): `BicubicSplineInterpolation`, natural ends, value and
+/// both slopes, 4096 points on a 5 x 4 non-uniform grid including outside it.
+///
+/// **Pass criterion** (PREDICTIONS.md K11): 100 % bit-identical, worst <= 4 ulp.
+#[test]
+fn k11_bicubic_spline_matches_moose() {
+    let grid: Vec<&str> = lines("BIGRID").remove(0);
+    let bar = grid.iter().position(|t| *t == "|").unwrap();
+    let x1: Vec<f64> = grid[..bar].iter().map(|h| f(h)).collect();
+    let x2: Vec<f64> = grid[bar + 1..bar + 5].iter().map(|h| f(h)).collect();
+    let vals: Vec<f64> = grid[bar + 5..].iter().map(|h| f(h)).collect();
+    let y: Vec<Vec<f64>> = vals.chunks(x2.len()).map(<[f64]>::to_vec).collect();
+    assert_eq!((y.len(), y[0].len()), (x1.len(), x2.len()));
+    let b = BicubicSplineInterpolation::new(&x1, &x2, &y).unwrap();
+    let (mut sv, mut s1, mut s2) = (Stat::default(), Stat::default(), Stat::default());
+    for l in lines("BICUB") {
+        let (a, c) = (f(l[0]), f(l[1]));
+        sv.add(b.sample(a, c), f(l[2]));
+        s1.add(b.sample_derivative(a, c, 1), f(l[3]));
+        s2.add(b.sample_derivative(a, c, 2), f(l[4]));
+    }
+    println!("[K11 bicubic] value {sv:?} d/dx1 {s1:?} d/dx2 {s2:?}");
+    for st in [&sv, &s1, &s2] {
+        assert_eq!(st.n, 4096);
+        assert!(st.worst_ulp <= 4, "{st:?}");
+    }
+    assert_eq!(sv.identical + s1.identical + s2.identical, 3 * 4096);
+}
+
+/// K12 (gh:#1538): least-squares branch `c0 * T + c1`, slope `c0`.
+///
+/// **Pass criterion** (PREDICTIONS.md K12): 100 % bit-identical.
+#[test]
+fn k12_least_squares_branch_is_bit_identical() {
+    let mut v = Stat::default();
+    let mut d = Stat::default();
+    for l in lines("LSQ") {
+        let (r0, r1, f0, f1, t) = (f(l[0]), f(l[1]), f(l[2]), f(l[3]), f(l[4]));
+        // groups = 1, precursor groups = 1: 12 constants, one (c0, c1) pair
+        // each, in Moltres' `_xsec_names` order; REMXS is pair 0, FISSE pair 3.
+        let mut pairs = vec![(0.0, 0.0); 12];
+        pairs[0] = (r0, r1);
+        pairs[3] = (f0, f1);
+        let text: String = pairs.iter().map(|(a, b)| format!("{a:e} {b:e}\n")).collect();
+        // `{:e}` round-trips f64 exactly in Rust
+        let lsq = LsqTables::from_text(&text, 1, 1, TableLayout::Legacy).unwrap();
+        let (rv, rs) = lsq.raw_sample("REMXS", 0, t).unwrap();
+        v.add(rv, f(l[5]));
+        d.add(rs, r0);
+        let (fv, fs) = lsq.raw_sample("FISSE", 0, t).unwrap();
+        // Moltres converts as `X * 1e6 * 1.6e-19`, left to right
+        v.add(fv * 1e6 * 1.6e-19, f(l[6]));
+        d.add(fs * 1e6 * 1.6e-19, f(l[7]));
+    }
+    println!("[K12 lsq] value {v:?} slope {d:?}");
+    assert_eq!(v.n, 2 * 4096);
+    assert_eq!(v.identical, v.n);
+    assert_eq!(d.identical, d.n);
+}
+
+/// K13 (gh:#1538, found by reading upstream, not predicted): Moltres
+/// converts MeV to J as `X * 1e6 * 1.6e-19` (left to right: two roundings),
+/// whereas the port's `MEV_TO_JOULE_MOLTRES` is the folded product
+/// `1e6 * 1.6e-19` applied once. Through the public path
+/// (`LsqTables::material_at` -> `sigma_power`, with `Sigma_f * 100 = 1`) the
+/// energy per fission is compared with the C++ value.
+///
+/// **Pass criterion:** 100 % bit-identical.
+#[test]
+fn k13_mev_to_joule_conversion_order_matches_moltres() {
+    let mut st = Stat::default();
+    for l in lines("LSQ") {
+        let (f0, f1, t) = (f(l[2]), f(l[3]), f(l[4]));
+        let mut pairs = vec![(0.0, 0.0); 12];
+        pairs[1] = (0.0, 0.01); // FISSXS = 0.01 /cm -> 1.0 /m exactly
+        pairs[3] = (f0, f1);
+        let text: String = pairs.iter().map(|(a, b)| format!("{a:e} {b:e}\n")).collect();
+        let lsq = LsqTables::from_text(&text, 1, 1, TableLayout::Legacy).unwrap();
+        let m = lsq.material_at("m", t);
+        st.add(m.sigma_power[0], f(l[6]));
+    }
+    println!("[K13] {st:?}");
+    assert_eq!(st.identical, st.n);
 }

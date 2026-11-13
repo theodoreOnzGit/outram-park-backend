@@ -44,6 +44,6 @@ mod curves;
 mod eos;
 mod thermal;
 
-pub use curves::{BrooksCorey, CharacteristicCurves, Haverkamp, VanGenuchten};
+pub use curves::{BrooksCorey, CharacteristicCurves, Haverkamp, Linear, VanGenuchten};
 pub use eos::LiquidWaterEos;
 pub use thermal::{RockThermalProperties, ThermalWaterProperties};

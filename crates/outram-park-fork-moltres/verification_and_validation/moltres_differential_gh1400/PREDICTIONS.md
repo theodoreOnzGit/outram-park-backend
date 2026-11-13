@@ -111,3 +111,66 @@ what was *not* varied).
 * S5 precursor tests (`tests/pre/*`) and MSRE-style axisymmetric cases use
   unstructured `.msh` meshes and gmsh geometry the port has no reader for.
   Not run. Listed as a gap.
+
+---
+
+# Round 2 predictions (gh:#1538, 2026-11-13), written before the new code was compiled or run
+
+Pins. Moltres `3dd2ce7a60f59424d0d8f46748ba4e243d76b671`; its `moose`
+submodule pointer resolves to the full sha
+`d7c4bde4025537ac4574cc80e78c2407e23a42cc` (round 1 only had the short sha;
+resolved this round from `git ls-tree` of the fetched 3dd2ce7 commit). MOOSE
+files fetched at that sha: `SplineInterpolation{.C,.h}`,
+`SplineInterpolationBase{.C,.h}`, `MonotoneCubicInterpolation{.C,.h}`,
+`BicubicSplineInterpolation{.C,.h}`. **Moltres uses `BicubicSplineInterpolation`,
+not `BicubicInterpolation`**, so the latter is not translated. **LSQ is not a
+MOOSE class**: it is the two-coefficient file branch of
+`GenericMoltresMaterial::leastSquaresConstruct` (`value = c0*T + c1`).
+
+Route unchanged from round 1: no MOOSE build; kernel level = C++
+transcription with `check_verbatim.sh`, solution level = Moltres' committed
+`gold/*.e` k_eff. **Moltres 3dd2ce7 ships no test input for `bicubic` or
+`least_squares` and no gold file**, so those two are kernel-level (C++
+transcription vs port) only; no solution-level claim will be made for them.
+
+## Kernel level (K9-K12)
+* K9 `SplineInterpolation` value and slope, 12 `newt_fuel_*` columns (200
+  temperatures each, including below range, on nodes and above range, i.e.
+  extrapolation): **100 % bit-identical** predicted, worst case if not
+  identical <= 2 ulp (same operation order, no FMA in rustc; C++ compiled
+  `-O2 -ffp-contract=off`).
+* K10 `MonotoneCubicInterpolation` value and slope, same grid: **100 %
+  bit-identical** predicted. Named risk: `std::pow(x,2)` vs `x*x`; GCC folds
+  `pow(x,2)` to `x*x`, so I predict no difference; if one appears it is <= 1 ulp
+  and attributable to that.
+* K11 `BicubicSplineInterpolation` value and both slopes on a synthetic
+  5 x 4 surface (no Moltres data exists for it; a fixed smooth non-polynomial
+  function sampled on non-uniform grids), 4096 points including outside the
+  grid: 100 % bit-identical predicted, <= 4 ulp worst.
+* K12 LSQ: `c0*T + c1` is one multiply-add; **100 %** predicted, and the
+  slope is exactly `c0`.
+
+## Solution level (S5-S7)
+Bound is the same as round 1 for the same quantity: relative difference of
+the port's k_inf against the Moltres gold k_eff `<= 1e-8` (round 1 measured
+6.1e-14 / 8.4e-15). Natural boundaries make the FE eigenfunction uniform so
+`k_eff = k_inf`; this assumption is carried over unchanged from round 1.
+* S5 `gmm_spline`, `gmm_monotone_cubic` (newt_fuel_ tables, T = 922 K, 6 rows
+  800-1050 K so 922 is interior): `<= 1e-8` each. Equivalent: the port's
+  spline minus linear k_inf is -6.39 pcm and monotone minus linear is -1.79
+  pcm, matching the gold differences to 1e-8.
+* S6 `mjm_none`, `mjm_linear`, `mjm_spline`, `mjm_monotone_cubic`
+  (`MoltresJsonMaterial`, `xsdata.json` 600/900/1200 K, `sss2_input = true`,
+  T = 900 for none and 922 otherwise): `<= 1e-8` each. Spline minus linear
+  predicted -51.6 pcm and monotone minus linear -17.8 pcm from the gold files
+  (three-point tables, so the spline departs from linear far more than in
+  S5). `mjm_none` uses `xsdata-900K.json`.
+* S7 JSON reader behaviours tested because upstream does them: temperatures
+  are truncated to `int` (`get<int>()`); a missing `CHI_D` becomes `[1, 0,
+  ...]` for every row; a constant not listed in `group_constants` is zeros.
+
+## What would falsify these
+A kernel difference > 4 ulp, or a solution-level miss > 1e-8, would mean a
+translation defect (most likely the in-place `_yp` update in the monotone
+limiter loop, or the scatter layout in the JSON path) and would be reported
+as such, not absorbed into a tolerance.

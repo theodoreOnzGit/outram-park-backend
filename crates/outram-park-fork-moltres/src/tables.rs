@@ -37,8 +37,12 @@
 //! reproduces the file layout (both the Serpent-2 `sss2_input = true` names
 //! and the legacy names), the `interp_type = none` / `linear` evaluation and
 //! the temperature derivative Moltres feeds to its Jacobian. **Spline,
-//! monotone-cubic, bicubic and least-squares interpolation are not
-//! translated** (tracked in the gap epic gh:#1401).
+//! monotone-cubic interpolation are translated in
+//! [`crate::moose_interpolation`] and wired in here (gh:#1538); bicubic and
+//! least-squares tables, whose data shapes differ, are in
+//! [`crate::tables_multivar`].** ~~Spline, monotone-cubic, bicubic and
+//! least-squares interpolation are not translated~~ **CORRECTED 2026-11-13**
+//! (gh:#1538).
 //!
 //! # Units
 //!
@@ -57,6 +61,7 @@
 
 use crate::error::MoltresError;
 use crate::materials::{DelayedFamily, MsrMaterial};
+use crate::moose_interpolation::{MonotoneCubicInterpolation, SplineInterpolation};
 
 /// MOOSE `LinearInterpolation::sample` with `extrap = false` for one table
 /// column: the end values are held outside `[x_0, x_last)`.
@@ -111,6 +116,12 @@ pub enum InterpType {
     None,
     /// `interp_type = linear`: piecewise-linear in temperature.
     Linear,
+    /// `interp_type = spline`: MOOSE `SplineInterpolation`, natural cubic
+    /// spline; the end cells are extrapolated (gh:#1538).
+    Spline,
+    /// `interp_type = monotone_cubic`: MOOSE `MonotoneCubicInterpolation`,
+    /// at least three rows; the end cells are extrapolated (gh:#1538).
+    MonotoneCubic,
 }
 
 /// Which of the two Moltres file-name / index conventions the tables use
@@ -158,6 +169,10 @@ pub struct PropertyTable {
     pub temperature: Vec<f64>,
     /// `columns[k][i]` = value `k` at `temperature[i]`.
     pub columns: Vec<Vec<f64>>,
+    /// Built by [`Self::prepared`] for [`InterpType::Spline`].
+    splines: Vec<SplineInterpolation>,
+    /// Built by [`Self::prepared`] for [`InterpType::MonotoneCubic`].
+    monotones: Vec<MonotoneCubicInterpolation>,
 }
 
 impl PropertyTable {
@@ -203,10 +218,54 @@ impl PropertyTable {
                 col.push(nums[r * stride + 1 + k]);
             }
         }
-        Ok(Self {
+        Ok(Self::from_columns(temperature, columns))
+    }
+
+    /// A table from its temperature axis and value columns, with no
+    /// spline caches built yet.
+    #[must_use]
+    pub fn from_columns(temperature: Vec<f64>, columns: Vec<Vec<f64>>) -> Self {
+        Self {
             temperature,
             columns,
-        })
+            splines: Vec::new(),
+            monotones: Vec::new(),
+        }
+    }
+
+    /// Build the per-column interpolators `interp` needs, as Moltres'
+    /// `Construct` does (`setData` on each column). `None` and `Linear`
+    /// need none. Without this call [`Self::value`] still works for spline
+    /// and monotone-cubic, rebuilding the interpolator on each call.
+    ///
+    /// # Errors
+    /// [`MoltresError::InvalidMaterial`] when MOOSE's `errorCheck` would
+    /// throw, and for monotone cubic with fewer than three rows (Moltres'
+    /// own `mooseError`).
+    pub fn prepared(mut self, name: &str, interp: InterpType) -> Result<Self, MoltresError> {
+        self.splines.clear();
+        self.monotones.clear();
+        match interp {
+            InterpType::None | InterpType::Linear => {}
+            InterpType::Spline => {
+                for col in &self.columns {
+                    self.splines
+                        .push(SplineInterpolation::new(&self.temperature, col)?);
+                }
+            }
+            InterpType::MonotoneCubic => {
+                if self.temperature.len() < 3 {
+                    return Err(MoltresError::InvalidMaterial(format!(
+                        "table {name}: Monotone cubic interpolation requires at least three data points."
+                    )));
+                }
+                for col in &self.columns {
+                    self.monotones
+                        .push(MonotoneCubicInterpolation::new(&self.temperature, col)?);
+                }
+            }
+        }
+        Ok(self)
     }
 
     /// Value `k` at `t` for the given [`InterpType`].
@@ -215,6 +274,16 @@ impl PropertyTable {
         match interp {
             InterpType::None => self.columns[k][0],
             InterpType::Linear => linear_sample(&self.temperature, &self.columns[k], t),
+            InterpType::Spline => match self.splines.get(k) {
+                Some(s) => s.sample(t),
+                None => SplineInterpolation::new(&self.temperature, &self.columns[k])
+                    .map_or(f64::NAN, |s| s.sample(t)),
+            },
+            InterpType::MonotoneCubic => match self.monotones.get(k) {
+                Some(s) => s.sample(t),
+                None => MonotoneCubicInterpolation::new(&self.temperature, &self.columns[k])
+                    .map_or(f64::NAN, |s| s.sample(t)),
+            },
         }
     }
 
@@ -224,6 +293,16 @@ impl PropertyTable {
         match interp {
             InterpType::None => 0.0,
             InterpType::Linear => linear_sample_derivative(&self.temperature, &self.columns[k], t),
+            InterpType::Spline => match self.splines.get(k) {
+                Some(s) => s.sample_derivative(t),
+                None => SplineInterpolation::new(&self.temperature, &self.columns[k])
+                    .map_or(f64::NAN, |s| s.sample_derivative(t)),
+            },
+            InterpType::MonotoneCubic => match self.monotones.get(k) {
+                Some(s) => s.sample_derivative(t),
+                None => MonotoneCubicInterpolation::new(&self.temperature, &self.columns[k])
+                    .map_or(f64::NAN, |s| s.sample_derivative(t)),
+            },
         }
     }
 }
@@ -252,8 +331,55 @@ pub struct MoltresTables {
     decay: PropertyTable,
 }
 
-/// Moltres' MeV -> J factor `1e6 * 1.6e-19` (`NuclearMaterial.C`).
+/// Moltres' MeV -> J factor `1e6 * 1.6e-19` (`NuclearMaterial.C`). **Do not
+/// multiply by this folded constant when matching Moltres**: upstream writes
+/// `X * 1e6 * 1.6e-19`, i.e. `(X * 1e6) * 1.6e-19`, which differs from
+/// `X * (1e6 * 1.6e-19)` by 1 ulp in ~28 % of cases (gh:#1538, K13: 2950 of
+/// 4096 identical). ~~`material_at` multiplied by this constant~~ **CORRECTED
+/// 2026-11-13**: it now applies the two factors in upstream order.
 pub const MEV_TO_JOULE_MOLTRES: f64 = 1e6 * 1.6e-19;
+
+/// Assemble the SI [`MsrMaterial`] from a sampler of Moltres' raw
+/// (cm, MeV) constants: `sample("REMXS", k)` returns `(value, d value / dT)`
+/// of column `k`, for the constant names of [`MoltresTables::raw_sample`].
+/// Shared by the file, JSON, least-squares and bicubic paths so the unit
+/// conversion exists once (cm -> m, MeV -> J with Moltres' own
+/// `1e6 * 1.6e-19`).
+pub(crate) fn material_from_samples<F: Fn(&str, usize) -> (f64, f64)>(
+    name: &str,
+    groups: usize,
+    layout: TableLayout,
+    sample: F,
+) -> MsrMaterial {
+    let g = groups;
+    let col = |c: &str, scale: f64| -> Vec<f64> { (0..g).map(|k| sample(c, k).0 * scale).collect() };
+    let mut scattering = vec![vec![0.0; g]; g];
+    for from in 0..g {
+        for to in 0..g {
+            if from != to {
+                let idx = match layout {
+                    TableLayout::Serpent2 => from * g + to,
+                    TableLayout::Legacy => from + to * g,
+                };
+                scattering[from][to] = sample("GTRANSFXS", idx).0 * 100.0;
+            }
+        }
+    }
+    let sigma_power = (0..g)
+        .map(|k| (sample("FISSE", k).0 * 1e6 * 1.6e-19) * (sample("FISSXS", k).0 * 100.0))
+        .collect();
+    MsrMaterial {
+        name: name.into(),
+        diffusion: (0..g).map(|k| sample("DIFFCOEF", k).0 / 100.0).collect(),
+        sigma_removal: col("REMXS", 100.0),
+        nu_sigma_f: col("NSF", 100.0),
+        chi_prompt: col("CHI_P", 1.0),
+        chi_delayed: col("CHI_D", 1.0),
+        scattering,
+        sigma_power,
+        d_sigma_removal_d_temp: (0..g).map(|k| sample("REMXS", k).1 * 100.0).collect(),
+    }
+}
 
 impl MoltresTables {
     /// Build from the eleven file texts, in the order of [`file_suffixes`].
@@ -285,10 +411,7 @@ impl MoltresTables {
                     let rows = t[0].temperature.clone();
                     let mut cols = vec![vec![0.0; rows.len()]; g];
                     cols[0] = vec![1.0; rows.len()];
-                    t.push(PropertyTable {
-                        temperature: rows,
-                        columns: cols,
-                    });
+                    t.push(PropertyTable::from_columns(rows, cols));
                 }
             } else {
                 t.push(PropertyTable::parse(names[i], texts[i], lens[i])?);
@@ -299,7 +422,27 @@ impl MoltresTables {
                 "interp_type=none needs a single temperature row in every table".into(),
             ));
         }
-        let mut it = t.into_iter();
+        Self::from_property_tables(t, groups, precursor_groups, layout, interp)
+    }
+
+    /// Assemble from the eleven tables in the order of [`file_suffixes`],
+    /// building the interpolators `interp` needs.
+    ///
+    /// # Errors
+    /// As [`PropertyTable::prepared`].
+    pub fn from_property_tables(
+        t: Vec<PropertyTable>,
+        groups: usize,
+        precursor_groups: usize,
+        layout: TableLayout,
+        interp: InterpType,
+    ) -> Result<Self, MoltresError> {
+        let names = file_suffixes(layout);
+        let mut prepared = Vec::with_capacity(11);
+        for (i, tab) in t.into_iter().enumerate() {
+            prepared.push(tab.prepared(names[i], interp)?);
+        }
+        let mut it = prepared.into_iter();
         let mut next = || it.next().expect("eleven tables");
         Ok(Self {
             groups,
@@ -368,6 +511,133 @@ impl MoltresTables {
         )
     }
 
+    /// Moltres `MoltresJsonMaterial`: read the constants from the JSON text
+    /// of an `xsdata.json` file (`base_file`) under `material_key`.
+    ///
+    /// Behaviours of `MoltresJsonMaterial::MoltresJsonMaterial` and
+    /// `Construct` kept on purpose: the temperatures are
+    /// `xs_root[key]["temp"]` read with `get<int>()` (truncated towards
+    /// zero) and each row is looked up under `to_string(int(T))`; a constant
+    /// not named in `group_constants` is all zeros; a missing or empty
+    /// `CHI_D` becomes `[1, 0, ...]` at every temperature (Moltres warns);
+    /// any other missing constant is an error; `interp_type = none` with
+    /// more than one temperature is an error; monotone cubic needs three.
+    /// `group_constants = None` is Moltres' default (all twelve). The keys
+    /// inside the JSON are the Moltres names themselves (`REMXS`, `CHI_P`,
+    /// ...), not the Serpent-2 file suffixes. `RECIPVEL` is not read: the
+    /// port does not use it.
+    ///
+    /// # Errors
+    /// [`MoltresError::InvalidMaterial`] for malformed JSON, a missing key
+    /// or a length mismatch, as upstream's `mooseError`.
+    pub fn from_json(
+        json_text: &str,
+        material_key: &str,
+        groups: usize,
+        precursor_groups: usize,
+        layout: TableLayout,
+        interp: InterpType,
+        group_constants: Option<&[&str]>,
+    ) -> Result<Self, MoltresError> {
+        let err = |m: String| MoltresError::InvalidMaterial(format!("MoltresJsonMaterial: {m}"));
+        let root: serde_json::Value =
+            serde_json::from_str(json_text).map_err(|e| err(format!("bad JSON: {e}")))?;
+        let mat = root
+            .get(material_key)
+            .ok_or_else(|| err(format!("no material key '{material_key}'")))?;
+        let temp_arr = mat
+            .get("temp")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| err(format!("'{material_key}/temp' is not an array")))?;
+        let mut temps: Vec<f64> = Vec::with_capacity(temp_arr.len());
+        for v in temp_arr {
+            let x = v
+                .as_f64()
+                .ok_or_else(|| err("a 'temp' entry is not a number".into()))?;
+            // nlohmann `get<int>()` is a static_cast: truncation toward zero
+            temps.push(x.trunc());
+        }
+        let l = temps.len();
+        if interp == InterpType::None && l > 1 {
+            return Err(err(format!(
+                "Group constant data for '{material_key}' provided at multiple temperatures with interp_type=none"
+            )));
+        }
+        let all = [
+            "REMXS",
+            "FISSXS",
+            "NSF",
+            "FISSE",
+            "DIFFCOEF",
+            "RECIPVEL",
+            "CHI_T",
+            "CHI_P",
+            "CHI_D",
+            "GTRANSFXS",
+            "BETA_EFF",
+            "DECAY_CONSTANT",
+        ];
+        let wanted: Vec<&str> = group_constants.map_or_else(|| all.to_vec(), <[&str]>::to_vec);
+        let g = groups;
+        let p = precursor_groups;
+        // [REMXS, NSF, DIFFCOEF, BETA_EFF, FISSXS, FISSE, CHI_T, CHI_P, CHI_D,
+        //  GTRANSFXS, DECAY_CONSTANT]
+        let spec: [(&str, usize); 11] = [
+            ("REMXS", g),
+            ("NSF", g),
+            ("DIFFCOEF", g),
+            ("BETA_EFF", p),
+            ("FISSXS", g),
+            ("FISSE", g),
+            ("CHI_T", g),
+            ("CHI_P", g),
+            ("CHI_D", g),
+            ("GTRANSFXS", g * g),
+            ("DECAY_CONSTANT", p),
+        ];
+        let mut tables: Vec<PropertyTable> = Vec::with_capacity(11);
+        for (cname, o) in spec {
+            let mut cols: Vec<Vec<f64>> = vec![Vec::with_capacity(l); o];
+            if wanted.contains(&cname) {
+                for t in &temps {
+                    let key = format!("{}", *t as i64);
+                    let ds = mat
+                        .get(&key)
+                        .ok_or_else(|| err(format!("no temperature block '{material_key}/{key}'")))?
+                        .get(cname)
+                        .and_then(serde_json::Value::as_array);
+                    let empty = ds.is_none_or(Vec::is_empty);
+                    if cname == "CHI_D" && empty {
+                        for (k, c) in cols.iter_mut().enumerate() {
+                            c.push(if k == 0 { 1.0 } else { 0.0 });
+                        }
+                        continue;
+                    }
+                    let ds = ds.ok_or_else(|| {
+                        err(format!("Unable to open database {material_key}/{key}/{cname}"))
+                    })?;
+                    if ds.len() != o {
+                        return Err(err(format!(
+                            "the number of {material_key}/{key}/{cname} values does not match the num_groups/num_precursor_groups parameter. {}!={o}",
+                            ds.len()
+                        )));
+                    }
+                    for (k, c) in cols.iter_mut().enumerate() {
+                        c.push(ds[k].as_f64().ok_or_else(|| {
+                            err(format!("{material_key}/{key}/{cname}[{k}] is not a number"))
+                        })?);
+                    }
+                }
+            } else {
+                for c in &mut cols {
+                    c.resize(l, 0.0);
+                }
+            }
+            tables.push(PropertyTable::from_columns(temps.clone(), cols));
+        }
+        Self::from_property_tables(tables, groups, precursor_groups, layout, interp)
+    }
+
     /// Index into the flat `GTRANSFXS` row for the transfer `from -> to`.
     #[must_use]
     pub fn scatter_index(&self, from: usize, to: usize) -> usize {
@@ -407,39 +677,9 @@ impl MoltresTables {
     /// from `CHI_D`.
     #[must_use]
     pub fn material_at(&self, name: &str, t: f64) -> MsrMaterial {
-        let g = self.groups;
-        let i = self.interp;
-        let col = |tab: &PropertyTable, scale: f64| -> Vec<f64> {
-            (0..g).map(|k| tab.value(k, t, i) * scale).collect()
-        };
-        let mut scattering = vec![vec![0.0; g]; g];
-        for from in 0..g {
-            for to in 0..g {
-                if from != to {
-                    scattering[from][to] =
-                        self.gtransfxs.value(self.scatter_index(from, to), t, i) * 100.0;
-                }
-            }
-        }
-        let sigma_power = (0..g)
-            .map(|k| {
-                (self.fisse.value(k, t, i) * MEV_TO_JOULE_MOLTRES)
-                    * (self.fissxs.value(k, t, i) * 100.0)
-            })
-            .collect();
-        MsrMaterial {
-            name: name.into(),
-            diffusion: (0..g)
-                .map(|k| self.diffcoef.value(k, t, i) / 100.0)
-                .collect(),
-            sigma_removal: col(&self.remxs, 100.0),
-            nu_sigma_f: col(&self.nsf, 100.0),
-            chi_prompt: col(&self.chi_p, 1.0),
-            chi_delayed: col(&self.chi_d, 1.0),
-            scattering,
-            sigma_power,
-            d_sigma_removal_d_temp: (0..g).map(|k| self.remxs.slope(k, t, i) * 100.0).collect(),
-        }
+        material_from_samples(name, self.groups, self.layout, |c, k| {
+            self.raw_sample(c, k, t).unwrap_or((f64::NAN, f64::NAN))
+        })
     }
 
     /// Raw interpolated `CHI_T` at `t` (used when delayed neutrons are not
@@ -609,5 +849,91 @@ mod tests {
         // Legacy idx = from + to*2 -> 0->1 = entry 2 = 20
         assert_eq!(lg.scattering[0][1], 2000.0);
         assert_eq!(lg.scattering[1][0], 1000.0);
+    }
+
+    #[test]
+    fn spline_and_monotone_tables_prepare_cache_and_match_fallback() {
+        let text = "800 1.0\n850 3.0\n900 4.0\n950 4.5";
+        let raw = PropertyTable::parse("t", text, 1).unwrap();
+        let ready_s = raw.clone().prepared("t", InterpType::Spline).unwrap();
+        let ready_m = raw.clone().prepared("t", InterpType::MonotoneCubic).unwrap();
+        for t in [790.0, 800.0, 833.3, 900.0, 940.0, 1000.0] {
+            // the cached and the rebuilt-on-demand interpolators agree
+            assert_eq!(
+                ready_s.value(0, t, InterpType::Spline),
+                raw.value(0, t, InterpType::Spline)
+            );
+            assert_eq!(
+                ready_s.slope(0, t, InterpType::Spline),
+                raw.slope(0, t, InterpType::Spline)
+            );
+            assert_eq!(
+                ready_m.value(0, t, InterpType::MonotoneCubic),
+                raw.value(0, t, InterpType::MonotoneCubic)
+            );
+            assert_eq!(
+                ready_m.slope(0, t, InterpType::MonotoneCubic),
+                raw.slope(0, t, InterpType::MonotoneCubic)
+            );
+        }
+        // both pass through the nodes, unlike a clamped linear table outside
+        assert!((ready_s.value(0, 850.0, InterpType::Spline) - 3.0).abs() < 1e-12);
+        assert!((ready_m.value(0, 850.0, InterpType::MonotoneCubic) - 3.0).abs() < 1e-12);
+        // end cells are extrapolated, not held (linear holds 4.5)
+        assert!((ready_s.value(0, 1000.0, InterpType::Spline) - 4.5).abs() > 1e-3);
+        assert_eq!(ready_s.value(0, 1000.0, InterpType::Linear), 4.5);
+        // monotone cubic needs three rows; None / Linear need no cache
+        let two = PropertyTable::parse("t", "800 1\n850 2", 1).unwrap();
+        assert!(two.clone().prepared("t", InterpType::MonotoneCubic).is_err());
+        assert!(two.clone().prepared("t", InterpType::Linear).is_ok());
+        assert!(two.clone().prepared("t", InterpType::None).is_ok());
+        // a one-row table cannot be splined: value falls back to NaN
+        let one = PropertyTable::parse("t", "800 1", 1).unwrap();
+        assert!(one.clone().prepared("t", InterpType::Spline).is_err());
+        assert!(one.value(0, 800.0, InterpType::Spline).is_nan());
+        assert!(one.slope(0, 800.0, InterpType::MonotoneCubic).is_nan());
+    }
+
+    #[test]
+    fn from_texts_builds_spline_tables_and_rejects_two_row_monotone() {
+        let mut texts = one_group_texts();
+        texts[0] = "900 0.02\n950 0.03\n1000 0.05";
+        let spl = MoltresTables::from_texts(
+            &texts,
+            Some("900 1.0"),
+            1,
+            1,
+            TableLayout::Legacy,
+            InterpType::Spline,
+        );
+        // the other ten tables have one row only, which cannot be splined
+        assert!(spl.is_err());
+        let mut rows3 = one_group_texts();
+        for r in &mut rows3 {
+            *r = "900 1\n950 1\n1000 1";
+        }
+        rows3[3] = "900 0.0065\n950 0.0065\n1000 0.0065";
+        rows3[10] = "900 0.08\n950 0.08\n1000 0.08";
+        rows3[0] = "900 0.02\n950 0.03\n1000 0.05";
+        let ok = MoltresTables::from_texts(
+            &rows3,
+            Some("900 1\n950 1\n1000 1"),
+            1,
+            1,
+            TableLayout::Legacy,
+            InterpType::MonotoneCubic,
+        )
+        .unwrap();
+        let (v, s) = ok.raw_sample("REMXS", 0, 950.0).unwrap();
+        assert!((v - 0.03).abs() < 1e-15 && s > 0.0);
+        let two = MoltresTables::from_texts(
+            &one_group_texts().map(|_| "900 1\n950 1"),
+            None,
+            1,
+            1,
+            TableLayout::Legacy,
+            InterpType::MonotoneCubic,
+        );
+        assert!(two.is_err());
     }
 }
