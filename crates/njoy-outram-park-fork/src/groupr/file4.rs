@@ -417,6 +417,13 @@ impl File4Angular {
         })
     }
 
+    /// An isotropic centre-of-mass distribution with no records: what `getfle`
+    /// gives for File-6 two-body data with `|law| = 3` or `law = -4` (`mfd = 8`,
+    /// `iso = 1`, `groupr.f90:9733-9737`, then label 440 on every call).
+    pub fn isotropic_cm() -> Self {
+        Self { lct: 2, isotropic: true, points: Vec::new(), lo_fl: Vec::new(), log_sign_fallback: false }
+    }
+
     /// Number of tabulated incident energies.
     pub fn len(&self) -> usize {
         self.points.len()

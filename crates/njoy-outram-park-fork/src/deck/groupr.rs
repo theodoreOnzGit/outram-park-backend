@@ -33,6 +33,13 @@
 //! production reactions (`mfd >= 10 000 000`) to `write_production`. Decks 30
 //! (GENDF, 21 249 lines), 46 (GENDF, 8 281) and 73 (whole deck, 1 009) are
 //! identical (`tests/deck_driver_tapes_vs_njoy2016.rs`).
+//! **CORRECTED 2026-11-13 (gh:#1369, round 2):** of the "Still `NotPorted`" list above,
+//! `mfd = 5` (`groupr::spectrum::mf5_spectrum`, `getsed` `LF = 1` and `LF = 5`), MF=3
+//! `MT = 452-456` (`groupr::spectrum::NuYield`, `getyld` on MF=1) and `getdis` with
+//! `mft = 8` for MF=6 LAW=3 are written now; LAW = 2, 4, 5 are still refused. `emaxx`
+//! is read from `nendf`'s third MF=1 record, as `groupr.f90:413-431` does. Gated:
+//! decks 29 (whole), 15, 18, 27, 34 (GENDF), 76 and 08 (GENDF without one automatic
+//! card each).
 //!
 //! Ported so far: the tape label, the MF=1/MT=451 head record of a material
 //! (`ZA, AWR, 0, nz, -1, ntw`; LIST `temp, 0, ngn, ngg, np, 0` with the title
@@ -182,20 +189,35 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     let mut g = GendfText::label(&inp.title);
     write_head(&mut g, inp.matb, za, awr, inp.temperatures[0], &inp.sigma_zeros, &egn, &egg);
     // MF=3 vector reactions (card 9, `mfd = 3`), `groupr.f90:766-830` with `panel`.
-    let iverf = crate::moder::layout::iverf_from_mf1(&mf1.rows);
+    // `:413-431`: `iverf` and `emaxx` come from the first material of `nendf`: `tpidio`,
+    // the head, the second record (`n1h`, `n2h` give `iverf`), and for ENDF-6 the
+    // third record, whose C2 is `EMAX`.
+    // ~~`emaxx` was the PENDF's `rows[1][1]`~~ **CORRECTED 2026-11-13 (gh:#1369):**
+    // that is the second record's C2, `STA`; on Cf-252 decay data (deck 18, `STA = 1`)
+    // it made `emaxx = 1` eV and skipped every group but the last.
+    let nend_tape = units.get(u.nendf)?.tape.clone();
+    let mf1e = nend_tape.sections().iter().find(|s| s.key.mf == 1 && s.key.mt == 451).unwrap_or(mf1);
+    let iverf = crate::moder::layout::iverf_from_mf1(&mf1e.rows);
     let emaxx = match iverf {
         ..=4 => 1.5e7,
         5 => 2.0e7,
         _ => {
-            let c2 = mf1.rows[1][1];
+            let c2 = mf1e.rows.get(2).map_or(0.0, |r| r[1]);
             if c2 > 0.0 { c2 } else { 2.0e7 }
         }
     };
     // The main loop's running `mtd` (`:619`, `mtd = 1`): a negative card-9 or
     // list entry `-m` visits `mtd + 1 ..= m` (`:640-646`, `:731-732`).
     let mut mtd_run = 1;
-    let nend_tape = units.get(u.nendf)?.tape.clone();
     let lists = crate::deck::groupr_auto::conver_lists(&nend_tape, inp.matb)?;
+    // Module state that `mfd = 5` reads without setting: `ndelg` (`conver`),
+    // `dntc` (only `getyld` on MF=1/MT=455 sets it) and `lrflag` (the last `getsig`).
+    // `lrflag_run` follows the `mfd = 3` branches only; an `mfd = 5` after a matrix
+    // reaction (`mfd = 6/8/16/17/18` or production) would see that reaction's
+    // `lrflag` upstream, which no gated deck exercises.
+    let ndelg = crate::groupr::spectrum::ndelg(&nend_tape, inp.matb)?;
+    let mut dntc = [0.0f64; 8];
+    let mut lrflag_run = 0i32;
     for req0 in &inp.reactions {
         // `mtd = -1000` (no `mtd` on card 9): `iauto = 1`, the lists of `nextr`.
         let items: Vec<crate::deck::groupr_auto::AutoReaction> = if req0.mtd == crate::groupr::input::MTD_AUTO {
@@ -247,16 +269,34 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
                 continue;
             }
             if req.mfd == 5 {
-                return Err(NjoyError::NotPorted("groupr mfd = 5 (spectrum calculation) in the tape driver"));
+                let ismooth = inp.ismooth == crate::groupr::input::SmoothingOption::On;
+                let rec = crate::groupr::spectrum::mf5_spectrum(&nend_tape, inp.matb, mtd, &egn, ismooth, ndelg, &dntc)?;
+                write_mf5_spectrum(&mut g, inp, za, &egn, mtd, lrflag_run, &rec);
+                continue;
             }
             if req.mfd != 3 {
                 notes.push(format!("groupr: mf {} mt {} not written (matrix and photon-production sections are not ported)", req.mfd, mtd));
                 return Err(NjoyError::NotPorted("groupr: this mfd in the tape driver"));
             }
             if matches!(mtd, 452 | 455 | 456) {
-                return Err(NjoyError::NotPorted("groupr: mf 3 mt 452/455/456 (nu, getyld on MF=1)"));
+                // `getsig` reads MT=18 (`:6738`); `getff` label 100 with `getyld` on MF=1.
+                let Some(sec) = pend.section(inp.matb, 3, 18) else { continue };
+                let mut cur = crate::endf::records::SectionCursor::new(&sec.rows);
+                let _head = cur.read_cont()?;
+                let tab = cur.read_tab1()?;
+                lrflag_run = tab.head.l2;
+                let (nu, d) = crate::groupr::spectrum::NuYield::from_tape(&nend_tape, inp.matb, mtd)?;
+                if let Some(d) = d {
+                    dntc = d;
+                }
+                let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
+                let mut pf = crate::groupr::njoy_panel::PanelFeed::Nu(nu);
+                let rows = crate::groupr::njoy_panel::group_general(&mut feed, &mut pf, inp.weight.iwt(), &egn, first, emaxx, true, 1)?;
+                write_vector_section(&mut g, inp, za, &egn, mtd, lrflag_run, rows);
+                continue;
             }
             if (257..=259).contains(&mtd) {
+                lrflag_run = 0;
                 // `getsig` init (`:6684-6690`): no PENDF section, `lrflag = 0`.
                 let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::non_cross_section(mtd);
                 let mut pf = crate::groupr::njoy_panel::PanelFeed::Vector;
@@ -272,6 +312,7 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
             let head = cur.read_cont()?;
             let tab = cur.read_tab1()?;
             let lrflag = tab.head.l2;
+            lrflag_run = lrflag;
             let (mut feed, first) = crate::groupr::njoy_panel::SigFeed::new(&tab, mtd);
             let iwt = inp.weight.iwt();
             let mut pf = if ratio {
@@ -310,6 +351,25 @@ fn write_vector_section(
     for (ig, ng2, ig2lo, data) in rows {
         g.list([inp.temperatures[0], 0.0], ng2 as i32, ig2lo, ig as i32, &data);
     }
+    g.send();
+}
+
+/// An `mfd = 5` section (`groupr.f90:755-779`, `:840-930`): the head `za, 0, nl, 1,
+/// lrflag, ngn` (with `lrflag` the module variable the previous `getsig` left),
+/// one LIST `temp, 0, ng2, ig2lo = 1, nl*ng2, ig = ngn`, `asend`.
+fn write_mf5_spectrum(
+    g: &mut GendfText,
+    inp: &crate::groupr::input::GrouprInput,
+    za: f64,
+    egn: &[f64],
+    mtd: i32,
+    lrflag: i32,
+    rec: &crate::groupr::spectrum::SpectrumRecord,
+) {
+    let ngn = (egn.len() - 1) as i32;
+    g.begin(inp.matb, 5, mtd);
+    g.cont([za, 0.0], [rec.nl as i32, 1, lrflag, ngn]);
+    g.list([inp.temperatures[0], 0.0], rec.ng2 as i32, 1, ngn, &rec.data);
     g.send();
 }
 
@@ -408,7 +468,16 @@ fn write_getmf6(
         nl,
     };
     let disc102 = if mfd == 18 { photon_line_awp(nend, inp.matb, mtd)? } else { None };
-    let mut pf = if let Some(d) = disc102 {
+    // `getmf6` sends LAW 2-5 to `getdis` (`:7956`, `:8096-8099`), with `mft = 8`;
+    // `getfle` makes LAW=3 isotropic in the CM (`iso = 1`, `:9733-9737`).
+    let neutron_law = if mfd == 8 { mf6_subsection_law(nend, inp.matb, mtd, 1)? } else { None };
+    if matches!(neutron_law, Some(2 | 4 | 5)) {
+        return Err(NjoyError::NotPorted("groupr getmf6 LAW = 2, 4 or 5 (getdis with mft = 8 on File-6 angular data)"));
+    }
+    let mut pf = if neutron_law == Some(3) {
+        let tb = crate::groupr::two_body::TwoBodyFeed::new(crate::groupr::file4::File4Angular::isotropic_cm(), egn, head.c2, tab.head.c2, lrflag)?;
+        crate::groupr::njoy_panel::PanelFeed::TwoBodyNl(tb, nl)
+    } else if let Some(d) = disc102 {
         crate::groupr::njoy_panel::PanelFeed::Gam102(crate::groupr::njoy_panel::Gam102 { disc102: d, awr: head.c2, egg: egg.to_vec(), nl, iglo: 0 })
     } else {
         let f = crate::groupr::mf6_feed::Mf6Feed::new(nend, inp.matb, mfd, mtd, cfg)?;
@@ -430,6 +499,22 @@ fn write_getmf6(
     }
     g.send();
     Ok(())
+}
+
+/// The LAW of the first MF=6/`mtd` subsection whose `ZAP` is `zap` (`getmf6`'s
+/// search, `:7588-7615`); `None` without the section or such a subsection.
+fn mf6_subsection_law(nend: &crate::endf::tape::Tape, mat: i32, mtd: i32, zap: i32) -> Result<Option<i32>, NjoyError> {
+    let Some(sec) = nend.section(mat, 6, mtd) else { return Ok(None) };
+    let mut cur = crate::endf::records::SectionCursor::new(&sec.rows);
+    let head = cur.read_cont()?;
+    for _ in 0..head.n1.max(0) {
+        let t = cur.read_tab1()?;
+        if t.head.c1.round() as i32 == zap {
+            return Ok(Some(t.head.l2));
+        }
+        crate::acer::energy::mf6::skip_mf6_subsection(&mut cur, t.head.l2)?;
+    }
+    Ok(None)
 }
 
 /// `getmf6`'s `disc102` test (`:7603-7623`): the `AWP` of the first MF=6

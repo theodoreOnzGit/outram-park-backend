@@ -1938,3 +1938,149 @@ fn test_46_groupr_gendf_moder_copy() {
     let _ = std::fs::remove_dir_all(ours.parent().unwrap());
     assert!(n > 8_000 && d.is_empty());
 }
+
+/// The GROUPR GENDF of `case` on text unit `unit`: the deck cut before `cut` (the
+/// first module after GROUPR that is not ported), with `tail` cards (a MODER copy
+/// of a binary GENDF) appended, run by NJOY2016 and by this crate. Returns
+/// `(differing lines, NJOY's line count)`.
+fn groupr_gendf(case: &str, resource: &str, cut: &str, tail: &str, unit: u32) -> Option<(usize, usize)> {
+    let root = njoy_root();
+    let deck = deck_text(&root, case, Some(cut), tail)?;
+    let (ours, njoy) = run_pair(&root, &format!("gg{case}"), resource, &deck)?;
+    let name = format!("tape{unit}");
+    let d = differing_lines(&ours.join(&name), &njoy.join(&name));
+    let n = std::fs::read_to_string(njoy.join(&name)).unwrap().lines().count();
+    println!("deck {case} GENDF unit {unit}: {} differing lines of {n}; first {:?}", d.len(), &d[..d.len().min(5)]);
+    if std::env::var_os("DECK_KEEP").is_none() {
+        let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    }
+    Some((d.len(), n))
+}
+
+/// **Deck 29 (Pu-241 ENDF/B-VIII.0), the whole deck** (gh:#1369): three GROUPR
+/// runs of `5 455` (the delayed-neutron spectra, `mfd = 5`), with `ismooth` at
+/// its default, 1 and 0, each copied to text by MODER (units 35, 45, 55).
+///
+/// Exercises `getsed`'s analytic `LF = 5` branch (`anased` law 5, `theta = 1`, a
+/// histogram `g(x)`) on MF=5 with the six families kept apart (`nk = ndelg`), its
+/// `ismooth` extension of the lowest delayed bin (`fx = .8409`, a single-precision
+/// literal), `dntc` left at zero (no `3 455` sets it) and `displa` label 400.
+/// Before: refused (`mfd = 5`), and before that skipped silently (the row was
+/// `differs`). Prediction (gh:#1369, before the change): every unit identical; the
+/// prediction called the subsections `LF = 1`, which they are not, and the first
+/// run was refused at `LF = 5`, which was then translated.
+///
+/// **Result (2026-11-13): 0 differing lines of 635 on each of units 35, 45, 55.**
+/// Ablation: with `fx` as the double `0.8409`, units 35 and 45 (`ismooth` on)
+/// differ in 8 lines each and unit 55 (`ismooth = 0`) in none.
+#[test]
+fn test_29_whole_deck() {
+    let _ = whole_deck_units("29", "n-094_Pu_241-ENDF8.0.endf", &[], &[35, 45, 55]);
+}
+
+/// **Deck 18 (Cf-252 decay data, MF=5/MT=18), the GROUPR GENDF on text unit 91**:
+/// the deck up to ERRORR (not ported) (gh:#1369). `3/` then `5 18`: one tabulated
+/// subsection, the spectrum at the first `p(E)` energy.
+///
+/// The first run differed in 948 of 968 lines, every MF=3 section holding only its
+/// top group. Cause: the driver took `emaxx` from the PENDF's second MF=1 record
+/// (C2 = `STA`, which is 1 on this decay tape), where `groupr.f90:413-431` reads the
+/// third record of `nendf` (C2 = `EMAX`). **Result (2026-11-13), after that fix: 0
+/// differing lines of 968.**
+#[test]
+fn test_18_groupr_gendf_whole_tape() {
+    let Some((d, n)) = groupr_gendf("18", "DCf252", "errorr", "", 91) else { return };
+    assert!(n > 100 && d == 0);
+}
+
+/// **Deck 27 (Pu-239 ENDF/B-VIII.0 beta), the GROUPR GENDF through MODER to text**:
+/// the deck up to ERRORR (not ported) (gh:#1369). `3/` then `5 18` (one `LF = 1`
+/// subsection). **Result (2026-11-13): 0 differing lines of 1 282.**
+#[test]
+fn test_27_groupr_gendf_moder_copy() {
+    let Some((d, n)) = groupr_gendf("27", "n-094_Pu_239-ENDF8.0-Beta6.endf", "errorr", "moder\n-25 60/\n", 60) else { return };
+    assert!(n > 100 && d == 0);
+}
+
+/// **Deck 15 (U-238 JENDL-3.3), the GROUPR GENDF on text unit 91**: the deck up to
+/// ERRORR (not ported) (gh:#1369).
+///
+/// Exercises `3 452/455/456` (`getff` label 100 with `getyld` on MF=1, `ff = (yld,
+/// 1)`, the ratio form of `displa`, `getsig` on MT=18) beside `3 251/252` and `5 18`.
+/// Before: refused by name (MT 452/455/456), and before that skipped silently.
+/// Prediction (gh:#1369, before the change): identical if the PENDF is NJOY's.
+/// **Result (2026-11-13): 0 differing lines of 1 342.**
+#[test]
+fn test_15_groupr_gendf_whole_tape() {
+    let Some((d, n)) = groupr_gendf("15", "J33U238", "errorr", "", 91) else { return };
+    assert!(n > 1_000 && d == 0);
+}
+
+/// **Deck 76 (U-235 ENDF/B-VIII.0), the GROUPR GENDF (unit 25, text) with the
+/// automatic `6 /` card removed on both sides** (gh:#1369): the deck up to CCCCR
+/// (not ported).
+///
+/// `6 /` reaches MF=4/MT=18, `getff` label 200 with `econst` (fission, `getyld`
+/// on MT=456), which is not translated, so the deck as written stops there. With
+/// it removed on both sides the GENDF holds `3/`, `3 452/455/456`, `5 18` and
+/// `5 455`, whose first word per family is `dntc` left by `3 455`'s `getyld`.
+/// Prediction (gh:#1369, before the change): identical. **Result (2026-11-13): 0
+/// differing lines of 7 203.** NJOY2016 takes about 85 s on this deck.
+#[test]
+fn test_76_groupr_gendf_without_auto_mf6() {
+    let root = njoy_root();
+    let Some(full) = deck_text(&root, "76", Some("'ccccr'"), "") else { return };
+    let deck: String = full.lines().filter(|l| l.trim() != "6 /").map(|l| format!("{l}\n")).collect();
+    let Some((ours, njoy)) = run_pair(&root, "t76g", "n-092_U_235-ENDF8.0.endf", &deck) else { return };
+    let d = differing_lines(&ours.join("tape25"), &njoy.join("tape25"));
+    let n = std::fs::read_to_string(njoy.join("tape25")).unwrap().lines().count();
+    println!("deck 76 GENDF: {} differing lines of {n}; first {:?}", d.len(), &d[..d.len().min(5)]);
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    assert!(n > 7_000 && d.is_empty());
+}
+
+/// **Deck 08 (Ni-61 ENDF/B-VI.1), the GROUPR GENDF through MODER to text, with the
+/// automatic `16/` card removed on both sides** (gh:#1369): the deck up to ACER.
+///
+/// `6/` takes `conver`'s MF=4 list, then `mfd = 8` over MF=6 MT=16, 28, 51-58, 91,
+/// 103 and 107. MT=51-58 are LAW=3, which `getmf6` hands to `getdis` with
+/// `mft = 8`; `getfle` makes them isotropic in the CM (`iso = 1`,
+/// `groupr.f90:9733-9737`). `16/` is removed because it reaches MF=12 `LO = 2`,
+/// which `conver` converts to yields (`:11190-11420`, not ported). Prediction
+/// (gh:#1369, before the change): identical. Before: refused at MT=51
+/// (`getmf6` LAW=2..5).
+///
+/// **Result (2026-11-13): 28 of 2 272 lines differ, all in MF=6 MT=16, 28 and 91;
+/// the LAW=3 sections MT=51-58 (514 lines) and everything else are identical.**
+/// The 28 are LAW=1 (`Mf6Feed`, not changed here), in the 7th figure of
+/// transfer-matrix words near 1e-8 (`8.830207-9` against NJOY's `8.830209-9`).
+/// Those subsections are `LANG = 1`, `LEP = 1` with an incident-energy `INT = 12`
+/// (corresponding points), which the deck-46 gate (lin-lin) does not reach. The
+/// cause was not examined (gh:#1517). So this gate
+/// holds every line outside MF=6 MT=16/28/91 to identity, and prints the rest.
+#[test]
+fn test_08_groupr_gendf_without_auto_mf16() {
+    let root = njoy_root();
+    let Some(full) = deck_text(&root, "08", Some("acer"), "moder\n -22 60/\n") else { return };
+    let deck: String = full.lines().filter(|l| l.trim() != "16/").map(|l| format!("{l}\n")).collect();
+    let Some((ours, njoy)) = run_pair(&root, "t08g", "eni61", &deck) else { return };
+    let d = differing_lines(&ours.join("tape60"), &njoy.join("tape60"));
+    let n = std::fs::read_to_string(njoy.join("tape60")).unwrap().lines().count();
+    println!("deck 08 GENDF: {} differing lines of {n}; first {:?}", d.len(), &d[..d.len().min(5)]);
+    if std::env::var_os("DECK_KEEP").is_none() {
+        let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    }
+    let law1 = ["2834 6 16", "2834 6 28", "2834 6 91"];
+    let other: Vec<_> = d.iter().filter(|(_, k)| !law1.contains(&k.as_str())).collect();
+    println!("deck 08 GENDF: {} differing lines outside MF=6 MT=16/28/91", other.len());
+    assert!(n > 2_000 && other.is_empty());
+}
+
+/// **Deck 34 (Pu-240 ENDF/B-VIII.0), the GROUPR GENDF through MODER to text**:
+/// the deck up to ERRORR (not ported) (gh:#1369). `3/` then `5 18` (one `LF = 1`
+/// subsection). **Result (2026-11-13): 0 differing lines of 1 312.**
+#[test]
+fn test_34_groupr_gendf_moder_copy() {
+    let Some((d, n)) = groupr_gendf("34", "n-094_Pu_240-ENDF8.0.endf", "errorr", "moder\n-31 60/\n", 60) else { return };
+    assert!(n > 100 && d == 0);
+}

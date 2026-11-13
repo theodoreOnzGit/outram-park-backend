@@ -34,6 +34,8 @@ Gated by `test_{35..42,63}_acer_check_unit_and_directory`, which now compare uni
 
 **Re-run 2026-11-13, GROUPR (gh:#1369, `conver`/`nextr` lists, nuclide production, `getmf6`, `gam102`):** the 21 decks that run GROUPR (01, 02, 04, 07, 08, 11, 15, 17, 18, 20, 27, 29, 30, 34, 46, 47, 60, 65, 73, 76, 86) were re-run alone (`SURVEY_CASES`) on develop a704d47c5 plus this work; their rows are replaced, every other row is as before. **Identical: 47 of 87** (45 before). Deck 73 (Pb-208 TENDL-2021, MF=8 nuclide production) is identical because of this work. Deck 07 is identical too: it was `differs` (tape26, 3 of 14 108 lines) in a row from an earlier run; which change closed it was not examined. Deck 30's GENDF (tape31, 21 249 lines) and deck 46's (a MODER text copy of the binary unit, 8 281 lines) are identical too (`test_30_groupr_gendf_whole_tape`, `test_46_groupr_gendf_moder_copy`); 30 now stops at the photo-atomic RECONR and 46 at ERRORR. Six rows moved **earlier**, and that is the honest direction: GROUPR used to skip `mfd = 5` and `MT = 452/455/456` with a note and carry on, so decks 15, 18, 27, 29, 34, 47 and 76 ran on with a GENDF missing sections (29 was `differs`, 18/27/34 stopped later at ERRORR). They are now refused by name at GROUPR. Deck 08 stops at `getmf6` LAW=3 (`getdis` with `mft = 8`). Deck 86's tape25 went from 37 to 28 differing lines of 52; not examined. Record: `README.md` section 13.
 
+**Re-run 2026-11-13, GROUPR round 2 (gh:#1369, `mfd = 5`, MT 452/455/456, `getdis` with `mft = 8`, `emaxx`):** the same 21 decks were re-run alone (`SURVEY_CASES`, 674 s) on develop e1aa4acf9 plus this work; their rows are replaced, every other row is as before. **Identical: 48 of 87** (47 before). Deck 29 is now identical as a whole deck (three GROUPR `5 455` runs, units 35/45/55). Decks 15 and 18 now pass GROUPR, and their GENDF (unit 91) is identical; they stop at ERRORR, as do 27 and 34, whose GROUPR GENDFs are identical through a MODER copy (`test_27_...`, `test_34_...`). Deck 08 now passes `6/` (MF=6 LAW=3 through `getdis`) and stops at `16/` (MF=12 `LO = 2`, `conver`). Decks 47 and 76 stop at `6/` → MF=4/MT=18 (`getff` label 200 with `econst`); 76's GENDF without `6 /` is identical (`test_76_...`). The round-1 note's "refused by name at GROUPR" for decks 15, 18, 27, 29, 34, 47 and 76 is superseded by this paragraph. Record: `README.md` section 14.
+
 | deck | status | tapes identical | differing tapes | text tapes we did not write | binary tapes (no blocked-binary writer here) |
 |---|---|---|---|---|---|
 | 01 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
@@ -43,17 +45,17 @@ Gated by `test_{35..42,63}_acer_check_unit_and_directory`, which now compare uni
 | 05 | NotPorted (errorr: card reader not yet translated) | 0 |  | tape33 tape34 tape35 | tape31 tape32 |
 | 06 | NotPorted (plotr: card reader not yet translated) | 0 |  | tape31 tape32 |  |
 | 07 | identical | 3 |  |  | tape21 tape22 tape23 tape24 tape25 |
-| 08 | NotPorted (groupr: not yet ported from NJOY2016: groupr::getmf6 LAW=2..5 File-6 discrete two-body scattering (getdis with mft=8, groupr.f90:7936-7940, 8096-8100)) | 1 |  | tape25 tape26 | tape21 tape22 tape23 tape24 |
+| 08 | NotPorted (groupr: not yet ported from NJOY2016: groupr conver: MF=12 LO = 2 transition arrays converted to LO = 1 yields (groupr.f90:11190-11420)) | 1 |  | tape25 tape26 | tape21 tape22 tape23 tape24 |
 | 09 | identical | 1 |  |  | tape21 tape22 tape23 tape25 |
 | 10 | differs | 2 | tape28 15270/15277 lines |  | tape21 tape22 tape23 tape24 tape25 |
 | 11 | NotPorted (groupr: not yet ported from NJOY2016: groupr input GENDF, several materials, temperatures or sigma-zeros) | 0 |  | tape27 tape28 | tape21 tape22 tape23 tape24 tape25 tape26 |
 | 12 | NotPorted (plotr: card reader not yet translated) | 2 |  | tape23 tape24 |  |
 | 13 | identical | 7 |  |  | tape21 tape22 tape23 tape24 tape25 |
 | 14 | identical | 6 |  |  |  |
-| 15 | NotPorted (groupr: not yet ported from NJOY2016: groupr: mf 3 mt 452/455/456 (nu, getyld on MF=1)) | 0 | tape91 1342/1342 lines | tape25 tape26 tape27 tape35 tape36 tape37 tape45 tape46 tape47 | tape21 tape22 tape23 |
+| 15 | NotPorted (errorr: card reader not yet translated) | 1 |  | tape25 tape26 tape27 tape35 tape36 tape37 tape45 tape46 tape47 | tape21 tape22 tape23 |
 | 16 | NotPorted (errorr: card reader not yet translated) | 0 |  | tape26 tape27 tape36 tape37 tape46 tape47 | tape21 tape22 tape23 |
 | 17 | NotPorted (groupr: not yet ported from NJOY2016: groupr getwtf for iwt other than 2, 3, 5, 8 and 9 in the tape driver) | 2 | tape31 298349/305355 lines; tape33 119274/198701 lines; tape41 485226/497335 lines; tape43 279882/303613 lines; tape91 1342/1342 lines | tape26 tape92 tape93 tape99 |  |
-| 18 | NotPorted (groupr: not yet ported from NJOY2016: groupr mfd = 5 (spectrum calculation) in the tape driver) | 0 | tape91 968/968 lines | tape28 tape38 tape39 | tape21 tape22 tape23 |
+| 18 | NotPorted (errorr: card reader not yet translated) | 1 |  | tape28 tape38 tape39 | tape21 tape22 tape23 |
 | 19 | differs | 2 | tape29 44559/44568 lines |  | tape21 tape22 tape23 tape24 tape25 tape26 |
 | 20 | NotPorted (errorr: card reader not yet translated) | 0 |  | tape21 tape22 tape23 tape25 tape26 tape27 tape91 |  |
 | 21 | differs | 2 | tape22 10609/34851 lines; tape23 66506/66600 lines; tape24 66859/66867 lines | tape26 |  |
@@ -62,14 +64,14 @@ Gated by `test_{35..42,63}_acer_check_unit_and_directory`, which now compare uni
 | 24 | identical | 9 |  |  | tape21 tape22 tape23 tape24 tape25 tape27 tape28 |
 | 25 | identical | 4 |  |  | tape30 tape31 tape32 tape33 tape40 tape50 |
 | 26 | identical | 2 |  |  | tape30 tape31 tape32 |
-| 27 | NotPorted (groupr: not yet ported from NJOY2016: groupr mfd = 5 (spectrum calculation) in the tape driver) | 0 |  | tape36 tape37 tape46 tape47 tape56 tape57 | tape21 tape22 tape23 tape25 |
+| 27 | NotPorted (errorr: card reader not yet translated) | 0 |  | tape36 tape37 tape46 tape47 tape56 tape57 | tape21 tape22 tape23 tape25 |
 | 28 | identical | 18 |  |  | tape21 tape22 tape23 |
-| 29 | NotPorted (groupr: not yet ported from NJOY2016: groupr mfd = 5 (spectrum calculation) in the tape driver) | 0 |  | tape35 tape45 tape55 | tape21 tape22 tape23 tape25 |
+| 29 | identical | 3 |  |  | tape21 tape22 tape23 tape25 |
 | 30 | NotPorted (reconr: not yet ported from NJOY2016: deck PENDF: MF=10-23 section with no positive point) | 1 |  | tape43 tape44 tape45 | tape21 tape22 tape23 tape41 tape42 |
 | 31 | differs | 0 | tape30 221729/221737 lines |  | tape21 tape22 tape23 tape24 |
 | 32 | identical | 2 |  |  | tape21 tape22 tape23 tape24 tape25 tape31 |
 | 33 | identical | 2 |  |  |  |
-| 34 | NotPorted (groupr: not yet ported from NJOY2016: groupr mfd = 5 (spectrum calculation) in the tape driver) | 0 |  | tape33 tape43 | tape21 tape22 tape30 tape31 |
+| 34 | NotPorted (errorr: card reader not yet translated) | 0 |  | tape33 tape43 | tape21 tape22 tape30 tape31 |
 | 35 | identical | 7 |  |  | tape21 tape22 tape23 tape24 |
 | 36 | identical | 7 |  |  | tape21 tape22 tape23 tape24 |
 | 37 | identical | 7 |  |  | tape21 tape22 tape23 tape24 |
@@ -82,7 +84,7 @@ Gated by `test_{35..42,63}_acer_check_unit_and_directory`, which now compare uni
 | 44 | identical | 1 |  |  | tape21 tape22 tape23 |
 | 45 | identical | 1 |  |  | tape21 tape22 tape23 |
 | 46 | NotPorted (errorr: card reader not yet translated) | 0 |  | tape34 | tape21 tape22 tape23 |
-| 47 | NotPorted (groupr: not yet ported from NJOY2016: groupr mfd = 5 (spectrum calculation) in the tape driver) | 0 |  | tape45 tape46 tape47 tape48 tape55 tape56 tape57 tape58 | tape21 tape22 tape25 tape35 |
+| 47 | NotPorted (groupr: not yet ported from NJOY2016: groupr getff label 200: fission/capture reactions (getyld, econst) are not translated) | 0 |  | tape45 tape46 tape47 tape48 tape55 tape56 tape57 tape58 | tape21 tape22 tape25 tape35 |
 | 48 | differs | 1 | tape27 36/17964 lines |  |  |
 | 49 | identical | 2 |  |  | tape21 tape22 tape23 tape24 tape25 tape31 |
 | 50 | identical | 6 |  |  | tape21 tape22 |
@@ -111,7 +113,7 @@ Gated by `test_{35..42,63}_acer_check_unit_and_directory`, which now compare uni
 | 73 | identical | 1 |  |  | tape21 tape22 tape23 |
 | 74 | identical | 7 |  |  | tape30 tape31 tape32 tape40 tape50 |
 | 75 | differs | 1 | tape22 32176/98721 lines; tape26 12648/153152 lines | tape27 |  |
-| 76 | NotPorted (groupr: not yet ported from NJOY2016: groupr: mf 3 mt 452/455/456 (nu, getyld on MF=1)) | 0 | tape25 10012/10012 lines |  | tape21 tape22 tape23 tape24 tape30 |
+| 76 | NotPorted (groupr: not yet ported from NJOY2016: groupr getff label 200: fission/capture reactions (getyld, econst) are not translated) | 0 | tape25 10012/10012 lines |  | tape21 tape22 tape23 tape24 tape30 |
 | 78 | NotPorted (acer: not yet ported from NJOY2016: acephn: MF=6 with LCT /= 1 -- only the laboratory frame is ported) | 0 | tape90 52/57 lines | tape31 tape32 tape33 tape34 tape35 tape43 | tape21 tape30 |
 | 79 | identical | 1 |  |  | tape21 tape22 tape23 tape24 |
 | 80 | differs | 0 | tape24 17369/91453 lines |  |  |

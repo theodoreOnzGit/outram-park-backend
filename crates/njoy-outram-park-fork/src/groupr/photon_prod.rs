@@ -164,8 +164,12 @@ impl PhotonFeed {
         let sec = tape.section(mat, 12, mtd).ok_or(NjoyError::SectionNotFound { mat, mf: 12, mt: mtd })?;
         let mut cur = SectionCursor::new(&sec.rows);
         let head = cur.read_cont()?;
+        // ~~"upstream errors too"~~ **CORRECTED 2026-11-13 (gh:#1369):** `getgyl`'s own
+        // `lo=2` error is never reached in GROUPR: it reads `nend2`, the tape `conver`
+        // writes, and `conver` converts a LO = 2 transition array to LO = 1 yields
+        // (`groupr.f90:11190-11420`). NJOY2016 runs deck 08 (Ni-61, `16/`) to the end.
         if head.l1 == 2 {
-            return Err(NjoyError::NotPorted("getgyl: lo=2 not coded (upstream errors too)"));
+            return Err(NjoyError::NotPorted("groupr conver: MF=12 LO = 2 transition arrays converted to LO = 1 yields (groupr.f90:11190-11420)"));
         }
         let (awr, nyl) = (head.c2, head.n1 as usize);
         if nyl == 0 {

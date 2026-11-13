@@ -202,6 +202,9 @@ pub enum PanelFeed {
     /// particle (`mfd = 8` neutrons, `mfd = 18` photons), over the secondary
     /// group boundaries `eg` (`egn` or `egg`) for `nl` Legendre orders.
     Mf6(crate::groupr::mf6_feed::Mf6Feed, Vec<f64>, usize),
+    /// `getff` label 100 for `MT = 452, 455, 456` (`:7076-7095`): `ng = 2`,
+    /// `ff = (yld, 1)` with `yld` from `getyld` on MF=1, for `displa`'s ratio form.
+    Nu(crate::groupr::spectrum::NuYield),
     /// `getff` label 810 when the MF=6 photon is a LAW=2 line (`disc102`,
     /// `getmf6` `:7618-7623`, `:7977`): `gam102`.
     Gam102(Gam102),
@@ -293,6 +296,16 @@ impl PanelFeed {
                     enext = en;
                 }
                 Ok(FeedOut { en: enext, idisc, nq: 0, ff: vec![vec![yld]], iglo: 1 })
+            }
+            PanelFeed::Nu(y) => {
+                // label 100: `enext = emax`, `idisc = 0`, then `getyld`'s break.
+                let (yld, en, idis) = y.at(e)?;
+                let (mut enext, mut idisc) = (EMAX, 0);
+                if en < enext * (1.0 - SMALL) {
+                    idisc = idis;
+                    enext = en;
+                }
+                Ok(FeedOut { en: enext, idisc, nq: 0, ff: vec![vec![yld, 1.0]], iglo: 1 })
             }
             PanelFeed::TwoBodyNl(f, nl) => {
                 let a = f.feed(e, *nl)?;
