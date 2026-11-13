@@ -29,3 +29,6 @@ Cargo.lock
 # V&V raw data -- the .md write-ups in verification_and_validation/ are
 # committed; standalone .csv data files they reference are not.
 /verification_and_validation/*.csv
+
+# gh:#1433: the Octave differential reference CSVs are committed fixtures (the test include_str!s them)
+!verification_and_validation/octave_differential/*.csv

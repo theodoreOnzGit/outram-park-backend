@@ -24,12 +24,52 @@ constitute a derivative of specific source, that Rust file must carry a
 provenance header naming the upstream MPICH source file, version/commit,
 copyright holder, and license, per the workspace attribution rule.
 
-LICENSE PROVENANCE — VERIFY BEFORE PUBLISH. The MPICH license characterisation
+~~LICENSE PROVENANCE — VERIFY BEFORE PUBLISH. The MPICH license characterisation
 above was taken from general knowledge of the MPICH COPYRIGHT (BSD-style), not
-from a byte-for-byte reading of the upstream file in this environment. Before
-this crate is published, or before any MPICH source is ported in, the exact
-upstream license text and copyright must be confirmed against a local MPICH
-checkout and recorded here. (Epic op-erl.)
+from a byte-for-byte reading of the upstream file in this environment.~~
+**CORRECTED 2026-11-13 (gh:#1435), read from the upstream file.** MPICH's
+`COPYRIGHT` was read from a clone of https://github.com/pmodels/mpich at tags
+`v3.3.2` and `v4.2.0`. It is not the BSD text verbatim: it is Argonne's own grant
+("Copyright Notice 1998--2023, Argonne National Laboratory. Permission is hereby
+granted to use, reproduce, prepare derivative works, and to redistribute to others"),
+with a US Government licence paragraph (a paid-up, nonexclusive, irrevocable
+worldwide licence to reproduce, prepare derivative works and perform publicly), a
+disclaimer, and a list of external contributors. The two tags differ only in the
+copyright line ("2002 University of Chicago" at v3.3.2) and the contributor list.
+It is a permissive grant that requires the notice to be kept with the code. This crate
+copies no MPICH source (see "WHAT IS TRANSLATED"), so no MPICH notice is attached to
+its files; the functions that follow an MPICH routine name that routine in their
+doc comment. `[Not re-checked: the licence text of MPICH versions other than the two
+read.]`
+
+UPSTREAM VERSION — NOT RECORDED BY THE ORIGINAL CRATE, AND NOT DETERMINABLE FROM IT
+(gh:#1435, investigated 2026-11-13). The crate (created 2026-07-23, commit 74377bf28)
+names two MPICH routines in its doc comments, `MPIR_Bcast_intra_binomial` and
+`MPIR_Reduce_intra_binomial`, and `MPIR_Comm_split_impl` for `split`. Evidence:
+  * The routine file names `src/mpi/coll/bcast/bcast_intra_binomial.c` and
+    `src/mpi/coll/reduce/reduce_intra_binomial.c` exist in every tag from `v3.3` to
+    `v4.3.2` and not in `v3.2.1` (listed with `git ls-tree` on a clone). So the port was
+    written against **MPICH 3.3 or later**.
+  * The binomial algorithm itself is unchanged between `v3.3.2` and `v4.3.2`
+    (`diff -w` of `reduce_intra_binomial.c`: only `errflag` plumbing, `MPI_Aint` counts
+    and `MPIR_THREADCOMM_RANK_SIZE`). The crate's loops match it exactly in every tag, so
+    no version is excluded within that range.
+  * Nothing else in the crate (code, comments, tests, `Cargo.toml`, the commit message,
+    the issue text it came from) names a version, a commit or a source file, so the
+    version **cannot be determined; the best-supported statement is "MPICH >= 3.3, most
+    likely the current 4.x line"** (4.x is a guess from the date: the crate was written
+    in July 2026, when 4.3.x was current; this is not evidence about what was read).
+  * Differential results are therefore reported against **MPICH 4.2.0** (Ubuntu 24.04
+    package `mpich 4.2.0-5build3`, built `ch4:ucx`), chosen because it is the version
+    installable here, not because the port was translated from it. The algorithms the
+    port follows (`reduce_intra_binomial`, `bcast_intra_binomial`,
+    `allreduce_intra_recursive_doubling`, `reduce_intra_reduce_scatter_gather`) are
+    unchanged in structure between v3.3 and v4.3.2, so a different 4.x version is not
+    expected to move the result; that was not run (`Not re-checked`).
+  * Routines translated on 2026-11-13 (gh:#1435), with the tag they were read from:
+    `MPIR_Allreduce_intra_recursive_doubling` (v4.2.0, same algorithm in v3.3..v4.3.2)
+    and `MPIR_Reduce_intra_reduce_scatter_gather` (v4.2.0).
+Record and tables: `verification_and_validation/mpich_differential/README.md`.
 
 Not affiliated with or endorsed by the MPICH project, Argonne National
 Laboratory, or the MPI Forum.
