@@ -227,8 +227,15 @@ first (`processorMeshes.H`, `decompositionModel.H`); then the application with
 its `Make/options` edited (original kept as `Make/options.orig`) to drop the
 dummy `-L$(FOAM_LIBBIN)/dummy -lkahipDecomp -lmetisDecomp -lptscotchDecomp
 -lscotchDecomp` line, which the dummy-Pstream tree does not provide and the
-serial run does not need. Scripts: `/home/user/upstream-build/scripts/build-snappy.sh`
-and `build-snappy-exe.sh`; logs `build-snappy-*.log` beside them. Whole build
+serial run does not need. ~~Scripts: `/home/user/upstream-build/scripts/build-snappy.sh`
+and `build-snappy-exe.sh`; logs `build-snappy-*.log` beside them.~~ **CORRECTED
+2026-11-13** (container reset wiped `/home/user/upstream-build`; those two
+scripts were outside the repo and are gone): rebuild with
+`scripts/upstream/build-esi-v2506-and-genfoam.sh` (stages `closure` and
+`meshing`), logs in `/home/user/upstream-build/logs/`. It builds the full
+`liboverset` (in the closure) instead of the pruned `overset` + one-file edit
+above, and builds `fvMotionSolvers` unmodified because `libfvOptions` now
+exists; the `snappyHexMesh` application edit is unchanged. Whole build
 about 25 minutes at `WM_NCOMPPROCS=2`, all at the tree's default `-O3` (no
 `-O0` was needed).
 

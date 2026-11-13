@@ -263,6 +263,18 @@ pub(super) fn scalar_bcs(ctx: &Ctx, g: &Geometry, ff: &FieldFile) -> Result<Vec<
 }
 
 impl TwoPhaseCase {
+    /// The ablation of [`TwoPhaseControls::p_patch_from_file`]: the patch values of `p` start as `p_rgh`'s
+    /// (and are reset to `p_rgh + rho gh` after the thermo construction), as the port did before gh:#1361
+    /// round 5. Differs from GeN-Foam 652b3da in steps 1 and 2 only (the `U.vapour` inlet cell of an absent phase).
+    #[must_use]
+    pub fn without_p_patch_from_file(mut self) -> Self {
+        self.controls.p_patch_from_file = false;
+        for (i, v) in self.p.b.iter_mut().enumerate() {
+            *v = self.p_rgh.b[i];
+        }
+        self
+    }
+
     /// Read the `fluidRegion` of a GeN-Foam case at `root` (the directory
     /// holding `0/`, `constant/`, `system/`).
     ///
@@ -340,9 +352,20 @@ impl TwoPhaseCase {
         let p_rgh = Scalar::uniform(&g, p_rgh_f.internal.as_scalar().unwrap_or(0.0), p_rgh_bc);
         let p_f = read_field(&ctx, &format!("{zero}/p"))?;
         let mut p = Scalar::uniform(&g, p_f.internal.as_scalar().unwrap_or(0.0), vec![Bc::Calculated; mesh.patches.len()]);
+        // `p_` is `READ_IF_PRESENT`: its patch values are the file's (`calculated`, `value`), NOT `p_rgh`'s.
+        // They are what the thermo packages are constructed from, so they set the construction-time
+        // patch densities and the `oldTime()` copies of them (gh:#1361 round 5, `U.vapour` at the
+        // inlet of an absent phase). `p_rgh`'s patch is the fallback when the file gives no uniform value.
+        let patch_p_from_file = |f: usize| -> Option<f64> {
+            let name = &g.mesh.patches[g.patch_of[f - g.n_internal()]].name;
+            p_f.bcs
+                .iter()
+                .find(|(n, ty, _)| n == name && ty == "calculated")
+                .and_then(|(_, _, v)| v.as_ref().and_then(FoamValue::as_scalar))
+        };
         for f in g.n_internal()..g.n_faces() {
             if g.active[f] {
-                p.b[f - g.n_internal()] = p_rgh.b[f - g.n_internal()] + 0.0;
+                p.b[f - g.n_internal()] = patch_p_from_file(f).unwrap_or(p_rgh.b[f - g.n_internal()]);
             }
         }
 
@@ -750,6 +773,8 @@ impl TwoPhaseCase {
             max_dpdt: scalar(pimple, "maxDpdt").unwrap_or(1e6),
             dpdt: true,
             lazy_old_time_first_step: true,
+            stale_pimple_converged_flag: false,
+            p_patch_from_file: true,
             t_interface_limiter_sees_new_value: true,
             alpha_solver_tolerance,
             alpha_solver_rel_tol,

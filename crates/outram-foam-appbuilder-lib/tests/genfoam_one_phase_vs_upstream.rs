@@ -218,7 +218,7 @@ fn first_exceeding(rows: &Rows, tol: f64) -> Option<(usize, &'static str, f64)> 
 /// two orders above the measurements, set before this run from the predictions O1 and O2 (1e-10, 1e-9).
 #[test]
 fn one_phase_channel_first_steps_tight_vs_upstream() {
-    let (rows, s) = run_steps_with("steps", 40, |s| s);
+    let (rows, s) = run_steps_with("steps", 40, |s| s.with_upstream_stale_pimple_converged_flag());
     print_rows(&rows);
     for (n, dt_rel, w) in &rows {
         assert!(*dt_rel == 0.0, "step {n}: the step size differs from upstream's by {dt_rel:.3e}");
@@ -235,7 +235,7 @@ fn one_phase_channel_first_steps_tight_vs_upstream() {
 fn one_phase_channel_full_second_vs_upstream() {
     let r = load_reference("onephase_tight_steps40");
     let dir = protocol_copy("full");
-    let mut s = OnePhaseFcSolver::from_case_dir(&dir).expect("read");
+    let mut s = OnePhaseFcSolver::from_case_dir(&dir).expect("read").with_upstream_stale_pimple_converged_flag();
     let _ = std::fs::remove_dir_all(&dir);
     let mut n = 0;
     let mut dt_used = 0.0;
@@ -281,10 +281,11 @@ fn one_phase_channel_options_reproduce_the_recorded_misses() {
     // structure with the post-solve temperature: p off by 3.5e-9, T.fixedPower by 6.7e-11.
     let p = worst("o_t", |s| s.with_structure_after_solve_temperature(), "p");
     assert!(p > 1e-10 && p < 1e-6, "post-solve structure T: p {p:.3e}");
-    // the clean PIMPLE ending solves the steps upstream skips: the step-108 state differs.
+    // the clean PIMPLE ending (the DEFAULT since 2026-11-12) solves the steps upstream skips: the
+    // step-108 state differs from the upstream reference.
     let r = load_reference("onephase_tight_steps40");
     let dir = protocol_copy("o_flag");
-    let mut s = OnePhaseFcSolver::new(OnePhaseFcCase::read(&dir).expect("read")).without_stale_pimple_converged_flag();
+    let mut s = OnePhaseFcSolver::new(OnePhaseFcCase::read(&dir).expect("read"));
     let _ = std::fs::remove_dir_all(&dir);
     let mut dt_used = 0.0;
     while s.running() {
@@ -294,7 +295,52 @@ fn one_phase_channel_options_reproduce_the_recorded_misses() {
     let last = r.times.last().expect("last").clone();
     let w = compare(&s, &r, &last, dt_used);
     let t = w.iter().find(|(k, _)| *k == "T").expect("T").1;
-    assert!(t > 1e-5, "without the stale flag T differs from upstream by {t:.3e}");
+    assert!(t > 1e-5, "the corrected default differs from upstream's defective run by T {t:.3e}");
+}
+
+/// Run the channel to the end; the final solver and the number of steps that solved nothing
+/// (`outer_iterations == 0`).
+fn run_to_end(test: &str, f: fn(OnePhaseFcSolver) -> OnePhaseFcSolver) -> (OnePhaseFcSolver, usize, usize, f64) {
+    let dir = protocol_copy(test);
+    let mut s = f(OnePhaseFcSolver::new(OnePhaseFcCase::read(&dir).expect("read")));
+    let _ = std::fs::remove_dir_all(&dir);
+    let (mut n, mut skipped, mut dt_used) = (0, 0, 0.0);
+    while s.running() {
+        dt_used = s.dt;
+        let rep = s.step().expect("step");
+        n += 1;
+        if rep.outer_iterations == 0 {
+            skipped += 1;
+        }
+    }
+    (s, n, skipped, dt_used)
+}
+
+/// Correct behaviour is the DEFAULT (maintainer decision 2026-11-12, gh:#1361; pattern of
+/// `outram-mc-libs/tests/correct_physics_is_default.rs`): a default-constructed solver ends the
+/// `customPimpleControl` loop cleanly, so no time step solves nothing. The upstream defect is the
+/// explicit `with_upstream_stale_pimple_converged_flag`, which skips steps. The per-field difference
+/// between the two at step 108 is the moved number recorded in the README, "Round 4 follow-up".
+#[test]
+fn one_phase_default_is_the_corrected_pimple_ending() {
+    let dir = protocol_copy("def_ctrl");
+    let fresh = OnePhaseFcSolver::new(OnePhaseFcCase::read(&dir).expect("read"));
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(!fresh.controls.stale_pimple_converged_flag, "the default must be the corrected ending");
+    assert!(fresh.clone().with_upstream_stale_pimple_converged_flag().controls.stale_pimple_converged_flag);
+
+    let (clean, n_c, skipped_c, dt_c) = run_to_end("def_clean", |s| s);
+    let (bug, n_b, skipped_b, _) = run_to_end("def_bug", |s| s.with_upstream_stale_pimple_converged_flag());
+    eprintln!("steps: corrected {n_c} (skipped {skipped_c}), upstream-bug {n_b} (skipped {skipped_b})");
+    assert_eq!(skipped_c, 0, "the corrected default solves every step");
+    assert!(skipped_b > 0, "the upstream option skips steps after a last-iteration convergence");
+    // The skipped steps change dt history too, so the step counts may differ; compare the end state.
+    let _ = (n_c, n_b, dt_c);
+    for ((name, a), (_, b)) in port_fields(&clean).iter().zip(port_fields(&bug).iter()) {
+        if a.len() == b.len() {
+            eprintln!("end state, corrected vs upstream-bug, {name}: max relative difference {:.3e}", worst_rel(a, b));
+        }
+    }
 }
 
 /// Ablations of the named options, steps 1 and 2 (numbers go to the README).

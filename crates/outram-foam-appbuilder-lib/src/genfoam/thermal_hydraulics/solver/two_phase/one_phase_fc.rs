@@ -132,15 +132,18 @@ pub struct OnePhaseFcControls {
     /// `true` (default): `structure_.correct(Hs*T.prevIter(), Hs)`, the temperature before the
     /// energy solve. `false`: the temperature after it.
     pub structure_uses_prev_iter_t: bool,
-    /// Reproduce `customPimpleControl::loop` as GeN-Foam 652b3da has it (gh:#1361 round 4, default
-    /// `true`). When the residual criteria are first met in the LAST outer iteration
-    /// (`corr == nOuterCorrectors`), `loop()` flags `converged_`, runs that iteration, and on the next
-    /// call returns through the `corr == nCorr + 1` branch, which does not clear `converged_`. The
-    /// next time step's first `loop()` call therefore sees `converged_` still true, prints
-    /// "converged in 0 iterations", clears it and returns false: **that whole time step solves
-    /// nothing** (the fields stay as they were, time advances). Measured in `onePhase` on the
-    /// channel: every second step from step 71. `false`: the loop ends cleanly, as the code reads
-    /// at a glance ([`OnePhaseFcSolver::without_stale_pimple_converged_flag`]).
+    /// Reproduce UPSTREAM's `customPimpleControl::loop` defect (GeN-Foam 652b3da; gh:#1361 round 4).
+    /// **Default `false`: the corrected, clean ending** (maintainer decision 2026-11-12, gh:#1361:
+    /// the port defaults to the correct behaviour and upstream's defect is the explicit act, the
+    /// workspace's "correct physics is the default" rule). When the residual criteria are first
+    /// met in the LAST outer iteration (`corr == nOuterCorrectors`), upstream's `loop()` flags
+    /// `converged_`, runs that iteration, and on the next call returns through the
+    /// `corr == nCorr + 1` branch, which does not clear `converged_`. The next time step's first
+    /// `loop()` call therefore sees `converged_` still true, prints "converged in 0 iterations",
+    /// clears it and returns false: **that whole time step solves nothing** (the fields stay as they
+    /// were, time advances). Measured in `onePhase` on the channel: every second step from step 71.
+    /// `true` reproduces that, via [`OnePhaseFcSolver::with_upstream_stale_pimple_converged_flag`];
+    /// the upstream comparison test must set it so it compares like with like.
     pub stale_pimple_converged_flag: bool,
 }
 
@@ -371,7 +374,7 @@ impl OnePhaseFcCase {
             relax_h_equation: eq_relax("h"),
             lazy_old_time_first_step: true,
             structure_uses_prev_iter_t: true,
-            stale_pimple_converged_flag: true,
+            stale_pimple_converged_flag: false,
         };
 
         let zero = format!("0/{region}");
@@ -1094,6 +1097,7 @@ impl OnePhaseFcSolver {
         loop {
             corr += 1;
             if corr == n_outer + 1 {
+                // Upstream leaves `converged_` set here (the defect); the default clears it.
                 if !self.controls.stale_pimple_converged_flag {
                     self.pimple_converged = false;
                 }
@@ -1185,11 +1189,14 @@ impl OnePhaseFcSolver {
         self
     }
 
-    /// The clean `customPimpleControl::loop` ending ([`OnePhaseFcControls::stale_pimple_converged_flag`]
-    /// `= false`).
+    /// Reproduce upstream GeN-Foam 652b3da's `customPimpleControl::loop` DEFECT
+    /// ([`OnePhaseFcControls::stale_pimple_converged_flag`] `= true`): a step whose criteria were
+    /// first met in the last outer iteration leaves `converged_` set and the NEXT step solves
+    /// nothing. This is the explicit deviation from correct behaviour, used only to compare against
+    /// the upstream binary; the default ends the loop cleanly.
     #[must_use]
-    pub fn without_stale_pimple_converged_flag(mut self) -> Self {
-        self.controls.stale_pimple_converged_flag = false;
+    pub fn with_upstream_stale_pimple_converged_flag(mut self) -> Self {
+        self.controls.stale_pimple_converged_flag = true;
         self
     }
 
