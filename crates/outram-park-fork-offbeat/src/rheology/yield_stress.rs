@@ -388,10 +388,21 @@ impl FraptranCoefficients {
         // chain as `phi <= 0.1e25 && phi < 2e25` and `phi <= 2e25 && phi <
         // 12e25`, which (after the first branch has already excluded
         // `phi < 0.1e25`) can only be satisfied at the exact boundary values.
-        // The consequence is that for any fluence in (0.1e25, 12e25) n/m² —
+        // ~~The consequence is that for any fluence in (0.1e25, 12e25) n/m² —
         // i.e. essentially all irradiated cladding — no fluence factor is
-        // applied at all, and K is silently left at its unirradiated value.
-        // This port uses the evidently intended `>=` comparisons.
+        // applied at all, and K is silently left at its unirradiated value.~~
+        // CORRECTED 2026-11-13 (gh:#1393 round 2, checked against the
+        // transcribed kernel in tests/offbeat_differential_yield.rs): for
+        // fluence in (0.1e25, 2e25] the THIRD branch fires (the chain is
+        // `else if` and its third condition `phi <= 2e25 && phi < 12e25` holds),
+        // so K gets `0.53236 + 2.6618e-27 phi` instead of `2.928e-26 phi`; for
+        // (2e25, 12e25) and above 12e25 no factor is applied. Upstream also
+        // executes `phiValue_ *= 1e25` on EVERY call, so from the second call on
+        // the fluence is saturated (n multiplier 1.608953, no K factor). This
+        // port uses the evidently intended `>=` comparisons and is bit-identical
+        // to the transcribed intended chain on 3762 grid points; it differs from
+        // upstream-as-written by 14.5 % to 184 % in sigma_y on the 2736 of those
+        // points whose fluence takes a different branch.
         let k_phi = if phi < 0.1e25 {
             -0.1461
                 + 1.464e-25
