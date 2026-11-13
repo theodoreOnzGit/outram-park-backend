@@ -29,18 +29,19 @@
 //! `outram-park` wheel) and not only from this command line.
 
 use outram_foam_appbuilder_lib::case_runner::{format_time, CaseRun, SolverKind};
-use outram_foam_cli::{CaseArgs, CliError};
+use outram_foam_cli::{CliError, FlavourArgs, WriteFlavour};
 
 fn main() {
-    let args = outram_foam_cli::openfoam_args();
+    let args = outram_foam_cli::flavour_args();
     if let Err(e) = run(&args) {
         eprintln!("rhoCentralFoam: error: {e}");
         std::process::exit(1);
     }
 }
 
-fn run(args: &CaseArgs) -> Result<(), CliError> {
-    let case_dir = args.case_dir()?;
+fn run(fargs: &FlavourArgs) -> Result<(), CliError> {
+    let flavour = WriteFlavour::parse(&fargs.flavour)?;
+    let case_dir = fargs.case.case_dir()?;
     let mut case_run = CaseRun::from_case(&case_dir, SolverKind::RhoCentralFoam)
         .map_err(|e| CliError::Tool(format!("rhoCentralFoam: {e}")))?;
 
@@ -65,9 +66,7 @@ fn run(args: &CaseArgs) -> Result<(), CliError> {
         format_time(case_run.time)
     );
 
-    let summary = case_run
-        .write_fields()
-        .map_err(|e| CliError::Tool(format!("rhoCentralFoam: {e}")))?;
+    let summary = outram_foam_cli::write_run_fields(&case_run, &case_dir, flavour)?;
     println!("Wrote fields to {}", summary.output_dir.display());
     Ok(())
 }

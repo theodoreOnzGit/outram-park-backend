@@ -89,6 +89,8 @@
 
 pub mod case;
 pub mod fv;
+pub mod one_phase_fc;
+mod pbicgstab;
 pub mod thermo;
 
 #[cfg(test)]
@@ -301,6 +303,49 @@ pub struct TwoPhaseControls {
     pub max_dpdt: f64,
     /// Whether the thermo packages carry `dpdt` (OpenFOAM default `true`).
     pub dpdt: bool,
+    /// Reproduce what GeN-Foam 652b3da does in the FIRST time step because
+    /// OpenFOAM creates a field's old-time copy lazily (gh:#1361 round 3).
+    /// Default `true` (upstream is the specification); see
+    /// [`TwoPhaseSolver::without_first_step_lazy_old_time`] for the ablation.
+    ///
+    /// 1. `fvc::ddt(p_)` in the energy equation is the first request for
+    ///    `p.oldTime()`, so in step 1 the old-time pressure is the pressure
+    ///    after the first `p_rgh` solve, not the initial field (`dpdt` = 0 in
+    ///    the first outer iteration).
+    /// 2. `fixedPower::correct` writes `T_[celli]` through `operator[]`, which
+    ///    does not call `storeOldTimes`, so the old-time copy created in outer
+    ///    iteration 1 carries a stale time index and is overwritten with the
+    ///    iteration-1 result at the start of outer iteration 2 (and only then):
+    ///    in step 1 the structure is advanced from its iteration-1 temperature
+    ///    in every iteration after the first, i.e. it receives one extra step of
+    ///    power, `alpha q dt / (alpha rho Cp)`.
+    pub lazy_old_time_first_step: bool,
+    /// Reproduce what `phaseChangeModel::correctInterfacialTemperature` really does
+    /// with `maxTInterfaceDdt` (gh:#1361 round 3). Default `true`.
+    ///
+    /// The code reads `iT_.oldTime()[i]` AFTER `saturationPtr_->correctField(iT_)`
+    /// has overwritten `iT_`, and `correctField` ends with
+    /// `correctBoundaryConditions()`, which calls `storeOldTimes()`: the old-time
+    /// copy is therefore refreshed from the NEW saturation temperature (in step 1
+    /// the copy is first created from it), so `(iT - iT0)/dt` is 0 and the
+    /// `maxTInterfaceDdt` limiter never limits. Measured: after step 2 of
+    /// `1D_boiling` upstream's `T.interface` moved by +4.747 K from a saturation
+    /// jump of +37.98 K, where the limiter as documented would allow +1.375 K.
+    /// `false` applies the limiter against the temperature at the start of the step
+    /// (the documented intent; the port's behaviour before round 3).
+    pub t_interface_limiter_sees_new_value: bool,
+    /// `tolerance` of the linear solver selected for `alpha.<solved phase>`
+    /// (the catch-all `".*"` entry in `1D_boiling`).
+    pub alpha_solver_tolerance: f64,
+    /// `relTol` of that solver (0 if absent).
+    pub alpha_solver_rel_tol: f64,
+    /// `true` (default): solve the `alpha` equation with OpenFOAM's
+    /// `PBiCGStab`/`diagonal` and the case's tolerances, stopping where upstream
+    /// stops (gh:#1361 round 3: the tail of a decaying vapour front is solver
+    /// noise in upstream). `false`: solve it to round-off with ILU(0)-BiCGStab (the
+    /// port's earlier behaviour,
+    /// [`TwoPhaseSolver::with_exact_alpha_solve`]).
+    pub alpha_solver_openfoam: bool,
 }
 
 /// Time-step control (`controlDict`).
@@ -318,6 +363,15 @@ pub struct TimeControls {
     pub max_delta_t: f64,
     /// `writeInterval` [s] with `writeControl adjustableRunTime`.
     pub write_interval: Option<f64>,
+    /// `startTime` [s].
+    pub start_time: f64,
+    /// `true` (default): snap the step to the write times exactly as ESI
+    /// `Time::adjustDeltaT` does (`max(1, round(nSteps))` steps, growth capped at
+    /// 2x and shrink at 0.2x, `writeTimeIndex` from `Time::operator++`), which is
+    /// what GeN-Foam 652b3da on v2506 runs (gh:#1361 round 3). `false` keeps the
+    /// port's earlier rule (always round the step count UP, from the written
+    /// time): see [`TwoPhaseSolver::with_foundation_style_write_time_adjust`].
+    pub esi_adjust_delta_t: bool,
 }
 
 /// One fluid's field state (`Foam::fluid`).
@@ -379,6 +433,11 @@ pub struct Phase {
     pub xlm: Vec<f64>,
     // old-time values
     alpha_old: Vec<f64>,
+    /// Old-time boundary values (`alpha.oldTime().boundaryField()`): OpenFOAM stores
+    /// the whole field, so a calculated patch (e.g. `rho` from the patch `p`)
+    /// keeps its own old value, not the owner cell's.
+    alpha_old_b: Vec<f64>,
+    rho_old_b: Vec<f64>,
     rho_old: Vec<f64>,
     he_old: Vec<f64>,
     u_old: Vec<Vector3>,
@@ -440,6 +499,17 @@ pub struct TwoPhaseSolver {
     /// `p_rgh` [Pa].
     pub p_rgh: Scalar,
     p_old: Vec<f64>,
+    /// Whether `p.oldTime()` has been created yet. In OpenFOAM a field's old-time
+    /// copy exists only once something has asked for it: GeN-Foam's first request
+    /// for `p.oldTime()` is the `fvc::ddt(p_)` of the energy equation, so during the
+    /// FIRST time step the old-time pressure is the pressure at that first call (after
+    /// the first `p_rgh` solve), not the initial field, and `dpdt` is exactly 0 in the
+    /// first outer iteration (gh:#1361 round 3). From the second step on the old-time
+    /// copy is stored at every time increment, as usual.
+    p_old_stored: bool,
+    /// `true` until the first outer iteration of step 1 has advanced the structure
+    /// (see [`TwoPhaseControls::lazy_old_time_first_step`], item 2).
+    structure_old_time_stale: bool,
     /// Mixture density over the moving fraction [kg/m^3].
     pub rho_mix: Scalar,
     /// Total volumetric flux [m^3/s].
@@ -457,6 +527,13 @@ pub struct TwoPhaseSolver {
     /// Interfacial temperature [K] (`T.interface`).
     pub t_interface: Vec<f64>,
     t_interface_old: Vec<f64>,
+    /// `iT_.oldTime()` as OpenFOAM leaves it: the raw saturation temperature of the
+    /// step's first outer iteration (see `t_interface_limiter_sees_new_value`).
+    t_interface_raw0: Vec<f64>,
+    /// Outer iteration (1-based) in progress.
+    corr_in_step: usize,
+    /// ESI `Time::writeTimeIndex_` (`adjustableRunTime` only).
+    write_time_index: i64,
     /// Interfacial area density [1/m].
     pub interfacial_area: Vec<f64>,
     /// Phase-change rate fluid 1 → fluid 2 [kg/(m^3 s)].
@@ -533,6 +610,8 @@ impl TwoPhaseSolver {
             p: case.p.clone(),
             p_rgh: case.p_rgh.clone(),
             p_old: case.p.c.clone(),
+            p_old_stored: !case.controls.lazy_old_time_first_step,
+            structure_old_time_stale: case.controls.lazy_old_time_first_step,
             rho_mix: case.p.clone(),
             phi: vec![0.0; nf],
             fluids: case.fluids.clone(),
@@ -542,6 +621,9 @@ impl TwoPhaseSolver {
             time_controls: case.time_controls.clone(),
             t_interface: vec![0.0; n],
             t_interface_old: vec![0.0; n],
+            t_interface_raw0: vec![0.0; n],
+            corr_in_step: 0,
+            write_time_index: 0,
             interfacial_area: vec![0.0; n],
             dmdt: vec![0.0; n],
             latent_heat: vec![0.0; n],
@@ -666,14 +748,25 @@ impl TwoPhaseSolver {
             let f = &mut self.fluids[k];
             f.alpha_old = f.alpha.c.clone();
             f.rho_old = f.rho.c.clone();
+            f.alpha_old_b = f.alpha.b.clone();
+            f.rho_old_b = f.rho.b.clone();
             f.he_old = f.he.c.clone();
             f.u_old = f.u.c.clone();
             f.phi_old = f.phi.clone();
         }
-        self.p_old = self.p.c.clone();
+        if self.p_old_stored {
+            self.p_old = self.p.c.clone();
+        }
         self.t_interface_old = self.t_interface.clone();
         self.structure.power_old = self.structure.power.clone();
         self.time += self.dt;
+        if let Some(wi) = self.time_controls.write_interval {
+            // `Time::operator++`: move the write index.
+            let write_index = (((self.time - self.time_controls.start_time) + 0.5 * self.dt) / wi) as i64;
+            if write_index > self.write_time_index {
+                self.write_time_index = write_index;
+            }
+        }
 
         let mut report = StepReport {
             time: self.time,
@@ -691,6 +784,7 @@ impl TwoPhaseSolver {
             if corr > 1 && self.criteria_satisfied(&report) {
                 converged = true;
             }
+            self.corr_in_step = corr;
             self.correct_models();
             let (p_res, n_piso) = self.correct_fluid_mechanics()?;
             let _ = n_piso;
@@ -1015,7 +1109,18 @@ impl TwoPhaseSolver {
                 .t_sat(Pressure::new::<pascal>(self.p.c[c]))
                 .get::<kelvin>();
             if let Some(max_dtdt) = self.controls.max_t_interface_ddt {
-                let it0 = self.t_interface_old[c];
+                // `iT_.oldTime()` after `correctField` refreshed it: see
+                // `TwoPhaseControls::t_interface_limiter_sees_new_value`.
+                let it0 = if self.controls.t_interface_limiter_sees_new_value {
+                    // outer iteration 1: the old-time copy is refreshed from the raw
+                    // TSat just computed; later iterations still see that value.
+                    if self.corr_in_step <= 1 {
+                        self.t_interface_raw0[c] = it;
+                    }
+                    self.t_interface_raw0[c]
+                } else {
+                    self.t_interface_old[c]
+                };
                 let rate = ((it - it0) / self.dt).max(-max_dtdt).min(max_dtdt);
                 it = it0 + rate * self.dt;
             }
@@ -1251,31 +1356,78 @@ impl TwoPhaseSolver {
         }
         let fl = &self.fluids[s];
         let mut eqn = Eqn::new(&g);
-        let ones = vec![1.0; n];
-        eqn.ddt(&g, &ones, &ones, &fl.alpha_old, self.dt);
-        // Gauss upwind with weights by the TOTAL flux phi_, applied to phi_s.
-        for f in 0..ni {
-            let (ow, nb) = (g.mesh.owner[f], g.mesh.neighbour[f]);
-            let fl_f = fl.phi[f];
-            if self.phi[f] >= 0.0 {
-                eqn.ldu.diag[ow] += fl_f;
-                eqn.ldu.lower[f] -= fl_f;
-            } else {
-                eqn.ldu.upper[f] += fl_f;
-                eqn.ldu.diag[nb] -= fl_f;
+        if self.controls.alpha_solver_openfoam {
+            // Assembled in the order OpenFOAM does, so the matrix is bit-identical:
+            // `EulerDdtScheme::fvmDdt` (diag `rDeltaT*V`, source `rDeltaT*psi0*V`), the
+            // convection matrix on its own (`gaussConvectionScheme::fvmDiv`: `lower =
+            // -w phi`, `upper = lower + phi`, `negSumDiag`), their sum, then
+            // `fvm::Sp`/`Su`, and the boundary diagonal LAST (`fvMatrix::addBoundaryDiag`
+            // at solve time).
+            let r_delta_t = 1.0 / self.dt;
+            let mut div_diag = vec![0.0; n];
+            for f in 0..ni {
+                let (ow, nb) = (g.mesh.owner[f], g.mesh.neighbour[f]);
+                let fl_f = fl.phi[f];
+                let w = if self.phi[f] >= 0.0 { 1.0 } else { 0.0 };
+                let lower = -w * fl_f;
+                let upper = lower + fl_f;
+                eqn.ldu.lower[f] = lower;
+                eqn.ldu.upper[f] = upper;
+                div_diag[ow] -= lower;
+                div_diag[nb] -= upper;
             }
-        }
-        for f in ni..nf {
-            if g.active[f] {
-                eqn.ldu.diag[g.mesh.owner[f]] += fl.phi[f];
+            for c in 0..n {
+                let v = g.mesh.cell_volumes[c];
+                eqn.ldu.diag[c] = r_delta_t * v + div_diag[c];
+                eqn.source[c] = r_delta_t * fl.alpha_old[c] * v;
             }
+            let neg_sp: Vec<f64> = sp.iter().map(|v| -v).collect();
+            eqn.sp(&g, &neg_sp);
+            eqn.su(&g, &su);
+            for f in ni..nf {
+                if g.active[f] {
+                    eqn.ldu.diag[g.mesh.owner[f]] += fl.phi[f];
+                }
+            }
+        } else {
+            let ones = vec![1.0; n];
+            eqn.ddt(&g, &ones, &ones, &fl.alpha_old, self.dt);
+            // Gauss upwind with weights by the TOTAL flux phi_, applied to phi_s.
+            for f in 0..ni {
+                let (ow, nb) = (g.mesh.owner[f], g.mesh.neighbour[f]);
+                let fl_f = fl.phi[f];
+                if self.phi[f] >= 0.0 {
+                    eqn.ldu.diag[ow] += fl_f;
+                    eqn.ldu.lower[f] -= fl_f;
+                } else {
+                    eqn.ldu.upper[f] += fl_f;
+                    eqn.ldu.diag[nb] -= fl_f;
+                }
+            }
+            for f in ni..nf {
+                if g.active[f] {
+                    eqn.ldu.diag[g.mesh.owner[f]] += fl.phi[f];
+                }
+            }
+            let neg_sp: Vec<f64> = sp.iter().map(|v| -v).collect();
+            eqn.sp(&g, &neg_sp);
+            eqn.su(&g, &su);
         }
-        let neg_sp: Vec<f64> = sp.iter().map(|v| -v).collect();
-        eqn.sp(&g, &neg_sp);
-        eqn.su(&g, &su);
         let prev = fl.alpha.c.clone();
         let mut x = prev.clone();
-        let _ = solve_krylov(&eqn, &mut x, 0.0);
+        if self.controls.alpha_solver_openfoam {
+            let _ = pbicgstab::pbicgstab_diagonal(
+                &eqn.ldu,
+                &eqn.source,
+                &mut x,
+                self.controls.alpha_solver_tolerance,
+                self.controls.alpha_solver_rel_tol,
+                pbicgstab::DEFAULT_MAX_ITER,
+                0,
+            );
+        } else {
+            let _ = solve_krylov(&eqn, &mut x, 0.0);
+        }
         let fa = self.controls.relax_alpha;
         let fl = &mut self.fluids[s];
         for c in 0..n {
@@ -1428,12 +1580,11 @@ impl TwoPhaseSolver {
         for k in 0..2 {
             let fl = &self.fluids[k];
             arf.push(ar_by_dt(fl, &fl.alpha.c, &fl.rho.c, &fl.alpha.b, &fl.rho.b));
-            // old-time boundary values: the patches are zeroGradient-like, so
-            // the owner's old value is the old boundary value.
-            let ab0: Vec<f64> = (ni..nf).map(|f| fl.alpha_old[g.mesh.owner[f]]).collect();
-            let rb0: Vec<f64> = (ni..nf)
-                .map(|f| if fl.rho.is_fixed(&g, f) { fl.rho.b[f - ni] } else { fl.rho_old[g.mesh.owner[f]] })
-                .collect();
+            // old-time boundary values: OpenFOAM's `oldTime()` stores the whole
+            // field, boundary included (gh:#1361 round 3: the old `rho` patch of the
+            // vapour is evaluated at the old patch pressure, not the owner's value).
+            let ab0: Vec<f64> = fl.alpha_old_b.clone();
+            let rb0: Vec<f64> = fl.rho_old_b.clone();
             arf0.push(ar_by_dt(fl, &fl.alpha_old, &fl.rho_old, &ab0, &rb0));
         }
         let mut kd12 = Scalar::uniform(&g, 0.0, g.default_bcs());
@@ -1632,6 +1783,11 @@ impl TwoPhaseSolver {
                 }
             }
         }
+        if !self.p_old_stored {
+            // `fvc::ddt(p_)` creates `p.oldTime()` as a copy of the current field.
+            self.p_old = self.p.c.clone();
+            self.p_old_stored = true;
+        }
         let dpdt: Vec<f64> = (0..n)
             .map(|c| ((self.p.c[c] - self.p_old[c]) / self.dt).max(-self.controls.max_dpdt).min(self.controls.max_dpdt))
             .collect();
@@ -1750,6 +1906,14 @@ impl TwoPhaseSolver {
                 self.structure.power[c] = Some(pm);
             }
         }
+        if self.structure_old_time_stale {
+            // fixedPower::correct: `T_.oldTime()` is created in outer iteration 1
+            // with a stale time index; the first request of outer iteration 2
+            // overwrites it with the iteration-1 result (item 2 of
+            // `TwoPhaseControls::lazy_old_time_first_step`).
+            self.structure.power_old = self.structure.power.clone();
+            self.structure_old_time_stale = false;
+        }
         res1
     }
 
@@ -1863,6 +2027,19 @@ impl TwoPhaseSolver {
     /// shrink the step evenly so a write time is hit exactly.
     fn adjust_to_write_time(&mut self) {
         let Some(wi) = self.time_controls.write_interval else { return };
+        if self.time_controls.esi_adjust_delta_t {
+            // ESI `Time::adjustDeltaT` (OpenFOAM-v2506 src/OpenFOAM/db/Time/Time.C:102).
+            let to_next = (((self.write_time_index + 1) as f64) * wi
+                - (self.time - self.time_controls.start_time))
+                .max(0.0);
+            let n_steps = to_next / self.dt;
+            if n_steps < f64::from(i32::MAX) {
+                let n = n_steps.round().max(1.0);
+                let new_dt = to_next / n;
+                self.dt = if new_dt >= self.dt { new_dt.min(2.0 * self.dt) } else { new_dt.max(0.2 * self.dt) };
+            }
+            return;
+        }
         let next = ((self.time / wi + 1e-9).floor() + 1.0) * wi;
         let to_next = next - self.time;
         let n_steps = (to_next / self.dt - 1e-9).ceil().max(1.0);
@@ -1876,6 +2053,52 @@ impl TwoPhaseSolver {
 struct VecEqn {
     eqn: Eqn,
     src: [Vec<f64>; 3],
+}
+
+impl TwoPhaseSolver {
+    /// The ablation of [`TwoPhaseControls::lazy_old_time_first_step`]: the first
+    /// time step treats the old-time pressure as the INITIAL field and the
+    /// structure's old-time temperature as its value at the start of the step,
+    /// as every later step does. This is what the port did before gh:#1361
+    /// round 3; it differs from GeN-Foam 652b3da in step 1 only.
+    #[must_use]
+    pub fn without_first_step_lazy_old_time(mut self) -> Self {
+        self.controls.lazy_old_time_first_step = false;
+        self.p_old_stored = true;
+        self.structure_old_time_stale = false;
+        self
+    }
+}
+
+impl TwoPhaseSolver {
+    /// Solve the `alpha` equation to round-off ([`TwoPhaseControls::alpha_solver_openfoam`]
+    /// `= false`), instead of stopping where OpenFOAM's `PBiCGStab` does.
+    #[must_use]
+    pub fn with_exact_alpha_solve(mut self) -> Self {
+        self.controls.alpha_solver_openfoam = false;
+        self
+    }
+}
+
+impl TwoPhaseSolver {
+    /// Keep the port's earlier write-time rule instead of ESI `Time::adjustDeltaT`
+    /// ([`TimeControls::esi_adjust_delta_t`] `= false`).
+    #[must_use]
+    pub fn with_foundation_style_write_time_adjust(mut self) -> Self {
+        self.time_controls.esi_adjust_delta_t = false;
+        self
+    }
+}
+
+impl TwoPhaseSolver {
+    /// The ablation of [`TwoPhaseControls::t_interface_limiter_sees_new_value`]:
+    /// `maxTInterfaceDdt` limits against `T.interface` at the start of the step, as
+    /// the source reads, not as OpenFOAM's old-time storage makes it behave.
+    #[must_use]
+    pub fn with_documented_t_interface_rate_limiter(mut self) -> Self {
+        self.controls.t_interface_limiter_sees_new_value = false;
+        self
+    }
 }
 
 impl VecEqn {
@@ -2165,6 +2388,8 @@ impl Phase {
             quality: vec![0.0; n],
             xlm: vec![1e4; n],
             alpha_old: alpha.c.clone(),
+            alpha_old_b: alpha.b.clone(),
+            rho_old_b: Vec::new(),
             rho_old: vec![0.0; n],
             he_old: vec![0.0; n],
             u_old: u.c.clone(),

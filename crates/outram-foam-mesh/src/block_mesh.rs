@@ -1169,7 +1169,17 @@ impl BlockMeshDict {
             .zip(&topo.patch_sizes)
             .map(|(&s, &n)| (s, n))
             .collect();
-        if n_default > 0 {
+        // A patch the dictionary itself declares under the default patch's name
+        // takes the unassigned faces (and keeps its declared type), as upstream's
+        // `polyMesh` shape-mesh constructor does (gh:#1363 row 7: the TJunction
+        // tutorials declare `defaultFaces { type wall; faces (); }`; before this
+        // the port wrote that patch empty AND a second `defaultFaces`).
+        let declared_default = if n_default > 0 {
+            patch_names.iter().position(|n| *n == self.default_patch_name)
+        } else {
+            None
+        };
+        if n_default > 0 && declared_default.is_none() {
             patch_names.push(self.default_patch_name.clone());
             patch_kinds.push(self.default_patch_kind);
             ranges.push((topo.default_start, n_default));
@@ -1179,6 +1189,13 @@ impl BlockMeshDict {
             let faces = &topo.faces[start..start + size];
             let owners = &topo.owner[start..start + size];
             patch_faces.push(create_patch_faces(&grids, &shapes, &merge, faces, owners));
+        }
+        if let Some(k) = declared_default {
+            let start = topo.default_start;
+            let faces = &topo.faces[start..start + n_default];
+            let owners = &topo.owner[start..start + n_default];
+            let extra = create_patch_faces(&grids, &shapes, &merge, faces, owners);
+            patch_faces[k].extend(extra);
         }
 
         let sm = mesh_from_shapes(merge.n_points, &cells, &patch_faces, &patch_names)?;

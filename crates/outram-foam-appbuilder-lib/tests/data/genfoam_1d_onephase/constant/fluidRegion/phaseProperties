@@ -1,0 +1,79 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      phaseProperties;
+}
+
+// onePhase variant of GeN-Foam's 1D_boiling (gh:#1361 round 4): the structure
+// and the liquid fluid-structure closures are 1D_boiling's, written in the
+// flat onePhase form used by 1D_HX/onePhase. See ../../PROVENANCE.md.
+
+structureProperties
+{
+    "low:top"
+    {
+        volumeFraction      0.5;
+        Dh                  0.01;
+    }
+
+    "mid"
+    {
+        volumeFraction      0.5;
+        Dh                  0.005;
+
+        powerModel
+        {
+            type                fixedPower;
+            volumetricArea      100;
+            T                   652.15;
+            Cp                  500;
+            rho                 7700;
+            powerDensity        4.5e7;
+        }
+    }
+}
+
+regimeMapModels
+{
+}
+
+physicsModels
+{
+    dragModels
+    {
+        "low:mid:top"
+        {
+            type    ReynoldsPower;
+            coeff   2;
+            exp     -0.125;
+        }
+    }
+
+    heatTransferModels
+    {
+        "mid"
+        {
+            type    NusseltReynoldsPrandtlPower;
+            const   7.48467;
+            coeff   0.02994;
+            expRe   0.77;
+            expPr   0.77;
+        }
+    }
+}
+
+pMin            10000;
+
+pRefCell        0;
+
+pRefValue       100000;

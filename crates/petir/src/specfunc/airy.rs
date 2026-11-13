@@ -245,11 +245,13 @@ const BIP2: [f64; 29] = [
 /// `(2/3) x^{3/2}` exceeds this less one.
 use crate::specfunc::LOG_DBL_MAX;
 
-/// Clenshaw in GSL's convention, on `[-1, 1]`. Every series in this module is
-/// declared on that interval, so no argument rescaling is needed — the branch
-/// formulae below map `x` into it themselves.
+/// GSL's `cheb_eval_e` on `[-1, 1]`. ~~Every series in this module is declared
+/// on that interval, so no argument rescaling is needed~~ **CORRECTED
+/// 2026-11-12 (gh:#1421):** `cheb_eval_e` still maps its argument,
+/// `((2x + 1) - 1)/2`, which rounds; see [`crate::specfunc::cheb_eval_e`]. The
+/// branch formulae below build `x` on `[-1, 1]` and this applies that mapping.
 fn cheb(x: f64, c: &[f64]) -> f64 {
-    crate::cheb_slice::eval_gsl(x, c)
+    crate::specfunc::cheb_eval_e(x, c)
 }
 
 /// The Airy modulus and phase, upstream's `airy_mod_phase`, valid for

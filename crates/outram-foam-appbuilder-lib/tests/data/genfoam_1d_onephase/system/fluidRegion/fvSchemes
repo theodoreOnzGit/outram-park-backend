@@ -1,0 +1,68 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      fvSchemes;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+ddtSchemes
+{
+    default         Euler;
+}
+
+gradSchemes
+{
+    default         Gauss linear;
+}
+
+divSchemes
+{
+    default                                 none;
+
+    div(phi,alpha)                          Gauss vanLeer;
+    div(phir,alpha)                         Gauss vanLeer;
+
+    div(phi,alpha.liquid)                   Gauss vanLeer;
+    div(phir,alpha.vapour,alpha.liquid)     Gauss vanLeer;
+    div(phir,alpha.structure,alpha.liquid)  Gauss vanLeer;
+    div(phi,alpha.vapour)                   Gauss vanLeer;
+    div(phir,alpha.liquid,alpha.vapour)     Gauss vanLeer;
+    div(phir,alpha.structure,alpha.vapour)  Gauss vanLeer;
+    
+    "div\(phi.*,U.*\)"                      Gauss upwind;
+    "div(alphaRhoPhi,U)"                    Gauss upwind;
+    "div(alphaRhoPhiNu,U)"                  Gauss linear;
+    "div(alphaRhoPhi,K)"                    Gauss upwind;
+    
+    "div\(alphaRhoPhi.*,k.*\)"              Gauss upwind;
+    "div\(alphaRhoPhi.*,epsilon.*\)"        Gauss upwind;
+    
+    "div\(alphaRhoPhi.*,(h|e).*\)"          Gauss upwind;
+}
+
+laplacianSchemes
+{
+    default         Gauss linear uncorrected;
+}
+
+interpolationSchemes
+{
+    default         linear;
+}
+
+snGradSchemes
+{
+    default         uncorrected;
+}
+
+// ************************************************************************* //

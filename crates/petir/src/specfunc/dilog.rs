@@ -170,7 +170,11 @@ fn dilog_series_2(x: f64) -> f64 {
         let t38 = 1.0 / 3.0 + x * (1.0 / 4.0 + x * (1.0 / 5.0 + x * t68));
         (x - 1.0) * (1.0 + x * (0.5 + x * t38))
     };
-    s + 1.0 + t
+    // GSL: `result->val += 1.0 + t;`, i.e. `s + (1.0 + t)`.
+    // ~~`s + 1.0 + t`, which is `(s + 1.0) + t`~~ **CORRECTED 2026-11-12
+    // (gh:#1421):** a different rounding, and the whole of `dilog`'s residual
+    // against GSL linked to PETIR's libm for `x < -32`.
+    s + (1.0 + t)
 }
 
 /// `Li_2(x)` for `x >= 0`, upstream's `dilog_xge0`.

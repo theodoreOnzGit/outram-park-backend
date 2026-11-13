@@ -426,6 +426,8 @@ struct Parser {
     tokens: Vec<Token>,
     pos: usize,
     context: String,
+    /// Dictionaries under construction, innermost last (for `$name;` macros).
+    scopes: Vec<FoamDict>,
 }
 
 impl Parser {
@@ -434,6 +436,7 @@ impl Parser {
             tokens,
             pos: 0,
             context: context.into(),
+            scopes: Vec::new(),
         }
     }
 
@@ -509,8 +512,19 @@ impl Parser {
 
     /// Parse the body of a dictionary up to (and consuming) a closing `}`, or
     /// to end-of-input at the top level.
+    ///
+    /// The dictionary under construction is kept on `self.scopes` so that a
+    /// macro entry `$name;` (gh:#1363: the shipped tutorials' `fvSolution`
+    /// writes `pFinal { $p; relTol 0; }`) can find `name` in this or an
+    /// enclosing dictionary.
     fn parse_dict_body(&mut self, top_level: bool) -> Result<FoamDict, IoError> {
-        let mut dict = FoamDict::new();
+        self.scopes.push(FoamDict::new());
+        let result = self.parse_dict_entries(top_level);
+        let dict = self.scopes.pop().unwrap_or_default();
+        result.map(|()| dict)
+    }
+
+    fn parse_dict_entries(&mut self, top_level: bool) -> Result<(), IoError> {
         loop {
             match self.peek_text() {
                 None => {
@@ -529,13 +543,46 @@ impl Parser {
                 Some(";") => {
                     self.advance(); // stray semicolon
                 }
+                Some(t) if t.starts_with('$') && self.next_text_is(";") => {
+                    self.expand_macro_entry()?;
+                }
                 _ => {
                     let (kw, entry) = self.parse_entry()?;
-                    dict.insert(kw, entry);
+                    if let Some(d) = self.scopes.last_mut() {
+                        d.insert(kw, entry);
+                    }
                 }
             }
         }
-        Ok(dict)
+        Ok(())
+    }
+
+    fn next_text_is(&self, text: &str) -> bool {
+        self.tokens.get(self.pos + 1).map(|t| t.text.as_str()) == Some(text)
+    }
+
+    /// `$name;`: merge the entries of the sub-dictionary `name` (this
+    /// dictionary first, then each enclosing one, as OpenFOAM's scoping does)
+    /// into the dictionary being built; later entries override them.
+    fn expand_macro_entry(&mut self) -> Result<(), IoError> {
+        let token = self.advance().map(|t| t.text).unwrap_or_default();
+        self.advance(); // the `;`
+        let name = token.trim_start_matches('$').trim_start_matches([':', '.']);
+        let found = self
+            .scopes
+            .iter()
+            .rev()
+            .find_map(|d| match d.get(name) {
+                Some(FoamEntry::SubDict(sub)) => Some(sub.clone()),
+                _ => None,
+            })
+            .ok_or_else(|| self.err(format!("`${name};` names no sub-dictionary in scope")))?;
+        if let Some(d) = self.scopes.last_mut() {
+            for (k, e) in found.iter() {
+                d.insert(k.to_string(), e.clone());
+            }
+        }
+        Ok(())
     }
 
     /// Parse one `keyword … ;` (or `keyword { … }`) entry.
@@ -998,6 +1045,23 @@ fn resolve_includes(path: &Path, depth: usize) -> Result<String, IoError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// gh:#1363: the shipped cavity `fvSolution` uses `pFinal { $p; relTol 0; }`.
+    #[test]
+    fn a_macro_entry_merges_the_named_subdictionary_and_later_entries_override() {
+        let f = FoamFile::parse(
+            "solvers { p { solver PCG; relTol 0.05; tolerance 1e-06; } \
+             pFinal { $p; relTol 0; } U { $p; } }",
+        )
+        .unwrap();
+        let solvers = f.dict.get_dict("solvers").unwrap();
+        let p_final = solvers.get_dict("pFinal").unwrap();
+        assert_eq!(p_final.get_scalar("relTol"), Some(0.0));
+        assert_eq!(p_final.get_scalar("tolerance"), Some(1e-6));
+        assert_eq!(p_final.get_word("solver"), Some("PCG"));
+        assert_eq!(solvers.get_dict("U").unwrap().get_scalar("relTol"), Some(0.05));
+        assert!(FoamFile::parse("a { $missing; }").is_err());
+    }
 
     #[test]
     fn tokenize_glued_flag() {

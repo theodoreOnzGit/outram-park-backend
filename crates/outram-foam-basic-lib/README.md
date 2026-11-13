@@ -254,6 +254,8 @@ dominance exactly where the coefficient is largest; two tests in
 | Module | Rust type / fn | C++ source | Notes |
 |---|---|---|---|
 | `io::poly_mesh` | `PolyMesh::write_cell_zones` | `cellZoneMesh::write`, `blockMesh.C` ("Adding cell zones") | Writes `cellZones` (`N ( name { type cellZone; cellLabels List<label> n (...) ; } )`); empty list writes nothing. Used by the `blockMesh` CLI for zoned blocks. |
+| `io::esi` | `EsiWriteOptions`, `format_g`, `esi_header`, `PolyMesh::write_esi`, `write_cell_zones_esi`, `write_time_file_esi`; `io::field::{write_vol_scalar_field_esi, write_vol_vector_field_esi, write_surface_scalar_field_esi}` | ESI v2506 `IOobject::writeHeader`, `UList::writeList`, `blockMesh.C` (`minPrecision(10)`) | ESI byte layout as an option beside the default writers (gh:#1363 row 7): banner, `arch`, `note`, `%g` at `writePrecision`, short-list rule, `inGroups`. Byte-identical to ESI `blockMesh`/`polyDualMesh`/`icoFoam` on the cavity: see `outram-foam-cli/verification_and_validation/cli_output_vs_openfoam_gh1363.md`. |
+| `io::dict` | `$name;` macro entry in `FoamFile::parse` | `dictionary` macro expansion | `pFinal { $p; relTol 0; }` (shipped tutorial `fvSolution`) merges the named sub-dictionary; later entries override. |
 
 ## Limitations
 

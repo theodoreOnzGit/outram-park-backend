@@ -358,6 +358,28 @@ pub enum DragModel {
     /// (dilute dispersed phase). Suited to higher dispersed loadings.
     WenYu,
 
+    /// **ESI OpenFOAM-v2506 `WenYu`** (gh:#1367 row 2; maintainer "ESI
+    /// preferred"). Same correlation as [`WenYu`](Self::WenYu), written as
+    /// ESI writes it:
+    ///
+    /// ```text
+    /// α₂   = max(1 − α_d, α_res)
+    /// Res  = α₂·Re
+    /// CdsRes = neg(Res−1000)·24·(1 + 0.15·Res^0.687) + pos0(Res−1000)·0.44·max(Res, residualRe)
+    /// CdRe = CdsRes · α₂^(−3.65) · max(α_c, α_res)
+    /// ```
+    ///
+    /// (`twoPhaseEuler/.../dragModels/WenYu/WenYu.C::CdRe`). Equal to the dev
+    /// form in exact arithmetic (`α₂^−3.65·α₂ = α₂^−2.65`) but not in
+    /// rounding; the dev form [`WenYu`](Self::WenYu) stays callable. The
+    /// dev form also lacks `residualRe`, which is inert for `0 < residualRe <
+    /// 1000`. Measured difference on 4096 cells: see
+    /// `verification_and_validation/upstream_comparison_gh1367.md`.
+    WenYuEsi {
+        /// ESI `residualRe` `[-]` (bubbleColumn: `1e-3`).
+        residual_re: f64,
+    },
+
     /// **Constant** prescribed volumetric drag coefficient `K_d` `[kg/(m³·s)]`,
     /// spatially uniform. Not a physical correlation — a fixed value for
     /// verification tests and for coefficients supplied by an external model.
@@ -408,6 +430,23 @@ impl DragModel {
                     .collect();
                 Ok(scalar_field("Kd", mesh, vals))
             }
+            Self::WenYuEsi { residual_re } => {
+                let re = system.reynolds_number()?;
+                let rho_c = system.continuous.rho;
+                let nu_c = system.continuous.mu / system.continuous.rho;
+                let d = system.dispersed.d;
+                let re_in = re.internal.as_slice();
+                let ad = system.dispersed.alpha.internal.as_slice();
+                let ac = system.continuous.alpha.internal.as_slice();
+                let vals: Vec<f64> = (0..n)
+                    .map(|c| {
+                        let cd_re = wen_yu_esi_cd_re(re_in[c], ad[c], ac[c], *residual_re);
+                        let ki = 0.75 * cd_re * rho_c * nu_c / (d * d);
+                        ad[c].max(RESIDUAL_ALPHA) * ki
+                    })
+                    .collect();
+                Ok(scalar_field("Kd", mesh, vals))
+            }
             Self::WenYu => {
                 let re = system.reynolds_number()?;
                 let rho_c = system.continuous.rho;
@@ -439,6 +478,21 @@ fn schiller_naumann_cd_re(re: f64) -> f64 {
     } else {
         0.44 * re
     }
+}
+
+/// ESI OpenFOAM-v2506 Wen-Yu `CdRe` for one cell (`WenYu.C::CdRe`, gh:#1367
+/// row 2): `CdsRes*pow(alpha2,-3.65)*max(alpha_c, residualAlpha)` with
+/// `alpha2 = max(1 - alpha_d, residualAlpha)` and the Newton branch
+/// `0.44*max(Res, residualRe)`.
+fn wen_yu_esi_cd_re(re: f64, alpha_d: f64, alpha_c: f64, residual_re: f64) -> f64 {
+    let a2 = (1.0 - alpha_d).max(RESIDUAL_ALPHA);
+    let res = a2 * re;
+    let cds_res = if res < 1000.0 {
+        24.0 * (1.0 + 0.15 * res.r_powf(0.687))
+    } else {
+        0.44 * res.max(residual_re)
+    };
+    cds_res * a2.r_powf(-3.65) * alpha_c.max(RESIDUAL_ALPHA)
 }
 
 /// Wen-Yu `CdRe = C_d·Re` for one cell (`WenYu.C:62`).

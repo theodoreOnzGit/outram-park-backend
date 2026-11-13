@@ -77,7 +77,7 @@
 #[allow(unused_imports)]
 use crate::real::Real;
 
-use crate::cheb_slice::eval_gsl as cheb;
+use crate::specfunc::cheb_eval_e as cheb;
 use crate::specfunc::{SQRT_DBL_EPSILON, SQRT_DBL_MIN};
 
 /// `sqrt(50)`, where `f` and `g` change fit. Upstream writes the rounded
