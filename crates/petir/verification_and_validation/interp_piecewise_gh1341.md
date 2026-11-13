@@ -68,3 +68,30 @@ Parent: gh:#1341, epic gh:#1336. Research, education and V&V only
   bit-identical (line-by-line `dd_taylor`), and `I` rows bit-identical on at
   least 90 % (they call `pow(b, i+1)`, glibc in GSL against PETIR's `pow`
   here; a 1-ulp difference is accepted, counted and pinned).
+
+### Results (2026-11-13, Rust 1.99.1 release, GSL 2.8 `cf180cd7`, `gcc -O2`, glibc)
+
+`tests/gsl_interp_cspline_poly_code_to_code.rs`: 9 726 rows, 9 595
+bit-identical (98.7 %), plus 11 `INIT` rows.
+
+| method | op | rows | bit-identical |
+|---|---|---|---|
+| cspline_periodic | E, D, D2, I | 1 237 each (I: 1 155) | **all** (4 866/4 866) |
+| polynomial | E, D, D2 | 1 235 each | **all** (3 705/3 705) |
+| polynomial | I | 1 155 | **1 024** (88.7 %) |
+
+- **P7 held**: construction succeeds or fails exactly as `gsl_interp_init`
+  does (`per2`: status 19, `GSL_EBADLEN`, from the cyclic solver; PETIR
+  `Invalid`), all four ops bit-identical on all six tables including the
+  closed-form `n = 3` branch and the unchecked non-periodic data.
+- **P8: the first two clauses held, the integral clause FAILED.** `E`, `D`,
+  `D2` are bit-identical (the line-by-line `dd_taylor` is what makes `D`/`D2`
+  so). The integral `I` is 1 024/1 155 (88.7 %), below the predicted 90 %.
+  **Cause demonstrated**: GSL's driver relinked with PETIR's `pow` alone makes
+  all 9 726 rows bit-identical. `polynomial_integ` calls `pow(b, i+1)` and
+  glibc's and PETIR's differ in the last bit for some arguments; the
+  cancellation `pow(b) - pow(a)` then spreads it. Accepted per `AGENTS.md`;
+  1 024 pinned.
+- `spline.c` not ported, for the reason above (checked, not skipped).
+- Still open in gh:#1341: the 2-D family (`interp2d`, `bilinear`, `bicubic`,
+  `spline2d`).
