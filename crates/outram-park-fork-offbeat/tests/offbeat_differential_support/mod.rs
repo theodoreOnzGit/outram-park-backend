@@ -109,3 +109,35 @@ pub fn report(stats: &BTreeMap<String, Stats>) -> f64 {
     );
     worst
 }
+
+/// Gates G1 and G2 of PREDICTIONS_round2.md: `|port - up| <= 8 eps * scale`
+/// and relative < 1e-14 wherever `|up| >= 0.2 * scale`.
+#[derive(Default, Clone)]
+pub struct Gates {
+    pub g1_fail: usize,
+    pub g2_checked: usize,
+    pub g2_fail: usize,
+    pub worst_cond_rel: f64,
+    pub worst_g1_ratio: f64,
+}
+
+impl Gates {
+    /// Record one comparison.
+    pub fn add(&mut self, port: f64, up: f64, scale: f64) {
+        let d = (port - up).abs();
+        if scale > 0.0 {
+            self.worst_g1_ratio = self.worst_g1_ratio.max(d / (8.0 * f64::EPSILON * scale));
+        }
+        if d > 8.0 * f64::EPSILON * scale {
+            self.g1_fail += 1;
+        }
+        if up != 0.0 && up.abs() >= 0.2 * scale {
+            self.g2_checked += 1;
+            if d / up.abs() >= 1e-14 {
+                self.g2_fail += 1;
+            }
+        } else if up != 0.0 {
+            self.worst_cond_rel = self.worst_cond_rel.max(d / up.abs());
+        }
+    }
+}
