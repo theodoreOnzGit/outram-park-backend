@@ -127,7 +127,8 @@ pub fn run_deck(text: &str, opts: &DeckOptions) -> Result<DeckRun, NjoyError> {
                 let c = read_viewr(&mut r)?;
                 if opts.parse_only { Ok(()) } else { run_viewr(c, &mut units, &mut viewr_state) }
             }
-            "gaminr" | "errorr" | "covr" | "dtfr" | "ccccr" | "matxsr" | "resxsr"
+            "errorr" => crate::deck::errorr::run_errorr(&mut r, &mut units, opts.parse_only),
+            "gaminr" | "covr" | "dtfr" | "ccccr" | "matxsr" | "resxsr"
             | "powr" | "wimsr" | "plotr" | "mixr" => {
                 // The card readers of these modules are a later part of gh:#1369.
                 blocked = Some((name.clone(), "card reader not yet translated".to_string()));
@@ -171,7 +172,11 @@ fn run_moder(c: &ModerCards, units: &mut TapeUnits) -> Result<(), NjoyError> {
         ModerCards::Convert { nin, nout } => {
             // A GENDF unit is kept as text (`deck::groupr`); converting it is a copy.
             if let Some(t) = units.text(*nin).map(str::to_string) {
-                units.put_text(*nout, t);
+                // binary to binary keeps the full-precision GENDF records (gh:#1369)
+                match units.binary_gendf(*nin).filter(|_| *nout < 0) {
+                    Some(g) => units.put_gendf(*nout, t, g),
+                    None => units.put_text(*nout, t),
+                }
                 return Ok(());
             }
             units.openz(*nout, 1)?;

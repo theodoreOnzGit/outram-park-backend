@@ -701,3 +701,81 @@ Unit tests:
   `getwtf` `iwt = 4`;
 - `reconr::seam::tests` (`sigma`'s `[el, eh)`);
 - `deck::run::moder_gendf_tests`.
+
+## 18. ERRORR `mfcov = 35` from an input GENDF (2026-11-13, gh:#1369)
+
+Target: the ERRORR decks that section 17 left, deck 34 first. A prediction was posted on
+gh:#1369 before any code changed.
+
+**Search first.** `src/errorr/` had the MF=33-from-PENDF chain (`gridd`, `merge`,
+`uniong`, `grpav`, `covcal` LB 0-6/8, `sigc`/`covout`, `resprx`, `run_mf33`) and a card
+model (`driver::ErrorrInput`) whose `run` is a `NotPorted` skeleton. Nothing called ERRORR
+from a deck. `ngchk`, `colaps`, `rdgout`/`rdchi`, `sumchk`/`spcint`/`covbin`, `fssigc`,
+`covcal`'s LB=7 branch and `covout`'s MF=35 form were not anywhere in `src/`. Reused:
+`gridd::{merge, uniong}`, `groups::neutron_group_structure`, `mixr::mix::sigfig`,
+`endf::interp::{intega, terpa}` and `deck::groupr::GendfText`'s writers.
+
+**New code.**
+- `errorr::gendf`: a GENDF as records (`GendfRecord`), read from text the way
+  `contio`/`listio` read it, and `ngchk` (`errorr.f90:10865-11152`).
+- `deck::groupr::GendfText` now also keeps every record at full precision, and
+  `TapeUnits::put_gendf`/`gendf` hand ERRORR GROUPR's words for a **binary** unit (what
+  NJOY's blocked-binary GENDF holds) and the parsed text for a coded one.
+- `errorr::colaps` (`:9097-9533`): MF=3 onto the union grid, chi from MF=5 (`mffis = 5`) or
+  from a GROUPR MF=6 matrix (`mffis = 6`, `:9300-9440`). The chi translation tests
+  `er <= ea3` with the values the last MF=3 section left (`:9461`), as upstream does.
+- `errorr::mf35` (`run_mf35`): the subsection scan (`:571-640`), `gridd`'s MF=35 energies,
+  `sumchk`/`spcint`/`covbin`, the LB=7 rows, `fssigc`, `covout` and the `nout` tape.
+- `deck::errorr`: the cards (1, 2, 3, 7, 12, 13b) and the run. Anything but `mfcov = 35`
+  is refused by name after the cards are read.
+
+| deck | what it exercises | result |
+|---|---|---|
+| 34 | Pu-240 B-VIII.0, binary GENDF, `ifissp = 1`, one subsection, 301-group union grid | **covariance tape (MODER copy 50) identical, 175 lines**, first run |
+| 18 | Cf-252 decay data, **text** GENDF unit 91, 71 user groups (`ign = 1`), `efmean = 1.23e6` | **tape 28 identical, 961 lines**, first run |
+| 27 | Pu-239 B-VIII.0 beta 6, four subsections, `ifissp = 2`, then `-1` with `efmean = 5.75e6` | first run: tape 56 differed in 184 of 199 lines (row `ig = 1` missing upstream); after the fix below **56 and 57 identical, 199 lines each** |
+| 47 | Pu-239, GENDF with MF=6 (`mffis = 6`), two GROUPR runs | **48 and 58 identical, 199 lines each**, first run after `mffis = 6` was translated |
+
+**The deck 27 difference was upstream's record handling, and it is kept.** `covout` skips
+a row of another subsection with one `listio`, without reading its continuation records.
+When the last row of subsection 1 (`jg = 601`) has a continuation record, the next
+`listio` reads that record as a row head: `listio` recomputes `nb = 6 + nint(a(5)) - nw`
+(`endf.f90:174`), here `-289`, so the "skip this record" loop reads the **next** record,
+row `jg = 1` of subsection 2, as continuation and drops it. Found with an instrumented
+`errorr.f90` (scratch copy, one `write` after `covout`'s `listio`, relinked against the
+build's other objects), then reproduced in `mf35::covout_rows`, which walks the scratch
+tape record by record (`npage = 306`, gfortran's `nint` as `lround` truncated to 32 bits,
+measured). The first hypothesis, garbage `jg` from skipped continuation records, was
+tested and did not change the result.
+
+**Predictions** (posted before the change): deck 34's covariance tape identical — held;
+chi equal to GROUPR's word for word — held; the deck then stops at COVR — held.
+
+**Gates** (`tests/deck_driver_tapes_vs_njoy2016.rs`):
+- `test_34_errorr_mf35_covariance_tape` (unit 50);
+- `test_18_27_47_errorr_mf35_covariance_tapes` (COVR and VIEWR removed from the decks,
+  which write no tape another module reads; units 28, 56, 57, 48, 58).
+
+Unit tests: `errorr::gendf::tests`, `errorr::colaps::tests`, `errorr::mf35::tests`,
+`deck::errorr::tests`.
+
+**Not done (refused by name):** ERRORR `mfcov = 31`, `33` and `34` from a deck (decks 04,
+05, 15, 16, 17, 20, 46, 65: `run_mf33` exists for MF=33 from a PENDF but is not wired to
+the deck yet), `iread = 1/2`, `nstan`, `nin`, `nendf = 999` (`covadd`), `iwt = 1`, an MF=35
+MT other than 18, MF=5/MT=18 with more than one subsection or `LF /= 1` in `spcint`, and
+COVR (decks 18, 27, 34, 47 now stop there).
+
+**Survey:** the ERRORR decks 04, 05, 15, 16, 18, 20, 27, 34, 46, 47 and 65 were re-run
+(`SURVEY_CASES`, 320 s) on develop cc488ffed plus this work. **49 of 87 are identical**
+(unchanged). 18, 27, 34 and 47 stop at COVR; 04, 05, 15, 16, 46 and 65 at the named
+refusal `mfcov other than 35`; 20 at `nendf = 999`.
+
+**Tests (release, on develop cc488ffed plus this work, after the last code or test change;
+only doc comments and Markdown changed after these runs):**
+
+| suite | result |
+|---|---|
+| `deck_driver_tapes_vs_njoy2016 --test-threads=2` (`ulimit -v 12582912`) | 124 passed, 0 failed, 2 ignored (43, 80), 1 547 s |
+| `pendf_stages_vs_njoy2016` | 9 of 9 passed |
+| `ace_five_route_parity` | 13 of 13 passed |
+| `--lib` | 745 of 745 passed |

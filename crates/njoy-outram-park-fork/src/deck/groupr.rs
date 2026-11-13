@@ -59,10 +59,14 @@
 //! coded text on its unit (a negative unit is NJOY's blocked binary; MODER to a
 //! positive unit copies the text), because the GENDF has MF=6 matrix records
 //! and per-group LISTs that [`crate::endf::tape::Tape`] has no layout for.
+//! **Since 2026-11-13 (gh:#1369)** the same records are also kept at full
+//! precision for a negative unit (`GendfText::records`, `TapeUnits::put_gendf`),
+//! which is what NJOY's ERRORR reads back from a blocked-binary GENDF.
 
 use crate::deck::modules::GrouprJob;
 use crate::deck::tapes::TapeUnits;
 use crate::endf::parse::format_endf_float;
+use crate::errorr::gendf::{GendfKind, GendfRecord};
 use crate::errorr::groups::NeutronGroupStructure;
 use crate::NjoyError;
 
@@ -71,6 +75,9 @@ use crate::NjoyError;
 pub struct GendfText {
     /// The lines written so far (no newline).
     pub lines: Vec<String>,
+    /// The same records at the precision they were written with (what NJOY's
+    /// blocked-binary GENDF carries; ERRORR reads it, gh:#1369).
+    pub records: Vec<crate::errorr::gendf::GendfRecord>,
     mat: i32,
     mf: i32,
     mt: i32,
@@ -104,6 +111,11 @@ impl GendfText {
 
     /// `contio`: a CONT record `c1 c2 l1 l2 n1 n2`.
     pub fn cont(&mut self, c: [f64; 2], n: [i32; 4]) {
+        self.records.push(GendfRecord { kind: GendfKind::Cont, mat: self.mat, mf: self.mf, mt: self.mt, c, n, data: Vec::new() });
+        self.cont_line(c, n);
+    }
+
+    fn cont_line(&mut self, c: [f64; 2], n: [i32; 4]) {
         let mut b = format_endf_float(c[0]);
         b.push_str(&format_endf_float(c[1]));
         for x in n {
@@ -114,7 +126,9 @@ impl GendfText {
 
     /// `listio`: a LIST record, head `c1 c2 l1 l2 npl n2`, then `data` six to a line.
     pub fn list(&mut self, c: [f64; 2], l1: i32, l2: i32, n2: i32, data: &[f64]) {
-        self.cont(c, [l1, l2, data.len() as i32, n2]);
+        let n = [l1, l2, data.len() as i32, n2];
+        self.records.push(GendfRecord { kind: GendfKind::List, mat: self.mat, mf: self.mf, mt: self.mt, c, n, data: data.to_vec() });
+        self.cont_line(c, n);
         for ch in data.chunks(6) {
             let mut b: String = ch.iter().map(|&x| format_endf_float(x)).collect();
             b.push_str(&" ".repeat(11 * (6 - ch.len())));
@@ -124,11 +138,13 @@ impl GendfText {
 
     /// `asend`: the section end, sequence 99999.
     pub fn send(&mut self) {
+        self.records.push(GendfRecord::marker(GendfKind::Send, self.mat, self.mf));
         self.lines.push(format!("{:66}{:4}{:2}{:3}{:5}", "", self.mat, self.mf, 0, 99_999));
     }
 
     /// `afend`: the file end.
     pub fn fend(&mut self) {
+        self.records.push(GendfRecord::marker(GendfKind::Fend, self.mat, 0));
         self.lines.push(format!("{:66}{:4}{:2}{:3}{:5}", "", self.mat, 0, 0, 0));
     }
 
@@ -140,11 +156,13 @@ impl GendfText {
 
     /// `amend`: the material end, written after each temperature (`:590-592`).
     pub fn mend(&mut self) {
+        self.records.push(GendfRecord::marker(GendfKind::Mend, 0, 0));
         self.lines.push(format!("{:66}{:4}{:2}{:3}{:5}", "", 0, 0, 0, 0));
     }
 
     /// `atend`: the tape end.
     pub fn tend(&mut self) {
+        self.records.push(GendfRecord::marker(GendfKind::Tend, -1, 0));
         self.lines.push(format!("{:66}{:4}{:2}{:3}{:5}", "", -1, 0, 0, 0));
     }
 
@@ -490,7 +508,7 @@ pub fn run_groupr(job: &GrouprJob, units: &mut TapeUnits, notes: &mut Vec<String
     g.mend();
     }
     g.tend();
-    units.put_text(u.ngout2, g.text());
+    units.put_gendf(u.ngout2, g.text(), crate::errorr::gendf::GendfTape { tpid: inp.title.clone(), records: g.records.clone() });
     Ok(())
 }
 

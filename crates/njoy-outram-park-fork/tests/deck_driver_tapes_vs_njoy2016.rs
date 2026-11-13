@@ -2284,3 +2284,93 @@ fn test_34_groupr_gendf_moder_copy() {
     let Some((d, n)) = groupr_gendf("34", "n-094_Pu_240-ENDF8.0.endf", "errorr", "moder\n-31 60/\n", 60) else { return };
     assert!(n > 100 && d == 0);
 }
+
+/// **Test 34 (Pu-240 ENDF/B-VIII.0): ERRORR `mfcov = 35` from GROUPR's binary
+/// GENDF, the whole covariance tape** (gh:#1369, ERRORR round 1).
+///
+/// Methodology: upstream `tests/34/input` cut before COVR (no card reader), with
+/// `moder -21 50` appended so the binary covariance tape is written as text; both
+/// codes run the cut deck on `n-094_Pu_240-ENDF8.0.endf`. ERRORR reads the GENDF
+/// `ngout = -31` at full precision (`deck::tapes::TapeUnits::gendf`), condenses it
+/// (`ngchk`), collapses it to the 301-group union grid (`colaps`), applies the
+/// zero-sum rule and `covbin` to the one MF=35 subsection, and writes MF=1, MF=5
+/// chi and MF=35/MT=18 on 30 groups (`errorr::mf35`). Pass criterion: **zero**
+/// differing lines of unit 50.
+///
+/// Result: see the README (`deck_driver/README.md` section 18) and the assertion.
+#[test]
+fn test_34_errorr_mf35_covariance_tape() {
+    let root = njoy_root();
+    let Some(deck) = deck_text(&root, "34", Some("covr"), "moder\n -21 50/\n") else { return };
+    let Some((ours, njoy)) = run_pair(&root, "t34e", "n-094_Pu_240-ENDF8.0.endf", &deck) else { return };
+    let d = differing_lines(&ours.join("tape50"), &njoy.join("tape50"));
+    let n = std::fs::read_to_string(njoy.join("tape50")).unwrap().lines().count();
+    println!("deck 34 ERRORR tape: {} differing lines of {n}; first {:?}", d.len(), &d[..d.len().min(8)]);
+    if std::env::var_os("DECK_KEEP").is_none() {
+        let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+    }
+    assert!(n > 150 && d.is_empty());
+}
+
+/// Upstream deck `case` with the module blocks named in `drop` removed (COVR and
+/// VIEWR, which have no driver here and write no tape another module reads).
+fn deck_without(root: &Path, case: &str, drop: &[&str]) -> Option<String> {
+    const MODULES: [&str; 22] = [
+        "moder", "reconr", "broadr", "unresr", "heatr", "thermr", "groupr", "gaminr", "errorr", "covr", "dtfr", "ccccr",
+        "matxsr", "resxsr", "acer", "powr", "wimsr", "plotr", "viewr", "mixr", "purr", "leapr",
+    ];
+    let input = std::fs::read_to_string(root.join(format!("tests/{case}/input"))).ok()?;
+    let mut out = String::new();
+    let mut skipping = false;
+    for line in input.lines() {
+        let w = line.split_whitespace().next().unwrap_or("");
+        if MODULES.contains(&w) || w == "stop" {
+            skipping = drop.contains(&w);
+        }
+        if !skipping {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+    Some(out)
+}
+
+/// **Tests 18, 27, 47: ERRORR `mfcov = 35` covariance tapes** (gh:#1369, ERRORR
+/// round 1), with COVR and VIEWR removed from the upstream decks (no driver here;
+/// neither writes a tape another module reads).
+///
+/// - 18: Cf-252 decay data, text GENDF `ngout = 91`, 71 user groups (`ign = 1`),
+///   `ifissp = -1` with `efmean = 1.23e6`; tape 28.
+/// - 27: Pu-239 ENDF/B-VIII.0 beta 6, two ERRORR runs on one binary GENDF
+///   (`ifissp = 2`, then `-1` with `efmean = 5.75e6`); MODER copies 56 and 57.
+/// - 47: Pu-239, the GENDF has MF=6 too (`mffis = 6`); MODER copies 48 and 58.
+///
+/// Pass criterion: zero differing lines on each unit. Result: section 18 of the
+/// deck-driver README.
+#[test]
+fn test_18_27_47_errorr_mf35_covariance_tapes() {
+    let root = njoy_root();
+    let cases: [(&str, &str, Vec<u32>); 3] = [
+        ("18", "DCf252", vec![28]),
+        ("27", "n-094_Pu_239-ENDF8.0-Beta6.endf", vec![56, 57]),
+        ("47", "n-094_Pu_239-ENDF8.0-Beta6.endf", vec![48, 58]),
+    ];
+    let only = std::env::var("ERRORR_CASES").unwrap_or_default();
+    for (case, res, units) in cases {
+        if !only.is_empty() && !only.split(',').any(|c| c == case) {
+            continue;
+        }
+        let Some(deck) = deck_without(&root, case, &["covr", "viewr"]) else { return };
+        let Some((ours, njoy)) = run_pair(&root, &format!("e{case}"), res, &deck) else { return };
+        for u in units {
+            let name = format!("tape{u}");
+            let d = differing_lines(&ours.join(&name), &njoy.join(&name));
+            let n = std::fs::read_to_string(njoy.join(&name)).unwrap().lines().count();
+            println!("deck {case} ERRORR unit {u}: {} differing lines of {n}; first {:?}", d.len(), &d[..d.len().min(8)]);
+            assert!(n > 20 && d.is_empty(), "deck {case} unit {u}");
+        }
+        if std::env::var_os("DECK_KEEP").is_none() {
+            let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+        }
+    }
+}

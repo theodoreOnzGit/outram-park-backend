@@ -101,10 +101,17 @@ where upstream would abort on a second `allocate`.
   `NIS > 1` with an `LRF=7` range (upstream: "multiple isotopes do not work
   with sammy method"). `LCOMP=1` has an oracle for `LRF=3` (JENDL-3.3
   U-238) but not for MLBW or `LRF=7`.
-- **MF=31/34/35/40**, `iread = 1/2` (user reaction lists, extra `MAT1/MT1`
+- **MF=31/34/~~35~~/40**, `iread = 1/2` (user reaction lists, extra `MAT1/MT1`
   pairs), `nstan` (ratio-to-standard, `LTY` 1–3, `grist`/`stand`), `nin`
-  (input covariance tape merge), `ngout != 0` (`colaps` from a GENDF),
-  `covadd`, ENDF/B-IV (`iverf = 4`), the `-33/333` speed-up modes.
+  (input covariance tape merge), ~~`ngout != 0` (`colaps` from a GENDF),~~
+  ~~`covadd`,~~ ENDF/B-IV (`iverf = 4`), the `-33/333` speed-up modes.
+  **CORRECTED 2026-11-13 (gh:#1369):** `covadd` is ported (`covadd.rs`, in the
+  table above); MF=35 from an input GENDF is ported (`mf35.rs`, `colaps.rs`,
+  `gendf.rs` for `ngchk`) and runs from a deck (`deck::errorr`): NJOY2016 test
+  decks 18, 27, 34 and 47 give covariance tapes identical line for line
+  (`tests/deck_driver_tapes_vs_njoy2016.rs`, deck-driver README section 18).
+  `colaps` serves MF=35 only so far; MF=31/33/34/40 with `ngout != 0` are not
+  wired.
 - The listing printer (`nsyso` tables); `ErrorrResult` carries everything
   the listing prints.
 
